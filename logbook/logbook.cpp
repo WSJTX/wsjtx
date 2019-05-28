@@ -96,24 +96,43 @@ QByteArray LogBook::QSOToADIF (QString const& hisCall, QString const& hisGrid, Q
       auto words = xSent.split (' ', QString::SkipEmptyParts);
       if (words.size () > 1)
         {
-          bool ok;
-          auto sn = words.back ().toUInt (&ok);
-          if (ok && sn)
+          if (words.back ().toUInt ())
             {
               // assume last word is a serial if there are at least
               // two words and if it is positive numeric
-              t += " <STX:" + QString::number (words.back ().size ()) + '>' + words.back ();
+              t += " <stx:" + QString::number (words.back ().size ()) + '>' + words.back ();
+            }
+          else
+            {
+              if (words.front ().toUInt () && words.front ().size () > 3) // EU VHF contest mode
+                {
+                  auto sn_text = words.front ().mid (2);
+                  // assume first word is report+serial if there are
+                  // at least two words and if the first word less the
+                  // first two characters is a positive numeric
+                  t += " <stx:" + QString::number (sn_text.size ()) + '>' + sn_text;
+                }
             }
         }
     }
   if (xRcvd.size ()) {
-    QString t1="";
-    if(xRcvd.split(" ").size()==2) t1=xRcvd.split(" ").at(1);
-    if(t1.toInt()>0) {
-      t += " <SRX:" + QString::number(t1.length()) + ">" + t1;
-    } else {
-      t += " <STATE:" + QString::number(t1.length()) + ">" + t1;
-    }
+    auto words = xRcvd.split (' ', QString::SkipEmptyParts);
+    if (words.size () == 2)
+      {
+        if (words.at (1).toUInt ())
+          {
+            t += " <srx:" + QString::number (words.at (1).length ()) + ">" + words.at (1);
+          }
+        else if (words.at (0).toUInt () && words.at (0).size () > 3) // EU VHF contest exchange
+          {
+            // strip report and set SRX to serial
+            t += " <srx:" + QString::number (words.at (0).mid (2).length ()) + ">" + words.at (0).mid (2);
+          }
+        else
+          {
+            t += " <state:" + QString::number (words.at (1).length ()) + ">" + words.at (1);
+          }
+      }
   }
   return t.toLatin1();
 }
