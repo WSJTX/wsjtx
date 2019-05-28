@@ -990,16 +990,23 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
 void MainWindow::not_GA_warning_message ()
 {
-  /*
   MessageBox::critical_message (this,
                                 "<b><p align=\"center\">"
                                 "This is a pre-release version of WSJT-X 2.1.0 made "
-                                "available for testing purposes. It will become nonfunctional "
-                                "after June 7, 2019.");
-  QDateTime now=QDateTime::currentDateTime();
-  QDateTime timeout=QDateTime(QDate(2019,6,7));
+                                "available for testing purposes.  By design it will "
+                                "be nonfunctional during the 2019 ARRL June VHF contest "
+                                "(June 8-10) and Field Day (June 22-23) weekends.  It "
+                                "will be permanently nonfunctional after July 21, 2019.");
+  QDateTime now=QDateTime::currentDateTimeUtc();
+  QDateTime t1(QDate(2019,6,8),QTime(18,0));
+  QDateTime t2(QDate(2019,6,10),QTime(3,0));
+  if(now.secsTo(t1)<0 and now.secsTo(t2)>0) Q_EMIT finished();
+  t1=QDateTime(QDate(2019,6,22),QTime(18,0));
+  t2=QDateTime(QDate(2019,6,23),QTime(21,0));
+  if(now.secsTo(t1)<0 and now.secsTo(t2)>0) Q_EMIT finished();
+  QDateTime timeout(QDate(2019,7,21),QTime(0,0));
   if(now.daysTo(timeout) < 0) Q_EMIT finished();
-  */
+
 }
 
 void MainWindow::initialize_fonts ()
