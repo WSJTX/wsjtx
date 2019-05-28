@@ -39,6 +39,10 @@ if (POLICY CMP0063)
   cmake_policy (SET CMP0063 NEW) # honour visibility properties for all library types
 endif (POLICY CMP0063)
 
+if (POLICY CMP0071)
+  cmake_policy (SET CMP0071 NEW) # run automoc and autouic on generated sources
+endif (POLICY CMP0071)
+
 include (${PROJECT_SOURCE_DIR}/CMake/VersionCompute.cmake)
 message (STATUS "Building ${CMAKE_PROJECT_NAME}-${wsjtx_VERSION}")
 

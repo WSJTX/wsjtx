@@ -19,9 +19,12 @@ find_path (__hamlib_pc_path NAMES hamlib.pc
   PATH_SUFFIXES lib/pkgconfig lib64/pkgconfig
   )
 if (__hamlib_pc_path)
-  set (ENV{PKG_CONFIG_PATH} "${__hamlib_pc_path}" "$ENV{PKG_CONFIG_PATH}")
-  unset (__hamlib_pc_path CACHE)
+  set (__pc_path $ENV{PKG_CONFIG_PATH})
+  list (APPEND __pc_path "${__hamlib_pc_path}")
+  set (ENV{PKG_CONFIG_PATH} "${__pc_path}")
+  unset (__pc_path CACHE)
 endif ()
+unset (__hamlib_pc_path CACHE)
 
 # Use pkg-config to get hints about paths, libs and, flags
 unset (__pkg_config_checked_hamlib CACHE)
