@@ -527,7 +527,7 @@ void MessageClient::logged_ADIF (QByteArray const& ADIF_record)
     {
       QByteArray message;
       NetworkMessage::Builder out {&message, NetworkMessage::LoggedADIF, m_->id_, m_->schema_};
-      QByteArray ADIF {"\n<adif_ver:5>3.0.7\n<programid:6>WSJT-X\n<EOH>\n" + ADIF_record + " <EOR>"};
+      QByteArray ADIF {"\n<adif_ver:5>3.1.0\n<programid:6>WSJT-X\n<EOH>\n" + ADIF_record + " <EOR>"};
       out << ADIF;
       TRACE_UDP ("ADIF:" << ADIF);
       m_->send_message (out, message);
