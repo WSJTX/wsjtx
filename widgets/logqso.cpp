@@ -16,11 +16,12 @@
 #include "moc_logqso.cpp"
 
 LogQSO::LogQSO(QString const& programTitle, QSettings * settings
-               , Configuration const * config, QWidget *parent)
+               , Configuration const * config, LogBook * log, QWidget *parent)
   : QDialog {parent, Qt::WindowStaysOnTopHint | Qt::WindowTitleHint | Qt::WindowSystemMenuHint}
   , ui(new Ui::LogQSO)
   , m_settings (settings)
   , m_config {config}
+  , m_log {log}
 {
   ui->setupUi(this);
   setWindowTitle(programTitle + " - Log QSO");
@@ -57,8 +58,7 @@ void LogQSO::storeSettings () const
 void LogQSO::initLogQSO(QString const& hisCall, QString const& hisGrid, QString mode,
                         QString const& rptSent, QString const& rptRcvd,
                         QDateTime const& dateTimeOn, QDateTime const& dateTimeOff,
-                        Radio::Frequency dialFreq, bool noSuffix, QString xSent, QString xRcvd,
-                        CabrilloLog * cabrillo_log)
+                        Radio::Frequency dialFreq, bool noSuffix, QString xSent, QString xRcvd)
 {
   if(!isHidden()) return;
   ui->call->setText (hisCall);
@@ -100,7 +100,6 @@ void LogQSO::initLogQSO(QString const& hisCall, QString const& hisGrid, QString 
   ui->loggedOperator->setText(m_config->opCall());
   ui->exchSent->setText (xSent);
   ui->exchRcvd->setText (xRcvd);
-  m_cabrilloLog = cabrillo_log;
 
   using SpOp = Configuration::SpecialOperatingActivity;
   auto special_op = m_config->special_op_id ();
@@ -158,7 +157,7 @@ void LogQSO::accept()
           return;               // without accepting
         }
 
-      if (!m_cabrilloLog->add_QSO (m_dialFreq, dateTimeOff, hisCall, xsent, xrcvd))
+      if (!m_log->contest_log ()->add_QSO (m_dialFreq, dateTimeOff, hisCall, xsent, xrcvd))
         {
           show ();
           MessageBox::warning_message (this, tr ("Invalid QSO Data"),

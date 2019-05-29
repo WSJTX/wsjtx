@@ -244,7 +244,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_echoGraph (new EchoGraph(m_settings)),
   m_fastGraph (new FastGraph(m_settings)),
   // no parent so that it has a taskbar icon
-  m_logDlg (new LogQSO (program_title (), m_settings, &m_config, nullptr)),
+  m_logDlg (new LogQSO (program_title (), m_settings, &m_config, &m_logBook, nullptr)),
   m_lastDialFreq {0},
   m_dialFreqRxWSPR {0},
   m_detector {new Detector {RX_SAMPLE_RATE, double(NTMAX), downSampleFactor}},
@@ -2544,16 +2544,14 @@ void MainWindow::on_actionAstronomical_data_toggled (bool checked)
 
 void MainWindow::on_fox_log_action_triggered()
 {
-  if (!m_foxLog) m_foxLog.reset (new FoxLog {&m_config});
   if (!m_foxLogWindow)
     {
-      m_foxLogWindow.reset (new FoxLogWindow {m_settings, &m_config, m_foxLog.data ()});
+      m_foxLogWindow.reset (new FoxLogWindow {m_settings, &m_config, m_logBook.fox_log ()});
 
       // Connect signals from fox log window
       connect (this, &MainWindow::finished, m_foxLogWindow.data (), &FoxLogWindow::close);
       connect (m_foxLogWindow.data (), &FoxLogWindow::reset_log_model, [this] () {
-          if (!m_foxLog) m_foxLog.reset (new FoxLog {&m_config});
-          m_foxLog->reset ();
+          m_logBook.fox_log ()->reset ();
         });
     }
   m_foxLogWindow->showNormal ();
@@ -2563,10 +2561,9 @@ void MainWindow::on_fox_log_action_triggered()
 
 void MainWindow::on_contest_log_action_triggered()
 {
-  if (!m_cabrilloLog) m_cabrilloLog.reset (new CabrilloLog {&m_config});
   if (!m_contestLogWindow)
     {
-      m_contestLogWindow.reset (new CabrilloLogWindow {m_settings, &m_config, m_cabrilloLog->model ()});
+      m_contestLogWindow.reset (new CabrilloLogWindow {m_settings, &m_config, m_logBook.contest_log ()->model ()});
 
       // Connect signals from contest log window
       connect (this, &MainWindow::finished, m_contestLogWindow.data (), &CabrilloLogWindow::close);
@@ -5521,15 +5518,9 @@ void MainWindow::on_logQSOButton_clicked()                 //Log QSO button
       default: break;
     }
 
-  auto special_op = m_config.special_op_id ();
-  if (SpecOp::NONE < special_op && special_op < SpecOp::FOX)
-    {
-      if (!m_cabrilloLog) m_cabrilloLog.reset (new CabrilloLog {&m_config});
-    }
   m_logDlg->initLogQSO (m_hisCall, grid, m_modeTx, m_rptSent, m_rptRcvd,
                         m_dateTimeQSOOn, dateTimeQSOOff, m_freqNominal +
-                        ui->TxFreqSpinBox->value(), m_noSuffix, m_xSent, m_xRcvd,
-                        m_cabrilloLog.data ());
+                        ui->TxFreqSpinBox->value(), m_noSuffix, m_xSent, m_xRcvd);
   m_inQSOwith="";
 }
 
@@ -6369,15 +6360,13 @@ void MainWindow::on_reset_cabrillo_log_action_triggered ()
                                                         "for export in your Cabrillo log.")))
     {
       if(m_config.RTTY_Exchange()!="SCC") ui->sbSerialNumber->setValue(1);
-      if (!m_cabrilloLog) m_cabrilloLog.reset (new CabrilloLog {&m_config});
-      m_cabrilloLog->reset ();
+      m_logBook.contest_log ()->reset ();
     }
 }
 
 void MainWindow::on_actionExport_Cabrillo_log_triggered()
 {
-  if (!m_cabrilloLog) m_cabrilloLog.reset (new CabrilloLog {&m_config});
-  if (QDialog::Accepted == ExportCabrillo {m_settings, &m_config, m_cabrilloLog.data ()}.exec())
+  if (QDialog::Accepted == ExportCabrillo {m_settings, &m_config, m_logBook.contest_log ()}.exec())
     {
       MessageBox::information_message (this, tr ("Cabrillo Log saved"));
     }
@@ -8459,9 +8448,8 @@ list2Done:
       m_hisGrid=m_foxQSO[hc1].grid;
       m_rptSent=m_foxQSO[hc1].sent;
       m_rptRcvd=m_foxQSO[hc1].rcvd;
-      if (!m_foxLog) m_foxLog.reset (new FoxLog {&m_config});
       if (!m_foxLogWindow) on_fox_log_action_triggered ();
-      if (m_foxLog->add_QSO (QSO_time, m_hisCall, m_hisGrid, m_rptSent, m_rptRcvd, m_lastBand))
+      if (m_logBook.fox_log ()->add_QSO (QSO_time, m_hisCall, m_hisGrid, m_rptSent, m_rptRcvd, m_lastBand))
         {
           writeFoxQSO (QString {" Log:  %1 %2 %3 %4 %5"}.arg (m_hisCall).arg (m_hisGrid)
                        .arg (m_rptSent).arg (m_rptRcvd).arg (m_lastBand));

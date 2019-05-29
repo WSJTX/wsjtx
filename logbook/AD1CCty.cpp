@@ -16,6 +16,7 @@
 #include <QTextStream>
 #include <QDebug>
 #include <QDebugStateSaver>
+#include "Configuration.hpp"
 #include "Radio.hpp"
 #include "pimpl_impl.hpp"
 
@@ -155,14 +156,16 @@ typedef multi_index_container<
 class AD1CCty::impl final
 {
 public:
-  explicit impl ()
+  using entity_by_id = entities_type::index<id>::type;
+
+  explicit impl (Configuration const * configuration)
+    : configuration_ {configuration}
   {
   }
 
-  Record fixup (QString call, prefix const& p) const
+  entity_by_id::iterator lookup_entity (QString call, prefix const& p) const
   {
     call = call.toUpper ();
-    using entity_by_id = entities_type::index<id>::type;
     entity_by_id::iterator e;   // iterator into entity set
 
     //
@@ -171,23 +174,26 @@ public:
     if (call.startsWith ("KG4") && call.size () != 5 && call.size () != 3)
       {
         // KG4 2x1 and 2x3 calls that map to Gitmo are mainland US not Gitmo
-        e = entities_.project<id> (entities_.get<primary_prefix> ().find ("K"));
+        return entities_.project<id> (entities_.get<primary_prefix> ().find ("K"));
       }
     else
       {
-        e = entities_.get<id> ().find (p.entity_id_);
+        return entities_.get<id> ().find (p.entity_id_);
       }
-    
+  }
+
+  Record fixup (prefix const& p, entity const& e) const
+  {
     Record result;
-    result.continent = e->continent_;
-    result.CQ_zone = e->CQ_zone_;
-    result.ITU_zone = e->ITU_zone_;
-    result.entity_name = e->name_;
-    result.WAE_only = e->WAE_only_;
-    result.latitude = e->lat_;
-    result.longtitude = e->long_;
-    result.UTC_offset = e->UTC_offset_;
-    result.primary_prefix = e->primary_prefix_;
+    result.continent = e.continent_;
+    result.CQ_zone = e.CQ_zone_;
+    result.ITU_zone = e.ITU_zone_;
+    result.entity_name = e.name_;
+    result.WAE_only = e.WAE_only_;
+    result.latitude = e.lat_;
+    result.longtitude = e.long_;
+    result.UTC_offset = e.UTC_offset_;
+    result.primary_prefix = e.primary_prefix_;
 
     // check for overrides
     bool ok1 {true}, ok2 {true}, ok3 {true}, ok4 {true}, ok5 {true};
@@ -220,6 +226,7 @@ public:
     return false;
   }
 
+  Configuration const * configuration_;
   QString path_;
   entities_type entities_;
   prefixes_type prefixes_;
@@ -307,8 +314,13 @@ char const * AD1CCty::continent (Continent c)
     }
 }
 
-AD1CCty::AD1CCty ()
+AD1CCty::AD1CCty (Configuration const * configuration)
+  : m_ {configuration}
 {
+  Q_ASSERT (configuration);
+  // TODO: G4WJS - consider doing the following asynchronously to
+  // speed up startup. Not urgent as it takes less than 1s on a Core
+  // i7 reading BIG CTY.DAT.
   QDir dataPath {QStandardPaths::writableLocation (QStandardPaths::DataLocation)};
   m_->path_ = dataPath.exists (file_name)
     ? dataPath.absoluteFilePath (file_name) // user override
@@ -389,7 +401,7 @@ auto AD1CCty::lookup (QString const& call) const -> Record
           auto p = m_->prefixes_.find (exact_search);
           if (p != m_->prefixes_.end () && p->exact_)
             {
-              return m_->fixup (call, *p);
+              return m_->fixup (*p, *m_->lookup_entity (call, *p));
             }
         }
       while (search_prefix.size ())
@@ -397,9 +409,11 @@ auto AD1CCty::lookup (QString const& call) const -> Record
           auto p = m_->prefixes_.find (search_prefix);
           if (p != m_->prefixes_.end ())
             {
-              if (!p->exact_ || call.size () == search_prefix.size ())
+              impl::entity_by_id::iterator e = m_->lookup_entity (call, *p);
+              if ((m_->configuration_->include_WAE_entities () || !e->WAE_only_)
+                  && (!p->exact_ || call.size () == search_prefix.size ()))
                 {
-                  return m_->fixup (call, *p);
+                  return m_->fixup (*p, *e);
                 }
             }
           search_prefix = search_prefix.left (search_prefix.size () - 1);

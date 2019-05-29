@@ -12,6 +12,7 @@
 #include <QDataStream>
 #include "Configuration.hpp"
 #include "Bands.hpp"
+#include "logbook/AD1CCty.hpp"
 #include "qt_db_helpers.hpp"
 #include "pimpl_impl.hpp"
 
@@ -231,4 +232,16 @@ void CabrilloLog::export_qsos (QTextStream& stream) const
                       .arg (m_->export_query_.value (call_index).toString (), -12)
                       .arg (m_->export_query_.value (rcvd_index).toString (), -13);
     }
+}
+
+QSet<QString> CabrilloLog::unique_DXCC_entities (AD1CCty const& countries) const
+{
+  QSqlQuery q {"SELECT UNIQUE CALL FROM cabrillo_log"};
+  auto call_index = q.record ().indexOf ("call");
+  QSet<QString> entities;
+  while (q.next ())
+    {
+      entities << countries.lookup (q.value(call_index).toString ()).primary_prefix;
+    }
+  return entities;
 }

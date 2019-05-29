@@ -2,14 +2,16 @@
 #define CABRILLO_LOG_HPP_
 
 #include <boost/core/noncopyable.hpp>
+#include <QSet>
+#include <QString>
 #include "Radio.hpp"
 #include "pimpl_h.hpp"
 
 class Configuration;
 class QDateTime;
-class QString;
 class QSqlTableModel;
 class QTextStream;
+class AD1CCty;
 
 class CabrilloLog final
   : private boost::noncopyable
@@ -28,6 +30,7 @@ public:
   QSqlTableModel * model ();
   void reset ();
   void export_qsos (QTextStream&) const;
+  QSet<QString> unique_DXCC_entities (AD1CCty const&) const;
 
 private:
   class impl;

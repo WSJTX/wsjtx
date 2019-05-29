@@ -3,12 +3,16 @@
 #include <QDateTime>
 #include "Configuration.hpp"
 #include "AD1CCty.hpp"
+#include "models/CabrilloLog.hpp"
+#include "models/FoxLog.hpp"
 
 #include "moc_logbook.cpp"
 
 LogBook::LogBook (Configuration const * configuration)
   : config_ {configuration}
+  , worked_before_ {configuration}
 {
+  Q_ASSERT (configuration);
   connect (&worked_before_, &WorkedBefore::finished_loading, this, &LogBook::finished_loading);
 }
 
@@ -135,4 +139,24 @@ QByteArray LogBook::QSOToADIF (QString const& hisCall, QString const& hisGrid, Q
       }
   }
   return t.toLatin1();
+}
+
+CabrilloLog * LogBook::contest_log ()
+{
+  // lazy create of Cabrillo log object instance
+  if (!m_contest_log)
+    {
+      m_contest_log.reset (new CabrilloLog {config_});
+    }
+  return m_contest_log.data ();
+}
+
+FoxLog * LogBook::fox_log ()
+{
+  // lazy create of Fox log object instance
+  if (!m_fox_log)
+    {
+      m_fox_log.reset (new FoxLog {config_});
+    }
+  return m_fox_log.data ();
 }

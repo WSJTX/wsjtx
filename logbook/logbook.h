@@ -8,12 +8,15 @@
 
 #include <QObject>
 #include <QString>
+#include <QScopedPointer>
 
 #include "WorkedBefore.hpp"
 
 class Configuration;
 class QByteArray;
 class QDateTime;
+class CabrilloLog;
+class FoxLog;
 
 class LogBook final
   : public QObject
@@ -43,9 +46,14 @@ public:
 
   Q_SIGNAL void finished_loading (int worked_before_record_count, QString const& error) const;
 
+  CabrilloLog * contest_log ();
+  FoxLog * fox_log ();
+
 private:
   Configuration const * config_;
   WorkedBefore worked_before_;
+  QScopedPointer<CabrilloLog> m_contest_log;
+  QScopedPointer<FoxLog> m_fox_log;
 };
 
 #endif

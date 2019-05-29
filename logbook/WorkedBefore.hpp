@@ -5,6 +5,7 @@
 #include "AD1CCty.hpp"
 #include "pimpl_h.hpp"
 
+class Configuration;
 class CountryDat;
 class QString;
 class QByteArray;
@@ -17,7 +18,7 @@ class WorkedBefore final
 public:
   using Continent = AD1CCty::Continent;
 
-  explicit WorkedBefore ();
+  explicit WorkedBefore (Configuration const *);
   ~WorkedBefore ();
 
   Q_SLOT void reload ();

@@ -177,6 +177,7 @@ public:
   LotWUsers const& lotw_users () const;
   DecodeHighlightingModel const& decode_highlighting () const;
   bool highlight_by_mode () const;
+  bool include_WAE_entities () const;
  
   enum class SpecialOperatingActivity {NONE, NA_VHF, EU_VHF, FIELD_DAY, RTTY, FOX, HOUND};
   SpecialOperatingActivity special_op_id () const;
