@@ -997,16 +997,13 @@ void MainWindow::not_GA_warning_message ()
                                 "be nonfunctional during the 2019 ARRL June VHF contest "
                                 "(June 8-10) and Field Day (June 22-23) weekends.  It "
                                 "will be permanently nonfunctional after July 21, 2019.");
-  QDateTime now=QDateTime::currentDateTimeUtc();
-  QDateTime t1(QDate(2019,6,8),QTime(18,0));
-  QDateTime t2(QDate(2019,6,10),QTime(3,0));
-  if(now.secsTo(t1)<0 and now.secsTo(t2)>0) Q_EMIT finished();
-  t1=QDateTime(QDate(2019,6,22),QTime(18,0));
-  t2=QDateTime(QDate(2019,6,23),QTime(21,0));
-  if(now.secsTo(t1)<0 and now.secsTo(t2)>0) Q_EMIT finished();
-  QDateTime timeout(QDate(2019,7,21),QTime(0,0));
-  if(now.daysTo(timeout) < 0) Q_EMIT finished();
-
+  auto now = QDateTime::currentDateTimeUtc ();
+  if ((QDateTime {{2019, 6, 8}, {18, 0}, Qt::UTC} <= now
+       && now < QDateTime {{2019, 6, 10}, {3, 0}, Qt::UTC})
+      || now >= QDateTime {{2019, 7, 21}, {0, 0}, Qt::UTC})
+    {
+      Q_EMIT finished ();
+    }
 }
 
 void MainWindow::initialize_fonts ()
