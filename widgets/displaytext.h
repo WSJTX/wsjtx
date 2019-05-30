@@ -65,6 +65,4 @@ private:
   int modified_vertical_scrollbar_max_;
 };
 
-  extern QHash<QString,int> m_LoTW;
-
 #endif // DISPLAYTEXT_H

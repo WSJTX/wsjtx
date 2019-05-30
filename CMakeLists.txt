@@ -237,6 +237,7 @@ set (wsjt_qt_CXXSRCS
   models/FrequencyList.cpp
   models/StationList.cpp
   widgets/FrequencyLineEdit.cpp
+  widgets/FrequencyDeltaLineEdit.cpp
   item_delegates/CandidateKeyFilter.cpp
   item_delegates/ForeignKeyDelegate.cpp
   validators/LiveFrequencyValidator.cpp
@@ -279,9 +280,12 @@ set (wsjt_qt_CXXSRCS
   widgets/CabrilloLogWindow.cpp
   item_delegates/CallsignDelegate.cpp
   item_delegates/MaidenheadLocatorDelegate.cpp
+  item_delegates/FrequencyDelegate.cpp
+  item_delegates/FrequencyDeltaDelegate.cpp
   models/CabrilloLog.cpp
   logbook/AD1CCty.cpp
   logbook/WorkedBefore.cpp
+  logbook/Multiplier.cpp
   )
 
 set (wsjt_qtmm_CXXSRCS

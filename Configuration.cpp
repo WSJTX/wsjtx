@@ -167,8 +167,11 @@
 #include "MetaDataRegistry.hpp"
 #include "SettingsGroup.hpp"
 #include "widgets/FrequencyLineEdit.hpp"
+#include "widgets/FrequencyDeltaLineEdit.hpp"
 #include "item_delegates/CandidateKeyFilter.hpp"
 #include "item_delegates/ForeignKeyDelegate.hpp"
+#include "item_delegates/FrequencyDelegate.hpp"
+#include "item_delegates/FrequencyDeltaDelegate.hpp"
 #include "TransceiverFactory.hpp"
 #include "Transceiver.hpp"
 #include "models/Bands.hpp"
@@ -1122,6 +1125,7 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   ui_->frequencies_table_view->setColumnHidden (FrequencyList_v2::frequency_mhz_column, true);
 
   // delegates
+  ui_->frequencies_table_view->setItemDelegateForColumn (FrequencyList_v2::frequency_column, new FrequencyDelegate {this});
   ui_->frequencies_table_view->setItemDelegateForColumn (FrequencyList_v2::region_column, new ForeignKeyDelegate {&regions_, 0, this});
   ui_->frequencies_table_view->setItemDelegateForColumn (FrequencyList_v2::mode_column, new ForeignKeyDelegate {&modes_, 0, this});
 
@@ -1160,6 +1164,7 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   ui_->stations_table_view->sortByColumn (StationList::band_column, Qt::AscendingOrder);
 
   // stations delegates
+  ui_->stations_table_view->setItemDelegateForColumn (StationList::offset_column, new FrequencyDeltaDelegate {this});
   ui_->stations_table_view->setItemDelegateForColumn (StationList::band_column, new ForeignKeyDelegate {&bands_, &next_stations_, 0, StationList::band_column, this});
 
   // stations actions

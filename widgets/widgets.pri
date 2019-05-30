@@ -8,13 +8,14 @@ SOURCES += \
   widgets/fastplot.cpp widgets/MessageBox.cpp \
   widgets/colorhighlighting.cpp widgets/ExportCabrillo.cpp \
   widgets/AbstractLogWindow.cpp \
+  widgets/FrequencyLineEdit.cpp widgets/FrequencyDeltaLineEdit.cpp \
   widgets/FoxLogWindow.cpp widgets/CabrilloLogWindow.cpp
 
 HEADERS  += \
   widgets/mainwindow.h widgets/plotter.h \
   widgets/about.h widgets/widegraph.h  \
   widgets/displaytext.h widgets/logqso.h widgets/LettersSpinBox.hpp \
-  widgets/FrequencyLineEdit.hpp widgets/signalmeter.h \
+  widgets/FrequencyLineEdit.hpp widgets/FrequencyDeltaLineEdit.hpp widgets/signalmeter.h \
   widgets/meterwidget.h widgets/messageaveraging.h \
   widgets/echoplot.h widgets/echograph.h widgets/fastgraph.h \
   widgets/fastplot.h widgets/MessageBox.hpp widgets/colorhighlighting.h \

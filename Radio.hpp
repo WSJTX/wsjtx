@@ -42,8 +42,8 @@ namespace Radio
   //
   // Frequency type formatting
   //
-  QString UDP_EXPORT frequency_MHz_string (Frequency, QLocale const& = QLocale ());
-  QString UDP_EXPORT frequency_MHz_string (FrequencyDelta, QLocale const& = QLocale ());
+  QString UDP_EXPORT frequency_MHz_string (Frequency, int precision = 6, QLocale const& = QLocale ());
+  QString UDP_EXPORT frequency_MHz_string (FrequencyDelta, int precision = 6, QLocale const& = QLocale ());
   QString UDP_EXPORT pretty_frequency_MHz_string (Frequency, QLocale const& = QLocale ());
   QString UDP_EXPORT pretty_frequency_MHz_string (double, int scale, QLocale const& = QLocale ());
   QString UDP_EXPORT pretty_frequency_MHz_string (FrequencyDelta, QLocale const& = QLocale ());

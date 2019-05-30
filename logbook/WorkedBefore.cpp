@@ -415,9 +415,9 @@ QString const& WorkedBefore::path () const
   return m_->path_;
 }
 
-AD1CCty const& WorkedBefore::countries () const
+AD1CCty const * WorkedBefore::countries () const
 {
-  return m_->prefixes_;
+  return &m_->prefixes_;
 }
 
 bool WorkedBefore::add (QString const& call

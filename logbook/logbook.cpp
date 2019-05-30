@@ -3,6 +3,8 @@
 #include <QDateTime>
 #include "Configuration.hpp"
 #include "AD1CCty.hpp"
+#include "Multiplier.hpp"
+#include "logbook/AD1CCty.hpp"
 #include "models/CabrilloLog.hpp"
 #include "models/FoxLog.hpp"
 
@@ -14,6 +16,10 @@ LogBook::LogBook (Configuration const * configuration)
 {
   Q_ASSERT (configuration);
   connect (&worked_before_, &WorkedBefore::finished_loading, this, &LogBook::finished_loading);
+}
+
+LogBook::~LogBook ()
+{
 }
 
 void LogBook::match (QString const& call, QString const& mode, QString const& grid,
@@ -144,19 +150,36 @@ QByteArray LogBook::QSOToADIF (QString const& hisCall, QString const& hisGrid, Q
 CabrilloLog * LogBook::contest_log ()
 {
   // lazy create of Cabrillo log object instance
-  if (!m_contest_log)
+  if (!contest_log_)
     {
-      m_contest_log.reset (new CabrilloLog {config_});
+      contest_log_.reset (new CabrilloLog {config_});
+      if (!multiplier_)
+        {
+          multiplier_.reset (new Multiplier {countries ()});
+        }
+      connect (contest_log_.data (), &CabrilloLog::data_changed, [this] () {
+          multiplier_->reload (contest_log_.data ());
+        });
     }
-  return m_contest_log.data ();
+  return contest_log_.data ();
+}
+
+Multiplier const * LogBook::multiplier () const
+{
+  // lazy create of Multiplier object instance
+  if (!multiplier_)
+    {
+      multiplier_.reset (new Multiplier {countries ()});
+    }
+  return multiplier_.data ();
 }
 
 FoxLog * LogBook::fox_log ()
 {
   // lazy create of Fox log object instance
-  if (!m_fox_log)
+  if (!fox_log_)
     {
-      m_fox_log.reset (new FoxLog {config_});
+      fox_log_.reset (new FoxLog {config_});
     }
-  return m_fox_log.data ();
+  return fox_log_.data ();
 }

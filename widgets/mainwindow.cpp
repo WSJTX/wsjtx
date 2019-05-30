@@ -8267,7 +8267,7 @@ void MainWindow::houndCallers()
       if(!ui->textBrowser4->toPlainText().contains(paddedHoundCall)) {
         if(m_loggedByFox[houndCall].contains(m_lastBand))   continue;   //already logged on this band
         if(m_foxQSO.contains(houndCall)) continue;   //still in the QSO map
-        auto const& entity = m_logBook.countries ().lookup (houndCall);
+        auto const& entity = m_logBook.countries ()->lookup (houndCall);
         auto const& continent = AD1CCty::continent (entity.continent);
 
 //If we are using a directed CQ, ignore Hound calls that do not comply.

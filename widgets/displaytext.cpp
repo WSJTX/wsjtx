@@ -271,7 +271,7 @@ QString DisplayText::appendWorkedB4 (QString message, QString call, QString cons
   if(call.length()<3) return message;
   if(!call.contains(QRegExp("[0-9]|[A-Z]"))) return message;
 
-  auto const& looked_up = logBook.countries ().lookup (call);
+  auto const& looked_up = logBook.countries ()->lookup (call);
   logBook.match (call, currentMode, grid, looked_up, callB4, countryB4, gridB4, continentB4, CQZoneB4, ITUZoneB4);
   logBook.match (call, currentMode, grid, looked_up, callB4onBand, countryB4onBand, gridB4onBand,
                  continentB4onBand, CQZoneB4onBand, ITUZoneB4onBand, currentBand);

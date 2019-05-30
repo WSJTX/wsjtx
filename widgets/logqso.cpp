@@ -157,7 +157,7 @@ void LogQSO::accept()
           return;               // without accepting
         }
 
-      if (!m_log->contest_log ()->add_QSO (m_dialFreq, dateTimeOff, hisCall, xsent, xrcvd))
+      if (!m_log->contest_log ()->add_QSO (m_dialFreq, mode, dateTimeOff, hisCall, xsent, xrcvd))
         {
           show ();
           MessageBox::warning_message (this, tr ("Invalid QSO Data"),

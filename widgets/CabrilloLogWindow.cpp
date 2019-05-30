@@ -1,10 +1,12 @@
 #include "CabrilloLogWindow.hpp"
 
+#include <stdexcept>
 #include <QApplication>
 #include <QIdentityProxyModel>
 #include <QSqlTableModel>
 #include "Configuration.hpp"
 #include "models/Bands.hpp"
+#include "item_delegates/FrequencyDelegate.hpp"
 #include "item_delegates/ForeignKeyDelegate.hpp"
 #include "item_delegates/CallsignDelegate.hpp"
 #include "pimpl_impl.hpp"
@@ -29,7 +31,7 @@ namespace
           switch (index.column ())
             {
             case 1:
-            case 6:
+            case 7:
               return Qt::AlignRight + Qt::AlignVCenter;
             default:
               break;
@@ -63,10 +65,10 @@ CabrilloLogWindow::CabrilloLogWindow (QSettings * settings, Configuration const 
   m_->format_model_.setSourceModel (m_->log_model_);
   m_->ui_.log_table_view->setModel (&m_->format_model_);
   set_log_view (m_->ui_.log_table_view);
-  m_->ui_.log_table_view->setItemDelegateForColumn (3, new CallsignDelegate {this});
-  m_->ui_.log_table_view->setItemDelegateForColumn (6, new ForeignKeyDelegate {configuration->bands (), 0, this});
+  m_->ui_.log_table_view->setItemDelegateForColumn (1, new FrequencyDelegate {this});
+  m_->ui_.log_table_view->setItemDelegateForColumn (4, new CallsignDelegate {this});
   auto h_header = m_->ui_.log_table_view->horizontalHeader ();
-  h_header->moveSection (6, 1); // band to first column
+  h_header->moveSection (7, 1); // band to first column
 }
 
 CabrilloLogWindow::~CabrilloLogWindow ()

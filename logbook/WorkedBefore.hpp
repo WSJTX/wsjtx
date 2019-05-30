@@ -29,7 +29,7 @@ public:
                    , QByteArray const& ADIF_record);
 
   QString const& path () const;
-  AD1CCty const& countries () const;
+  AD1CCty const * countries () const;
   bool country_worked (QString const& call, QString const& mode, QString const& band) const;
   bool grid_worked (QString const& grid, QString const& mode, QString const& band) const;
   bool call_worked (QString const& call, QString const& mode, QString const& band) const;

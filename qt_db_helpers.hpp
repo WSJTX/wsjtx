@@ -6,6 +6,7 @@
 #include <QString>
 #include <QSqlError>
 #include <QSqlTableModel>
+#include "boost/core/noncopyable.hpp"
 
 template<typename T, typename Func, typename... Args>
 void SQL_error_check (T&& object, Func func, Args&&... args)
