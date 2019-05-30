@@ -37,6 +37,8 @@ OTHER IMPROVEMENTS
  - Improved S/N calculation for FT4 mode
  - N1MM Logger+ now uses the standard WSJT-X UDP messages
  - OK/Cancel buttons on Log QSO window maintain fixed positions
+ - Enhancements to the Omni-Rig CAT interface
+ - New setting option to include or exclude WAE entities
 
 BUG FIXES
  - Fix generation of Tx5 message when one callsign is nonstandard
@@ -44,6 +46,7 @@ BUG FIXES
  - Fix a bug that caused mode switch from FT4 to FT8
  - Fix a bug that caused FT4 to do WSPR-style band hopping
  - Fix a bug that caused a Fortran bounds error
+ - Repaired field editing in the Contest Log window
 
 
 		   Release: WSJT-X 2.1.0-rc5
