@@ -127,7 +127,9 @@ namespace
       {7074000, Modes::FT8, IARURegions::ALL},
       {7076000, Modes::JT65, IARURegions::ALL},
       {7078000, Modes::JT9, IARURegions::ALL},
-      {7047000, Modes::FT4, IARURegions::ALL}, // provisional
+      {7047500, Modes::FT4, IARURegions::ALL}, // provisional - moved
+                                               // up 500Hz to clear
+                                               // W1AW code practice QRG
 
       // Band plans (all USB dial unless stated otherwise)
       //
