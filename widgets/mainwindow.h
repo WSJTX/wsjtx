@@ -357,8 +357,8 @@ private:
   QSettings * m_settings;
   QScopedPointer<Ui::MainWindow> ui;
 
-  LogBook m_logBook;            // must be before Configuration construction
   Configuration m_config;
+  LogBook m_logBook;            // must be after Configuration construction
   WSPRBandHopping m_WSPR_band_hopping;
   bool m_WSPR_tx_next;
   MessageBox m_rigErrorMessageBox;
