@@ -192,13 +192,25 @@ int OmniRigTransceiver::do_start ()
     .arg (readable_params_, 8, 16, QChar ('0'))
     .arg (writable_params_, 8, 16, QChar ('0'))
     .arg (rig_number_).toLocal8Bit ());
+  for (int i = 0; i < 5; ++i)
+    {
+      if (OmniRig::ST_ONLINE == rig_->Status ())
+        {
+          break;
+        }
+      await_notification_with_timeout (1000);
+    }
   if (OmniRig::ST_ONLINE != rig_->Status ())
     {
       throw_qstring ("OmniRig: " + rig_->StatusStr ());
     }
-  await_notification_with_timeout (1000);
-  update_rx_frequency (rig_->GetRxFrequency ());
-  qDebug () << "Initial state:" << state ();
+  auto f = rig_->GetRxFrequency ();
+  for (int i = 0; (f == 0) && (i < 5); ++i)
+    {
+      await_notification_with_timeout (1000);
+      f = rig_->GetRxFrequency ();
+    }
+  update_rx_frequency (f);
   int resolution {0};
   if (OmniRig::PM_UNKNOWN == rig_->Vfo ()
       && (writable_params_ & (OmniRig::PM_VFOA | OmniRig::PM_VFOB))
@@ -208,7 +220,7 @@ int OmniRigTransceiver::do_start ()
       // can't query VFO but can set explicitly
       rig_->SetVfo (OmniRig::PM_VFOA);
     }
-  auto f = state ().frequency ();
+  f = state ().frequency ();
   if (f % 10) return resolution; // 1Hz resolution
   auto test_frequency = f - f % 100 + 55;
   if (OmniRig::PM_FREQ & writable_params_)
@@ -348,6 +360,10 @@ void OmniRigTransceiver::handle_status_change (int rig_number)
         {
           offline ("Rig went offline");
         }
+      else
+        {
+          Q_EMIT notified ();
+        }
       // else
       //   {
       //     update_rx_frequency (rig_->GetRxFrequency ());
@@ -452,38 +468,44 @@ void OmniRigTransceiver::handle_params_change (int rig_number, int params)
           if (readable_params_ & OmniRig::PM_FREQA)
             {
               auto f = rig_->FreqA ();
-              TRACE_CAT ("OmniRigTransceiver", "FREQA = " << f);
-              if (reversed_)
+              if (f)
                 {
-                  update_other_frequency (f);
+                  TRACE_CAT ("OmniRigTransceiver", "FREQA = " << f);
+                  if (reversed_)
+                    {
+                      update_other_frequency (f);
+                    }
+                  else
+                    {
+                      update_rx_frequency (f);
+                    }
                 }
-              else
-                {
-                  update_rx_frequency (f);
-                }
-              need_frequency = false;
             }
           if (readable_params_ & OmniRig::PM_FREQB)
             {
               auto f = rig_->FreqB ();
-              TRACE_CAT ("OmniRigTransceiver", "FREQB = " << f);
-              if (reversed_)
+              if (f)
                 {
+                  TRACE_CAT ("OmniRigTransceiver", "FREQB = " << f);
+                  if (reversed_)
+                    {
+                      update_rx_frequency (f);
+                    }
+                  else
+                    {
+                      update_other_frequency (f);
+                    }
+                }
+            }
+          if (readable_params_ & OmniRig::PM_FREQ && !state ().ptt ())
+            {
+              auto f = rig_->Freq ();
+              if (f)
+                {
+                  TRACE_CAT ("OmniRigTransceiver", "FREQ = " << f);
                   update_rx_frequency (f);
                 }
-              else
-                {
-                  update_other_frequency (f);
-                }
-              need_frequency = false;
             }
-        }
-      if (need_frequency && (readable_params_ & OmniRig::PM_FREQ)
-          && !state ().ptt ())
-        {
-          auto f = rig_->Freq ();
-          TRACE_CAT ("OmniRigTransceiver", "FREQ = " << f);
-          update_rx_frequency (f);
         }
       if (params & OmniRig::PM_PITCH)
         {

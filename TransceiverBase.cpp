@@ -211,8 +211,11 @@ void TransceiverBase::stop () noexcept
 
 void TransceiverBase::update_rx_frequency (Frequency rx)
 {
-  actual_.frequency (rx);
-  requested_.frequency (rx);    // track rig changes
+  if (rx)
+    {
+      actual_.frequency (rx);
+      requested_.frequency (rx);    // track rig changes
+    }
 }
 
 void TransceiverBase::update_other_frequency (Frequency tx)
