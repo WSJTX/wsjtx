@@ -47,7 +47,7 @@ subroutine getcandidates4(dd,fa,fb,syncmin,nfqso,maxcand,savg,candidate,   &
   nfa=fa/df
   if(nfa.lt.nint(200.0/df)) nfa=nint(200.0/df)
   nfb=fb/df
-  if(nfb.gt.nint(5000.0/df)) nfb=nint(5000.0/df)
+  if(nfb.gt.nint(4910.0/df)) nfb=nint(4910.0/df)
   ncand=0
   call ft4_baseline(savg,nfa,nfb,sbase)
   if(any(sbase(nfa:nfb).le.0)) return 
@@ -60,13 +60,9 @@ subroutine getcandidates4(dd,fa,fb,syncmin,nfqso,maxcand,savg,candidate,   &
         del=0.
         if(den.ne.0.0)  del=0.5*(savsm(i-1)-savsm(i+1))/den
         fpeak=(i+del)*df+f_offset
-        if(fpeak.lt.0.0 .or. fpeak.gt.4910.0) cycle
+        if(fpeak.lt.200.0 .or. fpeak.gt.4910.0) cycle
         speak=savsm(i) - 0.25*(savsm(i-1)-savsm(i+1))*del
         ncand=ncand+1
-        if(ncand.gt.maxcand) then
-           ncand=maxcand
-           exit
-        endif
         candidate(1,ncand)=fpeak
         candidate(2,ncand)=-99.99
         candidate(3,ncand)=speak

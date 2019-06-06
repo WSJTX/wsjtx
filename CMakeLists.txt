@@ -528,7 +528,6 @@ set (wsjt_FSRCS
   lib/msk144sim.f90
   lib/mskrtd.f90
   lib/nuttal_window.f90
-  lib/ft4/ft4b.f90
   lib/ft4/ft4sim.f90
   lib/ft4/ft4sim_mult.f90
   lib/ft4/ft4_downsample.f90
@@ -1321,9 +1320,6 @@ target_link_libraries (averaged_mf wsjt_fort wsjt_cxx)
 
 add_executable (ft4sim_mult lib/ft4/ft4sim_mult.f90 wsjtx.rc)
 target_link_libraries (ft4sim_mult wsjt_fort wsjt_cxx)
-
-add_executable (ft4d lib/ft4/ft4d.f90 wsjtx.rc)
-target_link_libraries (ft4d wsjt_fort wsjt_cxx)
 
 add_executable (record_time_signal Audio/tools/record_time_signal.cpp)
 target_link_libraries (record_time_signal wsjt_cxx wsjt_qtmm wsjt_qt)

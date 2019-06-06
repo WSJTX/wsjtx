@@ -139,7 +139,7 @@ program jt9
            read (optarg(:arglen), *) nexp_decode
      end select
   end do
-
+  
   if (display_help .or. stat .lt. 0                      &
        .or. (.not. read_files .and. remain .gt. 0)       &
        .or. (read_files .and. remain .lt. 1)) then
@@ -234,7 +234,7 @@ program jt9
         read(unit=wav%lun,end=3) shared_data%id2(k-kstep+1:k)
         go to 4
 3       call timer('read_wav',1)
-        print*,'EOF on input file ',infile
+        print*,'EOF on input file ',trim(infile)
         exit
 4       call timer('read_wav',1)
         nhsym=(k-2048)/kstep

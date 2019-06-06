@@ -1,8 +1,5 @@
 subroutine ft4_downsample(dd,newdata,f0,c)
 
-! Input: real data in dd() at sample rate 12000 Hz
-! Output: Complex data in c(), sampled at 1200 Hz
-
    include 'ft4_params.f90'
    parameter (NFFT2=NMAX/NDOWN)
    real dd(NMAX)
@@ -40,8 +37,8 @@ subroutine ft4_downsample(dd,newdata,f0,c)
    c1=0.
    if(i0.ge.0 .and. i0.le.NMAX/2) c1(0)=cx(i0)
    do i=1,NFFT2/2
-      if(i0+i.le.NMAX/2) c1(i)=cx(i0+i)
-      if(i0-i.ge.0) c1(NFFT2-i)=cx(i0-i)
+      if(i0+i.ge.0 .and. i0+i.le.NMAX/2) c1(i)=cx(i0+i)
+      if(i0-i.ge.0 .and. i0-i.le.NMAX/2) c1(NFFT2-i)=cx(i0-i)
    enddo
    c1=c1*window/NFFT2
    call four2a(c1,NFFT2,1,1,1)            !c2c FFT back to time domain

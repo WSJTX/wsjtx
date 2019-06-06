@@ -1,5 +1,5 @@
 ! FT4 
-! LDPC(174,91) code, four 4x4 Costas arrays for Sync
+! LDPC(174,91) code, four 4x4 Costas arrays for sync, ramp-up and ramp-down symbols
 
 parameter (KK=91)                     !Information bits (77 + CRC14)
 parameter (ND=87)                     !Data symbols
