@@ -10,6 +10,7 @@
 #include <QTemporaryFile>
 #include <QDateTime>
 #include <QApplication>
+#include <QTranslator>
 #include <QRegularExpression>
 #include <QObject>
 #include <QSettings>
@@ -106,6 +107,34 @@ int main(int argc, char *argv[])
   ExceptionCatchingApplication a(argc, argv);
   try
     {
+      //
+      // Enable i18n
+      //
+      QTranslator translator_from_resources;
+      // Default translations for releases  use translations stored in
+      // the   resources   file    system   under   the   Translations
+      // directory. These are built by the CMake build system from .ts
+      // files in the translations source directory. New languages are
+      // added by  enabling the  UPDATE_TRANSLATIONS CMake  option and
+      // building with the  new language added to  the LANGUAGES CMake
+      // list  variable.  UPDATE_TRANSLATIONS  will preserve  existing
+      // translations  but   should  only  be  set   when  adding  new
+      // languages.  The  resulting .ts  files should be  checked info
+      // source control for translators to access and update.
+      translator_from_resources.load (QLocale::system (), "wsjtx", "_", ":/Translations");
+      a.installTranslator (&translator_from_resources);
+
+      QTranslator translator_from_files;
+      // Load  any matching  translation  from  the current  directory
+      // using the locale name. This allows translators to easily test
+      // their translations  by releasing  (lrelease) a .qm  file into
+      // the    current    directory     with    a    suitable    name
+      // (e.g.  wsjtx_en_GB.qm),  then  running   wsjtx  to  view  the
+      // results. Either the system  locale setting or the environment
+      // variable LANG can be used to select the target language.
+      translator_from_files.load (QString {"wsjtx_"} + QLocale::system ().name ());
+      a.installTranslator (&translator_from_files);
+
       setlocale (LC_NUMERIC, "C"); // ensure number forms are in
                                    // consistent format, do this after
                                    // instantiating QApplication so

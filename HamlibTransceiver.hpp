@@ -21,9 +21,9 @@ extern "C"
 class HamlibTransceiver final
   : public PollingTransceiver
 {
-  Q_OBJECT;                     // for translation context
+  Q_OBJECT                      // for translation context
 
- public:
+public:
   static void register_transceivers (TransceiverFactory::Transceivers *);
   static void unregister_transceivers ();
 

@@ -27,6 +27,8 @@ class QByteArray;
 class HRDTransceiver final
   : public PollingTransceiver
 {
+  Q_OBJECT
+
 public:
   static void register_transceivers (TransceiverFactory::Transceivers *, int id);
 
