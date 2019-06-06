@@ -18,6 +18,8 @@
 class FoxLog::impl final
   : public QSqlTableModel
 {
+  Q_OBJECT
+
 public:
   impl (Configuration const * configuration);
 
@@ -42,6 +44,8 @@ public:
   QSqlQuery mutable dupe_query_;
   QSqlQuery mutable export_query_;
 };
+
+#include "FoxLog.moc"
 
 FoxLog::impl::impl (Configuration const * configuration)
   : configuration_ {configuration}

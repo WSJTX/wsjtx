@@ -19,6 +19,8 @@ namespace
   int constexpr yaesu_delay {250};
 }
 
+#include "moc_HRDTransceiver.cpp"
+
 void HRDTransceiver::register_transceivers (TransceiverFactory::Transceivers * registry, int id)
 {
   (*registry)[HRD_transceiver_name] = TransceiverFactory::Capabilities (id, TransceiverFactory::Capabilities::network, true, true /* maybe */);

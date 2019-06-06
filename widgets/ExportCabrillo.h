@@ -15,6 +15,8 @@ namespace Ui {
 class ExportCabrillo final
   : public QDialog
 {
+  Q_OBJECT
+
 public:
   explicit ExportCabrillo (QSettings *, Configuration const *
                            , CabrilloLog const *, QWidget * parent = nullptr);

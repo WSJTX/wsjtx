@@ -9,6 +9,8 @@
 #include "qt_helpers.hpp"
 #include "widgets/MessageBox.hpp"
 
+#include "moc_HelpTextWindow.cpp"
+
 HelpTextWindow::HelpTextWindow (QString const& title, QString const& file_name, QFont const& font, QWidget * parent)
   : QLabel {parent, Qt::WindowCloseButtonHint | Qt::WindowMinimizeButtonHint}
 {

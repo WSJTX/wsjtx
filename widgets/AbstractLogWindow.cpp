@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <QSettings>
+#include <QObject>
 #include <QString>
 #include <QTableView>
 #include <QHeaderView>
@@ -16,7 +17,10 @@
 #include "pimpl_impl.hpp"
 
 class AbstractLogWindow::impl final
+  : public QObject
 {
+  Q_OBJECT
+
 public:
   impl (AbstractLogWindow * self, QString const& settings_key, QSettings * settings
         , Configuration const * configuration)
@@ -37,6 +41,9 @@ public:
   QTableView * log_view_;
   FontOverrideModel model_;
 };
+
+#include "moc_AbstractLogWindow.cpp"
+#include "AbstractLogWindow.moc"
 
 namespace
 {

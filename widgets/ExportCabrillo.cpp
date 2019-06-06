@@ -11,6 +11,7 @@
 #include "models/CabrilloLog.hpp"
 
 #include "ui_ExportCabrillo.h"
+#include "moc_ExportCabrillo.cpp"
 
 ExportCabrillo::ExportCabrillo (QSettings * settings, Configuration const * configuration
                                 , CabrilloLog const * log, QWidget * parent)

@@ -7,8 +7,6 @@
 #include <QModelIndex>
 #include <QMetaType>
 
-#include "moc_IARURegions.cpp"
-
 namespace
 {
   // human readable strings for each Region enumeration value
@@ -21,6 +19,8 @@ namespace
   };
   std::size_t constexpr region_names_size = sizeof (region_names) / sizeof (region_names[0]);
 }
+
+#include "moc_IARURegions.cpp"
 
 IARURegions::IARURegions (QObject * parent)
   : QAbstractListModel {parent}

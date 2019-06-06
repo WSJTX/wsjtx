@@ -8,6 +8,8 @@
 #include "qt_helpers.hpp"
 #include "ui_messageaveraging.h"
 
+#include "moc_messageaveraging.cpp"
+
 MessageAveraging::MessageAveraging(QSettings * settings, QFont const& font, QWidget *parent) :
   QWidget(parent),
   settings_ {settings},

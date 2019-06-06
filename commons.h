@@ -8,7 +8,8 @@
 #ifdef __cplusplus
 #include <cstdbool>
 extern "C" {
-#else
+#endif
+#ifndef __cplusplus
 #include <stdbool.h>
 #endif
 

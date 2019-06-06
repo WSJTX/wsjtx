@@ -29,6 +29,7 @@ class IARURegions final
   : public QAbstractListModel
 {
   Q_OBJECT
+
 public:
   //
   // This enumeration  contains the  supported regions,  to complement

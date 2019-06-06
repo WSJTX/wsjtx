@@ -65,6 +65,8 @@ namespace
   class NameDialog final
     : public QDialog
   {
+    Q_OBJECT
+
   public:
     explicit NameDialog (QString const& current_name,
                          QStringList const& current_names,
@@ -112,6 +114,8 @@ namespace
   class ExistingNameDialog final
     : public QDialog
   {
+    Q_OBJECT
+
   public:
     explicit ExistingNameDialog (QStringList const& current_names, QWidget * parent = nullptr)
       : QDialog {parent}

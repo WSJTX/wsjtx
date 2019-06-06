@@ -16,6 +16,8 @@ class QWidget;
 class DecodeHighlightingListView final
   : public QListView
 {
+  Q_OBJECT
+
 public:
   explicit DecodeHighlightingListView (QWidget * parent = nullptr);
 
