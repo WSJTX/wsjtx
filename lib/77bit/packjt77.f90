@@ -172,6 +172,10 @@ subroutine pack77(msg0,i3,n3,c77)
   call pack77_4(nwords,w,i3,n3,c77)
   if(i3.ge.0) go to 900
 
+! Check Type 5 (WWROF contest exchange)
+  call pack77_5(nwords,w,i3,n3,c77)
+  if(i3.ge.0) go to 900
+
 ! It defaults to free text
 800 i3=0
   n3=0
@@ -204,6 +208,7 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
   character*6 cexch,grid6
   character*4 grid4,cserial
   character*3 csec(NSEC)
+  character*2 cfield
   character*38 c
   integer hashmy10,hashmy12,hashmy22,hashdx10,hashdx12,hashdx22
   logical unpk28_success,unpk77_success
@@ -491,8 +496,31 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
      else
         msg='CQ '//trim(call_2)
      endif
+     
+  else if(i3.eq.5) then
+! 5    TU; W9XYZ K1ABC R-09 FN             1 28 28 1 7 9       74   WWROF contest
+     read(c77,1041) itu,n28a,n28b,ir,irpt,nexch,i3
+1041 format(b1,2b28.28,b1,b7.7,b9.9,b3.3)
+     call unpack28(n28a,call_1,unpk28_success)
+     if(.not.unpk28_success) unpk77_success=.false.
+     call unpack28(n28b,call_2,unpk28_success)
+     if(.not.unpk28_success) unpk77_success=.false.
+     write(crpt,'(i3.2)') irpt-35
+     if(crpt(1:1).eq.' ') crpt(1:1)='+'
+     n1=nexch/18
+     n2=nexch - 18*n1
+     cfield(1:1)=char(ichar('A')+n1)
+     cfield(2:2)=char(ichar('A')+n2)
+     if(itu.eq.0 .and. ir.eq.0) msg=trim(call_1)//' '//trim(call_2)//             &
+          ' '//crpt//' '//cfield
+     if(itu.eq.1 .and. ir.eq.0) msg='TU; '//trim(call_1)//' '//trim(call_2)//     &
+          ' '//crpt//' '//cfield
+     if(itu.eq.0 .and. ir.eq.1) msg=trim(call_1)//' '//trim(call_2)//             &
+          ' R'//crpt//' '//cfield
+     if(itu.eq.1 .and. ir.eq.1) msg='TU; '//trim(call_1)//' '//trim(call_2)//     &
+          ' R'//crpt//' '//cfield
   endif
-  if(msg(1:4).eq.'CQ <') unpk77_success=.false.
+!  if(msg(1:4).eq.'CQ <') unpk77_success=.false.
 
   return
 end subroutine unpack77
@@ -1040,12 +1068,11 @@ subroutine pack77_3(nwords,w,i3,n3,c77)
      call chkcall(w(i1+1),bcall_2,ok2)
      if(.not.ok1 .or. .not.ok2) go to 900
      crpt=w(nwords-1)(1:3)
+     if(index(crpt,'-').ge.1 .or. index(crpt,'+').ge.1) go to 900
      if(crpt(1:1).eq.'5' .and. crpt(2:2).ge.'2' .and. crpt(2:2).le.'9' .and.    &
           crpt(3:3).eq.'9') then
         nserial=0
         read(w(nwords),*,err=1) nserial
-!1       i3=3
-!        n3=0
      endif
 1    mult='   '
      imult=-1
@@ -1149,6 +1176,60 @@ subroutine pack77_4(nwords,w,i3,n3,c77)
 
 900 return
 end subroutine pack77_4
+
+subroutine pack77_5(nwords,w,i3,n3,c77)
+! Check Type 5 (WWROF contest exchange)
+
+  character*13 w(19)
+  character*77 c77
+  character*6 bcall_1,bcall_2
+  character*3 mult
+  character crpt*4
+  character c1*1,c2*2
+  logical ok1,ok2
+
+  if(nwords.eq.4 .or. nwords.eq.5 .or. nwords.eq.6) then
+     i1=1
+     if(trim(w(1)).eq.'TU;') i1=2
+     call chkcall(w(i1),bcall_1,ok1)
+     call chkcall(w(i1+1),bcall_2,ok2)
+     if(.not.ok1 .or. .not.ok2) go to 900
+     crpt=w(nwords-1)(1:4)
+     if(index(crpt,'-').lt.1 .and. index(crpt,'+').lt.1) go to 900
+
+     c1=crpt(1:1)
+     c2=crpt(1:2)
+     irpt=-1
+     if(c1.eq.'+' .or. c1.eq.'-') then
+        ir=0
+        read(w(nwords-1),*,err=900) irpt
+        irpt=irpt+35
+     else if(c2.eq.'R+' .or. c2.eq.'R-') then
+        ir=1
+        read(w(nwords-1)(2:),*) irpt
+        irpt=irpt+35
+     endif
+     if(irpt.eq.-1 .or. len(trim(w(nwords))).ne.2) go to 900
+     c2=w(nwords)(1:2)
+     n1=ichar(c2(1:1)) - ichar('A')
+     n2=ichar(c2(2:2)) - ichar('A')
+     if(n1.lt.0 .or. n1.gt.17) go to 900
+     if(n2.lt.0 .or. n2.gt.17) go to 900
+     nexch=18*n1 + n2
+     i3=5
+     n3=0
+     itu=0
+     if(trim(w(1)).eq.'TU;') itu=1
+     call pack28(w(1+itu),n28a)
+     call pack28(w(2+itu),n28b)
+! 5    TU; W9XYZ K1ABC R-09 FN             1 28 28 1 7 9       74   WWROF contest
+     write(c77,1010) itu,n28a,n28b,ir,irpt,nexch,i3
+1010 format(b1,2b28.28,b1,b7.7,b9.9,b3.3)
+
+  end if
+  
+900 return
+end subroutine pack77_5
 
 subroutine packtext77(c13,c71)
 

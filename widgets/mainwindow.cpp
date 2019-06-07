@@ -1991,7 +1991,7 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
         if(e->modifiers() & Qt::ControlModifier) n+=100;
         if(e->modifiers() & Qt::ShiftModifier) {
           int offset=60;
-          if(m_mode=="FT4") offset=100;
+          if(m_mode=="FT4") offset=90;
           ui->TxFreqSpinBox->setValue(ui->TxFreqSpinBox->value()-offset);
         } else{
           bumpFqso(n);
@@ -2007,7 +2007,7 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
         if(e->modifiers() & Qt::ControlModifier) n+=100;
         if(e->modifiers() & Qt::ShiftModifier) {
           int offset=60;
-          if(m_mode=="FT4") offset=100;
+          if(m_mode=="FT4") offset=90;
           ui->TxFreqSpinBox->setValue(ui->TxFreqSpinBox->value()+offset);
         } else {
           bumpFqso(n);
@@ -5559,6 +5559,7 @@ void MainWindow::acceptQSO (QDateTime const& QSO_date_off, QString const& call, 
     }
 
   if(m_config.clear_DX () and SpecOp::HOUND != m_config.special_op_id()) clearDX ();
+  auto_tx_mode (false);
   m_dateTimeQSOOn = QDateTime {};
   auto special_op = m_config.special_op_id ();
   if (SpecOp::NONE < special_op && special_op < SpecOp::FOX &&

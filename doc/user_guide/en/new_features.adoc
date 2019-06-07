@@ -1,40 +1,17 @@
 === New in Version {VERSION}
 
 For quick reference, here's a short list of features and capabilities
-added to _WSJT-X_ since Version 1.9.1:
+added to _WSJT-X_ since Version 2.0.1:
 
-- New FT8 and MSK144 protocols with 77-bit payloads permit these enhancements:
+- New FT4 protocol, designed especially for radio contesting
 
-* Optimized contest messages for NA VHF, EU VHF, Field Day, RTTY Roundup
+* T/R sequence length 7.5 s
 
-* Full support for "/R" and "/P" calls in relevant contests
+* Bandwidth 80 Hz
 
-* New logging features for contesting
+* Threshold sensitivity -17.5 dB
 
-* Integration with {n1mm_logger} and {writelog} for contesting
-
-* Improved support for compound and nonstandard callsigns
-
-* Nearly equal (or better) sensitivity compared to old protocols
-
-* Lower false decode rates
-
-- Improved color highlighting of received messages
-
-- Improved WSPR sensitivity
-
-- Expanded and improved UDP messages sent to companion programs
-
-- Bug fixes and other minor tweaks to user interface
-
-IMPORTANT: Note that for FT8 and MSK144 there is no backward
-compatibility with WSJT-X 1.9.1 and earlier.  Everyone using these
-modes should upgrade to WSJT-X 2.0 by January 1, 2019.
-
-IMPORTANT: _WSJT-X_ Version 2.0 drops support for Apple Mac OS X 10.9
-(Mavericks). It is possible to build from source for this operating
-system version but the DMG installer package requires 10.10 or later.
-
+- Improvements to accessibility
 
 === Documentation Conventions
 
