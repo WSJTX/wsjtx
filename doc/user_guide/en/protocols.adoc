@@ -12,10 +12,10 @@ Special cases allow other information such as add-on callsign prefixes
 aim is to compress the most common messages used for minimally valid
 QSOs into a fixed 72-bit length.
 
-The information payload for FT8 and MSK144 contains 77 bits.  The 5
-additional bits are used to flag special message types used for FT8
-DXpedition Mode, contesting, nonstandard callsigns, and a few other
-special types.
+The information payload for FT4, FT8, and MSK144 contains 77 bits.
+The 5 additional bits are used to flag special message types used for
+FT8 DXpedition Mode, contesting, nonstandard callsigns, and a few
+other special types.
 
 A standard amateur callsign consists of a one- or two-character
 prefix, at least one of which must be a letter, followed by a digit
@@ -67,18 +67,29 @@ _WSJT-X_ modes have continuous phase and constant envelope.
 [[SLOW_MODES]]
 === Slow Modes
 
+[[FT4PRO]]
+==== FT4
+
+Forward error correction (FEC) in FT4 uses a low-density parity check
+(LDPC) code with 77 information bits, a 14-bit cyclic redundancy check
+(CRC), and 83 parity bits making a 174-bit codeword.  It is thus
+called an LDPC (174,91) code.  Synchronization uses four 4×4 Costas
+arrays, and ramp-up and ramp-down symbols are inserted at the start
+and end of each transmission.  Modulation is 4-tone frequency-shift
+keying with Gaussian smoothing of frequency transitions (4-GFSK).  The
+keying rate is 12000/576 = 20.8333 baud.  Each transmitted symbol
+conveys two bits, so the total number of channel symbols is 174/2 + 16
++ 2 = 105.  The total bandwidth is 4 × 20.8333 = 83.3 Hz.
+
 [[FT8PRO]]
 ==== FT8
 
-Forward error correction (FEC) in FT8 uses a low-density parity check
-(LDPC) code with 77 information bits, a 14-bit cyclic redundancy check
-(CRC), and 83 parity bits making a 174-bit codeword.  It is thus
-called an LDPC (174,91) code.  Synchronization uses 7×7 Costas arrays
-at the beginning, middle, and end of each transmission.  Modulation is
-8-tone frequency-shift keying (8-FSK) at 12000/1920 = 6.25 baud.  Each
-transmitted symbol carries three bits, so the total number of channel
-symbols is 174/3 + 21 = 79.  The total occupied bandwidth is 8 × 6.25
-= 50 Hz.
+FT8 uses the same LDPC (174,91) code as FT4.  Modulation is 8-tone
+frequency-shift keying (8-GFSK) at 12000/1920 = 6.25 baud.
+Synchronization uses 7×7 Costas arrays at the beginning, middle, and
+end of each transmission.  Transmitted symbols carry three bits, so
+the total number of channel symbols is 174/3 + 21 = 79.  The total
+occupied bandwidth is 8 × 6.25 = 50 Hz.
 
 [[JT4PRO]]
 ==== JT4
@@ -227,7 +238,8 @@ which the probability of decoding is 50% or higher.
 |===============================================================================
 |Mode |FEC Type |(n,k) | Q|Modulation type|Keying rate (Baud)|Bandwidth (Hz)
 |Sync Energy|Tx Duration (s)|S/N Threshold (dB)
-|FT8  |LDPC, r=1/2|(174,91)| 8| 8-FSK| 6.25 | 50.0 | 0.27| 12.6 | -21
+|FT4  |LDPC, r=1/2|(174,91)| 4| 4-GFSK| 20.8333 | 83.3 | 0.15| 5.04 | -17.5
+|FT8  |LDPC, r=1/2|(174,91)| 8| 8-GFSK| 6.25 | 50.0 | 0.27| 12.6 | -21
 |JT4A |K=32, r=1/2|(206,72)| 2| 4-FSK| 4.375| 17.5 | 0.50| 47.1 | -23
 |JT9A |K=32, r=1/2|(206,72)| 8| 9-FSK| 1.736| 15.6 | 0.19| 49.0 | -27
 |JT65A |Reed Solomon|(63,12) |64|65-FSK| 2.692| 177.6 | 0.50| 46.8 | -25
@@ -246,6 +258,7 @@ comparable to tone spacing.
 [width="50%",cols="h,3*^",frame=topbot,options="header"]
 |=====================================
 |Mode  |Tone Spacing  |BW (Hz)|S/N (dB)
+|FT4   |20.8333 | 83.3  |-17.5
 |FT8   |6.25 |  50.0  |-21
 |JT4A  |4.375|  17.5  |-23
 |JT4B  |8.75 |  30.6  |-22

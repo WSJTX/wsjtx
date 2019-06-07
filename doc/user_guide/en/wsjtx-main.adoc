@@ -140,6 +140,10 @@ include::tutorial-example2.adoc[]
 === FT8
 include::tutorial-example3.adoc[]
 
+[[TUT_EX4]]
+=== FT4
+include::tutorial-example4.adoc[]
+
 [[MAKE_QSOS]]
 == Making QSOs
 include::make-qso.adoc[]

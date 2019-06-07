@@ -22,14 +22,9 @@ i3.n3 Example message                    Bits           Total  Purpose
 2     PA3XYZ/P GM4ABC/P R JO22           28 1 28 1 1 15   74   EU VHF contest
 3     TU; W9XYZ K1ABC R 579 MA           1 28 28 1 3 13   74   ARRL RTTY Roundup
 4     <WA9XYZ> PJ4/KA1ABC RR73           12 58 1 2 1      74   Nonstandard calls
-5     ... tbd
+5     TU; W9XYZ K1ABC R-07 FN            1 28 28 1 7 9    74   WWROF contest ?
 6     ... tbd
 7     ... tbd
-----------------------------------------------------------------------------------
-In case we need them, later:
-
-5     TU; W9XYZ K1ABC R 579 8 MA         1 28 28 1 3 6 7  74   CQ WW RTTY
-6     TU; W9XYZ K1ABC R 579 MA           1 28 28 1 3 13   74   CQ WPX RTTY
 ----------------------------------------------------------------------------------
 NB: three 74-bit message types and two 71-bit message subtypes are still TBD.
 ----------------------------------------------------------------------------------

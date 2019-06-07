@@ -116,6 +116,7 @@ d). Edit lines as needed. Keeping them in alphabetic order help see dupes.
 :QRA64_EME: http://physics.princeton.edu/pulsar/K1JT/QRA64_EME.pdf[QRA64 for microwave EME]
 :svn: http://subversion.apache.org/packages.html#windows[Subversion]
 :win32: http://physics.princeton.edu/pulsar/K1JT/wsjtx-{VERSION}-win32.exe[wsjtx-{VERSION}-win32.exe]
+:win64: http://physics.princeton.edu/pulsar/K1JT/wsjtx-{VERSION}-win64.exe[wsjtx-{VERSION}-win64.exe]
 :wsjt-devel: https://lists.sourceforge.net/lists/listinfo/wsjt-devel[here]
 :wsjt_repo: https://sourceforge.net/p/wsjt/wsjt_orig/ci/master/tree/[WSJT Source Repository]
 :wspr_code: http://physics.princeton.edu/pulsar/K1JT/WSPRcode.exe[WSPRcode.exe]

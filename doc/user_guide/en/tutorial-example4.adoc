@@ -1,0 +1,51 @@
+// Status=review
+.Main Window:
+- Select *FT4* on the *Mode* menu.
+- Double-click on *Erase* to clear both text windows.
+
+.Wide Graph Settings:
+
+- *Bins/Pixel* = 7, *Start* = 100 Hz, *N Avg* = 1
+- Adjust the width of the Wide Graph window so that the upper
+frequency limit is approximately 4000 Hz.
+
+.Open a Wave File:
+
+- Select *File | Open* and navigate to
++...\save\samples\FT4\000000_000002.wav+.  The waterfall and Band
+Activity window should look something like the following screen shots.
+Most of the decoded messages use the *RTTY Roundup* message formats.
+
+[[X15]]
+image::ft4_waterfall.png[align="left",alt="Wide Graph Decode FT4"]
+
+image::ft4_decodes.png[align="left"]
+
+- Click with the mouse anywhere on the waterfall display. The green Rx
+frequency marker will jump to your selected frequency, and the Rx
+frequency control on the main window will be updated accordingly.
+
+- Do the same thing with the *Shift* key held down.  Now the red Tx
+frequency marker and its associated control on the main window will
+follow your frequency selections.
+
+- Do the same thing with the *Ctrl* key held down.  Now the both colored 
+markers and both spinner controls will follow your selections.
+
+- Now double-click on any of the the lines of decoded text in the Band
+Activity window.  Any line will show similar behavior, setting
+Rx frequency to that of the selected message and leaving Tx frequency
+unchanged.  To change both Rx and Tx frequencies, hold *Ctrl* down
+when double-clicking.
+
+TIP: To avoid QRM from competing callers, it is frequently desirable
+to answer a CQ on a different frequency from that of the CQing
+station.  The same is true when you tail-end another QSO.  Choose a Tx
+frequency that appears to be not in use.  You might want to check the
+box *Hold Tx Freq*.
+
+TIP: Keyboard shortcuts *Shift+F11* and *Shift+F12* provide an easy
+way to move your FT4 Tx frequency down or up in 90 Hz steps.
+
+IMPORTANT: When finished with this Tutorial, don't forget to re-enter
+your own callsign as *My Call* on the *Settings | General* tab.

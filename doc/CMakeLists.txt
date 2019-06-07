@@ -52,6 +52,7 @@ set (UG_SRCS
   tutorial-example1.adoc
   tutorial-example2.adoc
   tutorial-example3.adoc
+  tutorial-example4.adoc
   tutorial-main-window.adoc
   tutorial-wide-graph-settings.adoc
   utilities.adoc
@@ -77,6 +78,8 @@ set (UG_IMGS
   images/FreqCal_Graph.png
   images/FreqCal_Results.png
   images/freemsg.png
+  images/ft4_decodes.png
+  images/ft4_waterfall.png
   images/ft8_decodes.png
   images/FT8_waterfall.png
   images/help-menu.png
