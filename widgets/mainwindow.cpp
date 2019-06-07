@@ -413,6 +413,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_manual {&m_network_manager}
 {
   ui->setupUi(this);
+  setUnifiedTitleAndToolBarOnMac (true);
   createStatusBar();
   add_child_to_event_filter (this);
   ui->dxGridEntry->setValidator (new MaidenheadLocatorValidator {this});
