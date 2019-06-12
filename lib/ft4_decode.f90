@@ -269,6 +269,7 @@ contains
                enddo
                call timer('sync4d  ',1)
             enddo
+            if(smax.lt.0.7) cycle
             f0=f0+real(idfbest)
             if( f0.le.10.0 .or. f0.ge.4990.0 ) cycle
             call timer('ft4down ',0)
@@ -286,7 +287,7 @@ contains
             endif 
 
             call timer('bitmet  ',0)
-            call get_ft4_bitmetrics(cd,smax,bitmetrics,badsync)
+            call get_ft4_bitmetrics(cd,bitmetrics,badsync)
             call timer('bitmet  ',1)
             if(badsync) cycle
 

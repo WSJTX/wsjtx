@@ -1,4 +1,4 @@
-subroutine get_ft4_bitmetrics(cd,smax,bitmetrics,badsync)
+subroutine get_ft4_bitmetrics(cd,bitmetrics,badsync)
 
    include 'ft4_params.f90'
    parameter (NSS=NSPS/NDOWN,NDMAX=NMAX/NDOWN)
@@ -58,7 +58,7 @@ subroutine get_ft4_bitmetrics(cd,smax,bitmetrics,badsync)
       if(icos4d(k-1).eq.(ip(1)-1)) is4=is4+1
    enddo
    nsync=is1+is2+is3+is4   !Number of correct hard sync symbols, 0-16
-   if(smax .lt. 0.7 .or. nsync .lt. 8) then
+   if(nsync .lt. 8) then
       badsync=.true.
       return
    endif
