@@ -285,12 +285,10 @@ contains
             else
                cd(-ibest:ibest+NN*NSS-1)=cb(0:NN*NSS+2*ibest-1)
             endif 
-
             call timer('bitmet  ',0)
             call get_ft4_bitmetrics(cd,bitmetrics,badsync)
             call timer('bitmet  ',1)
             if(badsync) cycle
-
             hbits=0
             where(bitmetrics(:,1).ge.0) hbits=1
             ns1=count(hbits(  1:  8).eq.(/0,0,0,1,1,0,1,1/))
@@ -405,7 +403,7 @@ contains
 
                if(doosd .and. nharderror.lt.0) then
                   ndeep=3
-                  if(abs(nfqso-f1).le.napwid) then
+                  if(abs(nfqso-f0).le.napwid) then
                      ndeep=4
                   endif
                   call timer('osd174_91 ',0)
@@ -439,7 +437,8 @@ contains
                   endif
                   nsnr=nint(max(-21.0,xsnr))
                   xdt=ibest/666.67 - 0.5
-!write(21,'(i6.6,i5,2x,f4.1,i6,2x,a37,2x,f4.1,3i3,f5.1)') nutc,nsnr,xdt,nint(f0),message,sync,iaptype,ipass,isp,dmin
+!write(21,'(i6.6,i5,2x,f4.1,i6,2x,a37,2x,f4.1,3i3,f5.1,i4,i4)') & 
+!  nutc,nsnr,xdt,nint(f0),message,sync,iaptype,ipass,isp,dmin,nsync_qual,nharderror
                   call this%callback(sync,nsnr,xdt,f0,message,iaptype,qual)
                   exit
                endif

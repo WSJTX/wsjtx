@@ -9,7 +9,6 @@ subroutine sync4d(cd0,i0,ctwk,itwk,sync)
   complex csync2(2*NSS)
   complex ctwk(2*NSS)
   complex z1,z2,z3,z4
-  complex zz1,zz2,zz3,zz4
   logical first
   integer icos4a(0:3),icos4b(0:3),icos4c(0:3),icos4d(0:3)
   data icos4a/0,1,3,2/
@@ -19,7 +18,7 @@ subroutine sync4d(cd0,i0,ctwk,itwk,sync)
   data first/.true./
   save first,twopi,csynca,csyncb,csyncc,csyncd,fac
 
-  p(z1)=real(z1*fac)**2 + aimag(z1*fac)**2          !Statement function for power
+  p(z1)=sqrt(real(z1*fac)**2 + aimag(z1*fac)**2)          !Statement function for power
 
   if( first ) then
     twopi=8.0*atan(1.0)
@@ -60,11 +59,12 @@ subroutine sync4d(cd0,i0,ctwk,itwk,sync)
   z4=0.
 
   if(itwk.eq.1) csync2=ctwk*csynca      !Tweak the frequency
+  z1=0.
   if(i1.ge.0 .and. i1+4*NSS-1.le.NP-1) then
     z1=sum(cd0(i1:i1+4*NSS-1:2)*conjg(csync2))
   elseif( i1.lt.0 ) then
     npts=(i1+4*NSS-1)/2
-    if(npts.le.8) then
+    if(npts.le.16) then
       z1=0.
     else
       z1=sum(cd0(0:i1+4*NSS-1:2)*conjg(csync2(2*NSS-npts:)))
@@ -78,16 +78,18 @@ subroutine sync4d(cd0,i0,ctwk,itwk,sync)
   if(i3.ge.0 .and. i3+4*NSS-1.le.NP-1) z3=sum(cd0(i3:i3+4*NSS-1:2)*conjg(csync2))
 
   if(itwk.eq.1) csync2=ctwk*csyncd      !Tweak the frequency
+  z4=0.
   if(i4.ge.0 .and. i4+4*NSS-1.le.NP-1) then
     z4=sum(cd0(i4:i4+4*NSS-1:2)*conjg(csync2))
   elseif( i4+4*NSS-1.gt.NP-1 ) then
     npts=(NP-1-i4+1)/2
-    if(npts.le.8) then
+    if(npts.le.16) then
       z4=0.
     else
       z4=sum(cd0(i4:i4+2*npts-1:2)*conjg(csync2(1:npts)))
     endif
   endif
+
   sync = p(z1) + p(z2) + p(z3) + p(z4)
 
   return
