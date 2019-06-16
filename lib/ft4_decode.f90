@@ -50,7 +50,7 @@ contains
       real bitmetrics(2*NN,3)
       real dd(NMAX)
       real llr(2*ND),llra(2*ND),llrb(2*ND),llrc(2*ND),llrd(2*ND)
-      real candidate(3,100)
+      real candidate(2,100)
       real savg(NH1),sbase(NH1)
 
       integer apbits(2*ND)
@@ -194,7 +194,7 @@ contains
       dd=iwave
 
 ! ndepth=3: 3 passes, bp+osd
-! ndepth=2: 3 passes, bp only 
+! ndepth=2: 3 passes, bp only
 ! ndepth=1: 1 pass, no subtraction
 
       max_iterations=40
@@ -203,23 +203,23 @@ contains
       doosd=.true.
       nsp=3
       if(ndepth.eq.2) then
-        doosd=.false.
+         doosd=.false.
       endif
-      if(ndepth.eq.1) then 
-        nsp=1
-        dosubtract=.false.
-        doosd=.false.
+      if(ndepth.eq.1) then
+         nsp=1
+         dosubtract=.false.
+         doosd=.false.
       endif
-     
+
       do isp = 1,nsp
          if(isp.eq.2) then
-           if(ndecodes.eq.0) exit
-           nd1=ndecodes
+            if(ndecodes.eq.0) exit
+            nd1=ndecodes
          elseif(isp.eq.3) then
-           nd2=ndecodes-nd1
-           if(nd2.eq.0) exit
+            nd2=ndecodes-nd1
+            if(nd2.eq.0) exit
          endif
-         
+
          candidate=0.0
          ncand=0
          call timer('getcand4',0)
@@ -229,7 +229,7 @@ contains
          dobigfft=.true.
          do icand=1,ncand
             f0=candidate(1,icand)
-            snr=candidate(3,icand)-1.0
+            snr=candidate(2,icand)-1.0
             call timer('ft4_down',0)
             call ft4_downsample(dd,dobigfft,f0,cd2)  !Downsample to 32 Sam/Sym
             call timer('ft4_down',1)
@@ -237,101 +237,113 @@ contains
             sum2=sum(cd2*conjg(cd2))/(real(NMAX)/real(NDOWN))
             if(sum2.gt.0.0) cd2=cd2/sqrt(sum2)
 ! Sample rate is now 12000/18 = 666.67 samples/second
-            do isync=1,2
-               if(isync.eq.1) then
-                  idfmin=-12
-                  idfmax=12
-                  idfstp=3
-                  ibmin=-344
-                  ibmax=1012
-                  ibstp=4
-               else
-                  idfmin=idfbest-4
-                  idfmax=idfbest+4
-                  idfstp=1
-                  ibmin=ibest-5
-                  ibmax=ibest+5
-                  ibstp=1
-               endif
-               ibest=-1
-               smax=-99.
-               idfbest=0
-               call timer('sync4d  ',0)
-               do idf=idfmin,idfmax,idfstp
-                  do istart=ibmin,ibmax,ibstp
-                     call sync4d(cd2,istart,ctwk2(:,idf),1,sync)  !Find sync power
-                     if(sync.gt.smax) then
-                        smax=sync
-                        ibest=istart
-                        idfbest=idf
+            do iseg=1,3                ! DT search is done over 3 segments
+               do isync=1,2          
+                  if(isync.eq.1) then
+                     idfmin=-12
+                     idfmax=12
+                     idfstp=3
+                     ibmin=-344
+                     ibmax=1012
+                     if(iseg.eq.1) then
+                        ibmin=108
+                        ibmax=560
+                     elseif(iseg.eq.2) then
+                        smax1=smax
+                        ibmin=560
+                        ibmax=1012
+                     elseif(iseg.eq.3) then
+                        ibmin=-344
+                        ibmax=108
                      endif
+                     ibstp=4
+                  else
+                     idfmin=idfbest-4
+                     idfmax=idfbest+4
+                     idfstp=1
+                     ibmin=ibest-5
+                     ibmax=ibest+5
+                     ibstp=1
+                  endif
+                  ibest=-1
+                  idfbest=0
+                  smax=-99.
+                  call timer('sync4d  ',0)
+                  do idf=idfmin,idfmax,idfstp
+                     do istart=ibmin,ibmax,ibstp
+                        call sync4d(cd2,istart,ctwk2(:,idf),1,sync)  !Find sync power
+                        if(sync.gt.smax) then
+                           smax=sync
+                           ibest=istart
+                           idfbest=idf
+                        endif
+                     enddo
                   enddo
+                  call timer('sync4d  ',1)
                enddo
-               call timer('sync4d  ',1)
-            enddo
-            if(smax.lt.0.7) cycle
-            f0=f0+real(idfbest)
-            if( f0.le.10.0 .or. f0.ge.4990.0 ) cycle
-            call timer('ft4down ',0)
-            call ft4_downsample(dd,dobigfft,f0,cb) !Final downsample, corrected f0
-            call timer('ft4down ',1)
-            sum2=sum(abs(cb)**2)/(real(NSS)*NN)
-            if(sum2.gt.0.0) cb=cb/sqrt(sum2)
-            cd=0.
-            if(ibest.ge.0) then
-               it=min(NDMAX-1,ibest+NN*NSS-1)
-               np=it-ibest+1
-               cd(0:np-1)=cb(ibest:it)
-            else
-               cd(-ibest:ibest+NN*NSS-1)=cb(0:NN*NSS+2*ibest-1)
-            endif 
-
-            call timer('bitmet  ',0)
-            call get_ft4_bitmetrics(cd,bitmetrics,badsync)
-            call timer('bitmet  ',1)
-            if(badsync) cycle
-
-            hbits=0
-            where(bitmetrics(:,1).ge.0) hbits=1
-            ns1=count(hbits(  1:  8).eq.(/0,0,0,1,1,0,1,1/))
-            ns2=count(hbits( 67: 74).eq.(/0,1,0,0,1,1,1,0/))
-            ns3=count(hbits(133:140).eq.(/1,1,1,0,0,1,0,0/))
-            ns4=count(hbits(199:206).eq.(/1,0,1,1,0,0,0,1/))
-            nsync_qual=ns1+ns2+ns3+ns4
-            if(nsync_qual.lt. 20) cycle
-
-            scalefac=2.83
-            llra(  1: 58)=bitmetrics(  9: 66, 1)
-            llra( 59:116)=bitmetrics( 75:132, 1)
-            llra(117:174)=bitmetrics(141:198, 1)
-            llra=scalefac*llra
-            llrb(  1: 58)=bitmetrics(  9: 66, 2)
-            llrb( 59:116)=bitmetrics( 75:132, 2)
-            llrb(117:174)=bitmetrics(141:198, 2)
-            llrb=scalefac*llrb
-            llrc(  1: 58)=bitmetrics(  9: 66, 3)
-            llrc( 59:116)=bitmetrics( 75:132, 3)
-            llrc(117:174)=bitmetrics(141:198, 3)
-            llrc=scalefac*llrc
-
-            apmag=maxval(abs(llra))*1.1
-            npasses=3+nappasses(nQSOProgress)
-            if(lapcqonly) npasses=4
-            if(ndepth.eq.1) npasses=3  
-            if(ncontest.ge.5) npasses=3  ! Don't support Fox and Hound
-            do ipass=1,npasses
-               if(ipass.eq.1) llr=llra
-               if(ipass.eq.2) llr=llrb
-               if(ipass.eq.3) llr=llrc
-               if(ipass.le.3) then
-                  apmask=0
-                  iaptype=0
+               if(iseg.eq.1) smax1=smax
+               if(smax.lt.0.7) cycle
+               if(iseg.gt.1 .and. smax.lt.smax1) cycle 
+               f1=f0+real(idfbest)
+               if( f1.le.10.0 .or. f1.ge.4990.0 ) cycle
+               call timer('ft4down ',0)
+               call ft4_downsample(dd,dobigfft,f1,cb) !Final downsample, corrected f0
+               call timer('ft4down ',1)
+               sum2=sum(abs(cb)**2)/(real(NSS)*NN)
+               if(sum2.gt.0.0) cb=cb/sqrt(sum2)
+               cd=0.
+               if(ibest.ge.0) then
+                  it=min(NDMAX-1,ibest+NN*NSS-1)
+                  np=it-ibest+1
+                  cd(0:np-1)=cb(ibest:it)
+               else
+                  cd(-ibest:ibest+NN*NSS-1)=cb(0:NN*NSS+2*ibest-1)
                endif
+               call timer('bitmet  ',0)
+               call get_ft4_bitmetrics(cd,bitmetrics,badsync)
+               call timer('bitmet  ',1)
+               if(badsync) cycle
+               hbits=0
+               where(bitmetrics(:,1).ge.0) hbits=1
+               ns1=count(hbits(  1:  8).eq.(/0,0,0,1,1,0,1,1/))
+               ns2=count(hbits( 67: 74).eq.(/0,1,0,0,1,1,1,0/))
+               ns3=count(hbits(133:140).eq.(/1,1,1,0,0,1,0,0/))
+               ns4=count(hbits(199:206).eq.(/1,0,1,1,0,0,0,1/))
+               nsync_qual=ns1+ns2+ns3+ns4
+               if(nsync_qual.lt. 20) cycle
 
-               if(ipass .gt. 3) then
-                  llrd=llra
-                  iaptype=naptypes(nQSOProgress,ipass-3)
-                  if(lapcqonly) iaptype=1
+               scalefac=2.83
+               llra(  1: 58)=bitmetrics(  9: 66, 1)
+               llra( 59:116)=bitmetrics( 75:132, 1)
+               llra(117:174)=bitmetrics(141:198, 1)
+               llra=scalefac*llra
+               llrb(  1: 58)=bitmetrics(  9: 66, 2)
+               llrb( 59:116)=bitmetrics( 75:132, 2)
+               llrb(117:174)=bitmetrics(141:198, 2)
+               llrb=scalefac*llrb
+               llrc(  1: 58)=bitmetrics(  9: 66, 3)
+               llrc( 59:116)=bitmetrics( 75:132, 3)
+               llrc(117:174)=bitmetrics(141:198, 3)
+               llrc=scalefac*llrc
+
+               apmag=maxval(abs(llra))*1.1
+               npasses=3+nappasses(nQSOProgress)
+               if(lapcqonly) npasses=4
+               if(ndepth.eq.1) npasses=3
+               if(ncontest.ge.5) npasses=3  ! Don't support Fox and Hound
+               do ipass=1,npasses
+                  if(ipass.eq.1) llr=llra
+                  if(ipass.eq.2) llr=llrb
+                  if(ipass.eq.3) llr=llrc
+                  if(ipass.le.3) then
+                     apmask=0
+                     iaptype=0
+                  endif
+
+                  if(ipass .gt. 3) then
+                     llrd=llra
+                     iaptype=naptypes(nQSOProgress,ipass-3)
+                     if(lapcqonly) iaptype=1
 
 ! ncontest=0 : NONE
 !          1 : NA_VHF
@@ -342,108 +354,111 @@ contains
 !          6 : HOUND
 !
 ! Conditions that cause us to bail out of AP decoding
-                  napwid=50
-                  if(ncontest.le.4 .and. iaptype.ge.3 .and. (abs(f0-nfqso).gt.napwid) ) cycle
-                  if(iaptype.ge.2 .and. apbits(1).gt.1) cycle  ! No, or nonstandard, mycall
-                  if(iaptype.ge.3 .and. apbits(30).gt.1) cycle ! No, or nonstandard, dxcall
+                     napwid=50
+                     if(ncontest.le.4 .and. iaptype.ge.3 .and. (abs(f1-nfqso).gt.napwid) ) cycle
+                     if(iaptype.ge.2 .and. apbits(1).gt.1) cycle  ! No, or nonstandard, mycall
+                     if(iaptype.ge.3 .and. apbits(30).gt.1) cycle ! No, or nonstandard, dxcall
 
-                  if(iaptype.eq.1) then  ! CQ or CQ TEST or CQ FD or CQ RU or CQ SCC
-                     apmask=0
-                     apmask(1:29)=1
-                     llrd(1:29)=apmag*mcq(1:29)
-                  endif
-
-                  if(iaptype.eq.2) then ! MyCall,???,???
-                     apmask=0
-                     if(ncontest.eq.0.or.ncontest.eq.1) then
+                     if(iaptype.eq.1) then  ! CQ or CQ TEST or CQ FD or CQ RU or CQ SCC
+                        apmask=0
                         apmask(1:29)=1
-                        llrd(1:29)=apmag*apbits(1:29)
-                     else if(ncontest.eq.2) then
-                        apmask(1:28)=1
-                        llrd(1:28)=apmag*apbits(1:28)
-                     else if(ncontest.eq.3) then
-                        apmask(1:28)=1
-                        llrd(1:28)=apmag*apbits(1:28)
-                     else if(ncontest.eq.4) then
-                        apmask(2:29)=1
-                        llrd(2:29)=apmag*apmy_ru(1:28)
+                        llrd(1:29)=apmag*mcq(1:29)
                      endif
-                  endif
 
-                  if(iaptype.eq.3) then ! MyCall,DxCall,???
-                     apmask=0
-                     if(ncontest.eq.0.or.ncontest.eq.1.or.ncontest.eq.2) then
-                        apmask(1:58)=1
-                        llrd(1:58)=apmag*apbits(1:58)
-                     else if(ncontest.eq.3) then ! Field Day
-                        apmask(1:56)=1
-                        llrd(1:28)=apmag*apbits(1:28)
-                        llrd(29:56)=apmag*aphis_fd(1:28)
-                     else if(ncontest.eq.4) then ! RTTY RU
-                        apmask(2:57)=1
-                        llrd(2:29)=apmag*apmy_ru(1:28)
-                        llrd(30:57)=apmag*apbits(30:57)
+                     if(iaptype.eq.2) then ! MyCall,???,???
+                        apmask=0
+                        if(ncontest.eq.0.or.ncontest.eq.1) then
+                           apmask(1:29)=1
+                           llrd(1:29)=apmag*apbits(1:29)
+                        else if(ncontest.eq.2) then
+                           apmask(1:28)=1
+                           llrd(1:28)=apmag*apbits(1:28)
+                        else if(ncontest.eq.3) then
+                           apmask(1:28)=1
+                           llrd(1:28)=apmag*apbits(1:28)
+                        else if(ncontest.eq.4) then
+                           apmask(2:29)=1
+                           llrd(2:29)=apmag*apmy_ru(1:28)
+                        endif
                      endif
-                  endif
 
-                  if(iaptype.eq.4 .or. iaptype.eq.5 .or. iaptype.eq.6) then
-                     apmask=0
-                     if(ncontest.le.4) then
-                        apmask(1:91)=1   ! mycall, hiscall, RRR|73|RR73
-                        if(iaptype.eq.6) llrd(1:91)=apmag*apbits(1:91)
+                     if(iaptype.eq.3) then ! MyCall,DxCall,???
+                        apmask=0
+                        if(ncontest.eq.0.or.ncontest.eq.1.or.ncontest.eq.2) then
+                           apmask(1:58)=1
+                           llrd(1:58)=apmag*apbits(1:58)
+                        else if(ncontest.eq.3) then ! Field Day
+                           apmask(1:56)=1
+                           llrd(1:28)=apmag*apbits(1:28)
+                           llrd(29:56)=apmag*aphis_fd(1:28)
+                        else if(ncontest.eq.4) then ! RTTY RU
+                           apmask(2:57)=1
+                           llrd(2:29)=apmag*apmy_ru(1:28)
+                           llrd(30:57)=apmag*apbits(30:57)
+                        endif
                      endif
+
+                     if(iaptype.eq.4 .or. iaptype.eq.5 .or. iaptype.eq.6) then
+                        apmask=0
+                        if(ncontest.le.4) then
+                           apmask(1:91)=1   ! mycall, hiscall, RRR|73|RR73
+                           if(iaptype.eq.6) llrd(1:91)=apmag*apbits(1:91)
+                        endif
+                     endif
+
+                     llr=llrd
+                  endif
+                  message77=0
+                  dmin=0.0
+                  call timer('bpdec174',0)
+                  call bpdecode174_91(llr,apmask,max_iterations,message77,     &
+                     cw,nharderror,niterations)
+                  call timer('bpdec174',1)
+
+                  if(doosd .and. nharderror.lt.0) then
+                     ndeep=3
+!                  if(abs(nfqso-f1).le.napwid) then
+!                     ndeep=4
+!                  endif
+                     call timer('osd174_91 ',0)
+                     call osd174_91(llr,apmask,ndeep,message77,cw,nharderror,dmin)
+                     call timer('osd174_91 ',1)
                   endif
 
-                  llr=llrd
-               endif
-               message77=0
-               dmin=0.0
-               call timer('bpdec174',0)
-               call bpdecode174_91(llr,apmask,max_iterations,message77,     &
-                  cw,nharderror,niterations)
-               call timer('bpdec174',1)
-
-               if(doosd .and. nharderror.lt.0) then
-                  ndeep=3
-                  if(abs(nfqso-f1).le.napwid) then
-                     ndeep=4
+                  if(sum(message77).eq.0) cycle
+                  if( nharderror.ge.0 ) then
+                     message77=mod(message77+rvec,2) ! remove rvec scrambling
+                     write(c77,'(77i1)') message77(1:77)
+                     call unpack77(c77,1,message,unpk77_success)
+                     if(unpk77_success.and.dosubtract) then
+                        call get_ft4_tones_from_77bits(message77,i4tone)
+                        dt=real(ibest)/666.67
+                        call timer('subtract',0)
+                        call subtractft4(dd,i4tone,f1,dt)
+                        call timer('subtract',1)
+                     endif
+                     idupe=0
+                     do i=1,ndecodes
+                        if(decodes(i).eq.message) idupe=1
+                     enddo
+                     if(idupe.eq.1) exit
+                     ndecodes=ndecodes+1
+                     decodes(ndecodes)=message
+                     if(snr.gt.0.0) then
+                        xsnr=10*log10(snr)-14.8
+                     else
+                        xsnr=-21.0
+                     endif
+                     nsnr=nint(max(-21.0,xsnr))
+                     xdt=ibest/666.67 - 0.5
+!write(21,'(i6.6,i5,2x,f4.1,i6,2x,a37,2x,f4.1,3i3,f5.1,i4,i4,i4)') &
+!  nutc,nsnr,xdt,nint(f1),message,smax,iaptype,ipass,isp,dmin,nsync_qual,nharderror,iseg
+                     call this%callback(smax,nsnr,xdt,f1,message,iaptype,qual)
+                     exit
                   endif
-                  call timer('osd174_91 ',0)
-                  call osd174_91(llr,apmask,ndeep,message77,cw,nharderror,dmin)
-                  call timer('osd174_91 ',1)
-               endif
-
-               if(sum(message77).eq.0) cycle
-               if( nharderror.ge.0 ) then
-                  message77=mod(message77+rvec,2) ! remove rvec scrambling
-                  write(c77,'(77i1)') message77(1:77)
-                  call unpack77(c77,1,message,unpk77_success)
-                  if(unpk77_success.and.dosubtract) then
-                     call get_ft4_tones_from_77bits(message77,i4tone)
-                     dt=real(ibest)/666.67
-                     call timer('subtract',0)
-                     call subtractft4(dd,i4tone,f0,dt)
-                     call timer('subtract',1)
-                  endif
-                  idupe=0
-                  do i=1,ndecodes
-                     if(decodes(i).eq.message) idupe=1
-                  enddo
-                  if(idupe.eq.1) exit
-                  ndecodes=ndecodes+1
-                  decodes(ndecodes)=message
-                  if(snr.gt.0.0) then
-                     xsnr=10*log10(snr)-14.8
-                  else
-                     xsnr=-21.0
-                  endif
-                  nsnr=nint(max(-21.0,xsnr))
-                  xdt=ibest/666.67 - 0.5
-!write(21,'(i6.6,i5,2x,f4.1,i6,2x,a37,2x,f4.1,3i3,f5.1)') nutc,nsnr,xdt,nint(f0),message,sync,iaptype,ipass,isp,dmin
-                  call this%callback(sync,nsnr,xdt,f0,message,iaptype,qual)
-                  exit
-               endif
-            enddo !Sequence estimation
+               enddo !Sequence estimation
+               if(nharderror.ge.0) exit
+            enddo !3 DT segments
          enddo    !Candidate list
       enddo       !Subtraction loop
       return

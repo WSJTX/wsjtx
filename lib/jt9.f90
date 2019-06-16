@@ -179,7 +179,6 @@ program jt9
      go to 999
   endif
 
-  if(mode.eq.5) ndepth=3
   allocate(shared_data)
   nflatten=0
 

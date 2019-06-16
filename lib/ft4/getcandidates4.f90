@@ -8,7 +8,7 @@ subroutine getcandidates4(dd,fa,fb,syncmin,nfqso,maxcand,savg,candidate,   &
   real x(NFFT1)
   real window(NFFT1)
   complex cx(0:NH1)
-  real candidate(3,maxcand)
+  real candidate(2,maxcand)
   real dd(NMAX)
   integer ipk(1)
   equivalence (x,cx)
@@ -64,8 +64,7 @@ subroutine getcandidates4(dd,fa,fb,syncmin,nfqso,maxcand,savg,candidate,   &
         speak=savsm(i) - 0.25*(savsm(i-1)-savsm(i+1))*del
         ncand=ncand+1
         candidate(1,ncand)=fpeak
-        candidate(2,ncand)=-99.99
-        candidate(3,ncand)=speak
+        candidate(2,ncand)=speak
         if(ncand.eq.maxcand) exit
      endif
   enddo
