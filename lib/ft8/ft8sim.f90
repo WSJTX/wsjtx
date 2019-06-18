@@ -91,7 +91,7 @@ program ft8sim
   msg0=msg
   do ifile=1,nfiles
      k=nint((xdt+0.5)/dt)
-     ia=k
+     ia=max(1,k)
      phi=0.0 
      c0=0.0
      do j=1,NN                             !Generate complex waveform
@@ -105,7 +105,7 @@ program ft8sim
      if(fspread.ne.0.0 .or. delay.ne.0.0) call watterson(c0,NMAX,NWAVE,fs,delay,fspread)
      c=sig*c0
   
-     ib=k
+     ib=min(k,NMAX)
      wave=real(c)
      peak=maxval(abs(wave(ia:ib)))
      nslots=1

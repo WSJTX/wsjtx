@@ -14,7 +14,8 @@ frequency limit is approximately 4000 Hz.
 - Select *File | Open* and navigate to
 +...\save\samples\FT4\000000_000002.wav+.  The waterfall and Band
 Activity window should look something like the following screen shots.
-Most of the decoded messages use the *RTTY Roundup* message formats.
+This sample file was recorded during a practice contest test session, so
+most of the decoded messages use the *RTTY Roundup* message formats.
 
 [[X15]]
 image::ft4_waterfall.png[align="left",alt="Wide Graph Decode FT4"]

@@ -34,8 +34,10 @@ are possible (by EME and other propagation types) at signal levels 10
 to 15 dB below those required for CW.
 
 Note that even though their T/R sequences are short, FT4 and FT8 are
-classified as slow modes because their message frames are sent
-only once per transmission.
+classified as slow modes because their message frames are sent only
+once per transmission.  All fast modes in _WSJT-X_ send their message
+frames repeatedly, as many times as will fit into the Tx sequence
+length.
 
 *ISCAT*, *MSK144*, and optionally submodes *JT9E-H* are "`fast`"
 protocols designed to take advantage of brief signal enhancements from

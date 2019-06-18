@@ -13,9 +13,10 @@ aim is to compress the most common messages used for minimally valid
 QSOs into a fixed 72-bit length.
 
 The information payload for FT4, FT8, and MSK144 contains 77 bits.
-The 5 additional bits are used to flag special message types used for
-FT8 DXpedition Mode, contesting, nonstandard callsigns, and a few
-other special types.
+The 5 new bits added to the original 72 are used to flag special
+message types signifying special message types used for FT8 DXpedition
+Mode, contesting, nonstandard callsigns, and a few other
+possibilities.
 
 A standard amateur callsign consists of a one- or two-character
 prefix, at least one of which must be a letter, followed by a digit
@@ -76,7 +77,7 @@ Forward error correction (FEC) in FT4 uses a low-density parity check
 called an LDPC (174,91) code.  Synchronization uses four 4×4 Costas
 arrays, and ramp-up and ramp-down symbols are inserted at the start
 and end of each transmission.  Modulation is 4-tone frequency-shift
-keying with Gaussian smoothing of frequency transitions (4-GFSK).  The
+keying (4-GFSK) with Gaussian smoothing of frequency transitions.  The
 keying rate is 12000/576 = 20.8333 baud.  Each transmitted symbol
 conveys two bits, so the total number of channel symbols is 174/2 + 16
 + 2 = 105.  The total bandwidth is 4 × 20.8333 = 83.3 Hz.

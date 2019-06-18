@@ -1,17 +1,11 @@
 === New in Version {VERSION}
 
-For quick reference, here's a short list of features and capabilities
-added to _WSJT-X_ since Version 2.0.1:
-
-- New FT4 protocol, designed especially for radio contesting
-
-* T/R sequence length 7.5 s
-
-* Bandwidth 80 Hz
-
-* Threshold sensitivity -17.5 dB
-
-- Improvements to accessibility
+The most important feature added to _WSJT-X_ since Version 2.0.1 is
+the new *FT4 protocol*, designed especially for radio contesting.  It
+has T/R sequence length 7.5 s, bandwidth 80 Hz, and threshold
+sensitivity -17.5 dB.  Version 2.1.0 also has improvements to FT8
+waveform generation, contest logging, rig control, the user interface,
+and accessibility, as well as a number of bug fixes.
 
 === Documentation Conventions
 
