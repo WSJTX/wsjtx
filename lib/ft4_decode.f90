@@ -401,8 +401,8 @@ contains
                      if(iaptype.eq.4 .or. iaptype.eq.5 .or. iaptype.eq.6) then
                         apmask=0
                         if(ncontest.le.4) then
-                           apmask(1:91)=1   ! mycall, hiscall, RRR|73|RR73
-                           if(iaptype.eq.6) llrd(1:91)=apmag*apbits(1:91)
+                           apmask(1:77)=1   ! mycall, hiscall, RRR|73|RR73
+                           if(iaptype.eq.6) llrd(1:77)=apmag*apbits(1:77)
                         endif
                      endif
 
