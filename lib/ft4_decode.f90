@@ -282,7 +282,7 @@ contains
                   call timer('sync4d  ',1)
                enddo
                if(iseg.eq.1) smax1=smax
-               if(smax.lt.0.7) cycle
+               if(smax.lt.1.2) cycle
                if(iseg.gt.1 .and. smax.lt.smax1) cycle 
                f1=f0+real(idfbest)
                if( f1.le.10.0 .or. f1.ge.4990.0 ) cycle
@@ -401,8 +401,8 @@ contains
                      if(iaptype.eq.4 .or. iaptype.eq.5 .or. iaptype.eq.6) then
                         apmask=0
                         if(ncontest.le.4) then
-                           apmask(1:91)=1   ! mycall, hiscall, RRR|73|RR73
-                           if(iaptype.eq.6) llrd(1:91)=apmag*apbits(1:91)
+                           apmask(1:77)=1   ! mycall, hiscall, RRR|73|RR73
+                           if(iaptype.eq.6) llrd(1:77)=apmag*apbits(1:77)
                         endif
                      endif
 
