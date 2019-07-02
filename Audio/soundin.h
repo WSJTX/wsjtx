@@ -9,7 +9,7 @@
 #include <QPointer>
 #include <QAudioInput>
 
-#include "AudioDevice.hpp"
+#include "Audio/AudioDevice.hpp"
 
 class QAudioDeviceInfo;
 class QAudioInput;

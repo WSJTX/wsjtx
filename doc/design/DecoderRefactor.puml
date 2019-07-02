@@ -8,6 +8,9 @@ interface IDecoder
 interface IEncoder
 interface IDecode
 
+IDecoder <-- IProtocol
+IEncoder <-- IProtocol
+
 class FT8
 IProtocol <|-- FT8
 

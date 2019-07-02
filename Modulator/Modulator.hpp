@@ -4,7 +4,7 @@
 #include <QAudio>
 #include <QPointer>
 
-#include "AudioDevice.hpp"
+#include "Audio/AudioDevice.hpp"
 
 class SoundOutput;
 

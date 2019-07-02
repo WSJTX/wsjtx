@@ -16,7 +16,7 @@
 #include <QDebug>
 
 #include "Configuration.hpp"
-#include "LotWUsers.hpp"
+#include "Network/LotWUsers.hpp"
 #include "models/DecodeHighlightingModel.hpp"
 #include "logbook/logbook.h"
 

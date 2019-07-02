@@ -183,7 +183,7 @@
 #include "widgets/MessageBox.hpp"
 #include "validators/MaidenheadLocatorValidator.hpp"
 #include "validators/CallsignValidator.hpp"
-#include "LotWUsers.hpp"
+#include "Network/LotWUsers.hpp"
 #include "models/DecodeHighlightingModel.hpp"
 #include "logbook/logbook.h"
 

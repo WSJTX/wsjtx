@@ -243,7 +243,7 @@ set (wsjt_qt_CXXSRCS
   validators/LiveFrequencyValidator.cpp
   GetUserId.cpp
   TraceFile.cpp
-  AudioDevice.cpp
+  Audio/AudioDevice.cpp
   Transceiver/Transceiver.cpp
   Transceiver/TransceiverBase.cpp
   Transceiver/EmulateSplitTransceiver.cpp
@@ -271,7 +271,7 @@ set (wsjt_qt_CXXSRCS
   Transceiver/EqualizationToolsDialog.cpp
   widgets/DoubleClickablePushButton.cpp
   widgets/DoubleClickableRadioButton.cpp
-  LotWUsers.cpp
+  Network/LotWUsers.cpp
   models/DecodeHighlightingModel.cpp
   widgets/DecodeHighlightingListView.cpp
   models/FoxLog.cpp
@@ -304,14 +304,14 @@ set (jt9_CXXSRCS
 set (wsjtx_CXXSRCS
   logbook/logbook.cpp
   Network/psk_reporter.cpp
-  Modulator.cpp
+  Modulator/Modulator.cpp
   Detector/Detector.cpp
   widgets/logqso.cpp
   widgets/displaytext.cpp
-  decodedtext.cpp
+  Decoder/decodedtext.cpp
   getfile.cpp
-  soundout.cpp
-  soundin.cpp
+  Audio/soundout.cpp
+  Audio/soundin.cpp
   widgets/meterwidget.cpp
   widgets/signalmeter.cpp
   widgets/plotter.cpp
@@ -324,12 +324,12 @@ set (wsjtx_CXXSRCS
   widgets/astro.cpp
   widgets/messageaveraging.cpp
   widgets/colorhighlighting.cpp
-  WsprTxScheduler.cpp
+  WSPR/WsprTxScheduler.cpp
   widgets/mainwindow.cpp
   Configuration.cpp
   main.cpp
-  wsprnet.cpp
-  WSPRBandHopping.cpp
+  Network/wsprnet.cpp
+  WSPR/WSPRBandHopping.cpp
   widgets/ExportCabrillo.cpp
   )
 

@@ -1,6 +1,6 @@
 #ifndef DETECTOR_HPP__
 #define DETECTOR_HPP__
-#include "AudioDevice.hpp"
+#include "Audio/AudioDevice.hpp"
 #include <QScopedArrayPointer>
 
 //

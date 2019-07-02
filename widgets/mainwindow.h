@@ -22,13 +22,13 @@
 #include <QFuture>
 #include <QFutureWatcher>
 
-#include "AudioDevice.hpp"
+#include "Audio/AudioDevice.hpp"
 #include "commons.h"
 #include "Radio.hpp"
 #include "models/Modes.hpp"
 #include "models/FrequencyList.hpp"
 #include "Configuration.hpp"
-#include "WSPRBandHopping.hpp"
+#include "WSPR/WSPRBandHopping.hpp"
 #include "Transceiver/Transceiver.hpp"
 #include "DisplayManual.hpp"
 #include "Network/psk_reporter.h"

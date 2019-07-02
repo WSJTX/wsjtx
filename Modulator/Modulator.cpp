@@ -4,7 +4,7 @@
 #include <QDateTime>
 #include <QDebug>
 #include "widgets/mainwindow.h" // TODO: G4WJS - break this dependency
-#include "soundout.h"
+#include "Audio/soundout.h"
 #include "commons.h"
 
 #include "moc_Modulator.cpp"
