@@ -1021,7 +1021,7 @@ QString HRDTransceiver::send_command (QString const& cmd, bool no_debug, bool pr
   if (!recurse && prepend_context)
     {
       auto radio_name = send_command ("get radio", true, current_radio_, true);
-      auto radio_iter = std::find_if (radios_.begin (), radios_.end (), [this, &radio_name] (RadioMap::value_type const& radio)
+      auto radio_iter = std::find_if (radios_.begin (), radios_.end (), [&radio_name] (RadioMap::value_type const& radio)
                                       {
                                         return std::get<1> (radio) == radio_name;
                                       });
