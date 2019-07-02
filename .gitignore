@@ -8,3 +8,5 @@ jnq*
 *.o
 *.mod
 *.pro.user
+cmake-build-debug
+cmake-build-release
