@@ -38,7 +38,7 @@ namespace
         {
           auto end = reinterpret_cast<char const *> (::memchr (id, '\0', 4u));
           auto len = end ? end - id : 4u;
-          memcpy (id_.data (), id, len);
+          ::memcpy (id_.data (), id, len);
           if (len < 4u)
             {
               memset (id_.data () + len, ' ', 4u - len);
@@ -46,7 +46,7 @@ namespace
         }
       else
         {
-          memcpy (id_.data (), "JUNK", 4u);
+          ::memcpy (id_.data (), "JUNK", 4u);
         }
     }
 
@@ -86,12 +86,12 @@ namespace
     {
       // set some sensible defaults for the "bext" fields
       auto now = QDateTime::currentDateTimeUtc ();
-      std::strncpy (origination_date_,
-                    now.date ().toString ("yyyy-MM-dd").toLocal8Bit ().constData (),
-                    sizeof origination_date_);
-      std::strncpy (origination_time_,
-                    now.time ().toString ("hh-mm-ss").toLocal8Bit ().constData (),
-                    sizeof origination_time_);
+      ::memcpy (origination_date_,
+                now.date ().toString ("yyyy-MM-dd").toLocal8Bit ().constData (),
+                sizeof origination_date_);
+      ::memcpy (origination_time_,
+                now.time ().toString ("hh-mm-ss").toLocal8Bit ().constData (),
+                sizeof origination_time_);
       auto uuid = QUuid::createUuid ().toRfc4122 ();
       std::copy (uuid.cbegin (), uuid.cend (), umid_.data () + 16);
     }
@@ -686,7 +686,7 @@ QByteArray BWFFile::bext_description () const
 void BWFFile::bext_description (QByteArray const& description)
 {
   m_->header_dirty_ = true;
-  std::strncpy (m_->bext ()->description_, description.constData (), sizeof (BroadcastAudioExtension::description_));
+  ::memcpy (m_->bext ()->description_, description.constData (), sizeof BroadcastAudioExtension::description_);
 }
 
 QByteArray BWFFile::bext_originator () const
@@ -698,7 +698,7 @@ QByteArray BWFFile::bext_originator () const
 void BWFFile::bext_originator (QByteArray const& originator)
 {
   m_->header_dirty_ = true;
-  std::strncpy (m_->bext ()->originator_, originator.constData (), sizeof (BroadcastAudioExtension::originator_));
+  ::memcpy (m_->bext ()->originator_, originator.constData (), sizeof BroadcastAudioExtension::originator_);
 }
 
 QByteArray BWFFile::bext_originator_reference () const
@@ -710,7 +710,7 @@ QByteArray BWFFile::bext_originator_reference () const
 void BWFFile::bext_originator_reference (QByteArray const& reference)
 {
   m_->header_dirty_ = true;
-  std::strncpy (m_->bext ()->originator_reference_, reference.constData (), sizeof (BroadcastAudioExtension::originator_reference_));
+  ::memcpy (m_->bext ()->originator_reference_, reference.constData (), sizeof BroadcastAudioExtension::originator_reference_);
 }
 
 QDateTime BWFFile::bext_origination_date_time () const
@@ -723,12 +723,12 @@ QDateTime BWFFile::bext_origination_date_time () const
 void BWFFile::bext_origination_date_time (QDateTime const& dt)
 {
   m_->header_dirty_ = true;
-  std::strncpy (m_->bext ()->origination_date_,
-                dt.date ().toString ("yyyy-MM-dd").toLocal8Bit ().constData (),
-                sizeof (BroadcastAudioExtension::origination_date_));
-  std::strncpy (m_->bext ()->origination_time_,
-                dt.time ().toString ("hh-mm-ss").toLocal8Bit ().constData (),
-                sizeof (BroadcastAudioExtension::origination_time_));
+  ::memcpy (m_->bext ()->origination_date_,
+            dt.date ().toString ("yyyy-MM-dd").toLocal8Bit ().constData (),
+            sizeof BroadcastAudioExtension::origination_date_);
+  ::memcpy (m_->bext ()->origination_time_,
+            dt.time ().toString ("hh-mm-ss").toLocal8Bit ().constData (),
+            sizeof BroadcastAudioExtension::origination_time_);
 }
 
 quint64 BWFFile::bext_time_reference () const
