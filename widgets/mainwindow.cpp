@@ -8135,6 +8135,7 @@ QString MainWindow::sortHoundCalls(QString t, int isort, int max_dB)
         if(isort==4) i=4;                              // sort Hound calls by distance
         t1=map[a].split(" ",QString::SkipEmptyParts).at(i);
         n=1000*(t1.toInt()+100) + j;                   // pack (snr or dist) and index j into n
+        list.insert(j,n);                              // add n to list at [j]
       }
 
       if(isort==2) {                                   // sort Hound calls by grid
@@ -8144,9 +8145,9 @@ QString MainWindow::sortHoundCalls(QString t, int isort, int max_dB)
         int i2=ABC.indexOf(t1.mid(1,1));
         n=100*(26*i1+i2)+t1.mid(2,2).toInt();
         n=1000*n + j;                                 // pack ngrid and index j into n
+        list.insert(j,n);                             // add n to list at [j]
       }
 
-      list.insert(j,n);                               // add n to list at [j]
       lines2.insert(j,map[a]);                        // add map[a] to lines2 at [j]
       j++;
     }
