@@ -327,7 +327,6 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
   float pixperdiv;
 
   double df = m_binsPerPixel*m_fftBinWidth;
-  QRect rect;
   QPen penOrange(QColor(255,165,0),3);
   QPen penGreen(Qt::green, 3);                 //Mark Tol range with green line
   QPen penRed(Qt::red, 3);                     //Mark Tx freq with red

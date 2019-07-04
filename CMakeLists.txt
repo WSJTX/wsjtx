@@ -226,7 +226,7 @@ set (wsjt_qt_CXXSRCS
   qt_helpers.cpp
   widgets/MessageBox.cpp
   MetaDataRegistry.cpp
-  NetworkServerLookup.cpp
+  Network/NetworkServerLookup.cpp
   revision_utils.cpp
   WFPalette.cpp
   Radio.cpp
@@ -243,17 +243,17 @@ set (wsjt_qt_CXXSRCS
   validators/LiveFrequencyValidator.cpp
   GetUserId.cpp
   TraceFile.cpp
-  AudioDevice.cpp
-  Transceiver.cpp
-  TransceiverBase.cpp
-  EmulateSplitTransceiver.cpp
-  TransceiverFactory.cpp
-  PollingTransceiver.cpp
-  HamlibTransceiver.cpp
-  HRDTransceiver.cpp
-  DXLabSuiteCommanderTransceiver.cpp
-  NetworkMessage.cpp
-  MessageClient.cpp
+  Audio/AudioDevice.cpp
+  Transceiver/Transceiver.cpp
+  Transceiver/TransceiverBase.cpp
+  Transceiver/EmulateSplitTransceiver.cpp
+  Transceiver/TransceiverFactory.cpp
+  Transceiver/PollingTransceiver.cpp
+  Transceiver/HamlibTransceiver.cpp
+  Transceiver/HRDTransceiver.cpp
+  Transceiver/DXLabSuiteCommanderTransceiver.cpp
+  Network/NetworkMessage.cpp
+  Network/MessageClient.cpp
   widgets/LettersSpinBox.cpp
   widgets/HintedSpinBox.cpp
   widgets/RestrictedSpinBox.cpp
@@ -271,7 +271,7 @@ set (wsjt_qt_CXXSRCS
   EqualizationToolsDialog.cpp
   widgets/DoubleClickablePushButton.cpp
   widgets/DoubleClickableRadioButton.cpp
-  LotWUsers.cpp
+  Network/LotWUsers.cpp
   models/DecodeHighlightingModel.cpp
   widgets/DecodeHighlightingListView.cpp
   models/FoxLog.cpp
@@ -303,15 +303,15 @@ set (jt9_CXXSRCS
 
 set (wsjtx_CXXSRCS
   logbook/logbook.cpp
-  psk_reporter.cpp
-  Modulator.cpp
-  Detector.cpp
+  Network/psk_reporter.cpp
+  Modulator/Modulator.cpp
+  Detector/Detector.cpp
   widgets/logqso.cpp
   widgets/displaytext.cpp
-  decodedtext.cpp
+  Decoder/decodedtext.cpp
   getfile.cpp
-  soundout.cpp
-  soundin.cpp
+  Audio/soundout.cpp
+  Audio/soundin.cpp
   widgets/meterwidget.cpp
   widgets/signalmeter.cpp
   widgets/plotter.cpp
@@ -324,12 +324,12 @@ set (wsjtx_CXXSRCS
   widgets/astro.cpp
   widgets/messageaveraging.cpp
   widgets/colorhighlighting.cpp
-  WsprTxScheduler.cpp
+  WSPR/WsprTxScheduler.cpp
   widgets/mainwindow.cpp
   Configuration.cpp
   main.cpp
-  wsprnet.cpp
-  WSPRBandHopping.cpp
+  Network/wsprnet.cpp
+  WSPR/WSPRBandHopping.cpp
   widgets/ExportCabrillo.cpp
   )
 
@@ -353,7 +353,7 @@ if (WIN32)
 
   set (wsjt_qt_CXXSRCS
     ${wsjt_qt_CXXSRCS}
-    OmniRigTransceiver.cpp
+    Transceiver/OmniRigTransceiver.cpp
     )
 endif (WIN32)
 
@@ -682,13 +682,13 @@ set (wsjtx_UISRCS
 set (UDP_library_CXXSRCS
   Radio.cpp
   RadioMetaType.cpp
-  NetworkMessage.cpp
-  MessageServer.cpp
+  Network/NetworkMessage.cpp
+  UDPExamples/MessageServer.cpp
   )
 
 set (UDP_library_HEADERS
   Radio.hpp
-  MessageServer.hpp
+  UDPExamples/MessageServer.hpp
   ${PROJECT_BINARY_DIR}/udp_export.h
   )
 
@@ -919,7 +919,7 @@ set (CMAKE_VISIBILITY_INLINES_HIDDEN ON)
 #
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra")
 
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -fexceptions -frtti")
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror -Wall -Wextra -fexceptions -frtti")
 
 if (NOT APPLE)
   set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-pragmas")
@@ -1099,7 +1099,7 @@ set (LANGUAGES
 foreach (lang_ ${LANGUAGES})
   file (TO_NATIVE_PATH translations/wsjtx_${lang_}.ts ts_)
   list (APPEND TS_FILES ${ts_})
-endforeach ()  
+endforeach ()
 if (UPDATE_TRANSLATIONS)
   message (STATUS "UPDATE_TRANSLATIONS option is set.")
   qt5_create_translation (

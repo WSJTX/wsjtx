@@ -5,10 +5,8 @@ program QRA64code
 ! protocol.  
 
   use packjt
-  character*22 msg,msg0,msg1,decoded,cok*3,msgtype*10,arg*12
-  character*6 mycall
-  logical ltext
-  integer dgen(12),sent(63),dec(12)
+  character*22 msg,msg0,msg1,decoded,cok*3,msgtype*10
+  integer dgen(12),sent(63)
   integer icos7(0:6)
   data icos7/2,5,6,0,4,1,3/     !Defines a 7x7 Costas array
 

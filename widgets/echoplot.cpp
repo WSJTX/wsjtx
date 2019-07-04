@@ -160,7 +160,6 @@ void EPlotter::DrawOverlay()                                 //DrawOverlay()
 //  int w = m_WaterfallPixmap.width();
   int x,y;
 
-  QRect rect;
   QPainter painter(&m_OverlayPixmap);
   painter.initFrom(this);
   QLinearGradient gradient(0, 0, 0 ,m_h2);  //fill background with gradient

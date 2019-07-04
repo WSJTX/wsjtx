@@ -133,7 +133,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
                  n30fox(j)=n
                  m=n30max-n
                  if(len(trim(g2fox(j))).eq.4) then
-                    call azdist(mygrid,g2fox(j)//'  ',0.d0,nAz,nEl,nDmiles,	&
+                    call azdist(mygrid,g2fox(j)//'  ',0.d0,nAz,nEl,nDmiles, &
                          nDkm,nHotAz,nHotABetter)
                  else
                     nDkm=9999
@@ -588,9 +588,7 @@ contains
     real, intent(in) :: dt
     real, intent(in) :: freq
     character(len=37), intent(in) :: decoded
-    character c1*12,c2*12,g2*4,w*4
-    integer i0,i1,i2,i3,i4,i5,n30,nwrap
-    integer, intent(in) :: nap 
+    integer, intent(in) :: nap
     real, intent(in) :: qual 
     character*2 annot
     character*37 decoded0

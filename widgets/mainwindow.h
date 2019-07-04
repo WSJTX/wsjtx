@@ -22,20 +22,20 @@
 #include <QFuture>
 #include <QFutureWatcher>
 
-#include "AudioDevice.hpp"
+#include "Audio/AudioDevice.hpp"
 #include "commons.h"
 #include "Radio.hpp"
 #include "models/Modes.hpp"
 #include "models/FrequencyList.hpp"
 #include "Configuration.hpp"
-#include "WSPRBandHopping.hpp"
-#include "Transceiver.hpp"
+#include "WSPR/WSPRBandHopping.hpp"
+#include "Transceiver/Transceiver.hpp"
 #include "DisplayManual.hpp"
-#include "psk_reporter.h"
+#include "Network/psk_reporter.h"
 #include "logbook/logbook.h"
 #include "astro.h"
 #include "MessageBox.hpp"
-#include "NetworkAccessManager.hpp"
+#include "Network/NetworkAccessManager.hpp"
 
 #define NUM_JT4_SYMBOLS 206                //(72+31)*2, embedded sync
 #define NUM_JT65_SYMBOLS 126               //63 data + 63 sync

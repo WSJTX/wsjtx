@@ -45,7 +45,7 @@ QList<DecodeHighlightingModel::HighlightInfo> const DecodeHighlightingModel::imp
   , {Highlight::CallBand, false, {}, {{0x99, 0xff, 0xff}}}
   , {Highlight::LotW, false, {{0x99, 0x00, 0x00}}, {}}
   , {Highlight::CQ, true, {}, {{0x66, 0xff, 0x66}}}
-  , {Highlight::Tx, true, {}, {{Qt::yellow}}}
+  , {Highlight::Tx, true, {}, {Qt::yellow}}
 };
 
 bool operator == (DecodeHighlightingModel::HighlightInfo const& lhs, DecodeHighlightingModel::HighlightInfo const& rhs)

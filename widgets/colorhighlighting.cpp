@@ -110,6 +110,8 @@ void ColorHighlighting::set_items (DecodeHighlightingModel const& highlighting_m
           example = ui->example16_label;
           label = ui->p16_label;
           break;
+        default:
+          continue;
         }
       auto palette = example->parentWidget ()->palette ();
       if (Qt::NoBrush != item.background_.style ())
