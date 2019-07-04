@@ -391,7 +391,6 @@ set (wsjt_FSRCS
   lib/astro0.f90
   lib/avecho.f90
   lib/averms.f90
-  lib/ft4/averaged_mf.f90
   lib/azdist.f90
   lib/badmsg.f90
   lib/ft8/baseline.f90
@@ -886,7 +885,7 @@ message (STATUS "hamlib_LIBRARY_DIRS: ${hamlib_LIBRARY_DIRS}")
 #
 
 # Widgets finds its own dependencies.
-find_package (Qt5 REQUIRED Widgets Multimedia PrintSupport Sql LinguistTools)
+find_package (Qt5 COMPONENTS Widgets Multimedia PrintSupport Sql LinguistTools REQUIRED)
 
 if (WIN32)
   add_definitions (-DQT_NEEDS_QTMAIN)
@@ -1318,9 +1317,6 @@ target_link_libraries (msk144sim wsjt_fort wsjt_cxx)
 
 add_executable (ft4sim lib/ft4/ft4sim.f90 wsjtx.rc)
 target_link_libraries (ft4sim wsjt_fort wsjt_cxx)
-
-add_executable (averaged_mf lib/ft4/averaged_mf.f90 wsjtx.rc)
-target_link_libraries (averaged_mf wsjt_fort wsjt_cxx)
 
 add_executable (ft4sim_mult lib/ft4/ft4sim_mult.f90 wsjtx.rc)
 target_link_libraries (ft4sim_mult wsjt_fort wsjt_cxx)

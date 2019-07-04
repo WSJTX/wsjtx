@@ -10,7 +10,6 @@ subroutine getcandidates4(dd,fa,fb,syncmin,nfqso,maxcand,savg,candidate,   &
   complex cx(0:NH1)
   real candidate(2,maxcand),candidatet(2,maxcand)
   real dd(NMAX)
-  integer ipk(1)
   equivalence (x,cx)
   logical first
   data first/.true./
@@ -33,9 +32,7 @@ subroutine getcandidates4(dd,fa,fb,syncmin,nfqso,maxcand,savg,candidate,   &
      if(ib.gt.NMAX) exit
      x=fac*dd(ia:ib)*window
      call four2a(x,NFFT1,1,-1,0)              !r2c FFT
-     do i=1,NH1
-        s(i,j)=real(cx(i))**2 + aimag(cx(i))**2
-     enddo
+     s(1:NH1,j)=abs(cx(1:NH1))**2
      savg=savg + s(1:NH1,j)                   !Average spectrum
   enddo
   savg=savg/NHSYM

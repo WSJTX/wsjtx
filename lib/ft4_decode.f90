@@ -34,7 +34,6 @@ contains
       character message*37,msgsent*37
       character c77*77
       character*37 decodes(100)
-      character*512 data_dir,fname
       character*17 cdatetime0
       character*12 mycall,hiscall
       character*12 mycall0,hiscall0
