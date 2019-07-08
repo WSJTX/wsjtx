@@ -1,5 +1,6 @@
 #include "HRDTransceiver.hpp"
 
+#include <algorithm>
 #include <QHostAddress>
 #include <QByteArray>
 #include <QRegExp>
@@ -36,7 +37,7 @@ struct HRDMessage
     HRDMessage * storage (reinterpret_cast<HRDMessage *> (new char[size]));
     storage->size_ = size ;
     ushort const * pl (payload.utf16 ());
-    qCopy (pl, pl + payload.size () + 1, storage->payload_); // copy terminator too
+    std::copy (pl, pl + payload.size () + 1, storage->payload_); // copy terminator too
     storage->magic_1_ = magic_1_value_;
     storage->magic_2_ = magic_2_value_;
     storage->checksum_ = 0;

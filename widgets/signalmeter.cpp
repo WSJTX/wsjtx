@@ -35,7 +35,7 @@ public:
   QSize minimumSizeHint () const override
   {
     QFontMetrics font_metrics {font (), nullptr};
-    return {tick_length + text_indent + font_metrics.width ("00+"), (font_metrics.height () + line_spacing) * range};
+    return {tick_length + text_indent + font_metrics.boundingRect ("00+").width (), (font_metrics.height () + line_spacing) * range};
   }
 
 protected:

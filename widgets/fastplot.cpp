@@ -58,7 +58,7 @@ void FPlotter::drawScale()                                 //drawScale()
 
   QRect rect0;
   QPainter painter0(&m_ScalePixmap);
-  painter0.initFrom(this);
+  painter0.setBackground (palette ().brush (backgroundRole ()));
 
   //create Font to use for scales
   QFont Font("Arial");

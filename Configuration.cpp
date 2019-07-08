@@ -1379,8 +1379,8 @@ void Configuration::impl::read_settings ()
   txDelay_ = settings_->value ("TxDelay",0.2).toDouble();
   aggressive_ = settings_->value ("Aggressive", 0).toInt ();
   RxBandwidth_ = settings_->value ("RxBandwidth", 2500).toInt ();
-  save_directory_ = settings_->value ("SaveDir", default_save_directory_.absolutePath ()).toString ();
-  azel_directory_ = settings_->value ("AzElDir", default_azel_directory_.absolutePath ()).toString ();
+  save_directory_.setPath (settings_->value ("SaveDir", default_save_directory_.absolutePath ()).toString ());
+  azel_directory_.setPath (settings_->value ("AzElDir", default_azel_directory_.absolutePath ()).toString ());
 
   {
     //
@@ -2063,8 +2063,8 @@ void Configuration::impl::accept ()
   TX_messages_ = ui_->TX_messages_check_box->isChecked ();
   data_mode_ = static_cast<DataMode> (ui_->TX_mode_button_group->checkedId ());
   bLowSidelobes_ = ui_->rbLowSidelobes->isChecked();
-  save_directory_ = ui_->save_path_display_label->text ();
-  azel_directory_ = ui_->azel_path_display_label->text ();
+  save_directory_.setPath (ui_->save_path_display_label->text ());
+  azel_directory_.setPath (ui_->azel_path_display_label->text ());
   enable_VHF_features_ = ui_->enable_VHF_features_check_box->isChecked ();
   decode_at_52s_ = ui_->decode_at_52s_check_box->isChecked ();
   single_decode_ = ui_->single_decode_check_box->isChecked ();
