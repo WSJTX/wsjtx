@@ -4,8 +4,12 @@ The most important feature added to _WSJT-X_ since Version 2.0.1 is
 the new *FT4 protocol*, designed especially for radio contesting.  It
 has T/R sequence length 7.5 s, bandwidth 80 Hz, and threshold
 sensitivity -17.5 dB.  Version 2.1.0 also has improvements to FT8
-waveform generation, contest logging, rig control, the user interface,
-and accessibility, as well as a number of bug fixes.
+waveform generation, waterfall and spectrum display, contest logging,
+rig control, the user interface, UDP messaging for inter-program
+communication, and accessibility, as well as a number of more minor
+enhancements and bug fixes.  We now provide a separate installation
+package for 64-bit Windows 7 and later, offering significant
+improvements in decoding speed.
 
 === Documentation Conventions
 
