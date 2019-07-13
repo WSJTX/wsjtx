@@ -7,10 +7,10 @@ K1**JT**,`" while the suffix "`-X`" indicates that _WSJT-X_ started as
 an extended and experimental branch of the program
 _WSJT_.
 
-_WSJT-X_ Version {VERSION_MAJOR}.{VERSION_MINOR} offers nine different
-protocols or modes: *FT8*, *JT4*, *JT9*, *JT65*, *QRA64*, *ISCAT*,
-*MSK144*, *WSPR*, and *Echo*.  The first five are designed for making
-reliable QSOs under extreme weak-signal conditions. They use nearly
+_WSJT-X_ Version {VERSION_MAJOR}.{VERSION_MINOR} offers ten different
+protocols or modes: *FT4*, *FT8*, *JT4*, *JT9*, *JT65*, *QRA64*,
+*ISCAT*, *MSK144*, *WSPR*, and *Echo*.  The first six are designed for
+making reliable QSOs under weak-signal conditions. They use nearly
 identical message structure and source encoding.  JT65 and QRA64 were
 designed for EME ("`moonbounce`") on the VHF/UHF bands and have also
 proven very effective for worldwide QRP communication on the HF bands.
@@ -25,12 +25,19 @@ one-minute timed sequences of alternating transmission and reception,
 so a minimal QSO takes four to six minutes — two or three
 transmissions by each station, one sending in odd UTC minutes and the
 other even.  FT8 is operationally similar but four times faster
-(15-second T/R sequences) and less sensitive by a few dB.  On the HF
-bands, world-wide QSOs are possible with any of these modes using
-power levels of a few watts (or even milliwatts) and compromise
-antennas.  On VHF bands and higher, QSOs are possible (by EME and
-other propagation types) at signal levels 10 to 15 dB below those
-required for CW.
+(15-second T/R sequences) and less sensitive by a few dB.  FT4 is
+faster still (7.5 s T/R sequences) and especially well suited for
+radio contesting.  On the HF bands, world-wide QSOs are possible with
+any of these modes using power levels of a few watts (or even
+milliwatts) and compromise antennas.  On VHF bands and higher, QSOs
+are possible (by EME and other propagation types) at signal levels 10
+to 15 dB below those required for CW.
+
+Note that even though their T/R sequences are short, FT4 and FT8 are
+classified as slow modes because their message frames are sent only
+once per transmission.  All fast modes in _WSJT-X_ send their message
+frames repeatedly, as many times as will fit into the Tx sequence
+length.
 
 *ISCAT*, *MSK144*, and optionally submodes *JT9E-H* are "`fast`"
 protocols designed to take advantage of brief signal enhancements from
@@ -65,10 +72,10 @@ are available for all three platforms.
 
 *Version Numbers:* _WSJT-X_ release numbers have major, minor, and
 patch numbers separated by periods: for example, _WSJT-X_ Version
-1.9.0.  Temporary "`beta`" release candidates are sometimes made in
+2.1.0.  Temporary _beta release_ candidates are sometimes made in
 advance of a new general-availability release, in order to obtain user
-feedback.  For example, version 1.9.0-rc1, 1.9.0-rc2, etc., would
-be beta releases leading up to the final release of v1.9.0.
+feedback.  For example, version 2.1.0-rc1, 2.1.0-rc2, etc., would
+be beta releases leading up to the final release of v2.1.0.
 Release candidates should be used _only_ during a short testing
 period. They carry an implied obligation to provide feedback to the
 program development group.  Candidate releases should not be used on

@@ -19,6 +19,8 @@ namespace
   int constexpr yaesu_delay {250};
 }
 
+#include "moc_HRDTransceiver.cpp"
+
 void HRDTransceiver::register_transceivers (TransceiverFactory::Transceivers * registry, int id)
 {
   (*registry)[HRD_transceiver_name] = TransceiverFactory::Capabilities (id, TransceiverFactory::Capabilities::network, true, true /* maybe */);
@@ -885,7 +887,7 @@ bool HRDTransceiver::is_button_checked (int button_index, bool no_debug)
   return "1" == reply;
 }
 
-void HRDTransceiver::poll ()
+void HRDTransceiver::do_poll ()
 {
 #if WSJT_TRACE_CAT && WSJT_TRACE_CAT_POLLS
   bool quiet {false};

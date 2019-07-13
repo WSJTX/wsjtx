@@ -1,4 +1,4 @@
-subroutine fast_decode(id2,narg,ntrperiod,line,mycall_12,   &
+subroutine fast_decode(id2,narg,trperiod,line,mycall_12,   &
      hiscall_12)
 
   parameter (NMAX=30*12000)
@@ -6,6 +6,7 @@ subroutine fast_decode(id2,narg,ntrperiod,line,mycall_12,   &
   integer*2 id2a(NMAX)
   integer*2 id2b(NMAX)
   integer narg(0:14)
+  double precision trperiod
   real dat(30*12000)
   complex cdat(262145),cdat2(262145)
   real psavg(450)
@@ -41,7 +42,7 @@ subroutine fast_decode(id2,narg,ntrperiod,line,mycall_12,   &
   nhashcalls=narg(12)
 
   line(1:100)(1:1)=char(0)
-  if(t0.gt.float(ntrperiod)) go to 900
+  if(t0.gt.trperiod) go to 900
   if(t0.gt.t1) go to 900
 
   if(nmode.eq.102) then
@@ -53,7 +54,7 @@ subroutine fast_decode(id2,narg,ntrperiod,line,mycall_12,   &
      cdat2=cdat
      ndat=ndat0
      call wav11(id2,ndat,dat)
-     nzz=11025*ntrperiod
+     nzz=11025*int(trperiod)    !beware if fractional T/R period ever used here
      if(ndat.lt.nzz) dat(ndat+1:nzz)=0.0
      ndat=min(ndat,30*11025)
      call ana932(dat,ndat,cdat,npts)          !Make downsampled analytic signal

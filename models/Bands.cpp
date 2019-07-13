@@ -55,6 +55,8 @@ namespace
   }
 }
 
+#include "moc_Bands.cpp"
+
 Bands::Bands (QObject * parent)
   : QAbstractTableModel {parent}
 {

@@ -46,7 +46,11 @@ subroutine watterson(c,npts,nsig,fs,delay,fspread)
   endif
 
   nshift=nint(0.001*delay*fs)
-  c2(0:npts-1)=cshift(c(0:npts-1),nshift)
+  if(delay.gt.0.0) then
+     c2(0:npts-1)=cshift(c(0:npts-1),-nshift) !negative shifts are right shifts
+  else
+     c2(0:npts-1)=0.0
+  endif
   sq=0.
   do i=0,npts-1
      if(nonzero.gt.1) then

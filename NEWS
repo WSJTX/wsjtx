@@ -13,9 +13,31 @@
 Copyright 2001 - 2019 by Joe Taylor, K1JT.
 
 
-		     Release: WSJT-X 2.0.1
-		       February 25, 2019
-		     ---------------------
+                   Release: WSJT-X 2.1
+                      July 15, 2019
+                   -------------------
+                   
+WSJT-X 2.1 is a major update that introduces FT4, a new protocol
+targeted at HF contesting.  Other improvements have been made in the
+following areas:
+
+  - FT8 waveform generated with GMSK, fully backward compatible
+  - user options for waterfall and spectrum display
+  - contest logging
+  - rig control
+  - user interface
+  - UDP messaging for inter-program communication
+  - accessibility
+
+There are numerous minor enhancements and bug fixes.
+
+We now provide a separate installation package for 64-bit Windows 7
+and later, with significant improvements in decoding speed.
+
+
+                     Release: WSJT-X 2.0.1
+                       February 25, 2019
+                     ---------------------
 
 WSJT-X  2.0.1 is  a bug  fix  release including  the following  defect
 repairs reported since the v2.0.0 GA release.
@@ -67,9 +89,9 @@ repairs reported since the v2.0.0 GA release.
    than one Hound in the same Tx sequence.
 
 
-		       Release: WSJT-X 2.0
-		        December 10, 2018
-		     -----------------------
+                       Release: WSJT-X 2.0
+                        December 10, 2018
+                     -----------------------
 
 WSJT-X 2.0 is a major update that introduces new protocols for FT8 and
 MSK144.  The new protocols become the world-wide standards on December
@@ -125,9 +147,9 @@ Some details of changes since WSJT-X-rc5 include the following:
  - Update the WSJT-X User Guide to v2.0 (more to come...)
  - Update cty.dat
 
-		     Release: WSJT-X 2.0-rc5
-		        November 26, 2018
-		     -----------------------
+                     Release: WSJT-X 2.0-rc5
+                        November 26, 2018
+                     -----------------------
 
 Release Candidate 5 ("RC5") is stable, works well, and fixes the known
 problems in RC4.  It is likely that the General Availability (GA)
@@ -158,9 +180,9 @@ not be realized until most signals on a crowded band are using the
 new FT8 protocol.  
 
 
-		     Release: WSJT-X 2.0-rc4
-		        November 12, 2018
-		     -----------------------
+                     Release: WSJT-X 2.0-rc4
+                        November 12, 2018
+                     -----------------------
 
 Changes from WSJT-X Version 2.0.0-rc3 include the following:
 
@@ -184,9 +206,9 @@ Changes from WSJT-X Version 2.0.0-rc3 include the following:
  -  New facilities for Contest and Fox-mode logging
  
 
-		     Release: WSJT-X 2.0-rc3
-		        October 15, 2018
-		     -----------------------
+                     Release: WSJT-X 2.0-rc3
+                        October 15, 2018
+                     -----------------------
 
 Changes from WSJT-X Version 2.0.0-rc2 include the following:
 
@@ -210,9 +232,9 @@ Changes from WSJT-X Version 2.0.0-rc2 include the following:
  -  Auto update of LoTW info, and faster program startup
 
 
-		     Release: WSJT-X 2.0-rc2
-		        September 25, 2018
-		     -----------------------
+                     Release: WSJT-X 2.0-rc2
+                        September 25, 2018
+                     -----------------------
 Changes from WSJT-X Version 2.0.0-rc1 include the following:
 
  - Corrected a flaw that encoded a message's first callsign as
@@ -238,9 +260,9 @@ Changes from WSJT-X Version 2.0.0-rc1 include the following:
  - Suppressed the display of certain illogical false decodes.
 
 
-		     Release: WSJT-X 2.0-rc1
-		        September 17, 2018
-		     -----------------------
+                     Release: WSJT-X 2.0-rc1
+                        September 17, 2018
+                     -----------------------
 
 This is the first candidate release on WSJT-X 2.0, intended for
 beta-level testing.  For details see:
@@ -250,18 +272,18 @@ http://physics.princeton.edu/pulsar/k1jt/Quick_Start_WSJT-X_2.0.pdf
 http://physics.princeton.edu/pulsar/k1jt/77bit.txt
 
 
-		   Release: WSJT-X Version 1.9.1
-		           June 1, 2018
-		   -----------------------------
+                   Release: WSJT-X Version 1.9.1
+                           June 1, 2018
+                   -----------------------------
 
 This critical bug fix release repairs an unintended restriction in the FT8
 DXpedition mode. It supersedes v1.9.0 and must be used for DXpedition Fox
 operators.
 
 
-		   Release: WSJT-X Version 1.9.0
-		           May 28, 2018
-		   -----------------------------
+                   Release: WSJT-X Version 1.9.0
+                           May 28, 2018
+                   -----------------------------
 
 Changes from WSJT-X Version 1.9.0-rc4 include the following:
 - Display in the right text window of MSK144 messages addressed to
@@ -289,9 +311,9 @@ Changes from WSJT-X Version 1.9.0-rc4 include the following:
 - Hamlib, improved support for flrig.
 
 
-	     	Release: WSJT-X Version 1.9.0-rc4
-		         April 30, 2018
-		---------------------------------
+                Release: WSJT-X Version 1.9.0-rc4
+                         April 30, 2018
+                ---------------------------------
 
 Changes from WSJT-X Version 1.9.0-rc3 include the following:
 
@@ -321,9 +343,9 @@ Changes from WSJT-X Version 1.9.0-rc3 include the following:
 - Updated copy of cty.dat
 
 
-		Release: WSJT-X Version 1.9.0-rc3
-		         March 18, 2018
-		---------------------------------
+                Release: WSJT-X Version 1.9.0-rc3
+                         March 18, 2018
+                ---------------------------------
 
 Changes from WSJT-X Version 1.9.0-rc2 include the following:
 
@@ -357,9 +379,9 @@ Changes from WSJT-X Version 1.9.0-rc2 include the following:
 
 
 
-		Release: WSJT-X Version 1.9.0-rc2
-		        February 26, 2018
-		---------------------------------
+                Release: WSJT-X Version 1.9.0-rc2
+                        February 26, 2018
+                ---------------------------------
 
 Changes from WSJT-X Version 1.8.0 include the following:
 
@@ -401,9 +423,9 @@ wsjt-devel@lists.sourceforge.net.  You must be a subscriber in order
 to post there.
 
 
-		Release: WSJT-X Version 1.8.0
-		       October 27, 2017
-		-----------------------------
+                Release: WSJT-X Version 1.8.0
+                       October 27, 2017
+                -----------------------------
 
 This is the full General Availability release of WSJT-X Version 1.8.0.
 
@@ -424,9 +446,9 @@ reset of the default list of suggested operating frequencies.  Go to
 *Reset*.
 
 
-		Release: WSJT-X Version 1.8.0-rc3
-		        October 16, 2017
-		---------------------------------
+                Release: WSJT-X Version 1.8.0-rc3
+                        October 16, 2017
+                ---------------------------------
 
 Most (but not all) changes since Version 1.8.0-rc2 involve user
 control of the increasingly popular FT8 mode.  The "RC3" release also
@@ -528,9 +550,9 @@ message from populating the Tx message boxes.
 
 
 
-		Release: WSJT-X Version 1.8.0-rc2
-		        September 2, 2017
-		---------------------------------
+                Release: WSJT-X Version 1.8.0-rc2
+                        September 2, 2017
+                ---------------------------------
 
 Implementation of FT8 and its auto-sequencing feature is now more
 capable and more polished.  The decoder is faster and better: it now
@@ -552,8 +574,8 @@ frequencies.  Go to *File->Settings->Frequencies*, right click on
 the table and select *Reset*. 
 
 
-		Release: WSJT-X Version 1.8.0
-		-----------------------------
+                Release: WSJT-X Version 1.8.0
+                -----------------------------
 
 NEW FEATURES IN WSJT-X Version 1.8.0
 ------------------------------------
@@ -606,8 +628,8 @@ prescription of steps to reproduce the undesired behavior.  You must
 be a subscriber to post to either of these lists.
 
 
-		Brief Description of the FT8 Protocol
-		-------------------------------------
+                Brief Description of the FT8 Protocol
+                -------------------------------------
 
 WSJT-X Version 1.8.0 includes a new mode called FT8, developed by K9AN
 and K1JT.  The mode name "FT8" stands for "Franke and Taylor, 8-FSK
@@ -641,8 +663,8 @@ activated in v1.8.0.
 We haven't yet finalized what the three extra bits in the message
 payload will be used for.  Suggestions are welcome!
 
-	-- Joe, K1JT, for the WSJT Development Team
-	
+        -- Joe, K1JT, for the WSJT Development Team
+        
 WSJT-X v1.6.0 Release Notice
 ============================
 
@@ -923,7 +945,7 @@ defect is resolved in the next release (v1.5).
 
 
 
-			WSJT-X ChangeLog
+                        WSJT-X ChangeLog
 ------------------------------------------------------------------
 October 7, 2013: Version 1.2.1, r3590
 

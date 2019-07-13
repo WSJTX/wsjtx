@@ -129,52 +129,46 @@ bool PollingTransceiver::do_pre_update ()
   return true;
 }
 
-void PollingTransceiver::do_sync (bool force_signal, bool no_poll)
-{
-  if (!no_poll) poll ();        // tell sub-classes to update our state
-
-  // Signal new state if it is directly requested or, what we expected
-  // or, hasn't become what we expected after polls_to_stabilize
-  // polls. Unsolicited changes will be signalled immediately unless
-  // they intervene in a expected sequence where they will be delayed.
-  if (retries_)
-    {
-      --retries_;
-      if (force_signal || state () == next_state_ || !retries_)
-        {
-          // our client wants a signal regardless
-          // or the expected state has arrived
-          // or there are no more retries
-          force_signal = true;
-        }
-    }
-  else if (force_signal || state () != last_signalled_state_)
-    {
-      // here is the normal passive polling path either our client has
-      // requested a state update regardless of change or state has
-      // changed asynchronously
-      force_signal = true;
-    }
-
-  if (force_signal)
-    {
-      // reset everything, record and signal the current state
-      retries_ = 0;
-      next_state_ = state ();
-      last_signalled_state_ = state ();
-      update_complete (true);
-    }
-}
-
 void PollingTransceiver::handle_timeout ()
 {
   QString message;
+  bool force_signal {false};
 
   // we must catch all exceptions here since we are called by Qt and
   // inform our parent of the failure via the offline() message
   try
     {
-      do_sync ();
+      do_poll ();              // tell sub-classes to update our state
+
+      // Signal new state if it what we expected or, hasn't become
+      // what we expected after polls_to_stabilize polls. Unsolicited
+      // changes will be signalled immediately unless they intervene
+      // in a expected sequence where they will be delayed.
+      if (retries_)
+        {
+          --retries_;
+          if (state () == next_state_ || !retries_)
+            {
+              // the expected state has arrived or there are no more
+              // retries
+              force_signal = true;
+            }
+        }
+      else if (state () != last_signalled_state_)
+        {
+          // here is the normal passive polling path where state has
+          // changed asynchronously
+          force_signal = true;
+        }
+
+      if (force_signal)
+        {
+          // reset everything, record and signal the current state
+          retries_ = 0;
+          next_state_ = state ();
+          last_signalled_state_ = state ();
+          update_complete (true);
+        }
     }
   catch (std::exception const& e)
     {

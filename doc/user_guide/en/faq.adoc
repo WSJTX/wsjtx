@@ -95,3 +95,19 @@ QT_QPA_PLATFORMTHEME set to empty (the space after the '=' character
 is necessary):
 
  QT_QPA_PLATFORMTHEME= wsjtx
+
+I am running _WSJT-X_ on Linux using a KDE desktop. Why does *Menu->Configurations* misbehave?::
+
+The  KDE  development  team  have  added code  to  Qt  that  tries  to
+automatically add  shortcut accelerator keys to  all buttons including
+pop up menu buttons, this interferes with operation of the application
+(many other Qt applications have  similar issues with KDE). Until this
+is fixed  by the KDE team  you must disable this  misfeature. Edit the
+file ~/.config/kdeglobals and add a section containing the following:
+
+ [Development]
+ AutoCheckAccelerators=false
+
++
+See https://stackoverflow.com/a/32711483 and
+https://bugs.kde.org/show_bug.cgi?id=337491 for more details.

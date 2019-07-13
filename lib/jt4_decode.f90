@@ -156,7 +156,7 @@ contains
     nfreqz=nint(dfx)
     call timer('sync4   ',1)
 
-    nsnr=nint(snrx)
+    nsnr=-26
     if(sync.lt.syncmin) then
        if (associated (this%decode_callback)) then
           call this%decode_callback(nsnr,dtxz,nfreqz,.false.,csync,      &
@@ -166,6 +166,7 @@ contains
     endif
 
 ! We have achieved sync
+    nsnr=nint(snrsync - 22.9)
     decoded=blank
     deepmsg=blank
     special='     '

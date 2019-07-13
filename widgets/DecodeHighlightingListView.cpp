@@ -6,6 +6,8 @@
 #include "models/DecodeHighlightingModel.hpp"
 #include "MessageBox.hpp"
 
+#include "moc_DecodeHighlightingListView.cpp"
+
 DecodeHighlightingListView::DecodeHighlightingListView (QWidget * parent)
   : QListView {parent}
 {

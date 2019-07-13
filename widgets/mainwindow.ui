@@ -340,7 +340,7 @@
          </size>
         </property>
         <property name="toolTip">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enter this QSO in log&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>Enter this QSO in log</string>
         </property>
         <property name="text">
          <string>Log &amp;QSO</string>
@@ -372,7 +372,7 @@
          </size>
         </property>
         <property name="toolTip">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle monitoring On/Off&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>Toggle monitoring On/Off</string>
         </property>
         <property name="styleSheet">
          <string notr="true">QPushButton:checked {
@@ -407,6 +407,9 @@
         <property name="toolTip">
          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Erase right window. Double-click to erase both windows.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
+        <property name="accessibleDescription">
+         <string>Erase right window. Double-click to erase both windows.</string>
+        </property>
         <property name="text">
          <string>&amp;Erase</string>
         </property>
@@ -419,6 +422,9 @@
         </property>
         <property name="toolTip">
          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Clear the accumulating message average.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="accessibleDescription">
+         <string>Clear the accumulating message average.</string>
         </property>
         <property name="text">
          <string>Clear Avg</string>
@@ -435,6 +441,9 @@
         </property>
         <property name="toolTip">
          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Decode most recent Rx period at QSO Frequency&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="accessibleDescription">
+         <string>Decode most recent Rx period at QSO Frequency</string>
         </property>
         <property name="styleSheet">
          <string notr="true">QPushButton:checked {
@@ -465,6 +474,9 @@
         </property>
         <property name="toolTip">
          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle Auto-Tx On/Off&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="accessibleDescription">
+         <string>Toggle Auto-Tx On/Off</string>
         </property>
         <property name="styleSheet">
          <string notr="true">QPushButton:checked {
@@ -505,6 +517,9 @@
        <widget class="QPushButton" name="tuneButton">
         <property name="toolTip">
          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle a pure Tx tone On/Off&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="accessibleDescription">
+         <string>Toggle a pure Tx tone On/Off</string>
         </property>
         <property name="styleSheet">
          <string notr="true">QPushButton:checked {
@@ -589,6 +604,15 @@ QLabel[oob=&quot;true&quot;] {
         </property>
         <property name="toolTip">
          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;30dB recommended when only noise present&lt;br/&gt;Green when good&lt;br/&gt;Red when clipping may occur&lt;br/&gt;Yellow when too low&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="accessibleName">
+         <string>Rx Signal</string>
+        </property>
+        <property name="accessibleDescription">
+         <string>30dB recommended when only noise present
+Green when good
+Red when clipping may occur
+Yellow when too low</string>
         </property>
         <property name="frameShape">
          <enum>QFrame::Panel</enum>
@@ -706,6 +730,9 @@ QLabel[oob=&quot;true&quot;] {
            <property name="indent">
             <number>2</number>
            </property>
+           <property name="buddy">
+            <cstring>dxCallEntry</cstring>
+           </property>
           </widget>
          </item>
          <item row="0" column="1">
@@ -795,6 +822,9 @@ QLabel[oob=&quot;true&quot;] {
            <property name="indent">
             <number>2</number>
            </property>
+           <property name="buddy">
+            <cstring>dxGridEntry</cstring>
+           </property>
           </widget>
          </item>
          <item row="1" column="0">
@@ -883,6 +913,9 @@ QLabel[oob=&quot;true&quot;] {
         <property name="toolTip">
          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;If orange or red there has been a rig control failure, click to reset and read the dial frequency.  S implies split mode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
+        <property name="accessibleDescription">
+         <string>If orange or red there has been a rig control failure, click to reset and read the dial frequency. S implies split mode.</string>
+        </property>
         <property name="styleSheet">
          <string notr="true">QPushButton {
  font-family: helvetica;
@@ -946,6 +979,12 @@ QPushButton[state=&quot;ok&quot;] {
        <widget class="QComboBox" name="bandComboBox">
         <property name="toolTip">
          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Select operating band or enter frequency in MHz or enter kHz increment followed by k.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="accessibleName">
+         <string>Frequncy entry</string>
+        </property>
+        <property name="accessibleDescription">
+         <string>Select operating band or enter frequency in MHz or enter kHz increment followed by k.</string>
         </property>
         <property name="editable">
          <bool>true</bool>
@@ -1037,6 +1076,9 @@ QPushButton[state=&quot;ok&quot;] {
                 <widget class="QCheckBox" name="cbHoldTxFreq">
                  <property name="toolTip">
                   <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to keep Tx frequency fixed when double-clicking on decoded text.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                 </property>
+                 <property name="accessibleDescription">
+                  <string>Check to keep Tx frequency fixed when double-clicking on decoded text.</string>
                  </property>
                  <property name="text">
                   <string>Hold Tx Freq</string>
@@ -1155,6 +1197,9 @@ QPushButton[state=&quot;ok&quot;] {
                  <property name="toolTip">
                   <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Synchronizing threshold.  Lower numbers accept weaker sync signals.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                  </property>
+                 <property name="accessibleDescription">
+                  <string>Synchronizing threshold. Lower numbers accept weaker sync signals.</string>
+                 </property>
                  <property name="alignment">
                   <set>Qt::AlignCenter</set>
                  </property>
@@ -1179,6 +1224,9 @@ QPushButton[state=&quot;ok&quot;] {
                    <property name="toolTip">
                     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to use short-format messages.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                    </property>
+                   <property name="accessibleDescription">
+                    <string>Check to use short-format messages.</string>
+                   </property>
                    <property name="text">
                     <string>Sh</string>
                    </property>
@@ -1188,6 +1236,9 @@ QPushButton[state=&quot;ok&quot;] {
                   <widget class="QCheckBox" name="cbFast9">
                    <property name="toolTip">
                     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to enable JT9 fast modes&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                   </property>
+                   <property name="accessibleDescription">
+                    <string>Check to enable JT9 fast modes</string>
                    </property>
                    <property name="text">
                     <string>Fast</string>
@@ -1199,6 +1250,9 @@ QPushButton[state=&quot;ok&quot;] {
                    <property name="toolTip">
                     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to enable automatic sequencing of Tx messages based on received messages.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                    </property>
+                   <property name="accessibleDescription">
+                    <string>Check to enable automatic sequencing of Tx messages based on received messages.</string>
+                   </property>
                    <property name="text">
                     <string>Auto Seq</string>
                    </property>
@@ -1208,6 +1262,9 @@ QPushButton[state=&quot;ok&quot;] {
                   <widget class="QCheckBox" name="cbFirst">
                    <property name="toolTip">
                     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to call the first decoded responder to my CQ.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                   </property>
+                   <property name="accessibleDescription">
+                    <string>Check to call the first decoded responder to my CQ.</string>
                    </property>
                    <property name="text">
                     <string>Call 1st</string>
@@ -1234,6 +1291,9 @@ QPushButton[state=&quot;ok&quot;] {
                  <property name="toolTip">
                   <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to Tx in even-numbered minutes or sequences, starting at 0; uncheck for odd sequences.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                  </property>
+                 <property name="accessibleDescription">
+                  <string>Check to Tx in even-numbered minutes or sequences, starting at 0; uncheck for odd sequences.</string>
+                 </property>
                  <property name="text">
                   <string>Tx even/1st</string>
                  </property>
@@ -1248,6 +1308,9 @@ QPushButton[state=&quot;ok&quot;] {
                    </property>
                    <property name="toolTip">
                     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Frequency to call CQ on in kHz above the current MHz&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                   </property>
+                   <property name="accessibleDescription">
+                    <string>Frequency to call CQ on in kHz above the current MHz</string>
                    </property>
                    <property name="prefix">
                     <string>Tx CQ </string>
@@ -1271,6 +1334,10 @@ QPushButton[state=&quot;ok&quot;] {
                    <property name="toolTip">
                     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check this to call CQ on the &amp;quot;Tx CQ&amp;quot; frequency. Rx will be on the current frequency and the CQ message wiill include the current Rx frequency so callers know which frequency to reply on.&lt;/p&gt;&lt;p&gt;Not available to nonstandard callsign holders.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                    </property>
+                   <property name="accessibleDescription">
+                    <string>Check this to call CQ on the &quot;Tx CQ&quot; frequency. Rx will be on the current frequency and the CQ message wiill include the current Rx frequency so callers know which frequency to reply on.
+Not available to nonstandard callsign holders.</string>
+                   </property>
                    <property name="text">
                     <string/>
                    </property>
@@ -1289,6 +1356,9 @@ QPushButton[state=&quot;ok&quot;] {
                 <widget class="LettersSpinBox" name="sbSubmode">
                  <property name="toolTip">
                   <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Submode determines tone spacing; A is narrowest.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                 </property>
+                 <property name="accessibleDescription">
+                  <string>Submode determines tone spacing; A is narrowest.</string>
                  </property>
                  <property name="alignment">
                   <set>Qt::AlignCenter</set>
@@ -1333,8 +1403,32 @@ QPushButton[state=&quot;ok&quot;] {
                    <property name="toolTip">
                     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to monitor Sh messages.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                    </property>
+                   <property name="accessibleDescription">
+                    <string>Check to monitor Sh messages.</string>
+                   </property>
                    <property name="text">
                     <string>SWL</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="pbBestSP">
+                   <property name="styleSheet">
+                    <string notr="true">QPushButton:checked {
+	background-color: red;
+	border-style: outset;
+	border-width: 1px;
+	border-radius: 5px;
+	border-color: black;
+	min-width: 5em;
+	padding: 3px;
+}</string>
+                   </property>
+                   <property name="text">
+                    <string>Best S+P</string>
+                   </property>
+                   <property name="checkable">
+                    <bool>true</bool>
                    </property>
                   </widget>
                  </item>
@@ -1342,6 +1436,11 @@ QPushButton[state=&quot;ok&quot;] {
                   <widget class="QCheckBox" name="measure_check_box">
                    <property name="toolTip">
                     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check this to start recording calibration data.&lt;br/&gt;While measuring calibration correction is disabled.&lt;br/&gt;When not checked you can view the calibration results.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                   </property>
+                   <property name="accessibleDescription">
+                    <string>Check this to start recording calibration data.
+While measuring calibration correction is disabled.
+When not checked you can view the calibration results.</string>
                    </property>
                    <property name="text">
                     <string>Measure</string>
@@ -1354,6 +1453,9 @@ QPushButton[state=&quot;ok&quot;] {
                 <widget class="QSpinBox" name="rptSpinBox">
                  <property name="toolTip">
                   <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Signal report: Signal-to-noise ratio in 2500 Hz reference bandwidth (dB).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                 </property>
+                 <property name="accessibleDescription">
+                  <string>Signal report: Signal-to-noise ratio in 2500 Hz reference bandwidth (dB).</string>
                  </property>
                  <property name="alignment">
                   <set>Qt::AlignCenter</set>
@@ -1376,6 +1478,9 @@ QPushButton[state=&quot;ok&quot;] {
                 <widget class="RestrictedSpinBox" name="sbTR">
                  <property name="toolTip">
                   <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Tx/Rx or Frequency calibration sequence length&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                 </property>
+                 <property name="accessibleDescription">
+                  <string>Tx/Rx or Frequency calibration sequence length</string>
                  </property>
                  <property name="alignment">
                   <set>Qt::AlignCenter</set>
@@ -1475,6 +1580,9 @@ QPushButton[state=&quot;ok&quot;] {
                  <property name="toolTip">
                   <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Double-click on another caller to queue that call for your next QSO.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                  </property>
+                 <property name="accessibleDescription">
+                  <string>Double-click on another caller to queue that call for your next QSO.</string>
+                 </property>
                  <property name="text">
                   <string>Next Call</string>
                  </property>
@@ -1530,6 +1638,10 @@ QPushButton[state=&quot;ok&quot;] {
                      <property name="toolTip">
                       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Send this message in next Tx interval&lt;/p&gt;&lt;p&gt;Double click to toggle the use of the Tx1 message to start a QSO with a station (not allowed for type 1 compound call holders)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                      </property>
+                     <property name="accessibleDescription">
+                      <string>Send this message in next Tx interval
+Double click to toggle the use of the Tx1 message to start a QSO with a station (not allowed for type 1 compound call holders)</string>
+                     </property>
                      <property name="styleSheet">
                       <string notr="true">margin-left: 10%; margin-right: 0%</string>
                      </property>
@@ -1564,6 +1676,10 @@ QPushButton[state=&quot;ok&quot;] {
                     <widget class="DoubleClickablePushButton" name="txb1">
                      <property name="toolTip">
                       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to this Tx message NOW&lt;/p&gt;&lt;p&gt;Double click to toggle the use of the Tx1 message to start a QSO with a station (not allowed for type 1 compound call holders)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                     </property>
+                     <property name="accessibleDescription">
+                      <string>Switch to this Tx message NOW
+Double click to toggle the use of the Tx1 message to start a QSO with a station (not allowed for type 1 compound call holders)</string>
                      </property>
                      <property name="layoutDirection">
                       <enum>Qt::LeftToRight</enum>
@@ -1605,6 +1721,10 @@ QPushButton[state=&quot;ok&quot;] {
                     <widget class="DoubleClickableRadioButton" name="txrb5">
                      <property name="toolTip">
                       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Send this message in next Tx interval&lt;/p&gt;&lt;p&gt;Double-click to reset to the standard 73 message&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                     </property>
+                     <property name="accessibleDescription">
+                      <string>Send this message in next Tx interval
+Double-click to reset to the standard 73 message</string>
                      </property>
                      <property name="styleSheet">
                       <string notr="true">margin-left: 10%; margin-right: 0%</string>
@@ -1654,6 +1774,11 @@ QPushButton[state=&quot;ok&quot;] {
                      <property name="toolTip">
                       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Send this message in next Tx interval&lt;/p&gt;&lt;p&gt;Double-click to toggle between RRR and RR73 messages in Tx4 (not allowed for type 2 compound call holders)&lt;/p&gt;&lt;p&gt;RR73 messages should only be used when you are reasonably confident that no message repetitions will be required&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                      </property>
+                     <property name="accessibleDescription">
+                      <string>Send this message in next Tx interval
+Double-click to toggle between RRR and RR73 messages in Tx4 (not allowed for type 2 compound call holders)
+RR73 messages should only be used when you are reasonably confident that no message repetitions will be required</string>
+                     </property>
                      <property name="styleSheet">
                       <string notr="true">margin-left: 10%; margin-right: 0%</string>
                      </property>
@@ -1670,6 +1795,11 @@ QPushButton[state=&quot;ok&quot;] {
                      <property name="toolTip">
                       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to this Tx message NOW&lt;/p&gt;&lt;p&gt;Double-click to toggle between RRR and RR73 messages in Tx4 (not allowed for type2 compound call holders)&lt;/p&gt;&lt;p&gt;RR73 messages should only be used when you are reasonably confident that no message repetitions will be required&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                      </property>
+                     <property name="accessibleDescription">
+                      <string>Switch to this Tx message NOW
+Double-click to toggle between RRR and RR73 messages in Tx4 (not allowed for type2 compound call holders)
+RR73 messages should only be used when you are reasonably confident that no message repetitions will be required</string>
+                     </property>
                      <property name="styleSheet">
                       <string notr="true">padding-left: 15%; padding-right: 15%; padding-top: 3%; padding-bottom: 3%</string>
                      </property>
@@ -1685,6 +1815,10 @@ QPushButton[state=&quot;ok&quot;] {
                     <widget class="DoubleClickablePushButton" name="txb5">
                      <property name="toolTip">
                       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to this Tx message NOW&lt;/p&gt;&lt;p&gt;Double-click to reset to the standard 73 message&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                     </property>
+                     <property name="accessibleDescription">
+                      <string>Switch to this Tx message NOW
+Double-click to reset to the standard 73 message</string>
                      </property>
                      <property name="styleSheet">
                       <string notr="true">padding-left: 15%; padding-right: 15%; padding-top: 3%; padding-bottom: 3%</string>
@@ -2503,6 +2637,9 @@ list. The list can be maintained in Settings (F2).</string>
                         <property name="toolTip">
                          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;6 digit locators cause 2 different mesages to be sent, the second contains the full locator but only a hashed callsign, other stations must have decoded the first once before they can decode your call in the second. Check this option to only send 4 digit locators if it will avoid the two message protocol.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                         </property>
+                        <property name="accessibleDescription">
+                         <string>6 digit locators cause 2 different mesages to be sent, the second contains the full locator but only a hashed callsign, other stations must have decoded the first once before they can decode your call in the second. Check this option to only send 4 digit locators if it will avoid the two message protocol.</string>
+                        </property>
                         <property name="text">
                          <string>Prefer type 1 messages</string>
                         </property>
@@ -2705,6 +2842,7 @@ list. The list can be maintained in Settings (F2).</string>
     <property name="title">
      <string>Mode</string>
     </property>
+    <addaction name="actionFT4"/>
     <addaction name="actionFT8"/>
     <addaction name="actionJT4"/>
     <addaction name="actionJT9"/>
@@ -2773,9 +2911,6 @@ list. The list can be maintained in Settings (F2).</string>
    <property name="text">
     <string>About WSJT-X</string>
    </property>
-   <property name="shortcut">
-    <string>Ctrl+F1</string>
-   </property>
   </action>
   <action name="actionWide_Waterfall">
    <property name="text">
@@ -2793,9 +2928,6 @@ list. The list can be maintained in Settings (F2).</string>
   <action name="actionOpen_next_in_directory">
    <property name="text">
     <string>Open next in directory</string>
-   </property>
-   <property name="shortcut">
-    <string>F6</string>
    </property>
   </action>
   <action name="actionDecode_remaining_files_in_directory">
@@ -3290,14 +3422,6 @@ list. The list can be maintained in Settings (F2).</string>
     <string>Fox log</string>
    </property>
   </action>
-  <action name="reset_fox_log_action">
-   <property name="text">
-    <string>Reset Fox log ...</string>
-   </property>
-   <property name="toolTip">
-    <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Ths will erase the file FoxQSO.txt and delete the Fox log file which is used for dupe detection.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-   </property>
-  </action>
   <action name="actionFT8_DXpedition_Mode_User_Guide">
    <property name="text">
     <string>FT8 DXpedition Mode User Guide</string>
@@ -3336,6 +3460,14 @@ list. The list can be maintained in Settings (F2).</string>
   <action name="actionErase_WSPR_hashtable">
    <property name="text">
     <string>Erase WSPR hashtable</string>
+   </property>
+  </action>
+  <action name="actionFT4">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>FT4</string>
    </property>
   </action>
  </widget>

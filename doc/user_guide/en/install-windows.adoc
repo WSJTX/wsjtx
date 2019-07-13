@@ -1,11 +1,12 @@
 // Status=review
 
-Download and execute the package file {win32}, following these
-instructions:
+Download and execute the package file {win32} (WinXP, Vista, Win 7,
+Win 8, Win10, 32-bit) or {win64} (Vista, Win 7, Win 8, Win10, 64-bit)
+following these instructions:
 
 * Install _WSJT-X_ into its own directory, for example `C:\WSJTX` or `
   C:\WSJT\WSJTX`, rather than the conventional location `C:\Program
-  Files (x86)\WSJTX`.
+  Files ...\WSJTX`.
 
 * All program files relating to _WSJT-X_ will be stored in the chosen
   installation directory and its subdirectories.
@@ -29,26 +30,31 @@ TIP: Your computer may be configured so that this directory is
 
 [[OPENSSL]]
 
-* image:LoTW_TLS_error.png[_WSJT-X_ LoTW download TLS error, role="right"]
-  From this version onward _WSJT-X_ requires the _OpenSSL_ libraries
-  to be installed. Suitable libraries may already be installed on your
+* image:LoTW_TLS_error.png[_WSJT-X_ LoTW download TLS error,
+  role="right"] _WSJT-X_ requires the _OpenSSL_ libraries to be
+  installed. Suitable libraries may already be installed on your
   system, if they are not you will see this error shortly after
   startup. To fix this you need to install the _OpenSSL_ libraries.
 
 ** You can download a suitable _OpenSSL_ package for from
-   {win_openssl_packages}, you need the latest *Win32 v1.0.2 Lite*
-   version (Note it is the Win32 package even if you are using a
-   64-bit Windows operating system) which at the time of writing was
-   {win32_openssl}.
+   {win_openssl_packages}, you need the latest *Windows v1.0.2 Lite*
+   version. For the 32-bit _WSJT-X_ build use the Win32 version of the
+   _OpenSSL_ libraries, for the 64-bit _WSJT-X_ use the Win64 version
+   of the _OpenSSL_ libraries (Note it is OK to install both versions
+   on a 64-bit system) which at the time of writing were
+   {win32_openssl} and {win64_openssl} respectively.
 
 ** Install the package and accept the default options, including the
-   option to copy the _OpenSSL_ DLLs to the Windows system directory
-   (this is important). +
+   option to copy the _OpenSSL_ DLLs to the Windows system
+   directory. There is no obligation to donate to the _OpenSSL_
+   project, un-check all the donation options if desired. +
 
 NOTE: If you still get the same network error after installing the
       _OpenSSL_ libraries then you also need to install the
       {msvcpp_redist} component. From the download page select
-      `vcredist_x86.exe` and run it to install.
+      `vcredist_x86.exe` for use with the 32-bit _WSJT-X_ build or
+      `vcredist_x64.exe` with the 64-bit build, then run it to
+      install.
 
 TIP: If you cannot install the _OpenSSL_ libraries or do not have an
      Internet connection on the computer used to run

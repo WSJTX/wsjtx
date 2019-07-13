@@ -135,11 +135,11 @@ void FPlotter::setGreenZero(int n)
   m_bPaint2=true;
 }
 
-void FPlotter::setTRperiod(int n)
+void FPlotter::setTRperiod(double p)
 {
-  m_TRperiod=n;
+  m_TRperiod=p;
   m_pixPerSecond=12000.0/512.0;
-  if(m_TRperiod<30) m_pixPerSecond=12000.0/256.0;
+  if(m_TRperiod<30.0) m_pixPerSecond=12000.0/256.0;
   drawScale();
   update();
 }

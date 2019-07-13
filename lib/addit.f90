@@ -12,18 +12,22 @@ subroutine addit(itone,nfsample,nsym,nsps,ifreq,sig,dat)
   dphi=0.
 
   iters=1
-  if(nsym.eq.79) iters=2
+  if(nsym.eq.79) iters=2             !FT8
+  if(nsym.eq.103) iters=5            !FT4
+  
   do iter=1,iters
      f=ifreq
      phi=0.
      ntot=nsym*tsym/dt
      k=12000                             !Start audio at t = 1.0 s
      t=0.
-     if(nsym.eq.79) k=12000 + (iter-1)*12000*30  !Special case for FT8
+     if(nsym.eq.79) k=12000 + (iter-1)*12000*30   !Special case for FT8
+     if(nsym.eq.103) k=12000 + (iter-1)*12000*10  !Special case for FT4
      isym0=-1
      do i=1,ntot
         t=t+dt
         isym=nint(t/tsym) + 1
+        if(isym.gt.nsym) exit
         if(isym.ne.isym0) then
            freq=f + itone(isym)*baud
            dphi=twopi*freq*dt
@@ -59,7 +63,7 @@ subroutine addcw(icw,ncw,ifreq,sig,dat)
   phi=0.
   k=12000                             !Start audio at t = 1.0 s
   t=0.
-  npts=60*12000
+  npts=59*12000
   x=0.
   do i=1,npts
      t=t+dt

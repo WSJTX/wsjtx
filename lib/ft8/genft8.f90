@@ -25,7 +25,7 @@ subroutine genft8(msg,i3,n3,msgsent,msgbits,itone)
   msgsent='*** bad message ***                  '
   go to 900
 
-entry get_tones_from_77bits(msgbits,itone) 
+entry get_ft8_tones_from_77bits(msgbits,itone) 
 
 2  call encode174_91(msgbits,codeword)      !Encode the test message
 

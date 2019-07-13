@@ -44,7 +44,7 @@ public:
                          bool dx_is_self,
                          bool bTx,
                          bool no_tx_QSY,
-                         int TR_period);
+                         double TR_period);
 
   bool doppler_tracking () const;
   Q_SLOT void nominal_frequency (Frequency rx, Frequency tx);

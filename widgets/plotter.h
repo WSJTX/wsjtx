@@ -56,7 +56,7 @@ public:
   void DrawOverlay();
   int  rxFreq();
   void setFsample(int n);
-  void setNsps(int ntrperiod, int nsps);
+  void setNsps(double trperiod, int nsps);
   void setTxFreq(int n);
   void setMode(QString mode);
   void setSubMode(int n);
@@ -145,6 +145,7 @@ private:
   double  m_fftBinWidth;
   double  m_dialFreq;
   double  m_xOffset;
+  double  m_TRperiod;
 
   float   m_sum[2048];
 
@@ -161,7 +162,6 @@ private:
   qint32  m_h;
   qint32  m_h1;
   qint32  m_h2;
-  qint32  m_TRperiod;
   qint32  m_rxFreq;
   qint32  m_txFreq;
   qint32  m_fMin;

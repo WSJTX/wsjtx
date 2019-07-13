@@ -14,6 +14,8 @@ namespace Ui {
 class MessageAveraging
   : public QWidget
 {
+  Q_OBJECT
+
 public:
   explicit MessageAveraging(QSettings *, QFont const&, QWidget * parent = 0);
   ~MessageAveraging();

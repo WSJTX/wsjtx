@@ -18,13 +18,34 @@
 class FoxLog::impl final
   : public QSqlTableModel
 {
+  Q_OBJECT
+
 public:
   impl (Configuration const * configuration);
+
+  QVariant data (QModelIndex const& index, int role) const
+  {
+    auto value = QSqlTableModel::data (index, role);
+    if (index.column () == fieldIndex ("when")
+        && (Qt::DisplayRole == role || Qt::EditRole == role))
+      {
+        auto t = QDateTime::fromMSecsSinceEpoch (value.toULongLong () * 1000ull, Qt::UTC);
+        if (Qt::DisplayRole == role)
+          {
+            QLocale locale;
+            return locale.toString (t, locale.dateFormat (QLocale::ShortFormat) + " hh:mm:ss");
+          }
+        value = t;
+      }
+    return value;
+  }
 
   Configuration const * configuration_;
   QSqlQuery mutable dupe_query_;
   QSqlQuery mutable export_query_;
 };
+
+#include "FoxLog.moc"
 
 FoxLog::impl::impl (Configuration const * configuration)
   : configuration_ {configuration}

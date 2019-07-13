@@ -11,6 +11,7 @@
 #include <QDir>
 #include <QCloseEvent>
 #include <QDebug>
+#include <math.h>
 
 #include "commons.h"
 #include "MessageBox.hpp"
@@ -23,14 +24,14 @@
 
 
 extern "C" {
-  void astrosub_(int* nyear, int* month, int* nday, double* uth, double* freqMoon,
-                 const char* mygrid, const char* hisgrid, double* azsun,
-                 double* elsun, double* azmoon, double* elmoon, double* azmoondx,
-                 double* elmoondx, int* ntsky, int* ndop, int* ndop00,
-                 double* ramoon, double* decmoon, double* dgrd, double* poloffset,
-                 double* xnr, double* techo, double* width1, double* width2,
-                 bool* bTx, const char* AzElFileName, const char* jpleph,
-                 fortran_charlen_t, fortran_charlen_t, fortran_charlen_t, fortran_charlen_t);
+  void astrosub(int nyear, int month, int nday, double uth, double freqMoon,
+                const char * mygrid, size_t mygrid_len, const char * hisgrid,
+                size_t hisgrid_len, double * azsun, double * elsun, double * azmoon,
+                double * elmoon, double * azmoondx, double * elmoondx, int * ntsky,
+                int * ndop, int * ndop00, double * ramoon, double * decmoon, double * dgrd,
+                double * poloffset, double * xnr, double * techo, double * width1,
+                double * width2, bool bTx, const char * AzElFileName, size_t AzElFileName_len,
+                const char * jpleph, size_t jpleph_len);
 }
 
 Astro::Astro(QSettings * settings, Configuration const * configuration, QWidget * parent)
@@ -75,8 +76,8 @@ void Astro::read_settings ()
     case 1: ui_->rbFullTrack->setChecked (true); break;
     case 2: ui_->rbConstFreqOnMoon->setChecked (true); break;
     case 3: ui_->rbOwnEcho->setChecked (true); break;
-	case 4: ui_->rbOnDxEcho->setChecked (true); break;
-	case 5: ui_->rbCallDx->setChecked (true); break;
+  case 4: ui_->rbOnDxEcho->setChecked (true); break;
+  case 5: ui_->rbCallDx->setChecked (true); break;
     }
   move (settings_->value ("window/pos", pos ()).toPoint ());
 }
@@ -90,7 +91,7 @@ void Astro::write_settings ()
 }
 
 auto Astro::astroUpdate(QDateTime const& t, QString const& mygrid, QString const& hisgrid, Frequency freq,
-                        bool dx_is_self, bool bTx, bool no_tx_QSY, int TR_period) -> Correction
+                        bool dx_is_self, bool bTx, bool no_tx_QSY, double TR_period) -> Correction
 {
   Frequency freq_moon {freq};
   double azsun,elsun,azmoon,elmoon,azmoondx,elmoondx;
@@ -106,24 +107,20 @@ auto Astro::astroUpdate(QDateTime const& t, QString const& mygrid, QString const
   double sec {t.time().second() + 0.001*t.time().msec()};
   double uth {nhr + nmin/60.0 + sec/3600.0};
   if(freq_moon < 1) freq_moon = 144000000;
-  int nfreq {static_cast<int> (freq_moon / 1000000u)};
-  double freq8 {static_cast<double> (freq_moon)};
   auto const& AzElFileName = QDir::toNativeSeparators (configuration_->azel_directory ().absoluteFilePath ("azel.dat"));
   auto const& jpleph = configuration_->data_dir ().absoluteFilePath ("JPLEPH");
-  
-  
-  
 
-  QString mygrid_padded {(mygrid + "      ").left (6)};
-  QString hisgrid_padded {(hisgrid + "      ").left (6)};
-  astrosub_(&nyear, &month, &nday, &uth, &freq8, mygrid_padded.toLatin1().constData(),
-	    hisgrid_padded.toLatin1().constData(), &azsun, &elsun, &azmoon, &elmoon,
-      &azmoondx, &elmoondx, &ntsky, &m_dop, &m_dop00, &ramoon, &decmoon,
-	    &dgrd, &poloffset, &xnr, &techo, &width1, &width2, &bTx,
-	    AzElFileName.toLatin1().constData(), jpleph.toLatin1().constData(), 6, 6,
-	    AzElFileName.length(), jpleph.length());
+  astrosub(nyear, month, nday, uth, static_cast<double> (freq_moon),
+           mygrid.toLatin1 ().constData (), mygrid.size (),
+           hisgrid.toLatin1().constData(), hisgrid.size (),
+           &azsun, &elsun, &azmoon, &elmoon,
+           &azmoondx, &elmoondx, &ntsky, &m_dop, &m_dop00, &ramoon, &decmoon,
+           &dgrd, &poloffset, &xnr, &techo, &width1, &width2,
+           bTx,
+           AzElFileName.toLatin1().constData(), AzElFileName.size (),
+           jpleph.toLatin1().constData(), jpleph.size ());
 
-  if(hisgrid_padded=="      ") {
+    if(!hisgrid.size ()) {
     azmoondx=0.0;
     elmoondx=0.0;
     m_dop=0;
@@ -151,8 +148,8 @@ auto Astro::astroUpdate(QDateTime const& t, QString const& mygrid, QString const
       "Dec:    " << decmoon << "\n"
       "SunAz:  " << azsun << "\n"
       "SunEl:  " << elsun << "\n"
-      "Freq:   " << nfreq << "\n";
-    if(nfreq>=50) {                     //Suppress data not relevant below VHF
+      "Freq:   " << freq / 1.e6 << "\n";
+    if(freq>=5000000ull) {                     //Suppress data not relevant below VHF
       out << "Tsky:   " << ntsky << "\n"
         "Dpol:   " << poloffset << "\n"
         "MNR:    " << xnr << "\n"
@@ -211,11 +208,9 @@ auto Astro::astroUpdate(QDateTime const& t, QString const& mygrid, QString const
         //
         // use a base time of (secs-since-epoch + 2) so as to be sure
         // we do the next period if we calculate just before it starts
-        auto sec_since_epoch = t.toMSecsSinceEpoch () / 1000 + 2;
-        auto target_sec = sec_since_epoch - sec_since_epoch % TR_period + TR_period / 2;
+        auto sec_since_epoch = t.toMSecsSinceEpoch ()/1000 + 2;
+        auto target_sec = sec_since_epoch - fmod(double(sec_since_epoch),TR_period) + 0.5*TR_period;
         auto target_date_time = QDateTime::fromMSecsSinceEpoch (target_sec * 1000, Qt::UTC);
-        QString date {target_date_time.date().toString("yyyy MMM dd").trimmed ()};
-        QString utc {target_date_time.time().toString().trimmed ()};
         int nyear {target_date_time.date().year()};
         int month {target_date_time.date().month()};
         int nday {target_date_time.date().day()};
@@ -223,12 +218,15 @@ auto Astro::astroUpdate(QDateTime const& t, QString const& mygrid, QString const
         int nmin {target_date_time.time().minute()};
         double sec {target_date_time.time().second() + 0.001*target_date_time.time().msec()};
         double uth {nhr + nmin/60.0 + sec/3600.0};
-        astrosub_(&nyear, &month, &nday, &uth, &freq8, mygrid_padded.toLatin1().constData(),
-                  hisgrid_padded.toLatin1().constData(), &azsun, &elsun, &azmoon, &elmoon,
+        astrosub(nyear, month, nday, uth, static_cast<double> (freq_moon),
+                  mygrid.toLatin1 ().constData (), mygrid.size (),
+                  hisgrid.toLatin1().constData(), hisgrid.size (),
+                  &azsun, &elsun, &azmoon, &elmoon,
                   &azmoondx, &elmoondx, &ntsky, &m_dop, &m_dop00, &ramoon, &decmoon,
-                  &dgrd, &poloffset, &xnr, &techo, &width1, &width2, &bTx,
-                  "", jpleph.toLatin1().constData(), 6, 6,
-                  0, jpleph.length());
+                  &dgrd, &poloffset, &xnr, &techo, &width1, &width2,
+                  bTx,
+                  AzElFileName.toLatin1().constData(), AzElFileName.size (),
+                  jpleph.toLatin1().constData(), jpleph.size ());
         FrequencyDelta offset {0};
         switch (m_DopplerMethod)
           {
@@ -254,7 +252,7 @@ auto Astro::astroUpdate(QDateTime const& t, QString const& mygrid, QString const
 			
           }
         correction.tx = -offset;
-		qDebug () << "correction.tx (no tx qsy):" << correction.tx;
+        qDebug () << "correction.tx (no tx qsy):" << correction.tx;
       }
   }
   return correction;

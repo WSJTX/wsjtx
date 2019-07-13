@@ -1,6 +1,6 @@
 program allsim
 
-! Generate simulated data for WSJT-X slow modes: JT4, JT9, JT65, QRA64,
+! Generate simulated data for WSJT-X modes: JT4, JT9, JT65, FT8, FT4, QRA64,
 ! and WSPR.  Also unmodulated carrier and 20 WPM CW.
   
 
@@ -15,6 +15,7 @@ program allsim
   logical*1 bcontest
   real*4 dat(NMAX)
   character message*22,msgsent*22,arg*8,mygrid*6
+  character*37 msg37,msgsent37
 
   nargs=iargc()
   if(nargs.ne.1) then
@@ -60,15 +61,20 @@ program allsim
   call gen4(message,0,msgsent,itone,itype)
   call addit(itone,11025,206,2520,1200,sig,dat)  !JT4
 
-  i3bit=0                                        ! ### TEMPORARY ??? ###
-  call genft8(message,mygrid,bcontest,i3bit,msgsent,msgbits,itone)
+  i3=-1
+  n3=-1
+  call genft8(message,i3,n3,msgsent,msgbits,itone)
   call addit(itone,12000,79,1920,1400,sig,dat)   !FT8
 
+  msg37=message//'               '
+  call genft4(msg37,0,msgsent37,itone)
+  call addit(itone,12000,103,512,1600,sig,dat)   !FT4
+
   call genqra64(message,0,msgsent,itone,itype)
-  call addit(itone,12000,84,6912,1600,sig,dat)   !QRA64
+  call addit(itone,12000,84,6912,1800,sig,dat)   !QRA64
 
   call gen65(message,0,msgsent,itone,itype)
-  call addit(itone,11025,126,4096,1800,sig,dat)  !JT65
+  call addit(itone,11025,126,4096,2000,sig,dat)  !JT65
 
   iwave(1:npts)=nint(rms*dat(1:npts))
   

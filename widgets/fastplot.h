@@ -37,7 +37,7 @@ public:
   void setPlotZero(int plotZero);
   void setPlotGain(int plotGain);
   void setGreenZero(int n);
-  void setTRperiod(int n);
+  void setTRperiod(double p);
   void drawScale();
   void setMode(QString mode);
 
@@ -68,6 +68,7 @@ private:
   QString m_mode;
 
   double  m_pixPerSecond;
+  double  m_TRperiod;
 
   qint32  m_hdivs;
   qint32  m_h;
@@ -75,7 +76,6 @@ private:
   qint32  m_h2;
   QPixmap m_HorizPixmap;
   qint32  m_jh0;
-  qint32  m_TRperiod;
 
   bool    m_bPaint2;
 };

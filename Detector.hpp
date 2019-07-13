@@ -22,9 +22,10 @@ public:
   //
   // the samplesPerFFT argument is the number after down sampling
   //
-  Detector (unsigned frameRate, unsigned periodLengthInSeconds, unsigned downSampleFactor = 4u, QObject * parent = 0);
+  Detector (unsigned frameRate, double periodLengthInSeconds, unsigned downSampleFactor = 4u,
+            QObject * parent = 0);
 
-  void setTRPeriod(unsigned p) {m_period=p;}
+  void setTRPeriod(double p) {m_period=p;}
   bool reset () override;
 
   Q_SIGNAL void framesWritten (qint64) const;
@@ -40,10 +41,9 @@ protected:
 
 private:
   void clear ();		// discard buffer contents
-  unsigned secondInPeriod () const;
 
   unsigned m_frameRate;
-  unsigned m_period;
+  double   m_period;
   unsigned m_downSampleFactor;
   qint32 m_samplesPerFFT;	// after any down sampling
   qint32 m_ns;

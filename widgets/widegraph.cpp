@@ -5,6 +5,7 @@
 #include <QSettings>
 #include <QDateTime>
 #include <QKeyEvent>
+#include <math.h>
 #include "ui_widegraph.h"
 #include "commons.h"
 #include "Configuration.hpp"
@@ -23,7 +24,7 @@ WideGraph::WideGraph(QSettings * settings, QWidget *parent) :
   ui(new Ui::WideGraph),
   m_settings (settings),
   m_palettes_path {":/Palettes"},
-  m_ntr0 {0},
+  m_tr0 {0.0},
   m_n {0},
   m_bHaveTransmitted {false}
 {
@@ -186,8 +187,8 @@ void WideGraph::dataSink2(float s[], float df3, int ihsym, int ndiskdata)  //dat
 
 // Time according to this computer
     qint64 ms = QDateTime::currentMSecsSinceEpoch() % 86400000;
-    int ntr = (ms/1000) % m_TRperiod;
-    if((ndiskdata && ihsym <= m_waterfallAvg) || (!ndiskdata && ntr<m_ntr0)) {
+    double tr = fmod(0.001*ms,m_TRperiod);
+    if((ndiskdata && ihsym <= m_waterfallAvg) || (!ndiskdata && (tr<m_tr0))) {
       float flagValue=1.0e30;
       if(m_bHaveTransmitted) flagValue=2.0e30;
       for(int i=0; i<MAX_SCREENSIZE; i++) {
@@ -198,7 +199,7 @@ void WideGraph::dataSink2(float s[], float df3, int ihsym, int ndiskdata)  //dat
       }
       m_bHaveTransmitted=false;
     }
-    m_ntr0=ntr;
+    m_tr0=tr;
     ui->widePlot->draw(swide,true,false);
   }
 }
@@ -277,11 +278,11 @@ int WideGraph::fSpan()
   return ui->widePlot->fSpan ();
 }
 
-void WideGraph::setPeriod(int ntrperiod, int nsps)                  //SetPeriod
+void WideGraph::setPeriod(double trperiod, int nsps)                  //SetPeriod
 {
-  m_TRperiod=ntrperiod;
+  m_TRperiod=trperiod;
   m_nsps=nsps;
-  ui->widePlot->setNsps(ntrperiod, nsps);
+  ui->widePlot->setNsps(trperiod, nsps);
 }
 
 void WideGraph::setTxFreq(int n)                                   //setTxFreq

@@ -47,12 +47,16 @@ public:
   // change the server port messages are sent to
   Q_SLOT void set_server_port (port_type server_port = 0u);
 
+  // enable incoming messages
+  Q_SLOT void enable (bool);
+
   // outgoing messages
   Q_SLOT void status_update (Frequency, QString const& mode, QString const& dx_call, QString const& report
                              , QString const& tx_mode, bool tx_enabled, bool transmitting, bool decoding
-                             , qint32 rx_df, qint32 tx_df, QString const& de_call, QString const& de_grid
+                             , quint32 rx_df, quint32 tx_df, QString const& de_call, QString const& de_grid
                              , QString const& dx_grid, bool watchdog_timeout, QString const& sub_mode
-                             , bool fast_mode, quint8 special_op_mode);
+                             , bool fast_mode, quint8 special_op_mode, quint32 frequency_tolerance
+                             , quint32 tr_period, QString const& configuration_name);
   Q_SLOT void decode (bool is_new, QTime time, qint32 snr, float delta_time, quint32 delta_frequency
                       , QString const& mode, QString const& message, bool low_confidence
                       , bool off_air);
@@ -89,6 +93,10 @@ public:
   Q_SIGNAL void reply (QTime, qint32 snr, float delta_time, quint32 delta_frequency, QString const& mode
                        , QString const& message_text, bool low_confidence, quint8 modifiers);
 
+  // this signal is emitted if the server has requested this client to
+  // close down gracefully
+  Q_SIGNAL void close ();
+
   // this signal is emitted if the server has requested a replay of
   // all decodes
   Q_SIGNAL void replay ();
@@ -104,6 +112,16 @@ public:
   // this signal is emitted if the server has sent a highlight
   // callsign request for the specified call
   Q_SIGNAL void highlight_callsign (QString const& callsign, QColor const& bg, QColor const& fg, bool last_only);
+
+  // this signal is emitted if the server has requested a
+  // configuration switch
+  Q_SIGNAL void switch_configuration (QString const& configuration_name);
+
+  // this signal is emitted if the server has requested a
+  // configuration change
+  Q_SIGNAL void configure (QString const& mode, quint32 frequency_tolerance, QString const& submode
+                           , bool fast_mode, quint32 tr_period, quint32 rx_df, QString const& dx_call
+                           , QString const& dx_grid, bool generate_messages);
 
   // this signal is emitted when network errors occur or if a host
   // lookup fails

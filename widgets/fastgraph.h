@@ -22,7 +22,7 @@ public:
 
   void   plotSpec(bool diskData, int UTCdisk);
   void   saveSettings();
-  void   setTRPeriod(int n);
+  void   setTRPeriod(double p);
   void   setMode(QString mode);
 
 signals:
@@ -40,8 +40,8 @@ protected:
 
 private:
   QSettings * m_settings;
-  float m_ave;
-  qint32  m_TRperiod;
+  float   m_ave;
+  double  m_TRperiod;
 
   QScopedPointer<Ui::FastGraph> ui;
 };

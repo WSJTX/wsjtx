@@ -2,6 +2,7 @@
 #include <QDateTime>
 #include <QtAlgorithms>
 #include <QDebug>
+#include <math.h>
 #include "commons.h"
 
 #include "moc_Detector.cpp"
@@ -10,7 +11,7 @@ extern "C" {
   void   fil4_(qint16*, qint32*, qint16*, qint32*);
 }
 
-Detector::Detector (unsigned frameRate, unsigned periodLengthInSeconds,
+Detector::Detector (unsigned frameRate, double periodLengthInSeconds,
                     unsigned downSampleFactor, QObject * parent)
   : AudioDevice (parent)
   , m_frameRate (frameRate)
@@ -54,12 +55,14 @@ void Detector::clear ()
 
 qint64 Detector::writeData (char const * data, qint64 maxSize)
 {
-  int ns=secondInPeriod();
-  if(ns < m_ns) {                      // When ns has wrapped around to zero, restart the buffers
+  static unsigned mstr0=999999;
+  qint64 ms0 = QDateTime::currentMSecsSinceEpoch() % 86400000;
+  unsigned mstr = ms0 % int(1000.0*m_period); // ms into the nominal Tx start time
+  if(mstr < mstr0) {              //When mstr has wrapped around to 0, restart the buffer
     dec_data.params.kin = 0;
     m_bufferPos = 0;
   }
-  m_ns=ns;
+  mstr0=mstr;
 
   // no torn frames
   Q_ASSERT (!(maxSize % static_cast<qint64> (bytesPerFrame ())));
@@ -72,7 +75,7 @@ qint64 Detector::writeData (char const * data, qint64 maxSize)
   if (framesAccepted < static_cast<size_t> (maxSize / bytesPerFrame ())) {
     qDebug () << "dropped " << maxSize / bytesPerFrame () - framesAccepted
                 << " frames of data on the floor!"
-                << dec_data.params.kin << ns;
+                << dec_data.params.kin << mstr;
     }
 
     for (unsigned remaining = framesAccepted; remaining; ) {
@@ -119,14 +122,4 @@ qint64 Detector::writeData (char const * data, qint64 maxSize)
 
   return maxSize;    // we drop any data past the end of the buffer on
   // the floor until the next period starts
-}
-
-unsigned Detector::secondInPeriod () const
-{
-  // we take the time of the data as the following assuming no latency
-  // delivering it to us (not true but close enough for us)
-  qint64 now (QDateTime::currentMSecsSinceEpoch ());
-
-  unsigned secondInToday ((now % 86400000LL) / 1000);
-  return secondInToday % m_period;
 }

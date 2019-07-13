@@ -17,3 +17,17 @@ QValidator::State RestrictedSpinBox::validate (QString& input, int& pos) const
     }
   return valid;
 }
+
+void RestrictedSpinBox::fixup (QString& input) const
+{
+  auto iter = std::lower_bound (values ().begin (), values ().end (), valueFromText (input));
+  HintedSpinBox::fixup (input);
+  if (iter != values ().end ())
+    {
+      input = textFromValue (*iter);
+    }
+  else
+    {
+      input = textFromValue (values ().back ());
+    }
+}

@@ -1,9 +1,12 @@
 #ifndef AD1C_CTY_HPP_
 #define AD1C_CTY_HPP_
 
-#include <boost/core/noncopyable.hpp>
 #include <QObject>
+#include <QDebug>
 #include "pimpl_h.hpp"
+
+class QString;
+class Configuration;
 
 //
 // AD1CCty  - Fast  access database  of Jim  Reisert, AD1C's,  cty.dat
@@ -11,7 +14,6 @@
 // 
 class AD1CCty final
   : public QObject
-  , private boost::noncopyable
 {
   Q_OBJECT
 
@@ -39,7 +41,7 @@ public:
     QString primary_prefix;
   };
 
-  explicit AD1CCty ();
+  explicit AD1CCty (Configuration const *);
   ~AD1CCty ();
   Record lookup (QString const& call) const;
 

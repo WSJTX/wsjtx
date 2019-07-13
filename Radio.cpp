@@ -74,14 +74,14 @@ namespace Radio
   }
 
 
-  QString frequency_MHz_string (Frequency f, QLocale const& locale)
+  QString frequency_MHz_string (Frequency f, int precision, QLocale const& locale)
   {
-    return locale.toString (f / MHz_factor, 'f', frequency_precsion);
+    return locale.toString (f / MHz_factor, 'f', precision);
   }
 
-  QString frequency_MHz_string (FrequencyDelta d, QLocale const& locale)
+  QString frequency_MHz_string (FrequencyDelta d, int precision, QLocale const& locale)
   {
-    return locale.toString (d / MHz_factor, 'f', frequency_precsion);
+    return locale.toString (d / MHz_factor, 'f', precision);
   }
 
   QString pretty_frequency_MHz_string (Frequency f, QLocale const& locale)

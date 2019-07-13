@@ -23,7 +23,7 @@ class Modulator
 public:
   enum ModulatorState {Synchronizing, Active, Idle};
 
-  Modulator (unsigned frameRate, unsigned periodLengthInSeconds, QObject * parent = nullptr);
+  Modulator (unsigned frameRate, double periodLengthInSeconds, QObject * parent = nullptr);
 
   void close () override;
 
@@ -31,13 +31,14 @@ public:
   double frequency () const {return m_frequency;}
   bool isActive () const {return m_state != Idle;}
   void setSpread(double s) {m_fSpread=s;}
-  void setTRPeriod(unsigned p) {m_period=p;}
+  void setTRPeriod(double p) {m_period=p;}
   void set_nsym(int n) {m_symbolsLength=n;}
+  void set_ms0(qint64 ms) {m_ms0=ms;}
 
   Q_SLOT void start (unsigned symbolsLength, double framesPerSymbol, double frequency,
                      double toneSpacing, SoundOutput *, Channel = Mono,
                      bool synchronize = true, bool fastMode = false,
-                     double dBSNR = 99., int TRperiod=60);
+                     double dBSNR = 99., double TRperiod=60.0);
   Q_SLOT void stop (bool quick = false);
   Q_SLOT void tune (bool newState = true);
   Q_SLOT void setFrequency (double newFrequency) {m_frequency = newFrequency;}
@@ -71,13 +72,14 @@ private:
   double m_fac;
   double m_toneSpacing;
   double m_fSpread;
+  double m_TRperiod;
+  double m_period;
 
   qint64 m_silentFrames;
-  qint32 m_TRperiod;
+  qint64 m_ms0;
   qint16 m_ramp;
 
   unsigned m_frameRate;
-  unsigned m_period;
   ModulatorState volatile m_state;
 
   bool volatile m_tuning;

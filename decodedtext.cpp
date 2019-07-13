@@ -51,11 +51,12 @@ DecodedText::DecodedText (QString const& the_string)
 
 QStringList DecodedText::messageWords () const
 {
-  if (is_standard_)
-    {
-      // extract up to the first four message words
-      return words_re.match (message_).capturedTexts ();
-    }
+  if(is_standard_) {
+    // extract up to the first four message words
+    QString t=message_;
+    if(t.left(4)=="TU; ") t=message_.mid(4,-1);
+    return words_re.match(t).capturedTexts();
+  }
   // simple word split for free text messages
   auto words = message_.split (' ', QString::SkipEmptyParts);
   // add whole message as item 0 to mimic RE capture list

@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>546</width>
-    <height>536</height>
+    <height>553</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -301,7 +301,14 @@
           <string>Behavior</string>
          </property>
          <layout class="QGridLayout" name="gridLayout_8">
-          <item row="4" column="1">
+          <item row="3" column="1">
+           <widget class="QCheckBox" name="decode_at_52s_check_box">
+            <property name="text">
+             <string>Decode after EME delay</string>
+            </property>
+           </widget>
+          </item>
+          <item row="5" column="1">
            <layout class="QHBoxLayout" name="horizontalLayout_12">
             <item>
              <spacer name="horizontalSpacer_7">
@@ -347,10 +354,27 @@
             </item>
            </layout>
           </item>
-          <item row="3" column="1">
-           <widget class="QCheckBox" name="decode_at_52s_check_box">
+          <item row="0" column="1">
+           <widget class="QCheckBox" name="enable_VHF_features_check_box">
             <property name="text">
-             <string>Decode after EME delay</string>
+             <string>Enable VHF/UHF/Microwave features</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QCheckBox" name="single_decode_check_box">
+            <property name="text">
+             <string>Single decode</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QCheckBox" name="tx_QSY_check_box">
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Some rigs are not able to process CAT commands while transmitting. This means that if you are operating in split mode you may have to uncheck this option.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>Allow Tx frequency changes while transmitting</string>
             </property>
            </widget>
           </item>
@@ -367,31 +391,35 @@
             </property>
            </widget>
           </item>
-          <item row="2" column="1">
-           <widget class="QCheckBox" name="single_decode_check_box">
-            <property name="text">
-             <string>Single decode</string>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="1">
-           <widget class="QCheckBox" name="enable_VHF_features_check_box">
-            <property name="text">
-             <string>Enable VHF/UHF/Microwave features</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="1">
-           <widget class="QCheckBox" name="tx_QSY_check_box">
+          <item row="1" column="0">
+           <widget class="QCheckBox" name="monitor_last_used_check_box">
             <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Some rigs are not able to process CAT commands while transmitting. This means that if you are operating in split mode you may have to uncheck this option.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check this if you wish to automatically return to the last monitored frequency when monitor is enabled, leave it unchecked if you wish to have the current rig frequency maintained.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
             </property>
             <property name="text">
-             <string>Allow Tx frequency changes while transmitting</string>
+             <string>Monitor returns to last used frequency</string>
             </property>
            </widget>
           </item>
-          <item row="6" column="0" colspan="2">
+          <item row="5" column="0">
+           <widget class="QCheckBox" name="alternate_bindings_check_box">
+            <property name="text">
+             <string>Alternate F1-F6 bindings</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0">
+           <widget class="QCheckBox" name="disable_TX_on_73_check_box">
+            <property name="toolTip">
+             <string>Turns off automatic transmissions after sending a 73 or any other free
+text message.</string>
+            </property>
+            <property name="text">
+             <string>Di&amp;sable Tx after sending 73</string>
+            </property>
+           </widget>
+          </item>
+          <item row="7" column="0" colspan="2">
            <layout class="QHBoxLayout" name="horizontalLayout_9">
             <item>
              <widget class="QCheckBox" name="CW_id_after_73_check_box">
@@ -444,34 +472,6 @@ quiet period when decoding is done.</string>
             </item>
            </layout>
           </item>
-          <item row="1" column="0">
-           <widget class="QCheckBox" name="monitor_last_used_check_box">
-            <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check this if you wish to automatically return to the last monitored frequency when monitor is enabled, leave it unchecked if you wish to have the current rig frequency maintained.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-            <property name="text">
-             <string>Monitor returns to last used frequency</string>
-            </property>
-           </widget>
-          </item>
-          <item row="4" column="0">
-           <widget class="QCheckBox" name="alternate_bindings_check_box">
-            <property name="text">
-             <string>Alternate F1-F5 bindings</string>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="0">
-           <widget class="QCheckBox" name="disable_TX_on_73_check_box">
-            <property name="toolTip">
-             <string>Turns off automatic transmissions after sending a 73 or any other free
-text message.</string>
-            </property>
-            <property name="text">
-             <string>Di&amp;sable Tx after sending 73</string>
-            </property>
-           </widget>
-          </item>
           <item row="2" column="0">
            <widget class="QCheckBox" name="quick_call_check_box">
             <property name="toolTip">
@@ -479,6 +479,13 @@ text message.</string>
             </property>
             <property name="text">
              <string>Doubl&amp;e-click on call sets Tx enable</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="0">
+           <widget class="QCheckBox" name="force_call_1st_check_box">
+            <property name="text">
+             <string>Calling CQ forces Call 1st</string>
             </property>
            </widget>
           </item>
@@ -1912,7 +1919,7 @@ for assessing propagation and system performance.</string>
        <item>
         <widget class="QGroupBox" name="n1mm_group_box">
          <property name="title">
-          <string>N1MM Logger+  Broadcasts</string>
+          <string>Secondary UDP Server (deprecated)</string>
          </property>
          <layout class="QFormLayout" name="formLayout_15">
           <item row="0" column="0" colspan="2">
@@ -1928,7 +1935,7 @@ for assessing propagation and system performance.</string>
           <item row="1" column="0">
            <widget class="QLabel" name="n1mm_server_name_label">
             <property name="text">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;N1MM Server name or IP address:&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             <string>Server name or IP address:</string>
             </property>
             <property name="buddy">
              <cstring>n1mm_server_name_line_edit</cstring>
@@ -1945,7 +1952,7 @@ for assessing propagation and system performance.</string>
           <item row="2" column="0">
            <widget class="QLabel" name="n1mm_server_port_label">
             <property name="text">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;N1MM Server port number:&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             <string>Server port number:</string>
             </property>
             <property name="buddy">
              <cstring>n1mm_server_port_spin_box</cstring>
@@ -2287,6 +2294,23 @@ Right click for insert and delete options.</string>
             </item>
            </layout>
           </item>
+          <item>
+           <layout class="QFormLayout" name="formLayout_20">
+            <item row="0" column="0">
+             <widget class="QCheckBox" name="include_WAE_check_box"/>
+            </item>
+            <item row="0" column="1">
+             <widget class="QLabel" name="includeExtraWAEEntitiesLabel">
+              <property name="text">
+               <string>Include extra WAE entities</string>
+              </property>
+              <property name="buddy">
+               <cstring>include_WAE_check_box</cstring>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
          </layout>
         </widget>
        </item>
@@ -2299,35 +2323,6 @@ Right click for insert and delete options.</string>
           <string>Logbook of the World User Validation</string>
          </property>
          <layout class="QFormLayout" name="formLayout_18">
-          <item row="2" column="0">
-           <widget class="QLabel" name="label_14">
-            <property name="text">
-             <string>Age of last upload less than:</string>
-            </property>
-            <property name="buddy">
-             <cstring>LotW_days_since_upload_spin_box</cstring>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="1">
-           <widget class="QSpinBox" name="LotW_days_since_upload_spin_box">
-            <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Adjust this spin box to set the age threshold of LotW user's last upload date that is accepted as a current LotW user.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-            <property name="suffix">
-             <string> days</string>
-            </property>
-            <property name="minimum">
-             <number>0</number>
-            </property>
-            <property name="maximum">
-             <number>9999</number>
-            </property>
-            <property name="value">
-             <number>365</number>
-            </property>
-           </widget>
-          </item>
           <item row="1" column="0">
            <widget class="QLabel" name="label_15">
             <property name="text">
@@ -2361,6 +2356,35 @@ Right click for insert and delete options.</string>
              </widget>
             </item>
            </layout>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="label_14">
+            <property name="text">
+             <string>Age of last upload less than:</string>
+            </property>
+            <property name="buddy">
+             <cstring>LotW_days_since_upload_spin_box</cstring>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QSpinBox" name="LotW_days_since_upload_spin_box">
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Adjust this spin box to set the age threshold of LotW user's last upload date that is accepted as a current LotW user.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="suffix">
+             <string> days</string>
+            </property>
+            <property name="minimum">
+             <number>0</number>
+            </property>
+            <property name="maximum">
+             <number>9999</number>
+            </property>
+            <property name="value">
+             <number>365</number>
+            </property>
+           </widget>
           </item>
          </layout>
         </widget>
@@ -2469,7 +2493,7 @@ Right click for insert and delete options.</string>
        <item row="1" column="0" colspan="2">
         <widget class="QGroupBox" name="gbSpecialOpActivity">
          <property name="title">
-          <string>Special operating activity:  Generation of FT8 and MSK144 messages</string>
+          <string>Special operating activity:  Generation of FT4, FT8, and MSK144 messages</string>
          </property>
          <property name="checkable">
           <bool>true</bool>
@@ -2556,7 +2580,7 @@ Right click for insert and delete options.</string>
                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;ARRL RTTY Roundup and similar contests.  Exchange is US state, Canadian province, or &amp;quot;DX&amp;quot;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
               <property name="text">
-               <string>ARRL RTTY Roundup</string>
+               <string>RTTY Roundup messages</string>
               </property>
               <attribute name="buttonGroup">
                <string notr="true">special_op_activity_button_group</string>
@@ -2821,6 +2845,48 @@ Right click for insert and delete options.</string>
             </layout>
            </widget>
           </item>
+          <item row="4" column="0" colspan="2">
+           <widget class="QGroupBox" name="groupBox_7">
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>50</height>
+             </size>
+            </property>
+            <property name="title">
+             <string>Waterfall spectra</string>
+            </property>
+            <widget class="QRadioButton" name="rbLowSidelobes">
+             <property name="geometry">
+              <rect>
+               <x>10</x>
+               <y>20</y>
+               <width>91</width>
+               <height>17</height>
+              </rect>
+             </property>
+             <property name="text">
+              <string>Low sidelobes</string>
+             </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
+            </widget>
+            <widget class="QRadioButton" name="rbMaxSensitivity">
+             <property name="geometry">
+              <rect>
+               <x>120</x>
+               <y>20</y>
+               <width>92</width>
+               <height>17</height>
+              </rect>
+             </property>
+             <property name="text">
+              <string>Most sensitive</string>
+             </property>
+            </widget>
+           </widget>
+          </item>
          </layout>
         </widget>
        </item>
@@ -3036,13 +3102,13 @@ Right click for insert and delete options.</string>
   </connection>
  </connections>
  <buttongroups>
-  <buttongroup name="CAT_data_bits_button_group"/>
   <buttongroup name="special_op_activity_button_group"/>
-  <buttongroup name="PTT_method_button_group"/>
-  <buttongroup name="TX_audio_source_button_group"/>
-  <buttongroup name="TX_mode_button_group"/>
+  <buttongroup name="CAT_data_bits_button_group"/>
   <buttongroup name="split_mode_button_group"/>
+  <buttongroup name="TX_mode_button_group"/>
+  <buttongroup name="PTT_method_button_group"/>
   <buttongroup name="CAT_stop_bits_button_group"/>
   <buttongroup name="CAT_handshake_button_group"/>
+  <buttongroup name="TX_audio_source_button_group"/>
  </buttongroups>
 </ui>

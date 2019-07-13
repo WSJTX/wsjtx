@@ -1,13 +1,14 @@
-subroutine symspec(shared_data,k,ntrperiod,nsps,ingain,nminw,pxdb,s,   &
-     df3,ihsym,npts8,pxdbmax)
+subroutine symspec(shared_data,k,ntrperiod,nsps,ingain,bLowSidelobes,    &
+     nminw,pxdb,s,df3,ihsym,npts8,pxdbmax)
 
 ! Input:
-!  k         pointer to the most recent new data
-!  ntrperiod T/R sequence length, minutes
-!  nsps      samples per symbol, at 12000 Hz
-!  ndiskdat  0/1 to indicate if data from disk
-!  nb        0/1 status of noise blanker (off/on)
-!  nbslider  NB setting, 0-100
+!  k              pointer to the most recent new data
+!  ntrperiod      T/R sequence length, minutes
+!  nsps           samples per symbol, at 12000 Hz
+!  bLowSidelobes  true to use windowed FFTs
+!  ndiskdat       0/1 to indicate if data from disk
+!  nb             0/1 status of noise blanker (off/on)
+!  nbslider       NB setting, 0-100
 
 ! Output:
 !  pxdb      raw power (0-90 dB)
@@ -29,6 +30,7 @@ subroutine symspec(shared_data,k,ntrperiod,nsps,ingain,nminw,pxdb,s,   &
   real*4 tmp(NSMAX)
   complex cx(0:MAXFFT3/2)
   integer nch(7)
+  logical*1 bLowSidelobes
 
   common/spectra/syellow(NSMAX),ref(0:3456),filter(0:3456)
   data k0/99999999/,nfft3z/0/
@@ -48,11 +50,8 @@ subroutine symspec(shared_data,k,ntrperiod,nsps,ingain,nminw,pxdb,s,   &
   if(nfft3.ne.nfft3z) then
 ! Compute new window
      pi=4.0*atan(1.0)
-     width=0.25*nsps
-     do i=1,nfft3
-        z=(i-nfft3/2)/width
-        w3(i)=exp(-z*z)
-     enddo
+     w3=0
+     call nuttal_window(w3,nfft3)
      nfft3z=nfft3
   endif
 
@@ -86,10 +85,10 @@ subroutine symspec(shared_data,k,ntrperiod,nsps,ingain,nminw,pxdb,s,   &
   enddo
   ihsym=ihsym+1
 
-!  xc(0:nfft3-1)=w3(1:nfft3)*xc(0:nfft3-1)    !Apply window w3
-  call four2a(xc,nfft3,1,-1,0)               !Real-to-complex FFT
+  if(bLowSidelobes) xc(0:nfft3-1)=w3(1:nfft3)*xc(0:nfft3-1)    !Apply window 
+  call four2a(xc,nfft3,1,-1,0)        !Real-to-complex FFT
 
-  df3=12000.0/nfft3                   !JT9-1: 0.732 Hz = 0.42 * tone spacing
+  df3=12000.0/nfft3                   !JT9: 0.732 Hz = 0.42 * tone spacing
   iz=min(NSMAX,nint(5000.0/df3))
   fac=(1.0/nfft3)**2
   do i=1,iz

@@ -42,11 +42,12 @@ public:
   {
   }
 
-  void load (QString const& url, bool forced_fetch)
+  void load (QString const& url, bool fetch, bool forced_fetch)
   {
-    auto csv_file_name = csv_file_.fileName ();
     abort ();                   // abort any active download
-    if (!QFileInfo::exists (csv_file_name) || forced_fetch)
+    auto csv_file_name = csv_file_.fileName ();
+    auto exists = QFileInfo::exists (csv_file_name);
+    if (fetch && (!exists || forced_fetch))
       {
         current_url_.setUrl (url);
         if (current_url_.isValid () && !QSslSocket::supportsSsl ())
@@ -58,8 +59,11 @@ public:
       }
     else
       {
-        // load the database asynchronously
-        future_load_ = std::async (std::launch::async, &LotWUsers::impl::load_dictionary, this, csv_file_name);
+        if (exists)
+          {
+            // load the database asynchronously
+            future_load_ = std::async (std::launch::async, &LotWUsers::impl::load_dictionary, this, csv_file_name);
+          }
       }
   }
 
@@ -254,9 +258,9 @@ void LotWUsers::set_local_file_path (QString const& path)
   m_->csv_file_.setFileName (path);
 }
 
-void LotWUsers::load (QString const& url, bool force_download)
+void LotWUsers::load (QString const& url, bool fetch, bool force_download)
 {
-  m_->load (url, force_download);
+  m_->load (url, fetch, force_download);
 }
 
 void LotWUsers::set_age_constraint (qint64 uploaded_since_days)

@@ -5,7 +5,8 @@ SOURCES += \
   models/Modes.cpp \
   models/IARURegions.cpp \
   models/FoxLog.cpp \
-  models/CabrilloLog.cpp
+  models/CabrilloLog.cpp \
+  models/DecodeHighlightingModel.cpp
 
 HEADERS  += \
   models/Bands.hpp \
@@ -15,4 +16,5 @@ HEADERS  += \
   models/IARURegions.hpp \
   models/FoxLog.hpp \
   models/CabrilloLog.hpp \
-  models/FontOverrideModel.hpp
+  models/FontOverrideModel.hpp \
+  models/DecodeHighlightingModel.hpp

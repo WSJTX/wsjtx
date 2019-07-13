@@ -19,6 +19,8 @@ class QFont;
 class AbstractLogWindow
   : public QWidget
 {
+  Q_OBJECT
+
 public:
   AbstractLogWindow (QString const& settings_key, QSettings * settings
                      , Configuration const * configuration

@@ -13,7 +13,6 @@
 #include "models/Bands.hpp"
 #include "models/FoxLog.hpp"
 #include "item_delegates/ForeignKeyDelegate.hpp"
-#include "item_delegates/DateTimeAsSecsSinceEpochDelegate.hpp"
 #include "item_delegates/CallsignDelegate.hpp"
 #include "item_delegates/MaidenheadLocatorDelegate.hpp"
 #include "pimpl_impl.hpp"
@@ -42,7 +41,6 @@ FoxLogWindow::FoxLogWindow (QSettings * settings, Configuration const * configur
   m_->ui_.setupUi (this);
   m_->ui_.log_table_view->setModel (m_->log_->model ());
   set_log_view (m_->ui_.log_table_view);
-  m_->ui_.log_table_view->setItemDelegateForColumn (1, new DateTimeAsSecsSinceEpochDelegate {this});
   m_->ui_.log_table_view->setItemDelegateForColumn (2, new CallsignDelegate {this});
   m_->ui_.log_table_view->setItemDelegateForColumn (3, new MaidenheadLocatorDelegate {this});
   m_->ui_.log_table_view->setItemDelegateForColumn (6, new ForeignKeyDelegate {configuration->bands (), 0, this});

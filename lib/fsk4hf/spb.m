@@ -70,14 +70,14 @@ endfunction
 # M-ary PSK Block Coded Modulation," Igal Sason and Gil Weichman, 
 # doi: 10.1109/EEEI.2006.321097
 #-------------------------------------------------------------------------------
-N=174
-K=75
+N=128
+K=90
 R=K/N
 
 delta=0.01;
 [ths,fval,info,output]=fzero(@f1,[delta,pi/2-delta], optimset ("jacobian", "off"));
 
-for ebnodb=-6:0.5:4
+for ebnodb=-3:0.5:4
   ebno=10^(ebnodb/10.0);
   esno=ebno*R;
   A=sqrt(2*esno);

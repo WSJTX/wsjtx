@@ -23,7 +23,7 @@ public:
 
   void set_local_file_path (QString const&);
 
-  Q_SLOT void load (QString const& url, bool force_download = false);
+  Q_SLOT void load (QString const& url, bool fetch = true, bool force_download = false);
   Q_SLOT void set_age_constraint (qint64 uploaded_since_days);
 
   // returns true if the specified call sign 'call' has uploaded their

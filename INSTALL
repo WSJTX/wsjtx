@@ -30,13 +30,13 @@ Mac".
 
 Qt v5, preferably v5.5 or later is required to build WSJT-X.
 
-Qt v5 multimedia  support and serial port is necessary  as well as the
-core  Qt   v5  components,  normally  installing   the  Qt  multimedia
-development  package   and  Qt  serialport  development   package  are
-sufficient to pull in all the required Qt components and dependants as
-a  single  transaction.  On  some systems  the  Qt  multimedia  plugin
-component is  separate in the  distribution repository an it  may also
-need installing.
+Qt v5  multimedia support, serial  port, and Linguist is  necessary as
+well  as  the  core  Qt  v5 components,  normally  installing  the  Qt
+multimedia development, Qt serialport development packages, and the Qt
+Linguist  packages are  sufficient  to  pull in  all  the required  Qt
+components and  dependants as a  single transaction.  On  some systems
+the Qt  multimedia plugin  component is  separate in  the distribution
+repository an it may also need installing.
 
 The single precision FFTW v3  library libfftw3f is required along with
 the  libfftw library  development  package.   Normally installing  the
@@ -256,47 +256,6 @@ The   above  commands   will  build   hamlib  and   install  it   into
 ~/hamlib-prefix. If `make install-strip` fails, try `make install`.
 
 
-Qt
---
-
-NOTE: As of Qt  v5.4 building Qt from source on Mac OS  X is no longer
-necessary since the  Qt team have switched to using  the modern libc++
-Standard    C++   Library    for    all    distributable   run    time
-components. Instead you may simply  download a binary installer for OS
-X 64-bit. The binary installer is here:
-
-    http://www.qt.io/download
-
-The    binary   Qt    distributions    prior   to    Qt   v5.4    from
-http://www.qt.io/download unfortunately are built to use the libstdc++
-C++ support  library, WSJT-X uses  a less geriatric C++  dialect which
-uses the  libc++ C++  support library.   This means  that you  need to
-build Qt from sources. This is not difficult but does take some time.
-
-Download        the        Qt        source        tarball        from
-http://www.qt.io/download-open-source/,  the link  is  about half  way
-down the page, you want the full  sources tar ball shown as a 'tar.gz'
-link.
-
-Unpack the sources and cd into the top level directory then type:
-
-$ ./configure -prefix ~/local/qt-macx-clang -opensource \
-    -confirm-license -platform macx-clang -silent -nomake tests \
-    -nomake examples -sdk macosx10.10 -skip qtwebkit \
-    -skip qtwebkit-examples -skip qtquick1 -skip qtconnectivity \
-    -skip qtlocation -skip qtsensors -skip qtscript \
-    -skip qtwebsockets -skip qtwebengine -skip qtwebchannel \
-    -skip qtwayland -skip qtquickcontrols -skip qtdeclarative \
-    -skip qtxmlpatterns -skip qtenginio
-$ make -j4
-$ make install
-
-If you are building on 10.8 or  don't have the 10.10 Mac SDK (Xcode 6)
-available, you can substitute '-sdk macosx10.9' above.
-
-The build above will take a few hours to complete.
-
-
 CMake
 -----
 Although CMake  is available via MacPorts  I prefer to use  the binary
@@ -326,6 +285,13 @@ $ sudo chmod 755 /usr/local/bin
 $ sudo chgrp wheel /usr/local/bin
 
 and then retry the install command.
+
+
+Qt
+--
+
+Download the latest on-line installer package from the Qt web site and
+isntall the latest Qt stable version development package.
 
 
 WSJT-X

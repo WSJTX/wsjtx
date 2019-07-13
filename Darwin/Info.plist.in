@@ -38,5 +38,7 @@
     <string>True</string>
     <key>NSRequiresAquaSystemAppearance</key>
     <true/>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>This app requires microphone access to receive signals.</string>
 </dict>
 </plist>

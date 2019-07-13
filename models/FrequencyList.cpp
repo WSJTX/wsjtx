@@ -57,49 +57,206 @@ namespace
       {1838000, Modes::JT65, IARURegions::ALL}, // squeezed allocations
       {1839000, Modes::JT9, IARURegions::ALL},
       {1840000, Modes::FT8, IARURegions::ALL},
-      
+
+      // Band plans (all USB dial unless stated otherwise)
+      //
+      // R1: 3570 - 3580 DM NB(<200Hz)
+      //     3580 - 3600 DM NB(<500Hz)  with 3590 - 3600 ACDS
+      //
+      //     3577.75      OLIVIA, Contestia, etc.
+      //     3580         PSK31
+      //     3583.25      OLIVIA, Contestia, etc.
+      //
+      // R2: 3570 - 3580 DM NB(<200Hz)
+      //     3580 - 3600 DM NB(<500Hz)  with 3590 - 3600 ACDS
+      //
+      //     3577.75      OLIVIA, Contestia, etc.
+      //     3580         PSK31
+      //     3583.25      OLIVIA, Contestia, etc.
+      //     3590         RTTY DX
+      //     3596         W1AW DM QST
+      //
+      // R3: 3535 - 3580 DM NB(<2000Hz)
+      //
+      //     3520 - 3575 DM NB(<2000Hz) JA 3535 - 3575 shared with all modes
+      //
+      //     3522         OLIVIA, Contestia, etc.
+      //     3535         JA LSB EMCOMM
+      //     3580         PSK31
+      //     3600         LSB EMCOMM
+      // 
       {3570000, Modes::JT65, IARURegions::ALL}, // JA compatible
       {3572000, Modes::JT9, IARURegions::ALL},
-      {3573000, Modes::FT8, IARURegions::ALL}, // above as below JT65
-                                               // is out of DM allocation
-      {3568600, Modes::WSPR, IARURegions::ALL}, // needs guard marker
-                                                // and lock out
-      
+      {3573000, Modes::FT8, IARURegions::ALL}, // above as below JT65 is out of DM allocation
+      {3568600, Modes::WSPR, IARURegions::ALL}, // needs guard marker and lock out
+      {3575000, Modes::FT4, IARURegions::ALL},  // provisional
+      {3568000, Modes::FT4, IARURegions::R3},   // provisional
+
+      // Band plans (all USB dial unless stated otherwise)
+      //
+      // R1: 7040 - 7050 DM NB(<500Hz)  with 7047 - 7050 ACDS
+      //     7050 - 7060 DM WB(<2700Hz) with 7050 - 7053 ACDS
+      //
+      //     7040         PSK31
+      //     7043.25      OLIVIA, Contestia, etc. (main QRQ)
+      //     7070         PSK31
+      //     7073.25      OLIVIA, Contestia, etc. (main QRQ)
+      //     7090         LSB QRP CoA
+      //
+      // R2: 7040 - 7050 DM NB(<500Hz)  with 7047 - 7050 ACDS
+      //     7050 - 7053 DM WB(<2700Hz) ACDS shared with all modes
+      //
+      //     7040         RTTY DX
+      //     7043.25      OLIVIA, Contestia, etc. (main QRQ)
+      //     7070         PSK31 (also LSB EMCOMM)
+      //     7073.25      OLIVIA, Contestia, etc. (main QRQ)
+      //     7080 - 7125  RTTY/Data
+      //     7090         LSB QRP CoA
+      //
+      // R3: 7030 - 7060 DM NB(<2000Hz) with 7040 - 7060 NB DX all shared with phone
+      //
+      //     7030 - 7100 DM WB(<3000Hz) JA 7045 - 7100 shared with all modes
+      //
+      //     7026.25      OLIVIA, Contestia, etc. (main QRQ)
+      //     7035         PSK31
+      //     7050         JA LSB EMCOMM
+      //     7090         LSB QRP CoA
+      //     7110         LSB EMCOMM
+      //
       {7038600, Modes::WSPR, IARURegions::ALL},
       {7074000, Modes::FT8, IARURegions::ALL},
       {7076000, Modes::JT65, IARURegions::ALL},
       {7078000, Modes::JT9, IARURegions::ALL},
+      {7047500, Modes::FT4, IARURegions::ALL}, // provisional - moved
+                                               // up 500Hz to clear
+                                               // W1AW code practice QRG
 
+      // Band plans (all USB dial unless stated otherwise)
+      //
+      // R1: 10130 - 10150 DM NB(<500Hz)  with 10120 - 10140 shared with phone in southern Africa
+      //
+      //     10139.25       OLIVIA, Contestia, etc.
+      //     10142          PSK31
+      //     10142.25       OLIVIA, Contestia, etc.
+      //     10143.25       OLIVIA, Contestia, etc. (main QRQ)
+      //
+      // R2: 10130 - 10140 DM NB(<500Hz)  shared with ACDS
+      //     10140 - 10150 DM WB(<2700Hz)
+      //
+      //     10130 - 10140  RTTY
+      //     10139.25       OLIVIA, Contestia, etc.
+      //     10140 - 10150  Packet
+      //     10142          PSK31
+      //     10142.25       OLIVIA, Contestia, etc.
+      //     10143.25       OLIVIA, Contestia, etc. (main QRQ)
+      // 
+      // R3: 10130 - 10150 DM NB(<2000Hz)
+      //
+      //     10139.25       OLIVIA, Contestia, etc.
+      //     10142          PSK31
+      //     10142.25       OLIVIA, Contestia, etc.
+      //     10143.25       OLIVIA, Contestia, etc. (main QRQ)
+      //
       {10136000, Modes::FT8, IARURegions::ALL},
       {10138000, Modes::JT65, IARURegions::ALL},
       {10138700, Modes::WSPR, IARURegions::ALL},
       {10140000, Modes::JT9, IARURegions::ALL},
-      
+      {10140000, Modes::FT4, IARURegions::ALL}, // provisional
+
+      // Band plans (all USB dial unless stated otherwise)
+      //
+      // R1: 14070 - 14099 DM NB(<500Hz) with 14089 - 14099 ACDS
+      //     14101 - 14112 DM NB(<2700Hz) ACDS
+      //
+      //     14070              PSK31
+      //     14074.4            OLIVIA, Contestia, etc.
+      //     14075.4            OLIVIA, Contestia, etc. (main QRG)
+      //     14078.4            OLIVIA, Contestia, etc.
+      //     14100              NCDXF beacons
+      //     14105.5            OLIVIA 1000
+      //     14106.5            OLIVIA 1000 (main QRG)
+      // 
+      // R2: 14070 - 14099 DM NB(<500Hz) with 14089 - 14099 ACDS
+      //     14101 - 14112 DM NB(<2700Hz) ACDS
+      //
+      //     14070   - 14095    RTTY
+      //     14070              PSK31
+      //     14074.4            OLIVIA, Contestia, etc.
+      //     14075.4            OLIVIA, Contestia, etc. (main QRG)
+      //     14078.4            OLIVIA, Contestia, etc.
+      //     14095   - 14099.5  Packet
+      //     14100              NCDXF beacons
+      //     14100.5 - 14112    Packet
+      //     14105.5            OLIVIA 1000
+      //     14106.5            OLIVIA 1000 (main QRG)
+      //
+      // R3: 14070 - 14112 DM NB(<2000Hz) with ±500Hz IBP guard band at 14100
+      //
+      //     14070              PSK31
+      //     14074.4            OLIVIA, Contestia, etc.
+      //     14075.4            OLIVIA, Contestia, etc. (main QRG)
+      //     14078.4            OLIVIA, Contestia, etc.
+      //     14100              NCDXF beacons
+      //     14105.5            OLIVIA 1000
+      //     14106.5            OLIVIA 1000 (main QRG)
+      // 
       {14095600, Modes::WSPR, IARURegions::ALL},
       {14074000, Modes::FT8, IARURegions::ALL},
       {14076000, Modes::JT65, IARURegions::ALL},
       {14078000, Modes::JT9, IARURegions::ALL},
+      {14080000, Modes::FT4, IARURegions::ALL}, // provisional
 
+      // Band plans (all USB dial unless stated otherwise)
+      //
+      // R1: 18095 - 18109 DM NB(<500Hz) with 18105 - 18109 ACDS
+      //     18111 - 18120 DM NB(<2700Hz) ACDS
+      //
+      //     18100              PSK31
+      //     18103.4            OLIVIA, Contestia, etc. (main QRG)
+      //     18104.4            OLIVIA, Contestia, etc.
+      //     18110              NCDXF beacons
+      //
+      // R2: 18095 - 18109 DM NB(<500Hz) with 18105 - 18109 ACDS
+      //     18111 - 18120 DM NB(<2700Hz) ACDS
+      //
+      //     18100   - 18105    RTTY
+      //     18100              PSK31
+      //     18103.4            OLIVIA, Contestia, etc. (main QRG)
+      //     18104.4            OLIVIA, Contestia, etc.
+      //     18105   - 18110    Packet
+      //     18110              NCDXF beacons
+      //
+      // R3: 18095 - 18120 DM NB(<2000Hz) with ±500Hz IBP guard band at 18110
+      //
+      //     18100              PSK31
+      //     18103.4            OLIVIA, Contestia, etc. (main QRG)
+      //     18104.4            OLIVIA, Contestia, etc.
+      //     18110              NCDXF beacons
+      //
       {18100000, Modes::FT8, IARURegions::ALL},
       {18102000, Modes::JT65, IARURegions::ALL},
       {18104000, Modes::JT9, IARURegions::ALL},
+      {18104000, Modes::FT4, IARURegions::ALL}, // provisional
       {18104600, Modes::WSPR, IARURegions::ALL},
       
       {21074000, Modes::FT8, IARURegions::ALL},
       {21076000, Modes::JT65, IARURegions::ALL},
       {21078000, Modes::JT9, IARURegions::ALL},
       {21094600, Modes::WSPR, IARURegions::ALL},
-      
+      {21140000, Modes::FT4, IARURegions::ALL},
+
       {24915000, Modes::FT8, IARURegions::ALL},
       {24917000, Modes::JT65, IARURegions::ALL},
       {24919000, Modes::JT9, IARURegions::ALL},
+      {24919000, Modes::FT4, IARURegions::ALL}, // provisional
       {24924600, Modes::WSPR, IARURegions::ALL},
       
       {28074000, Modes::FT8, IARURegions::ALL},
       {28076000, Modes::JT65, IARURegions::ALL},
       {28078000, Modes::JT9, IARURegions::ALL},
       {28124600, Modes::WSPR, IARURegions::ALL},
-      
+      {28180000, Modes::FT4, IARURegions::ALL},
+
       {50200000, Modes::Echo, IARURegions::ALL},
       {50276000, Modes::JT65, IARURegions::R2},
       {50276000, Modes::JT65, IARURegions::R3},
@@ -111,6 +268,7 @@ namespace
       {50310000, Modes::JT65, IARURegions::ALL},
       {50312000, Modes::JT9, IARURegions::ALL},
       {50313000, Modes::FT8, IARURegions::ALL},
+      {50318000, Modes::FT4, IARURegions::ALL}, // provisional
       {50323000, Modes::FT8, IARURegions::ALL},
       
       {70100000, Modes::FT8, IARURegions::R1},
@@ -121,6 +279,7 @@ namespace
       
       {144120000, Modes::JT65, IARURegions::ALL},
       {144120000, Modes::Echo, IARURegions::ALL},
+      {144170000, Modes::FT4, IARURegions::ALL},
       {144174000, Modes::FT8, IARURegions::ALL},
       {144360000, Modes::MSK144, IARURegions::R1},
       {144150000, Modes::MSK144, IARURegions::R2},

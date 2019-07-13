@@ -39,6 +39,10 @@ if (POLICY CMP0063)
   cmake_policy (SET CMP0063 NEW) # honour visibility properties for all library types
 endif (POLICY CMP0063)
 
+if (POLICY CMP0071)
+  cmake_policy (SET CMP0071 NEW) # run automoc and autouic on generated sources
+endif (POLICY CMP0071)
+
 include (${PROJECT_SOURCE_DIR}/CMake/VersionCompute.cmake)
 message (STATUS "Building ${CMAKE_PROJECT_NAME}-${wsjtx_VERSION}")
 
@@ -181,7 +185,11 @@ attach a debugger which will then receive the console output inside its console.
 set (PROJECT_ARCHITECTURE "${CMAKE_SYSTEM_PROCESSOR}")
 if (NOT PROJECT_ARCHITECTURE)
   # This is supposed to happen already on Windows
-  set (PROJECT_ARCHITECTURE "$ENV{PROCESSOR_ARCHITECTURE}")
+  if (CMAKE_SIZEOF_VOID_P MATCHES 8)
+    set (PROJECT_ARCHITECTURE "x64")
+  else ()
+    set (PROJECT_ARCHITECTURE "$ENV{PROCESSOR_ARCHITECTURE}")
+  endif ()
 endif (NOT PROJECT_ARCHITECTURE)
 message (STATUS "******************************************************")
 message (STATUS "Building for for: ${CMAKE_SYSTEM_NAME}-${PROJECT_ARCHITECTURE}")
@@ -229,6 +237,7 @@ set (wsjt_qt_CXXSRCS
   models/FrequencyList.cpp
   models/StationList.cpp
   widgets/FrequencyLineEdit.cpp
+  widgets/FrequencyDeltaLineEdit.cpp
   item_delegates/CandidateKeyFilter.cpp
   item_delegates/ForeignKeyDelegate.cpp
   validators/LiveFrequencyValidator.cpp
@@ -271,9 +280,12 @@ set (wsjt_qt_CXXSRCS
   widgets/CabrilloLogWindow.cpp
   item_delegates/CallsignDelegate.cpp
   item_delegates/MaidenheadLocatorDelegate.cpp
+  item_delegates/FrequencyDelegate.cpp
+  item_delegates/FrequencyDeltaDelegate.cpp
   models/CabrilloLog.cpp
   logbook/AD1CCty.cpp
   logbook/WorkedBefore.cpp
+  logbook/Multiplier.cpp
   )
 
 set (wsjt_qtmm_CXXSRCS
@@ -356,6 +368,7 @@ set (wsjt_FSRCS
   lib/jt65_decode.f90
   lib/jt65_mod.f90
   lib/ft8_decode.f90
+  lib/ft4_decode.f90
   lib/jt9_decode.f90
   lib/options.f90
   lib/packjt.f90
@@ -381,6 +394,7 @@ set (wsjt_FSRCS
   lib/azdist.f90
   lib/badmsg.f90
   lib/ft8/baseline.f90
+  lib/ft4/ft4_baseline.f90
   lib/bpdecode40.f90
   lib/bpdecode128_90.f90
   lib/ft8/bpdecode174_91.f90
@@ -394,6 +408,7 @@ set (wsjt_FSRCS
   lib/chkhist.f90
   lib/chkmsg.f90
   lib/chkss2.f90
+  lib/ft4/clockit.f90
   lib/ft8/compress.f90
   lib/coord.f90
   lib/db.f90
@@ -455,6 +470,7 @@ set (wsjt_FSRCS
   lib/ft8.f90
   lib/ft8dec.f90
   lib/ft8/ft8sim.f90
+  lib/ft8/ft8sim_gfsk.f90
   lib/gen4.f90
   lib/gen65.f90
   lib/gen9.f90
@@ -462,12 +478,16 @@ set (wsjt_FSRCS
   lib/ft8/genft8.f90
   lib/genmsk_128_90.f90
   lib/genmsk40.f90
+  lib/ft4/genft4.f90
+  lib/ft4/gen_ft4wave.f90
+  lib/ft8/gen_ft8wave.f90
   lib/genqra64.f90
   lib/ft8/genft8refsig.f90
   lib/genwspr.f90
   lib/geodist.f90
   lib/getlags.f90
   lib/getmet4.f90
+  lib/ft2/gfsk_pulse.f90
   lib/graycode.f90
   lib/graycode65.f90
   lib/grayline.f90
@@ -506,6 +526,10 @@ set (wsjt_FSRCS
   lib/msk144signalquality.f90
   lib/msk144sim.f90
   lib/mskrtd.f90
+  lib/nuttal_window.f90
+  lib/ft4/ft4sim.f90
+  lib/ft4/ft4sim_mult.f90
+  lib/ft4/ft4_downsample.f90
   lib/77bit/my_hash.f90
   lib/wsprd/osdwspr.f90
   lib/ft8/osd174_91.f90
@@ -539,6 +563,7 @@ set (wsjt_FSRCS
   lib/stdmsg.f90
   lib/subtract65.f90
   lib/ft8/subtractft8.f90
+  lib/ft4/subtractft4.f90
   lib/sun.f90
   lib/symspec.f90
   lib/symspec2.f90
@@ -546,8 +571,11 @@ set (wsjt_FSRCS
   lib/sync4.f90
   lib/sync64.f90
   lib/sync65.f90
+  lib/ft4/getcandidates4.f90
+  lib/ft4/get_ft4_bitmetrics.f90
   lib/ft8/sync8.f90
   lib/ft8/sync8d.f90
+  lib/ft4/sync4d.f90
   lib/sync9.f90
   lib/sync9f.f90
   lib/sync9w.f90
@@ -794,7 +822,7 @@ if (WIN32)
   endif (NOT AXSERVER)
   string (REPLACE "\"" "" AXSERVER ${AXSERVER})
   file (TO_CMAKE_PATH ${AXSERVER} AXSERVERSRCS)
-endif (WIN32)
+endif ()
 
 
 #
@@ -827,9 +855,6 @@ if (Boost_NO_SYSTEM_PATHS)
   set (BOOST_ROOT ${PROJECT_SOURCE_DIR}/boost)
 endif ()
 find_package (Boost 1.63 REQUIRED)
-if (Boost_FOUND)
-  include_directories (${Boost_INCLUDE_DIRS})
-endif ()
 
 #
 # OpenMP
@@ -860,10 +885,7 @@ message (STATUS "hamlib_LIBRARY_DIRS: ${hamlib_LIBRARY_DIRS}")
 #
 
 # Widgets finds its own dependencies.
-find_package (Qt5Widgets 5 REQUIRED)
-find_package (Qt5Multimedia 5 REQUIRED)
-find_package (Qt5PrintSupport 5 REQUIRED)
-find_package (Qt5Sql 5 REQUIRED)
+find_package (Qt5 COMPONENTS Widgets Multimedia PrintSupport Sql LinguistTools REQUIRED)
 
 if (WIN32)
   add_definitions (-DQT_NEEDS_QTMAIN)
@@ -1069,11 +1091,41 @@ add_custom_target (ctags COMMAND ${CTAGS} -o ${CMAKE_SOURCE_DIR}/tags -R ${sourc
 add_custom_target (etags COMMAND ${ETAGS} -o ${CMAKE_SOURCE_DIR}/TAGS -R ${sources})
 
 
+# Qt i18n
+set (LANGUAGES
+  en_GB
+  pt_PT
+  )
+foreach (lang_ ${LANGUAGES})
+  file (TO_NATIVE_PATH translations/wsjtx_${lang_}.ts ts_)
+  list (APPEND TS_FILES ${ts_})
+endforeach ()  
+if (UPDATE_TRANSLATIONS)
+  message (STATUS "UPDATE_TRANSLATIONS option is set.")
+  qt5_create_translation (
+    QM_FILES ${wsjt_qt_UISRCS} ${wsjtx_UISRCS} ${wsjt_qt_CXXSRCS} ${wsjtx_CXXSRCS}
+    ${TS_FILES}
+    )
+else ()
+  qt5_add_translation (QM_FILES ${TS_FILES})
+endif ()
+add_custom_target (translations DEPENDS ${QM_FILES})
+set_property (DIRECTORY PROPERTY CLEAN_NO_CUSTOM TRUE)
+# do this after i18n to stop lupdate walking the boost tree which it
+# chokes on
+if (Boost_FOUND)
+  include_directories (${Boost_INCLUDE_DIRS})
+endif ()
+
 # embedded resources
 function (add_resources resources path)
   foreach (resource_file_ ${ARGN})
     get_filename_component (name_ ${resource_file_} NAME)
-    file (TO_NATIVE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/${resource_file_} source_)
+    if (IS_ABSOLUTE "${resource_file_}")
+      file (TO_NATIVE_PATH ${resource_file_} source_)
+    else ()
+      file (TO_NATIVE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/${resource_file_} source_)
+    endif ()
     file (TO_NATIVE_PATH ${path}/${name_} dest_)
     set (resources_ "${resources_}\n    <file alias=\"${dest_}\">${source_}</file>")
     set (${resources} ${${resources}}${resources_} PARENT_SCOPE)
@@ -1082,6 +1134,7 @@ endfunction (add_resources resources path)
 
 add_resources (wsjtx_RESOURCES "" ${TOP_LEVEL_RESOURCES})
 add_resources (wsjtx_RESOURCES /Palettes ${PALETTE_FILES})
+add_resources (wsjtx_RESOURCES /Translations ${QM_FILES})
 
 configure_file (wsjtx.qrc.in wsjtx.qrc @ONLY)
 
@@ -1101,7 +1154,6 @@ if (WIN32)
   include (QtAxMacros)
   wrap_ax_server (GENAXSRCS ${AXSERVERSRCS})
 endif (WIN32)
-
 
 #
 # targets
@@ -1221,6 +1273,9 @@ target_link_libraries (jt49sim wsjt_fort wsjt_cxx)
 add_executable (allsim lib/allsim.f90 wsjtx.rc)
 target_link_libraries (allsim wsjt_fort wsjt_cxx)
 
+add_executable (rtty_spec lib/rtty_spec.f90 wsjtx.rc)
+target_link_libraries (rtty_spec wsjt_fort wsjt_cxx)
+
 add_executable (jt65code lib/jt65code.f90 wsjtx.rc)
 target_link_libraries (jt65code wsjt_fort wsjt_cxx)
 
@@ -1254,8 +1309,20 @@ target_link_libraries (ft8 wsjt_fort wsjt_cxx)
 add_executable (ft8sim lib/ft8/ft8sim.f90 wsjtx.rc)
 target_link_libraries (ft8sim wsjt_fort wsjt_cxx)
 
+add_executable (ft8sim_gfsk lib/ft8/ft8sim_gfsk.f90 wsjtx.rc)
+target_link_libraries (ft8sim_gfsk wsjt_fort wsjt_cxx)
+
 add_executable (msk144sim lib/msk144sim.f90 wsjtx.rc)
 target_link_libraries (msk144sim wsjt_fort wsjt_cxx)
+
+add_executable (ft4sim lib/ft4/ft4sim.f90 wsjtx.rc)
+target_link_libraries (ft4sim wsjt_fort wsjt_cxx)
+
+add_executable (ft4sim_mult lib/ft4/ft4sim_mult.f90 wsjtx.rc)
+target_link_libraries (ft4sim_mult wsjt_fort wsjt_cxx)
+
+add_executable (record_time_signal Audio/tools/record_time_signal.cpp)
+target_link_libraries (record_time_signal wsjt_cxx wsjt_qtmm wsjt_qt)
 
 endif(WSJT_BUILD_UTILS)
 
@@ -1606,6 +1673,7 @@ if (NOT is_debug_build)
       install (
 	DIRECTORY
 	${QT_PLUGINS_DIR}/platforms
+	${QT_PLUGINS_DIR}/styles
 	${QT_PLUGINS_DIR}/accessible
 	${QT_PLUGINS_DIR}/audio
 	${QT_PLUGINS_DIR}/imageformats

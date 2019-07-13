@@ -52,6 +52,9 @@ public:
   Q_SLOT void reply (QString const& id, QTime time, qint32 snr, float delta_time, quint32 delta_frequency
                      , QString const& mode, QString const& message, bool low_confidence, quint8 modifiers);
 
+  // ask the client with identification 'id' to close down gracefully
+  Q_SLOT void close (QString const& id);
+
   // ask the client with identification 'id' to replay all decodes
   Q_SLOT void replay (QString const& id);
 
@@ -72,15 +75,25 @@ public:
                                   , QColor const& bg = QColor {}, QColor const& fg = QColor {}
                                   , bool last_only = false);
 
+  // ask the client with identification 'id' to switch to
+  // configuration 'configuration_name'
+  Q_SLOT void switch_configuration (QString const& id, QString const& configuration_name);
+
+  // ask the client with identification 'id' to change configuration
+  Q_SLOT void configure (QString const& id, QString const& mode, quint32 frequency_tolerance
+                         , QString const& submode, bool fast_mode, quint32 tr_period, quint32 rx_df
+                         , QString const& dx_call, QString const& dx_grid, bool generate_messages);
+
   // the following signals are emitted when a client broadcasts the
   // matching message
   Q_SIGNAL void client_opened (QString const& id, QString const& version, QString const& revision);
   Q_SIGNAL void status_update (QString const& id, Frequency, QString const& mode, QString const& dx_call
                                , QString const& report, QString const& tx_mode, bool tx_enabled
-                               , bool transmitting, bool decoding, qint32 rx_df, qint32 tx_df
+                               , bool transmitting, bool decoding, quint32 rx_df, quint32 tx_df
                                , QString const& de_call, QString const& de_grid, QString const& dx_grid
                                , bool watchdog_timeout, QString const& sub_mode, bool fast_mode
-                               , quint8 special_op_mode);
+                               , quint8 special_op_mode, quint32 frequency_tolerance, quint32 tr_period
+                               , QString const& configuration_name);
   Q_SIGNAL void client_closed (QString const& id);
   Q_SIGNAL void decode (bool is_new, QString const& id, QTime time, qint32 snr, float delta_time
                         , quint32 delta_frequency, QString const& mode, QString const& message

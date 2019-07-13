@@ -12,6 +12,178 @@
                                                          
 Copyright 2001 - 2019 by Joe Taylor, K1JT.
 
+		   Release: WSJT-X 2.1
+		      July 15, 2019
+		   -------------------
+		   
+WSJT-X 2.1 is a major update that introduces FT4, a new protocol
+targeted at HF contesting.  Other improvements have been made in the
+following areas:
+
+  - FT8 waveform generated with GMSK, fully backward compatible
+  - user options for waterfall and spectrum display
+  - contest logging
+  - rig control
+  - user interface
+  - UDP messaging for inter-program communication
+  - accessibility
+
+There are numerous minor enhancements and bug fixes.
+
+We now provide a separate installation package for 64-bit Windows 7
+and later, with significant improvements in decoding speed.
+
+		   Release: WSJT-X 2.1.0-rc7
+		         June 3, 2019
+		   -------------------------
+
+This release is  a bug fix only release addressing  regressions in the
+prior  RC6 release.  There are  no  functional changes  other than  an
+updated AD1C CTY.DAT database.
+
+
+		   Release: WSJT-X 2.1.0-rc6
+		         June 2, 2019
+		   -------------------------
+
+Changes and bug fixes since WSJT-X 2.1.0-rc5:
+
+IMPORTANT CHANGES TO THE FT4 PROTOCOL *** NOT BACKWARD COMPATIBLE ***
+ - T/R sequence length increased from 6.0 to 7.5 seconds
+ - Symbol rate decreased from 23.4375 to 20.8333 baud
+ - Signal bandwidth decreased from 90 Hz to 80 Hz
+
+OTHER FT4 IMPROVEMENTS
+ - Allowable time offsets -1.0 < DT < +1.0 s
+ - Tx4 message with RRR now allowed, except in contest messages
+ - Audio frequency is now sent to PSK Reporter
+ - Add a third decoding pass
+ - Add ordered statistics decoding
+ - Improved sensitivity: threshold S/N is now -17.5 dB
+ - Improved S/N calculation
+ - In FT4 mode, Shift+F11/F12 moves Tx freq by +/- 100 Hz
+
+OTHER IMPROVEMENTS
+ - Improvements to accessibility
+ - Updates to the User Guide (not yet complete, however)
+ - New user option: "Calling CQ forces Call 1st"
+ - N1MM Logger+ now uses the standard WSJT-X UDP messages
+ - OK/Cancel buttons on Log QSO window maintain fixed positions
+ - Put EU VHF contest serial numbers into the ADIF SRX and STX fields
+ - Enhancements to the Omni-Rig CAT interface
+ - New setting option to include or exclude WAE entities
+
+BUG FIXES
+ - Fix generation of Tx5 message when one callsign is nonstandard
+ - Fix a bug that prevented use on macOS
+ - Fix a bug that caused mode switch from FT4 to FT8
+ - Fix a bug that caused FT4 to do WSPR-style band hopping
+ - Fix a bug that caused a Fortran bounds error
+ - Repaired field editing in the Contest Log window
+
+Release candidate WSJT-X 2.1.0-rc6 will be available for beta-testing
+through July 21, 2019.  It will be inoperable during the ARRL June VHF
+QSO Party (June 8-10) or ARRL Field Day (June 22-23).  It will
+permanently cease to function after July 21, 2019.  If all goes
+according to plan, by that time there will be a General
+Availability (GA) release of WSJT-X 2.1.0.
+		   
+
+		   Release: WSJT-X 2.1.0-rc5
+		         April 29, 2019
+		   -------------------------
+
+WSJT-X 2.1.0 fifth release candidate is a minor release including the
+following.
+
+ - Repairs a defect that stopped messages from UDP servers being accepted.
+ - Improved message sequencing a QSO end for CQing FT4 stations.
+ - "Best S+P" action times out after two minutes waiting for a candidate.
+ - Updated macOS Info.plist to comply with latest mic. privacy controls.
+ - Multi-pass decoding for FT4 inc. prior decode subtraction.
+ - Fast/Normal/Deep options for the FT4 decoder.
+ - Proposed suggested working frequencies for the new FT4 mode.
+ - Repair a defect in RTTY RU where sequencer fails to advance to Tx3.
+ - Fix a defect where the contest serial # spin box was incorrectly hidden.
+ - Fix defects in ALL.TXT formatting for JT65 and JT9.
+ - Reduce timeout for AP decoding with own call from 10 mins to 5 mins.
+
+
+		   Release: WSJT-X 2.1.0-rc4
+		         April 10, 2019
+		   -------------------------
+
+WSJT-X 2.1.0 fourth release candidate is a minor release including the
+following.
+
+ - New "Call Best" button for FT4 mode to select the best reply to a
+   CQ call based on neediness.
+ - Fixed UTC display on FT4 waterfall.
+
+This release is made by invitation only to selected testers to trial
+the FT4 mode in semi-realistic contest simulations and to elicit
+feedback to guide future development.
+
+*Note* this release is not for general public release and we request
+       that it is not distributed.
+
+
+		   Release: WSJT-X 2.1.0-rc3
+		         April 5, 2019
+		   -------------------------
+
+WSJT-X 2.1.0 third release candidate is an enhancement release to
+change the implementation of the new FT4 mode to a synchronous T/R
+period of 6 seconds.
+
+This release is made by invitation only to selected testers to trial
+the FT4 mode in semi-realistic contest simulations and to elicit
+feedback to guide future development.
+
+*Note* this release is not for general public release and we request
+       that it is not distributed.
+
+
+		   Release: WSJT-X 2.1.0-rc2
+		        March 29, 2019
+		   -------------------------
+
+WSJT-X 2.1.0 second release candidate is a bug fix release to repair
+some usability issues with FT4 contest mode. The following new
+features are also included.
+
+ - Better options for QSO flow by clicking Tx# buttons to transmit
+ - A 64-bit package for Windows 64-bit systems
+ - Improved FT4 sync detection speed
+
+This release is made by invitation only to selected testers to trial
+the FT4 mode in semi-realistic contest simulations and to elicit
+feedback to guide future development.
+
+*Note* this release is not for general public release and we request
+that it is not distributed.
+
+		   Release: WSJT-X 2.1.0-rc1
+		        March 25, 2019
+		   -------------------------
+
+WSJT-X 2.1.0 first release candidate is a preview alpha quality
+release containing the following new features.
+
+ - FT4 mode, a new mode targeted at HF digital contesting
+ - GMSK modulation for FT4 and FT8
+ - New waterfall option to select between raw sensitivity or a
+   filtered signal representation for best visualization of signal
+   quality
+
+This release is made by invitation only to selected testers to trial
+the FT4 mode in semi-realistic contest simulations and to elicit
+feedback to guide future development.
+
+*Note* this release is not for general public release and we request
+that it is not distributed.
+
+
 		     Release: WSJT-X 2.0.1
 		       February 25, 2019
 		     ---------------------

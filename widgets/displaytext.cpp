@@ -271,7 +271,7 @@ QString DisplayText::appendWorkedB4 (QString message, QString call, QString cons
   if(call.length()<3) return message;
   if(!call.contains(QRegExp("[0-9]|[A-Z]"))) return message;
 
-  auto const& looked_up = logBook.countries ().lookup (call);
+  auto const& looked_up = logBook.countries ()->lookup (call);
   logBook.match (call, currentMode, grid, looked_up, callB4, countryB4, gridB4, continentB4, CQZoneB4, ITUZoneB4);
   logBook.match (call, currentMode, grid, looked_up, callB4onBand, countryB4onBand, gridB4onBand,
                  continentB4onBand, CQZoneB4onBand, ITUZoneB4onBand, currentBand);
@@ -374,6 +374,7 @@ QString DisplayText::appendWorkedB4 (QString message, QString call, QString cons
           appendage += countryName;
         }
     }
+    m_CQPriority=DecodeHighlightingModel::highlight_name(top_highlight);
 
   // use a nbsp to save the start of appended text so we can find
   // it again later, align appended data at a fixed column if
@@ -423,6 +424,7 @@ void DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
   QRegularExpression grid_regexp {"\\A(?![Rr]{2}73)[A-Ra-r]{2}[0-9]{2}([A-Xa-x]{2}){0,1}\\z"};
   if(!dxGrid.contains(grid_regexp)) dxGrid="";
   message = message.left (message.indexOf (QChar::Nbsp)); // strip appended info
+  m_CQPriority="";
   if (CQcall)
     {
       if (displayDXCCEntity)
@@ -447,6 +449,7 @@ void DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
           set_colours (m_config, &bg, &fg, types);
         }
     }
+
   appendText (message.trimmed (), bg, fg, decodedText.call (), dxCall);
 }
 
@@ -454,6 +457,7 @@ void DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
 void DisplayText::displayTransmittedText(QString text, QString modeTx, qint32 txFreq,bool bFastMode)
 {
     QString t1=" @  ";
+    if(modeTx=="FT4") t1=" +  ";
     if(modeTx=="FT8") t1=" ~  ";
     if(modeTx=="JT4") t1=" $  ";
     if(modeTx=="JT65") t1=" #  ";
@@ -461,7 +465,7 @@ void DisplayText::displayTransmittedText(QString text, QString modeTx, qint32 tx
     QString t2;
     t2.sprintf("%4d",txFreq);
     QString t;
-    if(bFastMode or modeTx=="FT8") {
+    if(bFastMode or modeTx=="FT8" or modeTx=="FT4") {
       t = QDateTime::currentDateTimeUtc().toString("hhmmss") + \
         "  Tx      " + t2 + t1 + text;
     } else if(modeTx.mid(0,6)=="FT8fox") {

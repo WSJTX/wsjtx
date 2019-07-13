@@ -19,10 +19,10 @@ void TransceiverBase::start (unsigned sequence_number) noexcept
   QString message;
   try
     {
+      last_sequence_number_ = sequence_number;
       may_update u {this, true};
       shutdown ();
       startup ();
-      last_sequence_number_ = sequence_number;
     }
   catch (std::exception const& e)
     {
@@ -46,6 +46,7 @@ void TransceiverBase::set (TransceiverState const& s,
   QString message;
   try
     {
+      last_sequence_number_ = sequence_number;
       may_update u {this, true};
       bool was_online {requested_.online ()};
       if (!s.online () && was_online)
@@ -115,7 +116,6 @@ void TransceiverBase::set (TransceiverState const& s,
           // record what actually changed
           requested_.ptt (actual_.ptt ());
         }
-      last_sequence_number_ = sequence_number;
     }
   catch (std::exception const& e)
     {
@@ -133,10 +133,27 @@ void TransceiverBase::set (TransceiverState const& s,
 
 void TransceiverBase::startup ()
 {
-  Q_EMIT resolution (do_start ());
-  do_post_start ();
-  actual_.online (true);
-  requested_.online (true);
+  QString message;
+  try
+    {
+      actual_.online (true);
+      requested_.online (true);
+      auto res = do_start ();
+      do_post_start ();
+      Q_EMIT resolution (res);
+    }
+  catch (std::exception const& e)
+    {
+      message = e.what ();
+    }
+  catch (...)
+    {
+      message = unexpected;
+    }
+  if (!message.isEmpty ())
+    {
+      offline (message);
+    }
 }
 
 void TransceiverBase::shutdown ()
@@ -163,8 +180,8 @@ void TransceiverBase::shutdown ()
     }
   do_stop ();
   do_post_stop ();
-  actual_.online (false);
-  requested_.online (false);
+  actual_ = TransceiverState {};
+  requested_ = TransceiverState {};
 }
 
 void TransceiverBase::stop () noexcept
@@ -194,8 +211,11 @@ void TransceiverBase::stop () noexcept
 
 void TransceiverBase::update_rx_frequency (Frequency rx)
 {
-  actual_.frequency (rx);
-  requested_.frequency (rx);    // track rig changes
+  if (rx)
+    {
+      actual_.frequency (rx);
+      requested_.frequency (rx);    // track rig changes
+    }
 }
 
 void TransceiverBase::update_other_frequency (Frequency tx)

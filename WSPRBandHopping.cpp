@@ -44,6 +44,8 @@ namespace
 class Dialog
   : public QDialog
 {
+  Q_OBJECT
+
 public:
   using BandList = QList<QString>;
 
@@ -68,6 +70,8 @@ private:
   QPointer<QSpinBox> gray_line_width_spin_box_;
   static int constexpr band_index_role {Qt::UserRole};
 };
+
+#include "WSPRBandHopping.moc"
 
 Dialog::Dialog (QSettings * settings, Configuration const * configuration, BandList const * WSPR_bands
                 , QBitArray * bands, int * gray_line_duration, QWidget * parent)

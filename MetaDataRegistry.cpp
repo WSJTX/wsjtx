@@ -14,16 +14,35 @@
 #include "WFPalette.hpp"
 #include "models/IARURegions.hpp"
 #include "models/DecodeHighlightingModel.hpp"
-#include "widgets/FrequencyLineEdit.hpp"
+#include "widgets/DateTimeEdit.hpp"
 
-QItemEditorFactory * item_editor_factory ()
+namespace
 {
-  static QItemEditorFactory * our_item_editor_factory = new QItemEditorFactory;
-  return our_item_editor_factory;
+  class ItemEditorFactory final
+    : public QItemEditorFactory
+  {
+  public:
+    ItemEditorFactory ()
+      : default_factory_ {QItemEditorFactory::defaultFactory ()}
+    {
+    }
+
+    QWidget * createEditor (int user_type, QWidget * parent) const override
+    {
+      auto editor = QItemEditorFactory::createEditor (user_type, parent);
+      return editor ? editor : default_factory_->createEditor (user_type, parent);
+    }
+
+  private:
+    QItemEditorFactory const * default_factory_;
+  };
 }
 
 void register_types ()
 {
+  auto item_editor_factory = new ItemEditorFactory;
+  QItemEditorFactory::setDefaultFactory (item_editor_factory);
+
   // types in Radio.hpp are registered in their own translation unit
   // as they are needed in the wsjtx_udp shared library too
 
@@ -31,9 +50,7 @@ void register_types ()
   // used as signal/slot connection arguments since the new Qt 5.5
   // Q_ENUM macro only seems to register the unqualified name
   
-  item_editor_factory ()->registerEditor (qMetaTypeId<Radio::Frequency> (), new QStandardItemEditorCreator<FrequencyLineEdit> ());
-  //auto frequency_delta_type_id = qRegisterMetaType<Radio::FrequencyDelta> ("FrequencyDelta");
-  item_editor_factory ()->registerEditor (qMetaTypeId<Radio::FrequencyDelta> (), new QStandardItemEditorCreator<FrequencyDeltaLineEdit> ());
+  item_editor_factory->registerEditor (qMetaTypeId<QDateTime> (), new QStandardItemEditorCreator<DateTimeEdit> ());
 
   // Frequency list model
   qRegisterMetaTypeStreamOperators<FrequencyList_v2::Item> ("Item_v2");

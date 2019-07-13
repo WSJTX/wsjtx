@@ -51,21 +51,3 @@ void FrequencyLineEdit::frequency (Frequency f)
 {
   setText (Radio::frequency_MHz_string (f));
 }
-
-
-FrequencyDeltaLineEdit::FrequencyDeltaLineEdit (QWidget * parent)
-  : QLineEdit (parent)
-{
-  setValidator (new MHzValidator {-std::numeric_limits<FrequencyDelta>::max () / 10.e6,
-        std::numeric_limits<FrequencyDelta>::max () / 10.e6, this});
-}
-
-auto FrequencyDeltaLineEdit::frequency_delta () const -> FrequencyDelta
-{
-  return Radio::frequency_delta (text (), 6);
-}
-
-void FrequencyDeltaLineEdit::frequency_delta (FrequencyDelta d)
-{
-  setText (Radio::frequency_MHz_string (d));
-}

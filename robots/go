@@ -1,0 +1,2 @@
+curl https://pskreporter.info/cgi-bin/robot.pl > robo.dat
+robo | sort -nr -k2 -k1

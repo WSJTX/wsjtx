@@ -72,7 +72,18 @@ CQ W9XYZ EN37
                                    W9XYZ <YW18FIFA> R-09
 YW18FIFA <W9XYZ> RRR
                                    <W9XYZ> YW18FIFA 73
-10. Other stuff
+
+10. WWROF FT8/FT4 contest
+-----------------------------------------------------------
+CQ TEST K1ABC FN42
+                                   K1ABC W9XYZ -16 EN
+W9XYZ K1ABC R-07 FN
+                                   K1ABC W9XYZ RR73
+                                   K1ABC G3AAA -11 IO
+TU; G3AAA K1ABC R-09 FN
+                                   K1ABC G3AAA RR73
+
+11. Other stuff
 -----------------------------------------------------------
 TNX BOB 73 GL
 CQ YW18FIFA

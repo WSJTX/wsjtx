@@ -3,6 +3,8 @@
 #include <stdexcept>
 
 #include <QDebug>
+#include <QMutex>
+#include <QMutexLocker>
 #include <QString>
 #include <QFile>
 #include <QTextStream>
@@ -28,10 +30,11 @@ private:
   QTextStream * original_stream_;
   QtMessageHandler original_handler_;
   static QTextStream * current_stream_;
+  static QMutex mutex_;
 };
 
 QTextStream * TraceFile::impl::current_stream_;
-
+QMutex TraceFile::impl::mutex_;
 
 // delegate to implementation class
 TraceFile::TraceFile (QString const& trace_file_path)
@@ -73,7 +76,10 @@ TraceFile::impl::~impl ()
 void TraceFile::impl::message_handler (QtMsgType type, QMessageLogContext const& context, QString const& msg)
 {
   Q_ASSERT_X (current_stream_, "TraceFile:message_handler", "no stream to write to");
-  *current_stream_ << qFormatLogMessage (type, context, msg) << endl;
+  {
+    QMutexLocker lock {&mutex_}; // thread safety - serialize writes to the trace file
+    *current_stream_ << qFormatLogMessage (type, context, msg) << endl;
+  }
 
   if (QtFatalMsg == type)
     {

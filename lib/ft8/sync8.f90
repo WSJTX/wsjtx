@@ -89,7 +89,12 @@ subroutine sync8(dd,nfa,nfb,syncmin,nfqso,maxcand,s,candidate,   &
   enddo
   iz=ib-ia+1
   call indexx(red(ia:ib),iz,indx)
-  ibase=indx(nint(0.40*iz)) - 1 + ia
+  npctile=nint(0.40*iz)
+  if(npctile.lt.1) then ! something is wrong; bail out
+    ncand=0
+    return;
+  endif
+  ibase=indx(npctile) - 1 + ia
   if(ibase.lt.1) ibase=1
   if(ibase.gt.nh1) ibase=nh1
   base=red(ibase)

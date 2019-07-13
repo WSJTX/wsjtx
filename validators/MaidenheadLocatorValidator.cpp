@@ -64,7 +64,7 @@ auto MaidenheadLocatorValidator::validate (QString& input, int& pos) const -> St
   auto subsquare = match.captured ("subsquare");
   if (subsquare.size ())
     {
-      input.replace (match.capturedStart ("subsquare"), match.capturedLength ("subsquare"), subsquare.toLower ());
+      input.replace (match.capturedStart ("subsquare"), match.capturedLength ("subsquare"), subsquare.toUpper ());
     }
   if (match.hasMatch ()) return Acceptable;
   if (!input.size () || match.hasPartialMatch ()) return Intermediate;

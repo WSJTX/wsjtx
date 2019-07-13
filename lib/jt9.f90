@@ -22,8 +22,9 @@ program jt9
 !### ndepth was defined as 60001.  Why???
   integer :: arglen,stat,offset,remain,mode=0,flow=200,fsplit=2700,          &
        fhigh=4000,nrxfreq=1500,ntrperiod=1,ndepth=1,nexp_decode=0
-  logical :: read_files = .true., tx9 = .false., display_help = .false.
-  type (option) :: long_options(25) = [ &
+  logical :: read_files = .true., tx9 = .false., display_help = .false.,     &
+       bLowSidelobes = .false.
+  type (option) :: long_options(26) = [ &
     option ('help', .false., 'h', 'Display this help message', ''),          &
     option ('shmem',.true.,'s','Use shared memory for sample data','KEY'),   &
     option ('tr-period', .true., 'p', 'Tx/Rx period, default MINUTES=1',     &
@@ -48,10 +49,11 @@ program jt9
     option ('fft-threads', .true., 'm',                                      &
         'Number of threads to process large FFTs, default THREADS=1',        &
         'THREADS'),                                                          &
-    option ('jt65', .false., '6', 'JT65 mode', ''),                          &
-    option ('jt9', .false., '9', 'JT9 mode', ''),                            &
-    option ('ft8', .false., '8', 'FT8 mode', ''),                            &
     option ('jt4', .false., '4', 'JT4 mode', ''),                            &
+    option ('ft4', .false., '5', 'FT4 mode', ''),                            &
+    option ('jt65', .false.,'6', 'JT65 mode', ''),                          &
+    option ('ft8', .false., '8', 'FT8 mode', ''),                            &
+    option ('jt9', .false., '9', 'JT9 mode', ''),                            &
     option ('qra64', .false., 'q', 'QRA64 mode', ''),                        &
     option ('sub-mode', .true., 'b', 'Sub mode, default SUBMODE=A', 'A'),    &
     option ('depth', .true., 'd',                                            &
@@ -76,7 +78,7 @@ program jt9
   nsubmode = 0
 
   do
-     call getopt('hs:e:a:b:r:m:p:d:f:w:t:9864qTL:S:H:c:G:x:g:X:',      &
+     call getopt('hs:e:a:b:r:m:p:d:f:w:t:98654qTL:S:H:c:G:x:g:X:',      &
           long_options,c,optarg,arglen,stat,offset,remain,.true.)
      if (stat .ne. 0) then
         exit
@@ -113,6 +115,8 @@ program jt9
            mode = 164
         case ('4')
            mode = 4
+        case ('5')
+           mode = 5
         case ('6')
            if (mode.lt.65) mode = mode + 65
         case ('9')
@@ -135,7 +139,7 @@ program jt9
            read (optarg(:arglen), *) nexp_decode
      end select
   end do
-
+  
   if (display_help .or. stat .lt. 0                      &
        .or. (.not. read_files .and. remain .gt. 0)       &
        .or. (read_files .and. remain .lt. 1)) then
@@ -153,7 +157,7 @@ program jt9
      end do
      go to 999
   endif
-  
+
   iret=fftwf_init_threads()            !Initialize FFTW threading 
 
 ! Default to 1 thread, but use nthreads for the big ones
@@ -221,7 +225,7 @@ program jt9
      endif
 
      shared_data%id2=0          !??? Why is this necessary ???
-
+     if(mode.eq.5) npts=21*3456
      do iblk=1,npts/kstep
         k=iblk*kstep
         if(mode.eq.8 .and. k.gt.179712) exit
@@ -229,7 +233,7 @@ program jt9
         read(unit=wav%lun,end=3) shared_data%id2(k-kstep+1:k)
         go to 4
 3       call timer('read_wav',1)
-        print*,'EOF on input file ',infile
+        print*,'EOF on input file ',trim(infile)
         exit
 4       call timer('read_wav',1)
         nhsym=(k-2048)/kstep
@@ -239,7 +243,7 @@ program jt9
               ingain=0
               call timer('symspec ',0)
               nminw=1
-              call symspec(shared_data,k,ntrperiod,nsps,ingain,nminw,pxdb,  &
+              call symspec(shared_data,k,ntrperiod,nsps,ingain,bLowSidelobes,nminw,pxdb,  &
                    s,df3,ihsym,npts8,pxdbmax)
               call timer('symspec ',1)
            endif

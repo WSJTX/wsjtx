@@ -250,12 +250,15 @@ void MessageAggregatorMainWindow::add_client (QString const& id, QString const& 
   connect (server_, &MessageServer::WSPR_decode, dock, &ClientWidget::beacon_spot_added);
   connect (server_, &MessageServer::decodes_cleared, dock, &ClientWidget::decodes_cleared);
   connect (dock, &ClientWidget::do_clear_decodes, server_, &MessageServer::clear_decodes);
+  connect (dock, &ClientWidget::do_close, server_, &MessageServer::close);
   connect (dock, &ClientWidget::do_reply, decodes_model_, &DecodesModel::do_reply);
   connect (dock, &ClientWidget::do_halt_tx, server_, &MessageServer::halt_tx);
   connect (dock, &ClientWidget::do_free_text, server_, &MessageServer::free_text);
   connect (dock, &ClientWidget::location, server_, &MessageServer::location);
   connect (view_action, &QAction::toggled, dock, &ClientWidget::setVisible);
   connect (dock, &ClientWidget::highlight_callsign, server_, &MessageServer::highlight_callsign);
+  connect (dock, &ClientWidget::switch_configuration, server_, &MessageServer::switch_configuration);
+  connect (dock, &ClientWidget::configure, server_, &MessageServer::configure);
   dock_widgets_[id] = dock;
   server_->replay (id);         // request decodes and status
 }
@@ -265,7 +268,7 @@ void MessageAggregatorMainWindow::remove_client (QString const& id)
   auto iter = dock_widgets_.find (id);
   if (iter != std::end (dock_widgets_))
     {
-      (*iter)->close ();
+      (*iter)->dispose ();
       dock_widgets_.erase (iter);
     }
 }

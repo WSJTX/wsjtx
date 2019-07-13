@@ -35,7 +35,7 @@ public:
   int    fSpan();
   void   saveSettings();
   void   setFsample(int n);
-  void   setPeriod(int ntrperiod, int nsps);
+  void   setPeriod(double trperiod, int nsps);
   void   setTxFreq(int n);
   void   setMode(QString mode);
   void   setSubMode(int n);
@@ -95,10 +95,11 @@ private:
   WFPalette m_userPalette;
   QHash<QString, QVariant> m_fMinPerBand;
 
+  double m_tr0;
+  double m_TRperiod;
+
   qint32 m_waterfallAvg;
-  qint32 m_TRperiod;
   qint32 m_nsps;
-  qint32 m_ntr0;
   qint32 m_fMax;
   qint32 m_nSubMode;
   qint32 m_nsmo;
@@ -108,7 +109,7 @@ private:
 
   bool   m_bFlatten;
   bool   m_bRef;
-  bool   m_bHaveTransmitted;    //Set true at end of a WSPR transmission
+  bool   m_bHaveTransmitted;    //Set true at end of a WSPR or FT4 transmission
 
   QString m_rxBand;
   QString m_mode;

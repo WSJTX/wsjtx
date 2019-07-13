@@ -17,19 +17,19 @@ namespace Ui {
 class QSettings;
 class Configuration;
 class QByteArray;
-class CabrilloLog;
+class LogBook;
 
 class LogQSO : public QDialog
 {
   Q_OBJECT
 
 public:
-  explicit LogQSO(QString const& programTitle, QSettings *, Configuration const *, QWidget *parent = 0);
+  explicit LogQSO(QString const& programTitle, QSettings *, Configuration const *, LogBook *, QWidget *parent = 0);
   ~LogQSO();
   void initLogQSO(QString const& hisCall, QString const& hisGrid, QString mode,
                   QString const& rptSent, QString const& rptRcvd, QDateTime const& dateTimeOn,
                   QDateTime const& dateTimeOff, Radio::Frequency dialFreq, 
-                  bool noSuffix, QString xSent, QString xRcvd, CabrilloLog *); 
+                  bool noSuffix, QString xSent, QString xRcvd);
 
 public slots:
   void accept();
@@ -54,12 +54,12 @@ private:
   QScopedPointer<Ui::LogQSO> ui;
   QSettings * m_settings;
   Configuration const * m_config;
+  LogBook * m_log;
   QString m_txPower;
   QString m_comments;
   Radio::Frequency m_dialFreq;
   QString m_myCall;
   QString m_myGrid;
-  CabrilloLog * m_cabrilloLog;
 };
 
 #endif // LogQSO_H

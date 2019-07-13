@@ -9,11 +9,14 @@
 
 #include "moc_soundout.cpp"
 
+/*
 #if defined (WIN32)
 # define MS_BUFFERED 1000u
 #else
 # define MS_BUFFERED 2000u
 #endif
+*/
+# define MS_BUFFERED 200u
 
 bool SoundOutput::audioError () const
 {
@@ -101,7 +104,7 @@ void SoundOutput::restart (QIODevice * source)
   m_stream->setBufferSize (m_stream->format().bytesForDuration((m_msBuffered ? m_msBuffered : MS_BUFFERED) * 1000));
   //  qDebug() << "B" << m_stream->bufferSize() <<
   //  m_stream->periodSize() << m_stream->notifyInterval();
-
+  m_stream->setCategory ("production");
   m_stream->start (source);
 }
 

@@ -9,6 +9,7 @@
 #include <iterator>
 #include <algorithm>
 #include <fftw3.h>
+#include <QApplication>
 #include <QStringListModel>
 #include <QSettings>
 #include <QKeyEvent>
@@ -37,6 +38,7 @@
 #include <QSplashScreen>
 #include <QUdpSocket>
 #include <QAbstractItemView>
+#include <QInputDialog>
 
 #include "revision_utils.hpp"
 #include "qt_helpers.hpp"
@@ -86,8 +88,8 @@
 extern "C" {
   //----------------------------------------------------- C and Fortran routines
   void symspec_(struct dec_data *, int* k, int* ntrperiod, int* nsps, int* ingain,
-                int* minw, float* px, float s[], float* df3, int* nhsym, int* npts8,
-                float *m_pxmax);
+                bool* bLowSidelobes, int* minw, float* px, float s[], float* df3,
+                int* nhsym, int* npts8, float *m_pxmax);
 
   void hspec_(short int d2[], int* k, int* nutc0, int* ntrperiod, int* nrxfreq, int* ntol,
               int* nContest, bool* bmsk144, bool* btrain, double const pcoeffs[], int* ingain,
@@ -98,6 +100,15 @@ extern "C" {
 
   void genft8_(char* msg, int* i3, int* n3, char* msgsent, char ft8msgbits[],
                int itone[], fortran_charlen_t, fortran_charlen_t);
+
+  void genft4_(char* msg, int* ichk, char* msgsent, char ft4msgbits[], int itone[],
+               fortran_charlen_t, fortran_charlen_t);
+
+  void gen_ft8wave_(int itone[], int* nsym, int* nsps, float* bt, float* fsample, float* f0,
+                    float xjunk[], float wave[], int* icmplx, int* nwave);
+
+  void gen_ft4wave_(int itone[], int* nsym, int* nsps, float* fsample, float* f0,
+                    float xjunk[], float wave[], int* icmplx, int* nwave);
 
   void gen4_(char* msg, int* ichk, char* msgsent, int itone[],
                int* itext, fortran_charlen_t, fortran_charlen_t);
@@ -136,7 +147,7 @@ extern "C" {
                 float* level, float* sigdb, float* snr, float* dfreq,
                 float* width);
 
-  void fast_decode_(short id2[], int narg[], int* ntrperiod,
+  void fast_decode_(short id2[], int narg[], double * trperiod,
                     char msg[], char mycall[], char hiscall[],
                     fortran_charlen_t, fortran_charlen_t, fortran_charlen_t);
   void degrade_snr_(short d2[], int* n, float* db, float* bandwidth);
@@ -159,6 +170,9 @@ extern "C" {
   void plotsave_(float swide[], int* m_w , int* m_h1, int* irow);
 
   void chkcall_(char* w, char* basc_call, bool cok, int len1, int len2);
+
+  void get_ft4msg_(int* idecode, char* line, int len);
+
 }
 
 int volatile itone[NUM_ISCAT_SYMBOLS];   //Audio tones for all Tx symbols
@@ -188,6 +202,7 @@ namespace
   QRegExp message_alphabet {"[- @A-Za-z0-9+./?#<>;]*"};
   // grid exact match excluding RR73
   QRegularExpression grid_regexp {"\\A(?![Rr]{2}73)[A-Ra-r]{2}[0-9]{2}([A-Xa-x]{2}){0,1}\\z"};
+  auto quint32_max = std::numeric_limits<quint32>::max ();
 
   bool message_is_73 (int type, QStringList const& msg_parts)
   {
@@ -221,8 +236,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_configurations_button {0},
   m_settings {multi_settings->settings ()},
   ui(new Ui::MainWindow),
-  m_logBook {&m_config},
   m_config {&m_network_manager, temp_directory, m_settings, &m_logBook, this},
+  m_logBook {&m_config},
   m_WSPR_band_hopping {m_settings, &m_config, this},
   m_WSPR_tx_next {false},
   m_rigErrorMessageBox {MessageBox::Critical, tr ("Rig Control Error")
@@ -231,10 +246,10 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_echoGraph (new EchoGraph(m_settings)),
   m_fastGraph (new FastGraph(m_settings)),
   // no parent so that it has a taskbar icon
-  m_logDlg (new LogQSO (program_title (), m_settings, &m_config, nullptr)),
+  m_logDlg (new LogQSO (program_title (), m_settings, &m_config, &m_logBook, nullptr)),
   m_lastDialFreq {0},
   m_dialFreqRxWSPR {0},
-  m_detector {new Detector {RX_SAMPLE_RATE, NTMAX, downSampleFactor}},
+  m_detector {new Detector {RX_SAMPLE_RATE, double(NTMAX), downSampleFactor}},
   m_FFTSize {6192 / 2},         // conservative value to avoid buffer overruns
   m_soundInput {new SoundInput},
   m_modulator {new Modulator {TX_SAMPLE_RATE, NTMAX}},
@@ -245,6 +260,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_freqTxNominal {0},
   m_s6 {0.},
   m_tRemaining {0.},
+  m_TRperiod {60.0},
   m_DTtol {3.0},
   m_waterfallAvg {1},
   m_ntx {1},
@@ -256,7 +272,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_nutc0 {999999},
   m_ntr {0},
   m_tx {0},
-  m_TRperiod {60},
   m_inGain {0},
   m_secID {0},
   m_idleMinutes {0},
@@ -397,9 +412,11 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
         m_config.udp_server_name (), m_config.udp_server_port (),
         this}},
   psk_Reporter {new PSK_Reporter {m_messageClient, this}},
-  m_manual {&m_network_manager}
+  m_manual {&m_network_manager},
+  m_block_udp_status_updates {false}
 {
   ui->setupUi(this);
+  setUnifiedTitleAndToolBarOnMac (true);
   createStatusBar();
   add_child_to_event_filter (this);
   ui->dxGridEntry->setValidator (new MaidenheadLocatorValidator {this});
@@ -487,6 +504,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
     });
 
   // Network message handlers
+  m_messageClient->enable (m_config.accept_udp_requests ());
   connect (m_messageClient, &MessageClient::clear_decodes, [this] (quint8 window) {
       ++window;
       if (window & 1)
@@ -499,52 +517,51 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
         }
     });
   connect (m_messageClient, &MessageClient::reply, this, &MainWindow::replyToCQ);
+  connect (m_messageClient, &MessageClient::close, this, &MainWindow::close);
   connect (m_messageClient, &MessageClient::replay, this, &MainWindow::replayDecodes);
   connect (m_messageClient, &MessageClient::location, this, &MainWindow::locationChange);
   connect (m_messageClient, &MessageClient::halt_tx, [this] (bool auto_only) {
-      if (m_config.accept_udp_requests ()) {
-        if (auto_only) {
-          if (ui->autoButton->isChecked ()) {
-            ui->autoButton->click();
-          }
-        } else {
-          ui->stopTxButton->click();
+      if (auto_only) {
+        if (ui->autoButton->isChecked ()) {
+          ui->autoButton->click();
         }
+      } else {
+        ui->stopTxButton->click();
       }
     });
   connect (m_messageClient, &MessageClient::error, this, &MainWindow::networkError);
   connect (m_messageClient, &MessageClient::free_text, [this] (QString const& text, bool send) {
-      if (m_config.accept_udp_requests ()) {
-        tx_watchdog (false);
-        // send + non-empty text means set and send the free text
-        // message, !send + non-empty text means set the current free
-        // text message, send + empty text means send the current free
-        // text message without change, !send + empty text means clear
-        // the current free text message
-        if (0 == ui->tabWidget->currentIndex ()) {
-          if (!text.isEmpty ()) {
-            ui->tx5->setCurrentText (text);
-          }
-          if (send) {
-            ui->txb5->click ();
-          } else if (text.isEmpty ()) {
-            ui->tx5->setCurrentText (text);
-          }
-        } else if (1 == ui->tabWidget->currentIndex ()) {
-          if (!text.isEmpty ()) {
-            ui->freeTextMsg->setCurrentText (text);
-          }
-          if (send) {
-            ui->rbFreeText->click ();
-          } else if (text.isEmpty ()) {
-            ui->freeTextMsg->setCurrentText (text);
-          }
+      tx_watchdog (false);
+      // send + non-empty text means set and send the free text
+      // message, !send + non-empty text means set the current free
+      // text message, send + empty text means send the current free
+      // text message without change, !send + empty text means clear
+      // the current free text message
+      if (0 == ui->tabWidget->currentIndex ()) {
+        if (!text.isEmpty ()) {
+          ui->tx5->setCurrentText (text);
         }
-        QApplication::alert (this);
+        if (send) {
+          ui->txb5->click ();
+        } else if (text.isEmpty ()) {
+          ui->tx5->setCurrentText (text);
+        }
+      } else if (1 == ui->tabWidget->currentIndex ()) {
+        if (!text.isEmpty ()) {
+          ui->freeTextMsg->setCurrentText (text);
+        }
+        if (send) {
+          ui->rbFreeText->click ();
+        } else if (text.isEmpty ()) {
+          ui->freeTextMsg->setCurrentText (text);
+        }
       }
+      QApplication::alert (this);
     });
 
   connect (m_messageClient, &MessageClient::highlight_callsign, ui->decodedTextBrowser, &DisplayText::highlight_callsign);
+  connect (m_messageClient, &MessageClient::switch_configuration, m_multi_settings, &MultiSettings::select_configuration);
+  connect (m_messageClient, &MessageClient::configure, this, &MainWindow::remote_configure);
 
   // Hook up WSPR band hopping
   connect (ui->band_hopping_schedule_push_button, &QPushButton::clicked
@@ -555,6 +572,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   on_EraseButton_clicked ();
 
   QActionGroup* modeGroup = new QActionGroup(this);
+  ui->actionFT4->setActionGroup(modeGroup);
   ui->actionFT8->setActionGroup(modeGroup);
   ui->actionJT9->setActionGroup(modeGroup);
   ui->actionJT65->setActionGroup(modeGroup);
@@ -694,6 +712,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect (&m_config, &Configuration::transceiver_failure, this, &MainWindow::handle_transceiver_failure);
   connect (&m_config, &Configuration::udp_server_changed, m_messageClient, &MessageClient::set_server);
   connect (&m_config, &Configuration::udp_server_port_changed, m_messageClient, &MessageClient::set_server_port);
+  connect (&m_config, &Configuration::accept_udp_requests_changed, m_messageClient, &MessageClient::enable);
 
   // set up configurations menu
   connect (m_multi_settings, &MultiSettings::configurationNameChanged, [this] (QString const& name) {
@@ -704,6 +723,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
       else {
         config_label.hide ();
       }
+      statusUpdate ();
     });
   m_multi_settings->create_menu_actions (this, ui->menuConfig);
   m_configurations_button = m_rigErrorMessageBox.addButton (tr ("Configurations...")
@@ -783,6 +803,9 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
     ui->TxPowerComboBox->addItem(t);
   }
 
+  m_dateTimeRcvdRR73=QDateTime::currentDateTimeUtc();
+  m_dateTimeSentTx3=QDateTime::currentDateTimeUtc();
+
   ui->labAz->setStyleSheet("border: 0px;");
   ui->labAz->setText("");
   auto t = "UTC   dB   DT Freq    Message";
@@ -861,7 +884,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect (&m_wav_future_watcher, &QFutureWatcher<void>::finished, this, &MainWindow::diskDat);
 
   connect(&watcher3, SIGNAL(finished()),this,SLOT(fast_decode_done()));
-//  Q_EMIT startAudioInputStream (m_config.audio_input_device (), m_framesAudioInputBuffered, &m_detector, m_downSampleFactor, m_config.audio_input_channel ());
   Q_EMIT startAudioInputStream (m_config.audio_input_device (), m_framesAudioInputBuffered, m_detector, m_downSampleFactor, m_config.audio_input_channel ());
   Q_EMIT initializeAudioOutputStream (m_config.audio_output_device (), AudioDevice::Mono == m_config.audio_output_channel () ? 1 : 2, m_msAudioOutputBuffered);
   Q_EMIT transmitFrequency (ui->TxFreqSpinBox->value () - m_XIT);
@@ -885,19 +907,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   if(m_bFast9) m_bFastMode=true;
   ui->cbFast9->setChecked(m_bFast9 or m_bFastMode);
 
-  if(m_mode=="FT8") on_actionFT8_triggered();
-  if(m_mode=="JT4") on_actionJT4_triggered();
-  if(m_mode=="JT9") on_actionJT9_triggered();
-  if(m_mode=="JT65") on_actionJT65_triggered();
-  if(m_mode=="JT9+JT65") on_actionJT9_JT65_triggered();
-  if(m_mode=="WSPR") on_actionWSPR_triggered();
-  if(m_mode=="WSPR-LF") on_actionWSPR_LF_triggered();
-  if(m_mode=="ISCAT") on_actionISCAT_triggered();
-  if(m_mode=="MSK144") on_actionMSK144_triggered();
-  if(m_mode=="QRA64") on_actionQRA64_triggered();
-  if(m_mode=="Echo") on_actionEcho_triggered();
+  set_mode (m_mode);
   if(m_mode=="Echo") monitor(false);   //Don't auto-start Monitor in Echo mode.
-  if(m_mode=="FreqCal") on_actionFreqCal_triggered();
 
   ui->sbSubmode->setValue (vhf ? m_nSubMode : 0);
   if(m_mode=="MSK144") {
@@ -957,8 +968,12 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   splashTimer.setSingleShot (true);
   splashTimer.start (20 * 1000);
 
-  //QTimer::singleShot (0, this, SLOT (not_GA_warning_message ()));
+  if(QCoreApplication::applicationVersion().contains("-devel") or
+     QCoreApplication::applicationVersion().contains("-rc")) {
+     QTimer::singleShot (0, this, SLOT (not_GA_warning_message ()));
+  }
 
+  ui->pbBestSP->setVisible(m_mode=="FT4");
   if(!ui->cbMenus->isChecked()) {
     ui->cbMenus->setChecked(true);
     ui->cbMenus->setChecked(false);
@@ -971,18 +986,18 @@ void MainWindow::not_GA_warning_message ()
 {
   MessageBox::critical_message (this,
                                 "<b><p align=\"center\">"
-                                "IMPORTANT: New protocols for the FT8 and MSK144 modes "
-                                "became the world&#8209;wide standards on December&nbsp;10,&nbsp;2018."
-                                , "<p align=\"center\">"
-                                "WSJT&#8209;X&nbsp;2.0 cannot communicate in these modes with other "
-                                "stations using WSJT&#8209;X&nbsp;v1.9.1&nbsp;or&nbsp;earlier."
-                                "<p align=\"center\">"
-                                "Please help by urging everyone to upgrade to WSJT&#8209;X 2.0 "
-                                "<nobr>no later than January&nbsp;1,&nbsp;2019.</nobr>");
-
-//  QDateTime now=QDateTime::currentDateTime();
-//  QDateTime timeout=QDateTime(QDate(2018,12,31));
-//  if(now.daysTo(timeout) < 0) Q_EMIT finished();
+                                "This is a pre-release version of WSJT-X 2.1.0 made "
+                                "available for testing purposes.  By design it will "
+                                "be nonfunctional during the 2019 ARRL June VHF contest "
+                                "(June 8-10) and Field Day (June 22-23) weekends.  It "
+                                "will be permanently nonfunctional after July 21, 2019.");
+  auto now = QDateTime::currentDateTimeUtc ();
+  if ((QDateTime {{2019, 6, 8}, {18, 0}, Qt::UTC} <= now
+       && now < QDateTime {{2019, 6, 10}, {3, 0}, Qt::UTC})
+      || now >= QDateTime {{2019, 7, 21}, {0, 0}, Qt::UTC})
+    {
+      Q_EMIT finished ();
+    }
 }
 
 void MainWindow::initialize_fonts ()
@@ -1307,7 +1322,9 @@ void MainWindow::fixStop()
     m_hsymStop=((int(m_TRperiod/0.288))/8)*8;
   } else if (m_mode=="FT8") {
     m_hsymStop=50;
-  }
+  } else if (m_mode=="FT4") {
+  m_hsymStop=21;
+}
 }
 
 //-------------------------------------------------------------- dataSink()
@@ -1315,8 +1332,7 @@ void MainWindow::dataSink(qint64 frames)
 {
   static float s[NSMAX];
   char line[80];
-
-  int k (frames);
+  int k(frames);
   QString fname {QDir::toNativeSeparators(m_config.writeable_data_dir ().absoluteFilePath ("refspec.dat"))};
   QByteArray bafname = fname.toLatin1();
   const char *c_fname = bafname.data();
@@ -1339,20 +1355,24 @@ void MainWindow::dataSink(qint64 frames)
   }
 
 // Get power, spectrum, and ihsym
-  int trmin=m_TRperiod/60;
+  int trmin=m_TRperiod/60.0;
 //  int k (frames - 1);
   dec_data.params.nfa=m_wideGraph->nStartFreq();
   dec_data.params.nfb=m_wideGraph->Fmax();
   int nsps=m_nsps;
   if(m_bFastMode) nsps=6912;
   int nsmo=m_wideGraph->smoothYellow()-1;
-  symspec_(&dec_data,&k,&trmin,&nsps,&m_inGain,&nsmo,&m_px,s,&m_df3,&m_ihsym,&m_npts8,&m_pxmax);
+  bool bLowSidelobes=m_config.lowSidelobes();
+  symspec_(&dec_data,&k,&trmin,&nsps,&m_inGain,&bLowSidelobes,&nsmo,&m_px,s,
+           &m_df3,&m_ihsym,&m_npts8,&m_pxmax);
   if(m_mode=="WSPR") wspr_downsample_(dec_data.d2,&k);
   if(m_ihsym <=0) return;
   if(ui) ui->signal_meter_widget->setValue(m_px,m_pxmax); // Update thermometer
   if(m_monitoring || m_diskData) {
     m_wideGraph->dataSink2(s,m_df3,m_ihsym,m_diskData);
   }
+//  if(m_mode=="FT4") ft4_rx(k);
+//  if(m_mode=="MSK144" or m_mode=="FT4") return;
   if(m_mode=="MSK144") return;
 
   fixStop();
@@ -1432,22 +1452,25 @@ void MainWindow::dataSink(qint64 frames)
     if(!m_mode.startsWith ("WSPR")) decode(); //Start decoder
 
     if(!m_diskData) {                        //Always save; may delete later
-
-      if(m_mode=="FT8") {
-        int n=now.time().second() % m_TRperiod;
+      if(m_mode=="FT8" or m_mode=="FT4") {
+        int n=fmod(double(now.time().second()),m_TRperiod);
         if(n<(m_TRperiod/2)) n=n+m_TRperiod;
         auto const& period_start=now.addSecs(-n);
         m_fnameWE=m_config.save_directory().absoluteFilePath (period_start.toString("yyMMdd_hhmmss"));
+//        qDebug() << "datasink 2" << QDateTime::currentDateTimeUtc().toString("ss.zzz")
+//                 << n << period_start.toString("ss.zzz");
       } else {
-        auto const& period_start = now.addSecs (-(now.time ().minute () % (m_TRperiod / 60)) * 60);
+        auto const& period_start = now.addSecs (-(now.time ().minute () % (int(m_TRperiod) / 60)) * 60);
         m_fnameWE=m_config.save_directory ().absoluteFilePath (period_start.toString ("yyMMdd_hhmm"));
       }
       m_fileToSave.clear ();
+      int samples=m_TRperiod*12000;
+      if(m_mode=="FT4") samples=21*3456;
 
       // the following is potential a threading hazard - not a good
       // idea to pass pointer to be processed in another thread
       m_saveWAVWatcher.setFuture (QtConcurrent::run (std::bind (&MainWindow::save_wave_file,
-            this, m_fnameWE, &dec_data.d2[0], m_TRperiod, m_config.my_callsign(),
+            this, m_fnameWE, &dec_data.d2[0], samples, m_config.my_callsign(),
             m_config.my_grid(), m_mode, m_nSubMode, m_freqNominal, m_hisCall, m_hisGrid)));
       if (m_mode=="WSPR") {
         QString c2name_string {m_fnameWE + ".c2"};
@@ -1506,7 +1529,7 @@ void MainWindow::startP1()
   p1.start(m_cmndP1);
 }
 
-QString MainWindow::save_wave_file (QString const& name, short const * data, int seconds,
+QString MainWindow::save_wave_file (QString const& name, short const * data, int samples,
         QString const& my_callsign, QString const& my_grid, QString const& mode, qint32 sub_mode,
         Frequency frequency, QString const& his_call, QString const& his_grid) const
 {
@@ -1542,7 +1565,7 @@ QString MainWindow::save_wave_file (QString const& name, short const * data, int
   BWFFile wav {format, file_name, list_info};
   if (!wav.open (BWFFile::WriteOnly)
       || 0 > wav.write (reinterpret_cast<char const *> (data)
-                        , sizeof (short) * seconds * format.sampleRate ()))
+                        , sizeof (short) * samples))
     {
       return file_name + ": " + wav.errorString ();
     }
@@ -1554,7 +1577,6 @@ void MainWindow::fastSink(qint64 frames)
 {
   int k (frames);
   bool decodeNow=false;
-
   if(k < m_k0) {                                 //New sequence ?
     memcpy(fast_green2,fast_green,4*703);        //Copy fast_green[] to fast_green2[]
     memcpy(fast_s2,fast_s,4*703*64);             //Copy fast_s[] into fast_s2[]
@@ -1568,7 +1590,7 @@ void MainWindow::fastSink(qint64 frames)
   int ihr=tnow.toString("hh").toInt();
   int imin=tnow.toString("mm").toInt();
   int isec=tnow.toString("ss").toInt();
-  isec=isec - isec%m_TRperiod;
+  isec=isec - fmod(double(isec),m_TRperiod);
   int nutc0=10000*ihr + 100*imin + isec;
   if(m_diskData) nutc0=m_UTCdisk;
   char line[80];
@@ -1648,7 +1670,7 @@ void MainWindow::fastSink(qint64 frames)
   if(decodeNow or m_bFastDone) {
     if(!m_diskData) {
       QDateTime now {QDateTime::currentDateTimeUtc()};
-      int n=now.time().second() % m_TRperiod;
+      int n=fmod(double(now.time().second()),m_TRperiod);
       if(n<(m_TRperiod/2)) n=n+m_TRperiod;
       auto const& period_start = now.addSecs (-n);
       m_fnameWE = m_config.save_directory ().absoluteFilePath (period_start.toString ("yyMMdd_hhmmss"));
@@ -1658,11 +1680,11 @@ void MainWindow::fastSink(qint64 frames)
         // the following is potential a threading hazard - not a good
         // idea to pass pointer to be processed in another thread
         m_saveWAVWatcher.setFuture (QtConcurrent::run (std::bind (&MainWindow::save_wave_file,
-           this, m_fnameWE, &dec_data.d2[0], m_TRperiod, m_config.my_callsign(),
+           this, m_fnameWE, &dec_data.d2[0], int(m_TRperiod*12000.0), m_config.my_callsign(),
            m_config.my_grid(), m_mode, m_nSubMode, m_freqNominal, m_hisCall, m_hisGrid)));
       }
       if(m_mode!="MSK144") {
-        killFileTimer.start (3*1000*m_TRperiod/4); //Kill 3/4 period from now
+        killFileTimer.start (int(750.0*m_TRperiod)); //Kill 3/4 period from now
       }
     }
     m_bFastDone=false;
@@ -1730,18 +1752,7 @@ void MainWindow::on_actionSettings_triggered()               //Setup Dialog
     bool b = vhf && (m_mode=="JT4" or m_mode=="JT65" or m_mode=="ISCAT" or
                      m_mode=="JT9" or m_mode=="MSK144" or m_mode=="QRA64");
     if(b) VHF_features_enabled(b);
-    if(m_mode=="FT8") on_actionFT8_triggered();
-    if(m_mode=="JT4") on_actionJT4_triggered();
-    if(m_mode=="JT9") on_actionJT9_triggered();
-    if(m_mode=="JT9+JT65") on_actionJT9_JT65_triggered();
-    if(m_mode=="JT65") on_actionJT65_triggered();
-    if(m_mode=="QRA64") on_actionQRA64_triggered();
-    if(m_mode=="FreqCal") on_actionFreqCal_triggered();
-    if(m_mode=="ISCAT") on_actionISCAT_triggered();
-    if(m_mode=="MSK144") on_actionMSK144_triggered();
-    if(m_mode=="WSPR") on_actionWSPR_triggered();
-    if(m_mode=="WSPR-LF") on_actionWSPR_LF_triggered();
-    if(m_mode=="Echo") on_actionEcho_triggered();
+    set_mode (m_mode);
     if(b) VHF_features_enabled(b);
 
     m_config.transceiver_online ();
@@ -1761,6 +1772,7 @@ void MainWindow::on_actionSettings_triggered()               //Setup Dialog
       ui->actionEnable_AP_JT65->setVisible(false);
     }
     if(m_config.special_op_id()!=nContest0) ui->tx1->setEnabled(true);
+    chkFT4();
   }
 }
 
@@ -1870,9 +1882,20 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
   }
 
   int n;
-  bool bAltF1F5=m_config.alternate_bindings();
+  bool bAltF1F6=m_config.alternate_bindings();
   switch(e->key())
     {
+  case Qt::Key_B:
+    if(m_mode=="FT4" && e->modifiers() & Qt::AltModifier) {
+      on_pbBestSP_clicked();
+    }
+  return;
+    case Qt::Key_C:
+      if(m_mode=="FT4" && e->modifiers() & Qt::AltModifier) {
+        bool b=ui->cbFirst->isChecked();
+        ui->cbFirst->setChecked(!b);
+      }
+    return;
     case Qt::Key_D:
       if(m_mode != "WSPR" && e->modifiers() & Qt::ShiftModifier) {
         if(!m_decoderBusy) {
@@ -1884,7 +1907,7 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
       }
       break;
     case Qt::Key_F1:
-      if(bAltF1F5) {
+      if(bAltF1F6) {
         auto_tx_mode(true);
         on_txb6_clicked();
         return;
@@ -1893,7 +1916,7 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
         return;
       }
     case Qt::Key_F2:
-      if(bAltF1F5) {
+      if(bAltF1F6) {
         auto_tx_mode(true);
         on_txb2_clicked();
         return;
@@ -1902,7 +1925,7 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
         return;
       }
     case Qt::Key_F3:
-      if(bAltF1F5) {
+      if(bAltF1F6) {
         auto_tx_mode(true);
         on_txb3_clicked();
         return;
@@ -1911,7 +1934,7 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
         return;
       }
     case Qt::Key_F4:
-      if(bAltF1F5) {
+      if(bAltF1F6) {
         auto_tx_mode(true);
         on_txb4_clicked();
         return;
@@ -1921,7 +1944,7 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
         return;
       }
     case Qt::Key_F5:
-      if(bAltF1F5) {
+      if(bAltF1F6) {
         auto_tx_mode(true);
         on_txb5_clicked();
         return;
@@ -1930,11 +1953,16 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
         return;
       }
     case Qt::Key_F6:
-      if(e->modifiers() & Qt::ShiftModifier) {
-        on_actionDecode_remaining_files_in_directory_triggered();
-        return;
+      if(bAltF1F6) {
+        bool b=ui->cbFirst->isChecked();
+        ui->cbFirst->setChecked(!b);
+      } else {
+        if(e->modifiers() & Qt::ShiftModifier) {
+          on_actionDecode_remaining_files_in_directory_triggered();
+        } else {
+          on_actionOpen_next_in_directory_triggered();
+        }
       }
-      on_actionOpen_next_in_directory_triggered();
       return;
     case Qt::Key_F11:
       if((e->modifiers() & Qt::ControlModifier) and (e->modifiers() & Qt::ShiftModifier)) {
@@ -1944,7 +1972,9 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
         n=11;
         if(e->modifiers() & Qt::ControlModifier) n+=100;
         if(e->modifiers() & Qt::ShiftModifier) {
-          ui->TxFreqSpinBox->setValue(ui->TxFreqSpinBox->value()-60);
+          int offset=60;
+          if(m_mode=="FT4") offset=90;
+          ui->TxFreqSpinBox->setValue(ui->TxFreqSpinBox->value()-offset);
         } else{
           bumpFqso(n);
         }
@@ -1958,7 +1988,9 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
         n=12;
         if(e->modifiers() & Qt::ControlModifier) n+=100;
         if(e->modifiers() & Qt::ShiftModifier) {
-          ui->TxFreqSpinBox->setValue(ui->TxFreqSpinBox->value()+60);
+          int offset=60;
+          if(m_mode=="FT4") offset=90;
+          ui->TxFreqSpinBox->setValue(ui->TxFreqSpinBox->value()+offset);
         } else {
           bumpFqso(n);
         }
@@ -1971,11 +2003,6 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
       on_stopTxButton_clicked();
       abortQSO();
       return;
-    case Qt::Key_X:
-      if(e->modifiers() & Qt::AltModifier) {
-        foxTest();
-        return;
-      }
     case Qt::Key_E:
       if((e->modifiers() & Qt::ShiftModifier) and SpecOp::FOX > m_config.special_op_id()) {
           ui->txFirstCheckBox->setChecked(false);
@@ -2021,6 +2048,15 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
       if(e->modifiers() & Qt::ControlModifier) {
           on_actionOpen_triggered();
           return;
+      }
+      else if(e->modifiers() & Qt::AltModifier) {
+        bool ok;
+        auto call = QInputDialog::getText (this, tr ("Change Operator"), tr ("New operator:"),
+                                           QLineEdit::Normal, m_config.opCall (), &ok);
+        if (ok) {
+          m_config.opCall (call);
+        }
+        return;
       }
       break;
     case Qt::Key_V:
@@ -2180,7 +2216,6 @@ void MainWindow::createStatusBar()                           //createStatusBar
 
   statusBar()->addPermanentWidget(&progressBar);
   progressBar.setMinimumSize (QSize {150, 18});
-  progressBar.setFormat ("%v/%m");
 
   statusBar ()->addPermanentWidget (&watchdog_label);
   update_watchdog_label ();
@@ -2491,16 +2526,14 @@ void MainWindow::on_actionAstronomical_data_toggled (bool checked)
 
 void MainWindow::on_fox_log_action_triggered()
 {
-  if (!m_foxLog) m_foxLog.reset (new FoxLog {&m_config});
   if (!m_foxLogWindow)
     {
-      m_foxLogWindow.reset (new FoxLogWindow {m_settings, &m_config, m_foxLog.data ()});
+      m_foxLogWindow.reset (new FoxLogWindow {m_settings, &m_config, m_logBook.fox_log ()});
 
       // Connect signals from fox log window
       connect (this, &MainWindow::finished, m_foxLogWindow.data (), &FoxLogWindow::close);
       connect (m_foxLogWindow.data (), &FoxLogWindow::reset_log_model, [this] () {
-          if (!m_foxLog) m_foxLog.reset (new FoxLog {&m_config});
-          m_foxLog->reset ();
+          m_logBook.fox_log ()->reset ();
         });
     }
   m_foxLogWindow->showNormal ();
@@ -2510,10 +2543,9 @@ void MainWindow::on_fox_log_action_triggered()
 
 void MainWindow::on_contest_log_action_triggered()
 {
-  if (!m_cabrilloLog) m_cabrilloLog.reset (new CabrilloLog {&m_config});
   if (!m_contestLogWindow)
     {
-      m_contestLogWindow.reset (new CabrilloLogWindow {m_settings, &m_config, m_cabrilloLog->model ()});
+      m_contestLogWindow.reset (new CabrilloLogWindow {m_settings, &m_config, m_logBook.contest_log ()->model ()});
 
       // Connect signals from contest log window
       connect (this, &MainWindow::finished, m_contestLogWindow.data (), &CabrilloLogWindow::close);
@@ -2593,7 +2625,8 @@ void MainWindow::read_wav_file (QString const& fname)
         bool ok=file.open (BWFFile::ReadOnly);
         if(ok) {
           auto bytes_per_frame = file.format ().bytesPerFrame ();
-          qint64 max_bytes = std::min (std::size_t (m_TRperiod * RX_SAMPLE_RATE),
+          int nsamples=m_TRperiod * RX_SAMPLE_RATE;
+          qint64 max_bytes = std::min (std::size_t (nsamples),
               sizeof (dec_data.d2) / sizeof (dec_data.d2[0]))* bytes_per_frame;
           auto n = file.read (reinterpret_cast<char *> (dec_data.d2),
                             std::min (max_bytes, file.size ()));
@@ -2663,7 +2696,8 @@ void MainWindow::diskDat()                                   //diskDat()
     float bw=m_config.RxBandwidth();
     if(db > 0.0) degrade_snr_(dec_data.d2,&dec_data.params.kin,&db,&bw);
     for(int n=1; n<=m_hsymStop; n++) {                      // Do the waterfall spectra
-      k=(n+1)*kstep;
+//      k=(n+1)*kstep;           //### Why was this (n+1) ??? ###
+      k=n*kstep;
       if(k > dec_data.params.kin) break;
       dec_data.params.npts8=k/8;
       dataSink(k);
@@ -2772,7 +2806,7 @@ void MainWindow::decode()                                       //decode()
   QDateTime now = QDateTime::currentDateTimeUtc ();
   if( m_dateTimeLastTX.isValid () ) {
     qint64 isecs_since_tx = m_dateTimeLastTX.secsTo(now);
-    dec_data.params.lapcqonly= (isecs_since_tx > 600); 
+    dec_data.params.lapcqonly= (isecs_since_tx > 300); 
 //    QTextStream(stdout) << "last tx " << isecs_since_tx << endl;
   } else { 
     m_dateTimeLastTX = now.addSecs(-900);
@@ -2783,9 +2817,9 @@ void MainWindow::decode()                                       //decode()
   }
 
   m_msec0=QDateTime::currentMSecsSinceEpoch();
-  if(!m_dataAvailable or m_TRperiod==0) return;
+  if(!m_dataAvailable or m_TRperiod==0.0) return;
   ui->DecodeButton->setChecked (true);
-  if(!dec_data.params.nagain && m_diskData && !m_bFastMode && m_mode!="FT8") {
+  if(!dec_data.params.nagain && m_diskData && !m_bFastMode && m_mode!="FT8" && m_mode!="FT4") {
     dec_data.params.nutc=dec_data.params.nutc/100;
   }
   if(dec_data.params.nagain==0 && dec_data.params.newdat==1 && (!m_diskData)) {
@@ -2793,14 +2827,16 @@ void MainWindow::decode()                                       //decode()
     int imin=ms/60000;
     int ihr=imin/60;
     imin=imin % 60;
-    if(m_TRperiod>=60) imin=imin - (imin % (m_TRperiod/60));
+    if(m_TRperiod>=60) imin=imin - (imin % (int(m_TRperiod)/60));
     dec_data.params.nutc=100*ihr + imin;
-    if(m_mode=="ISCAT" or m_mode=="MSK144" or m_bFast9 or m_mode=="FT8") {
-      QDateTime t=QDateTime::currentDateTimeUtc().addSecs(2-m_TRperiod);
+    if(m_mode=="ISCAT" or m_mode=="MSK144" or m_bFast9 or m_mode=="FT8" or m_mode=="FT4") {
+      qint64 ms=1000.0*(2.0-m_TRperiod);
+      if(m_mode=="FT4") ms=1000.0*(2.0-m_TRperiod);
+      QDateTime t=QDateTime::currentDateTimeUtc().addMSecs(ms);
       ihr=t.toString("hh").toInt();
       imin=t.toString("mm").toInt();
       int isec=t.toString("ss").toInt();
-      isec=isec - isec%m_TRperiod;
+      isec=isec - fmod(double(isec),m_TRperiod);
       dec_data.params.nutc=10000*ihr + 100*imin + isec;
     }
   }
@@ -2810,7 +2846,7 @@ void MainWindow::decode()                                       //decode()
     int ihr=t.toString("hh").toInt();
     int imin=t.toString("mm").toInt();
     int isec=t.toString("ss").toInt();
-    isec=isec - isec%m_TRperiod;
+    isec=isec - fmod(double(isec),m_TRperiod);
     dec_data.params.nutc=10000*ihr + 100*imin + isec;
   }
   if(m_nPick==2) dec_data.params.nutc=m_nutc0;
@@ -2845,7 +2881,8 @@ void MainWindow::decode()                                       //decode()
   if(m_modeTx=="JT65") dec_data.params.ntxmode=65;
   dec_data.params.nmode=9;
   if(m_mode=="JT65") dec_data.params.nmode=65;
-  if(m_mode=="JT65") dec_data.params.ljt65apon = ui->actionEnable_AP_JT65->isVisible () && ui->actionEnable_AP_JT65->isChecked (); 
+  if(m_mode=="JT65") dec_data.params.ljt65apon = ui->actionEnable_AP_JT65->isVisible () &&
+      ui->actionEnable_AP_JT65->isChecked ();
   if(m_mode=="QRA64") dec_data.params.nmode=164;
   if(m_mode=="QRA64") dec_data.params.ntxmode=164;
   if(m_mode=="JT9+JT65") dec_data.params.nmode=9+65;  // = 74
@@ -2854,8 +2891,13 @@ void MainWindow::decode()                                       //decode()
     dec_data.params.ntxmode=4;
   }
   if(m_mode=="FT8") dec_data.params.nmode=8;
-  if(m_mode=="FT8") dec_data.params.lft8apon = ui->actionEnable_AP_FT8->isVisible () && ui->actionEnable_AP_FT8->isChecked ();
+  if(m_mode=="FT8") dec_data.params.lft8apon = ui->actionEnable_AP_FT8->isVisible () &&
+      ui->actionEnable_AP_FT8->isChecked ();
   if(m_mode=="FT8") dec_data.params.napwid=50;
+  if(m_mode=="FT4") {
+    dec_data.params.nmode=5;
+    m_BestCQpriority="";
+  }
   dec_data.params.ntrperiod=m_TRperiod;
   dec_data.params.nsubmode=m_nSubMode;
   if(m_mode=="QRA64") dec_data.params.nsubmode=100 + m_nSubMode;
@@ -2903,8 +2945,8 @@ void MainWindow::decode()                                       //decode()
     }
     static short int d2b[360000];
     narg[0]=dec_data.params.nutc;
-    if(m_kdone>12000*m_TRperiod) {
-      m_kdone=12000*m_TRperiod;
+    if(m_kdone>int(12000.0*m_TRperiod)) {
+      m_kdone=int(12000.0*m_TRperiod);
     }
     narg[1]=m_kdone;
     narg[2]=m_nSubMode;
@@ -3000,7 +3042,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
         // truncate before line ending chars
         line_read = line_read.left (p - line_read.constData ());
       }
-    if(m_mode!="FT8") {
+    if(m_mode!="FT8" and m_mode!="FT4") {
       //Pad 22-char msg to at least 37 chars
       line_read = line_read.left(43) + "               " + line_read.mid(43);
     }
@@ -3010,7 +3052,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
     if(line_read.indexOf("<DecodeFinished>") >= 0) {
       if(m_mode=="QRA64") m_wideGraph->drawRed(0,0);
       m_bDecoded = line_read.mid(20).trimmed().toInt() > 0;
-      int mswait=3*1000*m_TRperiod/4;
+      int mswait=750.0*m_TRperiod;
       if(!m_diskData) killFileTimer.start(mswait); //Kill in 3/4 period
       decodeDone ();
       m_startAnother=m_loopall;
@@ -3020,7 +3062,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
       }
       return;
     } else {
-      if(m_mode=="JT4" or m_mode=="JT65" or m_mode=="QRA64" or m_mode=="FT8") {
+      if(m_mode=="JT4" or m_mode=="JT65" or m_mode=="QRA64") {
         int n=line_read.indexOf("f");
         if(n<0) n=line_read.indexOf("d");
         if(n>0) {
@@ -3036,7 +3078,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
       write_all("Rx",line_read.trimmed());
       if (m_config.insert_blank () && m_blankLine && SpecOp::FOX != m_config.special_op_id()) {
         QString band;
-        if((QDateTime::currentMSecsSinceEpoch() / 1000 - m_secBandChanged) > 4*m_TRperiod/4) {
+        if((QDateTime::currentMSecsSinceEpoch() / 1000 - m_secBandChanged) > 4*int(m_TRperiod)/4) {
           band = ' ' + m_config.bands ()->find (m_freqNominal);
         }
         ui->decodedTextBrowser->insertLineSpacer (band.rightJustified  (40, '-'));
@@ -3074,17 +3116,33 @@ void MainWindow::readFromStdout()                             //readFromStdout
           ui->decodedTextBrowser->displayDecodedText(decodedtext0,m_baseCall,m_mode,m_config.DXCC(),
                m_logBook,m_currentBand,m_config.ppfx(),
                (ui->cbCQonly->isVisible() and ui->cbCQonly->isChecked()));
+          if(m_bBestSPArmed and m_mode=="FT4") {
+            QString messagePriority=ui->decodedTextBrowser->CQPriority();
+            if(messagePriority!="") {
+              if(messagePriority=="New Call on Band"
+                 and m_BestCQpriority!="New Call on Band"
+                 and m_BestCQpriority!="New Multiplier") {
+                m_BestCQpriority="New Call on Band";
+                processMessage(decodedtext0);
+              }
+              if(messagePriority=="New DXCC"
+                 and m_BestCQpriority!="New DXCC"
+                 and m_BestCQpriority!="New Multiplier") {
+                m_BestCQpriority="New DXCC";
+                processMessage(decodedtext0);
+              }
+            }
+          }
         }
       }
 
 //Right (Rx Frequency) window
       bool bDisplayRight=bAvgMsg;
       int audioFreq=decodedtext.frequencyOffset();
-
-      if(m_mode=="FT8") {
+      if(m_mode=="FT8" or m_mode=="FT4") {
         auto const& parts = decodedtext.string().remove("<").remove(">")
             .split (' ', QString::SkipEmptyParts);
-        if (parts.size () > 6) {
+        if (parts.size() > 6) {
           auto for_us = parts[5].contains (m_baseCall)
             || ("DE" == parts[5] && qAbs (ui->RxFreqSpinBox->value () - audioFreq) <= 10);
           if(m_baseCall==m_config.my_callsign() and m_baseCall!=parts[5]) for_us=false;
@@ -3106,9 +3164,10 @@ void MainWindow::readFromStdout()                             //readFromStdout
       if (bDisplayRight) {
         // This msg is within 10 hertz of our tuned frequency, or a JT4 or JT65 avg,
         // or contains MyCall
-        ui->decodedTextBrowser2->displayDecodedText(decodedtext0,m_baseCall,m_mode,m_config.DXCC(),
-               m_logBook,m_currentBand,m_config.ppfx());
-
+        if(!m_bBestSPArmed or m_mode!="FT4") {
+          ui->decodedTextBrowser2->displayDecodedText(decodedtext0,m_baseCall,m_mode,m_config.DXCC(),
+                m_logBook,m_currentBand,m_config.ppfx());
+        }
         if(m_mode!="JT4") {
           bool b65=decodedtext.isJT65();
           if(b65 and m_modeTx!="JT65") on_pbTxMode_clicked();
@@ -3162,7 +3221,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
 
 //### I think this is where we are preventing Hounds from spotting Fox ###
       if(m_mode!="FT8" or (SpecOp::HOUND != m_config.special_op_id())) {
-        if(m_mode=="FT8" or m_mode=="QRA64" or m_mode=="JT4" or m_mode=="JT65" or m_mode=="JT9") {
+        if(m_mode=="FT8" or m_mode=="FT4" or m_mode=="QRA64" or m_mode=="JT4" or m_mode=="JT65" or m_mode=="JT9") {
           auto_sequence (decodedtext, 25, 50);
         }
 
@@ -3179,7 +3238,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
         }
 // extract details and send to PSKreporter
         int nsec=QDateTime::currentMSecsSinceEpoch()/1000-m_secBandChanged;
-        bool okToPost=(nsec>(4*m_TRperiod)/5);
+        bool okToPost=(nsec > int(4*m_TRperiod)/5);
         if (stdMsg && okToPost) pskPost(decodedtext);
 
         if((m_mode=="JT4" or m_mode=="JT65" or m_mode=="QRA64") and m_msgAvgWidget!=NULL) {
@@ -3279,7 +3338,7 @@ void MainWindow::pskPost (DecodedText const& decodedtext)
   QString grid;
   decodedtext.deCallAndGrid(/*out*/deCall,grid);
   int audioFrequency = decodedtext.frequencyOffset();
-  if(m_mode=="FT8" or m_mode=="MSK144") {
+  if(m_mode=="FT8" or m_mode=="MSK144" or m_mode=="FT4") {
     audioFrequency=decodedtext.string().mid(16,4).toInt();
   }
   int snr = decodedtext.snr();
@@ -3359,8 +3418,9 @@ void MainWindow::guiUpdate()
   double txDuration;
   QString rt;
 
-  if(m_TRperiod==0) m_TRperiod=60;
+  if(m_TRperiod==0) m_TRperiod=60.0;
   txDuration=0.0;
+  if(m_modeTx=="FT4")  txDuration=1.0 + 105*576/12000.0;      // FT4
   if(m_modeTx=="FT8")  txDuration=1.0 + 79*1920/12000.0;      // FT8
   if(m_modeTx=="JT4")  txDuration=1.0 + 207.0*2520/11025.0;   // JT4
   if(m_modeTx=="JT9")  txDuration=1.0 + 85.0*m_nsps/12000.0;  // JT9
@@ -3374,7 +3434,7 @@ void MainWindow::guiUpdate()
 
   double tx1=0.0;
   double tx2=txDuration;
-  if(m_mode=="FT8") icw[0]=0;                                   //No CW ID in FT8 mode
+  if(m_mode=="FT8" or m_mode=="FT4") icw[0]=0;              //No CW ID in FT4 or FT8 mode
   if((icw[0]>0) and (!m_bFast9)) tx2 += icw[0]*2560.0/48000.0;  //Full length including CW ID
   if(tx2>m_TRperiod) tx2=m_TRperiod;
 
@@ -3388,8 +3448,8 @@ void MainWindow::guiUpdate()
   double tsec=0.001*ms;
   double t2p=fmod(tsec,2*m_TRperiod);
   m_s6=fmod(tsec,6.0);
-  m_nseq = nsec % m_TRperiod;
-  m_tRemaining=m_TRperiod - fmod(tsec,double(m_TRperiod));
+  m_nseq = fmod(double(nsec),m_TRperiod);
+  m_tRemaining=m_TRperiod - fmod(tsec,m_TRperiod);
 
   if(m_mode=="Echo") {
     txDuration=2.4;
@@ -3430,10 +3490,9 @@ void MainWindow::guiUpdate()
   if(m_transmitting or m_auto or m_tune) {
     m_dateTimeLastTX = QDateTime::currentDateTimeUtc ();
 
-// Check for "txboth" (testing purposes only)
+// Check for "txboth" (FT4 testing purposes only)
     QFile f(m_appDir + "/txboth");
-    if(f.exists() and
-       fmod(tsec,m_TRperiod)<(1.0 + 85.0*m_nsps/12000.0)) m_bTxTime=true;
+    if(f.exists() and fmod(tsec,m_TRperiod) < (0.5 + 105.0*576.0/12000.0)) m_bTxTime=true;
 
 // Don't transmit another mode in the 30 m WSPR sub-band
     Frequency onAirFreq = m_freqNominal + ui->TxFreqSpinBox->value();
@@ -3476,7 +3535,7 @@ void MainWindow::guiUpdate()
       tx_watchdog (true);       // disable transmit
     }
 
-    float fTR=float((ms%(1000*m_TRperiod)))/(1000*m_TRperiod);
+    float fTR=float((ms%int(1000.0*m_TRperiod)))/int(1000.0*m_TRperiod);
 
     QString txMsg;
     if(m_ntx == 1) txMsg=ui->tx1->text();
@@ -3532,6 +3591,7 @@ void MainWindow::guiUpdate()
       Q_EMIT m_config.transceiver_ptt (true);            //Assert the PTT
       m_tx_when_ready = true;
     }
+//    if(!m_bTxTime and !m_tune and m_mode!="FT4") m_btxok=false;       //Time to stop transmitting
     if(!m_bTxTime and !m_tune) m_btxok=false;       //Time to stop transmitting
   }
 
@@ -3583,6 +3643,13 @@ void MainWindow::guiUpdate()
         m_ntx=1;
         ui->txrb1->setChecked(true);
       }
+
+      if(m_mode=="FT4" and m_bBestSPArmed) {
+        m_BestCQpriority="";
+        m_bBestSPArmed=false;
+        ui->pbBestSP->setStyleSheet ("");
+      }
+
       if(m_ntx == 1) ba=ui->tx1->text().toLocal8Bit();
       if(m_ntx == 2) ba=ui->tx2->text().toLocal8Bit();
       if(m_ntx == 3) ba=ui->tx3->text().toLocal8Bit();
@@ -3621,7 +3688,7 @@ void MainWindow::guiUpdate()
                                     22, 22);
 //        if(m_modeTx=="WSPR-LF") genwspr_fsk8_(message, msgsent, const_cast<int *> (itone),
 //                                    22, 22);
-        if(m_modeTx=="MSK144" or m_modeTx=="FT8") {
+        if(m_modeTx=="MSK144" or m_modeTx=="FT8" or m_modeTx=="FT4") {
           char MyCall[6];
           char MyGrid[6];
           strncpy(MyCall, (m_config.my_callsign()+"      ").toLatin1(),6);
@@ -3644,6 +3711,16 @@ void MainWindow::guiUpdate()
               char ft8msgbits[77];
               genft8_(message, &i3, &n3, msgsent, const_cast<char *> (ft8msgbits),
                       const_cast<int *> (itone), 37, 37);
+              int nsym=79;
+              int nsps=4*1920;
+              float fsample=48000.0;
+              float bt=2.0;
+              float f0=ui->TxFreqSpinBox->value() - m_XIT;
+              int icmplx=0;
+              int nwave=nsym*nsps;
+              gen_ft8wave_(const_cast<int *>(itone),&nsym,&nsps,&bt,&fsample,&f0,foxcom_.wave,
+                           foxcom_.wave,&icmplx,&nwave);
+
               if(SpecOp::FOX == m_config.special_op_id()) {
                 //Fox must generate the full Tx waveform, not just an itone[] array.
                 QString fm = QString::fromStdString(message).trimmed();
@@ -3657,6 +3734,21 @@ void MainWindow::guiUpdate()
               }
             }
           }
+          if(m_modeTx=="FT4") {
+            int ichk=0;
+            char ft4msgbits[77];
+            genft4_(message, &ichk, msgsent, const_cast<char *> (ft4msgbits),
+               const_cast<int *>(itone), 37, 37);
+            int nsym=103;
+            int nsps=4*576;
+            float fsample=48000.0;
+            float f0=ui->TxFreqSpinBox->value() - m_XIT;
+            int nwave=(nsym+2)*nsps;
+            int icmplx=0;
+            gen_ft4wave_(const_cast<int *>(itone),&nsym,&nsps,&fsample,&f0,foxcom_.wave,
+                           foxcom_.wave,&icmplx,&nwave);
+          }
+
           if(SpecOp::EU_VHF==m_config.special_op_id()) {
             if(m_ntx==2) m_xSent=ui->tx2->text().right(13);
             if(m_ntx==3) m_xSent=ui->tx3->text().right(13);
@@ -3677,7 +3769,7 @@ void MainWindow::guiUpdate()
     m_currentMessage = QString::fromLatin1(msgsent);
     m_bCallingCQ = CALLING == m_QSOProgress
       || m_currentMessage.contains (QRegularExpression {"^(CQ|QRZ) "});
-    if(m_mode=="FT8") {
+    if(m_mode=="FT8" or m_mode=="FT4") {
       if(m_bCallingCQ && ui->cbFirst->isVisible () && ui->cbFirst->isChecked ()) {
         ui->cbFirst->setStyleSheet("QCheckBox{color:red}");
       } else {
@@ -3719,7 +3811,7 @@ void MainWindow::guiUpdate()
       if((m_config.prompt_to_log() or m_config.autoLog()) && !m_tune) logQSOTimer.start(0);
     }
 
-    bool b=(m_mode=="FT8") and ui->cbAutoSeq->isChecked();
+    bool b=(m_mode=="FT8" or m_mode=="FT4") and ui->cbAutoSeq->isChecked();
     if(is_73 and (m_config.disable_TX_on_73() or b)) {
       m_nextCall="";  //### Temporary: disable use of "TU;" messages;
       if(m_nextCall!="") {
@@ -3784,36 +3876,37 @@ void MainWindow::guiUpdate()
     }
   }
 
-  if (g_iptt == 1 && m_iptt0 == 0)
-    {
-      auto const& current_message = QString::fromLatin1 (msgsent);
-      if(m_config.watchdog () && !m_mode.startsWith ("WSPR")
-         && current_message != m_msgSent0) {
-        tx_watchdog (false);  // in case we are auto sequencing
-        m_msgSent0 = current_message;
-      }
+  if (g_iptt == 1 && m_iptt0 == 0) {
+    auto const& current_message = QString::fromLatin1 (msgsent);
+    if(m_config.watchdog () && !m_mode.startsWith ("WSPR")
+       && current_message != m_msgSent0) {
+      tx_watchdog (false);  // in case we are auto sequencing
+      m_msgSent0 = current_message;
+    }
 
+//    if(m_mode!="FT4") {
       if(!m_tune) write_all("Tx",m_currentMessage);
 
       if (m_config.TX_messages () && !m_tune && SpecOp::FOX!=m_config.special_op_id()) {
         ui->decodedTextBrowser2->displayTransmittedText(current_message, m_modeTx,
-              ui->TxFreqSpinBox->value(),m_bFastMode);
+             ui->TxFreqSpinBox->value(),m_bFastMode);
       }
+//    }
 
-      switch (m_ntx)
-        {
-        case 1: m_QSOProgress = REPLYING; break;
-        case 2: m_QSOProgress = REPORT; break;
-        case 3: m_QSOProgress = ROGER_REPORT; break;
-        case 4: m_QSOProgress = ROGERS; break;
-        case 5: m_QSOProgress = SIGNOFF; break;
-        case 6: m_QSOProgress = CALLING; break;
-        default: break;             // determined elsewhere
-        }
-      m_transmitting = true;
-      transmitDisplay (true);
-      statusUpdate ();
+    switch (m_ntx)
+    {
+      case 1: m_QSOProgress = REPLYING; break;
+      case 2: m_QSOProgress = REPORT; break;
+      case 3: m_QSOProgress = ROGER_REPORT; break;
+      case 4: m_QSOProgress = ROGERS; break;
+      case 5: m_QSOProgress = SIGNOFF; break;
+      case 6: m_QSOProgress = CALLING; break;
+      default: break;             // determined elsewhere
     }
+    m_transmitting = true;
+    transmitDisplay (true);
+    statusUpdate ();
+  }
 
   if(!m_btxok && m_btxok0 && g_iptt==1) stopTx();
 
@@ -3828,22 +3921,25 @@ void MainWindow::guiUpdate()
     }
   }
 
-  if(m_mode=="FT8" or m_mode=="MSK144") {
+  if(m_mode=="FT8" or m_mode=="MSK144" or m_mode=="FT4") {
     if(ui->txrb1->isEnabled() and 
        (SpecOp::NA_VHF==m_config.special_op_id() or 
         SpecOp::FIELD_DAY==m_config.special_op_id() or 
         SpecOp::RTTY==m_config.special_op_id()) ) { 
       //We're in a contest-like mode other than EU_VHF: start QSO with Tx2.
       ui->tx1->setEnabled(false);
+      ui->txb1->setEnabled(false);
     }
     if(!ui->tx1->isEnabled() and SpecOp::EU_VHF==m_config.special_op_id()) { 
       //We're in EU_VHF mode: start QSO with Tx1.
       ui->tx1->setEnabled(true);
+      ui->txb1->setEnabled(true);
     }
   }
 
 //Once per second:
   if(nsec != m_sec0) {
+//    qDebug() << "onesec" << m_config.force_call_1st();
     // if((!m_msgAvgWidget or (m_msgAvgWidget and !m_msgAvgWidget->isVisible()))
     //    and (SpecOp::NONE < m_config.special_op_id()) and (SpecOp::HOUND > m_config.special_op_id())) on_actionFox_Log_triggered();
     if(m_freqNominal!=0 and m_freqNominal<50000000 and m_config.enable_VHF_features()) {
@@ -3858,15 +3954,22 @@ void MainWindow::guiUpdate()
       //To keep calling Fox, Hound must reactivate Enable Tx at least once every 2 minutes
       if(tHound >= 120 and m_ntx==1) auto_tx_mode(false);
     }
+
+    progressBar.setVisible(true);
+    progressBar.setFormat ("%v/%m");
     if(m_auto and m_mode=="Echo" and m_bEchoTxOK) {
-      progressBar.setMaximum(6);
+      progressBar.setMaximum(3);
       progressBar.setValue(int(m_s6));
     }
-
     if(m_mode!="Echo") {
       if(m_monitoring or m_transmitting) {
         progressBar.setMaximum(m_TRperiod);
         int isec=int(fmod(tsec,m_TRperiod));
+        if(m_TRperiod-int(m_TRperiod)>0.0) {
+          QString progBarLabel;
+          progBarLabel.sprintf("%d/%3.1f",isec,m_TRperiod);
+          progressBar.setFormat (progBarLabel);
+        }
         progressBar.setValue(isec);
       } else {
         progressBar.setValue(0);
@@ -3902,6 +4005,7 @@ void MainWindow::guiUpdate()
           if(SpecOp::FOX==m_config.special_op_id() and ui->tabWidget->currentIndex()==2 and foxcom_.nslots==1) {
               t=m_fm1.trimmed();
           }
+          if(m_mode=="FT4") t="Tx: "+ m_currentMessage;
           tx_status_label.setText(t.trimmed());
         }
       }
@@ -3927,9 +4031,8 @@ void MainWindow::guiUpdate()
     QString utc = t.date().toString("yyyy MMM dd") + "\n " +
       t.time().toString() + " ";
     ui->labUTC->setText(utc);
-    if(!m_monitoring and !m_diskData) {
-      ui->signal_meter_widget->setValue(0,0);
-    }
+    if(m_bBestSPArmed and (m_dateTimeBestSP.secsTo(t) >= 120)) on_pbBestSP_clicked(); //BestSP timeout
+    if(!m_monitoring and !m_diskData) ui->signal_meter_widget->setValue(0,0);
     m_sec0=nsec;
     displayDialFrequency ();
   }
@@ -3965,6 +4068,10 @@ void MainWindow::startTx2()
     t=ui->tx6->text();
     if(t.mid(0,1)=="#") snr=t.mid(1,5).toDouble();
     if(snr>0.0 or snr < -50.0) snr=99.0;
+    if((m_ntx==6 or m_ntx==7) and m_config.force_call_1st()) {
+      ui->cbAutoSeq->setChecked(true);
+      ui->cbFirst->setChecked(true);
+    }
     transmit (snr);
     ui->signal_meter_widget->setValue(0,0);
     if(m_mode=="Echo" and !m_tune) m_bTransmittedEcho=true;
@@ -3977,7 +4084,6 @@ void MainWindow::startTx2()
         ui->decodedTextBrowser->appendText(t);
       }
       write_all("Tx",m_currentMessage);
-//      write_transmit_entry ("ALL_WSPR.TXT");
     }
   }
 }
@@ -4006,13 +4112,12 @@ void MainWindow::stopTx2()
     on_stopTxButton_clicked ();
     m_nTx73 = 0;
   }
-  if(m_mode.startsWith ("WSPR") and m_ntr==-1 and !m_tuneup) {
+  if((m_mode.startsWith("WSPR") and m_ntr==-1) and !m_tuneup) {
     m_wideGraph->setWSPRtransmitted();
     WSPR_scheduling ();
     m_ntr=0;
   }
   last_tx_label.setText("Last Tx: " + m_currentMessage.trimmed());
-//###  if(m_mode=="FT8" and (SpecOp::HOUND == m_config.special_op_id())) auto_tx_mode(false); ###
 }
 
 void MainWindow::ba2msg(QByteArray ba, char message[])             //ba2msg()
@@ -4051,7 +4156,8 @@ void MainWindow::set_dateTimeQSO(int m_ntx)
     }
     else { // we also take of m_TRperiod/2 to allow for late clicks
       auto now = QDateTime::currentDateTimeUtc();
-      m_dateTimeQSOOn = now.addSecs (-(m_ntx - 2) * m_TRperiod - (now.time ().second () % m_TRperiod));
+      m_dateTimeQSOOn = now.addSecs (-(m_ntx - 2) * int(m_TRperiod) -
+                                     int(fmod(double(now.time().second()),m_TRperiod)));
     }
 }
 
@@ -4117,6 +4223,7 @@ void MainWindow::on_txrb4_doubleClicked ()
   auto const& my_callsign = m_config.my_callsign ();
   auto is_compound = my_callsign != m_baseCall;
   m_send_RR73 = !((is_compound && !shortList (my_callsign)) || m_send_RR73);
+  if(m_mode=="FT4" and (m_config.special_op_id()==SpecOp::RTTY)) m_send_RR73=true;
   genStdMsgs (m_rpt);
 }
 
@@ -4146,7 +4253,7 @@ void MainWindow::on_txb1_clicked()
     m_ntx=1;
     m_QSOProgress = REPLYING;
     ui->txrb1->setChecked(true);
-    if (m_transmitting) m_restart=true;
+    if(m_transmitting) m_restart=true;
   }
   else {
     on_txb2_clicked ();
@@ -4167,7 +4274,7 @@ void MainWindow::on_txb2_clicked()
     m_ntx=2;
     m_QSOProgress = REPORT;
     ui->txrb2->setChecked(true);
-    if (m_transmitting) m_restart=true;
+    if(m_transmitting) m_restart=true;
 }
 
 void MainWindow::on_txb3_clicked()
@@ -4175,7 +4282,7 @@ void MainWindow::on_txb3_clicked()
     m_ntx=3;
     m_QSOProgress = ROGER_REPORT;
     ui->txrb3->setChecked(true);
-    if (m_transmitting) m_restart=true;
+    if(m_transmitting) m_restart=true;
 }
 
 void MainWindow::on_txb4_clicked()
@@ -4183,7 +4290,7 @@ void MainWindow::on_txb4_clicked()
     m_ntx=4;
     m_QSOProgress = ROGERS;
     ui->txrb4->setChecked(true);
-    if (m_transmitting) m_restart=true;
+    if(m_transmitting) m_restart=true;
 }
 
 void MainWindow::on_txb4_doubleClicked()
@@ -4192,6 +4299,7 @@ void MainWindow::on_txb4_doubleClicked()
   auto const& my_callsign = m_config.my_callsign ();
   auto is_compound = my_callsign != m_baseCall;
   m_send_RR73 = !((is_compound && !shortList (my_callsign)) || m_send_RR73);
+  if(m_mode=="FT4") m_send_RR73=true;
   genStdMsgs (m_rpt);
 }
 
@@ -4200,7 +4308,7 @@ void MainWindow::on_txb5_clicked()
     m_ntx=5;
     m_QSOProgress = SIGNOFF;
     ui->txrb5->setChecked(true);
-    if (m_transmitting) m_restart=true;
+    if(m_transmitting) m_restart=true;
 }
 
 void MainWindow::on_txb5_doubleClicked()
@@ -4214,11 +4322,12 @@ void MainWindow::on_txb6_clicked()
     m_QSOProgress = CALLING;
     set_dateTimeQSO(-1);
     ui->txrb6->setChecked(true);
-    if (m_transmitting) m_restart=true;
+    if(m_transmitting) m_restart=true;
 }
 
 void MainWindow::doubleClickOnCall2(Qt::KeyboardModifiers modifiers)
 {
+//Confusing: come here after double-click on left text window, not right window.
   set_dateTimeQSO(-1); // reset our QSO start time
   m_decodedText2=true;
   doubleClickOnCall(modifiers);
@@ -4227,10 +4336,6 @@ void MainWindow::doubleClickOnCall2(Qt::KeyboardModifiers modifiers)
 
 void MainWindow::doubleClickOnCall(Qt::KeyboardModifiers modifiers)
 {
-//  if(!(modifiers & Qt::AltModifier) and m_transmitting) {
-//    qDebug() << "aa" << "Double-click on decode is ignored while transmitting";
-//    return;
-//  }
   QTextCursor cursor;
   if(m_mode=="ISCAT") {
     MessageBox::information_message (this,
@@ -4256,7 +4361,7 @@ void MainWindow::doubleClickOnCall(Qt::KeyboardModifiers modifiers)
     }
     return;
   }
-  DecodedText message {cursor.block().text()};
+  DecodedText message {cursor.block().text().trimmed().remove("TU; ")};
   m_bDoubleClicked = true;
   processMessage (message, modifiers);
 }
@@ -4267,7 +4372,6 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
   auto shift = modifiers.testFlag (Qt::ShiftModifier);
   auto ctrl = modifiers.testFlag (Qt::ControlModifier);
   // auto alt = modifiers.testFlag (Qt::AltModifier);
-
   // basic mode sanity checks
   auto const& parts = message.string ().split (' ', QString::SkipEmptyParts);
   if (parts.size () < 5) return;
@@ -4277,7 +4381,7 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
       || ("JT9" == m_mode && mode != "@")
       || ("MSK144" == m_mode && !("&" == mode || "^" == mode))
       || ("QRA64" == m_mode && mode.left (1) != ":")) {
-    return;
+    return;      //Currently we do auto-sequencing only in FT4, FT8, and MSK144
   }
 
   //Skip the rest if no decoded text extracted
@@ -4306,7 +4410,7 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
     }
   }
 
-  int nmod = message.timeInSeconds () % (2*m_TRperiod);
+  int nmod = fmod(double(message.timeInSeconds()),2.0*m_TRperiod);
   m_txFirst=(nmod!=0);
   if( SpecOp::HOUND == m_config.special_op_id() ) m_txFirst=false;          //Hound must not transmit first
   if( SpecOp::FOX == m_config.special_op_id() ) m_txFirst=true;             //Fox must always transmit first
@@ -4366,7 +4470,7 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
         ui->TxFreqSpinBox->setValue(frequency);
       }
       if(m_mode != "JT4" && m_mode != "JT65" && !m_mode.startsWith ("JT9") &&
-         m_mode != "QRA64" && m_mode!="FT8") {
+         m_mode != "QRA64" && m_mode!="FT8" && m_mode!="FT4") {
         return;
       }
     }
@@ -4429,11 +4533,11 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
       // ### Should be in RTTY contest mode ??? ###
       MessageBox::information_message (this, tr ("Should you switch to RTTY contest mode?"));
     }
-
     if(message_words.size () > 3   // enough fields for a normal message
        && (message_words.at(1).contains(m_baseCall) || "DE" == message_words.at(1))
 //       && (message_words.at(2).contains(qso_partner_base_call) or bEU_VHF_w2)) {
-       && (message_words.at(2).contains(qso_partner_base_call) or m_bDoubleClicked or bEU_VHF_w2)) {
+       && (message_words.at(2).contains(qso_partner_base_call) or m_bDoubleClicked
+           or bEU_VHF_w2 or (m_QSOProgress==CALLING))) {
 
       if(message_words.at(3).contains(grid_regexp) and SpecOp::EU_VHF!=m_config.special_op_id()) {
         if(SpecOp::NA_VHF==m_config.special_op_id()){
@@ -4478,6 +4582,7 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
       } else {  // no grid on end of msg
         QString r=message_words.at (3);
         if(m_QSOProgress >= ROGER_REPORT && (r=="RRR" || r.toInt()==73 || "RR73" == r)) {
+          if(m_mode=="FT4" and r=="RR73") m_dateTimeRcvdRR73=QDateTime::currentDateTimeUtc();
           if(ui->tabWidget->currentIndex()==1) {
             gen_msg = 5;
             if (ui->rbGenMsg->isChecked ()) m_ntx=7;
@@ -4494,8 +4599,7 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
               ui->tx3->setText(t);
               m_bTUmsg=true;
             } else {
-//              if(SpecOp::RTTY == m_config.special_op_id()) {
-              if(false) {
+              if(SpecOp::RTTY == m_config.special_op_id()) {
                 logQSOTimer.start(0);
                 m_ntx=6;
                 ui->txrb6->setChecked(true);
@@ -4507,7 +4611,8 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
           }
           m_QSOProgress = SIGNOFF;
         } else if((m_QSOProgress >= REPORT
-                   || (m_QSOProgress >= REPLYING && (m_mode=="MSK144" or m_mode=="FT8")))
+                   || (m_QSOProgress >= REPLYING &&
+                   (m_mode=="MSK144" or m_mode=="FT8" or m_mode=="FT4")))
                    && r.mid(0,1)=="R") {
           m_ntx=4;
           m_QSOProgress = ROGERS;
@@ -4558,7 +4663,7 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
       }
       m_QSOProgress = SIGNOFF;
     }
-    else if (!(m_bAutoReply && m_QSOProgress > CALLING)) {
+    else if (!(m_bAutoReply && (m_QSOProgress > CALLING))) {
       if ((message_words.size () > 4 && message_words.at (1).contains (m_baseCall)
            && message_words.at (4) == "OOO")) {
         // EME short code report or MSK144/FT8 contest mode reply, send back Tx3
@@ -4690,6 +4795,7 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
     // i.e. compound version of same base call
     ui->dxCallEntry->setText (hiscall);
   }
+
   if (hisgrid.contains (grid_regexp)) {
     if(ui->dxGridEntry->text().mid(0,4) != hisgrid) ui->dxGridEntry->setText(hisgrid);
   }
@@ -4731,7 +4837,10 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
   }
 
   if(m_transmitting) m_restart=true;
-  if (ui->cbAutoSeq->isVisible () && ui->cbAutoSeq->isChecked () && !m_bDoubleClicked) return;
+  if (ui->cbAutoSeq->isVisible () && ui->cbAutoSeq->isChecked ()
+      && !m_bDoubleClicked && m_mode!="FT4") {
+    return;
+  }
   if(m_config.quick_call()) auto_tx_mode(true);
   m_bDoubleClicked=false;
 }
@@ -4744,6 +4853,7 @@ int MainWindow::setTxMsg(int n)
   if(n==3) ui->txrb3->setChecked(true);
   if(n==4) ui->txrb4->setChecked(true);
   if(n==5) ui->txrb5->setChecked(true);
+  if(n==6) ui->txrb6->setChecked(true);
   if(ui->tabWidget->currentIndex()==1) {
     m_ntx=7;                      //### FIX THIS ###
     m_gen_message_is_cq = false;
@@ -4785,12 +4895,17 @@ void MainWindow::genCQMsg ()
     }
 
     QString t=ui->tx6->text();
-    if((m_mode=="FT8" or m_mode=="MSK144") and SpecOp::NONE != m_config.special_op_id() and
-       t.split(" ").at(1)==m_config.my_callsign() and stdCall(m_config.my_callsign())) {
+    if((m_mode=="FT4" or m_mode=="FT8" or m_mode=="MSK144") and
+       SpecOp::NONE != m_config.special_op_id() and
+       t.split(" ").at(1)==m_config.my_callsign() and
+       stdCall(m_config.my_callsign())) {
       if(SpecOp::NA_VHF == m_config.special_op_id())    t="CQ TEST" + t.mid(2,-1);
       if(SpecOp::EU_VHF == m_config.special_op_id())    t="CQ TEST" + t.mid(2,-1);
       if(SpecOp::FIELD_DAY == m_config.special_op_id()) t="CQ FD" + t.mid(2,-1);
-      if(SpecOp::RTTY == m_config.special_op_id())      t="CQ RU" + t.mid(2,-1);
+      if(SpecOp::RTTY == m_config.special_op_id()) {
+        if(m_config.RTTY_Exchange()!="SCC")             t="CQ RU" + t.mid(2,-1);
+        if(m_config.RTTY_Exchange()=="SCC")             t="CQ SCC" + t.mid(2,-1);
+      }
       ui->tx6->setText(t);
     }
   } else {
@@ -4821,11 +4936,6 @@ bool MainWindow::stdCall(QString const& w)
 
 void MainWindow::genStdMsgs(QString rpt, bool unconditional)
 {
-// Prevent abortQSO from working when a TU; message is already queued
-//  if(ui->tx3->text().left(4)=="TU; ") {
-//    return;
-//  }
-
   genCQMsg ();
   auto const& hisCall=ui->dxCallEntry->text();
   if(!hisCall.size ()) {
@@ -4872,7 +4982,7 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
     int n=rpt.toInt();
     rpt.sprintf("%+2.2d",n);
 
-    if(m_mode=="MSK144" or m_mode=="FT8") {
+    if(m_mode=="MSK144" or m_mode=="FT8" or m_mode=="FT4") {
       QString t2,t3;
       QString sent=rpt;
       QString rs,rst;
@@ -4909,6 +5019,15 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
       msgtype(t + sent, ui->tx2);
       if(sent==rpt) msgtype(t + "R" + sent, ui->tx3);
       if(sent!=rpt) msgtype(t + "R " + sent, ui->tx3);
+      if(m_mode=="FT4" and SpecOp::RTTY==m_config.special_op_id()) {
+        QDateTime now=QDateTime::currentDateTimeUtc();
+        int sinceTx3 = m_dateTimeSentTx3.secsTo(now);
+        int sinceRR73 = m_dateTimeRcvdRR73.secsTo(now);
+        if(m_bDoubleClicked and (sinceTx3 < 15) and (sinceRR73 < 3)) {
+          t="TU; " + ui->tx3->text();
+          ui->tx3->setText(t);
+        }
+      }
     }
 
     if(m_mode=="MSK144" and m_bShMsgs) {
@@ -4926,7 +5045,7 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
       }
     }
 
-    if((m_mode!="MSK144" and m_mode!="FT8")) {
+    if((m_mode!="MSK144" and m_mode!="FT8" and m_mode!="FT4")) {
       t=t00 + rpt;
       msgtype(t, ui->tx2);
       t=t0 + "R" + rpt;
@@ -4942,7 +5061,7 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
     }
 
     t=t0 + (m_send_RR73 ? "RR73" : "RRR");
-    if((m_mode=="MSK144" and !m_bShMsgs) or m_mode=="FT8") {
+    if((m_mode=="MSK144" and !m_bShMsgs) or m_mode=="FT8" or m_mode=="FT4") {
       if(!bHisCall and bMyCall) t=hisCall + " <" + my_callsign + "> " + (m_send_RR73 ? "RR73" : "RRR");
       if(bHisCall and !bMyCall) t="<" + hisCall + "> " + my_callsign + " " + (m_send_RR73 ? "RR73" : "RRR");
     }
@@ -4950,7 +5069,7 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
     msgtype(t, ui->tx4);
 
     t=t0 + "73";
-    if((m_mode=="MSK144" and !m_bShMsgs) or m_mode=="FT8") {
+    if((m_mode=="MSK144" and !m_bShMsgs) or m_mode=="FT8" or m_mode=="FT4") {
       if(!bHisCall and bMyCall) t=hisCall + " <" + my_callsign + "> 73";
       if(bHisCall and !bMyCall) t="<" + hisCall + "> " + my_callsign + " 73";
     }
@@ -4966,7 +5085,7 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
     }
   }
 
-  if(m_mode=="FT8" or m_mode=="MSK144") return;
+  if(m_mode=="FT8" or m_mode=="FT4" or m_mode=="MSK144") return;
 
   if (is_compound) {
     if (is_type_one) {
@@ -5052,10 +5171,9 @@ void MainWindow::TxAgain()
 void MainWindow::clearDX ()
 {
   set_dateTimeQSO (-1);
-  if (m_QSOProgress != CALLING)
-    {
-      auto_tx_mode (false);
-    }
+  if (m_QSOProgress != CALLING) {
+    auto_tx_mode (false);
+  }
   ui->dxCallEntry->clear ();
   ui->dxGridEntry->clear ();
   m_lastCallsign.clear ();
@@ -5063,6 +5181,7 @@ void MainWindow::clearDX ()
   m_rptRcvd.clear ();
   m_qsoStart.clear ();
   m_qsoStop.clear ();
+  m_inQSOwith.clear();
   genStdMsgs (QString {});
   if (ui->tabWidget->currentIndex() == 1) {
     ui->genMsg->setText(ui->tx6->text());
@@ -5380,15 +5499,10 @@ void MainWindow::on_logQSOButton_clicked()                 //Log QSO button
       default: break;
     }
 
-  auto special_op = m_config.special_op_id ();
-  if (SpecOp::NONE < special_op && special_op < SpecOp::FOX)
-    {
-      if (!m_cabrilloLog) m_cabrilloLog.reset (new CabrilloLog {&m_config});
-    }
   m_logDlg->initLogQSO (m_hisCall, grid, m_modeTx, m_rptSent, m_rptRcvd,
                         m_dateTimeQSOOn, dateTimeQSOOff, m_freqNominal +
-                        ui->TxFreqSpinBox->value(), m_noSuffix, m_xSent, m_xRcvd,
-                        m_cabrilloLog.data ());
+                        ui->TxFreqSpinBox->value(), m_noSuffix, m_xSent, m_xRcvd);
+  m_inQSOwith="";
 }
 
 void MainWindow::acceptQSO (QDateTime const& QSO_date_off, QString const& call, QString const& grid
@@ -5425,13 +5539,14 @@ void MainWindow::acceptQSO (QDateTime const& QSO_date_off, QString const& call, 
         }
     }
 
-  if (m_config.clear_DX () and SpecOp::HOUND != m_config.special_op_id()) clearDX ();
+  if(m_config.clear_DX () and SpecOp::HOUND != m_config.special_op_id()) clearDX ();
+  auto_tx_mode (false);
   m_dateTimeQSOOn = QDateTime {};
   auto special_op = m_config.special_op_id ();
-  if (SpecOp::NONE < special_op && special_op < SpecOp::FOX)
-    {
-      ui->sbSerialNumber->setValue (ui->sbSerialNumber->value () + 1);
-    }
+  if (SpecOp::NONE < special_op && special_op < SpecOp::FOX &&
+      m_config.RTTY_Exchange()!="SCC") {
+    ui->sbSerialNumber->setValue(ui->sbSerialNumber->value() + 1);
+  }
 
   m_xSent.clear ();
   m_xRcvd.clear ();
@@ -5499,11 +5614,62 @@ void MainWindow::displayWidgets(qint64 n)
     if(i==32) ui->cbCQonly->setVisible(b);
     j=j>>1;
   }
+  ui->pbBestSP->setVisible(m_mode=="FT4");
+  b=false;
+  if(m_mode=="FT4" or m_mode=="FT8") {
   b=SpecOp::EU_VHF==m_config.special_op_id() or (SpecOp::RTTY==m_config.special_op_id() and
-    (m_config.RTTY_Exchange()=="#" or m_config.RTTY_Exchange()=="DX"));
+    (m_config.RTTY_Exchange()=="DX" or m_config.RTTY_Exchange()=="#" or
+     m_config.RTTY_Exchange()=="SCC"));
+  }
+  if(m_mode=="MSK144") b=SpecOp::EU_VHF==m_config.special_op_id();
   ui->sbSerialNumber->setVisible(b);
   m_lastCallsign.clear ();     // ensures Tx5 is updated for new modes
   genStdMsgs (m_rpt, true);
+}
+
+void MainWindow::on_actionFT4_triggered()
+{
+  m_mode="FT4";
+  m_modeTx="FT4";
+  m_TRperiod=7.5;
+  bool bVHF=m_config.enable_VHF_features();
+  m_bFast9=false;
+  m_bFastMode=false;
+  WSPR_config(false);
+  switch_mode (Modes::FT4);
+  m_nsps=6912;
+  m_FFTSize = m_nsps/2;
+  Q_EMIT FFTSize (m_FFTSize);
+  m_hsymStop=21;
+  setup_status_bar (bVHF);
+  m_toneSpacing=12000.0/576.0;
+  ui->actionFT4->setChecked(true);
+  m_wideGraph->setMode(m_mode);
+  m_wideGraph->setModeTx(m_modeTx);
+  m_send_RR73=true;
+  VHF_features_enabled(bVHF);
+//  ui->cbAutoSeq->setChecked(false);
+  m_fastGraph->hide();
+  m_wideGraph->show();
+  ui->decodedTextLabel2->setText("  UTC   dB   DT Freq    Message");
+  m_wideGraph->setPeriod(m_TRperiod,m_nsps);
+  m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
+  m_detector->setTRPeriod(m_TRperiod);  // TODO - not thread safe
+  ui->label_7->setText("Rx Frequency");
+  ui->label_6->setText("Band Activity");
+  ui->decodedTextLabel->setText( "  UTC   dB   DT Freq    Message");
+  displayWidgets(nWidgets("111010000100111000010000000110001"));
+  ui->txrb2->setEnabled(true);
+  ui->txrb4->setEnabled(true);
+  ui->txrb5->setEnabled(true);
+  ui->txrb6->setEnabled(true);
+  ui->txb2->setEnabled(true);
+  ui->txb4->setEnabled(true);
+  ui->txb5->setEnabled(true);
+  ui->txb6->setEnabled(true);
+  ui->txFirstCheckBox->setEnabled(true);
+  chkFT4();
+  statusChanged();
 }
 
 void MainWindow::on_actionFT8_triggered()
@@ -5526,7 +5692,7 @@ void MainWindow::on_actionFT8_triggered()
   m_wideGraph->setModeTx(m_modeTx);
   VHF_features_enabled(bVHF);
   ui->cbAutoSeq->setChecked(true);
-  m_TRperiod=15;
+  m_TRperiod=15.0;
   m_fastGraph->hide();
   m_wideGraph->show();
   ui->decodedTextLabel2->setText("  UTC   dB   DT Freq    Message");
@@ -5608,8 +5774,6 @@ void MainWindow::on_actionFT8_triggered()
   statusChanged();
 }
 
-
-
 void MainWindow::on_actionJT4_triggered()
 {
   m_mode="JT4";
@@ -5617,7 +5781,7 @@ void MainWindow::on_actionJT4_triggered()
   WSPR_config(false);
   switch_mode (Modes::JT4);
   m_modeTx="JT4";
-  m_TRperiod=60;
+  m_TRperiod=60.0;
   m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
   m_detector->setTRPeriod(m_TRperiod);  // TODO - not thread safe
   m_nsps=6912;                   //For symspec only
@@ -5690,7 +5854,7 @@ void MainWindow::on_actionJT9_triggered()
     ui->decodedTextLabel2->setText("UTC     dB    T Freq    Message");
   } else {
     ui->cbAutoSeq->setChecked(false);
-    m_TRperiod=60;
+    m_TRperiod=60.0;
     ui->decodedTextLabel->setText("UTC   dB   DT Freq    Message");
     ui->decodedTextLabel2->setText("UTC   dB   DT Freq    Message");
   }
@@ -5719,7 +5883,7 @@ void MainWindow::on_actionJT9_JT65_triggered()
     m_modeTx="JT9";
   }
   m_nSubMode=0;                    //Dual-mode always means JT9 and JT65A
-  m_TRperiod=60;
+  m_TRperiod=60.0;
   m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
   m_detector->setTRPeriod(m_TRperiod);  // TODO - not thread safe
   m_nsps=6912;
@@ -5761,7 +5925,7 @@ void MainWindow::on_actionJT65_triggered()
   WSPR_config(false);
   switch_mode (Modes::JT65);
   if(m_modeTx!="JT65") on_pbTxMode_clicked();
-  m_TRperiod=60;
+  m_TRperiod=60.0;
   m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
   m_detector->setTRPeriod(m_TRperiod);   // TODO - not thread safe
   m_nsps=6912;                   //For symspec only
@@ -5819,6 +5983,8 @@ void MainWindow::on_actionQRA64_triggered()
   ui->sbSubmode->setValue(m_nSubMode);
   ui->actionInclude_averaging->setVisible (false);
   ui->actionInclude_correlation->setVisible (false);
+  ui->RxFreqSpinBox->setValue(1000);
+  ui->TxFreqSpinBox->setValue(1000);
   QString fname {QDir::toNativeSeparators(m_config.temp_dir ().absoluteFilePath ("red.dat"))};
   m_wideGraph->setRedFile(fname);
   displayWidgets(nWidgets("111110010010111110000000001000000"));
@@ -5937,7 +6103,7 @@ void MainWindow::on_actionWSPR_triggered()
   WSPR_config(true);
   switch_mode (Modes::WSPR);
   m_modeTx="WSPR";
-  m_TRperiod=120;
+  m_TRperiod=120.0;
   m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
   m_detector->setTRPeriod(m_TRperiod);  // TODO - not thread safe
   m_nsps=6912;                   //For symspec only
@@ -5965,7 +6131,7 @@ void MainWindow::on_actionWSPR_LF_triggered()
   m_mode="WSPR-LF";
   switch_mode (Modes::WSPR);
   m_modeTx="WSPR-LF";
-  m_TRperiod=240;
+  m_TRperiod=240.0;
   m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
   m_detector->setTRPeriod(m_TRperiod);  // TODO - not thread safe
   m_hsymStop=813;
@@ -5981,7 +6147,7 @@ void MainWindow::on_actionEcho_triggered()
   on_actionJT4_triggered();
   m_mode="Echo";
   ui->actionEcho->setChecked(true);
-  m_TRperiod=3;
+  m_TRperiod=3.0;
   m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
   m_detector->setTRPeriod(m_TRperiod);  // TODO - not thread safe
   m_nsps=6912;                        //For symspec only
@@ -6177,16 +6343,14 @@ void MainWindow::on_reset_cabrillo_log_action_triggered ()
                                                         "They will be kept in the ADIF log file but will not be available "
                                                         "for export in your Cabrillo log.")))
     {
-      ui->sbSerialNumber->setValue (1);
-      if (!m_cabrilloLog) m_cabrilloLog.reset (new CabrilloLog {&m_config});
-      m_cabrilloLog->reset ();
+      if(m_config.RTTY_Exchange()!="SCC") ui->sbSerialNumber->setValue(1);
+      m_logBook.contest_log ()->reset ();
     }
 }
 
 void MainWindow::on_actionExport_Cabrillo_log_triggered()
 {
-  if (!m_cabrilloLog) m_cabrilloLog.reset (new CabrilloLog {&m_config});
-  if (QDialog::Accepted == ExportCabrillo {m_settings, &m_config, m_cabrilloLog.data ()}.exec())
+  if (QDialog::Accepted == ExportCabrillo {m_settings, &m_config, m_logBook.contest_log ()}.exec())
     {
       MessageBox::information_message (this, tr ("Cabrillo Log saved"));
     }
@@ -6260,7 +6424,6 @@ void MainWindow::on_bandComboBox_activated (int index)
 
 void MainWindow::band_changed (Frequency f)
 {
-//  bool monitor_off=!m_monitoring;
   // Set the attenuation value if options are checked
   QString curBand = ui->bandComboBox->currentText();
   if (m_config.pwrBandTxMemory() && !m_tune) {
@@ -6296,7 +6459,6 @@ void MainWindow::band_changed (Frequency f)
     if(r<0.9 or r>1.1) m_bVHFwarned=false;
     setRig (f);
     setXIT (ui->TxFreqSpinBox->value ());
-//    if(monitor_off) monitor(false);
   }
 }
 
@@ -6613,18 +6775,17 @@ void MainWindow::setFreq4(int rxFreq, int txFreq)
 
 void MainWindow::handle_transceiver_update (Transceiver::TransceiverState const& s)
 {
-  // qDebug () << "MainWindow::handle_transceiver_update:" << s;
   Transceiver::TransceiverState old_state {m_rigState};
   //transmitDisplay (s.ptt ());
-  if (s.ptt () && !m_rigState.ptt ()) // safe to start audio
-                                      // (caveat - DX Lab Suite Commander)
-    {
-      if (m_tx_when_ready && g_iptt) // waiting to Tx and still needed
-        {
-          ptt1Timer.start(1000 * m_config.txDelay ()); //Start-of-transmission sequencer delay
-        }
-      m_tx_when_ready = false;
+  if (s.ptt () && !m_rigState.ptt ()) { // safe to start audio
+                                        // (caveat - DX Lab Suite Commander)
+    if (m_tx_when_ready && g_iptt) {    // waiting to Tx and still needed
+      int ms_delay=1000*m_config.txDelay();
+      if(m_mode=="FT4") ms_delay=20;
+      ptt1Timer.start(ms_delay); //Start-of-transmission sequencer delay
     }
+    m_tx_when_ready = false;
+  }
   m_rigState = s;
   auto old_freqNominal = m_freqNominal;
   if (!old_freqNominal)
@@ -6763,13 +6924,23 @@ void MainWindow::transmit (double snr)
   }
 
   if (m_modeTx == "FT8") {
-    toneSpacing=12000.0/1920.0;
+//    toneSpacing=12000.0/1920.0;
+    toneSpacing=-3;
     if(m_config.x2ToneSpacing()) toneSpacing=2*12000.0/1920.0;
     if(m_config.x4ToneSpacing()) toneSpacing=4*12000.0/1920.0;
     if(SpecOp::FOX==m_config.special_op_id() and !m_tune) toneSpacing=-1;
     Q_EMIT sendMessage (NUM_FT8_SYMBOLS,
            1920.0, ui->TxFreqSpinBox->value () - m_XIT,
            toneSpacing, m_soundOutput, m_config.audio_output_channel (),
+           true, false, snr, m_TRperiod);
+  }
+
+  if (m_modeTx == "FT4") {
+    m_dateTimeSentTx3=QDateTime::currentDateTimeUtc();
+    toneSpacing=-2.0;                     //Transmit a pre-computed, filtered waveform.
+    Q_EMIT sendMessage (NUM_FT4_SYMBOLS,
+           576.0, ui->TxFreqSpinBox->value() - m_XIT,
+           toneSpacing, m_soundOutput, m_config.audio_output_channel(),
            true, false, snr, m_TRperiod);
   }
 
@@ -6998,6 +7169,7 @@ void MainWindow::transmitDisplay (bool transmitting)
 void MainWindow::on_sbFtol_valueChanged(int value)
 {
   m_wideGraph->setTol (value);
+  statusUpdate ();
 }
 
 void::MainWindow::VHF_features_enabled(bool b)
@@ -7035,6 +7207,7 @@ void MainWindow::on_sbTR_valueChanged(int value)
   if(m_transmitting) {
     on_stopTxButton_clicked();
   }
+  statusUpdate ();
 }
 
 QChar MainWindow::current_submode () const
@@ -7071,7 +7244,7 @@ void MainWindow::on_sbSubmode_valueChanged(int n)
       on_cbFast9_clicked(false);
       ui->cbFast9->setEnabled(false);
       ui->sbTR->setVisible(false);
-      m_TRperiod=60;
+      m_TRperiod=60.0;
     } else {
       ui->cbFast9->setEnabled(true);
     }
@@ -7093,9 +7266,9 @@ void MainWindow::on_cbFast9_clicked(bool b)
   if(b) {
     m_TRperiod = ui->sbTR->value ();
   } else {
-    m_TRperiod=60;
+    m_TRperiod=60.0;
   }
-  progressBar.setMaximum(m_TRperiod);
+  progressBar.setMaximum(int(m_TRperiod));
   m_wideGraph->setPeriod(m_TRperiod,m_nsps);
   fast_config(b);
   statusChanged ();
@@ -7136,13 +7309,9 @@ void MainWindow::replyToCQ (QTime time, qint32 snr, float delta_time, quint32 de
                             , QString const& mode, QString const& message_text
                             , bool /*low_confidence*/, quint8 modifiers)
 {
-  if (!m_config.accept_udp_requests ())
-    {
-      return;
-    }
-
   QString format_string {"%1 %2 %3 %4 %5 %6"};
-  auto const& time_string = time.toString ("~" == mode || "&" == mode ? "hhmmss" : "hhmm");
+  auto const& time_string = time.toString ("~" == mode || "&" == mode
+                                           || "+" == mode ? "hhmmss" : "hhmm");
   auto message_line = format_string
     .arg (time_string)
     .arg (snr, 3)
@@ -7374,8 +7543,8 @@ void MainWindow::p1ReadFromStdout()                        //p1readFromStdout
       if(grid!="") {
         double utch=0.0;
         int nAz,nEl,nDmiles,nDkm,nHotAz,nHotABetter;
-        azdist_(const_cast <char *> (m_config.my_grid ().toLatin1().constData()),
-                const_cast <char *> (grid.toLatin1().constData()),&utch,
+        azdist_(const_cast <char *> ((m_config.my_grid () + "      ").left (6).toLatin1 ().constData ()),
+                const_cast <char *> ((grid + "      ").left (6).toLatin1 ().constData ()),&utch,
                 &nAz,&nEl,&nDmiles,&nDkm,&nHotAz,&nHotABetter,6,6);
         QString t1;
         if(m_config.miles()) {
@@ -7638,7 +7807,7 @@ void MainWindow::setRig (Frequency f)
 void MainWindow::fastPick(int x0, int x1, int y)
 {
   float pixPerSecond=12000.0/512.0;
-  if(m_TRperiod<30) pixPerSecond=12000.0/256.0;
+  if(m_TRperiod<30.0) pixPerSecond=12000.0/256.0;
   if(m_mode!="ISCAT" and m_mode!="MSK144") return;
   if(!m_decoderBusy) {
     dec_data.params.newdat=0;
@@ -7708,8 +7877,18 @@ void MainWindow::on_cbCQTx_toggled(bool b)
 
 void MainWindow::statusUpdate () const
 {
-  if (!ui) return;
+  if (!ui || m_block_udp_status_updates) return;
   auto submode = current_submode ();
+  auto ftol = ui->sbFtol->value ();
+  if (!(ui->sbFtol->isVisible () && ui->sbFtol->isEnabled ()))
+    {
+      ftol = quint32_max;
+    }
+  auto tr_period = ui->sbTR->value ();
+  if (!(ui->sbTR->isVisible () && ui->sbTR->isEnabled ()))
+    {
+      tr_period = quint32_max;
+    }
   m_messageClient->status_update (m_freqNominal, m_mode, m_hisCall,
                                   QString::number (ui->rptSpinBox->value ()),
                                   m_modeTx, ui->autoButton->isChecked (),
@@ -7718,7 +7897,8 @@ void MainWindow::statusUpdate () const
                                   m_config.my_callsign (), m_config.my_grid (),
                                   m_hisGrid, m_tx_watchdog,
                                   submode != QChar::Null ? QString {submode} : QString {}, m_bFastMode,
-                                  static_cast<quint8> (m_config.special_op_id ()));
+                                  static_cast<quint8> (m_config.special_op_id ()),
+                                  ftol, tr_period, m_multi_settings->configuration_name ());
 }
 
 void MainWindow::childEvent (QChildEvent * e)
@@ -7824,7 +8004,7 @@ void MainWindow::on_cbFirst_toggled(bool b)
 void MainWindow::on_cbAutoSeq_toggled(bool b)
 {
   if(!b) ui->cbFirst->setChecked(false);
-  ui->cbFirst->setVisible((m_mode=="FT8") and b);
+  ui->cbFirst->setVisible((m_mode=="FT8" or m_mode=="FT4") and b);
 }
 
 void MainWindow::on_measure_check_box_stateChanged (int state)
@@ -7839,7 +8019,7 @@ void MainWindow::write_transmit_entry (QString const& file_name)
     {
       QTextStream out(&f);
       auto time = QDateTime::currentDateTimeUtc ();
-      time = time.addSecs (-(time.time ().second () % m_TRperiod));
+      time = time.addSecs (-fmod(double(time.time().second()),m_TRperiod));
       out << time.toString("yyMMdd_hhmmss")
           << "  Transmitting " << qSetRealNumberPrecision (12) << (m_freqNominal / 1.e6)
           << " MHz  " << m_modeTx
@@ -8079,7 +8259,7 @@ void MainWindow::houndCallers()
       if(!ui->textBrowser4->toPlainText().contains(paddedHoundCall)) {
         if(m_loggedByFox[houndCall].contains(m_lastBand))   continue;   //already logged on this band
         if(m_foxQSO.contains(houndCall)) continue;   //still in the QSO map
-        auto const& entity = m_logBook.countries ().lookup (houndCall);
+        auto const& entity = m_logBook.countries ()->lookup (houndCall);
         auto const& continent = AD1CCty::continent (entity.continent);
 
 //If we are using a directed CQ, ignore Hound calls that do not comply.
@@ -8260,9 +8440,8 @@ list2Done:
       m_hisGrid=m_foxQSO[hc1].grid;
       m_rptSent=m_foxQSO[hc1].sent;
       m_rptRcvd=m_foxQSO[hc1].rcvd;
-      if (!m_foxLog) m_foxLog.reset (new FoxLog {&m_config});
       if (!m_foxLogWindow) on_fox_log_action_triggered ();
-      if (m_foxLog->add_QSO (QSO_time, m_hisCall, m_hisGrid, m_rptSent, m_rptRcvd, m_lastBand))
+      if (m_logBook.fox_log ()->add_QSO (QSO_time, m_hisCall, m_hisGrid, m_rptSent, m_rptRcvd, m_lastBand))
         {
           writeFoxQSO (QString {" Log:  %1 %2 %3 %4 %5"}.arg (m_hisCall).arg (m_hisGrid)
                        .arg (m_rptSent).arg (m_rptRcvd).arg (m_lastBand));
@@ -8480,24 +8659,44 @@ void MainWindow::write_all(QString txRx, QString message)
 {
   QString line;
   QString t;
-  QString msg=message.mid(6,-1);
+  QString msg;
+  QString mode_string;
+
+  if (message[4]==' ') {
+     msg=message.mid(4,-1);
+  } else {
+     msg=message.mid(6,-1);
+  }
+
+  if (message[19]=='#') {
+     mode_string="JT65  ";
+  } else if (message[19]=='@') {
+     mode_string="JT9   ";
+  } else {
+     mode_string=m_mode.leftJustified(6,' ');
+  }
+
   msg=msg.mid(0,15) + msg.mid(18,-1);
 
   t.sprintf("%5d",ui->TxFreqSpinBox->value());
-  if(txRx=="Tx") msg="   0  0.0" + t + " " + message;
+  if (txRx=="Tx") msg="   0  0.0" + t + " " + message;
   auto time = QDateTime::currentDateTimeUtc ();
-  time = time.addSecs (-(time.time ().second () % m_TRperiod));
+  time = time.addSecs(-fmod(double(time.time().second()),m_TRperiod));
   t.sprintf("%10.3f ",m_freqNominal/1.e6);
-  if(m_diskData) {
-    line=m_fileDateTime + t + txRx + " " + m_mode.leftJustified(6,' ') + msg;
+  if (m_diskData) {
+    if (m_fileDateTime.size()==11) {
+      line=m_fileDateTime + "  " + t + txRx + " " + mode_string + msg;
+    } else {
+      line=m_fileDateTime + t + txRx + " " + mode_string + msg;
+    } 
   } else {
-    line=time.toString("yyMMdd_hhmmss") + t + txRx + " " + m_mode.leftJustified(6,' ') + msg;
+    line=time.toString("yyMMdd_hhmmss") + t + txRx + " " + mode_string + msg;
   }
 
   QString file_name="ALL.TXT";
-  if(m_mode=="WSPR") file_name="ALL_WSPR.TXT";
+  if (m_mode=="WSPR") file_name="ALL_WSPR.TXT";
   QFile f{m_config.writeable_data_dir().absoluteFilePath(file_name)};
-  if(f.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Append)) {
+  if (f.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Append)) {
     QTextStream out(&f);
     out << line << endl;
     f.close();
@@ -8507,4 +8706,113 @@ void MainWindow::write_all(QString txRx, QString message)
     QTimer::singleShot (0, [=] {                   // don't block guiUpdate
       MessageBox::warning_message(this, tr ("Log File Error"), message2); });
   }
+}
+
+void MainWindow::chkFT4()
+{
+  if(m_mode!="FT4") return;
+  ui->cbAutoSeq->setEnabled(true);
+  ui->cbFirst->setVisible(true);
+  ui->cbFirst->setEnabled(true);
+  ui->labDXped->setVisible(m_config.special_op_id()!=SpecOp::NONE);
+  ui->cbFirst->setVisible(ui->cbAutoSeq->isChecked());
+
+  if (SpecOp::NONE < m_config.special_op_id () && SpecOp::FOX > m_config.special_op_id ()) {
+    QString t0="";
+    if(SpecOp::NA_VHF==m_config.special_op_id()) t0+="NA VHF";
+    if(SpecOp::EU_VHF==m_config.special_op_id()) t0+="EU VHF";
+    if(SpecOp::FIELD_DAY==m_config.special_op_id()) t0+="Field Day";
+    if(SpecOp::RTTY==m_config.special_op_id()) t0+="RTTY";
+    if(t0=="") {
+      ui->labDXped->setVisible(false);
+    } else {
+      ui->labDXped->setVisible(true);
+      ui->labDXped->setText(t0);
+    }
+    on_contest_log_action_triggered();
+  }
+}
+
+void MainWindow::on_pbBestSP_clicked()
+{
+  m_bBestSPArmed = !m_bBestSPArmed;
+  if(m_bBestSPArmed and !m_transmitting) ui->pbBestSP->setStyleSheet ("QPushButton{color:red}");
+  if(!m_bBestSPArmed) ui->pbBestSP->setStyleSheet ("");
+  if(m_bBestSPArmed) m_dateTimeBestSP=QDateTime::currentDateTimeUtc();
+}
+
+void MainWindow::set_mode (QString const& mode)
+{
+    if ("FT4" == mode) on_actionFT4_triggered ();
+    else if ("FT8" == mode) on_actionFT8_triggered ();
+    else if ("JT4" == mode) on_actionJT4_triggered ();
+    else if ("JT9" == mode) on_actionJT9_triggered ();
+    else if ("JT9+JT65" == mode) on_actionJT9_JT65_triggered ();
+    else if ("JT65" == mode) on_actionJT65_triggered ();
+    else if ("QRA64" == mode) on_actionQRA64_triggered ();
+    else if ("FreqCal" == mode) on_actionFreqCal_triggered ();
+    else if ("ISCAT" == mode) on_actionISCAT_triggered ();
+    else if ("MSK144" == mode) on_actionMSK144_triggered ();
+    else if ("WSPR" == mode) on_actionWSPR_triggered ();
+    else if ("WSPR-LF" == mode) on_actionWSPR_LF_triggered ();
+    else if ("Echo" == mode) on_actionEcho_triggered ();
+}
+
+void MainWindow::remote_configure (QString const& mode, quint32 frequency_tolerance
+                                   , QString const& submode, bool fast_mode, quint32 tr_period, quint32 rx_df
+                                   , QString const& dx_call, QString const& dx_grid, bool generate_messages)
+{
+  if (mode.size ())
+    {
+      set_mode (mode);
+    }
+  if (frequency_tolerance != quint32_max && ui->sbFtol->isVisible ())
+    {
+      ui->sbFtol->setValue (frequency_tolerance);
+    }
+  if (submode.size () && ui->sbSubmode->isVisible ())
+    {
+      ui->sbSubmode->setValue (submode.toUpper ().at (0).toLatin1 () - 'A');
+    }
+  if (ui->cbFast9->isVisible () && ui->cbFast9->isChecked () != fast_mode)
+    {
+      ui->cbFast9->click ();
+    }
+  if (tr_period != quint32_max && ui->sbTR->isVisible ())
+    {
+      ui->sbTR->setValue (tr_period);
+      ui->sbTR->interpretText ();
+    }
+  if (rx_df != quint32_max && ui->RxFreqSpinBox->isVisible ())
+    {
+      m_block_udp_status_updates = true;
+      ui->RxFreqSpinBox->setValue (rx_df);
+      ui->RxFreqSpinBox->interpretText ();
+      m_block_udp_status_updates = false;
+    }
+  if (dx_call.size () && ui->dxCallEntry->isVisible ())
+    {
+      ui->dxCallEntry->setText (dx_call);
+    }
+  if (dx_grid.size () && ui->dxGridEntry->isVisible ())
+    {
+      ui->dxGridEntry->setText (dx_grid);
+    }
+  if (generate_messages && ui->genStdMsgsPushButton->isVisible ())
+    {
+      ui->genStdMsgsPushButton->click ();
+    }
+  if (m_config.udpWindowToFront ())
+    {
+      show ();
+      raise ();
+      activateWindow ();
+    }
+  if (m_config.udpWindowRestore () && isMinimized ())
+    {
+      showNormal ();
+      raise ();
+    }
+  tx_watchdog (false);
+  QApplication::alert (this);
 }

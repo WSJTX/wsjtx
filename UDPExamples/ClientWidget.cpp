@@ -1,8 +1,11 @@
 #include "ClientWidget.hpp"
 
+#include <limits>
 #include <QRegExp>
 #include <QColor>
+#include <QtWidgets>
 #include <QAction>
+#include <QDebug>
 
 #include "validators/MaidenheadLocatorValidator.hpp"
 
@@ -11,6 +14,9 @@ namespace
   //QRegExp message_alphabet {"[- A-Za-z0-9+./?]*"};
   QRegExp message_alphabet {"[- @A-Za-z0-9+./?#<>]*"};
   QRegularExpression cq_re {"(CQ|CQDX|QRZ)[^A-Z0-9/]+"};
+  QRegExpValidator message_validator {message_alphabet};
+  MaidenheadLocatorValidator locator_validator;
+  quint32 quint32_max {std::numeric_limits<quint32>::max ()};
 
   void update_dynamic_property (QWidget * widget, char const * property, QVariant const& value)
   {
@@ -21,9 +27,10 @@ namespace
   }
 }
 
-ClientWidget::IdFilterModel::IdFilterModel (QString const& client_id)
-  : client_id_ {client_id}
-  , rx_df_ (-1)
+ClientWidget::IdFilterModel::IdFilterModel (QString const& client_id, QObject * parent)
+  : QSortFilterProxyModel {parent}
+  , client_id_ {client_id}
+  , rx_df_ (quint32_max)
 {
 }
 
@@ -49,7 +56,7 @@ QVariant ClientWidget::IdFilterModel::data (QModelIndex const& proxy_index, int 
           break;
 
         case 4:                 // DF
-          if (qAbs (QSortFilterProxyModel::data (proxy_index).toInt () - rx_df_) <= 10)
+          if (qAbs (QSortFilterProxyModel::data (proxy_index).toUInt () - rx_df_) <= 10)
             {
               return QColor {255, 200, 200};
             }
@@ -87,7 +94,7 @@ void ClientWidget::IdFilterModel::de_call (QString const& call)
     }
 }
 
-void ClientWidget::IdFilterModel::rx_df (int df)
+void ClientWidget::IdFilterModel::rx_df (quint32 df)
 {
   if (df != rx_df_)
     {
@@ -119,26 +126,48 @@ ClientWidget::ClientWidget (QAbstractItemModel * decodes_model, QAbstractItemMod
                             , QListWidget const * calls_of_interest, QWidget * parent)
   : QDockWidget {make_title (id, version, revision), parent}
   , id_ {id}
+  , done_ {false}
   , calls_of_interest_ {calls_of_interest}
-  , decodes_proxy_model_ {id_}
+  , decodes_proxy_model_ {id}
+  , beacons_proxy_model_ {id}
   , erase_action_ {new QAction {tr ("&Erase Band Activity"), this}}
   , erase_rx_frequency_action_ {new QAction {tr ("Erase &Rx Frequency"), this}}
   , erase_both_action_ {new QAction {tr ("Erase &Both"), this}}
-  , decodes_table_view_ {new QTableView}
-  , beacons_table_view_ {new QTableView}
-  , message_line_edit_ {new QLineEdit}
-  , grid_line_edit_ {new QLineEdit}
+  , decodes_table_view_ {new QTableView {this}}
+  , beacons_table_view_ {new QTableView {this}}
+  , message_line_edit_ {new QLineEdit {this}}
+  , grid_line_edit_ {new QLineEdit {this}}
+  , generate_messages_push_button_ {new QPushButton {tr ("&Gen Msgs"), this}}
+  , auto_off_button_ {nullptr}
+  , halt_tx_button_ {nullptr}
+  , de_label_ {new QLabel {this}}
+  , frequency_label_ {new QLabel {this}}
+  , tx_df_label_ {new QLabel {this}}
+  , report_label_ {new QLabel {this}}
+  , configuration_line_edit_ {new QLineEdit {this}}
+  , mode_line_edit_ {new QLineEdit {this}}
+  , frequency_tolerance_spin_box_ {new QSpinBox {this}}
+  , tx_mode_label_ {new QLabel {this}}
+  , submode_line_edit_ {new QLineEdit {this}}
+  , fast_mode_check_box_ {new QCheckBox {this}}
+  , tr_period_spin_box_ {new QSpinBox {this}}
+  , rx_df_spin_box_ {new QSpinBox {this}}
+  , dx_call_line_edit_ {new QLineEdit {this}}
+  , dx_grid_line_edit_ {new QLineEdit {this}}
+  , decodes_page_ {new QWidget {this}}
+  , beacons_page_ {new QWidget {this}}
+  , content_widget_ {new QFrame {this}}
+  , status_bar_ {new QStatusBar {this}}
+  , control_button_box_ {new QDialogButtonBox {this}}
+  , form_layout_ {new QFormLayout}
+  , horizontal_layout_ {new QHBoxLayout}
+  , subform1_layout_ {new QFormLayout}
+  , subform2_layout_ {new QFormLayout}
+  , subform3_layout_ {new QFormLayout}
+  , decodes_layout_ {new QVBoxLayout {decodes_page_}}
+  , beacons_layout_ {new QVBoxLayout {beacons_page_}}
+  , content_layout_ {new QVBoxLayout {content_widget_}}
   , decodes_stack_ {new QStackedLayout}
-  , auto_off_button_ {new QPushButton {tr ("&Auto Off")}}
-  , halt_tx_button_ {new QPushButton {tr ("&Halt Tx")}}
-  , de_label_ {new QLabel}
-  , mode_label_ {new QLabel}
-  , fast_mode_ {false}
-  , frequency_label_ {new QLabel}
-  , dx_label_ {new QLabel}
-  , rx_df_label_ {new QLabel}
-  , tx_df_label_ {new QLabel}
-  , report_label_ {new QLabel}
   , columns_resized_ {false}
 {
   // set up widgets
@@ -152,11 +181,33 @@ ClientWidget::ClientWidget (QAbstractItemModel * decodes_model, QAbstractItemMod
   decodes_table_view_->insertAction (nullptr, erase_rx_frequency_action_);
   decodes_table_view_->insertAction (nullptr, erase_both_action_);
 
-  auto form_layout = new QFormLayout;
-  form_layout->addRow (tr ("Free text:"), message_line_edit_);
-  form_layout->addRow (tr ("Temporary grid:"), grid_line_edit_);
-  message_line_edit_->setValidator (new QRegExpValidator {message_alphabet, this});
-  grid_line_edit_->setValidator (new MaidenheadLocatorValidator {this});
+  message_line_edit_->setValidator (&message_validator);
+  grid_line_edit_->setValidator (&locator_validator);
+  dx_grid_line_edit_->setValidator (&locator_validator);
+  tr_period_spin_box_->setRange (5, 30);
+  tr_period_spin_box_->setSuffix (" s");
+  rx_df_spin_box_->setRange (200, 5000);
+  frequency_tolerance_spin_box_->setRange (10, 1000);
+  frequency_tolerance_spin_box_->setPrefix ("\u00b1");
+  frequency_tolerance_spin_box_->setSuffix (" Hz");
+
+  form_layout_->addRow (tr ("Free text:"), message_line_edit_);
+  form_layout_->addRow (tr ("Temporary grid:"), grid_line_edit_);
+  form_layout_->addRow (tr ("Configuration name:"), configuration_line_edit_);
+  form_layout_->addRow (horizontal_layout_);
+  subform1_layout_->addRow (tr ("Mode:"), mode_line_edit_);
+  subform2_layout_->addRow (tr ("Submode:"), submode_line_edit_);
+  subform3_layout_->addRow (tr ("Fast mode:"), fast_mode_check_box_);
+  subform1_layout_->addRow (tr ("T/R period:"), tr_period_spin_box_);
+  subform2_layout_->addRow (tr ("Rx DF:"), rx_df_spin_box_);
+  subform3_layout_->addRow (tr ("Freq. Tol:"), frequency_tolerance_spin_box_);
+  subform1_layout_->addRow (tr ("DX call:"), dx_call_line_edit_);
+  subform2_layout_->addRow (tr ("DX grid:"), dx_grid_line_edit_);
+  subform3_layout_->addRow (generate_messages_push_button_);
+  horizontal_layout_->addLayout (subform1_layout_);
+  horizontal_layout_->addLayout (subform2_layout_);
+  horizontal_layout_->addLayout (subform3_layout_);
+
   connect (message_line_edit_, &QLineEdit::textEdited, [this] (QString const& text) {
       Q_EMIT do_free_text (id_, text, false);
     });
@@ -166,66 +217,102 @@ ClientWidget::ClientWidget (QAbstractItemModel * decodes_model, QAbstractItemMod
   connect (grid_line_edit_, &QLineEdit::editingFinished, [this] () {
       Q_EMIT location (id_, grid_line_edit_->text ());
   });
+  connect (configuration_line_edit_, &QLineEdit::editingFinished, [this] () {
+      Q_EMIT switch_configuration (id_, configuration_line_edit_->text ());
+  });
+  connect (mode_line_edit_, &QLineEdit::editingFinished, [this] () {
+      QString empty;
+      Q_EMIT configure (id_, mode_line_edit_->text (), quint32_max, empty, fast_mode ()
+                        , quint32_max, quint32_max, empty, empty, false);
+  });
+  connect (frequency_tolerance_spin_box_, static_cast<void (QSpinBox::*) (int)> (&QSpinBox::valueChanged), [this] (int i) {
+      QString empty;
+      auto f = frequency_tolerance_spin_box_->specialValueText ().size () ? quint32_max : i;
+      Q_EMIT configure (id_, empty, f, empty, fast_mode ()
+                        , quint32_max, quint32_max, empty, empty, false);
+  });
+  connect (submode_line_edit_, &QLineEdit::editingFinished, [this] () {
+      QString empty;
+      Q_EMIT configure (id_, empty, quint32_max, submode_line_edit_->text (), fast_mode ()
+                        , quint32_max, quint32_max, empty, empty, false);
+  });
+  connect (fast_mode_check_box_, &QCheckBox::stateChanged, [this] (int state) {
+      QString empty;
+      Q_EMIT configure (id_, empty, quint32_max, empty, Qt::Checked == state
+                        , quint32_max, quint32_max, empty, empty, false);
+  });
+  connect (tr_period_spin_box_, static_cast<void (QSpinBox::*) (int)> (&QSpinBox::valueChanged), [this] (int i) {
+      QString empty;
+      Q_EMIT configure (id_, empty, quint32_max, empty, fast_mode ()
+                        , i, quint32_max, empty, empty, false);
+  });
+  connect (rx_df_spin_box_, static_cast<void (QSpinBox::*) (int)> (&QSpinBox::valueChanged), [this] (int i) {
+      QString empty;
+      Q_EMIT configure (id_, empty, quint32_max, empty, fast_mode ()
+                        , quint32_max, i, empty, empty, false);
+  });
+  connect (dx_call_line_edit_, &QLineEdit::editingFinished, [this] () {
+      QString empty;
+      Q_EMIT configure (id_, empty, quint32_max, empty, fast_mode ()
+                        , quint32_max, quint32_max, dx_call_line_edit_->text (), empty, false);
+  });
+  connect (dx_grid_line_edit_, &QLineEdit::editingFinished, [this] () {
+      QString empty;
+      Q_EMIT configure (id_, empty, quint32_max, empty, fast_mode ()
+                        , quint32_max, quint32_max, empty, dx_grid_line_edit_->text (), false);
+  });
 
-  auto decodes_page = new QWidget;
-  auto decodes_layout = new QVBoxLayout {decodes_page};
-  decodes_layout->setContentsMargins (QMargins {2, 2, 2, 2});
-  decodes_layout->addWidget (decodes_table_view_);
-  decodes_layout->addLayout (form_layout);
+  decodes_layout_->setContentsMargins (QMargins {2, 2, 2, 2});
+  decodes_layout_->addWidget (decodes_table_view_);
+  decodes_layout_->addLayout (form_layout_);
 
-  auto beacons_proxy_model = new IdFilterModel {id_};
-  beacons_proxy_model->setSourceModel (beacons_model);
-  beacons_table_view_->setModel (beacons_proxy_model);
+  beacons_proxy_model_.setSourceModel (beacons_model);
+  beacons_table_view_->setModel (&beacons_proxy_model_);
   beacons_table_view_->verticalHeader ()->hide ();
   beacons_table_view_->hideColumn (0);
   beacons_table_view_->horizontalHeader ()->setStretchLastSection (true);
   beacons_table_view_->setContextMenuPolicy (Qt::ActionsContextMenu);
   beacons_table_view_->insertAction (nullptr, erase_action_);
 
-  auto beacons_page = new QWidget;
-  auto beacons_layout = new QVBoxLayout {beacons_page};
-  beacons_layout->setContentsMargins (QMargins {2, 2, 2, 2});
-  beacons_layout->addWidget (beacons_table_view_);
+  beacons_layout_->setContentsMargins (QMargins {2, 2, 2, 2});
+  beacons_layout_->addWidget (beacons_table_view_);
 
-  decodes_stack_->addWidget (decodes_page);
-  decodes_stack_->addWidget (beacons_page);
+  decodes_stack_->addWidget (decodes_page_);
+  decodes_stack_->addWidget (beacons_page_);
 
   // stack alternative views
-  auto content_layout = new QVBoxLayout;
-  content_layout->setContentsMargins (QMargins {2, 2, 2, 2});
-  content_layout->addLayout (decodes_stack_);
+  content_layout_->setContentsMargins (QMargins {2, 2, 2, 2});
+  content_layout_->addLayout (decodes_stack_);
 
   // set up controls
-  auto control_button_box = new QDialogButtonBox;
-  control_button_box->addButton (auto_off_button_, QDialogButtonBox::ActionRole);
-  control_button_box->addButton (halt_tx_button_, QDialogButtonBox::ActionRole);
+  auto_off_button_ = control_button_box_->addButton (tr ("&Auto Off"), QDialogButtonBox::ActionRole);
+  halt_tx_button_ = control_button_box_->addButton (tr ("&Halt Tx"), QDialogButtonBox::ActionRole);
+  connect (generate_messages_push_button_, &QAbstractButton::clicked, [this] (bool /*checked*/) {
+      QString empty;
+      Q_EMIT configure (id_, empty, quint32_max, empty, fast_mode ()
+                        , quint32_max, quint32_max, empty, empty, true);
+  });
   connect (auto_off_button_, &QAbstractButton::clicked, [this] (bool /* checked */) {
       Q_EMIT do_halt_tx (id_, true);
     });
   connect (halt_tx_button_, &QAbstractButton::clicked, [this] (bool /* checked */) {
       Q_EMIT do_halt_tx (id_, false);
     });
-  content_layout->addWidget (control_button_box);
+  content_layout_->addWidget (control_button_box_);
 
   // set up status area
-  auto status_bar = new QStatusBar;
-  status_bar->addPermanentWidget (de_label_);
-  status_bar->addPermanentWidget (mode_label_);
-  status_bar->addPermanentWidget (frequency_label_);
-  status_bar->addPermanentWidget (dx_label_);
-  status_bar->addPermanentWidget (rx_df_label_);
-  status_bar->addPermanentWidget (tx_df_label_);
-  status_bar->addPermanentWidget (report_label_);
-  content_layout->addWidget (status_bar);
-  connect (this, &ClientWidget::topLevelChanged, status_bar, &QStatusBar::setSizeGripEnabled);
+  status_bar_->addPermanentWidget (de_label_);
+  status_bar_->addPermanentWidget (tx_mode_label_);
+  status_bar_->addPermanentWidget (frequency_label_);
+  status_bar_->addPermanentWidget (tx_df_label_);
+  status_bar_->addPermanentWidget (report_label_);
+  content_layout_->addWidget (status_bar_);
+  connect (this, &ClientWidget::topLevelChanged, status_bar_, &QStatusBar::setSizeGripEnabled);
 
   // set up central widget
-  auto content_widget = new QFrame;
-  content_widget->setFrameStyle (QFrame::StyledPanel | QFrame::Sunken);
-  content_widget->setLayout (content_layout);
-  setWidget (content_widget);
+  content_widget_->setFrameStyle (QFrame::StyledPanel | QFrame::Sunken);
+  setWidget (content_widget_);
   // setMinimumSize (QSize {550, 0});
-  setFeatures (DockWidgetMovable | DockWidgetFloatable);
   setAllowedAreas (Qt::BottomDockWidgetArea);
   setFloating (true);
 
@@ -252,6 +339,25 @@ ClientWidget::ClientWidget (QAbstractItemModel * decodes_model, QAbstractItemMod
     }
 }
 
+void ClientWidget::dispose ()
+{
+  done_ = true;
+  close ();
+}
+
+void ClientWidget::closeEvent (QCloseEvent *e)
+{
+  if (!done_)
+    {
+      Q_EMIT do_close (id_);
+      e->ignore ();      // defer closure until client actually closes
+    }
+  else
+    {
+      QDockWidget::closeEvent (e);
+    }
+}
+
 ClientWidget::~ClientWidget ()
 {
   for (int row = 0; row < calls_of_interest_->count (); ++row)
@@ -261,16 +367,45 @@ ClientWidget::~ClientWidget ()
     }
 }
 
+bool ClientWidget::fast_mode () const
+{
+  return fast_mode_check_box_->isChecked ();
+}
+
+namespace
+{
+  void update_line_edit (QLineEdit * le, QString const& value, bool allow_empty = true)
+  {
+    le->setEnabled (value.size () || allow_empty);
+    if (!(le->hasFocus () && le->isModified ()))
+      {
+        le->setText (value);
+      }
+  }
+
+  void update_spin_box (QSpinBox * sb, int value, QString const& special_value = QString {})
+  {
+    sb->setSpecialValueText (special_value);
+    bool enable {0 == special_value.size ()};
+    sb->setEnabled (enable);
+    if (!sb->hasFocus () && enable)
+      {
+        sb->setValue (value);
+      }
+  }
+}
+
 void ClientWidget::update_status (QString const& id, Frequency f, QString const& mode, QString const& dx_call
                                   , QString const& report, QString const& tx_mode, bool tx_enabled
-                                  , bool transmitting, bool decoding, qint32 rx_df, qint32 tx_df
+                                  , bool transmitting, bool decoding, quint32 rx_df, quint32 tx_df
                                   , QString const& de_call, QString const& de_grid, QString const& dx_grid
-                                  , bool watchdog_timeout, QString const& sub_mode, bool fast_mode
-                                  , quint8 special_op_mode)
+                                  , bool watchdog_timeout, QString const& submode, bool fast_mode
+                                  , quint8 special_op_mode, quint32 frequency_tolerance, quint32 tr_period
+                                  , QString const& configuration_name)
 {
-  if (id == id_)
+    if (id == id_)
     {
-      fast_mode_ = fast_mode;
+      fast_mode_check_box_->setChecked (fast_mode);
       decodes_proxy_model_.de_call (de_call);
       decodes_proxy_model_.rx_df (rx_df);
       QString special;
@@ -288,21 +423,25 @@ void ClientWidget::update_status (QString const& id, Frequency f, QString const&
                           .arg (de_grid.size () ? '(' + de_grid + ')' : QString {})
                           .arg (special)
                           : QString {});
-      mode_label_->setText (QString {"Mode: %1%2%3%4"}
-           .arg (mode)
-           .arg (sub_mode)
-           .arg (fast_mode && !mode.contains (QRegularExpression {R"(ISCAT|MSK144)"}) ? "fast" : "")
+      update_line_edit (mode_line_edit_, mode);
+      update_spin_box (frequency_tolerance_spin_box_, frequency_tolerance
+                       , quint32_max == frequency_tolerance ? QString {"n/a"} : QString {});
+      update_line_edit (submode_line_edit_, submode, false);
+      tx_mode_label_->setText (QString {"Tx Mode: %1"}
            .arg (tx_mode.isEmpty () || tx_mode == mode ? "" : '(' + tx_mode + ')'));
       frequency_label_->setText ("QRG: " + Radio::pretty_frequency_MHz_string (f));
-      dx_label_->setText (dx_call.size () >= 0 ? QString {"DX: %1%2"}.arg (dx_call)
-                          .arg (dx_grid.size () ? '(' + dx_grid + ')' : QString {}) : QString {});
-      rx_df_label_->setText (rx_df >= 0 ? QString {"Rx: %1"}.arg (rx_df) : "");
-      tx_df_label_->setText (tx_df >= 0 ? QString {"Tx: %1"}.arg (tx_df) : "");
+      update_line_edit (dx_call_line_edit_, dx_call);
+      update_line_edit (dx_grid_line_edit_, dx_grid);
+      if (rx_df != quint32_max) update_spin_box (rx_df_spin_box_, rx_df);
+      update_spin_box (tr_period_spin_box_, tr_period
+                       , quint32_max == tr_period ? QString {"n/a"} : QString {});
+      tx_df_label_->setText (QString {"Tx: %1"}.arg (tx_df));
       report_label_->setText ("SNR: " + report);
       update_dynamic_property (frequency_label_, "transmitting", transmitting);
       auto_off_button_->setEnabled (tx_enabled);
       halt_tx_button_->setEnabled (transmitting);
-      update_dynamic_property (mode_label_, "decoding", decoding);
+      update_line_edit (configuration_line_edit_, configuration_name);
+      update_dynamic_property (mode_line_edit_, "decoding", decoding);
       update_dynamic_property (tx_df_label_, "watchdog_timeout", watchdog_timeout);
     }
 }

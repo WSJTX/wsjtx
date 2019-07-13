@@ -41,6 +41,7 @@ subroutine freqcal(id2,k,nkhz,noffset,ntol,line)
   endif
   smax=0.
   s=0.
+  ipk=-99
   do i=ia,ib
      s(i)=real(cx(i))**2 + aimag(cx(i))**2
      if(s(i).gt.smax) then
@@ -48,25 +49,32 @@ subroutine freqcal(id2,k,nkhz,noffset,ntol,line)
         ipk=i
      endif
   enddo
-  
-  call peakup(s(ipk-1),s(ipk),s(ipk+1),dx)
-  fpeak=df * (ipk+dx)
-  ap=(fpeak/fs+1.0/(2.0*NFFT))
-  an=(fpeak/fs-1.0/(2.0*NFFT))
-  sp=sum(id2((k-NFFT):k-1)*cmplx(cos(xi*ap),-sin(xi*ap)))
-  sn=sum(id2((k-NFFT):k-1)*cmplx(cos(xi*an),-sin(xi*an)))
-  fpeak=fpeak+fs*(abs(sp)-abs(sn))/(abs(sp)+abs(sn))/(2*NFFT)
-  xsum=0.
-  nsum=0
-  do i=ia,ib
-     if(abs(i-ipk).gt.10) then
-        xsum=xsum+s(i)
-        nsum=nsum+1
-     endif
-  enddo
-  ave=xsum/nsum
-  snr=db(smax/ave)
-  pave=db(ave) + 8.0
+
+  if(ipk.ge.1) then
+    call peakup(s(ipk-1),s(ipk),s(ipk+1),dx)
+    fpeak=df * (ipk+dx)
+    ap=(fpeak/fs+1.0/(2.0*NFFT))
+    an=(fpeak/fs-1.0/(2.0*NFFT))
+    sp=sum(id2((k-NFFT):k-1)*cmplx(cos(xi*ap),-sin(xi*ap)))
+    sn=sum(id2((k-NFFT):k-1)*cmplx(cos(xi*an),-sin(xi*an)))
+    fpeak=fpeak+fs*(abs(sp)-abs(sn))/(abs(sp)+abs(sn))/(2*NFFT)
+    xsum=0.
+    nsum=0
+    do i=ia,ib
+       if(abs(i-ipk).gt.10) then
+          xsum=xsum+s(i)
+          nsum=nsum+1
+       endif
+    enddo
+    ave=xsum/nsum
+    snr=db(smax/ave)
+    pave=db(ave) + 8.0
+  else
+    snr=-99.9
+    pave=-99.9
+    fpeak=-99.9
+    ferr=-99.9
+  endif
   cflag=' '
   if(snr.lt.20.0) cflag='*'
   n=n+1
@@ -77,7 +85,7 @@ subroutine freqcal(id2,k,nkhz,noffset,ntol,line)
   ncal=1
   ferr=fpeak-noffset
   write(line,1100)  nhr,nmin,nsec,nkhz,ncal,noffset,fpeak,ferr,pave,   &
-          snr,cflag,char(0)
+            snr,cflag,char(0)
 1100 format(i2.2,':',i2.2,':',i2.2,i7,i3,i6,2f10.3,2f7.1,2x,a1,a1)
 
 900 return

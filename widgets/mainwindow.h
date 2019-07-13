@@ -46,9 +46,11 @@
 #define NUM_MSK144_SYMBOLS 144             //s8 + d48 + s8 + d80
 #define NUM_QRA64_SYMBOLS 84               //63 data + 21 sync
 #define NUM_FT8_SYMBOLS 79
+#define NUM_FT4_SYMBOLS 105
 #define NUM_CW_SYMBOLS 250
 #define TX_SAMPLE_RATE 48000
 #define N_WIDGETS 33
+#define NRING 3456000
 
 extern int volatile itone[NUM_ISCAT_SYMBOLS];   //Audio tones for all Tx symbols
 extern int volatile icw[NUM_CW_SYMBOLS];	    //Dits for CW ID
@@ -70,9 +72,7 @@ class WideGraph;
 class LogQSO;
 class Transceiver;
 class MessageAveraging;
-class FoxLog;
 class FoxLogWindow;
-class CabrilloLog;
 class CabrilloLogWindow;
 class ColorHighlighting;
 class MessageClient;
@@ -200,6 +200,7 @@ private slots:
   void on_actionJT65_triggered();
   void on_actionJT9_JT65_triggered();
   void on_actionJT4_triggered();
+  void on_actionFT4_triggered();
   void on_actionFT8_triggered();
   void on_TxFreqSpinBox_valueChanged(int arg1);
   void on_actionSave_decoded_triggered();
@@ -309,8 +310,12 @@ private slots:
   void on_comboBoxHoundSort_activated (int index);
   void not_GA_warning_message ();
   void checkMSK144ContestType();
+  void on_pbBestSP_clicked();
   int  setTxMsg(int n);
   bool stdCall(QString const& w);
+  void remote_configure (QString const& mode, quint32 frequency_tolerance, QString const& submode
+                         , bool fast_mode, quint32 tr_period, quint32 rx_df, QString const& dx_call
+                         , QString const& dx_grid, bool generate_messages);
 
 private:
   Q_SIGNAL void initializeAudioOutputStream (QAudioDeviceInfo,
@@ -337,12 +342,14 @@ private:
   Q_SIGNAL void toggleShorthand () const;
 
 private:
+  void set_mode (QString const& mode);
   void astroUpdate ();
   void writeAllTxt(QString message);
   void auto_sequence (DecodedText const& message, unsigned start_tolerance, unsigned stop_tolerance);
   void hideMenus(bool b);
   void foxTest();
   void setColorHighlighting();
+  void chkFT4();
 
   NetworkAccessManager m_network_manager;
   bool m_valid;
@@ -354,8 +361,8 @@ private:
   QSettings * m_settings;
   QScopedPointer<Ui::MainWindow> ui;
 
-  LogBook m_logBook;            // must be before Configuration construction
   Configuration m_config;
+  LogBook m_logBook;            // must be after Configuration construction
   WSPRBandHopping m_WSPR_band_hopping;
   bool m_WSPR_tx_next;
   MessageBox m_rigErrorMessageBox;
@@ -371,9 +378,7 @@ private:
   QScopedPointer<HelpTextWindow> m_prefixes;
   QScopedPointer<HelpTextWindow> m_mouseCmnds;
   QScopedPointer<MessageAveraging> m_msgAvgWidget;
-  QScopedPointer<FoxLog> m_foxLog;
   QScopedPointer<FoxLogWindow> m_foxLogWindow;
-  QScopedPointer<CabrilloLog> m_cabrilloLog;
   QScopedPointer<CabrilloLogWindow> m_contestLogWindow;
   QScopedPointer<ColorHighlighting> m_colorHighlighting;
   Transceiver::TransceiverState m_rigState;
@@ -401,6 +406,7 @@ private:
 
   double  m_s6;
   double  m_tRemaining;
+  double  m_TRperiod;
 
   float   m_DTtol;
   float   m_t0;
@@ -423,7 +429,6 @@ private:
   qint32  m_ntr;
   qint32  m_tx;
   qint32  m_hsym;
-  qint32  m_TRperiod;
   qint32  m_nsps;
   qint32  m_hsymStop;
   qint32  m_inGain;
@@ -461,6 +466,7 @@ private:
   qint32  m_tFoxTxSinceCQ=999; //Fox Tx cycles since most recent CQ
   qint32  m_nFoxFreq;          //Audio freq at which Hound received a call from Fox
   qint32  m_nSentFoxRrpt=0;    //Serial number for next R+rpt Hound will send to Fox
+  qint32  m_kin0=0;
 
   bool    m_btxok;		//True if OK to transmit
   bool    m_diskData;
@@ -515,6 +521,7 @@ private:
   bool    m_bCheckedContest;
   bool    m_bWarnedSplit=false;
   bool    m_bTUmsg;
+  bool    m_bBestSPArmed=false;
 
   enum
     {
@@ -609,6 +616,8 @@ private:
   QString m_nextCall;
   QString m_nextGrid;
   QString m_fileDateTime;
+  QString m_inQSOwith;
+  QString m_BestCQpriority;
 
   QSet<QString> m_pfx;
   QSet<QString> m_sfx;
@@ -627,12 +636,24 @@ private:
   QMap<QString,FoxQSO> m_foxQSO;       //Key = HoundCall, value = parameters for QSO in progress
   QMap<QString,QString> m_loggedByFox; //Key = HoundCall, value = logged band
 
+  struct FixupQSO       //Info for fixing Fox's log from file "FoxQSO.txt"
+  {
+    QString grid;       //Hound's declared locator
+    QString sent;       //Report sent to Hound
+    QString rcvd;       //Report received from Hound
+    QDateTime QSO_time;
+  };
+  QMap<QString,FixupQSO> m_fixupQSO;       //Key = HoundCall, value = info for QSO in progress
+
   QQueue<QString> m_houndQueue;        //Selected Hounds available for starting a QSO
   QQueue<QString> m_foxQSOinProgress;  //QSOs in progress: Fox has sent a report
   QQueue<qint64>  m_foxRateQueue;
 
   QDateTime m_dateTimeQSOOn;
   QDateTime m_dateTimeLastTX;
+  QDateTime m_dateTimeSentTx3;
+  QDateTime m_dateTimeRcvdRR73;
+  QDateTime m_dateTimeBestSP;
 
   QSharedMemory *mem_jt9;
   QString m_QSOText;
@@ -663,6 +684,7 @@ private:
   QHash<QString, QVariant> m_pwrBandTuneMemory; // Remembers power level by band for tuning
   QByteArray m_geometryNoControls;
   QVector<double> m_phaseEqCoefficients;
+  bool m_block_udp_status_updates;
 
   //---------------------------------------------------- private functions
   void readSettings();
@@ -709,7 +731,7 @@ private:
 
   QString save_wave_file (QString const& name
                           , short const * data
-                          , int seconds
+                          , int samples
                           , QString const& my_callsign
                           , QString const& my_grid
                           , QString const& mode
