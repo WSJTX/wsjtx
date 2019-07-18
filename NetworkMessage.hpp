@@ -6,8 +6,8 @@
  * ======================
  *
  * All messages are written or  read using the QDataStream derivatives
- * defined below, note that we are using the default for floating
- * point precision which means all are double precision i.e. 64-bit
+ * defined  below, note  that we  are using  the default  for floating
+ * point precision  which means all  are double precision  i.e. 64-bit
  * IEEE format.
  *
  *  Message is big endian format
@@ -19,12 +19,12 @@
  *
  *   Payload format:
  *
- *      As per  the QDataStream format,  see below for version  used and
+ *      As per the QDataStream format,  see below for version used and
  *      here:
  *
  *        http://doc.qt.io/qt-5/datastreamformat.html
  *
- *      for the serialization details for each type, at the time of
+ *      for the  serialization details for  each type, at the  time of
  *      writing the above document is for Qt_5_0 format which is buggy
  *      so we use Qt_5_4 format, differences are:
  *
@@ -37,17 +37,19 @@
  *           offset     qint32    only present if timespec=2
  *           timezone   several-fields only present if timespec=3
  *
- *      we will avoid using QDateTime fields with time zones for simplicity.
+ *      we  will avoid  using  QDateTime fields  with  time zones  for
+ *      simplicity.
  *
  * Type utf8  is a  utf-8 byte  string formatted  as a  QByteArray for
  * serialization purposes  (currently a quint32 size  followed by size
  * bytes, no terminator is present or counted).
  *
- * The QDataStream format document linked above is not complete for
- * the QByteArray serialization format, it is similar to the QString
- * serialization format in that it differentiates between empty
- * strings and null strings. Empty strings have a length of zero
+ * The QDataStream  format document linked  above is not  complete for
+ * the QByteArray serialization  format, it is similar  to the QString
+ * serialization  format  in  that  it  differentiates  between  empty
+ * strings  and null  strings. Empty  strings  have a  length of  zero
  * whereas null strings have a length field of 0xffffffff.
+ *
  *
  * Schema Negotiation
  * ------------------
@@ -72,6 +74,36 @@
  * Schema Version 3:- this schema uses the QDataStream::Qt_5_4 version.
  *
  *
+ * Backward Compatibility
+ * ----------------------
+ *
+ * It  is important  that  applications developed  at different  times
+ * remain  compatible  with this  protocol  and  with older  or  newer
+ * versions  of   WSJT-X.   This  is  achieved   by  both  third-party
+ * applications and WSJT-X honouring two basic rules.
+ *
+ * 1. New  message types may be  added to the protocol  in the future,
+ *    third-party applications  and WSJT-X  shall ignore  silently any
+ *    message types they do not recognize.
+ *
+ * 2. New  fields may be  added to  existing message types,  they will
+ *    always be added to the end of the existing fields and the number
+ *    and type  of existing fields shall  not change. If a  field type
+ *    must be  changed; a  new field  will be  added and  the existing
+ *    field  will  remain. The  originator  of  such a  message  shall
+ *    populate   both  the   new   and  old   field  with   reasonable
+ *    values.  Third-party   applications  and  WSJT-X   shall  ignore
+ *    silently any extra  data received in datagrams  after the fields
+ *    they know about.
+ *
+ * Note  that these  rules are  unrelated to  the schema  number above
+ * whose purpose is to distinguish between non-compatible encodings of
+ * field data  types. New message  types and extra fields  in existing
+ * messages can and will be added without any change in schema number.
+ *
+ *
+ * Message Types
+ * -------------
  *
  * Message       Direction Value                  Type
  * ------------- --------- ---------------------- -----------
