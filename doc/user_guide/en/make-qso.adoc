@@ -128,7 +128,7 @@ Either callsign (or both) may have /P appended.
 [[COMP-CALL]] 
 === Nonstandard Callsigns
 
-*FT8 and MSK144*
+*FT4, FT8, and MSK144*
 
 Compound callsigns like xx/K1ABC or K1ABC/x and special event
 callsigns like YW18FIFA are supported for normal QSOs but not for 
