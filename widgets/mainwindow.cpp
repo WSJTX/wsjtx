@@ -6789,6 +6789,12 @@ void MainWindow::setFreq4(int rxFreq, int txFreq)
   } else {
     if (ui->TxFreqSpinBox->isEnabled ()) {
       ui->TxFreqSpinBox->setValue(txFreq);
+      if ("FT8" == m_mode || "FT4" == m_mode)
+        {
+          // we need to regenerate the current transmit waveform for
+          // GFSK modulated modes
+          m_restart = true;
+        }
     }
     else if (m_config.enable_VHF_features ()
              && (Qt::ControlModifier & QApplication::keyboardModifiers ())) {
