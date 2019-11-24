@@ -5,6 +5,7 @@
 
 #include <QScopedPointer>
 #include <QString>
+#include <QTimer>
 
 #include "TransceiverFactory.hpp"
 #include "TransceiverBase.hpp"
@@ -63,7 +64,7 @@ private:
   QString rig_type_;
   int readable_params_;
   int writable_params_;
-  // QScopedPointer<QTimer> offline_timer_;
+  QScopedPointer<QTimer> offline_timer_;
   bool send_update_signal_;
   bool reversed_;   // some rigs can reverse VFOs
 };

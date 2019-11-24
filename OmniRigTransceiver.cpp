@@ -1,6 +1,5 @@
 #include "OmniRigTransceiver.hpp"
 
-#include <QTimer>
 #include <QDebug>
 #include <objbase.h>
 #include <QThread>
@@ -158,6 +157,12 @@ int OmniRigTransceiver::do_start ()
   Q_ASSERT (rig_);
   Q_ASSERT (!rig_->isNull ());
 
+  offline_timer_.reset (new QTimer); // instantiate here as
+                                     // constructor runs in wrong
+                                     // thread
+  offline_timer_->setSingleShot (true);
+  connect (offline_timer_.data (), &QTimer::timeout, [this] () {offline ("Rig went offline");});
+
   if (use_for_ptt_ && (TransceiverFactory::PTT_method_DTR == ptt_type_ || TransceiverFactory::PTT_method_RTS == ptt_type_))
     {
       // fetch the interface for the serial port if we need it for PTT
@@ -204,6 +209,8 @@ int OmniRigTransceiver::do_start ()
     {
       throw_qstring ("OmniRig: " + rig_->StatusStr ());
     }
+  QThread::msleep (500);        // leave some time for Omni-Rig to get
+                                // the rig status for the 1st. time
   auto f = rig_->GetRxFrequency ();
   for (int i = 0; (f == 0) && (i < 5); ++i)
     {
@@ -297,6 +304,11 @@ void OmniRigTransceiver::do_stop ()
 {
   QThread::msleep (200);        // leave some time for pending
                                 // commands at the server end
+
+  offline_timer_.reset ();      // destroy here rather than in
+                                // destructor as destructor runs in
+                                // wrong thread
+
   if (port_)
     {
       port_->Unlock ();   // release serial port
@@ -358,10 +370,17 @@ void OmniRigTransceiver::handle_status_change (int rig_number)
       TRACE_CAT ("OmniRigTransceiver", "OmniRig status change: new status = " << status);
       if (OmniRig::ST_ONLINE != rig_->Status ())
         {
-          offline ("Rig went offline");
+          if (!offline_timer_->isActive ())
+            {
+              // Omni-Rig is prone to reporting the rig offline and
+              // then recovering autonomously, so we will give it a
+              // few seconds to make its mind up
+              offline_timer_->start (10000);
+            }
         }
       else
         {
+          offline_timer_->stop (); // good to go again
           Q_EMIT notified ();
         }
       // else
