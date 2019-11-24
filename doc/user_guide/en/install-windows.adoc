@@ -70,7 +70,7 @@ TIP: If you cannot install the _OpenSSL_ libraries or do not have an
   To ensure that this will be so when running under recent versions of
   Windows, open the system's *Sound* control panel and select in turn
   the *Recording* and *Playback* tabs. Click on *Properties*, then
-  *Advanced*, and select *16 bit, 48000 Hz (DVD Quality)*. Switch of
+  *Advanced*, and select *16 bit, 48000 Hz (DVD Quality)*. Switch off
   all audio enhancement features for these devices.
 
 * You can uninstall _WSJT-X_ by clicking its *Uninstall* link in the

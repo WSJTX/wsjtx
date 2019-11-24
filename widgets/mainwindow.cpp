@@ -970,7 +970,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
   if(QCoreApplication::applicationVersion().contains("-devel") or
      QCoreApplication::applicationVersion().contains("-rc")) {
-     QTimer::singleShot (0, this, SLOT (not_GA_warning_message ()));
+//     QTimer::singleShot (0, this, SLOT (not_GA_warning_message ()));
   }
 
   ui->pbBestSP->setVisible(m_mode=="FT4");
@@ -3116,6 +3116,27 @@ void MainWindow::readFromStdout()                             //readFromStdout
           ui->decodedTextBrowser->displayDecodedText(decodedtext0,m_baseCall,m_mode,m_config.DXCC(),
                m_logBook,m_currentBand,m_config.ppfx(),
                (ui->cbCQonly->isVisible() and ui->cbCQonly->isChecked()));
+
+/*
+//### TEST CODE
+          {
+            if(decodedtext0.CQersCall()!="") {
+              // For CQ messages, find best one to answer, for contest purposes...
+              QString dxCall;
+              QString dxGrid;
+              QString messagePriority=ui->decodedTextBrowser->CQPriority();
+              decodedtext0.deCallAndGrid(dxCall,dxGrid);  //OUTPUT to dxCall and dxGrid!
+              double utch=0.0;
+              int nAz,nEl,nDmiles,nDkm,nHotAz,nHotABetter,qsoPoints;
+              azdist_(const_cast <char *> ((m_config.my_grid().left(4) + "  ").toLatin1().constData()),
+                      const_cast <char *> ((dxGrid.left(4) + "  ").toLatin1().constData()),&utch,
+                      &nAz,&nEl,&nDmiles,&nDkm,&nHotAz,&nHotABetter,6,6);
+              qsoPoints=1 + nDkm/3000;
+              qDebug() << "aa" << dxCall << dxGrid << messagePriority << nDkm << qsoPoints;
+            }
+          }
+//###
+*/
           if(m_bBestSPArmed and m_mode=="FT4") {
             QString messagePriority=ui->decodedTextBrowser->CQPriority();
             if(messagePriority!="") {
@@ -3133,6 +3154,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
               }
             }
           }
+
         }
       }
 
@@ -3295,7 +3317,9 @@ void MainWindow::auto_sequence (DecodedText const& message, unsigned start_toler
       }
     }
     bool bEU_VHF_w2=(nrpt>=520001 and nrpt<=594000);
-    if(bEU_VHF_w2) m_xRcvd=message.string().trimmed().right(13);
+    if(bEU_VHF_w2 and message.string().contains(m_config.my_callsign() + " ")) {
+      m_xRcvd=message.string().trimmed().right(13);
+    }
     if (m_auto
         && (m_QSOProgress==REPLYING  or (!ui->tx1->isEnabled () and m_QSOProgress==REPORT))
         && qAbs (ui->TxFreqSpinBox->value () - df) <= int (stop_tolerance)
@@ -5463,6 +5487,14 @@ void MainWindow::on_genStdMsgsPushButton_clicked()         //genStdMsgs button
 
 void MainWindow::on_logQSOButton_clicked()                 //Log QSO button
 {
+  if (SpecOp::FOX != m_config.special_op_id ())
+    {
+      // ensure that auto Tx is disabled even if clear DX call & grid
+      // on 73 is not checked, unless in Fox mode where it is allowed
+      // to be a robot.
+      auto_tx_mode (false);
+    }
+
   if (!m_hisCall.size ()) {
     MessageBox::warning_message (this, tr ("Warning:  DX Call field is empty."));
   }
@@ -5515,7 +5547,7 @@ void MainWindow::acceptQSO (QDateTime const& QSO_date_off, QString const& call, 
                             , QByteArray const& ADIF)
 {
   QString date = QSO_date_on.toString("yyyyMMdd");
-  if (!m_logBook.add (m_hisCall, grid, m_config.bands()->find(m_freqNominal), m_modeTx, ADIF))
+  if (!m_logBook.add (call, grid, m_config.bands()->find(dial_freq), mode, ADIF))
     {
       MessageBox::warning_message (this, tr ("Log file error"),
                                    tr ("Cannot open \"%1\"").arg (m_logBook.path ()));
@@ -5540,7 +5572,6 @@ void MainWindow::acceptQSO (QDateTime const& QSO_date_off, QString const& call, 
     }
 
   if(m_config.clear_DX () and SpecOp::HOUND != m_config.special_op_id()) clearDX ();
-  auto_tx_mode (false);
   m_dateTimeQSOOn = QDateTime {};
   auto special_op = m_config.special_op_id ();
   if (SpecOp::NONE < special_op && special_op < SpecOp::FOX &&
@@ -6760,6 +6791,12 @@ void MainWindow::setFreq4(int rxFreq, int txFreq)
   } else {
     if (ui->TxFreqSpinBox->isEnabled ()) {
       ui->TxFreqSpinBox->setValue(txFreq);
+      if ("FT8" == m_mode || "FT4" == m_mode)
+        {
+          // we need to regenerate the current transmit waveform for
+          // GFSK modulated modes
+          if (m_transmitting) m_restart = true;
+        }
     }
     else if (m_config.enable_VHF_features ()
              && (Qt::ControlModifier & QApplication::keyboardModifiers ())) {

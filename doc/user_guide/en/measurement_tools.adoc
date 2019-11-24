@@ -36,7 +36,7 @@ in other parts of the world.
 frequencies, check *Execute frequency calibration cycle* on the
 *Tools* menu.  _WSJT-X_ will spend 30 seconds at each
 frequency. Initially no measurement data is saved to the `fmt.all`
-file although it is displayed on screen, this allows you to check you
+file although it is displayed on screen, this allows you to check your
 current calibration parameters.
 
 - During the calibration procedure, the radio's USB dial frequency is
@@ -44,11 +44,11 @@ offset 1500 Hz below each *FreqCal* entry in the default frequencies
 list.  As shown in the screen shot below, detected signal carriers
 therefore appear at about 1500 Hz in the _WSJT-X_ waterfall.
 
-- To start a measurement session check the *Measure* option and let
+- To start a measurement session, check the *Measure* option and let
 the calibration cycle run for at least one complete sequence. Note
 that, while measuring, any existing calibration parameters are
 automatically disabled so you may have to increase the *FTol* range if
-your rig is off freqeuncy by more than a few Hertz in order to capture
+your rig is off frequency by more than a few Hertz in order to capture
 valid measurements.
 
 image::FreqCal.png[align="left",alt="FreqCal"]

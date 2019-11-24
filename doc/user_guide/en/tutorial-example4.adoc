@@ -1,4 +1,8 @@
-// Status=review
+FT4 is designed for contesting, particularly on the HF bands.
+Compared with FT8 it is 3.5 dB less sensitive and requires 1.6 times
+the bandwidth, but it offers the potential for twice the QSO rate.
+FT4 is not recommended for everyday use.
+
 .Main Window:
 - Select *FT4* on the *Mode* menu.
 - Double-click on *Erase* to clear both text windows.
@@ -33,17 +37,38 @@ follow your frequency selections.
 - Do the same thing with the *Ctrl* key held down.  Now the both colored 
 markers and both spinner controls will follow your selections.
 
-- Now double-click on any of the the lines of decoded text in the Band
+- Now double-click on any of the lines of decoded text in the Band
 Activity window.  Any line will show similar behavior, setting
 Rx frequency to that of the selected message and leaving Tx frequency
 unchanged.  To change both Rx and Tx frequencies, hold *Ctrl* down
 when double-clicking.
 
-TIP: To avoid QRM from competing callers, it is frequently desirable
-to answer a CQ on a different frequency from that of the CQing
-station.  The same is true when you tail-end another QSO.  Choose a Tx
-frequency that appears to be not in use.  You might want to check the
-box *Hold Tx Freq*.
+.Best S+P Button
+
+The FT4 user interface includes a new button labeled *Best S+P*.
+
+image::Best_S+P.png[align="center"]
+
+Clicking *Best S+P* during an Rx cycle arms the program to examine all
+CQ messages decoded at the end of the Rx sequence.  The program will
+select the best potential QSO partner (from a contesting perspective),
+and treat it as if you had double-clicked on that line of decoded
+text. Here "best potential QSO partner" means "New Multiplier" (1st
+priority) or "New Call on Band" (2nd priority).  "New Multiplier" is
+currently interpreted to mean "New DXCC"; a more broadly defined
+multiplier category (for the ARRL RTTY Roundup rules) will be
+implemented in due course.  We may provide additional priority
+rankings, for example “New Grid on Band” (useful for North American
+VHF contests), sorting by signal strength, etc.
+
+*Best S+P* is a useful feature only if you have defined what "best" is
+supposed to mean.  This is done by configuring suitable options on the
+*Settings | Colors* tab.  Selection and ordering of color-highlighting
+options determines what potential QSO partners will be chosen by the
+"Best S+P" feature.  Optimum choices will be different for different
+contests.  In a contest using RTTY Roundup rules we recommend
+activating *My Call in message*, *New DXCC*, *New Call on Band*, *CQ
+in message* and *Transmitted message*, reading from top to bottom.
 
 TIP: Keyboard shortcuts *Shift+F11* and *Shift+F12* provide an easy
 way to move your FT4 Tx frequency down or up in 90 Hz steps.

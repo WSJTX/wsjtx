@@ -3,7 +3,7 @@
 [[FIG_BAND_SETTINGS]]
 image::settings-frequencies.png[align="center",alt="Frequency Screen"]
 
-_Working Frequencies_: By default the *Working Frequencies* table
+_Working Frequencies_: By default, the *Working Frequencies* table
 contains a list of frequencies conventionally used for modes FT8, JT4,
 JT9, JT65, MSK144, WSPR, and Echo.  Conventions may change with time
 or by user preference; you can modify the frequency table as desired.

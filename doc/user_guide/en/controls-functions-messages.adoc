@@ -30,7 +30,7 @@ Pressing *Enter* on a modified message #5 automatically adds that
 message to the stored macros.
 
 * In some circumstances it may be desirable to make your QSOs as
-shiort as possible.  To configure the program to start contacts with
+short as possible.  To configure the program to start contacts with
 message #2, disable message #1 by double-clicking on its round
 radio-button or rectangular *Tx 1* button.  Similarly, to send RR73
 rather than RRR for message #4, double-click on one of its buttons.

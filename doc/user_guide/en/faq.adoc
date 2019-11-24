@@ -53,7 +53,7 @@ You need to install suitable _OpenSSL_ libraries - see <<OPENSSL,Instructions to
 
 I occasionally get Rig Control Errors if I adjust my Icom rig's VFO. What's wrong?::
 
-By default most Icom transceivers have *CI-V Tranceive Mode" enabled,
+By default, most Icom transceivers have *CI-V Tranceive Mode" enabled,
 this will cause unsolicited CAT traffic from the rig that disrupts CAT
 control by a PC. Disable this option in the rig's menu.
 

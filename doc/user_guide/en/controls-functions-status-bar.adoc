@@ -17,7 +17,7 @@ displayed exactly as it will be decoded by receiving stations.  The
 second label (as shown above) will be absent if you are using the
 *Default* setting on the *Configurations* menu.  A progress bar shows
 the elapsed fraction of a Tx or Rx sequence.  Finally, if the Watchdog
-(WD) timer was enabled on the *settings | General* tab, a label in the
+(WD) timer was enabled on the *Settings | General* tab, a label in the
 lower right-hand corner displays the number of minutes remaining
 before timeout.
 

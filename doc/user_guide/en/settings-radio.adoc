@@ -42,7 +42,7 @@ NOTE: _Omni-Rig_ is available only under Windows.
 
 NOTE: A special value of *USB* is available for custom USB devices
       like those used by some SDR kits. This is not the same a virtual
-      serial port provided by USB connected transcivers and CAT
+      serial port provided by USB connected transceivers and CAT
       interfaces, for those use the COM or serial port name that
       refers to them.
 
@@ -69,7 +69,7 @@ NOTE: CAT interfaces that require handshaking will be non-responsive
 
 NOTE: When using a proxy application for rig control, *CAT* is usually
       the correct option for _PTT Method_ assuming the proxy
-      application is capable of keying your transceiver idependently.
+      application is capable of keying your transceiver independently.
 
 * _Transmit Audio Source_: some radios permit you to choose the
   connector that will accept Tx audio.  If this choice is enabled,

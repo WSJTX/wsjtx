@@ -47,6 +47,21 @@ public:
 
 #include "FoxLog.moc"
 
+namespace 
+{
+  QString const fox_log_ddl {
+                             "CREATE %1 TABLE fox_log%2 ("
+                             "	id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,"
+                             "	\"when\" DATETIME NOT NULL,"
+                             "	call VARCHAR(20) NOT NULL,"
+                             "	grid VARCHAR(4),"
+                             "	report_sent VARCHAR(3),"
+                             "	report_rcvd VARCHAR(3),"
+                             "	band VARCHAR(6) NOT NULL"
+                             ")"
+  };
+}
+
 FoxLog::impl::impl (Configuration const * configuration)
   : configuration_ {configuration}
 {
@@ -54,16 +69,37 @@ FoxLog::impl::impl (Configuration const * configuration)
     {
       QSqlQuery query;
       SQL_error_check (query, static_cast<bool (QSqlQuery::*) (QString const&)> (&QSqlQuery::exec),
-                       "CREATE TABLE fox_log ("
-                       "	id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,"
-                       "	\"when\" DATETIME NOT NULL,"
-                       "	call VARCHAR(20) NOT NULL,"
-                       "	grid VARCHAR(4),"
-                       "	report_sent VARCHAR(3),"
-                       "	report_rcvd VARCHAR(3),"
-                       "	band VARCHAR(6) NOT NULL,"
-                       "	CONSTRAINT no_dupes UNIQUE (call, band)"
-                       ")");
+                       fox_log_ddl.arg ("").arg (""));
+    }
+  else
+    {
+      QSqlQuery query;
+      // query to check if table has a unique constraint
+      SQL_error_check (query, static_cast<bool (QSqlQuery::*) (QString const&)> (&QSqlQuery::exec),
+                       "SELECT COUNT(*)"
+                       "       FROM sqlite_master"
+                       "    WHERE"
+                       "       type = 'index' AND tbl_name = 'fox_log'");
+      query.next ();
+      if (query.value (0).toInt ())
+        {
+          // update to new schema with no dupe disallowing unique
+          // constraint
+          database ().transaction ();
+          SQL_error_check (query, static_cast<bool (QSqlQuery::*) (QString const&)> (&QSqlQuery::exec),
+                           fox_log_ddl.arg ("TEMPORARY").arg ("_backup"));
+          SQL_error_check (query, static_cast<bool (QSqlQuery::*) (QString const&)> (&QSqlQuery::exec),
+                           "INSERT INTO fox_log_backup SELECT * from fox_log");
+          SQL_error_check (query, static_cast<bool (QSqlQuery::*) (QString const&)> (&QSqlQuery::exec),
+                           "DROP TABLE fox_log");
+          SQL_error_check (query, static_cast<bool (QSqlQuery::*) (QString const&)> (&QSqlQuery::exec),
+                           fox_log_ddl.arg ("").arg (""));
+          SQL_error_check (query, static_cast<bool (QSqlQuery::*) (QString const&)> (&QSqlQuery::exec),
+                           "INSERT INTO fox_log SELECT * from fox_log_backup");
+          SQL_error_check (query, static_cast<bool (QSqlQuery::*) (QString const&)> (&QSqlQuery::exec),
+                           "DROP TABLE fox_log_backup");
+          database ().commit ();
+        }
     }
 
   SQL_error_check (dupe_query_, &QSqlQuery::prepare,

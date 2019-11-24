@@ -39,7 +39,7 @@ things just described and also invokes the decoder in a small range
 around the Rx frequency.  To decode a particular signal, double-click
 near the left edge of its waterfall trace.
 
-- Now double-click on any of the the lines of decoded text in the Band
+- Now double-click on any of the lines of decoded text in the Band
 Activity window.  Any line will show the same behavior, setting
 Rx frequency to that of the selected message and leaving Tx frequency
 unchanged.  To change both Rx and Tx frequencies, hold *Ctrl* down

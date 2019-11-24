@@ -20,7 +20,7 @@ signal report, R plus a signal report, or the final acknowledgements
 RRR or 73.  These messages are compressed and encoded in a highly
 efficient and reliable way.  In uncompressed form (as displayed
 on-screen) they may contain as many as 22 characters.  Some operators
-prefer ro send RR73 rather than RRR.  This is workable because RR73 is
+prefer to send RR73 rather than RRR.  This is workable because RR73 is
 encoded as a valid grid locator, one unlikely ever to be occupied by
 an amateur station.
 
@@ -81,7 +81,7 @@ fully automated QSOs.
 
 === Contest Messages
 
-The new FT8 and MSK144 protocols support special messages optimized
+The new FT4, FT8, and MSK144 protocols support special messages optimized
 for *NA VHF* and *EU VHF* contests. FT8 also supports messages for
 *ARRL Field Day* and the *ARRL RTTY Roundup*.  The decoders recognize
 and decode these messages at any time.  Configure the program to
@@ -128,7 +128,7 @@ Either callsign (or both) may have /P appended.
 [[COMP-CALL]] 
 === Nonstandard Callsigns
 
-*FT8 and MSK144*
+*FT4, FT8, and MSK144*
 
 Compound callsigns like xx/K1ABC or K1ABC/x and special event
 callsigns like YW18FIFA are supported for normal QSOs but not for 

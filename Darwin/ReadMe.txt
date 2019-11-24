@@ -37,7 +37,7 @@ alterations.  Otherwise you must edit the file to increase shmall according to t
 Now move this file into place for the system to use by typing: (Note this assumes that
 you really did drag this file to your Desktop as required earlier.)
 
-  sudo cp $HOME/Desktop/sysctl.conf /etc/
+  sudo cp "$HOME/Desktop/sysctl.conf" /etc/
   sudo chmod 664 /etc/sysctl.conf
   sudo chown  root:wheel  /etc/sysctl.conf
 

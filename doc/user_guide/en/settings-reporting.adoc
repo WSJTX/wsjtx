@@ -10,12 +10,15 @@ Call*.
 reception reports to the {pskreporter} mapping facility.
 
 - _UDP Server_: This group of options controls the network name or
-address and port number used by a program that will receive status
-updates from _WSJT-X_.  Cooperating applications like _JTAlert_ use
-this feature to obtain information about a running _WSJT-X_ instance.
-If you are using _JTAlert_, be sure to check the three boxes at lower
-right.
+address and port number used to exchange information with a third
+party application that interoperates with _WSJT-X_.  Exchanged
+information includes decoded messages, general program status, QSOs
+logged, highlighting of callsigns in the _WSJT-X_ band activity
+window, and limited facilities to initiate QSOs in response to CQ or
+QRZ messages. Full details of the protocol can be found in comments
+at the top of this file in our source code repository:
+https://sourceforge.net/p/wsjt/wsjtx/ci/master/tree/NetworkMessage.hpp
 
-- _N1MM Logger+ Broadcasts_: To send information on logged QSOs
-directly to _N1MM Logger+_, check the box and enter the IP address and
-port number for _N1MM_.
+Programs like _JTAlert_ use the _UDP Server_ feature to obtain
+information about a running _WSJT-X_ instance.  If you are using
+_JTAlert_, be sure to check the three boxes at lower right.

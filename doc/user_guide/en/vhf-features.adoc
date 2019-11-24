@@ -1,4 +1,4 @@
-_WSJT-X_ v{VERSION_MAJOR}.{VERSION_MINOR} suppports a number of
+_WSJT-X_ v{VERSION_MAJOR}.{VERSION_MINOR} supports a number of
 features designed for use on the VHF and higher bands.  These features
 include:
 
@@ -111,7 +111,7 @@ retune their receiver as the Doppler changes.  Sked frequency in this
 case is set to that announced by your QSO partner.
 
 - Select *Call DX* after tuning the radio manually to find a station,
-with the Doppler mode initally set to *None*. You may be tuning the band
+with the Doppler mode initially set to *None*. You may be tuning the band
 looking for random stations, or to a frequency where a station has been
 seen on an SDR display.  It is usually necessary to hold down the Ctrl key
 while tuning the radio. From the moment *Call DX* is pressed, your 
@@ -221,7 +221,7 @@ to indicate to the other station that you are ready to receive messages.
 
 TIP: QRA64 is different from JT65 in that the decoder attempts to find
 and decode only a single signal in the receiver passband.  If many
-signals are present you may be able to decode them by double-clicking
+signals are present, you may be able to decode them by double-clicking
 on the lowest tone of each one in the waterfall.
 
 TIP: G3WDG has prepared a more detailed tutorial on using {QRA64_EME}. 
@@ -236,11 +236,11 @@ error-correction facility.
 
 === MSK144
 
-Meteor-scatter QSOs can be made any time on the VHF bands at distances
+Meteor scatter QSOs can be made any time on the VHF bands at distances
 up to about 2100 km (1300 miles).  Completing a QSO takes longer in
 the evening than in the morning, longer at higher frequencies, and
 longer at distances close to the upper limit.  But with patience, 100
-Watts or more, and a single yagi it can usually be done.  The
+W or more, and a single yagi it can usually be done.  The
 following screen shot shows two 15-second reception intervals
 containing MSK144 signals from three different stations.
 
@@ -271,7 +271,7 @@ image::Rx_pct_MSK144.png[align="center",alt="MSK144 Percent CPU"]
 
 - The displayed number (here 17%) indicates the fraction of available
 time being used for execution of the MSK144 real-time decoder.  If
-this number is well below 100% you may increase the decoding depth
+this number is well below 100%, you may increase the decoding depth
 from *Fast* to *Normal* or *Deep*, and increase *F Tol* from 100 to
 200 Hz.
 

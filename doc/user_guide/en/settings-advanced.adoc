@@ -38,7 +38,7 @@ with twice or four times the normal tone spacing.  This feature is
 intended for use with specialized LF/MF transmitters that divide
 generated frequencies by 2 or 4 as part of the transmission process.
 
-_Special Operating Activity: Generation of FT8 and MSk144 messages_
+_Special Operating Activity: Generation of FT8 and MSK144 messages_
 
 - Check this box and select the type of activity to enable
 auto-generation of special message formats for contesting and

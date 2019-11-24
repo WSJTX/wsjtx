@@ -17,7 +17,7 @@ In this manual the following icons call attention to particular types
 of information:
 
 NOTE: *Notes* containing information that may be of interest to
-particuar classes of users.
+particular classes of users.
 
 TIP: *Tips* on program features or capabilities that might otherwise be
 overlooked.

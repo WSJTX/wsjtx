@@ -28,7 +28,7 @@ decoded text or a signal in the waterfall.
 
 * For modes lacking a multi-decode feature, or when *Enable
 VHF/UHF/Microwave features* has been checked on the *Settings ->
-General* tab, the *F Tol* control sets a frequency toilerance range
+General* tab, the *F Tol* control sets a frequency tolerance range
 over which decoding will be attempted, centered on the Rx frequency.
 
 * The *Report* control lets you change a signal report that has been

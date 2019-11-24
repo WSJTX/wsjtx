@@ -52,9 +52,10 @@ were the callsigns `E9AA` through `E9ZZ`.  Upon reception they are
 converted back to the form `CQ AA` through `CQ ZZ`, for display to the
 user.
 
-The new FT8 and MSK144 protocols use a different lossless compression
-algorithm with features to generate and recognize the special messages
-used for contesting and the like.  (More to come, here ...)
+The new FT4, FT8, and MSK144 protocols use a different lossless
+compression algorithm with features to generate and recognize the
+special messages used for contesting and the like.  (More to come,
+here ...)
 
 To be useful on channels with low signal-to-noise ratio, this kind of
 lossless message compression requires use of a strong forward error
@@ -224,7 +225,7 @@ the sync bit.
 [[SLOW_SUMMARY]]
 ==== Summary
 
-Table 2 provides a brief summary parameters for the slow modes in
+Table 7 provides a brief summary parameters for the slow modes in
 _WSJT-X_.  Parameters K and r specify the constraint length and rate
 of the convolutional codes; n and k specify the sizes of the
 (equivalent) block codes; Q is the alphabet size for the
@@ -250,7 +251,7 @@ which the probability of decoding is 50% or higher.
 
 Submodes of JT4, JT9, JT65, and QRA64 offer wider tone spacings for
 circumstances that may require them, such significant Doppler spread.
-Table 3 summarizes the tone spacings, bandwidths, and approximate
+Table 8 summarizes the tone spacings, bandwidths, and approximate
 threshold sensitivities of the various submodes when spreading is
 comparable to tone spacing.
 
@@ -335,7 +336,7 @@ The JT9 slow modes all use keying rate 12000/6912 = 1.736 baud.  By contrast, wi
 the *Fast* setting submodes JT9E-H adjust the keying rate to match the
 increased tone spacings.  Message durations are therefore much
 shorter, and they are sent repeatedly throughout each Tx sequence.
-For details see Table 4, below.
+For details see Table 9, below.
 
 ==== MSK144
 

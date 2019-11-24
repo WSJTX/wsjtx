@@ -13,6 +13,32 @@
 Copyright 2001 - 2019 by Joe Taylor, K1JT.
 
 
+		   Release: WSJT-X 2.1.1
+		     November 25, 2019
+		   ---------------------
+		   
+WSJT-X 2.1.1 is a bug fix only release addressing regressions in the
+prior v2.1.0 release.
+
+ - Document rules for the UDP message protocol.
+ - Fix bug that could cause display of a blank Settings window.
+ - Fix message parsing to properly handle 4-character directed CQs
+ - Fix a potential crash in the interface to Omni-Rig.
+ - Improve handling of unexpected rig off line status changes from
+   Omni-Rig.
+ - Add an option to highlight unworked 2-character grid fields rather
+   than 4-character grid squares.
+ - Fix bug that caused unwanted disabling of "Enable Tx" in Fox mode.
+ - Log duplicate contacts in FT8 DXpedition Fox mode.
+ - Regenerate the GFSK Tx waveform if Tx audio frequency is changed.
+ - Fix the behavior of double-clicking on a decoded message with first
+   callsign displayed as an unresolved hash code <...>.
+ - Fix a problem with determining "worked before" status after a band
+   change.
+ - Updates to the WSJT-X 2.1 User Guide.
+ - Fix a production issue with the macOS tool chain that generated
+   broken executables.
+
                    Release: WSJT-X 2.1
                       July 15, 2019
                    -------------------

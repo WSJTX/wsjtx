@@ -67,6 +67,7 @@ set (UG_IMGS
   images/Astronomical_data.png
   images/auto-seq.png
   images/band-settings.png
+  images/Best_S+P.png
   images/colors.png
   images/config-menu.png
   images/decode-menu.png

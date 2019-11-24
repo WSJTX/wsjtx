@@ -28,7 +28,7 @@ When this file was recorded KF4RWA was finishing a QSO with K1JT.
 Since the green marker was placed at his audio frequency, 1224 Hz, his
 message `K1JT KF4RWA 73` is decoded first and appears in the *Rx
 Frequency* window. The *Band Activity* window shows this message plus
-all decodes at other frequencies.  By default lines containing `CQ`
+all decodes at other frequencies.  By default, lines containing `CQ`
 are highlighted in green, and lines with *My Call* (in this case K1JT)
 in red.
 

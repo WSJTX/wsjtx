@@ -37,11 +37,11 @@ TIP: The _WSJT-X_ ADIF file records must contain the "CALL" field.
 
 Stations who are known to have uploaded their logs to the ARRL LoTW
 QSL matching service can be highlighted. The data used to determine
-this is available on line.
+this is available online.
 
 * *Fetch Now* will download a fresh dataset from the *Users CSV file
    URL*. The LoTW team normally update this data weekly.
 
-* Adjust *Age of of last upload less than* to set the period within
+* Adjust *Age of last upload less than* to set the period within
   which a station must have uploaded their log to LoTW to trigger
   highlighting.
