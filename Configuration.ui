@@ -3100,7 +3100,5 @@ Right click for insert and delete options.</string>
   <buttongroup name="CAT_stop_bits_button_group"/>
   <buttongroup name="TX_mode_button_group"/>
   <buttongroup name="TX_audio_source_button_group"/>
-  <buttongroup name="split_mode_button_group"/>
-  <buttongroup name="CAT_data_bits_button_group"/>
  </buttongroups>
 </ui>
