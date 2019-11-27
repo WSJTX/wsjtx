@@ -158,6 +158,7 @@ function (document)
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/${_source_path}/${lang}
       COMMAND ${ASCIIDOCTOR_EXECUTABLE} ${_args_ASCIIDOCTOR_OPTIONS}
       -b html5
+      -a nofooter
       -a VERSION_MAJOR=${WSJTX_VERSION_MAJOR}
       -a VERSION_MINOR=${WSJTX_VERSION_MINOR}
       -a VERSION_PATCH=${WSJTX_VERSION_PATCH}
