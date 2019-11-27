@@ -1,4 +1,4 @@
-program ft8sim_gfsk
+program ft8sim
 
 ! Generate simulated "type 2" ft8 files
 ! Output is saved to a *.wav file.
@@ -13,19 +13,17 @@ program ft8sim_gfsk
   character c77*77
   complex c0(0:NMAX-1)
   complex c(0:NMAX-1)
-  complex cwave(0:NWAVE-1)
   real wave(NMAX)
-  real xjunk(NWAVE)
   integer itone(NN)
   integer*1 msgbits(77)
   integer*2 iwave(NMAX)                  !Generated full-length waveform
 
 ! Get command-line argument(s)
   nargs=iargc()
-  if(nargs.ne.7) then
-     print*,'Usage:    ft8sim "message"                 f0     DT fdop del nfiles snr'
-     print*,'Examples: ft8sim "K1ABC W9XYZ EN37"       1500.0 0.0  0.1 1.0   10   -18'
-     print*,'          ft8sim "WA9XYZ/R KA1ABC/R FN42" 1500.0 0.0  0.1 1.0   10   -18'
+  if(nargs.ne.8) then
+     print*,'Usage:    ft8sim "message"                 f0     DT fdop del width nfiles snr'
+     print*,'Examples: ft8sim "K1ABC W9XYZ EN37"       1500.0 0.0  0.1 1.0   0     10   -18'
+     print*,'          ft8sim "WA9XYZ/R KA1ABC/R FN42" 1500.0 0.0  0.1 1.0   0     10   -18'
      print*,'          ft8sim "K1ABC RR73; W9XYZ <KH1/KH7Z> -11" 300 0 0 0 25 1 -10'
      go to 999
   endif
@@ -39,8 +37,10 @@ program ft8sim_gfsk
   call getarg(5,arg)
   read(arg,*) delay                      !Watterson delay (ms)
   call getarg(6,arg)
-  read(arg,*) nfiles                     !Number of files
+  read(arg,*) width                      !Filter transition width (Hz)
   call getarg(7,arg)
+  read(arg,*) nfiles                     !Number of files
+  call getarg(8,arg)
   read(arg,*) snrdb                      !SNR_2500
 
   nsig=1
@@ -57,7 +57,6 @@ program ft8sim_gfsk
   baud=1.0/tt                            !Keying rate (baud)
   bw=8*baud                              !Occupied bandwidth (Hz)
   txt=NZ*dt                              !Transmission length (s)
-  bt=2.0                         
   bandwidth_ratio=2500.0/(fs/2.0)
   sig=sqrt(2*bandwidth_ratio) * 10.0**(0.05*snrdb)
   if(snrdb.gt.90.0) sig=1.0
@@ -68,7 +67,6 @@ program ft8sim_gfsk
   n3=-1
   call pack77(msg37,i3,n3,c77)
   call genft8(msg37,i3,n3,msgsent37,msgbits,itone)
-  call gen_ft8wave(itone,NN,NSPS,bt,fs,f0,cwave,xjunk,1,NWAVE)  !Generate complex cwave
 
   write(*,*)  
   write(*,'(a23,a37,3x,a7,i1,a1,i1)') 'New Style FT8 Message: ',msgsent37,'i3.n3: ',i3,'.',n3
@@ -92,15 +90,26 @@ program ft8sim_gfsk
 
   msg0=msg
   do ifile=1,nfiles
-     c0=0.
-     c0(0:NWAVE-1)=cwave
-     c0=cshift(c0,-nint((xdt+0.5)/dt))
+     k=nint((xdt+0.5)/dt)
+     ia=max(1,k)
+     phi=0.0 
+     c0=0.0
+     do j=1,NN                             !Generate complex waveform
+        dphi=twopi*(f0*dt+itone(j)/real(NSPS))
+        do i=1,NSPS
+           if(k.ge.0 .and. k.lt.NMAX) c0(k)=cmplx(cos(phi),sin(phi))
+           k=k+1
+           phi=mod(phi+dphi,twopi)
+        enddo
+     enddo
      if(fspread.ne.0.0 .or. delay.ne.0.0) call watterson(c0,NMAX,NWAVE,fs,delay,fspread)
      c=sig*c0
   
-     wave=imag(c)
-     peak=maxval(abs(wave))
+     ib=min(k,NMAX)
+     wave=real(c)
+     peak=maxval(abs(wave(ia:ib)))
      nslots=1
+     if(width.gt.0.0) call filt8(f0,nslots,width,wave)
    
      if(snrdb.lt.90) then
         do i=1,NMAX                   !Add gaussian noise at specified SNR
@@ -119,6 +128,7 @@ program ft8sim_gfsk
      endif
      if(any(abs(wave).gt.32767.0)) print*,"Warning - data will be clipped."
      iwave=nint(wave)
+
      h=default_header(12000,NMAX)
      write(fname,1102) ifile
 1102 format('000000_',i6.6,'.wav')
@@ -128,4 +138,4 @@ program ft8sim_gfsk
      write(*,1110) ifile,xdt,f0,snrdb,fname
 1110 format(i4,f7.2,f8.2,f7.1,2x,a17)
   enddo    
-999 end program ft8sim_gfsk
+999 end program ft8sim
