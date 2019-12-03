@@ -37,7 +37,8 @@ subroutine sync8(dd,nfa,nfb,syncmin,nfqso,maxcand,s,candidate,   &
      enddo
      savg=savg + s(1:NH1,j)                   !Average spectrum
   enddo
-  call baseline(savg,nfa,nfb,sbase)
+!  call baseline(savg,nfa,nfb,sbase)
+  call get_spectrum_baseline(dd,nfa,nfb,sbase)
 
   ia=max(1,nint(nfa/df))
   ib=nint(nfb/df)
