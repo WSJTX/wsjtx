@@ -2059,6 +2059,16 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
         return;
       }
       break;
+  case Qt::Key_R:
+    if(e->modifiers() & Qt::AltModifier) {
+      if(!m_send_RR73) on_txrb4_doubleClicked();
+    return;
+    }
+    if(e->modifiers() & Qt::ControlModifier) {
+      if(m_send_RR73) on_txrb4_doubleClicked();
+      return;
+    }
+    break;
     case Qt::Key_V:
       if(e->modifiers() & Qt::AltModifier) {
         m_fileToSave = m_fnameWE;
