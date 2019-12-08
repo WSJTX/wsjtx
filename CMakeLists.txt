@@ -282,6 +282,7 @@ set (wsjt_qt_CXXSRCS
   item_delegates/MaidenheadLocatorDelegate.cpp
   item_delegates/FrequencyDelegate.cpp
   item_delegates/FrequencyDeltaDelegate.cpp
+  item_delegates/SQLiteDateTimeDelegate.cpp
   models/CabrilloLog.cpp
   logbook/AD1CCty.cpp
   logbook/WorkedBefore.cpp
