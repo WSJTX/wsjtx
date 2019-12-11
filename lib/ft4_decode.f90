@@ -429,7 +429,8 @@ contains
                      message77=mod(message77+rvec,2) ! remove rvec scrambling
                      write(c77,'(77i1)') message77(1:77)
                      call unpack77(c77,1,message,unpk77_success)
-                     if(unpk77_success.and.dosubtract) then
+                     if(.not.unpk77_success) exit
+                     if(dosubtract) then
                         call get_ft4_tones_from_77bits(message77,i4tone)
                         dt=real(ibest)/666.67
                         call timer('subtract',0)
