@@ -61,6 +61,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   my_ft8%decoded = 0
   my_ft4%decoded = 0
 
+  ncontest=iand(params%nexp_decode,7)
   single_decode=iand(params%nexp_decode,32).ne.0
   bVHF=iand(params%nexp_decode,64).ne.0
   if(mod(params%nranera,2).eq.0) ntrials=10**(params%nranera/2)
@@ -102,7 +103,6 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
 
      call timer('decft8  ',0)
      newdat=params%newdat
-     ncontest=iand(params%nexp_decode,7)
      call my_ft8%decode(ft8_decoded,id2,params%nQSOProgress,params%nfqso,    &
           params%nftx,newdat,params%nutc,params%nfa,params%nfb,              &
           params%ndepth,ncontest,logical(params%nagain),                     &

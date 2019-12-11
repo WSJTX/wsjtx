@@ -16,7 +16,7 @@ subroutine subtractft4(dd,itone,f0,dt)
   integer itone(103)
   logical first
   data first/.true./
-  common/heap8/cref(NFRAME),camp(NMAX),cfilt(NMAX),cw(NMAX),xjunk(NFRAME)
+  common/heap4/cref(NFRAME),camp(NMAX),cfilt(NMAX),cw(NMAX),xjunk(NFRAME)
   save first
 
   nstart=dt*12000+1-NSPS

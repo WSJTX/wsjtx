@@ -50,20 +50,17 @@ public:
     else
       {
         value = QSqlTableModel::data (model_index, role);
-        if (model_index.column () == fieldIndex ("frequency") && Qt::DisplayRole == role)
+        if (Qt::DisplayRole == role)
           {
-            value = Radio::frequency_MHz_string (value.value<Radio::Frequency> (), 3); // kHz precision
-          }
-        else if (model_index.column () == fieldIndex ("when")
-            && (Qt::DisplayRole == role || Qt::EditRole == role))
-          {                     // adjust date/time to Qt format
-            auto t = QDateTime::fromMSecsSinceEpoch (value.toULongLong () * 1000ull, Qt::UTC);
-            if (Qt::DisplayRole == role)
+            if (model_index.column () == fieldIndex ("frequency"))
               {
-                QLocale locale;
-                return locale.toString (t, locale.dateFormat (QLocale::ShortFormat) + " hh:mm:ss");
+                value = Radio::frequency_MHz_string (value.value<Radio::Frequency> (), 3); // kHz precision
               }
-            value = t;
+            else if (model_index.column () == fieldIndex ("when"))
+              {                     // adjust date/time to Qt format
+                QLocale locale;
+                value = locale.toString (QDateTime::fromMSecsSinceEpoch (value.toULongLong () * 1000ull, Qt::UTC), locale.dateFormat (QLocale::ShortFormat) + " hh:mm:ss");
+              }
           }
       }
     return value;

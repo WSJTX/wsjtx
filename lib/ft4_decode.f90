@@ -28,6 +28,7 @@ contains
       use timer_module, only: timer
       use packjt77
       include 'ft4/ft4_params.f90'
+      parameter (MAXCAND=100)
       class(ft4_decoder), intent(inout) :: this
       procedure(ft4_decode_callback) :: callback
       parameter (NSS=NSPS/NDOWN,NDMAX=NMAX/NDOWN)
@@ -49,7 +50,7 @@ contains
       real bitmetrics(2*NN,3)
       real dd(NMAX)
       real llr(2*ND),llra(2*ND),llrb(2*ND),llrc(2*ND),llrd(2*ND)
-      real candidate(2,100)
+      real candidate(2,MAXCAND)
       real savg(NH1),sbase(NH1)
 
       integer apbits(2*ND)
@@ -185,7 +186,6 @@ contains
          mycall0=mycall
          hiscall0=hiscall
       endif
-      maxcand=100
       ndecodes=0
       decodes=' '
       fa=nfa
@@ -222,7 +222,7 @@ contains
          candidate=0.0
          ncand=0
          call timer('getcand4',0)
-         call getcandidates4(dd,fa,fb,syncmin,nfqso,maxcand,savg,candidate,   &
+         call getcandidates4(dd,fa,fb,syncmin,nfqso,MAXCAND,savg,candidate,   &
             ncand,sbase)
          call timer('getcand4',1)
          dobigfft=.true.
@@ -429,7 +429,8 @@ contains
                      message77=mod(message77+rvec,2) ! remove rvec scrambling
                      write(c77,'(77i1)') message77(1:77)
                      call unpack77(c77,1,message,unpk77_success)
-                     if(unpk77_success.and.dosubtract) then
+                     if(.not.unpk77_success) exit
+                     if(dosubtract) then
                         call get_ft4_tones_from_77bits(message77,i4tone)
                         dt=real(ibest)/666.67
                         call timer('subtract',0)

@@ -2213,7 +2213,7 @@ list. The list can be maintained in Settings (F2).</string>
                       <number>-15</number>
                      </property>
                      <property name="maximum">
-                      <number>30</number>
+                      <number>70</number>
                      </property>
                      <property name="value">
                       <number>30</number>

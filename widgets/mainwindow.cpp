@@ -940,7 +940,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_bDisplayedOnce=false;
   m_wait=0;
   m_isort=-3;
-  m_max_dB=30;
+  m_max_dB=70;
   m_CQtype="CQ";
 
   if(m_mode.startsWith ("WSPR") and m_pctx>0)  {
@@ -1072,7 +1072,7 @@ void MainWindow::writeSettings()
   m_settings->setValue("HoundSort",ui->comboBoxHoundSort->currentIndex());
   m_settings->setValue("FoxNlist",ui->sbNlist->value());
   m_settings->setValue("FoxNslots",ui->sbNslots->value());
-  m_settings->setValue("FoxMaxDB",ui->sbMax_dB->value());
+  m_settings->setValue("FoxMaxDB_v2",ui->sbMax_dB->value()); // original key abandoned
   m_settings->setValue ("SerialNumber",ui->sbSerialNumber->value ());
   m_settings->endGroup();
 
@@ -1152,7 +1152,7 @@ void MainWindow::readSettings()
   ui->sbNlist->setValue(m_settings->value("FoxNlist",12).toInt());
   m_Nslots=m_settings->value("FoxNslots",5).toInt();
   ui->sbNslots->setValue(m_Nslots);
-  ui->sbMax_dB->setValue(m_settings->value("FoxMaxDB",30).toInt());
+  ui->sbMax_dB->setValue(m_settings->value("FoxMaxDB_v2",70).toInt());
   ui->sbSerialNumber->setValue (m_settings->value ("SerialNumber", 1).toInt ());
   m_settings->endGroup();
 
