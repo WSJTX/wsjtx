@@ -1,29 +1,33 @@
-program ft8code
+program ft4code
 
 ! Provides examples of message packing, LDPC(174,91) encoding, bit and
 ! symbol ordering, and other details of the FT8 protocol.
 
   use packjt77
-  include 'ft8_params.f90'               !Set various constants
-  include 'ft8_testmsg.f90'
+  include 'ft4_params.f90'               !Set various constants
+  include 'ft4_testmsg.f90'
   parameter (NWAVE=NN*NSPS)
  
   character*37 msg,msgsent
+  character*77 c77
   character*9 comment
   character bad*1,msgtype*18
   integer itone(NN)
-  integer*1 msgbits(77),codeword(174)
+  integer*1 msgbits(77),rvec(77),codeword(174)
+  data rvec/0,1,0,0,1,0,1,0,0,1,0,1,1,1,1,0,1,0,0,0,1,0,0,1,1,0,1,1,0, &
+            1,0,0,1,0,1,1,0,0,0,0,1,0,0,0,1,0,1,0,0,1,1,1,1,0,0,1,0,1, &
+            0,1,0,1,0,1,1,0,1,1,1,1,1,0,0,0,1,0,1/
 
 ! Get command-line argument(s)
   nargs=iargc()
   if(nargs.ne.1 .and. nargs.ne.3) then
      print*
-     print*,'Program ft8code:  Provides examples of message packing, ',       &
+     print*,'Program ft4code:  Provides examples of message packing, ',       &
           'LDPC(174,91) encoding,'
-     print*,'bit and symbol ordering, and other details of the FT8 protocol.'
+     print*,'bit and symbol ordering, and other details of the FT4 protocol.'
      print*
-     print*,'Usage: ft8code [-c grid] "message"  # Results for specified message'
-     print*,'       ft8code -t                   # Examples of all message types'
+     print*,'Usage: ft4code [-c grid] "message"  # Results for specified message'
+     print*,'       ft4code -t                   # Examples of all message types'
      go to 999
   endif
 
@@ -44,7 +48,8 @@ program ft8code
 ! Generate msgsent, msgbits, and itone
      i3=-1
      n3=-1
-     call genft8(msg,i3,n3,msgsent,msgbits,itone)
+     call pack77(msg,i3,n3,c77)
+     call genft4(msg,0,msgsent,msgbits,itone)
      call encode174_91(msgbits,codeword)
      msgtype=""
      if(i3.eq.0) then
@@ -75,16 +80,20 @@ program ft8code
   enddo
 
   if(nmsg.eq.1) then
-     write(*,1030) msgbits
-1030 format(/'Source-encoded message, 77 bits: ',/77i1)
-     write(*,1031) codeword(78:91)
-1031 format(/'14-bit CRC: ',/14i1)
-     write(*,1032) codeword(92:174)
-1032 format(/'83 Parity bits: ',/83i1)     
-     write(*,1034) itone
-1034 format(/'Channel symbols (79 tones):'/                            &
-          '  Sync ',14x,'Data',15x,'Sync',15x,'Data',15x,'Sync'/        &
-           7i1,1x,29i1,1x,7i1,1x,29i1,1x,7i1)
+     write(*,1030) ieor(msgbits,rvec)
+1030 format(/'Source-encoded message before XOR(), 77 bits: ',/77i1)
+     write(*,1031) msgbits
+1031 format(/'Source-encoded message after XOR(), 77 bits: ',/77i1)
+     write(*,1032) codeword(78:91)
+1032 format(/'14-bit CRC: ',/14i1)
+     write(*,1033) codeword(92:174)
+1033 format(/'83 Parity bits: ',/83i1)     
+     write(*,1034) 0,itone,0
+1034 format(/'Channel symbols (105 tones):'/                            &
+          'R Sync',13x,'Data',13x,                                      &
+          ' Sync',13x,'Data',13x,                                       &
+          ' Sync',13x,'Data',13x,' Sync R'/                             &
+          i1,1x,4i1,1x,29i1,1x,4i1,1x,29i1,1x,4i1,1x,29i1,1x,4i1,i2)
   endif
 
-999 end program ft8code
+999 end program ft4code
