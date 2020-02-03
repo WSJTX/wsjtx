@@ -31,12 +31,12 @@
     auto const& me = mo.enumerator (mo.indexOfEnumerator (#ENUM)); \
     if (buffer)								\
       {									\
-	v = static_cast<CLASS::ENUM> (me.keyToValue (buffer, &ok));	\
-	delete [] buffer;						\
+        v = static_cast<CLASS::ENUM> (me.keyToValue (buffer, &ok));	\
+        delete [] buffer;                                           \
       }									\
     if (!ok)								\
       {									\
-	v = static_cast<CLASS::ENUM> (me.value (0));			\
+        v = static_cast<CLASS::ENUM> (me.value (0));  \
       }									\
     return is;								\
   }
@@ -78,6 +78,12 @@ public:
   }
 };
 
+#if QT_VERSION < QT_VERSION_CHECK (5, 14, 0)
+// The Qt  devs "fixed" this  in 5.14 to  specialize to use  their own
+// qHash(), it doesn't  fix the problem we were  addressing as qHash()
+// returns a  uint so is  still a  poorly distributed 32-bit  value on
+// 64-bit platforms, but  we can't specialize ourselves  as Qt already
+// has - sigh.
 namespace std
 {
   // std::hash<> specialization for QString based on the dbj2
@@ -97,6 +103,7 @@ namespace std
     }
   };
 }
+#endif
 
 // Register some useful Qt types with QMetaType
 Q_DECLARE_METATYPE (QHostAddress);
