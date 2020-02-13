@@ -534,6 +534,7 @@ set (wsjt_FSRCS
   lib/77bit/my_hash.f90
   lib/wsprd/osdwspr.f90
   lib/ft8/osd174_91.f90
+  lib/osd128_90.f90
   lib/pctile.f90
   lib/peakdt9.f90
   lib/peakup.f90

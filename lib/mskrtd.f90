@@ -45,6 +45,7 @@ subroutine mskrtd(id2,nutc0,tsec,ntol,nrxfreq,ndepth,mycall,mygrid,hiscall,   &
   logical*1 seenb4
   logical*1 bflag
   logical*1 bvar
+  logical*1 doosd
  
   data first/.true./
   data iavpatterns/ &
@@ -143,6 +144,7 @@ subroutine mskrtd(id2,nutc0,tsec,ntol,nrxfreq,ndepth,mycall,mygrid,hiscall,   &
   npat=NPATTERNS
   if( ndepth .eq. 1 ) npat=0
   if( ndepth .eq. 2 ) npat=2
+  if( ntol .le. 50 ) doosd = .true.
   do iavg=1,npat
      iavmask=iavpatterns(1:8,iavg)
      navg=sum(iavmask)
@@ -158,7 +160,7 @@ subroutine mskrtd(id2,nutc0,tsec,ntol,nrxfreq,ndepth,mycall,mygrid,hiscall,   &
            if(is.eq.2) ic0=max(1,ic0-1)
            if(is.eq.3) ic0=min(NSPM,ic0+1)
            ct=cshift(c,ic0-1)
-           call msk144decodeframe(ct,softbits,msgreceived,ndecodesuccess)
+           call msk144decodeframe(ct,softbits,msgreceived,ndecodesuccess,doosd)
            if(ndecodesuccess .gt. 0) then
               tdec=tsec+xmc(iavg)*tframe
               goto 900

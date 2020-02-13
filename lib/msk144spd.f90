@@ -31,6 +31,7 @@ subroutine msk144spd(cbig,n,ntol,nsuccess,msgreceived,fc,fret,tret,navg,ct,   &
   real tpat(NPATTERNS)
   real*8 dt, df, fs, pi, twopi
   logical first
+  logical doosd
   data first/.true./
   data navpatterns/ &
        0,1,0, &
@@ -43,6 +44,7 @@ subroutine msk144spd(cbig,n,ntol,nsuccess,msgreceived,fc,fret,tret,navg,ct,   &
 
   save df,first,fs,pi,twopi,dt,tframe,rcw
 
+  if( ntol .le. 50 ) doosd = .true.
   if(first) then
      nmatchedfilter=1
 ! define half-sine pulse and raised-cosine edge window
@@ -179,7 +181,7 @@ subroutine msk144spd(cbig,n,ntol,nsuccess,msgreceived,fc,fret,tret,navg,ct,   &
           if( is.eq.2) ic0=max(1,ic0-1)
           if( is.eq.3) ic0=min(NSPM,ic0+1)
           ct=cshift(c,ic0-1)
-          call msk144decodeframe(ct,softbits,msgreceived,ndecodesuccess)
+          call msk144decodeframe(ct,softbits,msgreceived,ndecodesuccess,doosd)
           if( ndecodesuccess .gt. 0 ) then
             tret=(nstart(icand)+NSPM/2)/fs
             fret=fest
