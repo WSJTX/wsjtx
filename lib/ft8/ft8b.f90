@@ -1,6 +1,7 @@
-subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,lapon,lapcqonly,    &
-     napwid,lsubtract,nagain,ncontest,iaptype,mycall12,hiscall12,             &
-     sync0,f1,xdt,xbase,apsym,aph10,nharderrors,dmin,nbadcrc,ipass,iera,msg37,xsnr)  
+subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,nzhsym,lapon,     &
+     lapcqonly,napwid,lsubtract,nagain,ncontest,iaptype,mycall12,hiscall12, &
+     sync0,f1,xdt,xbase,apsym,aph10,nharderrors,dmin,nbadcrc,ipass,iera,    &
+     msg37,xsnr,itone)
 
   use crc
   use timer_module, only: timer
@@ -236,7 +237,8 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,lapon,lapcqonly,    &
   else
      npasses=3
   endif
-
+  if(nzhsym.lt.50) npasses=1
+  
   do ipass=1,npasses 
      llrd=llra
      if(ipass.eq.2) llrd=llrb
@@ -405,7 +407,10 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,lapon,lapcqonly,    &
      endif
      nbadcrc=0  ! If we get this far: valid codeword, valid (i3,n3), nonquirky message.
      call get_ft8_tones_from_77bits(message77,itone)
-     if(lsubtract) call subtractft8(dd0,itone,f1,xdt) 
+     if(lsubtract) call subtractft8(dd0,itone,f1,xdt)
+!     write(*,3001) nzhsym,npasses,nqsoprogress,ipass,iaptype,lsubtract,   &
+!          f1,xdt,msg37(1:22); flush(6)
+!3001 format('A',5i3,L3,f7.1,f7.2,2x,a22)
      xsig=0.0
      xnoi=0.0
      do i=1,79

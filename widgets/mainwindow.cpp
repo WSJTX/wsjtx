@@ -1411,7 +1411,7 @@ void MainWindow::dataSink(qint64 frames)
     m_dialFreqRxWSPR=m_freqNominal;
   }
 
-  if(m_ihsym == m_hsymStop) {
+  if(m_ihsym==m_hsymStop or (m_mode=="FT8" and m_ihsym==m_earlyDecode and !m_diskData)) {
     if(m_mode=="Echo") {
       float snr=0;
       int nfrit=0;
@@ -1448,9 +1448,11 @@ void MainWindow::dataSink(qint64 frames)
     dec_data.params.newdat=1;
     dec_data.params.nagain=0;
     dec_data.params.nzhsym=m_hsymStop;
+    if(m_mode=="FT8" and m_ihsym==m_earlyDecode and !m_diskData) dec_data.params.nzhsym=m_earlyDecode;
     QDateTime now {QDateTime::currentDateTimeUtc ()};
     m_dateTime = now.toString ("yyyy-MMM-dd hh:mm");
     if(!m_mode.startsWith ("WSPR")) decode(); //Start decoder
+    if(m_mode=="FT8" and m_ihsym==m_earlyDecode and !m_diskData) return;
 
     if(!m_diskData) {                        //Always save; may delete later
       if(m_mode=="FT8" or m_mode=="FT4") {
@@ -1458,8 +1460,6 @@ void MainWindow::dataSink(qint64 frames)
         if(n<(m_TRperiod/2)) n=n+m_TRperiod;
         auto const& period_start=now.addSecs(-n);
         m_fnameWE=m_config.save_directory().absoluteFilePath (period_start.toString("yyMMdd_hhmmss"));
-//        qDebug() << "datasink 2" << QDateTime::currentDateTimeUtc().toString("ss.zzz")
-//                 << n << period_start.toString("ss.zzz");
       } else {
         auto const& period_start = now.addSecs (-(now.time ().minute () % (int(m_TRperiod) / 60)) * 60);
         m_fnameWE=m_config.save_directory ().absoluteFilePath (period_start.toString ("yyMMdd_hhmm"));
@@ -2843,6 +2843,8 @@ void MainWindow::decode()                                       //decode()
     if(m_mode=="ISCAT" or m_mode=="MSK144" or m_bFast9 or m_mode=="FT8" or m_mode=="FT4") {
       qint64 ms=1000.0*(2.0-m_TRperiod);
       if(m_mode=="FT4") ms=1000.0*(2.0-m_TRperiod);
+      //Adjust for FT8 early decode:
+      if(m_mode=="FT8" and m_ihsym==m_earlyDecode and !m_diskData) ms+=(m_hsymStop-m_earlyDecode)*288;
       QDateTime t=QDateTime::currentDateTimeUtc().addMSecs(ms);
       ihr=t.toString("hh").toInt();
       imin=t.toString("mm").toInt();
@@ -2983,6 +2985,7 @@ void MainWindow::decode()                                       //decode()
   } else {
     memcpy(to, from, qMin(mem_jt9->size(), size));
     QFile {m_config.temp_dir ().absoluteFilePath (".lock")}.remove (); // Allow jt9 to start
+//    qDebug() << "aa" << QDateTime::currentDateTimeUtc().toString("hh:mm:ss.s") << m_ihsym;
     decodeBusy(true);
   }
 }
@@ -3041,6 +3044,7 @@ void MainWindow::decodeDone ()
   decodeBusy(false);
   m_RxLog=0;
   m_blankLine=true;
+  if(m_mode=="FT8" and dec_data.params.nzhsym==m_earlyDecode) m_blankLine=false;
   if(SpecOp::FOX == m_config.special_op_id()) houndCallers();
 }
 
@@ -3048,6 +3052,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
 {
   while(proc_jt9.canReadLine()) {
     auto line_read = proc_jt9.readLine ();
+//    qDebug() << "cc" << line_read;
     if (auto p = std::strpbrk (line_read.constData (), "\n\r"))
       {
         // truncate before line ending chars

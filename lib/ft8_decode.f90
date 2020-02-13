@@ -33,14 +33,14 @@ module ft8_decode
 contains
 
   subroutine decode(this,callback,iwave,nQSOProgress,nfqso,nftx,newdat,  &
-       nutc,nfa,nfb,ndepth,ncontest,nagain,lft8apon,lapcqonly, &
+       nutc,nfa,nfb,nzhsym,ndepth,ncontest,nagain,lft8apon,lapcqonly,    &
        napwid,mycall12,hiscall12,hisgrid6)
     use timer_module, only: timer
     include 'ft8/ft8_params.f90'
 
     class(ft8_decoder), intent(inout) :: this
     procedure(ft8_decode_callback) :: callback
-    parameter (MAXCAND=300)
+    parameter (MAXCAND=300,MAX_EARLY=100)
     real s(NH1,NHSYM)
     real sbase(NH1)
     real candidate(3,MAXCAND)
@@ -55,7 +55,12 @@ contains
 !   character message*22
     character*37 allmessages(100)
     integer allsnrs(100)
-    save s,dd
+    integer itone(NN)
+    integer itone_save(NN,MAX_EARLY)
+    real f1_save(MAX_EARLY)
+    real xdt_save(MAX_EARLY)
+
+    save s,dd,ndec_early,itone_save,f1_save,xdt_save
 
     this%callback => callback
     write(datetime,1001) nutc        !### TEMPORARY ###
@@ -63,9 +68,18 @@ contains
 
     call ft8apset(mycall12,hiscall12,ncontest,apsym2,aph10)
     dd=iwave
-    ndecodes=0
-    allmessages='                                     '
-    allsnrs=0
+    if(nzhsym.lt.50) then
+       ndecodes=0
+       allmessages='                                     '
+       allsnrs=0
+    else
+       ndecodes=ndec_early
+    endif
+    if(nhsym.eq.50 .and. ndec_early.ge.1) then
+       do i=1,ndec_early
+          call subtractft8(dd,itone_save(1,i),f1_save(i),xdt_save(i))
+       enddo
+    endif
     ifa=nfa
     ifb=nfb
     if(nagain) then
@@ -104,10 +118,10 @@ contains
         xdt=candidate(2,icand)
         xbase=10.0**(0.1*(sbase(nint(f1/3.125))-40.0))
         call timer('ft8b    ',0)
-        call ft8b(dd,newdat,nQSOProgress,nfqso,nftx,ndepth,lft8apon,      &
+        call ft8b(dd,newdat,nQSOProgress,nfqso,nftx,ndepth,nzhsym,lft8apon, &
              lapcqonly,napwid,lsubtract,nagain,ncontest,iaptype,mycall12,   &
              hiscall12,sync,f1,xdt,xbase,apsym2,aph10,nharderrors,dmin,     &
-             nbadcrc,iappass,iera,msg37,xsnr)
+             nbadcrc,iappass,iera,msg37,xsnr,itone)
         call timer('ft8b    ',1)
         nsnr=nint(xsnr) 
         xdt=xdt-0.5
@@ -121,6 +135,9 @@ contains
               ndecodes=ndecodes+1
               allmessages(ndecodes)=msg37
               allsnrs(ndecodes)=nsnr
+              f1_save(ndecodes)=f1
+              xdt_save(ndecodes)=xdt
+              itone_save(1:NN,ndecodes)=itone
            endif
 !           write(81,1004) nutc,ncand,icand,ipass,iaptype,iappass,        &
 !                nharderrors,dmin,hd,min(sync,999.0),nint(xsnr),          &
@@ -133,8 +150,11 @@ contains
            endif
         endif
       enddo
-  enddo
+   enddo
+   ndec_early=0
+   if(nzhsym.lt.50) ndec_early=ndecodes
+   
   return
-  end subroutine decode
+end subroutine decode
 
 end module ft8_decode

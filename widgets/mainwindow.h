@@ -467,6 +467,7 @@ private:
   qint32  m_nFoxFreq;          //Audio freq at which Hound received a call from Fox
   qint32  m_nSentFoxRrpt=0;    //Serial number for next R+rpt Hound will send to Fox
   qint32  m_kin0=0;
+  qint32  m_earlyDecode=35;
 
   bool    m_btxok;		//True if OK to transmit
   bool    m_diskData;

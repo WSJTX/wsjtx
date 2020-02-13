@@ -105,7 +105,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
      newdat=params%newdat
      call my_ft8%decode(ft8_decoded,id2,params%nQSOProgress,params%nfqso,    &
           params%nftx,newdat,params%nutc,params%nfa,params%nfb,              &
-          params%ndepth,ncontest,logical(params%nagain),                     &
+          params%nzhsym,params%ndepth,ncontest,logical(params%nagain),       &
           logical(params%lft8apon),logical(params%lapcqonly),                &
           params%napwid,mycall,hiscall,hisgrid)
      call timer('decft8  ',1)
