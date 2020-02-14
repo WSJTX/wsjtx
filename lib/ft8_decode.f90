@@ -75,7 +75,7 @@ contains
     else
        ndecodes=ndec_early
     endif
-    if(nhsym.eq.50 .and. ndec_early.ge.1) then
+    if(nzhsym.eq.50 .and. ndec_early.ge.1) then
        do i=1,ndec_early
           call subtractft8(dd,itone_save(1,i),f1_save(i),xdt_save(i))
        enddo
@@ -136,7 +136,7 @@ contains
               allmessages(ndecodes)=msg37
               allsnrs(ndecodes)=nsnr
               f1_save(ndecodes)=f1
-              xdt_save(ndecodes)=xdt
+              xdt_save(ndecodes)=xdt+0.5
               itone_save(1:NN,ndecodes)=itone
            endif
 !           write(81,1004) nutc,ncand,icand,ipass,iaptype,iappass,        &
