@@ -129,7 +129,8 @@ contains
         if(nbadcrc.eq.0) then
            ldupe=.false.
            do id=1,ndecodes
-              if(msg37.eq.allmessages(id).and.nsnr.le.allsnrs(id)) ldupe=.true.
+!              if(msg37.eq.allmessages(id).and.nsnr.le.allsnrs(id)) ldupe=.true.
+              if(msg37.eq.allmessages(id)) ldupe=.true.
            enddo
            if(.not.ldupe) then
               ndecodes=ndecodes+1
