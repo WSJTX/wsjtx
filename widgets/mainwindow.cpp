@@ -8746,7 +8746,7 @@ void MainWindow::write_all(QString txRx, QString message)
   t.sprintf("%5d",ui->TxFreqSpinBox->value());
   if (txRx=="Tx") msg="   0  0.0" + t + " " + message;
   auto time = QDateTime::currentDateTimeUtc ();
-  time = time.addSecs(-fmod(double(time.time().second()),m_TRperiod));
+  time = time.addSecs(-fmod(double(time.time().second()-0.4*m_TRperiod),m_TRperiod));
   t.sprintf("%10.3f ",m_freqNominal/1.e6);
   if (m_diskData) {
     if (m_fileDateTime.size()==11) {
