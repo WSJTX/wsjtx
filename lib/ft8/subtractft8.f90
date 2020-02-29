@@ -41,19 +41,24 @@ subroutine subtractft8(dd0,itone,f0,dt,ldt)
   call gen_ft8wave(itone,79,1920,2.0,12000.0,f0,cref,xjunk,1,NFRAME)
 
   if(ldt) then                         !Are we refining DT ?
-     sqa=sqf(-300)
-     sqb=sqf(300)
-     sq0=sqf(0)                        !Do the subtraction with idt=0
-     call peakup(sqa,sq0,sqb,dx)
-     if(abs(dx).gt.1.0) return         !No acceptable minimum: do not subtract
-     i1=nint(300.0*dx)                 !First approximation of best idt
-     sqa=sqf(i1-60)
-     sqb=sqf(i1+60)
+!     sqa=sqf(-300)
+!     sqb=sqf(300)
+!     sq0=sqf(0)                        !Do the subtraction with idt=0
+!     call peakup(sqa,sq0,sqb,dx)
+!     if(abs(dx).gt.1.0) return         !No acceptable minimum: do not subtract
+!     i1=nint(300.0*dx)                 !First approximation of best idt
+i1=0
+!     sqa=sqf(i1-60)
+!     sqb=sqf(i1+60)
+     sqa=sqf(i1-90)
+     sqb=sqf(i1+90)
      sq0=sqf(i1)
      call peakup(sqa,sq0,sqb,dx)
      if(abs(dx).gt.1.0) return         !No acceptable minimum: do not subtract
-     i2=nint(60.0*dx) + i1             !Best estimate of idt
+!     i2=nint(60.0*dx) + i1             !Best estimate of idt
+     i2=nint(90.0*dx) + i1             !Best estimate of idt
      sq0=sqf(i2)                       !Do the subtraction with idt=i2
+!write(*,*) 'subtract - i2= ',i2,dt
   else
      sq0=sqf(0)                        !Do the subtraction with idt=0
   endif

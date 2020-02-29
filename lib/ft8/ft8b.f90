@@ -17,6 +17,7 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,nzhsym,lapon,     &
   real bmeta(174),bmetb(174),bmetc(174),bmetd(174)
   real llra(174),llrb(174),llrc(174),llrd(174),llrz(174)           !Soft symbols
   real dd0(15*12000)
+  real ss(9)
   integer*1 message77(77),apmask(174),cw(174)
   integer apsym(58),aph10(10)
   integer mcq(29),mcqru(29),mcqfd(29),mcqtest(29),mcqww(29)
@@ -28,6 +29,7 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,nzhsym,lapon,     &
   integer ncontest,ncontest0
   logical one(0:511,0:8)
   integer graymap(0:7)
+  integer iloc(1)
   complex cd0(0:3199)
   complex ctwk(32)
   complex csymb(32)
@@ -106,17 +108,15 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,nzhsym,lapon,     &
 
   i0=nint((xdt+0.5)*fs2)                   !Initial guess for start of signal
   smax=0.0
-  do idt=i0-8,i0+8                         !Search over +/- one quarter symbol
+  do idt=i0-10,i0+10                         !Search over +/- one quarter symbol
      call sync8d(cd0,idt,ctwk,0,sync)
      if(sync.gt.smax) then
         smax=sync
         ibest=idt
      endif
   enddo
-  xdt2=ibest*dt2                           !Improved estimate for DT
 
 ! Now peak up in frequency
-  i0=nint(xdt2*fs2)
   smax=0.0
   do ifr=-5,5                              !Search over +/- 2.5 Hz
     delf=ifr*0.5
@@ -126,7 +126,7 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,nzhsym,lapon,     &
       ctwk(i)=cmplx(cos(phi),sin(phi))
       phi=mod(phi+dphi,twopi)
     enddo
-    call sync8d(cd0,i0,ctwk,1,sync)
+    call sync8d(cd0,ibest,ctwk,1,sync)
     if( sync .gt. smax ) then
       smax=sync
       delfbest=delf
@@ -135,9 +135,22 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,nzhsym,lapon,     &
   a=0.0
   a(1)=-delfbest
   call twkfreq1(cd0,NP2,fs2,a,cd0)
-  xdt=xdt2
   f1=f1+delfbest                           !Improved estimate of DF
-  call sync8d(cd0,i0,ctwk,0,sync)
+
+  call timer('ft8_down',0)
+  call ft8_downsample(dd0,.false.,f1,cd0)   !Mix f1 to baseband and downsample
+  call timer('ft8_down',1)
+
+  smax=0.0
+  do idt=-4,4                         !Search over +/- one quarter symbol
+     call sync8d(cd0,ibest+idt,ctwk,0,sync)
+     ss(idt+5)=sync
+  enddo
+  smax=maxval(ss)
+  iloc=maxloc(ss)
+  ibest=iloc(1)-5+ibest
+  xdt=(ibest-1)*dt2
+  sync=smax
 
   do k=1,NN
     i1=ibest+(k-1)*32
@@ -421,7 +434,7 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,nzhsym,lapon,     &
      if(lsubtract) call subtractft8(dd0,itone,f1,xdt,.false.)
 !     write(21,3001) nzhsym,npasses,nqsoprogress,ipass,iaptype,lsubtract,   &
 !          f1,xdt,msg37(1:22); flush(21)
-!3001 format(5i3,L3,f7.1,f7.2,2x,a22)
+!3001 format(5i3,L3,f7.1,f9.4,2x,a22)
      xsig=0.0
      xnoi=0.0
      do i=1,79

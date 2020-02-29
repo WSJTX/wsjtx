@@ -106,7 +106,7 @@ subroutine sync8(dd,nfa,nfb,syncmin,nfqso,maxcand,s,candidate,   &
      if(red(n).lt.syncmin.or.isnan(red(n)).or.k.eq.maxcand) exit
      k=k+1
      candidate0(1,k)=n*df
-     candidate0(2,k)=(jpeak(n)-1)*tstep
+     candidate0(2,k)=(jpeak(n)-0.5)*tstep
      candidate0(3,k)=red(n)
   enddo
   ncand=k
@@ -144,5 +144,6 @@ subroutine sync8(dd,nfa,nfb,syncmin,nfqso,maxcand,s,candidate,   &
      endif
   enddo
   ncand=k-1
+
   return
 end subroutine sync8
