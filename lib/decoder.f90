@@ -40,6 +40,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   character(len=20) :: datetime
   character(len=12) :: mycall, hiscall
   character(len=6) :: mygrid, hisgrid
+  data ndec8/0/
   save
   type(counting_jt4_decoder) :: my_jt4
   type(counting_jt65_decoder) :: my_jt65
@@ -276,6 +277,11 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
 ! JT65 is not yet producing info for nsynced, ndecoded.
 800 ndecoded = my_jt4%decoded + my_jt65%decoded + my_jt9%decoded +       &
          my_ft8%decoded + my_ft4%decoded
+  if(params%nmode.eq.8 .and. params%nzhsym.lt.48) ndec8=ndec8+ndecoded
+  if(params%nmode.eq.8 .and. params%nzhsym.ge.48) then
+     ndecoded=ndec8+ndecoded
+     ndec8=0
+  endif
   if(params%nmode.ne.8 .or. params%nzhsym.ge.48 .or.                     &
        .not.params%ndiskdat) then
      write(*,1010) nsynced,ndecoded
