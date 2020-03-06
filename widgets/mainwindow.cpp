@@ -3074,8 +3074,15 @@ void MainWindow::readFromStdout()                             //readFromStdout
 //      qDebug() << "bb" << QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz") << line_read;
       if(m_mode=="QRA64") m_wideGraph->drawRed(0,0);
       m_bDecoded = line_read.mid(20).trimmed().toInt() > 0;
-      int mswait=750.0*m_TRperiod;
-      if(!m_diskData) killFileTimer.start(mswait); //Kill in 3/4 period
+      auto tnow = QDateTime::currentDateTimeUtc ();
+      double tdone = fmod(double(tnow.time().second()),m_TRperiod);
+      int mswait;
+      if( tdone < 0.5*m_TRperiod ) {
+        mswait = 1000.0 * ( 0.75 * m_TRperiod - tdone );
+      } else {
+        mswait = 1000.0 * ( 1.75 * m_TRperiod - tdone );
+      }
+      if(!m_diskData) killFileTimer.start(mswait); //Kill at 3/4 period
       decodeDone ();
       m_startAnother=m_loopall;
       if(m_bNoMoreFiles) {
