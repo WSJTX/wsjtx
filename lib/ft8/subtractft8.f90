@@ -8,10 +8,11 @@ subroutine subtractft8(dd0,itone,f0,dt,lrefinedt)
 ! Subtract         : dd(t)    = dd(t) - 2*REAL{cref*cfilt}
 
   parameter (NMAX=15*12000,NFRAME=1920*79)
-  parameter (NFFT=NMAX,NFILT=2800)
+  parameter (NFFT=NMAX,NFILT=4000)
   real dd(NMAX),dd0(NMAX)
   real window(-NFILT/2:NFILT/2)
   real x(NFFT+2)
+  real endcorrection(NFILT/2+1)
   complex cx(0:NFFT/2)
   complex cref,camp,cfilt,cw,z
   integer itone(79)
@@ -19,7 +20,7 @@ subroutine subtractft8(dd0,itone,f0,dt,lrefinedt)
   data first/.true./
   common/heap8/cref(NFRAME),camp(NMAX),cfilt(NMAX),cw(NMAX)
   equivalence (x,cx)
-  save first,/heap8/
+  save first,/heap8/,endcorrection
 
   if(first) then                         ! Create and normalize the filter
      pi=4.0*atan(1.0)
@@ -35,6 +36,9 @@ subroutine subtractft8(dd0,itone,f0,dt,lrefinedt)
      call four2a(cw,nfft,1,-1,1)
      cw=cw*fac
      first=.false.
+     do j=1,NFILT/2+1
+       endcorrection(j)=1.0/(1.0-sum(window(j-1:NFILT/2))/sumw)
+     enddo
   endif
 
 ! Generate complex reference waveform cref
@@ -72,7 +76,8 @@ contains
     call four2a(cfilt,nfft,1,-1,1)
     cfilt(1:nfft)=cfilt(1:nfft)*cw(1:nfft)
     call four2a(cfilt,nfft,1,1,1)
-
+    cfilt(1:NFILT/2+1)=cfilt(1:NFILT/2+1)*endcorrection
+    cfilt(nframe:nframe-NFILT/2:-1)=cfilt(nframe:nframe-NFILT/2:-1)*endcorrection
     x=0.
     do i=1,nframe
        j=nstart+i-1

@@ -115,8 +115,8 @@ contains
     if(ndepth.eq.1) npass=1
     if(ndepth.ge.2) npass=3
     do ipass=1,npass
-      newdat=.true.  ! Is this a problem? I hijacked newdat.
-      syncmin=1.5
+      newdat=.true.
+      syncmin=1.3
       if(ipass.eq.1) then
         lsubtract=.true.
         if(ndepth.eq.1) lsubtract=.false.
@@ -126,7 +126,7 @@ contains
         lsubtract=.true.
       elseif(ipass.eq.3) then
         if((ndecodes-n2).eq.0) cycle
-        lsubtract=.false. 
+        lsubtract=.true. 
       endif 
       call timer('sync8   ',0)
       maxc=MAXCAND

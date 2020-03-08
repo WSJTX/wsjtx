@@ -37,7 +37,6 @@ subroutine sync8(dd,nfa,nfb,syncmin,nfqso,maxcand,s,candidate,   &
      enddo
      savg=savg + s(1:NH1,j)                   !Average spectrum
   enddo
-!  call baseline(savg,nfa,nfb,sbase)
   call get_spectrum_baseline(dd,nfa,nfb,sbase)
 
   ia=max(1,nint(nfa/df))
@@ -129,14 +128,13 @@ subroutine sync8(dd,nfa,nfb,syncmin,nfqso,maxcand,s,candidate,   &
   s=fac*s
 
 ! Sort by sync
-!  call indexx(candidate0(3,1:ncand),ncand,indx)
+  call indexx(candidate0(3,1:ncand),ncand,indx)
 ! Sort by frequency 
-  call indexx(candidate0(1,1:ncand),ncand,indx)
+!  call indexx(candidate0(1,1:ncand),ncand,indx)
   k=1
-!  do i=ncand,1,-1
-  do i=1,ncand
+  do i=ncand,1,-1
+!  do i=1,ncand
      j=indx(i)
-!     if( candidate0(3,j) .ge. syncmin .and. candidate0(2,j).ge.-1.5 ) then
      if( candidate0(3,j) .ge. syncmin ) then
        candidate(2:3,k)=candidate0(2:3,j)
        candidate(1,k)=abs(candidate0(1,j))
