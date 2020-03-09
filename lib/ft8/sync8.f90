@@ -2,6 +2,7 @@ subroutine sync8(dd,nfa,nfb,syncmin,nfqso,maxcand,s,candidate,   &
      ncand,sbase)
 
   include 'ft8_params.f90'
+  parameter (MAXPRECAND=500)
 ! Search over +/- 2.5s relative to 0.5s TX start time. 
   parameter (JZ=62)                        
   complex cx(0:NH1)
@@ -11,7 +12,7 @@ subroutine sync8(dd,nfa,nfb,syncmin,nfqso,maxcand,s,candidate,   &
   real x(NFFT1)
   real sync2d(NH1,-JZ:JZ)
   real red(NH1)
-  real candidate0(3,maxcand)
+  real candidate0(3,MAXPRECAND)
   real candidate(3,maxcand)
   real dd(NMAX)
   integer jpeak(NH1)
@@ -100,9 +101,9 @@ subroutine sync8(dd,nfa,nfb,syncmin,nfqso,maxcand,s,candidate,   &
   base=red(ibase)
   red=red/base
 
-  do i=1,min(maxcand,iz)
+  do i=1,min(MAXPRECAND,iz)
      n=ia + indx(iz+1-i) - 1
-     if(red(n).lt.syncmin.or.isnan(red(n)).or.k.eq.maxcand) exit
+     if(red(n).lt.syncmin.or.isnan(red(n)).or.k.eq.MAXPRECAND) exit
      k=k+1
      candidate0(1,k)=n*df
      candidate0(2,k)=(jpeak(n)-0.5)*tstep
@@ -110,9 +111,8 @@ subroutine sync8(dd,nfa,nfb,syncmin,nfqso,maxcand,s,candidate,   &
   enddo
   ncand=k
 
-! Put nfqso at top of list, and save only the best of near-dupe freqs.  
+! Save only the best of near-dupe freqs.  
   do i=1,ncand
-     if(abs(candidate0(1,i)-nfqso).lt.10.0) candidate0(1,i)=-candidate0(1,i)
      if(i.ge.2) then
         do j=1,i-1
            fdiff=abs(candidate0(1,i))-abs(candidate0(1,j))
@@ -123,22 +123,28 @@ subroutine sync8(dd,nfa,nfb,syncmin,nfqso,maxcand,s,candidate,   &
         enddo
      endif
   enddo
-  
   fac=20.0/maxval(s)
   s=fac*s
 
 ! Sort by sync
   call indexx(candidate0(3,1:ncand),ncand,indx)
-! Sort by frequency 
-!  call indexx(candidate0(1,1:ncand),ncand,indx)
+! Place candidates within 10 Hz of nfqso at the top of the list
   k=1
+  do i=1,ncand
+    if( abs( candidate0(1,i)-nfqso ).le.10.0 .and. candidate0(3,i).ge.syncmin ) then
+      candidate(1:3,k)=candidate0(1:3,i)
+      candidate0(3,i)=0.0
+      k=k+1
+    endif
+  enddo
+ 
   do i=ncand,1,-1
-!  do i=1,ncand
      j=indx(i)
      if( candidate0(3,j) .ge. syncmin ) then
        candidate(2:3,k)=candidate0(2:3,j)
        candidate(1,k)=abs(candidate0(1,j))
        k=k+1
+       if(k.gt.maxcand) exit
      endif
   enddo
   ncand=k-1
