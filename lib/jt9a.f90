@@ -23,6 +23,7 @@ subroutine jt9a()
   type(dec_data), pointer :: shared_data
   type(params_block) :: local_params
   logical fileExists
+  volatile shared_data
 
 ! Multiple instances:
   i0 = len(trim(shm_key))
@@ -78,6 +79,7 @@ subroutine jt9a()
   endif
 ! Normal decoding pass
   call multimode_decoder(shared_data%ss,shared_data%id2,local_params,12000)
+!  print*,'AAA',shared_data%ss(1,1)
   call timer('decoder ',1)
 
 100 inquire(file=trim(temp_dir)//'/.lock',exist=fileExists)

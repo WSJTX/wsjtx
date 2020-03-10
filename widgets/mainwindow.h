@@ -759,8 +759,7 @@ private:
   qint64  nWidgets(QString t);
   void displayWidgets(qint64 n);
   void vhfWarning();
-  QChar current_submode () const; // returns QChar {0} if sub mode is
-                                  // not appropriate
+  QChar current_submode () const; // returns QChar {0} if submode is not appropriate
   void write_transmit_entry (QString const& file_name);
   void selectHound(QString t);
   void houndCallers();
@@ -768,6 +767,8 @@ private:
   void foxTxSequencer();
   void foxGenWaveform(int i,QString fm);
   void writeFoxQSO (QString const& msg);
+  void to_jt9(qint32 n);
+  qint32 from_jt9();
 };
 
 extern int killbyname(const char* progName);

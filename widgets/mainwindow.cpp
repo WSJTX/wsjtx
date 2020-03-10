@@ -1411,6 +1411,10 @@ void MainWindow::dataSink(qint64 frames)
     m_dialFreqRxWSPR=m_freqNominal;
   }
 
+  if(m_mode=="FT8") {
+    to_jt9(m_ihsym); //Allow jt9 to bail out early, if necessary
+  }
+
   if(m_ihsym==m_hsymStop or (m_mode=="FT8" and m_ihsym==m_earlyDecode and !m_diskData) or
      (m_mode=="FT8" and m_ihsym==m_earlyDecode2 and !m_diskData)) {
     if(m_mode=="Echo") {
@@ -2079,7 +2083,12 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
         return;
       }
       break;
-    case Qt::Key_PageUp:
+    case Qt::Key_Z:                            //### Recover from hung decode() ?? ###
+      if(e->modifiers() & Qt::AltModifier) {
+        decodeDone();
+        return;
+      }
+    break;    case Qt::Key_PageUp:
 
       break;
     case Qt::Key_PageDown:
@@ -2816,6 +2825,7 @@ void MainWindow::msgAvgDecode2()
 
 void MainWindow::decode()                                       //decode()
 {
+  if(m_decoderBusy) return;                          //Don't start decoder if it's already busy.
   QDateTime now = QDateTime::currentDateTimeUtc ();
   if( m_dateTimeLastTX.isValid () ) {
     qint64 isecs_since_tx = m_dateTimeLastTX.secsTo(now);
@@ -2987,8 +2997,15 @@ void MainWindow::decode()                                       //decode()
         dec_data.params.mycall,dec_data.params.hiscall,8000,12,12)));
   } else {
     memcpy(to, from, qMin(mem_jt9->size(), size));
+    if(m_mode=="FT8") to_jt9(m_ihsym);                     //### TEMPORARY ? ###
     QFile {m_config.temp_dir ().absoluteFilePath (".lock")}.remove (); // Allow jt9 to start
-//    qDebug() << "aa" << QDateTime::currentDateTimeUtc().toString("hh:mm:ss.s") << m_ihsym;
+
+    auto now = QDateTime::currentDateTimeUtc();
+    double tseq = fmod(double(now.toMSecsSinceEpoch() ),1000.0*m_TRperiod)/1000.0;
+    if(tseq < 0.5*m_TRperiod) tseq+= m_TRperiod;
+    if(m_ihsym==41) qDebug() << "";
+    qDebug() << "aa" << QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz")
+             << tseq << m_ihsym << m_ndepth << from_jt9();
     decodeBusy(true);
   }
 }
@@ -3018,7 +3035,6 @@ void::MainWindow::fast_decode_done()
       m_bDecoded=true;
     }
     postDecode (true, decodedtext.string ());
-//    writeAllTxt(message);
     write_all("Rx",message);
 
     if(m_mode=="JT9" or m_mode=="MSK144") {
@@ -3037,6 +3053,19 @@ void::MainWindow::fast_decode_done()
   m_bFastDone=false;
 }
 
+void MainWindow::to_jt9(qint32 n)
+{
+  float ss0=n;
+  memcpy((char*)mem_jt9->data(),&ss0,4);
+//  qDebug() << "cc" << ss0 << "sent to jt9";
+}
+qint32 MainWindow::from_jt9()
+{
+  float ss0;
+  memcpy(&ss0,(char*)mem_jt9->data(),4);
+  return int(ss0);
+}
+
 void MainWindow::decodeDone ()
 {
   dec_data.params.nagain=0;
@@ -3050,7 +3079,12 @@ void MainWindow::decodeDone ()
   if(m_mode=="FT8" and dec_data.params.nzhsym==m_earlyDecode) m_blankLine=false;
   if(m_mode=="FT8" and dec_data.params.nzhsym==m_earlyDecode2) m_blankLine=false;
   if(SpecOp::FOX == m_config.special_op_id()) houndCallers();
-//  qDebug() << "cc" << QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz");
+
+  auto now = QDateTime::currentDateTimeUtc();
+  double tseq = fmod(double(now.toMSecsSinceEpoch() ),1000.0*m_TRperiod)/1000.0;
+  if(tseq < 0.5*m_TRperiod) tseq+= m_TRperiod;
+  qDebug() << "bb" << QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz")
+           << tseq << m_ihsym << from_jt9();
 }
 
 void MainWindow::readFromStdout()                             //readFromStdout

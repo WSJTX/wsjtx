@@ -34,7 +34,7 @@ contains
 
   subroutine decode(this,callback,iwave,nQSOProgress,nfqso,nftx,newdat,  &
        nutc,nfa,nfb,nzhsym,ndepth,ncontest,nagain,lft8apon,lapcqonly,    &
-       napwid,mycall12,hiscall12,hisgrid6)
+       napwid,mycall12,hiscall12,hisgrid6,ss0)
     use timer_module, only: timer
     include 'ft8/ft8_params.f90'
 
@@ -61,6 +61,7 @@ contains
     real xdt_save(MAX_EARLY)
 
     save s,dd,dd1,ndec_early,itone_save,f1_save,xdt_save,lsubtracted
+    volatile ss0
 
     this%callback => callback
     write(datetime,1001) nutc        !### TEMPORARY ###
@@ -171,11 +172,11 @@ contains
               call this%callback(sync,nsnr,xdt,f1,msg37,iaptype,qual)
            endif
         endif
+        if(nint(ss0).eq.45) go to 800         !Bail out before finishing
       enddo
    enddo
-   ndec_early=0
+800 ndec_early=0
    if(nzhsym.lt.50) ndec_early=ndecodes
-!   print*,'BBB',nzhsym,ndecodes
    
 900 return
 end subroutine decode
