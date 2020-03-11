@@ -770,6 +770,10 @@ private:
   void writeFoxQSO (QString const& msg);
   void to_jt9(qint32 n);
   qint32 from_jt9();
+  void pause_jt9 ();
+  void release_jt9 ();
+  void stop_jt9 ();
+  void cleanup_jt9 ();
 };
 
 extern int killbyname(const char* progName);

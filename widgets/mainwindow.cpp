@@ -845,8 +845,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
       }
   }
 
-  //Create .lock so jt9 will wait
-  QFile {m_config.temp_dir ().absoluteFilePath (".lock")}.open(QIODevice::ReadWrite);
+  pause_jt9 ();
 
   QStringList jt9_args {
     "-s", QApplication::applicationName () // shared memory key,
@@ -1037,6 +1036,75 @@ void MainWindow::on_the_minute ()
   else
     {
       tx_watchdog (false);
+    }
+}
+
+void MainWindow::pause_jt9 ()
+{
+  // Create .lock so jt9 will wait
+  QFile l {m_config.temp_dir ().absoluteFilePath (".lock")};
+  if (!l.open(QFile::ReadWrite))
+    {
+      MessageBox::warning_message (this, tr ("Error creating \"%1\" - %2").arg (l.fileName ()).arg (l.errorString ()));
+    }
+}
+
+void MainWindow::release_jt9 ()
+{
+  // Remove .lock so jt9 will continue
+  QFile l {m_config.temp_dir ().absoluteFilePath (".lock")};
+  while (l.exists ())
+    {
+      if (!l.remove ())
+        {
+          MessageBox::query_message (this
+                                     , tr ("Error removing \"%1\" - %2").arg (l.fileName ()).arg (l.errorString ())
+                                     , tr ("Click OK to retry"));
+        }
+    }
+}
+
+void MainWindow::stop_jt9 ()
+{
+  // Create .quit so jt9 will exit
+  QFile q {m_config.temp_dir ().absoluteFilePath (".quit")};
+  while (!q.exists ())
+    {
+      if (!q.open (QFile::ReadWrite))
+        {
+          MessageBox::query_message (this
+                                     , tr ("Error creating \"%1\" - %2").arg (q.fileName ()).arg (q.errorString ())
+                                     , tr ("Click OK to retry"));
+        }
+    }
+  release_jt9 ();
+  if (!proc_jt9.waitForFinished(1000))
+    {
+      proc_jt9.close();
+    }
+  while (q.exists ())
+    {
+      if (!q.remove ())
+        {
+          MessageBox::query_message (this
+                                     , tr ("Error removing \"%1\" - %2").arg (q.fileName ()).arg (q.errorString ())
+                                     , tr ("Click OK to retry"));
+        }
+    }
+}
+
+void MainWindow::cleanup_jt9 ()
+{
+  // Remove .quit as no longer needed
+  QFile l {m_config.temp_dir ().absoluteFilePath (".lock")};
+  while (l.exists ())
+    {
+      if (!l.remove ())
+        {
+          MessageBox::query_message (this
+                                     , tr ("Error removing \"%1\" - %2").arg (l.fileName ()).arg (l.errorString ())
+                                     , tr ("Click OK to retry"));
+        }
     }
 }
 
@@ -2367,12 +2435,7 @@ void MainWindow::closeEvent(QCloseEvent * e)
   int irow=-99;
   plotsave_(&sw,&nw,&nh,&irow);
   mem_jt9->detach();
-  QFile quitFile {m_config.temp_dir ().absoluteFilePath (".quit")};
-  quitFile.open(QIODevice::ReadWrite);
-  QFile {m_config.temp_dir ().absoluteFilePath (".lock")}.remove(); // Allow jt9 to terminate
-  bool b=proc_jt9.waitForFinished(1000);
-  if(!b) proc_jt9.close();
-  quitFile.remove();
+  stop_jt9 ();
   Q_EMIT finished ();
   QMainWindow::closeEvent (e);
 }
@@ -3020,7 +3083,7 @@ void MainWindow::decode()                                       //decode()
       to_jt9(m_ihsym);                //Send m_ihsym to jt9[.exe]
       if(m_ihsym>=m_hsymStop) m_bStart3=true;
     }
-    QFile {m_config.temp_dir ().absoluteFilePath (".lock")}.remove (); // Allow jt9 to start
+    release_jt9 ();
 
     auto now = QDateTime::currentDateTimeUtc();
     double tseq = fmod(double(now.toMSecsSinceEpoch() ),1000.0*m_TRperiod)/1000.0;
@@ -3093,7 +3156,7 @@ void MainWindow::decodeDone ()
   dec_data.params.nagain=0;
   dec_data.params.ndiskdat=0;
   m_nclearave=0;
-  QFile {m_config.temp_dir ().absoluteFilePath (".lock")}.open(QIODevice::ReadWrite);
+  pause_jt9 ();
   ui->DecodeButton->setChecked (false);
   decodeBusy(false);
   m_RxLog=0;
@@ -8118,7 +8181,7 @@ void MainWindow::on_cbMenus_toggled(bool b)
 
 void MainWindow::on_cbCQonly_toggled(bool)
 {
-  QFile {m_config.temp_dir().absoluteFilePath(".lock")}.remove(); // Allow jt9 to start
+  release_jt9 ();
   decodeBusy(true);
 }
 
