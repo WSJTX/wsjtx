@@ -3200,7 +3200,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
     int navg=0;
     if(line_read.indexOf("<DecodeFinished>") >= 0) {
 //       qDebug() << "bb" << QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz") << line_read;
-      m_nDecodes=0;
+      if (dec_data.params.nzhsym==50) m_nDecodes=0;
       if(m_mode=="QRA64") m_wideGraph->drawRed(0,0);
       m_bDecoded =  line_read.mid(20).trimmed().toInt() > 0;
       auto tnow = QDateTime::currentDateTimeUtc ();
