@@ -88,7 +88,7 @@ contains
                   lrefinedt)
              lsubtracted(i)=.true.
           endif
-          if(nzhsym.eq.47 .and. nint(ss0).ge.49) then !Bail out before done
+          if(nint(ss0).ge.49) then !Bail out before done
              call timer('sub_ft8b',1)
              go to 700
           endif
