@@ -34,7 +34,7 @@ contains
 
   subroutine decode(this,callback,iwave,nQSOProgress,nfqso,nftx,newdat,  &
        nutc,nfa,nfb,nzhsym,ndepth,ncontest,nagain,lft8apon,lapcqonly,    &
-       napwid,mycall12,hiscall12,hisgrid6,ss0)
+       napwid,mycall12,hiscall12,hisgrid6,ss0,ldiskdat)
     use timer_module, only: timer
     include 'ft8/ft8_params.f90'
 
@@ -47,6 +47,7 @@ contains
     real dd(15*12000),dd1(15*12000)
     logical, intent(in) :: lft8apon,lapcqonly,nagain
     logical newdat,lsubtract,ldupe,lrefinedt
+    logical*1 ldiskdat
     logical lsubtracted(MAX_EARLY)
     character*12 mycall12,hiscall12
     character*6 hisgrid6
@@ -88,7 +89,7 @@ contains
                   lrefinedt)
              lsubtracted(i)=.true.
           endif
-          if(nint(ss0).ge.49) then !Bail out before done
+          if(.not.ldiskdat .and. nint(ss0).ge.49) then !Bail out before done
              call timer('sub_ft8b',1)
              go to 700
           endif
@@ -173,7 +174,8 @@ contains
               call this%callback(sync,nsnr,xdt,f1,msg37,iaptype,qual)
            endif
         endif
-        if(nzhsym.eq.41 .and. nint(ss0).ge.46) go to 700  !Bail out before done
+        if(.not.ldiskdat .and. nzhsym.eq.41 .and.                        &
+             nint(ss0).ge.46) go to 700                 !Bail out before done
       enddo
    enddo
    go to 800

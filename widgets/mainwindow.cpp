@@ -2325,6 +2325,11 @@ void MainWindow::createStatusBar()                           //createStatusBar
   last_tx_label.setFrameStyle (QFrame::Panel | QFrame::Sunken);
   statusBar()->addWidget (&last_tx_label);
 
+  ndecodes_label.setAlignment (Qt::AlignHCenter);
+  ndecodes_label.setMinimumSize (QSize {30, 18});
+  ndecodes_label.setFrameStyle (QFrame::Panel | QFrame::Sunken);
+  statusBar()->addWidget (&ndecodes_label);
+
   band_hopping_label.setAlignment (Qt::AlignHCenter);
   band_hopping_label.setMinimumSize (QSize {90, 18});
   band_hopping_label.setFrameStyle (QFrame::Panel | QFrame::Sunken);
@@ -3195,8 +3200,9 @@ void MainWindow::readFromStdout()                             //readFromStdout
     int navg=0;
     if(line_read.indexOf("<DecodeFinished>") >= 0) {
 //      qDebug() << "bb" << QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz") << line_read;
+      m_ndecodes=0;
       if(m_mode=="QRA64") m_wideGraph->drawRed(0,0);
-      m_bDecoded = line_read.mid(20).trimmed().toInt() > 0;
+      m_bDecoded =  line_read.mid(20).trimmed().toInt() > 0;
       auto tnow = QDateTime::currentDateTimeUtc ();
       double tdone = fmod(double(tnow.time().second()),m_TRperiod);
       int mswait;
@@ -3214,6 +3220,8 @@ void MainWindow::readFromStdout()                             //readFromStdout
       }
       return;
     } else {
+      m_ndecodes+=1;
+      ndecodes_label.setText(QString::number(m_ndecodes));
       if(m_mode=="JT4" or m_mode=="JT65" or m_mode=="QRA64") {
         int n=line_read.indexOf("f");
         if(n<0) n=line_read.indexOf("d");

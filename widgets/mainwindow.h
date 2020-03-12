@@ -469,6 +469,7 @@ private:
   qint32  m_kin0=0;
   qint32  m_earlyDecode=41;
   qint32  m_earlyDecode2=47;
+  qint32  m_ndecodes=0;
 
   bool    m_btxok;		//True if OK to transmit
   bool    m_diskData;
@@ -559,6 +560,7 @@ private:
   QLabel last_tx_label;
   QLabel auto_tx_label;
   QLabel band_hopping_label;
+  QLabel ndecodes_label;
   QProgressBar progressBar;
   QLabel watchdog_label;
 
