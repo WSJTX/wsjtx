@@ -1496,6 +1496,10 @@ void MainWindow::dataSink(qint64 frames)
 
   if(m_mode=="FT8") {
     to_jt9(m_ihsym); //Allow jt9 to bail out early, if necessary
+    if(m_ihsym==40 and m_decoderBusy) {
+      qDebug() << "ff Clearing hung decoder status";
+      decodeDone();  //Clear a hung decoder status
+    }
   }
 
   /*
