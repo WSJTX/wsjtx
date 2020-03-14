@@ -20,7 +20,6 @@ subroutine jt9a()
   integer size_jt9
 ! Multiple instances:
   character*80 mykey
-  integer :: lun, stat
   type(dec_data), pointer :: shared_data
   type(params_block) :: local_params
   volatile shared_data
@@ -38,23 +37,19 @@ subroutine jt9a()
   i0 = len(mykey)
   i0=setkey_jt9(trim(mykey))
   i1=attach_jt9()
-  msdelay=100
+  msdelay=30
+  call c_f_pointer(address_jt9(),shared_data)
 
-! Wait here until the .start file is created by GUI
-10 open(newunit=lun,file=trim(temp_dir)//'/.start',iostat=stat,status='old')
-  if(stat.ne.0) then
-     call sleep_msec(msdelay)
-     go to 10
-  endif
-  close(unit=lun,status='delete')
-
-  open(newunit=lun,file=trim(temp_dir)//'/.quit',iostat=stat,status='old')
-  if(stat.eq.0) then
-     close(unit=lun,status='delete')
+! Wait here until GUI has set ss(2,1) to 1.0
+10 if(shared_data%ss(2,1).eq.999.0) then
      i1=detach_jt9()
      go to 999
   endif
-  if(i1.eq.999999) stop                  !Silence compiler warning
+   if(shared_data%ss(2,1).ne.1.0) then
+     call sleep_msec(msdelay)
+     go to 10
+  endif
+  shared_data%ss(2,1)=0.0
 
   nbytes=size_jt9()
   if(nbytes.le.0) then
@@ -62,7 +57,6 @@ subroutine jt9a()
      print*,"Must start 'jt9 -s <thekey>' from within WSJT-X."
      go to 999
   endif
-  call c_f_pointer(address_jt9(),shared_data)
   local_params=shared_data%params !save a copy because wsjtx carries on accessing  
   call flush(6)
   call timer('decoder ',0)
@@ -84,15 +78,15 @@ subroutine jt9a()
   call multimode_decoder(shared_data%ss,shared_data%id2,local_params,12000)
   call timer('decoder ',1)
 
-! Wait here until GUI routine decodeDone() has re-created the .start file
-100 open(newunit=lun,file=trim(temp_dir)//'/.stop',iostat=stat,status='old')
-  if(stat.eq.0) then
-     close(unit=lun,status='delete')
-     go to 10
-  endif
-  call sleep_msec(msdelay)
-  go to 100
 
+! Wait here until GUI routine decodeDone() has set ss(3,1) to 1.0
+100  if(shared_data%ss(3,1).ne.1.0) then
+     call sleep_msec(msdelay)
+     go to 100
+  endif
+  shared_data%ss(3,1)=0.
+  go to 10
+  
 999 call timer('decoder ',101)
 
   return

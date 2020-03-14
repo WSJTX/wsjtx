@@ -845,7 +845,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
       }
   }
 
-  pause_jt9 ();
+//  pause_jt9 ();
+  to_jt9(0,0,0);     //initialize
 
   QStringList jt9_args {
     "-s", QApplication::applicationName () // shared memory key,
@@ -1036,65 +1037,6 @@ void MainWindow::on_the_minute ()
   else
     {
       tx_watchdog (false);
-    }
-}
-
-void MainWindow::pause_jt9 ()
-{
-  // Create .stop so jt9 will wait
-  QFile l {m_config.temp_dir ().absoluteFilePath (".stop")};
-  if (!l.open(QFile::ReadWrite))
-    {
-      MessageBox::warning_message (this, tr ("Error creating \"%1\" - %2").arg (l.fileName ()).arg (l.errorString ()));
-    }
-}
-
-void MainWindow::release_jt9 ()
-{
-  // Create .start so jt9 will continue
-  QFile l {m_config.temp_dir ().absoluteFilePath (".start")};
-  if (!l.open(QFile::ReadWrite))
-    {
-      MessageBox::warning_message (this, tr ("Error creating \"%1\" - %2").arg (l.fileName ()).arg (l.errorString ()));
-    }
-}
-
-void MainWindow::stop_jt9 ()
-{
-  // Create .quit so jt9 will exit
-  QFile q {m_config.temp_dir ().absoluteFilePath (".quit")};
-  while (!q.exists ())
-    {
-      if (!q.open (QFile::ReadWrite))
-        {
-          if (MessageBox::Cancel == MessageBox::query_message (this
-                                                               , tr ("IPC Error")
-                                                               , tr ("Error creating \"%1\" - %2").arg (q.fileName ()).arg (q.errorString ())
-                                                               , QString {}
-                                                               , MessageBox::Retry | MessageBox::Cancel))
-            {
-              break;
-            }
-        }
-    }
-  release_jt9 ();
-  if (!proc_jt9.waitForFinished(1000))
-    {
-      proc_jt9.close();
-    }
-  while (q.exists ())
-    {
-      if (!q.remove ())
-        {
-          if (MessageBox::Cancel == MessageBox::query_message (this
-                                                               , tr ("IPC Error")
-                                                               , tr ("Error removing \"%1\" - %2").arg (q.fileName ()).arg (q.errorString ())
-                                                               , QString {}
-                                                               , MessageBox::Retry | MessageBox::Cancel))
-            {
-              break;
-            }
-        }
     }
 }
 
@@ -1470,7 +1412,7 @@ void MainWindow::dataSink(qint64 frames)
   }
 
   if(m_mode=="FT8") {
-    to_jt9(m_ihsym); //Allow jt9 to bail out early, if necessary
+    to_jt9(m_ihsym,-1,-1);     //Allow jt9 to bail out early, if necessary
     if(m_ihsym==40 and m_decoderBusy) {
       qDebug() << "ff Clearing hung decoder status";
       decodeDone();  //Clear a hung decoder status
@@ -2424,8 +2366,9 @@ void MainWindow::closeEvent(QCloseEvent * e)
   int nh=100;
   int irow=-99;
   plotsave_(&sw,&nw,&nh,&irow);
+  to_jt9(m_ihsym,999,-1);          //Tell jt9 to terminate
+  if (!proc_jt9.waitForFinished(1000)) proc_jt9.close();
   mem_jt9->detach();
-  stop_jt9 ();
   Q_EMIT finished ();
   QMainWindow::closeEvent (e);
 }
@@ -3069,10 +3012,6 @@ void MainWindow::decode()                                       //decode()
         dec_data.params.mycall,dec_data.params.hiscall,8000,12,12)));
   } else {
     memcpy(to, from, qMin(mem_jt9->size(), size));
-    if(m_mode=="FT8") {
-      to_jt9(m_ihsym);                //Send m_ihsym to jt9[.exe]
-    }
-    release_jt9 ();
 
     auto now = QDateTime::currentDateTimeUtc();
     double tsec = fmod(double(now.toMSecsSinceEpoch()),86400000.0)/1000.0;
@@ -3082,6 +3021,7 @@ void MainWindow::decode()                                       //decode()
     QString t="";
     t.sprintf("aa release_jt9 %11.3f %5d %5d %7.3f ",tsec,m_ihsym,m_ihsym,tseq);
     qDebug().noquote() << t << QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz");
+    to_jt9(m_ihsym,1,-1);                //Send m_ihsym to jt9[.exe] and start decoding
     decodeBusy(true);
   }
 }
@@ -3129,16 +3069,14 @@ void::MainWindow::fast_decode_done()
   m_bFastDone=false;
 }
 
-void MainWindow::to_jt9(qint32 n)
+void MainWindow::to_jt9(qint32 n, qint32 istart, qint32 idone)
 {
-  float ss0=n;
-  memcpy((char*)mem_jt9->data(),&ss0,4);
-}
-qint32 MainWindow::from_jt9()
-{
-  float ss0;
-  memcpy(&ss0,(char*)mem_jt9->data(),4);
-  return int(ss0);
+  float ss0[3];
+  memcpy(ss0,(char*)mem_jt9->data(),12);
+  ss0[0]=n;
+  if(istart>=0) ss0[1]=istart;
+  if(idone>=0)  ss0[2]=idone;
+  memcpy((char*)mem_jt9->data(),ss0,12);
 }
 
 void MainWindow::decodeDone ()
@@ -3146,7 +3084,7 @@ void MainWindow::decodeDone ()
   dec_data.params.nagain=0;
   dec_data.params.ndiskdat=0;
   m_nclearave=0;
-  pause_jt9 ();
+//  pause_jt9 ();
   ui->DecodeButton->setChecked (false);
   decodeBusy(false);
   m_RxLog=0;
@@ -3163,8 +3101,8 @@ void MainWindow::decodeDone ()
   if(tseq < 0.5*m_TRperiod) tseq+= m_TRperiod;
   QString t="";
   t.sprintf("ee decodeDone  %11.3f %5d %5d %7.3f ",tsec,m_ihsym,m_ihsym,tseq);
-
   qDebug().noquote() << t << QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz");
+  to_jt9(m_ihsym,-1,1);                //Tell jt9 we know it has finished
 }
 
 void MainWindow::readFromStdout()                             //readFromStdout
@@ -8177,8 +8115,8 @@ void MainWindow::on_cbMenus_toggled(bool b)
 }
 
 void MainWindow::on_cbCQonly_toggled(bool)
-{
-  release_jt9 ();
+{  //Fix this -- no decode here?
+  to_jt9(m_ihsym,1,-1);                //Send m_ihsym to jt9[.exe] and start decoding
   decodeBusy(true);
 }
 

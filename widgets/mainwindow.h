@@ -769,11 +769,7 @@ private:
   void foxTxSequencer();
   void foxGenWaveform(int i,QString fm);
   void writeFoxQSO (QString const& msg);
-  void to_jt9(qint32 n);
-  qint32 from_jt9();
-  void pause_jt9 ();
-  void release_jt9 ();
-  void stop_jt9 ();
+  void to_jt9(qint32 n, qint32 istart, qint32 idone);
 };
 
 extern int killbyname(const char* progName);
