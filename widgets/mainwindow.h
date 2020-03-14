@@ -774,7 +774,6 @@ private:
   void pause_jt9 ();
   void release_jt9 ();
   void stop_jt9 ();
-  void cleanup_jt9 ();
 };
 
 extern int killbyname(const char* progName);

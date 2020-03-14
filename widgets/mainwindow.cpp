@@ -1041,8 +1041,8 @@ void MainWindow::on_the_minute ()
 
 void MainWindow::pause_jt9 ()
 {
-  // Create .lock so jt9 will wait
-  QFile l {m_config.temp_dir ().absoluteFilePath (".lock")};
+  // Create .stop so jt9 will wait
+  QFile l {m_config.temp_dir ().absoluteFilePath (".stop")};
   if (!l.open(QFile::ReadWrite))
     {
       MessageBox::warning_message (this, tr ("Error creating \"%1\" - %2").arg (l.fileName ()).arg (l.errorString ()));
@@ -1051,21 +1051,11 @@ void MainWindow::pause_jt9 ()
 
 void MainWindow::release_jt9 ()
 {
-  // Remove .lock so jt9 will continue
-  QFile l {m_config.temp_dir ().absoluteFilePath (".lock")};
-  while (l.exists ())
+  // Create .start so jt9 will continue
+  QFile l {m_config.temp_dir ().absoluteFilePath (".start")};
+  if (!l.open(QFile::ReadWrite))
     {
-      if (!l.remove ())
-        {
-          if (MessageBox::Cancel == MessageBox::query_message (this
-                                                               , tr ("IPC Error")
-                                                               , tr ("Error removing \"%1\" - %2").arg (l.fileName ()).arg (l.errorString ())
-                                                               , QString {}
-                                                               , MessageBox::Retry | MessageBox::Cancel))
-            {
-              break;
-            }
-        }
+      MessageBox::warning_message (this, tr ("Error creating \"%1\" - %2").arg (l.fileName ()).arg (l.errorString ()));
     }
 }
 
@@ -1104,21 +1094,6 @@ void MainWindow::stop_jt9 ()
             {
               break;
             }
-        }
-    }
-}
-
-void MainWindow::cleanup_jt9 ()
-{
-  // Remove .quit as no longer needed
-  QFile l {m_config.temp_dir ().absoluteFilePath (".lock")};
-  while (l.exists ())
-    {
-      if (!l.remove ())
-        {
-          MessageBox::query_message (this
-                                     , tr ("Error removing \"%1\" - %2").arg (l.fileName ()).arg (l.errorString ())
-                                     , tr ("Click OK to retry"));
         }
     }
 }

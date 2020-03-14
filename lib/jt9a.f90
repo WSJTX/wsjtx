@@ -18,12 +18,11 @@ subroutine jt9a()
   integer*1 attach_jt9
 !  integer*1 lock_jt9,unlock_jt9
   integer size_jt9
-  integer itime(8)
 ! Multiple instances:
   character*80 mykey
+  integer :: lun, stat
   type(dec_data), pointer :: shared_data
   type(params_block) :: local_params
-  logical fileExists
   volatile shared_data
 
 ! Multiple instances:
@@ -39,17 +38,19 @@ subroutine jt9a()
   i0 = len(mykey)
   i0=setkey_jt9(trim(mykey))
   i1=attach_jt9()
-  msdelay=1
+  msdelay=100
 
-! Wait here until the .lock file is removed by GUI
-10 inquire(file=trim(temp_dir)//'/.lock',exist=fileExists)
-  if(fileExists) then
+! Wait here until the .start file is created by GUI
+10 open(newunit=lun,file=trim(temp_dir)//'/.start',iostat=stat,status='old')
+  if(stat.ne.0) then
      call sleep_msec(msdelay)
      go to 10
   endif
+  close(unit=lun,status='delete')
 
-  inquire(file=trim(temp_dir)//'/.quit',exist=fileExists)
-  if(fileExists) then
+  open(newunit=lun,file=trim(temp_dir)//'/.quit',iostat=stat,status='old')
+  if(stat.eq.0) then
+     close(unit=lun,status='delete')
      i1=detach_jt9()
      go to 999
   endif
@@ -83,9 +84,12 @@ subroutine jt9a()
   call multimode_decoder(shared_data%ss,shared_data%id2,local_params,12000)
   call timer('decoder ',1)
 
-! Wait here until GUI routine decodeDone() has re-created the .lock file
-100 inquire(file=trim(temp_dir)//'/.lock',exist=fileExists)
-  if(fileExists) go to 10
+! Wait here until GUI routine decodeDone() has re-created the .start file
+100 open(newunit=lun,file=trim(temp_dir)//'/.stop',iostat=stat,status='old')
+  if(stat.eq.0) then
+     close(unit=lun,status='delete')
+     go to 10
+  endif
   call sleep_msec(msdelay)
   go to 100
 
