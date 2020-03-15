@@ -34,7 +34,7 @@ contains
 
   subroutine decode(this,callback,iwave,nQSOProgress,nfqso,nftx,newdat,  &
        nutc,nfa,nfb,nzhsym,ndepth,ncontest,nagain,lft8apon,lapcqonly,    &
-       napwid,mycall12,hiscall12,hisgrid6,ss0,ldiskdat)
+       napwid,mycall12,hiscall12,hisgrid6,ipc1,ldiskdat)
     use timer_module, only: timer
     include 'ft8/ft8_params.f90'
 
@@ -64,7 +64,7 @@ contains
     real xdt_save(MAX_EARLY)
 
     save s,dd,dd1,ndec_early,itone_save,f1_save,xdt_save,lsubtracted
-    volatile ss0
+    volatile ipc1
 
     this%callback => callback
     write(datetime,1001) nutc        !### TEMPORARY ###
@@ -90,7 +90,7 @@ contains
                   lrefinedt)
              lsubtracted(i)=.true.
           endif
-          if(.not.ldiskdat .and. nint(ss0).ge.49) then !Bail out before done
+          if(.not.ldiskdat .and. ipc1.ge.49) then !Bail out before done
              call timer('sub_ft8b',1)
              dd1=dd
              go to 700
@@ -177,7 +177,7 @@ contains
            endif
         endif
         if(.not.ldiskdat .and. nzhsym.eq.41 .and.                        &
-             nint(ss0).ge.46) go to 700                 !Bail out before done
+             ipc1.ge.46) go to 700                 !Bail out before done
       enddo
    enddo
    go to 800
@@ -189,7 +189,7 @@ contains
    tseq=mod(itime(7)+0.001*itime(8),15.0)
    if(tseq.lt.9.0) tseq=tseq+15.0
    sec=itime(7)+0.001*itime(8)
-   write(71,3001) 'CC Bailout     ',tsec,nzhsym,nint(ss0),tseq,     &
+   write(71,3001) 'CC Bailout     ',tsec,nzhsym,ipc1,tseq,     &
         itime(5)-itime(4)/60,itime(6),sec,ndecodes
 3001 format(a15,f11.3,2i6,f8.3,i4.2,':',i2.2,':',f6.3,i6)
    flush(71)

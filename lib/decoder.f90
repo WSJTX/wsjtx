@@ -1,6 +1,6 @@
-subroutine multimode_decoder(ss,id2,params,nfsample)
+subroutine multimode_decoder(ipc1,ss,id2,params,nfsample)
 
-  !$ use omp_lib
+!$ use omp_lib
   use prog_args
   use timer_module, only: timer
   use jt4_decode
@@ -97,7 +97,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
      if(tseq.lt.9.0) tseq=tseq+15.0
      if(params%nzhsym.eq.41) write(71,3001) '        '
      sec=itime(7)+0.001*itime(8)
-     write(71,3001) 'BB decoderStart',tsec,params%nzhsym,nint(ss(1,1)),tseq, &
+     write(71,3001) 'BB decoderStart',tsec,params%nzhsym,ipc1,tseq, &
           itime(5)-itime(4)/60,itime(6),sec
 3001 format(a15,f11.3,2i6,f8.3,i4.2,':',i2.2,':',f6.3,i6)
      flush(71)
@@ -123,7 +123,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
           params%nftx,newdat,params%nutc,params%nfa,params%nfb,              &
           params%nzhsym,params%ndepth,ncontest,logical(params%nagain),       &
           logical(params%lft8apon),logical(params%lapcqonly),                &
-          params%napwid,mycall,hiscall,hisgrid,ss(1,1),params%ndiskdat)
+          params%napwid,mycall,hiscall,hisgrid,ipc1,params%ndiskdat)
      call timer('decft8  ',1)
      if(nfox.gt.0) then
         n30min=minval(n30fox(1:nfox))
@@ -314,7 +314,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   tseq=mod(itime(7)+0.001*itime(8),15.0)
   if(tseq.lt.9.0) tseq=tseq+15.0
   sec=itime(7)+0.001*itime(8)
-  write(71,3001) 'DD decoderEnd  ',tsec,params%nzhsym,nint(ss(1,1)),tseq,    &
+  write(71,3001) 'DD decoderEnd  ',tsec,params%nzhsym,ipc1,tseq,    &
         itime(5)-itime(4)/60,itime(6),sec,ndecoded
   flush(71)
 

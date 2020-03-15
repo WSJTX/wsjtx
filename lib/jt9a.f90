@@ -39,19 +39,19 @@ subroutine jt9a()
   msdelay=30
   call c_f_pointer(address_jt9(),shared_data)
 
-! Wait here until GUI has set ss(2,1) to 1.0
+! Wait here until GUI has set ips(2) to 1.0
 10 call lock_jt9()
-  if(shared_data%ss(2,1).eq.999.0) then
+  if(shared_data%ipc(2).eq.999.0) then
      call unlock_jt9()
      i1=detach_jt9()
      go to 999
   endif
-  if(shared_data%ss(2,1).ne.1.0) then
+  if(shared_data%ipc(2).ne.1.0) then
      call unlock_jt9()
      call sleep_msec(msdelay)
      go to 10
   endif
-  shared_data%ss(2,1)=0.0
+  shared_data%ipc(2)=0
 
   nbytes=size_jt9()
   if(nbytes.le.0) then
@@ -70,27 +70,30 @@ subroutine jt9a()
      local_params%nzhsym=nearly
      id2a(1:nearly*3456)=shared_data%id2(1:nearly*3456)
      id2a(nearly*3456+1:)=0
-     call multimode_decoder(shared_data%ss,id2a,local_params,12000)
+     call multimode_decoder(shared_data%ipc(1),shared_data%ss,id2a,    &
+          local_params,12000)
      nearly=47
      local_params%nzhsym=nearly
      id2a(1:nearly*3456)=shared_data%id2(1:nearly*3456)
      id2a(nearly*3456+1:)=0
-     call multimode_decoder(shared_data%ss,id2a,local_params,12000)
+     call multimode_decoder(shared_data%ipc(1),shared_data%ss,id2a,    &
+          local_params,12000)
      local_params%nzhsym=50
   endif
 ! Normal decoding pass
-  call multimode_decoder(shared_data%ss,shared_data%id2,local_params,12000)
+  call multimode_decoder(shared_data%ipc(1),shared_data%ss,shared_data%id2,  &
+       local_params,12000)
   call timer('decoder ',1)
 
 
-! Wait here until GUI routine decodeDone() has set ss(3,1) to 1.0
+! Wait here until GUI routine decodeDone() has set ipc(3) to 1.0
 100 call lock_jt9()
-  if(shared_data%ss(3,1).ne.1.0) then
+  if(shared_data%ipc(3).ne.1.0) then
      call unlock_jt9()
      call sleep_msec(msdelay)
      go to 100
   endif
-  shared_data%ss(3,1)=0.
+  shared_data%ipc(3)=0
   call unlock_jt9()
   go to 10
   

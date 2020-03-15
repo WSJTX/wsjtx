@@ -845,8 +845,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
       }
   }
 
-//  pause_jt9 ();
-  to_jt9(0,0,0);     //initialize
+  to_jt9(0,0,0);     //initialize IPC variables
 
   QStringList jt9_args {
     "-s", QApplication::applicationName () // shared memory key,
@@ -2968,7 +2967,7 @@ void MainWindow::decode()                                       //decode()
   //nagain=1  ==> decode only at fQSO +/- Tol
 
   char *to = (char*)mem_jt9->data();
-  char *from = (char*) dec_data.ss;
+  char *from = (char*) dec_data.ipc;
   int size=sizeof(struct dec_data);
   if(dec_data.params.newdat==0) {
     int noffset {offsetof (struct dec_data, params.nutc)};
@@ -3073,13 +3072,13 @@ void::MainWindow::fast_decode_done()
 
 void MainWindow::to_jt9(qint32 n, qint32 istart, qint32 idone)
 {
-  float ss0[3];
+  int ipc[3];
   mem_jt9->lock ();
-  memcpy(ss0,(char*)mem_jt9->data(),12);
-  ss0[0]=n;
-  if(istart>=0) ss0[1]=istart;
-  if(idone>=0)  ss0[2]=idone;
-  memcpy((char*)mem_jt9->data(),ss0,12);
+  memcpy(ipc,(char*)mem_jt9->data(),12);
+  ipc[0]=n;
+  if(istart>=0) ipc[1]=istart;
+  if(idone>=0)  ipc[2]=idone;
+  memcpy((char*)mem_jt9->data(),ipc,12);
   mem_jt9->unlock ();
 }
 

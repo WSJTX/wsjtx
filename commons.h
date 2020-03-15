@@ -18,6 +18,7 @@ extern "C" {
    * sync with lib/jt9com.f90
    */
 extern struct dec_data {
+  int   ipc[3];
   float ss[184*NSMAX];
   float savg[NSMAX];
   float sred[5760];

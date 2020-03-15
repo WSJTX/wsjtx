@@ -49,6 +49,7 @@
   end type params_block
 
   type, bind(C) :: dec_data
+     integer(c_int) :: ipc(3)
      real(c_float) :: ss(184,NSMAX)
      real(c_float) :: savg(NSMAX)
      real(c_float) :: sred(5760)
