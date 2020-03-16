@@ -35,12 +35,11 @@ subroutine multimode_decoder(ipc1,ss,id2,params,nfsample)
   real ss(184,NSMAX)
   logical baddata,newdat65,newdat9,single_decode,bVHF,bad0,newdat,ex
   integer*2 id2(NTMAX*12000)
-  integer itime(8)
   type(params_block) :: params
   real*4 dd(NTMAX*12000)
-  real*8 tsec
+  real*8 tsec,tseq
   character(len=20) :: datetime
-  character(len=12) :: mycall, hiscall
+  character(len=12) :: mycall, hiscall, ctime
   character(len=6) :: mygrid, hisgrid
   data ndec8/0/
   save
@@ -89,17 +88,9 @@ subroutine multimode_decoder(ipc1,ss,id2,params,nfsample)
   if(params%nmode.eq.8) then
 ! We're in FT8 mode
 
-     call date_and_time(values=itime)
-     tsec=3600.d0*(itime(5)-itime(4)/60.d0) + 60.d0*itime(6) +      &
-          itime(7) + 0.001d0*itime(8)
-     tsec=mod(tsec+2*86400.d0,86400.d0)
-     tseq=mod(itime(7)+0.001*itime(8),15.0)
-     if(tseq.lt.9.0) tseq=tseq+15.0
-     if(params%nzhsym.eq.41) write(71,3001) '        '
-     sec=itime(7)+0.001*itime(8)
-     write(71,3001) 'BB decoderStart',tsec,params%nzhsym,ipc1,tseq, &
-          itime(5)-itime(4)/60,itime(6),sec
-3001 format(a15,f11.3,2i6,f8.3,i4.2,':',i2.2,':',f6.3,i6)
+     call timestamp(tsec,tseq,ctime)
+     write(71,3001) 'BB decoderStart',tsec,params%nzhsym,ipc1,tseq,ctime
+3001 format(a15,f11.3,2i6,f8.3,2x,a12,i6)
      flush(71)
 
      if(ncontest.eq.6) then
@@ -123,7 +114,7 @@ subroutine multimode_decoder(ipc1,ss,id2,params,nfsample)
           params%nftx,newdat,params%nutc,params%nfa,params%nfb,              &
           params%nzhsym,params%ndepth,ncontest,logical(params%nagain),       &
           logical(params%lft8apon),logical(params%lapcqonly),                &
-          params%napwid,mycall,hiscall,hisgrid,ipc1,params%ndiskdat)
+          params%napwid,mycall,hiscall,hisgrid,params%ndiskdat)
      call timer('decft8  ',1)
      if(nfox.gt.0) then
         n30min=minval(n30fox(1:nfox))
@@ -306,16 +297,9 @@ subroutine multimode_decoder(ipc1,ss,id2,params,nfsample)
   close(13)
   if(ncontest.eq.6) close(19)
   if(params%nmode.eq.4 .or. params%nmode.eq.65) close(14)
-  
-  call date_and_time(values=itime)
-  tsec=3600.d0*(itime(5)-itime(4)/60.d0) + 60.d0*itime(6) +      &
-       itime(7) + 0.001d0*itime(8)
-  tsec=mod(tsec+2*86400.d0,86400.d0)
-  tseq=mod(itime(7)+0.001*itime(8),15.0)
-  if(tseq.lt.9.0) tseq=tseq+15.0
-  sec=itime(7)+0.001*itime(8)
-  write(71,3001) 'DD decoderEnd  ',tsec,params%nzhsym,ipc1,tseq,    &
-        itime(5)-itime(4)/60,itime(6),sec,ndecoded
+
+  call timestamp(tsec,tseq,ctime)
+  write(71,3001) 'DD decoderEnd  ',tsec,params%nzhsym,ipc1,tseq,ctime,ndecoded
   flush(71)
 
   return

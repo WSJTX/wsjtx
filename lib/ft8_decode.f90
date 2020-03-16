@@ -34,7 +34,7 @@ contains
 
   subroutine decode(this,callback,iwave,nQSOProgress,nfqso,nftx,newdat,  &
        nutc,nfa,nfb,nzhsym,ndepth,ncontest,nagain,lft8apon,lapcqonly,    &
-       napwid,mycall12,hiscall12,hisgrid6,ipc1,ldiskdat)
+       napwid,mycall12,hiscall12,hisgrid6,ldiskdat)
     use iso_c_binding, only: c_bool, c_int
     use timer_module, only: timer
     use shmem, only: shmem_lock, shmem_unlock
@@ -44,7 +44,7 @@ contains
     class(ft8_decoder), intent(inout) :: this
     procedure(ft8_decode_callback) :: callback
     parameter (MAXCAND=300,MAX_EARLY=100)
-    real*8 tsec
+    real*8 tsec,tseq
     real s(NH1,NHSYM)
     real sbase(NH1)
     real candidate(3,MAXCAND)
@@ -52,7 +52,6 @@ contains
     logical, intent(in) :: lft8apon,lapcqonly,nagain
     logical newdat,lsubtract,ldupe,lrefinedt
     logical*1 ldiskdat
-    integer(c_int), volatile, intent(inout) :: ipc1
     logical lsubtracted(MAX_EARLY)
     character*12 mycall12,hiscall12
     character*6 hisgrid6
@@ -60,10 +59,10 @@ contains
     integer apsym2(58),aph10(10)
     character datetime*13,msg37*37
     character*37 allmessages(100)
+    character*12 ctime
     integer allsnrs(100)
     integer itone(NN)
     integer itone_save(NN,MAX_EARLY)
-    integer itime(8)
     real f1_save(MAX_EARLY)
     real xdt_save(MAX_EARLY)
     integer(c_int) :: ihsym
@@ -95,12 +94,8 @@ contains
                   lrefinedt)
              lsubtracted(i)=.true.
           endif
-          ok=shmem_lock()
-          if(.not.ok) call abort
-          ihsym=ipc1                              !read latest from shared memory
-          ok=shmem_unlock()
-          if(.not.ok) call abort
-          if(.not.ldiskdat .and. ihsym.ge.49) then !Bail out before done
+          call timestamp(tsec,tseq,ctime)
+          if(.not.ldiskdat .and. tseq.ge.14.3d0) then !Bail out before done
              call timer('sub_ft8b',1)
              dd1=dd
              go to 700
@@ -186,33 +181,38 @@ contains
               call this%callback(sync,nsnr,xdt,f1,msg37,iaptype,qual)
            endif
         endif
-        ok=shmem_lock()
-        if(.not.ok) call abort
-        ihsym=ipc1              !read latest from shared memory
-        ok=shmem_unlock()
-        if(.not.ok) call abort
+        call timestamp(tsec,tseq,ctime)
         if(.not.ldiskdat .and. nzhsym.eq.41 .and.                        &
-             ihsym.ge.46) go to 700                 !Bail out before done
+             tseq.ge.13.4d0) go to 700                 !Bail out before done
       enddo
    enddo
    go to 800
    
-700 call date_and_time(values=itime)
-   tsec=3600.d0*(itime(5)-itime(4)/60.d0) + 60.d0*itime(6) +      &
-        itime(7) + 0.001d0*itime(8)
-   tsec=mod(tsec+2*86400.d0,86400.d0)
-   tseq=mod(itime(7)+0.001*itime(8),15.0)
-   if(tseq.lt.9.0) tseq=tseq+15.0
-   sec=itime(7)+0.001*itime(8)
-   write(71,3001) 'CC Bailout     ',tsec,nzhsym,ihsym,tseq,     &
-        itime(5)-itime(4)/60,itime(6),sec,ndecodes
-3001 format(a15,f11.3,2i6,f8.3,i4.2,':',i2.2,':',f6.3,i6)
+700 write(71,3001) 'CC Bailout     ',tsec,nzhsym,ihsym,tseq,ctime,ndecodes
+3001 format(a15,f11.3,2i6,f8.3,2x,a12,i6)
    flush(71)
-   
+
 800 ndec_early=0
    if(nzhsym.lt.50) ndec_early=ndecodes
    
 900 return
 end subroutine decode
+
+subroutine timestamp(tsec,tseq,ctime)
+  real*8 tsec,tseq
+  character*12 ctime
+  integer itime(8)
+  call date_and_time(values=itime)
+  tsec=3600.d0*(itime(5)-itime(4)/60.d0) + 60.d0*itime(6) +      &
+       itime(7) + 0.001d0*itime(8)
+  tsec=mod(tsec+2*86400.d0,86400.d0)
+  tseq=mod(itime(7)+0.001d0*itime(8),15.d0)
+  if(tseq.lt.10.d0) tseq=tseq+15.d0
+  sec=itime(7)+0.001*itime(8)
+  write(ctime,1000) itime(5)-itime(4)/60,itime(6),sec
+1000 format(i2.2,':',i2.2,':',f6.3)
+  if(ctime(7:7).eq.' ') ctime(7:7)='0'
+  return
+end subroutine timestamp
 
 end module ft8_decode
