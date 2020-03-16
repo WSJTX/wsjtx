@@ -308,23 +308,23 @@ program jt9
         shared_data%params%nzhsym=nearly
         id2a(1:nearly*3456)=shared_data%id2(1:nearly*3456)
         id2a(nearly*3456+1:)=0
-        call multimode_decoder(shared_data%ss,id2a,                  &
+        call multimode_decoder(shared_data%ipc(1),shared_data%ss,id2a,      &
              shared_data%params,nfsample)
         nearly=47
         shared_data%params%nzhsym=nearly
         id2a(1:nearly*3456)=shared_data%id2(1:nearly*3456)
         id2a(nearly*3456+1:)=0
-        call multimode_decoder(shared_data%ss,id2a,                  &
+        call multimode_decoder(shared_data%ipc(1),shared_data%ss,id2a,      &
              shared_data%params,nfsample)
         id2a(nearly*3456+1:50*3456)=shared_data%id2(nearly*3456+1:50*3456)
         id2a(50*3456+1:)=0
         shared_data%params%nzhsym=50
-        call multimode_decoder(shared_data%ss,id2a,                  &
+        call multimode_decoder(shared_data%ipc(1),shared_data%ss,id2a,      &
              shared_data%params,nfsample)
         cycle
      endif
 ! Normal decoding pass
-     call multimode_decoder(shared_data%ss,shared_data%id2,       &
+     call multimode_decoder(shared_data%ipc(1),shared_data%ss,shared_data%id2, &
           shared_data%params,nfsample)
   enddo
 
