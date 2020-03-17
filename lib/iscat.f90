@@ -55,8 +55,8 @@ subroutine iscat(cdat0,npts0,nh,npct,t2,pick,cfile6,minsync,ntol,   &
         if(pick) t3=t2+t3
 
 ! Compute symbol spectra and establish sync:
-        call synciscat(cdat,npts,nh,npct,s0,jsym,df,ntol,NFreeze,     &
-             MouseDF,mousebutton,mode4,nafc,psavg,xsync,sig,ndf0,msglen,    &
+        call synciscat(cdat,npts,nh,npct,s0,jsym,df,ntol,           &
+             mousebutton,mode4,nafc,psavg,xsync,sig,ndf0,msglen,    &
              ipk,jpk,idf,df1)
         nfdot=nint(idf*df1)
 

@@ -1,5 +1,5 @@
-subroutine synciscat(cdat,npts,nh,npct,s0,jsym,df,ntol,NFreeze,    &
-     MouseDF,mousebutton,mode4,nafc,psavg,xsync,sig,ndf0,msglen,         &
+subroutine synciscat(cdat,npts,nh,npct,s0,jsym,df,ntol,          &
+     mousebutton,mode4,nafc,psavg,xsync,sig,ndf0,msglen,         &
      ipk,jpk,idf,df1)
 
 ! Synchronize an ISCAT signal
@@ -86,8 +86,8 @@ subroutine synciscat(cdat,npts,nh,npct,s0,jsym,df,ntol,NFreeze,    &
 
   ttot=npts/fsample                         !Length of record (s)
   df1=df/ttot                               !Step size for f1=fdot
-  idf1=-25.0/df1
-  idf2=5.0/df1
+  idf1=int(-25.0/df1)
+  idf2=int(5.0/df1)
   if(nafc.eq.0) then
      idf1=0
      idf2=0
