@@ -406,7 +406,7 @@ contains
                   dmin=0.0
                   call timer('bpdec174',0)
                   call bpdecode174_91(llr,apmask,max_iterations,message77,     &
-                     cw,nharderror,niterations)
+                     cw,nharderror,niterations,ncheck)
                   call timer('bpdec174',1)
 
                   if(doosd .and. nharderror.lt.0) then
