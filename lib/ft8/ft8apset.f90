@@ -5,8 +5,6 @@ subroutine ft8apset(mycall12,hiscall12,ncontest,apsym,aph10)
   character*12 mycall12,hiscall12,hiscall
   character*13 hc13
   character*10 c10
-  character*6  base6
-  logical*1  ok1
   integer apsym(58),aph10(10)
   logical nohiscall,unpk77_success
 

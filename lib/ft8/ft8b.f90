@@ -1,6 +1,6 @@
 subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,nzhsym,lapon,     &
      lapcqonly,napwid,lsubtract,nagain,ncontest,iaptype,mycall12,hiscall12, &
-     sync0,f1,xdt,xbase,apsym,aph10,nharderrors,dmin,nbadcrc,ipass,iera,    &
+     f1,xdt,xbase,apsym,aph10,nharderrors,dmin,nbadcrc,ipass,               &
      msg37,xsnr,itone)
 
   use crc

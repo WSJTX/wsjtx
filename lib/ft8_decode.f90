@@ -154,10 +154,10 @@ contains
         xdt=candidate(2,icand)
         xbase=10.0**(0.1*(sbase(nint(f1/3.125))-40.0))
         call timer('ft8b    ',0)
-        call ft8b(dd,newdat,nQSOProgress,nfqso,nftx,ndeep,nzhsym,lft8apon, &
+        call ft8b(dd,newdat,nQSOProgress,nfqso,nftx,ndeep,nzhsym,lft8apon,  &
              lapcqonly,napwid,lsubtract,nagain,ncontest,iaptype,mycall12,   &
-             hiscall12,sync,f1,xdt,xbase,apsym2,aph10,nharderrors,dmin,     &
-             nbadcrc,iappass,iera,msg37,xsnr,itone)
+             hiscall12,f1,xdt,xbase,apsym2,aph10,nharderrors,dmin,          &
+             nbadcrc,iappass,msg37,xsnr,itone)
         call timer('ft8b    ',1)
         nsnr=nint(xsnr) 
         xdt=xdt-0.5
