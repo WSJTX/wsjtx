@@ -233,7 +233,7 @@ contains
           nspecial=0
           call decode65a(dd,npts,first_time,nqd,freq,nflip,mode65,nvec,     &
                naggressive,ndepth,ntol,mycall,hiscall,hisgrid,nQSOProgress, &
-               ljt65apon,nexp_decode,bVHF,sync2,a,dtx,nft,nspecial,qual,     &
+               ljt65apon,bVHF,sync2,a,dtx,nft,nspecial,qual,                &
                nhist,nsmo,decoded)
           if(nspecial.eq.2) decoded='RO'
           if(nspecial.eq.3) decoded='RRR'
@@ -486,7 +486,7 @@ contains
 
        nadd=nsum*ismo
        call extract(s3c,nadd,mode65,ntrials,naggressive,ndepth,nflip,mycall, &
-            hiscall,hisgrid,nQSOProgress,ljt65apon,nexp_decode,ncount,nhist, &
+            hiscall,hisgrid,nQSOProgress,ljt65apon,ncount,nhist, &
             avemsg,ltext,nftt,qual)
        if(nftt.eq.1) then
           nsmo=ismo

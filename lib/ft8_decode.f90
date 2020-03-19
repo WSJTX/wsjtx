@@ -34,7 +34,7 @@ contains
 
   subroutine decode(this,callback,iwave,nQSOProgress,nfqso,nftx,newdat,  &
        nutc,nfa,nfb,nzhsym,ndepth,ncontest,nagain,lft8apon,lapcqonly,    &
-       napwid,mycall12,hiscall12,hisgrid6,ldiskdat)
+       napwid,mycall12,hiscall12,ldiskdat)
     use iso_c_binding, only: c_bool, c_int
     use timer_module, only: timer
     use shmem, only: shmem_lock, shmem_unlock
@@ -54,7 +54,6 @@ contains
     logical*1 ldiskdat
     logical lsubtracted(MAX_EARLY)
     character*12 mycall12,hiscall12
-    character*6 hisgrid6
     integer*2 iwave(15*12000)
     integer apsym2(58),aph10(10)
     character datetime*13,msg37*37
@@ -66,7 +65,6 @@ contains
     real f1_save(MAX_EARLY)
     real xdt_save(MAX_EARLY)
     integer(c_int) :: ihsym
-    logical(c_bool) :: ok
 
     save s,dd,dd1,ndec_early,itone_save,f1_save,xdt_save,lsubtracted
 

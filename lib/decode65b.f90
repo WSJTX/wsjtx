@@ -1,6 +1,5 @@
 subroutine decode65b(s2,nflip,nadd,mode65,ntrials,naggressive,ndepth,      &
-     mycall,hiscall,hisgrid,nQSOProgress,ljt65apon,nexp_decode,nqd,        &
-     nft,qual,         &
+     mycall,hiscall,hisgrid,nQSOProgress,ljt65apon,nqd,nft,qual,           &
      nhist,decoded)
 
   use jt65_mod
@@ -21,7 +20,7 @@ subroutine decode65b(s2,nflip,nadd,mode65,ntrials,naggressive,ndepth,      &
   enddo
 
   call extract(s3,nadd,mode65,ntrials,naggressive,ndepth,nflip,mycall,   &
-      hiscall,hisgrid,nQSOProgress,ljt65apon,nexp_decode,ncount,         &
+      hiscall,hisgrid,nQSOProgress,ljt65apon,ncount,                     &
       nhist,decoded,ltext,nft,qual) 
 
 ! Suppress "birdie messages" and other garbage decodes:

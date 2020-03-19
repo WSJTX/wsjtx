@@ -1,7 +1,6 @@
 subroutine extract(s3,nadd,mode65,ntrials,naggressive,ndepth,nflip,     &
      mycall_12,hiscall_12,hisgrid,nQSOProgress,ljt65apon,               &
-     nexp_decode,ncount,      &
-     nhist,decoded,ltext,nft,qual)
+     ncount,nhist,decoded,ltext,nft,qual)
 
 ! Input:
 !   s3       64-point spectra for each of 63 data symbols
