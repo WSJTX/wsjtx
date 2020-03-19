@@ -39,7 +39,7 @@ program qratest
      if(nfqso0.ne.-1) nfqso=nfqso0
      if(ntol0.ne.-1) ntol=ntol0
 
-     call qra64a(dd,npts,nutc,nf1,nf2,nfqso,ntol,mode64,minsync,ndepth,      &
+     call qra64a(dd,npts,nf1,nf2,nfqso,ntol,mode64,minsync,ndepth,      &
           mycall,hiscall,hisgrid,sync,nsnr,dtx,nfreq,decoded,nft)
      c='a'
      if(mode64.eq.2) c='b'

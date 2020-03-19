@@ -102,7 +102,7 @@ contains
     if(nsubmode.ge.100) then
 ! This is QRA64 mode
        mode64=2**(nsubmode-100)
-       call qra64a(dd,npts,nutc,nf1,nf2,nfqso,ntol,mode64,minsync,ndepth,   &
+       call qra64a(dd,npts,nf1,nf2,nfqso,ntol,mode64,minsync,ndepth,         &
             emedelay,mycall,hiscall,hisgrid,sync,nsnr,dtx,nfreq,decoded,nft)
        if (associated(this%callback)) then
           ndrift=0

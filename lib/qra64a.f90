@@ -1,4 +1,4 @@
-subroutine qra64a(dd,npts,nutc,nf1,nf2,nfqso,ntol,mode64,minsync,ndepth,   &
+subroutine qra64a(dd,npts,nf1,nf2,nfqso,ntol,mode64,minsync,ndepth,   &
      emedelay,mycall_12,hiscall_12,hisgrid_6,sync,nsnr,dtx,nfreq,decoded,nft)
 
   use packjt
@@ -151,8 +151,5 @@ subroutine qra64a(dd,npts,nutc,nf1,nf2,nfqso,ntol,mode64,minsync,ndepth,   &
   endif
   call timer('qra64a  ',1)
 
-!  write(71,3001) nutc,dtx,f0,sync,sync2,width,minsync,decoded
-!3001 format(i4.4,f7.2,4f8.1,i3,2x,a22)
-  
   return
 end subroutine qra64a
