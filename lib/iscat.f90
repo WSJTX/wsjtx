@@ -1,5 +1,5 @@
 subroutine iscat(cdat0,npts0,nh,npct,t2,pick,cfile6,minsync,ntol,   &
-     NFreeze,MouseDF,mousebutton,mode4,nafc,nmore,psavg,maxlines,nlines,line)
+     mousebutton,mode4,nafc,nmore,psavg,maxlines,nlines,line)
 
 ! Decode an ISCAT signal
 

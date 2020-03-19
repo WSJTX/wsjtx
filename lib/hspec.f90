@@ -1,5 +1,5 @@
-subroutine hspec(id2,k,nutc0,ntrpdepth,nrxfreq,ntol,ncontest,bmsk144,  &
-     btrain,pcoeffs,ingain,mycall,hiscall,bshmsg,bswl,datadir,green,s, &
+subroutine hspec(id2,k,nutc0,ntrpdepth,nrxfreq,ntol,bmsk144,             &
+     btrain,pcoeffs,ingain,mycall,hiscall,bshmsg,bswl,datadir,green,s,   &
      jh,pxmax,dbNoGain,line1,mygrid)
 
 ! Input:
