@@ -4304,7 +4304,7 @@ void MainWindow::on_txrb4_doubleClicked ()
   auto const& my_callsign = m_config.my_callsign ();
   auto is_compound = my_callsign != m_baseCall;
   m_send_RR73 = !((is_compound && !shortList (my_callsign)) || m_send_RR73);
-  if(m_mode=="FT4" and (m_config.special_op_id()==SpecOp::RTTY)) m_send_RR73=true;
+  if(m_mode=="FT4") m_send_RR73=true;
   genStdMsgs (m_rpt);
 }
 
