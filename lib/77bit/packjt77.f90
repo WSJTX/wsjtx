@@ -470,7 +470,7 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
      call hash12(n12,call_3)
      if(iflip.eq.0) then       ! 12 bit hash for TO call
         call_1=call_3          
-        call_2=adjustl(c11)//'          '
+        call_2=adjustl(c11)//'  '
         call add_call_to_recent_calls(call_2)
         if(nrx.eq.1 .and.                        &  
            dxcall13_set .and. mycall13_set .and. & 
@@ -1199,7 +1199,6 @@ subroutine pack77_5(nwords,w,i3,n3,c77)
   character*13 w(19)
   character*77 c77
   character*6 bcall_1,bcall_2
-  character*3 mult
   character crpt*4
   character c1*1,c2*2
   logical ok1,ok2
