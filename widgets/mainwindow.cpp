@@ -1482,7 +1482,6 @@ void MainWindow::dataSink(qint64 frames)
         auto const& period_start = now.addSecs (-(now.time ().minute () % (int(m_TRperiod) / 60)) * 60);
         m_fnameWE=m_config.save_directory ().absoluteFilePath (period_start.toString ("yyMMdd_hhmm"));
       }
-      m_fileToSave.clear ();
       int samples=m_TRperiod*12000;
       if(m_mode=="FT4") samples=21*3456;
 
@@ -1691,7 +1690,6 @@ void MainWindow::fastSink(qint64 frames)
       if(n<(m_TRperiod/2)) n=n+m_TRperiod;
       auto const& period_start = now.addSecs (-n);
       m_fnameWE = m_config.save_directory ().absoluteFilePath (period_start.toString ("yyMMdd_hhmmss"));
-      m_fileToSave.clear ();
       if(m_saveAll or m_bAltV or (m_bDecoded and m_saveDecoded) or (m_mode!="MSK144")) {
         m_bAltV=false;
         // the following is potential a threading hazard - not a good
@@ -2086,13 +2084,6 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
       return;
     }
     break;
-    case Qt::Key_V:
-      if(e->modifiers() & Qt::AltModifier) {
-        m_fileToSave = m_fnameWE;
-        m_bAltV=true;
-        return;
-      }
-      break;
     case Qt::Key_Z:                            //### Recover from hung decode() ?? ###
       if(e->modifiers() & Qt::AltModifier) {
         decodeDone();
@@ -3443,8 +3434,7 @@ void MainWindow::pskPost (DecodedText const& decodedtext)
 
 void MainWindow::killFile ()
 {
-  if (m_fnameWE.size () &&
-      !(m_saveAll || (m_saveDecoded && m_bDecoded) || m_fnameWE == m_fileToSave)) {
+  if (m_fnameWE.size () && !(m_saveAll || (m_saveDecoded && m_bDecoded))) {
     QFile f1 {m_fnameWE + ".wav"};
     if(f1.exists()) f1.remove();
     if(m_mode.startsWith ("WSPR")) {

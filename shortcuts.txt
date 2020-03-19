@@ -41,5 +41,4 @@
   <tr><td><b>Alt+R    </b></td><td>Set Tx4 message to RR73</td></tr>
   <tr><td><b>Alt+S    </b></td><td>Stop monitoring</td></tr>
   <tr><td><b>Alt+T    </b></td><td>Tune</td></tr>
-  <tr><td><b>Alt+V    </b></td><td>Save the most recently completed *.wav file</td></tr>
 </table>
