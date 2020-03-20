@@ -1,4 +1,4 @@
-subroutine multimode_decoder(ipc1,ss,id2,params,nfsample)
+subroutine multimode_decoder(ss,id2,params,nfsample)
 
 !$ use omp_lib
   use prog_args

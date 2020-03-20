@@ -8,7 +8,7 @@ module ft8_decode
   integer n30fox(MAXFOX)
   integer n30z
   integer nfox
-  
+
   type :: ft8_decoder
      procedure(ft8_decode_callback), pointer :: callback
    contains
