@@ -72,6 +72,7 @@ unsigned long readc2file(char *ptr_to_infile, float *idat, float *qdat,
     double dfreq;
     int i,ntrmin;
     char *c2file[15];
+    size_t nr;
     FILE* fp;
     
     fp = fopen(ptr_to_infile,"rb");
@@ -79,13 +80,13 @@ unsigned long readc2file(char *ptr_to_infile, float *idat, float *qdat,
         fprintf(stderr, "Cannot open data file '%s'\n", ptr_to_infile);
         return 1;
     }
-    fread(c2file,sizeof(char),14,fp);
-    fread(&ntrmin,sizeof(int),1,fp);
-    fread(&dfreq,sizeof(double),1,fp);
+    nr=fread(c2file,sizeof(char),14,fp);
+    nr=fread(&ntrmin,sizeof(int),1,fp);
+    nr=fread(&dfreq,sizeof(double),1,fp);
     *freq=dfreq;
     
     buffer=calloc(2*65536,sizeof(float));
-    unsigned long nread=fread(buffer,sizeof(float),2*45000,fp);
+    nr=fread(buffer,sizeof(float),2*45000,fp);
     fclose(fp);
     
     *wspr_type=ntrmin;
@@ -96,8 +97,8 @@ unsigned long readc2file(char *ptr_to_infile, float *idat, float *qdat,
     }
     free(buffer);
     
-    if( nread == 2*45000 ) {
-        return nread/2;
+    if( nr == 2*45000 ) {
+        return (unsigned long) nr/2;
     } else {
         return 1;
     }
@@ -106,7 +107,7 @@ unsigned long readc2file(char *ptr_to_infile, float *idat, float *qdat,
 //***************************************************************************
 unsigned long readwavfile(char *ptr_to_infile, int ntrmin, float *idat, float *qdat )
 {
-    size_t i, j, npoints;
+    size_t i, j, npoints, nr;
     int nfft1, nfft2, nh2, i0;
     double df;
     
@@ -141,9 +142,13 @@ unsigned long readwavfile(char *ptr_to_infile, int ntrmin, float *idat, float *q
     }
     
     buf2 = calloc(npoints,sizeof(short int));
-    fread(buf2,2,22,fp);      //Read and ignore header
-    fread(buf2,2,npoints,fp); //Read raw data
+    nr=fread(buf2,2,22,fp);      //Read and ignore header
+    nr=fread(buf2,2,npoints,fp); //Read raw data
     fclose(fp);
+    if( nr == 0 ) {
+        fprintf(stderr, "No data in file '%s'\n", ptr_to_infile);
+        return 1;
+    }	
     
     realin=(float*) fftwf_malloc(sizeof(float)*nfft1);
     fftout=(fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex)*(nfft1/2+1));
@@ -916,9 +921,10 @@ int main(int argc, char *argv[])
     
     if((ftimer=fopen(timer_fname,"r"))) {
         //Accumulate timing data
-        fscanf(ftimer,"%f %f %f %f %f %f %f %f",
+        int nr=fscanf(ftimer,"%f %f %f %f %f %f %f %f",
                &treadwav,&tcandidates,&tsync0,&tsync1,&tsync2,&tfano,&tosd,&ttotal);
         fclose(ftimer);
+        if(nr == 0) fprintf(stderr, "Empty timer file: '%s'\n", timer_fname);
     }
     ftimer=fopen(timer_fname,"w");
     
