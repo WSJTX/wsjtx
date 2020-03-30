@@ -1290,6 +1290,10 @@ target_link_libraries (jt9code wsjt_fort wsjt_cxx)
 
 add_executable (wsprcode lib/wsprcode/wsprcode.f90 lib/wsprcode/nhash.c
 	       wsjtx.rc)
+	       
+add_executable (encode77 lib/77bit/encode77.f90 wsjtx.rc)
+target_link_libraries (encode77 wsjt_fort wsjt_cxx)
+	       
 target_link_libraries (wsprcode wsjt_fort wsjt_cxx)
 
 add_executable (wsprsim ${wsprsim_CSRCS})
