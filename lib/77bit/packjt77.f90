@@ -1060,9 +1060,7 @@ subroutine pack77_06(nwords,w,i3,n3,c77)
            npfx=36*10*(index(a2,w(1)(i1+1:i1+1))-1) +                        &
              10*(index(a2,w(1)(i1+2:i1+2))-1) + index(a2,w(1)(i1+3:i1+3))-1
         endif
-!       print*,'ccc2',npfx
         npfx=npfx + nzzz
-!        print*,'ccc3',npfx
      endif
      i3=0
      n3=6
