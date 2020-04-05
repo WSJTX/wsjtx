@@ -8,7 +8,8 @@ subroutine genwsprcpm(msg,msgsent,itone)
    character*22 msg,msgsent
    character*64 cbits
    character*32 sbits
-   integer      iuniqueword0
+   character c1*1,c4*4
+   character*31 cseq
    integer*1,target :: idat(9)
    integer*1 msgbits(68),codeword(ND)
    logical first
@@ -18,20 +19,25 @@ subroutine genwsprcpm(msg,msgsent,itone)
    integer ipreamble(16)                      !Freq estimation preamble
    integer isync(200)                          !Long sync vector
    integer itone(NN)
+   data cseq /'9D9F C48B 797A DD60 58CB 2EBC 6'/
    data ipreamble/1,1,1,1,0,0,0,0,0,0,0,0,1,1,1,1/
    data first/.true./
-   data iuniqueword0/z'30C9E8AD'/
    save first,isync,ipreamble
 
    if(first) then
-      write(sbits,'(b32.32)') iuniqueword0
-      read(sbits,'(32i1)') isync(1:32)
-      read(sbits,'(32i1)') isync(33:64)
-      read(sbits,'(32i1)') isync(65:96)
-      read(sbits,'(32i1)') isync(97:128)
-      read(sbits,'(32i1)') isync(129:160)
-      read(sbits,'(32i1)') isync(161:192)
-      read(sbits,'(8i1)') isync(193:200)
+      k=0
+      do i=1,31
+         c1=cseq(i:i)
+         if(c1.eq.' ') cycle
+         read(c1,'(z1)') n
+         write(c4,'(b4.4)') n
+         do j=1,4
+            k=k+1
+            isync(k)=0
+            if(c4(j:j).eq.'1') isync(k)=1
+         enddo
+         isync(101:200)=isync(1:100)
+      enddo
       first=.false.
    endif
 
@@ -62,9 +68,6 @@ subroutine genwsprcpm(msg,msgsent,itone)
    itone(101:116)=ipreamble+1
    itone(117:216)=isync(101:200)+2*codeword(101:200)
    itone=2*itone-3
-   do i=1,216
-      write(*,*) i,itone(i)
-   enddo
 
    return
 end subroutine genwsprcpm

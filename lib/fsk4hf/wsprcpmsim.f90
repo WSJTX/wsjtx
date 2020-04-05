@@ -19,7 +19,7 @@ program wsprcpmsim
    nargs=iargc()
    if(nargs.ne.9) then
       print*,'Usage:   wsprcpmsim "message"       f0  DT fsp del  nwav nfiles snr  h'
-      print*,'Example: wsprcpmsim "K1ABC FN42 30" 50 0.0 0.1 1.0  1      10   -33  1.0'
+      print*,'Example: wsprcpmsim "K1ABC FN42 30" 50 1.0 0.1 1.0  1      10   -32  1.0'
       go to 999
    endif
    call getarg(1,msg)                     !Message to be transmitted
@@ -59,6 +59,7 @@ program wsprcpmsim
    c0=0.
    k=-1 + nint(xdt/dt)
    do j=1,NN
+write(*,*) j,itone(j)
       dp=twopi*(f0+itone(j)*(h/2.0)*baud)*dt
       do i=1,NSPS
          k=k+1
