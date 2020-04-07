@@ -36,13 +36,15 @@ program wsprcpmd
    integer iuniqueword0
    integer isync(200)                     !Unique word
    integer isync2(216)
-   integer ipreamble(16)                 !Preamble vector
+!   integer ipreamble(16)                 !Preamble vector
+   integer isyncword(16)
    integer ihdr(11)
    integer*2 iwave(NMAX)                 !Generated full-length waveform
    integer*1,target ::  idat(9)
    integer*1 decoded(68),apmask(204),cw(204)
    integer*1 hbits(216),hbits1(216),hbits3(216)
-   data ipreamble/1,1,1,1,0,0,0,0,0,0,0,0,1,1,1,1/
+!   data ipreamble/1,1,1,1,0,0,0,0,0,0,0,0,1,1,1,1/
+   data isyncword/0,1,3,2,1,0,2,3,2,3,1,0,3,2,0,1/
    data cseq /'9D9F C48B 797A DD60 58CB 2EBC 6'/
    data iuniqueword0/z'30C9E8AD'/
 
@@ -95,9 +97,7 @@ program wsprcpmd
    endif
 
    isync2(1:100)=isync(1:100)
-   isync2(101:104)=0  ! This is *not* backwards.
-   isync2(105:112)=1
-   isync2(113:116)=0
+   isync2(101:116)=(/0,1,1,0,1,0,0,1,0,1,1,0,1,0,0,1/)
    isync2(117:216)=isync(101:200)
 
 ! data MSB
@@ -112,10 +112,8 @@ program wsprcpmd
       if(j.eq.0) then
          dphi0=-3*dphi
          dphi1=+1*dphi
-!         dphi1=-1*dphi  data LSB
       else
          dphi0=-1*dphi
-!         dphi0=+1*dphi  data LSB
          dphi1=+3*dphi
       endif
       phi0=0.0
@@ -171,7 +169,7 @@ program wsprcpmd
          fc0=candidates(icand,1)
          xsnr=candidates(icand,2)
          xmax=-1e32
-         do i=-5,5
+         do i=-7,7
             ft=fc0+i*0.2
             call noncoherent_frame_sync(c2,h,ft,isync2,is,xf1)
             if(xf1.gt.xmax) then
@@ -182,11 +180,11 @@ program wsprcpmd
          enddo
          fcest=fc1
          imode=0 ! refine freq
-         call coherent_preamble_fsync(c2,h,ipreamble,nsync,NSPS,is0,fcest,imode,xp0)
+         call coherent_sync(c2,h,isyncword,nsync,NSPS,is0,fcest,imode,xp0)
          imode=1 ! refine istart
          istart=is0
-         call coherent_preamble_fsync(c2,h,ipreamble,nsync,NSPS,istart,fcest,imode,xp1)
-!         write(*,'(i5,i5,i5,6(f11.5,2x))') ifile,is0,istart,fc0,fc1,fcest,xf1,xp0,xp1
+         call coherent_sync(c2,h,isyncword,nsync,NSPS,istart,fcest,imode,xp1)
+         write(*,'(i5,i5,i5,6(f11.5,2x))') ifile-2,is0,istart,fc0,fc1,fcest,xf1,xp0,xp1
 
 !genie sync
 !istart=375
@@ -257,7 +255,6 @@ program wsprcpmd
                   sbits=sbits3
                   hbits=hbits3
                endif
-!               if( count(hbits(101:116).ne.ipreamble) .gt.7 ) cycle
 
                rxdata(1:100)=sbits(1:100)
                rxdata(101:200)=sbits(117:216);
@@ -274,7 +271,7 @@ program wsprcpmd
                ifer=0
                call bpdecode204(llr,apmask,max_iterations,decoded,cw,nharderror,niterations)
                nhardmin=-1
-               if(nharderror.lt.0) call osd204(llr,apmask,5,decoded,cw,nhardmin,dmin)
+               if(nharderror.lt.0) call osd204(llr,apmask,4,decoded,cw,nhardmin,dmin)
                if(sum(decoded).eq.0) cycle
                if(nhardmin.ge.0 .or. nharderror.ge.0) then
                   idat=0
@@ -323,17 +320,17 @@ program wsprcpmd
 999 end program wsprcpmd
 
 
-subroutine coherent_preamble_fsync(c2,h,ipreamble,nsync,nsps,istart,fc,imode,xmax)
+subroutine coherent_sync(c2,h,isyncword,nsync,nsps,istart,fc,imode,xmax)
 ! imode=0: refine fc using given istart
 ! imode=1: refine istart using given fc
    complex c2(0:120*12000/32-1)
-   complex cpreamble(0:16*200-1)
+   complex csync(0:16*200-1)
    complex ctmp1(0:4*16*200-1)
    complex ctwkp(0:16*200-1)
    complex ccohp(0:15)
-   integer ipreamble(nsync)
+   integer isyncword(nsync)
    logical first/.true./
-   save dt,first,twopi,cpreamble
+   save dt,first,twopi,csync
 
    if(first) then
       baud=12000.0/6400.0
@@ -343,10 +340,9 @@ subroutine coherent_preamble_fsync(c2,h,ipreamble,nsync,nsps,istart,fc,imode,xma
       phi=0.0
       dphi=twopi*baud*0.5*h*dt
       do i=1,16
-         dp=dphi
-         if(ipreamble(i).eq.0) dp=-dphi
+         dp=dphi*2*(isyncword(i)-1.5)
          do j=1,200
-            cpreamble(k)=cmplx(cos(phi),sin(phi))
+            csync(k)=cmplx(cos(phi),sin(phi))
             phi=mod(phi+dp,twopi)
             k=k+1
          enddo
@@ -357,7 +353,7 @@ subroutine coherent_preamble_fsync(c2,h,ipreamble,nsync,nsps,istart,fc,imode,xma
    ctwkp=cmplx(0.0,0.0)
    phi=0
    do i=0,nsync*nsps-1
-      ctwkp(i)=cpreamble(i)*cmplx(cos(phi),sin(phi))
+      ctwkp(i)=csync(i)*cmplx(cos(phi),sin(phi))
       phi=mod(phi+dphi,twopi)
    enddo
    ipstart=istart+100*200
@@ -384,8 +380,10 @@ subroutine coherent_preamble_fsync(c2,h,ipreamble,nsync,nsps,istart,fc,imode,xma
    xmax=0.0
    ctmp1=cshift(ctmp1,-200)
    dfp=1/(4*6400.0/12000.0*16)
-   do i=150,250
+!   do i=150,250
+   do i=190,210
       xa=abs(ctmp1(i))
+!write(51,*) (i-200)*dfp,xa
       if(xa.gt.xmax) then
          ishift=i
          xmax=xa
@@ -399,7 +397,7 @@ subroutine coherent_preamble_fsync(c2,h,ipreamble,nsync,nsps,istart,fc,imode,xma
    delta2=delta+xint*dfp/2.0
    fc=fc+delta2
    return
-end subroutine coherent_preamble_fsync
+end subroutine coherent_sync
 
 subroutine noncoherent_frame_sync(c2,h,fc,isync2,istart,ssmax)
    complex c2(0:120*12000/32-1)
@@ -432,39 +430,30 @@ subroutine noncoherent_frame_sync(c2,h,fc,isync2,istart,ssmax)
          th2=mod(th2+dp2,twopi)
          th3=mod(th3+dp3,twopi)
       enddo
-      ss=0.0
-      avp=0.0
-      xc=0.0
+      xs=0.0
+      xn=0.0
       do is=1,216
          i0=izero+it+(is-1)*200
          p0=abs(sum(c2(i0:i0+199)*conjg(ct0)))
          p1=abs(sum(c2(i0:i0+199)*conjg(ct1)))
          p2=abs(sum(c2(i0:i0+199)*conjg(ct2)))
          p3=abs(sum(c2(i0:i0+199)*conjg(ct3)))
-         p0=sqrt(p0)
-         p1=sqrt(p1)
-         p2=sqrt(p2)
-         p3=sqrt(p3)
-
-         if(is.le.100 .or. is.ge.117) then
-            if(isync2(is).eq.0) then
-              xc=xc+max(p0,p2)
-              avp=avp+(p1+p3)/2.0
-            elseif(isync2(is).eq.1) then
-              xc=xc+max(p1,p3)
-              avp=avp+(p2+p4)/2.0
-            endif
-         else
-            if(isync2(is).eq.0) then
-              xc=xc+p2
-              avp=avp+(p0+p1+p3)/3.0
-            elseif(isync2(is).eq.1) then
-              xc=xc+p1
-              avp=avp+(p0+p2+p4)/3.0
-            endif
+         p0=p0**2
+         p1=p1**2
+         p2=p2**2
+         p3=p3**2
+         if(isync2(is).eq.0) then
+!            xs=xs+(p0+p2)/2.0
+            xs=xs+max(p0,p2)
+            xn=xn+(p1+p3)/2.0
+         elseif(isync2(is).eq.1) then
+!            xs=xs+(p1+p3)/2.0
+            xs=xs+max(p1,p3)
+            xn=xn+(p0+p2)/2.0
          endif
       enddo
-      sy=xc/avp
+      sy=xs/xn
+!write(41,*) it,sy
       if(sy.gt.ssmax) then
          ioffset=it
          ssmax=sy
@@ -530,7 +519,7 @@ subroutine getcandidate2(c,npts,fs,fa,fb,ncand,candidates)
       df=10*fs/NFFT1
       csfil=cmplx(0.0,0.0)
       do i=0,NFFT2-1
-         csfil(i)=exp(-((i-NH2)/20.0)**2)  ! revisit this
+         csfil(i)=exp(-((i-NH2)/32.0)**2)  ! revisit this
       enddo
       csfil=cshift(csfil,NH2)
       call four2a(csfil,NFFT2,1,-1,1)
@@ -555,10 +544,9 @@ subroutine getcandidate2(c,npts,fs,fa,fb,ncand,candidates)
    bigspec=bigspec/xn
    ncand=0
    do i=il,ih
-      write(21,*) i*df,bigspec(i)
       if((bigspec(i).gt.bigspec(i-1)).and. &
          (bigspec(i).gt.bigspec(i+1)).and. &
-         (bigspec(i).gt.1.15).and.ncand.lt.100) then
+         (bigspec(i).gt.1.12).and.ncand.lt.100) then
          ncand=ncand+1
          candidates(ncand,1)=df*(i-NH2)
          candidates(ncand,2)=10*log10(bigspec(i)-1)-26.0

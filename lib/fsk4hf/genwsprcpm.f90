@@ -16,13 +16,15 @@ subroutine genwsprcpm(msg,msgsent,itone)
    integer icw(ND)
    integer id(NS+ND)
    integer jd(NS+ND)
-   integer ipreamble(16)                      !Freq estimation preamble
+!   integer ipreamble(16)                      !Freq estimation preamble
+   integer isyncword(16)
    integer isync(200)                          !Long sync vector
    integer itone(NN)
    data cseq /'9D9F C48B 797A DD60 58CB 2EBC 6'/
-   data ipreamble/1,1,1,1,0,0,0,0,0,0,0,0,1,1,1,1/
+!   data ipreamble/1,1,1,1,0,0,0,0,0,0,0,0,1,1,1,1/
+   data isyncword/0,1,3,2,1,0,2,3,2,3,1,0,3,2,0,1/
    data first/.true./
-   save first,isync,ipreamble
+   save first,isync,ipreamble,isyncword
 
    if(first) then
       k=0
@@ -65,9 +67,10 @@ subroutine genwsprcpm(msg,msgsent,itone)
 ! Message structure:
 ! d100 p16 d100
    itone(1:100)=isync(1:100)+2*codeword(1:100)
-   itone(101:116)=ipreamble+1
+   itone(101:116)=isyncword
    itone(117:216)=isync(101:200)+2*codeword(101:200)
    itone=2*itone-3
+   
 
    return
 end subroutine genwsprcpm
