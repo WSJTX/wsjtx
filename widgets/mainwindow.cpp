@@ -3086,17 +3086,6 @@ void MainWindow::decodeDone ()
     if(dec_data.params.nzhsym==m_earlyDecode2) m_blankLine=false;
   }
   if(SpecOp::FOX == m_config.special_op_id()) houndCallers();
-
-/*
-  auto now = QDateTime::currentDateTimeUtc();
-  double tsec = fmod(double(now.toMSecsSinceEpoch()),86400000.0)/1000.0;
-  double tseq = fmod(double(now.toMSecsSinceEpoch() ),1000.0*m_TRperiod)/1000.0;
-  if(tseq < 0.5*m_TRperiod) tseq+= m_TRperiod;
-  QString t="";
-  t.sprintf("ee decodeDone  %11.3f %5d %5d %7.3f ",tsec,m_ihsym,m_ihsym,tseq);
-  qDebug().noquote() << t << QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz");
-*/
-
   to_jt9(m_ihsym,-1,1);                //Tell jt9 we know it has finished
 }
 
@@ -3104,19 +3093,18 @@ void MainWindow::readFromStdout()                             //readFromStdout
 {
   while(proc_jt9.canReadLine()) {
     auto line_read = proc_jt9.readLine ();
-    if (auto p = std::strpbrk (line_read.constData (), "\n\r"))
-      {
-        // truncate before line ending chars
-        line_read = line_read.left (p - line_read.constData ());
-      }
+    if (auto p = std::strpbrk (line_read.constData (), "\n\r")) {
+      // truncate before line ending chars
+      line_read = line_read.left (p - line_read.constData ());
+    }
     if(m_mode!="FT8" and m_mode!="FT4") {
       //Pad 22-char msg to at least 37 chars
-      line_read = line_read.left(43) + "               " + line_read.mid(43);
+      line_read = line_read.left(44) + "              " + line_read.mid(44);
     }
     bool bAvgMsg=false;
     int navg=0;
+
     if(line_read.indexOf("<DecodeFinished>") >= 0) {
-//       qDebug() << "bb" << QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz") << line_read;
       if(m_mode!="FT8" or dec_data.params.nzhsym==50) m_nDecodes=0;
       if(m_mode=="QRA64") m_wideGraph->drawRed(0,0);
       m_bDecoded =  line_read.mid(20).trimmed().toInt() > 0;
