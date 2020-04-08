@@ -3139,6 +3139,16 @@ void MainWindow::readFromStdout()                             //readFromStdout
           }
           if(navg>1 or line_read.indexOf("f*")>0) bAvgMsg=true;
         }
+        if(m_mode=="JT65") {
+          if(n<0) n=line_read.indexOf("a");
+          if(n>0) {
+            int i=line_read.mid(n+1,2).toInt();
+//            int nap=i/10;
+            navg=0;
+            if(i>10) navg=i%10;
+            if(navg >= 2) bAvgMsg=true;
+          }
+        }
       }
       write_all("Rx",line_read.trimmed());
       if (m_config.insert_blank () && m_blankLine && SpecOp::FOX != m_config.special_op_id()) {
@@ -3225,7 +3235,8 @@ void MainWindow::readFromStdout()                             //readFromStdout
           if(SpecOp::FOX!=m_config.special_op_id() and (for_us or (abs(audioFreq - m_wideGraph->rxFreq()) <= 10))) bDisplayRight=true;
         }
       } else {
-        if(abs(audioFreq - m_wideGraph->rxFreq()) <= 10) bDisplayRight=true;
+        if((abs(audioFreq - m_wideGraph->rxFreq()) <= 10) and
+           !m_config.enable_VHF_features()) bDisplayRight=true;
       }
 
       if (bDisplayRight) {
