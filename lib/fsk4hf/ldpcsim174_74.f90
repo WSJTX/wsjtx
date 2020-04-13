@@ -3,10 +3,12 @@ program ldpcsim174_74
 ! End-to-end test of the (174,74)/crc24 encoder and decoders.
 
    use crc
-   use packjt
+   use packjt77
 
    parameter(N=174, K=74, M=N-K)
    character*8 arg
+   character*37 msg0,msg
+   character*77 c77
    character*50 cmsg
    character*24 c24
    integer*1 msgbits(74)
@@ -17,21 +19,22 @@ program ldpcsim174_74
    integer nerrtot(174),nerrdec(174),nmpcbad(74)
    real rxdata(N),llr(N)
    real dllr(174),llrd(174)
-
-   data cmsg/'11111111000000001111111100000000111111110000000011'/
+   logical first,unpk77_success
+   data first/.true./
 
    nerrtot=0
    nerrdec=0
    nmpcbad=0  ! Used to collect the number of errors in the message+crc part of the codeword
 
    nargs=iargc()
-   if(nargs.ne.5) then
-      print*,'Usage: ldpcsim        niter ndeep  #trials    s    K'
-      print*,'e.g.   ldpcsim174_74   20     5     1000    0.85  64'
+   if(nargs.ne.5 .and. nargs.ne.6) then
+      print*,'Usage: ldpcsim        niter ndeep  #trials    s    K      [msg]'
+      print*,'e.g.   ldpcsim174_74   20     5     1000    0.85  64 "K9AN EN50 37"'
       print*,'s    : if negative, then value is ignored and sigma is calculated from SNR.'
       print*,'niter: is the number of BP iterations.'
       print*,'ndeep: -1 is BP only, ndeep>=0 is OSD order'
       print*,'K    :is the number of message+CRC bits and must be in the range [50,74]'
+      print*,'WSPR-format message is optional'
       return
    endif
    call getarg(1,arg)
@@ -44,6 +47,10 @@ program ldpcsim174_74
    read(arg,*) s
    call getarg(5,arg)
    read(arg,*) Keff
+   msg0='K9AN EN50 37                         '
+   if(nargs.eq.6) call getarg(6,msg0)
+   call pack77(msg0,i3,n3,c77)
+   cmsg=c77(1:50)
 
    rate=real(Keff)/real(N)
 
@@ -128,6 +135,18 @@ program ldpcsim174_74
       pberr=real(nberr)/(real(ntrials*N))
       write(*,"(f4.1,4x,f5.1,1x,i8,1x,i8,8x,f5.2,8x,e10.3)") db,esn0,ngood,nue,ss,pberr
 
+      if(first) then
+         write(c77,'(50i1)') message
+         c77(51:77)='000000000000000000000110000'
+         call unpack77(c77,0,msg,unpk77_success)
+         if(unpk77_success) then
+            write(*,1100) msg(1:14)
+1100        format('Decoded message: ',a14)
+         else
+            print*,'Error unpacking message'
+         endif
+         first=.false.
+      endif
    enddo
 
    open(unit=23,file='nerrhisto.dat',status='unknown')
