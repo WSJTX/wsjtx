@@ -179,7 +179,6 @@ subroutine extract(s3,nadd,mode65,ntrials,naggressive,ndepth,nflip,     &
   
      if(nft.gt.0) exit
   enddo
-!write(*,*) nft
   if(nft.eq.0 .and. iand(ndepth,32).eq.32) then
      qmin=2.0 - 0.1*naggressive
      call timer('hint65  ',0)

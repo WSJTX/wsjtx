@@ -32,6 +32,7 @@ public:
 
   // takes ownership of wrapped Transceiver
   explicit OmniRigTransceiver (std::unique_ptr<TransceiverBase> wrapped, RigNumber, TransceiverFactory::PTTMethod ptt_type, QString const& ptt_port, QObject * parent = nullptr);
+  ~OmniRigTransceiver ();
 
   int do_start () override;
   void do_stop () override;

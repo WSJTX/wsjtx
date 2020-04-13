@@ -107,6 +107,12 @@ OmniRigTransceiver::OmniRigTransceiver (std::unique_ptr<TransceiverBase> wrapped
   , send_update_signal_ {false}
   , reversed_ {false}
 {
+  CoInitializeEx (nullptr, 0 /*COINIT_APARTMENTTHREADED*/); // required because Qt only does this for GUI thread
+}
+
+OmniRigTransceiver::~OmniRigTransceiver ()
+{
+  CoUninitialize ();
 }
 
 // returns false on time out
@@ -121,9 +127,8 @@ bool OmniRigTransceiver::await_notification_with_timeout (int timeout)
 int OmniRigTransceiver::do_start ()
 {
   TRACE_CAT ("OmniRigTransceiver", "starting");
-  if (wrapped_) wrapped_->start (0);
 
-  CoInitializeEx (nullptr, 0 /*COINIT_APARTMENTTHREADED*/); // required because Qt only does this for GUI thread
+  if (wrapped_) wrapped_->start (0);
 
   omni_rig_.reset (new OmniRig::OmniRigX {this});
   if (omni_rig_->isNull ())
@@ -315,18 +320,19 @@ void OmniRigTransceiver::do_stop ()
       port_->clear ();
       port_.reset ();
     }
-  if (omni_rig_)
+  if (omni_rig_ && !omni_rig_->isNull ())
     {
-      if (rig_)
+      if (rig_ && !rig_->isNull ())
         {
           rig_->clear ();
           rig_.reset ();
         }
       omni_rig_->clear ();
       omni_rig_.reset ();
-      CoUninitialize ();
     }
+  
   if (wrapped_) wrapped_->stop ();
+
   TRACE_CAT ("OmniRigTransceiver", "stopped");
 }
 
@@ -344,7 +350,6 @@ void OmniRigTransceiver::handle_visible_change ()
 
 void OmniRigTransceiver::handle_rig_type_change (int rig_number)
 {
-  if (!omni_rig_ || omni_rig_->isNull ()) return;
   TRACE_CAT ("OmniRigTransceiver", "rig type change: rig =" << rig_number);
   if (rig_number_ == rig_number)
     {
@@ -361,7 +366,6 @@ void OmniRigTransceiver::handle_rig_type_change (int rig_number)
 
 void OmniRigTransceiver::handle_status_change (int rig_number)
 {
-  if (!omni_rig_ || omni_rig_->isNull ()) return;
   TRACE_CAT ("OmniRigTransceiver", QString {"status change for rig %1"}.arg (rig_number).toLocal8Bit ());
   if (rig_number_ == rig_number)
     {
@@ -394,7 +398,6 @@ void OmniRigTransceiver::handle_status_change (int rig_number)
 
 void OmniRigTransceiver::handle_params_change (int rig_number, int params)
 {
-  if (!omni_rig_ || omni_rig_->isNull ()) return;
   TRACE_CAT ("OmniRigTransceiver", QString {"params change: params = 0x%1 for rig %2"}
         .arg (params, 8, 16, QChar ('0'))
         .arg (rig_number).toLocal8Bit ()
@@ -647,7 +650,6 @@ void OmniRigTransceiver::handle_custom_reply (int rig_number, QVariant const& co
   (void)command;
   (void)reply;
 
-  if (!omni_rig_ || omni_rig_->isNull ()) return;
   if (rig_number_ == rig_number)
     {
       if (!rig_ || rig_->isNull ()) return;
@@ -664,11 +666,14 @@ void OmniRigTransceiver::do_ptt (bool on)
   if (use_for_ptt_ && TransceiverFactory::PTT_method_CAT == ptt_type_)
     {
       TRACE_CAT ("OmniRigTransceiver", "set PTT");
-      rig_->SetTx (on ? OmniRig::PM_TX : OmniRig::PM_RX);
+      if (rig_ && !rig_->isNull ())
+        {
+          rig_->SetTx (on ? OmniRig::PM_TX : OmniRig::PM_RX);
+        }
     }
   else
     {
-      if (port_)
+      if (port_ && !port_->isNull ())
         {
           if (TransceiverFactory::PTT_method_RTS == ptt_type_)
             {
@@ -695,6 +700,7 @@ void OmniRigTransceiver::do_ptt (bool on)
 void OmniRigTransceiver::do_frequency (Frequency f, MODE m, bool /*no_ignore*/)
 {
   TRACE_CAT ("OmniRigTransceiver", f << state ());
+  if (!rig_ || rig_->isNull ()) return;
   if (UNK != m)
     {
       do_mode (m);
@@ -723,6 +729,7 @@ void OmniRigTransceiver::do_frequency (Frequency f, MODE m, bool /*no_ignore*/)
 void OmniRigTransceiver::do_tx_frequency (Frequency tx, MODE m, bool /*no_ignore*/)
 {
   TRACE_CAT ("OmniRigTransceiver", tx << state ());
+  if (!rig_ || rig_->isNull ()) return;
   bool split {tx != 0};
   if (split)
     {
@@ -787,6 +794,7 @@ void OmniRigTransceiver::do_tx_frequency (Frequency tx, MODE m, bool /*no_ignore
 void OmniRigTransceiver::do_mode (MODE mode)
 {
   TRACE_CAT ("OmniRigTransceiver", mode << state ());
+  if (!rig_ || rig_->isNull ()) return;
   // TODO: G4WJS OmniRig doesn't seem to have any capability of tracking/setting VFO B mode
   auto mapped = map_mode (mode);
   if (mapped & writable_params_)

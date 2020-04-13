@@ -407,7 +407,9 @@ contains
 1011   format(i4.4,i4,i5,f6.2,f8.0,i4,3x,a22,' QRA64',i3)
        go to 100
     endif
-    
+
+!    write(*,3001) ft,nsum,qual,sync,bVHF
+!3001 format('a',3i3,f5.1,L3)
     if(ft.eq.0 .and. minsync.ge.0 .and. int(sync).lt.minsync) then
        write(*,1010) params%nutc,snr,dt,freq
     else
@@ -415,18 +417,19 @@ contains
        if(bVHF .and. ft.gt.0) then
           cflags='f  '
           if(is_deep) then
-             cflags(1:2)='d1'
-             write(cflags(3:3),'(i1)') min(qual,9)
-             if(qual.ge.10) cflags(3:3)='*'
+             cflags='d  '
+             write(cflags(2:2),'(i1)') min(qual,9)
+             if(qual.ge.10) cflags(2:2)='*'
              if(qual.lt.3) decoded(22:22)='?'
           endif
           if(is_average) then
-             write(cflags(2:2),'(i1)') min(nsum,9)
-             if(nsum.ge.10) cflags(2:2)='*'
+             write(cflags(3:3),'(i1)') min(nsum,9)
+             if(nsum.ge.10) cflags(3:3)='*'
           endif
           nap=ishft(ft,-2)
           if(nap.ne.0) then
-            write(cflags(1:3),'(a1,i1)') 'a',nap 
+             if(nsum.lt.2) write(cflags(1:3),'(a1,i1," ")') 'a',nap
+             if(nsum.ge.2) write(cflags(1:3),'(a1,2i1)') 'a',nap,min(nsum,9)
           endif
        endif
        csync='# '
@@ -444,6 +447,12 @@ contains
                 decoded(i+2:i+4)='OOO'
              endif
           endif
+       endif
+       n=len(trim(decoded))
+       if(n.eq.2 .or. n.eq.3) csync='# '
+       if(cflags(1:1).eq.'f') then
+          cflags(2:2)=cflags(3:3)
+          cflags(3:3)=' '
        endif
        write(*,1010) params%nutc,snr,dt,freq,csync,decoded,cflags
 1010   format(i4.4,i4,f5.1,i5,1x,a2,1x,a22,1x,a3)

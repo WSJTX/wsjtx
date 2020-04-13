@@ -2468,7 +2468,7 @@ void MainWindow::on_actionCopyright_Notice_triggered()
                            "\"The algorithms, source code, look-and-feel of WSJT-X and related "
                            "programs, and protocol specifications for the modes FSK441, FT8, JT4, "
                            "JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 are Copyright (C) "
-                           "2001-2019 by one or more of the following authors: Joseph Taylor, "
+                           "2001-2020 by one or more of the following authors: Joseph Taylor, "
                            "K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, "
                            "IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; "
                            "Philip Karn, KA9Q; and other members of the WSJT Development Group.\"");
@@ -2593,15 +2593,15 @@ void MainWindow::on_actionColors_triggered()
 
 void MainWindow::on_actionMessage_averaging_triggered()
 {
-  if(!m_msgAvgWidget) {
+  if(m_msgAvgWidget == NULL) {
     m_msgAvgWidget.reset (new MessageAveraging {m_settings, m_config.decoded_text_font ()});
 
     // Connect signals from Message Averaging window
     connect (this, &MainWindow::finished, m_msgAvgWidget.data (), &MessageAveraging::close);
   }
   m_msgAvgWidget->showNormal();
-  m_msgAvgWidget->raise ();
-  m_msgAvgWidget->activateWindow ();
+  m_msgAvgWidget->raise();
+  m_msgAvgWidget->activateWindow();
 }
 
 void MainWindow::on_actionOpen_triggered()                     //Open File
@@ -3086,17 +3086,6 @@ void MainWindow::decodeDone ()
     if(dec_data.params.nzhsym==m_earlyDecode2) m_blankLine=false;
   }
   if(SpecOp::FOX == m_config.special_op_id()) houndCallers();
-
-/*
-  auto now = QDateTime::currentDateTimeUtc();
-  double tsec = fmod(double(now.toMSecsSinceEpoch()),86400000.0)/1000.0;
-  double tseq = fmod(double(now.toMSecsSinceEpoch() ),1000.0*m_TRperiod)/1000.0;
-  if(tseq < 0.5*m_TRperiod) tseq+= m_TRperiod;
-  QString t="";
-  t.sprintf("ee decodeDone  %11.3f %5d %5d %7.3f ",tsec,m_ihsym,m_ihsym,tseq);
-  qDebug().noquote() << t << QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz");
-*/
-
   to_jt9(m_ihsym,-1,1);                //Tell jt9 we know it has finished
 }
 
@@ -3104,19 +3093,18 @@ void MainWindow::readFromStdout()                             //readFromStdout
 {
   while(proc_jt9.canReadLine()) {
     auto line_read = proc_jt9.readLine ();
-    if (auto p = std::strpbrk (line_read.constData (), "\n\r"))
-      {
-        // truncate before line ending chars
-        line_read = line_read.left (p - line_read.constData ());
-      }
+    if (auto p = std::strpbrk (line_read.constData (), "\n\r")) {
+      // truncate before line ending chars
+      line_read = line_read.left (p - line_read.constData ());
+    }
     if(m_mode!="FT8" and m_mode!="FT4") {
       //Pad 22-char msg to at least 37 chars
-      line_read = line_read.left(43) + "               " + line_read.mid(43);
+      line_read = line_read.left(44) + "              " + line_read.mid(44);
     }
     bool bAvgMsg=false;
     int navg=0;
+
     if(line_read.indexOf("<DecodeFinished>") >= 0) {
-//       qDebug() << "bb" << QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz") << line_read;
       if(m_mode!="FT8" or dec_data.params.nzhsym==50) m_nDecodes=0;
       if(m_mode=="QRA64") m_wideGraph->drawRed(0,0);
       m_bDecoded =  line_read.mid(20).trimmed().toInt() > 0;
@@ -3140,17 +3128,26 @@ void MainWindow::readFromStdout()                             //readFromStdout
       m_nDecodes+=1;
       ndecodes_label.setText(QString::number(m_nDecodes));
       if(m_mode=="JT4" or m_mode=="JT65" or m_mode=="QRA64") {
-        int n=line_read.indexOf("f");
-        if(n<0) n=line_read.indexOf("d");
-        if(n>0) {
-          QString tt=line_read.mid(n+1,1);
-          navg=tt.toInt();
-          if(navg==0) {
-            char c = tt.data()->toLatin1();
-            if(int(c)>=65 and int(c)<=90) navg=int(c)-54;
-          }
-          if(navg>1 or line_read.indexOf("f*")>0) bAvgMsg=true;
+        int nf=line_read.indexOf("f");
+        if(nf>0) {
+          navg=line_read.mid(nf+1,1).toInt();
+          if(line_read.indexOf("f*")>0) navg=10;
         }
+        int nd=-1;
+        if(nf<0) nd=line_read.indexOf("d");
+        if(nd>0) {
+          navg=line_read.mid(nd+2,1).toInt();
+          if(line_read.mid(nd+2,1)=="*") navg=10;
+        }
+        if(m_mode=="JT65") {
+          int na=-1;
+          if(nf<0 and nd<0) na=line_read.indexOf("a");
+          if(na>0) {
+            navg=line_read.mid(na+2,1).toInt();
+            if(line_read.mid(na+2,1)=="*") navg=10;
+          }
+        }
+        if(navg>=2) bAvgMsg=true;
       }
       write_all("Rx",line_read.trimmed());
       if (m_config.insert_blank () && m_blankLine && SpecOp::FOX != m_config.special_op_id()) {
@@ -3237,7 +3234,8 @@ void MainWindow::readFromStdout()                             //readFromStdout
           if(SpecOp::FOX!=m_config.special_op_id() and (for_us or (abs(audioFreq - m_wideGraph->rxFreq()) <= 10))) bDisplayRight=true;
         }
       } else {
-        if(abs(audioFreq - m_wideGraph->rxFreq()) <= 10) bDisplayRight=true;
+        if((abs(audioFreq - m_wideGraph->rxFreq()) <= 10) and
+           !m_config.enable_VHF_features()) bDisplayRight=true;
       }
 
       if (bDisplayRight) {
@@ -4025,9 +4023,7 @@ void MainWindow::guiUpdate()
 
 //Once per second:
   if(nsec != m_sec0) {
-//    qDebug() << "onesec" << m_config.force_call_1st();
-    // if((!m_msgAvgWidget or (m_msgAvgWidget and !m_msgAvgWidget->isVisible()))
-    //    and (SpecOp::NONE < m_config.special_op_id()) and (SpecOp::HOUND > m_config.special_op_id())) on_actionFox_Log_triggered();
+//      qDebug() << "onesec" << m_mode;
     if(m_freqNominal!=0 and m_freqNominal<50000000 and m_config.enable_VHF_features()) {
       if(!m_bVHFwarned) vhfWarning();
     } else {
@@ -7293,8 +7289,11 @@ void::MainWindow::VHF_features_enabled(bool b)
   ui->actionMessage_averaging->setEnabled(b);
   ui->actionEnable_AP_DXcall->setVisible (m_mode=="QRA64");
   ui->actionEnable_AP_JT65->setVisible (b && m_mode=="JT65");
+
   if(!b && m_msgAvgWidget and (SpecOp::FOX != m_config.special_op_id()) and !m_config.autoLog()) {
-    if(m_msgAvgWidget->isVisible()) m_msgAvgWidget->close();
+    if(m_msgAvgWidget->isVisible() and m_mode!="JT4" and m_mode!="JT9" and m_mode!="JT65") {
+      m_msgAvgWidget->close();
+    }
   }
 }
 

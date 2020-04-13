@@ -59,8 +59,10 @@ be attempted in each state.
 |CALLING CQ   |   1, 2
 |===========================================
 
-Decoding with _a priori_ information behaves slightly differently
-in JT65.  Some details are provided in Tables 3 and 4.
+Decoding with _a priori_ information behaves slightly differently in
+JT65.  Some details are provided in Tables 3 and 4.  Notations such as
+`a63`, use a second digit to indicate the number of Rx intervals
+averaged to obtain the decode.
 
 [[JT65_AP_INFO_TABLE]]
 .JT65 AP information types
