@@ -352,10 +352,16 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
      msg=adjustl(msg)
 
   else if(i3.eq.0 .and. n3.eq.6) then
-     read(c77(70:71),'(b2)') j2
+     read(c77(50:50),'(b1)') j2a
+     j2b=0
+     if(j2a.eq.0) read(c77(49:49),'(b1)') j2b
+     j2=2*j2a+j2b
+     print*,'bbb',j2a,j2b,j2
      if(j2.eq.0) then
-        read(c77,2010) n28,igrid4,idbm,iap
-2010    format(b28.28,b15.15,b6.6,b19.19)
+! WSPR Type 1
+        read(c77,2010) n28,igrid4,idbm
+2010    format(b28.28,b15.15,b5.5)
+        idbm=nint(idbm*10.0/3.0)
         call unpack28(n28,call_1,unpk28_success) 
         if(.not.unpk28_success) unpk77_success=.false.
         call to_grid4(igrid4,grid4)
@@ -363,8 +369,19 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
         msg=trim(call_1)//' '//grid4//' '//trim(adjustl(crpt))
 
      else if(j2.eq.1) then
-        read(c77,2020) n28,npfx,idbm,iap
-2020    format(b28.28,b16.16,b6.6,b19.19)
+! WSPR Type 2
+        read(c77,2030) n28,igrid6
+2030    format(b22.22,b25.25)
+        call unpack28(n28,call_1,unpk28_success) 
+        if(.not.unpk28_success) unpk77_success=.false.
+        call to_grid6(igrid6,grid6)
+        msg=trim(call_1)//' '//grid6
+
+     else if(j2.eq.2) then
+! WSPR Type 3
+        read(c77,2020) n28,npfx,idbm
+2020    format(b28.28,b16.16,b5.5)
+        idbm=nint(idbm*10.0/3.0)        
         call unpack28(n28,call_1,unpk28_success) 
         if(.not.unpk28_success) unpk77_success=.false.
         write(crpt,'(i3)') idbm
@@ -378,7 +395,7 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
            enddo
            msg=trim(adjustl(cpfx))//'/'//trim(call_1)//' '//trim(adjustl(crpt))
         else
-! Suffix           
+! Suffix
            npfx=npfx-nzzz
            if(npfx.le.35) then
               cpfx(1:1)=a2(npfx+1:npfx+1)
@@ -392,14 +409,6 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
            endif
            msg=trim(call_1)//'/'//trim(adjustl(cpfx))//' '//trim(adjustl(crpt))
         endif
-
-     else if(j2.eq.2) then
-        read(c77,2030) n28,igrid6,iap
-2030    format(b22.22,b25.25,b19.19)
-        call unpack28(n28,call_1,unpk28_success) 
-        if(.not.unpk28_success) unpk77_success=.false.
-        call to_grid6(igrid6,grid6)
-        msg=trim(call_1)//' '//grid6
 
      endif
      
@@ -992,18 +1001,18 @@ subroutine pack77_06(nwords,w,i3,n3,c77)
      n3=6
      call pack28(w(1),n28)
      grid4=w(2)(1:4)
-     j1=(ichar(grid4(1:1))-ichar('A'))*18*10*10
-     j2=(ichar(grid4(2:2))-ichar('A'))*10*10
-     j3=(ichar(grid4(3:3))-ichar('0'))*10
-     j4=(ichar(grid4(4:4))-ichar('0'))
-     igrid4=j1+j2+j3+j4
+     k1=(ichar(grid4(1:1))-ichar('A'))*18*10*10
+     k2=(ichar(grid4(2:2))-ichar('A'))*10*10
+     k3=(ichar(grid4(3:3))-ichar('0'))*10
+     k4=(ichar(grid4(4:4))-ichar('0'))
+     igrid4=k1+k2+k3+k4
      read(w(3),*) idbm
      if(idbm.lt.0) idbm=0
-     if(idbm.gt.63) idbm=63
-     iap=0
-     j2=0
-     write(c77,1010) n28,igrid4,idbm,iap,0,j2,n3,i3
-1010 format(b28.28,b15.15,b6.6,b19.19,b1.1,b2.2,2b3.3)
+     if(idbm.gt.60) idbm=60
+     idbm=nint(0.3*idbm)
+     print*,'aaa',idbm
+     write(c77,1010) n28,igrid4,idbm,0,0,0,n3,i3
+1010 format(b28.28,b15.15,b5.5,2i1,b21.21,2b3.3)
      go to 900
   endif
   if(nwords.eq.2 .and. m1.ge.5 .and. m1.le.10 .and. m2.le.2) then
@@ -1037,13 +1046,13 @@ subroutine pack77_06(nwords,w,i3,n3,c77)
      endif
      i3=0
      n3=6
-     j2=1
      call pack28(bcall//'       ',n28)
      read(w(2),*) idbm
      if(idbm.lt.0) idbm=0
-     if(idbm.gt.63) idbm=63     
-     write(c77,1020) n28,npfx,idbm,iap,j2,n3,i3
-1020 format(b28.28,b16.16,b6.6,b19.19,b2.2,2b3.3)
+     if(idbm.gt.60) idbm=60
+     idbm=nint(0.3*idbm)
+     write(c77,1020) n28,npfx,idbm,1,0,n3,i3
+1020 format(b28.28,b16.16,b5.5,i1,b21.21,2b3.3)
      go to 900
   endif
 
@@ -1054,7 +1063,6 @@ subroutine pack77_06(nwords,w,i3,n3,c77)
      if(.not.is_grid6(grid6)) go to 900
      i3=0
      n3=6
-     j2=2
      call pack28(w(1),n28)
      k1=(ichar(grid6(1:1))-ichar('A'))*18*10*10*24*24
      k2=(ichar(grid6(2:2))-ichar('A'))*10*10*24*24
@@ -1063,8 +1071,8 @@ subroutine pack77_06(nwords,w,i3,n3,c77)
      k5=(ichar(grid6(5:5))-ichar('A'))*24
      k6=(ichar(grid6(6:6))-ichar('A'))
      igrid6=k1+k2+k3+k4+k5+k6
-     write(c77,1030) n28,igrid6,iap,0,j2,n3,i3
-1030 format(b22.22,b25.25,b19.19,b3.3,b2.2,2b3.3)
+     write(c77,1030) n28,igrid6,2,0,n3,i3
+1030 format(b22.22,b25.25,b3.3,b21.21,2b3.3)
   endif
 
 900 return  
