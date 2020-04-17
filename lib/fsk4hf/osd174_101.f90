@@ -1,16 +1,16 @@
-subroutine osd174_74(llr,k,apmask,ndeep,message74,cw,nhardmin,dmin)
+subroutine osd174_101(llr,k,apmask,ndeep,message101,cw,nhardmin,dmin)
 !
-! An ordered-statistics decoder for the (174,74) code.
-! Message payload is 50 bits. Any or all of a 24-bit CRC can be
+! An ordered-statistics decoder for the (174,101) code.
+! Message payload is 77 bits. Any or all of a 24-bit CRC can be
 ! used for detecting incorrect codewords. The remaining CRC bits are
 ! cascaded with the LDPC code for the purpose of improving the
 ! distance spectrum of the code.
 !
 ! If p1 (0.le.p1.le.24) is the number of CRC24 bits that are
 ! to be used for bad codeword detection, then the argument k should
-! be set to 50+p1.
+! be set to 77+p1.
 !
-! Valid values for k are in the range [50,74].
+! Valid values for k are in the range [77,101].
 !
    character*24 c24
    integer, parameter:: N=174
@@ -22,11 +22,9 @@ subroutine osd174_74(llr,k,apmask,ndeep,message74,cw,nhardmin,dmin)
    integer indices(N),nxor(N)
    integer*1 cw(N),ce(N),c0(N),hdec(N)
    integer*1, allocatable :: decoded(:)
-   integer*1 message50(50),message74(74)
+   integer*1 message77(77),message101(101)
    integer indx(N)
    real llr(N),rx(N),absrx(N)
-
-!include "ldpc_174_74_generator.f90"
 
    logical first,reset
    data first/.true./
@@ -40,24 +38,24 @@ subroutine osd174_74(llr,k,apmask,ndeep,message74,cw,nhardmin,dmin)
 !
 ! Create generator matrix for partial CRC cascaded with LDPC code.
 ! 
-! Let p2=74-k and p1+p2=24. 
+! Let p2=101-k and p1+p2=24. 
 !
 ! The last p2 bits of the CRC24 are cascaded with the LDPC code.
 ! 
-! The first p1=k-50 CRC24 bits will be used for error detection.
+! The first p1=k-77 CRC24 bits will be used for error detection.
 !
       allocate( gen(k,N) )
       gen=0
       do i=1,k
-         message74=0
-         message74(i)=1
-         if(i.le.50) then
-            call get_crc24(message74,74,ncrc24)
+         message101=0
+         message101(i)=1
+         if(i.le.77) then
+            call get_crc24(message101,101,ncrc24)
             write(c24,'(b24.24)') ncrc24
-            read(c24,'(24i1)') message74(51:74)
-            message74(51:k)=0
+            read(c24,'(24i1)') message101(78:101)
+            message101(78:k)=0
          endif
-         call encode174_74(message74,cw)
+         call encode174_101(message101,cw)
          gen(i,:)=cw
       enddo
 
@@ -120,7 +118,7 @@ subroutine osd174_74(llr,k,apmask,ndeep,message74,cw,nhardmin,dmin)
    rx=rx(indices)
    apmaskr=apmaskr(indices)
 
-   call mrbencode74(m0,c0,g2,N,k)
+   call mrbencode101(m0,c0,g2,N,k)
    nxor=ieor(c0,hdec)
    nhardmin=sum(nxor)
    dmin=sum(nxor*absrx)
@@ -193,7 +191,7 @@ subroutine osd174_74(llr,k,apmask,ndeep,message74,cw,nhardmin,dmin)
             ntotal=ntotal+1
             me=ieor(m0,mi)
             if(n1.eq.iflag) then
-               call mrbencode74(me,ce,g2,N,k)
+               call mrbencode101(me,ce,g2,N,k)
                e2sub=ieor(ce(k+1:N),hdec(k+1:N))
                e2=e2sub
                nd1kpt=sum(e2sub(1:nt))+1
@@ -203,7 +201,7 @@ subroutine osd174_74(llr,k,apmask,ndeep,message74,cw,nhardmin,dmin)
                nd1kpt=sum(e2(1:nt))+2
             endif
             if(nd1kpt .le. ntheta) then
-               call mrbencode74(me,ce,g2,N,k)
+               call mrbencode101(me,ce,g2,N,k)
                nxor=ieor(ce,hdec)
                if(n1.eq.iflag) then
                   dd=d1+sum(e2sub*absrx(k+1:N))
@@ -222,7 +220,7 @@ subroutine osd174_74(llr,k,apmask,ndeep,message74,cw,nhardmin,dmin)
          enddo
 ! Get the next test error pattern, iflag will go negative
 ! when the last pattern with weight iorder has been generated.
-         call nextpat74(misub,k,iorder,iflag)
+         call nextpat101(misub,k,iorder,iflag)
       enddo
    enddo
 
@@ -233,7 +231,7 @@ subroutine osd174_74(llr,k,apmask,ndeep,message74,cw,nhardmin,dmin)
          do i2=i1-1,1,-1
             ntotal=ntotal+1
             mi(1:ntau)=ieor(g2(k+1:k+ntau,i1),g2(k+1:k+ntau,i2))
-            call boxit74(reset,mi(1:ntau),ntau,ntotal,i1,i2)
+            call boxit101(reset,mi(1:ntau),ntau,ntotal,i1,i2)
          enddo
       enddo
 
@@ -246,7 +244,7 @@ subroutine osd174_74(llr,k,apmask,ndeep,message74,cw,nhardmin,dmin)
       iflag=k-nord+1
       do while(iflag .ge.0)
          me=ieor(m0,misub)
-         call mrbencode74(me,ce,g2,N,k)
+         call mrbencode101(me,ce,g2,N,k)
          e2sub=ieor(ce(k+1:N),hdec(k+1:N))
          do i2=0,ntau
             ntotal2=ntotal2+1
@@ -254,7 +252,7 @@ subroutine osd174_74(llr,k,apmask,ndeep,message74,cw,nhardmin,dmin)
             if(i2.gt.0) ui(i2)=1
             r2pat=ieor(e2sub,ui)
 778         continue
-            call fetchit74(reset,r2pat(1:ntau),ntau,in1,in2)
+            call fetchit101(reset,r2pat(1:ntau),ntau,in1,in2)
             if(in1.gt.0.and.in2.gt.0) then
                ncount2=ncount2+1
                mi=misub
@@ -262,7 +260,7 @@ subroutine osd174_74(llr,k,apmask,ndeep,message74,cw,nhardmin,dmin)
                mi(in2)=1
                if(sum(mi).lt.nord+npre1+npre2.or.any(iand(apmaskr(1:k),mi).eq.1)) cycle
                me=ieor(m0,mi)
-               call mrbencode74(me,ce,g2,N,k)
+               call mrbencode101(me,ce,g2,N,k)
                nxor=ieor(ce,hdec)
                dd=sum(nxor*absrx)
                if( dd .lt. dmin ) then
@@ -273,7 +271,7 @@ subroutine osd174_74(llr,k,apmask,ndeep,message74,cw,nhardmin,dmin)
                goto 778
             endif
          enddo
-         call nextpat74(misub,k,nord,iflag)
+         call nextpat101(misub,k,nord,iflag)
       enddo
    endif
 
@@ -281,14 +279,14 @@ subroutine osd174_74(llr,k,apmask,ndeep,message74,cw,nhardmin,dmin)
 ! Re-order the codeword to [message bits][parity bits] format.
    cw(indices)=cw
    hdec(indices)=hdec
-   message74=cw(1:74)
-   call get_crc24(message74,74,nbadcrc)
+   message101=cw(1:101)
+   call get_crc24(message101,101,nbadcrc)
    if(nbadcrc.ne.0) nhardmin=-nhardmin
 
    return
-end subroutine osd174_74
+end subroutine osd174_101
 
-subroutine mrbencode74(me,codeword,g2,N,K)
+subroutine mrbencode101(me,codeword,g2,N,K)
    integer*1 me(K),codeword(N),g2(N,K)
 ! fast encoding for low-weight test patterns
    codeword=0
@@ -298,9 +296,9 @@ subroutine mrbencode74(me,codeword,g2,N,K)
       endif
    enddo
    return
-end subroutine mrbencode74
+end subroutine mrbencode101
 
-subroutine nextpat74(mi,k,iorder,iflag)
+subroutine nextpat101(mi,k,iorder,iflag)
    integer*1 mi(k),ms(k)
 ! generate the next test error pattern
    ind=-1
@@ -327,9 +325,9 @@ subroutine nextpat74(mi,k,iorder,iflag)
       endif
    enddo
    return
-end subroutine nextpat74
+end subroutine nextpat101
 
-subroutine boxit74(reset,e2,ntau,npindex,i1,i2)
+subroutine boxit101(reset,e2,ntau,npindex,i1,i2)
    integer*1 e2(1:ntau)
    integer   indexes(5000,2),fp(0:525000),np(5000)
    logical reset
@@ -363,9 +361,9 @@ subroutine boxit74(reset,e2,ntau,npindex,i1,i2)
       np(ip)=npindex
    endif
    return
-end subroutine boxit74
+end subroutine boxit101
 
-subroutine fetchit74(reset,e2,ntau,i1,i2)
+subroutine fetchit101(reset,e2,ntau,i1,i2)
    integer   indexes(5000,2),fp(0:525000),np(5000)
    integer   lastpat
    integer*1 e2(ntau)
@@ -401,5 +399,5 @@ subroutine fetchit74(reset,e2,ntau,i1,i2)
    endif
    lastpat=ipat
    return
-end subroutine fetchit74
+end subroutine fetchit101
 

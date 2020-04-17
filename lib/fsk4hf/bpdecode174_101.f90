@@ -1,24 +1,24 @@
-subroutine bpdecode174_74(llr,apmask,maxiterations,message50,cw,nharderror,iter)
+subroutine bpdecode174_101(llr,apmask,maxiterations,message50,cw,nharderror,iter)
 !
-! A log-domain belief propagation decoder for the (174,74) code.
+! A log-domain belief propagation decoder for the (174,101) code.
 !
 
-   integer, parameter:: N=174, K=74, M=N-K
+   integer, parameter:: N=174, K=101, M=N-K
    integer*1 cw(N),apmask(N)
    integer*1 decoded(K)
-   integer*1 message50(50)
+   integer*1 message77(77)
    integer nrw(M),ncw
-   integer Nm(6,M)
+   integer Nm(8,M)
    integer Mn(3,N)  ! 3 checks per bit
    integer synd(M)
    real tov(3,N)
-   real toc(6,M)
-   real tanhtoc(6,M)
+   real toc(8,M)
+   real tanhtoc(8,M)
    real zn(N)
    real llr(N)
    real Tmn
 
-   include "ldpc_174_74_parity.f90"
+   include "ldpc_174_101_parity.f90"
 
    decoded=0
    toc=0
@@ -54,11 +54,11 @@ subroutine bpdecode174_74(llr,apmask,maxiterations,message50,cw,nharderror,iter)
 !   if( mod(synd(i),2) .ne. 0 ) write(*,*) 'check ',i,' unsatisfied'
       enddo
       if( ncheck .eq. 0 ) then ! we have a codeword - if crc is good, return it
-         decoded=cw(1:74)
-         call get_crc24(decoded,74,nbadcrc)
+         decoded=cw(1:101)
+         call get_crc24(decoded,101,nbadcrc)
          nharderror=count( (2*cw-1)*llr .lt. 0.0 )
          if(nbadcrc.eq.0) then
-            message50=decoded(1:50)
+            message77=decoded(1:77)
             return
          endif
       endif
@@ -94,7 +94,7 @@ subroutine bpdecode174_74(llr,apmask,maxiterations,message50,cw,nharderror,iter)
 
 ! send messages from check nodes to variable nodes
       do i=1,M
-         tanhtoc(1:6,i)=tanh(-toc(1:6,i)/2)
+         tanhtoc(1:8,i)=tanh(-toc(1:8,i)/2)
       enddo
 
       do j=1,N
@@ -110,4 +110,4 @@ subroutine bpdecode174_74(llr,apmask,maxiterations,message50,cw,nharderror,iter)
    enddo
    nharderror=-1
    return
-end subroutine bpdecode174_74
+end subroutine bpdecode174_101

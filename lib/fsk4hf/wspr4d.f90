@@ -58,9 +58,7 @@ program wspr4d
    open(13,file=trim(data_dir)//'/ALL_WSPR.TXT',status='unknown',   &
       position='append')
 
-   nav=0
    ngood=0
-ngood=0
    do ifile=iarg,nargs
       call getarg(ifile,infile)
       open(10,file=infile,status='old',access='stream')
@@ -89,14 +87,14 @@ ngood=0
       call getcandidate4(c2,npts,fs,fa,fb,ncand,candidates)         !First approx for freq
 
       ndecodes=0
-      do icand=1,1
+      do icand=1,ncand
          fc0=candidates(icand,1)
          xsnr=candidates(icand,2)
          xmax=-1e32
          smax=0.0
          fc1=fc0-1.50*(fs/416.0)
          do if=-20,20
-           df=if*0.02
+           df=if*0.04
            fc=fc1+df
            do is=300,450,5
               call coherent_sync(c2,is,fc,1,sync)
