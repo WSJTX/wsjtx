@@ -8,7 +8,6 @@ program ldpcsim174_101
    character*8 arg
    character*37 msg0,msg
    character*77 c77
-   character*50 cmsg
    character*24 c24
    integer*1 msgbits(101)
    integer*1 apmask(174)
@@ -44,7 +43,6 @@ program ldpcsim174_101
    msg0='K9AN K1JT FN20                       '
    if(nargs.eq.6) call getarg(6,msg0)
    call pack77(msg0,i3,n3,c77)
-   cmsg=c77(1:77)
 
    rate=real(Keff)/real(N)
 
@@ -55,19 +53,23 @@ program ldpcsim174_101
    write(*,*) "K        : ",Keff
 
    msgbits=0
-   read(cmsg,'(77i1)') msgbits(1:77)
+   read(c77,'(77i1)') msgbits(1:77)
    write(*,*) 'message'
-   write(*,'(77i1)') msgbits
+   write(*,'(77i1)') msgbits(1:77)
 
    call get_crc24(msgbits,101,ncrc24)
    write(c24,'(b24.24)') ncrc24
+write(*,*) 'c24 ',c24
    read(c24,'(24i1)') msgbits(78:101)
+write(*,'(24i1)') msgbits(78:101)
+   write(*,*) 'message with crc24'
+   write(*,'(101i1)') msgbits(1:101)
    call encode174_101(msgbits,codeword)
    call init_random_seed()
    call sgran()
 
    write(*,*) 'codeword'
-   write(*,'(50i1,1x,24i1,1x,100i1)') codeword
+   write(*,'(77i1,1x,24i1,1x,73i1)') codeword
 
    write(*,*) "Eb/N0    Es/N0   ngood  nundetected   sigma   symbol error rate"
    do idb = 8,-3,-1
