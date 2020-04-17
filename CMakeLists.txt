@@ -606,10 +606,14 @@ set (wsjt_FSRCS
 #  lib/ft8/decode174_91.f90
   lib/fsk4hf/ldpcsim174_91.f90
   lib/fsk4hf/ldpcsim174_74.f90
+  lib/fsk4hf/ldpcsim174_101.f90
   lib/fsk4hf/get_crc24.f90
   lib/fsk4hf/encode174_74.f90
+  lib/fsk4hf/encode174_101.f90
   lib/fsk4hf/bpdecode174_74.f90
+  lib/fsk4hf/bpdecode174_101.f90
   lib/fsk4hf/osd174_74.f90
+  lib/fsk4hf/osd174_101.f90
   lib/fsk4hf/wspr4sim.f90
   lib/fsk4hf/genwspr4.f90
   lib/fsk4hf/gen_wspr4wave.f90
@@ -1360,6 +1364,9 @@ target_link_libraries (ldpcsim174_91 wsjt_fort wsjt_cxx)
 
 add_executable (ldpcsim174_74 lib/fsk4hf/ldpcsim174_74.f90 wsjtx.rc)
 target_link_libraries (ldpcsim174_74 wsjt_fort wsjt_cxx)
+
+add_executable (ldpcsim174_101 lib/fsk4hf/ldpcsim174_101.f90 wsjtx.rc)
+target_link_libraries (ldpcsim174_101 wsjt_fort wsjt_cxx)
 
 add_executable (wspr4sim lib/fsk4hf/wspr4sim.f90 wsjtx.rc)
 target_link_libraries (wspr4sim wsjt_fort wsjt_cxx)

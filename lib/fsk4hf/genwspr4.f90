@@ -54,7 +54,7 @@ subroutine genwspr4(msg0,ichk,msgsent,msgbits,i4tone)
   call unpack77(c77,0,msgsent,unpk77_success) !Unpack to get msgsent
   msgbits=0
   read(c77,'(50i1)') msgbits(1:50)
-  call get_crc24(msgbits,ncrc24)
+  call get_crc24(msgbits,74,ncrc24)
   write(c24,'(b24.24)') ncrc24
   read(c24,'(24i1)') msgbits(51:74)
 
