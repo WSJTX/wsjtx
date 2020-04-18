@@ -32,7 +32,7 @@ program wspr4d
 
    nargs=iargc()
    if(nargs.lt.1) then
-      print*,'Usage:   wspr4d [-a <data_dir>] [-f fMHz] [-c ncoh] [-h h] file1 [file2 ...]'
+      print*,'Usage:   wspr4d [-a <data_dir>] [-f fMHz] file1 [file2 ...]'
       go to 999
    endif
    iarg=1
@@ -46,12 +46,6 @@ program wspr4d
    if(arg(1:2).eq.'-f') then
       call getarg(iarg+1,arg)
       read(arg,*) fMHz
-      iarg=iarg+2
-   endif
-   ncoh=1
-   if(arg(1:2).eq.'-h') then
-      call getarg(iarg+1,arg)
-      read(arg,*) h
       iarg=iarg+2
    endif
 
@@ -94,29 +88,31 @@ program wspr4d
          smax=0.0
          fc1=fc0-1.50*(fs/416.0)
          do if=-20,20
-           df=if*0.04
-           fc=fc1+df
-           do is=300,450,5
-              call coherent_sync(c2,is,fc,1,sync)
-              if(sync.gt.smax) then
-                 fc2=fc 
-                 isbest=is
-                 smax=sync
-              endif
-           enddo
+            df=if*0.04
+            fc=fc1+df
+            do is=300,450,5
+               call coherent_sync(c2,is,fc,1,sync)
+               if(sync.gt.smax) then
+                  fc2=fc
+                  isbest=is
+                  smax=sync
+               endif
+            enddo
          enddo
-write(*,*) -1.50*(fs/416),fc1,fc2,isbest
-istart=isbest
-fcest=fc2
-!genie sync
+         write(*,*) ifile,icand,-1.50*(fs/416),fc1,fc2,isbest,smax
+         istart=isbest
+         fcest=fc2
+!
+!******** genie sync
 !         istart=375
 !         fcest=0.0-1.50*(fs/416)
+!
          cframe=c2(istart:istart+103*416-1)
          call downsample4(cframe,fcest,cd)
          s2=sum(cd*conjg(cd))/(16*103)
          cd=cd/sqrt(s2)
          call get_wspr4_bitmetrics(cd,bitmetrics,badsync)
-!            if(badsync) cycle
+!          if(badsync) cycle
 
          hbits=0
          where(bitmetrics(:,1).ge.0) hbits=1
@@ -125,7 +121,7 @@ fcest=fc2
          ns3=count(hbits(133:140).eq.(/1,1,1,0,0,1,0,0/))
          ns4=count(hbits(199:206).eq.(/1,0,1,1,0,0,0,1/))
          nsync_qual=ns1+ns2+ns3+ns4
-!               if(nsync_qual.lt. 20) cycle
+!          if(nsync_qual.lt. 20) cycle
 
          scalefac=2.83
          llra(  1: 58)=bitmetrics(  9: 66, 1)
@@ -157,7 +153,7 @@ fcest=fc2
                c77(51:77)='000000000000000000000110000'
                call unpack77(c77,0,msg,unpk77_success)
                if(unpk77_success .and. index(msg,'K9AN').gt.0) then
-ngood=ngood+1
+                  ngood=ngood+1
                   write(*,1100) ifile,fc0,xsnr,msg(1:14),itry,nhardbp,nhardosd,dmin
 1100              format(i5,2x,f8.2,2x,f8.2,2x,a14,i4,i4,i4,f7.2)
                   exit
@@ -168,8 +164,8 @@ ngood=ngood+1
          enddo
       enddo !candidate list
    enddo !files
-nfiles=nargs-iarg+1
-write(*,*) 'nfiles: ',nfiles,' ngood: ',ngood
+   nfiles=nargs-iarg+1
+   write(*,*) 'nfiles: ',nfiles,' ngood: ',ngood
    write(*,1120)
 1120 format("<DecodeFinished>")
 
@@ -240,11 +236,11 @@ subroutine coherent_sync(cd0,i0,f0,itwk,sync)
       dphi=twopi*f0*dt
       phi=0.0
       do i=1,4*NSS
-        ctwk(i)=cmplx(cos(phi),sin(phi))
-        phi=mod(phi+dphi,twopi)
+         ctwk(i)=cmplx(cos(phi),sin(phi))
+         phi=mod(phi+dphi,twopi)
       enddo
    endif
- 
+
    if(itwk.eq.1) csync2=ctwk*csynca      !Tweak the frequency
    z1=0.
    if(i1.ge.0 .and. i1+4*NSS-1.le.NP-1) then
