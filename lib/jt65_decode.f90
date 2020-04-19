@@ -98,6 +98,7 @@ contains
     first_time=newdat
     dd=dd0
     ndecoded=0
+    ndecoded0=0
 
     if(nsubmode.ge.100) then
 ! This is QRA64 mode
@@ -119,7 +120,7 @@ contains
     single_decode=iand(nexp_decode,32).ne.0 .or. nagain
     bVHF=iand(nexp_decode,64).ne.0
 
-    if( bVHF ) then
+    if(bVHF) then
       nvec=ntrials
       npass=1
       if(n2pass.gt.1) npass=2
@@ -188,14 +189,8 @@ contains
        ncand=0
        call timer('sync65  ',0)
        call sync65(nfa,nfb,ntol,nqsym,ca,ncand,nrob,bVHF)
+       ncand=min(ncand,50/ipass)
        call timer('sync65  ',1)
-
-! If a candidate was found within +/- ntol of nfqso, move it into ca(1).
-       call fqso_first(nfqso,ntol,ca,ncand)
-       if(single_decode) then
-          if(ncand.eq.0) ncand=1
-          if(abs(ca(1)%freq - f0).gt.width) width=2*df    !### ??? ###
-       endif
 
        mode65=2**nsubmode
        nflip=1
@@ -238,6 +233,16 @@ contains
                ljt65apon,bVHF,sync2,a,dtx,nft,nspecial,qual,                &
                nhist,nsmo,decoded)
           call timer('decod65a',1)
+
+          if(.not.bVHF) then   
+             if(abs(a(1)).gt.10.0/ipass) cycle
+             ibad=0
+             if(abs(a(1)).gt.5.0) ibad=1
+             if(abs(a(2)).gt.2.0) ibad=ibad+1
+             if(abs(dtx-1.0).gt.2.5) ibad=ibad+1
+             if(ibad.ge.2) cycle
+          endif
+          
           if(nspecial.eq.0 .and. sync1.eq.5.0 .and. dtx.eq.2.5) cycle
           if(nspecial.eq.2) decoded='RO'
           if(nspecial.eq.3) decoded='RRR'
@@ -343,10 +348,12 @@ contains
              decoded0=decoded
              freq0=freq
              if(decoded0.eq.'                      ') decoded0='*'
+             if(single_decode .and. ndecoded.gt.0) go to 900
           endif
-       enddo                                 !Candidate loop
-       if(ipass.eq.2 .and. ndecoded.lt.1) exit
-    enddo                                    !Multiple-pass loop
+       enddo   ! icand
+       if(ipass.gt.1 .and. ndecoded.eq.ndecoded0) exit
+       ndecoded0=ndecoded
+    enddo   ! ipass
 900 return
   end subroutine decode
 
