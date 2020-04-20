@@ -65,7 +65,7 @@ program wspr4sim
   endif
   write(*,*) 
   write(*,'(a17)') 'Channel symbols: '
-  write(*,'(76i1)') itone
+  write(*,'(10i1)') itone
   write(*,*)  
 
   call sgran()

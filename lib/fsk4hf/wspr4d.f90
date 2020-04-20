@@ -84,84 +84,107 @@ program wspr4d
       do icand=1,ncand
          fc0=candidates(icand,1)
          xsnr=candidates(icand,2)
-         xmax=-1e32
-         smax=0.0
-         fc1=fc0-1.50*(fs/416.0)
-         do if=-20,20
-            df=if*0.04
-            fc=fc1+df
-            do is=300,450,5
-               call coherent_sync(c2,is,fc,1,sync)
-               if(sync.gt.smax) then
-                  fc2=fc
-                  isbest=is
-                  smax=sync
-               endif
-            enddo
-         enddo
-         write(*,*) ifile,icand,-1.50*(fs/416),fc1,fc2,isbest,smax
-         istart=isbest
-         fcest=fc2
-!
-!******** genie sync
-!         istart=375
-!         fcest=0.0-1.50*(fs/416)
-!
-         cframe=c2(istart:istart+103*416-1)
-         call downsample4(cframe,fcest,cd)
-         s2=sum(cd*conjg(cd))/(16*103)
-         cd=cd/sqrt(s2)
-         call get_wspr4_bitmetrics(cd,bitmetrics,badsync)
-!          if(badsync) cycle
 
-         hbits=0
-         where(bitmetrics(:,1).ge.0) hbits=1
-         ns1=count(hbits(  1:  8).eq.(/0,0,0,1,1,0,1,1/))
-         ns2=count(hbits( 67: 74).eq.(/0,1,0,0,1,1,1,0/))
-         ns3=count(hbits(133:140).eq.(/1,1,1,0,0,1,0,0/))
-         ns4=count(hbits(199:206).eq.(/1,0,1,1,0,0,0,1/))
-         nsync_qual=ns1+ns2+ns3+ns4
+         do isync=0,1
+
+            del=1.5*fs/416.0
+            if(isync.eq.0) then
+               fc1=fc0-del
+               is0=375
+               ishw=300
+               dis=50
+               ifhw=10
+               df=.1
+            else if(isync.eq.1) then
+               fc1=fc2
+               is0=isbest
+               ishw=100
+               dis=10
+               ifhw=10
+               df=.02
+            endif
+            smax=0.0
+            do if=-ifhw,ifhw
+               fc=fc1+df*if
+               do istart=max(1,is0-ishw),is0+ishw,dis
+                  call coherent_sync(c2,istart,fc,1,sync,data_aided,kstart,tones)
+                  if(sync.gt.smax) then
+                     fc2=fc
+                     isbest=istart
+                     smax=sync
+                  endif
+               enddo
+            enddo
+            write(*,*) ifile,icand,isync,fc1+del,fc2+del,isbest,smax
+         enddo
+
+         if(smax .lt. 100.0 ) cycle
+         idecoded=0
+         do ijitter=0,4
+            if(idecoded.eq.1) exit
+            if(ijitter.eq.1) ioffset=20
+            if(ijitter.eq.2) ioffset=-20
+            if(ijitter.eq.3) ioffset=40
+            if(ijitter.eq.4) ioffset=-40
+            is0=isbest+ioffset
+            if(is0.lt.0) cycle
+            cframe=c2(is0:is0+103*416-1)
+            call downsample4(cframe,fc2,cd)
+            s2=sum(cd*conjg(cd))/(16*103)
+            cd=cd/sqrt(s2)
+            call get_wspr4_bitmetrics(cd,bitmetrics,badsync)
+
+            hbits=0
+            where(bitmetrics(:,1).ge.0) hbits=1
+            ns1=count(hbits(  1:  8).eq.(/0,0,0,1,1,0,1,1/))
+            ns2=count(hbits( 67: 74).eq.(/0,1,0,0,1,1,1,0/))
+            ns3=count(hbits(133:140).eq.(/1,1,1,0,0,1,0,0/))
+            ns4=count(hbits(199:206).eq.(/1,0,1,1,0,0,0,1/))
+            nsync_qual=ns1+ns2+ns3+ns4
 !          if(nsync_qual.lt. 20) cycle
 
-         scalefac=2.83
-         llra(  1: 58)=bitmetrics(  9: 66, 1)
-         llra( 59:116)=bitmetrics( 75:132, 1)
-         llra(117:174)=bitmetrics(141:198, 1)
-         llra=scalefac*llra
-         llrb(  1: 58)=bitmetrics(  9: 66, 2)
-         llrb( 59:116)=bitmetrics( 75:132, 2)
-         llrb(117:174)=bitmetrics(141:198, 2)
-         llrb=scalefac*llrb
-         llrc(  1: 58)=bitmetrics(  9: 66, 3)
-         llrc( 59:116)=bitmetrics( 75:132, 3)
-         llrc(117:174)=bitmetrics(141:198, 3)
-         llrc=scalefac*llrc
-         apmask=0
-         max_iterations=40
+            scalefac=2.83
+            llra(  1: 58)=bitmetrics(  9: 66, 1)
+            llra( 59:116)=bitmetrics( 75:132, 1)
+            llra(117:174)=bitmetrics(141:198, 1)
+            llra=scalefac*llra
+            llrb(  1: 58)=bitmetrics(  9: 66, 2)
+            llrb( 59:116)=bitmetrics( 75:132, 2)
+            llrb(117:174)=bitmetrics(141:198, 2)
+            llrb=scalefac*llrb
+            llrc(  1: 58)=bitmetrics(  9: 66, 3)
+            llrc( 59:116)=bitmetrics( 75:132, 3)
+            llrc(117:174)=bitmetrics(141:198, 3)
+            llrc=scalefac*llrc
+            apmask=0
+            max_iterations=40
 
-         do itry=3,1,-1
-            if(itry.eq.1) llr=llra
-            if(itry.eq.2) llr=llrb
-            if(itry.eq.3) llr=llrc
-            nhardbp=0
-            nhardosd=0
-            call bpdecode174_74(llr,apmask,max_iterations,message,cw,nhardbp,niterations)
-            Keff=64
-            if(nhardbp.lt.0) call osd174_74(llr,Keff,apmask,5,message,cw,nhardosd,dmin)
-            if(nhardbp.ge.0 .or. nhardosd.ge.0) then
-               write(c77,'(50i1)') message
-               c77(51:77)='000000000000000000000110000'
-               call unpack77(c77,0,msg,unpk77_success)
-               if(unpk77_success .and. index(msg,'K9AN').gt.0) then
-                  ngood=ngood+1
-                  write(*,1100) ifile,fc0,xsnr,msg(1:14),itry,nhardbp,nhardosd,dmin
-1100              format(i5,2x,f8.2,2x,f8.2,2x,a14,i4,i4,i4,f7.2)
-                  exit
-               else
-                  cycle
+            do itry=3,1,-1
+               if(itry.eq.1) llr=llra
+               if(itry.eq.2) llr=llrb
+               if(itry.eq.3) llr=llrc
+               nhardbp=0
+               nhardosd=0
+               dmin=0.0
+               call bpdecode174_74(llr,apmask,max_iterations,message,cw,nhardbp,niterations)
+               Keff=64
+               if(nhardbp.lt.0) call osd174_74(llr,Keff,apmask,5,message,cw,nhardosd,dmin)
+               if(nhardbp.ge.0 .or. nhardosd.ge.0) then
+                  write(c77,'(50i1)') message
+                  c77(51:77)='000000000000000000000110000'
+                  call unpack77(c77,0,msg,unpk77_success)
+                  if(unpk77_success .and. index(msg,'K9AN').gt.0) then
+                     idecoded=1
+                     ngood=ngood+1
+                     write(*,1100) ifile,xsnr,isbest/375.0-1.0,1500.0+fc2+del,msg(1:14),itry,nhardbp,nhardosd,dmin,ijitter
+1100                 format(i5,2x,f6.1,2x,f6.2,2x,f8.2,2x,a14,i4,i4,i4,f7.2,i6)
+                     exit
+                  else
+                     cycle
+                  endif
                endif
-            endif
-         enddo
+            enddo  ! metrics
+         enddo  ! istart jitter
       enddo !candidate list
    enddo !files
    nfiles=nargs-iarg+1
@@ -269,7 +292,7 @@ subroutine coherent_sync(cd0,i0,f0,itwk,sync)
       if(npts.le.32) then
          z4=0.
       else
-         z4=sum(cd0(i4:i4+2*npts-1)*conjg(csync2(1:npts)))
+         z4=sum(cd0(i4:i4+npts-1)*conjg(csync2(1:npts)))
       endif
    endif
 
@@ -352,7 +375,7 @@ subroutine getcandidate4(c,npts,fs,fa,fb,ncand,candidates)
          (bigspec(i).gt.1.15).and.ncand.lt.100) then
          ncand=ncand+1
          candidates(ncand,1)=df*(i-NH2)
-         candidates(ncand,2)=10*log10(bigspec(i)-1)-26.0
+         candidates(ncand,2)=10*log10(bigspec(i)-1)-28.5
       endif
    enddo
    return
