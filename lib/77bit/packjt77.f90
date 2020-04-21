@@ -136,8 +136,8 @@ subroutine pack77(msg0,i3,n3,c77)
   call pack77_01(nwords,w,i3,n3,c77)
   if(i3.ge.0 .or. n3.ge.1) go to 900
 ! Check 0.2 (EU VHF contest exchange)
-  call pack77_02(nwords,w,i3,n3,c77)
-  if(i3.ge.0) go to 900
+!  call pack77_02(nwords,w,i3,n3,c77)
+!  if(i3.ge.0) go to 900
 
 ! Check 0.3 and 0.4 (ARRL Field Day exchange)
   call pack77_03(nwords,w,i3,n3,c77)
@@ -173,6 +173,10 @@ subroutine pack77(msg0,i3,n3,c77)
 
 ! Check Type 4 (One nonstandard call and one hashed call)
   call pack77_4(nwords,w,i3,n3,c77)
+  if(i3.ge.0) go to 900
+
+! Check Type 5 (EU VHF Contest with 2 hashed calls, report, serial, and grid6)
+  call pack77_5(nwords,w,i3,n3,c77)
   if(i3.ge.0) go to 900
 
 ! It defaults to free text
@@ -298,19 +302,6 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
         mycall13_set .and. &
         n10.eq.hashmy10) call_3='<'//trim(mycall13)//'>'
      msg=trim(call_1)//' RR73; '//trim(call_2)//' '//trim(call_3)//' '//crpt
-  else if(i3.eq.0 .and. n3.eq.2) then
-! 0.2  PA3XYZ/P R 590003 IO91NP           28 1 1 3 12 25   70   EU VHF contest
-     read(c77,1020) n28a,ip,ir,irpt,iserial,igrid6
-1020 format(b28,2b1,b3,b12,b25)
-     call unpack28(n28a,call_1,unpk28_success)
-     if(.not.unpk28_success .or. n28a.le.2) unpk77_success=.false.
-     nrs=52+irpt
-     if(ip.eq.1) call_1=trim(call_1)//'/P'
-     write(cexch,1022) nrs,iserial
-1022 format(i2,i4.4)
-     call to_grid6(igrid6,grid6)
-     msg=trim(call_1)//' '//cexch//' '//grid6
-     if(ir.eq.1) msg=trim(call_1)//' R '//cexch//' '//grid6
 
   else if(i3.eq.0 .and. (n3.eq.3 .or. n3.eq.4)) then
 ! 0.3   WA9XYZ KA1ABC R 16A EMA            28 28 1 4 3 7    71   ARRL Field Day
@@ -498,6 +489,7 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
              ' R '//crpt//' '//cserial
      endif
   else if(i3.eq.4) then
+! Type 4     
      read(c77,1050) n12,n58,iflip,nrpt,icq
 1050 format(b12,b58,b1,b2,b1)
      do i=11,1,-1
@@ -534,7 +526,22 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
      else
         msg='CQ '//trim(call_2)
      endif
+
+  else if(i3.eq.5) then
      
+! Type 5  <PA3XYZ> <G4ABC/P> R 590003 IO91NP      h12 h22 r1 s3 S11 g25
+! EU VHF contest
+     read(c77,1060) n12,n22,ir,irpt,iserial,igrid6
+1060 format(b12,b22,b1,b3,b11,b25)
+     call hash12(n12,call_1)
+     call hash22(n22,call_2)
+     nrs=52+irpt
+     write(cexch,1022) nrs,iserial
+1022 format(i2,i4.4)
+     call to_grid6(igrid6,grid6)
+     if(ir.eq.0) msg=trim(call_1)//' '//trim(call_2)//' '//cexch//' '//grid6
+     if(ir.eq.1) msg=trim(call_1)//' '//trim(call_2)//' R '//cexch//' '//grid6
+
   else if(i3.ge.6) then ! i3 values 6 and 7 are not yet defined
      unpk77_success=.false.
   endif
@@ -838,63 +845,6 @@ subroutine pack77_01(nwords,w,i3,n3,c77)
   
 900 return
 end subroutine pack77_01
-
-
-subroutine pack77_02(nwords,w,i3,n3,c77)
-
-! Pack a Type 0.2 message: EU VHF Contest mode
-! Example message:  PA3XYZ/P R 590003 IO91NP           28 1 1 3 12 25
-
-  character*13 w(19),c13
-  character*77 c77
-  character*6 bcall_1,grid6
-  logical ok1,is_grid6
-
-  is_grid6(grid6)=len(trim(grid6)).eq.6 .and.                        &
-       grid6(1:1).ge.'A' .and. grid6(1:1).le.'R' .and.               &
-       grid6(2:2).ge.'A' .and. grid6(2:2).le.'R' .and.               &
-       grid6(3:3).ge.'0' .and. grid6(3:3).le.'9' .and.               &
-       grid6(4:4).ge.'0' .and. grid6(4:4).le.'9' .and.               &
-       grid6(5:5).ge.'A' .and. grid6(5:5).le.'X' .and.               &
-       grid6(6:6).ge.'A' .and. grid6(6:6).le.'X'
-
-  call chkcall(w(1),bcall_1,ok1)
-  if(.not.ok1) return                            !bcall_1 must be a valid basecall
-  if(nwords.lt.3 .or. nwords.gt.4) return        !nwords must be 3 or 4
-  nx=-1
-  if(nwords.ge.2) read(w(nwords-1),*,err=2) nx
-2 if(nx.lt.520001 .or. nx.gt.594095) return      !Exchange between 520001 - 594095
-  if(.not.is_grid6(w(nwords)(1:6))) return       !Last word must be a valid grid6
-
-! Type 0.2:   PA3XYZ/P R 590003 IO91NP           28 1 1 3 12 25   70   EU VHF contest
-  i3=0
-  n3=2
-  i=index(w(1)//' ','/P ')
-  if(i.ge.4) then
-     ip=1
-     c13=w(1)(1:i-1)
-  else
-     ip=0
-     c13=w(1)
-  end if
-  call pack28(c13,n28a)
-  ir=0
-  if(w(2)(1:2).eq.'R ') ir=1
-  irpt=nx/10000 - 52
-  iserial=mod(nx,10000)
-  grid6=w(nwords)(1:6)
-  j1=(ichar(grid6(1:1))-ichar('A'))*18*10*10*24*24
-  j2=(ichar(grid6(2:2))-ichar('A'))*10*10*24*24
-  j3=(ichar(grid6(3:3))-ichar('0'))*10*24*24
-  j4=(ichar(grid6(4:4))-ichar('0'))*24*24
-  j5=(ichar(grid6(5:5))-ichar('A'))*24
-  j6=(ichar(grid6(6:6))-ichar('A'))
-  igrid6=j1+j2+j3+j4+j5+j6
-  write(c77,1010) n28a,ip,ir,irpt,iserial,igrid6,n3,i3
-1010 format(b28.28,2b1,b3.3,b12.12,b25.25,b4.4,b3.3)
-
-  return
-end subroutine pack77_02
 
 
 subroutine pack77_03(nwords,w,i3,n3,c77)
@@ -1325,6 +1275,67 @@ subroutine pack77_4(nwords,w,i3,n3,c77)
 
 900 return
 end subroutine pack77_4
+
+subroutine pack77_5(nwords,w,i3,n3,c77)
+
+! Pack a Type 0.2 message: EU VHF Contest mode
+! Example message:  PA3XYZ/P R 590003 IO91NP           28 1 1 3 12 25
+!                 <PA3XYZ> <G4ABC/P> R 590003 IO91NP   h10 h20 r1 s3 s12 g25
+
+  character*13 w(19),c13
+  character*77 c77
+  character*6 grid6
+  logical is_grid6
+
+  is_grid6(grid6)=len(trim(grid6)).eq.6 .and.                        &
+       grid6(1:1).ge.'A' .and. grid6(1:1).le.'R' .and.               &
+       grid6(2:2).ge.'A' .and. grid6(2:2).le.'R' .and.               &
+       grid6(3:3).ge.'0' .and. grid6(3:3).le.'9' .and.               &
+       grid6(4:4).ge.'0' .and. grid6(4:4).le.'9' .and.               &
+       grid6(5:5).ge.'A' .and. grid6(5:5).le.'X' .and.               &
+       grid6(6:6).ge.'A' .and. grid6(6:6).le.'X'
+
+  if(nwords.lt.4 .or. nwords.gt.5) return        !nwords must be 4 or 5
+  if(w(1)(1:1).ne.'<' .or. w(2)(1:1).ne.'<') return !Both calls must be hashed
+  nx=-1
+  read(w(nwords-1),*,err=2) nx
+2 if(nx.lt.520001 .or. nx.gt.594095) return   !Exchange between 520001 - 594095
+  if(.not.is_grid6(w(nwords)(1:6))) return    !Last word must be a valid grid6
+
+! Type 0.2: <PA3XYZ> <G4ABC/P> R 590003 IO91NP     h10 h20 r1 s3 s12 g25
+
+  i3=5
+  n3=0
+
+  call save_hash_call(w(1),n10,n12,n22)
+  i2=index(w(1),'>')
+  c13=w(1)(2:i2-1)
+  n12=ihashcall(c13,12)
+
+  call save_hash_call(w(2),n10a,n12a,n22)
+  i2=index(w(2),'>')
+  c13=w(2)(2:i2-1)
+  n22=ihashcall(c13,22)
+
+  ir=0
+  if(w(3)(1:2).eq.'R ') ir=1
+  irpt=nx/10000 - 52
+  iserial=mod(nx,10000)
+  if(iserial.gt.2047) iserial=2047
+  grid6=w(nwords)(1:6)
+  j1=(ichar(grid6(1:1))-ichar('A'))*18*10*10*24*24
+  j2=(ichar(grid6(2:2))-ichar('A'))*10*10*24*24
+  j3=(ichar(grid6(3:3))-ichar('0'))*10*24*24
+  j4=(ichar(grid6(4:4))-ichar('0'))*24*24
+  j5=(ichar(grid6(5:5))-ichar('A'))*24
+  j6=(ichar(grid6(6:6))-ichar('A'))
+  igrid6=j1+j2+j3+j4+j5+j6
+
+  write(c77,1010) n12,n22,ir,irpt,iserial,igrid6,i3
+1010 format(b12.12,b22.22,b1,b3.3,b11.11,b25.25,b3.3)
+
+  return
+end subroutine pack77_5
 
 
 subroutine packtext77(c13,c71)

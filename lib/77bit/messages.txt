@@ -51,8 +51,8 @@ TU; G3AAA K1ABC R 559 MA
 -----------------------------------------------------------
 CQ G4ABC/P IO91
                                    G4ABC/P PA9XYZ JO22
-PA9XYZ 590003 IO91NP
-                                   G4ABC/P R 570007 JO22DB
+<PA9XYZ> <G4ABC/P> 590003 IO91NP
+                                   <G4ABC/P> <PA9XYZ> R 570007 JO22DB
 PA9XYZ G4ABC/P RR73
 
 8. Compound or nonstandard calls CQ
