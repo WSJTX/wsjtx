@@ -27,6 +27,7 @@ program ft8sim_gfsk
      print*,'Examples: ft8sim "K1ABC W9XYZ EN37"       1500.0 0.0  0.1 1.0   10   -18'
      print*,'          ft8sim "WA9XYZ/R KA1ABC/R FN42" 1500.0 0.0  0.1 1.0   10   -18'
      print*,'          ft8sim "K1ABC RR73; W9XYZ <KH1/KH7Z> -11" 300 0 0 0 25 1 -10'
+     print*,'          ft8sim "<G4ABC/P> <PA9XYZ> R 570007 JO22DB" 1500 0 0 0 1 -10'
      go to 999
   endif
   call getarg(1,msg37)                   !Message to be transmitted
@@ -71,7 +72,7 @@ program ft8sim_gfsk
   call gen_ft8wave(itone,NN,NSPS,bt,fs,f0,cwave,xjunk,1,NWAVE)  !Generate complex cwave
 
   write(*,*)  
-  write(*,'(a23,a37,3x,a7,i1,a1,i1)') 'New Style FT8 Message: ',msgsent37,'i3.n3: ',i3,'.',n3
+  write(*,'(a23,a37,3x,a7,i1,a1,i1)') 'Decoded message: ',msgsent37,'i3.n3: ',i3,'.',n3
   write(*,1000) f0,xdt,txt,snrdb,bw
 1000 format('f0:',f9.3,'   DT:',f6.2,'   TxT:',f6.1,'   SNR:',f6.1,    &
        '  BW:',f4.1)

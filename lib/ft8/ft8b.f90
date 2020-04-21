@@ -422,9 +422,7 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,nzhsym,lapon,     &
      write(c77,'(77i1)') message77
      read(c77(72:74),'(b3)') n3
      read(c77(75:77),'(b3)') i3
-     if(i3.gt.4 .or. (i3.eq.0.and.n3.gt.5)) then
-        cycle
-     endif
+     if(i3.gt.5 .or. (i3.eq.0.and.n3.gt.6)) cycle
      call unpack77(c77,1,msg37,unpk77_success)
      if(.not.unpk77_success) then
         cycle
