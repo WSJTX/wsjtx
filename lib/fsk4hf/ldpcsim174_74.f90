@@ -13,7 +13,7 @@ program ldpcsim174_74
    integer*1 msgbits(74)
    integer*1 apmask(174)
    integer*1 cw(174)
-   integer*1 codeword(N),message(50)
+   integer*1 codeword(N),message74(74)
    integer ncrc24
    integer nerrtot(174),nerrdec(174),nmpcbad(74)
    real rxdata(N),llr(N)
@@ -107,11 +107,11 @@ program ldpcsim174_74
          llr=2.0*rxdata/(ss*ss)
          apmask=0
 ! max_iterations is max number of belief propagation iterations
-         call bpdecode174_74(llr,apmask,max_iterations,message,cw,nharderror,niterations)
+         call bpdecode174_74(llr,apmask,max_iterations,message74,cw,nharderror,niterations,nchecks)
          dmin=0.0
          if( (nharderror .lt. 0) .and. (ndeep .ge. 0) ) then
-!            call osd174_74(llr, Keff, apmask, ndeep, message, cw, nharderror, dmin)
-call decode174_74(llr,Keff,ndeep,apmask,max_iterations,message,cw,nharderror,niterations,ncheck,dmin,isuper)
+!            call osd174_74(llr, Keff, apmask, ndeep, message74, cw, nharderror, dmin)
+call decode174_74(llr,Keff,ndeep,apmask,max_iterations,message74,cw,nharderror,niterations,ncheck,dmin,isuper)
          endif
 
          if(nharderror.ge.0) then
@@ -132,7 +132,7 @@ call decode174_74(llr,Keff,ndeep,apmask,max_iterations,message,cw,nharderror,nit
       write(*,"(f4.1,4x,f5.1,1x,i8,1x,i8,8x,f5.2,8x,e10.3)") db,esn0,ngood,nue,ss,pberr
 
       if(first) then
-         write(c77,'(50i1)') message
+         write(c77,'(74i1)') message74
          c77(51:77)='000000000000000000000110000'
          call unpack77(c77,0,msg,unpk77_success)
          if(unpk77_success) then

@@ -12,7 +12,7 @@ program ldpcsim174_101
    integer*1 msgbits(101)
    integer*1 apmask(174)
    integer*1 cw(174)
-   integer*1 codeword(N),message(77)
+   integer*1 codeword(N),message(77),message101(101)
    integer ncrc24
    real rxdata(N),llr(N)
    real dllr(174),llrd(174)
@@ -59,7 +59,6 @@ program ldpcsim174_101
 
    call get_crc24(msgbits,101,ncrc24)
    write(c24,'(b24.24)') ncrc24
-write(*,*) 'c24 ',c24
    read(c24,'(24i1)') msgbits(78:101)
 write(*,'(24i1)') msgbits(78:101)
    write(*,*) 'message with crc24'
@@ -103,10 +102,12 @@ write(*,'(24i1)') msgbits(78:101)
          llr=2.0*rxdata/(ss*ss)
          apmask=0
 ! max_iterations is max number of belief propagation iterations
-         call bpdecode174_101(llr,apmask,max_iterations,message,cw,nharderror,niterations)
+         call bpdecode174_101(llr,apmask,max_iterations,message101,cw,nharderror,niterations,nchecks)
          dmin=0.0
          if( (nharderror .lt. 0) .and. (ndeep .ge. 0) ) then
-            call osd174_101(llr, Keff, apmask, ndeep, message, cw, nharderror, dmin)
+!            call osd174_101(llr, Keff, apmask, ndeep, message101, cw, nharderror, dmin)
+            maxsuper=2
+            call decode174_101(llr, Keff, ndeep, apmask, maxsuper, message101, cw, nharderror, iterations, ncheck, dmin, isuper)
          endif
 
          if(nharderror.ge.0) then
@@ -127,7 +128,8 @@ write(*,'(24i1)') msgbits(78:101)
       write(*,"(f4.1,4x,f5.1,1x,i8,1x,i8,8x,f5.2,8x,e10.3)") db,esn0,ngood,nue,ss,pberr
 
       if(first) then
-         write(c77,'(77i1)') message
+         write(c77,'(77i1)') message101(1:77)
+write(*,'(101i1)') message101
          call unpack77(c77,0,msg,unpk77_success)
          if(unpk77_success) then
             write(*,1100) msg(1:37)

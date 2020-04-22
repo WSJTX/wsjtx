@@ -1,12 +1,11 @@
-subroutine bpdecode174_101(llr,apmask,maxiterations,message50,cw,nharderror,iter)
+subroutine bpdecode174_101(llr,apmask,maxiterations,message101,cw,nharderror,iter,ncheck)
 !
 ! A log-domain belief propagation decoder for the (174,101) code.
 !
-
    integer, parameter:: N=174, K=101, M=N-K
    integer*1 cw(N),apmask(N)
    integer*1 decoded(K)
-   integer*1 message77(77)
+   integer*1 message101(101)
    integer nrw(M),ncw
    integer Nm(8,M)
    integer Mn(3,N)  ! 3 checks per bit
@@ -46,19 +45,18 @@ subroutine bpdecode174_101(llr,apmask,maxiterations,message50,cw,nharderror,iter
 ! Check to see if we have a codeword (check before we do any iteration).
       cw=0
       where( zn .gt. 0. ) cw=1
-
       ncheck=0
       do i=1,M
          synd(i)=sum(cw(Nm(1:nrw(i),i)))
          if( mod(synd(i),2) .ne. 0 ) ncheck=ncheck+1
-!   if( mod(synd(i),2) .ne. 0 ) write(*,*) 'check ',i,' unsatisfied'
+! if( mod(synd(i),2) .ne. 0 ) write(*,*) 'check ',i,' unsatisfied'
       enddo
       if( ncheck .eq. 0 ) then ! we have a codeword - if crc is good, return it
          decoded=cw(1:101)
          call get_crc24(decoded,101,nbadcrc)
          nharderror=count( (2*cw-1)*llr .lt. 0.0 )
          if(nbadcrc.eq.0) then
-            message77=decoded(1:77)
+            message101=decoded(1:101)
             return
          endif
       endif

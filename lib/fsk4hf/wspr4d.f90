@@ -22,7 +22,8 @@ program wspr4d
    integer*2 iwave(NMAX)                 !Generated full-length waveform
    integer*1 apmask(174),cw(174)
    integer*1 hbits(206)
-   integer*1 message(50)
+   integer*1 message74(74)
+   integer*1 message101(101)
    logical badsync,unpk77_success
 
    fs=12000.0/NDOWN                       !Sample rate
@@ -107,7 +108,7 @@ program wspr4d
             do if=-ifhw,ifhw
                fc=fc1+df*if
                do istart=max(1,is0-ishw),is0+ishw,dis
-                  call coherent_sync(c2,istart,fc,1,sync,data_aided,kstart,tones)
+                  call coherent_sync(c2,istart,fc,1,sync)
                   if(sync.gt.smax) then
                      fc2=fc
                      isbest=istart
@@ -115,11 +116,12 @@ program wspr4d
                   endif
                enddo
             enddo
-            write(*,*) ifile,icand,isync,fc1+del,fc2+del,isbest,smax
+!            write(*,*) ifile,icand,isync,fc1+del,fc2+del,isbest,smax
          enddo
 
-         if(smax .lt. 100.0 ) cycle
-
+!         if(smax .lt. 100.0 ) cycle
+!isbest=375
+!fc2=-del
          idecoded=0
          do ijitter=0,2
             if(idecoded.eq.1) exit
@@ -166,18 +168,22 @@ program wspr4d
                nhardbp=0
                nhardosd=0
                dmin=0.0
-               call bpdecode174_74(llr,apmask,max_iterations,message,cw,nhardbp,niterations)
-               Keff=64
-!               if(nhardbp.lt.0) call osd174_74(llr,Keff,apmask,5,message,cw,nhardosd,dmin)
+!               call bpdecode174_74(llr,apmask,max_iterations,message74,cw,nhardbp,niterations,nchecks)
+               call bpdecode174_101(llr,apmask,max_iterations,message101,cw,nhardbp,niterations,ncheck101)
+               Keff=91
+!               if(nhardbp.lt.0) call osd174_74(llr,Keff,apmask,5,message74,cw,nhardosd,dmin)
+!               if(nhardbp.lt.0) call osd174_101(llr,Keff,apmask,5,message74,cw,nhardosd,dmin)
                maxsuperits=2
-               ndeep=4 
+!               ndeep=4 
+               ndeep=3 
                if(nhardbp.lt.0) then
-                  call decode174_74(llr,Keff,ndeep,apmask,maxsuperits,message,cw,nhardosd,iter,ncheck,dmin,isuper)
+!                  call decode174_74(llr,Keff,ndeep,apmask,maxsuperits,message74,cw,nhardosd,iter,ncheck,dmin,isuper)
+                  call decode174_101(llr,Keff,ndeep,apmask,maxsuperits,message101,cw,nhardosd,iter,ncheck,dmin,isuper)
                endif
-
                if(nhardbp.ge.0 .or. nhardosd.ge.0) then
-                  write(c77,'(50i1)') message
-                  c77(51:77)='000000000000000000000110000'
+!                  write(c77,'(50i1)') message74(1:50)
+!                  c77(51:77)='000000000000000000000110000'
+                  write(c77,'(77i1)') message101(1:77)
                   call unpack77(c77,0,msg,unpk77_success)
                   if(unpk77_success .and. index(msg,'K9AN').gt.0) then
                      idecoded=1
