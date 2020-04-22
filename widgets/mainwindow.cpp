@@ -3703,7 +3703,6 @@ void MainWindow::guiUpdate()
     QByteArray ba;
     QByteArray ba0;
 
-    qDebug() << "aa";
     if(m_mode.startsWith ("WSPR")) {
       QString sdBm,msg0,msg1,msg2;
       sdBm.sprintf(" %d",m_dBm);
@@ -3945,7 +3944,6 @@ void MainWindow::guiUpdate()
         }
       }
     }
-    qDebug() << "bb";
     m_restart=false;
 //----------------------------------------------------------------------
   } else {
@@ -5583,7 +5581,7 @@ void MainWindow::on_logQSOButton_clicked()                 //Log QSO button
       case SpecOp::EU_VHF:
         m_rptSent=m_xSent.split(" ").at(0).left(2);
         m_rptRcvd=m_xRcvd.split(" ").at(0).left(2);
-        m_hisGrid=m_xRcvd.split(" ").at(1);
+        if(m_xRcvd.split(" ").size()>=2) m_hisGrid=m_xRcvd.split(" ").at(1);
         grid=m_hisGrid;
         ui->dxGridEntry->setText(grid);
         break;
