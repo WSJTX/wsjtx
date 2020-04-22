@@ -3374,7 +3374,7 @@ void MainWindow::auto_sequence (DecodedText const& message, unsigned start_toler
       if(w2=="R") nrpt=w.at(3).toInt();
     }
     bool bEU_VHF=(nrpt>=520001 and nrpt<=594000);
-    if(bEU_VHF and message.string().contains(m_config.my_callsign() + " ")) {
+    if(bEU_VHF and message.string().contains("<"+m_config.my_callsign() + "> ")) {
       m_xRcvd=message.string().trimmed().right(13);
     }
     if (m_auto
