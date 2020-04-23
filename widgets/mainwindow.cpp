@@ -1409,7 +1409,7 @@ void MainWindow::dataSink(qint64 frames)
   if(m_mode=="FT8") {
     to_jt9(m_ihsym,-1,-1);     //Allow jt9 to bail out early, if necessary
     if(m_ihsym==40 and m_decoderBusy) {
-      qDebug() << "ff Clearing hung decoder status";
+      qDebug() << "Clearing hung decoder status";
       decodeDone();  //Clear a hung decoder status
       m_blankLine=true;
     }
@@ -2668,7 +2668,11 @@ void MainWindow::read_wav_file (QString const& fname)
         }
 
         if(basename.mid(0,10)=="000000_000" && m_mode == "FT8") {
-          dec_data.params.nutc=15*basename.mid(10,3).toInt();
+          int isec=15*basename.mid(10,3).toInt();
+          int ih=isec/3600;
+          int im=(isec-3600*ih)/60;
+          isec=isec%60;
+          dec_data.params.nutc=3600*ih+60*im+isec;
         }
 
       }));
@@ -3362,15 +3366,19 @@ void MainWindow::auto_sequence (DecodedText const& message, unsigned start_toler
                || message_words.contains ("DE")))
           || !message.isStandardMessage ()); // free text 73/RR73
 
-    QStringList w=message.string().mid(24).remove("<").remove(">").split(" ",QString::SkipEmptyParts);
-    QString w2=w.at(2);
+    QStringList w=message.string().mid(22).remove("<").remove(">").split(" ",QString::SkipEmptyParts);
+    QString w2;
     int nrpt=0;
-    if(w.size()>3) {
-      nrpt=w2.toInt();
-      if(w2=="R") nrpt=w.at(3).toInt();
-    }
+    if (w.size () > 2)
+      {
+        w2=w.at(2);
+        if(w.size()>3) {
+          nrpt=w2.toInt();
+          if(w2=="R") nrpt=w.at(3).toInt();
+        }
+      }
     bool bEU_VHF=(nrpt>=520001 and nrpt<=594000);
-    if(bEU_VHF and message.string().contains(m_config.my_callsign() + " ")) {
+    if(bEU_VHF and message.string().contains("<"+m_config.my_callsign() + "> ")) {
       m_xRcvd=message.string().trimmed().right(13);
     }
     if (m_auto
@@ -3956,7 +3964,6 @@ void MainWindow::guiUpdate()
       }
     }
   }
-
   if (g_iptt == 1 && m_iptt0 == 0) {
     auto const& current_message = QString::fromLatin1 (msgsent);
     if(m_config.watchdog () && !m_mode.startsWith ("WSPR")
@@ -3988,7 +3995,6 @@ void MainWindow::guiUpdate()
     transmitDisplay (true);
     statusUpdate ();
   }
-
   if(!m_btxok && m_btxok0 && g_iptt==1) stopTx();
 
   if(m_startAnother) {
@@ -4571,17 +4577,16 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
      || dtext.contains (" " + m_baseCall + "/")
      || (firstcall == "DE")) {
 
-    QStringList w=message.string().mid(24).remove("<").remove(">").split(" ",QString::SkipEmptyParts);
-    QString w2="";
+    QStringList w=message.string().mid(22).remove("<").remove(">").split(" ",QString::SkipEmptyParts);
+    QString w2;
     if(w.size()>=3) w2=w.at(2);
-    QString w34="";
+    QString w34;
     if(w.size()>=4) w34=w.at(3);
     int nrpt=w2.toInt();
     if(w2=="R") {
       nrpt=w34.toInt();
       w34=w.at(4);
     }
-
     bool bEU_VHF_w2=(nrpt>=520001 and nrpt<=594000);
     if(bEU_VHF_w2 and SpecOp::EU_VHF!=m_config.special_op_id()) {
       // Switch automatically to EU VHF Contest mode
@@ -4612,6 +4617,7 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
 
     n=w34.toInt();
     bool bRTTY = (n>=529 and n<=599);
+
     if(bRTTY and SpecOp::RTTY != m_config.special_op_id()) {
       // ### Should be in RTTY contest mode ??? ###
       MessageBox::information_message (this, tr ("Should you switch to RTTY contest mode?"));
@@ -4850,7 +4856,6 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
       m_gen_message_is_cq = false;
     }
   }
-
   // if we get here then we are reacting to the message
   if (m_bAutoReply) m_bCallingCQ = CALLING == m_QSOProgress;
   if (ui->RxFreqSpinBox->isEnabled () and m_mode != "MSK144" and !shift) {
@@ -4918,7 +4923,6 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
       }
     }
   }
-
   if(m_transmitting) m_restart=true;
   if (ui->cbAutoSeq->isVisible () && ui->cbAutoSeq->isChecked ()
       && !m_bDoubleClicked && m_mode!="FT4") {
@@ -5581,7 +5585,7 @@ void MainWindow::on_logQSOButton_clicked()                 //Log QSO button
       case SpecOp::EU_VHF:
         m_rptSent=m_xSent.split(" ").at(0).left(2);
         m_rptRcvd=m_xRcvd.split(" ").at(0).left(2);
-        m_hisGrid=m_xRcvd.split(" ").at(1);
+        if(m_xRcvd.split(" ").size()>=2) m_hisGrid=m_xRcvd.split(" ").at(1);
         grid=m_hisGrid;
         ui->dxGridEntry->setText(grid);
         break;
