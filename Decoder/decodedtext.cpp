@@ -177,15 +177,6 @@ unsigned DecodedText::timeInSeconds() const
     + (padding_ ? string_.mid (column_time + 2 + padding_, 2).toUInt () : 0U);
 }
 
-/*
-2343 -11  0.8 1259 # YV6BFE F6GUU R-08
-2343 -19  0.3  718 # VE6WQ SQ2NIJ -14
-2343  -7  0.3  815 # KK4DSD W7VP -16
-2343 -13  0.1 3627 @ CT1FBK IK5YZT R+02
-
-0605  Tx      1259 # CQ VK3ACF QF22
-*/
-
 QString DecodedText::report() const // returns a string of the SNR field with a leading + or - followed by two digits
 {
     int sr = snr();

@@ -4589,15 +4589,9 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
     }
     bool bEU_VHF_w2=(nrpt>=520001 and nrpt<=594000);
     if(bEU_VHF_w2 and SpecOp::EU_VHF!=m_config.special_op_id()) {
-      // Switch automatically to EU VHF Contest mode
-      m_config.setEU_VHF_Contest();
-//      m_nContest=EU_VHF;
-      if(m_transmitting) m_restart=true;
-      ui->decodedTextBrowser2->displayQSY (QString{"Enabled EU VHF Contest messages."});
-      QString t0="EU VHF";
-      ui->labDXped->setVisible(true);
-      ui->labDXped->setText(t0);
+      MessageBox::information_message (this, tr ("Should you switch to EU VHF Contest mode?"));
     }
+
     QStringList t=message.string().split(' ', QString::SkipEmptyParts);
     int n=t.size();
     QString t0=t.at(n-2);
@@ -4609,7 +4603,6 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
       m_xRcvd=t.at(n-2) + " " + t.at(n-1);
       t0=t.at(n-3);
     }
-
     if(bFieldDay_msg and SpecOp::FIELD_DAY!=m_config.special_op_id()) {
       // ### Should be in ARRL Field Day mode ??? ###
       MessageBox::information_message (this, tr ("Should you switch to ARRL Field Day mode?"));
