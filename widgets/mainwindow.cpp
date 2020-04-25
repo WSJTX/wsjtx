@@ -4626,9 +4626,15 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
       // ### Should be in RTTY contest mode ??? ###
       MessageBox::information_message (this, tr ("Should you switch to RTTY contest mode?"));
     }
+
+    if(SpecOp::EU_VHF==m_config.special_op_id() and message_words.at(1).contains(m_baseCall) and
+       (!message_words.at(2).contains(qso_partner_base_call)) and (!m_bDoubleClicked)) {
+//      qDebug() << "aa" << "Ignoring:" << message.string().mid(24);
+      return;
+    }
+
     if(message_words.size () > 3   // enough fields for a normal message
        && (message_words.at(1).contains(m_baseCall) || "DE" == message_words.at(1))
-//       && (message_words.at(2).contains(qso_partner_base_call) or bEU_VHF_w2)) {
        && (message_words.at(2).contains(qso_partner_base_call) or m_bDoubleClicked
            or bEU_VHF_w2 or (m_QSOProgress==CALLING))) {
 
