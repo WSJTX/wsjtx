@@ -40,6 +40,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   character(len=20) :: datetime
   character(len=12) :: mycall, hiscall
   character(len=6) :: mygrid, hisgrid
+  character*60 line
   data ndec8/0/
   save
   type(counting_jt4_decoder) :: my_jt4
@@ -61,6 +62,21 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   my_jt9%decoded = 0
   my_ft8%decoded = 0
   my_ft4%decoded = 0
+  
+! For testing only: return Rx messages stored in a file as decodes
+  inquire(file='rx_messages.txt',exist=ex)
+  if(ex) then
+     if(params%nzhsym.eq.41) then
+        open(39,file='rx_messages.txt',status='old')
+        do i=1,9999
+           read(39,'(a60)',end=5) line
+           if(line(1:1).eq.' ' .or. line(1:1).eq.'-') go to 800
+           write(*,'(a)') trim(line)
+        enddo
+5       close(39)
+     endif
+     go to 800
+  endif
 
   ncontest=iand(params%nexp_decode,7)
   single_decode=iand(params%nexp_decode,32).ne.0
@@ -86,7 +102,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
 
   if(params%nmode.eq.8) then
 ! We're in FT8 mode
-
+     
      if(ncontest.eq.6) then
 ! Fox mode: initialize and open houndcallers.txt     
         inquire(file=trim(temp_dir)//'/houndcallers.txt',exist=ex)

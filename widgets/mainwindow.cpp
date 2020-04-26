@@ -4517,6 +4517,19 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
     ui->dxCallEntry->setText(hiscall);
   }
 
+  QStringList w=message.string().mid(22).remove("<").remove(">").split(" ",QString::SkipEmptyParts);
+  int nw=w.size();
+  if(nw>=4) {
+    if(message_words.size()<3) return;
+    // Temporary?  Correct for the fact that message.deCallAndGrid() does not work for EU VHF contest messages
+    QString t=message_words.at(nw-2);
+    int n=w.at(nw-2).toInt();
+    if(n>=520001 and n<=592047) {
+      hiscall=w.at(1);
+      hisgrid=w.at(nw-1);
+    }
+  }
+
   bool is_73 = message_words.filter (QRegularExpression {"^(73|RR73)$"}).size ();
   if (!is_73 and !message.isStandardMessage() and !message.string().contains("<")) {
     qDebug () << "Not processing message - hiscall:" << hiscall << "hisgrid:" << hisgrid
@@ -4577,7 +4590,6 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
      || dtext.contains (" " + m_baseCall + "/")
      || (firstcall == "DE")) {
 
-    QStringList w=message.string().mid(22).remove("<").remove(">").split(" ",QString::SkipEmptyParts);
     QString w2;
     if(w.size()>=3) w2=w.at(2);
     QString w34;
@@ -4589,15 +4601,9 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
     }
     bool bEU_VHF_w2=(nrpt>=520001 and nrpt<=594000);
     if(bEU_VHF_w2 and SpecOp::EU_VHF!=m_config.special_op_id()) {
-      // Switch automatically to EU VHF Contest mode
-      m_config.setEU_VHF_Contest();
-//      m_nContest=EU_VHF;
-      if(m_transmitting) m_restart=true;
-      ui->decodedTextBrowser2->displayQSY (QString{"Enabled EU VHF Contest messages."});
-      QString t0="EU VHF";
-      ui->labDXped->setVisible(true);
-      ui->labDXped->setText(t0);
+      MessageBox::information_message (this, tr ("Should you switch to EU VHF Contest mode?"));
     }
+
     QStringList t=message.string().split(' ', QString::SkipEmptyParts);
     int n=t.size();
     QString t0=t.at(n-2);
@@ -4609,7 +4615,6 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
       m_xRcvd=t.at(n-2) + " " + t.at(n-1);
       t0=t.at(n-3);
     }
-
     if(bFieldDay_msg and SpecOp::FIELD_DAY!=m_config.special_op_id()) {
       // ### Should be in ARRL Field Day mode ??? ###
       MessageBox::information_message (this, tr ("Should you switch to ARRL Field Day mode?"));
@@ -4622,9 +4627,15 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
       // ### Should be in RTTY contest mode ??? ###
       MessageBox::information_message (this, tr ("Should you switch to RTTY contest mode?"));
     }
+
+    if(SpecOp::EU_VHF==m_config.special_op_id() and message_words.at(1).contains(m_baseCall) and
+       (!message_words.at(2).contains(qso_partner_base_call)) and (!m_bDoubleClicked)) {
+//      qDebug() << "aa" << "Ignoring:" << message.string().mid(24);
+      return;
+    }
+
     if(message_words.size () > 3   // enough fields for a normal message
        && (message_words.at(1).contains(m_baseCall) || "DE" == message_words.at(1))
-//       && (message_words.at(2).contains(qso_partner_base_call) or bEU_VHF_w2)) {
        && (message_words.at(2).contains(qso_partner_base_call) or m_bDoubleClicked
            or bEU_VHF_w2 or (m_QSOProgress==CALLING))) {
 
