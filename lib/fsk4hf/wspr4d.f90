@@ -168,22 +168,17 @@ program wspr4d
                nhardbp=0
                nhardosd=0
                dmin=0.0
-!               call bpdecode174_74(llr,apmask,max_iterations,message74,cw,nhardbp,niterations,nchecks)
-               call bpdecode174_101(llr,apmask,max_iterations,message101,cw,nhardbp,niterations,ncheck101)
-               Keff=91
+               call bpdecode174_74(llr,apmask,max_iterations,message74,cw,nhardbp,niterations,nchecks)
+               Keff=64
 !               if(nhardbp.lt.0) call osd174_74(llr,Keff,apmask,5,message74,cw,nhardosd,dmin)
-!               if(nhardbp.lt.0) call osd174_101(llr,Keff,apmask,5,message74,cw,nhardosd,dmin)
                maxsuperits=2
-!               ndeep=4 
-               ndeep=3 
+               ndeep=4 
                if(nhardbp.lt.0) then
-!                  call decode174_74(llr,Keff,ndeep,apmask,maxsuperits,message74,cw,nhardosd,iter,ncheck,dmin,isuper)
-                  call decode174_101(llr,Keff,ndeep,apmask,maxsuperits,message101,cw,nhardosd,iter,ncheck,dmin,isuper)
+                  call decode174_74(llr,Keff,ndeep,apmask,maxsuperits,message74,cw,nhardosd,iter,ncheck,dmin,isuper)
                endif
                if(nhardbp.ge.0 .or. nhardosd.ge.0) then
-!                  write(c77,'(50i1)') message74(1:50)
-!                  c77(51:77)='000000000000000000000110000'
-                  write(c77,'(77i1)') message101(1:77)
+                  write(c77,'(50i1)') message74(1:50)
+                  c77(51:77)='000000000000000000000110000'
                   call unpack77(c77,0,msg,unpk77_success)
                   if(unpk77_success .and. index(msg,'K9AN').gt.0) then
                      idecoded=1
@@ -216,6 +211,7 @@ subroutine coherent_sync(cd0,i0,f0,itwk,sync)
    complex csynca(4*NSS),csyncb(4*NSS),csyncc(4*NSS),csyncd(4*NSS)
    complex csync2(4*NSS)
    complex ctwk(4*NSS)
+   complex ctmp(4*NSS)
    complex z1,z2,z3,z4
    logical first
    integer icos4a(0:3),icos4b(0:3),icos4c(0:3),icos4d(0:3)
@@ -290,10 +286,14 @@ subroutine coherent_sync(cd0,i0,f0,itwk,sync)
    endif
 
    if(itwk.eq.1) csync2=ctwk*csyncb      !Tweak the frequency
-   if(i2.ge.0 .and. i2+4*NSS-1.le.NP-1) z2=sum(cd0(i2:i2+4*NSS-1)*conjg(csync2))
+   if(i2.ge.0 .and. i2+4*NSS-1.le.NP-1) then
+      z2=sum(cd0(i2:i2+4*NSS-1)*conjg(csync2))
+   endif
 
    if(itwk.eq.1) csync2=ctwk*csyncc      !Tweak the frequency
-   if(i3.ge.0 .and. i3+4*NSS-1.le.NP-1) z3=sum(cd0(i3:i3+4*NSS-1)*conjg(csync2))
+   if(i3.ge.0 .and. i3+4*NSS-1.le.NP-1) then
+      z3=sum(cd0(i3:i3+4*NSS-1)*conjg(csync2))
+   endif
 
    if(itwk.eq.1) csync2=ctwk*csyncd      !Tweak the frequency
    z4=0.
