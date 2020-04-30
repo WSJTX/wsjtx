@@ -4601,7 +4601,7 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
     }
     bool bEU_VHF_w2=(nrpt>=520001 and nrpt<=594000);
     if(bEU_VHF_w2 and SpecOp::EU_VHF!=m_config.special_op_id()) {
-      auto const& message = tr("Should you switch to EU VHF Contest mode?\n"
+      auto const& message = tr("Should you switch to EU VHF Contest mode?\n\n"
                                "To do so, check 'Special operating activity' and\n"
                                "'EU VHF Contest' on the Settings | Advanced tab.");
       MessageBox::information_message (this, message);
