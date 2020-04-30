@@ -55,8 +55,6 @@ subroutine sync65(nfa,nfb,ntol,nqsym,ca,ncand,nrobust,bVHF)
   do i=ia,ib
      freq=i*df
      itry=0
-!     if(naggressive.gt.0 .and. ntol.lt.1000 .and. ccfmax.ge.thresh0) then
-!     if(naggressive.gt.0 .and. ccfmax.ge.thresh0) then
      if(bVHF) then
         if(i.ne.ipk .or. ccfmax.lt.thresh0) cycle
         itry=1
