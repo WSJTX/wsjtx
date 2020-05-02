@@ -1,27 +1,27 @@
-program ft4sd
+program ft280d
 
-! Decode ft4slow data read from *.c2 or *.wav files.
+! Decode ft280 data read from *.c2 or *.wav files.
 
    use packjt77
-   include 'ft4s_params.f90'
-   parameter (NSPS2=NSPS/32)
+   include 'ft4s280_params.f90'
+   parameter (NSPS2=NSPS/NDOWN)
    character arg*8,cbits*50,infile*80,fname*16,datetime*11
    character ch1*1,ch4*4,cseq*31
    character*22 decodes(100)
    character*37 msg
    character*120 data_dir
    character*77 c77
-   complex c2(0:NMAX/32-1)              !Complex waveform
-   complex cframe(0:144*NSPS2-1)               !Complex waveform
-   complex cd(0:144*20-1)                   !Complex waveform
+   complex c2(0:NMAX/NDOWN-1)              !Complex waveform
+   complex cframe(0:164*NSPS2-1)               !Complex waveform
+   complex cd(0:164*20-1)                   !Complex waveform
    real*8 fMHz
-   real llr(240),llra(240),llrb(240),llrc(240),llrd(240)
+   real llr(280),llra(280),llrb(280),llrc(280),llrd(280)
    real candidates(100,2)
-   real bitmetrics(288,4)
+   real bitmetrics(328,4)
    integer ihdr(11)
    integer*2 iwave(NMAX)                 !Generated full-length waveform
-   integer*1 apmask(240),cw(240)
-   integer*1 hbits(288)
+   integer*1 apmask(280),cw(280)
+   integer*1 hbits(328)
    integer*1 message101(101)
    logical badsync,unpk77_success
 
@@ -34,7 +34,7 @@ program ft4sd
 
    nargs=iargc()
    if(nargs.lt.1) then
-      print*,'Usage:   ft4sd [-a <data_dir>] [-f fMHz] [-h hmod] [-k Keff] file1 [file2 ...]'
+      print*,'Usage:   ft280d [-a <data_dir>] [-f fMHz] [-h hmod] [-k Keff] file1 [file2 ...]'
       go to 999
    endif
    iarg=1
@@ -61,9 +61,16 @@ program ft4sd
       call getarg(iarg+1,arg)
       read(arg,*) Keff 
       iarg=iarg+2
+      call getarg(iarg,arg)
+   endif
+   if(arg(1:2).eq.'-d') then
+      call getarg(iarg+1,arg)
+      read(arg,*) ndeep 
+      iarg=iarg+2
    endif
 
    ngood=0
+   ngoodsync=0
    do ifile=iarg,nargs
       call getarg(ifile,infile)
       open(10,file=infile,status='old',access='stream')
@@ -77,7 +84,7 @@ program ft4sd
          read(10,end=999) ihdr,iwave
          read(infile(j2-4:j2-1),*) nutc
          datetime=infile(j2-11:j2-1)
-         call ft4s_downsample(iwave,c2)
+         call ft280_downsample(iwave,c2)
       else
          print*,'Wrong file format?'
          go to 999
@@ -89,11 +96,12 @@ program ft4sd
       fs=12000.0/32.0
       npts=120*12000.0/32.0
 
-      call getcandidate_ft4s(c2,npts,hmod,fs,fa,fb,ncand,candidates)         !First approx for freq
+      call getcandidate_ft280(c2,npts,hmod,fs,fa,fb,ncand,candidates)         !First approx for freq
 
       del=1.5*hmod*fs/300.0
       ndecodes=0
       do icand=1,ncand
+!      do icand=1,1
          fc0=candidates(icand,1)
          xsnr=candidates(icand,2)
 !write(*,*) 'candidates ',icand,fc0,xsnr
@@ -118,7 +126,7 @@ program ft4sd
             do if=-ifhw,ifhw
                fc=fc1+df*if
                do istart=max(1,is0-ishw),is0+ishw,isst
-                  call coherent_sync_ft4s(c2,istart,hmod,fc,1,sync)
+                  call coherent_sync_ft280(c2,istart,hmod,fc,1,sync)
                   if(sync.gt.smax) then
                      fc2=fc
                      isbest=istart
@@ -129,8 +137,10 @@ program ft4sd
 !            write(*,*) ifile,icand,isync,fc1+del,fc2+del,isbest,smax
          enddo
 
+if(abs((isbest-429)/429.0) .lt. 0.07 .and. abs(fc2+del).lt.0.2) ngoodsync=ngoodsync+1
+!cycle
 !         if(smax .lt. 100.0 ) cycle
-!isbest=375
+!isbest=429
 !fc2=-del
          do ijitter=0,2
             if(ijitter.eq.0) ioffset=0
@@ -138,47 +148,35 @@ program ft4sd
             if(ijitter.eq.2) ioffset=-45
             is0=isbest+ioffset
             if(is0.lt.0) cycle
-            cframe=c2(is0:is0+144*300-1)
-            call downsample_ft4s(cframe,fc2+del,hmod,cd)
+            cframe=c2(is0:is0+164*300-1)
+            call downsample_ft280(cframe,fc2+del,hmod,cd)
             s2=sum(cd*conjg(cd))/(20*144)
             cd=cd/sqrt(s2)
-            call get_ft4s_bitmetrics(cd,hmod,bitmetrics,badsync)
+            call get_ft280_bitmetrics(cd,hmod,bitmetrics,badsync)
 
             hbits=0
             where(bitmetrics(:,1).ge.0) hbits=1
             ns1=count(hbits(  1:  8).eq.(/0,0,0,1,1,0,1,1/))
-            ns2=count(hbits( 57: 64).eq.(/0,1,0,0,1,1,1,0/))
-            ns3=count(hbits(113:120).eq.(/1,1,1,0,0,1,0,0/))
-            ns4=count(hbits(169:176).eq.(/1,0,1,1,0,0,0,1/))
-            ns5=count(hbits(225:232).eq.(/0,0,1,1,1,0,0,1/))
-            ns6=count(hbits(281:288).eq.(/0,1,1,1,0,0,1,0/))
+            ns2=count(hbits(  9: 16).eq.(/0,1,0,0,1,1,1,0/))
+            ns3=count(hbits(157:164).eq.(/0,0,0,1,1,0,1,1/))
+            ns4=count(hbits(165:172).eq.(/0,1,0,0,1,1,1,0/))
+            ns5=count(hbits(313:320).eq.(/0,0,0,1,1,0,1,1/))
+            ns6=count(hbits(321:328).eq.(/0,1,0,0,1,1,1,0/))
             nsync_qual=ns1+ns2+ns3+ns4+ns5+ns6
 !          if(nsync_qual.lt. 20) cycle
 
             scalefac=2.83
-            llra(  1: 48)=bitmetrics(  9: 56, 1)
-            llra( 49: 96)=bitmetrics( 65:112, 1)
-            llra( 97:144)=bitmetrics(121:168, 1)
-            llra(145:192)=bitmetrics(177:224, 1)
-            llra(193:240)=bitmetrics(233:280, 1)
+            llra(  1:140)=bitmetrics( 17:156, 1)
+            llra(141:280)=bitmetrics(173:312, 1)
             llra=scalefac*llra
-            llrb(  1: 48)=bitmetrics(  9: 56, 2)
-            llrb( 49: 96)=bitmetrics( 65:112, 2)
-            llrb( 97:144)=bitmetrics(121:168, 2)
-            llrb(145:192)=bitmetrics(177:224, 2)
-            llrb(193:240)=bitmetrics(233:280, 2)
+            llrb(  1:140)=bitmetrics( 17:156, 2)
+            llrb(141:280)=bitmetrics(173:312, 2)
             llrb=scalefac*llrb
-            llrc(  1: 48)=bitmetrics(  9: 56, 3)
-            llrc( 49: 96)=bitmetrics( 65:112, 3)
-            llrc( 97:144)=bitmetrics(121:168, 3)
-            llrc(145:192)=bitmetrics(177:224, 3)
-            llrc(193:240)=bitmetrics(233:280, 3)
+            llrc(  1:140)=bitmetrics( 17:156, 3)
+            llrc(141:280)=bitmetrics(173:312, 3)
             llrc=scalefac*llrc
-            llrd(  1: 48)=bitmetrics(  9: 56, 4)
-            llrd( 49: 96)=bitmetrics( 65:112, 4)
-            llrd( 97:144)=bitmetrics(121:168, 4)
-            llrd(145:192)=bitmetrics(177:224, 4)
-            llrd(193:240)=bitmetrics(233:280, 4)
+            llrd(  1:140)=bitmetrics( 17:156, 4)
+            llrd(141:280)=bitmetrics(173:312, 4)
             llrd=scalefac*llrd
             apmask=0
             max_iterations=40
@@ -191,14 +189,12 @@ program ft4sd
                nhardbp=0
                nhardosd=0
                dmin=0.0
-               call bpdecode240_101(llr,apmask,max_iterations,message101,cw,nhardbp,niterations,nchecks)
-!               if(nhardbp.lt.0) call osd240_101(llr,Keff,apmask,5,message101,cw,nhardosd,dmin)
+               call bpdecode280_101(llr,apmask,max_iterations,message101,cw,nhardbp,niterations,nchecks)
+!               if(nhardbp.lt.0) call osd280_101(llr,Keff,apmask,5,message101,cw,nhardosd,dmin)
                maxsuperits=2
-               ndeep=3  ! use ndeep=3 with Keff=91
-               if(Keff.eq.77) ndeep=4
                if(nhardbp.lt.0) then
-!                  call osd240_101(llr,Keff,apmask,ndeep,message101,cw,nhardosd,dmin)
-                  call decode240_101(llr,Keff,ndeep,apmask,maxsuperits,message101,cw,nhardosd,iter,ncheck,dmin,isuper)
+!                  call osd280_101(llr,Keff,apmask,ndeep,message101,cw,nhardosd,dmin)
+                  call decode280_101(llr,Keff,ndeep,apmask,maxsuperits,message101,cw,nhardosd,iter,ncheck,dmin,isuper)
                endif
                if(nhardbp.ge.0 .or. nhardosd.ge.0) then
                   write(c77,'(77i1)') message101(1:77)
@@ -218,37 +214,28 @@ program ft4sd
 2002  continue
    enddo !files
    nfiles=nargs-iarg+1
-   write(*,*) 'nfiles: ',nfiles,' ngood: ',ngood
+   write(*,*) 'nfiles: ',nfiles,' ngood: ',ngood,' ngoodsync: ',ngoodsync
    write(*,1120)
 1120 format("<DecodeFinished>")
 
-999 end program ft4sd
+999 end program ft280d
 
-subroutine coherent_sync_ft4s(cd0,i0,hmod,f0,itwk,sync)
+subroutine coherent_sync_ft280(cd0,i0,hmod,f0,itwk,sync)
 
 ! Compute sync power for a complex, downsampled FT4s signal.
 
-   include 'ft4s_params.f90'
+   include 'ft4s280_params.f90'
    parameter(NP=NMAX/NDOWN,NSS=NSPS/NDOWN)
    complex cd0(0:NP-1)
-   complex csynca(4*NSS),csyncb(4*NSS)
-   complex csyncc(4*NSS),csyncd(4*NSS)
-   complex csynce(4*NSS),csyncf(4*NSS)
-   complex csync2(4*NSS)
-   complex ctwk(4*NSS)
+   complex csynca(8*NSS)
+   complex csync2(8*NSS)
+   complex ctwk(8*NSS)
    complex z1,z2,z3,z4,z5,z6
    logical first
-   integer icos4a(0:3),icos4b(0:3)
-   integer icos4c(0:3),icos4d(0:3)
-   integer icos4e(0:3),icos4f(0:3)
-   data icos4a/0,1,3,2/
-   data icos4b/1,0,2,3/
-   data icos4c/2,3,1,0/
-   data icos4d/3,2,0,1/
-   data icos4e/0,2,3,1/
-   data icos4f/1,2,0,3/
+   integer icos4(0:7)
+   data icos4/0,1,3,2,1,0,2,3/
    data first/.true./
-   save first,twopi,csynca,csyncb,csyncc,csyncd,csynce,csyncf,fac
+   save first,twopi,csynca,fac
 
    p(z1)=(real(z1*fac)**2 + aimag(z1*fac)**2)**0.5          !Statement function for power
 
@@ -256,116 +243,79 @@ subroutine coherent_sync_ft4s(cd0,i0,hmod,f0,itwk,sync)
       twopi=8.0*atan(1.0)
       k=1
       phia=0.0
-      phib=0.0
-      phic=0.0
-      phid=0.0
-      phie=0.0
-      phif=0.0
-      do i=0,3
-         dphia=twopi*hmod*icos4a(i)/real(NSS)
-         dphib=twopi*hmod*icos4b(i)/real(NSS)
-         dphic=twopi*hmod*icos4c(i)/real(NSS)
-         dphid=twopi*hmod*icos4d(i)/real(NSS)
-         dphie=twopi*hmod*icos4e(i)/real(NSS)
-         dphif=twopi*hmod*icos4f(i)/real(NSS)
+      do i=0,7
+         dphia=twopi*hmod*icos4(i)/real(NSS)
          do j=1,NSS
             csynca(k)=cmplx(cos(phia),sin(phia))
-            csyncb(k)=cmplx(cos(phib),sin(phib))
-            csyncc(k)=cmplx(cos(phic),sin(phic))
-            csyncd(k)=cmplx(cos(phid),sin(phid))
-            csynce(k)=cmplx(cos(phie),sin(phie))
-            csyncf(k)=cmplx(cos(phif),sin(phif))
             phia=mod(phia+dphia,twopi)
-            phib=mod(phib+dphib,twopi)
-            phic=mod(phic+dphic,twopi)
-            phid=mod(phid+dphid,twopi)
-            phie=mod(phie+dphie,twopi)
-            phif=mod(phif+dphif,twopi)
             k=k+1
          enddo
       enddo
       first=.false.
-      fac=1.0/(4.0*NSS)
+      fac=1.0/(8.0*NSS)
    endif
 
    i1=i0                            !four Costas arrays
-   i2=i0+28*NSS
-   i3=i0+56*NSS
-   i4=i0+84*NSS
-   i5=i0+112*NSS
-   i6=i0+140*NSS
+   i2=i0+78*NSS
+   i3=i0+156*NSS
 
    z1=0.
    z2=0.
    z3=0.
-   z4=0.
-   z5=0.
-   z6=0.
 
    if(itwk.eq.1) then
       dt=1/(12000.0/32.0)
       dphi=twopi*f0*dt
       phi=0.0
-      do i=1,4*NSS
+      do i=1,8*NSS
          ctwk(i)=cmplx(cos(phi),sin(phi))
          phi=mod(phi+dphi,twopi)
       enddo
    endif
 
    if(itwk.eq.1) csync2=ctwk*csynca      !Tweak the frequency
-   if(i1.ge.0 .and. i1+4*NSS-1.le.NP-1) then
-      z1=sum(cd0(i1:i1+4*NSS-1)*conjg(csync2))
+   if(i1.ge.0 .and. i1+8*NSS-1.le.NP-1) then
+      z1=sum(cd0(i1:i1+8*NSS-1)*conjg(csync2))
+!      z1=abs(sum(cd0(i1:i1+4*NSS-1)*conjg(csync2(1:4*NSS))))**2
+!      z1=z1+abs(sum(cd0(i1+4*NSS:i1+8*NSS-1)*conjg(csync2(4*NSS+1:8*NSS))))**2
    elseif( i1.lt.0 ) then
-      npts=(i1+4*NSS-1)/2
+      npts=(i1+8*NSS-1)/2
       if(npts.le.40) then
          z1=0.
       else
-         z1=sum(cd0(0:i1+4*NSS-1)*conjg(csync2(4*NSS-npts:)))
+         z1=sum(cd0(0:i1+8*NSS-1)*conjg(csync2(8*NSS-npts:)))
       endif
    endif
 
-   if(itwk.eq.1) csync2=ctwk*csyncb      !Tweak the frequency
-   if(i2.ge.0 .and. i2+4*NSS-1.le.NP-1) then
-      z2=sum(cd0(i2:i2+4*NSS-1)*conjg(csync2))
+   if(i2.ge.0 .and. i2+8*NSS-1.le.NP-1) then
+      z2=sum(cd0(i2:i2+8*NSS-1)*conjg(csync2))
+!      z2=abs(sum(cd0(i2:i2+4*NSS-1)*conjg(csync2(1:4*NSS))))**2
+!      z2=z2+abs(sum(cd0(i2+4*NSS:i2+8*NSS-1)*conjg(csync2(4*NSS+1:8*NSS))))**2
    endif
 
-   if(itwk.eq.1) csync2=ctwk*csyncc      !Tweak the frequency
-   if(i3.ge.0 .and. i3+4*NSS-1.le.NP-1) then
-      z3=sum(cd0(i3:i3+4*NSS-1)*conjg(csync2))
-   endif
-
-   if(itwk.eq.1) csync2=ctwk*csyncd      !Tweak the frequency
-   if(i4.ge.0 .and. i4+4*NSS-1.le.NP-1) then
-      z4=sum(cd0(i4:i4+4*NSS-1)*conjg(csync2))
-   endif
-
-   if(itwk.eq.1) csync2=ctwk*csynce      !Tweak the frequency
-   if(i5.ge.0 .and. i5+4*NSS-1.le.NP-1) then
-      z5=sum(cd0(i5:i5+4*NSS-1)*conjg(csync2))
-   endif
-
-   if(itwk.eq.1) csync2=ctwk*csyncf      !Tweak the frequency
-   if(i6.ge.0 .and. i6+4*NSS-1.le.NP-1) then
-      z6=sum(cd0(i6:i6+4*NSS-1)*conjg(csync2))
-   elseif( i6+4*NSS-1.gt.NP-1 ) then
-      npts=(NP-1-i6+1)
+   if(i3.ge.0 .and. i3+8*NSS-1.le.NP-1) then
+      z3=sum(cd0(i3:i3+8*NSS-1)*conjg(csync2))
+!      z3=abs(sum(cd0(i3:i3+4*NSS-1)*conjg(csync2(1:4*NSS))))**2
+!      z3=z3+abs(sum(cd0(i3+4*NSS:i3+8*NSS-1)*conjg(csync2(4*NSS+1:8*NSS))))**2
+   elseif( i3+8*NSS-1.gt.NP-1 ) then
+      npts=(NP-1-i3+1)
       if(npts.le.40) then
-         z6=0.
+         z3=0.
       else
-         z6=sum(cd0(i6:i6+npts-1)*conjg(csync2(1:npts)))
+         z3=sum(cd0(i3:i3+npts-1)*conjg(csync2(1:npts)))
       endif
    endif
 
-   sync = p(z1) + p(z2) + p(z3) + p(z4) + p(z5) + p(z6)
-
+   sync = p(z1) + p(z2) + p(z3)
+!sync=z1+z2+z3
    return
-end subroutine coherent_sync_ft4s
+end subroutine coherent_sync_ft280
 
-subroutine downsample_ft4s(ci,f0,hmod,co)
-   parameter(NI=144*300,NH=NI/2,NO=NI/15)  ! downsample from 315 samples per symbol to 20 
+subroutine downsample_ft280(ci,f0,hmod,co)
+   parameter(NI=164*300,NH=NI/2,NO=NI/15)  ! downsample from 315 samples per symbol to 20 
    complex ci(0:NI-1),ct(0:NI-1)
    complex co(0:NO-1)
-   fs=12000.0/32.0
+   fs=12000.0/28.0
    df=fs/NI
    ct=ci
    call four2a(ct,NI,1,-1,1)             !c2c FFT to freq domain
@@ -373,20 +323,24 @@ subroutine downsample_ft4s(ci,f0,hmod,co)
    ct=cshift(ct,i0)
    co=0.0
    co(0)=ct(0)
-   b=16.0*hmod
+!   b=16.0*hmod
+   b=10.0*hmod
+   icutoff=nint(24.0/df)
    do i=1,NO/2
-      arg=(i*df/b)**2
-      filt=exp(-arg)
+!      arg=(i*df/b)**2
+!      filt=exp(-arg)
+      filt=0
+      if(i.le.icutoff) filt=1
       co(i)=ct(i)*filt
       co(NO-i)=ct(NI-i)*filt
    enddo
    co=co/NO
    call four2a(co,NO,1,1,1)            !c2c FFT back to time domain
    return
-end subroutine downsample_ft4s
+end subroutine downsample_ft280
 
-subroutine getcandidate_ft4s(c,npts,hmod,fs,fa,fb,ncand,candidates)
-   parameter(NFFT1=120*12000/32,NH1=NFFT1/2,NFFT2=120*12000/320,NH2=NFFT2/2)
+subroutine getcandidate_ft280(c,npts,hmod,fs,fa,fb,ncand,candidates)
+   parameter(NFFT1=120*12000/28,NH1=NFFT1/2,NFFT2=120*12000/300,NH2=NFFT2/2)
    complex c(0:npts-1)                   !Complex waveform
    complex cc(0:NFFT1-1)
    complex csfil(0:NFFT2-1)
@@ -440,17 +394,17 @@ subroutine getcandidate_ft4s(c,npts,hmod,fs,fa,fb,ncand,candidates)
       endif
    enddo
    return
-end subroutine getcandidate_ft4s
+end subroutine getcandidate_ft280
 
-subroutine ft4s_downsample(iwave,c)
+subroutine ft280_downsample(iwave,c)
 
 ! Input: i*2 data in iwave() at sample rate 12000 Hz
 ! Output: Complex data in c(), sampled at 375 Hz
 
-   include 'ft4s_params.f90'
-   parameter (NFFT2=NMAX/32)
+   include 'ft4s280_params.f90'
+   parameter (NFFT2=NMAX/28)
    integer*2 iwave(NMAX)
-   complex c(0:NMAX/32-1)
+   complex c(0:NMAX/28-1)
    complex c1(0:NFFT2-1)
    complex cx(0:NMAX/2)
    real x(NMAX)
@@ -467,7 +421,7 @@ subroutine ft4s_downsample(iwave,c)
    enddo
    c1=c1/NFFT2
    call four2a(c1,NFFT2,1,1,1)            !c2c FFT back to time domain
-   c=c1(0:NMAX/32-1)
+   c=c1(0:NMAX/28-1)
    return
-end subroutine ft4s_downsample
+end subroutine ft280_downsample
 
