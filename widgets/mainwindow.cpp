@@ -1786,6 +1786,10 @@ void MainWindow::on_actionSettings_triggered()               //Setup Dialog
     }
     if(m_config.special_op_id()!=nContest0) ui->tx1->setEnabled(true);
     chkFT4();
+    if(SpecOp::EU_VHF==m_config.special_op_id() and m_config.my_grid().size()<6) {
+      MessageBox::information_message (this,
+          "EU VHF Contest messages require a 6-character locator.");
+    }
   }
 }
 
@@ -6166,7 +6170,7 @@ void MainWindow::on_actionMSK144_triggered()
 // Make sure that MSK144 is not checked.
     ui->actionMSK144->setChecked(false);
     MessageBox::warning_message (this, tr ("Improper mode"),
-       "MSK144 not available if Fox, Hound, Field Day, or RTTY contest is selected.");
+       "MSK144 not available if Fox, Hound, Field Day, RTTY, or WW Digi contest is selected.");
     return;
   }
   m_mode="MSK144";
