@@ -966,7 +966,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
   if(QCoreApplication::applicationVersion().contains("-devel") or
      QCoreApplication::applicationVersion().contains("-rc")) {
-//     QTimer::singleShot (0, this, SLOT (not_GA_warning_message ()));
+     QTimer::singleShot (0, this, SLOT (not_GA_warning_message ()));
   }
 
   ui->pbBestSP->setVisible(m_mode=="FT4");
@@ -980,20 +980,14 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
 void MainWindow::not_GA_warning_message ()
 {
-  // MessageBox::critical_message (this,
-  //                               "<b><p align=\"center\">"
-  //                               "This is a pre-release version of WSJT-X 2.1.0 made "
-  //                               "available for testing purposes.  By design it will "
-  //                               "be nonfunctional during the 2019 ARRL June VHF contest "
-  //                               "(June 8-10) and Field Day (June 22-23) weekends.  It "
-  //                               "will be permanently nonfunctional after July 21, 2019.");
-  // auto now = QDateTime::currentDateTimeUtc ();
-  // if ((QDateTime {{2019, 6, 8}, {18, 0}, Qt::UTC} <= now
-  //      && now < QDateTime {{2019, 6, 10}, {3, 0}, Qt::UTC})
-  //     || now >= QDateTime {{2019, 7, 21}, {0, 0}, Qt::UTC})
-  //   {
-  //     Q_EMIT finished ();
-  //   }
+  MessageBox::critical_message (this,
+                                "This is a pre-release version of WSJT-X 2.1.0 made\n"
+                                "available for testing purposes.  By design it will\n"
+                                "be nonfunctional after 0000 UTC on June 10, 2020.");
+  auto now = QDateTime::currentDateTimeUtc ();
+  if (now >= QDateTime {{2020, 6, 10}, {0, 0}, Qt::UTC}) {
+    Q_EMIT finished ();
+  }
 }
 
 void MainWindow::initialize_fonts ()
