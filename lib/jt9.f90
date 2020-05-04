@@ -316,10 +316,9 @@ program jt9
         id2a(nearly*3456+1:)=0
         call multimode_decoder(shared_data%ss,id2a,      &
              shared_data%params,nfsample)
-        nearly=50
         id2a(nearly*3456+1:50*3456)=shared_data%id2(nearly*3456+1:50*3456)
         id2a(50*3456+1:)=0
-        shared_data%params%nzhsym=nearly
+        shared_data%params%nzhsym=50
         call multimode_decoder(shared_data%ss,id2a,      &
              shared_data%params,nfsample)
         cycle

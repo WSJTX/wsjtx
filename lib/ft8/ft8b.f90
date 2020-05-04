@@ -175,7 +175,7 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,nzhsym,lapon,     &
   enddo
 ! hard sync sum - max is 21
   nsync=is1+is2+is3
-  if(nsync .le. 7) then ! bail out
+  if(nsync .le. 6) then ! bail out
     nbadcrc=1
     return
   endif
@@ -451,10 +451,13 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,nzhsym,lapon,     &
      xsnr2=10.0*log10(xsnr2)-27.0
      if(.not.nagain) then
        xsnr=xsnr2
-     endif
-     if(xsnr .lt. -24.0) xsnr=-24.0
-     
-     return
+    endif
+    if(nsync.le.7 .and. xsnr.lt.-24.0) then    !bail out, likely false decode
+       nbadcrc=1
+       return
+    endif
+    if(xsnr .lt. -24.0) xsnr=-24.0
+    return
   enddo
   return
 end subroutine ft8b
