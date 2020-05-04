@@ -1,6 +1,6 @@
 subroutine encode174_91_nocrc(message,codeword)
 !
-! Add a 14-bit CRC to a 77-bit message and return a 174-bit codeword
+! Encode a 91-bit message and return a 174-bit codeword. 
 !
 use, intrinsic :: iso_c_binding
 use iso_c_binding, only: c_loc,c_size_t

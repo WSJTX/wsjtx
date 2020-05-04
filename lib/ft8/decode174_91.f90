@@ -4,9 +4,8 @@ subroutine decode174_91(llr,Keff,ndeep,apmask,maxsuper,message91,cw,nharderror,i
 !
 integer, parameter:: N=174, K=91, M=N-K
 integer*1 cw(N),apmask(N)
-integer*1 decoded(K)
 integer*1 nxor(N),hdec(N)
-integer*1 message91(91)
+integer*1 message91(91),m96(96)
 integer nrw(M),ncw
 integer Nm(7,M)   
 integer Mn(3,N)  ! 3 checks per bit
@@ -20,7 +19,6 @@ real Tmn
 
 include "ldpc_174_91_c_reordered_parity.f90"
 
-decoded=0
 toc=0
 tov=0
 tanhtoc=0
@@ -60,14 +58,14 @@ zsum=zsum+zn
   enddo
 ! write(*,*) 'number of unsatisfied parity checks ',ncheck
   if( ncheck .eq. 0 ) then ! we have a codeword - if crc is good, return it
-    decoded=cw(1:K)
-    call get_crc14(decoded,91,nbadcrc)
-write(*,*) nbadcrc
-write(*,'(91i1)') decoded
+    m96=0
+    m96(1:77)=cw(1:77)
+    m96(83:96)=cw(78:91)
+    call get_crc14(m96,96,nbadcrc)
     nharderror=count( (2*cw-1)*llr .lt. 0.0 )
     if(nbadcrc.eq.0) then
-      message91=decoded(1:91)
-dmin=0.0
+      message91=cw(1:91)
+      dmin=0.0
       return
     endif
   endif
