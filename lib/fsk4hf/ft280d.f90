@@ -324,7 +324,7 @@ subroutine downsample_ft280(ci,f0,hmod,co)
    co=0.0
    co(0)=ct(0)
 !   b=16.0*hmod
-   b=10.0*hmod
+   b=16.0*hmod
    icutoff=nint(24.0/df)
    do i=1,NO/2
 !      arg=(i*df/b)**2
