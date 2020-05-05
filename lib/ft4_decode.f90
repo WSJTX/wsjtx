@@ -407,27 +407,19 @@ contains
                   endif
                   message77=0
                   dmin=0.0
-                  call timer('bpdec174',0)
-                  call bpdecode174_91(llr,apmask,max_iterations,message77,     &
-                     cw,nharderror,niterations,ncheck)
-                  call timer('bpdec174',1)
 
-                  if(doosd .and. nharderror.lt.0) then
-!                     ndeep=3
-                     ndeep=2
-                     if(abs(nfqso-f1).le.napwid) then
-!                        ndeep=4
-                        ndeep=3
-                     endif
-                     call timer('osd174_91 ',0)
-                     Keff=91
-                     maxsuper=1
-!                     call osd174_91(llr,Keff,apmask,ndeep,message91,cw,nharderror,dmin)
-                     call decode174_91(llr,Keff,ndeep,apmask,maxsuper,message91,cw,nharderror, &
-                                       niterations,ncheck,dmin)
-                     message77=message91(1:77)
-                     call timer('osd174_91 ',1)
+                  ndeep=2
+                  maxosd=1  
+                  if(abs(nfqso-f1).le.napwid) then
+                     maxosd=2
                   endif
+                  if(.not.doosd) maxosd = -1
+                  call timer('dec174_91 ',0)
+                  Keff=91
+                  call decode174_91(llr,Keff,maxosd,ndeep,apmask,message91,cw, &
+                                    ntype,nharderror,dmin)
+                  message77=message91(1:77)
+                  call timer('dec174_91 ',1)
 
                   if(sum(message77).eq.0) cycle
                   if( nharderror.ge.0 ) then

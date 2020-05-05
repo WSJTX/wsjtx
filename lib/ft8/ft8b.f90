@@ -400,28 +400,23 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,nzhsym,lapon,     &
      endif
 
      cw=0
-     call timer('bpd174_91 ',0)
-     call bpdecode174_91(llrz,apmask,max_iterations,message77,cw,nharderrors,  &
-          niterations,ncheck)
-     call timer('bpd174_91 ',1)
      dmin=0.0
-     if(nharderrors.lt.0 .and. ncheck.le.30 .and. ndepth.ge.2) then
-!        ndeep=ndepth
-        ndeep=ndepth-1
-        if(abs(nfqso-f1).le.napwid .or. abs(nftx-f1).le.napwid .or. ncontest.eq.7) then
-!           ndeep=4  
-           ndeep=3  
-        endif
-!        if(nagain) ndeep=5
-        if(nagain) ndeep=4
-        call timer('osd174_91 ',0)
-        Keff=91
-!        call osd174_91(llrz,Keff,apmask,ndeep,message91,cw,nharderrors,dmin)
-        maxsuper=1
-        call decode174_91(llrz,Keff,ndeep,apmask,maxsuper,message91,cw,nharderrors,niterations,ncheck,dmin)
-        if(nharderrors.ge.0) message77=message91(1:77)
-        call timer('osd174_91 ',1)
+     norder=2
+     maxosd=2
+     if(ndepth.lt.3) maxosd=1
+     if(abs(nfqso-f1).le.napwid .or. abs(nftx-f1).le.napwid .or. ncontest.eq.7) then
+        maxosd=2
      endif
+     if(nagain) then
+        norder=3
+        maxosd=1
+     endif
+     call timer('dec174_91 ',0)
+     Keff=91
+     call decode174_91(llrz,Keff,maxosd,norder,apmask,message91,cw,  &
+                       ntype,nharderrors,dmin)
+     if(nharderrors.ge.0) message77=message91(1:77)
+     call timer('dec174_91 ',1)
 
      msg37='                                     '
      if(nharderrors.lt.0 .or. nharderrors.gt.36) cycle

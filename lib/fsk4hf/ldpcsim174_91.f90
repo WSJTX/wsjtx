@@ -105,19 +105,9 @@ program ldpcsim174_91
          llr(1:nap)=5*(2.0*msgbits(1:nap)-1.0)
          apmask=0
          apmask(1:nap)=1
-! max_iterations is max number of belief propagation iterations
-         call bpdecode174_91(llr, apmask, max_iterations, message77, cw, nhardbp,niterations,ncheck)
-         if( ndepth .ge. 0 .and. nhardbp .lt. 0 ) then
-            dmin=0.0
-            if(nbposd.eq.0) then
-               call osd174_91(llr,Keff,apmask,ndepth,message91,cw,nhardosd,dmin)
-            elseif(nbposd.gt.0) then
-               maxsuper=nbposd
-               call decode174_91(llr,Keff,ndepth,apmask,maxsuper,message91,cw,nhardosd,niterations,ncheck,dmin)
-            endif
+         call decode174_91(llr,Keff,nbposd,ndepth,apmask,message91,cw,ntype,nharderrors,dmin)
 ! If the decoder finds a valid codeword, nharderrors will be .ge. 0.
-         endif
-         if( nhardbp .ge. 0 .or. nhardosd.ge.0 ) then
+         if( nharderrors.ge.0 ) then
             nhw=count(cw.ne.codeword)
             if(nhw.eq.0) then ! this is a good decode
                ngood=ngood+1
