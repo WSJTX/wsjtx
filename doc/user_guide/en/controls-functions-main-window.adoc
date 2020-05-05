@@ -1,6 +1,6 @@
-// Status=review
-The following controls appear just under the decoded text windows on
-the main screen:
+// Status=review The following controls appear just under the decoded
+text windows on the main screen.  Some controls appear only in certain
+operating modes.
 
 //.Main UI 
 image::main-ui-controls.png[align="center",width=650,alt="Main UI Controls"]

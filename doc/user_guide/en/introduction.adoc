@@ -4,8 +4,7 @@ _WSJT-X_ is a computer program designed to facilitate basic amateur
 radio communication using very weak signals. The first four letters in
 the program name stand for "`**W**eak **S**ignal communication by
 K1**JT**,`" while the suffix "`-X`" indicates that _WSJT-X_ started as
-an extended and experimental branch of the program
-_WSJT_.
+an extended and experimental branch of the program _WSJT_.
 
 _WSJT-X_ Version {VERSION_MAJOR}.{VERSION_MINOR} offers ten different
 protocols or modes: *FT4*, *FT8*, *JT4*, *JT9*, *JT65*, *QRA64*,

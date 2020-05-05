@@ -1,25 +1,21 @@
 _WSJT-X_ supports a number of features designed for use on the VHF and
 higher bands.  These features include:
 
-- *FT8*, a mode designed for making fast QSOs with weak, fading
-signals
+- *FT4*, designed especially for contesting
 
-- *JT4*, a mode particularly useful for EME on the microwave bands
+- *FT8*, designed for making fast QSOs with weak, fading signals
 
-- *JT9* fast modes, useful for scatter propagation on VHF bands
+- *JT4*, particularly useful for EME on the microwave bands
+
+- *JT9 fast modes*, useful for scatter propagation on VHF bands
 
 - *JT65*, widely used for EME on VHF and higher bands
 
-- *QRA64*, a mode for EME using a "`Q-ary Repeat Accumulate`" code,
-a low-density parity-check (LDPC) code using a 64-character symbol
-alphabet
+- *QRA64*, another mode for EME
 
-- *MSK144*, a mode for meteor scatter using a binary LDPC code and
-Offset Quadrature Phase-Shift Keying (OQPSK).  The resulting waveform
-is sometimes called Minimum Shift Keying (MSK).
+- *MSK144*, for meteor scatter
 
-- *ISCAT*, intended for aircraft scatter and other types of scatter
-propagation
+- *ISCAT*, for aircraft scatter and other types of scatter propagation
 
 - *Echo* mode, for detecting and measuring your own lunar echoes
 
@@ -215,10 +211,10 @@ initially, as the QRA64 tones are often not visible on the waterfall.
 The box labeled *Tx6* switches the Tx6 message from 1000Hz to 1250Hz
 to indicate to the other station that you are ready to receive messages.
 
-TIP: QRA64 is different from JT65 in that the decoder attempts to find
-and decode only a single signal in the receiver passband.  If many
-signals are present, you may be able to decode them by double-clicking
-on the lowest tone of each one in the waterfall.
+TIP: QRA64 attempts to find and decode only a single signal in the
+receiver passband.  If many signals are present, you may be able to
+decode them by double-clicking on the lowest tone of each one in the
+waterfall.
 
 TIP: G3WDG has prepared a more detailed tutorial on using {QRA64_EME}. 
 

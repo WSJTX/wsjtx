@@ -1,7 +1,6 @@
 FT4 is designed for contesting, particularly on the HF bands.
 Compared with FT8 it is 3.5 dB less sensitive and requires 1.6 times
 the bandwidth, but it offers the potential for twice the QSO rate.
-FT4 is not recommended for everyday use.
 
 .Main Window:
 - Select *FT4* on the *Mode* menu.

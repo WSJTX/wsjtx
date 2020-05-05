@@ -17,10 +17,11 @@ double-click on a decoded text line, as described in the
 double-clicking on decoded text or a signal in the waterfall.  They
 can also be adjusted using the spinner controls.
 
-* You can force Tx frequency to the current Rx frequency by clicking
-the *Tx<-Rx* button, and vice-versa for *Rx<-Tx*.  The on-the-air
-frequency of your lowest JT9 or JT65 tone is the sum of dial frequency
-and audio Tx frequency.
+* You can copy values between the *Tx Freq* and *Rx Freq* boxes by
+clicking on the up/down arrows between the controls.  Your
+on-the-air frequency is the sum of dial frequency and audio Tx
+frequency.  By convention we define the frequency of WSJT-X modes as
+the frequency of the lowest tone.
 
 * Check the box *Hold Tx Freq* to ensure that the specified Tx
 frequency is not changed automatically when you double-click on
@@ -54,7 +55,7 @@ and reception in ISCAT, MSK144, and the fast JT9 modes.
 MSK144 and the fast JT9 submodes you can activate the spinner control
 *Tx CQ nnn* by checking the box to its right.  The program will then
 generate something like `CQ nnn K1ABC FN42` for your CQ message, where
-`nnn` is the kHz portion of your current operating frequency,
+`nnn` is the kHz portion of your current dial frequency,
 in the range 010 to 999.  Your CQ
 message *Tx6* will then be transmitted at the calling frequency
 selected in the *Tx CQ nnn* spinner control.  All other messages will

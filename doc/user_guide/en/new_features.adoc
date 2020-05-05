@@ -45,7 +45,7 @@ in a crowded WSPR sub-band typically increases by 10 to 15%.
 
 *New message format:* When *EU VHF Contest* is selected, the Tx2 and
 Tx3 messages -- those conveying signal report, serial number, and
-6-character locator -- now use hashcodes for both callsigns .  This
+6-character locator -- now use hashcodes for both callsigns.  This
 change is *not* backward compatible with earlier versions of _WSJT-X_, so
 all users of *EU VHF Contest* messages should be sure to upgrade to
 versiion 2.2.0.  See <<CONTEST_MSGS,Contest Messages>> for details.

@@ -106,16 +106,16 @@ place of RRR, and the final 73 is optional.
 *EU VHF Contest*
 
  CQ TEST G4ABC IO91
-                       G4ABC PA9XYZ JO22
+                                 G4ABC PA9XYZ JO22
  <PA9XYZ> <G4ABC> 570123 IO91NP
-                       <G4ABC> <PA9XYZ> R 580071 JO22DB
+                                 <G4ABC> <PA9XYZ> R 580071 JO22DB
  PA9XYZ G4ABC RR73
 
 Either callsign (or both) may have /P appended.
 
 IMPORTANT: Messages conveying signal reports, QSO serial numbers, and
-6-character locators have been changed in _WSJT-X v2.2_ and are *NOT*
-compatible with the formats used in earlier program versions.  Be sure
+6-character locators have been changed in _WSJT-X v2.2_ and are *not
+compatible* with the formats used in earlier program versions.  Be sure
 to upgrade _WSJT-X_ if you will use *EU VHF Contest* messages.
 
 *ARRL Field Day*
@@ -309,6 +309,6 @@ as the following checklist:
 
 - Radio filters centered and set to widest available passband (up to 5 kHz).
 
-TIP: Remember that in many circumstances FT8, JT4, JT9, JT65, and WSPR
-do not require high power. Under most HF propagation conditions, QRP
-is the norm.
+TIP: Remember that in many circumstances FT4, FT8, JT4, JT9, JT65, and
+WSPR do not require high power. Under most HF propagation conditions,
+QRP is the norm.
