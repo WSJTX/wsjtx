@@ -434,8 +434,6 @@ set (wsjt_FSRCS
   lib/extract.f90
   lib/extract4.f90
   lib/extractmessage77.f90
-  lib/ft8/extractmessage174.f90
-  lib/ft8/extractmessage174_91.f90
   lib/fano232.f90
   lib/fast9.f90
   lib/fast_decode.f90
@@ -466,7 +464,6 @@ set (wsjt_FSRCS
   lib/ft8/ft8b.f90
   lib/ft8/ft8code.f90
   lib/ft8/ft8_downsample.f90
-  lib/ft8/ft8sim_fsk.f90
   lib/ft8/ft8sim.f90
   lib/gen4.f90
   lib/gen65.f90
@@ -1315,9 +1312,6 @@ target_link_libraries (ft8code wsjt_fort wsjt_cxx)
 
 add_executable (ft4code lib/ft4/ft4code.f90 wsjtx.rc)
 target_link_libraries (ft4code wsjt_fort wsjt_cxx)
-
-add_executable (ft8sim_fsk lib/ft8/ft8sim_fsk.f90 wsjtx.rc)
-target_link_libraries (ft8sim_fsk wsjt_fort wsjt_cxx)
 
 add_executable (ft8sim lib/ft8/ft8sim.f90 wsjtx.rc)
 target_link_libraries (ft8sim wsjt_fort wsjt_cxx)
