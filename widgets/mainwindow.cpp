@@ -2704,8 +2704,8 @@ void MainWindow::read_wav_file (QString const& fname)
 
 void MainWindow::on_actionOpen_next_in_directory_triggered()   //Open Next
 {
+  if(m_decoderBusy) return;
   monitor (false);
-
   int i,len;
   QFileInfo fi(m_path);
   QStringList list;
@@ -2733,6 +2733,7 @@ void MainWindow::on_actionOpen_next_in_directory_triggered()   //Open Next
 //Open all remaining files
 void MainWindow::on_actionDecode_remaining_files_in_directory_triggered()
 {
+  if(m_decoderBusy) return;
   m_loopall=true;
   on_actionOpen_next_in_directory_triggered();
 }
