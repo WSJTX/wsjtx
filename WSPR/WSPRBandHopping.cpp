@@ -274,10 +274,10 @@ WSPRBandHopping::WSPRBandHopping (QSettings * settings, Configuration const * co
   : m_ {settings, configuration, parent_widget}
 {
   // detect changes to the working frequencies model
-  m_->WSPR_bands_ = m_->configuration_->frequencies ()->all_bands (m_->configuration_->region (), Modes::WSPR).toList ();
+  m_->WSPR_bands_ = m_->configuration_->frequencies ()->all_bands (m_->configuration_->region (), Modes::WSPR).values ();
   connect (m_->configuration_->frequencies (), &QAbstractItemModel::layoutChanged
            , [this] () {
-             m_->WSPR_bands_ = m_->configuration_->frequencies ()->all_bands (m_->configuration_->region (), Modes::WSPR).toList ();
+             m_->WSPR_bands_ = m_->configuration_->frequencies ()->all_bands (m_->configuration_->region (), Modes::WSPR).values ();
            });
 
   // load settings
@@ -379,7 +379,11 @@ auto WSPRBandHopping::next_hop (bool tx_enabled) -> Hop
   if (frequencies_index < 0)
     {
       // build sets of available rx and tx bands
+#if QT_VERSION < QT_VERSION_CHECK (5, 14, 0)
       auto target_rx_bands = m_->WSPR_bands_.toSet ();
+#else
+      QSet<QString> target_rx_bands {m_->WSPR_bands_.begin (), m_->WSPR_bands_.end ()};
+#endif
       auto target_tx_bands = target_rx_bands;
       for (auto i = 0; i < m_->bands_[period_index].size (); ++i)
         {
@@ -403,16 +407,23 @@ auto WSPRBandHopping::next_hop (bool tx_enabled) -> Hop
       // if we have some bands to permute
       if (target_rx_bands.size () + target_tx_bands.size ())
         {
+#if QT_VERSION < QT_VERSION_CHECK (5, 14, 0)
+          auto rx_permutations = m_->rx_permutation_.toSet ();
+          auto tx_permutations = m_->tx_permutation_.toSet ();
+#else
+          QSet<QString> rx_permutations {m_->rx_permutation_.begin (), m_->rx_permutation_.end ()};
+          QSet<QString> tx_permutations {m_->tx_permutation_.begin (), m_->tx_permutation_.end ()};
+#endif
           if (!(m_->rx_permutation_.size () + m_->tx_permutation_.size ()) // all used up
               // or rx list contains a band no longer scheduled
-              || !target_rx_bands.contains (m_->rx_permutation_.toSet ())
+              || !target_rx_bands.contains (rx_permutations)
               // or tx list contains a band no longer scheduled for tx
-              || !target_tx_bands.contains (m_->tx_permutation_.toSet ()))
+              || !target_tx_bands.contains (tx_permutations))
             {
               // build new random permutations
-              m_->rx_permutation_ = target_rx_bands.toList ();
+              m_->rx_permutation_ = target_rx_bands.values ();
               std::random_shuffle (std::begin (m_->rx_permutation_), std::end (m_->rx_permutation_));
-              m_->tx_permutation_ = target_tx_bands.toList ();
+              m_->tx_permutation_ = target_tx_bands.values ();
               std::random_shuffle (std::begin (m_->tx_permutation_), std::end (m_->tx_permutation_));
               // qDebug () << "New random Rx permutation:" << m_->rx_permutation_
               //           << "random Tx permutation:" << m_->tx_permutation_;

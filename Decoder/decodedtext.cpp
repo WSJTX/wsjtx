@@ -187,7 +187,7 @@ QString DecodedText::report() const // returns a string of the SNR field with a 
             sr = 49;
 
     QString rpt;
-    rpt.sprintf("%d",abs(sr));
+    rpt = rpt.asprintf("%d",abs(sr));
     if (sr > 9)
         rpt = "+" + rpt;
     else

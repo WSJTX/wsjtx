@@ -649,29 +649,50 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   setWindowTitle (program_title ());
 
   connect(&proc_jt9, &QProcess::readyReadStandardOutput, this, &MainWindow::readFromStdout);
+#if QT_VERSION < QT_VERSION_CHECK (5, 6, 0)
   connect(&proc_jt9, static_cast<void (QProcess::*) (QProcess::ProcessError)> (&QProcess::error),
           [this] (QProcess::ProcessError error) {
             subProcessError (&proc_jt9, error);
           });
+#else
+  connect(&proc_jt9, static_cast<void (QProcess::*) (QProcess::ProcessError)> (&QProcess::errorOccurred),
+          [this] (QProcess::ProcessError error) {
+            subProcessError (&proc_jt9, error);
+          });
+#endif
   connect(&proc_jt9, static_cast<void (QProcess::*) (int, QProcess::ExitStatus)> (&QProcess::finished),
           [this] (int exitCode, QProcess::ExitStatus status) {
             subProcessFailed (&proc_jt9, exitCode, status);
           });
 
   connect(&p1, &QProcess::readyReadStandardOutput, this, &MainWindow::p1ReadFromStdout);
+#if QT_VERSION < QT_VERSION_CHECK (5, 6, 0)
   connect(&p1, static_cast<void (QProcess::*) (QProcess::ProcessError)> (&QProcess::error),
           [this] (QProcess::ProcessError error) {
             subProcessError (&p1, error);
           });
+#else
+  connect(&p1, static_cast<void (QProcess::*) (QProcess::ProcessError)> (&QProcess::errorOccurred),
+          [this] (QProcess::ProcessError error) {
+            subProcessError (&p1, error);
+          });
+#endif
   connect(&p1, static_cast<void (QProcess::*) (int, QProcess::ExitStatus)> (&QProcess::finished),
           [this] (int exitCode, QProcess::ExitStatus status) {
             subProcessFailed (&p1, exitCode, status);
           });
 
+#if QT_VERSION < QT_VERSION_CHECK (5, 6, 0)
   connect(&p3, static_cast<void (QProcess::*) (QProcess::ProcessError)> (&QProcess::error),
           [this] (QProcess::ProcessError error) {
             subProcessError (&p3, error);
           });
+#else
+  connect(&p3, static_cast<void (QProcess::*) (QProcess::ProcessError)> (&QProcess::errorOccurred),
+          [this] (QProcess::ProcessError error) {
+            subProcessError (&p3, error);
+          });
+#endif
   connect(&p3, static_cast<void (QProcess::*) (int, QProcess::ExitStatus)> (&QProcess::finished),
           [this] (int exitCode, QProcess::ExitStatus status) {
             subProcessFailed (&p3, exitCode, status);
@@ -795,7 +816,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
     float dbm=(10.0*i)/3.0;
     int ndbm=int(dbm+0.5);
     QString t;
-    t.sprintf("%d dBm  ",ndbm);
+    t = t.asprintf("%d dBm  ",ndbm);
     t+=t1[i];
     ui->TxPowerComboBox->addItem(t);
   }
@@ -1435,7 +1456,7 @@ void MainWindow::dataSink(qint64 frames)
       avecho_(dec_data.d2,&nDop,&nfrit,&nqual,&f1,&xlevel,&sigdb,
           &snr,&dfreq,&width);
       QString t;
-      t.sprintf("%3d %7.1f %7.1f %7.1f %7.1f %3d",echocom_.nsum,xlevel,sigdb,
+      t = t.asprintf("%3d %7.1f %7.1f %7.1f %7.1f %3d",echocom_.nsum,xlevel,sigdb,
                 dfreq,width,nqual);
       t=QDateTime::currentDateTimeUtc().toString("hh:mm:ss  ") + t;
       if (ui) ui->decodedTextBrowser->appendText(t);
@@ -1498,12 +1519,12 @@ void MainWindow::dataSink(qint64 frames)
     if(m_mode.startsWith ("WSPR")) {
       QString t2,cmnd,depth_string;
       double f0m1500=m_dialFreqRxWSPR/1000000.0;   // + 0.000001*(m_BFO - 1500);
-      t2.sprintf(" -f %.6f ",f0m1500);
+      t2 = t2.asprintf(" -f %.6f ",f0m1500);
       if((m_ndepth&7)==1) depth_string=" -qB "; //2 pass w subtract, no Block detection, no shift jittering
       if((m_ndepth&7)==2) depth_string=" -C 500 -o 4 ";  //3 pass, subtract, Block detection, OSD 
       if((m_ndepth&7)==3) depth_string=" -C 500 -o 4 -d ";  //3 pass, subtract, Block detect, OSD, more candidates 
       QString degrade;
-      degrade.sprintf("-d %4.1f ",m_config.degrade());
+      degrade = degrade.asprintf("-d %4.1f ",m_config.degrade());
 
       if(m_diskData) {
         cmnd='"' + m_appDir + '"' + "/wsprd " + depth_string + " -a \"" +
@@ -1631,7 +1652,7 @@ void MainWindow::fastSink(qint64 frames)
          &ddir[0],fast_green,fast_s,&fast_jh,&pxmax,&rmsNoGain,&line[0],12,12,512,80);
   float px = fast_green[fast_jh];
   QString t;
-  t.sprintf(" Rx noise: %5.1f ",px);
+  t = t.asprintf(" Rx noise: %5.1f ",px);
   ui->signal_meter_widget->setValue(rmsNoGain,pxmax); // Update thermometer
   m_fastGraph->plotSpec(m_diskData,m_UTCdisk);
 
@@ -3014,8 +3035,8 @@ void MainWindow::decode()                                       //decode()
     double tseq = fmod(double(now.toMSecsSinceEpoch()),1000.0*m_TRperiod)/1000.0;
     if(tseq < 0.5*m_TRperiod) tseq+= m_TRperiod;
     if(m_ihsym==m_earlyDecode) qDebug() << "";
-    QString t="";
-    t.sprintf("aa release_jt9 %11.3f %5d %5d %7.3f ",tsec,m_ihsym,m_ihsym,tseq);
+    QString t;
+    t = t.asprintf("aa release_jt9 %11.3f %5d %5d %7.3f ",tsec,m_ihsym,m_ihsym,tseq);
     qDebug().noquote() << t << QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz");
 */
 
@@ -3712,7 +3733,7 @@ void MainWindow::guiUpdate()
 
     if(m_mode.startsWith ("WSPR")) {
       QString sdBm,msg0,msg1,msg2;
-      sdBm.sprintf(" %d",m_dBm);
+      sdBm = sdBm.asprintf(" %d",m_dBm);
       m_tx=1-m_tx;
       int i2=m_config.my_callsign().indexOf("/");
       if(i2>0
@@ -4056,7 +4077,7 @@ void MainWindow::guiUpdate()
         int isec=int(fmod(tsec,m_TRperiod));
         if(m_TRperiod-int(m_TRperiod)>0.0) {
           QString progBarLabel;
-          progBarLabel.sprintf("%d/%3.1f",isec,m_TRperiod);
+          progBarLabel = progBarLabel.asprintf("%d/%3.1f",isec,m_TRperiod);
           progressBar.setFormat (progBarLabel);
         }
         progressBar.setValue(isec);
@@ -4106,7 +4127,7 @@ void MainWindow::guiUpdate()
         if(m_mode=="MSK144") {
           int npct=int(100.0*m_fCPUmskrtd/0.298667);
           if(npct>90) tx_status_label.setStyleSheet("QLabel{background-color: #ff0000}");
-          t.sprintf("Receiving   %2d%%",npct);
+          t = t.asprintf("Receiving   %2d%%",npct);
         }
         tx_status_label.setText (t);
       }
@@ -5092,7 +5113,7 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
     msgtype("73", ui->tx5->lineEdit());
   } else {
     int n=rpt.toInt();
-    rpt.sprintf("%+2.2d",n);
+    rpt = rpt.asprintf("%+2.2d",n);
 
     if(m_mode=="MSK144" or m_mode=="FT8" or m_mode=="FT4") {
       QString t2,t3;
@@ -5101,7 +5122,7 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
       int nn=(n+36)/6;
       if(nn<2) nn=2;
       if(nn>9) nn=9;
-      rst.sprintf("5%1d9 ",nn);
+      rst = rst.asprintf("5%1d9 ",nn);
       rs=rst.mid(0,2);
       t=t0;
       if(!bMyCall) {
@@ -5119,14 +5140,14 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
         sent=rst + m_config.RTTY_Exchange();
         QString t1=m_config.RTTY_Exchange();
         if(t1=="DX" or t1=="#") {
-          t1.sprintf("%4.4d",ui->sbSerialNumber->value());
+          t1 = t1.asprintf("%4.4d",ui->sbSerialNumber->value());
           sent=rst + t1;
         }
       }
       if(SpecOp::EU_VHF==m_config.special_op_id()) {
         QString a;
         t="<" + t0.split(" ").at(0) + "> <" + t0.split(" ").at(1) + "> ";
-        a.sprintf("%4.4d ",ui->sbSerialNumber->value());
+        a = a.asprintf("%4.4d ",ui->sbSerialNumber->value());
         sent=rs + a + m_config.my_grid();
       }
       msgtype(t + sent, ui->tx2);
@@ -5154,7 +5175,7 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
         if(n>=8 and n<=11) n=10;
         if(n>=12 and n<=14) n=13;
         if(n>=15) n=16;
-        rpt.sprintf("%+2.2d",n);
+        rpt = rpt.asprintf("%+2.2d",n);
       }
     }
 
@@ -5552,10 +5573,10 @@ void MainWindow::on_dxGridEntry_textChanged (QString const& grid)
     int nd=nDkm;
     if(m_config.miles()) nd=nDmiles;
     if(m_mode=="MSK144") {
-      if(nHotABetter==0)t.sprintf("Az: %d   B: %d   El: %d   %d",nAz,nHotAz,nEl,nd);
-      if(nHotABetter!=0)t.sprintf("Az: %d   A: %d   El: %d   %d",nAz,nHotAz,nEl,nd);
+      if(nHotABetter==0)t = t.asprintf("Az: %d   B: %d   El: %d   %d",nAz,nHotAz,nEl,nd);
+      if(nHotABetter!=0)t = t.asprintf("Az: %d   A: %d   El: %d   %d",nAz,nHotAz,nEl,nd);
     } else {
-      t.sprintf("Az: %d        %d",nAz,nd);
+      t = t.asprintf("Az: %d        %d",nAz,nd);
     }
     if(m_config.miles()) t += " mi";
     if(!m_config.miles()) t += " km";
@@ -7681,9 +7702,9 @@ void MainWindow::p1ReadFromStdout()                        //p1readFromStdout
                 &nAz,&nEl,&nDmiles,&nDkm,&nHotAz,&nHotABetter,6,6);
         QString t1;
         if(m_config.miles()) {
-          t1.sprintf("%7d",nDmiles);
+          t1 = t1.asprintf("%7d",nDmiles);
         } else {
-          t1.sprintf("%7d",nDkm);
+          t1 = t1.asprintf("%7d",nDkm);
         }
         rxLine += t1;
       }
@@ -7706,7 +7727,7 @@ QString MainWindow::WSPR_hhmm(int n)
   QDateTime t=QDateTime::currentDateTimeUtc().addSecs(n);
   int m=t.toString("hhmm").toInt()/2;
   QString t1;
-  t1.sprintf("%04d",2*m);
+  t1 = t1.asprintf("%04d",2*m);
   return t1;
 }
 
@@ -7716,12 +7737,12 @@ void MainWindow::WSPR_history(Frequency dialFreq, int ndecodes)
   QString t1=t.toString("yyMMdd");
   QString t2=WSPR_hhmm(-60);
   QString t3;
-  t3.sprintf("%13.6f",0.000001*dialFreq);
+  t3 = t3.asprintf("%13.6f",0.000001*dialFreq);
   if(ndecodes<0) {
     t1=t1 + " " + t2 + t3 + "  T";
   } else {
     QString t4;
-    t4.sprintf("%4d",ndecodes);
+    t4 = t4.asprintf("%4d",ndecodes);
     t1=t1 + " " + t2 + t3 + "  R" + t4;
   }
   QFile f {m_config.writeable_data_dir ().absoluteFilePath ("WSPR_history.txt")};
@@ -8192,7 +8213,7 @@ void MainWindow::on_sbNslots_valueChanged(int n)
 {
   m_Nslots=n;
   QString t;
-  t.sprintf(" NSlots %d",m_Nslots);
+  t = t.asprintf(" NSlots %d",m_Nslots);
   writeFoxQSO(t);
 }
 
@@ -8200,7 +8221,7 @@ void MainWindow::on_sbMax_dB_valueChanged(int n)
 {
   m_max_dB=n;
   QString t;
-  t.sprintf(" Max_dB %d",m_max_dB);
+  t = t.asprintf(" Max_dB %d",m_max_dB);
   writeFoxQSO(t);
 }
 
@@ -8690,7 +8711,7 @@ void MainWindow::foxGenWaveform(int i,QString fm)
   if(fm.mid(0,3)=="CQ ") m_tFoxTxSinceCQ=-1;
 
   QString txModeArg;
-  txModeArg.sprintf("FT8fox %d",i+1);
+  txModeArg = txModeArg.asprintf("FT8fox %d",i+1);
   ui->decodedTextBrowser2->displayTransmittedText(fm.trimmed(), txModeArg,
         ui->TxFreqSpinBox->value()+60*i,m_bFastMode);
   foxcom_.i3bit[i]=0;
@@ -8698,14 +8719,14 @@ void MainWindow::foxGenWaveform(int i,QString fm)
   strncpy(&foxcom_.cmsg[i][0],fm.toLatin1(),40);   //Copy this message into cmsg[i]
   if(i==0) m_fm1=fm;
   QString t;
-  t.sprintf(" Tx%d:  ",i+1);
+  t = t.asprintf(" Tx%d:  ",i+1);
   writeFoxQSO(t + fm.trimmed());
 }
 
 void MainWindow::writeFoxQSO(QString const& msg)
 {
   QString t;
-  t.sprintf("%3d%3d%3d",m_houndQueue.count(),m_foxQSOinProgress.count(),m_foxQSO.count());
+  t = t.asprintf("%3d%3d%3d",m_houndQueue.count(),m_foxQSOinProgress.count(),m_foxQSO.count());
   QFile f {m_config.writeable_data_dir ().absoluteFilePath ("FoxQSO.txt")};
   if (f.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Append)) {
     QTextStream out(&f);
@@ -8781,7 +8802,7 @@ void MainWindow::foxTest()
     if(line.contains("Tx1:")) {
       foxTxSequencer();
     } else {
-      t.sprintf("%3d %3d %3d %3d %5d   ",m_houndQueue.count(),
+      t = t.asprintf("%3d %3d %3d %3d %5d   ",m_houndQueue.count(),
                 m_foxQSOinProgress.count(),m_foxQSO.count(),
                 m_loggedByFox.count(),m_tFoxTx);
       sdiag << t << line.mid(37).trimmed() << "\n";
@@ -8812,7 +8833,7 @@ void MainWindow::write_all(QString txRx, QString message)
 
   msg=msg.mid(0,15) + msg.mid(18,-1);
 
-  t.sprintf("%5d",ui->TxFreqSpinBox->value());
+  t = t.asprintf("%5d",ui->TxFreqSpinBox->value());
   if (txRx=="Tx") msg="   0  0.0" + t + " " + message;
   auto time = QDateTime::currentDateTimeUtc ();
   if( txRx=="Rx" ) {
@@ -8822,7 +8843,7 @@ void MainWindow::write_all(QString txRx, QString message)
     } 
     time = time.addSecs(-tdec);
   }
-  t.sprintf("%10.3f ",m_freqNominal/1.e6);
+  t = t.asprintf("%10.3f ",m_freqNominal/1.e6);
   if (m_diskData) {
     if (m_fileDateTime.size()==11) {
       line=m_fileDateTime + "  " + t + txRx + " " + mode_string + msg;

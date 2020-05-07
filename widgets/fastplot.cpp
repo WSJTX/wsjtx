@@ -155,7 +155,7 @@ void FPlotter::draw()                                         //draw()
     int ih=m_UTCdisk/10000;
     int im=m_UTCdisk/100 % 100;
     int is=m_UTCdisk % 100;
-    m_t.sprintf("%2.2d:%2.2d:%2.2d",ih,im,is);
+    m_t = m_t.asprintf("%2.2d:%2.2d:%2.2d",ih,im,is);
   }
 
   int k0=m_jh0;
@@ -168,7 +168,7 @@ void FPlotter::draw()                                         //draw()
       int ih=m_UTCdisk/10000;
       int im=m_UTCdisk/100 % 100;
       int is=m_UTCdisk % 100;
-      m_t.sprintf("%2.2d:%2.2d:%2.2d",ih,im,is);
+      m_t = m_t.asprintf("%2.2d:%2.2d:%2.2d",ih,im,is);
     } else {
       m_t=QDateTime::currentDateTimeUtc().toString("hh:mm:ss");
     }
@@ -243,7 +243,7 @@ void FPlotter::mouseMoveEvent(QMouseEvent *event)
 //  int y=event->y();
   float t=x/m_pixPerSecond;
   QString t1;
-  t1.sprintf("%5.2f",t);
+  t1 = t1.asprintf("%5.2f",t);
   QRectF rect0(78,85,40,13);              //### Should use font metrics ###
   painter.fillRect(rect0,Qt::black);
   painter.setPen(Qt::yellow);

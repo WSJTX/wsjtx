@@ -102,6 +102,6 @@ void SignalMeter::setValue(float value, float valueMax)
   m_meter->setValue(int(value));
   m_meter->set_sigPeak(valueMax);
   QString t;
-  t.sprintf("%d dB",int(value+0.5));
+  t = t.asprintf("%d dB",int(value+0.5));
   m_reading->setText(t);
 }
