@@ -196,9 +196,11 @@ program jt65sim
           if(msg(1:2).eq.'73') nshorthand=4
           if(nshorthand.gt.0) then
             ntoggle=0
-            do i=1,nsym,2
+            do i=1,nsym,4
               itone(i)=ntoggle*10*nshorthand
               if(i+1.le.126) itone(i+1)=ntoggle*10*nshorthand
+              if(i+2.le.126) itone(i+2)=ntoggle*10*nshorthand
+              if(i+3.le.126) itone(i+3)=ntoggle*10*nshorthand
               ntoggle=mod(ntoggle+1,2)
             enddo
           endif
