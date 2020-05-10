@@ -110,6 +110,7 @@ summarized in the following Table:
 [width="50%",cols="h,3*^",frame=topbot,options="header"]
 |===========================================
 |Mode    |Mode character|Sync character|End of line information
+|FT4     | +            |      | ? &#160; aP
 |FT8     | ~            |      | ? &#160; aP
 |JT4     | $            | *, # | f, fN, dCN
 |JT9     | @            |      |
@@ -117,7 +118,7 @@ summarized in the following Table:
 |JT65 VHF| #            | *, # | f, fN, dCN
 |QRA64   | :            | *    | R
 |ISCAT   |              | *    | M  N  C  T
-|MSK144  | &            |      | N  H  E
+|MSK144  | &            |      |
 |===========================================
 Sync character::
  `*` - Normal sync +
@@ -128,9 +129,7 @@ End of line information::
  `a` - Decoded with aid of some a priori (AP) information +
  `C` - Confidence indicator [ISCAT and Deep Search; (0-9,*)] +
  `d` - Deep Search algorithm +
- `E` - Size of MSK eye diagram opening - if negative, the eye is closed + 
  `f` - Franke-Taylor or Fano algorithm +
- `H` - Number of bit errors corrected +
  `M` - Message length (characters) +
  `N` - Number of Rx intervals or frames averaged +
  `P` - Number indicating type of AP information (Table 1, above) +

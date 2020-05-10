@@ -130,7 +130,7 @@ d). Edit lines as needed. Keeping them in alphabetic order help see dupes.
 :dev_mail_svn: https://sourceforge.net/auth/subscriptions/[WSJT SVN Archives]
 :devmail: mailto:wsjt-devel@lists.sourceforge.net[wsjt-devel@lists.sourceforge.net]
 :devmail1: mailto:wsjt-devel@lists.sourceforge.net[Post Message]
-:wsjtgroup_mail: mailto:wsjtgroup@yahoogroups.com[Post Message]
+:wsjtgroup_mail: mailto:WSJTX@groups.io[Post Message]
 :greg_beam: mailto:ki7mt@yahoo.com[KI7MT]
 :joe_taylor: mailto:joe@princeton.edu[K1JT]
 :stuart_rackman: mailto:srackham@gmail.com[Stuart Rackham]

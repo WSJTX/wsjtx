@@ -1,8 +1,8 @@
 // Status=review
 
-Download and execute the package file {win32} (WinXP, Vista, Win 7,
-Win 8, Win10, 32-bit) or {win64} (Vista, Win 7, Win 8, Win10, 64-bit)
-following these instructions:
+Download and execute the package file {win32} (Win 7, Win 8, Win10,
+32-bit) or {win64} (Win 7, Win 8, Win10, 64-bit) following these
+instructions:
 
 * Install _WSJT-X_ into its own directory, for example `C:\WSJTX` or `
   C:\WSJT\WSJTX`, rather than the conventional location `C:\Program
@@ -76,4 +76,4 @@ TIP: If you cannot install the _OpenSSL_ libraries or do not have an
 * You can uninstall _WSJT-X_ by clicking its *Uninstall* link in the
   Windows *Start* menu, or by using *Uninstall a Program* on the
   Windows Control Panel Programs and Features option or in Settings
-  Apps on Windows 10.
+  Apps and Features on Windows 10.
