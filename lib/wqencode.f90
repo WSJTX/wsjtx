@@ -59,8 +59,7 @@ subroutine wqencode(msg,ntype,data0)
      n2=128*ih + ntype + 64
      call pack50(n1,n2,data0)
   endif
-  go to 900
-
 900 continue
+  
   return
 end subroutine wqencode

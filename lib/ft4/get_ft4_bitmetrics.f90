@@ -47,6 +47,8 @@ subroutine get_ft4_bitmetrics(cd,bitmetrics,badsync)
    is3=0
    is4=0
    badsync=.false.
+   ibmax=0
+   
    do k=1,4
       ip=maxloc(s4(:,k))
       if(icos4a(k-1).eq.(ip(1)-1)) is1=is1+1

@@ -74,6 +74,9 @@ set (UG_IMGS
   images/decodes.png
   images/download_samples.png
   images/echo_144.png
+  images/EME_Deep_0.png
+  images/EME_Deep_1.png
+  images/EME_Deep_2.png
   images/file-menu.png
   images/FreqCal.png
   images/FreqCal_Graph.png
@@ -158,6 +161,7 @@ function (document)
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/${_source_path}/${lang}
       COMMAND ${ASCIIDOCTOR_EXECUTABLE} ${_args_ASCIIDOCTOR_OPTIONS}
       -b html5
+      -a nofooter
       -a VERSION_MAJOR=${WSJTX_VERSION_MAJOR}
       -a VERSION_MINOR=${WSJTX_VERSION_MINOR}
       -a VERSION_PATCH=${WSJTX_VERSION_PATCH}

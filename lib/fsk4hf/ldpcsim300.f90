@@ -117,12 +117,12 @@ write(*,*) i1Msg8BitBytes(1:9)
   write(*,*) 'codeword' 
   write(*,'(38(8i1,1x))') codeword
 
-write(*,*) "Es/N0  SNR2500   ngood  nundetected nbadcrc   sigma"
+write(*,*) "Eb/N0  SNR2500   ngood  nundetected nbadcrc   sigma"
 do idb = 20,-16,-1
 !do idb = -16, -16, -1 
   db=idb/2.0-1.0
-!  sigma=1/sqrt( 2*rate*(10**(db/10.0)) )  ! to make db represent Eb/No
-  sigma=1/sqrt( 2*(10**(db/10.0)) )        ! db represents Es/No
+  sigma=1/sqrt( 2*rate*(10**(db/10.0)) )  ! to make db represent Eb/No
+!  sigma=1/sqrt( 2*(10**(db/10.0)) )        ! db represents Es/No
   ngood=0
   nue=0
   nbadcrc=0

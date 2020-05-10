@@ -26,16 +26,10 @@ public:
   QVariant data (QModelIndex const& index, int role) const
   {
     auto value = QSqlTableModel::data (index, role);
-    if (index.column () == fieldIndex ("when")
-        && (Qt::DisplayRole == role || Qt::EditRole == role))
+    if (index.column () == fieldIndex ("when") && Qt::DisplayRole == role)
       {
-        auto t = QDateTime::fromMSecsSinceEpoch (value.toULongLong () * 1000ull, Qt::UTC);
-        if (Qt::DisplayRole == role)
-          {
-            QLocale locale;
-            return locale.toString (t, locale.dateFormat (QLocale::ShortFormat) + " hh:mm:ss");
-          }
-        value = t;
+        QLocale locale;
+        value = locale.toString (QDateTime::fromMSecsSinceEpoch (value.toULongLong () * 1000ull, Qt::UTC), locale.dateFormat (QLocale::ShortFormat) + " hh:mm:ss");
       }
     return value;
   }

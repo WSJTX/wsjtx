@@ -1,4 +1,4 @@
-subroutine qra64a(dd,npts,nutc,nf1,nf2,nfqso,ntol,mode64,minsync,ndepth,   &
+subroutine qra64a(dd,npts,nf1,nf2,nfqso,ntol,mode64,minsync,ndepth,   &
      emedelay,mycall_12,hiscall_12,hisgrid_6,sync,nsnr,dtx,nfreq,decoded,nft)
 
   use packjt
@@ -86,7 +86,7 @@ subroutine qra64a(dd,npts,nutc,nf1,nf2,nfqso,ntol,mode64,minsync,ndepth,   &
      idt=itry0/2
      if(mod(itry0,2).eq.0) idt=-idt
      jpk=jpk0 + 750*idt
-     call spec64(c0,npts2,mode64,jpk,s3a,LL,NN)
+     call spec64(c0,jpk,s3a,LL,NN)
      call pctile(s3a,LL*NN,40,base)
      s3a=s3a/base
      where(s3a(1:LL*NN)>s3lim) s3a(1:LL*NN)=s3lim
@@ -151,8 +151,5 @@ subroutine qra64a(dd,npts,nutc,nf1,nf2,nfqso,ntol,mode64,minsync,ndepth,   &
   endif
   call timer('qra64a  ',1)
 
-!  write(71,3001) nutc,dtx,f0,sync,sync2,width,minsync,decoded
-!3001 format(i4.4,f7.2,4f8.1,i3,2x,a22)
-  
   return
 end subroutine qra64a

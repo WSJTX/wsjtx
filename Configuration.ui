@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>554</width>
-    <height>563</height>
+    <width>670</width>
+    <height>617</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -559,7 +559,7 @@ quiet period when decoding is done.</string>
               <property name="editable">
                <bool>true</bool>
               </property>
-              <property name="currentText">
+              <property name="currentText" stdset="0">
                <string/>
               </property>
               <property name="insertPolicy">
@@ -951,7 +951,7 @@ a few, particularly some Kenwood rigs, require it).</string>
           <item row="0" column="1">
            <widget class="QRadioButton" name="PTT_DTR_radio_button">
             <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Use the RS-232 DTR control line to toggle your radio's PTT, requires hardware to inteface the line.&lt;/p&gt;&lt;p&gt;Some commercial interface units also use this method.&lt;/p&gt;&lt;p&gt;The DTR control line of the CAT serial port may be used for this or a DTR control line on a different serial port may be used.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Use the RS-232 DTR control line to toggle your radio's PTT, requires hardware to interface the line.&lt;/p&gt;&lt;p&gt;Some commercial interface units also use this method.&lt;/p&gt;&lt;p&gt;The DTR control line of the CAT serial port may be used for this or a DTR control line on a different serial port may be used.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
             </property>
             <property name="text">
              <string>&amp;DTR</string>
@@ -982,7 +982,7 @@ other hardware interface for PTT.</string>
           <item row="1" column="1">
            <widget class="QRadioButton" name="PTT_RTS_radio_button">
             <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Use the RS-232 RTS control line to toggle your radio's PTT, requires hardware to inteface the line.&lt;/p&gt;&lt;p&gt;Some commercial interface units also use this method.&lt;/p&gt;&lt;p&gt;The RTS control line of the CAT serial port may be used for this or a RTS control line on a different serial port may be used. Note that this option is not available on the CAT serial port when hardware flow control is used.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Use the RS-232 RTS control line to toggle your radio's PTT, requires hardware to interface the line.&lt;/p&gt;&lt;p&gt;Some commercial interface units also use this method.&lt;/p&gt;&lt;p&gt;The RTS control line of the CAT serial port may be used for this or a RTS control line on a different serial port may be used. Note that this option is not available on the CAT serial port when hardware flow control is used.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
             </property>
             <property name="text">
              <string>R&amp;TS</string>
@@ -1021,7 +1021,7 @@ other hardware interface for PTT.</string>
               <property name="editable">
                <bool>true</bool>
               </property>
-              <property name="currentText">
+              <property name="currentText" stdset="0">
                <string/>
               </property>
               <property name="currentIndex">
@@ -1080,7 +1080,7 @@ or bandwidth is selected).</string>
           <item row="0" column="2">
            <widget class="QRadioButton" name="mode_data_radio_button">
             <property name="toolTip">
-             <string>If this is availabe then it is usually the correct mode for this program.</string>
+             <string>If this is available then it is usually the correct mode for this program.</string>
             </property>
             <property name="text">
              <string>Data/P&amp;kt</string>
@@ -2261,9 +2261,6 @@ Right click for insert and delete options.</string>
             <property name="toolTip">
              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enable or disable using the check boxes and right-click an item to change or unset the foreground color, background color, or reset the item to default values. Drag and drop the items to change their priority, higher in the list is higher in priority.&lt;/p&gt;&lt;p&gt;Note that each foreground or background color may be either set or unset, unset means that it is not allocated for that item's type and lower priority items may apply.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
             </property>
-            <property name="sizeAdjustPolicy">
-             <enum>QAbstractScrollArea::AdjustToContents</enum>
-            </property>
             <property name="editTriggers">
              <set>QAbstractItemView::NoEditTriggers</set>
             </property>
@@ -2572,6 +2569,19 @@ Right click for insert and delete options.</string>
             </attribute>
            </widget>
           </item>
+          <item row="0" column="1" rowspan="3">
+           <spacer name="horizontalSpacer_11">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
           <item row="2" column="3">
            <layout class="QHBoxLayout" name="horizontalLayout_18" stretch="2,1,1">
             <item>
@@ -2635,19 +2645,6 @@ Right click for insert and delete options.</string>
             </item>
            </layout>
           </item>
-          <item row="0" column="1" rowspan="3">
-           <spacer name="horizontalSpacer_11">
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>40</width>
-              <height>20</height>
-             </size>
-            </property>
-           </spacer>
-          </item>
           <item row="1" column="3">
            <layout class="QHBoxLayout" name="horizontalLayout_17" stretch="2,1,1">
             <item>
@@ -2710,6 +2707,25 @@ Right click for insert and delete options.</string>
              </layout>
             </item>
            </layout>
+          </item>
+          <item row="3" column="0">
+           <widget class="QRadioButton" name="rbWW_DIGI">
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>18</height>
+             </size>
+            </property>
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;World-Wide Digi-mode contest&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>WW Digi Contest</string>
+            </property>
+            <attribute name="buttonGroup">
+             <string notr="true">special_op_activity_button_group</string>
+            </attribute>
+           </widget>
           </item>
          </layout>
         </widget>
@@ -2856,35 +2872,25 @@ Right click for insert and delete options.</string>
             <property name="title">
              <string>Waterfall spectra</string>
             </property>
-            <widget class="QRadioButton" name="rbLowSidelobes">
-             <property name="geometry">
-              <rect>
-               <x>10</x>
-               <y>20</y>
-               <width>91</width>
-               <height>17</height>
-              </rect>
-             </property>
-             <property name="text">
-              <string>Low sidelobes</string>
-             </property>
-             <property name="checked">
-              <bool>true</bool>
-             </property>
-            </widget>
-            <widget class="QRadioButton" name="rbMaxSensitivity">
-             <property name="geometry">
-              <rect>
-               <x>120</x>
-               <y>20</y>
-               <width>92</width>
-               <height>17</height>
-              </rect>
-             </property>
-             <property name="text">
-              <string>Most sensitive</string>
-             </property>
-            </widget>
+            <layout class="QHBoxLayout" name="horizontalLayout_16">
+             <item>
+              <widget class="QRadioButton" name="rbLowSidelobes">
+               <property name="text">
+                <string>Low sidelobes</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QRadioButton" name="rbMaxSensitivity">
+               <property name="text">
+                <string>Most sensitive</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
            </widget>
           </item>
          </layout>
@@ -3103,12 +3109,12 @@ Right click for insert and delete options.</string>
  </connections>
  <buttongroups>
   <buttongroup name="split_mode_button_group"/>
-  <buttongroup name="CAT_data_bits_button_group"/>
+  <buttongroup name="TX_audio_source_button_group"/>
+  <buttongroup name="TX_mode_button_group"/>
+  <buttongroup name="PTT_method_button_group"/>
   <buttongroup name="special_op_activity_button_group"/>
   <buttongroup name="CAT_handshake_button_group"/>
-  <buttongroup name="PTT_method_button_group"/>
+  <buttongroup name="CAT_data_bits_button_group"/>
   <buttongroup name="CAT_stop_bits_button_group"/>
-  <buttongroup name="TX_mode_button_group"/>
-  <buttongroup name="TX_audio_source_button_group"/>
  </buttongroups>
 </ui>

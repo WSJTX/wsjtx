@@ -1,7 +1,6 @@
 subroutine extract(s3,nadd,mode65,ntrials,naggressive,ndepth,nflip,     &
      mycall_12,hiscall_12,hisgrid,nQSOProgress,ljt65apon,               &
-     nexp_decode,ncount,      &
-     nhist,decoded,ltext,nft,qual)
+     ncount,nhist,decoded,ltext,nft,qual)
 
 ! Input:
 !   s3       64-point spectra for each of 63 data symbols
@@ -180,7 +179,6 @@ subroutine extract(s3,nadd,mode65,ntrials,naggressive,ndepth,nflip,     &
   
      if(nft.gt.0) exit
   enddo
-!write(*,*) nft
   if(nft.eq.0 .and. iand(ndepth,32).eq.32) then
      qmin=2.0 - 0.1*naggressive
      call timer('hint65  ',0)
@@ -209,7 +207,7 @@ subroutine extract(s3,nadd,mode65,ntrials,naggressive,ndepth,nflip,     &
        tmp(i)=correct(64-i)
      enddo
      correct(1:63)=tmp(1:63)
-     call interleave63(correct,63,1)
+     call interleave63(correct,1)
      call graycode65(correct,63,1)
      call unpackmsg(dat4,decoded)     !Unpack the user message
      ncount=0

@@ -34,6 +34,7 @@ program msk144sim
   i1=len(trim(msg))-5
   ichk=0
   itype=1
+  call fmtmsg(msg,iz)
   call genmsk_128_90(msg,ichk,msgsent,itone,itype) 
   write(*,*) 'Requested message: ',msg
   write(*,*) 'Message sent     : ',msgsent

@@ -55,8 +55,7 @@ QSize ForeignKeyDelegate::sizeHint (QStyleOptionViewItem const& option, QModelIn
     {
       size_hint = size_hint.expandedTo (qApp->style ()->sizeFromContents (QStyle::CT_ComboBox
                                                                           , &combo_box_option
-                                                                          , {metrics.width (candidate_key_filter_->data (candidate_key_filter_->index (row, 0)).toString ())
-                                                                              , metrics.height ()}));
+                                                                          , metrics.boundingRect (candidate_key_filter_->data (candidate_key_filter_->index (row, 0)).toString ()).size ()));
     }
   return size_hint;
 }

@@ -9,7 +9,7 @@ subroutine foxfilt(nslots,nfreq,width,wave)
 
   x(1:NWAVE)=wave
   x(NWAVE+1:)=0.
-  call four2a(x,NFFT,1,-1,0)              !r2c
+  call four2a(cx,NFFT,1,-1,0)              !r2c
   df=48000.0/NFFT
   fa=nfreq - 0.5*6.25
   fb=nfreq + 7.5*6.25 + (nslots-1)*60.0

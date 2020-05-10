@@ -160,9 +160,8 @@ void EPlotter::DrawOverlay()                                 //DrawOverlay()
 //  int w = m_WaterfallPixmap.width();
   int x,y;
 
-  QRect rect;
   QPainter painter(&m_OverlayPixmap);
-  painter.initFrom(this);
+  painter.setBackground (palette ().brush (backgroundRole ()));
   QLinearGradient gradient(0, 0, 0 ,m_h2);  //fill background with gradient
   gradient.setColorAt(1, Qt::black);
   gradient.setColorAt(0, Qt::darkBlue);
@@ -200,7 +199,7 @@ void EPlotter::DrawOverlay()                                 //DrawOverlay()
 
   QRect rect0;
   QPainter painter0(&m_ScalePixmap);
-  painter0.initFrom(this);
+  painter0.setBackground (palette ().brush (backgroundRole ()));
 
   //create Font to use for scales
   QFont Font("Arial");

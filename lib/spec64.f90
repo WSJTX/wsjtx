@@ -1,4 +1,4 @@
-subroutine spec64(c0,npts2,mode64,jpk,s3,LL,NN)
+subroutine spec64(c0,jpk,s3,LL,NN)
 
   parameter (NSPS=3456)                      !Samples per symbol at 6000 Hz
   complex c0(0:360000)                       !Complex spectrum of dd()

@@ -250,7 +250,7 @@ which the probability of decoding is 50% or higher.
 |===============================================================================
 
 Submodes of JT4, JT9, JT65, and QRA64 offer wider tone spacings for
-circumstances that may require them, such significant Doppler spread.
+circumstances that may require them, such as significant Doppler spread.
 Table 8 summarizes the tone spacings, bandwidths, and approximate
 threshold sensitivities of the various submodes when spreading is
 comparable to tone spacing.

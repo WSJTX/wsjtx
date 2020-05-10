@@ -131,7 +131,7 @@ subroutine fano232(symbol,nbits,mettab,ndelta,maxcycles,dat,ncycles,metric,ierr)
 ! written by Phil Karn, KA9Q.
 
   parameter (MAXBITS=103)
-  parameter (MAXDAT=(MAXBITS+7)/8)
+  parameter (MAXDAT=13)               !(MAXBITS+7)/8
   integer*1 symbol(0:2*MAXBITS-1)
   integer*1 dat(MAXDAT)               !Decoded user data, 8 bits per byte
   integer mettab(0:255,0:1)           !Metric table
@@ -509,7 +509,7 @@ subroutine packcall(callsign,ncall,text)
         text=.true.
         return
      endif
-     tmp=' '//callsign
+     tmp=' '//callsign(1:5)
   else
      text=.true.
      return
@@ -631,8 +631,8 @@ subroutine packpfx(call1,n1,ng,nadd)
   else
 ! Prefix of 1 to 3 characters
      pfx=call1(:i1-1)
-     if(pfx(3:3).eq.' ') pfx=' '//pfx
-     if(pfx(3:3).eq.' ') pfx=' '//pfx
+     if(pfx(3:3).eq.' ') pfx=' '//pfx(1:2)
+     if(pfx(3:3).eq.' ') pfx=' '//pfx(1:2)
      call0=call1(i1+1:)
      call packcall(call0,n1,text)
 
@@ -778,7 +778,7 @@ subroutine unpackpfx(ng,call1)
         endif
         n=n/37
      enddo
-     call1=pfx//'/'//call1
+     call1=pfx//'/'//call1(1:8)
      if(call1(1:1).eq.' ') call1=call1(2:)
      if(call1(1:1).eq.' ') call1=call1(2:)
   else
@@ -831,7 +831,7 @@ subroutine wqdecode(data0,message,ntype)
   if(ntype.ge.0 .and. ntype.le.62) then
      nu=mod(ntype,10)
      if(nu.eq.0 .or. nu.eq.3 .or. nu.eq.7) then
-        write(cdbm,'(i3)'),ntype
+        write(cdbm,'(i3)') ntype
         if(cdbm(1:1).eq.' ') cdbm=cdbm(2:)
         if(cdbm(1:1).eq.' ') cdbm=cdbm(2:)
         message=callsign(1:i1)//grid4//' '//cdbm
@@ -844,7 +844,7 @@ subroutine wqdecode(data0,message,ntype)
         ng=n2/128 + 32768*(nadd-1)
         call unpackpfx(ng,callsign)
         ndbm=ntype-nadd
-        write(cdbm,'(i3)'),ndbm
+        write(cdbm,'(i3)') ndbm
         if(cdbm(1:1).eq.' ') cdbm=cdbm(2:)
         if(cdbm(1:1).eq.' ') cdbm=cdbm(2:)
         i2=index(callsign,' ')
@@ -857,7 +857,7 @@ subroutine wqdecode(data0,message,ntype)
      grid6=callsign(6:6)//callsign(1:5)
      ih=(n2-ntype-64)/128
      callsign=dcall(ih)
-     write(cdbm,'(i3)'),ndbm
+     write(cdbm,'(i3)') ndbm
      if(cdbm(1:1).eq.' ') cdbm=cdbm(2:)
      if(cdbm(1:1).eq.' ') cdbm=cdbm(2:)
      i2=index(callsign,' ')

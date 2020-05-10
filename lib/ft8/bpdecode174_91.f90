@@ -1,4 +1,4 @@
-subroutine bpdecode174_91(llr,apmask,maxiterations,message77,cw,nharderror,iter)
+subroutine bpdecode174_91(llr,apmask,maxiterations,message77,cw,nharderror,iter,ncheck)
 !
 ! A log-domain belief propagation decoder for the (174,91) code.
 !
@@ -19,7 +19,7 @@ real zn(N)
 real llr(N)
 real Tmn
 
-include "ldpc_174_91_c_reordered_parity.f90"
+include "ldpc_174_91_c_parity.f90"
 
 decoded=0
 toc=0
@@ -33,6 +33,7 @@ do j=1,M
 enddo
 
 ncnt=0
+nclast=0
 
 do iter=0,maxiterations
 
@@ -76,6 +77,7 @@ do iter=0,maxiterations
 !    write(*,*) iter,ncheck,nd,ncnt
     if( ncnt .ge. 5 .and. iter .ge. 10 .and. ncheck .gt. 15) then
       nharderror=-1
+
       return
     endif
   endif

@@ -76,7 +76,7 @@ contains
        character*22 decoded
     end type accepted_decode
     type(accepted_decode) dec(50)
-    logical :: first_time,prtavg,single_decode,bVHF
+    logical :: first_time,prtavg,single_decode,bVHF,clear_avg65
 
     integer h0(0:11),d0(0:11)
     real r0(0:11)
@@ -90,24 +90,20 @@ contains
 
 !             0    1    2    3    4    5    6    7    8    9   10   11
     data r0/0.70,0.72,0.74,0.76,0.78,0.80,0.82,0.84,0.86,0.88,0.90,0.90/
-    data nutc0/-999/,nfreq0/-999/,nsave/0/
+    data nutc0/-999/,nfreq0/-999/,nsave/0/,clear_avg65/.true./
     save
 
     this%callback => callback
+    first_time=nrobust                !Silence compiler warning
     first_time=newdat
     dd=dd0
     ndecoded=0
+    ndecoded0=0
 
     if(nsubmode.ge.100) then
 ! This is QRA64 mode
        mode64=2**(nsubmode-100)
-!###
-!       open(60,file='qra64_data.bin',access='stream',position='append')
-!       write(60) dd,npts,nutc,nf1,nf2,nfqso,ntol,mode64,minsync,ndepth,   &
-!            mycall,hiscall,hisgrid
-!       close(60)
-!###
-       call qra64a(dd,npts,nutc,nf1,nf2,nfqso,ntol,mode64,minsync,ndepth,   &
+       call qra64a(dd,npts,nf1,nf2,nfqso,ntol,mode64,minsync,ndepth,         &
             emedelay,mycall,hiscall,hisgrid,sync,nsnr,dtx,nfreq,decoded,nft)
        if (associated(this%callback)) then
           ndrift=0
@@ -124,7 +120,7 @@ contains
     single_decode=iand(nexp_decode,32).ne.0 .or. nagain
     bVHF=iand(nexp_decode,64).ne.0
 
-    if( bVHF ) then
+    if(bVHF) then
       nvec=ntrials
       npass=1
       if(n2pass.gt.1) npass=2
@@ -192,15 +188,9 @@ contains
 
        ncand=0
        call timer('sync65  ',0)
-       call sync65(nfa,nfb,naggressive,ntol,nqsym,ca,ncand,nrob,bVHF)
+       call sync65(nfa,nfb,ntol,nqsym,ca,ncand,nrob,bVHF)
+       ncand=min(ncand,50/ipass)
        call timer('sync65  ',1)
-
-! If a candidate was found within +/- ntol of nfqso, move it into ca(1).
-       call fqso_first(nfqso,ntol,ca,ncand)
-       if(single_decode) then
-          if(ncand.eq.0) ncand=1
-          if(abs(ca(1)%freq - f0).gt.width) width=2*df    !### ??? ###
-       endif
 
        mode65=2**nsubmode
        nflip=1
@@ -213,6 +203,7 @@ contains
        if(clearave) then
           nsum=0
           nsave=0
+          clear_avg65=.true.
        endif
 
        if(bVHF) then
@@ -221,6 +212,7 @@ contains
           ca(ncand)%sync=5.0
           ca(ncand)%dt=2.5
           ca(ncand)%freq=nfqso
+          ca(ncand)%flip=0
        endif
        do icand=1,ncand
           sync1=ca(icand)%sync
@@ -228,7 +220,7 @@ contains
           freq=ca(icand)%freq
           if(bVHF) then
              flip=ca(icand)%flip
-             nflip=flip
+             nflip=int(flip)
           endif
           if(sync1.lt.float(minsync)) nflip=0
           if(ipass.eq.1) ntry65a=ntry65a + 1
@@ -238,21 +230,32 @@ contains
           nspecial=0
           call decode65a(dd,npts,first_time,nqd,freq,nflip,mode65,nvec,     &
                naggressive,ndepth,ntol,mycall,hiscall,hisgrid,nQSOProgress, &
-               ljt65apon,nexp_decode,bVHF,sync2,a,dtx,nft,nspecial,qual,     &
+               ljt65apon,bVHF,sync2,a,dtx,nft,nspecial,qual,                &
                nhist,nsmo,decoded)
+          call timer('decod65a',1)
+
+          if(.not.bVHF) then   
+             if(abs(a(1)).gt.10.0/ipass) cycle
+             ibad=0
+             if(abs(a(1)).gt.5.0) ibad=1
+             if(abs(a(2)).gt.2.0) ibad=ibad+1
+             if(abs(dtx-1.0).gt.2.5) ibad=ibad+1
+             if(ibad.ge.2) cycle
+          endif
+          
+          if(nspecial.eq.0 .and. sync1.eq.5.0 .and. dtx.eq.2.5) cycle
           if(nspecial.eq.2) decoded='RO'
           if(nspecial.eq.3) decoded='RRR'
           if(nspecial.eq.4) decoded='73'
-          call timer('decod65a',1)
           if(sync1.lt.float(minsync) .and.                                  &
                decoded.eq.'                      ') nflip=0
           if(nft.ne.0) nsum=1
-
+          
           nhard_min=param(1)
           nrtt1000=param(4)
           ntotal_min=param(5)
           nsmo=param(9)
-
+          
           nfreq=nint(freq+a(1))
           ndrift=nint(2.0*a(2))
           if(bVHF) then
@@ -267,9 +270,9 @@ contains
           if(nsnr.lt.-30) nsnr=-30
           if(nsnr.gt.-1) nsnr=-1
           nftt=0
-
 !********* DOES THIS STILL WORK WHEN NFT INCLUDES # OF AP SYMBOLS USED??
-          if(nft.ne.1 .and. iand(ndepth,16).eq.16 .and. (.not.prtavg)) then
+          if(nft.ne.1 .and. iand(ndepth,16).eq.16 .and.                    &
+               sync1.ge.float(minsync) .and. (.not.prtavg)) then
 ! Single-sequence FT decode failed, so try for an average FT decode.
              if(nutc.ne.nutc0 .or. abs(nfreq-nfreq0).gt.ntol) then
 ! This is a new minute or a new frequency, so call avg65.
@@ -278,13 +281,14 @@ contains
                 nsave=nsave+1
                 nsave=mod(nsave-1,64)+1
                 call avg65(nutc,nsave,sync1,dtx,nflip,nfreq,mode65,ntol,     &
-                     ndepth,nagain,ntrials,naggressive,clearave,neme,mycall, &
-                     hiscall,hisgrid,nftt,avemsg,qave,deepave,nsum,ndeepave, &
-                     nQSOProgress,ljt65apon)
+                     ndepth,nagain,ntrials,naggressive,clear_avg65,neme,     &
+                     mycall,hiscall,hisgrid,nftt,avemsg,qave,deepave,nsum,   &
+                     ndeepave,nQSOProgress,ljt65apon)
                 nsmo=param(9)
-                nqave=qave
+                nqave=int(qave)
 
-                if (associated(this%callback) .and. nsum.ge.2) then
+                if (associated(this%callback) .and.nftt.ge.1 .and. nsum.ge.2) then
+! Display a decoded message obtained by averaging 2 or more transmissions
                    call this%callback(sync1,nsnr,dtx-1.0,nfreq,ndrift,  &
                         nflip,width,avemsg,nftt,nqave,nsmo,nsum,minsync)
                    prtavg=.true.
@@ -293,14 +297,15 @@ contains
              endif
           endif
 
-          if(nftt.eq.1) then
-!             nft=1
-             decoded=avemsg
-             go to 5
-          endif
+          if(nftt.eq.0) go to 5
+!          if(nftt.eq.1) then
+!!             nft=1
+!             decoded=avemsg
+!             go to 5
+!          endif
           n=naggressive
           rtt=0.001*nrtt1000
-          if(nft.lt.2 .and. minsync.ge.0 .and. nspecial.eq.0) then
+          if(nft.lt.2 .and. minsync.ge.0 .and. nspecial.eq.0 .and. .not.bVHF) then
              if(nhard_min.gt.50) cycle
              if(nhard_min.gt.h0(n)) cycle
              if(ntotal_min.gt.d0(n)) cycle
@@ -310,7 +315,8 @@ contains
 5         continue
           if(decoded.eq.decoded0 .and. abs(freq-freq0).lt. 3.0 .and.    &
                minsync.ge.0) cycle                  !Don't display dupes
-          if(decoded.ne.'                      ' .or. minsync.lt.0) then
+!          if(decoded.ne.'                      ' .or. minsync.lt.0) then
+          if(decoded.ne.'                      ' .or. bVHF) then
              if(nsubtract.eq.1) then
                 call timer('subtr65 ',0)
                 call subtract65(dd,npts,freq,dtx)
@@ -324,7 +330,7 @@ contains
                    exit
                 endif
              enddo
-             if(ndupe.ne.1 .and. sync1.ge.float(minsync)) then 
+             if(ndupe.ne.1 .and. ((sync1.ge.float(minsync)) .or. bVHF)) then
                 if(ipass.eq.1) n65a=n65a + 1
                 if(ipass.eq.2) n65b=n65b + 1
                 if(ndecoded.lt.50) ndecoded=ndecoded+1
@@ -332,9 +338,9 @@ contains
                 dec(ndecoded)%dt=dtx
                 dec(ndecoded)%sync=sync2
                 dec(ndecoded)%decoded=decoded
-                nqual=min(qual,9999.0)
+                nqual=min(int(qual),9999)
 
-                if (associated(this%callback)) then
+                if(associated(this%callback)) then
                    call this%callback(sync1,nsnr,dtx-1.0,nfreq,ndrift,  &
                         nflip,width,decoded,nft,nqual,nsmo,1,minsync)
                 end if
@@ -342,16 +348,18 @@ contains
              decoded0=decoded
              freq0=freq
              if(decoded0.eq.'                      ') decoded0='*'
+             if(single_decode .and. ndecoded.gt.0) go to 900
           endif
-       enddo                                 !Candidate loop
-       if(ipass.eq.2 .and. ndecoded.lt.1) exit
-    enddo                                    !Multiple-pass loop
+       enddo   ! icand
+       if(ipass.gt.1 .and. ndecoded.eq.ndecoded0) exit
+       ndecoded0=ndecoded
+    enddo   ! ipass
 900 return
   end subroutine decode
 
   subroutine avg65(nutc,nsave,snrsync,dtxx,nflip,nfreq,mode65,ntol,ndepth,    &
-       nagain, ntrials,naggressive,clearave,neme,mycall,hiscall,hisgrid,nftt, &
-       avemsg,qave,deepave,nsum,ndeepave,nQSOProgress,ljt65apon)
+       nagain, ntrials,naggressive,clear_avg65,neme,mycall,hiscall,hisgrid,   &
+       nftt,avemsg,qave,deepave,nsum,ndeepave,nQSOProgress,ljt65apon)
 
 ! Decodes averaged JT65 data
 
@@ -374,20 +382,21 @@ contains
     real s3c(64,63)
     real dtsave(MAXAVE)
     real syncsave(MAXAVE)
-    logical first,clearave,ljt65apon
+    logical first,clear_avg65,ljt65apon
     data first/.true./
     save
 
-    if(first .or. clearave) then
+    if(first .or. clear_avg65) then
        iutc=-1
        nfsave=0
        dtdiff=0.2
-       first=.false.
        s3save=0.
        s1save=0.
        nsave=1           !### ???
 ! Silence compiler warnings
        if(nagain .and. ndeepave.eq.-99 .and. neme.eq.-99) stop
+       first=.false.
+       clear_avg65=.false.
     endif
 
     do i=1,64
@@ -403,7 +412,10 @@ contains
     nflipsave(nsave)=nflip
     s1save(-255:256,1:126,nsave)=s1
     s3save(1:64,1:63,nsave)=s3a
-
+    avemsg='                      '
+    deepbest='                      '
+    nfttbest=0
+    
 10  syncsum=0.
     dtsum=0.
     nfsum=0
@@ -414,11 +426,13 @@ contains
 
     do i=1,MAXAVE                               !Consider all saved spectra
        cused(i)='.'
-       if(iutc(i).lt.0) cycle
+       if(iutc(i).lt.0) exit
        if(mod(iutc(i),2).ne.mod(nutc,2)) cycle  !Use only same (odd/even) seq
        if(abs(dtxx-dtsave(i)).gt.dtdiff) cycle  !DT must match
        if(abs(nfreq-nfsave(i)).gt.ntol) cycle   !Freq must match
+       if(nflipsave(i).eq.0) cycle              !No sync
        if(nflip.ne.nflipsave(i)) cycle          !Sync type (*/#) must match
+
        s3b=s3b + s3save(1:64,1:63,i)
        s1b=s1b + s1save(-255:256,1:126,i)
        syncsum=syncsum + syncsave(i)
@@ -440,14 +454,14 @@ contains
     endif
 
     do i=1,nsave
-       csync='*'
+       csync=' '
        if(nflipsave(i).lt.0.0) csync='#'
+       if(nflipsave(i).gt.0.0) csync='*'
        write(14,1000) cused(i),iutc(i),syncsave(i),dtsave(i)-1.0,nfsave(i),csync
 1000   format(a1,i5.4,f6.1,f6.2,i6,1x,a1)
     enddo
     if(nsum.lt.2) go to 900
 
-    nftt=0
     df=1378.125/512.0
 
 ! Do the smoothing loop
@@ -460,6 +474,7 @@ contains
     endif
     nn=0
     do ismo=minsmo,maxsmo
+       nftt=0
        if(ismo.gt.0) then
           do j=1,126
              call smo121(s1b(-255,j),512)
@@ -491,13 +506,13 @@ contains
 
        nadd=nsum*ismo
        call extract(s3c,nadd,mode65,ntrials,naggressive,ndepth,nflip,mycall, &
-            hiscall,hisgrid,nQSOProgress,ljt65apon,nexp_decode,ncount,nhist, &
+            hiscall,hisgrid,nQSOProgress,ljt65apon,ncount,nhist, &
             avemsg,ltext,nftt,qual)
        if(nftt.eq.1) then
           nsmo=ismo
           param(9)=nsmo
           go to 900
-       else if(nftt.eq.2) then
+       else if(nftt.ge.2) then
           if(qual.gt.qualbest) then
              deepbest=avemsg
              qualbest=qual
@@ -507,7 +522,6 @@ contains
           endif
        endif
     enddo
-
     if(nfttbest.eq.2) then
        avemsg=deepbest       !### ???
        deepave=deepbest
@@ -517,7 +531,7 @@ contains
        nftt=nfttbest
     endif
 900 continue
-
+    
     return
   end subroutine avg65
 

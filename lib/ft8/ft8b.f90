@@ -1,6 +1,7 @@
-subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,lapon,lapcqonly,  &
-     napwid,lsubtract,nagain,ncontest,iaptype,mycall12,hiscall12,             &
-     sync0,f1,xdt,xbase,apsym,nharderrors,dmin,nbadcrc,ipass,iera,msg37,xsnr)  
+subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,nzhsym,lapon,     &
+     lapcqonly,napwid,lsubtract,nagain,ncontest,iaptype,mycall12,hiscall12, &
+     f1,xdt,xbase,apsym,aph10,nharderrors,dmin,nbadcrc,ipass,               &
+     msg37,xsnr,itone)
 
   use crc
   use timer_module, only: timer
@@ -13,12 +14,13 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,lapon,lapcqonly,  &
   real a(5)
   real s8(0:7,NN)
   real s2(0:511)
-  real bmeta(174),bmetb(174),bmetc(174)
-  real llra(174),llrb(174),llrc(174),llrd(174)           !Soft symbols
+  real bmeta(174),bmetb(174),bmetc(174),bmetd(174)
+  real llra(174),llrb(174),llrc(174),llrd(174),llrz(174)           !Soft symbols
   real dd0(15*12000)
-  integer*1 message77(77),apmask(174),cw(174)
-  integer apsym(58)
-  integer mcq(29),mcqru(29),mcqfd(29),mcqtest(29)
+  real ss(9)
+  integer*1 message77(77),message91(91),apmask(174),cw(174)
+  integer apsym(58),aph10(10)
+  integer mcq(29),mcqru(29),mcqfd(29),mcqtest(29),mcqww(29)
   integer mrrr(19),m73(19),mrr73(19)
   integer itone(NN)
   integer icos7(0:6),ip(1)
@@ -27,6 +29,7 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,lapon,lapcqonly,  &
   integer ncontest,ncontest0
   logical one(0:511,0:8)
   integer graymap(0:7)
+  integer iloc(1)
   complex cd0(0:3199)
   complex ctwk(32)
   complex csymb(32)
@@ -37,6 +40,7 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,lapon,lapcqonly,  &
   data   mcqru/0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,1,1,1,0,0,1,1,0,0/
   data   mcqfd/0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,1,0,0,0,1,0/
   data mcqtest/0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,1,0,1,0,1,1,1,1,1,1,0,0,1,0/
+  data   mcqww/0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,1,1,0,1,1,1,1,0/
   data    mrrr/0,1,1,1,1,1,1,0,1,0,0,1,0,0,1,0,0,0,1/
   data     m73/0,1,1,1,1,1,1,0,1,0,0,1,0,1,0,0,0,0,1/
   data   mrr73/0,1,1,1,1,1,1,0,0,1,1,1,0,1,0,1,0,0,1/
@@ -44,12 +48,12 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,lapon,lapcqonly,  &
   data graymap/0,1,3,2,5,6,4,7/
   save nappasses,naptypes,ncontest0,one
 
-
   if(first.or.(ncontest.ne.ncontest0)) then
      mcq=2*mcq-1
      mcqfd=2*mcqfd-1
      mcqru=2*mcqru-1
      mcqtest=2*mcqtest-1
+     mcqww=2*mcqww-1
      mrrr=2*mrrr-1
      m73=2*m73-1
      mrr73=2*mrr73-1
@@ -86,7 +90,7 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,lapon,lapcqonly,  &
      ncontest0=ncontest
   endif
 
-  dxcall13=hiscall12
+  dxcall13=hiscall12  ! initialize for use in packjt77
   mycall13=mycall12
 
   max_iterations=30
@@ -104,17 +108,15 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,lapon,lapcqonly,  &
 
   i0=nint((xdt+0.5)*fs2)                   !Initial guess for start of signal
   smax=0.0
-  do idt=i0-8,i0+8                         !Search over +/- one quarter symbol
+  do idt=i0-10,i0+10                         !Search over +/- one quarter symbol
      call sync8d(cd0,idt,ctwk,0,sync)
      if(sync.gt.smax) then
         smax=sync
         ibest=idt
      endif
   enddo
-  xdt2=ibest*dt2                           !Improved estimate for DT
 
 ! Now peak up in frequency
-  i0=nint(xdt2*fs2)
   smax=0.0
   do ifr=-5,5                              !Search over +/- 2.5 Hz
     delf=ifr*0.5
@@ -124,7 +126,7 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,lapon,lapcqonly,  &
       ctwk(i)=cmplx(cos(phi),sin(phi))
       phi=mod(phi+dphi,twopi)
     enddo
-    call sync8d(cd0,i0,ctwk,1,sync)
+    call sync8d(cd0,ibest,ctwk,1,sync)
     if( sync .gt. smax ) then
       smax=sync
       delfbest=delf
@@ -133,9 +135,22 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,lapon,lapcqonly,  &
   a=0.0
   a(1)=-delfbest
   call twkfreq1(cd0,NP2,fs2,a,cd0)
-  xdt=xdt2
   f1=f1+delfbest                           !Improved estimate of DF
-  call sync8d(cd0,i0,ctwk,0,sync)
+
+  call timer('ft8_down',0)
+  call ft8_downsample(dd0,.false.,f1,cd0)   !Mix f1 to baseband and downsample
+  call timer('ft8_down',1)
+
+  smax=0.0
+  do idt=-4,4                         !Search over +/- one quarter symbol
+     call sync8d(cd0,ibest+idt,ctwk,0,sync)
+     ss(idt+5)=sync
+  enddo
+  smax=maxval(ss)
+  iloc=maxloc(ss)
+  ibest=iloc(1)-5+ibest
+  xdt=(ibest-1)*dt2
+  sync=smax
 
   do k=1,NN
     i1=ibest+(k-1)*32
@@ -196,6 +211,14 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,lapon,lapcqonly,  &
           if(i32+ib .gt.174) cycle
           if(nsym.eq.1) then
             bmeta(i32+ib)=bm
+            den=max(maxval(s2(0:nt-1),one(0:nt-1,ibmax-ib)), &
+                    maxval(s2(0:nt-1),.not.one(0:nt-1,ibmax-ib)))
+            if(den.gt.0.0) then
+              cm=bm/den
+            else ! erase it
+              cm=0.0
+            endif
+            bmetd(i32+ib)=cm
           elseif(nsym.eq.2) then
             bmetb(i32+ib)=bm
           elseif(nsym.eq.3) then
@@ -208,11 +231,13 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,lapon,lapcqonly,  &
   call normalizebmet(bmeta,174)
   call normalizebmet(bmetb,174)
   call normalizebmet(bmetc,174)
+  call normalizebmet(bmetd,174)
 
   scalefac=2.83
   llra=scalefac*bmeta
   llrb=scalefac*bmetb
   llrc=scalefac*bmetc
+  llrd=scalefac*bmetd
 
   apmag=maxval(abs(llra))*1.01
 
@@ -221,34 +246,36 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,lapon,lapcqonly,  &
 !   1        regular decoding, nsym=1 
 !   2        regular decoding, nsym=2 
 !   3        regular decoding, nsym=3 
-!   4        ap pass 1, nsym=1 (for now?)
-!   5        ap pass 2
-!   6        ap pass 3
-!   7        ap pass 4
+!   4        regular decoding, nsym=1, bit-by-bit normalized 
+!   5        ap pass 1, nsym=1
+!   6        ap pass 2
+!   7        ap pass 3
+!   8        ap pass 4
 
-  if(lapon.or.ncontest.eq.6) then !Hounds always use AP
+  if(lapon.or.ncontest.eq.7) then !Hounds always use AP
      if(.not.lapcqonly) then
-        npasses=3+nappasses(nQSOProgress)
+        npasses=4+nappasses(nQSOProgress)
      else
-        npasses=4 
+        npasses=5 
      endif
   else
-     npasses=3
+     npasses=4
   endif
-
+  if(nzhsym.lt.50) npasses=4
+  
   do ipass=1,npasses 
-     llrd=llra
-     if(ipass.eq.2) llrd=llrb
-     if(ipass.eq.3) llrd=llrc
-     if(ipass.le.3) then
+     llrz=llra
+     if(ipass.eq.2) llrz=llrb
+     if(ipass.eq.3) llrz=llrc
+     if(ipass.eq.4) llrz=llrd
+     if(ipass.le.4) then
         apmask=0
         iaptype=0
      endif
-
-     if(ipass .gt. 3) then
-        llrd=llra
+     if(ipass .gt. 4) then
+        llrz=llra
         if(.not.lapcqonly) then
-           iaptype=naptypes(nQSOProgress,ipass-3)
+           iaptype=naptypes(nQSOProgress,ipass-4)
         else
            iaptype=1
         endif
@@ -258,129 +285,138 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,lapon,lapcqonly,  &
 !          2 : EU_VHF
 !          3 : FIELD DAY
 !          4 : RTTY
-!          5 : FOX
-!          6 : HOUND
+!          5 : WW_DIGI 
+!          6 : FOX
+!          7 : HOUND
 !
 ! Conditions that cause us to bail out of AP decoding
-        if(ncontest.le.4 .and. iaptype.ge.3 .and. (abs(f1-nfqso).gt.napwid .and. abs(f1-nftx).gt.napwid) ) cycle
-        if(ncontest.eq.5) cycle                     ! No AP for Foxes
-        if(ncontest.eq.6.and.f1.gt.950.0) cycle     ! Hounds use AP only for signals below 950 Hz
+        if(ncontest.le.5 .and. iaptype.ge.3 .and. (abs(f1-nfqso).gt.napwid .and. abs(f1-nftx).gt.napwid) ) cycle
+        if(ncontest.eq.6) cycle                     ! No AP for Foxes
+        if(ncontest.eq.7.and.f1.gt.950.0) cycle     ! Hounds use AP only for signals below 950 Hz
         if(iaptype.ge.2 .and. apsym(1).gt.1) cycle  ! No, or nonstandard, mycall 
+        if(ncontest.eq.7 .and. iaptype.ge.2 .and. aph10(1).gt.1) cycle
         if(iaptype.ge.3 .and. apsym(30).gt.1) cycle ! No, or nonstandard, dxcall
 
         if(iaptype.eq.1) then ! CQ or CQ RU or CQ TEST or CQ FD
            apmask=0
            apmask(1:29)=1  
-           if(ncontest.eq.0) llrd(1:29)=apmag*mcq(1:29)
-           if(ncontest.eq.1) llrd(1:29)=apmag*mcqtest(1:29)
-           if(ncontest.eq.2) llrd(1:29)=apmag*mcqtest(1:29)
-           if(ncontest.eq.3) llrd(1:29)=apmag*mcqfd(1:29)
-           if(ncontest.eq.4) llrd(1:29)=apmag*mcqru(1:29)
-           if(ncontest.eq.6) llrd(1:29)=apmag*mcq(1:29)
+           if(ncontest.eq.0) llrz(1:29)=apmag*mcq(1:29)
+           if(ncontest.eq.1) llrz(1:29)=apmag*mcqtest(1:29)
+           if(ncontest.eq.2) llrz(1:29)=apmag*mcqtest(1:29)
+           if(ncontest.eq.3) llrz(1:29)=apmag*mcqfd(1:29)
+           if(ncontest.eq.4) llrz(1:29)=apmag*mcqru(1:29)
+           if(ncontest.eq.5) llrz(1:29)=apmag*mcqww(1:29)
+           if(ncontest.eq.7) llrz(1:29)=apmag*mcq(1:29)
            apmask(75:77)=1 
-           llrd(75:76)=apmag*(-1)
-           llrd(77)=apmag*(+1)
+           llrz(75:76)=apmag*(-1)
+           llrz(77)=apmag*(+1)
         endif
 
         if(iaptype.eq.2) then ! MyCall,???,??? 
            apmask=0
-           if(ncontest.eq.0.or.ncontest.eq.1) then
+           if(ncontest.eq.0.or.ncontest.eq.1.or.ncontest.eq.5) then
               apmask(1:29)=1  
-              llrd(1:29)=apmag*apsym(1:29)
+              llrz(1:29)=apmag*apsym(1:29)
               apmask(75:77)=1 
-              llrd(75:76)=apmag*(-1)
-              llrd(77)=apmag*(+1)
+              llrz(75:76)=apmag*(-1)
+              llrz(77)=apmag*(+1)
            else if(ncontest.eq.2) then
               apmask(1:28)=1  
-              llrd(1:28)=apmag*apsym(1:28)
+              llrz(1:28)=apmag*apsym(1:28)
               apmask(72:74)=1
-              llrd(72)=apmag*(-1)
-              llrd(73)=apmag*(+1)
-              llrd(74)=apmag*(-1)
+              llrz(72)=apmag*(-1)
+              llrz(73)=apmag*(+1)
+              llrz(74)=apmag*(-1)
               apmask(75:77)=1 
-              llrd(75:77)=apmag*(-1)
+              llrz(75:77)=apmag*(-1)
            else if(ncontest.eq.3) then
               apmask(1:28)=1  
-              llrd(1:28)=apmag*apsym(1:28)
+              llrz(1:28)=apmag*apsym(1:28)
               apmask(75:77)=1 
-              llrd(75:77)=apmag*(-1)
+              llrz(75:77)=apmag*(-1)
            else if(ncontest.eq.4) then
               apmask(2:29)=1  
-              llrd(2:29)=apmag*apsym(1:28)
+              llrz(2:29)=apmag*apsym(1:28)
               apmask(75:77)=1 
-              llrd(75)=apmag*(-1)
-              llrd(76:77)=apmag*(+1)
-           else if(ncontest.eq.6) then ! ??? RR73; MyCall <???> ???
+              llrz(75)=apmag*(-1)
+              llrz(76:77)=apmag*(+1)
+           else if(ncontest.eq.7) then ! ??? RR73; MyCall <Fox Call hash10> ???
               apmask(29:56)=1  
-              llrd(29:56)=apmag*apsym(1:28)
+              llrz(29:56)=apmag*apsym(1:28)
+              apmask(57:66)=1
+              llrz(57:66)=apmag*aph10(1:10)
               apmask(72:77)=1 
-              llrd(72:73)=apmag*(-1)
-              llrd(74)=apmag*(+1)
-              llrd(75:77)=apmag*(-1)
+              llrz(72:73)=apmag*(-1)
+              llrz(74)=apmag*(+1)
+              llrz(75:77)=apmag*(-1)
            endif
         endif
 
         if(iaptype.eq.3) then ! MyCall,DxCall,??? 
            apmask=0
-           if(ncontest.eq.0.or.ncontest.eq.1.or.ncontest.eq.2.or.ncontest.eq.6) then
+           if(ncontest.eq.0.or.ncontest.eq.1.or.ncontest.eq.2.or.ncontest.eq.5.or.ncontest.eq.7) then
               apmask(1:58)=1  
-              llrd(1:58)=apmag*apsym
+              llrz(1:58)=apmag*apsym
               apmask(75:77)=1 
-              llrd(75:76)=apmag*(-1)
-              llrd(77)=apmag*(+1)
+              llrz(75:76)=apmag*(-1)
+              llrz(77)=apmag*(+1)
            else if(ncontest.eq.3) then ! Field Day
               apmask(1:56)=1  
-              llrd(1:28)=apmag*apsym(1:28)
-              llrd(29:56)=apmag*apsym(30:57)
+              llrz(1:28)=apmag*apsym(1:28)
+              llrz(29:56)=apmag*apsym(30:57)
               apmask(72:74)=1 
               apmask(75:77)=1 
-              llrd(75:77)=apmag*(-1)
-           else if(ncontest.eq.4) then ! RTTY RU
+              llrz(75:77)=apmag*(-1)
+           else if(ncontest.eq.4) then 
               apmask(2:57)=1  
-              llrd(2:29)=apmag*apsym(1:28)
-              llrd(30:57)=apmag*apsym(30:57)
+              llrz(2:29)=apmag*apsym(1:28)
+              llrz(30:57)=apmag*apsym(30:57)
               apmask(75:77)=1 
-              llrd(75)=apmag*(-1)
-              llrd(76:77)=apmag*(+1)
+              llrz(75)=apmag*(-1)
+              llrz(76:77)=apmag*(+1)
            endif
         endif
 
-        if(iaptype.eq.5.and.ncontest.eq.6) cycle !Hound
+        if(iaptype.eq.5.and.ncontest.eq.7) cycle !Hound
         if(iaptype.eq.4 .or. iaptype.eq.5 .or. iaptype.eq.6) then  
            apmask=0
-           if(ncontest.le.4 .or. (ncontest.eq.6.and.iaptype.eq.6)) then
+           if(ncontest.le.5 .or. (ncontest.eq.7.and.iaptype.eq.6)) then
               apmask(1:77)=1   ! mycall, hiscall, RRR|73|RR73
-              llrd(1:58)=apmag*apsym
-              if(iaptype.eq.4) llrd(59:77)=apmag*mrrr 
-              if(iaptype.eq.5) llrd(59:77)=apmag*m73 
-              if(iaptype.eq.6) llrd(59:77)=apmag*mrr73 
-           else if(ncontest.eq.6.and.iaptype.eq.4) then ! Hound listens for MyCall RR73;...
+              llrz(1:58)=apmag*apsym
+              if(iaptype.eq.4) llrz(59:77)=apmag*mrrr 
+              if(iaptype.eq.5) llrz(59:77)=apmag*m73 
+              if(iaptype.eq.6) llrz(59:77)=apmag*mrr73 
+           else if(ncontest.eq.7.and.iaptype.eq.4) then ! Hound listens for MyCall RR73;...
               apmask(1:28)=1
-              llrd(1:28)=apmag*apsym(1:28)
+              llrz(1:28)=apmag*apsym(1:28)
+              apmask(57:66)=1
+              llrz(57:66)=apmag*aph10(1:10)
               apmask(72:77)=1
-              llrd(72:73)=apmag*(-1)
-              llrd(74)=apmag*(1)
-              llrd(75:77)=apmag*(-1)
+              llrz(72:73)=apmag*(-1)
+              llrz(74)=apmag*(1)
+              llrz(75:77)=apmag*(-1)
            endif             
         endif
      endif
 
      cw=0
-     call timer('bpd174_91 ',0)
-     call bpdecode174_91(llrd,apmask,max_iterations,message77,cw,nharderrors,  &
-          niterations)
-     call timer('bpd174_91 ',1)
      dmin=0.0
-     if(ndepth.eq.3 .and. nharderrors.lt.0) then
-        ndeep=3
-        if(abs(nfqso-f1).le.napwid .or. abs(nftx-f1).le.napwid) then
-           ndeep=4  
-        endif
-        if(nagain) ndeep=5
-        call timer('osd174_91 ',0)
-        call osd174_91(llrd,apmask,ndeep,message77,cw,nharderrors,dmin)
-        call timer('osd174_91 ',1)
+     norder=2
+     maxosd=2
+     if(ndepth.lt.3) maxosd=1
+     if(abs(nfqso-f1).le.napwid .or. abs(nftx-f1).le.napwid .or. ncontest.eq.7) then
+        maxosd=2
      endif
+     if(nagain) then
+        norder=3
+        maxosd=1
+     endif
+     call timer('dec174_91 ',0)
+     Keff=91
+     call decode174_91(llrz,Keff,maxosd,norder,apmask,message91,cw,  &
+                       ntype,nharderrors,dmin)
+     if(nharderrors.ge.0) message77=message91(1:77)
+     call timer('dec174_91 ',1)
 
      msg37='                                     '
      if(nharderrors.lt.0 .or. nharderrors.gt.36) cycle
@@ -388,16 +424,18 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,lapon,lapcqonly,  &
      write(c77,'(77i1)') message77
      read(c77(72:74),'(b3)') n3
      read(c77(75:77),'(b3)') i3
-     if(i3.gt.4 .or. (i3.eq.0.and.n3.gt.5)) then
-        cycle
-     endif
+     if(i3.gt.5 .or. (i3.eq.0.and.n3.gt.6)) cycle
      call unpack77(c77,1,msg37,unpk77_success)
      if(.not.unpk77_success) then
         cycle
      endif
      nbadcrc=0  ! If we get this far: valid codeword, valid (i3,n3), nonquirky message.
      call get_ft8_tones_from_77bits(message77,itone)
-     if(lsubtract) call subtractft8(dd0,itone,f1,xdt) 
+     if(lsubtract) then
+        call timer('sub_ft8a',0)
+        call subtractft8(dd0,itone,f1,xdt,.false.)
+        call timer('sub_ft8a',1)
+     endif
      xsig=0.0
      xnoi=0.0
      do i=1,79
@@ -409,16 +447,19 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,lapon,lapcqonly,  &
      xsnr2=0.001
      arg=xsig/xnoi-1.0 
      if(arg.gt.0.1) xsnr=arg
-     arg=xsig/xbase/2.6e6-1.0
+     arg=xsig/xbase/3.0e6-1.0
      if(arg.gt.0.1) xsnr2=arg
      xsnr=10.0*log10(xsnr)-27.0
      xsnr2=10.0*log10(xsnr2)-27.0
      if(.not.nagain) then
        xsnr=xsnr2
-     endif
-     if(xsnr .lt. -24.0) xsnr=-24.0
-     
-     return
+    endif
+    if(nsync.le.7 .and. xsnr.lt.-24.0) then    !bail out, likely false decode
+       nbadcrc=1
+       return
+    endif
+    if(xsnr .lt. -24.0) xsnr=-24.0
+    return
   enddo
   return
 end subroutine ft8b

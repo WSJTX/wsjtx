@@ -13,6 +13,7 @@ program jt9
 
   include 'jt9com.f90'
 
+  integer*2 id2a(180000)
   integer(C_INT) iret
   type(wav_header) wav
   real*4 s(NSMAX)
@@ -301,7 +302,30 @@ program jt9
      datetime="2013-Apr-16 15:13" !### Temp
      shared_data%params%datetime=transfer(datetime,shared_data%params%datetime)
      if(mode.eq.9 .and. fsplit.ne.2700) shared_data%params%nfa=fsplit
-     call multimode_decoder(shared_data%ss,shared_data%id2,shared_data%params,nfsample)
+     if(mode.eq.8) then
+! "Early" decoding pass, FT8 only, when jt9 reads data from disk
+        nearly=41
+        shared_data%params%nzhsym=nearly
+        id2a(1:nearly*3456)=shared_data%id2(1:nearly*3456)
+        id2a(nearly*3456+1:)=0
+        call multimode_decoder(shared_data%ss,id2a,      &
+             shared_data%params,nfsample)
+        nearly=47
+        shared_data%params%nzhsym=nearly
+        id2a(1:nearly*3456)=shared_data%id2(1:nearly*3456)
+        id2a(nearly*3456+1:)=0
+        call multimode_decoder(shared_data%ss,id2a,      &
+             shared_data%params,nfsample)
+        id2a(nearly*3456+1:50*3456)=shared_data%id2(nearly*3456+1:50*3456)
+        id2a(50*3456+1:)=0
+        shared_data%params%nzhsym=50
+        call multimode_decoder(shared_data%ss,id2a,      &
+             shared_data%params,nfsample)
+        cycle
+     endif
+! Normal decoding pass
+     call multimode_decoder(shared_data%ss,shared_data%id2, &
+          shared_data%params,nfsample)
   enddo
 
   call timer('jt9     ',1)

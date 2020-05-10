@@ -87,11 +87,11 @@ subroutine fast_decode(id2,narg,trperiod,line,mycall_12,   &
   jz=ib-ia+1
   line(1:100)(1:1)=char(0)
   if(npick.eq.2) then
-     call iscat(cdat2(ia),jz,3,40,t2,pick,cfile6,minsync,ntol,NFreeze,    &
-          MouseDF,mousebutton,mode4,nafc,ndebug,psavg,nmax,nlines,line)
+     call iscat(cdat2(ia),jz,3,40,t2,pick,cfile6,minsync,ntol,            &
+          mousebutton,mode4,nafc,ndebug,psavg,nmax,nlines,line)
   else
-     call iscat(cdat(ia),jz,3,40,t2,pick,cfile6,minsync,ntol,NFreeze,     &
-          MouseDF,mousebutton,mode4,nafc,ndebug,psavg,maxlines,nlines,line)
+     call iscat(cdat(ia),jz,3,40,t2,pick,cfile6,minsync,ntol,             &
+          mousebutton,mode4,nafc,ndebug,psavg,maxlines,nlines,line)
   endif
 
 900 return

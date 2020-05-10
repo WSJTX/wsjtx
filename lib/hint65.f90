@@ -62,10 +62,6 @@ subroutine hint65(s3,mrs,mrs2,nadd,nflip,mycall,hiscall,hisgrid,qual,decoded)
         grid2(j)=grid
      enddo
 10   ncalls=j
-     if(ncalls.lt.10) then
-        write(*,1010) ncalls
-1010    format('CALL3.TXT very short (N =',i2,') or missing?')
-     endif
      close(23)
 
 ! NB: generation of test messages is not yet complete!
@@ -146,19 +142,11 @@ subroutine hint65(s3,mrs,mrs2,nadd,nflip,mycall,hiscall,hisgrid,qual,decoded)
      endif
   enddo
 
-!### Just in case ???
-!  rewind 77
-!  write(77,*) u1,u2,ipk,ipk2
-!  call flush(77)
-!###
-
   decoded='                      '
   bias=max(1.12*u2,0.35)
   if(nadd.ge.4) bias=max(1.08*u2,0.45)
   if(nadd.ge.8) bias=max(1.04*u2,0.60)
   qual=100.0*(u1-bias)
-!  write(*,3301) u1,u2,u1/u2,bias,qual,nadd,ipk,ipk2
-!3301 format(5f6.2,i3,2i6)
   qmin=1.0
   if(qual.ge.qmin) decoded=msg0(ipk)
 

@@ -137,7 +137,7 @@ void LogQSO::accept()
   using SpOp = Configuration::SpecialOperatingActivity;
   auto special_op = m_config->special_op_id ();
 
-  if (special_op == SpOp::NA_VHF) {
+  if (special_op == SpOp::NA_VHF or special_op == SpOp::WW_DIGI) {
     if(xrcvd!="" and hisGrid!=xrcvd) hisGrid=xrcvd;
   }
 

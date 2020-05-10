@@ -10,7 +10,100 @@
                                                          
                                                          
                                                          
-Copyright 2001 - 2019 by Joe Taylor, K1JT.
+Copyright 2001 - 2020 by Joe Taylor, K1JT.
+
+
+		   Release: WSJT-X 2.2.0-rc1
+		          May 10, 2020
+		   -------------------------
+
+WSJT-X 2.2.0-rc1 is a beta-quality release candidate for a program
+upgrade that provides a number of new features and capabilities.  These
+include:
+
+  - Improvements to the decoders for five modes:
+ 
+      FT4: Corrected bugs that prevented AP decoding and/or multi-pass
+      decoding in some circumstances.  The algorithm for AP
+      decoding has been improved and extended.
+
+      FT8: Decoding is now spread over three intervals.  The first
+      starts at t = 11.8 s into an Rx sequence and typically yields
+      around 85% of the possible decodes for the sequence.  You
+      therefore see most decodes much earlier than before.  A second
+      processing step starts at 13.5 s, and the final one at 14.7 s.
+      Overall decoding yield on crowded bands is improved by 10% or
+      more.  (Systems with receive latency greater than 0.2 s will see
+      smaller improvements, but will still see many decodes earlier
+      than before.)
+
+      JT4: Formatting and display of Averaged and Deep Search decodes
+      has been cleaned up and made consistent with other modes.
+      Together with JT65 and QRA64, JT4 remains one of the digital
+      modes widely for EME and other extreme weak-signal work on
+      microwave bands.
+
+      JT65: Many improvements for Averaged and Deep Search decodes and
+      their display to the user.  These improvements are particularly
+      important for EME on VHF and UHF bands.
+
+      WSPR: Significant improvements have been made to the WSPR
+      decoder's sensitivity, its ability to cope with many signals in
+      a crowded sub-band, and its rate of undetected false decodes.
+      We now use up to three decoding passes.  Passes 1 and 2 use
+      noncoherent demodulation of single symbols and allow for
+      frequency drifts up to ±4 Hz in a transmission.  Pass 3 assumes
+      no drift and does coherent block detection of up to three
+      symbols.  It also applies bit-by-bit normalization of the
+      single-symbol bit metrics, a technique that has proven helpful
+      for signals corrupted by artifacts of the subtraction of
+      stronger signals and also for LF/MF signals heavily contaminated
+      by lightning transients.  With these improvements the number of
+      decodes in a crowded WSPR sub-band typically increases by 10 to
+      15%.
+
+ - New format for "EU VHF Contest" Tx2 and Tx3 messages
+
+      When "EU VHF Contest" is selected, the Tx2 and Tx3 messages
+      (those conveying signal report, serial number, and 6-character
+      locator) now use hashcodes for both callsigns.  This change is
+      NOT backward compatible with earlier versions of _WSJT-X_, so
+      all users of EU VHF Contest messages should be sure to upgrade
+      to versiion 2.2.0.
+
+ - Accessibility
+
+      Keyboard shortcuts have been added as an aid to accessibility:
+      Alt+R sets Tx4 message to RR73, Ctrl+R sets it to RRR.
+
+      As an aid for partial color-blindness, the "inverted goal posts"
+      marking Rx frequency on the Wide Graph's frequency scale are now
+      rendered in a darker shade of green.
+
+ - Minor enhancements and bug fixes
+
+      "Save None" now writes no .wav files to disk, even temporarily.
+
+      An explicit entry for "WW Digi Contest" has been added to
+      "Special operating activities" on the "Settings | Advanced" tab.
+
+      Contest mode FT4 now always uses RR73 for the Tx4 message.
+
+      The Status bar now displays the number of decodes found in the
+      most recent Rx sequence.
+
+Release candidate WSJT-X 2.2.0-rc1 will be available for beta-testing
+for one month starting on May 10, 2020.  We currently plan a General
+Availability (GA) release of WSJT-X 2.2.0 on June 1, 2020.
+
+For those looking even farther ahead: We are well along in the
+development of two new modes designed for the LF and MF bands.  One
+mode is for WSPR-like activity and one for making 2-way QSOs.  Both
+use Low-density Parity Check (LDPC) codes, 4-GFSK modulation, and
+two-minute T/R sequences.  The QSO mode reaches threshold SNR
+sensitivity around -31 dB on the AWGN channel, and the WSPR-like mode
+better than -32 dB.
+
 
 		   Release: WSJT-X 2.1.1
 		     November 25, 2019
@@ -836,5 +929,5 @@ activated in v1.8.0.
 We haven't yet finalized what the three extra bits in the message
 payload will be used for.  Suggestions are welcome!
 
-	-- Joe, K1JT, for the WSJT Development Team
+++++++	-- Joe, K1JT, for the WSJT Development Team
 	

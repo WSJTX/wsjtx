@@ -2,83 +2,114 @@ program allsim
 
 ! Generate simulated data for WSJT-X modes: JT4, JT9, JT65, FT8, FT4, QRA64,
 ! and WSPR.  Also unmodulated carrier and 20 WPM CW.
-  
 
   use wavhdr
   use packjt
   parameter (NMAX=60*12000)
-  type(hdr) h
+  type(hdr) h                            !Header for the .wav file
   integer*2 iwave(NMAX)                  !Generated waveform (no noise)
   integer itone(206)                     !Channel symbols (values 0-8)
-  integer icw(250)
-  integer*1 msgbits(87)
-  logical*1 bcontest
-  real*4 dat(NMAX)
-  character message*22,msgsent*22,arg*8,mygrid*6
+  integer icw(250)                       !Encoded CW message bits
+  integer*1 msgbits(77)                  !Encoded message bits for FT8, FT4
+  real dat(NMAX)                         !Audio waveform
+  complex cwave(NMAX)
+  real wave(NMAX)
+  character message*22,msgsent*22,arg*8
   character*37 msg37,msgsent37
 
   nargs=iargc()
-  if(nargs.ne.1) then
-     print*,'Usage:   allsim <snr>'
+  if(nargs.ne.1 .and. nargs.ne.2) then
+     print*,'Usage:    allsim snr [isig]'
+     print*,'Examples: allsim -10           #Include all signal types'
+     print*,'          allsim -10 6         #Include FT8 only'
+     print*,'isig order:    1     2   3   4   5   6   7    8     9'
+     print*,'            Carrier CW WSPR JT9 JT4 FT8 FT4 QRA64 JT65'
      go to 999
   endif
 
   call getarg(1,arg)
   read(arg,*) snrdb                  !S/N in dB (2500 hz reference BW)
+  isig=0
+  if(nargs.eq.2) then
+     call getarg(2,arg)
+     read(arg,*) isig
+  endif
 
   message='CQ KA2ABC FN20'
-  mygrid='FN20  '
-  bcontest=.false.
+  msg37=message//'               '
   rmsdb=25.
   rms=10.0**(0.05*rmsdb)
   sig=10.0**(0.05*snrdb)
-  npts=NMAX
 
   call init_random_seed()       !Seed Fortran RANDOM_NUMBER generator
   call sgran()                  !Seed C rand generator (used in gran)
 
-  h=default_header(12000,npts)  
+  h=default_header(12000,NMAX)
   open(10,file='000000_0000.wav',access='stream',status='unknown')
-  do i=1,npts                   !Generate gaussian noise
+  do i=1,NMAX                   !Generate gaussian noise
      dat(i)=gran()
   enddo
 
   itone=0
-  call addit(itone,12000,85,6912,400,sig,dat)    !Unmodulated carrier
+  if(isig.eq.0 .or. isig.eq.1) then
+     call addit(itone,12000,85,6912,400,sig,dat)    !Unmodulated carrier
+  endif
 
-  call morse('CQ CQ DE KA2ABC KA2ABC',icw,ncw)
-!  print*,ncw
-!  write(*,3001) icw(1:ncw)
-!3001 format(50i1)
-  call addcw(icw,ncw,600,sig,dat)                !CW
+  if(isig.eq.0 .or. isig.eq.2) then
+     call morse('CQ CQ DE KA2ABC KA2ABC',icw,ncw)
+     call addcw(icw,ncw,600,sig,dat)                !CW
+  endif
 
-  call genwspr(message,msgsent,itone)
-  call addit(itone,12000,86,8192,800,sig,dat)    !WSPR (only 59 s of data)
+  if(isig.eq.0 .or. isig.eq.3) then
+     call genwspr(message,msgsent,itone)
+     call addit(itone,12000,86,8192,800,sig,dat)       !WSPR (only 59 s of data)
+  endif
 
-  call gen9(message,0,msgsent,itone,itype)
-  call addit(itone,12000,85,6912,1000,sig,dat)   !JT9
+  if(isig.eq.0 .or. isig.eq.4) then
+     call gen9(message,0,msgsent,itone,itype)
+     call addit(itone,12000,85,6912,1000,sig,dat)      !JT9
+  endif
 
-  call gen4(message,0,msgsent,itone,itype)
-  call addit(itone,11025,206,2520,1200,sig,dat)  !JT4
+  if(isig.eq.0 .or. isig.eq.5) then
+     call gen4(message,0,msgsent,itone,itype)
+     call addit(itone,11025,206,2520,1200,sig,dat)     !JT4
+  endif
 
-  i3=-1
-  n3=-1
-  call genft8(message,i3,n3,msgsent,msgbits,itone)
-  call addit(itone,12000,79,1920,1400,sig,dat)   !FT8
+  if(isig.eq.0 .or. isig.eq.6) then
+     call genft8(msg37,i3,n3,msgsent37,msgbits,itone)  !FT8
+     nwave=79*1920
+     call gen_ft8wave(itone,79,1920,2.0,12000.0,1400.0,cwave,wave,0,nwave)
+     dat(6001:6000+nwave)=dat(6001:6000+nwave) + sig*wave(1:nwave)
+     k=30*12000
+     dat(6001+k:6000+nwave+k)=dat(6001+k:6000+nwave+k) + sig*wave(1:nwave)
+  endif
 
-  msg37=message//'               '
-  call genft4(msg37,0,msgsent37,itone)
-  call addit(itone,12000,103,512,1600,sig,dat)   !FT4
+  if(isig.eq.0 .or. isig.eq.7) then
+     call genft4(msg37,0,msgsent37,msgbits,itone)      !FT4
+     nwave=105*576
+     call gen_ft4wave(itone,103,576,12000.0,1600.0,cwave,wave,0,nwave)
+     dat(6001:6000+nwave)=dat(6001:6000+nwave) + sig*wave(1:nwave)
+     k=15*12000
+     dat(6001+k:6000+nwave+k)=dat(6001+k:6000+nwave+k) + sig*wave(1:nwave)
+     k=30*12000
+     dat(6001+k:6000+nwave+k)=dat(6001+k:6000+nwave+k) + sig*wave(1:nwave)
+     k=45*12000
+     dat(6001+k:6000+nwave+k)=dat(6001+k:6000+nwave+k) + sig*wave(1:nwave)
 
-  call genqra64(message,0,msgsent,itone,itype)
-  call addit(itone,12000,84,6912,1800,sig,dat)   !QRA64
+  endif
 
-  call gen65(message,0,msgsent,itone,itype)
-  call addit(itone,11025,126,4096,2000,sig,dat)  !JT65
+  if(isig.eq.0 .or. isig.eq.8) then
+     call genqra64(message,0,msgsent,itone,itype)
+     call addit(itone,12000,84,6912,1800,sig,dat)      !QRA64
+  endif
 
-  iwave(1:npts)=nint(rms*dat(1:npts))
-  
-  write(10) h,iwave(1:npts)
+  if(isig.eq.0 .or. isig.eq.9) then
+     call gen65(message,0,msgsent,itone,itype)
+     call addit(itone,11025,126,4096,2000,sig,dat)     !JT65
+  endif
+
+  iwave=nint(rms*dat)
+  write(10) h,iwave
   close(10)
 
 999 end program allsim

@@ -17,8 +17,9 @@ logged, highlighting of callsigns in the _WSJT-X_ band activity
 window, and limited facilities to initiate QSOs in response to CQ or
 QRZ messages. Full details of the protocol can be found in comments
 at the top of this file in our source code repository:
-https://sourceforge.net/p/wsjt/wsjtx/ci/master/tree/NetworkMessage.hpp
+https://sourceforge.net/p/wsjt/wsjtx/ci/master/tree/Network/NetworkMessage.hpp
 
 Programs like _JTAlert_ use the _UDP Server_ feature to obtain
-information about a running _WSJT-X_ instance.  If you are using
-_JTAlert_, be sure to check the three boxes at lower right.
+information about running _WSJT-X_ instances.  If you are using
+_JTAlert_ to control _WSJT-X_, be sure to check the
+*Accept UDP requests* box.

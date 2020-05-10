@@ -10,15 +10,15 @@ if (APPLE)
   #
   # otool -l <binary> | grep -A3 LC_VERSION_MIN_MACOSX
   #
-  set (CMAKE_OSX_DEPLOYMENT_TARGET 10.10
+  set (CMAKE_OSX_DEPLOYMENT_TARGET 10.13
     CACHE STRING "Earliest version of OS X supported
 
-Earliest version we can support with Qt 5.8, C++11 & libc++ is 10.10.
+Earliest version we can support with Qt 5.14, C++11 & libc++ is 10.13.
 Do not override this if you intend to build an official deployable installer.")
   set (CMAKE_OSX_SYSROOT /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.sdk
     CACHE STRING "Mac OS X SDK to build with
 
-Change this to the newest SDK available that you can install on your system (10.11 preferred).
+Change this to the newest SDK available that you can install on your system (10.14 preferred).
 Do not override this if you intend to build an official deployable installer.")
 endif (APPLE)
 
@@ -224,9 +224,10 @@ set (WSJT_QT_CONF_DESTINATION ${QT_CONF_DESTINATION} CACHE PATH "Path for the qt
 #
 set (wsjt_qt_CXXSRCS
   qt_helpers.cpp
+  lib/shmem.cpp
   widgets/MessageBox.cpp
   MetaDataRegistry.cpp
-  NetworkServerLookup.cpp
+  Network/NetworkServerLookup.cpp
   revision_utils.cpp
   WFPalette.cpp
   Radio.cpp
@@ -243,17 +244,17 @@ set (wsjt_qt_CXXSRCS
   validators/LiveFrequencyValidator.cpp
   GetUserId.cpp
   TraceFile.cpp
-  AudioDevice.cpp
-  Transceiver.cpp
-  TransceiverBase.cpp
-  EmulateSplitTransceiver.cpp
-  TransceiverFactory.cpp
-  PollingTransceiver.cpp
-  HamlibTransceiver.cpp
-  HRDTransceiver.cpp
-  DXLabSuiteCommanderTransceiver.cpp
-  NetworkMessage.cpp
-  MessageClient.cpp
+  Audio/AudioDevice.cpp
+  Transceiver/Transceiver.cpp
+  Transceiver/TransceiverBase.cpp
+  Transceiver/EmulateSplitTransceiver.cpp
+  Transceiver/TransceiverFactory.cpp
+  Transceiver/PollingTransceiver.cpp
+  Transceiver/HamlibTransceiver.cpp
+  Transceiver/HRDTransceiver.cpp
+  Transceiver/DXLabSuiteCommanderTransceiver.cpp
+  Network/NetworkMessage.cpp
+  Network/MessageClient.cpp
   widgets/LettersSpinBox.cpp
   widgets/HintedSpinBox.cpp
   widgets/RestrictedSpinBox.cpp
@@ -271,7 +272,7 @@ set (wsjt_qt_CXXSRCS
   EqualizationToolsDialog.cpp
   widgets/DoubleClickablePushButton.cpp
   widgets/DoubleClickableRadioButton.cpp
-  LotWUsers.cpp
+  Network/LotWUsers.cpp
   models/DecodeHighlightingModel.cpp
   widgets/DecodeHighlightingListView.cpp
   models/FoxLog.cpp
@@ -282,6 +283,7 @@ set (wsjt_qt_CXXSRCS
   item_delegates/MaidenheadLocatorDelegate.cpp
   item_delegates/FrequencyDelegate.cpp
   item_delegates/FrequencyDeltaDelegate.cpp
+  item_delegates/SQLiteDateTimeDelegate.cpp
   models/CabrilloLog.cpp
   logbook/AD1CCty.cpp
   logbook/WorkedBefore.cpp
@@ -297,21 +299,17 @@ set (jt9_FSRCS
   lib/jt9a.f90
   )
 
-set (jt9_CXXSRCS
-  lib/ipcomm.cpp
-  )
-
 set (wsjtx_CXXSRCS
   logbook/logbook.cpp
-  psk_reporter.cpp
-  Modulator.cpp
-  Detector.cpp
+  Network/psk_reporter.cpp
+  Modulator/Modulator.cpp
+  Detector/Detector.cpp
   widgets/logqso.cpp
   widgets/displaytext.cpp
-  decodedtext.cpp
+  Decoder/decodedtext.cpp
   getfile.cpp
-  soundout.cpp
-  soundin.cpp
+  Audio/soundout.cpp
+  Audio/soundin.cpp
   widgets/meterwidget.cpp
   widgets/signalmeter.cpp
   widgets/plotter.cpp
@@ -324,12 +322,12 @@ set (wsjtx_CXXSRCS
   widgets/astro.cpp
   widgets/messageaveraging.cpp
   widgets/colorhighlighting.cpp
-  WsprTxScheduler.cpp
+  WSPR/WsprTxScheduler.cpp
   widgets/mainwindow.cpp
   Configuration.cpp
   main.cpp
-  wsprnet.cpp
-  WSPRBandHopping.cpp
+  Network/wsprnet.cpp
+  WSPR/WSPRBandHopping.cpp
   widgets/ExportCabrillo.cpp
   )
 
@@ -353,12 +351,13 @@ if (WIN32)
 
   set (wsjt_qt_CXXSRCS
     ${wsjt_qt_CXXSRCS}
-    OmniRigTransceiver.cpp
+    Transceiver/OmniRigTransceiver.cpp
     )
 endif (WIN32)
 
 set (wsjt_FSRCS
   # put module sources first in the hope that they get rebuilt before use
+  lib/shmem.f90
   lib/crc.f90
   lib/fftw3mod.f90
   lib/hashing.f90
@@ -416,6 +415,7 @@ set (wsjt_FSRCS
   lib/decode65a.f90
   lib/decode65b.f90
   lib/decode9w.f90
+  lib/ft8/decode174_91.f90
   lib/decoder.f90
   lib/deep4.f90
   lib/deg2grid.f90
@@ -427,15 +427,13 @@ set (wsjt_FSRCS
   lib/encode4.f90
   lib/encode_msk40.f90
   lib/encode_128_90.f90
-  lib/ft8/encode174.f90
   lib/ft8/encode174_91.f90
+  lib/ft8/encode174_91_nocrc.f90
   lib/entail.f90
   lib/ephem.f90
   lib/extract.f90
   lib/extract4.f90
   lib/extractmessage77.f90
-  lib/ft8/extractmessage174.f90
-  lib/ft8/extractmessage174_91.f90
   lib/fano232.f90
   lib/fast9.f90
   lib/fast_decode.f90
@@ -461,16 +459,12 @@ set (wsjt_FSRCS
   lib/ft8/foxfilt.f90
   lib/ft8/foxgen.f90
   lib/ft8/foxgen_wrap.f90
-  lib/fqso_first.f90
   lib/freqcal.f90
   lib/ft8/ft8apset.f90
   lib/ft8/ft8b.f90
   lib/ft8/ft8code.f90
   lib/ft8/ft8_downsample.f90
-  lib/ft8.f90
-  lib/ft8dec.f90
   lib/ft8/ft8sim.f90
-  lib/ft8/ft8sim_gfsk.f90
   lib/gen4.f90
   lib/gen65.f90
   lib/gen9.f90
@@ -478,6 +472,7 @@ set (wsjt_FSRCS
   lib/ft8/genft8.f90
   lib/genmsk_128_90.f90
   lib/genmsk40.f90
+  lib/ft4/ft4code.f90
   lib/ft4/genft4.f90
   lib/ft4/gen_ft4wave.f90
   lib/ft8/gen_ft8wave.f90
@@ -485,8 +480,10 @@ set (wsjt_FSRCS
   lib/ft8/genft8refsig.f90
   lib/genwspr.f90
   lib/geodist.f90
+  lib/ft8/get_crc14.f90
   lib/getlags.f90
   lib/getmet4.f90
+  lib/ft8/get_spectrum_baseline.f90
   lib/ft2/gfsk_pulse.f90
   lib/graycode.f90
   lib/graycode65.f90
@@ -533,6 +530,7 @@ set (wsjt_FSRCS
   lib/77bit/my_hash.f90
   lib/wsprd/osdwspr.f90
   lib/ft8/osd174_91.f90
+  lib/osd128_90.f90
   lib/pctile.f90
   lib/peakdt9.f90
   lib/peakup.f90
@@ -682,13 +680,13 @@ set (wsjtx_UISRCS
 set (UDP_library_CXXSRCS
   Radio.cpp
   RadioMetaType.cpp
-  NetworkMessage.cpp
-  MessageServer.cpp
+  Network/NetworkMessage.cpp
+  UDPExamples/MessageServer.cpp
   )
 
 set (UDP_library_HEADERS
   Radio.hpp
-  MessageServer.hpp
+  UDPExamples/MessageServer.hpp
   ${PROJECT_BINARY_DIR}/udp_export.h
   )
 
@@ -713,7 +711,6 @@ set (all_CXXSRCS
   ${wsjt_CXXSRCS}
   ${wsjt_qt_CXXSRCS}
   ${wsjt_qtmm_CXXSRCS}
-  ${jt9_CXXSRCS}
   ${wsjtx_CXXSRCS}
   ${qcp_CXXSRCS}
   )
@@ -789,6 +786,10 @@ if (APPLE)
 endif (APPLE)
 
 set_source_files_properties (${WSJTX_ICON_FILE} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+
+# suppress intransigent compiler diagnostics
+set_source_files_properties (lib/decoder.f90 PROPERTIES COMPILE_FLAGS "-Wno-unused-dummy-argument")
+set_source_files_properties (lib/filbig.f90 PROPERTIES COMPILE_FLAGS "-Wno-aliasing")
 
 if (WSJT_QDEBUG_IN_RELEASE)
   # context info in Qt message handler in release configuration
@@ -919,7 +920,7 @@ set (CMAKE_VISIBILITY_INLINES_HIDDEN ON)
 #
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra")
 
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -fexceptions -frtti")
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror -Wall -Wextra -fexceptions -frtti")
 
 if (NOT APPLE)
   set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-pragmas")
@@ -1099,7 +1100,7 @@ set (LANGUAGES
 foreach (lang_ ${LANGUAGES})
   file (TO_NATIVE_PATH translations/wsjtx_${lang_}.ts ts_)
   list (APPEND TS_FILES ${ts_})
-endforeach ()  
+endforeach ()
 if (UPDATE_TRANSLATIONS)
   message (STATUS "UPDATE_TRANSLATIONS option is set.")
   qt5_create_translation (
@@ -1219,7 +1220,7 @@ add_executable (fcal lib/fcal.f90 wsjtx.rc)
 
 add_executable (fmeasure lib/fmeasure.f90 wsjtx.rc)
 
-add_executable (jt9 ${jt9_FSRCS} ${jt9_CXXSRCS} wsjtx.rc)
+add_executable (jt9 ${jt9_FSRCS} wsjtx.rc)
 if (${OPENMP_FOUND} OR APPLE)
   if (APPLE)
     # On  Mac  we don't  have  working  OpenMP  support in  the  C/C++
@@ -1248,11 +1249,11 @@ if (${OPENMP_FOUND} OR APPLE)
       )
   endif (APPLE)
   if (WIN32)
-    # set_target_properties (jt9 PROPERTIES
-    #   LINK_FLAGS -Wl,--stack,16777216
-    #   )
+    set_target_properties (jt9 PROPERTIES
+      LINK_FLAGS -Wl,--stack,16777216
+      )
   endif ()
-  target_link_libraries (jt9 wsjt_fort_omp wsjt_cxx Qt5::Core)
+  target_link_libraries (jt9 wsjt_fort_omp wsjt_cxx wsjt_qt)
 else (${OPENMP_FOUND} OR APPLE)
   target_link_libraries (jt9 wsjt_fort wsjt_cxx Qt5::Core)
 endif (${OPENMP_FOUND} OR APPLE)
@@ -1263,6 +1264,9 @@ target_link_libraries (jt4sim wsjt_fort wsjt_cxx)
 
 add_executable (jt65sim lib/jt65sim.f90 wsjtx.rc)
 target_link_libraries (jt65sim wsjt_fort wsjt_cxx)
+
+add_executable (sumsim lib/sumsim.f90 wsjtx.rc)
+target_link_libraries (sumsim wsjt_fort wsjt_cxx)
 
 add_executable (qra64sim lib/qra/qra64/qra64sim.f90 wsjtx.rc)
 target_link_libraries (qra64sim wsjt_fort wsjt_cxx)
@@ -1288,6 +1292,9 @@ target_link_libraries (jt9code wsjt_fort wsjt_cxx)
 add_executable (wsprcode lib/wsprcode/wsprcode.f90 lib/wsprcode/nhash.c
 	       wsjtx.rc)
 target_link_libraries (wsprcode wsjt_fort wsjt_cxx)
+	       
+add_executable (encode77 lib/77bit/encode77.f90 wsjtx.rc)
+target_link_libraries (encode77 wsjt_fort wsjt_cxx)
 
 add_executable (wsprsim ${wsprsim_CSRCS})
 
@@ -1303,14 +1310,11 @@ target_link_libraries (jt65 wsjt_fort wsjt_cxx)
 add_executable (ft8code lib/ft8/ft8code.f90 wsjtx.rc)
 target_link_libraries (ft8code wsjt_fort wsjt_cxx)
 
-add_executable (ft8 lib/ft8.f90 wsjtx.rc)
-target_link_libraries (ft8 wsjt_fort wsjt_cxx)
+add_executable (ft4code lib/ft4/ft4code.f90 wsjtx.rc)
+target_link_libraries (ft4code wsjt_fort wsjt_cxx)
 
 add_executable (ft8sim lib/ft8/ft8sim.f90 wsjtx.rc)
 target_link_libraries (ft8sim wsjt_fort wsjt_cxx)
-
-add_executable (ft8sim_gfsk lib/ft8/ft8sim_gfsk.f90 wsjtx.rc)
-target_link_libraries (ft8sim_gfsk wsjt_fort wsjt_cxx)
 
 add_executable (msk144sim lib/msk144sim.f90 wsjtx.rc)
 target_link_libraries (msk144sim wsjt_fort wsjt_cxx)
@@ -1628,6 +1632,7 @@ if (NOT is_debug_build)
 	PATTERN "*minimal*${CMAKE_SHARED_LIBRARY_SUFFIX}" EXCLUDE
 	PATTERN "*offscreen*${CMAKE_SHARED_LIBRARY_SUFFIX}" EXCLUDE
 	PATTERN "*quick*${CMAKE_SHARED_LIBRARY_SUFFIX}" EXCLUDE
+	PATTERN "*webgl*${CMAKE_SHARED_LIBRARY_SUFFIX}" EXCLUDE
 	PATTERN "*_debug${CMAKE_SHARED_LIBRARY_SUFFIX}" EXCLUDE
 	)
       install (

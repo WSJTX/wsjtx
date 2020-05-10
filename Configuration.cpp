@@ -172,18 +172,18 @@
 #include "item_delegates/ForeignKeyDelegate.hpp"
 #include "item_delegates/FrequencyDelegate.hpp"
 #include "item_delegates/FrequencyDeltaDelegate.hpp"
-#include "TransceiverFactory.hpp"
-#include "Transceiver.hpp"
+#include "Transceiver/TransceiverFactory.hpp"
+#include "Transceiver/Transceiver.hpp"
 #include "models/Bands.hpp"
 #include "models/IARURegions.hpp"
 #include "models/Modes.hpp"
 #include "models/FrequencyList.hpp"
 #include "models/StationList.hpp"
-#include "NetworkServerLookup.hpp"
+#include "Network/NetworkServerLookup.hpp"
 #include "widgets/MessageBox.hpp"
 #include "validators/MaidenheadLocatorValidator.hpp"
 #include "validators/CallsignValidator.hpp"
-#include "LotWUsers.hpp"
+#include "Network/LotWUsers.hpp"
 #include "models/DecodeHighlightingModel.hpp"
 #include "logbook/logbook.h"
 
@@ -1084,6 +1084,7 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   ui_->special_op_activity_button_group->setId (ui_->rbEU_VHF_Contest, static_cast<int> (SpecialOperatingActivity::EU_VHF));
   ui_->special_op_activity_button_group->setId (ui_->rbField_Day, static_cast<int> (SpecialOperatingActivity::FIELD_DAY));
   ui_->special_op_activity_button_group->setId (ui_->rbRTTY_Roundup, static_cast<int> (SpecialOperatingActivity::RTTY));
+  ui_->special_op_activity_button_group->setId (ui_->rbWW_DIGI, static_cast<int> (SpecialOperatingActivity::WW_DIGI));
   ui_->special_op_activity_button_group->setId (ui_->rbFox, static_cast<int> (SpecialOperatingActivity::FOX));
   ui_->special_op_activity_button_group->setId (ui_->rbHound, static_cast<int> (SpecialOperatingActivity::HOUND));
 
@@ -1383,8 +1384,8 @@ void Configuration::impl::read_settings ()
   txDelay_ = settings_->value ("TxDelay",0.2).toDouble();
   aggressive_ = settings_->value ("Aggressive", 0).toInt ();
   RxBandwidth_ = settings_->value ("RxBandwidth", 2500).toInt ();
-  save_directory_ = settings_->value ("SaveDir", default_save_directory_.absolutePath ()).toString ();
-  azel_directory_ = settings_->value ("AzElDir", default_azel_directory_.absolutePath ()).toString ();
+  save_directory_.setPath (settings_->value ("SaveDir", default_save_directory_.absolutePath ()).toString ());
+  azel_directory_.setPath (settings_->value ("AzElDir", default_azel_directory_.absolutePath ()).toString ());
 
   {
     //
@@ -2069,8 +2070,8 @@ void Configuration::impl::accept ()
   TX_messages_ = ui_->TX_messages_check_box->isChecked ();
   data_mode_ = static_cast<DataMode> (ui_->TX_mode_button_group->checkedId ());
   bLowSidelobes_ = ui_->rbLowSidelobes->isChecked();
-  save_directory_ = ui_->save_path_display_label->text ();
-  azel_directory_ = ui_->azel_path_display_label->text ();
+  save_directory_.setPath (ui_->save_path_display_label->text ());
+  azel_directory_.setPath (ui_->azel_path_display_label->text ());
   enable_VHF_features_ = ui_->enable_VHF_features_check_box->isChecked ();
   decode_at_52s_ = ui_->decode_at_52s_check_box->isChecked ();
   single_decode_ = ui_->single_decode_check_box->isChecked ();

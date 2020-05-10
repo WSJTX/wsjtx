@@ -23,11 +23,11 @@ band.
 entries can be deleted in a single operation by selecting them before
 right-clicking.
 
-- Right-click any entry and click *Reset* button to return the table
-to its default configuration.
+- Right-click anywhere within the table body and click *Reset* button
+to return the table to its default configuration.
 
 Other  more  advanced  maintenance  operations are  available  on  the
-right-click context menu that should be self-explanatory.
+right-click context popup menu that should be self-explanatory.
 
 _Frequency Calibration_: If you have calibrated your radio using WWV
 or other reliable frequency references, or perhaps with the technique

@@ -42,11 +42,11 @@
 
 #include "revision_utils.hpp"
 #include "qt_helpers.hpp"
-#include "NetworkAccessManager.hpp"
-#include "soundout.h"
-#include "soundin.h"
-#include "Modulator.hpp"
-#include "Detector.hpp"
+#include "Network/NetworkAccessManager.hpp"
+#include "Audio/soundout.h"
+#include "Audio/soundin.h"
+#include "Modulator/Modulator.hpp"
+#include "Detector/Detector.hpp"
 #include "plotter.h"
 #include "echoplot.h"
 #include "echograph.h"
@@ -58,14 +58,14 @@
 #include "widegraph.h"
 #include "sleep.h"
 #include "logqso.h"
-#include "decodedtext.h"
+#include "Decoder/decodedtext.h"
 #include "Radio.hpp"
 #include "models/Bands.hpp"
-#include "TransceiverFactory.hpp"
+#include "Transceiver/TransceiverFactory.hpp"
 #include "models/StationList.hpp"
 #include "validators/LiveFrequencyValidator.hpp"
-#include "MessageClient.hpp"
-#include "wsprnet.h"
+#include "Network/MessageClient.hpp"
+#include "Network/wsprnet.h"
 #include "signalmeter.h"
 #include "HelpTextWindow.hpp"
 #include "SampleDownloader.hpp"
@@ -74,7 +74,7 @@
 #include "validators/MaidenheadLocatorValidator.hpp"
 #include "validators/CallsignValidator.hpp"
 #include "EqualizationToolsDialog.hpp"
-#include "LotWUsers.hpp"
+#include "Network/LotWUsers.hpp"
 #include "logbook/AD1CCty.hpp"
 #include "models/FoxLog.hpp"
 #include "models/CabrilloLog.hpp"
@@ -92,11 +92,10 @@ extern "C" {
                 int* nhsym, int* npts8, float *m_pxmax);
 
   void hspec_(short int d2[], int* k, int* nutc0, int* ntrperiod, int* nrxfreq, int* ntol,
-              int* nContest, bool* bmsk144, bool* btrain, double const pcoeffs[], int* ingain,
+              bool* bmsk144, bool* btrain, double const pcoeffs[], int* ingain,
               char mycall[], char hiscall[], bool* bshmsg, bool* bswl, char ddir[], float green[],
-              float s[], int* jh, float *pxmax, float *rmsNoGain, char line[], char mygrid[],
-              fortran_charlen_t, fortran_charlen_t, fortran_charlen_t, fortran_charlen_t,
-              fortran_charlen_t);
+              float s[], int* jh, float *pxmax, float *rmsNoGain, char line[],
+              fortran_charlen_t, fortran_charlen_t, fortran_charlen_t, fortran_charlen_t);
 
   void genft8_(char* msg, int* i3, int* n3, char* msgsent, char ft8msgbits[],
                int itone[], fortran_charlen_t, fortran_charlen_t);
@@ -178,7 +177,7 @@ extern "C" {
 int volatile itone[NUM_ISCAT_SYMBOLS];   //Audio tones for all Tx symbols
 int volatile itone0[NUM_ISCAT_SYMBOLS];  //Dummy array, data not actually used
 int volatile icw[NUM_CW_SYMBOLS];        //Dits for CW ID
-struct dec_data dec_data;                // for sharing with Fortran
+dec_data_t dec_data;                // for sharing with Fortran
 
 int outBufSize;
 int rc;
@@ -331,6 +330,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   tx_status_label {"Receiving"},
   wsprNet {new WSPRNet {&m_network_manager, this}},
   m_appDir {QApplication::applicationDirPath ()},
+  m_cqStr {""},
   m_palette {"Linrad"},
   m_mode {"JT9"},
   m_rpt {"-15"},
@@ -649,29 +649,50 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   setWindowTitle (program_title ());
 
   connect(&proc_jt9, &QProcess::readyReadStandardOutput, this, &MainWindow::readFromStdout);
+#if QT_VERSION < QT_VERSION_CHECK (5, 6, 0)
   connect(&proc_jt9, static_cast<void (QProcess::*) (QProcess::ProcessError)> (&QProcess::error),
           [this] (QProcess::ProcessError error) {
             subProcessError (&proc_jt9, error);
           });
+#else
+  connect(&proc_jt9, static_cast<void (QProcess::*) (QProcess::ProcessError)> (&QProcess::errorOccurred),
+          [this] (QProcess::ProcessError error) {
+            subProcessError (&proc_jt9, error);
+          });
+#endif
   connect(&proc_jt9, static_cast<void (QProcess::*) (int, QProcess::ExitStatus)> (&QProcess::finished),
           [this] (int exitCode, QProcess::ExitStatus status) {
             subProcessFailed (&proc_jt9, exitCode, status);
           });
 
   connect(&p1, &QProcess::readyReadStandardOutput, this, &MainWindow::p1ReadFromStdout);
+#if QT_VERSION < QT_VERSION_CHECK (5, 6, 0)
   connect(&p1, static_cast<void (QProcess::*) (QProcess::ProcessError)> (&QProcess::error),
           [this] (QProcess::ProcessError error) {
             subProcessError (&p1, error);
           });
+#else
+  connect(&p1, static_cast<void (QProcess::*) (QProcess::ProcessError)> (&QProcess::errorOccurred),
+          [this] (QProcess::ProcessError error) {
+            subProcessError (&p1, error);
+          });
+#endif
   connect(&p1, static_cast<void (QProcess::*) (int, QProcess::ExitStatus)> (&QProcess::finished),
           [this] (int exitCode, QProcess::ExitStatus status) {
             subProcessFailed (&p1, exitCode, status);
           });
 
+#if QT_VERSION < QT_VERSION_CHECK (5, 6, 0)
   connect(&p3, static_cast<void (QProcess::*) (QProcess::ProcessError)> (&QProcess::error),
           [this] (QProcess::ProcessError error) {
             subProcessError (&p3, error);
           });
+#else
+  connect(&p3, static_cast<void (QProcess::*) (QProcess::ProcessError)> (&QProcess::errorOccurred),
+          [this] (QProcess::ProcessError error) {
+            subProcessError (&p3, error);
+          });
+#endif
   connect(&p3, static_cast<void (QProcess::*) (int, QProcess::ExitStatus)> (&QProcess::finished),
           [this] (int exitCode, QProcess::ExitStatus status) {
             subProcessFailed (&p3, exitCode, status);
@@ -781,8 +802,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
           SLOT(setFreq4(int,int)));
 
   decodeBusy(false);
-  QString t1[28]={"1 uW","2 uW","5 uW","10 uW","20 uW","50 uW","100 uW","200 uW","500 uW",
-                  "1 mW","2 mW","5 mW","10 mW","20 mW","50 mW","100 mW","200 mW","500 mW",
+  QString t1[19]={"1 mW","2 mW","5 mW","10 mW","20 mW","50 mW","100 mW","200 mW","500 mW",
                   "1 W","2 W","5 W","10 W","20 W","50 W","100 W","200 W","500 W","1 kW"};
 
   m_msg[0][0]=0;
@@ -792,13 +812,11 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   ui->labNextCall->setVisible(false);
   ui->labNextCall->setToolTip("");                //### Possibly temporary ? ###
 
-  for(int i=0; i<28; i++)  {                      //Initialize dBm values
-    float dbm=(10.0*i)/3.0 - 30.0;
-    int ndbm=0;
-    if(dbm<0) ndbm=int(dbm-0.5);
-    if(dbm>=0) ndbm=int(dbm+0.5);
+  for(int i=0; i<19; i++)  {                      //Initialize dBm values
+    float dbm=(10.0*i)/3.0;
+    int ndbm=int(dbm+0.5);
     QString t;
-    t.sprintf("%d dBm  ",ndbm);
+    t = t.asprintf("%d dBm  ",ndbm);
     t+=t1[i];
     ui->TxPowerComboBox->addItem(t);
   }
@@ -844,8 +862,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
       }
   }
 
-  //Create .lock so jt9 will wait
-  QFile {m_config.temp_dir ().absoluteFilePath (".lock")}.open(QIODevice::ReadWrite);
+  to_jt9(0,0,0);     //initialize IPC variables
 
   QStringList jt9_args {
     "-s", QApplication::applicationName () // shared memory key,
@@ -940,7 +957,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_bDisplayedOnce=false;
   m_wait=0;
   m_isort=-3;
-  m_max_dB=30;
+  m_max_dB=70;
   m_CQtype="CQ";
 
   if(m_mode.startsWith ("WSPR") and m_pctx>0)  {
@@ -970,7 +987,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
   if(QCoreApplication::applicationVersion().contains("-devel") or
      QCoreApplication::applicationVersion().contains("-rc")) {
-//     QTimer::singleShot (0, this, SLOT (not_GA_warning_message ()));
+     QTimer::singleShot (0, this, SLOT (not_GA_warning_message ()));
   }
 
   ui->pbBestSP->setVisible(m_mode=="FT4");
@@ -985,19 +1002,13 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 void MainWindow::not_GA_warning_message ()
 {
   MessageBox::critical_message (this,
-                                "<b><p align=\"center\">"
-                                "This is a pre-release version of WSJT-X 2.1.0 made "
-                                "available for testing purposes.  By design it will "
-                                "be nonfunctional during the 2019 ARRL June VHF contest "
-                                "(June 8-10) and Field Day (June 22-23) weekends.  It "
-                                "will be permanently nonfunctional after July 21, 2019.");
+                                "This is a pre-release version of WSJT-X 2.2.0 made\n"
+                                "available for testing purposes.  By design it will\n"
+                                "be nonfunctional after 0000 UTC on June 10, 2020.");
   auto now = QDateTime::currentDateTimeUtc ();
-  if ((QDateTime {{2019, 6, 8}, {18, 0}, Qt::UTC} <= now
-       && now < QDateTime {{2019, 6, 10}, {3, 0}, Qt::UTC})
-      || now >= QDateTime {{2019, 7, 21}, {0, 0}, Qt::UTC})
-    {
-      Q_EMIT finished ();
-    }
+  if (now >= QDateTime {{2020, 6, 10}, {0, 0}, Qt::UTC}) {
+    Q_EMIT finished ();
+  }
 }
 
 void MainWindow::initialize_fonts ()
@@ -1072,7 +1083,7 @@ void MainWindow::writeSettings()
   m_settings->setValue("HoundSort",ui->comboBoxHoundSort->currentIndex());
   m_settings->setValue("FoxNlist",ui->sbNlist->value());
   m_settings->setValue("FoxNslots",ui->sbNslots->value());
-  m_settings->setValue("FoxMaxDB",ui->sbMax_dB->value());
+  m_settings->setValue("FoxMaxDB_v2",ui->sbMax_dB->value()); // original key abandoned
   m_settings->setValue ("SerialNumber",ui->sbSerialNumber->value ());
   m_settings->endGroup();
 
@@ -1152,7 +1163,7 @@ void MainWindow::readSettings()
   ui->sbNlist->setValue(m_settings->value("FoxNlist",12).toInt());
   m_Nslots=m_settings->value("FoxNslots",5).toInt();
   ui->sbNslots->setValue(m_Nslots);
-  ui->sbMax_dB->setValue(m_settings->value("FoxMaxDB",30).toInt());
+  ui->sbMax_dB->setValue(m_settings->value("FoxMaxDB_v2",70).toInt());
   ui->sbSerialNumber->setValue (m_settings->value ("SerialNumber", 1).toInt ());
   m_settings->endGroup();
 
@@ -1246,7 +1257,7 @@ void MainWindow::checkMSK144ContestType()
       if(m_mode=="MSK144" && SpecOp::EU_VHF < m_config.special_op_id())
         {
           MessageBox::warning_message (this, tr ("Improper mode"),
-           "Mode will be changed to FT8. MSK144 not available if Fox, Hound, Field Day, or RTTY contest is selected.");
+           "Mode will be changed to FT8. MSK144 not available if Field Day, WW Digi, RTTY or Fox/Hound is selected.");
           on_actionFT8_triggered();
         }
     }
@@ -1410,7 +1421,27 @@ void MainWindow::dataSink(qint64 frames)
     m_dialFreqRxWSPR=m_freqNominal;
   }
 
-  if(m_ihsym == m_hsymStop) {
+  if(m_mode=="FT8") {
+    to_jt9(m_ihsym,-1,-1);     //Allow jt9 to bail out early, if necessary
+    if(m_ihsym==40 and m_decoderBusy) {
+      qDebug() << "Clearing hung decoder status";
+      decodeDone();  //Clear a hung decoder status
+      m_blankLine=true;
+    }
+  }
+
+  /*
+  if(m_ihsym==m_hsymStop or (m_mode=="FT8" and m_ihsym==m_earlyDecode and !m_diskData) or
+     (m_mode=="FT8" and m_ihsym==m_earlyDecode2 and !m_diskData)) {
+  */
+
+  bool bCallDecoder=false;
+  if(m_ihsym==m_hsymStop) bCallDecoder=true;
+  if(m_mode=="FT8" and !m_diskData) {
+    if(m_ihsym==m_earlyDecode) bCallDecoder=true;
+    if(m_ihsym==m_earlyDecode2) bCallDecoder=true;
+  }
+  if(bCallDecoder) {
     if(m_mode=="Echo") {
       float snr=0;
       int nfrit=0;
@@ -1425,7 +1456,7 @@ void MainWindow::dataSink(qint64 frames)
       avecho_(dec_data.d2,&nDop,&nfrit,&nqual,&f1,&xlevel,&sigdb,
           &snr,&dfreq,&width);
       QString t;
-      t.sprintf("%3d %7.1f %7.1f %7.1f %7.1f %3d",echocom_.nsum,xlevel,sigdb,
+      t = t.asprintf("%3d %7.1f %7.1f %7.1f %7.1f %3d",echocom_.nsum,xlevel,sigdb,
                 dfreq,width,nqual);
       t=QDateTime::currentDateTimeUtc().toString("hh:mm:ss  ") + t;
       if (ui) ui->decodedTextBrowser->appendText(t);
@@ -1447,23 +1478,23 @@ void MainWindow::dataSink(qint64 frames)
     dec_data.params.newdat=1;
     dec_data.params.nagain=0;
     dec_data.params.nzhsym=m_hsymStop;
+    if(m_mode=="FT8" and m_ihsym==m_earlyDecode and !m_diskData) dec_data.params.nzhsym=m_earlyDecode;
+    if(m_mode=="FT8" and m_ihsym==m_earlyDecode2 and !m_diskData) dec_data.params.nzhsym=m_earlyDecode2;
     QDateTime now {QDateTime::currentDateTimeUtc ()};
     m_dateTime = now.toString ("yyyy-MMM-dd hh:mm");
     if(!m_mode.startsWith ("WSPR")) decode(); //Start decoder
+    if(m_mode=="FT8" and !m_diskData and (m_ihsym==m_earlyDecode or m_ihsym==m_earlyDecode2)) return;
 
-    if(!m_diskData) {                        //Always save; may delete later
+    if(!m_diskData and (m_saveAll or m_saveDecoded or m_mode=="WSPR")) {  //Always save unless "Save None"; may delete later
       if(m_mode=="FT8" or m_mode=="FT4") {
         int n=fmod(double(now.time().second()),m_TRperiod);
         if(n<(m_TRperiod/2)) n=n+m_TRperiod;
         auto const& period_start=now.addSecs(-n);
         m_fnameWE=m_config.save_directory().absoluteFilePath (period_start.toString("yyMMdd_hhmmss"));
-//        qDebug() << "datasink 2" << QDateTime::currentDateTimeUtc().toString("ss.zzz")
-//                 << n << period_start.toString("ss.zzz");
       } else {
         auto const& period_start = now.addSecs (-(now.time ().minute () % (int(m_TRperiod) / 60)) * 60);
         m_fnameWE=m_config.save_directory ().absoluteFilePath (period_start.toString ("yyMMdd_hhmm"));
       }
-      m_fileToSave.clear ();
       int samples=m_TRperiod*12000;
       if(m_mode=="FT4") samples=21*3456;
 
@@ -1488,12 +1519,12 @@ void MainWindow::dataSink(qint64 frames)
     if(m_mode.startsWith ("WSPR")) {
       QString t2,cmnd,depth_string;
       double f0m1500=m_dialFreqRxWSPR/1000000.0;   // + 0.000001*(m_BFO - 1500);
-      t2.sprintf(" -f %.6f ",f0m1500);
+      t2 = t2.asprintf(" -f %.6f ",f0m1500);
       if((m_ndepth&7)==1) depth_string=" -qB "; //2 pass w subtract, no Block detection, no shift jittering
-      if((m_ndepth&7)==2) depth_string=" -B ";  //2 pass w subtract, no Block detection
-      if((m_ndepth&7)==3) depth_string=" -C 5000 -o 4";   //2 pass w subtract, Block detection and OSD. 
+      if((m_ndepth&7)==2) depth_string=" -C 500 -o 4 ";  //3 pass, subtract, Block detection, OSD 
+      if((m_ndepth&7)==3) depth_string=" -C 500 -o 4 -d ";  //3 pass, subtract, Block detect, OSD, more candidates 
       QString degrade;
-      degrade.sprintf("-d %4.1f ",m_config.degrade());
+      degrade = degrade.asprintf("-d %4.1f ",m_config.degrade());
 
       if(m_diskData) {
         cmnd='"' + m_appDir + '"' + "/wsprd " + depth_string + " -a \"" +
@@ -1600,30 +1631,28 @@ void MainWindow::fastSink(qint64 frames)
   int RxFreq=ui->RxFreqSpinBox->value ();
   int nTRpDepth=m_TRperiod + 1000*(m_ndepth & 3);
   qint64 ms0 = QDateTime::currentMSecsSinceEpoch();
-//  strncpy(dec_data.params.mycall, (m_baseCall+"            ").toLatin1(),12);
-  strncpy(dec_data.params.mycall,(m_config.my_callsign () + "            ").toLatin1(),12);
+//  ::memcpy(dec_data.params.mycall, (m_baseCall+"            ").toLatin1(),sizeof dec_data.params.mycall);
+  ::memcpy(dec_data.params.mycall,(m_config.my_callsign () + "            ").toLatin1(),sizeof dec_data.params.mycall);
   QString hisCall {ui->dxCallEntry->text ()};
   bool bshmsg=ui->cbShMsgs->isChecked();
   bool bswl=ui->cbSWL->isChecked();
-//  strncpy(dec_data.params.hiscall,(Radio::base_callsign (hisCall) + "            ").toLatin1 ().constData (), 12);
-  strncpy(dec_data.params.hiscall,(hisCall + "            ").toLatin1 ().constData (), 12);
-  strncpy(dec_data.params.mygrid, (m_config.my_grid()+"      ").toLatin1(),6);
+//  ::memcpy(dec_data.params.hiscall,(Radio::base_callsign (hisCall) +  "            ").toLatin1 ().constData (), sizeof dec_data.params.hiscall);
+  ::memcpy(dec_data.params.hiscall,(hisCall + "            ").toLatin1 ().constData (), sizeof dec_data.params.hiscall);
+  ::memcpy(dec_data.params.mygrid, (m_config.my_grid()+"      ").toLatin1(), sizeof dec_data.params.mygrid);
   QString dataDir;
   dataDir = m_config.writeable_data_dir ().absolutePath ();
   char ddir[512];
-  strncpy(ddir,dataDir.toLatin1(), sizeof (ddir) - 1);
+  ::strncpy(ddir,dataDir.toLatin1(), sizeof (ddir) - 1);
   float pxmax = 0;
   float rmsNoGain = 0;
   int ftol = ui->sbFtol->value ();
-  int nContest = static_cast<int> (m_config.special_op_id());
-  hspec_(dec_data.d2,&k,&nutc0,&nTRpDepth,&RxFreq,&ftol,&nContest,&bmsk144,
+  hspec_(dec_data.d2,&k,&nutc0,&nTRpDepth,&RxFreq,&ftol,&bmsk144,
          &m_bTrain,m_phaseEqCoefficients.constData(),&m_inGain,&dec_data.params.mycall[0],
          &dec_data.params.hiscall[0],&bshmsg,&bswl,
-         &ddir[0],fast_green,fast_s,&fast_jh,&pxmax,&rmsNoGain,&line[0],&dec_data.params.mygrid[0],
-         12,12,512,80,6);
+         &ddir[0],fast_green,fast_s,&fast_jh,&pxmax,&rmsNoGain,&line[0],12,12,512,80);
   float px = fast_green[fast_jh];
   QString t;
-  t.sprintf(" Rx noise: %5.1f ",px);
+  t = t.asprintf(" Rx noise: %5.1f ",px);
   ui->signal_meter_widget->setValue(rmsNoGain,pxmax); // Update thermometer
   m_fastGraph->plotSpec(m_diskData,m_UTCdisk);
 
@@ -1668,13 +1697,12 @@ void MainWindow::fastSink(qint64 frames)
   }
 
   if(decodeNow or m_bFastDone) {
-    if(!m_diskData) {
+    if(!m_diskData and (m_saveAll or m_saveDecoded)) {
       QDateTime now {QDateTime::currentDateTimeUtc()};
       int n=fmod(double(now.time().second()),m_TRperiod);
       if(n<(m_TRperiod/2)) n=n+m_TRperiod;
       auto const& period_start = now.addSecs (-n);
       m_fnameWE = m_config.save_directory ().absoluteFilePath (period_start.toString ("yyMMdd_hhmmss"));
-      m_fileToSave.clear ();
       if(m_saveAll or m_bAltV or (m_bDecoded and m_saveDecoded) or (m_mode!="MSK144")) {
         m_bAltV=false;
         // the following is potential a threading hazard - not a good
@@ -1773,6 +1801,15 @@ void MainWindow::on_actionSettings_triggered()               //Setup Dialog
     }
     if(m_config.special_op_id()!=nContest0) ui->tx1->setEnabled(true);
     chkFT4();
+    if(SpecOp::EU_VHF==m_config.special_op_id() and m_config.my_grid().size()<6) {
+      MessageBox::information_message (this,
+          "EU VHF Contest messages require a 6-character locator.");
+    }
+    if((m_config.special_op_id()==SpecOp::FOX or m_config.special_op_id()==SpecOp::HOUND) and
+       m_mode!="FT8") {
+      MessageBox::information_message (this,
+          "Fox-and-Hound operation is available only in FT8 mode.");
+    }
   }
 }
 
@@ -2059,14 +2096,23 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
         return;
       }
       break;
-    case Qt::Key_V:
+  case Qt::Key_R:
+    if(e->modifiers() & Qt::AltModifier) {
+      if(!m_send_RR73) on_txrb4_doubleClicked();
+    return;
+    }
+    if(e->modifiers() & Qt::ControlModifier) {
+      if(m_send_RR73) on_txrb4_doubleClicked();
+      return;
+    }
+    break;
+    case Qt::Key_Z:                            //### Recover from hung decode() ?? ###
       if(e->modifiers() & Qt::AltModifier) {
-        m_fileToSave = m_fnameWE;
-        m_bAltV=true;
+        decodeDone();
+        m_blankLine=true;
         return;
       }
-      break;
-    case Qt::Key_PageUp:
+    break;    case Qt::Key_PageUp:
 
       break;
     case Qt::Key_PageDown:
@@ -2210,6 +2256,11 @@ void MainWindow::createStatusBar()                           //createStatusBar
   last_tx_label.setFrameStyle (QFrame::Panel | QFrame::Sunken);
   statusBar()->addWidget (&last_tx_label);
 
+  ndecodes_label.setAlignment (Qt::AlignHCenter);
+  ndecodes_label.setMinimumSize (QSize {30, 18});
+  ndecodes_label.setFrameStyle (QFrame::Panel | QFrame::Sunken);
+  statusBar()->addWidget (&ndecodes_label);
+
   band_hopping_label.setAlignment (Qt::AlignHCenter);
   band_hopping_label.setMinimumSize (QSize {90, 18});
   band_hopping_label.setFrameStyle (QFrame::Panel | QFrame::Sunken);
@@ -2325,13 +2376,9 @@ void MainWindow::closeEvent(QCloseEvent * e)
   int nh=100;
   int irow=-99;
   plotsave_(&sw,&nw,&nh,&irow);
+  to_jt9(m_ihsym,999,-1);          //Tell jt9 to terminate
+  if (!proc_jt9.waitForFinished(1000)) proc_jt9.close();
   mem_jt9->detach();
-  QFile quitFile {m_config.temp_dir ().absoluteFilePath (".quit")};
-  quitFile.open(QIODevice::ReadWrite);
-  QFile {m_config.temp_dir ().absoluteFilePath (".lock")}.remove(); // Allow jt9 to terminate
-  bool b=proc_jt9.waitForFinished(1000);
-  if(!b) proc_jt9.close();
-  quitFile.remove();
   Q_EMIT finished ();
   QMainWindow::closeEvent (e);
 }
@@ -2444,7 +2491,7 @@ void MainWindow::on_actionCopyright_Notice_triggered()
                            "\"The algorithms, source code, look-and-feel of WSJT-X and related "
                            "programs, and protocol specifications for the modes FSK441, FT8, JT4, "
                            "JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 are Copyright (C) "
-                           "2001-2019 by one or more of the following authors: Joseph Taylor, "
+                           "2001-2020 by one or more of the following authors: Joseph Taylor, "
                            "K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, "
                            "IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; "
                            "Philip Karn, KA9Q; and other members of the WSJT Development Group.\"");
@@ -2569,15 +2616,15 @@ void MainWindow::on_actionColors_triggered()
 
 void MainWindow::on_actionMessage_averaging_triggered()
 {
-  if(!m_msgAvgWidget) {
+  if(m_msgAvgWidget == NULL) {
     m_msgAvgWidget.reset (new MessageAveraging {m_settings, m_config.decoded_text_font ()});
 
     // Connect signals from Message Averaging window
     connect (this, &MainWindow::finished, m_msgAvgWidget.data (), &MessageAveraging::close);
   }
   m_msgAvgWidget->showNormal();
-  m_msgAvgWidget->raise ();
-  m_msgAvgWidget->activateWindow ();
+  m_msgAvgWidget->raise();
+  m_msgAvgWidget->activateWindow();
 }
 
 void MainWindow::on_actionOpen_triggered()                     //Open File
@@ -2645,7 +2692,11 @@ void MainWindow::read_wav_file (QString const& fname)
         }
 
         if(basename.mid(0,10)=="000000_000" && m_mode == "FT8") {
-          dec_data.params.nutc=15*basename.mid(10,3).toInt();
+          int isec=15*basename.mid(10,3).toInt();
+          int ih=isec/3600;
+          int im=(isec-3600*ih)/60;
+          isec=isec%60;
+          dec_data.params.nutc=3600*ih+60*im+isec;
         }
 
       }));
@@ -2653,8 +2704,8 @@ void MainWindow::read_wav_file (QString const& fname)
 
 void MainWindow::on_actionOpen_next_in_directory_triggered()   //Open Next
 {
+  if(m_decoderBusy) return;
   monitor (false);
-
   int i,len;
   QFileInfo fi(m_path);
   QStringList list;
@@ -2682,6 +2733,7 @@ void MainWindow::on_actionOpen_next_in_directory_triggered()   //Open Next
 //Open all remaining files
 void MainWindow::on_actionDecode_remaining_files_in_directory_triggered()
 {
+  if(m_decoderBusy) return;
   m_loopall=true;
   on_actionOpen_next_in_directory_triggered();
 }
@@ -2803,6 +2855,7 @@ void MainWindow::msgAvgDecode2()
 
 void MainWindow::decode()                                       //decode()
 {
+  if(m_decoderBusy) return;                          //Don't start decoder if it's already busy.
   QDateTime now = QDateTime::currentDateTimeUtc ();
   if( m_dateTimeLastTX.isValid () ) {
     qint64 isecs_since_tx = m_dateTimeLastTX.secsTo(now);
@@ -2832,6 +2885,9 @@ void MainWindow::decode()                                       //decode()
     if(m_mode=="ISCAT" or m_mode=="MSK144" or m_bFast9 or m_mode=="FT8" or m_mode=="FT4") {
       qint64 ms=1000.0*(2.0-m_TRperiod);
       if(m_mode=="FT4") ms=1000.0*(2.0-m_TRperiod);
+      //Adjust for FT8 early decode:
+      if(m_mode=="FT8" and m_ihsym==m_earlyDecode and !m_diskData) ms+=(m_hsymStop-m_earlyDecode)*288;
+      if(m_mode=="FT8" and m_ihsym==m_earlyDecode2 and !m_diskData) ms+=(m_hsymStop-m_earlyDecode2)*288;
       QDateTime t=QDateTime::currentDateTimeUtc().addMSecs(ms);
       ihr=t.toString("hh").toInt();
       imin=t.toString("mm").toInt();
@@ -2915,19 +2971,19 @@ void MainWindow::decode()                                       //decode()
   if(m_config.single_decode()) dec_data.params.nexp_decode += 32;
   if(m_config.enable_VHF_features()) dec_data.params.nexp_decode += 64;
 
-  strncpy(dec_data.params.datetime, m_dateTime.toLatin1(), 20);
-  strncpy(dec_data.params.mycall, (m_config.my_callsign()+"            ").toLatin1(),12);
-  strncpy(dec_data.params.mygrid, (m_config.my_grid()+"      ").toLatin1(),6);
+  ::memcpy(dec_data.params.datetime, m_dateTime.toLatin1()+"    ", sizeof dec_data.params.datetime);
+  ::memcpy(dec_data.params.mycall, (m_config.my_callsign()+"            ").toLatin1(), sizeof dec_data.params.mycall);
+  ::memcpy(dec_data.params.mygrid, (m_config.my_grid()+"      ").toLatin1(), sizeof dec_data.params.mygrid);
   QString hisCall {ui->dxCallEntry->text ()};
   QString hisGrid {ui->dxGridEntry->text ()};
-  strncpy(dec_data.params.hiscall,(hisCall + "            ").toLatin1 ().constData (), 12);
-  strncpy(dec_data.params.hisgrid,(hisGrid + "      ").toLatin1 ().constData (), 6);
+  memcpy(dec_data.params.hiscall,(hisCall + "            ").toLatin1 ().constData (), sizeof dec_data.params.hiscall);
+  memcpy(dec_data.params.hisgrid,(hisGrid + "      ").toLatin1 ().constData (), sizeof dec_data.params.hisgrid);
 
   //newdat=1  ==> this is new data, must do the big FFT
   //nagain=1  ==> decode only at fQSO +/- Tol
 
   char *to = (char*)mem_jt9->data();
-  char *from = (char*) dec_data.ss;
+  char *from = (char*) dec_data.ipc;
   int size=sizeof(struct dec_data);
   if(dec_data.params.newdat==0) {
     int noffset {offsetof (struct dec_data, params.nutc)};
@@ -2970,8 +3026,22 @@ void MainWindow::decode()                                       //decode()
         &narg[0],&m_TRperiod,&m_msg[0][0],
         dec_data.params.mycall,dec_data.params.hiscall,8000,12,12)));
   } else {
+    mem_jt9->lock ();
     memcpy(to, from, qMin(mem_jt9->size(), size));
-    QFile {m_config.temp_dir ().absoluteFilePath (".lock")}.remove (); // Allow jt9 to start
+    mem_jt9->unlock ();
+
+/*
+    auto now = QDateTime::currentDateTimeUtc();
+    double tsec = fmod(double(now.toMSecsSinceEpoch()),86400000.0)/1000.0;
+    double tseq = fmod(double(now.toMSecsSinceEpoch()),1000.0*m_TRperiod)/1000.0;
+    if(tseq < 0.5*m_TRperiod) tseq+= m_TRperiod;
+    if(m_ihsym==m_earlyDecode) qDebug() << "";
+    QString t;
+    t = t.asprintf("aa release_jt9 %11.3f %5d %5d %7.3f ",tsec,m_ihsym,m_ihsym,tseq);
+    qDebug().noquote() << t << QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz");
+*/
+
+    to_jt9(m_ihsym,1,-1);                //Send m_ihsym to jt9[.exe] and start decoding
     decodeBusy(true);
   }
 }
@@ -3001,7 +3071,6 @@ void::MainWindow::fast_decode_done()
       m_bDecoded=true;
     }
     postDecode (true, decodedtext.string ());
-//    writeAllTxt(message);
     write_all("Rx",message);
 
     if(m_mode=="JT9" or m_mode=="MSK144") {
@@ -3020,60 +3089,95 @@ void::MainWindow::fast_decode_done()
   m_bFastDone=false;
 }
 
+void MainWindow::to_jt9(qint32 n, qint32 istart, qint32 idone)
+{
+  dec_data_t * dd = reinterpret_cast<dec_data_t *> (mem_jt9->data());
+  mem_jt9->lock ();
+  dd->ipc[0]=n;
+  if(istart>=0) dd->ipc[1]=istart;
+  if(idone>=0)  dd->ipc[2]=idone;
+  mem_jt9->unlock ();
+}
+
 void MainWindow::decodeDone ()
 {
+  if(m_mode!="FT8" or dec_data.params.nzhsym==50) m_nDecodes=0;
+  if(m_mode=="QRA64") m_wideGraph->drawRed(0,0);
+  auto tnow = QDateTime::currentDateTimeUtc ();
+  double tdone = fmod(double(tnow.time().second()),m_TRperiod);
+  int mswait;
+  if( tdone < 0.5*m_TRperiod ) {
+    mswait = 1000.0 * ( 0.75 * m_TRperiod - tdone );
+  } else {
+    mswait = 1000.0 * ( 1.75 * m_TRperiod - tdone );
+  }
+  if(!m_diskData) killFileTimer.start(mswait); //Kill at 3/4 period
+
   dec_data.params.nagain=0;
   dec_data.params.ndiskdat=0;
   m_nclearave=0;
-  QFile {m_config.temp_dir ().absoluteFilePath (".lock")}.open(QIODevice::ReadWrite);
+//  pause_jt9 ();
   ui->DecodeButton->setChecked (false);
   decodeBusy(false);
   m_RxLog=0;
   m_blankLine=true;
+  if(m_mode=="FT8") {
+    if(dec_data.params.nzhsym==m_earlyDecode) m_blankLine=false;
+    if(dec_data.params.nzhsym==m_earlyDecode2) m_blankLine=false;
+  }
   if(SpecOp::FOX == m_config.special_op_id()) houndCallers();
+  to_jt9(m_ihsym,-1,1);                //Tell jt9 we know it has finished
+
+  m_startAnother=m_loopall;
+  if(m_bNoMoreFiles) {
+    MessageBox::information_message(this, tr("No more files to open."));
+    m_bNoMoreFiles=false;
+  }
 }
 
 void MainWindow::readFromStdout()                             //readFromStdout
 {
   while(proc_jt9.canReadLine()) {
     auto line_read = proc_jt9.readLine ();
-    if (auto p = std::strpbrk (line_read.constData (), "\n\r"))
-      {
-        // truncate before line ending chars
-        line_read = line_read.left (p - line_read.constData ());
-      }
+    if (auto p = std::strpbrk (line_read.constData (), "\n\r")) {
+      // truncate before line ending chars
+      line_read = line_read.left (p - line_read.constData ());
+    }
     if(m_mode!="FT8" and m_mode!="FT4") {
       //Pad 22-char msg to at least 37 chars
-      line_read = line_read.left(43) + "               " + line_read.mid(43);
+      line_read = line_read.left(44) + "              " + line_read.mid(44);
     }
-//    qint64 ms=QDateTime::currentMSecsSinceEpoch() - m_msec0;
     bool bAvgMsg=false;
     int navg=0;
+
     if(line_read.indexOf("<DecodeFinished>") >= 0) {
-      if(m_mode=="QRA64") m_wideGraph->drawRed(0,0);
-      m_bDecoded = line_read.mid(20).trimmed().toInt() > 0;
-      int mswait=750.0*m_TRperiod;
-      if(!m_diskData) killFileTimer.start(mswait); //Kill in 3/4 period
+      m_bDecoded =  line_read.mid(20).trimmed().toInt() > 0;
       decodeDone ();
-      m_startAnother=m_loopall;
-      if(m_bNoMoreFiles) {
-        MessageBox::information_message(this, tr("No more files to open."));
-        m_bNoMoreFiles=false;
-      }
       return;
     } else {
+      m_nDecodes+=1;
+      ndecodes_label.setText(QString::number(m_nDecodes));
       if(m_mode=="JT4" or m_mode=="JT65" or m_mode=="QRA64") {
-        int n=line_read.indexOf("f");
-        if(n<0) n=line_read.indexOf("d");
-        if(n>0) {
-          QString tt=line_read.mid(n+1,1);
-          navg=tt.toInt();
-          if(navg==0) {
-            char c = tt.data()->toLatin1();
-            if(int(c)>=65 and int(c)<=90) navg=int(c)-54;
-          }
-          if(navg>1 or line_read.indexOf("f*")>0) bAvgMsg=true;
+        int nf=line_read.indexOf("f");
+        if(nf>0) {
+          navg=line_read.mid(nf+1,1).toInt();
+          if(line_read.indexOf("f*")>0) navg=10;
         }
+        int nd=-1;
+        if(nf<0) nd=line_read.indexOf("d");
+        if(nd>0) {
+          navg=line_read.mid(nd+2,1).toInt();
+          if(line_read.mid(nd+2,1)=="*") navg=10;
+        }
+        if(m_mode=="JT65" or m_mode=="JT4") {
+          int na=-1;
+          if(nf<0 and nd<0) na=line_read.indexOf("a");
+          if(na>0) {
+            navg=line_read.mid(na+2,1).toInt();
+            if(line_read.mid(na+2,1)=="*") navg=10;
+          }
+        }
+        if(navg>=2) bAvgMsg=true;
       }
       write_all("Rx",line_read.trimmed());
       if (m_config.insert_blank () && m_blankLine && SpecOp::FOX != m_config.special_op_id()) {
@@ -3117,26 +3221,6 @@ void MainWindow::readFromStdout()                             //readFromStdout
                m_logBook,m_currentBand,m_config.ppfx(),
                (ui->cbCQonly->isVisible() and ui->cbCQonly->isChecked()));
 
-/*
-//### TEST CODE
-          {
-            if(decodedtext0.CQersCall()!="") {
-              // For CQ messages, find best one to answer, for contest purposes...
-              QString dxCall;
-              QString dxGrid;
-              QString messagePriority=ui->decodedTextBrowser->CQPriority();
-              decodedtext0.deCallAndGrid(dxCall,dxGrid);  //OUTPUT to dxCall and dxGrid!
-              double utch=0.0;
-              int nAz,nEl,nDmiles,nDkm,nHotAz,nHotABetter,qsoPoints;
-              azdist_(const_cast <char *> ((m_config.my_grid().left(4) + "  ").toLatin1().constData()),
-                      const_cast <char *> ((dxGrid.left(4) + "  ").toLatin1().constData()),&utch,
-                      &nAz,&nEl,&nDmiles,&nDkm,&nHotAz,&nHotABetter,6,6);
-              qsoPoints=1 + nDkm/3000;
-              qDebug() << "aa" << dxCall << dxGrid << messagePriority << nDkm << qsoPoints;
-            }
-          }
-//###
-*/
           if(m_bBestSPArmed and m_mode=="FT4") {
             QString messagePriority=ui->decodedTextBrowser->CQPriority();
             if(messagePriority!="") {
@@ -3180,7 +3264,8 @@ void MainWindow::readFromStdout()                             //readFromStdout
           if(SpecOp::FOX!=m_config.special_op_id() and (for_us or (abs(audioFreq - m_wideGraph->rxFreq()) <= 10))) bDisplayRight=true;
         }
       } else {
-        if(abs(audioFreq - m_wideGraph->rxFreq()) <= 10) bDisplayRight=true;
+        if((abs(audioFreq - m_wideGraph->rxFreq()) <= 10) and
+           !m_config.enable_VHF_features()) bDisplayRight=true;
       }
 
       if (bDisplayRight) {
@@ -3305,19 +3390,20 @@ void MainWindow::auto_sequence (DecodedText const& message, unsigned start_toler
                || message_words.contains (Radio::base_callsign (ui->dxCallEntry->text ()))
                || message_words.contains ("DE")))
           || !message.isStandardMessage ()); // free text 73/RR73
-    QString w2=message_words.at(2);
-    QString w34;
+
+    QStringList w=message.string().mid(22).remove("<").remove(">").split(" ",QString::SkipEmptyParts);
+    QString w2;
     int nrpt=0;
-    if(message_words.size()>3) {
-      w34=message_words.at(3);
-      nrpt=w2.toInt();
-      if(w2=="R") {
-        nrpt=w34.toInt();
-        w34=message_words.at(4);
+    if (w.size () > 2)
+      {
+        w2=w.at(2);
+        if(w.size()>3) {
+          nrpt=w2.toInt();
+          if(w2=="R") nrpt=w.at(3).toInt();
+        }
       }
-    }
-    bool bEU_VHF_w2=(nrpt>=520001 and nrpt<=594000);
-    if(bEU_VHF_w2 and message.string().contains(m_config.my_callsign() + " ")) {
+    bool bEU_VHF=(nrpt>=520001 and nrpt<=594000);
+    if(bEU_VHF and message.string().contains("<"+m_config.my_callsign() + "> ")) {
       m_xRcvd=message.string().trimmed().right(13);
     }
     if (m_auto
@@ -3334,7 +3420,7 @@ void MainWindow::auto_sequence (DecodedText const& message, unsigned start_toler
         && !m_sentFirst73       // not finished QSO
         && ((message_words.at (1).contains (m_baseCall)
                   // being called and not already in a QSO
-        && (message_words.at(2).contains(Radio::base_callsign(ui->dxCallEntry->text())) or bEU_VHF_w2))
+        && (message_words.at(2).contains(Radio::base_callsign(ui->dxCallEntry->text())) or bEU_VHF))
                  // type 2 compound replies
         || (within_tolerance &&
             (acceptable_73 ||
@@ -3377,8 +3463,7 @@ void MainWindow::pskPost (DecodedText const& decodedtext)
 
 void MainWindow::killFile ()
 {
-  if (m_fnameWE.size () &&
-      !(m_saveAll || (m_saveDecoded && m_bDecoded) || m_fnameWE == m_fileToSave)) {
+  if (m_fnameWE.size () && !(m_saveAll || (m_saveDecoded && m_bDecoded))) {
     QFile f1 {m_fnameWE + ".wav"};
     if(f1.exists()) f1.remove();
     if(m_mode.startsWith ("WSPR")) {
@@ -3508,6 +3593,11 @@ void MainWindow::guiUpdate()
 // For all modes other than WSPR
     m_bTxTime = (t2p >= tx1) and (t2p < tx2);
     if(m_mode=="Echo") m_bTxTime = m_bTxTime and m_bEchoTxOK;
+    if(m_mode=="FT8" and ui->tx5->currentText().contains("/B ")) {
+      //FT8 beacon transmissiion from Tx5 only at top of a UTC minute
+      double t4p=fmod(tsec,4*m_TRperiod);
+      if(t4p >= 30.0) m_bTxTime=false;
+    }
   }
   if(m_tune) m_bTxTime=true;                 //"Tune" takes precedence
 
@@ -3644,7 +3734,7 @@ void MainWindow::guiUpdate()
 
     if(m_mode.startsWith ("WSPR")) {
       QString sdBm,msg0,msg1,msg2;
-      sdBm.sprintf(" %d",m_dBm);
+      sdBm = sdBm.asprintf(" %d",m_dBm);
       m_tx=1-m_tx;
       int i2=m_config.my_callsign().indexOf("/");
       if(i2>0
@@ -3715,8 +3805,8 @@ void MainWindow::guiUpdate()
         if(m_modeTx=="MSK144" or m_modeTx=="FT8" or m_modeTx=="FT4") {
           char MyCall[6];
           char MyGrid[6];
-          strncpy(MyCall, (m_config.my_callsign()+"      ").toLatin1(),6);
-          strncpy(MyGrid, (m_config.my_grid()+"      ").toLatin1(),6);
+          ::memcpy(MyCall, (m_config.my_callsign()+"      ").toLatin1(), sizeof MyCall);
+          ::memcpy(MyGrid, (m_config.my_grid()+"      ").toLatin1(), sizeof MyGrid);
           if(m_modeTx=="MSK144") {
             genmsk_128_90_(message, &ichk, msgsent, const_cast<int *> (itone),
                        &m_currentMessageType, 37, 37);
@@ -3753,7 +3843,7 @@ void MainWindow::guiUpdate()
                 foxcom_.nfreq=ui->TxFreqSpinBox->value();
                 if(m_config.split_mode()) foxcom_.nfreq = foxcom_.nfreq - m_XIT;  //Fox Tx freq
                 QString foxCall=m_config.my_callsign() + "         ";
-                strncpy(&foxcom_.mycall[0], foxCall.toLatin1(),12);   //Copy Fox callsign into foxcom_
+                ::memcpy(foxcom_.mycall, foxCall.toLatin1(), sizeof foxcom_.mycall); //Copy Fox callsign into foxcom_
                 foxgen_();
               }
             }
@@ -3899,7 +3989,6 @@ void MainWindow::guiUpdate()
       }
     }
   }
-
   if (g_iptt == 1 && m_iptt0 == 0) {
     auto const& current_message = QString::fromLatin1 (msgsent);
     if(m_config.watchdog () && !m_mode.startsWith ("WSPR")
@@ -3931,7 +4020,6 @@ void MainWindow::guiUpdate()
     transmitDisplay (true);
     statusUpdate ();
   }
-
   if(!m_btxok && m_btxok0 && g_iptt==1) stopTx();
 
   if(m_startAnother) {
@@ -3949,7 +4037,8 @@ void MainWindow::guiUpdate()
     if(ui->txrb1->isEnabled() and 
        (SpecOp::NA_VHF==m_config.special_op_id() or 
         SpecOp::FIELD_DAY==m_config.special_op_id() or 
-        SpecOp::RTTY==m_config.special_op_id()) ) { 
+        SpecOp::RTTY==m_config.special_op_id() or 
+        SpecOp::WW_DIGI==m_config.special_op_id()) ) { 
       //We're in a contest-like mode other than EU_VHF: start QSO with Tx2.
       ui->tx1->setEnabled(false);
       ui->txb1->setEnabled(false);
@@ -3963,9 +4052,7 @@ void MainWindow::guiUpdate()
 
 //Once per second:
   if(nsec != m_sec0) {
-//    qDebug() << "onesec" << m_config.force_call_1st();
-    // if((!m_msgAvgWidget or (m_msgAvgWidget and !m_msgAvgWidget->isVisible()))
-    //    and (SpecOp::NONE < m_config.special_op_id()) and (SpecOp::HOUND > m_config.special_op_id())) on_actionFox_Log_triggered();
+//      qDebug() << "onesec" << m_mode;
     if(m_freqNominal!=0 and m_freqNominal<50000000 and m_config.enable_VHF_features()) {
       if(!m_bVHFwarned) vhfWarning();
     } else {
@@ -3991,7 +4078,7 @@ void MainWindow::guiUpdate()
         int isec=int(fmod(tsec,m_TRperiod));
         if(m_TRperiod-int(m_TRperiod)>0.0) {
           QString progBarLabel;
-          progBarLabel.sprintf("%d/%3.1f",isec,m_TRperiod);
+          progBarLabel = progBarLabel.asprintf("%d/%3.1f",isec,m_TRperiod);
           progressBar.setFormat (progBarLabel);
         }
         progressBar.setValue(isec);
@@ -4041,7 +4128,7 @@ void MainWindow::guiUpdate()
         if(m_mode=="MSK144") {
           int npct=int(100.0*m_fCPUmskrtd/0.298667);
           if(npct>90) tx_status_label.setStyleSheet("QLabel{background-color: #ff0000}");
-          t.sprintf("Receiving   %2d%%",npct);
+          t = t.asprintf("Receiving   %2d%%",npct);
         }
         tx_status_label.setText (t);
       }
@@ -4247,7 +4334,7 @@ void MainWindow::on_txrb4_doubleClicked ()
   auto const& my_callsign = m_config.my_callsign ();
   auto is_compound = my_callsign != m_baseCall;
   m_send_RR73 = !((is_compound && !shortList (my_callsign)) || m_send_RR73);
-  if(m_mode=="FT4" and (m_config.special_op_id()==SpecOp::RTTY)) m_send_RR73=true;
+  if(m_mode=="FT4") m_send_RR73=true;
   genStdMsgs (m_rpt);
 }
 
@@ -4455,6 +4542,19 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
     ui->dxCallEntry->setText(hiscall);
   }
 
+  QStringList w=message.string().mid(22).remove("<").remove(">").split(" ",QString::SkipEmptyParts);
+  int nw=w.size();
+  if(nw>=4) {
+    if(message_words.size()<3) return;
+    // Temporary?  Correct for the fact that message.deCallAndGrid() does not work for EU VHF contest messages
+    QString t=message_words.at(nw-2);
+    int n=w.at(nw-2).toInt();
+    if(n>=520001 and n<=592047) {
+      hiscall=w.at(1);
+      hisgrid=w.at(nw-1);
+    }
+  }
+
   bool is_73 = message_words.filter (QRegularExpression {"^(73|RR73)$"}).size ();
   if (!is_73 and !message.isStandardMessage() and !message.string().contains("<")) {
     qDebug () << "Not processing message - hiscall:" << hiscall << "hisgrid:" << hisgrid
@@ -4514,26 +4614,26 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
      || dtext.contains ("/" + m_baseCall + " ")
      || dtext.contains (" " + m_baseCall + "/")
      || (firstcall == "DE")) {
-    QString w2="";
-    if(message_words.size()>=3) w2=message_words.at(2);
-    QString w34="";
-    if(message_words.size()>=4) w34=message_words.at(3);
+
+    QString w2;
+    int nw=w.size();
+    if(nw>=3) w2=w.at(2);
     int nrpt=w2.toInt();
-    if(w2=="R") {
-      nrpt=w34.toInt();
-      w34=message_words.at(4);
+    QString w34;
+    if(nw>=4) {
+//      w34=w.at(nw-2);
+      nrpt=w.at(nw-2).toInt();
+      w34=w.at(nw-1);
     }
+    bool bRTTY = (nrpt>=529 and nrpt<=599);
     bool bEU_VHF_w2=(nrpt>=520001 and nrpt<=594000);
     if(bEU_VHF_w2 and SpecOp::EU_VHF!=m_config.special_op_id()) {
-      // Switch automatically to EU VHF Contest mode
-      m_config.setEU_VHF_Contest();
-//      m_nContest=EU_VHF;
-      if(m_transmitting) m_restart=true;
-      ui->decodedTextBrowser2->displayQSY (QString{"Enabled EU VHF Contest messages."});
-      QString t0="EU VHF";
-      ui->labDXped->setVisible(true);
-      ui->labDXped->setText(t0);
+      auto const& msg = tr("Should you switch to EU VHF Contest mode?\n\n"
+                               "To do so, check 'Special operating activity' and\n"
+                               "'EU VHF Contest' on the Settings | Advanced tab.");
+      MessageBox::information_message (this, msg);
     }
+
     QStringList t=message.string().split(' ', QString::SkipEmptyParts);
     int n=t.size();
     QString t0=t.at(n-2);
@@ -4545,26 +4645,28 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
       m_xRcvd=t.at(n-2) + " " + t.at(n-1);
       t0=t.at(n-3);
     }
-
     if(bFieldDay_msg and SpecOp::FIELD_DAY!=m_config.special_op_id()) {
       // ### Should be in ARRL Field Day mode ??? ###
       MessageBox::information_message (this, tr ("Should you switch to ARRL Field Day mode?"));
     }
 
-    n=w34.toInt();
-    bool bRTTY = (n>=529 and n<=599);
     if(bRTTY and SpecOp::RTTY != m_config.special_op_id()) {
       // ### Should be in RTTY contest mode ??? ###
       MessageBox::information_message (this, tr ("Should you switch to RTTY contest mode?"));
     }
+
+    if(SpecOp::EU_VHF==m_config.special_op_id() and message_words.at(1).contains(m_baseCall) and
+       (!message_words.at(2).contains(qso_partner_base_call)) and (!m_bDoubleClicked)) {
+//      qDebug() << "aa" << "Ignoring:" << message.string().mid(24);
+      return;
+    }
+
     if(message_words.size () > 3   // enough fields for a normal message
        && (message_words.at(1).contains(m_baseCall) || "DE" == message_words.at(1))
-//       && (message_words.at(2).contains(qso_partner_base_call) or bEU_VHF_w2)) {
        && (message_words.at(2).contains(qso_partner_base_call) or m_bDoubleClicked
            or bEU_VHF_w2 or (m_QSOProgress==CALLING))) {
-
       if(message_words.at(3).contains(grid_regexp) and SpecOp::EU_VHF!=m_config.special_op_id()) {
-        if(SpecOp::NA_VHF==m_config.special_op_id()){
+        if(SpecOp::NA_VHF==m_config.special_op_id() or SpecOp::WW_DIGI==m_config.special_op_id()){
           gen_msg=setTxMsg(3);
           m_QSOProgress=ROGER_REPORT;
         } else {
@@ -4577,6 +4679,7 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
           }
         }
       } else if(w34.contains(grid_regexp) and SpecOp::EU_VHF==m_config.special_op_id()) {
+
         if(nrpt==0) {
           gen_msg=setTxMsg(2);
           m_QSOProgress=REPORT;
@@ -4590,11 +4693,15 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
           }
         }
       } else if(SpecOp::RTTY == m_config.special_op_id() and bRTTY) {
-        gen_msg=setTxMsg(3);
-        m_QSOProgress=ROGER_REPORT;
-        int n=t.size();
-        int nRpt=t[n-2].toInt();
-        if(nRpt>=529 and nRpt<=599) m_xRcvd=t[n-2] + " " + t[n-1];
+        if(w2=="R") {
+          gen_msg=setTxMsg(4);
+          m_QSOProgress=ROGERS;
+        } else {
+          gen_msg=setTxMsg(3);
+          m_QSOProgress=ROGER_REPORT;
+        }
+        m_xRcvd=t[n-2] + " " + t[n-1];
+//        qDebug() << "bb" << w2 << w34 << t0 << m_xRcvd;
       } else if(SpecOp::FIELD_DAY==m_config.special_op_id() and bFieldDay_msg) {
         if(t0=="R") {
           gen_msg=setTxMsg(4);
@@ -4655,7 +4762,7 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
               ((r.toInt()>=-50 && r.toInt()<=49) or (r.toInt()>=529 && r.toInt()<=599))) {
           if(SpecOp::EU_VHF==m_config.special_op_id() or
              SpecOp::FIELD_DAY==m_config.special_op_id() or
-             SpecOp::RTTY==m_config.special_op_id()) {
+             SpecOp::RTTY==m_config.special_op_id()) { 
             gen_msg=setTxMsg(2);
             m_QSOProgress=REPORT;
           } else {
@@ -4791,7 +4898,6 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
       m_gen_message_is_cq = false;
     }
   }
-
   // if we get here then we are reacting to the message
   if (m_bAutoReply) m_bCallingCQ = CALLING == m_QSOProgress;
   if (ui->RxFreqSpinBox->isEnabled () and m_mode != "MSK144" and !shift) {
@@ -4859,7 +4965,6 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
       }
     }
   }
-
   if(m_transmitting) m_restart=true;
   if (ui->cbAutoSeq->isVisible () && ui->cbAutoSeq->isChecked ()
       && !m_bDoubleClicked && m_mode!="FT4") {
@@ -4919,16 +5024,21 @@ void MainWindow::genCQMsg ()
     }
 
     QString t=ui->tx6->text();
+    QStringList tlist=t.split(" ");
     if((m_mode=="FT4" or m_mode=="FT8" or m_mode=="MSK144") and
        SpecOp::NONE != m_config.special_op_id() and
-       t.split(" ").at(1)==m_config.my_callsign() and
+       ( tlist.at(1)==m_config.my_callsign() or         
+         tlist.at(2)==m_config.my_callsign() ) and   
        stdCall(m_config.my_callsign())) {
-      if(SpecOp::NA_VHF == m_config.special_op_id())    t="CQ TEST" + t.mid(2,-1);
-      if(SpecOp::EU_VHF == m_config.special_op_id())    t="CQ TEST" + t.mid(2,-1);
-      if(SpecOp::FIELD_DAY == m_config.special_op_id()) t="CQ FD" + t.mid(2,-1);
-      if(SpecOp::RTTY == m_config.special_op_id()) {
-        if(m_config.RTTY_Exchange()!="SCC")             t="CQ RU" + t.mid(2,-1);
-        if(m_config.RTTY_Exchange()=="SCC")             t="CQ SCC" + t.mid(2,-1);
+      if(SpecOp::NA_VHF == m_config.special_op_id())    m_cqStr="TEST";
+      if(SpecOp::EU_VHF == m_config.special_op_id())    m_cqStr="TEST";
+      if(SpecOp::FIELD_DAY == m_config.special_op_id()) m_cqStr="FD";
+      if(SpecOp::RTTY == m_config.special_op_id())      m_cqStr="RU";
+      if(SpecOp::WW_DIGI == m_config.special_op_id())   m_cqStr="WW";
+      if( tlist.at(1)==m_config.my_callsign() ) { 
+         t="CQ " + m_cqStr + " " + tlist.at(1) + " " + tlist.at(2); 
+      } else {
+         t="CQ " + m_cqStr + " " + tlist.at(2) + " " + tlist.at(3);
       }
       ui->tx6->setText(t);
     }
@@ -5004,7 +5114,7 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
     msgtype("73", ui->tx5->lineEdit());
   } else {
     int n=rpt.toInt();
-    rpt.sprintf("%+2.2d",n);
+    rpt = rpt.asprintf("%+2.2d",n);
 
     if(m_mode=="MSK144" or m_mode=="FT8" or m_mode=="FT4") {
       QString t2,t3;
@@ -5013,7 +5123,7 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
       int nn=(n+36)/6;
       if(nn<2) nn=2;
       if(nn>9) nn=9;
-      rst.sprintf("5%1d9 ",nn);
+      rst = rst.asprintf("5%1d9 ",nn);
       rs=rst.mid(0,2);
       t=t0;
       if(!bMyCall) {
@@ -5025,19 +5135,20 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
         msgtype(t0a + my_grid, ui->tx1);
       }
       if(SpecOp::NA_VHF==m_config.special_op_id()) sent=my_grid;
+      if(SpecOp::WW_DIGI==m_config.special_op_id()) sent=my_grid;
       if(SpecOp::FIELD_DAY==m_config.special_op_id()) sent=m_config.Field_Day_Exchange();
-      if(SpecOp::RTTY==m_config.special_op_id()) {
+      if(SpecOp::RTTY==m_config.special_op_id()) { 
         sent=rst + m_config.RTTY_Exchange();
         QString t1=m_config.RTTY_Exchange();
         if(t1=="DX" or t1=="#") {
-          t1.sprintf("%4.4d",ui->sbSerialNumber->value());
+          t1 = t1.asprintf("%4.4d",ui->sbSerialNumber->value());
           sent=rst + t1;
         }
       }
       if(SpecOp::EU_VHF==m_config.special_op_id()) {
-        QString t1,a;
-        t=t0.split(" ").at(0) + " ";
-        a.sprintf("%4.4d ",ui->sbSerialNumber->value());
+        QString a;
+        t="<" + t0.split(" ").at(0) + "> <" + t0.split(" ").at(1) + "> ";
+        a = a.asprintf("%4.4d ",ui->sbSerialNumber->value());
         sent=rs + a + m_config.my_grid();
       }
       msgtype(t + sent, ui->tx2);
@@ -5065,7 +5176,7 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
         if(n>=8 and n<=11) n=10;
         if(n>=12 and n<=14) n=13;
         if(n>=15) n=16;
-        rpt.sprintf("%+2.2d",n);
+        rpt = rpt.asprintf("%+2.2d",n);
       }
     }
 
@@ -5463,10 +5574,10 @@ void MainWindow::on_dxGridEntry_textChanged (QString const& grid)
     int nd=nDkm;
     if(m_config.miles()) nd=nDmiles;
     if(m_mode=="MSK144") {
-      if(nHotABetter==0)t.sprintf("Az: %d   B: %d   El: %d   %d",nAz,nHotAz,nEl,nd);
-      if(nHotABetter!=0)t.sprintf("Az: %d   A: %d   El: %d   %d",nAz,nHotAz,nEl,nd);
+      if(nHotABetter==0)t = t.asprintf("Az: %d   B: %d   El: %d   %d",nAz,nHotAz,nEl,nd);
+      if(nHotABetter!=0)t = t.asprintf("Az: %d   A: %d   El: %d   %d",nAz,nHotAz,nEl,nd);
     } else {
-      t.sprintf("Az: %d        %d",nAz,nd);
+      t = t.asprintf("Az: %d        %d",nAz,nd);
     }
     if(m_config.miles()) t += " mi";
     if(!m_config.miles()) t += " km";
@@ -5516,7 +5627,7 @@ void MainWindow::on_logQSOButton_clicked()                 //Log QSO button
       case SpecOp::EU_VHF:
         m_rptSent=m_xSent.split(" ").at(0).left(2);
         m_rptRcvd=m_xRcvd.split(" ").at(0).left(2);
-        m_hisGrid=m_xRcvd.split(" ").at(1);
+        if(m_xRcvd.split(" ").size()>=2) m_hisGrid=m_xRcvd.split(" ").at(1);
         grid=m_hisGrid;
         ui->dxGridEntry->setText(grid);
         break;
@@ -5527,6 +5638,10 @@ void MainWindow::on_logQSOButton_clicked()                 //Log QSO button
       case SpecOp::RTTY:
         m_rptSent=m_xSent.split(" ").at(0);
         m_rptRcvd=m_xRcvd.split(" ").at(0);
+        break;
+      case SpecOp::WW_DIGI:
+        m_xSent=m_config.my_grid().left(4);
+        m_xRcvd=m_hisGrid;
         break;
       default: break;
     }
@@ -5574,8 +5689,7 @@ void MainWindow::acceptQSO (QDateTime const& QSO_date_off, QString const& call, 
   if(m_config.clear_DX () and SpecOp::HOUND != m_config.special_op_id()) clearDX ();
   m_dateTimeQSOOn = QDateTime {};
   auto special_op = m_config.special_op_id ();
-  if (SpecOp::NONE < special_op && special_op < SpecOp::FOX &&
-      m_config.RTTY_Exchange()!="SCC") {
+  if (SpecOp::NONE < special_op && special_op < SpecOp::FOX) { 
     ui->sbSerialNumber->setValue(ui->sbSerialNumber->value() + 1);
   }
 
@@ -5648,9 +5762,9 @@ void MainWindow::displayWidgets(qint64 n)
   ui->pbBestSP->setVisible(m_mode=="FT4");
   b=false;
   if(m_mode=="FT4" or m_mode=="FT8") {
-  b=SpecOp::EU_VHF==m_config.special_op_id() or (SpecOp::RTTY==m_config.special_op_id() and
-    (m_config.RTTY_Exchange()=="DX" or m_config.RTTY_Exchange()=="#" or
-     m_config.RTTY_Exchange()=="SCC"));
+  b=SpecOp::EU_VHF==m_config.special_op_id() or 
+    ( SpecOp::RTTY==m_config.special_op_id() and
+      (m_config.RTTY_Exchange()=="DX" or m_config.RTTY_Exchange()=="#") );
   }
   if(m_mode=="MSK144") b=SpecOp::EU_VHF==m_config.special_op_id();
   ui->sbSerialNumber->setVisible(b);
@@ -5785,6 +5899,7 @@ void MainWindow::on_actionFT8_triggered()
     if(SpecOp::EU_VHF==m_config.special_op_id()) t0+="EU VHF";
     if(SpecOp::FIELD_DAY==m_config.special_op_id()) t0+="Field Day";
     if(SpecOp::RTTY==m_config.special_op_id()) t0+="RTTY";
+    if(SpecOp::WW_DIGI==m_config.special_op_id()) t0+="WW_DIGI";
     if(t0=="") {
       ui->labDXped->setVisible(false);
     } else {
@@ -5840,9 +5955,9 @@ void MainWindow::on_actionJT4_triggered()
     ui->sbSubmode->setValue(0);
   }
   if(bVHF) {
-    displayWidgets(nWidgets("111110010010111110111100000000000"));
+    displayWidgets(nWidgets("111110010010110110111100000000000"));
   } else {
-    displayWidgets(nWidgets("111010000000111000110000000000000"));
+    displayWidgets(nWidgets("111010000000110000110000000000000"));
   }
   fast_config(false);
   statusChanged();
@@ -5984,7 +6099,7 @@ void MainWindow::on_actionJT65_triggered()
     ui->label_7->setText("Rx Frequency");
   }
   if(bVHF) {
-    displayWidgets(nWidgets("111110010000111110101100010000000"));
+    displayWidgets(nWidgets("111110010000110110101100010000000"));
   } else {
     displayWidgets(nWidgets("111010000000111000010000000000001"));
   }
@@ -6018,7 +6133,7 @@ void MainWindow::on_actionQRA64_triggered()
   ui->TxFreqSpinBox->setValue(1000);
   QString fname {QDir::toNativeSeparators(m_config.temp_dir ().absoluteFilePath ("red.dat"))};
   m_wideGraph->setRedFile(fname);
-  displayWidgets(nWidgets("111110010010111110000000001000000"));
+  displayWidgets(nWidgets("111110010010110110000000001000000"));
   statusChanged();
 }
 
@@ -6076,7 +6191,7 @@ void MainWindow::on_actionMSK144_triggered()
 // Make sure that MSK144 is not checked.
     ui->actionMSK144->setChecked(false);
     MessageBox::warning_message (this, tr ("Improper mode"),
-       "MSK144 not available if Fox, Hound, Field Day, or RTTY contest is selected.");
+       "MSK144 not available if Fox, Hound, Field Day, RTTY, or WW Digi contest is selected.");
     return;
   }
   m_mode="MSK144";
@@ -7221,8 +7336,11 @@ void::MainWindow::VHF_features_enabled(bool b)
   ui->actionMessage_averaging->setEnabled(b);
   ui->actionEnable_AP_DXcall->setVisible (m_mode=="QRA64");
   ui->actionEnable_AP_JT65->setVisible (b && m_mode=="JT65");
+
   if(!b && m_msgAvgWidget and (SpecOp::FOX != m_config.special_op_id()) and !m_config.autoLog()) {
-    if(m_msgAvgWidget->isVisible()) m_msgAvgWidget->close();
+    if(m_msgAvgWidget->isVisible() and m_mode!="JT4" and m_mode!="JT9" and m_mode!="JT65") {
+      m_msgAvgWidget->close();
+    }
   }
 }
 
@@ -7585,9 +7703,9 @@ void MainWindow::p1ReadFromStdout()                        //p1readFromStdout
                 &nAz,&nEl,&nDmiles,&nDkm,&nHotAz,&nHotABetter,6,6);
         QString t1;
         if(m_config.miles()) {
-          t1.sprintf("%7d",nDmiles);
+          t1 = t1.asprintf("%7d",nDmiles);
         } else {
-          t1.sprintf("%7d",nDkm);
+          t1 = t1.asprintf("%7d",nDkm);
         }
         rxLine += t1;
       }
@@ -7610,7 +7728,7 @@ QString MainWindow::WSPR_hhmm(int n)
   QDateTime t=QDateTime::currentDateTimeUtc().addSecs(n);
   int m=t.toString("hhmm").toInt()/2;
   QString t1;
-  t1.sprintf("%04d",2*m);
+  t1 = t1.asprintf("%04d",2*m);
   return t1;
 }
 
@@ -7620,12 +7738,12 @@ void MainWindow::WSPR_history(Frequency dialFreq, int ndecodes)
   QString t1=t.toString("yyMMdd");
   QString t2=WSPR_hhmm(-60);
   QString t3;
-  t3.sprintf("%13.6f",0.000001*dialFreq);
+  t3 = t3.asprintf("%13.6f",0.000001*dialFreq);
   if(ndecodes<0) {
     t1=t1 + " " + t2 + t3 + "  T";
   } else {
     QString t4;
-    t4.sprintf("%4d",ndecodes);
+    t4 = t4.asprintf("%4d",ndecodes);
     t1=t1 + " " + t2 + t3 + "  R" + t4;
   }
   QFile f {m_config.writeable_data_dir ().absoluteFilePath ("WSPR_history.txt")};
@@ -8022,8 +8140,8 @@ void MainWindow::on_cbMenus_toggled(bool b)
 }
 
 void MainWindow::on_cbCQonly_toggled(bool)
-{
-  QFile {m_config.temp_dir().absoluteFilePath(".lock")}.remove(); // Allow jt9 to start
+{  //Fix this -- no decode here?
+  to_jt9(m_ihsym,1,-1);                //Send m_ihsym to jt9[.exe] and start decoding
   decodeBusy(true);
 }
 
@@ -8096,7 +8214,7 @@ void MainWindow::on_sbNslots_valueChanged(int n)
 {
   m_Nslots=n;
   QString t;
-  t.sprintf(" NSlots %d",m_Nslots);
+  t = t.asprintf(" NSlots %d",m_Nslots);
   writeFoxQSO(t);
 }
 
@@ -8104,7 +8222,7 @@ void MainWindow::on_sbMax_dB_valueChanged(int n)
 {
   m_max_dB=n;
   QString t;
-  t.sprintf(" Max_dB %d",m_max_dB);
+  t = t.asprintf(" Max_dB %d",m_max_dB);
   writeFoxQSO(t);
 }
 
@@ -8174,6 +8292,7 @@ QString MainWindow::sortHoundCalls(QString t, int isort, int max_dB)
         if(isort==4) i=4;                              // sort Hound calls by distance
         t1=map[a].split(" ",QString::SkipEmptyParts).at(i);
         n=1000*(t1.toInt()+100) + j;                   // pack (snr or dist) and index j into n
+        list.insert(j,n);                              // add n to list at [j]
       }
 
       if(isort==2) {                                   // sort Hound calls by grid
@@ -8183,9 +8302,9 @@ QString MainWindow::sortHoundCalls(QString t, int isort, int max_dB)
         int i2=ABC.indexOf(t1.mid(1,1));
         n=100*(26*i1+i2)+t1.mid(2,2).toInt();
         n=1000*n + j;                                 // pack ngrid and index j into n
+        list.insert(j,n);                             // add n to list at [j]
       }
 
-      list.insert(j,n);                               // add n to list at [j]
       lines2.insert(j,map[a]);                        // add map[a] to lines2 at [j]
       j++;
     }
@@ -8518,7 +8637,7 @@ Transmit:
   foxcom_.nfreq=ui->TxFreqSpinBox->value();
   if(m_config.split_mode()) foxcom_.nfreq = foxcom_.nfreq - m_XIT;  //Fox Tx freq
   QString foxCall=m_config.my_callsign() + "         ";
-  strncpy(&foxcom_.mycall[0], foxCall.toLatin1(),12);   //Copy Fox callsign into foxcom_
+  ::memcpy(foxcom_.mycall, foxCall.toLatin1(),sizeof foxcom_.mycall);   //Copy Fox callsign into foxcom_
   foxgen_();
   m_tFoxTxSinceCQ++;
 
@@ -8593,7 +8712,7 @@ void MainWindow::foxGenWaveform(int i,QString fm)
   if(fm.mid(0,3)=="CQ ") m_tFoxTxSinceCQ=-1;
 
   QString txModeArg;
-  txModeArg.sprintf("FT8fox %d",i+1);
+  txModeArg = txModeArg.asprintf("FT8fox %d",i+1);
   ui->decodedTextBrowser2->displayTransmittedText(fm.trimmed(), txModeArg,
         ui->TxFreqSpinBox->value()+60*i,m_bFastMode);
   foxcom_.i3bit[i]=0;
@@ -8601,14 +8720,14 @@ void MainWindow::foxGenWaveform(int i,QString fm)
   strncpy(&foxcom_.cmsg[i][0],fm.toLatin1(),40);   //Copy this message into cmsg[i]
   if(i==0) m_fm1=fm;
   QString t;
-  t.sprintf(" Tx%d:  ",i+1);
+  t = t.asprintf(" Tx%d:  ",i+1);
   writeFoxQSO(t + fm.trimmed());
 }
 
 void MainWindow::writeFoxQSO(QString const& msg)
 {
   QString t;
-  t.sprintf("%3d%3d%3d",m_houndQueue.count(),m_foxQSOinProgress.count(),m_foxQSO.count());
+  t = t.asprintf("%3d%3d%3d",m_houndQueue.count(),m_foxQSOinProgress.count(),m_foxQSO.count());
   QFile f {m_config.writeable_data_dir ().absoluteFilePath ("FoxQSO.txt")};
   if (f.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Append)) {
     QTextStream out(&f);
@@ -8684,7 +8803,7 @@ void MainWindow::foxTest()
     if(line.contains("Tx1:")) {
       foxTxSequencer();
     } else {
-      t.sprintf("%3d %3d %3d %3d %5d   ",m_houndQueue.count(),
+      t = t.asprintf("%3d %3d %3d %3d %5d   ",m_houndQueue.count(),
                 m_foxQSOinProgress.count(),m_foxQSO.count(),
                 m_loggedByFox.count(),m_tFoxTx);
       sdiag << t << line.mid(37).trimmed() << "\n";
@@ -8715,11 +8834,17 @@ void MainWindow::write_all(QString txRx, QString message)
 
   msg=msg.mid(0,15) + msg.mid(18,-1);
 
-  t.sprintf("%5d",ui->TxFreqSpinBox->value());
+  t = t.asprintf("%5d",ui->TxFreqSpinBox->value());
   if (txRx=="Tx") msg="   0  0.0" + t + " " + message;
   auto time = QDateTime::currentDateTimeUtc ();
-  time = time.addSecs(-fmod(double(time.time().second()),m_TRperiod));
-  t.sprintf("%10.3f ",m_freqNominal/1.e6);
+  if( txRx=="Rx" ) {
+    double tdec = fmod(double(time.time().second()),m_TRperiod);
+    if( tdec < 0.5*m_TRperiod ) {
+      tdec+=m_TRperiod;
+    } 
+    time = time.addSecs(-tdec);
+  }
+  t = t.asprintf("%10.3f ",m_freqNominal/1.e6);
   if (m_diskData) {
     if (m_fileDateTime.size()==11) {
       line=m_fileDateTime + "  " + t + txRx + " " + mode_string + msg;
@@ -8760,6 +8885,7 @@ void MainWindow::chkFT4()
     if(SpecOp::EU_VHF==m_config.special_op_id()) t0+="EU VHF";
     if(SpecOp::FIELD_DAY==m_config.special_op_id()) t0+="Field Day";
     if(SpecOp::RTTY==m_config.special_op_id()) t0+="RTTY";
+    if(SpecOp::WW_DIGI==m_config.special_op_id()) t0+="WW_DIGI";
     if(t0=="") {
       ui->labDXped->setVisible(false);
     } else {
@@ -8768,6 +8894,10 @@ void MainWindow::chkFT4()
     }
     on_contest_log_action_triggered();
   }
+  if (SpecOp::HOUND == m_config.special_op_id() or SpecOp::FOX == m_config.special_op_id()) {
+    ui->labDXped->setVisible(false);
+  }
+
 }
 
 void MainWindow::on_pbBestSP_clicked()

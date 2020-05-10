@@ -13,7 +13,7 @@ subroutine fil6521(c1,n1,c2,n2)
 ! fout       (Hz)  344.531    Output sample rate
 
   parameter (NTAPS=21)
-  parameter (NH=NTAPS/2)
+  parameter (NH=10)                  !NTAPS/2
   parameter (NDOWN=4)                !Downsample ratio = 1/4
   complex c1(n1)
   complex c2(n1/NDOWN)

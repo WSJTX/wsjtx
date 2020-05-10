@@ -4,8 +4,8 @@ program ldpcsim128_90
 ! the second incarnation of MSK144.
 
   use packjt77
-  integer, parameter:: NRECENT=10, N=128, K=90, M=N-K
-  character*12 recent_calls(NRECENT)
+  integer, parameter:: N=128, K=90, M=N-K
+!  character*12 recent_calls(NRECENT)
   character*37 msg,msgsent,msgreceived
   character*77 c77 
   character*8 arg
@@ -16,27 +16,29 @@ program ldpcsim128_90
   integer nerrtot(0:N),nerrdec(0:N)
   logical unpk77_success
   real*8 rxdata(N), rxavgd(N)
-  real llr(N)
+  real llr(N),llra(N)
 
-  do i=1,NRECENT
+  do i=1,MAXNRECENT
     recent_calls(i)='            '
   enddo
   nerrtot=0
   nerrdec=0
 
   nargs=iargc()
-  if(nargs.ne.4) then
-    print*,'Usage: ldpcsim  niter   navg  #trials  s '
-    print*,'eg:    ldpcsim    10     1     1000    0.75'
+  if(nargs.ne.5) then
+    print*,'Usage: ldpcsim  niter ndeep  navg  #trials  s '
+    print*,'eg:    ldpcsim    10    2     1     1000    0.75'
     return
   endif
   call getarg(1,arg)
   read(arg,*) max_iterations 
   call getarg(2,arg)
-  read(arg,*) navg 
+  read(arg,*) ndeep
   call getarg(3,arg)
-  read(arg,*) ntrials 
+  read(arg,*) navg
   call getarg(4,arg)
+  read(arg,*) ntrials
+  call getarg(5,arg)
   read(arg,*) s
 
   rate=real(77)/real(N)
@@ -62,7 +64,7 @@ program ldpcsim128_90
 !  call init_random_seed()
 
   write(*,*) "Eb/N0  SNR2500   ngood  nundetected  sigma    psymerr"
-  do idb = 14,0,-1 
+  do idb = 6,6,-1 
     db=idb/2.0-1.0
     sigma=1/sqrt( 2*rate*(10**(db/10.0)) )
     ngood=0
@@ -103,8 +105,13 @@ program ldpcsim128_90
 
       apmask=0
 ! max_iterations is max number of belief propagation iterations
+
       call bpdecode128_90(llr, apmask, max_iterations, message77, cw, nharderrors, niterations)
 
+      if(ndeep.ge.0 .and. nharderrors.lt.0) then
+        call osd128_90(llr, apmask, ndeep, message77, cw, nharderrors, dmin)
+      endif
+ 
 ! If the decoder finds a valid codeword, nharderrors will be .ge. 0.
       if( nharderrors .ge. 0 ) then
         write(c77,'(77i1)') message77

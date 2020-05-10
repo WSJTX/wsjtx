@@ -11,7 +11,7 @@ subroutine lpf1(dd,jz,dat,jz2)
   fac=1.0/float(NFFT1)
   x(1:jz)=fac*dd(1:jz)
   x(jz+1:NFFT1)=0.0
-  call four2a(x,NFFT1,1,-1,0)                    !Forwarxd FFT, r2c
+  call four2a(cx,NFFT1,1,-1,0)                    !Forwarxd FFT, r2c
   cx(NFFT2/2:)=0.0
 
 !  df=11025.0/NFFT1

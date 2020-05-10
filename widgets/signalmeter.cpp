@@ -35,7 +35,7 @@ public:
   QSize minimumSizeHint () const override
   {
     QFontMetrics font_metrics {font (), nullptr};
-    return {tick_length + text_indent + font_metrics.width ("00+"), (font_metrics.height () + line_spacing) * range};
+    return {tick_length + text_indent + font_metrics.boundingRect ("00+").width (), (font_metrics.height () + line_spacing) * range};
   }
 
 protected:
@@ -102,6 +102,6 @@ void SignalMeter::setValue(float value, float valueMax)
   m_meter->setValue(int(value));
   m_meter->set_sigPeak(valueMax);
   QString t;
-  t.sprintf("%d dB",int(value+0.5));
+  t = t.asprintf("%d dB",int(value+0.5));
   m_reading->setText(t);
 }

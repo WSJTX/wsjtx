@@ -15,6 +15,7 @@
 #include "item_delegates/ForeignKeyDelegate.hpp"
 #include "item_delegates/CallsignDelegate.hpp"
 #include "item_delegates/MaidenheadLocatorDelegate.hpp"
+#include "item_delegates/SQLiteDateTimeDelegate.hpp"
 #include "pimpl_impl.hpp"
 
 #include "ui_FoxLogWindow.h"
@@ -41,6 +42,7 @@ FoxLogWindow::FoxLogWindow (QSettings * settings, Configuration const * configur
   m_->ui_.setupUi (this);
   m_->ui_.log_table_view->setModel (m_->log_->model ());
   set_log_view (m_->ui_.log_table_view);
+  m_->ui_.log_table_view->setItemDelegateForColumn (1, new SQLiteDateTimeDelegate {this});
   m_->ui_.log_table_view->setItemDelegateForColumn (2, new CallsignDelegate {this});
   m_->ui_.log_table_view->setItemDelegateForColumn (3, new MaidenheadLocatorDelegate {this});
   m_->ui_.log_table_view->setItemDelegateForColumn (6, new ForeignKeyDelegate {configuration->bands (), 0, this});

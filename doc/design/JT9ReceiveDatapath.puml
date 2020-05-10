@@ -1,0 +1,31 @@
+@startuml
+
+hide footbox
+
+participant Detector
+participant MainWindow
+participant SHM
+participant jt9.f90
+participant decoder.f90
+participant ft8_decode.f90
+
+Detector -> MainWindow : dataSink()
+
+activate MainWindow
+MainWindow -> MainWindow : decode()
+MainWindow -> MainWindow : decodeBusy()
+
+MainWindow -> SHM : memcpy()
+MainWindow -> jt9.f90 : doorbell
+deactivate MainWindow
+
+activate jt9.f90
+jt9.f90 -> decoder.f90 : multimode_decoder()
+
+decoder.f90 -> ft8_decode.f90 : decode()
+ft8_decode.f90 -> decoder.f90 : ft8_decoded()
+decoder.f90 -> jt9.f90
+
+jt9.f90 -> MainWindow : readFromStdout()
+
+@enduml

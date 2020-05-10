@@ -97,7 +97,6 @@ color and line width for the plots.
 
 Most windows can be resized as desired.  If you are short of screen
 space you can make the Main Window and Wide Graph smaller by hiding
-some controls and labels.  To enable this feature type *Ctrl+M* with
-focus on the appropriate window.  (For the Main Window you can select
-*Hide menus and labels* on the *View* menu.)  Type *Ctrl+M* again
-to make the controls visible once more.
+some controls and labels.  To enable this feature uncheck the box
+labales *Controls* at top left of the *Wide Graph* window, or the box 
+*Menus* to the right of the *Tune* button on the Main Window.

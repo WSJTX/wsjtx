@@ -33,6 +33,7 @@ subroutine bpdecode128_90(llr,apmask,maxiterations,message77,cw,nharderror,iter)
   enddo
 
   ncnt=0
+  nclast=0
 
   do iter=0,maxiterations
 

@@ -12,20 +12,16 @@ subroutine sync8d(cd0,i0,ctwk,itwk,sync)
   integer icos7(0:6)
   data icos7/3,1,4,0,6,5,2/
   data first/.true./
-  save first,twopi,fs2,dt2,taus,baud,csync
+  save first,twopi,csync
 
   p(z1)=real(z1)**2 + aimag(z1)**2          !Statement function for power
 
 ! Set some constants and compute the csync array.  
   if( first ) then
     twopi=8.0*atan(1.0)
-    fs2=12000.0/NDOWN                       !Sample rate after downsampling
-    dt2=1/fs2                               !Corresponding sample interval
-    taus=32*dt2                             !Symbol duration
-    baud=1.0/taus                           !Keying rate
     do i=0,6
       phi=0.0
-      dphi=twopi*icos7(i)*baud*dt2  
+      dphi=twopi*icos7(i)/32.0 
       do j=1,32
         csync(i,j)=cmplx(cos(phi),sin(phi)) !Waveform for 7x7 Costas array
         phi=mod(phi+dphi,twopi)

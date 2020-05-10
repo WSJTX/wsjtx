@@ -8,7 +8,7 @@
 #include <QPair>
 #include <QString>
 
-#include "decodedtext.h"
+#include "Decoder/decodedtext.h"
 
 class QAction;
 class Configuration;

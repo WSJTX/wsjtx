@@ -31,7 +31,7 @@ subroutine ft4_downsample(dd,newdata,f0,c)
 
    if(newdata) then
       x=dd
-      call four2a(x,NMAX,1,-1,0)             !r2c FFT to freq domain
+      call four2a(cx,NMAX,1,-1,0)             !r2c FFT to freq domain
    endif
    i0=nint(f0/df)
    c1=0.

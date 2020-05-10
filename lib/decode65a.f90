@@ -1,7 +1,6 @@
 subroutine decode65a(dd,npts,newdat,nqd,f0,nflip,mode65,ntrials,     &
      naggressive,ndepth,ntol,mycall,hiscall,hisgrid,nQSOProgress,    &
-     ljt65apon, nexp_decode,  &
-     bVHF,sync2,a,dt,nft,nspecial,qual,nhist,nsmo,decoded)
+     ljt65apon,bVHF,sync2,a,dt,nft,nspecial,qual,nhist,nsmo,decoded)
 
 ! Apply AFC corrections to a candidate JT65 signal, then decode it.
 
@@ -94,6 +93,7 @@ subroutine decode65a(dd,npts,newdat,nqd,f0,nflip,mode65,ntrials,     &
 
   call timer('dec65b  ',0)
   qualbest=0.
+  nftbest=0
   qual0=-1.e30
   minsmo=0
   maxsmo=0
@@ -125,10 +125,8 @@ subroutine decode65a(dd,npts,newdat,nqd,f0,nflip,mode65,ntrials,     &
      enddo
      nadd=ismo  !### ??? ###
      call decode65b(s2,nflip,nadd,mode65,ntrials,naggressive,ndepth,        &
-          mycall,hiscall,hisgrid,nQSOProgress,ljt65apon,nexp_decode,        &
-          nqd,nft,qual,     &
+          mycall,hiscall,hisgrid,nQSOProgress,ljt65apon,nqd,nft,qual,       &
           nhist,decoded)
-
      if(nft.eq.1) then
         nsmo=ismo
         param(9)=nsmo
@@ -140,18 +138,20 @@ subroutine decode65a(dd,npts,newdat,nqd,f0,nflip,mode65,ntrials,     &
            qualbest=qual
            nnbest=nn
            nsmobest=ismo
+           nftbest=nft
         endif
      endif
      if(qual.lt.qual0) exit
      qual0=qual
   enddo
 
-  if(nft.eq.2) then
+  if(nftbest.eq.2) then
      decoded=decoded_best
      qual=qualbest
      nsmo=nsmobest
      param(9)=nsmo
      nn=nnbest
+     nft=nftbest
   endif
 
   call timer('dec65b  ',1)

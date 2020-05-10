@@ -40,7 +40,7 @@ subroutine refspectrum(id2,bclear,brefspec,buseref,fname)
   if(brefspec) then
      x(0:NH-1)=0.001*id2(1:NH)
      x(NH:NFFT-1)=0.0
-     call four2a(x,NFFT,1,-1,0)                 !r2c FFT
+     call four2a(cx,NFFT,1,-1,0)                 !r2c FFT
 
      do i=1,NH
         s(i)=s(i) + real(cx(i))**2 + aimag(cx(i))**2
@@ -134,7 +134,7 @@ subroutine refspectrum(id2,bclear,brefspec,buseref,fname)
 ! Make the filter causal for overlap and add.
         cx(0)=0.0
         cx(1:NH)=fil(1:NH)/NFFT
-        call four2a(x,NFFT,1,1,-1)
+        call four2a(cx,NFFT,1,1,-1)
         x=cshift(x,-400)
         x(800:NH)=0.0
         call four2a(cx,NFFT,1,-1,0)
@@ -146,7 +146,7 @@ subroutine refspectrum(id2,bclear,brefspec,buseref,fname)
      x(0:NH-1)=id2(1:NH)
      x(NH:NFFT-1)=0.0
      x=x/NFFT
-     call four2a(x,NFFT,1,-1,0)
+     call four2a(cx,NFFT,1,-1,0)
      cx=cfil*cx
      call four2a(cx,NFFT,1,1,-1)
      x(0:NH-1)=x(0:NH-1)+xs    

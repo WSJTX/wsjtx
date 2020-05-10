@@ -79,15 +79,17 @@ NOTE: When *Auto-Seq* is enabled the program de-activates *Enable Tx*
 at the end of each QSO.  It is not intended that _WSJT-X_ should make
 fully automated QSOs.
 
+[[CONTEST_MSGS]]
 === Contest Messages
 
-The new FT4, FT8, and MSK144 protocols support special messages optimized
-for *NA VHF* and *EU VHF* contests. FT8 also supports messages for
-*ARRL Field Day* and the *ARRL RTTY Roundup*.  The decoders recognize
-and decode these messages at any time.  Configure the program to
-automatically generate the required message types by selecting a
-supported operating activity on the *Settings | Advanced* tab.  Model
-QSOs then proceed as follows, for each event type:
+The FT4, FT8, and MSK144 protocols support special messages optimized
+for *NA VHF* and *EU VHF* contests.  FT4 and FT8 also support messages
+for *ARRL Field Day*, *ARRL RTTY Roundup*, and the *WW Digi* contest.
+The decoders recognize and decode these messages at any time.
+Configure the program to automatically generate the required message
+types for contest exchanges and carry out suitable auto-sequencing by
+selecting a supported operating activity on the *Settings | Advanced*
+tab.  Model QSOs then proceed as follows, for each event type:
 
 *NA VHF Contest*
 
@@ -104,12 +106,17 @@ place of RRR, and the final 73 is optional.
 *EU VHF Contest*
 
  CQ TEST G4ABC IO91
-                       G4ABC PA9XYZ JO22
- PA9XYZ 570123 IO91NP
-                       G4ABC R 580071 JO22DB
+                                 G4ABC PA9XYZ JO22
+ <PA9XYZ> <G4ABC> 570123 IO91NP
+                                 <G4ABC> <PA9XYZ> R 580071 JO22DB
  PA9XYZ G4ABC RR73
 
 Either callsign (or both) may have /P appended.
+
+IMPORTANT: Messages conveying signal reports, QSO serial numbers, and
+6-character locators have been changed in _WSJT-X v2.2_ and are *not
+compatible* with the formats used in earlier program versions.  Be sure
+to upgrade _WSJT-X_ if you will use *EU VHF Contest* messages.
 
 *ARRL Field Day*
 
@@ -124,6 +131,31 @@ Either callsign (or both) may have /P appended.
                        K1ABC W9XYZ 579 WI
  W9XYZ K1ABC R 589 MA
                        K1ABC W9XYZ RR73
+
+*WW Digi Contest*
+
+ CQ K1ABC FN42
+                       K1ABC S52XYZ JN76
+ S52XYZ K1ABC R FN42
+                       K1ABC S52XYZ RR73
+
+
+Contest QSOs are generally treated as invalid when they appear in one
+station's log and not the supposed QSO partner's.  To avoid Not-in-Log
+(NIL) penalties for yourself and others, we recommend the following
+guidelines for contest logging with FT4, FT8, and MSK144:
+
+ - Activate and learn to use the alternate F1-F6 bindings selectable
+   on the *Settings | General* tab.
+ 
+ - Always log a QSO when you have received RRR, RR73, or 73 from a
+   station you are working.
+
+ - Log a QSO when you send RR73 or 73 if you are reasonably confident
+  it will be copied. But be sure to watch for any indication that it
+  was not copied, and then take appropriate action. For example, if
+  you receive the Tx3 message (R plus contest exchange) again, hit F4
+  to re-send your RR73.
 
 [[COMP-CALL]] 
 === Nonstandard Callsigns
@@ -277,6 +309,6 @@ as the following checklist:
 
 - Radio filters centered and set to widest available passband (up to 5 kHz).
 
-TIP: Remember that in many circumstances FT8, JT4, JT9, JT65, and WSPR
-do not require high power. Under most HF propagation conditions, QRP
-is the norm.
+TIP: Remember that in many circumstances FT4, FT8, JT4, JT9, JT65, and
+WSPR do not require high power. Under most HF propagation conditions,
+QRP is the norm.

@@ -6,7 +6,7 @@ installation notes.
 
 If you have already installed a previous version, you can retain it by
 changing its name in the *Applications* folder (say, from _WSJT-X_ to
-_WSJT-X_1.9_).  You can then proceed to the installation phase.
+_WSJT-X_2.1_).  You can then proceed to the installation phase.
 
 Take note also of the following:
 

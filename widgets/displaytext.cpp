@@ -16,7 +16,7 @@
 #include <QDebug>
 
 #include "Configuration.hpp"
-#include "LotWUsers.hpp"
+#include "Network/LotWUsers.hpp"
 #include "models/DecodeHighlightingModel.hpp"
 #include "logbook/logbook.h"
 
@@ -463,7 +463,7 @@ void DisplayText::displayTransmittedText(QString text, QString modeTx, qint32 tx
     if(modeTx=="JT65") t1=" #  ";
     if(modeTx=="MSK144") t1=" &  ";
     QString t2;
-    t2.sprintf("%4d",txFreq);
+    t2 = t2.asprintf("%4d",txFreq);
     QString t;
     if(bFastMode or modeTx=="FT8" or modeTx=="FT4") {
       t = QDateTime::currentDateTimeUtc().toString("hhmmss") + \

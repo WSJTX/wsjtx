@@ -194,7 +194,7 @@ contains
              call this%decode_callback(nsnr,dtx,nfreq,.true.,csync,      &
                   .false.,decoded,99.,ich,.false.,0)
           end if
-          nsave=0
+!###          nsave=0
           go to 990
 
        else                                                  !Fano failed
@@ -299,6 +299,7 @@ contains
        nfsave=0
        dtdiff=0.2
        first=.false.
+       nsave=1        ! ### Should this be here? ###
     endif
 
     do i=1,64
@@ -311,7 +312,7 @@ contains
     dtsave(nsave)=dtxx
     nfsave(nsave)=nfreq
     flipsave(nsave)=flip
-    ppsave(1:207,1:7,nsave)=rsymbol(1:207,1:7)  
+    ppsave(1:207,1:7,nsave)=rsymbol(1:207,1:7)
 
 10  sym=0.
     syncsum=0.

@@ -51,7 +51,7 @@ namespace
 
   int constexpr table_rows ()
   {
-    return sizeof (ADIF_bands) / sizeof (ADIF_bands[0]);
+    return sizeof ADIF_bands / sizeof ADIF_bands[0];
   }
 }
 
@@ -79,7 +79,7 @@ QString Bands::find (Frequency f) const
 int Bands::find (QString const& band) const
 {
   int result {-1};
-  for (auto i = 0u; i < table_rows (); ++i)
+  for (auto i = 0; i < table_rows (); ++i)
     {
       if (band == ADIF_bands[i].name_)
         {

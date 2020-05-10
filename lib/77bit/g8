@@ -1,2 +1,3 @@
-gfortran -o test28 -fbounds-check -Wall -Wno-conversion test28.f90 pack28.f90 \
-	 unpack28.f90 ihashcall.f90 hash22.f90 save_hash_call.f90
+gfortran -c packjt77.f90
+gfortran -o test28 -fbounds-check -Wall -Wno-conversion test28.f90 \
+	 ../chkcall.f90 packjt77.o

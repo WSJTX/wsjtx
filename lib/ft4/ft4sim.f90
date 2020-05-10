@@ -5,27 +5,23 @@ program ft4sim
   use wavhdr
   use packjt77
   include 'ft4_params.f90'               !Set various constants
-  parameter (NWAVE=NN*NSPS)
-  parameter (NZZ=21*3456)                !72576
   type(hdr) h                            !Header for .wav file
   character arg*12,fname*17
   character msg37*37,msgsent37*37
   character c77*77
-  complex c0(0:NZZ-1)
-  complex c(0:NZZ-1)
-  real wave(NZZ)
-  real dphi(0:NZZ-1)
-  real pulse(3*NSPS)               
+  complex c0(0:NMAX-1)
+  complex c(0:NMAX-1)
+  real wave(NMAX)
   integer itone(NN)
   integer*1 msgbits(77)
-  integer*2 iwave(NZZ)                  !Generated full-length waveform
+  integer*2 iwave(NMAX)                  !Generated full-length waveform
   integer icos4(4)
   data icos4/0,1,3,2/
   
 ! Get command-line argument(s)
   nargs=iargc()
   if(nargs.ne.7) then
-     print*,'Usage:    ft4sim "message"                 f0     DT fdop del nfiles snr'
+     print*,'Usage:    ft4sim "message"               f0   DT fdop del nfiles snr'
      print*,'Examples: ft4sim "CQ W9XYZ EN37"        1500 0.0  0.1 1.0   10   -15'
      print*,'          ft4sim "K1ABC W9XYZ R 539 WI" 1500 0.0  0.1 1.0   10   -15'
      go to 999
@@ -82,49 +78,25 @@ program ft4sim
 
   call sgran()
 
-! The filtered frequency pulse 
-  do i=1,3*NSPS
-     tt=(i-1.5*NSPS)/real(NSPS)
-     pulse(i)=gfsk_pulse(1.0,tt)
-  enddo
-
-! Define the instantaneous frequency waveform
-  dphi_peak=twopi*hmod/real(NSPS)
-  dphi=0.0 
-  do j=1,NN         
-     ib=(j-1)*NSPS
-     ie=ib+3*NSPS-1
-     dphi(ib:ie)=dphi(ib:ie)+dphi_peak*pulse*itone(j)
-  enddo
-
-  phi=0.0
-  c0=0.0
-  dphi=dphi+twopi*f0*dt
-!  do j=0,NMAX-1                          !### ??? ###
-  do j=0,(NN+2)*NSPS-1
-     c0(j)=cmplx(cos(phi),sin(phi))
-     phi=mod(phi+dphi(j),twopi)
-  enddo 
- 
-  c0(0:NSPS-1)=c0(0:NSPS-1)*(1.0-cos(twopi*(/(i,i=0,NSPS-1)/)/(2.0*NSPS)) )/2.0
-  c0((NN+1)*NSPS:(NN+2)*NSPS-1)=c0((NN+1)*NSPS:(NN+2)*NSPS-1)*(1.0+cos(twopi*(/(i,i=0,NSPS-1)/)/(2.0*NSPS) ))/2.0
-  c0((NN+2)*NSPS:)=0.
+  fsample=12000.0
+  icmplx=1
+  call gen_ft4wave(itone,NN,NSPS,fsample,f0,c0,wave,icmplx,NMAX)
 
   k=nint((xdt+0.5)/dt)-NSPS
   c0=cshift(c0,-k)
   if(k.gt.0) c0(0:k-1)=0.0
-  if(k.lt.0) c0(NZZ+k:NZZ-1)=0.0
+  if(k.lt.0) c0(NMAX+k:NMAX-1)=0.0
 
   do ifile=1,nfiles
      c=c0
-     if(fspread.ne.0.0 .or. delay.ne.0.0) call watterson(c,NZZ,NWAVE,fs,delay,fspread)
+     if(fspread.ne.0.0 .or. delay.ne.0.0) call watterson(c,NMAX,NZ,fs,delay,fspread)
      c=sig*c
      wave=real(c)
      peak=maxval(abs(wave))
      nslots=1
    
      if(snrdb.lt.90) then
-        do i=1,NZZ                   !Add gaussian noise at specified SNR
+        do i=1,NMAX                   !Add gaussian noise at specified SNR
            xnoise=gran()
            wave(i)=wave(i) + xnoise
         enddo
@@ -140,7 +112,7 @@ program ft4sim
      endif
      if(any(abs(wave).gt.32767.0)) print*,"Warning - data will be clipped."
      iwave=nint(wave)
-     h=default_header(12000,NZZ)
+     h=default_header(12000,NMAX)
      write(fname,1102) ifile
 1102 format('000000_',i6.6,'.wav')
      open(10,file=fname,status='unknown',access='stream')

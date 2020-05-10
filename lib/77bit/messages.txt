@@ -51,8 +51,8 @@ TU; G3AAA K1ABC R 559 MA
 -----------------------------------------------------------
 CQ G4ABC/P IO91
                                    G4ABC/P PA9XYZ JO22
-PA9XYZ 590003 IO91NP
-                                   G4ABC/P R 570007 JO22DB
+<PA9XYZ> <G4ABC/P> 590003 IO91NP
+                                   <G4ABC/P> <PA9XYZ> R 570007 JO22DB
 PA9XYZ G4ABC/P RR73
 
 8. Compound or nonstandard calls CQ
@@ -73,17 +73,7 @@ CQ W9XYZ EN37
 YW18FIFA <W9XYZ> RRR
                                    <W9XYZ> YW18FIFA 73
 
-10. WWROF FT8/FT4 contest
------------------------------------------------------------
-CQ TEST K1ABC FN42
-                                   K1ABC W9XYZ -16 EN
-W9XYZ K1ABC R-07 FN
-                                   K1ABC W9XYZ RR73
-                                   K1ABC G3AAA -11 IO
-TU; G3AAA K1ABC R-09 FN
-                                   K1ABC G3AAA RR73
-
-11. Other stuff
+10. Other stuff
 -----------------------------------------------------------
 TNX BOB 73 GL
 CQ YW18FIFA
@@ -93,3 +83,9 @@ KA1ABC <YW18FIFA> -11
 <KA1ABC> YW18FIFA RR73
 <YW18FIFA> KA1ABC 73
 123456789ABCDEF012
+K1ABC FN42 37
+PJ4/K1ABC 37
+K1ABC/VE3 37
+KA1ABC/VEX 37
+<PJ4/K1ABC> FK52UD
+<K1ABC/W4> FK52UD

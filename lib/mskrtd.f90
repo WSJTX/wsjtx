@@ -1,4 +1,4 @@
-subroutine mskrtd(id2,nutc0,tsec,ntol,nrxfreq,ndepth,mycall,mygrid,hiscall,   &
+subroutine mskrtd(id2,nutc0,tsec,ntol,nrxfreq,ndepth,mycall,hiscall,      &
      bshmsg,btrain,pcoeffs,bswl,datadir,line)
 
 ! Real-time decoder for MSK144.  
@@ -18,7 +18,6 @@ subroutine mskrtd(id2,nutc0,tsec,ntol,nrxfreq,ndepth,mycall,mygrid,hiscall,   &
   character*37 msglast,msglastswl    !Used for dupechecking
   character*80 line                  !Formatted line with UTC dB T Freq Msg
   character*12 mycall,hiscall
-  character*6 mygrid
   character*37 recent_shmsgs(NSHMEM)
   character*512 datadir
 
@@ -71,8 +70,8 @@ subroutine mskrtd(id2,nutc0,tsec,ntol,nrxfreq,ndepth,mycall,mygrid,hiscall,   &
      msglastswl='                                     '
      nsnrlast=-99
      nsnrlastswl=-99
-     mycall13=mycall//'          '
-     dxcall13=hiscall//'          '
+     mycall13=mycall//' '
+     dxcall13=hiscall//' '
      first=.false.
   endif
 

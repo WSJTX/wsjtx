@@ -22,20 +22,20 @@
 #include <QFuture>
 #include <QFutureWatcher>
 
-#include "AudioDevice.hpp"
+#include "Audio/AudioDevice.hpp"
 #include "commons.h"
 #include "Radio.hpp"
 #include "models/Modes.hpp"
 #include "models/FrequencyList.hpp"
 #include "Configuration.hpp"
-#include "WSPRBandHopping.hpp"
-#include "Transceiver.hpp"
+#include "WSPR/WSPRBandHopping.hpp"
+#include "Transceiver/Transceiver.hpp"
 #include "DisplayManual.hpp"
-#include "psk_reporter.h"
+#include "Network/psk_reporter.h"
 #include "logbook/logbook.h"
 #include "astro.h"
 #include "MessageBox.hpp"
-#include "NetworkAccessManager.hpp"
+#include "Network/NetworkAccessManager.hpp"
 
 #define NUM_JT4_SYMBOLS 206                //(72+31)*2, embedded sync
 #define NUM_JT65_SYMBOLS 126               //63 data + 63 sync
@@ -467,6 +467,9 @@ private:
   qint32  m_nFoxFreq;          //Audio freq at which Hound received a call from Fox
   qint32  m_nSentFoxRrpt=0;    //Serial number for next R+rpt Hound will send to Fox
   qint32  m_kin0=0;
+  qint32  m_earlyDecode=41;
+  qint32  m_earlyDecode2=47;
+  qint32  m_nDecodes=0;
 
   bool    m_btxok;		//True if OK to transmit
   bool    m_diskData;
@@ -557,6 +560,7 @@ private:
   QLabel last_tx_label;
   QLabel auto_tx_label;
   QLabel band_hopping_label;
+  QLabel ndecodes_label;
   QProgressBar progressBar;
   QLabel watchdog_label;
 
@@ -589,6 +593,7 @@ private:
   QString m_hisCall;
   QString m_hisGrid;
   QString m_appDir;
+  QString m_cqStr;
   QString m_palette;
   QString m_dateTime;
   QString m_mode;
@@ -603,7 +608,6 @@ private:
   QString m_cmnd;
   QString m_cmndP1;
   QString m_msgSent0;
-  QString m_fileToSave;
   QString m_calls;
   QString m_CQtype;
   QString m_opCall;
@@ -756,8 +760,7 @@ private:
   qint64  nWidgets(QString t);
   void displayWidgets(qint64 n);
   void vhfWarning();
-  QChar current_submode () const; // returns QChar {0} if sub mode is
-                                  // not appropriate
+  QChar current_submode () const; // returns QChar {0} if submode is not appropriate
   void write_transmit_entry (QString const& file_name);
   void selectHound(QString t);
   void houndCallers();
@@ -765,6 +768,7 @@ private:
   void foxTxSequencer();
   void foxGenWaveform(int i,QString fm);
   void writeFoxQSO (QString const& msg);
+  void to_jt9(qint32 n, qint32 istart, qint32 idone);
 };
 
 extern int killbyname(const char* progName);

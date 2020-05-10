@@ -19,6 +19,8 @@ extern "C" {
   void plotsave_(float swide[], int* m_w , int* m_h1, int* irow);
 }
 
+extern dec_data dec_data;
+
 CPlotter::CPlotter(QWidget *parent) :                  //CPlotter Constructor
   QFrame {parent},
   m_set_freq_action {new QAction {tr ("&Set Rx && Tx Offset"), this}},
@@ -327,12 +329,12 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
   float pixperdiv;
 
   double df = m_binsPerPixel*m_fftBinWidth;
-  QRect rect;
   QPen penOrange(QColor(255,165,0),3);
-  QPen penGreen(Qt::green, 3);                 //Mark Tol range with green line
+//  QPen penGreen(Qt::green, 3);                 //Mark Tol range with green line
+  QPen penGreen(QColor(15,153,105), 3);        //Mark Tol range or BW with dark green line
   QPen penRed(Qt::red, 3);                     //Mark Tx freq with red
   QPainter painter(&m_OverlayPixmap);
-  painter.initFrom(this);
+  painter.setBackground (palette ().brush (backgroundRole ()));
   QLinearGradient gradient(0, 0, 0 ,m_h2);     //fill background with gradient
   gradient.setColorAt(1, Qt::black);
   gradient.setColorAt(0, Qt::darkBlue);
@@ -372,7 +374,7 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
 
   QRect rect0;
   QPainter painter0(&m_ScalePixmap);
-  painter0.initFrom(this);
+  painter0.setBackground (palette ().brush (backgroundRole ()));
 
   //create Font to use for scales
   QFont Font("Arial");

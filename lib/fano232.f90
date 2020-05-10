@@ -6,7 +6,7 @@ subroutine fano232(symbol,nbits,mettab,ndelta,maxcycles,dat,     &
 ! written by Phil Karn, KA9Q.
 
   parameter (MAXBITS=103)
-  parameter (MAXBYTES=(MAXBITS+7)/8)
+  parameter (MAXBYTES=13)          !(MAXBITS+7)/8
   integer*1 symbol(0:2*MAXBITS-1)  !Soft symbols (as unsigned i*1)
   integer*1 dat(MAXBYTES)          !Decoded user data, 8 bits per byte
   integer mettab(-128:127,0:1)     !Metric table
@@ -126,7 +126,7 @@ subroutine fano232(symbol,nbits,mettab,ndelta,maxcycles,dat,     &
   np=7
   do j=1,nbytes-1
      i4a=nstate(np)
-     dat(j)=i4a
+     dat(j)=int(i4a,1)
      np=np+8
   enddo
   dat(nbytes)=0

@@ -93,10 +93,9 @@ subroutine msk144decodeframe(c,softbits,msgreceived,nsuccess)
   llr=2.0*llr/(sigma*sigma)
   
   max_iterations=10
-!  call timer('bpdec128_90 ',0)
   apmask=0
+  dmin=0.0
   call bpdecode128_90(llr,apmask,max_iterations,decoded77,cw,nharderror,niterations)
-!  call timer('bpdec128_90 ',1)
   if( nharderror .ge. 0 .and. nharderror .lt. 18 ) then
     nsuccess=1
     write(c77,'(77i1)') decoded77

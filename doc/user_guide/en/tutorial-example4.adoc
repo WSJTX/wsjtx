@@ -1,7 +1,6 @@
 FT4 is designed for contesting, particularly on the HF bands.
 Compared with FT8 it is 3.5 dB less sensitive and requires 1.6 times
 the bandwidth, but it offers the potential for twice the QSO rate.
-FT4 is not recommended for everyday use.
 
 .Main Window:
 - Select *FT4* on the *Mode* menu.
@@ -45,7 +44,7 @@ when double-clicking.
 
 .Best S+P Button
 
-The FT4 user interface includes a new button labeled *Best S+P*.
+The FT4 user interface includes a button labeled *Best S+P*.
 
 image::Best_S+P.png[align="center"]
 
@@ -72,6 +71,13 @@ in message* and *Transmitted message*, reading from top to bottom.
 
 TIP: Keyboard shortcuts *Shift+F11* and *Shift+F12* provide an easy
 way to move your FT4 Tx frequency down or up in 90 Hz steps.
+
+TIP: For easy keyboard control of transmitted messages, check
+*Alternate F1–F6 bindings* on the Settings | General tab. In
+contest-style operation you can then hit *F1* to solicit a QSO by
+sending CQ.  Similarly, keys *F2* to *F5* will send the messages in
+entry fields *Tx2* to *Tx5*.  More details on contest-style operation
+can be found in {ft4_protocol}.
 
 IMPORTANT: When finished with this Tutorial, don't forget to re-enter
 your own callsign as *My Call* on the *Settings | General* tab.

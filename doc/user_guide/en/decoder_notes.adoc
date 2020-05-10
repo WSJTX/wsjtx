@@ -1,10 +1,11 @@
+[[AP_Decoding]]
 === AP Decoding
 
-The _WSJT-X_ decoders for JT65, QRA64, and FT8 include optional
-procedures that use naturally accumulating information during a
-minimal QSO.  This _a priori_ (AP) information increases sensitivity
-of the decoder by up to 4 dB, at the cost of a slightly higher rate of
-false decodes.
+The _WSJT-X_ decoders for FT4, FT8, JT65, and QRA64 include optional
+procedures that take advantage of naturally accumulating information
+during a minimal QSO.  This _a priori_ (AP) information increases
+sensitivity of the decoder by up to 4 dB, at the cost of a slightly
+higher rate of false decodes.
 
 For example: when you decide to answer a CQ, you already know your own
 callsign and that of your potential QSO partner.  The software
@@ -12,7 +13,7 @@ therefore "`knows`" what might be expected for at least 57 message
 bits (28 for each of two callsigns, 1 or more for message type) in the
 next received message.  The decoder's task can thus be reduced to
 determining the remaining 15 bits of the message and ensuring that the
-resulting solution is reliable.
+resulting solution is consistent with the message's parity symbols.
 
 AP decoding starts by setting AP bits to the hypothesized values, as
 if they had been received correctly.  We then determine whether the
@@ -20,11 +21,11 @@ remaining message and parity bits are consistent with the hypothesized
 AP bits, with a specified level of confidence.  Successful AP decodes
 are labeled with an end-of-line indicator of the form `aP`, where `P`
 is one of the single-digit AP decoding types listed in Table 1.  For
-example, `a2` indicates that the successful decode used MyCall as
+example, `a2` indicates that the successful decode used *MyCall* as
 hypothetically known information.
 
 [[FT8_AP_INFO_TABLE]]
-.FT8 AP information types
+.FT4 and FT8 AP information types
 [width="35%",cols="h10,<m20",frame=topbot,options="header"]
 |===============================================
 |aP | Message components
@@ -47,7 +48,7 @@ _WSJT-X_ auto-sequencer, along with the type of AP decoding that would
 be attempted in each state.
 
 [[FT8_AP_DECODING_TYPES_TABLE]]
-.FT8 AP decoding types for each QSO state
+.FT4 and FT8 AP decoding types for each QSO state
 [width="35%",cols="h10,<m20",frame=topbot,options="header"]
 |===========================================
 |State        |AP type
@@ -59,8 +60,10 @@ be attempted in each state.
 |CALLING CQ   |   1, 2
 |===========================================
 
-Decoding with _a priori_ information behaves slightly differently
-in JT65.  Some details are provided in Tables 3 and 4.
+Decoding with _a priori_ information behaves slightly differently in
+JT65.  Some details are provided in Tables 3 and 4.  Notations such as
+`a63`, use a second digit to indicate the number of Rx intervals
+averaged to obtain the decode.
 
 [[JT65_AP_INFO_TABLE]]
 .JT65 AP information types
@@ -90,6 +93,7 @@ in JT65.  Some details are provided in Tables 3 and 4.
 |===========================================
 
 
+[[Decoded_Lines]]
 === Decoded Lines
 
 Displayed information accompanying decoded messages generally includes UTC,
@@ -106,14 +110,15 @@ summarized in the following Table:
 [width="50%",cols="h,3*^",frame=topbot,options="header"]
 |===========================================
 |Mode    |Mode character|Sync character|End of line information
+|FT4     | +            |      | ? &#160; aP
 |FT8     | ~            |      | ? &#160; aP
-|JT4     | $            | *, # | f, fN, dNC
+|JT4     | $            | *, # | f, fN, dCN
 |JT9     | @            |      |
 |JT65    | #            |      |
-|JT65 VHF| #            | *, # | f, fN, dNC
+|JT65 VHF| #            | *, # | f, fN, dCN
 |QRA64   | :            | *    | R
 |ISCAT   |              | *    | M  N  C  T
-|MSK144  | &            |      | N  H  E
+|MSK144  | &            |      |
 |===========================================
 Sync character::
  `*` - Normal sync +
@@ -124,9 +129,7 @@ End of line information::
  `a` - Decoded with aid of some a priori (AP) information +
  `C` - Confidence indicator [ISCAT and Deep Search; (0-9,*)] +
  `d` - Deep Search algorithm +
- `E` - Size of MSK eye diagram opening - if negative, the eye is closed + 
  `f` - Franke-Taylor or Fano algorithm +
- `H` - Number of bit errors corrected +
  `M` - Message length (characters) +
  `N` - Number of Rx intervals or frames averaged +
  `P` - Number indicating type of AP information (Table 1, above) +

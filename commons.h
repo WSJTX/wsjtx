@@ -7,9 +7,7 @@
 
 #ifdef __cplusplus
 #include <cstdbool>
-extern "C" {
-#endif
-#ifndef __cplusplus
+#else
 #include <stdbool.h>
 #endif
 
@@ -17,7 +15,8 @@ extern "C" {
    * This structure is shared with Fortran code, it MUST be kept in
    * sync with lib/jt9com.f90
    */
-extern struct dec_data {
+typedef struct dec_data {
+  int   ipc[3];
   float ss[184*NSMAX];
   float savg[NSMAX];
   float sred[5760];
@@ -66,7 +65,11 @@ extern struct dec_data {
     char hiscall[12];
     char hisgrid[6];
   } params;
-} dec_data;
+} dec_data_t;
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 extern struct {
   float syellow[NSMAX];

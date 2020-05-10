@@ -364,7 +364,9 @@ int main(int argc, char *argv[])
               throw std::runtime_error {"Shared memory error"};
             }
           }
+          mem_jt9.lock ();
           memset(mem_jt9.data(),0,sizeof(struct dec_data)); //Zero all decoding params in shared memory
+          mem_jt9.unlock ();
 
           unsigned downSampleFactor;
           {

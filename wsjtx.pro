@@ -52,6 +52,7 @@ include(validators/validators.pri)
 include(item_delegates/item_delegates.pri)
 include(logbook/logbook.pri)
 include(widgets/widgets.pri)
+include(Decoder/decodedtext.pri)
 
 SOURCES += \
   Radio.cpp NetworkServerLookup.cpp revision_utils.cpp \

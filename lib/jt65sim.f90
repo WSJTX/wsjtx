@@ -169,23 +169,19 @@ program jt65sim
         if(csubmode.eq.'B' .and. snrdb.eq.0.0) xsnr=-21 - isig
         if(csubmode.eq.'C' .and. snrdb.eq.0.0) xsnr=-21 - isig
 
-!###
-!        call1="K1ABC"
-!        ic3=65+mod(isig-1,26)
-!        ic2=65+mod((isig-1)/26,26)
-!        ic1=65
-!        call2="W9"//char(ic1)//char(ic2)//char(ic3)
-!        write(msg,1010) call1,call2,nint(xsnr)
-!1010    format(a5,1x,a5,1x,i3.2)
-!###
         call packmsg(msg,dgen,itype)        !Pack message into 12 six-bit bytes
         call rs_encode(dgen,sent)           !Encode using RS(63,12)
         call interleave63(sent,1)           !Interleave channel symbols
         call graycode65(sent,63,1)          !Apply Gray code
 
+        nprc_test=0
+        i1=len(trim(msg))
+        if(i1.gt.10) then
+           if(msg(i1-3:i1).eq.' OOO') nprc_test=1
+        endif
         k=0
         do j=1,nsym                         !Insert sync and data into itone()
-           if(nprc(j).eq.0) then
+           if(nprc(j).eq.nprc_test) then
               k=k+1
               itone(j)=sent(k)+2
            else
@@ -200,9 +196,11 @@ program jt65sim
           if(msg(1:2).eq.'73') nshorthand=4
           if(nshorthand.gt.0) then
             ntoggle=0
-            do i=1,nsym,2
+            do i=1,nsym,4
               itone(i)=ntoggle*10*nshorthand
               if(i+1.le.126) itone(i+1)=ntoggle*10*nshorthand
+              if(i+2.le.126) itone(i+2)=ntoggle*10*nshorthand
+              if(i+3.le.126) itone(i+3)=ntoggle*10*nshorthand
               ntoggle=mod(ntoggle+1,2)
             enddo
           endif

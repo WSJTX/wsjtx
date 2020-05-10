@@ -6,8 +6,8 @@
 
 #include "Radio.hpp"
 #include "models/IARURegions.hpp"
-#include "AudioDevice.hpp"
-#include "Transceiver.hpp"
+#include "Audio/AudioDevice.hpp"
+#include "Transceiver/Transceiver.hpp"
 
 #include "pimpl_h.hpp"
 
@@ -180,7 +180,7 @@ public:
   bool highlight_only_fields () const;
   bool include_WAE_entities () const;
  
-  enum class SpecialOperatingActivity {NONE, NA_VHF, EU_VHF, FIELD_DAY, RTTY, FOX, HOUND};
+  enum class SpecialOperatingActivity {NONE, NA_VHF, EU_VHF, FIELD_DAY, RTTY, WW_DIGI, FOX, HOUND};
   SpecialOperatingActivity special_op_id () const;
 
   struct CalibrationParams

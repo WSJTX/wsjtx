@@ -1,15 +1,73 @@
 === New in Version {VERSION}
 
-The most important feature added to _WSJT-X_ since Version 2.0.1 is
-the new *FT4 protocol*, designed especially for radio contesting.  It
-has T/R sequence length 7.5 s, bandwidth 80 Hz, and threshold
-sensitivity -17.5 dB.  Version 2.1.0 also has improvements to FT8
-waveform generation, waterfall and spectrum display, contest logging,
-rig control, the user interface, keyboard shortcuts, UDP messaging for
-inter-program communication, and accessibility, as well as a number of
-more minor enhancements and bug fixes.  We now provide a separate
-installation package for 64-bit Windows Vista and later, offering
-significant improvements in decoding speed.
+*Improvements to decoders*
+
+*FT4:* Corrected bugs that prevented AP (_a priori_) decoding and/or
+multi-pass decoding in some circumstances.  Improved and extended the
+algorithm for AP decoding.
+
+*FT8:* Decoding is now spread over three intervals.  The first starts
+11.8 s into an Rx sequence and typically yields around 85% of the
+possible decodes, so you see most decodes much earlier than before.  A
+second processing step starts at 13.5 s, and the final one at 14.7 s.
+Overall decoding yield on crowded bands is improved by 10% or more.
+Systems with receive latency greater than 0.2 s will see smaller
+improvements, but will still see many decodes earlier than before.
+
+SNR estimates no longer saturate at +20 dB, and large signals in the
+passband no longer cause the SNR of weaker signals to be biased low.
+Times written to cumulative journal file ALL.TXT are now correct even
+when the decode occurs after the T/R sequence boundary.  In FT8
+DXpedition Mode, AP decoding is now implemented for Hounds when the
+Fox has a compound callsign.
+
+
+*JT4:*  Formatting and display of averaged and Deep Search decodes has
+been cleaned up and made consistent with other modes used for EME and
+extreme weak-signal work on microwave bands.
+
+*JT65:*  Many improvements have been made for averaged and Deep Search
+decodes, and their display to the user.  For details see <<VHF_JT65,JT65>>
+in the <<VHF_AND_UP,VHF+ Features>> section of this guide.
+
+*WSPR:* Significant improvements have been made to the WSPR decoder's
+sensitivity, its ability to cope with many signals in a crowded
+sub-band, and its rate of undetected false decodes.  We now use up to
+three decoding passes.  Passes 1 and 2 use noncoherent demodulation of
+single symbols and allow for frequency drifts up to ±4 Hz in a
+transmission.  Pass 3 assumes no drift and does coherent block
+detection of up to three symbols.  It also applies bit-by-bit
+normalization of the single-symbol bit metrics, a technique that has
+proven helpful for signals corrupted by artifacts of the subtraction
+of stronger signals and also for LF/MF signals heavily contaminated by
+lightning transients.  With these improvements the number of decodes
+in a crowded WSPR sub-band typically increases by 10 to 15%.
+
+*New message format:* When *EU VHF Contest* is selected, the Tx2 and
+Tx3 messages -- those conveying signal report, serial number, and
+6-character locator -- now use hashcodes for both callsigns.  This
+change is *not* backward compatible with earlier versions of _WSJT-X_, so
+all users of *EU VHF Contest* messages should be sure to upgrade to
+versiion 2.2.0.  See <<CONTEST_MSGS,Contest Messages>> for details.
+
+*Minor enhancements and bug fixes*
+
+- *Save None* now writes no .wav files to disk, even temporarily.
+
+- An explicit entry for *WW Digi Contest* has been added to *Special
+ operating activities* on the *Settings | Advanced* tab.
+
+- The contest mode FT4 now always uses RR73 for the Tx4 message.
+
+- *Keyboard shortcuts* have been added as an aid to accessibility:
+*Alt+R* sets Tx4 message to RR73, *Ctrl+R* sets it to RRR.
+
+- The *Status bar* now displays the number of decodes found in the
+most recent Rx sequence.
+
+- As an aid for partial color-blindness, the "`inverted goal posts`"
+marking Rx frequency on the Wide Graph's frequency scale are now in a
+darker shade of green.
 
 === Documentation Conventions
 
@@ -34,6 +92,5 @@ your interests known to the development team.  The project's
 source-code repository can be found at {devrepo}, and communication
 among the developers takes place on the email reflector {devmail}.
 Bug reports and suggestions for new features, improvements to the
-_WSJT-X_ User Guide, etc., may also be sent to the {wsjt_yahoo_group}
-email reflector.  You must join the relevant group before posting to
-either email list.
+_WSJT-X_ User Guide, etc., may be sent there as well.  You must join
+the group before posting to the email list.

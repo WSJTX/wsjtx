@@ -5,7 +5,7 @@ program msk144code
 
   use packjt77
   character*77 c77
-  character msg*37,msgsent*37,decoded,bad*1,msgtype*18
+  character msg*37,msgsent*37,bad*1,msgtype*18
   integer*4 i4tone(144)
   include 'msk144_testmsg.f90'
 

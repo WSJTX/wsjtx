@@ -29,8 +29,8 @@ public:
   explicit CPlotter(QWidget *parent = 0);
   ~CPlotter();
 
-  QSize minimumSizeHint() const;
-  QSize sizeHint() const;
+  QSize minimumSizeHint() const Q_DECL_OVERRIDE;
+  QSize sizeHint() const Q_DECL_OVERRIDE;
 
   void draw(float swide[], bool bScroll, bool bRed);		//Update the waterfall
   void replot();

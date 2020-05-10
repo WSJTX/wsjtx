@@ -54,7 +54,7 @@ Directory::Directory (Configuration const * configuration
 
   connect (network_manager_, &QNetworkAccessManager::authenticationRequired
            , this, &Directory::authentication);
-  connect (this, &Directory::itemChanged, [this] (QTreeWidgetItem * item) {
+  connect (this, &Directory::itemChanged, [] (QTreeWidgetItem * item) {
       switch (item->type ())
         {
         case FileNode::Type:

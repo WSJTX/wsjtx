@@ -1,33 +1,26 @@
-_WSJT-X_ v{VERSION_MAJOR}.{VERSION_MINOR} supports a number of
-features designed for use on the VHF and higher bands.  These features
-include:
+_WSJT-X_ supports a number of features designed for use on the VHF and
+higher bands.  These features include:
 
-- *FT8*, a mode designed for making fast QSOs with weak, fading
-signals
+- *FT4*, designed especially for contesting
 
-- *JT4*, a mode particularly useful for EME on the microwave bands
+- *FT8*, designed for making fast QSOs with weak, fading signals
 
-- *JT9* fast modes, useful for scatter propagation on VHF bands
+- *JT4*, particularly useful for EME on the microwave bands
+
+- *JT9 fast modes*, useful for scatter propagation on VHF bands
 
 - *JT65*, widely used for EME on VHF and higher bands
 
-- *QRA64*, a mode for EME using a "`Q-ary Repeat Accumulate`" code,
-a low-density parity-check (LDPC) code using a 64-character symbol
-alphabet
+- *QRA64*, another mode for EME
 
-- *MSK144*, a mode for meteor scatter using a binary LDPC code and
-Offset Quadrature Phase-Shift Keying (OQPSK).  The resulting waveform
-is sometimes called Minimum Shift Keying (MSK).
+- *MSK144*, for meteor scatter
 
-- *ISCAT*, intended for aircraft scatter and other types of scatter
-propagation
+- *ISCAT*, for aircraft scatter and other types of scatter propagation
 
 - *Echo* mode, for detecting and measuring your own lunar echoes
 
 - *Doppler tracking*, which becomes increasingly important for EME
 on bands above 1.2 GHz.
-
-- Optional *Auto-Sequencing* in JT4, JT9, and JT65 as well as FT8 and QRA64.
 
 [[VHF_SETUP]]
 === VHF Setup
@@ -155,23 +148,22 @@ QSO using submode JT4F.
 
 image::JT4F.png[align="center",alt="JT4F"]
 
+[[VHF_JT65]]
 === JT65
 
 In many ways JT65 operation on VHF and higher bands is similar to HF
 usage, but a few important differences should be noted.  Typical
 VHF/UHF operation involves only a single signal (or perhaps two or
-three) in the receiver passband.  You may find it best to check
-*Single decode* on the *Settings -> General* tab.  There will be
-little need for *Two pass decoding* on the *Advanced* tab.  With VHF
-features enabled the JT65 decoder will respond to special message
-formats often used for EME: the OOO signal report and two-tone
-shorthand messages for RO, RRR, and 73.  These messages are always
-enabled for reception; they will be automatically generated for
-transmission if you check the shorthand message box *Sh*.
-
-*Deep* on the *Decode* menu will be automatically selected.  You may
-optionally include *Enable averaging*, *Enable Deep search*, and
-*Enable AP*.
+three) in the receiver passband.  We recommend that you check *Single
+decode* on the *Settings -> General* tab, and do not check *Two pass
+decoding* on the *Advanced* tab.  With VHF features enabled the JT65
+decoder will respond to special message formats often used for EME:
+the OOO signal report and two-tone shorthand messages for RO, RRR, and
+73.  These messages are always enabled for reception; they will be
+automatically generated for transmission if you check the shorthand
+message box *Sh*.  *Deep* on the *Decode* menu will be automatically
+selected.  You may optionally include *Enable averaging*, *Enable Deep
+search*, and *Enable AP*.
 
 The following screen shot shows three transmissions from a 144 MHz EME
 QSO using submode JT65B and shorthand messages.  Take note of the
@@ -219,10 +211,10 @@ initially, as the QRA64 tones are often not visible on the waterfall.
 The box labeled *Tx6* switches the Tx6 message from 1000Hz to 1250Hz
 to indicate to the other station that you are ready to receive messages.
 
-TIP: QRA64 is different from JT65 in that the decoder attempts to find
-and decode only a single signal in the receiver passband.  If many
-signals are present, you may be able to decode them by double-clicking
-on the lowest tone of each one in the waterfall.
+TIP: QRA64 attempts to find and decode only a single signal in the
+receiver passband.  If many signals are present, you may be able to
+decode them by double-clicking on the lowest tone of each one in the
+waterfall.
 
 TIP: G3WDG has prepared a more detailed tutorial on using {QRA64_EME}. 
 
@@ -274,8 +266,6 @@ time being used for execution of the MSK144 real-time decoder.  If
 this number is well below 100%, you may increase the decoding depth
 from *Fast* to *Normal* or *Deep*, and increase *F Tol* from 100 to
 200 Hz.
-
-+
 
 NOTE: Most modern multi-core computers can easily handle the optimum
 parameters *Deep* and *F Tol 200*.  Older and slower machines may not
@@ -345,10 +335,105 @@ of the plot area on the Echo Graph window.
 
 image::echo_144.png[align="center",alt="Echo 144 MHz"]
 
-=== VHF+ Sample Files
+=== Tips for EME
 
-Sample recordings typical of QSOs using the VHF/UHF/Microwave modes
-and features of _WSJT-X_ are available for
-<<DOWNLOAD_SAMPLES,download>>.  New users of the VHF-and-up features
-are strongly encouraged to practice decoding the signals in these
-files.
+Current conventions dictate that digital EME is usually done with
+JT65A on the 50 MHz band, JT65B on 144 and 432 MHz, and JT65C on 1296
+MHz.  On higher microwave bands typical choices are JT65C or one of
+the wider QRA64 or JT4 submodes, depending on the expected amount of
+Doppler spread.  JT4 and JT65 offer message *Averaging* -- the
+summation of subsequent transmissions that convey the same message --
+to enable decodes at signal-to-noise ratios several dB below below the
+threshold for single transmissions.  These modes also allow *Deep
+Search* decoding, in which the decoder hypothesizes messages
+containing known or previously decoded callsigns and tests them for
+reliability using a correlation algorithm.  Finally, JT65 and QRA64
+offer _a priori_ (AP) decoding, which takes advantage of naturally
+accumulating information during a QSO.  The following tutorial aims to
+familiarize you with these program features, all of which are of
+special interest for EME and other extreme weak-signal conditions.
+
+As a starting point, configure _WSJT-X_ as follows:
+
+.Settings | General:
+- *My Call* =  W9XYZ
+
+- Check these boxes: *Enable VHF/UHF/Microwave features*, *Single
+decode*, *Decode after EME delay*
+
+.Settings | Advanced:
+
+- *Random erasure patterns* = 7, *Aggressive decoding level* = 0,
+*Two-pass decoding* = _unchecked_, *Waterfall spectra* =  _Most sensitive_
+
+.Main window menus:
+
+- *View* = Message averaging
+
+- *Mode* = JT65
+
+- *Decode:* *Deep* selected, *Enable averaging* checked,
+  *Enable deep search* unchecked, *Enable AP* checked
+
+.Main window:
+
+- *F Tol* = 500, *Rx* 1500 *Hz*, *Submode* = B, *Sync* = 0
+
+- *DX Call*, *DX Grid:* both empty
+
+.Wide Graph:
+
+- *Bins/Pixel* = 3, *N Avg* = 10
+
+- Adjust the width of the window so that the frequency range extends
+  up to at least 2400 Hz.
+
+If you have not already done so, install the sample files available
+for <<DOWNLOAD_SAMPLES,download>>.  Select *File | Open* and navigate
+to ...\save\samples\JT65\JT65B\000000_0001.wav.
+
+The waterfall should look something like the snapshot below. A barely
+visible vertical trace appears at 1300 Hz.  This is the synchronizing
+tone of a simulated JT65B signal with SNR = -26 dB.  
+
+image::EME_Deep_0.png[align="center",alt="EME_Deep_0"]
+
+The decoder recognizes the sync tone of a JT65 signal, but is unable
+to decode it, producing only this line in the _Single Period Decodes_
+panel:
+
+ 0001 -28  2.5 1300 #*
+
+Press *F6* repeatedly, to read subsequent files.  When
+five files have been read your display should look like this:
+
+image::EME_Deep_1.png[align="center",alt="EME_Deep_1"]
+
+The message `CQ K1ABC FN42` appears in the _Average Decodes_ panel,
+flagged with the <<Decoded_Lines,end-of line label>> `f3`.  The label
+means that decoding was accomplished with the Franke-Taylor 
+algorithm, using the average or 3 transmissions.
+
+The _Message Averaging_ window now looks like this:
+
+image::EME_Deep_2.png[align="center",alt="EME_Deep_2"]
+
+The `$` symbols mark lines corresponding to transmissions used in the
+most recent attempt toward an average decode.
+
+Hit the *F6* key again to read the sixth file.  You should now see the
+message `K1ABC G4XYZ IO91` displayed in the _Average Decodes_ panel,
+again with the `f3` label.  
+
+Now pretend you are K1ABC (enter `K1ABC` and `FN42` as *My Call* and
+*My Grid* on the *Settings | General* tab).  Click *Clear Avg* and
+double-click *Erase* to start with a fresh screen.  Open the files
+000000_0002.wav and 000000_0004.wav. You should now see the message
+`K1ABC G4XYZ IO91` in the _Average Decodes_ panel.  Its end-of-line
+flag `a22` indicates that this decode used *My Call* as _a priori_
+(AP) information of type 2 (see Table 1 in <<AP_Decoding,AP
+Decoding>>), and is based on the average of 2 transmissions.
+
+You might wish to experiment with other combinations of entries for
+*My Call*, *DX Call*, and *DX Grid*, and with toggling the various
+options of the *Decode* menu on and off.

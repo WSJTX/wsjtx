@@ -1,6 +1,6 @@
 subroutine multimode_decoder(ss,id2,params,nfsample)
 
-  !$ use omp_lib
+!$ use omp_lib
   use prog_args
   use timer_module, only: timer
   use jt4_decode
@@ -40,6 +40,8 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   character(len=20) :: datetime
   character(len=12) :: mycall, hiscall
   character(len=6) :: mygrid, hisgrid
+  character*60 line
+  data ndec8/0/
   save
   type(counting_jt4_decoder) :: my_jt4
   type(counting_jt65_decoder) :: my_jt65
@@ -60,7 +62,23 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   my_jt9%decoded = 0
   my_ft8%decoded = 0
   my_ft4%decoded = 0
+  
+! For testing only: return Rx messages stored in a file as decodes
+  inquire(file='rx_messages.txt',exist=ex)
+  if(ex) then
+     if(params%nzhsym.eq.41) then
+        open(39,file='rx_messages.txt',status='old')
+        do i=1,9999
+           read(39,'(a60)',end=5) line
+           if(line(1:1).eq.' ' .or. line(1:1).eq.'-') go to 800
+           write(*,'(a)') trim(line)
+        enddo
+5       close(39)
+     endif
+     go to 800
+  endif
 
+  ncontest=iand(params%nexp_decode,7)
   single_decode=iand(params%nexp_decode,32).ne.0
   bVHF=iand(params%nexp_decode,64).ne.0
   if(mod(params%nranera,2).eq.0) ntrials=10**(params%nranera/2)
@@ -85,7 +103,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   if(params%nmode.eq.8) then
 ! We're in FT8 mode
      
-     if(ncontest.eq.5) then
+     if(ncontest.eq.6) then
 ! Fox mode: initialize and open houndcallers.txt     
         inquire(file=trim(temp_dir)//'/houndcallers.txt',exist=ex)
         if(.not.ex) then
@@ -102,12 +120,16 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
 
      call timer('decft8  ',0)
      newdat=params%newdat
-     ncontest=iand(params%nexp_decode,7)
+     if(params%emedelay.ne.0.0) then
+        id2(1:156000)=id2(24001:180000)  ! Drop the first 2 seconds of data
+        id2(156001:180000)=0
+     endif
      call my_ft8%decode(ft8_decoded,id2,params%nQSOProgress,params%nfqso,    &
           params%nftx,newdat,params%nutc,params%nfa,params%nfb,              &
-          params%ndepth,ncontest,logical(params%nagain),                     &
-          logical(params%lft8apon),logical(params%lapcqonly),                &
-          params%napwid,mycall,hiscall,hisgrid)
+          params%nzhsym,params%ndepth,params%emedelay,ncontest,              &
+          logical(params%nagain),logical(params%lft8apon),                   &
+          logical(params%lapcqonly),params%napwid,mycall,hiscall,            &
+          params%ndiskdat)
      call timer('decft8  ',1)
      if(nfox.gt.0) then
         n30min=minval(n30fox(1:nfox))
@@ -115,7 +137,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
      endif
      j=0
 
-     if(ncontest.eq.5) then
+     if(ncontest.eq.6) then
 ! Fox mode: save decoded Hound calls for possible selection by FoxOp
         rewind 19
         if(nfox.eq.0) then
@@ -133,7 +155,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
                  n30fox(j)=n
                  m=n30max-n
                  if(len(trim(g2fox(j))).eq.4) then
-                    call azdist(mygrid,g2fox(j)//'  ',0.d0,nAz,nEl,nDmiles,	&
+                    call azdist(mygrid,g2fox(j)//'  ',0.d0,nAz,nEl,nDmiles, &
                          nDkm,nHotAz,nHotABetter)
                  else
                     nDkm=9999
@@ -152,7 +174,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   if(params%nmode.eq.5) then
      call timer('decft4  ',0)
      call my_ft4%decode(ft4_decoded,id2,params%nQSOProgress,params%nfqso,    &
-          params%nutc,params%nfa,params%nfb,params%ndepth,                   &
+          params%nfa,params%nfb,params%ndepth,                               &
           logical(params%lapcqonly),ncontest,mycall,hiscall)
      call timer('decft4  ',1)
      go to 800
@@ -194,6 +216,8 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
      if(params%newdat) then
         if(nfsample.eq.12000) call wav11(id2,jz,dd)
         if(nfsample.eq.11025) dd(1:jz)=id2(1:jz)
+     else
+        jz=52*11025
      endif
      call my_jt4%decode(jt4_decoded,dd,jz,params%nutc,params%nfqso,         &
           params%ntol,params%emedelay,params%dttol,logical(params%nagain),  &
@@ -276,11 +300,19 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
 ! JT65 is not yet producing info for nsynced, ndecoded.
 800 ndecoded = my_jt4%decoded + my_jt65%decoded + my_jt9%decoded +       &
          my_ft8%decoded + my_ft4%decoded
-  write(*,1010) nsynced,ndecoded
+  if(params%nmode.eq.8 .and. params%nzhsym.eq.41) ndec41=ndecoded
+  if(params%nmode.eq.8 .and. params%nzhsym.eq.47) ndec47=ndecoded
+  if(params%nmode.eq.8 .and. params%nzhsym.eq.50) then
+     ndecoded=ndec41+ndec47+ndecoded
+  endif
+  if(params%nmode.ne.8 .or. params%nzhsym.eq.50 .or.                     &
+       .not.params%ndiskdat) then
+     write(*,1010) nsynced,ndecoded
 1010 format('<DecodeFinished>',2i4)
-  call flush(6)
+     call flush(6)
+  endif
   close(13)
-  if(ncontest.eq.5) close(19)
+  if(ncontest.eq.6) close(19)
   if(params%nmode.eq.4 .or. params%nmode.eq.65) close(14)
 
   return
@@ -310,16 +342,19 @@ contains
     if (have_sync) then
        decoded=decoded0
        cflags='   '
-       if(decoded.ne.'                      ') cflags='f  '
-       if(is_deep) then
-          cflags(1:2)='d1'
-          write(cflags(3:3),'(i1)') min(int(qual),9)
-          if(qual.ge.10.0) cflags(3:3)='*'
-          if(qual.lt.3.0) decoded(22:22)='?'
-       endif
-       if(is_average) then
-          write(cflags(2:2),'(i1)') min(ave,9)
-          if(ave.ge.10) cflags(2:2)='*'
+       if(decoded.ne.'                      ') then
+          cflags='f  '
+          if(is_deep) then
+             cflags='d  '
+             write(cflags(2:2),'(i1)') min(int(qual),9)
+             if(qual.ge.10.0) cflags(2:2)='*'
+             if(qual.lt.3.0) decoded(22:22)='?'
+          endif
+          if(is_average) then
+             write(cflags(3:3),'(i1)') min(ave,9)
+             if(ave.ge.10) cflags(3:3)='*'
+             if(cflags(1:1).eq.'f') cflags=cflags(1:1)//cflags(3:3)//' '
+          endif
        endif
        write(*,1000) params%nutc,snr,dt,freq,sync,decoded,cflags
 1000   format(i4.4,i4,f5.1,i5,1x,'$',a1,1x,a22,1x,a3)
@@ -398,7 +433,9 @@ contains
 1011   format(i4.4,i4,i5,f6.2,f8.0,i4,3x,a22,' QRA64',i3)
        go to 100
     endif
-    
+
+!    write(*,3001) ft,nsum,qual,sync,bVHF
+!3001 format('a',3i3,f5.1,L3)
     if(ft.eq.0 .and. minsync.ge.0 .and. int(sync).lt.minsync) then
        write(*,1010) params%nutc,snr,dt,freq
     else
@@ -406,18 +443,19 @@ contains
        if(bVHF .and. ft.gt.0) then
           cflags='f  '
           if(is_deep) then
-             cflags(1:2)='d1'
-             write(cflags(3:3),'(i1)') min(qual,9)
-             if(qual.ge.10) cflags(3:3)='*'
+             cflags='d  '
+             write(cflags(2:2),'(i1)') min(qual,9)
+             if(qual.ge.10) cflags(2:2)='*'
              if(qual.lt.3) decoded(22:22)='?'
           endif
           if(is_average) then
-             write(cflags(2:2),'(i1)') min(nsum,9)
-             if(nsum.ge.10) cflags(2:2)='*'
+             write(cflags(3:3),'(i1)') min(nsum,9)
+             if(nsum.ge.10) cflags(3:3)='*'
           endif
           nap=ishft(ft,-2)
           if(nap.ne.0) then
-            write(cflags(1:3),'(a1,i1)') 'a',nap 
+             if(nsum.lt.2) write(cflags(1:3),'(a1,i1," ")') 'a',nap
+             if(nsum.ge.2) write(cflags(1:3),'(a1,2i1)') 'a',nap,min(nsum,9)
           endif
        endif
        csync='# '
@@ -435,6 +473,12 @@ contains
                 decoded(i+2:i+4)='OOO'
              endif
           endif
+       endif
+       n=len(trim(decoded))
+       if(n.eq.2 .or. n.eq.3) csync='# '
+       if(cflags(1:1).eq.'f') then
+          cflags(2:2)=cflags(3:3)
+          cflags(3:3)=' '
        endif
        write(*,1010) params%nutc,snr,dt,freq,csync,decoded,cflags
 1010   format(i4.4,i4,f5.1,i5,1x,a2,1x,a22,1x,a3)
@@ -534,7 +578,7 @@ contains
     write(13,1002) params%nutc,nint(sync),snr,dt,freq,0,decoded0
 1002 format(i6.6,i4,i5,f6.1,f8.0,i4,3x,a37,' FT8')
 
-    if(ncontest.eq.5) then
+    if(ncontest.eq.6) then
        i1=index(decoded0,' ')
        i2=i1 + index(decoded0(i1+1:),' ')
        i3=i2 + index(decoded0(i2+1:),' ')
@@ -588,9 +632,7 @@ contains
     real, intent(in) :: dt
     real, intent(in) :: freq
     character(len=37), intent(in) :: decoded
-    character c1*12,c2*12,g2*4,w*4
-    integer i0,i1,i2,i3,i4,i5,n30,nwrap
-    integer, intent(in) :: nap 
+    integer, intent(in) :: nap
     real, intent(in) :: qual 
     character*2 annot
     character*37 decoded0
