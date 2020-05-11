@@ -58,7 +58,7 @@ set (PROJECT_MANUAL wsjtx-main)
 set (PROJECT_MANUAL_DIRECTORY_URL http://www.physics.princeton.edu/pulsar/K1JT/wsjtx-doc/)
 set (PROJECT_SAMPLES_URL http://downloads.sourceforge.net/project/wsjt/)
 set (PROJECT_SAMPLES_UPLOAD_DEST frs.sourceforge.net:/home/frs/project/wsjt/)
-set (PROJECT_SUMMARY_DESCRIPTION "${PROJECT_NAME} - Digital Modes for Weak Signal Communicaitons in Amateur Radio.")
+set (PROJECT_SUMMARY_DESCRIPTION "${PROJECT_NAME} - Digital Modes for Weak Signal Communications in Amateur Radio.")
 set (PROJECT_DESCRIPTION "${PROJECT_SUMMARY_DESCRIPTION}
  ${PROJECT_NAME} is a computer program designed to facilitate basic amateur
  radio communication using very weak signals. The first four letters in
