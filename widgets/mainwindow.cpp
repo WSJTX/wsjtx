@@ -801,8 +801,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
           SLOT(setFreq4(int,int)));
 
   decodeBusy(false);
-  QString t1[19]={"1 mW","2 mW","5 mW","10 mW","20 mW","50 mW","100 mW","200 mW","500 mW",
-                  "1 W","2 W","5 W","10 W","20 W","50 W","100 W","200 W","500 W","1 kW"};
 
   m_msg[0][0]=0;
   ui->labDXped->setVisible(false);
@@ -811,13 +809,10 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   ui->labNextCall->setVisible(false);
   ui->labNextCall->setToolTip("");                //### Possibly temporary ? ###
 
-  for(int i=0; i<19; i++)  {                      //Initialize dBm values
-    float dbm=(10.0*i)/3.0;
-    int ndbm=int(dbm+0.5);
-    QString t;
-    t = t.asprintf("%d dBm  ",ndbm);
-    t+=t1[i];
-    ui->TxPowerComboBox->addItem(t);
+  char const * const power[] = {"1 mW","2 mW","5 mW","10 mW","20 mW","50 mW","100 mW","200 mW","500 mW",
+                  "1 W","2 W","5 W","10 W","20 W","50 W","100 W","200 W","500 W","1 kW"};
+  for(auto i = 0u; i < sizeof power / sizeof power[0]; ++i)  { //Initialize dBm values
+    ui->TxPowerComboBox->addItem (QString {"%1 dBm  %2"}.arg (int (10. * i / 3.)).arg (power[i]));
   }
 
   m_dateTimeRcvdRR73=QDateTime::currentDateTimeUtc();
@@ -935,7 +930,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_saveDecoded=ui->actionSave_decoded->isChecked();
   m_saveAll=ui->actionSave_all->isChecked();
   ui->sbTxPercent->setValue(m_pctx);
-  ui->TxPowerComboBox->setCurrentIndex(int(0.3*(m_dBm + 30.0)+0.2));
+  ui->TxPowerComboBox->setCurrentIndex(int(.3 * m_dBm + .2));
   ui->cbUploadWSPR_Spots->setChecked(m_uploadSpots);
   if((m_ndepth&7)==1) ui->actionQuickDecode->setChecked(true);
   if((m_ndepth&7)==2) ui->actionMediumDecode->setChecked(true);
