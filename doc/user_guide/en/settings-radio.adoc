@@ -26,8 +26,6 @@ your radio, select the *Radio* tab.
 
 +
 
-NOTE: _Omni-Rig_ is available only under Windows.
-
 * Set *Poll Interval* to the desired interval for _WSJT-X_ to query
   your radio.  For most radios a small number (say, 1 – 3 s) is
   suitable.

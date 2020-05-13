@@ -19,7 +19,7 @@ to prevent inadvertently transmitting them over the air.
 
 +
 
-NOTE: Windows Vista and later may configure audio devices using
+NOTE: Windows 7 and later may configure audio devices using
 the Texas Instruments PCM2900 series CODEC for microphone input rather
 line input.  (This chip is used in many radios with built-in USB
 CODECs, as well as various other audio interfaces.)  If you are using

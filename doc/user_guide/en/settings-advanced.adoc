@@ -1,6 +1,6 @@
 image::settings-advanced.png[align="center",alt="Settings Advanced"]
 
-_JT65 decoding parameters_ 
+_JT65 VHF/UHF/Microwave decoding parameters_ 
 
 - *Random erasure patterns* logarithmically scales the number of
 pseudo-random trials used by the Franke-Taylor JT65 decoder.  Larger

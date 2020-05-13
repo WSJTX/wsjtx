@@ -39,12 +39,6 @@ TIP: The PC audio mixer normally has two sliders, one for each
   frequency setting, on HF bands you can display the full sub-band
   generally used for one mode.
 
-- Of course, you might prefer to concentrate on one mode at a time,
-  setting your dial frequency to (say) 14.074 for FT8, 14.076 for
-  JT65, or 14.078 for JT9.  Present conventions have the nominal JT9
-  dial frequency 2 kHz higher than the JT65 dial frequency on most
-  bands, and the FT8 frequency 2 kHz lower.
-
 .Transmitter Audio Level
 
 * Click the *Tune* button on the main screen to switch the radio into
