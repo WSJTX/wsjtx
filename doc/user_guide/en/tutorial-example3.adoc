@@ -1,14 +1,13 @@
 // Status=review
 .Main Window:
 - Select *FT8* on the *Mode* menu.
-- Set Tx frequency to 1600 Hz, Rx to 1442 Hz.
 - Double-click on *Erase* to clear both text windows.
 
 .Wide Graph Settings:
 
-- *Bins/Pixel* = 4, *Start* = 200 Hz, *N Avg* = 2
+- *Bins/Pixel* = 5, *Start* = 100 Hz, *N Avg* = 2
 - Adjust the width of the Wide Graph window so that the upper
-frequency limit is approximately 2600 Hz.
+frequency limit is approximately 3300 Hz.
 
 .Open a Wave File:
 
@@ -45,7 +44,7 @@ Rx frequency to that of the selected message and leaving Tx frequency
 unchanged.  To change both Rx and Tx frequencies, hold *Ctrl* down
 when double-clicking.
 
-TIP: To avoid QRM from competing callers, it is frequently desirable
+TIP: To avoid QRM from competing callers, it is usually best 
 to answer a CQ on a different frequency from that of the CQing
 station.  The same is true when you tail-end another QSO.  Choose a Tx
 frequency that appears to be not in use.  You might want to check the
@@ -54,7 +53,7 @@ box *Hold Tx Freq*.
 TIP: Keyboard shortcuts *Shift+F11* and *Shift+F12* provide an easy
 way to move your Tx frequency down or up in 60 Hz steps.
 
-TIP: An online {ft8_tips} by ZL2IFB offers many helpful tips on
+TIP: An online {ft8_tips} by ZL2IFB offers many additional tips on
 operating procedures.
 
 .FT8 DXpedition Mode:

@@ -9,14 +9,14 @@ rate.
 
 .Wide Graph Settings:
 
-- *Bins/Pixel* = 7, *Start* = 100 Hz, *N Avg* = 1
+- *Bins/Pixel* = 5, *Start* = 100 Hz, *N Avg* = 1
 - Adjust the width of the Wide Graph window so that the upper
-frequency limit is approximately 4000 Hz.
+frequency limit is approximately 3300 Hz.
 
 .Open a Wave File:
 
 - Select *File | Open* and navigate to
-+...\save\samples\FT4\000000_000002.wav+.  The waterfall and Band
++...\save\samples\FT4\200514_182053.wav+.  The waterfall and Band
 Activity window should look something like the following screen shots.
 This sample file was recorded during a practice contest test session, so
 most of the decoded messages use the *RTTY Roundup* message formats.
