@@ -1784,8 +1784,8 @@ void MainWindow::on_actionSettings_triggered()               //Setup Dialog
     m_config.transceiver_online ();
     if(!m_bFastMode) setXIT (ui->TxFreqSpinBox->value ());
     if(m_config.single_decode() or m_mode=="JT4") {
-      ui->label_6->setText("Single-Period Decodes");
-      ui->label_7->setText("Average Decodes");
+      ui->label_6->setText(tr ("Single-Period Decodes"));
+      ui->label_7->setText(tr ("Average Decodes"));
     }
 
     update_watchdog_label ();
@@ -4222,7 +4222,7 @@ void MainWindow::stopTx2()
     WSPR_scheduling ();
     m_ntr=0;
   }
-  last_tx_label.setText("Last Tx: " + m_currentMessage.trimmed());
+  last_tx_label.setText(tr ("Last Tx: %1").arg (m_currentMessage.trimmed()));
 }
 
 void MainWindow::ba2msg(QByteArray ba, char message[])             //ba2msg()
@@ -5794,8 +5794,8 @@ void MainWindow::on_actionFT4_triggered()
   m_wideGraph->setPeriod(m_TRperiod,m_nsps);
   m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
   m_detector->setTRPeriod(m_TRperiod);  // TODO - not thread safe
-  ui->label_7->setText("Rx Frequency");
-  ui->label_6->setText("Band Activity");
+  ui->label_7->setText(tr ("Rx Frequency"));
+  ui->label_6->setText(tr ("Band Activity"));
   ui->decodedTextLabel->setText( "  UTC   dB   DT Freq    Message");
   displayWidgets(nWidgets("111010000100111000010000000110001"));
   ui->txrb2->setEnabled(true);
@@ -5838,12 +5838,12 @@ void MainWindow::on_actionFT8_triggered()
   m_wideGraph->setPeriod(m_TRperiod,m_nsps);
   m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
   m_detector->setTRPeriod(m_TRperiod);  // TODO - not thread safe
-  ui->label_7->setText("Rx Frequency");
+  ui->label_7->setText(tr ("Rx Frequency"));
   if(SpecOp::FOX==m_config.special_op_id()) {
-    ui->label_6->setText("Stations calling DXpedition " + m_config.my_callsign());
+    ui->label_6->setText(tr ("Stations calling DXpedition %1").arg (m_config.my_callsign()));
     ui->decodedTextLabel->setText( "Call         Grid   dB  Freq   Dist Age Continent");
   } else {
-    ui->label_6->setText("Band Activity");
+    ui->label_6->setText(tr ("Band Activity"));
     ui->decodedTextLabel->setText( "  UTC   dB   DT Freq    Message");
   }
   displayWidgets(nWidgets("111010000100111000010000100110001"));
@@ -5865,7 +5865,7 @@ void MainWindow::on_actionFT8_triggered()
     ui->tabWidget->setCurrentIndex(2);
     ui->TxFreqSpinBox->setValue(300);
     displayWidgets(nWidgets("111010000100111000010000000000100"));
-    ui->labDXped->setText("Fox");
+    ui->labDXped->setText(tr ("Fox"));
     on_fox_log_action_triggered();
   }
   if(SpecOp::HOUND == m_config.special_op_id()) {
@@ -5875,7 +5875,7 @@ void MainWindow::on_actionFT8_triggered()
     ui->tabWidget->setCurrentIndex(0);
     ui->cbHoldTxFreq->setChecked(true);
     displayWidgets(nWidgets("111010000100110000010000000000110"));
-    ui->labDXped->setText("Hound");
+    ui->labDXped->setText(tr ("Hound"));
     ui->txrb1->setChecked(true);
     ui->txrb2->setEnabled(false);
     ui->txrb4->setEnabled(false);
@@ -5939,8 +5939,8 @@ void MainWindow::on_actionJT4_triggered()
   m_bFast9=false;
   setup_status_bar (bVHF);
   ui->sbSubmode->setMaximum(6);
-  ui->label_6->setText("Single-Period Decodes");
-  ui->label_7->setText("Average Decodes");
+  ui->label_6->setText(tr ("Single-Period Decodes"));
+  ui->label_7->setText(tr ("Average Decodes"));
   ui->decodedTextLabel->setText("UTC   dB   DT Freq    Message");
   ui->decodedTextLabel2->setText("UTC   dB   DT Freq    Message");
   if(bVHF) {
@@ -6001,8 +6001,8 @@ void MainWindow::on_actionJT9_triggered()
   m_wideGraph->setPeriod(m_TRperiod,m_nsps);
   m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
   m_detector->setTRPeriod(m_TRperiod);  // TODO - not thread safe
-  ui->label_6->setText("Band Activity");
-  ui->label_7->setText("Rx Frequency");
+  ui->label_6->setText(tr ("Band Activity"));
+  ui->label_7->setText(tr ("Rx Frequency"));
   if(bVHF) {
     displayWidgets(nWidgets("111110101000111110010000000000000"));
   } else {
@@ -6041,8 +6041,8 @@ void MainWindow::on_actionJT9_JT65_triggered()
   m_bFastMode=false;
   m_bFast9=false;
   ui->sbSubmode->setValue(0);
-  ui->label_6->setText("Band Activity");
-  ui->label_7->setText("Rx Frequency");
+  ui->label_6->setText(tr ("Band Activity"));
+  ui->label_7->setText(tr ("Rx Frequency"));
   ui->decodedTextLabel->setText("UTC   dB   DT Freq    Message");
   ui->decodedTextLabel2->setText("UTC   dB   DT Freq    Message");
   displayWidgets(nWidgets("111010000001111000010000000000001"));
@@ -6085,12 +6085,12 @@ void MainWindow::on_actionJT65_triggered()
   ui->sbSubmode->setMaximum(2);
   if(bVHF) {
     ui->sbSubmode->setValue(m_nSubMode);
-    ui->label_6->setText("Single-Period Decodes");
-    ui->label_7->setText("Average Decodes");
+    ui->label_6->setText(tr ("Single-Period Decodes"));
+    ui->label_7->setText(tr ("Average Decodes"));
   } else {
     ui->sbSubmode->setValue(0);
-    ui->label_6->setText("Band Activity");
-    ui->label_7->setText("Rx Frequency");
+    ui->label_6->setText(tr ("Band Activity"));
+    ui->label_7->setText(tr ("Rx Frequency"));
   }
   if(bVHF) {
     displayWidgets(nWidgets("111110010000110110101100010000000"));
@@ -6214,8 +6214,8 @@ void MainWindow::on_actionMSK144_triggered()
   m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
   m_detector->setTRPeriod(m_TRperiod);  // TODO - not thread safe
   m_fastGraph->setTRPeriod(m_TRperiod);
-  ui->label_6->setText("Band Activity");
-  ui->label_7->setText("Tx Messages");
+  ui->label_6->setText(tr ("Band Activity"));
+  ui->label_7->setText(tr ("Tx Messages"));
   ui->actionMSK144->setChecked(true);
   ui->rptSpinBox->setMinimum(-8);
   ui->rptSpinBox->setMaximum(24);
@@ -8101,7 +8101,7 @@ void MainWindow::tx_watchdog (bool triggered)
       if (m_tune) stop_tuning ();
       if (m_auto) auto_tx_mode (false);
       tx_status_label.setStyleSheet ("QLabel{background-color: #ff0000}");
-      tx_status_label.setText ("Runaway Tx watchdog");
+      tx_status_label.setText (tr ("Runaway Tx watchdog"));
       QApplication::alert (this);
     }
   else
@@ -8116,7 +8116,7 @@ void MainWindow::update_watchdog_label ()
 {
   if (m_config.watchdog () && !m_mode.startsWith ("WSPR"))
     {
-      watchdog_label.setText (QString {"WD:%1m"}.arg (m_config.watchdog () - m_idleMinutes));
+      watchdog_label.setText (tr ("WD:%1m").arg (m_config.watchdog () - m_idleMinutes));
       watchdog_label.setVisible (true);
     }
   else
