@@ -201,7 +201,7 @@ int main(int argc, char *argv[])
           auto language = parser.value (lang_option).replace ('-', '_');
           if (translation_override_from_resources.load ("wsjtx_" + language , ":/Translations")) 
             {
-              qDebug () << QString {"loaded translation file :/Translations/wsjtx_%1.qm"}.arg (language);
+              qDebug () << QString {"loaded translation file from :/Translations based on language %1"}.arg (language);
               a.installTranslator (&translation_override_from_resources);
             }
         }
@@ -233,7 +233,7 @@ int main(int argc, char *argv[])
           auto language = parser.value (lang_option).replace ('-', '_');
           if (translation_override_from_files.load ("wsjtx_" + language)) 
             {
-              qDebug () << QString {"loaded translation file $cwd/wsjtx_%1.qm"}.arg (language);
+              qDebug () << QString {"loaded translation file from $cwd based on language %1"}.arg (language);
               a.installTranslator (&translation_override_from_files);
             }
         }

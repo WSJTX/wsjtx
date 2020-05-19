@@ -326,7 +326,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_nsendingsh {0},
   m_onAirFreq0 {0.0},
   m_first_error {true},
-  tx_status_label {"Receiving"},
+  tx_status_label {tr ("Receiving")},
   wsprNet {new WSPRNet {&m_network_manager, this}},
   m_appDir {QApplication::applicationDirPath ()},
   m_cqStr {""},
@@ -825,7 +825,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
   ui->labAz->setStyleSheet("border: 0px;");
   ui->labAz->setText("");
-  auto t = "UTC   dB   DT Freq    Message";
+  auto t = "UTC   dB   DT Freq    " + tr ("Message");
   ui->decodedTextLabel->setText(t);
   ui->decodedTextLabel2->setText(t);
   readSettings();            //Restore user's setup parameters
@@ -4117,12 +4117,11 @@ void MainWindow::guiUpdate()
     } else if(m_monitoring) {
       if (!m_tx_watchdog) {
         tx_status_label.setStyleSheet("QLabel{background-color: #00ff00}");
-        QString t;
-        t="Receiving";
+        auto t = tr ("Receiving");
         if(m_mode=="MSK144") {
           int npct=int(100.0*m_fCPUmskrtd/0.298667);
           if(npct>90) tx_status_label.setStyleSheet("QLabel{background-color: #ff0000}");
-          t = t.asprintf("Receiving   %2d%%",npct);
+          t += QString {"   %1%"}.arg (npct, 2);
         }
         tx_status_label.setText (t);
       }
@@ -5790,13 +5789,13 @@ void MainWindow::on_actionFT4_triggered()
 //  ui->cbAutoSeq->setChecked(false);
   m_fastGraph->hide();
   m_wideGraph->show();
-  ui->decodedTextLabel2->setText("  UTC   dB   DT Freq    Message");
+  ui->decodedTextLabel2->setText("  UTC   dB   DT Freq    " + tr ("Message"));
   m_wideGraph->setPeriod(m_TRperiod,m_nsps);
   m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
   m_detector->setTRPeriod(m_TRperiod);  // TODO - not thread safe
   ui->label_7->setText(tr ("Rx Frequency"));
   ui->label_6->setText(tr ("Band Activity"));
-  ui->decodedTextLabel->setText( "  UTC   dB   DT Freq    Message");
+  ui->decodedTextLabel->setText( "  UTC   dB   DT Freq    " + tr ("Message"));
   displayWidgets(nWidgets("111010000100111000010000000110001"));
   ui->txrb2->setEnabled(true);
   ui->txrb4->setEnabled(true);
@@ -5834,7 +5833,7 @@ void MainWindow::on_actionFT8_triggered()
   m_TRperiod=15.0;
   m_fastGraph->hide();
   m_wideGraph->show();
-  ui->decodedTextLabel2->setText("  UTC   dB   DT Freq    Message");
+  ui->decodedTextLabel2->setText("  UTC   dB   DT Freq    " + tr ("Message"));
   m_wideGraph->setPeriod(m_TRperiod,m_nsps);
   m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
   m_detector->setTRPeriod(m_TRperiod);  // TODO - not thread safe
@@ -5844,7 +5843,7 @@ void MainWindow::on_actionFT8_triggered()
     ui->decodedTextLabel->setText( "Call         Grid   dB  Freq   Dist Age Continent");
   } else {
     ui->label_6->setText(tr ("Band Activity"));
-    ui->decodedTextLabel->setText( "  UTC   dB   DT Freq    Message");
+    ui->decodedTextLabel->setText( "  UTC   dB   DT Freq    " + tr ("Message"));
   }
   displayWidgets(nWidgets("111010000100111000010000100110001"));
   ui->txrb2->setEnabled(true);
@@ -5941,8 +5940,8 @@ void MainWindow::on_actionJT4_triggered()
   ui->sbSubmode->setMaximum(6);
   ui->label_6->setText(tr ("Single-Period Decodes"));
   ui->label_7->setText(tr ("Average Decodes"));
-  ui->decodedTextLabel->setText("UTC   dB   DT Freq    Message");
-  ui->decodedTextLabel2->setText("UTC   dB   DT Freq    Message");
+  ui->decodedTextLabel->setText("UTC   dB   DT Freq    " + tr ("Message"));
+  ui->decodedTextLabel2->setText("UTC   dB   DT Freq    " + tr ("Message"));
   if(bVHF) {
     ui->sbSubmode->setValue(m_nSubMode);
   } else {
@@ -5990,13 +5989,13 @@ void MainWindow::on_actionJT9_triggered()
     m_fastGraph->show();
     ui->TxFreqSpinBox->setValue(700);
     ui->RxFreqSpinBox->setValue(700);
-    ui->decodedTextLabel->setText("UTC     dB    T Freq    Message");
-    ui->decodedTextLabel2->setText("UTC     dB    T Freq    Message");
+    ui->decodedTextLabel->setText("UTC     dB    T Freq    " + tr ("Message"));
+    ui->decodedTextLabel2->setText("UTC     dB    T Freq    " + tr ("Message"));
   } else {
     ui->cbAutoSeq->setChecked(false);
     m_TRperiod=60.0;
-    ui->decodedTextLabel->setText("UTC   dB   DT Freq    Message");
-    ui->decodedTextLabel2->setText("UTC   dB   DT Freq    Message");
+    ui->decodedTextLabel->setText("UTC   dB   DT Freq    " + tr ("Message"));
+    ui->decodedTextLabel2->setText("UTC   dB   DT Freq    " + tr ("Message"));
   }
   m_wideGraph->setPeriod(m_TRperiod,m_nsps);
   m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
@@ -6043,8 +6042,8 @@ void MainWindow::on_actionJT9_JT65_triggered()
   ui->sbSubmode->setValue(0);
   ui->label_6->setText(tr ("Band Activity"));
   ui->label_7->setText(tr ("Rx Frequency"));
-  ui->decodedTextLabel->setText("UTC   dB   DT Freq    Message");
-  ui->decodedTextLabel2->setText("UTC   dB   DT Freq    Message");
+  ui->decodedTextLabel->setText("UTC   dB   DT Freq    " + tr ("Message"));
+  ui->decodedTextLabel2->setText("UTC   dB   DT Freq    " + tr ("Message"));
   displayWidgets(nWidgets("111010000001111000010000000000001"));
   fast_config(false);
   statusChanged();
@@ -6209,8 +6208,8 @@ void MainWindow::on_actionMSK144_triggered()
   ui->RxFreqSpinBox->setMinimum(1400);
   ui->RxFreqSpinBox->setMaximum(1600);
   ui->RxFreqSpinBox->setSingleStep(10);
-  ui->decodedTextLabel->setText("UTC     dB    T Freq    Message");
-  ui->decodedTextLabel2->setText("UTC     dB    T Freq    Message");
+  ui->decodedTextLabel->setText("UTC     dB    T Freq    " + tr ("Message"));
+  ui->decodedTextLabel2->setText("UTC     dB    T Freq    " + tr ("Message"));
   m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
   m_detector->setTRPeriod(m_TRperiod);  // TODO - not thread safe
   m_fastGraph->setTRPeriod(m_TRperiod);
@@ -6395,7 +6394,7 @@ void MainWindow::WSPR_config(bool b)
     }
     m_bSimplex = true;
   } else {
-    ui->decodedTextLabel->setText("UTC   dB   DT Freq    Message");
+    ui->decodedTextLabel->setText("UTC   dB   DT Freq    " + tr ("Message"));
     m_bSimplex = false;
   }
   enable_DXCC_entity (m_config.DXCC ());  // sets text window proportions and (re)inits the logbook
@@ -7632,7 +7631,7 @@ void MainWindow::p1ReadFromStdout()                        //p1readFromStdout
       if(!m_diskData) {
         WSPR_history(m_dialFreqRxWSPR, m_nWSPRdecodes);
         if(m_nWSPRdecodes==0 and ui->band_hopping_group_box->isChecked()) {
-          t = " Receiving " + m_mode + " ----------------------- " +
+          t = " " + tr ("Receiving") + " " + m_mode + " ----------------------- " +
               m_config.bands ()->find (m_dialFreqRxWSPR);
           t=WSPR_hhmm(-60) + ' ' + t.rightJustified (66, '-');
           ui->decodedTextBrowser->appendText(t);
