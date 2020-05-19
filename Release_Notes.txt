@@ -12,7 +12,7 @@
                                                          
 Copyright 2001 - 2020 by Joe Taylor, K1JT.
 
-		   Release: WSJT-X 2.2.0-rc1
+		   Release: WSJT-X 2.2.0-rc2
 		          May 25, 2020
 		   -------------------------
 
@@ -27,13 +27,17 @@ following bugs in earlier program versions have been fixed:
  - Many fixes to hamlib library and executables (rigctld, etc.).
  - Some regional settings did not allow WSJT-X to start.
  - Main window "looked like old Windows" in macOS.
- - Updated figures and some new text in User Guide.
- - Some formatting issues in the pdf version of User Guide.
  - Crash when "Ref Spec" is selected and no refspec.dat available.
+
+In addition, we have made the following improvements:
+
+ - Updated figures and some new text in User Guide.
+ - Corrected some formatting issues in the pdf version of User Guide.
  - Added some new sample files.
  - Improved shape and position of "green goal post" in Wide Graph.
+ - Significantly reduced the rate of false FT8 decodes.
 
-See the next section for a list of program improvements since
+See the next section for a list of major program improvements since
 WSJT-X 2.1.2.
 
 
