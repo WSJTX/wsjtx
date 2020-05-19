@@ -18,7 +18,7 @@
     </message>
     <message numerus="yes">
         <location filename="../widgets/AbstractLogWindow.cpp" line="65"/>
-        <source>Are you sure you want to delete the %n selected QSO(s) from the log</source>
+        <source>Are you sure you want to delete the %n selected QSO(s) from the log?</source>
         <translation type="unfinished">
             <numerusform></numerusform>
             <numerusform></numerusform>
@@ -692,7 +692,7 @@ Format:
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../DXLabSuiteCommanderTransceiver.cpp" line="503"/>
+        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="503"/>
         <source>DX Lab Suite Commander sent an unrecognized frequency</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3937,7 +3937,7 @@ UDP server %2:%3</source>
 <context>
     <name>QObject</name>
     <message>
-        <location filename="../main.cpp" line="198"/>
+        <location filename="../main.cpp" line="252"/>
         <source>Invalid rig name - \ &amp; / not allowed</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4952,11 +4952,6 @@ a few, particularly some Kenwood rigs, require it).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="932"/>
-        <source>How this program activates the PTT on your radio</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="../Configuration.ui" line="935"/>
         <source>PTT Method</source>
         <translation type="unfinished"></translation>
@@ -5607,7 +5602,27 @@ Right click for insert and delete options.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2291"/>
+        <location filename="../Configuration.ui" line="932"/>
+        <source>How this program activates the PTT on your radio?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="954"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Use the RS-232 DTR control line to toggle your radio&apos;s PTT, requires hardware to interface the line.&lt;/p&gt;&lt;p&gt;Some commercial interface units also use this method.&lt;/p&gt;&lt;p&gt;The DTR control line of the CAT serial port may be used for this or a DTR control line on a different serial port may be used.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="985"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Use the RS-232 RTS control line to toggle your radio&apos;s PTT, requires hardware to interface the line.&lt;/p&gt;&lt;p&gt;Some commercial interface units also use this method.&lt;/p&gt;&lt;p&gt;The RTS control line of the CAT serial port may be used for this or a RTS control line on a different serial port may be used. Note that this option is not available on the CAT serial port when hardware flow control is used.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="1083"/>
+        <source>If this is available then it is usually the correct mode for this program.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="2231"/>
         <source>Rescan ADIF Log</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5889,104 +5904,114 @@ Right click for insert and delete options.</source>
     <name>main</name>
     <message>
         <location filename="../main.cpp" line="81"/>
-        <location filename="../main.cpp" line="412"/>
+        <location filename="../main.cpp" line="468"/>
         <source>Fatal error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../main.cpp" line="86"/>
-        <location filename="../main.cpp" line="417"/>
+        <location filename="../main.cpp" line="473"/>
         <source>Unexpected fatal error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="154"/>
+        <location filename="../main.cpp" line="149"/>
         <source>Where &lt;rig-name&gt; is for multi-instance support.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="155"/>
+        <location filename="../main.cpp" line="150"/>
         <source>rig-name</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="160"/>
+        <location filename="../main.cpp" line="155"/>
         <source>Where &lt;configuration&gt; is an existing one.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="161"/>
+        <location filename="../main.cpp" line="156"/>
         <source>configuration</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="165"/>
+        <location filename="../main.cpp" line="161"/>
+        <source>Where &lt;language&gt; is &lt;lang-code&gt;[-&lt;country-code&gt;].</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../main.cpp" line="162"/>
+        <source>language</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../main.cpp" line="166"/>
         <source>Writable files in test location.  Use with caution, for testing only.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="170"/>
+        <location filename="../main.cpp" line="171"/>
         <source>Command line error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="177"/>
+        <location filename="../main.cpp" line="178"/>
         <source>Command line help</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="182"/>
+        <location filename="../main.cpp" line="183"/>
         <source>Application version</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="229"/>
+        <location filename="../main.cpp" line="283"/>
         <source>Another instance may be running</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="230"/>
+        <location filename="../main.cpp" line="284"/>
         <source>try to remove stale lock file?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="265"/>
+        <location filename="../main.cpp" line="319"/>
         <source>Failed to create a temporary directory</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="266"/>
-        <location filename="../main.cpp" line="274"/>
+        <location filename="../main.cpp" line="320"/>
+        <location filename="../main.cpp" line="328"/>
         <source>Path: &quot;%1&quot;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="272"/>
+        <location filename="../main.cpp" line="326"/>
         <source>Failed to create a usable temporary directory</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="273"/>
+        <location filename="../main.cpp" line="327"/>
         <source>Another application may be locking the directory</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="306"/>
+        <location filename="../main.cpp" line="360"/>
         <source>Failed to create data directory</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="307"/>
+        <location filename="../main.cpp" line="361"/>
         <source>path: &quot;%1&quot;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="362"/>
+        <location filename="../main.cpp" line="416"/>
         <source>Shared memory error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="363"/>
+        <location filename="../main.cpp" line="417"/>
         <source>Unable to create shared memory segment</source>
         <translation type="unfinished"></translation>
     </message>
