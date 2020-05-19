@@ -533,6 +533,10 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
 ! EU VHF contest
      read(c77,1060) n12,n22,ir,irpt,iserial,igrid6
 1060 format(b12,b22,b1,b3,b11,b25)
+     if(igrid6.lt.0 .or. igrid6.gt.18662399) then
+        unpk77_success=.false.
+        return
+     endif
      call hash12(n12,call_1)
      if(n12.eq.hashmy12) call_1='<'//trim(mycall13)//'>'
      call hash22(n22,call_2)
