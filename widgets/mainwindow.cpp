@@ -1423,11 +1423,6 @@ void MainWindow::dataSink(qint64 frames)
     }
   }
 
-  /*
-  if(m_ihsym==m_hsymStop or (m_mode=="FT8" and m_ihsym==m_earlyDecode and !m_diskData) or
-     (m_mode=="FT8" and m_ihsym==m_earlyDecode2 and !m_diskData)) {
-  */
-
   bool bCallDecoder=false;
   if(m_ihsym==m_hsymStop) bCallDecoder=true;
   if(m_mode=="FT8" and !m_diskData) {
@@ -5219,7 +5214,8 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
         case Configuration::type_2_msg_1_full:
           msgtype(t + my_grid, ui->tx1);
           if (!eme_short_codes) {
-            if((m_mode=="MSK144" || m_mode=="FT8") && SpecOp::NA_VHF == m_config.special_op_id()) {
+            if((m_mode=="MSK144" || m_mode=="FT8" || m_mode=="FT4") &&
+               SpecOp::NA_VHF == m_config.special_op_id()) {
               msgtype(t + "R " + my_grid, ui->tx3);
             } else {
               msgtype(t + "R" + rpt, ui->tx3);
@@ -5231,7 +5227,8 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
           break;
 
         case Configuration::type_2_msg_3_full:
-          if ((m_mode=="MSK144" || m_mode=="FT8") && SpecOp::NA_VHF == m_config.special_op_id()) {
+          if ((m_mode=="MSK144" || m_mode=="FT8" || m_mode=="FT4") &&
+              SpecOp::NA_VHF == m_config.special_op_id()) {
             msgtype(t + "R " + my_grid, ui->tx3);
             msgtype(t + "RRR", ui->tx4);
           } else {
@@ -5246,7 +5243,8 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
         case Configuration::type_2_msg_5_only:
           msgtype(t00 + my_grid, ui->tx1);
           if (!eme_short_codes) {
-            if ((m_mode=="MSK144" || m_mode=="FT8") && SpecOp::NA_VHF == m_config.special_op_id()) {
+            if ((m_mode=="MSK144" || m_mode=="FT8" || m_mode=="FT4") &&
+                SpecOp::NA_VHF == m_config.special_op_id()) {
               msgtype(t + "R " + my_grid, ui->tx3);
               msgtype(t + "RRR", ui->tx4);
             } else {
@@ -5460,7 +5458,8 @@ void MainWindow::msgtype(QString t, QLineEdit* tx)               //msgtype()
 //### Check this stuff ###
   if(itype==7 and m_config.enable_VHF_features() and m_mode=="JT65") shortMsg=true;
   if(m_mode=="MSK144" and t.mid(0,1)=="<") text=false;
-  if((m_mode=="MSK144" or m_mode=="FT8") and SpecOp::NA_VHF==m_config.special_op_id()) {
+  if((m_mode=="MSK144" or m_mode=="FT8" or m_mode=="FT4") and
+     SpecOp::NA_VHF==m_config.special_op_id()) {
     int i0=t.trimmed().length()-7;
     if(t.mid(i0,3)==" R ") text=false;
   }
