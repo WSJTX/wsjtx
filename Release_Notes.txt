@@ -58,8 +58,9 @@ the frequency table, and select "Reset".  Alternatively, you can add
 the new frequencies manually.
 
 When the conventional FT8 sub-band on 20, 30, or 40m seems too full,
-please try moving your dial frequency down 3 kHz!  
-
+please try moving your dial frequency down 3 kHz!  Be aware that as
+currently implemented, WSJT-X will set your dial to the lowest
+frequency for the selected mode and band, when you switch bands.
 
 See the next section for a list of other program improvements since
 WSJT-X 2.1.2.
