@@ -87,6 +87,9 @@ contains
 
       this%callback => callback
       hhmmss=cdatetime0(8:13)
+      dxcall13=hiscall        ! initialize for use in packjt77
+      mycall13=mycall
+
       smax1=0.
       nd1=0
 
