@@ -76,7 +76,7 @@ d). Edit lines as needed. Keeping them in alphabetic order help see dupes.
 :hrd: http://www.hrdsoftwarellc.com/[Ham Radio Deluxe]
 :jt4eme: http://physics.princeton.edu/pulsar/K1JT/WSJT-X_1.6.0_for_JT4_v7.pdf[Using WSJT-X for JT4 EME Operation]
 :jt65protocol: http://physics.princeton.edu/pulsar/K1JT/JT65.pdf[QEX]
-:jtalert: http://hamapps.com/[JT-Alert]
+:jtalert: http://hamapps.com/[JTAlert]
 :launchpadki7mt: https://launchpad.net/~ki7mt[KI7MT PPA's]
 :log4om: http://www.log4om.com[Log4OM]
 :lunarEchoes: http://physics.princeton.edu/pulsar/K1JT/LunarEchoes_QEX.pdf[QEX]

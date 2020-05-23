@@ -6,7 +6,7 @@ the program name stand for "`**W**eak **S**ignal communication by
 K1**JT**,`" while the suffix "`-X`" indicates that _WSJT-X_ started as
 an e**Xt**ended and e**X**perimental branch of the program _WSJT_,
 first released in 2001.  Bill Somerville, G4WJS, and Steve Franke,
-K9AN, have been major contibutors to program development since 2013
+K9AN, have been major contributors to program development since 2013
 and 2015, respectively.
 
 _WSJT-X_ Version {VERSION_MAJOR}.{VERSION_MINOR} offers ten different

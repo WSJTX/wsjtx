@@ -30,7 +30,7 @@ frequency control on the main window will be updated accordingly.
 frequency marker and its associated control on the main window will
 follow your frequency selections.
 
-- Do the same thing with the *Ctrl* key held down.  Now the both colored 
+- Do the same thing with the *Ctrl* key held down.  Now both colored 
 markers and both spinner controls will follow your selections.
 
 - Double-clicking at any frequency on the waterfall does all the

@@ -98,5 +98,5 @@ color and line width for the plots.
 Most windows can be resized as desired.  If you are short of screen
 space you can make the Main Window and Wide Graph smaller by hiding
 some controls and labels.  To enable this feature uncheck the box
-labales *Controls* at top left of the *Wide Graph* window, or the box 
+labeled *Controls* at top left of the *Wide Graph* window, or the box 
 *Menus* to the right of the *Tune* button on the Main Window.
