@@ -270,6 +270,7 @@ namespace
       {50293000, Modes::WSPR, IARURegions::R3},
       {50310000, Modes::JT65, IARURegions::ALL},
       {50312000, Modes::JT9, IARURegions::ALL},
+      {50310000, Modes::FT8, IARURegions::ALL},
       {50313000, Modes::FT8, IARURegions::ALL},
       {50318000, Modes::FT4, IARURegions::ALL}, // provisional
       {50323000, Modes::FT8, IARURegions::ALL},
