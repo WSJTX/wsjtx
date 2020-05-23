@@ -29,6 +29,7 @@ following bugs present in the -rc1 version have been fixed:
  - Main window "looked like old Windows" in macOS.
  - Crash when "Ref Spec" is selected and no refspec.dat available.
  - Improper decoding of some FT4 messages with hashed "MyCall".
+ - Crash after warning message about double-clicking in ISCAT mode.
 
 In addition, we have made the following improvements:
 
@@ -47,7 +48,9 @@ And finally:
 Increasing FT8 usage on the popular bands 40, 30, and 20m means that
 the default 3 kHz sub-bands are often wall-to-wall with signals.
 Overcrowding encourages some to turn on their amplifiers, which only
-makes things worse.
+makes things worse.  We are trying to coordinate the suggested
+frequencies in WSJT-X with updated band plans being considered by
+IARU, ARRL, and other amateur radio societies.
 
 As a trial, and in response to numerous suggestions from around the
 world, we have added a second set of suggested dial frequencies for
