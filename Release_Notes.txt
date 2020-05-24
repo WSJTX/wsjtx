@@ -43,6 +43,7 @@ In addition, we have made the following improvements:
  - Added capability for translations of the user interface into
    languages other than English.  First working example (special
    thanks to Xavi Perez, EA3W!), is Catalan.  Spanish will be next.
+ - Performance improvements to decode highlighting via UDP messages.
 
 And finally:
 
