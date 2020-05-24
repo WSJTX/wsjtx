@@ -43,7 +43,7 @@ public:
   Q_SLOT void appendText (QString const& text, QColor bg = QColor {}, QColor fg = QColor {}
                           , QString const& call1 = QString {}, QString const& call2 = QString {});
   Q_SLOT void erase ();
-  Q_SLOT void highlight_callsign (QString const& callsign, QColor const& bg, QColor const& fg, bool last_only);
+  Q_SLOT void highlight_callsign (QString const& callsign, QColor const& bg, QColor const& fg, bool last_period_only);
 
 private:
   void mouseDoubleClickEvent (QMouseEvent *) override;
