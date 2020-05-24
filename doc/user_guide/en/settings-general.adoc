@@ -1,6 +1,5 @@
 // Status=review
 [[FIG_CONFIG_STATION]]
-image::settings-general.png[align="center",alt="Settings Window"]
 
 Select the *General* tab on the *Settings* window.  Under _Station
 Details_ enter your callsign, grid locator (preferably the 6-character
@@ -8,6 +7,8 @@ locator) and IARU Region number.  Region 1 is Europe, Africa, the
 Middle East, and Northern Asia; Region 2 the Americas; and Region 3
 Southern Asia and the Pacific.  This information will be sufficient
 for initial tests.
+
+image::settings-general.png[align="center",alt="Settings Window"]
 
 Meanings of remaining options on the *General* tab should be
 self-explanatory after you have made some QSOs using _WSJT-X_.  You

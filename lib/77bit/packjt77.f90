@@ -533,7 +533,12 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
 ! EU VHF contest
      read(c77,1060) n12,n22,ir,irpt,iserial,igrid6
 1060 format(b12,b22,b1,b3,b11,b25)
+     if(igrid6.lt.0 .or. igrid6.gt.18662399) then
+        unpk77_success=.false.
+        return
+     endif
      call hash12(n12,call_1)
+     if(n12.eq.hashmy12) call_1='<'//trim(mycall13)//'>'
      call hash22(n22,call_2)
      nrs=52+irpt
      write(cexch,1022) nrs,iserial
@@ -545,7 +550,7 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
   else if(i3.ge.6) then ! i3 values 6 and 7 are not yet defined
      unpk77_success=.false.
   endif
-!  if(msg(1:4).eq.'CQ <') unpk77_success=.false.
+  if(msg(1:4).eq.'CQ <') unpk77_success=.false.
 
   return
 end subroutine unpack77
@@ -1157,6 +1162,7 @@ subroutine pack77_3(nwords,w,i3,n3,c77)
        "NB ","NS ","QC ","ON ","MB ","SK ","AB ","BC ","NWT","NF ",  &
        "LB ","NU ","YT ","PEI","DC "/
 
+  if(w(1)(1:1).eq.'<' .and. w(2)(1:1).eq.'<') go to 900
   if(nwords.eq.4 .or. nwords.eq.5 .or. nwords.eq.6) then
      i1=1
      if(trim(w(1)).eq.'TU;') i1=2

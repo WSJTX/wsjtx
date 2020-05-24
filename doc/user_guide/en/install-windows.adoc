@@ -30,20 +30,22 @@ TIP: Your computer may be configured so that this directory is
 
 [[OPENSSL]]
 
-* image:LoTW_TLS_error.png[_WSJT-X_ LoTW download TLS error,
-  role="right"] _WSJT-X_ requires the _OpenSSL_ libraries to be
-  installed. Suitable libraries may already be installed on your
-  system, if they are not you will see this error shortly after
-  requesting a fetch of the latest LoTW users database. To fix this
-  you need to install the _OpenSSL_ libraries.
+* _WSJT-X_ requires the _OpenSSL_ libraries to be installed, and
+  suitable libraries may already be installed on your system.  If they
+  are not you will see this error shortly after requesting a fetch of
+  the latest LoTW users database. To fix this you need to install the
+  _OpenSSL_ libraries.
 
-** You can download a suitable _OpenSSL_ package for from
-   {win_openssl_packages}, you need the latest *Windows Light*
+image::LoTW_TLS_error.png[align="center"]
+
+
+* You can download a suitable _OpenSSL_ package from
+   {win_openssl_packages}.  You need the latest *Windows Light*
    version. For the 32-bit _WSJT-X_ build use the latest Win32 v1.1.x
    version of the _OpenSSL_ libraries, for the 64-bit _WSJT-X_ use the
-   latest Win64 v1.1.x version of the _OpenSSL_ libraries (Note it is
-   OK to install both versions on a 64-bit system) which at the time
-   of writing were {win32_openssl} and {win64_openssl} respectively.
+   latest Win64 v1.1.x version of the _OpenSSL_ libraries which at the
+   time of writing were {win32_openssl} and {win64_openssl}. It is OK
+   to install both versions on a 64-bit system.
 
 ** Install the package and accept the default options, including the
    option to copy the _OpenSSL_ DLLs to the Windows system

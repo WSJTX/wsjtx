@@ -68,8 +68,7 @@ include::install-from-source.adoc[]
 Select *Settings* from the *File* menu or by typing *F2*.  (On
 Macintosh select *Preferences* from the _WSJT-X_ menu, or use the
 keyboard shortcut *Cmd+,*).  The following sections describe setup
-options available on each of eight tabs selectable near the top of the
-window.
+options available on eight tabs selectable near the top of the window.
 
 [[GENERAL]]
 === General
@@ -102,6 +101,25 @@ include::settings-colors.adoc[]
 [[ADVANCED]]
 === Advanced
 include::settings-advanced.adoc[]
+
+[[DARK_STYLE]]
+=== Dark Style
+
+An optional *Dark* style is available.  To make it effective you will
+probably want to redefine your color settings.  In Windows or Linux,
+start the program from a command-prompt window using the following
+command, or modify the _WSJT-X_ desktop shortcut accordingly:
+
+ wsjtx --stylesheet :/qdarkstyle/style.qss
+
+In macOS, enter the following command from a terminal:
+
+ open /Applications/wsjtx.app --args -stylesheet :/qdarkstyle/style.qss
+
+Depending on your operating system, the main _WSJT-X_ window will look
+something like this:
+
+image::Windows_Dark.png[align="center"]
 
 [[TRANSCEIVER]]
 == Transceiver Setup

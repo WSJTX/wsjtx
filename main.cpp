@@ -107,10 +107,23 @@ int main(int argc, char *argv[])
   ExceptionCatchingApplication a(argc, argv);
   try
     {
+      QLocale locale;           // get the current system locale
+      qDebug () << "locale: language:" << locale.language () << "script:" << locale.script ()
+                << "country:" << locale.country () << "ui-languages:" << locale.uiLanguages ();
+      setlocale (LC_NUMERIC, "C"); // ensure number forms are in
+                                   // consistent format, do this after
+                                   // instantiating QApplication so
+                                   // that GUI has correct l18n
+
+      // Override programs executable basename as application name.
+      a.setApplicationName ("WSJT-X");
+      a.setApplicationVersion (version ());
+
       //
-      // Enable i18n
+      // Enable base i18n
       //
       QTranslator translator_from_resources;
+      QTranslator base_translator_from_resources;
       // Default translations for releases  use translations stored in
       // the   resources   file    system   under   the   Translations
       // directory. These are built by the CMake build system from .ts
@@ -121,28 +134,25 @@ int main(int argc, char *argv[])
       // translations  but   should  only  be  set   when  adding  new
       // languages.  The  resulting .ts  files should be  checked info
       // source control for translators to access and update.
-      translator_from_resources.load (QLocale::system (), "wsjtx", "_", ":/Translations");
-      a.installTranslator (&translator_from_resources);
 
-      QTranslator translator_from_files;
-      // Load  any matching  translation  from  the current  directory
-      // using the locale name. This allows translators to easily test
-      // their translations  by releasing  (lrelease) a .qm  file into
-      // the    current    directory     with    a    suitable    name
-      // (e.g.  wsjtx_en_GB.qm),  then  running   wsjtx  to  view  the
-      // results. Either the system  locale setting or the environment
-      // variable LANG can be used to select the target language.
-      translator_from_files.load (QString {"wsjtx_"} + QLocale::system ().name ());
-      a.installTranslator (&translator_from_files);
-
-      setlocale (LC_NUMERIC, "C"); // ensure number forms are in
-                                   // consistent format, do this after
-                                   // instantiating QApplication so
-                                   // that GUI has correct l18n
-
-      // Override programs executable basename as application name.
-      a.setApplicationName ("WSJT-X");
-      a.setApplicationVersion (version ());
+      // try and load the base translation
+      for (QString locale_name : locale.uiLanguages ())
+        {
+          auto language = locale_name.left (2);
+          if (base_translator_from_resources.load ("wsjtx_" + language, ":/Translations"))
+            {
+              qDebug () << QString {"Loaded base translation file from :/Translations based on language %1"}.arg (language);
+              a.installTranslator (&base_translator_from_resources);
+              break;
+            }
+        }
+      // now try and load the most specific translations (may be a
+      // duplicate but we shouldn't care)
+      if (translator_from_resources.load (locale, "wsjtx", "_", ":/Translations"))
+        {
+          qDebug () << "Loaded translations for current locale from resources";
+          a.installTranslator (&translator_from_resources);
+        }
 
       QCommandLineParser parser;
       parser.setApplicationDescription ("\n" PROJECT_SUMMARY_DESCRIPTION);
@@ -160,6 +170,12 @@ int main(int argc, char *argv[])
                                      , a.translate ("main", "Where <configuration> is an existing one.")
                                      , a.translate ("main", "configuration"));
       parser.addOption (cfg_option);
+
+      // support for UI language override (useful on Windows)
+      QCommandLineOption lang_option (QStringList {} << "l" << "language"
+                                     , a.translate ("main", "Where <language> is <lang-code>[-<country-code>].")
+                                     , a.translate ("main", "language"));
+      parser.addOption (lang_option);
 
       QCommandLineOption test_option (QStringList {} << "test-mode"
                                       , a.translate ("main", "Writable files in test location.  Use with caution, for testing only."));
@@ -181,6 +197,94 @@ int main(int argc, char *argv[])
             {
               MessageBox::information_message (nullptr, a.translate ("main", "Application version"), a.applicationVersion ());
               return 0;
+            }
+        }
+
+      //
+      // Complete i18n
+      // 
+
+      QTranslator translation_override_from_resources;
+      QTranslator base_translation_override_from_resources;
+      // Load  any matching  translation  from  the current  directory
+      // using the command line  option language override. This allows
+      // translators to  easily test  their translations  by releasing
+      // (lrelease)  a .qm  file  into the  current  directory with  a
+      // suitable name  (e.g.  wsjtx_en_GB.qm), then running  wsjtx to
+      // view the  results.
+      if (parser.isSet (lang_option))
+        {
+          auto language = parser.value (lang_option).replace ('-', '_');
+          // try and load the base translation
+          auto base_language = language.left (2);
+          if (base_translation_override_from_resources.load ("wsjtx_" + base_language, ":/Translations"))
+            {
+              qDebug () << QString {"Loaded base translation file from :/Translations based on language %1"}.arg (base_language);
+              a.installTranslator (&base_translation_override_from_resources);
+            }
+          // now load the requested translations (may be a duplicate
+          // but we shouldn't care)
+          if (translation_override_from_resources.load ("wsjtx_" + language , ":/Translations")) 
+            {
+              qDebug () << QString {"Loaded translation file from :/Translations based on language %1"}.arg (language);
+              a.installTranslator (&translation_override_from_resources);
+            }
+        }
+
+      QTranslator translator_from_cwd;
+      QTranslator base_translator_from_cwd;
+      // Load  any matching  translation  from  the current  directory
+      // using the  current locale. This allows  translators to easily
+      // test their  translations by  releasing (lrelease) a  .qm file
+      // into  the  current  directory  with  a  suitable  name  (e.g.
+      // wsjtx_en_GB.qm), then running wsjtx  to view the results. The
+      // system locale setting will be  used to select the translation
+      // file which can be overridden by the LANG environment variable
+      // on non-Windows system.
+
+      // try and load the base translation
+      for (QString locale_name : locale.uiLanguages ())
+        {
+          auto language = locale_name.left (2);
+          if (base_translator_from_cwd.load ("wsjtx_" + language))
+            {
+              qDebug () << QString {"Loaded base translation file from $cwd based on language %1"}.arg (language);
+              a.installTranslator (&base_translator_from_cwd);
+              break;
+            }
+        }
+      // now try and load the most specific translations (may be a
+      // duplicate but we shouldn't care)
+      if (translator_from_cwd.load (locale, "wsjtx", "_"))
+        {
+          qDebug () << "loaded translations for current locale from a file";
+          a.installTranslator (&translator_from_cwd);
+        }
+
+      QTranslator translation_override_from_cwd;
+      QTranslator base_translation_override_from_cwd;
+      // Load  any matching  translation  from  the current  directory
+      // using the command line  option language override. This allows
+      // translators to  easily test their translations  on Windows by
+      // releasing (lrelease)  a .qm  file into the  current directory
+      // with  a suitable  name (e.g.   wsjtx_en_GB.qm), then  running
+      // wsjtx to view the results.
+      if (parser.isSet (lang_option))
+        {
+          auto language = parser.value (lang_option).replace ('-', '_');
+          // try and load the base translation
+          auto base_language = language.left (2);
+          if (base_translation_override_from_cwd.load ("wsjtx_" + base_language))
+            {
+              qDebug () << QString {"Loaded base translation file from $cwd based on language %1"}.arg (base_language);
+              a.installTranslator (&base_translation_override_from_cwd);
+            }
+          // now load the requested translations (may be a duplicate
+          // but we shouldn't care)
+          if (translation_override_from_cwd.load ("wsjtx_" + language))
+            {
+              qDebug () << QString {"loaded translation file from $cwd based on language %1"}.arg (language);
+              a.installTranslator (&translation_override_from_cwd);
             }
         }
 

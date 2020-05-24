@@ -9,8 +9,8 @@ SOURCES += \
   widgets/colorhighlighting.cpp widgets/ExportCabrillo.cpp \
   widgets/AbstractLogWindow.cpp \
   widgets/FrequencyLineEdit.cpp widgets/FrequencyDeltaLineEdit.cpp \
-  widgets/FoxLogWindow.cpp widgets/CabrilloLogWindow.cpp
-
+  widgets/FoxLogWindow.cpp widgets/CabrilloLogWindow.cpp \
+  widgets/HelpTextWindow.cpp
 HEADERS  += \
   widgets/mainwindow.h widgets/plotter.h \
   widgets/about.h widgets/widegraph.h  \
@@ -21,7 +21,7 @@ HEADERS  += \
   widgets/fastplot.h widgets/MessageBox.hpp widgets/colorhighlighting.h \
   widgets/ExportCabrillo.h widgets/AbstractLogWindow.hpp \
   widgets/FoxLogWindow.hpp widgets/CabrilloLogWindow.hpp \
-  widgets/DateTimeEdit.hpp
+  widgets/DateTimeEdit.hpp widgets/HelpTextWindow.hpp
 
 FORMS    += \
   widgets/mainwindow.ui widgets/about.ui \

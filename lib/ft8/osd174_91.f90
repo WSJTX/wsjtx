@@ -167,7 +167,7 @@ subroutine osd174_91(llr,k,apmask,ndeep,message91,cw,nhardmin,dmin)
       nt=40
       ntheta=12
       ntau=15
-   elseif(ndeep.eq.6) then
+   else                     !ndeep=6
       nord=4
       npre1=1
       npre2=1

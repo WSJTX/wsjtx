@@ -3,7 +3,7 @@
 Debian, Ubuntu, and other Debian-based systems including Raspbian:
 
 NOTE: The project team release binary installer packages for Linux
-when a new _WSJT-X_ release is announced, note that these are built to
+when a new _WSJT-X_ release is announced.  These are built to
 target one contemporary version of a Linux distribution. Although
 these may work on newer Linux versions or even different
 distributions, it is unlikely that they will work on older

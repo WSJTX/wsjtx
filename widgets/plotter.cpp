@@ -488,6 +488,9 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
     painter0.drawLine(x1,24,x1,30);
   }
 
+  int yh=5;
+  int yTxTop=12;
+  int yRxBottom=yTxTop + 2*yh + 4;
   if(m_mode=="JT9" or m_mode=="JT65" or m_mode=="JT9+JT65"
      or m_mode=="QRA64" or m_mode=="FT8" or m_mode=="FT4") {
 
@@ -513,12 +516,14 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
       painter0.drawLine(x6,24,x6,30);
 
     } else {
+      // Draw the green "goal post"
       painter0.setPen(penGreen);
       x1=XfromFreq(m_rxFreq);
       x2=XfromFreq(m_rxFreq+bw);
-      painter0.drawLine(x1,24,x1,30);
-      painter0.drawLine(x1,28,x2,28);
-      painter0.drawLine(x2,24,x2,30);
+      painter0.drawLine(x1,yRxBottom-yh,x1,yRxBottom);
+      painter0.drawLine(x1,yRxBottom,x2,yRxBottom);
+      painter0.drawLine(x2,yRxBottom-yh,x2,yRxBottom);
+
     }
   }
 
@@ -538,9 +543,10 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
       x1=XfromFreq(m_txFreq-0.5*bw);
       x2=XfromFreq(m_txFreq+0.5*bw);
     }
-    painter0.drawLine(x1,17,x1,21);
-    painter0.drawLine(x1,17,x2,17);
-    painter0.drawLine(x2,17,x2,21);
+    // Draw the red "goal post"
+    painter0.drawLine(x1,yTxTop,x1,yTxTop+yh);
+    painter0.drawLine(x1,yTxTop,x2,yTxTop);
+    painter0.drawLine(x2,yTxTop,x2,yTxTop+yh);
   }
 
   if(m_mode=="JT9+JT65") {

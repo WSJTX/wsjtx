@@ -37,8 +37,9 @@
   <tr><td><b>Ctrl+O   </b></td><td>Open a .wav file</td></tr>
   <tr><td><b>Alt+O    </b></td><td>Change operator</td></tr>
   <tr><td><b>Alt+Q    </b></td><td>Log QSO</td></tr>
-  <tr><td><b>Ctrl+R   </b></td><td>Set Tx4 message to RRR</td></tr>
+  <tr><td><b>Ctrl+R   </b></td><td>Set Tx4 message to RRR (not in FT4)</td></tr>
   <tr><td><b>Alt+R    </b></td><td>Set Tx4 message to RR73</td></tr>
   <tr><td><b>Alt+S    </b></td><td>Stop monitoring</td></tr>
-  <tr><td><b>Alt+T    </b></td><td>Tune</td></tr>
+  <tr><td><b>Alt+T    </b></td><td>Toggle Tune status</td></tr>
+  <tr><td><b>Alt+Z    </b></td><td>Clear hung decoder status</td></tr>
 </table>

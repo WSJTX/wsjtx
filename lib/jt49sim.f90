@@ -61,6 +61,7 @@ program jt49sim
   nsym=0
   dnsps=0.
   baud=0.
+  sig=0.
 
   if(imode.eq.4) then
      nsym=206                           !Number of channel symbols (JT4)

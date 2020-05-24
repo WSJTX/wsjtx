@@ -343,7 +343,7 @@ MHz.  On higher microwave bands typical choices are JT65C or one of
 the wider QRA64 or JT4 submodes, depending on the expected amount of
 Doppler spread.  JT4 and JT65 offer message *Averaging* -- the
 summation of subsequent transmissions that convey the same message --
-to enable decodes at signal-to-noise ratios several dB below below the
+to enable decodes at signal-to-noise ratios several dB below the
 threshold for single transmissions.  These modes also allow *Deep
 Search* decoding, in which the decoder hypothesizes messages
 containing known or previously decoded callsigns and tests them for
@@ -412,7 +412,7 @@ image::EME_Deep_1.png[align="center",alt="EME_Deep_1"]
 The message `CQ K1ABC FN42` appears in the _Average Decodes_ panel,
 flagged with the <<Decoded_Lines,end-of line label>> `f3`.  The label
 means that decoding was accomplished with the Franke-Taylor 
-algorithm, using the average or 3 transmissions.
+algorithm, using the average of 3 transmissions.
 
 The _Message Averaging_ window now looks like this:
 
@@ -436,4 +436,6 @@ Decoding>>), and is based on the average of 2 transmissions.
 
 You might wish to experiment with other combinations of entries for
 *My Call*, *DX Call*, and *DX Grid*, and with toggling the various
-options of the *Decode* menu on and off.
+options of the *Decode* menu on and off.  For best sensitivity, most
+users will want to use *Deep* decoding with  *Enable averaging*, 
+*Enable deep search*, and *Enable AP* all turned on.

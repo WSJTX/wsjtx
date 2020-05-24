@@ -1,10 +1,10 @@
 // Status=review
 
-image::RadioTab.png[align="center",alt="Radio Tab"]
-
 _WSJT-X_ offers CAT (Computer Aided Transceiver) control of relevant
 features of most modern transceivers.  To configure the program for
 your radio, select the *Radio* tab.
+
+image::RadioTab.png[align="center",alt="Radio Tab"]
 
 * Select your radio type from the drop-down list labeled *Rig*, or
   *None* if you do not wish to use CAT control.
@@ -25,8 +25,6 @@ your radio, select the *Radio* tab.
    be started automatically by _WSJT-X_.
 
 +
-
-NOTE: _Omni-Rig_ is available only under Windows.
 
 * Set *Poll Interval* to the desired interval for _WSJT-X_ to query
   your radio.  For most radios a small number (say, 1 – 3 s) is

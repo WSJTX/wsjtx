@@ -26,7 +26,7 @@ hypothetically known information.
 
 [[FT8_AP_INFO_TABLE]]
 .FT4 and FT8 AP information types
-[width="35%",cols="h10,<m20",frame=topbot,options="header"]
+[width="50%",cols="h10,<m20",frame=topbot,options="header"]
 |===============================================
 |aP | Message components
 |a1 | CQ   &#160; &#160;   ?   &#160; &#160;   ? 
@@ -49,7 +49,7 @@ be attempted in each state.
 
 [[FT8_AP_DECODING_TYPES_TABLE]]
 .FT4 and FT8 AP decoding types for each QSO state
-[width="35%",cols="h10,<m20",frame=topbot,options="header"]
+[width="50%",cols="h10,<m20",frame=topbot,options="header"]
 |===========================================
 |State        |AP type
 |CALLING STN  |   2, 3
@@ -67,7 +67,7 @@ averaged to obtain the decode.
 
 [[JT65_AP_INFO_TABLE]]
 .JT65 AP information types
-[width="35%",cols="h10,<m20",frame=topbot,options="header"]
+[width="50%",cols="h10,<m20",frame=topbot,options="header"]
 |===============================================
 |aP | Message components
 |a1 | CQ   &#160; &#160;   ?   &#160; &#160;   ? 
@@ -81,7 +81,7 @@ averaged to obtain the decode.
 
 [[JT65_AP_DECODING_TYPES_TABLE]]
 .JT65 AP decoding types for each QSO state
-[width="35%",cols="h10,<m20",frame=topbot,options="header"]
+[width="50%",cols="h10,<m20",frame=topbot,options="header"]
 |===========================================
 |State        |AP type
 |CALLING STN  |   2, 3, 6, 7
@@ -140,7 +140,7 @@ Table 6 below shows the meaning of the return codes R in QRA64 mode.
 
 [[QRA64_AP_INFO_TABLE]]
 .QRA64 AP return codes
-[width="35%",cols="h10,<m20",frame=topbot,options="header"]
+[width="50%",cols="h10,<m20",frame=topbot,options="header"]
 |===============================================
 |rc | Message components
 |0  | ?    &#160; &#160;   ?   &#160; &#160;   ?

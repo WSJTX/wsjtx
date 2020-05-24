@@ -22,10 +22,11 @@ HelpTextWindow::HelpTextWindow (QString const& title, QString const& file_name, 
                                    , tr ("Error: %1").arg (source.errorString ()));
       return;
     }
-  setText (QTextStream {&source}.readAll ());
   setWindowTitle(QApplication::applicationName () + " - " + title);
   setMargin (10);
   setBackgroundRole (QPalette::Base);
   setAutoFillBackground (true);
   setStyleSheet (font_as_stylesheet (font));
+  setText (QTextStream {&source}.readAll ());
+  setMinimumSize (sizeHint ());
 }

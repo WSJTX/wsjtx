@@ -497,60 +497,92 @@ namespace
 {
   void update_selection (QTextCursor& cursor, QColor const& bg, QColor const& fg)
   {
-    if (!cursor.isNull ())
+    QTextCharFormat format {cursor.charFormat ()};
+    if (bg.isValid ())
       {
-        QTextCharFormat format {cursor.charFormat ()};
-        if (bg.isValid ())
-          {
-            format.setBackground (bg);
-          }
-        else
-          {
-            format.clearBackground ();
-          }
-        if (fg.isValid ())
-          {
-            format.setForeground (fg);
-          }
-        else
-          {
-            format.clearForeground ();
-          }
-        cursor.mergeCharFormat (format);
+        format.setBackground (bg);
       }
+    else
+      {
+        format.clearBackground ();
+      }
+    if (fg.isValid ())
+      {
+        format.setForeground (fg);
+      }
+    else
+      {
+        format.clearForeground ();
+      }
+    cursor.mergeCharFormat (format);
   }
 
   void reset_selection (QTextCursor& cursor)
   {
-    if (!cursor.isNull ())
+    // restore previous text format, we rely on the text
+    // char format at he start of the selection being the
+    // old one which should be the case
+    auto c2 = cursor;
+    c2.setPosition (c2.selectionStart ());
+    cursor.setCharFormat (c2.charFormat ());
+  }
+}
+
+namespace
+{
+  QString get_timestamp (QTextCursor& cursor)
+  {
+    QString timestamp;
+    if (cursor.movePosition (QTextCursor::PreviousCharacter)
+        && cursor.movePosition (QTextCursor::StartOfLine)
+        && cursor.movePosition (QTextCursor::EndOfWord, QTextCursor::KeepAnchor)
+        && cursor.hasSelection ())
       {
-        // restore previous text format, we rely on the text
-        // char format at he start of the selection being the
-        // old one which should be the case
-        auto c2 = cursor;
-        c2.setPosition (c2.selectionStart ());
-        cursor.setCharFormat (c2.charFormat ());
+        timestamp = cursor.selectedText ();
+        cursor.movePosition (QTextCursor::StartOfLine);
       }
+    return timestamp;
   }
 }
 
 void DisplayText::highlight_callsign (QString const& callsign, QColor const& bg,
-                                      QColor const& fg, bool last_only)
+                                      QColor const& fg, bool last_period_only)
 {
+  // qDebug () << "DisplayText::highlight_callsign: callsign:" << callsign << "last period:" << last_period_only;
+  if (!callsign.size ())
+    {
+      return;
+    }
+  QRegularExpression target {QString {"<?"} + callsign + QString {">?"}, QRegularExpression::DontCaptureOption};
   QTextCharFormat old_format {currentCharFormat ()};
   QTextCursor cursor {document ()};
-  if (last_only)
+  if (last_period_only)
     {
+      // highlight each instance of the given callsign (word) in the
+      // current period
       cursor.movePosition (QTextCursor::End);
-      cursor = document ()->find (callsign, cursor
-                                  , QTextDocument::FindBackward | QTextDocument::FindWholeWords);
-      if (bg.isValid () || fg.isValid ())
+      QTextCursor period_start {cursor};
+      QTextCursor prior {cursor};
+      auto period_timestamp = get_timestamp (period_start);
+      while (period_timestamp.size () && period_timestamp == get_timestamp (prior))
         {
-          update_selection (cursor, bg, fg);
+          period_start = prior;
         }
-      else
+      while (!cursor.isNull () && cursor > period_start)
         {
-          reset_selection (cursor);
+          cursor = document ()->find (target, cursor
+                                      , QTextDocument::FindBackward | QTextDocument::FindWholeWords);
+          if (!cursor.isNull () && cursor.hasSelection ())
+            {
+              if (bg.isValid () || fg.isValid ())
+                {
+                  update_selection (cursor, bg, fg);
+                }
+              else
+                {
+                  reset_selection (cursor);
+                }
+            }
         }
     }
   else
@@ -569,8 +601,11 @@ void DisplayText::highlight_callsign (QString const& callsign, QColor const& bg,
             }
           while (!cursor.isNull ())
             {
-              cursor = document ()->find (callsign, cursor, QTextDocument::FindWholeWords);
-              update_selection (cursor, bg, fg);
+              cursor = document ()->find (target, cursor, QTextDocument::FindWholeWords);
+              if (!cursor.isNull () && cursor.hasSelection ())
+                {
+                  update_selection (cursor, bg, fg);
+                }
             }
         }
       else if (pos != highlighted_calls_.end ())
@@ -579,8 +614,11 @@ void DisplayText::highlight_callsign (QString const& callsign, QColor const& bg,
           QTextCursor cursor {document ()};
           while (!cursor.isNull ())
             {
-              cursor = document ()->find (callsign, cursor, QTextDocument::FindWholeWords);
-              reset_selection (cursor);
+              cursor = document ()->find (target, cursor, QTextDocument::FindWholeWords);
+              if (!cursor.isNull () && cursor.hasSelection ())
+                {
+                  reset_selection (cursor);
+                }
             }
         }
     }

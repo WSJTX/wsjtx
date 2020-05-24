@@ -243,7 +243,7 @@ int floatcomp(const void* elem1, const void* elem2)
 int unpk_(signed char *message, char *hashtab, char *loctab, char *call_loc_pow, char *callsign)
 {
     int n1,n2,n3,ndbm,ihash,nadd,noprint=0;
-    char grid[5],grid6[7],cdbm[3];
+    char grid[5],grid6[7],cdbm[4];
     
     unpack50(message,&n1,&n2);
     if( !unpackcall(n1,callsign) ) return 1;

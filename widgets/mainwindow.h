@@ -486,7 +486,6 @@ private:
   bool    m_dataAvailable;
   bool    m_bDecoded;
   bool    m_noSuffix;
-  bool    m_blankLine;
   bool    m_decodedText2;
   bool    m_freeText;
   bool    m_sentFirst73;
@@ -494,6 +493,7 @@ private:
   QString m_currentMessage;
   int     m_lastMessageType;
   QString m_lastMessageSent;
+  QString m_tBlankLine;
   bool    m_bShMsgs;
   bool    m_bSWL;
   bool    m_uploadSpots;

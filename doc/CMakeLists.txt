@@ -125,7 +125,7 @@ set (UG_IMGS
   images/VHF_controls.png
   images/view-menu.png
   images/wide-graph-controls.png
-
+  images/Windows_Dark.png
 )
 
 find_program (ASCIIDOCTOR_EXECUTABLE NAMES asciidoctor)

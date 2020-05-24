@@ -63,7 +63,7 @@ void AbstractLogWindow::impl::delete_QSOs ()
       && MessageBox::Yes == MessageBox::query_message (self_
                                                        , tr ("Confirm Delete")
                                                        , tr ("Are you sure you want to delete the %n "
-                                                             "selected QSO(s) from the log", ""
+                                                             "selected QSO(s) from the log?", ""
                                                              , row_indexes.size ())))
     {
       // We must work with source model indexes because we don't want row

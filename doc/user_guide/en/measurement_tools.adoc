@@ -104,9 +104,9 @@ shape of your receiver's passband.  Disconnect your antenna or tune to
 a quiet frequency with no signals.  With _WSJT-X_ running in one of
 the slow modes, select *Measure reference spectrum* from the *Tools*
 menu.  Wait for about a minute and then hit the *Stop* button.  A file
-named `refspec.dat` will appear in your log directory.
-
- [ ... more to come ... ]
+named `refspec.dat` will appear in your log directory.  When you check
+*Ref Spec* on the *Wide Graph*, the recorded reference spectrum will
+then be used to flatten your overall effective passband.
 
 === Phase Equalization
 

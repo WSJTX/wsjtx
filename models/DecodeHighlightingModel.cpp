@@ -101,22 +101,22 @@ QString DecodeHighlightingModel::highlight_name (Highlight h)
 {
   switch (h)
     {
-    case Highlight::CQ: return "CQ in message";
-    case Highlight::MyCall: return "My Call in message";
-    case Highlight::Tx: return "Transmitted message";
-    case Highlight::DXCC: return "New DXCC";
-    case Highlight::DXCCBand: return "New DXCC on Band";
-    case Highlight::Grid: return "New Grid";
-    case Highlight::GridBand: return "New Grid on Band";
-    case Highlight::Call: return "New Call";
-    case Highlight::CallBand: return "New Call on Band";
-    case Highlight::Continent: return "New Continent";
-    case Highlight::ContinentBand: return "New Continent on Band";
-    case Highlight::CQZone: return "New CQ Zone";
-    case Highlight::CQZoneBand: return "New CQ Zone on Band";
-    case Highlight::ITUZone: return "New ITU Zone";
-    case Highlight::ITUZoneBand: return "New ITU Zone on Band";
-    case Highlight::LotW: return "LotW User";
+    case Highlight::CQ: return tr ("CQ in message");
+    case Highlight::MyCall: return tr ("My Call in message");
+    case Highlight::Tx: return tr ("Transmitted message");
+    case Highlight::DXCC: return tr ("New DXCC");
+    case Highlight::DXCCBand: return tr ("New DXCC on Band");
+    case Highlight::Grid: return tr ("New Grid");
+    case Highlight::GridBand: return tr ("New Grid on Band");
+    case Highlight::Call: return tr ("New Call");
+    case Highlight::CallBand: return tr ("New Call on Band");
+    case Highlight::Continent: return tr ("New Continent");
+    case Highlight::ContinentBand: return tr ("New Continent on Band");
+    case Highlight::CQZone: return tr ("New CQ Zone");
+    case Highlight::CQZoneBand: return tr ("New CQ Zone on Band");
+    case Highlight::ITUZone: return tr ("New ITU Zone");
+    case Highlight::ITUZoneBand: return tr ("New ITU Zone on Band");
+    case Highlight::LotW: return tr ("LoTW User");
     }
   return "Unknown";
 }
@@ -166,9 +166,9 @@ QVariant DecodeHighlightingModel::data (const QModelIndex& index, int role) cons
           return QString {"%1%2%3%4%4%5%6"}
              .arg (highlight_name (item.type_))
              .arg (fg_unset || bg_unset ? QString {" ["} : QString {})
-             .arg (fg_unset ? QString {"f/g unset"} : QString {})
+             .arg (fg_unset ? tr ("f/g unset") : QString {})
              .arg (fg_unset && bg_unset ? QString {" "} : QString {})
-             .arg (bg_unset ? QString {"b/g unset"} : QString {})
+             .arg (bg_unset ? tr ("b/g unset") : QString {})
              .arg (fg_unset || bg_unset ? QString {"]"} : QString {});
           break;
         case Qt::ForegroundRole:

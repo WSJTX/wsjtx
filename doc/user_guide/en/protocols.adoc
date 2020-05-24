@@ -52,10 +52,10 @@ were the callsigns `E9AA` through `E9ZZ`.  Upon reception they are
 converted back to the form `CQ AA` through `CQ ZZ`, for display to the
 user.
 
-The new FT4, FT8, and MSK144 protocols use a different lossless
-compression algorithm with features to generate and recognize the
-special messages used for contesting and the like.  (More to come,
-here ...)
+The FT4, FT8, and MSK144 protocols use different lossless compression
+algorithms with features that generate and recognize special messages
+used for contesting and other special purposes.  Full details have
+been published in QEX, see {ft4_ft8_protocols}.
 
 To be useful on channels with low signal-to-noise ratio, this kind of
 lossless message compression requires use of a strong forward error

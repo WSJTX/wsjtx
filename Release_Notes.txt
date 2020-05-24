@@ -12,6 +12,65 @@
                                                          
 Copyright 2001 - 2020 by Joe Taylor, K1JT.
 
+		   Release: WSJT-X 2.2.0-rc2
+		          May 25, 2020
+		   -------------------------
+
+WSJT-X 2.2.0-rc2 is a release candidate for WSJT-X 2.2.0.  The
+following bugs present in the -rc1 version have been fixed:
+
+ - Missing blank line between some decode sequences.
+ - Improper functioning of "Start new period decodes at top".
+ - Font selection caused crash on some macOS systems.
+ - Mouse action in band selector box not right in some macOS systems.
+ - Incorrect recall of Tx power setting in WSPR mode.
+ - Many fixes to hamlib library and executables (rigctld, etc.).
+ - Some regional settings did not allow WSJT-X to start.
+ - Main window "looked like old Windows" in macOS.
+ - Crash when "Ref Spec" is selected and no refspec.dat available.
+ - Improper decoding of some FT4 messages with hashed "MyCall".
+ - Crash after warning message about double-clicking in ISCAT mode.
+
+In addition, we have made the following improvements:
+
+ - Updated some figures and text in User Guide.
+ - Corrected some formatting issues in the pdf version of User Guide.
+ - Added some new sample files.
+ - Improved shape and position of "green goal post" in Wide Graph.
+ - Significantly reduced the rate of false decodes in FT4 and FT8.
+ - Allow FT4 to use NA VHF Contest message formats.
+ - Hold Tx frequency no longer cleared when switching between modes.
+ - Added capability for translations of the user interface into
+   languages other than English.  First working example (special
+   thanks to Xavi Perez, EA3W!), is Catalan.  Spanish will be next.
+ - Performance improvements to decode highlighting via UDP messages.
+
+And finally:
+
+Increasing FT8 usage on the popular bands 40, 30, and 20m means that
+the default 3 kHz sub-bands are often wall-to-wall with signals.
+Overcrowding encourages some to turn on their amplifiers, which only
+makes things worse.  We are trying to coordinate the suggested
+frequencies in WSJT-X with updated band plans being considered by
+IARU, ARRL, and other amateur radio societies.
+
+On a trial basis, and in response to numerous suggestions from around
+the world, we have added a second set of suggested dial frequencies
+for FT8 on three HF bands and also on 6 meters. The new suggested dial
+frequencies are 7.071, 10.133, 14.071, and 50.310 MHz.  These
+frequencies will appear in your drop-down band-selector list after you
+go to the "Settings | Frequencies" tab, right-click on the frequency
+table, and select "Reset".  Alternatively, you can add the new FT8
+frequencies manually.
+
+When the conventional FT8 sub-band on 6, 20, 30, or 40 m seems too
+full, please try moving your dial frequency down 3 kHz!  Be aware that
+as currently implemented, WSJT-X will set your dial to the lowest
+frequency for the selected mode and band, when you switch bands.
+
+See the next section for a list of other program improvements since
+WSJT-X 2.1.2.
+
 
 		   Release: WSJT-X 2.2.0-rc1
 		          May 10, 2020

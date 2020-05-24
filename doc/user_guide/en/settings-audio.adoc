@@ -1,8 +1,8 @@
 // Status=review
 
-image::settings-audio.png[align="center",alt="_WSJT-X_ Audio Configuration Screen"]
-
 Select the *Audio* tab to configure your sound system.
+
+image::settings-audio.png[align="center",alt="_WSJT-X_ Audio Configuration Screen"]
 
 * _Soundcard_: Select the audio devices to be used for *Input* and
 *Output*.  Usually the *Mono* settings will suffice, but in special
@@ -19,7 +19,7 @@ to prevent inadvertently transmitting them over the air.
 
 +
 
-NOTE: Windows Vista and later may configure audio devices using
+NOTE: Windows 7 and later may configure audio devices using
 the Texas Instruments PCM2900 series CODEC for microphone input rather
 line input.  (This chip is used in many radios with built-in USB
 CODECs, as well as various other audio interfaces.)  If you are using

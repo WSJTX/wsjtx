@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>670</width>
-    <height>617</height>
+    <width>557</width>
+    <height>561</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -559,7 +559,7 @@ quiet period when decoding is done.</string>
               <property name="editable">
                <bool>true</bool>
               </property>
-              <property name="currentText" stdset="0">
+              <property name="currentText">
                <string/>
               </property>
               <property name="insertPolicy">
@@ -929,7 +929,7 @@ a few, particularly some Kenwood rigs, require it).</string>
           </sizepolicy>
          </property>
          <property name="toolTip">
-          <string>How this program activates the PTT on your radio</string>
+          <string>How this program activates the PTT on your radio?</string>
          </property>
          <property name="title">
           <string>PTT Method</string>
@@ -1021,7 +1021,7 @@ other hardware interface for PTT.</string>
               <property name="editable">
                <bool>true</bool>
               </property>
-              <property name="currentText" stdset="0">
+              <property name="currentText">
                <string/>
               </property>
               <property name="currentIndex">
@@ -3108,13 +3108,13 @@ Right click for insert and delete options.</string>
   </connection>
  </connections>
  <buttongroups>
-  <buttongroup name="split_mode_button_group"/>
-  <buttongroup name="TX_audio_source_button_group"/>
-  <buttongroup name="TX_mode_button_group"/>
-  <buttongroup name="PTT_method_button_group"/>
-  <buttongroup name="special_op_activity_button_group"/>
   <buttongroup name="CAT_handshake_button_group"/>
+  <buttongroup name="TX_audio_source_button_group"/>
+  <buttongroup name="special_op_activity_button_group"/>
+  <buttongroup name="TX_mode_button_group"/>
   <buttongroup name="CAT_data_bits_button_group"/>
+  <buttongroup name="PTT_method_button_group"/>
   <buttongroup name="CAT_stop_bits_button_group"/>
+  <buttongroup name="split_mode_button_group"/>
  </buttongroups>
 </ui>

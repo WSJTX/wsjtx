@@ -1,6 +1,6 @@
-// These instructions are up-to-date for WSJT-X v1.9
+// These instructions are up-to-date for WSJT-X v2.2
 
-*OS X 10.10* and later: Download the file {osx} to your desktop,
+*OS X 10.13* and later: Download the file {osx} to your desktop,
 double-click on it and consult its `ReadMe` file for important
 installation notes.  
 

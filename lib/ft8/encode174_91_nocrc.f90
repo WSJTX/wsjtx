@@ -7,12 +7,10 @@ subroutine encode174_91_nocrc(message,codeword)
    use crc
 
    integer, parameter:: N=174, K=91, M=N-K
-   character*91 tmpchar
    integer*1 codeword(N)
    integer*1 gen(M,K)
    integer*1 message(K)
    integer*1 pchecks(M)
-   integer*1, target :: i1MsgBytes(12)
    include "ldpc_174_91_c_generator.f90"
    logical first
    data first/.true./

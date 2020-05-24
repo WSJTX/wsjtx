@@ -3,7 +3,8 @@
 A few _WSJT-X_ features behave differently in Windows, Linux, or OS X,
 or may not be relevant to all operating platforms.
 
-.File locations
+=== File locations
+
 * *Windows*
 
 - *Settings:*               %LOCALAPPDATA%\WSJT-X\WSJT-X.ini

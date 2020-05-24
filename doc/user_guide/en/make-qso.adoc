@@ -93,7 +93,7 @@ tab.  Model QSOs then proceed as follows, for each event type:
 
 *NA VHF Contest*
 
- CQ K1ABC FN42
+ CQ TEST K1ABC FN42
                        K1ABC W9XYZ EN37
  W9XYZ K1ABC R FN42
                        K1ABC W9XYZ RRR
@@ -134,7 +134,7 @@ to upgrade _WSJT-X_ if you will use *EU VHF Contest* messages.
 
 *WW Digi Contest*
 
- CQ K1ABC FN42
+ CQ WW K1ABC FN42
                        K1ABC S52XYZ JN76
  S52XYZ K1ABC R FN42
                        K1ABC S52XYZ RR73

@@ -35,9 +35,7 @@ from another logging program.  Turning *Show DXCC entity and worked
 before status* off and then on again will cause _WSJT-X_ to re-read
 the log file.  Very large log files may cause _WSJT-X_ to slow down
 when searching for calls. If the ADIF log file has been changed
-outside of _WSJT-X_ you can force _WSJT-X_ to relaod the file from the
+outside of _WSJT-X_ you can force _WSJT-X_ to reload the file from the
 *Settings | Colors* tab using the *Rescan ADIF Log* button, see
 <<COLORS,Decode Highlighting>>.
 
-Additional features are provided for *Contest* and *Fox* logging.
-(more to come, here ...)

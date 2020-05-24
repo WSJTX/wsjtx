@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
-<TS version="2.1" language="en_GB">
+<TS version="2.1" language="es_ES">
 <context>
     <name>AbstractLogWindow</name>
     <message>
@@ -194,7 +194,7 @@
 <context>
     <name>CPlotter</name>
     <message>
-        <location filename="../widgets/plotter.cpp" line="24"/>
+        <location filename="../widgets/plotter.cpp" line="26"/>
         <source>&amp;Set Rx &amp;&amp; Tx Offset</source>
         <translation type="unfinished"></translation>
     </message>
@@ -202,37 +202,37 @@
 <context>
     <name>CabrilloLog</name>
     <message>
-        <location filename="../models/CabrilloLog.cpp" line="94"/>
+        <location filename="../models/CabrilloLog.cpp" line="91"/>
         <source>Freq(MHz)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../models/CabrilloLog.cpp" line="95"/>
+        <location filename="../models/CabrilloLog.cpp" line="92"/>
         <source>Mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../models/CabrilloLog.cpp" line="96"/>
+        <location filename="../models/CabrilloLog.cpp" line="93"/>
         <source>Date &amp; Time(UTC)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../models/CabrilloLog.cpp" line="97"/>
+        <location filename="../models/CabrilloLog.cpp" line="94"/>
         <source>Call</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../models/CabrilloLog.cpp" line="98"/>
+        <location filename="../models/CabrilloLog.cpp" line="95"/>
         <source>Sent</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../models/CabrilloLog.cpp" line="99"/>
+        <location filename="../models/CabrilloLog.cpp" line="96"/>
         <source>Rcvd</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../models/CabrilloLog.cpp" line="100"/>
+        <location filename="../models/CabrilloLog.cpp" line="97"/>
         <source>Band</source>
         <translation type="unfinished"></translation>
     </message>
@@ -369,75 +369,75 @@
 <context>
     <name>Configuration::impl</name>
     <message>
-        <location filename="../Configuration.cpp" line="958"/>
-        <location filename="../Configuration.cpp" line="1113"/>
-        <location filename="../Configuration.cpp" line="1137"/>
+        <location filename="../Configuration.cpp" line="960"/>
+        <location filename="../Configuration.cpp" line="1117"/>
+        <location filename="../Configuration.cpp" line="1141"/>
         <source>&amp;Delete</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="959"/>
-        <location filename="../Configuration.cpp" line="1141"/>
+        <location filename="../Configuration.cpp" line="961"/>
+        <location filename="../Configuration.cpp" line="1145"/>
         <source>&amp;Insert ...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="986"/>
+        <location filename="../Configuration.cpp" line="989"/>
         <source>Failed to create save directory</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="987"/>
+        <location filename="../Configuration.cpp" line="990"/>
         <source>path: &quot;%1%</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="998"/>
+        <location filename="../Configuration.cpp" line="1001"/>
         <source>Failed to create samples directory</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="999"/>
+        <location filename="../Configuration.cpp" line="1002"/>
         <source>path: &quot;%1&quot;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1145"/>
+        <location filename="../Configuration.cpp" line="1149"/>
         <source>&amp;Load ...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1149"/>
+        <location filename="../Configuration.cpp" line="1153"/>
         <source>&amp;Save as ...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1153"/>
+        <location filename="../Configuration.cpp" line="1157"/>
         <source>&amp;Merge ...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1157"/>
+        <location filename="../Configuration.cpp" line="1161"/>
         <source>&amp;Reset</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1725"/>
+        <location filename="../Configuration.cpp" line="1733"/>
         <source>Serial Port:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1726"/>
+        <location filename="../Configuration.cpp" line="1734"/>
         <source>Serial port used for CAT control</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1733"/>
+        <location filename="../Configuration.cpp" line="1741"/>
         <source>Network Server:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1734"/>
+        <location filename="../Configuration.cpp" line="1742"/>
         <source>Optional hostname and port of network service.
 Leave blank for a sensible default on this machine.
 Formats:
@@ -447,12 +447,12 @@ Formats:
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1746"/>
+        <location filename="../Configuration.cpp" line="1754"/>
         <source>USB Device:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1747"/>
+        <location filename="../Configuration.cpp" line="1755"/>
         <source>Optional device identification.
 Leave blank for a sensible default for the rig.
 Format:
@@ -460,152 +460,152 @@ Format:
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1782"/>
+        <location filename="../Configuration.cpp" line="1790"/>
         <source>Invalid audio input device</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1789"/>
+        <location filename="../Configuration.cpp" line="1797"/>
         <source>Invalid audio out device</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1795"/>
+        <location filename="../Configuration.cpp" line="1803"/>
         <source>Invalid PTT method</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1805"/>
+        <location filename="../Configuration.cpp" line="1813"/>
         <source>Invalid PTT port</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1822"/>
-        <location filename="../Configuration.cpp" line="1840"/>
+        <location filename="../Configuration.cpp" line="1830"/>
+        <location filename="../Configuration.cpp" line="1848"/>
         <source>Invalid Contest Exchange</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1823"/>
+        <location filename="../Configuration.cpp" line="1831"/>
         <source>You must input a valid ARRL Field Day exchange</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1841"/>
+        <location filename="../Configuration.cpp" line="1849"/>
         <source>You must input a valid ARRL RTTY Roundup exchange</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2172"/>
+        <location filename="../Configuration.cpp" line="2186"/>
         <source>Reset Decode Highlighting</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2173"/>
+        <location filename="../Configuration.cpp" line="2187"/>
         <source>Reset all decode highlighting and priorities to default values</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2193"/>
+        <location filename="../Configuration.cpp" line="2207"/>
         <source>WSJT-X Decoded Text Font Chooser</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2370"/>
+        <location filename="../Configuration.cpp" line="2384"/>
         <source>Load Working Frequencies</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2370"/>
-        <location filename="../Configuration.cpp" line="2389"/>
-        <location filename="../Configuration.cpp" line="2435"/>
+        <location filename="../Configuration.cpp" line="2384"/>
+        <location filename="../Configuration.cpp" line="2403"/>
+        <location filename="../Configuration.cpp" line="2449"/>
         <source>Frequency files (*.qrg);;All files (*.*)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2377"/>
+        <location filename="../Configuration.cpp" line="2391"/>
         <source>Replace Working Frequencies</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2378"/>
+        <location filename="../Configuration.cpp" line="2392"/>
         <source>Are you sure you want to discard your current working frequencies and replace them with the loaded ones?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2389"/>
+        <location filename="../Configuration.cpp" line="2403"/>
         <source>Merge Working Frequencies</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2406"/>
-        <location filename="../Configuration.cpp" line="2415"/>
-        <location filename="../Configuration.cpp" line="2425"/>
+        <location filename="../Configuration.cpp" line="2420"/>
+        <location filename="../Configuration.cpp" line="2429"/>
+        <location filename="../Configuration.cpp" line="2439"/>
         <source>Not a valid frequencies file</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2406"/>
+        <location filename="../Configuration.cpp" line="2420"/>
         <source>Incorrect file magic</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2415"/>
+        <location filename="../Configuration.cpp" line="2429"/>
         <source>Version is too new</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2425"/>
+        <location filename="../Configuration.cpp" line="2439"/>
         <source>Contents corrupt</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2435"/>
+        <location filename="../Configuration.cpp" line="2449"/>
         <source>Save Working Frequencies</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2444"/>
+        <location filename="../Configuration.cpp" line="2458"/>
         <source>Only Save Selected  Working Frequencies</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2445"/>
+        <location filename="../Configuration.cpp" line="2459"/>
         <source>Are you sure you want to save only the working frequencies that are currently selected? Click No to save all.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2461"/>
+        <location filename="../Configuration.cpp" line="2475"/>
         <source>Reset Working Frequencies</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2462"/>
+        <location filename="../Configuration.cpp" line="2476"/>
         <source>Are you sure you want to discard your current working frequencies and replace them with default ones?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2500"/>
+        <location filename="../Configuration.cpp" line="2514"/>
         <source>Save Directory</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2514"/>
+        <location filename="../Configuration.cpp" line="2528"/>
         <source>AzEl Directory</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2574"/>
+        <location filename="../Configuration.cpp" line="2588"/>
         <source>Rig control error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2575"/>
+        <location filename="../Configuration.cpp" line="2589"/>
         <source>Failed to open connection to rig</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2789"/>
+        <location filename="../Configuration.cpp" line="2803"/>
         <source>Rig failure</source>
         <translation type="unfinished"></translation>
     </message>
@@ -613,81 +613,81 @@ Format:
 <context>
     <name>DXLabSuiteCommanderTransceiver</name>
     <message>
-        <location filename="../DXLabSuiteCommanderTransceiver.cpp" line="71"/>
+        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="71"/>
         <source>Failed to connect to DX Lab Suite Commander
 </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../DXLabSuiteCommanderTransceiver.cpp" line="127"/>
+        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="127"/>
         <source>DX Lab Suite Commander didn&apos;t respond correctly reading frequency: </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../DXLabSuiteCommanderTransceiver.cpp" line="174"/>
+        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="174"/>
         <source>DX Lab Suite Commander sent an unrecognised TX state: </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../DXLabSuiteCommanderTransceiver.cpp" line="180"/>
+        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="180"/>
         <source>DX Lab Suite Commander didn&apos;t respond correctly polling TX status: </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../DXLabSuiteCommanderTransceiver.cpp" line="188"/>
+        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="188"/>
         <source>DX Lab Suite Commander rig did not respond to PTT: </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../DXLabSuiteCommanderTransceiver.cpp" line="274"/>
+        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="274"/>
         <source>DX Lab Suite Commander didn&apos;t respond correctly polling frequency: </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../DXLabSuiteCommanderTransceiver.cpp" line="295"/>
+        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="295"/>
         <source>DX Lab Suite Commander didn&apos;t respond correctly polling TX frequency: </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../DXLabSuiteCommanderTransceiver.cpp" line="314"/>
+        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="314"/>
         <source>DX Lab Suite Commander sent an unrecognised split state: </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../DXLabSuiteCommanderTransceiver.cpp" line="320"/>
+        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="320"/>
         <source>DX Lab Suite Commander didn&apos;t respond correctly polling split status: </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../DXLabSuiteCommanderTransceiver.cpp" line="376"/>
+        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="376"/>
         <source>DX Lab Suite Commander sent an unrecognised mode: &quot;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../DXLabSuiteCommanderTransceiver.cpp" line="383"/>
+        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="383"/>
         <source>DX Lab Suite Commander didn&apos;t respond correctly polling mode: </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../DXLabSuiteCommanderTransceiver.cpp" line="400"/>
+        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="400"/>
         <source>DX Lab Suite Commander send command failed
 </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../DXLabSuiteCommanderTransceiver.cpp" line="412"/>
+        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="412"/>
         <source>DX Lab Suite Commander failed to send command &quot;%1&quot;: %2
 </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../DXLabSuiteCommanderTransceiver.cpp" line="429"/>
+        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="429"/>
         <source>DX Lab Suite Commander send command &quot;%1&quot; read reply failed: %2
 </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../DXLabSuiteCommanderTransceiver.cpp" line="440"/>
+        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="440"/>
         <source>DX Lab Suite Commander retries exhausted sending command &quot;%1&quot;</source>
         <translation type="unfinished"></translation>
     </message>
@@ -870,7 +870,7 @@ Format:
 <context>
     <name>Dialog</name>
     <message>
-        <location filename="../WSPRBandHopping.cpp" line="116"/>
+        <location filename="../WSPR/WSPRBandHopping.cpp" line="116"/>
         <source>Gray time:</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1032,13 +1032,13 @@ Error: %2 - %3</source>
     <message>
         <location filename="../widgets/echograph.ui" line="258"/>
         <source>Colors</source>
-        <translation type="unfinished">Colours</translation>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
     <name>EmulateSplitTransceiver</name>
     <message>
-        <location filename="../EmulateSplitTransceiver.cpp" line="48"/>
+        <location filename="../Transceiver/EmulateSplitTransceiver.cpp" line="48"/>
         <source>Emulated split mode requires rig to be in simplex mode</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1296,32 +1296,32 @@ Error: %2 - %3</source>
 <context>
     <name>FoxLog::impl</name>
     <message>
-        <location filename="../models/FoxLog.cpp" line="93"/>
+        <location filename="../models/FoxLog.cpp" line="123"/>
         <source>Date &amp; Time(UTC)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../models/FoxLog.cpp" line="94"/>
+        <location filename="../models/FoxLog.cpp" line="124"/>
         <source>Call</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../models/FoxLog.cpp" line="95"/>
+        <location filename="../models/FoxLog.cpp" line="125"/>
         <source>Grid</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../models/FoxLog.cpp" line="96"/>
+        <location filename="../models/FoxLog.cpp" line="126"/>
         <source>Sent</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../models/FoxLog.cpp" line="97"/>
+        <location filename="../models/FoxLog.cpp" line="127"/>
         <source>Rcvd</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../models/FoxLog.cpp" line="98"/>
+        <location filename="../models/FoxLog.cpp" line="128"/>
         <source>Band</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1361,42 +1361,42 @@ Error: %2 - %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/FoxLogWindow.cpp" line="53"/>
+        <location filename="../widgets/FoxLogWindow.cpp" line="55"/>
         <source>&amp;Export ADIF ...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/FoxLogWindow.cpp" line="57"/>
+        <location filename="../widgets/FoxLogWindow.cpp" line="59"/>
         <source>Export ADIF Log File</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/FoxLogWindow.cpp" line="59"/>
+        <location filename="../widgets/FoxLogWindow.cpp" line="61"/>
         <source>ADIF Log (*.adi)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/FoxLogWindow.cpp" line="71"/>
+        <location filename="../widgets/FoxLogWindow.cpp" line="73"/>
         <source>Export ADIF File Error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/FoxLogWindow.cpp" line="72"/>
+        <location filename="../widgets/FoxLogWindow.cpp" line="74"/>
         <source>Cannot open &quot;%1&quot; for writing: %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/FoxLogWindow.cpp" line="78"/>
+        <location filename="../widgets/FoxLogWindow.cpp" line="80"/>
         <source>&amp;Reset ...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/FoxLogWindow.cpp" line="82"/>
+        <location filename="../widgets/FoxLogWindow.cpp" line="84"/>
         <source>Confirm Reset</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/FoxLogWindow.cpp" line="83"/>
+        <location filename="../widgets/FoxLogWindow.cpp" line="85"/>
         <source>Are you sure you want to erase file FoxQSO.txt and start a new Fox log?</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1454,83 +1454,83 @@ Error: %2 - %3</source>
 <context>
     <name>HRDTransceiver</name>
     <message>
-        <location filename="../HRDTransceiver.cpp" line="124"/>
-        <location filename="../HRDTransceiver.cpp" line="149"/>
+        <location filename="../Transceiver/HRDTransceiver.cpp" line="125"/>
+        <location filename="../Transceiver/HRDTransceiver.cpp" line="150"/>
         <source>Failed to connect to Ham Radio Deluxe
 </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HRDTransceiver.cpp" line="158"/>
+        <location filename="../Transceiver/HRDTransceiver.cpp" line="159"/>
         <source>Failed to open file &quot;%1&quot;: %2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HRDTransceiver.cpp" line="173"/>
-        <location filename="../HRDTransceiver.cpp" line="197"/>
+        <location filename="../Transceiver/HRDTransceiver.cpp" line="174"/>
+        <location filename="../Transceiver/HRDTransceiver.cpp" line="198"/>
         <source>Ham Radio Deluxe: no rig found</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HRDTransceiver.cpp" line="421"/>
+        <location filename="../Transceiver/HRDTransceiver.cpp" line="422"/>
         <source>Ham Radio Deluxe: rig doesn&apos;t support mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HRDTransceiver.cpp" line="440"/>
+        <location filename="../Transceiver/HRDTransceiver.cpp" line="441"/>
         <source>Ham Radio Deluxe: sent an unrecognised mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HRDTransceiver.cpp" line="475"/>
+        <location filename="../Transceiver/HRDTransceiver.cpp" line="476"/>
         <source>Ham Radio Deluxe: item not found in %1 dropdown list</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HRDTransceiver.cpp" line="519"/>
+        <location filename="../Transceiver/HRDTransceiver.cpp" line="520"/>
         <source>Ham Radio Deluxe: button not available</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HRDTransceiver.cpp" line="885"/>
+        <location filename="../Transceiver/HRDTransceiver.cpp" line="886"/>
         <source>Ham Radio Deluxe didn&apos;t respond as expected</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HRDTransceiver.cpp" line="1033"/>
+        <location filename="../Transceiver/HRDTransceiver.cpp" line="1035"/>
         <source>Ham Radio Deluxe: rig has disappeared or changed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HRDTransceiver.cpp" line="1048"/>
+        <location filename="../Transceiver/HRDTransceiver.cpp" line="1050"/>
         <source>Ham Radio Deluxe send command &quot;%1&quot; failed %2
 </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HRDTransceiver.cpp" line="1061"/>
-        <location filename="../HRDTransceiver.cpp" line="1074"/>
+        <location filename="../Transceiver/HRDTransceiver.cpp" line="1063"/>
+        <location filename="../Transceiver/HRDTransceiver.cpp" line="1076"/>
         <source>Ham Radio Deluxe: failed to write command &quot;%1&quot;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HRDTransceiver.cpp" line="1091"/>
+        <location filename="../Transceiver/HRDTransceiver.cpp" line="1093"/>
         <source>Ham Radio Deluxe sent an invalid reply to our command &quot;%1&quot;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HRDTransceiver.cpp" line="1145"/>
+        <location filename="../Transceiver/HRDTransceiver.cpp" line="1147"/>
         <source>Ham Radio Deluxe failed to reply to command &quot;%1&quot; %2
 </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HRDTransceiver.cpp" line="1155"/>
+        <location filename="../Transceiver/HRDTransceiver.cpp" line="1157"/>
         <source>Ham Radio Deluxe retries exhausted sending command &quot;%1&quot;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HRDTransceiver.cpp" line="1168"/>
+        <location filename="../Transceiver/HRDTransceiver.cpp" line="1170"/>
         <source>Ham Radio Deluxe didn&apos;t respond to command &quot;%1&quot; as expected</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1538,178 +1538,178 @@ Error: %2 - %3</source>
 <context>
     <name>HamlibTransceiver</name>
     <message>
-        <location filename="../HamlibTransceiver.cpp" line="201"/>
-        <location filename="../HamlibTransceiver.cpp" line="254"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="201"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="254"/>
         <source>Hamlib initialisation error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HamlibTransceiver.cpp" line="276"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="276"/>
         <source>Hamlib settings file error: %1 at character offset %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HamlibTransceiver.cpp" line="282"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="282"/>
         <source>Hamlib settings file error: top level must be a JSON object</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HamlibTransceiver.cpp" line="294"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="294"/>
         <source>Hamlib settings file error: config must be a JSON object</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HamlibTransceiver.cpp" line="359"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="359"/>
         <source>Unsupported CAT type</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HamlibTransceiver.cpp" line="410"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="410"/>
         <source>Hamlib error: %1 while %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HamlibTransceiver.cpp" line="420"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="420"/>
         <source>opening connection to rig</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HamlibTransceiver.cpp" line="467"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="467"/>
         <source>getting current frequency</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HamlibTransceiver.cpp" line="471"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="471"/>
         <source>getting current mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HamlibTransceiver.cpp" line="500"/>
-        <location filename="../HamlibTransceiver.cpp" line="520"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="500"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="520"/>
         <source>exchanging VFOs</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HamlibTransceiver.cpp" line="508"/>
-        <location filename="../HamlibTransceiver.cpp" line="979"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="508"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="979"/>
         <source>getting other VFO frequency</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HamlibTransceiver.cpp" line="512"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="512"/>
         <source>getting other VFO mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HamlibTransceiver.cpp" line="525"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="525"/>
         <source>setting current VFO</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HamlibTransceiver.cpp" line="534"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="534"/>
         <source>getting frequency</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HamlibTransceiver.cpp" line="538"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="538"/>
         <source>getting mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HamlibTransceiver.cpp" line="555"/>
-        <location filename="../HamlibTransceiver.cpp" line="919"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="555"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="919"/>
         <source>getting current VFO</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HamlibTransceiver.cpp" line="599"/>
-        <location filename="../HamlibTransceiver.cpp" line="607"/>
-        <location filename="../HamlibTransceiver.cpp" line="621"/>
-        <location filename="../HamlibTransceiver.cpp" line="958"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="599"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="607"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="621"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="958"/>
         <source>getting current VFO frequency</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HamlibTransceiver.cpp" line="605"/>
-        <location filename="../HamlibTransceiver.cpp" line="620"/>
-        <location filename="../HamlibTransceiver.cpp" line="627"/>
-        <location filename="../HamlibTransceiver.cpp" line="706"/>
-        <location filename="../HamlibTransceiver.cpp" line="724"/>
-        <location filename="../HamlibTransceiver.cpp" line="785"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="605"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="620"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="627"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="706"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="724"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="785"/>
         <source>setting frequency</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HamlibTransceiver.cpp" line="714"/>
-        <location filename="../HamlibTransceiver.cpp" line="792"/>
-        <location filename="../HamlibTransceiver.cpp" line="864"/>
-        <location filename="../HamlibTransceiver.cpp" line="877"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="714"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="792"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="864"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="877"/>
         <source>getting current VFO mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HamlibTransceiver.cpp" line="720"/>
-        <location filename="../HamlibTransceiver.cpp" line="729"/>
-        <location filename="../HamlibTransceiver.cpp" line="798"/>
-        <location filename="../HamlibTransceiver.cpp" line="870"/>
-        <location filename="../HamlibTransceiver.cpp" line="883"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="720"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="729"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="798"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="870"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="883"/>
         <source>setting current VFO mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HamlibTransceiver.cpp" line="772"/>
-        <location filename="../HamlibTransceiver.cpp" line="841"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="772"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="841"/>
         <source>setting/unsetting split mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HamlibTransceiver.cpp" line="783"/>
-        <location filename="../HamlibTransceiver.cpp" line="823"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="783"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="823"/>
         <source>setting split mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HamlibTransceiver.cpp" line="811"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="811"/>
         <source>setting split TX frequency and mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HamlibTransceiver.cpp" line="816"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="816"/>
         <source>setting split TX frequency</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HamlibTransceiver.cpp" line="888"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="888"/>
         <source>getting split TX VFO mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HamlibTransceiver.cpp" line="895"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="895"/>
         <source>setting split TX VFO mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HamlibTransceiver.cpp" line="1016"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1016"/>
         <source>getting PTT state</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HamlibTransceiver.cpp" line="1047"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1047"/>
         <source>setting PTT on</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HamlibTransceiver.cpp" line="1055"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1055"/>
         <source>setting PTT off</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HamlibTransceiver.cpp" line="1067"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1067"/>
         <source>setting a configuration item</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../HamlibTransceiver.cpp" line="1077"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1077"/>
         <source>getting a configuration item</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1865,38 +1865,38 @@ Error: %2 - %3</source>
 <context>
     <name>LotWUsers::impl</name>
     <message>
-        <location filename="../LotWUsers.cpp" line="109"/>
+        <location filename="../Network/LotWUsers.cpp" line="109"/>
         <source>Network Error - SSL/TLS support not installed, cannot fetch:
 &apos;%1&apos;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../LotWUsers.cpp" line="121"/>
+        <location filename="../Network/LotWUsers.cpp" line="121"/>
         <source>Network Error - Too many redirects:
 &apos;%1&apos;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../LotWUsers.cpp" line="135"/>
+        <location filename="../Network/LotWUsers.cpp" line="135"/>
         <source>Network Error:
 %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../LotWUsers.cpp" line="144"/>
+        <location filename="../Network/LotWUsers.cpp" line="144"/>
         <source>File System Error - Cannot commit changes to:
 &quot;%1&quot;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../LotWUsers.cpp" line="181"/>
+        <location filename="../Network/LotWUsers.cpp" line="181"/>
         <source>File System Error - Cannot open file:
 &quot;%1&quot;
 Error(%2): %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../LotWUsers.cpp" line="190"/>
+        <location filename="../Network/LotWUsers.cpp" line="190"/>
         <source>File System Error - Cannot write to file:
 &quot;%1&quot;
 Error(%2): %3</source>
@@ -3503,7 +3503,7 @@ list. The list can be maintained in Settings (F2).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="241"/>
+        <location filename="../widgets/mainwindow.cpp" line="242"/>
         <source>Rig Control Error</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3520,27 +3520,27 @@ list. The list can be maintained in Settings (F2).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="494"/>
+        <location filename="../widgets/mainwindow.cpp" line="497"/>
         <source>Error Scanning ADIF Log</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="498"/>
+        <location filename="../widgets/mainwindow.cpp" line="501"/>
         <source>Scanned ADIF log, %1 worked before records created</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="616"/>
+        <location filename="../widgets/mainwindow.cpp" line="619"/>
         <source>Error Loading LotW Users Data</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="682"/>
+        <location filename="../widgets/mainwindow.cpp" line="706"/>
         <source>Error Writing WAV File</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="723"/>
+        <location filename="../widgets/mainwindow.cpp" line="749"/>
         <source>Configurations...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3570,17 +3570,17 @@ list. The list can be maintained in Settings (F2).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="820"/>
+        <location filename="../widgets/mainwindow.cpp" line="843"/>
         <source>KillByName return code: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="835"/>
+        <location filename="../widgets/mainwindow.cpp" line="858"/>
         <source>Error removing &quot;%1&quot;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="836"/>
+        <location filename="../widgets/mainwindow.cpp" line="859"/>
         <source>Click OK to retry</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3606,17 +3606,17 @@ list. The list can be maintained in Settings (F2).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1490"/>
+        <location filename="../widgets/mainwindow.cpp" line="1513"/>
         <source>Error saving c2 file</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1705"/>
+        <location filename="../widgets/mainwindow.cpp" line="1725"/>
         <source>Error in Sound Input</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1711"/>
+        <location filename="../widgets/mainwindow.cpp" line="1731"/>
         <source>Error in Sound Output</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3640,12 +3640,12 @@ list. The list can be maintained in Settings (F2).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2072"/>
+        <location filename="../widgets/mainwindow.cpp" line="2089"/>
         <source>New operator:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2174"/>
+        <location filename="../widgets/mainwindow.cpp" line="2199"/>
         <source>Status File Error</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3656,44 +3656,44 @@ list. The list can be maintained in Settings (F2).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2298"/>
+        <location filename="../widgets/mainwindow.cpp" line="2328"/>
         <source>Subprocess Error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2299"/>
+        <location filename="../widgets/mainwindow.cpp" line="2329"/>
         <source>Subprocess failed with exit code %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2301"/>
-        <location filename="../widgets/mainwindow.cpp" line="2321"/>
+        <location filename="../widgets/mainwindow.cpp" line="2331"/>
+        <location filename="../widgets/mainwindow.cpp" line="2351"/>
         <source>Running: %1
 %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2320"/>
+        <location filename="../widgets/mainwindow.cpp" line="2350"/>
         <source>Subprocess error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2362"/>
+        <location filename="../widgets/mainwindow.cpp" line="2388"/>
         <source>Reference spectrum saved</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2425"/>
+        <location filename="../widgets/mainwindow.cpp" line="2451"/>
         <source>Invalid data in fmt.all at line %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2431"/>
+        <location filename="../widgets/mainwindow.cpp" line="2457"/>
         <source>Good Calibration Solution</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2432"/>
+        <location filename="../widgets/mainwindow.cpp" line="2458"/>
         <source>&lt;pre&gt;%1%L2 ±%L3 ppm
 %4%L5 ±%L6 Hz
 
@@ -3702,69 +3702,69 @@ list. The list can be maintained in Settings (F2).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2446"/>
+        <location filename="../widgets/mainwindow.cpp" line="2472"/>
         <source>Delete Calibration Measurements</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2447"/>
+        <location filename="../widgets/mainwindow.cpp" line="2473"/>
         <source>The &quot;fmt.all&quot; file will be renamed as &quot;fmt.bak&quot;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2459"/>
+        <location filename="../widgets/mainwindow.cpp" line="2485"/>
         <source>If you make fair use of any part of WSJT-X under terms of the GNU General Public License, you must display the following copyright notice prominently in your derivative work:
 
-&quot;The algorithms, source code, look-and-feel of WSJT-X and related programs, and protocol specifications for the modes FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 are Copyright (C) 2001-2019 by one or more of the following authors: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; and other members of the WSJT Development Group.&quot;</source>
+&quot;The algorithms, source code, look-and-feel of WSJT-X and related programs, and protocol specifications for the modes FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 are Copyright (C) 2001-2020 by one or more of the following authors: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; and other members of the WSJT Development Group.&quot;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2725"/>
+        <location filename="../widgets/mainwindow.cpp" line="2756"/>
         <source>No data read from disk. Wrong file format?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2732"/>
+        <location filename="../widgets/mainwindow.cpp" line="2763"/>
         <source>Confirm Delete</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2733"/>
+        <location filename="../widgets/mainwindow.cpp" line="2764"/>
         <source>Are you sure you want to delete all *.wav and *.c2 files in &quot;%1&quot;?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2770"/>
+        <location filename="../widgets/mainwindow.cpp" line="2801"/>
         <source>Keyboard Shortcuts</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2783"/>
+        <location filename="../widgets/mainwindow.cpp" line="2814"/>
         <source>Special Mouse Commands</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="3079"/>
+        <location filename="../widgets/mainwindow.cpp" line="3124"/>
         <source>No more files to open.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="3524"/>
+        <location filename="../widgets/mainwindow.cpp" line="3613"/>
         <source>Please choose another Tx frequency. WSJT-X will not knowingly transmit another mode in the WSPR sub-band on 30m.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="3528"/>
+        <location filename="../widgets/mainwindow.cpp" line="3617"/>
         <source>WSPR Guard Band</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="3541"/>
+        <location filename="../widgets/mainwindow.cpp" line="3630"/>
         <source>Please choose another dial frequency. WSJT-X will not operate in Fox mode in the standard FT8 sub-bands.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="3545"/>
+        <location filename="../widgets/mainwindow.cpp" line="3634"/>
         <source>Fox Mode warning</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3995,62 +3995,62 @@ UDP server %2:%3</source>
 <context>
     <name>MultiSettings::impl</name>
     <message>
-        <location filename="../MultiSettings.cpp" line="475"/>
+        <location filename="../MultiSettings.cpp" line="489"/>
         <source>&amp;Switch To</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../MultiSettings.cpp" line="483"/>
+        <location filename="../MultiSettings.cpp" line="497"/>
         <source>&amp;Clone</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../MultiSettings.cpp" line="494"/>
+        <location filename="../MultiSettings.cpp" line="508"/>
         <source>Clone &amp;Into ...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../MultiSettings.cpp" line="501"/>
+        <location filename="../MultiSettings.cpp" line="515"/>
         <source>R&amp;eset</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../MultiSettings.cpp" line="507"/>
+        <location filename="../MultiSettings.cpp" line="521"/>
         <source>&amp;Rename ...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../MultiSettings.cpp" line="515"/>
+        <location filename="../MultiSettings.cpp" line="529"/>
         <source>&amp;Delete</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../MultiSettings.cpp" line="650"/>
+        <location filename="../MultiSettings.cpp" line="664"/>
         <source>Clone Into Configuration</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../MultiSettings.cpp" line="651"/>
+        <location filename="../MultiSettings.cpp" line="665"/>
         <source>Confirm overwrite of all values for configuration &quot;%1&quot; with values from &quot;%2&quot;?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../MultiSettings.cpp" line="694"/>
+        <location filename="../MultiSettings.cpp" line="710"/>
         <source>Reset Configuration</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../MultiSettings.cpp" line="695"/>
+        <location filename="../MultiSettings.cpp" line="711"/>
         <source>Confirm reset to default values for configuration &quot;%1&quot;?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../MultiSettings.cpp" line="778"/>
+        <location filename="../MultiSettings.cpp" line="797"/>
         <source>Delete Configuration</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../MultiSettings.cpp" line="779"/>
+        <location filename="../MultiSettings.cpp" line="798"/>
         <source>Confirm deletion of configuration &quot;%1&quot;?</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4076,29 +4076,29 @@ UDP server %2:%3</source>
 <context>
     <name>OmniRigTransceiver</name>
     <message>
-        <location filename="../OmniRigTransceiver.cpp" line="54"/>
+        <location filename="../Transceiver/OmniRigTransceiver.cpp" line="53"/>
         <source>OmniRig: unrecognized mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../OmniRigTransceiver.cpp" line="133"/>
+        <location filename="../Transceiver/OmniRigTransceiver.cpp" line="137"/>
         <source>Failed to start OmniRig COM server</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../OmniRigTransceiver.cpp" line="240"/>
-        <location filename="../OmniRigTransceiver.cpp" line="701"/>
+        <location filename="../Transceiver/OmniRigTransceiver.cpp" line="252"/>
+        <location filename="../Transceiver/OmniRigTransceiver.cpp" line="725"/>
         <source>OmniRig: don&apos;t know how to set rig frequency</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../OmniRigTransceiver.cpp" line="245"/>
-        <location filename="../OmniRigTransceiver.cpp" line="273"/>
+        <location filename="../Transceiver/OmniRigTransceiver.cpp" line="257"/>
+        <location filename="../Transceiver/OmniRigTransceiver.cpp" line="285"/>
         <source>OmniRig: timeout waiting for update from rig</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../OmniRigTransceiver.cpp" line="324"/>
+        <location filename="../Transceiver/OmniRigTransceiver.cpp" line="342"/>
         <source>OmniRig COM/OLE error: %1 at %2: %3 (%4)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4106,7 +4106,7 @@ UDP server %2:%3</source>
 <context>
     <name>PollingTransceiver</name>
     <message>
-        <location filename="../PollingTransceiver.cpp" line="179"/>
+        <location filename="../Transceiver/PollingTransceiver.cpp" line="179"/>
         <source>Unexpected rig error</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4124,7 +4124,7 @@ UDP server %2:%3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../LotWUsers.cpp" line="227"/>
+        <location filename="../Network/LotWUsers.cpp" line="227"/>
         <source>Failed to open LotW users CSV file: &apos;%1&apos;</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4255,67 +4255,67 @@ Error(%2): %3</source>
 <context>
     <name>SoundInput</name>
     <message>
-        <location filename="../soundin.cpp" line="21"/>
+        <location filename="../Audio/soundin.cpp" line="21"/>
         <source>An error opening the audio input device has occurred.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../soundin.cpp" line="25"/>
+        <location filename="../Audio/soundin.cpp" line="25"/>
         <source>An error occurred during read from the audio input device.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../soundin.cpp" line="29"/>
+        <location filename="../Audio/soundin.cpp" line="29"/>
         <source>Audio data not being fed to the audio input device fast enough.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../soundin.cpp" line="33"/>
+        <location filename="../Audio/soundin.cpp" line="33"/>
         <source>Non-recoverable error, audio input device not usable at this time.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../soundin.cpp" line="62"/>
+        <location filename="../Audio/soundin.cpp" line="62"/>
         <source>Requested input audio format is not valid.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../soundin.cpp" line="69"/>
+        <location filename="../Audio/soundin.cpp" line="69"/>
         <source>Requested input audio format is not supported on device.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../soundin.cpp" line="90"/>
+        <location filename="../Audio/soundin.cpp" line="90"/>
         <source>Failed to initialize audio sink device</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../soundin.cpp" line="125"/>
+        <location filename="../Audio/soundin.cpp" line="125"/>
         <source>Idle</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../soundin.cpp" line="129"/>
+        <location filename="../Audio/soundin.cpp" line="129"/>
         <source>Receiving</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../soundin.cpp" line="133"/>
+        <location filename="../Audio/soundin.cpp" line="133"/>
         <source>Suspended</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../soundin.cpp" line="138"/>
+        <location filename="../Audio/soundin.cpp" line="138"/>
         <source>Interrupted</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../soundin.cpp" line="145"/>
+        <location filename="../Audio/soundin.cpp" line="145"/>
         <source>Error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../soundin.cpp" line="149"/>
+        <location filename="../Audio/soundin.cpp" line="149"/>
         <source>Stopped</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4323,62 +4323,62 @@ Error(%2): %3</source>
 <context>
     <name>SoundOutput</name>
     <message>
-        <location filename="../soundout.cpp" line="30"/>
+        <location filename="../Audio/soundout.cpp" line="30"/>
         <source>An error opening the audio output device has occurred.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../soundout.cpp" line="34"/>
+        <location filename="../Audio/soundout.cpp" line="34"/>
         <source>An error occurred during write to the audio output device.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../soundout.cpp" line="38"/>
+        <location filename="../Audio/soundout.cpp" line="38"/>
         <source>Audio data not being fed to the audio output device fast enough.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../soundout.cpp" line="42"/>
+        <location filename="../Audio/soundout.cpp" line="42"/>
         <source>Non-recoverable error, audio output device not usable at this time.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../soundout.cpp" line="69"/>
+        <location filename="../Audio/soundout.cpp" line="69"/>
         <source>Requested output audio format is not valid.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../soundout.cpp" line="73"/>
+        <location filename="../Audio/soundout.cpp" line="73"/>
         <source>Requested output audio format is not supported on device.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../soundout.cpp" line="179"/>
+        <location filename="../Audio/soundout.cpp" line="179"/>
         <source>Idle</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../soundout.cpp" line="183"/>
+        <location filename="../Audio/soundout.cpp" line="183"/>
         <source>Sending</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../soundout.cpp" line="187"/>
+        <location filename="../Audio/soundout.cpp" line="187"/>
         <source>Suspended</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../soundout.cpp" line="192"/>
+        <location filename="../Audio/soundout.cpp" line="192"/>
         <source>Interrupted</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../soundout.cpp" line="199"/>
+        <location filename="../Audio/soundout.cpp" line="199"/>
         <source>Error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../soundout.cpp" line="203"/>
+        <location filename="../Audio/soundout.cpp" line="203"/>
         <source>Stopped</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4442,7 +4442,7 @@ Error(%2): %3</source>
 <context>
     <name>TransceiverBase</name>
     <message>
-        <location filename="../TransceiverBase.cpp" line="14"/>
+        <location filename="../Transceiver/TransceiverBase.cpp" line="14"/>
         <source>Unexpected rig error</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5129,6 +5129,11 @@ a few, particularly some Kenwood rigs, require it).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location filename="../Configuration.ui" line="932"/>
+        <source>How this program activates the PTT on your radio?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../Configuration.ui" line="935"/>
         <source>PTT Method</source>
         <translation type="unfinished"></translation>
@@ -5145,7 +5150,7 @@ a few, particularly some Kenwood rigs, require it).</source>
     </message>
     <message>
         <location filename="../Configuration.ui" line="954"/>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Use the RS-232 DTR control line to toggle your radio&apos;s PTT, requires hardware to inteface the line.&lt;/p&gt;&lt;p&gt;Some commercial interface units also use this method.&lt;/p&gt;&lt;p&gt;The DTR control line of the CAT serial port may be used for this or a DTR control line on a different serial port may be used.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Use the RS-232 DTR control line to toggle your radio&apos;s PTT, requires hardware to interface the line.&lt;/p&gt;&lt;p&gt;Some commercial interface units also use this method.&lt;/p&gt;&lt;p&gt;The DTR control line of the CAT serial port may be used for this or a DTR control line on a different serial port may be used.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -5167,7 +5172,7 @@ other hardware interface for PTT.</source>
     </message>
     <message>
         <location filename="../Configuration.ui" line="985"/>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Use the RS-232 RTS control line to toggle your radio&apos;s PTT, requires hardware to inteface the line.&lt;/p&gt;&lt;p&gt;Some commercial interface units also use this method.&lt;/p&gt;&lt;p&gt;The RTS control line of the CAT serial port may be used for this or a RTS control line on a different serial port may be used. Note that this option is not available on the CAT serial port when hardware flow control is used.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Use the RS-232 RTS control line to toggle your radio&apos;s PTT, requires hardware to interface the line.&lt;/p&gt;&lt;p&gt;Some commercial interface units also use this method.&lt;/p&gt;&lt;p&gt;The RTS control line of the CAT serial port may be used for this or a RTS control line on a different serial port may be used. Note that this option is not available on the CAT serial port when hardware flow control is used.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -5215,7 +5220,7 @@ or bandwidth is selected).</source>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1083"/>
-        <source>If this is availabe then it is usually the correct mode for this program.</source>
+        <source>If this is available then it is usually the correct mode for this program.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -5741,7 +5746,7 @@ Right click for insert and delete options.</source>
     <message>
         <location filename="../Configuration.ui" line="2201"/>
         <source>Colors</source>
-        <translation>Colours</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2207"/>
@@ -5749,53 +5754,8 @@ Right click for insert and delete options.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2225"/>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enable or disable using the check boxes and right-click an item to change or unset the foreground color, background color, or reset the item to default values. Drag and drop the items to change their priority, higher in the list is higher in priority.&lt;/p&gt;&lt;p&gt;Note that each foreground or background color may be either set or unset, unset means that it is not allocated for that item&apos;s type and lower priority items may apply.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../Configuration.ui" line="2253"/>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Push to reset all highlight items above to default values and priorities.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../Configuration.ui" line="2256"/>
-        <source>Reset Highlighting</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../Configuration.ui" line="2265"/>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to indicate new DXCC entities, grid squares, and callsigns per mode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../Configuration.ui" line="2268"/>
-        <source>Highlight by Mode</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../Configuration.ui" line="2288"/>
+        <location filename="../Configuration.ui" line="2228"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Click to scan the wsjtx_log.adi ADIF file again for worked before information&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../Configuration.ui" line="932"/>
-        <source>How this program activates the PTT on your radio?</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../Configuration.ui" line="954"/>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Use the RS-232 DTR control line to toggle your radio&apos;s PTT, requires hardware to interface the line.&lt;/p&gt;&lt;p&gt;Some commercial interface units also use this method.&lt;/p&gt;&lt;p&gt;The DTR control line of the CAT serial port may be used for this or a DTR control line on a different serial port may be used.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../Configuration.ui" line="985"/>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Use the RS-232 RTS control line to toggle your radio&apos;s PTT, requires hardware to interface the line.&lt;/p&gt;&lt;p&gt;Some commercial interface units also use this method.&lt;/p&gt;&lt;p&gt;The RTS control line of the CAT serial port may be used for this or a RTS control line on a different serial port may be used. Note that this option is not available on the CAT serial port when hardware flow control is used.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../Configuration.ui" line="1083"/>
-        <source>If this is available then it is usually the correct mode for this program.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -5804,275 +5764,320 @@ Right click for insert and delete options.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2305"/>
+        <location filename="../Configuration.ui" line="2240"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Push to reset all highlight items above to default values and priorities.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="2243"/>
+        <source>Reset Highlighting</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="2262"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enable or disable using the check boxes and right-click an item to change or unset the foreground color, background color, or reset the item to default values. Drag and drop the items to change their priority, higher in the list is higher in priority.&lt;/p&gt;&lt;p&gt;Note that each foreground or background color may be either set or unset, unset means that it is not allocated for that item&apos;s type and lower priority items may apply.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="2287"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to indicate new DXCC entities, grid squares, and callsigns per mode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="2290"/>
+        <source>Highlight by Mode</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="2297"/>
         <source>Include extra WAE entities</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2320"/>
+        <location filename="../Configuration.ui" line="2304"/>
+        <source>Check to for grid highlighting to only apply to unworked grid fields</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="2307"/>
+        <source>Only grid Fields sought</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="2317"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Controls for Logbook of the World user lookup.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2323"/>
+        <location filename="../Configuration.ui" line="2320"/>
         <source>Logbook of the World User Validation</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2329"/>
+        <location filename="../Configuration.ui" line="2326"/>
         <source>Users CSV file URL:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2341"/>
+        <location filename="../Configuration.ui" line="2338"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;URL of the ARRL LotW user&apos;s last upload dates and times data file which is used to highlight decodes from stations that are known to upload their log file to LotW.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2344"/>
+        <location filename="../Configuration.ui" line="2341"/>
         <source>https://lotw.arrl.org/lotw-user-activity.csv</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2351"/>
+        <location filename="../Configuration.ui" line="2348"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Push this button to fetch the latest LotW user&apos;s upload date and time data file.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2354"/>
+        <location filename="../Configuration.ui" line="2351"/>
         <source>Fetch Now</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2363"/>
+        <location filename="../Configuration.ui" line="2360"/>
         <source>Age of last upload less than:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2373"/>
+        <location filename="../Configuration.ui" line="2370"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Adjust this spin box to set the age threshold of LotW user&apos;s last upload date that is accepted as a current LotW user.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2376"/>
+        <location filename="../Configuration.ui" line="2373"/>
         <source> days</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2422"/>
+        <location filename="../Configuration.ui" line="2419"/>
         <source>Advanced</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2428"/>
+        <location filename="../Configuration.ui" line="2425"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;User-selectable parameters for JT65 VHF/UHF/Microwave decoding.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2431"/>
+        <location filename="../Configuration.ui" line="2428"/>
         <source>JT65 VHF/UHF/Microwave decoding parameters</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2437"/>
+        <location filename="../Configuration.ui" line="2434"/>
         <source>Random erasure patterns:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2447"/>
+        <location filename="../Configuration.ui" line="2444"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Maximum number of erasure patterns for stochastic soft-decision Reed Solomon decoder is 10^(n/2).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2463"/>
+        <location filename="../Configuration.ui" line="2460"/>
         <source>Aggressive decoding level:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2473"/>
+        <location filename="../Configuration.ui" line="2470"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Higher levels will increase the probability of decoding, but will also increase probability of a false decode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2483"/>
+        <location filename="../Configuration.ui" line="2480"/>
         <source>Two-pass decoding</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2496"/>
+        <location filename="../Configuration.ui" line="2493"/>
         <source>Special operating activity:  Generation of FT4, FT8, and MSK144 messages</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2508"/>
+        <location filename="../Configuration.ui" line="2505"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;FT8 DXpedition mode:  Hound operator calling the DX.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2511"/>
+        <location filename="../Configuration.ui" line="2508"/>
         <source>Hound</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2530"/>
+        <location filename="../Configuration.ui" line="2527"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;North American VHF/UHF/Microwave contests and others in which a 4-character grid locator is the required exchange.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2533"/>
+        <location filename="../Configuration.ui" line="2530"/>
         <source>NA VHF Contest</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2543"/>
+        <location filename="../Configuration.ui" line="2540"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;FT8 DXpedition mode:  Fox (DXpedition) operator.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2546"/>
+        <location filename="../Configuration.ui" line="2543"/>
         <source>Fox</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2565"/>
+        <location filename="../Configuration.ui" line="2562"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;European VHF+ contests requiring a signal report, serial number, and 6-character locator.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2568"/>
+        <location filename="../Configuration.ui" line="2565"/>
         <source>EU VHF Contest</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2580"/>
-        <location filename="../Configuration.ui" line="2624"/>
+        <location filename="../Configuration.ui" line="2590"/>
+        <location filename="../Configuration.ui" line="2634"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;ARRL RTTY Roundup and similar contests.  Exchange is US state, Canadian province, or &amp;quot;DX&amp;quot;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2583"/>
+        <location filename="../Configuration.ui" line="2593"/>
         <source>RTTY Roundup messages</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2608"/>
+        <location filename="../Configuration.ui" line="2618"/>
         <source>RTTY RU Exch:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2627"/>
+        <location filename="../Configuration.ui" line="2637"/>
         <source>NJ</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2656"/>
-        <location filename="../Configuration.ui" line="2700"/>
+        <location filename="../Configuration.ui" line="2653"/>
+        <location filename="../Configuration.ui" line="2697"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;ARRL Field Day exchange: number of transmitters, Class, and ARRL/RAC section or &amp;quot;DX&amp;quot;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2659"/>
+        <location filename="../Configuration.ui" line="2656"/>
         <source>ARRL Field Day</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2684"/>
+        <location filename="../Configuration.ui" line="2681"/>
         <source>FD Exch:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2703"/>
+        <location filename="../Configuration.ui" line="2700"/>
         <source>6A SNJ</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2720"/>
-        <source>Miscellaneous</source>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;World-Wide Digi-mode contest&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2726"/>
-        <source>Degrade S/N of .wav file: </source>
+        <location filename="../Configuration.ui" line="2723"/>
+        <source>WW Digi Contest</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2736"/>
-        <location filename="../Configuration.ui" line="2762"/>
-        <source>For offline sensitivity tests</source>
+        <source>Miscellaneous</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2739"/>
-        <source> dB</source>
+        <location filename="../Configuration.ui" line="2742"/>
+        <source>Degrade S/N of .wav file: </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2752"/>
+        <location filename="../Configuration.ui" line="2778"/>
+        <source>For offline sensitivity tests</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="2755"/>
+        <source> dB</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="2768"/>
         <source>Receiver bandwidth:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2765"/>
+        <location filename="../Configuration.ui" line="2781"/>
         <source>  Hz</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2781"/>
+        <location filename="../Configuration.ui" line="2797"/>
         <source>Tx delay:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2791"/>
+        <location filename="../Configuration.ui" line="2807"/>
         <source>Minimum delay between assertion of PTT and start of Tx audio.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2794"/>
+        <location filename="../Configuration.ui" line="2810"/>
         <source>  s</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2819"/>
+        <location filename="../Configuration.ui" line="2835"/>
         <source>Tone spacing</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2825"/>
+        <location filename="../Configuration.ui" line="2841"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Generate Tx audio with twice the normal tone spacing.  Intended for special LF/MF transmitters that use a divide-by-2 before generating RF.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2828"/>
+        <location filename="../Configuration.ui" line="2844"/>
         <source>x 2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2838"/>
+        <location filename="../Configuration.ui" line="2854"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Generate Tx audio with four times the normal tone spacing. Intended for special LF/MF transmitters that use a divide-by-4 before generating RF.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2841"/>
+        <location filename="../Configuration.ui" line="2857"/>
         <source>x 4 </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2857"/>
+        <location filename="../Configuration.ui" line="2873"/>
         <source>Waterfall spectra</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2869"/>
+        <location filename="../Configuration.ui" line="2879"/>
         <source>Low sidelobes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2885"/>
+        <location filename="../Configuration.ui" line="2889"/>
         <source>Most sensitive</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2913"/>
+        <location filename="../Configuration.ui" line="2919"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Discard (Cancel) or apply (OK) configuration changes including&lt;/p&gt;&lt;p&gt;resetting the radio interface and applying any soundcard changes&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
