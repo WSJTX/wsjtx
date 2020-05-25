@@ -10,6 +10,7 @@
 #include <QTemporaryFile>
 #include <QDateTime>
 #include <QApplication>
+#include <QLocale>
 #include <QTranslator>
 #include <QRegularExpression>
 #include <QObject>
@@ -107,9 +108,14 @@ int main(int argc, char *argv[])
   ExceptionCatchingApplication a(argc, argv);
   try
     {
-      QLocale locale;           // get the current system locale
-      qDebug () << "locale: language:" << locale.language () << "script:" << locale.script ()
-                << "country:" << locale.country () << "ui-languages:" << locale.uiLanguages ();
+      std::unique_ptr<QStringList> early_messages {new QStringList};
+
+      QLocale locale;              // get the current system locale
+      *early_messages << QString {"locale: language: %1 script: %2 country: %3 ui-languages: %4"}
+      .arg (QLocale::languageToString (locale.language ()))
+         .arg (QLocale::scriptToString (locale.script ()))
+         .arg (QLocale::countryToString (locale.country ()))
+         .arg (locale.uiLanguages ().join (", "));
       setlocale (LC_NUMERIC, "C"); // ensure number forms are in
                                    // consistent format, do this after
                                    // instantiating QApplication so
@@ -139,18 +145,22 @@ int main(int argc, char *argv[])
       for (QString locale_name : locale.uiLanguages ())
         {
           auto language = locale_name.left (2);
-          if (base_translator_from_resources.load ("wsjtx_" + language, ":/Translations"))
+          if (locale.uiLanguages ().front ().left (2) == language)
             {
-              qDebug () << QString {"Loaded base translation file from :/Translations based on language %1"}.arg (language);
-              a.installTranslator (&base_translator_from_resources);
-              break;
+              *early_messages << QString {"Trying %1"}.arg (language);
+              if (base_translator_from_resources.load ("wsjtx_" + language, ":/Translations"))
+                {
+                  *early_messages << QString {"Loaded base translation file from :/Translations based on language %1"}.arg (language);
+                  a.installTranslator (&base_translator_from_resources);
+                  break;
+                }
             }
         }
       // now try and load the most specific translations (may be a
       // duplicate but we shouldn't care)
       if (translator_from_resources.load (locale, "wsjtx", "_", ":/Translations"))
         {
-          qDebug () << "Loaded translations for current locale from resources";
+          *early_messages << "Loaded translations for current locale from resources";
           a.installTranslator (&translator_from_resources);
         }
 
@@ -219,14 +229,14 @@ int main(int argc, char *argv[])
           auto base_language = language.left (2);
           if (base_translation_override_from_resources.load ("wsjtx_" + base_language, ":/Translations"))
             {
-              qDebug () << QString {"Loaded base translation file from :/Translations based on language %1"}.arg (base_language);
+              *early_messages << QString {"Loaded base translation file from :/Translations based on language %1"}.arg (base_language);
               a.installTranslator (&base_translation_override_from_resources);
             }
           // now load the requested translations (may be a duplicate
           // but we shouldn't care)
           if (translation_override_from_resources.load ("wsjtx_" + language , ":/Translations")) 
             {
-              qDebug () << QString {"Loaded translation file from :/Translations based on language %1"}.arg (language);
+              *early_messages << QString {"Loaded translation file from :/Translations based on language %1"}.arg (language);
               a.installTranslator (&translation_override_from_resources);
             }
         }
@@ -246,18 +256,22 @@ int main(int argc, char *argv[])
       for (QString locale_name : locale.uiLanguages ())
         {
           auto language = locale_name.left (2);
-          if (base_translator_from_cwd.load ("wsjtx_" + language))
+          if (locale.uiLanguages ().front ().left (2) == language)
             {
-              qDebug () << QString {"Loaded base translation file from $cwd based on language %1"}.arg (language);
-              a.installTranslator (&base_translator_from_cwd);
-              break;
+              *early_messages << QString {"Trying %1"}.arg (language);
+              if (base_translator_from_cwd.load ("wsjtx_" + language))
+                {
+                  *early_messages << QString {"Loaded base translation file from $cwd based on language %1"}.arg (language);
+                  a.installTranslator (&base_translator_from_cwd);
+                  break;
+                }
             }
         }
       // now try and load the most specific translations (may be a
       // duplicate but we shouldn't care)
       if (translator_from_cwd.load (locale, "wsjtx", "_"))
         {
-          qDebug () << "loaded translations for current locale from a file";
+          *early_messages << "loaded translations for current locale from a file";
           a.installTranslator (&translator_from_cwd);
         }
 
@@ -276,14 +290,14 @@ int main(int argc, char *argv[])
           auto base_language = language.left (2);
           if (base_translation_override_from_cwd.load ("wsjtx_" + base_language))
             {
-              qDebug () << QString {"Loaded base translation file from $cwd based on language %1"}.arg (base_language);
+              *early_messages << QString {"Loaded base translation file from $cwd based on language %1"}.arg (base_language);
               a.installTranslator (&base_translation_override_from_cwd);
             }
           // now load the requested translations (may be a duplicate
           // but we shouldn't care)
           if (translation_override_from_cwd.load ("wsjtx_" + language))
             {
-              qDebug () << QString {"loaded translation file from $cwd based on language %1"}.arg (language);
+              *early_messages << QString {"loaded translation file from $cwd based on language %1"}.arg (language);
               a.installTranslator (&translation_override_from_cwd);
             }
         }
@@ -356,6 +370,13 @@ int main(int argc, char *argv[])
       qSetMessagePattern ("[%{time yyyyMMdd HH:mm:ss.zzz t} %{if-debug}D%{endif}%{if-info}I%{endif}%{if-warning}W%{endif}%{if-critical}C%{endif}%{if-fatal}F%{endif}] %{file}:%{line} - %{message}");
       qDebug () << program_title (revision ()) + " - Program startup";
 #endif
+
+      // trace early messages now we have a trace file
+      for (auto const& message : *early_messages)
+        {
+          qDebug () << message;
+        }
+      early_messages.reset ();  // free memory
 
       // Create a unique writeable temporary directory in a suitable location
       bool temp_ok {false};
