@@ -21,7 +21,7 @@
         <source>Are you sure you want to delete the %n selected QSO(s) from the log?</source>
         <translatorcomment>sorry i don&apos;t understand how to fix this</translatorcomment>
         <translation>
-            <numerusform>Estas segur que vols esborrar els %n QSO&apos;s seleccionats del registre ?</numerusform>
+            <numerusform>Segur que vols esborrar els %n QSO&apos;s seleccionats del registre ?</numerusform>
             <numerusform></numerusform>
         </translation>
     </message>
@@ -55,17 +55,17 @@
     <message>
         <location filename="../widgets/astro.ui" line="53"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Transmit takes place on sked frequency and receive frequency is  corrected for own echoes. &lt;/p&gt;&lt;p&gt;This mode can be used for calling CQ, or when using Echo mode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;La transmissió té lloc en freqüència de desplaçament i la freqüència de recepció es corregeix per ecos propis. &lt;/p&gt;&lt;p&gt;Aquest mode es pot utilitzar per trucar a CQ o per utilitzar el mode Echo.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;La transmissió té lloc en freqüència de desplaçament i la freqüència de recepció es corregeix per els ecos propis. &lt;/p&gt;&lt;p&gt;Aquest mode es pot utilitzar per trucar a CQ o per utilitzar el mode Eco.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/astro.ui" line="56"/>
         <source>Own Echo</source>
-        <translation>Ressò propi</translation>
+        <translation>Eco propi</translation>
     </message>
     <message>
         <location filename="../widgets/astro.ui" line="63"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Both stations correct for Doppler shift such that they would be heard on the moon at the sked frequency.&lt;/p&gt;&lt;p&gt;If the rig does not accept CAT QSY commands while transmitting a single correction is applied for the whole transmit period.&lt;/p&gt;&lt;p&gt;Use this option also for Echo mode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Ambdues estacions corregeixen pel canvi Doppler de manera que seran escoltades a la lluna amb la freqüència de desplaçament.&lt;/p&gt;&lt;p&gt;Si l&apos;equip no accepta comandes CAT QSY mentre es transmet, només s&apos;aplicarà una sola correcció durant tot el període de transmissió.&lt;/p&gt;&lt;p&gt;Fes servir aquesta opció també per al mode eco.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Ambdues estacions corregeixen pel canvi Doppler de manera que seran escoltades a la Lluna amb la freqüència de desplaçament.&lt;/p&gt;&lt;p&gt;Si l&apos;equip no accepta comandes CAT QSY mentre es transmet, només s&apos;aplicarà una sola correcció durant tot el període de transmissió.&lt;/p&gt;&lt;p&gt;Fes servir aquesta opció també per al mode eco.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/astro.ui" line="66"/>
@@ -75,17 +75,17 @@
     <message>
         <location filename="../widgets/astro.ui" line="76"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;DX station announces their TX Freq, which is entered as the Sked Freq. Correction applied to RX and TX so you appear on the DX&apos;s station&apos;s own echo Freq.&lt;/p&gt;&lt;p&gt;If the rig does not accept CAT QSY commands while transmitting a single correction is applied for the whole transmit period.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;La estació DX anuncia la seva TX Freq, que s&apos;introdueix com a Sked Freq. Correcció aplicada a RX i TX per tal que aparegui al propi eco Freq de l&apos;estació del DX.&lt;/p&gt;&lt;p&gt;Si l&apos;equip no accepta comandes CAT QSY mentre es transmet, només s&apos;aplicarà una sola correcció durant tot el període de transmissió.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;L&apos;estació DX anuncia la seva freqüència de TX, que s&apos;introdueix com a Sked Freq. La correcció aplicada a RX i TX per tal que aparegui al propi eco Freq de l&apos;estació del DX.&lt;/p&gt;&lt;p&gt;Si l&apos;equip no accepta comandes CAT QSY mentre es transmet, només s&apos;aplicarà una sola correcció durant tot el període de transmissió.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/astro.ui" line="79"/>
         <source>On DX Echo</source>
-        <translation>Endavant el Dx Ressò</translation>
+        <translation>Encès DX Eco</translation>
     </message>
     <message>
         <location filename="../widgets/astro.ui" line="89"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Tune radio manually and select this mode to put your echo on the same frequency.&lt;/p&gt;&lt;p&gt;If the rig does not accept CAT QSY commands while transmitting a single correction is applied for the whole transmit period.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Sintonitza la ràdio manualment i selecciona aquest mode per posar el teu eco a la mateixa freqüència.&lt;/p&gt;&lt;p&gt;Si l&apos;equip no accepta comandes CAT QSY mentre es transmet, només s&apos;aplicarà una sola correcció durant tot el període de transmissió.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Sintonitza l&apos;equip manualment i selecciona aquest mode per posar el teu eco a la mateixa freqüència.&lt;/p&gt;&lt;p&gt;Si l&apos;equip no accepta comandes CAT QSY mentre es transmet, només s&apos;aplicarà una sola correcció durant tot el període de transmissió.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/astro.ui" line="92"/>
@@ -95,7 +95,7 @@
     <message>
         <location filename="../widgets/astro.ui" line="102"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;No Doppler shift correction is applied. This may be used when the QSO partner does full Doppler correction to your grid square.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;No s&apos;aplica cap correcció de desplaçament Doppler. Això es pot utilitzar quan l&apos;altra corresponsal de QSO fa la correcció completa del Doppler al quadrat del teu Locator.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;No s&apos;aplica cap correcció de desplaçament Doppler. Això es pot utilitzar quan l&apos;altra corresponsal de QSO fa la correcció completa del Doppler al teu Locator.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/astro.ui" line="105"/>
@@ -105,7 +105,7 @@
     <message>
         <location filename="../widgets/astro.ui" line="121"/>
         <source>Sked frequency</source>
-        <translation>Freqüència marcada</translation>
+        <translation>Freqüència Sked</translation>
     </message>
     <message>
         <location filename="../widgets/astro.ui" line="134"/>
@@ -457,8 +457,8 @@ Formats:
 Deixa-ho en blanc per a un valor predeterminat raonable en aquesta màquina.
 Formats:
 	hostname:port
-	IPv4-address:port
-	[IPv6-address]:port</translation>
+	adreça IPv4:port
+	[adreça IPv6]:port</translation>
     </message>
     <message>
         <location filename="../Configuration.cpp" line="1754"/>
@@ -489,12 +489,12 @@ Format:
     <message>
         <location filename="../Configuration.cpp" line="1803"/>
         <source>Invalid PTT method</source>
-        <translation>El mètode PTT no és vàlid</translation>
+        <translation>El mètode de PTT no és vàlid</translation>
     </message>
     <message>
         <location filename="../Configuration.cpp" line="1813"/>
         <source>Invalid PTT port</source>
-        <translation>El port PTT no és vàlid</translation>
+        <translation>El port del PTT no és vàlid</translation>
     </message>
     <message>
         <location filename="../Configuration.cpp" line="1830"/>
@@ -537,7 +537,7 @@ Format:
         <location filename="../Configuration.cpp" line="2403"/>
         <location filename="../Configuration.cpp" line="2449"/>
         <source>Frequency files (*.qrg);;All files (*.*)</source>
-        <translation>Fitxers de freqüència (*.qrg);;All files (*.*)</translation>
+        <translation>Fitxers de freqüència (*.qrg);;Tots els fitxers (*.*)</translation>
     </message>
     <message>
         <location filename="../Configuration.cpp" line="2391"/>
@@ -547,7 +547,7 @@ Format:
     <message>
         <location filename="../Configuration.cpp" line="2392"/>
         <source>Are you sure you want to discard your current working frequencies and replace them with the loaded ones?</source>
-        <translation>Segur que vols descartar les teves freqüències de treball actuals i reemplaçar-les per les carregades ?</translation>
+        <translation>Segur que vols descartar les teves freqüències actuals de treball i reemplaçar-les per les carregades ?</translation>
     </message>
     <message>
         <location filename="../Configuration.cpp" line="2403"/>
@@ -599,7 +599,7 @@ Format:
     <message>
         <location filename="../Configuration.cpp" line="2476"/>
         <source>Are you sure you want to discard your current working frequencies and replace them with default ones?</source>
-        <translation>Segur que vols descartar les teves freqüències de treball actuals i reemplaçar-les per altres?</translation>
+        <translation>Segur que vols descartar les teves freqüències actuals de treball i reemplaçar-les per altres?</translation>
     </message>
     <message>
         <location filename="../Configuration.cpp" line="2514"/>
@@ -609,12 +609,12 @@ Format:
     <message>
         <location filename="../Configuration.cpp" line="2528"/>
         <source>AzEl Directory</source>
-        <translation>AzEl Directori</translation>
+        <translation>Directori AzEl</translation>
     </message>
     <message>
         <location filename="../Configuration.cpp" line="2588"/>
         <source>Rig control error</source>
-        <translation>Error de control del equip</translation>
+        <translation>Error de control de l&apos;equip</translation>
     </message>
     <message>
         <location filename="../Configuration.cpp" line="2589"/>
@@ -624,7 +624,7 @@ Format:
     <message>
         <location filename="../Configuration.cpp" line="2803"/>
         <source>Rig failure</source>
-        <translation>Fallida de l&apos;equip</translation>
+        <translation>Fallada en l&apos;equip</translation>
     </message>
 </context>
 <context>
@@ -664,17 +664,17 @@ Format:
     <message>
         <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="295"/>
         <source>DX Lab Suite Commander didn&apos;t respond correctly polling TX frequency: </source>
-        <translation>El DX Lab Suite Commander no ha respost correctament la freqüència del sondeig: </translation>
+        <translation>El DX Lab Suite Commander no ha respost correctament a la freqüència del sondeig: </translation>
     </message>
     <message>
         <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="314"/>
         <source>DX Lab Suite Commander sent an unrecognised split state: </source>
-        <translation>El DX Lab Suite Commander ha enviat un estat de split desconegut: </translation>
+        <translation>El DX Lab Suite Commander ha enviat un split desconegut: </translation>
     </message>
     <message>
         <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="320"/>
         <source>DX Lab Suite Commander didn&apos;t respond correctly polling split status: </source>
-        <translation>El DX Lab Suite Commander no ha respost correctament l&apos;estat del split del sondeig: </translation>
+        <translation>El DX Lab Suite Commander no ha respost correctament l&apos;split del sondeig: </translation>
     </message>
     <message>
         <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="376"/>
@@ -759,96 +759,6 @@ Format:
 <context>
     <name>DecodeHighlightingModel</name>
     <message>
-        <location filename="../models/DecodeHighlightingModel.cpp" line="104"/>
-        <source>CQ in message</source>
-        <translation type="unfinished">CQ al missatge</translation>
-    </message>
-    <message>
-        <location filename="../models/DecodeHighlightingModel.cpp" line="105"/>
-        <source>My Call in message</source>
-        <translation type="unfinished">El meu Indicatiu en el missatge</translation>
-    </message>
-    <message>
-        <location filename="../models/DecodeHighlightingModel.cpp" line="106"/>
-        <source>Transmitted message</source>
-        <translation type="unfinished">Missatge transmès</translation>
-    </message>
-    <message>
-        <location filename="../models/DecodeHighlightingModel.cpp" line="107"/>
-        <source>New DXCC</source>
-        <translation type="unfinished">Nou DXCC</translation>
-    </message>
-    <message>
-        <location filename="../models/DecodeHighlightingModel.cpp" line="108"/>
-        <source>New DXCC on Band</source>
-        <translation type="unfinished">Nou DXCC en banda</translation>
-    </message>
-    <message>
-        <location filename="../models/DecodeHighlightingModel.cpp" line="109"/>
-        <source>New Grid</source>
-        <translation type="unfinished">Nou Locator</translation>
-    </message>
-    <message>
-        <location filename="../models/DecodeHighlightingModel.cpp" line="110"/>
-        <source>New Grid on Band</source>
-        <translation type="unfinished">Nou Locator en banda</translation>
-    </message>
-    <message>
-        <location filename="../models/DecodeHighlightingModel.cpp" line="111"/>
-        <source>New Call</source>
-        <translation type="unfinished">No Indicatiu</translation>
-    </message>
-    <message>
-        <location filename="../models/DecodeHighlightingModel.cpp" line="112"/>
-        <source>New Call on Band</source>
-        <translation type="unfinished">Nou Indicatiu en banda</translation>
-    </message>
-    <message>
-        <location filename="../models/DecodeHighlightingModel.cpp" line="113"/>
-        <source>New Continent</source>
-        <translation type="unfinished">Nou Continent</translation>
-    </message>
-    <message>
-        <location filename="../models/DecodeHighlightingModel.cpp" line="114"/>
-        <source>New Continent on Band</source>
-        <translation type="unfinished">Nou Continent en banda</translation>
-    </message>
-    <message>
-        <location filename="../models/DecodeHighlightingModel.cpp" line="115"/>
-        <source>New CQ Zone</source>
-        <translation type="unfinished">Nova Zona CQ</translation>
-    </message>
-    <message>
-        <location filename="../models/DecodeHighlightingModel.cpp" line="116"/>
-        <source>New CQ Zone on Band</source>
-        <translation type="unfinished">Nova Zona CQ en banda</translation>
-    </message>
-    <message>
-        <location filename="../models/DecodeHighlightingModel.cpp" line="117"/>
-        <source>New ITU Zone</source>
-        <translation type="unfinished">Nova Zona ITU</translation>
-    </message>
-    <message>
-        <location filename="../models/DecodeHighlightingModel.cpp" line="118"/>
-        <source>New ITU Zone on Band</source>
-        <translation type="unfinished">Nova Zona ITU en banda</translation>
-    </message>
-    <message>
-        <location filename="../models/DecodeHighlightingModel.cpp" line="119"/>
-        <source>LoTW User</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../models/DecodeHighlightingModel.cpp" line="169"/>
-        <source>f/g unset</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../models/DecodeHighlightingModel.cpp" line="171"/>
-        <source>b/g unset</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="244"/>
         <source>Highlight Type</source>
         <translation>Tipus de relleu</translation>
@@ -926,7 +836,7 @@ Format:
     <message>
         <location filename="../SampleDownloader/Directory.cpp" line="133"/>
         <source>Contents file syntax error %1 at character offset %2</source>
-        <translation>Error de sintaxi %1 al fitxer de contingut, posició %2</translation>
+        <translation>Error de sintaxi %1 en el desplaçament de caràcters %2</translation>
     </message>
     <message>
         <location filename="../SampleDownloader/Directory.cpp" line="140"/>
@@ -1015,7 +925,7 @@ Error: %2 - %3</translation>
     <message>
         <location filename="../widgets/echograph.ui" line="124"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Echo spectrum gain&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Augment espectre d&apos;eco&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Guany espectre d&apos;eco&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/echograph.ui" line="156"/>
@@ -1030,17 +940,17 @@ Error: %2 - %3</translation>
     <message>
         <location filename="../widgets/echograph.ui" line="201"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Smoothing of echo spectrum&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Suavització de l&apos;espectre del eco&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Suavitzat de l&apos;espectre de l&apos;eco&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/echograph.ui" line="204"/>
         <source>Smooth  </source>
-        <translation>Llis  </translation>
+        <translation>Suau  </translation>
     </message>
     <message>
         <location filename="../widgets/echograph.ui" line="236"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Number of echo transmissions averaged&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Nombre mig de transmissions eco&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Nombre mitjà de transmissions d&apos;eco&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/echograph.ui" line="239"/>
@@ -1188,7 +1098,7 @@ Error: %2 - %3</translation>
     <message>
         <location filename="../widgets/ExportCabrillo.ui" line="74"/>
         <source>Category-Operator: </source>
-        <translation>Categoria-Oprador:</translation>
+        <translation>Categoria del Operador: </translation>
     </message>
     <message>
         <location filename="../widgets/ExportCabrillo.ui" line="84"/>
@@ -1259,12 +1169,12 @@ Error: %2 - %3</translation>
         <location filename="../widgets/ExportCabrillo.ui" line="251"/>
         <location filename="../widgets/ExportCabrillo.ui" line="268"/>
         <source>Address:</source>
-        <translation>Adressa:</translation>
+        <translation>Adreça:</translation>
     </message>
     <message>
         <location filename="../widgets/ExportCabrillo.cpp" line="78"/>
         <source>Save Log File</source>
-        <translation>Enreguistra el fitxer de log</translation>
+        <translation>Enregistra el fitxer de log</translation>
     </message>
     <message>
         <location filename="../widgets/ExportCabrillo.cpp" line="80"/>
@@ -1401,7 +1311,7 @@ Error: %2 - %3</translation>
     <message>
         <location filename="../widgets/FoxLogWindow.cpp" line="73"/>
         <source>Export ADIF File Error</source>
-        <translation>Error al fitxer d&apos;exportar  en format ADIF</translation>
+        <translation>Error al exportar el fitxer en format ADIF</translation>
     </message>
     <message>
         <location filename="../widgets/FoxLogWindow.cpp" line="74"/>
@@ -1421,7 +1331,7 @@ Error: %2 - %3</translation>
     <message>
         <location filename="../widgets/FoxLogWindow.cpp" line="85"/>
         <source>Are you sure you want to erase file FoxQSO.txt and start a new Fox log?</source>
-        <translation>Estàs segur que vols esborrar el fitxer FoxQSO.txt i començar un nou registre de Guineu?</translation>
+        <translation>Estàs segur que vols esborrar el fitxer FoxQSO.txt i començar un nou registre de FOX (Guineu)?</translation>
     </message>
 </context>
 <context>
@@ -1508,7 +1418,7 @@ Error: %2 - %3</translation>
     <message>
         <location filename="../Transceiver/HRDTransceiver.cpp" line="476"/>
         <source>Ham Radio Deluxe: item not found in %1 dropdown list</source>
-        <translation>Ham Radio Deluxe: element no trobat a la llista desplegable %1</translation>
+        <translation>Ham Radio Deluxe: element no trobat %1 a la llista desplegable</translation>
     </message>
     <message>
         <location filename="../Transceiver/HRDTransceiver.cpp" line="520"/>
@@ -1529,31 +1439,31 @@ Error: %2 - %3</translation>
         <location filename="../Transceiver/HRDTransceiver.cpp" line="1050"/>
         <source>Ham Radio Deluxe send command &quot;%1&quot; failed %2
 </source>
-        <translation>La comanda %1 del Ham Radio Deluxe ha fallat %2
+        <translation>La instrucció %1 del Ham Radio Deluxe ha fallat %2
 </translation>
     </message>
     <message>
         <location filename="../Transceiver/HRDTransceiver.cpp" line="1063"/>
         <location filename="../Transceiver/HRDTransceiver.cpp" line="1076"/>
         <source>Ham Radio Deluxe: failed to write command &quot;%1&quot;</source>
-        <translation>Ham Radio Deluxe: error a l&apos;escriure la comanda &quot;%1&quot;</translation>
+        <translation>Ham Radio Deluxe: error a l&apos;escriure la instrucció &quot;%1&quot;</translation>
     </message>
     <message>
         <location filename="../Transceiver/HRDTransceiver.cpp" line="1093"/>
         <source>Ham Radio Deluxe sent an invalid reply to our command &quot;%1&quot;</source>
-        <translation>La resposta del Ham Radio Deluxe no és vàlida per a la comanda &quot;%1&quot;</translation>
+        <translation>La resposta del Ham Radio Deluxe no és vàlida per a la instrucció &quot;%1&quot;</translation>
     </message>
     <message>
         <location filename="../Transceiver/HRDTransceiver.cpp" line="1147"/>
         <source>Ham Radio Deluxe failed to reply to command &quot;%1&quot; %2
 </source>
-        <translation>Fallada a la resposta del Ham Radio Deluxe a la comanda &quot;%1&quot; %2
+        <translation>Fallada a la resposta del Ham Radio Deluxe a la instrucció &quot;%1&quot; %2
 </translation>
     </message>
     <message>
         <location filename="../Transceiver/HRDTransceiver.cpp" line="1157"/>
         <source>Ham Radio Deluxe retries exhausted sending command &quot;%1&quot;</source>
-        <translation>El Ham Radio Deluxe ha esgotat els reintents de la comanda &quot;%1&quot;</translation>
+        <translation>El Ham Radio Deluxe ha esgotat els reintents de la instrucció &quot;%1&quot;</translation>
     </message>
     <message>
         <location filename="../Transceiver/HRDTransceiver.cpp" line="1170"/>
@@ -1629,17 +1539,17 @@ Error: %2 - %3</translation>
     <message>
         <location filename="../Transceiver/HamlibTransceiver.cpp" line="525"/>
         <source>setting current VFO</source>
-        <translation>configuració del VFO actual</translation>
+        <translation>ajustar el VFO actual</translation>
     </message>
     <message>
         <location filename="../Transceiver/HamlibTransceiver.cpp" line="534"/>
         <source>getting frequency</source>
-        <translation>obtenint freqüència</translation>
+        <translation>obtenint la freqüència</translation>
     </message>
     <message>
         <location filename="../Transceiver/HamlibTransceiver.cpp" line="538"/>
         <source>getting mode</source>
-        <translation>obtenint mode</translation>
+        <translation>obtenint el mode</translation>
     </message>
     <message>
         <location filename="../Transceiver/HamlibTransceiver.cpp" line="555"/>
@@ -1686,13 +1596,13 @@ Error: %2 - %3</translation>
         <location filename="../Transceiver/HamlibTransceiver.cpp" line="772"/>
         <location filename="../Transceiver/HamlibTransceiver.cpp" line="841"/>
         <source>setting/unsetting split mode</source>
-        <translation>activar/desactivar mode dividid (split)</translation>
+        <translation>ajustar/desajustar mode dividid (split)</translation>
     </message>
     <message>
         <location filename="../Transceiver/HamlibTransceiver.cpp" line="783"/>
         <location filename="../Transceiver/HamlibTransceiver.cpp" line="823"/>
         <source>setting split mode</source>
-        <translation>activar mode dividid (Split)</translation>
+        <translation>ajustar mode dividid (Split)</translation>
     </message>
     <message>
         <location filename="../Transceiver/HamlibTransceiver.cpp" line="811"/>
@@ -1702,32 +1612,32 @@ Error: %2 - %3</translation>
     <message>
         <location filename="../Transceiver/HamlibTransceiver.cpp" line="816"/>
         <source>setting split TX frequency</source>
-        <translation>ajust de freqüència dividida (Split) TX</translation>
+        <translation>ajust de freqüència dividida (Split) en TX</translation>
     </message>
     <message>
         <location filename="../Transceiver/HamlibTransceiver.cpp" line="888"/>
         <source>getting split TX VFO mode</source>
-        <translation>obtenir el mode dividit (Split) TX VFO</translation>
+        <translation>obtenir el mode dividit (Split) en TX del VFO</translation>
     </message>
     <message>
         <location filename="../Transceiver/HamlibTransceiver.cpp" line="895"/>
         <source>setting split TX VFO mode</source>
-        <translation>configuració del mode dividid (Split) TX VFO</translation>
+        <translation>ajustar del mode dividid (Split) en TX del VFO</translation>
     </message>
     <message>
         <location filename="../Transceiver/HamlibTransceiver.cpp" line="1016"/>
         <source>getting PTT state</source>
-        <translation>obtenir estat del PTT</translation>
+        <translation>obtenir l&apos;estat del PTT</translation>
     </message>
     <message>
         <location filename="../Transceiver/HamlibTransceiver.cpp" line="1047"/>
         <source>setting PTT on</source>
-        <translation>activant PTT</translation>
+        <translation>activant el PTT</translation>
     </message>
     <message>
         <location filename="../Transceiver/HamlibTransceiver.cpp" line="1055"/>
         <source>setting PTT off</source>
-        <translation>desactivació del PTT</translation>
+        <translation>desactivant el PTT</translation>
     </message>
     <message>
         <location filename="../Transceiver/HamlibTransceiver.cpp" line="1067"/>
@@ -1915,7 +1825,7 @@ Error: %2 - %3</translation>
         <location filename="../Network/LotWUsers.cpp" line="144"/>
         <source>File System Error - Cannot commit changes to:
 &quot;%1&quot;</source>
-        <translation>Error del sistema de fitxers - no es poden fer canvis a:
+        <translation>Error de sistema de fitxers: no es poden confirmar els canvis a:
 &quot;%1&quot;</translation>
     </message>
     <message>
@@ -1946,12 +1856,6 @@ Error(%2): %3</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="50"/>
-        <location filename="../widgets/mainwindow.cpp" line="5797"/>
-        <location filename="../widgets/mainwindow.cpp" line="5845"/>
-        <location filename="../widgets/mainwindow.cpp" line="6003"/>
-        <location filename="../widgets/mainwindow.cpp" line="6043"/>
-        <location filename="../widgets/mainwindow.cpp" line="6091"/>
-        <location filename="../widgets/mainwindow.cpp" line="6216"/>
         <source>Band Activity</source>
         <translation>Activitat a la banda</translation>
     </message>
@@ -1963,13 +1867,8 @@ Error(%2): %3</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="194"/>
-        <location filename="../widgets/mainwindow.cpp" line="5796"/>
-        <location filename="../widgets/mainwindow.cpp" line="5840"/>
-        <location filename="../widgets/mainwindow.cpp" line="6004"/>
-        <location filename="../widgets/mainwindow.cpp" line="6044"/>
-        <location filename="../widgets/mainwindow.cpp" line="6092"/>
         <source>Rx Frequency</source>
-        <translation>Freqüència RX</translation>
+        <translation>Freqüència de RX</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="330"/>
@@ -1979,7 +1878,7 @@ Error(%2): %3</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="343"/>
         <source>Enter this QSO in log</source>
-        <translation>Introduïu aquest QSO al registre</translation>
+        <translation>Introdueix aquest QSO al registre</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="346"/>
@@ -2009,12 +1908,12 @@ Error(%2): %3</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="408"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Erase right window. Double-click to erase both windows.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Esborra la finestra dreta Feu doble clic per esborrar les dues finestres.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Esborra la finestra dreta, fes doble clic per esborrar les dues finestres.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="411"/>
         <source>Erase right window. Double-click to erase both windows.</source>
-        <translation>Esborra la finestra dreta Feu doble clic per esborrar les dues finestres.</translation>
+        <translation>Esborra la finestra dreta, fes doble clic per esborrar les dues finestres.</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="414"/>
@@ -2054,12 +1953,12 @@ Error(%2): %3</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="476"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle Auto-Tx On/Off&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Activar / Desactiva TX&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Activar/Desactivar TX&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="479"/>
         <source>Toggle Auto-Tx On/Off</source>
-        <translation>Activar / Desactiva TX</translation>
+        <translation>Activar/Desactivar TX</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="493"/>
@@ -2079,12 +1978,12 @@ Error(%2): %3</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="519"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle a pure Tx tone On/Off&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Activa / desactiva el to TX pur&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Activa/Desactiva el to de TX pur per a sintonització&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="522"/>
         <source>Toggle a pure Tx tone On/Off</source>
-        <translation>Activa / desactiva el to TX pur</translation>
+        <translation>Activa/desactiva el to TX pur per a sintonització</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="536"/>
@@ -2109,12 +2008,12 @@ Error(%2): %3</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="606"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;30dB recommended when only noise present&lt;br/&gt;Green when good&lt;br/&gt;Red when clipping may occur&lt;br/&gt;Yellow when too low&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;30dB recomanat quan només hi ha soroll&lt;br/&gt;en Verd és un bon nivell&lt;br/&gt;en Vermell és poden produir retalls&lt;br/&gt;en Groc quan és massa baix&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;30dB recomanat quan només hi ha soroll,&lt;br/&gt;en Verd és un bon nivell,&lt;br/&gt;en Vermell és poden produir retalls, i&lt;br/&gt;en Groc quan és massa baix.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="609"/>
         <source>Rx Signal</source>
-        <translation>Senyal RX</translation>
+        <translation>Senyal de RX</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="612"/>
@@ -2122,9 +2021,9 @@ Error(%2): %3</translation>
 Green when good
 Red when clipping may occur
 Yellow when too low</source>
-        <translation>30dB recomanat quan només hi ha soroll
-en Verd és un bon nivell
-en Vermell és poden produir retalls
+        <translation>30dB recomanat quan només hi ha soroll,
+en Verd és un bon nivell,
+en Vermell és poden produir retalls i
 en Groc quan és massa baix</translation>
     </message>
     <message>
@@ -2220,12 +2119,12 @@ en Groc quan és massa baix</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1078"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to keep Tx frequency fixed when double-clicking on decoded text.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Comprova que es mantingui la freqüència de TX fixada quan facis doble clic sobre un text descodificat.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Marca per que es mantingui la freqüència de TX fixada quan facis doble clic sobre un text descodificat.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1081"/>
         <source>Check to keep Tx frequency fixed when double-clicking on decoded text.</source>
-        <translation>Comprova que es mantingui la freqüència de TX fixada quan facis doble clic sobre un text descodificat.</translation>
+        <translation>Marca per que es mantingui la freqüència de TX fixada quan facis doble clic sobre un text descodificat.</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1084"/>
@@ -2262,7 +2161,7 @@ en Groc quan és massa baix</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1146"/>
         <source>Frequency tolerance (Hz)</source>
-        <translation>Freqüència de Tolerància</translation>
+        <translation>Freqüència de Tolerància (Hz)</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1152"/>
@@ -2297,12 +2196,12 @@ en Groc quan és massa baix</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1225"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to use short-format messages.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Comprova que utilitzes missatges de format curt.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Marcar per utilitzar missatges de format curt.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1228"/>
         <source>Check to use short-format messages.</source>
-        <translation>Comprova que utilitzes missatges de format curt.</translation>
+        <translation>Marcar per utilitzar missatges de format curt.</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1231"/>
@@ -2328,12 +2227,12 @@ en Groc quan és massa baix</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1251"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to enable automatic sequencing of Tx messages based on received messages.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Comprova que actives la seqüència automàtica dels missatges de TX en funció dels missatges rebuts.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Activa la seqüència automàtica dels missatges de TX en funció dels missatges rebuts.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1254"/>
         <source>Check to enable automatic sequencing of Tx messages based on received messages.</source>
-        <translation>Comprova que actives la seqüència automàtica dels missatges de TX en funció dels missatges rebuts.</translation>
+        <translation>Activa la seqüència automàtica dels missatges de TX en funció dels missatges rebuts.</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1257"/>
@@ -2358,7 +2257,7 @@ en Groc quan és massa baix</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1280"/>
         <source>Check to generate &quot;@1250  (SEND MSGS)&quot; in Tx6.</source>
-        <translation>Comprova per generar &quot;@1250  (SEND MSGS)&quot; a TX6.</translation>
+        <translation>Marca per generar &quot;@1250  (SEND MSGS)&quot; a TX6.</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1283"/>
@@ -2378,7 +2277,7 @@ en Groc quan és massa baix</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1298"/>
         <source>Tx even/1st</source>
-        <translation>Alternar minut TX Parell / Senar</translation>
+        <translation>Alternar minut TX Parell/Senar</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1310"/>
@@ -2393,18 +2292,18 @@ en Groc quan és massa baix</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1316"/>
         <source>Tx CQ </source>
-        <translation>TX CQ</translation>
+        <translation>TX CQ </translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1335"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check this to call CQ on the &amp;quot;Tx CQ&amp;quot; frequency. Rx will be on the current frequency and the CQ message wiill include the current Rx frequency so callers know which frequency to reply on.&lt;/p&gt;&lt;p&gt;Not available to nonstandard callsign holders.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Marca això per trucar a CQ a la freqüència &amp;quot;TX CQ&amp;quot;. RX serà a la freqüència actual i el missatge CQ inclourà la freqüència RX actual perquè els corresponsals sàpiguen quina freqüència respondre.&lt;/p&gt;&lt;p&gt;No està disponible per als titulars de indicatiu no estàndard.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Marca això per trucar a CQ a la freqüència &amp;quot;TX CQ&amp;quot;. RX serà a la freqüència actual i el missatge CQ inclourà la freqüència de RX actual perquè els corresponsals sàpiguen a quina freqüència respondre.&lt;/p&gt;&lt;p&gt;No està disponible per als titulars de indicatiu no estàndard.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1338"/>
         <source>Check this to call CQ on the &quot;Tx CQ&quot; frequency. Rx will be on the current frequency and the CQ message wiill include the current Rx frequency so callers know which frequency to reply on.
 Not available to nonstandard callsign holders.</source>
-        <translation>Marca això per trucar a CQ a la freqüència &quot;TX CQ&quot;. RX serà a la freqüència actual i el missatge CQ inclourà la freqüència RX actual perquè els corresponsals sàpiguen quina freqüència respondre.
+        <translation>Marca això per trucar a CQ a la freqüència &quot;TX CQ&quot;. RX serà a la freqüència actual i el missatge CQ inclourà la freqüència de RX actual perquè els corresponsals sàpiguen a quina freqüència respondre.
 No està disponible per als titulars de indicatiu no estàndard.</translation>
     </message>
     <message>
@@ -2425,23 +2324,22 @@ No està disponible per als titulars de indicatiu no estàndard.</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1367"/>
         <source>Submode </source>
-        <translation>Submode</translation>
+        <translation>Submode </translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1394"/>
-        <location filename="../widgets/mainwindow.cpp" line="5867"/>
         <source>Fox</source>
         <translation>Guineu</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1404"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to monitor Sh messages.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Marca per controlar els missatges Sh.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Marca per monitoritzar els missatges Sh.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1407"/>
         <source>Check to monitor Sh messages.</source>
-        <translation>Marca per controlar els missatges Sh.</translation>
+        <translation>Marca per monitoritzar els missatges Sh.</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1410"/>
@@ -2456,16 +2354,16 @@ No està disponible per als titulars de indicatiu no estàndard.</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1438"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check this to start recording calibration data.&lt;br/&gt;While measuring calibration correction is disabled.&lt;br/&gt;When not checked you can view the calibration results.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Comprova-ho per començar a enregistrar dades de calibració.&lt;br/&gt;Mentre la mesura de la correcció de calibratge està desactivada.&lt;br/&gt;Si no està marcat, podeu veure els resultats de la calibració.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Marca per començar a enregistrar dades de calibració.&lt;br/&gt;Mentre es mesura la correcció de calibratge, es desactiva.&lt;br/&gt;Si no està marcat, pots veure els resultats de la calibració.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1441"/>
         <source>Check this to start recording calibration data.
 While measuring calibration correction is disabled.
 When not checked you can view the calibration results.</source>
-        <translation>Comprova-ho per començar a enregistrar dades de calibració.
-Mentre la mesura de la correcció de calibratge està desactivada.
-Si no està marcat, podeu veure els resultats de la calibració.</translation>
+        <translation>Marca per començar a enregistrar dades de calibració.
+Mentre es mesura la correcció de calibratge, es desactiva.
+Si no està marcat, pots veure els resultats de la calibració.</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1446"/>
@@ -2475,12 +2373,12 @@ Si no està marcat, podeu veure els resultats de la calibració.</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1455"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Signal report: Signal-to-noise ratio in 2500 Hz reference bandwidth (dB).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Informe de senyal: Relació senyal / soroll en amplada de banda de referència de 2500 Hz (dB).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Informe de senyal: Relació senyal/soroll en amplada de banda de referència de 2500 Hz (dB).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1458"/>
         <source>Signal report: Signal-to-noise ratio in 2500 Hz reference bandwidth (dB).</source>
-        <translation>Informe de senyal: Relació senyal / soroll en amplada de banda de referència de 2500 Hz (dB).</translation>
+        <translation>Informe de senyal: Relació senyal/soroll en amplada de banda de referència de 2500 Hz (dB).</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1464"/>
@@ -2490,12 +2388,12 @@ Si no està marcat, podeu veure els resultats de la calibració.</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1480"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Tx/Rx or Frequency calibration sequence length&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;TX / RX o Longitud de la seqüència de calibratge de la freqüència&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;TX/RX o Longitud de la seqüència de calibratge de la freqüència&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1483"/>
         <source>Tx/Rx or Frequency calibration sequence length</source>
-        <translation>TX / RX o Longitud de la seqüència de calibratge de la freqüència</translation>
+        <translation>TX/RX o Longitud de la seqüència de calibratge de la freqüència</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1489"/>
@@ -2536,12 +2434,12 @@ Si no està marcat, podeu veure els resultats de la calibració.</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1581"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Double-click on another caller to queue that call for your next QSO.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Fes doble clic sobre un altre estació per fer una cua en trucada per al vostre proper QSO.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Fes doble clic sobre un altre estació per posar a la cua en la trucada per al teu proper QSO.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1584"/>
         <source>Double-click on another caller to queue that call for your next QSO.</source>
-        <translation>Fes doble clic sobre un altre estació per fer una cua en trucada per al vostre proper QSO.</translation>
+        <translation>Fes doble clic sobre un altre estació per posar a la cua en la trucada per al teu proper QSO.</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1587"/>
@@ -2568,14 +2466,14 @@ Si no està marcat, podeu veure els resultats de la calibració.</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1639"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Send this message in next Tx interval&lt;/p&gt;&lt;p&gt;Double click to toggle the use of the Tx1 message to start a QSO with a station (not allowed for type 1 compound call holders)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Envia aquest missatge al següent interval de TX.&lt;/p&gt;&lt;p&gt;Fes doble clic per canviar l’ús del missatge TX1 per iniciar un QSO amb una estació (no està permès per a titulars de indicatius compostos de tipus 1)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Envia aquest missatge al següent interval de TX.&lt;/p&gt;&lt;p&gt;Fes doble clic per canviar l’ús del missatge TX1 per iniciar un QSO amb una estació (no està permès per a titulars de indicatius compostos de tipus 1).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1642"/>
         <source>Send this message in next Tx interval
 Double click to toggle the use of the Tx1 message to start a QSO with a station (not allowed for type 1 compound call holders)</source>
         <translation>Envia aquest missatge al següent interval de TX.
-Fes doble clic per canviar l’ús del missatge TX1 per iniciar un QSO amb una estació (no està permès per a titulars de indicatius compostos de tipus 1)</translation>
+Fes doble clic per canviar l’ús del missatge TX1 per iniciar un QSO amb una estació (no està permès per a titulars de indicatius compostos de tipus 1).</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1652"/>
@@ -2603,14 +2501,14 @@ Fes doble clic per canviar l’ús del missatge TX1 per iniciar un QSO amb una e
     <message>
         <location filename="../widgets/mainwindow.ui" line="1678"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to this Tx message NOW&lt;/p&gt;&lt;p&gt;Double click to toggle the use of the Tx1 message to start a QSO with a station (not allowed for type 1 compound call holders)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Canvia a aquest missatge de TX ARA.&lt;/p&gt;&lt;p&gt;Fes doble clic per canviar l’ús del missatge TX1 per iniciar un QSO amb una estació (no està permès per a titulars de indicatius compostos de tipus 1)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Canvia a aquest missatge de TX ARA.&lt;/p&gt;&lt;p&gt;Fes doble clic per canviar l’ús del missatge TX1 per iniciar un QSO amb una estació (no està permès per a titulars de indicatius compostos de tipus 1).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1681"/>
         <source>Switch to this Tx message NOW
 Double click to toggle the use of the Tx1 message to start a QSO with a station (not allowed for type 1 compound call holders)</source>
         <translation>Canvia a aquest missatge de TX ARA.
-Fes doble clic per canviar l’ús del missatge TX1 per iniciar un QSO amb una estació (no està permès per a titulars de indicatius compostos de tipus 1)</translation>
+Fes doble clic per canviar l’ús del missatge TX1 per iniciar un QSO amb una estació (no està permès per a titulars de indicatius compostos de tipus 1).</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1691"/>
@@ -2630,14 +2528,14 @@ Fes doble clic per canviar l’ús del missatge TX1 per iniciar un QSO amb una e
     <message>
         <location filename="../widgets/mainwindow.ui" line="1723"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Send this message in next Tx interval&lt;/p&gt;&lt;p&gt;Double-click to reset to the standard 73 message&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Envia aquest missatge al següent interval de TX.&lt;/p&gt;&lt;p&gt;Fes doble clic per restablir el missatge estàndard 73&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Envia aquest missatge al següent interval de TX.&lt;/p&gt;&lt;p&gt;Fes doble clic per restablir el missatge estàndard 73.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1726"/>
         <source>Send this message in next Tx interval
 Double-click to reset to the standard 73 message</source>
         <translation>Envia aquest missatge al següent interval de TX.
-Fes doble clic per restablir el missatge estàndard 73</translation>
+Fes doble clic per restablir el missatge estàndard 73.</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1736"/>
@@ -2671,7 +2569,7 @@ Double-click to toggle between RRR and RR73 messages in Tx4 (not allowed for typ
 RR73 messages should only be used when you are reasonably confident that no message repetitions will be required</source>
         <translation>Envia aquest missatge al següent interval de TX.
 Fes doble clic per alternar entre els missatges RRR i RR73 a TX4 (no està permès per a titulars d&apos;indicatius compostos del tipus 2)
-Els missatges RR73 només s’han d’utilitzar quan teniu una confiança raonable que no caldrà repetir cap missatge</translation>
+Els missatges RR73 només s’han d’utilitzar quan teniu una confiança raonable que no caldrà repetir cap missatge.</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1789"/>
@@ -2690,7 +2588,7 @@ Double-click to toggle between RRR and RR73 messages in Tx4 (not allowed for typ
 RR73 messages should only be used when you are reasonably confident that no message repetitions will be required</source>
         <translation>Canvia a aquest missatge de TX ARA.
 Fes doble clic per alternar entre els missatges RRR i RR73 a TX4 (no està permès per a titulars d&apos;indicatius compostos del tipus 2)
-Els missatges RR73 només s’han d’utilitzar quan teniu una confiança raonable que no caldrà repetir cap missatge</translation>
+Els missatges RR73 només s’han d’utilitzar quan teniu una confiança raonable que no caldrà repetir cap missatge.</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1807"/>
@@ -2705,14 +2603,14 @@ Els missatges RR73 només s’han d’utilitzar quan teniu una confiança raonab
     <message>
         <location filename="../widgets/mainwindow.ui" line="1817"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to this Tx message NOW&lt;/p&gt;&lt;p&gt;Double-click to reset to the standard 73 message&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Canvia a aquest missatge de TX ARA.&lt;/p&gt;&lt;p&gt;Fes doble clic per restablir el missatge estàndard 73&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Canvia a aquest missatge de TX ARA.&lt;/p&gt;&lt;p&gt;Fes doble clic per restablir el missatge estàndard 73.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1820"/>
         <source>Switch to this Tx message NOW
 Double-click to reset to the standard 73 message</source>
         <translation>Canvia a aquest missatge de TX ARA.
-Fes doble clic per restablir el missatge estàndard 73</translation>
+Fes doble clic per restablir el missatge estàndard 73.</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1827"/>
@@ -2972,7 +2870,7 @@ La llista es pot mantenir a la configuració (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2342"/>
         <source>N List     </source>
-        <translation>N Llist    </translation>
+        <translation>N List     </translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2373"/>
@@ -3048,12 +2946,12 @@ La llista es pot mantenir a la configuració (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2638"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;6 digit locators cause 2 different messages to be sent, the second contains the full locator but only a hashed callsign, other stations must have decoded the first once before they can decode your call in the second. Check this option to only send 4 digit locators if it will avoid the two message protocol.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Els Locator de 6 dígits fan que s’enviïn 2 missatges diferents, el segon conté el locator complet, però només un disseny de trucada hash, les altres estacions han d’haver descodificat el primer una vegada abans de poder descodificar el segon. Marca aquesta opció per enviar només locators de 4 dígits i s’evitarà el protocol de dos missatges.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Els locator de 6 dígits fan que s’enviïn 2 missatges diferents, el segon conté el locator complet, però només un indicatiu trossejat, les altres estacions han d’haver descodificat el primer una vegada abans de poder descodificar el segon. Marca aquesta opció per enviar només locators de 4 dígits i s’evitarà el protocol de dos missatges.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2641"/>
         <source>6 digit locators cause 2 different messages to be sent, the second contains the full locator but only a hashed callsign, other stations must have decoded the first once before they can decode your call in the second. Check this option to only send 4 digit locators if it will avoid the two message protocol.</source>
-        <translation>Els Locator de 6 dígits fan que s’enviïn 2 missatges diferents, el segon conté el locator complet, però només un disseny de trucada hash, les altres estacions han d’haver descodificat el primer una vegada abans de poder descodificar el segon. Marca aquesta opció per enviar només locators de 4 dígits i s’evitarà el protocol de dos missatges.</translation>
+        <translation>Els locator de 6 dígits fan que s’enviïn 2 missatges diferents, el segon conté el locator complet, però només un indicatiu trossejat, les altres estacions han d’haver descodificat el primer una vegada abans de poder descodificar el segon. Marca aquesta opció per enviar només locators de 4 dígits i s’evitarà el protocol de dos missatges.</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2644"/>
@@ -3098,7 +2996,7 @@ La llista es pot mantenir a la configuració (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2816"/>
         <source>Save</source>
-        <translation>Desa</translation>
+        <translation>Guardar</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2824"/>
@@ -3173,7 +3071,7 @@ La llista es pot mantenir a la configuració (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2943"/>
         <source>Delete all *.wav &amp;&amp; *.c2 files in SaveDir</source>
-        <translation>Esborra tots els fitxers *.wav &amp;&amp; *.c2 del directori DESA</translation>
+        <translation>Esborra tots els fitxers *.wav &amp;&amp; *.c2 del directori Guardar</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2965"/>
@@ -3183,7 +3081,7 @@ La llista es pot mantenir a la configuració (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2973"/>
         <source>Save all</source>
-        <translation>Desa-ho tot</translation>
+        <translation>Guardar-ho tot</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2978"/>
@@ -3208,7 +3106,7 @@ La llista es pot mantenir a la configuració (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3010"/>
         <source>Save decoded</source>
-        <translation>Desa el descodificat</translation>
+        <translation>Guarda el descodificat</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3021"/>
@@ -3238,7 +3136,7 @@ La llista es pot mantenir a la configuració (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3058"/>
         <source>Convert mode to RTTY for logging</source>
-        <translation>Converteix el mode a RTTY per registrar-te</translation>
+        <translation>Converteix el mode a RTTY després de registrar el QSO</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3066"/>
@@ -3258,7 +3156,7 @@ La llista es pot mantenir a la configuració (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3090"/>
         <source>Clear DX Call and Grid after logging</source>
-        <translation>Neteja l&apos;indicatiu i la graella de DX després del registre</translation>
+        <translation>Neteja l&apos;indicatiu i la graella de DX després de registrar el QSO</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3098"/>
@@ -3283,7 +3181,6 @@ La llista es pot mantenir a la configuració (F2).</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3125"/>
-        <location filename="../widgets/mainwindow.cpp" line="8103"/>
         <source>Runaway Tx watchdog</source>
         <translation>Vigilant de fugida TX</translation>
     </message>
@@ -3375,7 +3272,7 @@ La llista es pot mantenir a la configuració (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3254"/>
         <source>Echo Graph</source>
-        <translation>Gràfic Echo</translation>
+        <translation>Gràfic d&apos;Eco</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3257"/>
@@ -3385,12 +3282,12 @@ La llista es pot mantenir a la configuració (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3265"/>
         <source>Echo</source>
-        <translation>Echo</translation>
+        <translation>Eco</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3268"/>
         <source>EME Echo mode</source>
-        <translation>Mode EME Echo</translation>
+        <translation>Mode EME Eco</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3276"/>
@@ -3559,13 +3456,6 @@ La llista es pot mantenir a la configuració (F2).</translation>
         <translation>Error del control del equip</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="329"/>
-        <location filename="../widgets/mainwindow.cpp" line="4120"/>
-        <location filename="../widgets/mainwindow.cpp" line="7634"/>
-        <source>Receiving</source>
-        <translation type="unfinished">Rebent</translation>
-    </message>
-    <message>
         <location filename="../widgets/mainwindow.cpp" line="437"/>
         <source>Do you want to reconfigure the radio interface?</source>
         <translation>Vols reconfigurar la interfície de la ràdio ?</translation>
@@ -3596,26 +3486,6 @@ La llista es pot mantenir a la configuració (F2).</translation>
         <translation>Configuracions...</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="828"/>
-        <location filename="../widgets/mainwindow.cpp" line="5792"/>
-        <location filename="../widgets/mainwindow.cpp" line="5798"/>
-        <location filename="../widgets/mainwindow.cpp" line="5836"/>
-        <location filename="../widgets/mainwindow.cpp" line="5846"/>
-        <location filename="../widgets/mainwindow.cpp" line="5943"/>
-        <location filename="../widgets/mainwindow.cpp" line="5944"/>
-        <location filename="../widgets/mainwindow.cpp" line="5992"/>
-        <location filename="../widgets/mainwindow.cpp" line="5993"/>
-        <location filename="../widgets/mainwindow.cpp" line="5997"/>
-        <location filename="../widgets/mainwindow.cpp" line="5998"/>
-        <location filename="../widgets/mainwindow.cpp" line="6045"/>
-        <location filename="../widgets/mainwindow.cpp" line="6046"/>
-        <location filename="../widgets/mainwindow.cpp" line="6211"/>
-        <location filename="../widgets/mainwindow.cpp" line="6212"/>
-        <location filename="../widgets/mainwindow.cpp" line="6397"/>
-        <source>Message</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="../widgets/mainwindow.cpp" line="842"/>
         <source>Error Killing jt9.exe Process</source>
         <translation>Error en matar el procés jt9.exe</translation>
@@ -3637,22 +3507,22 @@ La llista es pot mantenir a la configuració (F2).</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="1258"/>
-        <location filename="../widgets/mainwindow.cpp" line="6186"/>
+        <location filename="../widgets/mainwindow.cpp" line="6187"/>
         <source>Improper mode</source>
         <translation>Mode inadequat</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="1409"/>
-        <location filename="../widgets/mainwindow.cpp" line="8730"/>
+        <location filename="../widgets/mainwindow.cpp" line="8731"/>
         <source>File Open Error</source>
         <translation>Error al obrir el fitxer</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="1410"/>
-        <location filename="../widgets/mainwindow.cpp" line="7748"/>
-        <location filename="../widgets/mainwindow.cpp" line="8177"/>
-        <location filename="../widgets/mainwindow.cpp" line="8731"/>
-        <location filename="../widgets/mainwindow.cpp" line="8857"/>
+        <location filename="../widgets/mainwindow.cpp" line="7749"/>
+        <location filename="../widgets/mainwindow.cpp" line="8178"/>
+        <location filename="../widgets/mainwindow.cpp" line="8732"/>
+        <location filename="../widgets/mainwindow.cpp" line="8858"/>
         <source>Cannot open &quot;%1&quot; for append: %2</source>
         <translation>No es pot obrir &quot;%1&quot; per annexar: %2</translation>
     </message>
@@ -3672,20 +3542,6 @@ La llista es pot mantenir a la configuració (F2).</translation>
         <translation>Error en la sortida de so</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1787"/>
-        <location filename="../widgets/mainwindow.cpp" line="5941"/>
-        <location filename="../widgets/mainwindow.cpp" line="6087"/>
-        <source>Single-Period Decodes</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../widgets/mainwindow.cpp" line="1788"/>
-        <location filename="../widgets/mainwindow.cpp" line="5942"/>
-        <location filename="../widgets/mainwindow.cpp" line="6088"/>
-        <source>Average Decodes</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="../widgets/mainwindow.cpp" line="2089"/>
         <source>Change Operator</source>
         <translation>Canvi d&apos;Operador</translation>
@@ -3698,11 +3554,11 @@ La llista es pot mantenir a la configuració (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="2199"/>
         <source>Status File Error</source>
-        <translation>Error del fitxer d&apos;estat</translation>
+        <translation>Error d&apos;estat del fitxer</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="2200"/>
-        <location filename="../widgets/mainwindow.cpp" line="5405"/>
+        <location filename="../widgets/mainwindow.cpp" line="5406"/>
         <source>Cannot open &quot;%1&quot; for writing: %2</source>
         <translation>No es pot obrir &quot;%1&quot; per escriure: %2</translation>
     </message>
@@ -3772,7 +3628,7 @@ La llista es pot mantenir a la configuració (F2).</translation>
         <source>If you make fair use of any part of WSJT-X under terms of the GNU General Public License, you must display the following copyright notice prominently in your derivative work:
 
 &quot;The algorithms, source code, look-and-feel of WSJT-X and related programs, and protocol specifications for the modes FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 are Copyright (C) 2001-2020 by one or more of the following authors: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; and other members of the WSJT Development Group.&quot;</source>
-        <translation>Si feu un ús raonable de qualsevol part de WSJT-X segons els termes de la Llicència Pública General de GNU, heu de mostrar de manera destacada el següent avís de copyright en el vostre treball derivat:
+        <translation>Si fas un ús raonable de qualsevol part de WSJT-X segons els termes de la Llicència Pública General de GNU, has de mostrar de manera destacada el següent avís de copyright en el teu treball derivat:
 &quot;Els algoritmes, codi font, aspecte de WSJT-X i programes relacionats i les especificacions de protocol per als modes FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 són Copyright (C) 2001-2020 per un o més dels següents autors: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q i altres membres del grup de desenvolupament de WSJT. &quot;</translation>
     </message>
     <message>
@@ -3826,12 +3682,7 @@ La llista es pot mantenir a la configuració (F2).</translation>
         <translation>Avís de mode Guineu</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="4224"/>
-        <source>Last Tx: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../widgets/mainwindow.cpp" line="4624"/>
+        <location filename="../widgets/mainwindow.cpp" line="4625"/>
         <source>Should you switch to EU VHF Contest mode?
 
 To do so, check &apos;Special operating activity&apos; and
@@ -3842,183 +3693,163 @@ Per fer-ho, comprova &quot;Activitat operativa especial&quot; i
  Concurs EU VHF a la Configuració | Pestanya avançada.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="4643"/>
+        <location filename="../widgets/mainwindow.cpp" line="4644"/>
         <source>Should you switch to ARRL Field Day mode?</source>
         <translation>Heu de canviar al mode de Field Day de l&apos;ARRL ?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="4648"/>
+        <location filename="../widgets/mainwindow.cpp" line="4649"/>
         <source>Should you switch to RTTY contest mode?</source>
         <translation>Heu de canviar al mode de concurs RTTY?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5372"/>
-        <location filename="../widgets/mainwindow.cpp" line="5391"/>
-        <location filename="../widgets/mainwindow.cpp" line="5404"/>
-        <location filename="../widgets/mainwindow.cpp" line="5430"/>
+        <location filename="../widgets/mainwindow.cpp" line="5373"/>
+        <location filename="../widgets/mainwindow.cpp" line="5392"/>
+        <location filename="../widgets/mainwindow.cpp" line="5405"/>
+        <location filename="../widgets/mainwindow.cpp" line="5431"/>
         <source>Add to CALL3.TXT</source>
         <translation>Afegeix a CALL3.TXT</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5373"/>
+        <location filename="../widgets/mainwindow.cpp" line="5374"/>
         <source>Please enter a valid grid locator</source>
         <translation>Introduïu un locator vàlid</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5392"/>
+        <location filename="../widgets/mainwindow.cpp" line="5393"/>
         <source>Cannot open &quot;%1&quot; for read/write: %2</source>
         <translation>No es pot obrir &quot;%1&quot; per llegir o escriure: %2</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5428"/>
+        <location filename="../widgets/mainwindow.cpp" line="5429"/>
         <source>%1
 is already in CALL3.TXT, do you wish to replace it?</source>
         <translation>%1
 ja és a CALL3.TXT, vols substituir-lo ?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5603"/>
+        <location filename="../widgets/mainwindow.cpp" line="5604"/>
         <source>Warning:  DX Call field is empty.</source>
         <translation>Avís:  el camp de indicatiu DX està buit.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5660"/>
+        <location filename="../widgets/mainwindow.cpp" line="5661"/>
         <source>Log file error</source>
         <translation>Error al fitxer de registre</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5661"/>
+        <location filename="../widgets/mainwindow.cpp" line="5662"/>
         <source>Cannot open &quot;%1&quot;</source>
         <translation>No es pot obrir &quot;%1&quot;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5677"/>
+        <location filename="../widgets/mainwindow.cpp" line="5678"/>
         <source>Error sending log to N1MM</source>
         <translation>Error al enviar el registre a N1MM</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5678"/>
+        <location filename="../widgets/mainwindow.cpp" line="5679"/>
         <source>Write returned &quot;%1&quot;</source>
         <translation>Escriptura retornada &quot;%1&quot;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5842"/>
-        <source>Stations calling DXpedition %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../widgets/mainwindow.cpp" line="5877"/>
-        <source>Hound</source>
-        <translation type="unfinished">Hound</translation>
-    </message>
-    <message>
-        <location filename="../widgets/mainwindow.cpp" line="6217"/>
-        <source>Tx Messages</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../widgets/mainwindow.cpp" line="6468"/>
-        <location filename="../widgets/mainwindow.cpp" line="6501"/>
-        <location filename="../widgets/mainwindow.cpp" line="6511"/>
+        <location filename="../widgets/mainwindow.cpp" line="6469"/>
+        <location filename="../widgets/mainwindow.cpp" line="6502"/>
+        <location filename="../widgets/mainwindow.cpp" line="6512"/>
         <source>Confirm Erase</source>
         <translation>Confirma Esborrar</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6469"/>
+        <location filename="../widgets/mainwindow.cpp" line="6470"/>
         <source>Are you sure you want to erase file ALL.TXT?</source>
         <translation>Estàs segur que vols esborrar el fitxer ALL.TXT ?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6479"/>
-        <location filename="../widgets/mainwindow.cpp" line="8222"/>
+        <location filename="../widgets/mainwindow.cpp" line="6480"/>
+        <location filename="../widgets/mainwindow.cpp" line="8223"/>
         <source>Confirm Reset</source>
         <translation>Confirma que vols Restablir</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6480"/>
+        <location filename="../widgets/mainwindow.cpp" line="6481"/>
         <source>Are you sure you want to erase your contest log?</source>
         <translation>Estàs segur que vols esborrar el registre del concurs ?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6481"/>
+        <location filename="../widgets/mainwindow.cpp" line="6482"/>
         <source>Doing this will remove all QSO records for the current contest. They will be kept in the ADIF log file but will not be available for export in your Cabrillo log.</source>
         <translation>Si fas això, suprimiràs tots els registres de QSO del concurs actual. Es conservaran al fitxer de registre ADIF, però no es podran exportar al registre de Cabrillo.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6494"/>
+        <location filename="../widgets/mainwindow.cpp" line="6495"/>
         <source>Cabrillo Log saved</source>
         <translation>Registre Cabrillo desat</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6502"/>
+        <location filename="../widgets/mainwindow.cpp" line="6503"/>
         <source>Are you sure you want to erase file wsjtx_log.adi?</source>
         <translation>Estàs segur que vols esborrar el fitxer wsjtx_log.adi ?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6512"/>
+        <location filename="../widgets/mainwindow.cpp" line="6513"/>
         <source>Are you sure you want to erase the WSPR hashtable?</source>
         <translation>Estàs segur que vols esborrar la taula del WSPR ?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6606"/>
+        <location filename="../widgets/mainwindow.cpp" line="6607"/>
         <source>VHF features warning</source>
         <translation>Les característiques de VHF tenen un avís</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7211"/>
+        <location filename="../widgets/mainwindow.cpp" line="7212"/>
         <source>Tune digital gain </source>
-        <translation>Guany digital de sintonització </translation>
+        <translation type="unfinished">Guany de sintonització digital</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7213"/>
+        <location filename="../widgets/mainwindow.cpp" line="7214"/>
         <source>Transmit digital gain </source>
         <translation>Guany digital de transmissió </translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7232"/>
+        <location filename="../widgets/mainwindow.cpp" line="7233"/>
         <source>Prefixes</source>
         <translation>Prefixos</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7601"/>
+        <location filename="../widgets/mainwindow.cpp" line="7602"/>
         <source>Network Error</source>
         <translation>Error de xarxa</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7602"/>
+        <location filename="../widgets/mainwindow.cpp" line="7603"/>
         <source>Error: %1
 UDP server %2:%3</source>
         <translation>Error: %1
 UDP server %2:%3</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7747"/>
+        <location filename="../widgets/mainwindow.cpp" line="7748"/>
         <source>File Error</source>
         <translation>Error al fitxer</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7981"/>
+        <location filename="../widgets/mainwindow.cpp" line="7982"/>
         <source>Phase Training Disabled</source>
         <translation>Entrenament de fase Desactivat</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7984"/>
+        <location filename="../widgets/mainwindow.cpp" line="7985"/>
         <source>Phase Training Enabled</source>
         <translation>Entrenament de fase activat</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="8118"/>
-        <source>WD:%1m</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../widgets/mainwindow.cpp" line="8180"/>
-        <location filename="../widgets/mainwindow.cpp" line="8860"/>
+        <location filename="../widgets/mainwindow.cpp" line="8181"/>
+        <location filename="../widgets/mainwindow.cpp" line="8861"/>
         <source>Log File Error</source>
         <translation>Error al fitxer de registre</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="8223"/>
+        <location filename="../widgets/mainwindow.cpp" line="8224"/>
         <source>Are you sure you want to clear the QSO queues?</source>
         <translation>Estàs segur que vols esborrar les cues de QSO ?</translation>
     </message>
@@ -4029,7 +3860,7 @@ UDP server %2:%3</translation>
         <location filename="../widgets/messageaveraging.ui" line="14"/>
         <location filename="../widgets/messageaveraging.cpp" line="19"/>
         <source>Message Averaging</source>
-        <translation>Missatge mitjà</translation>
+        <translation>Promig de missatges</translation>
     </message>
     <message>
         <location filename="../widgets/messageaveraging.ui" line="29"/>
@@ -4094,7 +3925,7 @@ UDP server %2:%3</translation>
     <message>
         <location filename="../MultiSettings.cpp" line="665"/>
         <source>Confirm overwrite of all values for configuration &quot;%1&quot; with values from &quot;%2&quot;?</source>
-        <translation>Confirmeu la sobreescriptura de tots els valors de la configuració &quot;%1&quot; amb valors de &quot;%2&quot;?</translation>
+        <translation>Vols sobreescriure de tots els valors de la configuració &quot;%1&quot; amb valors de &quot;%2&quot;?</translation>
     </message>
     <message>
         <location filename="../MultiSettings.cpp" line="710"/>
@@ -4104,17 +3935,17 @@ UDP server %2:%3</translation>
     <message>
         <location filename="../MultiSettings.cpp" line="711"/>
         <source>Confirm reset to default values for configuration &quot;%1&quot;?</source>
-        <translation>Confirmeu el restabliment dels valors per defecte per a la configuració &quot;%1&quot;?</translation>
+        <translation>Vols restablir els valors per defecte de la configuració &quot;%1&quot;?</translation>
     </message>
     <message>
         <location filename="../MultiSettings.cpp" line="797"/>
         <source>Delete Configuration</source>
-        <translation>Esborra la configuració</translation>
+        <translation>Esborrar la configuració</translation>
     </message>
     <message>
         <location filename="../MultiSettings.cpp" line="798"/>
         <source>Confirm deletion of configuration &quot;%1&quot;?</source>
-        <translation>Confirmes que vols esborrar la configuració &quot;%1&quot;?</translation>
+        <translation>vols esborrar la configuració &quot;%1&quot;?</translation>
     </message>
 </context>
 <context>
@@ -4157,12 +3988,12 @@ UDP server %2:%3</translation>
         <location filename="../Transceiver/OmniRigTransceiver.cpp" line="257"/>
         <location filename="../Transceiver/OmniRigTransceiver.cpp" line="285"/>
         <source>OmniRig: timeout waiting for update from rig</source>
-        <translation>OmniRig: el temps d&apos;espera finalitzat per actualitzar des de l&apos;equip</translation>
+        <translation>OmniRig: el temps d&apos;espera a finalitzat per actualitzar des de l&apos;equip</translation>
     </message>
     <message>
         <location filename="../Transceiver/OmniRigTransceiver.cpp" line="342"/>
         <source>OmniRig COM/OLE error: %1 at %2: %3 (%4)</source>
-        <translation>OmniRig Error COM/OLE: %1 at %2: %3 (%4)</translation>
+        <translation>OmniRig Error COM/OLE: %1 a %2: %3 (%4)</translation>
     </message>
 </context>
 <context>
@@ -4674,12 +4505,12 @@ Error(%2): %3</translation>
     <message>
         <location filename="../widgets/widegraph.ui" line="384"/>
         <source>Number of FFTs averaged (controls waterfall scrolling rate)</source>
-        <translation>Nombre mitjà de FFT&apos;s (controla la velocitat de desplaçament de les cascades)</translation>
+        <translation>Nombre mitjà de FFT&apos;s (controla la velocitat de desplaçament de la cascada)</translation>
     </message>
     <message>
         <location filename="../widgets/widegraph.ui" line="387"/>
         <source>N Avg </source>
-        <translation>N Avg </translation>
+        <translation>Mitjana N </translation>
     </message>
     <message>
         <location filename="../widgets/widegraph.ui" line="418"/>
@@ -4748,7 +4579,7 @@ Error(%2): %3</translation>
     <message>
         <location filename="../Configuration.ui" line="83"/>
         <source>Check to allow grid changes from external programs</source>
-        <translation>Comprova que permets els canvis de la graella de programes externs</translation>
+        <translation>Comprova que permets els canvis de Locator de programes externs</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="86"/>
@@ -4773,7 +4604,7 @@ Error(%2): %3</translation>
     <message>
         <location filename="../Configuration.ui" line="134"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Type 2 compound callsigns are those with prefixes or suffixes not included in the allowed shortlist (See Help-&amp;gt;Add-on prefixes and suffixes).&lt;/p&gt;&lt;p&gt;This option determines which generated messages should contain your full type 2 compound call sign rather than your base callsign. It only applies if you have a type 2 compound callsign.&lt;/p&gt;&lt;p&gt;This option controls the way the messages that are used to answer CQ calls are generated. Generated messages 6 (CQ) and 5 (73) will always contain your full callsign. The JT65 and JT9 protocols allow for some standard messages with your full call at the expense of another piece of information such as the DX call or your locator.&lt;/p&gt;&lt;p&gt;Choosing message 1 omits the DX callsign which may be an issue when replying to CQ calls. Choosing message 3 also omits the DX callsign and many versions of this and other software will not extract the report. Choosing neither means that your full callsign only goes in your message 5 (73) so your QSO partner may log the wrong callsign.&lt;/p&gt;&lt;p&gt;None of these options are perfect, message 3 is usually best but be aware your QSO partner may not log the report you send them.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Els indicatius compostos del tipus 2 són aquells amb prefixos o sufixos no inclosos a la llista prèvia permesa (Consulta Ajuda,Prefixos i sufixos addicionals).&lt;/p&gt;&lt;p&gt;Aquesta opció determina quins missatges generats han de contenir el teu indicatiu de tipus complet 2 en lloc del teu indicatiu base. Només s’aplica si tens un indicatiu compost de tipus 2.&lt;/p&gt;&lt;p&gt;Aquesta opció controla la manera com es generen els missatges que s’utilitzen per respondre trucades de CQ. Els missatges generats 6 (CQ) i 5 (73) sempre contindran el teu indicatiu complet. Els protocols JT65 i JT9 permeten alguns missatges estàndard amb el teu indicatiu complet a costa d’una altra informació, com ara la trucada DX o el locator.&lt;/p&gt;&lt;p&gt;L&apos;elecció del missatge 1 omet l&apos;indicatiu de DX, que pot ser un problema quan es respon a les trucades de CQ. L&apos;elecció del missatge 3 també omet l&apos;indicatiu de DX i moltes versions d&apos;aquest altre programari no extreuran l&apos;informe. Si esculls cap, no significa que només el teu indicatiu complet aparegui al missatge 5 (73) de manera que l&apos;altra operador de QSO pot registrar l&apos;indicatiu erròni.&lt;/p&gt;&lt;p&gt;Cap d’aquestes opcions és perfecta, el missatge 3 sol ser millor, però tingues en compte que l&apos;altra operador de QSO pot no registrar l’informe que li envies.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Els indicatius compostos del tipus 2 són aquells amb prefixos o sufixos no inclosos a la llista prèvia permesa (Consulta Ajuda,Prefixos i sufixos addicionals).&lt;/p&gt;&lt;p&gt;Aquesta opció determina quins missatges generats han de contenir el teu indicatiu de tipus complet 2 en lloc del teu indicatiu base. Només s’aplica si tens un indicatiu compost de tipus 2.&lt;/p&gt;&lt;p&gt;Aquesta opció controla la manera com es generen els missatges que s’utilitzen per respondre trucades de CQ. Els missatges generats 6 (CQ) i 5 (73) sempre contindran el teu indicatiu complet. Els protocols JT65 i JT9 permeten alguns missatges estàndard amb el teu indicatiu complet a costa d’una altra informació, com ara la trucada DX o el locator.&lt;/p&gt;&lt;p&gt;L&apos;elecció del missatge 1 omet l&apos;indicatiu de DX, que pot ser un problema quan es respon a les trucades de CQ. L&apos;elecció del missatge 3 també omet l&apos;indicatiu de DX i moltes versions d&apos;aquest altre programari no extreuran l&apos;informe. Si esculls cap, no significa que només el teu indicatiu complet aparegui al missatge 5 (73) de manera que l&apos;altra operador de QSO pot registrar l&apos;indicatiu erròni.&lt;/p&gt;&lt;p&gt;Cap d’aquestes opcions és perfecta, el missatge 3 sol ser el millor, però tingues en compte que l&apos;altra operador de QSO pot no registrar l’informe que li envies.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="141"/>
@@ -4798,7 +4629,7 @@ Error(%2): %3</translation>
     <message>
         <location filename="../Configuration.ui" line="177"/>
         <source>Show outgoing transmitted messages in the Rx frequency window.</source>
-        <translation>Mostra els missatges transmesos sortints a la finestra de freqüència RX.</translation>
+        <translation>Mostra els missatges transmesos sortints a la finestra de freqüència de RX.</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="180"/>
@@ -4818,7 +4649,7 @@ Error(%2): %3</translation>
     <message>
         <location filename="../Configuration.ui" line="200"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to have decodes for a new period start at the top of the Band Activity window and not scroll off the top when the window is full.&lt;/p&gt;&lt;p&gt;This is to aid selecting decodes to double-click while decoding is still in progress. Use the Band Activity vertical scroll bar to reveal decodes past the bottom of the window.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Comprova que tinguis descodificacions per començar un període nou a la part superior de la finestra d&apos;Activitat de banda i no moguis la part superior quan la finestra estigui plena.&lt;/p&gt;&lt;p&gt;Això serveix per ajudar a seleccionar descodificacions, pots fer doble clic mentre la descodificació encara està en curs. Utilitza la barra de desplaçament vertical d&apos;Activitat de banda per revelar descodificacions passades a la part inferior de la finestra.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Comprova que tinguis descodificacions per començar un nou període a la part superior de la finestra d&apos;Activitat de banda i no moguis la part superior quan la finestra estigui plena.&lt;/p&gt;&lt;p&gt;Això serveix per ajudar a seleccionar descodificacions, pots fer doble clic mentre la descodificació encara està en curs. Utilitza la barra de desplaçament vertical d&apos;Activitat de banda per veure descodificacions passades a la part inferior de la finestra.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="203"/>
@@ -4848,7 +4679,7 @@ Error(%2): %3</translation>
     <message>
         <location filename="../Configuration.ui" line="247"/>
         <source>Decoded Text Font...</source>
-        <translation>Tipus de text descodificat ...</translation>
+        <translation>Tipus de font a l&apos;àrea de descodificat ...</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="271"/>
@@ -4863,7 +4694,7 @@ Error(%2): %3</translation>
     <message>
         <location filename="../Configuration.ui" line="281"/>
         <source>Show distance to DX station in miles rather than kilometers.</source>
-        <translation>Mostra la distància a l&apos;estació DX en milles i no en quilòmetres.</translation>
+        <translation>Mostra la distància a l&apos;estació de DX en milles i no en quilòmetres.</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="284"/>
@@ -4878,7 +4709,7 @@ Error(%2): %3</translation>
     <message>
         <location filename="../Configuration.ui" line="307"/>
         <source>Decode after EME delay</source>
-        <translation>Descodificar després del retard EME</translation>
+        <translation>Descodificar després del retard d&apos;EME</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="329"/>
@@ -4913,7 +4744,7 @@ Error(%2): %3</translation>
     <message>
         <location filename="../Configuration.ui" line="374"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Some rigs are not able to process CAT commands while transmitting. This means that if you are operating in split mode you may have to uncheck this option.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Alguns equips no poden processar ordres CAT durant la transmissió. Això significa que si estàs operant en mode dividit, potser hauràs de desmarcar aquesta opció.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Alguns equips no poden processar ordres CAT durant la transmissió. Això significa que si estàs operant en mode dividit (split), potser hauràs de desmarcar aquesta opció.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="377"/>
@@ -4923,7 +4754,7 @@ Error(%2): %3</translation>
     <message>
         <location filename="../Configuration.ui" line="384"/>
         <source>Don&apos;t start decoding until the monitor button is clicked.</source>
-        <translation>No comencis a descodificar fins que no facis clic al botó de monitor.</translation>
+        <translation>No comença a descodificar fins que no facis clic al botó de monitor.</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="387"/>
@@ -4979,8 +4810,8 @@ This might be required under your countries licence regulations.
 It will not interfere with other users as it is always sent in the
 quiet period when decoding is done.</source>
         <translation>Envia un ID de CW periòdicament cada pocs minuts.
-Pot ser que es requereixi a les regulacions de llicència dels vostres països.
-No interferirà amb altres usuaris ja que s&apos;envia sempre al
+Pot ser que es requereixi a les regulacions de llicència del teu país.
+No interferirà amb altres usuaris ja que s&apos;envia sempre en el
 període tranquil quan es fa la descodificació.</translation>
     </message>
     <message>
@@ -4991,7 +4822,7 @@ període tranquil quan es fa la descodificació.</translation>
     <message>
         <location filename="../Configuration.ui" line="481"/>
         <source>Doubl&amp;e-click on call sets Tx enable</source>
-        <translation>Fes dobl&amp;e clic sobre els conjunts d&apos;indicatius TX habilitat</translation>
+        <translation>Fes dobl&amp;e clic sobre els conjunts d&apos;indicatius de TX habilitat</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="488"/>
@@ -5112,7 +4943,7 @@ període tranquil quan es fa la descodificació.</translation>
     <message>
         <location filename="../Configuration.ui" line="711"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Number of stop bits used when communicating with your radio&apos;s CAT interface&lt;/p&gt;&lt;p&gt;(consult you radio&apos;s manual for details).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Nombre de bits d’aturada utilitzats per a comunicar-se amb la interfície CAT del equip&lt;/p&gt;&lt;p&gt;(consulta el manual del equip per a més detalls).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Nombre de bits de parada utilitzats per a comunicar-se amb la interfície CAT del equip&lt;/p&gt;&lt;p&gt;(consulta el manual del equip per a més detalls).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="714"/>
@@ -5143,7 +4974,7 @@ període tranquil quan es fa la descodificació.</translation>
     <message>
         <location filename="../Configuration.ui" line="762"/>
         <source>Handshake</source>
-        <translation>Encaix de mans</translation>
+        <translation>Handshake</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="781"/>
@@ -5214,7 +5045,7 @@ uns pocs, particularment alguns equips de Kenwood, ho requereixen.</translation>
     <message>
         <location filename="../Configuration.ui" line="932"/>
         <source>How this program activates the PTT on your radio?</source>
-        <translation>Com activa aquest programa el PTT al vostre equip ?</translation>
+        <translation>Com activa aquest programa el PTT del teu equip ?</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="935"/>
@@ -5313,7 +5144,7 @@ o es selecciona l&apos;ample de banda).</translation>
     <message>
         <location filename="../Configuration.ui" line="1086"/>
         <source>Data/P&amp;kt</source>
-        <translation>Data/P&amp;kt</translation>
+        <translation>Dades/P&amp;kt</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1099"/>
@@ -5593,9 +5424,9 @@ els dos canals.</translation>
         <source>Drag and drop items to rearrange order
 Right click for item specific actions
 Click, SHIFT+Click and, CRTL+Click to select items</source>
-        <translation>Arrossega i deixa anar els elements per reorganitzar la comanda.
+        <translation>Arrossega i deixa anar els elements per reorganitzar l&apos;ordre.
 Fes clic amb el botó dret per a les accions específiques de l’element.
-Fes clic, MAJÚ + clic i, CTRL+clic per seleccionar els elements</translation>
+Fes clic, MAJÚ + clic i, CTRL+clic per seleccionar els elements.</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1692"/>
@@ -5610,7 +5441,7 @@ Fes clic, MAJÚ + clic i, CTRL+clic per seleccionar els elements</translation>
     <message>
         <location filename="../Configuration.ui" line="1701"/>
         <source>Logging</source>
-        <translation>Inici de sessió</translation>
+        <translation>Registres</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1707"/>
@@ -5635,8 +5466,8 @@ Check this option to save the sent and received reports in the
 comments field.</source>
         <translation>Alguns programes de registre no acceptaran el tipus d’informes
 desat per aquest programa.
-Comprova aquesta opció per desar els informes enviats i rebuts al fitxer
-i al camp de comentaris.</translation>
+Comprova aquesta opció per desar els informes enviats i rebuts
+al camp de comentaris.</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1746"/>
@@ -5647,13 +5478,13 @@ i al camp de comentaris.</translation>
         <location filename="../Configuration.ui" line="1753"/>
         <source>Check this option to force the clearing of the DX Call
 and DX Grid fields when a 73 or free text message is sent.</source>
-        <translation>Marca aquesta opció per a forçar l&apos;eliminació de la crida de DX
-i camps Locator DX quan s’envia un missatge de text de 73 o lliure.</translation>
+        <translation>Marca aquesta opció per a forçar l&apos;eliminació dels camps
+Crida de DX i Locator DX quan s’envia un missatge de text 73 o lliure.</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1757"/>
         <source>Clear &amp;DX call and grid after logging</source>
-        <translation>Buida la crida i la graella &amp;DX després del registre</translation>
+        <translation>Buida les graelles Crida i &amp;DX després del registre</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1764"/>
@@ -5799,7 +5630,7 @@ per avaluar la propagació i el rendiment del sistema.</translation>
     <message>
         <location filename="../Configuration.ui" line="1992"/>
         <source>Default frequencies and band specific station details setup</source>
-        <translation>Configuració predeterminada de les freqüències i detalls de l&apos;estació específics de la banda</translation>
+        <translation>Configuració predeterminada de les freqüències i banda amb detalls específics de l&apos;estació</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1998"/>
@@ -5829,7 +5660,7 @@ per avaluar la propagació i el rendiment del sistema.</translation>
     <message>
         <location filename="../Configuration.ui" line="2061"/>
         <source> Hz</source>
-        <translation>Hz</translation>
+        <translation> Hz</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2098"/>
@@ -5871,7 +5702,7 @@ Fes clic amb el botó dret per a les opcions d&apos;inserció i eliminació.</tr
     <message>
         <location filename="../Configuration.ui" line="2231"/>
         <source>Rescan ADIF Log</source>
-        <translation>Rescaneig de nou el registre ADIF</translation>
+        <translation>Escaneig de nou el registre ADIF</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2240"/>
@@ -5886,12 +5717,12 @@ Fes clic amb el botó dret per a les opcions d&apos;inserció i eliminació.</tr
     <message>
         <location filename="../Configuration.ui" line="2262"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enable or disable using the check boxes and right-click an item to change or unset the foreground color, background color, or reset the item to default values. Drag and drop the items to change their priority, higher in the list is higher in priority.&lt;/p&gt;&lt;p&gt;Note that each foreground or background color may be either set or unset, unset means that it is not allocated for that item&apos;s type and lower priority items may apply.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Activar o desactivar l&apos;ús de les caselles de verificació i fes clic amb el botó dret en un element per canviar o desactivar el color del primer pla, el color de fons o restablir l&apos;element als valors predeterminats. Arrossega i deixa anar els elements per canviar la seva prioritat, major a la llista és major en prioritat.&lt;/p&gt;&lt;p&gt;Recorda que cada color de primer pla o de fons pot estar configurat o no, el que vol dir que no està assignat per al tipus d&apos;element i poden aplicar-se elements de menor prioritat.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Activar o desactivar l&apos;ús de les caselles de verificació fes clic amb el botó dret en un element per canviar o desactivar el color del primer pla, el color de fons o restablir l&apos;element als valors predeterminats. Arrossega i deixa anar els elements per canviar la seva prioritat, major a la llista és major en prioritat.&lt;/p&gt;&lt;p&gt;Recorda que cada color de primer pla o de fons pot estar configurat o no, el que vol dir que no està assignat per al tipus d&apos;element i poden aplicar-se elements de menor prioritat.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2287"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to indicate new DXCC entities, grid squares, and callsigns per mode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Marca per indicar noves entitats DXCC, quadrats de quadrícula i indicatius per modes.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Marca per indicar noves entitats DXCC, Locators i indicatius per modes.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2290"/>
@@ -5906,12 +5737,12 @@ Fes clic amb el botó dret per a les opcions d&apos;inserció i eliminació.</tr
     <message>
         <location filename="../Configuration.ui" line="2304"/>
         <source>Check to for grid highlighting to only apply to unworked grid fields</source>
-        <translation>Marca perquè el ressaltat de quadrícula només s&apos;apliqui als camps de quadrícula no treballats</translation>
+        <translation>Marca perquè el ressaltat de Locator només s&apos;aplica als camps de Locator no treballats</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2307"/>
         <source>Only grid Fields sought</source>
-        <translation>Només camps de quadrícula buscatsNomés camps de quadrícula buscats</translation>
+        <translation>Només camps de Locator buscats</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2317"/>
@@ -5941,7 +5772,7 @@ Fes clic amb el botó dret per a les opcions d&apos;inserció i eliminació.</tr
     <message>
         <location filename="../Configuration.ui" line="2348"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Push this button to fetch the latest LotW user&apos;s upload date and time data file.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Fes clic sobre aquest botó per obtenir l&apos;últim arxiu de dades de data i hora de càrrega dels usuaris de LotW.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Fes clic sobre aquest botó per obtenir l&apos;últim fitxer de dades de data i hora de càrrega dels usuaris de LotW.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2351"/>
@@ -6021,7 +5852,7 @@ Fes clic amb el botó dret per a les opcions d&apos;inserció i eliminació.</tr
     <message>
         <location filename="../Configuration.ui" line="2527"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;North American VHF/UHF/Microwave contests and others in which a 4-character grid locator is the required exchange.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Concursos de VHF / UHF / Microones nord-americans i altres en què es necessita un intercanvi de locators de quatre caràcters.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Concursos de VHF/UHF/Microones nord-americans i altres en què es necessita un intercanvi de locators de quatre caràcters.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2530"/>
@@ -6083,7 +5914,7 @@ Fes clic amb el botó dret per a les opcions d&apos;inserció i eliminació.</tr
     <message>
         <location filename="../Configuration.ui" line="2681"/>
         <source>FD Exch:</source>
-        <translation>Intercanvi FD :</translation>
+        <translation>Intercanvi FD:</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2700"/>
@@ -6164,7 +5995,7 @@ Fes clic amb el botó dret per a les opcions d&apos;inserció i eliminació.</tr
     <message>
         <location filename="../Configuration.ui" line="2854"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Generate Tx audio with four times the normal tone spacing. Intended for special LF/MF transmitters that use a divide-by-4 before generating RF.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Genera àudio de TX amb quatre vegades l&apos;espaiat del to normal. Destinat a transmissors especials de LF/MF que usen una divisió per 4 abans de generar la RF.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Genera l&apos;àudio de TX amb quatre vegades l&apos;espaiat del to normal. Destinat a transmissors especials de LF/MF que usen una divisió per 4 abans de generar la RF.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2857"/>
