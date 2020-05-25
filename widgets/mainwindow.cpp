@@ -2415,17 +2415,17 @@ void MainWindow::on_actionLocal_User_Guide_triggered()
 
 void MainWindow::on_actionWide_Waterfall_triggered()      //Display Waterfalls
 {
-  m_wideGraph->show();
+  m_wideGraph->showNormal();
 }
 
 void MainWindow::on_actionEcho_Graph_triggered()
 {
-  m_echoGraph->show();
+  m_echoGraph->showNormal();
 }
 
 void MainWindow::on_actionFast_Graph_triggered()
 {
-  m_fastGraph->show();
+  m_fastGraph->showNormal();
 }
 
 void MainWindow::on_actionSolve_FreqCal_triggered()
@@ -5981,7 +5981,7 @@ void MainWindow::on_actionJT9_triggered()
   if(m_bFast9) {
     m_TRperiod = ui->sbTR->value ();
     m_wideGraph->hide();
-    m_fastGraph->show();
+    m_fastGraph->showNormal();
     ui->TxFreqSpinBox->setValue(700);
     ui->RxFreqSpinBox->setValue(700);
     ui->decodedTextLabel->setText("UTC     dB    T Freq    " + tr ("Message"));
@@ -6144,7 +6144,7 @@ void MainWindow::on_actionISCAT_triggered()
   m_wideGraph->setMode(m_mode);
   m_wideGraph->setModeTx(m_modeTx);
   statusChanged();
-  if(!m_fastGraph->isVisible()) m_fastGraph->show();
+  if(!m_fastGraph->isVisible()) m_fastGraph->showNormal();
   if(m_wideGraph->isVisible()) m_wideGraph->hide();
   setup_status_bar (true);
   ui->cbShMsgs->setChecked(false);
@@ -6197,7 +6197,7 @@ void MainWindow::on_actionMSK144_triggered()
   m_bFast9=false;
   m_TRperiod = ui->sbTR->value ();
   m_wideGraph->hide();
-  m_fastGraph->show();
+  m_fastGraph->showNormal();
   ui->TxFreqSpinBox->setValue(1500);
   ui->RxFreqSpinBox->setValue(1500);
   ui->RxFreqSpinBox->setMinimum(1400);
@@ -6402,9 +6402,9 @@ void MainWindow::fast_config(bool b)
   ui->sbTR->setVisible(b);
   if(b and (m_bFast9 or m_mode=="MSK144" or m_mode=="ISCAT")) {
     m_wideGraph->hide();
-    m_fastGraph->show();
+    m_fastGraph->showNormal();
   } else {
-    m_wideGraph->show();
+    m_wideGraph->showNormal();
     m_fastGraph->hide();
   }
 }
