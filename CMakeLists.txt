@@ -1045,6 +1045,7 @@ endif ()
 # stuff only qmake can tell us
 #
 get_target_property (QMAKE_EXECUTABLE Qt5::qmake LOCATION)
+get_target_property (LCONVERT_EXECUTABLE Qt5::lconvert LOCATION)
 function (QUERY_QMAKE VAR RESULT)
   exec_program (${QMAKE_EXECUTABLE} ARGS "-query ${VAR}" RETURN_VALUE return_code OUTPUT_VARIABLE output)
   if (NOT return_code)
@@ -1055,6 +1056,7 @@ function (QUERY_QMAKE VAR RESULT)
 endfunction (QUERY_QMAKE)
 
 query_qmake (QT_INSTALL_PLUGINS QT_PLUGINS_DIR)
+query_qmake (QT_INSTALL_TRANSLATIONS QT_TRANSLATIONS_DIR)
 query_qmake (QT_INSTALL_IMPORTS QT_IMPORTS_DIR)
 query_qmake (QT_HOST_DATA QT_DATA_DIR)
 set (QT_MKSPECS_DIR ${QT_DATA_DIR}/mkspecs)
@@ -1095,13 +1097,27 @@ add_custom_target (etags COMMAND ${ETAGS} -o ${CMAKE_SOURCE_DIR}/TAGS -R ${sourc
 # Qt i18n
 set (LANGUAGES
   en_GB				# English UK
-  pt_PT				# Poutuguese
-  es_ES				# Spanish
+  pt				# Poutuguese
+  es				# Spanish
   ca				# Catalan
+  ja				# Japanese
   )
 foreach (lang_ ${LANGUAGES})
   file (TO_NATIVE_PATH translations/wsjtx_${lang_}.ts ts_)
   list (APPEND TS_FILES ${ts_})
+  set (qt_translations_ "${QT_TRANSLATIONS_DIR}/qtbase_${lang_}.qm")
+  if (NOT EXISTS "${qt_translations_}")
+    string (REGEX REPLACE "([a-z][a-z])_[A-Z][A-Z]" "\\1" lang_ ${lang_})
+    set (qt_translations_ "${QT_TRANSLATIONS_DIR}/qtbase_${lang_}.qm")
+  endif ()
+  if (EXISTS "${qt_translations_}")
+    add_custom_command (
+      OUTPUT "${CMAKE_BINARY_DIR}/qt_${lang_}.qm"
+      COMMAND ${LCONVERT_EXECUTABLE} -o "${CMAKE_BINARY_DIR}/qt_${lang_}.qm" ${qt_translations_}
+      COMMENT "Building required Qt translations for language ${lang_}"
+      )
+    list (APPEND QM_FILES "${CMAKE_BINARY_DIR}/qt_${lang_}.qm")
+  endif ()
 endforeach ()
 if (UPDATE_TRANSLATIONS)
   message (STATUS "UPDATE_TRANSLATIONS option is set.")
@@ -1712,7 +1728,7 @@ if (NOT is_debug_build)
       # 	PATTERN "*quick*${CMAKE_SHARED_LIBRARY_SUFFIX}" EXCLUDE
       # 	)
 
-      # add plugins path for WIN32
+      # add paths for WIN32
       file (RELATIVE_PATH _plugins_path "${CMAKE_INSTALL_PREFIX}/${WSJT_QT_CONF_DESTINATION}" "${CMAKE_INSTALL_PREFIX}/${WSJT_PLUGIN_DESTINATION}")
       install (CODE "
         get_filename_component (the_qt_conf \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${WSJT_QT_CONF_DESTINATION}/qt.conf\" REALPATH)
