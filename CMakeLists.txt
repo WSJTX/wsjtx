@@ -1100,6 +1100,7 @@ set (LANGUAGES
   pt				# Poutuguese
   es				# Spanish
   ca				# Catalan
+  ja				# Japanese
   )
 foreach (lang_ ${LANGUAGES})
   file (TO_NATIVE_PATH translations/wsjtx_${lang_}.ts ts_)
