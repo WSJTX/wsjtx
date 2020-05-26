@@ -2151,7 +2151,7 @@ en Groc quan és massa baix</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1136"/>
         <source>Set Tx frequency to Rx Frequency</source>
-        <translation>Estableix la freqüència de TX en la de RX</translation>
+        <translation>Estableix la freqüència de RX en la de TX</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1139"/>
@@ -2171,7 +2171,7 @@ en Groc quan és massa baix</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1186"/>
         <source>Set Rx frequency to Tx Frequency</source>
-        <translation>Estableix la freqüència de RX en la de TX</translation>
+        <translation>Estableix la freqüència de TX en la de RX</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1189"/>
