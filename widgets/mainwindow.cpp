@@ -921,7 +921,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   set_mode (m_mode);
   if(m_mode=="Echo") monitor(false);   //Don't auto-start Monitor in Echo mode.
 
-  ui->sbSubmode->setValue (vhf ? m_nSubMode : 0);
+  ui->sbSubmode->setValue (vhf ? m_nSubMode : 0);  //Submodes require VHF features
+  if(m_mode=="ISCAT" and !vhf) mode_label.setText("ISCAT A");
   if(m_mode=="MSK144") {
     Q_EMIT transmitFrequency (1000.0);
   } else {
