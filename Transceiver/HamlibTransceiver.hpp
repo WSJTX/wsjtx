@@ -45,6 +45,7 @@ public:
   struct RIGDeleter {static void cleanup (RIG *);};
   QScopedPointer<RIG, RIGDeleter> rig_;
 
+  bool ptt_only_;               // we can use a dummy device for PTT
   bool back_ptt_port_;
   bool one_VFO_;
   bool is_dummy_;

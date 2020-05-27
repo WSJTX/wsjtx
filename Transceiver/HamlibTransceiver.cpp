@@ -195,6 +195,7 @@ HamlibTransceiver::HamlibTransceiver (TransceiverFactory::PTTMethod ptt_type, QS
                                       QObject * parent)
   : PollingTransceiver {0, parent}
   , rig_ {rig_init (RIG_MODEL_DUMMY)}
+  , ptt_only_ {true}
   , back_ptt_port_ {false}
   , one_VFO_ {false}
   , is_dummy_ {true}
@@ -248,6 +249,7 @@ HamlibTransceiver::HamlibTransceiver (int model_number, TransceiverFactory::Para
                                       QObject * parent)
   : PollingTransceiver {params.poll_interval, parent}
   , rig_ {rig_init (model_number)}
+  , ptt_only_ {false}
   , back_ptt_port_ {TransceiverFactory::TX_audio_source_rear == params.audio_source}
   , one_VFO_ {false}
   , is_dummy_ {RIG_MODEL_DUMMY == model_number}
@@ -591,7 +593,7 @@ int HamlibTransceiver::do_start ()
 
   tickle_hamlib_ = true;
 
-  if (is_dummy_ && dummy_frequency_)
+  if (is_dummy_ && !ptt_only_ && dummy_frequency_)
     {
       // return to where last dummy instance was
       // TODO: this is going to break down if multiple dummy rigs are used
@@ -652,7 +654,7 @@ int HamlibTransceiver::do_start ()
 
 void HamlibTransceiver::do_stop ()
 {
-  if (is_dummy_)
+  if (is_dummy_ && !ptt_only_)
     {
       rig_get_freq (rig_.data (), RIG_VFO_CURR, &dummy_frequency_);
       dummy_frequency_ = std::round (dummy_frequency_);

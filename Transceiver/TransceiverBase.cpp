@@ -172,14 +172,14 @@ void TransceiverBase::shutdown ()
               do_tx_frequency (0, UNK, true);
               do_post_tx_frequency (0, UNK);
             }
+          do_stop ();
+          do_post_stop ();
         }
       catch (...)
         {
           // don't care about exceptions
         }
     }
-  do_stop ();
-  do_post_stop ();
   actual_ = TransceiverState {};
   requested_ = TransceiverState {};
 }
