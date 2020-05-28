@@ -12,6 +12,31 @@
                                                          
 Copyright 2001 - 2020 by Joe Taylor, K1JT.
 
+		   Release: WSJT-X 2.2.0-rc3
+		          May 30, 2020
+		   -------------------------
+
+WSJT-X 2.2.0-rc3 is the third release candidate for WSJT-X 2.2.0.
+
+The most important differences from the -rc2 version are the
+correction of regressions in hamlib code that affected particular
+radios and PTT keying by means of DTR or RTS on a COM port.
+
+In addition, RC3 has the following enhancements and minor bug fixes:
+
+ - Updates to Catalan translation of the UI (thanks to EA3W)
+ - Spanish translation of the UI (EA3W)
+ - Preparation for Japanese translation of UI
+ - Load language translations only when matching primary language
+ - Minor corrections to User Guide
+ - Increased FT8 sync threshold in "Normal" and "Fast" decoding
+ - Corrected the code that restores the WideGraph, EchoGraph, and
+   FastGraph windows to normal view after they have been minimized.
+ - Don't allow restart with "ISCAT B" mode label unless VHF features
+   are enabled.
+ - Repair regression defect in WSPR power combo box items
+
+
 		   Release: WSJT-X 2.2.0-rc2
 		          May 25, 2020
 		   -------------------------
