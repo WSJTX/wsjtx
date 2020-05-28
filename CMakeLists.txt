@@ -1097,10 +1097,8 @@ add_custom_target (etags COMMAND ${ETAGS} -o ${CMAKE_SOURCE_DIR}/TAGS -R ${sourc
 # Qt i18n
 set (LANGUAGES
   en_GB				# English UK
-  pt				# Poutuguese
   es				# Spanish
   ca				# Catalan
-  ja				# Japanese
   )
 foreach (lang_ ${LANGUAGES})
   file (TO_NATIVE_PATH translations/wsjtx_${lang_}.ts ts_)
