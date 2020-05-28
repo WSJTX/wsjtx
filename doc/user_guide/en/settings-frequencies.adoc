@@ -2,7 +2,7 @@
 
 [[FIG_BAND_SETTINGS]]
 
-_By default, the *Working Frequencies* table contains a list of
+By default, the *Working Frequencies* table contains a list of
 frequencies conventionally used for modes FT8, JT4, JT9, JT65, MSK144,
 WSPR, and Echo.  Conventions may change with time or by user
 preference; you can modify the frequency table as desired.

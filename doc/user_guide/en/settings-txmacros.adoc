@@ -3,7 +3,7 @@
 [[FigTxMacros]]
 
 *Tx Macros* are an aid for sending brief, frequently used free-text
-messages such as the examples shown above.
+messages such as the examples shown below.
 
 image::tx-macros.png[align="center",alt="Tx Macros Screen"]
 

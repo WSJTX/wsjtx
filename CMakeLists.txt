@@ -2,7 +2,7 @@ cmake_minimum_required (VERSION 2.8.10 FATAL_ERROR)
 
 if (APPLE)
   #
-  # The following variables define the portability and compatability attributes of the Mac OS X build
+  # The following variables define the portability and compatability attributes of the Mac macOS build
   # they are choosen with care and should not be changed without good cause.
   #
   # Among other things these options are chosen to match the portability and compatability options of the
@@ -10,15 +10,15 @@ if (APPLE)
   #
   # otool -l <binary> | grep -A3 LC_VERSION_MIN_MACOSX
   #
-  set (CMAKE_OSX_DEPLOYMENT_TARGET 10.13
-    CACHE STRING "Earliest version of OS X supported
+  set (CMAKE_OSX_DEPLOYMENT_TARGET 10.12
+    CACHE STRING "Earliest version of macOS supported
 
-Earliest version we can support with Qt 5.14, C++11 & libc++ is 10.13.
+Earliest version we can support with Qt 5.12, C++11 & libc++ is 10.13.
 Do not override this if you intend to build an official deployable installer.")
-  set (CMAKE_OSX_SYSROOT /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.sdk
+  set (CMAKE_OSX_SYSROOT /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.sdk
     CACHE STRING "Mac OS X SDK to build with
 
-Change this to the newest SDK available that you can install on your system (10.14 preferred).
+Change this to the newest SDK available that you can install on your system (>10.14 preferred).
 Do not override this if you intend to build an official deployable installer.")
 endif (APPLE)
 
@@ -1097,10 +1097,8 @@ add_custom_target (etags COMMAND ${ETAGS} -o ${CMAKE_SOURCE_DIR}/TAGS -R ${sourc
 # Qt i18n
 set (LANGUAGES
   en_GB				# English UK
-  pt				# Poutuguese
   es				# Spanish
   ca				# Catalan
-  ja				# Japanese
   )
 foreach (lang_ ${LANGUAGES})
   file (TO_NATIVE_PATH translations/wsjtx_${lang_}.ts ts_)
