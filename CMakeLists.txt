@@ -1096,6 +1096,10 @@ add_custom_target (etags COMMAND ${ETAGS} -o ${CMAKE_SOURCE_DIR}/TAGS -R ${sourc
 
 # Qt i18n
 set (LANGUAGES
+  en				# English (we need this to stop
+				# translation loaders loading the
+				# second preference UI languge, it
+				# doesn't need to be populated)
   en_GB				# English UK
   es				# Spanish
   ca				# Catalan
