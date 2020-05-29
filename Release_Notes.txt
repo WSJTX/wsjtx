@@ -13,7 +13,7 @@
 Copyright 2001 - 2020 by Joe Taylor, K1JT.
 
 		   Release: WSJT-X 2.2.0-rc3
-		          May 30, 2020
+		          May 29, 2020
 		   -------------------------
 
 WSJT-X 2.2.0-rc3 is the third release candidate for WSJT-X 2.2.0.
