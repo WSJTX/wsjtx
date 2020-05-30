@@ -1538,178 +1538,178 @@ Error: %2 - %3</source>
 <context>
     <name>HamlibTransceiver</name>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="201"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="254"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="202"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="256"/>
         <source>Hamlib initialisation error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="276"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="278"/>
         <source>Hamlib settings file error: %1 at character offset %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="282"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="284"/>
         <source>Hamlib settings file error: top level must be a JSON object</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="294"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="296"/>
         <source>Hamlib settings file error: config must be a JSON object</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="359"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="361"/>
         <source>Unsupported CAT type</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="410"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="412"/>
         <source>Hamlib error: %1 while %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="420"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="422"/>
         <source>opening connection to rig</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="467"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="469"/>
         <source>getting current frequency</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="471"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="473"/>
         <source>getting current mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="500"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="520"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="502"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="522"/>
         <source>exchanging VFOs</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="508"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="979"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="510"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="981"/>
         <source>getting other VFO frequency</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="512"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="514"/>
         <source>getting other VFO mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="525"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="527"/>
         <source>setting current VFO</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="534"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="536"/>
         <source>getting frequency</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="538"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="540"/>
         <source>getting mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="555"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="919"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="557"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="921"/>
         <source>getting current VFO</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="599"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="607"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="621"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="958"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="601"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="609"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="623"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="960"/>
         <source>getting current VFO frequency</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="605"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="620"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="627"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="706"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="724"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="785"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="607"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="622"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="629"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="708"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="726"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="787"/>
         <source>setting frequency</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="714"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="792"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="864"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="877"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="716"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="794"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="866"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="879"/>
         <source>getting current VFO mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="720"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="729"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="798"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="870"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="883"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="722"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="731"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="800"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="872"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="885"/>
         <source>setting current VFO mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="772"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="841"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="774"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="843"/>
         <source>setting/unsetting split mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="783"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="823"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="785"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="825"/>
         <source>setting split mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="811"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="813"/>
         <source>setting split TX frequency and mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="816"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="818"/>
         <source>setting split TX frequency</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="888"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="890"/>
         <source>getting split TX VFO mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="895"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="897"/>
         <source>setting split TX VFO mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1016"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1018"/>
         <source>getting PTT state</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1047"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1049"/>
         <source>setting PTT on</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1055"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1057"/>
         <source>setting PTT off</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1067"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1069"/>
         <source>setting a configuration item</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1077"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1079"/>
         <source>getting a configuration item</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2284,7 +2284,7 @@ Yellow when too low</source>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1244"/>
-        <location filename="../widgets/mainwindow.ui" line="2957"/>
+        <location filename="../widgets/mainwindow.ui" line="2954"/>
         <source>Fast</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3090,415 +3090,415 @@ list. The list can be maintained in Settings (F2).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2920"/>
+        <location filename="../widgets/mainwindow.ui" line="2917"/>
         <source>Waterfall</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2925"/>
+        <location filename="../widgets/mainwindow.ui" line="2922"/>
         <source>Open</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2928"/>
+        <location filename="../widgets/mainwindow.ui" line="2925"/>
         <source>Ctrl+O</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2933"/>
+        <location filename="../widgets/mainwindow.ui" line="2930"/>
         <source>Open next in directory</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2938"/>
+        <location filename="../widgets/mainwindow.ui" line="2935"/>
         <source>Decode remaining files in directory</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2941"/>
+        <location filename="../widgets/mainwindow.ui" line="2938"/>
         <source>Shift+F6</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2946"/>
+        <location filename="../widgets/mainwindow.ui" line="2943"/>
         <source>Delete all *.wav &amp;&amp; *.c2 files in SaveDir</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2968"/>
+        <location filename="../widgets/mainwindow.ui" line="2965"/>
         <source>None</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2976"/>
+        <location filename="../widgets/mainwindow.ui" line="2973"/>
         <source>Save all</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2981"/>
+        <location filename="../widgets/mainwindow.ui" line="2978"/>
         <source>Online User Guide</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2986"/>
+        <location filename="../widgets/mainwindow.ui" line="2983"/>
         <source>Keyboard shortcuts</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2991"/>
+        <location filename="../widgets/mainwindow.ui" line="2988"/>
         <source>Special mouse commands</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3002"/>
+        <location filename="../widgets/mainwindow.ui" line="2999"/>
         <source>JT9</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3013"/>
+        <location filename="../widgets/mainwindow.ui" line="3010"/>
         <source>Save decoded</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3024"/>
+        <location filename="../widgets/mainwindow.ui" line="3021"/>
         <source>Normal</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3035"/>
+        <location filename="../widgets/mainwindow.ui" line="3032"/>
         <source>Deep</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3043"/>
+        <location filename="../widgets/mainwindow.ui" line="3040"/>
         <source>Monitor OFF at startup</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3048"/>
+        <location filename="../widgets/mainwindow.ui" line="3045"/>
         <source>Erase ALL.TXT</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3053"/>
+        <location filename="../widgets/mainwindow.ui" line="3050"/>
         <source>Erase wsjtx_log.adi</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3061"/>
+        <location filename="../widgets/mainwindow.ui" line="3058"/>
         <source>Convert mode to RTTY for logging</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3069"/>
+        <location filename="../widgets/mainwindow.ui" line="3066"/>
         <source>Log dB reports to Comments</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3077"/>
+        <location filename="../widgets/mainwindow.ui" line="3074"/>
         <source>Prompt me to log QSO</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3085"/>
+        <location filename="../widgets/mainwindow.ui" line="3082"/>
         <source>Blank line between decoding periods</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3093"/>
+        <location filename="../widgets/mainwindow.ui" line="3090"/>
         <source>Clear DX Call and Grid after logging</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3101"/>
+        <location filename="../widgets/mainwindow.ui" line="3098"/>
         <source>Display distance in miles</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3109"/>
+        <location filename="../widgets/mainwindow.ui" line="3106"/>
         <source>Double-click on call sets Tx Enable</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3112"/>
-        <location filename="../widgets/mainwindow.ui" line="3231"/>
+        <location filename="../widgets/mainwindow.ui" line="3109"/>
+        <location filename="../widgets/mainwindow.ui" line="3225"/>
         <source>F7</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3120"/>
+        <location filename="../widgets/mainwindow.ui" line="3117"/>
         <source>Tx disabled after sending 73</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3128"/>
+        <location filename="../widgets/mainwindow.ui" line="3125"/>
         <location filename="../widgets/mainwindow.cpp" line="8102"/>
         <source>Runaway Tx watchdog</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3136"/>
+        <location filename="../widgets/mainwindow.ui" line="3133"/>
         <source>Allow multiple instances</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3144"/>
+        <location filename="../widgets/mainwindow.ui" line="3141"/>
         <source>Tx freq locked to Rx freq</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3152"/>
+        <location filename="../widgets/mainwindow.ui" line="3149"/>
         <source>JT65</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3160"/>
+        <location filename="../widgets/mainwindow.ui" line="3157"/>
         <source>JT9+JT65</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3168"/>
+        <location filename="../widgets/mainwindow.ui" line="3165"/>
         <source>Tx messages to Rx Frequency window</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3176"/>
+        <location filename="../widgets/mainwindow.ui" line="3173"/>
         <source>Gray1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3184"/>
+        <location filename="../widgets/mainwindow.ui" line="3181"/>
         <source>Show DXCC entity and worked B4 status</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3192"/>
+        <location filename="../widgets/mainwindow.ui" line="3189"/>
         <source>Astronomical data</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3197"/>
+        <location filename="../widgets/mainwindow.ui" line="3194"/>
         <source>List of Type 1 prefixes and suffixes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3202"/>
+        <location filename="../widgets/mainwindow.ui" line="3199"/>
         <source>Settings...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3210"/>
+        <location filename="../widgets/mainwindow.ui" line="3204"/>
         <source>Local User Guide</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3215"/>
+        <location filename="../widgets/mainwindow.ui" line="3209"/>
         <source>Open log directory</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3223"/>
+        <location filename="../widgets/mainwindow.ui" line="3217"/>
         <source>JT4</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3228"/>
+        <location filename="../widgets/mainwindow.ui" line="3222"/>
         <source>Message averaging</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3239"/>
+        <location filename="../widgets/mainwindow.ui" line="3233"/>
         <source>Enable averaging</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3247"/>
+        <location filename="../widgets/mainwindow.ui" line="3241"/>
         <source>Enable deep search</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3255"/>
+        <location filename="../widgets/mainwindow.ui" line="3249"/>
         <source>WSPR</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3260"/>
+        <location filename="../widgets/mainwindow.ui" line="3254"/>
         <source>Echo Graph</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3263"/>
+        <location filename="../widgets/mainwindow.ui" line="3257"/>
         <source>F8</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3271"/>
+        <location filename="../widgets/mainwindow.ui" line="3265"/>
         <source>Echo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3274"/>
+        <location filename="../widgets/mainwindow.ui" line="3268"/>
         <source>EME Echo mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3282"/>
+        <location filename="../widgets/mainwindow.ui" line="3276"/>
         <source>ISCAT</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3287"/>
+        <location filename="../widgets/mainwindow.ui" line="3281"/>
         <source>Fast Graph</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3290"/>
+        <location filename="../widgets/mainwindow.ui" line="3284"/>
         <source>F9</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3295"/>
+        <location filename="../widgets/mainwindow.ui" line="3289"/>
         <source>&amp;Download Samples ...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3298"/>
+        <location filename="../widgets/mainwindow.ui" line="3292"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Download sample audio files demonstrating the various modes.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3306"/>
+        <location filename="../widgets/mainwindow.ui" line="3300"/>
         <source>MSK144</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3314"/>
+        <location filename="../widgets/mainwindow.ui" line="3308"/>
         <source>QRA64</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3319"/>
+        <location filename="../widgets/mainwindow.ui" line="3313"/>
         <source>Release Notes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3327"/>
+        <location filename="../widgets/mainwindow.ui" line="3321"/>
         <source>Enable AP for DX Call</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3335"/>
+        <location filename="../widgets/mainwindow.ui" line="3329"/>
         <source>FreqCal</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3340"/>
+        <location filename="../widgets/mainwindow.ui" line="3334"/>
         <source>Measure reference spectrum</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3345"/>
+        <location filename="../widgets/mainwindow.ui" line="3339"/>
         <source>Measure phase response</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3350"/>
+        <location filename="../widgets/mainwindow.ui" line="3344"/>
         <source>Erase reference spectrum</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3358"/>
+        <location filename="../widgets/mainwindow.ui" line="3352"/>
         <source>Execute frequency calibration cycle</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3363"/>
+        <location filename="../widgets/mainwindow.ui" line="3357"/>
         <source>Equalization tools ...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3374"/>
+        <location filename="../widgets/mainwindow.ui" line="3368"/>
         <source>WSPR-LF</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3377"/>
+        <location filename="../widgets/mainwindow.ui" line="3371"/>
         <source>Experimental LF/MF mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3391"/>
+        <location filename="../widgets/mainwindow.ui" line="3385"/>
         <source>FT8</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3399"/>
-        <location filename="../widgets/mainwindow.ui" line="3407"/>
+        <location filename="../widgets/mainwindow.ui" line="3393"/>
+        <location filename="../widgets/mainwindow.ui" line="3401"/>
         <source>Enable AP</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3412"/>
+        <location filename="../widgets/mainwindow.ui" line="3406"/>
         <source>Solve for calibration parameters</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3417"/>
+        <location filename="../widgets/mainwindow.ui" line="3411"/>
         <source>Copyright notice</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3420"/>
+        <location filename="../widgets/mainwindow.ui" line="3414"/>
         <source>Shift+F1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3428"/>
+        <location filename="../widgets/mainwindow.ui" line="3422"/>
         <source>Fox log</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3433"/>
+        <location filename="../widgets/mainwindow.ui" line="3427"/>
         <source>FT8 DXpedition Mode User Guide</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3438"/>
+        <location filename="../widgets/mainwindow.ui" line="3432"/>
         <source>Reset Cabrillo log ...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3443"/>
+        <location filename="../widgets/mainwindow.ui" line="3437"/>
         <source>Color highlighting scheme</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3448"/>
+        <location filename="../widgets/mainwindow.ui" line="3442"/>
         <source>Contest Log</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3453"/>
+        <location filename="../widgets/mainwindow.ui" line="3447"/>
         <source>Export Cabrillo log ...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3458"/>
+        <location filename="../widgets/mainwindow.ui" line="3452"/>
         <source>Quick-Start Guide to WSJT-X 2.0</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3463"/>
+        <location filename="../widgets/mainwindow.ui" line="3457"/>
         <source>Contest log</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3468"/>
+        <location filename="../widgets/mainwindow.ui" line="3462"/>
         <source>Erase WSPR hashtable</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3476"/>
+        <location filename="../widgets/mainwindow.ui" line="3470"/>
         <source>FT4</source>
         <translation type="unfinished"></translation>
     </message>
