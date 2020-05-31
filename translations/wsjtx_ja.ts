@@ -1070,9 +1070,13 @@ Error: %2 - %3</source>
         <translation>周波数(Hz)</translation>
     </message>
     <message>
-        <location filename="../EqualizationToolsDialog.cpp" line="309"/>
         <source>Phase (Î )</source>
-        <translation>位相 (Î )</translation>
+        <translation type="vanished">位相 (Î )</translation>
+    </message>
+    <message>
+        <location filename="../EqualizationToolsDialog.cpp" line="309"/>
+        <source>Phase (Π)</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../EqualizationToolsDialog.cpp" line="311"/>
@@ -1554,178 +1558,178 @@ Error: %2 - %3</source>
 <context>
     <name>HamlibTransceiver</name>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="201"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="254"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="202"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="256"/>
         <source>Hamlib initialisation error</source>
         <translation>Hamlib初期化エラー</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="276"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="278"/>
         <source>Hamlib settings file error: %1 at character offset %2</source>
         <translation>Hamlib設定ファイルエラー: %2にて%1</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="282"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="284"/>
         <source>Hamlib settings file error: top level must be a JSON object</source>
         <translation>ファイルのトップレベルはJSONオブジェクトでなければいけません</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="294"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="296"/>
         <source>Hamlib settings file error: config must be a JSON object</source>
         <translation>Hamlib設定エラー: JSONオブジェクトでなければなりません</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="359"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="361"/>
         <source>Unsupported CAT type</source>
         <translation>サポートしていないCATタイプ</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="410"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="412"/>
         <source>Hamlib error: %1 while %2</source>
         <translation>Hamlibエラー: %1 %2</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="420"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="422"/>
         <source>opening connection to rig</source>
         <translation>無線機への接続</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="467"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="469"/>
         <source>getting current frequency</source>
         <translation>現周波数を取得</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="471"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="473"/>
         <source>getting current mode</source>
         <translation>現モードを取得</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="500"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="520"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="502"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="522"/>
         <source>exchanging VFOs</source>
         <translation>VFO入れ替え</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="508"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="979"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="510"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="981"/>
         <source>getting other VFO frequency</source>
         <translation>もう一方のVFOの周波数を取得</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="512"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="514"/>
         <source>getting other VFO mode</source>
         <translation>もう一方のVFOのモードを取得</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="525"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="527"/>
         <source>setting current VFO</source>
         <translation>現VFOを設定</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="534"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="536"/>
         <source>getting frequency</source>
         <translation>周波数を取得</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="538"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="540"/>
         <source>getting mode</source>
         <translation>モードを取得</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="555"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="919"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="557"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="921"/>
         <source>getting current VFO</source>
         <translation>現VFOを取得</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="599"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="607"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="621"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="958"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="601"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="609"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="623"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="960"/>
         <source>getting current VFO frequency</source>
         <translation>現VFOの周波数を取得</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="605"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="620"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="627"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="706"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="724"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="785"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="607"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="622"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="629"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="708"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="726"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="787"/>
         <source>setting frequency</source>
         <translation>周波数を設定</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="714"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="792"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="864"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="877"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="716"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="794"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="866"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="879"/>
         <source>getting current VFO mode</source>
         <translation>現VFOのモードを取得</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="720"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="729"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="798"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="870"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="883"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="722"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="731"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="800"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="872"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="885"/>
         <source>setting current VFO mode</source>
         <translation>現VFOモードを設定</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="772"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="841"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="774"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="843"/>
         <source>setting/unsetting split mode</source>
         <translation>スプリットのオン/オフ</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="783"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="823"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="785"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="825"/>
         <source>setting split mode</source>
         <translation>スプリットモードオン</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="811"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="813"/>
         <source>setting split TX frequency and mode</source>
         <translation>スプリット送信周波数とモードをセット</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="816"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="818"/>
         <source>setting split TX frequency</source>
         <translation>スプリット送信周波数をセット</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="888"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="890"/>
         <source>getting split TX VFO mode</source>
         <translation>スプリットモードを取得</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="895"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="897"/>
         <source>setting split TX VFO mode</source>
         <translation>スプリット送信VFOのモードをセット</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1016"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1018"/>
         <source>getting PTT state</source>
         <translation>PTT状態を取得</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1047"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1049"/>
         <source>setting PTT on</source>
         <translation>PTTオン</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1055"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1057"/>
         <source>setting PTT off</source>
         <translation>PTTオフ</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1067"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1069"/>
         <source>setting a configuration item</source>
         <translation>コンフィグレーション項目をセット</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1077"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1079"/>
         <source>getting a configuration item</source>
         <translation>コンフィグレーション項目を取得</translation>
     </message>
@@ -1936,12 +1940,12 @@ Error(%2): %3</source>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="50"/>
-        <location filename="../widgets/mainwindow.cpp" line="5792"/>
-        <location filename="../widgets/mainwindow.cpp" line="5840"/>
-        <location filename="../widgets/mainwindow.cpp" line="5998"/>
-        <location filename="../widgets/mainwindow.cpp" line="6038"/>
-        <location filename="../widgets/mainwindow.cpp" line="6086"/>
-        <location filename="../widgets/mainwindow.cpp" line="6211"/>
+        <location filename="../widgets/mainwindow.cpp" line="5793"/>
+        <location filename="../widgets/mainwindow.cpp" line="5841"/>
+        <location filename="../widgets/mainwindow.cpp" line="5999"/>
+        <location filename="../widgets/mainwindow.cpp" line="6039"/>
+        <location filename="../widgets/mainwindow.cpp" line="6087"/>
+        <location filename="../widgets/mainwindow.cpp" line="6212"/>
         <source>Band Activity</source>
         <translation>バンド状況</translation>
     </message>
@@ -1953,11 +1957,11 @@ Error(%2): %3</source>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="194"/>
-        <location filename="../widgets/mainwindow.cpp" line="5791"/>
-        <location filename="../widgets/mainwindow.cpp" line="5835"/>
-        <location filename="../widgets/mainwindow.cpp" line="5999"/>
-        <location filename="../widgets/mainwindow.cpp" line="6039"/>
-        <location filename="../widgets/mainwindow.cpp" line="6087"/>
+        <location filename="../widgets/mainwindow.cpp" line="5792"/>
+        <location filename="../widgets/mainwindow.cpp" line="5836"/>
+        <location filename="../widgets/mainwindow.cpp" line="6000"/>
+        <location filename="../widgets/mainwindow.cpp" line="6040"/>
+        <location filename="../widgets/mainwindow.cpp" line="6088"/>
         <source>Rx Frequency</source>
         <translation>受信周波数</translation>
     </message>
@@ -2245,12 +2249,6 @@ Yellow when too low</source>
         <translation>送信周波数を受信周波数へコピー</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1139"/>
-        <source>â–²</source>
-        <translatorcomment>文字化け？</translatorcomment>
-        <translation></translation>
-    </message>
-    <message>
         <location filename="../widgets/mainwindow.ui" line="1146"/>
         <source>Frequency tolerance (Hz)</source>
         <translation>許容周波数(Hz)</translation>
@@ -2266,10 +2264,14 @@ Yellow when too low</source>
         <translation>受信周波数を送信周波数へコピー</translation>
     </message>
     <message>
+        <location filename="../widgets/mainwindow.ui" line="1139"/>
+        <source>▲</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../widgets/mainwindow.ui" line="1189"/>
-        <source>â–¼</source>
-        <translatorcomment>文字化け？</translatorcomment>
-        <translation></translation>
+        <source>▼</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1198"/>
@@ -2421,7 +2423,7 @@ Not available to nonstandard callsign holders.</source>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1394"/>
-        <location filename="../widgets/mainwindow.cpp" line="5862"/>
+        <location filename="../widgets/mainwindow.cpp" line="5863"/>
         <source>Fox</source>
         <translation>Fox</translation>
     </message>
@@ -3273,7 +3275,7 @@ ENTERを押してテキストを登録リストに追加.
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3125"/>
-        <location filename="../widgets/mainwindow.cpp" line="8101"/>
+        <location filename="../widgets/mainwindow.cpp" line="8102"/>
         <source>Runaway Tx watchdog</source>
         <translation>Txウオッチドッグ発令</translation>
     </message>
@@ -3550,8 +3552,8 @@ ENTERを押してテキストを登録リストに追加.
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="329"/>
-        <location filename="../widgets/mainwindow.cpp" line="4111"/>
-        <location filename="../widgets/mainwindow.cpp" line="7629"/>
+        <location filename="../widgets/mainwindow.cpp" line="4112"/>
+        <location filename="../widgets/mainwindow.cpp" line="7630"/>
         <source>Receiving</source>
         <translation>受信中</translation>
     </message>
@@ -3587,21 +3589,21 @@ ENTERを押してテキストを登録リストに追加.
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="823"/>
-        <location filename="../widgets/mainwindow.cpp" line="5787"/>
-        <location filename="../widgets/mainwindow.cpp" line="5793"/>
-        <location filename="../widgets/mainwindow.cpp" line="5831"/>
-        <location filename="../widgets/mainwindow.cpp" line="5841"/>
-        <location filename="../widgets/mainwindow.cpp" line="5938"/>
+        <location filename="../widgets/mainwindow.cpp" line="5788"/>
+        <location filename="../widgets/mainwindow.cpp" line="5794"/>
+        <location filename="../widgets/mainwindow.cpp" line="5832"/>
+        <location filename="../widgets/mainwindow.cpp" line="5842"/>
         <location filename="../widgets/mainwindow.cpp" line="5939"/>
-        <location filename="../widgets/mainwindow.cpp" line="5987"/>
+        <location filename="../widgets/mainwindow.cpp" line="5940"/>
         <location filename="../widgets/mainwindow.cpp" line="5988"/>
-        <location filename="../widgets/mainwindow.cpp" line="5992"/>
+        <location filename="../widgets/mainwindow.cpp" line="5989"/>
         <location filename="../widgets/mainwindow.cpp" line="5993"/>
-        <location filename="../widgets/mainwindow.cpp" line="6040"/>
+        <location filename="../widgets/mainwindow.cpp" line="5994"/>
         <location filename="../widgets/mainwindow.cpp" line="6041"/>
-        <location filename="../widgets/mainwindow.cpp" line="6206"/>
+        <location filename="../widgets/mainwindow.cpp" line="6042"/>
         <location filename="../widgets/mainwindow.cpp" line="6207"/>
-        <location filename="../widgets/mainwindow.cpp" line="6392"/>
+        <location filename="../widgets/mainwindow.cpp" line="6208"/>
+        <location filename="../widgets/mainwindow.cpp" line="6393"/>
         <source>Message</source>
         <translation>メッセージ</translation>
     </message>
@@ -3626,198 +3628,197 @@ ENTERを押してテキストを登録リストに追加.
         <translation>OKを押して再試行</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1253"/>
-        <location filename="../widgets/mainwindow.cpp" line="6181"/>
+        <location filename="../widgets/mainwindow.cpp" line="1254"/>
+        <location filename="../widgets/mainwindow.cpp" line="6182"/>
         <source>Improper mode</source>
         <translation>不適切なモード</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1404"/>
-        <location filename="../widgets/mainwindow.cpp" line="8728"/>
+        <location filename="../widgets/mainwindow.cpp" line="1405"/>
+        <location filename="../widgets/mainwindow.cpp" line="8729"/>
         <source>File Open Error</source>
         <translation>ファイルオープンエラー</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1405"/>
-        <location filename="../widgets/mainwindow.cpp" line="7746"/>
-        <location filename="../widgets/mainwindow.cpp" line="8175"/>
-        <location filename="../widgets/mainwindow.cpp" line="8729"/>
-        <location filename="../widgets/mainwindow.cpp" line="8855"/>
+        <location filename="../widgets/mainwindow.cpp" line="1406"/>
+        <location filename="../widgets/mainwindow.cpp" line="7747"/>
+        <location filename="../widgets/mainwindow.cpp" line="8176"/>
+        <location filename="../widgets/mainwindow.cpp" line="8730"/>
+        <location filename="../widgets/mainwindow.cpp" line="8856"/>
         <source>Cannot open &quot;%1&quot; for append: %2</source>
         <translation>&quot;%2&quot;を追加する&quot;%1&quot;が開けません</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1503"/>
+        <location filename="../widgets/mainwindow.cpp" line="1504"/>
         <source>Error saving c2 file</source>
         <translation>c2ファイルを保存できません</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1715"/>
+        <location filename="../widgets/mainwindow.cpp" line="1716"/>
         <source>Error in Sound Input</source>
         <translation>サウンド入力にエラー発生</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1721"/>
+        <location filename="../widgets/mainwindow.cpp" line="1722"/>
         <source>Error in Sound Output</source>
         <translation>サウンド出力にエラー発生</translation>
-    </message>
-    <message>
-        <location filename="../widgets/mainwindow.cpp" line="1777"/>
-        <location filename="../widgets/mainwindow.cpp" line="5936"/>
-        <location filename="../widgets/mainwindow.cpp" line="6082"/>
-        <source>Single-Period Decodes</source>
-        <translation>シングルパスデコード</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="1778"/>
         <location filename="../widgets/mainwindow.cpp" line="5937"/>
         <location filename="../widgets/mainwindow.cpp" line="6083"/>
+        <source>Single-Period Decodes</source>
+        <translation>シングルパスデコード</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.cpp" line="1779"/>
+        <location filename="../widgets/mainwindow.cpp" line="5938"/>
+        <location filename="../widgets/mainwindow.cpp" line="6084"/>
         <source>Average Decodes</source>
         <translation>平均デコード</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2079"/>
+        <location filename="../widgets/mainwindow.cpp" line="2080"/>
         <source>Change Operator</source>
         <translation>オペレータ交代</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2079"/>
+        <location filename="../widgets/mainwindow.cpp" line="2080"/>
         <source>New operator:</source>
         <translation>新オペレータ:</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2189"/>
+        <location filename="../widgets/mainwindow.cpp" line="2190"/>
         <source>Status File Error</source>
         <translation>ステータスファイルエラー</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2190"/>
-        <location filename="../widgets/mainwindow.cpp" line="5400"/>
+        <location filename="../widgets/mainwindow.cpp" line="2191"/>
+        <location filename="../widgets/mainwindow.cpp" line="5401"/>
         <source>Cannot open &quot;%1&quot; for writing: %2</source>
         <translation>%2を書き込むための&quot;%1&quot;が開けません</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2321"/>
+        <location filename="../widgets/mainwindow.cpp" line="2322"/>
         <source>Subprocess Error</source>
         <translation>サブプロセスエラー</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2322"/>
+        <location filename="../widgets/mainwindow.cpp" line="2323"/>
         <source>Subprocess failed with exit code %1</source>
         <translation>サブプロセスエラー 終了コード %1</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2324"/>
-        <location filename="../widgets/mainwindow.cpp" line="2344"/>
+        <location filename="../widgets/mainwindow.cpp" line="2325"/>
+        <location filename="../widgets/mainwindow.cpp" line="2345"/>
         <source>Running: %1
 %2</source>
         <translation>実行中: %1
 %2</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2343"/>
+        <location filename="../widgets/mainwindow.cpp" line="2344"/>
         <source>Subprocess error</source>
         <translation>サブプロセスエラー</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2381"/>
+        <location filename="../widgets/mainwindow.cpp" line="2382"/>
         <source>Reference spectrum saved</source>
         <translation>参照用スペクトラムを保存しました</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2444"/>
+        <location filename="../widgets/mainwindow.cpp" line="2445"/>
         <source>Invalid data in fmt.all at line %1</source>
         <translation>fmt.allの%1行目に無効なデータ</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2450"/>
+        <location filename="../widgets/mainwindow.cpp" line="2451"/>
         <source>Good Calibration Solution</source>
         <translation>較正良好</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2451"/>
-        <source>&lt;pre&gt;%1%L2 Â±%L3 ppm
-%4%L5 Â±%L6 Hz
+        <location filename="../widgets/mainwindow.cpp" line="2452"/>
+        <source>&lt;pre&gt;%1%L2 ±%L3 ppm
+%4%L5 ±%L6 Hz
 
 %7%L8
 %9%L10 Hz&lt;/pre&gt;</source>
-        <translatorcomment>文字化け？</translatorcomment>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2465"/>
+        <location filename="../widgets/mainwindow.cpp" line="2466"/>
         <source>Delete Calibration Measurements</source>
         <translation>較正の測定結果を削除</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2466"/>
+        <location filename="../widgets/mainwindow.cpp" line="2467"/>
         <source>The &quot;fmt.all&quot; file will be renamed as &quot;fmt.bak&quot;</source>
         <translation>&quot;fmt.all&quot;は&quot;fmt.bak&quot;に名前が変わります</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2478"/>
+        <location filename="../widgets/mainwindow.cpp" line="2479"/>
         <source>If you make fair use of any part of WSJT-X under terms of the GNU General Public License, you must display the following copyright notice prominently in your derivative work:
 
 &quot;The algorithms, source code, look-and-feel of WSJT-X and related programs, and protocol specifications for the modes FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 are Copyright (C) 2001-2020 by one or more of the following authors: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; and other members of the WSJT Development Group.&quot;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2749"/>
+        <location filename="../widgets/mainwindow.cpp" line="2750"/>
         <source>No data read from disk. Wrong file format?</source>
         <translation>ディスクからデータが読めません.フォーマットが合っていますか?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2756"/>
+        <location filename="../widgets/mainwindow.cpp" line="2757"/>
         <source>Confirm Delete</source>
         <translation>削除確認</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2757"/>
+        <location filename="../widgets/mainwindow.cpp" line="2758"/>
         <source>Are you sure you want to delete all *.wav and *.c2 files in &quot;%1&quot;?</source>
         <translation>&quot;%1&quot;のすべての*.wavと*.c2ファイルを削除していいですか?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2794"/>
+        <location filename="../widgets/mainwindow.cpp" line="2795"/>
         <source>Keyboard Shortcuts</source>
         <translation>キーボードショートカット</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2807"/>
+        <location filename="../widgets/mainwindow.cpp" line="2808"/>
         <source>Special Mouse Commands</source>
         <translation>特別なマウス操作</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="3117"/>
+        <location filename="../widgets/mainwindow.cpp" line="3118"/>
         <source>No more files to open.</source>
         <translation>これ以上開くファイルがありません.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="3604"/>
+        <location filename="../widgets/mainwindow.cpp" line="3605"/>
         <source>Please choose another Tx frequency. WSJT-X will not knowingly transmit another mode in the WSPR sub-band on 30m.</source>
         <translation>他の送信周波数を使ってください. WSJT-Xは30mバンドのWSPRサブバンド中の他のモードを受信せずに送信してしまいます.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="3608"/>
+        <location filename="../widgets/mainwindow.cpp" line="3609"/>
         <source>WSPR Guard Band</source>
         <translation>WSPRガードバンド</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="3621"/>
+        <location filename="../widgets/mainwindow.cpp" line="3622"/>
         <source>Please choose another dial frequency. WSJT-X will not operate in Fox mode in the standard FT8 sub-bands.</source>
         <translation>他のダイヤル周波数を使ってください.&#x3000;WSJT-XはFT8の標準サブバンドでFoxモードを使えません。</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="3625"/>
+        <location filename="../widgets/mainwindow.cpp" line="3626"/>
         <source>Fox Mode warning</source>
         <translation>Foxモード警告</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="4215"/>
+        <location filename="../widgets/mainwindow.cpp" line="4216"/>
         <source>Last Tx: %1</source>
         <translation>最終送信: %1</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="4616"/>
+        <location filename="../widgets/mainwindow.cpp" line="4617"/>
         <source>Should you switch to EU VHF Contest mode?
 
 To do so, check &apos;Special operating activity&apos; and
@@ -3827,183 +3828,183 @@ To do so, check &apos;Special operating activity&apos; and
 設定｜詳細タブで設定変更してください.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="4635"/>
+        <location filename="../widgets/mainwindow.cpp" line="4636"/>
         <source>Should you switch to ARRL Field Day mode?</source>
         <translation>ARRLフィールドデーモードに切り替えますか?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="4640"/>
+        <location filename="../widgets/mainwindow.cpp" line="4641"/>
         <source>Should you switch to RTTY contest mode?</source>
         <translation>RTTYコンテストモードに切り替えますか?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5367"/>
-        <location filename="../widgets/mainwindow.cpp" line="5386"/>
-        <location filename="../widgets/mainwindow.cpp" line="5399"/>
-        <location filename="../widgets/mainwindow.cpp" line="5425"/>
+        <location filename="../widgets/mainwindow.cpp" line="5368"/>
+        <location filename="../widgets/mainwindow.cpp" line="5387"/>
+        <location filename="../widgets/mainwindow.cpp" line="5400"/>
+        <location filename="../widgets/mainwindow.cpp" line="5426"/>
         <source>Add to CALL3.TXT</source>
         <translation>CALL3.TXTへ追加</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5368"/>
+        <location filename="../widgets/mainwindow.cpp" line="5369"/>
         <source>Please enter a valid grid locator</source>
         <translation>有効なグリッドロケータを入力してください</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5387"/>
+        <location filename="../widgets/mainwindow.cpp" line="5388"/>
         <source>Cannot open &quot;%1&quot; for read/write: %2</source>
         <translation>%2を読み書きするための&quot;%1&quot;が開けません</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5423"/>
+        <location filename="../widgets/mainwindow.cpp" line="5424"/>
         <source>%1
 is already in CALL3.TXT, do you wish to replace it?</source>
         <translation>%1
 がすでにCALL3.TXTにセットされています。置き換えますか?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5599"/>
+        <location filename="../widgets/mainwindow.cpp" line="5600"/>
         <source>Warning:  DX Call field is empty.</source>
         <translation>警告  DXコールが空白です.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5656"/>
+        <location filename="../widgets/mainwindow.cpp" line="5657"/>
         <source>Log file error</source>
         <translation>ログファイルエラー</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5657"/>
+        <location filename="../widgets/mainwindow.cpp" line="5658"/>
         <source>Cannot open &quot;%1&quot;</source>
         <translation>&quot;%1&quot;を開けません</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5673"/>
+        <location filename="../widgets/mainwindow.cpp" line="5674"/>
         <source>Error sending log to N1MM</source>
         <translation>N1MMへログを送れません</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5674"/>
+        <location filename="../widgets/mainwindow.cpp" line="5675"/>
         <source>Write returned &quot;%1&quot;</source>
         <translation>応答&quot;%1&quot;を書き込み</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5837"/>
+        <location filename="../widgets/mainwindow.cpp" line="5838"/>
         <source>Stations calling DXpedition %1</source>
         <translation>DXペディション %1を呼ぶ局</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5872"/>
+        <location filename="../widgets/mainwindow.cpp" line="5873"/>
         <source>Hound</source>
         <translation>Hound</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6212"/>
+        <location filename="../widgets/mainwindow.cpp" line="6213"/>
         <source>Tx Messages</source>
         <translation>送信メッセージ</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6463"/>
-        <location filename="../widgets/mainwindow.cpp" line="6496"/>
-        <location filename="../widgets/mainwindow.cpp" line="6506"/>
+        <location filename="../widgets/mainwindow.cpp" line="6464"/>
+        <location filename="../widgets/mainwindow.cpp" line="6497"/>
+        <location filename="../widgets/mainwindow.cpp" line="6507"/>
         <source>Confirm Erase</source>
         <translation>消去確認</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6464"/>
+        <location filename="../widgets/mainwindow.cpp" line="6465"/>
         <source>Are you sure you want to erase file ALL.TXT?</source>
         <translation>ALL.TXTファイルを消去してよいですか？</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6474"/>
-        <location filename="../widgets/mainwindow.cpp" line="8220"/>
+        <location filename="../widgets/mainwindow.cpp" line="6475"/>
+        <location filename="../widgets/mainwindow.cpp" line="8221"/>
         <source>Confirm Reset</source>
         <translation>リセット確認</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6475"/>
+        <location filename="../widgets/mainwindow.cpp" line="6476"/>
         <source>Are you sure you want to erase your contest log?</source>
         <translation>コンテストログを消去していいですか?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6476"/>
+        <location filename="../widgets/mainwindow.cpp" line="6477"/>
         <source>Doing this will remove all QSO records for the current contest. They will be kept in the ADIF log file but will not be available for export in your Cabrillo log.</source>
         <translation>現在のコンテストのQSO記録をすべて消去します。ADIFログには記録されますがCabrilloログにエクスポートすることはできません.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6489"/>
+        <location filename="../widgets/mainwindow.cpp" line="6490"/>
         <source>Cabrillo Log saved</source>
         <translation>Cabrilloログ保存しました</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6497"/>
+        <location filename="../widgets/mainwindow.cpp" line="6498"/>
         <source>Are you sure you want to erase file wsjtx_log.adi?</source>
         <translation>wsjtx_log.adiを消してもよいですか?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6507"/>
+        <location filename="../widgets/mainwindow.cpp" line="6508"/>
         <source>Are you sure you want to erase the WSPR hashtable?</source>
         <translation>WSPRのハッシュテーブルを消してもよいですか?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6601"/>
+        <location filename="../widgets/mainwindow.cpp" line="6602"/>
         <source>VHF features warning</source>
         <translation>VHF機能警告</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7206"/>
+        <location filename="../widgets/mainwindow.cpp" line="7207"/>
         <source>Tune digital gain </source>
         <translation>チューンのデジタルゲイン </translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7208"/>
+        <location filename="../widgets/mainwindow.cpp" line="7209"/>
         <source>Transmit digital gain </source>
         <translation>送信デジタルゲイン </translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7227"/>
+        <location filename="../widgets/mainwindow.cpp" line="7228"/>
         <source>Prefixes</source>
         <translation>プリフィックス</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7596"/>
+        <location filename="../widgets/mainwindow.cpp" line="7597"/>
         <source>Network Error</source>
         <translation>ネットワークエラー</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7597"/>
+        <location filename="../widgets/mainwindow.cpp" line="7598"/>
         <source>Error: %1
 UDP server %2:%3</source>
         <translation>エラー %1
 UDPサーバー %2:%3</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7745"/>
+        <location filename="../widgets/mainwindow.cpp" line="7746"/>
         <source>File Error</source>
         <translation>ファイルエラー</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7979"/>
+        <location filename="../widgets/mainwindow.cpp" line="7980"/>
         <source>Phase Training Disabled</source>
         <translation>位相調整オフ</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7982"/>
+        <location filename="../widgets/mainwindow.cpp" line="7983"/>
         <source>Phase Training Enabled</source>
         <translation>位相調整オン</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="8116"/>
+        <location filename="../widgets/mainwindow.cpp" line="8117"/>
         <source>WD:%1m</source>
         <translation>WD:%1m</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="8178"/>
-        <location filename="../widgets/mainwindow.cpp" line="8858"/>
+        <location filename="../widgets/mainwindow.cpp" line="8179"/>
+        <location filename="../widgets/mainwindow.cpp" line="8859"/>
         <source>Log File Error</source>
         <translation>ログファイルエラー</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="8221"/>
+        <location filename="../widgets/mainwindow.cpp" line="8222"/>
         <source>Are you sure you want to clear the QSO queues?</source>
         <translation>QSO待ち行列をクリアしてもいいですか?</translation>
     </message>
@@ -4161,7 +4162,7 @@ UDPサーバー %2:%3</translation>
 <context>
     <name>QObject</name>
     <message>
-        <location filename="../main.cpp" line="335"/>
+        <location filename="../main.cpp" line="340"/>
         <source>Invalid rig name - \ &amp; / not allowed</source>
         <translation>無効な名前 － \ &amp; / は使えません</translation>
     </message>
@@ -6173,115 +6174,115 @@ Right click for insert and delete options.</source>
 <context>
     <name>main</name>
     <message>
-        <location filename="../main.cpp" line="82"/>
-        <location filename="../main.cpp" line="551"/>
+        <location filename="../main.cpp" line="83"/>
+        <location filename="../main.cpp" line="563"/>
         <source>Fatal error</source>
         <translation>致命的エラー</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="87"/>
-        <location filename="../main.cpp" line="556"/>
+        <location filename="../main.cpp" line="88"/>
+        <location filename="../main.cpp" line="568"/>
         <source>Unexpected fatal error</source>
         <translation>予期せぬ致命的エラー</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="193"/>
+        <location filename="../main.cpp" line="194"/>
         <source>Where &lt;rig-name&gt; is for multi-instance support.</source>
         <translation>ここで&lt;rig-name&gt;は複数インスタンスのサポート.</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="194"/>
+        <location filename="../main.cpp" line="195"/>
         <source>rig-name</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="199"/>
+        <location filename="../main.cpp" line="200"/>
         <source>Where &lt;configuration&gt; is an existing one.</source>
         <translation>ここで&lt;configuration&gt;はすでに設定済みのもの.</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="200"/>
+        <location filename="../main.cpp" line="201"/>
         <source>configuration</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="205"/>
+        <location filename="../main.cpp" line="206"/>
         <source>Where &lt;language&gt; is &lt;lang-code&gt;[-&lt;country-code&gt;].</source>
         <translation>ここで&lt;language&gt;は&lt;lang-code&gt;[-&lt;country-code&gt;].</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="206"/>
+        <location filename="../main.cpp" line="207"/>
         <source>language</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="210"/>
+        <location filename="../main.cpp" line="211"/>
         <source>Writable files in test location.  Use with caution, for testing only.</source>
         <translation>テスト用書き込み可能ファイル. 注意してテストだけに使うこと.</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="215"/>
+        <location filename="../main.cpp" line="216"/>
         <source>Command line error</source>
         <translation>コマンドラインエラー</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="222"/>
+        <location filename="../main.cpp" line="223"/>
         <source>Command line help</source>
         <translation>コマンドラインヘルプ</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="227"/>
+        <location filename="../main.cpp" line="228"/>
         <source>Application version</source>
         <translation>アプリのバージョン</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="366"/>
+        <location filename="../main.cpp" line="371"/>
         <source>Another instance may be running</source>
         <translation>おそらく他のインスタンスが動作中</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="367"/>
+        <location filename="../main.cpp" line="372"/>
         <source>try to remove stale lock file?</source>
         <translation>古いロックファイルの削除を試みますか?</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="402"/>
+        <location filename="../main.cpp" line="414"/>
         <source>Failed to create a temporary directory</source>
         <translation>一時的作業ディレクトリーが作成できません</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="403"/>
-        <location filename="../main.cpp" line="411"/>
+        <location filename="../main.cpp" line="415"/>
+        <location filename="../main.cpp" line="423"/>
         <source>Path: &quot;%1&quot;</source>
         <translation>パス:&quot;%1&quot;</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="409"/>
+        <location filename="../main.cpp" line="421"/>
         <source>Failed to create a usable temporary directory</source>
         <translation>一時的作業ディレクトリが作成できません</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="410"/>
+        <location filename="../main.cpp" line="422"/>
         <source>Another application may be locking the directory</source>
         <translation>おそらく他のアプリがディレクトリをロックしています</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="443"/>
+        <location filename="../main.cpp" line="455"/>
         <source>Failed to create data directory</source>
         <translation>データ用ディレクトリの作成ができません</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="444"/>
+        <location filename="../main.cpp" line="456"/>
         <source>path: &quot;%1&quot;</source>
         <translation>パス: &quot;%1&quot;</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="499"/>
+        <location filename="../main.cpp" line="511"/>
         <source>Shared memory error</source>
         <translation>共有メモリエラー</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="500"/>
+        <location filename="../main.cpp" line="512"/>
         <source>Unable to create shared memory segment</source>
         <translation>共有メモリセグメントが作成できません</translation>
     </message>

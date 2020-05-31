@@ -881,7 +881,7 @@ Format:
 <context>
     <name>Dialog</name>
     <message>
-        <location filename="../WSPRBandHopping.cpp" line="116"/>
+        <location filename="../WSPR/WSPRBandHopping.cpp" line="116"/>
         <source>Gray time:</source>
         <translation>灰線時間:</translation>
     </message>
@@ -1467,86 +1467,86 @@ Error: %2 - %3</source>
 <context>
     <name>HRDTransceiver</name>
     <message>
-        <location filename="../Transceiver/HRDTransceiver.cpp" line="124"/>
-        <location filename="../Transceiver/HRDTransceiver.cpp" line="149"/>
+        <location filename="../Transceiver/HRDTransceiver.cpp" line="125"/>
+        <location filename="../Transceiver/HRDTransceiver.cpp" line="150"/>
         <source>Failed to connect to Ham Radio Deluxe
 </source>
         <translation>無法連接到 Ham Radio Deluxe
 </translation>
     </message>
     <message>
-        <location filename="../Transceiver/HRDTransceiver.cpp" line="158"/>
+        <location filename="../Transceiver/HRDTransceiver.cpp" line="159"/>
         <source>Failed to open file &quot;%1&quot;: %2.</source>
         <translation>無法開啟檔案 &quot;%1&quot;: %2.</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HRDTransceiver.cpp" line="173"/>
-        <location filename="../Transceiver/HRDTransceiver.cpp" line="197"/>
+        <location filename="../Transceiver/HRDTransceiver.cpp" line="174"/>
+        <location filename="../Transceiver/HRDTransceiver.cpp" line="198"/>
         <source>Ham Radio Deluxe: no rig found</source>
         <translation>Ham Radio Deluxe: 未找到無線電設備</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HRDTransceiver.cpp" line="421"/>
+        <location filename="../Transceiver/HRDTransceiver.cpp" line="422"/>
         <source>Ham Radio Deluxe: rig doesn&apos;t support mode</source>
         <translation>Ham Radio Deluxe: 無線電設備不支持模式</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HRDTransceiver.cpp" line="440"/>
+        <location filename="../Transceiver/HRDTransceiver.cpp" line="441"/>
         <source>Ham Radio Deluxe: sent an unrecognised mode</source>
         <translation>Ham Radio Deluxe: 發送了一個無法識別的模式</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HRDTransceiver.cpp" line="475"/>
+        <location filename="../Transceiver/HRDTransceiver.cpp" line="476"/>
         <source>Ham Radio Deluxe: item not found in %1 dropdown list</source>
         <translation>Ham Radio Deluxe: 在 %1 下拉清單中找不到項目</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HRDTransceiver.cpp" line="519"/>
+        <location filename="../Transceiver/HRDTransceiver.cpp" line="520"/>
         <source>Ham Radio Deluxe: button not available</source>
         <translation>Ham Radio Deluxe: 按鈕不可用</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HRDTransceiver.cpp" line="885"/>
+        <location filename="../Transceiver/HRDTransceiver.cpp" line="886"/>
         <source>Ham Radio Deluxe didn&apos;t respond as expected</source>
         <translation>Ham Radio Deluxe 沒有如預期的那樣響應</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HRDTransceiver.cpp" line="1033"/>
+        <location filename="../Transceiver/HRDTransceiver.cpp" line="1035"/>
         <source>Ham Radio Deluxe: rig has disappeared or changed</source>
         <translation>Ham Radio Deluxe: 無線電設備已經消失或改變</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HRDTransceiver.cpp" line="1048"/>
+        <location filename="../Transceiver/HRDTransceiver.cpp" line="1050"/>
         <source>Ham Radio Deluxe send command &quot;%1&quot; failed %2
 </source>
         <translation>Ham Radio Deluxe 發送命令 &quot;%1&quot; 失敗 %2
 </translation>
     </message>
     <message>
-        <location filename="../Transceiver/HRDTransceiver.cpp" line="1061"/>
-        <location filename="../Transceiver/HRDTransceiver.cpp" line="1074"/>
+        <location filename="../Transceiver/HRDTransceiver.cpp" line="1063"/>
+        <location filename="../Transceiver/HRDTransceiver.cpp" line="1076"/>
         <source>Ham Radio Deluxe: failed to write command &quot;%1&quot;</source>
         <translation>Ham Radio Deluxe: 無法寫入命令 &quot;%1&quot;</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HRDTransceiver.cpp" line="1091"/>
+        <location filename="../Transceiver/HRDTransceiver.cpp" line="1093"/>
         <source>Ham Radio Deluxe sent an invalid reply to our command &quot;%1&quot;</source>
         <translation>Ham Radio Deluxe 對我們的命令發出了無效的回復 &quot;%1&quot;</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HRDTransceiver.cpp" line="1145"/>
+        <location filename="../Transceiver/HRDTransceiver.cpp" line="1147"/>
         <source>Ham Radio Deluxe failed to reply to command &quot;%1&quot; %2
 </source>
         <translation>Ham Radio Deluxe 無法回復命令 &quot;%1&quot; %2
 </translation>
     </message>
     <message>
-        <location filename="../Transceiver/HRDTransceiver.cpp" line="1155"/>
+        <location filename="../Transceiver/HRDTransceiver.cpp" line="1157"/>
         <source>Ham Radio Deluxe retries exhausted sending command &quot;%1&quot;</source>
         <translation>Ham Radio Deluxe 發送命令重試失敗 &quot;%1&quot;</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HRDTransceiver.cpp" line="1168"/>
+        <location filename="../Transceiver/HRDTransceiver.cpp" line="1170"/>
         <source>Ham Radio Deluxe didn&apos;t respond to command &quot;%1&quot; as expected</source>
         <translation>Ham Radio Deluxe 沒有回應預期的命令 &quot;%1&quot;</translation>
     </message>
@@ -1554,178 +1554,178 @@ Error: %2 - %3</source>
 <context>
     <name>HamlibTransceiver</name>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="201"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="254"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="202"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="256"/>
         <source>Hamlib initialisation error</source>
         <translation>Hamlib 初始化出錯誤</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="276"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="278"/>
         <source>Hamlib settings file error: %1 at character offset %2</source>
         <translation>Hamlib 設置檔案出錯誤: %1 字符偏移量 %2</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="282"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="284"/>
         <source>Hamlib settings file error: top level must be a JSON object</source>
         <translation>Hamlib 設置檔案出錯誤: 頂層必須是 JSON 對象</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="294"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="296"/>
         <source>Hamlib settings file error: config must be a JSON object</source>
         <translation>Hamlib 設置檔案出錯誤: 配置必須是JSON對象</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="359"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="361"/>
         <source>Unsupported CAT type</source>
         <translation>不支持 CAT 類型</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="410"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="412"/>
         <source>Hamlib error: %1 while %2</source>
         <translation>Hamlib 出錯誤: %1 當 %2</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="420"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="422"/>
         <source>opening connection to rig</source>
         <translation>開啟連接無線電設備</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="467"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="469"/>
         <source>getting current frequency</source>
         <translation>獲取當前頻率</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="471"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="473"/>
         <source>getting current mode</source>
         <translation>獲取當前模式</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="500"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="520"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="502"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="522"/>
         <source>exchanging VFOs</source>
         <translation>在 VFOs 之間切換</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="508"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="979"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="510"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="981"/>
         <source>getting other VFO frequency</source>
         <translation>獲取其他 VFO 頻率</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="512"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="514"/>
         <source>getting other VFO mode</source>
         <translation>獲取其他 VFO 模式</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="525"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="527"/>
         <source>setting current VFO</source>
         <translation>設置當前 VFO</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="534"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="536"/>
         <source>getting frequency</source>
         <translation>獲取頻率</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="538"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="540"/>
         <source>getting mode</source>
         <translation>獲取模式</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="555"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="919"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="557"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="921"/>
         <source>getting current VFO</source>
         <translation>獲取當前 VFO</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="599"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="607"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="621"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="958"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="601"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="609"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="623"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="960"/>
         <source>getting current VFO frequency</source>
         <translation>獲取當前 VFO 頻率</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="605"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="620"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="627"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="706"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="724"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="785"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="607"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="622"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="629"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="708"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="726"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="787"/>
         <source>setting frequency</source>
         <translation>設置頻率</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="714"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="792"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="864"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="877"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="716"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="794"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="866"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="879"/>
         <source>getting current VFO mode</source>
         <translation>獲取當前 VFO 模式</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="720"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="729"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="798"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="870"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="883"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="722"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="731"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="800"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="872"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="885"/>
         <source>setting current VFO mode</source>
         <translation>設置當前 VFO 模式</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="772"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="841"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="774"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="843"/>
         <source>setting/unsetting split mode</source>
         <translation>設置/取消 設置異頻模式</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="783"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="823"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="785"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="825"/>
         <source>setting split mode</source>
         <translation>設置異頻模式</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="811"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="813"/>
         <source>setting split TX frequency and mode</source>
         <translation>設置異頻發射頻率和模式</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="816"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="818"/>
         <source>setting split TX frequency</source>
         <translation>設置異頻發射頻率</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="888"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="890"/>
         <source>getting split TX VFO mode</source>
         <translation>獲得異頻發射 VFO 模式</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="895"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="897"/>
         <source>setting split TX VFO mode</source>
         <translation>設置異頻發射 VFO 模式</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1016"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1018"/>
         <source>getting PTT state</source>
         <translation>獲取PTT 狀態</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1047"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1049"/>
         <source>setting PTT on</source>
         <translation>設置PTT 開啟</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1055"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1057"/>
         <source>setting PTT off</source>
         <translation>設置PTT 關閉</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1067"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1069"/>
         <source>setting a configuration item</source>
         <translation>設置配置項目</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1077"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1079"/>
         <source>getting a configuration item</source>
         <translation>獲取配置項目</translation>
     </message>
@@ -1936,12 +1936,12 @@ Error(%2): %3</source>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="50"/>
-        <location filename="../widgets/mainwindow.cpp" line="5792"/>
-        <location filename="../widgets/mainwindow.cpp" line="5840"/>
-        <location filename="../widgets/mainwindow.cpp" line="5998"/>
-        <location filename="../widgets/mainwindow.cpp" line="6038"/>
-        <location filename="../widgets/mainwindow.cpp" line="6086"/>
-        <location filename="../widgets/mainwindow.cpp" line="6211"/>
+        <location filename="../widgets/mainwindow.cpp" line="5793"/>
+        <location filename="../widgets/mainwindow.cpp" line="5841"/>
+        <location filename="../widgets/mainwindow.cpp" line="5999"/>
+        <location filename="../widgets/mainwindow.cpp" line="6039"/>
+        <location filename="../widgets/mainwindow.cpp" line="6087"/>
+        <location filename="../widgets/mainwindow.cpp" line="6212"/>
         <source>Band Activity</source>
         <translation>波段活動</translation>
     </message>
@@ -1953,11 +1953,11 @@ Error(%2): %3</source>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="194"/>
-        <location filename="../widgets/mainwindow.cpp" line="5791"/>
-        <location filename="../widgets/mainwindow.cpp" line="5835"/>
-        <location filename="../widgets/mainwindow.cpp" line="5999"/>
-        <location filename="../widgets/mainwindow.cpp" line="6039"/>
-        <location filename="../widgets/mainwindow.cpp" line="6087"/>
+        <location filename="../widgets/mainwindow.cpp" line="5792"/>
+        <location filename="../widgets/mainwindow.cpp" line="5836"/>
+        <location filename="../widgets/mainwindow.cpp" line="6000"/>
+        <location filename="../widgets/mainwindow.cpp" line="6040"/>
+        <location filename="../widgets/mainwindow.cpp" line="6088"/>
         <source>Rx Frequency</source>
         <translation>接收信息</translation>
     </message>
@@ -2419,7 +2419,7 @@ Not available to nonstandard callsign holders.</source>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1394"/>
-        <location filename="../widgets/mainwindow.cpp" line="5862"/>
+        <location filename="../widgets/mainwindow.cpp" line="5863"/>
         <source>Fox</source>
         <translation>狐狸</translation>
     </message>
@@ -3273,7 +3273,7 @@ list. The list can be maintained in Settings (F2).</source>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3125"/>
-        <location filename="../widgets/mainwindow.cpp" line="8101"/>
+        <location filename="../widgets/mainwindow.cpp" line="8102"/>
         <source>Runaway Tx watchdog</source>
         <translation>運行發射監管計時器</translation>
     </message>
@@ -3550,8 +3550,8 @@ list. The list can be maintained in Settings (F2).</source>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="329"/>
-        <location filename="../widgets/mainwindow.cpp" line="4111"/>
-        <location filename="../widgets/mainwindow.cpp" line="7629"/>
+        <location filename="../widgets/mainwindow.cpp" line="4112"/>
+        <location filename="../widgets/mainwindow.cpp" line="7630"/>
         <source>Receiving</source>
         <translation>接收</translation>
     </message>
@@ -3587,21 +3587,21 @@ list. The list can be maintained in Settings (F2).</source>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="823"/>
-        <location filename="../widgets/mainwindow.cpp" line="5787"/>
-        <location filename="../widgets/mainwindow.cpp" line="5793"/>
-        <location filename="../widgets/mainwindow.cpp" line="5831"/>
-        <location filename="../widgets/mainwindow.cpp" line="5841"/>
-        <location filename="../widgets/mainwindow.cpp" line="5938"/>
+        <location filename="../widgets/mainwindow.cpp" line="5788"/>
+        <location filename="../widgets/mainwindow.cpp" line="5794"/>
+        <location filename="../widgets/mainwindow.cpp" line="5832"/>
+        <location filename="../widgets/mainwindow.cpp" line="5842"/>
         <location filename="../widgets/mainwindow.cpp" line="5939"/>
-        <location filename="../widgets/mainwindow.cpp" line="5987"/>
+        <location filename="../widgets/mainwindow.cpp" line="5940"/>
         <location filename="../widgets/mainwindow.cpp" line="5988"/>
-        <location filename="../widgets/mainwindow.cpp" line="5992"/>
+        <location filename="../widgets/mainwindow.cpp" line="5989"/>
         <location filename="../widgets/mainwindow.cpp" line="5993"/>
-        <location filename="../widgets/mainwindow.cpp" line="6040"/>
+        <location filename="../widgets/mainwindow.cpp" line="5994"/>
         <location filename="../widgets/mainwindow.cpp" line="6041"/>
-        <location filename="../widgets/mainwindow.cpp" line="6206"/>
+        <location filename="../widgets/mainwindow.cpp" line="6042"/>
         <location filename="../widgets/mainwindow.cpp" line="6207"/>
-        <location filename="../widgets/mainwindow.cpp" line="6392"/>
+        <location filename="../widgets/mainwindow.cpp" line="6208"/>
+        <location filename="../widgets/mainwindow.cpp" line="6393"/>
         <source>Message</source>
         <translation>信息</translation>
     </message>
@@ -3626,116 +3626,116 @@ list. The list can be maintained in Settings (F2).</source>
         <translation>單擊 確定 重試</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1253"/>
-        <location filename="../widgets/mainwindow.cpp" line="6181"/>
+        <location filename="../widgets/mainwindow.cpp" line="1254"/>
+        <location filename="../widgets/mainwindow.cpp" line="6182"/>
         <source>Improper mode</source>
         <translation>模式不正確</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1404"/>
-        <location filename="../widgets/mainwindow.cpp" line="8728"/>
+        <location filename="../widgets/mainwindow.cpp" line="1405"/>
+        <location filename="../widgets/mainwindow.cpp" line="8729"/>
         <source>File Open Error</source>
         <translation>檔案開啟出錯誤</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1405"/>
-        <location filename="../widgets/mainwindow.cpp" line="7746"/>
-        <location filename="../widgets/mainwindow.cpp" line="8175"/>
-        <location filename="../widgets/mainwindow.cpp" line="8729"/>
-        <location filename="../widgets/mainwindow.cpp" line="8855"/>
+        <location filename="../widgets/mainwindow.cpp" line="1406"/>
+        <location filename="../widgets/mainwindow.cpp" line="7747"/>
+        <location filename="../widgets/mainwindow.cpp" line="8176"/>
+        <location filename="../widgets/mainwindow.cpp" line="8730"/>
+        <location filename="../widgets/mainwindow.cpp" line="8856"/>
         <source>Cannot open &quot;%1&quot; for append: %2</source>
         <translation>無法開啟 &quot;%1&quot; 用於附加: %2</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1503"/>
+        <location filename="../widgets/mainwindow.cpp" line="1504"/>
         <source>Error saving c2 file</source>
         <translation>保存c2檔案出錯誤</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1715"/>
+        <location filename="../widgets/mainwindow.cpp" line="1716"/>
         <source>Error in Sound Input</source>
         <translation>聲音輸入出錯誤</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1721"/>
+        <location filename="../widgets/mainwindow.cpp" line="1722"/>
         <source>Error in Sound Output</source>
         <translation>聲音輸出錯誤</translation>
-    </message>
-    <message>
-        <location filename="../widgets/mainwindow.cpp" line="1777"/>
-        <location filename="../widgets/mainwindow.cpp" line="5936"/>
-        <location filename="../widgets/mainwindow.cpp" line="6082"/>
-        <source>Single-Period Decodes</source>
-        <translation>單週期解碼</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="1778"/>
         <location filename="../widgets/mainwindow.cpp" line="5937"/>
         <location filename="../widgets/mainwindow.cpp" line="6083"/>
+        <source>Single-Period Decodes</source>
+        <translation>單週期解碼</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.cpp" line="1779"/>
+        <location filename="../widgets/mainwindow.cpp" line="5938"/>
+        <location filename="../widgets/mainwindow.cpp" line="6084"/>
         <source>Average Decodes</source>
         <translation>平均解碼</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2079"/>
+        <location filename="../widgets/mainwindow.cpp" line="2080"/>
         <source>Change Operator</source>
         <translation>變更操作員</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2079"/>
+        <location filename="../widgets/mainwindow.cpp" line="2080"/>
         <source>New operator:</source>
         <translation>新操作員:</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2189"/>
+        <location filename="../widgets/mainwindow.cpp" line="2190"/>
         <source>Status File Error</source>
         <translation>狀態檔案錯誤</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2190"/>
-        <location filename="../widgets/mainwindow.cpp" line="5400"/>
+        <location filename="../widgets/mainwindow.cpp" line="2191"/>
+        <location filename="../widgets/mainwindow.cpp" line="5401"/>
         <source>Cannot open &quot;%1&quot; for writing: %2</source>
         <translation>無法開啟 &quot;%1&quot; 用於寫入: %2</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2321"/>
+        <location filename="../widgets/mainwindow.cpp" line="2322"/>
         <source>Subprocess Error</source>
         <translation>子流程出錯誤</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2322"/>
+        <location filename="../widgets/mainwindow.cpp" line="2323"/>
         <source>Subprocess failed with exit code %1</source>
         <translation>子流程失敗, 退出代碼為 %1</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2324"/>
-        <location filename="../widgets/mainwindow.cpp" line="2344"/>
+        <location filename="../widgets/mainwindow.cpp" line="2325"/>
+        <location filename="../widgets/mainwindow.cpp" line="2345"/>
         <source>Running: %1
 %2</source>
         <translation>運行: %1
 %2</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2343"/>
+        <location filename="../widgets/mainwindow.cpp" line="2344"/>
         <source>Subprocess error</source>
         <translation>子進程出錯誤</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2381"/>
+        <location filename="../widgets/mainwindow.cpp" line="2382"/>
         <source>Reference spectrum saved</source>
         <translation>儲存參考頻譜</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2444"/>
+        <location filename="../widgets/mainwindow.cpp" line="2445"/>
         <source>Invalid data in fmt.all at line %1</source>
         <translation>在 %1 行中 fmt.all 的不合法資料</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2450"/>
+        <location filename="../widgets/mainwindow.cpp" line="2451"/>
         <source>Good Calibration Solution</source>
         <translation>良好的校準解決方案</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2451"/>
+        <location filename="../widgets/mainwindow.cpp" line="2452"/>
         <source>&lt;pre&gt;%1%L2 ±%L3 ppm
 %4%L5 ±%L6 Hz
 
@@ -3744,76 +3744,75 @@ list. The list can be maintained in Settings (F2).</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2465"/>
+        <location filename="../widgets/mainwindow.cpp" line="2466"/>
         <source>Delete Calibration Measurements</source>
         <translation>刪除校準測量值</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2466"/>
+        <location filename="../widgets/mainwindow.cpp" line="2467"/>
         <source>The &quot;fmt.all&quot; file will be renamed as &quot;fmt.bak&quot;</source>
         <translation>&quot;fmt.all&quot; 檔案將重新命名為 &quot;fmt.bak&quot;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2459"/>
         <source>If you make fair use of any part of WSJT-X under terms of the GNU General Public License, you must display the following copyright notice prominently in your derivative work:
 
 &quot;The algorithms, source code, look-and-feel of WSJT-X and related programs, and protocol specifications for the modes FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 are Copyright (C) 2001-2019 by one or more of the following authors: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; and other members of the WSJT Development Group.&quot;</source>
-        <translation>如果您根據 GNU 通用公共授權條款合理使用 WSJT-X 的任何部分, 則必須在衍生作品中醒目地顯示以下版權聲明:
+        <translation type="vanished">如果您根據 GNU 通用公共授權條款合理使用 WSJT-X 的任何部分, 則必須在衍生作品中醒目地顯示以下版權聲明:
 
 &quot;WSJT-X 的演演演算法, 原始碼, 外觀和感覺及相關程式, 和協定規格模式 FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 的版權 (C) 2001-2019 由以下一個或多個作者: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; 和 WSJT 開發組的其他成員.&quot;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2725"/>
+        <location filename="../widgets/mainwindow.cpp" line="2750"/>
         <source>No data read from disk. Wrong file format?</source>
         <translation>沒有從磁盤讀取數據. 檔案格式出錯誤?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2756"/>
+        <location filename="../widgets/mainwindow.cpp" line="2757"/>
         <source>Confirm Delete</source>
         <translation>確認刪除</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2757"/>
+        <location filename="../widgets/mainwindow.cpp" line="2758"/>
         <source>Are you sure you want to delete all *.wav and *.c2 files in &quot;%1&quot;?</source>
         <translation>是否確實要刪除所有 *.wav 和 *.c2 檔案在 &quot;%1&quot;?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2794"/>
+        <location filename="../widgets/mainwindow.cpp" line="2795"/>
         <source>Keyboard Shortcuts</source>
         <translation>鍵盤快捷鍵</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2807"/>
+        <location filename="../widgets/mainwindow.cpp" line="2808"/>
         <source>Special Mouse Commands</source>
         <translation>滑鼠特殊組合</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="3117"/>
+        <location filename="../widgets/mainwindow.cpp" line="3118"/>
         <source>No more files to open.</source>
         <translation>沒有要打開的檔.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="3604"/>
+        <location filename="../widgets/mainwindow.cpp" line="3605"/>
         <source>Please choose another Tx frequency. WSJT-X will not knowingly transmit another mode in the WSPR sub-band on 30m.</source>
         <translation>請選擇其他發射頻率. WSJT-X 不會故意傳輸另一個模式在 WSPR 30米子波段上.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="3608"/>
+        <location filename="../widgets/mainwindow.cpp" line="3609"/>
         <source>WSPR Guard Band</source>
         <translation>WSPR保護波段</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="3541"/>
+        <location filename="../widgets/mainwindow.cpp" line="3622"/>
         <source>Please choose another dial frequency. WSJT-X will not operate in Fox mode in the standard FT8 sub-bands.</source>
         <translation>請選擇其他頻率. WSJT-X 不會運行狐狸模式在標準 FT8 波段.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="3545"/>
+        <location filename="../widgets/mainwindow.cpp" line="3626"/>
         <source>Fox Mode warning</source>
         <translation>狐狸模式警告</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2478"/>
+        <location filename="../widgets/mainwindow.cpp" line="2479"/>
         <source>If you make fair use of any part of WSJT-X under terms of the GNU General Public License, you must display the following copyright notice prominently in your derivative work:
 
 &quot;The algorithms, source code, look-and-feel of WSJT-X and related programs, and protocol specifications for the modes FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 are Copyright (C) 2001-2020 by one or more of the following authors: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; and other members of the WSJT Development Group.&quot;</source>
@@ -3822,12 +3821,12 @@ list. The list can be maintained in Settings (F2).</source>
 &quot;WSJT-X 的演演演算法, 原始碼, 外觀和感覺及相關程式, 和協定規格模式 FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 的版權 (C) 2001-2019 由以下一個或多個作者: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; 和 WSJT 開發組的其他成員.&quot;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="4215"/>
+        <location filename="../widgets/mainwindow.cpp" line="4216"/>
         <source>Last Tx: %1</source>
         <translation>最後發射: %1</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="4616"/>
+        <location filename="../widgets/mainwindow.cpp" line="4617"/>
         <source>Should you switch to EU VHF Contest mode?
 
 To do so, check &apos;Special operating activity&apos; and
@@ -3837,182 +3836,182 @@ To do so, check &apos;Special operating activity&apos; and
 設置高級選項卡上的 &apos;歐洲 VHF 競賽&apos;.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="4635"/>
+        <location filename="../widgets/mainwindow.cpp" line="4636"/>
         <source>Should you switch to ARRL Field Day mode?</source>
         <translation>是否應切換到 ARRL Field Day 模式?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="4640"/>
+        <location filename="../widgets/mainwindow.cpp" line="4641"/>
         <source>Should you switch to RTTY contest mode?</source>
         <translation>是否應切換到 RTTY 競賽模式?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5367"/>
-        <location filename="../widgets/mainwindow.cpp" line="5386"/>
-        <location filename="../widgets/mainwindow.cpp" line="5399"/>
-        <location filename="../widgets/mainwindow.cpp" line="5425"/>
+        <location filename="../widgets/mainwindow.cpp" line="5368"/>
+        <location filename="../widgets/mainwindow.cpp" line="5387"/>
+        <location filename="../widgets/mainwindow.cpp" line="5400"/>
+        <location filename="../widgets/mainwindow.cpp" line="5426"/>
         <source>Add to CALL3.TXT</source>
         <translation>添加到 CALL3.TXT</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5368"/>
+        <location filename="../widgets/mainwindow.cpp" line="5369"/>
         <source>Please enter a valid grid locator</source>
         <translation>請輸入有效的網格定位</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5387"/>
+        <location filename="../widgets/mainwindow.cpp" line="5388"/>
         <source>Cannot open &quot;%1&quot; for read/write: %2</source>
         <translation>無法開啟 &quot;%1&quot; 用於讀/寫: %2</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5423"/>
+        <location filename="../widgets/mainwindow.cpp" line="5424"/>
         <source>%1
 is already in CALL3.TXT, do you wish to replace it?</source>
         <translation>%1 已經在 CALL3.TXT, 你想替換它嗎?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5599"/>
+        <location filename="../widgets/mainwindow.cpp" line="5600"/>
         <source>Warning:  DX Call field is empty.</source>
         <translation>警告:  DX 呼號欄位為空.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5656"/>
+        <location filename="../widgets/mainwindow.cpp" line="5657"/>
         <source>Log file error</source>
         <translation>日誌檔案錯誤</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5657"/>
+        <location filename="../widgets/mainwindow.cpp" line="5658"/>
         <source>Cannot open &quot;%1&quot;</source>
         <translation>無法開啟 &quot;%1&quot;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5673"/>
+        <location filename="../widgets/mainwindow.cpp" line="5674"/>
         <source>Error sending log to N1MM</source>
         <translation>將日誌傳送到 N1MM 時發生錯誤</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5674"/>
+        <location filename="../widgets/mainwindow.cpp" line="5675"/>
         <source>Write returned &quot;%1&quot;</source>
         <translation>寫入返回 &quot;%1&quot;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5837"/>
+        <location filename="../widgets/mainwindow.cpp" line="5838"/>
         <source>Stations calling DXpedition %1</source>
         <translation>呼叫遠征電臺 %1</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5872"/>
+        <location filename="../widgets/mainwindow.cpp" line="5873"/>
         <source>Hound</source>
         <translation>獵犬</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6212"/>
+        <location filename="../widgets/mainwindow.cpp" line="6213"/>
         <source>Tx Messages</source>
         <translation>發射信息</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6463"/>
-        <location filename="../widgets/mainwindow.cpp" line="6496"/>
-        <location filename="../widgets/mainwindow.cpp" line="6506"/>
+        <location filename="../widgets/mainwindow.cpp" line="6464"/>
+        <location filename="../widgets/mainwindow.cpp" line="6497"/>
+        <location filename="../widgets/mainwindow.cpp" line="6507"/>
         <source>Confirm Erase</source>
         <translation>確認擦除</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6464"/>
+        <location filename="../widgets/mainwindow.cpp" line="6465"/>
         <source>Are you sure you want to erase file ALL.TXT?</source>
         <translation>是否確實要擦除 ALL.Txt 檔案?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6474"/>
-        <location filename="../widgets/mainwindow.cpp" line="8220"/>
+        <location filename="../widgets/mainwindow.cpp" line="6475"/>
+        <location filename="../widgets/mainwindow.cpp" line="8221"/>
         <source>Confirm Reset</source>
         <translation>確認重置</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6475"/>
+        <location filename="../widgets/mainwindow.cpp" line="6476"/>
         <source>Are you sure you want to erase your contest log?</source>
         <translation>是否確實要擦除競賽日誌?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6476"/>
+        <location filename="../widgets/mainwindow.cpp" line="6477"/>
         <source>Doing this will remove all QSO records for the current contest. They will be kept in the ADIF log file but will not be available for export in your Cabrillo log.</source>
         <translation>執行此動作將移除目前競賽的所有通聯記錄. 它們將保留在 ADIF 日誌檔中, 但無法匯出到您的卡布里略日誌中.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6489"/>
+        <location filename="../widgets/mainwindow.cpp" line="6490"/>
         <source>Cabrillo Log saved</source>
         <translation>卡布里略日誌已儲存</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6497"/>
+        <location filename="../widgets/mainwindow.cpp" line="6498"/>
         <source>Are you sure you want to erase file wsjtx_log.adi?</source>
         <translation>是否確實要擦除 wsjtx_log.adi 檔案?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6507"/>
+        <location filename="../widgets/mainwindow.cpp" line="6508"/>
         <source>Are you sure you want to erase the WSPR hashtable?</source>
         <translation>是否確定要擦除 WSPR 哈希表?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6601"/>
+        <location filename="../widgets/mainwindow.cpp" line="6602"/>
         <source>VHF features warning</source>
         <translation>VHF 功能警告</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7206"/>
+        <location filename="../widgets/mainwindow.cpp" line="7207"/>
         <source>Tune digital gain </source>
         <translation>調諧數碼增益 </translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7208"/>
+        <location filename="../widgets/mainwindow.cpp" line="7209"/>
         <source>Transmit digital gain </source>
         <translation>傳輸數碼增益 </translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7227"/>
+        <location filename="../widgets/mainwindow.cpp" line="7228"/>
         <source>Prefixes</source>
         <translation>前綴</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7596"/>
+        <location filename="../widgets/mainwindow.cpp" line="7597"/>
         <source>Network Error</source>
         <translation>網路錯誤</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7597"/>
+        <location filename="../widgets/mainwindow.cpp" line="7598"/>
         <source>Error: %1
 UDP server %2:%3</source>
         <translation>錯誤: %1
 UDP 服務器 %2:%3</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7745"/>
+        <location filename="../widgets/mainwindow.cpp" line="7746"/>
         <source>File Error</source>
         <translation>檔案錯誤</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7979"/>
+        <location filename="../widgets/mainwindow.cpp" line="7980"/>
         <source>Phase Training Disabled</source>
         <translation>關閉階段訓練</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7982"/>
+        <location filename="../widgets/mainwindow.cpp" line="7983"/>
         <source>Phase Training Enabled</source>
         <translation>開啟階段訓練</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="8116"/>
+        <location filename="../widgets/mainwindow.cpp" line="8117"/>
         <source>WD:%1m</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="8178"/>
-        <location filename="../widgets/mainwindow.cpp" line="8858"/>
+        <location filename="../widgets/mainwindow.cpp" line="8179"/>
+        <location filename="../widgets/mainwindow.cpp" line="8859"/>
         <source>Log File Error</source>
         <translation>日誌檔案錯誤</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="8221"/>
+        <location filename="../widgets/mainwindow.cpp" line="8222"/>
         <source>Are you sure you want to clear the QSO queues?</source>
         <translation>是否要清除通聯佇列?</translation>
     </message>
@@ -4132,29 +4131,29 @@ UDP 服務器 %2:%3</translation>
 <context>
     <name>OmniRigTransceiver</name>
     <message>
-        <location filename="../OmniRigTransceiver.cpp" line="54"/>
+        <location filename="../Transceiver/OmniRigTransceiver.cpp" line="53"/>
         <source>OmniRig: unrecognized mode</source>
         <translation>OmniRig: 無法識別的模式</translation>
     </message>
     <message>
-        <location filename="../OmniRigTransceiver.cpp" line="133"/>
+        <location filename="../Transceiver/OmniRigTransceiver.cpp" line="137"/>
         <source>Failed to start OmniRig COM server</source>
         <translation>無法啟動 OmniRig COM 伺服器</translation>
     </message>
     <message>
-        <location filename="../OmniRigTransceiver.cpp" line="240"/>
-        <location filename="../OmniRigTransceiver.cpp" line="701"/>
+        <location filename="../Transceiver/OmniRigTransceiver.cpp" line="252"/>
+        <location filename="../Transceiver/OmniRigTransceiver.cpp" line="725"/>
         <source>OmniRig: don&apos;t know how to set rig frequency</source>
         <translation>OmniRig:不知道如何設置無線電設備頻率</translation>
     </message>
     <message>
-        <location filename="../OmniRigTransceiver.cpp" line="245"/>
-        <location filename="../OmniRigTransceiver.cpp" line="273"/>
+        <location filename="../Transceiver/OmniRigTransceiver.cpp" line="257"/>
+        <location filename="../Transceiver/OmniRigTransceiver.cpp" line="285"/>
         <source>OmniRig: timeout waiting for update from rig</source>
         <translation>OmniRig:等待從無線電設備更新的超時</translation>
     </message>
     <message>
-        <location filename="../OmniRigTransceiver.cpp" line="324"/>
+        <location filename="../Transceiver/OmniRigTransceiver.cpp" line="342"/>
         <source>OmniRig COM/OLE error: %1 at %2: %3 (%4)</source>
         <translation>OmniRig COM/OLE 錯誤: %1 at %2: %3 (%4)</translation>
     </message>
@@ -4162,7 +4161,7 @@ UDP 服務器 %2:%3</translation>
 <context>
     <name>PollingTransceiver</name>
     <message>
-        <location filename="../PollingTransceiver.cpp" line="179"/>
+        <location filename="../Transceiver/PollingTransceiver.cpp" line="179"/>
         <source>Unexpected rig error</source>
         <translation>無線電設備意外出錯誤</translation>
     </message>
@@ -4170,7 +4169,7 @@ UDP 服務器 %2:%3</translation>
 <context>
     <name>QObject</name>
     <message>
-        <location filename="../main.cpp" line="302"/>
+        <location filename="../main.cpp" line="340"/>
         <source>Invalid rig name - \ &amp; / not allowed</source>
         <translation>無效的無線電設備名稱 - \ &amp; / 不允許</translation>
     </message>
@@ -4321,67 +4320,67 @@ Error(%2): %3</source>
 <context>
     <name>SoundInput</name>
     <message>
-        <location filename="../soundin.cpp" line="21"/>
+        <location filename="../Audio/soundin.cpp" line="21"/>
         <source>An error opening the audio input device has occurred.</source>
         <translation>開啟音頻輸入設備時出錯誤.</translation>
     </message>
     <message>
-        <location filename="../soundin.cpp" line="25"/>
+        <location filename="../Audio/soundin.cpp" line="25"/>
         <source>An error occurred during read from the audio input device.</source>
         <translation>從音頻輸入設備讀取時出錯誤.</translation>
     </message>
     <message>
-        <location filename="../soundin.cpp" line="29"/>
+        <location filename="../Audio/soundin.cpp" line="29"/>
         <source>Audio data not being fed to the audio input device fast enough.</source>
         <translation>音頻數據沒有足夠提供饋送到音頻輸入設備.</translation>
     </message>
     <message>
-        <location filename="../soundin.cpp" line="33"/>
+        <location filename="../Audio/soundin.cpp" line="33"/>
         <source>Non-recoverable error, audio input device not usable at this time.</source>
         <translation>不可恢復的出錯誤, 音頻輸入設備此時不可用.</translation>
     </message>
     <message>
-        <location filename="../soundin.cpp" line="62"/>
+        <location filename="../Audio/soundin.cpp" line="62"/>
         <source>Requested input audio format is not valid.</source>
         <translation>請求的輸入音頻格式無效.</translation>
     </message>
     <message>
-        <location filename="../soundin.cpp" line="69"/>
+        <location filename="../Audio/soundin.cpp" line="69"/>
         <source>Requested input audio format is not supported on device.</source>
         <translation>設備不支持請求輸入的音頻格式.</translation>
     </message>
     <message>
-        <location filename="../soundin.cpp" line="90"/>
+        <location filename="../Audio/soundin.cpp" line="90"/>
         <source>Failed to initialize audio sink device</source>
         <translation>無法初始化音頻接收器設備</translation>
     </message>
     <message>
-        <location filename="../soundin.cpp" line="125"/>
+        <location filename="../Audio/soundin.cpp" line="125"/>
         <source>Idle</source>
         <translation>閑置</translation>
     </message>
     <message>
-        <location filename="../soundin.cpp" line="129"/>
+        <location filename="../Audio/soundin.cpp" line="129"/>
         <source>Receiving</source>
         <translation>接收</translation>
     </message>
     <message>
-        <location filename="../soundin.cpp" line="133"/>
+        <location filename="../Audio/soundin.cpp" line="133"/>
         <source>Suspended</source>
         <translation>暫停</translation>
     </message>
     <message>
-        <location filename="../soundin.cpp" line="138"/>
+        <location filename="../Audio/soundin.cpp" line="138"/>
         <source>Interrupted</source>
         <translation>中斷</translation>
     </message>
     <message>
-        <location filename="../soundin.cpp" line="145"/>
+        <location filename="../Audio/soundin.cpp" line="145"/>
         <source>Error</source>
         <translation>出錯誤</translation>
     </message>
     <message>
-        <location filename="../soundin.cpp" line="149"/>
+        <location filename="../Audio/soundin.cpp" line="149"/>
         <source>Stopped</source>
         <translation>停止</translation>
     </message>
@@ -4389,62 +4388,62 @@ Error(%2): %3</source>
 <context>
     <name>SoundOutput</name>
     <message>
-        <location filename="../soundout.cpp" line="30"/>
+        <location filename="../Audio/soundout.cpp" line="30"/>
         <source>An error opening the audio output device has occurred.</source>
         <translation>開啟音頻輸出設備時出錯誤.</translation>
     </message>
     <message>
-        <location filename="../soundout.cpp" line="34"/>
+        <location filename="../Audio/soundout.cpp" line="34"/>
         <source>An error occurred during write to the audio output device.</source>
         <translation>寫入音頻輸出設備期間出錯誤.</translation>
     </message>
     <message>
-        <location filename="../soundout.cpp" line="38"/>
+        <location filename="../Audio/soundout.cpp" line="38"/>
         <source>Audio data not being fed to the audio output device fast enough.</source>
         <translation>音頻數據未以足夠快的速度饋送到音頻輸出設備.</translation>
     </message>
     <message>
-        <location filename="../soundout.cpp" line="42"/>
+        <location filename="../Audio/soundout.cpp" line="42"/>
         <source>Non-recoverable error, audio output device not usable at this time.</source>
         <translation>不可恢復出錯誤, 音頻輸出設備此時不可用.</translation>
     </message>
     <message>
-        <location filename="../soundout.cpp" line="69"/>
+        <location filename="../Audio/soundout.cpp" line="69"/>
         <source>Requested output audio format is not valid.</source>
         <translation>請求的輸出音頻格式無效.</translation>
     </message>
     <message>
-        <location filename="../soundout.cpp" line="73"/>
+        <location filename="../Audio/soundout.cpp" line="73"/>
         <source>Requested output audio format is not supported on device.</source>
         <translation>設備不支持請求輸出的音頻格式.</translation>
     </message>
     <message>
-        <location filename="../soundout.cpp" line="179"/>
+        <location filename="../Audio/soundout.cpp" line="179"/>
         <source>Idle</source>
         <translation>閑置</translation>
     </message>
     <message>
-        <location filename="../soundout.cpp" line="183"/>
+        <location filename="../Audio/soundout.cpp" line="183"/>
         <source>Sending</source>
         <translation>發送</translation>
     </message>
     <message>
-        <location filename="../soundout.cpp" line="187"/>
+        <location filename="../Audio/soundout.cpp" line="187"/>
         <source>Suspended</source>
         <translation>暫停</translation>
     </message>
     <message>
-        <location filename="../soundout.cpp" line="192"/>
+        <location filename="../Audio/soundout.cpp" line="192"/>
         <source>Interrupted</source>
         <translation>中斷</translation>
     </message>
     <message>
-        <location filename="../soundout.cpp" line="199"/>
+        <location filename="../Audio/soundout.cpp" line="199"/>
         <source>Error</source>
         <translation>出錯誤</translation>
     </message>
     <message>
-        <location filename="../soundout.cpp" line="203"/>
+        <location filename="../Audio/soundout.cpp" line="203"/>
         <source>Stopped</source>
         <translation>停止</translation>
     </message>
@@ -4508,7 +4507,7 @@ Error(%2): %3</source>
 <context>
     <name>TransceiverBase</name>
     <message>
-        <location filename="../TransceiverBase.cpp" line="14"/>
+        <location filename="../Transceiver/TransceiverBase.cpp" line="14"/>
         <source>Unexpected rig error</source>
         <translation>無線電設備意外出錯誤</translation>
     </message>
@@ -5201,9 +5200,8 @@ a few, particularly some Kenwood rigs, require it).</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="932"/>
         <source>How this program activates the PTT on your radio</source>
-        <translation>此程序如何激活無線電設備上的 PTT</translation>
+        <translation type="vanished">此程序如何激活無線電設備上的 PTT</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="935"/>
@@ -5221,9 +5219,8 @@ a few, particularly some Kenwood rigs, require it).</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="954"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Use the RS-232 DTR control line to toggle your radio&apos;s PTT, requires hardware to inteface the line.&lt;/p&gt;&lt;p&gt;Some commercial interface units also use this method.&lt;/p&gt;&lt;p&gt;The DTR control line of the CAT serial port may be used for this or a DTR control line on a different serial port may be used.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;使用 RS-232 DTR 控制線路切換收音機的 PTT,需要硬體來整數線路.&lt;/p&gt;&lt;p&gt;某些商業介面單元也使用此方法.&lt;/p&gt;&lt;p&gt;CAT 串列埠的 DTR 控制線路可用於此或可能用於其他串行埠上的 DTR 控制線路.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation type="vanished">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;使用 RS-232 DTR 控制線路切換收音機的 PTT,需要硬體來整數線路.&lt;/p&gt;&lt;p&gt;某些商業介面單元也使用此方法.&lt;/p&gt;&lt;p&gt;CAT 串列埠的 DTR 控制線路可用於此或可能用於其他串行埠上的 DTR 控制線路.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="957"/>
@@ -5245,9 +5242,8 @@ PTT的其它硬件接口.</translation>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="985"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Use the RS-232 RTS control line to toggle your radio&apos;s PTT, requires hardware to inteface the line.&lt;/p&gt;&lt;p&gt;Some commercial interface units also use this method.&lt;/p&gt;&lt;p&gt;The RTS control line of the CAT serial port may be used for this or a RTS control line on a different serial port may be used. Note that this option is not available on the CAT serial port when hardware flow control is used.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;使用 RS-232 RTS 控制線切換無線電設備的 PTT, 需要硬件將線路整數.&lt;/p&gt;&lt;p&gt;一些商業接口單元也使用此方法.&lt;/p&gt;&lt;p&gt;CAT 串行端口的 RTS 控制線可用於此, 也可以使用其他串行端口上的 RTS 控制線.請注意, 使用硬件流控制時, 此選項在 CAT 串行端口上不可用.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation type="vanished">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;使用 RS-232 RTS 控制線切換無線電設備的 PTT, 需要硬件將線路整數.&lt;/p&gt;&lt;p&gt;一些商業接口單元也使用此方法.&lt;/p&gt;&lt;p&gt;CAT 串行端口的 RTS 控制線可用於此, 也可以使用其他串行端口上的 RTS 控制線.請注意, 使用硬件流控制時, 此選項在 CAT 串行端口上不可用.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="988"/>
@@ -5295,9 +5291,8 @@ or bandwidth is selected).</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1083"/>
         <source>If this is availabe then it is usually the correct mode for this program.</source>
-        <translation>如果這是可用的那麼它通常是這個程序的正確模式.</translation>
+        <translation type="vanished">如果這是可用的那麼它通常是這個程序的正確模式.</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1086"/>
@@ -5858,7 +5853,7 @@ Right click for insert and delete options.</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;使用複選框啟用或禁用專案, 並右鍵單擊專案以更改或取消設置前景顏色, 背景顏色, 或將專案重置為預設值. 拖放專案以更改其優先順序, 清單中較高的優先順序較高.&lt;/p&gt;&lt;p&gt; 請注意,每個前景或背景顏色都可以設置或取消設置, 未設置意味著未為該專案分配該類型, 低優先順序項可能適用.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2253"/>
+        <location filename="../Configuration.ui" line="2231"/>
         <source>Rescan ADIF Log</source>
         <translation>重新掃描 ADIF 紀錄</translation>
     </message>
@@ -6204,115 +6199,115 @@ Right click for insert and delete options.</source>
 <context>
     <name>main</name>
     <message>
-        <location filename="../main.cpp" line="81"/>
-        <location filename="../main.cpp" line="518"/>
+        <location filename="../main.cpp" line="83"/>
+        <location filename="../main.cpp" line="563"/>
         <source>Fatal error</source>
         <translation>嚴重出錯誤</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="86"/>
-        <location filename="../main.cpp" line="523"/>
+        <location filename="../main.cpp" line="88"/>
+        <location filename="../main.cpp" line="568"/>
         <source>Unexpected fatal error</source>
         <translation>意外的嚴重出錯誤</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="164"/>
+        <location filename="../main.cpp" line="194"/>
         <source>Where &lt;rig-name&gt; is for multi-instance support.</source>
         <translation>使用 &lt;rig-name&gt; 用於多實例支援無線電設備.</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="165"/>
+        <location filename="../main.cpp" line="195"/>
         <source>rig-name</source>
         <translation>無線電設備名稱</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="170"/>
+        <location filename="../main.cpp" line="200"/>
         <source>Where &lt;configuration&gt; is an existing one.</source>
         <translation>哪裡 &lt;configuration&gt; 是現有的.</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="171"/>
+        <location filename="../main.cpp" line="201"/>
         <source>configuration</source>
         <translation>設定</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="176"/>
+        <location filename="../main.cpp" line="206"/>
         <source>Where &lt;language&gt; is &lt;lang-code&gt;[-&lt;country-code&gt;].</source>
         <translation>哪裡 &lt;language&gt; 是 &lt;lang-code&gt;[-&lt;country-code&gt;].</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="177"/>
+        <location filename="../main.cpp" line="207"/>
         <source>language</source>
         <translation>語言</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="181"/>
+        <location filename="../main.cpp" line="211"/>
         <source>Writable files in test location.  Use with caution, for testing only.</source>
         <translation>測試位置中的可寫檔案. 小心使用, 僅用於測試.</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="186"/>
+        <location filename="../main.cpp" line="216"/>
         <source>Command line error</source>
         <translation>命令列錯誤</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="193"/>
+        <location filename="../main.cpp" line="223"/>
         <source>Command line help</source>
         <translation>命令列説明</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="198"/>
+        <location filename="../main.cpp" line="228"/>
         <source>Application version</source>
         <translation>應用程式版本</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="333"/>
+        <location filename="../main.cpp" line="371"/>
         <source>Another instance may be running</source>
         <translation>另一個應用程式可能正在執行</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="334"/>
+        <location filename="../main.cpp" line="372"/>
         <source>try to remove stale lock file?</source>
         <translation>嘗試刪除陳舊的鎖檔?</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="369"/>
+        <location filename="../main.cpp" line="414"/>
         <source>Failed to create a temporary directory</source>
         <translation>無法建立暫存目錄</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="370"/>
-        <location filename="../main.cpp" line="378"/>
+        <location filename="../main.cpp" line="415"/>
+        <location filename="../main.cpp" line="423"/>
         <source>Path: &quot;%1&quot;</source>
         <translation>目錄: &quot;%1&quot;</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="376"/>
+        <location filename="../main.cpp" line="421"/>
         <source>Failed to create a usable temporary directory</source>
         <translation>無法建立可用的暫存目錄</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="377"/>
+        <location filename="../main.cpp" line="422"/>
         <source>Another application may be locking the directory</source>
         <translation>另一個應用程式可能正在鎖定目錄</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="410"/>
+        <location filename="../main.cpp" line="455"/>
         <source>Failed to create data directory</source>
         <translation>無法建立資料目錄</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="411"/>
+        <location filename="../main.cpp" line="456"/>
         <source>path: &quot;%1&quot;</source>
         <translation>目錄: &quot;%1&quot;</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="466"/>
+        <location filename="../main.cpp" line="511"/>
         <source>Shared memory error</source>
         <translation>共用記憶體錯誤</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="467"/>
+        <location filename="../main.cpp" line="512"/>
         <source>Unable to create shared memory segment</source>
         <translation>無法建立共用記憶體段</translation>
     </message>
