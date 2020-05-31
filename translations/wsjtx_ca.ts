@@ -761,92 +761,92 @@ Format:
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="104"/>
         <source>CQ in message</source>
-        <translation type="unfinished">CQ al missatge</translation>
+        <translation>CQ al missatge</translation>
     </message>
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="105"/>
         <source>My Call in message</source>
-        <translation type="unfinished">El meu Indicatiu en el missatge</translation>
+        <translation>El meu Indicatiu en el missatge</translation>
     </message>
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="106"/>
         <source>Transmitted message</source>
-        <translation type="unfinished">Missatge transmès</translation>
+        <translation>Missatge transmès</translation>
     </message>
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="107"/>
         <source>New DXCC</source>
-        <translation type="unfinished">Nou DXCC</translation>
+        <translation>Nou DXCC</translation>
     </message>
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="108"/>
         <source>New DXCC on Band</source>
-        <translation type="unfinished">Nou DXCC en banda</translation>
+        <translation>Nou DXCC en banda</translation>
     </message>
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="109"/>
         <source>New Grid</source>
-        <translation type="unfinished">Nou Locator</translation>
+        <translation>Nou Locator</translation>
     </message>
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="110"/>
         <source>New Grid on Band</source>
-        <translation type="unfinished">Nou Locator en banda</translation>
+        <translation>Nou Locator en banda</translation>
     </message>
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="111"/>
         <source>New Call</source>
-        <translation type="unfinished">No Indicatiu</translation>
+        <translation>No Indicatiu</translation>
     </message>
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="112"/>
         <source>New Call on Band</source>
-        <translation type="unfinished">Nou Indicatiu en banda</translation>
+        <translation>Nou Indicatiu en banda</translation>
     </message>
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="113"/>
         <source>New Continent</source>
-        <translation type="unfinished">Nou Continent</translation>
+        <translation>Nou Continent</translation>
     </message>
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="114"/>
         <source>New Continent on Band</source>
-        <translation type="unfinished">Nou Continent en banda</translation>
+        <translation>Nou Continent en banda</translation>
     </message>
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="115"/>
         <source>New CQ Zone</source>
-        <translation type="unfinished">Nova Zona CQ</translation>
+        <translation>Nova Zona CQ</translation>
     </message>
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="116"/>
         <source>New CQ Zone on Band</source>
-        <translation type="unfinished">Nova Zona CQ en banda</translation>
+        <translation>Nova Zona CQ en banda</translation>
     </message>
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="117"/>
         <source>New ITU Zone</source>
-        <translation type="unfinished">Nova Zona ITU</translation>
+        <translation>Nova Zona ITU</translation>
     </message>
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="118"/>
         <source>New ITU Zone on Band</source>
-        <translation type="unfinished">Nova Zona ITU en banda</translation>
+        <translation>Nova Zona ITU en banda</translation>
     </message>
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="119"/>
         <source>LoTW User</source>
-        <translation type="unfinished"></translation>
+        <translation>Usuari LoTW</translation>
     </message>
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="169"/>
         <source>f/g unset</source>
-        <translation type="unfinished"></translation>
+        <translation>f/g desestablert</translation>
     </message>
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="171"/>
         <source>b/g unset</source>
-        <translation type="unfinished"></translation>
+        <translation>b/g desestablert</translation>
     </message>
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="244"/>
@@ -3563,7 +3563,7 @@ La llista es pot mantenir a la configuració (F2).</translation>
         <location filename="../widgets/mainwindow.cpp" line="4112"/>
         <location filename="../widgets/mainwindow.cpp" line="7630"/>
         <source>Receiving</source>
-        <translation type="unfinished">Rebent</translation>
+        <translation>Rebent</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="437"/>
@@ -3613,7 +3613,7 @@ La llista es pot mantenir a la configuració (F2).</translation>
         <location filename="../widgets/mainwindow.cpp" line="6208"/>
         <location filename="../widgets/mainwindow.cpp" line="6393"/>
         <source>Message</source>
-        <translation type="unfinished"></translation>
+        <translation>Missatge</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="837"/>
@@ -3676,14 +3676,14 @@ La llista es pot mantenir a la configuració (F2).</translation>
         <location filename="../widgets/mainwindow.cpp" line="5937"/>
         <location filename="../widgets/mainwindow.cpp" line="6083"/>
         <source>Single-Period Decodes</source>
-        <translation type="unfinished"></translation>
+        <translation>Descodificacions d&apos;un sol període</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="1779"/>
         <location filename="../widgets/mainwindow.cpp" line="5938"/>
         <location filename="../widgets/mainwindow.cpp" line="6084"/>
         <source>Average Decodes</source>
-        <translation type="unfinished"></translation>
+        <translation>Mitjans descodificats</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="2080"/>
@@ -3828,7 +3828,7 @@ La llista es pot mantenir a la configuració (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="4216"/>
         <source>Last Tx: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Últim TX: %1</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="4617"/>
@@ -3904,17 +3904,17 @@ ja és a CALL3.TXT, vols substituir-lo ?</translation>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="5838"/>
         <source>Stations calling DXpedition %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Estacions que criden a DXpedition %1</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="5873"/>
         <source>Hound</source>
-        <translation type="unfinished">Hound</translation>
+        <translation>Hound</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="6213"/>
         <source>Tx Messages</source>
-        <translation type="unfinished"></translation>
+        <translation>Missatges de TX</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="6464"/>
@@ -3967,7 +3967,7 @@ ja és a CALL3.TXT, vols substituir-lo ?</translation>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="7207"/>
         <source>Tune digital gain </source>
-        <translation type="unfinished">Guany de sintonització digital</translation>
+        <translation>Guany de sintonització digital </translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="7209"/>
@@ -4009,7 +4009,7 @@ UDP server %2:%3</translation>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="8117"/>
         <source>WD:%1m</source>
-        <translation type="unfinished"></translation>
+        <translation>WD:%1m</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="8179"/>

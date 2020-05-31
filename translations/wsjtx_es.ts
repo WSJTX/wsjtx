@@ -19,8 +19,8 @@
     <message numerus="yes">
         <location filename="../widgets/AbstractLogWindow.cpp" line="65"/>
         <source>Are you sure you want to delete the %n selected QSO(s) from the log?</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
+        <translation>
+            <numerusform>¿Estás seguro de que deseas eliminar los %n QSO&apos;s seleccionados en el registro?</numerusform>
             <numerusform></numerusform>
         </translation>
     </message>
@@ -759,92 +759,92 @@ Formato:
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="104"/>
         <source>CQ in message</source>
-        <translation type="unfinished">CQ en el mensaje</translation>
+        <translation>CQ en el mensaje</translation>
     </message>
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="105"/>
         <source>My Call in message</source>
-        <translation type="unfinished">Mi indicativo en el mensaje</translation>
+        <translation>Mi indicativo en el mensaje</translation>
     </message>
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="106"/>
         <source>Transmitted message</source>
-        <translation type="unfinished">Mensaje transmitido</translation>
+        <translation>Mensaje transmitido</translation>
     </message>
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="107"/>
         <source>New DXCC</source>
-        <translation type="unfinished">Nuevo DXCC</translation>
+        <translation>Nuevo DXCC</translation>
     </message>
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="108"/>
         <source>New DXCC on Band</source>
-        <translation type="unfinished">Nuevo DXCC en banda</translation>
+        <translation>Nuevo DXCC en banda</translation>
     </message>
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="109"/>
         <source>New Grid</source>
-        <translation type="unfinished">Nuevo Locator/Grid</translation>
+        <translation>Nuevo Locator/Grid</translation>
     </message>
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="110"/>
         <source>New Grid on Band</source>
-        <translation type="unfinished">Nuevo Locator/Grid en banda</translation>
+        <translation>Nuevo Locator/Grid en banda</translation>
     </message>
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="111"/>
         <source>New Call</source>
-        <translation type="unfinished">Nuevo indicativo</translation>
+        <translation>Nuevo indicativo</translation>
     </message>
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="112"/>
         <source>New Call on Band</source>
-        <translation type="unfinished">Nuevo indicativo en banda</translation>
+        <translation>Nuevo indicativo en banda</translation>
     </message>
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="113"/>
         <source>New Continent</source>
-        <translation type="unfinished">Nuevo Continente</translation>
+        <translation>Nuevo Continente</translation>
     </message>
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="114"/>
         <source>New Continent on Band</source>
-        <translation type="unfinished">Nuevo Continente en banda</translation>
+        <translation>Nuevo Continente en banda</translation>
     </message>
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="115"/>
         <source>New CQ Zone</source>
-        <translation type="unfinished">Nueva zona CQ</translation>
+        <translation>Nueva zona CQ</translation>
     </message>
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="116"/>
         <source>New CQ Zone on Band</source>
-        <translation type="unfinished">Nueva zona CQ en banda</translation>
+        <translation>Nueva zona CQ en banda</translation>
     </message>
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="117"/>
         <source>New ITU Zone</source>
-        <translation type="unfinished">Nueva zona ITU</translation>
+        <translation>Nueva zona ITU</translation>
     </message>
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="118"/>
         <source>New ITU Zone on Band</source>
-        <translation type="unfinished">Nueva zona ITU en banda</translation>
+        <translation>Nueva zona ITU en banda</translation>
     </message>
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="119"/>
         <source>LoTW User</source>
-        <translation type="unfinished"></translation>
+        <translation>Usuario LoTW</translation>
     </message>
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="169"/>
         <source>f/g unset</source>
-        <translation type="unfinished"></translation>
+        <translation>f/g desarmado</translation>
     </message>
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="171"/>
         <source>b/g unset</source>
-        <translation type="unfinished"></translation>
+        <translation>b/g desarmado</translation>
     </message>
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="244"/>
@@ -2396,13 +2396,13 @@ Amarillo cuando esta muy bajo.</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1335"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check this to call CQ on the &amp;quot;Tx CQ&amp;quot; frequency. Rx will be on the current frequency and the CQ message wiill include the current Rx frequency so callers know which frequency to reply on.&lt;/p&gt;&lt;p&gt;Not available to nonstandard callsign holders.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Marca esto para llamar a CQ a la frecuencia&amp;quot;TX CQ&amp;quot;. RX será a la frecuencia actual y el mensaje CQ incluirá la frecuencia de RX actual para que los corresponsales sepan en qué frecuencia responder.&lt;/p&gt;&lt;p&gt;No está disponible para los titulares de indicativo no estándar.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Marca esto para llamar a CQ en la frecuencia&amp;quot;TX CQ&amp;quot;. RX será a la frecuencia actual y el mensaje CQ incluirá la frecuencia de RX actual para que los corresponsales sepan en qué frecuencia responder.&lt;/p&gt;&lt;p&gt;No está disponible para los titulares de indicativo no estándar.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1338"/>
         <source>Check this to call CQ on the &quot;Tx CQ&quot; frequency. Rx will be on the current frequency and the CQ message wiill include the current Rx frequency so callers know which frequency to reply on.
 Not available to nonstandard callsign holders.</source>
-        <translation>Marca esto para llamar a CQ a la frecuencia &quot;TX CQ&quot;. RX será a la frecuencia actual y el mensaje CQ incluirá la frecuencia de RX actual para que los corresponsales sepan en qué frecuencia responder.
+        <translation>Marca esto para llamar a CQ en la frecuencia &quot;TX CQ&quot;. RX será a la frecuencia actual y el mensaje CQ incluirá la frecuencia de RX actual para que los corresponsales sepan en qué frecuencia responder.
 No está disponible para los titulares de indicativo no estándar.</translation>
     </message>
     <message>
@@ -3561,7 +3561,7 @@ de la lista. La lista se puede mantener en Configuración/Ajustes (F2).</transla
         <location filename="../widgets/mainwindow.cpp" line="4112"/>
         <location filename="../widgets/mainwindow.cpp" line="7630"/>
         <source>Receiving</source>
-        <translation type="unfinished">Recibiendo</translation>
+        <translation>Recibiendo</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="437"/>
@@ -3611,7 +3611,7 @@ de la lista. La lista se puede mantener en Configuración/Ajustes (F2).</transla
         <location filename="../widgets/mainwindow.cpp" line="6208"/>
         <location filename="../widgets/mainwindow.cpp" line="6393"/>
         <source>Message</source>
-        <translation type="unfinished"></translation>
+        <translation>Mensaje</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="837"/>
@@ -3674,14 +3674,14 @@ de la lista. La lista se puede mantener en Configuración/Ajustes (F2).</transla
         <location filename="../widgets/mainwindow.cpp" line="5937"/>
         <location filename="../widgets/mainwindow.cpp" line="6083"/>
         <source>Single-Period Decodes</source>
-        <translation type="unfinished"></translation>
+        <translation>Decodificaciones de un solo período</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="1779"/>
         <location filename="../widgets/mainwindow.cpp" line="5938"/>
         <location filename="../widgets/mainwindow.cpp" line="6084"/>
         <source>Average Decodes</source>
-        <translation type="unfinished"></translation>
+        <translation>Promedio de decodificaciones</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="2080"/>
@@ -3827,7 +3827,7 @@ de la lista. La lista se puede mantener en Configuración/Ajustes (F2).</transla
     <message>
         <location filename="../widgets/mainwindow.cpp" line="4216"/>
         <source>Last Tx: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Última TX: %1</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="4617"/>
@@ -3903,17 +3903,17 @@ ya está en CALL3.TXT, ¿deseas reemplazarlo?</translation>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="5838"/>
         <source>Stations calling DXpedition %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Estaciones que llaman a DXpedition %1</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="5873"/>
         <source>Hound</source>
-        <translation type="unfinished">Hound</translation>
+        <translation>Hound</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="6213"/>
         <source>Tx Messages</source>
-        <translation type="unfinished"></translation>
+        <translation>Mensajes de TX</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="6464"/>
@@ -4008,7 +4008,7 @@ Servidor UDP %2:%3</translation>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="8117"/>
         <source>WD:%1m</source>
-        <translation type="unfinished"></translation>
+        <translation>WD:%1m</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="8179"/>
@@ -5213,7 +5213,7 @@ unos pocos, particularmente algunos equipos de Kenwood, lo requieren.</translati
     <message>
         <location filename="../Configuration.ui" line="932"/>
         <source>How this program activates the PTT on your radio?</source>
-        <translation type="unfinished"></translation>
+        <translation>¿Cómo este programa activa el PTT en tú equipo?</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="935"/>
@@ -6228,12 +6228,12 @@ Haz clic derecho para insertar y eliminar opciones.</translation>
     <message>
         <location filename="../main.cpp" line="206"/>
         <source>Where &lt;language&gt; is &lt;lang-code&gt;[-&lt;country-code&gt;].</source>
-        <translation type="unfinished"></translation>
+        <translation>Dónde &lt;language&gt; es &lt;lang-code&gt;[-&lt;country-code&gt;].</translation>
     </message>
     <message>
         <location filename="../main.cpp" line="207"/>
         <source>language</source>
-        <translation type="unfinished"></translation>
+        <translation>Idioma</translation>
     </message>
     <message>
         <location filename="../main.cpp" line="211"/>
