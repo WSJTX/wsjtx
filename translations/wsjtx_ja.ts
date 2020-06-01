@@ -4162,9 +4162,8 @@ UDPサーバー %2:%3</translation>
 <context>
     <name>QObject</name>
     <message>
-        <location filename="../main.cpp" line="340"/>
         <source>Invalid rig name - \ &amp; / not allowed</source>
-        <translation>無効な名前 － \ &amp; / は使えません</translation>
+        <translation type="vanished">無効な名前 － \ &amp; / は使えません</translation>
     </message>
     <message>
         <location filename="../widgets/widegraph.cpp" line="18"/>
@@ -6175,114 +6174,92 @@ Right click for insert and delete options.</source>
     <name>main</name>
     <message>
         <location filename="../main.cpp" line="83"/>
-        <location filename="../main.cpp" line="563"/>
+        <location filename="../main.cpp" line="408"/>
         <source>Fatal error</source>
         <translation>致命的エラー</translation>
     </message>
     <message>
         <location filename="../main.cpp" line="88"/>
-        <location filename="../main.cpp" line="568"/>
+        <location filename="../main.cpp" line="413"/>
         <source>Unexpected fatal error</source>
         <translation>予期せぬ致命的エラー</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="194"/>
         <source>Where &lt;rig-name&gt; is for multi-instance support.</source>
-        <translation>ここで&lt;rig-name&gt;は複数インスタンスのサポート.</translation>
+        <translation type="vanished">ここで&lt;rig-name&gt;は複数インスタンスのサポート.</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="195"/>
-        <source>rig-name</source>
-        <translation></translation>
-    </message>
-    <message>
-        <location filename="../main.cpp" line="200"/>
         <source>Where &lt;configuration&gt; is an existing one.</source>
-        <translation>ここで&lt;configuration&gt;はすでに設定済みのもの.</translation>
+        <translation type="vanished">ここで&lt;configuration&gt;はすでに設定済みのもの.</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="201"/>
-        <source>configuration</source>
-        <translation></translation>
-    </message>
-    <message>
-        <location filename="../main.cpp" line="206"/>
         <source>Where &lt;language&gt; is &lt;lang-code&gt;[-&lt;country-code&gt;].</source>
-        <translation>ここで&lt;language&gt;は&lt;lang-code&gt;[-&lt;country-code&gt;].</translation>
+        <translation type="vanished">ここで&lt;language&gt;は&lt;lang-code&gt;[-&lt;country-code&gt;].</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="207"/>
-        <source>language</source>
-        <translation></translation>
-    </message>
-    <message>
-        <location filename="../main.cpp" line="211"/>
         <source>Writable files in test location.  Use with caution, for testing only.</source>
-        <translation>テスト用書き込み可能ファイル. 注意してテストだけに使うこと.</translation>
+        <translation type="vanished">テスト用書き込み可能ファイル. 注意してテストだけに使うこと.</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="216"/>
         <source>Command line error</source>
-        <translation>コマンドラインエラー</translation>
+        <translation type="vanished">コマンドラインエラー</translation>
+    </message>
+    <message>
+        <source>Command line help</source>
+        <translation type="vanished">コマンドラインヘルプ</translation>
+    </message>
+    <message>
+        <source>Application version</source>
+        <translation type="vanished">アプリのバージョン</translation>
     </message>
     <message>
         <location filename="../main.cpp" line="223"/>
-        <source>Command line help</source>
-        <translation>コマンドラインヘルプ</translation>
-    </message>
-    <message>
-        <location filename="../main.cpp" line="228"/>
-        <source>Application version</source>
-        <translation>アプリのバージョン</translation>
-    </message>
-    <message>
-        <location filename="../main.cpp" line="371"/>
         <source>Another instance may be running</source>
         <translation>おそらく他のインスタンスが動作中</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="372"/>
+        <location filename="../main.cpp" line="224"/>
         <source>try to remove stale lock file?</source>
         <translation>古いロックファイルの削除を試みますか?</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="414"/>
+        <location filename="../main.cpp" line="259"/>
         <source>Failed to create a temporary directory</source>
         <translation>一時的作業ディレクトリーが作成できません</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="415"/>
-        <location filename="../main.cpp" line="423"/>
+        <location filename="../main.cpp" line="260"/>
+        <location filename="../main.cpp" line="268"/>
         <source>Path: &quot;%1&quot;</source>
         <translation>パス:&quot;%1&quot;</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="421"/>
+        <location filename="../main.cpp" line="266"/>
         <source>Failed to create a usable temporary directory</source>
         <translation>一時的作業ディレクトリが作成できません</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="422"/>
+        <location filename="../main.cpp" line="267"/>
         <source>Another application may be locking the directory</source>
         <translation>おそらく他のアプリがディレクトリをロックしています</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="455"/>
+        <location filename="../main.cpp" line="300"/>
         <source>Failed to create data directory</source>
         <translation>データ用ディレクトリの作成ができません</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="456"/>
+        <location filename="../main.cpp" line="301"/>
         <source>path: &quot;%1&quot;</source>
         <translation>パス: &quot;%1&quot;</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="511"/>
+        <location filename="../main.cpp" line="356"/>
         <source>Shared memory error</source>
         <translation>共有メモリエラー</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="512"/>
+        <location filename="../main.cpp" line="357"/>
         <source>Unable to create shared memory segment</source>
         <translation>共有メモリセグメントが作成できません</translation>
     </message>

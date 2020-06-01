@@ -4175,9 +4175,8 @@ Servidor UDP %2:%3</translation>
 <context>
     <name>QObject</name>
     <message>
-        <location filename="../main.cpp" line="340"/>
         <source>Invalid rig name - \ &amp; / not allowed</source>
-        <translation>Nombre del equipo inválido - \ &amp; / No permitido</translation>
+        <translation type="vanished">Nombre del equipo inválido - \ &amp; / No permitido</translation>
     </message>
     <message>
         <location filename="../widgets/widegraph.cpp" line="18"/>
@@ -6195,114 +6194,104 @@ Haz clic derecho para insertar y eliminar opciones.</translation>
     <name>main</name>
     <message>
         <location filename="../main.cpp" line="83"/>
-        <location filename="../main.cpp" line="563"/>
+        <location filename="../main.cpp" line="408"/>
         <source>Fatal error</source>
         <translation>Error fatal</translation>
     </message>
     <message>
         <location filename="../main.cpp" line="88"/>
-        <location filename="../main.cpp" line="568"/>
+        <location filename="../main.cpp" line="413"/>
         <source>Unexpected fatal error</source>
         <translation>Error fatal inesperado</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="194"/>
         <source>Where &lt;rig-name&gt; is for multi-instance support.</source>
-        <translation>Dónde &lt;rig-name&gt; es para soporte de múltiples instancias.</translation>
+        <translation type="vanished">Dónde &lt;rig-name&gt; es para soporte de múltiples instancias.</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="195"/>
         <source>rig-name</source>
-        <translation>Nombre del equipo</translation>
+        <translation type="vanished">Nombre del equipo</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="200"/>
         <source>Where &lt;configuration&gt; is an existing one.</source>
-        <translation>Dónde &lt;configuration&gt; es ya existente.</translation>
+        <translation type="vanished">Dónde &lt;configuration&gt; es ya existente.</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="201"/>
         <source>configuration</source>
-        <translation>Configuración/Ajustes</translation>
+        <translation type="vanished">Configuración/Ajustes</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="206"/>
         <source>Where &lt;language&gt; is &lt;lang-code&gt;[-&lt;country-code&gt;].</source>
-        <translation>Dónde &lt;language&gt; es &lt;lang-code&gt;[-&lt;country-code&gt;].</translation>
+        <translation type="vanished">Dónde &lt;language&gt; es &lt;lang-code&gt;[-&lt;country-code&gt;].</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="207"/>
         <source>language</source>
-        <translation>Idioma</translation>
+        <translation type="vanished">Idioma</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="211"/>
         <source>Writable files in test location.  Use with caution, for testing only.</source>
-        <translation>Archivos grabables en la ubicación de prueba. Usa con precaución, solo para pruebas.</translation>
+        <translation type="vanished">Archivos grabables en la ubicación de prueba. Usa con precaución, solo para pruebas.</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="216"/>
         <source>Command line error</source>
-        <translation>Error de línea de comando</translation>
+        <translation type="vanished">Error de línea de comando</translation>
+    </message>
+    <message>
+        <source>Command line help</source>
+        <translation type="vanished">Ayuda de la línea de comandos</translation>
+    </message>
+    <message>
+        <source>Application version</source>
+        <translation type="vanished">Versión de la aplicación</translation>
     </message>
     <message>
         <location filename="../main.cpp" line="223"/>
-        <source>Command line help</source>
-        <translation>Ayuda de la línea de comandos</translation>
-    </message>
-    <message>
-        <location filename="../main.cpp" line="228"/>
-        <source>Application version</source>
-        <translation>Versión de la aplicación</translation>
-    </message>
-    <message>
-        <location filename="../main.cpp" line="371"/>
         <source>Another instance may be running</source>
         <translation>Otra instancia puede estar ejecutándose</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="372"/>
+        <location filename="../main.cpp" line="224"/>
         <source>try to remove stale lock file?</source>
         <translation>¿intentas eliminar el archivo de bloqueo obsoleto?</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="414"/>
+        <location filename="../main.cpp" line="259"/>
         <source>Failed to create a temporary directory</source>
         <translation>Error al crear un directorio temporal</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="415"/>
-        <location filename="../main.cpp" line="423"/>
+        <location filename="../main.cpp" line="260"/>
+        <location filename="../main.cpp" line="268"/>
         <source>Path: &quot;%1&quot;</source>
         <translation>Ruta: &quot;%1&quot;</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="421"/>
+        <location filename="../main.cpp" line="266"/>
         <source>Failed to create a usable temporary directory</source>
         <translation>Error al crear un directorio temporal utilizable</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="422"/>
+        <location filename="../main.cpp" line="267"/>
         <source>Another application may be locking the directory</source>
         <translation>Otra aplicación puede estar bloqueando el directorio</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="455"/>
+        <location filename="../main.cpp" line="300"/>
         <source>Failed to create data directory</source>
         <translation>Error al crear el directorio de datos</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="456"/>
+        <location filename="../main.cpp" line="301"/>
         <source>path: &quot;%1&quot;</source>
         <translation>ruta: &quot;%1&quot;</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="511"/>
+        <location filename="../main.cpp" line="356"/>
         <source>Shared memory error</source>
         <translation>Error de memoria compartida</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="512"/>
+        <location filename="../main.cpp" line="357"/>
         <source>Unable to create shared memory segment</source>
         <translation>No se puede crear un segmento de memoria compartida</translation>
     </message>
