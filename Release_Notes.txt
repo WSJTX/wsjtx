@@ -46,6 +46,18 @@ of course the updated WSJT-X 2.2 User Guide.
    now available for Catalan, Spanish, Japanese, Chinese, and Hong
    Kong Chinese.  Additiional languages will follow, when available.
 
+   Note that UI translation is automatic, based on your system primary
+   language. If you do not want the WSJT-X UI translated to your local
+   language then start WSJT-X with the '--language=en' command line
+   option:
+
+   wsjtx --language=en
+
+   If you wish to contribute by authoring WSJT-X UI translations
+   please join the new discussion group wsjtx-l10n@Groups.io
+   (https://groups.io/g/wsjtx-l10n), where help from other translation
+   authors and coordination with the development team is available.
+
  - Minor enhancements and bug fixes
 
    "Save None" now writes no .wav files to disk, even temporarily.
@@ -57,6 +69,16 @@ of course the updated WSJT-X 2.2 User Guide.
 
    The Status bar now displays the number of decodes found in the
    most recent Rx sequence.
+
+   The "Highlight Callsign" UDP message has been enhanced to allow
+   clearing of old highlighting for a specified callsign. Please note
+   a recommended restriction on the use of this message in the
+   documentation here:
+   https://sourceforge.net/p/wsjt/wsjtx/ci/master/tree/Network/NetworkMessage.hpp#l440
+
+ - Hamlib - this library which we use for direct rig control has had
+   many defect repairs and enhancements, we thank the contributors to
+   that project for their work.
 
 
 		   Release: WSJT-X 2.2.0-rc3
