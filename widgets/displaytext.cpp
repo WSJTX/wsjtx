@@ -608,9 +608,12 @@ void DisplayText::highlight_callsign (QString const& callsign, QColor const& bg,
                 }
             }
         }
-      else if (pos != highlighted_calls_.end ())
+      else
         {
-          highlighted_calls_.erase (pos);
+          if (pos != highlighted_calls_.end ())
+            {
+              highlighted_calls_.erase (pos);
+            }
           QTextCursor cursor {document ()};
           while (!cursor.isNull ())
             {
