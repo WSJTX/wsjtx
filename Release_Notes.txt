@@ -27,7 +27,7 @@ of course the updated WSJT-X 2.2 User Guide.
 
  - New format for "EU VHF Contest" Tx2 and Tx3 messages
 
-   When "EU VHF Contest" is selected, the Tx2 and Tx3 messages (those
+   When "EU VHF Contest" is selected, the Tx2 and Tx3 messages (those  
    conveying signal report, serial number, and 6-character locator)
    now use hashcodes for both callsigns.  This change is NOT backward
    compatible with earlier versions of _WSJT-X_, so all users of EU
@@ -73,8 +73,7 @@ of course the updated WSJT-X 2.2 User Guide.
    The "Highlight Callsign" UDP message has been enhanced to allow
    clearing of old highlighting for a specified callsign. Please note
    a recommended restriction on the use of this message in the
-   documentation here:
-   https://sourceforge.net/p/wsjt/wsjtx/ci/master/tree/Network/NetworkMessage.hpp#l440
+   documentation here: https://tinyurl.com/y85nc3tg
 
  - Hamlib - this library which we use for direct rig control has had
    many defect repairs and enhancements, we thank the contributors to
