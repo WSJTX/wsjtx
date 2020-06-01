@@ -8829,7 +8829,7 @@ void MainWindow::write_all(QString txRx, QString message)
   auto time = QDateTime::currentDateTimeUtc ();
   if( txRx=="Rx" ) {
     double tdec = fmod(double(time.time().second()),m_TRperiod);
-    if( tdec < 0.5*m_TRperiod ) {
+    if( "MSK144" != m_mode && tdec < 0.5*m_TRperiod ) {
       tdec+=m_TRperiod;
     } 
     time = time.addSecs(-tdec);
