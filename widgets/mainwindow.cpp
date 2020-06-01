@@ -3137,6 +3137,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
 
     if(line_read.indexOf("<DecodeFinished>") >= 0) {
       m_bDecoded =  line_read.mid(20).trimmed().toInt() > 0;
+      if(m_nDecodes==0) ndecodes_label.setText("0");
       decodeDone ();
       return;
     } else {
