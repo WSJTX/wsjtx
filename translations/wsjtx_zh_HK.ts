@@ -1321,7 +1321,7 @@ Error: %2 - %3</source>
     <message>
         <location filename="../models/FoxLog.cpp" line="123"/>
         <source>Date &amp; Time(UTC)</source>
-        <translation>日期與時間 (UTC)</translation>
+        <translation>日期與時間(UTC)</translation>
     </message>
     <message>
         <location filename="../models/FoxLog.cpp" line="124"/>
@@ -1421,7 +1421,7 @@ Error: %2 - %3</source>
     <message>
         <location filename="../widgets/FoxLogWindow.cpp" line="85"/>
         <source>Are you sure you want to erase file FoxQSO.txt and start a new Fox log?</source>
-        <translation>是否確實要擦除 FoxQSO.txt檔 並啟動新的Fox日誌?</translation>
+        <translation>是否確實要擦除 FoxQSO.txt 檔案並啟動新的 狐狸日誌?</translation>
     </message>
 </context>
 <context>
@@ -2568,14 +2568,14 @@ When not checked you can view the calibration results.</source>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1639"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Send this message in next Tx interval&lt;/p&gt;&lt;p&gt;Double click to toggle the use of the Tx1 message to start a QSO with a station (not allowed for type 1 compound call holders)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;在下一個發射間隔中傳送此訊息&lt;/p&gt;&lt;p&gt;按兩下以切換使用 Tx1 訊息以啟動電臺的通聯 (不允許 1 型複合呼叫持有者)&lt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;在下一個發射間隔中傳送此訊息&lt;/p&gt;&lt;p&gt;按兩下以切換使用 發射 1 訊息以啟動電臺的通聯 (不允許 1 型複合呼叫持有者)&lt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1642"/>
         <source>Send this message in next Tx interval
 Double click to toggle the use of the Tx1 message to start a QSO with a station (not allowed for type 1 compound call holders)</source>
         <translation>在下一個發射間隔中傳送此訊息
-按兩下以切換使用 Tx1 訊息以啟動電臺的通聯 (不允許 1 型複合呼叫持有者)</translation>
+按兩下以切換使用 發射 1 訊息以啟動電臺的通聯 (不允許 1 型複合呼叫持有者)</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1652"/>
@@ -2593,7 +2593,7 @@ Double click to toggle the use of the Tx1 message to start a QSO with a station 
     <message>
         <location filename="../widgets/mainwindow.ui" line="1665"/>
         <source>Tx &amp;2</source>
-        <translation>發射&amp;2</translation>
+        <translation>發射 &amp;2</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1668"/>
@@ -2603,19 +2603,19 @@ Double click to toggle the use of the Tx1 message to start a QSO with a station 
     <message>
         <location filename="../widgets/mainwindow.ui" line="1678"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to this Tx message NOW&lt;/p&gt;&lt;p&gt;Double click to toggle the use of the Tx1 message to start a QSO with a station (not allowed for type 1 compound call holders)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;立即切換到此發射信息&lt;/p&gt;&lt;p&gt;按兩下以切換使用 Tx1 訊息以啟動電臺的通聯 (不允許 1 型複合呼叫持有者)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;立即切換到此發射信息&lt;/p&gt;&lt;p&gt;按兩下以切換使用 發射 1 訊息以啟動電臺的通聯 (不允許 1 型複合呼叫持有者)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1681"/>
         <source>Switch to this Tx message NOW
 Double click to toggle the use of the Tx1 message to start a QSO with a station (not allowed for type 1 compound call holders)</source>
         <translation>立即切換到此發射信息
-按兩下以切換使用 Tx1 訊息以啟動電臺的通聯 (不允許 1 型複合呼叫持有者)</translation>
+按兩下以切換使用 發射 1 訊息以啟動電臺的通聯 (不允許 1 型複合呼叫持有者)</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1691"/>
         <source>Tx &amp;1</source>
-        <translation>發射&amp;1</translation>
+        <translation>發射 &amp;1</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1694"/>
@@ -2652,7 +2652,7 @@ Double-click to reset to the standard 73 message</source>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1765"/>
         <source>Tx &amp;3</source>
-        <translation>發射&amp;3</translation>
+        <translation>發射 &amp;3</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1768"/>
@@ -2662,7 +2662,7 @@ Double-click to reset to the standard 73 message</source>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1775"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Send this message in next Tx interval&lt;/p&gt;&lt;p&gt;Double-click to toggle between RRR and RR73 messages in Tx4 (not allowed for type 2 compound call holders)&lt;/p&gt;&lt;p&gt;RR73 messages should only be used when you are reasonably confident that no message repetitions will be required&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;在下一個發射間隔內傳送此信息&lt;/p&gt;&lt;p&gt;按兩下可在 Tx4 中的 RRR 和 RR73 信息之間切換 (不允許類型 2 複合呼叫持有者)&lt;/p&gt;&lt;p&gt;RR73 信息僅在您有理由相信不需要重複信息時才應使用&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;在下一個發射間隔內傳送此信息&lt;/p&gt;&lt;p&gt;按兩下可在 發射4 中的 RRR 和 RR73 信息之間切換 (不允許類型 2 複合呼叫持有者)&lt;/p&gt;&lt;p&gt;RR73 信息僅在您有理由相信不需要重複信息時才應使用&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1778"/>
@@ -2670,7 +2670,7 @@ Double-click to reset to the standard 73 message</source>
 Double-click to toggle between RRR and RR73 messages in Tx4 (not allowed for type 2 compound call holders)
 RR73 messages should only be used when you are reasonably confident that no message repetitions will be required</source>
         <translation>在下一個發射間隔內傳送此信息
-按兩下可在 Tx4 中的 RRR 和 RR73 信息之間切換 (不允許類型 2 複合呼叫持有者)
+按兩下可在 發射4 中的 RRR 和 RR73 信息之間切換 (不允許類型 2 複合呼叫持有者)
 RR73 信息僅在您有理由相信不需要重複信息時才應使用</translation>
     </message>
     <message>
@@ -2681,7 +2681,7 @@ RR73 信息僅在您有理由相信不需要重複信息時才應使用</transla
     <message>
         <location filename="../widgets/mainwindow.ui" line="1796"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to this Tx message NOW&lt;/p&gt;&lt;p&gt;Double-click to toggle between RRR and RR73 messages in Tx4 (not allowed for type2 compound call holders)&lt;/p&gt;&lt;p&gt;RR73 messages should only be used when you are reasonably confident that no message repetitions will be required&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;立即切換到此發射信息&lt;/p&gt;&lt;p&gt;按兩下可在 Tx4 中的 RRR 和 RR73 信息之間切換 (不允許類型 2 複合呼叫持有者)&lt;/p&gt;&lt;p&gt;RR73 信息僅在您有理由相信不需要重複信息時才應使用&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;立即切換到此發射信息&lt;/p&gt;&lt;p&gt;按兩下可在 發射 4 中的 RRR 和 RR73 信息之間切換 (不允許類型 2 複合呼叫持有者)&lt;/p&gt;&lt;p&gt;RR73 信息僅在您有理由相信不需要重複信息時才應使用&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1799"/>
@@ -2689,13 +2689,13 @@ RR73 信息僅在您有理由相信不需要重複信息時才應使用</transla
 Double-click to toggle between RRR and RR73 messages in Tx4 (not allowed for type2 compound call holders)
 RR73 messages should only be used when you are reasonably confident that no message repetitions will be required</source>
         <translation>立即切換到此發射信息
-按兩下可在 Tx4 中的 RRR 和 RR73 信息之間切換 (不允許類型 2 複合呼叫持有者)
+按兩下可在 發射 4 中的 RRR 和 RR73 信息之間切換 (不允許類型 2 複合呼叫持有者)
 RR73 信息僅在您有理由相信不需要重複信息時才應使用</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1807"/>
         <source>Tx &amp;4</source>
-        <translation>發射&amp;4</translation>
+        <translation>發射 &amp;4</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1810"/>
@@ -2717,7 +2717,7 @@ Double-click to reset to the standard 73 message</source>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1827"/>
         <source>Tx &amp;5</source>
-        <translation>發射&amp;5</translation>
+        <translation>發射 &amp;5</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1830"/>
@@ -2742,7 +2742,7 @@ Double-click to reset to the standard 73 message</source>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1869"/>
         <source>Tx &amp;6</source>
-        <translation>發射&amp;6</translation>
+        <translation>發射 &amp;6</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1872"/>
@@ -2993,7 +2993,7 @@ list. The list can be maintained in Settings (F2).</source>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2426"/>
         <source>S/N (dB)</source>
-        <translation></translation>
+        <translation>信噪比(分貝)</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2431"/>
@@ -3178,7 +3178,7 @@ list. The list can be maintained in Settings (F2).</source>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2968"/>
         <source>None</source>
-        <translation></translation>
+        <translation>不儲存</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2976"/>
@@ -3939,7 +3939,7 @@ is already in CALL3.TXT, do you wish to replace it?</source>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="6478"/>
         <source>Doing this will remove all QSO records for the current contest. They will be kept in the ADIF log file but will not be available for export in your Cabrillo log.</source>
-        <translation>執行此動作將移除目前競賽的所有通聯記錄. 它們將保留在 ADIF 日誌檔中, 但無法匯出到您的卡布里略日誌中.</translation>
+        <translation>執行此動作將移除目前競賽的所有通聯記錄. 它們將保留在 ADIF 日誌檔案中, 但無法匯出到您的卡布里略日誌中.</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="6491"/>
@@ -4799,22 +4799,22 @@ Error(%2): %3</source>
     <message>
         <location filename="../Configuration.ui" line="134"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Type 2 compound callsigns are those with prefixes or suffixes not included in the allowed shortlist (See Help-&amp;gt;Add-on prefixes and suffixes).&lt;/p&gt;&lt;p&gt;This option determines which generated messages should contain your full type 2 compound call sign rather than your base callsign. It only applies if you have a type 2 compound callsign.&lt;/p&gt;&lt;p&gt;This option controls the way the messages that are used to answer CQ calls are generated. Generated messages 6 (CQ) and 5 (73) will always contain your full callsign. The JT65 and JT9 protocols allow for some standard messages with your full call at the expense of another piece of information such as the DX call or your locator.&lt;/p&gt;&lt;p&gt;Choosing message 1 omits the DX callsign which may be an issue when replying to CQ calls. Choosing message 3 also omits the DX callsign and many versions of this and other software will not extract the report. Choosing neither means that your full callsign only goes in your message 5 (73) so your QSO partner may log the wrong callsign.&lt;/p&gt;&lt;p&gt;None of these options are perfect, message 3 is usually best but be aware your QSO partner may not log the report you send them.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;複合呼號類型2是那些首碼或後綴不包括在允許的決選名單中 (請參閱説明-&amp; gt; 載入項目前綴和後綴).&lt;p&gt;&lt;p&gt;這個選項確定哪些產生的資訊應包含完整類型2複合呼號, 而不是基本呼號.它僅適用於類型為2的複合呼號.&lt;/p&gt;&lt;p&gt;這個選項控制用於應答 CQ 呼叫的資訊產生方式.產生的資訊 6 (CQ) 和 5 (73) 將始終包含您的完整呼號.jt65 和 jt9 協定允許在您的完整呼叫中使用一些標準資訊, 而犧牲了另一條資訊, 如 dx 呼叫或您的定位.&lt;/p&gt;&lt;p&gt;選擇資訊1省略 DX 呼號, 這在答覆 CQ 呼叫時可能是一個問題.選擇資訊3也會省略 dx 呼號, 此軟體和其他軟體的許多版本都不會提取報告.選擇這兩個都意味著你的完整呼號只會出現在你的資訊 5 (73) 中, 所以你的 qso 夥伴我的日誌是出錯誤的呼號.&lt;/p&gt;&lt;p&gt;這些選項都不是完美的, 資訊 3 是最好的, 但請注意, 您的 qso 合作夥伴可能不會記錄您傳送的報告.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;複合呼號類型2是那些前綴或後綴不包括在允許的決選名單中 (請參閱説明-&amp; gt; 載入項目前綴和後綴).&lt;p&gt;&lt;p&gt;這個選項確定哪些產生的資訊應包含完整類型2複合呼號, 而不是基本呼號.它僅適用於類型為2的複合呼號.&lt;/p&gt;&lt;p&gt;這個選項控制用於應答 CQ 呼叫的資訊產生方式.產生的資訊 6 (CQ) 和 5 (73) 將始終包含您的完整呼號.jt65 和 jt9 協定允許在您的完整呼叫中使用一些標準資訊, 而犧牲了另一條資訊, 如 DX 呼叫或您的定位.&lt;/p&gt;&lt;p&gt;選擇資訊1省略 DX 呼號, 這在答覆 CQ 呼叫時可能是一個問題.選擇資訊3也會省略 DX 呼號, 此軟體和其他軟體的許多版本都不會提取報告.選擇這兩個都意味著你的完整呼號只會出現在你的資訊 5 (73) 中, 所以你的通聯夥伴我的日誌是出錯誤的呼號.&lt;/p&gt;&lt;p&gt;這些選項都不是完美的, 資訊 3 是最好的, 但請注意, 您的通聯合作夥伴可能不會記錄您傳送的報告.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="141"/>
         <source>Full call in Tx1</source>
-        <translation>完整呼號在 Tx1</translation>
+        <translation>完整呼號在 發射1</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="146"/>
         <source>Full call in Tx3</source>
-        <translation>完整呼號在 Tx3</translation>
+        <translation>完整呼號在 發射3</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="151"/>
         <source>Full call in Tx5 only</source>
-        <translation>完整呼號在 Tx5</translation>
+        <translation>完整呼號在 發射5</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="171"/>
@@ -5164,7 +5164,7 @@ quiet period when decoding is done.</source>
     <message>
         <location filename="../Configuration.ui" line="759"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Flow control protocol used between this computer and your radio&apos;s CAT interface (usually &amp;quot;None&amp;quot; but some require &amp;quot;Hardware&amp;quot;).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;電腦和無線電設備 CAT 接口 (通常是 &quot;None&quot;) 之間使用的流量控制協議 (通常是 &quot;無&quot;,但有些要求硬件).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;電腦和無線電設備 CAT 接口 之間使用的流量控制協議 (通常是 &quot;None&quot;,但有些要求&quot;硬件&quot;).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="762"/>
@@ -5317,7 +5317,7 @@ PTT的其它硬件接口.</translation>
 (not recommended but use if the wrong mode
 or bandwidth is selected).</source>
         <translation>不允許程序設置無線電設備模式
-(不建議使用但如果選擇了出錯誤的模式
+(不建議使用但如果選擇錯誤的模式
 或帶寬).</translation>
     </message>
     <message>
@@ -5636,7 +5636,7 @@ Click, SHIFT+Click and, CRTL+Click to select items</source>
     <message>
         <location filename="../Configuration.ui" line="1707"/>
         <source>The program will pop up a partially completed Log QSO dialog when you send a 73 or free text message.</source>
-        <translation>當您發送73或自定義文字時,程序將彈出一個部分完成的日誌QSO對話框.</translation>
+        <translation>當您發送73或自定義文字時,程序將彈出一個部分完成的日誌通聯對話框.</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1710"/>
@@ -5684,7 +5684,7 @@ and DX Grid fields when a 73 or free text message is sent.</source>
     <message>
         <location filename="../Configuration.ui" line="1767"/>
         <source>Con&amp;vert mode to RTTY</source>
-        <translation>把日誌記錄轉成RTTY模式&amp;v</translation>
+        <translation>把日誌記錄轉成&amp;RTTY模式</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1774"/>
@@ -5699,7 +5699,7 @@ and DX Grid fields when a 73 or free text message is sent.</source>
     <message>
         <location filename="../Configuration.ui" line="1784"/>
         <source>Log automatically (contesting only)</source>
-        <translation>日志自动记录 (仅限竞赛)</translation>
+        <translation>日誌自記錄 (僅限競赛)</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1801"/>
@@ -5892,7 +5892,7 @@ Right click for insert and delete options.</source>
     <message>
         <location filename="../Configuration.ui" line="2231"/>
         <source>Rescan ADIF Log</source>
-        <translation>重新掃描 ADIF 紀錄</translation>
+        <translation>重新掃描 ADIF 日誌</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2240"/>
@@ -5937,7 +5937,7 @@ Right click for insert and delete options.</source>
     <message>
         <location filename="../Configuration.ui" line="2320"/>
         <source>Logbook of the World User Validation</source>
-        <translation>LoTW 使用者驗證紀錄</translation>
+        <translation>LoTW 使用者驗證</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2326"/>
