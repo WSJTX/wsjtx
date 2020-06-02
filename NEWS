@@ -10,7 +10,75 @@
  \$$      \$$  \$$$$$$   \$$$$$$     \$$        \$$   \$$
                                                          
                                                          
-Copyright 2001 - 2019 by Joe Taylor, K1JT.
+Copyright 2001 - 2020 by Joe Taylor, K1JT.
+
+
+		   Release: WSJT-X 2.2
+		       June 2, 2020
+		   -------------------
+
+WSJT-X 2.2 is a program upgrade that provides a number of new features
+and capabilities.  Here is a brief summary; for further details see
+the notes for candidate releases 2.2.0-rc1, -rc2, and -rc3, below, and
+of course the updated WSJT-X 2.2 User Guide.
+
+ - Significant improvements to the decoders for FT4, FT8, JT4, JT65,
+   and WSPR.
+
+ - New format for "EU VHF Contest" Tx2 and Tx3 messages
+
+   When "EU VHF Contest" is selected, the Tx2 and Tx3 messages (those  
+   conveying signal report, serial number, and 6-character locator)
+   now use hashcodes for both callsigns.  This change is NOT backward
+   compatible with earlier versions of _WSJT-X_, so all users of EU
+   VHF Contest messages should be sure to upgrade to version 2.2.0.
+
+ - Accessibility
+
+   Keyboard shortcuts have been added as an aid to accessibility:
+   Alt+R sets Tx4 message to RR73, Ctrl+R sets it to RRR.
+
+   As an aid for partial color-blindness, the "inverted goal posts"
+   marking Rx frequency on the Wide Graph's frequency scale are now
+   rendered in a darker shade of green.
+
+ - User Interface Translations have been enabled.  Translations are
+   now available for Catalan, Spanish, Japanese, Chinese, and Hong
+   Kong Chinese.  Additiional languages will follow, when available.
+
+   Note that UI translation is automatic, based on your system primary
+   language. If you do not want the WSJT-X UI translated to your local
+   language then start WSJT-X with the '--language=en' command line
+   option:
+
+   wsjtx --language=en
+
+   If you wish to contribute by authoring WSJT-X UI translations
+   please join the new discussion group wsjtx-l10n@Groups.io
+   (https://groups.io/g/wsjtx-l10n), where help from other translation
+   authors and coordination with the development team is available.
+
+ - Minor enhancements and bug fixes
+
+   "Save None" now writes no .wav files to disk, even temporarily.
+
+   An explicit entry for "WW Digi Contest" has been added to
+   "Special operating activities" on the "Settings | Advanced" tab.
+
+   Contest mode FT4 now always uses RR73 for the Tx4 message.
+
+   The Status bar now displays the number of decodes found in the
+   most recent Rx sequence.
+
+   The "Highlight Callsign" UDP message has been enhanced to allow
+   clearing of old highlighting for a specified callsign. Please note
+   a recommended restriction on the use of this message in the
+   documentation here: https://tinyurl.com/y85nc3tg
+
+ - Hamlib - this library which we use for direct rig control has had
+   many defect repairs and enhancements, we thank the contributors to
+   that project for their work.
+
 
 		   Release: WSJT-X 2.2.0-rc3
 		          May 30, 2020
