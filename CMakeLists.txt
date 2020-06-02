@@ -229,6 +229,7 @@ set (wsjt_qt_CXXSRCS
   MetaDataRegistry.cpp
   Network/NetworkServerLookup.cpp
   revision_utils.cpp
+  L10nLoader.cpp
   WFPalette.cpp
   Radio.cpp
   RadioMetaType.cpp
@@ -1094,20 +1095,25 @@ add_custom_target (ctags COMMAND ${CTAGS} -o ${CMAKE_SOURCE_DIR}/tags -R ${sourc
 add_custom_target (etags COMMAND ${ETAGS} -o ${CMAKE_SOURCE_DIR}/TAGS -R ${sources})
 
 
-# Qt i18n
+# Qt i18n - always include the country generic if any regional variant is included
 set (LANGUAGES
+  en				# English (we need this to stop
+				# translation loaders loading the
+				# second preference UI languge, it
+				# doesn't need to be populated)
   en_GB				# English UK
   es				# Spanish
   ca				# Catalan
+  ja				# Japanese
+  zh				# Chinese
+  zh_HK				# Chinese per Hong Kong
   )
 foreach (lang_ ${LANGUAGES})
-  file (TO_NATIVE_PATH translations/wsjtx_${lang_}.ts ts_)
-  list (APPEND TS_FILES ${ts_})
-  set (qt_translations_ "${QT_TRANSLATIONS_DIR}/qtbase_${lang_}.qm")
-  if (NOT EXISTS "${qt_translations_}")
-    string (REGEX REPLACE "([a-z][a-z])_[A-Z][A-Z]" "\\1" lang_ ${lang_})
-    set (qt_translations_ "${QT_TRANSLATIONS_DIR}/qtbase_${lang_}.qm")
+  file (TO_NATIVE_PATH ${CMAKE_SOURCE_DIR}/translations/wsjtx_${lang_}.ts ts_)
+  if (EXISTS "${ts_}")
+    list (APPEND TS_FILES ${ts_})
   endif ()
+  set (qt_translations_ "${QT_TRANSLATIONS_DIR}/qtbase_${lang_}.qm")
   if (EXISTS "${qt_translations_}")
     add_custom_command (
       OUTPUT "${CMAKE_BINARY_DIR}/qt_${lang_}.qm"

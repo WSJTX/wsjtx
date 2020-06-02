@@ -374,9 +374,11 @@ HamlibTransceiver::HamlibTransceiver (int model_number, TransceiverFactory::Para
 
     case TransceiverFactory::PTT_method_DTR:
     case TransceiverFactory::PTT_method_RTS:
-      if (!params.ptt_port.isEmpty ()
+      if (params.ptt_port.size ()
           && params.ptt_port != "None"
-          && (is_dummy_ || params.ptt_port != params.serial_port))
+          && (is_dummy_
+              || RIG_PORT_SERIAL != rig_->caps->port_type
+              || params.ptt_port != params.serial_port))
         {
 #if defined (WIN32)
           set_conf ("ptt_pathname", ("\\\\.\\" + params.ptt_port).toLatin1 ().data ());

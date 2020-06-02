@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
  <class>MainWindow</class>
  <widget class="QMainWindow" name="MainWindow">
@@ -2911,6 +2911,9 @@ list. The list can be maintained in Settings (F2).</string>
    <property name="text">
     <string>About WSJT-X</string>
    </property>
+   <property name="menuRole">
+    <enum>QAction::AboutRole</enum>
+   </property>
   </action>
   <action name="actionWide_Waterfall">
    <property name="text">
@@ -3197,6 +3200,9 @@ list. The list can be maintained in Settings (F2).</string>
   <action name="actionSettings">
    <property name="text">
     <string>Settings...</string>
+   </property>
+   <property name="menuRole">
+    <enum>QAction::PreferencesRole</enum>
    </property>
   </action>
   <action name="actionLocal_User_Guide">

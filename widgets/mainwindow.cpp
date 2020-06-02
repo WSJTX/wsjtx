@@ -996,14 +996,14 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
 void MainWindow::not_GA_warning_message ()
 {
-  MessageBox::critical_message (this,
-                                "This is a pre-release version of WSJT-X 2.2.0 made\n"
-                                "available for testing purposes.  By design it will\n"
-                                "be nonfunctional after 0000 UTC on June 10, 2020.");
-  auto now = QDateTime::currentDateTimeUtc ();
-  if (now >= QDateTime {{2020, 6, 10}, {0, 0}, Qt::UTC}) {
-    Q_EMIT finished ();
-  }
+  // MessageBox::critical_message (this,
+  //                               "This is a pre-release version of WSJT-X 2.2.0 made\n"
+  //                               "available for testing purposes.  By design it will\n"
+  //                               "be nonfunctional after 0000 UTC on June 10, 2020.");
+  // auto now = QDateTime::currentDateTimeUtc ();
+  // if (now >= QDateTime {{2020, 6, 10}, {0, 0}, Qt::UTC}) {
+  //   Q_EMIT finished ();
+  // }
 }
 
 void MainWindow::initialize_fonts ()
@@ -3137,6 +3137,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
 
     if(line_read.indexOf("<DecodeFinished>") >= 0) {
       m_bDecoded =  line_read.mid(20).trimmed().toInt() > 0;
+      if(m_nDecodes==0) ndecodes_label.setText("0");
       decodeDone ();
       return;
     } else {
@@ -8829,7 +8830,7 @@ void MainWindow::write_all(QString txRx, QString message)
   auto time = QDateTime::currentDateTimeUtc ();
   if( txRx=="Rx" ) {
     double tdec = fmod(double(time.time().second()),m_TRperiod);
-    if( tdec < 0.5*m_TRperiod ) {
+    if( "MSK144" != m_mode && tdec < 0.5*m_TRperiod ) {
       tdec+=m_TRperiod;
     } 
     time = time.addSecs(-tdec);

@@ -176,8 +176,8 @@ contains
        endif
        df=12000.0/8192.0                     !df = 1.465 Hz
        if(bVHF) then
-          ia=max(1,nint(nfa/df)-ntol)
-          ib=min(NSZ,nint(nfb/df)+ntol)
+          ia=max(1,nint((nfa-100)/df))
+          ib=min(NSZ,nint((nfb+100)/df))
           nz=ib-ia+1
           call lorentzian(savg(ia),nz,a)
           baseline=a(1)

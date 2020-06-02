@@ -15,7 +15,6 @@
 #include <QRegularExpression>
 #include <QObject>
 #include <QSettings>
-#include <QLibraryInfo>
 #include <QSysInfo>
 #include <QDir>
 #include <QDirIterator>
@@ -31,6 +30,7 @@
 
 #include "revision_utils.hpp"
 #include "MetaDataRegistry.hpp"
+#include "L10nLoader.hpp"
 #include "SettingsGroup.hpp"
 #include "TraceFile.hpp"
 #include "MultiSettings.hpp"
@@ -109,14 +109,6 @@ int main(int argc, char *argv[])
   ExceptionCatchingApplication a(argc, argv);
   try
     {
-      std::unique_ptr<QStringList> early_messages {new QStringList};
-
-      QLocale locale;              // get the current system locale
-      *early_messages << QString {"locale: language: %1 script: %2 country: %3 ui-languages: %4"}
-      .arg (QLocale::languageToString (locale.language ()))
-         .arg (QLocale::scriptToString (locale.script ()))
-         .arg (QLocale::countryToString (locale.country ()))
-         .arg (locale.uiLanguages ().join (", "));
       // qDebug () << "+++++++++++++++++++++++++++ Resources ++++++++++++++++++++++++++++";
       // {
       //   QDirIterator resources_iter {":/", QDirIterator::Subdirectories};
@@ -126,6 +118,8 @@ int main(int argc, char *argv[])
       //     }
       // }
       // qDebug () << "--------------------------- Resources ----------------------------";
+
+      QLocale locale;              // get the current system locale
       setlocale (LC_NUMERIC, "C"); // ensure number forms are in
                                    // consistent format, do this after
                                    // instantiating QApplication so
@@ -135,55 +129,6 @@ int main(int argc, char *argv[])
       a.setApplicationName ("WSJT-X");
       a.setApplicationVersion (version ());
 
-      //
-      // Enable base i18n
-      //
-      QString translations_dir {":/Translations"};
-      QTranslator qt_translator;
-      if (qt_translator.load (locale, "qt", "_", translations_dir))
-        {
-          *early_messages << "Loaded Qt translations for current locale from resources";
-          a.installTranslator (&qt_translator);
-        }
-
-      // Default translations for releases  use translations stored in
-      // the   resources   file    system   under   the   Translations
-      // directory. These are built by the CMake build system from .ts
-      // files in the translations source directory. New languages are
-      // added by  enabling the  UPDATE_TRANSLATIONS CMake  option and
-      // building with the  new language added to  the LANGUAGES CMake
-      // list  variable.  UPDATE_TRANSLATIONS  will preserve  existing
-      // translations  but   should  only  be  set   when  adding  new
-      // languages.  The  resulting .ts  files should be  checked info
-      // source control for translators to access and update.
-
-      // try and load the base translation
-      QTranslator base_translator_from_resources;
-      for (QString locale_name : locale.uiLanguages ())
-        {
-          auto language = locale_name.left (2);
-          if (locale.uiLanguages ().front ().left (2) == language)
-            {
-              *early_messages << QString {"Trying %1"}.arg (language);
-              if (base_translator_from_resources.load ("wsjtx_" + language, translations_dir))
-                {
-                  *early_messages << QString {"Loaded base translation file from %1 based on language %2"}
-                     .arg (translations_dir)
-                     .arg (language);
-                  a.installTranslator (&base_translator_from_resources);
-                  break;
-                }
-            }
-        }
-      // now try and load the most specific translations (may be a
-      // duplicate but we shouldn't care)
-      QTranslator translator_from_resources;
-      if (translator_from_resources.load (locale, "wsjtx", "_", translations_dir))
-        {
-          *early_messages << "Loaded translations for current locale from resources";
-          a.installTranslator (&translator_from_resources);
-        }
-
       QCommandLineParser parser;
       parser.setApplicationDescription ("\n" PROJECT_SUMMARY_DESCRIPTION);
       auto help_option = parser.addHelpOption ();
@@ -191,140 +136,47 @@ int main(int argc, char *argv[])
 
       // support for multiple instances running from a single installation
       QCommandLineOption rig_option (QStringList {} << "r" << "rig-name"
-                                     , a.translate ("main", "Where <rig-name> is for multi-instance support.")
-                                     , a.translate ("main", "rig-name"));
+                                     , "Where <rig-name> is for multi-instance support."
+                                     , "rig-name");
       parser.addOption (rig_option);
 
       // support for start up configuration
       QCommandLineOption cfg_option (QStringList {} << "c" << "config"
-                                     , a.translate ("main", "Where <configuration> is an existing one.")
-                                     , a.translate ("main", "configuration"));
+                                     , "Where <configuration> is an existing one."
+                                     , "configuration");
       parser.addOption (cfg_option);
 
       // support for UI language override (useful on Windows)
       QCommandLineOption lang_option (QStringList {} << "l" << "language"
-                                     , a.translate ("main", "Where <language> is <lang-code>[-<country-code>].")
-                                     , a.translate ("main", "language"));
+                                     , "Where <language> is <lang-code>[-<country-code>]."
+                                     , "language");
       parser.addOption (lang_option);
 
       QCommandLineOption test_option (QStringList {} << "test-mode"
-                                      , a.translate ("main", "Writable files in test location.  Use with caution, for testing only."));
+                                      , "Writable files in test location.  Use with caution, for testing only.");
       parser.addOption (test_option);
 
       if (!parser.parse (a.arguments ()))
         {
-          MessageBox::critical_message (nullptr, a.translate ("main", "Command line error"), parser.errorText ());
+          MessageBox::critical_message (nullptr, "Command line error", parser.errorText ());
           return -1;
         }
       else
         {
           if (parser.isSet (help_option))
             {
-              MessageBox::information_message (nullptr, a.translate ("main", "Command line help"), parser.helpText ());
+              MessageBox::information_message (nullptr, "Command line help", parser.helpText ());
               return 0;
             }
           else if (parser.isSet (version_option))
             {
-              MessageBox::information_message (nullptr, a.translate ("main", "Application version"), a.applicationVersion ());
+              MessageBox::information_message (nullptr, "Application version", a.applicationVersion ());
               return 0;
             }
         }
 
-      //
-      // Complete i18n
-      // 
-
-      // Load  any matching  translation  from  the current  directory
-      // using the command line  option language override. This allows
-      // translators to  easily test  their translations  by releasing
-      // (lrelease)  a .qm  file  into the  current  directory with  a
-      // suitable name  (e.g.  wsjtx_en_GB.qm), then running  wsjtx to
-      // view the  results.
-      QTranslator base_translation_override_from_resources;
-      QTranslator translation_override_from_resources;
-      if (parser.isSet (lang_option))
-        {
-          auto language = parser.value (lang_option).replace ('-', '_');
-          // try and load the base translation
-          auto base_language = language.left (2);
-          if (base_translation_override_from_resources.load ("wsjtx_" + base_language, translations_dir))
-            {
-              *early_messages << QString {"Loaded base translation file from %1 based on language %2"}
-                 .arg (translations_dir)
-                 .arg (base_language);
-              a.installTranslator (&base_translation_override_from_resources);
-            }
-          // now load the requested translations (may be a duplicate
-          // but we shouldn't care)
-          if (translation_override_from_resources.load ("wsjtx_" + language, translations_dir))
-            {
-              *early_messages << QString {"Loaded translation file from %1 based on language %2"}
-                 .arg (translations_dir)
-                 .arg (language);
-              a.installTranslator (&translation_override_from_resources);
-            }
-        }
-
-      // Load  any matching  translation  from  the current  directory
-      // using the  current locale. This allows  translators to easily
-      // test their  translations by  releasing (lrelease) a  .qm file
-      // into  the  current  directory  with  a  suitable  name  (e.g.
-      // wsjtx_en_GB.qm), then running wsjtx  to view the results. The
-      // system locale setting will be  used to select the translation
-      // file which can be overridden by the LANG environment variable
-      // on non-Windows system.
-
-      // try and load the base translation
-      QTranslator base_translator_from_cwd;
-      for (QString locale_name : locale.uiLanguages ())
-        {
-          auto language = locale_name.left (2);
-          if (locale.uiLanguages ().front ().left (2) == language)
-            {
-              *early_messages << QString {"Trying %1"}.arg (language);
-              if (base_translator_from_cwd.load ("wsjtx_" + language))
-                {
-                  *early_messages << QString {"Loaded base translation file from $cwd based on language %1"}.arg (language);
-                  a.installTranslator (&base_translator_from_cwd);
-                  break;
-                }
-            }
-        }
-      // now try and load the most specific translations (may be a
-      // duplicate but we shouldn't care)
-      QTranslator translator_from_cwd;
-      if (translator_from_cwd.load (locale, "wsjtx", "_"))
-        {
-          *early_messages << "loaded translations for current locale from a file";
-          a.installTranslator (&translator_from_cwd);
-        }
-
-      // Load  any matching  translation  from  the current  directory
-      // using the command line  option language override. This allows
-      // translators to  easily test their translations  on Windows by
-      // releasing (lrelease)  a .qm  file into the  current directory
-      // with  a suitable  name (e.g.   wsjtx_en_GB.qm), then  running
-      // wsjtx to view the results.
-      QTranslator base_translation_override_from_cwd;
-      QTranslator translation_override_from_cwd;
-      if (parser.isSet (lang_option))
-        {
-          auto language = parser.value (lang_option).replace ('-', '_');
-          // try and load the base translation
-          auto base_language = language.left (2);
-          if (base_translation_override_from_cwd.load ("wsjtx_" + base_language))
-            {
-              *early_messages << QString {"Loaded base translation file from $cwd based on language %1"}.arg (base_language);
-              a.installTranslator (&base_translation_override_from_cwd);
-            }
-          // now load the requested translations (may be a duplicate
-          // but we shouldn't care)
-          if (translation_override_from_cwd.load ("wsjtx_" + language))
-            {
-              *early_messages << QString {"loaded translation file from $cwd based on language %1"}.arg (language);
-              a.installTranslator (&translation_override_from_cwd);
-            }
-        }
+      // load UI translations
+      L10nLoader l10n {&a, locale, parser.value (lang_option)};
 
       QStandardPaths::setTestModeEnabled (parser.isSet (test_option));
 
@@ -337,7 +189,7 @@ int main(int argc, char *argv[])
             {
               if (temp_name.contains (QRegularExpression {R"([\\/,])"}))
                 {
-                  std::cerr << QObject::tr ("Invalid rig name - \\ & / not allowed").toLocal8Bit ().data () << std::endl;
+                  std::cerr << "Invalid rig name - \\ & / not allowed" << std::endl;
                   parser.showHelp (-1);
                 }
                 
@@ -394,13 +246,6 @@ int main(int argc, char *argv[])
       qSetMessagePattern ("[%{time yyyyMMdd HH:mm:ss.zzz t} %{if-debug}D%{endif}%{if-info}I%{endif}%{if-warning}W%{endif}%{if-critical}C%{endif}%{if-fatal}F%{endif}] %{file}:%{line} - %{message}");
       qDebug () << program_title (revision ()) + " - Program startup";
 #endif
-
-      // trace early messages now we have a trace file
-      for (auto const& message : *early_messages)
-        {
-          qDebug () << message;
-        }
-      early_messages.reset ();  // free memory
 
       // Create a unique writeable temporary directory in a suitable location
       bool temp_ok {false};

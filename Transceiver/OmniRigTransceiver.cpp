@@ -162,6 +162,9 @@ int OmniRigTransceiver::do_start ()
   Q_ASSERT (rig_);
   Q_ASSERT (!rig_->isNull ());
 
+  // COM/OLE exceptions get signaled
+  connect (&*rig_, SIGNAL (exception (int, QString, QString, QString)), this, SLOT (handle_COM_exception (int, QString, QString, QString)));
+
   offline_timer_.reset (new QTimer); // instantiate here as
                                      // constructor runs in wrong
                                      // thread
@@ -175,12 +178,17 @@ int OmniRigTransceiver::do_start ()
 
       Q_ASSERT (port_);
       Q_ASSERT (!port_->isNull ());
+
+      // COM/OLE exceptions get signaled
+      connect (&*port_, SIGNAL (exception (int, QString, QString, QString)), this, SLOT (handle_COM_exception (int, QString, QString, QString)));
+
       TRACE_CAT ("OmniRigTransceiver", "OmniRig RTS state:" << port_->Rts ());
 
-      if (!port_->Lock ()) // try to take exclusive use of the OmniRig serial port for PTT
-        {
-          TRACE_CAT ("OmniRigTransceiver", "Failed to get exclusive use of serial port for PTT from OmniRig");
-        }
+      // remove locking because it doesn't seem to work properly
+      // if (!port_->Lock ()) // try to take exclusive use of the OmniRig serial port for PTT
+      //   {
+      //     TRACE_CAT ("OmniRigTransceiver", "Failed to get exclusive use of serial port for PTT from OmniRig");
+      //   }
 
       // start off so we don't accidentally key the radio
       if (TransceiverFactory::PTT_method_DTR == ptt_type_)
@@ -314,9 +322,9 @@ void OmniRigTransceiver::do_stop ()
                                 // destructor as destructor runs in
                                 // wrong thread
 
-  if (port_)
+  if (port_ && !port_->isNull ())
     {
-      port_->Unlock ();   // release serial port
+      // port_->Unlock ();   // release serial port
       port_->clear ();
       port_.reset ();
     }

@@ -124,7 +124,6 @@ namespace
       //     7110         LSB EMCOMM
       //
       {7038600, Modes::WSPR, IARURegions::ALL},
-      {7071000, Modes::FT8, IARURegions::ALL},
       {7074000, Modes::FT8, IARURegions::ALL},
       {7076000, Modes::JT65, IARURegions::ALL},
       {7078000, Modes::JT9, IARURegions::ALL},
@@ -158,7 +157,6 @@ namespace
       //     10142.25       OLIVIA, Contestia, etc.
       //     10143.25       OLIVIA, Contestia, etc. (main QRQ)
       //
-      {10133000, Modes::FT8, IARURegions::ALL},
       {10136000, Modes::FT8, IARURegions::ALL},
       {10138000, Modes::JT65, IARURegions::ALL},
       {10138700, Modes::WSPR, IARURegions::ALL},
@@ -203,7 +201,6 @@ namespace
       //     14106.5            OLIVIA 1000 (main QRG)
       // 
       {14095600, Modes::WSPR, IARURegions::ALL},
-      {14071000, Modes::FT8, IARURegions::ALL},
       {14074000, Modes::FT8, IARURegions::ALL},
       {14076000, Modes::JT65, IARURegions::ALL},
       {14078000, Modes::JT9, IARURegions::ALL},
@@ -270,7 +267,6 @@ namespace
       {50293000, Modes::WSPR, IARURegions::R3},
       {50310000, Modes::JT65, IARURegions::ALL},
       {50312000, Modes::JT9, IARURegions::ALL},
-      {50310000, Modes::FT8, IARURegions::ALL},
       {50313000, Modes::FT8, IARURegions::ALL},
       {50318000, Modes::FT4, IARURegions::ALL}, // provisional
       {50323000, Modes::FT8, IARURegions::ALL},
