@@ -48,7 +48,7 @@ Directory::Directory (Configuration const * configuration
   file_icon_.addPixmap (style ()->standardPixmap (QStyle::SP_FileIcon));
 
   setColumnCount (2);
-  setHeaderLabels ({"File", "Progress"});
+  setHeaderLabels ({tr ("File"), tr ("Progress")});
   header ()->setSectionResizeMode (QHeaderView::ResizeToContents);
   setItemDelegate (&item_delegate_);
 

@@ -101,17 +101,17 @@ SampleDownloader::impl::impl (QSettings * settings
   setWindowTitle (QApplication::applicationName () + " - " + tr ("Download Samples"));
 
   button_box_.button (QDialogButtonBox::Close)->setDefault (true);
-  button_box_.addButton ("&Abort", QDialogButtonBox::DestructiveRole);
-  button_box_.addButton ("&Refresh", QDialogButtonBox::ResetRole);
+  button_box_.addButton (tr ("&Abort"), QDialogButtonBox::DestructiveRole);
+  button_box_.addButton (tr ("&Refresh"), QDialogButtonBox::ResetRole);
   left_layout_.addWidget (&directory_);
 
-  auto details_button = button_box_.addButton ("&Details", QDialogButtonBox::HelpRole);
+  auto details_button = button_box_.addButton (tr ("&Details"), QDialogButtonBox::HelpRole);
   details_button->setCheckable (true);
   details_widget_.hide ();
   details_layout_.setMargin (0);
-  details_layout_.addRow ("Base URL for samples:", &url_line_edit_);
-  details_layout_.addRow ("Only use HTTP:", &http_only_check_box_);
-  http_only_check_box_.setToolTip ("Check this is you get SSL/TLS errors");
+  details_layout_.addRow (tr ("Base URL for samples:"), &url_line_edit_);
+  details_layout_.addRow (tr ("Only use HTTP:"), &http_only_check_box_);
+  http_only_check_box_.setToolTip (tr ("Check this is you get SSL/TLS errors"));
   details_widget_.setLayout (&details_layout_);
 
   main_layout_.addLayout (&left_layout_, 0, 0);
