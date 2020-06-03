@@ -20,11 +20,14 @@ Copyright 2001 - 2020 by Joe Taylor, K1JT.
 WSJT-X 2.2.1 is a bug-fix release that fixes a critical defect found
 in the v2.2.0 GA release. Here is a brief summary;
 
-   - Incorporate a revised Hamlib version the address a regression
-     in rig control of some rigs including the Yaesu FT-991 and FT-891.
+ - Incorporate a revised Hamlib version the address a regression in
+   rig control of some rigs including the Yaesu FT-991 and FT-891.
 
-   - Include support for the Yaesu FT-920 when controlled by Ham Radio
-     Deluxe. This change inadvertently missed the v2.2.0 GA release.
+ - Fix a defect with selecting Wide Graph 2D spectrum types in
+   translated UIs.
+
+ - Include support for the Yaesu FT-920 when controlled by Ham Radio
+   Deluxe. This change inadvertently missed the v2.2.0 GA release.
 
 
 		   Release: WSJT-X 2.2
