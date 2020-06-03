@@ -29,6 +29,13 @@ in the v2.2.0 GA release. Here is a brief summary;
  - Include support for the Yaesu FT-920 when controlled by Ham Radio
    Deluxe. This change inadvertently missed the v2.2.0 GA release.
 
+ - Correct a documentation issue with the UDP Message Protocol
+   Status(1) message Special Operations Mode enumeration values ("WW
+   DIGI added", Fox, and Hound renumbered). Thanks to Sam, W2JDB, for
+   raising this issue.
+
+ - Updated Catalan UI translation, tnx Xavi, EA3W. 
+
 
 		   Release: WSJT-X 2.2
 		       June 2, 2020
