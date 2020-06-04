@@ -553,7 +553,14 @@ void DisplayText::highlight_callsign (QString const& callsign, QColor const& bg,
     {
       return;
     }
-  QRegularExpression target {QString {"<?"} + callsign + QString {">?"}, QRegularExpression::DontCaptureOption};
+  auto regexp = callsign;
+  // allow for hashed callsigns and escape any regexp metacharacters
+  QRegularExpression target {QString {"<?"}
+                             + regexp.replace (QLatin1Char {'+'}, QLatin1String {"\\+"})
+                                 .replace (QLatin1Char {'.'}, QLatin1String {"\\."})
+                                 .replace (QLatin1Char {'?'}, QLatin1String {"\\?"})
+                             + QString {">?"}
+                             , QRegularExpression::DontCaptureOption};
   QTextCharFormat old_format {currentCharFormat ()};
   QTextCursor cursor {document ()};
   if (last_period_only)

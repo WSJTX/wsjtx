@@ -21,7 +21,7 @@
         <source>Are you sure you want to delete the %n selected QSO(s) from the log?</source>
         <translatorcomment>sorry i don&apos;t understand how to fix this</translatorcomment>
         <translation>
-            <numerusform>Segur que vols esborrar els %n QSO&apos;s seleccionats del registre ?</numerusform>
+            <numerusform>Segur que vols esborrar els %n QSO&apos;s seleccionats del log ?</numerusform>
             <numerusform></numerusform>
         </translation>
     </message>
@@ -251,7 +251,7 @@
     <message>
         <location filename="../widgets/CabrilloLogWindow.ui" line="14"/>
         <source>Contest Log</source>
-        <translation>Registre de Concurs</translation>
+        <translation>Log de Concurs</translation>
     </message>
     <message>
         <location filename="../widgets/CabrilloLogWindow.ui" line="20"/>
@@ -604,7 +604,7 @@ Format:
     <message>
         <location filename="../Configuration.cpp" line="2514"/>
         <source>Save Directory</source>
-        <translation>Desa el directori</translation>
+        <translation>Directori de Guardar</translation>
     </message>
     <message>
         <location filename="../Configuration.cpp" line="2528"/>
@@ -1269,7 +1269,7 @@ Error: %2 - %3</translation>
     <message>
         <location filename="../widgets/ExportCabrillo.cpp" line="80"/>
         <source>Cabrillo Log (*.cbr)</source>
-        <translation>Registre Cabrillo (*.cbr)</translation>
+        <translation>Log Cabrillo (*.cbr)</translation>
     </message>
     <message>
         <location filename="../widgets/ExportCabrillo.cpp" line="105"/>
@@ -1354,7 +1354,7 @@ Error: %2 - %3</translation>
     <message>
         <location filename="../widgets/FoxLogWindow.ui" line="17"/>
         <source>Fox Log</source>
-        <translation>Registre Guineu</translation>
+        <translation>Log Fox</translation>
     </message>
     <message>
         <location filename="../widgets/FoxLogWindow.ui" line="26"/>
@@ -1396,7 +1396,7 @@ Error: %2 - %3</translation>
     <message>
         <location filename="../widgets/FoxLogWindow.cpp" line="61"/>
         <source>ADIF Log (*.adi)</source>
-        <translation>Registre ADIF (*.adi)</translation>
+        <translation>Log ADIF (*.adi)</translation>
     </message>
     <message>
         <location filename="../widgets/FoxLogWindow.cpp" line="73"/>
@@ -1421,7 +1421,7 @@ Error: %2 - %3</translation>
     <message>
         <location filename="../widgets/FoxLogWindow.cpp" line="85"/>
         <source>Are you sure you want to erase file FoxQSO.txt and start a new Fox log?</source>
-        <translation>Estàs segur que vols esborrar el fitxer FoxQSO.txt i començar un nou registre de FOX (Guineu)?</translation>
+        <translation>Estàs segur que vols esborrar el fitxer FoxQSO.txt i començar un log nou de FOX ?</translation>
     </message>
 </context>
 <context>
@@ -1875,7 +1875,7 @@ Error: %2 - %3</translation>
     <message>
         <location filename="../widgets/logqso.cpp" line="172"/>
         <source>Log file error</source>
-        <translation>Error al fitxer de registre</translation>
+        <translation>Error al fitxer de log</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="173"/>
@@ -1979,7 +1979,7 @@ Error(%2): %3</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="343"/>
         <source>Enter this QSO in log</source>
-        <translation>Introdueix aquest QSO al registre</translation>
+        <translation>Introdueix aquest QSO al log</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="346"/>
@@ -1994,7 +1994,7 @@ Error(%2): %3</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="362"/>
         <source>&amp;Stop</source>
-        <translation>&amp;Atura</translation>
+        <translation>&amp;Aturar</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="375"/>
@@ -2019,7 +2019,7 @@ Error(%2): %3</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="414"/>
         <source>&amp;Erase</source>
-        <translation>&amp;Esborra</translation>
+        <translation>&amp;Esborrar</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="424"/>
@@ -2145,7 +2145,7 @@ en Groc quan és massa baix</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="846"/>
         <source>Search for callsign in database</source>
-        <translation>Buscar el indicatiu a la base de dades</translation>
+        <translation>Buscar l&apos;indicatiu a la base de dades</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="849"/>
@@ -2431,7 +2431,7 @@ No està disponible per als titulars de indicatiu no estàndard.</translation>
         <location filename="../widgets/mainwindow.ui" line="1394"/>
         <location filename="../widgets/mainwindow.cpp" line="5863"/>
         <source>Fox</source>
-        <translation>Guineu</translation>
+        <translation>Fox</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1404"/>
@@ -3128,7 +3128,7 @@ La llista es pot mantenir a la configuració (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2904"/>
         <source>Configuration</source>
-        <translation>Configuració</translation>
+        <translation>Ajustos</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2907"/>
@@ -3168,12 +3168,12 @@ La llista es pot mantenir a la configuració (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2938"/>
         <source>Shift+F6</source>
-        <translation>Shift+F6</translation>
+        <translation>Majúscules+F6</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2943"/>
         <source>Delete all *.wav &amp;&amp; *.c2 files in SaveDir</source>
-        <translation>Esborra tots els fitxers *.wav &amp;&amp; *.c2 del directori Guardar</translation>
+        <translation>Esborrar tots els fitxers *.wav i *.c2</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2965"/>
@@ -3228,12 +3228,12 @@ La llista es pot mantenir a la configuració (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3045"/>
         <source>Erase ALL.TXT</source>
-        <translation>Esborrar ALL.TXT</translation>
+        <translation>Esborrar el fitxer ALL.TXT</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3050"/>
         <source>Erase wsjtx_log.adi</source>
-        <translation>Esborrar wsjt_lg.adi</translation>
+        <translation>Esborrar el fitxer wsjt_log.adi</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3058"/>
@@ -3248,7 +3248,7 @@ La llista es pot mantenir a la configuració (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3074"/>
         <source>Prompt me to log QSO</source>
-        <translation>Inclòure el QSO al registre</translation>
+        <translation>Inclòure el QSO al log</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3082"/>
@@ -3285,7 +3285,7 @@ La llista es pot mantenir a la configuració (F2).</translation>
         <location filename="../widgets/mainwindow.ui" line="3125"/>
         <location filename="../widgets/mainwindow.cpp" line="8102"/>
         <source>Runaway Tx watchdog</source>
-        <translation>Vigilant de fugida TX</translation>
+        <translation>Seguretat de TX</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3133"/>
@@ -3345,7 +3345,7 @@ La llista es pot mantenir a la configuració (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3209"/>
         <source>Open log directory</source>
-        <translation>Obre el directori del registre</translation>
+        <translation>Obre el directori del log</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3217"/>
@@ -3410,7 +3410,7 @@ La llista es pot mantenir a la configuració (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3289"/>
         <source>&amp;Download Samples ...</source>
-        <translation>&amp;Descarregueu mostres ...</translation>
+        <translation>&amp;Descarrega mostres ...</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3292"/>
@@ -3501,12 +3501,12 @@ La llista es pot mantenir a la configuració (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3414"/>
         <source>Shift+F1</source>
-        <translation>Shift+F1</translation>
+        <translation>Majúscules+F1</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3422"/>
         <source>Fox log</source>
-        <translation>Log Guineu</translation>
+        <translation>Log Fox</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3427"/>
@@ -3516,7 +3516,7 @@ La llista es pot mantenir a la configuració (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3432"/>
         <source>Reset Cabrillo log ...</source>
-        <translation>Restableix el registre de Cabrillo ...</translation>
+        <translation>Restableix el log de Cabrillo ...</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3437"/>
@@ -3526,12 +3526,12 @@ La llista es pot mantenir a la configuració (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3442"/>
         <source>Contest Log</source>
-        <translation>Registre de Concurs</translation>
+        <translation>Log de Concurs</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3447"/>
         <source>Export Cabrillo log ...</source>
-        <translation>Exporta el registre de Cabrillo ...</translation>
+        <translation>Exporta el log de Cabrillo ...</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3452"/>
@@ -3541,7 +3541,7 @@ La llista es pot mantenir a la configuració (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3457"/>
         <source>Contest log</source>
-        <translation>Registre de Concurs</translation>
+        <translation>Log de Concurs</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3462"/>
@@ -3573,12 +3573,12 @@ La llista es pot mantenir a la configuració (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="497"/>
         <source>Error Scanning ADIF Log</source>
-        <translation>Error d&apos;escaneig del registre ADIF</translation>
+        <translation>Error d&apos;escaneig del log ADIF</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="501"/>
         <source>Scanned ADIF log, %1 worked before records created</source>
-        <translation>Registre ADIF escanejat, %1 funcionava abans de la creació de registres</translation>
+        <translation>Log ADIF escanejat, %1 funcionava abans de la creació de registres</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="619"/>
@@ -3818,12 +3818,12 @@ La llista es pot mantenir a la configuració (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="3622"/>
         <source>Please choose another dial frequency. WSJT-X will not operate in Fox mode in the standard FT8 sub-bands.</source>
-        <translation>Tria una altra freqüència de treball. WSJT-X no funcionarà en mode Guineu a les sub-bandes FT8 estàndard.</translation>
+        <translation>Tria una altra freqüència de treball. WSJT-X no funcionarà en mode Fox a les sub-bandes FT8 estàndard.</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="3626"/>
         <source>Fox Mode warning</source>
-        <translation>Avís de mode Guineu</translation>
+        <translation>Avís de mode Fox</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="4216"/>
@@ -3884,7 +3884,7 @@ ja és a CALL3.TXT, vols substituir-lo ?</translation>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="5657"/>
         <source>Log file error</source>
-        <translation>Error al fitxer de registre</translation>
+        <translation>Error al fitxer de log</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="5658"/>
@@ -3894,7 +3894,7 @@ ja és a CALL3.TXT, vols substituir-lo ?</translation>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="5674"/>
         <source>Error sending log to N1MM</source>
-        <translation>Error al enviar el registre a N1MM</translation>
+        <translation>Error al enviar el log a N1MM</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="5675"/>
@@ -3937,17 +3937,17 @@ ja és a CALL3.TXT, vols substituir-lo ?</translation>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="6476"/>
         <source>Are you sure you want to erase your contest log?</source>
-        <translation>Estàs segur que vols esborrar el registre del concurs ?</translation>
+        <translation>Estàs segur que vols esborrar el log del concurs ?</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="6477"/>
         <source>Doing this will remove all QSO records for the current contest. They will be kept in the ADIF log file but will not be available for export in your Cabrillo log.</source>
-        <translation>Si fas això, suprimiràs tots els registres de QSO del concurs actual. Es conservaran al fitxer de registre ADIF, però no es podran exportar al registre de Cabrillo.</translation>
+        <translation>Si fas això, suprimiràs tots els registres de QSO del concurs actual. Es conservaran al fitxer de log ADIF, però no es podran exportar al log de Cabrillo.</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="6490"/>
         <source>Cabrillo Log saved</source>
-        <translation>Registre Cabrillo desat</translation>
+        <translation>Log Cabrillo desat</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="6498"/>
@@ -4015,7 +4015,7 @@ UDP server %2:%3</translation>
         <location filename="../widgets/mainwindow.cpp" line="8179"/>
         <location filename="../widgets/mainwindow.cpp" line="8859"/>
         <source>Log File Error</source>
-        <translation>Error al fitxer de registre</translation>
+        <translation>Error al fitxer de log</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="8222"/>
@@ -4498,7 +4498,7 @@ Error(%2): %3</translation>
     <message>
         <location filename="../models/StationList.cpp" line="364"/>
         <source>Band</source>
-        <translation>Manda</translation>
+        <translation>Banda</translation>
     </message>
     <message>
         <location filename="../models/StationList.cpp" line="365"/>
@@ -4883,7 +4883,7 @@ Error(%2): %3</translation>
     <message>
         <location filename="../Configuration.ui" line="329"/>
         <source>Tx watchdog:</source>
-        <translation>TX vigilant:</translation>
+        <translation>Seguretat de TX:</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="339"/>
@@ -5482,7 +5482,7 @@ channels; then you will usually want to select mono or
 both here.</source>
         <translation>Selecciona el canal d&apos;àudio que s&apos;utilitza per a la transmissió.
 A menys de que tinguis diversos equips connectats a diferents
-canals, llavors normalment voldras seleccionar mono o
+canals, llavors normalment voldràs seleccionar mono o
 els dos canals.</translation>
     </message>
     <message>
@@ -5494,7 +5494,7 @@ els dos canals.</translation>
         <location filename="../Configuration.ui" line="1465"/>
         <location filename="../Configuration.ui" line="1468"/>
         <source>Save Directory</source>
-        <translation>Desa el directori</translation>
+        <translation>Directori de Guardar</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1474"/>
@@ -5605,7 +5605,7 @@ Fes clic, MAJÚ + clic i, CTRL+clic per seleccionar els elements.</translation>
     <message>
         <location filename="../Configuration.ui" line="1695"/>
         <source>Reporting and logging settings</source>
-        <translation>Configuració d&apos;informes i registre</translation>
+        <translation>Configuració d&apos;informes i registres</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1701"/>
@@ -5615,7 +5615,7 @@ Fes clic, MAJÚ + clic i, CTRL+clic per seleccionar els elements.</translation>
     <message>
         <location filename="../Configuration.ui" line="1707"/>
         <source>The program will pop up a partially completed Log QSO dialog when you send a 73 or free text message.</source>
-        <translation>El programa apareixerà un diàleg de QSO de registre parcialment completat quan envieu un missatge de text 73 o lliure.</translation>
+        <translation>El programa apareixerà un diàleg de QSO de registre parcialment completat quan enviïs un missatge de text 73 o lliure.</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1710"/>
@@ -5633,8 +5633,8 @@ Fes clic, MAJÚ + clic i, CTRL+clic per seleccionar els elements.</translation>
 saved by this program.
 Check this option to save the sent and received reports in the
 comments field.</source>
-        <translation>Alguns programes de registre no acceptaran el tipus d’informes
-desat per aquest programa.
+        <translation>Alguns programes de log no acceptaran el tipus d’informes
+desats per aquest programa.
 Comprova aquesta opció per desar els informes enviats i rebuts
 al camp de comentaris.</translation>
     </message>
@@ -5648,17 +5648,17 @@ al camp de comentaris.</translation>
         <source>Check this option to force the clearing of the DX Call
 and DX Grid fields when a 73 or free text message is sent.</source>
         <translation>Marca aquesta opció per a forçar l&apos;eliminació dels camps
-Crida de DX i Locator DX quan s’envia un missatge de text 73 o lliure.</translation>
+Indicatiu DX i Locator DX quan s’envia un missatge de text 73 o lliure.</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1757"/>
         <source>Clear &amp;DX call and grid after logging</source>
-        <translation>Buida les graelles Crida i &amp;DX després del registre</translation>
+        <translation>Buida les graelles Indicatiu DX i Locator&amp;DX després del registre</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1764"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Some logging programs will not accept WSJT-X mode names.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Alguns programes de registre no accepten noms del mode WSJT-X.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Alguns programes de log no accepten noms del mode WSJT-X.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1767"/>
@@ -5678,7 +5678,7 @@ Crida de DX i Locator DX quan s’envia un missatge de text 73 o lliure.</transl
     <message>
         <location filename="../Configuration.ui" line="1784"/>
         <source>Log automatically (contesting only)</source>
-        <translation>Registre automàtic (només concurs)</translation>
+        <translation>Log automàtic (només concurs)</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1801"/>
@@ -5799,7 +5799,7 @@ per avaluar la propagació i el rendiment del sistema.</translation>
     <message>
         <location filename="../Configuration.ui" line="1992"/>
         <source>Default frequencies and band specific station details setup</source>
-        <translation>Configuració predeterminada de les freqüències i banda amb detalls específics de l&apos;estació</translation>
+        <translation>Configuració predeterminada de les freqüències i bandes amb detalls específics de l&apos;estació</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1998"/>
@@ -5871,7 +5871,7 @@ Fes clic amb el botó dret per a les opcions d&apos;inserció i eliminació.</tr
     <message>
         <location filename="../Configuration.ui" line="2231"/>
         <source>Rescan ADIF Log</source>
-        <translation>Escaneig de nou el registre ADIF</translation>
+        <translation>Escaneig de nou el log ADIF</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2240"/>
@@ -5931,7 +5931,7 @@ Fes clic amb el botó dret per a les opcions d&apos;inserció i eliminació.</tr
     <message>
         <location filename="../Configuration.ui" line="2338"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;URL of the ARRL LotW user&apos;s last upload dates and times data file which is used to highlight decodes from stations that are known to upload their log file to LotW.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;URL de l&apos;últim fitxer de dades de dates i hores de càrrega de ARRL LotW que s&apos;utilitza per ressaltar descodificacions d&apos;estacions que se sap que carreguen el seu arxiu de registre a LotW.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;URL de l&apos;últim fitxer de dades de dates i hores de càrrega de ARRL LotW que s&apos;utilitza per ressaltar descodificacions d&apos;estacions que se sap que carreguen el seu arxiu de log a LotW.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2341"/>
@@ -6031,12 +6031,12 @@ Fes clic amb el botó dret per a les opcions d&apos;inserció i eliminació.</tr
     <message>
         <location filename="../Configuration.ui" line="2540"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;FT8 DXpedition mode:  Fox (DXpedition) operator.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Mode FT8 DXpedition: operador Guineu (DXpedition).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Mode FT8 DXpedition: operador Fox (DXpedition).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2543"/>
         <source>Fox</source>
-        <translation>Guineu</translation>
+        <translation>Fox</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2562"/>

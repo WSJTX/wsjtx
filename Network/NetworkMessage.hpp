@@ -194,8 +194,9 @@
  *       2 -> EU VHF
  *       3 -> FIELD DAY
  *       4 -> RTTY RU
- *       5 -> FOX
- *       6 -> HOUND
+ *       5 -> WW DIGI
+ *       6 -> FOX
+ *       7 -> HOUND
  *
  *    The Frequency Tolerance  and T/R period fields may  have a value
  *    of  the maximum  quint32 value  which implies  the field  is not

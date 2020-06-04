@@ -415,8 +415,9 @@ void ClientWidget::update_status (QString const& id, Frequency f, QString const&
         case 2: special = "[EU VHF]"; break;
         case 3: special = "[FD]"; break;
         case 4: special = "[RTTY RU]"; break;
-        case 5: special = "[Fox]"; break;
-        case 6: special = "[Hound]"; break;
+        case 5: special = "[WW DIGI]"; break;
+        case 6: special = "[Fox]"; break;
+        case 7: special = "[Hound]"; break;
         default: break;
         }
       de_label_->setText (de_call.size () >= 0 ? QString {"DE: %1%2%3"}.arg (de_call)

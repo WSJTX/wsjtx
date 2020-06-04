@@ -315,23 +315,29 @@ void WideGraph::setModeTx(QString modeTx)                          //setModeTx
   ui->widePlot->update();
 }
 
-                                                        //Current-Cumulative-Yellow
-void WideGraph::on_spec2dComboBox_currentIndexChanged(const QString &arg1)
+void WideGraph::on_spec2dComboBox_currentIndexChanged(int index)
 {
   ui->widePlot->setCurrent(false);
   ui->widePlot->setCumulative(false);
   ui->widePlot->setLinearAvg(false);
   ui->widePlot->setReference(false);
   ui->smoSpinBox->setEnabled(false);
-  if(arg1=="Current") ui->widePlot->setCurrent(true);
-  if(arg1=="Cumulative") ui->widePlot->setCumulative(true);
-  if(arg1=="Linear Avg") {
-    ui->widePlot->setLinearAvg(true);
-    ui->smoSpinBox->setEnabled(true);
-  }
-  if(arg1=="Reference") {
-    ui->widePlot->setReference(true);
-  }
+  switch (index)
+    {
+    case 0:                     // Current
+      ui->widePlot->setCurrent(true);
+      break;
+    case 1:                     // Cumulative
+      ui->widePlot->setCumulative(true);
+      break;
+    case 2:                     // Linear Avg
+      ui->widePlot->setLinearAvg(true);
+      ui->smoSpinBox->setEnabled(true);
+      break;
+    case 3:                     // Reference
+      ui->widePlot->setReference(true);
+      break;
+    }
   replot();
 }
 

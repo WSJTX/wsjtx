@@ -812,7 +812,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   char const * const power[] = {"1 mW","2 mW","5 mW","10 mW","20 mW","50 mW","100 mW","200 mW","500 mW",
                   "1 W","2 W","5 W","10 W","20 W","50 W","100 W","200 W","500 W","1 kW"};
   for(auto i = 0u; i < sizeof power / sizeof power[0]; ++i)  { //Initialize dBm values
-    ui->TxPowerComboBox->addItem (QString {"%1 dBm  %2"}.arg (int ((10. * i / 3.) + .5)).arg (power[i]));
+    auto dBm = int ((10. * i / 3.) + .5);
+    ui->TxPowerComboBox->addItem (QString {"%1 dBm  %2"}.arg (dBm).arg (power[i]), dBm);
   }
 
   m_dateTimeRcvdRR73=QDateTime::currentDateTimeUtc();
@@ -7788,10 +7789,9 @@ void MainWindow::uploadResponse(QString response)
   }
 }
 
-void MainWindow::on_TxPowerComboBox_currentIndexChanged(const QString &arg1)
+void MainWindow::on_TxPowerComboBox_currentIndexChanged(int index)
 {
-  int i1=arg1.indexOf(" ");
-  m_dBm=arg1.mid(0,i1).toInt();
+  m_dBm = ui->TxPowerComboBox->itemData (index).toInt ();
 }
 
 void MainWindow::on_sbTxPercent_valueChanged(int n)
