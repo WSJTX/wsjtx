@@ -1097,20 +1097,21 @@ add_custom_target (etags COMMAND ${ETAGS} -o ${CMAKE_SOURCE_DIR}/TAGS -R ${sourc
 
 # Qt i18n - always include the country generic if any regional variant is included
 set (LANGUAGES
+  ca				# Catalan
+  #da				# Danish
   en				# English (we need this to stop
 				# translation loaders loading the
 				# second preference UI languge, it
 				# doesn't need to be populated)
   en_GB				# English UK
   es				# Spanish
-  ca				# Catalan
+  #it				# Italian
   ja				# Japanese
+  #no				# Norwegian
+  #pt				# Portuguese
+  #sv				# Swedish
   zh				# Chinese
   zh_HK				# Chinese per Hong Kong
-  #no				# Norwegian
-  #sv				# Swedish
-  #pt				# Portuguese
-  #it				# Italian
   )
 foreach (lang_ ${LANGUAGES})
   file (TO_NATIVE_PATH ${CMAKE_SOURCE_DIR}/translations/wsjtx_${lang_}.ts ts_)
