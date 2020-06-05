@@ -23,8 +23,20 @@ in the v2.2.0 GA release. Here is a brief summary;
  - Incorporate a revised Hamlib version the address a regression in
    rig control of some rigs including the Yaesu FT-991 and FT-891.
 
- - Fix a defect with selecting Wide Graph 2D spectrum types in
+ - Repair a defect in 6 character gridsquare lookup from the CALL3.TXT
+   database, and improve "Lookup" button processing.
+
+ - Repair a defect with selecting Wide Graph 2D spectrum types in
    translated UIs.
+
+ - Repair a regression that blocked the Highlight Callsign UDP request
+   from highlighting terms including a '+' character.
+
+ - Repair  a  regression  where   occasional  Highlight  Callsign  UDP
+   requests with the 'Highlight last'  parameter as true highlighted a
+   match in a prior period. This fix include a performance improvement
+   when  processing any  Highlight  Callsign  request with  'Highlight
+   last' as true.
 
  - Include support for the Yaesu FT-920 when controlled by Ham Radio
    Deluxe. This change inadvertently missed the v2.2.0 GA release.
