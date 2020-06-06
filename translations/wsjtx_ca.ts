@@ -899,16 +899,6 @@ Format:
 <context>
     <name>Directory</name>
     <message>
-        <location filename="../SampleDownloader/Directory.cpp" line="51"/>
-        <source>File</source>
-        <translation type="unfinished">Fitxer</translation>
-    </message>
-    <message>
-        <location filename="../SampleDownloader/Directory.cpp" line="51"/>
-        <source>Progress</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="../SampleDownloader/Directory.cpp" line="113"/>
         <location filename="../SampleDownloader/Directory.cpp" line="189"/>
         <source>URL Error</source>
@@ -1460,26 +1450,26 @@ Error: %2 - %3</translation>
 <context>
     <name>FrequencyList_v2</name>
     <message>
-        <location filename="../models/FrequencyList.cpp" line="665"/>
-        <location filename="../models/FrequencyList.cpp" line="821"/>
+        <location filename="../models/FrequencyList.cpp" line="669"/>
+        <location filename="../models/FrequencyList.cpp" line="825"/>
         <source>IARU Region</source>
         <translation>Regió IARU</translation>
     </message>
     <message>
-        <location filename="../models/FrequencyList.cpp" line="686"/>
-        <location filename="../models/FrequencyList.cpp" line="822"/>
+        <location filename="../models/FrequencyList.cpp" line="690"/>
+        <location filename="../models/FrequencyList.cpp" line="826"/>
         <source>Mode</source>
         <translation>Mode</translation>
     </message>
     <message>
-        <location filename="../models/FrequencyList.cpp" line="714"/>
-        <location filename="../models/FrequencyList.cpp" line="823"/>
+        <location filename="../models/FrequencyList.cpp" line="718"/>
+        <location filename="../models/FrequencyList.cpp" line="827"/>
         <source>Frequency</source>
         <translation>Freqüència</translation>
     </message>
     <message>
-        <location filename="../models/FrequencyList.cpp" line="741"/>
-        <location filename="../models/FrequencyList.cpp" line="824"/>
+        <location filename="../models/FrequencyList.cpp" line="745"/>
+        <location filename="../models/FrequencyList.cpp" line="828"/>
         <source>Frequency (MHz)</source>
         <translation>Freqüència en MHz</translation>
     </message>
@@ -1600,152 +1590,152 @@ Error: %2 - %3</translation>
         <translation>Tipus CAT no admès</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="414"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="412"/>
         <source>Hamlib error: %1 while %2</source>
         <translation>Error de Hamlib: %1 mentre %2</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="424"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="422"/>
         <source>opening connection to rig</source>
         <translation>connexió d&apos;obertura a l&apos;equip</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="471"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="469"/>
         <source>getting current frequency</source>
         <translation>obtenir la freqüència actual</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="475"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="473"/>
         <source>getting current mode</source>
         <translation>obtenir el mode actual</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="504"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="524"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="502"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="522"/>
         <source>exchanging VFOs</source>
         <translation>intercanviant VFOs</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="512"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="983"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="510"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="981"/>
         <source>getting other VFO frequency</source>
         <translation>obtenint una altra freqüència de VFO</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="516"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="514"/>
         <source>getting other VFO mode</source>
         <translation>obtenint un altre mode VFO</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="529"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="527"/>
         <source>setting current VFO</source>
         <translation>ajustar el VFO actual</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="538"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="536"/>
         <source>getting frequency</source>
         <translation>obtenint la freqüència</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="542"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="540"/>
         <source>getting mode</source>
         <translation>obtenint el mode</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="559"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="923"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="557"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="921"/>
         <source>getting current VFO</source>
         <translation>obtenir VFO actual</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="603"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="611"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="625"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="962"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="601"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="609"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="623"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="960"/>
         <source>getting current VFO frequency</source>
         <translation>obtenir la freqüència actual del VFO</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="609"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="624"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="631"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="710"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="728"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="789"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="607"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="622"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="629"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="708"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="726"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="787"/>
         <source>setting frequency</source>
         <translation>ajust de freqüència</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="718"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="796"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="868"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="881"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="716"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="794"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="866"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="879"/>
         <source>getting current VFO mode</source>
         <translation>obtenir el mode VFO actual</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="724"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="733"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="802"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="874"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="887"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="722"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="731"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="800"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="872"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="885"/>
         <source>setting current VFO mode</source>
         <translation>ajust del mode VFO actual</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="776"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="845"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="774"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="843"/>
         <source>setting/unsetting split mode</source>
         <translation>ajustar/desajustar mode dividid (split)</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="787"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="827"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="785"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="825"/>
         <source>setting split mode</source>
         <translation>ajustar mode dividid (Split)</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="815"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="813"/>
         <source>setting split TX frequency and mode</source>
         <translation>ajust de freqüència i mode de transmissió dividida (Split)</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="820"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="818"/>
         <source>setting split TX frequency</source>
         <translation>ajust de freqüència dividida (Split) en TX</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="892"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="890"/>
         <source>getting split TX VFO mode</source>
         <translation>obtenir el mode dividit (Split) en TX del VFO</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="899"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="897"/>
         <source>setting split TX VFO mode</source>
         <translation>ajustar del mode dividid (Split) en TX del VFO</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1020"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1018"/>
         <source>getting PTT state</source>
         <translation>obtenir l&apos;estat del PTT</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1051"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1049"/>
         <source>setting PTT on</source>
         <translation>activant el PTT</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1059"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1057"/>
         <source>setting PTT off</source>
         <translation>desactivant el PTT</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1071"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1069"/>
         <source>setting a configuration item</source>
         <translation>establir un element de configuració</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1081"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1079"/>
         <source>getting a configuration item</source>
         <translation>obtenir un element de configuració</translation>
     </message>
@@ -1956,12 +1946,12 @@ Error(%2): %3</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="50"/>
-        <location filename="../widgets/mainwindow.cpp" line="5794"/>
-        <location filename="../widgets/mainwindow.cpp" line="5842"/>
-        <location filename="../widgets/mainwindow.cpp" line="6000"/>
-        <location filename="../widgets/mainwindow.cpp" line="6040"/>
-        <location filename="../widgets/mainwindow.cpp" line="6088"/>
-        <location filename="../widgets/mainwindow.cpp" line="6213"/>
+        <location filename="../widgets/mainwindow.cpp" line="5793"/>
+        <location filename="../widgets/mainwindow.cpp" line="5841"/>
+        <location filename="../widgets/mainwindow.cpp" line="5999"/>
+        <location filename="../widgets/mainwindow.cpp" line="6039"/>
+        <location filename="../widgets/mainwindow.cpp" line="6087"/>
+        <location filename="../widgets/mainwindow.cpp" line="6212"/>
         <source>Band Activity</source>
         <translation>Activitat a la banda</translation>
     </message>
@@ -1973,11 +1963,11 @@ Error(%2): %3</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="194"/>
-        <location filename="../widgets/mainwindow.cpp" line="5793"/>
-        <location filename="../widgets/mainwindow.cpp" line="5837"/>
-        <location filename="../widgets/mainwindow.cpp" line="6001"/>
-        <location filename="../widgets/mainwindow.cpp" line="6041"/>
-        <location filename="../widgets/mainwindow.cpp" line="6089"/>
+        <location filename="../widgets/mainwindow.cpp" line="5792"/>
+        <location filename="../widgets/mainwindow.cpp" line="5836"/>
+        <location filename="../widgets/mainwindow.cpp" line="6000"/>
+        <location filename="../widgets/mainwindow.cpp" line="6040"/>
+        <location filename="../widgets/mainwindow.cpp" line="6088"/>
         <source>Rx Frequency</source>
         <translation>Freqüència de RX</translation>
     </message>
@@ -2084,7 +2074,7 @@ Error(%2): %3</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="512"/>
         <source>&amp;Halt Tx</source>
-        <translation>&amp;Aturar TX</translation>
+        <translation>Aturar &amp;TX</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="519"/>
@@ -2155,7 +2145,7 @@ en Groc quan és massa baix</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="846"/>
         <source>Search for callsign in database</source>
-        <translation>Buscar l&apos;indicatiu a la base de dades</translation>
+        <translation>Buscar el indicatiu a la base de dades</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="849"/>
@@ -2331,7 +2321,7 @@ en Groc quan és massa baix</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1244"/>
-        <location filename="../widgets/mainwindow.ui" line="2957"/>
+        <location filename="../widgets/mainwindow.ui" line="2954"/>
         <source>Fast</source>
         <translation>Ràpid</translation>
     </message>
@@ -2439,7 +2429,7 @@ No està disponible per als titulars de indicatiu no estàndard.</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1394"/>
-        <location filename="../widgets/mainwindow.cpp" line="5864"/>
+        <location filename="../widgets/mainwindow.cpp" line="5863"/>
         <source>Fox</source>
         <translation>Fox</translation>
     </message>
@@ -3151,415 +3141,415 @@ La llista es pot mantenir a la configuració (F2).</translation>
         <translation>Quant a WSJT-X</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2920"/>
+        <location filename="../widgets/mainwindow.ui" line="2917"/>
         <source>Waterfall</source>
         <translation>Cascada</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2925"/>
+        <location filename="../widgets/mainwindow.ui" line="2922"/>
         <source>Open</source>
         <translation>Obrir</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2928"/>
+        <location filename="../widgets/mainwindow.ui" line="2925"/>
         <source>Ctrl+O</source>
         <translation>Ctrl+O</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2933"/>
+        <location filename="../widgets/mainwindow.ui" line="2930"/>
         <source>Open next in directory</source>
         <translation>Obre el següent directori</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2938"/>
+        <location filename="../widgets/mainwindow.ui" line="2935"/>
         <source>Decode remaining files in directory</source>
         <translation>Descodificar els fitxers restants al directori</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2941"/>
+        <location filename="../widgets/mainwindow.ui" line="2938"/>
         <source>Shift+F6</source>
-        <translation>Majúscules+F6</translation>
+        <translation>Maj.+F6</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2946"/>
+        <location filename="../widgets/mainwindow.ui" line="2943"/>
         <source>Delete all *.wav &amp;&amp; *.c2 files in SaveDir</source>
         <translation>Esborrar tots els fitxers *.wav i *.c2</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2968"/>
+        <location filename="../widgets/mainwindow.ui" line="2965"/>
         <source>None</source>
         <translation>Cap</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2976"/>
+        <location filename="../widgets/mainwindow.ui" line="2973"/>
         <source>Save all</source>
         <translation>Guardar-ho tot</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2981"/>
+        <location filename="../widgets/mainwindow.ui" line="2978"/>
         <source>Online User Guide</source>
         <translation>Guia d&apos;usuari online</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2986"/>
+        <location filename="../widgets/mainwindow.ui" line="2983"/>
         <source>Keyboard shortcuts</source>
         <translation>Dreceres de teclat</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2991"/>
+        <location filename="../widgets/mainwindow.ui" line="2988"/>
         <source>Special mouse commands</source>
         <translation>Ordres especials del ratolí</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3002"/>
+        <location filename="../widgets/mainwindow.ui" line="2999"/>
         <source>JT9</source>
         <translation>JT9</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3013"/>
+        <location filename="../widgets/mainwindow.ui" line="3010"/>
         <source>Save decoded</source>
         <translation>Guarda el descodificat</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3024"/>
+        <location filename="../widgets/mainwindow.ui" line="3021"/>
         <source>Normal</source>
         <translation>Normal</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3035"/>
+        <location filename="../widgets/mainwindow.ui" line="3032"/>
         <source>Deep</source>
         <translation>Profunda</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3043"/>
+        <location filename="../widgets/mainwindow.ui" line="3040"/>
         <source>Monitor OFF at startup</source>
         <translation>Monitor apagat a l’inici</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3048"/>
+        <location filename="../widgets/mainwindow.ui" line="3045"/>
         <source>Erase ALL.TXT</source>
         <translation>Esborrar el fitxer ALL.TXT</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3053"/>
+        <location filename="../widgets/mainwindow.ui" line="3050"/>
         <source>Erase wsjtx_log.adi</source>
         <translation>Esborrar el fitxer wsjt_log.adi</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3061"/>
+        <location filename="../widgets/mainwindow.ui" line="3058"/>
         <source>Convert mode to RTTY for logging</source>
         <translation>Converteix el mode a RTTY després de registrar el QSO</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3069"/>
+        <location filename="../widgets/mainwindow.ui" line="3066"/>
         <source>Log dB reports to Comments</source>
         <translation>Posa els informes de recepció en dB als comentaris</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3077"/>
+        <location filename="../widgets/mainwindow.ui" line="3074"/>
         <source>Prompt me to log QSO</source>
         <translation>Inclòure el QSO al log</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3085"/>
+        <location filename="../widgets/mainwindow.ui" line="3082"/>
         <source>Blank line between decoding periods</source>
         <translation>Línia en blanc entre els períodes de descodificació</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3093"/>
+        <location filename="../widgets/mainwindow.ui" line="3090"/>
         <source>Clear DX Call and Grid after logging</source>
         <translation>Neteja l&apos;indicatiu i la graella de DX després de registrar el QSO</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3101"/>
+        <location filename="../widgets/mainwindow.ui" line="3098"/>
         <source>Display distance in miles</source>
         <translation>Distància en milles</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3109"/>
+        <location filename="../widgets/mainwindow.ui" line="3106"/>
         <source>Double-click on call sets Tx Enable</source>
         <translation>Fes doble clic als conjunts d&apos;indicatius d&apos;activar TX</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3112"/>
-        <location filename="../widgets/mainwindow.ui" line="3231"/>
+        <location filename="../widgets/mainwindow.ui" line="3109"/>
+        <location filename="../widgets/mainwindow.ui" line="3225"/>
         <source>F7</source>
         <translation>F7</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3120"/>
+        <location filename="../widgets/mainwindow.ui" line="3117"/>
         <source>Tx disabled after sending 73</source>
         <translation>TX desactivat després d’enviar 73</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3128"/>
-        <location filename="../widgets/mainwindow.cpp" line="8103"/>
+        <location filename="../widgets/mainwindow.ui" line="3125"/>
+        <location filename="../widgets/mainwindow.cpp" line="8102"/>
         <source>Runaway Tx watchdog</source>
         <translation>Seguretat de TX</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3136"/>
+        <location filename="../widgets/mainwindow.ui" line="3133"/>
         <source>Allow multiple instances</source>
         <translation>Permetre diverses instàncies</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3144"/>
+        <location filename="../widgets/mainwindow.ui" line="3141"/>
         <source>Tx freq locked to Rx freq</source>
         <translation>TX freq bloquejat a RX freq</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3152"/>
+        <location filename="../widgets/mainwindow.ui" line="3149"/>
         <source>JT65</source>
         <translation>JT65</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3160"/>
+        <location filename="../widgets/mainwindow.ui" line="3157"/>
         <source>JT9+JT65</source>
         <translation>JT9+JT65</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3168"/>
+        <location filename="../widgets/mainwindow.ui" line="3165"/>
         <source>Tx messages to Rx Frequency window</source>
         <translation>Missatges de TX a la finestra de freqüència de RX</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3176"/>
+        <location filename="../widgets/mainwindow.ui" line="3173"/>
         <source>Gray1</source>
         <translation>Gris1</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3184"/>
+        <location filename="../widgets/mainwindow.ui" line="3181"/>
         <source>Show DXCC entity and worked B4 status</source>
         <translation>Mostra l&apos;entitat DXCC i l&apos;estat de B4 treballat</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3192"/>
+        <location filename="../widgets/mainwindow.ui" line="3189"/>
         <source>Astronomical data</source>
         <translation>Dades astronòmiques</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3197"/>
+        <location filename="../widgets/mainwindow.ui" line="3194"/>
         <source>List of Type 1 prefixes and suffixes</source>
         <translation>Llista de prefixos i sufixos de tipus 1</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3202"/>
+        <location filename="../widgets/mainwindow.ui" line="3199"/>
         <source>Settings...</source>
         <translation>Configuració...</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3210"/>
+        <location filename="../widgets/mainwindow.ui" line="3204"/>
         <source>Local User Guide</source>
         <translation>Guia d&apos;usuari local</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3215"/>
+        <location filename="../widgets/mainwindow.ui" line="3209"/>
         <source>Open log directory</source>
         <translation>Obre el directori del log</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3223"/>
+        <location filename="../widgets/mainwindow.ui" line="3217"/>
         <source>JT4</source>
         <translation>JT4</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3228"/>
+        <location filename="../widgets/mainwindow.ui" line="3222"/>
         <source>Message averaging</source>
         <translation>Mitjana de missatges</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3239"/>
+        <location filename="../widgets/mainwindow.ui" line="3233"/>
         <source>Enable averaging</source>
         <translation>Activa la mitjana</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3247"/>
+        <location filename="../widgets/mainwindow.ui" line="3241"/>
         <source>Enable deep search</source>
         <translation>Activa la cerca profunda</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3255"/>
+        <location filename="../widgets/mainwindow.ui" line="3249"/>
         <source>WSPR</source>
         <translation>WSPR</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3260"/>
+        <location filename="../widgets/mainwindow.ui" line="3254"/>
         <source>Echo Graph</source>
         <translation>Gràfic d&apos;Eco</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3263"/>
+        <location filename="../widgets/mainwindow.ui" line="3257"/>
         <source>F8</source>
         <translation>F8</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3271"/>
+        <location filename="../widgets/mainwindow.ui" line="3265"/>
         <source>Echo</source>
         <translation>Eco</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3274"/>
+        <location filename="../widgets/mainwindow.ui" line="3268"/>
         <source>EME Echo mode</source>
         <translation>Mode EME Eco</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3282"/>
+        <location filename="../widgets/mainwindow.ui" line="3276"/>
         <source>ISCAT</source>
         <translation>ISCAT</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3287"/>
+        <location filename="../widgets/mainwindow.ui" line="3281"/>
         <source>Fast Graph</source>
         <translation>Gràfic ràpid</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3290"/>
+        <location filename="../widgets/mainwindow.ui" line="3284"/>
         <source>F9</source>
         <translation>F9</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3295"/>
+        <location filename="../widgets/mainwindow.ui" line="3289"/>
         <source>&amp;Download Samples ...</source>
         <translation>&amp;Descarrega mostres ...</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3298"/>
+        <location filename="../widgets/mainwindow.ui" line="3292"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Download sample audio files demonstrating the various modes.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Descarrega fitxers d’àudio d’exemple mostrant els diversos modes.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3306"/>
+        <location filename="../widgets/mainwindow.ui" line="3300"/>
         <source>MSK144</source>
         <translation>MSK144</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3314"/>
+        <location filename="../widgets/mainwindow.ui" line="3308"/>
         <source>QRA64</source>
         <translation>QRA64</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3319"/>
+        <location filename="../widgets/mainwindow.ui" line="3313"/>
         <source>Release Notes</source>
         <translation>Notes de llançament</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3327"/>
+        <location filename="../widgets/mainwindow.ui" line="3321"/>
         <source>Enable AP for DX Call</source>
         <translation>Habilita AP per al indicatiu de DX</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3335"/>
+        <location filename="../widgets/mainwindow.ui" line="3329"/>
         <source>FreqCal</source>
         <translation>FreqCal</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3340"/>
+        <location filename="../widgets/mainwindow.ui" line="3334"/>
         <source>Measure reference spectrum</source>
         <translation>Mesura l’espectre de referència</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3345"/>
+        <location filename="../widgets/mainwindow.ui" line="3339"/>
         <source>Measure phase response</source>
         <translation>Mesura la resposta en fase</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3350"/>
+        <location filename="../widgets/mainwindow.ui" line="3344"/>
         <source>Erase reference spectrum</source>
         <translation>Esborra l&apos;espectre de referència</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3358"/>
+        <location filename="../widgets/mainwindow.ui" line="3352"/>
         <source>Execute frequency calibration cycle</source>
         <translation>Executa el cicle de calibració de freqüència</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3363"/>
+        <location filename="../widgets/mainwindow.ui" line="3357"/>
         <source>Equalization tools ...</source>
         <translation>Eines d&apos;equalització ...</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3374"/>
+        <location filename="../widgets/mainwindow.ui" line="3368"/>
         <source>WSPR-LF</source>
         <translation>WSPR-LF</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3377"/>
+        <location filename="../widgets/mainwindow.ui" line="3371"/>
         <source>Experimental LF/MF mode</source>
         <translation>Mode experimental LF/MF</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3391"/>
+        <location filename="../widgets/mainwindow.ui" line="3385"/>
         <source>FT8</source>
         <translation>FT8</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3399"/>
-        <location filename="../widgets/mainwindow.ui" line="3407"/>
+        <location filename="../widgets/mainwindow.ui" line="3393"/>
+        <location filename="../widgets/mainwindow.ui" line="3401"/>
         <source>Enable AP</source>
         <translation>Activa AP</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3412"/>
+        <location filename="../widgets/mainwindow.ui" line="3406"/>
         <source>Solve for calibration parameters</source>
         <translation>Resol els paràmetres de calibratge</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3417"/>
+        <location filename="../widgets/mainwindow.ui" line="3411"/>
         <source>Copyright notice</source>
         <translation>Avís de drets d’autor</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3420"/>
+        <location filename="../widgets/mainwindow.ui" line="3414"/>
         <source>Shift+F1</source>
-        <translation>Majúscules+F1</translation>
+        <translation>Maj.+F1</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3428"/>
+        <location filename="../widgets/mainwindow.ui" line="3422"/>
         <source>Fox log</source>
         <translation>Log Fox</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3433"/>
+        <location filename="../widgets/mainwindow.ui" line="3427"/>
         <source>FT8 DXpedition Mode User Guide</source>
         <translation>Guia de l&apos;usuari del mode DXpedition a FT8</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3438"/>
+        <location filename="../widgets/mainwindow.ui" line="3432"/>
         <source>Reset Cabrillo log ...</source>
         <translation>Restableix el log de Cabrillo ...</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3443"/>
+        <location filename="../widgets/mainwindow.ui" line="3437"/>
         <source>Color highlighting scheme</source>
         <translation>Esquema de ressaltar el color</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3448"/>
+        <location filename="../widgets/mainwindow.ui" line="3442"/>
         <source>Contest Log</source>
         <translation>Log de Concurs</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3453"/>
+        <location filename="../widgets/mainwindow.ui" line="3447"/>
         <source>Export Cabrillo log ...</source>
         <translation>Exporta el log de Cabrillo ...</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3458"/>
+        <location filename="../widgets/mainwindow.ui" line="3452"/>
         <source>Quick-Start Guide to WSJT-X 2.0</source>
         <translation>Guia d&apos;inici ràpid a WSJT-X 2.0</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3463"/>
+        <location filename="../widgets/mainwindow.ui" line="3457"/>
         <source>Contest log</source>
         <translation>Log de Concurs</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3468"/>
+        <location filename="../widgets/mainwindow.ui" line="3462"/>
         <source>Erase WSPR hashtable</source>
         <translation>Esborra la taula WSPR</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3476"/>
+        <location filename="../widgets/mainwindow.ui" line="3470"/>
         <source>FT4</source>
         <translation>FT4</translation>
     </message>
@@ -3570,8 +3560,8 @@ La llista es pot mantenir a la configuració (F2).</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="329"/>
-        <location filename="../widgets/mainwindow.cpp" line="4113"/>
-        <location filename="../widgets/mainwindow.cpp" line="7631"/>
+        <location filename="../widgets/mainwindow.cpp" line="4112"/>
+        <location filename="../widgets/mainwindow.cpp" line="7630"/>
         <source>Receiving</source>
         <translation>Rebent</translation>
     </message>
@@ -3607,21 +3597,21 @@ La llista es pot mantenir a la configuració (F2).</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="823"/>
-        <location filename="../widgets/mainwindow.cpp" line="5789"/>
-        <location filename="../widgets/mainwindow.cpp" line="5795"/>
-        <location filename="../widgets/mainwindow.cpp" line="5833"/>
-        <location filename="../widgets/mainwindow.cpp" line="5843"/>
+        <location filename="../widgets/mainwindow.cpp" line="5788"/>
+        <location filename="../widgets/mainwindow.cpp" line="5794"/>
+        <location filename="../widgets/mainwindow.cpp" line="5832"/>
+        <location filename="../widgets/mainwindow.cpp" line="5842"/>
+        <location filename="../widgets/mainwindow.cpp" line="5939"/>
         <location filename="../widgets/mainwindow.cpp" line="5940"/>
-        <location filename="../widgets/mainwindow.cpp" line="5941"/>
+        <location filename="../widgets/mainwindow.cpp" line="5988"/>
         <location filename="../widgets/mainwindow.cpp" line="5989"/>
-        <location filename="../widgets/mainwindow.cpp" line="5990"/>
+        <location filename="../widgets/mainwindow.cpp" line="5993"/>
         <location filename="../widgets/mainwindow.cpp" line="5994"/>
-        <location filename="../widgets/mainwindow.cpp" line="5995"/>
+        <location filename="../widgets/mainwindow.cpp" line="6041"/>
         <location filename="../widgets/mainwindow.cpp" line="6042"/>
-        <location filename="../widgets/mainwindow.cpp" line="6043"/>
+        <location filename="../widgets/mainwindow.cpp" line="6207"/>
         <location filename="../widgets/mainwindow.cpp" line="6208"/>
-        <location filename="../widgets/mainwindow.cpp" line="6209"/>
-        <location filename="../widgets/mainwindow.cpp" line="6394"/>
+        <location filename="../widgets/mainwindow.cpp" line="6393"/>
         <source>Message</source>
         <translation>Missatge</translation>
     </message>
@@ -3647,22 +3637,22 @@ La llista es pot mantenir a la configuració (F2).</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="1254"/>
-        <location filename="../widgets/mainwindow.cpp" line="6183"/>
+        <location filename="../widgets/mainwindow.cpp" line="6182"/>
         <source>Improper mode</source>
         <translation>Mode inadequat</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="1405"/>
-        <location filename="../widgets/mainwindow.cpp" line="8730"/>
+        <location filename="../widgets/mainwindow.cpp" line="8729"/>
         <source>File Open Error</source>
         <translation>Error al obrir el fitxer</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="1406"/>
-        <location filename="../widgets/mainwindow.cpp" line="7748"/>
-        <location filename="../widgets/mainwindow.cpp" line="8177"/>
-        <location filename="../widgets/mainwindow.cpp" line="8731"/>
-        <location filename="../widgets/mainwindow.cpp" line="8857"/>
+        <location filename="../widgets/mainwindow.cpp" line="7747"/>
+        <location filename="../widgets/mainwindow.cpp" line="8176"/>
+        <location filename="../widgets/mainwindow.cpp" line="8730"/>
+        <location filename="../widgets/mainwindow.cpp" line="8856"/>
         <source>Cannot open &quot;%1&quot; for append: %2</source>
         <translation>No es pot obrir &quot;%1&quot; per annexar: %2</translation>
     </message>
@@ -3683,15 +3673,15 @@ La llista es pot mantenir a la configuració (F2).</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="1778"/>
-        <location filename="../widgets/mainwindow.cpp" line="5938"/>
-        <location filename="../widgets/mainwindow.cpp" line="6084"/>
+        <location filename="../widgets/mainwindow.cpp" line="5937"/>
+        <location filename="../widgets/mainwindow.cpp" line="6083"/>
         <source>Single-Period Decodes</source>
         <translation>Descodificacions d&apos;un sol període</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="1779"/>
-        <location filename="../widgets/mainwindow.cpp" line="5939"/>
-        <location filename="../widgets/mainwindow.cpp" line="6085"/>
+        <location filename="../widgets/mainwindow.cpp" line="5938"/>
+        <location filename="../widgets/mainwindow.cpp" line="6084"/>
         <source>Average Decodes</source>
         <translation>Mitjans descodificats</translation>
     </message>
@@ -3712,7 +3702,7 @@ La llista es pot mantenir a la configuració (F2).</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="2191"/>
-        <location filename="../widgets/mainwindow.cpp" line="5402"/>
+        <location filename="../widgets/mainwindow.cpp" line="5401"/>
         <source>Cannot open &quot;%1&quot; for writing: %2</source>
         <translation>No es pot obrir &quot;%1&quot; per escriure: %2</translation>
     </message>
@@ -3816,32 +3806,32 @@ La llista es pot mantenir a la configuració (F2).</translation>
         <translation>No s’obriran més fitxers.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="3606"/>
+        <location filename="../widgets/mainwindow.cpp" line="3605"/>
         <source>Please choose another Tx frequency. WSJT-X will not knowingly transmit another mode in the WSPR sub-band on 30m.</source>
         <translation>Tria una altra freqüència de TX. El WSJT-X no transmetrà de manera conscient un altre mode a la sub-banda WSPR a 30 m.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="3610"/>
+        <location filename="../widgets/mainwindow.cpp" line="3609"/>
         <source>WSPR Guard Band</source>
         <translation>Banda de Guàrdia WSPR</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="3623"/>
+        <location filename="../widgets/mainwindow.cpp" line="3622"/>
         <source>Please choose another dial frequency. WSJT-X will not operate in Fox mode in the standard FT8 sub-bands.</source>
         <translation>Tria una altra freqüència de treball. WSJT-X no funcionarà en mode Fox a les sub-bandes FT8 estàndard.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="3627"/>
+        <location filename="../widgets/mainwindow.cpp" line="3626"/>
         <source>Fox Mode warning</source>
         <translation>Avís de mode Fox</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="4217"/>
+        <location filename="../widgets/mainwindow.cpp" line="4216"/>
         <source>Last Tx: %1</source>
         <translation>Últim TX: %1</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="4618"/>
+        <location filename="../widgets/mainwindow.cpp" line="4617"/>
         <source>Should you switch to EU VHF Contest mode?
 
 To do so, check &apos;Special operating activity&apos; and
@@ -3852,183 +3842,183 @@ Per fer-ho, comprova &quot;Activitat operativa especial&quot; i
  Concurs EU VHF a la Configuració | Pestanya avançada.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="4637"/>
+        <location filename="../widgets/mainwindow.cpp" line="4636"/>
         <source>Should you switch to ARRL Field Day mode?</source>
         <translation>Has de canviar al mode de Field Day de l&apos;ARRL ?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="4642"/>
+        <location filename="../widgets/mainwindow.cpp" line="4641"/>
         <source>Should you switch to RTTY contest mode?</source>
         <translation>Has de canviar al mode de concurs RTTY?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5369"/>
-        <location filename="../widgets/mainwindow.cpp" line="5388"/>
-        <location filename="../widgets/mainwindow.cpp" line="5401"/>
-        <location filename="../widgets/mainwindow.cpp" line="5427"/>
+        <location filename="../widgets/mainwindow.cpp" line="5368"/>
+        <location filename="../widgets/mainwindow.cpp" line="5387"/>
+        <location filename="../widgets/mainwindow.cpp" line="5400"/>
+        <location filename="../widgets/mainwindow.cpp" line="5426"/>
         <source>Add to CALL3.TXT</source>
         <translation>Afegeix a CALL3.TXT</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5370"/>
+        <location filename="../widgets/mainwindow.cpp" line="5369"/>
         <source>Please enter a valid grid locator</source>
         <translation>Introduïu un locator vàlid</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5389"/>
+        <location filename="../widgets/mainwindow.cpp" line="5388"/>
         <source>Cannot open &quot;%1&quot; for read/write: %2</source>
         <translation>No es pot obrir &quot;%1&quot; per llegir o escriure: %2</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5425"/>
+        <location filename="../widgets/mainwindow.cpp" line="5424"/>
         <source>%1
 is already in CALL3.TXT, do you wish to replace it?</source>
         <translation>%1
 ja és a CALL3.TXT, vols substituir-lo ?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5601"/>
+        <location filename="../widgets/mainwindow.cpp" line="5600"/>
         <source>Warning:  DX Call field is empty.</source>
         <translation>Avís:  el camp de indicatiu DX està buit.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5658"/>
+        <location filename="../widgets/mainwindow.cpp" line="5657"/>
         <source>Log file error</source>
         <translation>Error al fitxer de log</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5659"/>
+        <location filename="../widgets/mainwindow.cpp" line="5658"/>
         <source>Cannot open &quot;%1&quot;</source>
         <translation>No es pot obrir &quot;%1&quot;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5675"/>
+        <location filename="../widgets/mainwindow.cpp" line="5674"/>
         <source>Error sending log to N1MM</source>
         <translation>Error al enviar el log a N1MM</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5676"/>
+        <location filename="../widgets/mainwindow.cpp" line="5675"/>
         <source>Write returned &quot;%1&quot;</source>
         <translation>Escriptura retornada &quot;%1&quot;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5839"/>
+        <location filename="../widgets/mainwindow.cpp" line="5838"/>
         <source>Stations calling DXpedition %1</source>
         <translation>Estacions que criden a DXpedition %1</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5874"/>
+        <location filename="../widgets/mainwindow.cpp" line="5873"/>
         <source>Hound</source>
         <translation>Hound</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6214"/>
+        <location filename="../widgets/mainwindow.cpp" line="6213"/>
         <source>Tx Messages</source>
         <translation>Missatges de TX</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6465"/>
-        <location filename="../widgets/mainwindow.cpp" line="6498"/>
-        <location filename="../widgets/mainwindow.cpp" line="6508"/>
+        <location filename="../widgets/mainwindow.cpp" line="6464"/>
+        <location filename="../widgets/mainwindow.cpp" line="6497"/>
+        <location filename="../widgets/mainwindow.cpp" line="6507"/>
         <source>Confirm Erase</source>
         <translation>Confirma Esborrar</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6466"/>
+        <location filename="../widgets/mainwindow.cpp" line="6465"/>
         <source>Are you sure you want to erase file ALL.TXT?</source>
         <translation>Estàs segur que vols esborrar el fitxer ALL.TXT ?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6476"/>
-        <location filename="../widgets/mainwindow.cpp" line="8222"/>
+        <location filename="../widgets/mainwindow.cpp" line="6475"/>
+        <location filename="../widgets/mainwindow.cpp" line="8221"/>
         <source>Confirm Reset</source>
         <translation>Confirma que vols Restablir</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6477"/>
+        <location filename="../widgets/mainwindow.cpp" line="6476"/>
         <source>Are you sure you want to erase your contest log?</source>
         <translation>Estàs segur que vols esborrar el log del concurs ?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6478"/>
+        <location filename="../widgets/mainwindow.cpp" line="6477"/>
         <source>Doing this will remove all QSO records for the current contest. They will be kept in the ADIF log file but will not be available for export in your Cabrillo log.</source>
         <translation>Si fas això, suprimiràs tots els registres de QSO del concurs actual. Es conservaran al fitxer de log ADIF, però no es podran exportar al log de Cabrillo.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6491"/>
+        <location filename="../widgets/mainwindow.cpp" line="6490"/>
         <source>Cabrillo Log saved</source>
         <translation>Log Cabrillo desat</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6499"/>
+        <location filename="../widgets/mainwindow.cpp" line="6498"/>
         <source>Are you sure you want to erase file wsjtx_log.adi?</source>
         <translation>Estàs segur que vols esborrar el fitxer wsjtx_log.adi ?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6509"/>
+        <location filename="../widgets/mainwindow.cpp" line="6508"/>
         <source>Are you sure you want to erase the WSPR hashtable?</source>
         <translation>Estàs segur que vols esborrar la taula del WSPR ?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6603"/>
+        <location filename="../widgets/mainwindow.cpp" line="6602"/>
         <source>VHF features warning</source>
         <translation>Les característiques de VHF tenen un avís</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7208"/>
+        <location filename="../widgets/mainwindow.cpp" line="7207"/>
         <source>Tune digital gain </source>
         <translation>Guany de sintonització digital </translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7210"/>
+        <location filename="../widgets/mainwindow.cpp" line="7209"/>
         <source>Transmit digital gain </source>
         <translation>Guany digital de transmissió </translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7229"/>
+        <location filename="../widgets/mainwindow.cpp" line="7228"/>
         <source>Prefixes</source>
         <translation>Prefixos</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7598"/>
+        <location filename="../widgets/mainwindow.cpp" line="7597"/>
         <source>Network Error</source>
         <translation>Error de xarxa</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7599"/>
+        <location filename="../widgets/mainwindow.cpp" line="7598"/>
         <source>Error: %1
 UDP server %2:%3</source>
         <translation>Error: %1
 UDP server %2:%3</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7747"/>
+        <location filename="../widgets/mainwindow.cpp" line="7746"/>
         <source>File Error</source>
         <translation>Error al fitxer</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7981"/>
+        <location filename="../widgets/mainwindow.cpp" line="7980"/>
         <source>Phase Training Disabled</source>
         <translation>Entrenament de fase Desactivat</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7984"/>
+        <location filename="../widgets/mainwindow.cpp" line="7983"/>
         <source>Phase Training Enabled</source>
         <translation>Entrenament de fase activat</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="8118"/>
+        <location filename="../widgets/mainwindow.cpp" line="8117"/>
         <source>WD:%1m</source>
         <translation>WD:%1m</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="8180"/>
-        <location filename="../widgets/mainwindow.cpp" line="8860"/>
+        <location filename="../widgets/mainwindow.cpp" line="8179"/>
+        <location filename="../widgets/mainwindow.cpp" line="8859"/>
         <source>Log File Error</source>
         <translation>Error al fitxer de log</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="8223"/>
+        <location filename="../widgets/mainwindow.cpp" line="8222"/>
         <source>Are you sure you want to clear the QSO queues?</source>
         <translation>Estàs segur que vols esborrar les cues de QSO ?</translation>
     </message>
@@ -4158,19 +4148,19 @@ UDP server %2:%3</translation>
         <translation>No s&apos;ha pogut iniciar el servidor COM OmniRig</translation>
     </message>
     <message>
-        <location filename="../Transceiver/OmniRigTransceiver.cpp" line="260"/>
-        <location filename="../Transceiver/OmniRigTransceiver.cpp" line="733"/>
+        <location filename="../Transceiver/OmniRigTransceiver.cpp" line="252"/>
+        <location filename="../Transceiver/OmniRigTransceiver.cpp" line="725"/>
         <source>OmniRig: don&apos;t know how to set rig frequency</source>
         <translation>OmniRig: no sé com establir la freqüència de l&apos;equip</translation>
     </message>
     <message>
-        <location filename="../Transceiver/OmniRigTransceiver.cpp" line="265"/>
-        <location filename="../Transceiver/OmniRigTransceiver.cpp" line="293"/>
+        <location filename="../Transceiver/OmniRigTransceiver.cpp" line="257"/>
+        <location filename="../Transceiver/OmniRigTransceiver.cpp" line="285"/>
         <source>OmniRig: timeout waiting for update from rig</source>
         <translation>OmniRig: el temps d&apos;espera a finalitzat per actualitzar des de l&apos;equip</translation>
     </message>
     <message>
-        <location filename="../Transceiver/OmniRigTransceiver.cpp" line="350"/>
+        <location filename="../Transceiver/OmniRigTransceiver.cpp" line="342"/>
         <source>OmniRig COM/OLE error: %1 at %2: %3 (%4)</source>
         <translation>OmniRig Error COM/OLE: %1 a %2: %3 (%4)</translation>
     </message>
@@ -4186,8 +4176,9 @@ UDP server %2:%3</translation>
 <context>
     <name>QObject</name>
     <message>
+        <location filename="../main.cpp" line="340"/>
         <source>Invalid rig name - \ &amp; / not allowed</source>
-        <translation type="vanished">Nom d&apos;equip no vàlid: \ &amp; / no permès</translation>
+        <translation>Nom d&apos;equip no vàlid: \ &amp; / no permès</translation>
     </message>
     <message>
         <location filename="../widgets/widegraph.cpp" line="18"/>
@@ -4321,36 +4312,6 @@ Error(%2): %3</translation>
         <location filename="../SampleDownloader.cpp" line="101"/>
         <source>Download Samples</source>
         <translation>Descarrega mostres</translation>
-    </message>
-    <message>
-        <location filename="../SampleDownloader.cpp" line="104"/>
-        <source>&amp;Abort</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../SampleDownloader.cpp" line="105"/>
-        <source>&amp;Refresh</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../SampleDownloader.cpp" line="108"/>
-        <source>&amp;Details</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../SampleDownloader.cpp" line="112"/>
-        <source>Base URL for samples:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../SampleDownloader.cpp" line="113"/>
-        <source>Only use HTTP:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../SampleDownloader.cpp" line="114"/>
-        <source>Check this is you get SSL/TLS errors</source>
-        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../SampleDownloader.cpp" line="132"/>
@@ -4777,7 +4738,7 @@ Error(%2): %3</translation>
     <message>
         <location filename="../Configuration.ui" line="64"/>
         <source>M&amp;y Grid:</source>
-        <translation>E&amp;l meu Locator:</translation>
+        <translation>El meu L&amp;ocator:</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="74"/>
@@ -4842,7 +4803,7 @@ Error(%2): %3</translation>
     <message>
         <location filename="../Configuration.ui" line="180"/>
         <source>&amp;Tx messages to Rx frequency window</source>
-        <translation>&amp;Missatges de TX a la finestra de la freqüència de RX</translation>
+        <translation>Missa&amp;tges de TX a la finestra de la freqüència de RX</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="187"/>
@@ -4897,7 +4858,7 @@ Error(%2): %3</translation>
     <message>
         <location filename="../Configuration.ui" line="274"/>
         <source>&amp;Blank line between decoding periods</source>
-        <translation>&amp;Línia en blanc entre els períodes de descodificació</translation>
+        <translation>Lín&amp;ia en blanc entre els períodes de descodificació</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="281"/>
@@ -4994,7 +4955,7 @@ missatge de text lliure.</translation>
     <message>
         <location filename="../Configuration.ui" line="418"/>
         <source>Di&amp;sable Tx after sending 73</source>
-        <translation>De&amp;sactiva TX després d’enviar 73</translation>
+        <translation>Desa&amp;ctiva TX després d’enviar 73</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="427"/>
@@ -5136,12 +5097,12 @@ període tranquil quan es fa la descodificació.</translation>
     <message>
         <location filename="../Configuration.ui" line="669"/>
         <source>D&amp;efault</source>
-        <translation>Per d&amp;efecte</translation>
+        <translation>&amp;Per defecte</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="682"/>
         <source>Se&amp;ven</source>
-        <translation>Se&amp;t</translation>
+        <translation>S&amp;et</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="695"/>
@@ -5211,7 +5172,7 @@ uns pocs, particularment alguns equips de Kenwood, ho requereixen.</translation>
     <message>
         <location filename="../Configuration.ui" line="812"/>
         <source>&amp;Hardware</source>
-        <translation>&amp;Maquinari</translation>
+        <translation>Ma&amp;quinari</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="825"/>
@@ -5559,7 +5520,7 @@ els dos canals.</translation>
     <message>
         <location filename="../Configuration.ui" line="1509"/>
         <source>S&amp;elect</source>
-        <translation>S&amp;elecciona</translation>
+        <translation>Sele&amp;cciona</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1519"/>
@@ -5634,7 +5595,7 @@ Right click for item specific actions
 Click, SHIFT+Click and, CRTL+Click to select items</source>
         <translation>Arrossega i deixa anar els elements per reorganitzar l&apos;ordre.
 Fes clic amb el botó dret per a les accions específiques de l’element.
-Fes clic, MAJÚ + clic i, CTRL+clic per seleccionar els elements.</translation>
+Fes clic, MAJ. + clic i, CTRL+clic per seleccionar els elements.</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1692"/>
@@ -5692,7 +5653,7 @@ Indicatiu DX i Locator DX quan s’envia un missatge de text 73 o lliure.</trans
     <message>
         <location filename="../Configuration.ui" line="1757"/>
         <source>Clear &amp;DX call and grid after logging</source>
-        <translation>Buida les graelles Indicatiu DX i Locator&amp;DX després del registre</translation>
+        <translation>Buida les graelles Indicatiu DX i Locator &amp;DX després del registre</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1764"/>
@@ -6235,104 +6196,114 @@ Fes clic amb el botó dret per a les opcions d&apos;inserció i eliminació.</tr
     <name>main</name>
     <message>
         <location filename="../main.cpp" line="83"/>
-        <location filename="../main.cpp" line="408"/>
+        <location filename="../main.cpp" line="563"/>
         <source>Fatal error</source>
         <translation>Error fatal</translation>
     </message>
     <message>
         <location filename="../main.cpp" line="88"/>
-        <location filename="../main.cpp" line="413"/>
+        <location filename="../main.cpp" line="568"/>
         <source>Unexpected fatal error</source>
         <translation>Error fatal inesperat</translation>
     </message>
     <message>
+        <location filename="../main.cpp" line="194"/>
         <source>Where &lt;rig-name&gt; is for multi-instance support.</source>
-        <translation type="vanished">On &lt;rig-name&gt; és per a suport de múltiples instàncies.</translation>
+        <translation>On &lt;rig-name&gt; és per a suport de múltiples instàncies.</translation>
     </message>
     <message>
+        <location filename="../main.cpp" line="195"/>
         <source>rig-name</source>
-        <translation type="vanished">nom de l&apos;equip</translation>
+        <translation>nom de l&apos;equip</translation>
     </message>
     <message>
+        <location filename="../main.cpp" line="200"/>
         <source>Where &lt;configuration&gt; is an existing one.</source>
-        <translation type="vanished">On &lt;configuration&gt; és ja existent.</translation>
+        <translation>On &lt;configuration&gt; és ja existent.</translation>
     </message>
     <message>
+        <location filename="../main.cpp" line="201"/>
         <source>configuration</source>
-        <translation type="vanished">configuració</translation>
+        <translation>configuració</translation>
     </message>
     <message>
+        <location filename="../main.cpp" line="206"/>
         <source>Where &lt;language&gt; is &lt;lang-code&gt;[-&lt;country-code&gt;].</source>
-        <translation type="vanished">On &lt;language&gt; és &lt;lang-code&gt;[-&lt;country-code&gt;].</translation>
+        <translation>On &lt;language&gt; és &lt;lang-code&gt;[-&lt;country-code&gt;].</translation>
     </message>
     <message>
+        <location filename="../main.cpp" line="207"/>
         <source>language</source>
-        <translation type="vanished">Idioma</translation>
+        <translation>Idioma</translation>
     </message>
     <message>
+        <location filename="../main.cpp" line="211"/>
         <source>Writable files in test location.  Use with caution, for testing only.</source>
-        <translation type="vanished">Fitxers amb permis d&apos;escriptura a la ubicació de proves. Utilitzar amb precaució, només per a proves.</translation>
+        <translation>Fitxers amb permis d&apos;escriptura a la ubicació de proves. Utilitzar amb precaució, només per a proves.</translation>
     </message>
     <message>
+        <location filename="../main.cpp" line="216"/>
         <source>Command line error</source>
-        <translation type="vanished">Error de línia de comandament</translation>
-    </message>
-    <message>
-        <source>Command line help</source>
-        <translation type="vanished">Ajuda de la línia de comandaments</translation>
-    </message>
-    <message>
-        <source>Application version</source>
-        <translation type="vanished">Versió d’aplicació</translation>
+        <translation>Error de línia de comandament</translation>
     </message>
     <message>
         <location filename="../main.cpp" line="223"/>
+        <source>Command line help</source>
+        <translation>Ajuda de la línia de comandaments</translation>
+    </message>
+    <message>
+        <location filename="../main.cpp" line="228"/>
+        <source>Application version</source>
+        <translation>Versió d’aplicació</translation>
+    </message>
+    <message>
+        <location filename="../main.cpp" line="371"/>
         <source>Another instance may be running</source>
         <translation>Una altra instància pot ser que s&apos;estigui executant</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="224"/>
+        <location filename="../main.cpp" line="372"/>
         <source>try to remove stale lock file?</source>
         <translation>intenteu eliminar el fitxer de bloqueig no realitzat?</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="259"/>
+        <location filename="../main.cpp" line="414"/>
         <source>Failed to create a temporary directory</source>
         <translation>No s&apos;ha pogut crear el directori temporal</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="260"/>
-        <location filename="../main.cpp" line="268"/>
+        <location filename="../main.cpp" line="415"/>
+        <location filename="../main.cpp" line="423"/>
         <source>Path: &quot;%1&quot;</source>
         <translation>Ruta: &quot;%1&quot;</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="266"/>
+        <location filename="../main.cpp" line="421"/>
         <source>Failed to create a usable temporary directory</source>
         <translation>No s&apos;ha pogut crear un directori temporal utilitzable</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="267"/>
+        <location filename="../main.cpp" line="422"/>
         <source>Another application may be locking the directory</source>
         <translation>Una altra aplicació pot ser que bloquegi del directori</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="300"/>
+        <location filename="../main.cpp" line="455"/>
         <source>Failed to create data directory</source>
         <translation>No s&apos;ha pogut crear el directori de dades</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="301"/>
+        <location filename="../main.cpp" line="456"/>
         <source>path: &quot;%1&quot;</source>
         <translation>Ruta: &quot;%1&quot;</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="356"/>
+        <location filename="../main.cpp" line="511"/>
         <source>Shared memory error</source>
         <translation>Error de memòria compartida</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="357"/>
+        <location filename="../main.cpp" line="512"/>
         <source>Unable to create shared memory segment</source>
         <translation>No es pot crear el segment de memòria compartida</translation>
     </message>
