@@ -32,6 +32,10 @@ prior v2.2.0 release. Here is a brief summary;
  - Repair a regression that blocked the Highlight Callsign UDP request
    from highlighting terms including a '+' character.
 
+ - Repair a defect that caused hash code lookups of one's own call to
+   fail after an extended period of inactivity, when operating with a
+   non-standard callsign.
+
  - Repair  a  regression  where   occasional  Highlight  Callsign  UDP
    requests with the 'Highlight last'  parameter as true highlighted a
    match in a prior period. This fix include a performance improvement
@@ -50,7 +54,7 @@ prior v2.2.0 release. Here is a brief summary;
 
  - Italian UI translation, tnx Marco, PY1ZRJ.
 
- - Updated Spanish UI translation, tnx CÃ©dric, EA4AC. 
+ - Updated Spanish UI translation, tnx Cédric, EA4AC. 
 
 
 		   Release: WSJT-X 2.2
