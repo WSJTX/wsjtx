@@ -5547,6 +5547,7 @@ void MainWindow::on_tx6_editingFinished()                       //tx6 edited
 void MainWindow::on_dxCallEntry_textChanged (QString const& call)
 {
   m_hisCall = call;
+  ui->dxGridEntry->clear();
   statusChanged();
   statusUpdate ();
 }
