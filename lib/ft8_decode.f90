@@ -132,6 +132,7 @@ contains
 ! ndepth=2: subtraction, 3 passes, bp+osd (no subtract refinement) 
 ! ndepth=3: subtraction, 3 passes, bp+osd
     npass=3
+    if(ndepth.eq.1) npass=2
     do ipass=1,npass
       newdat=.true.
       syncmin=1.3
@@ -148,7 +149,7 @@ contains
       elseif(ipass.eq.3) then
         if((ndecodes-n2).eq.0) cycle
         lsubtract=.true. 
-        ndeep=3
+        ndeep=ndepth
       endif 
       call timer('sync8   ',0)
       maxc=MAXCAND
