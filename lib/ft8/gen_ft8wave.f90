@@ -45,7 +45,7 @@ subroutine gen_ft8wave(itone,nsym,nsps,bt,fsample,f0,cwave,wave,icmplx,nwave)
 ! Calculate and insert the audio waveform
   phi=0.0
   dphi = dphi + twopi*f0*dt                      !Shift frequency up by f0
-  wave=0.
+  if(icmplx .eq. 0) wave=0.
   if(icmplx .ne. 0) cwave=0. !Avoid writing to memory we may not have access to
 
   call timer('gen_loop',0)
