@@ -1,4 +1,4 @@
-// Status=review
+// Status=edited
 
 At the center of the main window are a number of controls used when
 making QSOs.  Controls not relevant to a particular mode or submode
@@ -7,41 +7,34 @@ may be "grayed out" (disabled) or removed from the display.
 //.Misc Controls Center
 image::misc-controls-center.png[align="center",alt="Misc Controls Center"]
 
-* Check *Tx even* to transmit in even-numbered UTC minutes or
+* Check *Tx even/1st* to transmit in even-numbered UTC minutes or
 sequences, starting at 0.  Uncheck this box to transmit in the odd
 sequences.  The correct selection is made automatically when you
 double-click on a decoded text line, as described in the
 <<TUTORIAL,Basic Operating Tutorial>>.
 
 * The Tx and Rx audio frequencies can be set automatically by
-double-clicking on decoded text or a signal in the waterfall.  They
+double-clicking decoded text or a signal in the waterfall.  They
 can also be adjusted using the spinner controls.
 
-* You can copy values between the *Tx Freq* and *Rx Freq* boxes by
-clicking on the up/down arrows between the controls.  Your
-on-the-air frequency is the sum of dial frequency and audio Tx
-frequency.  By convention we define the frequency of WSJT-X modes as
-the frequency of the lowest tone.
+* You can force Tx frequency to the current Rx frequency by clicking
+the *Tx<-Rx* button, and vice-versa for *Rx<-Tx*.  The on-the-air
+frequency of your lowest JT9 or JT65 tone is the sum of dial frequency
+and audio Tx frequency.
 
 * Check the box *Hold Tx Freq* to ensure that the specified Tx
 frequency is not changed automatically when you double-click on
 decoded text or a signal in the waterfall.
 
-* For modes lacking a multi-decode feature, or when *Enable
-VHF/UHF/Microwave features* has been checked on the *Settings ->
-General* tab, the *F Tol* control sets a frequency tolerance range
-over which decoding will be attempted, centered on the Rx frequency.
+* For modes lacking a multi-decode feature, or when *Enable VHF/UHF/Microwave features* has been checked on the *File -> Settings -> General* tab, the *F Tol* control sets a frequency tolerance range over which decoding is attempted, centered on the Rx frequency.
 
-* The *Report* control lets you change a signal report that has been
-inserted automatically. Typical reports for the various modes fall in
+* The *Report* control lets you change an automatically inserted signal report. Typical reports for the various modes fall in
 the range –30 to +20 dB.  Remember that JT65 reports saturate at an
 upper limit of -1 dB.
 
 +
 
-TIP: Consider reducing power if your QSO partner reports your
-signal above -5 dB in one of the _WSJT-X_ slow modes.  These are
-supposed to be weak signal modes!
+TIP: Consider reducing power if your QSO partner reports your signal above -5 dB in one of the _WSJT-X_ slow modes.  These are supposed to be weak signal modes!
 
 * In some circumstances, especially on VHF and higher bands, you can
 select a supported submode of the active mode by using the *Submode*
@@ -51,11 +44,11 @@ time and frequency synchronization with a received signal.
 * Spinner control *T/R xx s* sets sequence lengths for transmission
 and reception in ISCAT, MSK144, and the fast JT9 modes.
 
-* With *Split operation* activated on the *Settings -> Radio* tab, in
+* With *Split operation* activated on the *File -> Settings -> Radio* tab, in
 MSK144 and the fast JT9 submodes you can activate the spinner control
 *Tx CQ nnn* by checking the box to its right.  The program will then
 generate something like `CQ nnn K1ABC FN42` for your CQ message, where
-`nnn` is the kHz portion of your current dial frequency,
+`nnn` is the kHz portion of your current operating frequency,
 in the range 010 to 999.  Your CQ
 message *Tx6* will then be transmitted at the calling frequency
 selected in the *Tx CQ nnn* spinner control.  All other messages will

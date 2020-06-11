@@ -1,19 +1,17 @@
-The following controls appear just under the decoded
-text windows on the main screen.  Some controls appear only in certain
-operating modes.
+// Status=edited
+
+The following controls appear just under the decoded text windows on
+the main screen:
 
 //.Main UI 
 image::main-ui-controls.png[align="center",width=650,alt="Main UI Controls"]
 
-* When *CQ only* is checked, only messages from stations calling CQ will
-be displayed in the left text panel.
+* When *CQ only* is checked, only messages from stations calling CQ are displayed in the left text panel.
 
 * *Log QSO* raises a dialog window pre-filled with known information
 about a QSO you have nearly completed.  You can edit or add to this
 information before clicking *OK* to log the QSO.  If you check *Prompt
-me to log QSO* on the *Settings -> Reporting* tab, the program will
-raise the confirmation screen automatically when you send a message
-containing +73+.  *Start Date* and *Start Time* are set when you click
+me to log QSO* on the *File -> Settings -> Reporting* tab, the program raises the confirmation screen automatically when you send a message containing +73+.  *Start Date* and *Start Time* are set when you click
 to send the *Tx 2* or *Tx 3* message, and backed up by one or two
 sequence lengths, respectively.  (Note that the actual start time may
 have been earlier if repeats of early transmissions were required.)
@@ -22,15 +20,15 @@ End date and time are set when the *Log QSO* screen is invoked.
 //.Log QSO Window
 image::log-qso.png[align="center",alt="Log QSO"]
 
-* *Stop* will terminate normal data acquisition in case you want to
+* *Stop* terminates normal data acquisition in case you want to
 freeze the waterfall or open and explore a previously recorded audio
 file.
 
 * *Monitor* toggles normal receive operation on or off.  This button
-is highlighted in green when the _WSJT-X_ is receiving.  If you are
+is highlighted in green when _WSJT-X_ is receiving.  If you are
 using CAT control, toggling *Monitor* OFF relinquishes control of the
 rig; if *Monitor returns to last used frequency* is selected on the
-*Settings | General* tab, toggling *Monitor* back ON will return to
+*File -> Settings -> General* tab, toggling *Monitor* back ON will return to
 the original frequency.
 
 * *Erase* clears the right-hand decoded text window. 
@@ -64,8 +62,9 @@ carrier at the specified Tx frequency (red marker on waterfall scale).
 This process is useful for adjusting an antenna tuner or tuning an
 amplifier.  The button is highlighted in red while *Tune* is active.
 Toggle the button a second time or click *Halt Tx* to terminate the
-*Tune* process.  Note that activating *Tune* interrupts a receive
-sequence and will prevent decoding during that sequence.
+*Tune* process.  
+
+TIP: Activating *Tune* interrupts a receive sequence and will prevent decoding during that sequence.
 
 * Uncheck the box *Menus* to make the top-of-window menus disappear,
 leaving more vertical space for decoded messages.

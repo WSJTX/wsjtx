@@ -1,4 +1,4 @@
-// Status=review
+// Status=edited
 
 Menus at top of the main window offer many options for configuration
 and operation.  Most of the items are self-explanatory; a few
@@ -9,8 +9,7 @@ frequently used menu items are listed at the right edge of the menu.
 image::MacAppMenu.png[align="left",alt="Mac App Menu"]
 
 This menu appears on the Macintosh only. *Settings* appears here,
-labeled as *Preferences*, rather than on the *File* menu.  *About
-WSJT-X* appears here rather than on the *Help* menu.
+labeled as *Preferences*, rather than on the *File* menu.  *About WSJT-X* appears here rather than on the *Help* menu.
 
 [[FILE_MENU]]
 ==== File menu
@@ -20,20 +19,12 @@ image::file-menu.png[align="left",alt="File Menu"]
 ==== Configuration Menu
 image::config-menu.png[align="left",alt="File Menu"]
 
-Most users of more than one mode prefer to create and use entries on
-the *Configurations* menu for switching between modes.  You can
-*Clone* the configuration currently in use, *Rename* the clone as
-desired, and then make all desired settings for the new configuration.
-The easiest way is to start with a working setup for some mode, say
-*FT8*. *Clone* it, then select *Configurations | FT8 - Copy | Rename
-...*, enter a new name, say *FT4*, and click *OK*.  Then select the
-new name from the *Configurations* menu and choose *Switch To*.  When
-the new configuration comes up you can change any desired settings:
-for example, select *FT4* from the *Mode* menu.  Configurations save
-all settings that are normally restored after a program restart,
-including which of the defined configurations is currently active.
+Many users prefer to create and use entries on the *Configurations*
+menu for switching between modes.  Simply *Clone* the *Default* entry,
+*Rename* it as desired, and then make all desired settings for that
+configuration.  These settings are restored whenever you select that configuration.
 
-As well as switching between configurations while running _WSJT-X_ you
+As well as switching between configurations while running _WSJT-X_, you
 can also start the application from the command line in any desired
 configuration.  Use the command-line option
 `--config <configuration-name>`, or `-c` for short, as in these

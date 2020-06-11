@@ -1,16 +1,15 @@
-// Status=review
+// Status=edited
 
 Controls related to frequency selection, received audio level, the
-station being called, and date and time are found at lower left of the
+station being called, and date and time are found in the lower, left-hand section of the
 main window:
 
 //.Misc Controls Left
 image::misc-main-ui.png[align="center",alt="Misc Menu Items"]
 
-* A drop-down list of frequencies and bands at upper left lets you
-select the operating band and sets dial frequency to a value taken
-from the *Frequencies* tab on the *Settings* window.  If CAT control
-is active the radio's dial frequency will be set accordingly; if not,
+* A drop-down list of frequencies and bands in the upper, left-hand corner lets you
+select the operating band. It also sets dial frequency to a value taken from the *Frequencies* tab on the *Settings* window.  If CAT control
+is active, the radio's dial frequency is set accordingly; if not,
 you must tune the radio manually.
 
 * Alternatively, you can enter a frequency (in MHz) or band name in

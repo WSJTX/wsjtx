@@ -1,3 +1,5 @@
+//status=edited
+
 A text box entitled Astronomical Data provides information needed for
 tracking the sun or moon, compensating for EME Doppler shift, and
 estimating EME Doppler spread and path degradation. Toggle the
@@ -5,7 +7,7 @@ estimating EME Doppler spread and path degradation. Toggle the
 
 image::AstroData_2.png[align="center",alt="Astronomical Data"]
 
-Available information includes the current UTC *Date* and time; *Az*
+Available information includes the current UTC *Date* and *Time*; *Az*
 and *El*, azimuth and elevation of the moon at your own location, in
 degrees; *SelfDop*, *Width*, and *Delay*, the Doppler shift, full
 limb-to-limb Doppler spread in Hz, and delay of your own EME echoes in
@@ -23,17 +25,17 @@ relative to the best possible time with the moon at perigee in a cold
 part of the sky.
 
 On the higher microwave bands, where Faraday rotation is minimal and
-linear polarization is often used, spatial offset will reduce signal
-levels.  Some stations have implemented mechanical polarisation
-adjustment to overcome this loss, and the amount of rotation needed is
+linear polarization is often used, spatial offset reduces signal
+levels. Some stations have implemented mechanical polarisation
+adjustment to overcome this loss. The amount of rotation needed is
 predicted in real time by the value of *Dpol*.  Positive Dpol means
 that the antenna should be rotated in a clockwise direction looking
 from behind the antenna towards the moon.  For a dish antenna, the
 feed should similarly be rotated clockwise looking into the mouth of
-the feed. A negative value for Dpol means anticlockwise rotation.
+the feed. A negative value for Dpol means a counterclockwise rotation.
 
 
-The state of the art for establishing three-dimensional locations of
+The state-of-the-art for establishing three-dimensional locations of
 the sun, moon, and planets at a specified time is embodied in a
 numerical model of the solar system maintained at the Jet Propulsion
 Laboratory. The model has been numerically integrated to produce

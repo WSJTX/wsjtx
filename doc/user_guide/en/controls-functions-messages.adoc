@@ -1,4 +1,4 @@
-// Status=review
+// Status=edited
 
 Two arrangements of controls are provided for generating and selecting
 Tx messages.  Controls familiar to users of program _WSJT_
@@ -11,29 +11,27 @@ in one of the decoded text windows.
 image::traditional-msg-box.png[align="center",alt="Traditional Message Menu"]
 
 * Select the next message to be transmitted (at the start of your next
-Tx sequence) by clicking on the circle under *Next*.
+Tx sequence) by clicking the radio button in the *Next* column.
 
 * To change to a specified Tx message immediately during a
-transmission, click on a rectangular button under the *Now* label.
-Changing a Tx message in mid-stream will slightly reduce the chance of
-a correct decode, but it is usually OK if done in the first 10-20% of
-a transmission.
+transmission, click a rectangular button in the *Now* column.
+Changing a Tx message in mid-stream slightly reduces the chance of
+a correct decode, but it is usually OK if done in the first 10-20% of a transmission.
 
 * All six Tx message fields are editable.  You can modify an
 automatically generated message or enter a desired message, keeping in
 mind the limits on message content.  See <<PROTOCOLS,Protocol
 Specifications>> for details.
 
-* Click on the pull-down arrow for message #5 to select one of the
-pre-stored messages entered on the *Settings | Tx Macros* tab.
+* Click the pull-down arrow for message #5 to select one of the
+stored messages entered on the *Files -> Settings -> Tx Macros* tab.
 Pressing *Enter* on a modified message #5 automatically adds that
 message to the stored macros.
 
 * In some circumstances it may be desirable to make your QSOs as
 short as possible.  To configure the program to start contacts with
-message #2, disable message #1 by double-clicking on its round
-radio-button or rectangular *Tx 1* button.  Similarly, to send RR73
-rather than RRR for message #4, double-click on one of its buttons.
+message #2, disable message #1 by double-clicking its radio-button in the *Next* column or *Tx 1* button in the *Now* column.  Similarly, to send RR73
+rather than RRR for message #4, double-click one of its buttons.
 
 The second arrangement of controls for generating and selecting
 Tx messages appears on *Tab 2* of the Message Control Panel:
@@ -52,12 +50,12 @@ immediately.
 * You can enter and transmit anything (up to 13 characters, including
 spaces) in the *Free Msg* box.
 
-* Click on the pull-down arrow in the *Free Msg* box to select a
-pre-stored macro.  Pressing *Enter* on a modified message here
+* Click the pull-down arrow in the *Free Msg* box to select a
+stored macro.  Pressing *Enter* on a modified message here
 automatically adds that message to the table of stored macros.
 
 +
 
 TIP: During a transmission the actual message being sent always
-appears in the first box of the status bar (bottom left of the main
+appears in the first box of the status bar (bottom-left corner of the main
 screen).
