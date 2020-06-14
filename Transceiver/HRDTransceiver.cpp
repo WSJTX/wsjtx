@@ -168,7 +168,7 @@ int HRDTransceiver::do_start ()
   HRD_info << "Id: " << id << "\n";
   HRD_info << "Version: " << version << "\n";
 
-  auto radios = send_command ("get radios", false, false).trimmed ().split (',', Qt::SkipEmptyParts);
+  auto radios = send_command ("get radios", false, false).trimmed ().split (',', SkipEmptyParts);
   if (radios.isEmpty ())
     {
       TRACE_CAT ("HRDTransceiver", "no rig found");
@@ -179,7 +179,7 @@ int HRDTransceiver::do_start ()
   Q_FOREACH (auto const& radio, radios)
     {
       HRD_info << "\t" << radio << "\n";
-      auto entries = radio.trimmed ().split (':', Qt::SkipEmptyParts);
+      auto entries = radio.trimmed ().split (':', SkipEmptyParts);
       radios_.push_back (std::forward_as_tuple (entries[0].toUInt (), entries[1]));
     }
 
@@ -203,11 +203,11 @@ int HRDTransceiver::do_start ()
   HRD_info << "VFO count: " << vfo_count_ << "\n";
   TRACE_CAT ("HRDTransceiver", "vfo count:" << vfo_count_);
 
-  buttons_ = send_command ("get buttons").trimmed ().split (',', Qt::SkipEmptyParts).replaceInStrings (" ", "~");
+  buttons_ = send_command ("get buttons").trimmed ().split (',', SkipEmptyParts).replaceInStrings (" ", "~");
   TRACE_CAT ("HRDTransceiver", "HRD Buttons: " << buttons_);
   HRD_info << "Buttons: {" << buttons_.join (", ") << "}\n";
 
-  dropdown_names_ = send_command ("get dropdowns").trimmed ().split (',', Qt::SkipEmptyParts);
+  dropdown_names_ = send_command ("get dropdowns").trimmed ().split (',', SkipEmptyParts);
   TRACE_CAT ("HRDTransceiver", "Dropdowns:");
   HRD_info << "Dropdowns:\n";
   Q_FOREACH (auto const& dd, dropdown_names_)
@@ -218,12 +218,12 @@ int HRDTransceiver::do_start ()
       dropdowns_[dd] = selections;
     }
 
-  slider_names_ = send_command ("get sliders").trimmed ().split (',', Qt::SkipEmptyParts).replaceInStrings (" ", "~");
+  slider_names_ = send_command ("get sliders").trimmed ().split (',', SkipEmptyParts).replaceInStrings (" ", "~");
   TRACE_CAT ("HRDTransceiver", "Sliders:-");
   HRD_info << "Sliders:\n";
   Q_FOREACH (auto const& s, slider_names_)
     {
-      auto range = send_command ("get slider-range " + current_radio_name + " " + s).trimmed ().split (',', Qt::SkipEmptyParts);
+      auto range = send_command ("get slider-range " + current_radio_name + " " + s).trimmed ().split (',', SkipEmptyParts);
       TRACE_CAT ("HRDTransceiver", "\t" << s << ": {" << range.join (", ") << "}");
       HRD_info << "\t" << s << ": {" << range.join (", ") << "}\n";
       sliders_[s] = range;
@@ -602,7 +602,7 @@ void HRDTransceiver::do_frequency (Frequency f, MODE m, bool /*no_ignore*/)
   auto fo_string = QString::number (f);
   if (vfo_count_ > 1 && reversed_)
     {
-      auto frequencies = send_command ("get frequencies").trimmed ().split ('-', Qt::SkipEmptyParts);
+      auto frequencies = send_command ("get frequencies").trimmed ().split ('-', SkipEmptyParts);
       send_simple_command ("set frequencies-hz " + QString::number (frequencies[0].toUInt ()) + ' ' + fo_string);
     }
   else
@@ -688,14 +688,14 @@ void HRDTransceiver::do_tx_frequency (Frequency tx, MODE mode, bool /*no_ignore*
         {
           Q_ASSERT (vfo_count_ > 1);
 
-          auto frequencies = send_command ("get frequencies").trimmed ().split ('-', Qt::SkipEmptyParts);
+          auto frequencies = send_command ("get frequencies").trimmed ().split ('-', SkipEmptyParts);
           send_simple_command ("set frequencies-hz " + fo_string + ' ' + QString::number (frequencies[1].toUInt ()));
         }
       else
         {
           if (vfo_count_ > 1)
             {
-              auto frequencies = send_command ("get frequencies").trimmed ().split ('-', Qt::SkipEmptyParts);
+              auto frequencies = send_command ("get frequencies").trimmed ().split ('-', SkipEmptyParts);
               send_simple_command ("set frequencies-hz " + QString::number (frequencies[0].toUInt ()) + ' ' + fo_string);
             }
           else if ((vfo_B_button_ >= 0 && vfo_A_button_ >= 0) || vfo_toggle_button_ >= 0)
@@ -987,7 +987,7 @@ void HRDTransceiver::do_poll ()
 
   if (vfo_count_ > 1)
     {
-      auto frequencies = send_command ("get frequencies", quiet).trimmed ().split ('-', Qt::SkipEmptyParts);
+      auto frequencies = send_command ("get frequencies", quiet).trimmed ().split ('-', SkipEmptyParts);
       update_rx_frequency (frequencies[reversed_ ? 1 : 0].toUInt ());
       update_other_frequency (frequencies[reversed_ ? 0 : 1].toUInt ());
     }
