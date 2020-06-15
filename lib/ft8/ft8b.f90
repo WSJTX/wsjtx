@@ -403,9 +403,9 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,nzhsym,lapon,     &
      dmin=0.0
      norder=2
      maxosd=2
-     if(ndepth.eq.2) maxosd=1
+     if(ndepth.eq.2) maxosd=0
      if(ndepth.eq.1) maxosd=-1
-     if(ndepth.ge.2 .and.         &
+     if(ndepth.eq.3 .and.         &
         (abs(nfqso-f1).le.napwid .or. abs(nftx-f1).le.napwid .or. ncontest.eq.7)) then
         maxosd=2
      endif
