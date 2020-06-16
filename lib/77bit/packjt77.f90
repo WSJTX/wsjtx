@@ -281,7 +281,7 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
      call unpacktext77(c77(1:71),msg(1:13))
      msg(14:)='                        '
      msg=adjustl(msg)
-
+     
   else if(i3.eq.0 .and. n3.eq.1) then
 ! 0.1  K1ABC RR73; W9XYZ <KH1/KH7Z> -11   28 28 10 5       71   DXpedition Mode
      read(c77,1010) n28a,n28b,n10,n5
@@ -302,9 +302,6 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
         mycall13_set .and. &
         n10.eq.hashmy10) call_3='<'//trim(mycall13)//'>'
      msg=trim(call_1)//' RR73; '//trim(call_2)//' '//trim(call_3)//' '//crpt
-
-  else if(i3.eq.0 .and. n3.eq.2) then
-     unpk77_success=.false.
 
   else if(i3.eq.0 .and. (n3.eq.3 .or. n3.eq.4)) then
 ! 0.3   WA9XYZ KA1ABC R 16A EMA            28 28 1 4 3 7    71   ARRL Field Day
@@ -414,6 +411,10 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
      read(c77,1000) n28a,ipa,n28b,ipb,ir,igrid4,i3
 1000 format(2(b28,b1),b1,b15,b3)
      call unpack28(n28a,call_1,unpk28_success)
+     if(nrx.eq.1 .and. mycall13_set .and. hashmy22.eq.(n28a-2063592)) then
+        call_1='<'//trim(mycall13)//'>'
+        unpk28_success=.true.
+     endif
      if(.not.unpk28_success) unpk77_success=.false.
      call unpack28(n28b,call_2,unpk28_success)
      if(.not.unpk28_success) unpk77_success=.false.
@@ -536,7 +537,12 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
 ! EU VHF contest
      read(c77,1060) n12,n22,ir,irpt,iserial,igrid6
 1060 format(b12,b22,b1,b3,b11,b25)
+     if(igrid6.lt.0 .or. igrid6.gt.18662399) then
+        unpk77_success=.false.
+        return
+     endif
      call hash12(n12,call_1)
+     if(n12.eq.hashmy12) call_1='<'//trim(mycall13)//'>'
      call hash22(n22,call_2)
      nrs=52+irpt
      write(cexch,1022) nrs,iserial
@@ -548,7 +554,7 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
   else if(i3.ge.6) then ! i3 values 6 and 7 are not yet defined
      unpk77_success=.false.
   endif
-!  if(msg(1:4).eq.'CQ <') unpk77_success=.false.
+  if(msg(1:4).eq.'CQ <') unpk77_success=.false.
 
   return
 end subroutine unpack77
