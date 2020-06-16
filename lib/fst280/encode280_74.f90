@@ -1,15 +1,9 @@
 subroutine encode280_74(message,codeword)
-   use, intrinsic :: iso_c_binding
-   use iso_c_binding, only: c_loc,c_size_t
-   use crc
-
    integer, parameter:: N=280, K=74, M=N-K
-   character*24 c24
    integer*1 codeword(N)
    integer*1 gen(M,K)
    integer*1 message(K)
    integer*1 pchecks(M)
-   integer*4 ncrc24
    include "ldpc_280_74_generator.f90"
    logical first
    data first/.true./
