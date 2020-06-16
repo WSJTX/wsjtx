@@ -95,7 +95,6 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,nzhsym,lapon,     &
 
   max_iterations=30
   nharderrors=-1
-  nbadcrc=1  ! this is used upstream to flag good decodes. 
   fs2=12000.0/NDOWN
   dt2=1.0/fs2
   twopi=8.0*atan(1.0)
@@ -417,6 +416,7 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,nzhsym,lapon,     &
      call timer('dec174_91 ',1)
 
      msg37='                                     '
+     nbadcrc=1
      if(nharderrors.lt.0 .or. nharderrors.gt.36) cycle
      if(count(cw.eq.0).eq.174) cycle           !Reject the all-zero codeword
      write(c77,'(77i1)') message77
