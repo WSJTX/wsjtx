@@ -603,9 +603,9 @@ set (wsjt_FSRCS
   lib/fst280/encode280_74.f90
   lib/fst280/fst280d.f90
   lib/fst280/fst280sim.f90
-  lib/fst280/genfst280_wave.f90
+  lib/fst280/gen_fst280wave.f90
   lib/fst280/genfst280.f90
-  lib/fst280/get_ft280_bitmetrics.f90
+  lib/fst280/get_fst280_bitmetrics.f90
   lib/fst280/ldpcsim280_101.f90
   lib/fst280/ldpcsim280_74.f90
   lib/fst280/osd280_101.f90
