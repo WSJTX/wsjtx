@@ -423,10 +423,9 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,nzhsym,lapon,     &
      read(c77(72:74),'(b3)') n3
      read(c77(75:77),'(b3)') i3
      if(i3.gt.5 .or. (i3.eq.0.and.n3.gt.6)) cycle
+     if(i3.eq.0 .and. n3.eq.2) cycle
      call unpack77(c77,1,msg37,unpk77_success)
-     if(.not.unpk77_success) then
-        cycle
-     endif
+     if(.not.unpk77_success) cycle
      nbadcrc=0  ! If we get this far: valid codeword, valid (i3,n3), nonquirky message.
      call get_ft8_tones_from_77bits(message77,itone)
      if(lsubtract) then

@@ -281,7 +281,7 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
      call unpacktext77(c77(1:71),msg(1:13))
      msg(14:)='                        '
      msg=adjustl(msg)
-     
+
   else if(i3.eq.0 .and. n3.eq.1) then
 ! 0.1  K1ABC RR73; W9XYZ <KH1/KH7Z> -11   28 28 10 5       71   DXpedition Mode
      read(c77,1010) n28a,n28b,n10,n5
@@ -302,6 +302,9 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
         mycall13_set .and. &
         n10.eq.hashmy10) call_3='<'//trim(mycall13)//'>'
      msg=trim(call_1)//' RR73; '//trim(call_2)//' '//trim(call_3)//' '//crpt
+
+  else if(i3.eq.0 .and. n3.eq.2) then
+     unpk77_success=.false.
 
   else if(i3.eq.0 .and. (n3.eq.3 .or. n3.eq.4)) then
 ! 0.3   WA9XYZ KA1ABC R 16A EMA            28 28 1 4 3 7    71   ARRL Field Day
