@@ -1039,7 +1039,7 @@ QPushButton[state=&quot;ok&quot;] {
       <item row="0" column="3" rowspan="3">
        <widget class="QStackedWidget" name="controls_stack_widget">
         <property name="currentIndex">
-         <number>0</number>
+         <number>1</number>
         </property>
         <widget class="QWidget" name="page">
          <layout class="QHBoxLayout" name="horizontalLayout_8">
@@ -1608,7 +1608,7 @@ When not checked you can view the calibration results.</string>
                 <enum>QTabWidget::Triangular</enum>
                </property>
                <property name="currentIndex">
-                <number>0</number>
+                <number>1</number>
                </property>
                <widget class="QWidget" name="tab">
                 <attribute name="title">
@@ -2587,6 +2587,25 @@ list. The list can be maintained in Settings (F2).</string>
                       </property>
                       <property name="maximum">
                        <number>100</number>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="RestrictedSpinBox" name="sbTR_FST280W">
+                      <property name="alignment">
+                       <set>Qt::AlignCenter</set>
+                      </property>
+                      <property name="suffix">
+                       <string>  s</string>
+                      </property>
+                      <property name="prefix">
+                       <string>T/R  </string>
+                      </property>
+                      <property name="minimum">
+                       <number>120</number>
+                      </property>
+                      <property name="maximum">
+                       <number>300</number>
                       </property>
                      </widget>
                     </item>

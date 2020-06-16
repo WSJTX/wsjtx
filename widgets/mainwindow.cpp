@@ -423,6 +423,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   ui->dxGridEntry->setValidator (new MaidenheadLocatorValidator {this});
   ui->dxCallEntry->setValidator (new CallsignValidator {this});
   ui->sbTR->values ({5, 10, 15, 30, 60, 120, 300});
+  ui->sbTR_FST280W->values ({120, 300});
   ui->decodedTextBrowser->set_configuration (&m_config, true);
   ui->decodedTextBrowser2->set_configuration (&m_config);
 
@@ -5828,6 +5829,9 @@ void MainWindow::on_actionFST280_triggered()
   displayWidgets(nWidgets("111011000000111100010000000000000"));
   bool bVHF=m_config.enable_VHF_features();
   setup_status_bar (bVHF);
+  m_TRperiod = ui->sbTR->value ();
+  ui->sbTR->setMinimum(15);
+  ui->sbTR->setMaximum(300);
   ui->sbSubmode->setMaximum(3);
   statusChanged();
 }
@@ -5839,9 +5843,14 @@ void MainWindow::on_actionFST280W_triggered()
   WSPR_config(true);
   ui->actionFST280W->setChecked(true);
 //                         012345678901234567890123456789012
-  displayWidgets(nWidgets("000000000000000001010000000000000"));
+  displayWidgets(nWidgets("000001000000000001010000000000000"));
   bool bVHF=m_config.enable_VHF_features();
   setup_status_bar (bVHF);
+  m_TRperiod = ui->sbTR->value ();
+  ui->band_hopping_group_box->setVisible(false);
+  ui->sbTR->setMinimum(120);
+  ui->sbTR->setMaximum(300);
+  ui->sbSubmode->setMaximum(3);
   statusChanged();
 }
 
@@ -6464,6 +6473,7 @@ void MainWindow::WSPR_config(bool b)
   ui->label_7->setVisible(!b and ui->cbMenus->isChecked());
   ui->logQSOButton->setVisible(!b);
   ui->DecodeButton->setEnabled(!b);
+  ui->band_hopping_group_box->setVisible(true);
   if(b and (m_mode!="Echo")) {
     QString t="UTC    dB   DT     Freq     Drift  Call          Grid    dBm    ";
     if(m_config.miles()) t += " mi";
