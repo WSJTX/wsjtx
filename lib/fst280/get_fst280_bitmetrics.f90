@@ -1,6 +1,6 @@
 subroutine get_fst280_bitmetrics(cd,nss,hmod,bitmetrics,badsync)
 
-   include 'ft4s280_params.f90'
+   include 'fst280_params.f90'
    complex cd(0:NN*nss-1)
    complex cs(0:3,NN)
    complex csymb(nss)

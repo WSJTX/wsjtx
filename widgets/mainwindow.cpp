@@ -1316,8 +1316,6 @@ void MainWindow::fixStop()
   m_hsymStop=179;
   if(m_mode=="WSPR") {
     m_hsymStop=396;
-  } else if(m_mode=="WSPR-LF") {
-    m_hsymStop=813;
   } else if(m_mode=="Echo") {
     m_hsymStop=9;
   } else if (m_mode=="JT4"){
@@ -1533,26 +1531,11 @@ void MainWindow::dataSink(qint64 frames)
         m_cmndP1 << depth_args << "-a"
                  << QDir::toNativeSeparators (m_config.writeable_data_dir ().absolutePath()) << m_path;
       } else {
-        // if(m_mode=="WSPR-LF")
-        //   {
-        //     m_cmndP1 << degrade << t2 << "-a"
-        //              << QDir::toNativeSeparators (m_config.writeable_data_dir ().absolutePath())
-        //              << m_fnameWE + ".wav";
-        //   }
-        // else
-          {
-            m_cmndP1 << depth_args << "-a"
-                     << QDir::toNativeSeparators (m_config.writeable_data_dir ().absolutePath())
-                     << t2 << m_fnameWE + ".wav";
-          }
+        m_cmndP1 << depth_args << "-a"
+                 << QDir::toNativeSeparators (m_config.writeable_data_dir ().absolutePath())
+                 << t2 << m_fnameWE + ".wav";
       }
-      // QString t3=cmnd;
-      // int i1=cmnd.indexOf("/wsprd ");
-      // cmnd=t3.mid(0,i1+7) + t3.mid(i1+7);
-
-//      if(m_mode=="WSPR-LF") cmnd=cmnd.replace("/wsprd ","/wspr_fsk8d "+degrade+t2);
       if (ui) ui->DecodeButton->setChecked (true);
-      // m_cmndP1=QDir::toNativeSeparators(cmnd);
       p1Timer.start(1000);
       m_decoderBusy = true;
       statusUpdate ();
@@ -1563,14 +1546,8 @@ void MainWindow::dataSink(qint64 frames)
 
 void MainWindow::startP1()
 {
-  // if (m_mode=="WSPR-LF")
-  //   {
-  //     p1.start (QDir::toNativeSeparators (QDir {QApplication::applicationDirPath ()}.absoluteFilePath ("wspr_fsk8d")), m_cmndP1);
-  //   }
-  // else
-    {
-      p1.start (QDir::toNativeSeparators (QDir {QApplication::applicationDirPath ()}.absoluteFilePath ("wsprd")), m_cmndP1);
-    }
+  // if(WSPR-LF) ... was here
+  p1.start (QDir::toNativeSeparators (QDir {QApplication::applicationDirPath ()}.absoluteFilePath ("wsprd")), m_cmndP1);
 }
 
 QString MainWindow::save_wave_file (QString const& name, short const * data, int samples,
@@ -3561,9 +3538,15 @@ void MainWindow::guiUpdate()
   if(m_modeTx=="JT4")  txDuration=1.0 + 207.0*2520/11025.0;   // JT4
   if(m_modeTx=="JT9")  txDuration=1.0 + 85.0*m_nsps/12000.0;  // JT9
   if(m_modeTx=="JT65") txDuration=1.0 + 126*4096/11025.0;     // JT65
-  if(m_modeTx=="QRA64")  txDuration=1.0 + 84*6912/12000.0;      // QRA64
-  if(m_modeTx=="WSPR") txDuration=2.0 + 162*8192/12000.0;       // WSPR
-  if(m_modeTx=="WSPR-LF") txDuration=2.0 + 114*24576/12000.0;   // WSPR-LF
+  if(m_modeTx=="QRA64")  txDuration=1.0 + 84*6912/12000.0;    // QRA64
+  if(m_modeTx=="WSPR") txDuration=2.0 + 162*8192/12000.0;     // WSPR
+  if(m_modeTx=="FST280" or m_mode=="FST280W") {               //FST280, FST280W
+    if(m_TRperiod==15)  txDuration=1.0 + 164*800/12000.0;
+    if(m_TRperiod==30)  txDuration=1.0 + 164*1680/12000.0;
+    if(m_TRperiod==60)  txDuration=1.0 + 164*4000/12000.0;
+    if(m_TRperiod==120) txDuration=1.0 + 164*8400/12000.0;
+    if(m_TRperiod==300) txDuration=1.0 + 164*2150500/12000.0;
+  }
   if(m_modeTx=="ISCAT" or m_mode=="MSK144" or m_bFast9) {
     txDuration=m_TRperiod-0.25; // ISCAT, JT9-fast, MSK144
   }
@@ -3834,8 +3817,6 @@ void MainWindow::guiUpdate()
                                     &m_currentMessageType, 22, 22);
         if(m_modeTx=="WSPR") genwspr_(message, msgsent, const_cast<int *> (itone),
                                     22, 22);
-//        if(m_modeTx=="WSPR-LF") genwspr_fsk8_(message, msgsent, const_cast<int *> (itone),
-//                                    22, 22);
         if(m_modeTx=="MSK144" or m_modeTx=="FT8" or m_modeTx=="FT4") {
           char MyCall[6];
           char MyGrid[6];
@@ -3895,6 +3876,10 @@ void MainWindow::guiUpdate()
             int icmplx=0;
             gen_ft4wave_(const_cast<int *>(itone),&nsym,&nsps,&fsample,&f0,foxcom_.wave,
                            foxcom_.wave,&icmplx,&nwave);
+          }
+          if(m_modeTx=="FST280" or m_modeTx=="FST280W") {
+            // call genfst280()
+            // call gen_fst280wave()
           }
 
           if(SpecOp::EU_VHF==m_config.special_op_id()) {
@@ -6351,23 +6336,6 @@ void MainWindow::on_actionWSPR_triggered()
   displayWidgets(nWidgets("000000000000000001010000000000000"));
   fast_config(false);
   statusChanged();
-}
-
-void MainWindow::on_actionWSPR_LF_triggered()
-{
-  on_actionWSPR_triggered();
-  m_mode="WSPR-LF";
-  switch_mode (Modes::WSPR);
-  m_modeTx="WSPR-LF";
-  m_TRperiod=240.0;
-  m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
-  m_detector->setTRPeriod(m_TRperiod);  // TODO - not thread safe
-  m_hsymStop=813;
-  m_toneSpacing=12000.0/24576.0;
-  setup_status_bar (false);
-  ui->actionWSPR_LF->setChecked(true);
-   m_wideGraph->setPeriod(m_TRperiod,m_nsps);
-   statusChanged();
 }
 
 void MainWindow::on_actionEcho_triggered()
@@ -9049,7 +9017,8 @@ void MainWindow::set_mode (QString const& mode)
     else if ("ISCAT" == mode) on_actionISCAT_triggered ();
     else if ("MSK144" == mode) on_actionMSK144_triggered ();
     else if ("WSPR" == mode) on_actionWSPR_triggered ();
-    else if ("WSPR-LF" == mode) on_actionWSPR_LF_triggered ();
+    else if ("FST280" == mode) on_actionFST280_triggered ();
+    else if ("FST280W" == mode) on_actionFST280W_triggered ();
     else if ("Echo" == mode) on_actionEcho_triggered ();
 }
 

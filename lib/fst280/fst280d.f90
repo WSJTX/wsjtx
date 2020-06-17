@@ -3,7 +3,7 @@ program fst280d
 ! Decode fst280 data read from *.c2 or *.wav files.
 
    use packjt77
-   include 'ft4s280_params.f90'
+   include 'fst280_params.f90'
    character arg*8,infile*80,fname*16,datetime*11
 !   character ch1*1,ch4*4,cseq*31
 !   character*22 decodes(100)
@@ -337,7 +337,7 @@ subroutine sync_fst280(cd0,i0,f0,hmod,ncoh,np,nss,fs,sync)
 
 ! Compute sync power for a complex, downsampled FST280 signal.
 
-   include 'ft4s280_params.f90'
+   include 'fst280_params.f90'
    complex cd0(0:np-1)
    complex, allocatable, save ::  csync(:)
    complex, allocatable, save ::  csynct(:)

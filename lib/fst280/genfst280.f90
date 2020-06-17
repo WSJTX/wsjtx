@@ -13,7 +13,7 @@ subroutine genfst280(msg0,ichk,msgsent,msgbits,i4tone,iwspr)
 ! Message duration: TxT = 164*8400/12000 = 114.8 s
 
    use packjt77
-   include 'ft4s280_params.f90'
+   include 'fst280_params.f90'
    character*37 msg0
    character*37 message                    !Message to be generated
    character*37 msgsent                    !Message as it will be received
@@ -68,7 +68,7 @@ subroutine genfst280(msg0,ichk,msgsent,msgbits,i4tone,iwspr)
    msgsent='*** bad message ***                  '
    go to 999
 
- entry get_ft4s280_tones_from_bits(msgbits,i4tone,iwspr)
+ entry get_fst280_tones_from_bits(msgbits,i4tone,iwspr)
 
 2  continue
 

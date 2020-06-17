@@ -4,7 +4,7 @@ program fst280sim
 
    use wavhdr
    use packjt77
-   include 'ft4s280_params.f90'               !Set various constants
+   include 'fst280_params.f90'               !Set various constants
    type(hdr) h                                !Header for .wav file
    character arg*12,fname*17
    character msg37*37,msgsent37*37,c77*77
