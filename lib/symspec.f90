@@ -1,9 +1,9 @@
-subroutine symspec(shared_data,k,ntrperiod,nsps,ingain,bLowSidelobes,    &
+subroutine symspec(shared_data,k,TRperiod,nsps,ingain,bLowSidelobes,    &
      nminw,pxdb,s,df3,ihsym,npts8,pxdbmax)
 
 ! Input:
 !  k              pointer to the most recent new data
-!  ntrperiod      T/R sequence length, minutes
+!  TRperiod       T/R sequence length, seconds
 !  nsps           samples per symbol, at 12000 Hz
 !  bLowSidelobes  true to use windowed FFTs
 !  ndiskdat       0/1 to indicate if data from disk
@@ -23,6 +23,7 @@ subroutine symspec(shared_data,k,ntrperiod,nsps,ingain,bLowSidelobes,    &
   include 'jt9com.f90'
 
   type(dec_data) :: shared_data
+  real*8 TRperiod
   real*4 w3(MAXFFT3)
   real*4 s(NSMAX)
   real*4 ssum(NSMAX)
@@ -38,7 +39,7 @@ subroutine symspec(shared_data,k,ntrperiod,nsps,ingain,bLowSidelobes,    &
   equivalence (xc,cx)
   save
 
-  if(ntrperiod.eq.-999) stop                   !Silence compiler warning
+  if(TRperiod.lt.0.d0) stop                    !Silence compiler warning
   nfft3=16384                                  !df=12000.0/16384 = 0.732422
   jstep=nsps/2                                 !Step size = half-symbol in id2()
   if(k.gt.NMAX) go to 900

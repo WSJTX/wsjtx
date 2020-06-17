@@ -89,7 +89,7 @@
 
 extern "C" {
   //----------------------------------------------------- C and Fortran routines
-  void symspec_(struct dec_data *, int* k, int* ntrperiod, int* nsps, int* ingain,
+  void symspec_(struct dec_data *, int* k, double* trperiod, int* nsps, int* ingain,
                 bool* bLowSidelobes, int* minw, float* px, float s[], float* df3,
                 int* nhsym, int* npts8, float *m_pxmax);
 
@@ -1373,14 +1373,13 @@ void MainWindow::dataSink(qint64 frames)
   }
 
 // Get power, spectrum, and ihsym
-  int trmin=m_TRperiod/60.0;
   dec_data.params.nfa=m_wideGraph->nStartFreq();
   dec_data.params.nfb=m_wideGraph->Fmax();
   int nsps=m_nsps;
   if(m_bFastMode) nsps=6912;
   int nsmo=m_wideGraph->smoothYellow()-1;
   bool bLowSidelobes=m_config.lowSidelobes();
-  symspec_(&dec_data,&k,&trmin,&nsps,&m_inGain,&bLowSidelobes,&nsmo,&m_px,s,
+  symspec_(&dec_data,&k,&m_TRperiod,&nsps,&m_inGain,&bLowSidelobes,&nsmo,&m_px,s,
            &m_df3,&m_ihsym,&m_npts8,&m_pxmax);
   if(m_mode=="WSPR") wspr_downsample_(dec_data.d2,&k);
   if(m_ihsym <=0) return;

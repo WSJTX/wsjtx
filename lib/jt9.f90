@@ -17,19 +17,20 @@ program jt9
   integer(C_INT) iret
   type(wav_header) wav
   real*4 s(NSMAX)
+  real*8 TRperiod
   character c
   character(len=500) optarg, infile
   character wisfile*80
 !### ndepth was defined as 60001.  Why???
   integer :: arglen,stat,offset,remain,mode=0,flow=200,fsplit=2700,          &
-       fhigh=4000,nrxfreq=1500,ntrperiod=1,ndepth=1,nexp_decode=0
+       fhigh=4000,nrxfreq=1500,ndepth=1,nexp_decode=0
   logical :: read_files = .true., tx9 = .false., display_help = .false.,     &
        bLowSidelobes = .false.
   type (option) :: long_options(27) = [ &
     option ('help', .false., 'h', 'Display this help message', ''),          &
     option ('shmem',.true.,'s','Use shared memory for sample data','KEY'),   &
-    option ('tr-period', .true., 'p', 'Tx/Rx period, default MINUTES=1',     &
-        'MINUTES'),                                                          &
+    option ('tr-period', .true., 'p', 'Tx/Rx period, default SECONDS=60',     &
+        'SECONDS'),                                                          &
     option ('executable-path', .true., 'e',                                  &
         'Location of subordinate executables (KVASD) default PATH="."',      &
         'PATH'),                                                             &
@@ -78,6 +79,7 @@ program jt9
   data npatience/1/,nthreads/1/
 
   nsubmode = 0
+  TRperiod=60.d0
 
   do
      call getopt('hs:e:a:b:r:m:p:d:f:w:t:987654qTL:S:H:c:G:x:g:X:',      &
@@ -102,7 +104,7 @@ program jt9
         case ('m')
            read (optarg(:arglen), *) nthreads
         case ('p')
-           read (optarg(:arglen), *) ntrperiod
+           read (optarg(:arglen), *) TRperiod
         case ('d')
            read (optarg(:arglen), *) ndepth
         case ('f')
@@ -200,29 +202,20 @@ program jt9
      go to 2
 1    nutc=0
 2    nsps=0
-     if(ntrperiod.eq.1)  then
+     if(TRperiod.eq.60.d0)  then
         nsps=6912
         shared_data%params%nzhsym=181
-     else if(ntrperiod.eq.2)  then
-        nsps=15360
-        shared_data%params%nzhsym=178
-     else if(ntrperiod.eq.5)  then
-        nsps=40960
-        shared_data%params%nzhsym=172
-     else if(ntrperiod.eq.10) then
-        nsps=82944
-        shared_data%params%nzhsym=171
-     else if(ntrperiod.eq.30) then
-        nsps=252000
-        shared_data%params%nzhsym=167
+     endif
+     if(mode.eq.280) then
+        nsps=6912
+        npts=TRperiod*12000.d0
      endif
      if(nsps.eq.0) stop 'Error: bad TRperiod'
 
      kstep=nsps/2
      k=0
      nhsym0=-999
-     npts=(60*ntrperiod-6)*12000
-     if(mode.eq.280) npts=60*ntrperiod*12000
+     npts=(TRperiod-6.d0)*12000.d0
      if(iarg .eq. offset + 1) then
         call init_timer (trim(data_dir)//'/timer.out')
         call timer('jt9     ',0)
@@ -246,8 +239,8 @@ program jt9
               ingain=0
               call timer('symspec ',0)
               nminw=1
-              call symspec(shared_data,k,ntrperiod,nsps,ingain,bLowSidelobes,nminw,pxdb,  &
-                   s,df3,ihsym,npts8,pxdbmax)
+              call symspec(shared_data,k,Tperiod,nsps,ingain,      &
+                   bLowSidelobes,nminw,pxdb,s,df3,ihsym,npts8,pxdbmax)
               call timer('symspec ',1)
            endif
            nhsym0=nhsym
