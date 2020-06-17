@@ -1393,7 +1393,6 @@ void MainWindow::dataSink(qint64 frames)
   if(m_mode=="MSK144") return;
 
   fixStop();
-  qDebug() << "aa" << m_hsymStop << m_ihsym << m_TRperiod;
   if (m_mode == "FreqCal"
       // only calculate after 1st chunk, also skip chunk where rig
       // changed frequency
