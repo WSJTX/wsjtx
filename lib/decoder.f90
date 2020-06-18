@@ -315,7 +315,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
 
 ! JT65 is not yet producing info for nsynced, ndecoded.
 800 ndecoded = my_jt4%decoded + my_jt65%decoded + my_jt9%decoded +       &
-         my_ft8%decoded + my_ft4%decoded
+         my_ft8%decoded + my_ft4%decoded + my_fst280%decoded
   if(params%nmode.eq.8 .and. params%nzhsym.eq.41) ndec41=ndecoded
   if(params%nmode.eq.8 .and. params%nzhsym.eq.47) ndec47=ndecoded
   if(params%nmode.eq.8 .and. params%nzhsym.eq.50) then
@@ -676,4 +676,44 @@ contains
 
     return
   end subroutine ft4_decoded
+
+!  subroutine fst280_decoded (this,sync,nsnr,dt,freq,decoded,nap,qual)
+
+!    use fst280_decode
+!    implicit none
+
+!    class(fst280_decoder), intent(inout) :: this
+!    real, intent(in) :: sync
+!    integer, intent(in) :: nsnr
+!    real, intent(in) :: dt
+!    real, intent(in) :: freq
+!    character(len=37), intent(in) :: decoded
+!    integer, intent(in) :: nap
+!    real, intent(in) :: qual
+!    character*2 annot
+!    character*37 decoded0
+
+!    decoded0=decoded
+!    annot='  '
+!    if(nap.ne.0) then
+!       write(annot,'(a1,i1)') 'a',nap
+!       if(qual.lt.0.17) decoded0(37:37)='?'
+!    endif
+
+!    write(*,1001) params%nutc,nsnr,dt,nint(freq),decoded0,annot
+!1001 format(i6.6,i4,f5.1,i5,' + ',1x,a37,1x,a2)
+!    write(13,1002) params%nutc,nint(sync),nsnr,dt,freq,0,decoded0
+!1002 format(i6.6,i4,i5,f6.1,f8.0,i4,3x,a37,' FST280')
+
+!    call flush(6)
+!    call flush(13)
+
+!    select type(this)
+!    type is (counting_fst280_decoder)
+!       this%decoded = this%decoded + 1
+!    end select
+
+!    return
+!  end subroutine fst280_decoded
+
 end subroutine multimode_decoder

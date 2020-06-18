@@ -264,8 +264,14 @@ contains
                endif
                if(nharderrors .ge.0 .and. unpk77_success) then
                   ngood=ngood+1
-                  write(*,1100) 0,nint(xsnr),dt_synced,nint(fc_synced),msg(1:22)
+                  write(*,1100) 0,nint(xsnr),dt_synced,nint(fc_synced),  &
+                       msg(1:22)
 1100              format(i6.6,i5,f5.1,i5,' `',1x,a22)
+
+!                  nsnr=nint(xsnr)
+!                  iaptype=0
+!                  qual=0.
+!                  call this%callback(smax1,nsnr,xdt,fc_synced,msg,iaptype,qual)
                   goto 2002
                else
                   cycle
