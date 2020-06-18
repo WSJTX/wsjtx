@@ -408,15 +408,19 @@ contains
       s2(i)=s(i-nh*3) + s(i-nh) +s(i+nh) +s(i+nh*3)
       s2(i)=db(s2(i)) - 48.5
    enddo
+
    
    if(hmod.eq.1) thresh=-29.5              !### temporaray? ###
    if(hmod.eq.2) thresh=-27.0
-   if(hmid.eq.4) thresh=-25.0
+   if(hmod.eq.4) thresh=-27.0
+   if(hmod.eq.8) thresh=-27.0
   
    ncand=0
+   if(ia.lt.3) ia=3
+   if(ib.gt.18000-2) ib=18000-2
    do i=ia,ib
-      if((s2(i).gt.s2(i-1)).and. &
-           (s2(i).gt.s2(i+1)).and. &
+      if((s2(i).gt.s2(i-2)).and. &
+           (s2(i).gt.s2(i+2)).and. &
            (s2(i).gt.thresh).and.ncand.lt.100) then
          ncand=ncand+1
          candidates(ncand,1)=df2*i
