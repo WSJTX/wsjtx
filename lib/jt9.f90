@@ -202,20 +202,18 @@ program jt9
      go to 2
 1    nutc=0
 2    nsps=0
+     npts=TRperiod*12000.d0
      if(TRperiod.eq.60.d0)  then
         nsps=6912
         shared_data%params%nzhsym=181
+        npts=(TRperiod-6.d0)*12000.d0
      endif
-     if(mode.eq.280) then
-        nsps=6912
-        npts=TRperiod*12000.d0
-     endif
+     if(mode.eq.280) nsps=6912
      if(nsps.eq.0) stop 'Error: bad TRperiod'
-
+     
      kstep=nsps/2
      k=0
      nhsym0=-999
-     npts=(TRperiod-6.d0)*12000.d0
      if(iarg .eq. offset + 1) then
         call init_timer (trim(data_dir)//'/timer.out')
         call timer('jt9     ',0)
@@ -250,7 +248,7 @@ program jt9
      close(unit=wav%lun)
      shared_data%params%nutc=nutc
      shared_data%params%ndiskdat=.true.
-     shared_data%params%ntr=60
+     shared_data%params%ntr=TRperiod
      shared_data%params%nfqso=nrxfreq
      shared_data%params%newdat=.true.
      shared_data%params%npts8=74736

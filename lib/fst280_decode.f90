@@ -49,7 +49,7 @@ contains
    integer*1 message101(101),message74(74)
    logical badsync,unpk77_success
    integer*2 iwave(300*12000)
-
+   
    hmod=1                            !### pass as arg ###
    Keff=91
    ndeep=3
