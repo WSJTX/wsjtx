@@ -1,5 +1,4 @@
 module fst280_decode
-
   type :: fst280_decoder
      procedure(fst280_decode_callback), pointer :: callback
    contains
@@ -41,7 +40,7 @@ contains
    complex, allocatable :: c_bigfft(:)          !Complex waveform
    real, allocatable :: r_data(:)
    real llr(280),llra(280),llrb(280),llrc(280),llrd(280)
-   real candidates(100,3)
+   real candidates(100,4)
    real bitmetrics(328,4)
    integer hmod
    integer*1 apmask(280),cw(280)
@@ -89,6 +88,7 @@ contains
    dt=1.0/fs                        !Sample interval (s)
    dt2=1.0/fs2
    tt=nsps*dt                       !Duration of "itone" symbols (s)
+   baud=1/tt
 
    nfft1=2*int(nmax/2)
    nh1=nfft1/2
@@ -187,7 +187,40 @@ contains
       endif
       fc_synced = fc0 + fc2
       dt_synced = (isbest-fs2)*dt2  !nominal dt is 1 second so frame starts at sample fs2
+      candidates(icand,3)=fc_synced
+      candidates(icand,4)=isbest
+   enddo 
 
+! remove duplicate candidates
+   do icand=1,ncand
+      fc=candidates(icand,3)
+      isbest=nint(candidates(icand,4))
+      do ic2=1,ncand
+         fc2=candidates(ic2,3)
+         isbest2=nint(candidates(ic2,4))
+         if(ic2.ne.icand .and. fc2.gt.0.0) then
+            if(abs(fc2-fc).lt.0.05*baud) then ! same frequency
+               if(abs(isbest2-isbest).le.2) then
+                  candidates(ic2,3)=-1
+               endif
+            endif
+         endif
+      enddo
+   enddo
+
+   ic=0
+   do icand=1,ncand
+      if(candidates(icand,3).gt.0) then
+         ic=ic+1
+         candidates(ic,:)=candidates(icand,:)
+      endif
+   enddo
+   ncand=ic
+
+   do icand=1,ncand
+      fc_synced=candidates(icand,3)
+      isbest=nint(candidates(icand,4))       
+      xdt=(isbest-nspsec)/fs2
       call fst280_downsample(c_bigfft,nfft1,ndown,fc_synced,c2)
 
       do ijitter=0,2
@@ -387,7 +420,7 @@ contains
    df1=fs/nfft1
    baud=fs/nsps
    df2=baud/2.0
-   nd=df1/df2
+   nd=df2/df1
    ndh=nd/2
    ia=fa/df2
    ib=fb/df2
@@ -398,19 +431,15 @@ contains
          s(i)=s(i) + real(c_bigfft(j))**2 + aimag(c_bigfft(j))**2
       enddo
    enddo
-   call pctile(s(ia:ib),ib-ia+1,30,base)
-   s=s/base
    nh=hmod
    do i=ia,ib
       s2(i)=s(i-nh*3) + s(i-nh) +s(i+nh) +s(i+nh*3)
-      s2(i)=db(s2(i)) - 48.5
    enddo
+   call pctile(s2(ia:ib),ib-ia+1,30,base)
+   s2=s2/base
    
-   if(hmod.eq.1) thresh=-29.5              !### temporaray? ###
-   if(hmod.eq.2) thresh=-27.0
-   if(hmod.eq.4) thresh=-27.0
-   if(hmod.eq.8) thresh=-27.0
-  
+   thresh=1.25
+ 
    ncand=0
    if(ia.lt.3) ia=3
    if(ib.gt.18000-2) ib=18000-2
@@ -420,7 +449,11 @@ contains
            (s2(i).gt.thresh).and.ncand.lt.100) then
          ncand=ncand+1
          candidates(ncand,1)=df2*i
-         candidates(ncand,2)=s2(i)
+         x=s2(i)-1
+         snr=-99
+! temporary placeholder until we implement subtraction...
+         if(x.gt.0) snr=10*log10(x)-10*log10(2500.0*nsps/12000.0)+6.0
+         candidates(ncand,2)=snr
       endif
    enddo
 
