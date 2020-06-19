@@ -28,7 +28,7 @@ program fst280sim
    call getarg(2,arg)
    read(arg,*) nsec                       !TR sequence length, seconds
    call getarg(3,arg)
-   read(arg,*) f0                         !Frequency (only used for single-signal)
+   read(arg,*) f00                        !Frequency (only used for single-signal)
    call getarg(4,arg)
    read(arg,*) xdt                        !Time offset from nominal (s)
    call getarg(5,arg)
@@ -46,7 +46,6 @@ program fst280sim
    twopi=8.0*atan(1.0)
    fs=12000.0                             !Sample rate (Hz)
    dt=1.0/fs                              !Sample interval (s)
-   baud=1.0/tt                            !Keying rate (baud)
    nsps=0
    if(nsec.eq.15) nsps=800
    if(nsec.eq.30) nsps=1680
@@ -57,6 +56,7 @@ program fst280sim
       print*,'Invalid TR sequence length.'
       go to 999
    endif
+   baud=12000.0/nsps                      !Keying rate (baud)
    nmax=nsec*12000
    nz=nsps*NN
    nz2=nsps*NN2
@@ -78,7 +78,7 @@ program fst280sim
 
    write(*,*)
    write(*,'(a9,a37)') 'Message: ',msgsent37
-   write(*,1000) f0,xdt,hmod,txt,snrdb
+   write(*,1000) f00,xdt,hmod,txt,snrdb
 1000 format('f0:',f9.3,'   DT:',f6.2,'   hmod:',i6,'   TxT:',f6.1,'   SNR:',f6.1)
    write(*,*)
    if(i3.eq.1) then
@@ -97,6 +97,7 @@ program fst280sim
 
    fsample=12000.0
    icmplx=1
+   f0=f00+1.5*hmod*baud
    call gen_fst280wave(itone,NN,nsps,nmax,fsample,hmod,f0,icmplx,c0,wave)
    k=nint((xdt+1.0)/dt)-nsps
    c0=cshift(c0,-k)
@@ -135,7 +136,7 @@ program fst280sim
       open(10,file=trim(fname),status='unknown',access='stream')
       write(10) h,iwave                !Save to *.wav file
       close(10)
-      write(*,1110) ifile,xdt,f0,snrdb,fname
+      write(*,1110) ifile,xdt,f00,snrdb,fname
 1110  format(i4,f7.2,f8.2,f7.1,2x,a17)
    enddo
 

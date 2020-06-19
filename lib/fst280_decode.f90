@@ -88,8 +88,7 @@ contains
    dt=1.0/fs                        !Sample interval (s)
    dt2=1.0/fs2
    tt=nsps*dt                       !Duration of "itone" symbols (s)
-   baud=1/tt
-
+   baud=1.0/tt
    nfft1=2*int(nmax/2)
    nh1=nfft1/2
    allocate( r_data(1:nfft1+2) )
@@ -294,7 +293,8 @@ contains
                   nsnr=nint(xsnr)
                   iaptype=0
                   qual=0.
-                  call this%callback(nutc,smax1,nsnr,xdt,fc_synced,msg,    &
+                  fsig=fc_synced - 1.5*hmod*baud
+                  call this%callback(nutc,smax1,nsnr,xdt,fsig,msg,    &
                        iaptype,qual)
                   goto 2002
                else

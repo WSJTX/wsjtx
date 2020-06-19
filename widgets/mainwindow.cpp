@@ -4703,7 +4703,6 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
           m_QSOProgress=ROGER_REPORT;
         }
         m_xRcvd=t[n-2] + " " + t[n-1];
-//        qDebug() << "bb" << w2 << w34 << t0 << m_xRcvd;
       } else if(SpecOp::FIELD_DAY==m_config.special_op_id() and bFieldDay_msg) {
         if(t0=="R") {
           gen_msg=setTxMsg(4);
@@ -5789,19 +5788,22 @@ void MainWindow::displayWidgets(qint64 n)
 
 void MainWindow::on_actionFST280_triggered()
 {
+  int nsub=m_nSubMode;
   on_actionJT65_triggered();
+  ui->sbSubmode->setMaximum(3);
+  m_nSubMode=nsub;
+  ui->sbSubmode->setValue(m_nSubMode);
   m_mode="FST280";
   m_modeTx="FST280";
   ui->actionFST280->setChecked(true);
   WSPR_config(false);
+  bool bVHF=m_config.enable_VHF_features();
 //                         012345678901234567890123456789012
   displayWidgets(nWidgets("111011000000111100010000000000000"));
-  bool bVHF=m_config.enable_VHF_features();
   setup_status_bar (bVHF);
   m_TRperiod = ui->sbTR->value ();
   ui->sbTR->setMinimum(15);
   ui->sbTR->setMaximum(300);
-  ui->sbSubmode->setMaximum(3);
   on_sbTR_valueChanged(ui->sbTR->value());
   statusChanged();
 }
@@ -9002,8 +9004,6 @@ void MainWindow::set_mode (QString const& mode)
     else if ("ISCAT" == mode) on_actionISCAT_triggered ();
     else if ("MSK144" == mode) on_actionMSK144_triggered ();
     else if ("WSPR" == mode) on_actionWSPR_triggered ();
-    else if ("FST280" == mode) on_actionFST280_triggered ();
-    else if ("FST280W" == mode) on_actionFST280W_triggered ();
     else if ("Echo" == mode) on_actionEcho_triggered ();
 }
 
