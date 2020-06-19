@@ -410,7 +410,10 @@ contains
 
    complex c_bigfft(0:nfft1/2)
    integer hmod
+   integer indx(100)
    real candidates(100,4)
+   real candidates0(100,4)
+   real snr_cand(100)
    real s(18000)
    real s2(18000)
    data nfft1z/-1/
@@ -456,6 +459,17 @@ contains
          candidates(ncand,2)=snr
       endif
    enddo
+
+   snr_cand=0.
+   snr_cand(1:ncand)=candidates(1:ncand,2)
+   call indexx(snr_cand,ncand,indx)
+   nmax=5
+   do i=1,min(ncand,nmax)
+      j=indx(ncand+1-i)
+      candidates0(i,1:4)=candidates(j,1:4)
+   enddo
+   candidates(1:nmax,1:4)=candidates0(1:nmax,1:4)
+   candidates(nmax+1:,1:4)=0.
 
    return 
  end subroutine get_candidates_fst280
