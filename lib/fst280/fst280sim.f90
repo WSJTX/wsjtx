@@ -8,7 +8,6 @@ program fst280sim
    type(hdr) h                                !Header for .wav file
    character arg*12,fname*17
    character msg37*37,msgsent37*37,c77*77
-   character tr_designator*1
    complex, allocatable :: c0(:)
    complex, allocatable :: c(:)
    real, allocatable :: wave(:)
@@ -21,18 +20,13 @@ program fst280sim
    nargs=iargc()
    if(nargs.ne.9) then
       print*,'Need 9 arguments, got ',nargs
-      print*,'Usage:    fst280sim "message"         type      f0   DT   h  fdop  del nfiles snr'
-      print*,'Examples: fst280sim "K1JT K9AN EN50"    C     1500  0.0   1   0.1  1.0   10   -15'
-      print*,'A: 15 sec'
-      print*,'B: 30 sec'
-      print*,'C: 1 min'
-      print*,'D: 2 min'
-      print*,'E: 5 min'
+      print*,'Usage:    fst280sim "message"        TRsec f0   DT  h fdop del nfiles snr'
+      print*,'Examples: fst280sim "K1JT K9AN EN50"  60  1500 0.0  1  0.1 1.0   10   -15'
       go to 999
    endif
    call getarg(1,msg37)                   !Message to be transmitted
    call getarg(2,arg)
-   read(arg,*) tr_designator              !TR selector 
+   read(arg,*) nsec                       !TR sequence length, seconds
    call getarg(3,arg)
    read(arg,*) f0                         !Frequency (only used for single-signal)
    call getarg(4,arg)
@@ -53,23 +47,17 @@ program fst280sim
    fs=12000.0                             !Sample rate (Hz)
    dt=1.0/fs                              !Sample interval (s)
    baud=1.0/tt                            !Keying rate (baud)
-   select case (tr_designator)
-      case('A')
-         nsps=800
-         nmax=15*12000
-      case('B')
-         nsps=1680
-         nmax=30*12000
-      case('C')
-         nsps=4000
-         nmax=60*12000
-      case('D')
-         nsps=8400
-         nmax=120*12000
-      case('E')
-         nsps=21504
-         nmax=300*12000
-   end select
+   nsps=0
+   if(nsec.eq.15) nsps=800
+   if(nsec.eq.30) nsps=1680
+   if(nsec.eq.60) nsps=4000
+   if(nsec.eq.120) nsps=8400
+   if(nsec.eq.300) nsps=21504
+   if(nsps.eq.0) then
+      print*,'Invalid TR sequence length.'
+      go to 999
+   endif
+   nmax=nsec*12000
    nz=nsps*NN
    nz2=nsps*NN2
    txt=nz2*dt                             !Transmission length (s)
