@@ -13,10 +13,8 @@ subroutine gen_fst280wave(itone,nsym,nsps,nwave,fsample,hmod,f0,    &
   save first,twopi,dt,tsym,nsps0
 
   if(first.or.nsps.ne.nsps0) then
-     if(allocated(pulse)) then
-        deallocate(pulse)
-     endif
-     allocate(pulse(3*nsps*int(fsample)))
+     if(allocated(pulse)) deallocate(pulse)
+     allocate(pulse(1:3*nsps))
      twopi=8.0*atan(1.0)
      dt=1.0/fsample
      tsym=nsps/fsample
@@ -42,7 +40,7 @@ subroutine gen_fst280wave(itone,nsym,nsps,nwave,fsample,hmod,f0,    &
 
 ! Calculate and insert the audio waveform
   phi=0.0
-  dphi = dphi + twopi*(f0-1.5*hmod/tsym)*dt                          !Shift frequency up by f0
+  dphi = dphi + twopi*(f0-1.5*hmod/tsym)*dt       !Shift frequency up by f0
   if(icmplx.eq.0) wave=0.
   if(icmplx.eq.1) cwave=0.
   k=0
