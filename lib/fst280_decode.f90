@@ -410,7 +410,7 @@ contains
 
    complex c_bigfft(0:nfft1/2)
    integer hmod
-   real candidates(100,3)
+   real candidates(100,4)
    real s(18000)
    real s2(18000)
    data nfft1z/-1/
