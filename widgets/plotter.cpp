@@ -415,7 +415,16 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
   float bw=9.0*12000.0/m_nsps;               //JT9
   if(m_mode=="FT4") bw=3*12000.0/576.0;      //FT4  ### (3x, or 4x???) ###
   if(m_mode=="FT8") bw=7*12000.0/1920.0;     //FT8
-
+  if(m_mode=="FST280") {
+    int h=int(pow(2.0,m_nSubMode));
+    int nsps=800;
+    if(m_TRperiod==30) nsps=1680;
+    if(m_TRperiod==60) nsps=4000;
+    if(m_TRperiod==120) nsps=8400;
+    if(m_TRperiod==300) nsps=21504;
+    float baud=12000.0/nsps;
+    bw=3.0*h*baud;
+  }
   if(m_mode=="JT4") {                        //JT4
     bw=3*11025.0/2520.0;                     //Max tone spacing (3/4 of actual BW)
     if(m_nSubMode==1) bw=2*bw;
@@ -492,7 +501,7 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
   int yTxTop=12;
   int yRxBottom=yTxTop + 2*yh + 4;
   if(m_mode=="JT9" or m_mode=="JT65" or m_mode=="JT9+JT65"
-     or m_mode=="QRA64" or m_mode=="FT8" or m_mode=="FT4") {
+     or m_mode=="QRA64" or m_mode=="FT8" or m_mode=="FT4" or m_mode=="FST280") {
 
     if(m_mode=="QRA64" or (m_mode=="JT65" and m_bVHF)) {
       painter0.setPen(penGreen);
@@ -529,7 +538,7 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
 
   if(m_mode=="JT9" or m_mode=="JT65" or m_mode=="JT9+JT65" or
      m_mode.mid(0,4)=="WSPR" or m_mode=="QRA64" or m_mode=="FT8"
-     or m_mode=="FT4") {
+     or m_mode=="FT4" or m_mode=="FST280") {
     painter0.setPen(penRed);
     x1=XfromFreq(m_txFreq);
     x2=XfromFreq(m_txFreq+bw);

@@ -7,7 +7,7 @@ module fst280_decode
 
   abstract interface
      subroutine fst280_decode_callback (this,nutc,sync,nsnr,dt,freq,    &
-          decoded,nap,qual)
+          decoded,nap,qual,ntrperiod)
        import fst280_decoder
        implicit none
        class(fst280_decoder), intent(inout) :: this
@@ -19,6 +19,7 @@ module fst280_decode
        character(len=37), intent(in) :: decoded
        integer, intent(in) :: nap
        real, intent(in) :: qual
+       integer, intent(in) :: ntrperiod
      end subroutine fst280_decode_callback
   end interface
 
@@ -295,7 +296,7 @@ contains
                   qual=0.
                   fsig=fc_synced - 1.5*hmod*baud
                   call this%callback(nutc,smax1,nsnr,xdt,fsig,msg,    &
-                       iaptype,qual)
+                       iaptype,qual,ntrperiod)
                   goto 2002
                else
                   cycle

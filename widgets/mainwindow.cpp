@@ -2890,9 +2890,9 @@ void MainWindow::decode()                                       //decode()
     imin=imin % 60;
     if(m_TRperiod>=60) imin=imin - (imin % (int(m_TRperiod)/60));
     dec_data.params.nutc=100*ihr + imin;
-    if(m_mode=="ISCAT" or m_mode=="MSK144" or m_bFast9 or m_mode=="FT8" or m_mode=="FT4") {
+    if(m_TRperiod < 60) {
       qint64 ms=1000.0*(2.0-m_TRperiod);
-      if(m_mode=="FT4") ms=1000.0*(2.0-m_TRperiod);
+      if(m_mode=="FST280") ms=1000.0*(6.0-m_TRperiod);
       //Adjust for FT8 early decode:
       if(m_mode=="FT8" and m_ihsym==m_earlyDecode and !m_diskData) ms+=(m_hsymStop-m_earlyDecode)*288;
       if(m_mode=="FT8" and m_ihsym==m_earlyDecode2 and !m_diskData) ms+=(m_hsymStop-m_earlyDecode2)*288;
@@ -3244,7 +3244,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
 //Right (Rx Frequency) window
       bool bDisplayRight=bAvgMsg;
       int audioFreq=decodedtext.frequencyOffset();
-      if(m_mode=="FT8" or m_mode=="FT4") {
+      if(m_mode=="FT8" or m_mode=="FT4" or m_mode=="FST280") {
         auto const& parts = decodedtext.string().remove("<").remove(">")
             .split (' ', SkipEmptyParts);
         if (parts.size() > 6) {
@@ -3327,7 +3327,8 @@ void MainWindow::readFromStdout()                             //readFromStdout
 
 //### I think this is where we are preventing Hounds from spotting Fox ###
       if(m_mode!="FT8" or (SpecOp::HOUND != m_config.special_op_id())) {
-        if(m_mode=="FT8" or m_mode=="FT4" or m_mode=="QRA64" or m_mode=="JT4" or m_mode=="JT65" or m_mode=="JT9") {
+        if(m_mode=="FT8" or m_mode=="FT4" or m_mode=="QRA64" or m_mode=="JT4"
+           or m_mode=="JT65" or m_mode=="JT9" or m_mode=="FST280") {
           auto_sequence (decodedtext, 25, 50);
         }
 
@@ -3927,7 +3928,7 @@ void MainWindow::guiUpdate()
       write_all("Tx",m_currentMessage);
       if (m_config.TX_messages ()) {
         ui->decodedTextBrowser2->displayTransmittedText(m_currentMessage,m_modeTx,
-                     ui->TxFreqSpinBox->value(),m_bFastMode);
+                     ui->TxFreqSpinBox->value(),m_bFastMode,m_TRperiod);
         }
     }
 
@@ -4030,7 +4031,7 @@ void MainWindow::guiUpdate()
 
       if (m_config.TX_messages () && !m_tune && SpecOp::FOX!=m_config.special_op_id()) {
         ui->decodedTextBrowser2->displayTransmittedText(current_message, m_modeTx,
-             ui->TxFreqSpinBox->value(),m_bFastMode);
+             ui->TxFreqSpinBox->value(),m_bFastMode,m_TRperiod);
       }
 //    }
 
@@ -5824,12 +5825,13 @@ void MainWindow::on_actionFST280_triggered()
   WSPR_config(false);
   bool bVHF=m_config.enable_VHF_features();
 //                         012345678901234567890123456789012
-  displayWidgets(nWidgets("111011000000111100010000000000000"));
+  displayWidgets(nWidgets("111011000100111100010000000100000"));
   setup_status_bar (bVHF);
   m_TRperiod = ui->sbTR->value ();
   ui->sbTR->setMinimum(15);
   ui->sbTR->setMaximum(300);
   on_sbTR_valueChanged(ui->sbTR->value());
+  ui->cbAutoSeq->setChecked(true);
   statusChanged();
 }
 
@@ -5872,7 +5874,6 @@ void MainWindow::on_actionFT4_triggered()
   m_wideGraph->setModeTx(m_modeTx);
   m_send_RR73=true;
   VHF_features_enabled(bVHF);
-//  ui->cbAutoSeq->setChecked(false);
   m_fastGraph->hide();
   m_wideGraph->show();
   ui->decodedTextLabel2->setText("  UTC   dB   DT Freq    " + tr ("Message"));
@@ -8256,7 +8257,7 @@ void MainWindow::on_cbFirst_toggled(bool b)
 void MainWindow::on_cbAutoSeq_toggled(bool b)
 {
   if(!b) ui->cbFirst->setChecked(false);
-  ui->cbFirst->setVisible((m_mode=="FT8" or m_mode=="FT4") and b);
+  ui->cbFirst->setVisible((m_mode=="FT8" or m_mode=="FT4" or m_mode=="FST280") and b);
 }
 
 void MainWindow::on_measure_check_box_stateChanged (int state)
@@ -8819,7 +8820,7 @@ void MainWindow::foxGenWaveform(int i,QString fm)
   QString txModeArg;
   txModeArg = txModeArg.asprintf("FT8fox %d",i+1);
   ui->decodedTextBrowser2->displayTransmittedText(fm.trimmed(), txModeArg,
-        ui->TxFreqSpinBox->value()+60*i,m_bFastMode);
+        ui->TxFreqSpinBox->value()+60*i,m_bFastMode,m_TRperiod);
   foxcom_.i3bit[i]=0;
   if(fm.indexOf("<")>0) foxcom_.i3bit[i]=1;
   strncpy(&foxcom_.cmsg[i][0],fm.toLatin1(),40);   //Copy this message into cmsg[i]

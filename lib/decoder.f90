@@ -678,7 +678,8 @@ contains
     return
   end subroutine ft4_decoded
 
-  subroutine fst280_decoded (this,nutc,sync,nsnr,dt,freq,decoded,nap,qual)
+  subroutine fst280_decoded (this,nutc,sync,nsnr,dt,freq,decoded,nap,   &
+       qual,ntrperiod)
 
     use fst280_decode
     implicit none
@@ -692,6 +693,7 @@ contains
     character(len=37), intent(in) :: decoded
     integer, intent(in) :: nap
     real, intent(in) :: qual
+    integer, intent(in) :: ntrperiod
     character*2 annot
     character*37 decoded0
 
@@ -702,10 +704,17 @@ contains
        if(qual.lt.0.17) decoded0(37:37)='?'
     endif
 
-    write(*,1001) nutc,nsnr,dt,nint(freq),decoded0,annot
-1001 format(i6.6,i4,f5.1,i5,' ` ',1x,a37,1x,a2)
-    write(13,1002) nutc,nint(sync),nsnr,dt,freq,0,decoded0
-1002 format(i6.6,i4,i5,f6.1,f8.0,i4,3x,a37,' FST280')
+    if(ntrperiod.lt.60) then
+       write(*,1001) nutc,nsnr,dt,nint(freq),decoded0,annot
+1001   format(i6.6,i4,f5.1,i5,' ` ',1x,a37,1x,a2)
+       write(13,1002) nutc,nint(sync),nsnr,dt,freq,0,decoded0
+1002   format(i6.6,i4,i5,f6.1,f8.0,i4,3x,a37,' FST280')
+    else
+       write(*,1003) nutc,nsnr,dt,nint(freq),decoded0,annot
+1003   format(i4.4,i4,f5.1,i5,' ` ',1x,a37,1x,a2)
+       write(13,1004) nutc,nint(sync),nsnr,dt,freq,0,decoded0
+1004   format(i4.4,i4,i5,f6.1,f8.0,i4,3x,a37,' FST280')
+    endif
 
     call flush(6)
     call flush(13)

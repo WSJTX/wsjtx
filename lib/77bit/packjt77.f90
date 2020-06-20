@@ -897,7 +897,7 @@ subroutine pack77_03(nwords,w,i3,n3,c77)
   
   ntx=-1
   j=len(trim(w(nwords-1)))-1
-  read(w(nwords-1)(1:j),*,err=1) ntx                !Number of transmitters
+  read(w(nwords-1)(1:j),*,err=1,end=1) ntx          !Number of transmitters
 1 if(ntx.lt.1 .or. ntx.gt.32) return
   nclass=ichar(w(nwords-1)(j+1:j+1))-ichar('A')
   

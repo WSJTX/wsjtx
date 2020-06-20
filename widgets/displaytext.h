@@ -31,7 +31,7 @@ public:
   void displayDecodedText(DecodedText const& decodedText, QString const& myCall, QString const& mode,
                           bool displayDXCCEntity, LogBook const& logBook,
                           QString const& currentBand=QString {}, bool ppfx=false, bool bCQonly=false);
-  void displayTransmittedText(QString text, QString modeTx, qint32 txFreq, bool bFastMode);
+  void displayTransmittedText(QString text, QString modeTx, qint32 txFreq, bool bFastMode, double TRperiod);
   void displayQSY(QString text);
   void displayFoxToBeCalled(QString t, QColor bg = QColor {}, QColor fg = QColor {});
   void new_period ();
