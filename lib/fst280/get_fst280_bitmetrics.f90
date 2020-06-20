@@ -72,10 +72,10 @@ subroutine get_fst280_bitmetrics(cd,nss,hmod,bitmetrics,badsync)
    nsync=is1+is2+is3   !Number of correct hard sync symbols, 0-24
 
    badsync=.false.
-!   if(nsync .lt. 8) then
-!      badsync=.true.
-!      return
-!   endif
+   if(nsync .lt. 8) then
+      badsync=.true.
+      return
+   endif
 
    bitmetrics=0.0
    do nseq=1,4            !Try coherent sequences of 1, 2, and 4 symbols
