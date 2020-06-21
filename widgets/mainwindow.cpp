@@ -5825,13 +5825,15 @@ void MainWindow::on_actionFST280_triggered()
   WSPR_config(false);
   bool bVHF=m_config.enable_VHF_features();
 //                         012345678901234567890123456789012
-  displayWidgets(nWidgets("111011000100111100010000000100000"));
+  displayWidgets(nWidgets("111111000100111100010000000100000"));
   setup_status_bar (bVHF);
   m_TRperiod = ui->sbTR->value ();
   ui->sbTR->setMinimum(15);
   ui->sbTR->setMaximum(300);
   on_sbTR_valueChanged(ui->sbTR->value());
   ui->cbAutoSeq->setChecked(true);
+  m_wideGraph->setMode(m_mode);
+  m_wideGraph->setModeTx(m_modeTx);
   statusChanged();
 }
 
@@ -5850,6 +5852,8 @@ void MainWindow::on_actionFST280W_triggered()
   ui->sbTR->setMinimum(120);
   ui->sbTR->setMaximum(300);
   ui->sbSubmode->setMaximum(3);
+  m_wideGraph->setMode(m_mode);
+  m_wideGraph->setModeTx(m_modeTx);
   statusChanged();
 }
 
