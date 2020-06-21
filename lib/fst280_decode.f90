@@ -26,7 +26,7 @@ module fst280_decode
 contains
 
  subroutine decode(this,callback,iwave,nutc,nQSOProgress,nfqso,    &
-      nfa,nfb,nsubmode,ndeep,ntrperiod)
+      nfa,nfb,nsubmode,ndeep,ntrperiod,nexp_decode,ntol)
 
    use timer_module, only: timer
    use packjt77
@@ -47,7 +47,7 @@ contains
    integer*1 apmask(280),cw(280)
    integer*1 hbits(328)
    integer*1 message101(101),message74(74)
-   logical badsync,unpk77_success
+   logical badsync,unpk77_success,single_decode
    integer*2 iwave(300*12000)
 
    this%callback => callback
@@ -56,6 +56,7 @@ contains
    Keff=91
    iwspr=0
    nmax=15*12000
+   single_decode=iand(nexp_decode,32).eq.32
 
    if(ntrperiod.eq.15) then
       nsps=800
@@ -100,8 +101,13 @@ contains
    allocate( cframe(0:164*nss-1) )
 
    npts=nmax
-   fa=max(100,nfa)
-   fb=min(4800,nfb)
+   if(single_decode) then
+      fa=max(100,nfqso-ntol)
+      fb=min(4800,nfqso+ntol)
+   else
+      fa=max(100,nfa)
+      fb=min(4800,nfb)
+   endif
 
    if(ndeep.eq.3) then
       ntmax=4      ! number of block sizes to try

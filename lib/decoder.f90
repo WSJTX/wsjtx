@@ -192,7 +192,8 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
      call timer('dec280  ',0)
      call my_fst280%decode(fst280_decoded,id2,params%nutc,                &
           params%nQSOProgress,params%nfqso,params%nfa,params%nfb,         &
-          params%nsubmode,params%ndepth,params%ntr)
+          params%nsubmode,params%ndepth,params%ntr,params%nexp_decode,    &
+          params%ntol)
      call timer('dec280  ',1)
      go to 800
   endif
