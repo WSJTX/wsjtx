@@ -13,6 +13,32 @@
 Copyright 2001 - 2020 by Joe Taylor, K1JT.
 
 
+		  Release: WSJT-X 2.2.2
+		       June 22, 2020
+		  ---------------------
+
+WSJT-X v2.2.2 is a bug fix release, mainly to incorporate the new RAC
+section PE into the FT8/FT4/MSK144 Contest Mode for Field Day.
+
+ - Stations intending to operate in Field Day (FD) are urged to
+   upgrade to this release, without it you cannot set your section to
+   PE, and of equal importance you cannot decode contest messages from
+   stations who are operating from PE without this upgrade.
+
+ - FT8 decoder speeded up in Normal and Fast modes. This change gives
+   a speed of decoding closer to that of v2.1.2 without compromising
+   the number of decodes. It is particularly targeted for slower
+   single board computer users such as the Raspberry Pi Model 3 or
+   similar.
+
+ - Thanks to our user interface language translation contributors for
+   many improvements to the translated strings.
+
+ - The DX Grid field is now cleared automatically when the DX Call
+   field is changed. Care should be taken to complete entry of a
+   callsign before entering a grid square.
+
+
 		  Release: WSJT-X 2.2.1
 		       June 6, 2020
 		  ---------------------
