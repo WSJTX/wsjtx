@@ -230,7 +230,7 @@ namespace
           |IL|IN|KS|KY|LA|LAX|MAR|MB|MDC
           |ME|MI|MN|MO|MS|MT|NC|ND|NE|NFL
           |NH|NL|NLI|NM|NNJ|NNY|NT|NTX|NV
-          |OH|OK|ONE|ONN|ONS|OR|ORG|PAC
+          |OH|OK|ONE|ONN|ONS|OR|ORG|PAC|PE
           |PR|QC|RI|SB|SC|SCV|SD|SDG|SF
           |SFL|SJV|SK|SNJ|STX|SV|TN|UT|VA
           |VI|VT|WCF|WI|WMA|WNY|WPA|WTX
