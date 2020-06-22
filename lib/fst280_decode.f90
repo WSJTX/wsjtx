@@ -159,7 +159,7 @@ contains
       do isync=0,1
          if(isync.eq.0) then
             fc1=0.0
-            is0=nint(fs2)
+            is0=2*nint(fs2)
             ishw=is0
             isst=4*hmod
             ifhw=12

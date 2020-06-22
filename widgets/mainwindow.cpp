@@ -959,7 +959,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_bFastDone=false;
   m_bAltV=false;
   m_bNoMoreFiles=false;
-  m_bVHFwarned=false;
   m_bDoubleClicked=false;
   m_bCallingCQ=false;
   m_bCheckedContest=false;
@@ -4082,11 +4081,6 @@ void MainWindow::guiUpdate()
 //Once per second:
   if(nsec != m_sec0) {
 //      qDebug() << "onesec" << m_mode;
-    if(m_freqNominal!=0 and m_freqNominal<50000000 and m_config.enable_VHF_features()) {
-      if(!m_bVHFwarned) vhfWarning();
-    } else {
-      m_bVHFwarned=false;
-    }
     m_currentBand=m_config.bands()->find(m_freqNominal);
 
     if( SpecOp::HOUND == m_config.special_op_id() ) {
@@ -6436,7 +6430,6 @@ void MainWindow::switch_mode (Mode mode)
     ui->RxFreqSpinBox->setMaximum(5000);
     ui->RxFreqSpinBox->setSingleStep(1);
   }
-  m_bVHFwarned=false;
   bool b=m_mode=="FreqCal";
   ui->tabWidget->setVisible(!b);
   if(b) {
@@ -6671,18 +6664,9 @@ void MainWindow::band_changed (Frequency f)
       {
         m_frequency_list_fcal_iter = m_config.frequencies ()->find (f);
       }
-    float r=m_freqNominal/(f+0.0001);
-    if(r<0.9 or r>1.1) m_bVHFwarned=false;
     setRig (f);
     setXIT (ui->TxFreqSpinBox->value ());
   }
-}
-
-void MainWindow::vhfWarning()
-{
-  MessageBox::warning_message (this, tr ("VHF features warning"),
-     "VHF/UHF/Microwave features is enabled on a lower frequency band.");
-  m_bVHFwarned=true;
 }
 
 void MainWindow::enable_DXCC_entity (bool on)
