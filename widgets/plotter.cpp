@@ -534,7 +534,7 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
       if(m_mode=="FST280") {
         x1=XfromFreq(m_rxFreq-m_tol);
         x2=XfromFreq(m_rxFreq+m_tol);
-        painter0.drawLine(x1,29,x2,29);   // Mark the Tol range
+        painter0.drawLine(x1,26,x2,26);   // Mark the Tol range
       }
 
     }
