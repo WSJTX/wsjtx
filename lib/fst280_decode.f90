@@ -60,7 +60,6 @@ contains
    iwspr=0
    nmax=15*12000
    single_decode=iand(nexp_decode,32).eq.32
-
    if(ntrperiod.eq.15) then
       nsps=800
       nmax=15*12000
@@ -146,7 +145,7 @@ contains
    fc28=0.
    do icand=1,ncand
       fc0=candidates(icand,1)
-      xsnr=candidates(icand,2)
+      detmet=candidates(icand,2)
 
 ! Downconvert and downsample a slice of the spectrum centered on the
 ! rough estimate of the candidates frequency.
@@ -161,16 +160,16 @@ contains
             fc1=0.0
             is0=2*nint(fs2)
             ishw=is0
-            isst=4
-            ifhw=10
-            df=.1*8400/nsps
+            isst=4*hmod
+            ifhw=12
+            df=.1*baud
          else if(isync.eq.1) then
             fc1=fc28
             is0=isbest8
-            ishw=4
-            isst=1
-            ifhw=10
-            df=.02*8400/nsps
+            ishw=4*hmod
+            isst=1*hmod
+            ifhw=7
+            df=.02*baud
          endif
 
          smax1=0.0
@@ -211,7 +210,6 @@ contains
       candidates(icand,3)=fc_synced
       candidates(icand,4)=isbest
    enddo 
-
 ! remove duplicate candidates
    do icand=1,ncand
       fc=candidates(icand,3)
@@ -237,10 +235,9 @@ contains
       endif
    enddo
    ncand=ic
-
    do icand=1,ncand
       fc_synced=candidates(icand,3)
-      isbest=nint(candidates(icand,4))       
+      isbest=nint(candidates(icand,4))     
       xdt=(isbest-nspsec)/fs2
       call fst280_downsample(c_bigfft,nfft1,ndown,fc_synced,c2)
 
@@ -264,8 +261,7 @@ contains
          ns5=count(hbits(313:320).eq.(/0,0,0,1,1,0,1,1/))
          ns6=count(hbits(321:328).eq.(/0,1,0,0,1,1,1,0/))
          nsync_qual=ns1+ns2+ns3+ns4+ns5+ns6
-         if(nsync_qual.lt. 28) cycle                   !### Value ?? ###
-
+         if(nsync_qual.lt. 26) cycle                   !### Value ?? ###
          scalefac=2.83
          llra(  1:140)=bitmetrics( 17:156, 1)
          llra(141:280)=bitmetrics(173:312, 1)
@@ -466,24 +462,35 @@ contains
    df2=baud/2.0
    nd=df2/df1
    ndh=nd/2
-   ia=fa/df2
-   ib=fb/df2
+   ia=nint(max(100.0,fa)/df2)
+   ib=nint(min(4800.0,fb)/df2)
+   signal_bw=4*(12000.0/nsps)*hmod
+   analysis_bw=min(4800.0,fb)-max(100.0,fa)
+   noise_bw=10.0*signal_bw
+   if(analysis_bw.gt.noise_bw) then
+      ina=ia
+      inb=ib
+   else
+      fcenter=(fa+fb)/2.0
+      fl = max(100.0,fcenter-noise_bw/2.)/df2
+      fh = min(4800.0,fcenter+noise_bw/2.)/df2
+      ina=nint(fl)
+      inb=nint(fh)
+   endif
    s=0.
-   do i=ia,ib
+   do i=ina,inb   ! noise analysis window includes signal analysis window
       j0=nint(i*df2/df1)
       do j=j0-ndh,j0+ndh
          s(i)=s(i) + real(c_bigfft(j))**2 + aimag(c_bigfft(j))**2
       enddo
    enddo
-   nh=hmod
-   do i=ia,ib
-      s2(i)=s(i-nh*3) + s(i-nh) +s(i+nh) +s(i+nh*3)
+   do i=ina,inb
+      s2(i)=s(i-hmod*3) + s(i-hmod) +s(i+hmod) +s(i+hmod*3)
    enddo
-   call pctile(s2(ia:ib),ib-ia+1,30,base)
+   call pctile(s2(ina+hmod*3:inb-hmod*3),inb-ina+1-hmod*6,30,base)
    s2=s2/base
-   
    thresh=1.30
- 
+
    ncand=0
    candidates=0
    if(ia.lt.3) ia=3
@@ -494,11 +501,7 @@ contains
            (s2(i).gt.thresh).and.ncand.lt.100) then
          ncand=ncand+1
          candidates(ncand,1)=df2*i
-         x=s2(i)-1
-         snr=-99
-! temporary placeholder until we implement subtraction...
-         if(x.gt.0) snr=10*log10(x)-10*log10(2500.0*nsps/12000.0)+6.0
-         candidates(ncand,2)=snr
+         candidates(ncand,2)=s2(i)
       endif
    enddo
 
