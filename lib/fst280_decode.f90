@@ -158,14 +158,16 @@ contains
       do isync=0,1
          if(isync.eq.0) then
             fc1=0.0
-            is0=2*nint(fs2)
-            ishw=is0
+            is0=1.5*nint(fs2)
+            ishw=1.5*is0
             isst=4*hmod
             ifhw=12
             df=.1*baud
          else if(isync.eq.1) then
-            fc1=fc28
-            is0=isbest8
+            fc1=fc21
+            if(hmod.eq.1) fc1=fc28
+            is0=isbest1
+            if(hmod.eq.1) is0=isbest8
             ishw=4*hmod
             isst=1*hmod
             ifhw=7
@@ -408,9 +410,15 @@ contains
    nsec=8/ncoh
    do i=1,nsec
       is=(i-1)*ncoh*nss
-      z1=sum(cd0(i1+is:i1+is+ncoh*nss-1)*conjg(csynct(is+1:is+ncoh*nss)))
+      z1=0
+      if(i1+is.ge.1) then
+         z1=sum(cd0(i1+is:i1+is+ncoh*nss-1)*conjg(csynct(is+1:is+ncoh*nss)))
+      endif
       z2=sum(cd0(i2+is:i2+is+ncoh*nss-1)*conjg(csynct(is+1:is+ncoh*nss)))
-      z3=sum(cd0(i3+is:i3+is+ncoh*nss-1)*conjg(csynct(is+1:is+ncoh*nss)))
+      z3=0
+      if(i3+is+ncoh*nss-1.le.np) then
+         z3=sum(cd0(i3+is:i3+is+ncoh*nss-1)*conjg(csynct(is+1:is+ncoh*nss)))
+      endif
       s1=s1+abs(z1)/(8*nss)
       s2=s2+abs(z2)/(8*nss)
       s3=s3+abs(z3)/(8*nss)
