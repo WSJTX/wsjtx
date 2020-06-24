@@ -49,9 +49,9 @@ program fst280sim
    nsps=0
    if(nsec.eq.15) nsps=800
    if(nsec.eq.30) nsps=1680
-   if(nsec.eq.60) nsps=4000
-   if(nsec.eq.120) nsps=8400
-   if(nsec.eq.300) nsps=21504
+   if(nsec.eq.60) nsps=3888
+   if(nsec.eq.120) nsps=8200
+   if(nsec.eq.300) nsps=21168
    if(nsps.eq.0) then
       print*,'Invalid TR sequence length.'
       go to 999
@@ -99,7 +99,7 @@ program fst280sim
    icmplx=1
    f0=f00+1.5*hmod*baud
    call gen_fst280wave(itone,NN,nsps,nmax,fsample,hmod,f0,icmplx,c0,wave)
-   k=nint((xdt+1.0)/dt)-nsps
+   k=nint(xdt/dt)
    c0=cshift(c0,-k)
    if(k.gt.0) c0(0:k-1)=0.0
    if(k.lt.0) c0(nmax+k:nmax-1)=0.0

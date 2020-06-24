@@ -72,18 +72,19 @@ contains
       if(hmod.eq.4) ndown=10
       if(hmod.eq.8) ndown=5
    else if(ntrperiod.eq.60) then
-      nsps=4000
+      nsps=3888
       nmax=60*12000
-      ndown=100/hmod
-      if(hmod.eq.8) ndown=16
+      ndown=96/hmod
+      if(hmod.eq.1) ndown=108
    else if(ntrperiod.eq.120) then
-      nsps=8400
+      nsps=8200
       nmax=120*12000
-      ndown=200/hmod
+      if(hmod.eq.1) ndown=205
+      ndown=100/hmod
    else if(ntrperiod.eq.300) then
-      nsps=21504
+      nsps=21168
       nmax=300*12000
-      ndown=512/hmod
+      ndown=504/hmod
    end if
    nss=nsps/ndown
    fs=12000.0                       !Sample rate
@@ -239,7 +240,7 @@ contains
    ncand=ic
    do icand=1,ncand
       fc_synced=candidates(icand,3)
-      isbest=nint(candidates(icand,4))     
+      isbest=nint(candidates(icand,4))   
       xdt=(isbest-nspsec)/fs2
       call fst280_downsample(c_bigfft,nfft1,ndown,fc_synced,c2)
 
@@ -256,26 +257,51 @@ contains
 
          hbits=0
          where(bitmetrics(:,1).ge.0) hbits=1
-         ns1=count(hbits(  1:  8).eq.(/0,0,0,1,1,0,1,1/))
-         ns2=count(hbits(  9: 16).eq.(/0,1,0,0,1,1,1,0/))
+         ns1=count(hbits( 71: 78).eq.(/0,0,0,1,1,0,1,1/))
+         ns2=count(hbits( 79: 86).eq.(/0,1,0,0,1,1,1,0/))
          ns3=count(hbits(157:164).eq.(/0,0,0,1,1,0,1,1/))
          ns4=count(hbits(165:172).eq.(/0,1,0,0,1,1,1,0/))
-         ns5=count(hbits(313:320).eq.(/0,0,0,1,1,0,1,1/))
-         ns6=count(hbits(321:328).eq.(/0,1,0,0,1,1,1,0/))
+         ns5=count(hbits(243:250).eq.(/0,0,0,1,1,0,1,1/))
+         ns6=count(hbits(251:258).eq.(/0,1,0,0,1,1,1,0/))
          nsync_qual=ns1+ns2+ns3+ns4+ns5+ns6
          if(nsync_qual.lt. 26) cycle                   !### Value ?? ###
+
          scalefac=2.83
-         llra(  1:140)=bitmetrics( 17:156, 1)
-         llra(141:280)=bitmetrics(173:312, 1)
+         llra(  1: 14)=bitmetrics(  1: 14, 1)
+         llra( 15: 28)=bitmetrics(315:328, 1)
+         llra( 29: 42)=bitmetrics( 15: 28, 1)
+         llra( 43: 56)=bitmetrics(301:314, 1)
+         llra( 57: 98)=bitmetrics( 29: 70, 1)
+         llra( 99:168)=bitmetrics( 87:156, 1)
+         llra(169:238)=bitmetrics(173:242, 1)
+         llra(239:280)=bitmetrics(259:300, 1)
          llra=scalefac*llra
-         llrb(  1:140)=bitmetrics( 17:156, 2)
-         llrb(141:280)=bitmetrics(173:312, 2)
+         llrb(  1: 14)=bitmetrics(  1: 14, 2)
+         llrb( 15: 28)=bitmetrics(315:328, 2)
+         llrb( 29: 42)=bitmetrics( 15: 28, 2)
+         llrb( 43: 56)=bitmetrics(301:314, 2)
+         llrb( 57: 98)=bitmetrics( 29: 70, 2)
+         llrb( 99:168)=bitmetrics( 87:156, 2)
+         llrb(169:238)=bitmetrics(173:242, 2)
+         llrb(239:280)=bitmetrics(259:300, 2)
          llrb=scalefac*llrb
-         llrc(  1:140)=bitmetrics( 17:156, 3)
-         llrc(141:280)=bitmetrics(173:312, 3)
+         llrc(  1: 14)=bitmetrics(  1: 14, 3)
+         llrc( 15: 28)=bitmetrics(315:328, 3)
+         llrc( 29: 42)=bitmetrics( 15: 28, 3)
+         llrc( 43: 56)=bitmetrics(301:314, 3)
+         llrc( 57: 98)=bitmetrics( 29: 70, 3)
+         llrc( 99:168)=bitmetrics( 87:156, 3)
+         llrc(169:238)=bitmetrics(173:242, 3)
+         llrc(239:280)=bitmetrics(259:300, 3)
          llrc=scalefac*llrc
-         llrd(  1:140)=bitmetrics( 17:156, 4)
-         llrd(141:280)=bitmetrics(173:312, 4)
+         llrd(  1: 14)=bitmetrics(  1: 14, 4)
+         llrd( 15: 28)=bitmetrics(315:328, 4)
+         llrd( 29: 42)=bitmetrics( 15: 28, 4)
+         llrd( 43: 56)=bitmetrics(301:314, 4)
+         llrd( 57: 98)=bitmetrics( 29: 70, 4)
+         llrd( 99:168)=bitmetrics( 87:156, 4)
+         llrd(169:238)=bitmetrics(173:242, 4)
+         llrd(239:280)=bitmetrics(259:300, 4)
          llrd=scalefac*llrd
          apmask=0
 
@@ -329,7 +355,7 @@ contains
                      else
                         xsnr=-99.9
                      endif
-!write(*,*) xsig,base,arg,xsnr
+!write(*,*) xsig,base,arg,xsnr,nsync_qual,ntype,nharderrors,dmin,msg
                   endif
                   nsnr=nint(xsnr)
                   iaptype=0
@@ -400,9 +426,9 @@ contains
       f0save=f0
    endif
 
-   i1=i0                            !Costas arrays
+   i1=i0+35*nss                            !Costas arrays
    i2=i0+78*nss
-   i3=i0+156*nss
+   i3=i0+121*nss
 
    s1=0.0
    s2=0.0

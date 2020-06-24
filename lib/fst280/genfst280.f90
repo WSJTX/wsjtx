@@ -92,11 +92,17 @@ subroutine genfst280(msg0,ichk,msgsent,msgbits,i4tone,iwspr)
       if(is.eq.3) itmp(i)=2
    enddo
 
-   i4tone(1:8)=isyncword
-   i4tone(9:78)=itmp(1:70)
+   i4tone(1:7)=itmp(1:7)
+   i4tone(8:14)=itmp(15:21)
+   i4tone(15:35)=itmp(29:49)
+   i4tone(36:43)=isyncword
+   i4tone(44:78)=itmp(50:84)
    i4tone(79:86)=isyncword
-   i4tone(87:156)=itmp(71:140)
-   i4tone(157:164)=isyncword
+   i4tone(87:121)=itmp(85:119)
+   i4tone(122:129)=isyncword
+   i4tone(130:150)=itmp(120:140)
+   i4tone(151:157)=itmp(22:28)
+   i4tone(158:164)=itmp(8:14)
 
 999 return
 

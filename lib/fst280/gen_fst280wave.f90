@@ -68,6 +68,7 @@ subroutine gen_fst280wave(itone,nsym,nsps,nwave,fsample,hmod,f0,    &
   enddo
 
 ! Compute the ramp-up and ramp-down symbols
+  kshift=nsps-nint(fsample)
   if(icmplx.eq.0) then
      wave(1:nsps/2)=0.0
      wave(nsps/2+1:nsps)=wave(nsps/2+1:nsps) *                                &
@@ -76,6 +77,7 @@ subroutine gen_fst280wave(itone,nsym,nsps,nwave,fsample,hmod,f0,    &
      wave(k1+nsps/2:)=0.0
      wave(k1:k1+nsps/2-1)=wave(k1:k1+nsps/2-1) *                              &
           (1.0+cos(twopi*(/(i,i=0,nsps/2-1)/)/real(nsps)))/2.0
+     wave=cshift(wave,kshift)
   else
      cwave(1:nsps/2)=0.0
      cwave(nsps/2+1:nsps)=cwave(nsps/2+1:nsps) *                               &
@@ -84,6 +86,7 @@ subroutine gen_fst280wave(itone,nsym,nsps,nwave,fsample,hmod,f0,    &
      cwave(k1+nsps/2:)=0.0
      cwave(k1:k1+nsps/2-1)=cwave(k1:k1+nsps/2-1) *                              &
           (1.0+cos(twopi*(/(i,i=0,nsps/2-1)/)/real(nsps)))/2.0
+     cwave=cshift(cwave,kshift)
   endif
 
 !  call system_clock(count1,clkfreq)
