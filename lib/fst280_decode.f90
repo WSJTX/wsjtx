@@ -239,6 +239,7 @@ contains
    enddo
    ncand=ic
    do icand=1,ncand
+      sync=candidates(icand,2)
       fc_synced=candidates(icand,3)
       isbest=nint(candidates(icand,4))   
       xdt=(isbest-nspsec)/fs2
@@ -355,12 +356,13 @@ contains
                      else
                         xsnr=-99.9
                      endif
-!write(*,*) xsig,base,arg,xsnr,nsync_qual,ntype,nharderrors,dmin,msg
                   endif
                   nsnr=nint(xsnr)
                   iaptype=0
                   qual=0.
                   fsig=fc_synced - 1.5*hmod*baud
+!write(21,'(8i4,f7.1,f7.2,3f7.1,1x,a37)') &
+!  nutc,icand,itry,iaptype,ijitter,ntype,nsync_qual,nharderrors,dmin,sync,xsnr,xdt,fsig,msg
                   call this%callback(nutc,smax1,nsnr,xdt,fsig,msg,    &
                        iaptype,qual,ntrperiod)
                   goto 2002
@@ -523,7 +525,7 @@ contains
    enddo
    call pctile(s2(ina+hmod*3:inb-hmod*3),inb-ina+1-hmod*6,30,base)
    s2=s2/base
-   thresh=1.30
+   thresh=1.25
 
    ncand=0
    candidates=0
