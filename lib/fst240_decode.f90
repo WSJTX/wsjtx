@@ -51,8 +51,12 @@ contains
    integer*1 apmask(240),cw(240)
    integer*1 hbits(320)
    integer*1 message101(101),message74(74)
+   integer*1 rvec(77)
    logical badsync,unpk77_success,single_decode
    integer*2 iwave(300*12000)
+   data rvec/0,1,0,0,1,0,1,0,0,1,0,1,1,1,1,0,1,0,0,0,1,0,0,1,1,0,1,1,0, &
+             1,0,0,1,0,1,1,0,0,0,0,1,0,0,0,1,0,1,0,0,1,1,1,1,0,0,1,0,1, &
+             0,1,0,1,0,1,1,0,1,1,1,1,1,0,0,0,1,0,1/
 
    this%callback => callback
    hmod=2**nsubmode
@@ -313,7 +317,7 @@ contains
             endif
             if(nharderrors .ge.0) then
                if(iwspr.eq.0) then
-                  write(c77,'(77i1)') message101(1:77)
+                  write(c77,'(77i1)') mod(message101(1:77)+rvec,2)
                   call unpack77(c77,0,msg,unpk77_success)
                else
                   write(c77,'(50i1)') message74(1:50)

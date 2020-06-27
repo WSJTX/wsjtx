@@ -54,6 +54,7 @@ subroutine genfst240(msg0,ichk,msgsent,msgbits,i4tone,iwspr)
       read(c24,'(24i1)') msgbits(51:74)
    else
       read(c77,'(77i1)') msgbits(1:77)
+      msgbits(1:77)=mod(msgbits(1:77)+rvec,2)
       call get_crc24(msgbits,101,ncrc24)
       write(c24,'(b24.24)') ncrc24
       read(c24,'(24i1)') msgbits(78:101)
@@ -69,7 +70,6 @@ subroutine genfst240(msg0,ichk,msgsent,msgbits,i4tone,iwspr)
  entry get_fst240_tones_from_bits(msgbits,i4tone,iwspr)
 
 2  continue
-
    call encode240_101(msgbits,codeword)
 
 ! Grayscale mapping:
