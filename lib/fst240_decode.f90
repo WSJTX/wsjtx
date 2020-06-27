@@ -155,7 +155,7 @@ contains
 ! The size of the downsampled c2 array is nfft2=nfft1/ndown
 
       call fst240_downsample(c_bigfft,nfft1,ndown,fc0,c2)
-      
+
       call timer('sync240 ',0)
       do isync=0,1
          if(isync.eq.0) then
@@ -376,7 +376,7 @@ write(21,'(8i4,f7.1,f7.2,3f7.1,1x,a37)') &
    integer hmod,isyncword(0:7)
    real f0save
    data isyncword/0,1,3,2,1,0,2,3/
-   data first/.true./,f0save/0.0/,nss0/-1/
+   data first/.true./,f0save/-99.9/,nss0/-1/
    save first,twopi,dt,fac,f0save,nss0
    p(z1)=(real(z1*fac)**2 + aimag(z1*fac)**2)**0.5     !Compute power
 
@@ -444,7 +444,6 @@ write(21,'(8i4,f7.1,f7.2,3f7.1,1x,a37)') &
       s4=s4+abs(z4)/(8*nss)
       s5=s5+abs(z5)/(8*nss)
    enddo
-
    sync = s1+s2+s3+s4+s5
 
    return
