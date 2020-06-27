@@ -8,13 +8,11 @@ subroutine gen_fst240wave(itone,nsym,nsps,nwave,fsample,hmod,f0,    &
   real, allocatable :: dphi(:)
   integer hmod
   integer itone(nsym)
-!  integer*8 count0,count1,clkfreq
   logical first
   data first/.true./
   data nsps0/-99/
   save first,twopi,dt,tsym,nsps0,ctab
 
-!  call system_clock(count0,clkfreq)
   if(first) then
      twopi=8.0*atan(1.0)
      do i=0,NTAB-1
@@ -88,11 +86,6 @@ subroutine gen_fst240wave(itone,nsym,nsps,nwave,fsample,hmod,f0,    &
           (1.0+cos(twopi*(/(i,i=0,nsps/4-1)/)/real(nsps/2)))/2.0
      cwave=cshift(cwave,kshift)
   endif
-
-!  call system_clock(count1,clkfreq)
-!  tt=float(count1-count0)/float(clkfreq)
-!  write(*,3001) tt
-!3001 format('Tgen:',f8.3)
   
   return
 end subroutine gen_fst240wave

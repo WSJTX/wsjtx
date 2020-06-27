@@ -3888,12 +3888,11 @@ void MainWindow::guiUpdate()
             if(m_TRperiod==120) nsps=8200;
             if(m_TRperiod==300) nsps=21168;
             nsps=4*nsps;                           //48000 Hz sampling
-            int nsym=164;
+            int nsym=160;
             float fsample=48000.0;
             float dfreq=hmod*fsample/nsps;
             float f0=ui->TxFreqSpinBox->value() - m_XIT + 1.5*dfreq;
-//            int nwave=(nsym+2)*nsps;
-            int nwave=48000 + 166*nsps;
+            int nwave=48000 + (nsym+2)*nsps;
             int icmplx=0;
             gen_fst240wave_(const_cast<int *>(itone),&nsym,&nsps,&nwave,
                     &fsample,&hmod,&f0,&icmplx,foxcom_.wave,foxcom_.wave);
