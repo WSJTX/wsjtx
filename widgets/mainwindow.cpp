@@ -1342,8 +1342,8 @@ void MainWindow::fixStop()
   } else if (m_mode=="FT4") {
   m_hsymStop=21;
   } else if(m_mode=="FST240" or m_mode=="FST240W") {
-    int stop[] = {44,85,187,387,987};
-    int stop_EME[] = {51,95,197,396,997};
+    int stop[] = {44,85,187,387,1003};
+    int stop_EME[] = {51,95,197,396,1012};
     int i=0;
     if(m_TRperiod==30) i=1;
     if(m_TRperiod==60) i=2;
