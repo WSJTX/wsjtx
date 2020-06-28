@@ -58,6 +58,8 @@ subroutine get_fst240_bitmetrics(cd,nss,hmod,nmax,bitmetrics,s4,badsync)
    is1=0
    is2=0
    is3=0
+   is4=0
+   is5=0
    badsync=.false.
    ibmax=0
 
@@ -74,9 +76,8 @@ subroutine get_fst240_bitmetrics(cd,nss,hmod,nmax,bitmetrics,s4,badsync)
       if(icos8(k-1).eq.(ip(1)-1)) is5=is5+1
    enddo
    nsync=is1+is2+is3+is4+is5   !Number of correct hard sync symbols, 0-40
-
    badsync=.false.
-   if(nsync .lt. 8) then
+   if(nsync .lt. 16) then
       badsync=.true.
       return
    endif

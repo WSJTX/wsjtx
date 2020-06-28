@@ -131,7 +131,7 @@ contains
       norder=2
    endif
 
-   ! The big fft is done once and is used for calculating the smoothed spectrum 
+! The big fft is done once and is used for calculating the smoothed spectrum 
 ! and also for downconverting/downsampling each candidate.
    r_data(1:nfft1)=iwave(1:nfft1)
    r_data(nfft1+1:nfft1+2)=0.0
@@ -218,6 +218,7 @@ contains
       candidates(icand,3)=fc_synced
       candidates(icand,4)=isbest
    enddo 
+
 ! remove duplicate candidates
    do icand=1,ncand
       fc=candidates(icand,3)
@@ -226,7 +227,7 @@ contains
          fc2=candidates(ic2,3)
          isbest2=nint(candidates(ic2,4))
          if(ic2.ne.icand .and. fc2.gt.0.0) then
-            if(abs(fc2-fc).lt.0.05*baud) then ! same frequency
+            if(abs(fc2-fc).lt.0.10*baud) then ! same frequency
                if(abs(isbest2-isbest).le.2) then
                   candidates(ic2,3)=-1
                endif
@@ -243,6 +244,7 @@ contains
       endif
    enddo
    ncand=ic
+
    do icand=1,ncand
       sync=candidates(icand,2)
       fc_synced=candidates(icand,3)
@@ -269,7 +271,7 @@ contains
          ns4=count(hbits(229:244).eq.(/0,0,0,1,1,0,1,1,0,1,0,0,1,1,1,0/))
          ns5=count(hbits(305:320).eq.(/0,0,0,1,1,0,1,1,0,1,0,0,1,1,1,0/))
          nsync_qual=ns1+ns2+ns3+ns4+ns5
-         if(nsync_qual.lt. 26) cycle                   !### Value ?? ###
+         if(nsync_qual.lt. 44) cycle                   !### Value ?? ###
 
          scalefac=2.83
          llra(  1: 60)=bitmetrics( 17: 76, 1)
@@ -349,7 +351,7 @@ contains
                   iaptype=0
                   qual=0.
                   fsig=fc_synced - 1.5*hmod*baud
-write(21,'(8i4,f7.1,f7.2,3f7.1,1x,a37)') &
+write(21,'(i6,7i6,f7.1,f9.2,3f7.1,1x,a37)') &
   nutc,icand,itry,iaptype,ijitter,ntype,nsync_qual,nharderrors,dmin,sync,xsnr,xdt,fsig,msg
                   call this%callback(nutc,smax1,nsnr,xdt,fsig,msg,    &
                        iaptype,qual,ntrperiod)
@@ -479,12 +481,14 @@ write(21,'(8i4,f7.1,f7.2,3f7.1,1x,a37)') &
 
    complex c_bigfft(0:nfft1/2)
    integer hmod
-   integer indx(100)
+   integer indx(100),im(1)
    real candidates(100,4)
    real candidates0(100,4)
    real snr_cand(100)
    real s(18000)
    real s2(18000)
+   real xdb(-3:3)
+   data xdb/0.25,0.50,0.75,1.0,0.75,0.50,0.25/
    data nfft1z/-1/
    save nfft1z
 
@@ -530,27 +534,25 @@ write(21,'(8i4,f7.1,f7.2,3f7.1,1x,a37)') &
    candidates=0
    if(ia.lt.3) ia=3
    if(ib.gt.18000-2) ib=18000-2
-   do i=ia,ib
-      if((s2(i).gt.s2(i-2)).and. &
-           (s2(i).gt.s2(i+2)).and. &
-           (s2(i).gt.thresh).and.ncand.lt.100) then
-         ncand=ncand+1
-         candidates(ncand,1)=df2*i
-         candidates(ncand,2)=s2(i)
-      endif
-   enddo
 
-   snr_cand=0.
-   snr_cand(1:ncand)=candidates(1:ncand,2)
-   call indexx(snr_cand,ncand,indx)
-   nmax=min(ncand,20)
-   do i=1,nmax
-      j=indx(ncand+1-i)
-      candidates0(i,1:4)=candidates(j,1:4)
-   enddo
-   ncand=nmax
-   candidates(1:ncand,1:4)=candidates0(1:ncand,1:4)
-   candidates(ncand+1:,1:4)=0.
+   pval=99.99
+   do while(ncand.lt.100 .and. pval.gt.thresh)
+      im=maxloc(s2(ia:ib))
+      iploc=ia+im(1)-1
+      pval=s2(iploc)
+      if(s2(iploc).gt.thresh) then
+         do i=-3,+3
+            k=iploc+2*hmod*i
+            if(k.ge.ia .and. k.le.ib) then 
+               s2(k)=max(0.,s2(k)-0.9*pval*xdb(i))
+            endif
+         enddo
+         ncand=ncand+1
+         candidates(ncand,1)=df2*iploc
+         candidates(ncand,2)=pval
+      endif
+   enddo 
+
    return 
  end subroutine get_candidates_fst240
 
