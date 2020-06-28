@@ -425,28 +425,23 @@ MessageClient::MessageClient (QString const& id, QString const& version, QString
 {
 #if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
   connect (&*m_, static_cast<void (impl::*) (impl::SocketError)> (&impl::error)
-           , [this] (impl::SocketError e)
-           {
-#if defined (Q_OS_WIN)
-             if (e != impl::NetworkError // take this out when Qt 5.5
-                                         // stops doing this
-                                         // spuriously
-                 && e != impl::ConnectionRefusedError) // not
-                                                       // interested
-                                                       // in this with
-                                                       // UDP socket
+           , [this] (impl::SocketError e) {
 #else
-             Q_UNUSED (e);
+  connect (&*m_, &impl::errorOccurred, [this] (impl::SocketError e) {
+#endif
+#if defined (Q_OS_WIN)
+                                         // take this out when Qt 5.5 stops doing this spuriously
+                                         if (e != impl::NetworkError
+                                             // not interested in this with UDP socket
+                                             && e != impl::ConnectionRefusedError)
+#else
+               Q_UNUSED (e);
 #endif
                {
                  Q_EMIT error (m_->errorString ());
                }
            });
-#else
-  connect (&*m_, &impl::errorOccurred, [this] (impl::SocketError) {
-                                         Q_EMIT error (m_->errorString ());
-                                       });
-#endif
+
   set_server (server);
 }
 
@@ -573,7 +568,7 @@ void MessageClient::qso_logged (QDateTime time_off, QString const& dx_call, QStr
                                 , QString const& comments, QString const& name, QDateTime time_on
                                 , QString const& operator_call, QString const& my_call
                                 , QString const& my_grid, QString const& exchange_sent
-                                , QString const& exchange_rcvd)
+                                , QString const& exchange_rcvd, QString const& propmode)
 {
    if (m_->server_port_ && !m_->server_string_.isEmpty ())
     {
@@ -582,8 +577,8 @@ void MessageClient::qso_logged (QDateTime time_off, QString const& dx_call, QStr
       out << time_off << dx_call.toUtf8 () << dx_grid.toUtf8 () << dial_frequency << mode.toUtf8 ()
           << report_sent.toUtf8 () << report_received.toUtf8 () << tx_power.toUtf8 () << comments.toUtf8 ()
           << name.toUtf8 () << time_on << operator_call.toUtf8 () << my_call.toUtf8 () << my_grid.toUtf8 ()
-          << exchange_sent.toUtf8 () << exchange_rcvd.toUtf8 ();
-      TRACE_UDP ("time off:" << time_off << "DX:" << dx_call << "DX grid:" << dx_grid << "dial:" << dial_frequency << "mode:" << mode << "sent:" << report_sent << "rcvd:" << report_received << "pwr:" << tx_power << "comments:" << comments << "name:" << name << "time on:" << time_on << "op:" << operator_call << "DE:" << my_call << "DE grid:" << my_grid << "exch sent:" << exchange_sent << "exch rcvd:" << exchange_rcvd);
+          << exchange_sent.toUtf8 () << exchange_rcvd.toUtf8 () << propmode.toUtf8 ();
+      TRACE_UDP ("time off:" << time_off << "DX:" << dx_call << "DX grid:" << dx_grid << "dial:" << dial_frequency << "mode:" << mode << "sent:" << report_sent << "rcvd:" << report_received << "pwr:" << tx_power << "comments:" << comments << "name:" << name << "time on:" << time_on << "op:" << operator_call << "DE:" << my_call << "DE grid:" << my_grid << "exch sent:" << exchange_sent << "exch rcvd:" << exchange_rcvd  << "prop_mode:" << propmode);
       m_->send_message (out, message);
     }
 }

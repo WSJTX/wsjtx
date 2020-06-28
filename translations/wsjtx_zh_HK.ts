@@ -4173,7 +4173,6 @@ UDP 服務器 %2:%3</translation>
 <context>
     <name>QObject</name>
     <message>
-        <location filename="../main.cpp" line="340"/>
         <source>Invalid rig name - \ &amp; / not allowed</source>
         <translation>無效的無線電裝置名稱 - \ &amp; / 不允許</translation>
     </message>

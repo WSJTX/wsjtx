@@ -323,6 +323,7 @@ int main(int argc, char *argv[])
       db.exec ("PRAGMA locking_mode=EXCLUSIVE");
 
       int result;
+      auto const& original_style_sheet = a.styleSheet ();
       do
         {
 #if WSJT_QDEBUG_TO_FILE
@@ -387,6 +388,9 @@ int main(int argc, char *argv[])
           splash.raise ();
           QObject::connect (&a, SIGNAL (lastWindowClosed()), &a, SLOT (quit()));
           result = a.exec();
+
+          // ensure config switches start with the right style sheet
+          a.setStyleSheet (original_style_sheet);
         }
       while (!result && !multi_settings.exit ());
 

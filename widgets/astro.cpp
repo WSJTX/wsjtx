@@ -46,7 +46,8 @@ Astro::Astro(QSettings * settings, Configuration const * configuration, QWidget 
 {
   ui_->setupUi (this);
   setWindowTitle (QApplication::applicationName () + " - " + tr ("Astronomical Data"));
-  setStyleSheet ("QWidget {background: white;}");
+  setBackgroundRole (QPalette::Base);
+  setAutoFillBackground (true);
   connect (ui_->cbDopplerTracking, &QAbstractButton::toggled, ui_->doppler_widget, &QWidget::setVisible);
   read_settings ();
   ui_->text_label->clear ();

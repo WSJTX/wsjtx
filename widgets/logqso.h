@@ -42,7 +42,7 @@ signals:
                   , QString const& name, QDateTime const& QSO_date_on,  QString const& operator_call
                   , QString const& my_call, QString const& my_grid
                   , QString const& exchange_sent, QString const& exchange_rcvd
-                  , QByteArray const& ADIF);
+                  , QString const& propmode, QByteArray const& ADIF);
 
 protected:
   void hideEvent (QHideEvent *);

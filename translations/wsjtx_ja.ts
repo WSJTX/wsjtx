@@ -889,6 +889,16 @@ Format:
 <context>
     <name>Directory</name>
     <message>
+        <location filename="../SampleDownloader/Directory.cpp" line="51"/>
+        <source>File</source>
+        <translation type="unfinished">ファイル</translation>
+    </message>
+    <message>
+        <location filename="../SampleDownloader/Directory.cpp" line="51"/>
+        <source>Progress</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../SampleDownloader/Directory.cpp" line="113"/>
         <location filename="../SampleDownloader/Directory.cpp" line="189"/>
         <source>URL Error</source>

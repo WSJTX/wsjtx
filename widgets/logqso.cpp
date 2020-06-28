@@ -15,6 +15,37 @@
 #include "ui_logqso.h"
 #include "moc_logqso.cpp"
 
+namespace
+{
+  struct PropMode
+  {
+    char const * id_;
+    char const * name_;
+  };
+  constexpr PropMode prop_modes[] =
+    {
+     {"", ""}
+     , {"AS", QT_TRANSLATE_NOOP ("LogQSO", "Aircraft scatter")}
+     , {"AUE", QT_TRANSLATE_NOOP ("LogQSO", "Aurora-E")}
+     , {"AUR", QT_TRANSLATE_NOOP ("LogQSO", "Aurora")}
+     , {"BS", QT_TRANSLATE_NOOP ("LogQSO", "Back scatter")}
+     , {"ECH", QT_TRANSLATE_NOOP ("LogQSO", "Echolink")}
+     , {"EME", QT_TRANSLATE_NOOP ("LogQSO", "Earth-moon-earth")}
+     , {"ES", QT_TRANSLATE_NOOP ("LogQSO", "Sporadic E")}
+     , {"F2", QT_TRANSLATE_NOOP ("LogQSO", "F2 Reflection")}
+     , {"FAI", QT_TRANSLATE_NOOP ("LogQSO", "Field aligned irregularities")}
+     , {"INTERNET", QT_TRANSLATE_NOOP ("LogQSO", "Internet-assisted")}
+     , {"ION", QT_TRANSLATE_NOOP ("LogQSO", "Ionoscatter")}
+     , {"IRL", QT_TRANSLATE_NOOP ("LogQSO", "IRLP")}
+     , {"MS", QT_TRANSLATE_NOOP ("LogQSO", "Meteor scatter")}
+     , {"RPT", QT_TRANSLATE_NOOP ("LogQSO", "Non-satellite repeater or transponder")}
+     , {"RS", QT_TRANSLATE_NOOP ("LogQSO", "Rain scatter")}
+     , {"SAT", QT_TRANSLATE_NOOP ("LogQSO", "Satellite")}
+     , {"TEP", QT_TRANSLATE_NOOP ("LogQSO", "Trans-equatorial")}
+     , {"TR", QT_TRANSLATE_NOOP ("LogQSO", "Troposheric ducting")}
+    };
+}
+
 LogQSO::LogQSO(QString const& programTitle, QSettings * settings
                , Configuration const * config, LogBook * log, QWidget *parent)
   : QDialog {parent, Qt::WindowStaysOnTopHint | Qt::WindowTitleHint | Qt::WindowSystemMenuHint}
@@ -25,6 +56,10 @@ LogQSO::LogQSO(QString const& programTitle, QSettings * settings
 {
   ui->setupUi(this);
   setWindowTitle(programTitle + " - Log QSO");
+  for (auto const& prop_mode : prop_modes)
+    {
+      ui->comboBoxPropMode->addItem (prop_mode.name_, prop_mode.id_);
+    }
   loadSettings ();
   ui->grid->setValidator (new MaidenheadLocatorValidator {this});
 }
@@ -39,8 +74,15 @@ void LogQSO::loadSettings ()
   restoreGeometry (m_settings->value ("geometry", saveGeometry ()).toByteArray ());
   ui->cbTxPower->setChecked (m_settings->value ("SaveTxPower", false).toBool ());
   ui->cbComments->setChecked (m_settings->value ("SaveComments", false).toBool ());
+  ui->cbPropMode->setChecked (m_settings->value ("SavePropMode", false).toBool ());
   m_txPower = m_settings->value ("TxPower", "").toString ();
   m_comments = m_settings->value ("LogComments", "").toString();
+  int prop_index {0};
+  if (ui->cbPropMode->isChecked ())
+    {
+      prop_index = ui->comboBoxPropMode->findData (m_settings->value ("PropMode", "").toString());
+    }
+  ui->comboBoxPropMode->setCurrentIndex (prop_index);
   m_settings->endGroup ();
 }
 
@@ -50,8 +92,10 @@ void LogQSO::storeSettings () const
   m_settings->setValue ("geometry", saveGeometry ());
   m_settings->setValue ("SaveTxPower", ui->cbTxPower->isChecked ());
   m_settings->setValue ("SaveComments", ui->cbComments->isChecked ());
+  m_settings->setValue ("SavePropMode", ui->cbPropMode->isChecked ());
   m_settings->setValue ("TxPower", m_txPower);
   m_settings->setValue ("LogComments", m_comments);
+  m_settings->setValue ("PropMode", ui->comboBoxPropMode->currentData ());
   m_settings->endGroup ();
 }
 
@@ -100,6 +144,10 @@ void LogQSO::initLogQSO(QString const& hisCall, QString const& hisGrid, QString 
   ui->loggedOperator->setText(m_config->opCall());
   ui->exchSent->setText (xSent);
   ui->exchRcvd->setText (xRcvd);
+  if (!ui->cbPropMode->isChecked ())
+    {
+      ui->comboBoxPropMode->setCurrentIndex (-1);
+    }
 
   using SpOp = Configuration::SpecialOperatingActivity;
   auto special_op = m_config->special_op_id ();
@@ -178,6 +226,7 @@ void LogQSO::accept()
         }
     }
 
+  auto const& prop_mode = ui->comboBoxPropMode->currentData ().toString ();
   //Log this QSO to file "wsjtx.log"
   static QFile f {QDir {QStandardPaths::writableLocation (QStandardPaths::DataLocation)}.absoluteFilePath ("wsjtx.log")};
   if(!f.open(QIODevice::Text | QIODevice::Append)) {
@@ -191,7 +240,7 @@ void LogQSO::accept()
       dateTimeOff.time().toString("hh:mm:ss,") + hisCall + "," +
       hisGrid + "," + strDialFreq + "," + mode +
       "," + rptSent + "," + rptRcvd + "," + m_txPower +
-      "," + m_comments + "," + name;
+      "," + m_comments + "," + name + "," + prop_mode;
     QTextStream out(&f);
     out << logEntry <<
 #if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
@@ -220,6 +269,7 @@ void LogQSO::accept()
                     , m_myGrid
                     , xsent
                     , xrcvd
+                    , prop_mode
                     , m_log->QSOToADIF (hisCall
                                         , hisGrid
                                         , mode
@@ -236,7 +286,8 @@ void LogQSO::accept()
                                         , m_txPower
                                         , operator_call
                                         , xsent
-                                        , xrcvd));
+                                        , xrcvd
+                                        , prop_mode));
   QDialog::accept();
 }
 

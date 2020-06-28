@@ -74,7 +74,7 @@ QByteArray LogBook::QSOToADIF (QString const& hisCall, QString const& hisGrid, Q
                                QDateTime const& dateTimeOff, QString const& band, QString const& comments,
                                QString const& name, QString const& strDialFreq, QString const& myCall,
                                QString const& myGrid, QString const& txPower, QString const& operator_call,
-                               QString const& xSent, QString const& xRcvd)
+                               QString const& xSent, QString const& xRcvd, QString const& propmode)
 {
   QString t;
   t = "<call:" + QString::number(hisCall.size()) + ">" + hisCall;
@@ -101,6 +101,7 @@ QByteArray LogBook::QSOToADIF (QString const& hisCall, QString const& hisGrid, Q
   if(comments!="") t += " <comment:" + QString::number(comments.size()) + ">" + comments;
   if(name!="") t += " <name:" + QString::number(name.size()) + ">" + name;
   if(operator_call!="") t+=" <operator:" + QString::number(operator_call.size()) + ">" + operator_call;
+  if(propmode!="") t += " <prop_mode:" + QString::number(propmode.size()) + ">" + propmode;
   if (xSent.size ())
     {
       auto words = xSent.split (' '

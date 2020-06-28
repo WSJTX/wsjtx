@@ -442,7 +442,7 @@ bool WorkedBefore::add (QString const& call
           QTextStream out {&file};
           if (!file.size ())
             {
-              out << "WSJT-X ADIF Export<eh>" << // new file
+              out << "WSJT-X ADIF Export<eoh>" << // new file
 #if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
                  endl
 #else
