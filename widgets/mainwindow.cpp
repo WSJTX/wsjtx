@@ -4575,8 +4575,6 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
   int nw=w.size();
   if(nw>=4) {
     if(message_words.size()<3) return;
-    // Temporary?  Correct for the fact that message.deCallAndGrid() does not work for EU VHF contest messages
-    QString t=message_words.at(nw-2);
     int n=w.at(nw-2).toInt();
     if(n>=520001 and n<=592047) {
       hiscall=w.at(1);
