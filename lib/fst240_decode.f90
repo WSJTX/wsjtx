@@ -244,6 +244,7 @@ contains
       endif
    enddo
    ncand=ic
+   xsnr=0.
 
    do icand=1,ncand
       sync=candidates(icand,2)
@@ -351,8 +352,8 @@ contains
                   iaptype=0
                   qual=0.
                   fsig=fc_synced - 1.5*hmod*baud
-write(21,'(i6,7i6,f7.1,f9.2,3f7.1,1x,a37)') &
-  nutc,icand,itry,iaptype,ijitter,ntype,nsync_qual,nharderrors,dmin,sync,xsnr,xdt,fsig,msg
+!write(21,'(i6,7i6,f7.1,f9.2,3f7.1,1x,a37)') &
+!  nutc,icand,itry,iaptype,ijitter,ntype,nsync_qual,nharderrors,dmin,sync,xsnr,xdt,fsig,msg
                   call this%callback(nutc,smax1,nsnr,xdt,fsig,msg,    &
                        iaptype,qual,ntrperiod)
                   goto 2002
@@ -479,77 +480,79 @@ write(21,'(i6,7i6,f7.1,f9.2,3f7.1,1x,a37)') &
  subroutine get_candidates_fst240(c_bigfft,nfft1,nsps,hmod,fs,fa,fb,   &
       ncand,candidates,base)
 
-   complex c_bigfft(0:nfft1/2)
-   integer hmod
-   integer indx(100),im(1)
-   real candidates(100,4)
-   real candidates0(100,4)
-   real snr_cand(100)
-   real s(18000)
-   real s2(18000)
-   real xdb(-3:3)
+   complex c_bigfft(0:nfft1/2)              !Full length FFT of raw data
+   integer hmod                             !Modulation index (submode)
+   integer im(1)                            !For maxloc
+   real candidates(100,4)                   !Candidate list
+   real s(18000)                            !Low resolution power spectrum
+   real s2(18000)                           !CCF of s() with 4 tones
+   real xdb(-3:3)                           !Model 4-tone CCF peaks
    data xdb/0.25,0.50,0.75,1.0,0.75,0.50,0.25/
    data nfft1z/-1/
    save nfft1z
 
    nh1=nfft1/2
    df1=fs/nfft1
-   baud=fs/nsps
+   baud=fs/nsps                             !Keying rate
    df2=baud/2.0
-   nd=df2/df1
+   nd=df2/df1                               !s() sums this many bins of big FFT
    ndh=nd/2
-   ia=nint(max(100.0,fa)/df2)
-   ib=nint(min(4800.0,fb)/df2)
+   ia=nint(max(100.0,fa)/df2)               !Low frequency search limit
+   ib=nint(min(4800.0,fb)/df2)              !High frequency limit
    signal_bw=4*(12000.0/nsps)*hmod
    analysis_bw=min(4800.0,fb)-max(100.0,fa)
-   noise_bw=10.0*signal_bw
+   noise_bw=10.0*signal_bw                  !Is this a good compromise?
    if(analysis_bw.gt.noise_bw) then
       ina=ia
       inb=ib
    else
-      fcenter=(fa+fb)/2.0
-      fl = max(100.0,fcenter-noise_bw/2.)/df2
+      fcenter=(fa+fb)/2.0                      !If noise_bw > analysis_bw,
+      fl = max(100.0,fcenter-noise_bw/2.)/df2  !we'll search over noise_bw
       fh = min(4800.0,fcenter+noise_bw/2.)/df2
       ina=nint(fl)
       inb=nint(fh)
    endif
-   s=0.
+   
+   s=0.                                  !Compute low-resloution power spectrum
    do i=ina,inb   ! noise analysis window includes signal analysis window
       j0=nint(i*df2/df1)
       do j=j0-ndh,j0+ndh
          s(i)=s(i) + real(c_bigfft(j))**2 + aimag(c_bigfft(j))**2
       enddo
    enddo
-   ina=max(ina,1+3*hmod) 
+   
+   ina=max(ina,1+3*hmod)                       !Don't run off the ends
    inb=min(inb,18000-3*hmod)
    s2=0.
-   do i=ina,inb
+   do i=ina,inb                                !Compute CCF of s() and 4 tones
       s2(i)=s(i-hmod*3) + s(i-hmod) +s(i+hmod) +s(i+hmod*3)
    enddo
    call pctile(s2(ina+hmod*3:inb-hmod*3),inb-ina+1-hmod*6,30,base)
-   s2=s2/base
-   thresh=1.25
+   s2=s2/base                                  !Normalize wrt noise level
+   thresh=1.25                                 !First candidate threshold
 
    ncand=0
    candidates=0
    if(ia.lt.3) ia=3
    if(ib.gt.18000-2) ib=18000-2
 
+! Find candidates, using the CLEAN algorithm to remove a model of each one
+! from s2() after it has been found.   
    pval=99.99
    do while(ncand.lt.100 .and. pval.gt.thresh)
       im=maxloc(s2(ia:ib))
-      iploc=ia+im(1)-1
-      pval=s2(iploc)
-      if(s2(iploc).gt.thresh) then
-         do i=-3,+3
-            k=iploc+2*hmod*i
+      iploc=ia+im(1)-1                         !Index of CCF peak 
+      pval=s2(iploc)                           !Peak value
+      if(s2(iploc).gt.thresh) then             !Is this a possible candidate?
+         do i=-3,+3                            !Remove 0.9 of a model CCF at
+            k=iploc+2*hmod*i                   !this frequency from s2()
             if(k.ge.ia .and. k.le.ib) then 
                s2(k)=max(0.,s2(k)-0.9*pval*xdb(i))
             endif
          enddo
          ncand=ncand+1
-         candidates(ncand,1)=df2*iploc
-         candidates(ncand,2)=pval
+         candidates(ncand,1)=df2*iploc         !Candidate frequency
+         candidates(ncand,2)=pval              !Rough estimate of SNR
       endif
    enddo 
 
