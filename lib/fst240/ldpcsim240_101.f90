@@ -32,7 +32,7 @@ program ldpcsim240_101
    call getarg(1,arg)
    read(arg,*) max_iterations
    call getarg(2,arg)
-   read(arg,*) ndeep
+   read(arg,*) norder
    call getarg(3,arg)
    read(arg,*) ntrials
    call getarg(4,arg)
@@ -47,7 +47,7 @@ program ldpcsim240_101
 
    write(*,*) "code rate: ",rate
    write(*,*) "niter    : ",max_iterations
-   write(*,*) "ndeep    : ",ndeep
+   write(*,*) "norder   : ",norder
    write(*,*) "s        : ",s
    write(*,*) "K        : ",Keff
 
@@ -100,19 +100,13 @@ write(*,'(24i1)') msgbits(78:101)
 
          llr=2.0*rxdata/(ss*ss)
          apmask=0
-! max_iterations is max number of belief propagation iterations
-         call bpdecode240_101(llr,apmask,max_iterations,message101,cw,nharderror,niterations,nchecks)
          dmin=0.0
-         if( (nharderror .lt. 0) .and. (ndeep .ge. 0) ) then
-!            call osd240_101(llr, Keff, apmask, ndeep, message101, cw, nharderror, dmin)
-            maxsuper=2
-            call decode240_101(llr, Keff, ndeep, apmask, maxsuper, message101, cw, nharderror, iterations, ncheck, dmin, isuper)
-         endif
-
+         maxosd=2
+         call decode240_101(llr, Keff, maxosd, norder, apmask, message101, cw, ntype, nharderror, dmin)
          if(nharderror.ge.0) then
             n2err=0
             do i=1,N
-               if( cw(i)*(2*codeword(i)-1.0) .lt. 0 ) n2err=n2err+1
+               if( cw(i).ne.codeword(i) ) n2err=n2err+1
             enddo
             if(n2err.eq.0) then
                ngood=ngood+1
