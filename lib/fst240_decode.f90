@@ -73,26 +73,38 @@ contains
       nmax=15*12000
       ndown=20/hmod !nss=40,80,160,400
       if(hmod.eq.8) ndown=2
+      nfft1=int(nmax/ndown)*ndown
    else if(ntrperiod.eq.30) then
       nsps=1680
       nmax=30*12000
       ndown=42/hmod !nss=40,80,168,336
-      if(hmod.eq.4) ndown=10
-      if(hmod.eq.8) ndown=5
+      nfft1=359856
+      if(hmod.eq.4) then
+         ndown=10
+         nfft1=nmax
+      endif
+      if(hmod.eq.8) then
+         ndown=5
+         nfft1=nmax
+      endif
+      nfft1=int(nmax/ndown)*ndown
    else if(ntrperiod.eq.60) then
       nsps=3888
       nmax=60*12000
       ndown=96/hmod !nss=36,81,162,324
       if(hmod.eq.1) ndown=108
+      nfft1=int(719808/ndown)*ndown
    else if(ntrperiod.eq.120) then
       nsps=8200
       nmax=120*12000
       ndown=200/hmod !nss=40,82,164,328
       if(hmod.eq.1) ndown=205
+      nfft1=int(nmax/ndown)*ndown
    else if(ntrperiod.eq.300) then
       nsps=21504
       nmax=300*12000
       ndown=512/hmod !nss=42,84,168,336
+      nfft1=int((nmax-200)/ndown)*ndown
    end if
    nss=nsps/ndown
    fs=12000.0                       !Sample rate
@@ -102,16 +114,17 @@ contains
    dt2=1.0/fs2
    tt=nsps*dt                       !Duration of "itone" symbols (s)
    baud=1.0/tt
-   nfft1=2*int(nmax/2)
-   nh1=nfft1/2
+   sigbw=4.0*hmod*baud
+   nfft2=nfft1/ndown                !make sure that nfft1 is exactly nfft2*ndown
+   nfft1=nfft2*ndown
+   nh1=nfft1/2    
+
    allocate( r_data(1:nfft1+2) )
    allocate( c_bigfft(0:nfft1/2) )
 
-   nfft2=nfft1/ndown
    allocate( c2(0:nfft2-1) ) 
-   allocate( cframe(0:164*nss-1) )
+   allocate( cframe(0:160*nss-1) )
 
-   npts=nmax
    if(single_decode) then
       fa=max(100,nint(nfqso+1.5*hmod*baud-ntol))
       fb=min(4800,nint(nfqso+1.5*hmod*baud+ntol))
@@ -161,7 +174,7 @@ contains
 ! Output array c2 is complex baseband sampled at 12000/ndown Sa/sec.
 ! The size of the downsampled c2 array is nfft2=nfft1/ndown
 
-      call fst240_downsample(c_bigfft,nfft1,ndown,fc0,c2)
+      call fst240_downsample(c_bigfft,nfft1,ndown,fc0,sigbw,c2)
 
       call timer('sync240 ',0)
       do isync=0,1
@@ -254,7 +267,7 @@ contains
       fc_synced=candidates(icand,3)
       isbest=nint(candidates(icand,4))   
       xdt=(isbest-nspsec)/fs2
-      call fst240_downsample(c_bigfft,nfft1,ndown,fc_synced,c2)
+      call fst240_downsample(c_bigfft,nfft1,ndown,fc_synced,sigbw,c2)
 
       do ijitter=0,jittermax
          if(ijitter.eq.0) ioffset=0
@@ -459,7 +472,7 @@ contains
    return
  end subroutine sync_fst240
 
- subroutine fst240_downsample(c_bigfft,nfft1,ndown,f0,c1)
+ subroutine fst240_downsample(c_bigfft,nfft1,ndown,f0,sigbw,c1)
 
 ! Output: Complex data in c(), sampled at 12000/ndown Hz
 
@@ -468,9 +481,12 @@ contains
 
    df=12000.0/nfft1
    i0=nint(f0/df)
+   ih=nint( ( f0 + 1.2*sigbw/2.0 )/df)
+   nbw=ih-i0+1
+   c1=0.
    c1(0)=c_bigfft(i0)
    nfft2=nfft1/ndown
-   do i=1,nfft2/2
+   do i=1,nbw
       if(i0+i.le.nfft1/2) c1(i)=c_bigfft(i0+i)
       if(i0-i.ge.0) c1(nfft2-i)=c_bigfft(i0-i)
    enddo
