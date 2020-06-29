@@ -165,7 +165,7 @@ contains
          if(isync.eq.0) then
             fc1=0.0
             is0=1.5*nint(fs2)
-            ishw=1.5*is0
+            ishw=is0
             isst=4*hmod
             ifhw=12
             df=.1*baud
