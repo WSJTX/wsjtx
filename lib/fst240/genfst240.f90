@@ -20,10 +20,11 @@ subroutine genfst240(msg0,ichk,msgsent,msgbits,i4tone,iwspr)
    integer*4 i4tone(NN),itmp(ND)
    integer*1 codeword(2*ND)
    integer*1 msgbits(101),rvec(77)
-   integer isyncword(8)
+   integer isyncword1(8),isyncword2(8)
    integer ncrc24
    logical unpk77_success
-   data isyncword/0,1,3,2,1,0,2,3/
+   data isyncword1/0,1,3,2,1,0,2,3/
+   data isyncword2/2,3,1,0,3,2,0,1/
    data rvec/0,1,0,0,1,0,1,0,0,1,0,1,1,1,1,0,1,0,0,0,1,0,0,1,1,0,1,1,0, &
       1,0,0,1,0,1,1,0,0,0,0,1,0,0,0,1,0,1,0,0,1,1,1,1,0,0,1,0,1, &
       0,1,0,1,0,1,1,0,1,1,1,1,1,0,0,0,1,0,1/
@@ -86,15 +87,15 @@ subroutine genfst240(msg0,ichk,msgsent,msgbits,i4tone,iwspr)
       if(is.eq.3) itmp(i)=2
    enddo
 
-   i4tone(  1:  8)=isyncword
+   i4tone(  1:  8)=isyncword1
    i4tone(  9: 38)=itmp(  1: 30)
-   i4tone( 39: 46)=isyncword
+   i4tone( 39: 46)=isyncword2
    i4tone( 47: 76)=itmp( 31: 60)
-   i4tone( 77: 84)=isyncword
+   i4tone( 77: 84)=isyncword1
    i4tone( 85:114)=itmp( 61: 90)
-   i4tone(115:122)=isyncword
+   i4tone(115:122)=isyncword2
    i4tone(123:152)=itmp( 91:120)
-   i4tone(153:160)=isyncword
+   i4tone(153:160)=isyncword1
 
 999 return
 

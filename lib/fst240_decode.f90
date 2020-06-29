@@ -270,6 +270,7 @@ contains
       fc_synced=candidates(icand,3)
       isbest=nint(candidates(icand,4))   
       xdt=(isbest-nspsec)/fs2
+      if(ntrperiod.eq.15) xdt=(isbest-real(nspsec)/2.0)/fs2
       call fst240_downsample(c_bigfft,nfft1,ndown,fc_synced,sigbw,c2)
 
       do ijitter=0,jittermax
@@ -286,9 +287,9 @@ contains
          hbits=0
          where(bitmetrics(:,1).ge.0) hbits=1
          ns1=count(hbits(  1: 16).eq.(/0,0,0,1,1,0,1,1,0,1,0,0,1,1,1,0/))
-         ns2=count(hbits( 77: 92).eq.(/0,0,0,1,1,0,1,1,0,1,0,0,1,1,1,0/))
+         ns2=count(hbits( 77: 92).eq.(/1,1,1,0,0,1,0,0,1,0,1,1,0,0,0,1/))
          ns3=count(hbits(153:168).eq.(/0,0,0,1,1,0,1,1,0,1,0,0,1,1,1,0/))
-         ns4=count(hbits(229:244).eq.(/0,0,0,1,1,0,1,1,0,1,0,0,1,1,1,0/))
+         ns4=count(hbits(229:244).eq.(/1,1,1,0,0,1,0,0,1,0,1,1,0,0,0,1/))
          ns5=count(hbits(305:320).eq.(/0,0,0,1,1,0,1,1,0,1,0,0,1,1,1,0/))
          nsync_qual=ns1+ns2+ns3+ns4+ns5
          if(nsync_qual.lt. 44) cycle                   !### Value ?? ###

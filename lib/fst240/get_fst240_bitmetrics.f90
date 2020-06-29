@@ -7,7 +7,7 @@ subroutine get_fst240_bitmetrics(cd,nss,hmod,nmax,bitmetrics,s4,badsync)
    complex, allocatable, save :: c1(:,:)   ! ideal waveforms, 20 samples per symbol, 4 tones
    complex cp(0:3)        ! accumulated phase shift over symbol types 0:3
    complex csum,cterm
-   integer icos8(0:7)
+   integer isyncword1(0:7),isyncword2(0:7)
    integer graymap(0:3)
    integer ip(1)
    integer hmod
@@ -17,7 +17,8 @@ subroutine get_fst240_bitmetrics(cd,nss,hmod,nmax,bitmetrics,s4,badsync)
    real bitmetrics(2*NN,4)
    real s2(0:65535)
    real s4(0:3,NN)
-   data icos8/0,1,3,2,1,0,2,3/
+   data isyncword1/0,1,3,2,1,0,2,3/
+   data isyncword2/2,3,1,0,3,2,0,1/
    data graymap/0,1,3,2/
    data first/.true./,nss0/-1/
    save first,one,cp,nss0
@@ -65,15 +66,15 @@ subroutine get_fst240_bitmetrics(cd,nss,hmod,nmax,bitmetrics,s4,badsync)
 
    do k=1,8
       ip=maxloc(s4(:,k))
-      if(icos8(k-1).eq.(ip(1)-1)) is1=is1+1
+      if(isyncword1(k-1).eq.(ip(1)-1)) is1=is1+1
       ip=maxloc(s4(:,k+38))
-      if(icos8(k-1).eq.(ip(1)-1)) is2=is2+1
+      if(isyncword2(k-1).eq.(ip(1)-1)) is2=is2+1
       ip=maxloc(s4(:,k+76))
-      if(icos8(k-1).eq.(ip(1)-1)) is3=is3+1
+      if(isyncword1(k-1).eq.(ip(1)-1)) is3=is3+1
       ip=maxloc(s4(:,k+114))
-      if(icos8(k-1).eq.(ip(1)-1)) is4=is4+1
+      if(isyncword2(k-1).eq.(ip(1)-1)) is4=is4+1
       ip=maxloc(s4(:,k+152))
-      if(icos8(k-1).eq.(ip(1)-1)) is5=is5+1
+      if(isyncword1(k-1).eq.(ip(1)-1)) is5=is5+1
    enddo
    nsync=is1+is2+is3+is4+is5   !Number of correct hard sync symbols, 0-40
    badsync=.false.
