@@ -154,7 +154,7 @@ contains
    hmod=2**nsubmode
    if(nfqso+nqsoprogress.eq.-999) return
    Keff=91
-   iwspr=0
+   iwspr=1
    nmax=15*12000
    single_decode=iand(nexp_decode,32).eq.32
    if(ntrperiod.eq.15) then
@@ -413,6 +413,11 @@ contains
          if(ndepth.eq.1) ntmax=nblock
          apmask=0
 
+         if(iwspr.eq.1) then
+            nblock=4
+            ntmax=nblock
+         endif
+
          do itry=1,ntmax
             if(itry.eq.1) llr=llra
             if(itry.eq.2.and.itry.le.nblock) llr=llrb
@@ -471,8 +476,10 @@ contains
             else
                maxosd=2
                call timer('d240_74 ',0)
-!               call decode240_74(llr,Keff,maxosd,norder,apmask,message74,cw, &
-!                    ntype,nharderrors,dmin)
+               Keff=64
+               norder=4
+               call decode240_74(llr,Keff,maxosd,norder,apmask,message74,cw, &
+                    ntype,nharderrors,dmin)
                call timer('d240_74 ',1)
             endif
             if(nharderrors .ge.0) then
@@ -694,7 +701,8 @@ write(21,'(i6,7i6,f7.1,f9.2,3f7.1,1x,a37)') &
    enddo
    call pctile(s2(ina+hmod*3:inb-hmod*3),inb-ina+1-hmod*6,30,base)
    s2=s2/base                                  !Normalize wrt noise level
-   thresh=1.25                                 !First candidate threshold
+!  thresh=1.25
+   thresh=1.15                                 !First candidate threshold
 
    ncand=0
    candidates=0

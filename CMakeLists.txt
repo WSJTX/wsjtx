@@ -596,15 +596,18 @@ set (wsjt_FSRCS
   lib/wqencode.f90
   lib/wspr_downsample.f90
   lib/zplot9.f90
-  lib/fst240/bpdecode240_101.f90
   lib/fst240/decode240_101.f90
+  lib/fst240/decode240_74.f90
   lib/fst240/encode240_101.f90
+  lib/fst240/encode240_74.f90
   lib/fst240/fst240sim.f90
   lib/fst240/gen_fst240wave.f90
   lib/fst240/genfst240.f90
   lib/fst240/get_fst240_bitmetrics.f90
   lib/fst240/ldpcsim240_101.f90
+  lib/fst240/ldpcsim240_74.f90
   lib/fst240/osd240_101.f90
+  lib/fst240/osd240_74.f90
   lib/fst240/get_crc24.f90
   )
 

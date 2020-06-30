@@ -71,7 +71,11 @@ subroutine genfst240(msg0,ichk,msgsent,msgbits,i4tone,iwspr)
  entry get_fst240_tones_from_bits(msgbits,i4tone,iwspr)
 
 2  continue
-   call encode240_101(msgbits,codeword)
+   if(iwspr.eq.0) then 
+      call encode240_101(msgbits,codeword)
+   else
+      call encode240_74(msgbits(1:74),codeword)
+   endif
 
 ! Grayscale mapping:
 ! bits   tone
