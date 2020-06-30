@@ -37,9 +37,10 @@ contains
    class(fst240_decoder), intent(inout) :: this
    procedure(fst240_decode_callback) :: callback
    character*37 decodes(100)
-   character*37 msg
+   character*37 msg,msgsent
    character*77 c77
    character*12 mycall,hiscall
+   character*12 mycall0,hiscall0
    complex, allocatable :: c2(:)
    complex, allocatable :: cframe(:)
    complex, allocatable :: c_bigfft(:)          !Complex waveform
@@ -53,15 +54,103 @@ contains
    integer hmod
    integer*1 apmask(240),cw(240)
    integer*1 hbits(320)
-   integer*1 message101(101),message74(74)
+   integer*1 message101(101),message74(74),message77(77)
    integer*1 rvec(77)
+   integer apbits(240)
+   integer nappasses(0:5)   ! # of decoding passes for QSO states 0-5
+   integer naptypes(0:5,4)  ! (nQSOProgress,decoding pass)
+   integer mcq(29),mrrr(19),m73(19),mrr73(19)
+
    logical badsync,unpk77_success,single_decode
+   logical first,nohiscall
+
    integer*2 iwave(300*12000)
-   data rvec/0,1,0,0,1,0,1,0,0,1,0,1,1,1,1,0,1,0,0,0,1,0,0,1,1,0,1,1,0, &
-             1,0,0,1,0,1,1,0,0,0,0,1,0,0,0,1,0,1,0,0,1,1,1,1,0,0,1,0,1, &
-             0,1,0,1,0,1,1,0,1,1,1,1,1,0,0,0,1,0,1/
+
+   data   mcq/0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0/
+   data  mrrr/0,1,1,1,1,1,1,0,1,0,0,1,0,0,1,0,0,0,1/
+   data   m73/0,1,1,1,1,1,1,0,1,0,0,1,0,1,0,0,0,0,1/
+   data mrr73/0,1,1,1,1,1,1,0,0,1,1,1,0,1,0,1,0,0,1/
+   data  rvec/0,1,0,0,1,0,1,0,0,1,0,1,1,1,1,0,1,0,0,0,1,0,0,1,1,0,1,1,0, &
+              1,0,0,1,0,1,1,0,0,0,0,1,0,0,0,1,0,1,0,0,1,1,1,1,0,0,1,0,1, &
+              0,1,0,1,0,1,1,0,1,1,1,1,1,0,0,0,1,0,1/
+   data first/.true./
+   save first,apbits,nappasses,naptypes,mycall0,hiscall0
 
    this%callback => callback
+
+   dxcall13=hiscall   ! initialize for use in packjt77
+   mycall13=mycall
+
+   if(first) then
+      mcq=2*mod(mcq+rvec(1:29),2)-1
+      mrrr=2*mod(mrrr+rvec(59:77),2)-1
+      m73=2*mod(m73+rvec(59:77),2)-1
+      mrr73=2*mod(mrr73+rvec(59:77),2)-1
+
+      nappasses(0)=2
+      nappasses(1)=2
+      nappasses(2)=2
+      nappasses(3)=2
+      nappasses(4)=2
+      nappasses(5)=3
+
+! iaptype
+!------------------------
+!   1        CQ     ???    ???           (29 ap bits)
+!   2        MyCall ???    ???           (29 ap bits)
+!   3        MyCall DxCall ???           (58 ap bits)
+!   4        MyCall DxCall RRR           (77 ap bits)
+!   5        MyCall DxCall 73            (77 ap bits)
+!   6        MyCall DxCall RR73          (77 ap bits)
+!********
+
+      naptypes(0,1:4)=(/1,2,0,0/) ! Tx6 selected (CQ)
+      naptypes(1,1:4)=(/2,3,0,0/) ! Tx1
+      naptypes(2,1:4)=(/2,3,0,0/) ! Tx2
+      naptypes(3,1:4)=(/3,6,0,0/) ! Tx3
+      naptypes(4,1:4)=(/3,6,0,0/) ! Tx4
+      naptypes(5,1:4)=(/3,1,2,0/) ! Tx5
+
+      mycall0=''
+      hiscall0=''
+      first=.false.
+   endif
+
+   l1=index(mycall,char(0))
+   if(l1.ne.0) mycall(l1:)=" "
+   l1=index(hiscall,char(0))
+   if(l1.ne.0) hiscall(l1:)=" "
+   if(mycall.ne.mycall0 .or. hiscall.ne.hiscall0) then
+      apbits=0
+      apbits(1)=99
+      apbits(30)=99
+
+      if(len(trim(mycall)) .lt. 3) go to 10
+
+      nohiscall=.false.
+      hiscall0=hiscall
+      if(len(trim(hiscall0)).lt.3) then
+         hiscall0=mycall  ! use mycall for dummy hiscall - mycall won't be hashed.
+         nohiscall=.true.
+      endif
+      msg=trim(mycall)//' '//trim(hiscall0)//' RR73'
+      i3=-1
+      n3=-1
+      call pack77(msg,i3,n3,c77)
+      call unpack77(c77,1,msgsent,unpk77_success)
+      if(i3.ne.1 .or. (msg.ne.msgsent) .or. .not.unpk77_success) go to 10
+      read(c77,'(77i1)') message77
+      message77=mod(message77+rvec,2)
+      call encode174_91(message77,cw)
+      apbits=2*cw-1
+      if(nohiscall) apbits(30)=99
+
+10    continue
+      mycall0=mycall
+      hiscall0=hiscall
+   endif
+!************************************
+
    hmod=2**nsubmode
    if(nfqso+nqsoprogress.eq.-999) return
    Keff=91
@@ -278,7 +367,7 @@ contains
          if(is0.lt.0) cycle
          cframe=c2(is0:is0+160*nss-1)
          bitmetrics=0
-         call get_fst240_bitmetrics(cframe,nss,hmod,ntmax,bitmetrics,s4,badsync)
+         call get_fst240_bitmetrics(cframe,nss,hmod,4,bitmetrics,s4,badsync)
          if(badsync) cycle
 
          hbits=0
@@ -312,6 +401,11 @@ contains
          llrd(121:180)=bitmetrics(169:228, 4)
          llrd(181:240)=bitmetrics(245:304, 4)
          llrd=scalefac*llrd
+
+         apmag=maxval(abs(llra))*1.1
+         ntmax=4+nappasses(nQSOProgress) 
+         if(lapcqonly) ntmax=5
+         if(ndepth.eq.1) ntmax=3
          apmask=0
 
          do itry=1,ntmax
@@ -319,6 +413,47 @@ contains
             if(itry.eq.2) llr=llrb
             if(itry.eq.3) llr=llrc
             if(itry.eq.4) llr=llrd
+            if(itry.le.4) then
+               apmask=0
+               iaptype=0
+            endif
+            napwid=1.2*(4.0*baud*hmod)
+           
+            if(itry.gt.4) then
+               llr=llra
+               iaptype=naptypes(nQSOProgress,itry-4)
+               if(lapcqonly) iaptype=1
+               if(iaptype.ge.2 .and. apbits(1).gt.1) cycle  ! No, or nonstandard, mycall
+               if(iaptype.ge.3 .and. apbits(30).gt.1) cycle ! No, or nonstandard, dxcall
+               
+               if(iaptype.eq.1) then   ! CQ
+                  apmask=0
+                  apmask(1:29)=1
+                  llr(1:29)=apmag*mcq(1:29)
+               endif
+      
+               if(iaptype.eq.2) then  ! MyCall ??? ???
+                  apmask=0
+                  apmask(1:29)=1
+                  llr(1:29)=apmag*apbits(1:29)
+               endif
+ 
+               if(iaptype.eq.3) then  ! MyCall DxCall ???
+                  apmask=0
+                  apmask(1:58)=1
+                  llr(1:58)=apmag*apbits(1:58)
+               endif
+
+               if(iaptype.eq.4 .or. iaptype.eq.5 .or. iaptype .eq.6) then 
+                  apmask=0
+                  apmask(1:77)=1
+                  llr(1:58)=apmag*apbits(1:58)
+                  if(iaptype.eq.4) llr(59:77)=apmag*mrrr(1:19)
+                  if(iaptype.eq.5) llr(59:77)=apmag*m73(1:19)
+                  if(iaptype.eq.6) llr(59:77)=apmag*mrr73(1:19)
+               endif
+            endif
+                  
             dmin=0.0
             nharderrors=-1
             unpk77_success=.false.
@@ -366,11 +501,10 @@ contains
                      endif
                   endif
                   nsnr=nint(xsnr)
-                  iaptype=0
                   qual=0.
                   fsig=fc_synced - 1.5*hmod*baud
-!write(21,'(i6,7i6,f7.1,f9.2,3f7.1,1x,a37)') &
-!  nutc,icand,itry,iaptype,ijitter,ntype,nsync_qual,nharderrors,dmin,sync,xsnr,xdt,fsig,msg
+write(21,'(i6,7i6,f7.1,f9.2,3f7.1,1x,a37)') &
+  nutc,icand,itry,iaptype,ijitter,ntype,nsync_qual,nharderrors,dmin,sync,xsnr,xdt,fsig,msg
                   call this%callback(nutc,smax1,nsnr,xdt,fsig,msg,    &
                        iaptype,qual,ntrperiod)
                   goto 2002
