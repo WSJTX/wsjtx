@@ -194,12 +194,13 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
           params%nQSOProgress,params%nfqso,params%nfa,params%nfb,         &
           params%nsubmode,params%ndepth,params%ntr,params%nexp_decode,    &
           params%ntol,params%nzhsym,params%emedelay,                      &
-          logical(params%lapcqonly),params%napwid,mycall,hiscall)
+          logical(params%lapcqonly),params%napwid,mycall,hiscall,         &
+          params%nfsplit,iwspr)
      call timer('dec240  ',1)
      go to 800
   endif
 
-  rms=sqrt(dot_product(float(id2(300000:310000)),            &
+  rms=sqrt(dot_product(float(id2(300000:310000)),                         &
        float(id2(300000:310000)))/10000.0)
   if(rms.lt.2.0) go to 800
 
@@ -681,7 +682,7 @@ contains
   end subroutine ft4_decoded
 
   subroutine fst240_decoded (this,nutc,sync,nsnr,dt,freq,decoded,nap,   &
-       qual,ntrperiod)
+       qual,ntrperiod,lwspr)
 
     use fst240_decode
     implicit none
@@ -696,6 +697,8 @@ contains
     integer, intent(in) :: nap
     real, intent(in) :: qual
     integer, intent(in) :: ntrperiod
+    logical, intent(in) :: lwspr
+
     character*2 annot
     character*37 decoded0
 

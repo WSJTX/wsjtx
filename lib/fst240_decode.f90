@@ -8,7 +8,7 @@ module fst240_decode
 
   abstract interface
      subroutine fst240_decode_callback (this,nutc,sync,nsnr,dt,freq,    &
-          decoded,nap,qual,ntrperiod)
+          decoded,nap,qual,ntrperiod,lwspr)
        import fst240_decoder
        implicit none
        class(fst240_decoder), intent(inout) :: this
@@ -21,6 +21,7 @@ module fst240_decode
        integer, intent(in) :: nap
        real, intent(in) :: qual
        integer, intent(in) :: ntrperiod
+       logical, intent(in) :: lwspr
      end subroutine fst240_decode_callback
   end interface
 
@@ -28,7 +29,7 @@ contains
 
  subroutine decode(this,callback,iwave,nutc,nQSOProgress,nfqso,    &
       nfa,nfb,nsubmode,ndeep,ntrperiod,nexp_decode,ntol,nzhsym,    &
-      emedelay,lapcqonly,napwid,mycall,hiscall)
+      emedelay,lapcqonly,napwid,mycall,hiscall,nfsplit,iwspr)
 
    use timer_module, only: timer
    use packjt77
@@ -62,7 +63,7 @@ contains
    integer mcq(29),mrrr(19),m73(19),mrr73(19)
 
    logical badsync,unpk77_success,single_decode
-   logical first,nohiscall
+   logical first,nohiscall,lwspr
 
    integer*2 iwave(300*12000)
 
@@ -503,10 +504,10 @@ contains
                   nsnr=nint(xsnr)
                   qual=0.
                   fsig=fc_synced - 1.5*hmod*baud
-write(21,'(i6,7i6,f7.1,f9.2,3f7.1,1x,a37)') &
-  nutc,icand,itry,iaptype,ijitter,ntype,nsync_qual,nharderrors,dmin,sync,xsnr,xdt,fsig,msg
+!write(21,'(i6,7i6,f7.1,f9.2,3f7.1,1x,a37)') &
+!  nutc,icand,itry,iaptype,ijitter,ntype,nsync_qual,nharderrors,dmin,sync,xsnr,x!dt,fsig,msg
                   call this%callback(nutc,smax1,nsnr,xdt,fsig,msg,    &
-                       iaptype,qual,ntrperiod)
+                       iaptype,qual,ntrperiod,lwspr)
                   goto 2002
                else
                   cycle
