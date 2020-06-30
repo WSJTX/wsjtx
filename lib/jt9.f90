@@ -23,10 +23,10 @@ program jt9
   character wisfile*80
 !### ndepth was defined as 60001.  Why???
   integer :: arglen,stat,offset,remain,mode=0,flow=200,fsplit=2700,          &
-       fhigh=4000,nrxfreq=1500,ndepth=1,nexp_decode=0
+       fhigh=4000,nrxfreq=1500,ndepth=1,nexp_decode=0,nQSOProg=0
   logical :: read_files = .true., tx9 = .false., display_help = .false.,     &
        bLowSidelobes = .false.
-  type (option) :: long_options(27) = [ &
+  type (option) :: long_options(28) = [ &
     option ('help', .false., 'h', 'Display this help message', ''),          &
     option ('shmem',.true.,'s','Use shared memory for sample data','KEY'),   &
     option ('tr-period', .true., 'p', 'Tx/Rx period, default SECONDS=60',     &
@@ -58,9 +58,11 @@ program jt9
     option ('ft8', .false., '8', 'FT8 mode', ''),                            &
     option ('jt9', .false., '9', 'JT9 mode', ''),                            &
     option ('qra64', .false., 'q', 'QRA64 mode', ''),                        &
+    option ('QSOprog', .true., 'Q', 'QSO progress (0-5), default PROGRESS=1',&
+        'QSOprogress'),                                                      &
     option ('sub-mode', .true., 'b', 'Sub mode, default SUBMODE=A', 'A'),    &
     option ('depth', .true., 'd',                                            &
-        'JT9 decoding depth (1-3), default DEPTH=1', 'DEPTH'),               &
+        'Decoding depth (1-3), default DEPTH=1', 'DEPTH'),                   &
     option ('tx-jt9', .false., 'T', 'Tx mode is JT9', ''),                   &
     option ('my-call', .true., 'c', 'my callsign', 'CALL'),                  &
     option ('my-grid', .true., 'G', 'my grid locator', 'GRID'),              &
@@ -82,7 +84,7 @@ program jt9
   TRperiod=60.d0
 
   do
-     call getopt('hs:e:a:b:r:m:p:d:f:w:t:987654qTL:S:H:c:G:x:g:X:',      &
+     call getopt('hs:e:a:b:r:m:p:d:f:w:t:987654qTL:S:H:c:G:x:g:X:Q:',      &
           long_options,c,optarg,arglen,stat,offset,remain,.true.)
      if (stat .ne. 0) then
         exit
@@ -117,6 +119,8 @@ program jt9
            read (optarg(:arglen), *) fhigh
         case ('q')
            mode = 164
+        case ('Q')
+           read (optarg(:arglen), *) nQSOProg
         case ('4')
            mode = 4
         case ('5')
@@ -260,7 +264,7 @@ program jt9
      if(mode.eq.164 .and. nsubmode.lt.100) nsubmode=nsubmode+100
      shared_data%params%naggressive=0
      shared_data%params%n2pass=2
-!     shared_data%params%nranera=8                      !### ntrials=10000
+     shared_data%params%nQSOprogress=nQSOProg
      shared_data%params%nranera=6                      !### ntrials=3000
      shared_data%params%nrobust=.false.
      shared_data%params%nexp_decode=nexp_decode
