@@ -223,17 +223,19 @@ contains
    endif
 
    if(ndeep.eq.3) then
-      ntmax=4      ! number of block sizes to try
+      nblock=1
+      if(hmod.eq.1) nblock=4      ! number of block sizes to try
       jittermax=2
       norder=3
    elseif(ndeep.eq.2) then
-      ntmax=3
-      jittermax=2
+      nblock=1
+      if(hmod.eq.1) nblock=3
+      jittermax=0
       norder=3
    elseif(ndeep.eq.1) then
-      ntmax=1
-      jittermax=2
-      norder=2
+      nblock=1
+      jittermax=0
+      norder=3
    endif
 
 ! The big fft is done once and is used for calculating the smoothed spectrum 
@@ -269,8 +271,13 @@ contains
       do isync=0,1
          if(isync.eq.0) then
             fc1=0.0
-            is0=1.5*nint(fs2)
-            ishw=is0
+            if(emedelay.lt.0.1) then  ! search offsets from 0 s to 2 s
+               is0=1.5*nspsec
+               ishw=1.5*nspsec
+            else                      ! search plus or minus 1.5 s centered on emedelay
+               is0=nint(emedelay*nspsec) 
+               ishw=1.5*nspsec
+            endif            
             isst=4*hmod
             ifhw=12
             df=.1*baud
@@ -310,12 +317,10 @@ contains
       if(smax8/smax1 .lt. 0.65 ) then
          fc2=fc21
          isbest=isbest1
-         if(hmod.gt.1) ntmax=1
          njitter=2
       else
          fc2=fc28
          isbest=isbest8
-         if(hmod.gt.1) ntmax=1
          njitter=2
       endif
       fc_synced = fc0 + fc2
@@ -367,7 +372,7 @@ contains
          if(is0.lt.0) cycle
          cframe=c2(is0:is0+160*nss-1)
          bitmetrics=0
-         call get_fst240_bitmetrics(cframe,nss,hmod,4,bitmetrics,s4,badsync)
+         call get_fst240_bitmetrics(cframe,nss,hmod,nblock,bitmetrics,s4,badsync)
          if(badsync) cycle
 
          hbits=0
@@ -403,29 +408,29 @@ contains
          llrd=scalefac*llrd
 
          apmag=maxval(abs(llra))*1.1
-         ntmax=4+nappasses(nQSOProgress) 
-         if(lapcqonly) ntmax=5
-         if(ndepth.eq.1) ntmax=3
+         ntmax=nblock+nappasses(nQSOProgress) 
+         if(lapcqonly) ntmax=nblock+1
+         if(ndepth.eq.1) ntmax=nblock
          apmask=0
 
          do itry=1,ntmax
             if(itry.eq.1) llr=llra
-            if(itry.eq.2) llr=llrb
-            if(itry.eq.3) llr=llrc
-            if(itry.eq.4) llr=llrd
-            if(itry.le.4) then
+            if(itry.eq.2.and.itry.le.nblock) llr=llrb
+            if(itry.eq.3.and.itry.le.nblock) llr=llrc
+            if(itry.eq.4.and.itry.le.nblock) llr=llrd
+            if(itry.le.nblock) then
                apmask=0
                iaptype=0
             endif
             napwid=1.2*(4.0*baud*hmod)
            
-            if(itry.gt.4) then
-               llr=llra
-               iaptype=naptypes(nQSOProgress,itry-4)
+            if(itry.gt.nblock) then
+               if(nblock.eq.1) llr=llra
+               if(nblock.gt.1) llr=llrc
+               iaptype=naptypes(nQSOProgress,itry-nblock)
                if(lapcqonly) iaptype=1
                if(iaptype.ge.2 .and. apbits(1).gt.1) cycle  ! No, or nonstandard, mycall
                if(iaptype.ge.3 .and. apbits(30).gt.1) cycle ! No, or nonstandard, dxcall
-               
                if(iaptype.eq.1) then   ! CQ
                   apmask=0
                   apmask(1:29)=1
