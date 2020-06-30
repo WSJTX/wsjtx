@@ -238,7 +238,7 @@ contains
       r_data(nfft1+1:nfft1+2)=0.0
       call four2a(r_data,nfft1,1,-1,0)
       c_bigfft=cmplx(r_data(1:nfft1+2:2),r_data(2:nfft1+2:2))
-
+iwspr=1
       if(iwspr.eq.0) then
          itype1=1
          itype2=1
@@ -437,7 +437,7 @@ contains
                apmag=maxval(abs(llra))*1.1
                ntmax=nblock+nappasses(nQSOProgress)
                if(lapcqonly) ntmax=nblock+1
-               if(ndepth.eq.1) ntmax=nblock
+               if(ndeep.eq.1) ntmax=nblock
                apmask=0
 
                if(iqorw.eq.2) then ! 50-bit msgs, no ap decoding
