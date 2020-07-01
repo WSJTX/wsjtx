@@ -75,9 +75,8 @@ program fst240sim
    n3=-1
    call pack77(msg37,i3,n3,c77)
    call genfst240(msg37,0,msgsent37,msgbits,itone,iwspr)
-
    write(*,*)
-   write(*,'(a9,a37)') 'Message: ',msgsent37
+   write(*,'(a9,a37,a7,i2)') 'Message: ',msgsent37,' iwspr:',iwspr
    write(*,1000) f00,xdt,hmod,txt,snrdb
 1000 format('f0:',f9.3,'   DT:',f6.2,'   hmod:',i6,'   TxT:',f6.1,'   SNR:',f6.1)
    write(*,*)
@@ -86,7 +85,7 @@ program fst240sim
       write(*,'(28i1,1x,i1,1x,28i1,1x,i1,1x,i1,1x,15i1,1x,3i1)') msgbits(1:77)
    else
       write(*,'(a14)') 'Message bits: '
-      write(*,'(50i1,1x,24i1)') msgbits
+      write(*,'(77i1,1x,24i1)') msgbits
    endif
    write(*,*)
    write(*,'(a17)') 'Channel symbols: '

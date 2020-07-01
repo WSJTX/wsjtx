@@ -52,9 +52,9 @@ program ldpcsim240_74
    write(*,*) "K        : ",Keff
 
    msgbits=0
-   read(c77,'(77i1)') msgbits(1:77)
+   read(c77,'(50i1)') msgbits(1:50)
    write(*,*) 'message'
-   write(*,'(77i1)') msgbits(1:77)
+   write(*,'(50i1)') msgbits(1:50)
 
    call get_crc24(msgbits,74,ncrc24)
    write(c24,'(b24.24)') ncrc24
@@ -118,7 +118,7 @@ write(*,'(24i1)') msgbits(51:74)
 !      snr2500=db+10*log10(200.0/116.0/2500.0)
       esn0=db+10*log10(rate)
       pberr=real(nberr)/(real(ntrials*N))
-      write(*,"(f4.1,4x,f5.1,1x,i8,1x,i8,8x,f5.2,8x,e10.3)") db,esn0,ngood,nue,ss,pberr
+      write(*,"(f4.1,4x,f5.1,1x,i8,1x,i8,8x,e10.3)") db,esn0,ngood,nue,pberr
 
    enddo
 

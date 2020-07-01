@@ -1371,6 +1371,9 @@ target_link_libraries (fst240sim wsjt_fort wsjt_cxx)
 add_executable (ldpcsim240_101 lib/fst240/ldpcsim240_101.f90 wsjtx.rc)
 target_link_libraries (ldpcsim240_101 wsjt_fort wsjt_cxx)
 
+add_executable (ldpcsim240_74 lib/fst240/ldpcsim240_74.f90 wsjtx.rc)
+target_link_libraries (ldpcsim240_74 wsjt_fort wsjt_cxx)
+
 endif(WSJT_BUILD_UTILS)
 
 # build the main application
