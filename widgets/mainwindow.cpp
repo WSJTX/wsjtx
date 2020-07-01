@@ -1564,7 +1564,6 @@ void MainWindow::dataSink(qint64 frames)
 
 void MainWindow::startP1()
 {
-  // if(WSPR-LF) ... was here
   p1.start (QDir::toNativeSeparators (QDir {QApplication::applicationDirPath ()}.absoluteFilePath ("wsprd")), m_cmndP1);
 }
 
@@ -7959,7 +7958,7 @@ void MainWindow::WSPR_scheduling ()
     band_hopping_label.setText (hop_data.period_name_);
   }
   else {
-    m_WSPR_tx_next = m_WSPR_band_hopping.next_is_tx ("WSPR-LF" == m_mode);
+    m_WSPR_tx_next = m_WSPR_band_hopping.next_is_tx(m_mode=="FST240W");
   }
 }
 

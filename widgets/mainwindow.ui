@@ -3385,23 +3385,6 @@ list. The list can be maintained in Settings (F2).</string>
     <string>Equalization tools ...</string>
    </property>
   </action>
-  <action name="actionWSPR_LF">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="enabled">
-    <bool>false</bool>
-   </property>
-   <property name="text">
-    <string>WSPR-LF</string>
-   </property>
-   <property name="toolTip">
-    <string>Experimental LF/MF mode</string>
-   </property>
-   <property name="visible">
-    <bool>false</bool>
-   </property>
-  </action>
   <action name="actionFT8">
    <property name="checkable">
     <bool>true</bool>

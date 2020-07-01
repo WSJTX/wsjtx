@@ -481,10 +481,10 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
     painter0.drawLine(x1,29,x2,29);
   }
 
-  if(m_mode=="WSPR-LF") {
-    x1=XfromFreq(1600);
-    x2=XfromFreq(1700);
-    painter0.drawLine(x1,29,x2,29);
+  if(m_mode=="FST240W") {
+    x1=XfromFreq(2600);
+    x2=XfromFreq(2700);
+    painter0.drawLine(x1,26,x2,26);
   }
 
   if(m_mode=="FreqCal") {                   //FreqCal
