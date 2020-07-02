@@ -3489,11 +3489,6 @@ list. The list can be maintained in Settings (F2).</string>
     <string>FST240</string>
    </property>
   </action>
-  <action name="actionFST240_W">
-   <property name="text">
-    <string>FST240-W</string>
-   </property>
-  </action>
   <action name="actionFT240W">
    <property name="text">
     <string>FT240W</string>
