@@ -270,9 +270,6 @@ contains
          endif
 
          minsync=1.25
-         if(iqorw.eq.2) then
-            minsync=1.2
-         endif
 
 ! Get first approximation of candidate frequencies
          call get_candidates_fst240(c_bigfft,nfft1,nsps,hmod,fs,fa,fb,     &
@@ -412,7 +409,7 @@ contains
                ns4=count(hbits(229:244).eq.(/1,1,1,0,0,1,0,0,1,0,1,1,0,0,0,1/))
                ns5=count(hbits(305:320).eq.(/0,0,0,1,1,0,1,1,0,1,0,0,1,1,1,0/))
                nsync_qual=ns1+ns2+ns3+ns4+ns5
-               if(nsync_qual.lt. 44) cycle                   !### Value ?? ###
+               if(nsync_qual.lt. 46) cycle                   !### Value ?? ###
 
                scalefac=2.83
                llra(  1: 60)=bitmetrics( 17: 76, 1)
@@ -559,6 +556,7 @@ contains
                      fsig=fc_synced - 1.5*hmod*baud
 !write(21,'(i6,7i6,f7.1,f9.2,f7.1,1x,f7.2,1x,f7.1,1x,a37)') &
 !  nutc,icand,itry,iaptype,ijitter,ntype,nsync_qual,nharderrors,dmin,sync,xsnr,xdt,fsig,msg
+!flush(21)
                      call this%callback(nutc,smax1,nsnr,xdt,fsig,msg,    &
                         iaptype,qual,ntrperiod,lwspr)
                      goto 2002
@@ -748,10 +746,11 @@ contains
 ! Find candidates, using the CLEAN algorithm to remove a model of each one
 ! from s2() after it has been found.
       pval=99.99
-      do while(ncand.lt.100 .and. pval.gt.minsync)
+      do while(ncand.lt.100)
          im=maxloc(s2(ia:ib))
          iploc=ia+im(1)-1                         !Index of CCF peak
          pval=s2(iploc)                           !Peak value
+         if(pval.lt.minsync) exit
          if(s2(iploc).gt.thresh) then             !Is this a possible candidate?
             do i=-3,+3                            !Remove 0.9 of a model CCF at
                k=iploc+2*hmod*i                   !this frequency from s2()
