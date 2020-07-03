@@ -2633,6 +2633,9 @@ list. The list can be maintained in Settings (F2).</string>
                     </item>
                     <item>
                      <widget class="QComboBox" name="RoundRobin">
+                      <property name="editable">
+                       <bool>true</bool>
+                      </property>
                       <property name="currentIndex">
                        <number>0</number>
                       </property>

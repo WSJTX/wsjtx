@@ -316,6 +316,7 @@ private slots:
   void not_GA_warning_message ();
   void checkMSK144ContestType();
   void on_pbBestSP_clicked();
+  void on_RoundRobin_currentTextChanged(QString text);
   int  setTxMsg(int n);
   bool stdCall(QString const& w);
   void remote_configure (QString const& mode, quint32 frequency_tolerance, QString const& submode

@@ -5574,6 +5574,12 @@ void MainWindow::on_tx6_editingFinished()                       //tx6 edited
   msgtype(t, ui->tx6);
 }
 
+void MainWindow::on_RoundRobin_currentTextChanged(QString text)
+{
+  ui->sbTxPercent->setEnabled(text=="Random");
+}
+
+
 void MainWindow::on_dxCallEntry_textChanged (QString const& call)
 {
   m_hisCall = call;
@@ -6465,7 +6471,8 @@ void MainWindow::WSPR_config(bool b)
   ui->logQSOButton->setVisible(!b);
   ui->DecodeButton->setEnabled(!b);
   ui->band_hopping_group_box->setVisible(true);
-  ui->RoundRobin->setVisible(b and (m_mode=="FST240W"));
+  ui->RoundRobin->setVisible(m_mode=="FST240W");
+  ui->RoundRobin->lineEdit()->setAlignment(Qt::AlignCenter);
   if(b and m_mode!="Echo" and m_mode!="FST240W") {
     QString t="UTC    dB   DT     Freq     Drift  Call          Grid    dBm    ";
     if(m_config.miles()) t += " mi";
