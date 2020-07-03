@@ -2697,7 +2697,7 @@ list. The list can be maintained in Settings (F2).</string>
                          <string>6 digit locators cause 2 different messages to be sent, the second contains the full locator but only a hashed callsign, other stations must have decoded the first once before they can decode your call in the second. Check this option to only send 4 digit locators if it will avoid the two message protocol.</string>
                         </property>
                         <property name="text">
-                         <string>Prefer type 1 messages</string>
+                         <string>Prefer Type 1 messages</string>
                         </property>
                         <property name="checked">
                          <bool>true</bool>
