@@ -25,8 +25,8 @@ namespace
     "FreqCal",
     "FT8",
     "FT4",
-    "FST280",
-    "FST280W"
+    "FST240",
+    "FST240W"
   };
   std::size_t constexpr mode_names_size = sizeof (mode_names) / sizeof (mode_names[0]);
 }
