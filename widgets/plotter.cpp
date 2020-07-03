@@ -697,7 +697,7 @@ int CPlotter::rxFreq() {return m_rxFreq;}                      //rxFreq
 
 void CPlotter::mouseReleaseEvent (QMouseEvent * event)
 {
-  if (Qt::LeftButton == event->button ()) {
+  if (Qt::LeftButton == event->button () and m_mode!="FST240W") {
     int x=event->x();
     if(x<0) x=0;
     if(x>m_Size.width()) x=m_Size.width();
