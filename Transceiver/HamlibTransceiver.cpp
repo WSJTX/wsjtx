@@ -606,6 +606,13 @@ int HamlibTransceiver::do_start ()
         }
     }
 
+#if HAVE_HAMLIB_CACHING
+  // we must disable Hamlib caching because it lies about frequency
+  // for less than 1 Hz resolution rigs
+  auto orig_cache_timeout = rig_get_cache_timeout_ms (rig_.data (), HAMLIB_CACHE_ALL);
+  rig_set_cache_timeout_ms (rig_.data (), CACHE_ALL, 0);
+#endif
+
   int resolution {0};
   if (freq_query_works_)
     {
@@ -645,6 +652,11 @@ int HamlibTransceiver::do_start ()
     {
       resolution = -1;          // best guess
     }
+
+#if HAVE_HAMLIB_CACHING
+  // revert Hamlib cache timeout
+  rig_set_cache_timeout_ms (rig_.data (), HAMLIB_CACHE_ALL, orig_cache_timeout);
+#endif
 
   do_poll ();
 
