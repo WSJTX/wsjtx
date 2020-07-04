@@ -4078,7 +4078,7 @@ void MainWindow::guiUpdate()
 
 //Once per second:
   if(nsec != m_sec0) {
-//      qDebug() << "onesec" << m_mode;
+//    qDebug() << "onesec" << ui->RoundRobin->currentText();
     m_currentBand=m_config.bands()->find(m_freqNominal);
     if( SpecOp::HOUND == m_config.special_op_id() ) {
       qint32 tHound=QDateTime::currentMSecsSinceEpoch()/1000 - m_tAutoOn;
@@ -5574,6 +5574,12 @@ void MainWindow::on_tx6_editingFinished()                       //tx6 edited
   msgtype(t, ui->tx6);
 }
 
+void MainWindow::on_RoundRobin_currentTextChanged(QString text)
+{
+  ui->sbTxPercent->setEnabled(text=="Random");
+}
+
+
 void MainWindow::on_dxCallEntry_textChanged (QString const& call)
 {
   m_hisCall = call;
@@ -5842,9 +5848,10 @@ void MainWindow::on_actionFST240W_triggered()
   bool bVHF=m_config.enable_VHF_features();
   setup_status_bar (bVHF);
   m_TRperiod = ui->sbTR_FST240W->value ();
+  ui->band_hopping_group_box->setChecked(false);
   ui->band_hopping_group_box->setVisible(false);
   int ntr=m_TRperiod;
-  ui->sbTR_FST240W->setMinimum(15);           //### 120 ?? ###
+  ui->sbTR_FST240W->setMinimum(15);
   ui->sbTR_FST240W->setMaximum(300);
   ui->sbTR_FST240W->setValue(120);     //### Why is all this necessary? ###
   ui->sbTR_FST240W->setValue(300);
@@ -6464,6 +6471,8 @@ void MainWindow::WSPR_config(bool b)
   ui->logQSOButton->setVisible(!b);
   ui->DecodeButton->setEnabled(!b);
   ui->band_hopping_group_box->setVisible(true);
+  ui->RoundRobin->setVisible(m_mode=="FST240W");
+  ui->RoundRobin->lineEdit()->setAlignment(Qt::AlignCenter);
   if(b and m_mode!="Echo" and m_mode!="FST240W") {
     QString t="UTC    dB   DT     Freq     Drift  Call          Grid    dBm    ";
     if(m_config.miles()) t += " mi";
@@ -7899,6 +7908,18 @@ void MainWindow::on_pbTxNext_clicked(bool b)
 
 void MainWindow::WSPR_scheduling ()
 {
+  QString t=ui->RoundRobin->currentText();
+  if(m_mode=="FST240W" and t!="Random") {
+    int i=t.left(1).toInt();
+    int n=t.right(1).toInt();
+
+    qint64 ms = QDateTime::currentMSecsSinceEpoch() % 86400000;
+    int nsec=ms/1000;
+    int ntr=m_TRperiod;
+    int j=(nsec % (n*ntr))/ntr + 1;
+    m_WSPR_tx_next=(i==j);
+    return;
+  }
   m_WSPR_tx_next = false;
   if (m_config.is_transceiver_online () // need working rig control for hopping
       && !m_config.is_dummy_rig ()

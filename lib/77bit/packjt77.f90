@@ -203,7 +203,7 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
   integer ntel(3)
   character*77 c77
   character*37 msg
-  character*13 call_1,call_2,call_3
+  character*13 call_1,call_2,call_3,call_1a
   character*13 mycall13_0,dxcall13_0
   character*11 c11
   character*3 crpt,cntx,cpfx
@@ -350,11 +350,11 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
      msg=adjustl(msg)
 
   else if(i3.eq.0 .and. n3.eq.6) then
-     read(c77(50:50),'(b1)') j2a
-     j2b=0
-     if(j2a.eq.0) read(c77(49:49),'(b1)') j2b
-     j2=2*j2a+j2b
-     if(j2.eq.0) then
+     read(c77(49:50),'(2b1)') j2a,j2b
+     itype=2
+     if(j2b.eq.0 .and. j2a.eq.0) itype=1
+     if(j2b.eq.0 .and. j2a.eq.1) itype=3
+     if(itype.eq.1) then
 ! WSPR Type 1
         read(c77,2010) n28,igrid4,idbm
 2010    format(b28.28,b15.15,b5.5)
@@ -364,18 +364,10 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
         call to_grid4(igrid4,grid4)
         write(crpt,'(i3)') idbm
         msg=trim(call_1)//' '//grid4//' '//trim(adjustl(crpt))
+        call save_hash_call(call_1,n10,n12,n22)    !### Is this OK here? ###
 
-     else if(j2.eq.1) then
+     else if(itype.eq.2) then
 ! WSPR Type 2
-        read(c77,2030) n28,igrid6
-2030    format(b22.22,b25.25)
-        call unpack28(n28,call_1,unpk28_success) 
-        if(.not.unpk28_success) unpk77_success=.false.
-        call to_grid6(igrid6,grid6)
-        msg=trim(call_1)//' '//grid6
-
-     else if(j2.eq.2) then
-! WSPR Type 3
         read(c77,2020) n28,npfx,idbm
 2020    format(b28.28,b16.16,b5.5)
         idbm=nint(idbm*10.0/3.0)        
@@ -391,6 +383,8 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
               if(npfx.eq.0) exit
            enddo
            msg=trim(adjustl(cpfx))//'/'//trim(call_1)//' '//trim(adjustl(crpt))
+           call_1a=trim(adjustl(cpfx))//'/'//trim(call_1)
+           call save_hash_call(call_1a,n10,n12,n22)  !### Is this OK here? ###
         else
 ! Suffix
            npfx=npfx-nzzz
@@ -409,7 +403,20 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
               return
            endif
            msg=trim(call_1)//'/'//trim(adjustl(cpfx))//' '//trim(adjustl(crpt))
+           call_1a=trim(call_1)//'/'//trim(adjustl(cpfx))
+           call save_hash_call(call_1a,n10,n12,n22)  !### Is this OK here? ###
         endif
+        
+     else if(itype.eq.3) then
+! WSPR Type 3
+        read(c77,2030) n22,igrid6
+2030    format(b22.22,b25.25)
+        n28=n22+2063592
+        call unpack28(n28,call_1,unpk28_success) 
+        if(.not.unpk28_success) unpk77_success=.false.
+        call to_grid6(igrid6,grid6)
+        msg=trim(call_1)//' '//grid6
+
 
      endif
      
@@ -1032,6 +1039,7 @@ subroutine pack77_06(nwords,w,i3,n3,c77)
      i3=0
      n3=6
      call pack28(w(1),n28)
+     n22=n28-2063592
      k1=(ichar(grid6(1:1))-ichar('A'))*18*10*10*24*24
      k2=(ichar(grid6(2:2))-ichar('A'))*10*10*24*24
      k3=(ichar(grid6(3:3))-ichar('0'))*10*24*24
@@ -1039,7 +1047,7 @@ subroutine pack77_06(nwords,w,i3,n3,c77)
      k5=(ichar(grid6(5:5))-ichar('A'))*24
      k6=(ichar(grid6(6:6))-ichar('A'))
      igrid6=k1+k2+k3+k4+k5+k6
-     write(c77,1030) n28,igrid6,2,0,n3,i3
+     write(c77,1030) n22,igrid6,2,0,n3,i3
 1030 format(b22.22,b25.25,b3.3,b21.21,2b3.3)
   endif
 
