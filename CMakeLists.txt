@@ -1104,7 +1104,7 @@ add_custom_target (etags COMMAND ${ETAGS} -o ${CMAKE_SOURCE_DIR}/TAGS -R ${sourc
 # Qt i18n - always include the country generic if any regional variant is included
 set (LANGUAGES
   ca				# Catalan
-  #da				# Danish
+  da				# Danish
   en				# English (we need this to stop
 				# translation loaders loading the
 				# second preference UI languge, it
