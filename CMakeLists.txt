@@ -1520,7 +1520,7 @@ install (TARGETS jt9 wsprd fmtave fcal fmeasure
 
 if(WSJT_BUILD_UTILS)
 install (TARGETS ft8code jt65code qra64code qra64sim jt9code jt4code
-  msk144code 
+  msk144code fst240sim
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   )
