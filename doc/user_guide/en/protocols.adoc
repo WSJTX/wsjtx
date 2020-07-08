@@ -38,8 +38,8 @@ FN42`, it means that s/he will listen on 50.290 and respond there to
 any replies.) A numerical signal report of the form `–nn` or
 `R–nn` can be sent in place of a grid locator.  (As originally
 defined, numerical signal reports `nn` were required to fall between -01
-and -30 dB.  Recent program versions accommodate reports between
--50 and +49 dB.) A country prefix or portable suffix may be
+and -30 dB.  Program versions 2.3 and later accommodate reports between
+-50 and +50 dB.) A country prefix or portable suffix may be
 attached to one of the callsigns.  When this feature is used the
 additional information is sent in place of the grid locator or by
 encoding additional information into some of the 6 million available
