@@ -728,7 +728,7 @@ private:
   void freqCalStep();
   void setRig (Frequency = 0);  // zero frequency means no change
   void WSPR_history(Frequency dialFreq, int ndecodes);
-  QString WSPR_hhmm(int n);
+  QString beacon_start_time (int n = 0);
   QString WSPR_message();
   void fast_config(bool b);
   void CQTxFreq();

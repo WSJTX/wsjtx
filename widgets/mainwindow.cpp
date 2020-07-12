@@ -4211,7 +4211,7 @@ void MainWindow::startTx2()
       if (m_config.TX_messages ()) {
         t = " Transmitting " + m_mode + " ----------------------- " +
           m_config.bands ()->find (m_freqNominal);
-        t=WSPR_hhmm(0) + ' ' + t.rightJustified (66, '-');
+        t=beacon_start_time () + ' ' + t.rightJustified (66, '-');
         ui->decodedTextBrowser->appendText(t);
       }
       write_all("Tx",m_currentMessage);
@@ -5824,11 +5824,8 @@ void MainWindow::on_actionFST240_triggered()
 //                         0123456789012345678901234567890123
   displayWidgets(nWidgets("1111110001001111000100000001000000"));
   setup_status_bar (bVHF);
-  m_TRperiod = ui->sbTR->value();
-  ui->sbTR->setMinimum(15);
-  ui->sbTR->setMaximum(300);
-  m_TRperiod = ui->sbTR->value();
-  on_sbTR_valueChanged(ui->sbTR->value());
+  ui->sbTR->values ({15, 30, 60, 120, 300});
+  on_sbTR_valueChanged (ui->sbTR->value());
   ui->cbAutoSeq->setChecked(true);
   m_wideGraph->setMode(m_mode);
   m_wideGraph->setModeTx(m_modeTx);
@@ -5851,16 +5848,9 @@ void MainWindow::on_actionFST240W_triggered()
   setup_status_bar (bVHF);
   m_nSubMode=0;
   ui->sbSubmode->setValue(m_nSubMode);
-  m_TRperiod = ui->sbTR_FST240W->value ();
   ui->band_hopping_group_box->setChecked(false);
   ui->band_hopping_group_box->setVisible(false);
-  int ntr=m_TRperiod;
-  ui->sbTR_FST240W->setMinimum(15);
-  ui->sbTR_FST240W->setMaximum(300);
-  ui->sbTR_FST240W->setValue(120);     //### Why is all this necessary? ###
-  ui->sbTR_FST240W->setValue(300);
-  ui->sbTR_FST240W->setValue(ntr);
-  m_TRperiod = ui->sbTR_FST240W->value();
+  on_sbTR_FST240W_valueChanged (ui->sbTR_FST240W->value ());
   ui->sbSubmode->setMaximum(3);
   m_wideGraph->setMode(m_mode);
   m_wideGraph->setModeTx(m_modeTx);
@@ -6089,18 +6079,22 @@ void MainWindow::on_actionJT9_triggered()
   }
   ui->sbSubmode->setMaximum(7);
   if(m_bFast9) {
-    m_TRperiod = ui->sbTR->value ();
+    ui->sbTR->values ({5, 10, 15, 30});
+    on_sbTR_valueChanged (ui->sbTR->value());
     m_wideGraph->hide();
     m_fastGraph->showNormal();
     ui->TxFreqSpinBox->setValue(700);
     ui->RxFreqSpinBox->setValue(700);
-    ui->decodedTextLabel->setText("UTC     dB    T Freq    " + tr ("Message"));
-    ui->decodedTextLabel2->setText("UTC     dB    T Freq    " + tr ("Message"));
+    ui->decodedTextLabel->setText("  UTC   dB    T Freq    " + tr ("Message"));
+    ui->decodedTextLabel2->setText("  UTC   dB    T Freq    " + tr ("Message"));
   } else {
     ui->cbAutoSeq->setChecked(false);
-    m_TRperiod=60.0;
-    ui->decodedTextLabel->setText("UTC   dB   DT Freq    " + tr ("Message"));
-    ui->decodedTextLabel2->setText("UTC   dB   DT Freq    " + tr ("Message"));
+    if (m_mode != "FST240")
+      {
+        m_TRperiod=60.0;
+        ui->decodedTextLabel->setText("UTC   dB   DT Freq    " + tr ("Message"));
+        ui->decodedTextLabel2->setText("UTC   dB   DT Freq    " + tr ("Message"));
+      }
   }
   m_wideGraph->setPeriod(m_TRperiod,m_nsps);
   m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
@@ -6240,7 +6234,8 @@ void MainWindow::on_actionISCAT_triggered()
   m_mode="ISCAT";
   m_modeTx="ISCAT";
   ui->actionISCAT->setChecked(true);
-  m_TRperiod = ui->sbTR->value ();
+  ui->sbTR->values ({5, 10, 15, 30});
+  on_sbTR_valueChanged (ui->sbTR->value ());
   m_modulator->setTRPeriod(m_TRperiod);
   m_detector->setTRPeriod(m_TRperiod);
   m_wideGraph->setPeriod(m_TRperiod,m_nsps);
@@ -6307,7 +6302,8 @@ void MainWindow::on_actionMSK144_triggered()
   VHF_features_enabled(true);
   m_bFastMode=true;
   m_bFast9=false;
-  m_TRperiod = ui->sbTR->value ();
+  ui->sbTR->values ({5, 10, 15, 30});
+  on_sbTR_valueChanged (ui->sbTR->value());
   m_wideGraph->hide();
   m_fastGraph->showNormal();
   ui->TxFreqSpinBox->setValue(1500);
@@ -6315,8 +6311,8 @@ void MainWindow::on_actionMSK144_triggered()
   ui->RxFreqSpinBox->setMinimum(1400);
   ui->RxFreqSpinBox->setMaximum(1600);
   ui->RxFreqSpinBox->setSingleStep(10);
-  ui->decodedTextLabel->setText("UTC     dB    T Freq    " + tr ("Message"));
-  ui->decodedTextLabel2->setText("UTC     dB    T Freq    " + tr ("Message"));
+  ui->decodedTextLabel->setText("  UTC   dB    T Freq    " + tr ("Message"));
+  ui->decodedTextLabel2->setText("  UTC   dB    T Freq    " + tr ("Message"));
   m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
   m_detector->setTRPeriod(m_TRperiod);  // TODO - not thread safe
   m_fastGraph->setTRPeriod(m_TRperiod);
@@ -6411,7 +6407,8 @@ void MainWindow::on_actionFreqCal_triggered()
   ui->actionFreqCal->setChecked(true);
   switch_mode(Modes::FreqCal);
   m_wideGraph->setMode(m_mode);
-  m_TRperiod = ui->sbTR->value ();
+  ui->sbTR->values ({5, 10, 15, 30});
+  on_sbTR_valueChanged (ui->sbTR->value());
   m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
   m_detector->setTRPeriod(m_TRperiod);  // TODO - not thread safe
   m_nsps=6912;                        //For symspec only
@@ -6486,10 +6483,10 @@ void MainWindow::WSPR_config(bool b)
       Q_EMIT m_config.transceiver_tx_frequency (0); // turn off split
     }
     m_bSimplex = true;
-  } else {
-    ui->decodedTextLabel->setText("UTC   dB   DT Freq    " + tr ("Message"));
-    m_bSimplex = false;
-  }
+  } else
+    {
+      m_bSimplex = false;
+    }
   enable_DXCC_entity (m_config.DXCC ());  // sets text window proportions and (re)inits the logbook
 }
 
@@ -7420,6 +7417,25 @@ void MainWindow::on_sbTR_valueChanged(int value)
 //  if(!m_bFastMode and n>m_nSubMode) m_MinW=m_nSubMode;
   if(m_bFastMode or m_mode=="FreqCal" or m_mode=="FST240" or m_mode=="FST240W") {
     m_TRperiod = value;
+    if (m_mode == "FST240" || m_mode == "FST240W")
+      {
+        if (m_TRperiod < 60)
+          {
+            ui->decodedTextLabel->setText("  UTC   dB   DT Freq    " + tr ("Message"));
+            if (m_mode != "FST240W")
+              {
+                ui->decodedTextLabel2->setText("  UTC   dB   DT Freq    " + tr ("Message"));
+              }
+          }
+        else
+          {
+            ui->decodedTextLabel->setText("UTC   dB   DT Freq    " + tr ("Message"));
+            if (m_mode != "FST240W")
+              {
+                ui->decodedTextLabel2->setText("UTC   dB   DT Freq    " + tr ("Message"));
+              }
+          }
+      }
     m_fastGraph->setTRPeriod (value);
     m_modulator->setTRPeriod (value); // TODO - not thread safe
     m_detector->setTRPeriod (value);  // TODO - not thread safe
@@ -7716,7 +7732,7 @@ void MainWindow::p1ReadFromStdout()                        //p1readFromStdout
         if(m_nWSPRdecodes==0 and ui->band_hopping_group_box->isChecked()) {
           t = " " + tr ("Receiving") + " " + m_mode + " ----------------------- " +
               m_config.bands ()->find (m_dialFreqRxWSPR);
-          t=WSPR_hhmm(-60) + ' ' + t.rightJustified (66, '-');
+          t=beacon_start_time (-m_TRperiod / 2) + ' ' + t.rightJustified (66, '-');
           ui->decodedTextBrowser->appendText(t);
         }
         killFileTimer.start (45*1000); //Kill in 45s (for slow modes)
@@ -7803,20 +7819,23 @@ void MainWindow::p1ReadFromStdout()                        //p1readFromStdout
   }
 }
 
-QString MainWindow::WSPR_hhmm(int n)
+QString MainWindow::beacon_start_time (int n)
 {
-  QDateTime t=QDateTime::currentDateTimeUtc().addSecs(n);
-  int m=t.toString("hhmm").toInt()/2;
-  QString t1;
-  t1 = t1.asprintf("%04d",2*m);
-  return t1;
+  auto time =  QDateTime::currentDateTimeUtc ().addSecs (n).time ();
+  auto rounded_time = (int ((time.hour () * 10000 + time.minute () * 100 + time.second ()) * 60 / m_TRperiod) * int (m_TRperiod)) / 60;
+  auto result = QString::number (rounded_time).rightJustified (6, QLatin1Char {'0'});
+  if (m_TRperiod < 60)
+    {
+      return result;
+    }
+  return result.left (4);
 }
 
 void MainWindow::WSPR_history(Frequency dialFreq, int ndecodes)
 {
   QDateTime t=QDateTime::currentDateTimeUtc().addSecs(-60);
   QString t1=t.toString("yyMMdd");
-  QString t2=WSPR_hhmm(-60);
+  QString t2=beacon_start_time (-m_TRperiod / 2);
   QString t3;
   t3 = t3.asprintf("%13.6f",0.000001*dialFreq);
   if(ndecodes<0) {
