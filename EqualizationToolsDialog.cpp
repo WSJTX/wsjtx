@@ -292,7 +292,7 @@ EqualizationToolsDialog::impl::impl (EqualizationToolsDialog * self
         | QDialogButtonBox::RestoreDefaults | QDialogButtonBox::Close
         , Qt::Vertical}
 {
-  setWindowTitle (windowTitle () + ' ' + tr (title));
+  setWindowTitle (windowTitle () + ' ' + tr ("Equalization Tools"));
   resize (500, 600);
   {
     SettingsGroup g {settings_, title};

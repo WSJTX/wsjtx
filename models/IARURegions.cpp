@@ -12,10 +12,10 @@ namespace
   // human readable strings for each Region enumeration value
   char const * const region_names[] =
   {
-    "All",
-    "Region 1",
-    "Region 2",
-    "Region 3",
+   QT_TRANSLATE_NOOP ("IARURegions", "All"),
+   QT_TRANSLATE_NOOP ("IARURegions", "Region 1"),
+   QT_TRANSLATE_NOOP ("IARURegions", "Region 2"),
+   QT_TRANSLATE_NOOP ("IARURegions", "Region 3"),
   };
   std::size_t constexpr region_names_size = sizeof (region_names) / sizeof (region_names[0]);
 }
@@ -34,7 +34,7 @@ char const * IARURegions::name (Region r)
   return region_names[static_cast<int> (r)];
 }
 
-auto IARURegions::value (QString const& s) -> Region
+IARURegions::Region IARURegions::value (QString const& s)
 {
   auto end = region_names + region_names_size;
   auto p = std::find_if (region_names, end

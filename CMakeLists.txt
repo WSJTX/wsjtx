@@ -289,6 +289,7 @@ set (wsjt_qt_CXXSRCS
   logbook/AD1CCty.cpp
   logbook/WorkedBefore.cpp
   logbook/Multiplier.cpp
+  Network/NetworkAccessManager.cpp
   )
 
 set (wsjt_qtmm_CXXSRCS
@@ -1138,6 +1139,7 @@ if (UPDATE_TRANSLATIONS)
   qt5_create_translation (
     QM_FILES ${wsjt_qt_UISRCS} ${wsjtx_UISRCS} ${wsjt_qt_CXXSRCS} ${wsjtx_CXXSRCS}
     ${TS_FILES}
+    OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}
     )
 else ()
   qt5_add_translation (QM_FILES ${TS_FILES})

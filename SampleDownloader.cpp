@@ -88,7 +88,7 @@ SampleDownloader::impl::impl (QSettings * settings
   , directory_ {configuration, network_manager}
   , button_box_ {QDialogButtonBox::Close, Qt::Vertical}
 {
-  setWindowTitle (windowTitle () + ' ' + tr (title));
+  setWindowTitle (windowTitle () + ' ' + tr ("Download Samples"));
   resize (500, 600);
   {
     SettingsGroup g {settings_, title};
@@ -111,7 +111,7 @@ SampleDownloader::impl::impl (QSettings * settings
   details_layout_.setMargin (0);
   details_layout_.addRow (tr ("Base URL for samples:"), &url_line_edit_);
   details_layout_.addRow (tr ("Only use HTTP:"), &http_only_check_box_);
-  http_only_check_box_.setToolTip (tr ("Check this is you get SSL/TLS errors"));
+  http_only_check_box_.setToolTip (tr ("Check this if you get SSL/TLS errors"));
   details_widget_.setLayout (&details_layout_);
 
   main_layout_.addLayout (&left_layout_, 0, 0);

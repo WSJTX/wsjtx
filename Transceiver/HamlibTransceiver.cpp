@@ -684,7 +684,7 @@ void HamlibTransceiver::do_stop ()
   TRACE_CAT ("HamlibTransceiver", "state:" << state () << "reversed =" << reversed_);
 }
 
-auto HamlibTransceiver::get_vfos (bool for_split) const -> std::tuple<vfo_t, vfo_t>
+std::tuple<vfo_t, vfo_t> HamlibTransceiver::get_vfos (bool for_split) const
 {
   if (get_vfo_works_ && rig_->caps->get_vfo)
     {
