@@ -101,7 +101,7 @@
         <location filename="../widgets/astro.ui" line="134"/>
         <location filename="../widgets/astro.ui" line="151"/>
         <source>0</source>
-        <translation></translation>
+        <translation>0</translation>
     </message>
     <message>
         <location filename="../widgets/astro.ui" line="168"/>
@@ -891,12 +891,12 @@ Format:
     <message>
         <location filename="../SampleDownloader/Directory.cpp" line="51"/>
         <source>File</source>
-        <translation type="unfinished">ファイル</translation>
+        <translation>ファイル</translation>
     </message>
     <message>
         <location filename="../SampleDownloader/Directory.cpp" line="51"/>
         <source>Progress</source>
-        <translation type="unfinished"></translation>
+        <translation>進捗</translation>
     </message>
     <message>
         <location filename="../SampleDownloader/Directory.cpp" line="113"/>
@@ -1071,7 +1071,7 @@ Error: %2 - %3</source>
     <message>
         <location filename="../EqualizationToolsDialog.cpp" line="295"/>
         <source>Equalization Tools</source>
-        <translation type="unfinished"></translation>
+        <translation>較正ツール</translation>
     </message>
     <message>
         <location filename="../EqualizationToolsDialog.cpp" line="302"/>
@@ -1770,22 +1770,22 @@ Error: %2 - %3</source>
     <message>
         <location filename="../models/IARURegions.cpp" line="15"/>
         <source>All</source>
-        <translation type="unfinished"></translation>
+        <translation>すべての地域</translation>
     </message>
     <message>
         <location filename="../models/IARURegions.cpp" line="16"/>
         <source>Region 1</source>
-        <translation type="unfinished"></translation>
+        <translation>第一地域</translation>
     </message>
     <message>
         <location filename="../models/IARURegions.cpp" line="17"/>
         <source>Region 2</source>
-        <translation type="unfinished"></translation>
+        <translation>第二地域</translation>
     </message>
     <message>
         <location filename="../models/IARURegions.cpp" line="18"/>
         <source>Region 3</source>
-        <translation type="unfinished"></translation>
+        <translation>第三地域</translation>
     </message>
     <message>
         <location filename="../models/IARURegions.cpp" line="58"/>
@@ -1887,97 +1887,97 @@ Error: %2 - %3</source>
     <message>
         <location filename="../widgets/logqso.ui" line="497"/>
         <source>Prop Mode</source>
-        <translation type="unfinished"></translation>
+        <translation>伝搬モード</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="28"/>
         <source>Aircraft scatter</source>
-        <translation type="unfinished"></translation>
+        <translation>飛行機スキャッター</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="29"/>
         <source>Aurora-E</source>
-        <translation type="unfinished"></translation>
+        <translation>オーロラE</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="30"/>
         <source>Aurora</source>
-        <translation type="unfinished"></translation>
+        <translation>オーロラ</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="31"/>
         <source>Back scatter</source>
-        <translation type="unfinished"></translation>
+        <translation>後方スキャッター</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="32"/>
         <source>Echolink</source>
-        <translation type="unfinished"></translation>
+        <translation>Echolink</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="33"/>
         <source>Earth-moon-earth</source>
-        <translation type="unfinished"></translation>
+        <translation>EME</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="34"/>
         <source>Sporadic E</source>
-        <translation type="unfinished"></translation>
+        <translation>Eスポ</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="35"/>
         <source>F2 Reflection</source>
-        <translation type="unfinished"></translation>
+        <translation>F2層反射</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="36"/>
         <source>Field aligned irregularities</source>
-        <translation type="unfinished"></translation>
+        <translation>沿磁力線不規則性</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="37"/>
         <source>Internet-assisted</source>
-        <translation type="unfinished"></translation>
+        <translation>インターネット経由</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="38"/>
         <source>Ionoscatter</source>
-        <translation type="unfinished"></translation>
+        <translation>イオン散乱</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="39"/>
         <source>IRLP</source>
-        <translation type="unfinished"></translation>
+        <translation>IRLP</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="40"/>
         <source>Meteor scatter</source>
-        <translation type="unfinished"></translation>
+        <translation>流星散乱</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="41"/>
         <source>Non-satellite repeater or transponder</source>
-        <translation type="unfinished"></translation>
+        <translation>非衛星リピーター</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="42"/>
         <source>Rain scatter</source>
-        <translation type="unfinished"></translation>
+        <translation>雨散乱</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="43"/>
         <source>Satellite</source>
-        <translation type="unfinished"></translation>
+        <translation>衛星</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="44"/>
         <source>Trans-equatorial</source>
-        <translation type="unfinished"></translation>
+        <translation>赤道伝搬</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="45"/>
         <source>Troposheric ducting</source>
-        <translation type="unfinished"></translation>
+        <translation>ダクト</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="215"/>
@@ -2649,7 +2649,7 @@ When not checked you can view the calibration results.</source>
         <location filename="../widgets/mainwindow.ui" line="1536"/>
         <location filename="../widgets/mainwindow.ui" line="2561"/>
         <source>Tx  </source>
-        <translation></translation>
+        <translation>Tx  </translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1568"/>
@@ -2674,7 +2674,7 @@ When not checked you can view the calibration results.</source>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1615"/>
         <source>1</source>
-        <translation></translation>
+        <translation>1</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1623"/>
@@ -4255,7 +4255,7 @@ UDPサーバー %2:%3</translation>
     <message>
         <location filename="../Network/NetworkAccessManager.cpp" line="38"/>
         <source>Network SSL/TLS Errors</source>
-        <translation type="unfinished"></translation>
+        <translation>ネットワークSSL/TLSエラー</translation>
     </message>
 </context>
 <context>
@@ -4464,11 +4464,7 @@ Error(%2): %3</source>
     <message>
         <location filename="../SampleDownloader.cpp" line="114"/>
         <source>Check this if you get SSL/TLS errors</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Check this is you get SSL/TLS errors</source>
-        <translation type="vanished">チェックするとSSL/TLSエラーを表示</translation>
+        <translation>SSL/TLSエラーの場合これをチェック</translation>
     </message>
     <message>
         <location filename="../SampleDownloader.cpp" line="132"/>

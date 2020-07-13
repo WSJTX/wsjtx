@@ -19,10 +19,9 @@
     <message numerus="yes">
         <location filename="../widgets/AbstractLogWindow.cpp" line="65"/>
         <source>Are you sure you want to delete the %n selected QSO(s) from the log?</source>
-        <translatorcomment>sorry i don&apos;t understand how to fix this</translatorcomment>
         <translation>
             <numerusform>Segur que vols esborrar els %n QSO&apos;s seleccionats del log ?</numerusform>
-            <numerusform></numerusform>
+            <numerusform>Segur que vols esborrar els %n QSO&apos;s seleccionats del log ?</numerusform>
         </translation>
     </message>
     <message numerus="yes">
@@ -901,12 +900,12 @@ Format:
     <message>
         <location filename="../SampleDownloader/Directory.cpp" line="51"/>
         <source>File</source>
-        <translation type="unfinished">Fitxer</translation>
+        <translation>Arxiu</translation>
     </message>
     <message>
         <location filename="../SampleDownloader/Directory.cpp" line="51"/>
         <source>Progress</source>
-        <translation type="unfinished"></translation>
+        <translation>Progrés</translation>
     </message>
     <message>
         <location filename="../SampleDownloader/Directory.cpp" line="113"/>
@@ -1081,7 +1080,7 @@ Error: %2 - %3</translation>
     <message>
         <location filename="../EqualizationToolsDialog.cpp" line="295"/>
         <source>Equalization Tools</source>
-        <translation type="unfinished"></translation>
+        <translation>Eines d&apos;equalització</translation>
     </message>
     <message>
         <location filename="../EqualizationToolsDialog.cpp" line="302"/>
@@ -1780,22 +1779,22 @@ Error: %2 - %3</translation>
     <message>
         <location filename="../models/IARURegions.cpp" line="15"/>
         <source>All</source>
-        <translation type="unfinished"></translation>
+        <translation>Tot</translation>
     </message>
     <message>
         <location filename="../models/IARURegions.cpp" line="16"/>
         <source>Region 1</source>
-        <translation type="unfinished"></translation>
+        <translation>Regió 1</translation>
     </message>
     <message>
         <location filename="../models/IARURegions.cpp" line="17"/>
         <source>Region 2</source>
-        <translation type="unfinished"></translation>
+        <translation>Regió 2</translation>
     </message>
     <message>
         <location filename="../models/IARURegions.cpp" line="18"/>
         <source>Region 3</source>
-        <translation type="unfinished"></translation>
+        <translation>Regió 3</translation>
     </message>
     <message>
         <location filename="../models/IARURegions.cpp" line="58"/>
@@ -1897,97 +1896,97 @@ Error: %2 - %3</translation>
     <message>
         <location filename="../widgets/logqso.ui" line="497"/>
         <source>Prop Mode</source>
-        <translation type="unfinished"></translation>
+        <translation>Mode de Propagació</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="28"/>
         <source>Aircraft scatter</source>
-        <translation type="unfinished"></translation>
+        <translation>Aircraft scatter</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="29"/>
         <source>Aurora-E</source>
-        <translation type="unfinished"></translation>
+        <translation>Aurora-E</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="30"/>
         <source>Aurora</source>
-        <translation type="unfinished"></translation>
+        <translation>Aurora</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="31"/>
         <source>Back scatter</source>
-        <translation type="unfinished"></translation>
+        <translation>Back scatter</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="32"/>
         <source>Echolink</source>
-        <translation type="unfinished"></translation>
+        <translation>Echolink</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="33"/>
         <source>Earth-moon-earth</source>
-        <translation type="unfinished"></translation>
+        <translation>Terra-Lluna-Terra</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="34"/>
         <source>Sporadic E</source>
-        <translation type="unfinished"></translation>
+        <translation>Sporadic E</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="35"/>
         <source>F2 Reflection</source>
-        <translation type="unfinished"></translation>
+        <translation>Reflexió F2</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="36"/>
         <source>Field aligned irregularities</source>
-        <translation type="unfinished"></translation>
+        <translation>Irregularitats alineades al camp</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="37"/>
         <source>Internet-assisted</source>
-        <translation type="unfinished"></translation>
+        <translation>Assistit per Internet</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="38"/>
         <source>Ionoscatter</source>
-        <translation type="unfinished"></translation>
+        <translation>Ionoscatter</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="39"/>
         <source>IRLP</source>
-        <translation type="unfinished"></translation>
+        <translation>IRLP</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="40"/>
         <source>Meteor scatter</source>
-        <translation type="unfinished"></translation>
+        <translation>Meteor scatter</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="41"/>
         <source>Non-satellite repeater or transponder</source>
-        <translation type="unfinished"></translation>
+        <translation>Repetidor o transpondedor no satèl·lit</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="42"/>
         <source>Rain scatter</source>
-        <translation type="unfinished"></translation>
+        <translation>Rain scatter</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="43"/>
         <source>Satellite</source>
-        <translation type="unfinished"></translation>
+        <translation>Satèl·lit</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="44"/>
         <source>Trans-equatorial</source>
-        <translation type="unfinished"></translation>
+        <translation>Trans-equatorial</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="45"/>
         <source>Troposheric ducting</source>
-        <translation type="unfinished"></translation>
+        <translation>Tropo</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="215"/>
@@ -2708,7 +2707,7 @@ Si no està marcat, pots veure els resultats de la calibració.</translation>
         <source>Send this message in next Tx interval
 Double click to toggle the use of the Tx1 message to start a QSO with a station (not allowed for type 1 compound call holders)</source>
         <translation>Envia aquest missatge al següent interval de TX.
-Fes doble clic per canviar l’ús del missatge TX1 per iniciar un QSO amb una estació (no està permès per a titulars de indicatius compostos de tipus 1).</translation>
+Fes doble clic per canviar l’ús del missatge TX1 per iniciar un QSO amb una estació (no està permès per a titulars de indicatius compostos de tipus 1)</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1652"/>
@@ -2743,7 +2742,7 @@ Fes doble clic per canviar l’ús del missatge TX1 per iniciar un QSO amb una e
         <source>Switch to this Tx message NOW
 Double click to toggle the use of the Tx1 message to start a QSO with a station (not allowed for type 1 compound call holders)</source>
         <translation>Canvia a aquest missatge de TX ARA.
-Fes doble clic per canviar l’ús del missatge TX1 per iniciar un QSO amb una estació (no està permès per a titulars de indicatius compostos de tipus 1).</translation>
+Fes doble clic per canviar l’ús del missatge TX1 per iniciar un QSO amb una estació (no està permès per a titulars de indicatius compostos de tipus 1)</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1691"/>
@@ -2770,7 +2769,7 @@ Fes doble clic per canviar l’ús del missatge TX1 per iniciar un QSO amb una e
         <source>Send this message in next Tx interval
 Double-click to reset to the standard 73 message</source>
         <translation>Envia aquest missatge al següent interval de TX.
-Fes doble clic per restablir el missatge estàndard 73.</translation>
+Fes doble clic per restablir el missatge estàndard 73</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1736"/>
@@ -2804,7 +2803,7 @@ Double-click to toggle between RRR and RR73 messages in Tx4 (not allowed for typ
 RR73 messages should only be used when you are reasonably confident that no message repetitions will be required</source>
         <translation>Envia aquest missatge al següent interval de TX.
 Fes doble clic per alternar entre els missatges RRR i RR73 a TX4 (no està permès per a titulars d&apos;indicatius compostos del tipus 2)
-Els missatges RR73 només s’han d’utilitzar quan teniu una confiança raonable que no caldrà repetir cap missatge.</translation>
+Els missatges RR73 només s’han d’utilitzar quan teniu una confiança raonable que no caldrà repetir cap missatge</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1789"/>
@@ -2823,7 +2822,7 @@ Double-click to toggle between RRR and RR73 messages in Tx4 (not allowed for typ
 RR73 messages should only be used when you are reasonably confident that no message repetitions will be required</source>
         <translation>Canvia a aquest missatge de TX ARA.
 Fes doble clic per alternar entre els missatges RRR i RR73 a TX4 (no està permès per a titulars d&apos;indicatius compostos del tipus 2)
-Els missatges RR73 només s’han d’utilitzar quan teniu una confiança raonable que no caldrà repetir cap missatge.</translation>
+Els missatges RR73 només s’han d’utilitzar quan teniu una confiança raonable que no caldrà repetir cap missatge</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1807"/>
@@ -2845,7 +2844,7 @@ Els missatges RR73 només s’han d’utilitzar quan teniu una confiança raonab
         <source>Switch to this Tx message NOW
 Double-click to reset to the standard 73 message</source>
         <translation>Canvia a aquest missatge de TX ARA.
-Fes doble clic per restablir el missatge estàndard 73.</translation>
+Fes doble clic per restablir el missatge estàndard 73</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1827"/>
@@ -4273,7 +4272,7 @@ UDP server %2:%3</translation>
     <message>
         <location filename="../Network/NetworkAccessManager.cpp" line="38"/>
         <source>Network SSL/TLS Errors</source>
-        <translation type="unfinished"></translation>
+        <translation>Errors SSL/TLS de xarxa</translation>
     </message>
 </context>
 <context>
@@ -4457,32 +4456,32 @@ Error(%2): %3</translation>
     <message>
         <location filename="../SampleDownloader.cpp" line="104"/>
         <source>&amp;Abort</source>
-        <translation type="unfinished"></translation>
+        <translation>&amp;Anul·lar</translation>
     </message>
     <message>
         <location filename="../SampleDownloader.cpp" line="105"/>
         <source>&amp;Refresh</source>
-        <translation type="unfinished"></translation>
+        <translation>A&amp;ctualitza</translation>
     </message>
     <message>
         <location filename="../SampleDownloader.cpp" line="108"/>
         <source>&amp;Details</source>
-        <translation type="unfinished"></translation>
+        <translation>&amp;Detalls</translation>
     </message>
     <message>
         <location filename="../SampleDownloader.cpp" line="112"/>
         <source>Base URL for samples:</source>
-        <translation type="unfinished"></translation>
+        <translation>URL de base per a mostres:</translation>
     </message>
     <message>
         <location filename="../SampleDownloader.cpp" line="113"/>
         <source>Only use HTTP:</source>
-        <translation type="unfinished"></translation>
+        <translation>Úsa només HTTP:</translation>
     </message>
     <message>
         <location filename="../SampleDownloader.cpp" line="114"/>
         <source>Check this if you get SSL/TLS errors</source>
-        <translation type="unfinished"></translation>
+        <translation>Comprova si hi ha errors SSL/TLS</translation>
     </message>
     <message>
         <location filename="../SampleDownloader.cpp" line="132"/>
@@ -5766,7 +5765,7 @@ Right click for item specific actions
 Click, SHIFT+Click and, CRTL+Click to select items</source>
         <translation>Arrossega i deixa anar els elements per reorganitzar l&apos;ordre.
 Fes clic amb el botó dret per a les accions específiques de l’element.
-Fes clic, MAJ. + clic i, CTRL+clic per seleccionar els elements.</translation>
+Fes clic, MAJ. + clic i, CTRL+clic per seleccionar els elements</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1692"/>
@@ -6360,7 +6359,7 @@ Fes clic amb el botó dret per a les opcions d&apos;inserció i eliminació.</tr
     <message>
         <location filename="../Configuration.ui" line="2919"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Discard (Cancel) or apply (OK) configuration changes including&lt;/p&gt;&lt;p&gt;resetting the radio interface and applying any soundcard changes&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Eliminar (Cancel·lar) o aplicar (OK) canvis de configuració inclosos&lt;/p&gt;&lt;p&gt;restablint la interfície de ràdio i aplicant els canvis a la targeta de so&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Eliminar (Cancel·la) o aplicar (D&apos;acord) canvis de configuració inclosos.&lt;/p&gt;&lt;p&gt;Restablint la interfície de ràdio i aplicant els canvis a la targeta de so&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
 </context>
 <context>
