@@ -788,17 +788,15 @@ contains
          iploc=ia+im(1)-1                         !Index of CCF peak
          pval=s2(iploc)                           !Peak value
          if(pval.lt.minsync) exit
-         if(s2(iploc).gt.thresh) then             !Is this a possible candidate?
-            do i=-3,+3                            !Remove 0.9 of a model CCF at
-               k=iploc+2*hmod*i                   !this frequency from s2()
-               if(k.ge.ia .and. k.le.ib) then
-                  s2(k)=max(0.,s2(k)-0.9*pval*xdb(i))
-               endif
-            enddo
-            ncand=ncand+1
-            candidates(ncand,1)=df2*iploc         !Candidate frequency
-            candidates(ncand,2)=pval              !Rough estimate of SNR
-         endif
+         do i=-3,+3                            !Remove 0.9 of a model CCF at
+            k=iploc+2*hmod*i                   !this frequency from s2()
+            if(k.ge.ia .and. k.le.ib) then
+               s2(k)=max(0.,s2(k)-0.9*pval*xdb(i))
+            endif
+         enddo
+         ncand=ncand+1
+         candidates(ncand,1)=df2*iploc         !Candidate frequency
+         candidates(ncand,2)=pval              !Rough estimate of SNR
       enddo
 
       return
