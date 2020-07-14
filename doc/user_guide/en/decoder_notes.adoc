@@ -128,9 +128,7 @@ End of line information::
  `a` - Decoded with aid of some _a priori_ (AP) information +
  `C` - Confidence indicator [ISCAT and Deep Search; (0-9,*)] +
  `d` - Deep Search algorithm +
- `E` - Size of MSK eye diagram opening - if negative, the eye is closed + 
  `f` - Franke-Taylor or Fano algorithm +
- `H` - Number of bit errors corrected +
  `M` - Message length (characters) +
  `N` - Number of Rx intervals or frames averaged +
  `P` - Number indicating type of AP information (Table 1, above) +
