@@ -1,4 +1,4 @@
-// Status=review
+// Status=edited
 
 The following controls appear at the bottom of the Wide Graph window.
 Decoding occurs only in the displayed frequency range; otherwise, with
@@ -29,7 +29,7 @@ slower, as desired.
 - A dropdown list below the *Palette* label lets you select from a
 wide range of waterfall color palettes.  
 
-- Click *Adjust* to activate a window that allows you to create a
+- Click *Adjust* to activate a window that allows you to import or export a
 user-defined palette.
 
 - Check *Flatten* if you want _WSJT-X_ to compensate for a sloping or
@@ -50,10 +50,10 @@ about right, depending on the input signal level, the chosen palette,
 and your own preferences. Hover the mouse over a control to display a
 tip reminding you of its function.
 
-- The *Spec nn%* control may be used to set the fractional height of
+- The *Spec nn%* control is used to set the fractional height of
 the spectrum plotted below the waterfall.
 
-- *Smooth* is active only when *Linear Average* has been selected.
+- *Smooth* is active only when *Linear Average* is selected.
 Smoothing the displayed spectrum over more than one bin can enhance
 your ability to detect weak EME signals with Doppler spread more than
 a few Hz.
@@ -66,7 +66,7 @@ selected on the Wide Graph.  Three sliders at the bottom of the Fast
 Graph window can be used to optimize gain and zero-offset for the
 displayed information.  Hover the mouse over a control to display a
 tip reminding you of its function.  Clicking the *Auto Level* button
-will produce reasonable settings as a starting point.
+produces reasonable settings as a starting point.
 
 image::fast-graph-controls.png[align="center",alt="Fast Graph Controls"]
 
@@ -89,7 +89,7 @@ spectra, thereby smoothing the curves over multiple bins.
 
 - Label *N* shows the number of echo pulses averaged.
 
-- Click the *Colors* button to cycle through 6 possible choices of
+- Click the *Colors* button to cycle through six possible choices of
 color and line width for the plots.
 
 [[CONTROLS_MISCELLANEOUS]]
