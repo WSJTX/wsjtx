@@ -59,8 +59,7 @@ program fst240sim
    baud=12000.0/nsps                      !Keying rate (baud)
    nmax=nsec*12000
    nz=nsps*NN
-   nz2=nsps*NN2
-   txt=nz2*dt                             !Transmission length (s)
+   txt=nz*dt                              !Transmission length (s)
    tt=nsps*dt                             !Duration of symbols (s)
    allocate( c0(0:nmax-1) )
    allocate( c(0:nmax-1) )
