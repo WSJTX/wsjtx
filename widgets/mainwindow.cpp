@@ -3455,7 +3455,7 @@ void MainWindow::auto_sequence (DecodedText const& message, unsigned start_toler
 
 void MainWindow::pskPost (DecodedText const& decodedtext)
 {
-//###  if (m_diskData || !m_config.spot_to_psk_reporter() || decodedtext.isLowConfidence ()) return;
+  if (m_diskData || !m_config.spot_to_psk_reporter() || decodedtext.isLowConfidence ()) return;
 
   QString msgmode=m_mode;
   if(m_mode=="JT9+JT65") {
