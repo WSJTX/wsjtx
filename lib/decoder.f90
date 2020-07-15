@@ -196,9 +196,8 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
      call my_fst240%decode(fst240_decoded,id2,params%nutc,                &
           params%nQSOProgress,params%nfqso,params%nfa,params%nfb,         &
           params%nsubmode,ndepth,params%ntr,params%nexp_decode,           &
-          params%ntol,params%nzhsym,params%emedelay,                      &
-          logical(params%lapcqonly),params%napwid,mycall,hiscall,         &
-          params%nfsplit,iwspr)
+          params%ntol,params%emedelay,                                    &
+          logical(params%lapcqonly),mycall,hiscall,params%nfsplit,iwspr)
      call timer('dec240  ',1)
      go to 800
   endif
@@ -211,9 +210,8 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
      call my_fst240%decode(fst240_decoded,id2,params%nutc,                &
           params%nQSOProgress,params%nfqso,params%nfa,params%nfb,         &
           params%nsubmode,ndepth,params%ntr,params%nexp_decode,           &
-          params%ntol,params%nzhsym,params%emedelay,                      &
-          logical(params%lapcqonly),params%napwid,mycall,hiscall,         &
-          params%nfsplit,iwspr)
+          params%ntol,params%emedelay,                                    &
+          logical(params%lapcqonly),mycall,hiscall,params%nfsplit,iwspr)
      call timer('dec240  ',1)
      go to 800
   endif
@@ -700,7 +698,7 @@ contains
   end subroutine ft4_decoded
 
   subroutine fst240_decoded (this,nutc,sync,nsnr,dt,freq,decoded,nap,   &
-       qual,ntrperiod,lwspr)
+       qual,ntrperiod,lwspr,fmid,w50)
 
     use fst240_decode
     implicit none
@@ -716,6 +714,8 @@ contains
     real, intent(in) :: qual
     integer, intent(in) :: ntrperiod
     logical, intent(in) :: lwspr
+    real, intent(in) :: fmid
+    real, intent(in) :: w50
 
     character*2 annot
     character*37 decoded0
@@ -733,8 +733,9 @@ contains
        write(13,1002) nutc,nint(sync),nsnr,dt,freq,0,decoded0
 1002   format(i6.6,i4,i5,f6.1,f8.0,i4,3x,a37,' FST240')
     else
-       write(*,1003) nutc,nsnr,dt,nint(freq),decoded0,annot
-1003   format(i4.4,i4,f5.1,i5,' ` ',1x,a37,1x,a2)
+       if(fmid.ne.-999.0) write(decoded0(16:21),'(f6.3)') w50
+          write(*,1003) nutc,nsnr,dt,nint(freq),decoded0,annot
+1003   format(i4.4,i4,f5.1,i5,' ` ',1x,a37,1x,a2,2f7.3)
        write(13,1004) nutc,nint(sync),nsnr,dt,freq,0,decoded0
 1004   format(i4.4,i4,i5,f6.1,f8.0,i4,3x,a37,' FST240')
     endif

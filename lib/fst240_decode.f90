@@ -8,7 +8,7 @@ module fst240_decode
 
    abstract interface
       subroutine fst240_decode_callback (this,nutc,sync,nsnr,dt,freq,    &
-         decoded,nap,qual,ntrperiod,lwspr)
+         decoded,nap,qual,ntrperiod,lwspr,fmid,w50)
          import fst240_decoder
          implicit none
          class(fst240_decoder), intent(inout) :: this
@@ -22,14 +22,16 @@ module fst240_decode
          real, intent(in) :: qual
          integer, intent(in) :: ntrperiod
          logical, intent(in) :: lwspr
+         real, intent(in) :: fmid
+         real, intent(in) :: w50
       end subroutine fst240_decode_callback
    end interface
 
 contains
 
    subroutine decode(this,callback,iwave,nutc,nQSOProgress,nfqso,    &
-      nfa,nfb,nsubmode,ndepth,ntrperiod,nexp_decode,ntol,nzhsym,    &
-      emedelay,lapcqonly,napwid,mycall,hiscall,nfsplit,iwspr)
+      nfa,nfb,nsubmode,ndepth,ntrperiod,nexp_decode,ntol,            &
+      emedelay,lapcqonly,mycall,hiscall,nfsplit,iwspr)
 
       use timer_module, only: timer
       use packjt77
@@ -548,9 +550,10 @@ contains
                            call get_fst240_tones_from_bits(message74,itone,1)
                         endif
                         inquire(file='plotspec',exist=ex)
+                        fmid=-999.0
                         if(ex) then
                            call write_ref(itone,iwave,nsps,nmax,ndown,hmod,  &
-                              isbest,fc_synced)
+                              isbest,fc_synced,fmid,w50)
                         endif
                         xsig=0
                         do i=1,NN
@@ -572,7 +575,7 @@ contains
 !                        nutc,icand,itry,nsyncoh,iaptype,ijitter,ntype,nsync_qual,nharderrors,dmin,sync,xsnr,xdt,fsig,msg
 !                     flush(21)
                      call this%callback(nutc,smax1,nsnr,xdt,fsig,msg,    &
-                        iaptype,qual,ntrperiod,lwspr)
+                        iaptype,qual,ntrperiod,lwspr,fmid,w50)
                      goto 2002
                   endif
                enddo  ! metrics
@@ -807,9 +810,10 @@ contains
       return
    end subroutine get_candidates_fst240
 
-   subroutine write_ref(itone,iwave,nsps,nmax,ndown,hmod,i0,fc)
+   subroutine write_ref(itone,iwave,nsps,nmax,ndown,hmod,i0,fc,fmid,w50)
       complex cwave(nmax)
       complex, allocatable :: c(:)
+      real,allocatable :: ss(:)
       integer itone(160)
       integer*2 iwave(nmax)
       integer hmod
@@ -817,10 +821,11 @@ contains
       save ncall
 
       ncall=ncall+1
-      allocate( c(0:nmax-1) )
+      allocate(c(0:nmax-1))
       wave=0
       fsample=12000.0
       nsym=160
+
       call gen_fst240wave(itone,nsym,nsps,nmax,fsample,hmod,fc,    &
                 1,cwave,wave)
       cwave=cshift(cwave,-i0*ndown)
@@ -832,26 +837,60 @@ contains
       fac=1.0/32768
       c=fac*float(iwave)*conjg(cwave)
       call four2a(c,nmax,1,-1,1)         !Forward c2c FFT
+
       df=12000.0/nmax
-      ia=-10.1/df
-      ib=10.1/df
+      ia=1.0/df
       smax=0.
-      do i=ia,ib
+      do i=-ia,ia
          j=i
          if(j.lt.0) j=i+nmax
          s=real(c(j))**2 + aimag(c(j))**2
          smax=max(s,smax)
       enddo
-      do i=ia,ib
+      ia=10.1/df
+      allocate(ss(-ia:ia))
+      sum1=0.
+      sum2=0.
+      ns=0
+      do i=-ia,ia
          j=i
          if(j.lt.0) j=i+nmax
-         s=(real(c(j))**2 + aimag(c(j))**2)/smax
-         s=s + ncall-1
+         ss(i)=(real(c(j))**2 + aimag(c(j))**2)/smax
          f=i*df
-         write(52,1010) f,s,db(s)
-1010     format(f12.6,f12.6,f10.3)
+         if(f.ge.-4.0 .and. f.le.-2.0) then
+            sum1=sum1 + ss(i)
+            ns=ns+1
+         else if(f.ge.2.0 .and. f.le.4.0) then
+            sum2=sum2 + ss(i)
+         endif
       enddo
-!      close(52)
+      avg=min(sum1/ns,sum2/ns)
+
+      sum1=0.
+      do i=-ia,ia
+         f=i*df
+         if(abs(f).le.1.0) sum1=sum1 + ss(i)-avg
+         y=0.99*ss(i) + ncall-1
+         write(52,1010) f,y
+1010     format(f12.6,f12.6)
+      enddo
+
+      ia=nint(1.0/df)
+      sum2=0.0
+      i1=-999
+      i2=-999
+      i3=-999
+      do i=-ia,ia
+         sum2=sum2 + ss(i)-avg
+         if(sum2.ge.0.25*sum1 .and. i1.eq.-999) i1=i
+         if(sum2.ge.0.50*sum1 .and. i2.eq.-999) i2=i
+         if(sum2.ge.0.75*sum1) then
+            i3=i
+            exit
+         endif
+      enddo
+      fmid=i2*df
+      w50=(i3-i1+1)*df
       
       return
   end subroutine write_ref 
