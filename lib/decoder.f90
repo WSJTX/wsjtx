@@ -733,7 +733,11 @@ contains
        write(13,1002) nutc,nint(sync),nsnr,dt,freq,0,decoded0
 1002   format(i6.6,i4,i5,f6.1,f8.0,i4,3x,a37,' FST240')
     else
-       if(fmid.ne.-999.0) write(decoded0(16:21),'(f6.3)') w50
+       if(fmid.ne.-999.0) then
+          if(w50.lt.0.95) write(decoded0(18:22),'(f5.3)') w50
+          if(w50.ge.0.95) write(decoded0(18:22),'(f5.2)') w50
+          if(decoded0(18:18).eq.'0') decoded0(18:18)=' '
+       endif
           write(*,1003) nutc,nsnr,dt,nint(freq),decoded0,annot
 1003   format(i4.4,i4,f5.1,i5,' ` ',1x,a37,1x,a2,2f7.3)
        write(13,1004) nutc,nint(sync),nsnr,dt,freq,0,decoded0
