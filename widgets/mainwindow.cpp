@@ -3591,11 +3591,11 @@ void MainWindow::guiUpdate()
   if(m_mode=="WSPR" or m_mode=="FST240W") {
     if(m_nseq==0 and m_ntr==0) {                   //Decide whether to Tx or Rx
       m_tuneup=false;                              //This is not an ATU tuneup
-      if(m_pctx==0) m_WSPR_tx_next = false;        //Don't transmit if m_pctx=0
+      if(ui->sbTxPercent->isEnabled () && m_pctx==0) m_WSPR_tx_next = false; //Don't transmit if m_pctx=0
       bool btx = m_auto && m_WSPR_tx_next;         // To Tx, we need m_auto and
                                                    // scheduled transmit
       if(m_auto and m_txNext) btx=true;            //TxNext button overrides
-      if(m_auto and m_pctx==100) btx=true;         //Always transmit
+      if(m_auto && ui->sbTxPercent->isEnabled () && m_pctx==100) btx=true; //Always transmit
 
       if(btx) {
         m_ntr=-1;                                  //This says we will have transmitted
@@ -7946,13 +7946,13 @@ void MainWindow::WSPR_scheduling ()
 {
   QString t=ui->RoundRobin->currentText();
   if(m_mode=="FST240W" and t!="Random") {
-    int i=t.left(1).toInt();
+    int i=t.left (1).toInt () - 1;
     int n=t.right(1).toInt();
 
     qint64 ms = QDateTime::currentMSecsSinceEpoch() % 86400000;
     int nsec=ms/1000;
     int ntr=m_TRperiod;
-    int j=(nsec % (n*ntr))/ntr + 1;
+    int j=((nsec+ntr) % (n*ntr))/ntr;
     m_WSPR_tx_next=(i==j);
     return;
   }
