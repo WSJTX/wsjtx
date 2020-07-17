@@ -67,9 +67,10 @@ program fst240sim
    nz=nsps*NN
    txt=nz*dt                              !Transmission length (s)
    tt=nsps*dt                             !Duration of symbols (s)
-   allocate( c0(0:nmax-1) )
-   allocate( c(0:nmax-1) )
-   allocate( wave(nmax) )
+   nwave=max(nmax,(NN+2)*nsps)
+   allocate( c0(0:nwave-1) )
+   allocate( c(0:nwave-1) )
+   allocate( wave(nwave) )
    allocate( iwave(nmax) )
 
    bandwidth_ratio=2500.0/(fs/2.0)
@@ -108,7 +109,7 @@ program fst240sim
    fsample=12000.0
    icmplx=1
    f0=f00+1.5*hmod*baud
-   call gen_fst240wave(itone,NN,nsps,nmax,fsample,hmod,f0,icmplx,c0,wave)
+   call gen_fst240wave(itone,NN,nsps,nwave,fsample,hmod,f0,icmplx,c0,wave)
    k=nint((xdt+1.0)/dt)
    if(nsec.eq.15) k=nint((xdt+0.5)/dt)
    c0=cshift(c0,-k)
@@ -117,7 +118,7 @@ program fst240sim
 
    do ifile=1,nfiles
       c=c0
-      if(fspread.ne.0.0 .or. delay.ne.0.0) call watterson(c,nmax,NZ,fs,delay,fspread)
+      if(fspread.ne.0.0 .or. delay.ne.0.0) call watterson(c,nwave,NZ,fs,delay,fspread)
       c=sig*c
       wave=real(c)
       if(snrdb.lt.90) then
@@ -135,7 +136,7 @@ program fst240sim
          wave=fac*wave
       endif
       if(any(abs(wave).gt.32767.0)) print*,"Warning - data will be clipped."
-      iwave=nint(wave)
+      iwave=nint(wave(:size(iwave)))
       h=default_header(12000,nmax)
       if(nmax/12000.le.30) then
          write(fname,1102) ifile

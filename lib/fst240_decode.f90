@@ -68,7 +68,7 @@ contains
       logical badsync,unpk77_success,single_decode
       logical first,nohiscall,lwspr,ex
 
-      integer*2 iwave(300*12000)
+      integer*2 iwave(30*60*12000)
 
       data   mcq/0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0/
       data  mrrr/0,1,1,1,1,1,1,0,1,0,0,1,0,0,1,0,0,0,1/
@@ -748,8 +748,8 @@ contains
       integer hmod                             !Modulation index (submode)
       integer im(1)                            !For maxloc
       real candidates(100,4)                   !Candidate list
-      real s(18000)                            !Low resolution power spectrum
-      real s2(18000)                           !CCF of s() with 4 tones
+      real, allocatable :: s(:)                !Low resolution power spectrum
+      real, allocatable :: s2(:)               !CCF of s() with 4 tones
       real xdb(-3:3)                           !Model 4-tone CCF peaks
       real minsync
       data xdb/0.25,0.50,0.75,1.0,0.75,0.50,0.25/
@@ -776,6 +776,8 @@ contains
          inb=nint(fh)
       endif
 
+      nnw=nint(48000.*nsps*2./fs)
+      allocate (s(nnw))
       s=0.                                  !Compute low-resloution power spectrum
       do i=ina,inb   ! noise analysis window includes signal analysis window
          j0=nint(i*df2/df1)
@@ -785,7 +787,8 @@ contains
       enddo
 
       ina=max(ina,1+3*hmod)                       !Don't run off the ends
-      inb=min(inb,18000-3*hmod)
+      inb=min(inb,nnw-3*hmod)
+      allocate (s2(nnw))
       s2=0.
       do i=ina,inb                                !Compute CCF of s() and 4 tones
          s2(i)=s(i-hmod*3) + s(i-hmod) +s(i+hmod) +s(i+hmod*3)
@@ -796,7 +799,7 @@ contains
       ncand=0
       candidates=0
       if(ia.lt.3) ia=3
-      if(ib.gt.18000-2) ib=18000-2
+      if(ib.gt.nnw-2) ib=nnw-2
 
 ! Find candidates, using the CLEAN algorithm to remove a model of each one
 ! from s2() after it has been found.
@@ -824,6 +827,7 @@ contains
 
 ! On "plotspec" special request, compute Doppler spread for a decoded signal
 
+     include 'fst240/fst240_params.f90'
      complex, allocatable :: cwave(:)       !Reconstructed complex signal
      complex, allocatable :: g(:)           !Channel gain, g(t) in QEX paper
      real,allocatable :: ss(:)              !Computed power spectrum of g(t)
@@ -835,15 +839,15 @@ contains
 
      ncall=ncall+1
      nfft=2*nmax
-     allocate(cwave(0:nmax-1))
+     nwave=max(nmax,(NN+2)*nsps)
+     allocate(cwave(0:nwave-1))
      allocate(g(0:nfft-1))
      wave=0
      fsample=12000.0
-     nsym=160
-     call gen_fst240wave(itone,nsym,nsps,nmax,fsample,hmod,fc,1,cwave,wave)
+     call gen_fst240wave(itone,NN,nsps,nwave,fsample,hmod,fc,1,cwave,wave)
      cwave=cshift(cwave,-i0*ndown)
      fac=1.0/32768
-     g(0:nmax-1)=fac*float(iwave)*conjg(cwave)
+     g(0:nmax-1)=fac*float(iwave)*conjg(cwave(:nmax-1))
      g(nmax:)=0.
      call four2a(g,nfft,1,-1,1)         !Forward c2c FFT
 
@@ -861,7 +865,7 @@ contains
      allocate(ss(-ia:ia))               !Allocate space for +/- 10 Hz
      sum1=0.
      sum2=0.
-     ns=0
+     nns=0
      do i=-ia,ia
         j=i
         if(j.lt.0) j=i+nfft
@@ -869,12 +873,12 @@ contains
         f=i*df
         if(f.ge.-4.0 .and. f.le.-2.0) then
            sum1=sum1 + ss(i)                  !Power between -2 and -4 Hz
-           ns=ns+1
+           nns=nns+1
         else if(f.ge.2.0 .and. f.le.4.0) then
            sum2=sum2 + ss(i)                  !Power between +2 and +4 Hz
         endif
      enddo
-     avg=min(sum1/ns,sum2/ns)                 !Compute avg from smaller sum
+     avg=min(sum1/nns,sum2/nns)               !Compute avg from smaller sum
 
      sum1=0.
      do i=-ia,ia

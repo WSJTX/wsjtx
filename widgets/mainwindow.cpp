@@ -428,7 +428,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   ui->dxGridEntry->setValidator (new MaidenheadLocatorValidator {this});
   ui->dxCallEntry->setValidator (new CallsignValidator {this});
   ui->sbTR->values ({5, 10, 15, 30, 60, 120, 300});
-  ui->sbTR_FST240W->values ({15, 30, 60, 120, 300});
+  ui->sbTR_FST240W->values ({15, 30, 60, 120, 300, 900, 1800});
   ui->decodedTextBrowser->set_configuration (&m_config, true);
   ui->decodedTextBrowser2->set_configuration (&m_config);
 
@@ -3556,6 +3556,8 @@ void MainWindow::guiUpdate()
     if(m_TRperiod==60)  txDuration=1.0 + 160*3888/12000.0;
     if(m_TRperiod==120) txDuration=1.0 + 160*8200/12000.0;
     if(m_TRperiod==300) txDuration=1.0 + 160*21504/12000.0;
+    if(m_TRperiod==900) txDuration=1.0 + 160*66560/12000.0;
+    if(m_TRperiod==1800) txDuration=1.0 + 160*134400/12000.0;
   }
   if(m_modeTx=="ISCAT" or m_mode=="MSK144" or m_bFast9) {
     txDuration=m_TRperiod-0.25; // ISCAT, JT9-fast, MSK144
@@ -3888,6 +3890,8 @@ void MainWindow::guiUpdate()
             if(m_TRperiod==60) nsps=3888;
             if(m_TRperiod==120) nsps=8200;
             if(m_TRperiod==300) nsps=21504;
+            if(m_TRperiod==900) nsps=66560;
+            if(m_TRperiod==1800) nsps=134400;
             nsps=4*nsps;                           //48000 Hz sampling
             int nsym=160;
             float fsample=48000.0;
@@ -5838,7 +5842,7 @@ void MainWindow::on_actionFST240_triggered()
 //                         0123456789012345678901234567890123
   displayWidgets(nWidgets("1111110001001111000100000001000000"));
   setup_status_bar (bVHF);
-  ui->sbTR->values ({15, 30, 60, 120, 300});
+  ui->sbTR->values ({15, 30, 60, 120, 300, 900, 1800});
   on_sbTR_valueChanged (ui->sbTR->value());
   ui->cbAutoSeq->setChecked(true);
   m_wideGraph->setMode(m_mode);
@@ -7183,6 +7187,8 @@ void MainWindow::transmit (double snr)
     if(m_TRperiod==60) nsps=3888;
     if(m_TRperiod==120) nsps=8200;
     if(m_TRperiod==300) nsps=21504;
+    if(m_TRperiod==900) nsps=66560;
+    if(m_TRperiod==1800) nsps=134400;
     int hmod=int(pow(2.0,double(m_nSubMode)));
     double dfreq=hmod*12000.0/nsps;
     double f0=ui->WSPRfreqSpinBox->value() - m_XIT + 1.5*dfreq;
