@@ -52,6 +52,8 @@ program fst240sim
    if(nsec.eq.60) nsps=3888
    if(nsec.eq.120) nsps=8200
    if(nsec.eq.300) nsps=21504
+   if(nsec.eq.900) nsps=65536
+   if(nsec.eq.1800) nsps=131072
    if(nsps.eq.0) then
       print*,'Invalid TR sequence length.'
       go to 999

@@ -201,6 +201,16 @@ contains
          nmax=300*12000
          ndown=512/hmod !nss=42,84,168,336
          nfft1=int((nmax-200)/ndown)*ndown
+      else if(ntrperiod.eq.900) then
+         nsps=65536
+         nmax=900*12000
+         ndown=1024/hmod !nss=64,128,256,512
+         nfft1=int((nmax-200)/ndown)*ndown
+      else if(ntrperiod.eq.1800) then
+         nsps=131072
+         nmax=1800*12000
+         ndown=2048/hmod !nss=64,128,256,512
+         nfft1=int((nmax-200)/ndown)*ndown
       end if
       nss=nsps/ndown
       fs=12000.0                       !Sample rate
