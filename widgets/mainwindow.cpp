@@ -427,7 +427,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   add_child_to_event_filter (this);
   ui->dxGridEntry->setValidator (new MaidenheadLocatorValidator {this});
   ui->dxCallEntry->setValidator (new CallsignValidator {this});
-  ui->sbTR->values ({5, 10, 15, 30, 60, 120, 300});
+  ui->sbTR->values ({5, 10, 15, 30, 60, 120, 300, 900, 1800});
   ui->sbTR_FST240W->values ({15, 30, 60, 120, 300, 900, 1800});
   ui->decodedTextBrowser->set_configuration (&m_config, true);
   ui->decodedTextBrowser2->set_configuration (&m_config);
@@ -1573,6 +1573,7 @@ QString MainWindow::save_wave_file (QString const& name, short const * data, int
         QString const& my_callsign, QString const& my_grid, QString const& mode, qint32 sub_mode,
         Frequency frequency, QString const& his_call, QString const& his_grid) const
 {
+  qDebug() << "aa" << QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz");
   //
   // This member function runs in a thread and should not access
   // members that may be changed in the GUI thread or any other thread
@@ -1609,6 +1610,7 @@ QString MainWindow::save_wave_file (QString const& name, short const * data, int
     {
       return file_name + ": " + wav.errorString ();
     }
+  qDebug() << "bb" << QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz");
   return QString {};
 }
 
