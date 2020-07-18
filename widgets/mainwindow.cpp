@@ -4607,6 +4607,13 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
     return;
   }
 
+  // ignore calls by other hounds
+  if (SpecOp::HOUND == m_config.special_op_id()
+      && message.messageWords ().indexOf (QRegularExpression {R"(R\+-[0-9]+)"}) >= 0)
+    {
+      return;
+    }
+
   QString firstcall = message.call();
   if(firstcall.length()==5 and firstcall.mid(0,3)=="CQ ") firstcall="CQ";
   if(!m_bFastMode and (!m_config.enable_VHF_features() or m_mode=="FT8")) {
