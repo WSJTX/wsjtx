@@ -419,6 +419,7 @@ private:
   float   m_t0Pick;
   float   m_t1Pick;
   float   m_fCPUmskrtd;
+  float   m_fSpread;
 
   qint32  m_waterfallAvg;
   qint32  m_ntx;
@@ -716,7 +717,7 @@ private:
   void pskPost(DecodedText const& decodedtext);
   void displayDialFrequency ();
   void transmitDisplay (bool);
-  void processMessage(DecodedText const&, Qt::KeyboardModifiers = Qt::NoModifier);
+  void processMessage(DecodedText const& message, Qt::KeyboardModifiers = Qt::NoModifier);
   void replyToCQ (QTime, qint32 snr, float delta_time, quint32 delta_frequency, QString const& mode, QString const& message_text, bool low_confidence, quint8 modifiers);
   void locationChange(QString const& location);
   void replayDecodes ();

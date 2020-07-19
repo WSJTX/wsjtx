@@ -1575,7 +1575,6 @@ QString MainWindow::save_wave_file (QString const& name, short const * data, int
         QString const& my_callsign, QString const& my_grid, QString const& mode, qint32 sub_mode,
         Frequency frequency, QString const& his_call, QString const& his_grid) const
 {
-  qDebug() << "aa" << QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz");
   //
   // This member function runs in a thread and should not access
   // members that may be changed in the GUI thread or any other thread
@@ -1612,7 +1611,6 @@ QString MainWindow::save_wave_file (QString const& name, short const * data, int
     {
       return file_name + ": " + wav.errorString ();
     }
-  qDebug() << "bb" << QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz");
   return QString {};
 }
 
@@ -3147,6 +3145,8 @@ void MainWindow::readFromStdout()                             //readFromStdout
 {
   while(proc_jt9.canReadLine()) {
     auto line_read = proc_jt9.readLine ();
+    m_fSpread=line_read.mid(64,6).toFloat();
+    line_read=line_read.left(64);
     if (auto p = std::strpbrk (line_read.constData (), "\n\r")) {
       // truncate before line ending chars
       line_read = line_read.left (p - line_read.constData ());
@@ -3231,7 +3231,18 @@ void MainWindow::readFromStdout()                             //readFromStdout
             m_bDisplayedOnce=true;
           }
         } else {
-          ui->decodedTextBrowser->displayDecodedText(decodedtext0,m_baseCall,m_mode,m_config.DXCC(),
+          DecodedText decodedtext1=decodedtext0;
+          if(m_mode.startsWith("FST240") and m_fSpread>0.0) {
+            QString t=decodedtext0.string();
+            QString t2;
+            if(m_fSpread<0.95) t2.sprintf("%5.3f",m_fSpread);
+            if(m_fSpread>=0.95) t2.sprintf("%5.2f",m_fSpread);
+            t=t.left(46)+t2+t.mid(50);
+            t=t.trimmed();
+            DecodedText dt2{t};
+            decodedtext1=dt2;
+          }
+          ui->decodedTextBrowser->displayDecodedText(decodedtext1,m_baseCall,m_mode,m_config.DXCC(),
                m_logBook,m_currentBand,m_config.ppfx(),
                (ui->cbCQonly->isVisible() and ui->cbCQonly->isChecked()));
 
@@ -3476,7 +3487,6 @@ void MainWindow::pskPost (DecodedText const& decodedtext)
   int snr = decodedtext.snr();
   Frequency frequency = m_freqNominal + audioFrequency;
   pskSetLocal ();
-//  qDebug() << "bb" << deCall << grid << frequency << msgmode << snr;
   if(grid.contains (grid_regexp)) {
 //    qDebug() << "To PSKreporter:" << deCall << grid << frequency << msgmode << snr;
     psk_Reporter->addRemoteStation(deCall,grid,QString::number(frequency),msgmode,
@@ -4529,7 +4539,7 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
       || ("JT9" == m_mode && mode != "@")
       || ("MSK144" == m_mode && !("&" == mode || "^" == mode))
       || ("QRA64" == m_mode && mode.left (1) != ":")) {
-    return;      //Currently we do auto-sequencing only in FT4, FT8, and MSK144
+    return;      //Currently we do auto-sequencing only in FT4, FT8, MSK144, and FST240
   }
 
   //Skip the rest if no decoded text extracted
@@ -4570,6 +4580,7 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
   QString hiscall;
   QString hisgrid;
   message.deCallAndGrid(/*out*/hiscall,hisgrid);
+
   if(message.string().contains(hiscall+"/R")) {
     hiscall+="/R";
     ui->dxCallEntry->setText(hiscall);
