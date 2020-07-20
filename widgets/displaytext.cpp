@@ -387,7 +387,8 @@ QString DisplayText::appendWorkedB4 (QString message, QString call, QString cons
 void DisplayText::displayDecodedText(DecodedText const& decodedText, QString const& myCall,
                                      QString const& mode,
                                      bool displayDXCCEntity, LogBook const& logBook,
-                                     QString const& currentBand, bool ppfx, bool bCQonly)
+                                     QString const& currentBand, bool ppfx, bool bCQonly,
+                                     bool haveFSpread, float fSpread)
 {
   m_bPrincipalPrefix=ppfx;
   QColor bg;
@@ -421,6 +422,11 @@ void DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
   QRegularExpression grid_regexp {"\\A(?![Rr]{2}73)[A-Ra-r]{2}[0-9]{2}([A-Xa-x]{2}){0,1}\\z"};
   if(!dxGrid.contains(grid_regexp)) dxGrid="";
   message = message.left (message.indexOf (QChar::Nbsp)); // strip appended info
+  if (haveFSpread)
+    {
+      message += QString {37 - message.size (), QChar {' '}};
+      message += QChar::Nbsp + QString {"%1"}.arg (fSpread, 5, 'f', fSpread < 0.95 ? 3 : 2);
+    }
   m_CQPriority="";
   if (CQcall)
     {

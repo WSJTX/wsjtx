@@ -419,7 +419,6 @@ private:
   float   m_t0Pick;
   float   m_t1Pick;
   float   m_fCPUmskrtd;
-  float   m_fSpread;
 
   qint32  m_waterfallAvg;
   qint32  m_ntx;

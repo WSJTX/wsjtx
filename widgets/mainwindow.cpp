@@ -3145,12 +3145,21 @@ void MainWindow::readFromStdout()                             //readFromStdout
 {
   while(proc_jt9.canReadLine()) {
     auto line_read = proc_jt9.readLine ();
-    m_fSpread=line_read.mid(64,6).toFloat();
-    line_read=line_read.left(64);
     if (auto p = std::strpbrk (line_read.constData (), "\n\r")) {
       // truncate before line ending chars
       line_read = line_read.left (p - line_read.constData ());
     }
+    bool haveFSpread {false};
+    float fSpread {0.};
+    if (m_mode.startsWith ("FST240"))
+      {
+        auto text = line_read.mid (64, 6).trimmed ();
+        if (text.size ())
+          {
+            fSpread = text.toFloat (&haveFSpread);
+            line_read = line_read.left (64);
+          }
+      }
     if(m_mode!="FT8" and m_mode!="FT4") {
       //Pad 22-char msg to at least 37 chars
       line_read = line_read.left(44) + "              " + line_read.mid(44);
@@ -3232,14 +3241,10 @@ void MainWindow::readFromStdout()                             //readFromStdout
           }
         } else {
           DecodedText decodedtext1=decodedtext0;
-          if(m_mode.startsWith("FST240") and m_fSpread>0.0) {
-            QString t=decodedtext0.string();
-            DecodedText dt2 {QString {"%1%2%3"}.arg (t.left (46)).arg (m_fSpread, 5, 'f', m_fSpread < 0.95 ? 2 : 3).arg (t.mid(50)).trimmed ()};
-            decodedtext1=dt2;
-          }
           ui->decodedTextBrowser->displayDecodedText(decodedtext1,m_baseCall,m_mode,m_config.DXCC(),
-               m_logBook,m_currentBand,m_config.ppfx(),
-               (ui->cbCQonly->isVisible() and ui->cbCQonly->isChecked()));
+                                                     m_logBook,m_currentBand,m_config.ppfx(),
+                                                     ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
+                                                     haveFSpread, fSpread);
 
           if(m_bBestSPArmed and m_mode=="FT4") {
             QString messagePriority=ui->decodedTextBrowser->CQPriority();
