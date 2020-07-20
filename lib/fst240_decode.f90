@@ -87,7 +87,7 @@ contains
       dxcall13=hiscall   ! initialize for use in packjt77
       mycall13=mycall
 
-      fMHz=1.0
+      fMHz=1.0e9
 
       if(first) then
          mcq=2*mod(mcq+rvec(1:29),2)-1
@@ -325,7 +325,7 @@ contains
                is0=1.5*nspsec
                ishw=1.5*nspsec
             else      ! search plus or minus 1.5 s centered on emedelay
-               is0=nint(emedelay*nspsec)
+               is0=nint((emedelay+1.0)*nspsec)
                ishw=1.5*nspsec
             endif
             
@@ -581,9 +581,11 @@ contains
                      nsnr=nint(xsnr)
                      qual=0.
                      fsig=fc_synced - 1.5*hmod*baud
-!                     write(21,'(i6.6,8i6,f7.1,f10.2,f7.1,1x,f7.2,1x,f7.1,1x,a37)') &
-!                        nutc,icand,itry,nsyncoh,iaptype,ijitter,ntype,nsync_qual,nharderrors,dmin,sync,xsnr,xdt,fsig,msg
-!                     flush(21)
+                     if(ex) then
+                        write(21,'(i6.6,8i6,f7.1,f10.2,f7.1,1x,f7.2,1x,f7.1,1x,a37)') &
+                           nutc,icand,itry,nsyncoh,iaptype,ijitter,ntype,nsync_qual,nharderrors,dmin,sync,xsnr,xdt,fsig,msg
+                        flush(21)
+                     endif
                      call this%callback(nutc,smax1,nsnr,xdt,fsig,msg,    &
                         iaptype,qual,ntrperiod,lwspr,fmid,w50)
                      goto 2002
