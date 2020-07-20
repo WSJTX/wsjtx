@@ -1796,7 +1796,7 @@ void MainWindow::on_actionSettings_triggered()               //Setup Dialog
 
     m_config.transceiver_online ();
     if(!m_bFastMode) setXIT (ui->TxFreqSpinBox->value ());
-    if(m_config.single_decode() or m_mode=="JT4") {
+    if ((m_config.single_decode () && !m_mode.startsWith ("FST240")) || m_mode=="JT4") {
       ui->label_6->setText(tr ("Single-Period Decodes"));
       ui->label_7->setText(tr ("Average Decodes"));
     }
