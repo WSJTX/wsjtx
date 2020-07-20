@@ -210,7 +210,7 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
       for(int k=0; k<m_binsPerPixel; k++) {
         sum+=spectra_.syellow[j++];
       }
-      y2=gain2d*sum/m_binsPerPixel + m_plot2dZero;
+      y2=2.0*gain2d*sum/m_binsPerPixel + m_plot2dZero;
     }
 
     if(m_bReference) {                                   //Reference (red)
