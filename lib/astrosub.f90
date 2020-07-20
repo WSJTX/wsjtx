@@ -1,5 +1,4 @@
 module astro_module
-  use, intrinsic :: iso_c_binding, only : c_int, c_double, c_bool, c_char, c_ptr, c_size_t, c_f_pointer
   implicit none
 
   private
@@ -7,50 +6,37 @@ module astro_module
 
 contains
 
-  subroutine astrosub(nyear,month,nday,uth8,freq8,mygrid_cp,mygrid_len,         &
-       hisgrid_cp,hisgrid_len,AzSun8,ElSun8,AzMoon8,ElMoon8,AzMoonB8,ElMoonB8,  &
+  subroutine astrosub(nyear,month,nday,uth8,freq8,mygrid_cp,                    &
+       hisgrid_cp,AzSun8,ElSun8,AzMoon8,ElMoon8,AzMoonB8,ElMoonB8,              &
        ntsky,ndop,ndop00,RAMoon8,DecMoon8,Dgrd8,poloffset8,xnr8,techo8,width1,  &
-       width2,bTx,AzElFileName_cp,AzElFileName_len,jpleph_cp,jpleph_len)        &
+       width2,bTx,AzElFileName_cp,jpleph_file_name_cp)                          &
        bind (C, name="astrosub")
 
-    integer, parameter :: dp = selected_real_kind(15, 50)
+    use :: types, only: dp
+    use :: C_interface_module, only: C_int, C_double, C_bool, C_ptr, C_string_value, assignment(=)
 
-    integer(c_int), intent(in), value :: nyear, month, nday
-    real(c_double), intent(in), value :: uth8, freq8
-    real(c_double), intent(out) :: AzSun8, ElSun8, AzMoon8, ElMoon8, AzMoonB8,  &
+    integer(C_int), intent(in), value :: nyear, month, nday
+    real(C_double), intent(in), value :: uth8, freq8
+    real(C_double), intent(out) :: AzSun8, ElSun8, AzMoon8, ElMoon8, AzMoonB8,  &
          ElMoonB8, Ramoon8, DecMoon8, Dgrd8, poloffset8, xnr8, techo8, width1,  &
          width2
-    integer(c_int), intent(out) :: ntsky, ndop, ndop00
-    logical(c_bool), intent(in), value :: bTx
-    type(c_ptr), intent(in), value :: mygrid_cp, hisgrid_cp, AzElFileName_cp, jpleph_cp
-    integer(c_size_t), intent(in), value :: mygrid_len, hisgrid_len, AzElFileName_len, jpleph_len
+    integer(C_int), intent(out) :: ntsky, ndop, ndop00
+    logical(C_bool), intent(in), value :: bTx
+    type(C_ptr), value, intent(in) :: mygrid_cp, hisgrid_cp, AzElFileName_cp,   &
+         jpleph_file_name_cp
 
     character(len=6) :: mygrid, hisgrid
-    character(kind=c_char, len=:), allocatable :: AzElFileName
+    character(len=:), allocatable :: AzElFileName
     character(len=1) :: c1
     integer :: ih, im, imin, is, isec, nfreq, nRx
     real(dp) :: AzAux, ElAux, dbMoon8, dfdt, dfdt0, doppler, doppler00, HA8, sd8, xlst8
     character*256 jpleph_file_name
     common/jplcom/jpleph_file_name
 
-    block
-      character(kind=c_char, len=mygrid_len), pointer :: mygrid_fp
-      character(kind=c_char, len=hisgrid_len), pointer :: hisgrid_fp
-      character(kind=c_char, len=AzElFileName_len), pointer :: AzElFileName_fp
-      character(kind=c_char, len=jpleph_len), pointer :: jpleph_fp
-      call c_f_pointer(cptr=mygrid_cp, fptr=mygrid_fp)
-      mygrid = mygrid_fp
-      mygrid_fp => null()
-      call c_f_pointer(cptr=hisgrid_cp, fptr=hisgrid_fp)
-      hisgrid = hisgrid_fp
-      hisgrid_fp => null()
-      call c_f_pointer(cptr=AzElFileName_cp, fptr=AzElFileName_fp)
-      AzElFileName = AzElFileName_fp
-      AzElFileName_fp => null()
-      call c_f_pointer(cptr=jpleph_cp, fptr=jpleph_fp)
-      jpleph_file_name = jpleph_fp
-      jpleph_fp => null()
-    end block
+    mygrid = mygrid_cp
+    hisgrid = hisgrid_cp
+    AzElFileName = C_string_value (AzElFileName_cp)
+    jpleph_file_name = jpleph_file_name_cp
 
     call astro0(nyear,month,nday,uth8,freq8,mygrid,hisgrid,                &
          AzSun8,ElSun8,AzMoon8,ElMoon8,AzMoonB8,ElMoonB8,ntsky,ndop,ndop00,  &
