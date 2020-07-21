@@ -1589,7 +1589,7 @@ QString MainWindow::save_wave_file (QString const& name, short const * data, int
   auto source = QString {"%1, %2"}.arg (my_callsign).arg (my_grid);
   auto comment = QString {"Mode=%1%2, Freq=%3%4"}
      .arg (mode)
-     .arg (QString {mode.contains ('J') && !mode.contains ('+')
+     .arg (QString {(mode.contains ('J') && !mode.contains ('+')) || mode.startsWith ("FST240")
            ? QString {", Sub Mode="} + QChar {'A' + sub_mode}
          : QString {}})
         .arg (Radio::frequency_MHz_string (frequency))
