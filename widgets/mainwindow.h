@@ -48,7 +48,7 @@
 #define NUM_QRA64_SYMBOLS 84               //63 data + 21 sync
 #define NUM_FT8_SYMBOLS 79
 #define NUM_FT4_SYMBOLS 105
-#define NUM_FST240_SYMBOLS 160             //240/2 data + 5*8 sync
+#define NUM_FST4_SYMBOLS 160             //240/2 data + 5*8 sync
 #define NUM_CW_SYMBOLS 250
 #define TX_SAMPLE_RATE 48000
 #define NRING 3456000
@@ -203,8 +203,8 @@ private slots:
   void on_actionJT4_triggered();
   void on_actionFT4_triggered();
   void on_actionFT8_triggered();
-  void on_actionFST240_triggered();
-  void on_actionFST240W_triggered();
+  void on_actionFST4_triggered();
+  void on_actionFST4W_triggered();
   void on_TxFreqSpinBox_valueChanged(int arg1);
   void on_actionSave_decoded_triggered();
   void on_actionQuickDecode_toggled (bool);
@@ -296,7 +296,7 @@ private slots:
   void on_actionErase_reference_spectrum_triggered();
   void on_actionMeasure_phase_response_triggered();
   void on_sbTR_valueChanged (int);
-  void on_sbTR_FST240W_valueChanged (int);
+  void on_sbTR_FST4W_valueChanged (int);
   void on_sbFtol_valueChanged (int);
   void on_cbFast9_clicked(bool b);
   void on_sbCQTxFreq_valueChanged(int n);

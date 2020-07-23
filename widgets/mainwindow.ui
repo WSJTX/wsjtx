@@ -2148,7 +2148,7 @@ list. The list can be maintained in Settings (F2).</string>
                      </widget>
                     </item>
                     <item>
-                     <widget class="RestrictedSpinBox" name="sbTR_FST240W">
+                     <widget class="RestrictedSpinBox" name="sbTR_FST4W">
                       <property name="alignment">
                        <set>Qt::AlignCenter</set>
                       </property>
@@ -2992,8 +2992,8 @@ QLabel[oob=&quot;true&quot;] {
     <property name="title">
      <string>Mode</string>
     </property>
-    <addaction name="actionFST240"/>
-    <addaction name="actionFST240W"/>
+    <addaction name="actionFST4"/>
+    <addaction name="actionFST4W"/>
     <addaction name="actionFT4"/>
     <addaction name="actionFT8"/>
     <addaction name="actionJT4"/>
@@ -3610,12 +3610,12 @@ QLabel[oob=&quot;true&quot;] {
     <string>FT4</string>
    </property>
   </action>
-  <action name="actionFST240">
+  <action name="actionFST4">
    <property name="checkable">
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>FST240</string>
+    <string>FST4</string>
    </property>
   </action>
   <action name="actionFT240W">
@@ -3623,15 +3623,15 @@ QLabel[oob=&quot;true&quot;] {
     <string>FT240W</string>
    </property>
   </action>
-  <action name="actionFST240W">
+  <action name="actionFST4W">
    <property name="checkable">
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>FST240W</string>
+    <string>FST4W</string>
    </property>
   </action>
-  <action name="actionAlso_FST240W">
+  <action name="actionAlso_FST4W">
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -3639,7 +3639,7 @@ QLabel[oob=&quot;true&quot;] {
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>Also FST240W</string>
+    <string>Also FST4W</string>
    </property>
   </action>
  </widget>

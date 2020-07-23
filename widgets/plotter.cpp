@@ -413,7 +413,7 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
   float bw=9.0*12000.0/m_nsps;               //JT9
   if(m_mode=="FT4") bw=3*12000.0/576.0;      //FT4  ### (3x, or 4x???) ###
   if(m_mode=="FT8") bw=7*12000.0/1920.0;     //FT8
-  if(m_mode.startsWith("FST240")) {
+  if(m_mode.startsWith("FST4")) {
     int h=int(pow(2.0,m_nSubMode));
     int nsps=800;
     if(m_TRperiod==30) nsps=1680;
@@ -483,7 +483,7 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
     painter0.drawLine(x1,26,x2,26);
   }
 
-  if(m_mode=="FST240W") {
+  if(m_mode=="FST4W") {
     x1=XfromFreq(2600);
     x2=XfromFreq(2700);
     painter0.drawLine(x1,26,x2,26);
@@ -502,7 +502,7 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
   int yRxBottom=yTxTop + 2*yh + 4;
   if(m_mode=="JT9" or m_mode=="JT65" or m_mode=="JT9+JT65"
      or m_mode=="QRA64" or m_mode=="FT8" or m_mode=="FT4"
-     or m_mode.startsWith("FST240")) {
+     or m_mode.startsWith("FST4")) {
 
     if(m_mode=="QRA64" or (m_mode=="JT65" and m_bVHF)) {
       painter0.setPen(penGreen);
@@ -533,7 +533,7 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
       painter0.drawLine(x1,yRxBottom-yh,x1,yRxBottom);
       painter0.drawLine(x1,yRxBottom,x2,yRxBottom);
       painter0.drawLine(x2,yRxBottom-yh,x2,yRxBottom);
-      if(m_mode.startsWith("FST240")) {
+      if(m_mode.startsWith("FST4")) {
         x1=XfromFreq(m_rxFreq-m_tol);
         x2=XfromFreq(m_rxFreq+m_tol);
         painter0.drawLine(x1,26,x2,26);   // Mark the Tol range
@@ -543,7 +543,7 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
 
   if(m_mode=="JT9" or m_mode=="JT65" or m_mode=="JT9+JT65" or
      m_mode.mid(0,4)=="WSPR" or m_mode=="QRA64" or m_mode=="FT8"
-     or m_mode=="FT4" or m_mode.startsWith("FST240")) {
+     or m_mode=="FT4" or m_mode.startsWith("FST4")) {
     painter0.setPen(penRed);
     x1=XfromFreq(m_txFreq);
     x2=XfromFreq(m_txFreq+bw);
@@ -699,7 +699,7 @@ int CPlotter::rxFreq() {return m_rxFreq;}                      //rxFreq
 
 void CPlotter::mouseReleaseEvent (QMouseEvent * event)
 {
-  if (Qt::LeftButton == event->button () and m_mode!="FST240W") {
+  if (Qt::LeftButton == event->button () and m_mode!="FST4W") {
     int x=event->x();
     if(x<0) x=0;
     if(x>m_Size.width()) x=m_Size.width();
