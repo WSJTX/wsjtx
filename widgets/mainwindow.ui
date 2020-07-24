@@ -2121,7 +2121,7 @@ list. The list can be maintained in Settings (F2).</string>
                        <number>1400</number>
                       </property>
                       <property name="maximum">
-                       <number>1700</number>
+                       <number>1600</number>
                       </property>
                       <property name="value">
                        <number>1500</number>
