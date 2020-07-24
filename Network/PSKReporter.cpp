@@ -31,15 +31,15 @@
 
 namespace
 {
-  constexpr QLatin1String HOST {"report.pskreporter.info"};
-  // constexpr QLatin1String HOST {"127.0.0.1"};
-  constexpr quint16 SERVICE_PORT {4739};
-  // constexpr quint16 SERVICE_PORT {14739};
-  constexpr int MIN_SEND_INTERVAL {15}; // in seconds
-  constexpr int FLUSH_INTERVAL {4 * 5}; // in send intervals
-  constexpr bool ALIGNMENT_PADDING {true};
-  constexpr int MIN_PAYLOAD_LENGTH {508};
-  constexpr int MAX_PAYLOAD_LENGTH {1400};
+  QLatin1String HOST {"report.pskreporter.info"};
+  // QLatin1String HOST {"127.0.0.1"};
+  quint16 SERVICE_PORT {4739};
+  // quint16 SERVICE_PORT {14739};
+  int MIN_SEND_INTERVAL {15}; // in seconds
+  int FLUSH_INTERVAL {4 * 5}; // in send intervals
+  bool ALIGNMENT_PADDING {true};
+  int MIN_PAYLOAD_LENGTH {508};
+  int MAX_PAYLOAD_LENGTH {1400};
 }
 
 class PSKReporter::impl final
@@ -223,7 +223,6 @@ namespace
     out.writeRawData (utf, utf.size ());
   }
 
-  constexpr
   int num_pad_bytes (int len)
   {
     return ALIGNMENT_PADDING ? (4 - len % 4) % 4 : 0;
