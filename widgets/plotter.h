@@ -13,6 +13,7 @@
 #include <QImage>
 #include <QVector>
 #include <QColor>
+#include <QToolTip>
 
 #define VERT_DIVS 7	//specify grid screen divisions
 #define HORZ_DIVS 20
@@ -91,6 +92,7 @@ protected:
   //re-implemented widget event handlers
   void paintEvent(QPaintEvent *event) override;
   void resizeEvent(QResizeEvent* event) override;
+  void mouseMoveEvent(QMouseEvent * event) override;
   void mouseReleaseEvent (QMouseEvent * event) override;
   void mouseDoubleClickEvent (QMouseEvent * event) override;
 

@@ -56,6 +56,7 @@ CPlotter::CPlotter(QWidget *parent) :                  //CPlotter Constructor
   setAutoFillBackground(false);
   setAttribute(Qt::WA_OpaquePaintEvent, false);
   setAttribute(Qt::WA_NoSystemBackground, true);
+  setMouseTracking(true);
   m_bReplot=false;
 
   // contextual pop up menu
@@ -696,6 +697,13 @@ void CPlotter::setRxFreq (int x)                               //setRxFreq
 }
 
 int CPlotter::rxFreq() {return m_rxFreq;}                      //rxFreq
+
+void CPlotter::mouseMoveEvent (QMouseEvent * event)
+{
+  int x=event->x();
+  QToolTip::showText(event->globalPos(),QString::number(int(FreqfromX(x))));
+  QWidget::mouseMoveEvent(event);
+}
 
 void CPlotter::mouseReleaseEvent (QMouseEvent * event)
 {
