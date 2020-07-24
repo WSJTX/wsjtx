@@ -5,7 +5,7 @@ subroutine genfst4(msg0,ichk,msgsent,msgbits,i4tone,iwspr)
 !   - ichk     if ichk=1, return only msgsent
 !   - msgsent  message as it will be decoded
 !   - i4tone   array of audio tone values, {0,1,2,3}
-!   - iwspr    in: 0: FST240 1: FST240W
+!   - iwspr    in: 0: FST4 1: FST4W
 !              out 0: (240,101)/crc24, 1: (240,74)/crc24
 !
 ! Frame structure:

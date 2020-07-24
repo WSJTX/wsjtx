@@ -15,7 +15,7 @@ subroutine foxgen()
   ! common block.
   
   parameter (NN=79,ND=58,NSPS=4*1920)
-  parameter (NWAVE=(160+2)*134400*4) !the biggest waveform we generate (FST240-1800 at 48kHz)
+  parameter (NWAVE=(160+2)*134400*4) !the biggest waveform we generate (FST4-1800 at 48kHz)
   parameter (NFFT=614400,NH=NFFT/2)
   character*40 cmsg
   character*37 msg,msgsent

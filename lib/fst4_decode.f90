@@ -583,7 +583,7 @@ contains
 
    subroutine sync_fst4(cd0,i0,f0,hmod,ncoh,np,nss,ntr,fs,sync)
 
-! Compute sync power for a complex, downsampled FST240 signal.
+! Compute sync power for a complex, downsampled FST4 signal.
 
       use timer_module, only: timer
       include 'fst4/fst4_params.f90'

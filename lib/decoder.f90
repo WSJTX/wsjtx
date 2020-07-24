@@ -188,7 +188,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   endif
 
   if(params%nmode.eq.240) then
-! We're in FST240 mode
+! We're in FST4 mode
      ndepth=iand(params%ndepth,3)
      iwspr=0
      if(iand(params%ndepth,128).ne.0) iwspr=2
@@ -203,7 +203,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   endif
 
     if(params%nmode.eq.241) then
-! We're in FST240W mode
+! We're in FST4W mode
      ndepth=iand(params%ndepth,3)
      iwspr=1
      call timer('dec240  ',0)
@@ -732,12 +732,12 @@ contains
        write(line,1001) nutc,nsnr,dt,nint(freq),decoded0,annot
 1001   format(i6.6,i4,f5.1,i5,' ` ',1x,a37,1x,a2)
        write(13,1002) nutc,nint(sync),nsnr,dt,freq,0,decoded0
-1002   format(i6.6,i4,i5,f6.1,f8.0,i4,3x,a37,' FST240')
+1002   format(i6.6,i4,i5,f6.1,f8.0,i4,3x,a37,' FST4')
     else
        write(line,1003) nutc,nsnr,dt,nint(freq),decoded0,annot
 1003   format(i4.4,i4,f5.1,i5,' ` ',1x,a37,1x,a2,2f7.3)
        write(13,1004) nutc,nint(sync),nsnr,dt,freq,0,decoded0
-1004   format(i4.4,i4,i5,f6.1,f8.0,i4,3x,a37,' FST240')
+1004   format(i4.4,i4,i5,f6.1,f8.0,i4,3x,a37,' FST4')
     endif
 
     if(fmid.ne.-999.0) then

@@ -1,7 +1,7 @@
 subroutine foxgen_wrap(msg40,msgbits,itone)
 
   parameter (NN=79,ND=58,KK=77,NSPS=4*1920)
-  parameter (NWAVE=(160+2)*134400) !the biggest waveform we generate (FST240-1800)
+  parameter (NWAVE=(160+2)*134400) !the biggest waveform we generate (FST4-1800)
 
   character*40 msg40,cmsg
   character*12 mycall12
