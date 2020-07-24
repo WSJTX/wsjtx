@@ -15,7 +15,7 @@ namespace
     Radio::Frequency lower_bound_;
     Radio::Frequency upper_bound_;
   } constexpr ADIF_bands[] = {
-    {"2200m",	136000u,  		137000u},
+    {"2190m",	136000u,  		137000u},
     {"630m",  472000u,  		479000u},
     {"560m",  501000u,  		504000u},
     {"160m",  1800000u,   	2000000u},
