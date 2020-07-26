@@ -803,7 +803,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect(&killFileTimer, &QTimer::timeout, this, &MainWindow::killFile);
 
   uploadTimer.setSingleShot(true);
-  connect(&uploadTimer, SIGNAL(timeout()), this, SLOT(uploadSpots()));
+  connect(&uploadTimer, &QTimer::timeout, [this] () {uploadWSPRSpots ();});
 
   TxAgainTimer.setSingleShot(true);
   connect(&TxAgainTimer, SIGNAL(timeout()), this, SLOT(TxAgain()));
@@ -944,7 +944,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_saveAll=ui->actionSave_all->isChecked();
   ui->sbTxPercent->setValue(m_pctx);
   ui->TxPowerComboBox->setCurrentIndex(int(.3 * m_dBm + .2));
-  ui->cbUploadWSPR_Spots->setChecked(m_uploadSpots);
+  ui->cbUploadWSPR_Spots->setChecked(m_uploadWSPRSpots);
   if((m_ndepth&7)==1) ui->actionQuickDecode->setChecked(true);
   if((m_ndepth&7)==2) ui->actionMediumDecode->setChecked(true);
   if((m_ndepth&7)==3) ui->actionDeepestDecode->setChecked(true);
@@ -1118,7 +1118,7 @@ void MainWindow::writeSettings()
   m_settings->setValue("dBm",m_dBm);
   m_settings->setValue("RR73",m_send_RR73);
   m_settings->setValue ("WSPRPreferType1", ui->WSPR_prefer_type_1_check_box->isChecked ());
-  m_settings->setValue("UploadSpots",m_uploadSpots);
+  m_settings->setValue("UploadSpots",m_uploadWSPRSpots);
   m_settings->setValue("NoOwnCall",ui->cbNoOwnCall->isChecked());
   m_settings->setValue ("BandHopping", ui->band_hopping_group_box->isChecked ());
   m_settings->setValue ("TRPeriod", ui->sbTR->value ());
@@ -1213,8 +1213,8 @@ void MainWindow::readSettings()
     on_txrb4_doubleClicked();
   }
   ui->WSPR_prefer_type_1_check_box->setChecked (m_settings->value ("WSPRPreferType1", true).toBool ());
-  m_uploadSpots=m_settings->value("UploadSpots",false).toBool();
-  if(!m_uploadSpots) ui->cbUploadWSPR_Spots->setStyleSheet("QCheckBox{background-color: yellow}");
+  m_uploadWSPRSpots=m_settings->value("UploadSpots",false).toBool();
+  if(!m_uploadWSPRSpots) ui->cbUploadWSPR_Spots->setStyleSheet("QCheckBox{background-color: yellow}");
   ui->cbNoOwnCall->setChecked(m_settings->value("NoOwnCall",false).toBool());
   ui->band_hopping_group_box->setChecked (m_settings->value ("BandHopping", false).toBool());
   // setup initial value of tx attenuator
@@ -1540,7 +1540,7 @@ void MainWindow::dataSink(qint64 frames)
     if(m_mode=="WSPR") {
       QStringList t2;
       QStringList depth_args;
-      t2 << "-f" << QString {"%1"}.arg (m_dialFreqRxWSPR / 1000000.0, 0, 'f', 6);
+      t2 << "-f" << QString {"%1"}.arg (m_dialFreqRxWSPR / 1e6, 0, 'f', 6);
       if((m_ndepth&7)==1) depth_args << "-qB"; //2 pass w subtract, no Block detection, no shift jittering
       if((m_ndepth&7)==2) depth_args << "-C" << "500" << "-o" << "4"; //3 pass, subtract, Block detection, OSD 
       if((m_ndepth&7)==3) depth_args << "-C" << "500"  << "-o" << "4" << "-d"; //3 pass, subtract, Block detect, OSD, more candidates 
@@ -3112,6 +3112,10 @@ void MainWindow::decodeDone ()
 {
   if(m_mode!="FT8" or dec_data.params.nzhsym==50) m_nDecodes=0;
   if(m_mode=="QRA64") m_wideGraph->drawRed(0,0);
+  if ("FST4W" == m_mode)
+    {
+      uploadWSPRSpots (true); // DE station info and trigger posts
+    }
   auto tnow = QDateTime::currentDateTimeUtc ();
   double tdone = fmod(double(tnow.time().second()),m_TRperiod);
   int mswait;
@@ -3210,6 +3214,10 @@ void MainWindow::readFromStdout()                             //readFromStdout
           }
         m_tBlankLine = line_read.left(ntime);
       }
+      if ("FST4W" == m_mode)
+        {
+          uploadWSPRSpots (true, line_read);
+        }
       DecodedText decodedtext0 {QString::fromUtf8(line_read.constData())};
       DecodedText decodedtext {QString::fromUtf8(line_read.constData()).remove("TU; ")};
 
@@ -7786,16 +7794,16 @@ void MainWindow::p1ReadFromStdout()                        //p1readFromStdout
       }
       m_nWSPRdecodes=0;
       ui->DecodeButton->setChecked (false);
-      if(m_uploadSpots
-         && m_config.is_transceiver_online ()) { // need working rig control
+      if (m_uploadWSPRSpots
+          && m_config.is_transceiver_online ()) { // need working rig control
 #if QT_VERSION >= QT_VERSION_CHECK (5, 15, 0)
         uploadTimer.start(QRandomGenerator::global ()->bounded (0, 20000)); // Upload delay
 #else
         uploadTimer.start(20000 * qrand()/((double)RAND_MAX + 1.0)); // Upload delay
 #endif
       } else {
-        QFile f(QDir::toNativeSeparators(m_config.writeable_data_dir ().absolutePath()) + "/wspr_spots.txt");
-        if(f.exists()) f.remove();
+        QFile f {QDir::toNativeSeparators (m_config.writeable_data_dir ().absoluteFilePath ("wspr_spots.txt"))};
+        if (f.exists ()) f.remove ();
       }
       m_RxLog=0;
       m_startAnother=m_loopall;
@@ -7910,23 +7918,35 @@ void MainWindow::WSPR_history(Frequency dialFreq, int ndecodes)
   }
 }
 
-void MainWindow::uploadSpots()
+void MainWindow::uploadWSPRSpots (bool direct_post, QString const& decode_text)
 {
-  // do not spot replays or if rig control not working
-  if(m_diskData || !m_config.is_transceiver_online ()) return;
+  // do not spot if disabled, replays, or if rig control not working
+  if(!m_uploadWSPRSpots || m_diskData || !m_config.is_transceiver_online ()) return;
   if(m_uploading) {
     qDebug() << "Previous upload has not completed, spots were lost";
     wsprNet->abortOutstandingRequests ();
     m_uploading = false;
   }
-  QString rfreq = QString("%1").arg(0.000001*(m_dialFreqRxWSPR + 1500), 0, 'f', 6);
-  QString tfreq = QString("%1").arg(0.000001*(m_dialFreqRxWSPR +
-                        ui->TxFreqSpinBox->value()), 0, 'f', 6);
-  wsprNet->upload(m_config.my_callsign(), m_config.my_grid(), rfreq, tfreq,
-                  m_mode, QString::number(ui->autoButton->isChecked() ? m_pctx : 0),
-                  QString::number(m_dBm), version(),
-                  QDir::toNativeSeparators(m_config.writeable_data_dir ().absolutePath()) + "/wspr_spots.txt");
-  m_uploading = true;
+  QString rfreq = QString("%1").arg((m_dialFreqRxWSPR + 1500) / 1e6, 0, 'f', 6);
+  QString tfreq = QString("%1").arg((m_dialFreqRxWSPR +
+                        ui->TxFreqSpinBox->value()) / 1e6, 0, 'f', 6);
+  if (!direct_post)
+    {
+      wsprNet->upload (m_config.my_callsign (), m_config.my_grid (), rfreq, tfreq,
+                       m_mode, m_TRperiod, QString::number (ui->autoButton->isChecked () ? m_pctx : 0),
+                       QString::number (m_dBm), version (),
+                       m_config.writeable_data_dir ().absoluteFilePath ("wspr_spots.txt"));
+    }
+  else
+    {
+      wsprNet->post (m_config.my_callsign (), m_config.my_grid (), rfreq, tfreq,
+                     m_mode, m_TRperiod, QString::number (ui->autoButton->isChecked () ? m_pctx : 0),
+                     QString::number (m_dBm), version (), decode_text);
+    }
+  if (!decode_text.size ())
+    {
+      m_uploading = true;
+    }
 }
 
 void MainWindow::uploadResponse(QString response)
@@ -7960,9 +7980,9 @@ void MainWindow::on_sbTxPercent_valueChanged(int n)
 
 void MainWindow::on_cbUploadWSPR_Spots_toggled(bool b)
 {
-  m_uploadSpots=b;
-  if(m_uploadSpots) ui->cbUploadWSPR_Spots->setStyleSheet("");
-  if(!m_uploadSpots) ui->cbUploadWSPR_Spots->setStyleSheet(
+  m_uploadWSPRSpots=b;
+  if(m_uploadWSPRSpots) ui->cbUploadWSPR_Spots->setStyleSheet("");
+  if(!m_uploadWSPRSpots) ui->cbUploadWSPR_Spots->setStyleSheet(
         "QCheckBox{background-color: yellow}");
 }
 

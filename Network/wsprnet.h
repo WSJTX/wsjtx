@@ -2,45 +2,58 @@
 #define WSPRNET_H
 
 #include <QObject>
+#include <QTimer>
 #include <QString>
 #include <QList>
-#include <QHash>
+#include <QUrlQuery>
 #include <QQueue>
 
 class QNetworkAccessManager;
-class QTimer;
 class QNetworkReply;
 
 class WSPRNet : public QObject
 {
-  Q_OBJECT;
+  Q_OBJECT
+
+  using SpotQueue = QQueue<QUrlQuery>;
 
 public:
-  explicit WSPRNet(QNetworkAccessManager *, QObject *parent = nullptr);
-    void upload(QString const& call, QString const& grid, QString const& rfreq, QString const& tfreq,
-                QString const& mode, QString const& tpct, QString const& dbm, QString const& version,
-                QString const& fileName);
-    static bool decodeLine(QString const& line, QHash<QString,QString> &query);
-
+  explicit WSPRNet (QNetworkAccessManager *, QObject *parent = nullptr);
+  void upload (QString const& call, QString const& grid, QString const& rfreq, QString const& tfreq,
+               QString const& mode, float TR_peirod, QString const& tpct, QString const& dbm,
+               QString const& version, QString const& fileName);
+  void post (QString const& call, QString const& grid, QString const& rfreq, QString const& tfreq,
+             QString const& mode, float TR_period, QString const& tpct, QString const& dbm,
+             QString const& version, QString const& decode_text = QString {});
 signals:
-    void uploadStatus(QString);
+  void uploadStatus (QString);
 
 public slots:
-    void networkReply(QNetworkReply *);
-    void work();
-    void abortOutstandingRequests ();
+  void networkReply (QNetworkReply *);
+  void work ();
+  void abortOutstandingRequests ();
 
 private:
-    QNetworkAccessManager *networkManager;
-    QList<QNetworkReply *> m_outstandingRequests;
-    QString m_call, m_grid, m_rfreq, m_tfreq, m_mode, m_tpct, m_dbm, m_vers, m_file;
-    QQueue<QString> urlQueue;
-    QTimer *uploadTimer;
-    int m_urlQueueSize;
-    int m_uploadType;
+  bool decodeLine (QString const& line, SpotQueue::value_type& query);
+  SpotQueue::value_type urlEncodeNoSpot ();
+  SpotQueue::value_type urlEncodeSpot (SpotQueue::value_type& spot);
 
-    QString urlEncodeNoSpot();
-    QString urlEncodeSpot(QHash<QString,QString> const& spot);
+  QNetworkAccessManager * network_manager_;
+  QList<QNetworkReply *> m_outstandingRequests;
+  QString m_call;
+  QString m_grid;;
+  QString m_rfreq;
+  QString m_tfreq;
+  QString m_mode;
+  QString m_tpct;
+  QString m_dbm;
+  QString m_vers;
+  QString m_file;
+  float TR_period_;
+  int spots_to_send_;
+  SpotQueue spot_queue_;
+  QTimer upload_timer_;
+  int m_uploadType;
 };
 
 #endif // WSPRNET_H

@@ -282,7 +282,7 @@ private slots:
   void on_sbTxPercent_valueChanged(int n);
   void on_cbUploadWSPR_Spots_toggled(bool b);
   void WSPR_config(bool b);
-  void uploadSpots();
+  void uploadWSPRSpots (bool direct_post = false, QString const& decode_text = QString {});
   void TxAgain();
   void uploadResponse(QString response);
   void on_WSPRfreqSpinBox_valueChanged(int n);
@@ -500,7 +500,7 @@ private:
   QString m_tBlankLine;
   bool    m_bShMsgs;
   bool    m_bSWL;
-  bool    m_uploadSpots;
+  bool    m_uploadWSPRSpots;
   bool    m_uploading;
   bool    m_txNext;
   bool    m_grid6;
