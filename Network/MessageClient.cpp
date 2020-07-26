@@ -428,24 +428,22 @@ MessageClient::MessageClient (QString const& id, QString const& version, QString
 {
   connect (&*m_
 #if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
-  connect (&*m_, static_cast<void (impl::*) (impl::SocketError)> (&impl::error)
-           , [this] (impl::SocketError e) {
+           , static_cast<void (impl::*) (impl::SocketError)> (&impl::error), [this] (impl::SocketError e)
 #else
-  connect (&*m_, &impl::errorOccurred, [this] (impl::SocketError e) {
+           , &impl::errorOccurred, [this] (impl::SocketError e)
 #endif
+                                   {
 #if defined (Q_OS_WIN)
-                                         // take this out when Qt 5.5 stops doing this spuriously
-                                         if (e != impl::NetworkError
-                                             // not interested in this with UDP socket
-                                             && e != impl::ConnectionRefusedError)
+                                     if (e != impl::NetworkError // take this out when Qt 5.5 stops doing this spuriously
+                                         && e != impl::ConnectionRefusedError) // not interested in this with UDP socket
+                                       {
 #else
-               Q_UNUSED (e);
+                                       {
+                                         Q_UNUSED (e);
 #endif
-               {
-                 Q_EMIT error (m_->errorString ());
-               }
-           });
-
+                                         Q_EMIT error (m_->errorString ());
+                                       }
+                                   });
   set_server (server);
 }
 
