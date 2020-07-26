@@ -79,7 +79,7 @@ program jt9
   character(len=6) :: mygrid='', hisgrid='EN37'
   common/patience/npatience,nthreads
   common/decstats/ntry65a,ntry65b,n65a,n65b,num9,numfano
-  data npatience/1/,nthreads/1/
+  data npatience/1/,nthreads/1/,wisfile/' '/
 
   iwspr=0
   nsubmode = 0
@@ -325,8 +325,8 @@ program jt9
 999 continue
 ! Output decoder statistics
   call fini_timer ()
-! Save wisdom and free memory
-  iret=fftwf_export_wisdom_to_filename(wisfile)
+! Save FFTW wisdom and free memory
+  if(len(trim(wisfile)).gt.0) iret=fftwf_export_wisdom_to_filename(wisfile)
   call four2a(a,-1,1,1,1)
   call filbig(a,-1,1,0.0,0,0,0,0,0)        !used for FFT plans
   call fftwf_cleanup_threads()
