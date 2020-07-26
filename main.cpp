@@ -82,12 +82,12 @@ namespace
         }
       catch (std::exception const& e)
         {
-          MessageBox::critical_message (nullptr, translate ("main", "Fatal error"), e.what ());
+          MessageBox::critical_message (nullptr, "Fatal error", e.what ());
           throw;
         }
       catch (...)
         {
-          MessageBox::critical_message (nullptr, translate ("main", "Unexpected fatal error"));
+          MessageBox::critical_message (nullptr, "Unexpected fatal error");
           throw;
         }
     }
@@ -439,12 +439,12 @@ int main(int argc, char *argv[])
     }
   catch (std::exception const& e)
     {
-      MessageBox::critical_message (nullptr, QApplication::translate ("main", "Fatal error"), e.what ());
+      MessageBox::critical_message (nullptr, "Fatal error", e.what ());
       std::cerr << "Error: " << e.what () << '\n';
     }
   catch (...)
     {
-      MessageBox::critical_message (nullptr, QApplication::translate ("main", "Unexpected fatal error"));
+      MessageBox::critical_message (nullptr, "Unexpected fatal error");
       std::cerr << "Unexpected fatal error\n";
       throw;			// hoping the runtime might tell us more about the exception
     }

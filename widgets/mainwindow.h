@@ -21,6 +21,7 @@
 #include <QPointer>
 #include <QSet>
 #include <QVector>
+#include <QQueue>
 #include <QFuture>
 #include <QFutureWatcher>
 
@@ -33,7 +34,7 @@
 #include "WSPR/WSPRBandHopping.hpp"
 #include "Transceiver/Transceiver.hpp"
 #include "DisplayManual.hpp"
-#include "Network/psk_reporter.h"
+#include "Network/PSKReporter.hpp"
 #include "logbook/logbook.h"
 #include "astro.h"
 #include "MessageBox.hpp"
@@ -684,7 +685,7 @@ private:
   QProgressDialog m_optimizingProgress;
   QTimer m_heartbeat;
   MessageClient * m_messageClient;
-  PSK_Reporter *psk_Reporter;
+  PSKReporter m_psk_Reporter;
   DisplayManual m_manual;
   QHash<QString, QVariant> m_pwrBandTxMemory; // Remembers power level by band
   QHash<QString, QVariant> m_pwrBandTuneMemory; // Remembers power level by band for tuning

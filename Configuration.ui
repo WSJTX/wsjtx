@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>557</width>
-    <height>561</height>
+    <width>559</width>
+    <height>553</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -1800,17 +1800,24 @@ and DX Grid fields when a 73 or free text message is sent.</string>
          <property name="title">
           <string>Network Services</string>
          </property>
-         <layout class="QGridLayout" name="gridLayout_17">
-          <item row="0" column="0">
+         <layout class="QHBoxLayout" name="horizontalLayout_22">
+          <item>
            <widget class="QCheckBox" name="psk_reporter_check_box">
             <property name="toolTip">
-             <string>The program can send your station details and all
-decoded signals as spots to the http://pskreporter.info web site.
-This is used for reverse beacon analysis which is very useful
-for assessing propagation and system performance.</string>
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The program can send your station details and all decoded signals with grid squares as spots to the http://pskreporter.info web site.&lt;/p&gt;&lt;p&gt;This is used for reverse beacon analysis which is very useful for assessing propagation and system performance.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
             </property>
             <property name="text">
              <string>Enable &amp;PSK Reporter Spotting</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="psk_reporter_tcpip_check_box">
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check this option if a reliable connection is needed&lt;/p&gt;&lt;p&gt;Most users do not need this, the default uses UDP which is more efficient. Only check this if you have evidence that UDP traffic from you to PSK Reporter is being lost.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>Use TCP/IP connection</string>
             </property>
            </widget>
           </item>
@@ -3108,13 +3115,13 @@ Right click for insert and delete options.</string>
   </connection>
  </connections>
  <buttongroups>
+  <buttongroup name="PTT_method_button_group"/>
+  <buttongroup name="TX_mode_button_group"/>
   <buttongroup name="CAT_handshake_button_group"/>
   <buttongroup name="TX_audio_source_button_group"/>
-  <buttongroup name="TX_mode_button_group"/>
   <buttongroup name="special_op_activity_button_group"/>
   <buttongroup name="CAT_data_bits_button_group"/>
   <buttongroup name="split_mode_button_group"/>
-  <buttongroup name="PTT_method_button_group"/>
   <buttongroup name="CAT_stop_bits_button_group"/>
  </buttongroups>
 </ui>

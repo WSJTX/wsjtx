@@ -36,6 +36,7 @@ public:
   impl (QString const& id, QString const& version, QString const& revision,
         port_type server_port, MessageClient * self)
     : self_ {self}
+    , dns_lookup_id_ {0}
     , enabled_ {false}
     , id_ {id}
     , version_ {version}
@@ -81,6 +82,7 @@ public:
   Q_SLOT void host_info_results (QHostInfo);
 
   MessageClient * self_;
+  int dns_lookup_id_;
   bool enabled_;
   QString id_;
   QString version_;
@@ -101,6 +103,7 @@ public:
 
 void MessageClient::impl::host_info_results (QHostInfo host_info)
 {
+  if (host_info.lookupId () != dns_lookup_id_) return;
   if (QHostInfo::NoError != host_info.error ())
     {
       Q_EMIT self_->error ("UDP server lookup failed:\n" + host_info.errorString ());
@@ -423,25 +426,24 @@ MessageClient::MessageClient (QString const& id, QString const& version, QString
   : QObject {self}
   , m_ {id, version, revision, server_port, this}
 {
+  connect (&*m_
 #if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
-  connect (&*m_, static_cast<void (impl::*) (impl::SocketError)> (&impl::error)
-           , [this] (impl::SocketError e) {
+           , static_cast<void (impl::*) (impl::SocketError)> (&impl::error), [this] (impl::SocketError e)
 #else
-  connect (&*m_, &impl::errorOccurred, [this] (impl::SocketError e) {
+           , &impl::errorOccurred, [this] (impl::SocketError e)
 #endif
+                                   {
 #if defined (Q_OS_WIN)
-                                         // take this out when Qt 5.5 stops doing this spuriously
-                                         if (e != impl::NetworkError
-                                             // not interested in this with UDP socket
-                                             && e != impl::ConnectionRefusedError)
+                                     if (e != impl::NetworkError // take this out when Qt 5.5 stops doing this spuriously
+                                         && e != impl::ConnectionRefusedError) // not interested in this with UDP socket
+                                       {
 #else
-               Q_UNUSED (e);
+                                       {
+                                         Q_UNUSED (e);
 #endif
-               {
-                 Q_EMIT error (m_->errorString ());
-               }
-           });
-
+                                         Q_EMIT error (m_->errorString ());
+                                       }
+                                   });
   set_server (server);
 }
 
@@ -459,38 +461,17 @@ void MessageClient::set_server (QString const& server)
 {
   m_->server_.clear ();
   m_->server_string_ = server;
-  if (!server.isEmpty ())
+  if (server.size ())
     {
       // queue a host address lookup
       TRACE_UDP ("server host DNS lookup:" << server);
-      QHostInfo::lookupHost (server, &*m_, SLOT (host_info_results (QHostInfo)));
+      m_->dns_lookup_id_ = QHostInfo::lookupHost (server, &*m_, &MessageClient::impl::host_info_results);
     }
 }
 
 void MessageClient::set_server_port (port_type server_port)
 {
   m_->server_port_ = server_port;
-}
-
-qint64 MessageClient::send_raw_datagram (QByteArray const& message, QHostAddress const& dest_address
-                                       , port_type dest_port)
-{
-  if (dest_port && !dest_address.isNull ())
-    {
-      return m_->writeDatagram (message, dest_address, dest_port);
-    }
-  return 0;
-}
-
-void MessageClient::add_blocked_destination (QHostAddress const& a)
-{
-  m_->blocked_addresses_.push_back (a);
-  if (a == m_->server_)
-    {
-      m_->server_.clear ();
-      Q_EMIT error ("UDP server blocked, please try another");
-      m_->pending_messages_.clear (); // discard
-    }
 }
 
 void MessageClient::enable (bool flag)

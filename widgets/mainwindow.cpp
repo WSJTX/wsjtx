@@ -417,7 +417,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
         version (), revision (),
         m_config.udp_server_name (), m_config.udp_server_port (),
         this}},
-  psk_Reporter {new PSK_Reporter {m_messageClient, this}},
+  m_psk_Reporter {&m_config, QString {"WSJT-X v" + version () + " " + m_revision}.simplified ()},
   m_manual {&m_network_manager},
   m_block_udp_status_updates {false}
 {
@@ -3495,8 +3495,10 @@ void MainWindow::pskPost (DecodedText const& decodedtext)
   pskSetLocal ();
   if(grid.contains (grid_regexp)) {
 //    qDebug() << "To PSKreporter:" << deCall << grid << frequency << msgmode << snr;
-    psk_Reporter->addRemoteStation(deCall,grid,QString::number(frequency),msgmode,
-           QString::number(snr),QString::number(QDateTime::currentDateTimeUtc ().toTime_t()));
+    if (!m_psk_Reporter.addRemoteStation (deCall, grid, frequency, msgmode, snr))
+      {
+        showStatusMessage (tr ("Spotting to PSK Reporter unavailable"));
+      }
   }
 }
 
@@ -6743,7 +6745,7 @@ void MainWindow::band_changed (Frequency f)
     }
     m_lastBand.clear ();
     m_bandEdited = false;
-    psk_Reporter->sendReport();      // Upload any queued spots before changing band
+    m_psk_Reporter.sendReport(); // Upload any queued spots before changing band
     if (!m_transmitting) monitor (true);
     if ("FreqCal" == m_mode)
       {
@@ -7403,9 +7405,7 @@ void MainWindow::pskSetLocal ()
                                            , StationList::description_column).data ().toString ();
   }
   // qDebug() << "To PSKreporter: local station details";
-  psk_Reporter->setLocalStation(m_config.my_callsign (), m_config.my_grid (),
-        antenna_description, QString {"WSJT-X v" + version() + " " +
-        m_revision}.simplified ());
+  m_psk_Reporter.setLocalStation(m_config.my_callsign (), m_config.my_grid (), antenna_description);
 }
 
 void MainWindow::transmitDisplay (bool transmitting)

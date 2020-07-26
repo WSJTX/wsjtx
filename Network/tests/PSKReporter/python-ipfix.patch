@@ -1,0 +1,64 @@
+The following changes since commit e487dfbead9965c1a251d110dc55039a7ba4afef:
+
+  sphinx doc update (2017-09-20 16:07:22 +0200)
+
+are available in the Git repository at:
+
+  git@github.com:g4wjs/python-ipfix.git varlen-and-padding
+
+for you to fetch changes up to 6dcc106f22d25ac21b27f8ccb9b82be12e7eb18e:
+
+  Parse and emit data elements correctly when variable length items included (2020-06-19 19:53:33 +0100)
+
+----------------------------------------------------------------
+Bill Somerville (2):
+      Allow for alignment padding when parsing sets
+      Parse and emit data elements correctly when variable length items included
+
+ ipfix/message.py  | 3 ++-
+ ipfix/template.py | 4 ++--
+ 2 files changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/ipfix/message.py b/ipfix/message.py
+index 0af2fad..71c1328 100644
+--- a/ipfix/message.py
++++ b/ipfix/message.py
+@@ -398,7 +398,7 @@ class MessageBuffer(object):
+             offset += _sethdr_st.size # skip set header in decode
+             if setid == template.TEMPLATE_SET_ID or\
+                setid == template.OPTIONS_SET_ID:
+-                while offset < setend:
++                while offset + 4 < setend: # allow for padding up to 4 byte alignment
+                     (tmpl, offset) = template.decode_template_from(
+                                               self.mbuf, offset, setid)
+                     # FIXME handle withdrawal
+@@ -431,6 +431,7 @@ class MessageBuffer(object):
+                         # KeyError on template lookup - unknown data set
+                         self.unknown_data_set_hook(self,
+                                      self.mbuf[offset-_sethdr_st.size:setend])
++            offset = setend     # real end may be greater that accumulated offset
+ 
+     def namedict_iterator(self):
+         """
+diff --git a/ipfix/template.py b/ipfix/template.py
+index 1203e55..26cd8c1 100644
+--- a/ipfix/template.py
++++ b/ipfix/template.py
+@@ -187,7 +187,7 @@ class Template(object):
+         offset += packplan.st.size
+ 
+         # short circuit on no varlen
+-        if not self.varlenslice:
++        if self.varlenslice is None:
+             return (vals, offset)
+ 
+         # direct iteration over remaining IEs
+@@ -239,7 +239,7 @@ class Template(object):
+         offset += packplan.st.size
+ 
+         # shortcircuit no varlen
+-        if not self.varlenslice:
++        if self.varlenslice is None:
+             return offset
+ 
+         # direct iteration over remaining IEs
