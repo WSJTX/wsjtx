@@ -96,7 +96,7 @@ public:
           {
             // handle re-opening asynchronously
             auto connection = QSharedPointer<QMetaObject::Connection>::create ();
-            *connection = connect (socket_.get (), &QAbstractSocket::disconnected, [this, connection] () {
+            *connection = connect (socket_.data (), &QAbstractSocket::disconnected, [this, connection] () {
                                                                                      qDebug () << "PSKReporter::impl::check_connection: disconnected, socket state:" << socket_->state ();
                                                                                      disconnect (*connection);
                                                                                      check_connection ();
@@ -150,7 +150,7 @@ public:
 #if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
     connect (socket_.get (), &QAbstractSocket::errorOccurred, this, &PSKReporter::impl::handle_socket_error);
 #else
-    connect (socket_.get (), QOverload<QAbstractSocket::SocketError>::of (&QAbstractSocket::error), this, &PSKReporter::impl::handle_socket_error);
+    connect (socket_.data (), QOverload<QAbstractSocket::SocketError>::of (&QAbstractSocket::error), this, &PSKReporter::impl::handle_socket_error);
 #endif
 
     // use this for pseudo connection with UDP, allows us to use
