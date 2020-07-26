@@ -14,7 +14,6 @@
 #include <QUdpSocket>
 #include <QTcpSocket>
 #include <QHostInfo>
-#include <QUDPSocket>
 #include <QQueue>
 #include <QByteArray>
 #include <QDataStream>
