@@ -670,7 +670,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
               }
           });
   connect(&p1, &QProcess::started, [this] () {
-                                     showStatusMessage (QString {"Started: %1 \"%2\""}.arg (p1.program ()).arg (p1.arguments ().join (QLatin1String {"\" \""})));
+                                     showStatusMessage (QString {"Started: %1 \"%2\""}.arg (p1.program ()).arg (p1.arguments ().join ("\" \"")));
                                    });
   connect(&p1, &QProcess::readyReadStandardOutput, this, &MainWindow::p1ReadFromStdout);
 #if QT_VERSION < QT_VERSION_CHECK (5, 6, 0)
@@ -699,15 +699,17 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 #else
   connect(&p3, &QProcess::errorOccurred, [this] (QProcess::ProcessError error) {
 #endif
-#if not defined(Q_OS_WIN)
+#if !defined(Q_OS_WIN)
                                            if (QProcess::FailedToStart != error)
+#else
+                                           if (QProcess::Crashed != error)
 #endif
                                              {
                                                subProcessError (&p3, error);
                                              }
                                          });
   connect(&p3, &QProcess::started, [this] () {
-                                     showStatusMessage (QString {"Started: %1 \"%2\""}.arg (p3.program ()).arg (p3.arguments ().join (QLatin1String {"\" \""})));
+                                     showStatusMessage (QString {"Started: %1 \"%2\""}.arg (p3.program ()).arg (p3.arguments ().join ("\" \"")));
                                    });
   connect(&p3, static_cast<void (QProcess::*) (int, QProcess::ExitStatus)> (&QProcess::finished),
           [this] (int exitCode, QProcess::ExitStatus status) {
@@ -7913,7 +7915,7 @@ void MainWindow::WSPR_scheduling ()
 {
   m_WSPR_tx_next = false;
   if (m_config.is_transceiver_online () // need working rig control for hopping
-      && !m_config.is_dummy_rig ()
+      // && !m_config.is_dummy_rig ()
       && ui->band_hopping_group_box->isChecked ()) {
     auto hop_data = m_WSPR_band_hopping.next_hop (m_auto);
     qDebug () << "hop data: period:" << hop_data.period_name_
@@ -7925,7 +7927,7 @@ void MainWindow::WSPR_scheduling ()
       ui->bandComboBox->setCurrentIndex (hop_data.frequencies_index_);
       on_bandComboBox_activated (hop_data.frequencies_index_);
       // Execute user's hardware controller
-      auto const& band = m_config.bands ()->find (m_freqNominal).remove ('m');
+      auto band = m_config.bands ()->find (m_freqNominal).remove ('m');
 #if defined(Q_OS_WIN)
       // On  windows   we  use  CMD.EXE   to  find  and   execute  the
       // user_hardware executable. This means  that the first matching
@@ -7935,13 +7937,13 @@ void MainWindow::WSPR_scheduling ()
       // language of choice,  and place the file anywhere  on the PATH
       // environment  variable.  Equivalent  to  typing  user_hardware
       // without any path or extension at the CMD.EXE prompt.
-      p3.start("CMD", QStringList {QLatin1String {"/C"}, QLatin1String {"user_hardware"}, band});
+      p3.start("CMD", QStringList {"/C", "user_hardware", band});
 #else
       // On non-Windows systems we expect the user_hardware executable
       // to be anywhere in the paths specified in the PATH environment
       // variable  path list,  and  executable.  Equivalent to  typing
       // user_hardware without any path at the shell prompt.
-      p3.start(QLatin1String {"user_hardware"}, QStringList {band});
+      p3.start("user_hardware", QStringList {band});
 #endif
 
       // Produce a short tuneup signal
