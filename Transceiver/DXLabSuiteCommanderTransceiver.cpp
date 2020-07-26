@@ -409,7 +409,7 @@ QString DXLabSuiteCommanderTransceiver::command_with_reply (QString const& cmd, 
     {
       TRACE_CAT ("DXLabSuiteCommanderTransceiver", "failed to send command:" << commander_->errorString ());
       throw error {
-        tr ("DX Lab Suite Commander failed to send command \"%1\": %2\n")
+        tr ("DX Lab Suite Commander send command failed \"%1\": %2\n")
           .arg (cmd)
           .arg (commander_->errorString ())
           };

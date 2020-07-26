@@ -60,7 +60,7 @@ SOURCES += \
   PollingTransceiver.cpp EmulateSplitTransceiver.cpp \
   HRDTransceiver.cpp DXLabSuiteCommanderTransceiver.cpp \
   HamlibTransceiver.cpp FrequencyLineEdit.cpp \
-  Configuration.cpp psk_reporter.cpp AudioDevice.cpp \
+  Configuration.cpp PSK_Reporter.cpp AudioDevice.cpp \
   Modulator.cpp Detector.cpp \
   getfile.cpp soundout.cpp soundin.cpp \
   WFPalette.cpp \
@@ -77,7 +77,7 @@ HEADERS  += qt_helpers.hpp qt_db_helpers.hpp \
   soundin.h soundout.h \
   WFPalette.hpp getfile.h decodedtext.h \
   commons.h sleep.h \
-  AudioDevice.hpp Detector.hpp Modulator.hpp psk_reporter.h \
+  AudioDevice.hpp Detector.hpp Modulator.hpp PSK_Reporter.hpp \
   Transceiver.hpp TransceiverBase.hpp TransceiverFactory.hpp PollingTransceiver.hpp \
   EmulateSplitTransceiver.hpp DXLabSuiteCommanderTransceiver.hpp HamlibTransceiver.hpp \
   Configuration.hpp wsprnet.h \

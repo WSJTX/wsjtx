@@ -289,6 +289,7 @@ set (wsjt_qt_CXXSRCS
   logbook/AD1CCty.cpp
   logbook/WorkedBefore.cpp
   logbook/Multiplier.cpp
+  Network/NetworkAccessManager.cpp
   )
 
 set (wsjt_qtmm_CXXSRCS
@@ -302,7 +303,7 @@ set (jt9_FSRCS
 
 set (wsjtx_CXXSRCS
   logbook/logbook.cpp
-  Network/psk_reporter.cpp
+  Network/PSKReporter.cpp
   Modulator/Modulator.cpp
   Detector/Detector.cpp
   widgets/logqso.cpp
@@ -846,6 +847,8 @@ endif (APPLE)
 #
 # find some useful tools
 #
+include (CheckSymbolExists)
+
 find_program(CTAGS ctags)
 find_program(ETAGS etags)
 
@@ -880,6 +883,10 @@ find_program (RIGCTLCOM_EXE rigctlcom)
 message (STATUS "hamlib_INCLUDE_DIRS: ${hamlib_INCLUDE_DIRS}")
 message (STATUS "hamlib_LIBRARIES: ${hamlib_LIBRARIES}")
 message (STATUS "hamlib_LIBRARY_DIRS: ${hamlib_LIBRARY_DIRS}")
+
+set (CMAKE_REQUIRED_INCLUDES "${hamlib_INCLUDE_DIRS}")
+set (CMAKE_REQUIRED_LIBRARIES "${hamlib_LIBRARIES}")
+check_symbol_exists (rig_set_cache_timeout_ms "hamlib/rig.h" HAVE_HAMLIB_CACHING)
 
 
 #
@@ -1098,7 +1105,7 @@ add_custom_target (etags COMMAND ${ETAGS} -o ${CMAKE_SOURCE_DIR}/TAGS -R ${sourc
 # Qt i18n - always include the country generic if any regional variant is included
 set (LANGUAGES
   ca				# Catalan
-  #da				# Danish
+  da				# Danish
   en				# English (we need this to stop
 				# translation loaders loading the
 				# second preference UI languge, it
@@ -1132,6 +1139,7 @@ if (UPDATE_TRANSLATIONS)
   qt5_create_translation (
     QM_FILES ${wsjt_qt_UISRCS} ${wsjtx_UISRCS} ${wsjt_qt_CXXSRCS} ${wsjtx_CXXSRCS}
     ${TS_FILES}
+    OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}
     )
 else ()
   qt5_add_translation (QM_FILES ${TS_FILES})

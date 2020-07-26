@@ -165,7 +165,13 @@ QString DecodedText::call() const
 // get the second word, most likely the de call and the third word, most likely grid
 void DecodedText::deCallAndGrid(/*out*/QString& call, QString& grid) const
 {
-  auto const& match = words_re.match (message_);
+  auto msg = message_;
+  auto p = msg.indexOf ("; ");
+  if (p >= 0)
+    {
+      msg = msg.mid (p + 2);
+    }
+  auto const& match = words_re.match (msg);
   call = match.captured ("word2");
   grid = match.captured ("word3");
   if ("R" == grid) grid = match.captured ("word4");

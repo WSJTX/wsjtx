@@ -2,8 +2,8 @@ module packjt77
 
 ! These variables are accessible from outside via "use packjt77":
   parameter (MAXHASH=1000,MAXRECENT=10)
-  character (len=13), dimension(1:1024) ::  calls10=''
-  character (len=13), dimension(1:4096) ::  calls12=''
+  character (len=13), dimension(0:1023) ::  calls10=''
+  character (len=13), dimension(0:4095) ::  calls12=''
   character (len=13), dimension(1:MAXHASH) :: calls22=''
   character (len=13), dimension(1:MAXRECENT) :: recent_calls=''
   character (len=13) :: mycall13=''
@@ -19,7 +19,7 @@ subroutine hash10(n10,c13)
   character*13 c13
 
   c13='<...>'
-  if(n10.lt.1 .or. n10.gt.1024) return
+  if(n10.lt.0 .or. n10.gt.1023) return
   if(len(trim(calls10(n10))).gt.0) then
      c13=calls10(n10)
      c13='<'//trim(c13)//'>'
@@ -33,7 +33,7 @@ subroutine hash12(n12,c13)
   character*13 c13
   
   c13='<...>'
-  if(n12.lt.1 .or. n12.gt.4096) return
+  if(n12.lt.0 .or. n12.gt.4095) return
   if(len(trim(calls12(n12))).gt.0) then
      c13=calls12(n12)
      c13='<'//trim(c13)//'>'
@@ -90,10 +90,10 @@ subroutine save_hash_call(c13,n10,n12,n22)
   if(len(trim(cw)) .lt. 3) return
 
   n10=ihashcall(cw,10)
-  if(n10.ge.1 .and. n10 .le. 1024 .and. cw.ne.mycall13) calls10(n10)=cw
+  if(n10.ge.0 .and. n10 .le. 1023 .and. cw.ne.mycall13) calls10(n10)=cw
 
   n12=ihashcall(cw,12)
-  if(n12.ge.1 .and. n12 .le. 4096 .and. cw.ne.mycall13) calls12(n12)=cw
+  if(n12.ge.0 .and. n12 .le. 4095 .and. cw.ne.mycall13) calls12(n12)=cw
 
   n22=ihashcall(cw,22)
   if(any(ihash22.eq.n22)) then   ! If entry exists, make sure callsign is the most recently received one 

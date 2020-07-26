@@ -39,12 +39,12 @@ passband, if such control is available.
 
 How should I configure _WSJT-X_ to run multiple instances?::
 
-Start _WSJT-X_ from a command-prompt window, assigning each instance a
-unique identifier as in the following two-instance example.  This
-procedure will isolate the *Settings* file and the writable file
-location for each instance of _WSJT-X_.
+Start _WSJT-X_ from a command-prompt window, assigning each a unique
+identifier as in the following two-instance example.  This procedure
+will isolate the *Settings* file and the writable file location for
+each instance of _WSJT-X_.
 
- wsjtx --rig-name=TS2000
+ wsjtx --rig-name=TS590
  wsjtx --rig-name=FT847
 
 I am getting a "Network Error - SSL/TLS support not installed" message. What should I do?::
