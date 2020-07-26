@@ -32,9 +32,8 @@
 
 namespace
 {
-  // constexpr QLatin1String HOST {"report.pskreporter.info"};
+  constexpr QLatin1String HOST {"report.pskreporter.info"};
   // constexpr QLatin1String HOST {"127.0.0.1"};
-  constexpr QLatin1String HOST {"192.168.1.195"};
   constexpr quint16 SERVICE_PORT {4739};
   // constexpr quint16 SERVICE_PORT {14739};
   constexpr int MIN_SEND_INTERVAL {15}; // in seconds
@@ -254,7 +253,7 @@ void PSKReporter::impl::build_preamble (QDataStream& message)
     << ++sequence_number_     // Sequence Number
     << observation_id_;       // Observation Domain ID
 
-  qDebug () << "PSKReporter::impl::build_preamble: send_descriptors_:" << send_descriptors_;
+  // qDebug () << "PSKReporter::impl::build_preamble: send_descriptors_:" << send_descriptors_;
   if (send_descriptors_)
     {
       --send_descriptors_;
@@ -319,7 +318,7 @@ void PSKReporter::impl::build_preamble (QDataStream& message)
       }
     }
 
-  qDebug () << "PSKReporter::impl::build_preamble: send_receiver_data_:" << send_receiver_data_;
+  // qDebug () << "PSKReporter::impl::build_preamble: send_receiver_data_:" << send_receiver_data_;
   // if (send_receiver_data_)
   {
     // --send_receiver_data_;
@@ -348,7 +347,7 @@ void PSKReporter::impl::build_preamble (QDataStream& message)
 void PSKReporter::impl::send_report (bool send_residue)
 {
   check_connection ();
-  qDebug () << "PSKReporter::impl::send_report: send_residue:" << send_residue;
+  // qDebug () << "PSKReporter::impl::send_report: send_residue:" << send_residue;
   if (QAbstractSocket::ConnectedState != socket_->state ()) return;
 
   QDataStream message {&payload_, QIODevice::WriteOnly | QIODevice::Append};
@@ -356,13 +355,13 @@ void PSKReporter::impl::send_report (bool send_residue)
 
   if (!payload_.size ())
     {
-      qDebug () << "PSKReporter::impl::send_report: building header";
+      // qDebug () << "PSKReporter::impl::send_report: building header";
       // Build header, optional descriptors, and receiver information
       build_preamble (message);
     }
 
   auto flush = flushing () || send_residue;
-  qDebug () << "PSKReporter::impl::send_report: flush:" << flush;
+  // qDebug () << "PSKReporter::impl::send_report: flush:" << flush;
   while (spots_.size () || flush)
     {
       if (!payload_.size ())
@@ -377,7 +376,7 @@ void PSKReporter::impl::send_report (bool send_residue)
           tx_out
             << quint16 (0x50e3)     // Template ID
             << quint16 (0u);        // Length (place-holder)
-          qDebug () << "PSKReporter::impl::send_report: set data set header";
+          // qDebug () << "PSKReporter::impl::send_report: set data set header";
         }
 
       // insert any residue
@@ -385,7 +384,7 @@ void PSKReporter::impl::send_report (bool send_residue)
         {
           tx_out.writeRawData (tx_residue_.constData (), tx_residue_.size ());
           tx_residue_.clear ();
-          qDebug () << "PSKReporter::impl::send_report: inserted data residue";
+          // qDebug () << "PSKReporter::impl::send_report: inserted data residue";
         }
 
       while (spots_.size () || flush)
@@ -394,7 +393,7 @@ void PSKReporter::impl::send_report (bool send_residue)
           if (spots_.size ())
             {
               auto const& spot = spots_.dequeue ();
-              qDebug () << "PSKReporter::impl::send_report: processing spotted call:" << spot.call_;
+              // qDebug () << "PSKReporter::impl::send_report: processing spotted call:" << spot.call_;
 
               // Sender information
               writeUtfString (tx_out, spot.call_);
@@ -420,7 +419,7 @@ void PSKReporter::impl::send_report (bool send_residue)
                   if (len <= MAX_PAYLOAD_LENGTH)
                     {
                       tx_data_size = tx_data_.size ();
-                      qDebug () << "PSKReporter::impl::send_report: sending short payload:" << tx_data_size;
+                      // qDebug () << "PSKReporter::impl::send_report: sending short payload:" << tx_data_size;
                     }
                   QByteArray tx {tx_data_.left (tx_data_size)};
                   QDataStream out {&tx, QIODevice::WriteOnly | QIODevice::Append};
@@ -436,7 +435,7 @@ void PSKReporter::impl::send_report (bool send_residue)
 
               // Send data to PSK Reporter site
               socket_->write (payload_); // TODO: handle errors
-              qDebug () << "PSKReporter::impl::send_report: sent payload:" << payload_.size () << "observation id:" << observation_id_;
+              // qDebug () << "PSKReporter::impl::send_report: sent payload:" << payload_.size () << "observation id:" << observation_id_;
               flush = false;    // break loop
               message.device ()->seek (0u);
               payload_.clear ();  // Fresh message
@@ -444,7 +443,7 @@ void PSKReporter::impl::send_report (bool send_residue)
               tx_residue_ = tx_data_.right (tx_data_.size () - tx_data_size);
               tx_out.device ()->seek (0u);
               tx_data_.clear ();
-              qDebug () << "PSKReporter::impl::send_report: payload sent residue length:" << tx_residue_.size ();
+              // qDebug () << "PSKReporter::impl::send_report: payload sent residue length:" << tx_residue_.size ();
               break;
             }
         }
