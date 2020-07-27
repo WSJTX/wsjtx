@@ -8048,7 +8048,7 @@ void MainWindow::WSPR_scheduling ()
   }
   m_WSPR_tx_next = false;
   if (m_config.is_transceiver_online () // need working rig control for hopping
-      // && !m_config.is_dummy_rig ()
+      && !m_config.is_dummy_rig ()
       && ui->band_hopping_group_box->isChecked ()) {
     auto hop_data = m_WSPR_band_hopping.next_hop (m_auto);
     qDebug () << "hop data: period:" << hop_data.period_name_
