@@ -669,10 +669,15 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 #endif
   connect(&proc_jt9, static_cast<void (QProcess::*) (int, QProcess::ExitStatus)> (&QProcess::finished),
           [this] (int exitCode, QProcess::ExitStatus status) {
-            subProcessFailed (&proc_jt9, exitCode, status);
+            if (subProcessFailed (&proc_jt9, exitCode, status))
+              {
+                m_valid = false;          // ensures exit if still
+                                          // constructing
+                QTimer::singleShot (0, this, SLOT (close ()));
+              }
           });
   connect(&p1, &QProcess::started, [this] () {
-                                     showStatusMessage (QString {"Started: %1 \"%2\""}.arg (p1.program ()).arg (p1.arguments ().join (QLatin1String {"\" \""})));
+                                     showStatusMessage (QString {"Started: %1 \"%2\""}.arg (p1.program ()).arg (p1.arguments ().join ("\" \"")));
                                    });
   connect(&p1, &QProcess::readyReadStandardOutput, this, &MainWindow::p1ReadFromStdout);
 #if QT_VERSION < QT_VERSION_CHECK (5, 6, 0)
@@ -687,25 +692,50 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 #endif
   connect(&p1, static_cast<void (QProcess::*) (int, QProcess::ExitStatus)> (&QProcess::finished),
           [this] (int exitCode, QProcess::ExitStatus status) {
-            subProcessFailed (&p1, exitCode, status);
+            if (subProcessFailed (&p1, exitCode, status))
+              {
+                m_valid = false;          // ensures exit if still
+                                          // constructing
+                QTimer::singleShot (0, this, SLOT (close ()));
+              }
           });
 
 #if QT_VERSION < QT_VERSION_CHECK (5, 6, 0)
   connect(&p3, static_cast<void (QProcess::*) (QProcess::ProcessError)> (&QProcess::error),
           [this] (QProcess::ProcessError error) {
-            subProcessError (&p3, error);
-          });
 #else
   connect(&p3, &QProcess::errorOccurred, [this] (QProcess::ProcessError error) {
-                                           subProcessError (&p3, error);
-                                         });
 #endif
+#if !defined(Q_OS_WIN)
+                                           if (QProcess::FailedToStart != error)
+#else
+                                           if (QProcess::Crashed != error)
+#endif
+                                             {
+                                               subProcessError (&p3, error);
+                                             }
+                                         });
   connect(&p3, &QProcess::started, [this] () {
-                                     showStatusMessage (QString {"Started: %1 \"%2\""}.arg (p3.program ()).arg (p3.arguments ().join (QLatin1String {"\" \""})));
+                                     showStatusMessage (QString {"Started: %1 \"%2\""}.arg (p3.program ()).arg (p3.arguments ().join ("\" \"")));
                                    });
   connect(&p3, static_cast<void (QProcess::*) (int, QProcess::ExitStatus)> (&QProcess::finished),
           [this] (int exitCode, QProcess::ExitStatus status) {
-            subProcessFailed (&p3, exitCode, status);
+#if defined(Q_OS_WIN)
+            // We forgo detecting user_hardware failures with exit
+            // code 1 on Windows. This is because we use CMD.EXE to
+            // run the executable. CMD.EXE returns exit code 1 when it
+            // can't find the target executable.
+            if (exitCode != 1)  // CMD.EXE couldn't find file to execute
+#else
+            // We forgo detecting user_hardware failures with exit
+            // code 127 non-Windows. This is because we use /bin/sh to
+            // run the executable. /bin/sh returns exit code 127 when it
+            // can't find the target executable.
+            if (exitCode != 127)  // /bin/sh couldn't find file to execute
+#endif
+              {
+                subProcessFailed (&p3, exitCode, status);
+              }
           });
 
   // hook up save WAV file exit handling
@@ -2338,7 +2368,7 @@ void MainWindow::setup_status_bar (bool vhf)
   }
 }
 
-void MainWindow::subProcessFailed (QProcess * process, int exit_code, QProcess::ExitStatus status)
+bool MainWindow::subProcessFailed (QProcess * process, int exit_code, QProcess::ExitStatus status)
 {
   if (m_valid && (exit_code || QProcess::NormalExit != status))
     {
@@ -2355,9 +2385,9 @@ void MainWindow::subProcessFailed (QProcess * process, int exit_code, QProcess::
                                     , tr ("Running: %1\n%2")
                                     .arg (process->program () + ' ' + arguments.join (' '))
                                     .arg (QString {process->readAllStandardError()}));
-      QTimer::singleShot (0, this, SLOT (close ()));
-      m_valid = false;          // ensures exit if still constructing
+      return true;
     }
+  return false;
 }
 
 void MainWindow::subProcessError (QProcess * process, QProcess::ProcessError)
@@ -2375,8 +2405,8 @@ void MainWindow::subProcessError (QProcess * process, QProcess::ProcessError)
                                     , tr ("Running: %1\n%2")
                                     .arg (process->program () + ' ' + arguments.join (' '))
                                     .arg (process->errorString ()));
-      QTimer::singleShot (0, this, SLOT (close ()));
       m_valid = false;              // ensures exit if still constructing
+      QTimer::singleShot (0, this, SLOT (close ()));
     }
 }
 
@@ -8018,7 +8048,7 @@ void MainWindow::WSPR_scheduling ()
   }
   m_WSPR_tx_next = false;
   if (m_config.is_transceiver_online () // need working rig control for hopping
-      && !m_config.is_dummy_rig ()
+      // && !m_config.is_dummy_rig ()
       && ui->band_hopping_group_box->isChecked ()) {
     auto hop_data = m_WSPR_band_hopping.next_hop (m_auto);
     qDebug () << "hop data: period:" << hop_data.period_name_
@@ -8029,22 +8059,25 @@ void MainWindow::WSPR_scheduling ()
     if (hop_data.frequencies_index_ >= 0) { // new band
       ui->bandComboBox->setCurrentIndex (hop_data.frequencies_index_);
       on_bandComboBox_activated (hop_data.frequencies_index_);
-      QStringList prefixes {".bat", ".cmd", ".exe", ""};
-      QString target;
-      for (auto const& prefix : prefixes)
-        {
-          target = QDir {m_appDir}.absoluteFilePath (QLatin1String {"user_hardware"});
-          QFileInfo f {target + prefix};
-          if (f.isExecutable ()) {
-            break;
-          }
-        }
-      if (target.size ())
-        {
-          // Execute user's hardware controller
-          p3.start(QDir::toNativeSeparators (target)
-                   , QStringList {m_config.bands ()->find (m_freqNominal).remove ('m')});
-        }
+      // Execute user's hardware controller
+      auto band = m_config.bands ()->find (m_freqNominal).remove ('m');
+#if defined(Q_OS_WIN)
+      // On  windows   we  use  CMD.EXE   to  find  and   execute  the
+      // user_hardware executable. This means  that the first matching
+      // file extension  on the PATHEXT environment  variable found on
+      // the PATH  environment variable  path list. This  give maximum
+      // flexibility  for  users  to   write  user_hardware  in  their
+      // language of choice,  and place the file anywhere  on the PATH
+      // environment  variable.  Equivalent  to  typing  user_hardware
+      // without any path or extension at the CMD.EXE prompt.
+      p3.start("CMD", QStringList {"/C", "user_hardware", band});
+#else
+      // On non-Windows systems we expect the user_hardware executable
+      // to be anywhere in the paths specified in the PATH environment
+      // variable  path list,  and  executable.  Equivalent to  typing
+      // user_hardware without any path at the shell prompt.
+      p3.start("/bin/sh", QStringList {"-c", "user_hardware " + band});
+#endif
 
       // Produce a short tuneup signal
       m_tuneup = false;
