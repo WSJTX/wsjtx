@@ -821,6 +821,7 @@ contains
       complex, allocatable :: cwave(:)       !Reconstructed complex signal
       complex, allocatable :: g(:)           !Channel gain, g(t) in QEX paper
       real,allocatable :: ss(:)              !Computed power spectrum of g(t)
+      real,allocatable,save :: ssavg(:)      !Computed power spectrum of g(t)
       integer itone(160)                     !Tones for this message
       integer*2 iwave(nmax)                  !Raw Rx data
       integer hmod                           !Modulation index
@@ -906,6 +907,22 @@ contains
          write(52,1010) f,y
 1010     format(f12.6,f12.6)
       enddo
+
+      if(nsps.eq.720) then
+         ia=101.0/df
+         if(ncall.eq.1) then
+            allocate(ssavg(-ia:ia))
+            ssavg=0.
+         endif
+         rewind 53
+         do i=-ia,ia                        !Find smax in +/- 1 Hz around 0.
+            j=i
+            if(j.lt.0) j=i+nfft
+            ssavg(i)=ssavg(i) + real(g(j))**2 + aimag(g(j))**2
+            write(53,1020) i*df,ssavg(i)
+1020        format(f12.6,e12.3)
+         enddo
+      endif
 
       return
    end subroutine write_ref
