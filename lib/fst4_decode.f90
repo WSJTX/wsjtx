@@ -552,9 +552,13 @@ contains
                      do i=1,NN
                         xsig=xsig+s4(itone(i),i)**2
                      enddo
-                     arg=400.0*(xsig/base)-1.0
+                     arg=600.0*(xsig/base)-1.0
                      if(arg.gt.0.0) then
-                        xsnr=10*log10(arg)-21.0-11.7*log10(nsps/800.0)
+                        xsnr=10*log10(arg)-35.5-12.5*log10(nsps/8200.0)
+                        if(ntrperiod.eq.  15) xsnr=xsnr+2
+                        if(ntrperiod.eq.  30) xsnr=xsnr+1
+                        if(ntrperiod.eq. 900) xsnr=xsnr+1
+                        if(ntrperiod.eq.1800) xsnr=xsnr+2
                      else
                         xsnr=-99.9
                      endif
