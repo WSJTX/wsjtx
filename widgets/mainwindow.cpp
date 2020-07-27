@@ -3848,10 +3848,7 @@ void MainWindow::guiUpdate()
             }
           }
 
-          QString t = QString::fromStdString(message).trimmed();
-          bool both=(t=="CQ BOTH K1JT FN20" or t=="CQ BOTH K9AN EN50");
-
-          if(m_modeTx=="FT8" or both) {
+          if(m_modeTx=="FT8") {
             if(SpecOp::FOX==m_config.special_op_id() and ui->tabWidget->currentIndex()==2) {
               foxTxSequencer();
             } else {
@@ -3924,20 +3921,22 @@ void MainWindow::guiUpdate()
             float f0=ui->TxFreqSpinBox->value() - m_XIT + 1.5*dfreq;
             int nwave=(nsym+2)*nsps;
             int icmplx=0;
-
-            float wave_both[15*48000];
-            if(both) {
-              memcpy(wave_both,foxcom_.wave,4*15*48000);  //Copy the FT8 wave[] into wave_both[]
-              f0 += 200;
-            }
             gen_fst4wave_(const_cast<int *>(itone),&nsym,&nsps,&nwave,
                     &fsample,&hmod,&f0,&icmplx,foxcom_.wave,foxcom_.wave);
+
+            QString t = QString::fromStdString(message).trimmed();
+            bool both=(t=="CQ BOTH K1JT FN20" or t=="CQ BOTH K9AN EN50");
             if(both) {
+              float wave_both[15*48000];
+              memcpy(wave_both,foxcom_.wave,4*15*48000);  //Copy wave[] into wave_both[]
+              f0=f0 + 200 + 25;
+              hmod=2;
+              gen_fst4wave_(const_cast<int *>(itone),&nsym,&nsps,&nwave,
+                    &fsample,&hmod,&f0,&icmplx,foxcom_.wave,foxcom_.wave);
               for(int i=0; i<15*48000; i++) {
                 foxcom_.wave[i]=0.5*(wave_both[i] + foxcom_.wave[i]);
               }
             }
-
           }
 
           if(SpecOp::EU_VHF==m_config.special_op_id()) {
