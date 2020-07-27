@@ -719,6 +719,12 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
             // run the executable. CMD.EXE returns exit code 1 when it
             // can't find the target executable.
             if (exitCode != 1)  // CMD.EXE couldn't find file to execute
+#else
+            // We forgo detecting user_hardware failures with exit
+            // code 127 non-Windows. This is because we use /bin/sh to
+            // run the executable. /bin/sh returns exit code 127 when it
+            // can't find the target executable.
+            if (exitCode != 127)  // /bin/sh couldn't find file to execute
 #endif
               {
                 subProcessFailed (&p3, exitCode, status);
