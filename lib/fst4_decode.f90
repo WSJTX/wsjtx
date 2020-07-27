@@ -565,9 +565,10 @@ contains
                   qual=0.
                   fsig=fc_synced - 1.5*hmod*baud
                   if(ex) then
-                     write(21,'(i6.6,8i6,f7.1,f10.2,f7.1,1x,f7.2,1x,f7.1,1x,a37,f5.3)') &
-                        nutc,icand,itry,nsyncoh,iaptype,ijitter,ntype,nsync_qual,  &
-                        nharderrors,dmin,sync,xsnr,xdt,fsig,msg,w50
+                     write(21,3021) nutc,icand,itry,nsyncoh,iaptype,  &
+                          ijitter,ntype,nsync_qual,nharderrors,dmin,  &
+                          sync,xsnr,xdt,fsig,w50,trim(msg)
+3021                 format(i6.6,6i3,2i4,f6.1,f7.2,f6.1,f6.2,f7.1,f7.3,1x,a)
                      flush(21)
                   endif
                   call this%callback(nutc,smax1,nsnr,xdt,fsig,msg,    &
