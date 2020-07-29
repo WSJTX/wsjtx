@@ -313,7 +313,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_grid6 {false},
   m_tuneup {false},
   m_bTxTime {false},
-  m_rxDone {false},
+  m_rxDone {true},
   m_bSimplex {false},
   m_bEchoTxOK {false},
   m_bTransmittedEcho {false},
@@ -8045,7 +8045,7 @@ void MainWindow::WSPR_scheduling ()
     qint64 ms = QDateTime::currentMSecsSinceEpoch() % 86400000;
     int nsec=ms/1000;
     int ntr=m_TRperiod;
-    int j=((nsec+ntr) % (n*ntr))/ntr;
+    int j=((nsec+ntr-1) % (n*ntr))/ntr;
     m_WSPR_tx_next=(i==j);
     return;
   }
