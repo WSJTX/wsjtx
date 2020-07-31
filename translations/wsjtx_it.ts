@@ -369,75 +369,75 @@
 <context>
     <name>Configuration::impl</name>
     <message>
-        <location filename="../Configuration.cpp" line="960"/>
-        <location filename="../Configuration.cpp" line="1117"/>
-        <location filename="../Configuration.cpp" line="1141"/>
+        <location filename="../Configuration.cpp" line="962"/>
+        <location filename="../Configuration.cpp" line="1119"/>
+        <location filename="../Configuration.cpp" line="1143"/>
         <source>&amp;Delete</source>
         <translation>&amp;Elimina</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="961"/>
-        <location filename="../Configuration.cpp" line="1145"/>
+        <location filename="../Configuration.cpp" line="963"/>
+        <location filename="../Configuration.cpp" line="1147"/>
         <source>&amp;Insert ...</source>
         <translation>&amp;Inserisci ...</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="989"/>
+        <location filename="../Configuration.cpp" line="991"/>
         <source>Failed to create save directory</source>
         <translation>Impossibile creare la directory di salvataggio</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="990"/>
+        <location filename="../Configuration.cpp" line="992"/>
         <source>path: &quot;%1%</source>
         <translation>Percorso: &quot;%1&quot;</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1001"/>
+        <location filename="../Configuration.cpp" line="1003"/>
         <source>Failed to create samples directory</source>
         <translation>Impossibile creare la directory dei campioni</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1002"/>
+        <location filename="../Configuration.cpp" line="1004"/>
         <source>path: &quot;%1&quot;</source>
         <translation>Percorso: &quot;%1&quot;</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1149"/>
+        <location filename="../Configuration.cpp" line="1151"/>
         <source>&amp;Load ...</source>
         <translation>&amp;Carica ...</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1153"/>
+        <location filename="../Configuration.cpp" line="1155"/>
         <source>&amp;Save as ...</source>
         <translation>&amp;Salva come ...</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1157"/>
+        <location filename="../Configuration.cpp" line="1159"/>
         <source>&amp;Merge ...</source>
         <translation>&amp;Unisci ...</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1161"/>
+        <location filename="../Configuration.cpp" line="1163"/>
         <source>&amp;Reset</source>
         <translation>&amp;Ripristina</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1733"/>
+        <location filename="../Configuration.cpp" line="1738"/>
         <source>Serial Port:</source>
         <translation>Porta Seriale:</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1734"/>
+        <location filename="../Configuration.cpp" line="1739"/>
         <source>Serial port used for CAT control</source>
         <translation>Porta Seriale usata per il controllo CAT</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1741"/>
+        <location filename="../Configuration.cpp" line="1746"/>
         <source>Network Server:</source>
         <translation>Server di rete:</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1742"/>
+        <location filename="../Configuration.cpp" line="1747"/>
         <source>Optional hostname and port of network service.
 Leave blank for a sensible default on this machine.
 Formats:
@@ -452,12 +452,12 @@ Formati:
 	[IPv6-address]: porta</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1754"/>
+        <location filename="../Configuration.cpp" line="1759"/>
         <source>USB Device:</source>
         <translation>Dispositivo USB:</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1755"/>
+        <location filename="../Configuration.cpp" line="1760"/>
         <source>Optional device identification.
 Leave blank for a sensible default for the rig.
 Format:
@@ -468,152 +468,152 @@ Formato:
 	[VID [: PID [: VENDOR [: PRODOTTI]]]]</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1790"/>
+        <location filename="../Configuration.cpp" line="1795"/>
         <source>Invalid audio input device</source>
         <translation>Dispositivo di input audio non valido</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1797"/>
+        <location filename="../Configuration.cpp" line="1802"/>
         <source>Invalid audio out device</source>
         <translation>Dispositivo di uscita audio non valido</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1803"/>
+        <location filename="../Configuration.cpp" line="1808"/>
         <source>Invalid PTT method</source>
         <translation>Metodo PTT non valido</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1813"/>
+        <location filename="../Configuration.cpp" line="1818"/>
         <source>Invalid PTT port</source>
         <translation>Porta PTT non valida</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1830"/>
-        <location filename="../Configuration.cpp" line="1848"/>
+        <location filename="../Configuration.cpp" line="1835"/>
+        <location filename="../Configuration.cpp" line="1853"/>
         <source>Invalid Contest Exchange</source>
         <translation>Scambio Contest non valido</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1831"/>
+        <location filename="../Configuration.cpp" line="1836"/>
         <source>You must input a valid ARRL Field Day exchange</source>
         <translation>È necessario inserire uno scambioField Day ARRL valido</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1849"/>
+        <location filename="../Configuration.cpp" line="1854"/>
         <source>You must input a valid ARRL RTTY Roundup exchange</source>
         <translation>È necessario inserire uno scambio Roundup RTTY ARRL valido</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2186"/>
+        <location filename="../Configuration.cpp" line="2192"/>
         <source>Reset Decode Highlighting</source>
         <translation>Ripristina l&apos;evidenziazione della decodifica</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2187"/>
+        <location filename="../Configuration.cpp" line="2193"/>
         <source>Reset all decode highlighting and priorities to default values</source>
         <translation>Ripristina tutti i valori di evidenziazione e priorità della decodifica sui valori predefiniti</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2207"/>
+        <location filename="../Configuration.cpp" line="2213"/>
         <source>WSJT-X Decoded Text Font Chooser</source>
         <translation>Selezionatore font testo decodificato WSJT-X</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2384"/>
+        <location filename="../Configuration.cpp" line="2390"/>
         <source>Load Working Frequencies</source>
         <translation>Carica frequenze di lavoro</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2384"/>
-        <location filename="../Configuration.cpp" line="2403"/>
-        <location filename="../Configuration.cpp" line="2449"/>
+        <location filename="../Configuration.cpp" line="2390"/>
+        <location filename="../Configuration.cpp" line="2409"/>
+        <location filename="../Configuration.cpp" line="2455"/>
         <source>Frequency files (*.qrg);;All files (*.*)</source>
         <translation>File di frequenza (*.qrg);;Tutti i file (*.*)</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2391"/>
+        <location filename="../Configuration.cpp" line="2397"/>
         <source>Replace Working Frequencies</source>
         <translation>Sostituisci le frequenze di lavoro</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2392"/>
+        <location filename="../Configuration.cpp" line="2398"/>
         <source>Are you sure you want to discard your current working frequencies and replace them with the loaded ones?</source>
         <translation>Sei sicuro di voler scartare le tue attuali frequenze di lavoro e sostituirle con quelle caricate?</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2403"/>
+        <location filename="../Configuration.cpp" line="2409"/>
         <source>Merge Working Frequencies</source>
         <translation>Unisci le frequenze di lavoro</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2420"/>
-        <location filename="../Configuration.cpp" line="2429"/>
-        <location filename="../Configuration.cpp" line="2439"/>
+        <location filename="../Configuration.cpp" line="2426"/>
+        <location filename="../Configuration.cpp" line="2435"/>
+        <location filename="../Configuration.cpp" line="2445"/>
         <source>Not a valid frequencies file</source>
         <translation>Non è un file di frequenze valido</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2420"/>
+        <location filename="../Configuration.cpp" line="2426"/>
         <source>Incorrect file magic</source>
         <translation>Magic file errato</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2429"/>
+        <location filename="../Configuration.cpp" line="2435"/>
         <source>Version is too new</source>
         <translation>La versione è troppo nuova</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2439"/>
+        <location filename="../Configuration.cpp" line="2445"/>
         <source>Contents corrupt</source>
         <translation>Contenuto corrotto</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2449"/>
+        <location filename="../Configuration.cpp" line="2455"/>
         <source>Save Working Frequencies</source>
         <translation>Salva frequenze di lavoro</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2458"/>
+        <location filename="../Configuration.cpp" line="2464"/>
         <source>Only Save Selected  Working Frequencies</source>
         <translation>Salva solo le frequenze di lavoro selezionate</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2459"/>
+        <location filename="../Configuration.cpp" line="2465"/>
         <source>Are you sure you want to save only the working frequencies that are currently selected? Click No to save all.</source>
         <translation>Sei sicuro di voler salvare solo le frequenze di lavoro che sono attualmente selezionate? Fai clic su No per salvare tutto.</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2475"/>
+        <location filename="../Configuration.cpp" line="2481"/>
         <source>Reset Working Frequencies</source>
         <translation>Ripristina frequenze di lavoro</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2476"/>
+        <location filename="../Configuration.cpp" line="2482"/>
         <source>Are you sure you want to discard your current working frequencies and replace them with default ones?</source>
         <translation>Sei sicuro di voler scartare le tue attuali frequenze di lavoro e sostituirle con quelle predefinite?</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2514"/>
+        <location filename="../Configuration.cpp" line="2520"/>
         <source>Save Directory</source>
         <translation>Salva il direttorio</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2528"/>
+        <location filename="../Configuration.cpp" line="2534"/>
         <source>AzEl Directory</source>
         <translation>AzEl Direttorio</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2588"/>
+        <location filename="../Configuration.cpp" line="2594"/>
         <source>Rig control error</source>
         <translation>Errore di controllo rig</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2589"/>
+        <location filename="../Configuration.cpp" line="2595"/>
         <source>Failed to open connection to rig</source>
         <translation>Impossibile aprire la connessione al rig</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2803"/>
+        <location filename="../Configuration.cpp" line="2809"/>
         <source>Rig failure</source>
         <translation>Rig fallito</translation>
     </message>
@@ -686,9 +686,14 @@ Formato:
     </message>
     <message>
         <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="412"/>
+        <source>DX Lab Suite Commander send command failed &quot;%1&quot;: %2
+</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>DX Lab Suite Commander failed to send command &quot;%1&quot;: %2
 </source>
-        <translation>DX Lab Suite Commander non è riuscito a inviare il comando &quot;%1&quot;: %2
+        <translation type="vanished">DX Lab Suite Commander non è riuscito a inviare il comando &quot;%1&quot;: %2
 </translation>
     </message>
     <message>
@@ -1754,19 +1759,16 @@ Errore: %2 - %3</translation>
 <context>
     <name>HelpTextWindow</name>
     <message>
-        <location filename="../widgets/HelpTextWindow.cpp" line="20"/>
         <source>Help file error</source>
-        <translation>Aiuto file di errore</translation>
+        <translation type="vanished">Aiuto file di errore</translation>
     </message>
     <message>
-        <location filename="../widgets/HelpTextWindow.cpp" line="21"/>
         <source>Cannot open &quot;%1&quot; for reading</source>
-        <translation>Impossibile aprire &quot;%1&quot; per la lettura</translation>
+        <translation type="vanished">Impossibile aprire &quot;%1&quot; per la lettura</translation>
     </message>
     <message>
-        <location filename="../widgets/HelpTextWindow.cpp" line="22"/>
         <source>Error: %1</source>
-        <translation>Errore: %1</translation>
+        <translation type="vanished">Errore: %1</translation>
     </message>
 </context>
 <context>
@@ -2073,12 +2075,12 @@ Errore (%2):%3</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="50"/>
-        <location filename="../widgets/mainwindow.cpp" line="5844"/>
-        <location filename="../widgets/mainwindow.cpp" line="5892"/>
-        <location filename="../widgets/mainwindow.cpp" line="6050"/>
-        <location filename="../widgets/mainwindow.cpp" line="6090"/>
-        <location filename="../widgets/mainwindow.cpp" line="6138"/>
-        <location filename="../widgets/mainwindow.cpp" line="6263"/>
+        <location filename="../widgets/mainwindow.cpp" line="5959"/>
+        <location filename="../widgets/mainwindow.cpp" line="6007"/>
+        <location filename="../widgets/mainwindow.cpp" line="6165"/>
+        <location filename="../widgets/mainwindow.cpp" line="6205"/>
+        <location filename="../widgets/mainwindow.cpp" line="6253"/>
+        <location filename="../widgets/mainwindow.cpp" line="6378"/>
         <source>Band Activity</source>
         <translation>Attività di Banda</translation>
     </message>
@@ -2090,11 +2092,11 @@ Errore (%2):%3</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="194"/>
-        <location filename="../widgets/mainwindow.cpp" line="5843"/>
-        <location filename="../widgets/mainwindow.cpp" line="5887"/>
-        <location filename="../widgets/mainwindow.cpp" line="6051"/>
-        <location filename="../widgets/mainwindow.cpp" line="6091"/>
-        <location filename="../widgets/mainwindow.cpp" line="6139"/>
+        <location filename="../widgets/mainwindow.cpp" line="5958"/>
+        <location filename="../widgets/mainwindow.cpp" line="6002"/>
+        <location filename="../widgets/mainwindow.cpp" line="6166"/>
+        <location filename="../widgets/mainwindow.cpp" line="6206"/>
+        <location filename="../widgets/mainwindow.cpp" line="6254"/>
         <source>Rx Frequency</source>
         <translation>Frequenza Rx</translation>
     </message>
@@ -2556,7 +2558,7 @@ Non disponibile per i possessori di nominativi non standard.</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1394"/>
-        <location filename="../widgets/mainwindow.cpp" line="5914"/>
+        <location filename="../widgets/mainwindow.cpp" line="6029"/>
         <source>Fox</source>
         <translation>Fox</translation>
     </message>
@@ -3163,6 +3165,86 @@ elenco. L&apos;elenco può essere gestito in Impostazioni (F2).</translation>
         <translation>Programma ...</translation>
     </message>
     <message>
+        <source>1/2</source>
+        <translation type="obsolete">1/2</translation>
+    </message>
+    <message>
+        <source>2/2</source>
+        <translation type="obsolete">2/2</translation>
+    </message>
+    <message>
+        <source>1/3</source>
+        <translation type="obsolete">1/3</translation>
+    </message>
+    <message>
+        <source>2/3</source>
+        <translation type="obsolete">2/3</translation>
+    </message>
+    <message>
+        <source>3/3</source>
+        <translation type="obsolete">3/3</translation>
+    </message>
+    <message>
+        <source>1/4</source>
+        <translation type="obsolete">1/4</translation>
+    </message>
+    <message>
+        <source>2/4</source>
+        <translation type="obsolete">2/4</translation>
+    </message>
+    <message>
+        <source>3/4</source>
+        <translation type="obsolete">3/4</translation>
+    </message>
+    <message>
+        <source>4/4</source>
+        <translation type="obsolete">4/4</translation>
+    </message>
+    <message>
+        <source>1/5</source>
+        <translation type="obsolete">1/5</translation>
+    </message>
+    <message>
+        <source>2/5</source>
+        <translation type="obsolete">2/5</translation>
+    </message>
+    <message>
+        <source>3/5</source>
+        <translation type="obsolete">3/5</translation>
+    </message>
+    <message>
+        <source>4/5</source>
+        <translation type="obsolete">4/5</translation>
+    </message>
+    <message>
+        <source>5/5</source>
+        <translation type="obsolete">5/5</translation>
+    </message>
+    <message>
+        <source>1/6</source>
+        <translation type="obsolete">1/6</translation>
+    </message>
+    <message>
+        <source>2/6</source>
+        <translation type="obsolete">2/6</translation>
+    </message>
+    <message>
+        <source>3/6</source>
+        <translation type="obsolete">3/6</translation>
+    </message>
+    <message>
+        <source>4/6</source>
+        <translation type="obsolete">4/6</translation>
+    </message>
+    <message>
+        <source>5/6</source>
+        <translation type="obsolete">5/6</translation>
+    </message>
+    <message>
+        <source>6/6</source>
+        <translation type="obsolete">6/6</translation>
+    </message>
+    <message>
         <location filename="../widgets/mainwindow.ui" line="2626"/>
         <source>Upload decoded messages to WSPRnet.org.</source>
         <translation>Carica messaggi decodificati su WSPRnet.org.</translation>
@@ -3181,6 +3263,10 @@ elenco. L&apos;elenco può essere gestito in Impostazioni (F2).</translation>
         <location filename="../widgets/mainwindow.ui" line="2641"/>
         <source>6 digit locators cause 2 different messages to be sent, the second contains the full locator but only a hashed callsign, other stations must have decoded the first once before they can decode your call in the second. Check this option to only send 4 digit locators if it will avoid the two message protocol.</source>
         <translation>I localizzatori a 6 cifre causano l&apos;invio di 2 messaggi diversi, il secondo contiene il localizzatore completo ma solo un nominativo con hash, altre stazioni devono aver decodificato il primo una volta prima di poter decodificare la chiamata nel secondo. Selezionare questa opzione per inviare localizzatori a 4 cifre solo se si eviterà il protocollo a due messaggi.</translation>
+    </message>
+    <message>
+        <source>FT240W</source>
+        <translation type="obsolete">FT240W</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2644"/>
@@ -3410,7 +3496,7 @@ elenco. L&apos;elenco può essere gestito in Impostazioni (F2).</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3128"/>
-        <location filename="../widgets/mainwindow.cpp" line="8170"/>
+        <location filename="../widgets/mainwindow.cpp" line="8313"/>
         <source>Runaway Tx watchdog</source>
         <translation>Watchdog Tx sfuggito</translation>
     </message>
@@ -3687,8 +3773,8 @@ elenco. L&apos;elenco può essere gestito in Impostazioni (F2).</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="331"/>
-        <location filename="../widgets/mainwindow.cpp" line="4153"/>
-        <location filename="../widgets/mainwindow.cpp" line="7687"/>
+        <location filename="../widgets/mainwindow.cpp" line="4261"/>
+        <location filename="../widgets/mainwindow.cpp" line="7827"/>
         <source>Receiving</source>
         <translation>Ricevente</translation>
     </message>
@@ -3713,166 +3799,166 @@ elenco. L&apos;elenco può essere gestito in Impostazioni (F2).</translation>
         <translation>Errore durante il caricamento dei dati degli utenti di LotW</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="710"/>
+        <location filename="../widgets/mainwindow.cpp" line="740"/>
         <source>Error Writing WAV File</source>
         <translation>Errore durante la scrittura del file WAV</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="753"/>
+        <location filename="../widgets/mainwindow.cpp" line="783"/>
         <source>Configurations...</source>
         <translation>Configurazioni...</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="828"/>
-        <location filename="../widgets/mainwindow.cpp" line="5839"/>
-        <location filename="../widgets/mainwindow.cpp" line="5845"/>
-        <location filename="../widgets/mainwindow.cpp" line="5883"/>
-        <location filename="../widgets/mainwindow.cpp" line="5893"/>
-        <location filename="../widgets/mainwindow.cpp" line="5990"/>
-        <location filename="../widgets/mainwindow.cpp" line="5991"/>
-        <location filename="../widgets/mainwindow.cpp" line="6039"/>
-        <location filename="../widgets/mainwindow.cpp" line="6040"/>
-        <location filename="../widgets/mainwindow.cpp" line="6044"/>
-        <location filename="../widgets/mainwindow.cpp" line="6045"/>
-        <location filename="../widgets/mainwindow.cpp" line="6092"/>
-        <location filename="../widgets/mainwindow.cpp" line="6093"/>
-        <location filename="../widgets/mainwindow.cpp" line="6258"/>
-        <location filename="../widgets/mainwindow.cpp" line="6259"/>
-        <location filename="../widgets/mainwindow.cpp" line="6444"/>
+        <location filename="../widgets/mainwindow.cpp" line="858"/>
+        <location filename="../widgets/mainwindow.cpp" line="5954"/>
+        <location filename="../widgets/mainwindow.cpp" line="5960"/>
+        <location filename="../widgets/mainwindow.cpp" line="5998"/>
+        <location filename="../widgets/mainwindow.cpp" line="6008"/>
+        <location filename="../widgets/mainwindow.cpp" line="6105"/>
+        <location filename="../widgets/mainwindow.cpp" line="6106"/>
+        <location filename="../widgets/mainwindow.cpp" line="6154"/>
+        <location filename="../widgets/mainwindow.cpp" line="6155"/>
+        <location filename="../widgets/mainwindow.cpp" line="6159"/>
+        <location filename="../widgets/mainwindow.cpp" line="6160"/>
+        <location filename="../widgets/mainwindow.cpp" line="6207"/>
+        <location filename="../widgets/mainwindow.cpp" line="6208"/>
+        <location filename="../widgets/mainwindow.cpp" line="6373"/>
+        <location filename="../widgets/mainwindow.cpp" line="6374"/>
+        <location filename="../widgets/mainwindow.cpp" line="6559"/>
         <source>Message</source>
         <translation>Messaggio</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="842"/>
+        <location filename="../widgets/mainwindow.cpp" line="872"/>
         <source>Error Killing jt9.exe Process</source>
         <translation>Errore durante l&apos;uccisione del processo jt9.exe</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="843"/>
+        <location filename="../widgets/mainwindow.cpp" line="873"/>
         <source>KillByName return code: %1</source>
         <translation>Codice di ritorno KillByName:%1</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="858"/>
+        <location filename="../widgets/mainwindow.cpp" line="888"/>
         <source>Error removing &quot;%1&quot;</source>
         <translation>Errore durante la rimozione di &quot;%1&quot;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="859"/>
+        <location filename="../widgets/mainwindow.cpp" line="889"/>
         <source>Click OK to retry</source>
         <translation>Fai clic su OK per riprovare</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1259"/>
-        <location filename="../widgets/mainwindow.cpp" line="6233"/>
+        <location filename="../widgets/mainwindow.cpp" line="1289"/>
+        <location filename="../widgets/mainwindow.cpp" line="6348"/>
         <source>Improper mode</source>
         <translation>Modalità impropria</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1416"/>
-        <location filename="../widgets/mainwindow.cpp" line="8816"/>
+        <location filename="../widgets/mainwindow.cpp" line="1446"/>
+        <location filename="../widgets/mainwindow.cpp" line="8959"/>
         <source>File Open Error</source>
         <translation>Errore apertura file</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1417"/>
-        <location filename="../widgets/mainwindow.cpp" line="7812"/>
-        <location filename="../widgets/mainwindow.cpp" line="8250"/>
-        <location filename="../widgets/mainwindow.cpp" line="8817"/>
-        <location filename="../widgets/mainwindow.cpp" line="8949"/>
+        <location filename="../widgets/mainwindow.cpp" line="1447"/>
+        <location filename="../widgets/mainwindow.cpp" line="7952"/>
+        <location filename="../widgets/mainwindow.cpp" line="8393"/>
+        <location filename="../widgets/mainwindow.cpp" line="8960"/>
+        <location filename="../widgets/mainwindow.cpp" line="9092"/>
         <source>Cannot open &quot;%1&quot; for append: %2</source>
         <translation>Impossibile aprire &quot;%1&quot; per aggiungere:%2</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1515"/>
+        <location filename="../widgets/mainwindow.cpp" line="1545"/>
         <source>Error saving c2 file</source>
         <translation>Errore salvataggio file c2</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1737"/>
+        <location filename="../widgets/mainwindow.cpp" line="1767"/>
         <source>Error in Sound Input</source>
         <translation>Errore nell&apos;ingresso audio</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1743"/>
+        <location filename="../widgets/mainwindow.cpp" line="1773"/>
         <source>Error in Sound Output</source>
         <translation>Errore nell&apos;uscita audio</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1799"/>
-        <location filename="../widgets/mainwindow.cpp" line="5988"/>
-        <location filename="../widgets/mainwindow.cpp" line="6134"/>
+        <location filename="../widgets/mainwindow.cpp" line="1829"/>
+        <location filename="../widgets/mainwindow.cpp" line="6103"/>
+        <location filename="../widgets/mainwindow.cpp" line="6249"/>
         <source>Single-Period Decodes</source>
         <translation>Decodifiche a periodo singolo</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1800"/>
-        <location filename="../widgets/mainwindow.cpp" line="5989"/>
-        <location filename="../widgets/mainwindow.cpp" line="6135"/>
+        <location filename="../widgets/mainwindow.cpp" line="1830"/>
+        <location filename="../widgets/mainwindow.cpp" line="6104"/>
+        <location filename="../widgets/mainwindow.cpp" line="6250"/>
         <source>Average Decodes</source>
         <translation>Media Decodifiche</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2101"/>
+        <location filename="../widgets/mainwindow.cpp" line="2131"/>
         <source>Change Operator</source>
         <translation>Cambio Operatore</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2101"/>
+        <location filename="../widgets/mainwindow.cpp" line="2131"/>
         <source>New operator:</source>
         <translation>Nuovo operatore:</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2217"/>
+        <location filename="../widgets/mainwindow.cpp" line="2247"/>
         <source>Status File Error</source>
         <translation>Errore del file di stato</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2218"/>
-        <location filename="../widgets/mainwindow.cpp" line="5451"/>
+        <location filename="../widgets/mainwindow.cpp" line="2248"/>
+        <location filename="../widgets/mainwindow.cpp" line="5566"/>
         <source>Cannot open &quot;%1&quot; for writing: %2</source>
         <translation>Impossibile aprire &quot;%1&quot; per la scrittura:%2</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2349"/>
+        <location filename="../widgets/mainwindow.cpp" line="2379"/>
         <source>Subprocess Error</source>
         <translation>Errore sottoprocesso</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2350"/>
+        <location filename="../widgets/mainwindow.cpp" line="2380"/>
         <source>Subprocess failed with exit code %1</source>
         <translation>Il sottoprocesso non è riuscito con il codice di uscita%1</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2352"/>
-        <location filename="../widgets/mainwindow.cpp" line="2372"/>
+        <location filename="../widgets/mainwindow.cpp" line="2382"/>
+        <location filename="../widgets/mainwindow.cpp" line="2402"/>
         <source>Running: %1
 %2</source>
         <translation>In esecuzione: %1
 %2</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2371"/>
+        <location filename="../widgets/mainwindow.cpp" line="2401"/>
         <source>Subprocess error</source>
         <translation>Errore sottoprocesso</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2409"/>
+        <location filename="../widgets/mainwindow.cpp" line="2439"/>
         <source>Reference spectrum saved</source>
         <translation>Spettro di riferimento salvato</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2472"/>
+        <location filename="../widgets/mainwindow.cpp" line="2502"/>
         <source>Invalid data in fmt.all at line %1</source>
         <translation>Dati non validi in fmt.all alla riga%1</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2478"/>
+        <location filename="../widgets/mainwindow.cpp" line="2508"/>
         <source>Good Calibration Solution</source>
         <translation>Buona soluzione di calibrazione</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2479"/>
+        <location filename="../widgets/mainwindow.cpp" line="2509"/>
         <source>&lt;pre&gt;%1%L2 ±%L3 ppm
 %4%L5 ±%L6 Hz
 
@@ -3885,17 +3971,17 @@ elenco. L&apos;elenco può essere gestito in Impostazioni (F2).</translation>
 %9%L10 Hz&lt;/pre&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2493"/>
+        <location filename="../widgets/mainwindow.cpp" line="2523"/>
         <source>Delete Calibration Measurements</source>
         <translation>Elimina misure di calibrazione</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2494"/>
+        <location filename="../widgets/mainwindow.cpp" line="2524"/>
         <source>The &quot;fmt.all&quot; file will be renamed as &quot;fmt.bak&quot;</source>
         <translation>Il file &quot;fmt.all&quot; verrà rinominato come &quot;fmt.bak&quot;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2506"/>
+        <location filename="../widgets/mainwindow.cpp" line="2536"/>
         <source>If you make fair use of any part of WSJT-X under terms of the GNU General Public License, you must display the following copyright notice prominently in your derivative work:
 
 &quot;The algorithms, source code, look-and-feel of WSJT-X and related programs, and protocol specifications for the modes FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 are Copyright (C) 2001-2020 by one or more of the following authors: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; and other members of the WSJT Development Group.&quot;</source>
@@ -3904,62 +3990,153 @@ elenco. L&apos;elenco può essere gestito in Impostazioni (F2).</translation>
 &quot;Gli algoritmi, il codice sorgente, l&apos;aspetto di WSJT-X e dei relativi programmi e le specifiche del protocollo per le modalità FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 sono Copyright (C) 2001-2020 di uno o più dei seguenti autori: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q e altri membri del WSJT Development Group. &quot;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2777"/>
+        <location filename="../widgets/mainwindow.cpp" line="2807"/>
         <source>No data read from disk. Wrong file format?</source>
         <translation>Nessun dato letto dal disco. Formato file errato?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2784"/>
+        <location filename="../widgets/mainwindow.cpp" line="2814"/>
         <source>Confirm Delete</source>
         <translation>Conferma Eliminazione</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2785"/>
+        <location filename="../widgets/mainwindow.cpp" line="2815"/>
         <source>Are you sure you want to delete all *.wav and *.c2 files in &quot;%1&quot;?</source>
         <translation>Sei sicuro di voler eliminare tutti i file * .wav e * .c2 in &quot;%1&quot;?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2822"/>
+        <location filename="../widgets/mainwindow.cpp" line="2852"/>
         <source>Keyboard Shortcuts</source>
         <translation>Scorciatoie da tastiera</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2835"/>
+        <location filename="../widgets/mainwindow.cpp" line="2854"/>
+        <source>&lt;table cellspacing=1&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Esc      &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Stop Tx, abort QSO, clear next-call queue&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;F1       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Online User&apos;s Guide (Alt: transmit Tx6)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Shift+F1  &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Copyright Notice&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+F1  &lt;/b&gt;&lt;/td&gt;&lt;td&gt;About WSJT-X&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;F2       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Open settings window (Alt: transmit Tx2)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;F3       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Display keyboard shortcuts (Alt: transmit Tx3)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;F4       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Clear DX Call, DX Grid, Tx messages 1-4 (Alt: transmit Tx4)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+F4   &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Exit program&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;F5       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Display special mouse commands (Alt: transmit Tx5)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;F6       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Open next file in directory (Alt: toggle &quot;Call 1st&quot;)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Shift+F6 &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Decode all remaining files in directrory&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;F7       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Display Message Averaging window&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;F11      &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Move Rx frequency down 1 Hz&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+F11 &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Move identical Rx and Tx frequencies down 1 Hz&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Shift+F11 &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Move Tx frequency down 60 Hz (FT8) or 90 Hz (FT4)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+Shift+F11 &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Move dial frequency down 2000 Hz&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;F12      &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Move Rx frequency up 1 Hz&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+F12 &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Move identical Rx and Tx frequencies up 1 Hz&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Shift+F12 &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Move Tx frequency up 60 Hz (FT8) or 90 Hz (FT4)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+Shift+F12 &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Move dial frequency up 2000 Hz&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+1-6  &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Set now transmission to this number on Tab 1&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctl+1-6  &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Set next transmission to this number on Tab 1&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+B    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Toggle &quot;Best S+P&quot; status&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+C    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Toggle &quot;Call 1st&quot; checkbox&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+D    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Decode again at QSO frequency&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Shift+D  &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Full decode (both windows)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+E   &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Turn on TX even/1st&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Shift+E  &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Turn off TX even/1st&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+E    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Erase&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+F   &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Edit the free text message box&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+G    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Generate standard messages&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+H    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Halt Tx&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+L   &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Lookup callsign in database, generate standard messages&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+M    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Monitor&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+N    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Enable Tx&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+O   &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Open a .wav file&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+O    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Change operator&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+Q    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Log QSO&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+R   &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Set Tx4 message to RRR (not in FT4)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+R    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Set Tx4 message to RR73&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+S    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Stop monitoring&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+T    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Toggle Tune status&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+Z    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Clear hung decoder status&lt;/td&gt;&lt;/tr&gt;
+&lt;/table&gt;</source>
+        <extracomment>Keyboard shortcuts help window contents</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.cpp" line="2910"/>
         <source>Special Mouse Commands</source>
         <translation>Comandi speciali mouse</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="3151"/>
+        <location filename="../widgets/mainwindow.cpp" line="2912"/>
+        <source>&lt;table cellpadding=5&gt;
+  &lt;tr&gt;
+    &lt;th align=&quot;right&quot;&gt;Click on&lt;/th&gt;
+    &lt;th align=&quot;left&quot;&gt;Action&lt;/th&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;Waterfall:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;Click&lt;/b&gt; to set Rx frequency.&lt;br/&gt;
+        &lt;b&gt;Shift-click&lt;/b&gt; to set Tx frequency.&lt;br/&gt;
+        &lt;b&gt;Ctrl-click&lt;/b&gt; or &lt;b&gt;Right-click&lt;/b&gt; to set Rx and Tx frequencies.&lt;br/&gt;
+	&lt;b&gt;Double-click&lt;/b&gt; to also decode at Rx frequency.&lt;br/&gt;
+    &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;Decoded text:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;Double-click&lt;/b&gt; to copy second callsign to Dx Call,&lt;br/&gt;
+        locator to Dx Grid, change Rx and Tx frequency to&lt;br/&gt;
+        decoded signal&apos;s frequency, and generate standard&lt;br/&gt;
+	messages.&lt;br/&gt;
+	If &lt;b&gt;Hold Tx Freq&lt;/b&gt; is checked or first callsign in message&lt;br/&gt;
+	is your own call, Tx frequency is not changed unless &lt;br/&gt;
+	&lt;b&gt;Ctrl&lt;/b&gt; is held down.&lt;br/&gt;
+    &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;Erase button:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;Click&lt;/b&gt; to erase QSO window.&lt;br/&gt;
+        &lt;b&gt;Double-click&lt;/b&gt; to erase QSO and Band Activity windows.
+    &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/table&gt;</source>
+        <extracomment>Mouse commands help window contents</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.cpp" line="3257"/>
         <source>No more files to open.</source>
         <translation>Niente più file da aprire.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="3639"/>
+        <location filename="../widgets/mainwindow.cpp" line="3592"/>
+        <source>Spotting to PSK Reporter unavailable</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.cpp" line="3747"/>
         <source>Please choose another Tx frequency. WSJT-X will not knowingly transmit another mode in the WSPR sub-band on 30m.</source>
         <translation>Scegli un&apos;altra frequenza Tx. WSJT-X non trasmetterà consapevolmente un&apos;altra modalità nella sottobanda WSPR a 30 m.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="3643"/>
+        <location filename="../widgets/mainwindow.cpp" line="3751"/>
         <source>WSPR Guard Band</source>
         <translation>Banda di guardia WSPR</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="3656"/>
+        <location filename="../widgets/mainwindow.cpp" line="3764"/>
         <source>Please choose another dial frequency. WSJT-X will not operate in Fox mode in the standard FT8 sub-bands.</source>
         <translation>Scegli un&apos;altra frequenza di composizione. WSJT-X non funzionerà in modalità Fox nelle sottobande FT8 standard.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="3660"/>
+        <location filename="../widgets/mainwindow.cpp" line="3768"/>
         <source>Fox Mode warning</source>
         <translation>Avviso modalità Fox</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="4257"/>
+        <location filename="../widgets/mainwindow.cpp" line="4365"/>
         <source>Last Tx: %1</source>
         <translation>Ultimo Tx:%1</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="4658"/>
+        <location filename="../widgets/mainwindow.cpp" line="4773"/>
         <source>Should you switch to EU VHF Contest mode?
 
 To do so, check &apos;Special operating activity&apos; and
@@ -3970,184 +4147,184 @@ Per fare ciò, selezionare &quot;Attività operativa speciale&quot; e
 &quot;Contest VHF EU&quot; sulle impostazioni | Scheda Avanzate.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="4677"/>
+        <location filename="../widgets/mainwindow.cpp" line="4792"/>
         <source>Should you switch to ARRL Field Day mode?</source>
         <translation>Dovresti passare alla modalità Field Day di ARRL?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="4682"/>
+        <location filename="../widgets/mainwindow.cpp" line="4797"/>
         <source>Should you switch to RTTY contest mode?</source>
         <translation>Dovresti passare alla modalità contest RTTY?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5412"/>
-        <location filename="../widgets/mainwindow.cpp" line="5431"/>
-        <location filename="../widgets/mainwindow.cpp" line="5450"/>
-        <location filename="../widgets/mainwindow.cpp" line="5476"/>
+        <location filename="../widgets/mainwindow.cpp" line="5527"/>
+        <location filename="../widgets/mainwindow.cpp" line="5546"/>
+        <location filename="../widgets/mainwindow.cpp" line="5565"/>
+        <location filename="../widgets/mainwindow.cpp" line="5591"/>
         <source>Add to CALL3.TXT</source>
         <translation>Aggiungi a CALL3.TXT</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5413"/>
+        <location filename="../widgets/mainwindow.cpp" line="5528"/>
         <source>Please enter a valid grid locator</source>
         <translation>Inserisci un localizzatore di griglia valido</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5432"/>
+        <location filename="../widgets/mainwindow.cpp" line="5547"/>
         <source>Cannot open &quot;%1&quot; for read/write: %2</source>
         <translation>Impossibile aprire &quot;%1&quot; per lettura / scrittura:%2</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5474"/>
+        <location filename="../widgets/mainwindow.cpp" line="5589"/>
         <source>%1
 is already in CALL3.TXT, do you wish to replace it?</source>
         <translation>%1
 è già in CALL3.TXT, desideri sostituirlo?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5651"/>
+        <location filename="../widgets/mainwindow.cpp" line="5766"/>
         <source>Warning:  DX Call field is empty.</source>
         <translation>Avviso: il campo Chiamata DX è vuoto.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5708"/>
+        <location filename="../widgets/mainwindow.cpp" line="5823"/>
         <source>Log file error</source>
         <translation>Errore nel file di registro</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5709"/>
+        <location filename="../widgets/mainwindow.cpp" line="5824"/>
         <source>Cannot open &quot;%1&quot;</source>
         <translation>Impossibile aprire &quot;%1&quot;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5725"/>
+        <location filename="../widgets/mainwindow.cpp" line="5840"/>
         <source>Error sending log to N1MM</source>
         <translation>Errore durante l&apos;invio del Log a N1MM</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5726"/>
+        <location filename="../widgets/mainwindow.cpp" line="5841"/>
         <source>Write returned &quot;%1&quot;</source>
         <translation>Scrivi ha restituito &quot;%1&quot;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5889"/>
+        <location filename="../widgets/mainwindow.cpp" line="6004"/>
         <source>Stations calling DXpedition %1</source>
         <translation>Stazioni che chiamano la DXpedition %1</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5924"/>
+        <location filename="../widgets/mainwindow.cpp" line="6039"/>
         <source>Hound</source>
         <translatorcomment>(Hound=Cane da caccia)</translatorcomment>
         <translation>Hound</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6264"/>
+        <location filename="../widgets/mainwindow.cpp" line="6379"/>
         <source>Tx Messages</source>
         <translation>Messaggi Tx</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6515"/>
-        <location filename="../widgets/mainwindow.cpp" line="6548"/>
-        <location filename="../widgets/mainwindow.cpp" line="6558"/>
+        <location filename="../widgets/mainwindow.cpp" line="6630"/>
+        <location filename="../widgets/mainwindow.cpp" line="6663"/>
+        <location filename="../widgets/mainwindow.cpp" line="6673"/>
         <source>Confirm Erase</source>
         <translation>Conferma Cancella</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6516"/>
+        <location filename="../widgets/mainwindow.cpp" line="6631"/>
         <source>Are you sure you want to erase file ALL.TXT?</source>
         <translation>Sei sicuro di voler cancellare il file ALL.TXT?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6526"/>
-        <location filename="../widgets/mainwindow.cpp" line="8295"/>
+        <location filename="../widgets/mainwindow.cpp" line="6641"/>
+        <location filename="../widgets/mainwindow.cpp" line="8438"/>
         <source>Confirm Reset</source>
         <translation>Conferma Ripristina</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6527"/>
+        <location filename="../widgets/mainwindow.cpp" line="6642"/>
         <source>Are you sure you want to erase your contest log?</source>
         <translation>Sei sicuro di voler cancellare il tuo Log del contest?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6528"/>
+        <location filename="../widgets/mainwindow.cpp" line="6643"/>
         <source>Doing this will remove all QSO records for the current contest. They will be kept in the ADIF log file but will not be available for export in your Cabrillo log.</source>
         <translation>In questo modo verranno rimossi tutti i record QSO per il contest corrente. Saranno conservati nel file di registro ADIF ma non saranno disponibili per l&apos;esportazione nel registro Cabrillo.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6541"/>
+        <location filename="../widgets/mainwindow.cpp" line="6656"/>
         <source>Cabrillo Log saved</source>
         <translation>Log Cabrillo salvato</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6549"/>
+        <location filename="../widgets/mainwindow.cpp" line="6664"/>
         <source>Are you sure you want to erase file wsjtx_log.adi?</source>
         <translation>Sei sicuro di voler cancellare il file wsjtx_log.adi?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6559"/>
+        <location filename="../widgets/mainwindow.cpp" line="6674"/>
         <source>Are you sure you want to erase the WSPR hashtable?</source>
         <translation>Sei sicuro di voler cancellare la tabella hash WSPR?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6653"/>
+        <location filename="../widgets/mainwindow.cpp" line="6768"/>
         <source>VHF features warning</source>
         <translation>VHF presenta un avviso</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7264"/>
+        <location filename="../widgets/mainwindow.cpp" line="7379"/>
         <source>Tune digital gain </source>
         <translation>Ottimizza il guadagno digitale </translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7266"/>
+        <location filename="../widgets/mainwindow.cpp" line="7381"/>
         <source>Transmit digital gain </source>
         <translation>Trasmetti Guadagno digitale </translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7285"/>
+        <location filename="../widgets/mainwindow.cpp" line="7400"/>
         <source>Prefixes</source>
         <translation>Prefissi</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7654"/>
+        <location filename="../widgets/mainwindow.cpp" line="7794"/>
         <source>Network Error</source>
         <translation>Errore di Rete</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7655"/>
+        <location filename="../widgets/mainwindow.cpp" line="7795"/>
         <source>Error: %1
 UDP server %2:%3</source>
         <translation>Errore:%1
 Server UDP%2:%3</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7811"/>
+        <location filename="../widgets/mainwindow.cpp" line="7951"/>
         <source>File Error</source>
         <translation>Errore File</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="8048"/>
+        <location filename="../widgets/mainwindow.cpp" line="8191"/>
         <source>Phase Training Disabled</source>
         <translation>Fase di Allenamento Disabilitato</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="8051"/>
+        <location filename="../widgets/mainwindow.cpp" line="8194"/>
         <source>Phase Training Enabled</source>
         <translation>Fase di allenamento abilitato</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="8185"/>
+        <location filename="../widgets/mainwindow.cpp" line="8328"/>
         <source>WD:%1m</source>
         <translation>WD:%1m</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="8253"/>
-        <location filename="../widgets/mainwindow.cpp" line="8952"/>
+        <location filename="../widgets/mainwindow.cpp" line="8396"/>
+        <location filename="../widgets/mainwindow.cpp" line="9095"/>
         <source>Log File Error</source>
         <translation>Errore file di Log</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="8296"/>
+        <location filename="../widgets/mainwindow.cpp" line="8439"/>
         <source>Are you sure you want to clear the QSO queues?</source>
         <translation>Sei sicuro di voler cancellare le code QSO?</translation>
     </message>
@@ -4827,6 +5004,10 @@ Errore (%2):%3</translation>
         <location filename="../widgets/widegraph.ui" line="362"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Decode JT9 only above this frequency&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Decodifica JT9 solo sopra questa frequenza&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <source>  Hz</source>
+        <translation type="obsolete">  Hz</translation>
     </message>
     <message>
         <location filename="../widgets/widegraph.ui" line="365"/>
@@ -5853,509 +6034,523 @@ e i campi della Griglia DX quando viene inviato un messaggio di testo libero o 7
     </message>
     <message>
         <location filename="../Configuration.ui" line="1807"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The program can send your station details and all decoded signals with grid squares as spots to the http://pskreporter.info web site.&lt;/p&gt;&lt;p&gt;This is used for reverse beacon analysis which is very useful for assessing propagation and system performance.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>The program can send your station details and all
 decoded signals as spots to the http://pskreporter.info web site.
 This is used for reverse beacon analysis which is very useful
 for assessing propagation and system performance.</source>
-        <translation>Il programma può inviare i dettagli della tua stazione e tutto il resto
+        <translation type="vanished">Il programma può inviare i dettagli della tua stazione e tutto il resto
 segnali decodificati come spot per il sito Web http://pskreporter.info.
 Questo è usato per l&apos;analisi del beacon inverso che è molto utile
 per valutare la propagazione e le prestazioni del sistema.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1813"/>
+        <location filename="../Configuration.ui" line="1810"/>
         <source>Enable &amp;PSK Reporter Spotting</source>
         <translation>Abilita rilevamento &amp;PSK Reporter</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1823"/>
+        <location filename="../Configuration.ui" line="1817"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check this option if a reliable connection is needed&lt;/p&gt;&lt;p&gt;Most users do not need this, the default uses UDP which is more efficient. Only check this if you have evidence that UDP traffic from you to PSK Reporter is being lost.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="1820"/>
+        <source>Use TCP/IP connection</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="1830"/>
         <source>UDP Server</source>
         <translation>UDP Server</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1834"/>
+        <location filename="../Configuration.ui" line="1841"/>
         <source>UDP Server:</source>
         <translation>UDP Server:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1850"/>
+        <location filename="../Configuration.ui" line="1857"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Optional hostname of network service to receive decodes.&lt;/p&gt;&lt;p&gt;Formats:&lt;/p&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;hostname&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv4 address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv6 address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv4 multicast group address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv6 multicast group address&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;Clearing this field will disable the broadcasting of UDP status updates.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Nome host facoltativo del servizio di rete per ricevere decodifiche.&lt;/p&gt;&lt;p&gt;Formati:&lt;/p&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margine-sinistra: 0px; margine-destra: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot;margin-top: 12px; margin-bottom: 0px; margin-left: 0px; margin- right: 0px; -qt-block-indent: 0; text-indent: 0px;&quot;&gt;hostname&lt;/li&gt;&lt;li style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin -right: 0px; -qt-block-indent: 0; text-indent: 0px;&quot;&gt;Indirizzo IPv4&lt;/li&gt;&lt;li style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px ; margin-right: 0px; -qt-block-indent: 0; text-indent: 0px;&quot;&gt;Indirizzo IPv6&lt;/li&gt;&lt;li style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left : 0px; margine-destra: 0px; -qt-block-indent: 0; text-indent: 0px;&quot;&gt;Indirizzo gruppo multicast IPv4&lt;/li&gt;&lt;li style=&quot;margin-top: 0px; margin-bottom: 0px ; margin-left: 0px; margin-right: 0px; -qt-block-indent: 0; text-indent: 0px;&quot;&gt;Indirizzo gruppo multicast IPv6&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;Deselezionando questo campo si disabilita la trasmissione di aggiornamenti di stato UDP.&lt;/p&gt;&lt;/Body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1860"/>
+        <location filename="../Configuration.ui" line="1867"/>
         <source>UDP Server port number:</source>
         <translation>Porta del Server UDP:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1870"/>
+        <location filename="../Configuration.ui" line="1877"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enter the service port number of the UDP server that WSJT-X should send updates to. If this is zero no updates will be broadcast.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Immettere il numero di porta del servizio del server UDP a cui WSJT-X deve inviare gli aggiornamenti. Se questo è zero, non verranno trasmessi aggiornamenti.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1887"/>
+        <location filename="../Configuration.ui" line="1894"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;With this enabled WSJT-X will accept certain requests back from a UDP server that receives decode messages.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Con questo abilitato WSJT-X accetterà alcune richieste di ritorno da un server UDP che riceve messaggi di decodifica.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1890"/>
+        <location filename="../Configuration.ui" line="1897"/>
         <source>Accept UDP requests</source>
         <translation>Accetta richieste UDP</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1897"/>
+        <location filename="../Configuration.ui" line="1904"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Indicate acceptance of an incoming UDP request. The effect of this option varies depending on the operating system and window manager, its intent is to notify the acceptance of an incoming UDP request even if this application is minimized or hidden.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Indica l&apos;accettazione di una richiesta UDP in arrivo. L&apos;effetto di questa opzione varia a seconda del sistema operativo e del gestore delle finestre, il suo intento è di notificare l&apos;accettazione di una richiesta UDP in arrivo anche se questa applicazione è ridotta a icona o nascosta.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1900"/>
+        <location filename="../Configuration.ui" line="1907"/>
         <source>Notify on accepted UDP request</source>
         <translation>Notifica su richiesta UDP accettata</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1907"/>
+        <location filename="../Configuration.ui" line="1914"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Restore the window from minimized if an UDP request is accepted.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Ripristina la finestra da minimizzata se viene accettata una richiesta UDP.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1910"/>
+        <location filename="../Configuration.ui" line="1917"/>
         <source>Accepted UDP request restores window</source>
         <translation>Finestra di ripristino richieste UDP accettate</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1922"/>
+        <location filename="../Configuration.ui" line="1929"/>
         <source>Secondary UDP Server (deprecated)</source>
         <translation>Server UDP Secondario (obsoleto)</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1928"/>
+        <location filename="../Configuration.ui" line="1935"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;When checked, WSJT-X will broadcast a logged contact in ADIF format to the configured hostname and port. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Se selezionato, WSJT-X trasmetterà un contatto registrato in formato ADIF al nome host e alla porta configurati.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1931"/>
+        <location filename="../Configuration.ui" line="1938"/>
         <source>Enable logged contact ADIF broadcast</source>
         <translation>Abilita trasmissione ADIF del contatto registrato</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1938"/>
+        <location filename="../Configuration.ui" line="1945"/>
         <source>Server name or IP address:</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1948"/>
+        <location filename="../Configuration.ui" line="1955"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Optional host name of N1MM Logger+ program to receive ADIF UDP broadcasts. This is usually &apos;localhost&apos; or ip address 127.0.0.1&lt;/p&gt;&lt;p&gt;Formats:&lt;/p&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;hostname&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv4 address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv6 address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv4 multicast group address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv6 multicast group address&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;Clearing this field will disable broadcasting of ADIF information via UDP.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Nome host facoltativo del programma Logger + N1MM per ricevere trasmissioni UDP ADIF. Di solito si tratta di &quot;localhost&quot; o indirizzo IP 127.0.0.1&lt;/p&gt;&lt;p&gt;Formati:&lt;/p&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;hostname&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Indirizzo IPv4&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Indirizzo IPv6&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Indirizzo di gruppo multicast IPv4&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Indirizzo di gruppo multicast IPv6&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;La cancellazione di questo campo disabiliterà la trasmissione di informazioni ADIF tramite UDP.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1955"/>
+        <location filename="../Configuration.ui" line="1962"/>
         <source>Server port number:</source>
         <translation>Numero porta Server:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1965"/>
+        <location filename="../Configuration.ui" line="1972"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enter the port number that WSJT-X should use for UDP broadcasts of ADIF log information. For N1MM Logger+, this value should be 2333. If this is zero,  no updates will be broadcast.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Immettere il numero di porta che WSJT-X deve utilizzare per le trasmissioni UDP delle informazioni del registro ADIF. Per N1MM Logger +, questo valore dovrebbe essere 2333. Se questo è zero, non verrà trasmesso alcun aggiornamento.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1989"/>
+        <location filename="../Configuration.ui" line="1996"/>
         <source>Frequencies</source>
         <translation>Frequenze</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1992"/>
+        <location filename="../Configuration.ui" line="1999"/>
         <source>Default frequencies and band specific station details setup</source>
         <translation>Frequenze predefinite e impostazione specifiche dei dettagli della stazione per banda</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1998"/>
+        <location filename="../Configuration.ui" line="2005"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;See &amp;quot;Frequency Calibration&amp;quot; in the WSJT-X User Guide for details of how to determine these parameters for your radio.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Vedere &amp;quot;Calibrazione di Frequenza&amp;quot;nella Guida dell&apos;utente WSJT-X per i dettagli su come determinare questi parametri per la radio.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2001"/>
+        <location filename="../Configuration.ui" line="2008"/>
         <source>Frequency Calibration</source>
         <translation>Calibrazione di Frequenza</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2009"/>
+        <location filename="../Configuration.ui" line="2016"/>
         <source>Slope:</source>
         <translation>Inclinazione:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2022"/>
+        <location filename="../Configuration.ui" line="2029"/>
         <source> ppm</source>
         <translation> ppm</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2048"/>
+        <location filename="../Configuration.ui" line="2055"/>
         <source>Intercept:</source>
         <translation>Intercetta:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2061"/>
+        <location filename="../Configuration.ui" line="2068"/>
         <source> Hz</source>
         <translation>Hz</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2098"/>
+        <location filename="../Configuration.ui" line="2105"/>
         <source>Working Frequencies</source>
         <translation>Frequenze di Lavoro</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2113"/>
+        <location filename="../Configuration.ui" line="2120"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Right click to maintain the working frequencies list.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Fare clic con il tasto destro per mantenere l&apos;elenco delle frequenze di lavoro.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2141"/>
+        <location filename="../Configuration.ui" line="2148"/>
         <source>Station Information</source>
         <translation>Informazioni Stazione</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2153"/>
+        <location filename="../Configuration.ui" line="2160"/>
         <source>Items may be edited.
 Right click for insert and delete options.</source>
         <translation>Gli articoli possono essere modificati.
 Fare clic con il tasto destro per inserire ed eliminare le opzioni.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2201"/>
+        <location filename="../Configuration.ui" line="2208"/>
         <source>Colors</source>
         <translation>Colori</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2207"/>
+        <location filename="../Configuration.ui" line="2214"/>
         <source>Decode Highlightling</source>
         <translation>Evidenziazione Decodifica</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2228"/>
+        <location filename="../Configuration.ui" line="2235"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Click to scan the wsjtx_log.adi ADIF file again for worked before information&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Fare clic per scansionare nuovamente il file ADIF wsjtx_log.adi alla ricerca di informazioni se collegato prima&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2231"/>
+        <location filename="../Configuration.ui" line="2238"/>
         <source>Rescan ADIF Log</source>
         <translation>Eseguire nuovamente la scansione del registro ADIF</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2240"/>
+        <location filename="../Configuration.ui" line="2247"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Push to reset all highlight items above to default values and priorities.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Premere per ripristinare tutti gli elementi evidenziati sopra ai valori e alle priorità predefiniti.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2243"/>
+        <location filename="../Configuration.ui" line="2250"/>
         <source>Reset Highlighting</source>
         <translation>Ripristina l&apos;evidenziazione</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2262"/>
+        <location filename="../Configuration.ui" line="2269"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enable or disable using the check boxes and right-click an item to change or unset the foreground color, background color, or reset the item to default values. Drag and drop the items to change their priority, higher in the list is higher in priority.&lt;/p&gt;&lt;p&gt;Note that each foreground or background color may be either set or unset, unset means that it is not allocated for that item&apos;s type and lower priority items may apply.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Abilitare o disabilitare utilizzando le caselle di controllo e fare clic con il pulsante destro del mouse su un elemento per modificare o annullare il colore di primo piano, il colore di sfondo o ripristinare l&apos;elemento sui valori predefiniti. Trascina e rilascia gli elementi per cambiarne la priorità, più in alto nell&apos;elenco ha una priorità più alta.&lt;/p&gt;&lt;p&gt;Nota che ogni colore di primo piano o di sfondo può essere impostato o non impostato, non impostato significa che non è assegnato per quello di quell&apos;elemento possono essere applicati articoli di tipo e priorità inferiore.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2287"/>
+        <location filename="../Configuration.ui" line="2294"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to indicate new DXCC entities, grid squares, and callsigns per mode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Selezionare per indicare nuove entità DXCC, quadrati della griglia e nominativi per modalità.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2290"/>
+        <location filename="../Configuration.ui" line="2297"/>
         <source>Highlight by Mode</source>
         <translation>Evidenzia per modalità</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2297"/>
+        <location filename="../Configuration.ui" line="2304"/>
         <source>Include extra WAE entities</source>
         <translation>Includi entità WAE extra</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2304"/>
+        <location filename="../Configuration.ui" line="2311"/>
         <source>Check to for grid highlighting to only apply to unworked grid fields</source>
         <translation>Verificare che l&apos;evidenziazione della griglia si applichi solo ai campi della griglia non lavorati</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2307"/>
+        <location filename="../Configuration.ui" line="2314"/>
         <source>Only grid Fields sought</source>
         <translation>Sono stati cercati solo i campi della griglia</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2317"/>
+        <location filename="../Configuration.ui" line="2324"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Controls for Logbook of the World user lookup.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Controlli per la ricerca degli utenti di Logbook of the World.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2320"/>
+        <location filename="../Configuration.ui" line="2327"/>
         <source>Logbook of the World User Validation</source>
         <translation>Convalida dell&apos;utente Logbook of the World</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2326"/>
+        <location filename="../Configuration.ui" line="2333"/>
         <source>Users CSV file URL:</source>
         <translation>URL del file CSV degli utenti:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2338"/>
+        <location filename="../Configuration.ui" line="2345"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;URL of the ARRL LotW user&apos;s last upload dates and times data file which is used to highlight decodes from stations that are known to upload their log file to LotW.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;URL del file di dati e date dell&apos;ultimo caricamento dell&apos;utente ARRL LotW utilizzato per evidenziare i decodificatori dalle stazioni note per caricare il loro file di registro su LotW.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2341"/>
+        <location filename="../Configuration.ui" line="2348"/>
         <source>https://lotw.arrl.org/lotw-user-activity.csv</source>
         <translation>https://lotw.arrl.org/lotw-user-activity.csv</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2348"/>
+        <location filename="../Configuration.ui" line="2355"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Push this button to fetch the latest LotW user&apos;s upload date and time data file.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Premere questo pulsante per recuperare l&apos;ultimo file di dati di data e ora di caricamento dell&apos;utente LotW.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2351"/>
+        <location filename="../Configuration.ui" line="2358"/>
         <source>Fetch Now</source>
         <translation>Scarica ora</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2360"/>
+        <location filename="../Configuration.ui" line="2367"/>
         <source>Age of last upload less than:</source>
         <translation>Periodo dell&apos;ultimo caricamento inferiore a:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2370"/>
+        <location filename="../Configuration.ui" line="2377"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Adjust this spin box to set the age threshold of LotW user&apos;s last upload date that is accepted as a current LotW user.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Regola questa casella di selezione per impostare la soglia del periodo dell&apos;ultima data di caricamento dell&apos;utente di LotW accettata come utente corrente di LotW.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2373"/>
+        <location filename="../Configuration.ui" line="2380"/>
         <source> days</source>
         <translation> giorni</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2419"/>
+        <location filename="../Configuration.ui" line="2426"/>
         <source>Advanced</source>
         <translation>Avanzato</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2425"/>
+        <location filename="../Configuration.ui" line="2432"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;User-selectable parameters for JT65 VHF/UHF/Microwave decoding.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Parametri selezionabili dall&apos;utente per la decodifica JT65 VHF/UHF/Microonde.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2428"/>
+        <location filename="../Configuration.ui" line="2435"/>
         <source>JT65 VHF/UHF/Microwave decoding parameters</source>
         <translation>JT65 Parametri di decodifica VHF/UHF/Microonde</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2434"/>
+        <location filename="../Configuration.ui" line="2441"/>
         <source>Random erasure patterns:</source>
         <translation>Schemi di cancellazione casuali:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2444"/>
+        <location filename="../Configuration.ui" line="2451"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Maximum number of erasure patterns for stochastic soft-decision Reed Solomon decoder is 10^(n/2).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Il numero massimo di schemi di cancellazione per il decodificatore stocastico Reed Solomon a decisione morbida è 10^(n/2)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2460"/>
+        <location filename="../Configuration.ui" line="2467"/>
         <source>Aggressive decoding level:</source>
         <translation>Livello di decodifica aggressivo:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2470"/>
+        <location filename="../Configuration.ui" line="2477"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Higher levels will increase the probability of decoding, but will also increase probability of a false decode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Livelli più alti aumenteranno la probabilità di decodifica, ma aumenteranno anche la probabilità di una decodifica falsa.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2480"/>
+        <location filename="../Configuration.ui" line="2487"/>
         <source>Two-pass decoding</source>
         <translation>Decodifica a due passaggi</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2493"/>
+        <location filename="../Configuration.ui" line="2500"/>
         <source>Special operating activity:  Generation of FT4, FT8, and MSK144 messages</source>
         <translation>Attività operativa speciale: Generazione di messaggi FT4, FT8 e MSK144</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2505"/>
+        <location filename="../Configuration.ui" line="2512"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;FT8 DXpedition mode:  Hound operator calling the DX.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translatorcomment>(Hound=Cane da caccia)</translatorcomment>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;FT8 DXpedition mode: operator Hound chiama il DX.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2508"/>
+        <location filename="../Configuration.ui" line="2515"/>
         <source>Hound</source>
         <translation>Hound (Cane da caccia)</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2527"/>
+        <location filename="../Configuration.ui" line="2534"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;North American VHF/UHF/Microwave contests and others in which a 4-character grid locator is the required exchange.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Contests Nordamericani VHF/UHF/Microonde e altri in cui un localizzatore di griglia a 4 caratteri è lo scambio richiesto.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2530"/>
+        <location filename="../Configuration.ui" line="2537"/>
         <source>NA VHF Contest</source>
         <translation>NA VHF Contest</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2540"/>
+        <location filename="../Configuration.ui" line="2547"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;FT8 DXpedition mode:  Fox (DXpedition) operator.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Modalità FT8 DXpedition: operatore Fox (DXpedition).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2543"/>
+        <location filename="../Configuration.ui" line="2550"/>
         <source>Fox</source>
         <translatorcomment>(Fox=Volpe)</translatorcomment>
         <translation>Fox</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2562"/>
+        <location filename="../Configuration.ui" line="2569"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;European VHF+ contests requiring a signal report, serial number, and 6-character locator.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Contest VHF + Europei che richiedono un rapporto segnale, numero di serie e localizzatore a 6 caratteri.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2565"/>
+        <location filename="../Configuration.ui" line="2572"/>
         <source>EU VHF Contest</source>
         <translation>EU VHF Contest</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2590"/>
-        <location filename="../Configuration.ui" line="2634"/>
+        <location filename="../Configuration.ui" line="2597"/>
+        <location filename="../Configuration.ui" line="2641"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;ARRL RTTY Roundup and similar contests.  Exchange is US state, Canadian province, or &amp;quot;DX&amp;quot;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;ARRL RTTY Roundup e contests simili. Lo scambio è stato USA, provincia Canadese o &amp;quot;DX&amp;quot;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2593"/>
+        <location filename="../Configuration.ui" line="2600"/>
         <source>RTTY Roundup messages</source>
         <translation>Messaggi Roundup RTTY</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2618"/>
+        <location filename="../Configuration.ui" line="2625"/>
         <source>RTTY RU Exch:</source>
         <translation>Scambio RTTY RU:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2637"/>
+        <location filename="../Configuration.ui" line="2644"/>
         <source>NJ</source>
         <translation>NJ</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2653"/>
-        <location filename="../Configuration.ui" line="2697"/>
+        <location filename="../Configuration.ui" line="2660"/>
+        <location filename="../Configuration.ui" line="2704"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;ARRL Field Day exchange: number of transmitters, Class, and ARRL/RAC section or &amp;quot;DX&amp;quot;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Scambio di Field Day ARRL: numero di trasmettitori, classe e sezione ARRL / RAC o&amp;quot;DX&amp;quot;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2656"/>
+        <location filename="../Configuration.ui" line="2663"/>
         <source>ARRL Field Day</source>
         <translation>ARRL Field Day</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2681"/>
+        <location filename="../Configuration.ui" line="2688"/>
         <source>FD Exch:</source>
         <translation>Scambio FD:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2700"/>
+        <location filename="../Configuration.ui" line="2707"/>
         <source>6A SNJ</source>
         <translation>6A SNJ</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2720"/>
+        <location filename="../Configuration.ui" line="2727"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;World-Wide Digi-mode contest&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Contest Digi-Mode mondiale&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2723"/>
+        <location filename="../Configuration.ui" line="2730"/>
         <source>WW Digi Contest</source>
         <translation>WW Digi Contest</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2736"/>
+        <location filename="../Configuration.ui" line="2743"/>
         <source>Miscellaneous</source>
         <translation>Miscellanea</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2742"/>
+        <location filename="../Configuration.ui" line="2749"/>
         <source>Degrade S/N of .wav file: </source>
         <translation>Degrada S/N del file .wav:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2752"/>
-        <location filename="../Configuration.ui" line="2778"/>
+        <location filename="../Configuration.ui" line="2759"/>
+        <location filename="../Configuration.ui" line="2785"/>
         <source>For offline sensitivity tests</source>
         <translation>Per test di sensibilità offline</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2755"/>
+        <location filename="../Configuration.ui" line="2762"/>
         <source> dB</source>
         <translation>dB</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2768"/>
+        <location filename="../Configuration.ui" line="2775"/>
         <source>Receiver bandwidth:</source>
         <translation>Larghezza di banda ricevitore:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2781"/>
+        <location filename="../Configuration.ui" line="2788"/>
         <source>  Hz</source>
         <translation>  Hz</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2797"/>
+        <location filename="../Configuration.ui" line="2804"/>
         <source>Tx delay:</source>
         <translation>Ritardo Tx:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2807"/>
+        <location filename="../Configuration.ui" line="2814"/>
         <source>Minimum delay between assertion of PTT and start of Tx audio.</source>
         <translation>Ritardo minimo tra l&apos;asserzione del PTT e l&apos;avvio dell&apos;audio Tx.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2810"/>
+        <location filename="../Configuration.ui" line="2817"/>
         <source>  s</source>
         <translation>..s</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2835"/>
+        <location filename="../Configuration.ui" line="2842"/>
         <source>Tone spacing</source>
         <translation>Spaziatura dei toni</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2841"/>
+        <location filename="../Configuration.ui" line="2848"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Generate Tx audio with twice the normal tone spacing.  Intended for special LF/MF transmitters that use a divide-by-2 before generating RF.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Genera audio Tx con una spaziatura del doppio del tono normale. Destinato a trasmettitori speciali LF / MF che utilizzano un divisore per 2 prima di generare RF.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2844"/>
+        <location filename="../Configuration.ui" line="2851"/>
         <source>x 2</source>
         <translation>x 2</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2854"/>
+        <location filename="../Configuration.ui" line="2861"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Generate Tx audio with four times the normal tone spacing. Intended for special LF/MF transmitters that use a divide-by-4 before generating RF.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Genera audio Tx con una spaziatura dei toni quattro volte superiore. Destinato a trasmettitori speciali LF / MF che utilizzano un divisore per 4 prima di generare RF.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2857"/>
+        <location filename="../Configuration.ui" line="2864"/>
         <source>x 4 </source>
         <translation>x 4 </translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2873"/>
+        <location filename="../Configuration.ui" line="2880"/>
         <source>Waterfall spectra</source>
         <translation>Spettro Display a cascata</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2879"/>
+        <location filename="../Configuration.ui" line="2886"/>
         <source>Low sidelobes</source>
         <translation>Lobi laterali bassi</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2889"/>
+        <location filename="../Configuration.ui" line="2896"/>
         <source>Most sensitive</source>
         <translation>Più sensibile</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2919"/>
+        <location filename="../Configuration.ui" line="2926"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Discard (Cancel) or apply (OK) configuration changes including&lt;/p&gt;&lt;p&gt;resetting the radio interface and applying any soundcard changes&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Annulla (Annulla) o applica (OK) le modifiche alla configurazione incluso&lt;/p&gt;&lt;p&gt;ripristinando l&apos;interfaccia radio e applicando eventuali modifiche alla scheda audio&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
@@ -6363,16 +6558,12 @@ Fare clic con il tasto destro per inserire ed eliminare le opzioni.</translation
 <context>
     <name>main</name>
     <message>
-        <location filename="../main.cpp" line="85"/>
-        <location filename="../main.cpp" line="414"/>
         <source>Fatal error</source>
-        <translation>Errore fatale</translation>
+        <translation type="vanished">Errore fatale</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="90"/>
-        <location filename="../main.cpp" line="419"/>
         <source>Unexpected fatal error</source>
-        <translation>Errore fatale inatteso</translation>
+        <translation type="vanished">Errore fatale inatteso</translation>
     </message>
     <message>
         <location filename="../main.cpp" line="225"/>
@@ -6416,14 +6607,24 @@ Fare clic con il tasto destro per inserire ed eliminare le opzioni.</translation
         <translation>percorso: &quot;%1&quot;</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="359"/>
+        <location filename="../main.cpp" line="379"/>
         <source>Shared memory error</source>
         <translation>Errore di memoria condivisa</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="360"/>
+        <location filename="../main.cpp" line="380"/>
         <source>Unable to create shared memory segment</source>
         <translation>Impossibile creare il segmento di memoria condivisa</translation>
+    </message>
+    <message>
+        <location filename="../main.cpp" line="387"/>
+        <source>Sub-process error</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../main.cpp" line="388"/>
+        <source>Failed to close orphaned jt9 process</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
