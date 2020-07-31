@@ -1,14 +1,12 @@
-subroutine symspec(shared_data,k,ntrperiod,nsps,ingain,bLowSidelobes,    &
-     nminw,pxdb,s,df3,ihsym,npts8,pxdbmax)
+subroutine symspec(shared_data,k,TRperiod,nsps,ingain,bLowSidelobes,    &
+     nminw,pxdb,s,df3,ihsym,npts8,pxdbmax,npct)
 
 ! Input:
 !  k              pointer to the most recent new data
-!  ntrperiod      T/R sequence length, minutes
+!  TRperiod       T/R sequence length, seconds
 !  nsps           samples per symbol, at 12000 Hz
 !  bLowSidelobes  true to use windowed FFTs
 !  ndiskdat       0/1 to indicate if data from disk
-!  nb             0/1 status of noise blanker (off/on)
-!  nbslider       NB setting, 0-100
 
 ! Output:
 !  pxdb      raw power (0-90 dB)
@@ -23,6 +21,7 @@ subroutine symspec(shared_data,k,ntrperiod,nsps,ingain,bLowSidelobes,    &
   include 'jt9com.f90'
 
   type(dec_data) :: shared_data
+  real*8 TRperiod
   real*4 w3(MAXFFT3)
   real*4 s(NSMAX)
   real*4 ssum(NSMAX)
@@ -38,7 +37,7 @@ subroutine symspec(shared_data,k,ntrperiod,nsps,ingain,bLowSidelobes,    &
   equivalence (xc,cx)
   save
 
-  if(ntrperiod.eq.-999) stop                   !Silence compiler warning
+  if(TRperiod.lt.0.d0) stop                    !Silence compiler warning
   nfft3=16384                                  !df=12000.0/16384 = 0.732422
   jstep=nsps/2                                 !Step size = half-symbol in id2()
   if(k.gt.NMAX) go to 900
@@ -64,6 +63,11 @@ subroutine symspec(shared_data,k,ntrperiod,nsps,ingain,bLowSidelobes,    &
   gain=10.0**(0.1*ingain)
   sq=0.
   pxmax=0.;
+
+!  dwell_time=0.0001
+!  if(k.gt.k0 .and. npct.gt.0) call blanker(shared_data%id2(k0+1:k),  &
+!       k-k0,dwell_time,npct)
+
   do i=k0+1,k
      x1=shared_data%id2(i)
      if (abs(x1).gt.pxmax) pxmax = abs(x1);

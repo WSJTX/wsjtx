@@ -554,450 +554,7 @@
     </item>
     <item>
      <layout class="QGridLayout" name="gridLayout_5" columnstretch="0,0,0,0,0">
-      <item row="0" column="2">
-       <widget class="QLabel" name="labDialFreq">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="toolTip">
-         <string>USB dial frequency</string>
-        </property>
-        <property name="styleSheet">
-         <string notr="true">QLabel {
-  font-family: MS Shell Dlg 2;
-  font-size: 16pt;
-   color : yellow;
-   background-color : black;
-}
-QLabel[oob=&quot;true&quot;] {
-  background-color: red;
-}
-</string>
-        </property>
-        <property name="text">
-         <string>14.078 000</string>
-        </property>
-        <property name="alignment">
-         <set>Qt::AlignCenter</set>
-        </property>
-        <property name="margin">
-         <number>5</number>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="0" rowspan="2">
-       <widget class="SignalMeter" name="signal_meter_widget">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="MinimumExpanding" vsizetype="MinimumExpanding">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="maximumSize">
-         <size>
-          <width>100</width>
-          <height>16777215</height>
-         </size>
-        </property>
-        <property name="toolTip">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;30dB recommended when only noise present&lt;br/&gt;Green when good&lt;br/&gt;Red when clipping may occur&lt;br/&gt;Yellow when too low&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-        </property>
-        <property name="accessibleName">
-         <string>Rx Signal</string>
-        </property>
-        <property name="accessibleDescription">
-         <string>30dB recommended when only noise present
-Green when good
-Red when clipping may occur
-Yellow when too low</string>
-        </property>
-        <property name="frameShape">
-         <enum>QFrame::Panel</enum>
-        </property>
-        <property name="frameShadow">
-         <enum>QFrame::Sunken</enum>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="2">
-       <widget class="QWidget" name="DX_controls_widget" native="true">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <layout class="QGridLayout" name="gridLayout_2">
-         <property name="leftMargin">
-          <number>0</number>
-         </property>
-         <property name="topMargin">
-          <number>0</number>
-         </property>
-         <property name="rightMargin">
-          <number>0</number>
-         </property>
-         <property name="bottomMargin">
-          <number>0</number>
-         </property>
-         <item row="0" column="0">
-          <widget class="QLabel" name="label_3">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="palette">
-            <palette>
-             <active>
-              <colorrole role="Base">
-               <brush brushstyle="SolidPattern">
-                <color alpha="255">
-                 <red>252</red>
-                 <green>252</green>
-                 <blue>252</blue>
-                </color>
-               </brush>
-              </colorrole>
-              <colorrole role="Window">
-               <brush brushstyle="SolidPattern">
-                <color alpha="255">
-                 <red>159</red>
-                 <green>175</green>
-                 <blue>213</blue>
-                </color>
-               </brush>
-              </colorrole>
-             </active>
-             <inactive>
-              <colorrole role="Base">
-               <brush brushstyle="SolidPattern">
-                <color alpha="255">
-                 <red>252</red>
-                 <green>252</green>
-                 <blue>252</blue>
-                </color>
-               </brush>
-              </colorrole>
-              <colorrole role="Window">
-               <brush brushstyle="SolidPattern">
-                <color alpha="255">
-                 <red>159</red>
-                 <green>175</green>
-                 <blue>213</blue>
-                </color>
-               </brush>
-              </colorrole>
-             </inactive>
-             <disabled>
-              <colorrole role="Base">
-               <brush brushstyle="SolidPattern">
-                <color alpha="255">
-                 <red>159</red>
-                 <green>175</green>
-                 <blue>213</blue>
-                </color>
-               </brush>
-              </colorrole>
-              <colorrole role="Window">
-               <brush brushstyle="SolidPattern">
-                <color alpha="255">
-                 <red>159</red>
-                 <green>175</green>
-                 <blue>213</blue>
-                </color>
-               </brush>
-              </colorrole>
-             </disabled>
-            </palette>
-           </property>
-           <property name="autoFillBackground">
-            <bool>true</bool>
-           </property>
-           <property name="text">
-            <string>DX Call</string>
-           </property>
-           <property name="alignment">
-            <set>Qt::AlignCenter</set>
-           </property>
-           <property name="margin">
-            <number>5</number>
-           </property>
-           <property name="indent">
-            <number>2</number>
-           </property>
-           <property name="buddy">
-            <cstring>dxCallEntry</cstring>
-           </property>
-          </widget>
-         </item>
-         <item row="0" column="1">
-          <widget class="QLabel" name="label_4">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="palette">
-            <palette>
-             <active>
-              <colorrole role="Base">
-               <brush brushstyle="SolidPattern">
-                <color alpha="255">
-                 <red>252</red>
-                 <green>252</green>
-                 <blue>252</blue>
-                </color>
-               </brush>
-              </colorrole>
-              <colorrole role="Window">
-               <brush brushstyle="SolidPattern">
-                <color alpha="255">
-                 <red>159</red>
-                 <green>175</green>
-                 <blue>213</blue>
-                </color>
-               </brush>
-              </colorrole>
-             </active>
-             <inactive>
-              <colorrole role="Base">
-               <brush brushstyle="SolidPattern">
-                <color alpha="255">
-                 <red>252</red>
-                 <green>252</green>
-                 <blue>252</blue>
-                </color>
-               </brush>
-              </colorrole>
-              <colorrole role="Window">
-               <brush brushstyle="SolidPattern">
-                <color alpha="255">
-                 <red>159</red>
-                 <green>175</green>
-                 <blue>213</blue>
-                </color>
-               </brush>
-              </colorrole>
-             </inactive>
-             <disabled>
-              <colorrole role="Base">
-               <brush brushstyle="SolidPattern">
-                <color alpha="255">
-                 <red>159</red>
-                 <green>175</green>
-                 <blue>213</blue>
-                </color>
-               </brush>
-              </colorrole>
-              <colorrole role="Window">
-               <brush brushstyle="SolidPattern">
-                <color alpha="255">
-                 <red>159</red>
-                 <green>175</green>
-                 <blue>213</blue>
-                </color>
-               </brush>
-              </colorrole>
-             </disabled>
-            </palette>
-           </property>
-           <property name="autoFillBackground">
-            <bool>true</bool>
-           </property>
-           <property name="text">
-            <string>DX Grid</string>
-           </property>
-           <property name="alignment">
-            <set>Qt::AlignCenter</set>
-           </property>
-           <property name="margin">
-            <number>5</number>
-           </property>
-           <property name="indent">
-            <number>2</number>
-           </property>
-           <property name="buddy">
-            <cstring>dxGridEntry</cstring>
-           </property>
-          </widget>
-         </item>
-         <item row="1" column="0">
-          <widget class="QLineEdit" name="dxCallEntry">
-           <property name="toolTip">
-            <string>Callsign of station to be worked</string>
-           </property>
-           <property name="text">
-            <string/>
-           </property>
-           <property name="alignment">
-            <set>Qt::AlignCenter</set>
-           </property>
-          </widget>
-         </item>
-         <item row="3" column="0">
-          <widget class="QPushButton" name="lookupButton">
-           <property name="toolTip">
-            <string>Search for callsign in database</string>
-           </property>
-           <property name="text">
-            <string>&amp;Lookup</string>
-           </property>
-          </widget>
-         </item>
-         <item row="1" column="1">
-          <widget class="QLineEdit" name="dxGridEntry">
-           <property name="toolTip">
-            <string>Locator of station to be worked</string>
-           </property>
-           <property name="text">
-            <string/>
-           </property>
-           <property name="alignment">
-            <set>Qt::AlignCenter</set>
-           </property>
-          </widget>
-         </item>
-         <item row="2" column="0" colspan="2">
-          <widget class="QLabel" name="labAz">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="autoFillBackground">
-            <bool>true</bool>
-           </property>
-           <property name="text">
-            <string>Az: 251     16553 km</string>
-           </property>
-           <property name="alignment">
-            <set>Qt::AlignCenter</set>
-           </property>
-           <property name="indent">
-            <number>4</number>
-           </property>
-          </widget>
-         </item>
-         <item row="3" column="1">
-          <widget class="QPushButton" name="addButton">
-           <property name="toolTip">
-            <string>Add callsign and locator to database</string>
-           </property>
-           <property name="text">
-            <string>Add</string>
-           </property>
-          </widget>
-         </item>
-        </layout>
-       </widget>
-      </item>
-      <item row="0" column="4">
-       <widget class="QLabel" name="label">
-        <property name="text">
-         <string> Pwr</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="1" alignment="Qt::AlignHCenter|Qt::AlignVCenter">
-       <widget class="QPushButton" name="readFreq">
-        <property name="enabled">
-         <bool>false</bool>
-        </property>
-        <property name="toolTip">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;If orange or red there has been a rig control failure, click to reset and read the dial frequency.  S implies split mode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-        </property>
-        <property name="accessibleDescription">
-         <string>If orange or red there has been a rig control failure, click to reset and read the dial frequency. S implies split mode.</string>
-        </property>
-        <property name="styleSheet">
-         <string notr="true">QPushButton {
- font-family: helvetica;
- font-size: 9pt;
- font-weight: bold;
- background-color: white;
- color: black;
- border-style: solid;
- border-width:1px;
- border-radius:10px;
- border-color: gray;
- max-width:20px;
- max-height:20px;
- min-width:20px;
- min-height:20px;
-}
-QPushButton[state=&quot;error&quot;] {
- background-color: red;
-}
-QPushButton[state=&quot;warning&quot;] {
- background-color: orange;
-}
-QPushButton[state=&quot;ok&quot;] {
- background-color: #00ff00;
-}</string>
-        </property>
-        <property name="text">
-         <string>?</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="4" rowspan="2">
-       <widget class="QSlider" name="outAttenuation">
-        <property name="toolTip">
-         <string>Adjust Tx audio level</string>
-        </property>
-        <property name="maximum">
-         <number>450</number>
-        </property>
-        <property name="value">
-         <number>0</number>
-        </property>
-        <property name="orientation">
-         <enum>Qt::Vertical</enum>
-        </property>
-        <property name="invertedAppearance">
-         <bool>true</bool>
-        </property>
-        <property name="invertedControls">
-         <bool>true</bool>
-        </property>
-        <property name="tickPosition">
-         <enum>QSlider::TicksBelow</enum>
-        </property>
-        <property name="tickInterval">
-         <number>50</number>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="0">
-       <widget class="QComboBox" name="bandComboBox">
-        <property name="toolTip">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Select operating band or enter frequency in MHz or enter kHz increment followed by k.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-        </property>
-        <property name="accessibleName">
-         <string>Frequency entry</string>
-        </property>
-        <property name="accessibleDescription">
-         <string>Select operating band or enter frequency in MHz or enter kHz increment followed by k.</string>
-        </property>
-        <property name="editable">
-         <bool>true</bool>
-        </property>
-        <property name="insertPolicy">
-         <enum>QComboBox::NoInsert</enum>
-        </property>
-        <property name="sizeAdjustPolicy">
-         <enum>QComboBox::AdjustToMinimumContentsLength</enum>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="2">
+      <item row="3" column="2">
        <widget class="QLabel" name="labUTC">
         <property name="sizePolicy">
          <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
@@ -1036,7 +593,7 @@ QPushButton[state=&quot;ok&quot;] {
         </property>
        </widget>
       </item>
-      <item row="0" column="3" rowspan="3">
+      <item row="0" column="3" rowspan="4">
        <widget class="QStackedWidget" name="controls_stack_widget">
         <property name="currentIndex">
          <number>0</number>
@@ -1495,7 +1052,7 @@ When not checked you can view the calibration results.</string>
                   <number>5</number>
                  </property>
                  <property name="maximum">
-                  <number>30</number>
+                  <number>1800</number>
                  </property>
                  <property name="value">
                   <number>30</number>
@@ -2564,7 +2121,7 @@ list. The list can be maintained in Settings (F2).</string>
                        <number>1400</number>
                       </property>
                       <property name="maximum">
-                       <number>1700</number>
+                       <number>1600</number>
                       </property>
                       <property name="value">
                        <number>1500</number>
@@ -2591,6 +2148,25 @@ list. The list can be maintained in Settings (F2).</string>
                      </widget>
                     </item>
                     <item>
+                     <widget class="RestrictedSpinBox" name="sbTR_FST4W">
+                      <property name="alignment">
+                       <set>Qt::AlignCenter</set>
+                      </property>
+                      <property name="suffix">
+                       <string>  s</string>
+                      </property>
+                      <property name="prefix">
+                       <string>T/R  </string>
+                      </property>
+                      <property name="minimum">
+                       <number>15</number>
+                      </property>
+                      <property name="maximum">
+                       <number>1800</number>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
                      <widget class="QGroupBox" name="band_hopping_group_box">
                       <property name="title">
                        <string>Band Hopping</string>
@@ -2610,6 +2186,121 @@ list. The list can be maintained in Settings (F2).</string>
                         </widget>
                        </item>
                       </layout>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QComboBox" name="RoundRobin">
+                      <property name="editable">
+                       <bool>true</bool>
+                      </property>
+                      <property name="currentIndex">
+                       <number>0</number>
+                      </property>
+                      <item>
+                       <property name="text">
+                        <string>Random</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>1/2</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>2/2</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>1/3</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>2/3</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>3/3</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>1/4</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>2/4</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>3/4</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>4/4</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>1/5</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>2/5</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>3/5</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>4/5</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>5/5</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>1/6</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>2/6</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>3/6</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>4/6</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>5/6</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>6/6</string>
+                       </property>
+                      </item>
                      </widget>
                     </item>
                    </layout>
@@ -2641,7 +2332,7 @@ list. The list can be maintained in Settings (F2).</string>
                          <string>6 digit locators cause 2 different messages to be sent, the second contains the full locator but only a hashed callsign, other stations must have decoded the first once before they can decode your call in the second. Check this option to only send 4 digit locators if it will avoid the two message protocol.</string>
                         </property>
                         <property name="text">
-                         <string>Prefer type 1 messages</string>
+                         <string>Prefer Type 1 messages</string>
                         </property>
                         <property name="checked">
                          <bool>true</bool>
@@ -2749,6 +2440,465 @@ list. The list can be maintained in Settings (F2).</string>
         </widget>
        </widget>
       </item>
+      <item row="0" column="4">
+       <widget class="QLabel" name="label">
+        <property name="text">
+         <string> Pwr</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="2">
+       <widget class="QWidget" name="DX_controls_widget" native="true">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <layout class="QGridLayout" name="gridLayout_2">
+         <property name="leftMargin">
+          <number>0</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="rightMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item row="1" column="0">
+          <widget class="QLabel" name="label_3">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="palette">
+            <palette>
+             <active>
+              <colorrole role="Base">
+               <brush brushstyle="SolidPattern">
+                <color alpha="255">
+                 <red>252</red>
+                 <green>252</green>
+                 <blue>252</blue>
+                </color>
+               </brush>
+              </colorrole>
+              <colorrole role="Window">
+               <brush brushstyle="SolidPattern">
+                <color alpha="255">
+                 <red>159</red>
+                 <green>175</green>
+                 <blue>213</blue>
+                </color>
+               </brush>
+              </colorrole>
+             </active>
+             <inactive>
+              <colorrole role="Base">
+               <brush brushstyle="SolidPattern">
+                <color alpha="255">
+                 <red>252</red>
+                 <green>252</green>
+                 <blue>252</blue>
+                </color>
+               </brush>
+              </colorrole>
+              <colorrole role="Window">
+               <brush brushstyle="SolidPattern">
+                <color alpha="255">
+                 <red>159</red>
+                 <green>175</green>
+                 <blue>213</blue>
+                </color>
+               </brush>
+              </colorrole>
+             </inactive>
+             <disabled>
+              <colorrole role="Base">
+               <brush brushstyle="SolidPattern">
+                <color alpha="255">
+                 <red>159</red>
+                 <green>175</green>
+                 <blue>213</blue>
+                </color>
+               </brush>
+              </colorrole>
+              <colorrole role="Window">
+               <brush brushstyle="SolidPattern">
+                <color alpha="255">
+                 <red>159</red>
+                 <green>175</green>
+                 <blue>213</blue>
+                </color>
+               </brush>
+              </colorrole>
+             </disabled>
+            </palette>
+           </property>
+           <property name="autoFillBackground">
+            <bool>true</bool>
+           </property>
+           <property name="text">
+            <string>DX Call</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
+           </property>
+           <property name="margin">
+            <number>5</number>
+           </property>
+           <property name="indent">
+            <number>2</number>
+           </property>
+           <property name="buddy">
+            <cstring>dxCallEntry</cstring>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="0" colspan="2">
+          <widget class="QLabel" name="labAz">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="autoFillBackground">
+            <bool>true</bool>
+           </property>
+           <property name="text">
+            <string>Az: 251     16553 km</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
+           </property>
+           <property name="indent">
+            <number>4</number>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="0">
+          <widget class="QLineEdit" name="dxCallEntry">
+           <property name="toolTip">
+            <string>Callsign of station to be worked</string>
+           </property>
+           <property name="text">
+            <string/>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <widget class="QLabel" name="label_4">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="palette">
+            <palette>
+             <active>
+              <colorrole role="Base">
+               <brush brushstyle="SolidPattern">
+                <color alpha="255">
+                 <red>252</red>
+                 <green>252</green>
+                 <blue>252</blue>
+                </color>
+               </brush>
+              </colorrole>
+              <colorrole role="Window">
+               <brush brushstyle="SolidPattern">
+                <color alpha="255">
+                 <red>159</red>
+                 <green>175</green>
+                 <blue>213</blue>
+                </color>
+               </brush>
+              </colorrole>
+             </active>
+             <inactive>
+              <colorrole role="Base">
+               <brush brushstyle="SolidPattern">
+                <color alpha="255">
+                 <red>252</red>
+                 <green>252</green>
+                 <blue>252</blue>
+                </color>
+               </brush>
+              </colorrole>
+              <colorrole role="Window">
+               <brush brushstyle="SolidPattern">
+                <color alpha="255">
+                 <red>159</red>
+                 <green>175</green>
+                 <blue>213</blue>
+                </color>
+               </brush>
+              </colorrole>
+             </inactive>
+             <disabled>
+              <colorrole role="Base">
+               <brush brushstyle="SolidPattern">
+                <color alpha="255">
+                 <red>159</red>
+                 <green>175</green>
+                 <blue>213</blue>
+                </color>
+               </brush>
+              </colorrole>
+              <colorrole role="Window">
+               <brush brushstyle="SolidPattern">
+                <color alpha="255">
+                 <red>159</red>
+                 <green>175</green>
+                 <blue>213</blue>
+                </color>
+               </brush>
+              </colorrole>
+             </disabled>
+            </palette>
+           </property>
+           <property name="autoFillBackground">
+            <bool>true</bool>
+           </property>
+           <property name="text">
+            <string>DX Grid</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
+           </property>
+           <property name="margin">
+            <number>5</number>
+           </property>
+           <property name="indent">
+            <number>2</number>
+           </property>
+           <property name="buddy">
+            <cstring>dxGridEntry</cstring>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="0">
+          <widget class="QPushButton" name="lookupButton">
+           <property name="toolTip">
+            <string>Search for callsign in database</string>
+           </property>
+           <property name="text">
+            <string>&amp;Lookup</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="1">
+          <widget class="QLineEdit" name="dxGridEntry">
+           <property name="toolTip">
+            <string>Locator of station to be worked</string>
+           </property>
+           <property name="text">
+            <string/>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="1">
+          <widget class="QPushButton" name="addButton">
+           <property name="toolTip">
+            <string>Add callsign and locator to database</string>
+           </property>
+           <property name="text">
+            <string>Add</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item row="0" column="0">
+       <widget class="QComboBox" name="bandComboBox">
+        <property name="toolTip">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Select operating band or enter frequency in MHz or enter kHz increment followed by k.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="accessibleName">
+         <string>Frequency entry</string>
+        </property>
+        <property name="accessibleDescription">
+         <string>Select operating band or enter frequency in MHz or enter kHz increment followed by k.</string>
+        </property>
+        <property name="editable">
+         <bool>true</bool>
+        </property>
+        <property name="insertPolicy">
+         <enum>QComboBox::NoInsert</enum>
+        </property>
+        <property name="sizeAdjustPolicy">
+         <enum>QComboBox::AdjustToMinimumContentsLength</enum>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1" alignment="Qt::AlignHCenter|Qt::AlignVCenter">
+       <widget class="QPushButton" name="readFreq">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
+        <property name="toolTip">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;If orange or red there has been a rig control failure, click to reset and read the dial frequency.  S implies split mode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="accessibleDescription">
+         <string>If orange or red there has been a rig control failure, click to reset and read the dial frequency. S implies split mode.</string>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">QPushButton {
+ font-family: helvetica;
+ font-size: 9pt;
+ font-weight: bold;
+ background-color: white;
+ color: black;
+ border-style: solid;
+ border-width:1px;
+ border-radius:10px;
+ border-color: gray;
+ max-width:20px;
+ max-height:20px;
+ min-width:20px;
+ min-height:20px;
+}
+QPushButton[state=&quot;error&quot;] {
+ background-color: red;
+}
+QPushButton[state=&quot;warning&quot;] {
+ background-color: orange;
+}
+QPushButton[state=&quot;ok&quot;] {
+ background-color: #00ff00;
+}</string>
+        </property>
+        <property name="text">
+         <string>?</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="4" rowspan="2">
+       <widget class="QSlider" name="outAttenuation">
+        <property name="toolTip">
+         <string>Adjust Tx audio level</string>
+        </property>
+        <property name="maximum">
+         <number>450</number>
+        </property>
+        <property name="value">
+         <number>0</number>
+        </property>
+        <property name="orientation">
+         <enum>Qt::Vertical</enum>
+        </property>
+        <property name="invertedAppearance">
+         <bool>true</bool>
+        </property>
+        <property name="invertedControls">
+         <bool>true</bool>
+        </property>
+        <property name="tickPosition">
+         <enum>QSlider::TicksBelow</enum>
+        </property>
+        <property name="tickInterval">
+         <number>50</number>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0" rowspan="2">
+       <widget class="SignalMeter" name="signal_meter_widget">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="MinimumExpanding" vsizetype="MinimumExpanding">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>100</width>
+          <height>16777215</height>
+         </size>
+        </property>
+        <property name="toolTip">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;30dB recommended when only noise present&lt;br/&gt;Green when good&lt;br/&gt;Red when clipping may occur&lt;br/&gt;Yellow when too low&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="accessibleName">
+         <string>Rx Signal</string>
+        </property>
+        <property name="accessibleDescription">
+         <string>30dB recommended when only noise present
+Green when good
+Red when clipping may occur
+Yellow when too low</string>
+        </property>
+        <property name="frameShape">
+         <enum>QFrame::Panel</enum>
+        </property>
+        <property name="frameShadow">
+         <enum>QFrame::Sunken</enum>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="2">
+       <widget class="QLabel" name="labDialFreq">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="toolTip">
+         <string>USB dial frequency</string>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">QLabel {
+  font-family: MS Shell Dlg 2;
+  font-size: 16pt;
+   color : yellow;
+   background-color : black;
+}
+QLabel[oob=&quot;true&quot;] {
+  background-color: red;
+}
+</string>
+        </property>
+        <property name="text">
+         <string>14.078 000</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+        <property name="margin">
+         <number>5</number>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QSpinBox" name="sbNB">
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+        <property name="suffix">
+         <string>  %</string>
+        </property>
+        <property name="prefix">
+         <string>NB  </string>
+        </property>
+        <property name="maximum">
+         <number>25</number>
+        </property>
+       </widget>
+      </item>
      </layout>
     </item>
    </layout>
@@ -2842,6 +2992,8 @@ list. The list can be maintained in Settings (F2).</string>
     <property name="title">
      <string>Mode</string>
     </property>
+    <addaction name="actionFST4"/>
+    <addaction name="actionFST4W"/>
     <addaction name="actionFT4"/>
     <addaction name="actionFT8"/>
     <addaction name="actionJT4"/>
@@ -2854,7 +3006,6 @@ list. The list can be maintained in Settings (F2).</string>
     <addaction name="actionMSK144"/>
     <addaction name="separator"/>
     <addaction name="actionWSPR"/>
-    <addaction name="actionWSPR_LF"/>
     <addaction name="separator"/>
     <addaction name="actionEcho"/>
     <addaction name="separator"/>
@@ -3363,23 +3514,6 @@ list. The list can be maintained in Settings (F2).</string>
     <string>Equalization tools ...</string>
    </property>
   </action>
-  <action name="actionWSPR_LF">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="enabled">
-    <bool>false</bool>
-   </property>
-   <property name="text">
-    <string>WSPR-LF</string>
-   </property>
-   <property name="toolTip">
-    <string>Experimental LF/MF mode</string>
-   </property>
-   <property name="visible">
-    <bool>false</bool>
-   </property>
-  </action>
   <action name="actionFT8">
    <property name="checkable">
     <bool>true</bool>
@@ -3474,6 +3608,38 @@ list. The list can be maintained in Settings (F2).</string>
    </property>
    <property name="text">
     <string>FT4</string>
+   </property>
+  </action>
+  <action name="actionFST4">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>FST4</string>
+   </property>
+  </action>
+  <action name="actionFT240W">
+   <property name="text">
+    <string>FT240W</string>
+   </property>
+  </action>
+  <action name="actionFST4W">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>FST4W</string>
+   </property>
+  </action>
+  <action name="actionAlso_FST4W">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="enabled">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Also FST4W</string>
    </property>
   </action>
  </widget>

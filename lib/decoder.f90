@@ -8,6 +8,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   use jt9_decode
   use ft8_decode
   use ft4_decode
+  use fst4_decode
 
   include 'jt9com.f90'
   include 'timer_common.inc'
@@ -32,6 +33,10 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
      integer :: decoded
   end type counting_ft4_decoder
 
+  type, extends(fst4_decoder) :: counting_fst4_decoder
+     integer :: decoded
+  end type counting_fst4_decoder
+
   real ss(184,NSMAX)
   logical baddata,newdat65,newdat9,single_decode,bVHF,bad0,newdat,ex
   integer*2 id2(NTMAX*12000)
@@ -48,6 +53,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   type(counting_jt9_decoder) :: my_jt9
   type(counting_ft8_decoder) :: my_ft8
   type(counting_ft4_decoder) :: my_ft4
+  type(counting_fst4_decoder) :: my_fst4
 
   !cast C character arrays to Fortran character strings
   datetime=transfer(params%datetime, datetime)
@@ -62,6 +68,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   my_jt9%decoded = 0
   my_ft8%decoded = 0
   my_ft4%decoded = 0
+  my_fst4%decoded = 0
   
 ! For testing only: return Rx messages stored in a file as decodes
   inquire(file='rx_messages.txt',exist=ex)
@@ -180,8 +187,37 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
      go to 800
   endif
 
-  rms=sqrt(dot_product(float(id2(300000:310000)),            &
-       float(id2(300000:310000)))/10000.0)
+  if(params%nmode.eq.240) then
+! We're in FST4 mode
+     ndepth=iand(params%ndepth,3)
+     iwspr=0
+     if(iand(params%ndepth,128).ne.0) iwspr=2
+     call timer('dec240  ',0)
+     call my_fst4%decode(fst4_decoded,id2,params%nutc,                &
+          params%nQSOProgress,params%nfqso,params%nfa,params%nfb,         &
+          params%nsubmode,ndepth,params%ntr,params%nexp_decode,           &
+          params%ntol,params%emedelay,                                    &
+          logical(params%lapcqonly),mycall,hiscall,params%nfsplit,iwspr)
+     call timer('dec240  ',1)
+     go to 800
+  endif
+
+    if(params%nmode.eq.241) then
+! We're in FST4W mode
+     ndepth=iand(params%ndepth,3)
+     iwspr=1
+     call timer('dec240  ',0)
+     call my_fst4%decode(fst4_decoded,id2,params%nutc,                &
+          params%nQSOProgress,params%nfqso,params%nfa,params%nfb,         &
+          params%nsubmode,ndepth,params%ntr,params%nexp_decode,           &
+          params%ntol,params%emedelay,                                    &
+          logical(params%lapcqonly),mycall,hiscall,params%nfsplit,iwspr)
+     call timer('dec240  ',1)
+     go to 800
+  endif
+
+  rms=sqrt(dot_product(float(id2(60001:61000)),                         &
+       float(id2(60001:61000)))/1000.0)
   if(rms.lt.2.0) go to 800
 
 ! Zap data at start that might come from T/R switching transient?
@@ -299,7 +335,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
 
 ! JT65 is not yet producing info for nsynced, ndecoded.
 800 ndecoded = my_jt4%decoded + my_jt65%decoded + my_jt9%decoded +       &
-         my_ft8%decoded + my_ft4%decoded
+         my_ft8%decoded + my_ft4%decoded + my_fst4%decoded
   if(params%nmode.eq.8 .and. params%nzhsym.eq.41) ndec41=ndecoded
   if(params%nmode.eq.8 .and. params%nzhsym.eq.47) ndec47=ndecoded
   if(params%nmode.eq.8 .and. params%nzhsym.eq.50) then
@@ -660,4 +696,67 @@ contains
 
     return
   end subroutine ft4_decoded
+
+  subroutine fst4_decoded (this,nutc,sync,nsnr,dt,freq,decoded,nap,   &
+       qual,ntrperiod,lwspr,fmid,w50)
+
+    use fst4_decode
+    implicit none
+
+    class(fst4_decoder), intent(inout) :: this
+    integer, intent(in) :: nutc
+    real, intent(in) :: sync
+    integer, intent(in) :: nsnr
+    real, intent(in) :: dt
+    real, intent(in) :: freq
+    character(len=37), intent(in) :: decoded
+    integer, intent(in) :: nap
+    real, intent(in) :: qual
+    integer, intent(in) :: ntrperiod
+    logical, intent(in) :: lwspr
+    real, intent(in) :: fmid
+    real, intent(in) :: w50
+
+    character*2 annot
+    character*37 decoded0
+    character*70 line
+
+    decoded0=decoded
+    annot='  '
+    if(nap.ne.0) then
+       write(annot,'(a1,i1)') 'a',nap
+       if(qual.lt.0.17) decoded0(37:37)='?'
+    endif
+
+    if(ntrperiod.lt.60) then
+       write(line,1001) nutc,nsnr,dt,nint(freq),decoded0,annot
+1001   format(i6.6,i4,f5.1,i5,' ` ',1x,a37,1x,a2)
+       write(13,1002) nutc,nint(sync),nsnr,dt,freq,0,decoded0
+1002   format(i6.6,i4,i5,f6.1,f8.0,i4,3x,a37,' FST4')
+    else
+       write(line,1003) nutc,nsnr,dt,nint(freq),decoded0,annot
+1003   format(i4.4,i4,f5.1,i5,' ` ',1x,a37,1x,a2,2f7.3)
+       write(13,1004) nutc,nint(sync),nsnr,dt,freq,0,decoded0
+1004   format(i4.4,i4,i5,f6.1,f8.0,i4,3x,a37,' FST4')
+    endif
+
+    if(fmid.ne.-999.0) then
+       if(w50.lt.0.95) write(line(65:70),'(f6.3)') w50
+       if(w50.ge.0.95) write(line(65:70),'(f6.2)') w50
+    endif
+
+    write(*,1005) line
+1005 format(a70)
+
+    call flush(6)
+    call flush(13)
+
+    select type(this)
+    type is (counting_fst4_decoder)
+       this%decoded = this%decoded + 1
+    end select
+
+   return
+ end subroutine fst4_decoded
+
 end subroutine multimode_decoder

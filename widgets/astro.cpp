@@ -25,13 +25,13 @@
 
 extern "C" {
   void astrosub(int nyear, int month, int nday, double uth, double freqMoon,
-                const char * mygrid, size_t mygrid_len, const char * hisgrid,
-                size_t hisgrid_len, double * azsun, double * elsun, double * azmoon,
+                const char * mygrid, const char * hisgrid,
+                double * azsun, double * elsun, double * azmoon,
                 double * elmoon, double * azmoondx, double * elmoondx, int * ntsky,
                 int * ndop, int * ndop00, double * ramoon, double * decmoon, double * dgrd,
                 double * poloffset, double * xnr, double * techo, double * width1,
-                double * width2, bool bTx, const char * AzElFileName, size_t AzElFileName_len,
-                const char * jpleph, size_t jpleph_len);
+                double * width2, bool bTx, const char * AzElFileName,
+                const char * jpleph);
 }
 
 Astro::Astro(QSettings * settings, Configuration const * configuration, QWidget * parent)
@@ -112,14 +112,14 @@ auto Astro::astroUpdate(QDateTime const& t, QString const& mygrid, QString const
   auto const& jpleph = configuration_->data_dir ().absoluteFilePath ("JPLEPH");
 
   astrosub(nyear, month, nday, uth, static_cast<double> (freq_moon),
-           mygrid.toLatin1 ().constData (), mygrid.size (),
-           hisgrid.toLatin1().constData(), hisgrid.size (),
+           mygrid.toLatin1 ().data (),
+           hisgrid.toLatin1().data(),
            &azsun, &elsun, &azmoon, &elmoon,
            &azmoondx, &elmoondx, &ntsky, &m_dop, &m_dop00, &ramoon, &decmoon,
            &dgrd, &poloffset, &xnr, &techo, &width1, &width2,
            bTx,
-           AzElFileName.toLatin1().constData(), AzElFileName.size (),
-           jpleph.toLatin1().constData(), jpleph.size ());
+           AzElFileName.toLatin1().data(),
+           jpleph.toLatin1().data());
 
     if(!hisgrid.size ()) {
     azmoondx=0.0;
@@ -224,14 +224,14 @@ auto Astro::astroUpdate(QDateTime const& t, QString const& mygrid, QString const
         double sec {target_date_time.time().second() + 0.001*target_date_time.time().msec()};
         double uth {nhr + nmin/60.0 + sec/3600.0};
         astrosub(nyear, month, nday, uth, static_cast<double> (freq_moon),
-                  mygrid.toLatin1 ().constData (), mygrid.size (),
-                  hisgrid.toLatin1().constData(), hisgrid.size (),
+                  mygrid.toLatin1 ().data (),
+                  hisgrid.toLatin1().data(),
                   &azsun, &elsun, &azmoon, &elmoon,
                   &azmoondx, &elmoondx, &ntsky, &m_dop, &m_dop00, &ramoon, &decmoon,
                   &dgrd, &poloffset, &xnr, &techo, &width1, &width2,
                   bTx,
-                  AzElFileName.toLatin1().constData(), AzElFileName.size (),
-                  jpleph.toLatin1().constData(), jpleph.size ());
+                  nullptr,      // don't overwrite azel.dat
+                  jpleph.toLatin1().data());
         FrequencyDelta offset {0};
         switch (m_DopplerMethod)
           {

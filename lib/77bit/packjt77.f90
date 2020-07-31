@@ -124,12 +124,14 @@ subroutine pack77(msg0,i3,n3,c77)
   integer ntel(3)
 
   msg=msg0
-  if(i3.eq.0 .and. n3.eq.5) go to 5
+  i3_hint=i3
+  n3_hint=n3
+  i3=-1
+  n3=-1
+  if(i3_hint.eq.0 .and. n3_hint.eq.5) go to 5
 
 ! Convert msg to upper case; collapse multiple blanks; parse into words.
   call split77(msg,nwords,nw,w)
-  i3=-1
-  n3=-1
   if(msg(1:3).eq.'CQ ' .or. msg(1:3).eq.'DE ' .or. msg(1:4).eq.'QRZ ') go to 100
 
 ! Check 0.1 (DXpedition mode)
@@ -160,7 +162,7 @@ subroutine pack77(msg0,i3,n3,c77)
      go to 900
   endif
 
-100 call pack77_06(nwords,w,i3,n3,c77)
+100 call pack77_06(nwords,w,i3,n3,c77,i3_hint,n3_hint)
   if(i3.ge.0) go to 900
 
 ! Check Type 1 (Standard 77-bit message) or Type 2, with optional "/P"
@@ -203,7 +205,7 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
   integer ntel(3)
   character*77 c77
   character*37 msg
-  character*13 call_1,call_2,call_3
+  character*13 call_1,call_2,call_3,call_1a
   character*13 mycall13_0,dxcall13_0
   character*11 c11
   character*3 crpt,cntx,cpfx
@@ -281,6 +283,10 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
      call unpacktext77(c77(1:71),msg(1:13))
      msg(14:)='                        '
      msg=adjustl(msg)
+     if(msg(1:1).eq.' ') then
+        unpk77_success=.false.
+        return
+     endif
 
   else if(i3.eq.0 .and. n3.eq.1) then
 ! 0.1  K1ABC RR73; W9XYZ <KH1/KH7Z> -11   28 28 10 5       71   DXpedition Mode
@@ -346,11 +352,11 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
      msg=adjustl(msg)
 
   else if(i3.eq.0 .and. n3.eq.6) then
-     read(c77(50:50),'(b1)') j2a
-     j2b=0
-     if(j2a.eq.0) read(c77(49:49),'(b1)') j2b
-     j2=2*j2a+j2b
-     if(j2.eq.0) then
+     read(c77(49:50),'(2b1)') j2a,j2b
+     itype=2
+     if(j2b.eq.0 .and. j2a.eq.0) itype=1
+     if(j2b.eq.0 .and. j2a.eq.1) itype=3
+     if(itype.eq.1) then
 ! WSPR Type 1
         read(c77,2010) n28,igrid4,idbm
 2010    format(b28.28,b15.15,b5.5)
@@ -360,24 +366,17 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
         call to_grid4(igrid4,grid4)
         write(crpt,'(i3)') idbm
         msg=trim(call_1)//' '//grid4//' '//trim(adjustl(crpt))
+        call save_hash_call(call_1,n10,n12,n22)    !### Is this OK here? ###
 
-     else if(j2.eq.1) then
+     else if(itype.eq.2) then
 ! WSPR Type 2
-        read(c77,2030) n28,igrid6
-2030    format(b22.22,b25.25)
-        call unpack28(n28,call_1,unpk28_success) 
-        if(.not.unpk28_success) unpk77_success=.false.
-        call to_grid6(igrid6,grid6)
-        msg=trim(call_1)//' '//grid6
-
-     else if(j2.eq.2) then
-! WSPR Type 3
         read(c77,2020) n28,npfx,idbm
 2020    format(b28.28,b16.16,b5.5)
         idbm=nint(idbm*10.0/3.0)        
         call unpack28(n28,call_1,unpk28_success) 
         if(.not.unpk28_success) unpk77_success=.false.
         write(crpt,'(i3)') idbm
+        cpfx='   '
         if(npfx.lt.nzzz) then
 ! Prefix
            do i=3,1,-1
@@ -387,10 +386,11 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
               if(npfx.eq.0) exit
            enddo
            msg=trim(adjustl(cpfx))//'/'//trim(call_1)//' '//trim(adjustl(crpt))
+           call_1a=trim(adjustl(cpfx))//'/'//trim(call_1)
+           call save_hash_call(call_1a,n10,n12,n22)  !### Is this OK here? ###
         else
 ! Suffix
            npfx=npfx-nzzz
-           cpfx='   '
            if(npfx.le.35) then
               cpfx(1:1)=a2(npfx+1:npfx+1)
            else if(npfx.gt.35 .and. npfx.le.1295) then
@@ -405,7 +405,20 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
               return
            endif
            msg=trim(call_1)//'/'//trim(adjustl(cpfx))//' '//trim(adjustl(crpt))
+           call_1a=trim(call_1)//'/'//trim(adjustl(cpfx))
+           call save_hash_call(call_1a,n10,n12,n22)  !### Is this OK here? ###
         endif
+        
+     else if(itype.eq.3) then
+! WSPR Type 3
+        read(c77,2030) n22,igrid6
+2030    format(b22.22,b25.25)
+        n28=n22+2063592
+        call unpack28(n28,call_1,unpk28_success) 
+        if(.not.unpk28_success) unpk77_success=.false.
+        call to_grid(igrid6,grid6)
+        msg=trim(call_1)//' '//grid6
+
 
      endif
      
@@ -446,7 +459,9 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
         if(irpt.eq.3) msg=trim(call_1)//' '//trim(call_2)//' RR73'
         if(irpt.eq.4) msg=trim(call_1)//' '//trim(call_2)//' 73'
         if(irpt.ge.5) then
-           write(crpt,'(i3.2)') irpt-35
+           isnr=irpt-35
+           if(isnr.gt.50) isnr=isnr-101
+           write(crpt,'(i3.2)') isnr
            if(crpt(1:1).eq.' ') crpt(1:1)='+'
            if(ir.eq.0) msg=trim(call_1)//' '//trim(call_2)//' '//crpt
            if(ir.eq.1) msg=trim(call_1)//' '//trim(call_2)//' R'//crpt
@@ -897,7 +912,7 @@ subroutine pack77_03(nwords,w,i3,n3,c77)
   
   ntx=-1
   j=len(trim(w(nwords-1)))-1
-  read(w(nwords-1)(1:j),*,err=1) ntx                !Number of transmitters
+  read(w(nwords-1)(1:j),*,err=1,end=1) ntx          !Number of transmitters
 1 if(ntx.lt.1 .or. ntx.gt.32) return
   nclass=ichar(w(nwords-1)(j+1:j+1))-ichar('A')
   
@@ -925,7 +940,7 @@ subroutine pack77_03(nwords,w,i3,n3,c77)
 end subroutine pack77_03
 
 
-subroutine pack77_06(nwords,w,i3,n3,c77)
+subroutine pack77_06(nwords,w,i3,n3,c77,i3_hint,n3_hint)
 
   character*13 w(19)
   character*77 c77
@@ -942,13 +957,14 @@ subroutine pack77_06(nwords,w,i3,n3,c77)
        grid4(3:3).ge.'0' .and. grid4(3:3).le.'9' .and.               &
        grid4(4:4).ge.'0' .and. grid4(4:4).le.'9'
 
-  is_grid6(grid6)=len(trim(grid6)).eq.6 .and.                        &
+  is_grid6(grid6)=(len(trim(grid6)).eq.6.or.len(trim(grid6)).eq.4).and. &
        grid6(1:1).ge.'A' .and. grid6(1:1).le.'R' .and.               &
        grid6(2:2).ge.'A' .and. grid6(2:2).le.'R' .and.               &
        grid6(3:3).ge.'0' .and. grid6(3:3).le.'9' .and.               &
        grid6(4:4).ge.'0' .and. grid6(4:4).le.'9' .and.               &
-       grid6(5:5).ge.'A' .and. grid6(5:5).le.'X' .and.               &
-       grid6(6:6).ge.'A' .and. grid6(6:6).le.'X'
+       (len(trim(grid6)).eq.4.or.                                    &
+       (grid6(5:5).ge.'A' .and. grid6(5:5).le.'X' .and.              &
+       grid6(6:6).ge.'A' .and. grid6(6:6).le.'X'))
 
   is_digit(c)=c.ge.'0' .and. c.le.'9'
 
@@ -1020,22 +1036,32 @@ subroutine pack77_06(nwords,w,i3,n3,c77)
      go to 900
   endif
 
-  if(nwords.eq.2 .and. m1.ge.5 .and. m1.le.12 .and. m2.le.6) then
+  if(i3_hint.eq.0.and.n3_hint.eq.6.and.nwords.eq.2 .and. m1.ge.5  &
+       .and. m1.le.12 .and. m2.le.6) then
 ! WSPR Type 3
+
+     !n3_hint=6 and i3_hint=0 is a hint that the caller wanted a
+     !50-bit encoding rather than the possible alternative n3=4 77-bit
+     !encoding
      if(index(w(1),'<').lt.1 .or. index(w(1),'>').lt.1) go to 900
      grid6=w(2)(1:6)
      if(.not.is_grid6(grid6)) go to 900
      i3=0
      n3=6
      call pack28(w(1),n28)
-     k1=(ichar(grid6(1:1))-ichar('A'))*18*10*10*24*24
-     k2=(ichar(grid6(2:2))-ichar('A'))*10*10*24*24
-     k3=(ichar(grid6(3:3))-ichar('0'))*10*24*24
-     k4=(ichar(grid6(4:4))-ichar('0'))*24*24
-     k5=(ichar(grid6(5:5))-ichar('A'))*24
-     k6=(ichar(grid6(6:6))-ichar('A'))
-     igrid6=k1+k2+k3+k4+k5+k6
-     write(c77,1030) n28,igrid6,2,0,n3,i3
+     n22=n28-2063592
+     k1=(ichar(grid6(1:1))-ichar('A'))*18*10*10*25*25
+     k2=(ichar(grid6(2:2))-ichar('A'))*10*10*25*25
+     k3=(ichar(grid6(3:3))-ichar('0'))*10*25*25
+     k4=(ichar(grid6(4:4))-ichar('0'))*25*25
+     if (grid6(5:6).eq.'  ') then
+        igrid6=k1+k2+k3+k4+24*25+24
+     else
+        k5=(ichar(grid6(5:5))-ichar('A'))*25
+        k6=(ichar(grid6(6:6))-ichar('A'))
+        igrid6=k1+k2+k3+k4+k5+k6
+     endif
+     write(c77,1030) n22,igrid6,2,0,n3,i3
 1030 format(b22.22,b25.25,b3.3,b21.21,2b3.3)
   endif
 
@@ -1083,10 +1109,12 @@ subroutine pack77_1(nwords,w,i3,n3,c77)
   if(c1.eq.'+' .or. c1.eq.'-') then
      ir=0
      read(w(nwords),*,err=900) irpt
+     if(irpt.ge.-50 .and. irpt.le.-31) irpt=irpt+101
      irpt=irpt+35
   else if(c2.eq.'R+' .or. c2.eq.'R-') then
      ir=1
      read(w(nwords)(2:),*) irpt
+     if(irpt.ge.-50 .and. irpt.le.-31) irpt=irpt+101
      irpt=irpt+35
   else if(trim(w(nwords)).eq.'RRR') then
      ir=0
@@ -1506,5 +1534,32 @@ subroutine to_grid6(n,grid6)
 
   return
 end subroutine to_grid6
+
+subroutine to_grid(n,grid6)
+  ! 4-, or 6-character grid
+  character*6 grid6
+
+  j1=n/(18*10*10*25*25)
+  n=n-j1*18*10*10*25*25
+  j2=n/(10*10*25*25)
+  n=n-j2*10*10*25*25
+  j3=n/(10*25*25)
+  n=n-j3*10*25*25
+  j4=n/(25*25)
+  n=n-j4*25*25
+  j5=n/25
+  j6=n-j5*25
+  grid6=''
+  grid6(1:1)=char(j1+ichar('A'))
+  grid6(2:2)=char(j2+ichar('A'))
+  grid6(3:3)=char(j3+ichar('0'))
+  grid6(4:4)=char(j4+ichar('0'))
+  if (j5.ne.24.or.j6.ne.24) then
+     grid6(5:5)=char(j5+ichar('A'))
+     grid6(6:6)=char(j6+ichar('A'))
+  endif
+
+  return
+end subroutine to_grid
 
 end module packjt77

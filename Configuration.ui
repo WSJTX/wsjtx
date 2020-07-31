@@ -357,7 +357,7 @@
           <item row="0" column="1">
            <widget class="QCheckBox" name="enable_VHF_features_check_box">
             <property name="text">
-             <string>Enable VHF/UHF/Microwave features</string>
+             <string>Enable VHF and submode features</string>
             </property>
            </widget>
           </item>
@@ -3119,9 +3119,9 @@ Right click for insert and delete options.</string>
   <buttongroup name="TX_mode_button_group"/>
   <buttongroup name="CAT_handshake_button_group"/>
   <buttongroup name="TX_audio_source_button_group"/>
+  <buttongroup name="special_op_activity_button_group"/>
+  <buttongroup name="CAT_data_bits_button_group"/>
   <buttongroup name="split_mode_button_group"/>
   <buttongroup name="CAT_stop_bits_button_group"/>
-  <buttongroup name="CAT_data_bits_button_group"/>
-  <buttongroup name="special_op_activity_button_group"/>
  </buttongroups>
 </ui>

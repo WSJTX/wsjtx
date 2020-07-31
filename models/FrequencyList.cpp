@@ -46,16 +46,22 @@ namespace
       {20000000, Modes::FreqCal, IARURegions::ALL},
       
       {136000, Modes::WSPR, IARURegions::ALL},
+      {136200, Modes::FST4W, IARURegions::ALL},
       {136130, Modes::JT65, IARURegions::ALL},
       {136130, Modes::JT9, IARURegions::ALL},
+      {136130, Modes::FST4, IARURegions::ALL},
 
       {474200, Modes::JT65, IARURegions::ALL},
       {474200, Modes::JT9, IARURegions::ALL},
+      {474200, Modes::FST4, IARURegions::ALL},
       {474200, Modes::WSPR, IARURegions::ALL},
-      
+      {474400, Modes::FST4W, IARURegions::ALL},
+
       {1836600, Modes::WSPR, IARURegions::ALL},
+      {1836800, Modes::FST4W, IARURegions::ALL},
       {1838000, Modes::JT65, IARURegions::ALL}, // squeezed allocations
       {1839000, Modes::JT9, IARURegions::ALL},
+      {1839000, Modes::FST4, IARURegions::ALL},
       {1840000, Modes::FT8, IARURegions::ALL},
 
       // Band plans (all USB dial unless stated otherwise)
@@ -87,8 +93,10 @@ namespace
       // 
       {3570000, Modes::JT65, IARURegions::ALL}, // JA compatible
       {3572000, Modes::JT9, IARURegions::ALL},
+      {3572000, Modes::FST4, IARURegions::ALL},
       {3573000, Modes::FT8, IARURegions::ALL}, // above as below JT65 is out of DM allocation
       {3568600, Modes::WSPR, IARURegions::ALL}, // needs guard marker and lock out
+      {3568800, Modes::FST4W, IARURegions::ALL},
       {3575000, Modes::FT4, IARURegions::ALL},  // provisional
       {3568000, Modes::FT4, IARURegions::R3},   // provisional
 
@@ -124,9 +132,11 @@ namespace
       //     7110         LSB EMCOMM
       //
       {7038600, Modes::WSPR, IARURegions::ALL},
+      {7038800, Modes::FST4W, IARURegions::ALL},
       {7074000, Modes::FT8, IARURegions::ALL},
       {7076000, Modes::JT65, IARURegions::ALL},
       {7078000, Modes::JT9, IARURegions::ALL},
+      {7078000, Modes::FST4, IARURegions::ALL},
       {7047500, Modes::FT4, IARURegions::ALL}, // provisional - moved
                                                // up 500Hz to clear
                                                // W1AW code practice QRG
@@ -160,7 +170,9 @@ namespace
       {10136000, Modes::FT8, IARURegions::ALL},
       {10138000, Modes::JT65, IARURegions::ALL},
       {10138700, Modes::WSPR, IARURegions::ALL},
+      {10138900, Modes::FST4W, IARURegions::ALL},
       {10140000, Modes::JT9, IARURegions::ALL},
+      {10140000, Modes::FST4, IARURegions::ALL},
       {10140000, Modes::FT4, IARURegions::ALL}, // provisional
 
       // Band plans (all USB dial unless stated otherwise)
@@ -201,9 +213,11 @@ namespace
       //     14106.5            OLIVIA 1000 (main QRG)
       // 
       {14095600, Modes::WSPR, IARURegions::ALL},
+      {14095800, Modes::FST4W, IARURegions::ALL},
       {14074000, Modes::FT8, IARURegions::ALL},
       {14076000, Modes::JT65, IARURegions::ALL},
       {14078000, Modes::JT9, IARURegions::ALL},
+      {14078000, Modes::FST4, IARURegions::ALL},
       {14080000, Modes::FT4, IARURegions::ALL}, // provisional
 
       // Band plans (all USB dial unless stated otherwise)
@@ -236,25 +250,33 @@ namespace
       {18100000, Modes::FT8, IARURegions::ALL},
       {18102000, Modes::JT65, IARURegions::ALL},
       {18104000, Modes::JT9, IARURegions::ALL},
+      {18104000, Modes::FST4, IARURegions::ALL},
       {18104000, Modes::FT4, IARURegions::ALL}, // provisional
       {18104600, Modes::WSPR, IARURegions::ALL},
-      
+      {18104800, Modes::FST4W, IARURegions::ALL},
+
       {21074000, Modes::FT8, IARURegions::ALL},
       {21076000, Modes::JT65, IARURegions::ALL},
       {21078000, Modes::JT9, IARURegions::ALL},
+      {21078000, Modes::FST4, IARURegions::ALL},
       {21094600, Modes::WSPR, IARURegions::ALL},
+      {21094800, Modes::FST4W, IARURegions::ALL},
       {21140000, Modes::FT4, IARURegions::ALL},
 
       {24915000, Modes::FT8, IARURegions::ALL},
       {24917000, Modes::JT65, IARURegions::ALL},
       {24919000, Modes::JT9, IARURegions::ALL},
+      {24919000, Modes::FST4, IARURegions::ALL},
       {24919000, Modes::FT4, IARURegions::ALL}, // provisional
       {24924600, Modes::WSPR, IARURegions::ALL},
-      
+      {24924800, Modes::FST4W, IARURegions::ALL},
+
       {28074000, Modes::FT8, IARURegions::ALL},
       {28076000, Modes::JT65, IARURegions::ALL},
       {28078000, Modes::JT9, IARURegions::ALL},
+      {28078000, Modes::FST4, IARURegions::ALL},
       {28124600, Modes::WSPR, IARURegions::ALL},
+      {28124800, Modes::FST4W, IARURegions::ALL},
       {28180000, Modes::FT4, IARURegions::ALL},
 
       {50200000, Modes::Echo, IARURegions::ALL},
@@ -265,8 +287,11 @@ namespace
       {50260000, Modes::MSK144, IARURegions::R3},
       {50293000, Modes::WSPR, IARURegions::R2},
       {50293000, Modes::WSPR, IARURegions::R3},
+      {50293200, Modes::FST4W, IARURegions::R2},
+      {50293200, Modes::FST4W, IARURegions::R3},
       {50310000, Modes::JT65, IARURegions::ALL},
       {50312000, Modes::JT9, IARURegions::ALL},
+      {50312000, Modes::FST4, IARURegions::ALL},
       {50313000, Modes::FT8, IARURegions::ALL},
       {50318000, Modes::FT4, IARURegions::ALL}, // provisional
       {50323000, Modes::FT8, IARURegions::ALL},
@@ -275,6 +300,7 @@ namespace
       {70102000, Modes::JT65, IARURegions::R1},
       {70104000, Modes::JT9, IARURegions::R1},
       {70091000, Modes::WSPR, IARURegions::R1},
+      {70091200, Modes::FST4W, IARURegions::R2},
       {70230000, Modes::MSK144, IARURegions::R1},
       
       {144120000, Modes::JT65, IARURegions::ALL},
@@ -284,6 +310,7 @@ namespace
       {144360000, Modes::MSK144, IARURegions::R1},
       {144150000, Modes::MSK144, IARURegions::R2},
       {144489000, Modes::WSPR, IARURegions::ALL},
+      {144489200, Modes::FST4W, IARURegions::R2},
       {144120000, Modes::QRA64, IARURegions::ALL},
       
       {222065000, Modes::Echo, IARURegions::R2},
