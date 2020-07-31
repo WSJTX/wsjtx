@@ -377,6 +377,7 @@ set (wsjt_FSRCS
   lib/options.f90
   lib/packjt.f90
   lib/77bit/packjt77.f90
+  lib/qra66_decode.f90
   lib/readwav.f90
   lib/timer_C_wrapper.f90
   lib/timer_impl.f90
@@ -575,6 +576,7 @@ set (wsjt_FSRCS
   lib/symspec65.f90
   lib/sync4.f90
   lib/sync64.f90
+  lib/sync66.f90
   lib/sync65.f90
   lib/ft4/getcandidates4.f90
   lib/ft4/get_ft4_bitmetrics.f90

@@ -26,7 +26,7 @@ program jt9
        fhigh=4000,nrxfreq=1500,ndepth=1,nexp_decode=0,nQSOProg=0
   logical :: read_files = .true., tx9 = .false., display_help = .false.,     &
        bLowSidelobes = .false.
-  type (option) :: long_options(29) = [ &
+  type (option) :: long_options(30) = [ &
     option ('help', .false., 'h', 'Display this help message', ''),          &
     option ('shmem',.true.,'s','Use shared memory for sample data','KEY'),   &
     option ('tr-period', .true., 'p', 'Tx/Rx period, default SECONDS=60',     &
@@ -51,6 +51,7 @@ program jt9
     option ('fft-threads', .true., 'm',                                      &
         'Number of threads to process large FFTs, default THREADS=1',        &
         'THREADS'),                                                          &
+    option ('qra66', .false., '3', 'QRA66 mode', ''),                        &
     option ('jt4', .false., '4', 'JT4 mode', ''),                            &
     option ('ft4', .false., '5', 'FT4 mode', ''),                            &
     option ('jt65', .false.,'6', 'JT65 mode', ''),                           &
@@ -86,7 +87,7 @@ program jt9
   TRperiod=60.d0
 
   do
-     call getopt('hs:e:a:b:r:m:p:d:f:w:t:987654WqTL:S:H:c:G:x:g:X:Q:',      &
+     call getopt('hs:e:a:b:r:m:p:d:f:w:t:9876543WqTL:S:H:c:G:x:g:X:Q:',      &
           long_options,c,optarg,arglen,stat,offset,remain,.true.)
      if (stat .ne. 0) then
         exit
@@ -123,6 +124,8 @@ program jt9
            mode = 164
         case ('Q')
            read (optarg(:arglen), *) nQSOProg
+        case ('3')
+           mode = 66
         case ('4')
            mode = 4
         case ('5')
