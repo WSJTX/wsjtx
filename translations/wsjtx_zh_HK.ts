@@ -368,75 +368,75 @@
 <context>
     <name>Configuration::impl</name>
     <message>
-        <location filename="../Configuration.cpp" line="960"/>
-        <location filename="../Configuration.cpp" line="1117"/>
-        <location filename="../Configuration.cpp" line="1141"/>
+        <location filename="../Configuration.cpp" line="962"/>
+        <location filename="../Configuration.cpp" line="1119"/>
+        <location filename="../Configuration.cpp" line="1143"/>
         <source>&amp;Delete</source>
         <translation>刪除(&amp;D)</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="961"/>
-        <location filename="../Configuration.cpp" line="1145"/>
+        <location filename="../Configuration.cpp" line="963"/>
+        <location filename="../Configuration.cpp" line="1147"/>
         <source>&amp;Insert ...</source>
         <translation>插入(&amp;I) ...</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="989"/>
+        <location filename="../Configuration.cpp" line="991"/>
         <source>Failed to create save directory</source>
         <translation>無法建立儲存目錄</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="990"/>
+        <location filename="../Configuration.cpp" line="992"/>
         <source>path: &quot;%1%</source>
         <translation>目錄: &quot;%1%</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1001"/>
+        <location filename="../Configuration.cpp" line="1003"/>
         <source>Failed to create samples directory</source>
         <translation>無法建立範例目錄</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1002"/>
+        <location filename="../Configuration.cpp" line="1004"/>
         <source>path: &quot;%1&quot;</source>
         <translation>目录: &quot;%1&quot;</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1149"/>
+        <location filename="../Configuration.cpp" line="1151"/>
         <source>&amp;Load ...</source>
         <translation>載入(&amp;L)...</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1153"/>
+        <location filename="../Configuration.cpp" line="1155"/>
         <source>&amp;Save as ...</source>
         <translation>另存為(&amp;S) ...</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1157"/>
+        <location filename="../Configuration.cpp" line="1159"/>
         <source>&amp;Merge ...</source>
         <translation>合併(&amp;M) ...</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1161"/>
+        <location filename="../Configuration.cpp" line="1163"/>
         <source>&amp;Reset</source>
         <translation>重置(&amp;R)</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1733"/>
+        <location filename="../Configuration.cpp" line="1738"/>
         <source>Serial Port:</source>
         <translation>串行端口:</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1734"/>
+        <location filename="../Configuration.cpp" line="1739"/>
         <source>Serial port used for CAT control</source>
         <translation>用於CAT控制的串行端口</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1741"/>
+        <location filename="../Configuration.cpp" line="1746"/>
         <source>Network Server:</source>
         <translation>網絡服務器:</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1742"/>
+        <location filename="../Configuration.cpp" line="1747"/>
         <source>Optional hostname and port of network service.
 Leave blank for a sensible default on this machine.
 Formats:
@@ -451,12 +451,12 @@ Formats:
 	[IPv6-地址]:端口</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1754"/>
+        <location filename="../Configuration.cpp" line="1759"/>
         <source>USB Device:</source>
         <translation>USB設備:</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1755"/>
+        <location filename="../Configuration.cpp" line="1760"/>
         <source>Optional device identification.
 Leave blank for a sensible default for the rig.
 Format:
@@ -467,152 +467,152 @@ Format:
 	[VID[:PID[:供應商[:產品]]]]</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1790"/>
+        <location filename="../Configuration.cpp" line="1795"/>
         <source>Invalid audio input device</source>
         <translation>無效的音頻輸入設備</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1797"/>
+        <location filename="../Configuration.cpp" line="1802"/>
         <source>Invalid audio out device</source>
         <translation>無效的音頻輸出設備</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1803"/>
+        <location filename="../Configuration.cpp" line="1808"/>
         <source>Invalid PTT method</source>
         <translation>無效的PTT方法</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1813"/>
+        <location filename="../Configuration.cpp" line="1818"/>
         <source>Invalid PTT port</source>
         <translation>無效的PTT端口</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1830"/>
-        <location filename="../Configuration.cpp" line="1848"/>
+        <location filename="../Configuration.cpp" line="1835"/>
+        <location filename="../Configuration.cpp" line="1853"/>
         <source>Invalid Contest Exchange</source>
         <translation>無效的競賽交換數據</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1831"/>
+        <location filename="../Configuration.cpp" line="1836"/>
         <source>You must input a valid ARRL Field Day exchange</source>
         <translation>您必須輸入有效的 ARRL Field Day交換數據</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1849"/>
+        <location filename="../Configuration.cpp" line="1854"/>
         <source>You must input a valid ARRL RTTY Roundup exchange</source>
         <translation>您必須輸入有效的 ARRL RTTY Roundup 交換數據</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2186"/>
+        <location filename="../Configuration.cpp" line="2192"/>
         <source>Reset Decode Highlighting</source>
         <translation>重置解碼突出顯示</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2187"/>
+        <location filename="../Configuration.cpp" line="2193"/>
         <source>Reset all decode highlighting and priorities to default values</source>
         <translation>將所有解碼突出顯示和優先順序重置為預設值</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2207"/>
+        <location filename="../Configuration.cpp" line="2213"/>
         <source>WSJT-X Decoded Text Font Chooser</source>
         <translation>WSJT-X 解碼文本字體選擇</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2384"/>
+        <location filename="../Configuration.cpp" line="2390"/>
         <source>Load Working Frequencies</source>
         <translation>載入工作頻率</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2384"/>
-        <location filename="../Configuration.cpp" line="2403"/>
-        <location filename="../Configuration.cpp" line="2449"/>
+        <location filename="../Configuration.cpp" line="2390"/>
+        <location filename="../Configuration.cpp" line="2409"/>
+        <location filename="../Configuration.cpp" line="2455"/>
         <source>Frequency files (*.qrg);;All files (*.*)</source>
         <translation>頻率檔案 (*.qrg);;所有檔案 (*.*)</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2391"/>
+        <location filename="../Configuration.cpp" line="2397"/>
         <source>Replace Working Frequencies</source>
         <translation>替換工作頻率</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2392"/>
+        <location filename="../Configuration.cpp" line="2398"/>
         <source>Are you sure you want to discard your current working frequencies and replace them with the loaded ones?</source>
         <translation>是否確實要放棄當前工作頻率, 並將其替換為載入的頻率?</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2403"/>
+        <location filename="../Configuration.cpp" line="2409"/>
         <source>Merge Working Frequencies</source>
         <translation>合併工作頻率</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2420"/>
-        <location filename="../Configuration.cpp" line="2429"/>
-        <location filename="../Configuration.cpp" line="2439"/>
+        <location filename="../Configuration.cpp" line="2426"/>
+        <location filename="../Configuration.cpp" line="2435"/>
+        <location filename="../Configuration.cpp" line="2445"/>
         <source>Not a valid frequencies file</source>
         <translation>不是有效的頻率檔案</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2420"/>
+        <location filename="../Configuration.cpp" line="2426"/>
         <source>Incorrect file magic</source>
         <translation>不正確的檔案內容</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2429"/>
+        <location filename="../Configuration.cpp" line="2435"/>
         <source>Version is too new</source>
         <translation>版本太新</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2439"/>
+        <location filename="../Configuration.cpp" line="2445"/>
         <source>Contents corrupt</source>
         <translation>內容已損壞</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2449"/>
+        <location filename="../Configuration.cpp" line="2455"/>
         <source>Save Working Frequencies</source>
         <translation>儲存工作頻率</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2458"/>
+        <location filename="../Configuration.cpp" line="2464"/>
         <source>Only Save Selected  Working Frequencies</source>
         <translation>只儲存選取的工作頻率</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2459"/>
+        <location filename="../Configuration.cpp" line="2465"/>
         <source>Are you sure you want to save only the working frequencies that are currently selected? Click No to save all.</source>
         <translation>是否確定要只儲存目前選擇的工作頻率? 按一下 否 可儲存所有.</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2475"/>
+        <location filename="../Configuration.cpp" line="2481"/>
         <source>Reset Working Frequencies</source>
         <translation>重置工作頻率</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2476"/>
+        <location filename="../Configuration.cpp" line="2482"/>
         <source>Are you sure you want to discard your current working frequencies and replace them with default ones?</source>
         <translation>您確定要放棄您當前的工作頻率並用默認值頻率替換它們嗎?</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2514"/>
+        <location filename="../Configuration.cpp" line="2520"/>
         <source>Save Directory</source>
         <translation>儲存目錄</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2528"/>
+        <location filename="../Configuration.cpp" line="2534"/>
         <source>AzEl Directory</source>
         <translation>AzEl 目錄</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2588"/>
+        <location filename="../Configuration.cpp" line="2594"/>
         <source>Rig control error</source>
         <translation>無線電設備控制錯誤</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2589"/>
+        <location filename="../Configuration.cpp" line="2595"/>
         <source>Failed to open connection to rig</source>
         <translation>無法開啟無線電設備的連接</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2803"/>
+        <location filename="../Configuration.cpp" line="2809"/>
         <source>Rig failure</source>
         <translation>無線電設備故障</translation>
     </message>
@@ -685,9 +685,14 @@ Format:
     </message>
     <message>
         <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="412"/>
+        <source>DX Lab Suite Commander send command failed &quot;%1&quot;: %2
+</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>DX Lab Suite Commander failed to send command &quot;%1&quot;: %2
 </source>
-        <translation>DX Lab Suite Commander 發送命令失敗 &quot;%1&quot;: %2
+        <translation type="vanished">DX Lab Suite Commander 發送命令失敗 &quot;%1&quot;: %2
 </translation>
     </message>
     <message>
@@ -1750,19 +1755,16 @@ Error: %2 - %3</source>
 <context>
     <name>HelpTextWindow</name>
     <message>
-        <location filename="../widgets/HelpTextWindow.cpp" line="20"/>
         <source>Help file error</source>
-        <translation>說明檔案錯誤</translation>
+        <translation type="vanished">說明檔案錯誤</translation>
     </message>
     <message>
-        <location filename="../widgets/HelpTextWindow.cpp" line="21"/>
         <source>Cannot open &quot;%1&quot; for reading</source>
-        <translation>無法開啟 &quot;%1&quot; 以進行閱讀</translation>
+        <translation type="vanished">無法開啟 &quot;%1&quot; 以進行閱讀</translation>
     </message>
     <message>
-        <location filename="../widgets/HelpTextWindow.cpp" line="22"/>
         <source>Error: %1</source>
-        <translation>錯誤: %1</translation>
+        <translation type="vanished">錯誤: %1</translation>
     </message>
 </context>
 <context>
@@ -2069,12 +2071,12 @@ Error(%2): %3</source>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="50"/>
-        <location filename="../widgets/mainwindow.cpp" line="5844"/>
-        <location filename="../widgets/mainwindow.cpp" line="5892"/>
-        <location filename="../widgets/mainwindow.cpp" line="6050"/>
-        <location filename="../widgets/mainwindow.cpp" line="6090"/>
-        <location filename="../widgets/mainwindow.cpp" line="6138"/>
-        <location filename="../widgets/mainwindow.cpp" line="6263"/>
+        <location filename="../widgets/mainwindow.cpp" line="5959"/>
+        <location filename="../widgets/mainwindow.cpp" line="6007"/>
+        <location filename="../widgets/mainwindow.cpp" line="6165"/>
+        <location filename="../widgets/mainwindow.cpp" line="6205"/>
+        <location filename="../widgets/mainwindow.cpp" line="6253"/>
+        <location filename="../widgets/mainwindow.cpp" line="6378"/>
         <source>Band Activity</source>
         <translation>波段活動</translation>
     </message>
@@ -2086,11 +2088,11 @@ Error(%2): %3</source>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="194"/>
-        <location filename="../widgets/mainwindow.cpp" line="5843"/>
-        <location filename="../widgets/mainwindow.cpp" line="5887"/>
-        <location filename="../widgets/mainwindow.cpp" line="6051"/>
-        <location filename="../widgets/mainwindow.cpp" line="6091"/>
-        <location filename="../widgets/mainwindow.cpp" line="6139"/>
+        <location filename="../widgets/mainwindow.cpp" line="5958"/>
+        <location filename="../widgets/mainwindow.cpp" line="6002"/>
+        <location filename="../widgets/mainwindow.cpp" line="6166"/>
+        <location filename="../widgets/mainwindow.cpp" line="6206"/>
+        <location filename="../widgets/mainwindow.cpp" line="6254"/>
         <source>Rx Frequency</source>
         <translation>接收信息</translation>
     </message>
@@ -2552,7 +2554,7 @@ Not available to nonstandard callsign holders.</source>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1394"/>
-        <location filename="../widgets/mainwindow.cpp" line="5914"/>
+        <location filename="../widgets/mainwindow.cpp" line="6029"/>
         <source>Fox</source>
         <translation>狐狸</translation>
     </message>
@@ -3406,7 +3408,7 @@ list. The list can be maintained in Settings (F2).</source>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3128"/>
-        <location filename="../widgets/mainwindow.cpp" line="8170"/>
+        <location filename="../widgets/mainwindow.cpp" line="8313"/>
         <source>Runaway Tx watchdog</source>
         <translation>運行發射監管計時器</translation>
     </message>
@@ -3593,7 +3595,7 @@ list. The list can be maintained in Settings (F2).</source>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3374"/>
         <source>WSPR-LF</source>
-        <translation></translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3377"/>
@@ -3683,8 +3685,8 @@ list. The list can be maintained in Settings (F2).</source>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="331"/>
-        <location filename="../widgets/mainwindow.cpp" line="4153"/>
-        <location filename="../widgets/mainwindow.cpp" line="7687"/>
+        <location filename="../widgets/mainwindow.cpp" line="4261"/>
+        <location filename="../widgets/mainwindow.cpp" line="7827"/>
         <source>Receiving</source>
         <translation>接收</translation>
     </message>
@@ -3709,166 +3711,166 @@ list. The list can be maintained in Settings (F2).</source>
         <translation>載入 LotW 使用者資料錯誤</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="710"/>
+        <location filename="../widgets/mainwindow.cpp" line="740"/>
         <source>Error Writing WAV File</source>
         <translation>寫入 WAV 檔案時錯誤</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="753"/>
+        <location filename="../widgets/mainwindow.cpp" line="783"/>
         <source>Configurations...</source>
         <translation>設定檔案...</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="828"/>
-        <location filename="../widgets/mainwindow.cpp" line="5839"/>
-        <location filename="../widgets/mainwindow.cpp" line="5845"/>
-        <location filename="../widgets/mainwindow.cpp" line="5883"/>
-        <location filename="../widgets/mainwindow.cpp" line="5893"/>
-        <location filename="../widgets/mainwindow.cpp" line="5990"/>
-        <location filename="../widgets/mainwindow.cpp" line="5991"/>
-        <location filename="../widgets/mainwindow.cpp" line="6039"/>
-        <location filename="../widgets/mainwindow.cpp" line="6040"/>
-        <location filename="../widgets/mainwindow.cpp" line="6044"/>
-        <location filename="../widgets/mainwindow.cpp" line="6045"/>
-        <location filename="../widgets/mainwindow.cpp" line="6092"/>
-        <location filename="../widgets/mainwindow.cpp" line="6093"/>
-        <location filename="../widgets/mainwindow.cpp" line="6258"/>
-        <location filename="../widgets/mainwindow.cpp" line="6259"/>
-        <location filename="../widgets/mainwindow.cpp" line="6444"/>
+        <location filename="../widgets/mainwindow.cpp" line="858"/>
+        <location filename="../widgets/mainwindow.cpp" line="5954"/>
+        <location filename="../widgets/mainwindow.cpp" line="5960"/>
+        <location filename="../widgets/mainwindow.cpp" line="5998"/>
+        <location filename="../widgets/mainwindow.cpp" line="6008"/>
+        <location filename="../widgets/mainwindow.cpp" line="6105"/>
+        <location filename="../widgets/mainwindow.cpp" line="6106"/>
+        <location filename="../widgets/mainwindow.cpp" line="6154"/>
+        <location filename="../widgets/mainwindow.cpp" line="6155"/>
+        <location filename="../widgets/mainwindow.cpp" line="6159"/>
+        <location filename="../widgets/mainwindow.cpp" line="6160"/>
+        <location filename="../widgets/mainwindow.cpp" line="6207"/>
+        <location filename="../widgets/mainwindow.cpp" line="6208"/>
+        <location filename="../widgets/mainwindow.cpp" line="6373"/>
+        <location filename="../widgets/mainwindow.cpp" line="6374"/>
+        <location filename="../widgets/mainwindow.cpp" line="6559"/>
         <source>Message</source>
         <translation>信息</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="842"/>
+        <location filename="../widgets/mainwindow.cpp" line="872"/>
         <source>Error Killing jt9.exe Process</source>
         <translation>錯誤終止 jt9.exe 程序</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="843"/>
+        <location filename="../widgets/mainwindow.cpp" line="873"/>
         <source>KillByName return code: %1</source>
         <translation>按結束名稱返回代碼: %1</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="858"/>
+        <location filename="../widgets/mainwindow.cpp" line="888"/>
         <source>Error removing &quot;%1&quot;</source>
         <translation>刪除時出錯誤 &quot;%1&quot;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="859"/>
+        <location filename="../widgets/mainwindow.cpp" line="889"/>
         <source>Click OK to retry</source>
         <translation>單擊 確定 重試</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1259"/>
-        <location filename="../widgets/mainwindow.cpp" line="6233"/>
+        <location filename="../widgets/mainwindow.cpp" line="1289"/>
+        <location filename="../widgets/mainwindow.cpp" line="6348"/>
         <source>Improper mode</source>
         <translation>模式不正確</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1416"/>
-        <location filename="../widgets/mainwindow.cpp" line="8816"/>
+        <location filename="../widgets/mainwindow.cpp" line="1446"/>
+        <location filename="../widgets/mainwindow.cpp" line="8959"/>
         <source>File Open Error</source>
         <translation>檔案開啟出錯誤</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1417"/>
-        <location filename="../widgets/mainwindow.cpp" line="7812"/>
-        <location filename="../widgets/mainwindow.cpp" line="8250"/>
-        <location filename="../widgets/mainwindow.cpp" line="8817"/>
-        <location filename="../widgets/mainwindow.cpp" line="8949"/>
+        <location filename="../widgets/mainwindow.cpp" line="1447"/>
+        <location filename="../widgets/mainwindow.cpp" line="7952"/>
+        <location filename="../widgets/mainwindow.cpp" line="8393"/>
+        <location filename="../widgets/mainwindow.cpp" line="8960"/>
+        <location filename="../widgets/mainwindow.cpp" line="9092"/>
         <source>Cannot open &quot;%1&quot; for append: %2</source>
         <translation>無法開啟 &quot;%1&quot; 用於附加: %2</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1515"/>
+        <location filename="../widgets/mainwindow.cpp" line="1545"/>
         <source>Error saving c2 file</source>
         <translation>保存c2檔案出錯誤</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1737"/>
+        <location filename="../widgets/mainwindow.cpp" line="1767"/>
         <source>Error in Sound Input</source>
         <translation>聲音輸入出錯誤</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1743"/>
+        <location filename="../widgets/mainwindow.cpp" line="1773"/>
         <source>Error in Sound Output</source>
         <translation>聲音輸出錯誤</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1799"/>
-        <location filename="../widgets/mainwindow.cpp" line="5988"/>
-        <location filename="../widgets/mainwindow.cpp" line="6134"/>
+        <location filename="../widgets/mainwindow.cpp" line="1829"/>
+        <location filename="../widgets/mainwindow.cpp" line="6103"/>
+        <location filename="../widgets/mainwindow.cpp" line="6249"/>
         <source>Single-Period Decodes</source>
         <translation>單週期解碼</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1800"/>
-        <location filename="../widgets/mainwindow.cpp" line="5989"/>
-        <location filename="../widgets/mainwindow.cpp" line="6135"/>
+        <location filename="../widgets/mainwindow.cpp" line="1830"/>
+        <location filename="../widgets/mainwindow.cpp" line="6104"/>
+        <location filename="../widgets/mainwindow.cpp" line="6250"/>
         <source>Average Decodes</source>
         <translation>平均解碼</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2101"/>
+        <location filename="../widgets/mainwindow.cpp" line="2131"/>
         <source>Change Operator</source>
         <translation>變更操作員</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2101"/>
+        <location filename="../widgets/mainwindow.cpp" line="2131"/>
         <source>New operator:</source>
         <translation>新操作員:</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2217"/>
+        <location filename="../widgets/mainwindow.cpp" line="2247"/>
         <source>Status File Error</source>
         <translation>狀態檔案錯誤</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2218"/>
-        <location filename="../widgets/mainwindow.cpp" line="5451"/>
+        <location filename="../widgets/mainwindow.cpp" line="2248"/>
+        <location filename="../widgets/mainwindow.cpp" line="5566"/>
         <source>Cannot open &quot;%1&quot; for writing: %2</source>
         <translation>無法開啟 &quot;%1&quot; 用於寫入: %2</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2349"/>
+        <location filename="../widgets/mainwindow.cpp" line="2379"/>
         <source>Subprocess Error</source>
         <translation>子流程出錯誤</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2350"/>
+        <location filename="../widgets/mainwindow.cpp" line="2380"/>
         <source>Subprocess failed with exit code %1</source>
         <translation>子流程失敗, 退出代碼為 %1</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2352"/>
-        <location filename="../widgets/mainwindow.cpp" line="2372"/>
+        <location filename="../widgets/mainwindow.cpp" line="2382"/>
+        <location filename="../widgets/mainwindow.cpp" line="2402"/>
         <source>Running: %1
 %2</source>
         <translation>運行: %1
 %2</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2371"/>
+        <location filename="../widgets/mainwindow.cpp" line="2401"/>
         <source>Subprocess error</source>
         <translation>子進程出錯誤</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2409"/>
+        <location filename="../widgets/mainwindow.cpp" line="2439"/>
         <source>Reference spectrum saved</source>
         <translation>儲存參考頻譜</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2472"/>
+        <location filename="../widgets/mainwindow.cpp" line="2502"/>
         <source>Invalid data in fmt.all at line %1</source>
         <translation>在 %1 行中 fmt.all 的不合法資料</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2478"/>
+        <location filename="../widgets/mainwindow.cpp" line="2508"/>
         <source>Good Calibration Solution</source>
         <translation>良好的校準解決方案</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2479"/>
+        <location filename="../widgets/mainwindow.cpp" line="2509"/>
         <source>&lt;pre&gt;%1%L2 ±%L3 ppm
 %4%L5 ±%L6 Hz
 
@@ -3877,67 +3879,158 @@ list. The list can be maintained in Settings (F2).</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2493"/>
+        <location filename="../widgets/mainwindow.cpp" line="2523"/>
         <source>Delete Calibration Measurements</source>
         <translation>刪除校準測量值</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2494"/>
+        <location filename="../widgets/mainwindow.cpp" line="2524"/>
         <source>The &quot;fmt.all&quot; file will be renamed as &quot;fmt.bak&quot;</source>
         <translation>&quot;fmt.all&quot; 檔案將重新命名為 &quot;fmt.bak&quot;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2777"/>
+        <location filename="../widgets/mainwindow.cpp" line="2807"/>
         <source>No data read from disk. Wrong file format?</source>
         <translation>沒有從磁盤讀取數據. 檔案格式出錯誤?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2784"/>
+        <location filename="../widgets/mainwindow.cpp" line="2814"/>
         <source>Confirm Delete</source>
         <translation>確認刪除</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2785"/>
+        <location filename="../widgets/mainwindow.cpp" line="2815"/>
         <source>Are you sure you want to delete all *.wav and *.c2 files in &quot;%1&quot;?</source>
         <translation>是否確實要刪除所有 *.wav 和 *.c2 檔案在 &quot;%1&quot;?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2822"/>
+        <location filename="../widgets/mainwindow.cpp" line="2852"/>
         <source>Keyboard Shortcuts</source>
         <translation>鍵盤快捷鍵</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2835"/>
+        <location filename="../widgets/mainwindow.cpp" line="2854"/>
+        <source>&lt;table cellspacing=1&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Esc      &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Stop Tx, abort QSO, clear next-call queue&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;F1       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Online User&apos;s Guide (Alt: transmit Tx6)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Shift+F1  &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Copyright Notice&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+F1  &lt;/b&gt;&lt;/td&gt;&lt;td&gt;About WSJT-X&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;F2       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Open settings window (Alt: transmit Tx2)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;F3       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Display keyboard shortcuts (Alt: transmit Tx3)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;F4       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Clear DX Call, DX Grid, Tx messages 1-4 (Alt: transmit Tx4)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+F4   &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Exit program&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;F5       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Display special mouse commands (Alt: transmit Tx5)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;F6       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Open next file in directory (Alt: toggle &quot;Call 1st&quot;)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Shift+F6 &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Decode all remaining files in directrory&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;F7       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Display Message Averaging window&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;F11      &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Move Rx frequency down 1 Hz&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+F11 &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Move identical Rx and Tx frequencies down 1 Hz&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Shift+F11 &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Move Tx frequency down 60 Hz (FT8) or 90 Hz (FT4)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+Shift+F11 &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Move dial frequency down 2000 Hz&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;F12      &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Move Rx frequency up 1 Hz&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+F12 &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Move identical Rx and Tx frequencies up 1 Hz&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Shift+F12 &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Move Tx frequency up 60 Hz (FT8) or 90 Hz (FT4)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+Shift+F12 &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Move dial frequency up 2000 Hz&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+1-6  &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Set now transmission to this number on Tab 1&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctl+1-6  &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Set next transmission to this number on Tab 1&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+B    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Toggle &quot;Best S+P&quot; status&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+C    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Toggle &quot;Call 1st&quot; checkbox&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+D    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Decode again at QSO frequency&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Shift+D  &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Full decode (both windows)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+E   &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Turn on TX even/1st&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Shift+E  &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Turn off TX even/1st&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+E    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Erase&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+F   &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Edit the free text message box&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+G    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Generate standard messages&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+H    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Halt Tx&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+L   &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Lookup callsign in database, generate standard messages&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+M    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Monitor&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+N    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Enable Tx&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+O   &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Open a .wav file&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+O    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Change operator&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+Q    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Log QSO&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+R   &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Set Tx4 message to RRR (not in FT4)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+R    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Set Tx4 message to RR73&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+S    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Stop monitoring&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+T    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Toggle Tune status&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+Z    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Clear hung decoder status&lt;/td&gt;&lt;/tr&gt;
+&lt;/table&gt;</source>
+        <extracomment>Keyboard shortcuts help window contents</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.cpp" line="2910"/>
         <source>Special Mouse Commands</source>
         <translation>滑鼠特殊組合</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="3151"/>
+        <location filename="../widgets/mainwindow.cpp" line="2912"/>
+        <source>&lt;table cellpadding=5&gt;
+  &lt;tr&gt;
+    &lt;th align=&quot;right&quot;&gt;Click on&lt;/th&gt;
+    &lt;th align=&quot;left&quot;&gt;Action&lt;/th&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;Waterfall:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;Click&lt;/b&gt; to set Rx frequency.&lt;br/&gt;
+        &lt;b&gt;Shift-click&lt;/b&gt; to set Tx frequency.&lt;br/&gt;
+        &lt;b&gt;Ctrl-click&lt;/b&gt; or &lt;b&gt;Right-click&lt;/b&gt; to set Rx and Tx frequencies.&lt;br/&gt;
+	&lt;b&gt;Double-click&lt;/b&gt; to also decode at Rx frequency.&lt;br/&gt;
+    &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;Decoded text:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;Double-click&lt;/b&gt; to copy second callsign to Dx Call,&lt;br/&gt;
+        locator to Dx Grid, change Rx and Tx frequency to&lt;br/&gt;
+        decoded signal&apos;s frequency, and generate standard&lt;br/&gt;
+	messages.&lt;br/&gt;
+	If &lt;b&gt;Hold Tx Freq&lt;/b&gt; is checked or first callsign in message&lt;br/&gt;
+	is your own call, Tx frequency is not changed unless &lt;br/&gt;
+	&lt;b&gt;Ctrl&lt;/b&gt; is held down.&lt;br/&gt;
+    &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;Erase button:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;Click&lt;/b&gt; to erase QSO window.&lt;br/&gt;
+        &lt;b&gt;Double-click&lt;/b&gt; to erase QSO and Band Activity windows.
+    &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/table&gt;</source>
+        <extracomment>Mouse commands help window contents</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.cpp" line="3257"/>
         <source>No more files to open.</source>
         <translation>沒有要打開的檔.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="3639"/>
+        <location filename="../widgets/mainwindow.cpp" line="3592"/>
+        <source>Spotting to PSK Reporter unavailable</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.cpp" line="3747"/>
         <source>Please choose another Tx frequency. WSJT-X will not knowingly transmit another mode in the WSPR sub-band on 30m.</source>
         <translation>請選擇其他發射頻率. WSJT-X 不會故意傳輸另一個模式在 WSPR 30米子波段上.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="3643"/>
+        <location filename="../widgets/mainwindow.cpp" line="3751"/>
         <source>WSPR Guard Band</source>
         <translation>WSPR保護波段</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="3656"/>
+        <location filename="../widgets/mainwindow.cpp" line="3764"/>
         <source>Please choose another dial frequency. WSJT-X will not operate in Fox mode in the standard FT8 sub-bands.</source>
         <translation>請選擇其他頻率. WSJT-X 不會運行狐狸模式在標準 FT8 波段.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="3660"/>
+        <location filename="../widgets/mainwindow.cpp" line="3768"/>
         <source>Fox Mode warning</source>
         <translation>狐狸模式警告</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2506"/>
+        <location filename="../widgets/mainwindow.cpp" line="2536"/>
         <source>If you make fair use of any part of WSJT-X under terms of the GNU General Public License, you must display the following copyright notice prominently in your derivative work:
 
 &quot;The algorithms, source code, look-and-feel of WSJT-X and related programs, and protocol specifications for the modes FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 are Copyright (C) 2001-2020 by one or more of the following authors: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; and other members of the WSJT Development Group.&quot;</source>
@@ -3946,12 +4039,12 @@ list. The list can be maintained in Settings (F2).</source>
 &quot;WSJT-X 的演演演算法, 原始碼, 外觀和感覺及相關程式, 和協定規格模式 FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 的版權 (C) 2001-2019 由以下一個或多個作者: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; 和 WSJT 開發組的其他成員.&quot;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="4257"/>
+        <location filename="../widgets/mainwindow.cpp" line="4365"/>
         <source>Last Tx: %1</source>
         <translation>最後發射: %1</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="4658"/>
+        <location filename="../widgets/mainwindow.cpp" line="4773"/>
         <source>Should you switch to EU VHF Contest mode?
 
 To do so, check &apos;Special operating activity&apos; and
@@ -3962,183 +4055,183 @@ To do so, check &apos;Special operating activity&apos; and
 設置高級選項卡上的 &apos;歐洲 VHF 競賽&apos;.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="4677"/>
+        <location filename="../widgets/mainwindow.cpp" line="4792"/>
         <source>Should you switch to ARRL Field Day mode?</source>
         <translation>是否應切換到 ARRL Field Day 模式?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="4682"/>
+        <location filename="../widgets/mainwindow.cpp" line="4797"/>
         <source>Should you switch to RTTY contest mode?</source>
         <translation>是否應切換到 RTTY 競賽模式?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5412"/>
-        <location filename="../widgets/mainwindow.cpp" line="5431"/>
-        <location filename="../widgets/mainwindow.cpp" line="5450"/>
-        <location filename="../widgets/mainwindow.cpp" line="5476"/>
+        <location filename="../widgets/mainwindow.cpp" line="5527"/>
+        <location filename="../widgets/mainwindow.cpp" line="5546"/>
+        <location filename="../widgets/mainwindow.cpp" line="5565"/>
+        <location filename="../widgets/mainwindow.cpp" line="5591"/>
         <source>Add to CALL3.TXT</source>
         <translation>添加到 CALL3.TXT</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5413"/>
+        <location filename="../widgets/mainwindow.cpp" line="5528"/>
         <source>Please enter a valid grid locator</source>
         <translation>請輸入有效的網格定位</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5432"/>
+        <location filename="../widgets/mainwindow.cpp" line="5547"/>
         <source>Cannot open &quot;%1&quot; for read/write: %2</source>
         <translation>無法開啟 &quot;%1&quot; 用於讀/寫: %2</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5474"/>
+        <location filename="../widgets/mainwindow.cpp" line="5589"/>
         <source>%1
 is already in CALL3.TXT, do you wish to replace it?</source>
         <translation>%1
 已經在 CALL3.TXT, 你想替換它嗎?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5651"/>
+        <location filename="../widgets/mainwindow.cpp" line="5766"/>
         <source>Warning:  DX Call field is empty.</source>
         <translation>警告:  DX 呼號欄位為空.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5708"/>
+        <location filename="../widgets/mainwindow.cpp" line="5823"/>
         <source>Log file error</source>
         <translation>日誌檔案錯誤</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5709"/>
+        <location filename="../widgets/mainwindow.cpp" line="5824"/>
         <source>Cannot open &quot;%1&quot;</source>
         <translation>無法開啟 &quot;%1&quot;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5725"/>
+        <location filename="../widgets/mainwindow.cpp" line="5840"/>
         <source>Error sending log to N1MM</source>
         <translation>將日誌傳送到 N1MM 時發生錯誤</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5726"/>
+        <location filename="../widgets/mainwindow.cpp" line="5841"/>
         <source>Write returned &quot;%1&quot;</source>
         <translation>寫入返回 &quot;%1&quot;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5889"/>
+        <location filename="../widgets/mainwindow.cpp" line="6004"/>
         <source>Stations calling DXpedition %1</source>
         <translation>呼叫遠征電臺 %1</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5924"/>
+        <location filename="../widgets/mainwindow.cpp" line="6039"/>
         <source>Hound</source>
         <translation>獵犬</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6264"/>
+        <location filename="../widgets/mainwindow.cpp" line="6379"/>
         <source>Tx Messages</source>
         <translation>發射信息</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6515"/>
-        <location filename="../widgets/mainwindow.cpp" line="6548"/>
-        <location filename="../widgets/mainwindow.cpp" line="6558"/>
+        <location filename="../widgets/mainwindow.cpp" line="6630"/>
+        <location filename="../widgets/mainwindow.cpp" line="6663"/>
+        <location filename="../widgets/mainwindow.cpp" line="6673"/>
         <source>Confirm Erase</source>
         <translation>確認擦除</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6516"/>
+        <location filename="../widgets/mainwindow.cpp" line="6631"/>
         <source>Are you sure you want to erase file ALL.TXT?</source>
         <translation>是否確實要擦除 ALL.Txt 檔案?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6526"/>
-        <location filename="../widgets/mainwindow.cpp" line="8295"/>
+        <location filename="../widgets/mainwindow.cpp" line="6641"/>
+        <location filename="../widgets/mainwindow.cpp" line="8438"/>
         <source>Confirm Reset</source>
         <translation>確認重置</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6527"/>
+        <location filename="../widgets/mainwindow.cpp" line="6642"/>
         <source>Are you sure you want to erase your contest log?</source>
         <translation>是否確實要擦除競賽日誌?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6528"/>
+        <location filename="../widgets/mainwindow.cpp" line="6643"/>
         <source>Doing this will remove all QSO records for the current contest. They will be kept in the ADIF log file but will not be available for export in your Cabrillo log.</source>
         <translation>執行此動作將移除目前競賽的所有通聯記錄. 它們將保留在 ADIF 日誌檔案中, 但無法匯出到您的卡布里略日誌中.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6541"/>
+        <location filename="../widgets/mainwindow.cpp" line="6656"/>
         <source>Cabrillo Log saved</source>
         <translation>卡布里略日誌已儲存</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6549"/>
+        <location filename="../widgets/mainwindow.cpp" line="6664"/>
         <source>Are you sure you want to erase file wsjtx_log.adi?</source>
         <translation>是否確實要擦除 wsjtx_log.adi 檔案?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6559"/>
+        <location filename="../widgets/mainwindow.cpp" line="6674"/>
         <source>Are you sure you want to erase the WSPR hashtable?</source>
         <translation>是否確定要擦除 WSPR 哈希表?</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6653"/>
+        <location filename="../widgets/mainwindow.cpp" line="6768"/>
         <source>VHF features warning</source>
         <translation>VHF 功能警告</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7264"/>
+        <location filename="../widgets/mainwindow.cpp" line="7379"/>
         <source>Tune digital gain </source>
         <translation>調諧數碼增益 </translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7266"/>
+        <location filename="../widgets/mainwindow.cpp" line="7381"/>
         <source>Transmit digital gain </source>
         <translation>傳輸數碼增益 </translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7285"/>
+        <location filename="../widgets/mainwindow.cpp" line="7400"/>
         <source>Prefixes</source>
         <translation>前綴</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7654"/>
+        <location filename="../widgets/mainwindow.cpp" line="7794"/>
         <source>Network Error</source>
         <translation>網路錯誤</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7655"/>
+        <location filename="../widgets/mainwindow.cpp" line="7795"/>
         <source>Error: %1
 UDP server %2:%3</source>
         <translation>錯誤: %1
 UDP 服務器 %2:%3</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7811"/>
+        <location filename="../widgets/mainwindow.cpp" line="7951"/>
         <source>File Error</source>
         <translation>檔案錯誤</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="8048"/>
+        <location filename="../widgets/mainwindow.cpp" line="8191"/>
         <source>Phase Training Disabled</source>
         <translation>關閉階段訓練</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="8051"/>
+        <location filename="../widgets/mainwindow.cpp" line="8194"/>
         <source>Phase Training Enabled</source>
         <translation>開啟階段訓練</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="8185"/>
+        <location filename="../widgets/mainwindow.cpp" line="8328"/>
         <source>WD:%1m</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="8253"/>
-        <location filename="../widgets/mainwindow.cpp" line="8952"/>
+        <location filename="../widgets/mainwindow.cpp" line="8396"/>
+        <location filename="../widgets/mainwindow.cpp" line="9095"/>
         <source>Log File Error</source>
         <translation>日誌檔案錯誤</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="8296"/>
+        <location filename="../widgets/mainwindow.cpp" line="8439"/>
         <source>Are you sure you want to clear the QSO queues?</source>
         <translation>是否要清除通聯佇列?</translation>
     </message>
@@ -4826,12 +4919,16 @@ Error(%2): %3</source>
     <message>
         <location filename="../widgets/widegraph.ui" line="365"/>
         <source>  JT9</source>
-        <translation></translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../widgets/widegraph.ui" line="368"/>
         <source>JT65  </source>
-        <translation></translation>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>  Hz</source>
+        <translation type="obsolete">  赫茲</translation>
     </message>
     <message>
         <location filename="../widgets/widegraph.ui" line="387"/>
@@ -5843,508 +5940,522 @@ and DX Grid fields when a 73 or free text message is sent.</source>
         <translation>網絡服務</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1807"/>
         <source>The program can send your station details and all
 decoded signals as spots to the http://pskreporter.info web site.
 This is used for reverse beacon analysis which is very useful
 for assessing propagation and system performance.</source>
-        <translation>該程序可以發送您的站的詳細信息和所有
+        <translation type="vanished">該程序可以發送您的站的詳細信息和所有
 解碼信號作為點的 http://pskreporter.info 的網站.
 這是用於反向信標分析,這是非常有用的
 用於評估傳播和系統性能.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1813"/>
+        <location filename="../Configuration.ui" line="1810"/>
         <source>Enable &amp;PSK Reporter Spotting</source>
         <translation>啟用&amp;PSK Reporter Spotting</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1823"/>
+        <location filename="../Configuration.ui" line="1830"/>
         <source>UDP Server</source>
         <translation>UDP服務器</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1834"/>
+        <location filename="../Configuration.ui" line="1841"/>
         <source>UDP Server:</source>
         <translation>UDP服務器:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1850"/>
+        <location filename="../Configuration.ui" line="1857"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Optional hostname of network service to receive decodes.&lt;/p&gt;&lt;p&gt;Formats:&lt;/p&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;hostname&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv4 address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv6 address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv4 multicast group address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv6 multicast group address&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;Clearing this field will disable the broadcasting of UDP status updates.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;接收解碼的網絡服務的可選主機名稱.&lt;/p&gt;&lt;p&gt;格式:&lt;/p&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;主機名稱&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv4 address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv6 地址&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv4多點傳送組地址&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv6 多點傳送組地址&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;清除此字段將禁用UDP狀態更新的廣播.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1860"/>
+        <location filename="../Configuration.ui" line="1867"/>
         <source>UDP Server port number:</source>
         <translation>主要UDP服務器端口:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1870"/>
+        <location filename="../Configuration.ui" line="1877"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enter the service port number of the UDP server that WSJT-X should send updates to. If this is zero no updates will be broadcast.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;輸入 WSJT-X 應向其發送更新的 UDP 伺服器的服務埠號. 如果為零, 將不會廣播任何更新.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1887"/>
+        <location filename="../Configuration.ui" line="1894"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;With this enabled WSJT-X will accept certain requests back from a UDP server that receives decode messages.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;啟用此功能後,WSJT-X 將接受來自接收解碼消息的 UDP 伺服器的某些請求.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1890"/>
+        <location filename="../Configuration.ui" line="1897"/>
         <source>Accept UDP requests</source>
         <translation>接受UDP請求</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1897"/>
+        <location filename="../Configuration.ui" line="1904"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Indicate acceptance of an incoming UDP request. The effect of this option varies depending on the operating system and window manager, its intent is to notify the acceptance of an incoming UDP request even if this application is minimized or hidden.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;指示接受傳入的 UDP 請求.此選項的效果因操作系統和窗口管理器而異,其目的是通知接受傳入的 UDP 請求,即使此應用程序最小化或隱藏&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1900"/>
+        <location filename="../Configuration.ui" line="1907"/>
         <source>Notify on accepted UDP request</source>
         <translation>在接受UDP的請求時通知</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1907"/>
+        <location filename="../Configuration.ui" line="1914"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Restore the window from minimized if an UDP request is accepted.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;如果接受 UDP 請求,則從最小化還原窗口.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1910"/>
+        <location filename="../Configuration.ui" line="1917"/>
         <source>Accepted UDP request restores window</source>
         <translation>接受UDP請求還原窗口</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1922"/>
+        <location filename="../Configuration.ui" line="1929"/>
         <source>Secondary UDP Server (deprecated)</source>
         <translation>輔助UDP 伺服器 (已棄用)</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1928"/>
+        <location filename="../Configuration.ui" line="1935"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;When checked, WSJT-X will broadcast a logged contact in ADIF format to the configured hostname and port. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;選擇後, WSJT-X 將以 ADIF 格式將記錄的聯絡廣播到設定的主機名稱和埠. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1931"/>
+        <location filename="../Configuration.ui" line="1938"/>
         <source>Enable logged contact ADIF broadcast</source>
         <translation>開啟記錄連絡 ADIF 廣播</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1938"/>
+        <location filename="../Configuration.ui" line="1945"/>
         <source>Server name or IP address:</source>
         <translation>伺服器名稱或 IP 位址:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1948"/>
+        <location filename="../Configuration.ui" line="1955"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Optional host name of N1MM Logger+ program to receive ADIF UDP broadcasts. This is usually &apos;localhost&apos; or ip address 127.0.0.1&lt;/p&gt;&lt;p&gt;Formats:&lt;/p&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;hostname&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv4 address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv6 address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv4 multicast group address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv6 multicast group address&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;Clearing this field will disable broadcasting of ADIF information via UDP.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;N1MM Logger+ 程式可選電腦主機用於接收 ADIF UDP 廣播. 這通常是 &apos;localhost&apos; 或 IP 地址 127.0.0.1&lt;/p&gt;&lt;p&gt;格式:&lt;/p&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;主機名稱&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv4 地址&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv6 地址&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv4 多播組地址&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv6 多播組地址&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;清除此欄位將停用透過UDP廣播ADIF資訊.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1955"/>
+        <location filename="../Configuration.ui" line="1962"/>
         <source>Server port number:</source>
         <translation>伺服器連接埠號:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1965"/>
+        <location filename="../Configuration.ui" line="1972"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enter the port number that WSJT-X should use for UDP broadcasts of ADIF log information. For N1MM Logger+, this value should be 2333. If this is zero,  no updates will be broadcast.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;輸入 WSJT-X 應用於 ADIF 日誌資訊的 UDP 廣播的埠號. 對於 N1MM Logger+, 此值應為 2333. 如果為零, 將不會廣播任何更新.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1989"/>
+        <location filename="../Configuration.ui" line="1996"/>
         <source>Frequencies</source>
         <translation>頻率</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1992"/>
+        <location filename="../Configuration.ui" line="1999"/>
         <source>Default frequencies and band specific station details setup</source>
         <translation>設置默認值頻率和帶寬點特定的電臺詳細信息</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1998"/>
+        <location filename="../Configuration.ui" line="2005"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;See &amp;quot;Frequency Calibration&amp;quot; in the WSJT-X User Guide for details of how to determine these parameters for your radio.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;閱讀 &amp;quot;頻率校準&amp;quot; 在 WSJT-X 使用者指南中, 有關如何確定無線電的這些參數的詳細資訊.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2001"/>
+        <location filename="../Configuration.ui" line="2008"/>
         <source>Frequency Calibration</source>
         <translation>頻率校准</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2009"/>
+        <location filename="../Configuration.ui" line="2016"/>
         <source>Slope:</source>
         <translation>傾斜率:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2022"/>
+        <location filename="../Configuration.ui" line="2029"/>
         <source> ppm</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2048"/>
+        <location filename="../Configuration.ui" line="2055"/>
         <source>Intercept:</source>
         <translation>攔截:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2061"/>
+        <location filename="../Configuration.ui" line="2068"/>
         <source> Hz</source>
         <translation> 赫茲</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2098"/>
+        <location filename="../Configuration.ui" line="2105"/>
         <source>Working Frequencies</source>
         <translation>工作頻率</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2113"/>
+        <location filename="../Configuration.ui" line="2120"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Right click to maintain the working frequencies list.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;右鍵按一下以保持工作頻率清單.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2141"/>
+        <location filename="../Configuration.ui" line="2148"/>
         <source>Station Information</source>
         <translation>電臺信息</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2153"/>
+        <location filename="../Configuration.ui" line="2160"/>
         <source>Items may be edited.
 Right click for insert and delete options.</source>
         <translation>專案可以編輯
 右鍵按下以插入與刪除選項.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2201"/>
+        <location filename="../Configuration.ui" line="2208"/>
         <source>Colors</source>
         <translation>顏色</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2207"/>
+        <location filename="../Configuration.ui" line="2214"/>
         <source>Decode Highlightling</source>
         <translation>解碼突出顯示</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2228"/>
+        <location filename="../Configuration.ui" line="2235"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Click to scan the wsjtx_log.adi ADIF file again for worked before information&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2262"/>
+        <location filename="../Configuration.ui" line="2269"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enable or disable using the check boxes and right-click an item to change or unset the foreground color, background color, or reset the item to default values. Drag and drop the items to change their priority, higher in the list is higher in priority.&lt;/p&gt;&lt;p&gt;Note that each foreground or background color may be either set or unset, unset means that it is not allocated for that item&apos;s type and lower priority items may apply.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;使用複選框啟用或禁用專案, 並右鍵單擊專案以更改或取消設置前景顏色, 背景顏色, 或將專案重置為預設值. 拖放專案以更改其優先順序, 清單中較高的優先順序較高.&lt;/p&gt;&lt;p&gt; 請注意,每個前景或背景顏色都可以設置或取消設置, 未設置意味著未為該專案分配該類型, 低優先順序項可能適用.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2231"/>
+        <location filename="../Configuration.ui" line="2238"/>
         <source>Rescan ADIF Log</source>
         <translation>重新掃描 ADIF 日誌</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2240"/>
+        <location filename="../Configuration.ui" line="1807"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The program can send your station details and all decoded signals with grid squares as spots to the http://pskreporter.info web site.&lt;/p&gt;&lt;p&gt;This is used for reverse beacon analysis which is very useful for assessing propagation and system performance.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="1817"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check this option if a reliable connection is needed&lt;/p&gt;&lt;p&gt;Most users do not need this, the default uses UDP which is more efficient. Only check this if you have evidence that UDP traffic from you to PSK Reporter is being lost.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="1820"/>
+        <source>Use TCP/IP connection</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="2247"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Push to reset all highlight items above to default values and priorities.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;推送將上述所有突出顯示項重置為預設值和優先順序.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2243"/>
+        <location filename="../Configuration.ui" line="2250"/>
         <source>Reset Highlighting</source>
         <translation>重置突顯顯示</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2287"/>
+        <location filename="../Configuration.ui" line="2294"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to indicate new DXCC entities, grid squares, and callsigns per mode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;選擇以指示每個模式新的 DXCC 實體, 網格和呼號.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2290"/>
+        <location filename="../Configuration.ui" line="2297"/>
         <source>Highlight by Mode</source>
         <translation>依模式突顯</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2297"/>
+        <location filename="../Configuration.ui" line="2304"/>
         <source>Include extra WAE entities</source>
         <translation>包括額外的 WAE 實體</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2304"/>
+        <location filename="../Configuration.ui" line="2311"/>
         <source>Check to for grid highlighting to only apply to unworked grid fields</source>
         <translation>檢查到格線突出顯示僅套用於未通聯的網格欄位</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2307"/>
+        <location filename="../Configuration.ui" line="2314"/>
         <source>Only grid Fields sought</source>
         <translation>只尋求格格欄位</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2317"/>
+        <location filename="../Configuration.ui" line="2324"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Controls for Logbook of the World user lookup.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;控制 LoTW 使用者查找日誌.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2320"/>
+        <location filename="../Configuration.ui" line="2327"/>
         <source>Logbook of the World User Validation</source>
         <translation>LoTW 使用者驗證</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2326"/>
+        <location filename="../Configuration.ui" line="2333"/>
         <source>Users CSV file URL:</source>
         <translation>使用者 CSV 檔案網址:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2338"/>
+        <location filename="../Configuration.ui" line="2345"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;URL of the ARRL LotW user&apos;s last upload dates and times data file which is used to highlight decodes from stations that are known to upload their log file to LotW.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;ARRL LoTW 使用者上次上傳日期和時間資料檔案的網址, 該檔案用於突出顯示已知將紀錄檔上載到 LoTW 的電臺的解碼.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2341"/>
+        <location filename="../Configuration.ui" line="2348"/>
         <source>https://lotw.arrl.org/lotw-user-activity.csv</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2348"/>
+        <location filename="../Configuration.ui" line="2355"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Push this button to fetch the latest LotW user&apos;s upload date and time data file.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;按下這個按鈕即可取得最新的 LoRW 使用者的上傳日期和時間資料檔.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2351"/>
+        <location filename="../Configuration.ui" line="2358"/>
         <source>Fetch Now</source>
         <translation>立即取得</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2360"/>
+        <location filename="../Configuration.ui" line="2367"/>
         <source>Age of last upload less than:</source>
         <translation>上次上傳的日期小於:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2370"/>
+        <location filename="../Configuration.ui" line="2377"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Adjust this spin box to set the age threshold of LotW user&apos;s last upload date that is accepted as a current LotW user.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;調整此旋轉框以設定 LoTW 使用者最後一個上傳日期的日期閾值,該日期被接受為當前 LoTW 使用者.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2373"/>
+        <location filename="../Configuration.ui" line="2380"/>
         <source> days</source>
         <translation> 天</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2419"/>
+        <location filename="../Configuration.ui" line="2426"/>
         <source>Advanced</source>
         <translation>高級設置</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2425"/>
+        <location filename="../Configuration.ui" line="2432"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;User-selectable parameters for JT65 VHF/UHF/Microwave decoding.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;用戶可選參數用於JT65 VHF/UHF/Microwave 的解碼.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2428"/>
+        <location filename="../Configuration.ui" line="2435"/>
         <source>JT65 VHF/UHF/Microwave decoding parameters</source>
         <translation>JT65 VHF/UHF/Microwave 解碼參數</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2434"/>
+        <location filename="../Configuration.ui" line="2441"/>
         <source>Random erasure patterns:</source>
         <translation>隨機擦除模式:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2444"/>
+        <location filename="../Configuration.ui" line="2451"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Maximum number of erasure patterns for stochastic soft-decision Reed Solomon decoder is 10^(n/2).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;隨機軟決策 Reed Solomon 解碼器的最大擦除模式數為 10^(n/2).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2460"/>
+        <location filename="../Configuration.ui" line="2467"/>
         <source>Aggressive decoding level:</source>
         <translation>主動解碼等級:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2470"/>
+        <location filename="../Configuration.ui" line="2477"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Higher levels will increase the probability of decoding, but will also increase probability of a false decode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;較高的水準會增加解碼的概率,但也會增加錯誤解碼的概率.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2480"/>
+        <location filename="../Configuration.ui" line="2487"/>
         <source>Two-pass decoding</source>
         <translation>以二次解碼</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2493"/>
+        <location filename="../Configuration.ui" line="2500"/>
         <source>Special operating activity:  Generation of FT4, FT8, and MSK144 messages</source>
         <translation>特殊操作活動: 產生FT4, FT8 和 MSK144 信息</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2505"/>
+        <location filename="../Configuration.ui" line="2512"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;FT8 DXpedition mode:  Hound operator calling the DX.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;FT8 DX遠征模式呼叫DX的獵犬操作員.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2508"/>
+        <location filename="../Configuration.ui" line="2515"/>
         <source>Hound</source>
         <translation>獵犬</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2527"/>
+        <location filename="../Configuration.ui" line="2534"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;North American VHF/UHF/Microwave contests and others in which a 4-character grid locator is the required exchange.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;北美 VHF/UHF/Microwave 競賽和其他需要交換的 4 個字元網格定位的競賽.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2530"/>
+        <location filename="../Configuration.ui" line="2537"/>
         <source>NA VHF Contest</source>
         <translation>NA VHF 競賽</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2540"/>
+        <location filename="../Configuration.ui" line="2547"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;FT8 DXpedition mode:  Fox (DXpedition) operator.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;FT8 DX远征模式:  狐狸 (DX远征) 操作员.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2543"/>
+        <location filename="../Configuration.ui" line="2550"/>
         <source>Fox</source>
         <translation>狐狸</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2562"/>
+        <location filename="../Configuration.ui" line="2569"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;European VHF+ contests requiring a signal report, serial number, and 6-character locator.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;歐洲 VHF+ 競賽需要信號報告, 序列號和 6 個字元定位.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2565"/>
+        <location filename="../Configuration.ui" line="2572"/>
         <source>EU VHF Contest</source>
         <translation>EU VHF 競賽</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2590"/>
-        <location filename="../Configuration.ui" line="2634"/>
+        <location filename="../Configuration.ui" line="2597"/>
+        <location filename="../Configuration.ui" line="2641"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;ARRL RTTY Roundup and similar contests.  Exchange is US state, Canadian province, or &amp;quot;DX&amp;quot;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;ARRL RTTY Roundup 和類似的比賽.  交換是美國的州, 加拿大省或 &amp;quot;DX&amp;quot;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2593"/>
+        <location filename="../Configuration.ui" line="2600"/>
         <source>RTTY Roundup messages</source>
         <translation>RTTY Roundup 信息</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2618"/>
+        <location filename="../Configuration.ui" line="2625"/>
         <source>RTTY RU Exch:</source>
         <translation>RTTY RU 交換:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2637"/>
+        <location filename="../Configuration.ui" line="2644"/>
         <source>NJ</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2653"/>
-        <location filename="../Configuration.ui" line="2697"/>
+        <location filename="../Configuration.ui" line="2660"/>
+        <location filename="../Configuration.ui" line="2704"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;ARRL Field Day exchange: number of transmitters, Class, and ARRL/RAC section or &amp;quot;DX&amp;quot;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;ARRL Field Day 交換: 發射機數量, 類別別, 和 ARRL/RAC 部份或 &amp;quot;DX&amp;quot;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2656"/>
+        <location filename="../Configuration.ui" line="2663"/>
         <source>ARRL Field Day</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2681"/>
+        <location filename="../Configuration.ui" line="2688"/>
         <source>FD Exch:</source>
         <translation>FD 交換:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2700"/>
+        <location filename="../Configuration.ui" line="2707"/>
         <source>6A SNJ</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2720"/>
+        <location filename="../Configuration.ui" line="2727"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;World-Wide Digi-mode contest&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;世界數字模式競賽&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2723"/>
+        <location filename="../Configuration.ui" line="2730"/>
         <source>WW Digi Contest</source>
         <translation>世界數字競賽</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2736"/>
+        <location filename="../Configuration.ui" line="2743"/>
         <source>Miscellaneous</source>
         <translation>雜項</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2742"/>
+        <location filename="../Configuration.ui" line="2749"/>
         <source>Degrade S/N of .wav file: </source>
         <translation>降低信噪比的 .wav文件: </translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2752"/>
-        <location filename="../Configuration.ui" line="2778"/>
+        <location filename="../Configuration.ui" line="2759"/>
+        <location filename="../Configuration.ui" line="2785"/>
         <source>For offline sensitivity tests</source>
         <translation>用於離線靈敏度測試</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2755"/>
+        <location filename="../Configuration.ui" line="2762"/>
         <source> dB</source>
         <translation> 分貝</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2768"/>
+        <location filename="../Configuration.ui" line="2775"/>
         <source>Receiver bandwidth:</source>
         <translation>接收器頻寬:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2781"/>
+        <location filename="../Configuration.ui" line="2788"/>
         <source>  Hz</source>
         <translation>  赫茲</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2797"/>
+        <location filename="../Configuration.ui" line="2804"/>
         <source>Tx delay:</source>
         <translation>發射延遲:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2807"/>
+        <location filename="../Configuration.ui" line="2814"/>
         <source>Minimum delay between assertion of PTT and start of Tx audio.</source>
         <translation>PTT 驗證與發射音訊啟動之間的最小延遲.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2810"/>
+        <location filename="../Configuration.ui" line="2817"/>
         <source>  s</source>
         <translation>  秒</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2835"/>
+        <location filename="../Configuration.ui" line="2842"/>
         <source>Tone spacing</source>
         <translation>音調間距</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2841"/>
+        <location filename="../Configuration.ui" line="2848"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Generate Tx audio with twice the normal tone spacing.  Intended for special LF/MF transmitters that use a divide-by-2 before generating RF.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;產生具有正常音調間距兩倍的發射音頻.  適用於在產生射頻之前使用除以 2 的特殊 LF/MF 發射器.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2844"/>
+        <location filename="../Configuration.ui" line="2851"/>
         <source>x 2</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2854"/>
+        <location filename="../Configuration.ui" line="2861"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Generate Tx audio with four times the normal tone spacing. Intended for special LF/MF transmitters that use a divide-by-4 before generating RF.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;具有正常音調間距四倍的發射音頻. 適用於在產生射頻之前使用除以 4 的特殊 LF/MF 發射器.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2857"/>
+        <location filename="../Configuration.ui" line="2864"/>
         <source>x 4 </source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2873"/>
+        <location filename="../Configuration.ui" line="2880"/>
         <source>Waterfall spectra</source>
         <translation>瀑布頻譜</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2879"/>
+        <location filename="../Configuration.ui" line="2886"/>
         <source>Low sidelobes</source>
         <translation>低側邊</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2889"/>
+        <location filename="../Configuration.ui" line="2896"/>
         <source>Most sensitive</source>
         <translation>最敏感</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2919"/>
+        <location filename="../Configuration.ui" line="2926"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Discard (Cancel) or apply (OK) configuration changes including&lt;/p&gt;&lt;p&gt;resetting the radio interface and applying any soundcard changes&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;放棄 (取消) 或應用 (確定) 設定更改, 包括&lt;/p&gt;&lt;p&gt;重置無線電介面並套用任何音效卡變更&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
@@ -6352,16 +6463,12 @@ Right click for insert and delete options.</source>
 <context>
     <name>main</name>
     <message>
-        <location filename="../main.cpp" line="85"/>
-        <location filename="../main.cpp" line="414"/>
         <source>Fatal error</source>
-        <translation>嚴重出錯誤</translation>
+        <translation type="vanished">嚴重出錯誤</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="90"/>
-        <location filename="../main.cpp" line="419"/>
         <source>Unexpected fatal error</source>
-        <translation>意外的嚴重出錯誤</translation>
+        <translation type="vanished">意外的嚴重出錯誤</translation>
     </message>
     <message>
         <location filename="../main.cpp" line="225"/>
@@ -6405,14 +6512,24 @@ Right click for insert and delete options.</source>
         <translation>目錄: &quot;%1&quot;</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="359"/>
+        <location filename="../main.cpp" line="379"/>
         <source>Shared memory error</source>
         <translation>共用記憶體錯誤</translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="360"/>
+        <location filename="../main.cpp" line="380"/>
         <source>Unable to create shared memory segment</source>
         <translation>無法建立共用記憶體段</translation>
+    </message>
+    <message>
+        <location filename="../main.cpp" line="387"/>
+        <source>Sub-process error</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../main.cpp" line="388"/>
+        <source>Failed to close orphaned jt9 process</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>

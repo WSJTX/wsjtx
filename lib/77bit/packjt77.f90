@@ -278,6 +278,7 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
 
   read(c77(72:77),'(2b3)') n3,i3
   msg=repeat(' ',37)
+
   if(i3.eq.0 .and. n3.eq.0) then
 ! 0.0  Free text
      call unpacktext77(c77(1:71),msg(1:13))
@@ -421,7 +422,10 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
 
 
      endif
-     
+  
+  else if(i3.eq.0 .and. n3.gt.6) then
+     unpk77_success=.false.
+   
   else if(i3.eq.1 .or. i3.eq.2) then
 ! Type 1 (standard message) or Type 2 ("/P" form for EU VHF contest)
      read(c77,1000) n28a,ipa,n28b,ipb,ir,igrid4,i3

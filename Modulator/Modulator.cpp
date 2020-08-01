@@ -50,6 +50,7 @@ void Modulator::start (QString mode, unsigned symbolsLength, double framesPerSym
                        SoundOutput * stream, Channel channel,
                        bool synchronize, bool fastMode, double dBSNR, double TRperiod)
 {
+  // qDebug () << "mode:" << mode << "symbolsLength:" << symbolsLength << "framesPerSymbol:" << framesPerSymbol << "frequency:" << frequency << "toneSpacing:" << toneSpacing << "channel:" << channel << "synchronize:" << synchronize << "fastMode:" << fastMode << "dBSNR:" << dBSNR << "TRperiod:" << TRperiod;
   Q_ASSERT (stream);
 // Time according to this computer which becomes our base time
   qint64 ms0 = QDateTime::currentMSecsSinceEpoch() % 86400000;
@@ -79,25 +80,30 @@ void Modulator::start (QString mode, unsigned symbolsLength, double framesPerSym
     if (m_snr > 1.0) m_fac = 3000.0 / m_snr;
   }
 
-  m_ic=0;
-// round up to an exact portion of a second that allows for startup delays
-  if(delay_ms > 0 and !m_bFastMode) {
-    m_ic = (mstr/delay_ms) * m_frameRate * delay_ms / 1000;
-  }
-
   m_silentFrames = 0;
-// calculate number of silent frames to send, so that audio will start at
-// the nominal time "delay_ms" into the Tx sequence.
-  if (synchronize && !m_tuning && !m_bFastMode)	{
-    if(delay_ms >= mstr) m_silentFrames = m_ic + 0.001*(delay_ms-mstr)*m_frameRate;
-  }
-
-//  qDebug() << "aa" << QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz")
-//           << delay_ms << mstr << m_silentFrames << m_ic << m_symbolsLength;
+  m_ic=0;
+  if (!m_tuning && !m_bFastMode)
+    {
+      // calculate number of silent frames to send, so that audio will
+      // start at the nominal time "delay_ms" into the Tx sequence.
+      if (synchronize)
+        {
+          if(delay_ms > mstr) m_silentFrames = (delay_ms - mstr) * m_frameRate / 1000;
+        }
+ 
+      // adjust for late starts
+      if(!m_silentFrames && mstr >= delay_ms)
+        {
+          m_ic = (mstr - delay_ms) * m_frameRate / 1000;
+        }
+    }
 
   initialize (QIODevice::ReadOnly, channel);
   Q_EMIT stateChanged ((m_state = (synchronize && m_silentFrames) ?
                         Synchronizing : Active));
+
+  // qDebug() << "delay_ms:" << delay_ms << "mstr:" << mstr << "m_silentFrames:" << m_silentFrames << "m_ic:" << m_ic << "m_state:" << m_state;
+
   m_stream = stream;
   if (m_stream) m_stream->restart (this);
 }
@@ -136,6 +142,8 @@ void Modulator::close ()
 
 qint64 Modulator::readData (char * data, qint64 maxSize)
 {
+  // qDebug () << "readData: maxSize:" << maxSize;
+
   double toneFrequency=1500.0;
   if(m_nsps==6) {
     toneFrequency=1000.0;
@@ -158,15 +166,21 @@ qint64 Modulator::readData (char * data, qint64 maxSize)
     {
     case Synchronizing:
       {
-        if (m_silentFrames)	{  // send silence up to first second
+        if (m_silentFrames)	{  // send silence up to end of start delay
           framesGenerated = qMin (m_silentFrames, numFrames);
-          for ( ; samples != end; samples = load (0, samples)) { // silence
-          }
-          m_silentFrames -= framesGenerated;
-          return framesGenerated * bytesPerFrame ();
+          do
+            {
+              samples = load (0, samples); // silence
+            } while (--m_silentFrames && samples != end);
+          qDebug () << "played:" << framesGenerated << "silent frames";
+          if (!m_silentFrames)
+            {
+              Q_EMIT stateChanged ((m_state = Active));
+            }
         }
 
-        Q_EMIT stateChanged ((m_state = Active));
+        // qDebug() << "m_silentFrames:" << m_silentFrames << "m_ic:" << m_ic << "m_state:" << m_state;
+
         m_cwLevel = false;
         m_ramp = 0;		// prepare for CW wave shaping
       }
@@ -260,7 +274,7 @@ qint64 Modulator::readData (char * data, qint64 maxSize)
 
         qint16 sample;
 
-        for (unsigned i = 0; i < numFrames && m_ic <= i1; ++i) {
+        while (samples != end && m_ic <= i1) {
           isym=0;
           if(!m_tuning and m_TRperiod!=3.0) isym=m_ic/(4.0*m_nsps);   //Actual fsample=48000
           if(m_bFastMode) isym=isym%m_symbolsLength;
