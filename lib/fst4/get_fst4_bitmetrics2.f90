@@ -49,21 +49,21 @@ subroutine get_fst4_bitmetrics2(cd,nss,hmod,nsizes,bitmetrics,s4hmod,badsync)
       i1=(k-1)*NSS
       csymb=cd(i1:i1+NSS-1)
       do itone=0,3
-         s4(itone,k,1)=abs(sum(csymb*conjg(c1(:,itone))))
-         s4(itone,k,2)=abs(sum(csymb(      1:nss/2)*conjg(c1(      1:nss/2,itone)))) + &
-                       abs(sum(csymb(nss/2+1:  nss)*conjg(c1(nss/2+1:  nss,itone))))
-         s4(itone,k,3)=abs(sum(csymb(        1:  nss/4)*conjg(c1(        1:  nss/4,itone)))) + &
-                       abs(sum(csymb(  nss/4+1:  nss/2)*conjg(c1(  nss/4+1:  nss/2,itone)))) + &
-                       abs(sum(csymb(  nss/2+1:3*nss/4)*conjg(c1(  nss/2+1:3*nss/4,itone)))) + &
-                       abs(sum(csymb(3*nss/4+1:    nss)*conjg(c1(3*nss/4+1:    nss,itone))))
-         s4(itone,k,4)=abs(sum(csymb(        1:  nss/8)*conjg(c1(        1:  nss/8,itone)))) + &
-                       abs(sum(csymb(  nss/8+1:  nss/4)*conjg(c1(  nss/8+1:  nss/4,itone)))) + &
-                       abs(sum(csymb(  nss/4+1:3*nss/8)*conjg(c1(  nss/4+1:3*nss/8,itone)))) + &
-                       abs(sum(csymb(3*nss/8+1:  nss/2)*conjg(c1(3*nss/8+1:  nss/2,itone)))) + &
-                       abs(sum(csymb(  nss/2+1:5*nss/8)*conjg(c1(  nss/2+1:5*nss/8,itone)))) + &
-                       abs(sum(csymb(5*nss/8+1:3*nss/4)*conjg(c1(5*nss/8+1:3*nss/4,itone)))) + &
-                       abs(sum(csymb(3*nss/4+1:7*nss/8)*conjg(c1(3*nss/4+1:7*nss/8,itone)))) + &
-                       abs(sum(csymb(7*nss/8+1:    nss)*conjg(c1(7*nss/8+1:    nss,itone))))
+         s4(itone,k,1)=abs(sum(csymb*conjg(c1(:,itone))))**2
+         s4(itone,k,2)=abs(sum(csymb(      1:nss/2)*conjg(c1(      1:nss/2,itone))))**2 + &
+                       abs(sum(csymb(nss/2+1:  nss)*conjg(c1(nss/2+1:  nss,itone))))**2
+         s4(itone,k,3)=abs(sum(csymb(        1:  nss/4)*conjg(c1(        1:  nss/4,itone))))**2 + &
+                       abs(sum(csymb(  nss/4+1:  nss/2)*conjg(c1(  nss/4+1:  nss/2,itone))))**2 + &
+                       abs(sum(csymb(  nss/2+1:3*nss/4)*conjg(c1(  nss/2+1:3*nss/4,itone))))**2 + &
+                       abs(sum(csymb(3*nss/4+1:    nss)*conjg(c1(3*nss/4+1:    nss,itone))))**2
+         s4(itone,k,4)=abs(sum(csymb(        1:  nss/8)*conjg(c1(        1:  nss/8,itone))))**2 + &
+                       abs(sum(csymb(  nss/8+1:  nss/4)*conjg(c1(  nss/8+1:  nss/4,itone))))**2 + &
+                       abs(sum(csymb(  nss/4+1:3*nss/8)*conjg(c1(  nss/4+1:3*nss/8,itone))))**2 + &
+                       abs(sum(csymb(3*nss/8+1:  nss/2)*conjg(c1(3*nss/8+1:  nss/2,itone))))**2 + &
+                       abs(sum(csymb(  nss/2+1:5*nss/8)*conjg(c1(  nss/2+1:5*nss/8,itone))))**2 + &
+                       abs(sum(csymb(5*nss/8+1:3*nss/4)*conjg(c1(5*nss/8+1:3*nss/4,itone))))**2 + &
+                       abs(sum(csymb(3*nss/4+1:7*nss/8)*conjg(c1(3*nss/4+1:7*nss/8,itone))))**2 + &
+                       abs(sum(csymb(7*nss/8+1:    nss)*conjg(c1(7*nss/8+1:    nss,itone))))**2
 
       enddo
    enddo
