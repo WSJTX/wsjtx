@@ -110,15 +110,13 @@ program qra66sim
            a=0.
            if(x.lt.3.0) then                          !Cutoff beyond x=3
               a=sqrt(1.111/(1.0+x*x)-0.1)             !Lorentzian amplitude
-              call random_number(r1)
-              phi1=twopi*r1                           !Random phase
+              phi1=twopi*rran()                       !Random phase
               z=a*cmplx(cos(phi1),sin(phi1))
            endif
            cspread(i)=z
            z=0.
            if(x.lt.3.0) then                !Same thing for negative freqs
-              call random_number(r2)
-              phi2=twopi*r2
+              phi2=twopi*rran()
               z=a*cmplx(cos(phi2),sin(phi2))
            endif
            cspread(NFFT-i)=z
