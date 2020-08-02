@@ -104,6 +104,10 @@ contains
        enddo
     enddo
     call smo121(s,iz)
+    ia=1450/df2
+    ib=1550/df2
+    s(:ia)=0.
+    s(ib:)=0.
     ipk=maxloc(s)
     f0=df2*ipk(1) - 0.5*baud               !Candidate sync frequency
 
