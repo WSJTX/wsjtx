@@ -172,14 +172,11 @@ qint64 Modulator::readData (char * data, qint64 maxSize)
             {
               samples = load (0, samples); // silence
             } while (--m_silentFrames && samples != end);
-          qDebug () << "played:" << framesGenerated << "silent frames";
           if (!m_silentFrames)
             {
               Q_EMIT stateChanged ((m_state = Active));
             }
         }
-
-        // qDebug() << "m_silentFrames:" << m_silentFrames << "m_ic:" << m_ic << "m_state:" << m_state;
 
         m_cwLevel = false;
         m_ramp = 0;		// prepare for CW wave shaping
