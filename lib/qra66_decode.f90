@@ -92,7 +92,9 @@ contains
     call four2a(c0,nfft2,1,1,1)            !Inverse c2c FFT
 
     ntol=100
+    call timer('sync66  ',0)
     call sync66a(iwave,15*12000,nsps,nfqso,ntol,xdt,f0,snr1)
+    call timer('sync66  ',1)
     jpk=(xdt+0.5)*6000 - 384               !### Empirical ###
     if(jpk.lt.0) jpk=0
     a=0.
@@ -113,8 +115,10 @@ contains
     enddo
 
 !Call Nico's QRA64 decoder
+    call timer('qra64_de',0)
     call qra64_dec(s3,nc1,nc2,ng2,naptype,0,nSubmode,b90,      &
          nFadingModel,dat4,snr2,irc)
+    call timer('qra64_de',1)
     snr2=snr2 + 5.563                      !10*log(6912/1920)
     if(irc.gt.0) call badmsg(irc,dat4,nc1,nc2,ng2)
 
