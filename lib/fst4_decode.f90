@@ -49,7 +49,7 @@ contains
       complex, allocatable :: cframe(:)
       complex, allocatable :: c_bigfft(:)          !Complex waveform
       real llr(240),llra(240),llrb(240),llrc(240),llrd(240)
-      real candidates(100,4)
+      real candidates(200,4)
       real bitmetrics(320,4)
       real s4(0:3,NN)
       real minsync
@@ -253,6 +253,7 @@ contains
       call four2a(c_bigfft,nfft1,1,-1,0)         !r2c
 !      call blank2(nfa,nfb,nfft1,c_bigfft,iwave)
 
+      nhicoh=0
       if(hmod.eq.1) then
          if(fMHz.lt.2.0) then
             nsyncoh=8    ! Use N=8 for sync
@@ -277,7 +278,7 @@ contains
 
       if(hmod.eq.1) then
          if(ntrperiod.eq.15) minsync=1.15
-         if(ntrperiod.gt.15) minsync=1.20
+         if(ntrperiod.gt.15) minsync=1.25
       elseif(hmod.gt.1) then
          minsync=1.2
       endif
@@ -410,7 +411,7 @@ contains
             ns4=count(hbits(229:244).eq.(/1,1,1,0,0,1,0,0,1,0,1,1,0,0,0,1/))
             ns5=count(hbits(305:320).eq.(/0,0,0,1,1,0,1,1,0,1,0,0,1,1,1,0/))
             nsync_qual=ns1+ns2+ns3+ns4+ns5
-!               if(nsync_qual.lt. 46) cycle                   !### Value ?? ###
+               if(nsync_qual.lt. 46) cycle                   !### Value ?? ###
             scalefac=2.83
             llra(  1: 60)=bitmetrics( 17: 76, 1)
             llra( 61:120)=bitmetrics( 93:152, 1)
@@ -457,7 +458,7 @@ contains
                if(itry.gt.nblock) then
                   llr=llra
                   if(nblock.gt.1) then
-                     if(hmod.eq.1) llr=llrd
+                     if(hmod.eq.1) llr=llrc
                      if(hmod.eq.2) llr=llrb
                      if(hmod.eq.4) llr=llrc
                      if(hmod.eq.8) llr=llrd
@@ -737,7 +738,7 @@ contains
       complex c_bigfft(0:nfft1/2)              !Full length FFT of raw data
       integer hmod                             !Modulation index (submode)
       integer im(1)                            !For maxloc
-      real candidates(100,4)                   !Candidate list
+      real candidates(200,4)                   !Candidate list
       real, allocatable :: s(:)                !Low resolution power spectrum
       real, allocatable :: s2(:)               !CCF of s() with 4 tones
       real xdb(-3:3)                           !Model 4-tone CCF peaks
@@ -794,17 +795,18 @@ contains
 ! Find candidates, using the CLEAN algorithm to remove a model of each one
 ! from s2() after it has been found.
       pval=99.99
-      do while(ncand.lt.100)
+      do while(ncand.lt.200)
          im=maxloc(s2(ia:ib))
          iploc=ia+im(1)-1                         !Index of CCF peak
          pval=s2(iploc)                           !Peak value
          if(pval.lt.minsync) exit
-         do i=-3,+3                            !Remove 0.9 of a model CCF at
-            k=iploc+2*hmod*i                   !this frequency from s2()
-            if(k.ge.ia .and. k.le.ib) then
-               s2(k)=max(0.,s2(k)-0.9*pval*xdb(i))
-            endif
-         enddo
+!         do i=-3,+3                            !Remove 0.9 of a model CCF at
+!            k=iploc+2*hmod*i                   !this frequency from s2()
+!            if(k.ge.ia .and. k.le.ib) then
+!               s2(k)=max(0.,s2(k)-0.9*pval*xdb(i))
+!            endif
+!         enddo
+         s2(max(1,iploc-2*hmod*3):min(nnw,iploc+2*hmod*3))=0.0
          ncand=ncand+1
          candidates(ncand,1)=df2*iploc         !Candidate frequency
          candidates(ncand,2)=pval              !Rough estimate of SNR
