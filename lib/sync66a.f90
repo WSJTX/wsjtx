@@ -1,4 +1,4 @@
-subroutine sync66a(iwave,nmax,nsps,nfqso,ntol,xdt,f0)
+subroutine sync66a(iwave,nmax,nsps,nfqso,ntol,xdt,f0,snr1)
 
   parameter (NSTEP=4)                      !Quarter-symbol steps
   parameter (IZ=1600,JZ=352,NSPSMAX=1920)
@@ -49,7 +49,7 @@ subroutine sync66a(iwave,nmax,nsps,nfqso,ntol,xdt,f0)
   s1=s1/base
   s1max=20.0
 
-! Make this simpler: just add the 22 nonzero values.
+! Apply AGC
   do j=1,JZ
      x(j)=maxval(s1(i0-64:i0+192,j))
      if(x(j).gt.s1max) s1(i0-64:i0+192,j)=s1(i0-64:i0+192,j)*s1max/x(j)
@@ -63,6 +63,7 @@ subroutine sync66a(iwave,nmax,nsps,nfqso,ntol,xdt,f0)
   do i=-ia,ia
      x=s1(i0+2+i,:)-s1(i0+i,:)
      do lag=-15,15
+! Make this simpler: just add the 22 nonzero values?
         do n=1,4*85
            j=n+lag+11
            if(j.ge.1 .and. j.le.JZ) sync_sig(i,lag)=sync_sig(i,lag) + sync(n)*x(j)
@@ -80,15 +81,18 @@ subroutine sync66a(iwave,nmax,nsps,nfqso,ntol,xdt,f0)
   tsym=nsps/12000.0
   xdt=jdt*tsym/4.0
 
+  snr1=maxval(sync_sig)/22.0
+  
 !  do i=-64,64
-!     write(13,3013) nfqso+i*df,sync_sig(i,jj)
-!3013 format(2f12.3)
+!     write(62,3062) nfqso+i*df,sync_sig(i,jj)
+!3062 format(2f12.3)
 !  enddo
 
 !  do j=-15,15
-!     write(14,3014) j,j*dt4,sync_sig(ii,j)
-!3014 format(i5,2f12.3)
+!     write(63,3063) j,j*dt4,sync_sig(ii,j)
+!3063 format(i5,2f12.3)
 !  enddo
 
   return
 end subroutine sync66a
+

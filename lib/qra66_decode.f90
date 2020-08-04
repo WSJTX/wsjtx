@@ -44,9 +44,9 @@ contains
     integer ipk(1)
     integer dat4(12)
     logical lapdx,ltext
-    complex c0(0:NFFT1-1)                  !Spectrum, then analytic signal
+    complex c00(0:NFFT1-1)                 !Spectrum, then analytic signal
+    complex c0(0:NFFT1-1)                  !Snalytic signal
     real s(900)
-    real s3a(-64:127,63)
     real s3(-64:127,63)
     real a(5)
     data nc1z/-1/,nc2z/-1/,ng2z/-1/,maxaptypez/-1/
@@ -64,7 +64,7 @@ contains
     call packcall(hiscall(1:6),nc2,ltext)
     call packgrid(hisgrid(1:4),ng2,ltext)
     nSubmode=0
-    b90=20
+    b90=20.0                 !8 to 25 is OK; not very critical
     nFadingModel=1
 
 ! These probably need work:
@@ -111,43 +111,36 @@ contains
     ipk=maxloc(s)
     f0=df2*ipk(1) - 0.5*baud               !Candidate sync frequency
 
-!    do i=1,iz
-!       write(51,3051) i*df2,s(i)
-!3051   format(f12.6,e12.3)
-!    enddo
-
     c0(NFFT2/2+1:NFFT2)=0.                 !Zero the top half
     c0(0)=0.5*c0(0)
     call four2a(c0,nfft2,1,1,1)            !Inverse c2c FFT
-!    call sync66(c0,f0,jpk,sync)            !c0 is analytic signal at 6000 S/s
 
     ntol=100
-    call sync66a(iwave,15*12000,nsps,nfqso,ntol,xdt,f0)
-    jpk=(xdt+0.5)*6000
+    call sync66a(iwave,15*12000,nsps,nfqso,ntol,xdt,f0,snr1)
+    jpk=(xdt+0.5)*6000 - 384       !### Empirical ###
     if(jpk.lt.0) jpk=0
-
-! Genie sync:
-!    jpk=3600
-!    xdt=jpk/6000.0 - 0.5
-!    f0=1510
-!    f0=1490
-
+    c00=c0
     a=0.
-!    a(1)=-(f0 + 1.5*baud)           !For sync66
     a(1)=-(f0 + 2.0*baud)           !For sync66a
+    call twkfreq(c00,c0,15*6000,6000.0,a)
+    xdt=jpk/6000.0 - 0.5
+    call spec66(c0(jpk:jpk+85*NSPS/2-1),s3)
 
-    
-    call twkfreq(c0,c0,15*6000,6000.0,a)    
-    call spec66(c0(jpk:jpk+85*NSPS-1),s3)
-    s3a=s3/maxval(s3)
+    do j=1,63
+       call pctile(s3(:,j),192,40,base)
+       s3(:,j)=s3(:,j)/base
+    enddo
 
-    call pctile(s3a,192*63,40,base)
-    s3a=s3a/base
-    s3lim=10.
-    where(s3a(-64:127,1:63)>s3lim) s3a(-64:127,1:63)=s3lim
-    
-    call qra64_dec(s3a,nc1,nc2,ng2,naptype,0,nSubmode,b90,      &
+! Apply AGC
+    s3max=20.0
+    do j=1,63
+     xx=maxval(s3(-64:127,j))
+     if(xx.gt.s3max) s3(-64:127,j)=s3(-64:127,j)*s3max/xx
+    enddo
+  
+    call qra64_dec(s3,nc1,nc2,ng2,naptype,0,nSubmode,b90,      &
          nFadingModel,dat4,snr2,irc)
+    snr2=snr2 + 6.0
     if(irc.gt.0) call badmsg(irc,dat4,nc1,nc2,ng2)
 
     decoded='                                     '
@@ -170,6 +163,9 @@ contains
             irc,qual,ntrperiod,fmid,w50)
 !###
     endif
+
+!    write(61,3061) nutc,irc,xdt,f0,snr1,snr2,trim(decoded)
+!3061 format(i6.6,i4,4f10.2,2x,a)
 
     return
   end subroutine decode
