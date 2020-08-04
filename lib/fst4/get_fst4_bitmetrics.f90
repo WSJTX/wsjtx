@@ -52,7 +52,7 @@ subroutine get_fst4_bitmetrics(cd,nss,hmod,nmax,nhicoh,bitmetrics,s4,badsync)
       do itone=0,3
          cs(itone,k)=sum(csymb*conjg(c1(:,itone)))
       enddo
-      s4(0:3,k)=abs(cs(0:3,k))
+      s4(0:3,k)=abs(cs(0:3,k))**2
    enddo
 
 ! Sync quality check
