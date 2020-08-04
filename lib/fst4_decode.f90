@@ -459,9 +459,9 @@ contains
                   llr=llra
                   if(nblock.gt.1) then
                      if(hmod.eq.1) llr=llrc
-                     if(hmod.eq.2) llr=llrb
-                     if(hmod.eq.4) llr=llrc
-                     if(hmod.eq.8) llr=llrd
+                     if(hmod.eq.2) llr=llra
+                     if(hmod.eq.4) llr=llrb
+                     if(hmod.eq.8) llr=llrc
                   endif
                   iaptype=naptypes(nQSOProgress,itry-nblock)
                   if(lapcqonly) iaptype=1
