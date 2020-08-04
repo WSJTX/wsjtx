@@ -2156,7 +2156,7 @@ list. The list can be maintained in Settings (F2).</string>
                     <item>
                      <widget class="QSpinBox" name="sbTxPercent">
                       <property name="toolTip">
-                       <string>Percentage of 2-minute sequences devoted to transmitting.</string>
+                       <string>Percentage of minute sequences devoted to transmitting.</string>
                       </property>
                       <property name="alignment">
                        <set>Qt::AlignCenter</set>
@@ -2376,7 +2376,7 @@ list. The list can be maintained in Settings (F2).</string>
                         <item>
                          <widget class="QPushButton" name="pbTxNext">
                           <property name="toolTip">
-                           <string>Transmit during the next 2-minute sequence.</string>
+                           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Transmit during the next sequence.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                           </property>
                           <property name="styleSheet">
                            <string notr="true">QPushButton:checked {
