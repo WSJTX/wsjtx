@@ -149,8 +149,7 @@ contains
          if(i3.ne.1 .or. (msg.ne.msgsent) .or. .not.unpk77_success) go to 10
          read(c77,'(77i1)') message77
          message77=mod(message77+rvec,2)
-         call encode174_91(message77,cw)
-         apbits=2*cw-1
+         apbits(1:77)=2*message77-1
          if(nohiscall) apbits(30)=99
 
 10       continue
