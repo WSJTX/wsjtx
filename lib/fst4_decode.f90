@@ -550,7 +550,7 @@ contains
                      endif
                      xsig=0
                      do i=1,NN
-                        xsig=xsig+s4(itone(i),i)**2
+                        xsig=xsig+s4(itone(i),i)
                      enddo
                      arg=600.0*(xsig/base)-1.0
                      if(arg.gt.0.0) then
