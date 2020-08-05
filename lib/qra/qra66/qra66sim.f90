@@ -43,11 +43,11 @@ program qra66sim
   dt=1.d0/fsample                    !Sample interval (s)
   twopi=8.d0*atan(1.d0)
   npts=NMAX                          !Total samples in .wav file
-  nsps=1920
+  nsps=1800
   nsym=85                            !Number of channel symbols
   if(csubmode.eq.'B') then
-     nsps=960
-     nsym=169
+     nsps=nsps/2
+     nsym=2*nsym-1
   endif
 
   ichk=66                            !Flag sent to genqra64

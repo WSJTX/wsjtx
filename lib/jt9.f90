@@ -226,6 +226,7 @@ program jt9
      endif
      shared_data%id2=0          !??? Why is this necessary ???
      if(mode.eq.5) npts=21*3456
+     if(mode.eq.66) npts=15*12000
      do iblk=1,npts/kstep
         k=iblk*kstep
         if(mode.eq.8 .and. k.gt.179712) exit

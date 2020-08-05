@@ -7390,9 +7390,9 @@ void MainWindow::transmit (double snr)
   }
 
   if (m_modeTx == "QRA66") {
-    toneSpacing=12000.0/1920.0;
+    toneSpacing=12000.0/1800.0;
     Q_EMIT sendMessage (m_mode, NUM_QRA66_SYMBOLS,
-           1920.0, ui->TxFreqSpinBox->value () - m_XIT,
+           1800.0, ui->TxFreqSpinBox->value () - m_XIT,
            toneSpacing, m_soundOutput, m_config.audio_output_channel (),
            true, false, snr, m_TRperiod);
   }

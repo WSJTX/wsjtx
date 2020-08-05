@@ -50,7 +50,7 @@ contains
     save nc1z,nc2z,ng2z,maxaptypez
 
     this%callback => callback
-    nsps=1920
+    nsps=1800
     baud=12000.0/nsps
     df1=12000.0/NFFT1
     
@@ -100,11 +100,13 @@ contains
     a(1)=-(f0 + 2.0*baud)                  !Data tones start 2 bins higher
     call twkfreq(c0,c0,15*6000,6000.0,a)
     xdt=jpk/6000.0 - 0.5
-    call spec66(c0(jpk:jpk+85*NSPS/2-1),s3)
+    call spec66(c0(jpk:),nsps/2,s3)
 
     do j=1,63                              !Normalize to symbol baseline
        call pctile(s3(:,j),192,40,base)
        s3(:,j)=s3(:,j)/base
+       write(71,3071)j,maxloc(s3(:,j))
+3071   format(2i5)
     enddo
 
     s3max=20.0
