@@ -9,6 +9,7 @@ jnq*
 *.mod
 *.pro.user
 *.txt
+!**/CMakeLists.txt
 cmake-build-debug
 cmake-build-release
 CMakeFiles

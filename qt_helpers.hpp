@@ -69,11 +69,11 @@ QString font_as_stylesheet (QFont const&);
 // conditional style sheet updates
 void update_dynamic_property (QWidget *, char const * property, QVariant const& value);
 
-// round a QDateTime instance to an interval
-QDateTime qt_round_date_time_to (QDateTime dt, int seconds);
+// round a QDateTime instance to an integral interval of milliseconds
+QDateTime qt_round_date_time_to (QDateTime dt, int milliseconds);
 
-// truncate a QDateTime to an interval
-QDateTime qt_truncate_date_time_to (QDateTime dt, int seconds);
+// truncate a QDateTime to an integral interval of milliseconds
+QDateTime qt_truncate_date_time_to (QDateTime dt, int milliseconds);
 
 template <class T>
 class VPtr

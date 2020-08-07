@@ -8017,8 +8017,8 @@ void MainWindow::p1ReadFromStdout()                        //p1readFromStdout
 
 QString MainWindow::beacon_start_time (int n)
 {
-  auto bt = qt_truncate_date_time_to (QDateTime::currentDateTimeUtc ().addSecs (n), m_TRperiod);
-  if (m_TRperiod < 60)
+  auto bt = qt_truncate_date_time_to (QDateTime::currentDateTimeUtc ().addSecs (n), m_TRperiod * 1.e3);
+  if (m_TRperiod < 60.)
     {
       return bt.toString ("HHmmss");
     }
