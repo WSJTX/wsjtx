@@ -1367,7 +1367,11 @@ void MainWindow::fixStop()
     m_hsymStop=179;
     if(m_config.decode_at_52s()) m_hsymStop=186;
   } else if (m_mode=="QRA66"){
-    m_hsymStop=49;
+    m_hsymStop=48;
+    if(m_TRperiod==30) m_hsymStop=96;
+    if(m_TRperiod==60) m_hsymStop=196;
+    if(m_TRperiod==120) m_hsymStop=401;
+    if(m_TRperiod==300) m_hsymStop=1027;
   } else if (m_mode=="FreqCal"){
     m_hsymStop=((int(m_TRperiod/0.288))/8)*8;
   } else if (m_mode=="FT8") {
@@ -3684,7 +3688,13 @@ void MainWindow::guiUpdate()
   if(m_modeTx=="JT9")  txDuration=1.0 + 85.0*m_nsps/12000.0;  // JT9
   if(m_modeTx=="JT65") txDuration=1.0 + 126*4096/11025.0;     // JT65
   if(m_modeTx=="QRA64")  txDuration=1.0 + 84*6912/12000.0;    // QRA64
-  if(m_modeTx=="QRA66")  txDuration=0.5 + 85*1920/12000.0;    // QRA66
+  if(m_modeTx=="QRA66")  {                                    // QRA66
+    if(m_TRperiod==15) txDuration=0.5 + 85*1800/12000.0;
+    if(m_TRperiod==30) txDuration=0.5 + 85*3600/12000.0;
+    if(m_TRperiod==60) txDuration=1.0 + 85*7680/12000.0;
+    if(m_TRperiod==120) txDuration=1.0 + 85*16000/12000.0;
+    if(m_TRperiod==300) txDuration=1.0 + 85*41472/12000.0;
+  }
   if(m_modeTx=="WSPR") txDuration=2.0 + 162*8192/12000.0;     // WSPR
   if(m_modeTx=="FST4" or m_mode=="FST4W") {               //FST4, FST4W
     if(m_TRperiod==15)  txDuration=1.0 + 160*720/12000.0;
@@ -4248,7 +4258,7 @@ void MainWindow::guiUpdate()
 
 //Once per second:
   if(nsec != m_sec0) {
-//      qDebug() << "AAA" << nsec;
+//      qDebug() << "onesec" << m_hsymStop << m_TRperiod;
     m_currentBand=m_config.bands()->find(m_freqNominal);
     if( SpecOp::HOUND == m_config.special_op_id() ) {
       qint32 tHound=QDateTime::currentMSecsSinceEpoch()/1000 - m_tAutoOn;
@@ -6423,7 +6433,8 @@ void MainWindow::on_actionQRA66_triggered()
   switch_mode (Modes::QRA64);
   setup_status_bar (false);
   m_hsymStop=49;
-  m_TRperiod=15.0;
+  ui->sbTR->values ({15, 30, 60, 120, 300});
+  on_sbTR_valueChanged (ui->sbTR->value());
   m_wideGraph->setMode(m_mode);
   m_wideGraph->setModeTx(m_modeTx);
   m_wideGraph->setPeriod(m_TRperiod,6912);
@@ -7391,9 +7402,15 @@ void MainWindow::transmit (double snr)
   }
 
   if (m_modeTx == "QRA66") {
-    toneSpacing=12000.0/1800.0;
+    int nsps=1800;
+    if(m_TRperiod==30) nsps=3600;
+    if(m_TRperiod==60) nsps=7680;
+    if(m_TRperiod==120) nsps=16000;
+    if(m_TRperiod==300) nsps=41472;
+    int mode66=pow(2.0,double(m_nSubMode));
+    toneSpacing=mode66*12000.0/nsps;
     Q_EMIT sendMessage (m_mode, NUM_QRA66_SYMBOLS,
-           1800.0, ui->TxFreqSpinBox->value () - m_XIT,
+           double(nsps), ui->TxFreqSpinBox->value () - m_XIT,
            toneSpacing, m_soundOutput, m_config.audio_output_channel (),
            true, false, snr, m_TRperiod);
   }
@@ -7651,23 +7668,17 @@ void::MainWindow::VHF_features_enabled(bool b)
 void MainWindow::on_sbTR_valueChanged(int value)
 {
 //  if(!m_bFastMode and n>m_nSubMode) m_MinW=m_nSubMode;
-  if(m_bFastMode or m_mode=="FreqCal" or m_mode=="FST4" or m_mode=="FST4W") {
+  if(m_bFastMode or m_mode=="FreqCal" or m_mode=="FST4" or m_mode=="FST4W" or m_mode=="QRA66") {
     m_TRperiod = value;
-    if (m_mode == "FST4" || m_mode == "FST4W")
-      {
-        if (m_TRperiod < 60)
-          {
+    if (m_mode == "FST4" or m_mode == "FST4W" or m_mode=="QRA66") {
+        if (m_TRperiod < 60) {
             ui->decodedTextLabel->setText("  UTC   dB   DT Freq    " + tr ("Message"));
-            if (m_mode != "FST4W")
-              {
+            if (m_mode != "FST4W") {
                 ui->decodedTextLabel2->setText("  UTC   dB   DT Freq    " + tr ("Message"));
               }
-          }
-        else
-          {
+          } else {
             ui->decodedTextLabel->setText("UTC   dB   DT Freq    " + tr ("Message"));
-            if (m_mode != "FST4W")
-              {
+            if (m_mode != "FST4W") {
                 ui->decodedTextLabel2->setText("UTC   dB   DT Freq    " + tr ("Message"));
               }
           }
