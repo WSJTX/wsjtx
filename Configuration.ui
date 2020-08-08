@@ -1493,7 +1493,8 @@ both here.</string>
              <bool>false</bool>
             </property>
             <property name="styleSheet">
-             <string notr="true">background-color: rgb(255, 255, 255);</string>
+             <string notr="true">background-color: rgb(255, 255, 255);
+color: rgb(0, 0, 0);</string>
             </property>
             <property name="text">
              <string>TextLabel</string>
@@ -1541,7 +1542,8 @@ both here.</string>
              </sizepolicy>
             </property>
             <property name="styleSheet">
-             <string notr="true">background-color: rgb(255, 255, 255);</string>
+             <string notr="true">background-color: rgb(255, 255, 255);
+color: rgb(0, 0, 0);</string>
             </property>
             <property name="text">
              <string>TextLabel</string>
