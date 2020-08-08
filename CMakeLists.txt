@@ -222,9 +222,12 @@ set (WSJT_QT_CONF_DESTINATION ${QT_CONF_DESTINATION} CACHE PATH "Path for the qt
 #
 # Project sources
 #
+set (fort_qt_CXXSRCS
+  lib/shmem.cpp
+  )
+
 set (wsjt_qt_CXXSRCS
   qt_helpers.cpp
-  lib/shmem.cpp
   widgets/MessageBox.cpp
   MetaDataRegistry.cpp
   Network/NetworkServerLookup.cpp
@@ -730,6 +733,7 @@ set (qcp_CXXSRCS
 
 set (all_CXXSRCS
   ${wsjt_CXXSRCS}
+  ${fort_qt_CXXSRCS}
   ${wsjt_qt_CXXSRCS}
   ${wsjt_qtmm_CXXSRCS}
   ${wsjtx_CXXSRCS}
@@ -1258,6 +1262,11 @@ if (WIN32)
   target_link_libraries (wsjt_qt Qt5::AxContainer Qt5::AxBase)
 endif (WIN32)
 
+# build a library of package Qt functionality used in Fortran utilities
+add_library (fort_qt STATIC ${fort_qt_CXXSRCS})
+target_link_libraries (fort_qt Qt5::Core)
+
+# build a library of WSJT Qt multimedia components
 add_library (wsjt_qtmm STATIC ${wsjt_qtmm_CXXSRCS} ${wsjt_qtmm_GENUISRCS})
 target_link_libraries (wsjt_qtmm Qt5::Multimedia)
 
@@ -1305,9 +1314,9 @@ if (${OPENMP_FOUND} OR APPLE)
       LINK_FLAGS -Wl,--stack,16777216
       )
   endif ()
-  target_link_libraries (jt9 wsjt_fort_omp wsjt_cxx wsjt_qt)
+  target_link_libraries (jt9 wsjt_fort_omp wsjt_cxx fort_qt)
 else (${OPENMP_FOUND} OR APPLE)
-  target_link_libraries (jt9 wsjt_fort wsjt_cxx Qt5::Core)
+  target_link_libraries (jt9 wsjt_fort wsjt_cxx fort_qt)
 endif (${OPENMP_FOUND} OR APPLE)
 
 if(WSJT_BUILD_UTILS) 
