@@ -6428,7 +6428,8 @@ void MainWindow::on_actionQRA66_triggered()
   m_wideGraph->setModeTx(m_modeTx);
   m_wideGraph->setPeriod(m_TRperiod,6912);
 //                         0123456789012345678901234567890123
-  displayWidgets(nWidgets("1111100001001100000100000001000000"));
+//displayWidgets(nWidgets("1111100001001100000100000001000000"));
+  displayWidgets(nWidgets("1111110101101101000100000011000000"));
   statusChanged();}
 
 void MainWindow::on_actionISCAT_triggered()

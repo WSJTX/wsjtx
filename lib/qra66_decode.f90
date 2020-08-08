@@ -28,32 +28,51 @@ module qra66_decode
 
 contains
 
-  subroutine decode(this,callback,iwave,nutc,nfqso,ntol,ndepth,   &
+  subroutine decode(this,callback,iwave,nutc,ntrperiod,nfqso,ntol,ndepth,   &
        mycall,hiscall,hisgrid)
 
     use timer_module, only: timer
     use packjt
     use, intrinsic :: iso_c_binding
-    parameter (NFFT1=15*12000,NFFT2=15*6000)
+    parameter (NMAX=60*12000)             !### Needs to be 300*12000 ###
     class(qra66_decoder), intent(inout) :: this
     procedure(qra66_decode_callback) :: callback
     character(len=12) :: mycall, hiscall
     character(len=6) :: hisgrid
     character*37 decoded
-    integer*2 iwave(NFFT1)                 !Raw data
+    integer*2 iwave(NMAX)                 !Raw data
     integer dat4(12)
     logical lapdx,ltext
-    complex c0(0:NFFT1-1)                  !Analytic signal, 6000 S/s
+    complex c0(0:NMAX-1)                  !Analytic signal, 6000 S/s
     real s3(-64:127,63)
     real s3a(-64:127,63)
     real a(5)
     data nc1z/-1/,nc2z/-1/,ng2z/-1/,maxaptypez/-1/
     save nc1z,nc2z,ng2z,maxaptypez,nsave,s3a
 
-    this%callback => callback
-    nsps=1800
+    nfft1=ntrperiod*12000
+    nfft2=ntrperiod*6000
+    if(ntrperiod.eq.15) then
+       nsps=1800
+    else if(ntrperiod.eq.30) then
+       nsps=3600
+    else if(ntrperiod.eq.60) then
+       nsps=7680
+    else if(ntrperiod.eq.120) then
+       nsps=16000
+    else if(ntrperiod.eq.300) then
+       nsps=41472
+    else
+      stop 'Invalid TR period'
+    endif
     baud=12000.0/nsps
-    df1=12000.0/NFFT1
+    df1=12000.0/nfft1
+    print*,'aaa',ntrperiod,hisgrid,nsps,baud
+    do i=1,NMAX
+       write(61,3061) i/12000.0,iwave(i)/32767.0
+3061   format(2f12.6)
+    enddo
+    this%callback => callback
     
     if(nutc.eq.-999) print*,lapdx,nfa,nfb,nfqso  !Silence warning
 
@@ -87,15 +106,14 @@ contains
     naptype=maxaptype
 
 ! Downsample to give complex data at 6000 S/s
-    fac=2.0/NFFT1
+    fac=2.0/nfft1
     c0=fac*iwave
-    call four2a(c0,NFFT1,1,-1,1)           !Forward c2c FFT
-    c0(NFFT2/2+1:NFFT2)=0.                 !Zero the top half
+    call four2a(c0,nfft1,1,-1,1)           !Forward c2c FFT
+    c0(nfft2/2+1:nfft2)=0.                 !Zero the top half
     c0(0)=0.5*c0(0)
     call four2a(c0,nfft2,1,1,1)            !Inverse c2c FFT
-
     call timer('sync66  ',0)
-    call sync66(iwave,15*12000,nsps,nfqso,ntol,xdt,f0,snr1)
+    call sync66(iwave,60*12000,nsps,nfqso,ntol,xdt,f0,snr1)    !### 300*12000 ###
     call timer('sync66  ',1)
     jpk=(xdt+0.5)*6000 - 384               !### Empirical ###
     if(jpk.lt.0) jpk=0
@@ -132,11 +150,11 @@ contains
        if(nsave.ge.2) then
           call qra64_dec(s3a,nc1,nc2,ng2,naptype,0,nSubmode,b90,      &
                nFadingModel,dat4,snr2,irc)
-          if(irc.ge.0) irc=10*nsave + irc
+          if(irc.ge.0) irc=100*nsave + irc
        endif
        call timer('qra64_av',1)
     endif
-    snr2=snr2 + 5.563                      !10*log(6912/1920)
+    snr2=snr2 + db(6912.0/nsps)
     if(irc.gt.0) call badmsg(irc,dat4,nc1,nc2,ng2)
 
     decoded='                                     '

@@ -4,24 +4,23 @@ program qra66sim
 
   use wavhdr
   use packjt
-  parameter (NMAX=15*12000)              !180,000
-  parameter (NFFT=NMAX,NH=NFFT/2)
+  parameter (NMAX=300*12000)             !Total samples in .wav file
   type(hdr) h                            !Header for .wav file
   integer*2 iwave(NMAX)                  !Generated waveform
   integer*4 itone(85)                    !Channel symbols (values 0-65)
   real*4 xnoise(NMAX)                    !Generated random noise
   real*4 dat(NMAX)                       !Generated real data
   complex cdat(NMAX)                     !Generated complex waveform
-  complex cspread(0:NFFT-1)              !Complex amplitude for Rayleigh fading
+  complex cspread(0:NMAX-1)              !Complex amplitude for Rayleigh fading
   complex z
   real*8 f0,dt,twopi,phi,dphi,baud,fsample,freq
   character msg*22,fname*13,csubmode*1,arg*12
   character msgsent*22
 
   nargs=iargc()
-  if(nargs.ne.7) then
-     print *, 'Usage:   qra66sim         "msg"     A|B freq fDop DT Nfiles SNR'
-     print *, 'Example: qra66sim "K1ABC W9XYZ EN37" A  1500 0.2 0.0   1    -10'
+  if(nargs.ne.8) then
+     print *, 'Usage:   qra66sim         "msg"     A-E freq fDop DT TRp Nfiles SNR'
+     print *, 'Example: qra66sim "K1ABC W9XYZ EN37" A  1500 0.2 0.0  15   1    -10'
      go to 999
   endif
   call getarg(1,msg)
@@ -34,32 +33,48 @@ program qra66sim
   call getarg(5,arg)
   read(arg,*) xdt
   call getarg(6,arg)
-  read(arg,*) nfiles
+  read(arg,*) ntrperiod
   call getarg(7,arg)
+  read(arg,*) nfiles
+  call getarg(8,arg)
   read(arg,*) snrdb
-  
+
+  if(ntrperiod.eq.15) then
+     nsps=1800
+  else if(ntrperiod.eq.30) then
+     nsps=3600
+  else if(ntrperiod.eq.60) then
+     nsps=7680
+  else if(ntrperiod.eq.120) then
+     nsps=16000
+  else if(ntrperiod.eq.300) then
+     nsps=41472
+  else
+     print*,'Invalid TR period'
+     go to 999
+  endif
+
   rms=100.
   fsample=12000.d0                   !Sample rate (Hz)
+  npts=fsample*ntrperiod             !Total samples in .wav file
+  nfft=npts
+  nh=nfft/2
   dt=1.d0/fsample                    !Sample interval (s)
   twopi=8.d0*atan(1.d0)
-  npts=NMAX                          !Total samples in .wav file
-  nsps=1800
   nsym=85                            !Number of channel symbols
-  if(csubmode.eq.'B') then
-     nsps=nsps/2
-     nsym=2*nsym-1
-  endif
+  mode66=2**(ichar(csubmode) - ichar('A'))
+  print*,csubmode,mode66
 
   ichk=66                            !Flag sent to genqra64
   call genqra64(msg,ichk,msgsent,itone,itype)
   write(*,1001) itone
 1001 format('Channel symbols:'/(20i3))
 
-  baud=12000.d0/nsps                 !Keying rate = 6.25 baud
+  baud=12000.d0/nsps                 !Keying rate (6.67 baud fot 15-s sequences)
   h=default_header(12000,npts)
 
   write(*,1000) 
-1000 format('File     Freq  A|B   S/N   DT    Dop  Message'/60('-'))
+1000 format('File     Freq  A-E   S/N   DT    Dop  Message'/60('-'))
 
   do ifile=1,nfiles                  !Loop over requested number of files
      write(fname,1002) ifile         !Output filename
@@ -85,9 +100,8 @@ program qra66sim
      do i=1,npts                         !Add this signal into cdat()
         isym=i/nsps + 1
         if(isym.gt.nsym) exit
-        if(csubmode.eq.'B' .and. isym.gt.84) isym=isym-84
         if(isym.ne.isym0) then
-           freq=f0 + itone(isym)*baud
+           freq=f0 + itone(isym)*baud*mode66
            dphi=twopi*freq*dt
            isym0=isym
         endif
@@ -102,9 +116,9 @@ program qra66sim
      if(fspread.ne.0) then                  !Apply specified Doppler spread
         df=12000.0/nfft
         cspread(0)=1.0
-        cspread(NH)=0.
+        cspread(nh)=0.
         b=6.0                       !Use truncated Lorenzian shape for fspread
-        do i=1,NH
+        do i=1,nh
            f=i*df
            x=b*f/fspread
            z=0.
@@ -120,12 +134,12 @@ program qra66sim
               phi2=twopi*rran()
               z=a*cmplx(cos(phi2),sin(phi2))
            endif
-           cspread(NFFT-i)=z
+           cspread(nfft-i)=z
         enddo
 
-!        do i=0,NFFT-1
+!        do i=0,nfft-1
 !           f=i*df
-!           if(i.gt.NH) f=(i-nfft)*df
+!           if(i.gt.nh) f=(i-nfft)*df
 !           s=real(cspread(i))**2 + aimag(cspread(i))**2
 !          write(13,3000) i,f,s,cspread(i)
 !3000      format(i5,f10.3,3f12.6)
@@ -133,19 +147,19 @@ program qra66sim
 !        s=real(cspread(0))**2 + aimag(cspread(0))**2
 !        write(13,3000) 1024,0.0,s,cspread(0)
 
-        call four2a(cspread,NFFT,1,1,1)             !Transform to time domain
+        call four2a(cspread,nfft,1,1,1)             !Transform to time domain
 
         sum=0.
-        do i=0,NFFT-1
+        do i=0,nfft-1
            p=real(cspread(i))**2 + aimag(cspread(i))**2
            sum=sum+p
         enddo
-        avep=sum/NFFT
+        avep=sum/nfft
         fac=sqrt(1.0/avep)
         cspread=fac*cspread                   !Normalize to constant avg power
         cdat=cspread*cdat                     !Apply Rayleigh fading
 
-!        do i=0,NFFT-1
+!        do i=0,nfft-1
 !           p=real(cspread(i))**2 + aimag(cspread(i))**2
 !           write(14,3010) i,p,cspread(i)
 !3010       format(i8,3f12.6)

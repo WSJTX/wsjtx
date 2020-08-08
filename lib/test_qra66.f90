@@ -70,7 +70,7 @@ program test_qra66
         if(len(trim(line)).lt.60) cycle
         read(line(11:20),*) xdt,nf
         if(abs(xdt-dt).lt.0.15 .and. abs(nf-nf0).lt.4) nsync=nsync+1
-        read(line(60:),*) irc
+        read(line(60:),*) irc,iavg
         if(irc.lt.0) cycle
         decok=index(line,'W9XYZ').gt.0
         if(decok) then
@@ -92,6 +92,8 @@ program test_qra66
      write(*,1100) nsnr,ndepth,fDop,nsync,ndecodes,navg,nfalse,nretcode,tdec/nfiles
      write(12,1100) nsnr,ndepth,fDop,nsync,ndecodes,navg,nfalse,nretcode,tdec/nfiles
 1100 format(i3,i2,i3,3i5,i4,i6,11i4,f6.2)
+     flush(6)
+     flush(12)
   enddo
 
 999 end program test_qra66

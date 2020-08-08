@@ -197,7 +197,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   if(params%nmode.eq.66) then
 ! We're in QRA66 mode
      call timer('decqra66',0)
-     call my_qra66%decode(qra66_decoded,id2,params%nutc,params%nfqso,        &
+     call my_qra66%decode(qra66_decoded,id2,params%nutc,params%ntr,params%nfqso,  &
           params%ntol,params%ndepth,mycall,hiscall,hisgrid)
      call timer('decqra66',1)
      go to 800
@@ -793,9 +793,11 @@ contains
     integer, intent(in) :: ntrperiod
     real, intent(in) :: fmid
     real, intent(in) :: w50
+    integer navg
 
-    write(*,1001) nutc,nsnr,dt,nint(freq),decoded,irc
-1001 format(i6.6,i4,f5.1,i5,' + ',1x,a37,1x,i4)
+    navg=irc/100
+    write(*,1001) nutc,nsnr,dt,nint(freq),decoded,mod(irc,100),navg
+1001 format(i6.6,i4,f5.1,i5,' + ',1x,a37,1x,i2,i4)
     write(13,1002) nutc,nint(sync),nsnr,dt,freq,0,decoded
 1002 format(i6.6,i4,i5,f6.1,f8.0,i4,3x,a37,' QRA66')
 

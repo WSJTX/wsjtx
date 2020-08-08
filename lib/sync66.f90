@@ -1,18 +1,26 @@
 subroutine sync66(iwave,nmax,nsps,nfqso,ntol,xdt,f0,snr1)
 
   parameter (NSTEP=4)                      !Quarter-symbol steps
-  parameter (IZ=1600,JZ=352,NSPSMAX=1920)
   integer*2 iwave(0:nmax-1)                !Raw data
   integer b11(11)                          !Barker 11 code
   integer ijpk(2)                          !Indices i and j at peak of sync_sig
-  real s1(IZ,JZ)                           !Symbol spectra
-  real x(JZ)                               !Work array; 2FSK sync modulation
+  real, allocatable :: s1(:,:)             !Symbol spectra
+  real, allocatable :: x(:)                !Work array; 2FSK sync modulation
   real sync(4*85)                          !sync vector
   real sync_sig(-64:64,-15:15)
-  complex c0(0:NSPSMAX)                    !Complex spectrum of symbol
+  complex, allocatable :: c0(:)            !Complex spectrum of symbol
   data b11/1,1,1,0,0,0,1,0,0,1,0/          !Barker 11 code
   data sync(1)/99.0/
   save sync
+
+  nfft=2*NSPS
+  df=12000.0/nfft
+  istep=nsps/NSTEP
+  iz=5000.0/df
+  jz=352
+  allocate(s1(iz,jz))
+  allocate(x(jz))
+  allocate(c0(0:nsps))
 
   if(sync(1).eq.99.0) then
      sync=0.
@@ -23,9 +31,6 @@ subroutine sync66(iwave,nmax,nsps,nfqso,ntol,xdt,f0,snr1)
      enddo
   endif
 
-  nfft=2*NSPS
-  df=12000.0/nfft                            !3.125 Hz
-  istep=nsps/NSTEP
   fac=1/32767.0
   do j=1,JZ                                  !Compute symbol spectra
      ia=(j-1)*istep

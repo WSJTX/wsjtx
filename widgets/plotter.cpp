@@ -472,7 +472,7 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
   }
 
   if(m_mode=="QRA66") {                      //QRA66
-    bw=65.0*12000.0/1920.0;
+    bw=65.0*12000.0/1800.0;
   }
   if(m_modeTx=="JT65") {                     //JT65
     bw=65.0*11025.0/4096.0;
