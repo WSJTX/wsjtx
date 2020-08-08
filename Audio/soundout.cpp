@@ -59,11 +59,11 @@ void SoundOutput::setFormat (QAudioDeviceInfo const& device, unsigned channels, 
     {
       Q_EMIT error (tr ("Requested output audio format is not valid."));
     }
-  if (!device.isFormatSupported (format))
+  else if (!device.isFormatSupported (format))
     {
       Q_EMIT error (tr ("Requested output audio format is not supported on device."));
     }
-//  qDebug () << "Selected audio output format:" << format;
+  qDebug () << "Selected audio output format:" << format;
 
   m_stream.reset (new QAudioOutput (device, format));
   audioError ();
