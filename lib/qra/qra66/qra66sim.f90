@@ -14,7 +14,7 @@ program qra66sim
   complex cspread(0:NMAX-1)              !Complex amplitude for Rayleigh fading
   complex z
   real*8 f0,dt,twopi,phi,dphi,baud,fsample,freq
-  character msg*22,fname*13,csubmode*1,arg*12
+  character msg*22,fname*17,csubmode*1,arg*12
   character msgsent*22
 
   nargs=iargc()
@@ -77,9 +77,15 @@ program qra66sim
 1000 format('File    TR   Freq Mode  S/N   DT    Dop  Message'/60('-'))
 
   do ifile=1,nfiles                  !Loop over requested number of files
-     write(fname,1002) ifile         !Output filename
-1002 format('000000_',i6.6)
-     open(10,file=fname//'.wav',access='stream',status='unknown')
+     if(ntrperiod.lt.60) then
+        write(fname,1002) ifile         !Output filename
+1002    format('000000_',i6.6,'.wav')
+     else
+        write(fname,1104) ifile
+1104    format('000000_',i4.4,'.wav')
+     endif
+
+     open(10,file=trim(fname),access='stream',status='unknown')
      xnoise=0.
      cdat=0.
      if(snrdb.lt.90) then

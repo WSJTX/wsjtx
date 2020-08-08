@@ -472,7 +472,14 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
   }
 
   if(m_mode=="QRA66") {                      //QRA66
-    bw=65.0*12000.0/1800.0;
+    int h=int(pow(2.0,m_nSubMode));
+    int nsps=1800;
+    if(m_TRperiod==30) nsps=3600;
+    if(m_TRperiod==60) nsps=7680;
+    if(m_TRperiod==120) nsps=16000;
+    if(m_TRperiod==300) nsps=41472;
+    float baud=12000.0/nsps;
+    bw=65.0*h*baud;
   }
   if(m_modeTx=="JT65") {                     //JT65
     bw=65.0*11025.0/4096.0;
