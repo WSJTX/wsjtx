@@ -1,4 +1,4 @@
-subroutine sync66(iwave,nmax,nsps,nfqso,ntol,xdt,f0,snr1)
+subroutine sync66(iwave,nmax,mode66,nsps,nfqso,ntol,xdt,f0,snr1)
 
   parameter (NSTEP=4)                      !Quarter-symbol steps
   integer*2 iwave(0:nmax-1)                !Raw data
@@ -35,7 +35,7 @@ subroutine sync66(iwave,nmax,nsps,nfqso,ntol,xdt,f0,snr1)
   endif
 
   fac=1/32767.0
-  do j=1,jz                          !Compute symbol spectra at quarter-symbol steps
+  do j=1,jz                     !Compute symbol spectra at quarter-symbol steps
      ia=(j-1)*istep
      ib=ia+nsps-1
      k=-1
@@ -66,9 +66,9 @@ subroutine sync66(iwave,nmax,nsps,nfqso,ntol,xdt,f0,snr1)
   sync_sig=0.
   ia=min(64,nint(ntol/df))
   dt4=nsps/(NSTEP*12000.0)                      !duration of 1/4 symbol
-  lag2=nint(0.5/dt4)
-  if(nsps.ge.7680) lag2=nint(1.0/dt4)
-  lag1=-lag2
+!  lag2=nint(0.5/dt4)
+!  if(nsps.ge.7680) lag2=nint(1.0/dt4)
+!  lag1=-lag2
 
   jadd=11
   if(nsps.ge.3600) jadd=7
@@ -77,7 +77,7 @@ subroutine sync66(iwave,nmax,nsps,nfqso,ntol,xdt,f0,snr1)
   if(nsps.ge.41472) jadd=1
   
   do i=-ia,ia
-     x=s1(i0+2+i,:)-s1(i0+i,:)                  !Do the 2FSK demodulation
+     x=s1(i0+2*mode66+i,:)-s1(i0+i,:)              !Do the 2FSK demodulation
 !     do lag=lag1,lag2
      do lag=-15,15
         do k=1,22

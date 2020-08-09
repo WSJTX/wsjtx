@@ -1,11 +1,11 @@
-subroutine spec66(c0,nsps,s3)
+subroutine spec66(c0,nsps,s3,LL,NN)
 
-  parameter (LL=3*64)                    !Frequency channels
-  parameter (NN=63)                      !Data symbols
+! Compute synchronized symbol spectra.  
+
   complex c0(0:85*nsps-1)                !Synchronized complex data at 6000 S/s
   complex cs(0:nsps-1)                   !Complex symbol spectrum
   real s3(LL,NN)                         !Synchronized symbol spectra
-  real xbase0(LL),xbase(LL)
+  real xbase0(LL),xbase(LL)              !Work arrays
 
   fac=1.0/nsps
   ja=-nsps

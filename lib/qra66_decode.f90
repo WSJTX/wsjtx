@@ -28,8 +28,8 @@ module qra66_decode
 
 contains
 
-  subroutine decode(this,callback,iwave,nutc,ntrperiod,nfqso,ntol,ndepth,   &
-       mycall,hiscall,hisgrid)
+  subroutine decode(this,callback,iwave,nutc,ntrperiod,nsubmode,nfqso,   &
+       ntol,ndepth,mycall,hiscall,hisgrid)
 
     use timer_module, only: timer
     use packjt
@@ -44,15 +44,23 @@ contains
     integer dat4(12)
     logical lapdx,ltext
     complex, allocatable :: c0(:)         !Analytic signal, 6000 S/s
-    real s3(-64:127,63)
-    real s3a(-64:127,63)
+    real, allocatable, save :: s3(:,:)    !Symbol spectra
+    real, allocatable, save :: s3a(:,:)   !Symbol spectra for avg messages
     real a(5)
-    data nc1z/-1/,nc2z/-1/,ng2z/-1/,maxaptypez/-1/
-    save nc1z,nc2z,ng2z,maxaptypez,nsave,s3a
+    data nc1z/-1/,nc2z/-1/,ng2z/-1/,maxaptypez/-1/,nsubmodez/-1/
+    save nc1z,nc2z,ng2z,maxaptypez,nsave,nsubmodez
 
+    mode66=2**nsubmode
     nfft1=ntrperiod*12000
     nfft2=ntrperiod*6000
     allocate (c0(0:nfft1-1))
+
+    if(nsubmode.ne.nsubmodez) then
+       if(allocated(s3)) deallocate(s3)
+       if(allocated(s3a)) deallocate(s3a)
+       allocate(s3(-64:64*mode66+63,63))
+       allocate(s3a(-64:64*mode66+63,63))
+    endif
     
     if(ntrperiod.eq.15) then
        nsps=1800
@@ -83,7 +91,6 @@ contains
     call packcall(mycall(1:6),nc1,ltext)
     call packcall(hiscall(1:6),nc2,ltext)
     call packgrid(hisgrid(1:4),ng2,ltext)
-    nSubmode=0
     b90=20.0                 !8 to 25 is OK; not very critical
     nFadingModel=1
 
@@ -116,28 +123,31 @@ contains
     c0(0)=0.5*c0(0)
     call four2a(c0,nfft2,1,1,1)            !Inverse c2c FFT
     call timer('sync66  ',0)
-    call sync66(iwave,ntrperiod*12000,nsps,nfqso,ntol,xdt,f0,snr1)
+    call sync66(iwave,ntrperiod*12000,mode66,nsps,nfqso,ntol,xdt,f0,snr1)
     call timer('sync66  ',1)
+    
     jpk=(xdt+0.5)*6000 - 384                       !### Empirical ###
     if(ntrperiod.ge.60) jpk=(xdt+1.0)*6000 - 384   !### TBD ###
     if(jpk.lt.0) jpk=0
     a=0.
-    a(1)=-(f0 + 2.0*baud)                  !Data tones start 2 bins higher
+    a(1)=-(f0 + 2.0*mode66*baud)             !Data tones start 2*mode66 bins higher
     call twkfreq(c0,c0,ntrperiod*6000,6000.0,a)
     xdt=jpk/6000.0 - 0.5
-    call spec66(c0(jpk:),nsps/2,s3)
+    
+    LL=64*(mode66+2)
+    NN=63
+    call spec66(c0(jpk:),nsps/2,s3,LL,NN)  !Compute the synchronized symbol spectra
 
     do j=1,63                              !Normalize to symbol baseline
-       call pctile(s3(:,j),192,40,base)
+       call pctile(s3(:,j),LL,40,base)
        s3(:,j)=s3(:,j)/base
-!       write(71,3071)j,maxloc(s3(:,j))
-!3071   format(2i5)
     enddo
 
+    LL2=64*(mode66+1)-1
     s3max=20.0
     do j=1,63                              !Apply AGC to suppress pings
-     xx=maxval(s3(-64:127,j))
-     if(xx.gt.s3max) s3(-64:127,j)=s3(-64:127,j)*s3max/xx
+     xx=maxval(s3(-64:LL2,j))
+     if(xx.gt.s3max) s3(-64:LL2,j)=s3(-64:LL2,j)*s3max/xx
     enddo
 
 ! Call Nico's QRA64 decoder
