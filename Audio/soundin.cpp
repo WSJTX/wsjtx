@@ -82,7 +82,11 @@ void SoundInput::start(QAudioDeviceInfo const& device, int framesPerBuffer, Audi
   //qDebug () << "SoundIn default buffer size (bytes):" << m_stream->bufferSize () << "period size:" << m_stream->periodSize ();
   // the Windows MME version of QAudioInput uses 1/5 of the buffer
   // size for period size other platforms seem to optimize themselves
+#if defined (Q_OS_WIN)
   m_stream->setBufferSize (m_stream->format ().bytesForFrames (framesPerBuffer * 5));
+#else
+  Q_UNUSED (framesPerBuffer);
+#endif
   if (sink->initialize (QIODevice::WriteOnly, channel))
     {
       m_stream->start (sink);

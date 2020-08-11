@@ -85,7 +85,9 @@ void SoundOutput::restart (QIODevice * source)
   //qDebug () << "SoundOut default buffer size (bytes):" << m_stream->bufferSize () << "period size:" << m_stream->periodSize ();
   if (m_framesBuffered)
     {
+#if defined (Q_OS_WIN)
       m_stream->setBufferSize (m_stream->format().bytesForFrames (m_framesBuffered));
+#endif
     }
   m_stream->setCategory ("production");
   m_stream->start (source);
