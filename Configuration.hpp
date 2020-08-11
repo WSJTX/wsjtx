@@ -87,10 +87,8 @@ public:
 
   QAudioDeviceInfo const& audio_input_device () const;
   AudioDevice::Channel audio_input_channel () const;
-  int audio_input_buffer_size () const;
   QAudioDeviceInfo const& audio_output_device () const;
   AudioDevice::Channel audio_output_channel () const;
-  int audio_output_buffer_size () const;
 
   // These query methods should be used after a call to exec() to
   // determine if either the audio input or audio output stream

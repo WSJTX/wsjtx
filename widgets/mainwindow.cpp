@@ -209,6 +209,8 @@ namespace
   QRegularExpression grid_regexp {"\\A(?![Rr]{2}73)[A-Ra-r]{2}[0-9]{2}([A-Xa-x]{2}){0,1}\\z"};
   auto quint32_max = std::numeric_limits<quint32>::max ();
   constexpr int N_WIDGETS {34};
+  constexpr int rx_chunk_size {3456}; // audio samples at 12000 Hz
+  constexpr int tx_audio_buffer_size {48000}; // audio samples at 48000 Hz
 
   bool message_is_73 (int type, QStringList const& msg_parts)
   {
@@ -474,7 +476,18 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect(m_soundInput, &SoundInput::error, this, &MainWindow::showSoundInError);
   // connect(m_soundInput, &SoundInput::status, this, &MainWindow::showStatusMessage);
   connect (m_soundInput, &SoundInput::dropped_frames, this, [this] (qint32 dropped_frames, qint64 usec) {
-                                                              showStatusMessage (tr ("%1 (%2 sec) audio frames dropped").arg (dropped_frames).arg (usec / 1.e6, 5, 'f', 3));
+                                                              if (dropped_frames > 4800) // 1/10 second
+                                                                {
+                                                                  showStatusMessage (tr ("%1 (%2 sec) audio frames dropped").arg (dropped_frames).arg (usec / 1.e6, 5, 'f', 3));
+                                                                }
+                                                              if (dropped_frames > 24000) // 1/2
+                                                                                          // second
+                                                                {
+                                                                  MessageBox::warning_message (this
+                                                                                               , tr ("Audio Source")
+                                                                                               , tr ("Excessive dropped samples")
+                                                                                               , tr ("Reduce system load, or increase audio buffer size"));
+                                                                }
                                                             });
   connect (&m_audioThread, &QThread::finished, m_soundInput, &QObject::deleteLater);
 
@@ -942,14 +955,14 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   if (!m_config.audio_input_device ().isNull ())
     {
       Q_EMIT startAudioInputStream (m_config.audio_input_device ()
-                                    , m_config.audio_input_buffer_size ()
+                                    , rx_chunk_size * m_downSampleFactor
                                     , m_detector, m_downSampleFactor, m_config.audio_input_channel ());
     }
   if (!m_config.audio_output_device ().isNull ())
     {
       Q_EMIT initializeAudioOutputStream (m_config.audio_output_device ()
                                           , AudioDevice::Mono == m_config.audio_output_channel () ? 1 : 2
-                                          , m_config.audio_output_buffer_size ());
+                                          , tx_audio_buffer_size);
     }
   Q_EMIT transmitFrequency (ui->TxFreqSpinBox->value () - m_XIT);
 
@@ -1628,14 +1641,15 @@ QString MainWindow::save_wave_file (QString const& name, short const * data, int
   format.setChannelCount (1);
   format.setSampleSize (16);
   format.setSampleType (QAudioFormat::SignedInt);
-  auto source = QString {"%1, %2"}.arg (my_callsign).arg (my_grid);
-  auto comment = QString {"Mode=%1%2, Freq=%3%4"}
-     .arg (mode)
-     .arg (QString {(mode.contains ('J') && !mode.contains ('+')) || mode.startsWith ("FST4")
-           ? QString {", Sub Mode="} + QChar {'A' + sub_mode}
-         : QString {}})
-        .arg (Radio::frequency_MHz_string (frequency))
-     .arg (QString {mode!="WSPR" ? QString {", DXCall=%1, DXGrid=%2"}
+  auto source = QString {"%1; %2"}.arg (my_callsign).arg (my_grid);
+  auto comment = QString {"Mode=%1%2; Freq=%3%4"}
+                   .arg (mode)
+                   .arg (QString {(mode.contains ('J') && !mode.contains ('+'))
+                         || mode.startsWith ("FST4") || mode.startsWith ("QRA")
+                         ? QString {"; Sub Mode="} + QString::number (int (samples / 12000)) + QChar {'A' + sub_mode}
+                       : QString {}})
+                   .arg (Radio::frequency_MHz_string (frequency))
+                   .arg (QString {mode!="WSPR" ? QString {"; DXCall=%1; DXGrid=%2"}
          .arg (his_call)
          .arg (his_grid).toLocal8Bit () : ""});
   BWFFile::InfoDictionary list_info {
@@ -1814,7 +1828,7 @@ void MainWindow::on_actionSettings_triggered()               //Setup Dialog
 
     if(m_config.restart_audio_input ()) {
       Q_EMIT startAudioInputStream (m_config.audio_input_device ()
-                                    , m_config.audio_input_buffer_size ()
+                                    , rx_chunk_size * m_downSampleFactor
                                     , m_detector, m_downSampleFactor
                                     , m_config.audio_input_channel ());
     }
@@ -1822,7 +1836,7 @@ void MainWindow::on_actionSettings_triggered()               //Setup Dialog
     if(m_config.restart_audio_output ()) {
       Q_EMIT initializeAudioOutputStream (m_config.audio_output_device ()
                                           , AudioDevice::Mono == m_config.audio_output_channel () ? 1 : 2
-                                          , m_config.audio_output_buffer_size ());
+                                          , tx_audio_buffer_size);
     }
 
     displayDialFrequency ();

@@ -79,24 +79,17 @@ void SoundOutput::restart (QIODevice * source)
 {
   Q_ASSERT (m_stream);
 
-  //
-  // This buffer size is critical since for proper sound streaming. If
-  // it is too short; high activity levels on the machine can starve
-  // the audio buffer. On the other hand the Windows implementation
-  // seems to take the length of the buffer in time to stop the audio
-  // stream even if reset() is used.
-  //
-  // 2 seconds seems a reasonable compromise except for Windows
-  // where things are probably broken.
-  //
   // we have to set this before every start on the stream because the
   // Windows implementation seems to forget the buffer size after a
   // stop.
-  qDebug () << "SoundOut default buffer size (bytes):" << m_stream->bufferSize ();
-  m_stream->setBufferSize (m_stream->format().bytesForFrames (m_framesBuffered));
-  qDebug () << "SoundOut selected buffer size (bytes):" << m_stream->bufferSize ();
+  //qDebug () << "SoundOut default buffer size (bytes):" << m_stream->bufferSize () << "period size:" << m_stream->periodSize ();
+  if (m_framesBuffered)
+    {
+      m_stream->setBufferSize (m_stream->format().bytesForFrames (m_framesBuffered));
+    }
   m_stream->setCategory ("production");
   m_stream->start (source);
+  //qDebug () << "SoundOut selected buffer size (bytes):" << m_stream->bufferSize () << "period size:" << m_stream->periodSize ();
 }
 
 void SoundOutput::suspend ()
