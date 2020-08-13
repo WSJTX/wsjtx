@@ -484,8 +484,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
                                                                 {
                                                                   MessageBox::warning_message (this
                                                                                                , tr ("Audio Source")
-                                                                                               , tr ("Excessive dropped samples")
-                                                                                               , tr ("Reduce system load"));
+                                                                                               , tr ("Reduce system load")
+                                                                                               , tr ("Excessive dropped samples - %1 (%2 sec) audio frames dropped").arg (dropped_frames).arg (usec / 1.e6, 5, 'f', 3));
                                                                 }
                                                             });
   connect (&m_audioThread, &QThread::finished, m_soundInput, &QObject::deleteLater);
@@ -2950,7 +2950,7 @@ void MainWindow::on_actionSpecial_mouse_commands_triggered()
     <td><b>Click</b> to set Rx frequency.<br/>
         <b>Shift-click</b> to set Tx frequency.<br/>
         <b>Ctrl-click</b> or <b>Right-click</b> to set Rx and Tx frequencies.<br/>
-	<b>Double-click</b> to also decode at Rx frequency.<br/>
+        <b>Double-click</b> to also decode at Rx frequency.<br/>
     </td>
   </tr>
   <tr>
@@ -2958,10 +2958,10 @@ void MainWindow::on_actionSpecial_mouse_commands_triggered()
     <td><b>Double-click</b> to copy second callsign to Dx Call,<br/>
         locator to Dx Grid, change Rx and Tx frequency to<br/>
         decoded signal's frequency, and generate standard<br/>
-	messages.<br/>
-	If <b>Hold Tx Freq</b> is checked or first callsign in message<br/>
-	is your own call, Tx frequency is not changed unless <br/>
-	<b>Ctrl</b> is held down.<br/>
+        messages.<br/>
+        If <b>Hold Tx Freq</b> is checked or first callsign in message<br/>
+        is your own call, Tx frequency is not changed unless <br/>
+        <b>Ctrl</b> is held down.<br/>
     </td>
   </tr>
   <tr>
@@ -5270,11 +5270,11 @@ bool MainWindow::stdCall(QString const& w)
 {
   static QRegularExpression standard_call_re {
     R"(
-        ^\s*				# optional leading spaces
+        ^\s*                                      # optional leading spaces
         ( [A-Z]{0,2} | [A-Z][0-9] | [0-9][A-Z] )  # part 1
         ( [0-9][A-Z]{0,3} )                       # part 2
-        (/R | /P)?			# optional suffix
-        \s*$				# optional trailing spaces
+        (/R | /P)?                                # optional suffix
+        \s*$                                      # optional trailing spaces
     )", QRegularExpression::CaseInsensitiveOption | QRegularExpression::ExtendedPatternSyntaxOption};
   return standard_call_re.match (w).hasMatch ();
 }
