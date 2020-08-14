@@ -748,7 +748,6 @@ set (all_C_and_CXXSRCS
   )
 
 set (TOP_LEVEL_RESOURCES
-  cty.dat
   icons/Darwin/wsjtx.iconset/icon_128x128.png
   contrib/gpl-v3-logo.svg
   artwork/splash.png
@@ -1574,6 +1573,7 @@ install (FILES
   )
 
 install (FILES
+  cty.dat
   contrib/Ephemeris/JPLEPH
   DESTINATION ${CMAKE_INSTALL_DATADIR}/${CMAKE_PROJECT_NAME}
   #COMPONENT runtime
