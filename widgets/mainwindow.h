@@ -446,7 +446,6 @@ private:
   qint32  m_nclearave;
   qint32  m_minSync;
   qint32  m_dBm;
-  qint32  m_pctx;
   qint32  m_nseq;
   qint32  m_nWSPRdecodes;
   qint32  m_k0;
@@ -505,7 +504,6 @@ private:
   bool    m_bSWL;
   bool    m_uploadWSPRSpots;
   bool    m_uploading;
-  bool    m_txNext;
   bool    m_grid6;
   bool    m_tuneup;
   bool    m_bTxTime;

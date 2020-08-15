@@ -285,7 +285,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_idleMinutes {0},
   m_nSubMode {0},
   m_nclearave {1},
-  m_pctx {0},
   m_nseq {0},
   m_nWSPRdecodes {0},
   m_k0 {9999999},
@@ -311,7 +310,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_bShMsgs {false},
   m_bSWL {false},
   m_uploading {false},
-  m_txNext {false},
   m_grid6 {false},
   m_tuneup {false},
   m_bTxTime {false},
@@ -996,7 +994,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   }
   m_saveDecoded=ui->actionSave_decoded->isChecked();
   m_saveAll=ui->actionSave_all->isChecked();
-  ui->sbTxPercent->setValue(m_pctx);
   ui->TxPowerComboBox->setCurrentIndex(int(.3 * m_dBm + .2));
   ui->cbUploadWSPR_Spots->setChecked(m_uploadWSPRSpots);
   if((m_ndepth&7)==1) ui->actionQuickDecode->setChecked(true);
@@ -1019,12 +1016,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_isort=-3;
   m_max_dB=70;
   m_CQtype="CQ";
-
-  if(m_mode=="WSPR" and m_pctx>0)  {
-    QPalette palette {ui->sbTxPercent->palette ()};
-    palette.setColor(QPalette::Base,Qt::yellow);
-    ui->sbTxPercent->setPalette(palette);
-  }
   fixStop();
   VHF_features_enabled(m_config.enable_VHF_features());
   m_wideGraph->setVHF(m_config.enable_VHF_features());
@@ -1168,7 +1159,7 @@ void MainWindow::writeSettings()
   m_settings->setValue("GUItab",ui->tabWidget->currentIndex());
   m_settings->setValue("OutBufSize",outBufSize);
   m_settings->setValue ("HoldTxFreq", ui->cbHoldTxFreq->isChecked ());
-  m_settings->setValue("PctTx",m_pctx);
+  m_settings->setValue("PctTx", ui->sbTxPercent->value ());
   m_settings->setValue("dBm",m_dBm);
   m_settings->setValue("RR73",m_send_RR73);
   m_settings->setValue ("WSPRPreferType1", ui->WSPR_prefer_type_1_check_box->isChecked ());
@@ -1259,7 +1250,8 @@ void MainWindow::readSettings()
   ui->TxFreqSpinBox->setValue(0); // ensure a change is signaled
   ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq",1500).toInt());
   m_ndepth=m_settings->value("NDepth",3).toInt();
-  m_pctx=m_settings->value("PctTx",20).toInt();
+  ui->sbTxPercent->setValue (m_settings->value ("PctTx", 20).toInt ());
+  on_sbTxPercent_valueChanged (ui->sbTxPercent->value ());
   m_dBm=m_settings->value("dBm",37).toInt();
   m_send_RR73=m_settings->value("RR73",false).toBool();
   if(m_send_RR73) {
@@ -1268,7 +1260,6 @@ void MainWindow::readSettings()
   }
   ui->WSPR_prefer_type_1_check_box->setChecked (m_settings->value ("WSPRPreferType1", true).toBool ());
   m_uploadWSPRSpots=m_settings->value("UploadSpots",false).toBool();
-  if(!m_uploadWSPRSpots) ui->cbUploadWSPR_Spots->setStyleSheet("QCheckBox{color: #000000; background-color: yellow}");
   ui->cbNoOwnCall->setChecked(m_settings->value("NoOwnCall",false).toBool());
   ui->band_hopping_group_box->setChecked (m_settings->value ("BandHopping", false).toBool());
   // setup initial value of tx attenuator
@@ -1937,16 +1928,12 @@ void MainWindow::on_autoButton_clicked (bool checked)
     m_nclearave=1;
     echocom_.nsum=0;
   }
-  if(m_mode=="WSPR" or m_mode=="FST4W") {
-    QPalette palette {ui->sbTxPercent->palette ()};
-    if(m_auto or m_pctx==0) {
-      palette.setColor(QPalette::Base,Qt::white);
-    } else {
-      palette.setColor(QPalette::Base,Qt::yellow);
-    }
-    ui->sbTxPercent->setPalette(palette);
-  }
   m_tAutoOn=QDateTime::currentMSecsSinceEpoch()/1000;
+}
+
+void MainWindow::on_sbTxPercent_valueChanged (int n)
+{
+  update_dynamic_property (ui->sbTxPercent, "notx", !n);
 }
 
 void MainWindow::auto_tx_mode (bool state)
@@ -3753,16 +3740,11 @@ void MainWindow::guiUpdate()
   if(m_mode=="WSPR" or m_mode=="FST4W") {
     if(m_nseq==0 and m_ntr==0) {                   //Decide whether to Tx or Rx
       m_tuneup=false;                              //This is not an ATU tuneup
-      if(ui->sbTxPercent->isEnabled () && m_pctx==0) m_WSPR_tx_next = false; //Don't transmit if m_pctx=0
       bool btx = m_auto && m_WSPR_tx_next;         // To Tx, we need m_auto and
                                                    // scheduled transmit
-      if(m_auto and m_txNext) btx=true;            //TxNext button overrides
-      if(m_auto && ui->sbTxPercent->isEnabled () && m_pctx==100) btx=true; //Always transmit
-
       if(btx) {
         m_ntr=-1;                                  //This says we will have transmitted
-        m_txNext=false;
-        ui->pbTxNext->setChecked(false);
+        ui->pbTxNext->setChecked (false);
         m_bTxTime=true;                            //Start a WSPR or FST4W Tx sequence
       } else {
 // This will be a WSPR or FST4W Rx sequence.
@@ -7210,14 +7192,15 @@ void MainWindow::handle_transceiver_update (Transceiver::TransceiverState const&
 {
   Transceiver::TransceiverState old_state {m_rigState};
   //transmitDisplay (s.ptt ());
-  if (s.ptt () && !m_rigState.ptt ()) { // safe to start audio
+  if (s.ptt () // && !m_rigState.ptt ()
+      ) { // safe to start audio
                                         // (caveat - DX Lab Suite Commander)
     if (m_tx_when_ready && g_iptt) {    // waiting to Tx and still needed
       int ms_delay=1000*m_config.txDelay();
       if(m_mode=="FT4") ms_delay=20;
       ptt1Timer.start(ms_delay); //Start-of-transmission sequencer delay
+      m_tx_when_ready = false;
     }
-    m_tx_when_ready = false;
   }
   m_rigState = s;
   auto old_freqNominal = m_freqNominal;
@@ -8104,17 +8087,18 @@ void MainWindow::uploadWSPRSpots (bool direct_post, QString const& decode_text)
   QString rfreq = QString("%1").arg((m_dialFreqRxWSPR + 1500) / 1e6, 0, 'f', 6);
   QString tfreq = QString("%1").arg((m_dialFreqRxWSPR +
                         ui->TxFreqSpinBox->value()) / 1e6, 0, 'f', 6);
+  auto pct = QString::number (ui->autoButton->isChecked () ? ui->sbTxPercent->value () : 0);
   if (!direct_post)
     {
       wsprNet->upload (m_config.my_callsign (), m_config.my_grid (), rfreq, tfreq,
-                       m_mode, m_TRperiod, QString::number (ui->autoButton->isChecked () ? m_pctx : 0),
+                       m_mode, m_TRperiod, pct,
                        QString::number (m_dBm), version (),
                        m_config.writeable_data_dir ().absoluteFilePath ("wspr_spots.txt"));
     }
   else
     {
       wsprNet->post (m_config.my_callsign (), m_config.my_grid (), rfreq, tfreq,
-                     m_mode, m_TRperiod, QString::number (ui->autoButton->isChecked () ? m_pctx : 0),
+                     m_mode, m_TRperiod, pct,
                      QString::number (m_dBm), version (), decode_text);
     }
   if (!decode_text.size ())
@@ -8140,24 +8124,9 @@ void MainWindow::on_TxPowerComboBox_currentIndexChanged(int index)
   m_dBm = ui->TxPowerComboBox->itemData (index).toInt ();
 }
 
-void MainWindow::on_sbTxPercent_valueChanged(int n)
-{
-  m_pctx=n;
-  if(m_pctx>0) {
-    ui->pbTxNext->setEnabled(true);
-  } else {
-    m_txNext=false;
-    ui->pbTxNext->setChecked(false);
-    ui->pbTxNext->setEnabled(false);
-  }
-}
-
 void MainWindow::on_cbUploadWSPR_Spots_toggled(bool b)
 {
   m_uploadWSPRSpots=b;
-  if(m_uploadWSPRSpots) ui->cbUploadWSPR_Spots->setStyleSheet("");
-  if(!m_uploadWSPRSpots) ui->cbUploadWSPR_Spots->setStyleSheet(
-        "QCheckBox{color: #000000; background-color: yellow}");
 }
 
 void MainWindow::on_WSPRfreqSpinBox_valueChanged(int n)
@@ -8167,11 +8136,21 @@ void MainWindow::on_WSPRfreqSpinBox_valueChanged(int n)
 
 void MainWindow::on_pbTxNext_clicked(bool b)
 {
-  m_txNext=b;
+  if (b && !ui->autoButton->isChecked ())
+    {
+      m_WSPR_tx_next = false;   // cancel any pending start from schedule
+      ui->autoButton->click (); // make sure Tx is possible
+    }
 }
 
 void MainWindow::WSPR_scheduling ()
 {
+  if (ui->pbTxNext->isEnabled () && ui->pbTxNext->isChecked ())
+    {
+      // Tx Next button overrides all scheduling
+      m_WSPR_tx_next = true;
+      return;
+    }
   QString t=ui->RoundRobin->currentText();
   if(m_mode=="FST4W" and t != tr ("Random")) {
     bool ok;
@@ -8184,10 +8163,14 @@ void MainWindow::WSPR_scheduling ()
     int nsec=ms/1000;
     int ntr=m_TRperiod;
     int j=((nsec+ntr-1) % (n*ntr))/ntr;
-    m_WSPR_tx_next=(i==j);
+    m_WSPR_tx_next = i == j;
     return;
   }
   m_WSPR_tx_next = false;
+  if (!ui->sbTxPercent->isEnabled () || !ui->sbTxPercent->value ())
+    {
+      return;                   // don't schedule if %age disabled or zero
+    }
   if (m_config.is_transceiver_online () // need working rig control for hopping
       && !m_config.is_dummy_rig ()
       && ui->band_hopping_group_box->isChecked ()) {
