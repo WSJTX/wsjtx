@@ -4639,9 +4639,9 @@ void MainWindow::doubleClickOnCall2(Qt::KeyboardModifiers modifiers)
 void MainWindow::doubleClickOnCall(Qt::KeyboardModifiers modifiers)
 {
   QTextCursor cursor;
-  if(m_mode=="ISCAT") {
+  if(m_mode=="ISCAT" or m_mode=="FST4W") {
     MessageBox::information_message (this,
-        "Double-click not available for ISCAT mode");
+        "Double-click not available for ISCAT or FST4W mode");
     return;
   }
   if(m_decodedText2) {
