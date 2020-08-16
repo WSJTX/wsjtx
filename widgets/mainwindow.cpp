@@ -3294,7 +3294,8 @@ void MainWindow::readFromStdout()                             //readFromStdout
             line_read = line_read.left (64);
           }
       }
-    if(m_mode!="FT8" and m_mode!="FT4") {
+    if (m_mode!="FT8" and m_mode!="FT4"
+        && !m_mode.startsWith ("FST4")) {
       //Pad 22-char msg to at least 37 chars
       line_read = line_read.left(44) + "              " + line_read.mid(44);
     }
