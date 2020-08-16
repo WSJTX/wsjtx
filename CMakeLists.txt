@@ -1854,11 +1854,11 @@ endif ()
 
 set (CPACK_DEBIAN_PACKAGE_DESCRIPTION "${PROJECT_DESCRIPTION}")
 set (CPACK_DEBIAN_PACKAGE_HOMEPAGE "${PROJECT_HOMEPAGE}")
-set (CPACK_DEBIAN_PACKAGE_DEPENDS "libgfortran4 (>=7.3.0), libfftw3-single3 (>=3.3.7), libgomp1 (>8), libqt5serialport5 (>=5.9.5), libqt5multimedia5-plugins (>=5.9.5), libqt5widgets5 (>=5.9.5), libqt5network5 (>=5.9.5), libqt5printsupport5 (>=5.9.5), libqt5sql5-sqlite (>=5.9.5), libusb-1.0-0 (>=1.0.21)")
+set (CPACK_DEBIAN_PACKAGE_DEPENDS "libgfortran5 (>=10), libfftw3-single3 (>=3.3.8), libgomp1 (>=10), libqt5serialport5 (>=5.12.8), libqt5multimedia5-plugins (>=5.12.8), libqt5widgets5 (>=5.12.8), libqt5network5 (>=5.12.8), libqt5printsupport5 (>=5.12.8), libqt5sql5-sqlite (>=5.12.8), libusb-1.0-0 (>=1.0.23)")
 set (CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 
 set (CPACK_RPM_PACKAGE_ARCHITECTURE ${CMAKE_SYSTEM_PROCESSOR})
-set (CPACK_RPM_PACKAGE_REQUIRES "qt5-qtbase >= 5.6, qt5-qtserialport >= 5.6, qt5-qtmultimedia >= 5.6, qt5-qtsvg >= 5.6, libusbx >= 1.0.23, libgfortran >= 4.7, fftw-libs-double > 3.3.8, fftw-libs-single > 3.3.8")
+set (CPACK_RPM_PACKAGE_REQUIRES "qt5-qtbase >= 5.13.2, qt5-qtserialport >= 5.13.2, qt5-qtmultimedia >= 5.13.2, qt5-qtsvg >= 5.13.2, libusbx >= 1.0.23, libgfortran >= 10.0.1, fftw-libs-double > 3.3.8, fftw-libs-single > 3.3.8")
 set (CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION /usr/share/pixmaps /usr/share/applications /usr/share/man /usr/share/man1)
 
 configure_file ("${PROJECT_SOURCE_DIR}/CMakeCPackOptions.cmake.in"
