@@ -84,7 +84,7 @@ subroutine get_fst4_bitmetrics(cd,nss,hmod,nmax,nhicoh,bitmetrics,s4,badsync)
    endif
 
    bitmetrics=0.0
-   do nseq=1,nmax            !Try coherent sequences of 1, 2, and 4 symbols
+   do nseq=1,nmax            !Try coherent sequences of 1,2,3,4 or 1,2,4,8 symbols
       if(nseq.eq.1) nsym=1
       if(nseq.eq.2) nsym=2
       if(nhicoh.eq.0) then

@@ -141,7 +141,7 @@ subroutine decode240_74(llr,Keff,maxosd,norder,apmask,message74,cw,ntype,nharder
          where(llr .ge. 0) hdec=1
          nxor=ieor(hdec,cw)
          dmin=sum(nxor*abs(llr))
-         ntype=2
+         ntype=1+nosd
          return
       endif
    enddo

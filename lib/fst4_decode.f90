@@ -395,11 +395,13 @@ contains
             if(is0.lt.0) cycle
             cframe=c2(is0:is0+160*nss-1)
             bitmetrics=0
+            call timer('bitmetrc',0)
             if(hmod.eq.1) then
                call get_fst4_bitmetrics(cframe,nss,hmod,nblock,nhicoh,bitmetrics,s4,badsync)
             else
                call get_fst4_bitmetrics2(cframe,nss,hmod,nblock,bitmetrics,s4,badsync)
             endif
+            call timer('bitmetrc',1)
             if(badsync) cycle
 
             hbits=0
@@ -410,7 +412,8 @@ contains
             ns4=count(hbits(229:244).eq.(/1,1,1,0,0,1,0,0,1,0,1,1,0,0,0,1/))
             ns5=count(hbits(305:320).eq.(/0,0,0,1,1,0,1,1,0,1,0,0,1,1,1,0/))
             nsync_qual=ns1+ns2+ns3+ns4+ns5
-               if(nsync_qual.lt. 46) cycle                   !### Value ?? ###
+
+            if(nsync_qual.lt. 46) cycle                   !### Value ?? ###
             scalefac=2.83
             llra(  1: 60)=bitmetrics( 17: 76, 1)
             llra( 61:120)=bitmetrics( 93:152, 1)
@@ -768,7 +771,7 @@ contains
 
       nnw=nint(48000.*nsps*2./fs)
       allocate (s(nnw))
-      s=0.                                  !Compute low-resloution power spectrum
+      s=0.                                  !Compute low-resolution power spectrum
       do i=ina,inb   ! noise analysis window includes signal analysis window
          j0=nint(i*df2/df1)
          do j=j0-ndh,j0+ndh
@@ -785,7 +788,6 @@ contains
       enddo
       call pctile(s2(ina+hmod*3:inb-hmod*3),inb-ina+1-hmod*6,30,base)
       s2=s2/base                                  !Normalize wrt noise level
-
       ncand=0
       candidates=0
       if(ia.lt.3) ia=3
