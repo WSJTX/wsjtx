@@ -18,15 +18,16 @@ class SoundOutput
   
 public:
   SoundOutput ()
-    : m_msBuffered {0u}
+    : m_framesBuffered {0}
     , m_volume {1.0}
+    , error_ {false}
   {
   }
 
   qreal attenuation () const;
 
 public Q_SLOTS:
-  void setFormat (QAudioDeviceInfo const& device, unsigned channels, unsigned msBuffered = 0u);
+  void setFormat (QAudioDeviceInfo const& device, unsigned channels, int frames_buffered = 0);
   void restart (QIODevice *);
   void suspend ();
   void resume ();
@@ -47,8 +48,9 @@ private Q_SLOTS:
 
 private:
   QScopedPointer<QAudioOutput> m_stream;
-  unsigned m_msBuffered;
+  int m_framesBuffered;
   qreal m_volume;
+  bool error_;
 };
 
 #endif

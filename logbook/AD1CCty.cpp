@@ -319,12 +319,12 @@ AD1CCty::AD1CCty (Configuration const * configuration)
 {
   Q_ASSERT (configuration);
   // TODO: G4WJS - consider doing the following asynchronously to
-  // speed up startup. Not urgent as it takes less than 1s on a Core
+  // speed up startup. Not urgent as it takes less than 0.5s on a Core
   // i7 reading BIG CTY.DAT.
   QDir dataPath {QStandardPaths::writableLocation (QStandardPaths::DataLocation)};
   m_->path_ = dataPath.exists (file_name)
     ? dataPath.absoluteFilePath (file_name) // user override
-    : QString {":/"} + file_name;          // or original in the resources FS
+    : configuration->data_dir ().absoluteFilePath (file_name); // or original
   QFile file {m_->path_};
   if (file.open (QFile::ReadOnly))
     {

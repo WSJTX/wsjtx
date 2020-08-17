@@ -220,7 +220,7 @@ public:
     , carry_ {false}
     , seed_ {{rand (), rand (), rand (), rand (), rand (), rand (), rand (), rand ()}}
     , gen_ {seed_}
-    , dist_ {1, 100}
+    , dist_ {0, 99}
   {
     auto num_bands = configuration_->bands ()->rowCount ();
     for (auto& flags : bands_)

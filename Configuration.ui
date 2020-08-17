@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>559</width>
-    <height>553</height>
+    <width>554</width>
+    <height>557</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -1349,33 +1349,13 @@ radio interface behave as expected.</string>
           <string>Soundcard</string>
          </property>
          <layout class="QGridLayout" name="gridLayout_6">
-          <item row="1" column="1">
-           <widget class="QComboBox" name="sound_output_combo_box">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-              <horstretch>1</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
+          <item row="1" column="0">
+           <widget class="QLabel" name="sound_output_label">
+            <property name="text">
+             <string>Ou&amp;tput:</string>
             </property>
-            <property name="toolTip">
-             <string>Select the audio CODEC to use for transmitting.
-If this is your default device for system sounds then
-ensure that all system sounds are disabled otherwise
-you will broadcast any systems sounds generated during
-transmitting periods.</string>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="1">
-           <widget class="QComboBox" name="sound_input_combo_box">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-              <horstretch>1</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="toolTip">
-             <string>Select the audio CODEC to use for receiving.</string>
+            <property name="buddy">
+             <cstring>sound_output_combo_box</cstring>
             </property>
            </widget>
           </item>
@@ -1387,33 +1367,6 @@ transmitting periods.</string>
             <property name="buddy">
              <cstring>sound_input_combo_box</cstring>
             </property>
-           </widget>
-          </item>
-          <item row="0" column="2">
-           <widget class="QComboBox" name="sound_input_channel_combo_box">
-            <property name="toolTip">
-             <string>Select the channel to use for receiving.</string>
-            </property>
-            <item>
-             <property name="text">
-              <string>Mono</string>
-             </property>
-            </item>
-            <item>
-             <property name="text">
-              <string>Left</string>
-             </property>
-            </item>
-            <item>
-             <property name="text">
-              <string>Right</string>
-             </property>
-            </item>
-            <item>
-             <property name="text">
-              <string>Both</string>
-             </property>
-            </item>
            </widget>
           </item>
           <item row="1" column="2">
@@ -1446,14 +1399,61 @@ both here.</string>
             </item>
            </widget>
           </item>
-          <item row="1" column="0">
-           <widget class="QLabel" name="sound_output_label">
-            <property name="text">
-             <string>Ou&amp;tput:</string>
+          <item row="0" column="1">
+           <widget class="QComboBox" name="sound_input_combo_box">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+              <horstretch>1</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
             </property>
-            <property name="buddy">
-             <cstring>sound_output_combo_box</cstring>
+            <property name="toolTip">
+             <string>Select the audio CODEC to use for receiving.</string>
             </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QComboBox" name="sound_output_combo_box">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+              <horstretch>1</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="toolTip">
+             <string>Select the audio CODEC to use for transmitting.
+If this is your default device for system sounds then
+ensure that all system sounds are disabled otherwise
+you will broadcast any systems sounds generated during
+transmitting periods.</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="2">
+           <widget class="QComboBox" name="sound_input_channel_combo_box">
+            <property name="toolTip">
+             <string>Select the channel to use for receiving.</string>
+            </property>
+            <item>
+             <property name="text">
+              <string>Mono</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Left</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Right</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Both</string>
+             </property>
+            </item>
            </widget>
           </item>
          </layout>
@@ -1493,7 +1493,8 @@ both here.</string>
              <bool>false</bool>
             </property>
             <property name="styleSheet">
-             <string notr="true">background-color: rgb(255, 255, 255);</string>
+             <string notr="true">background-color: rgb(255, 255, 255);
+color: rgb(0, 0, 0);</string>
             </property>
             <property name="text">
              <string>TextLabel</string>
@@ -1541,7 +1542,8 @@ both here.</string>
              </sizepolicy>
             </property>
             <property name="styleSheet">
-             <string notr="true">background-color: rgb(255, 255, 255);</string>
+             <string notr="true">background-color: rgb(255, 255, 255);
+color: rgb(0, 0, 0);</string>
             </property>
             <property name="text">
              <string>TextLabel</string>
@@ -2949,14 +2951,20 @@ Right click for insert and delete options.</string>
   <tabstop>use_dynamic_grid</tabstop>
   <tabstop>region_combo_box</tabstop>
   <tabstop>type_2_msg_gen_combo_box</tabstop>
+  <tabstop>decodes_from_top_check_box</tabstop>
+  <tabstop>insert_blank_check_box</tabstop>
+  <tabstop>miles_check_box</tabstop>
   <tabstop>TX_messages_check_box</tabstop>
   <tabstop>DXCC_check_box</tabstop>
+  <tabstop>ppfx_check_box</tabstop>
   <tabstop>font_push_button</tabstop>
   <tabstop>decoded_text_font_push_button</tabstop>
   <tabstop>monitor_off_check_box</tabstop>
   <tabstop>monitor_last_used_check_box</tabstop>
   <tabstop>quick_call_check_box</tabstop>
   <tabstop>disable_TX_on_73_check_box</tabstop>
+  <tabstop>force_call_1st_check_box</tabstop>
+  <tabstop>alternate_bindings_check_box</tabstop>
   <tabstop>CW_id_after_73_check_box</tabstop>
   <tabstop>enable_VHF_features_check_box</tabstop>
   <tabstop>tx_QSY_check_box</tabstop>
@@ -2975,8 +2983,8 @@ Right click for insert and delete options.</string>
   <tabstop>CAT_one_stop_bit_radio_button</tabstop>
   <tabstop>CAT_two_stop_bit_radio_button</tabstop>
   <tabstop>CAT_handshake_default_radio_button</tabstop>
-  <tabstop>CAT_handshake_none_radio_button</tabstop>
   <tabstop>CAT_handshake_xon_radio_button</tabstop>
+  <tabstop>CAT_handshake_none_radio_button</tabstop>
   <tabstop>CAT_handshake_hardware_radio_button</tabstop>
   <tabstop>force_DTR_combo_box</tabstop>
   <tabstop>force_RTS_combo_box</tabstop>
@@ -3014,6 +3022,7 @@ Right click for insert and delete options.</string>
   <tabstop>clear_DX_check_box</tabstop>
   <tabstop>opCallEntry</tabstop>
   <tabstop>psk_reporter_check_box</tabstop>
+  <tabstop>psk_reporter_tcpip_check_box</tabstop>
   <tabstop>udp_server_line_edit</tabstop>
   <tabstop>udp_server_port_spin_box</tabstop>
   <tabstop>accept_udp_requests_check_box</tabstop>
@@ -3028,9 +3037,13 @@ Right click for insert and delete options.</string>
   <tabstop>stations_table_view</tabstop>
   <tabstop>highlighting_list_view</tabstop>
   <tabstop>reset_highlighting_to_defaults_push_button</tabstop>
+  <tabstop>highlight_by_mode_check_box</tabstop>
+  <tabstop>only_fields_check_box</tabstop>
+  <tabstop>include_WAE_check_box</tabstop>
+  <tabstop>rescan_log_push_button</tabstop>
   <tabstop>LotW_CSV_URL_line_edit</tabstop>
-  <tabstop>LotW_CSV_fetch_push_button</tabstop>
   <tabstop>LotW_days_since_upload_spin_box</tabstop>
+  <tabstop>LotW_CSV_fetch_push_button</tabstop>
   <tabstop>sbNtrials</tabstop>
   <tabstop>sbAggressive</tabstop>
   <tabstop>cbTwoPass</tabstop>
@@ -3039,13 +3052,18 @@ Right click for insert and delete options.</string>
   <tabstop>sbTxDelay</tabstop>
   <tabstop>cbx2ToneSpacing</tabstop>
   <tabstop>cbx4ToneSpacing</tabstop>
+  <tabstop>rbLowSidelobes</tabstop>
+  <tabstop>rbMaxSensitivity</tabstop>
+  <tabstop>gbSpecialOpActivity</tabstop>
   <tabstop>rbFox</tabstop>
+  <tabstop>rbHound</tabstop>
   <tabstop>rbNA_VHF_Contest</tabstop>
-  <tabstop>rbEU_VHF_Contest</tabstop>
   <tabstop>rbField_Day</tabstop>
   <tabstop>Field_Day_Exchange</tabstop>
+  <tabstop>rbEU_VHF_Contest</tabstop>
   <tabstop>rbRTTY_Roundup</tabstop>
   <tabstop>RTTY_Exchange</tabstop>
+  <tabstop>rbWW_DIGI</tabstop>
  </tabstops>
  <resources/>
  <connections>
@@ -3116,12 +3134,12 @@ Right click for insert and delete options.</string>
  </connections>
  <buttongroups>
   <buttongroup name="PTT_method_button_group"/>
-  <buttongroup name="TX_mode_button_group"/>
+  <buttongroup name="CAT_stop_bits_button_group"/>
   <buttongroup name="CAT_handshake_button_group"/>
+  <buttongroup name="split_mode_button_group"/>
+  <buttongroup name="TX_mode_button_group"/>
   <buttongroup name="TX_audio_source_button_group"/>
   <buttongroup name="special_op_activity_button_group"/>
   <buttongroup name="CAT_data_bits_button_group"/>
-  <buttongroup name="split_mode_button_group"/>
-  <buttongroup name="CAT_stop_bits_button_group"/>
  </buttongroups>
 </ui>

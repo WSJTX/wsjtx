@@ -65,7 +65,6 @@ public:
 
     // This timer sets the interval to check for spots to send.
     connect (&report_timer_, &QTimer::timeout, [this] () {send_report ();});
-    report_timer_.start (MIN_SEND_INTERVAL * 1000);
 
     // This timer repeats the sending of IPFIX templates and receiver
     // information if we are using UDP, in case server has been
@@ -80,7 +79,6 @@ public:
                                                          send_receiver_data_ = 3; // three times
                                                        }
                                                    });
-    descriptor_timer_.start (1 * 60 * 60 * 1000); // hourly
   }
 
   void check_connection ()
@@ -156,6 +154,25 @@ public:
     // use this for pseudo connection with UDP, allows us to use
     // QIODevice::write() instead of QUDPSocket::writeDatagram()
     socket_->connectToHost (HOST, SERVICE_PORT, QAbstractSocket::WriteOnly);
+
+    if (!report_timer_.isActive ())
+      {
+        report_timer_.start (MIN_SEND_INTERVAL * 1000);
+      }
+    if (!descriptor_timer_.isActive ())
+      {
+        descriptor_timer_.start (1 * 60 * 60 * 1000); // hourly
+      }
+  }
+
+  void stop ()
+  {
+    if (socket_)
+      {
+        socket_->disconnectFromHost ();
+      }
+    descriptor_timer_.stop ();
+    report_timer_.stop ();
   }
 
   void send_report (bool send_residue = false);
@@ -402,7 +419,13 @@ void PSKReporter::impl::send_report (bool send_residue)
               writeUtfString (tx_out, spot.grid_);
               tx_out
                 << quint8 (1u)          // REPORTER_SOURCE_AUTOMATIC
-                << static_cast<quint32> (spot.time_.toSecsSinceEpoch ());
+                << static_cast<quint32> (
+#if QT_VERSION >= QT_VERSION_CHECK(5, 8, 0)
+                                         spot.time_.toSecsSinceEpoch ()
+#else
+                                         spot.time_.toMSecsSinceEpoch () / 1000
+#endif
+                                         );
             }
 
           auto len = payload_.size () + tx_data_.size ();
@@ -429,7 +452,13 @@ void PSKReporter::impl::send_report (bool send_residue)
               // insert Length and Export Time
               set_length (message, payload_);
               message.device ()->seek (2 * sizeof (quint16));
-              message << static_cast<quint32> (QDateTime::currentDateTime ().toSecsSinceEpoch ());
+              message << static_cast<quint32> (
+#if QT_VERSION >= QT_VERSION_CHECK(5, 8, 0)
+                                               QDateTime::currentDateTime ().toSecsSinceEpoch ()
+#else
+                                               QDateTime::currentDateTime ().toMSecsSinceEpoch () / 1000
+#endif
+                                               );
 
               // Send data to PSK Reporter site
               socket_->write (payload_); // TODO: handle errors
@@ -465,6 +494,7 @@ void PSKReporter::reconnect ()
 
 void PSKReporter::setLocalStation (QString const& call, QString const& gridSquare, QString const& antenna)
 {
+  m_->check_connection ();
   if (call != m_->rx_call_ || gridSquare != m_->rx_grid_ || antenna != m_->rx_ant_)
     {
       m_->send_receiver_data_ = m_->socket_
@@ -478,6 +508,7 @@ void PSKReporter::setLocalStation (QString const& call, QString const& gridSquar
 bool PSKReporter::addRemoteStation (QString const& call, QString const& grid, Radio::Frequency freq
                                      , QString const& mode, int snr)
 {
+  m_->check_connection ();
   if (m_->socket_ && m_->socket_->isValid ())
     {
       if (QAbstractSocket::UnconnectedState == m_->socket_->state ())
@@ -490,7 +521,14 @@ bool PSKReporter::addRemoteStation (QString const& call, QString const& grid, Ra
   return false;
 }
 
-void PSKReporter::sendReport ()
+void PSKReporter::sendReport (bool last)
 {
-  m_->send_report (true);
+  if (m_->socket_ && QAbstractSocket::ConnectedState == m_->socket_->state ())
+    {
+      m_->send_report (true);
+    }
+  if (last)
+    {
+      m_->stop ();
+    }
 }

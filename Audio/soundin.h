@@ -24,6 +24,7 @@ public:
   SoundInput (QObject * parent = nullptr)
     : QObject {parent}
     , m_sink {nullptr}
+    , cummulative_lost_usec_ {0}
   {
   }
 
@@ -35,18 +36,21 @@ public:
   Q_SLOT void suspend ();
   Q_SLOT void resume ();
   Q_SLOT void stop ();
+  Q_SLOT void reset (bool report_dropped_frames);
 
   Q_SIGNAL void error (QString message) const;
   Q_SIGNAL void status (QString message) const;
+  Q_SIGNAL void dropped_frames (qint32 dropped, qint64 usec);
 
 private:
   // used internally
-  Q_SLOT void handleStateChanged (QAudio::State) const;
+  Q_SLOT void handleStateChanged (QAudio::State);
 
   bool audioError () const;
 
   QScopedPointer<QAudioInput> m_stream;
   QPointer<AudioDevice> m_sink;
+  qint64 cummulative_lost_usec_;
 };
 
 #endif

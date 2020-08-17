@@ -348,6 +348,7 @@ private:
                              int TRperiod=60) const;
   Q_SIGNAL void outAttenuationChanged (qreal) const;
   Q_SIGNAL void toggleShorthand () const;
+  Q_SIGNAL void reset_audio_input_stream (bool report_dropped_frames) const;
 
 private:
   void set_mode (QString const& mode);
@@ -447,7 +448,6 @@ private:
   qint32  m_nclearave;
   qint32  m_minSync;
   qint32  m_dBm;
-  qint32  m_pctx;
   qint32  m_nseq;
   qint32  m_nWSPRdecodes;
   qint32  m_k0;
@@ -506,7 +506,6 @@ private:
   bool    m_bSWL;
   bool    m_uploadWSPRSpots;
   bool    m_uploading;
-  bool    m_txNext;
   bool    m_grid6;
   bool    m_tuneup;
   bool    m_bTxTime;
@@ -668,8 +667,6 @@ private:
 
   QSharedMemory *mem_jt9;
   QString m_QSOText;
-  unsigned m_msAudioOutputBuffered;
-  unsigned m_framesAudioInputBuffered;
   unsigned m_downSampleFactor;
   QThread::Priority m_audioThreadPriority;
   bool m_bandEdited;

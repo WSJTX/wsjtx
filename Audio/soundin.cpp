@@ -41,7 +41,8 @@ bool SoundInput::audioError () const
   return result;
 }
 
-void SoundInput::start(QAudioDeviceInfo const& device, int framesPerBuffer, AudioDevice * sink, unsigned downSampleFactor, AudioDevice::Channel channel)
+void SoundInput::start(QAudioDeviceInfo const& device, int framesPerBuffer, AudioDevice * sink
+                       , unsigned downSampleFactor, AudioDevice::Channel channel)
 {
   Q_ASSERT (sink);
 
@@ -62,14 +63,13 @@ void SoundInput::start(QAudioDeviceInfo const& device, int framesPerBuffer, Audi
       Q_EMIT error (tr ("Requested input audio format is not valid."));
       return;
     }
-
-  if (!device.isFormatSupported (format))
+  else if (!device.isFormatSupported (format))
     {
 //      qDebug () << "Nearest supported audio format:" << device.nearestFormat (format);
       Q_EMIT error (tr ("Requested input audio format is not supported on device."));
       return;
     }
-//  qDebug () << "Selected audio input format:" << format;
+  // qDebug () << "Selected audio input format:" << format;
 
   m_stream.reset (new QAudioInput {device, format});
   if (audioError ())
@@ -79,11 +79,20 @@ void SoundInput::start(QAudioDeviceInfo const& device, int framesPerBuffer, Audi
 
   connect (m_stream.data(), &QAudioInput::stateChanged, this, &SoundInput::handleStateChanged);
 
-  m_stream->setBufferSize (m_stream->format ().bytesForFrames (framesPerBuffer));
+  //qDebug () << "SoundIn default buffer size (bytes):" << m_stream->bufferSize () << "period size:" << m_stream->periodSize ();
+  // the Windows MME version of QAudioInput uses 1/5 of the buffer
+  // size for period size other platforms seem to optimize themselves
+#if defined (Q_OS_WIN)
+  m_stream->setBufferSize (m_stream->format ().bytesForFrames (framesPerBuffer * 5));
+#else
+  Q_UNUSED (framesPerBuffer);
+#endif
   if (sink->initialize (QIODevice::WriteOnly, channel))
     {
       m_stream->start (sink);
       audioError ();
+      cummulative_lost_usec_ = -1;
+      //qDebug () << "SoundIn selected buffer size (bytes):" << m_stream->bufferSize () << "peirod size:" << m_stream->periodSize ();
     }
   else
     {
@@ -115,9 +124,9 @@ void SoundInput::resume ()
     }
 }
 
-void SoundInput::handleStateChanged (QAudio::State newState) const
+void SoundInput::handleStateChanged (QAudio::State newState)
 {
-  // qDebug () << "SoundInput::handleStateChanged: newState:" << newState;
+  //qDebug () << "SoundInput::handleStateChanged: newState:" << newState;
 
   switch (newState)
     {
@@ -126,6 +135,7 @@ void SoundInput::handleStateChanged (QAudio::State newState) const
       break;
 
     case QAudio::ActiveState:
+      reset (false);
       Q_EMIT status (tr ("Receiving"));
       break;
 
@@ -149,6 +159,22 @@ void SoundInput::handleStateChanged (QAudio::State newState) const
           Q_EMIT status (tr ("Stopped"));
         }
       break;
+    }
+}
+
+void SoundInput::reset (bool report_dropped_frames)
+{
+  if (m_stream)
+    {
+      if (cummulative_lost_usec_ >= 0 // don't report first time as we
+                                      // don't yet known latency
+          && report_dropped_frames)
+        {
+          auto lost_usec = m_stream->elapsedUSecs () - m_stream->processedUSecs () - cummulative_lost_usec_;
+          Q_EMIT dropped_frames (m_stream->format ().framesForDuration (lost_usec), lost_usec);
+          //qDebug () << "SoundInput::reset: frames dropped:" << m_stream->format ().framesForDuration (lost_usec) << "sec:" << lost_usec / 1.e6;
+        }
+      cummulative_lost_usec_ = m_stream->elapsedUSecs () - m_stream->processedUSecs ();
     }
 }
 

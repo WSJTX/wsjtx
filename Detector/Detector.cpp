@@ -56,6 +56,7 @@ void Detector::clear ()
 
 qint64 Detector::writeData (char const * data, qint64 maxSize)
 {
+  //qDebug () << "Detector::writeData: size:" << maxSize;
   static unsigned mstr0=999999;
   qint64 ms0 = QDateTime::currentMSecsSinceEpoch() % 86400000;
   unsigned mstr = ms0 % int(1000.0*m_period); // ms into the nominal Tx start time
@@ -119,8 +120,7 @@ qint64 Detector::writeData (char const * data, qint64 maxSize)
       remaining -= numFramesProcessed;
     }
 
-
-
-  return maxSize;    // we drop any data past the end of the buffer on
-  // the floor until the next period starts
+    // we drop any data past the end of the buffer on the floor until
+    // the next period starts
+    return maxSize;
 }

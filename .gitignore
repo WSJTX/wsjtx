@@ -1,6 +1,9 @@
 ~*
 TAGS
 tags
+GPATH
+GRTAGS
+GTAGS
 *~
 junk*
 jnq*
@@ -9,6 +12,9 @@ jnq*
 *.mod
 *.pro.user
 *.txt
+*.bak
+!**/CMakeLists.txt
+__pycache__
 cmake-build-debug
 cmake-build-release
 CMakeFiles

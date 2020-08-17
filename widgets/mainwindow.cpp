@@ -210,6 +210,8 @@ namespace
   QRegularExpression grid_regexp {"\\A(?![Rr]{2}73)[A-Ra-r]{2}[0-9]{2}([A-Xa-x]{2}){0,1}\\z"};
   auto quint32_max = std::numeric_limits<quint32>::max ();
   constexpr int N_WIDGETS {34};
+  constexpr int rx_chunk_size {3456}; // audio samples at 12000 Hz
+  constexpr int tx_audio_buffer_size {48000 / 5}; // audio frames at 48000 Hz
 
   bool message_is_73 (int type, QStringList const& msg_parts)
   {
@@ -284,7 +286,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_idleMinutes {0},
   m_nSubMode {0},
   m_nclearave {1},
-  m_pctx {0},
   m_nseq {0},
   m_nWSPRdecodes {0},
   m_k0 {9999999},
@@ -310,7 +311,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_bShMsgs {false},
   m_bSWL {false},
   m_uploading {false},
-  m_txNext {false},
   m_grid6 {false},
   m_tuneup {false},
   m_bTxTime {false},
@@ -395,8 +395,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
       },
   m_sfx {"P",  "0",  "1",  "2",  "3",  "4",  "5",  "6",  "7",  "8",  "9",  "A"},
   mem_jt9 {shdmem},
-  m_msAudioOutputBuffered (0u),
-  m_framesAudioInputBuffered (RX_SAMPLE_RATE / 10),
   m_downSampleFactor (downSampleFactor),
   m_audioThreadPriority (QThread::HighPriority),
   m_bandEdited {false},
@@ -472,9 +470,23 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect (this, &MainWindow::startAudioInputStream, m_soundInput, &SoundInput::start);
   connect (this, &MainWindow::suspendAudioInputStream, m_soundInput, &SoundInput::suspend);
   connect (this, &MainWindow::resumeAudioInputStream, m_soundInput, &SoundInput::resume);
+  connect (this, &MainWindow::reset_audio_input_stream, m_soundInput, &SoundInput::reset);
   connect (this, &MainWindow::finished, m_soundInput, &SoundInput::stop);
   connect(m_soundInput, &SoundInput::error, this, &MainWindow::showSoundInError);
   // connect(m_soundInput, &SoundInput::status, this, &MainWindow::showStatusMessage);
+  connect (m_soundInput, &SoundInput::dropped_frames, this, [this] (qint32 dropped_frames, qint64 usec) {
+                                                              if (dropped_frames > 48000 / 5) // 1/5 second
+                                                                {
+                                                                  showStatusMessage (tr ("%1 (%2 sec) audio frames dropped").arg (dropped_frames).arg (usec / 1.e6, 5, 'f', 3));
+                                                                }
+                                                              if (dropped_frames > 48000) // 1 second
+                                                                {
+                                                                  MessageBox::warning_message (this
+                                                                                               , tr ("Audio Source")
+                                                                                               , tr ("Reduce system load")
+                                                                                               , tr ("Excessive dropped samples - %1 (%2 sec) audio frames dropped").arg (dropped_frames).arg (usec / 1.e6, 5, 'f', 3));
+                                                                }
+                                                            });
   connect (&m_audioThread, &QThread::finished, m_soundInput, &QObject::deleteLater);
 
   connect (this, &MainWindow::finished, this, &MainWindow::close);
@@ -939,14 +951,24 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect (&m_wav_future_watcher, &QFutureWatcher<void>::finished, this, &MainWindow::diskDat);
 
   connect(&watcher3, SIGNAL(finished()),this,SLOT(fast_decode_done()));
-  Q_EMIT startAudioInputStream (m_config.audio_input_device (), m_framesAudioInputBuffered, m_detector, m_downSampleFactor, m_config.audio_input_channel ());
-  Q_EMIT initializeAudioOutputStream (m_config.audio_output_device (), AudioDevice::Mono == m_config.audio_output_channel () ? 1 : 2, m_msAudioOutputBuffered);
+  if (!m_config.audio_input_device ().isNull ())
+    {
+      Q_EMIT startAudioInputStream (m_config.audio_input_device ()
+                                    , rx_chunk_size * m_downSampleFactor
+                                    , m_detector, m_downSampleFactor, m_config.audio_input_channel ());
+    }
+  if (!m_config.audio_output_device ().isNull ())
+    {
+      Q_EMIT initializeAudioOutputStream (m_config.audio_output_device ()
+                                          , AudioDevice::Mono == m_config.audio_output_channel () ? 1 : 2
+                                          , tx_audio_buffer_size);
+    }
   Q_EMIT transmitFrequency (ui->TxFreqSpinBox->value () - m_XIT);
 
   enable_DXCC_entity (m_config.DXCC ());  // sets text window proportions and (re)inits the logbook
 
-  ui->label_9->setStyleSheet("QLabel{background-color: #aabec8}");
-  ui->label_10->setStyleSheet("QLabel{background-color: #aabec8}");
+  ui->label_9->setStyleSheet("QLabel{color: #000000; background-color: #aabec8}");
+  ui->label_10->setStyleSheet("QLabel{color: #000000; background-color: #aabec8}");
 
   // this must be done before initializing the mode as some modes need
   // to turn off split on the rig e.g. WSPR
@@ -974,7 +996,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   }
   m_saveDecoded=ui->actionSave_decoded->isChecked();
   m_saveAll=ui->actionSave_all->isChecked();
-  ui->sbTxPercent->setValue(m_pctx);
   ui->TxPowerComboBox->setCurrentIndex(int(.3 * m_dBm + .2));
   ui->cbUploadWSPR_Spots->setChecked(m_uploadWSPRSpots);
   if((m_ndepth&7)==1) ui->actionQuickDecode->setChecked(true);
@@ -997,12 +1018,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_isort=-3;
   m_max_dB=70;
   m_CQtype="CQ";
-
-  if(m_mode=="WSPR" and m_pctx>0)  {
-    QPalette palette {ui->sbTxPercent->palette ()};
-    palette.setColor(QPalette::Base,Qt::yellow);
-    ui->sbTxPercent->setPalette(palette);
-  }
   fixStop();
   VHF_features_enabled(m_config.enable_VHF_features());
   m_wideGraph->setVHF(m_config.enable_VHF_features());
@@ -1146,7 +1161,7 @@ void MainWindow::writeSettings()
   m_settings->setValue("GUItab",ui->tabWidget->currentIndex());
   m_settings->setValue("OutBufSize",outBufSize);
   m_settings->setValue ("HoldTxFreq", ui->cbHoldTxFreq->isChecked ());
-  m_settings->setValue("PctTx",m_pctx);
+  m_settings->setValue("PctTx", ui->sbTxPercent->value ());
   m_settings->setValue("dBm",m_dBm);
   m_settings->setValue("RR73",m_send_RR73);
   m_settings->setValue ("WSPRPreferType1", ui->WSPR_prefer_type_1_check_box->isChecked ());
@@ -1237,7 +1252,8 @@ void MainWindow::readSettings()
   ui->TxFreqSpinBox->setValue(0); // ensure a change is signaled
   ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq",1500).toInt());
   m_ndepth=m_settings->value("NDepth",3).toInt();
-  m_pctx=m_settings->value("PctTx",20).toInt();
+  ui->sbTxPercent->setValue (m_settings->value ("PctTx", 20).toInt ());
+  on_sbTxPercent_valueChanged (ui->sbTxPercent->value ());
   m_dBm=m_settings->value("dBm",37).toInt();
   m_send_RR73=m_settings->value("RR73",false).toBool();
   if(m_send_RR73) {
@@ -1246,7 +1262,6 @@ void MainWindow::readSettings()
   }
   ui->WSPR_prefer_type_1_check_box->setChecked (m_settings->value ("WSPRPreferType1", true).toBool ());
   m_uploadWSPRSpots=m_settings->value("UploadSpots",false).toBool();
-  if(!m_uploadWSPRSpots) ui->cbUploadWSPR_Spots->setStyleSheet("QCheckBox{background-color: yellow}");
   ui->cbNoOwnCall->setChecked(m_settings->value("NoOwnCall",false).toBool());
   ui->band_hopping_group_box->setChecked (m_settings->value ("BandHopping", false).toBool());
   // setup initial value of tx attenuator
@@ -1279,8 +1294,6 @@ void MainWindow::readSettings()
   // use these initialisation settings to tune the audio o/p buffer
   // size and audio thread priority
   m_settings->beginGroup ("Tune");
-  m_msAudioOutputBuffered = m_settings->value ("Audio/OutputBufferMs").toInt ();
-  m_framesAudioInputBuffered = m_settings->value ("Audio/InputBufferFrames", RX_SAMPLE_RATE / 10).toInt ();
   m_audioThreadPriority = static_cast<QThread::Priority> (m_settings->value ("Audio/ThreadPriority", QThread::HighPriority).toInt () % 8);
   m_settings->endGroup ();
 
@@ -1545,6 +1558,10 @@ void MainWindow::dataSink(qint64 frames)
     if(m_mode!="WSPR") decode(); //Start decoder
 
     if(m_mode=="FT8" and !m_diskData and (m_ihsym==m_earlyDecode or m_ihsym==m_earlyDecode2)) return;
+    if (!m_diskData)
+      {
+        Q_EMIT reset_audio_input_stream (true); // signals dropped samples
+      }
     if(!m_diskData and (m_saveAll or m_saveDecoded or m_mode=="WSPR" or m_mode=="FST4W")) {
       //Always save unless "Save None"; may delete later
       if(m_TRperiod < 60) {
@@ -1623,14 +1640,15 @@ QString MainWindow::save_wave_file (QString const& name, short const * data, int
   format.setChannelCount (1);
   format.setSampleSize (16);
   format.setSampleType (QAudioFormat::SignedInt);
-  auto source = QString {"%1, %2"}.arg (my_callsign).arg (my_grid);
-  auto comment = QString {"Mode=%1%2, Freq=%3%4"}
-     .arg (mode)
-     .arg (QString {(mode.contains ('J') && !mode.contains ('+')) || mode.startsWith ("FST4")
-           ? QString {", Sub Mode="} + QChar {'A' + sub_mode}
-         : QString {}})
-        .arg (Radio::frequency_MHz_string (frequency))
-     .arg (QString {mode!="WSPR" ? QString {", DXCall=%1, DXGrid=%2"}
+  auto source = QString {"%1; %2"}.arg (my_callsign).arg (my_grid);
+  auto comment = QString {"Mode=%1%2; Freq=%3%4"}
+                   .arg (mode)
+                   .arg (QString {(mode.contains ('J') && !mode.contains ('+'))
+                         || mode.startsWith ("FST4") || mode.startsWith ("QRA")
+                         ? QString {"; Sub Mode="} + QString::number (int (samples / 12000)) + QChar {'A' + sub_mode}
+                       : QString {}})
+                   .arg (Radio::frequency_MHz_string (frequency))
+                   .arg (QString {mode!="WSPR" ? QString {"; DXCall=%1; DXGrid=%2"}
          .arg (his_call)
          .arg (his_grid).toLocal8Bit () : ""});
   BWFFile::InfoDictionary list_info {
@@ -1792,6 +1810,7 @@ void MainWindow::on_actionSettings_triggered()               //Setup Dialog
   auto callsign = m_config.my_callsign ();
   auto my_grid = m_config.my_grid ();
   SpecOp nContest0=m_config.special_op_id();
+  auto psk_on = m_config.spot_to_psk_reporter ();
   if (QDialog::Accepted == m_config.exec ()) {
     checkMSK144ContestType();
     if (m_config.my_callsign () != callsign) {
@@ -1805,18 +1824,25 @@ void MainWindow::on_actionSettings_triggered()               //Setup Dialog
     on_dxGridEntry_textChanged (m_hisGrid); // recalculate distances in case of units change
     enable_DXCC_entity (m_config.DXCC ());  // sets text window proportions and (re)inits the logbook
 
-    if(m_config.spot_to_psk_reporter ()) pskSetLocal ();
+    pskSetLocal ();
+    // this will close the connection to PSKReporter if it has been
+    // disabled
+    if (psk_on && !m_config.spot_to_psk_reporter ())
+      {
+        m_psk_Reporter.sendReport (true);
+      }
 
     if(m_config.restart_audio_input ()) {
-      Q_EMIT startAudioInputStream (m_config.audio_input_device (),
-                 m_framesAudioInputBuffered, m_detector, m_downSampleFactor,
-                                      m_config.audio_input_channel ());
+      Q_EMIT startAudioInputStream (m_config.audio_input_device ()
+                                    , rx_chunk_size * m_downSampleFactor
+                                    , m_detector, m_downSampleFactor
+                                    , m_config.audio_input_channel ());
     }
 
     if(m_config.restart_audio_output ()) {
-      Q_EMIT initializeAudioOutputStream (m_config.audio_output_device (),
-           AudioDevice::Mono == m_config.audio_output_channel () ? 1 : 2,
-                                          m_msAudioOutputBuffered);
+      Q_EMIT initializeAudioOutputStream (m_config.audio_output_device ()
+                                          , AudioDevice::Mono == m_config.audio_output_channel () ? 1 : 2
+                                          , tx_audio_buffer_size);
     }
 
     displayDialFrequency ();
@@ -1918,16 +1944,12 @@ void MainWindow::on_autoButton_clicked (bool checked)
     m_nclearave=1;
     echocom_.nsum=0;
   }
-  if(m_mode=="WSPR" or m_mode=="FST4W") {
-    QPalette palette {ui->sbTxPercent->palette ()};
-    if(m_auto or m_pctx==0) {
-      palette.setColor(QPalette::Base,Qt::white);
-    } else {
-      palette.setColor(QPalette::Base,Qt::yellow);
-    }
-    ui->sbTxPercent->setPalette(palette);
-  }
   m_tAutoOn=QDateTime::currentMSecsSinceEpoch()/1000;
+}
+
+void MainWindow::on_sbTxPercent_valueChanged (int n)
+{
+  update_dynamic_property (ui->sbTxPercent, "notx", !n);
 }
 
 void MainWindow::auto_tx_mode (bool state)
@@ -2288,8 +2310,8 @@ bool MainWindow::eventFilter (QObject * object, QEvent * event)
 void MainWindow::createStatusBar()                           //createStatusBar
 {
   tx_status_label.setAlignment (Qt::AlignHCenter);
-  tx_status_label.setMinimumSize (QSize  {150, 18});
-  tx_status_label.setStyleSheet ("QLabel{background-color: #00ff00}");
+  tx_status_label.setMinimumSize (QSize  {100, 18});
+  tx_status_label.setStyleSheet ("QLabel{color: #000000; background-color: #00ff00}");
   tx_status_label.setFrameStyle (QFrame::Panel | QFrame::Sunken);
   statusBar()->addWidget (&tx_status_label);
 
@@ -2337,39 +2359,39 @@ void MainWindow::setup_status_bar (bool vhf)
       mode_label.setText (m_mode);
     }
   if ("ISCAT" == m_mode) {
-    mode_label.setStyleSheet ("QLabel{background-color: #ff9933}");
+    mode_label.setStyleSheet ("QLabel{color: #000000; background-color: #ff9933}");
   } else if ("JT9" == m_mode) {
-    mode_label.setStyleSheet ("QLabel{background-color: #ff6ec7}");
+    mode_label.setStyleSheet ("QLabel{color: #000000; background-color: #ff6ec7}");
   } else if ("JT4" == m_mode) {
-    mode_label.setStyleSheet ("QLabel{background-color: #cc99ff}");
+    mode_label.setStyleSheet ("QLabel{color: #000000; background-color: #cc99ff}");
   } else if ("Echo" == m_mode) {
-    mode_label.setStyleSheet ("QLabel{background-color: #66ffff}");
+    mode_label.setStyleSheet ("QLabel{color: #000000; background-color: #66ffff}");
   } else if ("JT9+JT65" == m_mode) {
-    mode_label.setStyleSheet ("QLabel{background-color: #ffff66}");
+    mode_label.setStyleSheet ("QLabel{color: #000000; background-color: #ffff66}");
   } else if ("JT65" == m_mode) {
-    mode_label.setStyleSheet ("QLabel{background-color: #66ff66}");
+    mode_label.setStyleSheet ("QLabel{color: #000000; background-color: #66ff66}");
   } else if ("QRA64" == m_mode) {
-    mode_label.setStyleSheet ("QLabel{background-color: #99ff33}");
+    mode_label.setStyleSheet ("QLabel{color: #000000; background-color: #99ff33}");
   } else if ("QRA66" == m_mode) {
-    mode_label.setStyleSheet ("QLabel{background-color: #99ff33}");
+    mode_label.setStyleSheet ("QLabel{color: #000000; background-color: #99ff33}");
   } else if ("MSK144" == m_mode) {
-    mode_label.setStyleSheet ("QLabel{background-color: #ff6666}");
+    mode_label.setStyleSheet ("QLabel{color: #000000; background-color: #ff6666}");
   } else if ("FT4" == m_mode) {
-    mode_label.setStyleSheet ("QLabel{background-color: #ff0099}");
+    mode_label.setStyleSheet ("QLabel{color: #000000; background-color: #ff0099}");
   } else if ("FT8" == m_mode) {
-    mode_label.setStyleSheet ("QLabel{background-color: #ff6699}");
+    mode_label.setStyleSheet ("QLabel{color: #000000; background-color: #ff6699}");
   } else if ("FST4" == m_mode) {
-    mode_label.setStyleSheet ("QLabel{background-color: #99ff66}");
+    mode_label.setStyleSheet ("QLabel{color: #000000; background-color: #99ff66}");
   } else if ("FST4W" == m_mode) {
-    mode_label.setStyleSheet ("QLabel{background-color: #6699ff}");
+    mode_label.setStyleSheet ("QLabel{color: #000000; background-color: #6699ff}");
   } else if ("FreqCal" == m_mode) {
-    mode_label.setStyleSheet ("QLabel{background-color: #ff9933}");
+    mode_label.setStyleSheet ("QLabel{color: #000000; background-color: #ff9933}");
   }
   last_tx_label.setText (QString {});
   if (m_mode.contains (QRegularExpression {R"(^(Echo|ISCAT))"})) {
     if (band_hopping_label.isVisible ()) statusBar ()->removeWidget (&band_hopping_label);
   } else if (m_mode=="WSPR") {
-    mode_label.setStyleSheet ("QLabel{background-color: #ff66ff}");
+    mode_label.setStyleSheet ("QLabel{color: #000000; background-color: #ff66ff}");
     if (!band_hopping_label.isVisible ()) {
       statusBar ()->addWidget (&band_hopping_label);
       band_hopping_label.show ();
@@ -2700,7 +2722,7 @@ void MainWindow::on_actionOpen_triggered()                     //Open File
     m_path=fname;
     int i1=fname.lastIndexOf("/");
     QString baseName=fname.mid(i1+1);
-    tx_status_label.setStyleSheet("QLabel{background-color: #99ffff}");
+    tx_status_label.setStyleSheet("QLabel{color: #000000; background-color: #99ffff}");
     tx_status_label.setText(" " + baseName + " ");
     on_stopButton_clicked();
     m_diskData=true;
@@ -2780,7 +2802,7 @@ void MainWindow::on_actionOpen_next_in_directory_triggered()   //Open Next
       m_path=fname;
       int i1=fname.lastIndexOf("/");
       QString baseName=fname.mid(i1+1);
-      tx_status_label.setStyleSheet("QLabel{background-color: #99ffff}");
+      tx_status_label.setStyleSheet("QLabel{color: #000000; background-color: #99ffff}");
       tx_status_label.setText(" " + baseName + " ");
       m_diskData=true;
       read_wav_file (fname);
@@ -2933,7 +2955,7 @@ void MainWindow::on_actionSpecial_mouse_commands_triggered()
     <td><b>Click</b> to set Rx frequency.<br/>
         <b>Shift-click</b> to set Tx frequency.<br/>
         <b>Ctrl-click</b> or <b>Right-click</b> to set Rx and Tx frequencies.<br/>
-	<b>Double-click</b> to also decode at Rx frequency.<br/>
+        <b>Double-click</b> to also decode at Rx frequency.<br/>
     </td>
   </tr>
   <tr>
@@ -2941,10 +2963,10 @@ void MainWindow::on_actionSpecial_mouse_commands_triggered()
     <td><b>Double-click</b> to copy second callsign to Dx Call,<br/>
         locator to Dx Grid, change Rx and Tx frequency to<br/>
         decoded signal's frequency, and generate standard<br/>
-	messages.<br/>
-	If <b>Hold Tx Freq</b> is checked or first callsign in message<br/>
-	is your own call, Tx frequency is not changed unless <br/>
-	<b>Ctrl</b> is held down.<br/>
+        messages.<br/>
+        If <b>Hold Tx Freq</b> is checked or first callsign in message<br/>
+        is your own call, Tx frequency is not changed unless <br/>
+        <b>Ctrl</b> is held down.<br/>
     </td>
   </tr>
   <tr>
@@ -3122,56 +3144,58 @@ void MainWindow::decode()                                       //decode()
   //newdat=1  ==> this is new data, must do the big FFT
   //nagain=1  ==> decode only at fQSO +/- Tol
 
-  char *to = (char*)mem_jt9->data();
-  char *from = (char*) dec_data.ipc;
-  int size=sizeof(struct dec_data);
-  if(dec_data.params.newdat==0) {
-    int noffset {offsetof (struct dec_data, params.nutc)};
-    to += noffset;
-    from += noffset;
-    size -= noffset;
-  }
-  if(m_mode=="ISCAT" or m_mode=="MSK144" or m_bFast9) {
-    float t0=m_t0;
-    float t1=m_t1;
-    qApp->processEvents();                                //Update the waterfall
-    if(m_nPick > 0) {
-      t0=m_t0Pick;
-      t1=m_t1Pick;
+  if (auto * to = reinterpret_cast<char *> (mem_jt9->data()))
+    {
+      char *from = (char*) dec_data.ipc;
+      int size=sizeof(struct dec_data);
+      if(dec_data.params.newdat==0) {
+        int noffset {offsetof (struct dec_data, params.nutc)};
+        to += noffset;
+        from += noffset;
+        size -= noffset;
+      }
+      if(m_mode=="ISCAT" or m_mode=="MSK144" or m_bFast9) {
+        float t0=m_t0;
+        float t1=m_t1;
+        qApp->processEvents();                                //Update the waterfall
+        if(m_nPick > 0) {
+          t0=m_t0Pick;
+          t1=m_t1Pick;
+        }
+        static short int d2b[360000];
+        narg[0]=dec_data.params.nutc;
+        if(m_kdone>int(12000.0*m_TRperiod)) {
+          m_kdone=int(12000.0*m_TRperiod);
+        }
+        narg[1]=m_kdone;
+        narg[2]=m_nSubMode;
+        narg[3]=dec_data.params.newdat;
+        narg[4]=dec_data.params.minSync;
+        narg[5]=m_nPick;
+        narg[6]=1000.0*t0;
+        narg[7]=1000.0*t1;
+        narg[8]=2;                                //Max decode lines per decode attempt
+        if(dec_data.params.minSync<0) narg[8]=50;
+        if(m_mode=="ISCAT") narg[9]=101;          //ISCAT
+        if(m_mode=="JT9") narg[9]=102;            //Fast JT9
+        if(m_mode=="MSK144") narg[9]=104;         //MSK144
+        narg[10]=ui->RxFreqSpinBox->value();
+        narg[11]=ui->sbFtol->value ();
+        narg[12]=0;
+        narg[13]=-1;
+        narg[14]=m_config.aggressive();
+        memcpy(d2b,dec_data.d2,2*360000);
+        watcher3.setFuture (QtConcurrent::run (std::bind (fast_decode_,&d2b[0],
+                                                          &narg[0],&m_TRperiod,&m_msg[0][0],
+                                                          dec_data.params.mycall,dec_data.params.hiscall,8000,12,12)));
+      } else {
+        mem_jt9->lock ();
+        memcpy(to, from, qMin(mem_jt9->size(), size));
+        mem_jt9->unlock ();
+        to_jt9(m_ihsym,1,-1);                //Send m_ihsym to jt9[.exe] and start decoding
+        decodeBusy(true);
+      }
     }
-    static short int d2b[360000];
-    narg[0]=dec_data.params.nutc;
-    if(m_kdone>int(12000.0*m_TRperiod)) {
-      m_kdone=int(12000.0*m_TRperiod);
-    }
-    narg[1]=m_kdone;
-    narg[2]=m_nSubMode;
-    narg[3]=dec_data.params.newdat;
-    narg[4]=dec_data.params.minSync;
-    narg[5]=m_nPick;
-    narg[6]=1000.0*t0;
-    narg[7]=1000.0*t1;
-    narg[8]=2;                                //Max decode lines per decode attempt
-    if(dec_data.params.minSync<0) narg[8]=50;
-    if(m_mode=="ISCAT") narg[9]=101;          //ISCAT
-    if(m_mode=="JT9") narg[9]=102;            //Fast JT9
-    if(m_mode=="MSK144") narg[9]=104;         //MSK144
-    narg[10]=ui->RxFreqSpinBox->value();
-    narg[11]=ui->sbFtol->value ();
-    narg[12]=0;
-    narg[13]=-1;
-    narg[14]=m_config.aggressive();
-    memcpy(d2b,dec_data.d2,2*360000);
-    watcher3.setFuture (QtConcurrent::run (std::bind (fast_decode_,&d2b[0],
-        &narg[0],&m_TRperiod,&m_msg[0][0],
-        dec_data.params.mycall,dec_data.params.hiscall,8000,12,12)));
-  } else {
-    mem_jt9->lock ();
-    memcpy(to, from, qMin(mem_jt9->size(), size));
-    mem_jt9->unlock ();
-    to_jt9(m_ihsym,1,-1);                //Send m_ihsym to jt9[.exe] and start decoding
-    decodeBusy(true);
-  }
 }
 
 void::MainWindow::fast_decode_done()
@@ -3219,12 +3243,14 @@ void::MainWindow::fast_decode_done()
 
 void MainWindow::to_jt9(qint32 n, qint32 istart, qint32 idone)
 {
-  dec_data_t * dd = reinterpret_cast<dec_data_t *> (mem_jt9->data());
-  mem_jt9->lock ();
-  dd->ipc[0]=n;
-  if(istart>=0) dd->ipc[1]=istart;
-  if(idone>=0)  dd->ipc[2]=idone;
-  mem_jt9->unlock ();
+  if (auto * dd = reinterpret_cast<dec_data_t *> (mem_jt9->data()))
+    {
+      mem_jt9->lock ();
+      dd->ipc[0]=n;
+      if(istart>=0) dd->ipc[1]=istart;
+      if(idone>=0)  dd->ipc[2]=idone;
+      mem_jt9->unlock ();
+    }
 }
 
 void MainWindow::decodeDone ()
@@ -3281,7 +3307,8 @@ void MainWindow::readFromStdout()                             //readFromStdout
             line_read = line_read.left (64);
           }
       }
-    if(m_mode!="FT8" and m_mode!="FT4") {
+    if (m_mode!="FT8" and m_mode!="FT4"
+        && !m_mode.startsWith ("FST4")) {
       //Pad 22-char msg to at least 37 chars
       line_read = line_read.left(44) + "              " + line_read.mid(44);
     }
@@ -3499,9 +3526,8 @@ void MainWindow::readFromStdout()                             //readFromStdout
         bool okToPost=(nsec > int(4*m_TRperiod)/5);
         if(m_mode=="FST4W" and okToPost) {
           line_read=line_read.left(22) + " CQ " + line_read.trimmed().mid(22);
-          int n=line_read.trimmed().size();
-          line_read=line_read.trimmed().left(n-3);
-          DecodedText FST4W_post {QString::fromUtf8(line_read.constData())};
+          auto p = line_read.lastIndexOf (' ');
+          DecodedText FST4W_post {QString::fromUtf8 (line_read.left (p).constData ())};
           pskPost(FST4W_post);
         } else {
           if (stdMsg && okToPost) pskPost(decodedtext);
@@ -3741,26 +3767,22 @@ void MainWindow::guiUpdate()
   if(m_mode=="WSPR" or m_mode=="FST4W") {
     if(m_nseq==0 and m_ntr==0) {                   //Decide whether to Tx or Rx
       m_tuneup=false;                              //This is not an ATU tuneup
-      if(ui->sbTxPercent->isEnabled () && m_pctx==0) m_WSPR_tx_next = false; //Don't transmit if m_pctx=0
       bool btx = m_auto && m_WSPR_tx_next;         // To Tx, we need m_auto and
                                                    // scheduled transmit
-      if(m_auto and m_txNext) btx=true;            //TxNext button overrides
-      if(m_auto && ui->sbTxPercent->isEnabled () && m_pctx==100) btx=true; //Always transmit
-
+      m_WSPR_tx_next = false;
       if(btx) {
         m_ntr=-1;                                  //This says we will have transmitted
-        m_txNext=false;
-        ui->pbTxNext->setChecked(false);
+        ui->pbTxNext->setChecked (false);
         m_bTxTime=true;                            //Start a WSPR or FST4W Tx sequence
       } else {
-// This will be a WSPR or FST4W Rx sequence.
+        // This will be a WSPR or FST4W Rx sequence.
         m_ntr=1;                                   //This says we will have received
         m_bTxTime=false;                           //Start a WSPR or FST4W Rx sequence
       }
     }
 
   } else {
-// For all modes other than WSPR and Fst4W
+    // For all modes other than WSPR and Fst4W
     m_bTxTime = (t2p >= tx1) and (t2p < tx2);
     if(m_mode=="Echo") m_bTxTime = m_bTxTime and m_bEchoTxOK;
     if(m_mode=="FT8" and ui->tx5->currentText().contains("/B ")) {
@@ -4301,11 +4323,11 @@ void MainWindow::guiUpdate()
       m_nsendingsh=0;
       if(s[4]==64) m_nsendingsh=1;
       if(m_nsendingsh==1 or m_currentMessageType==7) {
-        tx_status_label.setStyleSheet("QLabel{background-color: #66ffff}");
+        tx_status_label.setStyleSheet("QLabel{color: #000000; background-color: #66ffff}");
       } else if(m_nsendingsh==-1 or m_currentMessageType==6) {
-        tx_status_label.setStyleSheet("QLabel{background-color: #ffccff}");
+        tx_status_label.setStyleSheet("QLabel{color: #000000; background-color: #ffccff}");
       } else {
-        tx_status_label.setStyleSheet("QLabel{background-color: #ffff33}");
+        tx_status_label.setStyleSheet("QLabel{color: #000000; background-color: #ffff33}");
       }
       if(m_tune) {
         tx_status_label.setText("Tx: TUNE");
@@ -4324,11 +4346,11 @@ void MainWindow::guiUpdate()
       }
     } else if(m_monitoring) {
       if (!m_tx_watchdog) {
-        tx_status_label.setStyleSheet("QLabel{background-color: #00ff00}");
+        tx_status_label.setStyleSheet("QLabel{color: #000000; background-color: #00ff00}");
         auto t = tr ("Receiving");
         if(m_mode=="MSK144") {
           int npct=int(100.0*m_fCPUmskrtd/0.298667);
-          if(npct>90) tx_status_label.setStyleSheet("QLabel{background-color: #ff0000}");
+          if(npct>90) tx_status_label.setStyleSheet("QLabel{color: #000000; background-color: #ff0000}");
           t += QString {"   %1%"}.arg (npct, 2);
         }
         tx_status_label.setText (t);
@@ -4649,9 +4671,9 @@ void MainWindow::doubleClickOnCall2(Qt::KeyboardModifiers modifiers)
 void MainWindow::doubleClickOnCall(Qt::KeyboardModifiers modifiers)
 {
   QTextCursor cursor;
-  if(m_mode=="ISCAT") {
+  if(m_mode=="ISCAT" or m_mode=="FST4W") {
     MessageBox::information_message (this,
-        "Double-click not available for ISCAT mode");
+        "Double-click not available for ISCAT or FST4W mode");
     return;
   }
   if(m_decodedText2) {
@@ -5042,7 +5064,7 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
 //        m_nextGrid=message_words.at(3);
 //        m_nextRpt=message.report();
 //        ui->labNextCall->setText("Next:  " + m_nextCall);
-//        ui->labNextCall->setStyleSheet("QLabel {background-color: #66ff66}");
+//        ui->labNextCall->setStyleSheet("QLabel {color: #000000; background-color: #66ff66}");
 //      }
       return;
     }
@@ -5263,11 +5285,11 @@ bool MainWindow::stdCall(QString const& w)
 {
   static QRegularExpression standard_call_re {
     R"(
-        ^\s*				# optional leading spaces
+        ^\s*                                      # optional leading spaces
         ( [A-Z]{0,2} | [A-Z][0-9] | [0-9][A-Z] )  # part 1
         ( [0-9][A-Z]{0,3} )                       # part 2
-        (/R | /P)?			# optional suffix
-        \s*$				# optional trailing spaces
+        (/R | /P)?                                # optional suffix
+        \s*$                                      # optional trailing spaces
     )", QRegularExpression::CaseInsensitiveOption | QRegularExpression::ExtendedPatternSyntaxOption};
   return standard_call_re.match (w).hasMatch ();
 }
@@ -5384,7 +5406,7 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
       }
     }
 
-    if((m_mode!="MSK144" and m_mode!="FT8" and m_mode!="FT4")) {
+    if((m_mode!="MSK144" and m_mode!="FT8" and m_mode!="FT4" && m_mode != "FST4")) {
       t=t00 + rpt;
       msgtype(t, ui->tx2);
       t=t0 + "R" + rpt;
@@ -5437,7 +5459,7 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
         case Configuration::type_2_msg_1_full:
           msgtype(t + my_grid, ui->tx1);
           if (!eme_short_codes) {
-            if((m_mode=="MSK144" || m_mode=="FT8" || m_mode=="FT4") &&
+            if((m_mode=="MSK144" || m_mode=="FT8" || m_mode=="FT4" || m_mode == "FST4") &&
                SpecOp::NA_VHF == m_config.special_op_id()) {
               msgtype(t + "R " + my_grid, ui->tx3); // #### Unreachable code
             } else {
@@ -5450,7 +5472,7 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
           break;
 
         case Configuration::type_2_msg_3_full:
-          if ((m_mode=="MSK144" || m_mode=="FT8" || m_mode=="FT4") &&
+          if ((m_mode=="MSK144" || m_mode=="FT8" || m_mode=="FT4" || m_mode == "FST4") &&
               SpecOp::NA_VHF == m_config.special_op_id()) {
             msgtype(t + "R " + my_grid, ui->tx3);
             msgtype(t + "RRR", ui->tx4);
@@ -5466,7 +5488,7 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
         case Configuration::type_2_msg_5_only:
           msgtype(t00 + my_grid, ui->tx1);
           if (!eme_short_codes) {
-            if ((m_mode=="MSK144" || m_mode=="FT8" || m_mode=="FT4") &&
+            if ((m_mode=="MSK144" || m_mode=="FT8" || m_mode=="FT4" || m_mode == "FST4") &&
                 SpecOp::NA_VHF == m_config.special_op_id()) {
               msgtype(t + "R " + my_grid, ui->tx3); // #### Unreachable code
               msgtype(t + "RRR", ui->tx4);
@@ -5766,9 +5788,7 @@ void MainWindow::on_tx6_editingFinished()                       //tx6 edited
 
 void MainWindow::on_RoundRobin_currentTextChanged(QString text)
 {
-  ui->sbTxPercent->setEnabled(text=="Random");
-  m_WSPR_tx_next = false;       // cancel any pending Tx to avoid
-                                // undesirable consecutive Tx periods
+  ui->sbTxPercent->setEnabled (text == tr ("Random"));
 }
 
 
@@ -6165,7 +6185,7 @@ void MainWindow::on_actionFT8_triggered()
     ui->cbAutoSeq->setEnabled(false);
     ui->tabWidget->setCurrentIndex(0);
     ui->cbHoldTxFreq->setChecked(true);
-    displayWidgets(nWidgets("11101000010011000001000000000011000"));
+    displayWidgets(nWidgets("1110100001001100000100000000001100"));
     ui->labDXped->setText(tr ("Hound"));
     ui->txrb1->setChecked(true);
     ui->txrb2->setEnabled(false);
@@ -6687,7 +6707,7 @@ void MainWindow::WSPR_config(bool b)
   ui->label_7->setVisible(!b and ui->cbMenus->isChecked());
   ui->logQSOButton->setVisible(!b);
   ui->DecodeButton->setEnabled(!b);
-  ui->sbTxPercent->setEnabled (m_mode != "FST4W" || "Random" == ui->RoundRobin->currentText ());
+  ui->sbTxPercent->setEnabled (m_mode != "FST4W" || tr ("Random") == ui->RoundRobin->currentText ());
   ui->band_hopping_group_box->setVisible(true);
   ui->RoundRobin->setVisible(m_mode=="FST4W");
   ui->RoundRobin->lineEdit()->setAlignment(Qt::AlignCenter);
@@ -6897,7 +6917,11 @@ void MainWindow::band_changed (Frequency f)
     }
     m_lastBand.clear ();
     m_bandEdited = false;
-    m_psk_Reporter.sendReport(); // Upload any queued spots before changing band
+    if (m_config.spot_to_psk_reporter ())
+      {
+        // Upload any queued spots before changing band
+        m_psk_Reporter.sendReport();
+      }
     if (!m_transmitting) monitor (true);
     if ("FreqCal" == m_mode)
       {
@@ -7223,14 +7247,15 @@ void MainWindow::handle_transceiver_update (Transceiver::TransceiverState const&
 {
   Transceiver::TransceiverState old_state {m_rigState};
   //transmitDisplay (s.ptt ());
-  if (s.ptt () && !m_rigState.ptt ()) { // safe to start audio
+  if (s.ptt () // && !m_rigState.ptt ()
+      ) { // safe to start audio
                                         // (caveat - DX Lab Suite Commander)
     if (m_tx_when_ready && g_iptt) {    // waiting to Tx and still needed
       int ms_delay=1000*m_config.txDelay();
       if(m_mode=="FT4") ms_delay=20;
       ptt1Timer.start(ms_delay); //Start-of-transmission sequencer delay
+      m_tx_when_ready = false;
     }
-    m_tx_when_ready = false;
   }
   m_rigState = s;
   auto old_freqNominal = m_freqNominal;
@@ -7266,9 +7291,7 @@ void MainWindow::handle_transceiver_update (Transceiver::TransceiverState const&
                || !(ui->cbCQTx->isEnabled () && ui->cbCQTx->isVisible () && ui->cbCQTx->isChecked()))) {
             m_lastDialFreq = m_freqNominal;
             m_secBandChanged=QDateTime::currentMSecsSinceEpoch()/1000;
-            if (m_config.spot_to_psk_reporter ()) {
-              pskSetLocal ();
-            }
+            pskSetLocal ();
             statusChanged();
             m_wideGraph->setDialFreq(m_freqNominal / 1.e6);
           }
@@ -7585,6 +7608,8 @@ bool MainWindow::shortList(QString callsign)
 
 void MainWindow::pskSetLocal ()
 {
+  if (!m_config.spot_to_psk_reporter ()) return;
+
   // find the station row, if any, that matches the band we are on
   auto stations = m_config.stations ();
   auto matches = stations->match (stations->index (0, StationList::band_column)
@@ -8070,8 +8095,8 @@ void MainWindow::p1ReadFromStdout()                        //p1readFromStdout
 
 QString MainWindow::beacon_start_time (int n)
 {
-  auto bt = qt_truncate_date_time_to (QDateTime::currentDateTimeUtc ().addSecs (n), m_TRperiod);
-  if (m_TRperiod < 60)
+  auto bt = qt_truncate_date_time_to (QDateTime::currentDateTimeUtc ().addSecs (n), m_TRperiod * 1.e3);
+  if (m_TRperiod < 60.)
     {
       return bt.toString ("HHmmss");
     }
@@ -8125,17 +8150,18 @@ void MainWindow::uploadWSPRSpots (bool direct_post, QString const& decode_text)
   QString rfreq = QString("%1").arg((m_dialFreqRxWSPR + 1500) / 1e6, 0, 'f', 6);
   QString tfreq = QString("%1").arg((m_dialFreqRxWSPR +
                         ui->TxFreqSpinBox->value()) / 1e6, 0, 'f', 6);
+  auto pct = QString::number (ui->autoButton->isChecked () ? ui->sbTxPercent->value () : 0);
   if (!direct_post)
     {
       wsprNet->upload (m_config.my_callsign (), m_config.my_grid (), rfreq, tfreq,
-                       m_mode, m_TRperiod, QString::number (ui->autoButton->isChecked () ? m_pctx : 0),
+                       m_mode, m_TRperiod, pct,
                        QString::number (m_dBm), version (),
                        m_config.writeable_data_dir ().absoluteFilePath ("wspr_spots.txt"));
     }
   else
     {
       wsprNet->post (m_config.my_callsign (), m_config.my_grid (), rfreq, tfreq,
-                     m_mode, m_TRperiod, QString::number (ui->autoButton->isChecked () ? m_pctx : 0),
+                     m_mode, m_TRperiod, pct,
                      QString::number (m_dBm), version (), decode_text);
     }
   if (!decode_text.size ())
@@ -8161,24 +8187,9 @@ void MainWindow::on_TxPowerComboBox_currentIndexChanged(int index)
   m_dBm = ui->TxPowerComboBox->itemData (index).toInt ();
 }
 
-void MainWindow::on_sbTxPercent_valueChanged(int n)
-{
-  m_pctx=n;
-  if(m_pctx>0) {
-    ui->pbTxNext->setEnabled(true);
-  } else {
-    m_txNext=false;
-    ui->pbTxNext->setChecked(false);
-    ui->pbTxNext->setEnabled(false);
-  }
-}
-
 void MainWindow::on_cbUploadWSPR_Spots_toggled(bool b)
 {
   m_uploadWSPRSpots=b;
-  if(m_uploadWSPRSpots) ui->cbUploadWSPR_Spots->setStyleSheet("");
-  if(!m_uploadWSPRSpots) ui->cbUploadWSPR_Spots->setStyleSheet(
-        "QCheckBox{background-color: yellow}");
 }
 
 void MainWindow::on_WSPRfreqSpinBox_valueChanged(int n)
@@ -8188,13 +8199,22 @@ void MainWindow::on_WSPRfreqSpinBox_valueChanged(int n)
 
 void MainWindow::on_pbTxNext_clicked(bool b)
 {
-  m_txNext=b;
+  if (b && !ui->autoButton->isChecked ())
+    {
+      ui->autoButton->click (); // make sure Tx is possible
+    }
 }
 
 void MainWindow::WSPR_scheduling ()
 {
+  if (ui->pbTxNext->isEnabled () && ui->pbTxNext->isChecked ())
+    {
+      // Tx Next button overrides all scheduling
+      m_WSPR_tx_next = true;
+      return;
+    }
   QString t=ui->RoundRobin->currentText();
-  if(m_mode=="FST4W" and t!="Random") {
+  if(m_mode=="FST4W" and t != tr ("Random")) {
     bool ok;
     int i=t.left (1).toInt (&ok) - 1;
     if (!ok) return;
@@ -8205,10 +8225,14 @@ void MainWindow::WSPR_scheduling ()
     int nsec=ms/1000;
     int ntr=m_TRperiod;
     int j=((nsec+ntr-1) % (n*ntr))/ntr;
-    m_WSPR_tx_next=(i==j);
+    m_WSPR_tx_next = i == j;
     return;
   }
   m_WSPR_tx_next = false;
+  if (!ui->sbTxPercent->isEnabled () || !ui->sbTxPercent->value ())
+    {
+      return;                   // don't schedule if %age disabled or zero
+    }
   if (m_config.is_transceiver_online () // need working rig control for hopping
       && !m_config.is_dummy_rig ()
       && ui->band_hopping_group_box->isChecked ()) {
@@ -8495,7 +8519,7 @@ void MainWindow::tx_watchdog (bool triggered)
       m_bTxTime=false;
       if (m_tune) stop_tuning ();
       if (m_auto) auto_tx_mode (false);
-      tx_status_label.setStyleSheet ("QLabel{background-color: #ff0000}");
+      tx_status_label.setStyleSheet ("QLabel{color: #000000; background-color: #ff0000}");
       tx_status_label.setText (tr ("Runaway Tx watchdog"));
       QApplication::alert (this);
     }

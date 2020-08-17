@@ -105,7 +105,14 @@ void Modulator::start (QString mode, unsigned symbolsLength, double framesPerSym
   // qDebug() << "delay_ms:" << delay_ms << "mstr:" << mstr << "m_silentFrames:" << m_silentFrames << "m_ic:" << m_ic << "m_state:" << m_state;
 
   m_stream = stream;
-  if (m_stream) m_stream->restart (this);
+  if (m_stream)
+    {
+      m_stream->restart (this);
+    }
+  else
+    {
+      qDebug () << "Modulator::start: no audio output stream assigned";
+    }
 }
 
 void Modulator::tune (bool newState)
@@ -172,14 +179,11 @@ qint64 Modulator::readData (char * data, qint64 maxSize)
             {
               samples = load (0, samples); // silence
             } while (--m_silentFrames && samples != end);
-          qDebug () << "played:" << framesGenerated << "silent frames";
           if (!m_silentFrames)
             {
               Q_EMIT stateChanged ((m_state = Active));
             }
         }
-
-        // qDebug() << "m_silentFrames:" << m_silentFrames << "m_ic:" << m_ic << "m_state:" << m_state;
 
         m_cwLevel = false;
         m_ramp = 0;		// prepare for CW wave shaping

@@ -29,7 +29,7 @@ public:
   //
   // Flush any pending spots to PSK Reporter
   //
-  void sendReport ();
+  void sendReport (bool last = false);
 
   Q_SIGNAL void errorOccurred (QString const& reason);
 

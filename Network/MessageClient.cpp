@@ -465,7 +465,11 @@ void MessageClient::set_server (QString const& server)
     {
       // queue a host address lookup
       TRACE_UDP ("server host DNS lookup:" << server);
+#if QT_VERSION >= QT_VERSION_CHECK(5, 9, 0)
       m_->dns_lookup_id_ = QHostInfo::lookupHost (server, &*m_, &MessageClient::impl::host_info_results);
+#else
+      m_->dns_lookup_id_ = QHostInfo::lookupHost (server, &*m_, SLOT (host_info_results (QHostInfo)));
+#endif
     }
 }
 

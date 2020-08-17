@@ -216,7 +216,7 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
   character*38 c
   character*36 a2
   integer hashmy10,hashmy12,hashmy22,hashdx10,hashdx12,hashdx22
-  logical unpk28_success,unpk77_success
+  logical unpk28_success,unpk77_success,unpkg4_success
   logical dxcall13_set,mycall13_set
 
   data a2/'0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'/,nzzz/46656/
@@ -364,10 +364,11 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
         idbm=nint(idbm*10.0/3.0)
         call unpack28(n28,call_1,unpk28_success) 
         if(.not.unpk28_success) unpk77_success=.false.
-        call to_grid4(igrid4,grid4)
+        call to_grid4(igrid4,grid4,unpkg4_success)
+        if(.not.unpkg4_success) unpk77_success=.false.
         write(crpt,'(i3)') idbm
         msg=trim(call_1)//' '//grid4//' '//trim(adjustl(crpt))
-        call save_hash_call(call_1,n10,n12,n22)    !### Is this OK here? ###
+        if (unpk77_success) call save_hash_call(call_1,n10,n12,n22) !### Is this OK here? ###
 
      else if(itype.eq.2) then
 ! WSPR Type 2
@@ -417,10 +418,9 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
         n28=n22+2063592
         call unpack28(n28,call_1,unpk28_success) 
         if(.not.unpk28_success) unpk77_success=.false.
-        call to_grid(igrid6,grid6)
+        call to_grid(igrid6,grid6,unpkg4_success)
+        if(.not.unpkg4_success) unpk77_success=.false.
         msg=trim(call_1)//' '//grid6
-
-
      endif
   
   else if(i3.eq.0 .and. n3.gt.6) then
@@ -452,7 +452,8 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
         if(i.ge.4) call add_call_to_recent_calls(call_2)
      endif
      if(igrid4.le.MAXGRID4) then
-        call to_grid4(igrid4,grid4)
+        call to_grid4(igrid4,grid4,unpkg4_success)
+        if(.not.unpkg4_success) unpk77_success=.false.
         if(ir.eq.0) msg=trim(call_1)//' '//trim(call_2)//' '//grid4
         if(ir.eq.1) msg=trim(call_1)//' '//trim(call_2)//' R '//grid4
         if(msg(1:3).eq.'CQ ' .and. ir.eq.1) unpk77_success=.false.
@@ -569,7 +570,7 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
      nrs=52+irpt
      write(cexch,1022) nrs,iserial
 1022 format(i2,i4.4)
-     call to_grid6(igrid6,grid6)
+     call to_grid6(igrid6,grid6,unpk77_success)
      if(ir.eq.0) msg=trim(call_1)//' '//trim(call_2)//' '//cexch//' '//grid6
      if(ir.eq.1) msg=trim(call_1)//' '//trim(call_2)//' R '//cexch//' '//grid6
 
@@ -1499,60 +1500,84 @@ subroutine add_call_to_recent_calls(callsign)
   return
 end subroutine add_call_to_recent_calls
 
-subroutine to_grid4(n,grid4)
+subroutine to_grid4(n,grid4,ok)
   character*4 grid4
-  
+  logical ok
+
+  ok=.false.
   j1=n/(18*10*10)
+  if (j1.lt.0.or.j1.gt.17) goto 900
   n=n-j1*18*10*10
   j2=n/(10*10)
+  if (j2.lt.0.or.j2.gt.17) goto 900
   n=n-j2*10*10
   j3=n/10
+  if (j3.lt.0.or.j3.gt.9) goto 900
   j4=n-j3*10
+  if (j4.lt.0.or.j4.gt.9) goto 900
   grid4(1:1)=char(j1+ichar('A'))
   grid4(2:2)=char(j2+ichar('A'))
   grid4(3:3)=char(j3+ichar('0'))
   grid4(4:4)=char(j4+ichar('0'))
-  
-  return
+  ok=.true.
+
+900 return
 end subroutine to_grid4
 
-subroutine to_grid6(n,grid6)
+subroutine to_grid6(n,grid6,ok)
   character*6 grid6
+  logical ok
 
+  ok=.false.
   j1=n/(18*10*10*24*24)
+  if (j1.lt.0.or.j1.gt.17) goto 900
   n=n-j1*18*10*10*24*24
   j2=n/(10*10*24*24)
+  if (j2.lt.0.or.j2.gt.17) goto 900
   n=n-j2*10*10*24*24
   j3=n/(10*24*24)
+  if (j3.lt.0.or.j3.gt.9) goto 900
   n=n-j3*10*24*24
   j4=n/(24*24)
+  if (j4.lt.0.or.j4.gt.9) goto 900
   n=n-j4*24*24
   j5=n/24
+  if (j5.lt.0.or.j5.gt.23) goto 900
   j6=n-j5*24
+  if (j6.lt.0.or.j6.gt.23) goto 900
   grid6(1:1)=char(j1+ichar('A'))
   grid6(2:2)=char(j2+ichar('A'))
   grid6(3:3)=char(j3+ichar('0'))
   grid6(4:4)=char(j4+ichar('0'))
   grid6(5:5)=char(j5+ichar('A'))
   grid6(6:6)=char(j6+ichar('A'))  
+  ok=.true.
 
-  return
+900 return
 end subroutine to_grid6
 
-subroutine to_grid(n,grid6)
+subroutine to_grid(n,grid6,ok)
   ! 4-, or 6-character grid
   character*6 grid6
+  logical ok
 
+  ok=.false.
   j1=n/(18*10*10*25*25)
+  if (j1.lt.0.or.j1.gt.17) goto 900
   n=n-j1*18*10*10*25*25
   j2=n/(10*10*25*25)
+  if (j2.lt.0.or.j2.gt.17) goto 900
   n=n-j2*10*10*25*25
   j3=n/(10*25*25)
+  if (j3.lt.0.or.j3.gt.9) goto 900
   n=n-j3*10*25*25
   j4=n/(25*25)
+  if (j4.lt.0.or.j4.gt.9) goto 900
   n=n-j4*25*25
   j5=n/25
+  if (j5.lt.0.or.j5.gt.24) goto 900
   j6=n-j5*25
+  if (j6.lt.0.or.j6.gt.24) goto 900
   grid6=''
   grid6(1:1)=char(j1+ichar('A'))
   grid6(2:2)=char(j2+ichar('A'))
@@ -1562,8 +1587,9 @@ subroutine to_grid(n,grid6)
      grid6(5:5)=char(j5+ichar('A'))
      grid6(6:6)=char(j6+ichar('A'))
   endif
+  ok=.true.
 
-  return
+900 return
 end subroutine to_grid
 
 end module packjt77
