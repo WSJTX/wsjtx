@@ -190,7 +190,13 @@ void MessageClient::impl::parse_message (QByteArray const& msg)
                 quint8 modifiers {0};
                 in >> time >> snr >> delta_time >> delta_frequency >> mode >> message
                    >> low_confidence >> modifiers;
-                TRACE_UDP ("Reply: time:" << time << "snr:" << snr << "dt:" << delta_time << "df:" << delta_frequency << "mode:" << mode << "message:" << message << "low confidence:" << low_confidence << "modifiers: 0x" << hex << modifiers);
+                TRACE_UDP ("Reply: time:" << time << "snr:" << snr << "dt:" << delta_time << "df:" << delta_frequency << "mode:" << mode << "message:" << message << "low confidence:" << low_confidence << "modifiers: 0x"
+#if QT_VERSION >= QT_VERSION_CHECK (5, 15, 0)
+                           << Qt::hex
+#else
+                           << hex
+#endif
+                           << modifiers);
                 if (check_status (in) != Fail)
                   {
                     Q_EMIT self_->reply (time, snr, delta_time, delta_frequency
