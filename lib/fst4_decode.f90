@@ -275,12 +275,8 @@ contains
          fb=min(4800,nfb)
       endif
 
-      if(hmod.eq.1) then
-         if(ntrperiod.eq.15) minsync=1.15
-         if(ntrperiod.gt.15) minsync=1.25
-      elseif(hmod.gt.1) then
-         minsync=1.2
-      endif
+      minsync=1.2
+      if(ntrperiod.eq.15) minsync=1.15
 
 ! Get first approximation of candidate frequencies
       call get_candidates_fst4(c_bigfft,nfft1,nsps,hmod,fs,fa,fb,     &
@@ -788,13 +784,13 @@ contains
          iploc=ia+im(1)-1                         !Index of CCF peak
          pval=s2(iploc)                           !Peak value
          if(pval.lt.minsync) exit
-!         do i=-3,+3                            !Remove 0.9 of a model CCF at
-!            k=iploc+2*hmod*i                   !this frequency from s2()
-!            if(k.ge.ia .and. k.le.ib) then
-!               s2(k)=max(0.,s2(k)-0.9*pval*xdb(i))
-!            endif
-!         enddo
-         s2(max(1,iploc-2*hmod*3):min(nnw,iploc+2*hmod*3))=0.0
+         do i=-3,+3                            !Remove 0.9 of a model CCF at
+            k=iploc+2*hmod*i                   !this frequency from s2()
+            if(k.ge.ia .and. k.le.ib) then
+               s2(k)=max(0.,s2(k)-0.9*pval*xdb(i))
+            endif
+         enddo
+!         s2(max(1,iploc-2*hmod*3):min(nnw,iploc+2*hmod*3))=0.0
          ncand=ncand+1
          candidates(ncand,1)=df2*iploc         !Candidate frequency
          candidates(ncand,2)=pval              !Rough estimate of SNR

@@ -105,7 +105,7 @@ subroutine get_fst4_bitmetrics(cd,nss,hmod,nmax,nhicoh,bitmetrics,s4,badsync)
                csum=csum+cs(graymap(ntone),ks+j)*cterm
                cterm=cterm*conjg(cp(graymap(ntone)))
             enddo
-            s2(i)=abs(csum)**2
+            s2(i)=abs(csum)
          enddo
          ipt=1+(ks-1)*2
          if(nsym.eq.1) ibmax=1
