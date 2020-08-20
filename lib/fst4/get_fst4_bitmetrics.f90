@@ -11,6 +11,7 @@ subroutine get_fst4_bitmetrics(cd,nss,hmod,nmax,nhicoh,bitmetrics,s4,badsync)
    integer graymap(0:3)
    integer ip(1)
    integer hmod
+   integer hbits(2*NN)
    logical one(0:65535,0:15)    ! 65536 8-symbol sequences, 16 bits
    logical first
    logical badsync
@@ -122,10 +123,28 @@ subroutine get_fst4_bitmetrics(cd,nss,hmod,nmax,nhicoh,bitmetrics,s4,badsync)
       enddo
    enddo
 
+   hbits=0
+   where(bitmetrics(:,1).ge.0) hbits=1
+   ns1=count(hbits(  1: 16).eq.(/0,0,0,1,1,0,1,1,0,1,0,0,1,1,1,0/))
+   ns2=count(hbits( 77: 92).eq.(/1,1,1,0,0,1,0,0,1,0,1,1,0,0,0,1/))
+   ns3=count(hbits(153:168).eq.(/0,0,0,1,1,0,1,1,0,1,0,0,1,1,1,0/))
+   ns4=count(hbits(229:244).eq.(/1,1,1,0,0,1,0,0,1,0,1,1,0,0,0,1/))
+   ns5=count(hbits(305:320).eq.(/0,0,0,1,1,0,1,1,0,1,0,0,1,1,1,0/))
+   nsync_qual=ns1+ns2+ns3+ns4+ns5
+
+   if(nsync_qual.lt. 46) then
+      badsync=.true.
+      return
+   endif
+
    call normalizebmet(bitmetrics(:,1),2*NN)
    call normalizebmet(bitmetrics(:,2),2*NN)
    call normalizebmet(bitmetrics(:,3),2*NN)
    call normalizebmet(bitmetrics(:,4),2*NN)
+
+   scalefac=2.83
+   bitmetrics=scalefac*bitmetrics
+
    return
 
 end subroutine get_fst4_bitmetrics

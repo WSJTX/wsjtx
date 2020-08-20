@@ -31,7 +31,7 @@ contains
 
    subroutine decode(this,callback,iwave,nutc,nQSOProgress,nfqso,    &
       nfa,nfb,nsubmode,ndepth,ntrperiod,nexp_decode,ntol,            &
-      emedelay,lapcqonly,mycall,hiscall,nfsplit,iwspr)
+      emedelay,lapcqonly,mycall,hiscall,iwspr)
 
       use timer_module, only: timer
       use packjt77
@@ -252,29 +252,10 @@ contains
       call four2a(c_bigfft,nfft1,1,-1,0)         !r2c
 !      call blank2(nfa,nfb,nfft1,c_bigfft,iwave)
 
-      nhicoh=0
-      if(hmod.eq.1) then
-         if(fMHz.lt.2.0) then
-            nsyncoh=8    ! Use N=8 for sync
-            nhicoh=1     ! Use N=1,2,4,8 for symbol estimation
-         else
-            nsyncoh=4    ! Use N=4 for sync
-            nhicoh=0     ! Use N=1,2,3,4 for symbol estimation
-         endif
-      else
-         if(hmod.eq.2) nsyncoh=1
-         if(hmod.eq.4) nsyncoh=-2
-         if(hmod.eq.8) nsyncoh=-4
-      endif
-
-      if( single_decode ) then
-         fa=max(100,nint(nfqso+1.5*hmod*baud-ntol))
-         fb=min(4800,nint(nfqso+1.5*hmod*baud+ntol))
-      else
-         fa=max(100,nfa)
-         fb=min(4800,nfb)
-      endif
-
+      nhicoh=1
+      nsyncoh=8
+      fa=max(100,nint(nfqso+1.5*hmod*baud-ntol))
+      fb=min(4800,nint(nfqso+1.5*hmod*baud+ntol))
       minsync=1.2
       if(ntrperiod.eq.15) minsync=1.15
 
@@ -296,54 +277,15 @@ contains
 ! Output array c2 is complex baseband sampled at 12000/ndown Sa/sec.
 ! The size of the downsampled c2 array is nfft2=nfft1/ndown
 
+         call timer('dwnsmpl ',0)
          call fst4_downsample(c_bigfft,nfft1,ndown,fc0,sigbw,c2)
+         call timer('dwnsmpl ',1)
 
          call timer('sync240 ',0)
-         fc1=0.0
-         if(emedelay.lt.0.1) then  ! search offsets from 0 s to 2 s
-            is0=1.5*nspsec
-            ishw=1.5*nspsec
-         else      ! search plus or minus 1.5 s centered on emedelay
-            is0=nint((emedelay+1.0)*nspsec)
-            ishw=1.5*nspsec
-         endif
-
-         smax=-1.e30
-         do if=-12,12
-            fc=fc1 + 0.1*baud*if
-            do istart=max(1,is0-ishw),is0+ishw,4*hmod
-               call sync_fst4(c2,istart,fc,hmod,nsyncoh,nfft2,nss,   &
-                  ntrperiod,fs2,sync)
-               if(sync.gt.smax) then
-                  fc2=fc
-                  isbest=istart
-                  smax=sync
-               endif
-            enddo
-         enddo
-
-         fc1=fc2
-         is0=isbest
-         ishw=4*hmod
-         isst=1*hmod
-
-         smax=0.0
-         do if=-7,7
-            fc=fc1 + 0.02*baud*if
-            do istart=max(1,is0-ishw),is0+ishw,isst
-               call sync_fst4(c2,istart,fc,hmod,nsyncoh,nfft2,nss,   &
-                  ntrperiod,fs2,sync)
-               if(sync.gt.smax) then
-                  fc2=fc
-                  isbest=istart
-                  smax=sync
-               endif
-            enddo
-         enddo
-
+         call fst4_sync_search(c2,nfft2,hmod,fs2,nss,ntrperiod,nsyncoh,emedelay,sbest,fcbest,isbest)
          call timer('sync240 ',1)
 
-         fc_synced = fc0 + fc2
+         fc_synced = fc0 + fcbest
          dt_synced = (isbest-fs2)*dt2  !nominal dt is 1 second so frame starts at sample fs2
          candidates(icand,3)=fc_synced
          candidates(icand,4)=isbest
@@ -382,7 +324,11 @@ contains
          isbest=nint(candidates(icand,4))
          xdt=(isbest-nspsec)/fs2
          if(ntrperiod.eq.15) xdt=(isbest-real(nspsec)/2.0)/fs2
+
+         call timer('dwnsmpl ',0)
          call fst4_downsample(c_bigfft,nfft1,ndown,fc_synced,sigbw,c2)
+         call timer('dwnsmpl ',1)
+
          do ijitter=0,jittermax
             if(ijitter.eq.0) ioffset=0
             if(ijitter.eq.1) ioffset=1
@@ -392,32 +338,16 @@ contains
             cframe=c2(is0:is0+160*nss-1)
             bitmetrics=0
             call timer('bitmetrc',0)
-            if(hmod.eq.1) then
-               call get_fst4_bitmetrics(cframe,nss,hmod,nblock,nhicoh,bitmetrics,s4,badsync)
-            else
-               call get_fst4_bitmetrics2(cframe,nss,hmod,nblock,bitmetrics,s4,badsync)
-            endif
+            call get_fst4_bitmetrics(cframe,nss,hmod,nblock,nhicoh,bitmetrics,s4,badsync)
             call timer('bitmetrc',1)
             if(badsync) cycle
 
-            hbits=0
-            where(bitmetrics(:,1).ge.0) hbits=1
-            ns1=count(hbits(  1: 16).eq.(/0,0,0,1,1,0,1,1,0,1,0,0,1,1,1,0/))
-            ns2=count(hbits( 77: 92).eq.(/1,1,1,0,0,1,0,0,1,0,1,1,0,0,0,1/))
-            ns3=count(hbits(153:168).eq.(/0,0,0,1,1,0,1,1,0,1,0,0,1,1,1,0/))
-            ns4=count(hbits(229:244).eq.(/1,1,1,0,0,1,0,0,1,0,1,1,0,0,0,1/))
-            ns5=count(hbits(305:320).eq.(/0,0,0,1,1,0,1,1,0,1,0,0,1,1,1,0/))
-            nsync_qual=ns1+ns2+ns3+ns4+ns5
-
-            if(nsync_qual.lt. 46) cycle                   !### Value ?? ###
-            scalefac=2.83
             do il=1,4
                llrs(  1: 60,il)=bitmetrics( 17: 76, il)
                llrs( 61:120,il)=bitmetrics( 93:152, il)
                llrs(121:180,il)=bitmetrics(169:228, il)
                llrs(181:240,il)=bitmetrics(245:304, il)
             enddo
-            llrs=scalefac*llrs
 
             apmag=maxval(abs(llrs(:,1)))*1.1
             ntmax=nblock+nappasses(nQSOProgress)
@@ -440,14 +370,8 @@ contains
                   iaptype=0
                endif
 
-               if(itry.gt.nblock) then
-                  llr=llrs(:,1)
-                  if(nblock.gt.1) then
-                     if(hmod.eq.1) llr=llrs(:,3)
-                     if(hmod.eq.2) llr=llrs(:,1)
-                     if(hmod.eq.4) llr=llrs(:,2)
-                     if(hmod.eq.8) llr=llrs(:,4)
-                  endif
+               if(itry.gt.nblock) then ! do ap passes
+                  llr=llrs(:,nblock)  ! Use largest blocksize as the basis for AP passes
                   iaptype=naptypes(nQSOProgress,itry-nblock)
                   if(lapcqonly) iaptype=1
                   if(iaptype.ge.2 .and. apbits(1).gt.1) cycle  ! No, or nonstandard, mycall
@@ -486,7 +410,7 @@ contains
                if(iwspr.eq.0) then
                   maxosd=2
                   Keff=91
-                  norder=3
+                  norder=4
                   call timer('d240_101',0)
                   call decode240_101(llr,Keff,maxosd,norder,apmask,message101, &
                      cw,ntype,nharderrors,dmin)
@@ -556,8 +480,8 @@ contains
                   fsig=fc_synced - 1.5*hmod*baud
                   if(ex) then
                      write(21,3021) nutc,icand,itry,nsyncoh,iaptype,  &
-                          ijitter,ntype,nsync_qual,nharderrors,dmin,  &
-                          sync,xsnr,xdt,fsig,w50,trim(msg)
+                        ijitter,ntype,nsync_qual,nharderrors,dmin,  &
+                        sync,xsnr,xdt,fsig,w50,trim(msg)
 3021                 format(i6.6,6i3,2i4,f6.1,f7.2,f6.1,f6.2,f7.1,f7.3,1x,a)
                      flush(21)
                   endif
@@ -798,6 +722,54 @@ contains
 
       return
    end subroutine get_candidates_fst4
+
+   subroutine fst4_sync_search(c2,nfft2,hmod,fs2,nss,ntrperiod,nsyncoh,emedelay,sbest,fcbest,isbest)
+      complex c2(0:nfft2-1)
+      integer hmod
+      nspsec=int(fs2)
+      baud=fs2/real(nss)
+      fc1=0.0
+      if(emedelay.lt.0.1) then  ! search offsets from 0 s to 2 s
+         is0=1.5*nspsec
+         ishw=1.5*nspsec
+      else      ! search plus or minus 1.5 s centered on emedelay
+         is0=nint((emedelay+1.0)*nspsec)
+         ishw=1.5*nspsec
+      endif
+
+      sbest=-1.e30
+      do if=-12,12
+         fc=fc1 + 0.1*baud*if
+         do istart=max(1,is0-ishw),is0+ishw,4*hmod
+            call sync_fst4(c2,istart,fc,hmod,nsyncoh,nfft2,nss,   &
+               ntrperiod,fs2,sync)
+            if(sync.gt.sbest) then
+               fcbest=fc
+               isbest=istart
+               sbest=sync
+            endif
+         enddo
+      enddo
+
+      fc1=fcbest
+      is0=isbest
+      ishw=4*hmod
+      isst=1*hmod
+
+      sbest=0.0
+      do if=-7,7
+         fc=fc1 + 0.02*baud*if
+         do istart=max(1,is0-ishw),is0+ishw,isst
+            call sync_fst4(c2,istart,fc,hmod,nsyncoh,nfft2,nss,   &
+               ntrperiod,fs2,sync)
+            if(sync.gt.sbest) then
+               fcbest=fc
+               isbest=istart
+               sbest=sync
+            endif
+         enddo
+      enddo
+   end subroutine fst4_sync_search
 
    subroutine dopspread(itone,iwave,nsps,nmax,ndown,hmod,i0,fc,fmid,w50)
 
