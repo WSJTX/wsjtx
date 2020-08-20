@@ -213,7 +213,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
           params%nQSOProgress,params%nfqso,params%nfa,params%nfb,         &
           params%nsubmode,ndepth,params%ntr,params%nexp_decode,           &
           params%ntol,params%emedelay,                                    &
-          logical(params%lapcqonly),mycall,hiscall,params%nfsplit,iwspr)
+          logical(params%lapcqonly),mycall,hiscall,iwspr)
      call timer('dec240  ',1)
      go to 800
   endif
@@ -227,7 +227,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
           params%nQSOProgress,params%nfqso,params%nfa,params%nfb,         &
           params%nsubmode,ndepth,params%ntr,params%nexp_decode,           &
           params%ntol,params%emedelay,                                    &
-          logical(params%lapcqonly),mycall,hiscall,params%nfsplit,iwspr)
+          logical(params%lapcqonly),mycall,hiscall,iwspr)
      call timer('dec240  ',1)
      go to 800
   endif
