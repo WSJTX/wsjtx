@@ -1,4 +1,4 @@
-subroutine get_fst4_bitmetrics(cd,nss,hmod,nmax,nhicoh,bitmetrics,s4,badsync)
+subroutine get_fst4_bitmetrics(cd,nss,hmod,nmax,nhicoh,bitmetrics,s4,nsync_qual,badsync)
 
    include 'fst4_params.f90'
    complex cd(0:NN*nss-1)
