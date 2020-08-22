@@ -338,7 +338,8 @@ contains
             cframe=c2(is0:is0+160*nss-1)
             bitmetrics=0
             call timer('bitmetrc',0)
-            call get_fst4_bitmetrics(cframe,nss,hmod,nblock,nhicoh,bitmetrics,s4,badsync)
+            call get_fst4_bitmetrics(cframe,nss,hmod,nblock,nhicoh,bitmetrics, &
+               s4,nsync_qual,badsync)
             call timer('bitmetrc',1)
             if(badsync) cycle
 
