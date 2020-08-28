@@ -621,6 +621,7 @@ set (wsjt_FSRCS
   lib/fst4/osd240_101.f90
   lib/fst4/osd240_74.f90
   lib/fst4/get_crc24.f90
+  lib/fst4/fst4_baseline.f90
   )
 
 # temporary workaround for a gfortran v7.3 ICE on Fedora 27 64-bit

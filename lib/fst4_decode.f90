@@ -49,7 +49,7 @@ contains
       complex, allocatable :: cframe(:)
       complex, allocatable :: c_bigfft(:)          !Complex waveform
       real llr(240),llrs(240,4)
-      real candidates(200,4)
+      real candidates(200,5)
       real bitmetrics(320,4)
       real s4(0:3,NN)
       real minsync
@@ -254,14 +254,19 @@ contains
 
       nhicoh=1
       nsyncoh=8
-      fa=max(100,nint(nfqso+1.5*hmod*baud-ntol))
-      fb=min(4800,nint(nfqso+1.5*hmod*baud+ntol))
-      minsync=1.2
+      if(iwspr.eq.1) then
+         fa=1400.0
+         fb=1600.0
+      else
+         fa=max(100,nint(nfqso+1.5*hmod*baud-ntol))
+         fb=min(4800,nint(nfqso+1.5*hmod*baud+ntol))
+      endif
+      minsync=1.20
       if(ntrperiod.eq.15) minsync=1.15
 
 ! Get first approximation of candidate frequencies
       call get_candidates_fst4(c_bigfft,nfft1,nsps,hmod,fs,fa,fb,     &
-         minsync,ncand,candidates,base)
+         minsync,ncand,candidates)
 
       ndecodes=0
       decodes=' '
@@ -317,7 +322,7 @@ contains
       enddo
       ncand=ic
       xsnr=0.
-
+!write(*,*) 'ncand ',ncand
       do icand=1,ncand
          sync=candidates(icand,2)
          fc_synced=candidates(icand,3)
@@ -465,6 +470,7 @@ contains
                      do i=1,NN
                         xsig=xsig+s4(itone(i),i)
                      enddo
+                     base=candidates(icand,5)
                      arg=600.0*(xsig/base)-1.0
                      if(arg.gt.0.0) then
                         xsnr=10*log10(arg)-35.5-12.5*log10(nsps/8200.0)
@@ -645,14 +651,15 @@ contains
    end subroutine fst4_downsample
 
    subroutine get_candidates_fst4(c_bigfft,nfft1,nsps,hmod,fs,fa,fb,   &
-      minsync,ncand,candidates,base)
+      minsync,ncand,candidates)
 
       complex c_bigfft(0:nfft1/2)              !Full length FFT of raw data
       integer hmod                             !Modulation index (submode)
       integer im(1)                            !For maxloc
-      real candidates(200,4)                   !Candidate list
+      real candidates(200,5)                   !Candidate list
       real, allocatable :: s(:)                !Low resolution power spectrum
       real, allocatable :: s2(:)               !CCF of s() with 4 tones
+      real, allocatable :: sbase(:)            !noise baseline estimate
       real xdb(-3:3)                           !Model 4-tone CCF peaks
       real minsync
       data xdb/0.25,0.50,0.75,1.0,0.75,0.50,0.25/
@@ -668,17 +675,17 @@ contains
       signal_bw=4*(12000.0/nsps)*hmod
       analysis_bw=min(4800.0,fb)-max(100.0,fa)
       xnoise_bw=10.0*signal_bw                  !Is this a good compromise?
-      if(analysis_bw.gt.xnoise_bw) then
-         ina=ia
-         inb=ib
-      else
-         fcenter=(fa+fb)/2.0                      !If noise_bw > analysis_bw,
-         fl = max(100.0,fcenter-xnoise_bw/2.)/df2  !we'll search over noise_bw
+      if(xnoise_bw .lt. 400.0) xnoise_bw=400.0  
+      if(analysis_bw.gt.xnoise_bw) then         !Estimate noise baseline over analysis bw
+         ina=0.9*ia
+         inb=min(int(1.1*ib),nfft1/2)
+      else                                      !Estimate noise baseline over noise bw
+         fcenter=(fa+fb)/2.0                    
+         fl = max(100.0,fcenter-xnoise_bw/2.)/df2  
          fh = min(4800.0,fcenter+xnoise_bw/2.)/df2
          ina=nint(fl)
          inb=nint(fh)
       endif
-
       nnw=nint(48000.*nsps*2./fs)
       allocate (s(nnw))
       s=0.                                  !Compute low-resolution power spectrum
@@ -692,12 +699,16 @@ contains
       ina=max(ina,1+3*hmod)                       !Don't run off the ends
       inb=min(inb,nnw-3*hmod)
       allocate (s2(nnw))
+      allocate (sbase(nnw))
       s2=0.
       do i=ina,inb                                !Compute CCF of s() and 4 tones
          s2(i)=s(i-hmod*3) + s(i-hmod) +s(i+hmod) +s(i+hmod*3)
       enddo
-      call pctile(s2(ina+hmod*3:inb-hmod*3),inb-ina+1-hmod*6,30,base)
-      s2=s2/base                                  !Normalize wrt noise level
+      npct=30
+      call fst4_baseline(s2,nnw,ina+hmod*3,inb-hmod*3,npct,sbase)
+      if(any(sbase(ina:inb).le.0.0)) return
+      s2(ina:inb)=s2(ina:inb)/sbase(ina:inb)             !Normalize wrt noise level
+
       ncand=0
       candidates=0
       if(ia.lt.3) ia=3
@@ -717,12 +728,11 @@ contains
                s2(k)=max(0.,s2(k)-0.9*pval*xdb(i))
             endif
          enddo
-!         s2(max(1,iploc-2*hmod*3):min(nnw,iploc+2*hmod*3))=0.0
          ncand=ncand+1
          candidates(ncand,1)=df2*iploc         !Candidate frequency
          candidates(ncand,2)=pval              !Rough estimate of SNR
+         candidates(ncand,5)=sbase(iploc)
       enddo
-
       return
    end subroutine get_candidates_fst4
 
