@@ -57,7 +57,6 @@ contains
       integer itone(NN)
       integer hmod
       integer*1 apmask(240),cw(240)
-      integer*1 hbits(320)
       integer*1 message101(101),message74(74),message77(77)
       integer*1 rvec(77)
       integer apbits(240)
