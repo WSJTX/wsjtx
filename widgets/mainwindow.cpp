@@ -5174,7 +5174,7 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
       && !m_bDoubleClicked && m_mode!="FT4") {
     return;
   }
-  if(m_config.quick_call()) auto_tx_mode(true);
+  if(m_config.quick_call() && m_bDoubleClicked) auto_tx_mode(true);
   m_bDoubleClicked=false;
 }
 
