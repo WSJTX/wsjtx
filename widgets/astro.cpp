@@ -42,7 +42,7 @@ Astro::Astro(QSettings * settings, Configuration const * configuration, QWidget 
   , m_DopplerMethod {0}
   , m_dop {0}
   , m_dop00 {0}
-  , m_dx_two_way_dop {0}
+  //, m_dx_two_way_dop {0}
 {
   ui_->setupUi (this);
   setWindowTitle (QApplication::applicationName () + " - " + tr ("Astronomical Data"));
@@ -77,8 +77,8 @@ void Astro::read_settings ()
     case 1: ui_->rbFullTrack->setChecked (true); break;
     case 2: ui_->rbConstFreqOnMoon->setChecked (true); break;
     case 3: ui_->rbOwnEcho->setChecked (true); break;
-  case 4: ui_->rbOnDxEcho->setChecked (true); break;
-  case 5: ui_->rbCallDx->setChecked (true); break;
+    case 4: ui_->rbOnDxEcho->setChecked (true); break;
+    case 5: ui_->rbCallDx->setChecked (true); break;
     }
   move (settings_->value ("window/pos", pos ()).toPoint ());
 }
@@ -168,38 +168,35 @@ auto Astro::astroUpdate(QDateTime const& t, QString const& mygrid, QString const
     switch (m_DopplerMethod)
       {
       case 1: // All Doppler correction done here; DX station stays at nominal dial frequency.
-	  correction.rx =  m_dop;
-	  break;
-	  case 4: // All Doppler correction done here; DX station stays at nominal dial frequency. (Trial for OnDxEcho)
-	  correction.rx =  m_dop;
-	  break;
-	  //case 5: // All Doppler correction done here; DX station stays at nominal dial frequency.
-	  
+        correction.rx =  m_dop;
+        break;
+      case 4: // All Doppler correction done here; DX station stays at nominal dial frequency. (Trial for OnDxEcho)
+        correction.rx =  m_dop;
+        break;
+        //case 5: // All Doppler correction done here; DX station stays at nominal dial frequency.
       case 3: // Both stations do full correction on Rx and none on Tx
         //correction.rx = dx_is_self ? m_dop00 : m_dop;
-		correction.rx =  m_dop00; // Now always sets RX to *own* echo freq
+        correction.rx =  m_dop00; // Now always sets RX to *own* echo freq
         break;
-	  case 2:
+      case 2:
         // Doppler correction to constant frequency on Moon
         correction.rx = m_dop00 / 2;
         break;
-		
       }
     switch (m_DopplerMethod)
       {
-	  case 1: correction.tx = -correction.rx;
-	  break;
-	  case 2: correction.tx = -correction.rx;
-	  break;
-	  case 3: correction.tx = 0;
-	  break;
-	  case 4: // correction.tx = m_dop - m_dop00;
-			  
-			  correction.tx = m_dx_two_way_dop - m_dop;
-			  qDebug () << "correction.tx:" << correction.tx;
-	  break;		  
-	  case 5: correction.tx = - m_dop00;
-	  break;
+      case 1: correction.tx = -correction.rx;
+        break;
+      case 2: correction.tx = -correction.rx;
+        break;
+      case 3: correction.tx = 0;
+        break;
+      case 4: // correction.tx = m_dop - m_dop00;
+        correction.tx = (2 * (m_dop - (m_dop00/2))) - m_dop;
+        //qDebug () << "correction.tx:" << correction.tx;
+        break;
+      case 5: correction.tx = - m_dop00;
+        break;
       }
     //if (3 != m_DopplerMethod || 4 != m_DopplerMethod) correction.tx = -correction.rx;
     
@@ -242,22 +239,20 @@ auto Astro::astroUpdate(QDateTime const& t, QString const& mygrid, QString const
 
           case 2:
             // Doppler correction to constant frequency on Moon
-           offset = m_dop00 / 2;
-		    break;
-			
-		case 4:
-            // Doppler correction for OnDxEcho
-            offset = m_dop - m_dx_two_way_dop;
+            offset = m_dop00 / 2;
             break;
-			
-		//case 5: correction.tx = - m_dop00;
-		case 5: offset = m_dop00;// version for _7
-			break;
-			
-			
+
+          case 4:
+            // Doppler correction for OnDxEcho
+            offset = m_dop - (2 * (m_dop - (m_dop00/2)));
+            break;
+
+            //case 5: correction.tx = - m_dop00;
+          case 5: offset = m_dop00;// version for _7
+            break;
           }
         correction.tx = -offset;
-        qDebug () << "correction.tx (no tx qsy):" << correction.tx;
+        //qDebug () << "correction.tx (no tx qsy):" << correction.tx;
       }
   }
   return correction;
@@ -281,14 +276,14 @@ void Astro::on_rbFullTrack_clicked()
   Q_EMIT tracking_update ();
 }
 
-void Astro::on_rbOnDxEcho_clicked(bool checked)
+void Astro::on_rbOnDxEcho_clicked() //on_rbOnDxEcho_clicked(bool checked)
 {
   m_DopplerMethod = 4;
   check_split ();
-  if (checked) {
-	  m_dx_two_way_dop = 2 * (m_dop - (m_dop00/2));
-	  qDebug () << "Starting Doppler:" << m_dx_two_way_dop;
-  }
+  //if (checked) {
+  //  m_dx_two_way_dop = 2 * (m_dop - (m_dop00/2));
+  //  qDebug () << "Starting Doppler:" << m_dx_two_way_dop;
+  //}
   Q_EMIT tracking_update ();
 }
 
