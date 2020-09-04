@@ -46,16 +46,14 @@ namespace
       {20000000, Modes::FreqCal, IARURegions::ALL},
       
       {136000, Modes::WSPR, IARURegions::ALL},
-      {136200, Modes::FST4W, IARURegions::ALL},
-      {136130, Modes::JT65, IARURegions::ALL},
+      {136000, Modes::FST4, IARURegions::ALL},
+      {136000, Modes::FST4W, IARURegions::ALL},
       {136130, Modes::JT9, IARURegions::ALL},
-      {136130, Modes::FST4, IARURegions::ALL},
 
-      {474200, Modes::JT65, IARURegions::ALL},
       {474200, Modes::JT9, IARURegions::ALL},
       {474200, Modes::FST4, IARURegions::ALL},
       {474200, Modes::WSPR, IARURegions::ALL},
-      {474400, Modes::FST4W, IARURegions::ALL},
+      {474200, Modes::FST4W, IARURegions::ALL},
 
       {1836600, Modes::WSPR, IARURegions::ALL},
       {1836800, Modes::FST4W, IARURegions::ALL},
