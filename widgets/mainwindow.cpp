@@ -4033,7 +4033,7 @@ void MainWindow::guiUpdate()
             }
             genfst4_(message,&ichk,msgsent,const_cast<char *> (fst4msgbits),
                            const_cast<int *>(itone), &iwspr, 37, 37);
-            int hmod=int(pow(2.0,double(m_nSubMode)));
+            int hmod=1;                         //No FST4/W submodes
             int nsps=720;
             if(m_TRperiod==30) nsps=1680;
             if(m_TRperiod==60) nsps=3888;
@@ -4052,18 +4052,6 @@ void MainWindow::guiUpdate()
                     &fsample,&hmod,&f0,&icmplx,foxcom_.wave,foxcom_.wave);
 
             QString t = QString::fromStdString(message).trimmed();
-            bool both=(t=="CQ BOTH K1JT FN20" or t=="CQ BOTH K9AN EN50");
-            if(both) {
-              float wave_both[15*48000];
-              memcpy(wave_both,foxcom_.wave,4*15*48000);  //Copy wave[] into wave_both[]
-              f0=f0 + 200 + 25;
-              hmod=2;
-              gen_fst4wave_(const_cast<int *>(itone),&nsym,&nsps,&nwave,
-                    &fsample,&hmod,&f0,&icmplx,foxcom_.wave,foxcom_.wave);
-              for(int i=0; i<15*48000; i++) {
-                foxcom_.wave[i]=0.5*(wave_both[i] + foxcom_.wave[i]);
-              }
-            }
           }
 
           if(SpecOp::EU_VHF==m_config.special_op_id()) {
@@ -5998,20 +5986,16 @@ void MainWindow::displayWidgets(qint64 n)
 
 void MainWindow::on_actionFST4_triggered()
 {
-  int nsub=m_nSubMode;
   on_actionJT65_triggered();
   ui->label_6->setText(tr ("Band Activity"));
   ui->label_7->setText(tr ("Rx Frequency"));
-  ui->sbSubmode->setMaximum(3);
-  m_nSubMode=nsub;
-  ui->sbSubmode->setValue(m_nSubMode);
   m_mode="FST4";
   m_modeTx="FST4";
   ui->actionFST4->setChecked(true);
   WSPR_config(false);
   bool bVHF=m_config.enable_VHF_features();
 //                         0123456789012345678901234567890123
-  displayWidgets(nWidgets("1111110001001111000100000001000000"));
+  displayWidgets(nWidgets("1111110001001110000100000001000000"));
   setup_status_bar (bVHF);
   ui->sbTR->values ({15, 30, 60, 120, 300, 900, 1800});
   on_sbTR_valueChanged (ui->sbTR->value());
@@ -6036,12 +6020,9 @@ void MainWindow::on_actionFST4W_triggered()
   displayWidgets(nWidgets("0000000000000000010100000000000001"));
   bool bVHF=m_config.enable_VHF_features();
   setup_status_bar (bVHF);
-  m_nSubMode=0;
-  ui->sbSubmode->setValue(m_nSubMode);
   ui->band_hopping_group_box->setChecked(false);
   ui->band_hopping_group_box->setVisible(false);
   on_sbTR_FST4W_valueChanged (ui->sbTR_FST4W->value ());
-  ui->sbSubmode->setMaximum(3);
   m_wideGraph->setMode(m_mode);
   m_wideGraph->setModeTx(m_modeTx);
   m_wideGraph->setPeriod(m_TRperiod,6912);
@@ -7359,7 +7340,7 @@ void MainWindow::transmit (double snr)
     if(m_TRperiod==300) nsps=21504;
     if(m_TRperiod==900) nsps=66560;
     if(m_TRperiod==1800) nsps=134400;
-    int hmod=int(pow(2.0,double(m_nSubMode)));
+    int hmod=1;                               //No FST4/W submodes
     double dfreq=hmod*12000.0/nsps;
     double f0=ui->WSPRfreqSpinBox->value() - m_XIT;
     if(!m_tune) f0 += + 1.5*dfreq;
