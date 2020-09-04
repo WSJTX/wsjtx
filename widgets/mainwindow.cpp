@@ -1160,6 +1160,7 @@ void MainWindow::writeSettings()
   m_settings->setValue("OutBufSize",outBufSize);
   m_settings->setValue ("HoldTxFreq", ui->cbHoldTxFreq->isChecked ());
   m_settings->setValue("PctTx", ui->sbTxPercent->value ());
+  m_settings->setValue("RoundRobin",ui->RoundRobin->currentText());
   m_settings->setValue("dBm",m_dBm);
   m_settings->setValue("RR73",m_send_RR73);
   m_settings->setValue ("WSPRPreferType1", ui->WSPR_prefer_type_1_check_box->isChecked ());
@@ -1252,6 +1253,7 @@ void MainWindow::readSettings()
   m_ndepth=m_settings->value("NDepth",3).toInt();
   ui->sbTxPercent->setValue (m_settings->value ("PctTx", 20).toInt ());
   on_sbTxPercent_valueChanged (ui->sbTxPercent->value ());
+  ui->RoundRobin->setCurrentText(m_settings->value("RoundRobin",tr("Random")).toString());
   m_dBm=m_settings->value("dBm",37).toInt();
   m_send_RR73=m_settings->value("RR73",false).toBool();
   if(m_send_RR73) {
