@@ -1195,7 +1195,7 @@ When not checked you can view the calibration results.</string>
                 <enum>QTabWidget::Triangular</enum>
                </property>
                <property name="currentIndex">
-                <number>0</number>
+                <number>1</number>
                </property>
                <widget class="QWidget" name="tab">
                 <attribute name="title">
@@ -2159,69 +2159,50 @@ list. The list can be maintained in Settings (F2).</string>
                      </widget>
                     </item>
                     <item>
-                     <widget class="QSpinBox" name="sbTxPercent">
-                      <property name="toolTip">
-                       <string>Percentage of minute sequences devoted to transmitting.</string>
-                      </property>
-                      <property name="styleSheet">
-                       <string notr="true">QSpinBox:enabled[notx=&quot;true&quot;] {
-	color: rgb(0, 0, 0);
-	background-color: rgb(255, 255, 0);
-}</string>
-                      </property>
+                     <widget class="QSpinBox" name="sbFST4W_RxFreq">
                       <property name="alignment">
                        <set>Qt::AlignCenter</set>
                       </property>
                       <property name="suffix">
-                       <string>  %</string>
+                       <string>  Hz</string>
                       </property>
                       <property name="prefix">
-                       <string>Tx Pct </string>
-                      </property>
-                      <property name="maximum">
-                       <number>100</number>
-                      </property>
-                     </widget>
-                    </item>
-                    <item>
-                     <widget class="RestrictedSpinBox" name="sbTR_FST4W">
-                      <property name="alignment">
-                       <set>Qt::AlignCenter</set>
-                      </property>
-                      <property name="suffix">
-                       <string>  s</string>
-                      </property>
-                      <property name="prefix">
-                       <string>T/R  </string>
+                       <string>Rx  </string>
                       </property>
                       <property name="minimum">
-                       <number>15</number>
+                       <number>100</number>
                       </property>
                       <property name="maximum">
-                       <number>1800</number>
+                       <number>4900</number>
+                      </property>
+                      <property name="singleStep">
+                       <number>100</number>
+                      </property>
+                      <property name="value">
+                       <number>1500</number>
                       </property>
                      </widget>
                     </item>
                     <item>
-                     <widget class="QGroupBox" name="band_hopping_group_box">
-                      <property name="title">
-                       <string>Band Hopping</string>
+                     <widget class="QSpinBox" name="sbFST4W_FTol">
+                      <property name="alignment">
+                       <set>Qt::AlignCenter</set>
                       </property>
-                      <property name="checkable">
-                       <bool>true</bool>
+                      <property name="suffix">
+                       <string>  Hz</string>
                       </property>
-                      <layout class="QHBoxLayout" name="horizontalLayout_7">
-                       <item>
-                        <widget class="QPushButton" name="band_hopping_schedule_push_button">
-                         <property name="toolTip">
-                          <string>Choose bands and times of day for band-hopping.</string>
-                         </property>
-                         <property name="text">
-                          <string>Schedule ...</string>
-                         </property>
-                        </widget>
-                       </item>
-                      </layout>
+                      <property name="prefix">
+                       <string>F Tol  </string>
+                      </property>
+                      <property name="minimum">
+                       <number>100</number>
+                      </property>
+                      <property name="maximum">
+                       <number>500</number>
+                      </property>
+                      <property name="singleStep">
+                       <number>100</number>
+                      </property>
                      </widget>
                     </item>
                     <item>
@@ -2337,6 +2318,72 @@ list. The list can be maintained in Settings (F2).</string>
                         <string>6/6</string>
                        </property>
                       </item>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QSpinBox" name="sbTxPercent">
+                      <property name="toolTip">
+                       <string>Percentage of minute sequences devoted to transmitting.</string>
+                      </property>
+                      <property name="styleSheet">
+                       <string notr="true">QSpinBox:enabled[notx=&quot;true&quot;] {
+	color: rgb(0, 0, 0);
+	background-color: rgb(255, 255, 0);
+}</string>
+                      </property>
+                      <property name="alignment">
+                       <set>Qt::AlignCenter</set>
+                      </property>
+                      <property name="suffix">
+                       <string>  %</string>
+                      </property>
+                      <property name="prefix">
+                       <string>Tx Pct </string>
+                      </property>
+                      <property name="maximum">
+                       <number>100</number>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="RestrictedSpinBox" name="sbTR_FST4W">
+                      <property name="alignment">
+                       <set>Qt::AlignCenter</set>
+                      </property>
+                      <property name="suffix">
+                       <string>  s</string>
+                      </property>
+                      <property name="prefix">
+                       <string>T/R  </string>
+                      </property>
+                      <property name="minimum">
+                       <number>15</number>
+                      </property>
+                      <property name="maximum">
+                       <number>1800</number>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QGroupBox" name="band_hopping_group_box">
+                      <property name="title">
+                       <string>Band Hopping</string>
+                      </property>
+                      <property name="checkable">
+                       <bool>true</bool>
+                      </property>
+                      <layout class="QHBoxLayout" name="horizontalLayout_7">
+                       <item>
+                        <widget class="QPushButton" name="band_hopping_schedule_push_button">
+                         <property name="toolTip">
+                          <string>Choose bands and times of day for band-hopping.</string>
+                         </property>
+                         <property name="text">
+                          <string>Schedule ...</string>
+                         </property>
+                        </widget>
+                       </item>
+                      </layout>
                      </widget>
                     </item>
                    </layout>

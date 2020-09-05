@@ -288,6 +288,8 @@ private slots:
   void TxAgain();
   void uploadResponse(QString response);
   void on_WSPRfreqSpinBox_valueChanged(int n);
+  void on_sbFST4W_RxFreq_valueChanged(int n);
+  void on_sbFST4W_FTol_valueChanged(int n);
   void on_pbTxNext_clicked(bool b);
   void on_actionEcho_Graph_triggered();
   void on_actionEcho_triggered();

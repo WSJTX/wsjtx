@@ -48,7 +48,8 @@ CPlotter::CPlotter(QWidget *parent) :                  //CPlotter Constructor
   m_Percent2DScreen0 {0},
   m_rxFreq {1020},
   m_txFreq {0},
-  m_startFreq {0}
+  m_startFreq {0},
+  m_tol {100}
 {
   setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
   setFocusPolicy(Qt::StrongFocus);
@@ -485,8 +486,8 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
   }
 
   if(m_mode=="FST4W") {
-    x1=XfromFreq(2600);
-    x2=XfromFreq(2700);
+    x1=XfromFreq(m_rxFreq-m_tol);
+    x2=XfromFreq(m_rxFreq+m_tol);
     painter0.drawLine(x1,26,x2,26);
   }
 

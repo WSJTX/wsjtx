@@ -1145,6 +1145,8 @@ void MainWindow::writeSettings()
   m_settings->setValue("RxFreq",ui->RxFreqSpinBox->value());
   m_settings->setValue("TxFreq",ui->TxFreqSpinBox->value());
   m_settings->setValue("WSPRfreq",ui->WSPRfreqSpinBox->value());
+  m_settings->setValue("FST4W_RxFreq",ui->sbFST4W_RxFreq->value());
+  m_settings->setValue("FST4W_FTol",ui->sbFST4W_FTol->value());
   m_settings->setValue("SubMode",ui->sbSubmode->value());
   m_settings->setValue("DTtol",m_DTtol);
   m_settings->setValue("Ftol", ui->sbFtol->value ());
@@ -1232,8 +1234,11 @@ void MainWindow::readSettings()
   ui->actionSave_all->setChecked(m_settings->value("SaveAll",false).toBool());
   ui->RxFreqSpinBox->setValue(0); // ensure a change is signaled
   ui->RxFreqSpinBox->setValue(m_settings->value("RxFreq",1500).toInt());
+  ui->sbFST4W_RxFreq->setValue(0);
+  ui->sbFST4W_RxFreq->setValue(m_settings->value("FST4W_RxFreq",1500).toInt());
   m_nSubMode=m_settings->value("SubMode",0).toInt();
   ui->sbFtol->setValue (m_settings->value("Ftol", 50).toInt());
+  ui->sbFST4W_FTol->setValue(m_settings->value("FST4W_FTol",100).toInt());
   m_minSync=m_settings->value("MinSync",0).toInt();
   ui->syncSpinBox->setValue(m_minSync);
   ui->cbAutoSeq->setChecked (m_settings->value ("AutoSeq", false).toBool());
@@ -3079,6 +3084,7 @@ void MainWindow::decode()                                       //decode()
     dec_data.params.ntol=20;
     dec_data.params.naggressive=0;
   }
+  if(m_mode=="FST4W") dec_data.params.ntol=ui->sbFST4W_FTol->value ();
   if(dec_data.params.nutc < m_nutc0) m_RxLog = 1;       //Date and Time to file "ALL.TXT".
   if(dec_data.params.newdat==1 and !m_diskData) m_nutc0=dec_data.params.nutc;
   dec_data.params.ntxmode=9;
@@ -5995,10 +6001,9 @@ void MainWindow::on_actionFST4_triggered()
   m_modeTx="FST4";
   ui->actionFST4->setChecked(true);
   WSPR_config(false);
-  bool bVHF=m_config.enable_VHF_features();
 //                         0123456789012345678901234567890123
   displayWidgets(nWidgets("1111110001001110000100000001000000"));
-  setup_status_bar (bVHF);
+  setup_status_bar(false);
   ui->sbTR->values ({15, 30, 60, 120, 300, 900, 1800});
   on_sbTR_valueChanged (ui->sbTR->value());
   ui->cbAutoSeq->setChecked(true);
@@ -6013,15 +6018,16 @@ void MainWindow::on_actionFST4_triggered()
 
 void MainWindow::on_actionFST4W_triggered()
 {
-  on_actionFST4_triggered();
   m_mode="FST4W";
   m_modeTx="FST4W";
+  m_nsps=6912;                   //For symspec only
+  m_FFTSize = m_nsps / 2;
+  Q_EMIT FFTSize(m_FFTSize);
   WSPR_config(true);
   ui->actionFST4W->setChecked(true);
 //                         0123456789012345678901234567890123
   displayWidgets(nWidgets("0000000000000000010100000000000001"));
-  bool bVHF=m_config.enable_VHF_features();
-  setup_status_bar (bVHF);
+  setup_status_bar(false);
   ui->band_hopping_group_box->setChecked(false);
   ui->band_hopping_group_box->setVisible(false);
   on_sbTR_FST4W_valueChanged (ui->sbTR_FST4W->value ());
@@ -6029,6 +6035,8 @@ void MainWindow::on_actionFST4W_triggered()
   m_wideGraph->setModeTx(m_modeTx);
   m_wideGraph->setPeriod(m_TRperiod,6912);
   m_wideGraph->setTxFreq(ui->WSPRfreqSpinBox->value());
+  m_wideGraph->setRxFreq(ui->sbFST4W_RxFreq->value());
+  m_wideGraph->setTol(ui->sbFST4W_FTol->value());
   ui->sbFtol->setValue(100);
   ui->RxFreqSpinBox->setValue(1500);
   switch_mode (Modes::FST4W);
@@ -6644,9 +6652,12 @@ void MainWindow::WSPR_config(bool b)
   ui->label_7->setVisible(!b and ui->cbMenus->isChecked());
   ui->logQSOButton->setVisible(!b);
   ui->DecodeButton->setEnabled(!b);
-  ui->sbTxPercent->setEnabled (m_mode != "FST4W" || tr ("Random") == ui->RoundRobin->currentText ());
+  bool bFST4W=(m_mode=="FST4W");
+  ui->sbTxPercent->setEnabled(!bFST4W or (tr("Random") == ui->RoundRobin->currentText()));
   ui->band_hopping_group_box->setVisible(true);
-  ui->RoundRobin->setVisible(m_mode=="FST4W");
+  ui->RoundRobin->setVisible(bFST4W);
+  ui->sbFST4W_RxFreq->setVisible(bFST4W);
+  ui->sbFST4W_FTol->setVisible(bFST4W);
   ui->RoundRobin->lineEdit()->setAlignment(Qt::AlignCenter);
   if(b and m_mode!="Echo" and m_mode!="FST4W") {
     QString t="UTC    dB   DT     Freq     Drift  Call          Grid    dBm    ";
@@ -8124,6 +8135,18 @@ void MainWindow::on_cbUploadWSPR_Spots_toggled(bool b)
 void MainWindow::on_WSPRfreqSpinBox_valueChanged(int n)
 {
   ui->TxFreqSpinBox->setValue(n);
+}
+
+void MainWindow::on_sbFST4W_RxFreq_valueChanged(int n)
+{
+  m_wideGraph->setRxFreq(n);
+  statusUpdate ();
+}
+
+void MainWindow::on_sbFST4W_FTol_valueChanged(int n)
+{
+  m_wideGraph->setTol(n);
+  statusUpdate ();
 }
 
 void MainWindow::on_pbTxNext_clicked(bool b)
