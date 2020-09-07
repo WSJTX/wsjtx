@@ -19,7 +19,9 @@
 #include <QFileInfo>
 #include <QFile>
 #include <QTextStream>
+#include <QDateTime>
 #include "Configuration.hpp"
+#include "revision_utils.hpp"
 #include "qt_helpers.hpp"
 #include "pimpl_impl.hpp"
 
@@ -442,7 +444,18 @@ bool WorkedBefore::add (QString const& call
           QTextStream out {&file};
           if (!file.size ())
             {
-              out << "WSJT-X ADIF Export<eoh>" << // new file
+              auto ts = QDateTime::currentDateTimeUtc ().toString ("yyyyMMdd HHmmss");
+              auto ver = version (true);
+              out <<            // new file
+                QString {
+                  "ADIF Export\n"
+                  "<adif_ver:5>3.1.1\n"
+                  "<created_timestamp:15>%0\n"
+                  "<programid:6>WSJT-X\n"
+                  "<programversion:%1>%2\n"
+                  "<eoh>"
+                    }.arg (ts).arg (ver.size ()).arg (ver)
+                  <<
 #if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
                  endl
 #else
