@@ -40,7 +40,6 @@ sudo dpkg -P wsjtx
 
 You may also need to execute the following command in a terminal:
 
-[example]
 ....
 sudo apt install libgfortran5 libqt5widgets5 libqt5network5 \
      libqt5printsupport5 libqt5multimedia5-plugins libqt5serialport5 \
@@ -73,7 +72,6 @@ sudo rpm -e wsjtx
 
 You may also need to execute the following command in a terminal:
 
-[example]
 ....
 sudo dnf install libgfortran fftw-libs-single qt5-qtbase \
      qt5-qtmultimedia qt5-qtserialport qt5-qtsvg \
