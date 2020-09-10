@@ -7940,8 +7940,6 @@ void MainWindow::on_sbFST4W_RxFreq_valueChanged(int n)
 
 void MainWindow::on_sbFST4W_FTol_valueChanged(int n)
 {
-  int m=(ui->sbFST4W_RxFreq->value() + n/2)/n;
-  ui->sbFST4W_RxFreq->setValue(n*m);
   ui->sbFST4W_RxFreq->setSingleStep(n);
   m_wideGraph->setTol(n);
   statusUpdate ();
