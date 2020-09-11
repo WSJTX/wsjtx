@@ -488,7 +488,7 @@ Format:
     <message>
         <location filename="../Configuration.cpp" line="1786"/>
         <source>Invalid audio output device</source>
-        <translation type="unfinished"></translation>
+        <translation>El dispositiu de sortida d&apos;àudio no és vàlid</translation>
     </message>
     <message>
         <location filename="../Configuration.cpp" line="1792"/>
@@ -694,14 +694,15 @@ Format:
         <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="400"/>
         <source>DX Lab Suite Commander send command failed
 </source>
-        <translation>Errada del DX Lab Suite Commander en l&apos;enviament de comanda
+        <translation>Error del DX Lab Suite Commander en l&apos;enviament de comanda
 </translation>
     </message>
     <message>
         <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="412"/>
         <source>DX Lab Suite Commander send command failed &quot;%1&quot;: %2
 </source>
-        <translation type="unfinished"></translation>
+        <translation>Error del DX Lab Suite Commander en l&apos;enviament de comanda &quot;%1&quot;: %2
+</translation>
     </message>
     <message>
         <source>DX Lab Suite Commander failed to send command &quot;%1&quot;: %2
@@ -2240,17 +2241,17 @@ Error(%2): %3</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2067"/>
         <source>Percentage of minute sequences devoted to transmitting.</source>
-        <translation type="unfinished"></translation>
+        <translation>Percentatge de seqüències de minuts dedicades a transmetre.</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2165"/>
         <source>Prefer Type 1 messages</source>
-        <translation type="unfinished"></translation>
+        <translation>Preferiu els missatges de tipus 1</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2184"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Transmit during the next sequence.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Transmetre durant la següent seqüència.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2283"/>
@@ -2942,7 +2943,7 @@ La llista es pot mantenir a la configuració (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3292"/>
         <source>FST4W</source>
-        <translation type="unfinished"></translation>
+        <translation>FST4W</translation>
     </message>
     <message>
         <source>Calling CQ </source>
@@ -3192,102 +3193,102 @@ La llista es pot mantenir a la configuració (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1964"/>
         <source>1/2</source>
-        <translation type="unfinished">1/2</translation>
+        <translation>1/2</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1969"/>
         <source>2/2</source>
-        <translation type="unfinished">2/2</translation>
+        <translation>2/2</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1974"/>
         <source>1/3</source>
-        <translation type="unfinished">1/3</translation>
+        <translation>1/3</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1979"/>
         <source>2/3</source>
-        <translation type="unfinished">2/3</translation>
+        <translation>2/3</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1984"/>
         <source>3/3</source>
-        <translation type="unfinished">3/3</translation>
+        <translation>3/3</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1989"/>
         <source>1/4</source>
-        <translation type="unfinished">1/4</translation>
+        <translation>1/4</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1994"/>
         <source>2/4</source>
-        <translation type="unfinished">2/4</translation>
+        <translation>2/4</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1999"/>
         <source>3/4</source>
-        <translation type="unfinished">3/4</translation>
+        <translation>3/4</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2004"/>
         <source>4/4</source>
-        <translation type="unfinished">4/4</translation>
+        <translation>4/4</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2009"/>
         <source>1/5</source>
-        <translation type="unfinished">1/5</translation>
+        <translation>1/5</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2014"/>
         <source>2/5</source>
-        <translation type="unfinished">2/5</translation>
+        <translation>2/5</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2019"/>
         <source>3/5</source>
-        <translation type="unfinished">3/5</translation>
+        <translation>3/5</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2024"/>
         <source>4/5</source>
-        <translation type="unfinished">4/5</translation>
+        <translation>4/5</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2029"/>
         <source>5/5</source>
-        <translation type="unfinished">5/5</translation>
+        <translation>5/5</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2034"/>
         <source>1/6</source>
-        <translation type="unfinished">1/6</translation>
+        <translation>1/6</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2039"/>
         <source>2/6</source>
-        <translation type="unfinished">2/6</translation>
+        <translation>2/6</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2044"/>
         <source>3/6</source>
-        <translation type="unfinished">3/6</translation>
+        <translation>3/6</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2049"/>
         <source>4/6</source>
-        <translation type="unfinished">4/6</translation>
+        <translation>4/6</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2054"/>
         <source>5/6</source>
-        <translation type="unfinished">5/6</translation>
+        <translation>5/6</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2059"/>
         <source>6/6</source>
-        <translation type="unfinished">6/6</translation>
+        <translation>6/6</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2141"/>
@@ -3312,12 +3313,12 @@ La llista es pot mantenir a la configuració (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3258"/>
         <source>Quick-Start Guide to FST4 and FST4W</source>
-        <translation type="unfinished"></translation>
+        <translation>Guia d&apos;inici ràpid de FST4 i FST4W</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3284"/>
         <source>FST4</source>
-        <translation type="unfinished"></translation>
+        <translation>FST4</translation>
     </message>
     <message>
         <source>FT240W</source>
@@ -3349,7 +3350,7 @@ La llista es pot mantenir a la configuració (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2424"/>
         <source>NB  </source>
-        <translation type="unfinished"></translation>
+        <translation>NB  </translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2722"/>
@@ -3822,22 +3823,22 @@ La llista es pot mantenir a la configuració (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="479"/>
         <source>%1 (%2 sec) audio frames dropped</source>
-        <translation type="unfinished"></translation>
+        <translation>%1 (%2 sec) s’han caigut els marcs d’àudio</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="484"/>
         <source>Audio Source</source>
-        <translation type="unfinished"></translation>
+        <translation>Font d&apos;àudio</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="485"/>
         <source>Reduce system load</source>
-        <translation type="unfinished"></translation>
+        <translation>Reduir la càrrega del sistema</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="486"/>
         <source>Excessive dropped samples - %1 (%2 sec) audio frames dropped</source>
-        <translation type="unfinished"></translation>
+        <translation>Mostres caigudes excessives - %1 (%2 sec) s’han caigut els marcs d’àudio</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="517"/>
@@ -4115,7 +4116,51 @@ La llista es pot mantenir a la configuració (F2).</translation>
   &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+Z    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Clear hung decoder status&lt;/td&gt;&lt;/tr&gt;
 &lt;/table&gt;</source>
         <extracomment>Keyboard shortcuts help window contents</extracomment>
-        <translation type="unfinished"></translation>
+        <translation>&lt;table cellspacing=1&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Esc      &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Atura TX, avortar QSO, esborra la cua del proper indicatiu&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;F1       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Guia de l&apos;usuari en línia (Alt: transmetre TX6)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Shift+F1  &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Avís de drets d&apos;autor&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+F1  &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Quant a WSJT-X&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;F2       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Obre la finestra de configuració (Alt: transmetre TX2)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;F3       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Mostra les dreceres del teclat (Alt: transmetre TX3)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;F4       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Esborra l&apos;indicatiu de DX, Locator DX, Missatges de TX1-4 (Alt: transmetre TX4)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+F4   &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Surt del programa&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;F5       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Mostra les ordres especials del ratolí (Alt: transmetre TX5)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;F6       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Obre l&apos;arxiu següent al directori (Alt: commutar &quot;Contesta al primer CQ&quot;)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Shift+F6 &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Descodifica tots els arxius restants al directori&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;F7       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Mostra la finestra Mitjana de missatges&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;F11      &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Baixa la freqüència de RX 1 Hz&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+F11 &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Mou les freqüències de RX i TX idèntiques cap avall 1 Hz&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Shift+F11 &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Mou la freqüència de TX cap avall 60 Hz en FT8 o bé 90 Hz en FT4&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+Shift+F11 &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Baixa la freqüència de marcatge 2000 Hz&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;F12      &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Mou la freqüència de RX cap amunt 1 Hz&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+F12 &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Mou les freqüències de RX i TX idèntiques cap amunt 1 Hz&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Shift+F12 &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Mou la freqüència de TX cap amunt 60 Hz en FT8 o bé 90 Hz en FT4&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+Shift+F12 &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Mou la freqüència de marcatge cap amunt 2000 Hz&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+1-6  &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Configura ara la transmissió a aquest número en Tab 1&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctl+1-6  &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Configura la propera transmissió a aquest número en Tab 1&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+B    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Commuta l&apos;estat &quot;El millor S+P&quot;&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+C    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Commuta &quot;Contesta al primer CQ&quot; a la casella de selecció&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+D    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Torna a descodificar a la freqüència del QSO&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Shift+D  &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Descodificació completa (ambdues finestres)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+E   &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Activa el periòde de TX parell/senar&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Shift+E  &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Desactiva el periòde de TX parell/senar&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+E    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Esborra&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+F   &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Edita el quadre de missatges de text lliure&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+G    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Genera missatges estàndard&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+H    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Parar TX&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+L   &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Cerca un indicatiu a la base de dades, genera missatges estàndard&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+M    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Monitor&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+N    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Activa TX&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+O   &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Obre un arxiu .wav&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+O    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Canvia d&apos;operador&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+Q    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Log de QSOs&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+R   &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Utilitza el missatge TX4 de RRR (excepte a FT4)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+R    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Utilitza el missatge TX4 de RR73&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+S    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Deixa de monitoritzar&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+T    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Commuta l&apos;estat de la sintonització&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+Z    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Esborra l&apos;estat del descodificador penjat&lt;/td&gt;&lt;/tr&gt;
+&lt;/table&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="2915"/>
@@ -4156,7 +4201,37 @@ La llista es pot mantenir a la configuració (F2).</translation>
   &lt;/tr&gt;
 &lt;/table&gt;</source>
         <extracomment>Mouse commands help window contents</extracomment>
-        <translation type="unfinished"></translation>
+        <translation>&lt;table cellpadding=5&gt;
+  &lt;tr&gt;
+    &lt;th align=&quot;right&quot;&gt;Fes clic a&lt;/th&gt;
+    &lt;th align=&quot;left&quot;&gt;Acció&lt;/th&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;Cascada:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;Clic&lt;/b&gt; per definir la freqüència de RX.&lt;br/&gt;
+        &lt;b&gt;clic a Majúscules&lt;/b&gt; per configurar la freqüència de TX.&lt;br/&gt;
+        &lt;b&gt;clic a Ctrl&lt;/b&gt; o bé &lt;b&gt;clic Dret&lt;/b&gt; per definir les freqüències de RX i TX.&lt;br/&gt;
+        &lt;b&gt;Doble clic&lt;/b&gt; per descodificar també a la freqüència de RX.&lt;br/&gt;
+    &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;Text descodificat:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;Doble clic&lt;/b&gt; per copiar el segon indicatiu a Indicatiu DX,&lt;br/&gt;
+        locator a Locator DX, canvia la freqüència de RX i TX a&lt;br/&gt;
+        la freqüència del senyal descodificat i generar missatges&lt;br/&gt;
+        estàndard.&lt;br/&gt;
+        Si &lt;b&gt;Manté TX Freq&lt;/b&gt; està marcat o bé el primer missatge d’inici&lt;br/&gt;
+        és el teu pròpi indicatiu, la freqüència de TX no es modificarà tret que &lt;br/&gt;
+        &lt;b&gt;Ctrl&lt;/b&gt; es manté premut.&lt;br/&gt;
+    &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;Botó d&apos;Esborrar:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;Clic&lt;/b&gt; per esborrar la finestra de QSOs.&lt;br/&gt;
+        &lt;b&gt;Doble-clic&lt;/b&gt; per esborrar les finestres de QSOs i Activitat a la Banda.
+    &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/table&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="3254"/>
@@ -4166,7 +4241,7 @@ La llista es pot mantenir a la configuració (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="3612"/>
         <source>Spotting to PSK Reporter unavailable</source>
-        <translation type="unfinished"></translation>
+        <translation>No hi ha espots a PSK Reporter</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="3770"/>
@@ -4827,7 +4902,7 @@ Error(%2): %3</translation>
     <message>
         <location filename="../Audio/soundout.cpp" line="92"/>
         <source>No audio output device configured.</source>
-        <translation type="unfinished"></translation>
+        <translation>No hi ha configurat cap dispositiu de sortida d&apos;àudio.</translation>
     </message>
     <message>
         <location filename="../Audio/soundout.cpp" line="184"/>
@@ -5069,12 +5144,12 @@ Error(%2): %3</translation>
     <message>
         <location filename="../widgets/widegraph.ui" line="365"/>
         <source>  Hz</source>
-        <translation type="unfinished">  Hz</translation>
+        <translation>  Hz</translation>
     </message>
     <message>
         <location filename="../widgets/widegraph.ui" line="368"/>
         <source>Split  </source>
-        <translation type="unfinished"></translation>
+        <translation>Dividit  </translation>
     </message>
     <message>
         <source>  JT9</source>
@@ -5121,22 +5196,22 @@ Error(%2): %3</translation>
     <message>
         <location filename="../logbook/WorkedBefore.cpp" line="258"/>
         <source>Invalid ADIF field %0: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>El camp ADIF no és vàlid %0: %1</translation>
     </message>
     <message>
         <location filename="../logbook/WorkedBefore.cpp" line="275"/>
         <source>Malformed ADIF field %0: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Camp ADIF amb format incorrecte %0: %1</translation>
     </message>
     <message>
         <location filename="../logbook/WorkedBefore.cpp" line="312"/>
         <source>Invalid ADIF header</source>
-        <translation type="unfinished"></translation>
+        <translation>Capçalera ADIF no vàlid</translation>
     </message>
     <message>
         <location filename="../logbook/WorkedBefore.cpp" line="358"/>
         <source>Error opening ADIF log file for read: %0</source>
-        <translation type="unfinished"></translation>
+        <translation>Error en obrir l&apos;arxiu de registre ADIF per llegir-lo: %0</translation>
     </message>
 </context>
 <context>
@@ -5528,7 +5603,7 @@ període tranquil quan es fa la descodificació.</translation>
     <message>
         <location filename="../Configuration.ui" line="666"/>
         <source>Data bits</source>
-        <translation type="unfinished"></translation>
+        <translation>Bits de dades</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="669"/>
@@ -5558,7 +5633,7 @@ període tranquil quan es fa la descodificació.</translation>
     <message>
         <location filename="../Configuration.ui" line="720"/>
         <source>Stop bits</source>
-        <translation type="unfinished"></translation>
+        <translation>Bits de parada</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="723"/>
@@ -5657,7 +5732,7 @@ uns pocs, particularment alguns equips de Kenwood, ho requereixen.</translation>
     <message>
         <location filename="../Configuration.ui" line="2400"/>
         <source>Days since last upload</source>
-        <translation type="unfinished"></translation>
+        <translation>Dies des de la darrera càrrega</translation>
     </message>
     <message>
         <source>How this program activates the PTT on your radio</source>
@@ -5941,7 +6016,7 @@ els dos canals.</translation>
     <message>
         <location filename="../Configuration.ui" line="360"/>
         <source>Enable VHF and submode features</source>
-        <translation type="unfinished"></translation>
+        <translation>Activa les funcions de VHF i submode</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1370"/>
@@ -6156,7 +6231,7 @@ per avaluar la propagació i el rendiment del sistema.</translation>
     <message>
         <location filename="../Configuration.ui" line="1824"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The program can send your station details and all decoded signals with grid squares as spots to the http://pskreporter.info web site.&lt;/p&gt;&lt;p&gt;This is used for reverse beacon analysis which is very useful for assessing propagation and system performance.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;El programa pot enviar els detalls de l&apos;estació i tots els senyals descodificats amb locators com a spots a la web http://pskreporter.info.&lt;/p&gt;&lt;p&gt;S&apos;utilitza per a l&apos;anàlisi de balises inverses, que és molt útil per avaluar la propagació i el rendiment del sistema.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1827"/>
@@ -6166,12 +6241,12 @@ per avaluar la propagació i el rendiment del sistema.</translation>
     <message>
         <location filename="../Configuration.ui" line="1834"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check this option if a reliable connection is needed&lt;/p&gt;&lt;p&gt;Most users do not need this, the default uses UDP which is more efficient. Only check this if you have evidence that UDP traffic from you to PSK Reporter is being lost.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Marca aquesta opció si cal una connexió fiable&lt;/p&gt;&lt;p&gt;La majoria dels usuaris no ho necessiten, el valor per defecte utilitza UDP, que és més eficient. Comprova-ho només si tens proves que es perd el trànsit UDP que envies a PSK Reporter.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1837"/>
         <source>Use TCP/IP connection</source>
-        <translation type="unfinished"></translation>
+        <translation>Utilitza la connexió TCP/IP</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1847"/>
@@ -6408,7 +6483,7 @@ Fes clic amb el botó dret per a les opcions d&apos;inserció i eliminació.</tr
     <message>
         <location filename="../Configuration.ui" line="2365"/>
         <source>URL</source>
-        <translation type="unfinished"></translation>
+        <translation>URL</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2368"/>
@@ -6538,17 +6613,17 @@ Fes clic amb el botó dret per a les opcions d&apos;inserció i eliminació.</tr
     <message>
         <location filename="../Configuration.ui" line="2635"/>
         <source>R T T Y Roundup</source>
-        <translation type="unfinished"></translation>
+        <translation>Arrodoniment R T T Y</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2638"/>
         <source>RTTY Roundup messages</source>
-        <translation>Missatges de Rencontre RTTY</translation>
+        <translation>Missatges d&apos;arrodoniment RTTY</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2663"/>
         <source>RTTY Roundup exchange</source>
-        <translation type="unfinished"></translation>
+        <translation>Intercanvi d&apos;arrodoniment RTTY</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2666"/>
@@ -6569,7 +6644,7 @@ Fes clic amb el botó dret per a les opcions d&apos;inserció i eliminació.</tr
     <message>
         <location filename="../Configuration.ui" line="2704"/>
         <source>A R R L Field Day</source>
-        <translation type="unfinished"></translation>
+        <translation>A R R L Field Day</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2707"/>
@@ -6579,7 +6654,7 @@ Fes clic amb el botó dret per a les opcions d&apos;inserció i eliminació.</tr
     <message>
         <location filename="../Configuration.ui" line="2732"/>
         <source>Field Day exchange</source>
-        <translation type="unfinished"></translation>
+        <translation>Intercanvi Field Day</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2735"/>
@@ -6599,7 +6674,7 @@ Fes clic amb el botó dret per a les opcions d&apos;inserció i eliminació.</tr
     <message>
         <location filename="../Configuration.ui" line="2777"/>
         <source>WW Digital Contest</source>
-        <translation type="unfinished"></translation>
+        <translation>WW Digital Contest</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2780"/>
@@ -6804,12 +6879,12 @@ Fes clic amb el botó dret per a les opcions d&apos;inserció i eliminació.</tr
     <message>
         <location filename="../main.cpp" line="388"/>
         <source>Sub-process error</source>
-        <translation type="unfinished"></translation>
+        <translation>Error de subprocés</translation>
     </message>
     <message>
         <location filename="../main.cpp" line="389"/>
         <source>Failed to close orphaned jt9 process</source>
-        <translation type="unfinished"></translation>
+        <translation>No s&apos;ha pogut tancar el procés jt9 orfe</translation>
     </message>
 </context>
 <context>
