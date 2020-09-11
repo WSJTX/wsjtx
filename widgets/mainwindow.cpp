@@ -6506,7 +6506,7 @@ void MainWindow::switch_mode (Mode mode)
   ui->rptSpinBox->setSingleStep(1);
   ui->rptSpinBox->setMinimum(-50);
   ui->rptSpinBox->setMaximum(49);
-  ui->sbFtol->values ({1, 2, 5, 10, 20, 50, 100, 200, 500, 1000});
+  ui->sbFtol->values ({1, 2, 5, 10, 20, 50, 100, 200, 300, 400, 500, 1000});
   ui->sbFST4W_FTol->values({1, 2, 5, 10, 20, 50, 100});
   if(m_mode=="MSK144") {
     ui->RxFreqSpinBox->setMinimum(1400);
