@@ -1201,7 +1201,7 @@ When not checked you can view the calibration results.</string>
                 <enum>QTabWidget::Triangular</enum>
                </property>
                <property name="currentIndex">
-                <number>1</number>
+                <number>0</number>
                </property>
                <widget class="QWidget" name="tab">
                 <attribute name="title">
@@ -2852,17 +2852,6 @@ Yellow when too low</string>
     <enum>QAction::QuitRole</enum>
    </property>
   </action>
-  <action name="actionDeviceSetup">
-   <property name="checkable">
-    <bool>false</bool>
-   </property>
-   <property name="text">
-    <string>Configuration</string>
-   </property>
-   <property name="shortcut">
-    <string>F2</string>
-   </property>
-  </action>
   <action name="actionAbout">
    <property name="text">
     <string>About WSJT-X</string>
@@ -2991,14 +2980,6 @@ Yellow when too low</string>
     <string>Deep</string>
    </property>
   </action>
-  <action name="actionMonitor_OFF_at_startup">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Monitor OFF at startup</string>
-   </property>
-  </action>
   <action name="actionErase_ALL_TXT">
    <property name="text">
     <string>Erase ALL.TXT</string>
@@ -3007,97 +2988,6 @@ Yellow when too low</string>
   <action name="actionErase_wsjtx_log_adi">
    <property name="text">
     <string>Erase wsjtx_log.adi</string>
-   </property>
-  </action>
-  <action name="actionConvert_JT9_x_to_RTTY">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Convert mode to RTTY for logging</string>
-   </property>
-  </action>
-  <action name="actionLog_dB_reports_to_Comments">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Log dB reports to Comments</string>
-   </property>
-  </action>
-  <action name="actionPrompt_to_log_QSO">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Prompt me to log QSO</string>
-   </property>
-  </action>
-  <action name="actionBlank_line_between_decoding_periods">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Blank line between decoding periods</string>
-   </property>
-  </action>
-  <action name="actionClear_DX_Call_and_Grid_after_logging">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Clear DX Call and Grid after logging</string>
-   </property>
-  </action>
-  <action name="actionDisplay_distance_in_miles">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Display distance in miles</string>
-   </property>
-  </action>
-  <action name="actionDouble_click_on_call_sets_Tx_Enable">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Double-click on call sets Tx Enable</string>
-   </property>
-   <property name="shortcut">
-    <string>F7</string>
-   </property>
-  </action>
-  <action name="action_73TxDisable">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Tx disabled after sending 73</string>
-   </property>
-  </action>
-  <action name="actionRunaway_Tx_watchdog">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Runaway Tx watchdog</string>
-   </property>
-  </action>
-  <action name="actionAllow_multiple_instances">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Allow multiple instances</string>
-   </property>
-  </action>
-  <action name="actionLockTxFreq">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Tx freq locked to Rx freq</string>
    </property>
   </action>
   <action name="actionJT65">
@@ -3114,30 +3004,6 @@ Yellow when too low</string>
    </property>
    <property name="text">
     <string>JT9+JT65</string>
-   </property>
-  </action>
-  <action name="actionTx2QSO">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Tx messages to Rx Frequency window</string>
-   </property>
-  </action>
-  <action name="actionGray1">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Gray1</string>
-   </property>
-  </action>
-  <action name="actionEnable_DXCC_entity">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Show DXCC entity and worked B4 status</string>
    </property>
   </action>
   <action name="actionAstronomical_data">
@@ -3382,11 +3248,6 @@ Yellow when too low</string>
     <string>Color highlighting scheme</string>
    </property>
   </action>
-  <action name="actionContest_Log">
-   <property name="text">
-    <string>Contest Log</string>
-   </property>
-  </action>
   <action name="actionExport_Cabrillo_log">
    <property name="text">
     <string>Export Cabrillo log ...</string>
@@ -3423,28 +3284,12 @@ Yellow when too low</string>
     <string>FST4</string>
    </property>
   </action>
-  <action name="actionFT240W">
-   <property name="text">
-    <string>FT240W</string>
-   </property>
-  </action>
   <action name="actionFST4W">
    <property name="checkable">
     <bool>true</bool>
    </property>
    <property name="text">
     <string>FST4W</string>
-   </property>
-  </action>
-  <action name="actionAlso_FST4W">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="enabled">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Also FST4W</string>
    </property>
   </action>
  </widget>
