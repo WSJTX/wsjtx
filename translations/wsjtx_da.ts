@@ -480,7 +480,7 @@ Format:
     <message>
         <location filename="../Configuration.cpp" line="1786"/>
         <source>Invalid audio output device</source>
-        <translation type="unfinished"></translation>
+        <translation>Forkert Audio output Enhed</translation>
     </message>
     <message>
         <location filename="../Configuration.cpp" line="1792"/>
@@ -693,7 +693,8 @@ Format:
         <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="412"/>
         <source>DX Lab Suite Commander send command failed &quot;%1&quot;: %2
 </source>
-        <translation type="unfinished"></translation>
+        <translation>Fejl i DX Lab Suite Commander send kommando&quot;%1&quot;: %2
+</translation>
     </message>
     <message>
         <source>DX Lab Suite Commander failed to send command &quot;%1&quot;: %2
@@ -1082,7 +1083,7 @@ Error: %2 - %3</translation>
     <message>
         <location filename="../EqualizationToolsDialog.cpp" line="295"/>
         <source>Equalization Tools</source>
-        <translation type="unfinished"></translation>
+        <translation>Equalization Værktøjer</translation>
     </message>
     <message>
         <location filename="../EqualizationToolsDialog.cpp" line="302"/>
@@ -1778,22 +1779,22 @@ Error: %2 - %3</translation>
     <message>
         <location filename="../models/IARURegions.cpp" line="15"/>
         <source>All</source>
-        <translation type="unfinished"></translation>
+        <translation>Alle</translation>
     </message>
     <message>
         <location filename="../models/IARURegions.cpp" line="16"/>
         <source>Region 1</source>
-        <translation type="unfinished"></translation>
+        <translation>Region 1</translation>
     </message>
     <message>
         <location filename="../models/IARURegions.cpp" line="17"/>
         <source>Region 2</source>
-        <translation type="unfinished"></translation>
+        <translation>Region 2</translation>
     </message>
     <message>
         <location filename="../models/IARURegions.cpp" line="18"/>
         <source>Region 3</source>
-        <translation type="unfinished"></translation>
+        <translation>Region 3</translation>
     </message>
     <message>
         <location filename="../models/IARURegions.cpp" line="58"/>
@@ -1895,97 +1896,97 @@ Error: %2 - %3</translation>
     <message>
         <location filename="../widgets/logqso.ui" line="497"/>
         <source>Prop Mode</source>
-        <translation type="unfinished"></translation>
+        <translation>Prop Mode</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="28"/>
         <source>Aircraft scatter</source>
-        <translation type="unfinished"></translation>
+        <translation>Flyscatter</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="29"/>
         <source>Aurora-E</source>
-        <translation type="unfinished"></translation>
+        <translation>Aurora-E</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="30"/>
         <source>Aurora</source>
-        <translation type="unfinished"></translation>
+        <translation>Aurora</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="31"/>
         <source>Back scatter</source>
-        <translation type="unfinished"></translation>
+        <translation>Back scatter</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="32"/>
         <source>Echolink</source>
-        <translation type="unfinished"></translation>
+        <translation>Echolink</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="33"/>
         <source>Earth-moon-earth</source>
-        <translation type="unfinished"></translation>
+        <translation>Earth-moon-earth</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="34"/>
         <source>Sporadic E</source>
-        <translation type="unfinished"></translation>
+        <translation>Sporadisk E</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="35"/>
         <source>F2 Reflection</source>
-        <translation type="unfinished"></translation>
+        <translation>F2 Reflektion</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="36"/>
         <source>Field aligned irregularities</source>
-        <translation type="unfinished"></translation>
+        <translation>Uregelmæssigheder i feltet</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="37"/>
         <source>Internet-assisted</source>
-        <translation type="unfinished"></translation>
+        <translation>Internet assistance</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="38"/>
         <source>Ionoscatter</source>
-        <translation type="unfinished"></translation>
+        <translation>Ionoscatter</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="39"/>
         <source>IRLP</source>
-        <translation type="unfinished"></translation>
+        <translation>IRLP</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="40"/>
         <source>Meteor scatter</source>
-        <translation type="unfinished"></translation>
+        <translation>Meteor scatter</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="41"/>
         <source>Non-satellite repeater or transponder</source>
-        <translation type="unfinished"></translation>
+        <translation>Non-satelit eller transponder</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="42"/>
         <source>Rain scatter</source>
-        <translation type="unfinished"></translation>
+        <translation>Regn scatter</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="43"/>
         <source>Satellite</source>
-        <translation type="unfinished"></translation>
+        <translation>Satelit</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="44"/>
         <source>Trans-equatorial</source>
-        <translation type="unfinished"></translation>
+        <translation>Transækvatorial</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="45"/>
         <source>Troposheric ducting</source>
-        <translation type="unfinished"></translation>
+        <translation>Troposfærisk udbredelse</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="215"/>
@@ -2240,17 +2241,17 @@ Fejl(%2): %3</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2067"/>
         <source>Percentage of minute sequences devoted to transmitting.</source>
-        <translation type="unfinished"></translation>
+        <translation>Procentdel af minut sekvens dedikeret til sending.</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2165"/>
         <source>Prefer Type 1 messages</source>
-        <translation type="unfinished"></translation>
+        <translation>Foretræk Type 1 meddelse</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2184"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Transmit during the next sequence.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Send i næste sekvens.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2283"/>
@@ -2942,7 +2943,7 @@ listen. Makro listen kan også ændfres i Inderstillinger (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3292"/>
         <source>FST4W</source>
-        <translation type="unfinished"></translation>
+        <translation>FST4W</translation>
     </message>
     <message>
         <source>Calling CQ </source>
@@ -3192,102 +3193,102 @@ listen. Makro listen kan også ændfres i Inderstillinger (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1964"/>
         <source>1/2</source>
-        <translation type="unfinished">1/2</translation>
+        <translation>1/2</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1969"/>
         <source>2/2</source>
-        <translation type="unfinished">2/2</translation>
+        <translation>2/2</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1974"/>
         <source>1/3</source>
-        <translation type="unfinished">1/3</translation>
+        <translation>1/3</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1979"/>
         <source>2/3</source>
-        <translation type="unfinished">2/3</translation>
+        <translation>2/3</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1984"/>
         <source>3/3</source>
-        <translation type="unfinished">3/3</translation>
+        <translation>3/3</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1989"/>
         <source>1/4</source>
-        <translation type="unfinished">1/4</translation>
+        <translation>1/4</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1994"/>
         <source>2/4</source>
-        <translation type="unfinished">2/4</translation>
+        <translation>2/4</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1999"/>
         <source>3/4</source>
-        <translation type="unfinished">3/4</translation>
+        <translation>3/4</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2004"/>
         <source>4/4</source>
-        <translation type="unfinished">4/4</translation>
+        <translation>4/4</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2009"/>
         <source>1/5</source>
-        <translation type="unfinished">1/5</translation>
+        <translation>1/5</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2014"/>
         <source>2/5</source>
-        <translation type="unfinished">2/5</translation>
+        <translation>2/5</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2019"/>
         <source>3/5</source>
-        <translation type="unfinished">3/5</translation>
+        <translation>3/5</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2024"/>
         <source>4/5</source>
-        <translation type="unfinished">4/5</translation>
+        <translation>4/5</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2029"/>
         <source>5/5</source>
-        <translation type="unfinished">5/5</translation>
+        <translation>5/5</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2034"/>
         <source>1/6</source>
-        <translation type="unfinished">1/6</translation>
+        <translation>1/6</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2039"/>
         <source>2/6</source>
-        <translation type="unfinished">2/6</translation>
+        <translation>2/6</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2044"/>
         <source>3/6</source>
-        <translation type="unfinished">3/6</translation>
+        <translation>3/6</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2049"/>
         <source>4/6</source>
-        <translation type="unfinished">4/6</translation>
+        <translation>4/6</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2054"/>
         <source>5/6</source>
-        <translation type="unfinished">5/6</translation>
+        <translation>5/6</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2059"/>
         <source>6/6</source>
-        <translation type="unfinished">6/6</translation>
+        <translation>6/6</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2141"/>
@@ -3312,12 +3313,12 @@ listen. Makro listen kan også ændfres i Inderstillinger (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3258"/>
         <source>Quick-Start Guide to FST4 and FST4W</source>
-        <translation type="unfinished"></translation>
+        <translation>Quick Start Guide for FST4 og FST4W</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3284"/>
         <source>FST4</source>
-        <translation type="unfinished"></translation>
+        <translation>FST4</translation>
     </message>
     <message>
         <source>FT240W</source>
@@ -3349,7 +3350,7 @@ listen. Makro listen kan også ændfres i Inderstillinger (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2424"/>
         <source>NB  </source>
-        <translation type="unfinished"></translation>
+        <translation>NB  </translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2722"/>
@@ -3649,7 +3650,7 @@ listen. Makro listen kan også ændfres i Inderstillinger (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3109"/>
         <source>Fast Graph</source>
-        <translation> </translation>
+        <translation>Fast Graph</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3112"/>
@@ -3818,22 +3819,22 @@ listen. Makro listen kan også ændfres i Inderstillinger (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="479"/>
         <source>%1 (%2 sec) audio frames dropped</source>
-        <translation type="unfinished"></translation>
+        <translation>%1 (%2 sec) audio frames droppet</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="484"/>
         <source>Audio Source</source>
-        <translation type="unfinished"></translation>
+        <translation>Audio kilde</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="485"/>
         <source>Reduce system load</source>
-        <translation type="unfinished"></translation>
+        <translation>Reducer system belasning</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="486"/>
         <source>Excessive dropped samples - %1 (%2 sec) audio frames dropped</source>
-        <translation type="unfinished"></translation>
+        <translation>For stort tab - %1 (%2 sec) audio frames mistet</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="517"/>
@@ -4111,7 +4112,51 @@ listen. Makro listen kan også ændfres i Inderstillinger (F2).</translation>
   &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+Z    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Clear hung decoder status&lt;/td&gt;&lt;/tr&gt;
 &lt;/table&gt;</source>
         <extracomment>Keyboard shortcuts help window contents</extracomment>
-        <translation type="unfinished"></translation>
+        <translation>&lt;table cellspacing=1&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Esc      &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Stop Tx, abort QSO, clear next-call queue&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;F1       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Online User&apos;s Guide (Alt: transmit Tx6)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Shift+F1  &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Copyright Notice&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+F1  &lt;/b&gt;&lt;/td&gt;&lt;td&gt;About WSJT-X&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;F2       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Open settings window (Alt: transmit Tx2)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;F3       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Display keyboard shortcuts (Alt: transmit Tx3)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;F4       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Clear DX Call, DX Grid, Tx messages 1-4 (Alt: transmit Tx4)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+F4   &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Exit program&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;F5       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Display special mouse commands (Alt: transmit Tx5)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;F6       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Open next file in directory (Alt: toggle &quot;Call 1st&quot;)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Shift+F6 &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Decode all remaining files in directrory&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;F7       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Display Message Averaging window&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;F11      &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Move Rx frequency down 1 Hz&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+F11 &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Move identical Rx and Tx frequencies down 1 Hz&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Shift+F11 &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Move Tx frequency down 60 Hz (FT8) or 90 Hz (FT4)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+Shift+F11 &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Move dial frequency down 2000 Hz&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;F12      &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Move Rx frequency up 1 Hz&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+F12 &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Move identical Rx and Tx frequencies up 1 Hz&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Shift+F12 &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Move Tx frequency up 60 Hz (FT8) or 90 Hz (FT4)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+Shift+F12 &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Move dial frequency up 2000 Hz&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+1-6  &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Set now transmission to this number on Tab 1&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctl+1-6  &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Set next transmission to this number on Tab 1&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+B    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Toggle &quot;Best S+P&quot; status&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+C    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Toggle &quot;Call 1st&quot; checkbox&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+D    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Decode again at QSO frequency&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Shift+D  &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Full decode (both windows)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+E   &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Turn on TX even/1st&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Shift+E  &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Turn off TX even/1st&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+E    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Erase&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+F   &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Edit the free text message box&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+G    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Generate standard messages&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+H    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Halt Tx&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+L   &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Lookup callsign in database, generate standard messages&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+M    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Monitor&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+N    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Enable Tx&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+O   &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Open a .wav file&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+O    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Change operator&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+Q    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Log QSO&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+R   &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Set Tx4 message to RRR (not in FT4)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+R    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Set Tx4 message to RR73&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+S    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Stop monitoring&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+T    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Toggle Tune status&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+Z    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Clear hung decoder status&lt;/td&gt;&lt;/tr&gt;
+&lt;/table&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="2915"/>
@@ -4152,7 +4197,37 @@ listen. Makro listen kan også ændfres i Inderstillinger (F2).</translation>
   &lt;/tr&gt;
 &lt;/table&gt;</source>
         <extracomment>Mouse commands help window contents</extracomment>
-        <translation type="unfinished"></translation>
+        <translation>&lt;table cellpadding=5&gt;
+  &lt;tr&gt;
+    &lt;th align=&quot;right&quot;&gt;Click on&lt;/th&gt;
+    &lt;th align=&quot;left&quot;&gt;Action&lt;/th&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;Waterfall:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;Click&lt;/b&gt; to set Rx frequency.&lt;br/&gt;
+        &lt;b&gt;Shift-click&lt;/b&gt; to set Tx frequency.&lt;br/&gt;
+        &lt;b&gt;Ctrl-click&lt;/b&gt; or &lt;b&gt;Right-click&lt;/b&gt; to set Rx and Tx frequencies.&lt;br/&gt;
+        &lt;b&gt;Double-click&lt;/b&gt; to also decode at Rx frequency.&lt;br/&gt;
+    &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;Decoded text:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;Double-click&lt;/b&gt; to copy second callsign to Dx Call,&lt;br/&gt;
+        locator to Dx Grid, change Rx and Tx frequency to&lt;br/&gt;
+        decoded signal&apos;s frequency, and generate standard&lt;br/&gt;
+        messages.&lt;br/&gt;
+        If &lt;b&gt;Hold Tx Freq&lt;/b&gt; is checked or first callsign in message&lt;br/&gt;
+        is your own call, Tx frequency is not changed unless &lt;br/&gt;
+        &lt;b&gt;Ctrl&lt;/b&gt; is held down.&lt;br/&gt;
+    &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;Erase button:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;Click&lt;/b&gt; to erase QSO window.&lt;br/&gt;
+        &lt;b&gt;Double-click&lt;/b&gt; to erase QSO and Band Activity windows.
+    &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/table&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="3254"/>
@@ -4162,7 +4237,7 @@ listen. Makro listen kan også ændfres i Inderstillinger (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="3612"/>
         <source>Spotting to PSK Reporter unavailable</source>
-        <translation type="unfinished"></translation>
+        <translation>Afsendelse af Spot til PSK Reporter ikke muligt</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="3770"/>
@@ -4498,7 +4573,7 @@ UDP server %2:%3</translation>
     <message>
         <location filename="../Network/NetworkAccessManager.cpp" line="38"/>
         <source>Network SSL/TLS Errors</source>
-        <translation type="unfinished"></translation>
+        <translation>Netværk SSL/TLS Fejl</translation>
     </message>
 </context>
 <context>
@@ -4703,7 +4778,7 @@ Fejl(%2): %3</translation>
     <message>
         <location filename="../SampleDownloader.cpp" line="114"/>
         <source>Check this if you get SSL/TLS errors</source>
-        <translation type="unfinished"></translation>
+        <translation>Check denne hvis du får SSL/TLS fejl</translation>
     </message>
     <message>
         <source>Check this is you get SSL/TLS errors</source>
@@ -4823,7 +4898,7 @@ Fejl(%2): %3</translation>
     <message>
         <location filename="../Audio/soundout.cpp" line="92"/>
         <source>No audio output device configured.</source>
-        <translation type="unfinished"></translation>
+        <translation>Ingen audio output enhed er konfigureret.</translation>
     </message>
     <message>
         <location filename="../Audio/soundout.cpp" line="184"/>
@@ -5065,12 +5140,12 @@ Fejl(%2): %3</translation>
     <message>
         <location filename="../widgets/widegraph.ui" line="365"/>
         <source>  Hz</source>
-        <translation type="unfinished">  Hz</translation>
+        <translation>  Hz</translation>
     </message>
     <message>
         <location filename="../widgets/widegraph.ui" line="368"/>
         <source>Split  </source>
-        <translation type="unfinished"></translation>
+        <translation>Split  </translation>
     </message>
     <message>
         <source>  JT9</source>
@@ -5117,22 +5192,22 @@ Fejl(%2): %3</translation>
     <message>
         <location filename="../logbook/WorkedBefore.cpp" line="258"/>
         <source>Invalid ADIF field %0: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Forkert ADIF field %0: %1</translation>
     </message>
     <message>
         <location filename="../logbook/WorkedBefore.cpp" line="275"/>
         <source>Malformed ADIF field %0: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Misdannet ADIF field %0: %1</translation>
     </message>
     <message>
         <location filename="../logbook/WorkedBefore.cpp" line="312"/>
         <source>Invalid ADIF header</source>
-        <translation type="unfinished"></translation>
+        <translation>Forkert ADIF header</translation>
     </message>
     <message>
         <location filename="../logbook/WorkedBefore.cpp" line="358"/>
         <source>Error opening ADIF log file for read: %0</source>
-        <translation type="unfinished"></translation>
+        <translation>Fejl ved åbning af ADIF log filen for læsning: %0</translation>
     </message>
 </context>
 <context>
@@ -5524,7 +5599,7 @@ den stille periode, når dekodningen er udført.</translation>
     <message>
         <location filename="../Configuration.ui" line="666"/>
         <source>Data bits</source>
-        <translation type="unfinished"></translation>
+        <translation>Data bits</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="669"/>
@@ -5554,7 +5629,7 @@ den stille periode, når dekodningen er udført.</translation>
     <message>
         <location filename="../Configuration.ui" line="720"/>
         <source>Stop bits</source>
-        <translation type="unfinished"></translation>
+        <translation>Stop bits</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="723"/>
@@ -5877,7 +5952,7 @@ transmissionsperioder.</translation>
     <message>
         <location filename="../Configuration.ui" line="2400"/>
         <source>Days since last upload</source>
-        <translation type="unfinished"></translation>
+        <translation>Dage siden sidste upload</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1426"/>
@@ -5932,7 +6007,7 @@ eller begge.</translation>
     <message>
         <location filename="../Configuration.ui" line="360"/>
         <source>Enable VHF and submode features</source>
-        <translation type="unfinished"></translation>
+        <translation>Aktiver VHF and submode funktioner</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1370"/>
@@ -6137,7 +6212,7 @@ og DX Grid-felter, når der sendes en 73 eller fri tekstbesked.</translation>
     <message>
         <location filename="../Configuration.ui" line="1824"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The program can send your station details and all decoded signals with grid squares as spots to the http://pskreporter.info web site.&lt;/p&gt;&lt;p&gt;This is used for reverse beacon analysis which is very useful for assessing propagation and system performance.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt; &lt;p&gt; Programmet kan sende dine stationsoplysninger og alle dekodede signaler med Grid  som SPOTS til http://pskreporter.info webstedet. &lt;/p&gt; &lt;p&gt; Dette er bruges til reverse beacon-analyse, som er meget nyttig til vurdering af udbredelse og systemydelse. &lt;/p&gt; &lt;/body&gt; &lt;/html&gt;</translation>
     </message>
     <message>
         <source>The program can send your station details and all
@@ -6157,12 +6232,12 @@ til vurdering af udbrednings forhold og systemydelse.</translation>
     <message>
         <location filename="../Configuration.ui" line="1834"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check this option if a reliable connection is needed&lt;/p&gt;&lt;p&gt;Most users do not need this, the default uses UDP which is more efficient. Only check this if you have evidence that UDP traffic from you to PSK Reporter is being lost.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt; &lt;p&gt; Marker denne indstilling, hvis der er behov for en pålidelig forbindelse &lt;/p&gt; &lt;p&gt; De fleste brugere har ikke brug for dette, da standard UDP  er mere effektiv. Marker kun dette, hvis du er sikker på, at UDP-trafik fra dig til PSK Reporter går tabt. &lt;/p&gt; &lt;/body&gt; &lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1837"/>
         <source>Use TCP/IP connection</source>
-        <translation type="unfinished"></translation>
+        <translation>Brug TCP/IP forbindelse</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1847"/>
@@ -6399,7 +6474,7 @@ Højre klik for at indsætte eller slette elementer.</translation>
     <message>
         <location filename="../Configuration.ui" line="2365"/>
         <source>URL</source>
-        <translation type="unfinished"></translation>
+        <translation>URL</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2368"/>
@@ -6529,7 +6604,7 @@ Højre klik for at indsætte eller slette elementer.</translation>
     <message>
         <location filename="../Configuration.ui" line="2635"/>
         <source>R T T Y Roundup</source>
-        <translation type="unfinished"></translation>
+        <translation>R T T Y Roundup</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2638"/>
@@ -6539,7 +6614,7 @@ Højre klik for at indsætte eller slette elementer.</translation>
     <message>
         <location filename="../Configuration.ui" line="2663"/>
         <source>RTTY Roundup exchange</source>
-        <translation type="unfinished"></translation>
+        <translation>RTTY Roundup udveksling</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2666"/>
@@ -6560,7 +6635,7 @@ Højre klik for at indsætte eller slette elementer.</translation>
     <message>
         <location filename="../Configuration.ui" line="2704"/>
         <source>A R R L Field Day</source>
-        <translation type="unfinished"></translation>
+        <translation>A R R L Field Day</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2707"/>
@@ -6570,7 +6645,7 @@ Højre klik for at indsætte eller slette elementer.</translation>
     <message>
         <location filename="../Configuration.ui" line="2732"/>
         <source>Field Day exchange</source>
-        <translation type="unfinished"></translation>
+        <translation>Fiels Day udveksling</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2735"/>
@@ -6590,7 +6665,7 @@ Højre klik for at indsætte eller slette elementer.</translation>
     <message>
         <location filename="../Configuration.ui" line="2777"/>
         <source>WW Digital Contest</source>
-        <translation type="unfinished"></translation>
+        <translation>WW Digital Contest</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2780"/>
@@ -6755,12 +6830,12 @@ Højre klik for at indsætte eller slette elementer.</translation>
     <message>
         <location filename="../main.cpp" line="388"/>
         <source>Sub-process error</source>
-        <translation type="unfinished"></translation>
+        <translation>Under-rutine fejl</translation>
     </message>
     <message>
         <location filename="../main.cpp" line="389"/>
         <source>Failed to close orphaned jt9 process</source>
-        <translation type="unfinished"></translation>
+        <translation>Fejl ved lukning af jt9 proces</translation>
     </message>
 </context>
 <context>
