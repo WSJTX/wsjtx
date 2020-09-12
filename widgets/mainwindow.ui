@@ -741,7 +741,7 @@ QPushButton[state=&quot;ok&quot;] {
                     <string>F Tol  </string>
                    </property>
                    <property name="minimum">
-                    <number>10</number>
+                    <number>1</number>
                    </property>
                    <property name="maximum">
                     <number>1000</number>
