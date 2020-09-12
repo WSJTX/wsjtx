@@ -55,6 +55,10 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   type(counting_ft4_decoder) :: my_ft4
   type(counting_fst4_decoder) :: my_fst4
 
+  rms=sqrt(dot_product(float(id2(1:180000)),                         &
+       float(id2(1:180000)))/180000.0)
+  if(rms.lt.3.0) go to 800
+
   !cast C character arrays to Fortran character strings
   datetime=transfer(params%datetime, datetime)
   mycall=transfer(params%mycall,mycall)
@@ -215,10 +219,6 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
      call timer('dec240  ',1)
      go to 800
   endif
-
-  rms=sqrt(dot_product(float(id2(60001:61000)),                         &
-       float(id2(60001:61000)))/1000.0)
-  if(rms.lt.2.0) go to 800
 
 ! Zap data at start that might come from T/R switching transient?
   nadd=100
