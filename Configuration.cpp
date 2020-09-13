@@ -2806,6 +2806,7 @@ void Configuration::impl::load_audio_devices (QAudio::Mode mode, QComboBox * com
 
   combo_box->clear ();
 
+  Q_EMIT self_->enumerating_audio_devices ();
   int current_index = -1;
   auto const& devices = QAudioDeviceInfo::availableDevices (mode);
   Q_FOREACH (auto const& p, devices)

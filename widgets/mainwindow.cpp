@@ -781,6 +781,9 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect (&m_config, &Configuration::udp_server_changed, m_messageClient, &MessageClient::set_server);
   connect (&m_config, &Configuration::udp_server_port_changed, m_messageClient, &MessageClient::set_server_port);
   connect (&m_config, &Configuration::accept_udp_requests_changed, m_messageClient, &MessageClient::enable);
+  connect (&m_config, &Configuration::enumerating_audio_devices, [this] () {
+                                                                   showStatusMessage (tr ("Enumerating audio devices"));
+                                                                 });
 
   // set up configurations menu
   connect (m_multi_settings, &MultiSettings::configurationNameChanged, [this] (QString const& name) {

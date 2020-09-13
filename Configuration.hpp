@@ -293,6 +293,12 @@ public:
   // the fault condition has been rectified or is transient.
   Q_SIGNAL void transceiver_failure (QString const& reason) const;
 
+  // signal announces audio devices are being enumerated
+  //
+  // As this can take some time, particularly on Linux, consumers
+  // might like to notify the user.
+  Q_SIGNAL void enumerating_audio_devices ();
+
 private:
   class impl;
   pimpl<impl> m_;
