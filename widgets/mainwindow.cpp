@@ -7159,6 +7159,7 @@ void MainWindow::transmit (double snr)
     int hmod=1;                               //No FST4/W submodes
     double dfreq=hmod*12000.0/nsps;
     double f0=ui->WSPRfreqSpinBox->value() - m_XIT;
+    if(m_mode=="FST4") f0=ui->TxFreqSpinBox->value() - m_XIT;
     if(!m_tune) f0 += + 1.5*dfreq;
     Q_EMIT sendMessage (m_mode, NUM_FST4_SYMBOLS,double(nsps),f0,toneSpacing,
                         m_soundOutput,m_config.audio_output_channel(),
