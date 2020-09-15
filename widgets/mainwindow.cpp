@@ -2874,7 +2874,7 @@ void MainWindow::on_actionKeyboard_shortcuts_triggered()
   <tr><td><b>Alt+F4   </b></td><td>Exit program</td></tr>
   <tr><td><b>F5       </b></td><td>Display special mouse commands (Alt: transmit Tx5)</td></tr>
   <tr><td><b>F6       </b></td><td>Open next file in directory (Alt: toggle "Call 1st")</td></tr>
-  <tr><td><b>Shift+F6 </b></td><td>Decode all remaining files in directrory</td></tr>
+  <tr><td><b>Shift+F6 </b></td><td>Decode all remaining files in directory</td></tr>
   <tr><td><b>F7       </b></td><td>Display Message Averaging window</td></tr>
   <tr><td><b>F11      </b></td><td>Move Rx frequency down 1 Hz</td></tr>
   <tr><td><b>Ctrl+F11 </b></td><td>Move identical Rx and Tx frequencies down 1 Hz</td></tr>
