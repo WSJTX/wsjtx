@@ -377,75 +377,75 @@
 <context>
     <name>Configuration::impl</name>
     <message>
-        <location filename="../Configuration.cpp" line="970"/>
-        <location filename="../Configuration.cpp" line="1136"/>
-        <location filename="../Configuration.cpp" line="1162"/>
+        <location filename="../Configuration.cpp" line="966"/>
+        <location filename="../Configuration.cpp" line="1122"/>
+        <location filename="../Configuration.cpp" line="1148"/>
         <source>&amp;Delete</source>
         <translation>&amp;Esborrar</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="971"/>
-        <location filename="../Configuration.cpp" line="1166"/>
+        <location filename="../Configuration.cpp" line="967"/>
+        <location filename="../Configuration.cpp" line="1152"/>
         <source>&amp;Insert ...</source>
         <translation>&amp;Insereix ...</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="997"/>
+        <location filename="../Configuration.cpp" line="993"/>
         <source>Failed to create save directory</source>
         <translation>No s&apos;ha pogut crear el directori per desar</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="998"/>
+        <location filename="../Configuration.cpp" line="994"/>
         <source>path: &quot;%1%</source>
         <translation>ruta: &quot;%1%</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1009"/>
+        <location filename="../Configuration.cpp" line="1005"/>
         <source>Failed to create samples directory</source>
         <translation>No s&apos;ha pogut crear el directori d&apos;exemples</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1010"/>
+        <location filename="../Configuration.cpp" line="1006"/>
         <source>path: &quot;%1&quot;</source>
         <translation>ruta: &quot;%1&quot;</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1170"/>
+        <location filename="../Configuration.cpp" line="1156"/>
         <source>&amp;Load ...</source>
         <translation>&amp;Carrega ...</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1174"/>
+        <location filename="../Configuration.cpp" line="1160"/>
         <source>&amp;Save as ...</source>
         <translation>&amp;Guardar com ...</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1178"/>
+        <location filename="../Configuration.cpp" line="1164"/>
         <source>&amp;Merge ...</source>
         <translation>&amp;Combinar ...</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1182"/>
+        <location filename="../Configuration.cpp" line="1168"/>
         <source>&amp;Reset</source>
         <translation>&amp;Restablir</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1724"/>
+        <location filename="../Configuration.cpp" line="1718"/>
         <source>Serial Port:</source>
         <translation>Port sèrie:</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1725"/>
+        <location filename="../Configuration.cpp" line="1719"/>
         <source>Serial port used for CAT control</source>
         <translation>Port sèrie utilitzat per al control CAT</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1732"/>
+        <location filename="../Configuration.cpp" line="1726"/>
         <source>Network Server:</source>
         <translation>Servidor de xarxa:</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1733"/>
+        <location filename="../Configuration.cpp" line="1727"/>
         <source>Optional hostname and port of network service.
 Leave blank for a sensible default on this machine.
 Formats:
@@ -460,12 +460,12 @@ Formats:
 	[adreça IPv6]:port</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1745"/>
+        <location filename="../Configuration.cpp" line="1739"/>
         <source>USB Device:</source>
         <translation>Dispositiu USB:</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1746"/>
+        <location filename="../Configuration.cpp" line="1740"/>
         <source>Optional device identification.
 Leave blank for a sensible default for the rig.
 Format:
@@ -476,8 +476,8 @@ Format:
 	[VID[:PID[:VENDOR[:PRODUCT]]]]</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1782"/>
-        <location filename="../Configuration.cpp" line="1790"/>
+        <location filename="../Configuration.cpp" line="1776"/>
+        <location filename="../Configuration.cpp" line="1784"/>
         <source>Invalid audio input device</source>
         <translation>El dispositiu d&apos;entrada d&apos;àudio no és vàlid</translation>
     </message>
@@ -486,155 +486,149 @@ Format:
         <translation type="vanished">El dispositiu de sortida d&apos;àudio no és vàlid</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1798"/>
+        <location filename="../Configuration.cpp" line="1792"/>
         <source>Invalid audio output device</source>
         <translation>El dispositiu de sortida d&apos;àudio no és vàlid</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1804"/>
+        <location filename="../Configuration.cpp" line="1798"/>
         <source>Invalid PTT method</source>
         <translation>El mètode de PTT no és vàlid</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1814"/>
+        <location filename="../Configuration.cpp" line="1808"/>
         <source>Invalid PTT port</source>
         <translation>El port del PTT no és vàlid</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1822"/>
-        <location filename="../Configuration.cpp" line="1831"/>
+        <location filename="../Configuration.cpp" line="1816"/>
+        <location filename="../Configuration.cpp" line="1825"/>
         <source>Invalid Contest Exchange</source>
         <translation>Intercanvi de concurs no vàlid</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1823"/>
+        <location filename="../Configuration.cpp" line="1817"/>
         <source>You must input a valid ARRL Field Day exchange</source>
         <translation>Has d’introduir un intercanvi de Field Day de l&apos;ARRL vàlid</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1832"/>
+        <location filename="../Configuration.cpp" line="1826"/>
         <source>You must input a valid ARRL RTTY Roundup exchange</source>
         <translation>Has d’introduir un intercanvi vàlid de l&apos;ARRL RTTY Roundup</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2166"/>
+        <location filename="../Configuration.cpp" line="2126"/>
         <source>Reset Decode Highlighting</source>
         <translation>Restableix Ressaltat de Descodificació</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2167"/>
+        <location filename="../Configuration.cpp" line="2127"/>
         <source>Reset all decode highlighting and priorities to default values</source>
         <translation>Restableix tot el ressaltat i les prioritats de descodificació als valors predeterminats</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2187"/>
+        <location filename="../Configuration.cpp" line="2147"/>
         <source>WSJT-X Decoded Text Font Chooser</source>
         <translation>Tipus de text de pantalla de descodificació WSJT-X</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2354"/>
+        <location filename="../Configuration.cpp" line="2314"/>
         <source>Load Working Frequencies</source>
         <translation>Càrrega les freqüències de treball</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2354"/>
-        <location filename="../Configuration.cpp" line="2373"/>
-        <location filename="../Configuration.cpp" line="2419"/>
+        <location filename="../Configuration.cpp" line="2314"/>
+        <location filename="../Configuration.cpp" line="2333"/>
+        <location filename="../Configuration.cpp" line="2379"/>
         <source>Frequency files (*.qrg);;All files (*.*)</source>
         <translation>Arxius de freqüència (*.qrg);;Tots els arxius (*.*)</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2361"/>
+        <location filename="../Configuration.cpp" line="2321"/>
         <source>Replace Working Frequencies</source>
         <translation>Substitueix les freqüències de treball</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2362"/>
+        <location filename="../Configuration.cpp" line="2322"/>
         <source>Are you sure you want to discard your current working frequencies and replace them with the loaded ones?</source>
         <translation>Segur que vols descartar les teves freqüències actuals de treball i reemplaçar-les per les carregades ?</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2373"/>
+        <location filename="../Configuration.cpp" line="2333"/>
         <source>Merge Working Frequencies</source>
         <translation>Combina les freqüències de treball</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2390"/>
-        <location filename="../Configuration.cpp" line="2399"/>
-        <location filename="../Configuration.cpp" line="2409"/>
+        <location filename="../Configuration.cpp" line="2350"/>
+        <location filename="../Configuration.cpp" line="2359"/>
+        <location filename="../Configuration.cpp" line="2369"/>
         <source>Not a valid frequencies file</source>
         <translation>L&apos;arxiu de freqüències no és vàlid</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2390"/>
+        <location filename="../Configuration.cpp" line="2350"/>
         <source>Incorrect file magic</source>
         <translation>L&apos;arxiu màgic es incorrecte</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2399"/>
+        <location filename="../Configuration.cpp" line="2359"/>
         <source>Version is too new</source>
         <translation>La versió és massa nova</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2409"/>
+        <location filename="../Configuration.cpp" line="2369"/>
         <source>Contents corrupt</source>
         <translation>Continguts corruptes</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2419"/>
+        <location filename="../Configuration.cpp" line="2379"/>
         <source>Save Working Frequencies</source>
         <translation>Desa les freqüències de treball</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2428"/>
+        <location filename="../Configuration.cpp" line="2388"/>
         <source>Only Save Selected  Working Frequencies</source>
         <translation>Desa només les freqüències de treball seleccionades</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2429"/>
+        <location filename="../Configuration.cpp" line="2389"/>
         <source>Are you sure you want to save only the working frequencies that are currently selected? Click No to save all.</source>
         <translation>Estàs segur que vols desar només les freqüències de treball seleccionades actualment? Fes clic a No per desar-ho tot.</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2445"/>
+        <location filename="../Configuration.cpp" line="2405"/>
         <source>Reset Working Frequencies</source>
         <translation>Restablir les freqüències de treball</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2446"/>
+        <location filename="../Configuration.cpp" line="2406"/>
         <source>Are you sure you want to discard your current working frequencies and replace them with default ones?</source>
         <translation>Segur que vols descartar les teves freqüències actuals de treball i reemplaçar-les per altres?</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2484"/>
+        <location filename="../Configuration.cpp" line="2444"/>
         <source>Save Directory</source>
         <translation>Directori de Guardar</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2498"/>
+        <location filename="../Configuration.cpp" line="2458"/>
         <source>AzEl Directory</source>
         <translation>Directori AzEl</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2558"/>
+        <location filename="../Configuration.cpp" line="2518"/>
         <source>Rig control error</source>
         <translation>Error de control de l&apos;equip</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2559"/>
+        <location filename="../Configuration.cpp" line="2519"/>
         <source>Failed to open connection to rig</source>
         <translation>No s&apos;ha pogut obrir la connexió al equip</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2777"/>
+        <location filename="../Configuration.cpp" line="2737"/>
         <source>Rig failure</source>
         <translation>Fallada en l&apos;equip</translation>
-    </message>
-    <message>
-        <location filename="../Configuration.cpp" line="2832"/>
-        <source>Not found</source>
-        <comment>audio device missing</comment>
-        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -1458,22 +1452,22 @@ Error: %2 - %3</translation>
 <context>
     <name>FrequencyDialog</name>
     <message>
-        <location filename="../Configuration.cpp" line="266"/>
+        <location filename="../Configuration.cpp" line="265"/>
         <source>Add Frequency</source>
         <translation>Afedueix Freqüència</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="271"/>
+        <location filename="../Configuration.cpp" line="270"/>
         <source>IARU &amp;Region:</source>
         <translation>Regió &amp;IARU:</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="272"/>
+        <location filename="../Configuration.cpp" line="271"/>
         <source>&amp;Mode:</source>
         <translation>&amp;Mode:</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="273"/>
+        <location filename="../Configuration.cpp" line="272"/>
         <source>&amp;Frequency (MHz):</source>
         <translation>&amp;Freqüència en MHz.:</translation>
     </message>
@@ -5046,22 +5040,22 @@ Error(%2): %3</translation>
 <context>
     <name>StationDialog</name>
     <message>
-        <location filename="../Configuration.cpp" line="312"/>
+        <location filename="../Configuration.cpp" line="311"/>
         <source>Add Station</source>
         <translation>Afegir estació</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="317"/>
+        <location filename="../Configuration.cpp" line="316"/>
         <source>&amp;Band:</source>
         <translation>&amp;Banda:</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="318"/>
+        <location filename="../Configuration.cpp" line="317"/>
         <source>&amp;Offset (MHz):</source>
         <translation>&amp;Desplaçament en MHz:</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="319"/>
+        <location filename="../Configuration.cpp" line="318"/>
         <source>&amp;Antenna:</source>
         <translation>&amp;Antena:</translation>
     </message>
@@ -5477,7 +5471,7 @@ Error(%2): %3</translation>
     <message>
         <location filename="../Configuration.ui" line="274"/>
         <source>&amp;Blank line between decoding periods</source>
-        <translation>Lín&amp;ia en blanc entre els períodes de descodificació</translation>
+        <translation>Línia en &amp;blanc entre els períodes de descodificació</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="281"/>
@@ -5546,7 +5540,7 @@ Error(%2): %3</translation>
     <message>
         <location filename="../Configuration.ui" line="387"/>
         <source>Mon&amp;itor off at startup</source>
-        <translation>Mon&amp;itor apagat a l&apos;inici</translation>
+        <translation>Monitor apa&amp;gat a l&apos;inici</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="397"/>
@@ -5731,7 +5725,7 @@ període tranquil quan es fa la descodificació.</translation>
     <message>
         <location filename="../Configuration.ui" line="701"/>
         <source>E&amp;ight</source>
-        <translation>V&amp;uit</translation>
+        <translation>&amp;Vuit</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="717"/>
@@ -5968,7 +5962,7 @@ aquest paràmetre et permet seleccionar quina entrada d&apos;àudio s&apos;utili
     <message>
         <location filename="../Configuration.ui" line="1125"/>
         <source>Rear&amp;/Data</source>
-        <translation>Part posterior&amp;/dades</translation>
+        <translation>Part poster&amp;ior/dades</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1135"/>
@@ -6059,7 +6053,7 @@ interfície de ràdio funcioni correctament.</translation>
         <translation>Targeta de so</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1376"/>
+        <location filename="../Configuration.ui" line="1439"/>
         <source>Select the audio CODEC to use for transmitting.
 If this is your default device for system sounds then
 ensure that all system sounds are disabled otherwise
@@ -6072,46 +6066,46 @@ desactivats, en cas contrari emetreu els sons del sistema
 generats durant els períodes de transmissió.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1420"/>
+        <location filename="../Configuration.ui" line="1426"/>
         <source>Select the audio CODEC to use for receiving.</source>
         <translation>Selecciona el CODEC d&apos;àudio que cal utilitzar per rebre.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1467"/>
+        <location filename="../Configuration.ui" line="1380"/>
         <source>&amp;Input:</source>
         <translation>&amp;Entrada:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1387"/>
+        <location filename="../Configuration.ui" line="1450"/>
         <source>Select the channel to use for receiving.</source>
         <translation>Selecciona el canal a utilitzar per a rebre.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1391"/>
-        <location filename="../Configuration.ui" line="1444"/>
+        <location filename="../Configuration.ui" line="1397"/>
+        <location filename="../Configuration.ui" line="1454"/>
         <source>Mono</source>
         <translation>Mono</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1396"/>
-        <location filename="../Configuration.ui" line="1449"/>
+        <location filename="../Configuration.ui" line="1402"/>
+        <location filename="../Configuration.ui" line="1459"/>
         <source>Left</source>
         <translation>Esquerra</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1401"/>
-        <location filename="../Configuration.ui" line="1454"/>
+        <location filename="../Configuration.ui" line="1407"/>
+        <location filename="../Configuration.ui" line="1464"/>
         <source>Right</source>
         <translation>Dreta</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1406"/>
-        <location filename="../Configuration.ui" line="1459"/>
+        <location filename="../Configuration.ui" line="1412"/>
+        <location filename="../Configuration.ui" line="1469"/>
         <source>Both</source>
         <translation>Tots dos</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1437"/>
+        <location filename="../Configuration.ui" line="1390"/>
         <source>Select the audio channel used for transmission.
 Unless you have multiple radios connected on different
 channels; then you will usually want to select mono or
@@ -6127,7 +6121,7 @@ els dos canals.</translation>
         <translation>Activa les funcions de VHF i submode</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1427"/>
+        <location filename="../Configuration.ui" line="1370"/>
         <source>Ou&amp;tput:</source>
         <translation>Sor&amp;tida:</translation>
     </message>
