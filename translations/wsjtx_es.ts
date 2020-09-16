@@ -697,7 +697,7 @@ Formato:
         <location filename="../Configuration.cpp" line="2832"/>
         <source>Not found</source>
         <comment>audio device missing</comment>
-        <translation type="unfinished"></translation>
+        <translation>No encontrado</translation>
     </message>
 </context>
 <context>
@@ -4165,7 +4165,7 @@ predefinida. La lista se puede modificar en &quot;Ajustes&quot; (F2).</translati
     <message>
         <location filename="../widgets/mainwindow.cpp" line="487"/>
         <source>Excessive dropped samples - %1 (%2 sec) audio frames dropped in period starting %3</source>
-        <translation type="unfinished"></translation>
+        <translation>Excesiva muestras rechazadas - %1 (%2 seg) de audio rechazados en periodo %3</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="521"/>
@@ -4193,7 +4193,7 @@ Error al cargar datos de usuarios de LotW</translatorcomment>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="785"/>
         <source>Enumerating audio devices</source>
-        <translation type="unfinished"></translation>
+        <translation>Listando dispositivos de audio</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="800"/>
@@ -7310,7 +7310,7 @@ Clic derecho para insertar y eliminar opciones.</translation>
         <location filename="../Configuration.ui" line="2638"/>
         <source>RTTY Roundup messages</source>
         <translatorcomment>Mensajes de resumen de RTTY</translatorcomment>
-        <translation>Mesnajes para e lRTTY Roundup</translation>
+        <translation>Mensajes para el RTTY Roundup</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2663"/>
