@@ -506,11 +506,20 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
      or m_mode=="QRA64" or m_mode=="FT8" or m_mode=="FT4"
      or m_mode.startsWith("FST4")) {
 
+    if(m_mode=="FST4") {
+      x1=XfromFreq(m_nfa);
+      x2=XfromFreq(m_nfb);
+      painter0.drawLine(x1,25,x1+5,30);   // Mark FST4 F_Low
+      painter0.drawLine(x1,25,x1+5,20);
+      painter0.drawLine(x2,25,x2-5,30);   // Mark FST4 F_High
+      painter0.drawLine(x2,25,x2-5,20);
+    }
+
     if(m_mode=="QRA64" or (m_mode=="JT65" and m_bVHF)) {
       painter0.setPen(penGreen);
       x1=XfromFreq(m_rxFreq-m_tol);
       x2=XfromFreq(m_rxFreq+m_tol);
-      painter0.drawLine(x1,28,x2,28);
+      painter0.drawLine(x1,26,x2,26);
       x1=XfromFreq(m_rxFreq);
       painter0.drawLine(x1,24,x1,30);
 
@@ -539,8 +548,7 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
         x1=XfromFreq(m_rxFreq-m_tol);
         x2=XfromFreq(m_rxFreq+m_tol);
         painter0.drawLine(x1,26,x2,26);   // Mark the Tol range
-      }
-    }
+      }    }
   }
 
   if(m_mode=="JT9" or m_mode=="JT65" or m_mode=="JT9+JT65" or
@@ -809,6 +817,12 @@ void CPlotter::setFlatten(bool b1, bool b2)
 void CPlotter::setTol(int n)                                 //setTol()
 {
   m_tol=n;
+}
+
+void CPlotter::setFST4_FreqRange(int fLow,int fHigh)
+{
+  m_nfa=fLow;
+  m_nfb=fHigh;
   DrawOverlay();
 }
 

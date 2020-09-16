@@ -305,6 +305,9 @@ private slots:
   void on_sbNlist_valueChanged(int n);
   void on_sbNslots_valueChanged(int n);
   void on_sbMax_dB_valueChanged(int n);
+  void on_sbF_Low_valueChanged(int n);
+  void on_sbF_High_valueChanged(int n);
+  void chk_FST4_freq_range();
   void on_pbFoxReset_clicked();
   void on_comboBoxHoundSort_activated (int index);
   void not_GA_warning_message ();
@@ -312,7 +315,6 @@ private slots:
   void on_pbBestSP_clicked();
   void on_RoundRobin_currentTextChanged(QString text);
   void  setTxMsg(int n);
-  void sbFtolMaxVal();
   bool stdCall(QString const& w);
   void remote_configure (QString const& mode, quint32 frequency_tolerance, QString const& submode
                          , bool fast_mode, quint32 tr_period, quint32 rx_df, QString const& dx_call

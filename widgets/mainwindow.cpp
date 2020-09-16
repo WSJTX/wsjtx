@@ -208,7 +208,7 @@ namespace
   // grid exact match excluding RR73
   QRegularExpression grid_regexp {"\\A(?![Rr]{2}73)[A-Ra-r]{2}[0-9]{2}([A-Xa-x]{2}){0,1}\\z"};
   auto quint32_max = std::numeric_limits<quint32>::max ();
-  constexpr int N_WIDGETS {34};
+  constexpr int N_WIDGETS {36};
   constexpr int rx_chunk_size {3456}; // audio samples at 12000 Hz
   constexpr int tx_audio_buffer_size {48000 / 5}; // audio frames at 48000 Hz
 
@@ -1135,6 +1135,8 @@ void MainWindow::writeSettings()
   m_settings->setValue("WSPRfreq",ui->WSPRfreqSpinBox->value());
   m_settings->setValue("FST4W_RxFreq",ui->sbFST4W_RxFreq->value());
   m_settings->setValue("FST4W_FTol",ui->sbFST4W_FTol->value());
+  m_settings->setValue("FST4_FLow",ui->sbF_Low->value());
+  m_settings->setValue("FST4_FHigh",ui->sbF_High->value());
   m_settings->setValue("SubMode",ui->sbSubmode->value());
   m_settings->setValue("DTtol",m_DTtol);
   m_settings->setValue("Ftol", ui->sbFtol->value ());
@@ -1222,6 +1224,8 @@ void MainWindow::readSettings()
   ui->RxFreqSpinBox->setValue(m_settings->value("RxFreq",1500).toInt());
   ui->sbFST4W_RxFreq->setValue(0);
   ui->sbFST4W_RxFreq->setValue(m_settings->value("FST4W_RxFreq",1500).toInt());
+  ui->sbF_Low->setValue(m_settings->value("FST4_FLow",600).toInt());
+  ui->sbF_High->setValue(m_settings->value("FST4_FHigh",1400).toInt());
   m_nSubMode=m_settings->value("SubMode",0).toInt();
   ui->sbFtol->setValue (m_settings->value("Ftol", 50).toInt());
   ui->sbFST4W_FTol->setValue(m_settings->value("FST4W_FTol",100).toInt());
@@ -1427,6 +1431,10 @@ void MainWindow::dataSink(qint64 frames)
 // Get power, spectrum, and ihsym
   dec_data.params.nfa=m_wideGraph->nStartFreq();
   dec_data.params.nfb=m_wideGraph->Fmax();
+  if(m_mode=="FST4") {
+    dec_data.params.nfa=ui->sbF_Low->value();
+    dec_data.params.nfb=ui->sbF_High->value();
+  }
   int nsps=m_nsps;
   if(m_bFastMode) nsps=6912;
   int nsmo=m_wideGraph->smoothYellow()-1;
@@ -4224,7 +4232,7 @@ void MainWindow::guiUpdate()
 //Once per second (onesec)
   if(nsec != m_sec0) {
 //      qDebug() << "AAA" << nsec;
-    if(m_mode=="FST4") sbFtolMaxVal();
+    if(m_mode=="FST4") chk_FST4_freq_range();
     m_currentBand=m_config.bands()->find(m_freqNominal);
     if( SpecOp::HOUND == m_config.special_op_id() ) {
       qint32 tHound=QDateTime::currentMSecsSinceEpoch()/1000 - m_tAutoOn;
@@ -5870,6 +5878,8 @@ void MainWindow::displayWidgets(qint64 n)
     if(i==31) ui->cbRxAll->setVisible(b);
     if(i==32) ui->cbCQonly->setVisible(b);
     if(i==33) ui->sbTR_FST4W->setVisible(b);
+    if(i==34) ui->sbF_Low->setVisible(b);
+    if(i==35) ui->sbF_High->setVisible(b);
     j=j>>1;
   }
   ui->pbBestSP->setVisible(m_mode=="FT4");
@@ -5902,12 +5912,12 @@ void MainWindow::on_actionFST4_triggered()
   ui->label_6->setText(tr ("Band Activity"));
   ui->label_7->setText(tr ("Rx Frequency"));
   WSPR_config(false);
-//                         0123456789012345678901234567890123
-  displayWidgets(nWidgets("1111110001001110000100000001000000"));
+//                         012345678901234567890123456789012345
+  displayWidgets(nWidgets("111111000100111000010000000100000011"));
   setup_status_bar(false);
   ui->sbTR->values ({15, 30, 60, 120, 300, 900, 1800});
   on_sbTR_valueChanged (ui->sbTR->value());
-  sbFtolMaxVal();
+  chk_FST4_freq_range();
   ui->cbAutoSeq->setChecked(true);
   m_wideGraph->setMode(m_mode);
   m_wideGraph->setModeTx(m_modeTx);
@@ -5915,6 +5925,7 @@ void MainWindow::on_actionFST4_triggered()
   m_wideGraph->setRxFreq(ui->RxFreqSpinBox->value());
   m_wideGraph->setTol(ui->sbFtol->value());
   m_wideGraph->setTxFreq(ui->TxFreqSpinBox->value());
+  m_wideGraph->setFST4_FreqRange(ui->sbF_Low->value(),ui->sbF_High->value());
   switch_mode (Modes::FST4);
   m_wideGraph->setMode(m_mode);
   statusChanged();
@@ -5933,8 +5944,8 @@ void MainWindow::on_actionFST4W_triggered()
   m_FFTSize = m_nsps / 2;
   Q_EMIT FFTSize(m_FFTSize);
   WSPR_config(true);
-//                         0123456789012345678901234567890123
-  displayWidgets(nWidgets("0000000000000000010100000000000001"));
+//                         012345678901234567890123456789012345
+  displayWidgets(nWidgets("000000000000000001010000000000000100"));
   setup_status_bar(false);
   ui->band_hopping_group_box->setChecked(false);
   ui->band_hopping_group_box->setVisible(false);
@@ -5982,7 +5993,7 @@ void MainWindow::on_actionFT4_triggered()
   ui->label_7->setText(tr ("Rx Frequency"));
   ui->label_6->setText(tr ("Band Activity"));
   ui->decodedTextLabel->setText( "  UTC   dB   DT Freq    " + tr ("Message"));
-  displayWidgets(nWidgets("1110100001001110000100000001100010"));
+  displayWidgets(nWidgets("111010000100111000010000000110001000"));
   ui->txrb2->setEnabled(true);
   ui->txrb4->setEnabled(true);
   ui->txrb5->setEnabled(true);
@@ -6031,7 +6042,7 @@ void MainWindow::on_actionFT8_triggered()
     ui->label_6->setText(tr ("Band Activity"));
     ui->decodedTextLabel->setText( "  UTC   dB   DT Freq    " + tr ("Message"));
   }
-  displayWidgets(nWidgets("1110100001001110000100001001100010"));
+  displayWidgets(nWidgets("111010000100111000010000100110001000"));
   ui->txrb2->setEnabled(true);
   ui->txrb4->setEnabled(true);
   ui->txrb5->setEnabled(true);
@@ -6049,7 +6060,7 @@ void MainWindow::on_actionFT8_triggered()
     ui->cbAutoSeq->setEnabled(false);
     ui->tabWidget->setCurrentIndex(1);
     ui->TxFreqSpinBox->setValue(300);
-    displayWidgets(nWidgets("1110100001001110000100000000001000"));
+    displayWidgets(nWidgets("111010000100111000010000000000100000"));
     ui->labDXped->setText(tr ("Fox"));
     on_fox_log_action_triggered();
   }
@@ -6059,7 +6070,7 @@ void MainWindow::on_actionFT8_triggered()
     ui->cbAutoSeq->setEnabled(false);
     ui->tabWidget->setCurrentIndex(0);
     ui->cbHoldTxFreq->setChecked(true);
-    displayWidgets(nWidgets("1110100001001100000100000000001100"));
+    displayWidgets(nWidgets("111010000100110000010000000000110000"));
     ui->labDXped->setText(tr ("Hound"));
     ui->txrb1->setChecked(true);
     ui->txrb2->setEnabled(false);
@@ -6134,9 +6145,9 @@ void MainWindow::on_actionJT4_triggered()
     ui->sbSubmode->setValue(0);
   }
   if(bVHF) {
-    displayWidgets(nWidgets("1111100100101101101111000000000000"));
+    displayWidgets(nWidgets("111110010010110110111100000000000000"));
   } else {
-    displayWidgets(nWidgets("1110100000001100001100000000000000"));
+    displayWidgets(nWidgets("111010000000110000110000000000000000"));
   }
   fast_config(false);
   statusChanged();
@@ -6193,9 +6204,9 @@ void MainWindow::on_actionJT9_triggered()
   ui->label_6->setText(tr ("Band Activity"));
   ui->label_7->setText(tr ("Rx Frequency"));
   if(bVHF) {
-    displayWidgets(nWidgets("1111101010001111100100000000000000"));
+    displayWidgets(nWidgets("111110101000111110010000000000000000"));
   } else {
-    displayWidgets(nWidgets("1110100000001110000100000000000010"));
+    displayWidgets(nWidgets("111010000000111000010000000000001000"));
   }
   fast_config(m_bFastMode);
   ui->cbAutoSeq->setVisible(m_bFast9);
@@ -6234,7 +6245,7 @@ void MainWindow::on_actionJT9_JT65_triggered()
   ui->label_7->setText(tr ("Rx Frequency"));
   ui->decodedTextLabel->setText("UTC   dB   DT Freq    " + tr ("Message"));
   ui->decodedTextLabel2->setText("UTC   dB   DT Freq    " + tr ("Message"));
-  displayWidgets(nWidgets("1110100000011110000100000000000010"));
+  displayWidgets(nWidgets("111010000001111000010000000000001000"));
   fast_config(false);
   statusChanged();
 }
@@ -6282,9 +6293,9 @@ void MainWindow::on_actionJT65_triggered()
     ui->label_7->setText(tr ("Rx Frequency"));
   }
   if(bVHF) {
-    displayWidgets(nWidgets("1111100100001101101011000100000000"));
+    displayWidgets(nWidgets("111110010000110110101100010000000000"));
   } else {
-    displayWidgets(nWidgets("1110100000001110000100000000000010"));
+    displayWidgets(nWidgets("111010000000111000010000000000001000"));
   }
   fast_config(false);
   if(ui->cbShMsgs->isChecked()) {
@@ -6316,7 +6327,7 @@ void MainWindow::on_actionQRA64_triggered()
   ui->TxFreqSpinBox->setValue(1000);
   QString fname {QDir::toNativeSeparators(m_config.temp_dir ().absoluteFilePath ("red.dat"))};
   m_wideGraph->setRedFile(fname);
-  displayWidgets(nWidgets("1111100100101101100000000010000000"));
+  displayWidgets(nWidgets("111110010010110110000000001000000000"));
   statusChanged();
 }
 
@@ -6353,7 +6364,7 @@ void MainWindow::on_actionISCAT_triggered()
   ui->sbSubmode->setMaximum(1);
   if(m_nSubMode==0) ui->TxFreqSpinBox->setValue(1012);
   if(m_nSubMode==1) ui->TxFreqSpinBox->setValue(560);
-  displayWidgets(nWidgets("1001110000000001100000000000000000"));
+  displayWidgets(nWidgets("100111000000000110000000000000000000"));
   fast_config(true);
   statusChanged ();
 }
@@ -6415,7 +6426,7 @@ void MainWindow::on_actionMSK144_triggered()
   ui->rptSpinBox->setValue(0);
   ui->rptSpinBox->setSingleStep(1);
   ui->sbFtol->values ({20, 50, 100, 200});
-  displayWidgets(nWidgets("1011111101000000000100010000100000"));
+  displayWidgets(nWidgets("101111110100000000010001000010000000"));
   fast_config(m_bFastMode);
   statusChanged();
 
@@ -6455,7 +6466,7 @@ void MainWindow::on_actionWSPR_triggered()
   m_bFastMode=false;
   m_bFast9=false;
   ui->TxFreqSpinBox->setValue(ui->WSPRfreqSpinBox->value());
-  displayWidgets(nWidgets("0000000000000000010100000000000000"));
+  displayWidgets(nWidgets("000000000000000001010000000000000000"));
   fast_config(false);
   statusChanged();
 }
@@ -6488,7 +6499,7 @@ void MainWindow::on_actionEcho_triggered()
   m_bFast9=false;
   WSPR_config(true);
   ui->decodedTextLabel->setText("   UTC      N   Level    Sig      DF    Width   Q");
-  displayWidgets(nWidgets("0000000000000000000000100000000000"));
+  displayWidgets(nWidgets("000000000000000000000010000000000000"));
   fast_config(false);
   statusChanged();
 }
@@ -6514,7 +6525,7 @@ void MainWindow::on_actionFreqCal_triggered()
 //                               18:15:47      0  1  1500  1550.349     0.100    3.5   10.2
   ui->decodedTextLabel->setText("  UTC      Freq CAL Offset  fMeas       DF     Level   S/N");
   ui->measure_check_box->setChecked (false);
-  displayWidgets(nWidgets("0011010000000000000000000000010000"));
+  displayWidgets(nWidgets("001101000000000000000000000001000000"));
   statusChanged();
 }
 
@@ -6618,6 +6629,35 @@ void MainWindow::on_RxFreqSpinBox_valueChanged(int n)
     setRig ();
   }
   statusUpdate ();
+}
+
+void MainWindow::on_sbF_Low_valueChanged(int n)
+{
+  m_wideGraph->setFST4_FreqRange(n,ui->sbF_High->value());
+  chk_FST4_freq_range();
+}
+
+void MainWindow::on_sbF_High_valueChanged(int n)
+{
+  m_wideGraph->setFST4_FreqRange(ui->sbF_Low->value(),n);
+  chk_FST4_freq_range();
+}
+
+void MainWindow::chk_FST4_freq_range()
+{
+  int maxDiff=2000;
+  if(m_TRperiod==120) maxDiff=1000;
+  if(m_TRperiod==300) maxDiff=400;
+  if(m_TRperiod>=900) maxDiff=200;
+  int diff=ui->sbF_High->value() - ui->sbF_Low->value();
+
+  if(diff<100 or diff>maxDiff) {
+    ui->sbF_Low->setStyleSheet("QSpinBox { background-color: red; }");
+    ui->sbF_High->setStyleSheet("QSpinBox { background-color: red; }");
+  } else {
+    ui->sbF_Low->setStyleSheet("");
+    ui->sbF_High->setStyleSheet("");
+  }
 }
 
 void MainWindow::on_actionQuickDecode_toggled (bool checked)
@@ -7467,7 +7507,7 @@ void MainWindow::on_sbTR_valueChanged(int value)
     m_wideGraph->setPeriod (value, m_nsps);
     progressBar.setMaximum (value);
   }
-  if(m_mode=="FST4") sbFtolMaxVal();
+  if(m_mode=="FST4") chk_FST4_freq_range();
   if(m_monitoring) {
     on_stopButton_clicked();
     on_monitorButton_clicked(true);
@@ -7476,14 +7516,6 @@ void MainWindow::on_sbTR_valueChanged(int value)
     on_stopTxButton_clicked();
   }
   statusUpdate ();
-}
-
-void MainWindow::sbFtolMaxVal()
-{
-  if(m_TRperiod<=60) ui->sbFtol->setMaximum(1000);
-  if(m_TRperiod==120) ui->sbFtol->setMaximum(500);
-  if(m_TRperiod==300) ui->sbFtol->setMaximum(200);
-  if(m_TRperiod>=900) ui->sbFtol->setMaximum(100);
 }
 
 void MainWindow::on_sbTR_FST4W_valueChanged(int value)
