@@ -244,7 +244,7 @@ contains
       decodes=' '
 
       do inb=inb0,inb1,inb2
-         npct=inb
+         if(nb.lt.0) npct=inb
          call blanker(iwave,nfft1,ndropmax,npct,c_bigfft)
 
 ! The big fft is done once and is used for calculating the smoothed spectrum
