@@ -6297,6 +6297,9 @@ void MainWindow::on_actionJT65_triggered()
   m_wideGraph->setPeriod(m_TRperiod,m_nsps);
   m_wideGraph->setMode(m_mode);
   m_wideGraph->setModeTx(m_modeTx);
+  m_wideGraph->setRxFreq(ui->RxFreqSpinBox->value());
+  m_wideGraph->setTol(ui->sbFtol->value());
+  m_wideGraph->setTxFreq(ui->TxFreqSpinBox->value());
   setup_status_bar (bVHF);
   m_bFastMode=false;
   m_bFast9=false;
