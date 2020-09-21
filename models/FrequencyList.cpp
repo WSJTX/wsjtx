@@ -48,7 +48,7 @@ namespace
       {136000, Modes::WSPR, IARURegions::ALL},
       {136000, Modes::FST4, IARURegions::ALL},
       {136000, Modes::FST4W, IARURegions::ALL},
-      {136130, Modes::JT9, IARURegions::ALL},
+      {136000, Modes::JT9, IARURegions::ALL},
 
       {474200, Modes::JT9, IARURegions::ALL},
       {474200, Modes::FST4, IARURegions::ALL},
