@@ -660,6 +660,7 @@ private:
   QDateTime m_dateTimeSentTx3;
   QDateTime m_dateTimeRcvdRR73;
   QDateTime m_dateTimeBestSP;
+  QDateTime m_dateTimeSeqStart;        //Nominal start time of Rx sequence about to be decoded
 
   QSharedMemory *mem_jt9;
   QString m_QSOText;

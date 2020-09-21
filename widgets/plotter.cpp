@@ -547,7 +547,8 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
         x1=XfromFreq(m_rxFreq-m_tol);
         x2=XfromFreq(m_rxFreq+m_tol);
         painter0.drawLine(x1,26,x2,26);   // Mark the Tol range
-      }    }
+      }
+    }
   }
 
   if(m_mode=="JT9" or m_mode=="JT65" or m_mode=="JT9+JT65" or

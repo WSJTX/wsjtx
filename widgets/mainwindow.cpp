@@ -1893,7 +1893,11 @@ void MainWindow::on_monitorButton_clicked (bool checked)
         setXIT (ui->TxFreqSpinBox->value ());
       }
           // ensure FreqCal triggers
-      on_RxFreqSpinBox_valueChanged (ui->RxFreqSpinBox->value ());
+      if(m_mode=="FST4W") {
+        on_sbFST4W_RxFreq_valueChanged(ui->sbFST4W_RxFreq->value());
+      } else {
+        on_RxFreqSpinBox_valueChanged (ui->RxFreqSpinBox->value ());
+      }
     }
       //Get Configuration in/out of strict split and mode checking
     m_config.sync_transceiver (true, checked);
@@ -3022,6 +3026,8 @@ void MainWindow::decode()                                       //decode()
     dec_data.params.nutc=dec_data.params.nutc/100;
   }
   if(dec_data.params.nagain==0 && dec_data.params.newdat==1 && (!m_diskData)) {
+    qint64 nperiods=now.toMSecsSinceEpoch()/(1000.0*m_TRperiod);
+    m_dateTimeSeqStart=QDateTime::fromMSecsSinceEpoch(qint64(1000.0*nperiods*m_TRperiod)).toUTC();
     qint64 ms = QDateTime::currentMSecsSinceEpoch() % 86400000;
     int imin=ms/60000;
     int ihr=imin/60;
@@ -7508,7 +7514,7 @@ void::MainWindow::VHF_features_enabled(bool b)
 
 void MainWindow::on_sbTR_valueChanged(int value)
 {
-//  if(!m_bFastMode and n>m_nSubMode) m_MinW=m_nSubMode;
+  //  if(!m_bFastMode and n>m_nSubMode) m_MinW=m_nSubMode;
   if(m_bFastMode or m_mode=="FreqCal" or m_mode=="FST4" or m_mode=="FST4W") {
     m_TRperiod = value;
     if (m_mode == "FST4" || m_mode == "FST4W")
@@ -9101,13 +9107,8 @@ void MainWindow::write_all(QString txRx, QString message)
   t = t.asprintf("%5d",ui->TxFreqSpinBox->value());
   if (txRx=="Tx") msg="   0  0.0" + t + " " + message;
   auto time = QDateTime::currentDateTimeUtc ();
-  if( txRx=="Rx" ) {
-    double tdec = fmod(double(time.time().second()),m_TRperiod);
-    if( "MSK144" != m_mode && tdec < 0.5*m_TRperiod ) {
-      tdec+=m_TRperiod;
-    } 
-    time = time.addSecs(-tdec);
-  }
+  if( txRx=="Rx" ) time=m_dateTimeSeqStart;
+
   t = t.asprintf("%10.3f ",m_freqNominal/1.e6);
   if (m_diskData) {
     if (m_fileDateTime.size()==11) {
