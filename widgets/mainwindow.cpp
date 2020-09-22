@@ -7458,7 +7458,7 @@ void MainWindow::transmitDisplay (bool transmitting)
     auto QSY_allowed = !transmitting or m_config.tx_QSY_allowed () or
       !m_config.split_mode ();
     if (ui->cbHoldTxFreq->isChecked ()) {
-      ui->RxFreqSpinBox->setEnabled (QSY_allowed);
+      ui->TxFreqSpinBox->setEnabled (QSY_allowed);
       ui->pbT2R->setEnabled (QSY_allowed);
     }
 
