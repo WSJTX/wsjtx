@@ -299,7 +299,7 @@ threshold sensitivities of the various submodes when spreading is
 comparable to tone spacing.
 
 [[SLOW_SUBMODES]]
-.Parameters of Slow Submodes with Wider Tome Spacings
+.Parameters of Slow Submodes with Selectable Tone Spacings
 [width="50%",cols="h,3*^",frame=topbot,options="header"]
 |=====================================
 |Mode  |Tone Spacing  |BW (Hz)|S/N (dB)

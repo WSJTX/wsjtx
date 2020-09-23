@@ -14,7 +14,7 @@ the Wide Graph frequency scale:
 
 image::FST4_Decoding_Limits.png[align="center"]
 
-In general the specified range should be no larger than needed, since
+In general the specified range should be no larger than you need, since
 detected transmissions in modes other than the selected FST4 sequence
 length will be undecodable and will slow down the decoding process.
 
