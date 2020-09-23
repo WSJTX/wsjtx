@@ -1,107 +1,31 @@
+[[NEW_FEATURES]]
 === New in Version {VERSION}
 
-*Improvements to decoders*
+_WSJT-X 2.3.0_ introduces *FST4* and *FST4W*, new digital protocols
+designed particularly for the LF and MF bands.  On these bands their
+fundamental sensitivities are better than other _WSJT-X_ modes with the
+same sequence lengths, approaching the theoretical limits for their
+rates of information throughput.  FST4 is optimized for two-way QSOs,
+while FST4W is for quasi-beacon transmissions of WSPR-style messages.
+FST4 and FST4W do not require the strict, independent time
+synchronization and phase locking of modes like EbNaut.
 
-*FT4:* Corrected bugs that prevented AP (_a priori_) decoding and/or
-multi-pass decoding in some circumstances.  Improved and extended the
-algorithm for AP decoding.
+The new modes use 4-GFSK modulation and share common software for
+encoding and decoding messages.  FST4 offers T/R sequence lengths of
+15, 30, 60, 120, 300, 900, and 1800 seconds, while FST4W omits the
+lengths shorter than 120 s.  Submodes are given names like FST4-60,
+FST4W-300, etc., the appended numbers indicating sequence length in
+seconds.  Message payloads contain either 77 bits, as in FT4, FT8, and
+MSK144, or 50 bits for the WSPR-like messages of FST4W.  Message
+formats displayed to the user are like those in the other 77-bit and
+50-bit modes in _WSJT-X_.  Forward error correction uses a low density
+parity check (LDPC) code with 240 information and parity bits.
+Transmissions consist of 160 symbols: 120 information-carrying symbols
+of two bits each, interspersed with five groups of eight predefined
+synchronization symbols.
 
-*FT8:* Decoding is now spread over three intervals.  The first starts
-11.8 s into an Rx sequence and typically yields around 85% of the
-possible decodes, so you see most decodes much earlier than before.  A
-second processing step starts at 13.5 s, and the final one at 14.7 s.
-Overall decoding yield on crowded bands is improved by 10% or more.
-Systems with receive latency greater than 0.2 s will see smaller
-improvements, but will still see many decodes earlier than before.
-
-SNR estimates no longer saturate at +20 dB, and large signals in the
-passband no longer cause the SNR of weaker signals to be biased low.
-Times written to cumulative journal file ALL.TXT are now correct even
-when the decode occurs after the T/R sequence boundary.  In FT8
-DXpedition Mode, AP decoding is now implemented for Hounds when the
-Fox has a compound callsign.
-
-
-*JT4:*  Formatting and display of averaged and Deep Search decodes has
-been cleaned up and made consistent with other modes used for EME and
-extreme weak-signal work on microwave bands.
-
-*JT65:*  Many improvements have been made for averaged and Deep Search
-decodes, and their display to the user.  For details see <<VHF_JT65,JT65>>
-in the <<VHF_AND_UP,VHF+ Features>> section of this guide.
-
-*WSPR:* Significant improvements have been made to the WSPR decoder's
-sensitivity, its ability to cope with many signals in a crowded
-sub-band, and its rate of undetected false decodes.  We now use up to
-three decoding passes.  Passes 1 and 2 use noncoherent demodulation of
-single symbols and allow for frequency drifts up to ±4 Hz in a
-transmission.  Pass 3 assumes no drift and does coherent block
-detection of up to three symbols.  It also applies bit-by-bit
-normalization of the single-symbol bit metrics, a technique that has
-proven helpful for signals corrupted by artifacts of the subtraction
-of stronger signals and also for LF/MF signals heavily contaminated by
-lightning transients.  With these improvements the number of decodes
-in a crowded WSPR sub-band typically increases by 10 to 15%.
-
-*New message format:* When *EU VHF Contest* is selected, the Tx2 and
-Tx3 messages -- those conveying signal report, serial number, and
-6-character locator -- now use hashcodes for both callsigns.  This
-change is *not* backward compatible with earlier versions of _WSJT-X_, so
-all users of *EU VHF Contest* messages should be sure to upgrade to
-version 2.2.0.  See <<CONTEST_MSGS,Contest Messages>> for details.
-
-*Minor enhancements and bug fixes*
-
-- *Save None* now writes no .wav files to disk, even temporarily.
-
-- An explicit entry for *WW Digi Contest* has been added to *Special
- operating activities* on the *Settings | Advanced* tab.
-
-- The contest mode FT4 now always uses RR73 for the Tx4 message.
-
-- *Keyboard shortcuts* have been added as an aid to accessibility:
-*Alt+R* sets Tx4 message to RR73, *Ctrl+R* sets it to RRR.
-
-- The *Status bar* now displays the number of decodes found in the
-most recent Rx sequence.
-
-- As an aid for partial color-blindness, the "`inverted goal posts`"
-marking Rx frequency on the Wide Graph's frequency scale are now in a
-darker shade of green.
-
-=== Documentation Conventions
-
-In this manual the following icons call attention to particular types
-of information:
-
-NOTE: *Notes* containing information that may be of interest to
-particular classes of users.
-
-TIP: *Tips* on program features or capabilities that might otherwise be
-overlooked.
-
-IMPORTANT: *Warnings* about usage that could lead to undesired
-consequences.
-
-=== User Interface in Other Languages
-
-Thanks to Xavi Perez, EA3W, in cooperation with G4WJS, the _WSJT-X_
-user interface is now available the Catalan language.  Spanish will
-follow soon, and other languages when translations are made.  When a
-translated user interface is available for the computer's default
-System Language, it will appear automatically on program startup.
-
-=== How You Can Contribute
-
-_WSJT-X_ is part of an open-source project released under the
-{gnu_gpl} (GPLv3). If you have programming or documentation skills or
-would like to contribute to the project in other ways, please make
-your interests known to the development team.  We especially encourage
-those with translation skills to volunteer their help, either for
-this _User Guide_ or for the program's user interface.
-
-The project's source-code repository can be found at {devrepo}, and
-communication among the developers takes place on the email reflector
-{devmail}.  Bug reports and suggestions for new features, improvements
-to the _WSJT-X_ User Guide, etc., may be sent there as well.  You must
-join the group before posting to the email list.
+*We recommend that on the 2200 and 630 m bands FST4 should replace JT9
+for making 2-way QSOs, and FST4W should replace WSPR for propagation
+tests*.  Operating conventions on these LF and MF bands will
+eventually determine the most useful T/R sequence lengths for each
+type of operation.

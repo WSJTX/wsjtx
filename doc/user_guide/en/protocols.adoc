@@ -14,7 +14,7 @@ Special cases allow other information such as add-on callsign prefixes
 aim is to compress the most common messages used for minimally valid
 QSOs into a fixed 72-bit length.
 
-The information payload for FT4, FT8, and MSK144 contains 77 bits.
+The information payloads for FST4, FT4, FT8, and MSK144 contain 77 bits.
 The 5 new bits added to the original 72 are used to flag special
 message types signifying special message types used for FT8 DXpedition
 Mode, contesting, nonstandard callsigns, and a few other
@@ -54,7 +54,7 @@ were the callsigns `E9AA` through `E9ZZ`.  Upon reception they are
 converted back to the form `CQ AA` through `CQ ZZ`, for display to the
 user.
 
-The FT4, FT8, and MSK144 protocols use different lossless compression
+The FST4, FT4, FT8, and MSK144 protocols use different lossless compression
 algorithms with features that generate and recognize special messages
 used for contesting and other special purposes.  Full details have
 been published in QEX, see {ft4_ft8_protocols}.
@@ -70,6 +70,21 @@ _WSJT-X_ modes have continuous phase and constant envelope.
 
 [[SLOW_MODES]]
 === Slow Modes
+
+[[FST4PRO]]
+==== FST4
+
+FST4 offers T/R sequence lengths of 15, 30, 60, 120, 300, 900, and
+1800 seconds.  Submodes are given names like FST4-60, FST4-120, etc.,
+the appended numbers indicating sequence length in seconds.  Message
+payloads contain 77 bits, and a 24-bit cyclic redundancy check (CRC)
+appended to create a 101-bit message-plus-CRC word.  Forward error
+correction is accomplished using a (240,101) LDPC code.  Transmissions
+consist of 160 symbols: 120 information-carrying symbols of two bits
+each, interspersed with five groups of eight predefined
+synchronization symbols.  Modulation uses 4-tone frequency-shift
+keying (4-GFSK) with Gaussian smoothing of frequency transitions.
+
 
 [[FT4PRO]]
 ==== FT4
@@ -225,6 +240,20 @@ information the least significant. Thus, on a 0 – 3 scale, the tone
 for a given symbol is twice the value (0 or 1) of the data bit, plus
 the sync bit.
 
+[[FST4WPRO]]
+==== FST4W
+
+FST4W offers T/R sequence lengths of 120, 300, 900, and 1800 seconds.
+Submodes are given names like FST4W-120, FST4W-300, etc., the appended
+numbers indicating sequence length in seconds.  Message payloads
+contain 50 bits, and a 24-bit cyclic redundancy check (CRC) appended
+to create a 74-bit message-plus-CRC word.  Forward error correction
+is accomplished using a (240,74) LDPC code.  Transmissions consist of
+160 symbols: 120 information-carrying symbols of two bits each,
+interspersed with five groups of eight predefined synchronization
+symbols.  Modulation uses 4-tone frequency-shift keying (4-GFSK) with
+Gaussian smoothing of frequency transitions.
+
 [[SLOW_SUMMARY]]
 ==== Summary
 
@@ -239,17 +268,28 @@ which the probability of decoding is 50% or higher.
 
 [[SLOW_TAB]]
 .Parameters of Slow Modes
-[width="90%",cols="3h,^3,^2,^1,^2,^2,^2,^2,^2,^2",frame=topbot,options="header"]
+[width="100%",cols="3h,^3,^2,^1,^2,^2,^2,^2,^2,^2",frame=topbot,options="header"]
 |===============================================================================
 |Mode |FEC Type |(n,k) | Q|Modulation type|Keying rate (Baud)|Bandwidth (Hz)
 |Sync Energy|Tx Duration (s)|S/N Threshold (dB)
-|FT4  |LDPC, r=1/2|(174,91)| 4| 4-GFSK| 20.8333 | 83.3 | 0.15| 5.04 | -17.5
-|FT8  |LDPC, r=1/2|(174,91)| 8| 8-GFSK| 6.25 | 50.0 | 0.27| 12.6 | -21
+|FST4-15   |LDPC |  (240,101)| 4| 4-GFSK| 16.6667 | 67.7 | 0.25| 9.60  | -20.7
+|FST4-30   |LDPC |  (240,101)| 4| 4-GFSK|  7.14  | 28.6  | 0.25| 22.4  | -24.2
+|FST4-60   |LDPC |  (240,101)| 4| 4-GFSK|  3.09  | 12.4  | 0.25| 51.8  | -28.1
+|FST4-120  |LDPC |  (240,101)| 4| 4-GFSK|  1.46  |  5.9  | 0.25| 109.3 | -31.3
+|FST4-300  |LDPC |  (240,101)| 4| 4-GFSK|  0.56  |  2.2  | 0.25| 286.7 | -35.3
+|FST4-900  |LDPC |  (240,101)| 4| 4-GFSK|  0.180 |  0.72 | 0.25| 887.5 | -40.2
+|FST4-1800 |LDPC |  (240,101)| 4| 4-GFSK|  0.089 |  0.36 | 0.25| 1792.0| -43.2
+|FT4  |LDPC |(174,91)| 4| 4-GFSK| 20.8333 | 83.3 | 0.15| 5.04 | -17.5
+|FT8  |LDPC |(174,91)| 8| 8-GFSK| 6.25 | 50.0 | 0.27| 12.6 | -21
 |JT4A |K=32, r=1/2|(206,72)| 2| 4-FSK| 4.375| 17.5 | 0.50| 47.1 | -23
-|JT9A |K=32, r=1/2|(206,72)| 8| 9-FSK| 1.736| 15.6 | 0.19| 49.0 | -27
+|JT9A |K=32, r=1/2|(206,72)| 8| 9-FSK| 1.736| 15.6 | 0.19| 49.0 | -26
 |JT65A |Reed Solomon|(63,12) |64|65-FSK| 2.692| 177.6 | 0.50| 46.8 | -25
 |QRA64A|Q-ary Repeat Accumulate|(63,12) |64|64-FSK|1.736|111.1|0.25|48.4| -26
 | WSPR |K=32, r=1/2|(162,50)| 2| 4-FSK| 1.465| 5.9 | 0.50|110.6 | -31
+|FST4W-120  |LDPC |  (240,74)| 4| 4-GFSK|  1.46  |  5.9  | 0.25| 109.3 | -32.8
+|FST4W-300  |LDPC |  (240,74)| 4| 4-GFSK|  0.56  |  2.2  | 0.25| 286.7 | -36.8
+|FST4W-900  |LDPC |  (240,74)| 4| 4-GFSK|  0.180 |  0.72 | 0.25| 887.5 | -41.7
+|FST4W-1800 |LDPC |  (240,74)| 4| 4-GFSK|  0.089 |  0.36 | 0.25| 1792.0| -44.8
 |===============================================================================
 
 Submodes of JT4, JT9, JT65, and QRA64 offer wider tone spacings for
@@ -259,12 +299,10 @@ threshold sensitivities of the various submodes when spreading is
 comparable to tone spacing.
 
 [[SLOW_SUBMODES]]
-.Parameters of Slow Submodes
+.Parameters of Slow Submodes with Wider Tome Spacings
 [width="50%",cols="h,3*^",frame=topbot,options="header"]
 |=====================================
 |Mode  |Tone Spacing  |BW (Hz)|S/N (dB)
-|FT4   |20.8333 | 83.3  |-17.5
-|FT8   |6.25 |  50.0  |-21
 |JT4A  |4.375|  17.5  |-23
 |JT4B  |8.75 |  30.6  |-22
 |JT4C  |17.5 |  56.9  |-21
@@ -272,7 +310,7 @@ comparable to tone spacing.
 |JT4E  |78.75|  240.6 |-19
 |JT4F  |157.5|  476.9 |-18
 |JT4G  |315.0|  949.4 |-17
-|JT9A  |1.736|  15.6  |-27
+|JT9A  |1.736|  15.6  |-26
 |JT9B  |3.472|  29.5  |-26
 |JT9C  |6.944|  57.3  |-25
 |JT9D  |13.889| 112.8 |-24

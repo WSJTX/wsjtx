@@ -3,42 +3,39 @@
 _WSJT-X_ is a computer program designed to facilitate basic amateur
 radio communication using very weak signals. The first four letters in
 the program name stand for "`**W**eak **S**ignal communication by
-K1**JT**,`" while the suffix "`-X`" indicates that _WSJT-X_ started as
-an extended and experimental branch of the program _WSJT_,
-first released in 2001.  Bill Somerville, G4WJS, and Steve Franke,
-K9AN, have been major contributors to program development since 2013
-and 2015, respectively.
+K1**JT**,`" while the suffix "`*-X*`" indicates that _WSJT-X_ started
+as an extended branch of an earlier program, _WSJT_, first released in
+2001.  Bill Somerville, G4WJS, and Steve Franke, K9AN, have been major
+contributors to development of _WSJT-X_ since 2013 and 2015, respectively.
 
-_WSJT-X_ Version {VERSION_MAJOR}.{VERSION_MINOR} offers ten different
-protocols or modes: *FT4*, *FT8*, *JT4*, *JT9*, *JT65*, *QRA64*,
-*ISCAT*, *MSK144*, *WSPR*, and *Echo*.  The first six are designed for
-making reliable QSOs under weak-signal conditions. They use nearly
-identical message structure and source encoding.  JT65 and QRA64 were
-designed for EME ("`moonbounce`") on the VHF/UHF bands and have also
-proven very effective for worldwide QRP communication on the HF bands.
-QRA64 has some advantages over JT65, including better performance
-for EME on the higher microwave bands.  JT9 was originally designed
-for the LF, MF, and lower HF bands.  Its submode JT9A is 2 dB more
-sensitive than JT65 while using less than 10% of the bandwidth.  JT4
-offers a wide variety of tone spacings and has proven highly effective
-for EME on microwave bands up to 24 GHz.  These four "`slow`" modes
-use one-minute timed sequences of alternating transmission and
-reception, so a minimal QSO takes four to six minutes — two or three
-transmissions by each station, one sending in odd UTC minutes and the
-other even.  FT8 is operationally similar but four times faster
-(15-second T/R sequences) and less sensitive by a few dB.  FT4 is
-faster still (7.5 s T/R sequences) and especially well-suited for
-radio contesting.  On the HF bands, world-wide QSOs are possible with
-any of these modes using power levels of a few watts (or even
-milliwatts) and compromise antennas.  On VHF bands and higher, QSOs
-are possible (by EME and other propagation types) at signal levels 10
-to 15 dB below those required for CW.
-
-Note that even though their T/R sequences are short, FT4 and FT8 are
-classified as slow modes because their message frames are sent only
-once per transmission.  All fast modes in _WSJT-X_ send their message
-frames repeatedly, as many times as will fit into the Tx sequence
-length.
+_WSJT-X_ Version {VERSION_MAJOR}.{VERSION_MINOR} offers twelve
+different protocols or modes: *FST4*, *FT4*, *FT8*, *JT4*, *JT9*,
+*JT65*, *QRA64*, *ISCAT*, *MSK144*, *WSPR*, *FST4W*, and *Echo*.  The
+first seven are designed for making reliable QSOs under weak-signal
+conditions. They use nearly identical message structure and source
+encoding.  JT65 and QRA64 were designed for EME ("`moonbounce`") on
+the VHF/UHF bands and have also proven very effective for worldwide
+QRP communication on the HF bands.  QRA64 has some advantages over
+JT65, including better performance for EME on the higher microwave
+bands.  JT9 was originally designed for the HF and lower 
+bands.  Its submode JT9A is nearly 2 dB more sensitive than JT65 while using
+less than 10% of the bandwidth.  JT4 offers a wide variety of tone
+spacings and has proven highly effective for EME on microwave bands up
+to 24 GHz.  These four "`slow`" modes use one-minute timed sequences
+of alternating transmission and reception, so a minimal QSO takes four
+to six minutes — two or three transmissions by each station, one
+sending in odd UTC minutes and the other even.  FT8 is operationally
+similar but four times faster (15-second T/R sequences) and less
+sensitive by a few dB.  FT4 is faster still (7.5 s T/R sequences) and
+especially well-suited for radio contesting.  FST4 was added to
+_WSJT-X_ in version 2.3.0.  It is intended especially for use on the
+LF and MF bands; further details can be found in the following
+section, <<NEW_FEATURES,New Features in Version 2.3.0>>.
+On the HF bands, world-wide QSOs are possible with any of these modes
+using power levels of a few watts (or even milliwatts) and compromise
+antennas.  On VHF bands and higher, QSOs are possible (by EME and
+other propagation types) at signal levels 10 to 15 dB below those
+required for CW.
 
 *ISCAT*, *MSK144*, and optionally submodes *JT9E-H* are "`fast`"
 protocols designed to take advantage of brief signal enhancements from
@@ -51,15 +48,25 @@ messages up to 28 characters long, while MSK144 uses the same
 structured messages as the slow modes and optionally an abbreviated
 format with hashed callsigns.  
 
+Note that some of the modes classified as slow can have T/R sequence
+lengths as short the fast modes.  "`Slow`" in this sense implies
+message frames being sent only once per transmission.  The fast modes
+in _WSJT-X_ send their message frames repeatedly, as many times as
+will fit into the Tx sequence length.
+
 *WSPR* (pronounced "`whisper`") stands for **W**eak **S**ignal
-**P**ropagation **R**eporter.  The WSPR protocol was designed for probing
-potential propagation paths using low-power transmissions. WSPR
-messages normally carry the transmitting station’s callsign, grid
-locator, and transmitter power in dBm, and they can be decoded at
-signal-to-noise ratios as low as -31 dB in a 2500 Hz bandwidth.  WSPR
-users with internet access can automatically upload reception
-reports to a central database called {wsprnet} that provides a mapping
-facility, archival storage, and many other features.
+**P**ropagation **R**eporter.  The WSPR protocol was designed for
+probing potential propagation paths using low-power transmissions.
+WSPR messages normally carry the transmitting station’s callsign,
+grid locator, and transmitter power in dBm, and with two-minute
+sequences they can be decoded at signal-to-noise ratios as low
+as -31 dB in a 2500 Hz bandwidth. *FST4W* is designed for
+similar purposes, but especially for use on LF and MF bands.
+It includes optional sequence lengths as long as 30 minutes and
+reaches sensitivity tresholds as low as -45 dB.  WSPR and FST4W users
+with internet access can automatically upload reception reports to a
+central database called {wsprnet} that provides a mapping facility,
+archival storage, and many other features.
 
 *Echo* mode allows you to detect and measure your own station's echoes
 from the moon, even if they are far below the audible threshold.

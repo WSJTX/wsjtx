@@ -1,0 +1,40 @@
+=== Documentation Conventions
+
+In this manual the following icons call attention to particular types
+of information:
+
+NOTE: *Notes* containing information that may be of interest to
+particular classes of users.
+
+TIP: *Tips* on program features or capabilities that might otherwise be
+overlooked.
+
+IMPORTANT: *Warnings* about usage that could lead to undesired
+consequences.
+
+=== User Interface in Other Languages
+
+The _WSJT-X_ user interface is now available in many languages.  When
+a translated user interface is available for the computer's default
+System Language, it will appear automatically on program startup.
+
+=== How You Can Contribute
+
+_WSJT-X_ is part of an open-source project released under the
+{gnu_gpl} (GPLv3). If you have programming or documentation skills or
+would like to contribute to the project in other ways, please make
+your interests known to the development team.  We especially encourage
+those with translation skills to volunteer their help, either for
+this _User Guide_ or for the program's user interface.
+
+The project's source-code repository can be found at {devrepo}, and
+communication among the developers takes place on the email reflector
+{devmail}.  Bug reports and suggestions for new features, improvements
+to the _WSJT-X_ User Guide, etc., may be sent there as well.  You must
+join the group before posting to the email list.
+
+
+=== License
+
+Before using _WSJT-X_, please read our licensing terms
+<<LICENSE,here>>.

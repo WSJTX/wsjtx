@@ -1,0 +1,24 @@
+FST4 is is designed for making 2-way QSOs on the LF and MF bands.  Do
+not confuse it with FT4, which has a very different purpose!  Most
+on-screen controls, auto-sequencing, and other features behave in FST4
+as in other modes.  However, operating conventions on the 2200 and 630
+m bands make it desirable to have additional user controls that set
+the active frequency range for decoding.  Spin boxes labeled *F Low*
+and *F High* set lower and upper frequency limits for the FST4
+decoder.  
+
+image::FST4_center.png[align="center"]
+
+Decoding limits are marked by dark green angle-bracket symbols *< >* on
+the Wide Graph frequency scale:
+
+image::FST4_Decoding_Limits.png[align="center"]
+
+In general the specified range should be no larger than needed, since
+detected transmissions in modes other than the selected FST4 sequence
+length will be undecodable and will slow down the decoding process.
+
+If *Single decode* on the the *File | Settings | General* tab is
+checked, the decoding range is further limited to the *F Tol* range
+around *Rx Freq*.
+

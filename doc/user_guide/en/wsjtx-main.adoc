@@ -32,6 +32,9 @@ include::introduction.adoc[]
 [[NEW_FEATURES]]
 include::new_features.adoc[]
 
+[[INTRO_SUBSECTIONS]]
+include::intro_subsections.adoc[]
+
 [[SYSREQ]]
 == System Requirements
 include::system-requirements.adoc[]
@@ -161,6 +164,14 @@ include::tutorial-example3.adoc[]
 [[TUT_EX4]]
 === FT4
 include::tutorial-example4.adoc[]
+
+[[TUT_EX5]]
+=== FST4
+include::tutorial-example5.adoc[]
+
+[[TUT_EX6]]
+=== FST4W
+include::tutorial-example6.adoc[]
 
 [[MAKE_QSOS]]
 == Making QSOs
