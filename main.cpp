@@ -9,7 +9,6 @@
 #include <QSharedMemory>
 #include <QTemporaryFile>
 #include <QDateTime>
-#include <QApplication>
 #include <QLocale>
 #include <QTranslator>
 #include <QRegularExpression>
@@ -28,6 +27,7 @@
 #include <QSqlQuery>
 #include <QSqlError>
 
+#include "ExceptionCatchingApplication.hpp"
 #include "Logger.hpp"
 #include "revision_utils.hpp"
 #include "MetaDataRegistry.hpp"
@@ -63,38 +63,6 @@ namespace
     }
   } seeding;
 #endif
-
-  // We  can't use  the GUI  after QApplication::exit()  is called  so
-  // uncaught exceptions can  get lost on Windows  systems where there
-  // is    no    console    terminal,     so    here    we    override
-  // QApplication::notify() and  wrap the base  class call with  a try
-  // block to catch and display exceptions in a message box.
-  class ExceptionCatchingApplication final
-    : public QApplication
-  {
-  public:
-    explicit ExceptionCatchingApplication (int& argc, char * * argv)
-      : QApplication {argc, argv}
-    {
-    }
-    bool notify (QObject * receiver, QEvent * e) override
-    {
-      try
-        {
-          return QApplication::notify (receiver, e);
-        }
-      catch (std::exception const& e)
-        {
-          MessageBox::critical_message (nullptr, "Fatal error", e.what ());
-          throw;
-        }
-      catch (...)
-        {
-          MessageBox::critical_message (nullptr, "Unexpected fatal error");
-          throw;
-        }
-    }
-  };
 }
 
 int main(int argc, char *argv[])
@@ -248,7 +216,7 @@ int main(int argc, char *argv[])
 
       // Create a unique writeable temporary directory in a suitable location
       bool temp_ok {false};
-      QString unique_directory {QApplication::applicationName ()};
+      QString unique_directory {ExceptionCatchingApplication::applicationName ()};
       do
         {
           if (!temp_dir.mkpath (unique_directory)
