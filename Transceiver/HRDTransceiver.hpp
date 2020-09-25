@@ -30,10 +30,11 @@ class HRDTransceiver final
   Q_OBJECT
 
 public:
-  static void register_transceivers (TransceiverFactory::Transceivers *, int id);
+  static void register_transceivers (logger_type *, TransceiverFactory::Transceivers *, int id);
 
   // takes ownership of wrapped Transceiver
-  explicit HRDTransceiver (std::unique_ptr<TransceiverBase> wrapped
+  explicit HRDTransceiver (logger_type *
+                           , std::unique_ptr<TransceiverBase> wrapped
                            , QString const& server
                            , bool use_for_ptt
                            , TransceiverFactory::TXAudioSource
@@ -53,17 +54,17 @@ protected:
   void do_poll () override;
 
 private:
-  QString send_command (QString const&, bool no_debug = false, bool prepend_context = true, bool recurse = false);
+  QString send_command (QString const&, bool prepend_context = true, bool recurse = false);
   QByteArray read_reply (QString const& command);
-  void send_simple_command (QString const&, bool no_debug = false);
+  void send_simple_command (QString const&);
   bool write_to_port (char const *, qint64 length);
   int find_button (QRegExp const&) const;
   int find_dropdown (QRegExp const&) const;
   std::vector<int> find_dropdown_selection (int dropdown, QRegExp const&) const;
-  int get_dropdown (int, bool no_debug = false);
+  int get_dropdown (int);
   void set_dropdown (int, int);
   void set_button (int button_index, bool checked = true);
-  bool is_button_checked (int button_index, bool no_debug = false);
+  bool is_button_checked (int button_index);
 
   // This dictionary type maps Transceiver::MODE to a list of mode
   // drop down selection indexes that equate to that mode.  It is used
@@ -75,7 +76,7 @@ private:
   int lookup_mode (MODE, ModeMap const&) const;
   MODE lookup_mode (int, ModeMap const&) const;
   void set_data_mode (MODE);
-  MODE get_data_mode (MODE, bool no_debug = false);
+  MODE get_data_mode (MODE);
 
   // An alternate TransceiverBase instance that can be used to drive
   // PTT if required.

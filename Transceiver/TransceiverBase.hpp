@@ -5,6 +5,7 @@
 
 #include <QString>
 
+#include "Logger.hpp"
 #include "Transceiver.hpp"
 
 //
@@ -61,8 +62,8 @@ class TransceiverBase
   Q_OBJECT;
 
 protected:
-  TransceiverBase (QObject * parent)
-    : Transceiver {parent}
+  TransceiverBase (logger_type * logger, QObject * parent)
+    : Transceiver {logger, parent}
     , last_sequence_number_ {0}
   {}
 
@@ -153,16 +154,7 @@ private:
 };
 
 // some trace macros
-#if WSJT_TRACE_CAT
-#define TRACE_CAT(FAC, MSG) qDebug () << QString {"%1::%2:"}.arg ((FAC)).arg (__func__) << MSG
-#else
-#define TRACE_CAT(FAC, MSG)
-#endif
-
-#if WSJT_TRACE_CAT && WSJT_TRACE_CAT_POLLS
-#define TRACE_CAT_POLL(FAC, MSG) qDebug () << QString {"%1::%2:"}.arg ((FAC)).arg (__func__) << MSG
-#else
-#define TRACE_CAT_POLL(FAC, MSG)
-#endif
+#define TRACE_CAT(MSG) LOG_LOG_LOCATION (logger (), trace, MSG)
+#define TRACE_CAT_POLL(MSG) LOG_LOG_LOCATION (logger (), trace, MSG)
 
 #endif

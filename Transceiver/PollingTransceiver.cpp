@@ -13,8 +13,8 @@ namespace
   unsigned const polls_to_stabilize {3};
 }
 
-PollingTransceiver::PollingTransceiver (int poll_interval, QObject * parent)
-  : TransceiverBase {parent}
+PollingTransceiver::PollingTransceiver (logger_type * logger, int poll_interval, QObject * parent)
+  : TransceiverBase {logger, parent}
   , interval_ {poll_interval * 1000}
   , poll_timer_ {nullptr}
   , retries_ {0}

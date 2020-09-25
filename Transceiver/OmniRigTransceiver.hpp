@@ -26,12 +26,14 @@ class OmniRigTransceiver final
   Q_OBJECT;
 
 public:
-  static void register_transceivers (TransceiverFactory::Transceivers *, int id1, int id2);
+  static void register_transceivers (logger_type *, TransceiverFactory::Transceivers *, int id1, int id2);
 
   enum RigNumber {One = 1, Two};
 
   // takes ownership of wrapped Transceiver
-  explicit OmniRigTransceiver (std::unique_ptr<TransceiverBase> wrapped, RigNumber, TransceiverFactory::PTTMethod ptt_type, QString const& ptt_port, QObject * parent = nullptr);
+  explicit OmniRigTransceiver (logger_type *, std::unique_ptr<TransceiverBase> wrapped,
+                               RigNumber, TransceiverFactory::PTTMethod ptt_type,
+                               QString const& ptt_port, QObject * parent = nullptr);
   ~OmniRigTransceiver ();
 
   int do_start () override;
@@ -52,8 +54,8 @@ private:
   Q_SLOT void handle_params_change (int rig_number, int params);
   Q_SLOT void handle_custom_reply (int, QVariant const& command, QVariant const& reply);
 
-  static MODE map_mode (OmniRig::RigParamX param);
-  static OmniRig::RigParamX map_mode (MODE mode);
+  MODE map_mode (OmniRig::RigParamX param);
+  OmniRig::RigParamX map_mode (MODE mode);
 
   std::unique_ptr<TransceiverBase> wrapped_; // may be null
   bool use_for_ptt_;

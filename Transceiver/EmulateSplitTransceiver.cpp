@@ -2,8 +2,10 @@
 
 #include "moc_EmulateSplitTransceiver.cpp"
 
-EmulateSplitTransceiver::EmulateSplitTransceiver (std::unique_ptr<Transceiver> wrapped, QObject * parent)
-  : Transceiver {parent}
+EmulateSplitTransceiver::EmulateSplitTransceiver (logger_type * logger,
+                                                  std::unique_ptr<Transceiver> wrapped,
+                                                  QObject * parent)
+  : Transceiver {logger, parent}
   , wrapped_ {std::move (wrapped)}
   , rx_frequency_ {0}
   , tx_frequency_ {0}
