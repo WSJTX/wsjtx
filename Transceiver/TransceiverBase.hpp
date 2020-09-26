@@ -153,8 +153,12 @@ private:
   unsigned last_sequence_number_;    // from set state operation
 };
 
-// some trace macros
-#define TRACE_CAT(MSG) LOG_LOG_LOCATION (logger (), trace, MSG)
-#define TRACE_CAT_POLL(MSG) LOG_LOG_LOCATION (logger (), trace, MSG)
+// some loggimg macros
+#define CAT_TRACE(MSG) LOG_LOG_LOCATION (logger (), trace, MSG)
+#define CAT_DEBUG(MSG) LOG_LOG_LOCATION (logger (), debug, MSG)
+#define CAT_INFO(MSG) LOG_LOG_LOCATION (logger (), info, MSG)
+#define CAT_WARNING(MSG) LOG_LOG_LOCATION (logger (), warning, MSG)
+#define CAT_ERROR(MSG) LOG_LOG_LOCATION (logger (), error, MSG)
+#define CAT_FATAL(MSG) LOG_LOG_LOCATION (logger (), fatal, MSG)
 
 #endif

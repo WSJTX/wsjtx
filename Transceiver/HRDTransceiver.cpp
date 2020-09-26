@@ -114,7 +114,7 @@ HRDTransceiver::HRDTransceiver (logger_type * logger
 
 int HRDTransceiver::do_start ()
 {
-  TRACE_CAT ("starting");
+  CAT_TRACE ("starting");
   if (wrapped_) wrapped_->start (0);
 
   auto server_details = network_server_lookup (server_, 7809u);
@@ -125,7 +125,7 @@ int HRDTransceiver::do_start ()
   hrd_->connectToHost (std::get<0> (server_details), std::get<1> (server_details));
   if (!hrd_->waitForConnected ())
     {
-      TRACE_CAT ("failed to connect:" <<  hrd_->errorString ().toStdWString ());
+      CAT_ERROR ("failed to connect:" <<  hrd_->errorString ().toStdWString ());
       throw error {tr ("Failed to connect to Ham Radio Deluxe\n") + hrd_->errorString ()};
     }
 
@@ -150,7 +150,7 @@ int HRDTransceiver::do_start ()
       hrd_->connectToHost (std::get<0> (server_details), std::get<1> (server_details));
       if (!hrd_->waitForConnected ())
         {
-          TRACE_CAT ("failed to connect:" <<  hrd_->errorString ().toStdWString ());
+          CAT_ERROR ("failed to connect:" <<  hrd_->errorString ().toStdWString ());
           throw error {tr ("Failed to connect to Ham Radio Deluxe\n") + hrd_->errorString ()};
         }
 
@@ -167,14 +167,14 @@ int HRDTransceiver::do_start ()
   auto id = send_command ("get id", false, false);
   auto version = send_command ("get version", false, false);
 
-  TRACE_CAT ("Id:" << id.toStdWString () << "Version:" << version.toStdWString ());
+  CAT_INFO ("Id: " << id.toStdWString () << "Version: " << version.toStdWString ());
   HRD_info << "Id: " << id << "\n";
   HRD_info << "Version: " << version << "\n";
 
   auto radios = send_command ("get radios", false, false).trimmed ().split (',', SkipEmptyParts);
   if (radios.isEmpty ())
     {
-      TRACE_CAT ("no rig found");
+      CAT_ERROR ("no rig found");
       throw error {tr ("Ham Radio Deluxe: no rig found")};
     }
 
@@ -186,46 +186,46 @@ int HRDTransceiver::do_start ()
       radios_.push_back (std::forward_as_tuple (entries[0].toUInt (), entries[1]));
     }
 
-  TRACE_CAT ("radios:-");
+  CAT_TRACE ("radios:-");
   Q_FOREACH (auto const& radio, radios_)
     {
-      TRACE_CAT ("\t[" << std::get<0> (radio) << "] " << std::get<1> (radio).toStdWString ());
+      CAT_TRACE ("\t[" << std::get<0> (radio) << "] " << std::get<1> (radio).toStdWString ());
     }
 
   auto current_radio_name = send_command ("get radio", false, false);
   HRD_info << "Current radio: " << current_radio_name << "\n";
   if (current_radio_name.isEmpty ())
     {
-      TRACE_CAT ("no rig found");
+      CAT_ERROR ("no rig found");
       throw error {tr ("Ham Radio Deluxe: no rig found")};
     }
 
   vfo_count_ = send_command ("get vfo-count").toUInt ();
   HRD_info << "VFO count: " << vfo_count_ << "\n";
-  TRACE_CAT ("vfo count:" << vfo_count_);
+  CAT_TRACE ("vfo count:" << vfo_count_);
 
   buttons_ = send_command ("get buttons").trimmed ().split (',', SkipEmptyParts).replaceInStrings (" ", "~");
-  TRACE_CAT ("HRD Buttons: " << buttons_.join (", ").toStdWString ());
+  CAT_TRACE ("HRD Buttons: " << buttons_.join (", ").toStdWString ());
   HRD_info << "Buttons: {" << buttons_.join (", ") << "}\n";
 
   dropdown_names_ = send_command ("get dropdowns").trimmed ().split (',', SkipEmptyParts);
-  TRACE_CAT ("Dropdowns:");
+  CAT_TRACE ("Dropdowns:");
   HRD_info << "Dropdowns:\n";
   Q_FOREACH (auto const& dd, dropdown_names_)
     {
       auto selections = send_command ("get dropdown-list {" + dd + "}").trimmed ().split (',');
-      TRACE_CAT ("\t" << dd.toStdWString () << ": {" << selections.join (", ").toStdWString () << "}");
+      CAT_TRACE ("\t" << dd.toStdWString () << ": {" << selections.join (", ").toStdWString () << "}");
       HRD_info << "\t" << dd << ": {" << selections.join (", ") << "}\n";
       dropdowns_[dd] = selections;
     }
 
   slider_names_ = send_command ("get sliders").trimmed ().split (',', SkipEmptyParts).replaceInStrings (" ", "~");
-  TRACE_CAT ("Sliders:-");
+  CAT_TRACE ("Sliders:-");
   HRD_info << "Sliders:\n";
   Q_FOREACH (auto const& s, slider_names_)
     {
       auto range = send_command ("get slider-range " + current_radio_name + " " + s).trimmed ().split (',', SkipEmptyParts);
-      TRACE_CAT ("\t" << s.toStdWString () << ": {" << range.join (", ").toStdWString () << "}");
+      CAT_TRACE ("\t" << s.toStdWString () << ": {" << range.join (", ").toStdWString () << "}");
       HRD_info << "\t" << s << ": {" << range.join (", ") << "}\n";
       sliders_[s] = range;
     }
@@ -359,7 +359,7 @@ void HRDTransceiver::do_stop ()
     }
 
   if (wrapped_) wrapped_->stop ();
-  TRACE_CAT ("stopped" << state () << "reversed" << reversed_);
+  CAT_TRACE ("stopped" << state () << "reversed" << reversed_);
 }
 
 int HRDTransceiver::find_button (QRegExp const& re) const
@@ -406,11 +406,11 @@ void HRDTransceiver::map_modes (int dropdown, ModeMap *map)
   map->push_back (std::forward_as_tuple (FM, find_dropdown_selection (dropdown, QRegExp ("^(FM|FM\\(N\\)|FM-N|WFM)$"))));
   map->push_back (std::forward_as_tuple (DIG_FM, find_dropdown_selection (dropdown, QRegExp ("^(PKT-FM|PKT|DATA\\(FM\\)|FM)$"))));
 
-  TRACE_CAT ("for dropdown" << dropdown_names_[dropdown].toStdWString ());
+  CAT_TRACE ("for dropdown" << dropdown_names_[dropdown].toStdWString ());
   std::for_each (map->begin (), map->end (), [this, dropdown] (ModeMap::value_type const& item)
                  {
                    auto const& rhs = std::get<1> (item);
-                   TRACE_CAT ('\t' << std::get<0> (item) << "<->" << (rhs.size () ? dropdowns_[dropdown_names_[dropdown]][rhs.front ()].toStdWString () : L"None"));
+                   CAT_TRACE ('\t' << std::get<0> (item) << "<->" << (rhs.size () ? dropdowns_[dropdown_names_[dropdown]][rhs.front ()].toStdWString () : L"None"));
                  });
 }
 
@@ -472,14 +472,14 @@ void HRDTransceiver::set_dropdown (int dd, int value)
     }
   else
     {
-      TRACE_CAT ("item" << value << "not found in" << dd_name.toStdWString ());
+      CAT_ERROR ("item" << value << "not found in" << dd_name.toStdWString ());
       throw error {tr ("Ham Radio Deluxe: item not found in %1 dropdown list").arg (dd_name)};
     }
 }
 
 void HRDTransceiver::do_ptt (bool on)
 {
-  TRACE_CAT (on);
+  CAT_TRACE (on);
   if (use_for_ptt_)
     {
       if (alt_ptt_button_ >= 0 && TransceiverFactory::TX_audio_source_rear == audio_source_)
@@ -516,7 +516,7 @@ void HRDTransceiver::set_button (int button_index, bool checked)
     }
   else
     {
-      TRACE_CAT ("invalid button");
+      CAT_ERROR ("invalid button");
       throw error {tr ("Ham Radio Deluxe: button not available")};
     }
 }
@@ -593,7 +593,7 @@ auto HRDTransceiver::get_data_mode (MODE m) -> MODE
 
 void HRDTransceiver::do_frequency (Frequency f, MODE m, bool /*no_ignore*/)
 {
-  TRACE_CAT (f << "reversed" << reversed_);
+  CAT_TRACE (f << "reversed" << reversed_);
   if (UNK != m)
     {
       do_mode (m);
@@ -613,7 +613,7 @@ void HRDTransceiver::do_frequency (Frequency f, MODE m, bool /*no_ignore*/)
 
 void HRDTransceiver::do_tx_frequency (Frequency tx, MODE mode, bool /*no_ignore*/)
 {
-  TRACE_CAT (tx << "reversed" << reversed_);
+  CAT_TRACE (tx << "reversed" << reversed_);
 
   // re-check if reversed VFOs
   bool rx_A {true};
@@ -780,7 +780,7 @@ void HRDTransceiver::do_tx_frequency (Frequency tx, MODE mode, bool /*no_ignore*
 
 void HRDTransceiver::do_mode (MODE mode)
 {
-  TRACE_CAT (mode);
+  CAT_TRACE (mode);
   if (reversed_ && mode_B_dropdown_ >= 0)
     {
       set_dropdown (mode_B_dropdown_, lookup_mode (mode, mode_B_map_));
@@ -882,7 +882,7 @@ bool HRDTransceiver::is_button_checked (int button_index)
   auto reply = send_command ("get button-select " + buttons_.value (button_index));
   if ("1" != reply && "0" != reply)
     {
-      TRACE_CAT ("bad response");
+      CAT_ERROR ("bad response");
       throw error {tr ("Ham Radio Deluxe didn't respond as expected")};
     }
   return "1" == reply;
@@ -890,8 +890,8 @@ bool HRDTransceiver::is_button_checked (int button_index)
 
 void HRDTransceiver::do_poll ()
 {
-  TRACE_CAT ("+++++++ poll dump +++++++");
-  TRACE_CAT ("reversed:" << reversed_);
+  CAT_TRACE ("+++++++ poll dump +++++++");
+  CAT_TRACE ("reversed:" << reversed_);
   is_button_checked (vfo_A_button_);
   is_button_checked (vfo_B_button_);
   is_button_checked (vfo_toggle_button_);
@@ -919,7 +919,7 @@ void HRDTransceiver::do_poll ()
     {
       get_dropdown (split_mode_dropdown_);
     }
-  TRACE_CAT ("------- poll dump -------");
+  CAT_TRACE ("------- poll dump -------");
 
   if (split_off_button_ >= 0)
     {
@@ -1026,7 +1026,7 @@ QString HRDTransceiver::send_command (QString const& cmd, bool prepend_context, 
                                       });
       if (radio_iter == radios_.end ())
         {
-          TRACE_CAT ("rig disappeared or changed");
+          CAT_TRACE ("rig disappeared or changed");
           throw error {tr ("Ham Radio Deluxe: rig has disappeared or changed")};
         }
 
@@ -1040,7 +1040,7 @@ QString HRDTransceiver::send_command (QString const& cmd, bool prepend_context, 
 
   if (QTcpSocket::ConnectedState != hrd_->state ())
     {
-      TRACE_CAT (cmd.toStdWString () << "failed" << hrd_->errorString ().toStdWString ());
+      CAT_ERROR (cmd.toStdWString () << "failed" << hrd_->errorString ().toStdWString ());
       throw error {
         tr ("Ham Radio Deluxe send command \"%1\" failed %2\n")
           .arg (cmd)
@@ -1053,7 +1053,7 @@ QString HRDTransceiver::send_command (QString const& cmd, bool prepend_context, 
       auto message = ((prepend_context ? context + cmd : cmd) + "\r").toLocal8Bit ();
       if (!write_to_port (message.constData (), message.size ()))
         {
-          TRACE_CAT ("failed to write command" << cmd.toStdWString () << "to HRD");
+          CAT_ERROR ("failed to write command" << cmd.toStdWString () << "to HRD");
           throw error {
             tr ("Ham Radio Deluxe: failed to write command \"%1\"")
               .arg (cmd)
@@ -1066,7 +1066,7 @@ QString HRDTransceiver::send_command (QString const& cmd, bool prepend_context, 
       QScopedPointer<HRDMessage> message {new (string) HRDMessage};
       if (!write_to_port (reinterpret_cast<char const *> (message.data ()), message->size_))
         {
-          TRACE_CAT ("failed to write command" << cmd.toStdWString () << "to HRD");
+          CAT_ERROR ("failed to write command" << cmd.toStdWString () << "to HRD");
           throw error {
             tr ("Ham Radio Deluxe: failed to write command \"%1\"")
               .arg (cmd)
@@ -1083,7 +1083,7 @@ QString HRDTransceiver::send_command (QString const& cmd, bool prepend_context, 
       HRDMessage const * reply {new (buffer) HRDMessage};
       if (reply->magic_1_value_ != reply->magic_1_ && reply->magic_2_value_ != reply->magic_2_)
         {
-          TRACE_CAT (cmd.toStdWString () << "invalid reply");
+          CAT_ERROR (cmd.toStdWString () << "invalid reply");
           throw error {
             tr ("Ham Radio Deluxe sent an invalid reply to our command \"%1\"")
               .arg (cmd)
@@ -1093,14 +1093,14 @@ QString HRDTransceiver::send_command (QString const& cmd, bool prepend_context, 
       // keep reading until expected size arrives
       while (buffer.size () - offsetof (HRDMessage, size_) < reply->size_)
         {
-          TRACE_CAT (cmd.toStdWString () << "reading more reply data");
+          CAT_TRACE (cmd.toStdWString () << "reading more reply data");
           buffer += read_reply (cmd);
           reply = new (buffer) HRDMessage;
         }
 
       result = QString {reply->payload_}; // this is not a memory leak (honest!)
     }
-  TRACE_CAT (cmd.toStdWString () << " ->" << result.toStdWString ());
+  CAT_TRACE (cmd.toStdWString () << " ->" << result.toStdWString ());
   return result;
 }
 
@@ -1131,7 +1131,7 @@ QByteArray HRDTransceiver::read_reply (QString const& cmd)
       replied = hrd_->waitForReadyRead ();
       if (!replied && hrd_->error () != hrd_->SocketTimeoutError)
         {
-          TRACE_CAT (cmd.toStdWString () << "failed to reply" << hrd_->errorString ().toStdWString ());
+          CAT_ERROR (cmd.toStdWString () << "failed to reply" << hrd_->errorString ().toStdWString ());
           throw error {
             tr ("Ham Radio Deluxe failed to reply to command \"%1\" %2\n")
               .arg (cmd)
@@ -1141,7 +1141,7 @@ QByteArray HRDTransceiver::read_reply (QString const& cmd)
     }
   if (!replied)
     {
-      TRACE_CAT (cmd.toStdWString () << "retries exhausted");
+      CAT_ERROR (cmd.toStdWString () << "retries exhausted");
       throw error {
         tr ("Ham Radio Deluxe retries exhausted sending command \"%1\"")
           .arg (cmd)
@@ -1154,7 +1154,7 @@ void HRDTransceiver::send_simple_command (QString const& command)
 {
   if ("OK" != send_command (command))
     {
-      TRACE_CAT (command.toStdWString () << "unexpected response");
+      CAT_ERROR (command.toStdWString () << "unexpected response");
       throw error {
         tr ("Ham Radio Deluxe didn't respond to command \"%1\" as expected")
           .arg (command)

@@ -58,7 +58,7 @@ DXLabSuiteCommanderTransceiver::DXLabSuiteCommanderTransceiver (logger_type * lo
 
 int DXLabSuiteCommanderTransceiver::do_start ()
 {
-  TRACE_CAT ("starting");
+  CAT_TRACE ("starting");
   if (wrapped_) wrapped_->start (0);
 
   auto server_details = network_server_lookup (server_, 52002u, QHostAddress::LocalHost, QAbstractSocket::IPv4Protocol);
@@ -71,7 +71,7 @@ int DXLabSuiteCommanderTransceiver::do_start ()
   commander_->connectToHost (std::get<0> (server_details), std::get<1> (server_details));
   if (!commander_->waitForConnected ())
     {
-      TRACE_CAT ("failed to connect" << commander_->errorString ().toStdWString ());
+      CAT_ERROR ("failed to connect" << commander_->errorString ().toStdWString ());
       throw error {tr ("Failed to connect to DX Lab Suite Commander\n") + commander_->errorString ()};
     }
 
@@ -127,7 +127,7 @@ int DXLabSuiteCommanderTransceiver::do_start ()
     }
   else
     {
-      TRACE_CAT ("get frequency unexpected response" << reply.toStdWString ());
+      CAT_ERROR ("get frequency unexpected response" << reply.toStdWString ());
       throw error {tr ("DX Lab Suite Commander didn't respond correctly reading frequency: ") + reply};
     }
 
@@ -144,12 +144,12 @@ void DXLabSuiteCommanderTransceiver::do_stop ()
     }
 
   if (wrapped_) wrapped_->stop ();
-  TRACE_CAT ("stopped");
+  CAT_TRACE ("stopped");
 }
 
 void DXLabSuiteCommanderTransceiver::do_ptt (bool on)
 {
-  TRACE_CAT (on << state ());
+  CAT_TRACE (on << state ());
   if (use_for_ptt_)
     {
       simple_command (on  ? "<command:5>CmdTX<parameters:0>" : "<command:5>CmdRX<parameters:0>");
@@ -174,13 +174,13 @@ void DXLabSuiteCommanderTransceiver::do_ptt (bool on)
                 }
               else
                 {
-                  TRACE_CAT ("unexpected TX state" << state.toStdWString ());
+                  CAT_ERROR ("unexpected TX state" << state.toStdWString ());
                   throw error {tr ("DX Lab Suite Commander sent an unrecognised TX state: ") + state};
                 }
             }
           else
             {
-              TRACE_CAT ("get TX unexpected response" << reply.toStdWString ());
+              CAT_ERROR ("get TX unexpected response" << reply.toStdWString ());
               throw error {tr ("DX Lab Suite Commander didn't respond correctly polling TX status: ") + reply};
             }
           if (tx != on) QThread::msleep (10); // don't thrash Commander
@@ -188,7 +188,7 @@ void DXLabSuiteCommanderTransceiver::do_ptt (bool on)
       update_PTT (tx);
       if (tx != on)
         {
-          TRACE_CAT ("rig failed to respond to PTT: " << on);
+          CAT_ERROR ("rig failed to respond to PTT: " << on);
           throw error {tr ("DX Lab Suite Commander rig did not respond to PTT: ") + (on ? "ON" : "OFF")};
         }
     }
@@ -204,7 +204,7 @@ void DXLabSuiteCommanderTransceiver::do_ptt (bool on)
 
 void DXLabSuiteCommanderTransceiver::do_frequency (Frequency f, MODE m, bool /*no_ignore*/)
 {
-  TRACE_CAT (f << state ());
+  CAT_TRACE (f << state ());
   auto f_string = frequency_to_string (f);
   if (UNK != m && m != get_mode ())
     {
@@ -223,7 +223,7 @@ void DXLabSuiteCommanderTransceiver::do_frequency (Frequency f, MODE m, bool /*n
 
 void DXLabSuiteCommanderTransceiver::do_tx_frequency (Frequency tx, MODE mode, bool /*no_ignore*/)
 {
-  TRACE_CAT (tx << state ());
+  CAT_TRACE (tx << state ());
   if (tx)
     {
       auto f_string = frequency_to_string (tx);
@@ -244,7 +244,7 @@ void DXLabSuiteCommanderTransceiver::do_tx_frequency (Frequency tx, MODE mode, b
 
 void DXLabSuiteCommanderTransceiver::do_mode (MODE m)
 {
-  TRACE_CAT (m << state ());
+  CAT_TRACE (m << state ());
   auto m_string = map_mode (m);
   auto params =  ("<1:%1>" + m_string).arg (m_string.size ());
   simple_command (("<command:10>CmdSetMode<parameters:%1>" + params).arg (params.size ()));
@@ -268,7 +268,7 @@ void DXLabSuiteCommanderTransceiver::do_poll ()
     }
   else
     {
-      TRACE_CAT_POLL ("get frequency unexpected response" << reply.toStdWString ());
+      CAT_ERROR ("get frequency unexpected response" << reply.toStdWString ());
       throw error {tr ("DX Lab Suite Commander didn't respond correctly polling frequency: ") + reply};
     }
 
@@ -289,7 +289,7 @@ void DXLabSuiteCommanderTransceiver::do_poll ()
         }
       else
         {
-          TRACE_CAT_POLL ("get tx frequency unexpected response" << reply.toStdWString ());
+          CAT_ERROR ("get tx frequency unexpected response" << reply.toStdWString ());
           throw error {tr ("DX Lab Suite Commander didn't respond correctly polling TX frequency: ") + reply};
         }
     }
@@ -308,13 +308,13 @@ void DXLabSuiteCommanderTransceiver::do_poll ()
         }
       else
         {
-          TRACE_CAT_POLL ("unexpected split state" << split.toStdWString ());
+          CAT_ERROR ("unexpected split state" << split.toStdWString ());
           throw error {tr ("DX Lab Suite Commander sent an unrecognised split state: ") + split};
         }
     }
   else
     {
-      TRACE_CAT_POLL ("get split mode unexpected response" << reply.toStdWString ());
+      CAT_ERROR ("get split mode unexpected response" << reply.toStdWString ());
       throw error {tr ("DX Lab Suite Commander didn't respond correctly polling split status: ") + reply};
     }
 
@@ -370,14 +370,14 @@ auto DXLabSuiteCommanderTransceiver::get_mode () -> MODE
         }
       else
         {
-          TRACE_CAT_POLL ("unexpected mode name" << mode.toStdWString ());
+          CAT_ERROR ("unexpected mode name" << mode.toStdWString ());
           throw error {tr ("DX Lab Suite Commander sent an unrecognised mode: \"") + mode + '"'};
         }
       update_mode (m);
     }
   else
     {
-      TRACE_CAT_POLL ("unexpected response" << reply.toStdWString ());
+      CAT_ERROR ("unexpected response" << reply.toStdWString ());
       throw error {tr ("DX Lab Suite Commander didn't respond correctly polling mode: ") + reply};
     }
   return m;
@@ -387,11 +387,11 @@ void DXLabSuiteCommanderTransceiver::simple_command (QString const& cmd)
 {
   Q_ASSERT (commander_);
 
-  TRACE_CAT (cmd.toStdWString ());
+  CAT_TRACE (cmd.toStdWString ());
 
   if (!write_to_port (cmd))
     {
-      TRACE_CAT ("failed:" << commander_->errorString ().toStdWString ());
+      CAT_ERROR ("failed:" << commander_->errorString ().toStdWString ());
       throw error {tr ("DX Lab Suite Commander send command failed\n") + commander_->errorString ()};
     }
 }
@@ -402,7 +402,7 @@ QString DXLabSuiteCommanderTransceiver::command_with_reply (QString const& cmd)
 
   if (!write_to_port (cmd))
     {
-      TRACE_CAT ("failed to send command:" << commander_->errorString ().toStdWString ());
+      CAT_ERROR ("failed to send command:" << commander_->errorString ().toStdWString ());
       throw error {
         tr ("DX Lab Suite Commander send command failed \"%1\": %2\n")
           .arg (cmd)
@@ -419,7 +419,7 @@ QString DXLabSuiteCommanderTransceiver::command_with_reply (QString const& cmd)
       replied = commander_->waitForReadyRead ();
       if (!replied && commander_->error () != commander_->SocketTimeoutError)
         {
-          TRACE_CAT (cmd.toStdWString () << "failed to read reply:" << commander_->errorString ().toStdWString ());
+          CAT_ERROR (cmd.toStdWString () << "failed to read reply:" << commander_->errorString ().toStdWString ());
           throw error {
             tr ("DX Lab Suite Commander send command \"%1\" read reply failed: %2\n")
               .arg (cmd)
@@ -430,7 +430,7 @@ QString DXLabSuiteCommanderTransceiver::command_with_reply (QString const& cmd)
 
   if (!replied)
     {
-      TRACE_CAT (cmd.toStdWString () << "retries exhausted");
+      CAT_ERROR (cmd.toStdWString () << "retries exhausted");
       throw error {
         tr ("DX Lab Suite Commander retries exhausted sending command \"%1\"")
           .arg (cmd)
@@ -444,7 +444,7 @@ QString DXLabSuiteCommanderTransceiver::command_with_reply (QString const& cmd)
   //     qDebug () << i << ":" << hex << int (result[i]);
   //   }
 
-  TRACE_CAT (cmd.toStdWString () << "->" << QString {result}.toStdWString ());
+  CAT_TRACE (cmd.toStdWString () << "->" << QString {result}.toStdWString ());
   return result;                // converting raw UTF-8 bytes to QString
 }
 

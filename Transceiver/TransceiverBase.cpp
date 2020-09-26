@@ -41,7 +41,7 @@ void TransceiverBase::start (unsigned sequence_number) noexcept
 void TransceiverBase::set (TransceiverState const& s,
                            unsigned sequence_number) noexcept
 {
-  TRACE_CAT ("#: " << sequence_number << " " << s);
+  CAT_TRACE ("#: " << sequence_number << " " << s);
 
   QString message;
   try

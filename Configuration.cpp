@@ -2752,7 +2752,7 @@ void Configuration::impl::handle_transceiver_update (TransceiverState const& sta
 
 void Configuration::impl::handle_transceiver_failure (QString const& reason)
 {
-  LOG_TRACE ("handle_transceiver_failure: reason: " << reason.toStdWString ());
+  LOG_ERROR ("handle_transceiver_failure: reason: " << reason.toStdWString ());
   close_rig ();
   ui_->test_PTT_push_button->setChecked (false);
 
