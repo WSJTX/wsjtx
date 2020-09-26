@@ -2,7 +2,9 @@
 #include <exception>
 #include <stdexcept>
 #include <string>
-
+#include <iterator>
+#include <algorithm>
+#include <ios>
 #include <locale.h>
 #include <fftw3.h>
 
@@ -63,6 +65,29 @@ namespace
     }
   } seeding;
 #endif
+
+  void safe_stream_QVariant (boost::log::wrecord_ostream& os, QVariant const& v)
+  {
+    if (QMetaType::QByteArray == static_cast<QMetaType::Type> (v.type ()))
+      {
+        auto const& a =v.toByteArray ();
+        std::ios::fmtflags f (os.flags ());
+        os << std::hex << std::showbase;
+        for (auto p = a.begin (); p != a.end (); )
+          {
+            os << static_cast<int8_t> (*p++);
+            if (p != a.end ())
+              {
+                os << ' ';
+              }
+          }
+        os.flags (f);
+      }
+    else
+      {
+        os << v.toString ().toStdWString ();
+      }
+  }
 }
 
 int main(int argc, char *argv[])
@@ -291,28 +316,43 @@ int main(int argc, char *argv[])
       auto const& original_style_sheet = a.styleSheet ();
       do
         {
-#if WSJT_QDEBUG_TO_FILE
-          // announce to trace file and dump settings
-          qDebug () << "++++++++++++++++++++++++++++ Settings ++++++++++++++++++++++++++++";
-          for (auto const& key: multi_settings.settings ()->allKeys ())
+          // dump settings
+          auto sys_lg = Logger::sys::get ();
+          if (auto rec = sys_lg.open_record
+              (
+               boost::log::keywords::severity = boost::log::trivial::trace)
+              )
             {
-              auto const& value = multi_settings.settings ()->value (key);
-              if (value.canConvert<QVariantList> ())
+              boost::log::wrecord_ostream strm (rec);
+              strm << "++++++++++++++++++++++++++++ Settings ++++++++++++++++++++++++++++\n";
+              for (auto const& key: multi_settings.settings ()->allKeys ())
                 {
-                  auto const sequence = value.value<QSequentialIterable> ();
-                  qDebug ().nospace () << key << ": ";
-                  for (auto const& item: sequence)
+                  if (!key.contains (QRegularExpression {"^MultiSettings/[^/]*/"}))
                     {
-                      qDebug ().nospace () << '\t' << item;
+                      auto const& value = multi_settings.settings ()->value (key);
+                      if (value.canConvert<QVariantList> ())
+                        {
+                          auto const sequence = value.value<QSequentialIterable> ();
+                          strm << key.toStdWString () << ":\n";
+                          for (auto const& item: sequence)
+                            {
+                              strm << "\t";
+                              safe_stream_QVariant (strm, item);
+                              strm << '\n';
+                            }
+                        }
+                      else
+                        {
+                          strm << key.toStdWString () << ": ";
+                          safe_stream_QVariant (strm, value);
+                          strm << '\n';
+                        }
                     }
                 }
-              else
-                {
-                  qDebug ().nospace () << key << ": " << value;
-                }
+              strm << "---------------------------- Settings ----------------------------\n";
+              strm.flush ();
+              sys_lg.push_record (boost::move (rec));
             }
-          qDebug () << "---------------------------- Settings ----------------------------";
-#endif
 
           // Create and initialize shared memory segment
           // Multiple instances: use rig_name as shared memory key
