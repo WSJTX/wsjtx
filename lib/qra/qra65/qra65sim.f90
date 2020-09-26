@@ -96,8 +96,8 @@ program qra65sim
      bandwidth_ratio=2500.0/6000.0
      sig=sqrt(2*bandwidth_ratio)*10.0**(0.05*snrdb)
      if(snrdb.gt.90.0) sig=1.0
-     write(*,1020) ifile,ntrperiod,f0,csubmode,xsnr,xdt,fspread,msgsent
-1020    format(i4,i6,f7.1,2x,a1,2x,f5.1,f6.2,f6.1,1x,a22)
+     write(*,1020) ifile,ntrperiod,f0,csubmode,snrdb,xdt,fspread,msgsent
+1020    format(i4,i6,f7.1,2x,a1,2x,f5.1,f6.2,f6.1,2x,a22)
      phi=0.d0
      dphi=0.d0
      k=(xdt+0.5)*12000                   !Start audio at t=xdt+0.5 s (TR=15 and 30 s)

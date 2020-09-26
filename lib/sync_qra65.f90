@@ -6,7 +6,7 @@ subroutine sync_qra65(iwave,nmax,mode65,nsps,nfqso,ntol,xdt,f0,snr1)
   integer ijpk(2)                        !Indices i and j at peak of ccf
   real, allocatable :: s1(:,:)           !Symbol spectra, quarter-symbol steps
   real sync(85)                          !sync vector 
-  real ccf(-64:64,-15:15)
+  real ccf(-64:64,-26:107)
   complex, allocatable :: c0(:)          !Complex spectrum of symbol
   data isync/1,9,12,13,15,22,23,26,27,33,35,38,46,50,55,60,62,66,69,74,76,85/
   data sync(1)/99.0/
@@ -64,24 +64,20 @@ subroutine sync_qra65(iwave,nmax,mode65,nsps,nfqso,ntol,xdt,f0,snr1)
 !3060 format(i6,f10.3,e12.3)
 !  enddo
 
+  dt4=nsps/(NSTEP*12000.0)                      !1/4 of symbol duration
+  j0=0.5/dt4
+  if(nsps.ge.7680) j0=1.0/dt4
+  
   ccf=0.
   ia=min(64,nint(ntol/df))
+  lag1=-1.0/dt4
+  lag2=4.0/dt4 + 0.9999
 
-  jadd=11
-  if(nsps.ge.3600) jadd=7
-  if(nsps.ge.7680) jadd=6
-  if(nsps.ge.16000) jadd=3
-  if(nsps.ge.41472) jadd=1
-  dt4=nsps/(NSTEP*12000.0)                      !1/4 of symbol duration
-!  print*,'DT range +/-',15*dt4
-!  j0=0.5/dt4
-!  if(nsps.ge.7680) j0=1.0/dt4
-  
   do i=-ia,ia
-     do lag=-15,15
+     do lag=lag1,lag2
         do k=1,85
            n=NSTEP*(k-1) + 1
-           j=n+lag+jadd
+           j=n+lag+j0
            if(j.ge.1 .and. j.le.jz) then
               ccf(i,lag)=ccf(i,lag) + sync(k)*s1(i0+i,j)
            endif
@@ -93,13 +89,14 @@ subroutine sync_qra65(iwave,nmax,mode65,nsps,nfqso,ntol,xdt,f0,snr1)
 !     write(61,3061) i,ccf(i,jpk)
 !3061 format(i5,e12.3)
 !  enddo
-!  do j=-15,15
+!  do j=lag1,lag2
 !     write(62,3061) j,ccf(ipk,j)
 !  enddo
 
   ijpk=maxloc(ccf)
   ipk=ijpk(1)-65
-  jpk=ijpk(2)-16
+!  jpk=ijpk(2)-16
+  jpk=ijpk(2)-27
   f0=nfqso + ipk*df
   xdt=jpk*dt4
   snr1=maxval(ccf)/22.0

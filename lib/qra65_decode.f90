@@ -78,7 +78,7 @@ contains
     baud=12000.0/nsps
     df1=12000.0/nfft1
 
-!    do i=1,NMAX
+!    do i=1,12000*ntrperiod
 !       write(61,3061) i/12000.0,iwave(i)/32767.0
 !3061   format(2f12.6)
 !    enddo
@@ -120,24 +120,27 @@ contains
     call timer('sync_q65',1)
 
 ! Downsample to give complex data at 6000 S/s
+    call timer('down_q65',0)
     fac=2.0/nfft1
     c0=fac*iwave(1:nfft1)
     call four2a(c0,nfft1,1,-1,1)           !Forward c2c FFT
     c0(nfft2/2+1:nfft2)=0.                 !Zero the top half
     c0(0)=0.5*c0(0)
     call four2a(c0,nfft2,1,1,1)            !Inverse c2c FFT
-    
-    jpk=(xdt+0.5)*6000 - 384                       !### Empirical ###
-    if(ntrperiod.ge.60) jpk=(xdt+1.0)*6000 - 384   !### TBD ###
-    if(jpk.lt.0) jpk=0
     a=0.
     a(1)=-(f0 + mode65*baud)             !Data tones start mode65 bins higher
     call twkfreq(c0,c0,ntrperiod*6000,6000.0,a)
+    call timer('down_q65',1)
+
+    jpk=(xdt+0.5)*6000 - 384                       !### Empirical ###
+    if(ntrperiod.ge.60) jpk=(xdt+1.0)*6000 - 384   !### TBD ??? ###
+    if(jpk.lt.0) jpk=0
     xdt=jpk/6000.0 - 0.5
-    
     LL=64*(mode65+2)
     NN=63
-    call spec_qra65(c0(jpk:),nsps/2,s3,LL,NN)  !Compute synchronized symbol spectra
+    call timer('spec_q65',0)
+    call spec_qra65(c0(jpk:),nsps/2,s3,LL,NN)  !Compute synced symbol spectra
+    call timer('spec_q65',1)
 
     do j=1,63                              !Normalize to symbol baseline
        call pctile(s3(:,j),LL,40,base)
@@ -188,7 +191,7 @@ contains
             irc,qual,ntrperiod,fmid,w50)
     else
        snr2=0.
-       nsnr=-25
+       nsnr=-25 
 !### TEMPORARY? ###       
        call this%callback(nutc,sync,nsnr,xdt,f0,decoded,              &
             irc,qual,ntrperiod,fmid,w50)

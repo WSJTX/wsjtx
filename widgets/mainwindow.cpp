@@ -6326,23 +6326,30 @@ void MainWindow::on_actionQRA64_triggered()
 
 void MainWindow::on_actionQRA65_triggered()
 {
-  on_actionFST4_triggered();
+//  on_actionFST4_triggered();
   m_mode="QRA65";
   m_modeTx="QRA65";
   ui->actionQRA65->setChecked(true);
   switch_mode(Modes::QRA65);
   setup_status_bar(true);
+  m_nsps=6912;                   //For symspec only
+  m_FFTSize = m_nsps / 2;
+  Q_EMIT FFTSize(m_FFTSize);
   m_hsymStop=49;
   ui->sbTR->values ({15, 30, 60, 120, 300});
   on_sbTR_valueChanged (ui->sbTR->value());
   ui->sbSubmode->setMaximum(3);
   ui->sbSubmode->setValue(m_nSubMode);  m_wideGraph->setMode(m_mode);
+  m_wideGraph->setMode(m_mode);
   m_wideGraph->setModeTx(m_modeTx);
   m_wideGraph->setPeriod(m_TRperiod,6912);
   m_wideGraph->setTol(ui->sbFtol->value());
+  m_wideGraph->setRxFreq(ui->RxFreqSpinBox->value());
+  m_wideGraph->setTxFreq(ui->TxFreqSpinBox->value());
 //                         0123456789012345678901234567890123
   displayWidgets(nWidgets("1111110101101101000100000011000000"));
-  statusChanged();}
+  statusChanged();
+}
 
 void MainWindow::on_actionISCAT_triggered()
 {
