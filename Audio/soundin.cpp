@@ -37,10 +37,6 @@ bool SoundInput::checkStream ()
           result = true;
           break;
         }
-      if (!result)
-        {
-          stop ();
-        }
     }
   return result;
 }
