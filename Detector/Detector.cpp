@@ -36,7 +36,7 @@ void Detector::setBlockSize (unsigned n)
 bool Detector::reset ()
 {
   clear ();
-  // don't call base call reset because it calls seek(0) which causes
+  // don't call base class reset because it calls seek(0) which causes
   // a warning
   return isOpen ();
 }
@@ -119,8 +119,7 @@ qint64 Detector::writeData (char const * data, qint64 maxSize)
       remaining -= numFramesProcessed;
     }
 
-
-
-  return maxSize;    // we drop any data past the end of the buffer on
-  // the floor until the next period starts
+    // we drop any data past the end of the buffer on the floor until
+    // the next period starts
+    return maxSize;
 }

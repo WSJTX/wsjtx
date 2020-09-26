@@ -92,16 +92,14 @@ thing, both stations will have the required Doppler compensation.
 Moreover, anyone else using this option will hear both of you
 without the need for manual frequency changes.
 
-- Select *On Dx Echo* when your QSO partner is not using automated 
-Doppler tracking, and announces his/her transmit frequency and listening
-on their own echo frequency. When clicked, this Doppler method will 
-set your rig frequency on receive to correct for the mutual Doppler 
-shift.  On transmit, your rig frequency will be set so that your
-QSO partner will receive you on the same frequency as their own echo
-at the start of the QSO. As the QSO proceeds, your QSO partner will 
-receive you on this starting frequency so that they do not have to 
-retune their receiver as the Doppler changes.  Sked frequency in this 
-case is set to that announced by your QSO partner.
+- Select *On Dx Echo* when your QSO partner announces his/her transmit
+frequency and that they are listening on their own echo
+frequency. When clicked, this Doppler method will set your rig
+frequency on receive to correct for the mutual Doppler shift. On
+transmit, your rig frequency will be set so that your QSO partner will
+receive you on the same frequency as they receive their own echo.
+Sked frequency in this case is set to that announced by your QSO
+partner.
 
 - Select *Call DX* after tuning the radio manually to find a station,
 with the Doppler mode initially set to *None*. You may be tuning the band

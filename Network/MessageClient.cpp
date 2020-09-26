@@ -36,6 +36,7 @@ public:
   impl (QString const& id, QString const& version, QString const& revision,
         port_type server_port, MessageClient * self)
     : self_ {self}
+    , dns_lookup_id_ {0}
     , enabled_ {false}
     , id_ {id}
     , version_ {version}
@@ -81,6 +82,7 @@ public:
   Q_SLOT void host_info_results (QHostInfo);
 
   MessageClient * self_;
+  int dns_lookup_id_;
   bool enabled_;
   QString id_;
   QString version_;
@@ -101,6 +103,7 @@ public:
 
 void MessageClient::impl::host_info_results (QHostInfo host_info)
 {
+  if (host_info.lookupId () != dns_lookup_id_) return;
   if (QHostInfo::NoError != host_info.error ())
     {
       Q_EMIT self_->error ("UDP server lookup failed:\n" + host_info.errorString ());
@@ -187,7 +190,13 @@ void MessageClient::impl::parse_message (QByteArray const& msg)
                 quint8 modifiers {0};
                 in >> time >> snr >> delta_time >> delta_frequency >> mode >> message
                    >> low_confidence >> modifiers;
-                TRACE_UDP ("Reply: time:" << time << "snr:" << snr << "dt:" << delta_time << "df:" << delta_frequency << "mode:" << mode << "message:" << message << "low confidence:" << low_confidence << "modifiers: 0x" << hex << modifiers);
+                TRACE_UDP ("Reply: time:" << time << "snr:" << snr << "dt:" << delta_time << "df:" << delta_frequency << "mode:" << mode << "message:" << message << "low confidence:" << low_confidence << "modifiers: 0x"
+#if QT_VERSION >= QT_VERSION_CHECK (5, 15, 0)
+                           << Qt::hex
+#else
+                           << hex
+#endif
+                           << modifiers);
                 if (check_status (in) != Fail)
                   {
                     Q_EMIT self_->reply (time, snr, delta_time, delta_frequency
@@ -423,30 +432,24 @@ MessageClient::MessageClient (QString const& id, QString const& version, QString
   : QObject {self}
   , m_ {id, version, revision, server_port, this}
 {
+  connect (&*m_
 #if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
-  connect (&*m_, static_cast<void (impl::*) (impl::SocketError)> (&impl::error)
-           , [this] (impl::SocketError e)
-           {
+           , static_cast<void (impl::*) (impl::SocketError)> (&impl::error), [this] (impl::SocketError e)
+#else
+           , &impl::errorOccurred, [this] (impl::SocketError e)
+#endif
+                                   {
 #if defined (Q_OS_WIN)
-             if (e != impl::NetworkError // take this out when Qt 5.5
-                                         // stops doing this
-                                         // spuriously
-                 && e != impl::ConnectionRefusedError) // not
-                                                       // interested
-                                                       // in this with
-                                                       // UDP socket
+                                     if (e != impl::NetworkError // take this out when Qt 5.5 stops doing this spuriously
+                                         && e != impl::ConnectionRefusedError) // not interested in this with UDP socket
+                                       {
 #else
-             Q_UNUSED (e);
+                                       {
+                                         Q_UNUSED (e);
 #endif
-               {
-                 Q_EMIT error (m_->errorString ());
-               }
-           });
-#else
-  connect (&*m_, &impl::errorOccurred, [this] (impl::SocketError) {
                                          Q_EMIT error (m_->errorString ());
-                                       });
-#endif
+                                       }
+                                   });
   set_server (server);
 }
 
@@ -464,38 +467,21 @@ void MessageClient::set_server (QString const& server)
 {
   m_->server_.clear ();
   m_->server_string_ = server;
-  if (!server.isEmpty ())
+  if (server.size ())
     {
       // queue a host address lookup
       TRACE_UDP ("server host DNS lookup:" << server);
-      QHostInfo::lookupHost (server, &*m_, SLOT (host_info_results (QHostInfo)));
+#if QT_VERSION >= QT_VERSION_CHECK(5, 9, 0)
+      m_->dns_lookup_id_ = QHostInfo::lookupHost (server, &*m_, &MessageClient::impl::host_info_results);
+#else
+      m_->dns_lookup_id_ = QHostInfo::lookupHost (server, &*m_, SLOT (host_info_results (QHostInfo)));
+#endif
     }
 }
 
 void MessageClient::set_server_port (port_type server_port)
 {
   m_->server_port_ = server_port;
-}
-
-qint64 MessageClient::send_raw_datagram (QByteArray const& message, QHostAddress const& dest_address
-                                       , port_type dest_port)
-{
-  if (dest_port && !dest_address.isNull ())
-    {
-      return m_->writeDatagram (message, dest_address, dest_port);
-    }
-  return 0;
-}
-
-void MessageClient::add_blocked_destination (QHostAddress const& a)
-{
-  m_->blocked_addresses_.push_back (a);
-  if (a == m_->server_)
-    {
-      m_->server_.clear ();
-      Q_EMIT error ("UDP server blocked, please try another");
-      m_->pending_messages_.clear (); // discard
-    }
 }
 
 void MessageClient::enable (bool flag)
@@ -573,7 +559,7 @@ void MessageClient::qso_logged (QDateTime time_off, QString const& dx_call, QStr
                                 , QString const& comments, QString const& name, QDateTime time_on
                                 , QString const& operator_call, QString const& my_call
                                 , QString const& my_grid, QString const& exchange_sent
-                                , QString const& exchange_rcvd)
+                                , QString const& exchange_rcvd, QString const& propmode)
 {
    if (m_->server_port_ && !m_->server_string_.isEmpty ())
     {
@@ -582,8 +568,8 @@ void MessageClient::qso_logged (QDateTime time_off, QString const& dx_call, QStr
       out << time_off << dx_call.toUtf8 () << dx_grid.toUtf8 () << dial_frequency << mode.toUtf8 ()
           << report_sent.toUtf8 () << report_received.toUtf8 () << tx_power.toUtf8 () << comments.toUtf8 ()
           << name.toUtf8 () << time_on << operator_call.toUtf8 () << my_call.toUtf8 () << my_grid.toUtf8 ()
-          << exchange_sent.toUtf8 () << exchange_rcvd.toUtf8 ();
-      TRACE_UDP ("time off:" << time_off << "DX:" << dx_call << "DX grid:" << dx_grid << "dial:" << dial_frequency << "mode:" << mode << "sent:" << report_sent << "rcvd:" << report_received << "pwr:" << tx_power << "comments:" << comments << "name:" << name << "time on:" << time_on << "op:" << operator_call << "DE:" << my_call << "DE grid:" << my_grid << "exch sent:" << exchange_sent << "exch rcvd:" << exchange_rcvd);
+          << exchange_sent.toUtf8 () << exchange_rcvd.toUtf8 () << propmode.toUtf8 ();
+      TRACE_UDP ("time off:" << time_off << "DX:" << dx_call << "DX grid:" << dx_grid << "dial:" << dial_frequency << "mode:" << mode << "sent:" << report_sent << "rcvd:" << report_received << "pwr:" << tx_power << "comments:" << comments << "name:" << name << "time on:" << time_on << "op:" << operator_call << "DE:" << my_call << "DE grid:" << my_grid << "exch sent:" << exchange_sent << "exch rcvd:" << exchange_rcvd  << "prop_mode:" << propmode);
       m_->send_message (out, message);
     }
 }

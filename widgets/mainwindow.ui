@@ -376,6 +376,7 @@
         </property>
         <property name="styleSheet">
          <string notr="true">QPushButton:checked {
+    color: #000000;
 	background-color: #00ff00;
     border-style: outset;
 	border-width: 1px;
@@ -447,6 +448,7 @@
         </property>
         <property name="styleSheet">
          <string notr="true">QPushButton:checked {
+	color: rgb(0, 0, 0);
 	background-color: cyan;
 	border-style: outset;
 	border-width: 1px;
@@ -480,6 +482,7 @@
         </property>
         <property name="styleSheet">
          <string notr="true">QPushButton:checked {
+	color: rgb(0, 0, 0);
 	background-color: red;
 	border-style: outset;
 	border-width: 1px;
@@ -523,6 +526,7 @@
         </property>
         <property name="styleSheet">
          <string notr="true">QPushButton:checked {
+	color: rgb(0, 0, 0);
 	background-color: red;
 	border-style: outset;
 	border-width: 1px;
@@ -553,358 +557,7 @@
      </layout>
     </item>
     <item>
-     <layout class="QGridLayout" name="gridLayout_5" columnstretch="0,0,0,0,0">
-      <item row="0" column="2">
-       <widget class="QLabel" name="labDialFreq">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="toolTip">
-         <string>USB dial frequency</string>
-        </property>
-        <property name="styleSheet">
-         <string notr="true">QLabel {
-  font-family: MS Shell Dlg 2;
-  font-size: 16pt;
-   color : yellow;
-   background-color : black;
-}
-QLabel[oob=&quot;true&quot;] {
-  background-color: red;
-}
-</string>
-        </property>
-        <property name="text">
-         <string>14.078 000</string>
-        </property>
-        <property name="alignment">
-         <set>Qt::AlignCenter</set>
-        </property>
-        <property name="margin">
-         <number>5</number>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="0" rowspan="2">
-       <widget class="SignalMeter" name="signal_meter_widget">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="MinimumExpanding" vsizetype="MinimumExpanding">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="maximumSize">
-         <size>
-          <width>100</width>
-          <height>16777215</height>
-         </size>
-        </property>
-        <property name="toolTip">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;30dB recommended when only noise present&lt;br/&gt;Green when good&lt;br/&gt;Red when clipping may occur&lt;br/&gt;Yellow when too low&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-        </property>
-        <property name="accessibleName">
-         <string>Rx Signal</string>
-        </property>
-        <property name="accessibleDescription">
-         <string>30dB recommended when only noise present
-Green when good
-Red when clipping may occur
-Yellow when too low</string>
-        </property>
-        <property name="frameShape">
-         <enum>QFrame::Panel</enum>
-        </property>
-        <property name="frameShadow">
-         <enum>QFrame::Sunken</enum>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="2">
-       <widget class="QWidget" name="DX_controls_widget" native="true">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <layout class="QGridLayout" name="gridLayout_2">
-         <property name="leftMargin">
-          <number>0</number>
-         </property>
-         <property name="topMargin">
-          <number>0</number>
-         </property>
-         <property name="rightMargin">
-          <number>0</number>
-         </property>
-         <property name="bottomMargin">
-          <number>0</number>
-         </property>
-         <item row="0" column="0">
-          <widget class="QLabel" name="label_3">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="palette">
-            <palette>
-             <active>
-              <colorrole role="Base">
-               <brush brushstyle="SolidPattern">
-                <color alpha="255">
-                 <red>252</red>
-                 <green>252</green>
-                 <blue>252</blue>
-                </color>
-               </brush>
-              </colorrole>
-              <colorrole role="Window">
-               <brush brushstyle="SolidPattern">
-                <color alpha="255">
-                 <red>159</red>
-                 <green>175</green>
-                 <blue>213</blue>
-                </color>
-               </brush>
-              </colorrole>
-             </active>
-             <inactive>
-              <colorrole role="Base">
-               <brush brushstyle="SolidPattern">
-                <color alpha="255">
-                 <red>252</red>
-                 <green>252</green>
-                 <blue>252</blue>
-                </color>
-               </brush>
-              </colorrole>
-              <colorrole role="Window">
-               <brush brushstyle="SolidPattern">
-                <color alpha="255">
-                 <red>159</red>
-                 <green>175</green>
-                 <blue>213</blue>
-                </color>
-               </brush>
-              </colorrole>
-             </inactive>
-             <disabled>
-              <colorrole role="Base">
-               <brush brushstyle="SolidPattern">
-                <color alpha="255">
-                 <red>159</red>
-                 <green>175</green>
-                 <blue>213</blue>
-                </color>
-               </brush>
-              </colorrole>
-              <colorrole role="Window">
-               <brush brushstyle="SolidPattern">
-                <color alpha="255">
-                 <red>159</red>
-                 <green>175</green>
-                 <blue>213</blue>
-                </color>
-               </brush>
-              </colorrole>
-             </disabled>
-            </palette>
-           </property>
-           <property name="autoFillBackground">
-            <bool>true</bool>
-           </property>
-           <property name="text">
-            <string>DX Call</string>
-           </property>
-           <property name="alignment">
-            <set>Qt::AlignCenter</set>
-           </property>
-           <property name="margin">
-            <number>5</number>
-           </property>
-           <property name="indent">
-            <number>2</number>
-           </property>
-           <property name="buddy">
-            <cstring>dxCallEntry</cstring>
-           </property>
-          </widget>
-         </item>
-         <item row="0" column="1">
-          <widget class="QLabel" name="label_4">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="palette">
-            <palette>
-             <active>
-              <colorrole role="Base">
-               <brush brushstyle="SolidPattern">
-                <color alpha="255">
-                 <red>252</red>
-                 <green>252</green>
-                 <blue>252</blue>
-                </color>
-               </brush>
-              </colorrole>
-              <colorrole role="Window">
-               <brush brushstyle="SolidPattern">
-                <color alpha="255">
-                 <red>159</red>
-                 <green>175</green>
-                 <blue>213</blue>
-                </color>
-               </brush>
-              </colorrole>
-             </active>
-             <inactive>
-              <colorrole role="Base">
-               <brush brushstyle="SolidPattern">
-                <color alpha="255">
-                 <red>252</red>
-                 <green>252</green>
-                 <blue>252</blue>
-                </color>
-               </brush>
-              </colorrole>
-              <colorrole role="Window">
-               <brush brushstyle="SolidPattern">
-                <color alpha="255">
-                 <red>159</red>
-                 <green>175</green>
-                 <blue>213</blue>
-                </color>
-               </brush>
-              </colorrole>
-             </inactive>
-             <disabled>
-              <colorrole role="Base">
-               <brush brushstyle="SolidPattern">
-                <color alpha="255">
-                 <red>159</red>
-                 <green>175</green>
-                 <blue>213</blue>
-                </color>
-               </brush>
-              </colorrole>
-              <colorrole role="Window">
-               <brush brushstyle="SolidPattern">
-                <color alpha="255">
-                 <red>159</red>
-                 <green>175</green>
-                 <blue>213</blue>
-                </color>
-               </brush>
-              </colorrole>
-             </disabled>
-            </palette>
-           </property>
-           <property name="autoFillBackground">
-            <bool>true</bool>
-           </property>
-           <property name="text">
-            <string>DX Grid</string>
-           </property>
-           <property name="alignment">
-            <set>Qt::AlignCenter</set>
-           </property>
-           <property name="margin">
-            <number>5</number>
-           </property>
-           <property name="indent">
-            <number>2</number>
-           </property>
-           <property name="buddy">
-            <cstring>dxGridEntry</cstring>
-           </property>
-          </widget>
-         </item>
-         <item row="1" column="0">
-          <widget class="QLineEdit" name="dxCallEntry">
-           <property name="toolTip">
-            <string>Callsign of station to be worked</string>
-           </property>
-           <property name="text">
-            <string/>
-           </property>
-           <property name="alignment">
-            <set>Qt::AlignCenter</set>
-           </property>
-          </widget>
-         </item>
-         <item row="3" column="0">
-          <widget class="QPushButton" name="lookupButton">
-           <property name="toolTip">
-            <string>Search for callsign in database</string>
-           </property>
-           <property name="text">
-            <string>&amp;Lookup</string>
-           </property>
-          </widget>
-         </item>
-         <item row="1" column="1">
-          <widget class="QLineEdit" name="dxGridEntry">
-           <property name="toolTip">
-            <string>Locator of station to be worked</string>
-           </property>
-           <property name="text">
-            <string/>
-           </property>
-           <property name="alignment">
-            <set>Qt::AlignCenter</set>
-           </property>
-          </widget>
-         </item>
-         <item row="2" column="0" colspan="2">
-          <widget class="QLabel" name="labAz">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="autoFillBackground">
-            <bool>true</bool>
-           </property>
-           <property name="text">
-            <string>Az: 251     16553 km</string>
-           </property>
-           <property name="alignment">
-            <set>Qt::AlignCenter</set>
-           </property>
-           <property name="indent">
-            <number>4</number>
-           </property>
-          </widget>
-         </item>
-         <item row="3" column="1">
-          <widget class="QPushButton" name="addButton">
-           <property name="toolTip">
-            <string>Add callsign and locator to database</string>
-           </property>
-           <property name="text">
-            <string>Add</string>
-           </property>
-          </widget>
-         </item>
-        </layout>
-       </widget>
-      </item>
-      <item row="0" column="4">
-       <widget class="QLabel" name="label">
-        <property name="text">
-         <string> Pwr</string>
-        </property>
-       </widget>
-      </item>
+     <layout class="QGridLayout" name="gridLayout_5" rowstretch="1,0,1,1">
       <item row="0" column="1" alignment="Qt::AlignHCenter|Qt::AlignVCenter">
        <widget class="QPushButton" name="readFreq">
         <property name="enabled">
@@ -947,34 +600,6 @@ QPushButton[state=&quot;ok&quot;] {
         </property>
        </widget>
       </item>
-      <item row="1" column="4" rowspan="2">
-       <widget class="QSlider" name="outAttenuation">
-        <property name="toolTip">
-         <string>Adjust Tx audio level</string>
-        </property>
-        <property name="maximum">
-         <number>450</number>
-        </property>
-        <property name="value">
-         <number>0</number>
-        </property>
-        <property name="orientation">
-         <enum>Qt::Vertical</enum>
-        </property>
-        <property name="invertedAppearance">
-         <bool>true</bool>
-        </property>
-        <property name="invertedControls">
-         <bool>true</bool>
-        </property>
-        <property name="tickPosition">
-         <enum>QSlider::TicksBelow</enum>
-        </property>
-        <property name="tickInterval">
-         <number>50</number>
-        </property>
-       </widget>
-      </item>
       <item row="0" column="0">
        <widget class="QComboBox" name="bandComboBox">
         <property name="toolTip">
@@ -997,46 +622,7 @@ QPushButton[state=&quot;ok&quot;] {
         </property>
        </widget>
       </item>
-      <item row="2" column="2">
-       <widget class="QLabel" name="labUTC">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="styleSheet">
-         <string notr="true">QLabel {
-  font-family: MS Shell Dlg 2;
-  font-size: 16pt;
-  background-color : black;
-  color : yellow;
-}</string>
-        </property>
-        <property name="frameShape">
-         <enum>QFrame::StyledPanel</enum>
-        </property>
-        <property name="frameShadow">
-         <enum>QFrame::Sunken</enum>
-        </property>
-        <property name="lineWidth">
-         <number>2</number>
-        </property>
-        <property name="midLineWidth">
-         <number>0</number>
-        </property>
-        <property name="text">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt; 2015 Jun 17 &lt;/p&gt;&lt;p align=&quot;center&quot;&gt; 01:23:45 &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-        </property>
-        <property name="alignment">
-         <set>Qt::AlignCenter</set>
-        </property>
-        <property name="margin">
-         <number>5</number>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="3" rowspan="3">
+      <item row="0" column="3" rowspan="4">
        <widget class="QStackedWidget" name="controls_stack_widget">
         <property name="currentIndex">
          <number>0</number>
@@ -1072,152 +658,7 @@ QPushButton[state=&quot;ok&quot;] {
              </property>
              <item>
               <layout class="QGridLayout" name="gridLayout_3">
-               <item row="1" column="1">
-                <widget class="QCheckBox" name="cbHoldTxFreq">
-                 <property name="toolTip">
-                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to keep Tx frequency fixed when double-clicking on decoded text.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-                 </property>
-                 <property name="accessibleDescription">
-                  <string>Check to keep Tx frequency fixed when double-clicking on decoded text.</string>
-                 </property>
-                 <property name="text">
-                  <string>Hold Tx Freq</string>
-                 </property>
-                </widget>
-               </item>
-               <item row="3" column="0">
-                <widget class="QSpinBox" name="RxFreqSpinBox">
-                 <property name="toolTip">
-                  <string>Audio Rx frequency</string>
-                 </property>
-                 <property name="alignment">
-                  <set>Qt::AlignCenter</set>
-                 </property>
-                 <property name="suffix">
-                  <string>  Hz</string>
-                 </property>
-                 <property name="prefix">
-                  <string>Rx  </string>
-                 </property>
-                 <property name="minimum">
-                  <number>200</number>
-                 </property>
-                 <property name="maximum">
-                  <number>5000</number>
-                 </property>
-                 <property name="value">
-                  <number>1500</number>
-                 </property>
-                </widget>
-               </item>
-               <item row="2" column="0">
-                <layout class="QHBoxLayout" name="horizontalLayout_4">
-                 <item>
-                  <widget class="QPushButton" name="pbR2T">
-                   <property name="sizePolicy">
-                    <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
-                     <horstretch>0</horstretch>
-                     <verstretch>0</verstretch>
-                    </sizepolicy>
-                   </property>
-                   <property name="minimumSize">
-                    <size>
-                     <width>20</width>
-                     <height>0</height>
-                    </size>
-                   </property>
-                   <property name="maximumSize">
-                    <size>
-                     <width>50</width>
-                     <height>20</height>
-                    </size>
-                   </property>
-                   <property name="toolTip">
-                    <string>Set Tx frequency to Rx Frequency</string>
-                   </property>
-                   <property name="text">
-                    <string>▲</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="HintedSpinBox" name="sbFtol">
-                   <property name="toolTip">
-                    <string>Frequency tolerance (Hz)</string>
-                   </property>
-                   <property name="alignment">
-                    <set>Qt::AlignCenter</set>
-                   </property>
-                   <property name="prefix">
-                    <string>F Tol  </string>
-                   </property>
-                   <property name="minimum">
-                    <number>10</number>
-                   </property>
-                   <property name="maximum">
-                    <number>1000</number>
-                   </property>
-                   <property name="value">
-                    <number>10</number>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QPushButton" name="pbT2R">
-                   <property name="sizePolicy">
-                    <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
-                     <horstretch>0</horstretch>
-                     <verstretch>0</verstretch>
-                    </sizepolicy>
-                   </property>
-                   <property name="minimumSize">
-                    <size>
-                     <width>20</width>
-                     <height>0</height>
-                    </size>
-                   </property>
-                   <property name="maximumSize">
-                    <size>
-                     <width>50</width>
-                     <height>20</height>
-                    </size>
-                   </property>
-                   <property name="toolTip">
-                    <string>Set Rx frequency to Tx Frequency</string>
-                   </property>
-                   <property name="text">
-                    <string>▼</string>
-                   </property>
-                  </widget>
-                 </item>
-                </layout>
-               </item>
-               <item row="5" column="1">
-                <widget class="QSpinBox" name="syncSpinBox">
-                 <property name="toolTip">
-                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Synchronizing threshold.  Lower numbers accept weaker sync signals.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-                 </property>
-                 <property name="accessibleDescription">
-                  <string>Synchronizing threshold. Lower numbers accept weaker sync signals.</string>
-                 </property>
-                 <property name="alignment">
-                  <set>Qt::AlignCenter</set>
-                 </property>
-                 <property name="prefix">
-                  <string>Sync   </string>
-                 </property>
-                 <property name="minimum">
-                  <number>-1</number>
-                 </property>
-                 <property name="maximum">
-                  <number>10</number>
-                 </property>
-                 <property name="value">
-                  <number>1</number>
-                 </property>
-                </widget>
-               </item>
-               <item row="7" column="0" colspan="2">
+               <item row="18" column="0" colspan="2">
                 <layout class="QHBoxLayout" name="horizontalLayout_5">
                  <item>
                   <widget class="QCheckBox" name="cbShMsgs">
@@ -1286,20 +727,29 @@ QPushButton[state=&quot;ok&quot;] {
                  </item>
                 </layout>
                </item>
-               <item row="0" column="0">
-                <widget class="QCheckBox" name="txFirstCheckBox">
+               <item row="8" column="1">
+                <widget class="LettersSpinBox" name="sbSubmode">
                  <property name="toolTip">
-                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to Tx in even-numbered minutes or sequences, starting at 0; uncheck for odd sequences.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Submode determines tone spacing; A is narrowest.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                  </property>
                  <property name="accessibleDescription">
-                  <string>Check to Tx in even-numbered minutes or sequences, starting at 0; uncheck for odd sequences.</string>
+                  <string>Submode determines tone spacing; A is narrowest.</string>
                  </property>
-                 <property name="text">
-                  <string>Tx even/1st</string>
+                 <property name="alignment">
+                  <set>Qt::AlignCenter</set>
+                 </property>
+                 <property name="prefix">
+                  <string>Submode </string>
+                 </property>
+                 <property name="minimum">
+                  <number>0</number>
+                 </property>
+                 <property name="maximum">
+                  <number>7</number>
                  </property>
                 </widget>
                </item>
-               <item row="6" column="0" colspan="2">
+               <item row="17" column="0" colspan="2">
                 <layout class="QHBoxLayout" name="horizontalLayout_11">
                  <item>
                   <widget class="QSpinBox" name="sbCQTxFreq">
@@ -1352,29 +802,26 @@ Not available to nonstandard callsign holders.</string>
                  </item>
                 </layout>
                </item>
-               <item row="4" column="1">
-                <widget class="LettersSpinBox" name="sbSubmode">
+               <item row="0" column="1">
+                <widget class="QPushButton" name="pbTxMode">
+                 <property name="enabled">
+                  <bool>true</bool>
+                 </property>
+                 <property name="sizePolicy">
+                  <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+                   <horstretch>0</horstretch>
+                   <verstretch>0</verstretch>
+                  </sizepolicy>
+                 </property>
                  <property name="toolTip">
-                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Submode determines tone spacing; A is narrowest.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                  <string>Toggle Tx mode</string>
                  </property>
-                 <property name="accessibleDescription">
-                  <string>Submode determines tone spacing; A is narrowest.</string>
-                 </property>
-                 <property name="alignment">
-                  <set>Qt::AlignCenter</set>
-                 </property>
-                 <property name="prefix">
-                  <string>Submode </string>
-                 </property>
-                 <property name="minimum">
-                  <number>0</number>
-                 </property>
-                 <property name="maximum">
-                  <number>7</number>
+                 <property name="text">
+                  <string>Tx JT9 @</string>
                  </property>
                 </widget>
                </item>
-               <item row="8" column="0" colspan="2">
+               <item row="19" column="0" colspan="2">
                 <layout class="QHBoxLayout" name="horizontalLayout_15">
                  <item>
                   <widget class="QLabel" name="labDXped">
@@ -1415,6 +862,7 @@ Not available to nonstandard callsign holders.</string>
                   <widget class="QPushButton" name="pbBestSP">
                    <property name="styleSheet">
                     <string notr="true">QPushButton:checked {
+	color: rgb(0, 0, 0);
 	background-color: red;
 	border-style: outset;
 	border-width: 1px;
@@ -1449,78 +897,6 @@ When not checked you can view the calibration results.</string>
                  </item>
                 </layout>
                </item>
-               <item row="4" column="0">
-                <widget class="QSpinBox" name="rptSpinBox">
-                 <property name="toolTip">
-                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Signal report: Signal-to-noise ratio in 2500 Hz reference bandwidth (dB).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-                 </property>
-                 <property name="accessibleDescription">
-                  <string>Signal report: Signal-to-noise ratio in 2500 Hz reference bandwidth (dB).</string>
-                 </property>
-                 <property name="alignment">
-                  <set>Qt::AlignCenter</set>
-                 </property>
-                 <property name="prefix">
-                  <string> Report </string>
-                 </property>
-                 <property name="minimum">
-                  <number>-50</number>
-                 </property>
-                 <property name="maximum">
-                  <number>49</number>
-                 </property>
-                 <property name="value">
-                  <number>-15</number>
-                 </property>
-                </widget>
-               </item>
-               <item row="5" column="0">
-                <widget class="RestrictedSpinBox" name="sbTR">
-                 <property name="toolTip">
-                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Tx/Rx or Frequency calibration sequence length&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-                 </property>
-                 <property name="accessibleDescription">
-                  <string>Tx/Rx or Frequency calibration sequence length</string>
-                 </property>
-                 <property name="alignment">
-                  <set>Qt::AlignCenter</set>
-                 </property>
-                 <property name="suffix">
-                  <string>  s</string>
-                 </property>
-                 <property name="prefix">
-                  <string>T/R  </string>
-                 </property>
-                 <property name="minimum">
-                  <number>5</number>
-                 </property>
-                 <property name="maximum">
-                  <number>30</number>
-                 </property>
-                 <property name="value">
-                  <number>30</number>
-                 </property>
-                </widget>
-               </item>
-               <item row="0" column="1">
-                <widget class="QPushButton" name="pbTxMode">
-                 <property name="enabled">
-                  <bool>true</bool>
-                 </property>
-                 <property name="sizePolicy">
-                  <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
-                   <horstretch>0</horstretch>
-                   <verstretch>0</verstretch>
-                  </sizepolicy>
-                 </property>
-                 <property name="toolTip">
-                  <string>Toggle Tx mode</string>
-                 </property>
-                 <property name="text">
-                  <string>Tx JT9 @</string>
-                 </property>
-                </widget>
-               </item>
                <item row="1" column="0">
                 <widget class="QSpinBox" name="TxFreqSpinBox">
                  <property name="toolTip">
@@ -1546,20 +922,7 @@ When not checked you can view the calibration results.</string>
                  </property>
                 </widget>
                </item>
-               <item row="9" column="0">
-                <spacer name="verticalSpacer_4">
-                 <property name="orientation">
-                  <enum>Qt::Vertical</enum>
-                 </property>
-                 <property name="sizeHint" stdset="0">
-                  <size>
-                   <width>20</width>
-                   <height>40</height>
-                  </size>
-                 </property>
-                </spacer>
-               </item>
-               <item row="3" column="1">
+               <item row="7" column="1">
                 <widget class="QSpinBox" name="sbSerialNumber">
                  <property name="alignment">
                   <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
@@ -1575,7 +938,71 @@ When not checked you can view the calibration results.</string>
                  </property>
                 </widget>
                </item>
-               <item row="2" column="1">
+               <item row="20" column="0">
+                <spacer name="verticalSpacer_4">
+                 <property name="orientation">
+                  <enum>Qt::Vertical</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>20</width>
+                   <height>40</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+               <item row="1" column="1">
+                <widget class="QCheckBox" name="cbHoldTxFreq">
+                 <property name="toolTip">
+                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to keep Tx frequency fixed when double-clicking on decoded text.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                 </property>
+                 <property name="accessibleDescription">
+                  <string>Check to keep Tx frequency fixed when double-clicking on decoded text.</string>
+                 </property>
+                 <property name="text">
+                  <string>Hold Tx Freq</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="0" column="0">
+                <widget class="QCheckBox" name="txFirstCheckBox">
+                 <property name="toolTip">
+                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to Tx in even-numbered minutes or sequences, starting at 0; uncheck for odd sequences.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                 </property>
+                 <property name="accessibleDescription">
+                  <string>Check to Tx in even-numbered minutes or sequences, starting at 0; uncheck for odd sequences.</string>
+                 </property>
+                 <property name="text">
+                  <string>Tx even/1st</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="9" column="1">
+                <widget class="QSpinBox" name="syncSpinBox">
+                 <property name="toolTip">
+                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Synchronizing threshold.  Lower numbers accept weaker sync signals.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                 </property>
+                 <property name="accessibleDescription">
+                  <string>Synchronizing threshold. Lower numbers accept weaker sync signals.</string>
+                 </property>
+                 <property name="alignment">
+                  <set>Qt::AlignCenter</set>
+                 </property>
+                 <property name="prefix">
+                  <string>Sync   </string>
+                 </property>
+                 <property name="minimum">
+                  <number>-1</number>
+                 </property>
+                 <property name="maximum">
+                  <number>10</number>
+                 </property>
+                 <property name="value">
+                  <number>1</number>
+                 </property>
+                </widget>
+               </item>
+               <item row="6" column="1">
                 <widget class="QLabel" name="labNextCall">
                  <property name="toolTip">
                   <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Double-click on another caller to queue that call for your next QSO.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -1588,6 +1015,219 @@ When not checked you can view the calibration results.</string>
                  </property>
                  <property name="alignment">
                   <set>Qt::AlignCenter</set>
+                 </property>
+                </widget>
+               </item>
+               <item row="5" column="1">
+                <widget class="QSpinBox" name="sbF_High">
+                 <property name="alignment">
+                  <set>Qt::AlignCenter</set>
+                 </property>
+                 <property name="suffix">
+                  <string/>
+                 </property>
+                 <property name="prefix">
+                  <string>F High </string>
+                 </property>
+                 <property name="minimum">
+                  <number>100</number>
+                 </property>
+                 <property name="maximum">
+                  <number>5000</number>
+                 </property>
+                 <property name="singleStep">
+                  <number>100</number>
+                 </property>
+                 <property name="value">
+                  <number>1400</number>
+                 </property>
+                </widget>
+               </item>
+               <item row="4" column="1">
+                <widget class="QSpinBox" name="sbF_Low">
+                 <property name="alignment">
+                  <set>Qt::AlignCenter</set>
+                 </property>
+                 <property name="prefix">
+                  <string>F Low   </string>
+                 </property>
+                 <property name="minimum">
+                  <number>100</number>
+                 </property>
+                 <property name="maximum">
+                  <number>5000</number>
+                 </property>
+                 <property name="singleStep">
+                  <number>100</number>
+                 </property>
+                 <property name="value">
+                  <number>600</number>
+                 </property>
+                </widget>
+               </item>
+               <item row="5" column="0">
+                <widget class="QSpinBox" name="RxFreqSpinBox">
+                 <property name="toolTip">
+                  <string>Audio Rx frequency</string>
+                 </property>
+                 <property name="alignment">
+                  <set>Qt::AlignCenter</set>
+                 </property>
+                 <property name="suffix">
+                  <string>  Hz</string>
+                 </property>
+                 <property name="prefix">
+                  <string>Rx  </string>
+                 </property>
+                 <property name="minimum">
+                  <number>200</number>
+                 </property>
+                 <property name="maximum">
+                  <number>5000</number>
+                 </property>
+                 <property name="value">
+                  <number>1500</number>
+                 </property>
+                </widget>
+               </item>
+               <item row="4" column="0">
+                <layout class="QHBoxLayout" name="horizontalLayout_4">
+                 <item>
+                  <widget class="QPushButton" name="pbR2T">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <property name="minimumSize">
+                    <size>
+                     <width>20</width>
+                     <height>0</height>
+                    </size>
+                   </property>
+                   <property name="maximumSize">
+                    <size>
+                     <width>50</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                   <property name="toolTip">
+                    <string>Set Tx frequency to Rx Frequency</string>
+                   </property>
+                   <property name="accessibleName">
+                    <string>Set Tx frequency to Rx Frequency</string>
+                   </property>
+                   <property name="text">
+                    <string>▲</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="HintedSpinBox" name="sbFtol">
+                   <property name="toolTip">
+                    <string>Frequency tolerance (Hz)</string>
+                   </property>
+                   <property name="alignment">
+                    <set>Qt::AlignCenter</set>
+                   </property>
+                   <property name="prefix">
+                    <string>F Tol  </string>
+                   </property>
+                   <property name="minimum">
+                    <number>1</number>
+                   </property>
+                   <property name="maximum">
+                    <number>1000</number>
+                   </property>
+                   <property name="value">
+                    <number>10</number>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="pbT2R">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <property name="minimumSize">
+                    <size>
+                     <width>20</width>
+                     <height>0</height>
+                    </size>
+                   </property>
+                   <property name="maximumSize">
+                    <size>
+                     <width>50</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                   <property name="toolTip">
+                    <string>Set Rx frequency to Tx Frequency</string>
+                   </property>
+                   <property name="accessibleName">
+                    <string>Set Rx frequency to Tx Frequency</string>
+                   </property>
+                   <property name="text">
+                    <string>▼</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </item>
+               <item row="6" column="0">
+                <widget class="QSpinBox" name="rptSpinBox">
+                 <property name="toolTip">
+                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Signal report: Signal-to-noise ratio in 2500 Hz reference bandwidth (dB).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                 </property>
+                 <property name="accessibleDescription">
+                  <string>Signal report: Signal-to-noise ratio in 2500 Hz reference bandwidth (dB).</string>
+                 </property>
+                 <property name="alignment">
+                  <set>Qt::AlignCenter</set>
+                 </property>
+                 <property name="prefix">
+                  <string> Report </string>
+                 </property>
+                 <property name="minimum">
+                  <number>-50</number>
+                 </property>
+                 <property name="maximum">
+                  <number>49</number>
+                 </property>
+                 <property name="value">
+                  <number>-15</number>
+                 </property>
+                </widget>
+               </item>
+               <item row="7" column="0">
+                <widget class="RestrictedSpinBox" name="sbTR">
+                 <property name="toolTip">
+                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Tx/Rx or Frequency calibration sequence length&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                 </property>
+                 <property name="accessibleDescription">
+                  <string>Tx/Rx or Frequency calibration sequence length</string>
+                 </property>
+                 <property name="alignment">
+                  <set>Qt::AlignCenter</set>
+                 </property>
+                 <property name="suffix">
+                  <string>  s</string>
+                 </property>
+                 <property name="prefix">
+                  <string>T/R  </string>
+                 </property>
+                 <property name="minimum">
+                  <number>5</number>
+                 </property>
+                 <property name="maximum">
+                  <number>1800</number>
+                 </property>
+                 <property name="value">
+                  <number>30</number>
                  </property>
                 </widget>
                </item>
@@ -1920,274 +1560,9 @@ list. The list can be maintained in Settings (F2).</string>
                  </item>
                 </layout>
                </widget>
-               <widget class="QWidget" name="tab_2">
-                <attribute name="title">
-                 <string>2</string>
-                </attribute>
-                <layout class="QVBoxLayout" name="verticalLayout_4">
-                 <property name="leftMargin">
-                  <number>6</number>
-                 </property>
-                 <property name="topMargin">
-                  <number>6</number>
-                 </property>
-                 <property name="rightMargin">
-                  <number>6</number>
-                 </property>
-                 <property name="bottomMargin">
-                  <number>6</number>
-                 </property>
-                 <item>
-                  <layout class="QGridLayout" name="gridLayout_4">
-                   <property name="horizontalSpacing">
-                    <number>0</number>
-                   </property>
-                   <item row="0" column="0">
-                    <widget class="QLabel" name="label_9">
-                     <property name="sizePolicy">
-                      <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-                       <horstretch>2</horstretch>
-                       <verstretch>0</verstretch>
-                      </sizepolicy>
-                     </property>
-                     <property name="minimumSize">
-                      <size>
-                       <width>0</width>
-                       <height>30</height>
-                      </size>
-                     </property>
-                     <property name="maximumSize">
-                      <size>
-                       <width>16777215</width>
-                       <height>30</height>
-                      </size>
-                     </property>
-                     <property name="text">
-                      <string>Calling CQ </string>
-                     </property>
-                     <property name="alignment">
-                      <set>Qt::AlignCenter</set>
-                     </property>
-                    </widget>
-                   </item>
-                   <item row="1" column="0">
-                    <widget class="QPushButton" name="pbCallCQ">
-                     <property name="sizePolicy">
-                      <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-                       <horstretch>2</horstretch>
-                       <verstretch>0</verstretch>
-                      </sizepolicy>
-                     </property>
-                     <property name="toolTip">
-                      <string>Generate a CQ message</string>
-                     </property>
-                     <property name="text">
-                      <string>CQ</string>
-                     </property>
-                    </widget>
-                   </item>
-                   <item row="3" column="0">
-                    <widget class="QPushButton" name="pbSendRRR">
-                     <property name="sizePolicy">
-                      <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-                       <horstretch>2</horstretch>
-                       <verstretch>0</verstretch>
-                      </sizepolicy>
-                     </property>
-                     <property name="toolTip">
-                      <string>Generate message with RRR</string>
-                     </property>
-                     <property name="text">
-                      <string>RRR</string>
-                     </property>
-                    </widget>
-                   </item>
-                   <item row="2" column="0">
-                    <widget class="QPushButton" name="pbAnswerCaller">
-                     <property name="sizePolicy">
-                      <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-                       <horstretch>2</horstretch>
-                       <verstretch>0</verstretch>
-                      </sizepolicy>
-                     </property>
-                     <property name="toolTip">
-                      <string>Generate message with report</string>
-                     </property>
-                     <property name="text">
-                      <string>dB</string>
-                     </property>
-                    </widget>
-                   </item>
-                   <item row="0" column="1">
-                    <widget class="QLabel" name="label_10">
-                     <property name="sizePolicy">
-                      <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-                       <horstretch>2</horstretch>
-                       <verstretch>0</verstretch>
-                      </sizepolicy>
-                     </property>
-                     <property name="minimumSize">
-                      <size>
-                       <width>0</width>
-                       <height>30</height>
-                      </size>
-                     </property>
-                     <property name="maximumSize">
-                      <size>
-                       <width>16777215</width>
-                       <height>30</height>
-                      </size>
-                     </property>
-                     <property name="text">
-                      <string>Answering CQ</string>
-                     </property>
-                     <property name="alignment">
-                      <set>Qt::AlignCenter</set>
-                     </property>
-                    </widget>
-                   </item>
-                   <item row="1" column="1">
-                    <widget class="QPushButton" name="pbAnswerCQ">
-                     <property name="sizePolicy">
-                      <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-                       <horstretch>2</horstretch>
-                       <verstretch>0</verstretch>
-                      </sizepolicy>
-                     </property>
-                     <property name="toolTip">
-                      <string>Generate message for replying to a CQ</string>
-                     </property>
-                     <property name="text">
-                      <string>Grid</string>
-                     </property>
-                    </widget>
-                   </item>
-                   <item row="2" column="1">
-                    <widget class="QPushButton" name="pbSendReport">
-                     <property name="sizePolicy">
-                      <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-                       <horstretch>2</horstretch>
-                       <verstretch>0</verstretch>
-                      </sizepolicy>
-                     </property>
-                     <property name="toolTip">
-                      <string>Generate message with R+report</string>
-                     </property>
-                     <property name="text">
-                      <string>R+dB</string>
-                     </property>
-                    </widget>
-                   </item>
-                   <item row="3" column="1">
-                    <widget class="QPushButton" name="pbSend73">
-                     <property name="sizePolicy">
-                      <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-                       <horstretch>2</horstretch>
-                       <verstretch>0</verstretch>
-                      </sizepolicy>
-                     </property>
-                     <property name="toolTip">
-                      <string>Generate message with 73</string>
-                     </property>
-                     <property name="text">
-                      <string>73</string>
-                     </property>
-                    </widget>
-                   </item>
-                  </layout>
-                 </item>
-                 <item>
-                  <layout class="QHBoxLayout" name="horizontalLayout_3">
-                   <item>
-                    <widget class="QLineEdit" name="genMsg">
-                     <property name="sizePolicy">
-                      <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                       <horstretch>3</horstretch>
-                       <verstretch>0</verstretch>
-                      </sizepolicy>
-                     </property>
-                    </widget>
-                   </item>
-                   <item>
-                    <widget class="QRadioButton" name="rbGenMsg">
-                     <property name="sizePolicy">
-                      <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-                       <horstretch>1</horstretch>
-                       <verstretch>0</verstretch>
-                      </sizepolicy>
-                     </property>
-                     <property name="minimumSize">
-                      <size>
-                       <width>0</width>
-                       <height>26</height>
-                      </size>
-                     </property>
-                     <property name="toolTip">
-                      <string>Send this standard (generated) message</string>
-                     </property>
-                     <property name="text">
-                      <string>Gen msg</string>
-                     </property>
-                     <property name="checked">
-                      <bool>true</bool>
-                     </property>
-                    </widget>
-                   </item>
-                  </layout>
-                 </item>
-                 <item>
-                  <layout class="QHBoxLayout" name="horizontalLayout">
-                   <item>
-                    <widget class="QComboBox" name="freeTextMsg">
-                     <property name="sizePolicy">
-                      <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                       <horstretch>3</horstretch>
-                       <verstretch>0</verstretch>
-                      </sizepolicy>
-                     </property>
-                     <property name="minimumSize">
-                      <size>
-                       <width>150</width>
-                       <height>0</height>
-                      </size>
-                     </property>
-                     <property name="toolTip">
-                      <string>Enter a free text message (maximum 13 characters)
-or select a predefined macro from the dropdown list.
-Press ENTER to add the current text to the predefined
-list. The list can be maintained in Settings (F2).</string>
-                     </property>
-                     <property name="editable">
-                      <bool>true</bool>
-                     </property>
-                     <property name="insertPolicy">
-                      <enum>QComboBox::InsertAtBottom</enum>
-                     </property>
-                    </widget>
-                   </item>
-                   <item>
-                    <widget class="QRadioButton" name="rbFreeText">
-                     <property name="sizePolicy">
-                      <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-                       <horstretch>1</horstretch>
-                       <verstretch>0</verstretch>
-                      </sizepolicy>
-                     </property>
-                     <property name="toolTip">
-                      <string>Send this free-text message (max 13 characters)</string>
-                     </property>
-                     <property name="text">
-                      <string>Free msg</string>
-                     </property>
-                    </widget>
-                   </item>
-                  </layout>
-                 </item>
-                </layout>
-               </widget>
                <widget class="QWidget" name="tab_3">
                 <attribute name="title">
-                 <string>3</string>
+                 <string>2</string>
                 </attribute>
                 <layout class="QGridLayout" name="gridLayout_11">
                  <item row="0" column="1" rowspan="2">
@@ -2564,7 +1939,7 @@ list. The list can be maintained in Settings (F2).</string>
                        <number>1400</number>
                       </property>
                       <property name="maximum">
-                       <number>1700</number>
+                       <number>1600</number>
                       </property>
                       <property name="value">
                        <number>1500</number>
@@ -2572,9 +1947,177 @@ list. The list can be maintained in Settings (F2).</string>
                      </widget>
                     </item>
                     <item>
+                     <widget class="QSpinBox" name="sbFST4W_RxFreq">
+                      <property name="alignment">
+                       <set>Qt::AlignCenter</set>
+                      </property>
+                      <property name="suffix">
+                       <string>  Hz</string>
+                      </property>
+                      <property name="prefix">
+                       <string>Rx  </string>
+                      </property>
+                      <property name="minimum">
+                       <number>100</number>
+                      </property>
+                      <property name="maximum">
+                       <number>4900</number>
+                      </property>
+                      <property name="singleStep">
+                       <number>100</number>
+                      </property>
+                      <property name="value">
+                       <number>1500</number>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="HintedSpinBox" name="sbFST4W_FTol">
+                      <property name="alignment">
+                       <set>Qt::AlignCenter</set>
+                      </property>
+                      <property name="suffix">
+                       <string>  Hz</string>
+                      </property>
+                      <property name="prefix">
+                       <string>F Tol  </string>
+                      </property>
+                      <property name="minimum">
+                       <number>100</number>
+                      </property>
+                      <property name="maximum">
+                       <number>500</number>
+                      </property>
+                      <property name="singleStep">
+                       <number>100</number>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QComboBox" name="RoundRobin">
+                      <property name="editable">
+                       <bool>true</bool>
+                      </property>
+                      <property name="currentIndex">
+                       <number>0</number>
+                      </property>
+                      <item>
+                       <property name="text">
+                        <string>Random</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>1/2</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>2/2</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>1/3</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>2/3</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>3/3</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>1/4</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>2/4</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>3/4</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>4/4</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>1/5</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>2/5</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>3/5</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>4/5</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>5/5</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>1/6</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>2/6</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>3/6</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>4/6</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>5/6</string>
+                       </property>
+                      </item>
+                      <item>
+                       <property name="text">
+                        <string>6/6</string>
+                       </property>
+                      </item>
+                     </widget>
+                    </item>
+                    <item>
                      <widget class="QSpinBox" name="sbTxPercent">
                       <property name="toolTip">
-                       <string>Percentage of 2-minute sequences devoted to transmitting.</string>
+                       <string>Percentage of minute sequences devoted to transmitting.</string>
+                      </property>
+                      <property name="styleSheet">
+                       <string notr="true">QSpinBox:enabled[notx=&quot;true&quot;] {
+	color: rgb(0, 0, 0);
+	background-color: rgb(255, 255, 0);
+}</string>
                       </property>
                       <property name="alignment">
                        <set>Qt::AlignCenter</set>
@@ -2587,6 +2130,25 @@ list. The list can be maintained in Settings (F2).</string>
                       </property>
                       <property name="maximum">
                        <number>100</number>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="RestrictedSpinBox" name="sbTR_FST4W">
+                      <property name="alignment">
+                       <set>Qt::AlignCenter</set>
+                      </property>
+                      <property name="suffix">
+                       <string>  s</string>
+                      </property>
+                      <property name="prefix">
+                       <string>T/R  </string>
+                      </property>
+                      <property name="minimum">
+                       <number>15</number>
+                      </property>
+                      <property name="maximum">
+                       <number>1800</number>
                       </property>
                      </widget>
                     </item>
@@ -2625,6 +2187,12 @@ list. The list can be maintained in Settings (F2).</string>
                           <property name="toolTip">
                            <string>Upload decoded messages to WSPRnet.org.</string>
                           </property>
+                          <property name="styleSheet">
+                           <string notr="true">QCheckBox:unchecked {
+	color: rgb(0, 0, 0);
+	background-color: rgb(255, 255, 0);
+}</string>
+                          </property>
                           <property name="text">
                            <string>Upload spots</string>
                           </property>
@@ -2641,7 +2209,7 @@ list. The list can be maintained in Settings (F2).</string>
                          <string>6 digit locators cause 2 different messages to be sent, the second contains the full locator but only a hashed callsign, other stations must have decoded the first once before they can decode your call in the second. Check this option to only send 4 digit locators if it will avoid the two message protocol.</string>
                         </property>
                         <property name="text">
-                         <string>Prefer type 1 messages</string>
+                         <string>Prefer Type 1 messages</string>
                         </property>
                         <property name="checked">
                          <bool>true</bool>
@@ -2660,10 +2228,11 @@ list. The list can be maintained in Settings (F2).</string>
                         <item>
                          <widget class="QPushButton" name="pbTxNext">
                           <property name="toolTip">
-                           <string>Transmit during the next 2-minute sequence.</string>
+                           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Transmit during the next sequence.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                           </property>
                           <property name="styleSheet">
                            <string notr="true">QPushButton:checked {
+	color: rgb(0, 0, 0);
 	background-color: red;
 	border-style: outset;
 	border-width: 1px;
@@ -2749,6 +2318,442 @@ list. The list can be maintained in Settings (F2).</string>
         </widget>
        </widget>
       </item>
+      <item row="0" column="2">
+       <widget class="QLabel" name="labDialFreq">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="toolTip">
+         <string>USB dial frequency</string>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">QLabel {
+  font-family: MS Shell Dlg 2;
+  font-size: 16pt;
+   color : yellow;
+   background-color : black;
+}
+QLabel[oob=&quot;true&quot;] {
+  background-color: red;
+}</string>
+        </property>
+        <property name="text">
+         <string>14.078 000</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+        <property name="margin">
+         <number>5</number>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="4">
+       <widget class="QLabel" name="label">
+        <property name="text">
+         <string> Pwr</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="2">
+       <widget class="QLabel" name="labUTC">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">QLabel {
+  font-family: MS Shell Dlg 2;
+  font-size: 16pt;
+  background-color : black;
+  color : yellow;
+}</string>
+        </property>
+        <property name="frameShape">
+         <enum>QFrame::StyledPanel</enum>
+        </property>
+        <property name="frameShadow">
+         <enum>QFrame::Sunken</enum>
+        </property>
+        <property name="lineWidth">
+         <number>2</number>
+        </property>
+        <property name="midLineWidth">
+         <number>0</number>
+        </property>
+        <property name="text">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt; 2015 Jun 17 &lt;/p&gt;&lt;p align=&quot;center&quot;&gt; 01:23:45 &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+        <property name="margin">
+         <number>5</number>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0" rowspan="2">
+       <widget class="SignalMeter" name="signal_meter_widget">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="MinimumExpanding" vsizetype="MinimumExpanding">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>100</width>
+          <height>16777215</height>
+         </size>
+        </property>
+        <property name="toolTip">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;30dB recommended when only noise present&lt;br/&gt;Green when good&lt;br/&gt;Red when clipping may occur&lt;br/&gt;Yellow when too low&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="accessibleName">
+         <string>Rx Signal</string>
+        </property>
+        <property name="accessibleDescription">
+         <string>30dB recommended when only noise present
+Green when good
+Red when clipping may occur
+Yellow when too low</string>
+        </property>
+        <property name="frameShape">
+         <enum>QFrame::Panel</enum>
+        </property>
+        <property name="frameShadow">
+         <enum>QFrame::Sunken</enum>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="4" rowspan="3">
+       <widget class="QSlider" name="outAttenuation">
+        <property name="toolTip">
+         <string>Adjust Tx audio level</string>
+        </property>
+        <property name="maximum">
+         <number>450</number>
+        </property>
+        <property name="value">
+         <number>0</number>
+        </property>
+        <property name="orientation">
+         <enum>Qt::Vertical</enum>
+        </property>
+        <property name="invertedAppearance">
+         <bool>true</bool>
+        </property>
+        <property name="invertedControls">
+         <bool>true</bool>
+        </property>
+        <property name="tickPosition">
+         <enum>QSlider::TicksBelow</enum>
+        </property>
+        <property name="tickInterval">
+         <number>50</number>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QSpinBox" name="sbNB">
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+        <property name="suffix">
+         <string>  %</string>
+        </property>
+        <property name="prefix">
+         <string>NB  </string>
+        </property>
+        <property name="minimum">
+         <number>-2</number>
+        </property>
+        <property name="maximum">
+         <number>25</number>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="2">
+       <widget class="QWidget" name="DX_controls_widget" native="true">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <layout class="QGridLayout" name="gridLayout_2">
+         <property name="leftMargin">
+          <number>0</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="rightMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item row="1" column="0">
+          <widget class="QLabel" name="label_3">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="palette">
+            <palette>
+             <active>
+              <colorrole role="Base">
+               <brush brushstyle="SolidPattern">
+                <color alpha="255">
+                 <red>252</red>
+                 <green>252</green>
+                 <blue>252</blue>
+                </color>
+               </brush>
+              </colorrole>
+              <colorrole role="Window">
+               <brush brushstyle="SolidPattern">
+                <color alpha="255">
+                 <red>159</red>
+                 <green>175</green>
+                 <blue>213</blue>
+                </color>
+               </brush>
+              </colorrole>
+             </active>
+             <inactive>
+              <colorrole role="Base">
+               <brush brushstyle="SolidPattern">
+                <color alpha="255">
+                 <red>252</red>
+                 <green>252</green>
+                 <blue>252</blue>
+                </color>
+               </brush>
+              </colorrole>
+              <colorrole role="Window">
+               <brush brushstyle="SolidPattern">
+                <color alpha="255">
+                 <red>159</red>
+                 <green>175</green>
+                 <blue>213</blue>
+                </color>
+               </brush>
+              </colorrole>
+             </inactive>
+             <disabled>
+              <colorrole role="Base">
+               <brush brushstyle="SolidPattern">
+                <color alpha="255">
+                 <red>159</red>
+                 <green>175</green>
+                 <blue>213</blue>
+                </color>
+               </brush>
+              </colorrole>
+              <colorrole role="Window">
+               <brush brushstyle="SolidPattern">
+                <color alpha="255">
+                 <red>159</red>
+                 <green>175</green>
+                 <blue>213</blue>
+                </color>
+               </brush>
+              </colorrole>
+             </disabled>
+            </palette>
+           </property>
+           <property name="autoFillBackground">
+            <bool>true</bool>
+           </property>
+           <property name="text">
+            <string>DX Call</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
+           </property>
+           <property name="margin">
+            <number>5</number>
+           </property>
+           <property name="indent">
+            <number>2</number>
+           </property>
+           <property name="buddy">
+            <cstring>dxCallEntry</cstring>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="0" colspan="2">
+          <widget class="QLabel" name="labAz">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="autoFillBackground">
+            <bool>true</bool>
+           </property>
+           <property name="text">
+            <string>Az: 251     16553 km</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
+           </property>
+           <property name="indent">
+            <number>4</number>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="0">
+          <widget class="QLineEdit" name="dxCallEntry">
+           <property name="toolTip">
+            <string>Callsign of station to be worked</string>
+           </property>
+           <property name="text">
+            <string/>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <widget class="QLabel" name="label_4">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="palette">
+            <palette>
+             <active>
+              <colorrole role="Base">
+               <brush brushstyle="SolidPattern">
+                <color alpha="255">
+                 <red>252</red>
+                 <green>252</green>
+                 <blue>252</blue>
+                </color>
+               </brush>
+              </colorrole>
+              <colorrole role="Window">
+               <brush brushstyle="SolidPattern">
+                <color alpha="255">
+                 <red>159</red>
+                 <green>175</green>
+                 <blue>213</blue>
+                </color>
+               </brush>
+              </colorrole>
+             </active>
+             <inactive>
+              <colorrole role="Base">
+               <brush brushstyle="SolidPattern">
+                <color alpha="255">
+                 <red>252</red>
+                 <green>252</green>
+                 <blue>252</blue>
+                </color>
+               </brush>
+              </colorrole>
+              <colorrole role="Window">
+               <brush brushstyle="SolidPattern">
+                <color alpha="255">
+                 <red>159</red>
+                 <green>175</green>
+                 <blue>213</blue>
+                </color>
+               </brush>
+              </colorrole>
+             </inactive>
+             <disabled>
+              <colorrole role="Base">
+               <brush brushstyle="SolidPattern">
+                <color alpha="255">
+                 <red>159</red>
+                 <green>175</green>
+                 <blue>213</blue>
+                </color>
+               </brush>
+              </colorrole>
+              <colorrole role="Window">
+               <brush brushstyle="SolidPattern">
+                <color alpha="255">
+                 <red>159</red>
+                 <green>175</green>
+                 <blue>213</blue>
+                </color>
+               </brush>
+              </colorrole>
+             </disabled>
+            </palette>
+           </property>
+           <property name="autoFillBackground">
+            <bool>true</bool>
+           </property>
+           <property name="text">
+            <string>DX Grid</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
+           </property>
+           <property name="margin">
+            <number>5</number>
+           </property>
+           <property name="indent">
+            <number>2</number>
+           </property>
+           <property name="buddy">
+            <cstring>dxGridEntry</cstring>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="0">
+          <widget class="QPushButton" name="lookupButton">
+           <property name="toolTip">
+            <string>Search for callsign in database</string>
+           </property>
+           <property name="text">
+            <string>&amp;Lookup</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="1">
+          <widget class="QLineEdit" name="dxGridEntry">
+           <property name="toolTip">
+            <string>Locator of station to be worked</string>
+           </property>
+           <property name="text">
+            <string/>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="1">
+          <widget class="QPushButton" name="addButton">
+           <property name="toolTip">
+            <string>Add callsign and locator to database</string>
+           </property>
+           <property name="text">
+            <string>Add</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
      </layout>
     </item>
    </layout>
@@ -2827,7 +2832,7 @@ list. The list can be maintained in Settings (F2).</string>
     <addaction name="actionOnline_User_Guide"/>
     <addaction name="actionLocal_User_Guide"/>
     <addaction name="actionFT8_DXpedition_Mode_User_Guide"/>
-    <addaction name="actionQuick_Start_Guide_v2"/>
+    <addaction name="actionQuick_Start_Guide"/>
     <addaction name="download_samples_action"/>
     <addaction name="separator"/>
     <addaction name="actionKeyboard_shortcuts"/>
@@ -2842,6 +2847,8 @@ list. The list can be maintained in Settings (F2).</string>
     <property name="title">
      <string>Mode</string>
     </property>
+    <addaction name="actionFST4"/>
+    <addaction name="actionFST4W"/>
     <addaction name="actionFT4"/>
     <addaction name="actionFT8"/>
     <addaction name="actionJT4"/>
@@ -2854,7 +2861,6 @@ list. The list can be maintained in Settings (F2).</string>
     <addaction name="actionMSK144"/>
     <addaction name="separator"/>
     <addaction name="actionWSPR"/>
-    <addaction name="actionWSPR_LF"/>
     <addaction name="separator"/>
     <addaction name="actionEcho"/>
     <addaction name="separator"/>
@@ -2894,17 +2900,6 @@ list. The list can be maintained in Settings (F2).</string>
    </property>
    <property name="menuRole">
     <enum>QAction::QuitRole</enum>
-   </property>
-  </action>
-  <action name="actionDeviceSetup">
-   <property name="checkable">
-    <bool>false</bool>
-   </property>
-   <property name="text">
-    <string>Configuration</string>
-   </property>
-   <property name="shortcut">
-    <string>F2</string>
    </property>
   </action>
   <action name="actionAbout">
@@ -3035,14 +3030,6 @@ list. The list can be maintained in Settings (F2).</string>
     <string>Deep</string>
    </property>
   </action>
-  <action name="actionMonitor_OFF_at_startup">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Monitor OFF at startup</string>
-   </property>
-  </action>
   <action name="actionErase_ALL_TXT">
    <property name="text">
     <string>Erase ALL.TXT</string>
@@ -3051,97 +3038,6 @@ list. The list can be maintained in Settings (F2).</string>
   <action name="actionErase_wsjtx_log_adi">
    <property name="text">
     <string>Erase wsjtx_log.adi</string>
-   </property>
-  </action>
-  <action name="actionConvert_JT9_x_to_RTTY">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Convert mode to RTTY for logging</string>
-   </property>
-  </action>
-  <action name="actionLog_dB_reports_to_Comments">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Log dB reports to Comments</string>
-   </property>
-  </action>
-  <action name="actionPrompt_to_log_QSO">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Prompt me to log QSO</string>
-   </property>
-  </action>
-  <action name="actionBlank_line_between_decoding_periods">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Blank line between decoding periods</string>
-   </property>
-  </action>
-  <action name="actionClear_DX_Call_and_Grid_after_logging">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Clear DX Call and Grid after logging</string>
-   </property>
-  </action>
-  <action name="actionDisplay_distance_in_miles">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Display distance in miles</string>
-   </property>
-  </action>
-  <action name="actionDouble_click_on_call_sets_Tx_Enable">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Double-click on call sets Tx Enable</string>
-   </property>
-   <property name="shortcut">
-    <string>F7</string>
-   </property>
-  </action>
-  <action name="action_73TxDisable">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Tx disabled after sending 73</string>
-   </property>
-  </action>
-  <action name="actionRunaway_Tx_watchdog">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Runaway Tx watchdog</string>
-   </property>
-  </action>
-  <action name="actionAllow_multiple_instances">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Allow multiple instances</string>
-   </property>
-  </action>
-  <action name="actionLockTxFreq">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Tx freq locked to Rx freq</string>
    </property>
   </action>
   <action name="actionJT65">
@@ -3158,30 +3054,6 @@ list. The list can be maintained in Settings (F2).</string>
    </property>
    <property name="text">
     <string>JT9+JT65</string>
-   </property>
-  </action>
-  <action name="actionTx2QSO">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Tx messages to Rx Frequency window</string>
-   </property>
-  </action>
-  <action name="actionGray1">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Gray1</string>
-   </property>
-  </action>
-  <action name="actionEnable_DXCC_entity">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Show DXCC entity and worked B4 status</string>
    </property>
   </action>
   <action name="actionAstronomical_data">
@@ -3363,23 +3235,6 @@ list. The list can be maintained in Settings (F2).</string>
     <string>Equalization tools ...</string>
    </property>
   </action>
-  <action name="actionWSPR_LF">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="enabled">
-    <bool>false</bool>
-   </property>
-   <property name="text">
-    <string>WSPR-LF</string>
-   </property>
-   <property name="toolTip">
-    <string>Experimental LF/MF mode</string>
-   </property>
-   <property name="visible">
-    <bool>false</bool>
-   </property>
-  </action>
   <action name="actionFT8">
    <property name="checkable">
     <bool>true</bool>
@@ -3443,19 +3298,14 @@ list. The list can be maintained in Settings (F2).</string>
     <string>Color highlighting scheme</string>
    </property>
   </action>
-  <action name="actionContest_Log">
-   <property name="text">
-    <string>Contest Log</string>
-   </property>
-  </action>
   <action name="actionExport_Cabrillo_log">
    <property name="text">
     <string>Export Cabrillo log ...</string>
    </property>
   </action>
-  <action name="actionQuick_Start_Guide_v2">
+  <action name="actionQuick_Start_Guide">
    <property name="text">
-    <string>Quick-Start Guide to WSJT-X 2.0</string>
+    <string>Quick-Start Guide to FST4 and FST4W</string>
    </property>
   </action>
   <action name="contest_log_action">
@@ -3474,6 +3324,22 @@ list. The list can be maintained in Settings (F2).</string>
    </property>
    <property name="text">
     <string>FT4</string>
+   </property>
+  </action>
+  <action name="actionFST4">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>FST4</string>
+   </property>
+  </action>
+  <action name="actionFST4W">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>FST4W</string>
    </property>
   </action>
  </widget>
@@ -3532,8 +3398,6 @@ list. The list can be maintained in Settings (F2).</string>
   <tabstop>addButton</tabstop>
   <tabstop>txFirstCheckBox</tabstop>
   <tabstop>TxFreqSpinBox</tabstop>
-  <tabstop>rptSpinBox</tabstop>
-  <tabstop>sbTR</tabstop>
   <tabstop>sbCQTxFreq</tabstop>
   <tabstop>cbCQTx</tabstop>
   <tabstop>cbShMsgs</tabstop>
@@ -3544,16 +3408,6 @@ list. The list can be maintained in Settings (F2).</string>
   <tabstop>sbSubmode</tabstop>
   <tabstop>syncSpinBox</tabstop>
   <tabstop>tabWidget</tabstop>
-  <tabstop>pbCallCQ</tabstop>
-  <tabstop>pbAnswerCQ</tabstop>
-  <tabstop>pbAnswerCaller</tabstop>
-  <tabstop>pbSendReport</tabstop>
-  <tabstop>pbSendRRR</tabstop>
-  <tabstop>pbSend73</tabstop>
-  <tabstop>genMsg</tabstop>
-  <tabstop>rbGenMsg</tabstop>
-  <tabstop>freeTextMsg</tabstop>
-  <tabstop>rbFreeText</tabstop>
   <tabstop>outAttenuation</tabstop>
   <tabstop>genStdMsgsPushButton</tabstop>
   <tabstop>tx1</tabstop>

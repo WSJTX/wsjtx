@@ -2,7 +2,7 @@
 #define COMMONS_H
 
 #define NSMAX 6827
-#define NTMAX 300
+#define NTMAX 30*60
 #define RX_SAMPLE_RATE 12000
 
 #ifdef __cplusplus
@@ -85,7 +85,7 @@ extern struct {
 } echocom_;
 
 extern struct {
-  float wave[606720];
+  float wave[(160+2)*134400*4]; /* (nsym+2)*nsps scaled up to 48kHz */
   int   nslots;
   int   nfreq;
   int   i3bit[5];

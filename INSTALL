@@ -28,7 +28,7 @@ For MS  Windows see the section  "Building from Source on  MS Windows"
 below. For  Apple Mac see the  section "Building from Source  on Apple
 Mac".
 
-Qt v5, preferably v5.5 or later is required to build WSJT-X.
+Qt v5, preferably v5.9 or later is required to build WSJT-X.
 
 Qt v5  multimedia support, serial  port, and Linguist is  necessary as
 well  as  the  core  Qt  v5 components,  normally  installing  the  Qt
@@ -43,8 +43,8 @@ the  libfftw library  development  package.   Normally installing  the
 library  development  package  pulls  in all  the  FFTW  v3  libraries
 including the single precision variant.
 
-The Hamlib library optionally requires  the libusb-1.0 library, if the
-development   version  (libusb-1.0-dev)   is  available   Hamlib  will
+The Hamlib  library optionally  requires the libusb-1.0-1  library, if
+the development  version (libusb-1.0-0-dev)  is available  Hamlib will
 configure its  custom USB device  back end  drivers. Most rigs  do not
 require this so normally you  can choose not to install libusb-1.0-dev
 but if you have  a SoftRock USB or similar SDR that  uses a custom USB
@@ -89,7 +89,8 @@ $ git clone git://git.code.sf.net/p/wsjt/wsjtx src
 To build WSJT-X you will need CMake and asciidoc installed.
 
 $ cd ~/wsjtx-prefix/build
-$ cmake -D CMAKE_PREFIX_PATH=~/hamlib-prefix ../src
+$ cmake -D CMAKE_PREFIX_PATH=~/hamlib-prefix -DWSJT_SKIP_MANPAGES=ON \
+  	-DWSJT_GENERATE_DOCS=OFF ../src
 $ cmake --build .
 $ cmake --build . --target install
 
@@ -99,7 +100,8 @@ configure step like:
 
 $ cd ~/wsjtx-prefix/build
 $ cmake -D CMAKE_PREFIX_PATH=~/hamlib-prefix \
-   -D CMAKE_INSTALL_PREFIX=~/wsjtx-prefix ../src
+    -DWSJT_SKIP_MANPAGES=ON -DWSJT_GENERATE_DOCS=OFF \
+    -D CMAKE_INSTALL_PREFIX=~/wsjtx-prefix ../src
 $ cmake --build .
 $ cmake --build . --target install
 
@@ -316,7 +318,7 @@ configure:
 $ cd ~/wsjtx-prefix/build
 $ FC=gfortran-mp-5 \
    cmake \
-   -D CMAKE_PREFIX_PATH="~/Qt/5.7/clang_64;~/hamlib-prefix;/opt/local" \
+   -D CMAKE_PREFIX_PATH="~/Qt/5.9/clang_64;~/hamlib-prefix;/opt/local" \
    -D CMAKE_INSTALL_PREFIX=~/wsjtx-prefix \
    -D CMAKE_OSX_SYSROOT=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.sdk \
    ~/wsjtx-prefix/src

@@ -1,7 +1,7 @@
 // Status=review
 
 - SSB transceiver and antenna 
-- Computer running Windows 7 or later, Linux, or OS X
+- Computer running Windows 7 or later, macOS 10.13 or later, or Linux
 - 1.5 GHz or faster CPU and 200 MB of available memory; faster
 machines are better
 - Monitor with at least 1024 x 780 resolution

@@ -13,6 +13,7 @@
 #include <QImage>
 #include <QVector>
 #include <QColor>
+#include <QToolTip>
 
 #define VERT_DIVS 7	//specify grid screen divisions
 #define HORZ_DIVS 20
@@ -82,6 +83,9 @@ public:
   void drawRed(int ia, int ib, float swide[]);
   void setVHF(bool bVHF);
   void setRedFile(QString fRed);
+  void setFST4_FreqRange(int fLow,int fHigh);
+  void setSingleDecode(bool b);
+
   bool scaleOK () const {return m_bScaleOK;}
 signals:
   void freezeDecode1(int n);
@@ -91,6 +95,7 @@ protected:
   //re-implemented widget event handlers
   void paintEvent(QPaintEvent *event) override;
   void resizeEvent(QResizeEvent* event) override;
+  void mouseMoveEvent(QMouseEvent * event) override;
   void mouseReleaseEvent (QMouseEvent * event) override;
   void mouseDoubleClickEvent (QMouseEvent * event) override;
 
@@ -109,6 +114,7 @@ private:
   bool    m_bReference;
   bool    m_bReference0;
   bool    m_bVHF;
+  bool    m_bSingleDecode;
 
   float   m_fSpan;
 
@@ -123,6 +129,8 @@ private:
   qint32  m_nSubMode;
   qint32  m_ia;
   qint32  m_ib;
+  qint32  m_nfa;
+  qint32  m_nfb;
 
   QPixmap m_WaterfallPixmap;
   QPixmap m_2DPixmap;

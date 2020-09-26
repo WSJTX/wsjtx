@@ -1,7 +1,7 @@
 // Status=edited
 
-Download and execute the package file {win32} (WinXP, Vista, Win 7,
-Win 8, Win10, 32-bit) or {win64} (Vista, Win 7, Win 8, Win10, 64-bit)
+Download and execute the package file {win32} (Win 7,
+Win 8, Win10, 32-bit) or {win64} (Win 7, Win 8, Win10, 64-bit)
 following these instructions:
 
 * Install _WSJT-X_ into its own directory, for example `C:\WSJTX` or `C:\WSJT\WSJTX`, rather than the conventional location `C:\Program
@@ -21,18 +21,32 @@ TIP: Your computer may be configured so that this directory is
      `"%LocalAppData%\WSJT-X\"`.
 
 * The built-in Windows facility for time synchronization is usually
-  not adequate. We recommend the program _Meinberg NTP_ (see
-  {ntpsetup} for downloading and installation instructions) or
-  _Dimension 4_ from {dimension4}. Recent versions of Windows 10 are
-  now shipped with a more capable Internet time synchronization
-  service that is suitable if configured appropriately.
+  not adequate.  We recommend the program _Meinberg NTP Client_: see
+  {ntpsetup} for downloading and installation instructions. Recent
+  versions of Windows 10 are now shipped with a more capable Internet
+  time synchronization service that is suitable if configured
+  appropriately. We do not recommend SNTP time setting tools or others
+  that make periodic correction steps, _WSJT-X_ requires that the PC
+  clock be monotonically increasing and smoothly continuous.
+
+NOTE: Having a PC clock that appears to be synchronized to UTC is not
+      sufficient.  "`Monotonically increasing`" means that the clock
+      must not be stepped backwards. "`Smoothly continuous`" means
+      that time must increase at a nearly constant rate, without
+      steps.  Any necessary clock corrections must be applied by
+      adjusting the rate of increase, thereby correcting
+      synchronization errors gradually.
 
 [[OPENSSL]]
 
 image:LoTW_TLS_error.png[_WSJT-X_ LoTW download TLS error,
   align="center"]
   
-* _WSJT-X_ requires installation of the _OpenSSL_ libraries. Suitable libraries may already be installed on your system. If they are not, you will see this error shortly after   requesting a fetch of the latest LoTW users database. To fix this, install the _OpenSSL_ libraries.
+* _WSJT-X_ requires installation of the _OpenSSL_ libraries. Suitable
+  libraries may already be installed on your system. If they are not,
+  you will see this error shortly after requesting a fetch of the
+  latest LoTW users database. To fix this, install the _OpenSSL_
+  libraries.
 
 ** You can download a suitable _OpenSSL_ package for Windows from
    {win_openssl_packages}; you need the latest *Windows Light*

@@ -13,6 +13,32 @@
 Copyright 2001 - 2020 by Joe Taylor, K1JT.
 
 
+		   Release: WSJT-X 2.3.0-rc1
+		         Sept 28, 2020
+		   -------------------------
+
+WSJT-X 2.3.0 is a program upgrade offering two new modes designed
+especially for use on the LF and MF bands.  FST4 is for 2-way QSOs,
+and FST4W is for WSPR-like transmissions.  Both modes offer a range of
+options for T/R sequence lengths and threshold decoding sensitivities
+extending well into the -40 dB range.  Early tests have shown these
+modes frequently spanning intercontinental distances on the 2200 m and
+630 m bands.  Further details and operating hints can be found in the
+"Quick-Start Guide to FST4 and FST4W", posted on the WSJT web site:
+
+https://physics.princeton.edu/pulsar/k1jt/FST4_Quick_Start.pdf
+
+WSJT-X 2.3.0-rc1 is a beta-quality release candidate for a program
+upgrade that provides a number of new features and capabilities.
+These include:
+
+ - New modes FST4 and FST4W
+
+ - The *On Dx Echo* Doppler compensation method has been modified in
+   response to feedback from Users. Basic functionality is unchanged.
+   See the User Guide (Section 8.1) for more information.
+
+
 		  Release: WSJT-X 2.2.2
 		       June 22, 2020
 		  ---------------------

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>557</width>
-    <height>561</height>
+    <width>554</width>
+    <height>556</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -357,7 +357,7 @@
           <item row="0" column="1">
            <widget class="QCheckBox" name="enable_VHF_features_check_box">
             <property name="text">
-             <string>Enable VHF/UHF/Microwave features</string>
+             <string>Enable VHF and submode features</string>
             </property>
            </widget>
           </item>
@@ -577,6 +577,9 @@ quiet period when decoding is done.</string>
               <verstretch>0</verstretch>
              </sizepolicy>
             </property>
+            <property name="accessibleName">
+             <string>Serial Port Parameters</string>
+            </property>
             <property name="title">
              <string>Serial Port Parameters</string>
             </property>
@@ -659,6 +662,9 @@ quiet period when decoding is done.</string>
                <property name="toolTip">
                 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Number of data bits used to communicate with your radio's CAT interface (usually eight).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                </property>
+               <property name="accessibleName">
+                <string>Data bits</string>
+               </property>
                <property name="title">
                 <string>Data Bits</string>
                </property>
@@ -710,6 +716,9 @@ quiet period when decoding is done.</string>
                <property name="toolTip">
                 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Number of stop bits used when communicating with your radio's CAT interface&lt;/p&gt;&lt;p&gt;(consult you radio's manual for details).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                </property>
+               <property name="accessibleName">
+                <string>Stop bits</string>
+               </property>
                <property name="title">
                 <string>Stop Bits</string>
                </property>
@@ -757,6 +766,9 @@ quiet period when decoding is done.</string>
               <widget class="QGroupBox" name="CAT_handshake_group_box">
                <property name="toolTip">
                 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Flow control protocol used between this computer and your radio's CAT interface (usually &amp;quot;None&amp;quot; but some require &amp;quot;Hardware&amp;quot;).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               </property>
+               <property name="accessibleName">
+                <string>Handshake</string>
                </property>
                <property name="title">
                 <string>Handshake</string>
@@ -823,6 +835,9 @@ a few, particularly some Kenwood rigs, require it).</string>
               <widget class="QGroupBox" name="CAT_control_lines_group_box">
                <property name="toolTip">
                 <string>Special control of CAT port control lines.</string>
+               </property>
+               <property name="accessibleName">
+                <string>Force Control Lines</string>
                </property>
                <property name="title">
                 <string>Force Control Lines</string>
@@ -1350,7 +1365,7 @@ radio interface behave as expected.</string>
          </property>
          <layout class="QGridLayout" name="gridLayout_6">
           <item row="1" column="1">
-           <widget class="QComboBox" name="sound_output_combo_box">
+           <widget class="LazyFillComboBox" name="sound_output_combo_box">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
               <horstretch>1</horstretch>
@@ -1363,29 +1378,6 @@ If this is your default device for system sounds then
 ensure that all system sounds are disabled otherwise
 you will broadcast any systems sounds generated during
 transmitting periods.</string>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="1">
-           <widget class="QComboBox" name="sound_input_combo_box">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-              <horstretch>1</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="toolTip">
-             <string>Select the audio CODEC to use for receiving.</string>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="0">
-           <widget class="QLabel" name="sound_input_label">
-            <property name="text">
-             <string>&amp;Input:</string>
-            </property>
-            <property name="buddy">
-             <cstring>sound_input_combo_box</cstring>
             </property>
            </widget>
           </item>
@@ -1414,6 +1406,29 @@ transmitting periods.</string>
               <string>Both</string>
              </property>
             </item>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="LazyFillComboBox" name="sound_input_combo_box">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+              <horstretch>1</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="toolTip">
+             <string>Select the audio CODEC to use for receiving.</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="sound_output_label">
+            <property name="text">
+             <string>Ou&amp;tput:</string>
+            </property>
+            <property name="buddy">
+             <cstring>sound_output_combo_box</cstring>
+            </property>
            </widget>
           </item>
           <item row="1" column="2">
@@ -1446,13 +1461,13 @@ both here.</string>
             </item>
            </widget>
           </item>
-          <item row="1" column="0">
-           <widget class="QLabel" name="sound_output_label">
+          <item row="0" column="0">
+           <widget class="QLabel" name="sound_input_label">
             <property name="text">
-             <string>Ou&amp;tput:</string>
+             <string>&amp;Input:</string>
             </property>
             <property name="buddy">
-             <cstring>sound_output_combo_box</cstring>
+             <cstring>sound_input_combo_box</cstring>
             </property>
            </widget>
           </item>
@@ -1493,7 +1508,8 @@ both here.</string>
              <bool>false</bool>
             </property>
             <property name="styleSheet">
-             <string notr="true">background-color: rgb(255, 255, 255);</string>
+             <string notr="true">background-color: rgb(255, 255, 255);
+color: rgb(0, 0, 0);</string>
             </property>
             <property name="text">
              <string>TextLabel</string>
@@ -1541,7 +1557,8 @@ both here.</string>
              </sizepolicy>
             </property>
             <property name="styleSheet">
-             <string notr="true">background-color: rgb(255, 255, 255);</string>
+             <string notr="true">background-color: rgb(255, 255, 255);
+color: rgb(0, 0, 0);</string>
             </property>
             <property name="text">
              <string>TextLabel</string>
@@ -1800,17 +1817,24 @@ and DX Grid fields when a 73 or free text message is sent.</string>
          <property name="title">
           <string>Network Services</string>
          </property>
-         <layout class="QGridLayout" name="gridLayout_17">
-          <item row="0" column="0">
+         <layout class="QHBoxLayout" name="horizontalLayout_22">
+          <item>
            <widget class="QCheckBox" name="psk_reporter_check_box">
             <property name="toolTip">
-             <string>The program can send your station details and all
-decoded signals as spots to the http://pskreporter.info web site.
-This is used for reverse beacon analysis which is very useful
-for assessing propagation and system performance.</string>
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The program can send your station details and all decoded signals with grid squares as spots to the http://pskreporter.info web site.&lt;/p&gt;&lt;p&gt;This is used for reverse beacon analysis which is very useful for assessing propagation and system performance.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
             </property>
             <property name="text">
              <string>Enable &amp;PSK Reporter Spotting</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="psk_reporter_tcpip_check_box">
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check this option if a reliable connection is needed&lt;/p&gt;&lt;p&gt;Most users do not need this, the default uses UDP which is more efficient. Only check this if you have evidence that UDP traffic from you to PSK Reporter is being lost.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>Use TCP/IP connection</string>
             </property>
            </widget>
           </item>
@@ -2337,6 +2361,9 @@ Right click for insert and delete options.</string>
               <property name="toolTip">
                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;URL of the ARRL LotW user's last upload dates and times data file which is used to highlight decodes from stations that are known to upload their log file to LotW.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
+              <property name="accessibleName">
+               <string>URL</string>
+              </property>
               <property name="text">
                <string>https://lotw.arrl.org/lotw-user-activity.csv</string>
               </property>
@@ -2368,6 +2395,9 @@ Right click for insert and delete options.</string>
            <widget class="QSpinBox" name="LotW_days_since_upload_spin_box">
             <property name="toolTip">
              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Adjust this spin box to set the age threshold of LotW user's last upload date that is accepted as a current LotW user.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="accessibleName">
+             <string>Days since last upload</string>
             </property>
             <property name="suffix">
              <string> days</string>
@@ -2504,6 +2534,9 @@ Right click for insert and delete options.</string>
             <property name="toolTip">
              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;FT8 DXpedition mode:  Hound operator calling the DX.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
             </property>
+            <property name="accessibleName">
+             <string>Hound</string>
+            </property>
             <property name="text">
              <string>Hound</string>
             </property>
@@ -2526,6 +2559,9 @@ Right click for insert and delete options.</string>
             <property name="toolTip">
              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;North American VHF/UHF/Microwave contests and others in which a 4-character grid locator is the required exchange.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
             </property>
+            <property name="accessibleName">
+             <string>NA VHF Contest</string>
+            </property>
             <property name="text">
              <string>NA VHF Contest</string>
             </property>
@@ -2538,6 +2574,9 @@ Right click for insert and delete options.</string>
            <widget class="QRadioButton" name="rbFox">
             <property name="toolTip">
              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;FT8 DXpedition mode:  Fox (DXpedition) operator.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="accessibleName">
+             <string>Fox</string>
             </property>
             <property name="text">
              <string>Fox</string>
@@ -2560,6 +2599,9 @@ Right click for insert and delete options.</string>
             </property>
             <property name="toolTip">
              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;European VHF+ contests requiring a signal report, serial number, and 6-character locator.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="accessibleName">
+             <string>EU VHF Contest</string>
             </property>
             <property name="text">
              <string>EU VHF Contest</string>
@@ -2589,6 +2631,9 @@ Right click for insert and delete options.</string>
               <property name="toolTip">
                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;ARRL RTTY Roundup and similar contests.  Exchange is US state, Canadian province, or &amp;quot;DX&amp;quot;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
+              <property name="accessibleName">
+               <string>R T T Y Roundup</string>
+              </property>
               <property name="text">
                <string>RTTY Roundup messages</string>
               </property>
@@ -2614,6 +2659,9 @@ Right click for insert and delete options.</string>
              <layout class="QFormLayout" name="formLayout_17">
               <item row="0" column="0">
                <widget class="QLabel" name="labRTTY">
+                <property name="accessibleName">
+                 <string>RTTY Roundup exchange</string>
+                </property>
                 <property name="text">
                  <string>RTTY RU Exch:</string>
                 </property>
@@ -2652,6 +2700,9 @@ Right click for insert and delete options.</string>
               <property name="toolTip">
                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;ARRL Field Day exchange: number of transmitters, Class, and ARRL/RAC section or &amp;quot;DX&amp;quot;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
+              <property name="accessibleName">
+               <string>A R R L Field Day</string>
+              </property>
               <property name="text">
                <string>ARRL Field Day</string>
               </property>
@@ -2677,6 +2728,9 @@ Right click for insert and delete options.</string>
              <layout class="QFormLayout" name="formLayout_16">
               <item row="0" column="0">
                <widget class="QLabel" name="labFD">
+                <property name="accessibleName">
+                 <string>Field Day exchange</string>
+                </property>
                 <property name="text">
                  <string>FD Exch:</string>
                 </property>
@@ -2718,6 +2772,9 @@ Right click for insert and delete options.</string>
             </property>
             <property name="toolTip">
              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;World-Wide Digi-mode contest&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="accessibleName">
+             <string>WW Digital Contest</string>
             </property>
             <property name="text">
              <string>WW Digi Contest</string>
@@ -2831,6 +2888,9 @@ Right click for insert and delete options.</string>
               <height>50</height>
              </size>
             </property>
+            <property name="accessibleName">
+             <string>Tone spacing</string>
+            </property>
             <property name="title">
              <string>Tone spacing</string>
             </property>
@@ -2868,6 +2928,9 @@ Right click for insert and delete options.</string>
               <width>0</width>
               <height>50</height>
              </size>
+            </property>
+            <property name="accessibleName">
+             <string>Waterfall spectra</string>
             </property>
             <property name="title">
              <string>Waterfall spectra</string>
@@ -2934,6 +2997,11 @@ Right click for insert and delete options.</string>
    <extends>QListView</extends>
    <header>widgets/DecodeHighlightingListView.hpp</header>
   </customwidget>
+  <customwidget>
+   <class>LazyFillComboBox</class>
+   <extends>QComboBox</extends>
+   <header>widgets/LazyFillComboBox.hpp</header>
+  </customwidget>
  </customwidgets>
  <tabstops>
   <tabstop>configuration_tabs</tabstop>
@@ -2942,14 +3010,20 @@ Right click for insert and delete options.</string>
   <tabstop>use_dynamic_grid</tabstop>
   <tabstop>region_combo_box</tabstop>
   <tabstop>type_2_msg_gen_combo_box</tabstop>
+  <tabstop>decodes_from_top_check_box</tabstop>
+  <tabstop>insert_blank_check_box</tabstop>
+  <tabstop>miles_check_box</tabstop>
   <tabstop>TX_messages_check_box</tabstop>
   <tabstop>DXCC_check_box</tabstop>
+  <tabstop>ppfx_check_box</tabstop>
   <tabstop>font_push_button</tabstop>
   <tabstop>decoded_text_font_push_button</tabstop>
   <tabstop>monitor_off_check_box</tabstop>
   <tabstop>monitor_last_used_check_box</tabstop>
   <tabstop>quick_call_check_box</tabstop>
   <tabstop>disable_TX_on_73_check_box</tabstop>
+  <tabstop>force_call_1st_check_box</tabstop>
+  <tabstop>alternate_bindings_check_box</tabstop>
   <tabstop>CW_id_after_73_check_box</tabstop>
   <tabstop>enable_VHF_features_check_box</tabstop>
   <tabstop>tx_QSY_check_box</tabstop>
@@ -2968,8 +3042,8 @@ Right click for insert and delete options.</string>
   <tabstop>CAT_one_stop_bit_radio_button</tabstop>
   <tabstop>CAT_two_stop_bit_radio_button</tabstop>
   <tabstop>CAT_handshake_default_radio_button</tabstop>
-  <tabstop>CAT_handshake_none_radio_button</tabstop>
   <tabstop>CAT_handshake_xon_radio_button</tabstop>
+  <tabstop>CAT_handshake_none_radio_button</tabstop>
   <tabstop>CAT_handshake_hardware_radio_button</tabstop>
   <tabstop>force_DTR_combo_box</tabstop>
   <tabstop>force_RTS_combo_box</tabstop>
@@ -3007,6 +3081,7 @@ Right click for insert and delete options.</string>
   <tabstop>clear_DX_check_box</tabstop>
   <tabstop>opCallEntry</tabstop>
   <tabstop>psk_reporter_check_box</tabstop>
+  <tabstop>psk_reporter_tcpip_check_box</tabstop>
   <tabstop>udp_server_line_edit</tabstop>
   <tabstop>udp_server_port_spin_box</tabstop>
   <tabstop>accept_udp_requests_check_box</tabstop>
@@ -3021,9 +3096,13 @@ Right click for insert and delete options.</string>
   <tabstop>stations_table_view</tabstop>
   <tabstop>highlighting_list_view</tabstop>
   <tabstop>reset_highlighting_to_defaults_push_button</tabstop>
+  <tabstop>highlight_by_mode_check_box</tabstop>
+  <tabstop>only_fields_check_box</tabstop>
+  <tabstop>include_WAE_check_box</tabstop>
+  <tabstop>rescan_log_push_button</tabstop>
   <tabstop>LotW_CSV_URL_line_edit</tabstop>
-  <tabstop>LotW_CSV_fetch_push_button</tabstop>
   <tabstop>LotW_days_since_upload_spin_box</tabstop>
+  <tabstop>LotW_CSV_fetch_push_button</tabstop>
   <tabstop>sbNtrials</tabstop>
   <tabstop>sbAggressive</tabstop>
   <tabstop>cbTwoPass</tabstop>
@@ -3032,13 +3111,18 @@ Right click for insert and delete options.</string>
   <tabstop>sbTxDelay</tabstop>
   <tabstop>cbx2ToneSpacing</tabstop>
   <tabstop>cbx4ToneSpacing</tabstop>
+  <tabstop>rbLowSidelobes</tabstop>
+  <tabstop>rbMaxSensitivity</tabstop>
+  <tabstop>gbSpecialOpActivity</tabstop>
   <tabstop>rbFox</tabstop>
+  <tabstop>rbHound</tabstop>
   <tabstop>rbNA_VHF_Contest</tabstop>
-  <tabstop>rbEU_VHF_Contest</tabstop>
   <tabstop>rbField_Day</tabstop>
   <tabstop>Field_Day_Exchange</tabstop>
+  <tabstop>rbEU_VHF_Contest</tabstop>
   <tabstop>rbRTTY_Roundup</tabstop>
   <tabstop>RTTY_Exchange</tabstop>
+  <tabstop>rbWW_DIGI</tabstop>
  </tabstops>
  <resources/>
  <connections>
@@ -3108,13 +3192,13 @@ Right click for insert and delete options.</string>
   </connection>
  </connections>
  <buttongroups>
-  <buttongroup name="CAT_handshake_button_group"/>
-  <buttongroup name="TX_audio_source_button_group"/>
+  <buttongroup name="PTT_method_button_group"/>
+  <buttongroup name="CAT_data_bits_button_group"/>
+  <buttongroup name="CAT_stop_bits_button_group"/>
   <buttongroup name="special_op_activity_button_group"/>
   <buttongroup name="TX_mode_button_group"/>
-  <buttongroup name="CAT_data_bits_button_group"/>
-  <buttongroup name="PTT_method_button_group"/>
-  <buttongroup name="CAT_stop_bits_button_group"/>
+  <buttongroup name="TX_audio_source_button_group"/>
+  <buttongroup name="CAT_handshake_button_group"/>
   <buttongroup name="split_mode_button_group"/>
  </buttongroups>
 </ui>

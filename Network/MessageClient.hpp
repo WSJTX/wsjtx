@@ -69,20 +69,12 @@ public:
                           , QString const& report_received, QString const& tx_power, QString const& comments
                           , QString const& name, QDateTime time_on, QString const& operator_call
                           , QString const& my_call, QString const& my_grid
-                          , QString const& exchange_sent, QString const& exchange_rcvd);
+                          , QString const& exchange_sent, QString const& exchange_rcvd
+                          , QString const& propmode);
 
   // ADIF_record argument should be valid ADIF excluding any <EOR> end
   // of record marker
   Q_SLOT void logged_ADIF (QByteArray const& ADIF_record);
-
-  // this may be used to send arbitrary UDP datagrams to and
-  // destination allowing the underlying socket to be used for general
-  // UDP messaging if desired
-  qint64 send_raw_datagram (QByteArray const&, QHostAddress const& dest_address, port_type dest_port);
-
-  // disallowed message destination (does not block datagrams sent
-  // with send_raw_datagram() above)
-  Q_SLOT void add_blocked_destination (QHostAddress const&);
 
   // this signal is emitted if the server has requested a decode
   // window clear action

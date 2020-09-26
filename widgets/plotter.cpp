@@ -48,7 +48,8 @@ CPlotter::CPlotter(QWidget *parent) :                  //CPlotter Constructor
   m_Percent2DScreen0 {0},
   m_rxFreq {1020},
   m_txFreq {0},
-  m_startFreq {0}
+  m_startFreq {0},
+  m_tol {100}
 {
   setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
   setFocusPolicy(Qt::StrongFocus);
@@ -56,6 +57,7 @@ CPlotter::CPlotter(QWidget *parent) :                  //CPlotter Constructor
   setAutoFillBackground(false);
   setAttribute(Qt::WA_OpaquePaintEvent, false);
   setAttribute(Qt::WA_NoSystemBackground, true);
+  setMouseTracking(true);
   m_bReplot=false;
 
   // contextual pop up menu
@@ -161,7 +163,6 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
   int iz=XfromFreq(5000.0);
   int jz=iz*m_binsPerPixel;
   m_fMax=FreqfromX(iz);
-
   if(bScroll and swide[0]<1.e29) {
     flat4_(swide,&iz,&m_Flatten);
     if(!m_bReplot) flat4_(&dec_data.savg[j0],&jz,&m_Flatten);
@@ -184,7 +185,6 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
     if (swide[i]<1.e29) painter1.setPen(g_ColorTbl[y1]);
     painter1.drawPoint(i,m_j);
   }
-
   m_line++;
 
   float y2min=1.e30;
@@ -211,7 +211,7 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
       for(int k=0; k<m_binsPerPixel; k++) {
         sum+=spectra_.syellow[j++];
       }
-      y2=gain2d*sum/m_binsPerPixel + m_plot2dZero;
+      y2=2.0*gain2d*sum/m_binsPerPixel + m_plot2dZero;
     }
 
     if(m_bReference) {                                   //Reference (red)
@@ -330,7 +330,6 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
 
   double df = m_binsPerPixel*m_fftBinWidth;
   QPen penOrange(QColor(255,165,0),3);
-//  QPen penGreen(Qt::green, 3);                 //Mark Tol range with green line
   QPen penGreen(QColor(15,153,105), 3);        //Mark Tol range or BW with dark green line
   QPen penRed(Qt::red, 3);                     //Mark Tx freq with red
   QPainter painter(&m_OverlayPixmap);
@@ -415,7 +414,18 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
   float bw=9.0*12000.0/m_nsps;               //JT9
   if(m_mode=="FT4") bw=3*12000.0/576.0;      //FT4  ### (3x, or 4x???) ###
   if(m_mode=="FT8") bw=7*12000.0/1920.0;     //FT8
-
+  if(m_mode.startsWith("FST4")) {
+    int h=int(pow(2.0,m_nSubMode));
+    int nsps=800;
+    if(m_TRperiod==30) nsps=1680;
+    if(m_TRperiod==60) nsps=4000;
+    if(m_TRperiod==120) nsps=8400;
+    if(m_TRperiod==300) nsps=21504;
+    if(m_TRperiod==900) nsps=66560;
+    if(m_TRperiod==1800) nsps=134400;
+    float baud=12000.0/nsps;
+    bw=3.0*h*baud;
+  }
   if(m_mode=="JT4") {                        //JT4
     bw=3*11025.0/2520.0;                     //Max tone spacing (3/4 of actual BW)
     if(m_nSubMode==1) bw=2*bw;
@@ -471,13 +481,13 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
   if(m_mode=="WSPR") {
     x1=XfromFreq(1400);
     x2=XfromFreq(1600);
-    painter0.drawLine(x1,29,x2,29);
+    painter0.drawLine(x1,26,x2,26);
   }
 
-  if(m_mode=="WSPR-LF") {
-    x1=XfromFreq(1600);
-    x2=XfromFreq(1700);
-    painter0.drawLine(x1,29,x2,29);
+  if(m_mode=="FST4W") {
+    x1=XfromFreq(m_rxFreq-m_tol);
+    x2=XfromFreq(m_rxFreq+m_tol);
+    painter0.drawLine(x1,26,x2,26);
   }
 
   if(m_mode=="FreqCal") {                   //FreqCal
@@ -492,13 +502,23 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
   int yTxTop=12;
   int yRxBottom=yTxTop + 2*yh + 4;
   if(m_mode=="JT9" or m_mode=="JT65" or m_mode=="JT9+JT65"
-     or m_mode=="QRA64" or m_mode=="FT8" or m_mode=="FT4") {
+     or m_mode=="QRA64" or m_mode=="FT8" or m_mode=="FT4"
+     or m_mode.startsWith("FST4")) {
+
+    if(m_mode=="FST4" and !m_bSingleDecode) {
+      x1=XfromFreq(m_nfa);
+      x2=XfromFreq(m_nfb);
+      painter0.drawLine(x1,25,x1+5,30);   // Mark FST4 F_Low
+      painter0.drawLine(x1,25,x1+5,20);
+      painter0.drawLine(x2,25,x2-5,30);   // Mark FST4 F_High
+      painter0.drawLine(x2,25,x2-5,20);
+    }
 
     if(m_mode=="QRA64" or (m_mode=="JT65" and m_bVHF)) {
       painter0.setPen(penGreen);
       x1=XfromFreq(m_rxFreq-m_tol);
       x2=XfromFreq(m_rxFreq+m_tol);
-      painter0.drawLine(x1,28,x2,28);
+      painter0.drawLine(x1,26,x2,26);
       x1=XfromFreq(m_rxFreq);
       painter0.drawLine(x1,24,x1,30);
 
@@ -523,23 +543,22 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
       painter0.drawLine(x1,yRxBottom-yh,x1,yRxBottom);
       painter0.drawLine(x1,yRxBottom,x2,yRxBottom);
       painter0.drawLine(x2,yRxBottom-yh,x2,yRxBottom);
-
+      if(m_mode.startsWith("FST4")) {
+        x1=XfromFreq(m_rxFreq-m_tol);
+        x2=XfromFreq(m_rxFreq+m_tol);
+        painter0.drawLine(x1,26,x2,26);   // Mark the Tol range
+      }
     }
   }
 
   if(m_mode=="JT9" or m_mode=="JT65" or m_mode=="JT9+JT65" or
      m_mode.mid(0,4)=="WSPR" or m_mode=="QRA64" or m_mode=="FT8"
-     or m_mode=="FT4") {
+     or m_mode=="FT4" or m_mode.startsWith("FST4")) {
     painter0.setPen(penRed);
     x1=XfromFreq(m_txFreq);
     x2=XfromFreq(m_txFreq+bw);
     if(m_mode=="WSPR") {
       bw=4*12000.0/8192.0;                  //WSPR
-      x1=XfromFreq(m_txFreq-0.5*bw);
-      x2=XfromFreq(m_txFreq+0.5*bw);
-    }
-    if(m_mode=="WSPR-LF") {
-      bw=3*12000.0/8640.0;                  //WSPR-LF
       x1=XfromFreq(m_txFreq-0.5*bw);
       x2=XfromFreq(m_txFreq+0.5*bw);
     }
@@ -644,7 +663,9 @@ void CPlotter::setPlot2dZero(int plot2dZero)              //setPlot2dZero
 void CPlotter::setStartFreq(int f)                    //SetStartFreq()
 {
   m_startFreq=f;
+  m_fMax=FreqfromX(XfromFreq(5000.0));
   resizeEvent(NULL);
+  DrawOverlay();
   update();
 }
 
@@ -665,6 +686,7 @@ void CPlotter::setRxRange(int fMin)                           //setRxRange
 void CPlotter::setBinsPerPixel(int n)                         //setBinsPerPixel
 {
   m_binsPerPixel = n;
+  m_fMax=FreqfromX(XfromFreq(5000.0));
   DrawOverlay();                         //Redraw scales and ticks
   update();                              //trigger a new paintEvent}
 }
@@ -688,9 +710,16 @@ void CPlotter::setRxFreq (int x)                               //setRxFreq
 
 int CPlotter::rxFreq() {return m_rxFreq;}                      //rxFreq
 
+void CPlotter::mouseMoveEvent (QMouseEvent * event)
+{
+  int x=event->x();
+  QToolTip::showText(event->globalPos(),QString::number(int(FreqfromX(x))));
+  QWidget::mouseMoveEvent(event);
+}
+
 void CPlotter::mouseReleaseEvent (QMouseEvent * event)
 {
-  if (Qt::LeftButton == event->button ()) {
+  if (Qt::LeftButton == event->button () and m_mode!="FST4W") {
     int x=event->x();
     if(x<0) x=0;
     if(x>m_Size.width()) x=m_Size.width();
@@ -791,8 +820,21 @@ void CPlotter::setFlatten(bool b1, bool b2)
 void CPlotter::setTol(int n)                                 //setTol()
 {
   m_tol=n;
-  DrawOverlay();
 }
+
+void CPlotter::setFST4_FreqRange(int fLow,int fHigh)
+{
+  m_nfa=fLow;
+  m_nfb=fHigh;
+  DrawOverlay();
+  update();
+}
+
+void CPlotter::setSingleDecode(bool b)
+{
+  m_bSingleDecode=b;
+}
+
 
 void CPlotter::setColours(QVector<QColor> const& cl)
 {

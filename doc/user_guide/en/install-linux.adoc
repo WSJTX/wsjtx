@@ -1,16 +1,14 @@
-// Status=review
+// Status=edited
 
 Debian, Ubuntu, and other Debian-based systems including Raspbian:
 
-NOTE: The project team release binary installer packages for Linux
-when a new _WSJT-X_ release is announced.  These are built to
-target one contemporary version of a Linux distribution. Although
-these may work on newer Linux versions or even different
-distributions, it is unlikely that they will work on older
-versions. Check the notes provided with the release for details of the
-targeted Linux distributions and versions. If the binary package is
-not compatible with your Linux distribution or version you must build
-the application from sources.
+NOTE: The project team release binary installer packages targeted for
+one contemporary version of a Linux distribution. Although these may
+work on newer Linux versions or even different distributions, it is
+unlikely that they work on older versions. Check the notes provided
+with the release for details of the targeted Linux distributions and
+versions. If the binary package is not compatible with your Linux
+distribution or version, you must build the application from sources.
 
 * 32-bit: {debian32}
 - To install:
@@ -42,8 +40,11 @@ sudo dpkg -P wsjtx
 
 You may also need to execute the following command in a terminal:
 
-[example]
-sudo apt install libqt5multimedia5-plugins libqt5serialport5 libqt5sql5-sqlite libfftw3-single3
+....
+sudo apt install libgfortran5 libqt5widgets5 libqt5network5 \
+     libqt5printsupport5 libqt5multimedia5-plugins libqt5serialport5 \
+     libqt5sql5-sqlite libfftw3-single3 libgomp1 libusb-1.0-0
+....
 
 Fedora, CentOS, Red Hat, and other rpm-based systems:
 
@@ -71,5 +72,8 @@ sudo rpm -e wsjtx
 
 You may also need to execute the following command in a terminal:
 
-[example]
-sudo dnf install fftw-libs-single qt5-qtmultimedia qt5-qtserialport 
+....
+sudo dnf install libgfortran fftw-libs-single qt5-qtbase \
+     qt5-qtmultimedia qt5-qtserialport qt5-qtsvg \
+     qt5-qtserialport libgomp libusbx
+....

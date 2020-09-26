@@ -222,9 +222,12 @@ set (WSJT_QT_CONF_DESTINATION ${QT_CONF_DESTINATION} CACHE PATH "Path for the qt
 #
 # Project sources
 #
+set (fort_qt_CXXSRCS
+  lib/shmem.cpp
+  )
+
 set (wsjt_qt_CXXSRCS
   qt_helpers.cpp
-  lib/shmem.cpp
   widgets/MessageBox.cpp
   MetaDataRegistry.cpp
   Network/NetworkServerLookup.cpp
@@ -289,6 +292,8 @@ set (wsjt_qt_CXXSRCS
   logbook/AD1CCty.cpp
   logbook/WorkedBefore.cpp
   logbook/Multiplier.cpp
+  Network/NetworkAccessManager.cpp
+  widgets/LazyFillComboBox.cpp
   )
 
 set (wsjt_qtmm_CXXSRCS
@@ -302,7 +307,7 @@ set (jt9_FSRCS
 
 set (wsjtx_CXXSRCS
   logbook/logbook.cpp
-  Network/psk_reporter.cpp
+  Network/PSKReporter.cpp
   Modulator/Modulator.cpp
   Detector/Detector.cpp
   widgets/logqso.cpp
@@ -358,6 +363,8 @@ endif (WIN32)
 
 set (wsjt_FSRCS
   # put module sources first in the hope that they get rebuilt before use
+  lib/types.f90
+  lib/C_interface_module.f90
   lib/shmem.f90
   lib/crc.f90
   lib/fftw3mod.f90
@@ -369,6 +376,7 @@ set (wsjt_FSRCS
   lib/jt65_mod.f90
   lib/ft8_decode.f90
   lib/ft4_decode.f90
+  lib/fst4_decode.f90
   lib/jt9_decode.f90
   lib/options.f90
   lib/packjt.f90
@@ -395,6 +403,7 @@ set (wsjt_FSRCS
   lib/badmsg.f90
   lib/ft8/baseline.f90
   lib/ft4/ft4_baseline.f90
+  lib/blanker.f90
   lib/bpdecode40.f90
   lib/bpdecode128_90.f90
   lib/ft8/bpdecode174_91.f90
@@ -544,6 +553,7 @@ set (wsjt_FSRCS
   lib/qra64a.f90
   lib/refspectrum.f90
   lib/savec2.f90
+  lib/sec0.f90
   lib/sec_midn.f90
   lib/setup65.f90
   lib/sh65.f90
@@ -595,6 +605,21 @@ set (wsjt_FSRCS
   lib/wqencode.f90
   lib/wspr_downsample.f90
   lib/zplot9.f90
+  lib/fst4/decode240_101.f90
+  lib/fst4/decode240_74.f90
+  lib/fst4/encode240_101.f90
+  lib/fst4/encode240_74.f90
+  lib/fst4/fst4sim.f90
+  lib/fst4/gen_fst4wave.f90
+  lib/fst4/genfst4.f90
+  lib/fst4/get_fst4_bitmetrics.f90
+  lib/fst4/get_fst4_bitmetrics2.f90
+  lib/fst4/ldpcsim240_101.f90
+  lib/fst4/ldpcsim240_74.f90
+  lib/fst4/osd240_101.f90
+  lib/fst4/osd240_74.f90
+  lib/fst4/get_crc24.f90
+  lib/fst4/fst4_baseline.f90
   )
 
 # temporary workaround for a gfortran v7.3 ICE on Fedora 27 64-bit
@@ -710,6 +735,7 @@ set (qcp_CXXSRCS
 
 set (all_CXXSRCS
   ${wsjt_CXXSRCS}
+  ${fort_qt_CXXSRCS}
   ${wsjt_qt_CXXSRCS}
   ${wsjt_qtmm_CXXSRCS}
   ${wsjtx_CXXSRCS}
@@ -724,10 +750,6 @@ set (all_C_and_CXXSRCS
   )
 
 set (TOP_LEVEL_RESOURCES
-  shortcuts.txt
-  mouse_commands.txt
-  prefixes.txt
-  cty.dat
   icons/Darwin/wsjtx.iconset/icon_128x128.png
   contrib/gpl-v3-logo.svg
   artwork/splash.png
@@ -846,6 +868,8 @@ endif (APPLE)
 #
 # find some useful tools
 #
+include (CheckSymbolExists)
+
 find_program(CTAGS ctags)
 find_program(ETAGS etags)
 
@@ -866,7 +890,7 @@ find_package (OpenMP)
 #
 # fftw3 single precision library
 #
-find_package (FFTW3 COMPONENTS double single threads REQUIRED)
+find_package (FFTW3 COMPONENTS single threads REQUIRED)
 
 #
 # libhamlib setup
@@ -880,6 +904,10 @@ find_program (RIGCTLCOM_EXE rigctlcom)
 message (STATUS "hamlib_INCLUDE_DIRS: ${hamlib_INCLUDE_DIRS}")
 message (STATUS "hamlib_LIBRARIES: ${hamlib_LIBRARIES}")
 message (STATUS "hamlib_LIBRARY_DIRS: ${hamlib_LIBRARY_DIRS}")
+
+set (CMAKE_REQUIRED_INCLUDES "${hamlib_INCLUDE_DIRS}")
+set (CMAKE_REQUIRED_LIBRARIES "${hamlib_LIBRARIES}")
+check_symbol_exists (rig_set_cache_timeout_ms "hamlib/rig.h" HAVE_HAMLIB_CACHING)
 
 
 #
@@ -903,7 +931,9 @@ endif ()
 if (WSJT_GENERATE_DOCS)
   add_subdirectory (doc)
 endif (WSJT_GENERATE_DOCS)
-
+if (EXISTS ${CMAKE_SOURCE_DIR}/tests AND IS_DIRECTORY ${CMAKE_SOURCE_DIR}/tests)
+  add_subdirectory (tests)
+endif ()
 
 #
 # Library building setup
@@ -1097,14 +1127,19 @@ add_custom_target (etags COMMAND ${ETAGS} -o ${CMAKE_SOURCE_DIR}/TAGS -R ${sourc
 
 # Qt i18n - always include the country generic if any regional variant is included
 set (LANGUAGES
+  ca				# Catalan
+  da				# Danish
   en				# English (we need this to stop
 				# translation loaders loading the
 				# second preference UI languge, it
 				# doesn't need to be populated)
   en_GB				# English UK
   es				# Spanish
-  ca				# Catalan
+  it				# Italian
   ja				# Japanese
+  #no				# Norwegian
+  #pt				# Portuguese
+  #sv				# Swedish
   zh				# Chinese
   zh_HK				# Chinese per Hong Kong
   it				# Italian
@@ -1127,6 +1162,7 @@ if (UPDATE_TRANSLATIONS)
   qt5_create_translation (
     QM_FILES ${wsjt_qt_UISRCS} ${wsjtx_UISRCS} ${wsjt_qt_CXXSRCS} ${wsjtx_CXXSRCS}
     ${TS_FILES}
+    OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}
     )
 else ()
   qt5_add_translation (QM_FILES ${TS_FILES})
@@ -1227,6 +1263,11 @@ if (WIN32)
   target_link_libraries (wsjt_qt Qt5::AxContainer Qt5::AxBase)
 endif (WIN32)
 
+# build a library of package Qt functionality used in Fortran utilities
+add_library (fort_qt STATIC ${fort_qt_CXXSRCS})
+target_link_libraries (fort_qt Qt5::Core)
+
+# build a library of WSJT Qt multimedia components
 add_library (wsjt_qtmm STATIC ${wsjt_qtmm_CXXSRCS} ${wsjt_qtmm_GENUISRCS})
 target_link_libraries (wsjt_qtmm Qt5::Multimedia)
 
@@ -1274,9 +1315,9 @@ if (${OPENMP_FOUND} OR APPLE)
       LINK_FLAGS -Wl,--stack,16777216
       )
   endif ()
-  target_link_libraries (jt9 wsjt_fort_omp wsjt_cxx wsjt_qt)
+  target_link_libraries (jt9 wsjt_fort_omp wsjt_cxx fort_qt)
 else (${OPENMP_FOUND} OR APPLE)
-  target_link_libraries (jt9 wsjt_fort wsjt_cxx Qt5::Core)
+  target_link_libraries (jt9 wsjt_fort wsjt_cxx fort_qt)
 endif (${OPENMP_FOUND} OR APPLE)
 
 if(WSJT_BUILD_UTILS) 
@@ -1345,6 +1386,15 @@ target_link_libraries (ft4sim_mult wsjt_fort wsjt_cxx)
 
 add_executable (record_time_signal Audio/tools/record_time_signal.cpp)
 target_link_libraries (record_time_signal wsjt_cxx wsjt_qtmm wsjt_qt)
+
+add_executable (fst4sim lib/fst4/fst4sim.f90 wsjtx.rc)
+target_link_libraries (fst4sim wsjt_fort wsjt_cxx)
+
+add_executable (ldpcsim240_101 lib/fst4/ldpcsim240_101.f90 wsjtx.rc)
+target_link_libraries (ldpcsim240_101 wsjt_fort wsjt_cxx)
+
+add_executable (ldpcsim240_74 lib/fst4/ldpcsim240_74.f90 wsjtx.rc)
+target_link_libraries (ldpcsim240_74 wsjt_fort wsjt_cxx)
 
 endif(WSJT_BUILD_UTILS)
 
@@ -1485,7 +1535,7 @@ install (TARGETS jt9 wsprd fmtave fcal fmeasure
 
 if(WSJT_BUILD_UTILS)
 install (TARGETS ft8code jt65code qra64code qra64sim jt9code jt4code
-  msk144code 
+  msk144code fst4sim
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   )
@@ -1525,6 +1575,7 @@ install (FILES
   )
 
 install (FILES
+  cty.dat
   contrib/Ephemeris/JPLEPH
   DESTINATION ${CMAKE_INSTALL_DATADIR}/${CMAKE_PROJECT_NAME}
   #COMPONENT runtime
@@ -1805,11 +1856,11 @@ endif ()
 
 set (CPACK_DEBIAN_PACKAGE_DESCRIPTION "${PROJECT_DESCRIPTION}")
 set (CPACK_DEBIAN_PACKAGE_HOMEPAGE "${PROJECT_HOMEPAGE}")
-set (CPACK_DEBIAN_PACKAGE_DEPENDS "libgfortran3 (>=4.8.2), libqt5serialport5 (>=5.5), libqt5multimedia5-plugins (>=5.5), libqt5widgets5 (>=5.5), libqt5sql5-sqlite (>=5.5), libusb-1.0-0, libudev1, libc6 (>=2.19)")
+set (CPACK_DEBIAN_PACKAGE_DEPENDS "libgfortran5 (>=10), libfftw3-single3 (>=3.3.8), libgomp1 (>=10), libqt5serialport5 (>=5.12.8), libqt5multimedia5-plugins (>=5.12.8), libqt5widgets5 (>=5.12.8), libqt5network5 (>=5.12.8), libqt5printsupport5 (>=5.12.8), libqt5sql5-sqlite (>=5.12.8), libusb-1.0-0 (>=1.0.23)")
 set (CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 
 set (CPACK_RPM_PACKAGE_ARCHITECTURE ${CMAKE_SYSTEM_PROCESSOR})
-set (CPACK_RPM_PACKAGE_REQUIRES "qt5-qtserialport >= 5.5, qt5-qtmultimedia >= 5.5, qt5-qtsvg, libusb, systemd-udev, glibc >= 2, libgfortran >= 4.8.2")
+set (CPACK_RPM_PACKAGE_REQUIRES "qt5-qtbase >= 5.13.2, qt5-qtserialport >= 5.13.2, qt5-qtmultimedia >= 5.13.2, qt5-qtsvg >= 5.13.2, libusbx >= 1.0.23, libgfortran >= 10.0.1, libgomp >= 10.0.1, fftw-libs-single >= 3.3.8")
 set (CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION /usr/share/pixmaps /usr/share/applications /usr/share/man /usr/share/man1)
 
 configure_file ("${PROJECT_SOURCE_DIR}/CMakeCPackOptions.cmake.in"

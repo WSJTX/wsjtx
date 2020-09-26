@@ -1,7 +1,7 @@
-// Status=review
+// Status=edited
 
 Source code for _WSJT-X_ is available from a public repository at
-{devrepo}. To compile the program you will need to install at least the
+{devrepo}. To compile the program, at a minimum you must install the
 following packages:
 
 - Git
@@ -19,7 +19,7 @@ cd wsjtx
 git checkout wsjtx-{VERSION}
 =====
 
-and for the current development branch,
+and for the current development branch:
 
 =====
 git clone git://git.code.sf.net/p/wsjt/wsjtx

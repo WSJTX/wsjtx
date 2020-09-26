@@ -8,6 +8,7 @@
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/key_extractors.hpp>
 #include <boost/range/iterator_range.hpp>
+#include <QCoreApplication>
 #include <QtConcurrent/QtConcurrentRun>
 #include <QFuture>
 #include <QFutureWatcher>
@@ -19,7 +20,9 @@
 #include <QFileInfo>
 #include <QFile>
 #include <QTextStream>
+#include <QDateTime>
 #include "Configuration.hpp"
+#include "revision_utils.hpp"
 #include "qt_helpers.hpp"
 #include "pimpl_impl.hpp"
 
@@ -252,7 +255,7 @@ namespace
           }
         else
           {
-            throw LoaderException (std::runtime_error {"Invalid ADIF field " + fieldName.toStdString () + ": " + record.toStdString ()});
+            throw LoaderException (std::runtime_error {QCoreApplication::translate ("WorkedBefore", "Invalid ADIF field %0: %1").arg (fieldName).arg (record).toLocal8Bit ()});
           }
 
         if (closingBracketIndex > fieldNameIndex && fieldLengthIndex > fieldNameIndex && fieldLengthIndex < closingBracketIndex)
@@ -269,7 +272,7 @@ namespace
           }
         else
           {
-            throw LoaderException (std::runtime_error {"Malformed ADIF field " + fieldName.toStdString () + ": " + record.toStdString ()});
+            throw LoaderException (std::runtime_error {QCoreApplication::translate ("WorkedBefore", "Malformed ADIF field %0: %1").arg (fieldName).arg (record).toLocal8Bit ()});
           }
       }
     return QString {};
@@ -306,7 +309,7 @@ namespace
               {
                 if (end_position < 0)
                   {
-                    throw LoaderException (std::runtime_error {"Invalid ADIF header"});
+                    throw LoaderException (std::runtime_error {QCoreApplication::translate ("WorkedBefore", "Invalid ADIF header").toLocal8Bit ()});
                   }
                 buffer.remove (0, end_position + 5);
               }
@@ -352,7 +355,7 @@ namespace
           }
         else
           {
-            throw LoaderException (std::runtime_error {"Error opening ADIF log file for read: " + inputFile.errorString ().toStdString ()});
+            throw LoaderException (std::runtime_error {QCoreApplication::translate ("WorkedBefore", "Error opening ADIF log file for read: %0").arg (inputFile.errorString ()).toLocal8Bit ()});
           }
       }
     return worked;
@@ -442,7 +445,18 @@ bool WorkedBefore::add (QString const& call
           QTextStream out {&file};
           if (!file.size ())
             {
-              out << "WSJT-X ADIF Export<eh>" << // new file
+              auto ts = QDateTime::currentDateTimeUtc ().toString ("yyyyMMdd HHmmss");
+              auto ver = version (true);
+              out <<            // new file
+                QString {
+                  "ADIF Export\n"
+                  "<adif_ver:5>3.1.1\n"
+                  "<created_timestamp:15>%0\n"
+                  "<programid:6>WSJT-X\n"
+                  "<programversion:%1>%2\n"
+                  "<eoh>"
+                    }.arg (ts).arg (ver.size ()).arg (ver)
+                  <<
 #if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
                  endl
 #else

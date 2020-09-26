@@ -1,12 +1,12 @@
 // These instructions are up-to-date for WSJT-X v2.2
 
-*OS X 10.12* and later: Download the file {osx} to your desktop,
-double-click on it and consult its `ReadMe` file for important
+*macOS10.13* and later: Download the file {osx} to your desktop,
+double-click it and consult its `ReadMe` file for important
 installation notes.  
 
 If you have already installed a previous version, you can retain it by
-changing its name in the *Applications* folder (say, from _WSJT-X_ to
-_WSJT-X_2.1_).  You can then proceed to the installation phase.
+changing its name in the *Applications* folder (such as from _WSJT-X_ to
+_WSJT-X_2.2_).  You can then proceed to the installation phase.
 
 Take note also of the following:
 

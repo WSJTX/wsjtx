@@ -106,7 +106,7 @@ public:
                             , QString const& report_received, QString const& tx_power, QString const& comments
                             , QString const& name, QDateTime time_on, QString const& operator_call
                             , QString const& my_call, QString const& my_grid
-                            , QString const& exchange_sent, QString const& exchange_rcvd);
+                            , QString const& exchange_sent, QString const& exchange_rcvd, QString const& prop_mode);
   Q_SIGNAL void decodes_cleared (QString const& id);
   Q_SIGNAL void logged_ADIF (QString const& id, QByteArray const& ADIF);
 

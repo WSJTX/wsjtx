@@ -25,8 +25,9 @@ namespace
     QT_TRANSLATE_NOOP ("MessageAggregatorMainWindow", "Operator"),
     QT_TRANSLATE_NOOP ("MessageAggregatorMainWindow", "My Call"),
     QT_TRANSLATE_NOOP ("MessageAggregatorMainWindow", "My Grid"),
-    QT_TRANSLATE_NOOP ("MessageAggregatorMainWindow", "Exchange Sent"),
-    QT_TRANSLATE_NOOP ("MessageAggregatorMainWindow", "Exchange Rcvd"),
+    QT_TRANSLATE_NOOP ("MessageAggregatorMainWindow", "Exch Sent"),
+    QT_TRANSLATE_NOOP ("MessageAggregatorMainWindow", "Exch Rcvd"),
+    QT_TRANSLATE_NOOP ("MessageAggregatorMainWindow", "Prop"),
     QT_TRANSLATE_NOOP ("MessageAggregatorMainWindow", "Comments"),
   };
 }
@@ -212,7 +213,8 @@ void MessageAggregatorMainWindow::log_qso (QString const& /*id*/, QDateTime time
                                            , QString const& tx_power, QString const& comments
                                            , QString const& name, QDateTime time_on, QString const& operator_call
                                            , QString const& my_call, QString const& my_grid
-                                           , QString const& exchange_sent, QString const& exchange_rcvd)
+                                           , QString const& exchange_sent, QString const& exchange_rcvd
+                                           , QString const& prop_mode)
 {
   QList<QStandardItem *> row;
   row << new QStandardItem {time_on.toString ("dd-MMM-yyyy hh:mm:ss")}
@@ -230,6 +232,7 @@ void MessageAggregatorMainWindow::log_qso (QString const& /*id*/, QDateTime time
   << new QStandardItem {my_grid}
   << new QStandardItem {exchange_sent}
   << new QStandardItem {exchange_rcvd}
+  << new QStandardItem {prop_mode}
   << new QStandardItem {comments};
   log_->appendRow (row);
   log_table_view_->resizeColumnsToContents ();

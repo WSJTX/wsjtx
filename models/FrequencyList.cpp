@@ -46,16 +46,20 @@ namespace
       {20000000, Modes::FreqCal, IARURegions::ALL},
       
       {136000, Modes::WSPR, IARURegions::ALL},
-      {136130, Modes::JT65, IARURegions::ALL},
-      {136130, Modes::JT9, IARURegions::ALL},
+      {136000, Modes::FST4, IARURegions::ALL},
+      {136000, Modes::FST4W, IARURegions::ALL},
+      {136000, Modes::JT9, IARURegions::ALL},
 
-      {474200, Modes::JT65, IARURegions::ALL},
       {474200, Modes::JT9, IARURegions::ALL},
+      {474200, Modes::FST4, IARURegions::ALL},
       {474200, Modes::WSPR, IARURegions::ALL},
-      
+      {474200, Modes::FST4W, IARURegions::ALL},
+
       {1836600, Modes::WSPR, IARURegions::ALL},
+      {1836800, Modes::FST4W, IARURegions::ALL},
       {1838000, Modes::JT65, IARURegions::ALL}, // squeezed allocations
       {1839000, Modes::JT9, IARURegions::ALL},
+      {1839000, Modes::FST4, IARURegions::ALL},
       {1840000, Modes::FT8, IARURegions::ALL},
 
       // Band plans (all USB dial unless stated otherwise)
@@ -238,7 +242,7 @@ namespace
       {18104000, Modes::JT9, IARURegions::ALL},
       {18104000, Modes::FT4, IARURegions::ALL}, // provisional
       {18104600, Modes::WSPR, IARURegions::ALL},
-      
+
       {21074000, Modes::FT8, IARURegions::ALL},
       {21076000, Modes::JT65, IARURegions::ALL},
       {21078000, Modes::JT9, IARURegions::ALL},
@@ -250,7 +254,7 @@ namespace
       {24919000, Modes::JT9, IARURegions::ALL},
       {24919000, Modes::FT4, IARURegions::ALL}, // provisional
       {24924600, Modes::WSPR, IARURegions::ALL},
-      
+
       {28074000, Modes::FT8, IARURegions::ALL},
       {28076000, Modes::JT65, IARURegions::ALL},
       {28078000, Modes::JT9, IARURegions::ALL},

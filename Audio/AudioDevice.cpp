@@ -7,4 +7,3 @@ bool AudioDevice::initialize (OpenMode mode, Channel channel)
   // open and ensure we are unbuffered if possible
   return QIODevice::open (mode | QIODevice::Unbuffered);
 }
-

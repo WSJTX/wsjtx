@@ -15,7 +15,8 @@ subroutine foxgen()
   ! common block.
   
   parameter (NN=79,ND=58,NSPS=4*1920)
-  parameter (NWAVE=NN*NSPS,NFFT=614400,NH=NFFT/2)
+  parameter (NWAVE=(160+2)*134400*4) !the biggest waveform we generate (FST4-1800 at 48kHz)
+  parameter (NFFT=614400,NH=NFFT/2)
   character*40 cmsg
   character*37 msg,msgsent
   integer itone(79)
@@ -60,34 +61,10 @@ subroutine foxgen()
   
   peak1=maxval(abs(wave))
   wave=wave/peak1
-!  call plotspec(1,wave)          !Plot the spectrum
-
-! Apply compression
-!  rms=sqrt(dot_product(wave,wave)/kz)
-!  wave=wave/rms
-!  do i=1,NWAVE
-!     wave(i)=h1(wave(i))
-!  enddo
-!  peak2=maxval(abs(wave))
-!  wave=wave/peak2
-  
-!  call plotspec(2,wave)          !Plot the spectrum
-
   width=50.0
   call foxfilt(nslots,nfreq,width,wave)
   peak3=maxval(abs(wave))
   wave=wave/peak3
-
-!  nadd=1000
-!  j=0
-!  do i=1,NWAVE,nadd
-!     sx=dot_product(wave(i:i+nadd-1),wave(i:i+nadd-1))
-!     j=j+1
-!     write(30,3001) j,sx/nadd
-!3001 format(i8,f12.6)
-!  enddo
-
-!  call plotspec(3,wave)          !Plot the spectrum
   
   return
 end subroutine foxgen

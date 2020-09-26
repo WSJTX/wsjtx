@@ -54,7 +54,7 @@ void LiveFrequencyValidator::fixup (QString& input) const
           input = input.toLower ();
 
           QVector<QVariant> frequencies;
-          for (auto const& item : frequencies_->frequency_list ())
+          for (auto const& item : *frequencies_)
             {
               if (bands_->find (item.frequency_) == input)
                 {

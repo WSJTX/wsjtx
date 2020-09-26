@@ -135,8 +135,11 @@
 #include <cmath>
 
 #include <QApplication>
+#include <QCursor>
 #include <QMetaType>
 #include <QList>
+#include <QPair>
+#include <QVariant>
 #include <QSettings>
 #include <QAudioDeviceInfo>
 #include <QAudioInput>
@@ -186,6 +189,7 @@
 #include "Network/LotWUsers.hpp"
 #include "models/DecodeHighlightingModel.hpp"
 #include "logbook/logbook.h"
+#include "widgets/LazyFillComboBox.hpp"
 
 #include "ui_Configuration.h"
 #include "moc_Configuration.cpp"
@@ -401,6 +405,7 @@ class Configuration::impl final
 public:
   using FrequencyDelta = Radio::FrequencyDelta;
   using port_type = Configuration::port_type;
+  using audio_info_type = QPair<QAudioDeviceInfo, QList<QVariant> >;
 
   explicit impl (Configuration * self
                  , QNetworkAccessManager * network_manager
@@ -429,8 +434,12 @@ private:
   void read_settings ();
   void write_settings ();
 
-  bool load_audio_devices (QAudio::Mode, QComboBox *, QAudioDeviceInfo *);
+  void find_audio_devices ();
+  QAudioDeviceInfo find_audio_device (QAudio::Mode, QComboBox *, QString const& device_name);
+  void load_audio_devices (QAudio::Mode, QComboBox *, QAudioDeviceInfo *);
   void update_audio_channels (QComboBox const *, int, QComboBox *, bool);
+
+  void find_tab (QWidget *);
 
   void initialize_models ();
   bool split_mode () const
@@ -477,8 +486,6 @@ private:
   Q_SLOT void on_force_DTR_combo_box_currentIndexChanged (int);
   Q_SLOT void on_force_RTS_combo_box_currentIndexChanged (int);
   Q_SLOT void on_rig_combo_box_currentIndexChanged (int);
-  Q_SLOT void on_sound_input_combo_box_currentTextChanged (QString const&);
-  Q_SLOT void on_sound_output_combo_box_currentTextChanged (QString const&);
   Q_SLOT void on_add_macro_push_button_clicked (bool = false);
   Q_SLOT void on_delete_macro_push_button_clicked (bool = false);
   Q_SLOT void on_PTT_method_button_group_buttonClicked (int);
@@ -604,6 +611,7 @@ private:
   bool id_after_73_;
   bool tx_QSY_allowed_;
   bool spot_to_psk_reporter_;
+  bool psk_reporter_tcpip_;
   bool monitor_off_at_startup_;
   bool monitor_last_used_;
   bool log_as_RTTY_;
@@ -646,11 +654,13 @@ private:
   bool pwrBandTuneMemory_;
 
   QAudioDeviceInfo audio_input_device_;
-  bool default_audio_input_device_selected_;
+  QAudioDeviceInfo next_audio_input_device_;
   AudioDevice::Channel audio_input_channel_;
+  AudioDevice::Channel next_audio_input_channel_;
   QAudioDeviceInfo audio_output_device_;
-  bool default_audio_output_device_selected_;
+  QAudioDeviceInfo next_audio_output_device_;
   AudioDevice::Channel audio_output_channel_;
+  AudioDevice::Channel next_audio_output_channel_;
 
   friend class Configuration;
 };
@@ -701,6 +711,7 @@ bool Configuration::spot_to_psk_reporter () const
   // rig must be open and working to spot externally
   return is_transceiver_online () && m_->spot_to_psk_reporter_;
 }
+bool Configuration::psk_reporter_tcpip () const {return m_->psk_reporter_tcpip_;}
 bool Configuration::monitor_off_at_startup () const {return m_->monitor_off_at_startup_;}
 bool Configuration::monitor_last_used () const {return m_->rig_is_dummy_ || m_->monitor_last_used_;}
 bool Configuration::log_as_RTTY () const {return m_->log_as_RTTY_;}
@@ -850,6 +861,16 @@ void Configuration::sync_transceiver (bool force_signal, bool enforce_mode_and_s
     }
 }
 
+void Configuration::invalidate_audio_input_device (QString /* error */)
+{
+  m_->audio_input_device_ = QAudioDeviceInfo {};
+}
+
+void Configuration::invalidate_audio_output_device (QString /* error */)
+{
+  m_->audio_output_device_ = QAudioDeviceInfo {};
+}
+
 bool Configuration::valid_n1mm_info () const
 {
   // do very rudimentary checking on the n1mm server name and port number.
@@ -895,7 +916,7 @@ auto Configuration::special_op_id () const -> SpecialOperatingActivity
 void Configuration::set_location (QString const& grid_descriptor)
 {
   // change the dynamic grid
-  qDebug () << "Configuration::set_location - location:" << grid_descriptor;
+  // qDebug () << "Configuration::set_location - location:" << grid_descriptor;
   m_->dynamic_grid_ = grid_descriptor.trimmed ();
 }
 
@@ -974,8 +995,6 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   , transceiver_command_number_ {0}
   , degrade_ {0.}               // initialize to zero each run, not
                                 // saved in settings
-  , default_audio_input_device_selected_ {false}
-  , default_audio_output_device_selected_ {false}
 {
   ui_->setupUi (this);
 
@@ -1024,6 +1043,21 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
 
   // this must be done after the default paths above are set
   read_settings ();
+
+  connect (ui_->sound_input_combo_box, &LazyFillComboBox::about_to_show_popup, [this] () {
+      QGuiApplication::setOverrideCursor (QCursor {Qt::WaitCursor});
+      load_audio_devices (QAudio::AudioInput, ui_->sound_input_combo_box, &next_audio_input_device_);
+      update_audio_channels (ui_->sound_input_combo_box, ui_->sound_input_combo_box->currentIndex (), ui_->sound_input_channel_combo_box, false);
+      ui_->sound_input_channel_combo_box->setCurrentIndex (next_audio_input_channel_);
+      QGuiApplication::restoreOverrideCursor ();
+    });
+  connect (ui_->sound_output_combo_box, &LazyFillComboBox::about_to_show_popup, [this] () {
+      QGuiApplication::setOverrideCursor (QCursor {Qt::WaitCursor});
+      load_audio_devices (QAudio::AudioOutput, ui_->sound_output_combo_box, &next_audio_output_device_);
+      update_audio_channels (ui_->sound_output_combo_box, ui_->sound_output_combo_box->currentIndex (), ui_->sound_output_channel_combo_box, true);
+      ui_->sound_output_channel_combo_box->setCurrentIndex (next_audio_output_channel_);
+      QGuiApplication::restoreOverrideCursor ();
+    });
 
   // set up LoTW users CSV file fetching
   connect (&lotw_users_, &LotWUsers::load_finished, [this] () {
@@ -1128,7 +1162,9 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
 
   ui_->frequencies_table_view->setModel (&next_frequencies_);
   ui_->frequencies_table_view->horizontalHeader ()->setSectionResizeMode (QHeaderView::ResizeToContents);
+  ui_->frequencies_table_view->horizontalHeader ()->setResizeContentsPrecision (0);
   ui_->frequencies_table_view->verticalHeader ()->setSectionResizeMode (QHeaderView::ResizeToContents);
+  ui_->frequencies_table_view->verticalHeader ()->setResizeContentsPrecision (0);
   ui_->frequencies_table_view->sortByColumn (FrequencyList_v2::frequency_column, Qt::AscendingOrder);
   ui_->frequencies_table_view->setColumnHidden (FrequencyList_v2::frequency_mhz_column, true);
 
@@ -1168,7 +1204,9 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   stations_.sort (StationList::band_column);
   ui_->stations_table_view->setModel (&next_stations_);
   ui_->stations_table_view->horizontalHeader ()->setSectionResizeMode (QHeaderView::ResizeToContents);
+  ui_->stations_table_view->horizontalHeader ()->setResizeContentsPrecision (0);
   ui_->stations_table_view->verticalHeader ()->setSectionResizeMode (QHeaderView::ResizeToContents);
+  ui_->stations_table_view->verticalHeader ()->setResizeContentsPrecision (0);
   ui_->stations_table_view->sortByColumn (StationList::band_column, Qt::AscendingOrder);
 
   // stations delegates
@@ -1187,20 +1225,13 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   //
   ui_->highlighting_list_view->setModel (&next_decode_highlighing_model_);
 
-  //
-  // load combo boxes with audio setup choices
-  //
-  default_audio_input_device_selected_ = load_audio_devices (QAudio::AudioInput, ui_->sound_input_combo_box, &audio_input_device_);
-  default_audio_output_device_selected_ = load_audio_devices (QAudio::AudioOutput, ui_->sound_output_combo_box, &audio_output_device_);
-
-  update_audio_channels (ui_->sound_input_combo_box, ui_->sound_input_combo_box->currentIndex (), ui_->sound_input_channel_combo_box, false);
-  update_audio_channels (ui_->sound_output_combo_box, ui_->sound_output_combo_box->currentIndex (), ui_->sound_output_channel_combo_box, true);
-
-  ui_->sound_input_channel_combo_box->setCurrentIndex (audio_input_channel_);
-  ui_->sound_output_channel_combo_box->setCurrentIndex (audio_output_channel_);
-
   enumerate_rigs ();
   initialize_models ();
+
+  audio_input_device_ = next_audio_input_device_;
+  audio_input_channel_ = next_audio_input_channel_;
+  audio_output_device_ = next_audio_output_device_;
+  audio_output_channel_ = next_audio_output_channel_;
 
   transceiver_thread_ = new QThread {this};
   transceiver_thread_->start ();
@@ -1215,6 +1246,16 @@ Configuration::impl::~impl ()
 
 void Configuration::impl::initialize_models ()
 {
+  next_audio_input_device_ = audio_input_device_;
+  next_audio_input_channel_ = audio_input_channel_;
+  next_audio_output_device_ = audio_output_device_;
+  next_audio_output_channel_ = audio_output_channel_;
+  restart_sound_input_device_ = false;
+  restart_sound_output_device_ = false;
+  {
+    SettingsGroup g {settings_, "Configuration"};
+    find_audio_devices ();
+  }
   auto pal = ui_->callsign_line_edit->palette ();
   if (my_callsign_.isEmpty ())
     {
@@ -1236,11 +1277,13 @@ void Configuration::impl::initialize_models ()
   ui_->sbDegrade->setValue (degrade_);
   ui_->sbBandwidth->setValue (RxBandwidth_);
   ui_->PTT_method_button_group->button (rig_params_.ptt_type)->setChecked (true);
+
   ui_->save_path_display_label->setText (save_directory_.absolutePath ());
   ui_->azel_path_display_label->setText (azel_directory_.absolutePath ());
   ui_->CW_id_after_73_check_box->setChecked (id_after_73_);
   ui_->tx_QSY_check_box->setChecked (tx_QSY_allowed_);
   ui_->psk_reporter_check_box->setChecked (spot_to_psk_reporter_);
+  ui_->psk_reporter_tcpip_check_box->setChecked (psk_reporter_tcpip_);
   ui_->monitor_off_check_box->setChecked (monitor_off_at_startup_);
   ui_->monitor_last_used_check_box->setChecked (monitor_last_used_);
   ui_->log_as_RTTY_check_box->setChecked (log_as_RTTY_);
@@ -1387,67 +1430,12 @@ void Configuration::impl::read_settings ()
   save_directory_.setPath (settings_->value ("SaveDir", default_save_directory_.absolutePath ()).toString ());
   azel_directory_.setPath (settings_->value ("AzElDir", default_azel_directory_.absolutePath ()).toString ());
 
-  {
-    //
-    // retrieve audio input device
-    //
-    auto saved_name = settings_->value ("SoundInName").toString ();
-
-    // deal with special Windows default audio devices
-    auto default_device = QAudioDeviceInfo::defaultInputDevice ();
-    if (saved_name == default_device.deviceName ())
-      {
-        audio_input_device_ = default_device;
-        default_audio_input_device_selected_ = true;
-      }
-    else
-      {
-        default_audio_input_device_selected_ = false;
-        Q_FOREACH (auto const& p, QAudioDeviceInfo::availableDevices (QAudio::AudioInput)) // available audio input devices
-          {
-            if (p.deviceName () == saved_name)
-              {
-                audio_input_device_ = p;
-              }
-          }
-      }
-  }
-
-  {
-    //
-    // retrieve audio output device
-    //
-    auto saved_name = settings_->value("SoundOutName").toString();
-
-    // deal with special Windows default audio devices
-    auto default_device = QAudioDeviceInfo::defaultOutputDevice ();
-    if (saved_name == default_device.deviceName ())
-      {
-        audio_output_device_ = default_device;
-        default_audio_output_device_selected_ = true;
-      }
-    else
-      {
-        default_audio_output_device_selected_ = false;
-        Q_FOREACH (auto const& p, QAudioDeviceInfo::availableDevices (QAudio::AudioOutput)) // available audio output devices
-          {
-            if (p.deviceName () == saved_name)
-              {
-                audio_output_device_ = p;
-              }
-          }
-      }
-  }
-
-  // retrieve audio channel info
-  audio_input_channel_ = AudioDevice::fromString (settings_->value ("AudioInputChannel", "Mono").toString ());
-  audio_output_channel_ = AudioDevice::fromString (settings_->value ("AudioOutputChannel", "Mono").toString ());
-
   type_2_msg_gen_ = settings_->value ("Type2MsgGen", QVariant::fromValue (Configuration::type_2_msg_3_full)).value<Configuration::Type2MsgGen> ();
 
   monitor_off_at_startup_ = settings_->value ("MonitorOFF", false).toBool ();
   monitor_last_used_ = settings_->value ("MonitorLastUsed", false).toBool ();
   spot_to_psk_reporter_ = settings_->value ("PSKReporter", false).toBool ();
+  psk_reporter_tcpip_ = settings_->value ("PSKReporterTCPIP", false).toBool ();
   id_after_73_ = settings_->value ("After73", false).toBool ();
   tx_QSY_allowed_ = settings_->value ("TxQSYAllowed", false).toBool ();
   use_dynamic_grid_ = settings_->value ("AutoGrid", false).toBool ();
@@ -1543,6 +1531,33 @@ void Configuration::impl::read_settings ()
   pwrBandTuneMemory_ = settings_->value("pwrBandTuneMemory",false).toBool ();
 }
 
+void Configuration::impl::find_audio_devices ()
+{
+  //
+  // retrieve audio input device
+  //
+  auto saved_name = settings_->value ("SoundInName").toString ();
+  if (next_audio_input_device_.deviceName () != saved_name || next_audio_input_device_.isNull ())
+    {
+      next_audio_input_device_ = find_audio_device (QAudio::AudioInput, ui_->sound_input_combo_box, saved_name);
+      next_audio_input_channel_ = AudioDevice::fromString (settings_->value ("AudioInputChannel", "Mono").toString ());
+      update_audio_channels (ui_->sound_input_combo_box, ui_->sound_input_combo_box->currentIndex (), ui_->sound_input_channel_combo_box, false);
+      ui_->sound_input_channel_combo_box->setCurrentIndex (next_audio_input_channel_);
+    }
+
+  //
+  // retrieve audio output device
+  //
+  saved_name = settings_->value("SoundOutName").toString();
+  if (next_audio_output_device_.deviceName () != saved_name || next_audio_output_device_.isNull ())
+    {
+      next_audio_output_device_ = find_audio_device (QAudio::AudioOutput, ui_->sound_output_combo_box, saved_name);
+      next_audio_output_channel_ = AudioDevice::fromString (settings_->value ("AudioOutputChannel", "Mono").toString ());
+      update_audio_channels (ui_->sound_output_combo_box, ui_->sound_output_combo_box->currentIndex (), ui_->sound_output_channel_combo_box, true);
+      ui_->sound_output_channel_combo_box->setCurrentIndex (next_audio_output_channel_);
+    }
+}
+
 void Configuration::impl::write_settings ()
 {
   SettingsGroup g {settings_, "Configuration"};
@@ -1562,31 +1577,21 @@ void Configuration::impl::write_settings ()
   settings_->setValue ("PTTport", rig_params_.ptt_port);
   settings_->setValue ("SaveDir", save_directory_.absolutePath ());
   settings_->setValue ("AzElDir", azel_directory_.absolutePath ());
-
-  if (default_audio_input_device_selected_)
-    {
-      settings_->setValue ("SoundInName", QAudioDeviceInfo::defaultInputDevice ().deviceName ());
-    }
-  else
+  if (!audio_input_device_.isNull ())
     {
       settings_->setValue ("SoundInName", audio_input_device_.deviceName ());
+      settings_->setValue ("AudioInputChannel", AudioDevice::toString (audio_input_channel_));
     }
-
-  if (default_audio_output_device_selected_)
-    {
-      settings_->setValue ("SoundOutName", QAudioDeviceInfo::defaultOutputDevice ().deviceName ());
-    }
-  else
+  if (!audio_output_device_.isNull ())
     {
       settings_->setValue ("SoundOutName", audio_output_device_.deviceName ());
+      settings_->setValue ("AudioOutputChannel", AudioDevice::toString (audio_output_channel_));
     }
-
-  settings_->setValue ("AudioInputChannel", AudioDevice::toString (audio_input_channel_));
-  settings_->setValue ("AudioOutputChannel", AudioDevice::toString (audio_output_channel_));
   settings_->setValue ("Type2MsgGen", QVariant::fromValue (type_2_msg_gen_));
   settings_->setValue ("MonitorOFF", monitor_off_at_startup_);
   settings_->setValue ("MonitorLastUsed", monitor_last_used_);
   settings_->setValue ("PSKReporter", spot_to_psk_reporter_);
+  settings_->setValue ("PSKReporterTCPIP", psk_reporter_tcpip_);
   settings_->setValue ("After73", id_after_73_);
   settings_->setValue ("TxQSYAllowed", tx_QSY_allowed_);
   settings_->setValue ("Macros", macros_.stringList ());
@@ -1653,6 +1658,7 @@ void Configuration::impl::write_settings ()
   settings_->setValue ("pwrBandTuneMemory", pwrBandTuneMemory_);
   settings_->setValue ("Region", QVariant::fromValue (region_));
   settings_->setValue ("AutoGrid", use_dynamic_grid_);
+  settings_->sync ();
 }
 
 void Configuration::impl::set_rig_invariants ()
@@ -1785,17 +1791,27 @@ void Configuration::impl::set_rig_invariants ()
 bool Configuration::impl::validate ()
 {
   if (ui_->sound_input_combo_box->currentIndex () < 0
-      && !QAudioDeviceInfo::availableDevices (QAudio::AudioInput).empty ())
+      && next_audio_input_device_.isNull ())
     {
+      find_tab (ui_->sound_input_combo_box);
+      MessageBox::critical_message (this, tr ("Invalid audio input device"));
+      return false;
+    }
+
+  if (ui_->sound_input_channel_combo_box->currentIndex () < 0
+      && next_audio_input_device_.isNull ())
+    {
+      find_tab (ui_->sound_input_combo_box);
       MessageBox::critical_message (this, tr ("Invalid audio input device"));
       return false;
     }
 
   if (ui_->sound_output_combo_box->currentIndex () < 0
-      && !QAudioDeviceInfo::availableDevices (QAudio::AudioOutput).empty ())
+      && next_audio_output_device_.isNull ())
     {
-      MessageBox::critical_message (this, tr ("Invalid audio out device"));
-      return false;
+      find_tab (ui_->sound_output_combo_box);
+      MessageBox::information_message (this, tr ("Invalid audio output device"));
+      // don't reject as we can work without an audio output
     }
 
   if (!ui_->PTT_method_button_group->checkedButton ()->isEnabled ())
@@ -1817,16 +1833,7 @@ bool Configuration::impl::validate ()
   if (ui_->rbField_Day->isEnabled () && ui_->rbField_Day->isChecked () &&
       !ui_->Field_Day_Exchange->hasAcceptableInput ())
     {
-      for (auto * parent = ui_->Field_Day_Exchange->parentWidget (); parent; parent = parent->parentWidget ())
-        {
-          auto index = ui_->configuration_tabs->indexOf (parent);
-          if (index != -1)
-            {
-              ui_->configuration_tabs->setCurrentIndex (index);
-              break;
-            }
-        }
-      ui_->Field_Day_Exchange->setFocus ();
+      find_tab (ui_->Field_Day_Exchange);
       MessageBox::critical_message (this, tr ("Invalid Contest Exchange")
                                     , tr ("You must input a valid ARRL Field Day exchange"));
       return false;
@@ -1835,16 +1842,7 @@ bool Configuration::impl::validate ()
   if (ui_->rbRTTY_Roundup->isEnabled () && ui_->rbRTTY_Roundup->isChecked () &&
       !ui_->RTTY_Exchange->hasAcceptableInput ())
     {
-      for (auto * parent = ui_->RTTY_Exchange->parentWidget (); parent; parent = parent->parentWidget ())
-        {
-          auto index = ui_->configuration_tabs->indexOf (parent);
-          if (index != -1)
-            {
-              ui_->configuration_tabs->setCurrentIndex (index);
-              break;
-            }
-        }
-      ui_->RTTY_Exchange->setFocus ();
+      find_tab (ui_->RTTY_Exchange);
       MessageBox::critical_message (this, tr ("Invalid Contest Exchange")
                                     , tr ("You must input a valid ARRL RTTY Roundup exchange"));
       return false;
@@ -1865,6 +1863,7 @@ int Configuration::impl::exec ()
   rig_changed_ = false;
 
   initialize_models ();
+
   return QDialog::exec();
 }
 
@@ -1962,85 +1961,67 @@ void Configuration::impl::accept ()
                                  // related configuration parameters
   rig_is_dummy_ = TransceiverFactory::basic_transceiver_name_ == rig_params_.rig_name;
 
-  // Check to see whether SoundInThread must be restarted,
-  // and save user parameters.
   {
-    auto const& device_name = ui_->sound_input_combo_box->currentText ();
-    if (device_name != audio_input_device_.deviceName ())
+    auto const& selected_device = ui_->sound_input_combo_box->currentData ().value<audio_info_type> ().first;
+    if (selected_device != next_audio_input_device_)
       {
-        auto const& default_device = QAudioDeviceInfo::defaultInputDevice ();
-        if (device_name == default_device.deviceName ())
-          {
-            audio_input_device_ = default_device;
-          }
-        else
-          {
-            bool found {false};
-            Q_FOREACH (auto const& d, QAudioDeviceInfo::availableDevices (QAudio::AudioInput))
-              {
-                if (device_name == d.deviceName ())
-                  {
-                    audio_input_device_ = d;
-                    found = true;
-                  }
-              }
-            if (!found)
-              {
-                audio_input_device_ = default_device;
-              }
-          }
-        restart_sound_input_device_ = true;
+        next_audio_input_device_ = selected_device;
       }
   }
 
   {
-    auto const& device_name = ui_->sound_output_combo_box->currentText ();
-    if (device_name != audio_output_device_.deviceName ())
+    auto const& selected_device = ui_->sound_output_combo_box->currentData ().value<audio_info_type> ().first;
+    if (selected_device != next_audio_output_device_)
       {
-        auto const& default_device = QAudioDeviceInfo::defaultOutputDevice ();
-        if (device_name == default_device.deviceName ())
-          {
-            audio_output_device_ = default_device;
-          }
-        else
-          {
-            bool found {false};
-            Q_FOREACH (auto const& d, QAudioDeviceInfo::availableDevices (QAudio::AudioOutput))
-              {
-                if (device_name == d.deviceName ())
-                  {
-                    audio_output_device_ = d;
-                    found = true;
-                  }
-              }
-            if (!found)
-              {
-                audio_output_device_ = default_device;
-              }
-          }
-        restart_sound_output_device_ = true;
+        next_audio_output_device_ = selected_device;
       }
   }
 
-  if (audio_input_channel_ != static_cast<AudioDevice::Channel> (ui_->sound_input_channel_combo_box->currentIndex ()))
+  if (next_audio_input_channel_ != static_cast<AudioDevice::Channel> (ui_->sound_input_channel_combo_box->currentIndex ()))
     {
-      audio_input_channel_ = static_cast<AudioDevice::Channel> (ui_->sound_input_channel_combo_box->currentIndex ());
+      next_audio_input_channel_ = static_cast<AudioDevice::Channel> (ui_->sound_input_channel_combo_box->currentIndex ());
+    }
+  Q_ASSERT (next_audio_input_channel_ <= AudioDevice::Right);
+
+  if (next_audio_output_channel_ != static_cast<AudioDevice::Channel> (ui_->sound_output_channel_combo_box->currentIndex ()))
+    {
+      next_audio_output_channel_ = static_cast<AudioDevice::Channel> (ui_->sound_output_channel_combo_box->currentIndex ());
+    }
+  Q_ASSERT (next_audio_output_channel_ <= AudioDevice::Both);
+
+  if (audio_input_device_ != next_audio_input_device_ || next_audio_input_device_.isNull ())
+    {
+      audio_input_device_ = next_audio_input_device_;
       restart_sound_input_device_ = true;
     }
-  Q_ASSERT (audio_input_channel_ <= AudioDevice::Right);
-
-  if (audio_output_channel_ != static_cast<AudioDevice::Channel> (ui_->sound_output_channel_combo_box->currentIndex ()))
+  if (audio_input_channel_ != next_audio_input_channel_)
     {
-      audio_output_channel_ = static_cast<AudioDevice::Channel> (ui_->sound_output_channel_combo_box->currentIndex ());
+      audio_input_channel_ = next_audio_input_channel_;
+      restart_sound_input_device_ = true;
+    }
+  if (audio_output_device_ != next_audio_output_device_ || next_audio_output_device_.isNull ())
+    {
+      audio_output_device_ = next_audio_output_device_;
       restart_sound_output_device_ = true;
     }
-  Q_ASSERT (audio_output_channel_ <= AudioDevice::Both);
+  if (audio_output_channel_ != next_audio_output_channel_)
+    {
+      audio_output_channel_ = next_audio_output_channel_;
+      restart_sound_output_device_ = true;
+    }
+  // qDebug () << "Configure::accept: audio i/p:" << audio_input_device_.deviceName ()
+  //           << "chan:" << audio_input_channel_
+  //           << "o/p:" << audio_output_device_.deviceName ()
+  //           << "chan:" << audio_output_channel_
+  //           << "reset i/p:" << restart_sound_input_device_
+  //           << "reset o/p:" << restart_sound_output_device_;
 
   my_callsign_ = ui_->callsign_line_edit->text ();
   my_grid_ = ui_->grid_line_edit->text ();
   FD_exchange_= ui_->Field_Day_Exchange->text ().toUpper ();
   RTTY_exchange_= ui_->RTTY_Exchange->text ().toUpper ();
   spot_to_psk_reporter_ = ui_->psk_reporter_check_box->isChecked ();
+  psk_reporter_tcpip_ = ui_->psk_reporter_tcpip_check_box->isChecked ();
   id_interval_ = ui_->CW_id_interval_spin_box->value ();
   ntrials_ = ui_->sbNtrials->value ();
   txDelay_ = ui_->sbTxDelay->value ();
@@ -2172,6 +2153,13 @@ void Configuration::impl::reject ()
         }
     }
 
+  // qDebug () << "Configure::reject: audio i/p:" << audio_input_device_.deviceName ()
+  //           << "chan:" << audio_input_channel_
+  //           << "o/p:" << audio_output_device_.deviceName ()
+  //           << "chan:" << audio_output_channel_
+  //           << "reset i/p:" << restart_sound_input_device_
+  //           << "reset o/p:" << restart_sound_output_device_;
+
   QDialog::reject ();
 }
 
@@ -2298,16 +2286,6 @@ void Configuration::impl::on_force_RTS_combo_box_currentIndexChanged (int /* ind
 void Configuration::impl::on_PTT_method_button_group_buttonClicked (int /* id */)
 {
   set_rig_invariants ();
-}
-
-void Configuration::impl::on_sound_input_combo_box_currentTextChanged (QString const& text)
-{
-  default_audio_input_device_selected_ = QAudioDeviceInfo::defaultInputDevice ().deviceName () == text;
-}
-
-void Configuration::impl::on_sound_output_combo_box_currentTextChanged (QString const& text)
-{
-  default_audio_output_device_selected_ = QAudioDeviceInfo::defaultOutputDevice ().deviceName () == text;
 }
 
 void Configuration::impl::on_add_macro_line_edit_editingFinished ()
@@ -2688,6 +2666,7 @@ void Configuration::impl::transceiver_frequency (Frequency f)
   current_offset_ = stations_.offset (f);
   cached_rig_state_.frequency (apply_calibration (f + current_offset_));
 
+  // qDebug () << "Configuration::impl::transceiver_frequency: n:" << transceiver_command_number_ + 1 << "f:" << f;
   Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
 }
 
@@ -2713,6 +2692,7 @@ void Configuration::impl::transceiver_tx_frequency (Frequency f)
           cached_rig_state_.tx_frequency (apply_calibration (f + current_tx_offset_));
         }
 
+      // qDebug () << "Configuration::impl::transceiver_tx_frequency: n:" << transceiver_command_number_ + 1 << "f:" << f;
       Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
     }
 }
@@ -2721,6 +2701,7 @@ void Configuration::impl::transceiver_mode (MODE m)
 {
   cached_rig_state_.online (true); // we want the rig online
   cached_rig_state_.mode (m);
+  // qDebug () << "Configuration::impl::transceiver_mode: n:" << transceiver_command_number_ + 1 << "m:" << m;
   Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
 }
 
@@ -2729,6 +2710,7 @@ void Configuration::impl::transceiver_ptt (bool on)
   cached_rig_state_.online (true); // we want the rig online
   set_cached_mode ();
   cached_rig_state_.ptt (on);
+  // qDebug () << "Configuration::impl::transceiver_ptt: n:" << transceiver_command_number_ + 1 << "on:" << on;
   Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
 }
 
@@ -2827,72 +2809,68 @@ void Configuration::impl::close_rig ()
     }
 }
 
-// load the available audio devices into the selection combo box and
-// select the default device if the current device isn't set or isn't
-// available
-bool Configuration::impl::load_audio_devices (QAudio::Mode mode, QComboBox * combo_box, QAudioDeviceInfo * device)
+// find the audio device that matches the specified name, also
+// populate into the selection combo box with any devices we find in
+// the search
+QAudioDeviceInfo Configuration::impl::find_audio_device (QAudio::Mode mode, QComboBox * combo_box
+                                                         , QString const& device_name)
 {
   using std::copy;
   using std::back_inserter;
 
-  bool result {false};
+  if (device_name.size ())
+    {
+      Q_EMIT self_->enumerating_audio_devices ();
+      auto const& devices = QAudioDeviceInfo::availableDevices (mode);
+      Q_FOREACH (auto const& p, devices)
+        {
+          // qDebug () << "Configuration::impl::find_audio_device: input:" << (QAudio::AudioInput == mode) << "name:" << p.deviceName () << "preferred format:" << p.preferredFormat () << "endians:" << p.supportedByteOrders () << "codecs:" << p.supportedCodecs () << "channels:" << p.supportedChannelCounts () << "rates:" << p.supportedSampleRates () << "sizes:" << p.supportedSampleSizes () << "types:" << p.supportedSampleTypes ();
+          if (p.deviceName () == device_name)
+            {
+              // convert supported channel counts into something we can store in the item model
+              QList<QVariant> channel_counts;
+              auto scc = p.supportedChannelCounts ();
+              copy (scc.cbegin (), scc.cend (), back_inserter (channel_counts));
+              combo_box->insertItem (0, device_name, QVariant::fromValue (audio_info_type {p, channel_counts}));
+              combo_box->setCurrentIndex (0);
+              return p;
+            }
+        }
+      // insert a place holder for the not found device
+      combo_box->insertItem (0, device_name + " (" + tr ("Not found", "audio device missing") + ")", QVariant::fromValue (audio_info_type {}));
+      combo_box->setCurrentIndex (0);
+    }
+  return {};
+}
+
+// load the available audio devices into the selection combo box
+void Configuration::impl::load_audio_devices (QAudio::Mode mode, QComboBox * combo_box
+                                              , QAudioDeviceInfo * device)
+{
+  using std::copy;
+  using std::back_inserter;
 
   combo_box->clear ();
 
+  Q_EMIT self_->enumerating_audio_devices ();
   int current_index = -1;
-  int default_index = -1;
-
-  int extra_items {0};
-
-  auto const& default_device = (mode == QAudio::AudioInput ? QAudioDeviceInfo::defaultInputDevice () : QAudioDeviceInfo::defaultOutputDevice ());
-
-  // deal with special default audio devices on Windows
-  if ("Default Input Device" == default_device.deviceName ()
-      || "Default Output Device" == default_device.deviceName ())
+  auto const& devices = QAudioDeviceInfo::availableDevices (mode);
+  Q_FOREACH (auto const& p, devices)
     {
-      default_index = 0;
-
-      QList<QVariant> channel_counts;
-      auto scc = default_device.supportedChannelCounts ();
-      copy (scc.cbegin (), scc.cend (), back_inserter (channel_counts));
-
-      combo_box->addItem (default_device.deviceName (), channel_counts);
-      ++extra_items;
-      if (default_device == *device)
-        {
-          current_index = 0;
-          result = true;
-        }
-    }
-
-  Q_FOREACH (auto const& p, QAudioDeviceInfo::availableDevices (mode))
-    {
-//      qDebug () << "Audio device: input:" << (QAudio::AudioInput == mode) << "name:" << p.deviceName () << "preferred format:" << p.preferredFormat () << "endians:" << p.supportedByteOrders () << "codecs:" << p.supportedCodecs () << "channels:" << p.supportedChannelCounts () << "rates:" << p.supportedSampleRates () << "sizes:" << p.supportedSampleSizes () << "types:" << p.supportedSampleTypes ();
+      // qDebug () << "Configuration::impl::load_audio_devices: input:" << (QAudio::AudioInput == mode) << "name:" << p.deviceName () << "preferred format:" << p.preferredFormat () << "endians:" << p.supportedByteOrders () << "codecs:" << p.supportedCodecs () << "channels:" << p.supportedChannelCounts () << "rates:" << p.supportedSampleRates () << "sizes:" << p.supportedSampleSizes () << "types:" << p.supportedSampleTypes ();
 
       // convert supported channel counts into something we can store in the item model
       QList<QVariant> channel_counts;
       auto scc = p.supportedChannelCounts ();
       copy (scc.cbegin (), scc.cend (), back_inserter (channel_counts));
 
-      combo_box->addItem (p.deviceName (), channel_counts);
+      combo_box->addItem (p.deviceName (), QVariant::fromValue (audio_info_type {p, channel_counts}));
       if (p == *device)
         {
           current_index = combo_box->count () - 1;
         }
-      else if (p == default_device)
-        {
-          default_index = combo_box->count () - 1;
-        }
-    }
-  if (current_index < 0)	// not found - use default
-    {
-      *device = default_device;
-      result = true;
-      current_index = default_index;
     }
   combo_box->setCurrentIndex (current_index);
-
-  return result;
 }
 
 // enable only the channels that are supported by the selected audio device
@@ -2904,7 +2882,8 @@ void Configuration::impl::update_audio_channels (QComboBox const * source_combo_
       combo_box->setItemData (i, combo_box_item_disabled, Qt::UserRole - 1);
     }
 
-  Q_FOREACH (QVariant const& v, source_combo_box->itemData (index).toList ())
+  Q_FOREACH (QVariant const& v
+             , (source_combo_box->itemData (index).value<audio_info_type> ().second))
     {
       // enable valid options
       int n {v.toInt ()};
@@ -2922,6 +2901,20 @@ void Configuration::impl::update_audio_channels (QComboBox const * source_combo_
           combo_box->setItemData (AudioDevice::Mono, combo_box_item_enabled, Qt::UserRole - 1);
         }
     }
+}
+
+void Configuration::impl::find_tab (QWidget * target)
+{
+  for (auto * parent = target->parentWidget (); parent; parent = parent->parentWidget ())
+    {
+      auto index = ui_->configuration_tabs->indexOf (parent);
+      if (index != -1)
+        {
+          ui_->configuration_tabs->setCurrentIndex (index);
+          break;
+        }
+    }
+  target->setFocus ();
 }
 
 // load all the supported rig names into the selection combo box

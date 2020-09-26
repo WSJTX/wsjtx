@@ -1,10 +1,12 @@
+// Status: edited
+
 ////
 Questions:
- Should be short one liners (in the .adoc file) ending with ?::
- If your question is too long for one line, consider multiple questions or rephrase
+ Should be short one-liners (in the .adoc file) ending with ?::
+ If your question is too long for one line, consider multiple questions or rephrase.
 
 Answers:
- Can be bullet or paragraphs. Bullets make for easier reading.
+ Can be bullets or paragraphs. Bullets make for easier reading.
 
 Bullet Usage:
  *  = a circle bullet single intent
@@ -39,12 +41,12 @@ passband, if such control is available.
 
 How should I configure _WSJT-X_ to run multiple instances?::
 
-Start _WSJT-X_ from a command-prompt window, assigning each instance a
-unique identifier as in the following two-instance example.  This
-procedure will isolate the *Settings* file and the writable file
-location for each instance of _WSJT-X_.
+Start _WSJT-X_ from a command-prompt window, assigning each a unique
+identifier as in the following two-instance example.  This procedure
+will isolate the *Settings* file and the writable file location for
+each instance of _WSJT-X_.
 
- wsjtx --rig-name=TS2000
+ wsjtx --rig-name=TS590
  wsjtx --rig-name=FT847
 
 I am getting a "Network Error - SSL/TLS support not installed" message. What should I do?::
@@ -53,19 +55,18 @@ You need to install suitable _OpenSSL_ libraries - see <<OPENSSL,Instructions to
 
 I occasionally get Rig Control Errors if I adjust my Icom rig's VFO. What's wrong?::
 
-By default, most Icom transceivers have *CI-V Tranceive Mode" enabled,
-this will cause unsolicited CAT traffic from the rig that disrupts CAT
+By default, most Icom transceivers have *CI-V Transceive Mode" enabled. This will cause unsolicited CAT traffic from the rig that disrupts CAT
 control by a PC. Disable this option in the rig's menu.
 
 I want to control my transceiver with another application as well as _WSJT-X_, is that possible?::
 
-This only possible to do reliably via some kind of rig control server,
-that server must be able to accept both _WSJT-X_ and the other
+This only possible to do reliably via some kind of rig control server.
+That server must be able to accept both _WSJT-X_ and the other
 application(s) as clients. Using a dumb serial port splitter like the
-VSPE tool is not supported, it may work but it is not reliable due to
+VSPE tool is not supported; it may work but it is not reliable due to
 unmanaged CAT control collisions. Applications like the _Hamlib Rig
 Control Server (rigctld)_, _{omnirig}_, and _{dxlsuite} Commander_ are
-potentially suitable and _WSJT-X_ can act as a client to them all.
+potentially suitable; _WSJT-X_ can act as a client to them all.
 
 Rig control through _OmniRig_ seems to fail when I click *Test CAT*. What can I do about it?::
 
@@ -79,7 +80,7 @@ You may see delays up to 20 seconds or so in frequency changes or
 other radio commands, due to a bug in HRD.  HRD folks are aware of the
 problem, and are working to resolve it.
 
-I am running _WSJT-X_ under Ubuntu.  The program starts, but menu bar is missing from the top of the main window and the hot-keys don't work.::
+I am running _WSJT-X_ under Ubuntu.  The program starts, but the menu bar is missing from the top of the main window and the hot-keys don't work.::
 
 Ubuntu's new "`Unity`" desktop puts the menu for the currently active
 window at the top of the primary display screen.  You can restore menu
@@ -100,10 +101,10 @@ I am running _WSJT-X_ on Linux using a KDE desktop. Why does *Menu->Configuratio
 
 The  KDE  development  team  have  added code  to  Qt  that  tries  to
 automatically add  shortcut accelerator keys to  all buttons including
-pop up menu buttons, this interferes with operation of the application
+pop up menu buttons. This interferes with operation of the application
 (many other Qt applications have  similar issues with KDE). Until this
-is fixed  by the KDE team  you must disable this  misfeature. Edit the
-file ~/.config/kdeglobals and add a section containing the following:
+is fixed  by the KDE team  you must disable this  feature. Edit the
+file `~/.config/kdeglobals` and add a section containing the following:
 
  [Development]
  AutoCheckAccelerators=false

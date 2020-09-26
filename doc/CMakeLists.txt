@@ -30,8 +30,7 @@ set (UG_SRCS
   install-mac.adoc
   install-windows.adoc
   introduction.adoc
-  measurement_tools.adoc
-  protocols.adoc
+  intro_subsections.adoc
   logging.adoc
   make-qso.adoc
   measurement_tools.adoc
@@ -53,6 +52,8 @@ set (UG_SRCS
   tutorial-example2.adoc
   tutorial-example3.adoc
   tutorial-example4.adoc
+  tutorial-example5.adoc
+  tutorial-example6.adoc
   tutorial-main-window.adoc
   tutorial-wide-graph-settings.adoc
   utilities.adoc
@@ -82,6 +83,9 @@ set (UG_IMGS
   images/FreqCal_Graph.png
   images/FreqCal_Results.png
   images/freemsg.png
+  images/FST4_center.png
+  images/FST4_Decoding_Limits.png
+  images/FST4W_RoundRobin.png
   images/ft4_decodes.png
   images/ft4_waterfall.png
   images/ft8_decodes.png

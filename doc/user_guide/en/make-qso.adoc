@@ -37,7 +37,7 @@ assigns more reliable numbers to relatively strong signals.
 NOTE: Signals become visible on the waterfall around S/N = –26 dB and
 audible (to someone with very good hearing) around –15 dB. Thresholds
 for decodability are around -20 dB for FT8, -23 dB for JT4, –25 dB for
-JT65, –27 dB for JT9.
+JT65, and –27 dB for JT9.
 
 NOTE: Several options are available for circumstances where fast QSOs
 are desirable.  Double-click the *Tx1* control under _Now_ or _Next_
@@ -75,7 +75,7 @@ When calling CQ you may also choose to check the box *Call 1st*.
 _WSJT-X_ will then respond automatically to the first decoded
 responder to your CQ.
 
-NOTE: When *Auto-Seq* is enabled the program de-activates *Enable Tx*
+NOTE: When *Auto-Seq* is enabled, the program de-activates *Enable Tx*
 at the end of each QSO.  It is not intended that _WSJT-X_ should make
 fully automated QSOs.
 
@@ -259,7 +259,7 @@ that a second callsign is never permissible in these messages.
 
 NOTE: During a transmission your outgoing message is displayed in the
 first label on the *Status Bar* and shown exactly as another station
-will receive it.  You can check to see that you are actually
+receives it.  You can check to see that you are actually
 transmitting the message you wish to send.
 
 QSOs involving *Type 2* compound callsigns might look like either
@@ -287,7 +287,7 @@ standard structured messages without callsign prefix or suffix.
 
 TIP: If you are using a compound callsign, you may want to
 experiment with the option *Message generation for type 2 compound
-callsign holders* on the *Settings | General* tab, so that messages
+callsign holders* on the *File | Settings | General* tab, so that messages
 will be generated that best suit your needs.
 
 === Pre-QSO Checklist

@@ -362,10 +362,10 @@
          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Decode JT9 only above this frequency&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="suffix">
-         <string>  JT9</string>
+         <string>  Hz</string>
         </property>
         <property name="prefix">
-         <string>JT65  </string>
+         <string>Split  </string>
         </property>
         <property name="minimum">
          <number>0</number>
@@ -393,7 +393,7 @@
          <number>1</number>
         </property>
         <property name="maximum">
-         <number>50</number>
+         <number>500</number>
         </property>
        </widget>
       </item>

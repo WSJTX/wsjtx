@@ -33,7 +33,7 @@ public:
                        , QString const& report_received, QString const& tx_power, QString const& comments
                        , QString const& name, QDateTime time_on, QString const& operator_call
                        , QString const& my_call, QString const& my_grid
-                       , QString const& exchange_sent, QString const& exchange_rcvd);
+                       , QString const& exchange_sent, QString const& exchange_rcvd, QString const& prop_mode);
 
 private:
   void add_client (QString const& id, QString const& version, QString const& revision);

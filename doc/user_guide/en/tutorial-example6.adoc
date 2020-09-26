@@ -1,0 +1,18 @@
+FST4W is used in the same way as WSPR, but FST4W has significant
+advantages for use on the 2200 and 630 m bands.  By default the
+central *Rx Freq* is 1500 Hz and *F Tol* is 100 Hz, so the active
+decoding range is 1400 to 1600 Hz.  However, for added flexibility you
+can select different center frequencies and *F Tol* values.  We expect
+that usage conventions will soon be established for FST4W activity on
+2200 and 630 m.
+
+A new drop-down control below *F Tol* offers a round-robin mode for
+scheduling FST4W transmissions:
+
+image::FST4W_RoundRobin.png[align="center"]
+
+If three operators agree in advance to select the options *1/3*,
+*2/3*, and *3/3*, for example, their FST4W transmissions will occur in
+a fixed sequence with no two stations transmitting simultaneously.
+Sequence 1 is the first sequence after 00:00 UTC.  For WSPR-like
+scheduling behavior, you should select *Random* with this control.

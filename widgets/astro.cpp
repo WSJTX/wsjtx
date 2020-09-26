@@ -25,13 +25,13 @@
 
 extern "C" {
   void astrosub(int nyear, int month, int nday, double uth, double freqMoon,
-                const char * mygrid, size_t mygrid_len, const char * hisgrid,
-                size_t hisgrid_len, double * azsun, double * elsun, double * azmoon,
+                const char * mygrid, const char * hisgrid,
+                double * azsun, double * elsun, double * azmoon,
                 double * elmoon, double * azmoondx, double * elmoondx, int * ntsky,
                 int * ndop, int * ndop00, double * ramoon, double * decmoon, double * dgrd,
                 double * poloffset, double * xnr, double * techo, double * width1,
-                double * width2, bool bTx, const char * AzElFileName, size_t AzElFileName_len,
-                const char * jpleph, size_t jpleph_len);
+                double * width2, bool bTx, const char * AzElFileName,
+                const char * jpleph);
 }
 
 Astro::Astro(QSettings * settings, Configuration const * configuration, QWidget * parent)
@@ -42,11 +42,12 @@ Astro::Astro(QSettings * settings, Configuration const * configuration, QWidget 
   , m_DopplerMethod {0}
   , m_dop {0}
   , m_dop00 {0}
-  , m_dx_two_way_dop {0}
+  //, m_dx_two_way_dop {0}
 {
   ui_->setupUi (this);
   setWindowTitle (QApplication::applicationName () + " - " + tr ("Astronomical Data"));
-  setStyleSheet ("QWidget {background: white;}");
+  setBackgroundRole (QPalette::Base);
+  setAutoFillBackground (true);
   connect (ui_->cbDopplerTracking, &QAbstractButton::toggled, ui_->doppler_widget, &QWidget::setVisible);
   read_settings ();
   ui_->text_label->clear ();
@@ -76,8 +77,8 @@ void Astro::read_settings ()
     case 1: ui_->rbFullTrack->setChecked (true); break;
     case 2: ui_->rbConstFreqOnMoon->setChecked (true); break;
     case 3: ui_->rbOwnEcho->setChecked (true); break;
-  case 4: ui_->rbOnDxEcho->setChecked (true); break;
-  case 5: ui_->rbCallDx->setChecked (true); break;
+    case 4: ui_->rbOnDxEcho->setChecked (true); break;
+    case 5: ui_->rbCallDx->setChecked (true); break;
     }
   move (settings_->value ("window/pos", pos ()).toPoint ());
 }
@@ -111,14 +112,14 @@ auto Astro::astroUpdate(QDateTime const& t, QString const& mygrid, QString const
   auto const& jpleph = configuration_->data_dir ().absoluteFilePath ("JPLEPH");
 
   astrosub(nyear, month, nday, uth, static_cast<double> (freq_moon),
-           mygrid.toLatin1 ().constData (), mygrid.size (),
-           hisgrid.toLatin1().constData(), hisgrid.size (),
+           mygrid.toLatin1 ().data (),
+           hisgrid.toLatin1().data(),
            &azsun, &elsun, &azmoon, &elmoon,
            &azmoondx, &elmoondx, &ntsky, &m_dop, &m_dop00, &ramoon, &decmoon,
            &dgrd, &poloffset, &xnr, &techo, &width1, &width2,
            bTx,
-           AzElFileName.toLatin1().constData(), AzElFileName.size (),
-           jpleph.toLatin1().constData(), jpleph.size ());
+           AzElFileName.toLatin1().data(),
+           jpleph.toLatin1().data());
 
     if(!hisgrid.size ()) {
     azmoondx=0.0;
@@ -167,38 +168,35 @@ auto Astro::astroUpdate(QDateTime const& t, QString const& mygrid, QString const
     switch (m_DopplerMethod)
       {
       case 1: // All Doppler correction done here; DX station stays at nominal dial frequency.
-	  correction.rx =  m_dop;
-	  break;
-	  case 4: // All Doppler correction done here; DX station stays at nominal dial frequency. (Trial for OnDxEcho)
-	  correction.rx =  m_dop;
-	  break;
-	  //case 5: // All Doppler correction done here; DX station stays at nominal dial frequency.
-	  
+        correction.rx =  m_dop;
+        break;
+      case 4: // All Doppler correction done here; DX station stays at nominal dial frequency. (Trial for OnDxEcho)
+        correction.rx =  m_dop;
+        break;
+        //case 5: // All Doppler correction done here; DX station stays at nominal dial frequency.
       case 3: // Both stations do full correction on Rx and none on Tx
         //correction.rx = dx_is_self ? m_dop00 : m_dop;
-		correction.rx =  m_dop00; // Now always sets RX to *own* echo freq
+        correction.rx =  m_dop00; // Now always sets RX to *own* echo freq
         break;
-	  case 2:
+      case 2:
         // Doppler correction to constant frequency on Moon
         correction.rx = m_dop00 / 2;
         break;
-		
       }
     switch (m_DopplerMethod)
       {
-	  case 1: correction.tx = -correction.rx;
-	  break;
-	  case 2: correction.tx = -correction.rx;
-	  break;
-	  case 3: correction.tx = 0;
-	  break;
-	  case 4: // correction.tx = m_dop - m_dop00;
-			  
-			  correction.tx = m_dx_two_way_dop - m_dop;
-			  qDebug () << "correction.tx:" << correction.tx;
-	  break;		  
-	  case 5: correction.tx = - m_dop00;
-	  break;
+      case 1: correction.tx = -correction.rx;
+        break;
+      case 2: correction.tx = -correction.rx;
+        break;
+      case 3: correction.tx = 0;
+        break;
+      case 4: // correction.tx = m_dop - m_dop00;
+        correction.tx = (2 * (m_dop - (m_dop00/2))) - m_dop;
+        //qDebug () << "correction.tx:" << correction.tx;
+        break;
+      case 5: correction.tx = - m_dop00;
+        break;
       }
     //if (3 != m_DopplerMethod || 4 != m_DopplerMethod) correction.tx = -correction.rx;
     
@@ -223,14 +221,14 @@ auto Astro::astroUpdate(QDateTime const& t, QString const& mygrid, QString const
         double sec {target_date_time.time().second() + 0.001*target_date_time.time().msec()};
         double uth {nhr + nmin/60.0 + sec/3600.0};
         astrosub(nyear, month, nday, uth, static_cast<double> (freq_moon),
-                  mygrid.toLatin1 ().constData (), mygrid.size (),
-                  hisgrid.toLatin1().constData(), hisgrid.size (),
+                  mygrid.toLatin1 ().data (),
+                  hisgrid.toLatin1().data(),
                   &azsun, &elsun, &azmoon, &elmoon,
                   &azmoondx, &elmoondx, &ntsky, &m_dop, &m_dop00, &ramoon, &decmoon,
                   &dgrd, &poloffset, &xnr, &techo, &width1, &width2,
                   bTx,
-                  AzElFileName.toLatin1().constData(), AzElFileName.size (),
-                  jpleph.toLatin1().constData(), jpleph.size ());
+                  nullptr,      // don't overwrite azel.dat
+                  jpleph.toLatin1().data());
         FrequencyDelta offset {0};
         switch (m_DopplerMethod)
           {
@@ -241,22 +239,20 @@ auto Astro::astroUpdate(QDateTime const& t, QString const& mygrid, QString const
 
           case 2:
             // Doppler correction to constant frequency on Moon
-           offset = m_dop00 / 2;
-		    break;
-			
-		case 4:
-            // Doppler correction for OnDxEcho
-            offset = m_dop - m_dx_two_way_dop;
+            offset = m_dop00 / 2;
             break;
-			
-		//case 5: correction.tx = - m_dop00;
-		case 5: offset = m_dop00;// version for _7
-			break;
-			
-			
+
+          case 4:
+            // Doppler correction for OnDxEcho
+            offset = m_dop - (2 * (m_dop - (m_dop00/2)));
+            break;
+
+            //case 5: correction.tx = - m_dop00;
+          case 5: offset = m_dop00;// version for _7
+            break;
           }
         correction.tx = -offset;
-        qDebug () << "correction.tx (no tx qsy):" << correction.tx;
+        //qDebug () << "correction.tx (no tx qsy):" << correction.tx;
       }
   }
   return correction;
@@ -273,46 +269,46 @@ void Astro::check_split ()
     }
 }
 
-void Astro::on_rbFullTrack_clicked()
+void Astro::on_rbFullTrack_clicked(bool)
 {
   m_DopplerMethod = 1;
   check_split ();
   Q_EMIT tracking_update ();
 }
 
-void Astro::on_rbOnDxEcho_clicked(bool checked)
+void Astro::on_rbOnDxEcho_clicked(bool)
 {
   m_DopplerMethod = 4;
   check_split ();
-  if (checked) {
-	  m_dx_two_way_dop = 2 * (m_dop - (m_dop00/2));
-	  qDebug () << "Starting Doppler:" << m_dx_two_way_dop;
-  }
+  //if (checked) {
+  //  m_dx_two_way_dop = 2 * (m_dop - (m_dop00/2));
+  //  qDebug () << "Starting Doppler:" << m_dx_two_way_dop;
+  //}
   Q_EMIT tracking_update ();
 }
 
-void Astro::on_rbOwnEcho_clicked()
+void Astro::on_rbOwnEcho_clicked(bool)
 {
   m_DopplerMethod = 3;
   check_split ();
   Q_EMIT tracking_update ();
 }
 
-void Astro::on_rbCallDx_clicked()
+void Astro::on_rbCallDx_clicked(bool)
 {
   m_DopplerMethod = 5;
   check_split ();
   Q_EMIT tracking_update ();
 }
 
-void Astro::on_rbConstFreqOnMoon_clicked()
+void Astro::on_rbConstFreqOnMoon_clicked(bool)
 {
   m_DopplerMethod = 2;
   check_split ();
   Q_EMIT tracking_update ();
 }
 
-void Astro::on_rbNoDoppler_clicked()
+void Astro::on_rbNoDoppler_clicked(bool)
 {
   m_DopplerMethod = 0;
   Q_EMIT tracking_update ();

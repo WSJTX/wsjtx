@@ -1,0 +1,23 @@
+Do not confuse FST4 with FT4, which has a very different purpose!
+FST4 is is designed for making 2-way QSOs on the LF and MF bands.
+Operation with FST4 is similar to that with other _WSJT-X_ modes: most
+on-screen controls, auto-sequencing, and other features behave in
+familiar ways.  However, operating conventions on the 2200 and 630 m
+bands have made some additional user controls desirable.  Spin boxes
+labeled *F Low* and *F High* set lower and upper frequency limits used
+by the FST4 decoder, and these limits are marked by dark green
+angle-bracket symbols *< >* on the Wide Graph frequency scale:
+
+image::FST4_Decoding_Limits.png[align="center"]
+
+{empty} +
+
+image::FST4_center.png[align="center"]
+
+It's best to keep the decoding range fairly small, since QRM and
+transmissions in other modes or sequence lengths will slow down the
+decoding process (and of course will be undecodable).  By checking 
+*Single decode* on the the *File | Settings | General* tab, you can
+further limit the decoding range to the setting of *F Tol* on
+either side of *Rx Freq*.
+

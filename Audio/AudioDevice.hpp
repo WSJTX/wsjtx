@@ -33,8 +33,8 @@ public:
   Channel channel () const {return m_channel;}
 
 protected:
-  AudioDevice (QObject * parent = 0)
-    : QIODevice (parent)
+  AudioDevice (QObject * parent = nullptr)
+    : QIODevice {parent}
   {
   }
 
@@ -43,23 +43,23 @@ protected:
     qint16 const * begin (reinterpret_cast<qint16 const *> (source));
     for ( qint16 const * i = begin; i != begin + numFrames * (bytesPerFrame () / sizeof (qint16)); i += bytesPerFrame () / sizeof (qint16))
       {
-	switch (m_channel)
-	  {
-	  case Mono:
-	    *dest++ = *i;
-	    break;
+        switch (m_channel)
+          {
+          case Mono:
+            *dest++ = *i;
+            break;
 
-	  case Right:
-	    *dest++ = *(i + 1);
-	    break;
+          case Right:
+            *dest++ = *(i + 1);
+            break;
 
-	  case Both:		// should be able to happen but if it
-				// does we'll take left
-	    Q_ASSERT (Both == m_channel);
-	  case Left:
-	    *dest++ = *i;
-	    break;
-	  }
+          case Both:    // should be able to happen but if it
+            // does we'll take left
+            Q_ASSERT (Both == m_channel);
+          case Left:
+            *dest++ = *i;
+            break;
+          }
       }
   }
 
@@ -68,23 +68,23 @@ protected:
     switch (m_channel)
       {
       case Mono:
-	*dest++ = sample;
-	break;
+        *dest++ = sample;
+        break;
 
       case Left:
-	*dest++ = sample;
-	*dest++ = 0;
-	break;
+        *dest++ = sample;
+        *dest++ = 0;
+        break;
 
       case Right:
-	*dest++ = 0;
-	*dest++ = sample;
-	break;
+        *dest++ = 0;
+        *dest++ = sample;
+        break;
 
       case Both:
-	*dest++ = sample;
-	*dest++ = sample;
-	break;
+        *dest++ = sample;
+        *dest++ = sample;
+        break;
       }
     return dest;
   }

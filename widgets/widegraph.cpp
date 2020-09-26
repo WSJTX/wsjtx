@@ -294,7 +294,7 @@ void WideGraph::setTxFreq(int n)                                   //setTxFreq
 void WideGraph::setMode(QString mode)                              //setMode
 {
   m_mode=mode;
-  ui->fSplitSpinBox->setEnabled(m_mode=="JT9+JT65");
+  ui->fSplitSpinBox->setEnabled(m_mode=="JT9+JT65" or m_mode.startsWith("FST4"));
   ui->widePlot->setMode(mode);
   ui->widePlot->DrawOverlay();
   ui->widePlot->update();
@@ -368,7 +368,7 @@ void WideGraph::setRxBand (QString const& band)
   else
     {
       ui->fSplitSpinBox->setValue (m_fMinPerBand.value (band, 2500).toUInt ());
-      ui->fSplitSpinBox->setEnabled (m_mode=="JT9+JT65");
+      ui->fSplitSpinBox->setEnabled (m_mode=="JT9+JT65" or m_mode.startsWith("FST4"));
     }
   ui->widePlot->setRxBand(band);
   setRxRange ();
@@ -498,6 +498,16 @@ void WideGraph::setTol(int n)                                         //setTol
   ui->widePlot->setTol(n);
   ui->widePlot->DrawOverlay();
   ui->widePlot->update();
+}
+
+void WideGraph::setFST4_FreqRange(int fLow,int fHigh)
+{
+  ui->widePlot->setFST4_FreqRange(fLow,fHigh);
+}
+
+void WideGraph::setSingleDecode(bool b)
+{
+  ui->widePlot->setSingleDecode(b);
 }
 
 void WideGraph::on_smoSpinBox_valueChanged(int n)

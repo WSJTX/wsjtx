@@ -5,6 +5,7 @@
 #include <QWidget>
 #include <QStyle>
 #include <QVariant>
+#include <QDateTime>
 
 QString font_as_stylesheet (QFont const& font)
 {
@@ -34,4 +35,16 @@ void update_dynamic_property (QWidget * widget, char const * property, QVariant 
   widget->style ()->unpolish (widget);
   widget->style ()->polish (widget);
   widget->update ();
+}
+
+QDateTime qt_round_date_time_to (QDateTime dt, int milliseconds)
+{
+  dt.setMSecsSinceEpoch (dt.addMSecs (milliseconds / 2).toMSecsSinceEpoch () / milliseconds * milliseconds);
+  return dt;
+}
+
+QDateTime qt_truncate_date_time_to (QDateTime dt, int milliseconds)
+{
+  dt.setMSecsSinceEpoch (dt.toMSecsSinceEpoch () / milliseconds * milliseconds);
+  return dt;
 }
