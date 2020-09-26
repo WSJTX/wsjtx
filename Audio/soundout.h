@@ -6,9 +6,8 @@
 #include <QString>
 #include <QAudioOutput>
 #include <QAudioDeviceInfo>
-#include <QPointer>
 
-class AudioDevice;
+class QIODevice;
 class QAudioDeviceInfo;
 
 // An instance of this sends audio data to a specified soundcard.
@@ -30,7 +29,7 @@ public:
 
 public Q_SLOTS:
   void setFormat (QAudioDeviceInfo const& device, unsigned channels, int frames_buffered = 0);
-  void restart (AudioDevice *);
+  void restart (QIODevice *);
   void suspend ();
   void resume ();
   void reset ();
@@ -52,7 +51,6 @@ private:
   QAudioDeviceInfo m_device;
   unsigned m_channels;
   QScopedPointer<QAudioOutput> m_stream;
-  QPointer<AudioDevice> m_source;
   int m_framesBuffered;
   qreal m_volume;
   bool error_;

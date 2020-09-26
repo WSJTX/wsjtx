@@ -51,7 +51,7 @@ void SoundOutput::setFormat (QAudioDeviceInfo const& device, unsigned channels, 
   m_framesBuffered = frames_buffered;
 }
 
-void SoundOutput::restart (AudioDevice * source)
+void SoundOutput::restart (QIODevice * source)
 {
   if (!m_device.isNull ())
     {
@@ -111,7 +111,6 @@ void SoundOutput::restart (AudioDevice * source)
 #endif
     }
   m_stream->setCategory ("production");
-  m_source = source;
   m_stream->start (source);
   // qDebug () << "SoundOut selected buffer size (bytes):" << m_stream->bufferSize () << "period size:" << m_stream->periodSize ();
 }
