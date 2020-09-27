@@ -13,7 +13,7 @@
 #include <QVector>
 #include <QStringList>
 #include <QMimeData>
-#include <QTextSTream>
+#include <QTextStream>
 #include <QDataStream>
 #include <QByteArray>
 #include <QDebugStateSaver>
