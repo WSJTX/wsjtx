@@ -24,6 +24,7 @@
 
 namespace
 {
+#ifdef Q_OS_WIN
   struct start_info_deleter
   {
     void operator () (STARTUPINFOEXW * si)
@@ -35,6 +36,7 @@ namespace
       delete si;
     }
   };
+#endif
 }
 
 class NonInheritingProcess::impl
