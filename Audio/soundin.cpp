@@ -25,14 +25,16 @@ bool SoundInput::checkStream ()
           Q_EMIT error (tr ("An error occurred during read from the audio input device."));
           break;
 
-        case QAudio::UnderrunError:
-          Q_EMIT error (tr ("Audio data not being fed to the audio input device fast enough."));
-          break;
+        // case QAudio::UnderrunError:
+        //   Q_EMIT error (tr ("Audio data not being fed to the audio input device fast enough."));
+        //   break;
 
         case QAudio::FatalError:
           Q_EMIT error (tr ("Non-recoverable error, audio input device not usable at this time."));
           break;
 
+        case QAudio::UnderrunError: // TODO G4WJS: stop ignoring this
+                                    // when we find the cause on macOS
         case QAudio::NoError:
           result = true;
           break;
