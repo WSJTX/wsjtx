@@ -719,16 +719,17 @@ void CPlotter::mouseMoveEvent (QMouseEvent * event)
 
 void CPlotter::mouseReleaseEvent (QMouseEvent * event)
 {
-  if (Qt::LeftButton == event->button () and m_mode!="FST4W") {
+  if (Qt::LeftButton == event->button()) {
     int x=event->x();
     if(x<0) x=0;
     if(x>m_Size.width()) x=m_Size.width();
     bool ctrl = (event->modifiers() & Qt::ControlModifier);
     bool shift = (event->modifiers() & Qt::ShiftModifier);
+    if(!shift and m_mode=="FST4W") return;
     int newFreq = int(FreqfromX(x)+0.5);
     int oldTxFreq = m_txFreq;
     int oldRxFreq = m_rxFreq;
-    if (ctrl) {
+    if (ctrl and m_mode!="FST4W") {
       emit setFreq1 (newFreq, newFreq);
     } else if (shift) {
       emit setFreq1 (oldRxFreq, newFreq);
