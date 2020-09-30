@@ -4044,6 +4044,7 @@ void MainWindow::guiUpdate()
             float fsample=48000.0;
             float dfreq=hmod*fsample/nsps;
             float f0=ui->TxFreqSpinBox->value() - m_XIT + 1.5*dfreq;
+            if(m_mode=="FST4W") f0=ui->WSPRfreqSpinBox->value() - m_XIT + 1.5*dfreq;
             int nwave=(nsym+2)*nsps;
             int icmplx=0;
             gen_fst4wave_(const_cast<int *>(itone),&nsym,&nsps,&nwave,
