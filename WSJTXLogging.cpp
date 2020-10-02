@@ -15,6 +15,7 @@
 #include <boost/log/expressions/predicates/channel_severity_filter.hpp>
 #include <boost/log/support/date_time.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/date_time/gregorian/greg_day.hpp>
 #include <boost/container/flat_map.hpp>
 
 #include <QDir>
@@ -34,6 +35,7 @@ namespace keywords = logging::keywords;
 namespace expr = logging::expressions;
 namespace sinks = logging::sinks;
 namespace ptime = boost::posix_time;
+namespace gregorian = boost::gregorian;
 namespace container = boost::container;
 
 BOOST_LOG_ATTRIBUTE_KEYWORD(severity, "Severity", trivial::severity_level)
@@ -127,10 +129,13 @@ WSJTXLogging::WSJTXLogging ()
       auto sys_sink = boost::make_shared<sinks::asynchronous_sink<sinks::text_file_backend>>
         (
          keywords::auto_flush = false
-         , keywords::file_name = app_data.absoluteFilePath ("wsjtx_syslog.log").toStdString ()
+         , keywords::file_name = app_data.absoluteFilePath ("wsjtx_syslog_%Y-%m.log").toStdString ()
+#if BOOST_VERSION / 100000 >= 1 && (BOOST_VERSION / 100) % 1000 >= 70
          , keywords::target_file_name = app_data.absoluteFilePath ("old_logs/wsjtx_syslog_%Y-%m-%d_%H-%M-%S.%N.log").toStdString ()
          , keywords::rotation_size = 5 * 1024 * 1024
-         , keywords::time_based_rotation = sinks::file::rotation_at_time_point (0, 0, 0)
+#else
+         , keywords::time_based_rotation = sinks::file::rotation_at_time_point (gregorian::greg_day (1), 0, 0, 0)
+#endif
          , keywords::open_mode = std::ios_base::out | std::ios_base::app
          , keywords::enable_final_rotation = false
          );
@@ -139,10 +144,12 @@ WSJTXLogging::WSJTXLogging ()
         (
          sinks::file::make_collector
          (
-          keywords::target = app_data.absoluteFilePath ("old_logs").toStdString ()
-          , keywords::max_size = 40 * 1024 * 1024
+          keywords::max_size = 40 * 1024 * 1024
           , keywords::min_free_space = 1024 * 1024 * 1024
-          , keywords::max_files = 10
+          , keywords::max_files = 12
+#if BOOST_VERSION / 100000 >= 1 && (BOOST_VERSION / 100) % 1000 >= 70
+          , keywords::target = app_data.absoluteFilePath ("old_logs").toStdString ()
+#endif
           )
          );
       sys_sink->locked_backend ()->scan_for_files ();
