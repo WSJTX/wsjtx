@@ -8,6 +8,7 @@
 #include <locale.h>
 #include <fftw3.h>
 
+#include <QLibraryInfo>
 #include <QSharedMemory>
 #include <QTemporaryFile>
 #include <QDateTime>
@@ -102,6 +103,7 @@ int main(int argc, char *argv[])
   // Multiple instances communicate with jt9 via this
   QSharedMemory mem_jt9;
 
+  LOG_INFO ("plugins path: " << QLibraryInfo::location (QLibraryInfo::PluginsPath));
   QApplication a(argc, argv);
   try
     {
