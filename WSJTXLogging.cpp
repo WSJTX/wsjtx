@@ -130,13 +130,13 @@ WSJTXLogging::WSJTXLogging ()
       auto sys_sink = boost::make_shared<sinks::asynchronous_sink<sinks::text_file_backend>>
         (
          keywords::auto_flush = false
-         , keywords::file_name = app_data.absoluteFilePath ("wsjtx_syslog_%Y-%m.log").toStdString ()
-#if BOOST_VERSION / 100000 >= 1 && (BOOST_VERSION / 100) % 1000 >= 70
-         , keywords::target_file_name = app_data.absoluteFilePath ("old_logs/wsjtx_syslog_%Y-%m-%d_%H-%M-%S.%N.log").toStdString ()
-         , keywords::rotation_size = 5 * 1024 * 1024
+#if BOOST_VERSION / 100 >= 1070
+         , keywords::file_name = app_data.absoluteFilePath ("wsjtx_syslog.log").toStdString ()
+         , keywords::target_file_name = app_data.absoluteFilePath ("logs/wsjtx_syslog_%Y-%m.log").toStdString ()
 #else
-         , keywords::time_based_rotation = sinks::file::rotation_at_time_point (gregorian::greg_day (1), 0, 0, 0)
+         , keywords::file_name = app_data.absoluteFilePath ("logs/wsjtx_syslog_%Y-%m.log").toStdString ()
 #endif
+         , keywords::time_based_rotation = sinks::file::rotation_at_time_point (gregorian::greg_day (1), 0, 0, 0)
          , keywords::open_mode = std::ios_base::out | std::ios_base::app
          , keywords::enable_final_rotation = false
          );
@@ -148,8 +148,8 @@ WSJTXLogging::WSJTXLogging ()
           keywords::max_size = 40 * 1024 * 1024
           , keywords::min_free_space = 1024 * 1024 * 1024
           , keywords::max_files = 12
-#if BOOST_VERSION / 100000 >= 1 && (BOOST_VERSION / 100) % 1000 >= 70
-          , keywords::target = app_data.absoluteFilePath ("old_logs").toStdString ()
+#if BOOST_VERSION / 100 >= 1070
+          , keywords::target = app_data.absoluteFilePath ("logs").toStdString ()
 #endif
           )
          );
