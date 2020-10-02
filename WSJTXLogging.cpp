@@ -230,6 +230,6 @@ void WSJTXLogging::qt_log_handler (QtMsgType type, QMessageLogContext const& con
   if (QtFatalMsg == type)
     {
       // bail out
-      throw std::runtime_error {"Fatal Qt Error"};
+      //throw std::runtime_error {"Fatal Qt Error"};
     }
 }
