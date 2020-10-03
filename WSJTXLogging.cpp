@@ -132,10 +132,11 @@ WSJTXLogging::WSJTXLogging ()
          keywords::auto_flush = false
 #if BOOST_VERSION / 100 >= 1070
          , keywords::file_name = app_data.absoluteFilePath ("wsjtx_syslog.log").toStdString ()
-         , keywords::target_file_name = app_data.absoluteFilePath ("logs/wsjtx_syslog_%Y-%m.log").toStdString ()
+         , keywords::target_file_name =
 #else
-         , keywords::file_name = app_data.absoluteFilePath ("logs/wsjtx_syslog_%Y-%m.log").toStdString ()
+         , keywords::file_name =
 #endif
+             app_data.absoluteFilePath ("logs/wsjtx_syslog_%Y-%m.log").toStdString ()
          , keywords::time_based_rotation = sinks::file::rotation_at_time_point (gregorian::greg_day (1), 0, 0, 0)
          , keywords::open_mode = std::ios_base::out | std::ios_base::app
          , keywords::enable_final_rotation = false
@@ -148,9 +149,7 @@ WSJTXLogging::WSJTXLogging ()
           keywords::max_size = 40 * 1024 * 1024
           , keywords::min_free_space = 1024 * 1024 * 1024
           , keywords::max_files = 12
-#if BOOST_VERSION / 100 >= 1070
           , keywords::target = app_data.absoluteFilePath ("logs").toStdString ()
-#endif
           )
          );
       sys_sink->locked_backend ()->scan_for_files ();

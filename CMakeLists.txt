@@ -865,13 +865,10 @@ find_program(ETAGS etags)
 #
 # Boost
 #
-# set (Boost_NO_SYSTEM_PATHS TRUE)
-# if (Boost_NO_SYSTEM_PATHS)
-#   set (BOOST_ROOT ${PROJECT_SOURCE_DIR}/boost)
-# endif ()
-set (Boost_USE_STATIC_LIBS OFF)
+if (WIN32)
+  set (Boost_USE_STATIC_LIBS OFF)
+endif ()
 find_package (Boost 1.63 REQUIRED COMPONENTS log_setup log)
-add_definitions (-DBOOST_SYSTEM_NO_DEPRECATED)
 
 #
 # OpenMP
@@ -1161,11 +1158,6 @@ else ()
 endif ()
 add_custom_target (translations DEPENDS ${QM_FILES})
 set_property (DIRECTORY PROPERTY CLEAN_NO_CUSTOM TRUE)
-# do this after i18n to stop lupdate walking the boost tree which it
-# chokes on
-if (Boost_FOUND)
-  include_directories (${Boost_INCLUDE_DIRS})
-endif ()
 
 # embedded resources
 function (add_resources resources path)
@@ -1211,6 +1203,7 @@ endif (WIN32)
 
 # build a library of package functionality (without and optionally with OpenMP support)
 add_library (wsjt_cxx STATIC ${wsjt_CSRCS} ${wsjt_CXXSRCS})
+target_compile_definitions (wsjt_cxx PUBLIC BOOST_LOG_DYN_LINK)
 target_link_libraries (wsjt_cxx Boost::log_setup)
 
 # build an OpenMP variant of the Fortran library routines
@@ -1249,7 +1242,7 @@ target_link_libraries (qcp Qt5::Widgets Qt5::PrintSupport)
 # build a library of package Qt functionality
 add_library (wsjt_qt STATIC ${wsjt_qt_CXXSRCS} ${wsjt_qt_GENUISRCS} ${GENAXSRCS})
 # set wsjtx_udp exports to static variants
-target_compile_definitions (wsjt_qt PUBLIC UDP_STATIC_DEFINE)
+target_compile_definitions (wsjt_qt PUBLIC UDP_STATIC_DEFINE BOOST_LOG_DYN_LINK)
 target_link_libraries (wsjt_qt Boost::log qcp Qt5::Widgets Qt5::Network Qt5::Sql)
 target_include_directories (wsjt_qt BEFORE PRIVATE ${hamlib_INCLUDE_DIRS})
 if (WIN32)
