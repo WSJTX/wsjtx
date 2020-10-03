@@ -33,7 +33,7 @@ program test_qra64
 
   nsps=7680
   i50=-28
-  ia=-20
+  ia=-24
   ib=-33
   if(nsnr.ne.0) then
      ia=nsnr
@@ -48,7 +48,6 @@ program test_qra64
   cmd1='qra64sim "K1ABC W9XYZ EN37      " A  1  0.2 0.00  100 -20 > junk0'
   
   cmd2='jt9 -q -L 300 -H 3000 -f 1000 -d 3 -b A *.wav > junk'
-!       jt9 -q -L 300 -H 3000 -f 1000 -d 3 -b A *.w1000  unk
   
   write(cmd1(10:33),'(a)') '"'//msg//'"'
   cmd1(35:35)=csubmode
