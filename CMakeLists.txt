@@ -1338,6 +1338,9 @@ target_link_libraries (qra64sim wsjt_fort wsjt_cxx)
 add_executable (qra65sim lib/qra/qra65/qra65sim.f90 wsjtx.rc)
 target_link_libraries (qra65sim wsjt_fort wsjt_cxx)
 
+add_executable (test_qra64 lib/test_qra64.f90 wsjtx.rc)
+target_link_libraries (test_qra64 wsjt_fort wsjt_cxx)
+
 add_executable (test_qra65 lib/test_qra65.f90 wsjtx.rc)
 target_link_libraries (test_qra65 wsjt_fort wsjt_cxx)
 
