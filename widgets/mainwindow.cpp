@@ -869,8 +869,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   ui->labAz->setStyleSheet("border: 0px;");
   ui->labAz->setText("");
   auto t = "UTC   dB   DT Freq    " + tr ("Message");
-  ui->decodedTextLabel->setText(t);
-  ui->decodedTextLabel2->setText(t);
+  ui->lh_decodes_headings_label->setText(t);
+  ui->rh_decodes_headings_label->setText(t);
   readSettings();            //Restore user's setup parameters
   m_audioThread.start (m_audioThreadPriority);
 
@@ -1172,6 +1172,7 @@ void MainWindow::writeSettings()
   m_settings->setValue ("JT65AP", ui->actionEnable_AP_JT65->isChecked ());
   m_settings->setValue("SplitterState",ui->splitter->saveState());
   m_settings->setValue("Blanker",ui->sbNB->value());
+  m_settings->setValue ("SWLView", ui->actionSWL_Mode->isChecked ());
 
   {
     QList<QVariant> coeffs;     // suitable for QSettings
@@ -1277,6 +1278,8 @@ void MainWindow::readSettings()
   ui->actionEnable_AP_JT65->setChecked (m_settings->value ("JT65AP", false).toBool());
   ui->splitter->restoreState(m_settings->value("SplitterState").toByteArray());
   ui->sbNB->setValue(m_settings->value("Blanker",0).toInt());
+  ui->actionSWL_Mode->setChecked (m_settings->value ("SWLView", false).toBool ());
+  on_actionSWL_Mode_triggered (ui->actionSWL_Mode->isChecked ());
   {
     auto const& coeffs = m_settings->value ("PhaseEqualizationCoefficients"
                                             , QList<QVariant> {0., 0., 0., 0., 0.}).toList ();
@@ -1344,8 +1347,8 @@ void MainWindow::setDecodedTextFont (QFont const& font)
   ui->textBrowser4->displayFoxToBeCalled(" ");
   ui->textBrowser4->setText("");
   auto style_sheet = "QLabel {" + font_as_stylesheet (font) + '}';
-  ui->decodedTextLabel->setStyleSheet (ui->decodedTextLabel->styleSheet () + style_sheet);
-  ui->decodedTextLabel2->setStyleSheet (ui->decodedTextLabel2->styleSheet () + style_sheet);
+  ui->lh_decodes_headings_label->setStyleSheet (ui->lh_decodes_headings_label->styleSheet () + style_sheet);
+  ui->rh_decodes_headings_label->setStyleSheet (ui->rh_decodes_headings_label->styleSheet () + style_sheet);
   if (m_msgAvgWidget) {
     m_msgAvgWidget->changeFont (font);
   }
@@ -1854,8 +1857,8 @@ void MainWindow::on_actionSettings_triggered()               //Setup Dialog
     m_config.transceiver_online ();
     if(!m_bFastMode) setXIT (ui->TxFreqSpinBox->value ());
     if ((m_config.single_decode () && !m_mode.startsWith ("FST4")) || m_mode=="JT4") {
-      ui->label_6->setText(tr ("Single-Period Decodes"));
-      ui->label_7->setText(tr ("Average Decodes"));
+      ui->lh_decodes_title_label->setText(tr ("Single-Period Decodes"));
+      ui->rh_decodes_title_label->setText(tr ("Average Decodes"));
     }
 
     update_watchdog_label ();
@@ -2575,6 +2578,15 @@ void MainWindow::on_actionCopyright_Notice_triggered()
   MessageBox::warning_message(this, message);
 }
 
+void MainWindow::on_actionSWL_Mode_triggered (bool checked)
+{
+  ui->lower_panel_widget->setVisible (!checked);
+  if (checked)
+    {
+      hideMenus (false);        // make sure we can be turned off
+    }
+}
+
 // This allows the window to shrink by removing certain things
 // and reducing space used by controls
 void MainWindow::hideMenus(bool checked)
@@ -2593,12 +2605,10 @@ void MainWindow::hideMenus(bool checked)
       minimumSize().setWidth(770);
   }
   ui->menuBar->setVisible(!checked);
-  if(m_mode!="FreqCal" and m_mode!="WSPR" and m_mode!="Fst4W") {
-    ui->label_6->setVisible(!checked);
-    ui->label_7->setVisible(!checked);
-    ui->decodedTextLabel2->setVisible(!checked);
+  if(m_mode!="FreqCal" and m_mode!="WSPR" and m_mode!="FST4W") {
+    ui->lh_decodes_title_label->setVisible(!checked);
   }
-  ui->decodedTextLabel->setVisible(!checked);
+  ui->lh_decodes_headings_label->setVisible(!checked);
   ui->gridLayout_5->layout()->setSpacing(spacing);
   ui->horizontalLayout_2->layout()->setSpacing(spacing);
   ui->horizontalLayout_5->layout()->setSpacing(spacing);
@@ -2611,7 +2621,7 @@ void MainWindow::hideMenus(bool checked)
   ui->horizontalLayout_12->layout()->setSpacing(spacing);
   ui->horizontalLayout_13->layout()->setSpacing(spacing);
   ui->horizontalLayout_14->layout()->setSpacing(spacing);
-  ui->verticalLayout->layout()->setSpacing(spacing);
+  ui->rh_decodes_widget->layout()->setSpacing(spacing);
   ui->verticalLayout_2->layout()->setSpacing(spacing);
   ui->verticalLayout_3->layout()->setSpacing(spacing);
   ui->verticalLayout_5->layout()->setSpacing(spacing);
@@ -3763,7 +3773,7 @@ void MainWindow::guiUpdate()
     }
 
   } else {
-    // For all modes other than WSPR and Fst4W
+    // For all modes other than WSPR and FST4W
     m_bTxTime = (t2p >= tx1) and (t2p < tx2);
     if(m_mode=="Echo") m_bTxTime = m_bTxTime and m_bEchoTxOK;
     if(m_mode=="FT8" and ui->tx5->currentText().contains("/B ")) {
@@ -5911,8 +5921,8 @@ void MainWindow::on_actionFST4_triggered()
   m_nsps=6912;                   //For symspec only
   m_FFTSize = m_nsps / 2;
   Q_EMIT FFTSize(m_FFTSize);
-  ui->label_6->setText(tr ("Band Activity"));
-  ui->label_7->setText(tr ("Rx Frequency"));
+  ui->lh_decodes_title_label->setText(tr ("Band Activity"));
+  ui->rh_decodes_title_label->setText(tr ("Rx Frequency"));
   WSPR_config(false);
   if(m_config.single_decode()) {
 //                           012345678901234567890123456789012345
@@ -5997,13 +6007,13 @@ void MainWindow::on_actionFT4_triggered()
   VHF_features_enabled(bVHF);
   m_fastGraph->hide();
   m_wideGraph->show();
-  ui->decodedTextLabel2->setText("  UTC   dB   DT Freq    " + tr ("Message"));
+  ui->rh_decodes_headings_label->setText("  UTC   dB   DT Freq    " + tr ("Message"));
   m_wideGraph->setPeriod(m_TRperiod,m_nsps);
   m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
   m_detector->setTRPeriod(m_TRperiod);  // TODO - not thread safe
-  ui->label_7->setText(tr ("Rx Frequency"));
-  ui->label_6->setText(tr ("Band Activity"));
-  ui->decodedTextLabel->setText( "  UTC   dB   DT Freq    " + tr ("Message"));
+  ui->rh_decodes_title_label->setText(tr ("Rx Frequency"));
+  ui->lh_decodes_title_label->setText(tr ("Band Activity"));
+  ui->lh_decodes_headings_label->setText( "  UTC   dB   DT Freq    " + tr ("Message"));
   displayWidgets(nWidgets("111010000100111000010000000110001000"));
   ui->txrb2->setEnabled(true);
   ui->txrb4->setEnabled(true);
@@ -6041,17 +6051,17 @@ void MainWindow::on_actionFT8_triggered()
   m_TRperiod=15.0;
   m_fastGraph->hide();
   m_wideGraph->show();
-  ui->decodedTextLabel2->setText("  UTC   dB   DT Freq    " + tr ("Message"));
+  ui->rh_decodes_headings_label->setText("  UTC   dB   DT Freq    " + tr ("Message"));
   m_wideGraph->setPeriod(m_TRperiod,m_nsps);
   m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
   m_detector->setTRPeriod(m_TRperiod);  // TODO - not thread safe
-  ui->label_7->setText(tr ("Rx Frequency"));
+  ui->rh_decodes_title_label->setText(tr ("Rx Frequency"));
   if(SpecOp::FOX==m_config.special_op_id()) {
-    ui->label_6->setText(tr ("Stations calling DXpedition %1").arg (m_config.my_callsign()));
-    ui->decodedTextLabel->setText( "Call         Grid   dB  Freq   Dist Age Continent");
+    ui->lh_decodes_title_label->setText(tr ("Stations calling DXpedition %1").arg (m_config.my_callsign()));
+    ui->lh_decodes_headings_label->setText( "Call         Grid   dB  Freq   Dist Age Continent");
   } else {
-    ui->label_6->setText(tr ("Band Activity"));
-    ui->decodedTextLabel->setText( "  UTC   dB   DT Freq    " + tr ("Message"));
+    ui->lh_decodes_title_label->setText(tr ("Band Activity"));
+    ui->lh_decodes_headings_label->setText( "  UTC   dB   DT Freq    " + tr ("Message"));
   }
   displayWidgets(nWidgets("111010000100111000010000100110001000"));
   ui->txrb2->setEnabled(true);
@@ -6146,10 +6156,10 @@ void MainWindow::on_actionJT4_triggered()
   m_bFast9=false;
   setup_status_bar (bVHF);
   ui->sbSubmode->setMaximum(6);
-  ui->label_6->setText(tr ("Single-Period Decodes"));
-  ui->label_7->setText(tr ("Average Decodes"));
-  ui->decodedTextLabel->setText("UTC   dB   DT Freq    " + tr ("Message"));
-  ui->decodedTextLabel2->setText("UTC   dB   DT Freq    " + tr ("Message"));
+  ui->lh_decodes_title_label->setText(tr ("Single-Period Decodes"));
+  ui->rh_decodes_title_label->setText(tr ("Average Decodes"));
+  ui->lh_decodes_headings_label->setText("UTC   dB   DT Freq    " + tr ("Message"));
+  ui->rh_decodes_headings_label->setText("UTC   dB   DT Freq    " + tr ("Message"));
   if(bVHF) {
     ui->sbSubmode->setValue(m_nSubMode);
   } else {
@@ -6198,22 +6208,22 @@ void MainWindow::on_actionJT9_triggered()
     m_fastGraph->showNormal();
     ui->TxFreqSpinBox->setValue(700);
     ui->RxFreqSpinBox->setValue(700);
-    ui->decodedTextLabel->setText("  UTC   dB    T Freq    " + tr ("Message"));
-    ui->decodedTextLabel2->setText("  UTC   dB    T Freq    " + tr ("Message"));
+    ui->lh_decodes_headings_label->setText("  UTC   dB    T Freq    " + tr ("Message"));
+    ui->rh_decodes_headings_label->setText("  UTC   dB    T Freq    " + tr ("Message"));
   } else {
     ui->cbAutoSeq->setChecked(false);
     if (m_mode != "FST4")
       {
         m_TRperiod=60.0;
-        ui->decodedTextLabel->setText("UTC   dB   DT Freq    " + tr ("Message"));
-        ui->decodedTextLabel2->setText("UTC   dB   DT Freq    " + tr ("Message"));
+        ui->lh_decodes_headings_label->setText("UTC   dB   DT Freq    " + tr ("Message"));
+        ui->rh_decodes_headings_label->setText("UTC   dB   DT Freq    " + tr ("Message"));
       }
   }
   m_wideGraph->setPeriod(m_TRperiod,m_nsps);
   m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
   m_detector->setTRPeriod(m_TRperiod);  // TODO - not thread safe
-  ui->label_6->setText(tr ("Band Activity"));
-  ui->label_7->setText(tr ("Rx Frequency"));
+  ui->lh_decodes_title_label->setText(tr ("Band Activity"));
+  ui->rh_decodes_title_label->setText(tr ("Rx Frequency"));
   if(bVHF) {
     displayWidgets(nWidgets("111110101000111110010000000000000000"));
   } else {
@@ -6252,10 +6262,10 @@ void MainWindow::on_actionJT9_JT65_triggered()
   m_bFastMode=false;
   m_bFast9=false;
   ui->sbSubmode->setValue(0);
-  ui->label_6->setText(tr ("Band Activity"));
-  ui->label_7->setText(tr ("Rx Frequency"));
-  ui->decodedTextLabel->setText("UTC   dB   DT Freq    " + tr ("Message"));
-  ui->decodedTextLabel2->setText("UTC   dB   DT Freq    " + tr ("Message"));
+  ui->lh_decodes_title_label->setText(tr ("Band Activity"));
+  ui->rh_decodes_title_label->setText(tr ("Rx Frequency"));
+  ui->lh_decodes_headings_label->setText("UTC   dB   DT Freq    " + tr ("Message"));
+  ui->rh_decodes_headings_label->setText("UTC   dB   DT Freq    " + tr ("Message"));
   displayWidgets(nWidgets("111010000001111000010000000000001000"));
   fast_config(false);
   statusChanged();
@@ -6299,12 +6309,12 @@ void MainWindow::on_actionJT65_triggered()
   ui->sbSubmode->setMaximum(2);
   if(bVHF) {
     ui->sbSubmode->setValue(m_nSubMode);
-    ui->label_6->setText(tr ("Single-Period Decodes"));
-    ui->label_7->setText(tr ("Average Decodes"));
+    ui->lh_decodes_title_label->setText(tr ("Single-Period Decodes"));
+    ui->rh_decodes_title_label->setText(tr ("Average Decodes"));
   } else {
     ui->sbSubmode->setValue(0);
-    ui->label_6->setText(tr ("Band Activity"));
-    ui->label_7->setText(tr ("Rx Frequency"));
+    ui->lh_decodes_title_label->setText(tr ("Band Activity"));
+    ui->rh_decodes_title_label->setText(tr ("Rx Frequency"));
   }
   if(bVHF) {
     displayWidgets(nWidgets("111110010000110110101100010000000000"));
@@ -6361,6 +6371,7 @@ void MainWindow::on_actionISCAT_triggered()
   m_hsymStop=103;
   m_toneSpacing=11025.0/256.0;
   WSPR_config(false);
+  ui->rh_decodes_widget->setVisible (false);
   switch_mode(Modes::ISCAT);
   m_wideGraph->setMode(m_mode);
   m_wideGraph->setModeTx(m_modeTx);
@@ -6369,10 +6380,7 @@ void MainWindow::on_actionISCAT_triggered()
   if(m_wideGraph->isVisible()) m_wideGraph->hide();
   setup_status_bar (true);
   ui->cbShMsgs->setChecked(false);
-  ui->label_7->setText("");
-  ui->decodedTextBrowser2->setVisible(false);
-  ui->decodedTextLabel2->setVisible(false);
-  ui->decodedTextLabel->setText(
+  ui->lh_decodes_headings_label->setText(
         "  UTC  Sync dB   DT   DF  F1                                   M  N  C   T ");
   ui->tabWidget->setCurrentIndex(0);
   ui->sbSubmode->setMaximum(1);
@@ -6427,13 +6435,13 @@ void MainWindow::on_actionMSK144_triggered()
   ui->RxFreqSpinBox->setMinimum(1400);
   ui->RxFreqSpinBox->setMaximum(1600);
   ui->RxFreqSpinBox->setSingleStep(10);
-  ui->decodedTextLabel->setText("  UTC   dB    T Freq    " + tr ("Message"));
-  ui->decodedTextLabel2->setText("  UTC   dB    T Freq    " + tr ("Message"));
+  ui->lh_decodes_headings_label->setText("  UTC   dB    T Freq    " + tr ("Message"));
+  ui->rh_decodes_headings_label->setText("  UTC   dB    T Freq    " + tr ("Message"));
   m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
   m_detector->setTRPeriod(m_TRperiod);  // TODO - not thread safe
   m_fastGraph->setTRPeriod(m_TRperiod);
-  ui->label_6->setText(tr ("Band Activity"));
-  ui->label_7->setText(tr ("Tx Messages"));
+  ui->lh_decodes_title_label->setText(tr ("Band Activity"));
+  ui->rh_decodes_title_label->setText(tr ("Tx Messages"));
   ui->actionMSK144->setChecked(true);
   ui->rptSpinBox->setMinimum(-8);
   ui->rptSpinBox->setMaximum(24);
@@ -6512,7 +6520,7 @@ void MainWindow::on_actionEcho_triggered()
   m_bFastMode=false;
   m_bFast9=false;
   WSPR_config(true);
-  ui->decodedTextLabel->setText("   UTC      N   Level    Sig      DF    Width   Q");
+  ui->lh_decodes_headings_label->setText("   UTC      N   Level    Sig      DF    Width   Q");
   displayWidgets(nWidgets("000000000000000000000010000000000000"));
   fast_config(false);
   statusChanged();
@@ -6537,7 +6545,7 @@ void MainWindow::on_actionFreqCal_triggered()
   ui->RxFreqSpinBox->setValue(1500);
   setup_status_bar (true);
 //                               18:15:47      0  1  1500  1550.349     0.100    3.5   10.2
-  ui->decodedTextLabel->setText("  UTC      Freq CAL Offset  fMeas       DF     Level   S/N");
+  ui->lh_decodes_headings_label->setText("  UTC      Freq CAL Offset  fMeas       DF     Level   S/N");
   ui->measure_check_box->setChecked (false);
   displayWidgets(nWidgets("001101000000000000000000000001000000"));
   statusChanged();
@@ -6570,23 +6578,19 @@ void MainWindow::switch_mode (Mode mode)
   ui->tabWidget->setVisible(!b);
   if(b) {
     ui->DX_controls_widget->setVisible(false);
-    ui->decodedTextBrowser2->setVisible(false);
-    ui->decodedTextLabel2->setVisible(false);
-    ui->label_6->setVisible(false);
-    ui->label_7->setVisible(false);
+    ui->rh_decodes_widget->setVisible (false);
+    ui->lh_decodes_title_label->setVisible(false);
   }
 }
 
 void MainWindow::WSPR_config(bool b)
 {
-  ui->decodedTextBrowser2->setVisible(!b);
-  ui->decodedTextLabel2->setVisible(!b and ui->cbMenus->isChecked());
+  ui->rh_decodes_widget->setVisible(!b);
   ui->controls_stack_widget->setCurrentIndex (b && m_mode != "Echo" ? 1 : 0);
   ui->QSO_controls_widget->setVisible (!b);
   ui->DX_controls_widget->setVisible (!b);
   ui->WSPR_controls_widget->setVisible (b);
-  ui->label_6->setVisible(!b and ui->cbMenus->isChecked());
-  ui->label_7->setVisible(!b and ui->cbMenus->isChecked());
+  ui->lh_decodes_title_label->setVisible(!b and ui->cbMenus->isChecked());
   ui->logQSOButton->setVisible(!b);
   ui->DecodeButton->setEnabled(!b);
   bool bFST4W=(m_mode=="FST4W");
@@ -6600,7 +6604,7 @@ void MainWindow::WSPR_config(bool b)
     QString t="UTC    dB   DT     Freq     Drift  Call          Grid    dBm    ";
     if(m_config.miles()) t += " mi";
     if(!m_config.miles()) t += " km";
-    ui->decodedTextLabel->setText(t);
+    ui->lh_decodes_headings_label->setText(t);
     if (m_config.is_transceiver_online ()) {
       m_config.transceiver_tx_frequency (0); // turn off split
     }
@@ -7506,18 +7510,18 @@ void MainWindow::on_sbTR_valueChanged(int value)
       {
         if (m_TRperiod < 60)
           {
-            ui->decodedTextLabel->setText("  UTC   dB   DT Freq    " + tr ("Message"));
+            ui->lh_decodes_headings_label->setText("  UTC   dB   DT Freq    " + tr ("Message"));
             if (m_mode != "FST4W")
               {
-                ui->decodedTextLabel2->setText("  UTC   dB   DT Freq    " + tr ("Message"));
+                ui->rh_decodes_headings_label->setText("  UTC   dB   DT Freq    " + tr ("Message"));
               }
           }
         else
           {
-            ui->decodedTextLabel->setText("UTC   dB   DT Freq    " + tr ("Message"));
+            ui->lh_decodes_headings_label->setText("UTC   dB   DT Freq    " + tr ("Message"));
             if (m_mode != "FST4W")
               {
-                ui->decodedTextLabel2->setText("UTC   dB   DT Freq    " + tr ("Message"));
+                ui->rh_decodes_headings_label->setText("UTC   dB   DT Freq    " + tr ("Message"));
               }
           }
       }
