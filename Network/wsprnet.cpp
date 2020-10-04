@@ -86,26 +86,29 @@ void WSPRNet::upload (QString const& call, QString const& grid, QString const& r
   m_file = fileName;
 
   // Open the wsprd.out file
-  QFile wsprdOutFile (fileName);
-  if (!wsprdOutFile.open (QIODevice::ReadOnly | QIODevice::Text) || !wsprdOutFile.size ())
+  if (m_uploadType != 3)
     {
-      spot_queue_.enqueue (urlEncodeNoSpot ());
-      m_uploadType = 1;
-    }
-  else
-    {
-      // Read the contents
-      while (!wsprdOutFile.atEnd())
+      QFile wsprdOutFile (fileName);
+      if (!wsprdOutFile.open (QIODevice::ReadOnly | QIODevice::Text) || !wsprdOutFile.size ())
         {
-          SpotQueue::value_type query;
-          if (decodeLine (wsprdOutFile.readLine(), query))
+          spot_queue_.enqueue (urlEncodeNoSpot ());
+          m_uploadType = 1;
+        }
+      else
+        {
+          // Read the contents
+          while (!wsprdOutFile.atEnd())
             {
-              // Prevent reporting data ouside of the current frequency band
-              float f = fabs (m_rfreq.toFloat() - query.queryItemValue ("tqrg", QUrl::FullyDecoded).toFloat());
-              if (f < 0.0002)
+              SpotQueue::value_type query;
+              if (decodeLine (wsprdOutFile.readLine(), query))
                 {
-                  spot_queue_.enqueue(urlEncodeSpot (query));
-                  m_uploadType = 2;
+                  // Prevent reporting data ouside of the current frequency band
+                  float f = fabs (m_rfreq.toFloat() - query.queryItemValue ("tqrg", QUrl::FullyDecoded).toFloat());
+                  if (f < 0.01)     // MHz
+                    {
+                      spot_queue_.enqueue(urlEncodeSpot (query));
+                      m_uploadType = 2;
+                    }
                 }
             }
         }
@@ -133,10 +136,8 @@ void WSPRNet::post (QString const& call, QString const& grid, QString const& rfr
       if (!spot_queue_.size ())
         {
           spot_queue_.enqueue (urlEncodeNoSpot ());
-          m_uploadType = 1;
+          m_uploadType = 3;
         }
-      spots_to_send_ = spot_queue_.size ();
-      upload_timer_.start (200);
     }
   else
     {

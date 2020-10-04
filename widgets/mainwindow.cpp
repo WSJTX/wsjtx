@@ -3248,7 +3248,14 @@ void MainWindow::decodeDone ()
   if(m_mode=="QRA64") m_wideGraph->drawRed(0,0);
   if ("FST4W" == m_mode)
     {
-      uploadWSPRSpots (true); // DE station info and trigger posts
+      if (m_uploadWSPRSpots
+          && m_config.is_transceiver_online ()) { // need working rig control
+#if QT_VERSION >= QT_VERSION_CHECK (5, 15, 0)
+        uploadTimer.start(QRandomGenerator::global ()->bounded (0, 20000)); // Upload delay
+#else
+        uploadTimer.start(20000 * qrand()/((double)RAND_MAX + 1.0)); // Upload delay
+#endif
+      }
     }
   auto tnow = QDateTime::currentDateTimeUtc ();
   double tdone = fmod(double(tnow.time().second()),m_TRperiod);
@@ -7959,35 +7966,38 @@ void MainWindow::uploadWSPRSpots (bool direct_post, QString const& decode_text)
 {
   // do not spot if disabled, replays, or if rig control not working
   if(!m_uploadWSPRSpots || m_diskData || !m_config.is_transceiver_online ()) return;
-  if(m_uploading) {
+  if(m_uploading && !decode_text.size ()) {
     qDebug() << "Previous upload has not completed, spots were lost";
     wsprNet->abortOutstandingRequests ();
     m_uploading = false;
   }
-  QString rfreq = QString("%1").arg((m_dialFreqRxWSPR + 1500) / 1e6, 0, 'f', 6);
+  QString rfreq = QString("%1").arg((m_dialFreqRxWSPR + m_wideGraph->rxFreq ()) / 1e6, 0, 'f', 6);
   QString tfreq = QString("%1").arg((m_dialFreqRxWSPR +
                         ui->TxFreqSpinBox->value()) / 1e6, 0, 'f', 6);
   auto pct = QString::number (ui->autoButton->isChecked () ? ui->sbTxPercent->value () : 0);
-  if (!direct_post)
+  if (direct_post)
     {
+      // queues one FST4W spot
+      wsprNet->post (m_config.my_callsign (), m_config.my_grid (), rfreq, tfreq,
+                     m_mode, m_TRperiod, pct,
+                     QString::number (m_dBm), version (), decode_text);
+    }
+  else
+    {
+      // queues spots for each decode in wspr_spots.txt
       wsprNet->upload (m_config.my_callsign (), m_config.my_grid (), rfreq, tfreq,
                        m_mode, m_TRperiod, pct,
                        QString::number (m_dBm), version (),
                        m_config.writeable_data_dir ().absoluteFilePath ("wspr_spots.txt"));
     }
-  else
-    {
-      wsprNet->post (m_config.my_callsign (), m_config.my_grid (), rfreq, tfreq,
-                     m_mode, m_TRperiod, pct,
-                     QString::number (m_dBm), version (), decode_text);
-    }
+  // trigger upload of any queued spots
   if (!decode_text.size ())
     {
       m_uploading = true;
     }
 }
 
-void MainWindow::uploadResponse(QString response)
+void MainWindow::uploadResponse(QString const& response)
 {
   if (response == "done") {
     m_uploading=false;
