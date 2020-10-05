@@ -6320,7 +6320,8 @@ void MainWindow::on_actionQRA64_triggered()
 //  ui->TxFreqSpinBox->setValue(1000);
   QString fname {QDir::toNativeSeparators(m_config.temp_dir ().absoluteFilePath ("red.dat"))};
   m_wideGraph->setRedFile(fname);
-  displayWidgets(nWidgets("1111100100101101100000000010000000"));
+//                         0123456789012345678901234567890123
+  displayWidgets(nWidgets("1111100100101101100100000010000000"));
   statusChanged();
 }
 
