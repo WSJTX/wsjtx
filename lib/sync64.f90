@@ -1,5 +1,5 @@
-subroutine sync64(c0,nf1,nf2,nfqso,ntol,mode64,emedelay,dtx,f0,jpk,sync,  &
-     sync2,width)
+subroutine sync64(c0,nf1,nf2,nfqso,ntol,minsync,mode64,emedelay,dtx,f0,  &
+     jpk,sync,sync2,width)
 
   use timer_module, only: timer
 
@@ -61,11 +61,13 @@ subroutine sync64(c0,nf1,nf2,nfqso,ntol,mode64,emedelay,dtx,f0,jpk,sync,  &
   smaxall=0.
   jpk=0
   ja=0
-  jb=(5.0+emedelay)*6000                 !Bigger range than necessary?
+!  jb=(5.0+emedelay)*6000                 !Bigger range than necessary?
+  jb=(2.0+emedelay)*6000                 !Bigger range than necessary?
   jstep=100
   ipk=0
   kpk=0
   nadd=10*mode64
+  if(minsync.eq.-2) nadd=10  !###
   if(mod(nadd,2).eq.0) nadd=nadd+1       !Make nadd odd
   nskip=max(49,nadd)
 
@@ -96,7 +98,9 @@ subroutine sync64(c0,nf1,nf2,nfqso,ntol,mode64,emedelay,dtx,f0,jpk,sync,  &
      s0(:ia-1)=0.
      s0(ib+1:)=0.
      if(nadd.ge.3) then                    !Smooth the spectrum
-        do ii=1,3
+        iiz=3
+        if(minsync.eq.-2) iiz=1
+        do ii=1,iiz                          !### Was ii=1,3
            s0b(ia:ib)=s0(ia:ib)
            call smo(s0b(ia:ib),iz,s0(ia:ib),nadd)
         enddo
@@ -117,8 +121,6 @@ subroutine sync64(c0,nf1,nf2,nfqso,ntol,mode64,emedelay,dtx,f0,jpk,sync,  &
   enddo  ! j1 (DT loop)
 
   s0a=s0a+2.0
-!  write(17) ia,ib,s0a(ia:ib)                !Save data for red curve
-!  close(17)
 
   nskip=50
   call lorentzian(s0a(ia+nskip:ib-nskip),iz-2*nskip,a)

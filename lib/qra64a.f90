@@ -12,7 +12,7 @@ subroutine qra64a(dd,npts,nf1,nf2,nfqso,ntol,mode64,minsync,ndepth,   &
   logical ltext
   complex c00(0:720000)                      !Complex spectrum of dd()
   complex c0(0:720000)                       !Complex data for dd()
-  real a(3)
+  real a(3)                                  !twkfreq params f,f1,f2
   real dd(NMAX)                              !Raw data sampled at 12000 Hz
   real s3(LN)                                !Symbol spectra
   real s3a(LN)                               !Symbol spectra
@@ -62,39 +62,49 @@ subroutine qra64a(dd,npts,nf1,nf2,nfqso,ntol,mode64,minsync,ndepth,   &
   npts2=npts/2
   
   call timer('sync64  ',0)
-  call sync64(c00,nf1,nf2,nfqso,ntol,mode64,emedelay,dtx,f0,jpk0,sync,  &
-       sync2,width)
+  call sync64(c00,nf1,nf2,nfqso,ntol,minsync,mode64,emedelay,dtx,f0,  &
+       jpk0,sync,sync2,width)
   call timer('sync64  ',1)
   nfreq=nint(f0)
-  if(mode64.eq.1 .and. minsync.ge.0 .and. (sync-7.0).lt.minsync) go to 900
-!  if((sync-3.4).lt.float(minsync) .or.width.gt.340.0) go to 900
-  a=0.
-  a(1)=-f0
-  call twkfreq(c00,c0,npts2,6000.0,a)
+  if(mode64.eq.1 .and. minsync.ne.-1 .and. (sync-7.0).lt.minsync) go to 900
 
   irc=-99
   s3lim=20.
-  itz=11
-  if(mode64.eq.4) itz=9
-  if(mode64.eq.2) itz=7
-  if(mode64.eq.1) itz=5
-
+  ibwmax=11
+  if(mode64.le.4) ibwmax=9
+  ibwmin=0
+  idtmax=5
+  if(minsync.eq.-2) then
+     ibwmin=ibwmax
+     idtmax=3
+  endif
   LL=64*(mode64+2)
   NN=63
   napmin=99
-  do itry0=1,5
-     idt=itry0/2
-     if(mod(itry0,2).eq.0) idt=-idt
+  ncall=0
+
+  do idf0=1,11
+  idf=idf0/2
+  if(mod(idf0,2).eq.0) idf=-idf
+  
+  a=0.
+  a(1)=-(f0+0.868*idf)
+  call twkfreq(c00,c0,npts2,6000.0,a)
+
+  do idt0=1,idtmax
+     idt=idt0/2
+     if(mod(idt0,2).eq.0) idt=-idt
      jpk=jpk0 + 750*idt
      call spec64(c0,jpk,s3a,LL,NN)
      call pctile(s3a,LL*NN,40,base)
      s3a=s3a/base
      where(s3a(1:LL*NN)>s3lim) s3a(1:LL*NN)=s3lim
-     do iter=itz,0,-2
-        b90=1.728**iter
+     do ibw=ibwmax,ibwmin,-2
+        b90=1.728**ibw
         if(b90.gt.230.0) cycle
         if(b90.lt.0.15*width) exit
         s3(1:LL*NN)=s3a(1:LL*NN)
+        ncall=ncall+1
         call timer('qra64_de',0)
         call qra64_dec(s3,nc1,nc2,ng2,naptype,0,nSubmode,b90,      &
              nFadingModel,dat4,snr2,irc)
@@ -109,21 +119,27 @@ subroutine qra64a(dd,npts,nf1,nf2,nfqso,ntol,mode64,minsync,ndepth,   &
            napmin=nap(iirc)
            irckeep=irc
            dtxkeep=jpk/6000.0 - 1.0
-           itry0keep=itry0
-           iterkeep=iter
+           f0keep=-a(1)
+           idfkeep=idf
+           idtkeep=idt
+           ibwkeep=ibw
         endif
      enddo
-     if(irc.eq.0) exit
-  enddo
+     if(iand(ndepth,3).lt.3 .and. irc.ge.0) go to 100
+     if(irc.eq.0) go to 100
+  enddo  ! idt (DT loop)
+  enddo  ! idf (f0 loop)
 
-  if(napmin.ne.99) then
+100 if(napmin.ne.99) then
      dat4=dat4x
      b90=b90x
      snr2=snr2x
      irc=irckeep
      dtx=dtxkeep
-     itry0=itry0keep
-     iter=iterkeep
+     f0=f0keep
+     idt=idtkeep
+     idf=idfkeep
+     ibw=ibwkeep
   endif
 10 decoded='                      '
 
@@ -140,6 +156,9 @@ subroutine qra64a(dd,npts,nf1,nf2,nfqso,ntol,mode64,minsync,ndepth,   &
   else
      snr2=0.
   endif
+  nfreq=nint(f0)
+  write(71,3071) idf,idt,ncall,irc,nsnr,dtx,nfreq,decoded
+3071 format(5i5,f7.2,i6,2x,a22)
 
 900 if(irc.lt.0) then
      sy=max(1.0,sync)

@@ -799,7 +799,7 @@ QPushButton[state=&quot;ok&quot;] {
                   <string>Sync   </string>
                  </property>
                  <property name="minimum">
-                  <number>-1</number>
+                  <number>-2</number>
                  </property>
                  <property name="maximum">
                   <number>10</number>
