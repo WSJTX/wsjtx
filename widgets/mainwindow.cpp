@@ -3046,27 +3046,6 @@ void MainWindow::decode()                                       //decode()
     dec_data.params.nutc=dec_data.params.nutc/100;
   }
   if(dec_data.params.nagain==0 && dec_data.params.newdat==1 && (!m_diskData)) {
-<<<<<<< HEAD
-    qint64 ms = QDateTime::currentMSecsSinceEpoch() % 86400000;
-    int imin=ms/60000;
-    int ihr=imin/60;
-    imin=imin % 60;
-    if(m_TRperiod>=60) imin=imin - (imin % (int(m_TRperiod)/60));
-    dec_data.params.nutc=100*ihr + imin;
-    if(m_TRperiod < 60) {
-      qint64 ms=1000.0*(3.5-m_TRperiod);
-      if(m_mode=="FST4") ms=1000.0*(6.0-m_TRperiod);
-      //Adjust for FT8 early decode:
-      if(m_mode=="FT8" and m_ihsym==m_earlyDecode and !m_diskData) ms+=(m_hsymStop-m_earlyDecode)*288;
-      if(m_mode=="FT8" and m_ihsym==m_earlyDecode2 and !m_diskData) ms+=(m_hsymStop-m_earlyDecode2)*288;
-      QDateTime t=QDateTime::currentDateTimeUtc().addMSecs(ms);
-      ihr=t.toString("hh").toInt();
-      imin=t.toString("mm").toInt();
-      int isec=t.toString("ss").toInt();
-      isec=isec - fmod(double(isec),m_TRperiod);
-      dec_data.params.nutc=10000*ihr + 100*imin + isec;
-    }
-=======
     auto t_start = qt_truncate_date_time_to (QDateTime::currentDateTimeUtc (), m_TRperiod * 1.e3);
     auto t = t_start.time ();
     dec_data.params.nutc = t.hour () * 100 + t.minute ();
@@ -3074,7 +3053,6 @@ void MainWindow::decode()                                       //decode()
       {
         dec_data.params.nutc = dec_data.params.nutc * 100 + t.second ();
       }
->>>>>>> develop
   }
 
   if(m_nPick==1 and !m_diskData) {
