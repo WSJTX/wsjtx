@@ -1893,9 +1893,6 @@ and DX Grid fields when a 73 or free text message is sent.</string>
               <property name="toolTip">
                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enter the service port number of the UDP server that WSJT-X should send updates to. If this is zero no updates will be broadcast.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
-              <property name="minimum">
-               <number>0</number>
-              </property>
               <property name="maximum">
                <number>65534</number>
               </property>
@@ -1987,6 +1984,9 @@ and DX Grid fields when a 73 or free text message is sent.</string>
            <widget class="QSpinBox" name="n1mm_server_port_spin_box">
             <property name="toolTip">
              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enter the port number that WSJT-X should use for UDP broadcasts of ADIF log information. For N1MM Logger+, this value should be 2333. If this is zero,  no updates will be broadcast.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="maximum">
+             <number>65534</number>
             </property>
            </widget>
           </item>
@@ -3194,11 +3194,11 @@ Right click for insert and delete options.</string>
  <buttongroups>
   <buttongroup name="PTT_method_button_group"/>
   <buttongroup name="CAT_data_bits_button_group"/>
-  <buttongroup name="CAT_stop_bits_button_group"/>
   <buttongroup name="special_op_activity_button_group"/>
-  <buttongroup name="TX_mode_button_group"/>
+  <buttongroup name="CAT_stop_bits_button_group"/>
   <buttongroup name="TX_audio_source_button_group"/>
-  <buttongroup name="CAT_handshake_button_group"/>
   <buttongroup name="split_mode_button_group"/>
+  <buttongroup name="TX_mode_button_group"/>
+  <buttongroup name="CAT_handshake_button_group"/>
  </buttongroups>
 </ui>
