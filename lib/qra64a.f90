@@ -10,16 +10,10 @@ subroutine qra64a(dd,npts,nf1,nf2,nfqso,ntol,mode64,minsync,ndepth,   &
   character*6 mycall,hiscall,hisgrid_6
   character*4 hisgrid
   logical ltext
-  complex c00(0:720000)                      !Complex spectrum of dd()
-  complex c0(0:720000)                       !Complex data for dd()
-  real a(3)                                  !twkfreq params f,f1,f2
+  complex c00(0:720000)                      !Analytic signal for dd()
   real dd(NMAX)                              !Raw data sampled at 12000 Hz
   real s3(LN)                                !Symbol spectra
-  real s3a(LN)                               !Symbol spectra
   integer dat4(12)                           !Decoded message (as 12 integers)
-  integer dat4x(12)
-  integer nap(0:11)
-  data nap/0,2,3,2,3,4,2,3,6,4,6,6/
   data nc1z/-1/,nc2z/-1/,ng2z/-1/,maxaptypez/-1/
   save
 
@@ -59,7 +53,6 @@ subroutine qra64a(dd,npts,nf1,nf2,nfqso,ntol,mode64,minsync,ndepth,   &
   naptype=maxaptype
 
   call ana64(dd,npts,c00)
-  npts2=npts/2
   
   call timer('sync64  ',0)
   call sync64(c00,nf1,nf2,nfqso,ntol,minsync,mode64,emedelay,dtx,f0,  &
@@ -68,81 +61,12 @@ subroutine qra64a(dd,npts,nf1,nf2,nfqso,ntol,mode64,minsync,ndepth,   &
   nfreq=nint(f0)
   if(mode64.eq.1 .and. minsync.ne.-1 .and. (sync-7.0).lt.minsync) go to 900
 
-  irc=-99
-  s3lim=20.
-  ibwmax=11
-  if(mode64.le.4) ibwmax=9
-  ibwmin=0
-  idtmax=5
-  if(minsync.eq.-2) then
-     ibwmin=ibwmax
-     idtmax=3
-  endif
-  LL=64*(mode64+2)
-  NN=63
-  napmin=99
-  ncall=0
-
-  do idf0=1,11
-     idf=idf0/2
-     if(mod(idf0,2).eq.0) idf=-idf
+  call timer('qraloops',0)
+  call qra_loops(c00,npts/2,64,mode64,nsubmode,nFadingModel,minsync,     &
+       ndepth,nc1,nc2,ng2,naptype,jpk0,dtx,f0,width,snr2,s3,irc,dat4)
+  call timer('qraloops',1)
   
-     a=0.
-     a(1)=-(f0+0.868*idf)
-     call twkfreq(c00,c0,npts2,6000.0,a)
-
-     do idt0=1,idtmax
-        idt=idt0/2
-        if(mod(idt0,2).eq.0) idt=-idt
-        jpk=jpk0 + 750*idt
-        call spec64(c0,jpk,s3a,LL,NN)
-        call pctile(s3a,LL*NN,40,base)
-        s3a=s3a/base
-        where(s3a(1:LL*NN)>s3lim) s3a(1:LL*NN)=s3lim
-        do ibw=ibwmax,ibwmin,-2
-           b90=1.728**ibw
-           if(b90.gt.230.0) cycle
-           if(b90.lt.0.15*width) exit
-           s3(1:LL*NN)=s3a(1:LL*NN)
-           ncall=ncall+1
-           call timer('qra64_de',0)
-           call qra64_dec(s3,nc1,nc2,ng2,naptype,0,nSubmode,b90,      &
-                nFadingModel,dat4,snr2,irc)
-           call timer('qra64_de',1)
-           if(irc.eq.0) go to 10
-           if(irc.gt.0) call badmsg(irc,dat4,nc1,nc2,ng2)
-           iirc=max(0,min(irc,11))
-           if(irc.gt.0 .and. nap(iirc).lt.napmin) then
-              dat4x=dat4
-              b90x=b90
-              snr2x=snr2
-              napmin=nap(iirc)
-              irckeep=irc
-              dtxkeep=jpk/6000.0 - 1.0
-              f0keep=-a(1)
-              idfkeep=idf
-              idtkeep=idt
-              ibwkeep=ibw
-           endif
-        enddo  ! ibw (b90 loop)
-        if(iand(ndepth,3).lt.3 .and. irc.ge.0) go to 100
-        if(irc.eq.0) go to 100
-     enddo  ! idt (DT loop)
-  enddo  ! idf (f0 loop)
-
-100 if(napmin.ne.99) then
-     dat4=dat4x
-     b90=b90x
-     snr2=snr2x
-     irc=irckeep
-     dtx=dtxkeep
-     f0=f0keep
-     idt=idtkeep
-     idf=idfkeep
-     ibw=ibwkeep
-  endif
-10 decoded='                      '
-
+  decoded='                      '
   if(irc.ge.0) then
      call unpackmsg(dat4,decoded)               !Unpack the user message
      call fmtmsg(decoded,iz)
