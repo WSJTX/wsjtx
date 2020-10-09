@@ -26,7 +26,7 @@ subroutine qra_loops(c00,npts2,mode,mode64,nsubmode,nFadingModel,minsync,  &
   napmin=99
   ncall=0
   nsps=3456                                   !QRA64
-  if(mode.eq.65) nsps=3840                    !QRA65
+  if(mode.eq.65) nsps=3840                    !QRA65  ### Is 3840 too big? ###
 
   do idf0=1,11
      idf=idf0/2
@@ -39,15 +39,14 @@ subroutine qra_loops(c00,npts2,mode,mode64,nsubmode,nFadingModel,minsync,  &
         if(mod(idt0,2).eq.0) idt=-idt
         jpk=jpk0 + 750*idt
         if(jpk.lt.0) jpk=0
-        call spec64(c0,nsps,mode,jpk,s3a,LL,NN)
-        call pctile(s3a,LL*NN,40,base)
-        s3a=s3a/base
-        where(s3a(1:LL*NN)>s3lim) s3a(1:LL*NN)=s3lim
+        call spec64(c0,nsps,mode,jpk,s3,LL,NN)
+        call pctile(s3,LL*NN,40,base)
+        s3=s3/base
+        where(s3(1:LL*NN)>s3lim) s3(1:LL*NN)=s3lim
         do ibw=ibwmax,ibwmin,-2
            b90=1.728**ibw
            if(b90.gt.230.0) cycle
            if(b90.lt.0.15*width) exit
-           s3(1:LL*NN)=s3a(1:LL*NN)
            ncall=ncall+1
            call timer('qra64_de',0)
            call qra64_dec(s3,nc1,nc2,ng2,naptype,0,nSubmode,b90,      &

@@ -12,7 +12,6 @@ subroutine qra64a(dd,npts,nf1,nf2,nfqso,ntol,mode64,minsync,ndepth,   &
   logical ltext
   complex c00(0:720000)                      !Analytic signal for dd()
   real dd(NMAX)                              !Raw data sampled at 12000 Hz
-  real s3(LN)                                !Symbol spectra
   integer dat4(12)                           !Decoded message (as 12 integers)
   data nc1z/-1/,nc2z/-1/,ng2z/-1/,maxaptypez/-1/
   save
@@ -42,7 +41,7 @@ subroutine qra64a(dd,npts,nf1,nf2,nfqso,ntol,mode64,minsync,ndepth,   &
      maxaptype.ne.maxaptypez) then
      do naptype=0,maxaptype
         if(naptype.eq.2 .and. maxaptype.eq.4) cycle
-        call qra64_dec(s3,nc1,nc2,ng2,naptype,1,nSubmode,b90,      &
+        call qra64_dec(s3dummy,nc1,nc2,ng2,naptype,1,nSubmode,b90,      &
              nFadingModel,dat4,snr2,irc)
      enddo
      nc1z=nc1
@@ -63,7 +62,7 @@ subroutine qra64a(dd,npts,nf1,nf2,nfqso,ntol,mode64,minsync,ndepth,   &
 
   call timer('qraloops',0)
   call qra_loops(c00,npts/2,64,mode64,nsubmode,nFadingModel,minsync,     &
-       ndepth,nc1,nc2,ng2,naptype,jpk0,dtx,f0,width,snr2,s3,irc,dat4)
+       ndepth,nc1,nc2,ng2,naptype,jpk0,dtx,f0,width,snr2,irc,dat4)
   call timer('qraloops',1)
   
   decoded='                      '
