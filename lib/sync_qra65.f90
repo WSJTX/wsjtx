@@ -1,19 +1,29 @@
 subroutine sync_qra65(iwave,nmax,mode65,nsps,nfqso,ntol,xdt,f0,snr1)
 
+! Look for the sync vector in a QRA65 signal.
+! Input:  iwave(0:nmax-1)        Raw data
+!         mode65                 Tone spacing 1 2 4 8 16 (A-E)
+!         nsps                   Samples per symbol at 12000 Sa/s
+!         nfqso                  Target frequency (Hz)
+!         ntol                   Search range around nfqso (Hz)
+! Output: xdt                    Time offset from nominal (s)
+!         f0                     Frequency of sync tone
+!         snr1                   Relative SNR of sync signal
+  
   parameter (NSTEP=4)                    !Quarter-symbol steps
   integer*2 iwave(0:nmax-1)              !Raw data
   integer isync(22)                      !Indices of sync symbols
   integer ijpk(2)                        !Indices i and j at peak of ccf
   real, allocatable :: s1(:,:)           !Symbol spectra, quarter-symbol steps
   real sync(85)                          !sync vector 
-  real ccf(-64:64,-26:107)
+  real ccf(-64:64,-26:107)               !CCF(freq,time)
   complex, allocatable :: c0(:)          !Complex spectrum of symbol
   data isync/1,9,12,13,15,22,23,26,27,33,35,38,46,50,55,60,62,66,69,74,76,85/
   data sync(1)/99.0/
   save sync
 
   nfft=2*nsps
-  df=12000.0/nfft
+  df=12000.0/nfft                        !Freq resolution = 0.5*baud
   istep=nsps/NSTEP
   iz=5000.0/df                           !Uppermost frequency bin, at 5000 Hz
   txt=85.0*nsps/12000.0
@@ -23,10 +33,10 @@ subroutine sync_qra65(iwave,nmax,mode65,nsps,nfqso,ntol,xdt,f0,snr1)
   allocate(s1(iz,jz))
   allocate(c0(0:nfft-1))
 
-  if(sync(1).eq.99.0) then
-     sync=-22.0/63.0                     !Sync OFF  
+  if(sync(1).eq.99.0) then               !Generate the sync vector
+     sync=-22.0/63.0                     !Sync tone OFF  
      do k=1,22
-        sync(isync(k))=1.0               !Sync ON
+        sync(isync(k))=1.0               !Sync tone ON
      enddo
   endif
 
@@ -46,27 +56,23 @@ subroutine sync_qra65(iwave,nmax,mode65,nsps,nfqso,ntol,xdt,f0,snr1)
      do i=1,iz
         s1(i,j)=real(c0(i))**2 + aimag(c0(i))**2
      enddo
+! For large Doppler spreads, should we smooth the spectra here?
   enddo
 
-  i0=nint(nfqso/df)
+  i0=nint(nfqso/df)                           !Target QSO frequency
   call pctile(s1(i0-64:i0+192,1:jz),129*jz,40,base)
-  s1=s1/base
-  s1max=20.0
+  s1=s1/base                                  !Maybe should subtract 1.0 here?
 
-! Apply AGC
+! Apply fast AGC
+  s1max=20.0                                  !Empirical choice
   do j=1,jz
      smax=maxval(s1(i0-64:i0+192,j))
      if(smax.gt.s1max) s1(i0-64:i0+192,j)=s1(i0-64:i0+192,j)*s1max/smax
   enddo
 
-!  do i=1,iz
-!     write(60,3060) i,i*df,sum(s1(i,1:jz))
-!3060 format(i6,f10.3,e12.3)
-!  enddo
-
-  dt4=nsps/(NSTEP*12000.0)                      !1/4 of symbol duration
+  dt4=nsps/(NSTEP*12000.0)                    !1/4 of symbol duration
   j0=0.5/dt4
-  if(nsps.ge.7680) j0=1.0/dt4
+  if(nsps.ge.7680) j0=1.0/dt4                 !Nominal index for start of signal
   
   ccf=0.
   ia=min(64,nint(ntol/df))
@@ -85,23 +91,12 @@ subroutine sync_qra65(iwave,nmax,mode65,nsps,nfqso,ntol,xdt,f0,snr1)
      enddo
   enddo
 
-!  do i=-64,64
-!     write(61,3061) i,ccf(i,jpk)
-!3061 format(i5,e12.3)
-!  enddo
-!  do j=lag1,lag2
-!     write(62,3061) j,ccf(ipk,j)
-!  enddo
-
   ijpk=maxloc(ccf)
   ipk=ijpk(1)-65
-!  jpk=ijpk(2)-16
   jpk=ijpk(2)-27
   f0=nfqso + ipk*df
   xdt=jpk*dt4
   snr1=maxval(ccf)/22.0
-!  write(*,3100) ipk,jpk,xdt,f0,snr1
-!3100 format(2i5,f7.2,2f10.2)
 
   return
 end subroutine sync_qra65

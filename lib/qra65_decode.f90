@@ -31,22 +31,32 @@ contains
   subroutine decode(this,callback,iwave,nutc,ntrperiod,nsubmode,nfqso,   &
        ntol,ndepth,mycall,hiscall,hisgrid)
 
+! Decodes QRA65 signals
+! Input:  iwave            Raw data, i*2
+!         nutc             UTC for time-tagging the decode
+!         ntrperiod        T/R sequence length (s)
+!         nsubmode         Tone-spacing indicator, 0-4 for A-E
+!         nfqso            Target signal frequency (Hz)
+!         ntol             Search range around nfqso (Hz)
+!         ndepth           Optional decoding level (???)
+! Output: sent to the callback routine for display to user
+
     use timer_module, only: timer
     use packjt
     use, intrinsic :: iso_c_binding
-    parameter (NMAX=300*12000)             !### Needs to be 300*12000 ###
+    parameter (NMAX=300*12000)            !Max TRperiod is 300 s
     class(qra65_decoder), intent(inout) :: this
     procedure(qra65_decode_callback) :: callback
-    character(len=12) :: mycall, hiscall
+    character(len=12) :: mycall, hiscall  !Used for AP decoding
     character(len=6) :: hisgrid
-    character*37 decoded
+    character*37 decoded                  !Decoded message
     integer*2 iwave(NMAX)                 !Raw data
     real dd(NMAX)                         !Raw data
-    integer dat4(12)
-    logical lapdx,ltext
-    complex, allocatable :: c00(:)        !Analytic signal, 6000 S/s
-    complex, allocatable :: c0(:)         !Analytic signal, 6000 S/s
-    real, allocatable, save :: s3(:,:)    !Symbol spectra
+    integer dat4(12)                      !Decoded message as 12 6-bit integers
+    logical ltext
+    complex, allocatable :: c00(:)        !Analytic signal, 6000 Sa/s
+    complex, allocatable :: c0(:)         !Analytic signal, 6000 Sa/s
+    real, allocatable, save :: s3(:,:)    !Synchronized symbol spectra
     real, allocatable, save :: s3a(:,:)   !Symbol spectra for avg messages
     data nc1z/-1/,nc2z/-1/,ng2z/-1/,maxaptypez/-1/,nsubmodez/-1/
     save nc1z,nc2z,ng2z,maxaptypez,nsave,nsubmodez
