@@ -6,7 +6,7 @@ subroutine qra_loops(c00,npts2,mode,mode64,nsubmode,nFadingModel,minsync,  &
   complex c00(0:720000)            !Analytic representation of dd(), 6000 Hz
   complex c0(0:720000)             !Ditto, with freq shift
   real a(3)                        !twkfreq params f,f1,f2
-  real s3(LN),s3a(LN)              !Symbol spectra
+  real s3(LN)                      !Symbol spectra
   integer dat4(12),dat4x(12)       !Decoded message (as 12 integers)
   integer nap(0:11)                !AP return codes
   data nap/0,2,3,2,3,4,2,3,6,4,6,6/
