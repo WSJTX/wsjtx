@@ -3312,6 +3312,12 @@ void MainWindow::readFromStdout()                             //readFromStdout
             fSpread = text.toFloat (&haveFSpread);
             line_read = line_read.left (64);
           }
+        auto const& cs = m_config.my_callsign ().toLocal8Bit ();
+        if ("FST4W" == m_mode && ui->cbNoOwnCall->isChecked ()
+            && (line_read.contains (" " + cs + " ")
+                || line_read.contains ("<" + cs + ">"))) {
+          continue;
+        }
       }
     if (m_mode!="FT8" and m_mode!="FT4"
         && !m_mode.startsWith ("FST4")) {
