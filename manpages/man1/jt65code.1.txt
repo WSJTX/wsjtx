@@ -6,7 +6,7 @@
 
 == NAME
 
-jt65code, jt9code, jt4code - Weak signal communications encoding support utility.
+jt65code, jt9code, jt4code, qra64code, ft8code, msk144code - Weak signal communications encoding support utilities.
 
 == SYNOPSIS
 
@@ -22,18 +22,32 @@ jt65code, jt9code, jt4code - Weak signal communications encoding support utility
 
 *jt4code* ['OPTIONS']
 
+*qra64code* "'MESSAGE'"
+
+*qra64code* ['OPTIONS']
+
+*ft8code* "'MESSAGE'"
+
+*ft8code* ['OPTIONS']
+
 == OPTIONS
 *-t*::
- Prints a selection of messages alongside their corresponding
- decoded form and types.
+
+ Prints a selection of messages alongside their corresponding decoded
+ form and types. With *ft8code* prints a selection of short format
+ messages
+
+*-T*::
+
+ As *-T* but for *ft8code* prints long format messages.
 
 == DESCRIPTION
 
-*jt65code*, *jt9code* and *jt4code* are utility programs that let you
-explore the conversion of user-level messages into channel symbols or
-“tone numbers.”  These programs can be useful to someone designing a
-beacon generator for JT9 or JT65, or for studying behavior of the
-error-control codes for each of the protocols.
+*jt65code*, *jt9code*, *jt4code*, and *ft8code* are utility programs
+that let you explore the conversion of user-level messages into
+channel symbols or “tone numbers.”  These programs can be useful to
+someone designing a beacon generator for JT9 or JT65, or for studying
+behavior of the error-control codes for each of the protocols.
 
 Channel-symbol values for JT9 run from 0 to 8, with 0 representing the
 sync tone. The total number of symbols in a transmitted message is
@@ -92,10 +106,61 @@ You will discover that every possible JT65 message differs from every
 other possible JT65 message in at least 52 of the 63
 information-carrying channel symbols.
 
-WSJT-X home page:: http://www.physics.princeton.edu/pulsar/K1JT/wsjtx.html
+.....
+$ qra64code "G0XYZ K1ABC FN43"
+     Message                 Decoded                Err? Type
+--------------------------------------------------------------------------
+   1 G0XYZ K1ABC FN43        G0XYZ K1ABC FN43            1:    Std Msg
+
+Packed message, 6-bit symbols  61 36 45 30  3 55  3  2 14  5 33 41
+
+Information-carrying channel symbols
+   61 36 45 30  3 55  3  2 14  5 33 41 14 28  2  7 58 45  9 43 20 48 29 55 43 24  3 13 18 21
+   40  3 17 28 59 62  2 50 26 24  2  1  2 61 10  9 16 40  1 18 28 30 33 39 60 45 16 21 60 11
+    9 40 14
+
+Channel symbols including sync
+   20 50 60  0 40 10 30 61 36 45 30  3 55  3  2 14  5 33 41 14 28  2  7 58 45  9 43 20 48 29
+   55 43 24  3 13 18 21 40  3 20 50 60  0 40 10 30 17 28 59 62  2 50 26 24  2  1  2 61 10  9
+   16 40  1 18 28 30 33 39 60 45 16 21 60 11  9 40 14 20 50 60  0 40 10 30
+.....
+
+.....
+$ msk144code "G0XYZ K1ABC FN43"
+    Message                               Decoded                             Err i3.n3
+----------------------------------------------------------------------------------------------------
+ 1. G0XYZ K1ABC FN43                      G0XYZ K1ABC FN43                         1.  Standard msg
+
+Channel symbols
+110000110100110001010010011100110010010110000011011001001100001101111010
+110010110111111100001101001111000111101011111011100001110000011101110110
+.....
+
+.....
+$ ft8code "G0XYZ K1ABC FN43"
+    Message                               Decoded                             Err i3.n3
+----------------------------------------------------------------------------------------------------
+ 1. G0XYZ K1ABC FN43                      G0XYZ K1ABC FN43                         1.  Standard msg
+
+Source-encoded message, 77 bits:
+00001000111111010001110111010000010011011110111100011010100010100001100111001
+
+14-bit CRC:
+00110001001011
+
+83 Parity bits:
+10000110000001010101100000100110100110100000111000101110000110001001110000000110011
+
+Channel symbols (79 tones):
+  Sync               Data               Sync               Data               Sync
+3140652 03174526450547670460602143205 3140652 64040136505454507064041140042 3140652
+.....
+
+
+WSJT-X home page:: https://www.physics.princeton.edu/pulsar/K1JT/wsjtx.html
 
 WSJT-X User's Guide::
-http://www.physics.princeton.edu/pulsar/K1JT/wsjtx-doc/wsjtx-main-{VERSION}.html
+https://www.physics.princeton.edu/pulsar/K1JT/wsjtx-doc/wsjtx-main-{VERSION}.html
 
 == AUTHOR
 
@@ -103,10 +168,10 @@ Joe Taylor, K1JT.
 
 == COPYING
 
-*jt65code*, *jt9code* and *jt4code* are Copyright (C) 2001 - 2015 by
-Joseph H. Taylor, Jr., K1JT, with contributions from additional
-authors.  WSJT-X is Open Source software, licensed under the GNU
-General Public License (GPLv3).
+*jt65code*, *jt9code*, *jt4code*, and *ft8code* are Copyright (C) 2001
+- 2020 by Joseph H. Taylor, Jr., K1JT, with contributions from
+additional authors.  WSJT-X is Open Source software, licensed under
+the GNU General Public License (GPLv3).
 
 These programs are distributed in the hope that they will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of

@@ -10,12 +10,12 @@ wsprd - is a decoder for K1JT's Weak Signal Propagation Reporter (WSPR) mode.
 
 == SYNOPSIS
 
-*wsprd* ['OPTIONS']
+*wsprd* ['OPTIONS'] ['FILE']
 
 == DESCRIPTION
 
 *wsprd* - The program is written in C and is a command-line program that reads
-from a .c2 file or .wav file and writes output to the console. It is used by
+from a .c2 FILE or .wav FILE and writes output to the console. It is used by
 WSJT-X for wspr-mode decoding. 
 
 
@@ -42,7 +42,7 @@ WSJT-X for wspr-mode decoding.
 
 *-z x*:: x is fano metric table bias, default is 0.42
 
-The Infile can be either .wav or .c2, for example:
+The FILE can be either .wav or .c2, for example:
 
 -----
 ./wsprd -wf 14.0956 140709_2258.wav
