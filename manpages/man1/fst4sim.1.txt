@@ -1,0 +1,93 @@
+:doctype: manpage
+:man source: AsciiDoc
+:man version: {VERSION}
+:man manual: WSJT-X Manual
+= fst4sim(1)
+
+== NAME
+
+fst4sim, qra64sim - Generate simulated QRA64, FST4, and FST4W mode signals.
+
+== SYNOPSIS
+
+*qra64sim* msg A-E Nsigs fDop DT Nfiles SNR
+
+*fst4sim* msg TRsec f0 DT h fDop del Nfiles SNR W
+
+== DESCRIPTION
+
+*fst4sim* can be used to generate FST4 and FST4W signals with
+user-specified message content, mode parameters, and SNR values.
+
+== ARGS
+
+*msg*::
+
+ A valid QRA64, FST4, or FST4W message enclosed in quotation marks.
+
+*A-E*::
+
+QRA64 sub-mode designator.
+
+*Nsigs*::
+
+ Number of signals to simulate, distributed even across a 2000 Hz
+ bandwidth.
+ 
+*TRsec*::
+
+ A valid T/R period duration (s).
+
+*f0*::
+
+ Integer signal frequency offset (Hz).
+
+*DT*::
+
+ Decimal signal time offset (s).
+
+*h*::
+
+ A valid modulation index.
+
+*fDop*::
+
+ Decimal Doppler frequency spread (Hz).
+
+*del*::
+
+ Decimal Watterson model delay (ms).
+
+*nfiles*::
+
+ Number of files to generate.
+
+*snr*::
+
+ Add Guassian noise to simulate SNR in 2500 Hz bandwidth.
+
+*W*::
+
+ Hint to break ties between ambiguous messages '0' as 77-bit (FST4),
+ '1' as 50-bit (FST4W).
+
+Generated files are 12000 Hz sample rate, 16-bit unsigned format, mono
+PCM .WAV files suitable for replay using WSJT-X either vie the GUI
+*wsjtx*(1) or using the command line slow mode decoder *jt9*(1). Files
+are named 000000_nnnnnn.wav (000000_nnnn.wav for QRA64), where
+'nnnnnn' or 'nnnn' increments from zero.
+
+== AUTHOR
+
+Joe Taylor, K1JT.
+
+== COPYING
+
+*fcal* is Copyright (C) 2001 - 2019 by Joseph H.  Taylor, Jr., K1JT,
+with contributions from additional authors.  WSJT-X is Open Source
+software, licensed under the GNU General Public License (GPLv3).
+
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.

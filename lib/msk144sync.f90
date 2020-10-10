@@ -57,7 +57,7 @@ subroutine msk144sync(cdat,nframes,ntol,delf,navmask,npeaks,fc,fest,   &
   xm=0.0
   bf=0.0
   nthreads=1
-!$ nthreads=min(8,int(OMP_GET_MAX_THREADS(),4))
+!$ nthreads=min(4,int(OMP_GET_MAX_THREADS(),4))
   nstep=nfreqs/nthreads
 
 !$OMP PARALLEL NUM_THREADS(nthreads) PRIVATE(id,if1,if2)

@@ -132,7 +132,7 @@ int main(int argc, char *argv[])
       a.setApplicationVersion (version ());
 
       QCommandLineParser parser;
-      parser.setApplicationDescription ("\n" PROJECT_SUMMARY_DESCRIPTION);
+      parser.setApplicationDescription ("\n" PROJECT_DESCRIPTION);
       auto help_option = parser.addHelpOption ();
       auto version_option = parser.addVersionOption ();
 

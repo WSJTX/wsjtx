@@ -13,7 +13,7 @@ math (EXPR __index "${__month_index} - 1")
 list (GET __months "${__index}" __month)
 string (REPLACE "[${__month_index}]" "${__month}" ts ${ts})
 
-set (deb_changelog changelog.Debian)
+set (deb_changelog changelog)
 configure_file (
   "${CMAKE_CURRENT_SOURCE_DIR}/${deb_changelog}.in"
   "${CMAKE_CURRENT_BINARY_DIR}/${deb_changelog}"

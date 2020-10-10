@@ -1,4 +1,8 @@
 set (ASCIIDOC_MANS
+  man1/fcal.1.txt
+  man1/fmeasure.1.txt
+  man1/fmtave.1.txt
+  man1/fst4sim.1.txt
   man1/wsjtx.1.txt
   man1/wsprd.1.txt
   man1/jt65code.1.txt

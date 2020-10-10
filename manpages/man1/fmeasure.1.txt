@@ -1,0 +1,43 @@
+:doctype: manpage
+:man source: AsciiDoc
+:man version: {VERSION}
+:man manual: WSJT-X Manual
+= fmeasure(1)
+
+== NAME
+
+fmeasure - Calculates the properly calibrated frequency of a series of test signals
+
+== SYNOPSIS
+
+*fmeasure* ['FILE']
+
+== DESCRIPTION
+
+*fmeasure* is one of suite of command line tools designed to aid
+frequency measurement. These tools are aimed at those taking part in
+the ARRL FMT, but are also useful for general frequency measurement
+and calibration. They are included within the *WSJT-X* package for use
+with the FreqCal mode of WSJT-X.
+
+The input FILE is normally the output of the *fmtavg*(1) tool, after
+adjusting to remove bad sources. Results are saved in 'fmeasure.out'
+and are suitable for entry to the ARRL Frequency Measuring Test (FMT).
+
+Refer to https://physics.princeton.edu/pulsar/k1jt/FMT_User.pdf for
+detailed instructions.
+
+== AUTHOR
+
+Joe Taylor, K1JT.
+
+== COPYING
+
+*fcal* is Copyright (C) 2001 - 2019 by Joseph H.  Taylor, Jr., K1JT,
+with contributions from additional authors.  WSJT-X is Open Source
+software, licensed under the GNU General Public License (GPLv3).
+
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.

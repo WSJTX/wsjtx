@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 2.8.10 FATAL_ERROR)
+cmake_minimum_required (VERSION 3.9 FATAL_ERROR)
 
 if (APPLE)
   #
@@ -15,116 +15,72 @@ if (APPLE)
 
 Earliest version we can support with Qt 5.12, C++11 & libc++ is 10.13.
 Do not override this if you intend to build an official deployable installer.")
-  set (CMAKE_OSX_SYSROOT /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.sdk
-    CACHE STRING "Mac OS X SDK to build with
-
-Change this to the newest SDK available that you can install on your system (>10.14 preferred).
-Do not override this if you intend to build an official deployable installer.")
 endif (APPLE)
-
-project (wsjtx C CXX Fortran)
 
 #
 # CMake policies
 #
 if (POLICY CMP0020)
   cmake_policy (SET CMP0020 NEW) # link to Qt winmain on Windows
-endif (POLICY CMP0020)
+endif ()
 
 if (POLICY CMP0043)
   cmake_policy (SET CMP0043 NEW) # ignore COMPILE_DEFINITIONS_<CONFIG>
-endif (POLICY CMP0043)
+endif ()
+
+if (POLICY CMP0048)
+  cmake_policy (SET CMP0048 NEW) # clear PROJECT_Version_* vriables if not set in project() command
+endif ()
 
 if (POLICY CMP0063)
   cmake_policy (SET CMP0063 NEW) # honour visibility properties for all library types
-endif (POLICY CMP0063)
+endif ()
 
 if (POLICY CMP0071)
   cmake_policy (SET CMP0071 NEW) # run automoc and autouic on generated sources
-endif (POLICY CMP0071)
+endif ()
 
-include (${PROJECT_SOURCE_DIR}/CMake/VersionCompute.cmake)
-message (STATUS "Building ${CMAKE_PROJECT_NAME}-${wsjtx_VERSION}")
+project (wsjtx
+  VERSION 2.4.0.0
+  DESCRIPTION "WSJT-X: Digital Modes for Weak Signal Communications in Amateur Radio"
+  LANGUAGES C CXX Fortran
+  )
+
+#
+# Local CMake modules and support files
+#
+set (CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/CMake/Modules ${CMAKE_MODULE_PATH})
+
+set (PROJECT_ARCHITECTURE "${CMAKE_SYSTEM_PROCESSOR}")
+if (NOT PROJECT_ARCHITECTURE)
+  # This is supposed to happen already on Windows
+  if (CMAKE_SIZEOF_VOID_P MATCHES 8)
+    set (PROJECT_ARCHITECTURE "x64")
+  else ()
+    set (PROJECT_ARCHITECTURE "$ENV{PROCESSOR_ARCHITECTURE}")
+  endif ()
+endif ()
+message (STATUS "******************************************************")
+message (STATUS "Building for for: ${CMAKE_SYSTEM_NAME}-${PROJECT_ARCHITECTURE}")
+message (STATUS "******************************************************")
+
+include (set_build_type)
+# RC 0 or omitted is a development build, GA is a General Availability release build
+set_build_type (RC 0)
+set (wsjtx_VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}${BUILD_TYPE_REVISION}")
 
 #
 # project information
 #
-set (PROJECT_NAME "WSJT-X")
+set (PROJECT_BUNDLE_NAME "WSJT-X")
 set (PROJECT_VENDOR "Joe Taylor, K1JT")
 set (PROJECT_CONTACT "Joe Taylor <k1jt@arrl.net>")
-set (PROJECT_COPYRIGHT "Copyright (C) 2001-2019 by Joe Taylor, K1JT")
-set (PROJECT_HOMEPAGE http://www.physics.princeton.edu/pulsar/K1JT/wsjtx.html)
+set (PROJECT_COPYRIGHT "Copyright (C) 2001-2020 by Joe Taylor, K1JT")
+set (PROJECT_HOMEPAGE https://www.physics.princeton.edu/pulsar/K1JT/wsjtx.html)
 set (PROJECT_MANUAL wsjtx-main)
-set (PROJECT_MANUAL_DIRECTORY_URL http://www.physics.princeton.edu/pulsar/K1JT/wsjtx-doc/)
+set (PROJECT_MANUAL_DIRECTORY_URL https://www.physics.princeton.edu/pulsar/K1JT/wsjtx-doc/)
 set (PROJECT_SAMPLES_URL http://downloads.sourceforge.net/project/wsjt/)
 set (PROJECT_SAMPLES_UPLOAD_DEST frs.sourceforge.net:/home/frs/project/wsjt/)
-set (PROJECT_SUMMARY_DESCRIPTION "${PROJECT_NAME} - Digital Modes for Weak Signal Communications in Amateur Radio.")
-set (PROJECT_DESCRIPTION "${PROJECT_SUMMARY_DESCRIPTION}
- ${PROJECT_NAME} is a computer program designed to facilitate basic amateur
- radio communication using very weak signals. The first four letters in
- the program name stand for `(W)eak (S)ignal communication by
- K1(JT),` while the suffix `-X` indicates that ${PROJECT_NAME} started as
- an extended and experimental branch of the program
- WSJT.
- .
- ${PROJECT_NAME} Version 1.8 offers nine different protocols or modes: FT8,
- JT4, JT9, JT65, QRA64, ISCAT, MSK144, WSPR, and Echo.
- The first five are designed for making reliable QSOs under extreme
- weak-signal conditions. They use nearly identical message structure
- and source encoding.  JT65 and QRA64 were designed for EME
- (`moonbounce`) on the VHF/UHF bands and have also proven very
- effective for worldwide QRP communication on the HF bands.  QRA64 has
- a number of advantages over JT65, including better performance on the
- very weakest signals.  We imagine that over time it may replace JT65
- for EME use.  JT9 was originally designed for the LF, MF, and lower HF
- bands.  Its submode JT9A is 2 dB more sensitive than JT65 while using
- less than 10% of the bandwidth.  JT4 offers a wide variety of tone
- spacings and has proven highly effective for EME on microwave bands up
- to 24 GHz.  These four `slow` modes use one-minute timed sequences
- of alternating transmission and reception, so a minimal QSO takes four
- to six minutes — two or three transmissions by each station, one
- sending in odd UTC minutes and the other even.  FT8 is operationally
- similar but four times faster (15-second T/R sequences) and less
- sensitive by a few dB.  On the HF bands, world-wide QSOs are possible
- with any of these modes using power levels of a few watts (or even
- milliwatts) and compromise antennas.  On VHF bands and higher, QSOs
- are possible (by EME and other propagation types) at signal levels 10
- to 15 dB below those required for CW.
- .
- ISCAT, MSK144, and optionally submodes JT9E-H are `fast`
- protocols designed to take advantage of brief signal enhancements from
- ionized meteor trails, aircraft scatter, and other types of scatter
- propagation. These modes use timed sequences of 5, 10, 15, or 30 s
- duration.  User messages are transmitted repeatedly at high rate (up
- to 250 characters per second, for MSK144) to make good use of the
- shortest meteor-trail reflections or `pings`.  ISCAT uses free-form
- messages up to 28 characters long, while MSK144 uses the same
- structured messages as the slow modes and optionally an abbreviated
- format with hashed callsigns.
- .
- WSPR (pronounced `whisper`) stands for (W)eak (S)ignal
- (P)ropagation (R)eporter.  The WSPR protocol was designed for probing
- potential propagation paths using low-power transmissions. WSPR
- messages normally carry the transmitting station’s callsign, grid
- locator, and transmitter power in dBm, and they can be decoded at
- signal-to-noise ratios as low as -28 dB in a 2500 Hz bandwidth.  WSPR
- users with internet access can automatically upload reception
- reports to a central database called wsprnet that provides a mapping
- facility, archival storage, and many other features.
- .
- Echo mode allows you to detect and measure your own station's echoes
- from the moon, even if they are far below the audible threshold.
- .
- ${PROJECT_NAME} provides spectral displays for receiver passbands as wide as
- 5 kHz, flexible rig control for nearly all modern radios used by
- amateurs, and a wide variety of special aids such as automatic Doppler
- tracking for EME QSOs and Echo testing.  The program runs equally well
- on Windows, Macintosh, and Linux systems, and installation packages
- are available for all three platforms.
- .
- Be sure to read the online ${PROJECT_NAME} User's Guide.")
-
-set (CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/CMake/Modules ${CMAKE_MODULE_PATH})
 
 # make sure that the default configuration is a RELEASE
 if (NOT CMAKE_BUILD_TYPE)
@@ -181,19 +137,6 @@ if you want a console application instead then set this option to OFF.
 If you just want to see the debug output from the application then the easiest way is to
 attach a debugger which will then receive the console output inside its console." ON
   "WIN32" OFF)
-
-set (PROJECT_ARCHITECTURE "${CMAKE_SYSTEM_PROCESSOR}")
-if (NOT PROJECT_ARCHITECTURE)
-  # This is supposed to happen already on Windows
-  if (CMAKE_SIZEOF_VOID_P MATCHES 8)
-    set (PROJECT_ARCHITECTURE "x64")
-  else ()
-    set (PROJECT_ARCHITECTURE "$ENV{PROCESSOR_ARCHITECTURE}")
-  endif ()
-endif (NOT PROJECT_ARCHITECTURE)
-message (STATUS "******************************************************")
-message (STATUS "Building for for: ${CMAKE_SYSTEM_NAME}-${PROJECT_ARCHITECTURE}")
-message (STATUS "******************************************************")
 
 #
 # install locations
@@ -809,6 +752,8 @@ if (APPLE)
     DEPENDS ${ICONSRCS}
     COMMENT "Building Icons"
     )
+else ()
+  set (WSJTX_ICON_FILE icons/windows-icons/wsjtx.ico)
 endif (APPLE)
 
 set_source_files_properties (${WSJTX_ICON_FILE} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
@@ -871,10 +816,29 @@ endif (APPLE)
 #
 # find some useful tools
 #
+include (CheckCSourceCompiles)
 include (CheckSymbolExists)
+include (generate_version_info)
 
 find_program(CTAGS ctags)
 find_program(ETAGS etags)
+
+#
+# Standard C Math Library
+#
+set (LIBM_TEST_SOURCE "#include<math.h>\nfloat f; int main(){sqrt(f);return 0;}")
+check_c_source_compiles ("${LIBM_TEST_SOURCE}" HAVE_MATH)
+if (HAVE_MATH)
+  set (LIBM_LIBRARIES)
+else ()
+  set (CMAKE_REQUIRED_LIBRARIES m)
+  check_c_source_compiles ("${LIBM_TEST_SOURCE}" HAVE_LIBM_MATH)
+  unset (CMAKE_REQUIRED_LIBRARIES)
+  if (NOT HAVE_LIBM_MATH)
+    message (FATAL_ERROR "Unable to use C math library functions")
+  endif ()
+  set (LIBM_LIBRARIES m)
+endif ()
 
 #
 # Boost
@@ -1096,6 +1060,148 @@ query_qmake (QT_INSTALL_IMPORTS QT_IMPORTS_DIR)
 query_qmake (QT_HOST_DATA QT_DATA_DIR)
 set (QT_MKSPECS_DIR ${QT_DATA_DIR}/mkspecs)
 
+# project definitions
+add_definitions (-DQT5 -DCMAKE_BUILD -DBIGSYM=1)
+if (CMAKE_HOST_UNIX)
+  add_definitions (-DUNIX)
+elseif (CMAKE_HOST_WIN32)
+  add_definitions (-DWIN32)
+endif ()
+
+# build a library of package functionality (without and optionally with OpenMP support)
+add_library (wsjt_cxx STATIC ${wsjt_CSRCS} ${wsjt_CXXSRCS})
+target_link_libraries (wsjt_cxx ${LIBM_LIBRARIES})
+
+# build an OpenMP variant of the Fortran library routines
+add_library (wsjt_fort STATIC ${wsjt_FSRCS})
+target_link_libraries (wsjt_fort  ${FFTW3_LIBRARIES})
+if (${OPENMP_FOUND} OR APPLE)
+  add_library (wsjt_fort_omp STATIC ${wsjt_FSRCS})
+  target_link_libraries (wsjt_fort_omp  ${FFTW3_LIBRARIES})
+  if (OpenMP_C_FLAGS)
+    set_target_properties (wsjt_fort_omp
+      PROPERTIES
+      COMPILE_FLAGS "${OpenMP_C_FLAGS}"
+      )
+  endif ()
+  set_target_properties (wsjt_fort_omp
+    PROPERTIES
+    Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/fortran_modules_omp
+    )
+  file (MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/fortran_modules_omp)
+  if (APPLE)
+    # On  Mac  we don't  have  working  OpenMP  support in  the  C/C++
+    # compilers so  we have to manually  set the correct flags  to get
+    # OpenMP support in jt9.
+    target_compile_options (wsjt_fort_omp
+      PRIVATE
+      $<$<COMPILE_LANGUAGE:Fortran>:-fopenmp>   # assumes GNU style Fortran compiler
+      )
+  endif (APPLE)
+endif (${OPENMP_FOUND} OR APPLE)
+
+if(WSJT_BUILD_UTILS) 
+
+add_executable (jt4sim lib/jt4sim.f90)
+target_link_libraries (jt4sim wsjt_fort wsjt_cxx)
+
+add_executable (jt65sim lib/jt65sim.f90)
+target_link_libraries (jt65sim wsjt_fort wsjt_cxx)
+
+add_executable (sumsim lib/sumsim.f90)
+target_link_libraries (sumsim wsjt_fort wsjt_cxx)
+
+add_executable (qra64sim lib/qra/qra64/qra64sim.f90)
+target_link_libraries (qra64sim wsjt_fort wsjt_cxx)
+
+add_executable (qra65sim lib/qra/qra65/qra65sim.f90)
+target_link_libraries (qra65sim wsjt_fort wsjt_cxx)
+
+add_executable (test_qra64 lib/test_qra64.f90)
+target_link_libraries (test_qra64 wsjt_fort wsjt_cxx)
+
+add_executable (test_qra65 lib/test_qra65.f90)
+target_link_libraries (test_qra65 wsjt_fort wsjt_cxx)
+
+add_executable (jt49sim lib/jt49sim.f90)
+target_link_libraries (jt49sim wsjt_fort wsjt_cxx)
+
+add_executable (allsim lib/allsim.f90)
+target_link_libraries (allsim wsjt_fort wsjt_cxx)
+
+add_executable (rtty_spec lib/rtty_spec.f90)
+target_link_libraries (rtty_spec wsjt_fort wsjt_cxx)
+
+add_executable (jt65code lib/jt65code.f90)
+target_link_libraries (jt65code wsjt_fort wsjt_cxx)
+
+add_executable (qra64code lib/qra64code.f90)
+target_link_libraries (qra64code wsjt_fort wsjt_cxx)
+
+add_executable (jt9code lib/jt9code.f90)
+target_link_libraries (jt9code wsjt_fort wsjt_cxx)
+
+add_executable (wsprcode lib/wsprcode/wsprcode.f90 lib/wsprcode/nhash.c)
+target_link_libraries (wsprcode wsjt_fort wsjt_cxx)
+	       
+add_executable (encode77 lib/77bit/encode77.f90)
+target_link_libraries (encode77 wsjt_fort wsjt_cxx)
+
+add_executable (wsprsim ${wsprsim_CSRCS})
+target_link_libraries (wsprsim ${LIBM_LIBRARIES})
+
+add_executable (jt4code lib/jt4code.f90)
+target_link_libraries (jt4code wsjt_fort wsjt_cxx)
+
+add_executable (msk144code lib/msk144code.f90)
+target_link_libraries (msk144code wsjt_fort wsjt_cxx)
+
+add_executable (ft8code lib/ft8/ft8code.f90)
+target_link_libraries (ft8code wsjt_fort wsjt_cxx)
+
+add_executable (ft4code lib/ft4/ft4code.f90)
+target_link_libraries (ft4code wsjt_fort wsjt_cxx)
+
+add_executable (ft8sim lib/ft8/ft8sim.f90)
+target_link_libraries (ft8sim wsjt_fort wsjt_cxx)
+
+add_executable (msk144sim lib/msk144sim.f90)
+target_link_libraries (msk144sim wsjt_fort wsjt_cxx)
+
+add_executable (ft4sim lib/ft4/ft4sim.f90)
+target_link_libraries (ft4sim wsjt_fort wsjt_cxx)
+
+add_executable (ft4sim_mult lib/ft4/ft4sim_mult.f90)
+target_link_libraries (ft4sim_mult wsjt_fort wsjt_cxx)
+
+add_executable (fst4sim lib/fst4/fst4sim.f90)
+target_link_libraries (fst4sim wsjt_fort wsjt_cxx)
+
+add_executable (ldpcsim240_101 lib/fst4/ldpcsim240_101.f90)
+target_link_libraries (ldpcsim240_101 wsjt_fort wsjt_cxx)
+
+add_executable (ldpcsim240_74 lib/fst4/ldpcsim240_74.f90)
+target_link_libraries (ldpcsim240_74 wsjt_fort wsjt_cxx)
+
+endif(WSJT_BUILD_UTILS)
+
+add_executable (fmtave lib/fmtave.f90)
+
+add_executable (fcal lib/fcal.f90)
+
+add_executable (fmeasure lib/fmeasure.f90)
+
+# build the wsprd WSPR mode decoder driver
+generate_version_info (wsprd_VERSION_RESOURCES
+  NAME wsprd
+  BUNDLE ${PROJECT_BUNDLE_NAME}
+  ICON ${WSJTX_ICON_FILE}
+  FILE_DESCRIPTION "WSPR mode decoder"
+  )
+add_executable (wsprd ${wsprd_CSRCS} lib/indexx.f90 lib/wsprd/osdwspr.f90 ${wsprd_VERSION_RESOURCES})
+target_include_directories (wsprd PRIVATE ${FFTW3_INCLUDE_DIRS})
+target_link_libraries (wsprd ${FFTW3_LIBRARIES} ${LIBM_LIBRARIES})
+
 # Tell CMake to run moc when necessary
 set (CMAKE_AUTOMOC ON)
 include_directories (${CMAKE_CURRENT_BINARY_DIR})
@@ -1108,14 +1214,6 @@ include_directories (${CMAKE_CURRENT_BINARY_DIR})
 # As moc files are generated in the binary dir, tell CMake to always
 # look for includes there:
 set (CMAKE_INCLUDE_CURRENT_DIR ON)
-
-# project definitions
-add_definitions (-DQT5 -DCMAKE_BUILD -DBIGSYM=1)
-if (CMAKE_HOST_UNIX)
-  add_definitions (-DUNIX)
-elseif (CMAKE_HOST_WIN32)
-  add_definitions (-DWIN32)
-endif ()
 
 #
 # source navigation
@@ -1200,7 +1298,6 @@ add_resources (wsjtx_RESOURCES /Translations ${QM_FILES})
 
 configure_file (wsjtx.qrc.in wsjtx.qrc @ONLY)
 
-
 # UI generation
 qt5_wrap_ui (wsjt_qt_GENUISRCS ${wsjt_qt_UISRCS})
 qt5_wrap_ui (wsjtx_GENUISRCS ${wsjtx_UISRCS})
@@ -1218,39 +1315,11 @@ if (WIN32)
 endif (WIN32)
 
 #
-# targets
+# targets dependent on Qt
 #
 
-# build a library of package functionality (without and optionally with OpenMP support)
-add_library (wsjt_cxx STATIC ${wsjt_CSRCS} ${wsjt_CXXSRCS})
-
-# build an OpenMP variant of the Fortran library routines
-add_library (wsjt_fort STATIC ${wsjt_FSRCS})
-target_link_libraries (wsjt_fort  ${FFTW3_LIBRARIES})
-if (${OPENMP_FOUND} OR APPLE)
-  add_library (wsjt_fort_omp STATIC ${wsjt_FSRCS})
-  target_link_libraries (wsjt_fort_omp  ${FFTW3_LIBRARIES})
-  if (OpenMP_C_FLAGS)
-    set_target_properties (wsjt_fort_omp
-      PROPERTIES
-      COMPILE_FLAGS "${OpenMP_C_FLAGS}"
-      )
-  endif ()
-  set_target_properties (wsjt_fort_omp
-    PROPERTIES
-    Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/fortran_modules_omp
-    )
-  file (MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/fortran_modules_omp)
-  if (APPLE)
-    # On  Mac  we don't  have  working  OpenMP  support in  the  C/C++
-    # compilers so  we have to manually  set the correct flags  to get
-    # OpenMP support in jt9.
-    target_compile_options (wsjt_fort_omp
-      PRIVATE
-      $<$<COMPILE_LANGUAGE:Fortran>:-fopenmp>   # assumes GNU style Fortran compiler
-      )
-  endif (APPLE)
-endif (${OPENMP_FOUND} OR APPLE)
+add_executable (record_time_signal Audio/tools/record_time_signal.cpp)
+target_link_libraries (record_time_signal wsjt_cxx wsjt_qtmm wsjt_qt)
 
 # build a library for the QCustomPlot widget
 add_library (qcp STATIC ${qcp_CXXSRCS})
@@ -1275,18 +1344,15 @@ target_link_libraries (fort_qt Qt5::Core)
 add_library (wsjt_qtmm STATIC ${wsjt_qtmm_CXXSRCS} ${wsjt_qtmm_GENUISRCS})
 target_link_libraries (wsjt_qtmm Qt5::Multimedia)
 
-# Always build these:
-add_executable (wsprd ${wsprd_CSRCS} lib/indexx.f90 lib/wsprd/osdwspr.f90)
-target_include_directories (wsprd PRIVATE ${FFTW3_INCLUDE_DIRS})
-target_link_libraries (wsprd ${FFTW3_LIBRARIES})
+# build the jt9 slow mode decoder driver
+generate_version_info (jt9_VERSION_RESOURCES
+  NAME jt9
+  BUNDLE ${PROJECT_BUNDLE_NAME}
+  ICON ${WSJTX_ICON_FILE}
+  FILE_DESCRIPTION "Slow mode decoder"
+  )
 
-add_executable (fmtave lib/fmtave.f90 wsjtx.rc)
-
-add_executable (fcal lib/fcal.f90 wsjtx.rc)
-
-add_executable (fmeasure lib/fmeasure.f90 wsjtx.rc)
-
-add_executable (jt9 ${jt9_FSRCS} wsjtx.rc)
+add_executable (jt9 ${jt9_FSRCS} ${jt9_VERSION_RESOURCES})
 if (${OPENMP_FOUND} OR APPLE)
   if (APPLE)
     # On  Mac  we don't  have  working  OpenMP  support in  the  C/C++
@@ -1324,100 +1390,19 @@ else (${OPENMP_FOUND} OR APPLE)
   target_link_libraries (jt9 wsjt_fort wsjt_cxx fort_qt)
 endif (${OPENMP_FOUND} OR APPLE)
 
-if(WSJT_BUILD_UTILS) 
-add_executable (jt4sim lib/jt4sim.f90 wsjtx.rc)
-target_link_libraries (jt4sim wsjt_fort wsjt_cxx)
-
-add_executable (jt65sim lib/jt65sim.f90 wsjtx.rc)
-target_link_libraries (jt65sim wsjt_fort wsjt_cxx)
-
-add_executable (sumsim lib/sumsim.f90 wsjtx.rc)
-target_link_libraries (sumsim wsjt_fort wsjt_cxx)
-
-add_executable (qra64sim lib/qra/qra64/qra64sim.f90 wsjtx.rc)
-target_link_libraries (qra64sim wsjt_fort wsjt_cxx)
-
-add_executable (qra65sim lib/qra/qra65/qra65sim.f90 wsjtx.rc)
-target_link_libraries (qra65sim wsjt_fort wsjt_cxx)
-
-add_executable (test_qra64 lib/test_qra64.f90 wsjtx.rc)
-target_link_libraries (test_qra64 wsjt_fort wsjt_cxx)
-
-add_executable (test_qra65 lib/test_qra65.f90 wsjtx.rc)
-target_link_libraries (test_qra65 wsjt_fort wsjt_cxx)
-
-add_executable (jt49sim lib/jt49sim.f90 wsjtx.rc)
-target_link_libraries (jt49sim wsjt_fort wsjt_cxx)
-
-add_executable (allsim lib/allsim.f90 wsjtx.rc)
-target_link_libraries (allsim wsjt_fort wsjt_cxx)
-
-add_executable (rtty_spec lib/rtty_spec.f90 wsjtx.rc)
-target_link_libraries (rtty_spec wsjt_fort wsjt_cxx)
-
-add_executable (jt65code lib/jt65code.f90 wsjtx.rc)
-target_link_libraries (jt65code wsjt_fort wsjt_cxx)
-
-add_executable (qra64code lib/qra64code.f90 wsjtx.rc)
-target_link_libraries (qra64code wsjt_fort wsjt_cxx)
-
-add_executable (jt9code lib/jt9code.f90 wsjtx.rc)
-target_link_libraries (jt9code wsjt_fort wsjt_cxx)
-
-add_executable (wsprcode lib/wsprcode/wsprcode.f90 lib/wsprcode/nhash.c
-	       wsjtx.rc)
-target_link_libraries (wsprcode wsjt_fort wsjt_cxx)
-	       
-add_executable (encode77 lib/77bit/encode77.f90 wsjtx.rc)
-target_link_libraries (encode77 wsjt_fort wsjt_cxx)
-
-add_executable (wsprsim ${wsprsim_CSRCS})
-
-add_executable (jt4code lib/jt4code.f90 wsjtx.rc)
-target_link_libraries (jt4code wsjt_fort wsjt_cxx)
-
-add_executable (msk144code lib/msk144code.f90 wsjtx.rc)
-target_link_libraries (msk144code wsjt_fort wsjt_cxx)
-
-add_executable (ft8code lib/ft8/ft8code.f90 wsjtx.rc)
-target_link_libraries (ft8code wsjt_fort wsjt_cxx)
-
-add_executable (ft4code lib/ft4/ft4code.f90 wsjtx.rc)
-target_link_libraries (ft4code wsjt_fort wsjt_cxx)
-
-add_executable (ft8sim lib/ft8/ft8sim.f90 wsjtx.rc)
-target_link_libraries (ft8sim wsjt_fort wsjt_cxx)
-
-add_executable (msk144sim lib/msk144sim.f90 wsjtx.rc)
-target_link_libraries (msk144sim wsjt_fort wsjt_cxx)
-
-add_executable (ft4sim lib/ft4/ft4sim.f90 wsjtx.rc)
-target_link_libraries (ft4sim wsjt_fort wsjt_cxx)
-
-add_executable (ft4sim_mult lib/ft4/ft4sim_mult.f90 wsjtx.rc)
-target_link_libraries (ft4sim_mult wsjt_fort wsjt_cxx)
-
-add_executable (record_time_signal Audio/tools/record_time_signal.cpp)
-target_link_libraries (record_time_signal wsjt_cxx wsjt_qtmm wsjt_qt)
-
-add_executable (fst4sim lib/fst4/fst4sim.f90 wsjtx.rc)
-target_link_libraries (fst4sim wsjt_fort wsjt_cxx)
-
-add_executable (ldpcsim240_101 lib/fst4/ldpcsim240_101.f90 wsjtx.rc)
-target_link_libraries (ldpcsim240_101 wsjt_fort wsjt_cxx)
-
-add_executable (ldpcsim240_74 lib/fst4/ldpcsim240_74.f90 wsjtx.rc)
-target_link_libraries (ldpcsim240_74 wsjt_fort wsjt_cxx)
-
-endif(WSJT_BUILD_UTILS)
-
 # build the main application
+generate_version_info (wsjtx_VERSION_RESOURCES
+  NAME wsjtx
+  BUNDLE ${PROJECT_BUNDLE_NAME}
+  ICON ${WSJTX_ICON_FILE}
+  )
+
 add_executable (wsjtx MACOSX_BUNDLE
   ${wsjtx_CXXSRCS}
   ${wsjtx_GENUISRCS}
-  wsjtx.rc
   ${WSJTX_ICON_FILE}
   ${wsjtx_RESOURCES_RCC}
+  ${wsjtx_VERSION_RESOURCES}
   )
 
 if (WSJT_CREATE_WINMAIN)
@@ -1426,12 +1411,12 @@ endif (WSJT_CREATE_WINMAIN)
 
 set_target_properties (wsjtx PROPERTIES
   MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/Darwin/Info.plist.in"
-  MACOSX_BUNDLE_INFO_STRING "${WSJTX_DESCRIPTION_SUMMARY}"
+  MACOSX_BUNDLE_INFO_STRING "${PROJECT_DESCRIPTION}"
   MACOSX_BUNDLE_ICON_FILE "${WSJTX_ICON_FILE}"
-  MACOSX_BUNDLE_BUNDLE_VERSION ${wsjtx_VERSION}
-  MACOSX_BUNDLE_SHORT_VERSION_STRING "v${wsjtx_VERSION}"
-  MACOSX_BUNDLE_LONG_VERSION_STRING "Version ${wsjtx_VERSION}"
-  MACOSX_BUNDLE_BUNDLE_NAME "${PROJECT_NAME}"
+  MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}
+  MACOSX_BUNDLE_SHORT_VERSION_STRING "v${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}"
+  MACOSX_BUNDLE_LONG_VERSION_STRING "Version ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}${SCS_VERSION_STR}"
+  MACOSX_BUNDLE_BUNDLE_NAME "${PROJECT_BUNDLE_NAME}"
   MACOSX_BUNDLE_BUNDLE_EXECUTABLE_NAME "${PROJECT_NAME}"
   MACOSX_BUNDLE_COPYRIGHT "${PROJECT_COPYRIGHT}"
   MACOSX_BUNDLE_GUI_IDENTIFIER "org.k1jt.wsjtx"
@@ -1439,9 +1424,9 @@ set_target_properties (wsjtx PROPERTIES
 
 target_include_directories (wsjtx PRIVATE ${FFTW3_INCLUDE_DIRS})
 if (APPLE)
-  target_link_libraries (wsjtx Qt5::SerialPort wsjt_fort wsjt_cxx wsjt_qt wsjt_qtmm ${hamlib_LIBRARIES} ${FFTW3_LIBRARIES})
+  target_link_libraries (wsjtx wsjt_fort)
 else ()
-  target_link_libraries (wsjtx Qt5::SerialPort wsjt_fort_omp wsjt_cxx wsjt_qt wsjt_qtmm ${hamlib_LIBRARIES} ${FFTW3_LIBRARIES})
+  target_link_libraries (wsjtx wsjt_fort_omp)
   if (OpenMP_C_FLAGS)
     set_target_properties (wsjtx PROPERTIES
       COMPILE_FLAGS "${OpenMP_C_FLAGS}"
@@ -1457,6 +1442,7 @@ else ()
       )
   endif ()
 endif ()
+target_link_libraries (wsjtx Qt5::SerialPort wsjt_cxx wsjt_qt wsjt_qtmm ${hamlib_LIBRARIES} ${FFTW3_LIBRARIES} ${LIBM_LIBRARIES})
 
 # make a library for WSJT-X UDP servers
 # add_library (wsjtx_udp SHARED ${UDP_library_CXXSRCS})
@@ -1479,9 +1465,21 @@ target_compile_definitions (wsjtx_udp-static PUBLIC UDP_STATIC_DEFINE)
 target_link_libraries (wsjtx_udp-static Qt5::Network Qt5::Gui)
 generate_export_header (wsjtx_udp-static BASE_NAME udp)
 
-add_executable (udp_daemon UDPExamples/UDPDaemon.cpp UDPExamples/udp_daemon.rc ${WSJTX_ICON_FILE})
+generate_version_info (udp_daemon_VERSION_RESOURCES
+  NAME udp_daemon
+  BUNDLE ${PROJECT_BUNDLE_NAME}
+  ICON ${WSJTX_ICON_FILE}
+  FILE_DESCRIPTION "Example WSJT-X UDP Message Protocol daemon"
+  )
+add_executable (udp_daemon UDPExamples/UDPDaemon.cpp ${udp_daemon_VERSION_RESOURCES})
 target_link_libraries (udp_daemon wsjtx_udp-static)
 
+generate_version_info (message_aggregator_VERSION_RESOURCES
+  NAME message_aggregator
+  BUNDLE ${PROJECT_BUNDLE_NAME}
+  ICON ${WSJTX_ICON_FILE}
+  FILE_DESCRIPTION "Example WSJT-X UDP Message Protocol application"
+  )
 add_resources (message_aggregator_RESOURCES /qss ${message_aggregator_STYLESHEETS})
 configure_file (UDPExamples/message_aggregator.qrc.in message_aggregator.qrc @ONLY)
 qt5_add_resources (message_aggregator_RESOURCES_RCC
@@ -1490,9 +1488,8 @@ qt5_add_resources (message_aggregator_RESOURCES_RCC
   )
 add_executable (message_aggregator
   ${message_aggregator_CXXSRCS}
-  ${WSJTX_ICON_FILE}
-  UDPExamples/message_aggregator.rc
   ${message_aggregator_RESOURCES_RCC}
+  ${message_aggregator_VERSION_RESOURCES}
   )
 target_link_libraries (message_aggregator Qt5::Widgets wsjtx_udp-static)
 
@@ -1581,7 +1578,6 @@ install (FILES
   AUTHORS
   THANKS
   NEWS
-  INSTALL
   BUGS
   DESTINATION ${CMAKE_INSTALL_DOCDIR}
   #COMPONENT runtime
@@ -1625,13 +1621,16 @@ add_custom_target (revisiontag
   -D BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}
   -D OUTPUT_DIR=${PROJECT_BINARY_DIR}
   -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake/getsvn.cmake
-  COMMENT "Generating Subversion revision information"
   VERBATIM
+  BYPRODUCTS scs_version.h
+  COMMENT "Getting source control system revision information"
   )
 # explicitly say that the wsjt_qt depends on custom target, this is
 # done indirectly so that the revisiontag target gets built exactly
 # once per build
-add_dependencies(wsjt_qt revisiontag)
+add_dependencies (wsjt_qt revisiontag)
+add_dependencies (jt9 revisiontag)
+add_dependencies (wsprd revisiontag)
 
 
 #
@@ -1831,11 +1830,12 @@ endif (NOT is_debug_build)
 #
 # packaging
 #
+set (CPACK_PACKAGE_DESCRIPTION_FILE "${CMAKE_SOURCE_DIR}/package_description.txt")
 set (CPACK_MONOLITHIC_INSTALL 1)
 set (CPACK_PACKAGE_NAME "${CMAKE_PROJECT_NAME}")
-set (CPACK_PACKAGE_VERSION_MAJOR ${WSJTX_VERSION_MAJOR})
-set (CPACK_PACKAGE_VERSION_MINOR ${WSJTX_VERSION_MINOR})
-set (CPACK_PACKAGE_VERSION_PATCH ${WSJTX_VERSION_PATCH})
+set (CPACK_PACKAGE_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
+set (CPACK_PACKAGE_VERSION_MINOR ${PROJECT_VERSION_MINOR})
+set (CPACK_PACKAGE_VERSION_PATCH ${PROJECT_VERSION_PATCH})
 
 if (WIN32)
   set (CPACK_GENERATOR "NSIS")
@@ -1868,13 +1868,12 @@ else ()
   endif (RPMBUILDER)
 endif ()
 
-set (CPACK_DEBIAN_PACKAGE_DESCRIPTION "${PROJECT_DESCRIPTION}")
 set (CPACK_DEBIAN_PACKAGE_HOMEPAGE "${PROJECT_HOMEPAGE}")
-set (CPACK_DEBIAN_PACKAGE_DEPENDS "libgfortran5 (>=10), libfftw3-single3 (>=3.3.8), libgomp1 (>=10), libqt5serialport5 (>=5.12.8), libqt5multimedia5-plugins (>=5.12.8), libqt5widgets5 (>=5.12.8), libqt5network5 (>=5.12.8), libqt5printsupport5 (>=5.12.8), libqt5sql5-sqlite (>=5.12.8), libusb-1.0-0 (>=1.0.23)")
+set (CPACK_DEBIAN_PACKAGE_DEPENDS "libgfortran5 (>=8.3) | libgfortran4 (>=7.3) | libgfortran3 (>=6.3), libfftw3-single3 (>=3.3), libgomp1 (>=6), libqt5serialport5 (>=5.7), libqt5multimedia5-plugins (>=5.7), libqt5widgets5 (>=5.7), libqt5network5 (>=5.7), libqt5printsupport5 (>=5.7), libqt5sql5-sqlite (>=5.7), libusb-1.0-0 (>=1.0.21), libboost-log1.65.1 (>=1.62.0) | libboost-log1.65.1 (>=1.65.1) | libboost-log1.67.0 (>=1.67.0) | libboost-log1.71.0 (>=1.71.0)")
 set (CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 
 set (CPACK_RPM_PACKAGE_ARCHITECTURE ${CMAKE_SYSTEM_PROCESSOR})
-set (CPACK_RPM_PACKAGE_REQUIRES "qt5-qtbase >= 5.13.2, qt5-qtserialport >= 5.13.2, qt5-qtmultimedia >= 5.13.2, qt5-qtsvg >= 5.13.2, libusbx >= 1.0.23, libgfortran >= 10.0.1, libgomp >= 10.0.1, fftw-libs-single >= 3.3.8")
+set (CPACK_RPM_PACKAGE_REQUIRES "qt5-qtbase >= 5.9, qt5-qtserialport >= 5.9, qt5-qtmultimedia >= 5.9, qt5-qtsvg >= 5.9, libusbx >= 1.0.22, libgfortran >= 7, libgomp >= 7, fftw-libs-single >= 3.3")
 set (CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION /usr/share/pixmaps /usr/share/applications /usr/share/man /usr/share/man1)
 
 configure_file ("${PROJECT_SOURCE_DIR}/CMakeCPackOptions.cmake.in"

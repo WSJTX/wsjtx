@@ -30,7 +30,7 @@ QString revision (QString const& scs_rev_string)
   auto revision_from_scs = revision_extract_number (scs_rev_string);
 
 #if defined (CMAKE_BUILD)
-  QString scs_info {":Rev: " WSJTX_STRINGIZE (SCS_VERSION) " $"};
+  QString scs_info {":Rev: " SCS_VERSION_STR " $"};
 
   auto revision_from_scs_info = revision_extract_number (scs_info);
   if (!revision_from_scs_info.isEmpty ())
@@ -66,14 +66,10 @@ QString revision (QString const& scs_rev_string)
 QString version (bool include_patch)
 {
 #if defined (CMAKE_BUILD)
-  QString v {WSJTX_STRINGIZE (WSJTX_VERSION_MAJOR) "." WSJTX_STRINGIZE (WSJTX_VERSION_MINOR)};
+  QString v {TO_STRING__ (PROJECT_VERSION_MAJOR) "." TO_STRING__ (PROJECT_VERSION_MINOR)};
   if (include_patch)
     {
-      v += "." WSJTX_STRINGIZE (WSJTX_VERSION_PATCH)
-# if defined (WSJTX_RC)
-        + "-rc" WSJTX_STRINGIZE (WSJTX_RC)
-# endif
-        ;
+      v += "." TO_STRING__ (PROJECT_VERSION_PATCH) + QString {BUILD_TYPE_REVISION};
     }
 #else
   QString v {"Not for Release"};
