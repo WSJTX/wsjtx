@@ -22,37 +22,41 @@ Change this to the newest SDK available that you can install on your system (>10
 Do not override this if you intend to build an official deployable installer.")
 endif (APPLE)
 
-project (wsjtx C CXX Fortran)
-
 #
 # CMake policies
 #
 if (POLICY CMP0020)
   cmake_policy (SET CMP0020 NEW) # link to Qt winmain on Windows
-endif (POLICY CMP0020)
+endif ()
 
 if (POLICY CMP0043)
   cmake_policy (SET CMP0043 NEW) # ignore COMPILE_DEFINITIONS_<CONFIG>
-endif (POLICY CMP0043)
+endif ()
+
+if (POLICY CMP0048)
+  cmake_policy (SET CMP0048 NEW) # clear PROJECT_VERSION_* variables if not defined in project() command
+endif ()
 
 if (POLICY CMP0063)
   cmake_policy (SET CMP0063 NEW) # honour visibility properties for all library types
-endif (POLICY CMP0063)
+endif ()
 
 if (POLICY CMP0071)
   cmake_policy (SET CMP0071 NEW) # run automoc and autouic on generated sources
-endif (POLICY CMP0071)
+endif ()
 
 if (POLICY CMP0075)
   cmake_policy (SET CMP0075 NEW) # honour CMAKE_REQUIRED_LIBRARIES in config checks
-endif (POLICY CMP0075)
-
-include (${PROJECT_SOURCE_DIR}/CMake/VersionCompute.cmake)
-message (STATUS "Building ${CMAKE_PROJECT_NAME}-${wsjtx_VERSION}")
+endif ()
 
 #
 # project information
 #
+project (wsjtx C CXX Fortran)
+
+include (${PROJECT_SOURCE_DIR}/CMake/VersionCompute.cmake)
+message (STATUS "Building ${CMAKE_PROJECT_NAME}-${wsjtx_VERSION}")
+
 set (PROJECT_NAME "WSJT-X")
 set (PROJECT_VENDOR "Joe Taylor, K1JT")
 set (PROJECT_CONTACT "Joe Taylor <k1jt@arrl.net>")
