@@ -28,6 +28,10 @@
 #include <QSqlDatabase>
 #include <QSqlQuery>
 #include <QSqlError>
+#include <QVariant>
+#include <QByteArray>
+#include <QBitArray>
+#include <QMetaType>
 
 #include "ExceptionCatchingApplication.hpp"
 #include "Logger.hpp"
@@ -68,23 +72,24 @@ namespace
 
   void safe_stream_QVariant (boost::log::record_ostream& os, QVariant const& v)
   {
-    if (QMetaType::QByteArray == static_cast<QMetaType::Type> (v.type ()))
+    switch (static_cast<QMetaType::Type> (v.type ()))
       {
-        auto const& a =v.toByteArray ();
-        std::ios::fmtflags f (os.flags ());
-        os << std::hex << std::showbase;
-        for (auto p = a.begin (); p != a.end (); )
-          {
-            os << static_cast<int8_t> (*p++);
-            if (p != a.end ())
-              {
-                os << ' ';
-              }
-          }
-        os.flags (f);
-      }
-    else
-      {
+      case QMetaType::QByteArray:
+        os << "0x" << v.toByteArray ().toHex (':').toStdString ();
+        break;
+
+      case QMetaType::QBitArray:
+        {
+          auto const& bits = v.toBitArray ();
+          os << "0b";
+          for (int i = 0; i < bits.size (); ++ i)
+            {
+              os << (bits[i] ? '1' : '0');
+            }
+        }
+        break;
+
+      default:
         os << v.toString ();
       }
   }
