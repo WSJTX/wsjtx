@@ -1055,7 +1055,7 @@ endif ()
 
 # build a library of package functionality (without and optionally with OpenMP support)
 add_library (wsjt_cxx STATIC ${wsjt_CSRCS} ${wsjt_CXXSRCS})
-target_link_libraries (wsjt_cxx ${LIBM_LIBRARIES})
+target_link_libraries (wsjt_cxx ${LIBM_LIBRARIES} Boost::log_setup ${LIBM_LIBRARIES})
 
 # build an OpenMP variant of the Fortran library routines
 add_library (wsjt_fort STATIC ${wsjt_FSRCS})
@@ -1288,39 +1288,6 @@ endif (WIN32)
 #
 # targets dependent on Qt
 #
-
-# build a library of package functionality (without and optionally with OpenMP support)
-add_library (wsjt_cxx STATIC ${wsjt_CSRCS} ${wsjt_CXXSRCS})
-target_compile_definitions (wsjt_cxx PUBLIC BOOST_LOG_DYN_LINK)
-target_link_libraries (wsjt_cxx Boost::log_setup)
-
-# build an OpenMP variant of the Fortran library routines
-add_library (wsjt_fort STATIC ${wsjt_FSRCS})
-target_link_libraries (wsjt_fort  ${FFTW3_LIBRARIES})
-if (${OPENMP_FOUND} OR APPLE)
-  add_library (wsjt_fort_omp STATIC ${wsjt_FSRCS})
-  target_link_libraries (wsjt_fort_omp  ${FFTW3_LIBRARIES})
-  if (OpenMP_C_FLAGS)
-    set_target_properties (wsjt_fort_omp
-      PROPERTIES
-      COMPILE_FLAGS "${OpenMP_C_FLAGS}"
-      )
-  endif ()
-  set_target_properties (wsjt_fort_omp
-    PROPERTIES
-    Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/fortran_modules_omp
-    )
-  file (MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/fortran_modules_omp)
-  if (APPLE)
-    # On  Mac  we don't  have  working  OpenMP  support in  the  C/C++
-    # compilers so  we have to manually  set the correct flags  to get
-    # OpenMP support in jt9.
-    target_compile_options (wsjt_fort_omp
-      PRIVATE
-      $<$<COMPILE_LANGUAGE:Fortran>:-fopenmp>   # assumes GNU style Fortran compiler
-      )
-  endif (APPLE)
-endif (${OPENMP_FOUND} OR APPLE)
 
 # build a library for the QCustomPlot widget
 add_library (qcp STATIC ${qcp_CXXSRCS})
