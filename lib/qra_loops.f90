@@ -69,7 +69,6 @@ subroutine qra_loops(c00,npts2,mode,mode64,nsubmode,nFadingModel,minsync,  &
            endif
         enddo  ! ibw (b90 loop)
         if(iand(ndepth,3).lt.3 .and. irc.ge.0) go to 100
-        if(irc.eq.0) go to 100
      enddo  ! idt (DT loop)
   enddo  ! idf (f0 loop)
 
@@ -85,5 +84,9 @@ subroutine qra_loops(c00,npts2,mode,mode64,nsubmode,nFadingModel,minsync,  &
      ibw=ibwkeep
   endif
 
-200 return
+200 continue
+  write(53,3053) idt,idf,ibw,irc,b90,xdt,f0,snr2
+3053 format(4i5,f7.1,f7.2,2f7.1)
+  
+  return
 end subroutine qra_loops

@@ -93,8 +93,9 @@ contains
 
 ! AP control could be done differently, but this works well:
     maxaptype=0
-    if(ndepth.eq.2) maxaptype=3
-    if(ndepth.eq.3) maxaptype=5
+!    if(ndepth.eq.2) maxaptype=3
+!    if(ndepth.eq.3) maxaptype=5
+    if(ndepth.ge.2) maxaptype=5       !###
 
     if(nc1.ne.nc1z .or. nc2.ne.nc2z .or. ng2.ne.ng2z .or.            &
          maxaptype.ne.maxaptypez) then
