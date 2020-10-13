@@ -13,7 +13,7 @@ if (APPLE)
   set (CMAKE_OSX_DEPLOYMENT_TARGET 10.12
     CACHE STRING "Earliest version of macOS supported
 
-Earliest version we can support with Qt 5.12, C++11 & libc++ is 10.13.
+Earliest version we can support with Qt 5.12, C++11 & libc++ is 10.12.
 Do not override this if you intend to build an official deployable installer.")
 endif (APPLE)
 
@@ -29,7 +29,7 @@ if (POLICY CMP0043)
 endif ()
 
 if (POLICY CMP0048)
-  cmake_policy (SET CMP0048 NEW) # clear PROJECT_Version_* vriables if not set in project() command
+  cmake_policy (SET CMP0048 NEW) # clear PROJECT_Version_* variables if not set in project() command
 endif ()
 
 if (POLICY CMP0063)
@@ -38,6 +38,10 @@ endif ()
 
 if (POLICY CMP0071)
   cmake_policy (SET CMP0071 NEW) # run automoc and autouic on generated sources
+endif ()
+
+if (POLICY CMP0075)
+  cmake_policy (SET CMP0075 NEW) # honour CMAKE_REQUIRED_LIBRARIES in config checks
 endif ()
 
 project (wsjtx
@@ -802,6 +806,7 @@ endif (APPLE)
 #
 # find some useful tools
 #
+include (CheckTypeSize)
 include (CheckCSourceCompiles)
 include (CheckSymbolExists)
 include (generate_version_info)
@@ -859,7 +864,8 @@ message (STATUS "hamlib_LIBRARY_DIRS: ${hamlib_LIBRARY_DIRS}")
 
 set (CMAKE_REQUIRED_INCLUDES "${hamlib_INCLUDE_DIRS}")
 set (CMAKE_REQUIRED_LIBRARIES "${hamlib_LIBRARIES}")
-check_symbol_exists (CACHE_ALL "hamlib/rig.h" HAVE_HAMLIB_OLD_CACHING)
+set (CMAKE_EXTRA_INCLUDE_FILES "hamlib/rig.h")
+check_type_size (CACHE_ALL HAMLIB_OLD_CACHING)
 check_symbol_exists (rig_set_cache_timeout_ms "hamlib/rig.h" HAVE_HAMLIB_CACHING)
 
 

@@ -227,7 +227,7 @@ contains
       ndropmax=1
       single_decode=iand(nexp_decode,32).ne.0
       npct=0
-      nb=nexp_decode/256 - 2
+      nb=nexp_decode/256 - 3
       if(nb.ge.0) npct=nb
       inb1=20
       inb2=5
@@ -235,6 +235,8 @@ contains
          inb2=5                !Try NB = 0, 5, 10, 15, 20%
       else if(nb.eq.-2) then
          inb2=2                !Try NB = 0, 2, 4,... 20%
+      else if(nb.eq.-3) then
+         inb2=1                !Try NB = 0, 1, 2,... 20%
       else
          inb1=0                !Fixed NB value, 0 to 25%
          ipct(0)=npct
@@ -900,6 +902,6 @@ contains
       enddo
 
       return
-   end subroutine dopspread
+    end subroutine dopspread
 
 end module fst4_decode

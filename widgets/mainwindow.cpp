@@ -3131,7 +3131,7 @@ void MainWindow::decode()                                       //decode()
   dec_data.params.nexp_decode = static_cast<int> (m_config.special_op_id());
   if(m_config.single_decode()) dec_data.params.nexp_decode += 32;
   if(m_config.enable_VHF_features()) dec_data.params.nexp_decode += 64;
-  if(m_mode.startsWith("FST4")) dec_data.params.nexp_decode += 256*(ui->sbNB->value()+2);
+  if(m_mode.startsWith("FST4")) dec_data.params.nexp_decode += 256*(ui->sbNB->value()+3);
 
   ::memcpy(dec_data.params.datetime, m_dateTime.toLatin1()+"    ", sizeof dec_data.params.datetime);
   ::memcpy(dec_data.params.mycall, (m_config.my_callsign()+"            ").toLatin1(), sizeof dec_data.params.mycall);
@@ -3259,7 +3259,14 @@ void MainWindow::decodeDone ()
   if(m_mode=="QRA64") m_wideGraph->drawRed(0,0);
   if ("FST4W" == m_mode)
     {
-      uploadWSPRSpots (true); // DE station info and trigger posts
+      if (m_uploadWSPRSpots
+          && m_config.is_transceiver_online ()) { // need working rig control
+#if QT_VERSION >= QT_VERSION_CHECK (5, 15, 0)
+        uploadTimer.start(QRandomGenerator::global ()->bounded (0, 20000)); // Upload delay
+#else
+        uploadTimer.start(20000 * qrand()/((double)RAND_MAX + 1.0)); // Upload delay
+#endif
+      }
     }
   auto tnow = QDateTime::currentDateTimeUtc ();
   double tdone = fmod(double(tnow.time().second()),m_TRperiod);
@@ -3306,6 +3313,12 @@ void MainWindow::readFromStdout()                             //readFromStdout
             fSpread = text.toFloat (&haveFSpread);
             line_read = line_read.left (64);
           }
+        auto const& cs = m_config.my_callsign ().toLocal8Bit ();
+        if ("FST4W" == m_mode && ui->cbNoOwnCall->isChecked ()
+            && (line_read.contains (" " + cs + " ")
+                || line_read.contains ("<" + cs + ">"))) {
+          continue;
+        }
       }
     if (m_mode!="FT8" and m_mode!="FT4"
         && !m_mode.startsWith ("FST4")) {
@@ -4042,7 +4055,9 @@ void MainWindow::guiUpdate()
             }
             genfst4_(message,&ichk,msgsent,const_cast<char *> (fst4msgbits),
                            const_cast<int *>(itone), &iwspr, 37, 37);
-            int hmod=1;                         //No FST4/W submodes
+            int hmod=1;
+            if(m_config.x2ToneSpacing()) hmod=2;
+            if(m_config.x4ToneSpacing()) hmod=4;
             int nsps=720;
             if(m_TRperiod==30) nsps=1680;
             if(m_TRperiod==60) nsps=3888;
@@ -4055,6 +4070,7 @@ void MainWindow::guiUpdate()
             float fsample=48000.0;
             float dfreq=hmod*fsample/nsps;
             float f0=ui->TxFreqSpinBox->value() - m_XIT + 1.5*dfreq;
+            if(m_mode=="FST4W") f0=ui->WSPRfreqSpinBox->value() - m_XIT + 1.5*dfreq;
             int nwave=(nsym+2)*nsps;
             int icmplx=0;
             gen_fst4wave_(const_cast<int *>(itone),&nsym,&nsps,&nwave,
@@ -6677,8 +6693,8 @@ void MainWindow::chk_FST4_freq_range()
   int diff=ui->sbF_High->value() - ui->sbF_Low->value();
 
   if(diff<100 or diff>maxDiff) {
-    ui->sbF_Low->setStyleSheet("QSpinBox { background-color: red; }");
-    ui->sbF_High->setStyleSheet("QSpinBox { background-color: red; }");
+    ui->sbF_Low->setStyleSheet("QSpinBox { color: white; background-color: red; }");
+    ui->sbF_High->setStyleSheet("QSpinBox { color: white; background-color: red; }");
   } else {
     ui->sbF_Low->setStyleSheet("");
     ui->sbF_High->setStyleSheet("");
@@ -7047,7 +7063,7 @@ void MainWindow::setFreq4(int rxFreq, int txFreq)
   } else {
     if (ui->TxFreqSpinBox->isEnabled ()) {
       ui->TxFreqSpinBox->setValue(txFreq);
-      if ("FT8" == m_mode || "FT4" == m_mode)
+      if ("FT8" == m_mode || "FT4" == m_mode || m_mode=="FST4")
         {
           // we need to regenerate the current transmit waveform for
           // GFSK modulated modes
@@ -7228,11 +7244,13 @@ void MainWindow::transmit (double snr)
     if(m_TRperiod==300) nsps=21504;
     if(m_TRperiod==900) nsps=66560;
     if(m_TRperiod==1800) nsps=134400;
-    int hmod=1;                               //No FST4/W submodes
+    int hmod=1;
+    if(m_config.x2ToneSpacing()) hmod=2;
+    if(m_config.x4ToneSpacing()) hmod=4;
     double dfreq=hmod*12000.0/nsps;
     double f0=ui->WSPRfreqSpinBox->value() - m_XIT;
     if(m_mode=="FST4") f0=ui->TxFreqSpinBox->value() - m_XIT;
-    if(!m_tune) f0 += + 1.5*dfreq;
+    if(!m_tune) f0 += 1.5*dfreq;
     Q_EMIT sendMessage (m_mode, NUM_FST4_SYMBOLS,double(nsps),f0,toneSpacing,
                         m_soundOutput,m_config.audio_output_channel(),
                         true, false, snr, m_TRperiod);
@@ -7959,35 +7977,38 @@ void MainWindow::uploadWSPRSpots (bool direct_post, QString const& decode_text)
 {
   // do not spot if disabled, replays, or if rig control not working
   if(!m_uploadWSPRSpots || m_diskData || !m_config.is_transceiver_online ()) return;
-  if(m_uploading) {
+  if(m_uploading && !decode_text.size ()) {
     qDebug() << "Previous upload has not completed, spots were lost";
     wsprNet->abortOutstandingRequests ();
     m_uploading = false;
   }
-  QString rfreq = QString("%1").arg((m_dialFreqRxWSPR + 1500) / 1e6, 0, 'f', 6);
+  QString rfreq = QString("%1").arg((m_dialFreqRxWSPR + m_wideGraph->rxFreq ()) / 1e6, 0, 'f', 6);
   QString tfreq = QString("%1").arg((m_dialFreqRxWSPR +
                         ui->TxFreqSpinBox->value()) / 1e6, 0, 'f', 6);
   auto pct = QString::number (ui->autoButton->isChecked () ? ui->sbTxPercent->value () : 0);
-  if (!direct_post)
+  if (direct_post)
     {
+      // queues one FST4W spot
+      wsprNet->post (m_config.my_callsign (), m_config.my_grid (), rfreq, tfreq,
+                     m_mode, m_TRperiod, pct,
+                     QString::number (m_dBm), version (), decode_text);
+    }
+  else
+    {
+      // queues spots for each decode in wspr_spots.txt
       wsprNet->upload (m_config.my_callsign (), m_config.my_grid (), rfreq, tfreq,
                        m_mode, m_TRperiod, pct,
                        QString::number (m_dBm), version (),
                        m_config.writeable_data_dir ().absoluteFilePath ("wspr_spots.txt"));
     }
-  else
-    {
-      wsprNet->post (m_config.my_callsign (), m_config.my_grid (), rfreq, tfreq,
-                     m_mode, m_TRperiod, pct,
-                     QString::number (m_dBm), version (), decode_text);
-    }
+  // trigger upload of any queued spots
   if (!decode_text.size ())
     {
       m_uploading = true;
     }
 }
 
-void MainWindow::uploadResponse(QString response)
+void MainWindow::uploadResponse(QString const& response)
 {
   if (response == "done") {
     m_uploading=false;
@@ -8276,12 +8297,22 @@ void MainWindow::statusUpdate () const
   if (!ui || m_block_udp_status_updates) return;
   auto submode = current_submode ();
   auto ftol = ui->sbFtol->value ();
-  if (!(ui->sbFtol->isVisible () && ui->sbFtol->isEnabled ()))
+  if ("FST4W" == m_mode)
+    {
+      ftol = ui->sbFST4W_FTol->value ();
+    }
+  else if (!(ui->sbFtol->isVisible () && ui->sbFtol->isEnabled ()))
     {
       ftol = quint32_max;
     }
   auto tr_period = ui->sbTR->value ();
-  if (!(ui->sbTR->isVisible () && ui->sbTR->isEnabled ()))
+  auto rx_frequency = ui->RxFreqSpinBox->value ();
+  if ("FST4W" == m_mode)
+    {
+      tr_period = ui->sbTR_FST4W->value ();
+      rx_frequency = ui->sbFST4W_RxFreq->value ();
+    }
+  else if (!(ui->sbTR->isVisible () && ui->sbTR->isEnabled ()))
     {
       tr_period = quint32_max;
     }
@@ -8289,7 +8320,7 @@ void MainWindow::statusUpdate () const
                                   QString::number (ui->rptSpinBox->value ()),
                                   m_modeTx, ui->autoButton->isChecked (),
                                   m_transmitting, m_decoderBusy,
-                                  ui->RxFreqSpinBox->value (), ui->TxFreqSpinBox->value (),
+                                  rx_frequency, ui->TxFreqSpinBox->value (),
                                   m_config.my_callsign (), m_config.my_grid (),
                                   m_hisGrid, m_tx_watchdog,
                                   submode != QChar::Null ? QString {submode} : QString {}, m_bFastMode,
@@ -9195,9 +9226,19 @@ void MainWindow::remote_configure (QString const& mode, quint32 frequency_tolera
     {
       set_mode (mode);
     }
-  if (frequency_tolerance != quint32_max && ui->sbFtol->isVisible ())
+  auto is_FST4W = "FST4W" == m_mode;
+  if (frequency_tolerance != quint32_max && (ui->sbFtol->isVisible () || is_FST4W))
     {
-      ui->sbFtol->setValue (frequency_tolerance);
+      m_block_udp_status_updates = true;
+      if (is_FST4W)
+        {
+          ui->sbFST4W_FTol->setValue (frequency_tolerance);
+        }
+      else
+        {
+          ui->sbFtol->setValue (frequency_tolerance);
+        }
+      m_block_udp_status_updates = false;
     }
   if (submode.size () && ui->sbSubmode->isVisible ())
     {
@@ -9209,14 +9250,30 @@ void MainWindow::remote_configure (QString const& mode, quint32 frequency_tolera
     }
   if (tr_period != quint32_max && ui->sbTR->isVisible ())
     {
-      ui->sbTR->setValue (tr_period);
-      ui->sbTR->interpretText ();
+      if (is_FST4W)
+        {
+          ui->sbTR_FST4W->setValue (tr_period);
+          ui->sbTR_FST4W->interpretText ();
+        }
+      else
+        {
+          ui->sbTR->setValue (tr_period);
+          ui->sbTR->interpretText ();
+        }
     }
   if (rx_df != quint32_max && ui->RxFreqSpinBox->isVisible ())
     {
       m_block_udp_status_updates = true;
-      ui->RxFreqSpinBox->setValue (rx_df);
-      ui->RxFreqSpinBox->interpretText ();
+      if (is_FST4W)
+        {
+          ui->sbFST4W_RxFreq->setValue (rx_df);
+          ui->sbFST4W_RxFreq->interpretText ();
+        }
+      else
+        {
+          ui->RxFreqSpinBox->setValue (rx_df);
+          ui->RxFreqSpinBox->interpretText ();
+        }
       m_block_udp_status_updates = false;
     }
   if (dx_call.size () && ui->dxCallEntry->isVisible ())

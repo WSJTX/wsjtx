@@ -1051,17 +1051,12 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
 
   //
   // validation
+  //
   ui_->callsign_line_edit->setValidator (new CallsignValidator {this});
   ui_->grid_line_edit->setValidator (new MaidenheadLocatorValidator {this});
   ui_->add_macro_line_edit->setValidator (new QRegularExpressionValidator {message_alphabet, this});
   ui_->Field_Day_Exchange->setValidator (new QRegularExpressionValidator {field_day_exchange_re, this});
   ui_->RTTY_Exchange->setValidator (new QRegularExpressionValidator {RTTY_roundup_exchange_re, this});
-
-  ui_->udp_server_port_spin_box->setMinimum (1);
-  ui_->udp_server_port_spin_box->setMaximum (std::numeric_limits<port_type>::max ());
-
-  ui_->n1mm_server_port_spin_box->setMinimum (1);
-  ui_->n1mm_server_port_spin_box->setMaximum (std::numeric_limits<port_type>::max ());
 
   //
   // assign ids to radio buttons

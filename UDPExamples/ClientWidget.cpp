@@ -184,10 +184,10 @@ ClientWidget::ClientWidget (QAbstractItemModel * decodes_model, QAbstractItemMod
   message_line_edit_->setValidator (&message_validator);
   grid_line_edit_->setValidator (&locator_validator);
   dx_grid_line_edit_->setValidator (&locator_validator);
-  tr_period_spin_box_->setRange (5, 30);
+  tr_period_spin_box_->setRange (5, 1800);
   tr_period_spin_box_->setSuffix (" s");
   rx_df_spin_box_->setRange (200, 5000);
-  frequency_tolerance_spin_box_->setRange (10, 1000);
+  frequency_tolerance_spin_box_->setRange (1, 1000);
   frequency_tolerance_spin_box_->setPrefix ("\u00b1");
   frequency_tolerance_spin_box_->setSuffix (" Hz");
 

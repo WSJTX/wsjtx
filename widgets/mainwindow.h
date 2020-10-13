@@ -280,7 +280,7 @@ private slots:
   void WSPR_config(bool b);
   void uploadWSPRSpots (bool direct_post = false, QString const& decode_text = QString {});
   void TxAgain();
-  void uploadResponse(QString response);
+  void uploadResponse(QString const& response);
   void on_WSPRfreqSpinBox_valueChanged(int n);
   void on_sbFST4W_RxFreq_valueChanged(int n);
   void on_sbFST4W_FTol_valueChanged(int n);
