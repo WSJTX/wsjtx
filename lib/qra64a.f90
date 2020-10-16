@@ -101,7 +101,7 @@ subroutine qra_params(ndepth,maxaptype,idf0max,idt0max,ibwmin,ibwmax)
 
   integer iparam(6)
   logical first,ex
-  data iparam/3,5,11,5,9,9/     !Default values
+  data iparam/3,5,11,5,0,9/     !Default values
   data first/.true./
   save first,iparam
 
