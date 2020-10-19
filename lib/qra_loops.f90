@@ -9,7 +9,6 @@ subroutine qra_loops(c00,npts2,mode,mode64,nsubmode,nFadingModel,      &
   complex c0(0:720000)             !Ditto, with freq shift
   real a(3)                        !twkfreq params f,f1,f2
   real s3(LN)                      !Symbol spectra
-  real s3a(LN)                     !Saved symbol spectra
   real s3avg(LN)                   !Averaged symbol spectra
   integer dat4(12),dat4x(12)       !Decoded message (as 12 integers)
   integer nap(0:11)                !AP return codes
@@ -56,7 +55,7 @@ subroutine qra_loops(c00,npts2,mode,mode64,nsubmode,nFadingModel,      &
               call pctile(s3,LL*NN,40,base)
               s3=s3/base
               where(s3(1:LL*NN)>s3lim) s3(1:LL*NN)=s3lim
-              if(iavg.eq.0 .and. idf.eq.1 .and. idt.eq.1) s3a(1:LL*NN)=s3(1:LL*NN)
+!              if(iavg.eq.0 .and. idf.eq.1 .and. idt.eq.1) s3a(1:LL*NN)=s3(1:LL*NN)
            else
               s3(1:LL*NN)=s3avg(1:LL*NN)
            endif
@@ -92,8 +91,18 @@ subroutine qra_loops(c00,npts2,mode,mode64,nsubmode,nFadingModel,      &
            !###        if(iand(ndepth,3).lt.3 .and. irc.ge.0) go to 100
         enddo  ! idt (DT loop)
      enddo  ! idf (f0 loop)
-     if(iavg.eq.0 .and. abs(jpk0-4320).le.1300) then
-        s3avg(1:LL*NN)=s3avg(1:LL*NN)+s3a(1:LL*NN)
+!     if(iavg.eq.0 .and. abs(jpk0-4320).le.1300) then
+     if(iavg.eq.0) then
+        a=0.
+        a(1)=-f0
+        call twkfreq(c00,c0,npts2,6000.0,a)
+!        jpk=4320
+        jpk=4080
+        call spec64(c0,nsps,mode,jpk,s3,LL,NN)
+        call pctile(s3,LL*NN,40,base)
+        s3=s3/base
+        where(s3(1:LL*NN)>s3lim) s3(1:LL*NN)=s3lim
+        s3avg(1:LL*NN)=s3avg(1:LL*NN)+s3(1:LL*NN)
         nsave=nsave+1
      endif
      if(iavg.eq.0 .and. nsave.lt.2) exit
