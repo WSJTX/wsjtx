@@ -135,6 +135,7 @@ subroutine qra_loops(c00,npts2,mode,mode64,nsubmode,nFadingModel,      &
      !###  
      nsave=0
      s3avg=0.
+     irc=irc + 100*navg
   endif
   return
 end subroutine qra_loops
