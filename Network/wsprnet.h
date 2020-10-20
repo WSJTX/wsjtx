@@ -34,9 +34,10 @@ public slots:
   void abortOutstandingRequests ();
 
 private:
-  bool decodeLine (QString const& line, SpotQueue::value_type& query);
-  SpotQueue::value_type urlEncodeNoSpot ();
-  SpotQueue::value_type urlEncodeSpot (SpotQueue::value_type& spot);
+  bool decodeLine (QString const& line, SpotQueue::value_type& query) const;
+  SpotQueue::value_type urlEncodeNoSpot () const;
+  SpotQueue::value_type urlEncodeSpot (SpotQueue::value_type& spot) const;
+  QString encode_mode () const;
 
   QNetworkAccessManager * network_manager_;
   QList<QNetworkReply *> m_outstandingRequests;

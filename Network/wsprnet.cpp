@@ -211,7 +211,7 @@ void WSPRNet::networkReply (QNetworkReply * reply)
     }
 }
 
-bool WSPRNet::decodeLine (QString const& line, SpotQueue::value_type& query)
+bool WSPRNet::decodeLine (QString const& line, SpotQueue::value_type& query) const
 {
   auto const& rx_match = wspr_re.match (line);
   if (rx_match.hasMatch ()) {
@@ -271,7 +271,23 @@ bool WSPRNet::decodeLine (QString const& line, SpotQueue::value_type& query)
   return true;
 }
 
-auto WSPRNet::urlEncodeNoSpot () -> SpotQueue::value_type
+QString WSPRNet::encode_mode () const
+{
+  if (m_mode == "WSPR") return "2";
+  if (m_mode == "WSPR-15") return "15";
+  if (m_mode == "FST4W")
+    {
+      auto tr = static_cast<int> ((TR_period_ / 60.)+.5);
+      if (2 == tr || 15 == tr)
+        {
+          tr += 1;              // distinguish from WSPR-2 and WSPR-15
+        }
+      return QString::number (tr);
+    }
+  return "";
+}
+
+auto WSPRNet::urlEncodeNoSpot () const -> SpotQueue::value_type
 {
   SpotQueue::value_type query;
   query.addQueryItem ("function", "wsprstat");
@@ -282,28 +298,18 @@ auto WSPRNet::urlEncodeNoSpot () -> SpotQueue::value_type
   query.addQueryItem ("tqrg", m_tfreq);
   query.addQueryItem ("dbm", m_dbm);
   query.addQueryItem ("version", m_vers);
-  if (m_mode == "WSPR") query.addQueryItem ("mode", "2");
-  if (m_mode == "WSPR-15") query.addQueryItem ("mode", "15");
-  if (m_mode == "FST4W")
-    {
-      query.addQueryItem ("mode", QString::number (static_cast<int> ((TR_period_ / 60.)+.5)));
-    }
+  query.addQueryItem ("mode", encode_mode ());
   return query;;
 }
 
-auto WSPRNet::urlEncodeSpot (SpotQueue::value_type& query) -> SpotQueue::value_type
+auto WSPRNet::urlEncodeSpot (SpotQueue::value_type& query) const -> SpotQueue::value_type
 {
   query.addQueryItem ("version", m_vers);
   query.addQueryItem ("rcall", m_call);
   query.addQueryItem ("rgrid", m_grid);
   query.addQueryItem ("rqrg", m_rfreq);
-  if (m_mode == "WSPR") query.addQueryItem ("mode", "2");
-  if (m_mode == "WSPR-15") query.addQueryItem ("mode", "15");
-  if (m_mode == "FST4W")
-    {
-      query.addQueryItem ("mode", QString::number (static_cast<int> ((TR_period_ / 60.)+.5)));
-    }
-    return query;
+  query.addQueryItem ("mode", encode_mode ());
+  return query;
 }
 
 void WSPRNet::work()
