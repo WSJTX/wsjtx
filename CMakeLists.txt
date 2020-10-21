@@ -1437,7 +1437,7 @@ else ()
     )
   if (WIN32)
     set_target_properties (wsjtx PROPERTIES
-      LINK_FLAGS -Wl,--stack,0x400000,--heap,0x20000000
+      LINK_FLAGS -Wl,--stack,0x1000000,--heap,0x20000000
       )
   endif ()
 endif ()

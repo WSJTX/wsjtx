@@ -9117,15 +9117,15 @@ void MainWindow::write_all(QString txRx, QString message)
   QString msg;
   QString mode_string;
 
-  if (message[4]==' ') {
+  if (message.size () > 5 && message[4]==' ') {
      msg=message.mid(4,-1);
   } else {
      msg=message.mid(6,-1);
   }
 
-  if (message[19]=='#') {
+  if (message.size () > 19 && message[19]=='#') {
      mode_string="JT65  ";
-  } else if (message[19]=='@') {
+  } else if (message.size () > 19 && message[19]=='@') {
      mode_string="JT9   ";
   } else {
      mode_string=m_mode.leftJustified(6,' ');
