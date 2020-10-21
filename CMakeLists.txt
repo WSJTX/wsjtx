@@ -1348,7 +1348,7 @@ generate_version_info (jt9_VERSION_RESOURCES
   NAME jt9
   BUNDLE ${PROJECT_BUNDLE_NAME}
   ICON ${WSJTX_ICON_FILE}
-  FILE_DESCRIPTION "Slow mode decoder"
+  FILE_DESCRIPTION "jt9 - WSJT-X slow mode decoder"
   )
 
 add_executable (jt9 ${jt9_FSRCS} ${jt9_VERSION_RESOURCES})
