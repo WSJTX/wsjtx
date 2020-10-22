@@ -50,7 +50,7 @@ subroutine qra_loops(c00,npts2,mode,mode64,nsubmode,nFadingModel,      &
               jpk=jpk0 + 240*ndt                  !240/6000 = 0.04 s = tsym/32
               if(jpk.lt.0) jpk=0
               call timer('spec64  ',0)
-              call spec64(c0,nsps,mode,jpk,s3,LL,NN)
+              call spec64(c0,nsps,mode,mode64,jpk,s3,LL,NN)
               call timer('spec64  ',1)
               call pctile(s3,LL*NN,40,base)
               s3=s3/base
@@ -98,7 +98,7 @@ subroutine qra_loops(c00,npts2,mode,mode64,nsubmode,nFadingModel,      &
         call twkfreq(c00,c0,npts2,6000.0,a)
 !        jpk=4320
         jpk=4080
-        call spec64(c0,nsps,mode,jpk,s3,LL,NN)
+        call spec64(c0,nsps,mode,mode64,jpk,s3,LL,NN)
         call pctile(s3,LL*NN,40,base)
         s3=s3/base
         where(s3(1:LL*NN)>s3lim) s3(1:LL*NN)=s3lim

@@ -6403,7 +6403,7 @@ void MainWindow::on_actionQRA65_triggered()
   m_hsymStop=49;
   ui->sbTR->values ({15, 30, 60, 120, 300});
   on_sbTR_valueChanged (ui->sbTR->value());
-  ui->sbSubmode->setMaximum(3);
+  ui->sbSubmode->setMaximum(4);
   ui->sbSubmode->setValue(m_nSubMode);  m_wideGraph->setMode(m_mode);
   m_wideGraph->setMode(m_mode);
   m_wideGraph->setModeTx(m_modeTx);

@@ -107,12 +107,19 @@ subroutine sync_qra65(iwave,nmax,mode65,nsps,nfqso,ntol,xdt,f0,snr1)
      endif
   enddo
   rms=sqrt(sq/nsq)
-  snr1=ccf(ipk,jpk)/rms
+  smax=ccf(ipk,jpk)
+  snr1=smax/rms
 
 !  do j=lag1,lag2
 !     write(55,3055) j,j*dtstep,ccf(ipk,j)/rms
 !3055 format(i5,f8.3,f10.3)
 !  enddo
-  
+
+!  ncall=ncall+1
+!  do i=-ia,ia
+!     write(56,3056) ncall,i*df,ncall+0.3*ccf(i,0)/rms
+!3056 format(i6,f7.2,f10.3)
+!  enddo
+
   return
 end subroutine sync_qra65
