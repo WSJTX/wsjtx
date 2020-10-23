@@ -202,7 +202,7 @@ program jt9
 
   if (mode .eq. 241) then
      ntol = min (ntol, 100)
-  else if (mode .eq. 74) then
+  else if (mode .eq. 65 + 9) then
      ntol = 20
   else
      ntol = min (ntol, 1000)
