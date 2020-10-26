@@ -25,7 +25,7 @@ program q65_ftn_test
   read(c77,1000) x
 1000 format(12b6.6,b5.5)
 
-  call q65_enc(x,y)
+  call q65_enc(x,y)                            !Encode message, x(1:13) ==> y(1:63)
   
   write(*,1010) x,msg0
 1010 format('User message:'/13i3,2x,a)

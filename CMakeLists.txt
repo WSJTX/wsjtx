@@ -581,12 +581,12 @@ set_source_files_properties (${ka9q_CSRCS} PROPERTIES COMPILE_FLAGS -Wno-sign-co
 set (qra_CSRCS
   lib/qra/qra64/qra64.c
   lib/qra/qra64/qra64_subs.c
-  lib/qra/qracodes/npfwht.c
-  lib/qra/qracodes/pdmath.c 
   lib/qra/qracodes/qra12_63_64_irr_b.c
   lib/qra/qracodes/qra13_64_64_irr_e.c
-  lib/qra/qracodes/qracodes.c
-  lib/qra/qracodes/normrnd.c
+  lib/qra/q65/npfwht.c
+  lib/qra/q65/pdmath.c
+  lib/qra/q65/qracodes.c
+  lib/qra/q65/normrnd.c
   lib/qra/q65/qra15_65_64_irr_e23.c
   lib/qra/q65/q65.c
   lib/qra/q65/q65_subs.c
