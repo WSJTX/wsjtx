@@ -14,8 +14,8 @@ program q65sim
   complex cspread(0:NMAX-1)              !Complex amplitude for Rayleigh fading
   complex z
   real*8 f0,dt,twopi,phi,dphi,baud,fsample,freq
-  character msg*22,fname*17,csubmode*1,arg*12,cd*1
-  character msgsent*22
+  character msg*37,fname*17,csubmode*1,arg*12,cd*1
+  character msgsent*37
   logical lsync
   data lsync/.false./
   
@@ -74,8 +74,8 @@ program q65sim
   nsym=85                            !Number of channel symbols
   mode65=2**(ichar(csubmode) - ichar('A'))
 
-  ichk=65                            !Flag sent to genqra64
-  call genqra64(msg,ichk,msgsent,itone,itype)
+  ichk=0
+  call genq65(msg,ichk,msgsent,itone,i3,n3)
   write(*,1001) itone
 1001 format('Channel symbols:'/(20i3))
 
@@ -107,8 +107,8 @@ program q65sim
      bandwidth_ratio=2500.0/6000.0
      sig=sqrt(2*bandwidth_ratio)*10.0**(0.05*snrdb)
      if(snrdb.gt.90.0) sig=1.0
-     write(*,1020) ifile,ntrperiod,f0,csubmode,snrdb,xdt,fspread,msgsent
-1020    format(i4,i6,f7.1,2x,a1,2x,f5.1,f6.2,f6.1,2x,a22)
+     write(*,1020) ifile,ntrperiod,f0,csubmode,snrdb,xdt,fspread,trim(msgsent)
+1020    format(i4,i6,f7.1,2x,a1,2x,f5.1,f6.2,f6.1,2x,a)
      phi=0.d0
      dphi=0.d0
      k=(xdt+0.5)*12000                   !Start audio at t=xdt+0.5 s (TR=15 and 30 s)
