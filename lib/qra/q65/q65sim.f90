@@ -7,7 +7,8 @@ program q65sim
   parameter (NMAX=300*12000)             !Total samples in .wav file
   type(hdr) h                            !Header for .wav file
   integer*2 iwave(NMAX)                  !Generated waveform
-  integer*4 itone(85)                    !Channel symbols (values 0-65)
+  integer itone(85)                      !Channel symbols (values 0-65)
+  integer y(63)                          !Codeword
   real*4 xnoise(NMAX)                    !Generated random noise
   real*4 dat(NMAX)                       !Generated real data
   complex cdat(NMAX)                     !Generated complex waveform
@@ -76,23 +77,35 @@ program q65sim
 
   ichk=0
   call genq65(msg,ichk,msgsent,itone,i3,n3)
-  write(*,1001) itone
-1001 format('Channel symbols:'/(20i3))
+
+  j=0
+  do i=1,85
+     if(itone(i).gt.0) then
+        j=j+1
+        y(j)=itone(i)-1
+     endif
+  enddo
+  write(*,1001) y(1:13)
+1001 format('Generated message:'/13i3)
+  write(*,1002) y
+1002 format(/'Codeword:'/(20i3))
+  write(*,1003) itone
+1003 format(/'Channel symbols:'/(20i3))
 
   baud=12000.d0/nsps                 !Keying rate (6.67 baud fot 15-s sequences)
   h=default_header(12000,npts)
 
-  write(*,1000) 
-1000 format('File    TR   Freq Mode  S/N   DT    Dop  Message'/60('-'))
+  write(*,1004) 
+1004 format('File    TR   Freq Mode  S/N   DT    Dop  Message'/60('-'))
 
   nsync=0
   do ifile=1,nfiles                  !Loop over requested number of files
      if(ntrperiod.lt.60) then
-        write(fname,1002) ifile         !Output filename
-1002    format('000000_',i6.6,'.wav')
+        write(fname,1005) ifile         !Output filename
+1005    format('000000_',i6.6,'.wav')
      else
-        write(fname,1104) ifile
-1104    format('000000_',i4.4,'.wav')
+        write(fname,1106) ifile
+1106    format('000000_',i4.4,'.wav')
      endif
 
      open(10,file=trim(fname),access='stream',status='unknown')
