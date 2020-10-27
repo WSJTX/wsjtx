@@ -118,7 +118,7 @@ contains
     endif
     decoded='                                     '
     if(irc.ge.0) then
-       irc=0                    !### TEMPORARY ??? ###
+       irc=(irc/100) * 100                  !### TEMPORARY ??? ###
        write(c77,1000) dat4
 1000   format(12b6.6,b5.5)
        call unpack77(c77,0,decoded,unpk77_success) !Unpack to get msgsent
