@@ -132,6 +132,9 @@ extern "C" {
   void genqra64_(char* msg, int* ichk, char* msgsent, int itone[],
               int* itext, fortran_charlen_t, fortran_charlen_t);
 
+  void genq65_(char* msg, int* ichk, char* msgsent, int itone[],
+              int* i3, int* n3, fortran_charlen_t, fortran_charlen_t);
+
   void genwspr_(char* msg, char* msgsent, int itone[], fortran_charlen_t, fortran_charlen_t);
 
   void geniscat_(char* msg, char* msgsent, int itone[], fortran_charlen_t, fortran_charlen_t);
@@ -3986,9 +3989,9 @@ void MainWindow::guiUpdate()
         if(m_modeTx=="QRA64") genqra64_(message, &ichk, msgsent, const_cast<int *> (itone),
                                     &m_currentMessageType, 22, 22);
         if(m_modeTx=="Q65") {
-          int ichk65=65;
-          genqra64_(message, &ichk65, msgsent, const_cast<int *> (itone),
-                    &m_currentMessageType, 22, 22);
+          int i3=-1;
+          int n3=-1;
+          genq65_(message,&ichk,msgsent,const_cast<int *>(itone),&i3,&n3,37,37);
         }
         if(m_modeTx=="WSPR") genwspr_(message, msgsent, const_cast<int *> (itone),
                                     22, 22);
