@@ -29,7 +29,7 @@ module q65_decode
 contains
 
   subroutine decode(this,callback,iwave,nutc,ntrperiod,nsubmode,nfqso,   &
-       ntol,ndepth,mycall,hiscall,hisgrid,ncontest,lapcqonly)
+       ntol,ndepth,mycall,hiscall,hisgrid,nQSOprogress,ncontest,lapcqonly)
 
 ! Decodes Q65 signals
 ! Input:  iwave            Raw data, i*2
@@ -83,9 +83,8 @@ contains
     npts=ntrperiod*12000
     baud=12000.0/nsps
     df1=12000.0/nfft1
-    this%callback => callback    
+    this%callback => callback
     if(nutc.eq.-999) print*,lapdx,nfa,nfb,nfqso  !Silence warning
-    b90=20.0                 !8 to 25 is OK; not very critical
     nFadingModel=1
 
 ! AP control could be done differently, but this works well:
