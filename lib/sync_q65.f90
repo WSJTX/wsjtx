@@ -74,13 +74,15 @@ subroutine sync_q65(iwave,nmax,mode65,nsps,nfqso,ntol,xdt,f0,snr1)
   enddo
 
   dtstep=nsps/(NSTEP*12000.0)                 !Step size in seconds
-  j0=0.5/dtstep
-  if(nsps.ge.6192) j0=1.0/dtstep              !Nominal index for start of signal
-  
-  ccf=0.
   ia=min(64,nint(ntol/df))
   lag1=-1.0/dtstep
-  lag2=4.0/dtstep + 0.9999
+  lag2=1.0/dtstep + 0.9999
+  j0=0.5/dtstep
+  if(nsps.ge.6192) then
+     j0=1.0/dtstep              !Nominal index for start of signal
+     lag2=4.0/dtstep + 0.9999   !Include EME delays
+  endif
+  ccf=0.
 
   do lag=lag1,lag2
      do k=1,85

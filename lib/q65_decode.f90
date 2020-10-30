@@ -140,7 +140,6 @@ contains
 !3060      format(a1,i1,1x,13b6.6/3x,13i6)
 !          write(72,3060) 'B',ipass,apsymbols,apsymbols
        endif
-
        call timer('q65loops',0)
        call q65_loops(c00,npts/2,nsps/2,nmode,mode65,nsubmode,nFadingModel,  &
             ndepth,jpk0,xdt,f0,width,ipass,apmask,apsymbols,snr2,irc,dat4)

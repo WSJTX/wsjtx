@@ -69,8 +69,6 @@ subroutine q65_loops(c00,npts2,nsps,mode,mode64,nsubmode,nFadingModel,   &
               ncall=ncall+1
               call timer('qra64_de',0)
               call q65_intrinsics_ff(s3,nsubmode,b90,nFadingModel,s3prob)
-!              APmask=0
-!              APsymbols=0
               call q65_dec(s3,s3prob,APmask,APsymbols,snr2,dat4,irc)
               ! irc > 0 ==> number of iterations required to decode
               !  -1 = invalid params
