@@ -130,12 +130,11 @@ contains
                apsymbols1)
           write(c78,1050) apmask1
 1050      format(78i1)
-          c78(75:78)='    '
           read(c78,1060) apmask
 1060      format(13b6.6)
           write(c78,1050) apsymbols1
           read(c78,1060) apsymbols
-
+          apsymbols(13)=apsymbols(13)/2              !Fixup for c77-->c78
 !          write(72,3060) 'A',ipass,apmask,apmask
 !3060      format(a1,i1,1x,13b6.6/3x,13i6)
 !          write(72,3060) 'B',ipass,apsymbols,apsymbols
