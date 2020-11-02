@@ -17,12 +17,14 @@
 
 #include <iostream>
 #include <exception>
+#include <cstdlib>
 
 #include <QCoreApplication>
 #include <QCommandLineParser>
 #include <QCommandLineOption>
 #include <QString>
 #include <QStringList>
+#include <QNetworkInterface>
 #include <QDateTime>
 #include <QTime>
 #include <QHash>
@@ -212,6 +214,42 @@ private:
   QHash<ClientKey, Client *> clients_;
 };
 
+void list_interfaces ()
+{
+  for (auto const& net_if : QNetworkInterface::allInterfaces ())
+    {
+      if (net_if.flags () & QNetworkInterface::IsUp)
+        {
+          std::cout << net_if.humanReadableName ().toStdString () << ":\n"
+            "  id: " << net_if.name ().toStdString () << " (" << net_if.index () << ")\n"
+            "  addr: " << net_if.hardwareAddress ().toStdString () << "\n"
+            "  flags: ";
+          if (net_if.flags () & QNetworkInterface::IsRunning)
+            {
+              std::cout << "Running ";
+            }
+          if (net_if.flags () & QNetworkInterface::CanBroadcast)
+            {
+              std::cout << "Broadcast ";
+            }
+          if (net_if.flags () & QNetworkInterface::CanMulticast)
+            {
+              std::cout << "Multicast ";
+            }
+          if (net_if.flags () & QNetworkInterface::IsLoopBack)
+            {
+              std::cout << "Loop-back ";
+            }
+          std::cout << "\n  addresses:\n";
+          for (auto const& ae : net_if.addressEntries ())
+            {
+              std::cout << "    " << ae.ip ().toString ().toStdString () << '\n';
+            }
+          std::cout << '\n';
+        }
+    }
+}
+
 #include "UDPDaemon.moc"
 
 int main (int argc, char * argv[])
@@ -231,6 +269,11 @@ int main (int argc, char * argv[])
       parser.setApplicationDescription ("\nWSJT-X UDP Message Server Daemon.");
       auto help_option = parser.addHelpOption ();
       auto version_option = parser.addVersionOption ();
+
+      QCommandLineOption list_option (QStringList {"l", "list-interfaces"},
+                                      app.translate ("UDPDaemon",
+                                                     "Print the available network interfaces."));
+      parser.addOption (list_option);
 
       QCommandLineOption port_option (QStringList {"p", "port"},
                                       app.translate ("UDPDaemon",
@@ -256,6 +299,12 @@ int main (int argc, char * argv[])
       parser.addOption (network_interface_option);
 
       parser.process (app);
+
+      if (parser.isSet (list_option))
+        {
+          list_interfaces ();
+          return EXIT_SUCCESS;
+        }
 
       Server server {static_cast<port_type> (parser.value (port_option).toUInt ())
                      , QHostAddress {parser.value (multicast_addr_option).trimmed ()}
