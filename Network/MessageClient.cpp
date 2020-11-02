@@ -6,16 +6,16 @@
 #include <limits>
 
 #include <QUdpSocket>
+#include <QNetworkInterface>
 #include <QHostInfo>
 #include <QTimer>
 #include <QQueue>
 #include <QByteArray>
-#include <QHostAddress>
 #include <QColor>
 #include <QDebug>
 
 #include "NetworkMessage.hpp"
-
+#include "qt_helpers.hpp"
 #include "pimpl_impl.hpp"
 
 #include "moc_MessageClient.cpp"
@@ -34,14 +34,15 @@ class MessageClient::impl
 
 public:
   impl (QString const& id, QString const& version, QString const& revision,
-        port_type server_port, MessageClient * self)
+        port_type server_port, int TTL, MessageClient * self)
     : self_ {self}
-    , dns_lookup_id_ {0}
     , enabled_ {false}
     , id_ {id}
     , version_ {version}
     , revision_ {revision}
+    , dns_lookup_id_ {-1}
     , server_port_ {server_port}
+    , TTL_ {TTL}
     , schema_ {2}  // use 2 prior to negotiation not 1 which is broken
     , heartbeat_timer_ {new QTimer {this}}
   {
@@ -49,9 +50,6 @@ public:
     connect (this, &QIODevice::readyRead, this, &impl::pending_datagrams);
 
     heartbeat_timer_->start (NetworkMessage::pulse * 1000);
-
-    // bind to an ephemeral port
-    bind ();
   }
 
   ~impl ()
@@ -61,7 +59,10 @@ public:
 
   enum StreamStatus {Fail, Short, OK};
 
-  void parse_message (QByteArray const& msg);
+  void set_server (QString const& server_name, QString const& network_interface_name);
+  Q_SLOT void host_info_results (QHostInfo);
+  void start ();
+  void parse_message (QByteArray const&);
   void pending_datagrams ();
   void heartbeat ();
   void closedown ();
@@ -69,27 +70,26 @@ public:
   void send_message (QByteArray const&);
   void send_message (QDataStream const& out, QByteArray const& message)
   {
-      if (OK == check_status (out))
-        {
-          send_message (message);
-        }
-      else
-        {
-          Q_EMIT self_->error ("Error creating UDP message");
-        }
+    if (OK == check_status (out))
+      {
+        send_message (message);
+      }
+    else
+      {
+        Q_EMIT self_->error ("Error creating UDP message");
+      }
   }
 
-  Q_SLOT void host_info_results (QHostInfo);
-
   MessageClient * self_;
-  int dns_lookup_id_;
   bool enabled_;
   QString id_;
   QString version_;
   QString revision_;
-  QString server_string_;
-  port_type server_port_;
+  int dns_lookup_id_;
   QHostAddress server_;
+  port_type server_port_;
+  int TTL_;
+  QNetworkInterface network_interface_;
   quint32 schema_;
   QTimer * heartbeat_timer_;
   std::vector<QHostAddress> blocked_addresses_;
@@ -101,36 +101,116 @@ public:
 
 #include "MessageClient.moc"
 
+void MessageClient::impl::set_server (QString const& server_name, QString const& network_interface_name)
+{
+  server_.setAddress (server_name);
+  network_interface_ = QNetworkInterface::interfaceFromName (network_interface_name);
+  if (server_.isNull () && server_name.size ()) // DNS lookup required
+    {
+      // queue a host address lookup
+#if QT_VERSION >= QT_VERSION_CHECK(5, 9, 0)
+      dns_lookup_id_ = QHostInfo::lookupHost (server_name, this, &MessageClient::impl::host_info_results);
+#else
+      dns_lookup_id_ = QHostInfo::lookupHost (server_name, this, SLOT (host_info_results (QHostInfo)));
+#endif
+    }
+  else
+    {
+      start ();
+    }
+}
+
 void MessageClient::impl::host_info_results (QHostInfo host_info)
 {
   if (host_info.lookupId () != dns_lookup_id_) return;
+  dns_lookup_id_ = -1;
   if (QHostInfo::NoError != host_info.error ())
     {
-      Q_EMIT self_->error ("UDP server lookup failed:\n" + host_info.errorString ());
-      pending_messages_.clear (); // discard
+      Q_EMIT self_->error ("UDP server DNS lookup failed: " + host_info.errorString ());
     }
-  else if (host_info.addresses ().size ())
+  else
     {
-      auto server = host_info.addresses ()[0];
-      if (blocked_addresses_.end () == std::find (blocked_addresses_.begin (), blocked_addresses_.end (), server))
+      auto const& server_addresses = host_info.addresses ();
+      if (server_addresses.size ())
         {
-          server_ = server;
-          TRACE_UDP ("resulting server:" << server);
+          server_ = server_addresses[0];
+        }
+    }
+  start ();
+}
 
-          // send initial heartbeat which allows schema negotiation
-          heartbeat ();
+void MessageClient::impl::start ()
+{
+  if (server_.isNull ())
+    {
+      Q_EMIT self_->close ();
+      pending_messages_.clear (); // discard
+      return;
+    }
 
-          // clear any backlog
-          while (pending_messages_.size ())
+  if (blocked_addresses_.end () != std::find (blocked_addresses_.begin (), blocked_addresses_.end (), server_))
+    {
+      Q_EMIT self_->error ("UDP server blocked, please try another");
+      pending_messages_.clear (); // discard
+      return;
+    }
+
+  TRACE_UDP ("Trying server:" << server_.toString () << "on interface:" << network_interface_.humanReadableName ());
+  QHostAddress interface_ip {QHostAddress::Any};
+  if (network_interface_.isValid ())
+    {
+      if (is_multicast_address (server_) && !(network_interface_.flags () & QNetworkInterface::CanMulticast))
+        {
+          Q_EMIT self_->error ("Network interface is not multicast capable, please try another");
+          return;
+        }
+      for (auto const& ae : network_interface_.addressEntries ())
+        {
+          auto const& ip = ae.ip ();
+          if (server_.protocol () == ip.protocol ())
             {
-              send_message (pending_messages_.dequeue ());
+              interface_ip = ip;
+              break;
             }
         }
-      else
+      if (QHostAddress {QHostAddress::Any} == interface_ip)
         {
-          Q_EMIT self_->error ("UDP server blocked, please try another");
+          Q_EMIT self_->error ("Network interface has no suitable address for server IP protocol, please try another");
           pending_messages_.clear (); // discard
+          return;
         }
+    }
+
+  if (server_.isBroadcast ())
+    {
+      // only allow broadcast on the loopback interface to avoid
+      // flooding the local subnet which may be large with some ISPs
+      //interface_ip.setAddress ("127.0.0.1");
+    }
+
+  if (localAddress () != interface_ip)
+    {
+      if (UnconnectedState != state () || state ())
+        {
+          close ();
+        }
+      // bind to an ephemeral port on the selected interface and set
+      // up for sending datagrams
+      bind (interface_ip);
+      setMulticastInterface (network_interface_);
+
+      // set multicast TTL to limit scope when sending to multicast
+      // group addresses
+      setSocketOption (MulticastTtlOption, TTL_);
+    }
+
+  // send initial heartbeat which allows schema negotiation
+  heartbeat ();
+
+  // clear any backlog
+  while (pending_messages_.size ())
+    {
+      send_message (pending_messages_.dequeue ());
     }
 }
 
@@ -428,9 +508,11 @@ auto MessageClient::impl::check_status (QDataStream const& stream) const -> Stre
 }
 
 MessageClient::MessageClient (QString const& id, QString const& version, QString const& revision,
-                              QString const& server, port_type server_port, QObject * self)
+                              QString const& server_name, port_type server_port,
+                              QString const& network_interface_name,
+                              int TTL, QObject * self)
   : QObject {self}
-  , m_ {id, version, revision, server_port, this}
+  , m_ {id, version, revision, server_port, TTL, this}
 {
   connect (&*m_
 #if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
@@ -449,8 +531,8 @@ MessageClient::MessageClient (QString const& id, QString const& version, QString
 #endif
                                          Q_EMIT error (m_->errorString ());
                                        }
-                                   });
-  set_server (server);
+                                       });
+  m_->set_server (server_name, network_interface_name);
 }
 
 QHostAddress MessageClient::server_address () const
@@ -463,25 +545,20 @@ auto MessageClient::server_port () const -> port_type
   return m_->server_port_;
 }
 
-void MessageClient::set_server (QString const& server)
+void MessageClient::set_server (QString const& server_name, QString const& network_interface_name)
 {
-  m_->server_.clear ();
-  m_->server_string_ = server;
-  if (server.size ())
-    {
-      // queue a host address lookup
-      TRACE_UDP ("server host DNS lookup:" << server);
-#if QT_VERSION >= QT_VERSION_CHECK(5, 9, 0)
-      m_->dns_lookup_id_ = QHostInfo::lookupHost (server, &*m_, &MessageClient::impl::host_info_results);
-#else
-      m_->dns_lookup_id_ = QHostInfo::lookupHost (server, &*m_, SLOT (host_info_results (QHostInfo)));
-#endif
-    }
+  m_->set_server (server_name, network_interface_name);
 }
 
 void MessageClient::set_server_port (port_type server_port)
 {
   m_->server_port_ = server_port;
+}
+
+void MessageClient::set_TTL (int TTL)
+{
+  m_->TTL_ = TTL;
+  m_->setSocketOption (QAbstractSocket::MulticastTtlOption, m_->TTL_);
 }
 
 void MessageClient::enable (bool flag)
@@ -499,7 +576,7 @@ void MessageClient::status_update (Frequency f, QString const& mode, QString con
                                    , quint32 frequency_tolerance, quint32 tr_period
                                    , QString const& configuration_name)
 {
-  if (m_->server_port_ && !m_->server_string_.isEmpty ())
+  if (m_->server_port_ && !m_->server_.isNull ())
     {
       QByteArray message;
       NetworkMessage::Builder out {&message, NetworkMessage::Status, m_->id_, m_->schema_};
@@ -516,7 +593,7 @@ void MessageClient::decode (bool is_new, QTime time, qint32 snr, float delta_tim
                             , QString const& mode, QString const& message_text, bool low_confidence
                             , bool off_air)
 {
-   if (m_->server_port_ && !m_->server_string_.isEmpty ())
+   if (m_->server_port_ && !m_->server_.isNull ())
     {
       QByteArray message;
       NetworkMessage::Builder out {&message, NetworkMessage::Decode, m_->id_, m_->schema_};
@@ -531,7 +608,7 @@ void MessageClient::WSPR_decode (bool is_new, QTime time, qint32 snr, float delt
                                  , qint32 drift, QString const& callsign, QString const& grid, qint32 power
                                  , bool off_air)
 {
-   if (m_->server_port_ && !m_->server_string_.isEmpty ())
+   if (m_->server_port_ && !m_->server_.isNull ())
     {
       QByteArray message;
       NetworkMessage::Builder out {&message, NetworkMessage::WSPRDecode, m_->id_, m_->schema_};
@@ -544,7 +621,7 @@ void MessageClient::WSPR_decode (bool is_new, QTime time, qint32 snr, float delt
 
 void MessageClient::decodes_cleared ()
 {
-   if (m_->server_port_ && !m_->server_string_.isEmpty ())
+   if (m_->server_port_ && !m_->server_.isNull ())
     {
       QByteArray message;
       NetworkMessage::Builder out {&message, NetworkMessage::Clear, m_->id_, m_->schema_};
@@ -561,7 +638,7 @@ void MessageClient::qso_logged (QDateTime time_off, QString const& dx_call, QStr
                                 , QString const& my_grid, QString const& exchange_sent
                                 , QString const& exchange_rcvd, QString const& propmode)
 {
-   if (m_->server_port_ && !m_->server_string_.isEmpty ())
+   if (m_->server_port_ && !m_->server_.isNull ())
     {
       QByteArray message;
       NetworkMessage::Builder out {&message, NetworkMessage::QSOLogged, m_->id_, m_->schema_};
@@ -576,7 +653,7 @@ void MessageClient::qso_logged (QDateTime time_off, QString const& dx_call, QStr
 
 void MessageClient::logged_ADIF (QByteArray const& ADIF_record)
 {
-   if (m_->server_port_ && !m_->server_string_.isEmpty ())
+   if (m_->server_port_ && !m_->server_.isNull ())
     {
       QByteArray message;
       NetworkMessage::Builder out {&message, NetworkMessage::LoggedADIF, m_->id_, m_->schema_};

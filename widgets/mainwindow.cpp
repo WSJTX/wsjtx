@@ -414,6 +414,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_messageClient {new MessageClient {QApplication::applicationName (),
         version (), revision (),
         m_config.udp_server_name (), m_config.udp_server_port (),
+        m_config.udp_interface_name (), m_config.udp_TTL (),
         this}},
   m_psk_Reporter {&m_config, QString {"WSJT-X v" + version () + " " + m_revision}.simplified ()},
   m_manual {&m_network_manager},
@@ -782,6 +783,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect (&m_config, &Configuration::transceiver_failure, this, &MainWindow::handle_transceiver_failure);
   connect (&m_config, &Configuration::udp_server_changed, m_messageClient, &MessageClient::set_server);
   connect (&m_config, &Configuration::udp_server_port_changed, m_messageClient, &MessageClient::set_server_port);
+  connect (&m_config, &Configuration::udp_TTL_changed, m_messageClient, &MessageClient::set_TTL);
   connect (&m_config, &Configuration::accept_udp_requests_changed, m_messageClient, &MessageClient::enable);
   connect (&m_config, &Configuration::enumerating_audio_devices, [this] () {
                                                                    showStatusMessage (tr ("Enumerating audio devices"));
@@ -7824,7 +7826,7 @@ void MainWindow::networkError (QString const& e)
                                                         , MessageBox::Cancel))
     {
       // retry server lookup
-      m_messageClient->set_server (m_config.udp_server_name ());
+      m_messageClient->set_server (m_config.udp_server_name (), m_config.udp_interface_name ());
     }
 }
 

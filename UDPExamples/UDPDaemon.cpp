@@ -20,6 +20,9 @@
 
 #include <QCoreApplication>
 #include <QCommandLineParser>
+#include <QCommandLineOption>
+#include <QString>
+#include <QStringList>
 #include <QDateTime>
 #include <QTime>
 #include <QHash>
@@ -144,7 +147,7 @@ class Server
   Q_OBJECT
 
 public:
-  Server (port_type port, QHostAddress const& multicast_group)
+  Server (port_type port, QHostAddress const& multicast_group, QStringList const& network_interface_names)
     : server_ {new MessageServer {this}}
   {
     // connect up server
@@ -154,7 +157,7 @@ public:
     connect (server_, &MessageServer::client_opened, this, &Server::add_client);
     connect (server_, &MessageServer::client_closed, this, &Server::remove_client);
 
-    server_->start (port, multicast_group);
+    server_->start (port, multicast_group, network_interface_names);
   }
 
 private:
@@ -232,9 +235,19 @@ int main (int argc, char * argv[])
                                                 app.translate ("UDPDaemon", "GROUP"));
       parser.addOption (multicast_addr_option);
 
+      QCommandLineOption network_interface_option (QStringList {"i", "network-interface"},
+                                                   app.translate ("UDPDaemon",
+                                                                  "Where <INTERFACE> is the network interface name to join on.\n"
+                                                                  "This option can be passed more than once to specify multiple network interfaces\n"
+                                                                  "The default is use just the loop back interface."),
+                                                   app.translate ("UDPDaemon", "INTERFACE"));
+      parser.addOption (network_interface_option);
+
       parser.process (app);
 
-      Server server {static_cast<port_type> (parser.value (port_option).toUInt ()), QHostAddress {parser.value (multicast_addr_option)}};
+      Server server {static_cast<port_type> (parser.value (port_option).toUInt ())
+                     , QHostAddress {parser.value (multicast_addr_option).trimmed ()}
+                     , parser.values (network_interface_option)};
 
       return app.exec ();
     }

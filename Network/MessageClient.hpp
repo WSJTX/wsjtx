@@ -5,6 +5,7 @@
 #include <QTime>
 #include <QDateTime>
 #include <QString>
+#include <QHostAddress>
 
 #include "Radio.hpp"
 #include "pimpl_h.hpp"
@@ -34,18 +35,24 @@ public:
   //
   // messages will be silently dropped until a server host lookup is complete
   MessageClient (QString const& id, QString const& version, QString const& revision,
-                 QString const& server, port_type server_port, QObject * parent = nullptr);
+                 QString const& server_name, port_type server_port,
+                 QString const& network_interface_name,
+                 int TTL, QObject * parent = nullptr);
 
   // query server details
   QHostAddress server_address () const;
   port_type server_port () const;
 
-  // initiate a new server host lookup or is the server name is empty
-  // the sending of messages is disabled
-  Q_SLOT void set_server (QString const& server = QString {});
+  // initiate a new server host lookup or if the server name is empty
+  // the sending of messages is disabled, if an interface is specified
+  // then that interface is used for outgoing datagrams
+  Q_SLOT void set_server (QString const& server_name, QString const& network_interface_name);
 
   // change the server port messages are sent to
   Q_SLOT void set_server_port (port_type server_port = 0u);
+
+  // change the server port messages are sent to
+  Q_SLOT void set_TTL (int TTL);
 
   // enable incoming messages
   Q_SLOT void enable (bool);

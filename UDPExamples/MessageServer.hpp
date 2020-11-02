@@ -2,6 +2,8 @@
 #define MESSAGE_SERVER_HPP__
 
 #include <QObject>
+#include <QString>
+#include <QStringList>
 #include <QTime>
 #include <QDateTime>
 #include <QHostAddress>
@@ -38,8 +40,9 @@ public:
   // start or restart the server, if the multicast_group_address
   // argument is given it is assumed to be a multicast group address
   // which the server will join
-  Q_SLOT void start (port_type port,
-                     QHostAddress const& multicast_group_address = QHostAddress {});
+  Q_SLOT void start (port_type port
+                     , QHostAddress const& multicast_group_address = QHostAddress {}
+                     , QStringList const& network_interface_names = QStringList {});
 
   // ask the client to clear one or both of the decode windows
   Q_SLOT void clear_decodes (QString const& id, quint8 window = 0);

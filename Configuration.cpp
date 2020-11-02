@@ -163,6 +163,9 @@
 #include <QFontDialog>
 #include <QSerialPortInfo>
 #include <QScopedPointer>
+#include <QNetworkInterface>
+#include <QHostInfo>
+#include <QHostAddress>
 #include <QDebug>
 
 #include "pimpl_impl.hpp"
@@ -439,6 +442,10 @@ private:
   void load_audio_devices (QAudio::Mode, QComboBox *, QAudioDeviceInfo *);
   void update_audio_channels (QComboBox const *, int, QComboBox *, bool);
 
+  void load_network_interfaces (QComboBox *, QString const& current);
+  Q_SLOT void host_info_results (QHostInfo);
+  void check_multicast (QHostAddress const&);
+
   void find_tab (QWidget *);
 
   void initialize_models ();
@@ -492,6 +499,8 @@ private:
   Q_SLOT void on_add_macro_line_edit_editingFinished ();
   Q_SLOT void delete_macro ();
   void delete_selected_macros (QModelIndexList);
+  Q_SLOT void on_udp_server_line_edit_textChanged (QString const&);
+  Q_SLOT void on_udp_server_line_edit_editingFinished ();
   Q_SLOT void on_save_path_select_push_button_clicked (bool);
   Q_SLOT void on_azel_path_select_push_button_clicked (bool);
   Q_SLOT void on_calibration_intercept_spin_box_valueChanged (double);
@@ -641,7 +650,11 @@ private:
   bool use_dynamic_grid_;
   QString opCall_;
   QString udp_server_name_;
+  bool udp_server_name_edited_;
+  int dns_lookup_id_;
   port_type udp_server_port_;
+  QString udp_interface_name_;
+  int udp_TTL_;
   QString n1mm_server_name_;
   port_type n1mm_server_port_;
   bool broadcast_to_n1mm_;
@@ -741,6 +754,8 @@ QString Configuration::opCall() const {return m_->opCall_;}
 void Configuration::opCall (QString const& call) {m_->opCall_ = call;}
 QString Configuration::udp_server_name () const {return m_->udp_server_name_;}
 auto Configuration::udp_server_port () const -> port_type {return m_->udp_server_port_;}
+QString Configuration::udp_interface_name () const {return m_->udp_interface_name_;}
+int Configuration::udp_TTL () const {return m_->udp_TTL_;}
 bool Configuration::accept_udp_requests () const {return m_->accept_udp_requests_;}
 QString Configuration::n1mm_server_name () const {return m_->n1mm_server_name_;}
 auto Configuration::n1mm_server_port () const -> port_type {return m_->n1mm_server_port_;}
@@ -995,6 +1010,8 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   , transceiver_command_number_ {0}
   , degrade_ {0.}               // initialize to zero each run, not
                                 // saved in settings
+  , udp_server_name_edited_ {false}
+  , dns_lookup_id_ {-1}
 {
   ui_->setupUi (this);
 
@@ -1044,6 +1061,7 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   // this must be done after the default paths above are set
   read_settings ();
 
+  // set up dynamic loading of audio devices
   connect (ui_->sound_input_combo_box, &LazyFillComboBox::about_to_show_popup, [this] () {
       QGuiApplication::setOverrideCursor (QCursor {Qt::WaitCursor});
       load_audio_devices (QAudio::AudioInput, ui_->sound_input_combo_box, &next_audio_input_device_);
@@ -1056,6 +1074,13 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
       load_audio_devices (QAudio::AudioOutput, ui_->sound_output_combo_box, &next_audio_output_device_);
       update_audio_channels (ui_->sound_output_combo_box, ui_->sound_output_combo_box->currentIndex (), ui_->sound_output_channel_combo_box, true);
       ui_->sound_output_channel_combo_box->setCurrentIndex (next_audio_output_channel_);
+      QGuiApplication::restoreOverrideCursor ();
+    });
+
+  // set up dynamic loading of network interfaces
+  connect (ui_->udp_interface_combo_box, &LazyFillComboBox::about_to_show_popup, [this] () {
+      QGuiApplication::setOverrideCursor (QCursor {Qt::WaitCursor});
+      load_network_interfaces (ui_->udp_interface_combo_box, udp_interface_name_);
       QGuiApplication::restoreOverrideCursor ();
     });
 
@@ -1335,7 +1360,14 @@ void Configuration::impl::initialize_models ()
   ui_->CAT_poll_interval_spin_box->setValue (rig_params_.poll_interval);
   ui_->opCallEntry->setText (opCall_);
   ui_->udp_server_line_edit->setText (udp_server_name_);
+  on_udp_server_line_edit_editingFinished ();
   ui_->udp_server_port_spin_box->setValue (udp_server_port_);
+  load_network_interfaces (ui_->udp_interface_combo_box, udp_interface_name_);
+  if (!udp_interface_name_.size ())
+    {
+      udp_interface_name_ = ui_->udp_interface_combo_box->currentData ().toString ();
+    }
+  ui_->udp_TTL_spin_box->setValue (udp_TTL_);
   ui_->accept_udp_requests_check_box->setChecked (accept_udp_requests_);
   ui_->n1mm_server_name_line_edit->setText (n1mm_server_name_);
   ui_->n1mm_server_port_spin_box->setValue (n1mm_server_port_);
@@ -1513,6 +1545,8 @@ void Configuration::impl::read_settings ()
   rig_params_.split_mode = settings_->value ("SplitMode", QVariant::fromValue (TransceiverFactory::split_mode_none)).value<TransceiverFactory::SplitMode> ();
   opCall_ = settings_->value ("OpCall", "").toString ();
   udp_server_name_ = settings_->value ("UDPServer", "127.0.0.1").toString ();
+  udp_interface_name_ = settings_->value ("UDPInterface").toString ();
+  udp_TTL_ = settings_->value ("UDPTTL").toInt ();
   udp_server_port_ = settings_->value ("UDPServerPort", 2237).toUInt ();
   n1mm_server_name_ = settings_->value ("N1MMServer", "127.0.0.1").toString ();
   n1mm_server_port_ = settings_->value ("N1MMServerPort", 2333).toUInt ();
@@ -1641,6 +1675,8 @@ void Configuration::impl::write_settings ()
   settings_->setValue ("OpCall", opCall_);
   settings_->setValue ("UDPServer", udp_server_name_);
   settings_->setValue ("UDPServerPort", udp_server_port_);
+  settings_->setValue ("UDPInterface", udp_interface_name_);
+  settings_->setValue ("UDPTTL", udp_TTL_);
   settings_->setValue ("N1MMServer", n1mm_server_name_);
   settings_->setValue ("N1MMServerPort", n1mm_server_port_);
   settings_->setValue ("BroadcastToN1MM", broadcast_to_n1mm_);
@@ -1840,6 +1876,12 @@ bool Configuration::impl::validate ()
       find_tab (ui_->RTTY_Exchange);
       MessageBox::critical_message (this, tr ("Invalid Contest Exchange")
                                     , tr ("You must input a valid ARRL RTTY Roundup exchange"));
+      return false;
+    }
+
+  if (dns_lookup_id_ > -1)
+    {
+      MessageBox::information_message (this, tr ("Pending DNS lookup, please try again later"));
       return false;
     }
 
@@ -2061,20 +2103,30 @@ void Configuration::impl::accept ()
   pwrBandTxMemory_ = ui_->checkBoxPwrBandTxMemory->isChecked ();
   pwrBandTuneMemory_ = ui_->checkBoxPwrBandTuneMemory->isChecked ();
   opCall_=ui_->opCallEntry->text();
-  auto new_server = ui_->udp_server_line_edit->text ();
-  if (new_server != udp_server_name_)
+
+  auto new_server = ui_->udp_server_line_edit->text ().trimmed ();
+  auto new_interface = ui_->udp_interface_combo_box->currentData ().toString ();
+  if (new_server != udp_server_name_ || new_interface != udp_interface_name_)
     {
       udp_server_name_ = new_server;
-      Q_EMIT self_->udp_server_changed (new_server);
+      udp_interface_name_ = new_interface;
+      Q_EMIT self_->udp_server_changed (udp_server_name_, udp_interface_name_);
     }
 
   auto new_port = ui_->udp_server_port_spin_box->value ();
   if (new_port != udp_server_port_)
     {
       udp_server_port_ = new_port;
-      Q_EMIT self_->udp_server_port_changed (new_port);
+      Q_EMIT self_->udp_server_port_changed (udp_server_port_);
     }
-  
+
+  auto new_TTL = ui_->udp_TTL_spin_box->value ();
+  if (new_TTL != udp_TTL_)
+    {
+      udp_TTL_ = new_TTL;
+      Q_EMIT self_->udp_TTL_changed (udp_TTL_);
+    }
+
   if (ui_->accept_udp_requests_check_box->isChecked () != accept_udp_requests_)
     {
       accept_udp_requests_ = ui_->accept_udp_requests_check_box->isChecked ();
@@ -2130,6 +2182,12 @@ void Configuration::impl::accept ()
 
 void Configuration::impl::reject ()
 {
+  if (dns_lookup_id_ > -1)
+    {
+      QHostInfo::abortHostLookup (dns_lookup_id_);
+      dns_lookup_id_ = -1;
+    }
+
   initialize_models ();		// reverts to settings as at exec ()
 
   // check if the Transceiver instance changed, in which case we need
@@ -2342,6 +2400,72 @@ void Configuration::impl::on_add_macro_push_button_clicked (bool /* checked */)
       next_macros_.setData (index, ui_->add_macro_line_edit->text ());
       ui_->add_macro_line_edit->clear ();
     }
+}
+
+void Configuration::impl::on_udp_server_line_edit_textChanged (QString const&)
+{
+  udp_server_name_edited_ = true;
+}
+
+void Configuration::impl::on_udp_server_line_edit_editingFinished ()
+{
+  if (udp_server_name_edited_)
+    {
+      auto const& server = ui_->udp_server_line_edit->text ().trimmed ();
+      QHostAddress ha {server};
+      if (server.size () && ha.isNull ())
+        {
+          // queue a host address lookup
+          qDebug () << "server host DNS lookup:" << server;
+#if QT_VERSION >= QT_VERSION_CHECK(5, 9, 0)
+          dns_lookup_id_ = QHostInfo::lookupHost (server, this, &Configuration::impl::host_info_results);
+#else
+          dns_lookup_id_ = QHostInfo::lookupHost (server, this, SLOT (host_info_results (QHostInfo)));
+#endif
+        }
+      else
+        {
+          check_multicast (ha);
+        }
+    }
+}
+
+void Configuration::impl::host_info_results (QHostInfo host_info)
+{
+  if (host_info.lookupId () != dns_lookup_id_) return;
+  dns_lookup_id_ = -1;
+  if (QHostInfo::NoError != host_info.error ())
+    {
+      MessageBox::critical_message (this, tr ("UDP server DNS lookup failed"), host_info.errorString ());
+    }
+  else
+    {
+      auto const& server_addresses = host_info.addresses ();
+      qDebug () << "message server addresses:" << server_addresses;
+      if (server_addresses.size ())
+        {
+          check_multicast (server_addresses[0]);
+        }
+    }
+}
+
+void Configuration::impl::check_multicast (QHostAddress const& ha)
+{
+  auto is_multicast = is_multicast_address (ha);
+  ui_->udp_interface_label->setVisible (is_multicast);
+  ui_->udp_interface_combo_box->setVisible (is_multicast);
+  ui_->udp_TTL_label->setVisible (is_multicast);
+  ui_->udp_TTL_spin_box->setVisible (is_multicast);
+  if (isVisible ())
+    {
+      if (is_MAC_ambiguous_multicast_address (ha))
+        {
+          MessageBox::warning_message (this, tr ("MAC-ambiguous multicast groups addresses not supported"));
+          find_tab (ui_->udp_server_line_edit);
+          ui_->udp_server_line_edit->clear ();
+        }
+    }
+  udp_server_name_edited_ = false;
 }
 
 void Configuration::impl::delete_frequencies ()
@@ -2863,6 +2987,31 @@ void Configuration::impl::load_audio_devices (QAudio::Mode mode, QComboBox * com
       if (p == *device)
         {
           current_index = combo_box->count () - 1;
+        }
+    }
+  combo_box->setCurrentIndex (current_index);
+}
+
+// load the available network interfaces into the selection combo box
+void Configuration::impl::load_network_interfaces (QComboBox * combo_box, QString const& current)
+{
+  combo_box->clear ();
+  int current_index = -1;
+  for (auto const& interface : QNetworkInterface::allInterfaces ())
+    {
+      if (interface.flags () & QNetworkInterface::IsUp)
+        {
+          auto const& name = interface.name ();
+          combo_box->addItem (interface.humanReadableName (), name);
+          // select the first loopback interface as a default to
+          // discourage spamming the network (possibly the Internet),
+          // particularly important with administratively scoped
+          // multicast UDP
+          if (name == current
+              || (!current.size () && (interface.flags () & QNetworkInterface::IsLoopBack)))
+            {
+              current_index = combo_box->count () - 1;
+            }
         }
     }
   combo_box->setCurrentIndex (current_index);

@@ -21,7 +21,6 @@ class Bands;
 class FrequencyList_v2;
 class StationList;
 class QStringListModel;
-class QHostAddress;
 class LotWUsers;
 class DecodeHighlightingModel;
 class LogBook;
@@ -152,6 +151,8 @@ public:
   void opCall (QString const&);
   QString udp_server_name () const;
   port_type udp_server_port () const;
+  QString udp_interface_name () const;
+  int udp_TTL () const;
   QString n1mm_server_name () const;
   port_type n1mm_server_port () const;
   bool valid_n1mm_info () const;
@@ -273,8 +274,9 @@ public:
   //
   // This signal is emitted when the UDP server changes
   //
-  Q_SIGNAL void udp_server_changed (QString const& udp_server) const;
+  Q_SIGNAL void udp_server_changed (QString& udp_server_name, QString const& network_interface) const;
   Q_SIGNAL void udp_server_port_changed (port_type server_port) const;
+  Q_SIGNAL void udp_TTL_changed (int TTL) const;
   Q_SIGNAL void accept_udp_requests_changed (bool checked) const;
 
   // signal updates to decode highlighting

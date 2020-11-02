@@ -32,7 +32,6 @@ public:
     : self_ {self}
     , version_ {version}
     , revision_ {revision}
-    , port_ {0u}
     , clock_ {new QTimer {this}}
   {
     // register the required types with Qt
@@ -78,8 +77,8 @@ public:
   MessageServer * self_;
   QString version_;
   QString revision_;
-  port_type port_;
   QHostAddress multicast_group_address_;
+  QStringList network_interfaces_;
   static BindMode constexpr bind_mode_ = ShareAddress | ReuseAddressHint;
   struct Client
   {
@@ -109,56 +108,39 @@ MessageServer::impl::BindMode constexpr MessageServer::impl::bind_mode_;
 
 void MessageServer::impl::leave_multicast_group ()
 {
-  if (!multicast_group_address_.isNull () && BoundState == state ()
-#if QT_VERSION >= 0x050600
-      && multicast_group_address_.isMulticast ()
-#endif
-      )
+  if (BoundState == state () && is_multicast_address (multicast_group_address_))
     {
-      for (auto const& interface : QNetworkInterface::allInterfaces ())
+      for (auto const& if_name : network_interfaces_)
         {
-          if (QNetworkInterface::CanMulticast & interface.flags ())
-            {
-              leaveMulticastGroup (multicast_group_address_, interface);
-            }
+          leaveMulticastGroup (multicast_group_address_, QNetworkInterface::interfaceFromName (if_name));
         }
     }
 }
 
 void MessageServer::impl::join_multicast_group ()
 {
-  if (BoundState == state ()
-      && !multicast_group_address_.isNull ()
-#if QT_VERSION >= 0x050600
-      && multicast_group_address_.isMulticast ()
-#endif
-      )
+  if (BoundState == state () && is_multicast_address (multicast_group_address_))
     {
-      auto mcast_iface = multicastInterface ();
-      if (IPv4Protocol == multicast_group_address_.protocol ()
-          && IPv4Protocol != localAddress ().protocol ())
+      if (network_interfaces_.size ())
         {
-          close ();
-          bind (QHostAddress::AnyIPv4, port_, bind_mode_);
-        }
-      bool joined {false};
-      for (auto const& interface : QNetworkInterface::allInterfaces ())
-        {
-          if (QNetworkInterface::CanMulticast & interface.flags ())
+          for (auto const& if_name : network_interfaces_)
             {
-              // Windows requires outgoing interface to match
-              // interface to be joined while joining, at least for
-              // IPv4 it seems to
-              setMulticastInterface (interface);
-
-              joined |= joinMulticastGroup (multicast_group_address_, interface);
+              joinMulticastGroup (multicast_group_address_, QNetworkInterface::interfaceFromName (if_name));
             }
         }
-      if (!joined)
+      else
         {
-          multicast_group_address_.clear ();
+          // find the loop-back interface and join on that
+          for (auto const& net_if : QNetworkInterface::allInterfaces ())
+            {
+              auto flags = QNetworkInterface::IsUp | QNetworkInterface::IsLoopBack | QNetworkInterface::CanMulticast;
+              if ((net_if.flags () & flags) == flags)
+                {
+                  joinMulticastGroup (multicast_group_address_, net_if);
+                  break;
+                }
+            }
         }
-      setMulticastInterface (mcast_iface);
     }
 }
 
@@ -448,27 +430,34 @@ MessageServer::MessageServer (QObject * parent, QString const& version, QString 
 {
 }
 
-void MessageServer::start (port_type port, QHostAddress const& multicast_group_address)
+void MessageServer::start (port_type port, QHostAddress const& multicast_group_address
+                           , QStringList const& network_interface_names)
 {
-  if (port != m_->port_
-      || multicast_group_address != m_->multicast_group_address_)
+  if (port != m_->localPort () || multicast_group_address != m_->multicast_group_address_)
     {
       m_->leave_multicast_group ();
-      if (impl::BoundState == m_->state ())
+      if (impl::UnconnectedState != m_->state ())
         {
           m_->close ();
         }
-      m_->multicast_group_address_ = multicast_group_address;
-      auto address = m_->multicast_group_address_.isNull ()
-        || impl::IPv4Protocol != m_->multicast_group_address_.protocol () ? QHostAddress::Any : QHostAddress::AnyIPv4;
-      if (port && m_->bind (address, port, m_->bind_mode_))
+      if (!(multicast_group_address.isNull () || is_multicast_address (multicast_group_address)))
         {
-          m_->port_ = port;
-          m_->join_multicast_group ();
+          Q_EMIT error ("Invalid multicast group address");
+        }
+      else if (is_MAC_ambiguous_multicast_address (multicast_group_address))
+        {
+          Q_EMIT error ("MAC-ambiguous IPv4 multicast group address not supported");
         }
       else
         {
-          m_->port_ = 0;
+          m_->multicast_group_address_ = multicast_group_address;
+          m_->network_interfaces_ = network_interface_names;
+          QHostAddress local_addr {is_multicast_address (multicast_group_address)
+                                   && impl::IPv4Protocol == multicast_group_address.protocol () ? QHostAddress::AnyIPv4 : QHostAddress::Any};
+          if (port && m_->bind (local_addr, port, m_->bind_mode_))
+            {
+              m_->join_multicast_group ();
+            }
         }
     }
 }
