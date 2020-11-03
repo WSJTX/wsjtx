@@ -148,6 +148,13 @@ void MessageClient::impl::start ()
       return;
     }
 
+  if (is_broadcast_address (server_))
+    {
+      Q_EMIT self_->error ("IPv4 broadcast not supported, please specify the loop-back address, a server host address, or multicast group address");
+      pending_messages_.clear (); // discard
+      return;
+    }
+
   if (blocked_addresses_.end () != std::find (blocked_addresses_.begin (), blocked_addresses_.end (), server_))
     {
       Q_EMIT self_->error ("UDP server blocked, please try another");
@@ -179,13 +186,6 @@ void MessageClient::impl::start ()
           pending_messages_.clear (); // discard
           return;
         }
-    }
-
-  if (server_.isBroadcast ())
-    {
-      // only allow broadcast on the loopback interface to avoid
-      // flooding the local subnet which may be large with some ISPs
-      //interface_ip.setAddress ("127.0.0.1");
     }
 
   if (localAddress () != interface_ip)
