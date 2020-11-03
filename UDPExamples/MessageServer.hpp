@@ -4,7 +4,7 @@
 #include <QObject>
 #include <QPair>
 #include <QString>
-#include <QStringList>
+#include <QSet>
 #include <QTime>
 #include <QDateTime>
 #include <QHostAddress>
@@ -44,7 +44,7 @@ public:
   // which the server will join
   Q_SLOT void start (port_type port
                      , QHostAddress const& multicast_group_address = QHostAddress {}
-                     , QStringList const& network_interface_names = QStringList {});
+                     , QSet<QString> const& network_interface_names = QSet<QString> {});
 
   // ask the client to clear one or both of the decode windows
   Q_SLOT void clear_decodes (ClientKey const&, quint8 window = 0);

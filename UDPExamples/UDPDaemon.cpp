@@ -169,7 +169,7 @@ public:
     connect (server_, &MessageServer::client_opened, this, &Server::add_client);
     connect (server_, &MessageServer::client_closed, this, &Server::remove_client);
 
-    server_->start (port, multicast_group, network_interface_names);
+    server_->start (port, multicast_group, QSet<QString> {network_interface_names.begin (), network_interface_names.end ()});
   }
 
 private:

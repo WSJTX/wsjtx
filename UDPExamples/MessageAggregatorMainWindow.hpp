@@ -6,6 +6,7 @@
 #include <QString>
 
 #include "MessageServer.hpp"
+#include "widgets/CheckableItemComboBox.hpp"
 
 class QDateTime;
 class QStandardItemModel;
@@ -16,6 +17,8 @@ class QLineEdit;
 class QTableView;
 class ClientWidget;
 class QListWidget;
+class QLabel;
+class QSpinBox;
 
 using Frequency = MessageServer::Frequency;
 
@@ -38,6 +41,7 @@ public:
                        , QString const& exchange_sent, QString const& exchange_rcvd, QString const& prop_mode);
 
 private:
+  void restart_server ();
   void add_client (ClientKey const&, QString const& version, QString const& revision);
   void remove_client (ClientKey const&);
   void change_highlighting (QString const& call, QColor const& bg = QColor {}, QColor const& fg = QColor {},
@@ -52,7 +56,10 @@ private:
   DecodesModel * decodes_model_;
   BeaconsModel * beacons_model_;
   MessageServer * server_;
+  QSpinBox * port_spin_box_;
   QLineEdit * multicast_group_line_edit_;
+  CheckableItemComboBox * network_interfaces_combo_box_;
+  QLabel * network_interfaces_form_label_widget_;
   QTableView * log_table_view_;
   QListWidget * calls_of_interest_;
   QAction * add_call_of_interest_action_;
