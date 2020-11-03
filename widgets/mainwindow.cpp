@@ -2360,14 +2360,13 @@ void MainWindow::createStatusBar()                           //createStatusBar
 void MainWindow::setup_status_bar (bool vhf)
 {
   auto submode = current_submode ();
-  if (vhf && submode != QChar::Null)
-    {
-      mode_label.setText (m_mode + " " + submode);
-    }
-  else
-    {
-      mode_label.setText (m_mode);
-    }
+  if (vhf && submode != QChar::Null) {
+    QString t{m_mode + " " + submode};
+    if(m_mode=="Q65") t=m_mode + "-" + QString::number(m_TRperiod) + submode;
+    mode_label.setText (t);
+  } else {
+    mode_label.setText (m_mode);
+  }
   if ("ISCAT" == m_mode) {
     mode_label.setStyleSheet ("QLabel{color: #000000; background-color: #ff9933}");
   } else if ("JT9" == m_mode) {
@@ -7620,6 +7619,7 @@ void MainWindow::on_sbTR_valueChanged(int value)
   if(m_transmitting) {
     on_stopTxButton_clicked();
   }
+  on_sbSubmode_valueChanged(ui->sbSubmode->value());
   statusUpdate ();
 }
 
@@ -7644,14 +7644,13 @@ void MainWindow::on_sbSubmode_valueChanged(int n)
   m_nSubMode=n;
   m_wideGraph->setSubMode(m_nSubMode);
   auto submode = current_submode ();
-  if (submode != QChar::Null)
-    {
-      mode_label.setText (m_mode + " " + submode);
-    }
-  else
-    {
-      mode_label.setText (m_mode);
-    }
+  if (submode != QChar::Null) {
+    QString t{m_mode + " " + submode};
+    if(m_mode=="Q65") t=m_mode + "-" + QString::number(m_TRperiod) + submode;
+    mode_label.setText (t);
+  } else {
+    mode_label.setText (m_mode);
+  }
   if(m_mode=="ISCAT") {
     if(m_nSubMode==0) ui->TxFreqSpinBox->setValue(1012);
     if(m_nSubMode==1) ui->TxFreqSpinBox->setValue(560);
