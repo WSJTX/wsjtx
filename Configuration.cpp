@@ -2418,7 +2418,7 @@ void Configuration::impl::on_udp_server_line_edit_editingFinished ()
       if (server.size () && ha.isNull ())
         {
           // queue a host address lookup
-          qDebug () << "server host DNS lookup:" << server;
+          // qDebug () << "server host DNS lookup:" << server;
 #if QT_VERSION >= QT_VERSION_CHECK(5, 9, 0)
           dns_lookup_id_ = QHostInfo::lookupHost (server, this, &Configuration::impl::host_info_results);
 #else
@@ -2443,7 +2443,7 @@ void Configuration::impl::host_info_results (QHostInfo host_info)
   else
     {
       auto const& server_addresses = host_info.addresses ();
-      qDebug () << "message server addresses:" << server_addresses;
+      // qDebug () << "message server addresses:" << server_addresses;
       if (server_addresses.size ())
         {
           check_multicast (server_addresses[0]);

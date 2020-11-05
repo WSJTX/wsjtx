@@ -179,7 +179,7 @@ void MessageClient::impl::start ()
       // bind to an ephemeral port on the selected interface and set
       // up for sending datagrams
       bind (interface_addr);
-      qDebug () << "Bound to UDP port:" << localPort () << "on:" << localAddress ();
+      // qDebug () << "Bound to UDP port:" << localPort () << "on:" << localAddress ();
 
       // set multicast TTL to limit scope when sending to multicast
       // group addresses
