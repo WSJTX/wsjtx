@@ -443,7 +443,8 @@ private:
   void load_audio_devices (QAudio::Mode, QComboBox *, QAudioDeviceInfo *);
   void update_audio_channels (QComboBox const *, int, QComboBox *, bool);
 
-  void load_network_interfaces (CheckableItemComboBox *, QStringList const& current);
+  void load_network_interfaces (CheckableItemComboBox *, QStringList current);
+  void validate_network_interfaces (CheckableItemComboBox *);
   QStringList get_selected_network_interfaces (CheckableItemComboBox *);
   Q_SLOT void host_info_results (QHostInfo);
   void check_multicast (QHostAddress const&);
@@ -656,6 +657,7 @@ private:
   int dns_lookup_id_;
   port_type udp_server_port_;
   QStringList udp_interface_names_;
+  QString loopback_interface_name_;
   int udp_TTL_;
   QString n1mm_server_name_;
   port_type n1mm_server_port_;
@@ -1084,6 +1086,9 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
       QGuiApplication::setOverrideCursor (QCursor {Qt::WaitCursor});
       load_network_interfaces (ui_->udp_interfaces_combo_box, udp_interface_names_);
       QGuiApplication::restoreOverrideCursor ();
+    });
+  connect (ui_->udp_interfaces_combo_box, &QComboBox::currentTextChanged, [this] (QString const& /*text*/) {
+      validate_network_interfaces (ui_->udp_interfaces_combo_box);
     });
 
   // set up LoTW users CSV file fetching
@@ -2995,7 +3000,7 @@ void Configuration::impl::load_audio_devices (QAudio::Mode mode, QComboBox * com
 }
 
 // load the available network interfaces into the selection combo box
-void Configuration::impl::load_network_interfaces (CheckableItemComboBox * combo_box, QStringList const& current)
+void Configuration::impl::load_network_interfaces (CheckableItemComboBox * combo_box, QStringList current)
 {
   combo_box->clear ();
   for (auto const& net_if : QNetworkInterface::allInterfaces ())
@@ -3003,11 +3008,13 @@ void Configuration::impl::load_network_interfaces (CheckableItemComboBox * combo
       auto flags = QNetworkInterface::IsUp | QNetworkInterface::CanMulticast;
       if ((net_if.flags () & flags) == flags)
         {
-          auto is_loopback = net_if.flags () & QNetworkInterface::IsLoopBack;
+          if (net_if.flags () & QNetworkInterface::IsLoopBack)
+            {
+              loopback_interface_name_ = net_if.name ();
+            }
           auto item = combo_box->addCheckItem (net_if.humanReadableName ()
                                                , net_if.name ()
-                                               , is_loopback || current.contains (net_if.name ()) ? Qt::Checked : Qt::Unchecked);
-          item->setEnabled (!is_loopback);
+                                               , current.contains (net_if.name ()) ? Qt::Checked : Qt::Unchecked);
           auto tip = QString {"name(index): %1(%2) - %3"}.arg (net_if.name ()).arg (net_if.index ())
                        .arg (net_if.flags () & QNetworkInterface::IsUp ? "Up" : "Down");
           auto hw_addr = net_if.hardwareAddress ();
@@ -3026,6 +3033,33 @@ void Configuration::impl::load_network_interfaces (CheckableItemComboBox * combo
             }
           item->setToolTip (tip);
         }
+    }
+}
+
+// get the select network interfaces from the selection combo box
+void Configuration::impl::validate_network_interfaces (CheckableItemComboBox * combo_box)
+{
+  auto model = static_cast<QStandardItemModel *> (combo_box->model ());
+  bool has_checked {false};
+  int loopback_row {-1};
+  for (int row = 0; row < model->rowCount (); ++row)
+    {
+      if (model->item (row)->data ().toString () == loopback_interface_name_)
+        {
+          loopback_row = row;
+        }
+      else if (Qt::Checked == model->item (row)->checkState ())
+        {
+          has_checked = true;
+        }
+    }
+  if (loopback_row >= 0)
+    {
+      if (!has_checked)
+        {
+          model->item (loopback_row)->setCheckState (Qt::Checked);
+        }
+      model->item (loopback_row)->setEnabled (has_checked);
     }
 }
 

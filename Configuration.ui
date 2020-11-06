@@ -1885,7 +1885,7 @@ and DX Grid fields when a 73 or free text message is sent.</string>
             <item row="1" column="1">
              <widget class="QSpinBox" name="udp_server_port_spin_box">
               <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enter the service port number of the UDP server that WSJT-X should send updates to. If this is zero no updates will be broadcast.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enter the service port number of the UDP server that WSJT-X should send updates to. If this is zero no updates will be sent.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
               <property name="maximum">
                <number>65534</number>
@@ -1903,10 +1903,17 @@ and DX Grid fields when a 73 or free text message is sent.</string>
              </widget>
             </item>
             <item row="2" column="1">
-             <widget class="CheckableItemComboBox" name="udp_interfaces_combo_box"/>
+             <widget class="CheckableItemComboBox" name="udp_interfaces_combo_box">
+              <property name="toolTip">
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;When sending updates to a multicast group address it is necessary to specify which network interface(s) to send them to. If the loop-back interface is multicast capable then at least that one will be selected.&lt;/p&gt;&lt;p&gt;For most users the loop-back interface is all that is needed, that will allow multiple other applications on the same machine to interoperate with WSJT-X. If applications running on other hosts are to receive status updates then a suitable network interface should be used.&lt;/p&gt;&lt;p&gt;On some Linux systems it may be necessary to enable multicast on the loop-back network interface.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+              </property>
+             </widget>
             </item>
             <item row="3" column="1">
              <widget class="QSpinBox" name="udp_TTL_spin_box">
+              <property name="toolTip">
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Sets the number or router hops that multicast datagrams are allowed to make. Almost everyone should set this to 1 to keep outgoing multicast traffic withn the local subnet.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+              </property>
               <property name="maximum">
                <number>255</number>
               </property>

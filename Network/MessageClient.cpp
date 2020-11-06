@@ -103,6 +103,7 @@ public:
 
 void MessageClient::impl::set_server (QString const& server_name, QStringList const& network_interface_names)
 {
+  // qDebug () << "MessageClient server:" << server_name << "port:" << server_port_ << "interfaces:" << network_interface_names;
   server_.setAddress (server_name);
   network_interfaces_.clear ();
   for (auto const& net_if_name : network_interface_names)
@@ -447,9 +448,19 @@ void MessageClient::impl::send_message (QByteArray const& message, bool queue_if
         {
           if (message != last_message_) // avoid duplicates
             {
-              for (auto const& net_if : network_interfaces_)
+              if (is_multicast_address (server_))
                 {
-                  setMulticastInterface (net_if);
+                  // send datagram on each selected network interface
+                  std::for_each (network_interfaces_.begin (), network_interfaces_.end ()
+                                 , [&] (QNetworkInterface const& net_if) {
+                                     setMulticastInterface (net_if);
+                                     // qDebug () << "Multicast UDP datagram sent to:" << server_ << "port:" << server_port_ << "on:" << multicastInterface ().humanReadableName ();
+                                     writeDatagram (message, server_, server_port_);
+                                   });
+                }
+              else
+                {
+                  // qDebug () << "Unicast UDP datagram sent to:" << server_ << "port:" << server_port_;
                   writeDatagram (message, server_, server_port_);
                 }
               last_message_ = message;
