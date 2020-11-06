@@ -46,6 +46,7 @@ private:
   void remove_client (ClientKey const&);
   void change_highlighting (QString const& call, QColor const& bg = QColor {}, QColor const& fg = QColor {},
                             bool last_only = false);
+  Q_SLOT void validate_network_interfaces (QString const&);
 
   // maps client id to widgets
   using ClientsDictionary = QHash<ClientKey, ClientWidget *>;
@@ -59,6 +60,7 @@ private:
   QSpinBox * port_spin_box_;
   QLineEdit * multicast_group_line_edit_;
   CheckableItemComboBox * network_interfaces_combo_box_;
+  QString loopback_interface_name_;
   QLabel * network_interfaces_form_label_widget_;
   QTableView * log_table_view_;
   QListWidget * calls_of_interest_;

@@ -107,13 +107,16 @@ MessageAggregatorMainWindow::MessageAggregatorMainWindow ()
       auto flags = QNetworkInterface::IsRunning | QNetworkInterface::CanMulticast;
       if ((net_if.flags () & flags) == flags)
         {
-          auto is_loopback = net_if.flags () & QNetworkInterface::IsLoopBack;
+          if (net_if.flags () & QNetworkInterface::IsLoopBack)
+            {
+              loopback_interface_name_ = net_if.name ();
+            }
           auto item = network_interfaces_combo_box_->addCheckItem (net_if.humanReadableName ()
                                                                    , net_if.name ()
-                                                                   , is_loopback ? Qt::Checked : Qt::Unchecked);
-          item->setEnabled (!is_loopback);
-          auto tip = QString {"name(index): %1(%2) - %3"}.arg (net_if.name ()).arg (net_if.index ())
-                                                            .arg (net_if.flags () & QNetworkInterface::IsUp ? "Up" : "Down");
+                                                                   , Qt::Unchecked);
+          auto tip = QString {"name(index): %1(%2) - %3"}
+            .arg (net_if.name ()).arg (net_if.index ())
+            .arg (net_if.flags () & QNetworkInterface::IsUp ? "Up" : "Down");
           auto hw_addr = net_if.hardwareAddress ();
           if (hw_addr.size ())
             {
@@ -131,6 +134,8 @@ MessageAggregatorMainWindow::MessageAggregatorMainWindow ()
           item->setToolTip (tip);
         }
     }
+  connect (network_interfaces_combo_box_, &QComboBox::currentTextChanged, this, &MessageAggregatorMainWindow::validate_network_interfaces);
+  validate_network_interfaces (QString {});
 
   log_table_view_->setModel (log_);
   log_table_view_->verticalHeader ()->hide ();
@@ -366,6 +371,32 @@ void MessageAggregatorMainWindow::change_highlighting (QString const& call, QCol
   for (auto key : dock_widgets_.keys ())
     {
       server_->highlight_callsign (key, call, bg, fg, last_only);
+    }
+}
+
+void MessageAggregatorMainWindow::validate_network_interfaces (QString const& /*text*/)
+{
+  auto model = static_cast<QStandardItemModel *> (network_interfaces_combo_box_->model ());
+  bool has_checked {false};
+  int loopback_row {-1};
+  for (int row = 0; row < model->rowCount (); ++row)
+    {
+      if (model->item (row)->data ().toString () == loopback_interface_name_)
+        {
+          loopback_row = row;
+        }
+      else if (Qt::Checked == model->item (row)->checkState ())
+        {
+          has_checked = true;
+        }
+    }
+  if (loopback_row >= 0)
+    {
+      if (!has_checked)
+        {
+          model->item (loopback_row)->setCheckState (Qt::Checked);
+        }
+      model->item (loopback_row)->setEnabled (has_checked);
     }
 }
 
