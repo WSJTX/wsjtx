@@ -3638,6 +3638,11 @@ list. The list can be maintained in Settings (F2).</source>
         <translation>降低系统负载</translation>
     </message>
     <message>
+        <location filename="../widgets/mainwindow.cpp" line="487"/>
+        <source>Excessive dropped samples - %1 (%2 sec) audio frames dropped in period starting %3</source>
+        <translation>样品丢失过多 - %1 (%2 sec) 音频帧在周期开始时丢失 %3</translation>
+    </message>
+    <message>
         <location filename="../widgets/mainwindow.cpp" line="521"/>
         <source>Error Scanning ADIF Log</source>
         <translation>扫描 ADIF 日志错误</translation>
@@ -3839,6 +3844,15 @@ list. The list can be maintained in Settings (F2).</source>
         <translation>&quot;fmt.all&quot; 文件将重命名为 &quot;fmt.bak&quot;</translation>
     </message>
     <message>
+        <location filename="../widgets/mainwindow.cpp" line="2551"/>
+        <source>If you make fair use of any part of WSJT-X under terms of the GNU General Public License, you must display the following copyright notice prominently in your derivative work:
+
+&quot;The algorithms, source code, look-and-feel of WSJT-X and related programs, and protocol specifications for the modes FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 are Copyright (C) 2001-2020 by one or more of the following authors: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; and other members of the WSJT Development Group.&quot;</source>
+        <translation>如果您根据 GNU 通用公共许可证条款合理使用 WSJT-X 的任何部分, 则必须在衍生作品中醒目地显示以下版权声明:
+
+&quot;WSJT-X 的算法, 源代码, 外观和感觉及相关程序,和协议规格模式 FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 的版权 (C) 2001-2019 由以下一个或多个作者: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; 和 WSJT 开发组的其他成员.&quot;</translation>
+    </message>
+    <message>
         <location filename="../widgets/mainwindow.cpp" line="2819"/>
         <source>No data read from disk. Wrong file format?</source>
         <translation>没有从磁盘读取数据. 文件格式出错误?</translation>
@@ -3892,20 +3906,6 @@ list. The list can be maintained in Settings (F2).</source>
         <location filename="../widgets/mainwindow.cpp" line="3802"/>
         <source>Fox Mode warning</source>
         <translation>狐狸模式警告</translation>
-    </message>
-    <message>
-        <location filename="../widgets/mainwindow.cpp" line="2551"/>
-        <source>If you make fair use of any part of WSJT-X under terms of the GNU General Public License, you must display the following copyright notice prominently in your derivative work:
-
-&quot;The algorithms, source code, look-and-feel of WSJT-X and related programs, and protocol specifications for the modes FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 are Copyright (C) 2001-2020 by one or more of the following authors: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; and other members of the WSJT Development Group.&quot;</source>
-        <translation>如果您根据 GNU 通用公共许可证条款合理使用 WSJT-X 的任何部分, 则必须在衍生作品中醒目地显示以下版权声明:
-
-&quot;WSJT-X 的算法, 源代码, 外观和感觉及相关程序,和协议规格模式 FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 的版权 (C) 2001-2019 由以下一个或多个作者: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; 和 WSJT 开发组的其他成员.&quot;</translation>
-    </message>
-    <message>
-        <location filename="../widgets/mainwindow.cpp" line="487"/>
-        <source>Excessive dropped samples - %1 (%2 sec) audio frames dropped in period starting %3</source>
-        <translation>样品丢失过多 - %1 (%2 sec) 音频帧在周期开始时丢失 %3</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="2866"/>
@@ -5389,11 +5389,6 @@ quiet period when decoding is done.</source>
         <translation>数据位元</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="669"/>
-        <source>Data Bits</source>
-        <translation>数据位元</translation>
-    </message>
-    <message>
         <location filename="../Configuration.ui" line="675"/>
         <source>D&amp;efault</source>
         <translation>默认值(&amp;e)</translation>
@@ -5416,11 +5411,6 @@ quiet period when decoding is done.</source>
     <message>
         <location filename="../Configuration.ui" line="720"/>
         <source>Stop bits</source>
-        <translation>停止位元</translation>
-    </message>
-    <message>
-        <location filename="../Configuration.ui" line="723"/>
-        <source>Stop Bits</source>
         <translation>停止位元</translation>
     </message>
     <message>
@@ -5792,6 +5782,11 @@ both here.</source>
 双声道.</translation>
     </message>
     <message>
+        <location filename="../Configuration.ui" line="360"/>
+        <source>Enable VHF and submode features</source>
+        <translation>启用甚高频和子模式功能</translation>
+    </message>
+    <message>
         <location filename="../Configuration.ui" line="1370"/>
         <source>Ou&amp;tput:</source>
         <translation>输出(&amp;t):</translation>
@@ -5992,9 +5987,24 @@ and DX Grid fields when a 73 or free text message is sent.</source>
         <translation>网络服务</translation>
     </message>
     <message>
+        <location filename="../Configuration.ui" line="1824"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The program can send your station details and all decoded signals with grid squares as spots to the http://pskreporter.info web site.&lt;/p&gt;&lt;p&gt;This is used for reverse beacon analysis which is very useful for assessing propagation and system performance.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;该程序可以将你的电台详细信息和所有解码信号以网格发送到http://pskreporter.info网站.&lt;/p&gt;&lt;p&gt;这用于反向信标分析，这对于评估传播和系统性能非常有用.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
         <location filename="../Configuration.ui" line="1827"/>
         <source>Enable &amp;PSK Reporter Spotting</source>
         <translation>启用&amp;PSK Reporter Spotting</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="1834"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check this option if a reliable connection is needed&lt;/p&gt;&lt;p&gt;Most users do not need this, the default uses UDP which is more efficient. Only check this if you have evidence that UDP traffic from you to PSK Reporter is being lost.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;如果需要可靠的连接, 请选择此选项&lt;/p&gt;&lt;p&gt;大多数用户不需要这个, 默认使用UDP, 效率更高. 只有当你有证据表明从你到PSK Reporter的UDP流量丢失时, 才选择这个.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="1837"/>
+        <source>Use TCP/IP connection</source>
+        <translation>使用TCP/IP连接</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1847"/>
@@ -6164,34 +6174,9 @@ Right click for insert and delete options.</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;单击以再次扫描wsjtx_log.adi ADIF文件，获取以前工作过的信息&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2286"/>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enable or disable using the check boxes and right-click an item to change or unset the foreground color, background color, or reset the item to default values. Drag and drop the items to change their priority, higher in the list is higher in priority.&lt;/p&gt;&lt;p&gt;Note that each foreground or background color may be either set or unset, unset means that it is not allocated for that item&apos;s type and lower priority items may apply.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;使用复选框启用或禁用项目，并右键单击项目以更改或取消设置前景颜色, 背景颜色, 或将项目重置为默认值. 拖放项目以更改其优先级, 列表中较高的优先级较高.&lt;/p&gt;&lt;p&gt;请注意, 每个前景或背景颜色都可以设置或取消设置, 取消设置意味着它未为该项分配, 其类型和低优先级项可能适用.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
         <location filename="../Configuration.ui" line="2255"/>
         <source>Rescan ADIF Log</source>
         <translation>重新扫描 ADIF 日志</translation>
-    </message>
-    <message>
-        <location filename="../Configuration.ui" line="360"/>
-        <source>Enable VHF and submode features</source>
-        <translation>启用甚高频和子模式功能</translation>
-    </message>
-    <message>
-        <location filename="../Configuration.ui" line="1824"/>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The program can send your station details and all decoded signals with grid squares as spots to the http://pskreporter.info web site.&lt;/p&gt;&lt;p&gt;This is used for reverse beacon analysis which is very useful for assessing propagation and system performance.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;该程序可以将你的电台详细信息和所有解码信号以网格发送到http://pskreporter.info网站.&lt;/p&gt;&lt;p&gt;这用于反向信标分析，这对于评估传播和系统性能非常有用.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
-        <location filename="../Configuration.ui" line="1834"/>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check this option if a reliable connection is needed&lt;/p&gt;&lt;p&gt;Most users do not need this, the default uses UDP which is more efficient. Only check this if you have evidence that UDP traffic from you to PSK Reporter is being lost.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;如果需要可靠的连接, 请选择此选项&lt;/p&gt;&lt;p&gt;大多数用户不需要这个, 默认使用UDP, 效率更高. 只有当你有证据表明从你到PSK Reporter的UDP流量丢失时, 才选择这个.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
-        <location filename="../Configuration.ui" line="1837"/>
-        <source>Use TCP/IP connection</source>
-        <translation>使用TCP/IP连接</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2264"/>
@@ -6202,6 +6187,11 @@ Right click for insert and delete options.</source>
         <location filename="../Configuration.ui" line="2267"/>
         <source>Reset Highlighting</source>
         <translation>重置高亮显示</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="2286"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enable or disable using the check boxes and right-click an item to change or unset the foreground color, background color, or reset the item to default values. Drag and drop the items to change their priority, higher in the list is higher in priority.&lt;/p&gt;&lt;p&gt;Note that each foreground or background color may be either set or unset, unset means that it is not allocated for that item&apos;s type and lower priority items may apply.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;使用复选框启用或禁用项目，并右键单击项目以更改或取消设置前景颜色, 背景颜色, 或将项目重置为默认值. 拖放项目以更改其优先级, 列表中较高的优先级较高.&lt;/p&gt;&lt;p&gt;请注意, 每个前景或背景颜色都可以设置或取消设置, 取消设置意味着它未为该项分配, 其类型和低优先级项可能适用.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2311"/>
