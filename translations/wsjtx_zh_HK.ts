@@ -621,7 +621,7 @@ Format:
         <location filename="../Configuration.cpp" line="2835"/>
         <source>Not found</source>
         <comment>audio device missing</comment>
-        <translation type="unfinished"></translation>
+        <translation>音訊設備未找到</translation>
     </message>
 </context>
 <context>
@@ -2213,12 +2213,12 @@ Error(%2): %3</source>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1297"/>
         <source>F High </source>
-        <translation type="unfinished"></translation>
+        <translation>F 高 </translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1388"/>
         <source>F Low   </source>
-        <translation type="unfinished"></translation>
+        <translation>F 低   </translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2484"/>
@@ -2338,12 +2338,12 @@ Error(%2): %3</source>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3390"/>
         <source>SWL Mode</source>
-        <translation type="unfinished"></translation>
+        <translation>SWL 模式</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3393"/>
         <source>Hide lower panel controls to maximize deocde windows</source>
-        <translation type="unfinished"></translation>
+        <translation>隱藏下面板控制項以最大化解碼視窗</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="603"/>
@@ -4632,10 +4632,6 @@ Error(%2): %3</source>
         <location filename="../Audio/soundin.cpp" line="25"/>
         <source>An error occurred during read from the audio input device.</source>
         <translation>從音頻輸入設備讀取時錯誤.</translation>
-    </message>
-    <message>
-        <source>Audio data not being fed to the audio input device fast enough.</source>
-        <translation type="vanished">音頻數據沒有足夠提供饋送到音頻輸入設備.</translation>
     </message>
     <message>
         <location filename="../Audio/soundin.cpp" line="33"/>
