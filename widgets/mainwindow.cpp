@@ -117,6 +117,9 @@ extern "C" {
   void gen_fst4wave_(int itone[], int* nsym, int* nsps, int* nwave, float* fsample,
                        int* hmod, float* f0, int* icmplx, float xjunk[], float wave[]);
 
+  void genwave_(int itone[], int* nsym, int* nsps, int* nwave, float* fsample,
+                       int* hmod, float* f0, int* icmplx, float xjunk[], float wave[]);
+
   void gen4_(char* msg, int* ichk, char* msgsent, int itone[],
                int* itext, fortran_charlen_t, fortran_charlen_t);
 
@@ -3991,6 +3994,20 @@ void MainWindow::guiUpdate()
           int i3=-1;
           int n3=-1;
           genq65_(message,&ichk,msgsent,const_cast<int *>(itone),&i3,&n3,37,37);
+          int nsps=1800;
+          if(m_TRperiod==30) nsps=3600;
+          if(m_TRperiod==60) nsps=7200;
+          if(m_TRperiod==120) nsps=16000;
+          if(m_TRperiod==300) nsps=41472;
+          int nsps4=4*nsps;                           //48000 Hz sampling
+          int nsym=85;
+          float fsample=48000.0;
+          int nwave=(nsym+2)*nsps4;
+          int icmplx=0;
+          int hmod=1;
+          float f0=ui->TxFreqSpinBox->value()-m_XIT;
+          genwave_(const_cast<int *>(itone),&nsym,&nsps4,&nwave,
+                  &fsample,&hmod,&f0,&icmplx,foxcom_.wave,foxcom_.wave);
         }
         if(m_modeTx=="WSPR") genwspr_(message, msgsent, const_cast<int *> (itone),
                                     22, 22);
@@ -6416,7 +6433,7 @@ void MainWindow::on_actionQ65_triggered()
   m_wideGraph->setTxFreq(ui->TxFreqSpinBox->value());
   switch_mode (Modes::Q65);
 //                         012345678901234567890123456789012345
-  displayWidgets(nWidgets("111111010110110100010000001100000000"));
+  displayWidgets(nWidgets("111111010110110100011000000100000000"));
   statusChanged();
 }
 
@@ -6769,8 +6786,6 @@ void MainWindow::on_actionInclude_averaging_toggled (bool checked)
 {
   m_ndepth ^= (-checked ^ m_ndepth) & 0x00000010;
 }
-
-
 
 void MainWindow::on_actionInclude_correlation_toggled (bool checked)
 {
@@ -7321,8 +7336,9 @@ void MainWindow::transmit (double snr)
     if(m_TRperiod==60) nsps=7200;
     if(m_TRperiod==120) nsps=16000;
     if(m_TRperiod==300) nsps=41472;
-    int mode65=pow(2.0,double(m_nSubMode));
-    toneSpacing=mode65*12000.0/nsps;
+//    int mode65=pow(2.0,double(m_nSubMode));
+//    toneSpacing=mode65*12000.0/nsps;
+    toneSpacing=-4.0;
     Q_EMIT sendMessage (m_mode, NUM_Q65_SYMBOLS,
            double(nsps), ui->TxFreqSpinBox->value () - m_XIT,
            toneSpacing, m_soundOutput, m_config.audio_output_channel (),
@@ -7563,13 +7579,13 @@ void MainWindow::on_sbFtol_valueChanged(int value)
 
 void::MainWindow::VHF_features_enabled(bool b)
 {
-  if(m_mode!="JT4" and m_mode!="JT65") b=false;
+  if(m_mode!="JT4" and m_mode!="JT65" and m_mode!="Q65") b=false;
   if(b and (ui->actionInclude_averaging->isChecked() or
              ui->actionInclude_correlation->isChecked())) {
     ui->actionDeepestDecode->setChecked (true);
   }
   ui->actionInclude_averaging->setVisible (b);
-  ui->actionInclude_correlation->setVisible (b);
+  ui->actionInclude_correlation->setVisible (b && m_mode!="Q65");
   ui->actionMessage_averaging->setEnabled(b);
   ui->actionEnable_AP_DXcall->setVisible (m_mode=="QRA64");
   ui->actionEnable_AP_JT65->setVisible (b && m_mode=="JT65");

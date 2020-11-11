@@ -38,7 +38,7 @@ contains
 !         nsubmode         Tone-spacing indicator, 0-4 for A-E
 !         nfqso            Target signal frequency (Hz)
 !         ntol             Search range around nfqso (Hz)
-!         ndepth           Optional decoding level (???)
+!         ndepth           Optional decoding level
 ! Output: sent to the callback routine for display to user
 
     use timer_module, only: timer

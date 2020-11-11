@@ -33,8 +33,10 @@ subroutine q65_loops(c00,npts2,nsps,mode,mode64,nsubmode,nFadingModel,   &
   NN=63
   napmin=99
   baud=6000.0/nsps
-
-  do iavg=0,1
+  
+  maxavg=0
+  if(iand(ndepth,16).ne.0) maxavg=1
+  do iavg=0,maxavg
      if(iavg.eq.1) then
         idfmax=1
         idtmax=1
