@@ -4,7 +4,7 @@ program test_q65
   character*22 msg
   character*8 arg
   character*1 csubmode
-  integer nretcode(0:11)
+  integer naptype(0:6)
   logical decok
 
   nargs=iargc()
@@ -77,15 +77,15 @@ program test_q65
   cmd2(38:38)=csubmode
   call system('rm -f *.wav')
 
-  call qra_params(ndepth,maxaptype,idf0max,idt0max,ibwmin,ibwmax,maxdist)
-  write(*,1000) ndepth,maxaptype,idf0max,idt0max,ibwmin,ibwmax,maxdist
-  write(12,1000) ndepth,maxaptype,idf0max,idt0max,ibwmin,ibwmax,maxdist
-1000 format(/'Depth:',i2,'  AP:',i2,'  df:',i3,'  dt:',i3,'  bw1:',i3,'  bw2:',i3,  &
-          '  dist:',i3)
+!  call qra_params(ndepth,maxaptype,idf0max,idt0max,ibwmin,ibwmax,maxdist)
+!  write(*,1000) ndepth,maxaptype,idf0max,idt0max,ibwmin,ibwmax,maxdist
+!  write(12,1000) ndepth,maxaptype,idf0max,idt0max,ibwmin,ibwmax,maxdist
+!1000 format(/'Depth:',i2,'  AP:',i2,'  df:',i3,'  dt:',i3,'  bw1:',i3,'  bw2:',i3,  &
+!          '  dist:',i3)
   
-  write(*,1010) (j,j=0,11)
-  write(12,1010) (j,j=0,11)
-1010 format('SNR d  Dop Sync DecN Dec1 Bad',i6,11i4,'  tdec'/85('-'))
+  write(*,1010) (j,j=0,6)
+  write(12,1010) (j,j=0,6)
+1010 format('SNR nd  Dop Sync DecN Dec1 Bad',i6,6i4,'  tdec'/66('-'))
 
   dterr=tsym/4.0
   nferr=max(1,nint(0.5*baud),nint(fdop/3.0))
@@ -95,7 +95,7 @@ program test_q65
      nsync=0
      ndec1=0
      nfalse=0
-     nretcode=0
+     naptype=0
      ndecn=0
      write(cmd1(63:65),'(i3)') nsnr
      call system(cmd1)
@@ -108,7 +108,6 @@ program test_q65
         read(10,'(a71)',end=10) line
         if(index(line,'<Decode').eq.1) cycle
         read(line(11:20),*) xdt,nf
-        if(ntrperiod.ge.60) xdt=xdt-0.5              !### TEMPORARY ###
         decok=index(line,trim(msg)).gt.0
         if((abs(xdt-dt).le.dterr .and. abs(nf-nf0).le.nferr) .or. decok) then
            nsync=nsync+1
@@ -122,7 +121,7 @@ program test_q65
         if(decok) then
            ndecn=ndecn + 1
            if(iavg.le.1) ndec1=ndec1 + 1
-           nretcode(irc)=nretcode(irc) + 1
+           naptype(irc)=naptype(irc) + 1
         else
            nfalse=nfalse + 1
            print*,'False: ',line
@@ -131,15 +130,15 @@ program test_q65
 10   close(10)
      xdt_avg=0.
      xdt_rms=0.
-     write(*,1100) nsnr,ndepth,fDop,nsync,ndecn,ndec1,nfalse,nretcode,   &
+     write(*,1100) nsnr,ndepth,fDop,nsync,ndecn,ndec1,nfalse,naptype,   &
           tdec/nfiles
-     write(12,1100) nsnr,ndepth,fDop,nsync,ndecn,ndec1,nfalse,nretcode,  &
+     write(12,1100) nsnr,ndepth,fDop,nsync,ndecn,ndec1,nfalse,naptype,  &
           tdec/nfiles
-1100 format(i3,i2,f5.1,3i5,i4,i6,11i4,f6.2)
+1100 format(i3,i3,f5.1,3i5,i4,i6,6i4,f6.2)
      if(ndec1.lt.nfiles/2 .and. ndec10.ge.nfiles/2) then
         snr_thresh=nsnr + float(nfiles/2 - ndec1)/(ndec10-ndec1)
         write(13,1200) ndepth,fdop,csubmode,snr_thresh
-1200    format(i1,f6.1,2x,a1,f7.1)
+1200    format(i3,f6.1,2x,a1,f7.1)
         flush(13)
      endif
      flush(6)
