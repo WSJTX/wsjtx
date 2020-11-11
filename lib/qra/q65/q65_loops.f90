@@ -1,5 +1,5 @@
 subroutine q65_loops(c00,npts2,nsps,mode,mode64,nsubmode,nFadingModel,   &
-     ndepth,jpk0,xdt,f0,width,ipass,APmask,APsymbols,snr1,snr2,irc,dat4)
+     ndepth,jpk0,xdt,f0,width,iaptype,APmask,APsymbols,snr1,snr2,irc,dat4)
 
   use packjt77
   use timer_module, only: timer
@@ -24,11 +24,16 @@ subroutine q65_loops(c00,npts2,nsps,mode,mode64,nsubmode,nFadingModel,   &
   allocate(c0(0:npts2-1))
   irc=-99
   s3lim=20.
-  ibwmax=11
-  if(mode64.le.4) ibwmax=9
-  ibwmin=ibwmax
-  idtmax=3
-  call qra_params(ndepth,maxaptype,idfmax,idtmax,ibwmin,ibwmax,maxdist)
+!  ibwmax=11
+!  if(mode64.le.4) ibwmax=9
+!  ibwmin=ibwmax
+!  idtmax=3
+!  call qra_params(ndepth,maxaptype,idfmax,idtmax,ibwmin,ibwmax,maxdist)
+  idfmax=5
+  idtmax=5
+  ibwmin=1
+  ibwmax=2
+  maxdist=15
   LL=64*(mode64+2)
   NN=63
   napmin=99
@@ -49,7 +54,7 @@ subroutine q65_loops(c00,npts2,nsps,mode,mode64,nsubmode,nFadingModel,   &
         call twkfreq(c00,c0,npts2,6000.0,a)
         do idt=1,idtmax
            ndt=idt/2
-           if(ipass.eq.0 .and. iavg.eq.0) then
+           if(iaptype.eq.0 .and. iavg.eq.0) then
               if(mod(idt,2).eq.0) ndt=-ndt
               jpk=jpk0 + nsps*ndt/16              !tsym/16
               if(jpk.lt.0) jpk=0
@@ -86,7 +91,7 @@ subroutine q65_loops(c00,npts2,nsps,mode,mode64,nsubmode,nFadingModel,   &
            enddo  ! ibw (b90 loop)
         enddo  ! idt (DT loop)
      enddo  ! idf (f0 loop)
-     if(ipass.eq.0 .and. iavg.eq.0) then
+     if(iaptype.eq.0 .and. iavg.eq.0) then
         a=0.
         a(1)=-f0
         call twkfreq(c00,c0,npts2,6000.0,a)
@@ -108,10 +113,10 @@ subroutine q65_loops(c00,npts2,nsps,mode,mode64,nsubmode,nFadingModel,   &
      if(iavg.eq.0) navg=0
 !### For tests only:
      open(53,file='fort.53',status='unknown',position='append')
-     write(c77,1100) dat4
+     write(c77,1100) dat4(1:12),dat4(13)/2
 1100 format(12b6.6,b5.5)
      call unpack77(c77,0,decoded,unpk77_success) !Unpack to get msgsent
-     write(53,3053) ndf,ndt,nbw,b90,xdt,f0,snr2,ndist,irc,ipass,navg,  &
+     write(53,3053) ndf,ndt,nbw,b90,xdt,f0,snr2,ndist,irc,iaptype,navg,  &
           snr1,trim(decoded)
 3053 format(3i4,f6.1,f6.2,f7.1,f6.1,4i4,f7.2,1x,a)
      close(53)

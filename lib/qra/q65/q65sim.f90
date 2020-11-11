@@ -85,8 +85,8 @@ program q65sim
         y(j)=itone(i)-1
      endif
   enddo
-  write(*,1001) y(1:13)
-1001 format('Generated message:'/13i3)
+  write(*,1001) y(1:13),y(1:13)
+1001 format('Generated message'/'6-bit:  ',13i3/'binary: ',13b6.6)
   write(*,1002) y
 1002 format(/'Codeword:'/(20i3))
   write(*,1003) itone

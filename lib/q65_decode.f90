@@ -88,8 +88,7 @@ contains
     this%callback => callback
     if(nutc.eq.-999) print*,lapdx,nfa,nfb,nfqso  !Silence warning
     nFadingModel=1
-    call qra_params(ndepth,maxaptype,idfmax,idtmax,ibwmin,ibwmax,maxdist)
-
+!    call qra_params(ndepth,maxaptype,idfmax,idtmax,ibwmin,ibwmax,maxdist)
     call timer('sync_q65',0)
     call sync_q65(iwave,ntrperiod*12000,mode65,nsps,nfqso,ntol,xdt,f0,   &
          snr1,width)
@@ -112,35 +111,47 @@ contains
     if(nQSOprogress.eq.3 .or.nQSOprogress.eq.4) npasses=4
     if(nQSOprogress.eq.5) npasses=3
     if(lapcqonly) npasses=1
+    iaptype=0
     do ipass=0,npasses
+!       write(54,3000) nQSOprogress,ipass
+!3000   format(i1,i2)
        apmask=0
        apsymbols=0
        if(ipass.ge.1) then
-          call q65_ap(nQSOprogress,ipass,ncontest,lapcqonly,apsym0,apmask1, &
-               apsymbols1)
+          call q65_ap(nQSOprogress,ipass,ncontest,lapcqonly,iaptype,   &
+               apsym0,apmask1,apsymbols1)
           write(c78,1050) apmask1
 1050      format(78i1)
           read(c78,1060) apmask
 1060      format(13b6.6)
           write(c78,1050) apsymbols1
           read(c78,1060) apsymbols
-          apsymbols(13)=apsymbols(13)/2              !Fixup for c77-->c78
+!          write(54,3001) iaptype,c78
+!3001      format('a',i2,1x,a78)
        endif
+!       write(54,3002) apmask,apsymbols
+!3002   format('b   ',13b6.6/4x,13b6.6)
        call timer('q65loops',0)
        call q65_loops(c00,npts/2,nsps/2,nmode,mode65,nsubmode,nFadingModel,  &
-            ndepth,jpk0,xdt,f0,width,ipass,apmask,apsymbols,snr1,snr2,irc,dat4)
+            ndepth,jpk0,xdt,f0,width,iaptype,apmask,apsymbols,snr1,snr2,     &
+            irc,dat4)
        call timer('q65loops',1)
        snr2=snr2 + db(6912.0/nsps)
-       if(irc.ge.0) exit
+       if(irc.ge.0) then
+!          write(54,3003) dat4,dat4
+!3003      format('c   ',13b6.6,13i3)
+          exit
+       endif
     enddo
 
 100 decoded='                                     '
     if(irc.ge.0) then
 !###
        navg=irc/100
-       irc=100*navg + ipass
+!       irc=100*navg + ipass
+       irc=100*navg + iaptype
 !###
-       write(c77,1000) dat4
+       write(c77,1000) dat4(1:12),dat4(13)/2
 1000   format(12b6.6,b5.5)
        call unpack77(c77,0,decoded,unpk77_success) !Unpack to get msgsent
        nsnr=nint(snr2)

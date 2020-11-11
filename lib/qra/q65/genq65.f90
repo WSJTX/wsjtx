@@ -29,6 +29,7 @@ subroutine genq65(msg0,ichk,msgsent,itone,i3,n3)
   call unpack77(c77,0,msgsent,unpk77_success)    !Unpack to get msgsent
   read(c77,1001) dgen
 1001 format(12b6.6,b5.5)
+  dgen(13)=2*dgen(13)           !Convert 77-bit to 78-bit payload
   if(ichk.eq.1) go to 999       !Return if checking only
   call q65_enc(dgen,sent)       !Encode message, dgen(1:13) ==> sent(1:63)
 

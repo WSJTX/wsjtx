@@ -1,4 +1,5 @@
-subroutine q65_ap(nQSOprogress,ipass,ncontest,lapcqonly,apsym0,apmask,apsymbols)
+subroutine q65_ap(nQSOprogress,ipass,ncontest,lapcqonly,iaptype,   &
+     apsym0,apmask,apsymbols)
 
   integer apsym0(58),aph10(10)
   integer apmask(78),apsymbols(78)
