@@ -3,6 +3,8 @@
 
 #include <QtGlobal>
 
+#include "Logger.hpp"
+
 class QString;
 
 //
