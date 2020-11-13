@@ -71,29 +71,29 @@ namespace
   } seeding;
 #endif
 
-  void safe_stream_QVariant (boost::log::record_ostream& os, QVariant const& v)
-  {
-    switch (static_cast<QMetaType::Type> (v.type ()))
-      {
-      case QMetaType::QByteArray:
-        os << "0x" << v.toByteArray ().toHex (':').toStdString ();
-        break;
+  // void safe_stream_QVariant (boost::log::record_ostream& os, QVariant const& v)
+  // {
+  //   switch (static_cast<QMetaType::Type> (v.type ()))
+  //     {
+  //     case QMetaType::QByteArray:
+  //       os << "0x" << v.toByteArray ().toHex (':').toStdString ();
+  //       break;
 
-      case QMetaType::QBitArray:
-        {
-          auto const& bits = v.toBitArray ();
-          os << "0b";
-          for (int i = 0; i < bits.size (); ++ i)
-            {
-              os << (bits[i] ? '1' : '0');
-            }
-        }
-        break;
+  //     case QMetaType::QBitArray:
+  //       {
+  //         auto const& bits = v.toBitArray ();
+  //         os << "0b";
+  //         for (int i = 0; i < bits.size (); ++ i)
+  //           {
+  //             os << (bits[i] ? '1' : '0');
+  //           }
+  //       }
+  //       break;
 
-      default:
-        os << v.toString ();
-      }
-  }
+  //     default:
+  //       os << v.toString ();
+  //     }
+  // }
 }
 
 int main(int argc, char *argv[])
@@ -325,42 +325,42 @@ int main(int argc, char *argv[])
       do
         {
           // dump settings
-          auto sys_lg = sys::get ();
-          if (auto rec = sys_lg.open_record
-              (
-               boost::log::keywords::severity = boost::log::trivial::trace)
-              )
-            {
-              boost::log::record_ostream strm (rec);
-              strm << "++++++++++++++++++++++++++++ Settings ++++++++++++++++++++++++++++\n";
-              for (auto const& key: multi_settings.settings ()->allKeys ())
-                {
-                  if (!key.contains (QRegularExpression {"^MultiSettings/[^/]*/"}))
-                    {
-                      auto const& value = multi_settings.settings ()->value (key);
-                      if (value.canConvert<QVariantList> ())
-                        {
-                          auto const sequence = value.value<QSequentialIterable> ();
-                          strm << key << ":\n";
-                          for (auto const& item: sequence)
-                            {
-                              strm << "\t";
-                              safe_stream_QVariant (strm, item);
-                              strm << '\n';
-                            }
-                        }
-                      else
-                        {
-                          strm << key << ": ";
-                          safe_stream_QVariant (strm, value);
-                          strm << '\n';
-                        }
-                    }
-                }
-              strm << "---------------------------- Settings ----------------------------\n";
-              strm.flush ();
-              sys_lg.push_record (boost::move (rec));
-            }
+          // auto sys_lg = sys::get ();
+          // if (auto rec = sys_lg.open_record
+          //     (
+          //      boost::log::keywords::severity = boost::log::trivial::trace)
+          //     )
+          //   {
+          //     boost::log::record_ostream strm (rec);
+          //     strm << "++++++++++++++++++++++++++++ Settings ++++++++++++++++++++++++++++\n";
+          //     for (auto const& key: multi_settings.settings ()->allKeys ())
+          //       {
+          //         if (!key.contains (QRegularExpression {"^MultiSettings/[^/]*/"}))
+          //           {
+          //             auto const& value = multi_settings.settings ()->value (key);
+          //             if (value.canConvert<QVariantList> ())
+          //               {
+          //                 auto const sequence = value.value<QSequentialIterable> ();
+          //                 strm << key << ":\n";
+          //                 for (auto const& item: sequence)
+          //                   {
+          //                     strm << "\t";
+          //                     safe_stream_QVariant (strm, item);
+          //                     strm << '\n';
+          //                   }
+          //               }
+          //             else
+          //               {
+          //                 strm << key << ": ";
+          //                 safe_stream_QVariant (strm, value);
+          //                 strm << '\n';
+          //               }
+          //           }
+          //       }
+          //     strm << "---------------------------- Settings ----------------------------\n";
+          //     strm.flush ();
+          //     sys_lg.push_record (boost::move (rec));
+          //   }
 
           // Create and initialize shared memory segment
           // Multiple instances: use rig_name as shared memory key

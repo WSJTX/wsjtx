@@ -10,10 +10,10 @@
 #include <iosfwd>
 #include <string>
 
-BOOST_LOG_GLOBAL_LOGGER (sys,
-                         boost::log::sources::severity_channel_logger_mt<boost::log::trivial::severity_level>);
-BOOST_LOG_GLOBAL_LOGGER (data,
-                         boost::log::sources::severity_channel_logger_mt<boost::log::trivial::severity_level>);
+// BOOST_LOG_GLOBAL_LOGGER (sys,
+//                          boost::log::sources::severity_channel_logger_mt<boost::log::trivial::severity_level>);
+// BOOST_LOG_GLOBAL_LOGGER (data,
+//                          boost::log::sources::severity_channel_logger_mt<boost::log::trivial::severity_level>);
 
 namespace Logger
 {
@@ -31,12 +31,16 @@ namespace Logger
   void add_data_file_log (std::string const& log_file_name);
 }
 
+#if 0
 #define LOG_LOG_LOCATION(LOGGER, LEVEL, ARG)                  \
   BOOST_LOG_SEV (LOGGER, boost::log::trivial::LEVEL)          \
-  << boost::log::add_value ("Line", __LINE__)                 \
-  << boost::log::add_value ("File", __FILE__)                 \
-  << boost::log::add_value ("Function", __FUNCTION__) << ARG;
- 
+   << boost::log::add_value ("Line", __LINE__)                 \
+   << boost::log::add_value ("File", __FILE__)                 \
+   << boost::log::add_value ("Function", __FUNCTION__) << ARG;
+#endif
+
+#define LOG_LOG_LOCATION(LOGGER, LEVEL, ARG)
+
 /// System Log macros.
 /// TRACE < DEBUG < INFO < WARN < ERROR < FATAL
 #define LOG_TRACE(ARG) LOG_LOG_LOCATION (sys::get(), trace, ARG);

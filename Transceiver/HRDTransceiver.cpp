@@ -187,10 +187,10 @@ int HRDTransceiver::do_start ()
     }
 
   CAT_TRACE ("radios:-");
-  Q_FOREACH (auto const& radio, radios_)
-    {
-      CAT_TRACE ("\t[" << std::get<0> (radio) << "] " << std::get<1> (radio));
-    }
+  // Q_FOREACH (auto const& radio, radios_)
+  //   {
+  //     CAT_TRACE ("\t[" << std::get<0> (radio) << "] " << std::get<1> (radio));
+  //   }
 
   auto current_radio_name = send_command ("get radio", false, false);
   HRD_info << "Current radio: " << current_radio_name << "\n";
@@ -407,11 +407,11 @@ void HRDTransceiver::map_modes (int dropdown, ModeMap *map)
   map->push_back (std::forward_as_tuple (DIG_FM, find_dropdown_selection (dropdown, QRegExp ("^(PKT-FM|PKT|DATA\\(FM\\)|FM)$"))));
 
   CAT_TRACE ("for dropdown" << dropdown_names_[dropdown]);
-  std::for_each (map->begin (), map->end (), [this, dropdown] (ModeMap::value_type const& item)
-                 {
-                   auto const& rhs = std::get<1> (item);
-                   CAT_TRACE ('\t' << std::get<0> (item) << "<->" << (rhs.size () ? dropdowns_[dropdown_names_[dropdown]][rhs.front ()] : "None"));
-                 });
+  // std::for_each (map->begin (), map->end (), [this, dropdown] (ModeMap::value_type const& item)
+  //                {
+  //                  auto const& rhs = std::get<1> (item);
+  //                  CAT_TRACE ('\t' << std::get<0> (item) << "<->" << (rhs.size () ? dropdowns_[dropdown_names_[dropdown]][rhs.front ()] : "None"));
+  //                });
 }
 
 int HRDTransceiver::lookup_mode (MODE mode, ModeMap const& map) const
