@@ -983,7 +983,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
   set_mode (m_mode);
   if(m_mode=="Echo") monitor(false);   //Don't auto-start Monitor in Echo mode.
-
   ui->sbSubmode->setValue (vhf ? m_nSubMode : 0);  //Submodes require VHF features
   if(m_mode=="ISCAT" and !vhf) mode_label.setText("ISCAT A");
   if(m_mode=="MSK144") {
@@ -1238,6 +1237,7 @@ void MainWindow::readSettings()
   ui->sbF_Low->setValue(m_settings->value("FST4_FLow",600).toInt());
   ui->sbF_High->setValue(m_settings->value("FST4_FHigh",1400).toInt());
   m_nSubMode=m_settings->value("SubMode",0).toInt();
+  ui->sbSubmode->setValue(m_nSubMode);
   ui->sbFtol->setValue (m_settings->value("Ftol", 50).toInt());
   ui->sbFST4W_FTol->setValue(m_settings->value("FST4W_FTol",100).toInt());
   m_minSync=m_settings->value("MinSync",0).toInt();
@@ -6424,7 +6424,8 @@ void MainWindow::on_actionQ65_triggered()
   on_sbTR_valueChanged (ui->sbTR->value());
 //###  ui->sbSubmode->setMaximum(4);
   ui->sbSubmode->setMaximum(7);
-  ui->sbSubmode->setValue(m_nSubMode);  m_wideGraph->setMode(m_mode);
+  ui->sbSubmode->setValue(m_nSubMode);
+  m_wideGraph->setMode(m_mode);
   m_wideGraph->setMode(m_mode);
   m_wideGraph->setModeTx(m_modeTx);
   m_wideGraph->setPeriod(m_TRperiod,6912);
