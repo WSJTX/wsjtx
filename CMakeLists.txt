@@ -875,7 +875,7 @@ check_symbol_exists (rig_set_cache_timeout_ms "hamlib/rig.h" HAVE_HAMLIB_CACHING
 #
 
 # Widgets finds its own dependencies.
-find_package (Qt5 COMPONENTS Widgets SerialPort Multimedia PrintSupport Sql LinguistTools REQUIRED)
+find_package (Qt5 COMPONENTS Core Network Widgets SerialPort Multimedia PrintSupport Sql LinguistTools REQUIRED)
 
 if (WIN32)
   add_definitions (-DQT_NEEDS_QTMAIN)
@@ -1093,6 +1093,9 @@ if (${OPENMP_FOUND} OR APPLE)
 endif (${OPENMP_FOUND} OR APPLE)
 
 if(WSJT_BUILD_UTILS) 
+
+add_executable (WSJTXLogging_test WSJTXLogger_test/main.cpp WSJTXLogging.cpp Logger.cpp)
+target_link_libraries (WSJTXLogging_test Qt5::Core Qt5::Network Boost::log_setup)
 
 add_executable (jt4sim lib/jt4sim.f90)
 target_link_libraries (jt4sim wsjt_fort wsjt_cxx)
