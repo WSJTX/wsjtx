@@ -45,7 +45,7 @@ if (POLICY CMP0075)
 endif ()
 
 project (wsjtx
-  VERSION 2.4.0.0
+  VERSION 2.3.0.0
   DESCRIPTION "WSJT-X: Digital Modes for Weak Signal Communications in Amateur Radio"
   LANGUAGES C CXX Fortran
   )
@@ -70,7 +70,7 @@ message (STATUS "******************************************************")
 
 include (set_build_type)
 # RC 0 or omitted is a development build, GA is a General Availability release build
-set_build_type (RC 0)
+set_build_type (RC 2)
 set (wsjtx_VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}${BUILD_TYPE_REVISION}")
 
 #
