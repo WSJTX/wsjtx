@@ -49,7 +49,7 @@ Macports GCC v7 tool-chain is being used):
 
 FC=gfortran-mp-7 \
    cmake \
-   -D CMAKE_PREFIX_PATH:PATH=~/local/boost\;~/Qt/5.15.0-clang\;~/local/hamlib/release\;/opt/local \
+   -D CMAKE_PREFIX_PATH:PATH=~/local/boost\;~/Qt/5.15.0/clang_64\;~/local/hamlib/release\;/opt/local \
    -D CMAKE_INSTALL_PREFIX=~/local/wsjtx/release \
    -D CMAKE_OSX_SYSROOT=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk \
    -D CMAKE_BUILD_TYPE=Release \
@@ -58,7 +58,7 @@ FC=gfortran-mp-7 \
 
 FC=gfortran-mp-7 \
    cmake \
-   -D CMAKE_PREFIX_PATH:PATH=~/local/boost\;~/Qt/5.15.0-clang\;~/local/hamlib/debug\;/opt/local \
+   -D CMAKE_PREFIX_PATH:PATH=~/local/boost\;~/Qt/5.15.0/clang_64\;~/local/hamlib/debug\;/opt/local \
    -D CMAKE_INSTALL_PREFIX=~/local/wsjtx/debug \
    -D CMAKE_OSX_SYSROOT=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk \
    -D CMAKE_BUILD_TYPE=Debug \
