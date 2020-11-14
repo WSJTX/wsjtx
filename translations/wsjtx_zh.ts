@@ -3664,12 +3664,12 @@ list. The list can be maintained in Settings (F2).</source>
         <translation>降低系统负载</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="492"/>
+        <location filename="../widgets/mainwindow.cpp" line="487"/>
         <source>Excessive dropped samples - %1 (%2 sec) audio frames dropped in period starting %3</source>
         <translation>样品丢失过多 - %1 (%2 sec) 音频帧在周期开始时丢失 %3</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="526"/>
+        <location filename="../widgets/mainwindow.cpp" line="521"/>
         <source>Error Scanning ADIF Log</source>
         <translation>扫描 ADIF 日志错误</translation>
     </message>
@@ -3870,7 +3870,7 @@ list. The list can be maintained in Settings (F2).</source>
         <translation>&quot;fmt.all&quot; 文件将重命名为 &quot;fmt.bak&quot;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2571"/>
+        <location filename="../widgets/mainwindow.cpp" line="2551"/>
         <source>If you make fair use of any part of WSJT-X under terms of the GNU General Public License, you must display the following copyright notice prominently in your derivative work:
 
 &quot;The algorithms, source code, look-and-feel of WSJT-X and related programs, and protocol specifications for the modes FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 are Copyright (C) 2001-2020 by one or more of the following authors: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; and other members of the WSJT Development Group.&quot;</source>
@@ -3879,7 +3879,7 @@ list. The list can be maintained in Settings (F2).</source>
 &quot;WSJT-X 的算法, 源代码, 外观和感觉及相关程序,和协议规格模式 FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 的版权 (C) 2001-2019 由以下一个或多个作者: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; 和 WSJT 开发组的其他成员.&quot;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2846"/>
+        <location filename="../widgets/mainwindow.cpp" line="2819"/>
         <source>No data read from disk. Wrong file format?</source>
         <translation>没有从磁盘读取数据. 文件格式出错误?</translation>
     </message>
@@ -3934,7 +3934,7 @@ list. The list can be maintained in Settings (F2).</source>
         <translation>狐狸模式警告</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2893"/>
+        <location filename="../widgets/mainwindow.cpp" line="2866"/>
         <source>&lt;table cellspacing=1&gt;
   &lt;tr&gt;&lt;td&gt;&lt;b&gt;Esc      &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Stop Tx, abort QSO, clear next-call queue&lt;/td&gt;&lt;/tr&gt;
   &lt;tr&gt;&lt;td&gt;&lt;b&gt;F1       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Online User&apos;s Guide (Alt: transmit Tx6)&lt;/td&gt;&lt;/tr&gt;
@@ -4028,7 +4028,7 @@ list. The list can be maintained in Settings (F2).</source>
 &lt;/table&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2951"/>
+        <location filename="../widgets/mainwindow.cpp" line="2924"/>
         <source>&lt;table cellpadding=5&gt;
   &lt;tr&gt;
     &lt;th align=&quot;right&quot;&gt;Click on&lt;/th&gt;
@@ -5808,17 +5808,7 @@ both here.</source>
         <translation>启用甚高频和子模式功能</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="669"/>
-        <source>Data Bits</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../Configuration.ui" line="723"/>
-        <source>Stop Bits</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../Configuration.ui" line="1427"/>
+        <location filename="../Configuration.ui" line="1370"/>
         <source>Ou&amp;tput:</source>
         <translation>输出(&amp;t):</translation>
     </message>

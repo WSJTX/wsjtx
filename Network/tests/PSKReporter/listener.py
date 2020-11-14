@@ -49,7 +49,7 @@ class IPFixStreamHandler (socketserver.StreamRequestHandler):
 if __name__ == "__main__":
     INTERFACE, PORT = '', 4739
 
-    ap = argparse.ArgumentParser (description='Dump IPFIX data collectedover UDP')
+    ap = argparse.ArgumentParser (description='Dump IPFIX data collected over UDP')
     ap.add_argument ('-l', '--log', metavar='loglevel', default='WARNING', help='logging level')
     ap.add_argument ('-s', '--spec', metavar='specfile', help='iespec file to read')
     args = ap.parse_args ()

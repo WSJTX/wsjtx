@@ -2,6 +2,7 @@
 #define QT_HELPERS_HPP_
 
 #include <stdexcept>
+#include <ostream>
 
 #include <QString>
 #include <QChar>
@@ -56,6 +57,18 @@ Qt::SplitBehaviorFlags const SkipEmptyParts = Qt::SkipEmptyParts;
 #else
 QString::SplitBehavior const SkipEmptyParts = QString::SkipEmptyParts;
 #endif
+
+inline
+std::ostream& operator << (std::ostream& os, QByteArray const& b)
+{
+  return os << b.constData ();
+}
+
+inline
+std::ostream& operator << (std::ostream& os, QString const& s)
+{
+  return os << s.toStdString ();
+}
 
 inline
 void throw_qstring (QString const& qs)

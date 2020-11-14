@@ -1,3 +1,3 @@
 SOURCES += Detector/Detector.cpp
 
-HEADERS  += Detector/Detector.hpp
+HEADERS += Detector/Detector.hpp

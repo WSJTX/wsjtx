@@ -5,6 +5,7 @@
 
 #include <QString>
 
+#include "Logger.hpp"
 #include "Transceiver.hpp"
 
 //
@@ -61,8 +62,8 @@ class TransceiverBase
   Q_OBJECT;
 
 protected:
-  TransceiverBase (QObject * parent)
-    : Transceiver {parent}
+  TransceiverBase (logger_type * logger, QObject * parent)
+    : Transceiver {logger, parent}
     , last_sequence_number_ {0}
   {}
 
@@ -152,17 +153,12 @@ private:
   unsigned last_sequence_number_;    // from set state operation
 };
 
-// some trace macros
-#if WSJT_TRACE_CAT
-#define TRACE_CAT(FAC, MSG) qDebug () << QString {"%1::%2:"}.arg ((FAC)).arg (__func__) << MSG
-#else
-#define TRACE_CAT(FAC, MSG)
-#endif
-
-#if WSJT_TRACE_CAT && WSJT_TRACE_CAT_POLLS
-#define TRACE_CAT_POLL(FAC, MSG) qDebug () << QString {"%1::%2:"}.arg ((FAC)).arg (__func__) << MSG
-#else
-#define TRACE_CAT_POLL(FAC, MSG)
-#endif
+// some loggimg macros
+#define CAT_TRACE(MSG) LOG_LOG_LOCATION (logger (), trace, MSG)
+#define CAT_DEBUG(MSG) LOG_LOG_LOCATION (logger (), debug, MSG)
+#define CAT_INFO(MSG) LOG_LOG_LOCATION (logger (), info, MSG)
+#define CAT_WARNING(MSG) LOG_LOG_LOCATION (logger (), warning, MSG)
+#define CAT_ERROR(MSG) LOG_LOG_LOCATION (logger (), error, MSG)
+#define CAT_FATAL(MSG) LOG_LOG_LOCATION (logger (), fatal, MSG)
 
 #endif

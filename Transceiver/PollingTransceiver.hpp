@@ -35,7 +35,7 @@ class PollingTransceiver
   Q_OBJECT;                     // for translation context
 
 protected:
-  explicit PollingTransceiver (int poll_interval, // in seconds
+  explicit PollingTransceiver (logger_type *, int poll_interval, // in seconds
                                QObject * parent);
 
 protected:

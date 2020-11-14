@@ -52,6 +52,7 @@ public:
     Frequency frequency_;
     Mode mode_;
     Region region_;
+    QString toString () const;
   };
   using FrequencyItems = QList<Item>;
   using BandSet = QSet<QString>;

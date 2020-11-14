@@ -26,6 +26,7 @@
 #include <QFuture>
 #include <QFutureWatcher>
 
+#include "NonInheritingProcess.hpp"
 #include "Audio/AudioDevice.hpp"
 #include "commons.h"
 #include "Radio.hpp"
@@ -576,9 +577,9 @@ private:
   QFutureWatcher<void> watcher3;
   QFutureWatcher<QString> m_saveWAVWatcher;
 
-  QProcess proc_jt9;
-  QProcess p1;
-  QProcess p3;
+  NonInheritingProcess proc_jt9;
+  NonInheritingProcess p1;
+  NonInheritingProcess p3;
 
   WSPRNet *wsprNet;
 

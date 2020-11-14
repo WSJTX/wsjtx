@@ -13,6 +13,7 @@
 #include <QVector>
 #include <QStringList>
 #include <QMimeData>
+#include <QTextStream>
 #include <QDataStream>
 #include <QByteArray>
 #include <QDebugStateSaver>
@@ -347,13 +348,20 @@ namespace
 QDebug operator << (QDebug debug, FrequencyList_v2::Item const& item)
 {
   QDebugStateSaver saver {debug};
-  debug.nospace () << "FrequencyItem("
-                   << item.frequency_ << ", "
-                   << item.region_ << ", "
-                   << item.mode_ << ')';
-  return debug;
+  return debug.nospace () << item.toString ();
 }
 #endif
+
+QString FrequencyList_v2::Item::toString () const
+{
+  QString string;
+  QTextStream qts {&string};
+  qts << "FrequencyItem("
+      << Radio::frequency_MHz_string (frequency_) << ", "
+      << IARURegions::name (region_) << ", "
+      << Modes::name (mode_) << ')';
+  return string;
+}
 
 QDataStream& operator << (QDataStream& os, FrequencyList_v2::Item const& item)
 {

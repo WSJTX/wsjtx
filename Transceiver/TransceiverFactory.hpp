@@ -3,6 +3,9 @@
 
 #include <memory>
 
+#include <boost/log/trivial.hpp>
+#include <boost/log/sources/severity_channel_logger.hpp>
+
 #include <QObject>
 #include <QMap>
 
@@ -151,6 +154,7 @@ public:
   std::unique_ptr<Transceiver> create (ParameterPack const&, QThread * target_thread = nullptr);
   
 private:
+  Transceiver::logger_type mutable logger_;
   Transceivers transceivers_;
 };
 

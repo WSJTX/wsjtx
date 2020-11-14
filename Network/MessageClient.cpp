@@ -55,6 +55,10 @@ public:
   ~impl ()
   {
     closedown ();
+    if (dns_lookup_id_ != -1)
+      {
+        QHostInfo::abortHostLookup (dns_lookup_id_);
+      }
   }
 
   enum StreamStatus {Fail, Short, OK};

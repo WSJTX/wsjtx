@@ -13,6 +13,7 @@
 #include <QMimeData>
 #include <QDataStream>
 #include <QByteArray>
+#include <QTextStream>
 #include <QDebug>
 #include <QDebugStateSaver>
 
@@ -26,13 +27,20 @@
 QDebug operator << (QDebug debug, StationList::Station const& station)
 {
   QDebugStateSaver saver {debug};
-  debug.nospace () << "Station("
-                   << station.band_name_ << ", "
-                   << station.offset_ << ", "
-                   << station.antenna_description_ << ')';
-  return debug;
+  return debug.nospace () << station.toString ();
 }
 #endif
+
+QString StationList::Station::toString () const
+{
+  QString string;
+  QTextStream ots {&string};
+  ots << "Station("
+      << band_name_ << ", "
+      << Radio::frequency_MHz_string (offset_) << ", "
+      << antenna_description_ << ')';
+  return string;
+}
 
 QDataStream& operator << (QDataStream& os, StationList::Station const& station)
 {

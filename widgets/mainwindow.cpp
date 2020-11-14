@@ -1,5 +1,6 @@
 //---------------------------------------------------------- MainWindow
 #include "mainwindow.h"
+
 #include <cinttypes>
 #include <cstring>
 #include <cmath>
@@ -479,23 +480,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect(m_soundInput, &SoundInput::error, this, &MainWindow::showSoundInError);
   connect(m_soundInput, &SoundInput::error, &m_config, &Configuration::invalidate_audio_input_device);
   // connect(m_soundInput, &SoundInput::status, this, &MainWindow::showStatusMessage);
-  connect (m_soundInput, &SoundInput::dropped_frames, this, [this] (qint32 dropped_frames, qint64 usec) {
-                                                              if (dropped_frames > 48000 / 5) // 1/5 second
-                                                                {
-                                                                  showStatusMessage (tr ("%1 (%2 sec) audio frames dropped").arg (dropped_frames).arg (usec / 1.e6, 5, 'f', 3));
-                                                                }
-                                                              if (dropped_frames > 5 * 48000) // seconds
-                                                                {
-                                                                  auto period = qt_truncate_date_time_to (QDateTime::currentDateTimeUtc ().addMSecs (-m_TRperiod / 2.), m_TRperiod * 1e3);
-                                                                  MessageBox::warning_message (this
-                                                                                               , tr ("Audio Source")
-                                                                                               , tr ("Reduce system load")
-                                                                                               , tr ("Excessive dropped samples - %1 (%2 sec) audio frames dropped in period starting %3")
-                                                                                               .arg (dropped_frames)
-                                                                                               .arg (usec / 1.e6, 5, 'f', 3)
-                                                                                               .arg (period.toString ("hh:mm:ss")));
-                                                                }
-                                                            });
   connect (&m_audioThread, &QThread::finished, m_soundInput, &QObject::deleteLater);
 
   connect (this, &MainWindow::finished, this, &MainWindow::close);
@@ -1048,14 +1032,14 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
 void MainWindow::not_GA_warning_message ()
 {
-  MessageBox::critical_message (this,
-                                "This is a pre-release version of WSJT-X 2.3.0 made\n"
-                                "available for testing purposes.  By design it will\n"
-                                "be nonfunctional after 0000 UTC on Nov 17, 2020.");
-  auto now = QDateTime::currentDateTimeUtc ();
-  if (now >= QDateTime {{2020, 11, 17}, {0, 0}, Qt::UTC}) {
-    Q_EMIT finished ();
-  }
+  // MessageBox::critical_message (this,
+  //                               "This is a pre-release version of WSJT-X 2.3.0 made\n"
+  //                               "available for testing purposes.  By design it will\n"
+  //                               "be nonfunctional after 0000 UTC on Nov 17, 2020.");
+  // auto now = QDateTime::currentDateTimeUtc ();
+  // if (now >= QDateTime {{2020, 11, 17}, {0, 0}, Qt::UTC}) {
+  //   Q_EMIT finished ();
+  // }
 }
 
 void MainWindow::initialize_fonts ()
@@ -1562,7 +1546,7 @@ void MainWindow::dataSink(qint64 frames)
     if(m_mode=="FT8" and !m_diskData and (m_ihsym==m_earlyDecode or m_ihsym==m_earlyDecode2)) return;
     if (!m_diskData)
       {
-        Q_EMIT reset_audio_input_stream (true); // signals dropped samples
+        Q_EMIT reset_audio_input_stream (true); // reports dropped samples
       }
     if(!m_diskData and (m_saveAll or m_saveDecoded or m_mode=="WSPR" or m_mode=="FST4W")) {
       //Always save unless "Save None"; may delete later

@@ -1,3 +1,3 @@
 SOURCES += Modulator/Modulator.cpp
 
-HEADERS  += Modulator/Mpdulator.hpp
+HEADERS += Modulator/Modulator.hpp

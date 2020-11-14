@@ -3664,12 +3664,12 @@ list. The list can be maintained in Settings (F2).</source>
         <translation>降低系統負載</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="492"/>
+        <location filename="../widgets/mainwindow.cpp" line="487"/>
         <source>Excessive dropped samples - %1 (%2 sec) audio frames dropped in period starting %3</source>
         <translation>樣品遺失過多 -%1 (%2 sec) 音效的畫面在週期開始時遺失 %3</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="526"/>
+        <location filename="../widgets/mainwindow.cpp" line="521"/>
         <source>Error Scanning ADIF Log</source>
         <translation>掃描 ADIF 紀錄錯誤</translation>
     </message>
@@ -3870,7 +3870,7 @@ list. The list can be maintained in Settings (F2).</source>
         <translation>&quot;fmt.all&quot; 檔案將重新命名為 &quot;fmt.bak&quot;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2571"/>
+        <location filename="../widgets/mainwindow.cpp" line="2551"/>
         <source>If you make fair use of any part of WSJT-X under terms of the GNU General Public License, you must display the following copyright notice prominently in your derivative work:
 
 &quot;The algorithms, source code, look-and-feel of WSJT-X and related programs, and protocol specifications for the modes FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 are Copyright (C) 2001-2020 by one or more of the following authors: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; and other members of the WSJT Development Group.&quot;</source>
@@ -3879,7 +3879,7 @@ list. The list can be maintained in Settings (F2).</source>
 &quot;WSJT-X 的演演演算法, 原始碼, 外觀和感覺及相關程式, 和協定規格模式 FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 的版權 (C) 2001-2019 由以下一個或多個作者: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; 和 WSJT 開發組的其他成員.&quot;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2846"/>
+        <location filename="../widgets/mainwindow.cpp" line="2819"/>
         <source>No data read from disk. Wrong file format?</source>
         <translation>沒有從磁盤讀取數據. 檔案格式錯誤?</translation>
     </message>
@@ -3899,7 +3899,7 @@ list. The list can be maintained in Settings (F2).</source>
         <translation>鍵盤快捷鍵</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2893"/>
+        <location filename="../widgets/mainwindow.cpp" line="2866"/>
         <source>&lt;table cellspacing=1&gt;
   &lt;tr&gt;&lt;td&gt;&lt;b&gt;Esc      &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Stop Tx, abort QSO, clear next-call queue&lt;/td&gt;&lt;/tr&gt;
   &lt;tr&gt;&lt;td&gt;&lt;b&gt;F1       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Online User&apos;s Guide (Alt: transmit Tx6)&lt;/td&gt;&lt;/tr&gt;
@@ -3993,7 +3993,7 @@ list. The list can be maintained in Settings (F2).</source>
 &lt;/table&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2949"/>
+        <location filename="../widgets/mainwindow.cpp" line="2922"/>
         <source>Special Mouse Commands</source>
         <translation>特殊滑鼠組合</translation>
     </message>
@@ -5809,17 +5809,7 @@ both here.</source>
         <translation>啟用甚高頻和子模式功能</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="669"/>
-        <source>Data Bits</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../Configuration.ui" line="723"/>
-        <source>Stop Bits</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../Configuration.ui" line="1427"/>
+        <location filename="../Configuration.ui" line="1370"/>
         <source>Ou&amp;tput:</source>
         <translation>輸出(&amp;t):</translation>
     </message>

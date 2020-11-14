@@ -56,6 +56,7 @@ public:
     QString band_name_;
     FrequencyDelta offset_;
     QString antenna_description_;
+    QString toString () const;
   };
 
   using Stations = QList<Station>;

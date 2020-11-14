@@ -24,10 +24,10 @@ class DXLabSuiteCommanderTransceiver final
   Q_OBJECT;                     // for translation context
 
 public:
-  static void register_transceivers (TransceiverFactory::Transceivers *, int id);
+  static void register_transceivers (logger_type *, TransceiverFactory::Transceivers *, int id);
 
   // takes ownership of wrapped Transceiver
-  explicit DXLabSuiteCommanderTransceiver (std::unique_ptr<TransceiverBase> wrapped,
+  explicit DXLabSuiteCommanderTransceiver (logger_type *, std::unique_ptr<TransceiverBase> wrapped,
                                            QString const& address, bool use_for_ptt,
                                            int poll_interval, QObject * parent = nullptr);
 
@@ -42,9 +42,9 @@ protected:
   void do_poll () override;
 
 private:
-  MODE get_mode (bool no_debug = false);
-  void simple_command (QString const&, bool no_debug = false);
-  QString command_with_reply (QString const&, bool no_debug = false);
+  MODE get_mode ();
+  void simple_command (QString const&);
+  QString command_with_reply (QString const&);
   bool write_to_port (QString const&);
   QString frequency_to_string (Frequency) const;
   Frequency string_to_frequency (QString) const;

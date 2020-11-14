@@ -1,6 +1,14 @@
 #include "Transceiver.hpp"
 
+#include <ostream>
+
 #include "moc_Transceiver.cpp"
+
+Transceiver::Transceiver (logger_type * logger, QObject * parent)
+  : QObject {parent}
+  , logger_ {logger}
+{
+}
 
 #if !defined (QT_NO_DEBUG_STREAM)
 QDebug operator << (QDebug d, Transceiver::TransceiverState const& s)
@@ -14,6 +22,16 @@ QDebug operator << (QDebug d, Transceiver::TransceiverState const& s)
   return d.space (); 
 }
 #endif
+
+std::ostream& operator << (std::ostream& os, Transceiver::TransceiverState const& s)
+{
+  return os
+    << "Transceiver::TransceiverState(online: " << (s.online_ ? "yes" : "no")
+    << " Frequency {" << s.rx_frequency_ << "Hz, " << s.tx_frequency_ << "Hz} " << s.mode_
+    << "; SPLIT: " << (Transceiver::TransceiverState::Split::on == s.split_ ? "on" : Transceiver::TransceiverState::Split::off == s.split_ ? "off" : "unknown")
+    << "; PTT: " << (s.ptt_ ? "on" : "off")
+    << ')';
+}
 
 ENUM_QDATASTREAM_OPS_IMPL (Transceiver, MODE);
 

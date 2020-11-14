@@ -2,7 +2,9 @@
 #include <exception>
 #include <stdexcept>
 #include <string>
-
+#include <iterator>
+#include <algorithm>
+#include <ios>
 #include <locale.h>
 #include <fftw3.h>
 
@@ -10,7 +12,6 @@
 #include <QProcessEnvironment>
 #include <QTemporaryFile>
 #include <QDateTime>
-#include <QApplication>
 #include <QLocale>
 #include <QTranslator>
 #include <QRegularExpression>
@@ -28,12 +29,20 @@
 #include <QSqlDatabase>
 #include <QSqlQuery>
 #include <QSqlError>
+#include <QVariant>
+#include <QByteArray>
+#include <QBitArray>
+#include <QMetaType>
 
+#include "ExceptionCatchingApplication.hpp"
+#include "Logger.hpp"
 #include "revision_utils.hpp"
 #include "MetaDataRegistry.hpp"
+#include "qt_helpers.hpp"
 #include "L10nLoader.hpp"
 #include "SettingsGroup.hpp"
-#include "TraceFile.hpp"
+//#include "TraceFile.hpp"
+#include "WSJTXLogging.hpp"
 #include "MultiSettings.hpp"
 #include "widgets/mainwindow.h"
 #include "commons.h"
@@ -62,44 +71,34 @@ namespace
   } seeding;
 #endif
 
-  // We  can't use  the GUI  after QApplication::exit()  is called  so
-  // uncaught exceptions can  get lost on Windows  systems where there
-  // is    no    console    terminal,     so    here    we    override
-  // QApplication::notify() and  wrap the base  class call with  a try
-  // block to catch and display exceptions in a message box.
-  class ExceptionCatchingApplication final
-    : public QApplication
+  void safe_stream_QVariant (boost::log::record_ostream& os, QVariant const& v)
   {
-  public:
-    explicit ExceptionCatchingApplication (int& argc, char * * argv)
-      : QApplication {argc, argv}
-    {
-    }
-    bool notify (QObject * receiver, QEvent * e) override
-    {
-      try
+    switch (static_cast<QMetaType::Type> (v.type ()))
+      {
+      case QMetaType::QByteArray:
+        os << "0x" << v.toByteArray ().toHex (':').toStdString ();
+        break;
+
+      case QMetaType::QBitArray:
         {
-          return QApplication::notify (receiver, e);
+          auto const& bits = v.toBitArray ();
+          os << "0b";
+          for (int i = 0; i < bits.size (); ++ i)
+            {
+              os << (bits[i] ? '1' : '0');
+            }
         }
-      catch (std::exception const& e)
-        {
-          MessageBox::critical_message (nullptr, "Fatal error", e.what ());
-          throw;
-        }
-      catch (...)
-        {
-          MessageBox::critical_message (nullptr, "Unexpected fatal error");
-          throw;
-        }
-    }
-  };
+        break;
+
+      default:
+        os << v.toString ();
+      }
+  }
 }
 
 int main(int argc, char *argv[])
 {
-  // ### Add timestamps to all debug messages
-  // qSetMessagePattern ("[%{time yyyyMMdd HH:mm:ss.zzz t} %{if-debug}D%{endif}%{if-info}I%{endif}%{if-warning}W%{endif}%{if-critical}C%{endif}%{if-fatal}F%{endif}] %{message}");
-
+  ::qInstallMessageHandler (&WSJTXLogging::qt_log_handler);
   init_random_seed ();
 
   // make the Qt type magic happen
@@ -114,15 +113,15 @@ int main(int argc, char *argv[])
   QApplication a(argc, argv);
   try
     {
-      // qDebug () << "+++++++++++++++++++++++++++ Resources ++++++++++++++++++++++++++++";
+      // LOG_INfO ("+++++++++++++++++++++++++++ Resources ++++++++++++++++++++++++++++");
       // {
       //   QDirIterator resources_iter {":/", QDirIterator::Subdirectories};
       //   while (resources_iter.hasNext ())
       //     {
-      //       qDebug () << resources_iter.next ();
+      //       LOG_INFO (resources_iter.next ());
       //     }
       // }
-      // qDebug () << "--------------------------- Resources ----------------------------";
+      // LOG_INFO ("--------------------------- Resources ----------------------------");
 
       QLocale locale;              // get the current system locale
       setlocale (LC_NUMERIC, "C"); // ensure number forms are in
@@ -180,9 +179,6 @@ int main(int argc, char *argv[])
             }
         }
 
-      // load UI translations
-      L10nLoader l10n {&a, locale, parser.value (lang_option)};
-
       QStandardPaths::setTestModeEnabled (parser.isSet (test_option));
 
       // support for multiple instances running from a single installation
@@ -225,8 +221,8 @@ int main(int argc, char *argv[])
           if (QLockFile::LockFailedError == instance_lock.error ())
             {
               auto button = MessageBox::query_message (nullptr
-                                                       , a.translate ("main", "Another instance may be running")
-                                                       , a.translate ("main", "try to remove stale lock file?")
+                                                       , "Another instance may be running"
+                                                       , "try to remove stale lock file?"
                                                        , QString {}
                                                        , MessageBox::Yes | MessageBox::Retry | MessageBox::No
                                                        , MessageBox::Yes);
@@ -245,16 +241,15 @@ int main(int argc, char *argv[])
             }
         }
 
-#if WSJT_QDEBUG_TO_FILE
-      // Open a trace file
-      TraceFile trace_file {temp_dir.absoluteFilePath (a.applicationName () + "_trace.log")};
-      qSetMessagePattern ("[%{time yyyyMMdd HH:mm:ss.zzz t} %{if-debug}D%{endif}%{if-info}I%{endif}%{if-warning}W%{endif}%{if-critical}C%{endif}%{if-fatal}F%{endif}] %{file}:%{line} - %{message}");
-      qDebug () << program_title (revision ()) + " - Program startup";
-#endif
+      WSJTXLogging lg;
+      LOG_INFO (program_title (revision ()) << " - Program startup");
+
+      // load UI translations
+      L10nLoader l10n {&a, locale, parser.value (lang_option)};
 
       // Create a unique writeable temporary directory in a suitable location
       bool temp_ok {false};
-      QString unique_directory {QApplication::applicationName ()};
+      QString unique_directory {ExceptionCatchingApplication::applicationName ()};
       do
         {
           if (!temp_dir.mkpath (unique_directory)
@@ -329,28 +324,43 @@ int main(int argc, char *argv[])
       auto const& original_style_sheet = a.styleSheet ();
       do
         {
-#if WSJT_QDEBUG_TO_FILE
-          // announce to trace file and dump settings
-          qDebug () << "++++++++++++++++++++++++++++ Settings ++++++++++++++++++++++++++++";
-          for (auto const& key: multi_settings.settings ()->allKeys ())
+          // dump settings
+          auto sys_lg = sys::get ();
+          if (auto rec = sys_lg.open_record
+              (
+               boost::log::keywords::severity = boost::log::trivial::trace)
+              )
             {
-              auto const& value = multi_settings.settings ()->value (key);
-              if (value.canConvert<QVariantList> ())
+              boost::log::record_ostream strm (rec);
+              strm << "++++++++++++++++++++++++++++ Settings ++++++++++++++++++++++++++++\n";
+              for (auto const& key: multi_settings.settings ()->allKeys ())
                 {
-                  auto const sequence = value.value<QSequentialIterable> ();
-                  qDebug ().nospace () << key << ": ";
-                  for (auto const& item: sequence)
+                  if (!key.contains (QRegularExpression {"^MultiSettings/[^/]*/"}))
                     {
-                      qDebug ().nospace () << '\t' << item;
+                      auto const& value = multi_settings.settings ()->value (key);
+                      if (value.canConvert<QVariantList> ())
+                        {
+                          auto const sequence = value.value<QSequentialIterable> ();
+                          strm << key << ":\n";
+                          for (auto const& item: sequence)
+                            {
+                              strm << "\t";
+                              safe_stream_QVariant (strm, item);
+                              strm << '\n';
+                            }
+                        }
+                      else
+                        {
+                          strm << key << ": ";
+                          safe_stream_QVariant (strm, value);
+                          strm << '\n';
+                        }
                     }
                 }
-              else
-                {
-                  qDebug ().nospace () << key << ": " << value;
-                }
+              strm << "---------------------------- Settings ----------------------------\n";
+              strm.flush ();
+              sys_lg.push_record (boost::move (rec));
             }
-          qDebug () << "---------------------------- Settings ----------------------------";
-#endif
 
           // Create and initialize shared memory segment
           // Multiple instances: use rig_name as shared memory key
@@ -383,7 +393,7 @@ int main(int argc, char *argv[])
                                               a.translate ("main", "Unable to create shared memory segment"));
                 throw std::runtime_error {"Shared memory error"};
               }
-              qDebug () << "shmem size:" << mem_jt9.size ();
+              LOG_INFO ("shmem size:" << mem_jt9.size ());
             }
           else
             {

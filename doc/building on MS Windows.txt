@@ -1,0 +1,169 @@
+Building WSJT-X on MS Windows
+=============================
+
+Here I describe my set up, you  may have other preferences due to your
+favoured file system layout for  tools, utilities, and libraries. Many
+variations are possible,  use this guide as a template.  The aim is to
+provide an environment suitable for general development.
+
+Prerequisite Tools and Libraries
+================================
+
+Here is an overview list, details are filled out below:
+
+     * Qt Open Source Framework
+     * Cmake build system generator
+     * FFTW v3 DFT library
+     * libusb usb device library
+     * MSYS2 *nix like command line environment
+     * Hamlib rig control library
+     * Pkg Config Lite
+     * Boost C++ libraries
+
+Qt Framework
+------------
+
+At the  time of writing I  recommend using Qt v5.15.0  64-bit, v5.15.1
+has a defect  that affects us so  is best avoided. You  need the MinGW
+version  as we  do not  support  the MSVC  version  due to  lack of  a
+suitable FOSS  Fortran complier. To  install the Qt developer  SDK you
+should download the official Qt  on-line installer, this allows you to
+install one or  more variants of the  Qt SDK and also  to maintain and
+update the installation  at a later date. There are  many versions and
+components within  versions available, you  only need the  base 64-bit
+MinGW framework  for Qt  v5.15.0 and the  matching MinGW  8.1.0 64-bit
+developer tools, other components can  be unchecked within the on-line
+installer.  The  default install location  is C:\Qt which is  fine, do
+not attempt  to move the  location of  the installed libraries  if you
+decide you want it elsewhere,  the installer patches the libraries for
+the installed location  and it is easier to  un-install and re-install
+if you wish to change the installed location.
+
+CMake
+-----
+
+Download  and install  a recent  version from  the official  CMake web
+site. A  default installation is  fine. I am currently  using v3.18.3,
+versions as old as v3.9 should work.
+
+Other tools and libraries without installers
+--------------------------------------------
+
+For small  libraries that  don't have a  Windows installer  and change
+often  I locate  them under  a directory  C:\Tools.  This  location is
+arbitrary and just used to aggregate such items in one place, but this
+document assumes that location so you may need to adjust paths etc. if
+you use a different location.
+
+FFTW v3 DFT library
+-------------------
+
+The   MS   Windows   builds   of  FFTW3   can   be   downloaded   from
+http://www.fftw.org/install/windows.html  and unzipped  into C:\Tools.
+You only need the 64-bit package.
+
+libusb library
+--------------
+
+This library is available  from https://libusb.info/, download the .7z
+archive  as  the  .zip  archive  does not  contain  the  libraries  we
+require. Unzip this package into C:\Tools.
+
+MSYS2
+-----
+
+This  utility is  available  from  https://www.msys2.org/. Follow  the
+download, installation, and initial upgrading instructions there. Once
+installed and  updated you will  need to install some  packages, these
+are needed to provide the necessary  *nix tools and utilities to build
+Hamlib from sources.
+
+    pacman -S autoconf automake libtool make
+
+Hamlib
+------
+
+Currently   we  statically   link   Hamlib  to   avoid  clashes   with
+pre-installed DLLs  that may be  older versions than we  support. Once
+Hamlib v1.4 is officially released and commonly available we will move
+to  dynamic   linking.   Until   then  Hamlib   must  be   built  from
+sources. There is a fork of  the official Hamlib project which we keep
+up  to date  with the  official  project master  branch, we  recommend
+building from the 'integration' branch of that fork. The fork is a git
+repository which can be cloned with this command:
+
+    mkdir -p ~/src/sf/bsomervi
+    cd !$
+    git clone git://git.code.sf.net/u/bsomervi/hamlib hamlib
+    cd hamlib
+    git checkout integration
+
+Next you must build Hamlib using the MinGW compiler tools bundled with
+Qt. As you  will build Hamlib again when there  are updates you should
+set  up  you  Msys2  command  line  environment  for  this.  I  use  a
+$HOME/.bash_profile file containing these lines:
+
+    dll_paths_64bit=/c/Tools/libusb-1.0.23/MinGW64/dll
+    export PATH=/c/Qt/Tools/mingw810_64/bin:$dll_paths_64bit:$PATH
+
+Test the amended ~/.bash_profile file by opening a new Msys2 shell and
+typing:
+
+    which gcc
+    which libusb-1.0.dll
+
+The first time you checkout the  Hamlib sources you must bootstrap the
+configuration script,  this is done with  a script at the  root of the
+Hamlib sources:
+
+    cd ~/src/sf/bsomervi/hamlib
+    ./bootstrap
+
+Now you need to configure and build Hamlib from an Msys2 shell. Create
+a build directory outside of the  Hamlib sources you have just cloned,
+then change working directory to that build directory.
+
+    mkdir -p ~/build/hamlib/release
+    cd !$
+    ~/src/sf/bsomervi/hamlib/configure --disable-shared \
+        --prefix=$HOME/local/hamlib/mingw64/release \
+	CFLAGS="-DNDEBUG -g -O2 -fdata-sections -ffunction-sections -I/c/Tools/libusb-1.0.23/include" \
+	CXXFLAGS="-DNDEBUG -g -O2 -fdata-sections -ffunction-sections" \
+	LDFLAGS="-Wl,--gc-sections" \
+	LIBUSB_LIBS="-L/c/Tools/libusb-1.0.23/MinGW64/dll -lusb-1.0"
+
+Then build and install the Hamlib package into a local directory:
+
+    make & make install-strip
+
+If you wish  you can make a debug configuration  build of Hamlib which
+can be useful if you intended  to contribute to the Hamlib project, or
+for tracking down issues:
+
+    mkdir -p ~/build/hamlib/debug
+    cd !$
+    ~/src/sf/bsomervi/hamlib/configure --disable-shared \
+        --prefix=$HOME/local/hamlib/mingw64/debug \
+	CFLAGS="-g -O0 -I/c/Tools/libusb-1.0.23/include" \
+	CXXFLAGS="-g -O0" \
+	LIBUSB_LIBS="-L/c/Tools/libusb-1.0.23/MinGW64/dll -lusb-1.0"
+    make && make install
+
+To update the Hamlib sources to the latest commit and rebuild:
+
+    cd ~/src/sf/bsomervi/hamlib
+    git pull
+    cd ~/build/hamlib/release
+    make & make install-strip
+    cd ~/build/hamlib/debug
+    make && make install
+
+Pkg Config Lite
+---------------
+
+This package allows the WSJT-X CMake configuration to locate and learn
+the options needed to consume the  Hamlib package. You can download it
+from  https://sourceforge.net/projects/pkgconfiglite/files/0.28-1/ and
+unzip it into a convenient location, as with other ancillary tools and
+libraries I put these under C:\Tools\.
+
