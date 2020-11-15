@@ -13,6 +13,38 @@
 Copyright 2001 - 2020 by Joe Taylor, K1JT.
 
 
+		   Release: WSJT-X 2.3.0-rc2
+		         Nov 16, 2020
+		   -------------------------
+
+WSJT-X  2.3.0  Release Candidate  2  fixes  issues  found in  RC1  and
+includes some new functionality that missed the RC1 cut off deadline.
+
+ - Dropped audio samples message box  removed, warnings and errors for
+   these are now sent to the WSJT-X system log.
+
+ - FST4W spots to  WSPRNet.org will be augmented such  that the server
+   can distinguish the  mode being spotted. Spots  to WSPRNet.org will
+   no longer be restricted to WSPR sub-bands.
+
+ - A new  internal system  and data logging  facility used  to provide
+   trace,  debug,   information,  warning,  error,  and   fatal  error
+   messages. The verbosity and filtering of messages is user definable
+   via a configuration file. Without  a configuration file a basic log
+   is written with  information, warning and error  messages only. Log
+   files are automatically rotated to limit disk usage.
+
+ - Due to  some users using  inappropriate multicast IP  addresses for
+   their interoperating  severs the default  behaviour now is  to only
+   send multicast  UDP datagrams  to the loop-back  network interface.
+   Users who  require WSJT-X UDP  Message Protocol datagrams  to reach
+   other  hosts will  now  have  to configure  WSJT-X  to  send on  an
+   appropriate  network interface,  and  use  an appropriately  scoped
+   multicast group address for their  server applications.  If you are
+   not sure then  224.0.0.1 (or ff02::1 if IPv6 is  desired) is a safe
+   choice.
+
+
 		   Release: WSJT-X 2.3.0-rc1
 		         Sept 28, 2020
 		   -------------------------
