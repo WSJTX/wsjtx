@@ -1062,6 +1062,7 @@ endif ()
 
 # build a library of package functionality (without and optionally with OpenMP support)
 add_library (wsjt_cxx STATIC ${wsjt_CSRCS} ${wsjt_CXXSRCS})
+target_compile_definitions (wsjt_cxx PUBLIC BOOST_LOG_DYN_LINK)
 target_link_libraries (wsjt_cxx ${LIBM_LIBRARIES} Boost::log_setup ${LIBM_LIBRARIES})
 
 # build an OpenMP variant of the Fortran library routines
