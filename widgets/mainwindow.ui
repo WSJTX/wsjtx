@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>805</width>
-    <height>589</height>
+    <height>637</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -26,12 +26,6 @@
    <layout class="QVBoxLayout" name="verticalLayout_6" stretch="0,0">
     <item>
      <widget class="QSplitter" name="splitter">
-      <property name="sizePolicy">
-       <sizepolicy hsizetype="Expanding" vsizetype="MinimumExpanding">
-        <horstretch>0</horstretch>
-        <verstretch>2</verstretch>
-       </sizepolicy>
-      </property>
       <property name="orientation">
        <enum>Qt::Horizontal</enum>
       </property>
@@ -590,7 +584,7 @@
         </layout>
        </item>
        <item>
-        <layout class="QGridLayout" name="gridLayout_5" rowstretch="1,0,0,0">
+        <layout class="QGridLayout" name="gridLayout_5" rowstretch="1,0,0">
          <item row="0" column="2">
           <widget class="QLabel" name="labDialFreq">
            <property name="sizePolicy">
