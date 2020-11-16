@@ -121,12 +121,15 @@ subroutine q65_loops(c00,nutc,npts2,nsps,mode,mode64,nsubmode,nFadingModel,   &
      write(c77,1100) dat4(1:12),dat4(13)/2
 1100 format(12b6.6,b5.5)
      call unpack77(c77,0,decoded,unpk77_success) !Unpack to get msgsent
-     if(nsps.lt.3600) write(53,3001) nutc,ndf,ndt,nbw,ndist,irc,   &
-          iaptype,navg,snr1,xdt1,f1,snr2,trim(decoded)
-3001 format(i6.6,7i4,f7.1,f7.2,2f7.1,1x,a)
-     if(nsps.ge.3600) write(53,3002) nutc,ndf,ndt,nbw,ndist,irc,   &
-          iaptype,navg,snr1,xdt1,f1,snr2,trim(decoded)
-3002 format(i4.4,2x,7i4,f7.1,f7.2,2f7.1,1x,a)
+     m=nutc
+     if(nsps.ge.3600) m=100*m
+     ihr=m/10000
+     imin=mod(m/100,100)
+     isec=mod(m,100)
+     hours=ihr + imin/60.0 + isec/3600.0
+     write(53,3053) m,hours,ndf,ndt,nbw,ndist,irc,iaptype,navg,snr1,   &
+          xdt1,f1,snr2,trim(decoded)
+3053 format(i6.6,f8.4,4i3,i4,2i3,f6.1,f6.2,f7.1,f6.1,1x,a)
      close(53)
 !###  
      nsave=0
