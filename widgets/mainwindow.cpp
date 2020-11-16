@@ -1888,7 +1888,7 @@ void MainWindow::on_actionSettings_triggered()               //Setup Dialog
     if((m_config.special_op_id()==SpecOp::FOX or m_config.special_op_id()==SpecOp::HOUND) and
        m_mode!="FT8") {
       MessageBox::information_message (this,
-          "Fox-and-Hound operation is available only in FT8 mode.");
+          "Fox-and-Hound operation is available only in FT8 mode.\nGo back and change your selection.");
     }
   }
 }
