@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>805</width>
-    <height>637</height>
+    <height>584</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -15,6 +15,12 @@
     <horstretch>0</horstretch>
     <verstretch>0</verstretch>
    </sizepolicy>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>0</width>
+    <height>584</height>
+   </size>
   </property>
   <property name="windowTitle">
    <string>WSJT-X   by K1JT</string>
@@ -155,7 +161,7 @@
         <item>
          <widget class="DisplayText" name="decodedTextBrowser">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+           <sizepolicy hsizetype="MinimumExpanding" vsizetype="MinimumExpanding">
             <horstretch>0</horstretch>
             <verstretch>10</verstretch>
            </sizepolicy>
