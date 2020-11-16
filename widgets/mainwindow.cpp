@@ -2597,8 +2597,10 @@ void MainWindow::hideMenus(bool checked)
   ui->menuBar->setVisible(!checked);
   if(m_mode!="FreqCal" and m_mode!="WSPR" and m_mode!="FST4W") {
     ui->lh_decodes_title_label->setVisible(!checked);
+    ui->rh_decodes_title_label->setVisible(!checked);
   }
   ui->lh_decodes_headings_label->setVisible(!checked);
+  ui->rh_decodes_headings_label->setVisible(!checked);
   ui->gridLayout_5->layout()->setSpacing(spacing);
   ui->horizontalLayout_2->layout()->setSpacing(spacing);
   ui->horizontalLayout_5->layout()->setSpacing(spacing);
