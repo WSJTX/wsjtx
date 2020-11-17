@@ -13,6 +13,8 @@ program test_q65
      print*,'Example: test_q65 "K1ABC W9XYZ EN37"  A    3   1500 0.0  5.0  60 3  100   -20'
      print*,'Use SNR = 0 to loop over all relevant SNRs'
      print*,'Use MyCall=K1ABC, HisCall=W9XYZ, HisGrid="EN37" for AP decodes'
+     print*,'Option Q sets QSOprogress (0-5) for AP decoding.'
+     print*,'Add 16 to requested depth to enable message averaging.'
      go to 999
   endif
   call getarg(1,msg)
