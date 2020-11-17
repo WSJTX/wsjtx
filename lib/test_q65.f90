@@ -8,10 +8,11 @@ program test_q65
   logical decok
 
   nargs=iargc()
-  if(nargs.ne.9) then
-     print*,'Usage:   test_q65        "msg"       A-D depth freq  DT fDop TRp nfiles SNR'
-     print*,'Example: test_q65 "K1ABC W9XYZ EN37"  A    3   1500 0.0  5.0  60  100   -20'
-     print*,'         SNR = 0 to loop over all relevant SNRs'
+  if(nargs.ne.10) then
+     print*,'Usage:   test_q65        "msg"       A-D depth freq  DT fDop TRp Q nfiles SNR'
+     print*,'Example: test_q65 "K1ABC W9XYZ EN37"  A    3   1500 0.0  5.0  60 3  100   -20'
+     print*,'Use SNR = 0 to loop over all relevant SNRs'
+     print*,'Use MyCall=K1ABC, HisCall=W9XYZ, HisGrid="EN37" for AP decodes'
      go to 999
   endif
   call getarg(1,msg)
@@ -27,8 +28,10 @@ program test_q65
   call getarg(7,arg)
   read(arg,*) ntrperiod
   call getarg(8,arg)
-  read(arg,*) nfiles
+  read(arg,*) nQSOprogress
   call getarg(9,arg)
+  read(arg,*) nfiles
+  call getarg(10,arg)
   read(arg,*) nsnr
 
   if(ntrperiod.eq.15) then
@@ -62,7 +65,7 @@ program test_q65
 !                1         2         3         4         5         6         7
 !       1234567890123456789012345678901234567890123456789012345678901234567890123'
   cmd1='q65sim   "K1ABC W9XYZ EN37      " A 1500  5.0  0.0  60  100 F -10 > junk0'
-  cmd2='jt9 -3 -p  15 -L 300 -H 3000 -d  3 -b A *.wav > junk'
+  cmd2='jt9 -3 -p  15 -L 300 -H 3000 -d  3 -b A -Q 3 *.wav > junk'
 
   write(cmd1(10:33),'(a)') '"'//msg//'"'
   cmd1(35:35)=csubmode
@@ -74,6 +77,7 @@ program test_q65
 
   write(cmd2(11:13),'(i3)') ntrperiod
   write(cmd2(33:34),'(i2)') ndepth
+  write(cmd2(44:44),'(i1)') nQSOprogress
   cmd2(39:39)=csubmode
   call system('rm -f *.wav')
 
@@ -85,7 +89,7 @@ program test_q65
   
   write(*,1010) (j,j=0,6)
   write(12,1010) (j,j=0,6)
-1010 format('SNR nd  Dop Sync DecN Dec1 Bad',i6,6i4,'  tdec'/66('-'))
+1010 format('SNR  d  Dop Sync DecN Dec1 Bad',i6,6i4,'  tdec'/66('-'))
 
   dterr=tsym/4.0
   nferr=max(1,nint(0.5*baud),nint(fdop/3.0))
