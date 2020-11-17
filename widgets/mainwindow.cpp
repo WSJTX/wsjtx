@@ -5920,7 +5920,11 @@ void MainWindow::displayWidgets(qint64 n)
     if(i==31) ui->cbRxAll->setVisible(b);
     if(i==32) ui->cbCQonly->setVisible(b);
     if(i==33) ui->sbTR_FST4W->setVisible(b);
-    if(i==34) ui->sbF_Low->setVisible(b);
+    if (34 == i)                // adjust the stacked widget
+      {
+        ui->opt_controls_stack->setCurrentIndex (b ? 1 : 0);
+        ui->sbF_Low->setVisible(b);
+      }
     if(i==35) ui->sbF_High->setVisible(b);
     j=j>>1;
   }
