@@ -120,7 +120,6 @@ contains
     where(apsym0.eq.-1) apsym0=0
 
     npasses=2
-    if(nQSOprogress.eq.3 .or.nQSOprogress.eq.4) npasses=4
     if(nQSOprogress.eq.5) npasses=3
     if(lapcqonly) npasses=1
     iaptype=0

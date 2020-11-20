@@ -147,7 +147,7 @@ subroutine q65_ap(nQSOprogress,ipass,ncontest,lapcqonly,iaptype,   &
      apmask=0
      if(ncontest.le.5 .or. (ncontest.eq.7.and.iaptype.eq.6)) then
         apmask(1:78)=1                      !MyCall, HisCall, RRR|73|RR73
-        apmask(59:66)=0                     !Reduce the rate of false decodes
+        apmask(72:74)=0                     !Check for <blank>, RRR, RR73, 73
         apsymbols(1:58)=apsym0
         if(iaptype.eq.4) apsymbols(59:77)=mrrr 
         if(iaptype.eq.5) apsymbols(59:77)=m73 
