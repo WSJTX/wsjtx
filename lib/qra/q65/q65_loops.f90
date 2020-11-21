@@ -25,16 +25,20 @@ subroutine q65_loops(c00,nutc,npts2,nsps,mode,mode64,nsubmode,nFadingModel,   &
   allocate(c0(0:npts2-1))
   irc=-99
   s3lim=20.
-!  ibwmax=11
-!  if(mode64.le.4) ibwmax=9
-!  ibwmin=ibwmax
-!  idtmax=3
-!  call qra_params(ndepth,maxaptype,idfmax,idtmax,ibwmin,ibwmax,maxdist)
-  idfmax=5
-  idtmax=5
+
+  idfmax=3
+  idtmax=3
   ibwmin=1
   ibwmax=2
-  maxdist=15
+  maxdist=5
+  if(iand(ndepth,3).ge.2) then
+     idfmax=5
+     idtmax=5
+     maxdist=15
+  endif
+  if(iand(ndepth,3).eq.3) then
+     ibwmax=5
+  endif
   LL=64*(mode64+2)
   NN=63
   napmin=99

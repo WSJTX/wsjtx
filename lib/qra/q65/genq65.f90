@@ -26,6 +26,8 @@ subroutine genq65(msg0,ichk,msgsent,itone,i3,n3)
   i3=-1
   n3=-1
   call pack77(msg0,i3,n3,c77)
+  read(c77(60:74),'(b15)') ng15
+  if(ng15.eq.32373) c77(60:74)='111111010010011'    !Message is RR73
   call unpack77(c77,0,msgsent,unpk77_success)    !Unpack to get msgsent
   read(c77,1001) dgen
 1001 format(12b6.6,b5.5)

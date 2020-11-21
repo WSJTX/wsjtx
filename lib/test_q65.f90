@@ -1,10 +1,10 @@
 program test_q65
 
-  character*73 cmd1,cmd2,line
+  character*75 cmd1,cmd2,line
   character*22 msg
   character*8 arg
   character*1 csubmode
-  integer naptype(0:6)
+  integer naptype(0:4)
   logical decok
 
   nargs=iargc()
@@ -34,7 +34,7 @@ program test_q65
   call getarg(9,arg)
   read(arg,*) nfiles
   call getarg(10,arg)
-  read(arg,*) nsnr
+  read(arg,*) snr
 
   if(ntrperiod.eq.15) then
      nsps=1800
@@ -54,19 +54,19 @@ program test_q65
   else
      stop 'Invalid TR period'
   endif
-  ia=i50 + 8
-  ib=i50 - 5
-  if(nsnr.ne.0) then
-     ia=nsnr
-     ib=nsnr
+  ia=i50 + 7
+  ib=i50 - 10
+  if(snr.ne.0.0) then
+     ia=99
+     ib=99
   endif
 
   baud=12000.0/nsps
   tsym=1.0/baud
 
 !                1         2         3         4         5         6         7
-!       1234567890123456789012345678901234567890123456789012345678901234567890123'
-  cmd1='q65sim   "K1ABC W9XYZ EN37      " A 1500  5.0  0.0  60  100 F -10 > junk0'
+!       123456789012345678901234567890123456789012345678901234567890123456789012345'
+  cmd1='q65sim   "K1ABC W9XYZ EN37      " A 1500  5.0  0.0  60  100 F -10.0 > junk0'
   cmd2='jt9 -3 -p  15 -L 300 -H 3000 -d  3 -b A -Q 3 *.wav > junk'
 
   write(cmd1(10:33),'(a)') '"'//msg//'"'
@@ -89,21 +89,23 @@ program test_q65
 !1000 format(/'Depth:',i2,'  AP:',i2,'  df:',i3,'  dt:',i3,'  bw1:',i3,'  bw2:',i3,  &
 !          '  dist:',i3)
   
-  write(*,1010) (j,j=0,6)
-  write(12,1010) (j,j=0,6)
-1010 format('SNR  d  Dop Sync DecN Dec1 Bad',i6,6i4,'  tdec'/66('-'))
+  write(*,1010) (j,j=0,4)
+  write(12,1010) (j,j=0,4)
+1010 format(' SNR   Mode  d  Dop  Sync DecN Dec1 Bad',5i5,'  tdec'/70('-'))
 
   dterr=tsym/4.0
   nferr=max(1,nint(0.5*baud),nint(fdop/3.0))
   ndec10=nfiles
   
   do nsnr=ia,ib,-1
+     snr1=nsnr
+     if(ia.eq.99) snr1=snr
      nsync=0
      ndec1=0
      nfalse=0
      naptype=0
      ndecn=0
-     write(cmd1(63:65),'(i3)') nsnr
+     write(cmd1(63:67),'(f5.1)') snr1
      call system(cmd1)
      call sec0(0,tdec)
      call system(cmd2)
@@ -136,16 +138,18 @@ program test_q65
 10   close(10)
      xdt_avg=0.
      xdt_rms=0.
-     write(*,1100) nsnr,ndepth,fDop,nsync,ndecn,ndec1,nfalse,naptype,   &
-          tdec/nfiles
-     write(12,1100) nsnr,ndepth,fDop,nsync,ndecn,ndec1,nfalse,naptype,  &
-          tdec/nfiles
-1100 format(i3,i3,f5.1,3i5,i4,i6,6i4,f6.2)
+     write(*,1100) snr1,ntrperiod,csubmode,ndepth,fDop,nsync,ndecn,     &
+          ndec1,nfalse,naptype,tdec/nfiles
+     write(12,1100) snr1,ntrperiod,csubmode,ndepth,fDop,nsync,ndecn,    &
+          ndec1,nfalse,naptype,tdec/nfiles
+1100 format(f5.1,i4,1x,a1,i3,f5.1,3i5,i4,i6,4i5,f6.2)
      if(ndec1.lt.nfiles/2 .and. ndec10.ge.nfiles/2) then
-        snr_thresh=nsnr + float(nfiles/2 - ndec1)/(ndec10-ndec1)
-        write(13,1200) ndepth,fdop,csubmode,snr_thresh
-1200    format(i3,f6.1,2x,a1,f7.1)
-        flush(13)
+        snr_thresh=snr1 + float(nfiles/2 - ndec1)/(ndec10-ndec1)
+        open(13,file='snr_thresh.out',status='unknown',position='append')
+        write(13,1200) ntrperiod,csubmode,ndepth,nQSOprogress,nfiles,   &
+             fdop,snr_thresh,trim(msg)
+1200    format(i3,a1,2i3,i5,2f7.1,2x,a)
+        close(13)
      endif
      flush(6)
      flush(12)

@@ -179,6 +179,7 @@ contains
           ia=max(1,nint((nfa-100)/df))
           ib=min(NSZ,nint((nfb+100)/df))
           nz=ib-ia+1
+          if(nz.lt.50) go to 900
           call lorentzian(savg(ia),nz,a)
           baseline=a(1)
           amp=a(2)
