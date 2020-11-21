@@ -30,13 +30,13 @@ subroutine q65_loops(c00,nutc,npts2,nsps,mode,mode64,nsubmode,nFadingModel,   &
   idtmax=3
   ibwmin=1
   ibwmax=2
-  maxdist=15
-  if(ndepth.ge.2) then
+  maxdist=5
+  if(iand(ndepth,3).ge.2) then
      idfmax=5
      idtmax=5
-     maxdist=25
+     maxdist=15
   endif
-  if(ndepth.eq.3) then
+  if(iand(ndepth,3).eq.3) then
      ibwmax=5
   endif
   LL=64*(mode64+2)
