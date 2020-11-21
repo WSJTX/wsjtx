@@ -26,6 +26,12 @@
 #include "q65.h"
 #include "pdmath.h"	
 
+// Minimum codeword loglikelihood for decoding
+#define Q65_LLH_THRESHOLD -260.0f 
+
+// This value produce the same WER performance in decode_fullaplist
+// #define Q65_LLH_THRESHOLD -262.0f 
+
 
 static int	_q65_crc6(int *x, int sz);
 static void _q65_crc12(int *y, int *x, int sz);
@@ -608,8 +614,13 @@ int q65_decode(q65_codec_ds *pCodec, int* pDecodedCodeword, int *pDecodedMsg, co
 	if (pDecodedMsg)
 		memcpy(pDecodedMsg,px,nK*sizeof(int));
 
-	if (pDecodedCodeword==NULL)		// user is not interested in it
+#ifndef Q65_CHECKLLH
+	if (pDecodedCodeword==NULL)		// user is not interested in the decoded codeword
 		return rc;					// return the number of iterations required to decode
+#else
+	if (pDecodedCodeword==NULL)			// we must have a buffer
+		return Q65_DECODE_INVPARAMS;	// return error
+#endif
 
 	// crc matches therefore we can reconstruct the transmitted codeword
 	//  reencoding the information available in px...
@@ -632,9 +643,81 @@ int q65_decode(q65_codec_ds *pCodec, int* pDecodedCodeword, int *pDecodedMsg, co
 			memcpy(pDecodedCodeword,py,nN*sizeof(int));		// no puncturing
 		}
 
+#ifdef Q65_CHECKLLH
+	if (q65_check_llh(NULL,pDecodedCodeword, nN, nM, pIntrinsics)==0) // llh less than threshold
+		return Q65_DECODE_LLHLOW;	
+#endif
+
 	return rc;	// return the number of iterations required to decode
 
 }
+
+
+// Compute and verify the loglikelihood of the decoded codeword
+int q65_check_llh(float *llh, const int* ydec, const int nN, const int nM, const float *pIntrin)
+{
+	int k;
+	float t = 0;
+
+	for (k=0;k<nN;k++) {
+		t+=logf(pIntrin[ydec[k]]);
+		pIntrin+=nM;
+		}
+
+	if (llh!=NULL)
+		*llh = t;
+
+	return (t>=Q65_LLH_THRESHOLD);
+}
+
+// Full AP decoding from a list of codewords
+int q65_decode_fullaplist(q65_codec_ds *codec,
+						   int *ydec,
+						   int *xdec, 
+						   const float *pIntrinsics, 
+						   const int *pCodewords, 
+						   const int nCodewords)
+{
+	int			k;
+	int			nK, nN, nM;
+
+	float llh;
+	float maxllh = Q65_LLH_THRESHOLD-1; // set to a value less than the threshold
+	int   maxcw = -1;					// index of the most likely codeword
+	const int  *pCw;
+
+	if (nCodewords<1 || nCodewords>Q65_FULLAPLIST_SIZE)
+		return Q65_DECODE_INVPARAMS;	// invalid list length
+
+	nK  = q65_get_message_length(codec);
+	nN	= q65_get_codeword_length(codec);
+	nM	= q65_get_alphabet_size(codec);
+
+	// compute codewords log likelihoods and find max
+	pCw = pCodewords;	// start from the first codeword
+	for (k=0;k<nCodewords;k++) {
+		// compute and check this codeword loglikelihood
+		if (q65_check_llh(&llh,pCw, nN, nM, pIntrinsics)==1) // larger than threshold
+			// select the codeword with max logll
+			if (llh>maxllh) {
+				maxllh = llh;
+				maxcw    = k;
+			}
+		// point to next codeword
+		pCw+=nN;
+	}
+
+	if (maxcw<0) // no llh larger than threshold found
+		return Q65_DECODE_FAILED;	  
+
+	pCw = pCodewords+nN*maxcw;
+	memcpy(ydec,pCw,nN*sizeof(int));
+	memcpy(xdec,pCw,nK*sizeof(int));
+
+	return maxcw;	// index to the decoded message (>=0)
+
+}
+
 
 
 

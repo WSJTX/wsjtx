@@ -28,9 +28,17 @@
 #define Q65_DECODE_INVPARAMS	 -1
 #define Q65_DECODE_FAILED		 -2
 #define Q65_DECODE_CRCMISMATCH   -3
+#define Q65_DECODE_LLHLOW		 -4
+#define Q65_DECODE_UNDETERR		 -5
+
+// Verify loglikelihood after successful decoding
+#define Q65_CHECKLLH
+// Max codeword list size in q65_decode_fullaplist
+#define Q65_FULLAPLIST_SIZE	64
 
 // maximum number of weights for the fast-fading metric evaluation
 #define Q65_FASTFADING_MAXWEIGTHS 65
+
 
 typedef struct {
 	const qracode *pQraCode; // qra code to be used by the codec
@@ -72,6 +80,13 @@ int		q65_decode(q65_codec_ds *pCodec,
 					 const int *pAPMask, 
 					 const int *pAPSymbols);
 
+int		q65_decode_fullaplist(q65_codec_ds *codec,
+						   int *ydec,
+						   int *xdec, 
+						   const float *pIntrinsics, 
+						   const int *pCodewords, 
+						   const int nCodewords);
+
 int		q65_esnodb(const q65_codec_ds *pCodec,
 					float		*pEsNodB,
 					const int *ydec, 
@@ -99,5 +114,8 @@ float	_q65_get_code_rate(const qracode *pCode);
 static void	_q65_mask(const qracode *pcode, float *ix, const int *mask, const int *x);
 int		_q65_get_alphabet_size(const qracode *pCode);
 int		_q65_get_bits_per_symbol(const qracode *pCode);
+
+// internally used but made public for threshold optimization
+int q65_check_llh(float *llh, const int* ydec, const int nN, const int nM, const float *pIntrin);
 
 #endif // _qra65_h
