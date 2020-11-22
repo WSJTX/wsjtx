@@ -80,11 +80,12 @@ void q65_dec_(float s3[], float s3prob[], int APmask[], int APsymbols[],
 	      float* esnodb0, int xdec[], int* rc0)
 {
 
-/* Input:   s3prob[LL,NN]   Symbol-value intrinsic probabilities
+/* Input:   s3[LL,NN]       Symbol spectra
+ *          s3prob[LL,NN]   Symbol-value intrinsic probabilities
  *          APmask[13]      AP information to be used in decoding
  *          APsymbols[13]   Available AP informtion
  * Output:  
- *          esnodb0         Estimated Es/No in dB
+ *          esnodb0         Estimated Es/No (dB)
  *          xdec[13]        Decoded 78-bit message as 13 six-bit integers
  *          rc0             Return code from q65_decode()
  */
@@ -95,6 +96,40 @@ void q65_dec_(float s3[], float s3prob[], int APmask[], int APsymbols[],
 
   rc = q65_decode(&codec,ydec,xdec,s3prob,APmask,APsymbols);
   *rc0=rc;
+  // rc = -1:  Invalid params
+  // rc = -2:  Decode failed
+  // rc = -3:  CRC mismatch
+  *esnodb0 = 0.0;             //Default Es/No for a failed decode
+  if(rc<0) return;
+
+  rc = q65_esnodb_fastfading(&codec,&esnodb,ydec,s3);
+  if(rc<0) {
+    printf("error in q65_esnodb_fastfading()\n");
+    exit(0);
+  }
+  *esnodb0 = esnodb;
+}
+
+void q65_dec_fullaplist_(float s3[], float s3prob[], int codewords[],
+	    int* ncw, float* esnodb0, int xdec[], int* rc0)
+{
+/* Input:   s3[LL,NN]         Symbol spectra
+ *          s3prob[LL,NN]     Symbol-value intrinsic probabilities
+ *          codewords[63,ncw] Full codewords to search for
+ *          ncw               Number of codewords
+ * Output:  
+ *          esnodb0           Estimated Es/No (dB)
+ *          xdec[13]          Decoded 78-bit message as 13 six-bit integers
+ *          rc0               Return code from q65_decode()
+ */
+
+  int rc;
+  int ydec[63];
+  float esnodb;
+
+  rc = q65_decode_fullaplist(&codec,ydec,xdec,s3prob,codewords,*ncw);
+  *rc0=rc;
+  
   // rc = -1:  Invalid params
   // rc = -2:  Decode failed
   // rc = -3:  CRC mismatch

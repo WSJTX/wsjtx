@@ -149,8 +149,8 @@ subroutine q65_ap(nQSOprogress,ipass,ncontest,lapcqonly,iaptype,   &
         apmask(1:78)=1                      !MyCall, HisCall, RRR|73|RR73
         apmask(72:74)=0                     !Check for <blank>, RRR, RR73, 73
         apsymbols(1:58)=apsym0
-        if(iaptype.eq.4) apsymbols(59:77)=mrrr 
-        if(iaptype.eq.5) apsymbols(59:77)=m73 
+        if(iaptype.eq.4) apsymbols(59:77)=mrrr
+        if(iaptype.eq.5) apsymbols(59:77)=m73
         if(iaptype.eq.6) apsymbols(59:77)=mrr73
      else if(ncontest.eq.7.and.iaptype.eq.4) then ! Hound listens for MyCall RR73;...
         apmask(1:28)=1

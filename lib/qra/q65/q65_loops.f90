@@ -1,6 +1,6 @@
 subroutine q65_loops(c00,nutc,npts2,nsps,mode,mode64,nsubmode,nFadingModel,   &
-     ndepth,jpk0,xdt0,f0,width,iaptype,APmask,APsymbols,snr1,xdt1,f1,    &
-     snr2,irc,dat4)
+     ndepth,jpk0,xdt0,f0,width,iaptype,APmask,APsymbols,codewords,snr1,       &
+     xdt1,f1,snr2,irc,dat4)
 
   use packjt77
   use timer_module, only: timer
@@ -16,6 +16,7 @@ subroutine q65_loops(c00,nutc,npts2,nsps,mode,mode64,nsubmode,nFadingModel,   &
   logical unpk77_success
   integer APmask(13)
   integer APsymbols(13)
+  integer codewords(63,64)
   integer dat4(13)                 !Decoded message (as 13 six-bit integers)
   integer nap(0:11)                !AP return codes
   data nap/0,2,3,2,3,4,2,3,6,4,6,6/,nsave/0/
@@ -86,10 +87,15 @@ subroutine q65_loops(c00,nutc,npts2,nsps,mode,mode64,nsubmode,nFadingModel,   &
               call timer('q65_intr',0)
               call q65_intrinsics_ff(s3,nsubmode,b90,nFadingModel,s3prob)
               call timer('q65_intr',1)
-
-              call timer('q65_dec ',0)
-              call q65_dec(s3,s3prob,APmask,APsymbols,esnodb,dat4,irc)
-              call timer('q65_dec ',1)
+              if(iaptype.eq.4) then
+                 call timer('q65_apli',0)
+                 call q65_dec_fullaplist(s3,s3prob,codewords,3,esnodb,dat4,irc)
+                 call timer('q65_apli',1)
+              else
+                 call timer('q65_dec ',0)
+                 call q65_dec(s3,s3prob,APmask,APsymbols,esnodb,dat4,irc)
+                 call timer('q65_dec ',1)
+              endif
               if(irc.ge.0) go to 100
               ! irc > 0 ==> number of iterations required to decode
               !  -1 = invalid params

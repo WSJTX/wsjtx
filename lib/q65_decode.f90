@@ -58,6 +58,8 @@ contains
     integer apsym0(58),aph10(10)
     integer apmask1(78),apsymbols1(78)
     integer apmask(13),apsymbols(13)
+    integer dgen(13)
+    integer codewords(63,64)
     logical lapcqonly,unpk77_success
     complex, allocatable :: c00(:)        !Analytic signal, 6000 Sa/s
     complex, allocatable :: c0(:)         !Analytic signal, 6000 Sa/s
@@ -88,7 +90,6 @@ contains
     this%callback => callback
     if(nutc.eq.-999) print*,lapdx,nfa,nfb,nfqso  !Silence warning
     nFadingModel=1
-!    call qra_params(ndepth,maxaptype,idfmax,idtmax,ibwmin,ibwmax,maxdist)
     call timer('sync_q65',0)
     call sync_q65(iwave,ntrperiod*12000,mode65,nsps,nfqso,ntol,xdt,f0,   &
          snr1,width)
@@ -135,17 +136,26 @@ contains
 1060      format(13b6.6)
           write(c78,1050) apsymbols1
           read(c78,1060) apsymbols
+          if(iaptype.eq.4) then
+             do j=1,3
+                ng15=32401+j
+                write(c78(60:74),'(b15.15)') ng15
+                read(c78,1060) dgen
+                call q65_enc(dgen,codewords(1,j))
+             enddo
+          endif
        endif
        call timer('q65loops',0)
        call q65_loops(c00,nutc,npts/2,nsps/2,nmode,mode65,nsubmode,         &
             nFadingModel,ndepth,jpk0,xdt,f0,width,iaptype,apmask,apsymbols, &
-            snr1,xdt1,f1,snr2,irc,dat4)
+            codewords,snr1,xdt1,f1,snr2,irc,dat4)
        call timer('q65loops',1)
        snr2=snr2 + db(6912.0/nsps)
        if(irc.ge.0) exit
     enddo
 
 100 decoded='                                     '
+!    if(irc.lt.0 .and.iaptype.eq.4) print*,'AAA',irc,iaptype
     if(irc.ge.0) then
 !###
        navg=irc/100
