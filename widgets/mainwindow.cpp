@@ -3441,19 +3441,21 @@ void MainWindow::readFromStdout()                             //readFromStdout
                                                      ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
                                                      haveFSpread, fSpread);
 
-          if(m_bBestSPArmed and m_mode=="FT4") {
+          if(m_bBestSPArmed && m_mode=="FT4" && CALLING == m_QSOProgress) {
             QString messagePriority=ui->decodedTextBrowser->CQPriority();
             if(messagePriority!="") {
               if(messagePriority=="New Call on Band"
                  and m_BestCQpriority!="New Call on Band"
                  and m_BestCQpriority!="New Multiplier") {
                 m_BestCQpriority="New Call on Band";
+                m_bDoubleClicked = true;
                 processMessage(decodedtext0);
               }
               if(messagePriority=="New DXCC"
                  and m_BestCQpriority!="New DXCC"
                  and m_BestCQpriority!="New Multiplier") {
                 m_BestCQpriority="New DXCC";
+                m_bDoubleClicked = true;
                 processMessage(decodedtext0);
               }
             }
