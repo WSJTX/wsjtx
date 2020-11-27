@@ -26,6 +26,7 @@
 #include <QFuture>
 #include <QFutureWatcher>
 
+#include "MultiGeometryWidget.hpp"
 #include "NonInheritingProcess.hpp"
 #include "Audio/AudioDevice.hpp"
 #include "commons.h"
@@ -94,7 +95,8 @@ class MultiSettings;
 class EqualizationToolsDialog;
 class DecodedText;
 
-class MainWindow : public QMainWindow
+class MainWindow
+  : public MultiGeometryWidget<3, QMainWindow>
 {
   Q_OBJECT;
 
@@ -130,7 +132,8 @@ public slots:
   void msgAvgDecode2();
   void fastPick(int x0, int x1, int y);
 
-protected:
+private:
+  void change_layout (std::size_t) override;
   void keyPressEvent (QKeyEvent *) override;
   void closeEvent(QCloseEvent *) override;
   void childEvent(QChildEvent *) override;
@@ -353,7 +356,7 @@ private:
   void astroUpdate ();
   void writeAllTxt(QString message);
   void auto_sequence (DecodedText const& message, unsigned start_tolerance, unsigned stop_tolerance);
-  void hideMenus(bool b);
+  void trim_view (bool b);
   void foxTest();
   void setColorHighlighting();
   void chkFT4();

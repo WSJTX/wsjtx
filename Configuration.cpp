@@ -1076,9 +1076,6 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
     });
   lotw_users_.set_local_file_path (writeable_data_dir_.absoluteFilePath ("lotw-user-activity.csv"));
 
-  // load the dictionary if it exists, fetch and load if it doesn't
-  lotw_users_.load (ui_->LotW_CSV_URL_line_edit->text ());
-
   //
   // validation
   //
@@ -1238,6 +1235,19 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   audio_input_channel_ = next_audio_input_channel_;
   audio_output_device_ = next_audio_output_device_;
   audio_output_channel_ = next_audio_output_channel_;
+
+  bool fetch_if_needed {false};
+  for (auto const& item : decode_highlighing_model_.items ())
+    {
+      if (DecodeHighlightingModel::Highlight::LotW == item.type_)
+        {
+          fetch_if_needed = item.enabled_;
+          break;
+        }
+    }
+  // load the LoTW users dictionary if it exists, fetch and load if it
+  // doesn't and we need it
+  lotw_users_.load (ui_->LotW_CSV_URL_line_edit->text (), fetch_if_needed);
 
   transceiver_thread_ = new QThread {this};
   transceiver_thread_->start ();

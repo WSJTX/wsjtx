@@ -23,10 +23,10 @@ Building from Source
 ====================
 
 On Linux systems  some of the prerequisite libraries  are available in
-the mainstream distribution repositories. They  are Qt v5 and FFTW v3.
-For MS  Windows see the section  "Building from Source on  MS Windows"
-below. For  Apple Mac see the  section "Building from Source  on Apple
-Mac".
+the mainstream distribution repositories. They are Qt v5, FFTW v3, and
+the Boost  C++ libraries.   For MS Windows  see the  section "Building
+from  Source on  MS  Windows" below.  For Apple  Mac  see the  section
+"Building from Source on Apple Mac".
 
 Qt v5, preferably v5.9 or later is required to build WSJT-X.
 
@@ -43,12 +43,13 @@ the  libfftw library  development  package.   Normally installing  the
 library  development  package  pulls  in all  the  FFTW  v3  libraries
 including the single precision variant.
 
-The Hamlib  library optionally  requires the libusb-1.0-1  library, if
-the development  version (libusb-1.0-0-dev)  is available  Hamlib will
-configure its  custom USB device  back end  drivers. Most rigs  do not
-require this so normally you  can choose not to install libusb-1.0-dev
-but if you have  a SoftRock USB or similar SDR that  uses a custom USB
-interface then it is required.
+The  Hamlib  library requires  the  readline  development package  and
+optionally  requires  the  libusb-1.0-1 library,  if  the  development
+version  (libusb-1.0-0-dev) is  available  Hamlib  will configure  its
+custom USB device  back end drivers. Most rigs do  not require this so
+normally you can choose not to  install libusb-1.0-dev but if you have
+a SoftRock USB or similar SDR that uses a custom USB interface then it
+is required.
 
 The Hamlib  library is  required. Currently WSJT-X  needs to  be built
 using a  forked version of the  Hamlib git master. This  fork contains

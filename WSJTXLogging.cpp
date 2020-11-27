@@ -35,7 +35,7 @@ namespace trivial = logging::trivial;
 namespace keywords = logging::keywords;
 namespace expr = logging::expressions;
 namespace sinks = logging::sinks;
-namespace ptime = boost::posix_time;
+namespace posix_time = boost::posix_time;
 namespace gregorian = boost::gregorian;
 namespace container = boost::container;
 
@@ -139,7 +139,9 @@ WSJTXLogging::WSJTXLogging ()
              app_data.absoluteFilePath ("logs/wsjtx_syslog_%Y-%m.log").toStdString ()
          , keywords::time_based_rotation = sinks::file::rotation_at_time_point (gregorian::greg_day (1), 0, 0, 0)
          , keywords::open_mode = std::ios_base::out | std::ios_base::app
+#if BOOST_VERSION / 100 >= 1063
          , keywords::enable_final_rotation = false
+#endif
          );
 
       sys_sink->locked_backend ()->set_file_collector
@@ -166,8 +168,8 @@ WSJTXLogging::WSJTXLogging ()
         (
          expr::stream
          << "[" << channel
-         << "][" << expr::format_date_time<ptime::ptime> ("TimeStamp", "%Y-%m-%d %H:%M:%S.%f")
-         << "][" << expr::format_date_time<ptime::time_duration> ("Uptime", "%O:%M:%S.%f")
+         << "][" << expr::format_date_time<posix_time::ptime> ("TimeStamp", "%Y-%m-%d %H:%M:%S.%f")
+         << "][" << expr::format_date_time<posix_time::time_duration> ("Uptime", "%O:%M:%S.%f")
          << "][" << trivial::severity
          << "] " << expr::message
          );

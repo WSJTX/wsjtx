@@ -76,7 +76,13 @@ namespace
     switch (static_cast<QMetaType::Type> (v.type ()))
       {
       case QMetaType::QByteArray:
-        os << "0x" << v.toByteArray ().toHex (':').toStdString ();
+        os << "0x"
+#if QT_VERSION >= QT_VERSION_CHECK (5, 9, 0)
+           << v.toByteArray ().toHex (':').toStdString ()
+#else
+           << v.toByteArray ().toHex ().toStdString ()
+#endif
+          ;
         break;
 
       case QMetaType::QBitArray:

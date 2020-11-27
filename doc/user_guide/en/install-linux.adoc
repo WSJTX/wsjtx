@@ -43,7 +43,8 @@ You may also need to execute the following command in a terminal:
 ....
 sudo apt install libgfortran5 libqt5widgets5 libqt5network5 \
      libqt5printsupport5 libqt5multimedia5-plugins libqt5serialport5 \
-     libqt5sql5-sqlite libfftw3-single3 libgomp1 libusb-1.0-0
+     libqt5sql5-sqlite libfftw3-single3 libgomp1 libboost-all-dev \
+     libusb-1.0-0
 ....
 
 Fedora, CentOS, Red Hat, and other rpm-based systems:
@@ -75,5 +76,5 @@ You may also need to execute the following command in a terminal:
 ....
 sudo dnf install libgfortran fftw-libs-single qt5-qtbase \
      qt5-qtmultimedia qt5-qtserialport qt5-qtsvg \
-     qt5-qtserialport libgomp libusbx
+     qt5-qtserialport libgomp boost libusbx
 ....

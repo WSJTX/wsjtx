@@ -43,7 +43,7 @@ CMake
 -----
 
 Download  and install  a recent  version from  the official  CMake web
-site. A  default installation is  fine. I am currently  using v3.18.3,
+site. A  default installation is  fine. I am currently  using v3.18.4,
 versions as old as v3.9 should work.
 
 Other tools and libraries without installers
@@ -59,8 +59,10 @@ FFTW v3 DFT library
 -------------------
 
 The   MS   Windows   builds   of  FFTW3   can   be   downloaded   from
-http://www.fftw.org/install/windows.html  and unzipped  into C:\Tools.
-You only need the 64-bit package.
+http://www.fftw.org/install/windows.html.  The ZIP  archives for  this
+package have  no directory structure  so create a directory  under C:\
+Tools\ called fftw-3.3.5-dll64 and unzip  the archive there.  You only
+need the 64-bit package.
 
 libusb library
 --------------

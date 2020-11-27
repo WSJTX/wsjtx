@@ -236,7 +236,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
                        MultiSettings * multi_settings, QSharedMemory *shdmem,
                        unsigned downSampleFactor,
                        QSplashScreen * splash, QProcessEnvironment const& env, QWidget *parent) :
-  QMainWindow(parent),
+  MultiGeometryWidget {parent},
   m_env {env},
   m_network_manager {this},
   m_valid {true},
@@ -1022,24 +1022,21 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   }
 
   ui->pbBestSP->setVisible(m_mode=="FT4");
-  if(!ui->cbMenus->isChecked()) {
-    ui->cbMenus->setChecked(true);
-    ui->cbMenus->setChecked(false);
-  }
+
 // this must be the last statement of constructor
   if (!m_valid) throw std::runtime_error {"Fatal initialization exception"};
 }
 
 void MainWindow::not_GA_warning_message ()
 {
-  // MessageBox::critical_message (this,
-  //                               "This is a pre-release version of WSJT-X 2.3.0 made\n"
-  //                               "available for testing purposes.  By design it will\n"
-  //                               "be nonfunctional after 0000 UTC on Nov 17, 2020.");
-  // auto now = QDateTime::currentDateTimeUtc ();
-  // if (now >= QDateTime {{2020, 11, 17}, {0, 0}, Qt::UTC}) {
-  //   Q_EMIT finished ();
-  // }
+  MessageBox::critical_message (this,
+                                "This is a pre-release version of WSJT-X 2.3.0 made\n"
+                                "available for testing purposes.  By design it will\n"
+                                "be nonfunctional after 0000 UTC on Jan 19, 2021.");
+  auto now = QDateTime::currentDateTimeUtc ();
+  if (now >= QDateTime {{2021, 1, 19}, {0, 0}, Qt::UTC}) {
+    Q_EMIT finished ();
+  }
 }
 
 void MainWindow::initialize_fonts ()
@@ -1094,8 +1091,33 @@ MainWindow::~MainWindow()
 void MainWindow::writeSettings()
 {
   m_settings->beginGroup("MainWindow");
-  m_settings->setValue ("geometry", saveGeometry ());
-  m_settings->setValue ("geometryNoControls", m_geometryNoControls);
+  if (ui->actionSWL_Mode->isChecked ())
+    {
+      m_settings->setValue ("SWLView", true);
+      m_settings->setValue ("ShowMenus", ui->cbMenus->isChecked ());
+      m_settings->setValue ("geometry", geometries ()[0]);
+      m_settings->setValue ("SWLModeGeometry", saveGeometry ());
+      m_settings->setValue ("geometryNoControls", geometries ()[2]);
+    }
+  else
+    {
+      if (ui->cbMenus->isChecked())
+        {
+          m_settings->setValue ("SWLView", ui->actionSWL_Mode->isChecked ());
+          m_settings->setValue ("ShowMenus", true);
+          m_settings->setValue ("geometry", saveGeometry ());
+          m_settings->setValue ("SWLModeGeometry", geometries ()[1]);
+          m_settings->setValue ("geometryNoControls", geometries ()[2]);
+        }
+      else
+        {
+          m_settings->setValue ("SWLView", ui->actionSWL_Mode->isChecked ());
+          m_settings->setValue ("ShowMenus", false);
+          m_settings->setValue ("geometry", geometries ()[0]);
+          m_settings->setValue ("SWLModeGeometry", geometries ()[1]);
+          m_settings->setValue ("geometryNoControls", saveGeometry ());
+        }
+    }
   m_settings->setValue ("state", saveState ());
   m_settings->setValue("MRUdir", m_path);
   m_settings->setValue("TxFirst",m_txFirst);
@@ -1105,7 +1127,6 @@ void MainWindow::writeSettings()
   m_settings->setValue ("MsgAvgDisplayed", m_msgAvgWidget && m_msgAvgWidget->isVisible ());
   m_settings->setValue ("FoxLogDisplayed", m_foxLogWindow && m_foxLogWindow->isVisible ());
   m_settings->setValue ("ContestLogDisplayed", m_contestLogWindow && m_contestLogWindow->isVisible ());
-  m_settings->setValue("ShowMenus",ui->cbMenus->isChecked());
   m_settings->setValue("CallFirst",ui->cbFirst->isChecked());
   m_settings->setValue("HoundSort",ui->comboBoxHoundSort->currentIndex());
   m_settings->setValue("FoxNlist",ui->sbNlist->value());
@@ -1159,9 +1180,8 @@ void MainWindow::writeSettings()
   m_settings->setValue("pwrBandTuneMemory",m_pwrBandTuneMemory);
   m_settings->setValue ("FT8AP", ui->actionEnable_AP_FT8->isChecked ());
   m_settings->setValue ("JT65AP", ui->actionEnable_AP_JT65->isChecked ());
-  m_settings->setValue("SplitterState",ui->splitter->saveState());
+  m_settings->setValue("SplitterState",ui->decodes_splitter->saveState());
   m_settings->setValue("Blanker",ui->sbNB->value());
-  m_settings->setValue ("SWLView", ui->actionSWL_Mode->isChecked ());
 
   {
     QList<QVariant> coeffs;     // suitable for QSettings
@@ -1180,8 +1200,17 @@ void MainWindow::readSettings()
   ui->cbAutoSeq->setVisible(false);
   ui->cbFirst->setVisible(false);
   m_settings->beginGroup("MainWindow");
-  restoreGeometry (m_settings->value ("geometry", saveGeometry ()).toByteArray ());
-  m_geometryNoControls = m_settings->value ("geometryNoControls",saveGeometry()).toByteArray();
+  std::array<QByteArray, 3> the_geometries;
+  the_geometries[0] = m_settings->value ("geometry", saveGeometry ()).toByteArray ();
+  the_geometries[1] = m_settings->value ("SWLModeGeometry", saveGeometry ()).toByteArray ();
+  the_geometries[2] = m_settings->value ("geometryNoControls", saveGeometry ()).toByteArray ();
+  auto SWL_mode = m_settings->value ("SWLView", false).toBool ();
+  auto show_menus = m_settings->value ("ShowMenus", true).toBool ();
+  ui->actionSWL_Mode->setChecked (SWL_mode);
+  ui->cbMenus->setChecked (show_menus);
+  auto current_view_mode = SWL_mode ? 1 : show_menus ? 0 : 2;
+  change_layout (current_view_mode);
+  geometries (current_view_mode, the_geometries);
   restoreState (m_settings->value ("state", saveState ()).toByteArray ());
   ui->dxCallEntry->setText (m_settings->value ("DXcall", QString {}).toString ());
   ui->dxGridEntry->setText (m_settings->value ("DXgrid", QString {}).toString ());
@@ -1191,7 +1220,6 @@ void MainWindow::readSettings()
   auto displayMsgAvg = m_settings->value ("MsgAvgDisplayed", false).toBool ();
   auto displayFoxLog = m_settings->value ("FoxLogDisplayed", false).toBool ();
   auto displayContestLog = m_settings->value ("ContestLogDisplayed", false).toBool ();
-  ui->cbMenus->setChecked(m_settings->value("ShowMenus",true).toBool());
   ui->cbFirst->setChecked(m_settings->value("CallFirst",true).toBool());
   ui->comboBoxHoundSort->setCurrentIndex(m_settings->value("HoundSort",3).toInt());
   ui->sbNlist->setValue(m_settings->value("FoxNlist",12).toInt());
@@ -1265,10 +1293,8 @@ void MainWindow::readSettings()
   m_pwrBandTuneMemory=m_settings->value("pwrBandTuneMemory").toHash();
   ui->actionEnable_AP_FT8->setChecked (m_settings->value ("FT8AP", false).toBool());
   ui->actionEnable_AP_JT65->setChecked (m_settings->value ("JT65AP", false).toBool());
-  ui->splitter->restoreState(m_settings->value("SplitterState").toByteArray());
+  ui->decodes_splitter->restoreState(m_settings->value("SplitterState").toByteArray());
   ui->sbNB->setValue(m_settings->value("Blanker",0).toInt());
-  ui->actionSWL_Mode->setChecked (m_settings->value ("SWLView", false).toBool ());
-  on_actionSWL_Mode_triggered (ui->actionSWL_Mode->isChecked ());
   {
     auto const& coeffs = m_settings->value ("PhaseEqualizationCoefficients"
                                             , QList<QVariant> {0., 0., 0., 0., 0.}).toList ();
@@ -2568,37 +2594,52 @@ void MainWindow::on_actionCopyright_Notice_triggered()
   MessageBox::warning_message(this, message);
 }
 
+// Implement the MultiGeometryWidget::change_layout() operation.
+void MainWindow::change_layout (std::size_t n)
+{
+  switch (n)
+    {
+    case 1:                     // SWL view
+      ui->menuBar->show ();
+      ui->lower_panel_widget->hide ();
+      trim_view (false);        // ensure we can switch back
+      break;
+
+    case 2:                     // hide menus view
+      ui->menuBar->hide ();
+      ui->lower_panel_widget->show ();
+      trim_view (true);
+      break;
+
+    default:                    // normal view
+      ui->menuBar->setVisible (ui->cbMenus->isChecked ());
+      ui->lower_panel_widget->show ();
+      trim_view (!ui->cbMenus->isChecked ());
+      break;
+    }
+}
+
 void MainWindow::on_actionSWL_Mode_triggered (bool checked)
 {
-  ui->lower_panel_widget->setVisible (!checked);
-  if (checked)
-    {
-      hideMenus (false);        // make sure we can be turned off
-    }
+  select_geometry (checked ? 1 : ui->cbMenus->isChecked () ? 0 : 2);
 }
 
 // This allows the window to shrink by removing certain things
 // and reducing space used by controls
-void MainWindow::hideMenus(bool checked)
+void MainWindow::trim_view (bool checked)
 {
   int spacing = checked ? 1 : 6;
   if (checked) {
       statusBar ()->removeWidget (&auto_tx_label);
-      minimumSize().setHeight(450);
-      minimumSize().setWidth(700);
-      restoreGeometry(m_geometryNoControls);
-      updateGeometry();
   } else {
-      m_geometryNoControls = saveGeometry();
       statusBar ()->addWidget(&auto_tx_label);
-      minimumSize().setHeight(520);
-      minimumSize().setWidth(770);
   }
-  ui->menuBar->setVisible(!checked);
-  if(m_mode!="FreqCal" and m_mode!="WSPR" and m_mode!="FST4W") {
+  if (m_mode != "FreqCal" && m_mode != "WSPR" && m_mode != "FST4W") {
     ui->lh_decodes_title_label->setVisible(!checked);
+    ui->rh_decodes_title_label->setVisible(!checked);
   }
   ui->lh_decodes_headings_label->setVisible(!checked);
+  ui->rh_decodes_headings_label->setVisible(!checked);
   ui->gridLayout_5->layout()->setSpacing(spacing);
   ui->horizontalLayout_2->layout()->setSpacing(spacing);
   ui->horizontalLayout_5->layout()->setSpacing(spacing);
@@ -3025,8 +3066,8 @@ void MainWindow::decode()                                       //decode()
     dec_data.params.nutc=dec_data.params.nutc/100;
   }
   if(dec_data.params.nagain==0 && dec_data.params.newdat==1 && (!m_diskData)) {
-    auto t_start = qt_truncate_date_time_to (QDateTime::currentDateTimeUtc (), m_TRperiod * 1.e3);
-    auto t = t_start.time ();
+    m_dateTimeSeqStart = qt_truncate_date_time_to (QDateTime::currentDateTimeUtc (), m_TRperiod * 1.e3);
+    auto t = m_dateTimeSeqStart.time ();
     dec_data.params.nutc = t.hour () * 100 + t.minute ();
     if (m_TRperiod < 60.)
       {
@@ -5918,7 +5959,11 @@ void MainWindow::displayWidgets(qint64 n)
     if(i==31) ui->cbRxAll->setVisible(b);
     if(i==32) ui->cbCQonly->setVisible(b);
     if(i==33) ui->sbTR_FST4W->setVisible(b);
-    if(i==34) ui->sbF_Low->setVisible(b);
+    if (34 == i)                // adjust the stacked widget
+      {
+        ui->opt_controls_stack->setCurrentIndex (b ? 1 : 0);
+        ui->sbF_Low->setVisible(b);
+      }
     if(i==35) ui->sbF_High->setVisible(b);
     j=j>>1;
   }
@@ -8431,7 +8476,7 @@ void MainWindow::update_watchdog_label ()
 
 void MainWindow::on_cbMenus_toggled(bool b)
 {
-  hideMenus(!b);
+  select_geometry (!b ? 2 : ui->actionSWL_Mode->isChecked () ? 1 : 0);
 }
 
 void MainWindow::on_cbCQonly_toggled(bool)

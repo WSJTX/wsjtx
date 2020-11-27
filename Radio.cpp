@@ -22,7 +22,7 @@ namespace Radio
     QRegularExpression valid_callsign_regexp {R"(\d[[:alpha:]]|[[:alpha:]]\d)"};
 
     // standard callsign
-    QRegularExpression strict_standard_callsign_re {R"(^([A-Z][0-9]?|[0-9][A-Z])[0-9][A-Z]{0,3}$)"};
+    QRegularExpression strict_standard_callsign_re {R"(^([A-Z][0-9]?|[0-9A-Z][A-Z])[0-9][A-Z]{0,3}$)"};
 
     // suffixes that are often used and should not be interpreted as a
     // DXCC Entity prefix used as a suffix
