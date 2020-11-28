@@ -1573,6 +1573,13 @@ install (FILES
   #COMPONENT runtime
   )
 
+install (DIRECTORY
+  example_log_configurations
+  DESTINATION ${CMAKE_INSTALL_DOCDIR}
+  FILES_MATCHING REGEX "^.*[^~]$"
+  #COMPONENT runtime
+  )
+
 #
 # Mac installer files
 #
