@@ -19,12 +19,10 @@ subroutine sync_q65(iwave,nmax,mode65,nQSOprogress,nsps,nfqso,ntol,    &
   integer*2 iwave(0:nmax-1)              !Raw data
   integer isync(22)                      !Indices of sync symbols
   integer itone(85)
-  real, allocatable :: s1(:,:)           !Symbol spectra, quarter-symbol steps
+  real, allocatable :: s1(:,:)           !Symbol spectra, 1/8-symbol steps
   real, allocatable :: ccf(:,:)          !CCF(freq,lag)
   real, allocatable :: ccf1(:)           !CCF(freq) at best lag
   real sync(85)                          !sync vector
-  real s3(LN)                            !Symbol spectra
-  real s3prob(LN)                        !Symbol-value probabilities
   complex, allocatable :: c0(:)          !Complex spectrum of symbol
   data isync/1,9,12,13,15,22,23,26,27,33,35,38,46,50,55,60,62,66,69,74,76,85/
   data sync(1)/99.0/
