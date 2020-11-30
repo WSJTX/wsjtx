@@ -1,5 +1,5 @@
-subroutine q65_sync(iwave,nmax,mode_q65,codewords,ncw,nsps,nfqso,ntol,    &
-     xdt,f0,snr1,dat4,snr2,irc)
+subroutine q65_sync(nutc,iwave,nmax,mode_q65,codewords,ncw,nsps,nfqso,ntol,    &
+     xdt,f0,snr1,dat4,snr2,id1)
 
 ! Detect and align with the Q65 sync vector, returning time and frequency
 ! offsets and SNR estimate.
@@ -32,6 +32,8 @@ subroutine q65_sync(iwave,nmax,mode_q65,codewords,ncw,nsps,nfqso,ntol,    &
   data sync(1)/99.0/
   save sync
 
+  id1=0
+  dat4=0
   LL=64*(2+mode_q65)
   nfft=nsps
   df=12000.0/nfft                        !Freq resolution = baud
@@ -157,14 +159,15 @@ subroutine q65_sync(iwave,nmax,mode_q65,codewords,ncw,nsps,nfqso,ntol,    &
   nsubmode=0
   nFadingModel=1
   baud=12000.0/nsps
-  dat4=0
-  irc=-2
   do ibw=0,10
      b90=1.72**ibw
      call q65_intrinsics_ff(s3,nsubmode,b90/baud,nFadingModel,s3prob)
      call q65_dec_fullaplist(s3,s3prob,codewords,ncw,esnodb,dat4,plog,irc)
      if(irc.ge.0) then
         snr2=esnodb - db(2500.0/baud)
+        id1=1
+!        write(55,3055) nutc,xdt,f0,snr2,plog,irc
+!3055    format(i4.4,4f9.2,i5)
         go to 900
      endif
   enddo

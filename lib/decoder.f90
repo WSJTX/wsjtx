@@ -777,8 +777,7 @@ contains
    return
  end subroutine fst4_decoded
 
- subroutine q65_decoded (this,nutc,sync,nsnr,dt,freq,decoded,irc,   &
-       qual,ntrperiod,fmid,w50)
+ subroutine q65_decoded (this,nutc,sync,nsnr,dt,freq,decoded,idec,ntrperiod)
 
     use q65_decode
     implicit none
@@ -790,22 +789,17 @@ contains
     real, intent(in) :: dt
     real, intent(in) :: freq
     character(len=37), intent(in) :: decoded
-    integer, intent(in) :: irc
-    real, intent(in) :: qual
+    integer, intent(in) :: idec
     integer, intent(in) :: ntrperiod
-    real, intent(in) :: fmid
-    real, intent(in) :: w50
-    integer navg
 
-    navg=irc/100
     if(ntrperiod.lt.60) then
-       write(*,1001) nutc,nsnr,dt,nint(freq),decoded,mod(irc,100),navg
-1001   format(i6.6,i4,f5.1,i5,' + ',1x,a37,1x,i2,i4)
+       write(*,1001) nutc,nsnr,dt,nint(freq),decoded,idec
+1001   format(i6.6,i4,f5.1,i5,' + ',1x,a37,1x,i3.3)
     write(13,1002) nutc,nint(sync),nsnr,dt,freq,0,decoded
 1002 format(i6.6,i4,i5,f6.1,f8.0,i4,3x,a37,' Q65')
     else
-       write(*,1003) nutc,nsnr,dt,nint(freq),decoded,mod(irc,100),navg
-1003   format(i4.4,i4,f5.1,i5,' + ',1x,a37,1x,i2,i4)
+       write(*,1003) nutc,nsnr,dt,nint(freq),decoded,idec
+1003   format(i4.4,i4,f5.1,i5,' + ',1x,a37,1x,i3.3)
        write(13,1004) nutc,nint(sync),nsnr,dt,freq,0,decoded
 1004   format(i4.4,i4,i5,f6.1,f8.0,i4,3x,a37,' Q65')
 

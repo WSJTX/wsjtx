@@ -1,6 +1,6 @@
 subroutine q65_loops(c00,nutc,npts2,nsps,mode,mode_q65,nsubmode,nFadingModel, &
      ndepth,jpk0,xdt0,f0,iaptype,APmask,APsymbols,codewords,snr1,       &
-     xdt1,f1,snr2,irc,dat4)
+     xdt1,f1,snr2,dat4,id2,id3)
 
   use packjt77
   use timer_module, only: timer
@@ -29,6 +29,8 @@ subroutine q65_loops(c00,nutc,npts2,nsps,mode,mode_q65,nsubmode,nFadingModel, &
 
   save nsave,s3avg
 
+  id2=0
+  id3=0
   ircbest=9999
   allocate(c0(0:npts2-1))
   irc=-99
@@ -101,10 +103,12 @@ subroutine q65_loops(c00,nutc,npts2,nsps,mode,mode_q65,nsubmode,nFadingModel, &
                  call q65_dec_fullaplist(s3,s3prob,codewords,4,esnodb,   &
                       dat4,plog,irc)
                  call timer('q65_apli',1)
+                 if(irc.ge.0) id2=4
               else
                  call timer('q65_dec ',0)
                  call q65_dec(s3,s3prob,APmask,APsymbols,esnodb,dat4,irc)
                  call timer('q65_dec ',1)
+                 if(irc.ge.0) id2=iaptype
               endif
 !              write(71,3071) 100*nutc,0.0,ndf,ndt,nbw,ndist,irc,iaptype,  &
 !                   kavg,nsave
