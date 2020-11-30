@@ -63,7 +63,6 @@ contains
 
     id1=0
     id2=0
-    id3=0
     mode65=2**nsubmode
     npts=ntrperiod*12000
     nfft1=ntrperiod*12000
@@ -140,19 +139,17 @@ contains
           endif
        endif
        call timer('q65loops',0)
-       call q65_loops(c00,nutc,npts/2,nsps/2,nmode,mode65,nsubmode,         &
+       call q65_loops(c00,npts/2,nsps/2,nmode,mode65,nsubmode,         &
             nFadingModel,ndepth,jpk0,xdt,f0,iaptype,apmask,apsymbols, &
-            codewords,snr1,xdt1,f1,snr2,dat4,id2,id3)
+            xdt1,f1,snr2,dat4,id2)
        call timer('q65loops',1)
        snr2=snr2 + db(6912.0/nsps)
-       if(id2+id3.gt.0) exit
+       if(id2.gt.0) exit
     enddo
 
 100 decoded='                                     '
-    idec=100*id1 + 10*id2 + id3
-    write(71,3071) nutc,id1,id2,id3,irc
-3071 format(5i6)
-    if(idec.gt.0) then
+    if(id1.gt.0 .or. id2.gt.0) then
+       idec=id1+id2
        write(c77,1000) dat4(1:12),dat4(13)/2
 1000   format(12b6.6,b5.5)
        call unpack77(c77,0,decoded,unpk77_success) !Unpack to get msgsent
@@ -162,6 +159,7 @@ contains
     else
 ! Report sync, even if no decode.
        nsnr=db(snr1) - 35.0
+       idec=-1
        call this%callback(nutc,sync,nsnr,xdt1,f1,decoded,              &
             idec,ntrperiod)
     endif
