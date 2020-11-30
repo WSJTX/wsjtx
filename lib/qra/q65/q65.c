@@ -703,10 +703,11 @@ int q65_decode_fullaplist(q65_codec_ds *codec,
 				maxllh = llh;
 				maxcw    = k;
 			}
+		//		printf("BBB  %d  %f\n",k,llh);
 		// point to next codeword
 		pCw+=nN;
 	}
-
+	q65_llh=maxllh;
 	if (maxcw<0) // no llh larger than threshold found
 		return Q65_DECODE_FAILED;	  
 

@@ -496,6 +496,7 @@ set (wsjt_FSRCS
   lib/polyfit.f90
   lib/prog_args.f90
   lib/ps4.f90
+  lib/q65_sync.f90
   lib/qra64a.f90
   lib/qra_loops.f90
   lib/qra/q65/q65_ap.f90
@@ -529,7 +530,6 @@ set (wsjt_FSRCS
   lib/sync4.f90
   lib/sync64.f90
   lib/sync65.f90
-  lib/sync_q65.f90
   lib/ft4/getcandidates4.f90
   lib/ft4/get_ft4_bitmetrics.f90
   lib/ft8/sync8.f90

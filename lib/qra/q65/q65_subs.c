@@ -111,7 +111,7 @@ void q65_dec_(float s3[], float s3prob[], int APmask[], int APsymbols[],
 }
 
 void q65_dec_fullaplist_(float s3[], float s3prob[], int codewords[],
-	    int* ncw, float* esnodb0, int xdec[], int* rc0)
+	    int* ncw, float* esnodb0, int xdec[], float* plog, int* rc0)
 {
 /* Input:   s3[LL,NN]         Symbol spectra
  *          s3prob[LL,NN]     Symbol-value intrinsic probabilities
@@ -128,6 +128,7 @@ void q65_dec_fullaplist_(float s3[], float s3prob[], int codewords[],
   float esnodb;
 
   rc = q65_decode_fullaplist(&codec,ydec,xdec,s3prob,codewords,*ncw);
+  *plog=q65_llh;
   *rc0=rc;
   
   // rc = -1:  Invalid params

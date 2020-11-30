@@ -193,21 +193,21 @@ program q65sim
      write(10) h,iwave(1:npts)                !Save the .wav file
      close(10)
 
-     if(lsync) then
-        cd=' '
-        if(ifile.eq.nfiles) cd='d'
-        nfqso=nint(f0)
-        ntol=100
-        call sync_q65(iwave,npts,mode65,nsps,nfqso,ntol,xdt2,f02,snr2)
-        terr=1.01/(8.0*baud)
-        ferr=1.01*mode65*baud
-        if(abs(xdt2-xdt).lt.terr .and. abs(f02-f0).lt.ferr) nsync=nsync+1
-        open(40,file='sync65.out',status='unknown',position='append')
-        write(40,1030) ifile,65,csubmode,snrdb,fspread,xdt2-xdt,f02-f0,   &
-             snr2,nsync,cd
-1030    format(i4,i3,1x,a1,2f7.1,f7.2,2f8.1,i5,1x,a1)
-        close(40)
-     endif
+!     if(lsync) then
+!        cd=' '
+!        if(ifile.eq.nfiles) cd='d'
+!        nfqso=nint(f0)
+!        ntol=100
+!        call q65_sync(iwave,npts,mode65,nsps,nfqso,ntol,xdt2,f02,snr2)
+!        terr=1.01/(8.0*baud)
+!        ferr=1.01*mode65*baud
+!        if(abs(xdt2-xdt).lt.terr .and. abs(f02-f0).lt.ferr) nsync=nsync+1
+!        open(40,file='sync65.out',status='unknown',position='append')
+!        write(40,1030) ifile,65,csubmode,snrdb,fspread,xdt2-xdt,f02-f0,   &
+!            snr2,nsync,cd
+!1030    format(i4,i3,1x,a1,2f7.1,f7.2,2f8.1,i5,1x,a1)
+!        close(40)
+!     endif
   enddo
   if(lsync) write(*,1040) snrdb,nfiles,nsync
 1040 format('SNR:',f6.1,'   nfiles:',i5,'   nsynced:',i5)

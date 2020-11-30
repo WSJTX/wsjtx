@@ -1,5 +1,5 @@
 subroutine q65_loops(c00,nutc,npts2,nsps,mode,mode_q65,nsubmode,nFadingModel, &
-     ndepth,jpk0,xdt0,f0,width,iaptype,APmask,APsymbols,codewords,snr1,       &
+     ndepth,jpk0,xdt0,f0,iaptype,APmask,APsymbols,codewords,snr1,       &
      xdt1,f1,snr2,irc,dat4)
 
   use packjt77
@@ -91,7 +91,6 @@ subroutine q65_loops(c00,nutc,npts2,nsps,mode,mode_q65,nsubmode,nFadingModel, &
 !              b90=1.728**ibw
               b90=3.0**nbw
               if(b90.gt.230.0) cycle
-!              if(b90.lt.0.15*width) exit
               call timer('q65_intr',0)
               b90ts = b90/baud
               call q65_intrinsics_ff(s3,nsubmode,b90ts,nFadingModel,s3prob)
@@ -99,7 +98,8 @@ subroutine q65_loops(c00,nutc,npts2,nsps,mode,mode_q65,nsubmode,nFadingModel, &
               if(iaptype.eq.4) then
                  codewords(1:63,4)=cw4
                  call timer('q65_apli',0)
-                 call q65_dec_fullaplist(s3,s3prob,codewords,4,esnodb,dat4,irc)
+                 call q65_dec_fullaplist(s3,s3prob,codewords,4,esnodb,   &
+                      dat4,plog,irc)
                  call timer('q65_apli',1)
               else
                  call timer('q65_dec ',0)
@@ -140,20 +140,20 @@ subroutine q65_loops(c00,nutc,npts2,nsps,mode,mode_q65,nsubmode,nFadingModel, &
      xdt1=xdt0 +  nsps*ndt/(16.0*6000.0)
      f1=f0 + 0.5*baud*ndf
 !### For tests only:
-     open(53,file='fort.53',status='unknown',position='append')
-     write(c77,1100) dat4(1:12),dat4(13)/2
-1100 format(12b6.6,b5.5)
-     call unpack77(c77,0,decoded,unpk77_success) !Unpack to get msgsent
-     m=nutc
-     if(nsps.ge.3600) m=100*m
-     ihr=m/10000
-     imin=mod(m/100,100)
-     isec=mod(m,100)
-     hours=ihr + imin/60.0 + isec/3600.0
-     write(53,3053) m,hours,ndf,ndt,nbw,ndist,irc,iaptype,kavg,snr1,   &
-          xdt1,f1,snr2,trim(decoded)
-3053 format(i6.6,f8.4,4i3,i4,2i3,f6.1,f6.2,f7.1,f6.1,1x,a)
-     close(53)
+!     open(53,file='fort.53',status='unknown',position='append')
+!    write(c77,1100) dat4(1:12),dat4(13)/2
+!1100 format(12b6.6,b5.5)
+!     call unpack77(c77,0,decoded,unpk77_success) !Unpack to get msgsent
+!     m=nutc
+!     if(nsps.ge.3600) m=100*m
+!     ihr=m/10000
+!     imin=mod(m/100,100)
+!     isec=mod(m,100)
+!     hours=ihr + imin/60.0 + isec/3600.0
+!     write(53,3053) m,hours,ndf,ndt,nbw,ndist,irc,iaptype,kavg,snr1,   &
+!          xdt1,f1,snr2,trim(decoded)
+!3053 format(i6.6,f8.4,4i3,i4,2i3,f6.1,f6.2,f7.1,f6.1,1x,a)
+!     close(53)
 !###  
      nsave=0
      s3avg=0.
