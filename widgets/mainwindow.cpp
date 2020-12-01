@@ -7609,10 +7609,6 @@ void MainWindow::on_sbTR_valueChanged(int value)
     progressBar.setMaximum (value);
   }
   if(m_mode=="FST4") chk_FST4_freq_range();
-  if(m_monitoring) {
-    on_stopButton_clicked();
-    on_monitorButton_clicked(true);
-  }
   if(m_transmitting) {
     on_stopTxButton_clicked();
   }

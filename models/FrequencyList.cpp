@@ -580,6 +580,7 @@ auto FrequencyList_v2::impl::frequency_list (FrequencyItems frequency_list) -> F
   return frequency_list;
 }
 
+// add a frequency returning the new model index
 QModelIndex FrequencyList_v2::impl::add (Item f)
 {
   // Any Frequency that isn't in the list may be added
