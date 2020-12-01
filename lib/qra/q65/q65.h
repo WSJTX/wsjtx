@@ -39,7 +39,8 @@
 // maximum number of weights for the fast-fading metric evaluation
 #define Q65_FASTFADING_MAXWEIGTHS 65
 
-float q65_llh;
+extern float q65_llh;
+
 typedef struct {
 	const qracode *pQraCode; // qra code to be used by the codec
 	float decoderEsNoMetric; // value for which we optimize the decoder metric
