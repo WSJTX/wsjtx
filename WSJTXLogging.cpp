@@ -97,11 +97,11 @@ namespace
       }
     else
       {
-        BOOST_LOG_CHANNEL_SEV (log, std::string {context.category}, severity)
+        BOOST_LOG_SEV (log, severity)
           << boost::log::add_value ("Line", context.line)
           << boost::log::add_value ("File", file)
           << boost::log::add_value ("Function", function)
-          << msg.toStdString ();
+          << context.category << ": " << msg.toStdString ();
       }
     if (QtFatalMsg == type)
       {
