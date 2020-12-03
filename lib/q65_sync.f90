@@ -1,4 +1,4 @@
-subroutine q65_sync(iwave,nmax,mode_q65,codewords,ncw,nsps,nfqso,ntol,    &
+subroutine q65_sync(nutc,iwave,nmax,mode_q65,codewords,ncw,nsps,nfqso,ntol,    &
      xdt,f0,snr1,dat4,snr2,id1)
 
 ! Detect and align with the Q65 sync vector, returning time and frequency
@@ -12,7 +12,8 @@ subroutine q65_sync(iwave,nmax,mode_q65,codewords,ncw,nsps,nfqso,ntol,    &
 ! Output: xdt                    Time offset from nominal (s)
 !         f0                     Frequency of sync tone
 !         snr1                   Relative SNR of sync signal
-  
+
+  use packjt77
   parameter (NSTEP=8)                    !Step size nsps/NSTEP
   parameter (LN=2176*63)           !LN=LL*NN; LL=64*(mode_q65+2), NN=63
   integer*2 iwave(0:nmax-1)              !Raw data
@@ -21,6 +22,8 @@ subroutine q65_sync(iwave,nmax,mode_q65,codewords,ncw,nsps,nfqso,ntol,    &
   integer codewords(63,64)
   integer dat4(13)
   integer ijpk(2)
+  logical unpk77_success
+  character*77 c77,decoded*37
   real, allocatable :: s1(:,:)           !Symbol spectra, 1/8-symbol steps
   real, allocatable :: s3(:,:)           !Data-symbol energies s3(LL,63)
   real, allocatable :: ccf(:,:)          !CCF(freq,lag)
@@ -78,14 +81,14 @@ subroutine q65_sync(iwave,nmax,mode_q65,codewords,ncw,nsps,nfqso,ntol,    &
   enddo
 
   i0=nint(nfqso/df)                           !Target QSO frequency
-  call pctile(s1(i0-64:i0+192,1:jz),129*jz,40,base)
+  call pctile(s1(i0-64:i0-65+LL,1:jz),LL*jz,40,base)
   s1=s1/base
 
 ! Apply fast AGC
   s1max=20.0                                  !Empirical choice
-  do j=1,jz
-     smax=maxval(s1(i0-64:i0+192,j))
-     if(smax.gt.s1max) s1(i0-64:i0+192,j)=s1(i0-64:i0+192,j)*s1max/smax
+  do j=1,jz                                   !### Maybe wrong way? ###
+     smax=maxval(s1(i0-64:i0-65+LL,j))
+     if(smax.gt.s1max) s1(i0-64:i0-65+LL,j)=s1(i0-64:i0-65+LL,j)*s1max/smax
   enddo
 
   dtstep=nsps/(NSTEP*12000.0)                 !Step size in seconds
@@ -93,7 +96,7 @@ subroutine q65_sync(iwave,nmax,mode_q65,codewords,ncw,nsps,nfqso,ntol,    &
   lag1=-1.0/dtstep
   lag2=1.0/dtstep + 0.9999
   j0=0.5/dtstep
-  if(nsps.ge.6192) then
+  if(nsps.ge.7200) then
      j0=1.0/dtstep              !Nominal index for start of signal
      lag2=4.0/dtstep + 0.9999   !Include EME delays
   endif
@@ -164,15 +167,21 @@ subroutine q65_sync(iwave,nmax,mode_q65,codewords,ncw,nsps,nfqso,ntol,    &
   if(mode_q65.eq.16) nsubmode=4
   nFadingModel=1
   baud=12000.0/nsps
-  do ibw=0,10
+  do ibw=2,4
      b90=1.72**ibw
      call q65_intrinsics_ff(s3,nsubmode,b90/baud,nFadingModel,s3prob)
      call q65_dec_fullaplist(s3,s3prob,codewords,ncw,esnodb,dat4,plog,irc)
-     if(irc.ge.0) then
+     if(irc.ge.0 .and. plog.ge.-255.0) then
         snr2=esnodb - db(2500.0/baud)
         id1=1
-!        write(55,3055) nutc,xdt,f0,snr2,plog,irc
-!3055    format(i4.4,4f9.2,i5)
+        write(c77,1000) dat4(1:12),dat4(13)/2
+1000    format(12b6.6,b5.5)
+        call unpack77(c77,0,decoded,unpk77_success) !Unpack to get msgsent
+        open(55,file='fort.55',status='unknown',position='append')
+        write(55,3055) nutc,ibw,xdt,f0,85.0*base,ccfmax,snr2,plog,   &
+             irc,trim(decoded)
+3055    format(i6,i3,6f8.2,i5,2x,a)
+        close(55)
         go to 900
      endif
   enddo
