@@ -634,7 +634,8 @@ Format:
         <location filename="../Configuration.cpp" line="2835"/>
         <source>Not found</source>
         <comment>audio device missing</comment>
-        <translation type="unfinished"></translation>
+        <translatorcomment>falta un dispositiu d&apos;àudio</translatorcomment>
+        <translation>No trobat</translation>
     </message>
 </context>
 <context>
@@ -2712,12 +2713,12 @@ Si no està marcat, pots veure els resultats de la calibració.</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1297"/>
         <source>F High </source>
-        <translation type="unfinished"></translation>
+        <translation>F Alt </translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1388"/>
         <source>F Low   </source>
-        <translation type="unfinished"></translation>
+        <translation>F Baixa   </translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1410"/>
@@ -2964,12 +2965,12 @@ La llista es pot mantenir a la configuració (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3390"/>
         <source>SWL Mode</source>
-        <translation type="unfinished"></translation>
+        <translation>Mode SWL</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3393"/>
         <source>Hide lower panel controls to maximize deocde windows</source>
-        <translation type="unfinished"></translation>
+        <translation>Amaga els controls del panell inferior per a maximitzar les finestres de descodificació</translation>
     </message>
     <message>
         <source>Calling CQ </source>
@@ -3868,7 +3869,7 @@ La llista es pot mantenir a la configuració (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="492"/>
         <source>Excessive dropped samples - %1 (%2 sec) audio frames dropped in period starting %3</source>
-        <translation type="unfinished"></translation>
+        <translation>Mostres caigudes excessives - %1 (%2 sec) fotogrames d&apos;àudio caiguts en el període inicial %3</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="526"/>
@@ -3893,7 +3894,7 @@ La llista es pot mantenir a la configuració (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="790"/>
         <source>Enumerating audio devices</source>
-        <translation type="unfinished"></translation>
+        <translation>Enumeració de dispositius d’àudio</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="805"/>
