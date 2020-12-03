@@ -109,7 +109,7 @@ void SoundOutput::restart (QIODevice * source)
     {
       m_stream->setBufferSize (m_stream->format().bytesForFrames (m_framesBuffered));
     }
-  m_stream->setCategory ("game");
+  m_stream->setCategory ("production");
   m_stream->start (source);
   LOG_INFO ("Selected buffer size (bytes): " << m_stream->bufferSize () << " period size: " << m_stream->periodSize ());
 }
