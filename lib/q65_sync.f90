@@ -16,6 +16,7 @@ subroutine q65_sync(nutc,iwave,nmax,mode_q65,codewords,ncw,nsps,nfqso,ntol,    &
   use packjt77
   parameter (NSTEP=8)                    !Step size nsps/NSTEP
   parameter (LN=2176*63)           !LN=LL*NN; LL=64*(mode_q65+2), NN=63
+  parameter (PLOG_MIN=-240.0)            !List decoding threshold
   integer*2 iwave(0:nmax-1)              !Raw data
   integer isync(22)                      !Indices of sync symbols
   integer itone(85)
@@ -171,7 +172,7 @@ subroutine q65_sync(nutc,iwave,nmax,mode_q65,codewords,ncw,nsps,nfqso,ntol,    &
      b90=1.72**ibw
      call q65_intrinsics_ff(s3,nsubmode,b90/baud,nFadingModel,s3prob)
      call q65_dec_fullaplist(s3,s3prob,codewords,ncw,esnodb,dat4,plog,irc)
-     if(irc.ge.0 .and. plog.ge.-255.0) then
+     if(irc.ge.0 .and. plog.ge.PLOG_MIN) then
         snr2=esnodb - db(2500.0/baud)
         id1=1
         write(c77,1000) dat4(1:12),dat4(13)/2
