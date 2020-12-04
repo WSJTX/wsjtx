@@ -4711,7 +4711,8 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
       || ("JT65" == m_mode && mode != "#")
       || ("JT9" == m_mode && mode != "@")
       || ("MSK144" == m_mode && !("&" == mode || "^" == mode))
-      || ("QRA64" == m_mode && mode.left (1) != ":")) {
+      || ("QRA64" == m_mode && mode.left (1) != ":")
+      || ("Q65" == m_mode && mode.left (1) != ":")) {
     return;      //Currently we do auto-sequencing only in FT4, FT8, MSK144, FST4, and Q65
   }
 
