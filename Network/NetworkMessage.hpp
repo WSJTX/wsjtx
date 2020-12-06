@@ -540,9 +540,9 @@ namespace NetworkMessage
 
     // increment this if a newer Qt schema is required and add decode
     // logic to the Builder and Reader class implementations
-#if QT_VERSION >= 0x050400
+#if QT_VERSION >= QT_VERSION_CHECK (5, 4, 0)
     static quint32 constexpr schema_number {3};
-#elif QT_VERSION >= 0x050200
+#elif QT_VERSION >= QT_VERSION_CHECK (5, 2, 0)
     static quint32 constexpr schema_number {2};
 #else
     // Schema 1 (Qt_5_0) is broken

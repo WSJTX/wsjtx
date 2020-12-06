@@ -5,8 +5,6 @@
 
 #include "MessageServer.hpp"
 
-using Frequency = MessageServer::Frequency;
-
 class QTime;
 class QString;
 class QModelIndex;
@@ -28,16 +26,18 @@ class DecodesModel
 {
   Q_OBJECT;
 
+  using ClientKey = MessageServer::ClientKey;
+
 public:
   explicit DecodesModel (QObject * parent = nullptr);
 
-  Q_SLOT void add_decode (bool is_new, QString const& client_id, QTime time, qint32 snr, float delta_time
+  Q_SLOT void add_decode (bool is_new, ClientKey const&, QTime, qint32 snr, float delta_time
                           , quint32 delta_frequency, QString const& mode, QString const& message
                           , bool low_confidence, bool off_air, bool is_fast);
-  Q_SLOT void decodes_cleared (QString const& client_id);
+  Q_SLOT void decodes_cleared (ClientKey const&);
   Q_SLOT void do_reply (QModelIndex const& source, quint8 modifiers);
 
-  Q_SIGNAL void reply (QString const& id, QTime time, qint32 snr, float delta_time, quint32 delta_frequency
+  Q_SIGNAL void reply (ClientKey const&, QTime, qint32 snr, float delta_time, quint32 delta_frequency
                        , QString const& mode, QString const& message, bool low_confidence, quint8 modifiers);
 };
 

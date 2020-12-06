@@ -5,9 +5,10 @@
 #include <QList>
 #include <QBrush>
 #include <QColor>
- #include <QFont>
+#include <QFont>
 #include <QMap>
 #include <QVector>
+#include <QTextStream>
 #include <QDataStream>
 #include <QMetaType>
 #include <QDebug>
@@ -72,16 +73,23 @@ QDataStream& operator >> (QDataStream& is, DecodeHighlightingModel::HighlightInf
            >> item.background_;
 }
 
+QString DecodeHighlightingModel::HighlightInfo::toString () const
+{
+  QString string;
+  QTextStream ots {&string};
+  ots << "HighlightInfo("
+      << highlight_name (type_) << ", "
+      << enabled_ << ", "
+      << foreground_.color ().name () << ", "
+      << background_.color ().name () << ')';
+  return string;
+}
+
 #if !defined (QT_NO_DEBUG_STREAM)
 QDebug operator << (QDebug debug, DecodeHighlightingModel::HighlightInfo const& item)
 {
   QDebugStateSaver save {debug};
-  debug.nospace () << "HighlightInfo("
-                   << item.type_ << ", "
-                   << item.enabled_ << ", "
-                   << item.foreground_ << ", "
-                   << item.background_ << ')';
-  return debug;
+  return debug.nospace () << item.toString ();
 }
 #endif
 

@@ -10,7 +10,9 @@ SOURCES += \
   widgets/AbstractLogWindow.cpp \
   widgets/FrequencyLineEdit.cpp widgets/FrequencyDeltaLineEdit.cpp \
   widgets/FoxLogWindow.cpp widgets/CabrilloLogWindow.cpp \
-  widgets/HelpTextWindow.cpp widgets/RestrictedSpinBox.cpp
+  widgets/HelpTextWindow.cpp widgets/RestrictedSpinBox.cpp \
+  widgets/LazyFillComboBox.cpp widgets/CheckableItemComboBox.cpp
+
 HEADERS  += \
   widgets/mainwindow.h widgets/plotter.h \
   widgets/about.h widgets/widegraph.h  \
@@ -22,7 +24,8 @@ HEADERS  += \
   widgets/ExportCabrillo.h widgets/AbstractLogWindow.hpp \
   widgets/FoxLogWindow.hpp widgets/CabrilloLogWindow.hpp \
   widgets/DateTimeEdit.hpp widgets/HelpTextWindow.hpp \
-  widgets/RestrictedSpinBox.hpp
+  widgets/RestrictedSpinBox.hpp \
+  widgets/LazyFillComboBox.hpp widgets/CheckableItemComboBox.hpp
 
 FORMS    += \
   widgets/mainwindow.ui widgets/about.ui \

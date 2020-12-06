@@ -2,6 +2,7 @@
 
 #include <QStandardItem>
 #include <QModelIndex>
+#include <QVariant>
 #include <QTime>
 #include <QString>
 #include <QFont>
@@ -33,10 +34,13 @@ namespace
 
   QFont text_font {"Courier", 10};
 
-  QList<QStandardItem *> make_row (QString const& client_id, QTime time, qint32 snr, float delta_time
-                                   , quint32 delta_frequency, QString const& mode, QString const& message
-                                   , bool low_confidence, bool off_air, bool is_fast)
+  QList<QStandardItem *> make_row (MessageServer::ClientKey const& key, QTime time, qint32 snr
+                                   , float delta_time, quint32 delta_frequency, QString const& mode
+                                   , QString const& message, bool low_confidence, bool off_air, bool is_fast)
   {
+    auto client_item = new QStandardItem {QString {"%1(%2)"}.arg (key.second).arg (key.first.toString ())};
+    client_item->setData (QVariant::fromValue (key));
+
     auto time_item = new QStandardItem {time.toString (is_fast || "~" == mode ? "hh:mm:ss" : "hh:mm")};
     time_item->setData (time);
     time_item->setTextAlignment (Qt::AlignRight);
@@ -63,7 +67,7 @@ namespace
     live->setTextAlignment (Qt::AlignHCenter);
 
     QList<QStandardItem *> row {
-      new QStandardItem {client_id}, time_item, snr_item, dt, df, md, confidence, live, new QStandardItem {message}};
+      client_item, time_item, snr_item, dt, df, md, confidence, live, new QStandardItem {message}};
     Q_FOREACH (auto& item, row)
       {
         item->setEditable (false);
@@ -84,7 +88,7 @@ DecodesModel::DecodesModel (QObject * parent)
     }
 }
 
-void DecodesModel::add_decode (bool is_new, QString const& client_id, QTime time, qint32 snr, float delta_time
+void DecodesModel::add_decode (bool is_new, ClientKey const& key, QTime time, qint32 snr, float delta_time
                                , quint32 delta_frequency, QString const& mode, QString const& message
                                , bool low_confidence, bool off_air, bool is_fast)
 {
@@ -93,7 +97,7 @@ void DecodesModel::add_decode (bool is_new, QString const& client_id, QTime time
       int target_row {-1};
       for (auto row = 0; row < rowCount (); ++row)
         {
-          if (data (index (row, 0)).toString () == client_id)
+          if (item (row, 0)->data ().value<ClientKey> () == key)
             {
               auto row_time = item (row, 1)->data ().toTime ();
               if (row_time == time
@@ -115,21 +119,21 @@ void DecodesModel::add_decode (bool is_new, QString const& client_id, QTime time
         }
       if (target_row >= 0)
         {
-          insertRow (target_row + 1, make_row (client_id, time, snr, delta_time, delta_frequency, mode
+          insertRow (target_row + 1, make_row (key, time, snr, delta_time, delta_frequency, mode
                                                , message, low_confidence, off_air, is_fast));
           return;
         }
     }
 
-  appendRow (make_row (client_id, time, snr, delta_time, delta_frequency, mode, message, low_confidence
+  appendRow (make_row (key, time, snr, delta_time, delta_frequency, mode, message, low_confidence
                        , off_air, is_fast));
 }
 
-void DecodesModel::decodes_cleared (QString const& client_id)
+void DecodesModel::decodes_cleared (ClientKey const& key)
 {
   for (auto row = rowCount () - 1; row >= 0; --row)
     {
-      if (data (index (row, 0)).toString () == client_id)
+      if (item (row, 0)->data ().value<ClientKey> () == key)
         {
           removeRow (row);
         }
@@ -139,7 +143,7 @@ void DecodesModel::decodes_cleared (QString const& client_id)
 void DecodesModel::do_reply (QModelIndex const& source, quint8 modifiers)
 {
   auto row = source.row ();
-  Q_EMIT reply (data (index (row, 0)).toString ()
+  Q_EMIT reply (item (row, 0)->data ().value<ClientKey> ()
                 , item (row, 1)->data ().toTime ()
                 , item (row, 2)->data ().toInt ()
                 , item (row, 3)->data ().toFloat ()

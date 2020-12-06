@@ -56,16 +56,13 @@ include(Decoder/decodedtext.pri)
 include(Detector/Detector.pri)
 include(Modulator/Modulator.pri)
 include(Audio/Audio.pri)
+include(Transceiver/Transceiver.pri)
 
 SOURCES += \
+  ExceptionCatchingApplication.cpp Logger.cpp WSJTXLogging.cpp \
   Radio.cpp NetworkServerLookup.cpp revision_utils.cpp \
-  Transceiver.cpp TransceiverBase.cpp TransceiverFactory.cpp \
-  PollingTransceiver.cpp EmulateSplitTransceiver.cpp \
-  HRDTransceiver.cpp DXLabSuiteCommanderTransceiver.cpp \
-  HamlibTransceiver.cpp FrequencyLineEdit.cpp \
-  Configuration.cpp PSK_Reporter.cpp AudioDevice.cpp \
-  Modulator.cpp Detector.cpp \
-  getfile.cpp soundout.cpp soundin.cpp \
+  Configuration.cpp PSK_Reporter.cpp NonInheritingProcess.cpp \
+  getfile.cpp \
   WFPalette.cpp \
   WsprTxScheduler.cpp \
   main.cpp decodedtext.cpp wsprnet.cpp \
@@ -76,18 +73,16 @@ SOURCES += \
 
 HEADERS  += qt_helpers.hpp qt_db_helpers.hpp \
   pimpl_h.hpp pimpl_impl.hpp \
+  ExceptionCatchingApplication.hpp Logger.hpp WSJTXLogging.hpp \
   Radio.hpp NetworkServerLookup.hpp revision_utils.hpp \
-  soundin.h soundout.h \
   WFPalette.hpp getfile.h decodedtext.h \
   commons.h sleep.h \
-  AudioDevice.hpp Detector.hpp Modulator.hpp PSK_Reporter.hpp \
-  Transceiver.hpp TransceiverBase.hpp TransceiverFactory.hpp PollingTransceiver.hpp \
-  EmulateSplitTransceiver.hpp DXLabSuiteCommanderTransceiver.hpp HamlibTransceiver.hpp \
+  PSK_Reporter.hpp \
   Configuration.hpp wsprnet.h \
   WSPRBandHopping.hpp \
   WsprTxScheduler.h SampleDownloader.hpp MultiSettings.hpp PhaseEqualizationDialog.hpp \
   EqualizationToolsDialog.hpp \
-  LotWUsers.h TraceFile.hpp
+  LotWUsers.h TraceFile.hpp NonInheritingProcess.hpp
 
 INCLUDEPATH += qmake_only
 

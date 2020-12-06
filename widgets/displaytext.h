@@ -8,11 +8,10 @@
 #include <QPair>
 #include <QString>
 
-#include "Decoder/decodedtext.h"
-
 class QAction;
 class Configuration;
 class LogBook;
+class DecodedText;
 
 class DisplayText
   : public QTextEdit

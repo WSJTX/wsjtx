@@ -369,75 +369,75 @@
 <context>
     <name>Configuration::impl</name>
     <message>
-        <location filename="../Configuration.cpp" line="966"/>
-        <location filename="../Configuration.cpp" line="1122"/>
-        <location filename="../Configuration.cpp" line="1148"/>
+        <location filename="../Configuration.cpp" line="981"/>
+        <location filename="../Configuration.cpp" line="1146"/>
+        <location filename="../Configuration.cpp" line="1172"/>
         <source>&amp;Delete</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="967"/>
-        <location filename="../Configuration.cpp" line="1152"/>
+        <location filename="../Configuration.cpp" line="982"/>
+        <location filename="../Configuration.cpp" line="1176"/>
         <source>&amp;Insert ...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="993"/>
+        <location filename="../Configuration.cpp" line="1008"/>
         <source>Failed to create save directory</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="994"/>
+        <location filename="../Configuration.cpp" line="1009"/>
         <source>path: &quot;%1%</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1005"/>
+        <location filename="../Configuration.cpp" line="1020"/>
         <source>Failed to create samples directory</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1006"/>
+        <location filename="../Configuration.cpp" line="1021"/>
         <source>path: &quot;%1&quot;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1156"/>
+        <location filename="../Configuration.cpp" line="1180"/>
         <source>&amp;Load ...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1160"/>
+        <location filename="../Configuration.cpp" line="1184"/>
         <source>&amp;Save as ...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1164"/>
+        <location filename="../Configuration.cpp" line="1188"/>
         <source>&amp;Merge ...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1168"/>
+        <location filename="../Configuration.cpp" line="1192"/>
         <source>&amp;Reset</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1718"/>
+        <location filename="../Configuration.cpp" line="1734"/>
         <source>Serial Port:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1719"/>
+        <location filename="../Configuration.cpp" line="1735"/>
         <source>Serial port used for CAT control</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1726"/>
+        <location filename="../Configuration.cpp" line="1742"/>
         <source>Network Server:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1727"/>
+        <location filename="../Configuration.cpp" line="1743"/>
         <source>Optional hostname and port of network service.
 Leave blank for a sensible default on this machine.
 Formats:
@@ -447,12 +447,12 @@ Formats:
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1739"/>
+        <location filename="../Configuration.cpp" line="1755"/>
         <source>USB Device:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1740"/>
+        <location filename="../Configuration.cpp" line="1756"/>
         <source>Optional device identification.
 Leave blank for a sensible default for the rig.
 Format:
@@ -460,154 +460,160 @@ Format:
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1776"/>
-        <location filename="../Configuration.cpp" line="1784"/>
+        <location filename="../Configuration.cpp" line="1792"/>
+        <location filename="../Configuration.cpp" line="1800"/>
         <source>Invalid audio input device</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1792"/>
+        <location filename="../Configuration.cpp" line="1808"/>
         <source>Invalid audio output device</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1798"/>
+        <location filename="../Configuration.cpp" line="1814"/>
         <source>Invalid PTT method</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1808"/>
+        <location filename="../Configuration.cpp" line="1824"/>
         <source>Invalid PTT port</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1816"/>
-        <location filename="../Configuration.cpp" line="1825"/>
+        <location filename="../Configuration.cpp" line="1832"/>
+        <location filename="../Configuration.cpp" line="1841"/>
         <source>Invalid Contest Exchange</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1817"/>
+        <location filename="../Configuration.cpp" line="1833"/>
         <source>You must input a valid ARRL Field Day exchange</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1826"/>
+        <location filename="../Configuration.cpp" line="1842"/>
         <source>You must input a valid ARRL RTTY Roundup exchange</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2126"/>
+        <location filename="../Configuration.cpp" line="2169"/>
         <source>Reset Decode Highlighting</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2127"/>
+        <location filename="../Configuration.cpp" line="2170"/>
         <source>Reset all decode highlighting and priorities to default values</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2147"/>
+        <location filename="../Configuration.cpp" line="2190"/>
         <source>WSJT-X Decoded Text Font Chooser</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2314"/>
+        <location filename="../Configuration.cpp" line="2357"/>
         <source>Load Working Frequencies</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2314"/>
-        <location filename="../Configuration.cpp" line="2333"/>
-        <location filename="../Configuration.cpp" line="2379"/>
+        <location filename="../Configuration.cpp" line="2357"/>
+        <location filename="../Configuration.cpp" line="2376"/>
+        <location filename="../Configuration.cpp" line="2422"/>
         <source>Frequency files (*.qrg);;All files (*.*)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2321"/>
+        <location filename="../Configuration.cpp" line="2364"/>
         <source>Replace Working Frequencies</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2322"/>
+        <location filename="../Configuration.cpp" line="2365"/>
         <source>Are you sure you want to discard your current working frequencies and replace them with the loaded ones?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2333"/>
+        <location filename="../Configuration.cpp" line="2376"/>
         <source>Merge Working Frequencies</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2350"/>
-        <location filename="../Configuration.cpp" line="2359"/>
-        <location filename="../Configuration.cpp" line="2369"/>
+        <location filename="../Configuration.cpp" line="2393"/>
+        <location filename="../Configuration.cpp" line="2402"/>
+        <location filename="../Configuration.cpp" line="2412"/>
         <source>Not a valid frequencies file</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2350"/>
+        <location filename="../Configuration.cpp" line="2393"/>
         <source>Incorrect file magic</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2359"/>
+        <location filename="../Configuration.cpp" line="2402"/>
         <source>Version is too new</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2369"/>
+        <location filename="../Configuration.cpp" line="2412"/>
         <source>Contents corrupt</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2379"/>
+        <location filename="../Configuration.cpp" line="2422"/>
         <source>Save Working Frequencies</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2388"/>
+        <location filename="../Configuration.cpp" line="2431"/>
         <source>Only Save Selected  Working Frequencies</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2389"/>
+        <location filename="../Configuration.cpp" line="2432"/>
         <source>Are you sure you want to save only the working frequencies that are currently selected? Click No to save all.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2405"/>
+        <location filename="../Configuration.cpp" line="2448"/>
         <source>Reset Working Frequencies</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2406"/>
+        <location filename="../Configuration.cpp" line="2449"/>
         <source>Are you sure you want to discard your current working frequencies and replace them with default ones?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2444"/>
+        <location filename="../Configuration.cpp" line="2487"/>
         <source>Save Directory</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2458"/>
+        <location filename="../Configuration.cpp" line="2501"/>
         <source>AzEl Directory</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2518"/>
+        <location filename="../Configuration.cpp" line="2561"/>
         <source>Rig control error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2519"/>
+        <location filename="../Configuration.cpp" line="2562"/>
         <source>Failed to open connection to rig</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2737"/>
+        <location filename="../Configuration.cpp" line="2780"/>
         <source>Rig failure</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../Configuration.cpp" line="2835"/>
+        <source>Not found</source>
+        <comment>audio device missing</comment>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -1420,22 +1426,22 @@ Error: %2 - %3</source>
 <context>
     <name>FrequencyDialog</name>
     <message>
-        <location filename="../Configuration.cpp" line="265"/>
+        <location filename="../Configuration.cpp" line="267"/>
         <source>Add Frequency</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="270"/>
+        <location filename="../Configuration.cpp" line="272"/>
         <source>IARU &amp;Region:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="271"/>
+        <location filename="../Configuration.cpp" line="273"/>
         <source>&amp;Mode:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="272"/>
+        <location filename="../Configuration.cpp" line="274"/>
         <source>&amp;Frequency (MHz):</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1554,180 +1560,180 @@ Error: %2 - %3</source>
 <context>
     <name>HamlibTransceiver</name>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="212"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="266"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="216"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="270"/>
         <source>Hamlib initialisation error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="288"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="292"/>
         <source>Hamlib settings file error: %1 at character offset %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="294"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="298"/>
         <source>Hamlib settings file error: top level must be a JSON object</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="306"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="310"/>
         <source>Hamlib settings file error: config must be a JSON object</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="371"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="375"/>
         <source>Unsupported CAT type</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="424"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="428"/>
         <source>Hamlib error: %1 while %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="434"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="438"/>
         <source>opening connection to rig</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="481"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="485"/>
         <source>getting current frequency</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="485"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="489"/>
         <source>getting current mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="514"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="534"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="518"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="538"/>
         <source>exchanging VFOs</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="522"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1005"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="526"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1009"/>
         <source>getting other VFO frequency</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="526"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="530"/>
         <source>getting other VFO mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="539"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="704"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="543"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="708"/>
         <source>setting current VFO</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="548"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="552"/>
         <source>getting frequency</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="552"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="556"/>
         <source>getting mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="569"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="692"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="945"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="573"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="696"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="949"/>
         <source>getting current VFO</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="620"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="628"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="642"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="984"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="624"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="632"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="646"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="988"/>
         <source>getting current VFO frequency</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="626"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="641"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="648"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="732"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="750"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="811"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="630"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="645"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="652"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="736"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="754"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="815"/>
         <source>setting frequency</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="740"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="818"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="890"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="903"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="744"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="822"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="894"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="907"/>
         <source>getting current VFO mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="746"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="755"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="824"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="896"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="909"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="750"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="759"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="828"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="900"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="913"/>
         <source>setting current VFO mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="798"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="867"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="802"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="871"/>
         <source>setting/unsetting split mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="809"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="849"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="813"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="853"/>
         <source>setting split mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="837"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="841"/>
         <source>setting split TX frequency and mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="842"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="846"/>
         <source>setting split TX frequency</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="914"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="918"/>
         <source>getting split TX VFO mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="921"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="925"/>
         <source>setting split TX VFO mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1042"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1046"/>
         <source>getting PTT state</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1073"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1077"/>
         <source>setting PTT on</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1081"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1085"/>
         <source>setting PTT off</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1093"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1097"/>
         <source>setting a configuration item</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1103"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1107"/>
         <source>getting a configuration item</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2027,296 +2033,316 @@ Error(%2): %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="50"/>
-        <location filename="../widgets/mainwindow.cpp" line="5902"/>
-        <location filename="../widgets/mainwindow.cpp" line="5983"/>
-        <location filename="../widgets/mainwindow.cpp" line="6031"/>
-        <location filename="../widgets/mainwindow.cpp" line="6193"/>
-        <location filename="../widgets/mainwindow.cpp" line="6233"/>
-        <location filename="../widgets/mainwindow.cpp" line="6281"/>
-        <location filename="../widgets/mainwindow.cpp" line="6410"/>
+        <location filename="../widgets/mainwindow.ui" line="56"/>
+        <location filename="../widgets/mainwindow.cpp" line="5952"/>
+        <location filename="../widgets/mainwindow.cpp" line="6043"/>
+        <location filename="../widgets/mainwindow.cpp" line="6091"/>
+        <location filename="../widgets/mainwindow.cpp" line="6253"/>
+        <location filename="../widgets/mainwindow.cpp" line="6293"/>
+        <location filename="../widgets/mainwindow.cpp" line="6344"/>
+        <location filename="../widgets/mainwindow.cpp" line="6471"/>
         <source>Band Activity</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="139"/>
-        <location filename="../widgets/mainwindow.ui" line="283"/>
+        <location filename="../widgets/mainwindow.ui" line="145"/>
+        <location filename="../widgets/mainwindow.ui" line="301"/>
         <source>UTC           dB            DT           Freq          Dr </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="194"/>
-        <location filename="../widgets/mainwindow.cpp" line="5903"/>
-        <location filename="../widgets/mainwindow.cpp" line="5982"/>
-        <location filename="../widgets/mainwindow.cpp" line="6026"/>
-        <location filename="../widgets/mainwindow.cpp" line="6194"/>
-        <location filename="../widgets/mainwindow.cpp" line="6234"/>
-        <location filename="../widgets/mainwindow.cpp" line="6282"/>
+        <location filename="../widgets/mainwindow.ui" line="212"/>
+        <location filename="../widgets/mainwindow.cpp" line="5953"/>
+        <location filename="../widgets/mainwindow.cpp" line="6042"/>
+        <location filename="../widgets/mainwindow.cpp" line="6086"/>
+        <location filename="../widgets/mainwindow.cpp" line="6254"/>
+        <location filename="../widgets/mainwindow.cpp" line="6294"/>
+        <location filename="../widgets/mainwindow.cpp" line="6345"/>
         <source>Rx Frequency</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="330"/>
+        <location filename="../widgets/mainwindow.ui" line="363"/>
         <source>CQ only</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="343"/>
+        <location filename="../widgets/mainwindow.ui" line="376"/>
         <source>Enter this QSO in log</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="346"/>
+        <location filename="../widgets/mainwindow.ui" line="379"/>
         <source>Log &amp;QSO</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="359"/>
+        <location filename="../widgets/mainwindow.ui" line="392"/>
         <source>Stop monitoring</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="362"/>
+        <location filename="../widgets/mainwindow.ui" line="395"/>
         <source>&amp;Stop</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="375"/>
+        <location filename="../widgets/mainwindow.ui" line="408"/>
         <source>Toggle monitoring On/Off</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="390"/>
+        <location filename="../widgets/mainwindow.ui" line="423"/>
         <source>&amp;Monitor</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="409"/>
+        <location filename="../widgets/mainwindow.ui" line="442"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Erase right window. Double-click to erase both windows.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="412"/>
+        <location filename="../widgets/mainwindow.ui" line="445"/>
         <source>Erase right window. Double-click to erase both windows.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="415"/>
+        <location filename="../widgets/mainwindow.ui" line="448"/>
         <source>&amp;Erase</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="425"/>
+        <location filename="../widgets/mainwindow.ui" line="458"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Clear the accumulating message average.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="428"/>
+        <location filename="../widgets/mainwindow.ui" line="461"/>
         <source>Clear the accumulating message average.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="431"/>
+        <location filename="../widgets/mainwindow.ui" line="464"/>
         <source>Clear Avg</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="444"/>
+        <location filename="../widgets/mainwindow.ui" line="477"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Decode most recent Rx period at QSO Frequency&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="447"/>
+        <location filename="../widgets/mainwindow.ui" line="480"/>
         <source>Decode most recent Rx period at QSO Frequency</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="462"/>
+        <location filename="../widgets/mainwindow.ui" line="495"/>
         <source>&amp;Decode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="478"/>
+        <location filename="../widgets/mainwindow.ui" line="511"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle Auto-Tx On/Off&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="481"/>
+        <location filename="../widgets/mainwindow.ui" line="514"/>
         <source>Toggle Auto-Tx On/Off</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="496"/>
+        <location filename="../widgets/mainwindow.ui" line="529"/>
         <source>E&amp;nable Tx</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="512"/>
+        <location filename="../widgets/mainwindow.ui" line="545"/>
         <source>Stop transmitting immediately</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="515"/>
+        <location filename="../widgets/mainwindow.ui" line="548"/>
         <source>&amp;Halt Tx</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="522"/>
+        <location filename="../widgets/mainwindow.ui" line="555"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle a pure Tx tone On/Off&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="525"/>
+        <location filename="../widgets/mainwindow.ui" line="558"/>
         <source>Toggle a pure Tx tone On/Off</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="540"/>
+        <location filename="../widgets/mainwindow.ui" line="573"/>
         <source>&amp;Tune</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="550"/>
+        <location filename="../widgets/mainwindow.ui" line="583"/>
         <source>Menus</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1964"/>
+        <location filename="../widgets/mainwindow.ui" line="1297"/>
+        <source>F High </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="1388"/>
+        <source>F Low   </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="2484"/>
         <source>1/2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1969"/>
+        <location filename="../widgets/mainwindow.ui" line="2489"/>
         <source>2/2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1974"/>
+        <location filename="../widgets/mainwindow.ui" line="2494"/>
         <source>1/3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1979"/>
+        <location filename="../widgets/mainwindow.ui" line="2499"/>
         <source>2/3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1984"/>
+        <location filename="../widgets/mainwindow.ui" line="2504"/>
         <source>3/3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1989"/>
+        <location filename="../widgets/mainwindow.ui" line="2509"/>
         <source>1/4</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1994"/>
+        <location filename="../widgets/mainwindow.ui" line="2514"/>
         <source>2/4</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1999"/>
+        <location filename="../widgets/mainwindow.ui" line="2519"/>
         <source>3/4</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2004"/>
+        <location filename="../widgets/mainwindow.ui" line="2524"/>
         <source>4/4</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2009"/>
+        <location filename="../widgets/mainwindow.ui" line="2529"/>
         <source>1/5</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2014"/>
+        <location filename="../widgets/mainwindow.ui" line="2534"/>
         <source>2/5</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2019"/>
+        <location filename="../widgets/mainwindow.ui" line="2539"/>
         <source>3/5</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2024"/>
+        <location filename="../widgets/mainwindow.ui" line="2544"/>
         <source>4/5</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2029"/>
+        <location filename="../widgets/mainwindow.ui" line="2549"/>
         <source>5/5</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2034"/>
+        <location filename="../widgets/mainwindow.ui" line="2554"/>
         <source>1/6</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2039"/>
+        <location filename="../widgets/mainwindow.ui" line="2559"/>
         <source>2/6</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2044"/>
+        <location filename="../widgets/mainwindow.ui" line="2564"/>
         <source>3/6</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2049"/>
+        <location filename="../widgets/mainwindow.ui" line="2569"/>
         <source>4/6</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2054"/>
+        <location filename="../widgets/mainwindow.ui" line="2574"/>
         <source>5/6</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2059"/>
+        <location filename="../widgets/mainwindow.ui" line="2579"/>
         <source>6/6</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2067"/>
+        <location filename="../widgets/mainwindow.ui" line="2587"/>
         <source>Percentage of minute sequences devoted to transmitting.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2165"/>
+        <location filename="../widgets/mainwindow.ui" line="2685"/>
         <source>Prefer Type 1 messages</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2184"/>
+        <location filename="../widgets/mainwindow.ui" line="2704"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Transmit during the next sequence.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2283"/>
+        <location filename="../widgets/mainwindow.ui" line="3390"/>
+        <source>SWL Mode</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="3393"/>
+        <source>Hide lower panel controls to maximize deocde windows</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="603"/>
         <source>USB dial frequency</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2297"/>
+        <location filename="../widgets/mainwindow.ui" line="617"/>
         <source>14.078 000</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2368"/>
+        <location filename="../widgets/mainwindow.ui" line="734"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;30dB recommended when only noise present&lt;br/&gt;Green when good&lt;br/&gt;Red when clipping may occur&lt;br/&gt;Yellow when too low&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2371"/>
+        <location filename="../widgets/mainwindow.ui" line="737"/>
         <source>Rx Signal</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2374"/>
+        <location filename="../widgets/mainwindow.ui" line="740"/>
         <source>30dB recommended when only noise present
 Green when good
 Red when clipping may occur
@@ -2324,626 +2350,626 @@ Yellow when too low</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2528"/>
+        <location filename="../widgets/mainwindow.ui" line="852"/>
         <source>DX Call</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2655"/>
+        <location filename="../widgets/mainwindow.ui" line="979"/>
         <source>DX Grid</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2569"/>
+        <location filename="../widgets/mainwindow.ui" line="893"/>
         <source>Callsign of station to be worked</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2674"/>
+        <location filename="../widgets/mainwindow.ui" line="998"/>
         <source>Search for callsign in database</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2677"/>
+        <location filename="../widgets/mainwindow.ui" line="1001"/>
         <source>&amp;Lookup</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2684"/>
+        <location filename="../widgets/mainwindow.ui" line="1008"/>
         <source>Locator of station to be worked</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2556"/>
+        <location filename="../widgets/mainwindow.ui" line="880"/>
         <source>Az: 251     16553 km</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2697"/>
+        <location filename="../widgets/mainwindow.ui" line="1021"/>
         <source>Add callsign and locator to database</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2700"/>
+        <location filename="../widgets/mainwindow.ui" line="1024"/>
         <source>Add</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2310"/>
+        <location filename="../widgets/mainwindow.ui" line="672"/>
         <source> Pwr</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="567"/>
+        <location filename="../widgets/mainwindow.ui" line="633"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;If orange or red there has been a rig control failure, click to reset and read the dial frequency.  S implies split mode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="570"/>
+        <location filename="../widgets/mainwindow.ui" line="636"/>
         <source>If orange or red there has been a rig control failure, click to reset and read the dial frequency. S implies split mode.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="599"/>
+        <location filename="../widgets/mainwindow.ui" line="665"/>
         <source>?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2390"/>
+        <location filename="../widgets/mainwindow.ui" line="1073"/>
         <source>Adjust Tx audio level</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="606"/>
+        <location filename="../widgets/mainwindow.ui" line="679"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Select operating band or enter frequency in MHz or enter kHz increment followed by k.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="609"/>
+        <location filename="../widgets/mainwindow.ui" line="682"/>
         <source>Frequency entry</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="612"/>
+        <location filename="../widgets/mainwindow.ui" line="685"/>
         <source>Select operating band or enter frequency in MHz or enter kHz increment followed by k.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2343"/>
+        <location filename="../widgets/mainwindow.ui" line="1060"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt; 2015 Jun 17 &lt;/p&gt;&lt;p align=&quot;center&quot;&gt; 01:23:45 &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="664"/>
+        <location filename="../widgets/mainwindow.ui" line="1545"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to keep Tx frequency fixed when double-clicking on decoded text.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="667"/>
+        <location filename="../widgets/mainwindow.ui" line="1548"/>
         <source>Check to keep Tx frequency fixed when double-clicking on decoded text.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="670"/>
+        <location filename="../widgets/mainwindow.ui" line="1551"/>
         <source>Hold Tx Freq</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="677"/>
+        <location filename="../widgets/mainwindow.ui" line="1423"/>
         <source>Audio Rx frequency</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="683"/>
-        <location filename="../widgets/mainwindow.ui" line="1126"/>
-        <location filename="../widgets/mainwindow.ui" line="1886"/>
-        <location filename="../widgets/mainwindow.ui" line="1908"/>
-        <location filename="../widgets/mainwindow.ui" line="1933"/>
+        <location filename="../widgets/mainwindow.ui" line="1250"/>
+        <location filename="../widgets/mainwindow.ui" line="1429"/>
+        <location filename="../widgets/mainwindow.ui" line="2406"/>
+        <location filename="../widgets/mainwindow.ui" line="2428"/>
+        <location filename="../widgets/mainwindow.ui" line="2453"/>
         <source>  Hz</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="686"/>
-        <location filename="../widgets/mainwindow.ui" line="1911"/>
+        <location filename="../widgets/mainwindow.ui" line="1432"/>
+        <location filename="../widgets/mainwindow.ui" line="2431"/>
         <source>Rx  </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="722"/>
-        <location filename="../widgets/mainwindow.ui" line="725"/>
+        <location filename="../widgets/mainwindow.ui" line="1157"/>
+        <location filename="../widgets/mainwindow.ui" line="1160"/>
         <source>Set Tx frequency to Rx Frequency</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="728"/>
+        <location filename="../widgets/mainwindow.ui" line="1163"/>
         <source>▲</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="735"/>
+        <location filename="../widgets/mainwindow.ui" line="1170"/>
         <source>Frequency tolerance (Hz)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="741"/>
-        <location filename="../widgets/mainwindow.ui" line="1936"/>
+        <location filename="../widgets/mainwindow.ui" line="1176"/>
+        <location filename="../widgets/mainwindow.ui" line="2456"/>
         <source>F Tol  </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="775"/>
-        <location filename="../widgets/mainwindow.ui" line="778"/>
+        <location filename="../widgets/mainwindow.ui" line="1210"/>
+        <location filename="../widgets/mainwindow.ui" line="1213"/>
         <source>Set Rx frequency to Tx Frequency</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="781"/>
+        <location filename="../widgets/mainwindow.ui" line="1216"/>
         <source>▼</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="790"/>
+        <location filename="../widgets/mainwindow.ui" line="1558"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Synchronizing threshold.  Lower numbers accept weaker sync signals.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="793"/>
+        <location filename="../widgets/mainwindow.ui" line="1561"/>
         <source>Synchronizing threshold. Lower numbers accept weaker sync signals.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="799"/>
+        <location filename="../widgets/mainwindow.ui" line="1567"/>
         <source>Sync   </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="817"/>
+        <location filename="../widgets/mainwindow.ui" line="1318"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to use short-format messages.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="820"/>
+        <location filename="../widgets/mainwindow.ui" line="1321"/>
         <source>Check to use short-format messages.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="823"/>
+        <location filename="../widgets/mainwindow.ui" line="1324"/>
         <source>Sh</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="830"/>
+        <location filename="../widgets/mainwindow.ui" line="1331"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to enable JT9 fast modes&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="833"/>
+        <location filename="../widgets/mainwindow.ui" line="1334"/>
         <source>Check to enable JT9 fast modes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="836"/>
-        <location filename="../widgets/mainwindow.ui" line="2902"/>
+        <location filename="../widgets/mainwindow.ui" line="1337"/>
+        <location filename="../widgets/mainwindow.ui" line="2992"/>
         <source>Fast</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="843"/>
+        <location filename="../widgets/mainwindow.ui" line="1344"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to enable automatic sequencing of Tx messages based on received messages.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="846"/>
+        <location filename="../widgets/mainwindow.ui" line="1347"/>
         <source>Check to enable automatic sequencing of Tx messages based on received messages.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="849"/>
+        <location filename="../widgets/mainwindow.ui" line="1350"/>
         <source>Auto Seq</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="856"/>
+        <location filename="../widgets/mainwindow.ui" line="1357"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to call the first decoded responder to my CQ.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="859"/>
+        <location filename="../widgets/mainwindow.ui" line="1360"/>
         <source>Check to call the first decoded responder to my CQ.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="862"/>
+        <location filename="../widgets/mainwindow.ui" line="1363"/>
         <source>Call 1st</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="872"/>
+        <location filename="../widgets/mainwindow.ui" line="1373"/>
         <source>Check to generate &quot;@1250  (SEND MSGS)&quot; in Tx6.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="875"/>
+        <location filename="../widgets/mainwindow.ui" line="1376"/>
         <source>Tx6</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="884"/>
+        <location filename="../widgets/mainwindow.ui" line="1583"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to Tx in even-numbered minutes or sequences, starting at 0; uncheck for odd sequences.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="887"/>
+        <location filename="../widgets/mainwindow.ui" line="1586"/>
         <source>Check to Tx in even-numbered minutes or sequences, starting at 0; uncheck for odd sequences.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="890"/>
+        <location filename="../widgets/mainwindow.ui" line="1589"/>
         <source>Tx even/1st</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="902"/>
+        <location filename="../widgets/mainwindow.ui" line="1481"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Frequency to call CQ on in kHz above the current MHz&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="905"/>
+        <location filename="../widgets/mainwindow.ui" line="1484"/>
         <source>Frequency to call CQ on in kHz above the current MHz</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="908"/>
+        <location filename="../widgets/mainwindow.ui" line="1487"/>
         <source>Tx CQ </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="927"/>
+        <location filename="../widgets/mainwindow.ui" line="1506"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check this to call CQ on the &amp;quot;Tx CQ&amp;quot; frequency. Rx will be on the current frequency and the CQ message wiill include the current Rx frequency so callers know which frequency to reply on.&lt;/p&gt;&lt;p&gt;Not available to nonstandard callsign holders.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="930"/>
+        <location filename="../widgets/mainwindow.ui" line="1509"/>
         <source>Check this to call CQ on the &quot;Tx CQ&quot; frequency. Rx will be on the current frequency and the CQ message wiill include the current Rx frequency so callers know which frequency to reply on.
 Not available to nonstandard callsign holders.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="941"/>
+        <location filename="../widgets/mainwindow.ui" line="1520"/>
         <source>Rx All Freqs</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="950"/>
+        <location filename="../widgets/mainwindow.ui" line="1269"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Submode determines tone spacing; A is narrowest.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="953"/>
+        <location filename="../widgets/mainwindow.ui" line="1272"/>
         <source>Submode determines tone spacing; A is narrowest.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="959"/>
+        <location filename="../widgets/mainwindow.ui" line="1278"/>
         <source>Submode </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="986"/>
-        <location filename="../widgets/mainwindow.cpp" line="6053"/>
+        <location filename="../widgets/mainwindow.ui" line="1610"/>
+        <location filename="../widgets/mainwindow.cpp" line="6113"/>
         <source>Fox</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="996"/>
+        <location filename="../widgets/mainwindow.ui" line="1620"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to monitor Sh messages.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="999"/>
+        <location filename="../widgets/mainwindow.ui" line="1623"/>
         <source>Check to monitor Sh messages.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1002"/>
+        <location filename="../widgets/mainwindow.ui" line="1626"/>
         <source>SWL</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1021"/>
+        <location filename="../widgets/mainwindow.ui" line="1645"/>
         <source>Best S+P</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1031"/>
+        <location filename="../widgets/mainwindow.ui" line="1655"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check this to start recording calibration data.&lt;br/&gt;While measuring calibration correction is disabled.&lt;br/&gt;When not checked you can view the calibration results.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1034"/>
+        <location filename="../widgets/mainwindow.ui" line="1658"/>
         <source>Check this to start recording calibration data.
 While measuring calibration correction is disabled.
 When not checked you can view the calibration results.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1039"/>
+        <location filename="../widgets/mainwindow.ui" line="1663"/>
         <source>Measure</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1048"/>
+        <location filename="../widgets/mainwindow.ui" line="1672"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Signal report: Signal-to-noise ratio in 2500 Hz reference bandwidth (dB).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1051"/>
+        <location filename="../widgets/mainwindow.ui" line="1675"/>
         <source>Signal report: Signal-to-noise ratio in 2500 Hz reference bandwidth (dB).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1057"/>
+        <location filename="../widgets/mainwindow.ui" line="1681"/>
         <source> Report </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1073"/>
+        <location filename="../widgets/mainwindow.ui" line="1448"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Tx/Rx or Frequency calibration sequence length&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1076"/>
+        <location filename="../widgets/mainwindow.ui" line="1451"/>
         <source>Tx/Rx or Frequency calibration sequence length</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1082"/>
-        <location filename="../widgets/mainwindow.ui" line="2095"/>
+        <location filename="../widgets/mainwindow.ui" line="1457"/>
+        <location filename="../widgets/mainwindow.ui" line="2615"/>
         <source>  s</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1085"/>
-        <location filename="../widgets/mainwindow.ui" line="2098"/>
+        <location filename="../widgets/mainwindow.ui" line="1460"/>
+        <location filename="../widgets/mainwindow.ui" line="2618"/>
         <source>T/R  </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1110"/>
+        <location filename="../widgets/mainwindow.ui" line="1234"/>
         <source>Toggle Tx mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1113"/>
+        <location filename="../widgets/mainwindow.ui" line="1237"/>
         <source>Tx JT9 @</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1120"/>
+        <location filename="../widgets/mainwindow.ui" line="1244"/>
         <source>Audio Tx frequency</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1129"/>
-        <location filename="../widgets/mainwindow.ui" line="1889"/>
+        <location filename="../widgets/mainwindow.ui" line="1253"/>
+        <location filename="../widgets/mainwindow.ui" line="2409"/>
         <source>Tx  </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1148"/>
+        <location filename="../widgets/mainwindow.ui" line="1532"/>
         <source>Tx# </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1161"/>
+        <location filename="../widgets/mainwindow.ui" line="1407"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Double-click on another caller to queue that call for your next QSO.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1164"/>
+        <location filename="../widgets/mainwindow.ui" line="1410"/>
         <source>Double-click on another caller to queue that call for your next QSO.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1167"/>
+        <location filename="../widgets/mainwindow.ui" line="1413"/>
         <source>Next Call</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1208"/>
+        <location filename="../widgets/mainwindow.ui" line="1728"/>
         <source>1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1216"/>
-        <location filename="../widgets/mainwindow.ui" line="1294"/>
-        <location filename="../widgets/mainwindow.ui" line="1336"/>
+        <location filename="../widgets/mainwindow.ui" line="1736"/>
+        <location filename="../widgets/mainwindow.ui" line="1814"/>
+        <location filename="../widgets/mainwindow.ui" line="1856"/>
         <source>Send this message in next Tx interval</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1225"/>
+        <location filename="../widgets/mainwindow.ui" line="1745"/>
         <source>Ctrl+2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1232"/>
+        <location filename="../widgets/mainwindow.ui" line="1752"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Send this message in next Tx interval&lt;/p&gt;&lt;p&gt;Double click to toggle the use of the Tx1 message to start a QSO with a station (not allowed for type 1 compound call holders)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1235"/>
+        <location filename="../widgets/mainwindow.ui" line="1755"/>
         <source>Send this message in next Tx interval
 Double click to toggle the use of the Tx1 message to start a QSO with a station (not allowed for type 1 compound call holders)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1245"/>
+        <location filename="../widgets/mainwindow.ui" line="1765"/>
         <source>Ctrl+1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1252"/>
-        <location filename="../widgets/mainwindow.ui" line="1352"/>
-        <location filename="../widgets/mainwindow.ui" line="1433"/>
-        <location filename="../widgets/mainwindow.ui" line="1456"/>
+        <location filename="../widgets/mainwindow.ui" line="1772"/>
+        <location filename="../widgets/mainwindow.ui" line="1872"/>
+        <location filename="../widgets/mainwindow.ui" line="1953"/>
+        <location filename="../widgets/mainwindow.ui" line="1976"/>
         <source>Switch to this Tx message NOW</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1258"/>
+        <location filename="../widgets/mainwindow.ui" line="1778"/>
         <source>Tx &amp;2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1261"/>
+        <location filename="../widgets/mainwindow.ui" line="1781"/>
         <source>Alt+2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1271"/>
+        <location filename="../widgets/mainwindow.ui" line="1791"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to this Tx message NOW&lt;/p&gt;&lt;p&gt;Double click to toggle the use of the Tx1 message to start a QSO with a station (not allowed for type 1 compound call holders)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1274"/>
+        <location filename="../widgets/mainwindow.ui" line="1794"/>
         <source>Switch to this Tx message NOW
 Double click to toggle the use of the Tx1 message to start a QSO with a station (not allowed for type 1 compound call holders)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1284"/>
+        <location filename="../widgets/mainwindow.ui" line="1804"/>
         <source>Tx &amp;1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1287"/>
+        <location filename="../widgets/mainwindow.ui" line="1807"/>
         <source>Alt+1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1303"/>
+        <location filename="../widgets/mainwindow.ui" line="1823"/>
         <source>Ctrl+6</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1316"/>
+        <location filename="../widgets/mainwindow.ui" line="1836"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Send this message in next Tx interval&lt;/p&gt;&lt;p&gt;Double-click to reset to the standard 73 message&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1319"/>
+        <location filename="../widgets/mainwindow.ui" line="1839"/>
         <source>Send this message in next Tx interval
 Double-click to reset to the standard 73 message</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1329"/>
+        <location filename="../widgets/mainwindow.ui" line="1849"/>
         <source>Ctrl+5</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1345"/>
+        <location filename="../widgets/mainwindow.ui" line="1865"/>
         <source>Ctrl+3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1358"/>
+        <location filename="../widgets/mainwindow.ui" line="1878"/>
         <source>Tx &amp;3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1361"/>
+        <location filename="../widgets/mainwindow.ui" line="1881"/>
         <source>Alt+3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1368"/>
+        <location filename="../widgets/mainwindow.ui" line="1888"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Send this message in next Tx interval&lt;/p&gt;&lt;p&gt;Double-click to toggle between RRR and RR73 messages in Tx4 (not allowed for type 2 compound call holders)&lt;/p&gt;&lt;p&gt;RR73 messages should only be used when you are reasonably confident that no message repetitions will be required&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1371"/>
+        <location filename="../widgets/mainwindow.ui" line="1891"/>
         <source>Send this message in next Tx interval
 Double-click to toggle between RRR and RR73 messages in Tx4 (not allowed for type 2 compound call holders)
 RR73 messages should only be used when you are reasonably confident that no message repetitions will be required</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1382"/>
+        <location filename="../widgets/mainwindow.ui" line="1902"/>
         <source>Ctrl+4</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1389"/>
+        <location filename="../widgets/mainwindow.ui" line="1909"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to this Tx message NOW&lt;/p&gt;&lt;p&gt;Double-click to toggle between RRR and RR73 messages in Tx4 (not allowed for type2 compound call holders)&lt;/p&gt;&lt;p&gt;RR73 messages should only be used when you are reasonably confident that no message repetitions will be required&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1392"/>
+        <location filename="../widgets/mainwindow.ui" line="1912"/>
         <source>Switch to this Tx message NOW
 Double-click to toggle between RRR and RR73 messages in Tx4 (not allowed for type2 compound call holders)
 RR73 messages should only be used when you are reasonably confident that no message repetitions will be required</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1400"/>
+        <location filename="../widgets/mainwindow.ui" line="1920"/>
         <source>Tx &amp;4</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1403"/>
+        <location filename="../widgets/mainwindow.ui" line="1923"/>
         <source>Alt+4</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1410"/>
+        <location filename="../widgets/mainwindow.ui" line="1930"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to this Tx message NOW&lt;/p&gt;&lt;p&gt;Double-click to reset to the standard 73 message&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1413"/>
+        <location filename="../widgets/mainwindow.ui" line="1933"/>
         <source>Switch to this Tx message NOW
 Double-click to reset to the standard 73 message</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1420"/>
+        <location filename="../widgets/mainwindow.ui" line="1940"/>
         <source>Tx &amp;5</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1423"/>
+        <location filename="../widgets/mainwindow.ui" line="1943"/>
         <source>Alt+5</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1436"/>
+        <location filename="../widgets/mainwindow.ui" line="1956"/>
         <source>Now</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1446"/>
+        <location filename="../widgets/mainwindow.ui" line="1966"/>
         <source>Generate standard messages for minimal QSO</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1449"/>
+        <location filename="../widgets/mainwindow.ui" line="1969"/>
         <source>Generate Std Msgs</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1462"/>
+        <location filename="../widgets/mainwindow.ui" line="1982"/>
         <source>Tx &amp;6</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1465"/>
+        <location filename="../widgets/mainwindow.ui" line="1985"/>
         <source>Alt+6</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1472"/>
+        <location filename="../widgets/mainwindow.ui" line="1992"/>
         <source>Enter a free text message (maximum 13 characters)
 or select a predefined macro from the dropdown list.
 Press ENTER to add the current text to the predefined
@@ -2951,839 +2977,839 @@ list. The list can be maintained in Settings (F2).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1502"/>
+        <location filename="../widgets/mainwindow.ui" line="2022"/>
         <source>Queue up the next Tx message</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1505"/>
+        <location filename="../widgets/mainwindow.ui" line="2025"/>
         <source>Next</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1518"/>
+        <location filename="../widgets/mainwindow.ui" line="2038"/>
         <source>2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3258"/>
+        <location filename="../widgets/mainwindow.ui" line="3348"/>
         <source>Quick-Start Guide to FST4 and FST4W</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3284"/>
+        <location filename="../widgets/mainwindow.ui" line="3374"/>
         <source>FST4</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3292"/>
+        <location filename="../widgets/mainwindow.ui" line="3382"/>
         <source>FST4W</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1554"/>
-        <location filename="../widgets/mainwindow.ui" line="1558"/>
+        <location filename="../widgets/mainwindow.ui" line="2074"/>
+        <location filename="../widgets/mainwindow.ui" line="2078"/>
         <source>CQ</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1749"/>
+        <location filename="../widgets/mainwindow.ui" line="2269"/>
         <source>Grid</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1538"/>
+        <location filename="../widgets/mainwindow.ui" line="2058"/>
         <source>Max dB  </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1563"/>
+        <location filename="../widgets/mainwindow.ui" line="2083"/>
         <source>CQ AF</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1568"/>
+        <location filename="../widgets/mainwindow.ui" line="2088"/>
         <source>CQ AN</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1573"/>
+        <location filename="../widgets/mainwindow.ui" line="2093"/>
         <source>CQ AS</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1578"/>
+        <location filename="../widgets/mainwindow.ui" line="2098"/>
         <source>CQ EU</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1583"/>
+        <location filename="../widgets/mainwindow.ui" line="2103"/>
         <source>CQ NA</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1588"/>
+        <location filename="../widgets/mainwindow.ui" line="2108"/>
         <source>CQ OC</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1593"/>
+        <location filename="../widgets/mainwindow.ui" line="2113"/>
         <source>CQ SA</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1598"/>
+        <location filename="../widgets/mainwindow.ui" line="2118"/>
         <source>CQ 0</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1603"/>
+        <location filename="../widgets/mainwindow.ui" line="2123"/>
         <source>CQ 1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1608"/>
+        <location filename="../widgets/mainwindow.ui" line="2128"/>
         <source>CQ 2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1613"/>
+        <location filename="../widgets/mainwindow.ui" line="2133"/>
         <source>CQ 3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1618"/>
+        <location filename="../widgets/mainwindow.ui" line="2138"/>
         <source>CQ 4</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1623"/>
+        <location filename="../widgets/mainwindow.ui" line="2143"/>
         <source>CQ 5</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1628"/>
+        <location filename="../widgets/mainwindow.ui" line="2148"/>
         <source>CQ 6</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1633"/>
+        <location filename="../widgets/mainwindow.ui" line="2153"/>
         <source>CQ 7</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1638"/>
+        <location filename="../widgets/mainwindow.ui" line="2158"/>
         <source>CQ 8</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1643"/>
+        <location filename="../widgets/mainwindow.ui" line="2163"/>
         <source>CQ 9</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1651"/>
+        <location filename="../widgets/mainwindow.ui" line="2171"/>
         <source>Reset</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1670"/>
+        <location filename="../widgets/mainwindow.ui" line="2190"/>
         <source>N List     </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1701"/>
+        <location filename="../widgets/mainwindow.ui" line="2221"/>
         <source>N Slots    </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1732"/>
-        <location filename="../widgets/mainwindow.ui" line="1739"/>
-        <location filename="../widgets/mainwindow.ui" line="1959"/>
-        <location filename="../widgets/mainwindow.cpp" line="1247"/>
-        <location filename="../widgets/mainwindow.cpp" line="5656"/>
-        <location filename="../widgets/mainwindow.cpp" line="6568"/>
-        <location filename="../widgets/mainwindow.cpp" line="7990"/>
+        <location filename="../widgets/mainwindow.ui" line="2252"/>
+        <location filename="../widgets/mainwindow.ui" line="2259"/>
+        <location filename="../widgets/mainwindow.ui" line="2479"/>
+        <location filename="../widgets/mainwindow.cpp" line="1257"/>
+        <location filename="../widgets/mainwindow.cpp" line="5703"/>
+        <location filename="../widgets/mainwindow.cpp" line="6625"/>
+        <location filename="../widgets/mainwindow.cpp" line="8087"/>
         <source>Random</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1744"/>
+        <location filename="../widgets/mainwindow.ui" line="2264"/>
         <source>Call</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1754"/>
+        <location filename="../widgets/mainwindow.ui" line="2274"/>
         <source>S/N (dB)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1759"/>
+        <location filename="../widgets/mainwindow.ui" line="2279"/>
         <source>Distance</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1780"/>
+        <location filename="../widgets/mainwindow.ui" line="2300"/>
         <source>More CQs</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2079"/>
-        <location filename="../widgets/mainwindow.ui" line="2421"/>
+        <location filename="../widgets/mainwindow.ui" line="706"/>
+        <location filename="../widgets/mainwindow.ui" line="2599"/>
         <source>  %</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2082"/>
+        <location filename="../widgets/mainwindow.ui" line="2602"/>
         <source>Tx Pct </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2111"/>
+        <location filename="../widgets/mainwindow.ui" line="2631"/>
         <source>Band Hopping</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2120"/>
+        <location filename="../widgets/mainwindow.ui" line="2640"/>
         <source>Choose bands and times of day for band-hopping.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2123"/>
+        <location filename="../widgets/mainwindow.ui" line="2643"/>
         <source>Schedule ...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2141"/>
+        <location filename="../widgets/mainwindow.ui" line="2661"/>
         <source>Upload decoded messages to WSPRnet.org.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2150"/>
+        <location filename="../widgets/mainwindow.ui" line="2670"/>
         <source>Upload spots</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2159"/>
+        <location filename="../widgets/mainwindow.ui" line="2679"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;6 digit locators cause 2 different messages to be sent, the second contains the full locator but only a hashed callsign, other stations must have decoded the first once before they can decode your call in the second. Check this option to only send 4 digit locators if it will avoid the two message protocol.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2162"/>
+        <location filename="../widgets/mainwindow.ui" line="2682"/>
         <source>6 digit locators cause 2 different messages to be sent, the second contains the full locator but only a hashed callsign, other stations must have decoded the first once before they can decode your call in the second. Check this option to only send 4 digit locators if it will avoid the two message protocol.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2175"/>
+        <location filename="../widgets/mainwindow.ui" line="2695"/>
         <source>No own call decodes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2199"/>
+        <location filename="../widgets/mainwindow.ui" line="2719"/>
         <source>Tx Next</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2226"/>
+        <location filename="../widgets/mainwindow.ui" line="2746"/>
         <source>Set Tx power in dBm (dB above 1 mW) as part of your WSPR message.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2424"/>
+        <location filename="../widgets/mainwindow.ui" line="709"/>
         <source>NB  </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2722"/>
+        <location filename="../widgets/mainwindow.ui" line="2812"/>
         <source>File</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2743"/>
+        <location filename="../widgets/mainwindow.ui" line="2833"/>
         <source>View</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2757"/>
+        <location filename="../widgets/mainwindow.ui" line="2847"/>
         <source>Decode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2771"/>
+        <location filename="../widgets/mainwindow.ui" line="2861"/>
         <source>Save</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2779"/>
+        <location filename="../widgets/mainwindow.ui" line="2869"/>
         <source>Help</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2798"/>
+        <location filename="../widgets/mainwindow.ui" line="2888"/>
         <source>Mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2821"/>
+        <location filename="../widgets/mainwindow.ui" line="2911"/>
         <source>Configurations</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2826"/>
+        <location filename="../widgets/mainwindow.ui" line="2916"/>
         <source>Tools</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2849"/>
+        <location filename="../widgets/mainwindow.ui" line="2939"/>
         <source>Exit</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2857"/>
+        <location filename="../widgets/mainwindow.ui" line="2947"/>
         <source>About WSJT-X</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2865"/>
+        <location filename="../widgets/mainwindow.ui" line="2955"/>
         <source>Waterfall</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2870"/>
+        <location filename="../widgets/mainwindow.ui" line="2960"/>
         <source>Open</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2873"/>
+        <location filename="../widgets/mainwindow.ui" line="2963"/>
         <source>Ctrl+O</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2878"/>
+        <location filename="../widgets/mainwindow.ui" line="2968"/>
         <source>Open next in directory</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2883"/>
+        <location filename="../widgets/mainwindow.ui" line="2973"/>
         <source>Decode remaining files in directory</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2886"/>
+        <location filename="../widgets/mainwindow.ui" line="2976"/>
         <source>Shift+F6</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2891"/>
+        <location filename="../widgets/mainwindow.ui" line="2981"/>
         <source>Delete all *.wav &amp;&amp; *.c2 files in SaveDir</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2913"/>
+        <location filename="../widgets/mainwindow.ui" line="3003"/>
         <source>None</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2921"/>
+        <location filename="../widgets/mainwindow.ui" line="3011"/>
         <source>Save all</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2926"/>
+        <location filename="../widgets/mainwindow.ui" line="3016"/>
         <source>Online User Guide</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2931"/>
+        <location filename="../widgets/mainwindow.ui" line="3021"/>
         <source>Keyboard shortcuts</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2936"/>
+        <location filename="../widgets/mainwindow.ui" line="3026"/>
         <source>Special mouse commands</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2947"/>
+        <location filename="../widgets/mainwindow.ui" line="3037"/>
         <source>JT9</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2958"/>
+        <location filename="../widgets/mainwindow.ui" line="3048"/>
         <source>Save decoded</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2969"/>
+        <location filename="../widgets/mainwindow.ui" line="3059"/>
         <source>Normal</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2980"/>
+        <location filename="../widgets/mainwindow.ui" line="3070"/>
         <source>Deep</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2985"/>
+        <location filename="../widgets/mainwindow.ui" line="3075"/>
         <source>Erase ALL.TXT</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2990"/>
+        <location filename="../widgets/mainwindow.ui" line="3080"/>
         <source>Erase wsjtx_log.adi</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3053"/>
+        <location filename="../widgets/mainwindow.ui" line="3143"/>
         <source>F7</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="8296"/>
+        <location filename="../widgets/mainwindow.cpp" line="8407"/>
         <source>Runaway Tx watchdog</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2998"/>
+        <location filename="../widgets/mainwindow.ui" line="3088"/>
         <source>JT65</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3006"/>
+        <location filename="../widgets/mainwindow.ui" line="3096"/>
         <source>JT9+JT65</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3014"/>
+        <location filename="../widgets/mainwindow.ui" line="3104"/>
         <source>Astronomical data</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3019"/>
+        <location filename="../widgets/mainwindow.ui" line="3109"/>
         <source>List of Type 1 prefixes and suffixes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3024"/>
+        <location filename="../widgets/mainwindow.ui" line="3114"/>
         <source>Settings...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3032"/>
+        <location filename="../widgets/mainwindow.ui" line="3122"/>
         <source>Local User Guide</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3037"/>
+        <location filename="../widgets/mainwindow.ui" line="3127"/>
         <source>Open log directory</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3045"/>
+        <location filename="../widgets/mainwindow.ui" line="3135"/>
         <source>JT4</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3050"/>
+        <location filename="../widgets/mainwindow.ui" line="3140"/>
         <source>Message averaging</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3061"/>
+        <location filename="../widgets/mainwindow.ui" line="3151"/>
         <source>Enable averaging</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3069"/>
+        <location filename="../widgets/mainwindow.ui" line="3159"/>
         <source>Enable deep search</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3077"/>
+        <location filename="../widgets/mainwindow.ui" line="3167"/>
         <source>WSPR</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3082"/>
+        <location filename="../widgets/mainwindow.ui" line="3172"/>
         <source>Echo Graph</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3085"/>
+        <location filename="../widgets/mainwindow.ui" line="3175"/>
         <source>F8</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3093"/>
+        <location filename="../widgets/mainwindow.ui" line="3183"/>
         <source>Echo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3096"/>
+        <location filename="../widgets/mainwindow.ui" line="3186"/>
         <source>EME Echo mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3104"/>
+        <location filename="../widgets/mainwindow.ui" line="3194"/>
         <source>ISCAT</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3109"/>
+        <location filename="../widgets/mainwindow.ui" line="3199"/>
         <source>Fast Graph</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3112"/>
+        <location filename="../widgets/mainwindow.ui" line="3202"/>
         <source>F9</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3117"/>
+        <location filename="../widgets/mainwindow.ui" line="3207"/>
         <source>&amp;Download Samples ...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3120"/>
+        <location filename="../widgets/mainwindow.ui" line="3210"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Download sample audio files demonstrating the various modes.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3128"/>
+        <location filename="../widgets/mainwindow.ui" line="3218"/>
         <source>MSK144</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3136"/>
+        <location filename="../widgets/mainwindow.ui" line="3226"/>
         <source>QRA64</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3141"/>
+        <location filename="../widgets/mainwindow.ui" line="3231"/>
         <source>Release Notes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3149"/>
+        <location filename="../widgets/mainwindow.ui" line="3239"/>
         <source>Enable AP for DX Call</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3157"/>
+        <location filename="../widgets/mainwindow.ui" line="3247"/>
         <source>FreqCal</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3162"/>
+        <location filename="../widgets/mainwindow.ui" line="3252"/>
         <source>Measure reference spectrum</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3167"/>
+        <location filename="../widgets/mainwindow.ui" line="3257"/>
         <source>Measure phase response</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3172"/>
+        <location filename="../widgets/mainwindow.ui" line="3262"/>
         <source>Erase reference spectrum</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3180"/>
+        <location filename="../widgets/mainwindow.ui" line="3270"/>
         <source>Execute frequency calibration cycle</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3185"/>
+        <location filename="../widgets/mainwindow.ui" line="3275"/>
         <source>Equalization tools ...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3196"/>
+        <location filename="../widgets/mainwindow.ui" line="3286"/>
         <source>FT8</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3204"/>
-        <location filename="../widgets/mainwindow.ui" line="3212"/>
+        <location filename="../widgets/mainwindow.ui" line="3294"/>
+        <location filename="../widgets/mainwindow.ui" line="3302"/>
         <source>Enable AP</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3217"/>
+        <location filename="../widgets/mainwindow.ui" line="3307"/>
         <source>Solve for calibration parameters</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3222"/>
+        <location filename="../widgets/mainwindow.ui" line="3312"/>
         <source>Copyright notice</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3225"/>
+        <location filename="../widgets/mainwindow.ui" line="3315"/>
         <source>Shift+F1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3233"/>
+        <location filename="../widgets/mainwindow.ui" line="3323"/>
         <source>Fox log</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3238"/>
+        <location filename="../widgets/mainwindow.ui" line="3328"/>
         <source>FT8 DXpedition Mode User Guide</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3243"/>
+        <location filename="../widgets/mainwindow.ui" line="3333"/>
         <source>Reset Cabrillo log ...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3248"/>
+        <location filename="../widgets/mainwindow.ui" line="3338"/>
         <source>Color highlighting scheme</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3253"/>
+        <location filename="../widgets/mainwindow.ui" line="3343"/>
         <source>Export Cabrillo log ...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3263"/>
+        <location filename="../widgets/mainwindow.ui" line="3353"/>
         <source>Contest log</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3268"/>
+        <location filename="../widgets/mainwindow.ui" line="3358"/>
         <source>Erase WSPR hashtable</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3276"/>
+        <location filename="../widgets/mainwindow.ui" line="3366"/>
         <source>FT4</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="251"/>
+        <location filename="../widgets/mainwindow.cpp" line="253"/>
         <source>Rig Control Error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="336"/>
-        <location filename="../widgets/mainwindow.cpp" line="4292"/>
-        <location filename="../widgets/mainwindow.cpp" line="7767"/>
+        <location filename="../widgets/mainwindow.cpp" line="339"/>
+        <location filename="../widgets/mainwindow.cpp" line="4339"/>
+        <location filename="../widgets/mainwindow.cpp" line="7861"/>
         <source>Receiving</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="443"/>
+        <location filename="../widgets/mainwindow.cpp" line="446"/>
         <source>Do you want to reconfigure the radio interface?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="479"/>
+        <location filename="../widgets/mainwindow.cpp" line="484"/>
         <source>%1 (%2 sec) audio frames dropped</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="485"/>
+        <location filename="../widgets/mainwindow.cpp" line="490"/>
         <source>Audio Source</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="486"/>
+        <location filename="../widgets/mainwindow.cpp" line="491"/>
         <source>Reduce system load</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="487"/>
+        <location filename="../widgets/mainwindow.cpp" line="492"/>
         <source>Excessive dropped samples - %1 (%2 sec) audio frames dropped in period starting %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="521"/>
+        <location filename="../widgets/mainwindow.cpp" line="526"/>
         <source>Error Scanning ADIF Log</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="525"/>
+        <location filename="../widgets/mainwindow.cpp" line="530"/>
         <source>Scanned ADIF log, %1 worked before records created</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="635"/>
+        <location filename="../widgets/mainwindow.cpp" line="640"/>
         <source>Error Loading LotW Users Data</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="754"/>
+        <location filename="../widgets/mainwindow.cpp" line="759"/>
         <source>Error Writing WAV File</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="785"/>
+        <location filename="../widgets/mainwindow.cpp" line="790"/>
         <source>Enumerating audio devices</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="800"/>
+        <location filename="../widgets/mainwindow.cpp" line="805"/>
         <source>Configurations...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="869"/>
-        <location filename="../widgets/mainwindow.cpp" line="5978"/>
-        <location filename="../widgets/mainwindow.cpp" line="5984"/>
-        <location filename="../widgets/mainwindow.cpp" line="6022"/>
-        <location filename="../widgets/mainwindow.cpp" line="6032"/>
-        <location filename="../widgets/mainwindow.cpp" line="6129"/>
-        <location filename="../widgets/mainwindow.cpp" line="6130"/>
-        <location filename="../widgets/mainwindow.cpp" line="6179"/>
-        <location filename="../widgets/mainwindow.cpp" line="6180"/>
-        <location filename="../widgets/mainwindow.cpp" line="6186"/>
-        <location filename="../widgets/mainwindow.cpp" line="6187"/>
-        <location filename="../widgets/mainwindow.cpp" line="6235"/>
-        <location filename="../widgets/mainwindow.cpp" line="6236"/>
-        <location filename="../widgets/mainwindow.cpp" line="6405"/>
-        <location filename="../widgets/mainwindow.cpp" line="6406"/>
-        <location filename="../widgets/mainwindow.cpp" line="7449"/>
-        <location filename="../widgets/mainwindow.cpp" line="7452"/>
-        <location filename="../widgets/mainwindow.cpp" line="7457"/>
-        <location filename="../widgets/mainwindow.cpp" line="7460"/>
+        <location filename="../widgets/mainwindow.cpp" line="874"/>
+        <location filename="../widgets/mainwindow.cpp" line="6038"/>
+        <location filename="../widgets/mainwindow.cpp" line="6044"/>
+        <location filename="../widgets/mainwindow.cpp" line="6082"/>
+        <location filename="../widgets/mainwindow.cpp" line="6092"/>
+        <location filename="../widgets/mainwindow.cpp" line="6189"/>
+        <location filename="../widgets/mainwindow.cpp" line="6190"/>
+        <location filename="../widgets/mainwindow.cpp" line="6239"/>
+        <location filename="../widgets/mainwindow.cpp" line="6240"/>
+        <location filename="../widgets/mainwindow.cpp" line="6246"/>
+        <location filename="../widgets/mainwindow.cpp" line="6247"/>
+        <location filename="../widgets/mainwindow.cpp" line="6295"/>
+        <location filename="../widgets/mainwindow.cpp" line="6296"/>
+        <location filename="../widgets/mainwindow.cpp" line="6466"/>
+        <location filename="../widgets/mainwindow.cpp" line="6467"/>
+        <location filename="../widgets/mainwindow.cpp" line="7543"/>
+        <location filename="../widgets/mainwindow.cpp" line="7546"/>
+        <location filename="../widgets/mainwindow.cpp" line="7551"/>
+        <location filename="../widgets/mainwindow.cpp" line="7554"/>
         <source>Message</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="883"/>
+        <location filename="../widgets/mainwindow.cpp" line="888"/>
         <source>Error Killing jt9.exe Process</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="884"/>
+        <location filename="../widgets/mainwindow.cpp" line="889"/>
         <source>KillByName return code: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="899"/>
+        <location filename="../widgets/mainwindow.cpp" line="904"/>
         <source>Error removing &quot;%1&quot;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="900"/>
+        <location filename="../widgets/mainwindow.cpp" line="905"/>
         <source>Click OK to retry</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1303"/>
-        <location filename="../widgets/mainwindow.cpp" line="6379"/>
+        <location filename="../widgets/mainwindow.cpp" line="1315"/>
+        <location filename="../widgets/mainwindow.cpp" line="6440"/>
         <source>Improper mode</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1473"/>
-        <location filename="../widgets/mainwindow.cpp" line="8942"/>
+        <location filename="../widgets/mainwindow.cpp" line="1489"/>
+        <location filename="../widgets/mainwindow.cpp" line="9053"/>
         <source>File Open Error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1474"/>
-        <location filename="../widgets/mainwindow.cpp" line="7896"/>
-        <location filename="../widgets/mainwindow.cpp" line="8376"/>
-        <location filename="../widgets/mainwindow.cpp" line="8943"/>
-        <location filename="../widgets/mainwindow.cpp" line="9075"/>
+        <location filename="../widgets/mainwindow.cpp" line="1490"/>
+        <location filename="../widgets/mainwindow.cpp" line="7990"/>
+        <location filename="../widgets/mainwindow.cpp" line="8487"/>
+        <location filename="../widgets/mainwindow.cpp" line="9054"/>
+        <location filename="../widgets/mainwindow.cpp" line="9181"/>
         <source>Cannot open &quot;%1&quot; for append: %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1577"/>
+        <location filename="../widgets/mainwindow.cpp" line="1593"/>
         <source>Error saving c2 file</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1777"/>
+        <location filename="../widgets/mainwindow.cpp" line="1793"/>
         <source>Error in Sound Input</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1783"/>
+        <location filename="../widgets/mainwindow.cpp" line="1799"/>
         <source>Error in Sound Output</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1847"/>
-        <location filename="../widgets/mainwindow.cpp" line="6127"/>
-        <location filename="../widgets/mainwindow.cpp" line="6277"/>
+        <location filename="../widgets/mainwindow.cpp" line="1863"/>
+        <location filename="../widgets/mainwindow.cpp" line="6187"/>
+        <location filename="../widgets/mainwindow.cpp" line="6340"/>
         <source>Single-Period Decodes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="1848"/>
-        <location filename="../widgets/mainwindow.cpp" line="6128"/>
-        <location filename="../widgets/mainwindow.cpp" line="6278"/>
+        <location filename="../widgets/mainwindow.cpp" line="1864"/>
+        <location filename="../widgets/mainwindow.cpp" line="6188"/>
+        <location filename="../widgets/mainwindow.cpp" line="6341"/>
         <source>Average Decodes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2142"/>
+        <location filename="../widgets/mainwindow.cpp" line="2162"/>
         <source>Change Operator</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2142"/>
+        <location filename="../widgets/mainwindow.cpp" line="2162"/>
         <source>New operator:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2258"/>
+        <location filename="../widgets/mainwindow.cpp" line="2278"/>
         <source>Status File Error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2259"/>
-        <location filename="../widgets/mainwindow.cpp" line="5517"/>
+        <location filename="../widgets/mainwindow.cpp" line="2279"/>
+        <location filename="../widgets/mainwindow.cpp" line="5564"/>
         <source>Cannot open &quot;%1&quot; for writing: %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2394"/>
+        <location filename="../widgets/mainwindow.cpp" line="2414"/>
         <source>Subprocess Error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2395"/>
+        <location filename="../widgets/mainwindow.cpp" line="2415"/>
         <source>Subprocess failed with exit code %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2397"/>
         <location filename="../widgets/mainwindow.cpp" line="2417"/>
+        <location filename="../widgets/mainwindow.cpp" line="2437"/>
         <source>Running: %1
 %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2416"/>
+        <location filename="../widgets/mainwindow.cpp" line="2436"/>
         <source>Subprocess error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2454"/>
+        <location filename="../widgets/mainwindow.cpp" line="2474"/>
         <source>Reference spectrum saved</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2517"/>
+        <location filename="../widgets/mainwindow.cpp" line="2537"/>
         <source>Invalid data in fmt.all at line %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2523"/>
+        <location filename="../widgets/mainwindow.cpp" line="2543"/>
         <source>Good Calibration Solution</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2524"/>
+        <location filename="../widgets/mainwindow.cpp" line="2544"/>
         <source>&lt;pre&gt;%1%L2 ±%L3 ppm
 %4%L5 ±%L6 Hz
 
@@ -3792,44 +3818,44 @@ list. The list can be maintained in Settings (F2).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2538"/>
+        <location filename="../widgets/mainwindow.cpp" line="2558"/>
         <source>Delete Calibration Measurements</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2539"/>
+        <location filename="../widgets/mainwindow.cpp" line="2559"/>
         <source>The &quot;fmt.all&quot; file will be renamed as &quot;fmt.bak&quot;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2551"/>
+        <location filename="../widgets/mainwindow.cpp" line="2571"/>
         <source>If you make fair use of any part of WSJT-X under terms of the GNU General Public License, you must display the following copyright notice prominently in your derivative work:
 
 &quot;The algorithms, source code, look-and-feel of WSJT-X and related programs, and protocol specifications for the modes FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 are Copyright (C) 2001-2020 by one or more of the following authors: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; and other members of the WSJT Development Group.&quot;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2819"/>
+        <location filename="../widgets/mainwindow.cpp" line="2846"/>
         <source>No data read from disk. Wrong file format?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2826"/>
+        <location filename="../widgets/mainwindow.cpp" line="2853"/>
         <source>Confirm Delete</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2827"/>
+        <location filename="../widgets/mainwindow.cpp" line="2854"/>
         <source>Are you sure you want to delete all *.wav and *.c2 files in &quot;%1&quot;?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2864"/>
+        <location filename="../widgets/mainwindow.cpp" line="2891"/>
         <source>Keyboard Shortcuts</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2866"/>
+        <location filename="../widgets/mainwindow.cpp" line="2893"/>
         <source>&lt;table cellspacing=1&gt;
   &lt;tr&gt;&lt;td&gt;&lt;b&gt;Esc      &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Stop Tx, abort QSO, clear next-call queue&lt;/td&gt;&lt;/tr&gt;
   &lt;tr&gt;&lt;td&gt;&lt;b&gt;F1       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Online User&apos;s Guide (Alt: transmit Tx6)&lt;/td&gt;&lt;/tr&gt;
@@ -3879,12 +3905,12 @@ list. The list can be maintained in Settings (F2).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2922"/>
+        <location filename="../widgets/mainwindow.cpp" line="2949"/>
         <source>Special Mouse Commands</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2924"/>
+        <location filename="../widgets/mainwindow.cpp" line="2951"/>
         <source>&lt;table cellpadding=5&gt;
   &lt;tr&gt;
     &lt;th align=&quot;right&quot;&gt;Click on&lt;/th&gt;
@@ -3920,42 +3946,42 @@ list. The list can be maintained in Settings (F2).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="3265"/>
+        <location filename="../widgets/mainwindow.cpp" line="3295"/>
         <source>No more files to open.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="3623"/>
+        <location filename="../widgets/mainwindow.cpp" line="3659"/>
         <source>Spotting to PSK Reporter unavailable</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="3781"/>
+        <location filename="../widgets/mainwindow.cpp" line="3817"/>
         <source>Please choose another Tx frequency. WSJT-X will not knowingly transmit another mode in the WSPR sub-band on 30m.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="3785"/>
+        <location filename="../widgets/mainwindow.cpp" line="3821"/>
         <source>WSPR Guard Band</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="3798"/>
+        <location filename="../widgets/mainwindow.cpp" line="3834"/>
         <source>Please choose another dial frequency. WSJT-X will not operate in Fox mode in the standard FT8 sub-bands.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="3802"/>
+        <location filename="../widgets/mainwindow.cpp" line="3838"/>
         <source>Fox Mode warning</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="4396"/>
+        <location filename="../widgets/mainwindow.cpp" line="4443"/>
         <source>Last Tx: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="4802"/>
+        <location filename="../widgets/mainwindow.cpp" line="4849"/>
         <source>Should you switch to EU VHF Contest mode?
 
 To do so, check &apos;Special operating activity&apos; and
@@ -3963,176 +3989,176 @@ To do so, check &apos;Special operating activity&apos; and
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="4821"/>
+        <location filename="../widgets/mainwindow.cpp" line="4868"/>
         <source>Should you switch to ARRL Field Day mode?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="4826"/>
+        <location filename="../widgets/mainwindow.cpp" line="4873"/>
         <source>Should you switch to RTTY contest mode?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5478"/>
-        <location filename="../widgets/mainwindow.cpp" line="5497"/>
-        <location filename="../widgets/mainwindow.cpp" line="5516"/>
-        <location filename="../widgets/mainwindow.cpp" line="5542"/>
+        <location filename="../widgets/mainwindow.cpp" line="5525"/>
+        <location filename="../widgets/mainwindow.cpp" line="5544"/>
+        <location filename="../widgets/mainwindow.cpp" line="5563"/>
+        <location filename="../widgets/mainwindow.cpp" line="5589"/>
         <source>Add to CALL3.TXT</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5479"/>
+        <location filename="../widgets/mainwindow.cpp" line="5526"/>
         <source>Please enter a valid grid locator</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5498"/>
+        <location filename="../widgets/mainwindow.cpp" line="5545"/>
         <source>Cannot open &quot;%1&quot; for read/write: %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5540"/>
+        <location filename="../widgets/mainwindow.cpp" line="5587"/>
         <source>%1
 is already in CALL3.TXT, do you wish to replace it?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5723"/>
+        <location filename="../widgets/mainwindow.cpp" line="5771"/>
         <source>Warning:  DX Call field is empty.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5780"/>
+        <location filename="../widgets/mainwindow.cpp" line="5828"/>
         <source>Log file error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5781"/>
+        <location filename="../widgets/mainwindow.cpp" line="5829"/>
         <source>Cannot open &quot;%1&quot;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5797"/>
+        <location filename="../widgets/mainwindow.cpp" line="5845"/>
         <source>Error sending log to N1MM</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="5798"/>
+        <location filename="../widgets/mainwindow.cpp" line="5846"/>
         <source>Write returned &quot;%1&quot;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6028"/>
+        <location filename="../widgets/mainwindow.cpp" line="6088"/>
         <source>Stations calling DXpedition %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6063"/>
+        <location filename="../widgets/mainwindow.cpp" line="6123"/>
         <source>Hound</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6411"/>
+        <location filename="../widgets/mainwindow.cpp" line="6472"/>
         <source>Tx Messages</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6657"/>
-        <location filename="../widgets/mainwindow.cpp" line="6690"/>
-        <location filename="../widgets/mainwindow.cpp" line="6700"/>
+        <location filename="../widgets/mainwindow.cpp" line="6749"/>
+        <location filename="../widgets/mainwindow.cpp" line="6782"/>
+        <location filename="../widgets/mainwindow.cpp" line="6792"/>
         <source>Confirm Erase</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6658"/>
+        <location filename="../widgets/mainwindow.cpp" line="6750"/>
         <source>Are you sure you want to erase file ALL.TXT?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6668"/>
-        <location filename="../widgets/mainwindow.cpp" line="8421"/>
+        <location filename="../widgets/mainwindow.cpp" line="6760"/>
+        <location filename="../widgets/mainwindow.cpp" line="8532"/>
         <source>Confirm Reset</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6669"/>
+        <location filename="../widgets/mainwindow.cpp" line="6761"/>
         <source>Are you sure you want to erase your contest log?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6670"/>
+        <location filename="../widgets/mainwindow.cpp" line="6762"/>
         <source>Doing this will remove all QSO records for the current contest. They will be kept in the ADIF log file but will not be available for export in your Cabrillo log.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6683"/>
+        <location filename="../widgets/mainwindow.cpp" line="6775"/>
         <source>Cabrillo Log saved</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6691"/>
+        <location filename="../widgets/mainwindow.cpp" line="6783"/>
         <source>Are you sure you want to erase file wsjtx_log.adi?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6701"/>
+        <location filename="../widgets/mainwindow.cpp" line="6793"/>
         <source>Are you sure you want to erase the WSPR hashtable?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7289"/>
+        <location filename="../widgets/mainwindow.cpp" line="7383"/>
         <source>Tune digital gain </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7291"/>
+        <location filename="../widgets/mainwindow.cpp" line="7385"/>
         <source>Transmit digital gain </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7310"/>
+        <location filename="../widgets/mainwindow.cpp" line="7404"/>
         <source>Prefixes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7734"/>
+        <location filename="../widgets/mainwindow.cpp" line="7828"/>
         <source>Network Error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7735"/>
+        <location filename="../widgets/mainwindow.cpp" line="7829"/>
         <source>Error: %1
 UDP server %2:%3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7895"/>
+        <location filename="../widgets/mainwindow.cpp" line="7989"/>
         <source>File Error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="8174"/>
+        <location filename="../widgets/mainwindow.cpp" line="8275"/>
         <source>Phase Training Disabled</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="8177"/>
+        <location filename="../widgets/mainwindow.cpp" line="8278"/>
         <source>Phase Training Enabled</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="8311"/>
+        <location filename="../widgets/mainwindow.cpp" line="8422"/>
         <source>WD:%1m</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="8379"/>
-        <location filename="../widgets/mainwindow.cpp" line="9078"/>
+        <location filename="../widgets/mainwindow.cpp" line="8490"/>
+        <location filename="../widgets/mainwindow.cpp" line="9184"/>
         <source>Log File Error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="8422"/>
+        <location filename="../widgets/mainwindow.cpp" line="8533"/>
         <source>Are you sure you want to clear the QSO queues?</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4465,22 +4491,17 @@ Error(%2): %3</source>
 <context>
     <name>SoundInput</name>
     <message>
-        <location filename="../Audio/soundin.cpp" line="23"/>
+        <location filename="../Audio/soundin.cpp" line="21"/>
         <source>An error opening the audio input device has occurred.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Audio/soundin.cpp" line="27"/>
+        <location filename="../Audio/soundin.cpp" line="25"/>
         <source>An error occurred during read from the audio input device.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Audio/soundin.cpp" line="31"/>
-        <source>Audio data not being fed to the audio input device fast enough.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../Audio/soundin.cpp" line="35"/>
+        <location filename="../Audio/soundin.cpp" line="33"/>
         <source>Non-recoverable error, audio input device not usable at this time.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4495,37 +4516,37 @@ Error(%2): %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Audio/soundin.cpp" line="101"/>
+        <location filename="../Audio/soundin.cpp" line="102"/>
         <source>Failed to initialize audio sink device</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Audio/soundin.cpp" line="136"/>
+        <location filename="../Audio/soundin.cpp" line="135"/>
         <source>Idle</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Audio/soundin.cpp" line="141"/>
+        <location filename="../Audio/soundin.cpp" line="140"/>
         <source>Receiving</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Audio/soundin.cpp" line="145"/>
+        <location filename="../Audio/soundin.cpp" line="144"/>
         <source>Suspended</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Audio/soundin.cpp" line="150"/>
+        <location filename="../Audio/soundin.cpp" line="149"/>
         <source>Interrupted</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Audio/soundin.cpp" line="157"/>
+        <location filename="../Audio/soundin.cpp" line="156"/>
         <source>Error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Audio/soundin.cpp" line="161"/>
+        <location filename="../Audio/soundin.cpp" line="160"/>
         <source>Stopped</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4533,67 +4554,67 @@ Error(%2): %3</source>
 <context>
     <name>SoundOutput</name>
     <message>
-        <location filename="../Audio/soundout.cpp" line="21"/>
+        <location filename="../Audio/soundout.cpp" line="23"/>
         <source>An error opening the audio output device has occurred.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Audio/soundout.cpp" line="25"/>
+        <location filename="../Audio/soundout.cpp" line="27"/>
         <source>An error occurred during write to the audio output device.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Audio/soundout.cpp" line="29"/>
+        <location filename="../Audio/soundout.cpp" line="31"/>
         <source>Audio data not being fed to the audio output device fast enough.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Audio/soundout.cpp" line="33"/>
+        <location filename="../Audio/soundout.cpp" line="35"/>
         <source>Non-recoverable error, audio output device not usable at this time.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Audio/soundout.cpp" line="62"/>
+        <location filename="../Audio/soundout.cpp" line="68"/>
         <source>Requested output audio format is not valid.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Audio/soundout.cpp" line="66"/>
+        <location filename="../Audio/soundout.cpp" line="72"/>
         <source>Requested output audio format is not supported on device.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Audio/soundout.cpp" line="92"/>
+        <location filename="../Audio/soundout.cpp" line="94"/>
         <source>No audio output device configured.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Audio/soundout.cpp" line="184"/>
+        <location filename="../Audio/soundout.cpp" line="185"/>
         <source>Idle</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Audio/soundout.cpp" line="188"/>
+        <location filename="../Audio/soundout.cpp" line="189"/>
         <source>Sending</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Audio/soundout.cpp" line="192"/>
+        <location filename="../Audio/soundout.cpp" line="193"/>
         <source>Suspended</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Audio/soundout.cpp" line="197"/>
+        <location filename="../Audio/soundout.cpp" line="198"/>
         <source>Interrupted</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Audio/soundout.cpp" line="204"/>
+        <location filename="../Audio/soundout.cpp" line="205"/>
         <source>Error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Audio/soundout.cpp" line="208"/>
+        <location filename="../Audio/soundout.cpp" line="209"/>
         <source>Stopped</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4601,22 +4622,22 @@ Error(%2): %3</source>
 <context>
     <name>StationDialog</name>
     <message>
-        <location filename="../Configuration.cpp" line="311"/>
+        <location filename="../Configuration.cpp" line="313"/>
         <source>Add Station</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="316"/>
+        <location filename="../Configuration.cpp" line="318"/>
         <source>&amp;Band:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="317"/>
+        <location filename="../Configuration.cpp" line="319"/>
         <source>&amp;Offset (MHz):</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="318"/>
+        <location filename="../Configuration.cpp" line="320"/>
         <source>&amp;Antenna:</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5566,7 +5587,7 @@ radio interface behave as expected.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1439"/>
+        <location filename="../Configuration.ui" line="1376"/>
         <source>Select the audio CODEC to use for transmitting.
 If this is your default device for system sounds then
 ensure that all system sounds are disabled otherwise
@@ -5580,46 +5601,46 @@ transmitting periods.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1426"/>
+        <location filename="../Configuration.ui" line="1420"/>
         <source>Select the audio CODEC to use for receiving.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1380"/>
+        <location filename="../Configuration.ui" line="1467"/>
         <source>&amp;Input:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1450"/>
+        <location filename="../Configuration.ui" line="1387"/>
         <source>Select the channel to use for receiving.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1397"/>
-        <location filename="../Configuration.ui" line="1454"/>
+        <location filename="../Configuration.ui" line="1391"/>
+        <location filename="../Configuration.ui" line="1444"/>
         <source>Mono</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1402"/>
-        <location filename="../Configuration.ui" line="1459"/>
+        <location filename="../Configuration.ui" line="1396"/>
+        <location filename="../Configuration.ui" line="1449"/>
         <source>Left</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1407"/>
-        <location filename="../Configuration.ui" line="1464"/>
+        <location filename="../Configuration.ui" line="1401"/>
+        <location filename="../Configuration.ui" line="1454"/>
         <source>Right</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1412"/>
-        <location filename="../Configuration.ui" line="1469"/>
+        <location filename="../Configuration.ui" line="1406"/>
+        <location filename="../Configuration.ui" line="1459"/>
         <source>Both</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1390"/>
+        <location filename="../Configuration.ui" line="1437"/>
         <source>Select the audio channel used for transmission.
 Unless you have multiple radios connected on different
 channels; then you will usually want to select mono or
@@ -5642,7 +5663,7 @@ both here.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1370"/>
+        <location filename="../Configuration.ui" line="1427"/>
         <source>Ou&amp;tput:</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5881,67 +5902,67 @@ and DX Grid fields when a 73 or free text message is sent.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1911"/>
+        <location filename="../Configuration.ui" line="1908"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;With this enabled WSJT-X will accept certain requests back from a UDP server that receives decode messages.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1914"/>
+        <location filename="../Configuration.ui" line="1911"/>
         <source>Accept UDP requests</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1921"/>
+        <location filename="../Configuration.ui" line="1918"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Indicate acceptance of an incoming UDP request. The effect of this option varies depending on the operating system and window manager, its intent is to notify the acceptance of an incoming UDP request even if this application is minimized or hidden.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1924"/>
+        <location filename="../Configuration.ui" line="1921"/>
         <source>Notify on accepted UDP request</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1931"/>
+        <location filename="../Configuration.ui" line="1928"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Restore the window from minimized if an UDP request is accepted.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1934"/>
+        <location filename="../Configuration.ui" line="1931"/>
         <source>Accepted UDP request restores window</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1946"/>
+        <location filename="../Configuration.ui" line="1943"/>
         <source>Secondary UDP Server (deprecated)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1952"/>
+        <location filename="../Configuration.ui" line="1949"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;When checked, WSJT-X will broadcast a logged contact in ADIF format to the configured hostname and port. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1955"/>
+        <location filename="../Configuration.ui" line="1952"/>
         <source>Enable logged contact ADIF broadcast</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1962"/>
+        <location filename="../Configuration.ui" line="1959"/>
         <source>Server name or IP address:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1972"/>
+        <location filename="../Configuration.ui" line="1969"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Optional host name of N1MM Logger+ program to receive ADIF UDP broadcasts. This is usually &apos;localhost&apos; or ip address 127.0.0.1&lt;/p&gt;&lt;p&gt;Formats:&lt;/p&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;hostname&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv4 address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv6 address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv4 multicast group address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv6 multicast group address&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;Clearing this field will disable broadcasting of ADIF information via UDP.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1979"/>
+        <location filename="../Configuration.ui" line="1976"/>
         <source>Server port number:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1989"/>
+        <location filename="../Configuration.ui" line="1986"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enter the port number that WSJT-X should use for UDP broadcasts of ADIF log information. For N1MM Logger+, this value should be 2333. If this is zero,  no updates will be broadcast.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6384,63 +6405,63 @@ Right click for insert and delete options.</source>
 <context>
     <name>main</name>
     <message>
-        <location filename="../main.cpp" line="225"/>
+        <location filename="../main.cpp" line="228"/>
         <source>Another instance may be running</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="226"/>
+        <location filename="../main.cpp" line="229"/>
         <source>try to remove stale lock file?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="261"/>
+        <location filename="../main.cpp" line="264"/>
         <source>Failed to create a temporary directory</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="262"/>
-        <location filename="../main.cpp" line="270"/>
+        <location filename="../main.cpp" line="265"/>
+        <location filename="../main.cpp" line="273"/>
         <source>Path: &quot;%1&quot;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="268"/>
+        <location filename="../main.cpp" line="271"/>
         <source>Failed to create a usable temporary directory</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="269"/>
+        <location filename="../main.cpp" line="272"/>
         <source>Another application may be locking the directory</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="302"/>
+        <location filename="../main.cpp" line="305"/>
         <source>Failed to create data directory</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="303"/>
+        <location filename="../main.cpp" line="306"/>
         <source>path: &quot;%1&quot;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="379"/>
+        <location filename="../main.cpp" line="382"/>
         <source>Shared memory error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="380"/>
+        <location filename="../main.cpp" line="383"/>
         <source>Unable to create shared memory segment</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="388"/>
+        <location filename="../main.cpp" line="391"/>
         <source>Sub-process error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../main.cpp" line="389"/>
+        <location filename="../main.cpp" line="392"/>
         <source>Failed to close orphaned jt9 process</source>
         <translation type="unfinished"></translation>
     </message>

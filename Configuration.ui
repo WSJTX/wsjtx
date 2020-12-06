@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>554</width>
-    <height>556</height>
+    <height>560</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -1864,12 +1864,6 @@ and DX Grid fields when a 73 or free text message is sent.</string>
             </item>
             <item row="0" column="1">
              <widget class="QLineEdit" name="udp_server_line_edit">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
               <property name="toolTip">
                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Optional hostname of network service to receive decodes.&lt;/p&gt;&lt;p&gt;Formats:&lt;/p&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;hostname&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv4 address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv6 address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv4 multicast group address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv6 multicast group address&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;Clearing this field will disable the broadcasting of UDP status updates.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
@@ -1891,13 +1885,50 @@ and DX Grid fields when a 73 or free text message is sent.</string>
             <item row="1" column="1">
              <widget class="QSpinBox" name="udp_server_port_spin_box">
               <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enter the service port number of the UDP server that WSJT-X should send updates to. If this is zero no updates will be broadcast.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-              </property>
-              <property name="minimum">
-               <number>0</number>
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enter the service port number of the UDP server that WSJT-X should send updates to. If this is zero no updates will be sent.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
               <property name="maximum">
                <number>65534</number>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="0">
+             <widget class="QLabel" name="udp_interfaces_label">
+              <property name="text">
+               <string>Outgoing interfaces:</string>
+              </property>
+              <property name="buddy">
+               <cstring>udp_interfaces_combo_box</cstring>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="1">
+             <widget class="CheckableItemComboBox" name="udp_interfaces_combo_box">
+              <property name="toolTip">
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;When sending updates to a multicast group address it is necessary to specify which network interface(s) to send them to. If the loop-back interface is multicast capable then at least that one will be selected.&lt;/p&gt;&lt;p&gt;For most users the loop-back interface is all that is needed, that will allow multiple other applications on the same machine to interoperate with WSJT-X. If applications running on other hosts are to receive status updates then a suitable network interface should be used.&lt;/p&gt;&lt;p&gt;On some Linux systems it may be necessary to enable multicast on the loop-back network interface.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="1">
+             <widget class="QSpinBox" name="udp_TTL_spin_box">
+              <property name="toolTip">
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Sets the number or router hops that multicast datagrams are allowed to make. Almost everyone should set this to 1 to keep outgoing multicast traffic withn the local subnet.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+              </property>
+              <property name="maximum">
+               <number>255</number>
+              </property>
+              <property name="value">
+               <number>1</number>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="0">
+             <widget class="QLabel" name="udp_TTL_label">
+              <property name="text">
+               <string>Multicast TTL:</string>
+              </property>
+              <property name="buddy">
+               <cstring>udp_TTL_spin_box</cstring>
               </property>
              </widget>
             </item>
@@ -1987,6 +2018,9 @@ and DX Grid fields when a 73 or free text message is sent.</string>
            <widget class="QSpinBox" name="n1mm_server_port_spin_box">
             <property name="toolTip">
              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enter the port number that WSJT-X should use for UDP broadcasts of ADIF log information. For N1MM Logger+, this value should be 2333. If this is zero,  no updates will be broadcast.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="maximum">
+             <number>65534</number>
             </property>
            </widget>
           </item>
@@ -3002,6 +3036,11 @@ Right click for insert and delete options.</string>
    <extends>QComboBox</extends>
    <header>widgets/LazyFillComboBox.hpp</header>
   </customwidget>
+  <customwidget>
+   <class>CheckableItemComboBox</class>
+   <extends>QComboBox</extends>
+   <header>widgets/CheckableItemComboBox.hpp</header>
+  </customwidget>
  </customwidgets>
  <tabstops>
   <tabstop>configuration_tabs</tabstop>
@@ -3084,6 +3123,8 @@ Right click for insert and delete options.</string>
   <tabstop>psk_reporter_tcpip_check_box</tabstop>
   <tabstop>udp_server_line_edit</tabstop>
   <tabstop>udp_server_port_spin_box</tabstop>
+  <tabstop>udp_interfaces_combo_box</tabstop>
+  <tabstop>udp_TTL_spin_box</tabstop>
   <tabstop>accept_udp_requests_check_box</tabstop>
   <tabstop>udpWindowToFront</tabstop>
   <tabstop>udpWindowRestore</tabstop>
@@ -3101,8 +3142,8 @@ Right click for insert and delete options.</string>
   <tabstop>include_WAE_check_box</tabstop>
   <tabstop>rescan_log_push_button</tabstop>
   <tabstop>LotW_CSV_URL_line_edit</tabstop>
-  <tabstop>LotW_days_since_upload_spin_box</tabstop>
   <tabstop>LotW_CSV_fetch_push_button</tabstop>
+  <tabstop>LotW_days_since_upload_spin_box</tabstop>
   <tabstop>sbNtrials</tabstop>
   <tabstop>sbAggressive</tabstop>
   <tabstop>cbTwoPass</tabstop>
@@ -3118,11 +3159,11 @@ Right click for insert and delete options.</string>
   <tabstop>rbHound</tabstop>
   <tabstop>rbNA_VHF_Contest</tabstop>
   <tabstop>rbField_Day</tabstop>
-  <tabstop>Field_Day_Exchange</tabstop>
   <tabstop>rbEU_VHF_Contest</tabstop>
   <tabstop>rbRTTY_Roundup</tabstop>
-  <tabstop>RTTY_Exchange</tabstop>
   <tabstop>rbWW_DIGI</tabstop>
+  <tabstop>Field_Day_Exchange</tabstop>
+  <tabstop>RTTY_Exchange</tabstop>
  </tabstops>
  <resources/>
  <connections>
@@ -3192,13 +3233,13 @@ Right click for insert and delete options.</string>
   </connection>
  </connections>
  <buttongroups>
-  <buttongroup name="PTT_method_button_group"/>
-  <buttongroup name="CAT_data_bits_button_group"/>
-  <buttongroup name="CAT_stop_bits_button_group"/>
-  <buttongroup name="special_op_activity_button_group"/>
-  <buttongroup name="TX_mode_button_group"/>
   <buttongroup name="TX_audio_source_button_group"/>
+  <buttongroup name="CAT_stop_bits_button_group"/>
   <buttongroup name="CAT_handshake_button_group"/>
+  <buttongroup name="CAT_data_bits_button_group"/>
+  <buttongroup name="TX_mode_button_group"/>
+  <buttongroup name="special_op_activity_button_group"/>
+  <buttongroup name="PTT_method_button_group"/>
   <buttongroup name="split_mode_button_group"/>
  </buttongroups>
 </ui>

@@ -40,7 +40,6 @@ public:
 
   Q_SIGNAL void error (QString message) const;
   Q_SIGNAL void status (QString message) const;
-  Q_SIGNAL void dropped_frames (qint32 dropped, qint64 usec);
 
 private:
   // used internally

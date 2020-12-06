@@ -25,10 +25,13 @@ namespace
 
   QFont text_font {"Courier", 10};
 
-  QList<QStandardItem *> make_row (QString const& client_id, QTime time, qint32 snr, float delta_time
+  QList<QStandardItem *> make_row (MessageServer::ClientKey const& key, QTime time, qint32 snr, float delta_time
                                    , Frequency frequency, qint32 drift, QString const& callsign
                                    , QString const& grid, qint32 power, bool off_air)
   {
+    auto client_item = new QStandardItem {QString {"%1(%2)"}.arg (key.second).arg (key.first.toString ())};
+    client_item->setData (QVariant::fromValue (key));
+
     auto time_item = new QStandardItem {time.toString ("hh:mm")};
     time_item->setData (time);
     time_item->setTextAlignment (Qt::AlignRight);
@@ -60,7 +63,7 @@ namespace
     live->setTextAlignment (Qt::AlignHCenter);
 
     QList<QStandardItem *> row {
-      new QStandardItem {client_id}, time_item, snr_item, dt, freq, dri, gd, pwr, live, new QStandardItem {callsign}};
+      client_item, time_item, snr_item, dt, freq, dri, gd, pwr, live, new QStandardItem {callsign}};
     Q_FOREACH (auto& item, row)
       {
         item->setEditable (false);
@@ -81,7 +84,7 @@ BeaconsModel::BeaconsModel (QObject * parent)
     }
 }
 
-void BeaconsModel::add_beacon_spot (bool is_new, QString const& client_id, QTime time, qint32 snr, float delta_time
+void BeaconsModel::add_beacon_spot (bool is_new, ClientKey const& key, QTime time, qint32 snr, float delta_time
                                     , Frequency frequency, qint32 drift, QString const& callsign
                                     , QString const& grid, qint32 power, bool off_air)
 {
@@ -90,7 +93,7 @@ void BeaconsModel::add_beacon_spot (bool is_new, QString const& client_id, QTime
       int target_row {-1};
       for (auto row = 0; row < rowCount (); ++row)
         {
-          if (data (index (row, 0)).toString () == client_id)
+          if (item (row, 0)->data ().value<ClientKey> () == key)
             {
               auto row_time = item (row, 1)->data ().toTime ();
               if (row_time == time
@@ -113,19 +116,19 @@ void BeaconsModel::add_beacon_spot (bool is_new, QString const& client_id, QTime
         }
       if (target_row >= 0)
         {
-          insertRow (target_row + 1, make_row (client_id, time, snr, delta_time, frequency, drift, callsign, grid, power, off_air));
+          insertRow (target_row + 1, make_row (key, time, snr, delta_time, frequency, drift, callsign, grid, power, off_air));
           return;
         }
     }
 
-  appendRow (make_row (client_id, time, snr, delta_time, frequency, drift, callsign, grid, power, off_air));
+  appendRow (make_row (key, time, snr, delta_time, frequency, drift, callsign, grid, power, off_air));
 }
 
-void BeaconsModel::decodes_cleared (QString const& client_id)
+void BeaconsModel::decodes_cleared (ClientKey const& key)
 {
   for (auto row = rowCount () - 1; row >= 0; --row)
     {
-      if (data (index (row, 0)).toString () == client_id)
+      if (item (row, 0)->data ().value<ClientKey> () == key)
         {
           removeRow (row);
         }

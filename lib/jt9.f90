@@ -25,11 +25,12 @@ program jt9
   integer :: arglen,stat,offset,remain,mode=0,flow=200,fsplit=2700,          &
        fhigh=4000,nrxfreq=1500,ndepth=1,nexp_decode=0,nQSOProg=0
   logical :: read_files = .true., tx9 = .false., display_help = .false.,     &
-       bLowSidelobes = .false.
-  type (option) :: long_options(30) = [ &
+       bLowSidelobes = .false., nexp_decode_set = .false.,                   &
+       have_ntol = .false.
+  type (option) :: long_options(31) = [                                      &
     option ('help', .false., 'h', 'Display this help message', ''),          &
     option ('shmem',.true.,'s','Use shared memory for sample data','KEY'),   &
-    option ('tr-period', .true., 'p', 'Tx/Rx period, default SECONDS=60',     &
+    option ('tr-period', .true., 'p', 'Tx/Rx period, default SECONDS=60',    &
         'SECONDS'),                                                          &
     option ('executable-path', .true., 'e',                                  &
         'Location of subordinate executables (KVASD) default PATH="."',      &
@@ -46,17 +47,19 @@ program jt9
         'Lowest JT9 frequency decoded, default HERTZ=2700', 'HERTZ'),        &
     option ('rx-frequency', .true., 'f',                                     &
         'Receive frequency offset, default HERTZ=1500', 'HERTZ'),            &
+    option ('freq-tolerance', .true., 'F',                                   &
+        'Receive frequency tolerance, default HERTZ=20', 'HERTZ'),           &
     option ('patience', .true., 'w',                                         &
         'FFTW3 planing patience (0-4), default PATIENCE=1', 'PATIENCE'),     &
     option ('fft-threads', .true., 'm',                                      &
         'Number of threads to process large FFTs, default THREADS=1',        &
         'THREADS'),                                                          &
-    option ('q65', .false., '3', 'Q65 mode', ''),                        &
+    option ('q65', .false., '3', 'Q65 mode', ''),                            &
     option ('jt4', .false., '4', 'JT4 mode', ''),                            &
     option ('ft4', .false., '5', 'FT4 mode', ''),                            &
     option ('jt65', .false.,'6', 'JT65 mode', ''),                           &
-    option ('fst4', .false., '7', 'FST4 mode', ''),                      &
-    option ('fst4w', .false., 'W', 'FST4W mode', ''),                    &
+    option ('fst4', .false., '7', 'FST4 mode', ''),                          &
+    option ('fst4w', .false., 'W', 'FST4W mode', ''),                        &
     option ('ft8', .false., '8', 'FT8 mode', ''),                            &
     option ('jt9', .false., '9', 'JT9 mode', ''),                            &
     option ('qra64', .false., 'q', 'QRA64 mode', ''),                        &
@@ -84,10 +87,11 @@ program jt9
 
   iwspr=0
   nsubmode = 0
+  ntol = 20
   TRperiod=60.d0
 
   do
-     call getopt('hs:e:a:b:r:m:p:d:f:w:t:9876543WqTL:S:H:c:G:x:g:X:Q:',      &
+     call getopt('hs:e:a:b:r:m:p:d:f:F:w:t:9876543WqTL:S:H:c:G:x:g:X:Q:',     &
           long_options,c,optarg,arglen,stat,offset,remain,.true.)
      if (stat .ne. 0) then
         exit
@@ -114,6 +118,9 @@ program jt9
            read (optarg(:arglen), *) ndepth
         case ('f')
            read (optarg(:arglen), *) nrxfreq
+        case ('F')
+           read (optarg(:arglen), *) ntol
+           have_ntol = .true.
         case ('L')
            read (optarg(:arglen), *) flow
         case ('S')
@@ -156,6 +163,7 @@ program jt9
            read (optarg(:arglen), *) hisgrid
         case ('X')
            read (optarg(:arglen), *) nexp_decode
+           nexp_decode_set = .true.
      end select
   end do
   
@@ -198,6 +206,20 @@ program jt9
      go to 999
   endif
 
+  if (mode .eq. 241) then
+     ntol = min (ntol, 100)
+  else if (mode .eq. 65 + 9 .and. .not. have_ntol) then
+     ntol = 20
+  else if (mode .eq. 66 .and. .not. have_ntol) then
+     ntol = 10
+  else
+     ntol = min (ntol, 1000)
+  end if
+  if (.not. nexp_decode_set) then
+     if (mode .eq. 240 .or. mode .eq. 241) then
+        nexp_decode = 3 * 256   ! single decode off and nb=0
+     end if
+  end if
   allocate(shared_data)
   nflatten=0
   do iarg = offset + 1, offset + remain
@@ -262,8 +284,7 @@ program jt9
      shared_data%params%nfa=flow
      shared_data%params%nfsplit=fsplit
      shared_data%params%nfb=fhigh
-     shared_data%params%ntol=20
-     if(mode.eq.66) shared_data%params%ntol=10
+     shared_data%params%ntol=ntol
      shared_data%params%kin=64800
      if(mode.eq.240) shared_data%params%kin=720000   !### 60 s periods ###
      shared_data%params%nzhsym=nhsym

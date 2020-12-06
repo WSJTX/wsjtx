@@ -5,7 +5,6 @@
 #include <QColor>
 #include <QtWidgets>
 #include <QAction>
-#include <QDebug>
 
 #include "validators/MaidenheadLocatorValidator.hpp"
 
@@ -27,9 +26,9 @@ namespace
   }
 }
 
-ClientWidget::IdFilterModel::IdFilterModel (QString const& client_id, QObject * parent)
+ClientWidget::IdFilterModel::IdFilterModel (ClientKey const& key, QObject * parent)
   : QSortFilterProxyModel {parent}
-  , client_id_ {client_id}
+  , key_ {key}
   , rx_df_ (quint32_max)
 {
 }
@@ -73,7 +72,7 @@ bool ClientWidget::IdFilterModel::filterAcceptsRow (int source_row
                                                     , QModelIndex const& source_parent) const
 {
   auto source_index_col0 = sourceModel ()->index (source_row, 0, source_parent);
-  return sourceModel ()->data (source_index_col0).toString () == client_id_;
+  return sourceModel ()->data (source_index_col0, Qt::UserRole + 1).value<ClientKey> () == key_;
 }
 
 void ClientWidget::IdFilterModel::de_call (QString const& call)
@@ -106,9 +105,9 @@ void ClientWidget::IdFilterModel::rx_df (quint32 df)
 
 namespace
 {
-  QString make_title (QString const& id, QString const& version, QString const& revision)
+  QString make_title (MessageServer::ClientKey const& key, QString const& version, QString const& revision)
   {
-    QString title {id};
+    QString title {QString {"%1(%2)"}.arg (key.second).arg (key.first.toString ())};
     if (version.size ())
       {
         title += QString {" v%1"}.arg (version);
@@ -122,14 +121,14 @@ namespace
 }
 
 ClientWidget::ClientWidget (QAbstractItemModel * decodes_model, QAbstractItemModel * beacons_model
-                            , QString const& id, QString const& version, QString const& revision
+                            , ClientKey const& key, QString const& version, QString const& revision
                             , QListWidget const * calls_of_interest, QWidget * parent)
-  : QDockWidget {make_title (id, version, revision), parent}
-  , id_ {id}
+  : QDockWidget {make_title (key, version, revision), parent}
+  , key_ {key}
   , done_ {false}
   , calls_of_interest_ {calls_of_interest}
-  , decodes_proxy_model_ {id}
-  , beacons_proxy_model_ {id}
+  , decodes_proxy_model_ {key}
+  , beacons_proxy_model_ {key}
   , erase_action_ {new QAction {tr ("&Erase Band Activity"), this}}
   , erase_rx_frequency_action_ {new QAction {tr ("Erase &Rx Frequency"), this}}
   , erase_both_action_ {new QAction {tr ("Erase &Both"), this}}
@@ -184,10 +183,10 @@ ClientWidget::ClientWidget (QAbstractItemModel * decodes_model, QAbstractItemMod
   message_line_edit_->setValidator (&message_validator);
   grid_line_edit_->setValidator (&locator_validator);
   dx_grid_line_edit_->setValidator (&locator_validator);
-  tr_period_spin_box_->setRange (5, 30);
+  tr_period_spin_box_->setRange (5, 1800);
   tr_period_spin_box_->setSuffix (" s");
   rx_df_spin_box_->setRange (200, 5000);
-  frequency_tolerance_spin_box_->setRange (10, 1000);
+  frequency_tolerance_spin_box_->setRange (1, 1000);
   frequency_tolerance_spin_box_->setPrefix ("\u00b1");
   frequency_tolerance_spin_box_->setSuffix (" Hz");
 
@@ -209,56 +208,56 @@ ClientWidget::ClientWidget (QAbstractItemModel * decodes_model, QAbstractItemMod
   horizontal_layout_->addLayout (subform3_layout_);
 
   connect (message_line_edit_, &QLineEdit::textEdited, [this] (QString const& text) {
-      Q_EMIT do_free_text (id_, text, false);
+      Q_EMIT do_free_text (key_, text, false);
     });
   connect (message_line_edit_, &QLineEdit::editingFinished, [this] () {
-      Q_EMIT do_free_text (id_, message_line_edit_->text (), true);
+      Q_EMIT do_free_text (key_, message_line_edit_->text (), true);
     });
   connect (grid_line_edit_, &QLineEdit::editingFinished, [this] () {
-      Q_EMIT location (id_, grid_line_edit_->text ());
+      Q_EMIT location (key_, grid_line_edit_->text ());
   });
   connect (configuration_line_edit_, &QLineEdit::editingFinished, [this] () {
-      Q_EMIT switch_configuration (id_, configuration_line_edit_->text ());
+      Q_EMIT switch_configuration (key_, configuration_line_edit_->text ());
   });
   connect (mode_line_edit_, &QLineEdit::editingFinished, [this] () {
       QString empty;
-      Q_EMIT configure (id_, mode_line_edit_->text (), quint32_max, empty, fast_mode ()
+      Q_EMIT configure (key_, mode_line_edit_->text (), quint32_max, empty, fast_mode ()
                         , quint32_max, quint32_max, empty, empty, false);
   });
   connect (frequency_tolerance_spin_box_, static_cast<void (QSpinBox::*) (int)> (&QSpinBox::valueChanged), [this] (int i) {
       QString empty;
       auto f = frequency_tolerance_spin_box_->specialValueText ().size () ? quint32_max : i;
-      Q_EMIT configure (id_, empty, f, empty, fast_mode ()
+      Q_EMIT configure (key_, empty, f, empty, fast_mode ()
                         , quint32_max, quint32_max, empty, empty, false);
   });
   connect (submode_line_edit_, &QLineEdit::editingFinished, [this] () {
       QString empty;
-      Q_EMIT configure (id_, empty, quint32_max, submode_line_edit_->text (), fast_mode ()
+      Q_EMIT configure (key_, empty, quint32_max, submode_line_edit_->text (), fast_mode ()
                         , quint32_max, quint32_max, empty, empty, false);
   });
   connect (fast_mode_check_box_, &QCheckBox::stateChanged, [this] (int state) {
       QString empty;
-      Q_EMIT configure (id_, empty, quint32_max, empty, Qt::Checked == state
+      Q_EMIT configure (key_, empty, quint32_max, empty, Qt::Checked == state
                         , quint32_max, quint32_max, empty, empty, false);
   });
   connect (tr_period_spin_box_, static_cast<void (QSpinBox::*) (int)> (&QSpinBox::valueChanged), [this] (int i) {
       QString empty;
-      Q_EMIT configure (id_, empty, quint32_max, empty, fast_mode ()
+      Q_EMIT configure (key_, empty, quint32_max, empty, fast_mode ()
                         , i, quint32_max, empty, empty, false);
   });
   connect (rx_df_spin_box_, static_cast<void (QSpinBox::*) (int)> (&QSpinBox::valueChanged), [this] (int i) {
       QString empty;
-      Q_EMIT configure (id_, empty, quint32_max, empty, fast_mode ()
+      Q_EMIT configure (key_, empty, quint32_max, empty, fast_mode ()
                         , quint32_max, i, empty, empty, false);
   });
   connect (dx_call_line_edit_, &QLineEdit::editingFinished, [this] () {
       QString empty;
-      Q_EMIT configure (id_, empty, quint32_max, empty, fast_mode ()
+      Q_EMIT configure (key_, empty, quint32_max, empty, fast_mode ()
                         , quint32_max, quint32_max, dx_call_line_edit_->text (), empty, false);
   });
   connect (dx_grid_line_edit_, &QLineEdit::editingFinished, [this] () {
       QString empty;
-      Q_EMIT configure (id_, empty, quint32_max, empty, fast_mode ()
+      Q_EMIT configure (key_, empty, quint32_max, empty, fast_mode ()
                         , quint32_max, quint32_max, empty, dx_grid_line_edit_->text (), false);
   });
 
@@ -289,14 +288,14 @@ ClientWidget::ClientWidget (QAbstractItemModel * decodes_model, QAbstractItemMod
   halt_tx_button_ = control_button_box_->addButton (tr ("&Halt Tx"), QDialogButtonBox::ActionRole);
   connect (generate_messages_push_button_, &QAbstractButton::clicked, [this] (bool /*checked*/) {
       QString empty;
-      Q_EMIT configure (id_, empty, quint32_max, empty, fast_mode ()
+      Q_EMIT configure (key_, empty, quint32_max, empty, fast_mode ()
                         , quint32_max, quint32_max, empty, empty, true);
   });
   connect (auto_off_button_, &QAbstractButton::clicked, [this] (bool /* checked */) {
-      Q_EMIT do_halt_tx (id_, true);
+      Q_EMIT do_halt_tx (key_, true);
     });
   connect (halt_tx_button_, &QAbstractButton::clicked, [this] (bool /* checked */) {
-      Q_EMIT do_halt_tx (id_, false);
+      Q_EMIT do_halt_tx (key_, false);
     });
   content_layout_->addWidget (control_button_box_);
 
@@ -318,13 +317,13 @@ ClientWidget::ClientWidget (QAbstractItemModel * decodes_model, QAbstractItemMod
 
   // connect context menu actions
   connect (erase_action_, &QAction::triggered, [this] (bool /*checked*/) {
-      Q_EMIT do_clear_decodes (id_);
+      Q_EMIT do_clear_decodes (key_);
     });
   connect (erase_rx_frequency_action_, &QAction::triggered, [this] (bool /*checked*/) {
-      Q_EMIT do_clear_decodes (id_, 1);
+      Q_EMIT do_clear_decodes (key_, 1);
     });
   connect (erase_both_action_, &QAction::triggered, [this] (bool /*checked*/) {
-      Q_EMIT do_clear_decodes (id_, 2);
+      Q_EMIT do_clear_decodes (key_, 2);
     });
 
   // connect up table view signals
@@ -335,7 +334,7 @@ ClientWidget::ClientWidget (QAbstractItemModel * decodes_model, QAbstractItemMod
   // tell new client about calls of interest
   for (int row = 0; row < calls_of_interest_->count (); ++row)
     {
-      Q_EMIT highlight_callsign (id_, calls_of_interest_->item (row)->text (), QColor {Qt::blue}, QColor {Qt::yellow});
+      Q_EMIT highlight_callsign (key_, calls_of_interest_->item (row)->text (), QColor {Qt::blue}, QColor {Qt::yellow});
     }
 }
 
@@ -349,7 +348,7 @@ void ClientWidget::closeEvent (QCloseEvent *e)
 {
   if (!done_)
     {
-      Q_EMIT do_close (id_);
+      Q_EMIT do_close (key_);
       e->ignore ();      // defer closure until client actually closes
     }
   else
@@ -363,7 +362,7 @@ ClientWidget::~ClientWidget ()
   for (int row = 0; row < calls_of_interest_->count (); ++row)
     {
       // tell client to forget calls of interest
-      Q_EMIT highlight_callsign (id_, calls_of_interest_->item (row)->text ());
+      Q_EMIT highlight_callsign (key_, calls_of_interest_->item (row)->text ());
     }
 }
 
@@ -395,7 +394,7 @@ namespace
   }
 }
 
-void ClientWidget::update_status (QString const& id, Frequency f, QString const& mode, QString const& dx_call
+void ClientWidget::update_status (ClientKey const& key, Frequency f, QString const& mode, QString const& dx_call
                                   , QString const& report, QString const& tx_mode, bool tx_enabled
                                   , bool transmitting, bool decoding, quint32 rx_df, quint32 tx_df
                                   , QString const& de_call, QString const& de_grid, QString const& dx_grid
@@ -403,7 +402,7 @@ void ClientWidget::update_status (QString const& id, Frequency f, QString const&
                                   , quint8 special_op_mode, quint32 frequency_tolerance, quint32 tr_period
                                   , QString const& configuration_name)
 {
-    if (id == id_)
+    if (key == key_)
     {
       fast_mode_check_box_->setChecked (fast_mode);
       decodes_proxy_model_.de_call (de_call);
@@ -447,11 +446,11 @@ void ClientWidget::update_status (QString const& id, Frequency f, QString const&
     }
 }
 
-void ClientWidget::decode_added (bool /*is_new*/, QString const& client_id, QTime /*time*/, qint32 /*snr*/
+void ClientWidget::decode_added (bool /*is_new*/, ClientKey const& key, QTime /*time*/, qint32 /*snr*/
                                  , float /*delta_time*/, quint32 /*delta_frequency*/, QString const& /*mode*/
                                  , QString const& /*message*/, bool /*low_confidence*/, bool /*off_air*/)
 {
-  if (client_id == id_ && !columns_resized_)
+  if (key == key_ && !columns_resized_)
     {
       decodes_stack_->setCurrentIndex (0);
       decodes_table_view_->resizeColumnsToContents ();
@@ -460,12 +459,12 @@ void ClientWidget::decode_added (bool /*is_new*/, QString const& client_id, QTim
   decodes_table_view_->scrollToBottom ();
 }
 
-void ClientWidget::beacon_spot_added (bool /*is_new*/, QString const& client_id, QTime /*time*/, qint32 /*snr*/
+void ClientWidget::beacon_spot_added (bool /*is_new*/, ClientKey const& key, QTime /*time*/, qint32 /*snr*/
                                       , float /*delta_time*/, Frequency /*delta_frequency*/, qint32 /*drift*/
                                       , QString const& /*callsign*/, QString const& /*grid*/, qint32 /*power*/
                                       , bool /*off_air*/)
 {
-  if (client_id == id_ && !columns_resized_)
+  if (key == key_ && !columns_resized_)
     {
       decodes_stack_->setCurrentIndex (1);
       beacons_table_view_->resizeColumnsToContents ();
@@ -474,9 +473,9 @@ void ClientWidget::beacon_spot_added (bool /*is_new*/, QString const& client_id,
   beacons_table_view_->scrollToBottom ();
 }
 
-void ClientWidget::decodes_cleared (QString const& client_id)
+void ClientWidget::decodes_cleared (ClientKey const& key)
 {
-  if (client_id == id_)
+  if (key == key_)
     {
       columns_resized_ = false;
     }

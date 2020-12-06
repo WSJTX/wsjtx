@@ -30,6 +30,7 @@ public:
     bool enabled_;
     QBrush foreground_;
     QBrush background_;
+    QString toString () const;
   };
   using HighlightItems = QList<HighlightInfo>;
 

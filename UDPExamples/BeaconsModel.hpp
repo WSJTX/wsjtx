@@ -26,13 +26,15 @@ class BeaconsModel
 {
   Q_OBJECT;
 
+  using ClientKey = MessageServer::ClientKey;
+
 public:
   explicit BeaconsModel (QObject * parent = nullptr);
 
-  Q_SLOT void add_beacon_spot (bool is_new, QString const& client_id, QTime time, qint32 snr, float delta_time
+  Q_SLOT void add_beacon_spot (bool is_new, ClientKey const&, QTime time, qint32 snr, float delta_time
                                , Frequency frequency, qint32 drift, QString const& callsign, QString const& grid
                                , qint32 power, bool off_air);
-  Q_SLOT void decodes_cleared (QString const& client_id);
+  Q_SLOT void decodes_cleared (ClientKey const&);
 };
 
 #endif

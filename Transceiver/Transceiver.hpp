@@ -1,6 +1,11 @@
 #ifndef TRANSCEIVER_HPP__
 #define TRANSCEIVER_HPP__
 
+#include <iosfwd>
+
+#include <boost/log/trivial.hpp>
+#include <boost/log/sources/severity_channel_logger.hpp>
+
 #include <QObject>
 
 #include "qt_helpers.hpp"
@@ -55,9 +60,11 @@ class Transceiver
 
 public:
   using Frequency = Radio::Frequency;
+  using logger_type = boost::log::sources::severity_channel_logger_mt<boost::log::trivial::severity_level>;
 
 protected:
-  Transceiver (QObject * parent) : QObject {parent} {}
+  Transceiver (logger_type *, QObject * parent);
+  logger_type& logger () const {return *logger_;}
 
 public:
   virtual ~Transceiver () {}
@@ -108,6 +115,7 @@ public:
 
     friend QDebug operator << (QDebug, TransceiverState const&);
     friend bool operator != (TransceiverState const&, TransceiverState const&);
+    friend std::ostream& operator << (std::ostream&, Transceiver::TransceiverState const&);
   };
 
   //
@@ -150,6 +158,9 @@ public:
 
   // Ready to be destroyed.
   Q_SIGNAL void finished () const;
+
+private:
+  logger_type mutable * logger_;
 };
 
 Q_DECLARE_METATYPE (Transceiver::TransceiverState);
@@ -157,6 +168,8 @@ Q_DECLARE_METATYPE (Transceiver::TransceiverState);
 #if !defined (QT_NO_DEBUG_STREAM)
 QDebug operator << (QDebug, Transceiver::TransceiverState const&);
 #endif
+
+std::ostream& operator << (std::ostream&, Transceiver::TransceiverState const&);
 
 ENUM_QDATASTREAM_OPS_DECL (Transceiver, MODE);
 ENUM_CONVERSION_OPS_DECL (Transceiver, MODE);

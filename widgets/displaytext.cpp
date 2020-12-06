@@ -15,6 +15,7 @@
 #include <QScrollBar>
 
 #include "Configuration.hpp"
+#include "Decoder/decodedtext.h"
 #include "Network/LotWUsers.hpp"
 #include "models/DecodeHighlightingModel.hpp"
 #include "logbook/logbook.h"

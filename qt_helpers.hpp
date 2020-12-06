@@ -2,6 +2,7 @@
 #define QT_HELPERS_HPP_
 
 #include <stdexcept>
+#include <ostream>
 
 #include <QString>
 #include <QChar>
@@ -56,6 +57,18 @@ Qt::SplitBehaviorFlags const SkipEmptyParts = Qt::SkipEmptyParts;
 #else
 QString::SplitBehavior const SkipEmptyParts = QString::SkipEmptyParts;
 #endif
+
+inline
+std::ostream& operator << (std::ostream& os, QByteArray const& b)
+{
+  return os << b.constData ();
+}
+
+inline
+std::ostream& operator << (std::ostream& os, QString const& s)
+{
+  return os << s.toStdString ();
+}
 
 inline
 void throw_qstring (QString const& qs)
@@ -116,6 +129,42 @@ namespace std
   };
 }
 #endif
+
+inline
+bool is_broadcast_address (QHostAddress const& host_addr)
+{
+#if QT_VERSION >= QT_VERSION_CHECK (5, 11, 0)
+  return host_addr.isBroadcast ();
+#else
+  bool ok;
+  return host_addr.toIPv4Address (&ok) == 0xffffffffu && ok;
+#endif
+}
+
+inline
+bool is_multicast_address (QHostAddress const& host_addr)
+{
+#if QT_VERSION >= QT_VERSION_CHECK (5, 6, 0)
+  return host_addr.isMulticast ();
+#else
+  bool ok;
+  return (((host_addr.toIPv4Address (&ok) & 0xf0000000u) == 0xe0000000u) && ok)
+    || host_addr.toIPv6Address ()[0] == 0xff;
+#endif
+}
+
+inline
+bool is_MAC_ambiguous_multicast_address (QHostAddress const& host_addr)
+{
+  // sub-ranges 224.128.0.0/24, 225.0.0.0/24, 225.128.0.0/24,
+  // 226.0.0.0/24, 226.128.0.0/24, ..., 239.0.0.0/24, 239.128.0.0/24
+  // are not supported as they are inefficient due to ambiguous
+  // mappings to Ethernet MAC addresses. 224.0.0.0/24 alone is allowed
+  // from these ranges
+  bool ok;
+  auto ipv4 = host_addr.toIPv4Address (&ok);
+  return ok && !((ipv4 & 0xffffff00u) == 0xe0000000) && (ipv4 & 0xf07fff00) == 0xe0000000;
+}
 
 // Register some useful Qt types with QMetaType
 Q_DECLARE_METATYPE (QHostAddress);

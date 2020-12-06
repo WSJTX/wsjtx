@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.9 FATAL_ERROR)
+cmake_minimum_required (VERSION 3.7.2 FATAL_ERROR)
 
 if (APPLE)
   #
@@ -13,7 +13,7 @@ if (APPLE)
   set (CMAKE_OSX_DEPLOYMENT_TARGET 10.12
     CACHE STRING "Earliest version of macOS supported
 
-Earliest version we can support with Qt 5.12, C++11 & libc++ is 10.13.
+Earliest version we can support with Qt 5.12, C++11 & libc++ is 10.12.
 Do not override this if you intend to build an official deployable installer.")
 endif (APPLE)
 
@@ -29,7 +29,7 @@ if (POLICY CMP0043)
 endif ()
 
 if (POLICY CMP0048)
-  cmake_policy (SET CMP0048 NEW) # clear PROJECT_Version_* vriables if not set in project() command
+  cmake_policy (SET CMP0048 NEW) # clear PROJECT_Version_* variables if not set in project() command
 endif ()
 
 if (POLICY CMP0063)
@@ -40,11 +40,15 @@ if (POLICY CMP0071)
   cmake_policy (SET CMP0071 NEW) # run automoc and autouic on generated sources
 endif ()
 
+if (POLICY CMP0075)
+  cmake_policy (SET CMP0075 NEW) # honour CMAKE_REQUIRED_LIBRARIES in config checks
+endif ()
+
 project (wsjtx
   VERSION 2.4.0.0
-  DESCRIPTION "WSJT-X: Digital Modes for Weak Signal Communications in Amateur Radio"
   LANGUAGES C CXX Fortran
   )
+set (PROJECT_DESCRIPTION "WSJT-X: Digital Modes for Weak Signal Communications in Amateur Radio")
 
 #
 # Local CMake modules and support files
@@ -115,9 +119,6 @@ option (UPDATE_TRANSLATIONS "Update source translation translations/*.ts
 files (WARNING: make clean will delete the source .ts files! Danger!)")
 option (WSJT_SHARED_RUNTIME "Debugging option that allows running from a shared Cloud directory.")
 option (WSJT_QDEBUG_TO_FILE "Redirect Qt debuging messages to a trace file.")
-option (WSJT_TRACE_CAT "Debugging option that turns on CAT diagnostics.")
-option (WSJT_TRACE_CAT_POLLS "Debugging option that turns on CAT diagnostics during polling.")
-option (WSJT_HAMLIB_TRACE "Debugging option that turns on minimal Hamlib internal diagnostics.")
 option (WSJT_SOFT_KEYING "Apply a ramp to CW keying envelope to reduce transients." ON)
 option (WSJT_SKIP_MANPAGES "Skip *nix manpage generation.")
 option (WSJT_GENERATE_DOCS "Generate documentation files." ON)
@@ -125,9 +126,6 @@ option (WSJT_RIG_NONE_CAN_SPLIT "Allow split operation with \"None\" as rig.")
 option (WSJT_TRACE_UDP "Debugging option that turns on UDP message protocol diagnostics.")
 option (WSJT_BUILD_UTILS "Build simulators and code demonstrators." ON)
 
-CMAKE_DEPENDENT_OPTION (WSJT_HAMLIB_VERBOSE_TRACE "Debugging option that turns on full Hamlib internal diagnostics." OFF WSJT_HAMLIB_TRACE OFF)
-CMAKE_DEPENDENT_OPTION (WSJT_QDEBUG_IN_RELEASE "Leave Qt debugging statements in Release configuration." OFF
-  "NOT is_debug_build" OFF)
 CMAKE_DEPENDENT_OPTION (WSJT_ENABLE_EXPERIMENTAL_FEATURES "Enable features not fully ready for public releases." ON
   is_debug_build OFF)
 CMAKE_DEPENDENT_OPTION (WSJT_CREATE_WINMAIN
@@ -179,6 +177,7 @@ set (wsjt_qt_CXXSRCS
   WFPalette.cpp
   Radio.cpp
   RadioMetaType.cpp
+  NonInheritingProcess.cpp
   models/IARURegions.cpp
   models/Bands.cpp
   models/Modes.cpp
@@ -190,7 +189,6 @@ set (wsjt_qt_CXXSRCS
   item_delegates/ForeignKeyDelegate.cpp
   validators/LiveFrequencyValidator.cpp
   GetUserId.cpp
-  TraceFile.cpp
   Audio/AudioDevice.cpp
   Transceiver/Transceiver.cpp
   Transceiver/TransceiverBase.cpp
@@ -237,6 +235,7 @@ set (wsjt_qt_CXXSRCS
   logbook/Multiplier.cpp
   Network/NetworkAccessManager.cpp
   widgets/LazyFillComboBox.cpp
+  widgets/CheckableItemComboBox.cpp
   )
 
 set (wsjt_qtmm_CXXSRCS
@@ -249,6 +248,7 @@ set (jt9_FSRCS
   )
 
 set (wsjtx_CXXSRCS
+  WSJTXLogging.cpp
   logbook/logbook.cpp
   Network/PSKReporter.cpp
   Modulator/Modulator.cpp
@@ -281,6 +281,7 @@ set (wsjtx_CXXSRCS
   )
 
 set (wsjt_CXXSRCS
+  Logger.cpp
   lib/crc10.cpp
   lib/crc13.cpp
   lib/crc14.cpp
@@ -770,17 +771,10 @@ set_source_files_properties (${WSJTX_ICON_FILE} PROPERTIES MACOSX_PACKAGE_LOCATI
 set_source_files_properties (lib/decoder.f90 PROPERTIES COMPILE_FLAGS "-Wno-unused-dummy-argument")
 set_source_files_properties (lib/filbig.f90 PROPERTIES COMPILE_FLAGS "-Wno-aliasing")
 
-if (WSJT_QDEBUG_IN_RELEASE)
-  # context info in Qt message handler in release configuration
-  set_property (DIRECTORY APPEND PROPERTY
-    COMPILE_DEFINITIONS $<$<NOT:$<CONFIG:Debug>>:QT_MESSAGELOGCONTEXT>
-    )
-else (WSJT_QDEBUG_IN_RELEASE)
-  # disable Qt trace and warning messages from release configurations
-  set_property (DIRECTORY APPEND PROPERTY
-    COMPILE_DEFINITIONS $<$<NOT:$<CONFIG:Debug>>:QT_NO_DEBUG_OUTPUT;QT_NO_WARNING_OUTPUT>
-    )
-endif (WSJT_QDEBUG_IN_RELEASE)
+## disable Qt trace and warning messages from release configurations
+#set_property (DIRECTORY APPEND PROPERTY
+#  COMPILE_DEFINITIONS $<$<NOT:$<CONFIG:Debug>>:QT_NO_DEBUG_OUTPUT;QT_NO_WARNING_OUTPUT>
+#  )
 
 set_property (SOURCE ${all_C_and_CXXSRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -include wsjtx_config.h")
 set_property (SOURCE ${all_C_and_CXXSRCS} APPEND PROPERTY OBJECT_DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/wsjtx_config.h)
@@ -824,6 +818,7 @@ endif (APPLE)
 #
 # find some useful tools
 #
+include (CheckTypeSize)
 include (CheckCSourceCompiles)
 include (CheckSymbolExists)
 include (generate_version_info)
@@ -851,11 +846,10 @@ endif ()
 #
 # Boost
 #
-set (Boost_NO_SYSTEM_PATHS TRUE)
-if (Boost_NO_SYSTEM_PATHS)
-  set (BOOST_ROOT ${PROJECT_SOURCE_DIR}/boost)
+if (WIN32)
+  set (Boost_USE_STATIC_LIBS OFF)
 endif ()
-find_package (Boost 1.63 REQUIRED)
+find_package (Boost 1.62 REQUIRED COMPONENTS log_setup log)
 
 #
 # OpenMP
@@ -882,7 +876,8 @@ message (STATUS "hamlib_LIBRARY_DIRS: ${hamlib_LIBRARY_DIRS}")
 
 set (CMAKE_REQUIRED_INCLUDES "${hamlib_INCLUDE_DIRS}")
 set (CMAKE_REQUIRED_LIBRARIES "${hamlib_LIBRARIES}")
-check_symbol_exists (CACHE_ALL "hamlib/rig.h" HAVE_HAMLIB_OLD_CACHING)
+set (CMAKE_EXTRA_INCLUDE_FILES "hamlib/rig.h")
+check_type_size (CACHE_ALL HAMLIB_OLD_CACHING)
 check_symbol_exists (rig_set_cache_timeout_ms "hamlib/rig.h" HAVE_HAMLIB_CACHING)
 
 
@@ -1069,7 +1064,7 @@ query_qmake (QT_HOST_DATA QT_DATA_DIR)
 set (QT_MKSPECS_DIR ${QT_DATA_DIR}/mkspecs)
 
 # project definitions
-add_definitions (-DQT5 -DCMAKE_BUILD -DBIGSYM=1)
+add_definitions (-DQT5 -DCMAKE_BUILD -DBIGSYM=1 -DBOOST_ALL_DYN_LINK)
 if (CMAKE_HOST_UNIX)
   add_definitions (-DUNIX)
 elseif (CMAKE_HOST_WIN32)
@@ -1078,7 +1073,7 @@ endif ()
 
 # build a library of package functionality (without and optionally with OpenMP support)
 add_library (wsjt_cxx STATIC ${wsjt_CSRCS} ${wsjt_CXXSRCS})
-target_link_libraries (wsjt_cxx ${LIBM_LIBRARIES})
+target_link_libraries (wsjt_cxx ${LIBM_LIBRARIES} Boost::log_setup ${LIBM_LIBRARIES})
 
 # build an OpenMP variant of the Fortran library routines
 add_library (wsjt_fort STATIC ${wsjt_FSRCS})
@@ -1187,6 +1182,11 @@ target_link_libraries (ft4sim_mult wsjt_fort wsjt_cxx)
 
 add_executable (fst4sim lib/fst4/fst4sim.f90)
 target_link_libraries (fst4sim wsjt_fort wsjt_cxx)
+if (WIN32)
+  set_target_properties (fst4sim PROPERTIES
+    LINK_FLAGS -Wl,--stack,0x4000000,--heap,0x6000000
+    )
+endif ()
 
 add_executable (ldpcsim240_101 lib/fst4/ldpcsim240_101.f90)
 target_link_libraries (ldpcsim240_101 wsjt_fort wsjt_cxx)
@@ -1282,11 +1282,6 @@ else ()
 endif ()
 add_custom_target (translations DEPENDS ${QM_FILES})
 set_property (DIRECTORY PROPERTY CLEAN_NO_CUSTOM TRUE)
-# do this after i18n to stop lupdate walking the boost tree which it
-# chokes on
-if (Boost_FOUND)
-  include_directories (${Boost_INCLUDE_DIRS})
-endif ()
 
 # embedded resources
 function (add_resources resources path)
@@ -1329,9 +1324,6 @@ endif (WIN32)
 # targets dependent on Qt
 #
 
-add_executable (record_time_signal Audio/tools/record_time_signal.cpp)
-target_link_libraries (record_time_signal wsjt_cxx wsjt_qtmm wsjt_qt)
-
 # build a library for the QCustomPlot widget
 add_library (qcp STATIC ${qcp_CXXSRCS})
 target_include_directories (qcp PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/qcustomplot-source>)
@@ -1341,7 +1333,7 @@ target_link_libraries (qcp Qt5::Widgets Qt5::PrintSupport)
 add_library (wsjt_qt STATIC ${wsjt_qt_CXXSRCS} ${wsjt_qt_GENUISRCS} ${GENAXSRCS})
 # set wsjtx_udp exports to static variants
 target_compile_definitions (wsjt_qt PUBLIC UDP_STATIC_DEFINE)
-target_link_libraries (wsjt_qt qcp Qt5::Widgets Qt5::Network Qt5::Sql)
+target_link_libraries (wsjt_qt Boost::log qcp Qt5::Widgets Qt5::Network Qt5::Sql)
 target_include_directories (wsjt_qt BEFORE PRIVATE ${hamlib_INCLUDE_DIRS})
 if (WIN32)
   target_link_libraries (wsjt_qt Qt5::AxContainer Qt5::AxBase)
@@ -1360,8 +1352,11 @@ generate_version_info (jt9_VERSION_RESOURCES
   NAME jt9
   BUNDLE ${PROJECT_BUNDLE_NAME}
   ICON ${WSJTX_ICON_FILE}
-  FILE_DESCRIPTION "Slow mode decoder"
+  FILE_DESCRIPTION "jt9 - WSJT-X slow mode decoder"
   )
+
+add_executable (record_time_signal Audio/tools/record_time_signal.cpp)
+target_link_libraries (record_time_signal wsjt_cxx wsjt_qtmm wsjt_qt)
 
 add_executable (jt9 ${jt9_FSRCS} ${jt9_VERSION_RESOURCES})
 if (${OPENMP_FOUND} OR APPLE)
@@ -1449,7 +1444,7 @@ else ()
     )
   if (WIN32)
     set_target_properties (wsjtx PROPERTIES
-      LINK_FLAGS -Wl,--stack,28000000
+      LINK_FLAGS -Wl,--stack,0x1000000,--heap,0x20000000
       )
   endif ()
 endif ()
@@ -1485,6 +1480,15 @@ generate_version_info (udp_daemon_VERSION_RESOURCES
 add_executable (udp_daemon UDPExamples/UDPDaemon.cpp ${udp_daemon_VERSION_RESOURCES})
 target_link_libraries (udp_daemon wsjtx_udp-static)
 
+generate_version_info (wsjtx_app_version_VERSION_RESOURCES
+  NAME wsjtx_app_version
+  BUNDLE ${PROJECT_BUNDLE_NAME}
+  ICON ${WSJTX_ICON_FILE}
+  FILE_DESCRIPTION "Display WSJT-X Application Version on console"
+  )
+add_executable (wsjtx_app_version AppVersion/AppVersion.cpp ${wsjtx_app_version_VERSION_RESOURCES})
+target_link_libraries (wsjtx_app_version wsjt_qt)
+
 generate_version_info (message_aggregator_VERSION_RESOURCES
   NAME message_aggregator
   BUNDLE ${PROJECT_BUNDLE_NAME}
@@ -1502,7 +1506,7 @@ add_executable (message_aggregator
   ${message_aggregator_RESOURCES_RCC}
   ${message_aggregator_VERSION_RESOURCES}
   )
-target_link_libraries (message_aggregator Qt5::Widgets wsjtx_udp-static)
+target_link_libraries (message_aggregator wsjt_qt Qt5::Widgets wsjtx_udp-static)
 
 if (WSJT_CREATE_WINMAIN)
   set_target_properties (message_aggregator PROPERTIES WIN32_EXECUTABLE ON)
@@ -1544,7 +1548,7 @@ install (TARGETS wsjtx
 #   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/wsjtx
 #   )
 
-install (TARGETS udp_daemon message_aggregator
+install (TARGETS udp_daemon message_aggregator wsjtx_app_version
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   )
@@ -1598,6 +1602,13 @@ install (FILES
   cty.dat
   contrib/Ephemeris/JPLEPH
   DESTINATION ${CMAKE_INSTALL_DATADIR}/${CMAKE_PROJECT_NAME}
+  #COMPONENT runtime
+  )
+
+install (DIRECTORY
+  example_log_configurations
+  DESTINATION ${CMAKE_INSTALL_DOCDIR}
+  FILES_MATCHING REGEX "^.*[^~]$"
   #COMPONENT runtime
   )
 
@@ -1846,7 +1857,7 @@ set (CPACK_MONOLITHIC_INSTALL 1)
 set (CPACK_PACKAGE_NAME "${CMAKE_PROJECT_NAME}")
 set (CPACK_PACKAGE_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
 set (CPACK_PACKAGE_VERSION_MINOR ${PROJECT_VERSION_MINOR})
-set (CPACK_PACKAGE_VERSION_PATCH ${PROJECT_VERSION_PATCH})
+set (CPACK_PACKAGE_VERSION_PATCH "${PROJECT_VERSION_PATCH}${BUILD_TYPE_REVISION}")
 
 if (WIN32)
   set (CPACK_GENERATOR "NSIS")
@@ -1880,11 +1891,11 @@ else ()
 endif ()
 
 set (CPACK_DEBIAN_PACKAGE_HOMEPAGE "${PROJECT_HOMEPAGE}")
-set (CPACK_DEBIAN_PACKAGE_DEPENDS "libgfortran5 (>=8.3) | libgfortran4 (>=7.3) | libgfortran3 (>=6.3), libfftw3-single3 (>=3.3), libgomp1 (>=6), libqt5serialport5 (>=5.7), libqt5multimedia5-plugins (>=5.7), libqt5widgets5 (>=5.7), libqt5network5 (>=5.7), libqt5printsupport5 (>=5.7), libqt5sql5-sqlite (>=5.7), libusb-1.0-0 (>=1.0.21), libboost-log1.65.1 (>=1.62.0) | libboost-log1.65.1 (>=1.65.1) | libboost-log1.67.0 (>=1.67.0) | libboost-log1.71.0 (>=1.71.0)")
+set (CPACK_DEBIAN_PACKAGE_DEPENDS "libgfortran5 (>=8.3) | libgfortran4 (>=7.3) | libgfortran3 (>=6.3), libfftw3-single3 (>=3.3), libgomp1 (>=6), libqt5serialport5 (>=5.7), libqt5multimedia5-plugins (>=5.7), libqt5widgets5 (>=5.7), libqt5network5 (>=5.7), libqt5printsupport5 (>=5.7), libqt5sql5-sqlite (>=5.7), libusb-1.0-0 (>=1.0.21), libboost-log1.62.0 (>=1.62.0) | libboost-log1.65.1 (>=1.65.1) | libboost-log1.67.0 (>=1.67.0) | libboost-log1.71.0 (>=1.71.0) | libboost-log1.74.0 (>=1.74.0)")
 set (CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 
 set (CPACK_RPM_PACKAGE_ARCHITECTURE ${CMAKE_SYSTEM_PROCESSOR})
-set (CPACK_RPM_PACKAGE_REQUIRES "qt5-qtbase >= 5.9, qt5-qtserialport >= 5.9, qt5-qtmultimedia >= 5.9, qt5-qtsvg >= 5.9, libusbx >= 1.0.22, libgfortran >= 7, libgomp >= 7, fftw-libs-single >= 3.3")
+set (CPACK_RPM_PACKAGE_REQUIRES "qt5-qtbase >= 5.9, qt5-qtserialport >= 5.9, qt5-qtmultimedia >= 5.9, qt5-qtsvg >= 5.9, libusbx >= 1.0.22, libgfortran >= 7, libgomp >= 7, fftw-libs-single >= 3.3, boost-log >= 1.62")
 set (CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION /usr/share/pixmaps /usr/share/applications /usr/share/man /usr/share/man1)
 
 configure_file ("${PROJECT_SOURCE_DIR}/CMakeCPackOptions.cmake.in"

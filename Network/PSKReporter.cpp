@@ -84,7 +84,7 @@ public:
   {
     if (!socket_
         || QAbstractSocket::UnconnectedState == socket_->state ()
-        || (socket_->socketType () != config_->psk_reporter_tcpip () ? QAbstractSocket::TcpSocket : QAbstractSocket::UdpSocket))
+        || (socket_->socketType () != (config_->psk_reporter_tcpip () ? QAbstractSocket::TcpSocket : QAbstractSocket::UdpSocket)))
       {
         // we need to create the appropriate socket
         if (socket_

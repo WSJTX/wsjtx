@@ -26,6 +26,8 @@
 #include <QFuture>
 #include <QFutureWatcher>
 
+#include "MultiGeometryWidget.hpp"
+#include "NonInheritingProcess.hpp"
 #include "Audio/AudioDevice.hpp"
 #include "commons.h"
 #include "Radio.hpp"
@@ -64,6 +66,7 @@ namespace Ui {
   class MainWindow;
 }
 
+class QProcessEnvironment;
 class QSharedMemory;
 class QSplashScreen;
 class QSettings;
@@ -93,7 +96,8 @@ class MultiSettings;
 class EqualizationToolsDialog;
 class DecodedText;
 
-class MainWindow : public QMainWindow
+class MainWindow
+  : public MultiGeometryWidget<3, QMainWindow>
 {
   Q_OBJECT;
 
@@ -104,7 +108,7 @@ public:
 
   explicit MainWindow(QDir const& temp_directory, bool multiple, MultiSettings *,
                       QSharedMemory *shdmem, unsigned downSampleFactor,
-                      QSplashScreen *,
+                      QSplashScreen *, QProcessEnvironment const&,
                       QWidget *parent = nullptr);
   ~MainWindow();
 
@@ -129,7 +133,8 @@ public slots:
   void msgAvgDecode2();
   void fastPick(int x0, int x1, int y);
 
-protected:
+private:
+  void change_layout (std::size_t) override;
   void keyPressEvent (QKeyEvent *) override;
   void closeEvent(QCloseEvent *) override;
   void childEvent(QChildEvent *) override;
@@ -281,7 +286,7 @@ private slots:
   void WSPR_config(bool b);
   void uploadWSPRSpots (bool direct_post = false, QString const& decode_text = QString {});
   void TxAgain();
-  void uploadResponse(QString response);
+  void uploadResponse(QString const& response);
   void on_WSPRfreqSpinBox_valueChanged(int n);
   void on_sbFST4W_RxFreq_valueChanged(int n);
   void on_sbFST4W_FTol_valueChanged(int n);
@@ -354,11 +359,13 @@ private:
   void astroUpdate ();
   void writeAllTxt(QString message);
   void auto_sequence (DecodedText const& message, unsigned start_tolerance, unsigned stop_tolerance);
-  void hideMenus(bool b);
+  void trim_view (bool b);
   void foxTest();
   void setColorHighlighting();
   void chkFT4();
+  bool elide_tx1_not_allowed () const;
 
+  QProcessEnvironment const& m_env;
   NetworkAccessManager m_network_manager;
   bool m_valid;
   QSplashScreen * m_splash;
@@ -400,6 +407,7 @@ private:
   SoundInput * m_soundInput;
   Modulator * m_modulator;
   SoundOutput * m_soundOutput;
+  int m_tx_audio_buffer_frames;
   QThread m_audioThread;
 
   qint64  m_msErase;
@@ -410,6 +418,7 @@ private:
   Frequency m_freqNominal;
   Frequency m_freqTxNominal;
   Astro::Correction m_astroCorrection;
+  bool m_reverse_Doppler;
 
   double  m_s6;
   double  m_tRemaining;
@@ -575,9 +584,9 @@ private:
   QFutureWatcher<void> watcher3;
   QFutureWatcher<QString> m_saveWAVWatcher;
 
-  QProcess proc_jt9;
-  QProcess p1;
-  QProcess p3;
+  NonInheritingProcess proc_jt9;
+  NonInheritingProcess p1;
+  NonInheritingProcess p3;
 
   WSPRNet *wsprNet;
 
@@ -709,7 +718,7 @@ private:
   void stub();
   void statusChanged();
   void fixStop();
-  bool shortList(QString callsign);
+  bool shortList(QString callsign) const;
   void transmit (double snr = 99.);
   void rigFailure (QString const& reason);
   void pskSetLocal ();

@@ -17,15 +17,15 @@ class HamlibTransceiver final
   Q_OBJECT                      // for translation context
 
 public:
-  static void register_transceivers (TransceiverFactory::Transceivers *);
+  static void register_transceivers (logger_type *, TransceiverFactory::Transceivers *);
   static void unregister_transceivers ();
 
-  explicit HamlibTransceiver (int model_number, TransceiverFactory::ParameterPack const&,
+  explicit HamlibTransceiver (logger_type *, int model_number, TransceiverFactory::ParameterPack const&,
                               QObject * parent = nullptr);
-  explicit HamlibTransceiver (TransceiverFactory::PTTMethod ptt_type, QString const& ptt_port,
+  explicit HamlibTransceiver (logger_type *, TransceiverFactory::PTTMethod ptt_type, QString const& ptt_port,
                               QObject * parent = nullptr);
 
- private:
+private:
   int do_start () override;
   void do_stop () override;
   void do_frequency (Frequency, MODE, bool no_ignore) override;
@@ -65,6 +65,8 @@ public:
                                 // establish the Tx VFO
   bool get_vfo_works_;          // Net rigctl promises what it can't deliver
   bool set_vfo_works_;          // More rigctl promises which it can't deliver
+
+  static int debug_callback (enum rig_debug_level_e level, rig_ptr_t arg, char const * format, va_list ap);
 };
 
 #endif

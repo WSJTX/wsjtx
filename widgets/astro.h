@@ -2,6 +2,8 @@
 #ifndef ASTRO_H
 #define ASTRO_H
 
+#include <utility>
+
 #include <QDialog>
 #include <QScopedPointer>
 
@@ -34,9 +36,17 @@ public:
     Correction (Correction const&) = default;
     Correction& operator = (Correction const&) = default;
 
+    // testing facility used to test Doppler corrections on
+    // terrestrial links
+    void reverse ()
+    {
+      std::swap (rx, tx);
+    }
+
     FrequencyDelta rx;
     FrequencyDelta tx;
   };
+
   Correction astroUpdate(QDateTime const& t,
                          QString const& mygrid,
                          QString const& hisgrid,

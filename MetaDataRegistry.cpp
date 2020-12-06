@@ -54,6 +54,7 @@ void register_types ()
 
   // Frequency list model
   qRegisterMetaTypeStreamOperators<FrequencyList_v2::Item> ("Item_v2");
+  QMetaType::registerConverter<FrequencyList_v2::Item, QString> (&FrequencyList_v2::Item::toString);
   qRegisterMetaTypeStreamOperators<FrequencyList_v2::FrequencyItems> ("FrequencyItems_v2");
 
   // defunct old versions
@@ -69,6 +70,7 @@ void register_types ()
 
   // Station details
   qRegisterMetaType<StationList::Station> ("Station");
+  QMetaType::registerConverter<StationList::Station, QString> (&StationList::Station::toString);
   qRegisterMetaType<StationList::Stations> ("Stations");
   qRegisterMetaTypeStreamOperators<StationList::Station> ("Station");
   qRegisterMetaTypeStreamOperators<StationList::Stations> ("Stations");
@@ -92,5 +94,6 @@ void register_types ()
 
   // DecodeHighlightingModel
   qRegisterMetaTypeStreamOperators<DecodeHighlightingModel::HighlightInfo> ("HighlightInfo");
+  QMetaType::registerConverter<DecodeHighlightingModel::HighlightInfo, QString> (&DecodeHighlightingModel::HighlightInfo::toString);
   qRegisterMetaTypeStreamOperators<DecodeHighlightingModel::HighlightItems> ("HighlightItems");
 }

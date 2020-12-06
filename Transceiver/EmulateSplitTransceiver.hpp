@@ -31,7 +31,8 @@ class EmulateSplitTransceiver final
 
 public:
   // takes ownership of wrapped Transceiver
-  explicit EmulateSplitTransceiver (std::unique_ptr<Transceiver> wrapped,
+  explicit EmulateSplitTransceiver (logger_type *,
+                                    std::unique_ptr<Transceiver> wrapped,
                                     QObject * parent = nullptr);
 
   void set (TransceiverState const&,

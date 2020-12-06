@@ -14,9 +14,15 @@ namespace Radio
     double constexpr MHz_factor {1.e6};
     int constexpr frequency_precsion {6};
 
+    // valid callsign alphabet
+    QRegularExpression callsign_alphabet_re {R"(^[A-Z0-9/]{3,11}$)"};
+
     // very loose validation - callsign must contain a letter next to
     // a number
     QRegularExpression valid_callsign_regexp {R"(\d[[:alpha:]]|[[:alpha:]]\d)"};
+
+    // standard callsign
+    QRegularExpression strict_standard_callsign_re {R"(^([A-Z][0-9]?|[0-9A-Z][A-Z])[0-9][A-Z]{0,3}$)"};
 
     // suffixes that are often used and should not be interpreted as a
     // DXCC Entity prefix used as a suffix
@@ -110,6 +116,12 @@ namespace Radio
   bool is_compound_callsign (QString const& callsign)
   {
     return callsign.contains ('/');
+  }
+
+  bool is_77bit_nonstandard_callsign (QString const& callsign)
+  {
+    return callsign.contains (callsign_alphabet_re)
+      && !callsign.contains (strict_standard_callsign_re);
   }
 
   // split on first '/' and return the larger portion or the whole if

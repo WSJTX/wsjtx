@@ -28,13 +28,13 @@ namespace NetworkMessage
       {
         setVersion (QDataStream::Qt_5_0); // Qt schema version
       }
-#if QT_VERSION >= 0x050200
+#if QT_VERSION >= QT_VERSION_CHECK (5, 2, 0)
     else if (schema <= 2)
       {
         setVersion (QDataStream::Qt_5_2); // Qt schema version
       }
 #endif
-#if QT_VERSION >= 0x050400
+#if QT_VERSION >= QT_VERSION_CHECK (5, 4, 0)
     else if (schema <= 3)
       {
         setVersion (QDataStream::Qt_5_4); // Qt schema version
@@ -73,13 +73,13 @@ namespace NetworkMessage
         {
           parent->setVersion (QDataStream::Qt_5_0);
         }
-#if QT_VERSION >= 0x050200
+#if QT_VERSION >= QT_VERSION_CHECK (5, 2, 0)
       else if (schema_ <= 2)
         {
           parent->setVersion (QDataStream::Qt_5_2);
         }
 #endif
-#if QT_VERSION >= 0x050400
+#if QT_VERSION >= QT_VERSION_CHECK (5, 4, 0)
       else if (schema_ <= 3)
         {
           parent->setVersion (QDataStream::Qt_5_4);
