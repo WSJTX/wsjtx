@@ -48,6 +48,7 @@ subroutine q65_sync(nutc,iwave,nmax,mode_q65,codewords,ncw,nsps,nfqso,ntol,    &
   if(nsps.ge.6912) jz=(txt+2.0)*12000.0/istep   !For TR 60 s and higher
   ia=ntol/df
   nsmo=int(0.7*mode_q65*mode_q65)
+  if(nsmo.lt.1) nsmo=1
 
   allocate(s1(iz,jz))
   allocate(s3(-64:LL-65,63))
@@ -172,7 +173,7 @@ subroutine q65_sync(nutc,iwave,nmax,mode_q65,codewords,ncw,nsps,nfqso,ntol,    &
   nFadingModel=1
   baud=12000.0/nsps
   ibwa=1.8*log(baud*mode_q65) + 2
-  ibwb=ibwa+4
+  ibwb=min(10,ibwa+4)
   do ibw=ibwa,ibwb
      b90=1.72**ibw
      call q65_intrinsics_ff(s3,nsubmode,b90/baud,nFadingModel,s3prob)
