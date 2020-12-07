@@ -211,7 +211,7 @@ namespace
   QRegularExpression grid_regexp {"\\A(?![Rr]{2}73)[A-Ra-r]{2}[0-9]{2}([A-Xa-x]{2}){0,1}\\z"};
   auto quint32_max = std::numeric_limits<quint32>::max ();
   constexpr int N_WIDGETS {36};
-  constexpr int rx_chunk_size {3456}; // audio samples at 12000 Hz
+  constexpr int default_rx_audio_buffer_frames {-1}; // lets Qt decide
   constexpr int default_tx_audio_buffer_frames {-1}; // lets Qt decide
 
   bool message_is_73 (int type, QStringList const& msg_parts)
@@ -265,6 +265,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_soundInput {new SoundInput},
   m_modulator {new Modulator {TX_SAMPLE_RATE, NTMAX}},
   m_soundOutput {new SoundOutput},
+  m_rx_audio_buffer_frames {0},
   m_tx_audio_buffer_frames {0},
   m_msErase {0},
   m_secBandChanged {0},
@@ -457,7 +458,9 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_soundInput->moveToThread (&m_audioThread);
   m_detector->moveToThread (&m_audioThread);
   bool ok;
-  auto buffer_size = env.value ("WSJT_TX_AUDIO_BUFFER_FRAMES", "0").toInt (&ok);
+  auto buffer_size = env.value ("WSJT_RX_AUDIO_BUFFER_FRAMES", "0").toInt (&ok);
+  m_rx_audio_buffer_frames = ok && buffer_size ? buffer_size : default_rx_audio_buffer_frames;
+  buffer_size = env.value ("WSJT_TX_AUDIO_BUFFER_FRAMES", "0").toInt (&ok);
   m_tx_audio_buffer_frames = ok && buffer_size ? buffer_size : default_tx_audio_buffer_frames;
 
   // hook up sound output stream slots & signals and disposal
@@ -939,7 +942,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   if (!m_config.audio_input_device ().isNull ())
     {
       Q_EMIT startAudioInputStream (m_config.audio_input_device ()
-                                    , rx_chunk_size * m_downSampleFactor
+                                    , m_rx_audio_buffer_frames
                                     , m_detector, m_downSampleFactor, m_config.audio_input_channel ());
     }
   if (!m_config.audio_output_device ().isNull ())
@@ -1851,7 +1854,7 @@ void MainWindow::on_actionSettings_triggered()               //Setup Dialog
 
     if(m_config.restart_audio_input () && !m_config.audio_input_device ().isNull ()) {
       Q_EMIT startAudioInputStream (m_config.audio_input_device ()
-                                    , rx_chunk_size * m_downSampleFactor
+                                    , m_rx_audio_buffer_frames
                                     , m_detector, m_downSampleFactor
                                     , m_config.audio_input_channel ());
     }

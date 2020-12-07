@@ -111,7 +111,7 @@ void SoundOutput::restart (QIODevice * source)
     }
   m_stream->setCategory ("production");
   m_stream->start (source);
-  LOG_INFO ("Selected buffer size (bytes): " << m_stream->bufferSize () << " period size: " << m_stream->periodSize ());
+  LOG_DEBUG ("Selected buffer size (bytes): " << m_stream->bufferSize () << " period size: " << m_stream->periodSize ());
 }
 
 void SoundOutput::suspend ()

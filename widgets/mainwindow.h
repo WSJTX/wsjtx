@@ -404,6 +404,7 @@ private:
   SoundInput * m_soundInput;
   Modulator * m_modulator;
   SoundOutput * m_soundOutput;
+  int m_rx_audio_buffer_frames;
   int m_tx_audio_buffer_frames;
   QThread m_audioThread;
 
