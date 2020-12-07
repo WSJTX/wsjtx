@@ -1,5 +1,6 @@
 #include "logqso.h"
 
+#include <QLocale>
 #include <QString>
 #include <QSettings>
 #include <QStandardPaths>
@@ -61,6 +62,9 @@ LogQSO::LogQSO(QString const& programTitle, QSettings * settings
       ui->comboBoxPropMode->addItem (prop_mode.name_, prop_mode.id_);
     }
   loadSettings ();
+  auto date_time_format = QLocale {}.dateFormat (QLocale::ShortFormat) + " hh:mm:ss";
+  ui->start_date_time->setDisplayFormat (date_time_format);
+  ui->end_date_time->setDisplayFormat (date_time_format);
   ui->grid->setValidator (new MaidenheadLocatorValidator {this});
 }
 

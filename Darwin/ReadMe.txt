@@ -34,10 +34,9 @@ Double-click on the wsjtx-...-Darwin.dmg file you have downloaded from K1JT's we
 Now open a Terminal window by going to Applications->Utilities and clicking on Terminal.
 
 Along with this ReadMe file there is a file:   sysctl.conf  which must be copied to a
-system area by typing these two lines in the Terminal window and then pressing the Return key
-after each line.
+system area by typing this line in the Terminal window and then pressing the Return key.
 
-              sudo  cp  /Volumes/WSJT-X/sysctl.conf  /etc
+      sudo  cp  /Volumes/WSJT-X/sysctl.conf  /etc
 
 you will be asked for your normal password because authorisation is needed to copy this file.
 (Your password will not be echoed but press the Return key when completed.)
@@ -45,7 +44,7 @@ Now re-boot your Mac. This is necessary to install the changes.  After the
 reboot you should re-open the Terminal window as before and you can check that the
 change has been made by typing:
 
-  sysctl -a | grep sysv.shm
+      sysctl -a | grep sysv.shm
 
 If shmmax is not shown as 104857600 then contact me since WSJT-X will fail to load with
 an error message: "Unable to create shared memory segment".
