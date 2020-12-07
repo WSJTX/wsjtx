@@ -209,7 +209,6 @@ private slots:
   void on_logQSOButton_clicked();
   void on_actionJT9_triggered();
   void on_actionJT65_triggered();
-  void on_actionJT9_JT65_triggered();
   void on_actionJT4_triggered();
   void on_actionFT4_triggered();
   void on_actionFT8_triggered();
@@ -247,7 +246,6 @@ private slots:
   void on_bandComboBox_editTextChanged (QString const& text);
   void on_bandComboBox_activated (int index);
   void on_readFreq_clicked();
-  void on_pbTxMode_clicked();
   void on_RxFreqSpinBox_valueChanged(int n);
   void on_outAttenuation_valueChanged (int);
   void rigOpen ();

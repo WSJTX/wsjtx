@@ -593,7 +593,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   ui->actionFT8->setActionGroup(modeGroup);
   ui->actionJT9->setActionGroup(modeGroup);
   ui->actionJT65->setActionGroup(modeGroup);
-  ui->actionJT9_JT65->setActionGroup(modeGroup);
   ui->actionJT4->setActionGroup(modeGroup);
   ui->actionWSPR->setActionGroup(modeGroup);
   ui->actionEcho->setActionGroup(modeGroup);
@@ -853,9 +852,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_msg[0][0]=0;
   ui->labDXped->setVisible(false);
   ui->labDXped->setStyleSheet("QLabel {background-color: red; color: white;}");
-  ui->labNextCall->setText("");
-  ui->labNextCall->setVisible(false);
-  ui->labNextCall->setToolTip("");                //### Possibly temporary ? ###
 
   char const * const power[] = {"1 mW","2 mW","5 mW","10 mW","20 mW","50 mW","100 mW","200 mW","500 mW",
                   "1 W","2 W","5 W","10 W","20 W","50 W","100 W","200 W","500 W","1 kW"};
@@ -1246,8 +1242,6 @@ void MainWindow::readSettings()
   m_settings->beginGroup("Common");
   m_mode=m_settings->value("Mode","JT9").toString();
   m_modeTx=m_settings->value("ModeTx","JT9").toString();
-  if(m_modeTx.mid(0,3)=="JT9") ui->pbTxMode->setText("Tx JT9  @");
-  if(m_modeTx=="JT65") ui->pbTxMode->setText("Tx JT65  #");
   ui->actionNone->setChecked(m_settings->value("SaveNone",true).toBool());
   ui->actionSave_decoded->setChecked(m_settings->value("SaveDecoded",false).toBool());
   ui->actionSave_all->setChecked(m_settings->value("SaveAll",false).toBool());
@@ -2141,8 +2135,6 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
       return;
     case Qt::Key_Escape:
       m_nextCall="";
-      ui->labNextCall->setStyleSheet("");
-      ui->labNextCall->setText("");
       on_stopTxButton_clicked();
       abortQSO();
       return;
@@ -3524,11 +3516,6 @@ void MainWindow::readFromStdout()                             //readFromStdout
           ui->decodedTextBrowser2->displayDecodedText(decodedtext0,m_baseCall,m_mode,m_config.DXCC(),
                 m_logBook,m_currentBand,m_config.ppfx());
         }
-        if(m_mode!="JT4") {
-          bool b65=decodedtext.isJT65();
-          if(b65 and m_modeTx!="JT65") on_pbTxMode_clicked();
-          if(!b65 and m_modeTx=="JT65") on_pbTxMode_clicked();
-        }
         m_QSOText = decodedtext.string ().trimmed ();
       }
 
@@ -4450,8 +4437,6 @@ void MainWindow::useNextCall()
 {
   ui->dxCallEntry->setText(m_nextCall);
   m_nextCall="";
-  ui->labNextCall->setStyleSheet("");
-  ui->labNextCall->setText("");
   if(m_nextGrid.contains(grid_regexp)) {
     ui->dxGridEntry->setText(m_nextGrid);
     m_ntx=2;
@@ -4865,11 +4850,9 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
     if (message.isJT9())
       {
         m_modeTx="JT9";
-        ui->pbTxMode->setText("Tx JT9  @");
         m_wideGraph->setModeTx(m_modeTx);
       } else if (message.isJT65()) {
       m_modeTx="JT65";
-      ui->pbTxMode->setText("Tx JT65  #");
       m_wideGraph->setModeTx(m_modeTx);
     }
   } else if ((message.isJT9 () and m_modeTx != "JT9" and m_mode != "JT4") or
@@ -5112,17 +5095,6 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
       }
     }
     else {                  // nothing for us
-//      if(message_words.size () > 3   // enough fields for a normal message
-//         && SpecOp::RTTY == m_config.special_op_id()
-//         && (message_words.at(1).contains(m_baseCall) || "DE" == message_words.at(1))
-//         && (!message_words.at(2).contains(qso_partner_base_call) and !bEU_VHF_w2)) {
-//// Queue up the next QSO partner
-//        m_nextCall=message_words.at(2);
-//        m_nextGrid=message_words.at(3);
-//        m_nextRpt=message.report();
-//        ui->labNextCall->setText("Next:  " + m_nextCall);
-//        ui->labNextCall->setStyleSheet("QLabel {color: #000000; background-color: #66ff66}");
-//      }
       return;
     }
   }
@@ -5989,7 +5961,7 @@ void MainWindow::displayWidgets(qint64 n)
     if(i==8) ui->cbFast9->setVisible(b);
     if(i==9) ui->cbAutoSeq->setVisible(b);
     if(i==10) ui->cbTx6->setVisible(b);
-    if(i==11) ui->pbTxMode->setVisible(b);
+    // if(i==11) ui->pbTxMode->setVisible(b);
     if(i==12) ui->pbR2T->setVisible(b);
     if(i==13) ui->pbT2R->setVisible(b);
     if(i==14) ui->cbHoldTxFreq->setVisible(b);
@@ -6010,7 +5982,7 @@ void MainWindow::displayWidgets(qint64 n)
     if(i==25) ui->actionEnable_AP_JT65->setVisible (b);
     if(i==26) ui->actionEnable_AP_DXcall->setVisible (b);
     if(i==27) ui->cbFirst->setVisible(b);
-    if(i==28) ui->labNextCall->setVisible(b);
+    // if(i==28) ui->labNextCall->setVisible(b);
     if(i==29) ui->measure_check_box->setVisible(b);
     if(i==30) ui->labDXped->setVisible(b);
     if(i==31) ui->cbRxAll->setVisible(b);
@@ -6364,58 +6336,14 @@ void MainWindow::on_actionJT9_triggered()
   statusChanged();
 }
 
-void MainWindow::on_actionJT9_JT65_triggered()
-{
-  m_mode="JT9+JT65";
-  WSPR_config(false);
-  switch_mode (Modes::JT65);
-  if(m_modeTx != "JT65") {
-    ui->pbTxMode->setText("Tx JT9  @");
-    m_modeTx="JT9";
-  }
-  m_nSubMode=0;                    //Dual-mode always means JT9 and JT65A
-  m_TRperiod=60.0;
-  m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
-  m_detector->setTRPeriod(m_TRperiod);  // TODO - not thread safe
-  m_nsps=6912;
-  m_FFTSize = m_nsps / 2;
-  Q_EMIT FFTSize (m_FFTSize);
-  m_hsymStop=174;
-  if(m_config.decode_at_52s()) m_hsymStop=183;
-  m_toneSpacing=0.0;
-  setup_status_bar (false);
-  ui->actionJT9_JT65->setChecked(true);
-  VHF_features_enabled(false);
-  m_wideGraph->setPeriod(m_TRperiod,m_nsps);
-  m_wideGraph->setMode(m_mode);
-  m_wideGraph->setModeTx(m_modeTx);
-  m_bFastMode=false;
-  m_bFast9=false;
-  ui->sbSubmode->setValue(0);
-  ui->lh_decodes_title_label->setText(tr ("Band Activity"));
-  ui->rh_decodes_title_label->setText(tr ("Rx Frequency"));
-  ui->lh_decodes_headings_label->setText("UTC   dB   DT Freq    " + tr ("Message"));
-  ui->rh_decodes_headings_label->setText("UTC   dB   DT Freq    " + tr ("Message"));
-  displayWidgets(nWidgets("111010000001111000010000000000001000"));
-  fast_config(false);
-  statusChanged();
-}
-
 void MainWindow::on_actionJT65_triggered()
 {
-  if(m_mode=="JT4" or m_mode=="WSPR" or m_mode=="FST4W") {
-// If coming from JT4, WSPR, or FST4W mode, pretend temporarily that we're coming
-// from JT9 and click the pbTxMode button
-    m_modeTx="JT9";
-    on_pbTxMode_clicked();
-  }
   on_actionJT9_triggered();
   m_mode="JT65";
   m_modeTx="JT65";
   bool bVHF=m_config.enable_VHF_features();
   WSPR_config(false);
   switch_mode (Modes::JT65);
-  if(m_modeTx!="JT65") on_pbTxMode_clicked();
   m_TRperiod=60.0;
   m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
   m_detector->setTRPeriod(m_TRperiod);   // TODO - not thread safe
@@ -6567,7 +6495,6 @@ void MainWindow::on_actionMSK144_triggered()
     if("JT4"==m_mode) ui->actionJT4->setChecked(true); 
     if("JT9"==m_mode) ui->actionJT9->setChecked(true); 
     if("JT65"==m_mode) ui->actionJT65->setChecked(true); 
-    if("JT9_JT65"==m_mode) ui->actionJT9_JT65->setChecked(true); 
     if("ISCAT"==m_mode) ui->actionISCAT->setChecked(true); 
     if("QRA64"==m_mode) ui->actionQRA64->setChecked(true);
     if("Q65"==m_mode) ui->actionQ65->setChecked(true);
@@ -7152,21 +7079,6 @@ void MainWindow::on_readFreq_clicked()
     }
 }
 
-void MainWindow::on_pbTxMode_clicked()
-{
-  if(m_mode=="JT9+JT65") {
-    if(m_modeTx=="JT9") {
-      m_modeTx="JT65";
-      ui->pbTxMode->setText("Tx JT65  #");
-    } else {
-      m_modeTx="JT9";
-      ui->pbTxMode->setText("Tx JT9  @");
-    }
-    m_wideGraph->setModeTx(m_modeTx);
-    statusChanged();
-  }
-}
-
 void MainWindow::setXIT(int n, Frequency base)
 {
   if (m_transmitting && !m_config.tx_QSY_allowed ()) return;
@@ -7647,15 +7559,6 @@ void MainWindow::transmitDisplay (bool transmitting)
 
     // the following are always disallowed in transmit
     ui->menuMode->setEnabled (!transmitting);
-    //ui->bandComboBox->setEnabled (!transmitting);
-    if (!transmitting) {
-      if (m_mode == "JT9+JT65") {
-        // allow mode switch in Rx when in dual mode
-        ui->pbTxMode->setEnabled (true);
-      }
-    } else {
-      ui->pbTxMode->setEnabled (false);
-    }
   }
 }
 
@@ -9381,7 +9284,6 @@ void MainWindow::set_mode (QString const& mode)
     else if ("FT8" == mode) on_actionFT8_triggered ();
     else if ("JT4" == mode) on_actionJT4_triggered ();
     else if ("JT9" == mode) on_actionJT9_triggered ();
-    else if ("JT9+JT65" == mode) on_actionJT9_JT65_triggered ();
     else if ("JT65" == mode) on_actionJT65_triggered ();
     else if ("QRA64" == mode) on_actionQRA64_triggered ();
     else if ("Q65" == mode) on_actionQ65_triggered ();

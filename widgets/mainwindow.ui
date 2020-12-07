@@ -1505,25 +1505,6 @@ When not checked you can view the calibration results.</string>
                   <item row="0" column="1">
                    <layout class="QVBoxLayout" name="verticalLayout_13">
                     <item>
-                     <widget class="QPushButton" name="pbTxMode">
-                      <property name="enabled">
-                       <bool>true</bool>
-                      </property>
-                      <property name="sizePolicy">
-                       <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
-                        <horstretch>0</horstretch>
-                        <verstretch>0</verstretch>
-                       </sizepolicy>
-                      </property>
-                      <property name="toolTip">
-                       <string>Toggle Tx mode</string>
-                      </property>
-                      <property name="text">
-                       <string>Tx JT9 @</string>
-                      </property>
-                     </widget>
-                    </item>
-                    <item>
                      <widget class="QCheckBox" name="cbHoldTxFreq">
                       <property name="toolTip">
                        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to keep Tx frequency fixed when double-clicking on decoded text.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -1555,22 +1536,6 @@ When not checked you can view the calibration results.</string>
                         <property name="bottomMargin">
                          <number>0</number>
                         </property>
-                        <item>
-                         <widget class="QLabel" name="labNextCall">
-                          <property name="toolTip">
-                           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Double-click on another caller to queue that call for your next QSO.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-                          </property>
-                          <property name="accessibleDescription">
-                           <string>Double-click on another caller to queue that call for your next QSO.</string>
-                          </property>
-                          <property name="text">
-                           <string>Next Call</string>
-                          </property>
-                          <property name="alignment">
-                           <set>Qt::AlignCenter</set>
-                          </property>
-                         </widget>
-                        </item>
                         <item>
                          <widget class="QSpinBox" name="sbSerialNumber">
                           <property name="alignment">
@@ -2828,7 +2793,7 @@ Double-click to reset to the standard 73 message</string>
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>834</width>
+     <width>1110</width>
      <height>21</height>
     </rect>
    </property>
@@ -2918,7 +2883,6 @@ Double-click to reset to the standard 73 message</string>
     <addaction name="actionFT8"/>
     <addaction name="actionJT4"/>
     <addaction name="actionJT9"/>
-    <addaction name="actionJT9_JT65"/>
     <addaction name="actionJT65"/>
     <addaction name="actionQRA64"/>
     <addaction name="actionQ65"/>
@@ -3113,14 +3077,6 @@ Double-click to reset to the standard 73 message</string>
    </property>
    <property name="text">
     <string>JT65</string>
-   </property>
-  </action>
-  <action name="actionJT9_JT65">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>JT9+JT65</string>
    </property>
   </action>
   <action name="actionAstronomical_data">
