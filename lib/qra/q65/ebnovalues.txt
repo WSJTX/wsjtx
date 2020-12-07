@@ -1,0 +1,17 @@
+# Eb/No Values to be used during the Q65 codec simulation
+# Each line of this file indicates the Eb/No value to be simulated (in dB) 
+# and the number of errors that should be detected by the decoder
+# 
+# Be careful that the simulation takes a long time to complete
+# if the number of errors is large for the specified Eb/No
+# (this is particularly true if AP decoding is used)
+#
+-30 100
+0.5 1000
+1.0 1000
+1.5 1000
+2.0 1000
+2.5 1000
+3.0 1000
+3.5 1000
+4.0 1000

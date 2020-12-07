@@ -1,7 +1,7 @@
 subroutine lorentzian(y,npts,a)
 
 ! Input:  y(npts); assume x(i)=i, i=1,npts
-! Output: a(5)
+! Output: a(1:5)
 !         a(1) = baseline
 !         a(2) = amplitude
 !         a(3) = x0

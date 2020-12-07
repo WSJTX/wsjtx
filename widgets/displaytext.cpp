@@ -485,6 +485,7 @@ void DisplayText::displayTransmittedText(QString text, QString modeTx, qint32 tx
     if(modeTx=="FT4") t1=" +  ";
     if(modeTx=="FT8") t1=" ~  ";
     if(modeTx=="JT4") t1=" $  ";
+    if(modeTx=="Q65") t1=" :  ";
     if(modeTx=="JT65") t1=" #  ";
     if(modeTx=="MSK144") t1=" &  ";
     if(modeTx=="FST4") t1=" `  ";

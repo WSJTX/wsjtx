@@ -71,6 +71,7 @@ void Modulator::start (QString mode, unsigned symbolsLength, double framesPerSym
   m_TRperiod=TRperiod;
   unsigned delay_ms=1000;
   if(mode=="FT8" or (mode=="FST4" and m_nsps==720)) delay_ms=500; //FT8, FST4-15
+  if(mode=="Q65" and m_nsps<=3600) delay_ms=500;                  //Q65-15 and Q65-30
   if(mode=="FT4") delay_ms=300;                                   //FT4
 
 // noise generator parameters
@@ -317,7 +318,7 @@ qint64 Modulator::readData (char * data, qint64 maxSize)
           sample=qRound(m_amp*qSin(m_phi));
 
 //Here's where we transmit from a precomputed wave[] array:
-          if(!m_tuning and (m_toneSpacing < 0)) {
+          if(!m_tuning and (m_toneSpacing < 0) and (itone[0]<100)) {
             m_amp=32767.0;
             sample=qRound(m_amp*foxcom_.wave[m_ic]);
           }

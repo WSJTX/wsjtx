@@ -14,14 +14,18 @@ program qra64sim
   complex cdat(NMAX)                     !Generated complex waveform
   complex cspread(0:NFFT-1)              !Complex amplitude for Rayleigh fading
   complex z
+  complex c00(0:720000)                  !Analytic signal for dat()
   real*8 f0,dt,twopi,phi,dphi,baud,fsample,freq
-  character msg*22,fname*11,csubmode*1,arg*12
+  character msg*22,fname*11,csubmode*1,arg*12,cd*1
   character msgsent*22
+  logical lsync
+  data lsync/.false./
 
   nargs=iargc()
-  if(nargs.ne. 7) then
-     print *, 'Usage:   qra64sim         "msg"     A-E Nsigs fDop DT Nfiles SNR'
-     print *, 'Example  qra64sim "K1ABC W9XYZ EN37" A   10   0.2 0.0   1     0'
+  if(nargs.ne.8) then
+     print*,'Usage:   qra64sim         "msg"     A-E Nsigs fDop DT Nfiles Sync SNR'
+     print*,'Example  qra64sim "K1ABC W9XYZ EN37" A   10   0.2 0.0   1      T  -26'
+     print*,'Sync = T to include sync test.'
      go to 999
   endif
   call getarg(1,msg)
@@ -36,8 +40,10 @@ program qra64sim
   call getarg(6,arg)
   read(arg,*) nfiles
   call getarg(7,arg)
+  if(arg(1:1).eq.'T' .or. arg(1:1).eq.'1') lsync=.true.
+  call getarg(8,arg)
   read(arg,*) snrdb
-  
+
   if(mode64.ge.8) nsigs=1
   rms=100.
   fsample=12000.d0                   !Sample rate (Hz)
@@ -54,6 +60,7 @@ program qra64sim
   write(*,1000) 
 1000 format('File  Sig    Freq  A-E   S/N   DT   Dop    Message'/60('-'))
 
+  nsync=0
   do ifile=1,nfiles                  !Loop over requested number of files
      write(fname,1002) ifile         !Output filename
 1002 format('000000_',i4.4)
@@ -107,7 +114,7 @@ program qra64sim
         twopi=8*atan(1.0)
         cspread(0)=1.0
         cspread(NH)=0.
-        b=6.0                                     !Lorenzian 3/28 onward
+        b=6.0                       !Use truncated Lorenzian shape for fspread
         do i=1,NH
            f=i*df
            x=b*f/fspread
@@ -129,13 +136,13 @@ program qra64sim
            cspread(NFFT-i)=z
         enddo
 
-        do i=0,NFFT-1
-           f=i*df
-           if(i.gt.NH) f=(i-nfft)*df
-           s=real(cspread(i))**2 + aimag(cspread(i))**2
+!        do i=0,NFFT-1
+!           f=i*df
+!           if(i.gt.NH) f=(i-nfft)*df
+!           s=real(cspread(i))**2 + aimag(cspread(i))**2
 !          write(13,3000) i,f,s,cspread(i)
 !3000      format(i5,f10.3,3f12.6)
-        enddo
+!        enddo
 !        s=real(cspread(0))**2 + aimag(cspread(0))**2
 !        write(13,3000) 1024,0.0,s,cspread(0)
 
@@ -165,6 +172,30 @@ program qra64sim
      if(snrdb.lt.90.0) iwave(1:npts)=nint(rms*dat(1:npts))
      write(10) h,iwave(1:npts)                !Save the .wav file
      close(10)
+
+     if(lsync) then
+        cd=' '
+        if(ifile.eq.nfiles) cd='d'
+        nf1=200
+        nf2=3000
+        nfqso=nint(f0)
+        ntol=100
+        minsync=0
+        emedelay=0.0
+        call ana64(dat,npts,c00)
+        call sync64(c00,nf1,nf2,nfqso,ntol,minsync,mode64,emedelay,xdt2,f02,  &
+             jpk0,sync,sync2,width)
+        terr=1.01/(8.0*baud)
+        ferr=1.01*mode64*baud
+        if(abs(xdt2-xdt).lt.terr .and. abs(f02-f0).lt.ferr) nsync=nsync+1
+        open(40,file='sync64.out',status='unknown',position='append')
+        write(40,1030) ifile,64,csubmode,snrdb,fspread,xdt2-xdt,f02-f0,   &
+             width,sync,sync2,nsync,cd
+1030    format(i4,i3,1x,a1,2f7.1,f7.2,4f8.1,i5,1x,a1)
+        close(40)
+     endif
   enddo
+  if(lsync) write(*,1040) snrdb,nfiles,nsync
+1040 format('SNR:',f6.1,'   nfiles:',i5,'   nsynced:',i5)
 
 999 end program qra64sim

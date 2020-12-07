@@ -263,6 +263,8 @@ namespace
       {28180000, Modes::FT4, IARURegions::ALL},
 
       {50200000, Modes::Echo, IARURegions::ALL},
+      {50270000, Modes::QRA64, IARURegions::ALL},
+      {50270000, Modes::Q65, IARURegions::ALL},
       {50276000, Modes::JT65, IARURegions::R2},
       {50276000, Modes::JT65, IARURegions::R3},
       {50380000, Modes::MSK144, IARURegions::R1},

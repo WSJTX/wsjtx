@@ -126,3 +126,35 @@ subroutine symspec(shared_data,k,TRperiod,nsps,ingain,bLowSidelobes,    &
 
   return
 end subroutine symspec
+
+subroutine chk_samples(ihsym,k,nstop)
+  
+  integer*8 count0,count1,clkfreq
+  integer itime(8)
+  real*8 dtime,fsample
+  character*12 ctime
+  data count0/-1/,k0/99999999/,maxhsym/0/
+  save count0,k0,maxhsym
+
+  if(k.lt.k0 .or. count0.eq.-1) then
+     call system_clock(count0,clkfreq)
+     maxhsym=0
+  endif
+  if((mod(ihsym,100).eq.0 .or. ihsym.ge.nstop-100) .and.       &
+       k0.ne.99999999) then
+     call system_clock(count1,clkfreq)
+     dtime=dfloat(count1-count0)/dfloat(clkfreq)
+     if(dtime.lt.28.0) return
+     if(dtime.gt.1.d-6) fsample=(k-3456)/dtime
+     call date_and_time(values=itime)
+     sec=itime(7)+0.001*itime(8)
+     write(ctime,3000) itime(5)-itime(4)/60,itime(6),sec
+3000 format(i2.2,':',i2.2,':',f6.3)
+     write(33,3033) ctime,dtime,ihsym,nstop,k,fsample
+3033 format(a12,f12.6,2i7,i10,f15.3)
+     flush(33)
+  endif
+  k0=k
+
+  return
+end subroutine chk_samples

@@ -25,8 +25,9 @@ program jt9
   integer :: arglen,stat,offset,remain,mode=0,flow=200,fsplit=2700,          &
        fhigh=4000,nrxfreq=1500,ndepth=1,nexp_decode=0,nQSOProg=0
   logical :: read_files = .true., tx9 = .false., display_help = .false.,     &
-       bLowSidelobes = .false., nexp_decode_set = .false.
-  type (option) :: long_options(30) = [                                      &
+       bLowSidelobes = .false., nexp_decode_set = .false.,                   &
+       have_ntol = .false.
+  type (option) :: long_options(31) = [                                      &
     option ('help', .false., 'h', 'Display this help message', ''),          &
     option ('shmem',.true.,'s','Use shared memory for sample data','KEY'),   &
     option ('tr-period', .true., 'p', 'Tx/Rx period, default SECONDS=60',    &
@@ -53,6 +54,7 @@ program jt9
     option ('fft-threads', .true., 'm',                                      &
         'Number of threads to process large FFTs, default THREADS=1',        &
         'THREADS'),                                                          &
+    option ('q65', .false., '3', 'Q65 mode', ''),                            &
     option ('jt4', .false., '4', 'JT4 mode', ''),                            &
     option ('ft4', .false., '5', 'FT4 mode', ''),                            &
     option ('jt65', .false.,'6', 'JT65 mode', ''),                           &
@@ -89,7 +91,7 @@ program jt9
   TRperiod=60.d0
 
   do
-     call getopt('hs:e:a:b:r:m:p:d:f:F:w:t:987654WqTL:S:H:c:G:x:g:X:Q:',     &
+     call getopt('hs:e:a:b:r:m:p:d:f:F:w:t:9876543WqTL:S:H:c:G:x:g:X:Q:',     &
           long_options,c,optarg,arglen,stat,offset,remain,.true.)
      if (stat .ne. 0) then
         exit
@@ -118,6 +120,7 @@ program jt9
            read (optarg(:arglen), *) nrxfreq
         case ('F')
            read (optarg(:arglen), *) ntol
+           have_ntol = .true.
         case ('L')
            read (optarg(:arglen), *) flow
         case ('S')
@@ -128,6 +131,8 @@ program jt9
            mode = 164
         case ('Q')
            read (optarg(:arglen), *) nQSOProg
+        case ('3')
+           mode = 66
         case ('4')
            mode = 4
         case ('5')
@@ -203,8 +208,10 @@ program jt9
 
   if (mode .eq. 241) then
      ntol = min (ntol, 100)
-  else if (mode .eq. 65 + 9) then
+  else if (mode .eq. 65 + 9 .and. .not. have_ntol) then
      ntol = 20
+  else if (mode .eq. 66 .and. .not. have_ntol) then
+     ntol = 10
   else
      ntol = min (ntol, 1000)
   end if
@@ -241,6 +248,7 @@ program jt9
      endif
      shared_data%id2=0          !??? Why is this necessary ???
      if(mode.eq.5) npts=21*3456
+     if(mode.eq.66) npts=TRperiod*12000
      do iblk=1,npts/kstep
         k=iblk*kstep
         if(mode.eq.8 .and. k.gt.179712) exit
@@ -263,7 +271,7 @@ program jt9
               call timer('symspec ',1)
            endif
            nhsym0=nhsym
-           if(nhsym.ge.181 .and. mode.ne.240 .and. mode.ne.241) exit
+           if(nhsym.ge.181 .and. mode.ne.240 .and. mode.ne.241 .and. mode.ne.66) exit
         endif
      enddo
      close(unit=wav%lun)

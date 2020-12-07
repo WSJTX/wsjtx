@@ -24,14 +24,15 @@ program sumsim
      nfsample=h%nsamrate
      read(10) iwave(1:npts)
      n=len(trim(fname))
-     wave(1:npts)=wave(1:npts)+iwave(1:npts)
+     wave(1:npts)=wave(1:npts) + iwave(1:npts)
      rms=sqrt(dot_product(wave(1:npts),wave(1:npts))/npts)
      write(*,1000) ifile,npts,float(npts)/nfsample,rms,fname(n-14:n)
 1000 format(i3,i8,f6.1,f10.3,2x,a15)
      close(10)
   enddo
 
-  fac=1.0/sqrt(float(nargs))
+!  fac=1.0/sqrt(float(nargs))
+  fac=1.0/nargs
   iwave(1:npts)=nint(fac*wave(1:npts))
   
   open(12,file='000000_0000.wav',access='stream',status='unknown')
