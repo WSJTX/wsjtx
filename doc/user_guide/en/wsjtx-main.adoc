@@ -1,5 +1,5 @@
 // This is a comment line, anything with // is ignored at process time.
-= _WSJT-X {VERSION_MAJOR}.{VERSION_MINOR}_ User Guide
+= _WSJT-X_ User Guide
 Joseph H Taylor, Jr, K1JT
 :revnumber: {VERSION}
 // For web-pages, adding :badges: is ok, but is a security issue for
