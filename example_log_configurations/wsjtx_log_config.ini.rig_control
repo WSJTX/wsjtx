@@ -1,0 +1,25 @@
+[Sinks.SYSLOG]
+Destination=TextFile
+Asynchronous=true
+AutoFlush=false
+FileName="${AppLocalDataLocation}/wsjtx_syslog.log"
+TargetFileName="${AppLocalDataLocation}/logs/wsjtx_syslog_%Y-%m.log"
+RotationTimePoint="01 00:00:00"
+Append=true
+EnableFinalRotation=false
+MaxSize=41943040
+MinFreeSpace=1073741824
+MaxFiles=12
+Target="${AppLocalDataLocation}/logs"
+ScanForFiles="Matching"
+Format="[%Channel%][%TimeStamp(format=\"%Y-%m-%d %H:%M:%S.%f\")%][%Uptime(format=\"%O:%M:%S.%f\")%][%Severity%] %Message%"
+Filter="%Severity% >= info"
+
+[Sinks.RIGCTRL]
+Destination=TextFile
+Asynchronous=true
+AutoFlush=true
+FileName="${DesktopLocation}/WSJT-X_RigControl.log"
+Append=true
+Format="[%TimeStamp(format=\"%Y-%m-%d %H:%M:%S.%f\")%][%Uptime(format=\"%O:%M:%S.%f\")%][%Channel%:%Severity%] %Message%"
+Filter="%Channel% matches \"RIGCTRL\" | %Severity% >= info"
