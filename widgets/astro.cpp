@@ -157,7 +157,8 @@ auto Astro::astroUpdate(QDateTime const& t, QString const& mygrid, QString const
     if(freq>=5000000ull) {                     //Suppress data not relevant below VHF
       out << "Tsky:   " << ntsky << "\n"
         "Dpol:   " << poloffset << "\n"
-        "MNR:    " << xnr << "\n"
+		"MNR:    " << xnr << "\n"
+        "Dist:   " << int((techo*149896)) << "\n" //wdg
         "Dgrd:   " << dgrd;
     }
   }
