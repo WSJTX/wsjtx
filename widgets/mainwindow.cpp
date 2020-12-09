@@ -7340,9 +7340,9 @@ void MainWindow::transmit (double snr)
     if(m_TRperiod==60) nsps=7200;
     if(m_TRperiod==120) nsps=16000;
     if(m_TRperiod==300) nsps=41472;
-//    int mode65=pow(2.0,double(m_nSubMode));
-//    toneSpacing=mode65*12000.0/nsps;
-    toneSpacing=-4.0;
+    int mode65=pow(2.0,double(m_nSubMode));
+    toneSpacing=mode65*12000.0/nsps;
+//    toneSpacing=-4.0;
     Q_EMIT sendMessage (m_mode, NUM_Q65_SYMBOLS,
            double(nsps), ui->TxFreqSpinBox->value () - m_XIT,
            toneSpacing, m_soundOutput, m_config.audio_output_channel (),
