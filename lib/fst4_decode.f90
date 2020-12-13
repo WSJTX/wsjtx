@@ -93,20 +93,16 @@ contains
 
       if(first) then
 ! read the fst4_calls.txt file
-         write(*,*) 'data_dir is:',trim(data_dir)
          inquire(file=trim(data_dir)//'/fst4w_calls.txt',exist=wcalls_exists)
          if( wcalls_exists ) then
             open(42,file=trim(data_dir)//'/fst4w_calls.txt',status='unknown')
-            write(*,*) 'fst4w_calls.txt exists'
             do i=1,MAXWCALLS
                wcalls(i)=''
                read(42,fmt='(a)',end=2867) wcalls(i)
                wcalls(i)=adjustl(wcalls(i))
                if(len(trim(wcalls(i))).eq.0) exit
-               write(*,*) 'record ',i,':',wcalls(i),':',len(trim(wcalls(i)))
             enddo
 2867        nwcalls=i-1
-            write(*,*) 'nwcalls ',nwcalls
             close(42)
          endif
 
