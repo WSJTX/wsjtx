@@ -68,8 +68,9 @@ contains
       integer mcq(29),mrrr(19),m73(19),mrr73(19)
 
       logical badsync,unpk77_success,single_decode
-      logical first,nohiscall,lwspr,ex,wcalls_exists,donocrcdecode
-      logical new_callsign
+      logical first,nohiscall,lwspr
+      logical new_callsign,plotspec_exists,wcalls_exists,do_nocrc_decode
+      logical decdata_exists
 
       integer*2 iwave(30*60*12000)
 
@@ -234,15 +235,15 @@ contains
       if(ndepth.eq.3) then
          nblock=4
          jittermax=2
-         donocrcdecode=.true.
+         do_nocrc_decode=.true.
       elseif(ndepth.eq.2) then
          nblock=4
          jittermax=2
-         donocrcdecode=.false.
+         do_nocrc_decode=.false.
       elseif(ndepth.eq.1) then
          nblock=4
          jittermax=0
-         donocrcdecode=.false.
+         do_nocrc_decode=.false.
       endif
 
       ndropmax=1
@@ -479,52 +480,24 @@ contains
                      write(c77,'(77i1)') mod(message101(1:77)+rvec,2)
                      call unpack77(c77,1,msg,unpk77_success)
                   elseif(iwspr.eq.1) then
-                     iaptype=0
-                     if( donocrcdecode ) then
-                        maxosd=1
-                        call timer('d240_74 ',0)
-                        Keff=50
-                        norder=4
-                        call decode240_74(llr,Keff,maxosd,norder,apmask,message74,cw, &
-                           ntype,nharderrors,dmin)
-                        call timer('d240_74 ',1)
-                        if(count(cw.eq.1).eq.0) then
-                           nharderrors=-nharderrors
-                           cycle
-                        endif
-                        write(c77,'(50i1)') message74(1:50)
-                        c77(51:77)='000000000000000000000110000'
-                        call unpack77(c77,1,msg,unpk77_success)
-                        if(unpk77_success) then
-                           unpk77_success=.false.
-                           do i=1,nwcalls
-                              if(index(msg,trim(wcalls(i))).gt.0) then
-                                 unpk77_success=.true.
-                                 iaptype=8
-                              endif
-                           enddo
-                        endif
+! First try decoding with Keff=64
+                     maxosd=2
+                     call timer('d240_74 ',0)
+                     Keff=64
+                     norder=3
+                     call decode240_74(llr,Keff,maxosd,norder,apmask,message74,cw, &
+                        ntype,nharderrors,dmin)
+                     call timer('d240_74 ',1)
+                     if(nharderrors.lt.0) goto 3465
+                     if(count(cw.eq.1).eq.0) then
+                        nharderrors=-nharderrors
+                        cycle
                      endif
-                     if(.not. unpk77_success) then
-                        maxosd=2
-                        call timer('d240_74 ',0)
-                        Keff=64
-                        norder=3
-                        call decode240_74(llr,Keff,maxosd,norder,apmask,message74,cw, &
-                           ntype,nharderrors,dmin)
-                        call timer('d240_74 ',1)
-                        if(nharderrors.lt.0) cycle
-                        if(count(cw.eq.1).eq.0) then
-                           nharderrors=-nharderrors
-                           cycle
-                        endif
-                        write(c77,'(50i1)') message74(1:50)
-                        c77(51:77)='000000000000000000000110000'
-                        call unpack77(c77,1,msg,unpk77_success)
-                     endif
-
-                     if(unpk77_success.and.Keff.eq.64) then
-
+                     write(c77,'(50i1)') message74(1:50)
+                     c77(51:77)='000000000000000000000110000'
+                     call unpack77(c77,1,msg,unpk77_success)
+                     if(unpk77_success) then
+! If decode was obtained with Keff=64, save call/grid in fst4w_calls.txt if not there already.
                         i1=index(msg,' ')
                         i2=i1+index(msg(i1+1:),' ')
                         wpart=trim(msg(1:i2))
@@ -545,6 +518,36 @@ contains
                            endif
                         endif
                      endif
+3465                 continue
+
+! If no decode then try Keff=50
+                     iaptype=0
+                     if( .not. unpk77_success .and. do_nocrc_decode ) then
+                        maxosd=1
+                        call timer('d240_74 ',0)
+                        Keff=50
+                        norder=4
+                        call decode240_74(llr,Keff,maxosd,norder,apmask,message74,cw, &
+                           ntype,nharderrors,dmin)
+                        call timer('d240_74 ',1)
+                        if(count(cw.eq.1).eq.0) then
+                           nharderrors=-nharderrors
+                           cycle
+                        endif
+                        write(c77,'(50i1)') message74(1:50)
+                        c77(51:77)='000000000000000000000110000'
+                        call unpack77(c77,1,msg,unpk77_success)
+! No CRC in this mode, so only accept the decode if call/grid have been seen before
+                        if(unpk77_success) then
+                           unpk77_success=.false.
+                           do i=1,nwcalls
+                              if(index(msg,trim(wcalls(i))).gt.0) then
+                                 unpk77_success=.true.
+                              endif
+                           enddo
+                        endif
+                     endif
+
                   endif
 
                   if(nharderrors .ge.0 .and. unpk77_success) then
@@ -561,10 +564,10 @@ contains
                      else
                         call get_fst4_tones_from_bits(message74,itone,1)
                      endif
-                     inquire(file='plotspec',exist=ex)
+                     inquire(file='plotspec',exist=plotspec_exists)
                      fmid=-999.0
                      call timer('dopsprd ',0)
-                     if(ex) then
+                     if(plotspec_exists) then
                         call dopspread(itone,iwave,nsps,nmax,ndown,hmod,  &
                            isbest,fc_synced,fmid,w50)
                      endif
@@ -586,13 +589,13 @@ contains
                      endif
                      nsnr=nint(xsnr)
                      qual=0.0
-                     if(iaptype.eq.8) qual=1.
                      fsig=fc_synced - 1.5*baud
-                     if(ex) then
+                     inquire(file='decdata',exist=decdata_exists)
+                     if(decdata_exists) then
                         write(21,3021) nutc,icand,itry,nsyncoh,iaptype,  &
-                           ijitter,ntype,nsync_qual,nharderrors,dmin,  &
+                           ijitter,ntype,Keff,nsync_qual,nharderrors,dmin,  &
                            sync,xsnr,xdt,fsig,w50,trim(msg)
-3021                    format(i6.6,6i3,2i4,f6.1,f7.2,f6.1,f6.2,f7.1,f7.3,1x,a)
+3021                    format(i6.6,6i3,3i4,f6.1,f9.2,f6.1,f6.2,f7.1,f7.3,1x,a)
                         flush(21)
                      endif
                      call this%callback(nutc,smax1,nsnr,xdt,fsig,msg,    &
@@ -604,6 +607,7 @@ contains
             enddo  ! istart jitter
 800      enddo !candidate list
       enddo ! noise blanker loop
+
       if(new_callsign) then ! re-write the fst4w_calls.txt file
          open(42,file=trim(data_dir)//'/fst4w_calls.txt',status='unknown')
          do i=1,nwcalls
@@ -611,6 +615,7 @@ contains
          enddo
          close(42)
       endif
+
 900   return
    end subroutine decode
 
