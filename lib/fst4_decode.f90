@@ -593,13 +593,14 @@ contains
                      nsnr=nint(xsnr)
                      qual=0.0
                      fsig=fc_synced - 1.5*baud
-                     inquire(file='decdata',exist=decdata_exists)
+                     inquire(file=trim(data_dir)//'/decdata',exist=decdata_exists)
                      if(decdata_exists) then
+                        open(21,file=trim(data_dir)//'/fst4_decodes.dat',status='unknown')
                         write(21,3021) nutc,icand,itry,nsyncoh,iaptype,  &
                            ijitter,ntype,Keff,nsync_qual,nharderrors,dmin,  &
                            sync,xsnr,xdt,fsig,w50,trim(msg)
 3021                    format(i6.6,6i3,3i4,f6.1,f9.2,f6.1,f6.2,f7.1,f7.3,1x,a)
-                        flush(21)
+                        close(21)
                      endif
                      call this%callback(nutc,smax1,nsnr,xdt,fsig,msg,    &
                         iaptype,qual,ntrperiod,lwspr,fmid,w50)
