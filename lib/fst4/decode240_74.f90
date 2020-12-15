@@ -25,6 +25,8 @@ subroutine decode240_74(llr,Keff,maxosd,norder,apmask,message74,cw,ntype,nharder
    include "ldpc_240_74_parity.f90"
 
    maxiterations=30
+   if(Keff.eq.50) maxiterations=1
+
    nosd=0
    if(maxosd.gt.3) maxosd=3
    if(maxosd.eq.0) then ! osd with channel llrs
@@ -35,6 +37,8 @@ subroutine decode240_74(llr,Keff,maxosd,norder,apmask,message74,cw,ntype,nharder
    elseif(maxosd.lt.0) then ! just bp
       nosd=0
    endif
+
+   if(maxosd.eq.0) goto 73
 
    toc=0
    tov=0
@@ -133,6 +137,7 @@ subroutine decode240_74(llr,Keff,maxosd,norder,apmask,message74,cw,ntype,nharder
 
    enddo   ! bp iterations
 
+73 continue
    do i=1,nosd
       zn=zsave(:,i)
 !      call osd240_74(zn,Keff,apmask,norder,message74,cw,nharderror,dminosd)

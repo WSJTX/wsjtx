@@ -181,8 +181,8 @@ subroutine fastosd240_74(llr,k,apmask,ndeep,message74,cw,nhardmin,dmin)
          nsyncmax=11
       elseif(ndeep.eq.4) then
          nord=4
-         xlambda=3.5
-         nsyndmax=11
+         xlambda=3.4
+         nsyndmax=12
       endif
 
       s1=sum(absrx(1:k))
