@@ -129,7 +129,6 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
 {
   if (!m_TRperiod) return;      // not ready to plot yet
   int j,j0;
-  static int ktop=0;
   float y,y2,ymin;
   double fac = sqrt(m_binsPerPixel*m_waterfallAvg/15.0);
   double gain = fac*pow(10.0,0.015*m_plotGain);
@@ -222,12 +221,8 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
 
     }
 
-    if(i==iz-1) {
+    if(i==iz-1 and !m_bQ65_Sync) {
       painter2D.drawPolyline(LineBuf,j);
-      if(m_mode=="QRA64" or m_mode=="Q65") {
-        painter2D.setPen(Qt::red);
-        painter2D.drawPolyline(LineBuf2,ktop);
-      }
     }
     LineBuf[j].setX(i);
     LineBuf[j].setY(int(0.9*m_h2-y2*m_h2/70.0));
