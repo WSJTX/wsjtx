@@ -192,7 +192,8 @@ subroutine q65_sync(nutc,iwave,nmax,mode_q65,codewords,ncw,nsps,nfqso,ntol, &
 !             irc,trim(decoded)
 !3055    format(i6,i3,6f8.2,i5,2x,a)
 !        close(55)
-        base=(sum(ccf1(-ia:-ia+9)) + sum(ccf1(ia-9:ia)))/20.0
+        ic=ia/4;
+        base=(sum(ccf1(-ia:-ia+ic)) + sum(ccf1(ia-ic:ia)))/(2.0+2.0*ic);
         ccf1=ccf1-base
         smax=maxval(ccf1)
         if(smax.gt.10.0) ccf1=10.0*ccf1/smax
