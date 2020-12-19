@@ -226,9 +226,10 @@ subroutine q65_sync(nutc,iwave,nmax,mode_q65,codewords,ncw,nsps,nfqso,ntol, &
   xdt=jpk*dtstep
   sq=0.
   nsq=0
+  jd=(lag2-lag1)/4
   do i=-ia,ia
      do j=lag1,lag2
-        if(abs(j-jpk).gt.8 .and. abs(i-ipk).gt.ia/2) then
+        if(abs(j-jpk).gt.jd .and. abs(i-ipk).gt.ia/2) then
            sq=sq + ccf(i,j)**2
            nsq=nsq+1
         endif
