@@ -1,5 +1,5 @@
 subroutine q65_loops(c00,npts2,nsps,mode,mode_q65,nsubmode,nFadingModel, &
-     ndepth,jpk0,xdt0,f0,iaptype,APmask,APsymbols,xdt1,f1,snr2,dat4,id2)
+     ndepth,jpk0,xdt0,f0,width,iaptype,APmask,APsymbols,xdt1,f1,snr2,dat4,id2)
 
   use packjt77
   use timer_module, only: timer
@@ -69,9 +69,9 @@ subroutine q65_loops(c00,npts2,nsps,mode,mode_q65,nsubmode,nFadingModel, &
            nbw=ibw
            ndist=ndf**2 + ndt**2 + ((nbw-2))**2
            if(ndist.gt.maxdist) cycle
-           !              b90=1.728**ibw
            b90=3.0**nbw                    !### Mult by ~baud/3.33 ??? ###
            if(nbw.eq.0) b90=baud
+           if(b90.lt.0.5*width) cycle
            if(b90.gt.230.0) cycle
            call timer('q65_intr',0)
            b90ts = b90/baud

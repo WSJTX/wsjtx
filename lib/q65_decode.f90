@@ -94,7 +94,7 @@ contains
     call q65_enc(dgen,codewords)         !Initialize Q65
     call timer('sync_q65',0)
     call q65_sync(nutc,iwave,ntrperiod*12000,mode65,codewords,ncw,nsps,   &
-         nfqso,ntol,emedelay,xdt,f0,snr1,dat4,snr2,id1)
+         nfqso,ntol,emedelay,xdt,f0,snr1,width,dat4,snr2,id1)
     call timer('sync_q65',1)
     if(id1.eq.1) then
        xdt1=xdt
@@ -139,8 +139,8 @@ contains
           endif
        endif
        call timer('q65loops',0)
-       call q65_loops(c00,npts/2,nsps/2,nmode,mode65,nsubmode,         &
-            nFadingModel,ndepth,jpk0,xdt,f0,iaptype,apmask,apsymbols, &
+       call q65_loops(c00,npts/2,nsps/2,nmode,mode65,nsubmode,              &
+            nFadingModel,ndepth,jpk0,xdt,f0,width,iaptype,apmask,apsymbols, &
             xdt1,f1,snr2,dat4,id2)
        call timer('q65loops',1)
 !       snr2=snr2 + db(6912.0/nsps)

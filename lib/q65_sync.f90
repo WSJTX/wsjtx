@@ -1,5 +1,5 @@
 subroutine q65_sync(nutc,iwave,nmax,mode_q65,codewords,ncw,nsps,nfqso,ntol, &
-     emedelay,xdt,f0,snr1,dat4,snr2,id1)
+     emedelay,xdt,f0,snr1,width,dat4,snr2,id1)
 
 ! Detect and align with the Q65 sync vector, returning time and frequency
 ! offsets and SNR estimate.
@@ -243,12 +243,18 @@ subroutine q65_sync(nutc,iwave,nmax,mode_q65,codewords,ncw,nsps,nfqso,ntol, &
   ccf1=ccf(-ia:ia,jpk)/rms
   if(snr1.gt.10.0) ccf1=(10.0/snr1)*ccf1
 
-200 do i=-ia,ia
+200 smax=maxval(ccf1)
+  i1=-9999
+  i2=-9999
+  do i=-ia,ia
+     if(i1.eq.-9999 .and. ccf1(i).ge.0.5*smax) i1=i
+     if(i2.eq.-9999 .and. ccf1(-i).ge.0.5*smax) i2=-i
      freq=nfqso + i*df
      write(17,1100) freq,ccf1(i),xdt
 1100 format(3f10.3)
   enddo
   close(17)
+  width=df*(i2-i1)
 
 900 return
 end subroutine q65_sync
