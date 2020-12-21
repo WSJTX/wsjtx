@@ -102,7 +102,11 @@ contains
        go to 100
     endif
     
-    if(snr1.lt.2.8) go to 100
+    if(snr1.lt.2.8) then
+       xdt1=0.
+       f1=0.
+       go to 100
+    endif
     jpk0=(xdt+1.0)*6000                      !### Is this OK?
     if(ntrperiod.le.30) jpk0=(xdt+0.5)*6000  !###
     if(jpk0.lt.0) jpk0=0
