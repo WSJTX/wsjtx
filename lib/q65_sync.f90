@@ -182,7 +182,7 @@ subroutine q65_sync(nutc,iwave,nmax,mode_q65,codewords,ncw,nsps,nfqso,ntol, &
      call q65_intrinsics_ff(s3,nsubmode,b90/baud,nFadingModel,s3prob)
      call q65_dec_fullaplist(s3,s3prob,codewords,ncw,esnodb,dat4,plog,irc)
      if(irc.ge.0 .and. plog.ge.PLOG_MIN) then
-        snr2=esnodb - db(2500.0/baud)
+        snr2=esnodb - db(2500.0/baud) + 3.0     !Empirical adjustment
         id1=1
         write(c77,1000) dat4(1:12),dat4(13)/2
 1000    format(12b6.6,b5.5)
