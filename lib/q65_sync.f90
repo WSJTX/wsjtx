@@ -48,14 +48,15 @@ subroutine q65_sync(nutc,iwave,nmax,mode_q65,codewords,ncw,nsps,nfqso,ntol, &
   jz=(txt+1.0)*12000.0/istep             !Number of quarter-symbol steps
   if(nsps.ge.6912) jz=(txt+2.0)*12000.0/istep   !For TR 60 s and higher
   ia=ntol/df
+  ia2=max(ia,10*mode_q65)
   nsmo=int(0.7*mode_q65*mode_q65)
   if(nsmo.lt.1) nsmo=1
 
   allocate(s1(iz,jz))
   allocate(s3(-64:LL-65,63))
   allocate(c0(0:nfft-1))
-  allocate(ccf(-ia:ia,-53:214))
-  allocate(ccf1(-ia:ia))
+  allocate(ccf(-ia2:ia2,-53:214))
+  allocate(ccf1(-ia2:ia2))
 
   if(sync(1).eq.99.0) then               !Generate the sync vector
      sync=-22.0/63.0                     !Sync tone OFF  
@@ -66,10 +67,10 @@ subroutine q65_sync(nutc,iwave,nmax,mode_q65,codewords,ncw,nsps,nfqso,ntol, &
 
   fac=1/32767.0
   do j=1,jz                              !Compute symbol spectra at step size
-     ia=(j-1)*istep
-     ib=ia+nsps-1
+     i1=(j-1)*istep
+     i2=i1+nsps-1
      k=-1
-     do i=ia,ib,2          !Load iwave data into complex array c0, for r2c FFT
+     do i=i1,i2,2          !Load iwave data into complex array c0, for r2c FFT
         xx=iwave(i)
         yy=iwave(i+1)
         k=k+1
@@ -99,7 +100,6 @@ subroutine q65_sync(nutc,iwave,nmax,mode_q65,codewords,ncw,nsps,nfqso,ntol, &
   enddo
 
   dtstep=nsps/(NSTEP*12000.0)                 !Step size in seconds
-  ia=ntol/df
   lag1=-1.0/dtstep
   lag2=1.0/dtstep + 0.9999
   j0=0.5/dtstep
@@ -135,23 +135,23 @@ subroutine q65_sync(nutc,iwave,nmax,mode_q65,codewords,ncw,nsps,nfqso,ntol, &
         do k=1,85
            j=j0 + NSTEP*(k-1) + 1 + lag
            if(j.ge.1 .and. j.le.jz) then
-              do i=-ia,ia
+              do i=-ia2,ia2
                  ii=i0+mode_q65*itone(k)+i
                  if(ii.ge.1 .and. ii.le.iz) ccf(i,lag)=ccf(i,lag) + s1(ii,j)
               enddo
            endif
         enddo
      enddo
-     ccfmax=maxval(ccf)
+     ccfmax=maxval(ccf(-ia:ia,:))
      if(ccfmax.gt.ccf_best) then
         ccf_best=ccfmax
-        ijpk=maxloc(ccf)
+        ijpk=maxloc(ccf(-ia:ia,:))
         ipk=ijpk(1)-ia-1
         jpk=ijpk(2)-53-1     
         f0=nfqso + (ipk-1)*df
         xdt=jpk*dtstep
         imsg_best=imsg
-        ccf1=ccf(-ia:ia,jpk)
+        ccf1=ccf(:,jpk)
      endif
   enddo  ! imsg
 
@@ -192,8 +192,8 @@ subroutine q65_sync(nutc,iwave,nmax,mode_q65,codewords,ncw,nsps,nfqso,ntol, &
 !             irc,trim(decoded)
 !3055    format(i6,i3,6f8.2,i5,2x,a)
 !        close(55)
-        ic=ia/4;
-        base=(sum(ccf1(-ia:-ia+ic)) + sum(ccf1(ia-ic:ia)))/(2.0+2.0*ic);
+        ic=ia2/4;
+        base=(sum(ccf1(-ia2:-ia2+ic)) + sum(ccf1(ia2-ic:ia2)))/(2.0+2.0*ic);
         ccf1=ccf1-base
         smax=maxval(ccf1)
         if(smax.gt.10.0) ccf1=10.0*ccf1/smax
@@ -207,20 +207,19 @@ subroutine q65_sync(nutc,iwave,nmax,mode_q65,codewords,ncw,nsps,nfqso,ntol, &
 100 ccf=0.
   irc=-2
   dat4=0
-  ia=ntol/df
   do lag=lag1,lag2
      do k=1,85
         n=NSTEP*(k-1) + 1
         j=n+lag+j0
         if(j.ge.1 .and. j.le.jz) then
-           do i=-ia,ia
+           do i=-ia2,ia2
               if(i0+i.lt.1 .or. i0+i.gt.iz) cycle
               ccf(i,lag)=ccf(i,lag) + sync(k)*s1(i0+i,j)
            enddo
         endif
      enddo
   enddo
-  ijpk=maxloc(ccf)
+  ijpk=maxloc(ccf(-ia:ia,:))
   ipk=ijpk(1)-ia-1
   jpk=ijpk(2)-53-1
 
@@ -229,7 +228,7 @@ subroutine q65_sync(nutc,iwave,nmax,mode_q65,codewords,ncw,nsps,nfqso,ntol, &
   sq=0.
   nsq=0
   jd=(lag2-lag1)/4
-  do i=-ia,ia
+  do i=-ia2,ia2
      do j=lag1,lag2
         if(abs(j-jpk).gt.jd .and. abs(i-ipk).gt.ia/2) then
            sq=sq + ccf(i,j)**2
@@ -240,7 +239,7 @@ subroutine q65_sync(nutc,iwave,nmax,mode_q65,codewords,ncw,nsps,nfqso,ntol, &
   rms=sqrt(sq/nsq)
   smax=ccf(ipk,jpk)
   snr1=smax/rms
-  ccf1=ccf(-ia:ia,jpk)/rms
+  ccf1=ccf(:,jpk)/rms
   if(snr1.gt.10.0) ccf1=(10.0/snr1)*ccf1
 
 200 smax=maxval(ccf1)
@@ -249,6 +248,8 @@ subroutine q65_sync(nutc,iwave,nmax,mode_q65,codewords,ncw,nsps,nfqso,ntol, &
   do i=-ia,ia
      if(i1.eq.-9999 .and. ccf1(i).ge.0.5*smax) i1=i
      if(i2.eq.-9999 .and. ccf1(-i).ge.0.5*smax) i2=-i
+  enddo
+  do i=-ia2,ia2
      freq=nfqso + i*df
      write(17,1100) freq,ccf1(i),xdt
 1100 format(3f10.3)
