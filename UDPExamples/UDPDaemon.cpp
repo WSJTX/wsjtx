@@ -59,7 +59,7 @@ public:
                              , QString const& /*de_call*/, QString const& /*de_grid*/, QString const& /*dx_grid*/
                              , bool /* watchdog_timeout */, QString const& sub_mode, bool /*fast_mode*/
                              , quint8 /*special_op_mode*/, quint32 /*frequency_tolerance*/, quint32 /*tr_period*/
-                             , QString const& /*configuration_name*/)
+                             , QString const& /*configuration_name*/, QString const& /*tx_message*/)
   {
     if (key == key_)
       {

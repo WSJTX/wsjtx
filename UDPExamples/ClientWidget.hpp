@@ -52,7 +52,7 @@ public:
                              , QString const& de_call, QString const& de_grid, QString const& dx_grid
                              , bool watchdog_timeout, QString const& sub_mode, bool fast_mode
                              , quint8 special_op_mode, quint32 frequency_tolerance, quint32 tr_period
-                             , QString const& configuration_name);
+                             , QString const& configuration_name, QString const& tx_message);
   Q_SLOT void decode_added (bool is_new, ClientKey const& key, QTime, qint32 snr
                             , float delta_time, quint32 delta_frequency, QString const& mode
                             , QString const& message, bool low_confidence, bool off_air);
@@ -122,6 +122,7 @@ private:
   QLineEdit * mode_line_edit_;
   QSpinBox * frequency_tolerance_spin_box_;
   QLabel * tx_mode_label_;
+  QLabel * tx_message_label_;
   QLineEdit * submode_line_edit_;
   QCheckBox * fast_mode_check_box_;
   QSpinBox * tr_period_spin_box_;
