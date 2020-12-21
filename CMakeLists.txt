@@ -345,7 +345,6 @@ set (wsjt_FSRCS
   lib/avecho.f90
   lib/averms.f90
   lib/azdist.f90
-  lib/badmsg.f90
   lib/ft8/baseline.f90
   lib/ft4/ft4_baseline.f90
   lib/blanker.f90
@@ -433,7 +432,6 @@ set (wsjt_FSRCS
   lib/ft4/genft4.f90
   lib/ft4/gen_ft4wave.f90
   lib/ft8/gen_ft8wave.f90
-  lib/genqra64.f90
   lib/ft8/genft8refsig.f90
   lib/genwspr.f90
   lib/geodist.f90
@@ -498,8 +496,6 @@ set (wsjt_FSRCS
   lib/prog_args.f90
   lib/ps4.f90
   lib/q65_sync.f90
-  lib/qra64a.f90
-  lib/qra_loops.f90
   lib/qra/q65/q65_ap.f90
   lib/qra/q65/q65_loops.f90
   lib/qra/q65/q65_set_list.f90
@@ -585,8 +581,6 @@ set (ka9q_CSRCS
 set_source_files_properties (${ka9q_CSRCS} PROPERTIES COMPILE_FLAGS -Wno-sign-compare)
 
 set (qra_CSRCS
-  lib/qra/qra64/qra64.c
-  lib/qra/qra64/qra64_subs.c
   lib/qra/qracodes/qra12_63_64_irr_b.c
   lib/qra/qracodes/qra13_64_64_irr_e.c
   lib/qra/q65/npfwht.c
@@ -1114,14 +1108,8 @@ target_link_libraries (jt65sim wsjt_fort wsjt_cxx)
 add_executable (sumsim lib/sumsim.f90)
 target_link_libraries (sumsim wsjt_fort wsjt_cxx)
 
-add_executable (qra64sim lib/qra/qra64/qra64sim.f90)
-target_link_libraries (qra64sim wsjt_fort wsjt_cxx)
-
 add_executable (q65sim lib/qra/q65/q65sim.f90)
 target_link_libraries (q65sim wsjt_fort wsjt_cxx)
-
-add_executable (test_qra64 lib/test_qra64.f90)
-target_link_libraries (test_qra64 wsjt_fort wsjt_cxx)
 
 add_executable (test_q65 lib/test_q65.f90)
 target_link_libraries (test_q65 wsjt_fort wsjt_cxx)
@@ -1132,17 +1120,14 @@ target_link_libraries (q65_ftn_test wsjt_fort wsjt_cxx)
 add_executable (jt49sim lib/jt49sim.f90)
 target_link_libraries (jt49sim wsjt_fort wsjt_cxx)
 
-add_executable (allsim lib/allsim.f90)
-target_link_libraries (allsim wsjt_fort wsjt_cxx)
+#add_executable (allsim lib/allsim.f90)
+#target_link_libraries (allsim wsjt_fort wsjt_cxx)
 
 add_executable (rtty_spec lib/rtty_spec.f90)
 target_link_libraries (rtty_spec wsjt_fort wsjt_cxx)
 
 add_executable (jt65code lib/jt65code.f90)
 target_link_libraries (jt65code wsjt_fort wsjt_cxx)
-
-add_executable (qra64code lib/qra64code.f90)
-target_link_libraries (qra64code wsjt_fort wsjt_cxx)
 
 add_executable (jt9code lib/jt9code.f90)
 target_link_libraries (jt9code wsjt_fort wsjt_cxx)
@@ -1559,8 +1544,7 @@ install (TARGETS jt9 wsprd fmtave fcal fmeasure
   )
 
 if(WSJT_BUILD_UTILS)
-install (TARGETS ft8code jt65code qra64code qra64sim jt9code jt4code
-  msk144code fst4sim q65sim
+install (TARGETS ft8code jt65code jt9code jt4code msk144code fst4sim q65sim
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   )

@@ -49,7 +49,6 @@
 #define NUM_WSPR_SYMBOLS 162               //(50+31)*2, embedded sync
 #define NUM_ISCAT_SYMBOLS 1291             //30*11025/256
 #define NUM_MSK144_SYMBOLS 144             //s8 + d48 + s8 + d80
-#define NUM_QRA64_SYMBOLS 84               //63 data + 21 sync
 #define NUM_Q65_SYMBOLS 85                 //63 data + 22 sync
 #define NUM_FT8_SYMBOLS 79
 #define NUM_FT4_SYMBOLS 105
@@ -304,7 +303,6 @@ private slots:
   void on_sbCQTxFreq_valueChanged(int n);
   void on_cbCQTx_toggled(bool b);
   void on_actionMSK144_triggered();
-  void on_actionQRA64_triggered();
   void on_actionQ65_triggered();
   void on_actionFreqCal_triggered();
   void splash_done ();

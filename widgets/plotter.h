@@ -119,6 +119,7 @@ private:
   bool    m_bVHF;
   bool    m_bSingleDecode;
   bool    m_bFirst=true;
+  bool    m_bResized;
 
   float   m_fSpan;
 

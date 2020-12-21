@@ -99,24 +99,6 @@ contains
     dd=dd0
     ndecoded=0
     ndecoded0=0
-
-    if(nsubmode.ge.100) then
-! This is QRA64 mode
-       mode64=2**(nsubmode-100)
-       call qra64a(dd,npts,nf1,nf2,nfqso,ntol,mode64,minsync,ndepth,         &
-            emedelay,mycall,hiscall,hisgrid,sync,nsnr,dtx,nfreq,decoded,nft)
-       if (associated(this%callback)) then
-          ndrift=0
-          nflip=1
-          width=1.0
-          nsmo=0
-          nqual=0
-          call this%callback(sync,nsnr,dtx,nfreq,ndrift,  &
-               nflip,width,decoded,nft,nqual,nsmo,1,minsync)
-       end if
-       go to 900
-    endif
-
     single_decode=iand(nexp_decode,32).ne.0 .or. nagain
     bVHF=iand(nexp_decode,64).ne.0
 

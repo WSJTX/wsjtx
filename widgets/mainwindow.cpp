@@ -134,9 +134,6 @@ extern "C" {
   void gen65_(char* msg, int* ichk, char* msgsent, int itone[],
               int* itext, fortran_charlen_t, fortran_charlen_t);
 
-  void genqra64_(char* msg, int* ichk, char* msgsent, int itone[],
-              int* itext, fortran_charlen_t, fortran_charlen_t);
-
   void genq65_(char* msg, int* ichk, char* msgsent, int itone[],
               int* i3, int* n3, fortran_charlen_t, fortran_charlen_t);
 
@@ -600,7 +597,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   ui->actionEcho->setActionGroup(modeGroup);
   ui->actionISCAT->setActionGroup(modeGroup);
   ui->actionMSK144->setActionGroup(modeGroup);
-  ui->actionQRA64->setActionGroup(modeGroup);
   ui->actionQ65->setActionGroup(modeGroup);
   ui->actionFreqCal->setActionGroup(modeGroup);
 
@@ -1400,9 +1396,6 @@ void MainWindow::fixStop()
   } else if (m_mode=="JT65"){
     m_hsymStop=174;
     if(m_config.decode_at_52s()) m_hsymStop=179;
-  } else if (m_mode=="QRA64"){
-    m_hsymStop=179;
-    if(m_config.decode_at_52s()) m_hsymStop=186;
   } else if (m_mode=="Q65"){
     m_hsymStop=48;
     if(m_TRperiod==30) m_hsymStop=96;
@@ -1880,7 +1873,7 @@ void MainWindow::on_actionSettings_triggered()               //Setup Dialog
 
     setup_status_bar (vhf);
     bool b = vhf && (m_mode=="JT4" or m_mode=="JT65" or m_mode=="ISCAT" or
-                     m_mode=="JT9" or m_mode=="MSK144" or m_mode=="QRA64");
+                     m_mode=="JT9" or m_mode=="MSK144" or m_mode=="Q65");
     if(b) VHF_features_enabled(b);
     set_mode (m_mode);
     if(b) VHF_features_enabled(b);
@@ -2394,8 +2387,6 @@ void MainWindow::setup_status_bar (bool vhf)
     mode_label.setStyleSheet ("QLabel{color: #000000; background-color: #66ffff}");
   } else if ("JT65" == m_mode) {
     mode_label.setStyleSheet ("QLabel{color: #000000; background-color: #66ff66}");
-  } else if ("QRA64" == m_mode) {
-    mode_label.setStyleSheet ("QLabel{color: #000000; background-color: #99ff33}");
   } else if ("Q65" == m_mode) {
     mode_label.setStyleSheet ("QLabel{color: #000000; background-color: #99ff33}");
   } else if ("MSK144" == m_mode) {
@@ -3145,8 +3136,6 @@ void MainWindow::decode()                                       //decode()
   if(m_mode=="JT65") dec_data.params.nmode=65;
   if(m_mode=="JT65") dec_data.params.ljt65apon = ui->actionEnable_AP_JT65->isVisible () &&
       ui->actionEnable_AP_JT65->isChecked ();
-  if(m_mode=="QRA64") dec_data.params.nmode=164;
-  if(m_mode=="QRA64") dec_data.params.ntxmode=164;
   if(m_mode=="Q65") dec_data.params.nmode=66;
   if(m_mode=="Q65") dec_data.params.ntxmode=66;
   if(m_mode=="JT4") {
@@ -3165,7 +3154,6 @@ void MainWindow::decode()                                       //decode()
   if(m_mode=="FST4W") dec_data.params.nmode=241;
   dec_data.params.ntrperiod=m_TRperiod;
   dec_data.params.nsubmode=m_nSubMode;
-  if(m_mode=="QRA64") dec_data.params.nsubmode=100 + m_nSubMode;
   dec_data.params.minw=0;
   dec_data.params.nclearave=m_nclearave;
   if(m_nclearave!=0) {
@@ -3304,7 +3292,7 @@ void MainWindow::to_jt9(qint32 n, qint32 istart, qint32 idone)
 void MainWindow::decodeDone ()
 {
   if(m_mode!="FT8" or dec_data.params.nzhsym==50) m_nDecodes=0;
-  if(m_mode=="QRA64" or m_mode=="Q65") m_wideGraph->drawRed(0,0);
+  if(m_mode=="Q65") m_wideGraph->drawRed(0,0);
   if ("FST4W" == m_mode)
     {
       if (m_uploadWSPRSpots
@@ -3384,7 +3372,8 @@ void MainWindow::readFromStdout()                             //readFromStdout
     } else {
       m_nDecodes+=1;
       ndecodes_label.setText(QString::number(m_nDecodes));
-      if(m_mode=="JT4" or m_mode=="JT65" or m_mode=="QRA64") {
+      if(m_mode=="JT4" or m_mode=="JT65") {
+        //### Do something about Q65 here ?  ###
         int nf=line_read.indexOf("f");
         if(nf>0) {
           navg=line_read.mid(nf+1,1).toInt();
@@ -3563,7 +3552,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
 
 //### I think this is where we are preventing Hounds from spotting Fox ###
       if(m_mode!="FT8" or (SpecOp::HOUND != m_config.special_op_id())) {
-        if(m_mode=="FT8" or m_mode=="FT4" or m_mode=="QRA64" or m_mode=="Q65"
+        if(m_mode=="FT8" or m_mode=="FT4" or m_mode=="Q65"
            or m_mode=="JT4" or m_mode=="JT65" or m_mode=="JT9" or m_mode=="FST4") {
           auto_sequence (decodedtext, 25, 50);
         }
@@ -3590,7 +3579,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
         } else {
           if (stdMsg && okToPost) pskPost(decodedtext);
         }
-        if((m_mode=="JT4" or m_mode=="JT65" or m_mode=="QRA64" or m_mode=="Q65") and
+        if((m_mode=="JT4" or m_mode=="JT65" or m_mode=="Q65") and
            m_msgAvgWidget!=NULL) {
           if(m_msgAvgWidget->isVisible()) {
             QFile f(m_config.temp_dir ().absoluteFilePath ("avemsg.txt"));
@@ -3769,8 +3758,7 @@ void MainWindow::guiUpdate()
   if(m_modeTx=="JT4")  txDuration=1.0 + 207.0*2520/11025.0;   // JT4
   if(m_modeTx=="JT9")  txDuration=1.0 + 85.0*m_nsps/12000.0;  // JT9
   if(m_modeTx=="JT65") txDuration=1.0 + 126*4096/11025.0;     // JT65
-  if(m_modeTx=="QRA64")  txDuration=1.0 + 84*6912/12000.0;    // QRA64
-  if(m_modeTx=="Q65")  {                                    // Q65
+  if(m_modeTx=="Q65")  {                                      // Q65
     if(m_TRperiod==15) txDuration=0.5 + 85*1800/12000.0;
     if(m_TRperiod==30) txDuration=0.5 + 85*3600/12000.0;
     if(m_TRperiod==60) txDuration=1.0 + 85*7200/12000.0;
@@ -4025,8 +4013,6 @@ void MainWindow::guiUpdate()
         if(m_modeTx=="JT9") gen9_(message, &ichk, msgsent, const_cast<int *> (itone),
                                   &m_currentMessageType, 22, 22);
         if(m_modeTx=="JT65") gen65_(message, &ichk, msgsent, const_cast<int *> (itone),
-                                    &m_currentMessageType, 22, 22);
-        if(m_modeTx=="QRA64") genqra64_(message, &ichk, msgsent, const_cast<int *> (itone),
                                     &m_currentMessageType, 22, 22);
         if(m_modeTx=="Q65") {
           int i3=-1;
@@ -4769,7 +4755,6 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
   if (("JT65" == m_mode && mode != "#")
       || ("JT9" == m_mode && mode != "@")
       || ("MSK144" == m_mode && !("&" == mode || "^" == mode))
-      || ("QRA64" == m_mode && mode.left (1) != ":")
       || ("Q65" == m_mode && mode.left (1) != ":")) {
     return;      //Currently we do auto-sequencing only in FT4, FT8, MSK144, FST4, and Q65
   }
@@ -4867,8 +4852,7 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
         ui->TxFreqSpinBox->setValue(frequency);
       }
       if(m_mode != "JT4" && m_mode != "JT65" && !m_mode.startsWith ("JT9") &&
-         m_mode != "QRA64" && m_mode != "Q65" && m_mode!="FT8" &&
-         m_mode!="FT4" && m_mode!="FST4") {
+         m_mode != "Q65" && m_mode!="FT8" && m_mode!="FT4" && m_mode!="FST4") {
         return;
       }
     }
@@ -5216,7 +5200,7 @@ void MainWindow::genCQMsg ()
         msgtype (QString {"%1 %2"}.arg(m_CQtype).arg(m_config.my_callsign()),ui->tx6);
       }
     }
-    if ((m_mode=="JT4" or m_mode=="QRA64" or m_mode=="Q65") and  ui->cbShMsgs->isChecked()) {
+    if ((m_mode=="JT4" or m_mode=="Q65") and  ui->cbShMsgs->isChecked()) {
       if (ui->cbTx6->isChecked ()) {
         msgtype ("@1250  (SEND MSGS)", ui->tx6);
       } else {
@@ -5400,7 +5384,7 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
       if(!bHisCall and bMyCall) t=hisCall + " <" + my_callsign + "> " + (m_send_RR73 ? "RR73" : "RRR");
       if(bHisCall and !bMyCall) t="<" + hisCall + "> " + my_callsign + " " + (m_send_RR73 ? "RR73" : "RRR");
     }
-    if ((m_mode=="JT4" || m_mode=="QRA64") && m_bShMsgs) t="@1500  (RRR)";
+    if ((m_mode=="JT4" || m_mode=="Q65") && m_bShMsgs) t="@1500  (RRR)";
     msgtype(t, ui->tx4);
 
     t=t0 + "73";
@@ -5408,7 +5392,7 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
       if(!bHisCall and bMyCall) t=hisCall + " <" + my_callsign + "> 73";
       if(bHisCall and !bMyCall) t="<" + hisCall + "> " + my_callsign + " 73";
     }
-    if (m_mode=="JT4" || m_mode=="QRA64") {
+    if (m_mode=="JT4" || m_mode=="Q65") {
       if (m_bShMsgs) t="@1750  (73)";
       msgtype(t, ui->tx5->lineEdit());
     } else if ("MSK144" == m_mode && m_bShMsgs) {
@@ -5439,7 +5423,7 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
             } else {
               msgtype(t + "R" + rpt, ui->tx3);
             }
-            if ((m_mode != "JT4" && m_mode != "QRA64") || !m_bShMsgs) {
+            if ((m_mode != "JT4" && m_mode != "Q65") || !m_bShMsgs) {
               msgtype(t + "73", ui->tx5->lineEdit ());
             }
           }
@@ -5454,7 +5438,7 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
             msgtype(t00 + my_grid, ui->tx1);
             msgtype(t + "R" + rpt, ui->tx3);
           }
-          if (!eme_short_codes && ((m_mode != "JT4" && m_mode != "QRA64") || !m_bShMsgs)) {
+          if (!eme_short_codes && ((m_mode != "JT4" && m_mode != "Q65") || !m_bShMsgs)) {
             msgtype(t + "73", ui->tx5->lineEdit ());
           }
           break;
@@ -6372,40 +6356,6 @@ void MainWindow::on_actionJT65_triggered()
   statusChanged();
 }
 
-void MainWindow::on_actionQRA64_triggered()
-{
-  int n=m_nSubMode;
-  on_actionJT65_triggered();
-  m_nSubMode=n;
-  m_mode="QRA64";
-  m_modeTx="QRA64";
-  ui->actionQRA64->setChecked(true);
-  switch_mode (Modes::QRA64);
-  setup_status_bar (true);
-  m_hsymStop=180;
-  if(m_config.decode_at_52s()) m_hsymStop=188;
-  m_wideGraph->setMode(m_mode);
-  m_wideGraph->setModeTx(m_modeTx);
-  ui->sbSubmode->setMaximum(4);
-  ui->sbSubmode->setValue(m_nSubMode);
-  ui->actionInclude_averaging->setVisible (false);
-  ui->actionInclude_correlation->setVisible (false);
-//  ui->RxFreqSpinBox->setValue(1000);
-//  ui->TxFreqSpinBox->setValue(1000);
-  QString fname {QDir::toNativeSeparators(m_config.temp_dir ().absoluteFilePath ("red.dat"))};
-  m_wideGraph->setRedFile(fname);
-  m_wideGraph->setMode(m_mode);
-  m_wideGraph->setModeTx(m_modeTx);
-  m_wideGraph->setPeriod(m_TRperiod,6912);
-  m_wideGraph->setTxFreq(ui->TxFreqSpinBox->value());
-  m_wideGraph->setRxFreq(ui->RxFreqSpinBox->value());
-  m_wideGraph->setTol(ui->sbFtol->value());
-  switch_mode (Modes::QRA64);
-//                         012345678901234567890123456789012345
-  displayWidgets(nWidgets("111110010010110110010000001000000000"));
-  statusChanged();
-}
-
 void MainWindow::on_actionQ65_triggered()
 {
 //  on_actionFST4_triggered();
@@ -6484,7 +6434,6 @@ void MainWindow::on_actionMSK144_triggered()
     if("JT9"==m_mode) ui->actionJT9->setChecked(true); 
     if("JT65"==m_mode) ui->actionJT65->setChecked(true); 
     if("ISCAT"==m_mode) ui->actionISCAT->setChecked(true); 
-    if("QRA64"==m_mode) ui->actionQRA64->setChecked(true);
     if("Q65"==m_mode) ui->actionQ65->setChecked(true);
     if("WSPR"==m_mode) ui->actionWSPR->setChecked(true);
     if("Echo"==m_mode) ui->actionEcho->setChecked(true); 
@@ -7306,18 +7255,6 @@ void MainWindow::transmit (double snr)
                         true, false, snr, m_TRperiod);
   }
 
-  if (m_modeTx == "QRA64") {
-    if(m_nSubMode==0) toneSpacing=12000.0/6912.0;
-    if(m_nSubMode==1) toneSpacing=2*12000.0/6912.0;
-    if(m_nSubMode==2) toneSpacing=4*12000.0/6912.0;
-    if(m_nSubMode==3) toneSpacing=8*12000.0/6912.0;
-    if(m_nSubMode==4) toneSpacing=16*12000.0/6912.0;
-    Q_EMIT sendMessage (m_mode, NUM_QRA64_SYMBOLS,
-           6912.0, ui->TxFreqSpinBox->value () - m_XIT,
-           toneSpacing, m_soundOutput, m_config.audio_output_channel (),
-           true, false, snr, m_TRperiod);
-  }
-
   if (m_modeTx == "Q65") {
     int nsps=1800;
     if(m_TRperiod==30) nsps=3600;
@@ -7566,7 +7503,6 @@ void::MainWindow::VHF_features_enabled(bool b)
   ui->actionInclude_averaging->setVisible (b);
   ui->actionInclude_correlation->setVisible (b && m_mode!="Q65");
   ui->actionMessage_averaging->setEnabled(b);
-  ui->actionEnable_AP_DXcall->setVisible (m_mode=="QRA64");
   ui->actionEnable_AP_JT65->setVisible (b && m_mode=="JT65");
 
   if(!b && m_msgAvgWidget and (SpecOp::FOX != m_config.special_op_id()) and !m_config.autoLog()) {
@@ -7622,7 +7558,7 @@ void MainWindow::on_sbTR_FST4W_valueChanged(int value)
 QChar MainWindow::current_submode () const
 {
   QChar submode {0};
-  if (m_mode.contains (QRegularExpression {R"(^(JT65|JT9|JT4|ISCAT|QRA64|Q65)$)"})
+  if (m_mode.contains (QRegularExpression {R"(^(JT65|JT9|JT4|ISCAT|Q65)$)"})
       && (m_config.enable_VHF_features () || "JT4" == m_mode || "ISCAT" == m_mode))
     {
       submode = m_nSubMode + 65;
@@ -9274,7 +9210,6 @@ void MainWindow::set_mode (QString const& mode)
     else if ("JT4" == mode) on_actionJT4_triggered ();
     else if ("JT9" == mode) on_actionJT9_triggered ();
     else if ("JT65" == mode) on_actionJT65_triggered ();
-    else if ("QRA64" == mode) on_actionQRA64_triggered ();
     else if ("Q65" == mode) on_actionQ65_triggered ();
     else if ("FreqCal" == mode) on_actionFreqCal_triggered ();
     else if ("ISCAT" == mode) on_actionISCAT_triggered ();

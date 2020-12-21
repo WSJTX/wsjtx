@@ -2,6 +2,14 @@
 <ui version="4.0">
  <class>MainWindow</class>
  <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1124</width>
+    <height>582</height>
+   </rect>
+  </property>
   <property name="windowTitle">
    <string>WSJT-X   by K1JT</string>
   </property>
@@ -2793,7 +2801,7 @@ Double-click to reset to the standard 73 message</string>
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1110</width>
+     <width>1124</width>
      <height>21</height>
     </rect>
    </property>
@@ -2884,7 +2892,6 @@ Double-click to reset to the standard 73 message</string>
     <addaction name="actionJT4"/>
     <addaction name="actionJT9"/>
     <addaction name="actionJT65"/>
-    <addaction name="actionQRA64"/>
     <addaction name="actionQ65"/>
     <addaction name="separator"/>
     <addaction name="actionISCAT"/>

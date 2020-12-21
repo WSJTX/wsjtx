@@ -298,9 +298,8 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
 !$omp parallel sections num_threads(2) copyin(/timer_private/) shared(ndecoded) if(.true.) !iif() needed on Mac
 
 !$omp section
-  if(params%nmode.eq.65 .or. params%nmode.eq.164 .or.                      &
-       (params%nmode.eq.(65+9) .and. params%ntxmode.eq.65)) then
-! We're in JT65 or QRA64 mode, or should do JT65 first
+  if(params%nmode.eq.65) then
+! We're in JT65 mode
 
      if(newdat65) dd(1:npts65)=id2(1:npts65)
      nf1=params%nfa
@@ -474,24 +473,6 @@ contains
     cflags='   '
     is_deep=ft.eq.2
 
-    if(ft.ge.80) then                      !QRA64 mode
-       nft=ft-100
-       csync=': '
-       if(sync-3.4.ge.float(minsync) .or. nft.ge.0) csync=':*'
-       if(nft.lt.0) then
-          write(*,1009) params%nutc,snr,dt,freq,csync,decoded
-       else
-          write(*,1009) params%nutc,snr,dt,freq,csync,decoded,nft
-1009      format(i4.4,i4,f5.1,i5,1x,a2,1x,a22,i2)
-       endif
-       write(13,1011) params%nutc,nint(sync),snr,dt,float(freq),drift,    &
-            decoded,nft
-1011   format(i4.4,i4,i5,f6.2,f8.0,i4,3x,a22,' QRA64',i3)
-       go to 100
-    endif
-
-!    write(*,3001) ft,nsum,qual,sync,bVHF
-!3001 format('a',3i3,f5.1,L3)
     if(ft.eq.0 .and. minsync.ge.0 .and. int(sync).lt.minsync) then
        write(*,1010) params%nutc,snr,dt,freq
     else

@@ -110,6 +110,7 @@ void CPlotter::resizeEvent(QResizeEvent* )                    //resizeEvent()
     m_ScalePixmap = QPixmap(m_w,30);
     m_ScalePixmap.fill(Qt::white);
     m_Percent2DScreen0 = m_Percent2DScreen;
+    m_bResized = true;
   }
   DrawOverlay();
 }
@@ -140,9 +141,10 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
 //move current data down one line (must do this before attaching a QPainter object)
   if(bScroll and !m_bReplot) m_WaterfallPixmap.scroll(0,1,0,0,m_w,m_h1);
   QPainter painter1(&m_WaterfallPixmap);
-  if(m_bFirst or bRed or !m_bQ65_Sync or m_mode!=m_mode0) {
+  if(m_bFirst or bRed or !m_bQ65_Sync or m_mode!=m_mode0 or m_bResized) {
     m_2DPixmap = m_OverlayPixmap.copy(0,0,m_w,m_h2);
     m_bFirst=false;
+    m_bResized=false;
   }
   m_mode0=m_mode;
   QPainter painter2D(&m_2DPixmap);
@@ -252,8 +254,8 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
     painter1.drawText (5, painter1.fontMetrics ().ascent (), t);
   }
 
-  if(m_mode=="JT4" or m_mode=="QRA64") {
-    QPen pen3(Qt::yellow);                     //Mark freqs of JT4 single-tone msgs
+  if(m_mode=="JT4") {
+    QPen pen3(Qt::yellow);                     //Mark freqs of JT4/Q65 single-tone msgs
     painter2D.setPen(pen3);
     Font.setWeight(QFont::Bold);
     painter2D.setFont(Font);
@@ -464,14 +466,6 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
     if(m_nSubMode==7) bw=128*bw; //H
   }
 
-  if(m_mode=="QRA64") {                      //QRA64
-    bw=63.0*12000.0/m_nsps;
-    if(m_nSubMode==1) bw=2*bw;   //B
-    if(m_nSubMode==2) bw=4*bw;   //C
-    if(m_nSubMode==3) bw=8*bw;   //D
-    if(m_nSubMode==4) bw=16*bw;  //E
-  }
-
   if(m_mode=="Q65") {                      //Q65
     int h=int(pow(2.0,m_nSubMode));
     int nsps=1800;
@@ -513,7 +507,7 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
   int yTxTop=12;
   int yRxBottom=yTxTop + 2*yh + 4;
   if(m_mode=="JT9" or m_mode=="JT65" or m_mode=="JT9+JT65"
-     or m_mode=="QRA64" or m_mode=="Q65" or m_mode=="FT8" or m_mode=="FT4"
+     or m_mode=="Q65" or m_mode=="FT8" or m_mode=="FT4"
      or m_mode.startsWith("FST4")) {
 
     if(m_mode=="FST4" and !m_bSingleDecode) {
@@ -525,7 +519,7 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
       painter0.drawLine(x2,25,x2-5,20);
     }
 
-    if(m_mode=="QRA64" or m_mode=="Q65" or (m_mode=="JT65" and m_bVHF)) {
+    if(m_mode=="Q65" or (m_mode=="JT65" and m_bVHF)) {
       painter0.setPen(penGreen);
       x1=XfromFreq(m_rxFreq-m_tol);
       x2=XfromFreq(m_rxFreq+m_tol);
@@ -563,7 +557,7 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
   }
 
   if(m_mode=="JT9" or m_mode=="JT65" or m_mode=="JT9+JT65" or
-     m_mode.mid(0,4)=="WSPR" or m_mode=="QRA64" or m_mode=="Q65" or m_mode=="FT8"
+     m_mode.mid(0,4)=="WSPR" or m_mode=="Q65" or m_mode=="FT8"
      or m_mode=="FT4" or m_mode.startsWith("FST4")) {
     painter0.setPen(penRed);
     x1=XfromFreq(m_txFreq);
