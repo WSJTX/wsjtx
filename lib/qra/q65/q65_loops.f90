@@ -29,8 +29,8 @@ subroutine q65_loops(c00,npts2,nsps,mode,mode_q65,nsubmode,nFadingModel, &
 
   idfmax=3
   idtmax=3
-  ibwmin=0
-  ibwmax=2
+  ibwmin=1
+  ibwmax=3
   maxdist=5
   if(iand(ndepth,3).ge.2) then
      idfmax=5
@@ -66,13 +66,13 @@ subroutine q65_loops(c00,npts2,nsps,mode,mode_q65,nsubmode,nFadingModel, &
            where(s3(1:LL*NN)>s3lim) s3(1:LL*NN)=s3lim
         endif
         do ibw=ibwmin,ibwmax
-           nbw=ibw
-           ndist=ndf**2 + ndt**2 + ((nbw-2))**2
+           nbw=ibw/2
+           if(mod(ibw,2).eq.0) nbw=-nbw
+           ndist=ndf**2 + ndt**2 + nbw**2
            if(ndist.gt.maxdist) cycle
-           b90=3.0**nbw                    !### Mult by ~baud/3.33 ??? ###
-           if(nbw.eq.0) b90=baud
-           if(b90.lt.0.5*width) cycle
-           if(b90.gt.230.0) cycle
+           xx=1.885*log(3.0*width)+nbw
+           b90=1.7**xx
+           if(b90.gt.345.0) cycle
            call timer('q65_intr',0)
            b90ts = b90/baud
            call q65_intrinsics_ff(s3,nsubmode,b90ts,nFadingModel,s3prob)
