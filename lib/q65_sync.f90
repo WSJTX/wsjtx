@@ -146,7 +146,7 @@ subroutine q65_sync(nutc,iwave,nmax,mode_q65,codewords,ncw,nsps,nfqso,ntol, &
         ijpk=maxloc(ccf(-ia:ia,:))
         ipk=ijpk(1)-ia-1
         jpk=ijpk(2)-53-1     
-        f0=nfqso + (ipk-1)*df
+        f0=nfqso + (ipk-mode_q65)*df
         xdt=jpk*dtstep
         imsg_best=imsg
         ccf1=ccf(:,jpk)
