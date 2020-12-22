@@ -1671,7 +1671,7 @@ QString MainWindow::save_wave_file (QString const& name, short const * data, int
   auto comment = QString {"Mode=%1%2; Freq=%3%4"}
                    .arg (mode)
                    .arg (QString {(mode.contains ('J') && !mode.contains ('+'))
-                         || mode.startsWith ("FST4") || mode.startsWith ("QRA")
+                         || mode.startsWith ("FST4") || mode.startsWith ('Q')
                          ? QString {"; Sub Mode="} + QString::number (int (samples / 12000)) + QChar {'A' + sub_mode}
                        : QString {}})
                    .arg (Radio::frequency_MHz_string (frequency))
