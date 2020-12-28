@@ -604,7 +604,7 @@ contains
                         write(21,3021) nutc,icand,itry,nsyncoh,iaptype,  &
                            ijitter,ntype,Keff,nsync_qual,nharderrors,dmin,nhp,hd,  &
                            sync,xsnr,xdt,fsig,w50,trim(msg)
-3021                    format(i6,6i3,3i4,f6.1,i4,f6.1,f9.2,f6.1,f6.2,f7.1,f7.3,1x,a)
+3021                    format(i6.6,i4,5i3,3i4,f6.1,i4,f6.1,f9.2,f6.1,f6.2,f7.1,f7.3,1x,a)
                         close(21)
                      endif
                      call this%callback(nutc,smax1,nsnr,xdt,fsig,msg,    &
