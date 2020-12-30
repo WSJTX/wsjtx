@@ -55,7 +55,6 @@ contains
     integer*2 iwave(NMAX)                 !Raw data
     real, allocatable :: dd(:)            !Raw data
     integer dat4(13)                      !Decoded message as 12 6-bit integers
-    integer apsym0(58),aph10(10)
     integer apmask1(78),apsymbols1(78)
     integer dgen(13)
     integer codewords(63,206)
