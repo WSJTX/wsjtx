@@ -5,6 +5,7 @@ subroutine q65_avg(nutc,ntrperiod,LL,ntol,lclearave,xdt,f0,snr1,s3)
 
   use q65
   use packjt77
+  character*78 c78
   character*37 avemsg
   character*1 cused(MAXAVE)
   character*6 cutc
@@ -12,7 +13,8 @@ subroutine q65_avg(nutc,ntrperiod,LL,ntol,lclearave,xdt,f0,snr1,s3)
   integer iused(MAXAVE)
   integer dat4(13)
   integer codewords(63,206)
-  logical first,lclearave
+  integer apmask1(78),apsymbols1(78)
+  logical first,lclearave,lapcqonly
   data first/.true./
   save
 
@@ -65,8 +67,8 @@ subroutine q65_avg(nutc,ntrperiod,LL,ntol,lclearave,xdt,f0,snr1,s3)
 
 10 return
 
-  entry q65_avg2(ntrperiod,ntol,baud,nsubmode,ibwa,ibwb,codewords,ncw,   &
-       xdt,f0,snr1,snr2,dat4,idec)
+  entry q65_avg2(ntrperiod,ntol,baud,nsubmode,nQSOprogress,lapcqonly, &
+       ibwa,ibwb,codewords,ncw,xdt,f0,snr1,snr2,dat4,idec)
 
   mode_q65=2**nsubmode
   ibwa=1.8*log(baud*mode_q65) + 2
@@ -123,30 +125,58 @@ subroutine q65_avg(nutc,ntrperiod,LL,ntol,lclearave,xdt,f0,snr1,s3)
      call q65_dec1(s3avg,nsubmode,b90ts,codewords,ncw,esnodb,irc,dat4,avemsg)
 !     irc=-99  !### TEMPORARY ###
      if(irc.ge.0 .and. plog.ge.PLOG_MIN) then
-        snr2=esnodb - db(2500.0/baud) + 3.0     !Empirical adjustment
+        snr2=esnodb - 0.5*db(2500.0/baud) + 3.0     !Empirical adjustment
         snr2=snr2 - db(float(navg))             !Is this right?
-        idec=10+navg
+        idec=100+navg
 !        print*,'C dec1 ',ibw,irc,idec,avemsg
         go to 900
      endif
   enddo
 
-! Should loop here over full range of available AP
+! Loop over full range of available AP
 !  APmask=0
 !  APsymbols=0
+  npasses=2
+  if(nQSOprogress.eq.5) npasses=3
+  if(lapcqonly) npasses=1
+  iaptype=0
+  do ipass=0,npasses
+     apmask=0                         !Try first with no AP information
+     apsymbols=0
 
-  do ibw=ibwa,ibwb
-     b90=1.72**ibw
-     b90ts=b90/baud
-     call q65_dec2(s3avg,nsubmode,b90ts,esnodb,irc,dat4,avemsg)
-     if(irc.ge.0) then
-        snr2=esnodb - db(2500.0/baud) + 3.0     !Empirical adjustment
-        snr2=snr2 - db(float(navg))             !Is this right?
-        idec=10*(iaptype+2) + navg
-!        print*,'D dec2 ',ibw,dec,snr2,avemsg
-        go to 900
+     if(ipass.ge.1) then
+        ! Subsequent passes use AP information appropiate for nQSOprogress
+        call q65_ap(nQSOprogress,ipass,ncontest,lapcqonly,iaptype,   &
+             apsym0,apmask1,apsymbols1)
+        write(c78,1050) apmask1
+1050    format(78i1)
+        read(c78,1060) apmask
+1060    format(13b6.6)
+        write(c78,1050) apsymbols1
+        read(c78,1060) apsymbols
+        if(iaptype.eq.4) then
+           do j=1,3
+              ng15=32401+j
+              write(c78(60:74),'(b15.15)') ng15
+              read(c78,1060) dgen
+              call q65_enc(dgen,codewords(1,j))
+           enddo
+        endif
      endif
-  enddo  ! ibw (b90 loop)
+
+     do ibw=ibwa,ibwb
+        b90=1.72**ibw
+        b90ts=b90/baud
+        call q65_dec2(s3avg,nsubmode,b90ts,esnodb,irc,dat4,avemsg)
+        if(irc.ge.0) then
+           snr2=esnodb - db(2500.0/baud) + 3.0     !Empirical adjustment
+           snr2=snr2 - 0.5*db(float(navg))             !Is this right?
+           idec=100*(iaptype+2) + navg
+!        print*,'D dec2 ',ibw,dec,snr2,avemsg
+           go to 900
+        endif
+     enddo  ! ibw
+  enddo  ! ipass
 
 900  return
 end subroutine q65_avg

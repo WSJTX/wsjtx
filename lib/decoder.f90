@@ -774,12 +774,21 @@ contains
     character(len=37), intent(in) :: decoded
     integer, intent(in) :: idec
     integer, intent(in) :: ntrperiod
+    integer iaptype,navg
     character*3 cflags
-
-    write(cflags,1000) idec
-1000 format('q',i2)
-    if(cflags(2:2).eq.' ') cflags(2:3)=cflags(3:3)//' '
-    if(cflags(2:2).eq.'-') cflags='   '
+    
+    cflags='   '
+    if(idec.gt.0) then
+       iaptype=idec
+       navg=0
+       if(idec.ge.100) then
+          iaptype=idec/100
+          navg=mod(idec,100)
+       endif
+       cflags='q  '
+       write(cflags(2:2),'(i1)') iaptype
+       if(navg.ge.2) write(cflags(3:3),'(i1)') navg
+    endif
 
     if(ntrperiod.lt.60) then
        write(*,1001) nutc,nsnr,dt,nint(freq),decoded,cflags
