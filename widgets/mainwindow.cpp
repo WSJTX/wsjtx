@@ -3481,11 +3481,13 @@ void MainWindow::readFromStdout()                             //readFromStdout
       bool bDisplayRight=bAvgMsg;
       int audioFreq=decodedtext.frequencyOffset();
       if(m_mode=="FT8" or m_mode=="FT4" or m_mode=="FST4" or m_mode=="Q65") {
+        int ftol=10;
+        if(m_mode=="Q65") ftol=ui->sbFtol->value();
         auto const& parts = decodedtext.string().remove("<").remove(">")
             .split (' ', SkipEmptyParts);
         if (parts.size() > 6) {
           auto for_us = parts[5].contains (m_baseCall)
-            || ("DE" == parts[5] && qAbs (ui->RxFreqSpinBox->value () - audioFreq) <= 10);
+            || ("DE" == parts[5] && qAbs (ui->RxFreqSpinBox->value () - audioFreq) <= ftol);
           if(m_baseCall==m_config.my_callsign() and m_baseCall!=parts[5]) for_us=false;
           if(m_bCallingCQ && !m_bAutoReply && for_us && ui->cbFirst->isChecked() and
              SpecOp::FOX > m_config.special_op_id()) {
@@ -3498,8 +3500,6 @@ void MainWindow::readFromStdout()                             //readFromStdout
           if(SpecOp::FOX==m_config.special_op_id() and for_us and (audioFreq<1000)) bDisplayRight=true;
           if(SpecOp::FOX!=m_config.special_op_id() and (for_us or (abs(audioFreq - m_wideGraph->rxFreq()) <= 10))) bDisplayRight=true;
         }
-        if((abs(audioFreq - m_wideGraph->rxFreq()) <= ui->sbFtol->value()) and
-           m_mode=="Q65") bDisplayRight=true;
       } else {
         if((abs(audioFreq - m_wideGraph->rxFreq()) <= 10) and
            !m_config.enable_VHF_features()) bDisplayRight=true;

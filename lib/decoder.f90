@@ -785,6 +785,11 @@ contains
           iaptype=idec/100
           navg=mod(idec,100)
        endif
+       if(iaptype.eq.1) then
+          iaptype=3
+       else
+          iaptype=iaptype-2
+       endif
        cflags='q  '
        write(cflags(2:2),'(i1)') iaptype
        if(navg.ge.2) write(cflags(3:3),'(i1)') navg

@@ -261,7 +261,7 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
     Font.setWeight(QFont::Bold);
     painter2D.setFont(Font);
     int x1=XfromFreq(m_rxFreq);
-    y=0.2*m_h2;
+    y=0.25*m_h2;
     painter2D.drawText(x1-4,y,"T");
     x1=XfromFreq(m_rxFreq+250);
     painter2D.drawText(x1-4,y,"M");

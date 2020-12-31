@@ -137,7 +137,11 @@ program test_q65
         iavg=0
         i0=23
         if(ntrperiod.le.30) i0=25
-        if(line(i0:i0).ne.' ') read(line(60:),*) idec
+        if(line(i0:i0).ne.' ') then
+           i1=index(line,'q')
+           idec=-1
+           read(line(i1+1:),*) idec
+        endif
         if(idec.lt.0) cycle
         if(idec.ge.12) then
            iavg=idec-10

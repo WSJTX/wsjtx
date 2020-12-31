@@ -70,6 +70,7 @@ subroutine q65_avg(nutc,ntrperiod,LL,nfqso,ntol,lclearave,xdt,f0,snr1,s3)
   entry q65_avg2(ntrperiod,ntol,baud,nsubmode,nQSOprogress,lapcqonly, &
        ibwa,ibwb,codewords,ncw,xdt,f0,snr1,snr2,dat4,idec)
 
+  if(nsave.lt.2) go to 900
   mode_q65=2**nsubmode
   ibwa=1.8*log(baud*mode_q65) + 2
   ibwb=min(10,ibwa+4)
