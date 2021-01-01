@@ -5,6 +5,7 @@ subroutine q65_avg(nutc,ntrperiod,LL,nfqso,ntol,lclearave,xdt,f0,snr1,s3)
 
   use q65
   use packjt77
+  use timer_module, only: timer
   character*78 c78
   character*37 avemsg
   character*1 cused(MAXAVE)
@@ -123,7 +124,9 @@ subroutine q65_avg(nutc,ntrperiod,LL,nfqso,ntol,lclearave,xdt,f0,snr1,s3)
   do ibw=ibwa,ibwb
      b90=1.72**ibw
      b90ts=b90/baud
+     call timer('dec1avg ',0)
      call q65_dec1(s3avg,nsubmode,b90ts,codewords,ncw,esnodb,irc,dat4,avemsg)
+     call timer('dec1avg ',1)
      if(irc.ge.0) then
         snr2=esnodb - 0.5*db(2500.0/baud) + 3.0     !Empirical adjustment
         snr2=snr2 - db(float(navg))             !Is this right?
@@ -166,7 +169,9 @@ subroutine q65_avg(nutc,ntrperiod,LL,nfqso,ntol,lclearave,xdt,f0,snr1,s3)
      do ibw=ibwa,ibwb
         b90=1.72**ibw
         b90ts=b90/baud
+        call timer('dec2avg ',0)
         call q65_dec2(s3avg,nsubmode,b90ts,esnodb,irc,dat4,avemsg)
+        call timer('dec2avg ',1)
         if(irc.ge.0) then
            snr2=esnodb - db(2500.0/baud) + 3.0     !Empirical adjustment
            snr2=snr2 - 0.5*db(float(navg))             !Is this right?

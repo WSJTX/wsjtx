@@ -7508,7 +7508,7 @@ void MainWindow::on_sbFtol_valueChanged(int value)
 void::MainWindow::VHF_features_enabled(bool b)
 {
   if(m_mode!="JT4" and m_mode!="JT65" and m_mode!="Q65") b=false;
-  if(b and (ui->actionInclude_averaging->isChecked() or
+  if(b and m_mode!="Q65" and (ui->actionInclude_averaging->isChecked() or
              ui->actionInclude_correlation->isChecked())) {
     ui->actionDeepestDecode->setChecked (true);
   }

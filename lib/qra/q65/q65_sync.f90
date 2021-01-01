@@ -14,6 +14,7 @@ subroutine q65_sync(nutc,iwave,ntrperiod,mode_q65,codewords,ncw,nsps,   &
 !         snr1                   Relative SNR of sync signal
 
   use packjt77
+  use timer_module, only: timer
   parameter (NSTEP=8)                    !Step size nsps/NSTEP
   parameter (LN=2176*63)           !LN=LL*NN; LL=64*(mode_q65+2), NN=63
   parameter (PLOG_MIN=-240.0)            !List decoding threshold
@@ -47,7 +48,7 @@ subroutine q65_sync(nutc,iwave,ntrperiod,mode_q65,codewords,ncw,nsps,   &
   jz=(txt+1.0)*12000.0/istep             !Number of quarter-symbol steps
   if(nsps.ge.6912) jz=(txt+2.0)*12000.0/istep   !For TR 60 s and higher
   ia=ntol/df
-  ia2=max(ia,10*mode_q65)
+  ia2=max(ia,10*mode_q65,nint(100.0/df))
   nsmo=int(0.7*mode_q65*mode_q65)
   if(nsmo.lt.1) nsmo=1
 
@@ -179,7 +180,9 @@ subroutine q65_sync(nutc,iwave,ntrperiod,mode_q65,codewords,ncw,nsps,   &
   do ibw=ibwa,ibwb
      b90=1.72**ibw
      b90ts=b90/baud
+     call timer('dec1    ',0)
      call q65_dec1(s3,nsubmode,b90ts,codewords,ncw,esnodb,irc,dat4,decoded)
+     call timer('dec1    ',1)
      if(irc.ge.0) then
         snr2=esnodb - db(2500.0/baud) + 3.0     !Empirical adjustment
         idec=1
