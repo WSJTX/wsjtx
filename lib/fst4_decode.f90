@@ -275,6 +275,7 @@ contains
       if(iwspr.eq.1 .and. nlength.eq.8) then
          read(s_nfa_nfb,"(i4.4,i4.4)") nfa_mode2,nfb_mode2
          nmode=2
+         if(nfa_mode2.lt.100 .or. nfb_mode2.gt.4910 .or. nfb_mode2.le.nfa_mode2) nmode=1
       endif
 
       do imode=1,nmode
