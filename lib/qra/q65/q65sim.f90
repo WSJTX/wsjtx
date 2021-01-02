@@ -15,13 +15,14 @@ program q65sim
   complex cspread(0:NMAX-1)              !Complex amplitude for Rayleigh fading
   complex z
   real*8 f0,dt,twopi,phi,dphi,baud,fsample,freq
-  character msg*37,fname*17,csubmode*1,arg*12,cd*1
+  character msg*37,fname*17,csubmode*1,arg*12
   character msgsent*37
   
   nargs=iargc()
-  if(nargs.ne.8) then
-     print *, 'Usage:   q65sim         "msg"     A-E freq fDop DT TRp Nfiles SNR'
-     print *, 'Example: q65sim "K1ABC W9XYZ EN37" A  1500 0.0 0.0  60   1    -26'
+  if(nargs.ne.9) then
+     print*,'Usage:   q65sim         "msg"     A-E freq fDop DT  f1 TRp Nfile SNR'
+     print*,'Example: q65sim "K1ABC W9XYZ EN37" A  1500 0.0 0.0 0.0  60   1   -26'
+     print*,'         fDop is Doppler spread; f1 is drift rate (Hz/min)'
      go to 999
   endif
   call getarg(1,msg)
@@ -34,10 +35,12 @@ program q65sim
   call getarg(5,arg)
   read(arg,*) xdt
   call getarg(6,arg)
-  read(arg,*) ntrperiod
+  read(arg,*) f1
   call getarg(7,arg)
-  read(arg,*) nfiles
+  read(arg,*) ntrperiod
   call getarg(8,arg)
+  read(arg,*) nfiles
+  call getarg(9,arg)
   read(arg,*) snrdb
 
   if(ntrperiod.eq.15) then
@@ -86,7 +89,7 @@ program q65sim
   h=default_header(12000,npts)
 
   write(*,1004) 
-1004 format('File    TR   Freq Mode  S/N   DT    Dop  Message'/60('-'))
+1004 format('File    TR   Freq Mode  S/N   Dop    DT   f1   Message'/66('-'))
 
   do ifile=1,nfiles                  !Loop over requested number of files
      if(ntrperiod.lt.60) then
@@ -109,8 +112,8 @@ program q65sim
      bandwidth_ratio=2500.0/6000.0
      sig=sqrt(2*bandwidth_ratio)*10.0**(0.05*snrdb)
      if(snrdb.gt.90.0) sig=1.0
-     write(*,1020) ifile,ntrperiod,f0,csubmode,snrdb,xdt,fspread,trim(msgsent)
-1020    format(i4,i6,f7.1,2x,a1,2x,f5.1,f6.2,f6.1,2x,a)
+     write(*,1020) ifile,ntrperiod,f0,csubmode,snrdb,fspread,xdt,f1,trim(msgsent)
+1020    format(i4,i6,f7.1,2x,a1,2x,f5.1,f6.2,2f6.1,2x,a)
      phi=0.d0
      dphi=0.d0
      k=(xdt+0.5)*12000                   !Start audio at t=xdt+0.5 s (TR=15 and 30 s)
@@ -120,7 +123,8 @@ program q65sim
         isym=i/nsps + 1
         if(isym.gt.nsym) exit
         if(isym.ne.isym0) then
-           freq=f0 + itone(isym)*baud*mode65
+!                                                Drift term
+           freq = f0 + itone(isym)*baud*mode65 + f1*i*dt/60.0
            dphi=twopi*freq*dt
            isym0=isym
         endif
