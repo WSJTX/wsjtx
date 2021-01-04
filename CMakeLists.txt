@@ -462,6 +462,7 @@ set (wsjt_FSRCS
   lib/jtmsg.f90
   lib/libration.f90
   lib/lorentzian.f90
+  lib/fst4/lorentzian_fading.f90
   lib/lpf1.f90
   lib/mixlpf.f90
   lib/makepings.f90
@@ -570,6 +571,7 @@ set (wsjt_FSRCS
   lib/fst4/ldpcsim240_74.f90
   lib/fst4/osd240_101.f90
   lib/fst4/osd240_74.f90
+  lib/fst4/fastosd240_74.f90
   lib/fst4/get_crc24.f90
   lib/fst4/fst4_baseline.f90
   )

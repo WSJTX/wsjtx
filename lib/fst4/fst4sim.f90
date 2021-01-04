@@ -19,10 +19,10 @@ program fst4sim
 
 ! Get command-line argument(s)
    nargs=iargc()
-   if(nargs.ne.10) then
-      print*,'Need 10 arguments, got ',nargs
-      print*,'Usage:    fst4sim "message"        TRsec f0   DT  h fdop del nfiles snr W'
-      print*,'Examples: fst4sim "K1JT K9AN EN50"  60  1500 0.0  1  0.1 1.0   10   -15 F'
+   if(nargs.ne.9) then
+      print*,'Need 9 arguments, got ',nargs
+      print*,'Usage:    fst4sim "message"        TRsec f0   DT  fdop del nfiles snr W'
+      print*,'Examples: fst4sim "K1JT K9AN EN50"  60  1500 0.0   0.1 1.0   10   -15 F'
       print*,'W (T or F) argument is hint to encoder to use WSPR message when there is abiguity'
       go to 999
    endif
@@ -34,16 +34,14 @@ program fst4sim
    call getarg(4,arg)
    read(arg,*) xdt                        !Time offset from nominal (s)
    call getarg(5,arg)
-   read(arg,*) hmod                       !Modulation index, h
-   call getarg(6,arg)
    read(arg,*) fspread                    !Watterson frequency spread (Hz)
-   call getarg(7,arg)
+   call getarg(6,arg)
    read(arg,*) delay                      !Watterson delay (ms)
-   call getarg(8,arg)
+   call getarg(7,arg)
    read(arg,*) nfiles                     !Number of files
-   call getarg(9,arg)
+   call getarg(8,arg)
    read(arg,*) snrdb                      !SNR_2500
-   call getarg(10,arg)
+   call getarg(9,arg)
    read(arg,*) wspr_hint                  !0:break ties as 77-bit 1:break ties as 50-bit
 
    nfiles=abs(nfiles)
@@ -89,8 +87,8 @@ program fst4sim
    call genfst4(msg37,0,msgsent37,msgbits,itone,iwspr)
    write(*,*)
    write(*,'(a9,a37,a3,L2,a7,i2)') 'Message: ',msgsent37,'W:',wspr_hint,' iwspr:',iwspr
-   write(*,1000) f00,xdt,hmod,txt,snrdb
-1000 format('f0:',f9.3,'   DT:',f6.2,'   hmod:',i6,'   TxT:',f6.1,'   SNR:',f6.1)
+   write(*,1000) f00,xdt,txt,snrdb
+1000 format('f0:',f9.3,'   DT:',f6.2,'   TxT:',f6.1,'   SNR:',f6.1)
    write(*,*)
    if(i3.eq.1) then
       write(*,*) '         mycall                         hiscall                    hisgrid'
@@ -106,7 +104,8 @@ program fst4sim
 
 !   call sgran()
 
-   fsample=12000.0
+   fsample=12000.0 
+   hmod=1
    icmplx=1
    f0=f00+1.5*hmod*baud
    call gen_fst4wave(itone,NN,nsps,nwave,fsample,hmod,f0,icmplx,c0,wave)
@@ -118,7 +117,8 @@ program fst4sim
 
    do ifile=1,nfiles
       c=c0
-      if(fspread.ne.0.0 .or. delay.ne.0.0) call watterson(c,nwave,NZ,fs,delay,fspread)
+      if(fspread.gt.0.0 .or. delay.ne.0.0) call watterson(c,nwave,NZ,fs,delay,fspread)
+      if(fspread.lt.0.0) call lorentzian_fading(c,nwave,fs,-fspread)
       c=sig*c
       wave=real(c)
       if(snrdb.lt.90) then
