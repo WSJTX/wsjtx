@@ -1604,7 +1604,7 @@ void MainWindow::dataSink(qint64 frames)
       m_saveWAVWatcher.setFuture (QtConcurrent::run (std::bind (&MainWindow::save_wave_file,
             this, m_fnameWE, &dec_data.d2[0], samples, m_config.my_callsign(),
             m_config.my_grid(), m_mode, m_nSubMode, m_freqNominal, m_hisCall, m_hisGrid)));
-      if (m_mode=="WSPR" or m_mode=="FST4W") {
+      if (m_mode=="WSPR") {
         QString c2name_string {m_fnameWE + ".c2"};
         int len1=c2name_string.length();
         char c2name[80];
@@ -1667,7 +1667,7 @@ QString MainWindow::save_wave_file (QString const& name, short const * data, int
   auto comment = QString {"Mode=%1%2; Freq=%3%4"}
                    .arg (mode)
                    .arg (QString {(mode.contains ('J') && !mode.contains ('+'))
-                         || mode.startsWith ("FST4") || mode.startsWith ("QRA")
+                         || mode.startsWith ("FST4") || mode.startsWith ('Q')
                          ? QString {"; Sub Mode="} + QString::number (int (samples / 12000)) + QChar {'A' + sub_mode}
                        : QString {}})
                    .arg (Radio::frequency_MHz_string (frequency))
@@ -3574,7 +3574,16 @@ void MainWindow::readFromStdout()                             //readFromStdout
         decodedtext.deCallAndGrid(/*out*/deCall,grid);
         {
           auto t = Radio::base_callsign (ui->dxCallEntry->text ());
-          if ((t == deCall || ui->dxCallEntry->text () == deCall || !t.size ()) && rpt.size ()) m_rptRcvd = rpt;
+          auto const& dx_call = decodedtext.call ();
+          if (rpt.size ()       // report in message
+              && (m_baseCall == Radio::base_callsign (dx_call) // for us
+                  || "DE" == dx_call)                          // probably for us
+              && (t == deCall   // DX station base call is QSO partner
+                  || ui->dxCallEntry->text () == deCall // DX station full call is QSO partner
+                  || !t.size ()))                       // not in QSO
+            {
+              m_rptRcvd = rpt;
+            }
         }
 // extract details and send to PSKreporter
         int nsec=QDateTime::currentMSecsSinceEpoch()/1000-m_secBandChanged;
@@ -4158,7 +4167,14 @@ void MainWindow::guiUpdate()
       }
     }
 
-    m_currentMessage = QString::fromLatin1(msgsent);
+    {
+      auto temp = m_currentMessage;
+      m_currentMessage = QString::fromLatin1(msgsent);
+      if (m_currentMessage != temp) // check if tx message changed
+        {
+          statusUpdate ();
+        }
+    }
     m_bCallingCQ = CALLING == m_QSOProgress
       || m_currentMessage.contains (QRegularExpression {"^(CQ|QRZ) "});
     if(m_mode=="FT8" or m_mode=="FT4") {
@@ -8337,7 +8353,8 @@ void MainWindow::statusUpdate () const
                                   m_hisGrid, m_tx_watchdog,
                                   submode != QChar::Null ? QString {submode} : QString {}, m_bFastMode,
                                   static_cast<quint8> (m_config.special_op_id ()),
-                                  ftol, tr_period, m_multi_settings->configuration_name ());
+                                  ftol, tr_period, m_multi_settings->configuration_name (),
+                                  m_currentMessage);
 }
 
 void MainWindow::childEvent (QChildEvent * e)

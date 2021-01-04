@@ -118,7 +118,7 @@ contains
        dd1=dd
        go to 900
     endif
-    if(nzhsym.eq.50 .and. ndec_early.ge.1) then
+    if(nzhsym.eq.50 .and. ndec_early.ge.1 .and. .not.nagain) then
        n=47*3456
        dd(1:n)=dd1(1:n)
        dd(n+1:)=iwave(n+1:)
@@ -131,9 +131,10 @@ contains
     endif
     ifa=nfa
     ifb=nfb
-    if(nagain) then
-       ifa=nfqso-10
-       ifb=nfqso+10
+    if(nzhsym.eq.50 .and. nagain) then
+       dd=iwave
+       ifa=nfqso-20
+       ifb=nfqso+20
     endif
 
 ! For now:

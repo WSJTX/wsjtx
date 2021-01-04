@@ -160,6 +160,7 @@
  *                         Frequency Tolerance    quint32
  *                         T/R Period             quint32
  *                         Configuration Name     utf8
+ *                         Tx Message             utf8
  *
  *    WSJT-X  sends this  status message  when various  internal state
  *    changes to allow the server to  track the relevant state of each
@@ -183,7 +184,8 @@
  *      when the Tx watchdog is set or reset,
  *      when the frequency tolerance is changed,
  *      when the T/R period is changed,
- *      when the configuration name changes.
+ *      when the configuration name changes,
+ *      when the message being transmitted changes.
  *
  *    The Special operation mode is  an enumeration that indicates the
  *    setting  selected  in  the  WSJT-X  "Settings->Advanced->Special

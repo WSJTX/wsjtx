@@ -247,7 +247,7 @@
     <message>
         <location filename="../widgets/CabrilloLogWindow.ui" line="20"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Right-click here for available actions.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt; &lt;p&gt; Højreklik her for tilgængelige muligheder. &lt;/p&gt; &lt;/body&gt; &lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt; Højreklik her for tilgængelige muligheder.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/CabrilloLogWindow.ui" line="23"/>
@@ -318,7 +318,7 @@
     <message>
         <location filename="../widgets/colorhighlighting.ui" line="150"/>
         <source>New Call</source>
-        <translation>Ny kaldesignal</translation>
+        <translation>Nyt kaldesignal</translation>
     </message>
     <message>
         <location filename="../widgets/colorhighlighting.ui" line="157"/>
@@ -2197,7 +2197,7 @@ Fejl(%2): %3</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="495"/>
         <source>&amp;Decode</source>
-        <translation>&amp;Dekod</translation>
+        <translation>&amp;Dekode</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="511"/>
@@ -2492,7 +2492,7 @@ Gul er for lavt</translation>
         <location filename="../widgets/mainwindow.ui" line="1337"/>
         <location filename="../widgets/mainwindow.ui" line="2992"/>
         <source>Fast</source>
-        <translation>Fast</translation>
+        <translation>Hurtig</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1344"/>
@@ -5578,7 +5578,7 @@ Fejl(%2): %3</translation>
     <message>
         <location filename="../Configuration.ui" line="400"/>
         <source>Monitor returns to last used frequency</source>
-        <translation>Montor til seneste brugte frekvens</translation>
+        <translation>Monitor til seneste brugte frekvens</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="407"/>
@@ -5673,7 +5673,7 @@ den stille periode, når dekodningen er udført.</translation>
         <location filename="../Configuration.ui" line="581"/>
         <location filename="../Configuration.ui" line="584"/>
         <source>Serial Port Parameters</source>
-        <translation>Seriek Port Parametre</translation>
+        <translation>Seriel Port Parametre</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="595"/>
@@ -5774,7 +5774,7 @@ den stille periode, når dekodningen er udført.</translation>
         <location filename="../Configuration.ui" line="729"/>
         <location filename="../Configuration.ui" line="780"/>
         <source>Default</source>
-        <translation>Deafult</translation>
+        <translation>Default</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="742"/>
