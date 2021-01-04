@@ -141,7 +141,7 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
 //move current data down one line (must do this before attaching a QPainter object)
   if(bScroll and !m_bReplot) m_WaterfallPixmap.scroll(0,1,0,0,m_w,m_h1);
   QPainter painter1(&m_WaterfallPixmap);
-  if(m_bFirst or bRed or !m_bQ65_Sync or m_mode!=m_mode0 or m_bResized) {
+  if(m_bFirst or bRed or (!m_bQ65_Sync and !m_bQ65_MultiSync) or m_mode!=m_mode0 or m_bResized) {
     m_2DPixmap = m_OverlayPixmap.copy(0,0,m_w,m_h2);
     m_bFirst=false;
     m_bResized=false;
@@ -227,7 +227,7 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
 
     }
 
-    if(i==iz-1 and !m_bQ65_Sync) {
+    if(i==iz-1 and !m_bQ65_Sync and !m_bQ65_MultiSync) {
       painter2D.drawPolyline(LineBuf,j);
     }
     LineBuf[j].setX(i);
@@ -271,25 +271,26 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
     painter2D.drawText(x1-4,y,"73");
   }
 
-  if(bRed and m_bQ65_Sync) {
+  if(bRed and (m_bQ65_Sync or m_bQ65_MultiSync)) {      //Plot the Q65 red or orange sync curve
     int k=0;
     std::ifstream f;
     f.open(m_redFile.toLatin1());
     if(f) {
       int x,y;
-      float freq,sync,xdt;
+      float freq,sync,xdt,sync2;
       for(int i=0; i<99999; i++) {
-        f >> freq >> sync >> xdt;
+        f >> freq >> sync >> xdt >> sync2;
         if(f.eof()) break;
         x=XfromFreq(freq);
+        if(m_bQ65_MultiSync) sync=sync2;
         y=m_h2*(0.9 - 0.09*gain2d*sync) - m_plot2dZero;
         LineBuf2[k].setX(x);
         LineBuf2[k].setY(y);
-
         k++;
       }
       f.close();
-      QPen pen0(Qt::red,2);
+     QPen pen0(Qt::red,2);
+     if(m_bQ65_MultiSync) pen0.setColor("orange");
       painter2D.setPen(pen0);
       painter2D.drawPolyline(LineBuf2,k);
       QString t;

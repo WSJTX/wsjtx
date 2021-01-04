@@ -82,7 +82,8 @@ public:
   bool Reference() const {return m_bReference;}
   void setQ65_Sync(bool b) {m_bQ65_Sync = b;}
   bool Q65_Sync() const {return m_bQ65_Sync;}
-  void drawRed(int ia, int ib, float swide[]);
+  void setQ65_MultiSync(bool b) {m_bQ65_MultiSync = b;}
+  bool Q65_MultiSync() const {return m_bQ65_MultiSync;}  void drawRed(int ia, int ib, float swide[]);
   void setVHF(bool bVHF);
   void setRedFile(QString fRed);
   void setFST4_FreqRange(int fLow,int fHigh);
@@ -116,6 +117,7 @@ private:
   bool    m_bReference;
   bool    m_bReference0;
   bool    m_bQ65_Sync;
+  bool    m_bQ65_MultiSync;
   bool    m_bVHF;
   bool    m_bSingleDecode;
   bool    m_bFirst=true;

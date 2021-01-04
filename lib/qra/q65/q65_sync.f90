@@ -30,6 +30,7 @@ subroutine q65_sync(nutc,iwave,ntrperiod,mode_q65,codewords,ncw,nsps,   &
   real, allocatable :: s3(:,:)           !Data-symbol energies s3(LL,63)
   real, allocatable :: ccf(:,:)          !CCF(freq,lag)
   real, allocatable :: ccf1(:)           !CCF(freq) at best lag
+  real, allocatable :: ccf2(:)           !CCF(freq) at any lag
   real sync(85)                          !sync vector
   complex, allocatable :: c0(:)          !Complex spectrum of symbol
   data isync/1,9,12,13,15,22,23,26,27,33,35,38,46,50,55,60,62,66,69,74,76,85/
@@ -57,6 +58,7 @@ subroutine q65_sync(nutc,iwave,ntrperiod,mode_q65,codewords,ncw,nsps,   &
   allocate(c0(0:nfft-1))
   allocate(ccf(-ia2:ia2,-53:214))
   allocate(ccf1(-ia2:ia2))
+  allocate(ccf2(-ia2:ia2))
   
   if(sync(1).eq.99.0) then               !Generate the sync vector
      sync=-22.0/63.0                     !Sync tone OFF  
@@ -156,6 +158,10 @@ subroutine q65_sync(nutc,iwave,ntrperiod,mode_q65,codewords,ncw,nsps,   &
      endif
   enddo  ! imsg
 
+  do i=-ia2,ia2
+     ccf2(i)=maxval(ccf(i,:))
+  enddo
+
   i1=i0+ipk-64
   i2=i1+LL-1
   j=j0+jpk-7
@@ -197,6 +203,10 @@ subroutine q65_sync(nutc,iwave,ntrperiod,mode_q65,codewords,ncw,nsps,   &
         ccf1=ccf1-base
         smax=maxval(ccf1)
         if(smax.gt.10.0) ccf1=10.0*ccf1/smax
+        base=(sum(ccf2(-ia2:-ia2+ic)) + sum(ccf2(ia2-ic:ia2)))/(2.0+2.0*ic);
+        ccf2=ccf2-base
+        smax=maxval(ccf2)
+        if(smax.gt.10.0) ccf2=10.0*ccf2/smax
         go to 200
      endif
   enddo
@@ -223,6 +233,11 @@ subroutine q65_sync(nutc,iwave,ntrperiod,mode_q65,codewords,ncw,nsps,   &
   jpk=ijpk(2)-53-1
   f0=nfqso + ipk*df
   xdt=jpk*dtstep
+
+  do i=-ia2,ia2
+     ccf2(i)=maxval(ccf(i,:))
+  enddo
+
   sq=0.
   nsq=0
   jd=(lag2-lag1)/4
@@ -239,6 +254,8 @@ subroutine q65_sync(nutc,iwave,ntrperiod,mode_q65,codewords,ncw,nsps,   &
   snr1=smax/rms
   ccf1=ccf(:,jpk)/rms
   if(snr1.gt.10.0) ccf1=(10.0/snr1)*ccf1
+  ccf2=ccf2/rms
+  if(snr1.gt.10.0) ccf2=(10.0/snr1)*ccf2
 
   if(iand(ndepth,16).eq.16) then
 ! Fill s3() from s1() here, then call q65_avg().
@@ -270,8 +287,8 @@ subroutine q65_sync(nutc,iwave,ntrperiod,mode_q65,codewords,ncw,nsps,   &
   enddo
   do i=-ia2,ia2
      freq=nfqso + i*df
-     write(17,1100) freq,ccf1(i),xdt
-1100 format(3f10.3)
+     write(17,1100) freq,ccf1(i),xdt,ccf2(i)
+1100 format(4f10.3)
   enddo
   close(17)
   width=df*(i2-i1)
