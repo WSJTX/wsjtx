@@ -634,7 +634,8 @@ Format:
         <location filename="../Configuration.cpp" line="2835"/>
         <source>Not found</source>
         <comment>audio device missing</comment>
-        <translation type="unfinished"></translation>
+        <translatorcomment>falta un dispositiu d&apos;àudio</translatorcomment>
+        <translation>No trobat</translation>
     </message>
 </context>
 <context>
@@ -2712,12 +2713,12 @@ Si no està marcat, pots veure els resultats de la calibració.</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1297"/>
         <source>F High </source>
-        <translation type="unfinished"></translation>
+        <translation>F Alt </translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1388"/>
         <source>F Low   </source>
-        <translation type="unfinished"></translation>
+        <translation>F Baixa   </translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1410"/>
@@ -2964,12 +2965,12 @@ La llista es pot mantenir a la configuració (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3390"/>
         <source>SWL Mode</source>
-        <translation type="unfinished"></translation>
+        <translation>Mode SWL</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3393"/>
         <source>Hide lower panel controls to maximize deocde windows</source>
-        <translation type="unfinished"></translation>
+        <translation>Amaga els controls del panell inferior per a maximitzar les finestres de descodificació</translation>
     </message>
     <message>
         <source>Calling CQ </source>
@@ -3868,7 +3869,7 @@ La llista es pot mantenir a la configuració (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="492"/>
         <source>Excessive dropped samples - %1 (%2 sec) audio frames dropped in period starting %3</source>
-        <translation type="unfinished"></translation>
+        <translation>Mostres caigudes excessives - %1 (%2 sec) fotogrames d&apos;àudio caiguts en el període inicial %3</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="526"/>
@@ -3893,7 +3894,7 @@ La llista es pot mantenir a la configuració (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="790"/>
         <source>Enumerating audio devices</source>
-        <translation type="unfinished"></translation>
+        <translation>Enumeració de dispositius d’àudio</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="805"/>
@@ -4079,9 +4080,9 @@ La llista es pot mantenir a la configuració (F2).</translation>
         <location filename="../widgets/mainwindow.cpp" line="2571"/>
         <source>If you make fair use of any part of WSJT-X under terms of the GNU General Public License, you must display the following copyright notice prominently in your derivative work:
 
-&quot;The algorithms, source code, look-and-feel of WSJT-X and related programs, and protocol specifications for the modes FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 are Copyright (C) 2001-2020 by one or more of the following authors: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; and other members of the WSJT Development Group.&quot;</source>
+&quot;The algorithms, source code, look-and-feel of WSJT-X and related programs, and protocol specifications for the modes FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 are Copyright (C) 2001-2021 by one or more of the following authors: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; and other members of the WSJT Development Group.&quot;</source>
         <translation>Si fas un ús raonable de qualsevol part de WSJT-X segons els termes de la Llicència Pública General de GNU, has de mostrar de manera destacada el següent avís de copyright en el teu treball derivat:
-&quot;Els algoritmes, codi font, aspecte de WSJT-X i programes relacionats i les especificacions de protocol per als modes FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 són Copyright (C) 2001-2020 per un o més dels següents autors: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q i altres membres del grup de desenvolupament de WSJT. &quot;</translation>
+&quot;Els algoritmes, codi font, aspecte de WSJT-X i programes relacionats i les especificacions de protocol per als modes FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 són Copyright (C) 2001-2021 per un o més dels següents autors: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q i altres membres del grup de desenvolupament de WSJT. &quot;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="2846"/>

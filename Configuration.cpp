@@ -812,7 +812,7 @@ bool Configuration::is_dummy_rig () const
 
 bool Configuration::transceiver_online ()
 {
-  LOG_TRACE ("transceiver_online: " << m_->cached_rig_state_);
+  LOG_TRACE (m_->cached_rig_state_);
   return m_->have_rig ();
 }
 
@@ -823,37 +823,37 @@ int Configuration::transceiver_resolution () const
 
 void Configuration::transceiver_offline ()
 {
-  LOG_TRACE ("transceiver_offline: " << m_->cached_rig_state_);
+  LOG_TRACE (m_->cached_rig_state_);
   m_->close_rig ();
 }
 
 void Configuration::transceiver_frequency (Frequency f)
 {
-  LOG_TRACE ("transceiver_frequency: " << f << m_->cached_rig_state_);
+  LOG_TRACE (f << ' ' << m_->cached_rig_state_);
   m_->transceiver_frequency (f);
 }
 
 void Configuration::transceiver_tx_frequency (Frequency f)
 {
-  LOG_TRACE ("transceiver_tx_frequency: " << f << m_->cached_rig_state_);
+  LOG_TRACE (f << ' ' << m_->cached_rig_state_);
   m_->transceiver_tx_frequency (f);
 }
 
 void Configuration::transceiver_mode (MODE mode)
 {
-  LOG_TRACE ("transceiver_mode: " << mode << " " << m_->cached_rig_state_);
+  LOG_TRACE (mode << ' ' << m_->cached_rig_state_);
   m_->transceiver_mode (mode);
 }
 
 void Configuration::transceiver_ptt (bool on)
 {
-  LOG_TRACE ("transceiver_ptt: " << on << " " << m_->cached_rig_state_);
+  LOG_TRACE (on << ' ' << m_->cached_rig_state_);
   m_->transceiver_ptt (on);
 }
 
 void Configuration::sync_transceiver (bool force_signal, bool enforce_mode_and_split)
 {
-  LOG_TRACE ("sync_transceiver: force signal: " << force_signal << " enforce_mode_and_split: " << enforce_mode_and_split << " " << m_->cached_rig_state_);
+  LOG_TRACE ("force signal: " << force_signal << " enforce_mode_and_split: " << enforce_mode_and_split << ' ' << m_->cached_rig_state_);
   m_->sync_transceiver (force_signal);
   if (!enforce_mode_and_split)
     {
@@ -1076,9 +1076,6 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
     });
   lotw_users_.set_local_file_path (writeable_data_dir_.absoluteFilePath ("lotw-user-activity.csv"));
 
-  // load the dictionary if it exists, fetch and load if it doesn't
-  lotw_users_.load (ui_->LotW_CSV_URL_line_edit->text ());
-
   //
   // validation
   //
@@ -1238,6 +1235,19 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   audio_input_channel_ = next_audio_input_channel_;
   audio_output_device_ = next_audio_output_device_;
   audio_output_channel_ = next_audio_output_channel_;
+
+  bool fetch_if_needed {false};
+  for (auto const& item : decode_highlighing_model_.items ())
+    {
+      if (DecodeHighlightingModel::Highlight::LotW == item.type_)
+        {
+          fetch_if_needed = item.enabled_;
+          break;
+        }
+    }
+  // load the LoTW users dictionary if it exists, fetch and load if it
+  // doesn't and we need it
+  lotw_users_.load (ui_->LotW_CSV_URL_line_edit->text (), fetch_if_needed);
 
   transceiver_thread_ = new QThread {this};
   transceiver_thread_->start ();
@@ -2828,7 +2838,7 @@ void Configuration::impl::sync_transceiver (bool /*force_signal*/)
 void Configuration::impl::handle_transceiver_update (TransceiverState const& state,
                                                      unsigned sequence_number)
 {
-  LOG_TRACE ("handle_transceiver_update: Transceiver State #: " << sequence_number << " " << state);
+  LOG_TRACE ("#: " << sequence_number << ' ' << state);
 
   // only follow rig on some information, ignore other stuff
   cached_rig_state_.online (state.online ());

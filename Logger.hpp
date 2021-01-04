@@ -21,14 +21,14 @@ namespace Logger
   void init ();
 
   // define logger(s) and sinks from a configuration stream
-  void init_from_config (std::istream& config_stream);
+  void init_from_config (std::wistream& config_stream);
 
   // disable logging - useful for unit testing etc.
   void disable ();
 
   // add a new file sink for LOG_DATA_* for Severity >= INFO
   // this file sink will be used alongside any configured above
-  void add_data_file_log (std::string const& log_file_name);
+  void add_data_file_log (std::wstring const& log_file_name);
 }
 
 #define LOG_LOG_LOCATION(LOGGER, LEVEL, ARG)                  \

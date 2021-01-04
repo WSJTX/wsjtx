@@ -504,7 +504,12 @@ Format:
         <translation>您必須輸入有效的 ARRL RTTY Roundup 交換數據</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2169"/>
+        <location filename="../Configuration.cpp" line="1870"/>
+        <source>Pending DNS lookup, please try again later</source>
+        <translation>等待 DNS 查找, 請稍後再試</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.cpp" line="2213"/>
         <source>Reset Decode Highlighting</source>
         <translation>重置解碼突出顯示</translation>
     </message>
@@ -519,7 +524,17 @@ Format:
         <translation>WSJT-X 解碼文本字體選擇</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2357"/>
+        <location filename="../Configuration.cpp" line="2425"/>
+        <source>UDP server DNS lookup failed</source>
+        <translation>UDP 伺服器 DNS 尋找失敗</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.cpp" line="2449"/>
+        <source>MAC-ambiguous multicast groups addresses not supported</source>
+        <translation>MAC 模棱兩可的多播組位址不受支援</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.cpp" line="2467"/>
         <source>Load Working Frequencies</source>
         <translation>載入工作頻率</translation>
     </message>
@@ -1956,7 +1971,7 @@ Error: %2 - %3</source>
     <message>
         <location filename="../widgets/logqso.cpp" line="43"/>
         <source>Satellite</source>
-        <translation>卫星</translation>
+        <translation>衛星</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="44"/>
@@ -2434,7 +2449,7 @@ Yellow when too low</source>
     <message>
         <location filename="../widgets/mainwindow.ui" line="636"/>
         <source>If orange or red there has been a rig control failure, click to reset and read the dial frequency. S implies split mode.</source>
-        <translation>如果橙色或红色出现表示无线电设备控制故障, 请单击以重置并读取频率. S 表示异频模式.</translation>
+        <translation>如果橙色或紅色出現表示無線電設備控制故障, 請按下以重置並讀取頻率. S 表示異頻模式.</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="665"/>
@@ -3873,13 +3888,13 @@ list. The list can be maintained in Settings (F2).</source>
         <location filename="../widgets/mainwindow.cpp" line="2551"/>
         <source>If you make fair use of any part of WSJT-X under terms of the GNU General Public License, you must display the following copyright notice prominently in your derivative work:
 
-&quot;The algorithms, source code, look-and-feel of WSJT-X and related programs, and protocol specifications for the modes FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 are Copyright (C) 2001-2020 by one or more of the following authors: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; and other members of the WSJT Development Group.&quot;</source>
+&quot;The algorithms, source code, look-and-feel of WSJT-X and related programs, and protocol specifications for the modes FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 are Copyright (C) 2001-2021 by one or more of the following authors: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; and other members of the WSJT Development Group.&quot;</source>
         <translation>如果您根據 GNU 通用公共授權條款合理使用 WSJT-X 的任何部分, 則必須在衍生作品中醒目地顯示以下版權聲明:
 
-&quot;WSJT-X 的演演演算法, 原始碼, 外觀和感覺及相關程式, 和協定規格模式 FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 的版權 (C) 2001-2019 由以下一個或多個作者: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; 和 WSJT 開發組的其他成員.&quot;</translation>
+&quot;WSJT-X 的演演演算法, 原始碼, 外觀和感覺及相關程式, 和協定規格模式 FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 的版權 (C) 2001-2021 由以下一個或多個作者: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; 和 WSJT 開發組的其他成員.&quot;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2819"/>
+        <location filename="../widgets/mainwindow.cpp" line="2846"/>
         <source>No data read from disk. Wrong file format?</source>
         <translation>沒有從磁盤讀取數據. 檔案格式錯誤?</translation>
     </message>
@@ -3899,7 +3914,7 @@ list. The list can be maintained in Settings (F2).</source>
         <translation>鍵盤快捷鍵</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2866"/>
+        <location filename="../widgets/mainwindow.cpp" line="2893"/>
         <source>&lt;table cellspacing=1&gt;
   &lt;tr&gt;&lt;td&gt;&lt;b&gt;Esc      &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Stop Tx, abort QSO, clear next-call queue&lt;/td&gt;&lt;/tr&gt;
   &lt;tr&gt;&lt;td&gt;&lt;b&gt;F1       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Online User&apos;s Guide (Alt: transmit Tx6)&lt;/td&gt;&lt;/tr&gt;
@@ -3993,7 +4008,7 @@ list. The list can be maintained in Settings (F2).</source>
 &lt;/table&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2922"/>
+        <location filename="../widgets/mainwindow.cpp" line="2949"/>
         <source>Special Mouse Commands</source>
         <translation>特殊滑鼠組合</translation>
     </message>
@@ -5411,6 +5426,11 @@ quiet period when decoding is done.</source>
         <translation>數據位元</translation>
     </message>
     <message>
+        <location filename="../Configuration.ui" line="669"/>
+        <source>Data Bits</source>
+        <translation>數據位元</translation>
+    </message>
+    <message>
         <location filename="../Configuration.ui" line="675"/>
         <source>D&amp;efault</source>
         <translation>默認值(&amp;e)</translation>
@@ -5433,6 +5453,11 @@ quiet period when decoding is done.</source>
     <message>
         <location filename="../Configuration.ui" line="720"/>
         <source>Stop bits</source>
+        <translation>停止位元</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="723"/>
+        <source>Stop Bits</source>
         <translation>停止位元</translation>
     </message>
     <message>
@@ -5465,7 +5490,7 @@ quiet period when decoding is done.</source>
     <message>
         <location filename="../Configuration.ui" line="793"/>
         <source>&amp;None</source>
-        <translation>無(&amp;N)</translation>
+        <translation></translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="806"/>
@@ -5749,7 +5774,32 @@ transmitting periods.</source>
 向外發射輸出.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2400"/>
+        <location filename="../Configuration.ui" line="1888"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enter the service port number of the UDP server that WSJT-X should send updates to. If this is zero no updates will be sent.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;輸入 WSJT-X 應向其發送更新的 UDP 伺服器的服務埠號. 如果這是零將不發送任何更新.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="1898"/>
+        <source>Outgoing interfaces:</source>
+        <translation>傳出介面:</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="1908"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;When sending updates to a multicast group address it is necessary to specify which network interface(s) to send them to. If the loop-back interface is multicast capable then at least that one will be selected.&lt;/p&gt;&lt;p&gt;For most users the loop-back interface is all that is needed, that will allow multiple other applications on the same machine to interoperate with WSJT-X. If applications running on other hosts are to receive status updates then a suitable network interface should be used.&lt;/p&gt;&lt;p&gt;On some Linux systems it may be necessary to enable multicast on the loop-back network interface.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;向組播組地址發送更新時需要指定要將其發送到哪個網路介面. 如果環回介面支援組播則至少將選擇該介面.&lt;/p&gt;&lt;p&gt;對於大多數用戶來說迴圈回式介面是所有需要的, 將允許同一台電腦上的多個其他應用程式與 WSJT-X 進行互通. 如果在其他主機上運行的應用程式要接收狀態更新則應使用合適的網路介面.&lt;/p&gt;&lt;p&gt;在某些 Linux 系統上可能需要在環回網路介面上啟用組播.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="1915"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Sets the number or router hops that multicast datagrams are allowed to make. Almost everyone should set this to 1 to keep outgoing multicast traffic withn the local subnet.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;設置允許組播數據報進行的數位或路由器躍點. 幾乎每個人都應該將此設置為 1 以保持傳出的組播流量與本地子網.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="1928"/>
+        <source>Multicast TTL:</source>
+        <translation>組播 TTL TTL:</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="2434"/>
         <source>Days since last upload</source>
         <translation>自上次上傳以來的天數</translation>
     </message>
@@ -5809,7 +5859,7 @@ both here.</source>
         <translation>啟用甚高頻和子模式功能</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1370"/>
+        <location filename="../Configuration.ui" line="1427"/>
         <source>Ou&amp;tput:</source>
         <translation>輸出(&amp;t):</translation>
     </message>
@@ -6001,7 +6051,7 @@ and DX Grid fields when a 73 or free text message is sent.</source>
     <message>
         <location filename="../Configuration.ui" line="1801"/>
         <source>Log automatically (contesting only)</source>
-        <translation>日誌自記錄 (僅限競赛)</translation>
+        <translation>日誌自動記錄 (僅限競赛)</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1818"/>

@@ -1,0 +1,14 @@
+[Sinks.SYSLOG]
+Destination="TextFile"
+Asynchronous="true"
+AutoFlush="true"
+Format="[%TimeStamp(format=\"%Y-%m-%d %H:%M:%S.%f\")%][%Uptime(format=\"%O:%M:%S.%f\")%][%Channel%][%Severity%] %File%(%Line%) %Function%: %Message%"
+RotationTimePoint="11:42:00"
+Target="${AppLocalDataLocation}/logs"
+FileName="${AppLocalDataLocation}/wsjtx_syslog.log"
+TargetFileName="${AppLocalDataLocation}/logs/wsjtx_syslog_%Y-%m_%3N.log"
+Append="true"
+EnableFinalRotation="false"
+ScanForFiles="Matching"
+MaxSize=1073741824
+MaxFiles="10"

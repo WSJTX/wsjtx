@@ -117,6 +117,8 @@ private:
   QString m_mode;
   QString m_modeTx;
   QString m_waterfallPalette;  
+  float   m_swide[MAX_SCREENSIZE];
+  QString m_user_defined;
 };
 
 #endif // WIDEGRAPH_H

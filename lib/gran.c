@@ -26,3 +26,9 @@ float gran_()
   iset++;
   return v2*fac;
 }
+
+/* Generates evenly distributed numbers between 0 and 1. */
+float rran_()
+{
+  return (float)rand()/(float)RAND_MAX;
+}

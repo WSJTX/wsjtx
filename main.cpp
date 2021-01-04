@@ -76,7 +76,13 @@ namespace
     switch (static_cast<QMetaType::Type> (v.type ()))
       {
       case QMetaType::QByteArray:
-        os << "0x" << v.toByteArray ().toHex (':').toStdString ();
+        os << "0x"
+#if QT_VERSION >= QT_VERSION_CHECK (5, 9, 0)
+           << v.toByteArray ().toHex (':').toStdString ()
+#else
+           << v.toByteArray ().toHex ().toStdString ()
+#endif
+          ;
         break;
 
       case QMetaType::QBitArray:
@@ -98,7 +104,6 @@ namespace
 
 int main(int argc, char *argv[])
 {
-  ::qInstallMessageHandler (&WSJTXLogging::qt_log_handler);
   init_random_seed ();
 
   // make the Qt type magic happen
@@ -205,7 +210,9 @@ int main(int argc, char *argv[])
           multiple = true;
         }
 
-      // now we have the application name we can open the settings
+      // now we have the application name we can open the logging and settings
+      WSJTXLogging lg;
+      LOG_INFO (program_title (revision ()) << " - Program startup");
       MultiSettings multi_settings {parser.value (cfg_option)};
 
       // find the temporary files path
@@ -240,9 +247,6 @@ int main(int argc, char *argv[])
                 }
             }
         }
-
-      WSJTXLogging lg;
-      LOG_INFO (program_title (revision ()) << " - Program startup");
 
       // load UI translations
       L10nLoader l10n {&a, locale, parser.value (lang_option)};

@@ -1,15 +1,33 @@
                     Notes on WSJT-X Installation for Mac OS X
                     -----------------------------------------
 
+Important:  If you are using the new Mac with the M1 chip then please read
+the section marked:  BEGIN M1.  Otherwise BEGIN INTEL applies.
+
 If you have already downloaded a previous version of WSJT-X then I suggest 
 you change the name in the Applications folder from WSJT-X to WSJT-X_previous 
 before proceeding.  
 
-If you have installed a previous version of WSJT-X before, then there is no 
-need to change anything on your system so proceed to NEXT. If you upgrade macOS
-it is possible that you might need to re-install the sysctl.conf file. 
+I recommend that you follow the installation instructions especially if you
+are moving from v2.2 to v2.3 of WSJT-X or you have upgraded macOS.
 
-BEGIN:
+BEGIN M1:
+
+Double-click on the wsjtx-...-Darwin.dmg file you have downloaded from K1JT's web-site.
+
+Now open a Terminal window by going to Applications->Utilities and clicking on Terminal.
+
+There are two system variables that must be set manually since the M1 Macs do not recognise
+automatic parameter settings by means of the sysctl.conf file present in the download.
+Type these commands - you will be asked for your password which will not be echoed:
+
+      sudo  sysctl  -w  kern.sysv.shmmax=104857600
+      sudo  sysctl  -w  kern.sysv.shmall=25600
+
+It is important to note that these parameter settings will not survive a reboot.  If you
+need to reboot your Mac, then these commands must be re-entered.  Now proceed to NEXT.
+
+BEGIN INTEL:
 
 Double-click on the wsjtx-...-Darwin.dmg file you have downloaded from K1JT's web-site.
 
@@ -18,7 +36,7 @@ Now open a Terminal window by going to Applications->Utilities and clicking on T
 Along with this ReadMe file there is a file:   sysctl.conf  which must be copied to a
 system area by typing this line in the Terminal window and then pressing the Return key.
 
-              sudo  cp  /Volumes/WSJT-X/sysctl.conf  /etc
+      sudo  cp  /Volumes/WSJT-X/sysctl.conf  /etc
 
 you will be asked for your normal password because authorisation is needed to copy this file.
 (Your password will not be echoed but press the Return key when completed.)
@@ -26,9 +44,9 @@ Now re-boot your Mac. This is necessary to install the changes.  After the
 reboot you should re-open the Terminal window as before and you can check that the
 change has been made by typing:
 
-  sysctl -a | grep sysv.shm
+      sysctl -a | grep sysv.shm
 
-If shmmax is not shown as 14680064 then contact me since WSJT-X will fail to load with
+If shmmax is not shown as 104857600 then contact me since WSJT-X will fail to load with
 an error message: "Unable to create shared memory segment".
 
 You can now close the Terminal window.  It will not be necessary to repeat this procedure 
@@ -77,23 +95,20 @@ Please email me if you have problems.
 
 --- John G4KLA     (g4kla@rmnjmn.co.uk)
 
-Addendum:  Information about sysctl.conf and multiple instances of wsjt-x.
+Addendum:  Information about sysctl.conf and multiple instances of WSJT-X.
 
 WSJT-X makes use of a block of memory which is shared between different parts of
 the code.  The normal allocation of shared memory on a Mac is insufficient and this 
 has to be increased.  The sysctl.conf file is used for this purpose.  You can 
 use a Mac editor to examine sysctl.conf.  (Do not use another editor - the file 
-would be probably be corrupted.)
+would probably be corrupted.)
 
-There are two important parameters that you need to consider.  shmmax determines the
-amount of shared memory that must be allocated for WSJT-X to operate.  This is 14680064 (14MB)
-and this is defined in the sysctl.conf file and should not be changed.  
+It is possible to run two instances of WSJT-X simultaneously.  See "Section 16.2 
+Frequently asked Questions" in the User Guide.  If you wish to run more than two instances
+simultaneously, the sysctl.conf file needs to be modified.  Please email me with your
+requirements and I will provide a replacement sysctl.conf to suit.
 
-It is possible to run more than one instance of WSJT-X simultaneously.  See 
-"Section 16.2 Frequently asked Questions" in the User Guide.  The second important parameter 
-shmall=17920 determines how many instances are permitted.  This is calculated as: 
-  (shmall x 4096/14680064) = 5.
-The sysctl.conf file is configured to permit up to 5 instances of wsjtx to run simultaneously.
-If this limitation is acceptable then you can continue to install the sysctl.conf file without making any
-alterations.  Otherwise you must edit the file to increase shmall according to this calculation.
- 
+If two instances of WSJT-X are running, it is likely that you might need additional
+audio devices, from two rigs for example.  Visit Audio MIDI Setup and create an Aggregate Device
+which will allow you to specific more than one interface.  I recommend you consult Apple's guide
+on combining multiple audio interfaces which is at https://support.apple.com/en-us/HT202000.  

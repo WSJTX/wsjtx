@@ -18,14 +18,13 @@
 #include <boost/log/utility/setup/settings.hpp>
 #include <boost/log/sinks/sync_frontend.hpp>
 #include <boost/log/sinks/text_ostream_backend.hpp>
-#include <boost/log/sinks/debug_output_backend.hpp>
 #include <boost/log/support/date_time.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/make_shared.hpp>
- 
-#include <fstream>
+#include <boost/filesystem/fstream.hpp>
 #include <string>
 
+namespace fs = boost::filesystem;
 namespace logging = boost::log;
 namespace srcs = logging::sources;
 namespace sinks = logging::sinks;
@@ -129,7 +128,7 @@ namespace Logger
     CommonInitialization ci;
   }
 
-  void init_from_config (std::istream& stream)
+  void init_from_config (std::wistream& stream)
   {
     CommonInitialization ci;
     try
@@ -153,24 +152,24 @@ namespace Logger
     logging::core::get ()->set_logging_enabled (false);
   }
 
-  void add_datafile_log (std::string const& log_file_name)
+  void add_datafile_log (std::wstring const& log_file_name)
   {
     // Create a text file sink
-    boost::shared_ptr<sinks::text_ostream_backend> backend
+    boost::shared_ptr<sinks::wtext_ostream_backend> backend
       (
-       new sinks::text_ostream_backend()
+       new sinks::wtext_ostream_backend()
        );
-    backend->add_stream (boost::shared_ptr<std::ostream> (new std::ofstream (log_file_name)));
+    backend->add_stream (boost::shared_ptr<std::wostream> (new fs::wofstream (log_file_name)));
      
     // Flush after each log record
     backend->auto_flush (true);
      
     // Create a sink for the backend
-    typedef sinks::synchronous_sink<sinks::text_ostream_backend> sink_t;
+    typedef sinks::synchronous_sink<sinks::wtext_ostream_backend> sink_t;
     boost::shared_ptr<sink_t> sink (new sink_t (backend));
      
     // The log output formatter
-    sink->set_formatter (expr::format ("[%1%][%2%] %3%")
+    sink->set_formatter (expr::format (L"[%1%][%2%] %3%")
                          % expr::attr<ptime::ptime> ("TimeStamp")
                          % logging::trivial::severity
                          % expr::message

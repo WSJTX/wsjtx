@@ -211,8 +211,8 @@ namespace
   QRegularExpression grid_regexp {"\\A(?![Rr]{2}73)[A-Ra-r]{2}[0-9]{2}([A-Xa-x]{2}){0,1}\\z"};
   auto quint32_max = std::numeric_limits<quint32>::max ();
   constexpr int N_WIDGETS {36};
-  constexpr int rx_chunk_size {3456}; // audio samples at 12000 Hz
-  constexpr int tx_audio_buffer_size {48000 / 5}; // audio frames at 48000 Hz
+  constexpr int default_rx_audio_buffer_frames {-1}; // lets Qt decide
+  constexpr int default_tx_audio_buffer_frames {-1}; // lets Qt decide
 
   bool message_is_73 (int type, QStringList const& msg_parts)
   {
@@ -236,7 +236,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
                        MultiSettings * multi_settings, QSharedMemory *shdmem,
                        unsigned downSampleFactor,
                        QSplashScreen * splash, QProcessEnvironment const& env, QWidget *parent) :
-  QMainWindow(parent),
+  MultiGeometryWidget {parent},
   m_env {env},
   m_network_manager {this},
   m_valid {true},
@@ -265,6 +265,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_soundInput {new SoundInput},
   m_modulator {new Modulator {TX_SAMPLE_RATE, NTMAX}},
   m_soundOutput {new SoundOutput},
+  m_rx_audio_buffer_frames {0},
+  m_tx_audio_buffer_frames {0},
   m_msErase {0},
   m_secBandChanged {0},
   m_freqNominal {0},
@@ -455,6 +457,11 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_modulator->moveToThread (&m_audioThread);
   m_soundInput->moveToThread (&m_audioThread);
   m_detector->moveToThread (&m_audioThread);
+  bool ok;
+  auto buffer_size = env.value ("WSJT_RX_AUDIO_BUFFER_FRAMES", "0").toInt (&ok);
+  m_rx_audio_buffer_frames = ok && buffer_size ? buffer_size : default_rx_audio_buffer_frames;
+  buffer_size = env.value ("WSJT_TX_AUDIO_BUFFER_FRAMES", "0").toInt (&ok);
+  m_tx_audio_buffer_frames = ok && buffer_size ? buffer_size : default_tx_audio_buffer_frames;
 
   // hook up sound output stream slots & signals and disposal
   connect (this, &MainWindow::initializeAudioOutputStream, m_soundOutput, &SoundOutput::setFormat);
@@ -935,14 +942,14 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   if (!m_config.audio_input_device ().isNull ())
     {
       Q_EMIT startAudioInputStream (m_config.audio_input_device ()
-                                    , rx_chunk_size * m_downSampleFactor
+                                    , m_rx_audio_buffer_frames
                                     , m_detector, m_downSampleFactor, m_config.audio_input_channel ());
     }
   if (!m_config.audio_output_device ().isNull ())
     {
       Q_EMIT initializeAudioOutputStream (m_config.audio_output_device ()
                                           , AudioDevice::Mono == m_config.audio_output_channel () ? 1 : 2
-                                          , tx_audio_buffer_size);
+                                          , m_tx_audio_buffer_frames);
     }
   Q_EMIT transmitFrequency (ui->TxFreqSpinBox->value () - m_XIT);
 
@@ -1022,10 +1029,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   }
 
   ui->pbBestSP->setVisible(m_mode=="FT4");
-  if(!ui->cbMenus->isChecked()) {
-    ui->cbMenus->setChecked(true);
-    ui->cbMenus->setChecked(false);
-  }
+
 // this must be the last statement of constructor
   if (!m_valid) throw std::runtime_error {"Fatal initialization exception"};
 }
@@ -1035,9 +1039,9 @@ void MainWindow::not_GA_warning_message ()
   MessageBox::critical_message (this,
                                 "This is a pre-release version of WSJT-X 2.3.0 made\n"
                                 "available for testing purposes.  By design it will\n"
-                                "be nonfunctional after 0000 UTC on Jan 19, 2021.");
+                                "be nonfunctional after 0000 UTC on Jan 26, 2021.");
   auto now = QDateTime::currentDateTimeUtc ();
-  if (now >= QDateTime {{2021, 1, 19}, {0, 0}, Qt::UTC}) {
+  if (now >= QDateTime {{2021, 1, 26}, {0, 0}, Qt::UTC}) {
     Q_EMIT finished ();
   }
 }
@@ -1094,8 +1098,33 @@ MainWindow::~MainWindow()
 void MainWindow::writeSettings()
 {
   m_settings->beginGroup("MainWindow");
-  m_settings->setValue ("geometry", saveGeometry ());
-  m_settings->setValue ("geometryNoControls", m_geometryNoControls);
+  if (ui->actionSWL_Mode->isChecked ())
+    {
+      m_settings->setValue ("SWLView", true);
+      m_settings->setValue ("ShowMenus", ui->cbMenus->isChecked ());
+      m_settings->setValue ("geometry", geometries ()[0]);
+      m_settings->setValue ("SWLModeGeometry", saveGeometry ());
+      m_settings->setValue ("geometryNoControls", geometries ()[2]);
+    }
+  else
+    {
+      if (ui->cbMenus->isChecked())
+        {
+          m_settings->setValue ("SWLView", ui->actionSWL_Mode->isChecked ());
+          m_settings->setValue ("ShowMenus", true);
+          m_settings->setValue ("geometry", saveGeometry ());
+          m_settings->setValue ("SWLModeGeometry", geometries ()[1]);
+          m_settings->setValue ("geometryNoControls", geometries ()[2]);
+        }
+      else
+        {
+          m_settings->setValue ("SWLView", ui->actionSWL_Mode->isChecked ());
+          m_settings->setValue ("ShowMenus", false);
+          m_settings->setValue ("geometry", geometries ()[0]);
+          m_settings->setValue ("SWLModeGeometry", geometries ()[1]);
+          m_settings->setValue ("geometryNoControls", saveGeometry ());
+        }
+    }
   m_settings->setValue ("state", saveState ());
   m_settings->setValue("MRUdir", m_path);
   m_settings->setValue("TxFirst",m_txFirst);
@@ -1105,7 +1134,6 @@ void MainWindow::writeSettings()
   m_settings->setValue ("MsgAvgDisplayed", m_msgAvgWidget && m_msgAvgWidget->isVisible ());
   m_settings->setValue ("FoxLogDisplayed", m_foxLogWindow && m_foxLogWindow->isVisible ());
   m_settings->setValue ("ContestLogDisplayed", m_contestLogWindow && m_contestLogWindow->isVisible ());
-  m_settings->setValue("ShowMenus",ui->cbMenus->isChecked());
   m_settings->setValue("CallFirst",ui->cbFirst->isChecked());
   m_settings->setValue("HoundSort",ui->comboBoxHoundSort->currentIndex());
   m_settings->setValue("FoxNlist",ui->sbNlist->value());
@@ -1159,9 +1187,8 @@ void MainWindow::writeSettings()
   m_settings->setValue("pwrBandTuneMemory",m_pwrBandTuneMemory);
   m_settings->setValue ("FT8AP", ui->actionEnable_AP_FT8->isChecked ());
   m_settings->setValue ("JT65AP", ui->actionEnable_AP_JT65->isChecked ());
-  m_settings->setValue("SplitterState",ui->splitter->saveState());
+  m_settings->setValue("SplitterState",ui->decodes_splitter->saveState());
   m_settings->setValue("Blanker",ui->sbNB->value());
-  m_settings->setValue ("SWLView", ui->actionSWL_Mode->isChecked ());
 
   {
     QList<QVariant> coeffs;     // suitable for QSettings
@@ -1180,8 +1207,17 @@ void MainWindow::readSettings()
   ui->cbAutoSeq->setVisible(false);
   ui->cbFirst->setVisible(false);
   m_settings->beginGroup("MainWindow");
-  restoreGeometry (m_settings->value ("geometry", saveGeometry ()).toByteArray ());
-  m_geometryNoControls = m_settings->value ("geometryNoControls",saveGeometry()).toByteArray();
+  std::array<QByteArray, 3> the_geometries;
+  the_geometries[0] = m_settings->value ("geometry", saveGeometry ()).toByteArray ();
+  the_geometries[1] = m_settings->value ("SWLModeGeometry", saveGeometry ()).toByteArray ();
+  the_geometries[2] = m_settings->value ("geometryNoControls", saveGeometry ()).toByteArray ();
+  auto SWL_mode = m_settings->value ("SWLView", false).toBool ();
+  auto show_menus = m_settings->value ("ShowMenus", true).toBool ();
+  ui->actionSWL_Mode->setChecked (SWL_mode);
+  ui->cbMenus->setChecked (show_menus);
+  auto current_view_mode = SWL_mode ? 1 : show_menus ? 0 : 2;
+  change_layout (current_view_mode);
+  geometries (current_view_mode, the_geometries);
   restoreState (m_settings->value ("state", saveState ()).toByteArray ());
   ui->dxCallEntry->setText (m_settings->value ("DXcall", QString {}).toString ());
   ui->dxGridEntry->setText (m_settings->value ("DXgrid", QString {}).toString ());
@@ -1191,7 +1227,6 @@ void MainWindow::readSettings()
   auto displayMsgAvg = m_settings->value ("MsgAvgDisplayed", false).toBool ();
   auto displayFoxLog = m_settings->value ("FoxLogDisplayed", false).toBool ();
   auto displayContestLog = m_settings->value ("ContestLogDisplayed", false).toBool ();
-  ui->cbMenus->setChecked(m_settings->value("ShowMenus",true).toBool());
   ui->cbFirst->setChecked(m_settings->value("CallFirst",true).toBool());
   ui->comboBoxHoundSort->setCurrentIndex(m_settings->value("HoundSort",3).toInt());
   ui->sbNlist->setValue(m_settings->value("FoxNlist",12).toInt());
@@ -1265,10 +1300,8 @@ void MainWindow::readSettings()
   m_pwrBandTuneMemory=m_settings->value("pwrBandTuneMemory").toHash();
   ui->actionEnable_AP_FT8->setChecked (m_settings->value ("FT8AP", false).toBool());
   ui->actionEnable_AP_JT65->setChecked (m_settings->value ("JT65AP", false).toBool());
-  ui->splitter->restoreState(m_settings->value("SplitterState").toByteArray());
+  ui->decodes_splitter->restoreState(m_settings->value("SplitterState").toByteArray());
   ui->sbNB->setValue(m_settings->value("Blanker",0).toInt());
-  ui->actionSWL_Mode->setChecked (m_settings->value ("SWLView", false).toBool ());
-  on_actionSWL_Mode_triggered (ui->actionSWL_Mode->isChecked ());
   {
     auto const& coeffs = m_settings->value ("PhaseEqualizationCoefficients"
                                             , QList<QVariant> {0., 0., 0., 0., 0.}).toList ();
@@ -1567,7 +1600,7 @@ void MainWindow::dataSink(qint64 frames)
       m_saveWAVWatcher.setFuture (QtConcurrent::run (std::bind (&MainWindow::save_wave_file,
             this, m_fnameWE, &dec_data.d2[0], samples, m_config.my_callsign(),
             m_config.my_grid(), m_mode, m_nSubMode, m_freqNominal, m_hisCall, m_hisGrid)));
-      if (m_mode=="WSPR" or m_mode=="FST4W") {
+      if (m_mode=="WSPR") {
         QString c2name_string {m_fnameWE + ".c2"};
         int len1=c2name_string.length();
         char c2name[80];
@@ -1821,7 +1854,7 @@ void MainWindow::on_actionSettings_triggered()               //Setup Dialog
 
     if(m_config.restart_audio_input () && !m_config.audio_input_device ().isNull ()) {
       Q_EMIT startAudioInputStream (m_config.audio_input_device ()
-                                    , rx_chunk_size * m_downSampleFactor
+                                    , m_rx_audio_buffer_frames
                                     , m_detector, m_downSampleFactor
                                     , m_config.audio_input_channel ());
     }
@@ -1829,7 +1862,7 @@ void MainWindow::on_actionSettings_triggered()               //Setup Dialog
     if(m_config.restart_audio_output () && !m_config.audio_output_device ().isNull ()) {
       Q_EMIT initializeAudioOutputStream (m_config.audio_output_device ()
                                           , AudioDevice::Mono == m_config.audio_output_channel () ? 1 : 2
-                                          , tx_audio_buffer_size);
+                                          , m_tx_audio_buffer_frames);
     }
 
     displayDialFrequency ();
@@ -2561,44 +2594,59 @@ void MainWindow::on_actionCopyright_Notice_triggered()
                            "\"The algorithms, source code, look-and-feel of WSJT-X and related "
                            "programs, and protocol specifications for the modes FSK441, FT8, JT4, "
                            "JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 are Copyright (C) "
-                           "2001-2020 by one or more of the following authors: Joseph Taylor, "
+                           "2001-2021 by one or more of the following authors: Joseph Taylor, "
                            "K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, "
                            "IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; "
                            "Philip Karn, KA9Q; and other members of the WSJT Development Group.\"");
   MessageBox::warning_message(this, message);
 }
 
+// Implement the MultiGeometryWidget::change_layout() operation.
+void MainWindow::change_layout (std::size_t n)
+{
+  switch (n)
+    {
+    case 1:                     // SWL view
+      ui->menuBar->show ();
+      ui->lower_panel_widget->hide ();
+      trim_view (false);        // ensure we can switch back
+      break;
+
+    case 2:                     // hide menus view
+      ui->menuBar->hide ();
+      ui->lower_panel_widget->show ();
+      trim_view (true);
+      break;
+
+    default:                    // normal view
+      ui->menuBar->setVisible (ui->cbMenus->isChecked ());
+      ui->lower_panel_widget->show ();
+      trim_view (!ui->cbMenus->isChecked ());
+      break;
+    }
+}
+
 void MainWindow::on_actionSWL_Mode_triggered (bool checked)
 {
-  ui->lower_panel_widget->setVisible (!checked);
-  if (checked)
-    {
-      hideMenus (false);        // make sure we can be turned off
-    }
+  select_geometry (checked ? 1 : ui->cbMenus->isChecked () ? 0 : 2);
 }
 
 // This allows the window to shrink by removing certain things
 // and reducing space used by controls
-void MainWindow::hideMenus(bool checked)
+void MainWindow::trim_view (bool checked)
 {
   int spacing = checked ? 1 : 6;
   if (checked) {
       statusBar ()->removeWidget (&auto_tx_label);
-      minimumSize().setHeight(450);
-      minimumSize().setWidth(700);
-      restoreGeometry(m_geometryNoControls);
-      updateGeometry();
   } else {
-      m_geometryNoControls = saveGeometry();
       statusBar ()->addWidget(&auto_tx_label);
-      minimumSize().setHeight(520);
-      minimumSize().setWidth(770);
   }
-  ui->menuBar->setVisible(!checked);
-  if(m_mode!="FreqCal" and m_mode!="WSPR" and m_mode!="FST4W") {
+  if (m_mode != "FreqCal" && m_mode != "WSPR" && m_mode != "FST4W") {
     ui->lh_decodes_title_label->setVisible(!checked);
+    ui->rh_decodes_title_label->setVisible(!checked);
   }
   ui->lh_decodes_headings_label->setVisible(!checked);
+  ui->rh_decodes_headings_label->setVisible(!checked);
   ui->gridLayout_5->layout()->setSpacing(spacing);
   ui->horizontalLayout_2->layout()->setSpacing(spacing);
   ui->horizontalLayout_5->layout()->setSpacing(spacing);
@@ -3025,8 +3073,8 @@ void MainWindow::decode()                                       //decode()
     dec_data.params.nutc=dec_data.params.nutc/100;
   }
   if(dec_data.params.nagain==0 && dec_data.params.newdat==1 && (!m_diskData)) {
-    auto t_start = qt_truncate_date_time_to (QDateTime::currentDateTimeUtc (), m_TRperiod * 1.e3);
-    auto t = t_start.time ();
+    m_dateTimeSeqStart = qt_truncate_date_time_to (QDateTime::currentDateTimeUtc (), m_TRperiod * 1.e3);
+    auto t = m_dateTimeSeqStart.time ();
     dec_data.params.nutc = t.hour () * 100 + t.minute ();
     if (m_TRperiod < 60.)
       {
@@ -3400,19 +3448,21 @@ void MainWindow::readFromStdout()                             //readFromStdout
                                                      ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
                                                      haveFSpread, fSpread);
 
-          if(m_bBestSPArmed and m_mode=="FT4") {
+          if(m_bBestSPArmed && m_mode=="FT4" && CALLING == m_QSOProgress) {
             QString messagePriority=ui->decodedTextBrowser->CQPriority();
             if(messagePriority!="") {
               if(messagePriority=="New Call on Band"
                  and m_BestCQpriority!="New Call on Band"
                  and m_BestCQpriority!="New Multiplier") {
                 m_BestCQpriority="New Call on Band";
+                m_bDoubleClicked = true;
                 processMessage(decodedtext0);
               }
               if(messagePriority=="New DXCC"
                  and m_BestCQpriority!="New DXCC"
                  and m_BestCQpriority!="New Multiplier") {
                 m_BestCQpriority="New DXCC";
+                m_bDoubleClicked = true;
                 processMessage(decodedtext0);
               }
             }
@@ -3521,7 +3571,16 @@ void MainWindow::readFromStdout()                             //readFromStdout
         decodedtext.deCallAndGrid(/*out*/deCall,grid);
         {
           auto t = Radio::base_callsign (ui->dxCallEntry->text ());
-          if ((t == deCall || ui->dxCallEntry->text () == deCall || !t.size ()) && rpt.size ()) m_rptRcvd = rpt;
+          auto const& dx_call = decodedtext.call ();
+          if (rpt.size ()       // report in message
+              && (m_baseCall == Radio::base_callsign (dx_call) // for us
+                  || "DE" == dx_call)                          // probably for us
+              && (t == deCall   // DX station base call is QSO partner
+                  || ui->dxCallEntry->text () == deCall // DX station full call is QSO partner
+                  || !t.size ()))                       // not in QSO
+            {
+              m_rptRcvd = rpt;
+            }
         }
 // extract details and send to PSKreporter
         int nsec=QDateTime::currentMSecsSinceEpoch()/1000-m_secBandChanged;
@@ -4085,7 +4144,14 @@ void MainWindow::guiUpdate()
       }
     }
 
-    m_currentMessage = QString::fromLatin1(msgsent);
+    {
+      auto temp = m_currentMessage;
+      m_currentMessage = QString::fromLatin1(msgsent);
+      if (m_currentMessage != temp) // check if tx message changed
+        {
+          statusUpdate ();
+        }
+    }
     m_bCallingCQ = CALLING == m_QSOProgress
       || m_currentMessage.contains (QRegularExpression {"^(CQ|QRZ) "});
     if(m_mode=="FT8" or m_mode=="FT4") {
@@ -5918,7 +5984,11 @@ void MainWindow::displayWidgets(qint64 n)
     if(i==31) ui->cbRxAll->setVisible(b);
     if(i==32) ui->cbCQonly->setVisible(b);
     if(i==33) ui->sbTR_FST4W->setVisible(b);
-    if(i==34) ui->sbF_Low->setVisible(b);
+    if (34 == i)                // adjust the stacked widget
+      {
+        ui->opt_controls_stack->setCurrentIndex (b ? 1 : 0);
+        ui->sbF_Low->setVisible(b);
+      }
     if(i==35) ui->sbF_High->setVisible(b);
     j=j>>1;
   }
@@ -7562,10 +7632,6 @@ void MainWindow::on_sbTR_valueChanged(int value)
     progressBar.setMaximum (value);
   }
   if(m_mode=="FST4") chk_FST4_freq_range();
-  if(m_monitoring) {
-    on_stopButton_clicked();
-    on_monitorButton_clicked(true);
-  }
   if(m_transmitting) {
     on_stopTxButton_clicked();
   }
@@ -8348,7 +8414,8 @@ void MainWindow::statusUpdate () const
                                   m_hisGrid, m_tx_watchdog,
                                   submode != QChar::Null ? QString {submode} : QString {}, m_bFastMode,
                                   static_cast<quint8> (m_config.special_op_id ()),
-                                  ftol, tr_period, m_multi_settings->configuration_name ());
+                                  ftol, tr_period, m_multi_settings->configuration_name (),
+                                  m_currentMessage);
 }
 
 void MainWindow::childEvent (QChildEvent * e)
@@ -8431,7 +8498,7 @@ void MainWindow::update_watchdog_label ()
 
 void MainWindow::on_cbMenus_toggled(bool b)
 {
-  hideMenus(!b);
+  select_geometry (!b ? 2 : ui->actionSWL_Mode->isChecked () ? 1 : 0);
 }
 
 void MainWindow::on_cbCQonly_toggled(bool)

@@ -625,7 +625,7 @@ Format:
         <location filename="../Configuration.cpp" line="2835"/>
         <source>Not found</source>
         <comment>audio device missing</comment>
-        <translation type="unfinished"></translation>
+        <translation>見つかりません</translation>
     </message>
 </context>
 <context>
@@ -2703,12 +2703,12 @@ When not checked you can view the calibration results.</source>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1297"/>
         <source>F High </source>
-        <translation type="unfinished"></translation>
+        <translation>F 高 </translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1388"/>
         <source>F Low   </source>
-        <translation type="unfinished"></translation>
+        <translation>F 低   </translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1410"/>
@@ -2962,12 +2962,12 @@ ENTERを押してテキストを登録リストに追加.
     <message>
         <location filename="../widgets/mainwindow.ui" line="3390"/>
         <source>SWL Mode</source>
-        <translation type="unfinished"></translation>
+        <translation>SWLモード</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3393"/>
         <source>Hide lower panel controls to maximize deocde windows</source>
-        <translation type="unfinished"></translation>
+        <translation>下部制御パネルを非表示にしてデコードウィンドウを最大化</translation>
     </message>
     <message>
         <source>Calling CQ </source>
@@ -3825,7 +3825,7 @@ ENTERを押してテキストを登録リストに追加.
     <message>
         <location filename="../widgets/mainwindow.cpp" line="492"/>
         <source>Excessive dropped samples - %1 (%2 sec) audio frames dropped in period starting %3</source>
-        <translation type="unfinished"></translation>
+        <translation>サンプル大量欠落 - %3から始まる%1個(%2秒）のオーディオフレームが欠落</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="526"/>
@@ -3850,7 +3850,7 @@ ENTERを押してテキストを登録リストに追加.
     <message>
         <location filename="../widgets/mainwindow.cpp" line="790"/>
         <source>Enumerating audio devices</source>
-        <translation type="unfinished"></translation>
+        <translation>オーディオデバイスを列挙</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="805"/>
@@ -4032,7 +4032,7 @@ ENTERを押してテキストを登録リストに追加.
         <location filename="../widgets/mainwindow.cpp" line="2571"/>
         <source>If you make fair use of any part of WSJT-X under terms of the GNU General Public License, you must display the following copyright notice prominently in your derivative work:
 
-&quot;The algorithms, source code, look-and-feel of WSJT-X and related programs, and protocol specifications for the modes FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 are Copyright (C) 2001-2020 by one or more of the following authors: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; and other members of the WSJT Development Group.&quot;</source>
+&quot;The algorithms, source code, look-and-feel of WSJT-X and related programs, and protocol specifications for the modes FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 are Copyright (C) 2001-2021 by one or more of the following authors: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; and other members of the WSJT Development Group.&quot;</source>
         <translation></translation>
     </message>
     <message>

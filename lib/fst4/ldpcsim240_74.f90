@@ -101,7 +101,7 @@ write(*,'(24i1)') msgbits(51:74)
          llr=2.0*rxdata/(ss*ss)
          apmask=0
          dmin=0.0
-         maxosd=0
+         maxosd=2
          call decode240_74(llr, Keff, maxosd, norder, apmask, message74, cw, ntype, nharderror, dmin)
          if(nharderror.ge.0) then
             n2err=0

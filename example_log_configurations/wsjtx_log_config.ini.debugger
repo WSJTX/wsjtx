@@ -1,0 +1,15 @@
+#
+# Example WSJT-X logging configuration for sending records to the
+# attached Windows debugger (e.g. gdb)
+#
+
+[Core]
+# Set DisableLogging to true to disable all logging.
+DisableLogging="false"
+
+[Sinks.Debugger]
+Destination="Debugger"
+Asynchronous="false"
+AutoFlush="true"
+Format="[%TimeStamp(format=\"%H:%M:%S.%f\")%][%Channel%][%Severity%] %File%(%Line%) %Function%: %Message%"
+Filter="(%Channel% matches \"SYSLOG\" & %Severity% >= debug) | (%Channel% matches \"RIGCTRL\" & %Severity% >= info)"

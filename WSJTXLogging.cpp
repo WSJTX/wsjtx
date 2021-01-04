@@ -10,7 +10,6 @@
 #include <boost/log/trivial.hpp>
 #include <boost/log/sinks/text_file_backend.hpp>
 #include <boost/log/sinks/async_frontend.hpp>
-#include <boost/log/sinks/debug_output_backend.hpp>
 #include <boost/log/expressions.hpp>
 #include <boost/log/expressions/formatters/date_time.hpp>
 #include <boost/log/expressions/predicates/channel_severity_filter.hpp>
@@ -19,6 +18,7 @@
 #include <boost/date_time/gregorian/greg_day.hpp>
 #include <boost/container/flat_map.hpp>
 
+#include <QtGlobal>
 #include <QDir>
 #include <QFile>
 #include <QTextStream>
@@ -35,7 +35,7 @@ namespace trivial = logging::trivial;
 namespace keywords = logging::keywords;
 namespace expr = logging::expressions;
 namespace sinks = logging::sinks;
-namespace ptime = boost::posix_time;
+namespace posix_time = boost::posix_time;
 namespace gregorian = boost::gregorian;
 namespace container = boost::container;
 
@@ -60,12 +60,62 @@ namespace
       //throw;
     }
   };
+
+  // Reroute Qt messages to the system logger
+  void qt_log_handler (QtMsgType type, QMessageLogContext const& context, QString const& msg)
+  {
+    // Convert Qt message types to logger severities
+    auto severity = trivial::trace;
+    switch (type)
+      {
+      case QtDebugMsg: severity = trivial::debug; break;
+      case QtInfoMsg: severity = trivial::info; break;
+      case QtWarningMsg: severity = trivial::warning; break;
+      case QtCriticalMsg: severity = trivial::error; break;
+      case QtFatalMsg: severity = trivial::fatal; break;
+      }
+    // Map non-default Qt categories to logger channels, Qt logger
+    // context is mapped to the appropriate logger attributes.
+    auto log = sys::get ();
+    std::string file;
+    std::string function;
+    if (context.file)
+      {
+        file = context.file;
+      }
+    if (context.function)
+      {
+        function = context.function;
+      }
+    if (!context.category || !qstrcmp (context.category, "default"))
+      {
+        BOOST_LOG_SEV (log, severity)
+          << boost::log::add_value ("Line", context.line)
+          << boost::log::add_value ("File", file)
+          << boost::log::add_value ("Function", function)
+          << msg.toStdWString ();
+      }
+    else
+      {
+        BOOST_LOG_SEV (log, severity)
+          << boost::log::add_value ("Line", context.line)
+          << boost::log::add_value ("File", file)
+          << boost::log::add_value ("Function", function)
+          << context.category << ": " << msg.toStdWString ();
+      }
+    if (QtFatalMsg == type)
+      {
+        // bail out
+        throw std::runtime_error {"Fatal Qt Error"};
+      }
+  }
 }
 
 WSJTXLogging::WSJTXLogging ()
 {
+  auto core = logging::core::get ();
   // Catch relevant exceptions from logging.
-  logging::core::get ()->set_exception_handler
+  core->set_exception_handler
     (
      logging::make_exception_handler<std::runtime_error, std::logic_error> (exception_handler {})
      );
@@ -105,8 +155,8 @@ WSJTXLogging::WSJTXLogging ()
           pos = match.capturedEnd (0);
         }
       new_config += config.mid (pos);
-      std::stringbuf buffer {new_config.toStdString (), std::ios_base::in};
-      std::istream stream {&buffer};
+      std::wstringbuf buffer {new_config.toStdWString (), std::ios_base::in};
+      std::wistream stream {&buffer};
       Logger::init_from_config (stream);
       LOG_INFO ("Read logging configuration file: " << log_config.fileName ());
     }
@@ -120,7 +170,6 @@ WSJTXLogging::WSJTXLogging ()
       // Default log file location.
       QDir app_data {QStandardPaths::writableLocation (QStandardPaths::AppLocalDataLocation)};
       Logger::init ();          // Basic setup of attributes
-      auto core = logging::core::get ();
 
       //
       // Sink intended for general use that passes everything above
@@ -131,7 +180,7 @@ WSJTXLogging::WSJTXLogging ()
         (
          keywords::auto_flush = false
 #if BOOST_VERSION / 100 >= 1070
-         , keywords::file_name = app_data.absoluteFilePath ("wsjtx_syslog.log").toStdString ()
+         , keywords::file_name = app_data.absoluteFilePath ("wsjtx_syslog.log").toStdWString ()
          , keywords::target_file_name =
 #else
          , keywords::file_name =
@@ -139,7 +188,9 @@ WSJTXLogging::WSJTXLogging ()
              app_data.absoluteFilePath ("logs/wsjtx_syslog_%Y-%m.log").toStdString ()
          , keywords::time_based_rotation = sinks::file::rotation_at_time_point (gregorian::greg_day (1), 0, 0, 0)
          , keywords::open_mode = std::ios_base::out | std::ios_base::app
+#if BOOST_VERSION / 100 >= 1063
          , keywords::enable_final_rotation = false
+#endif
          );
 
       sys_sink->locked_backend ()->set_file_collector
@@ -149,7 +200,7 @@ WSJTXLogging::WSJTXLogging ()
           keywords::max_size = 40 * 1024 * 1024
           , keywords::min_free_space = 1024 * 1024 * 1024
           , keywords::max_files = 12
-          , keywords::target = app_data.absoluteFilePath ("logs").toStdString ()
+          , keywords::target = app_data.absoluteFilePath ("logs").toStdWString ()
           )
          );
       sys_sink->locked_backend ()->scan_for_files ();
@@ -166,77 +217,24 @@ WSJTXLogging::WSJTXLogging ()
         (
          expr::stream
          << "[" << channel
-         << "][" << expr::format_date_time<ptime::ptime> ("TimeStamp", "%Y-%m-%d %H:%M:%S.%f")
-         << "][" << expr::format_date_time<ptime::time_duration> ("Uptime", "%O:%M:%S.%f")
+         << "][" << expr::format_date_time<posix_time::ptime> ("TimeStamp", "%Y-%m-%d %H:%M:%S.%f")
+         << "][" << expr::format_date_time<posix_time::time_duration> ("Uptime", "%O:%M:%S.%f")
          << "][" << trivial::severity
          << "] " << expr::message
          );
 
       core->add_sink (sys_sink);
-
-#if !defined (NDEBUG) && defined (Q_OS_WIN)
-      // auto windbg_sink = boost::make_shared<sinks::synchronous_sink<sinks::debug_output_backend>> ();
-      // windbg_sink->set_filter (trivial::severity >= trivial::trace && expr::is_debugger_present ());
-      // core->add_sink (windbg_sink);
-#endif
     }
+
   // Indicate start of logging
   LOG_INFO ("Log Start");
+  ::qInstallMessageHandler (&qt_log_handler);
 }
 
 WSJTXLogging::~WSJTXLogging ()
 {
   LOG_INFO ("Log Finish");
-  auto lg = logging::core::get ();
-  lg->flush ();
-  lg->remove_all_sinks ();
-}
-
-// Reroute Qt messages to the system logger
-void WSJTXLogging::qt_log_handler (QtMsgType type, QMessageLogContext const& context, QString const& msg)
-{
-  // Convert Qt message types to logger severities
-  auto severity = trivial::trace;
-  switch (type)
-    {
-    case QtDebugMsg: severity = trivial::debug; break;
-    case QtInfoMsg: severity = trivial::info; break;
-    case QtWarningMsg: severity = trivial::warning; break;
-    case QtCriticalMsg: severity = trivial::error; break;
-    case QtFatalMsg: severity = trivial::fatal; break;
-    }
-  // Map non-default Qt categories to logger channels, Qt logger
-  // context is mapped to the appropriate logger attributes.
-  auto log = sys::get ();
-  std::string file;
-  std::string function;
-  if (context.file)
-    {
-      file = context.file;
-    }
-  if (context.function)
-    {
-      function = context.function;
-    }
-  if (!context.category || !qstrcmp (context.category, "default"))
-    {
-      BOOST_LOG_SEV (log, severity)
-        << boost::log::add_value ("Line", context.line)
-        << boost::log::add_value ("File", file)
-        << boost::log::add_value ("Function", function)
-        << msg.toStdString ();
-    }
-  else
-    {
-      BOOST_LOG_CHANNEL_SEV (log, std::string {context.category}, severity)
-        << boost::log::add_value ("Line", context.line)
-        << boost::log::add_value ("File", file)
-        << boost::log::add_value ("Function", function)
-        << msg.toStdString ();
-    }
-  if (QtFatalMsg == type)
-    {
-      // bail out
-      throw std::runtime_error {"Fatal Qt Error"};
-    }
+  auto core = logging::core::get ();
+  core->flush ();
+  core->remove_all_sinks ();
 }

@@ -197,7 +197,7 @@ function (document)
       -a data-uri!
       -a VERSION_MAJOR=${WSJTX_VERSION_MAJOR}
       -a VERSION_MINOR=${WSJTX_VERSION_MINOR}
-      -a VERSION_PATCH=${WSJTX_VERSION_PATCH}
+      -a VERSION_PATCH=${WSJTX_VERSION_PATCH}${BUILD_TYPE_REVISION}
       -a VERSION=${wsjtx_VERSION}
       -D ${CMAKE_CURRENT_BINARY_DIR}
       -o ${_docbook_file} ${_source_name}

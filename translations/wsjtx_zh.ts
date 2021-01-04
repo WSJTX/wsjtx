@@ -388,7 +388,7 @@
     <message>
         <location filename="../Configuration.cpp" line="1009"/>
         <source>path: &quot;%1%</source>
-        <translation>目錄: &quot;%1%</translation>
+        <translation>目录: &quot;%1%</translation>
     </message>
     <message>
         <location filename="../Configuration.cpp" line="1020"/>
@@ -504,7 +504,12 @@ Format:
         <translation>您必须输入有效的 ARRL RTTY Roundup 交换数据</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2169"/>
+        <location filename="../Configuration.cpp" line="1870"/>
+        <source>Pending DNS lookup, please try again later</source>
+        <translation>等待域名系统查找，请稍后再试</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.cpp" line="2213"/>
         <source>Reset Decode Highlighting</source>
         <translation>重置解码突出显示</translation>
     </message>
@@ -519,7 +524,17 @@ Format:
         <translation>WSJT-X 解码文本字体选择</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2357"/>
+        <location filename="../Configuration.cpp" line="2425"/>
+        <source>UDP server DNS lookup failed</source>
+        <translation>UDP服务器域名系统查找失败</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.cpp" line="2449"/>
+        <source>MAC-ambiguous multicast groups addresses not supported</source>
+        <translation>不支持媒体访问控制不明确的多播组地址</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.cpp" line="2467"/>
         <source>Load Working Frequencies</source>
         <translation>载入工作频率</translation>
     </message>
@@ -2670,12 +2685,12 @@ Not available to nonstandard callsign holders.</source>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1269"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Submode determines tone spacing; A is narrowest.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;子模式確定音調間距; A 最窄.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;子模式确定音调间距离; A 最窄.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1272"/>
         <source>Submode determines tone spacing; A is narrowest.</source>
-        <translation>子模式確定音調間距; A 最窄.</translation>
+        <translation>子模式确定音调间距离; A 最窄.</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1278"/>
@@ -3664,12 +3679,12 @@ list. The list can be maintained in Settings (F2).</source>
         <translation>降低系统负载</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="487"/>
+        <location filename="../widgets/mainwindow.cpp" line="492"/>
         <source>Excessive dropped samples - %1 (%2 sec) audio frames dropped in period starting %3</source>
         <translation>样品丢失过多 - %1 (%2 sec) 音频帧在周期开始时丢失 %3</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="521"/>
+        <location filename="../widgets/mainwindow.cpp" line="526"/>
         <source>Error Scanning ADIF Log</source>
         <translation>扫描 ADIF 日志错误</translation>
     </message>
@@ -3870,16 +3885,16 @@ list. The list can be maintained in Settings (F2).</source>
         <translation>&quot;fmt.all&quot; 文件将重命名为 &quot;fmt.bak&quot;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2551"/>
+        <location filename="../widgets/mainwindow.cpp" line="2571"/>
         <source>If you make fair use of any part of WSJT-X under terms of the GNU General Public License, you must display the following copyright notice prominently in your derivative work:
 
-&quot;The algorithms, source code, look-and-feel of WSJT-X and related programs, and protocol specifications for the modes FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 are Copyright (C) 2001-2020 by one or more of the following authors: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; and other members of the WSJT Development Group.&quot;</source>
+&quot;The algorithms, source code, look-and-feel of WSJT-X and related programs, and protocol specifications for the modes FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 are Copyright (C) 2001-2021 by one or more of the following authors: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; and other members of the WSJT Development Group.&quot;</source>
         <translation>如果您根据 GNU 通用公共许可证条款合理使用 WSJT-X 的任何部分, 则必须在衍生作品中醒目地显示以下版权声明:
 
-&quot;WSJT-X 的算法, 源代码, 外观和感觉及相关程序,和协议规格模式 FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 的版权 (C) 2001-2019 由以下一个或多个作者: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; 和 WSJT 开发组的其他成员.&quot;</translation>
+&quot;WSJT-X 的算法, 源代码, 外观和感觉及相关程序,和协议规格模式 FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 的版权 (C) 2001-2021 由以下一个或多个作者: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; 和 WSJT 开发组的其他成员.&quot;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2819"/>
+        <location filename="../widgets/mainwindow.cpp" line="2846"/>
         <source>No data read from disk. Wrong file format?</source>
         <translation>没有从磁盘读取数据. 文件格式出错误?</translation>
     </message>
@@ -3899,42 +3914,7 @@ list. The list can be maintained in Settings (F2).</source>
         <translation>键盘快捷键</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2949"/>
-        <source>Special Mouse Commands</source>
-        <translation>特殊鼠标组合</translation>
-    </message>
-    <message>
-        <location filename="../widgets/mainwindow.cpp" line="3295"/>
-        <source>No more files to open.</source>
-        <translation>没有要打开的文件.</translation>
-    </message>
-    <message>
-        <location filename="../widgets/mainwindow.cpp" line="3659"/>
-        <source>Spotting to PSK Reporter unavailable</source>
-        <translation>无法发送至PSK Reporter</translation>
-    </message>
-    <message>
-        <location filename="../widgets/mainwindow.cpp" line="3817"/>
-        <source>Please choose another Tx frequency. WSJT-X will not knowingly transmit another mode in the WSPR sub-band on 30m.</source>
-        <translation>请选择其他发射频率. WSJT-X 不会故意传输另一个模式在 WSPR 30米子波段上.</translation>
-    </message>
-    <message>
-        <location filename="../widgets/mainwindow.cpp" line="3821"/>
-        <source>WSPR Guard Band</source>
-        <translation>WSPR保护波段</translation>
-    </message>
-    <message>
-        <location filename="../widgets/mainwindow.cpp" line="3834"/>
-        <source>Please choose another dial frequency. WSJT-X will not operate in Fox mode in the standard FT8 sub-bands.</source>
-        <translation>请选择其它频率. WSJT-X 不会运行狐狸模式在标准 FT8 波段.</translation>
-    </message>
-    <message>
-        <location filename="../widgets/mainwindow.cpp" line="3838"/>
-        <source>Fox Mode warning</source>
-        <translation>狐狸模式警告</translation>
-    </message>
-    <message>
-        <location filename="../widgets/mainwindow.cpp" line="2866"/>
+        <location filename="../widgets/mainwindow.cpp" line="2893"/>
         <source>&lt;table cellspacing=1&gt;
   &lt;tr&gt;&lt;td&gt;&lt;b&gt;Esc      &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Stop Tx, abort QSO, clear next-call queue&lt;/td&gt;&lt;/tr&gt;
   &lt;tr&gt;&lt;td&gt;&lt;b&gt;F1       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Online User&apos;s Guide (Alt: transmit Tx6)&lt;/td&gt;&lt;/tr&gt;
@@ -4028,7 +4008,12 @@ list. The list can be maintained in Settings (F2).</source>
 &lt;/table&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2924"/>
+        <location filename="../widgets/mainwindow.cpp" line="2949"/>
+        <source>Special Mouse Commands</source>
+        <translation>特殊鼠标组合</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.cpp" line="2951"/>
         <source>&lt;table cellpadding=5&gt;
   &lt;tr&gt;
     &lt;th align=&quot;right&quot;&gt;Click on&lt;/th&gt;
@@ -4091,6 +4076,36 @@ list. The list can be maintained in Settings (F2).</source>
     &lt;/td&gt;
   &lt;/tr&gt;
 &lt;/table&gt;</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.cpp" line="3295"/>
+        <source>No more files to open.</source>
+        <translation>没有要打开的文件.</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.cpp" line="3659"/>
+        <source>Spotting to PSK Reporter unavailable</source>
+        <translation>发送到 Pskreporter 不可用</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.cpp" line="3817"/>
+        <source>Please choose another Tx frequency. WSJT-X will not knowingly transmit another mode in the WSPR sub-band on 30m.</source>
+        <translation>请选择另一个发射频率. WSJT-X 不会故意在 30m 的 WSPR 子频段中传输另一种模式.</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.cpp" line="3821"/>
+        <source>WSPR Guard Band</source>
+        <translation>WSPR 守护波段</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.cpp" line="3834"/>
+        <source>Please choose another dial frequency. WSJT-X will not operate in Fox mode in the standard FT8 sub-bands.</source>
+        <translation>请选择另一个频率. WSJT-X在标准的FT8子带中不会以狐狸模式工作.</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.cpp" line="3838"/>
+        <source>Fox Mode warning</source>
+        <translation>狐狸模式警告</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="4443"/>
@@ -5410,6 +5425,11 @@ quiet period when decoding is done.</source>
         <translation>数据位元</translation>
     </message>
     <message>
+        <location filename="../Configuration.ui" line="669"/>
+        <source>Data Bits</source>
+        <translation>数据位元</translation>
+    </message>
+    <message>
         <location filename="../Configuration.ui" line="675"/>
         <source>D&amp;efault</source>
         <translation>默认值(&amp;e)</translation>
@@ -5432,6 +5452,11 @@ quiet period when decoding is done.</source>
     <message>
         <location filename="../Configuration.ui" line="720"/>
         <source>Stop bits</source>
+        <translation>停止位元</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="723"/>
+        <source>Stop Bits</source>
         <translation>停止位元</translation>
     </message>
     <message>
@@ -5615,7 +5640,7 @@ or bandwidth is selected).</source>
         <location filename="../Configuration.ui" line="1088"/>
         <location filename="../Configuration.ui" line="1322"/>
         <source>None</source>
-        <translation>无</translation>
+        <translation></translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1098"/>
@@ -5748,7 +5773,32 @@ transmitting periods.</source>
 向外发射输出.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2400"/>
+        <location filename="../Configuration.ui" line="1888"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enter the service port number of the UDP server that WSJT-X should send updates to. If this is zero no updates will be sent.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;输入WSJT-X应该向其发送更新的UDP服务器的服务端口号. 如果该值为零则不会发送任何更新.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="1898"/>
+        <source>Outgoing interfaces:</source>
+        <translation>传出接口:</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="1908"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;When sending updates to a multicast group address it is necessary to specify which network interface(s) to send them to. If the loop-back interface is multicast capable then at least that one will be selected.&lt;/p&gt;&lt;p&gt;For most users the loop-back interface is all that is needed, that will allow multiple other applications on the same machine to interoperate with WSJT-X. If applications running on other hosts are to receive status updates then a suitable network interface should be used.&lt;/p&gt;&lt;p&gt;On some Linux systems it may be necessary to enable multicast on the loop-back network interface.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;向多播组地址发送更新时需要指定将更新发送到哪个网络接口. 如果环回接口支持多播那么将至少选择该接口.&lt;/p&gt;&lt;p&gt;对于大多数用户来说环回接口是他们所需要的, 这将允许同一台机器上的多个其他应用程序与WSJT-X进行互操作. 如果运行在其他主机上的应用程序要接收状态更新则应使用合适的网络接口.&lt;/p&gt;&lt;p&gt;在某些Linux系统上可能需要在环回网络接口上启用多播.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="1915"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Sets the number or router hops that multicast datagrams are allowed to make. Almost everyone should set this to 1 to keep outgoing multicast traffic withn the local subnet.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;设置允许多点传送数据报的资料元或路由器资料元. 几乎每个人都应该将该值设置为 1 以保持出站多点传送流量在本地子网中.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="1928"/>
+        <source>Multicast TTL:</source>
+        <translation>多点传送 TTL:</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="2434"/>
         <source>Days since last upload</source>
         <translation>自上次上传以来的天数</translation>
     </message>
@@ -5808,7 +5858,7 @@ both here.</source>
         <translation>启用甚高频和子模式功能</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1370"/>
+        <location filename="../Configuration.ui" line="1427"/>
         <source>Ou&amp;tput:</source>
         <translation>输出(&amp;t):</translation>
     </message>
@@ -6525,7 +6575,7 @@ Right click for insert and delete options.</source>
     <message>
         <location filename="../Configuration.ui" line="2914"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Generate Tx audio with four times the normal tone spacing. Intended for special LF/MF transmitters that use a divide-by-4 before generating RF.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;具有正常音調間距四倍的發射音頻. 適用於在產生射頻之前使用除以 4 的特殊 LF/MF 發射器.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;具有正常音调间距四倍的发射音频. 适用于在产生射频之前使用除以 4 的特殊 LF/MF 发射器.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2917"/>

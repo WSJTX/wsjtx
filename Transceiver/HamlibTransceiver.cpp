@@ -259,53 +259,53 @@ HamlibTransceiver::HamlibTransceiver (logger_type * logger,
 
   // rig_->state.obj = this;
 
-  if (!is_dummy_)
+  //
+  // user defined Hamlib settings
+  //
+  auto settings_file_name = QStandardPaths::locate (QStandardPaths::AppConfigLocation
+                                                    , "hamlib_settings.json");
+  if (!settings_file_name.isEmpty ())
     {
-      //
-      // user defined Hamlib settings
-      //
-      auto settings_file_name = QStandardPaths::locate (QStandardPaths::AppConfigLocation
-                                                        , "hamlib_settings.json");
-      if (!settings_file_name.isEmpty ())
+      QFile settings_file {settings_file_name};
+      qDebug () << "Using Hamlib settings file:" << settings_file_name;
+      if (settings_file.open (QFile::ReadOnly))
         {
-          QFile settings_file {settings_file_name};
-          qDebug () << "Using Hamlib settings file:" << settings_file_name;
-          if (settings_file.open (QFile::ReadOnly))
+          QJsonParseError status;
+          auto settings_doc = QJsonDocument::fromJson (settings_file.readAll (), &status);
+          if (status.error)
             {
-              QJsonParseError status;
-              auto settings_doc = QJsonDocument::fromJson (settings_file.readAll (), &status);
-              if (status.error)
-                {
-                  throw error {tr ("Hamlib settings file error: %1 at character offset %2")
-                      .arg (status.errorString ()).arg (status.offset)};
-                }
-              qDebug () << "Hamlib settings JSON:" << settings_doc.toJson ();
-              if (!settings_doc.isObject ())
-                {
-                  throw error {tr ("Hamlib settings file error: top level must be a JSON object")};
-                }
-              auto const& settings = settings_doc.object ();
+              throw error {tr ("Hamlib settings file error: %1 at character offset %2")
+                             .arg (status.errorString ()).arg (status.offset)};
+            }
+          qDebug () << "Hamlib settings JSON:" << settings_doc.toJson ();
+          if (!settings_doc.isObject ())
+            {
+              throw error {tr ("Hamlib settings file error: top level must be a JSON object")};
+            }
+          auto const& settings = settings_doc.object ();
 
-              //
-              // configuration settings
-              //
-              auto const& config = settings["config"];
-              if (!config.isUndefined ())
+          //
+          // configuration settings
+          //
+          auto const& config = settings["config"];
+          if (!config.isUndefined ())
+            {
+              if (!config.isObject ())
                 {
-                  if (!config.isObject ())
-                    {
-                      throw error {tr ("Hamlib settings file error: config must be a JSON object")};
-                    }
-                  auto const& config_list = config.toObject ();
-                  for (auto item = config_list.constBegin (); item != config_list.constEnd (); ++item)
-                    {
-                      set_conf (item.key ().toLocal8Bit ().constData ()
-                                , (*item).toVariant ().toString ().toLocal8Bit ().constData ());
-                    }
+                  throw error {tr ("Hamlib settings file error: config must be a JSON object")};
+                }
+              auto const& config_list = config.toObject ();
+              for (auto item = config_list.constBegin (); item != config_list.constEnd (); ++item)
+                {
+                  set_conf (item.key ().toLocal8Bit ().constData ()
+                            , (*item).toVariant ().toString ().toLocal8Bit ().constData ());
                 }
             }
         }
+    }
 
+  if (!is_dummy_)
+    {
       switch (rig_->caps->port_type)
         {
         case RIG_PORT_SERIAL:

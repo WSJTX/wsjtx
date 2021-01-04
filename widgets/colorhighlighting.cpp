@@ -1,7 +1,7 @@
 #include "colorhighlighting.h"
 
 #include <QApplication>
-#include <QDebug>
+#include <QString>
 
 #include "SettingsGroup.hpp"
 #include "models/DecodeHighlightingModel.hpp"
@@ -113,16 +113,16 @@ void ColorHighlighting::set_items (DecodeHighlightingModel const& highlighting_m
         default:
           continue;
         }
-      auto palette = example->parentWidget ()->palette ();
+      auto style_sheet = example->parentWidget ()->styleSheet ();
       if (Qt::NoBrush != item.background_.style ())
         {
-          palette.setColor (QPalette::Window, item.background_.color ());
+          style_sheet += QString {"; background-color: #%1"}.arg (item.background_.color ().rgb (), 8, 16, QLatin1Char {'0'});
         }
       if (Qt::NoBrush != item.foreground_.style ())
         {
-          palette.setColor (QPalette::WindowText, item.foreground_.color ());
+          style_sheet += QString {"; color: #%1"}.arg (item.foreground_.color ().rgb (), 8, 16, QLatin1Char {'0'});
         }
-      example->setPalette (palette);
+      example->setStyleSheet (style_sheet);
       example->setEnabled (item.enabled_);
       label->setText (DecodeHighlightingModel::highlight_name (item.type_));
       label->setEnabled (item.enabled_);

@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.9 FATAL_ERROR)
+cmake_minimum_required (VERSION 3.7.2 FATAL_ERROR)
 
 if (APPLE)
   #
@@ -46,9 +46,9 @@ endif ()
 
 project (wsjtx
   VERSION 2.3.0.0
-  DESCRIPTION "WSJT-X: Digital Modes for Weak Signal Communications in Amateur Radio"
   LANGUAGES C CXX Fortran
   )
+set (PROJECT_DESCRIPTION "WSJT-X: Digital Modes for Weak Signal Communications in Amateur Radio")
 
 #
 # Local CMake modules and support files
@@ -70,7 +70,7 @@ message (STATUS "******************************************************")
 
 include (set_build_type)
 # RC 0 or omitted is a development build, GA is a General Availability release build
-set_build_type (RC 2)
+set_build_type (RC 3)
 set (wsjtx_VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}${BUILD_TYPE_REVISION}")
 
 #
@@ -79,7 +79,7 @@ set (wsjtx_VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_
 set (PROJECT_BUNDLE_NAME "WSJT-X")
 set (PROJECT_VENDOR "Joe Taylor, K1JT")
 set (PROJECT_CONTACT "Joe Taylor <k1jt@arrl.net>")
-set (PROJECT_COPYRIGHT "Copyright (C) 2001-2020 by Joe Taylor, K1JT")
+set (PROJECT_COPYRIGHT "Copyright (C) 2001-2021 by Joe Taylor, K1JT")
 set (PROJECT_HOMEPAGE https://www.physics.princeton.edu/pulsar/K1JT/wsjtx.html)
 set (PROJECT_MANUAL wsjtx-main)
 set (PROJECT_MANUAL_DIRECTORY_URL https://www.physics.princeton.edu/pulsar/K1JT/wsjtx-doc/)
@@ -459,6 +459,7 @@ set (wsjt_FSRCS
   lib/jtmsg.f90
   lib/libration.f90
   lib/lorentzian.f90
+  lib/fst4/lorentzian_fading.f90
   lib/lpf1.f90
   lib/mixlpf.f90
   lib/makepings.f90
@@ -562,6 +563,7 @@ set (wsjt_FSRCS
   lib/fst4/ldpcsim240_74.f90
   lib/fst4/osd240_101.f90
   lib/fst4/osd240_74.f90
+  lib/fst4/fastosd240_74.f90
   lib/fst4/get_crc24.f90
   lib/fst4/fst4_baseline.f90
   )
@@ -838,7 +840,7 @@ endif ()
 if (WIN32)
   set (Boost_USE_STATIC_LIBS OFF)
 endif ()
-find_package (Boost 1.63 REQUIRED COMPONENTS log_setup log)
+find_package (Boost 1.62 REQUIRED COMPONENTS log_setup log)
 
 #
 # OpenMP
@@ -1053,7 +1055,7 @@ query_qmake (QT_HOST_DATA QT_DATA_DIR)
 set (QT_MKSPECS_DIR ${QT_DATA_DIR}/mkspecs)
 
 # project definitions
-add_definitions (-DQT5 -DCMAKE_BUILD -DBIGSYM=1)
+add_definitions (-DQT5 -DCMAKE_BUILD -DBIGSYM=1 -DBOOST_ALL_DYN_LINK)
 if (CMAKE_HOST_UNIX)
   add_definitions (-DUNIX)
 elseif (CMAKE_HOST_WIN32)
@@ -1062,7 +1064,6 @@ endif ()
 
 # build a library of package functionality (without and optionally with OpenMP support)
 add_library (wsjt_cxx STATIC ${wsjt_CSRCS} ${wsjt_CXXSRCS})
-target_compile_definitions (wsjt_cxx PUBLIC BOOST_LOG_DYN_LINK)
 target_link_libraries (wsjt_cxx ${LIBM_LIBRARIES} Boost::log_setup ${LIBM_LIBRARIES})
 
 # build an OpenMP variant of the Fortran library routines
@@ -1310,7 +1311,7 @@ target_link_libraries (qcp Qt5::Widgets Qt5::PrintSupport)
 # build a library of package Qt functionality
 add_library (wsjt_qt STATIC ${wsjt_qt_CXXSRCS} ${wsjt_qt_GENUISRCS} ${GENAXSRCS})
 # set wsjtx_udp exports to static variants
-target_compile_definitions (wsjt_qt PUBLIC UDP_STATIC_DEFINE BOOST_LOG_DYN_LINK)
+target_compile_definitions (wsjt_qt PUBLIC UDP_STATIC_DEFINE)
 target_link_libraries (wsjt_qt Boost::log qcp Qt5::Widgets Qt5::Network Qt5::Sql)
 target_include_directories (wsjt_qt BEFORE PRIVATE ${hamlib_INCLUDE_DIRS})
 if (WIN32)
@@ -1458,6 +1459,15 @@ generate_version_info (udp_daemon_VERSION_RESOURCES
 add_executable (udp_daemon UDPExamples/UDPDaemon.cpp ${udp_daemon_VERSION_RESOURCES})
 target_link_libraries (udp_daemon wsjtx_udp-static)
 
+generate_version_info (wsjtx_app_version_VERSION_RESOURCES
+  NAME wsjtx_app_version
+  BUNDLE ${PROJECT_BUNDLE_NAME}
+  ICON ${WSJTX_ICON_FILE}
+  FILE_DESCRIPTION "Display WSJT-X Application Version on console"
+  )
+add_executable (wsjtx_app_version AppVersion/AppVersion.cpp ${wsjtx_app_version_VERSION_RESOURCES})
+target_link_libraries (wsjtx_app_version wsjt_qt)
+
 generate_version_info (message_aggregator_VERSION_RESOURCES
   NAME message_aggregator
   BUNDLE ${PROJECT_BUNDLE_NAME}
@@ -1517,7 +1527,7 @@ install (TARGETS wsjtx
 #   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/wsjtx
 #   )
 
-install (TARGETS udp_daemon message_aggregator
+install (TARGETS udp_daemon message_aggregator wsjtx_app_version
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   )
@@ -1571,6 +1581,13 @@ install (FILES
   cty.dat
   contrib/Ephemeris/JPLEPH
   DESTINATION ${CMAKE_INSTALL_DATADIR}/${CMAKE_PROJECT_NAME}
+  #COMPONENT runtime
+  )
+
+install (DIRECTORY
+  example_log_configurations
+  DESTINATION ${CMAKE_INSTALL_DOCDIR}
+  FILES_MATCHING REGEX "^.*[^~]$"
   #COMPONENT runtime
   )
 
@@ -1853,11 +1870,11 @@ else ()
 endif ()
 
 set (CPACK_DEBIAN_PACKAGE_HOMEPAGE "${PROJECT_HOMEPAGE}")
-set (CPACK_DEBIAN_PACKAGE_DEPENDS "libgfortran5 (>=8.3) | libgfortran4 (>=7.3) | libgfortran3 (>=6.3), libfftw3-single3 (>=3.3), libgomp1 (>=6), libqt5serialport5 (>=5.7), libqt5multimedia5-plugins (>=5.7), libqt5widgets5 (>=5.7), libqt5network5 (>=5.7), libqt5printsupport5 (>=5.7), libqt5sql5-sqlite (>=5.7), libusb-1.0-0 (>=1.0.21), libboost-log1.65.1 (>=1.62.0) | libboost-log1.65.1 (>=1.65.1) | libboost-log1.67.0 (>=1.67.0) | libboost-log1.71.0 (>=1.71.0)")
+set (CPACK_DEBIAN_PACKAGE_DEPENDS "libgfortran5 (>=8.3) | libgfortran4 (>=7.3) | libgfortran3 (>=6.3), libfftw3-single3 (>=3.3), libgomp1 (>=6), libqt5serialport5 (>=5.7), libqt5multimedia5-plugins (>=5.7), libqt5widgets5 (>=5.7), libqt5network5 (>=5.7), libqt5printsupport5 (>=5.7), libqt5sql5-sqlite (>=5.7), libusb-1.0-0 (>=1.0.21), libboost-log1.62.0 (>=1.62.0) | libboost-log1.65.1 (>=1.65.1) | libboost-log1.67.0 (>=1.67.0) | libboost-log1.71.0 (>=1.71.0) | libboost-log1.74.0 (>=1.74.0)")
 set (CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 
 set (CPACK_RPM_PACKAGE_ARCHITECTURE ${CMAKE_SYSTEM_PROCESSOR})
-set (CPACK_RPM_PACKAGE_REQUIRES "qt5-qtbase >= 5.9, qt5-qtserialport >= 5.9, qt5-qtmultimedia >= 5.9, qt5-qtsvg >= 5.9, libusbx >= 1.0.22, libgfortran >= 7, libgomp >= 7, fftw-libs-single >= 3.3")
+set (CPACK_RPM_PACKAGE_REQUIRES "qt5-qtbase >= 5.9, qt5-qtserialport >= 5.9, qt5-qtmultimedia >= 5.9, qt5-qtsvg >= 5.9, libusbx >= 1.0.22, libgfortran >= 7, libgomp >= 7, fftw-libs-single >= 3.3, boost-log >= 1.62")
 set (CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION /usr/share/pixmaps /usr/share/applications /usr/share/man /usr/share/man1)
 
 configure_file ("${PROJECT_SOURCE_DIR}/CMakeCPackOptions.cmake.in"

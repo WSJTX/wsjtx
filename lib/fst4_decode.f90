@@ -33,15 +33,17 @@ contains
       ndepth,ntrperiod,nexp_decode,ntol,emedelay,lagain,lapcqonly,mycall, &
       hiscall,iwspr)
 
+      use prog_args
       use timer_module, only: timer
       use packjt77
       use, intrinsic :: iso_c_binding
       include 'fst4/fst4_params.f90'
-      parameter (MAXCAND=100)
+      parameter (MAXCAND=100,MAXWCALLS=100)
       class(fst4_decoder), intent(inout) :: this
       procedure(fst4_decode_callback) :: callback
       character*37 decodes(100)
       character*37 msg,msgsent
+      character*20 wcalls(MAXWCALLS), wpart
       character*77 c77
       character*12 mycall,hiscall
       character*12 mycall0,hiscall0
@@ -56,8 +58,7 @@ contains
       logical lagain,lapcqonly
       integer itone(NN)
       integer hmod
-      integer ipct(0:7)
-      integer*1 apmask(240),cw(240)
+      integer*1 apmask(240),cw(240),hdec(240)
       integer*1 message101(101),message74(74),message77(77)
       integer*1 rvec(77)
       integer apbits(240)
@@ -66,11 +67,12 @@ contains
       integer mcq(29),mrrr(19),m73(19),mrr73(19)
 
       logical badsync,unpk77_success,single_decode
-      logical first,nohiscall,lwspr,ex
+      logical first,nohiscall,lwspr
+      logical new_callsign,plotspec_exists,wcalls_exists,do_k50_decode
+      logical decdata_exists
 
       integer*2 iwave(30*60*12000)
 
-      data ipct/0,8,14,4,12,2,10,6/
       data   mcq/0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0/
       data  mrrr/0,1,1,1,1,1,1,0,1,0,0,1,0,0,1,0,0,0,1/
       data   m73/0,1,1,1,1,1,1,0,1,0,0,1,0,1,0,0,0,0,1/
@@ -80,6 +82,7 @@ contains
          0,1,0,1,0,1,1,0,1,1,1,1,1,0,0,0,1,0,1/
       data first/.true./,hmod/1/
       save first,apbits,nappasses,naptypes,mycall0,hiscall0
+      save wcalls,nwcalls
 
       this%callback => callback
       dxcall13=hiscall   ! initialize for use in packjt77
@@ -88,6 +91,20 @@ contains
       if(iwspr.ne.0.and.iwspr.ne.1) return
 
       if(first) then
+! read the fst4_calls.txt file
+         inquire(file=trim(data_dir)//'/fst4w_calls.txt',exist=wcalls_exists)
+         if( wcalls_exists ) then
+            open(42,file=trim(data_dir)//'/fst4w_calls.txt',status='unknown')
+            do i=1,MAXWCALLS
+               wcalls(i)=''
+               read(42,fmt='(a)',end=2867) wcalls(i)
+               wcalls(i)=adjustl(wcalls(i))
+               if(len(trim(wcalls(i))).eq.0) exit
+            enddo
+2867        nwcalls=i-1
+            close(42)
+         endif
+
          mcq=2*mod(mcq+rvec(1:29),2)-1
          mrrr=2*mod(mrrr+rvec(59:77),2)-1
          m73=2*mod(m73+rvec(59:77),2)-1
@@ -213,17 +230,22 @@ contains
       allocate( cframe(0:160*nss-1) )
 
       jittermax=2
+      do_k50_decode=.false.
       if(ndepth.eq.3) then
          nblock=4
          jittermax=2
+         do_k50_decode=.true.
       elseif(ndepth.eq.2) then
-         nblock=3
-         jittermax=0
+         nblock=4
+         jittermax=2
+         do_k50_decode=.false.
       elseif(ndepth.eq.1) then
-         nblock=1
+         nblock=4
          jittermax=0
+         do_k50_decode=.false.
       endif
 
+! Noise blanker setup
       ndropmax=1
       single_decode=iand(nexp_decode,32).ne.0
       npct=0
@@ -239,33 +261,40 @@ contains
          inb2=1                !Try NB = 0, 1, 2,... 20%
       else
          inb1=0                !Fixed NB value, 0 to 25%
-         ipct(0)=npct
       endif
 
+
+! nfa,nfb: define the noise-baseline analysis window
+!  fa, fb: define the signal search window
+! We usually make nfa<fa and nfb>fb so that noise baseline analysis
+! window extends outside of the [fa,fb] window where we think the signals are.
+!
       if(iwspr.eq.1) then  !FST4W
-         !300 Hz wide noise-fit window
-         nfa=max(100,nint(nfqso+1.5*baud-150)) 
-         nfb=min(4800,nint(nfqso+1.5*baud+150))
+         nfa=max(100,nfqso-ntol-100)
+         nfb=min(4800,nfqso+ntol+100)
          fa=max(100,nint(nfqso+1.5*baud-ntol))  ! signal search window
          fb=min(4800,nint(nfqso+1.5*baud+ntol))
-      else if(single_decode) then
-         fa=max(100,nint(nfa+1.5*baud))
-         fb=min(4800,nint(nfb+1.5*baud))
-         ! extend noise fit 100 Hz outside of search window
-         nfa=max(100,nfa-100) 
-         nfb=min(4800,nfb+100)
-      else
-         fa=max(100,nint(nfa+1.5*baud))
-         fb=min(4800,nint(nfb+1.5*baud))
-         ! extend noise fit 100 Hz outside of search window
-         nfa=max(100,nfa-100) 
-         nfb=min(4800,nfb+100)
+      else if(iwspr.eq.0) then
+         if(single_decode) then
+            fa=max(100,nint(nfa+1.5*baud))
+            fb=min(4800,nint(nfb+1.5*baud))
+            ! extend noise fit 100 Hz outside of search window
+            nfa=max(100,nfa-100)
+            nfb=min(4800,nfb+100)
+         else
+            fa=max(100,nint(nfa+1.5*baud))
+            fb=min(4800,nint(nfb+1.5*baud))
+            ! extend noise fit 100 Hz outside of search window
+            nfa=max(100,nfa-100)
+            nfb=min(4800,nfb+100)
+         endif
       endif
-         
+
       ndecodes=0
       decodes=' '
+      new_callsign=.false.
       do inb=0,inb1,inb2
-         if(nb.lt.0) npct=inb
+         if(nb.lt.0) npct=inb ! we are looping over blanker settings
          call blanker(iwave,nfft1,ndropmax,npct,c_bigfft)
 
 ! The big fft is done once and is used for calculating the smoothed spectrum
@@ -275,23 +304,22 @@ contains
          nsyncoh=8
          minsync=1.20
          if(ntrperiod.eq.15) minsync=1.15
-         
+
 ! Get first approximation of candidate frequencies
          call get_candidates_fst4(c_bigfft,nfft1,nsps,hmod,fs,fa,fb,nfa,nfb,  &
-              minsync,ncand,candidates0)         
+            minsync,ncand,candidates0)
          isbest=0
          fc2=0.
          do icand=1,ncand
             fc0=candidates0(icand,1)
             if(iwspr.eq.0 .and. nb.lt.0 .and. npct.ne.0 .and.            &
-                 abs(fc0-(nfqso+1.5*baud)).gt.ntol) cycle
+               abs(fc0-(nfqso+1.5*baud)).gt.ntol) cycle  ! blanker loop only near nfqso
             detmet=candidates0(icand,2)
 
 ! Downconvert and downsample a slice of the spectrum centered on the
 ! rough estimate of the candidates frequency.
 ! Output array c2 is complex baseband sampled at 12000/ndown Sa/sec.
 ! The size of the downsampled c2 array is nfft2=nfft1/ndown
-
             call timer('dwnsmpl ',0)
             call fst4_downsample(c_bigfft,nfft1,ndown,fc0,sigbw,c2)
             call timer('dwnsmpl ',1)
@@ -330,9 +358,9 @@ contains
             endif
          enddo
          ncand=ic
-         
-! If FST4 and Single Decode is not checked, then find candidates within
-! 20 Hz of nfqso and put them at the top of the list
+
+! If FST4 mode and Single Decode is not checked, then find candidates
+! within 20 Hz of nfqso and put them at the top of the list
          if(iwspr.eq.0 .and. .not.single_decode) then
             nclose=count(abs(candidates0(:,3)-(nfqso+1.5*baud)).le.20)
             k=0
@@ -368,12 +396,13 @@ contains
                if(ijitter.eq.1) ioffset=1
                if(ijitter.eq.2) ioffset=-1
                is0=isbest+ioffset
-               if(is0.lt.0) cycle
-               cframe=c2(is0:is0+160*nss-1)
+               iend=is0+160*nss-1
+               if( is0.lt.0 .or. iend.gt.(nfft2-1) ) cycle
+               cframe=c2(is0:iend)
                bitmetrics=0
                call timer('bitmetrc',0)
                call get_fst4_bitmetrics(cframe,nss,nblock,nhicoh,bitmetrics, &
-                    s4,nsync_qual,badsync)
+                  s4,nsync_qual,badsync)
                call timer('bitmetrc',1)
                if(badsync) cycle
 
@@ -384,10 +413,10 @@ contains
                   llrs(181:240,il)=bitmetrics(245:304, il)
                enddo
 
-               apmag=maxval(abs(llrs(:,1)))*1.1
+               apmag=maxval(abs(llrs(:,4)))*1.1
                ntmax=nblock+nappasses(nQSOProgress)
                if(lapcqonly) ntmax=nblock+1
-               if(ndepth.eq.1) ntmax=nblock
+               if(ndepth.eq.1) ntmax=nblock ! no ap for ndepth=1
                apmask=0
 
                if(iwspr.eq.1) then ! 50-bit msgs, no ap decoding
@@ -405,7 +434,7 @@ contains
                      iaptype=0
                   endif
 
-                  if(itry.gt.nblock) then ! do ap passes
+                  if(itry.gt.nblock .and. iwspr.eq.0) then ! do ap passes
                      llr=llrs(:,nblock)  ! Use largest blocksize as the basis for AP passes
                      iaptype=naptypes(nQSOProgress,itry-nblock)
                      if(lapcqonly) iaptype=1
@@ -428,7 +457,7 @@ contains
                         apmask(1:58)=1
                         llr(1:58)=apmag*apbits(1:58)
                      endif
-                     
+
                      if(iaptype.eq.4 .or. iaptype.eq.5 .or. iaptype .eq.6) then
                         apmask=0
                         apmask(1:77)=1
@@ -438,7 +467,7 @@ contains
                         if(iaptype.eq.6) llr(59:77)=apmag*mrr73(1:19)
                      endif
                   endif
-                  
+
                   dmin=0.0
                   nharderrors=-1
                   unpk77_success=.false.
@@ -448,83 +477,142 @@ contains
                      norder=3
                      call timer('d240_101',0)
                      call decode240_101(llr,Keff,maxosd,norder,apmask,message101, &
-                          cw,ntype,nharderrors,dmin)
+                        cw,ntype,nharderrors,dmin)
                      call timer('d240_101',1)
-                  elseif(iwspr.eq.1) then
-                     maxosd=2
-                     call timer('d240_74 ',0)
-                     Keff=64
-                     norder=4
-                     call decode240_74(llr,Keff,maxosd,norder,apmask,message74,cw, &
-                          ntype,nharderrors,dmin)
-                     call timer('d240_74 ',1)
-                  endif
-                  
-                  if(nharderrors .ge.0) then
                      if(count(cw.eq.1).eq.0) then
                         nharderrors=-nharderrors
                         cycle
                      endif
-                     if(iwspr.eq.0) then
-                        write(c77,'(77i1)') mod(message101(1:77)+rvec,2)
-                        call unpack77(c77,1,msg,unpk77_success)
-                     else
+                     write(c77,'(77i1)') mod(message101(1:77)+rvec,2)
+                     call unpack77(c77,1,msg,unpk77_success)
+                  elseif(iwspr.eq.1) then
+! Try decoding with Keff=66
+                     maxosd=2
+                     call timer('d240_74 ',0)
+                     Keff=66
+                     norder=3
+                     call decode240_74(llr,Keff,maxosd,norder,apmask,message74,cw, &
+                        ntype,nharderrors,dmin)
+                     call timer('d240_74 ',1)
+                     if(nharderrors.lt.0) goto 3465
+                     if(count(cw.eq.1).eq.0) then
+                        nharderrors=-nharderrors
+                        cycle
+                     endif
+                     write(c77,'(50i1)') message74(1:50)
+                     c77(51:77)='000000000000000000000110000'
+                     call unpack77(c77,1,msg,unpk77_success)
+                     if(unpk77_success .and. do_k50_decode) then
+! If decode was obtained with Keff=66, save call/grid in fst4w_calls.txt if not there already.
+                        i1=index(msg,' ')
+                        i2=i1+index(msg(i1+1:),' ')
+                        wpart=trim(msg(1:i2))
+! Only save callsigns/grids from type 1 messages
+                        if(index(wpart,'/').eq.0 .and. index(wpart,'<').eq.0) then
+                           ifound=0
+                           do i=1,nwcalls
+                              if(index(wcalls(i),wpart).ne.0) ifound=1
+                           enddo
+
+                           if(ifound.eq.0) then ! This is a new callsign
+                              new_callsign=.true.
+                              if(nwcalls.lt.MAXWCALLS) then
+                                 nwcalls=nwcalls+1
+                                 wcalls(nwcalls)=wpart
+                              else
+                                 wcalls(1:nwcalls-1)=wcalls(2:nwcalls)
+                                 wcalls(nwcalls)=wpart
+                              endif
+                           endif
+                        endif
+                     endif
+3465                 continue
+
+! If no decode then try Keff=50
+                     iaptype=0
+                     if( .not. unpk77_success .and. do_k50_decode ) then
+                        maxosd=1
+                        call timer('d240_74 ',0)
+                        Keff=50
+                        norder=4
+                        call decode240_74(llr,Keff,maxosd,norder,apmask,message74,cw, &
+                           ntype,nharderrors,dmin)
+                        call timer('d240_74 ',1)
+                        if(count(cw.eq.1).eq.0) then
+                           nharderrors=-nharderrors
+                           cycle
+                        endif
                         write(c77,'(50i1)') message74(1:50)
                         c77(51:77)='000000000000000000000110000'
                         call unpack77(c77,1,msg,unpk77_success)
+! No CRC in this mode, so only accept the decode if call/grid have been seen before
+                        if(unpk77_success) then
+                           unpk77_success=.false.
+                           do i=1,nwcalls
+                              if(index(msg,trim(wcalls(i))).gt.0) then
+                                 unpk77_success=.true.
+                              endif
+                           enddo
+                        endif
                      endif
-                     if(unpk77_success) then
-                        idupe=0
-                        do i=1,ndecodes
-                           if(decodes(i).eq.msg) idupe=1
-                        enddo
-                        if(idupe.eq.1) goto 800
-                        ndecodes=ndecodes+1
-                        decodes(ndecodes)=msg
-                        
-                        if(iwspr.eq.0) then
-                           call get_fst4_tones_from_bits(message101,itone,0)
-                        else
-                           call get_fst4_tones_from_bits(message74,itone,1)
-                        endif
-                        inquire(file='plotspec',exist=ex)
-                        fmid=-999.0
-                        call timer('dopsprd ',0)
-                        if(ex) then
-                           call dopspread(itone,iwave,nsps,nmax,ndown,hmod,  &
-                                isbest,fc_synced,fmid,w50)
-                        endif
-                        call timer('dopsprd ',1)
-                        xsig=0
-                        do i=1,NN
-                           xsig=xsig+s4(itone(i),i)
-                        enddo
-                        base=candidates(icand,5)
-                        arg=600.0*(xsig/base)-1.0
-                        if(arg.gt.0.0) then
-                           xsnr=10*log10(arg)-35.5-12.5*log10(nsps/8200.0)
-                           if(ntrperiod.eq.  15) xsnr=xsnr+2
-                           if(ntrperiod.eq.  30) xsnr=xsnr+1
-                           if(ntrperiod.eq. 900) xsnr=xsnr+1
-                           if(ntrperiod.eq.1800) xsnr=xsnr+2
-                        else
-                           xsnr=-99.9
-                        endif
+
+                  endif
+
+                  if(nharderrors .ge.0 .and. unpk77_success) then
+                     idupe=0
+                     do i=1,ndecodes
+                        if(decodes(i).eq.msg) idupe=1
+                     enddo
+                     if(idupe.eq.1) goto 800
+                     ndecodes=ndecodes+1
+                     decodes(ndecodes)=msg
+
+                     if(iwspr.eq.0) then
+                        call get_fst4_tones_from_bits(message101,itone,0)
                      else
-                        cycle
+                        call get_fst4_tones_from_bits(message74,itone,1)
+                     endif
+                     inquire(file='plotspec',exist=plotspec_exists)
+                     fmid=-999.0
+                     call timer('dopsprd ',0)
+                     if(plotspec_exists) then
+                        call dopspread(itone,iwave,nsps,nmax,ndown,hmod,  &
+                           isbest,fc_synced,fmid,w50)
+                     endif
+                     call timer('dopsprd ',1)
+                     xsig=0
+                     do i=1,NN
+                        xsig=xsig+s4(itone(i),i)
+                     enddo
+                     base=candidates(icand,5)
+                     arg=600.0*(xsig/base)-1.0
+                     if(arg.gt.0.0) then
+                        xsnr=10*log10(arg)-35.5-12.5*log10(nsps/8200.0)
+                        if(ntrperiod.eq.  15) xsnr=xsnr+2
+                        if(ntrperiod.eq.  30) xsnr=xsnr+1
+                        if(ntrperiod.eq. 900) xsnr=xsnr+1
+                        if(ntrperiod.eq.1800) xsnr=xsnr+2
+                     else
+                        xsnr=-99.9
                      endif
                      nsnr=nint(xsnr)
-                     qual=0.
+                     qual=0.0
                      fsig=fc_synced - 1.5*baud
-                     if(ex) then
+                     inquire(file=trim(data_dir)//'/decdata',exist=decdata_exists)
+                     if(decdata_exists) then
+                        hdec=0
+                        where(llrs(:,1).ge.0.0) hdec=1
+                        nhp=count(hdec.ne.cw) ! # hard errors wrt N=1 soft symbols
+                        hd=sum(ieor(hdec,cw)*abs(llrs(:,1))) ! weighted distance wrt N=1 symbols
+                        open(21,file=trim(data_dir)//'/fst4_decodes.dat',status='unknown',position='append')
                         write(21,3021) nutc,icand,itry,nsyncoh,iaptype,  &
-                             ijitter,ntype,nsync_qual,nharderrors,dmin,  &
-                             sync,xsnr,xdt,fsig,w50,trim(msg)
-3021                    format(i6.6,6i3,2i4,f6.1,f7.2,f6.1,f6.2,f7.1,f7.3,1x,a)
-                        flush(21)
+                           ijitter,npct,ntype,Keff,nsync_qual,nharderrors,dmin,nhp,hd,  &
+                           sync,xsnr,xdt,fsig,w50,trim(msg)
+3021                    format(i6.6,i4,6i3,3i4,f6.1,i4,f6.1,f9.2,f6.1,f6.2,f7.1,f7.3,1x,a)
+                        close(21)
                      endif
                      call this%callback(nutc,smax1,nsnr,xdt,fsig,msg,    &
-                          iaptype,qual,ntrperiod,lwspr,fmid,w50)
+                        iaptype,qual,ntrperiod,lwspr,fmid,w50)
                      if(iwspr.eq.0 .and. nb.lt.0) go to 900
                      goto 800
                   endif
@@ -532,9 +620,17 @@ contains
             enddo  ! istart jitter
 800      enddo !candidate list
       enddo ! noise blanker loop
-      
+
+      if(new_callsign .and. do_k50_decode) then ! re-write the fst4w_calls.txt file
+         open(42,file=trim(data_dir)//'/fst4w_calls.txt',status='unknown')
+         do i=1,nwcalls
+            write(42,'(a20)') trim(wcalls(i))
+         enddo
+         close(42)
+      endif
+
 900   return
-    end subroutine decode
+   end subroutine decode
 
    subroutine sync_fst4(cd0,i0,f0,hmod,ncoh,np,nss,ntr,fs,sync)
 
@@ -726,8 +822,8 @@ contains
       do i=ina,inb                                !Compute CCF of s() and 4 tones
          s2(i)=s(i-hmod*3) + s(i-hmod) +s(i+hmod) +s(i+hmod*3)
       enddo
-      npct=30
-      call fst4_baseline(s2,nnw,ina+hmod*3,inb-hmod*3,npct,sbase)
+      npctile=30
+      call fst4_baseline(s2,nnw,ina+hmod*3,inb-hmod*3,npctile,sbase)
       if(any(sbase(ina:inb).le.0.0)) return
       s2(ina:inb)=s2(ina:inb)/sbase(ina:inb)             !Normalize wrt noise level
 
@@ -902,6 +998,6 @@ contains
       enddo
 
       return
-    end subroutine dopspread
+   end subroutine dopspread
 
 end module fst4_decode

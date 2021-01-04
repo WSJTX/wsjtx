@@ -5,7 +5,6 @@
 #include <QColor>
 #include <QtWidgets>
 #include <QAction>
-#include <QDebug>
 
 #include "validators/MaidenheadLocatorValidator.hpp"
 
@@ -73,7 +72,7 @@ bool ClientWidget::IdFilterModel::filterAcceptsRow (int source_row
                                                     , QModelIndex const& source_parent) const
 {
   auto source_index_col0 = sourceModel ()->index (source_row, 0, source_parent);
-  return sourceModel ()->data (source_index_col0).value<ClientKey> () == key_;
+  return sourceModel ()->data (source_index_col0, Qt::UserRole + 1).value<ClientKey> () == key_;
 }
 
 void ClientWidget::IdFilterModel::de_call (QString const& call)
@@ -148,6 +147,7 @@ ClientWidget::ClientWidget (QAbstractItemModel * decodes_model, QAbstractItemMod
   , mode_line_edit_ {new QLineEdit {this}}
   , frequency_tolerance_spin_box_ {new QSpinBox {this}}
   , tx_mode_label_ {new QLabel {this}}
+  , tx_message_label_ {new QLabel {this}}
   , submode_line_edit_ {new QLineEdit {this}}
   , fast_mode_check_box_ {new QCheckBox {this}}
   , tr_period_spin_box_ {new QSpinBox {this}}
@@ -303,6 +303,7 @@ ClientWidget::ClientWidget (QAbstractItemModel * decodes_model, QAbstractItemMod
   // set up status area
   status_bar_->addPermanentWidget (de_label_);
   status_bar_->addPermanentWidget (tx_mode_label_);
+  status_bar_->addPermanentWidget (tx_message_label_);
   status_bar_->addPermanentWidget (frequency_label_);
   status_bar_->addPermanentWidget (tx_df_label_);
   status_bar_->addPermanentWidget (report_label_);
@@ -401,7 +402,7 @@ void ClientWidget::update_status (ClientKey const& key, Frequency f, QString con
                                   , QString const& de_call, QString const& de_grid, QString const& dx_grid
                                   , bool watchdog_timeout, QString const& submode, bool fast_mode
                                   , quint8 special_op_mode, quint32 frequency_tolerance, quint32 tr_period
-                                  , QString const& configuration_name)
+                                  , QString const& configuration_name, QString const& tx_message)
 {
     if (key == key_)
     {
@@ -428,8 +429,8 @@ void ClientWidget::update_status (ClientKey const& key, Frequency f, QString con
       update_spin_box (frequency_tolerance_spin_box_, frequency_tolerance
                        , quint32_max == frequency_tolerance ? QString {"n/a"} : QString {});
       update_line_edit (submode_line_edit_, submode, false);
-      tx_mode_label_->setText (QString {"Tx Mode: %1"}
-           .arg (tx_mode.isEmpty () || tx_mode == mode ? "" : '(' + tx_mode + ')'));
+      tx_mode_label_->setText (tx_mode.isEmpty () || tx_mode == mode ? "" : "Tx Mode: (" + tx_mode + ')');
+      tx_message_label_->setText (tx_message.isEmpty () ? "" : "Tx Msg: " + tx_message.trimmed ());
       frequency_label_->setText ("QRG: " + Radio::pretty_frequency_MHz_string (f));
       update_line_edit (dx_call_line_edit_, dx_call);
       update_line_edit (dx_grid_line_edit_, dx_grid);

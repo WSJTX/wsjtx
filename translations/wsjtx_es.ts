@@ -2904,13 +2904,13 @@ Amarillo cuando esta muy bajo.</translation>
         <location filename="../widgets/mainwindow.ui" line="1586"/>
         <source>Check to Tx in even-numbered minutes or sequences, starting at 0; uncheck for odd sequences.</source>
         <translatorcomment>Marca a TX en minutos o secuencias de números pares, a partir de 0; desmarca las secuencias impares.</translatorcomment>
-        <translation>Marcar para transmitir en secuencias o minutos pares, comenzando por 0; desmarca para transmitir en las secuencias o minutos impares.</translation>
+        <translation type="unfinished">Marcar para transmitir en secuencias o minutos pares, comenzando por 0; desmarca para transmitir en las secuencias o minutos impares.</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1589"/>
         <source>Tx even/1st</source>
         <translatorcomment>Alternar periodo TX Par/Impar</translatorcomment>
-        <translation>TX segundo par</translation>
+        <translation type="unfinished">Tx primer par/1ro</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1481"/>
@@ -4411,13 +4411,13 @@ Error al cargar datos de usuarios de LotW</translatorcomment>
         <location filename="../widgets/mainwindow.cpp" line="2571"/>
         <source>If you make fair use of any part of WSJT-X under terms of the GNU General Public License, you must display the following copyright notice prominently in your derivative work:
 
-&quot;The algorithms, source code, look-and-feel of WSJT-X and related programs, and protocol specifications for the modes FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 are Copyright (C) 2001-2020 by one or more of the following authors: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; and other members of the WSJT Development Group.&quot;</source>
+&quot;The algorithms, source code, look-and-feel of WSJT-X and related programs, and protocol specifications for the modes FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 are Copyright (C) 2001-2021 by one or more of the following authors: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; and other members of the WSJT Development Group.&quot;</source>
         <translatorcomment>Si haces un uso justo de cualquier parte de WSJT-X bajo los términos de la Licencia Pública General de GNU, debes mostrar el siguiente aviso de copyright de manera destacada en tú trabajo derivado:
 
-&quot;Los algoritmos, el código fuente, la apariencia de WSJT-X y los programas relacionados, y las especificaciones del protocolo para los modos FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 son Copyright (C) 2001-2020 por uno o más de los siguientes autores: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q y otros miembros del Grupo de Desarrollo WSJT &quot;.</translatorcomment>
+&quot;Los algoritmos, el código fuente, la apariencia de WSJT-X y los programas relacionados, y las especificaciones del protocolo para los modos FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 son Copyright (C) 2001-2021 por uno o más de los siguientes autores: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q y otros miembros del Grupo de Desarrollo WSJT &quot;.</translatorcomment>
         <translation>Si haces un uso justo de cualquier parte de WSJT-X bajo los términos de la Licencia Pública General de GNU, debes mostrar el siguiente aviso de derechos de autor (copyright) de manera destacada en tu trabajo derivado:
 
-&quot;Los algoritmos, el código fuente, la apariencia y comportamiento del WSJT-X y los programas relacionados, y las especificaciones del protocolo para los modos FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 son Copyright (C) 2001-2020 por uno o más de los siguientes autores: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q y otros miembros del Grupo de Desarrollo WSJT &quot;.</translation>
+&quot;Los algoritmos, el código fuente, la apariencia y comportamiento del WSJT-X y los programas relacionados, y las especificaciones del protocolo para los modos FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 son Copyright (C) 2001-2021 por uno o más de los siguientes autores: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q y otros miembros del Grupo de Desarrollo WSJT &quot;.</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="2846"/>

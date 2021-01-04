@@ -10,7 +10,126 @@
  \$$      \$$  \$$$$$$   \$$$$$$     \$$        \$$   \$$
                                                          
                                                          
-Copyright 2001 - 2020 by Joe Taylor, K1JT.
+Copyright 2001 - 2021 by Joe Taylor, K1JT.
+
+
+		   Release: WSJT-X 2.3.0-rc3
+		         Jan 6, 2021
+		   -------------------------
+
+WSJT-X 2.3.0  Release Candidate 3  adds an improved FST4W  decoder and
+fixes  several defects  and  regressions discovered  since the  second
+release candidate.
+
+ - FST4W:  Improve FST4W  decoder sensitivity  on fading  channels and
+   decrease false  decode rate.
+
+   FST4W  uses  50-bit   messages  and  a  24-bit   CRC.   The  74-bit
+   message+CRC is  encoded into a 240-bit  codeword. Received messages
+   are decoded by  two different decoders: (i)  a “belief propagation”
+   (BP)  decoder and  (ii) an  ordered statistics  decoder (OSD).  The
+   ordered statistics  decoder has a knob  that allows any or  all CRC
+   bits to be treated as additional parity bits rather than as part of
+   the  message+CRC  field.  Thus,  the OSD  decoder  can  decode  the
+   received message  as a  (240,50+Nc) code, where  Nc is  any integer
+   between 0  and 24.  In  the RC1 and  RC2 releases the  OSD decoding
+   attempt  treated the  code as  a (240,64)  code (14-bit  CRC). This
+   release uses 2  OSD decoding attempts that treat  the received word
+   as (i) a (240,66) code with 16-bit CRC and code rate 0.308 and (ii)
+   a (240,50) code with no CRC and code rate 0.208. Codewords returned
+   by  the (240,50)  CRC-less decoding  attempt are  unpacked and  the
+   decode is  printed only  if it contains  a callsign/grid  pair that
+   have  been previously  decoded  by the  belief propagation  decoder
+   (which treats the  code as a (240,74) code with  24-bit CRC) or the
+   ordered   statistics  decoder   configured  for   (240,66)  (16-bit
+   CRC). The callsign/grid memory  is stored in file “fst4w_calls.txt”
+   which resides in the data directory.
+
+ - FT8: Fixed a crash triggered by double clicking on the waterfall to
+   invoke a decode of a signal in the preceding T/R interval.
+
+ - FST4W: Do not save .c2 files.
+
+ - FST4W:  Correct a  bug that  could cause  incorrect operation  when
+   using  negative noise  blanker (NB)  percentage to  trigger looping
+   over a range of NB percentages.
+
+ - fst4sim: Added simulation of Lorentzian fading spectrum, invoked by
+   negative fspread values.
+
+ - Color highlighting scheme window fixed in dark mode.
+
+ - Reports sent by QSO partners to  other stations no longer logged in
+   error.
+
+ - UDP Status(1) message now includes the current Tx message.
+
+ - Example diagnostic logging configuration files included.
+
+ - Use system localization for date fields in Log QSO dialog.
+
+ - Improvements to audio input and output buffer sizes.
+
+ - wsprd: Fails gracefully if data directory does not exist.
+
+ - wsjtx_app_version: new utility to print application version string.
+
+ - Regression  causing  incorrect  working  frequency  selection  when
+   changing modes repaired.
+
+ - Regression with QSO initiation with "Best S&P" repaired.
+
+ - Updated installation instructions for macOS covering M1 hardware.
+
+ - Improved compatibility is Debian 9 required distribution packages.
+
+ - Repair regression with missing time-stamps in the ALL.TXT journal.
+
+ - Allow hamlib_settings.json to work  with PTT only configurations so
+   that optional PTT sharing on RTS or DTR can be enabled.
+
+ - Several improvements to main window sizing and layout.
+
+ - Repair regression  with OpenSSL libraries being  required when LoTW
+   highlighting is not enabled.
+
+ - Repair a  defect that  caused 2  by 1  callsigns to  be incorrectly
+   parsed as non-standard.
+
+ - Several updates to international UI translations.
+
+
+
+		   Release: WSJT-X 2.3.0-rc2
+		         Nov 16, 2020
+		   -------------------------
+
+WSJT-X  2.3.0  Release Candidate  2  fixes  issues  found in  RC1  and
+includes some new functionality that missed the RC1 cut off deadline.
+
+ - Dropped audio samples message box  removed, warnings and errors for
+   these are now sent to the WSJT-X system log.
+
+ - FST4W spots to  WSPRNet.org will be augmented such  that the server
+   can distinguish the  mode being spotted. Spots  to WSPRNet.org will
+   no longer be restricted to WSPR sub-bands.
+
+ - A new  internal system  and data logging  facility used  to provide
+   trace,  debug,   information,  warning,  error,  and   fatal  error
+   messages. The verbosity and filtering of messages is user definable
+   via a configuration file. Without  a configuration file a basic log
+   is written with  information, warning and error  messages only. Log
+   files are automatically rotated to limit disk usage.
+
+ - Due to  some users using  inappropriate multicast IP  addresses for
+   their interoperating  severs the default  behaviour now is  to only
+   send multicast  UDP datagrams  to the loop-back  network interface.
+   Users who  require WSJT-X UDP  Message Protocol datagrams  to reach
+   other  hosts will  now  have  to configure  WSJT-X  to  send on  an
+   appropriate  network interface,  and  use  an appropriately  scoped
+   multicast group address for their  server applications.  If you are
+   not sure then  224.0.0.1 (or ff02::1 if IPv6 is  desired) is a safe
+   choice.
 
 
 		   Release: WSJT-X 2.3.0-rc1
