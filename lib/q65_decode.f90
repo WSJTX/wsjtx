@@ -183,8 +183,8 @@ contains
 1000   format(12b6.6,b5.5)
        call unpack77(c77,0,decoded,unpk77_success) !Unpack to get msgsent
        nsnr=nint(snr2)
-       call this%callback(nutc,sync,nsnr,xdt1,f1,decoded,              &
-            idec,ntrperiod)
+       call this%callback(nutc,sync,nsnr,xdt1,f1,decoded,idec,ntrperiod)
+       call q65_clravg
     else
 ! Report sync, even if no decode.
        nsnr=db(snr1) - 35.0

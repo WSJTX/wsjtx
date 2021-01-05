@@ -158,10 +158,6 @@ subroutine q65_sync(nutc,iwave,ntrperiod,mode_q65,codewords,ncw,nsps,   &
      endif
   enddo  ! imsg
 
-  do i=-ia2,ia2
-     ccf2(i)=maxval(ccf(i,:))
-  enddo
-
   i1=i0+ipk-64
   i2=i1+LL-1
   j=j0+jpk-7
@@ -207,15 +203,15 @@ subroutine q65_sync(nutc,iwave,ntrperiod,mode_q65,codewords,ncw,nsps,   &
         ccf2=ccf2-base
         smax=maxval(ccf2)
         if(smax.gt.10.0) ccf2=10.0*ccf2/smax
-        go to 200
+        go to 100
      endif
   enddo
-
-!######################################################################
-! Establish xdt, f0, and snr1 using sync symbols (and perhaps some AP symbols)
-100 ccf=0.
   irc=-2
   dat4=0
+
+!######################################################################
+! Compute the 2D CCF using sync symbols only
+100 ccf=0.
   do lag=lag1,lag2
      do k=1,85
         n=NSTEP*(k-1) + 1
@@ -228,11 +224,10 @@ subroutine q65_sync(nutc,iwave,ntrperiod,mode_q65,codewords,ncw,nsps,   &
         endif
      enddo
   enddo
+  
   ijpk=maxloc(ccf(-ia:ia,:))
   ipk=ijpk(1)-ia-1
   jpk=ijpk(2)-53-1
-  f0=nfqso + ipk*df
-  xdt=jpk*dtstep
 
   do i=-ia2,ia2
      ccf2(i)=maxval(ccf(i,:))
@@ -252,46 +247,49 @@ subroutine q65_sync(nutc,iwave,ntrperiod,mode_q65,codewords,ncw,nsps,   &
   rms=sqrt(sq/nsq)
   smax=ccf(ipk,jpk)
   snr1=smax/rms
-  ccf1=ccf(:,jpk)/rms
-  if(snr1.gt.10.0) ccf1=(10.0/snr1)*ccf1
   ccf2=ccf2/rms
   if(snr1.gt.10.0) ccf2=(10.0/snr1)*ccf2
 
-  if(iand(ndepth,16).eq.16) then
+  if(irc.le.0) then
+     f0=nfqso + ipk*df
+     xdt=jpk*dtstep
+     ccf1=ccf(:,jpk)/rms
+     if(snr1.gt.10.0) ccf1=(10.0/snr1)*ccf1
+     if(iand(ndepth,16).eq.16) then
 ! Fill s3() from s1() here, then call q65_avg().
-     i1=i0+ipk-64
-     i2=i1+LL-1
-     if(snr1.ge.2.8 .and. i1.ge.1 .and. i2.le.iz) then
-        j=j0+jpk-7
-        n=0
-        do k=1,85
-           j=j+8
-           if(sync(k).gt.0.0) then
-              cycle
-           endif
-           n=n+1
-           if(j.ge.1 .and. j.le.jz) s3(-64:LL-65,n)=s1(i1:i2,j)
-        enddo
-!        write(*,3002) 'B',xdt,f0,sum(s3)
-!3002    format(a1,f7.2,2f8.1)
-        call q65_avg(nutc,ntrperiod,LL,nfqso,ntol,lclearave,xdt,f0,snr1,s3)
+        i1=i0+ipk-64
+        i2=i1+LL-1
+        if(snr1.ge.2.8 .and. i1.ge.1 .and. i2.le.iz) then
+           j=j0+jpk-7
+           n=0
+           do k=1,85
+              j=j+8
+              if(sync(k).gt.0.0) then
+                 cycle
+              endif
+              n=n+1
+              if(j.ge.1 .and. j.le.jz) s3(-64:LL-65,n)=s1(i1:i2,j)
+           enddo
+           call q65_avg(nutc,ntrperiod,LL,nfqso,ntol,lclearave,xdt,f0,snr1,s3)
+        endif
      endif
   endif
 
-200 smax=maxval(ccf1)
+  smax=maxval(ccf1)
   i1=-9999
   i2=-9999
   do i=-ia,ia
      if(i1.eq.-9999 .and. ccf1(i).ge.0.5*smax) i1=i
      if(i2.eq.-9999 .and. ccf1(-i).ge.0.5*smax) i2=-i
   enddo
+  width=df*(i2-i1)
+
   do i=-ia2,ia2
      freq=nfqso + i*df
      write(17,1100) freq,ccf1(i),xdt,ccf2(i)
 1100 format(4f10.3)
   enddo
   close(17)
-  width=df*(i2-i1)
 
 900 return
 end subroutine q65_sync

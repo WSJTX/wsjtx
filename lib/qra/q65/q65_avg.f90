@@ -70,7 +70,6 @@ subroutine q65_avg(nutc,ntrperiod,LL,nfqso,ntol,lclearave,xdt,f0,snr1,s3)
   entry q65_avg2(ntrperiod,ntol,baud,nsubmode,nQSOprogress,lapcqonly, &
        ibwa,ibwb,codewords,ncw,xdt,f0,snr1,snr2,dat4,idec)
 
-  if(nsave.lt.2) go to 900
   mode_q65=2**nsubmode
   f0diff=baud*mode_q65
   ibwa=1.8*log(baud*mode_q65) + 2
@@ -117,7 +116,7 @@ subroutine q65_avg(nutc,ntrperiod,LL,nfqso,ntol,lclearave,xdt,f0,snr1,s3)
           xdtsave(i),f0save(i)
 1001 format(a1,i5.4,f6.1,f6.2,f7.1)
   enddo
-  if(navg.lt.2) go to 900
+  if(navg.lt.2) go to 100
 
   s3avg=s3avg/navg
   nFadingModel=1
@@ -131,7 +130,7 @@ subroutine q65_avg(nutc,ntrperiod,LL,nfqso,ntol,lclearave,xdt,f0,snr1,s3)
         snr2=esnodb - 0.5*db(2500.0/baud) + 3.0     !Empirical adjustment
         snr2=snr2 - db(float(navg))                 !Is this right?
         idec=100+navg
-        go to 900
+        go to 100
      endif
   enddo
 
@@ -176,11 +175,24 @@ subroutine q65_avg(nutc,ntrperiod,LL,nfqso,ntol,lclearave,xdt,f0,snr1,s3)
            snr2=esnodb - db(2500.0/baud) + 3.0     !Empirical adjustment
            snr2=snr2 - 0.5*db(float(navg))             !Is this right?
            idec=100*(iaptype+2) + navg
-!        print*,'D dec2 ',ibw,dec,snr2,avemsg
-           go to 900
+           go to 100
         endif
      enddo  ! ibw
   enddo  ! ipass
 
-900  return
+100 return
+
+  entry q65_clravg
+  
+  iutc=-1
+  iseq=-1
+  snr1save=0.
+  xdtsave=0.
+  f0save=0.0
+  nsave=0
+  if(allocated(s3save)) s3save=0.
+  if(allocated(s3avg)) s3avg=0.
+  
+  return
+  
 end subroutine q65_avg
