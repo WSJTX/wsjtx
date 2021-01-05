@@ -293,12 +293,14 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
      if(m_bQ65_MultiSync) pen0.setColor("orange");
       painter2D.setPen(pen0);
       painter2D.drawPolyline(LineBuf2,k);
-      QString t;
-      t = t.asprintf("DT = %6.2f",xdt);
-      painter2D.setPen(Qt::white);
-      Font.setWeight(QFont::Bold);
-      painter2D.setFont(Font);
-      painter2D.drawText(m_w-100,m_h2/2,t);
+      if(m_bQ65_Sync) {
+        QString t;
+        t = t.asprintf("DT = %6.2f",xdt);
+        painter2D.setPen(Qt::white);
+        Font.setWeight(QFont::Bold);
+        painter2D.setFont(Font);
+        painter2D.drawText(m_w-100,m_h2/2,t);
+      }
     }
   }
   update();                                    //trigger a new paintEvent
