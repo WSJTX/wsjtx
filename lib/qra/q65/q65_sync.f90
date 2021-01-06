@@ -299,6 +299,7 @@ subroutine q65_dec1(s3,nsubmode,b90ts,codewords,ncw,esnodb,irc,dat4,decoded)
 
   use q65
   use packjt77
+  real s3(1,1)       !Silence compiler warning that wants to see a 2D array
   real s3prob(0:63,63)                   !Symbol-value probabilities
   integer codewords(63,206)
   integer dat4(13)
