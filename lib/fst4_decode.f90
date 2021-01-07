@@ -89,6 +89,7 @@ contains
       mycall13=mycall
 
       if(iwspr.ne.0.and.iwspr.ne.1) return
+      if(lagain) continue ! use lagain to keep compiler happy 
 
       if(first) then
 ! read the fst4_calls.txt file
@@ -401,7 +402,7 @@ contains
                cframe=c2(is0:iend)
                bitmetrics=0
                call timer('bitmetrc',0)
-               call get_fst4_bitmetrics(cframe,nss,nblock,nhicoh,bitmetrics, &
+               call get_fst4_bitmetrics(cframe,nss,bitmetrics, &
                   s4,nsync_qual,badsync)
                call timer('bitmetrc',1)
                if(badsync) cycle

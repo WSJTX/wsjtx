@@ -5,7 +5,6 @@ subroutine get_fst4_bitmetrics2(cd,nss,hmod,nsizes,bitmetrics,s4snr,badsync)
    complex csymb(nss)
    complex, allocatable, save :: c1(:,:)   ! ideal waveforms, 4 tones
    complex cp(0:3)        ! accumulated phase shift over symbol types 0:3
-   complex csum,cterm
    integer isyncword1(0:7),isyncword2(0:7)
    integer graymap(0:3)
    integer ip(1)

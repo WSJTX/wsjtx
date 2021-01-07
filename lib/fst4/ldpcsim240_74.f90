@@ -6,7 +6,7 @@ program ldpcsim240_74
 
    parameter(N=240, K=74, M=N-K)
    character*8 arg
-   character*37 msg0,msg
+   character*37 msg0
    character*77 c77
    character*24 c24
    integer*1 msgbits(74)
@@ -15,7 +15,7 @@ program ldpcsim240_74
    integer*1 codeword(N),message74(74)
    integer ncrc24
    real rxdata(N),llr(N)
-   logical first,unpk77_success
+   logical first
    data first/.true./
 
    nargs=iargc()

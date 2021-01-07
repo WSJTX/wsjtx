@@ -164,6 +164,7 @@ subroutine fastosd240_74(llr,k,apmask,ndeep,message74,cw,nhardmin,dmin)
       cw=c0
       ntotal=0
       nrejected=0
+      xlambda=0.0
 
       if(ndeep.eq.0) goto 998  ! norder=0
       if(ndeep.gt.4) ndeep=4

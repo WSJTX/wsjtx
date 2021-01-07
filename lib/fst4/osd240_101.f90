@@ -128,6 +128,7 @@ subroutine osd240_101(llr,k,apmask,ndeep,message101,cw,nhardmin,dmin)
    nrejected=0
    npre1=0
    npre2=0
+   nt=0
 
    if(ndeep.eq.0) goto 998  ! norder=0
    if(ndeep.gt.6) ndeep=6

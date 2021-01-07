@@ -4,12 +4,10 @@ subroutine encode240_74(message,codeword)
    use crc
 
    integer, parameter:: N=240, K=74, M=N-K
-   character*24 c24
    integer*1 codeword(N)
    integer*1 gen(M,K)
    integer*1 message(K)
    integer*1 pchecks(M)
-   integer*4 ncrc24
    include "ldpc_240_74_generator.f90"
    logical first
    data first/.true./
