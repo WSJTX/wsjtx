@@ -48,10 +48,5 @@ subroutine blanker(iwave,nz,ndropmax,npct,c_bigfft)
      endif
   enddo
 
-  fblanked=fblanked + 0.1*(float(ndropped)/nz - fblanked)
-  fblanked=float(ndropped)/nz
-!  write(*,3001) npct,nthresh,fblanked
-!3001 format(2i5,f7.3)
-
   return
 end subroutine blanker
