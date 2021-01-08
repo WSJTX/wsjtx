@@ -85,10 +85,18 @@ contains
     else
        stop 'Invalid TR period'
     endif
+
     baud=12000.0/nsps
     df1=12000.0/nfft1
     this%callback => callback
     nFadingModel=1
+    ibwa=max(1,int(1.8*log(baud*mode65)) + 2)
+    ibwb=min(10,ibwa+4)
+    if(iand(ndepth,3).eq.3) then
+       ibwa=max(1,ibwa-1)
+       ibwb=min(10,ibwb+1)
+    endif
+    
 ! Set up the codewords for full-AP list decoding    
     call q65_set_list(mycall,hiscall,hisgrid,codewords,ncw) 
     dgen=0
@@ -103,7 +111,7 @@ contains
        f1=f0
        go to 100
     endif
-    
+
     if(snr1.lt.2.8) then
        xdt1=0.                   !No reliable sync, abandon decoding attempt
        f1=0.
@@ -161,7 +169,7 @@ contains
     if(iand(ndepth,16).eq.16) then
 ! Try for an average decode.
        call q65_avg2(ntrperiod,ntol,baud,nsubmode,nQSOprogress,lapcqonly, &
-            ibwa,ibwb,codewords,ncw,xdt,f0,snr1,snr2,dat4,idec)
+            codewords,ncw,xdt,f0,snr1,snr2,dat4,idec)
     endif
     
 100 decoded='                                     '

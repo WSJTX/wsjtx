@@ -71,12 +71,10 @@ subroutine q65_avg(nutc,ntrperiod,LL,nfqso,ntol,lclearave,xdt,f0,snr1,s3)
 10 return
 
   entry q65_avg2(ntrperiod,ntol,baud,nsubmode,nQSOprogress,lapcqonly, &
-       ibwa,ibwb,codewords,ncw,xdt,f0,snr1,snr2,dat4,idec)
+       codewords,ncw,xdt,f0,snr1,snr2,dat4,idec)
 
   mode_q65=2**nsubmode
   f0diff=baud*mode_q65
-  ibwa=1.8*log(baud*mode_q65) + 2
-  ibwb=min(10,ibwa+4)
   snr1sum=0.
   xdtsum=0.
   fsum=0.

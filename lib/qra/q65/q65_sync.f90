@@ -15,9 +15,10 @@ subroutine q65_sync(nutc,iwave,ntrperiod,mode_q65,codewords,ncw,nsps,   &
 
   use packjt77
   use timer_module, only: timer
+  use q65
+
   parameter (NSTEP=8)                    !Step size nsps/NSTEP
   parameter (LN=2176*63)           !LN=LL*NN; LL=64*(mode_q65+2), NN=63
-  parameter (PLOG_MIN=-240.0)            !List decoding threshold
   integer*2 iwave(0:12000*ntrperiod-1)   !Raw data
   integer isync(22)                      !Indices of sync symbols
   integer itone(85)
@@ -183,8 +184,6 @@ subroutine q65_sync(nutc,iwave,ntrperiod,mode_q65,codewords,ncw,nsps,   &
   if(mode_q65.eq.16) nsubmode=4
   nFadingModel=1
   baud=12000.0/nsps
-  ibwa=1.8*log(baud*mode_q65) + 2
-  ibwb=min(10,ibwa+4)
 
   do ibw=ibwa,ibwb
      b90=1.72**ibw

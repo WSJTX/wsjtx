@@ -3,6 +3,8 @@ subroutine q65_loops(c00,npts2,nsps,mode_q65,nsubmode,ndepth,jpk0,    &
 
   use packjt77
   use timer_module, only: timer
+  use q65
+  
   parameter (NN=63)
   parameter (LN=1152*63)           !LN=LL*NN; LL=64*(mode_q65+2), NN=63
   complex c00(0:npts2-1)           !Analytic representation of dd(), 6000 Hz
@@ -28,8 +30,6 @@ subroutine q65_loops(c00,npts2,nsps,mode_q65,nsubmode,ndepth,jpk0,    &
 
   idfmax=3
   idtmax=3
-  ibwa=max(1,int(1.8*log(baud*mode_q65)) + 2)
-  ibwb=min(10,ibwa+4)
   ibw0=(ibwa+ibwb)/2
   maxdist=5
   if(iand(ndepth,3).ge.2) then
@@ -37,12 +37,8 @@ subroutine q65_loops(c00,npts2,nsps,mode_q65,nsubmode,ndepth,jpk0,    &
      idtmax=5
      maxdist=10
   endif
-  if(iand(ndepth,3).eq.3) then
-     maxdist=15
-     ibwa=max(1,ibwa-1)
-     ibwb=min(10,ibwb+1)
-  endif
-  
+  if(iand(ndepth,3).eq.3) maxdist=15
+
   LL=64*(mode_q65+2)
   napmin=99
   xdt1=xdt0

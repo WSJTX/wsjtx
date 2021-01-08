@@ -8,7 +8,7 @@ module q65
   integer listutc(10)
   integer apsym0(58),aph10(10)
   integer apmask(13),apsymbols(13)
-  integer navg
+  integer navg,ibwa,ibwb
   real    f0save(MAXAVE)
   real    xdtsave(MAXAVE)
   real    snr1save(MAXAVE)
