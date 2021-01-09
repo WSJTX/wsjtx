@@ -6,6 +6,7 @@ module timer_impl
 
   public :: init_timer, fini_timer
   integer, public :: limtrace=0
+!  integer, public :: limtrace=10000000
 
   private
 
@@ -146,8 +147,11 @@ contains
     endif
 
     ntrace=ntrace+1
-    if(ntrace.lt.limtrace) write(lu,1020) ntrace,tname,k,level,nparent(n)
-1020 format(i8,': ',a8,3i5)
+    tname='TopLevel'
+    if(nparent(n).ge.1 .and. nparent(n).le.MAXCALL) tname=name(nparent(n))
+    if(ntrace.lt.limtrace) write(lu,1020) ntrace,dname,k,level,nparent(n),tname
+1020 format(i8,': ',a8,3i5,2x,a8)
+    flush(lu)
     go to 998
 
     ! Write out the timer statistics
