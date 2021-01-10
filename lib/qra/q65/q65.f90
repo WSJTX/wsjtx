@@ -9,7 +9,6 @@ module q65
   integer apsym0(58),aph10(10)
   integer apmask(13),apsymbols(13)
   integer navg,ibwa,ibwb
-  real    dtdiff
   real    f0save(MAXAVE)
   real    xdtsave(MAXAVE)
   real    snr1save(MAXAVE)
@@ -25,7 +24,7 @@ subroutine q65_avg(nutc,ntrperiod,LL,nfqso,ntol,lclearave,xdt,f0,snr1,s3)
 
   character*6 cutc
   real s3(-64:LL-65,63)                  !Symbol spectra
-  logical first,lclearave,lapcqonly
+  logical first,lclearave
   data first/.true./
   save
 
@@ -48,21 +47,8 @@ subroutine q65_avg(nutc,ntrperiod,LL,nfqso,ntol,lclearave,xdt,f0,snr1,s3)
      s3avg=0.
   endif
 
-  if(ntrperiod.eq.15) then
-     dtdiff=0.038
-  else if(ntrperiod.eq.30) then
-     dtdiff=0.08
-  else if(ntrperiod.eq.60) then
-     dtdiff=0.16
-  else if(ntrperiod.eq.120) then
-     dtdiff=0.4
-  else if(ntrperiod.eq.300) then
-     dtdiff=0.9
-  endif
-  dtdiff=2.5*dtdiff
-
   do i=1,MAXAVE       !Don't save info more than once for same UTC and freq
-     if(nutc.eq.iutc(i) .and. abs(nfqso-f0save(i)).le.ntol) go to 10
+     if(nutc.eq.iutc(i) .and. abs(nfqso-f0save(i)).le.ntol) go to 900
   enddo
 
 ! Save data for message averaging
@@ -80,11 +66,11 @@ subroutine q65_avg(nutc,ntrperiod,LL,nfqso,ntol,lclearave,xdt,f0,snr1,s3)
   f0save(nsave)=f0                          !f0
   s3save(:,:,nsave)=s3(:,:)                 !Symbol spectra
 
-10 return
+900 return
 end subroutine q65_avg
 
-subroutine q65_avg2(ntrperiod,ntol,baud,nsubmode,nQSOprogress,lapcqonly, &
-       codewords,ncw,xdt,f0,snr1,snr2,dat4,idec)
+subroutine q65_avg2(ntrperiod,baud,nsubmode,nQSOprogress,lapcqonly, &
+       codewords,ncw,xdt,f0,snr2,dat4,idec)
 
   use packjt77
   use timer_module, only: timer
@@ -97,10 +83,18 @@ subroutine q65_avg2(ntrperiod,ntol,baud,nsubmode,nQSOprogress,lapcqonly, &
   logical lapcqonly
   
   mode_q65=2**nsubmode
-  f0diff=1.5*baud*mode_q65
-  snr1sum=0.
-  xdtsum=0.
-  fsum=0.
+  dtdiff=0.038
+  if(ntrperiod.eq.30) then
+     dtdiff=0.08
+  else if(ntrperiod.eq.60) then
+     dtdiff=0.16
+  else if(ntrperiod.eq.120) then
+     dtdiff=0.4
+  else if(ntrperiod.eq.300) then
+     dtdiff=0.9
+  endif
+  dtdiff=3.5*dtdiff
+  f0diff=2.5*baud*mode_q65
   navg=0
   s3avg=0.
 
@@ -113,21 +107,8 @@ subroutine q65_avg2(ntrperiod,ntol,baud,nsubmode,nQSOprogress,lapcqonly, &
      if(abs(f0-f0save(i)).gt.f0diff) cycle          !Freq must match
      cused(i)='$'                                   !Flag for "use this one"
      s3avg=s3avg + s3save(:,:,i)                    !Add this spectrum
-     snr1sum=snr1sum + snr1save(i)
-     xdtsum=xdtsum + xdtsave(i)
-     fsum=fsum + f0save(i)
      navg=navg+1
   enddo
-  
-! Find averages of snr1, xdt, and f0 used in this decoding attempt.
-  snr1ave=0.
-  xdtave=0.
-  f0ave=0.
-  if(navg.gt.0) then
-     snr1ave=snr1sum/navg
-     xdtave=xdtsum/navg
-     f0ave=fsum/navg
-  endif
 
 ! Write parameters for display to User in the Message Averaging (F7) window.
   do i=1,MAXAVE
@@ -178,15 +159,6 @@ subroutine q65_avg2(ntrperiod,ntol,baud,nsubmode,nQSOprogress,lapcqonly, &
 1060    format(13b6.6)
         write(c78,1050) apsymbols1
         read(c78,1060) apsymbols
-!        if(iaptype.eq.4) then
-!           do j=1,3
-!              ng15=32401+j
-!              write(c78(60:74),'(b15.15)') ng15
-!              read(c78,1060) dgen
-!              call q65_enc(dgen,codewords(1,j))
-!           enddo
-!        endif
-!        print*,'AAA',ncw,iaptype
      endif
 
      do ibw=ibwa,ibwb
