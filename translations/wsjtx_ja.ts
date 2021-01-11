@@ -510,7 +510,7 @@ Format:
     <message>
         <location filename="../Configuration.cpp" line="1880"/>
         <source>Pending DNS lookup, please try again later</source>
-        <translation type="unfinished"></translation>
+        <translation>DNS参照できず、後で再度行ってください</translation>
     </message>
     <message>
         <location filename="../Configuration.cpp" line="2223"/>
@@ -530,12 +530,12 @@ Format:
     <message>
         <location filename="../Configuration.cpp" line="2435"/>
         <source>UDP server DNS lookup failed</source>
-        <translation type="unfinished"></translation>
+        <translation>UDPサーバーのDNS参照失敗</translation>
     </message>
     <message>
         <location filename="../Configuration.cpp" line="2459"/>
         <source>MAC-ambiguous multicast groups addresses not supported</source>
-        <translation type="unfinished"></translation>
+        <translation>曖昧なMACアドレスを使ったマルチキャストはサポートしていません</translation>
     </message>
     <message>
         <location filename="../Configuration.cpp" line="2477"/>
@@ -2253,12 +2253,12 @@ Error(%2): %3</source>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1143"/>
         <source>Decode other Hounds calling above 1000 Hz audio offset</source>
-        <translation type="unfinished"></translation>
+        <translation>1000Hzより上で呼んでいるHoundsをデコード</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1192"/>
         <source>Enable auto response to the first decode from a new DXCC or new call on the current band.</source>
-        <translation type="unfinished"></translation>
+        <translation>バンドの未交信DXCCまたは未交信局を自動的に応答</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2615"/>
@@ -5281,7 +5281,7 @@ Error(%2): %3</source>
     <message>
         <location filename="../widgets/widegraph.cpp" line="24"/>
         <source>User Defined</source>
-        <translation type="unfinished">ユーサー定義</translation>
+        <translation>ユーサー定義</translation>
     </message>
     <message>
         <location filename="../widgets/widegraph.cpp" line="28"/>
@@ -6058,27 +6058,28 @@ transmitting periods.</source>
     <message>
         <location filename="../Configuration.ui" line="1888"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enter the service port number of the UDP server that WSJT-X should send updates to. If this is zero no updates will be sent.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;WSJT-Xがデータを送るUDPサーバーのポート番号を入力. もし0のときはデータを送らない.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1898"/>
         <source>Outgoing interfaces:</source>
-        <translation type="unfinished"></translation>
+        <translation>データ送出インターフェイス:</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1908"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;When sending updates to a multicast group address it is necessary to specify which network interface(s) to send them to. If the loop-back interface is multicast capable then at least that one will be selected.&lt;/p&gt;&lt;p&gt;For most users the loop-back interface is all that is needed, that will allow multiple other applications on the same machine to interoperate with WSJT-X. If applications running on other hosts are to receive status updates then a suitable network interface should be used.&lt;/p&gt;&lt;p&gt;On some Linux systems it may be necessary to enable multicast on the loop-back network interface.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;マルチキャストグループアドレスにデータを送る場合はどのネットワークインターフェイスを使うかを指定する必要があります.&lt;/p&gt;&lt;p&gt;ほとんどのユーザーにはループバックインターフェイスだけ指定すれば問題ありません.そうすれば、同一PC上で走る他のアプリはWSJT-Xとデータをやり取りできます.もしほかのPCで走るアプリがデータを受信しなければならない場合は正しいネットワークインターフェイスを指定しなければなりません.&lt;/p&gt;&lt;p&gt;
+いくつかのLinuxシステムではループバックネットワークインターフェイスでマルチキャスト機能をオンにしなければならないかもしれません.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1915"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Sets the number or router hops that multicast datagrams are allowed to make. Almost everyone should set this to 1 to keep outgoing multicast traffic withn the local subnet.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;マルチキャストパケットを配信するホップ数を設定.、マルチキャストパケットがローカルサブネット内だけに配信されるように、ほとんどのケースでここは1を設定すればよいでしょう.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1928"/>
         <source>Multicast TTL:</source>
-        <translation type="unfinished"></translation>
+        <translation>マルチキャストTTL:</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2434"/>

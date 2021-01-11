@@ -103,18 +103,18 @@ namespace
       //     7050 - 7060 DM WB(<2700Hz) with 7050 - 7053 ACDS
       //
       //     7040         PSK31
-      //     7043.25      OLIVIA, Contestia, etc. (main QRQ)
+      //     7043.25      OLIVIA, Contestia, etc. (main QRG)
       //     7070         PSK31
-      //     7073.25      OLIVIA, Contestia, etc. (main QRQ)
+      //     7073.25      OLIVIA, Contestia, etc. (main QRG)
       //     7090         LSB QRP CoA
       //
       // R2: 7040 - 7050 DM NB(<500Hz)  with 7047 - 7050 ACDS
       //     7050 - 7053 DM WB(<2700Hz) ACDS shared with all modes
       //
       //     7040         RTTY DX
-      //     7043.25      OLIVIA, Contestia, etc. (main QRQ)
+      //     7043.25      OLIVIA, Contestia, etc. (main QRG)
       //     7070         PSK31 (also LSB EMCOMM)
-      //     7073.25      OLIVIA, Contestia, etc. (main QRQ)
+      //     7073.25      OLIVIA, Contestia, etc. (main QRG)
       //     7080 - 7125  RTTY/Data
       //     7090         LSB QRP CoA
       //
@@ -122,7 +122,7 @@ namespace
       //
       //     7030 - 7100 DM WB(<3000Hz) JA 7045 - 7100 shared with all modes
       //
-      //     7026.25      OLIVIA, Contestia, etc. (main QRQ)
+      //     7026.25      OLIVIA, Contestia, etc. (main QRG)
       //     7035         PSK31
       //     7050         JA LSB EMCOMM
       //     7090         LSB QRP CoA
@@ -143,7 +143,7 @@ namespace
       //     10139.25       OLIVIA, Contestia, etc.
       //     10142          PSK31
       //     10142.25       OLIVIA, Contestia, etc.
-      //     10143.25       OLIVIA, Contestia, etc. (main QRQ)
+      //     10143.25       OLIVIA, Contestia, etc. (main QRG)
       //
       // R2: 10130 - 10140 DM NB(<500Hz)  shared with ACDS
       //     10140 - 10150 DM WB(<2700Hz)
@@ -153,14 +153,14 @@ namespace
       //     10140 - 10150  Packet
       //     10142          PSK31
       //     10142.25       OLIVIA, Contestia, etc.
-      //     10143.25       OLIVIA, Contestia, etc. (main QRQ)
+      //     10143.25       OLIVIA, Contestia, etc. (main QRG)
       // 
       // R3: 10130 - 10150 DM NB(<2000Hz)
       //
       //     10139.25       OLIVIA, Contestia, etc.
       //     10142          PSK31
       //     10142.25       OLIVIA, Contestia, etc.
-      //     10143.25       OLIVIA, Contestia, etc. (main QRQ)
+      //     10143.25       OLIVIA, Contestia, etc. (main QRG)
       //
       {10136000, Modes::FT8, IARURegions::ALL},
       {10138000, Modes::JT65, IARURegions::ALL},
