@@ -176,7 +176,7 @@ subroutine q65_sync(nutc,iwave,ntrperiod,mode_q65,codewords,ncw,nsps,   &
      n=n+1
      if(j.ge.1 .and. j.le.jz) then
         do i=0,LL-1
-           s3(i-64,n)=s1(i+i1,j)
+           s3(i-64,n)=s1(i+i1,j)              !Copy from s1 into s3
         enddo
      endif
   enddo
@@ -262,8 +262,8 @@ subroutine q65_sync(nutc,iwave,ntrperiod,mode_q65,codewords,ncw,nsps,   &
      ccf1=ccf(:,jpk)/rms
      if(snr1.gt.10.0) ccf1=(10.0/snr1)*ccf1
      if(iand(ndepth,16).eq.16) then
-! Fill s3() from s1() here, then call q65_avg().
-        i1=i0+ipk-64
+! Copy from s1 into s3, then call q65_avg().
+        i1=i0+ipk-64 + mode_q65
         i2=i1+LL-1
         if(snr1.ge.2.8 .and. i1.ge.1 .and. i2.le.iz) then
            j=j0+jpk-7

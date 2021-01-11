@@ -148,14 +148,6 @@ contains
 1060      format(13b6.6)
           write(c78,1050) apsymbols1
           read(c78,1060) apsymbols
-          if(iaptype.eq.4) then
-             do j=1,3
-                ng15=32401+j
-                write(c78(60:74),'(b15.15)') ng15
-                read(c78,1060) dgen
-                call q65_enc(dgen,codewords(1,j))
-             enddo
-          endif
        endif
 
        call timer('q65loops',0)
@@ -168,7 +160,6 @@ contains
 ! There was no single-transmission decode.
     if(iand(ndepth,16).eq.16) then
        ! Try for an average decode.
-       
        call timer('q65_avg2',0)
        call q65_avg2(ntrperiod,baud,nsubmode,nQSOprogress,lapcqonly, &
             codewords,ncw,xdt,f0,snr2,dat4,idec)

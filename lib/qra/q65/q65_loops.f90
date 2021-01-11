@@ -12,14 +12,9 @@ subroutine q65_loops(c00,npts2,nsps,mode_q65,nsubmode,ndepth,jpk0,    &
   character decoded*37
   real a(3)                        !twkfreq params f,f1,f2
   real s3(LN)                      !Symbol spectra
-  integer cw4(63)
   integer dat4(13)                 !Decoded message (as 13 six-bit integers)
   integer nap(0:11)                !AP return codes
   data nap/0,2,3,2,3,4,2,3,6,4,6,6/
-  data cw4/0, 0, 0, 0, 8, 4,60,35,17,48,33,25,34,43,43,43,35,15,46,30, &
-          54,24,26,26,57,57,42, 3,23,11,49,49,16, 2, 6, 6,55,21,39,51, &
-          51,51,42,42,50,25,31,35,57,30, 1,54,54,10,10,22,44,58,57,40, &
-          21,21,19/
 
   idec=-1
   ircbest=9999
