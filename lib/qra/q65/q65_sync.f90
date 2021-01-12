@@ -99,23 +99,22 @@ subroutine q65_sync(nutc,iwave,ntrperiod,mode_q65,codewords,ncw,nsps,   &
   j0=0.5/dtstep
   if(nsps.ge.7200) j0=1.0/dtstep              !Nominal start-signal index
 
-  if(ncw.lt.1) go to 100
+  irc=-2
+  idec=-1
+  dat4=0
 
-!######################################################################
+  if(ncw.gt.0) then
 ! Try list decoding via "Deep Likelihood".
-  call timer('list_dec',0)
-  call q65_dec_q3(codewords,ncw,isync,sync,df,s1,iz,jz,ia,ibwa,ibwb,      &
-       nstep,nsps,mode_q65,lag1,lag2,i0,j0,ccf,ccf1,ccf2,ia2,s3,LL,snr2,  &
-       dat4,idec,decoded)
-  call timer('list_dec',1)
-  if(idec.lt.0) then
-     irc=-2
-     dat4=0
+     call timer('list_dec',0)
+     call q65_dec_q3(codewords,ncw,isync,sync,df,s1,iz,jz,ia,ibwa,ibwb,      &
+          nstep,nsps,mode_q65,lag1,lag2,i0,j0,ccf,ccf1,ccf2,ia2,s3,LL,snr2,  &
+          dat4,idec,decoded)
+     call timer('list_dec',1)
   endif
 
 !######################################################################
 ! Compute the 2D CCF using sync symbols only
-100 ccf=0.
+  ccf=0.
   call timer('2dccf   ',0)
   do lag=lag1,lag2
      do k=1,85
