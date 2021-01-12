@@ -33,7 +33,6 @@ subroutine q65_sync(nutc,iwave,ntrperiod,mode_q65,codewords,ncw,nsps,   &
   real, allocatable :: ccf1(:)           !CCF(freq) at best lag
   real, allocatable :: ccf2(:)           !CCF(freq) at any lag
   real sync(85)                          !sync vector
-  complex, allocatable :: c0(:)          !Complex spectrum of symbol
   data isync/1,9,12,13,15,22,23,26,27,33,35,38,46,50,55,60,62,66,69,74,76,85/
   data sync(1)/99.0/
   save sync
@@ -58,7 +57,6 @@ subroutine q65_sync(nutc,iwave,ntrperiod,mode_q65,codewords,ncw,nsps,   &
 
   allocate(s1(iz,jz))
   allocate(s3(-64:LL-65,63))
-  allocate(c0(0:nfft-1))
   allocate(ccf(-ia2:ia2,-53:214))
   allocate(ccf1(-ia2:ia2))
   allocate(ccf2(-ia2:ia2))
@@ -71,27 +69,8 @@ subroutine q65_sync(nutc,iwave,ntrperiod,mode_q65,codewords,ncw,nsps,   &
   endif
 
   call timer('s1      ',0)
-  fac=1/32767.0
-  do j=1,jz                              !Compute symbol spectra at step size
-     i1=(j-1)*istep
-     i2=i1+nsps-1
-     k=-1
-     do i=i1,i2,2          !Load iwave data into complex array c0, for r2c FFT
-        xx=iwave(i)
-        yy=iwave(i+1)
-        k=k+1
-        c0(k)=fac*cmplx(xx,yy)
-     enddo
-     c0(k+1:)=0.
-     call four2a(c0,nfft,1,-1,0)              !r2c FFT
-     do i=1,iz
-        s1(i,j)=real(c0(i))**2 + aimag(c0(i))**2
-     enddo
-! For large Doppler spreads, should we smooth the spectra here?
-     do i=1,nsmo
-        call smo121(s1(1:iz,j),iz)
-     enddo
-  enddo
+  nmax=ntrperiod*12000
+  call q65_symspec(iwave,nmax,nsps,iz,jz,istep,nsmo,s1)
   call timer('s1      ',1)
 
   i0=nint(nfqso/df)                           !Target QSO frequency
@@ -302,6 +281,41 @@ subroutine q65_sync(nutc,iwave,ntrperiod,mode_q65,codewords,ncw,nsps,   &
 
 900 return
 end subroutine q65_sync
+
+subroutine q65_symspec(iwave,nmax,nsps,iz,jz,istep,nsmo,s1)
+
+  integer*2 iwave(0:nmax-1)              !Raw data
+  real s1(iz,jz)
+  complex, allocatable :: c0(:)          !Complex spectrum of symbol
+
+  allocate(c0(0:nsps-1))
+
+  nfft=nsps
+  fac=1/32767.0
+  do j=1,jz                              !Compute symbol spectra at step size
+     i1=(j-1)*istep
+     i2=i1+nsps-1
+     k=-1
+     do i=i1,i2,2          !Load iwave data into complex array c0, for r2c FFT
+        xx=iwave(i)
+        yy=iwave(i+1)
+        k=k+1
+        c0(k)=fac*cmplx(xx,yy)
+     enddo
+     c0(k+1:)=0.
+     call four2a(c0,nfft,1,-1,0)              !r2c FFT
+     do i=1,iz
+        s1(i,j)=real(c0(i))**2 + aimag(c0(i))**2
+     enddo
+! For large Doppler spreads, should we smooth the spectra here?
+     do i=1,nsmo
+        call smo121(s1(1:iz,j),iz)
+     enddo
+  enddo
+
+  return
+end subroutine q65_symspec
+
 
 subroutine q65_dec1(s3,nsubmode,b90ts,codewords,ncw,esnodb,irc,dat4,decoded)
 
