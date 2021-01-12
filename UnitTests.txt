@@ -1,0 +1,49 @@
+Mode: Q65-30A 
+Data: 30A_K1JT_6m_Ionoscatter (62 files, DT 0.1 to 0.4) 
+Message: "K1JT K9AN R-16"
+RxFreq: 1000/10
+
+Commit     No AP  MyCall BothCalls
+-----------------------------------
+ef4787:    3 10    6 14    30 33
+
+
+Mode: Q65-30A
+Data: 30A_N0AN_6m_Ionoscatter (69 files, DT=0 to 0.1)
+Message: "N0AN K1JT -19"
+RxFreq: 1500/10
+
+Commit     No AP  MyCall BothCalls
+-----------------------------------
+ef4787:    7 14   16 22    38 40
+
+
+Mode: Q65-60B
+Data: 60B_1296_Troposcatter (75 files)
+Message: "VK7MO VK7PD QE38"
+RxFreq: 1000/10
+
+Commit     No AP  MyCall BothCalls
+-----------------------------------
+ef4787:    1  2    11 23    64 67
+
+
+Mode: Q65-60D
+Data: MsgAvg (22 files, simulated fDop = 50 Hz)
+Message: "K1ABC W9XYZ EN37"
+RxFreq: 1000/10
+
+Commit     No AP   MyCall BothCalls
+-----------------------------------
+ef4787:    0 10    21 21    22 22
+
+
+Mode: Q65-60D
+Data: Nil Average (40 files, simulated fDop = 0? Hz )
+Message: "VK7MO VK3WE QF32"
+RxFreq: 1200/20
+Requires nsmo=1 ###
+
+Commit     No AP  MyCall BothCalls
+-----------------------------------
+ef4787:    1 16    24 28    39 39
