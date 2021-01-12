@@ -36,6 +36,7 @@ subroutine q65_sync(nutc,iwave,ntrperiod,mode_q65,codewords,ncw,nsps,   &
   data sync(1)/99.0/
   save sync
 
+  if(nutc+ndepth.eq.-999) stop
   irc=-2
   idec=-1
   snr1=0.
@@ -81,7 +82,7 @@ subroutine q65_sync(nutc,iwave,ntrperiod,mode_q65,codewords,ncw,nsps,   &
   call timer('s1      ',1)
 
   i0=nint(nfqso/df)                           !Target QSO frequency
-  if(i0-64.lt.1 .or. i0-65+LL.gt.iz) go to 900
+  if(i0-64.lt.1 .or. i0-65+LL.gt.iz) go to 900  !Frequency out of range
   call pctile(s1(i0-64:i0-65+LL,1:jz),LL*jz,40,base)
   s1=s1/base
 
@@ -99,7 +100,6 @@ subroutine q65_sync(nutc,iwave,ntrperiod,mode_q65,codewords,ncw,nsps,   &
   j0=0.5/dtstep
   if(nsps.ge.7200) j0=1.0/dtstep              !Nominal start-signal index
 
-  irc=-2
   idec=-1
   dat4=0
 
@@ -113,7 +113,7 @@ subroutine q65_sync(nutc,iwave,ntrperiod,mode_q65,codewords,ncw,nsps,   &
   endif
 
 !######################################################################
-! Compute the 2D CCF using sync symbols only
+! Get 2d CCF and ccf2 using sync symbols only
   ccf=0.
   call timer('2dccf   ',0)
   do lag=lag1,lag2
@@ -128,15 +128,14 @@ subroutine q65_sync(nutc,iwave,ntrperiod,mode_q65,codewords,ncw,nsps,   &
         endif
      enddo
   enddo
-  
-  ijpk=maxloc(ccf(-ia:ia,:))
-  ipk=ijpk(1)-ia-1
-  jpk=ijpk(2)-53-1
-
   do i=-ia2,ia2
      ccf2(i)=maxval(ccf(i,:))
   enddo
 
+! Estimate rms on ccf baseline
+  ijpk=maxloc(ccf(-ia:ia,:))
+  ipk=ijpk(1)-ia-1
+  jpk=ijpk(2)-53-1
   sq=0.
   nsq=0
   jd=(lag2-lag1)/4
@@ -155,31 +154,13 @@ subroutine q65_sync(nutc,iwave,ntrperiod,mode_q65,codewords,ncw,nsps,   &
   if(snr1.gt.10.0) ccf2=(10.0/snr1)*ccf2
   call timer('2dccf   ',1)
 
-  if(irc.le.0) then
+  if(idec.le.0) then
+! The q3 decode attempt failed, so we'll try a more general decode.
      f0=nfqso + ipk*df
      xdt=jpk*dtstep
      ccf1=ccf(:,jpk)/rms
      if(snr1.gt.10.0) ccf1=(10.0/snr1)*ccf1
-     if(iand(ndepth,16).eq.16) then
-! Copy from s1 into s3, then call q65_avg().
-        i1=i0+ipk-64 + mode_q65
-        i2=i1+LL-1
-        if(snr1.ge.2.8 .and. i1.ge.1 .and. i2.le.iz) then
-           j=j0+jpk-7
-           n=0
-           do k=1,85
-              j=j+8
-              if(sync(k).gt.0.0) then
-                 cycle
-              endif
-              n=n+1
-              if(j.ge.1 .and. j.le.jz) s3(-64:LL-65,n)=s1(i1:i2,j)
-           enddo
-!           call timer('q65_avg ',0)
-!           call q65_avg(nutc,ntrperiod,LL,nfqso,ntol,lclearave,xdt,f0,snr1,s3)
-!           call timer('q65_avg ',1)
-        endif
-     endif
+     call q65_s1_to_s3(s1,iz,jz,i0,j0,ipk,jpk,LL,mode_q65,sync,s3)
   endif
 
   smax=maxval(ccf1)
@@ -191,6 +172,7 @@ subroutine q65_sync(nutc,iwave,ntrperiod,mode_q65,codewords,ncw,nsps,   &
   enddo
   width=df*(i2-i1)
 
+! Write data for the red and orange sync curves.
   do i=-ia2,ia2
      freq=nfqso + i*df
      write(17,1100) freq,ccf1(i),xdt,ccf2(i)
@@ -346,6 +328,32 @@ subroutine q65_dec_q3(codewords,ncw,isync,sync,df,s1,iz,jz,ia,ibwa,ibwb,  &
 
   return
 end subroutine q65_dec_q3
+
+subroutine q65_s1_to_s3(s1,iz,jz,i0,j0,ipk,jpk,LL,mode_q65,sync,s3)
+
+! Copy from s1a into s3, then call the dec_q* routines
+
+  real s1(iz,jz)
+  real s3(-64:LL-65,63)
+  real sync(85)                          !sync vector
+  
+  i1=i0+ipk-64 + mode_q65
+  i2=i1+LL-1
+  if(i1.ge.1 .and. i2.le.iz) then
+     j=j0+jpk-7
+     n=0
+     do k=1,85
+        j=j+8
+        if(sync(k).gt.0.0) then
+           cycle
+        endif
+        n=n+1
+        if(j.ge.1 .and. j.le.jz) s3(-64:LL-65,n)=s1(i1:i2,j)
+     enddo
+  endif
+
+  return
+end subroutine q65_s1_to_s3
 
 subroutine q65_dec1(s3,nsubmode,b90ts,codewords,ncw,esnodb,irc,dat4,decoded)
 
