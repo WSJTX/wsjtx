@@ -11,6 +11,7 @@ module q65
   integer codewords(63,206)
   integer navg,ibwa,ibwb,ncw
   real,allocatable,save :: s1a(:,:)      !Cumulative symbol spectra
+  real sync(85)                          !sync vector
 
 contains
 

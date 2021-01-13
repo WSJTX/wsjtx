@@ -7,13 +7,13 @@ module q65_decode
   end type q65_decoder
 
   abstract interface
-     subroutine q65_decode_callback (this,nutc,sync,nsnr,dt,freq,    &
+     subroutine q65_decode_callback (this,nutc,snr1,nsnr,dt,freq,    &
           decoded,nap,ntrperiod)
        import q65_decoder
        implicit none
        class(q65_decoder), intent(inout) :: this
        integer, intent(in) :: nutc
-       real, intent(in) :: sync
+       real, intent(in) :: snr1
        integer, intent(in) :: nsnr
        real, intent(in) :: dt
        real, intent(in) :: freq
@@ -185,13 +185,13 @@ contains
 1000   format(12b6.6,b5.5)
        call unpack77(c77,0,decoded,unpk77_success) !Unpack to get msgsent
        nsnr=nint(snr2)
-       call this%callback(nutc,sync,nsnr,xdt1,f1,decoded,idec,ntrperiod)
+       call this%callback(nutc,snr1,nsnr,xdt1,f1,decoded,idec,ntrperiod)
        call q65_clravg
     else
-! Report sync, even if no decode.
+! Report snr1, even if no decode.
        nsnr=db(snr1) - 35.0
        idec=-1
-       call this%callback(nutc,sync,nsnr,xdt1,f1,decoded,              &
+       call this%callback(nutc,snr1,nsnr,xdt1,f1,decoded,              &
             idec,ntrperiod)
     endif
 

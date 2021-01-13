@@ -22,15 +22,14 @@ subroutine q65_sync(nutc,iwave,ntrperiod,mode_q65,nsps,   &
   integer dat4(13)
   integer ijpk(2)
   character*37 decoded
-  logical lclearave
+  logical first,lclearave
   real, allocatable :: s1(:,:)           !Symbol spectra, 1/8-symbol steps
   real, allocatable :: s3(:,:)           !Data-symbol energies s3(LL,63)
   real, allocatable :: ccf(:,:)          !CCF(freq,lag)
   real, allocatable :: ccf1(:)           !CCF(freq) at best lag
   real, allocatable :: ccf2(:)           !CCF(freq) at any lag
-  real sync(85)                          !sync vector
-  data sync(1)/99.0/
-  save sync
+  data first/.true./
+  save first
 
   if(nutc+ndepth.eq.-999) stop
   irc=-2
@@ -65,7 +64,7 @@ subroutine q65_sync(nutc,iwave,ntrperiod,mode_q65,nsps,   &
   endif
 
   s3=0.
-  if(sync(1).eq.99.0) then               !Generate the sync vector
+  if(first) then                         !Generate the sync vector
      sync=-22.0/63.0                     !Sync tone OFF  
      do k=1,22
         sync(isync(k))=1.0               !Sync tone ON
@@ -102,7 +101,7 @@ subroutine q65_sync(nutc,iwave,ntrperiod,mode_q65,nsps,   &
   if(ncw.gt.0) then
 ! Try list decoding via "Deep Likelihood".
      call timer('list_dec',0)
-     call q65_dec_q3(sync,df,s1,iz,jz,ia,      &
+     call q65_dec_q3(df,s1,iz,jz,ia,      &
           nsps,mode_q65,lag1,lag2,i0,j0,ccf,ccf1,ccf2,ia2,s3,LL,snr2,  &
           dat4,idec,decoded)
      call timer('list_dec',1)
@@ -215,7 +214,7 @@ subroutine q65_symspec(iwave,nmax,nsps,iz,jz,istep,nsmo,s1)
   return
 end subroutine q65_symspec
 
-subroutine q65_dec_q3(sync,df,s1,iz,jz,ia,  &
+subroutine q65_dec_q3(df,s1,iz,jz,ia,  &
      nsps,mode_q65,lag1,lag2,i0,j0,ccf,ccf1,ccf2,ia2,s3,LL,snr2,    &
      dat4,idec,decoded)
 
@@ -229,7 +228,6 @@ subroutine q65_dec_q3(sync,df,s1,iz,jz,ia,  &
   real ccf2(-ia2:ia2)
   real s1(iz,jz)
   real s3(-64:LL-65,63)
-  real sync(85)                          !sync vector
 
   ipk=0
   jpk=0

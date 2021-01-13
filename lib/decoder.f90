@@ -758,14 +758,14 @@ contains
    return
  end subroutine fst4_decoded
 
- subroutine q65_decoded (this,nutc,sync,nsnr,dt,freq,decoded,idec,ntrperiod)
+ subroutine q65_decoded (this,nutc,snr1,nsnr,dt,freq,decoded,idec,ntrperiod)
 
     use q65_decode
     implicit none
 
     class(q65_decoder), intent(inout) :: this
     integer, intent(in) :: nutc
-    real, intent(in) :: sync
+    real, intent(in) :: snr1
     integer, intent(in) :: nsnr
     real, intent(in) :: dt
     real, intent(in) :: freq
@@ -796,12 +796,12 @@ contains
     if(ntrperiod.lt.60) then
        write(*,1001) nutc,nsnr,dt,nint(freq),decoded,cflags
 1001   format(i6.6,i4,f5.1,i5,' : ',1x,a37,1x,a3)
-    write(13,1002) nutc,nint(sync),nsnr,dt,freq,0,decoded
+    write(13,1002) nutc,nint(snr1),nsnr,dt,freq,0,decoded
 1002 format(i6.6,i4,i5,f6.1,f8.0,i4,3x,a37,' Q65')
     else
        write(*,1003) nutc,nsnr,dt,nint(freq),decoded,cflags
 1003   format(i4.4,i4,f5.1,i5,' : ',1x,a37,1x,a3)
-       write(13,1004) nutc,nint(sync),nsnr,dt,freq,0,decoded
+       write(13,1004) nutc,nint(snr1),nsnr,dt,freq,0,decoded
 1004   format(i4.4,i4,i5,f6.1,f8.0,i4,3x,a37,' Q65')
 
     endif
