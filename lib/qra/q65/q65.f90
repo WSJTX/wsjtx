@@ -15,7 +15,6 @@ module q65
 
 contains
 
-
 subroutine q65_clravg
 
   s1a=0.
@@ -139,7 +138,6 @@ subroutine q65_dec_q3(df,s1,iz,jz,ia,lag1,lag2,i0,j0,ccf,ccf1,ccf2,  &
   if(mode_q65.eq.4) nsubmode=2
   if(mode_q65.eq.8) nsubmode=3
   if(mode_q65.eq.16) nsubmode=4
-  nFadingModel=1
   baud=12000.0/nsps
 
   do ibw=ibwa,ibwb

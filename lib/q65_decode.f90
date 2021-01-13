@@ -100,11 +100,11 @@ contains
     call q65_set_list(mycall,hiscall,hisgrid,codewords,ncw) 
     dgen=0
     call q65_enc(dgen,codewords)         !Initialize the Q65 codec
-    call timer('sync_q65',0)
-    call q65_sync(nutc,iwave,ntrperiod,      &
+    call timer('q65_dec0',0)
+    call q65_dec0(nutc,iwave,ntrperiod,      &
          nfqso,ntol,ndepth,lclearave,emedelay,xdt,f0,snr1,width,dat4,  &
          snr2,idec)
-    call timer('sync_q65',1)
+    call timer('q65_dec0',1)
     if(idec.ge.0) then
        xdt1=xdt                          !We have a list-decode result
        f1=f0

@@ -1,4 +1,4 @@
-subroutine q65_sync(nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
+subroutine q65_dec0(nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
      emedelay,xdt,f0,snr1,width,dat4,snr2,idec)
 
 ! Detect and align with the Q65 sync vector, returning time and frequency
@@ -175,4 +175,4 @@ subroutine q65_sync(nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
   close(17)
 
 900 return
-end subroutine q65_sync
+end subroutine q65_dec0
