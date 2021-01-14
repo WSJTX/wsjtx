@@ -71,7 +71,7 @@ subroutine q65_dec0(nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
   istep=nsps/NSTEP
   iz=5000.0/df                           !Uppermost frequency bin, at 5000 Hz
   txt=85.0*nsps/12000.0
-  jz=(txt+1.0)*12000.0/istep             !Number of quarter-symbol steps
+  jz=(txt+1.0)*12000.0/istep             !Number of symbol/NSTEP bins
   if(nsps.ge.6912) jz=(txt+2.0)*12000.0/istep   !For TR 60 s and higher
   ia=ntol/df
   ia2=max(ia,10*mode_q65,nint(100.0/df))
@@ -196,7 +196,7 @@ end subroutine q65_dec0
   
 subroutine q65_clravg
 
-  s1a=0.
+  if(allocated(s1a)) s1a=0.
   navg=0
   
   return
@@ -281,6 +281,27 @@ subroutine q65_dec_q3(s1,iz,jz,s3,LL,ipk,jpk,snr2,dat4,idec,decoded)
 
   return
 end subroutine q65_dec_q3
+
+subroutine q65_q3a(xdt,f0,nfqso,nsps,snr2,dat4,idec,decoded)
+
+  integer dat4(13)
+  character*37 decoded
+  real, allocatable :: s3a(:,:)         !Symbol energies for avg s3a(LL,63)
+
+  df=12000.0/nsps
+  dtstep=float(nsps)/(NSTEP*12000.0)
+  iz=5000.0/df                     !Uppermost frequency bin, at 5000 Hz
+  txt=85.0*nsps/12000.0
+  istep=nsps/NSTEP
+  jz=(txt+1.0)*12000.0/istep       !Number of symbol/NSTEP bins
+  LL=64*(2+mode_q65)
+  allocate(s3a(-64:LL-65,63))
+  ipk=nint((f0-nfqso)/df) + mode_q65
+  jpk=nint(xdt/dtstep)
+  call q65_dec_q3(s1a,iz,jz,s3a,LL,ipk,jpk,snr2,dat4,idec,decoded)
+
+  return
+end subroutine q65_q3a
 
 subroutine q65_ccf_85(s1,iz,jz,nfqso,ia,ia2,  &
      ipk,jpk,f0,xdt,imsg_best,ccf,ccf1)

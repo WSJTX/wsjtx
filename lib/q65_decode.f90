@@ -73,7 +73,7 @@ contains
     npts=ntrperiod*12000
     nfft1=ntrperiod*12000
     nfft2=ntrperiod*6000
-    if(lclearave) nsave=0
+    if(lclearave) call q65_clravg
     allocate(dd(npts))
     allocate (c00(0:nfft1-1))
     allocate (c0(0:nfft1-1))
@@ -93,7 +93,6 @@ contains
     endif
 
     baud=12000.0/nsps
-    df1=12000.0/nfft1
     this%callback => callback
     nFadingModel=1
     ibwa=max(1,int(1.8*log(baud*mode_q65)) + 2)
@@ -103,14 +102,17 @@ contains
        ibwb=min(10,ibwb+1)
     endif
     
-! Set up the codewords for full-AP list decoding    
+! Generate codewords for full-AP list decoding    
     call q65_set_list(mycall,hiscall,hisgrid,codewords,ncw) 
     dgen=0
     call q65_enc(dgen,codewords)         !Initialize the Q65 codec
+
+    nused=1
     call timer('q65_dec0',0)
 ! Call top-level routine in q65 module: establish sync and try for a q3 decode.
     call q65_dec0(nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
          emedelay,xdt,f0,snr1,width,dat4,snr2,idec)
+!    idec=-1   !### TEMPORARY ###
     call timer('q65_dec0',1)
 
     if(idec.ge.0) then
@@ -124,24 +126,22 @@ contains
        f1=0.
        go to 100
     endif
-    
+
+! Prepare for a single-period decode woth iaptype = 0, 1, or 2  (also 4?)
     jpk0=(xdt+1.0)*6000                      !Index of nominal start of signal
     if(ntrperiod.le.30) jpk0=(xdt+0.5)*6000  !For shortest sequences
     if(jpk0.lt.0) jpk0=0
     fac=1.0/32767.0
     dd=fac*iwave(1:npts)
     call ana64(dd,npts,c00)              !Convert to complex c00() at 6000 Sa/s
-
-! Generate ap symbols as in FT8
-    call ft8apset(mycall,hiscall,ncontest,apsym0,aph10)
+    call ft8apset(mycall,hiscall,ncontest,apsym0,aph10) ! Generate ap symbols
     where(apsym0.eq.-1) apsym0=0
 
-! Main decoding loop starts here
     npasses=2
     if(nQSOprogress.eq.5) npasses=3
     if(lapcqonly) npasses=1
     iaptype=0
-    do ipass=0,npasses
+    do ipass=0,npasses                  !Loop over AP passes
        apmask=0                         !Try first with no AP information
        apsymbols=0
 
@@ -160,41 +160,36 @@ contains
        call timer('q65loops',0)
        call q65_loops(c00,npts/2,nsps/2,nsubmode,ndepth,jpk0,   &
             xdt,f0,iaptype,xdt1,f1,snr2,dat4,idec)
+!       idec=-1   !### TEMPORARY ###
        call timer('q65loops',1)
        if(idec.ge.0) go to 100       !Successful decode, we're done
     enddo
 
-! There was no single-transmission decode.
     if(iand(ndepth,16).eq.16) then
-       ! Try for an average decode.
-       call timer('q65_avg2',0)
-!       call q65_avg2(ntrperiod,baud,nsubmode,nQSOprogress,lapcqonly, &
-!            codewords,ncw,xdt,f0,snr2,dat4,idec)
-       call timer('q65_avg2',1)
+! There was no single-transmission decode. Try for an average decode.
+       call timer('list_avg',0)
+       call q65_q3a(xdt,f0,nfqso,nsps,snr2,dat4,idec,decoded)
+       call timer('list_avg',1)
+       nused=navg
     endif
     
 100 decoded='                                     '
     if(idec.ge.0) then
-
-! ------------------------------------------------------
 ! idec Meaning
 ! ------------------------------------------------------
 ! -1:  No decode
-!  1:  Decode with AP for "MyCall DxCall ?"
-!  2:  Decode without AP information
-!  3:  Decode with AP for "CQ ? ?"
-!  4:  Decode with AP for "MyCall ? ?"
-! ------------------------------------------------------
-! Second digit (if any) is number of sequences averaged.
-! ------------------------------------------------------
+!  0:  Decode without AP information
+!  1:  Decode with AP for "CQ        ?   ?"
+!  2:  Decode with AP for "MyCall    ?   ?"
+!  3:  Decode with AP for "MyCall DxCall ?"
 
 ! Unpack decoded message for display to user
        write(c77,1000) dat4(1:12),dat4(13)/2
 1000   format(12b6.6,b5.5)
        call unpack77(c77,0,decoded,unpk77_success) !Unpack to get msgsent
        nsnr=nint(snr2)
-       call this%callback(nutc,snr1,nsnr,xdt1,f1,decoded,idec,navg,ntrperiod)
-       call q65_clravg
+       call this%callback(nutc,snr1,nsnr,xdt1,f1,decoded,idec,nused,ntrperiod)
+       call q65_clravg       !Automatic ClrAvg after a decode
     else
 ! Report snr1, even if no decode.
        nsnr=db(snr1) - 35.0
