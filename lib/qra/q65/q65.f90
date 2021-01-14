@@ -38,7 +38,6 @@ subroutine q65_dec0(nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
   parameter (LN=2176*63)           !LN=LL*NN; LL=64*(mode_q65+2), NN=63
   integer*2 iwave(0:12000*ntrperiod-1)   !Raw data
   integer dat4(13)
-  integer ijpk(2)
   character*37 decoded
   logical first,lclearave
   real, allocatable :: s1(:,:)           !Symbol spectra, 1/8-symbol steps
@@ -124,30 +123,10 @@ subroutine q65_dec0(nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
      call timer('list_dec',1)
   endif
 
-!######################################################################
 ! Get 2d CCF and ccf2 using sync symbols only
-  ccf=0.
-  call timer('2dccf   ',0)
-  do lag=lag1,lag2
-     do k=1,85
-        n=NSTEP*(k-1) + 1
-        j=n+lag+j0
-        if(j.ge.1 .and. j.le.jz) then
-           do i=-ia2,ia2
-              if(i0+i.lt.1 .or. i0+i.gt.iz) cycle
-              ccf(i,lag)=ccf(i,lag) + sync(k)*s1(i0+i,j)
-           enddo
-        endif
-     enddo
-  enddo
-  do i=-ia2,ia2
-     ccf2(i)=maxval(ccf(i,:))
-  enddo
+  call q65_ccf_22(s1,iz,jz,nfqso,ia,ia2,ipk,jpk,f0,xdt,ccf,ccf2)
 
 ! Estimate rms on ccf baseline
-  ijpk=maxloc(ccf(-ia:ia,:))
-  ipk=ijpk(1)-ia-1
-  jpk=ijpk(2)-53-1
   sq=0.
   nsq=0
   jd=(lag2-lag1)/4
@@ -164,12 +143,9 @@ subroutine q65_dec0(nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
   snr1=smax/rms
   ccf2=ccf2/rms
   if(snr1.gt.10.0) ccf2=(10.0/snr1)*ccf2
-  call timer('2dccf   ',1)
 
   if(idec.le.0) then
 ! The q3 decode attempt failed, so we'll try a more general decode.
-     f0=nfqso + ipk*df
-     xdt=jpk*dtstep
      ccf1=ccf(:,jpk)/rms
      if(snr1.gt.10.0) ccf1=(10.0/snr1)*ccf1
      call q65_s1_to_s3(s1,iz,jz,ipk,jpk,LL,mode_q65,sync,s3)
@@ -249,8 +225,7 @@ subroutine q65_dec_q3(s1,iz,jz,ia,ia2,ccf,ccf1,ccf2,s3,LL,nfqso,xdt,f0, &
   real s1(iz,jz)
   real s3(-64:LL-65,63)
 
-  call q65_ccf_85(s1,iz,jz,nfqso,ia,ia2,   &
-       ipk,jpk,f0,xdt,imsg_best,ccf,ccf1)
+  call q65_ccf_85(s1,iz,jz,nfqso,ia,ia2,ipk,jpk,f0,xdt,imsg_best,ccf,ccf1)
 
   i1=i0+ipk-64
   i2=i1+LL-1
@@ -356,6 +331,37 @@ subroutine q65_ccf_85(s1,iz,jz,nfqso,ia,ia2,  &
   return
 end subroutine q65_ccf_85
 
+subroutine q65_ccf_22(s1,iz,jz,nfqso,ia,ia2,ipk,jpk,f0,xdt,ccf,ccf2)
+
+  real s1(iz,jz)
+  real ccf(-ia2:ia2,-53:214)
+  real ccf2(-ia2:ia2)
+  integer ijpk(2)
+
+  ccf=0.
+  do lag=lag1,lag2
+     do k=1,85
+        n=NSTEP*(k-1) + 1
+        j=n+lag+j0
+        if(j.ge.1 .and. j.le.jz) then
+           do i=-ia2,ia2
+              if(i0+i.lt.1 .or. i0+i.gt.iz) cycle
+              ccf(i,lag)=ccf(i,lag) + sync(k)*s1(i0+i,j)
+           enddo
+        endif
+     enddo
+  enddo
+  do i=-ia2,ia2
+     ccf2(i)=maxval(ccf(i,:))
+  enddo
+  ijpk=maxloc(ccf(-ia:ia,:))
+  ipk=ijpk(1)-ia-1
+  jpk=ijpk(2)-53-1
+  f0=nfqso + ipk*df
+  xdt=jpk*dtstep
+
+  return
+end subroutine q65_ccf_22
 
 subroutine q65_dec1(s3,nsubmode,b90ts,esnodb,irc,dat4,decoded)
 
