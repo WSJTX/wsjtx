@@ -117,10 +117,23 @@ subroutine q65_dec0(nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
 
   if(ncw.gt.0) then
 ! Try list decoding via "Deep Likelihood".
+     call timer('ccf_85  ',0)
+     call q65_ccf_85(s1,iz,jz,nfqso,ia,ia2,ipk,jpk,f0,xdt,imsg_best,ccf,ccf1)
+     call timer('ccf_85  ',1)
+
      call timer('list_dec',0)
-     call q65_dec_q3(s1,iz,jz,ia,ia2,ccf,ccf1,ccf2,s3,LL,nfqso,xdt,f0, &
-          snr2,dat4,idec,decoded)
+     call q65_dec_q3(s1,iz,jz,s3,LL,ipk,jpk,snr2,dat4,idec,decoded)
      call timer('list_dec',1)
+
+     ic=ia2/4;
+     base=(sum(ccf1(-ia2:-ia2+ic)) + sum(ccf1(ia2-ic:ia2)))/(2.0+2.0*ic);
+     ccf1=ccf1-base
+     smax=maxval(ccf1)
+     if(smax.gt.10.0) ccf1=10.0*ccf1/smax
+     base=(sum(ccf2(-ia2:-ia2+ic)) + sum(ccf2(ia2-ic:ia2)))/(2.0+2.0*ic);
+     ccf2=ccf2-base
+     smax=maxval(ccf2)
+     if(smax.gt.10.0) ccf2=10.0*ccf2/smax
   endif
 
 ! Get 2d CCF and ccf2 using sync symbols only
@@ -214,18 +227,12 @@ subroutine q65_symspec(iwave,nmax,iz,jz,s1)
   return
 end subroutine q65_symspec
 
-subroutine q65_dec_q3(s1,iz,jz,ia,ia2,ccf,ccf1,ccf2,s3,LL,nfqso,xdt,f0, &
-     snr2,dat4,idec,decoded)
+subroutine q65_dec_q3(s1,iz,jz,s3,LL,ipk,jpk,snr2,dat4,idec,decoded)
 
   character*37 decoded
   integer dat4(13)
-  real ccf(-ia2:ia2,-53:214)
-  real ccf1(-ia2:ia2)
-  real ccf2(-ia2:ia2)
   real s1(iz,jz)
   real s3(-64:LL-65,63)
-
-  call q65_ccf_85(s1,iz,jz,nfqso,ia,ia2,ipk,jpk,f0,xdt,imsg_best,ccf,ccf1)
 
   i1=i0+ipk-64
   i2=i1+LL-1
@@ -258,15 +265,6 @@ subroutine q65_dec_q3(s1,iz,jz,ia,ia2,ccf,ccf1,ccf2,s3,LL,nfqso,xdt,f0, &
      if(irc.ge.0) then
         snr2=esnodb - db(2500.0/baud) + 3.0     !Empirical adjustment
         idec=1
-        ic=ia2/4;
-        base=(sum(ccf1(-ia2:-ia2+ic)) + sum(ccf1(ia2-ic:ia2)))/(2.0+2.0*ic);
-        ccf1=ccf1-base
-        smax=maxval(ccf1)
-        if(smax.gt.10.0) ccf1=10.0*ccf1/smax
-        base=(sum(ccf2(-ia2:-ia2+ic)) + sum(ccf2(ia2-ic:ia2)))/(2.0+2.0*ic);
-        ccf2=ccf2-base
-        smax=maxval(ccf2)
-        if(smax.gt.10.0) ccf2=10.0*ccf2/smax
         exit
      endif
   enddo
