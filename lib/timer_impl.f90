@@ -5,8 +5,8 @@ module timer_impl
   implicit none
 
   public :: init_timer, fini_timer
-!  integer, public :: limtrace=0
-  integer, public :: limtrace=10000000
+  integer, public :: limtrace=0
+!  integer, public :: limtrace=10000000
 
   private
 
