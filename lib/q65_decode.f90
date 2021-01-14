@@ -8,7 +8,7 @@ module q65_decode
 
   abstract interface
      subroutine q65_decode_callback (this,nutc,snr1,nsnr,dt,freq,    &
-          decoded,nap,ntrperiod)
+          decoded,idec,navg,ntrperiod)
        import q65_decoder
        implicit none
        class(q65_decoder), intent(inout) :: this
@@ -18,7 +18,8 @@ module q65_decode
        real, intent(in) :: dt
        real, intent(in) :: freq
        character(len=37), intent(in) :: decoded
-       integer, intent(in) :: nap
+       integer, intent(in) :: idec
+       integer, intent(in) :: navg
        integer, intent(in) :: ntrperiod
      end subroutine q65_decode_callback
   end interface
@@ -112,8 +113,6 @@ contains
          emedelay,xdt,f0,snr1,width,dat4,snr2,idec)
     call timer('q65_dec0',1)
 
-    print*,'AAA',idec
-
     if(idec.ge.0) then
        xdt1=xdt                          !We have a list-decode result
        f1=f0
@@ -175,7 +174,6 @@ contains
     endif
     
 100 decoded='                                     '
-    print*,'BBB',idec
     if(idec.ge.0) then
 
 ! ------------------------------------------------------
@@ -195,14 +193,14 @@ contains
 1000   format(12b6.6,b5.5)
        call unpack77(c77,0,decoded,unpk77_success) !Unpack to get msgsent
        nsnr=nint(snr2)
-       call this%callback(nutc,snr1,nsnr,xdt1,f1,decoded,idec,ntrperiod)
+       call this%callback(nutc,snr1,nsnr,xdt1,f1,decoded,idec,navg,ntrperiod)
        call q65_clravg
     else
 ! Report snr1, even if no decode.
        nsnr=db(snr1) - 35.0
        idec=-1
        call this%callback(nutc,snr1,nsnr,xdt1,f1,decoded,              &
-            idec,ntrperiod)
+            idec,navg,ntrperiod)
     endif
 
     return

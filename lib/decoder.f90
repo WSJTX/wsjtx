@@ -758,7 +758,8 @@ contains
    return
  end subroutine fst4_decoded
 
- subroutine q65_decoded (this,nutc,snr1,nsnr,dt,freq,decoded,idec,ntrperiod)
+ subroutine q65_decoded (this,nutc,snr1,nsnr,dt,freq,decoded,idec,   &
+      navg,ntrperiod)
 
     use q65_decode
     implicit none
@@ -771,20 +772,14 @@ contains
     real, intent(in) :: freq
     character(len=37), intent(in) :: decoded
     integer, intent(in) :: idec
+    integer, intent(in) :: navg
     integer, intent(in) :: ntrperiod
-    integer iaptype,navg
     character*3 cflags
-    
+  
     cflags='   '
     if(idec.ge.0) then
-       iaptype=idec
-       navg=0
-       if(idec.ge.100) then
-          iaptype=idec/100
-          navg=mod(idec,100)
-       endif
        cflags='q  '
-       write(cflags(2:2),'(i1)') iaptype
+       write(cflags(2:2),'(i1)') idec
        if(navg.ge.2) write(cflags(3:3),'(i1)') navg
     endif
 
