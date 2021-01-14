@@ -29,7 +29,7 @@ contains
        ntol,ndepth,lclearave,emedelay,mycall,hiscall,hisgrid,nQSOprogress,  &
        ncontest,lapcqonly)
 
-! Decodes Q65 signals
+! Top-level routine that organizes the decoding of Q65 signals
 ! Input:  iwave            Raw data, i*2
 !         nutc             UTC for time-tagging the decode
 !         ntrperiod        T/R sequence length (s)
@@ -37,6 +37,11 @@ contains
 !         nfqso            Target signal frequency (Hz)
 !         ntol             Search range around nfqso (Hz)
 !         ndepth           Optional decoding level
+!         lclearave        Flag to clear the message-averaging arrays
+!         emedelay         Sync search extended to cover EME delays
+!         nQSOprogress     Auto-sequencing state for the present QSO
+!         ncontest         Supported contest type
+!         lapcqonly        Flag to use AP only for CQ calls
 ! Output: sent to the callback routine for display to user
 
     use timer_module, only: timer
@@ -61,6 +66,7 @@ contains
     complex, allocatable :: c00(:)        !Analytic signal, 6000 Sa/s
     complex, allocatable :: c0(:)         !Analytic signal, 6000 Sa/s
 
+! Start by setting some parameters and allocating storage for large arrays
     idec=-1
     mode_q65=2**nsubmode
     npts=ntrperiod*12000
@@ -101,10 +107,13 @@ contains
     dgen=0
     call q65_enc(dgen,codewords)         !Initialize the Q65 codec
     call timer('q65_dec0',0)
-    call q65_dec0(nutc,iwave,ntrperiod,      &
-         nfqso,ntol,ndepth,lclearave,emedelay,xdt,f0,snr1,width,dat4,  &
-         snr2,idec)
+! Call top-level routine in q65 module: establish sync and try for a q3 decode.
+    call q65_dec0(nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
+         emedelay,xdt,f0,snr1,width,dat4,snr2,idec)
     call timer('q65_dec0',1)
+
+    print*,'AAA',idec
+
     if(idec.ge.0) then
        xdt1=xdt                          !We have a list-decode result
        f1=f0
@@ -166,7 +175,8 @@ contains
     endif
     
 100 decoded='                                     '
-    if(idec.gt.0) then
+    print*,'BBB',idec
+    if(idec.ge.0) then
 
 ! ------------------------------------------------------
 ! idec Meaning

@@ -776,17 +776,12 @@ contains
     character*3 cflags
     
     cflags='   '
-    if(idec.gt.0) then
+    if(idec.ge.0) then
        iaptype=idec
        navg=0
        if(idec.ge.100) then
           iaptype=idec/100
           navg=mod(idec,100)
-       endif
-       if(iaptype.eq.1) then
-          iaptype=3
-       else
-          iaptype=iaptype-2
        endif
        cflags='q  '
        write(cflags(2:2),'(i1)') iaptype

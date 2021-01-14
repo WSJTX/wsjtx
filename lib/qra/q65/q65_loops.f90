@@ -78,7 +78,7 @@ subroutine q65_loops(c00,npts2,nsps2,nsubmode,ndepth,jpk0,    &
 !     write(55,3055) ndepth,iaptype,idf,idt,ibw,ndist,irc,sum(s3(1:LL*NN)), &
 !          trim(decoded)
 !3055 format(7i4,f10.1,1x,a)
-     idec=iaptype+2
+     idec=iaptype
      snr2=esnodb - db(2500.0/baud)
      xdt1=xdt0 +  nsps2*ndt/(16.0*6000.0)
      f1=f0 + 0.5*baud*ndf

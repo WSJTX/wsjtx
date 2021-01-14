@@ -20,17 +20,27 @@ contains
 subroutine q65_dec0(nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
      emedelay,xdt,f0,snr1,width,dat4,snr2,idec)
 
-! Detect and align with the Q65 sync vector, returning time and frequency
-! offsets and SNR estimate.
+! Top-level routine in q65 module
 
 ! Input:  iwave(0:nmax-1)        Raw data
-!         mode_q65               Tone spacing 1 2 4 8 16 (A-E)
-!         nsps                   Samples per symbol at 12000 Sa/s
+!         ntrperiod              T/R sequence length (s)
 !         nfqso                  Target frequency (Hz)
 !         ntol                   Search range around nfqso (Hz)
+!         ndepth                 Requested decoding depth
+!         lclearave              Flag to clear the accumulating array
+!         emedelay               Extra delay for EME signals
 ! Output: xdt                    Time offset from nominal (s)
 !         f0                     Frequency of sync tone
 !         snr1                   Relative SNR of sync signal
+!         width                  Estimated Doppler spread
+!         dat4(13)               Decoded message as 13 six-bit integers
+!         snr2                   Estimated SNR of decoded signal
+!         idec                   Flag for decing results
+!            -1  No decode
+!             0  No AP
+!             1  "CQ      ?  ?"
+!             2  "Mycall  ?  ?"
+!             3  "MyCall HisCall ?"
 
   use packjt77
   use timer_module, only: timer
@@ -48,7 +58,9 @@ subroutine q65_dec0(nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
   data first/.true./
   save first
 
-  if(nutc+ndepth.eq.-999) stop
+  if(nutc+ndepth.eq.-999) stop           !Silence compiler warnings
+
+! Set seom parameters and allocate storage for large arrays
   irc=-2
   idec=-1
   snr1=0.
@@ -65,7 +77,12 @@ subroutine q65_dec0(nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
   ia2=max(ia,10*mode_q65,nint(100.0/df))
   nsmo=int(0.7*mode_q65*mode_q65)
   if(nsmo.lt.1) nsmo=1
-!  nsmo=1  !### TEMPORARY ###
+  if(first) then                         !Generate the sync vector
+     sync=-22.0/63.0                     !Sync tone OFF  
+     do k=1,22
+        sync(isync(k))=1.0               !Sync tone ON
+     enddo
+  endif
 
   allocate(s1(iz,jz))
   allocate(s3(-64:LL-65,63))
@@ -79,32 +96,6 @@ subroutine q65_dec0(nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
      navg=0
      LL0=LL
   endif
-
-  s3=0.
-  if(first) then                         !Generate the sync vector
-     sync=-22.0/63.0                     !Sync tone OFF  
-     do k=1,22
-        sync(isync(k))=1.0               !Sync tone ON
-     enddo
-  endif
-
-  call timer('s1      ',0)
-! Compute spectra with symbol length and NSTEP time bins per symbol.
-  call q65_symspec(iwave,ntrperiod*12000,iz,jz,s1)
-  call timer('s1      ',1)
-
-  i0=nint(nfqso/df)                           !Target QSO frequency
-  if(i0-64.lt.1 .or. i0-65+LL.gt.iz) go to 900  !Frequency out of range
-  call pctile(s1(i0-64:i0-65+LL,1:jz),LL*jz,40,base)
-  s1=s1/base
-
-! Apply fast AGC
-  s1max=20.0                                  !Empirical choice
-  do j=1,jz                                   !### Maybe wrong way? ###
-     smax=maxval(s1(i0-64:i0-65+LL,j))
-     if(smax.gt.s1max) s1(i0-64:i0-65+LL,j)=s1(i0-64:i0-65+LL,j)*s1max/smax
-  enddo
-
   dtstep=nsps/(NSTEP*12000.0)                 !Step size in seconds
   lag1=-1.0/dtstep
   lag2=1.0/dtstep + 0.9999
@@ -112,28 +103,46 @@ subroutine q65_dec0(nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
   j0=0.5/dtstep
   if(nsps.ge.7200) j0=1.0/dtstep              !Nominal start-signal index
 
-  idec=-1
-  dat4=0
+  s3=0.
+  call timer('s1      ',0)
+! Compute symbol spectra with NSTEP time bins per symbol
+  call q65_symspec(iwave,ntrperiod*12000,iz,jz,s1)
+  call timer('s1      ',1)
 
+  i0=nint(nfqso/df)                             !Target QSO frequency
+  if(i0-64.lt.1 .or. i0-65+LL.gt.iz) go to 900  !Frequency out of range
+  call pctile(s1(i0-64:i0-65+LL,1:jz),LL*jz,40,base)
+  s1=s1/base
+
+! Apply fast AGC to the symbol spectra
+  s1max=20.0                                  !Empirical choice
+  do j=1,jz                                   !### Maybe wrong way? ###
+     smax=maxval(s1(i0-64:i0-65+LL,j))
+     if(smax.gt.s1max) s1(i0-64:i0-65+LL,j)=s1(i0-64:i0-65+LL,j)*s1max/smax
+  enddo
+
+  dat4=0
   if(ncw.gt.0) then
 ! Try list decoding via "Deep Likelihood".
      call timer('ccf_85  ',0)
+! Try to synchronize using all 85 symbols
      call q65_ccf_85(s1,iz,jz,nfqso,ia,ia2,ipk,jpk,f0,xdt,imsg_best,ccf,ccf1)
      call timer('ccf_85  ',1)
 
      call timer('list_dec',0)
      call q65_dec_q3(s1,iz,jz,s3,LL,ipk,jpk,snr2,dat4,idec,decoded)
      call timer('list_dec',1)
-
-     ic=ia2/4;
-     base=(sum(ccf1(-ia2:-ia2+ic)) + sum(ccf1(ia2-ic:ia2)))/(2.0+2.0*ic);
-     ccf1=ccf1-base
-     smax=maxval(ccf1)
-     if(smax.gt.10.0) ccf1=10.0*ccf1/smax
-     base=(sum(ccf2(-ia2:-ia2+ic)) + sum(ccf2(ia2-ic:ia2)))/(2.0+2.0*ic);
-     ccf2=ccf2-base
-     smax=maxval(ccf2)
-     if(smax.gt.10.0) ccf2=10.0*ccf2/smax
+     if(idec.ne.0) then
+        ic=ia2/4;
+        base=(sum(ccf1(-ia2:-ia2+ic)) + sum(ccf1(ia2-ic:ia2)))/(2.0+2.0*ic);
+        ccf1=ccf1-base
+        smax=maxval(ccf1)
+        if(smax.gt.10.0) ccf1=10.0*ccf1/smax
+        base=(sum(ccf2(-ia2:-ia2+ic)) + sum(ccf2(ia2-ic:ia2)))/(2.0+2.0*ic);
+        ccf2=ccf2-base
+        smax=maxval(ccf2)
+        if(smax.gt.10.0) ccf2=10.0*ccf2/smax
+     endif
   endif
 
 ! Get 2d CCF and ccf2 using sync symbols only
@@ -158,7 +167,8 @@ subroutine q65_dec0(nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
   if(snr1.gt.10.0) ccf2=(10.0/snr1)*ccf2
 
   if(idec.le.0) then
-! The q3 decode attempt failed, so we'll try a more general decode.
+! The q3 decode attempt failed. Copy synchronied symbol spectra from s1
+! into s3 and prepare to try a more general decode.
      ccf1=ccf(:,jpk)/rms
      if(snr1.gt.10.0) ccf1=(10.0/snr1)*ccf1
      call q65_s1_to_s3(s1,iz,jz,ipk,jpk,LL,mode_q65,sync,s3)
@@ -264,7 +274,7 @@ subroutine q65_dec_q3(s1,iz,jz,s3,LL,ipk,jpk,snr2,dat4,idec,decoded)
      call q65_dec1(s3,nsubmode,b90ts,esnodb,irc,dat4,decoded)
      if(irc.ge.0) then
         snr2=esnodb - db(2500.0/baud) + 3.0     !Empirical adjustment
-        idec=1
+        idec=3
         exit
      endif
   enddo
