@@ -37,7 +37,7 @@ RxFreq: 1000/10
 Commit     No_AP   MyCall BothCalls
 -----------------------------------
 ef4787:    0 10    21 21    22 22
-
+ada5a6     0 11    21 21    22 22
 
 Mode: Q65-60D
 Data: Nil Average (40 files, simulated fDop = 0? Hz )
