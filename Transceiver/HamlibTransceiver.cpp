@@ -161,6 +161,7 @@ void HamlibTransceiver::register_transceivers (logger_type * logger,
 {
   rig_set_debug_callback (debug_callback, logger);
   rig_set_debug (RIG_DEBUG_TRACE);
+  BOOST_LOG_SEV (*logger, boost::log::trivial::info) << "Hamlib version: " << rig_version ();
   rig_load_all_backends ();
   rig_list_foreach (register_callback, registry);
 }

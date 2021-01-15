@@ -738,7 +738,7 @@ int main(int argc, char *argv[])
     signed char message[]={-9,13,-35,123,57,-39,64,0,0,0,0};
     char *callsign, *grid,  *call_loc_pow;
     char *ptr_to_infile,*ptr_to_infile_suffix;
-    char *data_dir=NULL;
+    char *data_dir=".";
     char wisdom_fname[200],all_fname[200],spots_fname[200];
     char timer_fname[200],hash_fname[200];
     char uttime[5],date[7];
@@ -905,11 +905,11 @@ int main(int argc, char *argv[])
     strcpy(timer_fname,".");
     strcpy(hash_fname,".");
     if(data_dir != NULL) {
-        strcpy(wisdom_fname,data_dir);
-        strcpy(all_fname,data_dir);
-        strcpy(spots_fname,data_dir);
-        strcpy(timer_fname,data_dir);
-        strcpy(hash_fname,data_dir);
+      strncpy(wisdom_fname,data_dir, sizeof wisdom_fname);
+      strncpy(all_fname,data_dir, sizeof all_fname);
+      strncpy(spots_fname,data_dir, sizeof spots_fname);
+      strncpy(timer_fname,data_dir, sizeof timer_fname);
+      strncpy(hash_fname,data_dir, sizeof hash_fname);
     }
     strncat(wisdom_fname,"/wspr_wisdom.dat",20);
     strncat(all_fname,"/ALL_WSPR.TXT",20);
