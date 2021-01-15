@@ -49,6 +49,7 @@ project (wsjtx
   LANGUAGES C CXX Fortran
   )
 set (PROJECT_DESCRIPTION "WSJT-X: Digital Modes for Weak Signal Communications in Amateur Radio")
+set (CMAKE_PROJECT_DESCRIPTION ${PROJECT_DESCRIPTION})
 
 #
 # Local CMake modules and support files

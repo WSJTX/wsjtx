@@ -68,7 +68,7 @@ subroutine genfst4(msg0,ichk,msgsent,msgbits,i4tone,iwspr)
 
    if(ichk.eq.1) go to 999
    if(unpk77_success) go to 2
-1  msgbits=0
+   msgbits=0
    itone=0
    msgsent='*** bad message ***                  '
    go to 999

@@ -1,4 +1,4 @@
-subroutine get_fst4_bitmetrics(cd,nss,nmax,nhicoh,bitmetrics,s4,nsync_qual,badsync)
+subroutine get_fst4_bitmetrics(cd,nss,bitmetrics,s4,nsync_qual,badsync)
 
    use timer_module, only: timer
    include 'fst4_params.f90'
@@ -21,9 +21,10 @@ subroutine get_fst4_bitmetrics(cd,nss,nmax,nhicoh,bitmetrics,s4,nsync_qual,badsy
    data isyncword2/2,3,1,0,3,2,0,1/
    data graymap/0,1,3,2/
    data first/.true./,nss0/-1/
-   save first,one,cp,nss0
+   save first,one,nss0
 
    if(nss.ne.nss0 .and. allocated(ci)) deallocate(ci)
+
    if(first .or. nss.ne.nss0) then
       allocate(ci(nss,0:3))
       one=.false.

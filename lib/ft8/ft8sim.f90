@@ -91,7 +91,6 @@ program ft8sim_gfsk
 
   call sgran()
 
-  msg0=msg
   do ifile=1,nfiles
      c0=0.
      c0(0:NWAVE-1)=cwave
