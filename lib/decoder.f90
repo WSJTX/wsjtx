@@ -61,7 +61,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   type(counting_fst4_decoder) :: my_fst4
   type(counting_q65_decoder) :: my_q65
 
-  if(params%nagain .and. params%ntr.gt.ntr0) go to 800
+  if(.not.params%newdat .and. params%ntr.gt.ntr0) go to 800
   ntr0=params%ntr
   rms=sqrt(dot_product(float(id2(1:180000)),                         &
        float(id2(1:180000)))/180000.0)
