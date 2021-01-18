@@ -51,7 +51,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   character(len=12) :: mycall, hiscall
   character(len=6) :: mygrid, hisgrid
   character*60 line
-  data ndec8/0/
+  data ndec8/0/,ntr0/-1/
   save
   type(counting_jt4_decoder) :: my_jt4
   type(counting_jt65_decoder) :: my_jt65
@@ -61,7 +61,8 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   type(counting_fst4_decoder) :: my_fst4
   type(counting_q65_decoder) :: my_q65
 
-  nused=0
+  if(params%nagain .and. params%ntr.gt.ntr0) go to 800
+  ntr0=params%ntr
   rms=sqrt(dot_product(float(id2(1:180000)),                         &
        float(id2(1:180000)))/180000.0)
   if(rms.lt.3.0) go to 800
