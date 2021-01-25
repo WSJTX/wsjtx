@@ -1587,6 +1587,7 @@ install (FILES
 
 install (FILES
   cty.dat
+  cty.dat_copyright.txt
   contrib/Ephemeris/JPLEPH
   DESTINATION ${CMAKE_INSTALL_DATADIR}/${CMAKE_PROJECT_NAME}
   #COMPONENT runtime

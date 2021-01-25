@@ -13,6 +13,22 @@
 Copyright 2001 - 2021 by Joe Taylor, K1JT.
 
 
+		   Release: WSJT-X 2.3.0-rc4
+		         Jan 26, 2021
+		   -------------------------
+
+WSJT-X  2.3.0 Release  Candidate 4  is a  stop-gap release  while some
+recent important Hamlib changes are  being verified. Also included are
+the following regression and defect repairs.
+
+ - The wsprd command line tool  uses the current working directory for
+   the data file directory if it is not specified.
+
+ - Updates to the language translations of the WSJT-X user Interface.
+
+ - Updated CTY.DAT file.
+
+
 		   Release: WSJT-X 2.3.0-rc3
 		         Jan 6, 2021
 		   -------------------------
