@@ -2464,7 +2464,7 @@ Yellow when too low</source>
     <message>
         <location filename="../widgets/mainwindow.ui" line="679"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Select operating band or enter frequency in MHz or enter kHz increment followed by k.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;選擇工作頻段或輸入 MHz 頻率或輸入 kHz 增量,然後輸入 k.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;選擇工作頻段或輸入兆赫頻率或輸入千赫增量,然後輸入 k.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="682"/>
@@ -2474,7 +2474,7 @@ Yellow when too low</source>
     <message>
         <location filename="../widgets/mainwindow.ui" line="685"/>
         <source>Select operating band or enter frequency in MHz or enter kHz increment followed by k.</source>
-        <translation>選擇工作頻段或輸入 MHz 頻率或輸入 kHz 增量,然後輸入 k.</translation>
+        <translation>選擇工作頻段或輸入兆赫頻率或輸入千赫增量,然後輸入 k.</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1060"/>
@@ -2653,7 +2653,7 @@ Yellow when too low</source>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1481"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Frequency to call CQ on in kHz above the current MHz&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;呼叫CQ 的頻率以 kHz 高於目前的 MHz&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;呼叫CQ 的頻率以千赫高於目前的兆赫&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1484"/>
@@ -2726,14 +2726,14 @@ Not available to nonstandard callsign holders.</source>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1655"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check this to start recording calibration data.&lt;br/&gt;While measuring calibration correction is disabled.&lt;br/&gt;When not checked you can view the calibration results.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;勾選可開始紀錄校準資料.&lt;br/&gt;當測量校準校正被禁用時.&lt;br/&gt;未檢查時您可以查看校準結果.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;勾選可開始記錄校準資料.&lt;br/&gt;當測量校準校正被禁用時.&lt;br/&gt;未檢查時您可以查看校準結果.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1658"/>
         <source>Check this to start recording calibration data.
 While measuring calibration correction is disabled.
 When not checked you can view the calibration results.</source>
-        <translation>勾選可開始紀錄校準資料.
+        <translation>勾選可開始記錄校準資料.
 當測量校準校正被禁用時.
 未檢查時您可以查看校準結果.</translation>
     </message>
@@ -3691,7 +3691,7 @@ list. The list can be maintained in Settings (F2).</source>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="530"/>
         <source>Scanned ADIF log, %1 worked before records created</source>
-        <translation>掃描 ADIF 紀錄紀錄, %1 建立曾經通聯紀錄</translation>
+        <translation>掃描 ADIF 紀錄, %1 建立曾經通聯紀錄</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="640"/>
@@ -3888,10 +3888,10 @@ list. The list can be maintained in Settings (F2).</source>
         <location filename="../widgets/mainwindow.cpp" line="2551"/>
         <source>If you make fair use of any part of WSJT-X under terms of the GNU General Public License, you must display the following copyright notice prominently in your derivative work:
 
-&quot;The algorithms, source code, look-and-feel of WSJT-X and related programs, and protocol specifications for the modes FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 are Copyright (C) 2001-2021 by one or more of the following authors: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; and other members of the WSJT Development Group.&quot;</source>
+&quot;The algorithms, source code, look-and-feel of WSJT-X and related programs, and protocol specifications for the modes FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 are Copyright (C) 2001-2020 by one or more of the following authors: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; and other members of the WSJT Development Group.&quot;</source>
         <translation>如果您根據 GNU 通用公共授權條款合理使用 WSJT-X 的任何部分, 則必須在衍生作品中醒目地顯示以下版權聲明:
 
-&quot;WSJT-X 的演演演算法, 原始碼, 外觀和感覺及相關程式, 和協定規格模式 FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 的版權 (C) 2001-2021 由以下一個或多個作者: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; 和 WSJT 開發組的其他成員.&quot;</translation>
+&quot;WSJT-X 的演演演算法, 原始碼, 外觀和感覺及相關程式, 和協定規格模式 FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 的版權 (C) 2001-2019 由以下一個或多個作者: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; 和 WSJT 開發組的其他成員.&quot;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="2846"/>
@@ -4225,7 +4225,7 @@ is already in CALL3.TXT, do you wish to replace it?</source>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="6762"/>
         <source>Doing this will remove all QSO records for the current contest. They will be kept in the ADIF log file but will not be available for export in your Cabrillo log.</source>
-        <translation>執行此動作將移除目前競賽的所有通聯記錄. 它們將保留在 ADIF 日誌檔案中, 但無法匯出到您的卡布里略日誌中.</translation>
+        <translation>執行此動作將移除目前競賽的所有通聯紀錄. 它們將保留在 ADIF 日誌檔案中, 但無法匯出到您的卡布里略日誌中.</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="6775"/>
@@ -6031,12 +6031,12 @@ and DX Grid fields when a 73 or free text message is sent.</source>
     <message>
         <location filename="../Configuration.ui" line="1781"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Some logging programs will not accept WSJT-X mode names.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;某些紀錄紀錄程式不接受 WSJT-X 模式名稱.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;某些日志紀錄程式不接受 WSJT-X 模式名稱.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1784"/>
         <source>Con&amp;vert mode to RTTY</source>
-        <translation>把日誌記錄轉成&amp;RTTY模式</translation>
+        <translation>把日誌紀錄轉成&amp;RTTY模式</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1791"/>
@@ -6141,12 +6141,12 @@ and DX Grid fields when a 73 or free text message is sent.</source>
     <message>
         <location filename="../Configuration.ui" line="1949"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;When checked, WSJT-X will broadcast a logged contact in ADIF format to the configured hostname and port. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;選擇後, WSJT-X 將以 ADIF 格式將記錄的聯絡廣播到設定的主機名稱和埠. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;選擇後, WSJT-X 將以 ADIF 格式將紀錄的聯絡廣播到設定的主機名稱和埠. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1952"/>
         <source>Enable logged contact ADIF broadcast</source>
-        <translation>開啟記錄連絡 ADIF 廣播</translation>
+        <translation>開啟紀錄連絡 ADIF 廣播</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1959"/>

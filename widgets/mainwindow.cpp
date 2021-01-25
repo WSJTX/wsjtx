@@ -1041,7 +1041,7 @@ void MainWindow::not_GA_warning_message ()
                                 "available for testing purposes.  By design it will\n"
                                 "be nonfunctional after 0000 UTC on Jan 26, 2021.");
   auto now = QDateTime::currentDateTimeUtc ();
-  if (now >= QDateTime {{2021, 1, 26}, {0, 0}, Qt::UTC}) {
+  if (now >= QDateTime {{2021, 2, 2}, {0, 0}, Qt::UTC}) {
     Q_EMIT finished ();
   }
 }
@@ -7248,7 +7248,8 @@ void MainWindow::rigFailure (QString const& reason)
   else
     {
       if (m_splash && m_splash->isVisible ()) m_splash->hide ();
-      m_rigErrorMessageBox.setDetailedText (reason);
+      m_rigErrorMessageBox.setDetailedText (reason + "\n\nTimestamp: "
+                                            + QDateTime::currentDateTimeUtc ().toString (Qt::ISODateWithMs));
 
       // don't call slot functions directly to avoid recursion
       m_rigErrorMessageBox.exec ();

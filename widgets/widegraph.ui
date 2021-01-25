@@ -524,6 +524,24 @@
    <container>1</container>
   </customwidget>
  </customwidgets>
+ <tabstops>
+  <tabstop>cbControls</tabstop>
+  <tabstop>bppSpinBox</tabstop>
+  <tabstop>fStartSpinBox</tabstop>
+  <tabstop>fSplitSpinBox</tabstop>
+  <tabstop>waterfallAvgSpinBox</tabstop>
+  <tabstop>adjust_palette_push_button</tabstop>
+  <tabstop>paletteComboBox</tabstop>
+  <tabstop>cbFlatten</tabstop>
+  <tabstop>cbRef</tabstop>
+  <tabstop>spec2dComboBox</tabstop>
+  <tabstop>gainSlider</tabstop>
+  <tabstop>zeroSlider</tabstop>
+  <tabstop>gain2dSlider</tabstop>
+  <tabstop>zero2dSlider</tabstop>
+  <tabstop>sbPercent2dPlot</tabstop>
+  <tabstop>smoSpinBox</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
 </ui>

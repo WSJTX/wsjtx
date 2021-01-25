@@ -1139,6 +1139,9 @@ Not available to nonstandard callsign holders.</string>
                     </item>
                     <item>
                      <widget class="QCheckBox" name="cbRxAll">
+                      <property name="toolTip">
+                       <string>Decode other Hounds calling above 1000 Hz audio offset</string>
+                      </property>
                       <property name="text">
                        <string>Rx All Freqs</string>
                       </property>
@@ -2828,7 +2831,7 @@ Double-click to reset to the standard 73 message</string>
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>834</width>
+     <width>1110</width>
      <height>21</height>
     </rect>
    </property>
@@ -3459,6 +3462,9 @@ Double-click to reset to the standard 73 message</string>
   </customwidget>
  </customwidgets>
  <tabstops>
+  <tabstop>decodedTextBrowser</tabstop>
+  <tabstop>decodedTextBrowser2</tabstop>
+  <tabstop>cbCQonly</tabstop>
   <tabstop>logQSOButton</tabstop>
   <tabstop>stopButton</tabstop>
   <tabstop>monitorButton</tabstop>
@@ -3468,7 +3474,82 @@ Double-click to reset to the standard 73 message</string>
   <tabstop>autoButton</tabstop>
   <tabstop>stopTxButton</tabstop>
   <tabstop>tuneButton</tabstop>
-  <tabstop>decodedTextBrowser</tabstop>
+  <tabstop>cbMenus</tabstop>
+  <tabstop>bandComboBox</tabstop>
+  <tabstop>readFreq</tabstop>
+  <tabstop>sbNB</tabstop>
+  <tabstop>dxCallEntry</tabstop>
+  <tabstop>dxGridEntry</tabstop>
+  <tabstop>lookupButton</tabstop>
+  <tabstop>addButton</tabstop>
+  <tabstop>txFirstCheckBox</tabstop>
+  <tabstop>TxFreqSpinBox</tabstop>
+  <tabstop>pbR2T</tabstop>
+  <tabstop>sbFtol</tabstop>
+  <tabstop>pbT2R</tabstop>
+  <tabstop>RxFreqSpinBox</tabstop>
+  <tabstop>rptSpinBox</tabstop>
+  <tabstop>sbTR</tabstop>
+  <tabstop>pbTxMode</tabstop>
+  <tabstop>cbHoldTxFreq</tabstop>
+  <tabstop>sbF_Low</tabstop>
+  <tabstop>sbF_High</tabstop>
+  <tabstop>sbSubmode</tabstop>
+  <tabstop>syncSpinBox</tabstop>
+  <tabstop>sbCQTxFreq</tabstop>
+  <tabstop>cbCQTx</tabstop>
+  <tabstop>cbRxAll</tabstop>
+  <tabstop>cbShMsgs</tabstop>
+  <tabstop>cbFast9</tabstop>
+  <tabstop>cbAutoSeq</tabstop>
+  <tabstop>cbFirst</tabstop>
+  <tabstop>cbTx6</tabstop>
+  <tabstop>cbSWL</tabstop>
+  <tabstop>pbBestSP</tabstop>
+  <tabstop>measure_check_box</tabstop>
+  <tabstop>tabWidget</tabstop>
+  <tabstop>genStdMsgsPushButton</tabstop>
+  <tabstop>tx1</tabstop>
+  <tabstop>txrb1</tabstop>
+  <tabstop>txb1</tabstop>
+  <tabstop>tx2</tabstop>
+  <tabstop>txrb2</tabstop>
+  <tabstop>txb2</tabstop>
+  <tabstop>tx3</tabstop>
+  <tabstop>txrb3</tabstop>
+  <tabstop>txb3</tabstop>
+  <tabstop>tx4</tabstop>
+  <tabstop>txrb4</tabstop>
+  <tabstop>txb4</tabstop>
+  <tabstop>tx5</tabstop>
+  <tabstop>txrb5</tabstop>
+  <tabstop>txb5</tabstop>
+  <tabstop>tx6</tabstop>
+  <tabstop>txrb6</tabstop>
+  <tabstop>txb6</tabstop>
+  <tabstop>textBrowser4</tabstop>
+  <tabstop>comboBoxHoundSort</tabstop>
+  <tabstop>sbNlist</tabstop>
+  <tabstop>sbMax_dB</tabstop>
+  <tabstop>sbNslots</tabstop>
+  <tabstop>comboBoxCQ</tabstop>
+  <tabstop>cbMoreCQs</tabstop>
+  <tabstop>pbFoxReset</tabstop>
+  <tabstop>WSPRfreqSpinBox</tabstop>
+  <tabstop>sbFST4W_RxFreq</tabstop>
+  <tabstop>sbFST4W_FTol</tabstop>
+  <tabstop>RoundRobin</tabstop>
+  <tabstop>sbTxPercent</tabstop>
+  <tabstop>sbTR_FST4W</tabstop>
+  <tabstop>band_hopping_group_box</tabstop>
+  <tabstop>band_hopping_schedule_push_button</tabstop>
+  <tabstop>cbUploadWSPR_Spots</tabstop>
+  <tabstop>WSPR_prefer_type_1_check_box</tabstop>
+  <tabstop>cbNoOwnCall</tabstop>
+  <tabstop>pbTxNext</tabstop>
+  <tabstop>TxPowerComboBox</tabstop>
+  <tabstop>outAttenuation</tabstop>
+  <tabstop>sbSerialNumber</tabstop>
  </tabstops>
  <resources/>
  <connections/>

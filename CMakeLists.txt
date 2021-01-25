@@ -49,6 +49,7 @@ project (wsjtx
   LANGUAGES C CXX Fortran
   )
 set (PROJECT_DESCRIPTION "WSJT-X: Digital Modes for Weak Signal Communications in Amateur Radio")
+set (CMAKE_PROJECT_DESCRIPTION ${PROJECT_DESCRIPTION})
 
 #
 # Local CMake modules and support files
@@ -70,7 +71,7 @@ message (STATUS "******************************************************")
 
 include (set_build_type)
 # RC 0 or omitted is a development build, GA is a General Availability release build
-set_build_type (RC 3)
+set_build_type (RC 4)
 set (wsjtx_VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}${BUILD_TYPE_REVISION}")
 
 #
