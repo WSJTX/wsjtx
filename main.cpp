@@ -5,7 +5,7 @@
 #include <iterator>
 #include <algorithm>
 #include <ios>
-#include <locale.h>
+#include <locale>
 #include <fftw3.h>
 
 #include <QSharedMemory>
@@ -129,10 +129,13 @@ int main(int argc, char *argv[])
       // LOG_INFO ("--------------------------- Resources ----------------------------");
 
       QLocale locale;              // get the current system locale
-      setlocale (LC_NUMERIC, "C"); // ensure number forms are in
-                                   // consistent format, do this after
-                                   // instantiating QApplication so
-                                   // that GUI has correct l18n
+
+      // Set C/C++ locale used for logging etc.
+#if defined (Q_OS_WIN)
+      std::locale::global (std::locale ("C"));
+#else
+      std::locale::global (std::locale ("en_US.UTF-8"));
+#endif
 
       // Override programs executable basename as application name.
       a.setApplicationName ("WSJT-X");
