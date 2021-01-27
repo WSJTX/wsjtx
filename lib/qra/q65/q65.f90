@@ -186,11 +186,11 @@ subroutine q65_dec0(iavg,nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
   if(snr1.gt.10.0) ccf2=(10.0/snr1)*ccf2
 
   if(idec.le.0) then
-! The q3 decode attempt failed. Copy synchronied symbol spectra from s1
+! The q3 decode attempt failed. Copy synchronied symbol energies from s1
 ! into s3 and prepare to try a more general decode.
      ccf1=ccf(:,jpk)/rms
      if(snr1.gt.10.0) ccf1=(10.0/snr1)*ccf1
-     call q65_s1_to_s3(s1,iz,jz,ipk,jpk,LL,mode_q65,sync,s3)
+     call q65_s1_to_s3(s1,iz,jz,ipk,jpk,LL,mode_q65,sync,1,s3)
   endif
 
   smax=maxval(ccf1)
@@ -272,35 +272,21 @@ end subroutine q65_symspec
 
 subroutine q65_dec_q3(s1,iz,jz,s3,LL,ipk,jpk,snr2,dat4,idec,decoded)
 
-! Copy synchronized symbol spectra from s1 into s3, then attempt a q3 decode.
+! Copy synchronized symbol energies from s1 into s3, then attempt a q3 decode.
 
   character*37 decoded
   integer dat4(13)
   real s1(iz,jz)
   real s3(-64:LL-65,63)
 
-  i1=i0+ipk-64
-  i2=i1+LL-1
-  j=j0+jpk-7
-  n=0
-  do k=1,85
-     j=j+8
-     if(sync(k).gt.0.0) then
-        cycle
-     endif
-     n=n+1
-     if(j.ge.1 .and. j.le.jz) then
-        do i=0,LL-1
-           s3(i-64,n)=s1(i+i1,j)              !Copy from s1 into s3
-        enddo
-     endif
-  enddo
+  call q65_s1_to_s3(s1,iz,jz,ipk,jpk,LL,mode_q65,sync,0,s3)
 
   nsubmode=0
   if(mode_q65.eq.2) nsubmode=1
   if(mode_q65.eq.4) nsubmode=2
   if(mode_q65.eq.8) nsubmode=3
   if(mode_q65.eq.16) nsubmode=4
+  if(mode_q65.eq.32) nsubmode=5
   baud=12000.0/nsps
 
   do ibw=ibwa,ibwb
@@ -516,7 +502,7 @@ subroutine q65_dec2(s3,nsubmode,b90ts,esnodb,irc,dat4,decoded)
   return
 end subroutine q65_dec2
 
-subroutine q65_s1_to_s3(s1,iz,jz,ipk,jpk,LL,mode_q65,sync,s3)
+subroutine q65_s1_to_s3(s1,iz,jz,ipk,jpk,LL,mode_q65,sync,itone0,s3)
 
 ! Copy synchronized symbol energies from s1 (or s1a) into s3.
 
@@ -524,7 +510,7 @@ subroutine q65_s1_to_s3(s1,iz,jz,ipk,jpk,LL,mode_q65,sync,s3)
   real s3(-64:LL-65,63)
   real sync(85)                          !sync vector
   
-  i1=i0+ipk-64 + mode_q65
+  i1=i0+ipk-64 + mode_q65*itone0
   i2=i1+LL-1
   if(i1.ge.1 .and. i2.le.iz) then
      j=j0+jpk-7

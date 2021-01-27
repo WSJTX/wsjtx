@@ -6,7 +6,7 @@ subroutine q65_loops(c00,npts2,nsps2,nsubmode,ndepth,jpk0,    &
   use q65
   
   parameter (NN=63)
-  parameter (LN=1152*63)           !LN=LL*NN; LL=64*(mode_q65+2), NN=63
+  parameter (LN=2176*63)           !LN=LL*NN; LL=64*(mode_q65+2), NN=63
   complex c00(0:npts2-1)           !Analytic representation of dd(), 6000 Hz
   complex ,allocatable :: c0(:)    !Ditto, with freq shift
   character decoded*37
