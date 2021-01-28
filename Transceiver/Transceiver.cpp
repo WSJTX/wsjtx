@@ -27,7 +27,7 @@ std::ostream& operator << (std::ostream& os, Transceiver::TransceiverState const
 {
   return os
     << "Transceiver::TransceiverState(online: " << (s.online_ ? "yes" : "no")
-    << " Frequency {" << s.rx_frequency_ << "Hz, " << s.tx_frequency_ << "Hz} " << s.mode_
+    << " Frequency {" << s.rx_frequency_ << "Hz, " << s.tx_frequency_ << "Hz} Mode: " << s.mode_
     << "; SPLIT: " << (Transceiver::TransceiverState::Split::on == s.split_ ? "on" : Transceiver::TransceiverState::Split::off == s.split_ ? "off" : "unknown")
     << "; PTT: " << (s.ptt_ ? "on" : "off")
     << ')';
