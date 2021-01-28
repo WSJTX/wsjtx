@@ -3379,9 +3379,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
       int n0=n2/1000;
       int n1=n2%1000;
       if(m_mode=="Q65") {
-        QString t;
-        t.sprintf("%d  %d",n0,n1);
-        ndecodes_label.setText(t);
+        ndecodes_label.setText(QString {"%1  %2"}.arg (n0).arg (n1));
       } else {
         if(m_nDecodes==0) ndecodes_label.setText("0");
       }

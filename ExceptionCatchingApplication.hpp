@@ -32,13 +32,12 @@ public:
     catch (std::exception const& e)
       {
         LOG_FATAL (e.what ());
-        throw;
       }
     catch (...)
       {
         LOG_FATAL ("Unexpected fatal error");
-        throw;
       }
+    return false;
   }
 };
 

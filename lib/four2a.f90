@@ -107,7 +107,6 @@ subroutine four2a(a,nfft,ndim,isign,iform)
         !$omp end critical(fftw)
      end if
   enddo
-  call fftwf_cleanup()
   nplan=0
   !$omp end critical(four2a)
 

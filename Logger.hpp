@@ -35,16 +35,16 @@ namespace Logger
   BOOST_LOG_SEV (LOGGER, boost::log::trivial::LEVEL)          \
   << boost::log::add_value ("Line", __LINE__)                 \
   << boost::log::add_value ("File", __FILE__)                 \
-  << boost::log::add_value ("Function", __FUNCTION__) << ARG;
+  << boost::log::add_value ("Function", __FUNCTION__) << ARG
  
 /// System Log macros.
 /// TRACE < DEBUG < INFO < WARN < ERROR < FATAL
-#define LOG_TRACE(ARG) LOG_LOG_LOCATION (sys::get(), trace, ARG);
-#define LOG_DEBUG(ARG) LOG_LOG_LOCATION (sys::get(), debug, ARG);
-#define LOG_INFO(ARG)  LOG_LOG_LOCATION (sys::get(), info, ARG);
-#define LOG_WARN(ARG)  LOG_LOG_LOCATION (sys::get(), warning, ARG);
-#define LOG_ERROR(ARG) LOG_LOG_LOCATION (sys::get(), error, ARG);
-#define LOG_FATAL(ARG) LOG_LOG_LOCATION (sys::get(), fatal, ARG);
+#define LOG_TRACE(ARG) LOG_LOG_LOCATION (sys::get(), trace, ARG)
+#define LOG_DEBUG(ARG) LOG_LOG_LOCATION (sys::get(), debug, ARG)
+#define LOG_INFO(ARG)  LOG_LOG_LOCATION (sys::get(), info, ARG)
+#define LOG_WARN(ARG)  LOG_LOG_LOCATION (sys::get(), warning, ARG)
+#define LOG_ERROR(ARG) LOG_LOG_LOCATION (sys::get(), error, ARG)
+#define LOG_FATAL(ARG) LOG_LOG_LOCATION (sys::get(), fatal, ARG)
  
 /// Data Log macros. Does not include LINE, FILE, FUNCTION.
 /// TRACE < DEBUG < INFO < WARN < ERROR < FATAL

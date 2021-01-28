@@ -1587,6 +1587,7 @@ install (FILES
 
 install (FILES
   cty.dat
+  cty.dat_copyright.txt
   contrib/Ephemeris/JPLEPH
   DESTINATION ${CMAKE_INSTALL_DATADIR}/${CMAKE_PROJECT_NAME}
   #COMPONENT runtime
@@ -1668,7 +1669,7 @@ endif (NOT WIN32 AND NOT APPLE)
 
 
 #
-# bundle fixup only done in Release or MinSizeRel configurations
+# bundle fixup only done in non-Debug configurations
 #
 if (NOT is_debug_build)
 
@@ -1715,7 +1716,7 @@ if (NOT is_debug_build)
 	${QT_PLUGINS_DIR}/imageformats
 	${QT_PLUGINS_DIR}/styles
 	DESTINATION ${WSJT_PLUGIN_DESTINATION}
-	CONFIGURATIONS Release MinSizeRel
+	CONFIGURATIONS Release MinSizeRel RelWithDebInfo
 	#COMPONENT runtime
 	FILES_MATCHING PATTERN "*${CMAKE_SHARED_LIBRARY_SUFFIX}"
 	PATTERN "*minimal*${CMAKE_SHARED_LIBRARY_SUFFIX}" EXCLUDE
@@ -1729,7 +1730,7 @@ if (NOT is_debug_build)
 	FILES
 	${QT_PLUGINS_DIR}/sqldrivers/libqsqlite${CMAKE_SHARED_LIBRARY_SUFFIX}
 	DESTINATION ${WSJT_PLUGIN_DESTINATION}/sqldrivers
-	CONFIGURATIONS Release MinSizeRel
+	CONFIGURATIONS Release MinSizeRel RelWithDebInfo
 	#COMPONENT runtime
 	)
       # install (
@@ -1773,7 +1774,7 @@ if (NOT is_debug_build)
 	${QT_PLUGINS_DIR}/audio
 	${QT_PLUGINS_DIR}/imageformats
 	DESTINATION ${WSJT_PLUGIN_DESTINATION}
-	CONFIGURATIONS Release MinSizeRel
+	CONFIGURATIONS Release MinSizeRel RelWithDebInfo
 	#COMPONENT runtime
 	FILES_MATCHING PATTERN "*${CMAKE_SHARED_LIBRARY_SUFFIX}"
 	PATTERN "*minimal*${CMAKE_SHARED_LIBRARY_SUFFIX}" EXCLUDE
@@ -1785,7 +1786,7 @@ if (NOT is_debug_build)
 	FILES
 	${QT_PLUGINS_DIR}/sqldrivers/qsqlite${CMAKE_SHARED_LIBRARY_SUFFIX}
 	DESTINATION ${WSJT_PLUGIN_DESTINATION}/sqldrivers
-	CONFIGURATIONS Release MinSizeRel
+	CONFIGURATIONS Release MinSizeRel RelWithDebInfo
 	#COMPONENT runtime
 	)
       # install (
