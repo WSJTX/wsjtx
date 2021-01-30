@@ -140,11 +140,11 @@ contains
        go to 100
     endif
 
-    if(snr1.lt.2.8) then
-       dtdec=0.                   !No reliable sync, abandon decoding attempt
-       f0dec=0.
-       go to 100
-    endif
+!    if(snr1.lt.2.8) then
+!       dtdec=0.                   !No reliable sync, abandon decoding attempt
+!       f0dec=0.
+!       go to 100
+!    endif
 
 ! Prepare for a single-period decode woth iaptype = 0, 1, or 2  (also 4?)
     jpk0=(xdt+1.0)*6000                      !Index of nominal start of signal
