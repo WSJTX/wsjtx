@@ -160,7 +160,8 @@ subroutine q65_dec0(iavg,nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
 ! Estimate rms on ccf2 baseline
   call q65_sync_curve(ccf2,ia2,rms2)
   smax=maxval(ccf2)
-  snr1=smax/rms2
+  snr1=0.
+  if(rms2.gt.0) snr1=smax/rms2
 
   if(idec.le.0) then
 ! The q3 decode attempt failed. Copy synchronized symbol energies from s1
@@ -541,8 +542,9 @@ subroutine q65_sync_curve(ccf1,ia2,rms1)
   ccf1(-ia2:ia2)=ccf1(-ia2:ia2)-base1
   sq=dot_product(ccf1(-ia2:-ia2+ic),ccf1(-ia2:-ia2+ic)) +         &
        dot_product(ccf1(ia2-ic:ia2),ccf1(ia2-ic:ia2))
-  rms1=sqrt(sq/nsum)
-  ccf1=2.0*ccf1/rms1
+  rms1=0.
+  if(nsum.gt.0) rms1=sqrt(sq/nsum)
+  if(rms1.gt.0.0) ccf1=2.0*ccf1/rms1
   smax1=maxval(ccf1)
   if(smax1.gt.10.0) ccf1=10.0*ccf1/smax1
 
