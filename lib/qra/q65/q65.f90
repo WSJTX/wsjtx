@@ -62,8 +62,8 @@ subroutine q65_dec0(iavg,nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
   real, allocatable :: s1(:,:)           !Symbol spectra, 1/8-symbol steps
   real, allocatable :: s3(:,:)           !Data-symbol energies s3(LL,63)
   real, allocatable :: ccf(:,:)          !CCF(freq,lag)
-  real, allocatable :: ccf1(:)           !CCF(freq) at best lag
-  real, allocatable :: ccf2(:)           !CCF(freq) at any lag
+  real, allocatable :: ccf1(:)           !CCF(freq) at fixed lag (red)
+  real, allocatable :: ccf2(:)           !Max CCF(freq) at any lag (orange)
   data first/.true./
   save first
 
@@ -185,6 +185,8 @@ subroutine q65_dec0(iavg,nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
   endif
 
   smax=maxval(ccf1)
+
+! Estimate frequenct spread
   i1=-9999
   i2=-9999
   do i=-ia,ia
