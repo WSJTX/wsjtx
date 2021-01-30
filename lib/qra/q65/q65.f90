@@ -180,6 +180,7 @@ subroutine q65_dec0(iavg,nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
   enddo
   width=df*(i2-i1)
 
+  if(ncw.eq.0) ccf1=0.
   call q65_write_red(ia2,nfqso,xdt,ccf1,ccf2)
 
   if(iavg.eq.2) then
