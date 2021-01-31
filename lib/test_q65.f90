@@ -73,7 +73,7 @@ program test_q65
 !                1         2         3         4         5         6         7
 !       123456789012345678901234567890123456789012345678901234567890123456789012345'
   cmd1='q65sim   "K1ABC W9XYZ EN37      " A 1500  5.0  0.0 0.0  1  60  100   -10.0 > junk0'
-  cmd2='jt9 -3 -p  15 -L 300 -H 3000 -d  3 -b A -Q 3 -f 1500 *.wav > junk'
+  cmd2='jt9 -3 -p  15 -L 300 -H 3000 -d   3 -b A -Q 3 -f 1500 *.wav > junk'
 
   write(cmd1(10:33),'(a)') '"'//msg//'"'
   cmd1(35:35)=csubmode
@@ -86,10 +86,10 @@ program test_q65
   write(cmd1(62:66),'(i5)') nfiles
 
   write(cmd2(11:13),'(i3)') ntrperiod
-  write(cmd2(33:34),'(i2)') ndepth
-  write(cmd2(44:44),'(i1)') nQSOprogress
-  write(cmd2(49:52),'(i4)') nf0
-  cmd2(39:39)=csubmode
+  write(cmd2(33:35),'(i3)') ndepth
+  write(cmd2(45:45),'(i1)') nQSOprogress
+  write(cmd2(50:53),'(i4)') nf0
+  cmd2(40:40)=csubmode
   
   call system('rm -f *.wav')
 
@@ -142,13 +142,14 @@ program test_q65
         if(line(i0:i0).ne.' ') then
            i1=index(line,'q')
            idec=-1
-           read(line(i1+1:),*) idec
+           read(line(i1+1:i1+1),*) idec
+           if(line(i1+2:i1+2).eq.'*') then
+              iavg=10
+           else
+              read(line(i1+2:i1+2),*,end=100) iavg
+           endif
         endif
-        if(idec.lt.0) cycle
-        if(idec.ge.12) then
-           iavg=idec-10
-           idec=1
-        endif
+100     if(idec.lt.0) cycle
         if(decok) then
            ndecn=ndecn + 1
            if(iavg.le.1) ndec1=ndec1 + 1
