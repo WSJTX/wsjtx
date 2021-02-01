@@ -13,6 +13,29 @@
 Copyright 2001 - 2021 by Joe Taylor, K1JT.
 
 
+		   Release: WSJT-X 2.3.0
+		         Feb 2, 2021
+		   ---------------------
+
+WSJT-X 2.3.0 General Availability release  adds the new modes FST4 and
+FST4W along with many defect repairs.  See summaries below and for the
+prior release candidates (2.3.0-rc1 through  -rc4) of this version for
+details.
+
+ - FST4/W: Disable envelope  shaping at start and  end of transmission
+   when environment variable FST4_NOSHAPING=1. Works for fst4sim too.
+
+ - Add time stamp to error message boxes to aid diagnosis.
+
+ - Repair a defect that caused crashes  at start up for some macOS Big
+   Sur users.
+
+ - Repair a defect that could cause  the jt9 slow mode decoder process
+   to exit incorrectly with a failure status.
+
+ - Updated CTY.DAT file.
+
+
 		   Release: WSJT-X 2.3.0-rc4
 		         Jan 26, 2021
 		   -------------------------
@@ -25,8 +48,6 @@ the following regression and defect repairs.
    the data file directory if it is not specified.
 
  - Updates to the language translations of the WSJT-X user Interface.
-
- - Updated CTY.DAT file.
 
 
 		   Release: WSJT-X 2.3.0-rc3
