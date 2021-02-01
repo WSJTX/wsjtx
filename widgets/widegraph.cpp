@@ -71,13 +71,11 @@ WideGraph::WideGraph(QSettings * settings, QWidget *parent) :
     ui->widePlot->setLinearAvg(m_settings->value("LinearAvg",false).toBool());
     ui->widePlot->setReference(m_settings->value("Reference",false).toBool());
     ui->widePlot->setQ65_Sync(m_settings->value("Q65_Sync",false).toBool());
-    ui->widePlot->setQ65_MultiSync(m_settings->value("Q65_MultiSync",false).toBool());
     if(ui->widePlot->current()) ui->spec2dComboBox->setCurrentIndex(0);
     if(ui->widePlot->cumulative()) ui->spec2dComboBox->setCurrentIndex(1);
     if(ui->widePlot->linearAvg()) ui->spec2dComboBox->setCurrentIndex(2);
     if(ui->widePlot->Reference()) ui->spec2dComboBox->setCurrentIndex(3);
     if(ui->widePlot->Q65_Sync()) ui->spec2dComboBox->setCurrentIndex(4);
-    if(ui->widePlot->Q65_MultiSync()) ui->spec2dComboBox->setCurrentIndex(5);
     int nbpp=m_settings->value("BinsPerPixel",2).toInt();
     ui->widePlot->setBinsPerPixel(nbpp);
     ui->sbPercent2dPlot->setValue(m_Percent2DScreen);
@@ -135,7 +133,6 @@ void WideGraph::saveSettings()                                           //saveS
   m_settings->setValue ("LinearAvg", ui->widePlot->linearAvg());
   m_settings->setValue ("Reference", ui->widePlot->Reference());
   m_settings->setValue ("Q65_Sync", ui->widePlot->Q65_Sync());
-  m_settings->setValue ("Q65_MultiSync", ui->widePlot->Q65_MultiSync());
   m_settings->setValue ("BinsPerPixel", ui->widePlot->binsPerPixel ());
   m_settings->setValue ("StartFreq", ui->widePlot->startFreq ());
   m_settings->setValue ("WaterfallPalette", m_waterfallPalette);
@@ -323,7 +320,6 @@ void WideGraph::on_spec2dComboBox_currentIndexChanged(int index)
   ui->widePlot->setLinearAvg(false);
   ui->widePlot->setReference(false);
   ui->widePlot->setQ65_Sync(false);
-  ui->widePlot->setQ65_MultiSync(false);
   ui->smoSpinBox->setEnabled(false);
   switch (index)
     {
@@ -342,9 +338,6 @@ void WideGraph::on_spec2dComboBox_currentIndexChanged(int index)
       break;
     case 4:
       ui->widePlot->setQ65_Sync(true);
-      break;
-    case 5:
-      ui->widePlot->setQ65_MultiSync(true);
       break;
   }
   replot();

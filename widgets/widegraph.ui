@@ -340,11 +340,6 @@
           <string>Q65_Sync</string>
          </property>
         </item>
-        <item>
-         <property name="text">
-          <string>Q65_MultiSync</string>
-         </property>
-        </item>
        </widget>
       </item>
       <item row="0" column="2">
