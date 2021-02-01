@@ -12,10 +12,11 @@ module q65
   integer codewords(63,206)
   integer ibwa,ibwb,ncw,nsps,mode_q65,nfa,nfb
   integer idf,idt,ibw
-  integer istep,nsmo,lag1,lag2,npasses,nused,iseq
+  integer istep,nsmo,lag1,lag2,npasses,nused,iseq,ncand
   integer i0,j0
   integer navg(0:1)
   logical lnewdat
+  real candidates(20,3)                    !snr, xdt, and f0 of top candidates
   real,allocatable,save :: s1a(:,:,:)      !Cumulative symbol spectra
   real sync(85)                            !sync vector
   real df,dtstep,dtdec,f0dec,ftol
@@ -394,8 +395,11 @@ subroutine q65_ccf_22(s1,iz,jz,nfqso,ipk,jpk,f0,xdt,ccf2)
   real s1(iz,jz)
   real ccf2(iz)                               !Orange sync curve
   real, allocatable :: xdt2(:)
+  integer, allocatable :: indx(:)
 
   allocate(xdt2(iz))
+  allocate(indx(iz))
+
   ccfbest=0.
   ibest=0
   lagpk=0
@@ -425,10 +429,28 @@ subroutine q65_ccf_22(s1,iz,jz,nfqso,ipk,jpk,f0,xdt,ccf2)
      endif
   enddo
 
+! Parameters for the top candidate:
   ipk=ibest - i0
   jpk=lagbest
   f0=nfqso + ipk*df
   xdt=jpk*dtstep
+
+! Save parameters for best candidates
+  i1=nfa/df
+  i2=nfb/df
+  jzz=i2-i1+1
+  call pctile(ccf2(i1:i2),jzz,40,base)
+  ccf2=ccf2/base
+  call indexx(ccf2(i1:i2),jzz,indx)
+  ncand=0
+  do j=1,20
+     i=indx(jzz-j+1)+i1-1
+     if(ccf2(i).lt.3.0) exit
+     ncand=ncand+1
+     candidates(ncand,1)=ccf2(i)
+     candidates(ncand,2)=xdt2(i)
+     candidates(ncand,3)=i*df
+  enddo
 
   return
 end subroutine q65_ccf_22

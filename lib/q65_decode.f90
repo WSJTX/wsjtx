@@ -135,18 +135,12 @@ contains
     call timer('q65_dec0',1)
 
     if(idec.ge.0) then
-       dtdec=xdt                          !We have a list-decode result
+       dtdec=xdt                        !We have a list-decode result at nfqso
        f0dec=f0
        go to 100
     endif
 
-!    if(snr1.lt.2.8) then
-!       dtdec=0.                   !No reliable sync, abandon decoding attempt
-!       f0dec=0.
-!       go to 100
-!    endif
-
-! Prepare for a single-period decode woth iaptype = 0, 1, or 2  (also 4?)
+! Prepare for a single-period decode with iaptype = 0, 1, 2, or 4
     jpk0=(xdt+1.0)*6000                      !Index of nominal start of signal
     if(ntrperiod.le.30) jpk0=(xdt+0.5)*6000  !For shortest sequences
     if(jpk0.lt.0) jpk0=0
@@ -203,7 +197,7 @@ contains
        go to 100
     endif
 
-! There was no 'q3n' decode.  Try for a 'q[012]n' decode.
+! There was no 'q3n' decode.  Try for a 'q[0124]n' decode.
 ! Call top-level routine in q65 module: establish sync and try for a q[012]n
 ! decode, this time using the cumulative 's1a' symbol spectra.
 
@@ -267,6 +261,11 @@ contains
             idec,0,ntrperiod)
     endif
     navg0=1000*navg(0) + navg(1)
+
+!    do icand=1,ncand
+!       write(72,3072) icand,candidates(icand,1:3)
+!3072   format(i2,3f10.3)
+!    enddo
 
     return
   end subroutine decode
