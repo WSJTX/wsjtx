@@ -25,7 +25,7 @@ namespace
 
 void HRDTransceiver::register_transceivers (logger_type *,
                                             TransceiverFactory::Transceivers * registry,
-                                            int id)
+                                            unsigned id)
 {
   (*registry)[HRD_transceiver_name] = TransceiverFactory::Capabilities (id, TransceiverFactory::Capabilities::network, true, true /* maybe */);
 }

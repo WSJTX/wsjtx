@@ -76,7 +76,7 @@ OmniRig::RigParamX OmniRigTransceiver::map_mode (MODE mode)
 
 void OmniRigTransceiver::register_transceivers (logger_type *,
                                                 TransceiverFactory::Transceivers * registry,
-                                                int id1, int id2)
+                                                unsigned id1, unsigned id2)
 {
   (*registry)[OmniRig_transceiver_one_name] = TransceiverFactory::Capabilities {
     id1

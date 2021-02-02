@@ -35,7 +35,7 @@ public:
   {
     enum PortType {none, serial, network, usb};
 
-    explicit Capabilities (int model_number = 0
+    explicit Capabilities (unsigned model_number = 0
                            , PortType port_type = none
                            , bool has_CAT_PTT = false
                            , bool has_CAT_PTT_mic_data = false
@@ -50,7 +50,7 @@ public:
     {
     }
 
-    int model_number_;
+    unsigned model_number_;
     PortType port_type_;
     bool has_CAT_PTT_;
     bool has_CAT_PTT_mic_data_;

@@ -39,7 +39,7 @@ namespace
 
 void DXLabSuiteCommanderTransceiver::register_transceivers (logger_type * /*logger*/,
                                                             TransceiverFactory::Transceivers * registry,
-                                                            int id)
+                                                            unsigned id)
 {
   (*registry)[commander_transceiver_name] = TransceiverFactory::Capabilities {id, TransceiverFactory::Capabilities::network, true};
 }
