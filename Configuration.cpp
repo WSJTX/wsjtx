@@ -2992,13 +2992,18 @@ void Configuration::impl::load_network_interfaces (CheckableItemComboBox * combo
       auto flags = QNetworkInterface::IsUp | QNetworkInterface::CanMulticast;
       if ((net_if.flags () & flags) == flags)
         {
+          bool check_it = current.contains (net_if.name ());
           if (net_if.flags () & QNetworkInterface::IsLoopBack)
             {
               loopback_interface_name_ = net_if.name ();
+              if (!current.size ())
+                {
+                  check_it = true;
+                }
             }
           auto item = combo_box->addCheckItem (net_if.humanReadableName ()
                                                , net_if.name ()
-                                               , current.contains (net_if.name ()) ? Qt::Checked : Qt::Unchecked);
+                                               , check_it ? Qt::Checked : Qt::Unchecked);
           auto tip = QString {"name(index): %1(%2) - %3"}.arg (net_if.name ()).arg (net_if.index ())
                        .arg (net_if.flags () & QNetworkInterface::IsUp ? "Up" : "Down");
           auto hw_addr = net_if.hardwareAddress ();

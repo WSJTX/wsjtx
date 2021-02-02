@@ -5,7 +5,7 @@
 #include <iterator>
 #include <algorithm>
 #include <ios>
-#include <locale.h>
+#include <locale>
 #include <fftw3.h>
 
 #include <QSharedMemory>
@@ -115,7 +115,7 @@ int main(int argc, char *argv[])
 
   auto const env = QProcessEnvironment::systemEnvironment ();
 
-  QApplication a(argc, argv);
+  ExceptionCatchingApplication a(argc, argv);
   try
     {
       // LOG_INfO ("+++++++++++++++++++++++++++ Resources ++++++++++++++++++++++++++++");
@@ -129,10 +129,13 @@ int main(int argc, char *argv[])
       // LOG_INFO ("--------------------------- Resources ----------------------------");
 
       QLocale locale;              // get the current system locale
-      setlocale (LC_NUMERIC, "C"); // ensure number forms are in
-                                   // consistent format, do this after
-                                   // instantiating QApplication so
-                                   // that GUI has correct l18n
+
+      // Set C/C++ locale used for logging etc.
+#if defined (Q_OS_WIN)
+      std::locale::global (std::locale ("C"));
+#else
+      std::locale::global (std::locale ("en_US.UTF-8"));
+#endif
 
       // Override programs executable basename as application name.
       a.setApplicationName ("WSJT-X");
@@ -397,7 +400,7 @@ int main(int argc, char *argv[])
                                               a.translate ("main", "Unable to create shared memory segment"));
                 throw std::runtime_error {"Shared memory error"};
               }
-              LOG_INFO ("shmem size:" << mem_jt9.size ());
+              LOG_INFO ("shmem size: " << mem_jt9.size ());
             }
           else
             {

@@ -57,7 +57,7 @@ namespace
     void operator () (std::logic_error const& e) const
     {
       std::cout << "std::logic_error: " << e.what () << std::endl;
-      //throw;
+      throw;
     }
   };
 
@@ -102,11 +102,6 @@ namespace
           << boost::log::add_value ("File", file)
           << boost::log::add_value ("Function", function)
           << context.category << ": " << msg.toStdWString ();
-      }
-    if (QtFatalMsg == type)
-      {
-        // bail out
-        throw std::runtime_error {"Fatal Qt Error"};
       }
   }
 }

@@ -149,7 +149,7 @@ void DXLabSuiteCommanderTransceiver::do_stop ()
 
 void DXLabSuiteCommanderTransceiver::do_ptt (bool on)
 {
-  CAT_TRACE (on << state ());
+  CAT_TRACE (on << ' ' << state ());
   if (use_for_ptt_)
     {
       simple_command (on  ? "<command:5>CmdTX<parameters:0>" : "<command:5>CmdRX<parameters:0>");
@@ -204,7 +204,7 @@ void DXLabSuiteCommanderTransceiver::do_ptt (bool on)
 
 void DXLabSuiteCommanderTransceiver::do_frequency (Frequency f, MODE m, bool /*no_ignore*/)
 {
-  CAT_TRACE (f << state ());
+  CAT_TRACE (f << ' ' << state ());
   auto f_string = frequency_to_string (f);
   if (UNK != m && m != get_mode ())
     {
@@ -223,7 +223,7 @@ void DXLabSuiteCommanderTransceiver::do_frequency (Frequency f, MODE m, bool /*n
 
 void DXLabSuiteCommanderTransceiver::do_tx_frequency (Frequency tx, MODE mode, bool /*no_ignore*/)
 {
-  CAT_TRACE (tx << state ());
+  CAT_TRACE (tx << ' ' << state ());
   if (tx)
     {
       auto f_string = frequency_to_string (tx);
@@ -244,7 +244,7 @@ void DXLabSuiteCommanderTransceiver::do_tx_frequency (Frequency tx, MODE mode, b
 
 void DXLabSuiteCommanderTransceiver::do_mode (MODE m)
 {
-  CAT_TRACE (m << state ());
+  CAT_TRACE (m << ' ' << state ());
   auto m_string = map_mode (m);
   auto params =  ("<1:%1>" + m_string).arg (m_string.size ());
   simple_command (("<command:10>CmdSetMode<parameters:%1>" + params).arg (params.size ()));
@@ -444,7 +444,7 @@ QString DXLabSuiteCommanderTransceiver::command_with_reply (QString const& cmd)
   //     qDebug () << i << ":" << hex << int (result[i]);
   //   }
 
-  CAT_TRACE (cmd << "->" << QString {result});
+  CAT_TRACE (cmd << " -> " << QString {result});
   return result;                // converting raw UTF-8 bytes to QString
 }
 

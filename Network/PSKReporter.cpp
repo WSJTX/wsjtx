@@ -116,7 +116,7 @@ public:
 
   void handle_socket_error (QAbstractSocket::SocketError e)
   {
-    LOG_LOG_LOCATION (logger_, trace, "err: " << e);
+    LOG_LOG_LOCATION (logger_, warning, "socket error: " << socket_->errorString ());
     switch (e)
       {
       case QAbstractSocket::RemoteHostClosedError:

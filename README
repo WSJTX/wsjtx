@@ -11,11 +11,11 @@
                                                          
                                                          
                                                          
-Copyright (C) 2001 - 2019 by Joe Taylor, K1JT.
+Copyright (C) 2001 - 2021 by Joe Taylor, K1JT.
 
-WSJT-X Version 2.1 offers ten different protocols or modes: FT4, FT8,
-JT4, JT9, JT65, QRA64, ISCAT, MSK144, WSPR, and Echo. The first six
-are designed for making reliable QSOs under weak-signal
+WSJT-X Version 2.3 offers ten different protocols or modes: FT4, FT8,
+JT4, JT9, JT65, QRA64, FST4, ISCAT, MSK144, WSPR, FST4W, and Echo. The
+first seven are designed for making reliable QSOs under weak-signal
 conditions. They use nearly identical message structure and source
 encoding. JT65 and QRA64 were designed for EME (“moonbounce”) on the
 VHF/UHF bands and have also proven very effective for worldwide QRP
@@ -35,7 +35,12 @@ dB. FT4 is faster still (7.5 s T/R sequences) and especially well
 suited for radio contesting. On the HF bands, world-wide QSOs are
 possible with any of these modes using power levels of a few watts (or
 even milliwatts) and compromise antennas. QSOs are possible at signal
-levels 10 to 15 dB below those required for CW.
+levels 10 to 15 dB below those required for CW. FST4 has similarities
+in use to JT9 but offers more flexibility as it offers different
+period lengths allowing QSO completion time to be traded off against
+sensitivity. In its base form of FST4-60A it has better sensitivity
+than JT9A and should be considered as an upgrade where JT9 has been
+the preferred slow QSO mode.
 
 Note that even though their T/R sequences are short, FT4 and FT8 are
 classified as slow modes because their message frames are sent only
@@ -64,6 +69,11 @@ internet access can automatically upload reception reports to a
 central database called WSPRnet that provides a mapping facility,
 archival storage, and many other features.
 
+FST4W, like WSPR, is a quasi-beacon mode, it targets LF and MF bands
+and offers a number of T/R periods form 2 minutes up to 30 minutes for
+the most challenging weak signal paths. Similarly to WSPR reception
+reports can be automatically uploaded to the WSPRnet.org web service.
+
 Echo mode allows you to detect and measure your own station’s echoes
 from the moon, even if they are far below the audible threshold.
 
@@ -78,11 +88,12 @@ WSJT-X is an open-source project released under the GPLv3 license (See
 COPYING). If you have programming or documentation skills or would
 like to contribute to the project in other ways, please make your
 interests known to the development team.  The project’s source-code
-repository can be found at https://sourceforge.net/projects/wsjt, and
+repositories can be found at
+https://sourceforge.net/p/wsjt/wsjtx/ci/master/tree/, and
 communication among the developers takes place on the email reflector
 https://sourceforge.net/p/wsjt/mailman.  User-level questions and
 answers, and general communication among users is found on the
-https://groups.yahoo.com/neo/groups/wsjtgroup/info email reflector.
+https://wsjtx.groups.io/g/main email reflector.
 
 
 Project web site:
@@ -92,4 +103,4 @@ https://www.physics.princeton.edu/pulsar/K1JT/wsjtx.html
 Project mailing list (shared with other applications from the same
 team):
 
-https://groups.yahoo.com/neo/groups/wsjtgroup
+https://sourceforge.net/projects/wsjt/lists/wsjt-devel
