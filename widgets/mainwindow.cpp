@@ -3054,6 +3054,7 @@ void MainWindow::on_ClrAvgButton_clicked()
   if(m_msgAvgWidget != NULL) {
     if(m_msgAvgWidget->isVisible()) m_msgAvgWidget->displayAvg("");
   }
+  if(m_mode=="Q65") ndecodes_label.setText("0  0");
 }
 
 void MainWindow::msgAvgDecode2()

@@ -1,4 +1,4 @@
-subroutine spec64(c0,nsps,mode,mode64,jpk,s3,LL,NN)
+subroutine spec64(c0,nsps,mode_q65,jpk,s3,LL,NN)
 
   parameter (MAXFFT=20736)
 !### Fix this:
@@ -11,41 +11,24 @@ subroutine spec64(c0,nsps,mode,mode64,jpk,s3,LL,NN)
   data isync/1,9,12,13,15,22,23,26,27,33,35,38,46,50,55,60,62,66,69,74,76,85/
 
   nfft=nsps
-
-  if(mode.eq.64) then
-     do j=1,NN
-        jj=j+7                                  !Skip first Costas array
-        if(j.ge.33) jj=j+14                     !Skip middle Costas array
-        ja=jpk + (jj-1)*nfft
-        jb=ja+nfft-1
-        cs(0:nfft-1)=c0(ja:jb)
-        call four2a(cs,nfft,1,-1,1)
-        do ii=1,LL
-           i=ii-65
-           if(i.lt.0) i=i+nfft
-           s3(ii,j)=real(cs(i))**2 + aimag(cs(i))**2
-        enddo
+  j=0
+  n=1
+  do k=1,84
+     if(k.eq.isync(n)) then
+        n=n+1
+        cycle
+     endif
+     j=j+1
+     ja=(k-1)*nsps + jpk
+     jb=ja+nsps-1
+     cs(0:nfft-1)=c0(ja:jb)
+     call four2a(cs,nsps,1,-1,1)             !c2c FFT to frequency
+     do ii=1,LL
+        i=ii-65+mode_q65      !mode_q65 = 1 2 4 8 16 for Q65 A B C D E
+        if(i.lt.0) i=i+nsps
+        s3(ii,j)=real(cs(i))**2 + aimag(cs(i))**2
      enddo
-  else
-     j=0
-     n=1
-     do k=1,84
-        if(k.eq.isync(n)) then
-           n=n+1
-           cycle
-        endif
-        j=j+1
-        ja=(k-1)*nsps + jpk
-        jb=ja+nsps-1
-        cs(0:nfft-1)=c0(ja:jb)
-        call four2a(cs,nsps,1,-1,1)             !c2c FFT to frequency
-        do ii=1,LL
-           i=ii-65+mode64      !mode64 = 1 2 4 8 16 for Q65 A B C D E
-           if(i.lt.0) i=i+nsps
-           s3(ii,j)=real(cs(i))**2 + aimag(cs(i))**2
-        enddo
-     enddo
-  endif
+  enddo
 
   df=6000.0/nfft
   do i=1,LL

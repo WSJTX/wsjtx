@@ -1,50 +1,78 @@
 Mode: Q65-30A 
-Data: 30A_K1JT_6m_Ionoscatter (62 files, DT 0.1 to 0.4) 
+Data: 30A_K1JT_6m_Ionoscatter (62 files, 6m ionoscatter DT 0.1 to 0.4) 
 Message: "K1JT K9AN R-16"
 RxFreq: 1000/10
 
-Commit     No_AP  MyCall BothCalls
------------------------------------
-ef4787:    3 10    6 14    30 33
-ada5a6:    3  6    6 10    29 36
+Commit        No_AP       MyCall     BothCalls
+-----------------------------------------------
+ef4787:    3 10         6 14        30 33
+ada5a6:    3  6         6 10        29 36
+10f574:    2  7  97.6   6 10 95.4   21 33 80.7
+b8ea4c:    2  7 100.5   6 10 96.9   21 33 81.0
 
 Mode: Q65-30A
-Data: 30A_N0AN_6m_Ionoscatter (69 files, DT=0 to 0.1)
+Data: 30A_N0AN_6m_Ionoscatter (69 files, 6m ionoscatter)
 Message: "N0AN K1JT -19"
 RxFreq: 1500/10
 
-Commit     No_AP  MyCall BothCalls
------------------------------------
-ef4787:    7 14   16 22    38 40
-70a348:                    38 43
-ada5a6:   10 17   11 23    40 46
+Commit        No_AP       MyCall      BothCalls
+------------------------------------------------
+ef4787:    7 14        16 22        38 40
+70a348:                             38 43
+ada5a6:   10 17        11 23        40 46
+10f574:    8 16 99.4   15 24 91.8   34 44 68.8
+b8ea4c:    8 16 96.0   15 23 92.4   34 44 68.8
 
 Mode: Q65-60B
 Data: 60B_1296_Troposcatter (75 files)
 Message: "VK7MO VK7PD QE38"
 RxFreq: 1000/10
 
-Commit     No_AP  MyCall BothCalls
------------------------------------
-ef4787:    1  2    11 23    64 67
-ada5a6:    1  5    14 28    64 67
+Commit        No_AP       MyCall       BothCalls
+--------------------------------------------------
+ef4787:    1  2         11 23         64 67
+ada5a6:    1  5         14 28         64 67
+10f574:    1  5 142.7   11 27 129.8   65 67 36.8
+b8ea4c:    1  5 144.3   11 27 132.2   65 67 39.3
 
 Mode: Q65-60D
 Data: MsgAvg (22 files, simulated fDop = 50 Hz)
 Message: "K1ABC W9XYZ EN37"
 RxFreq: 1000/10
 
-Commit     No_AP   MyCall BothCalls
------------------------------------
-ef4787:    0 10    21 21    22 22
-ada5a6     0 11    21 21    22 22
+Commit        No_AP       MyCall     BothCalls
+------------------------------------------------
+ef4787:    0 10        21 21        22 22
+ada5a6     0 11        21 21        22 22
+10f574:    0 11 47.7   21 21 33.9   22 22 11.6
+b8ea4c:    0 11 46.4   21 21 33.8   22 22 11.9
 
 Mode: Q65-60D
-Data: Nil Average (40 files, simulated fDop = 0? Hz )
+Data: 60D_2 (21 files, 1296 troposcatter)
 Message: "VK7MO VK3WE QF32"
-RxFreq: 1200/20
-Requires nsmo=1 ###
+RxFreq: 1000/20
 
-Commit     No_AP  MyCall BothCalls
------------------------------------
-ef4787:    1 16    24 28    39 39
+Commit       No_AP       MyCall     BothCalls
+----------------------------------------------
+10f574:    5  5 33.6   7  8 31.8   12 14 25.1
+b8ea4v:    5  5 39.1   7  8 38.0   13 14 30.8
+
+Mode: Q65-120D
+Data: 120D  (14 files, 10 GHz troposcatter)
+Message: "VK7MO VK3WE QF32"
+RxFreq: 1000/20
+
+Commit       No_AP       MyCall     BothCalls
+----------------------------------------------
+10f574:    0  0 24.9   0  0 25.0    1  4 25.0
+b8ea4v:    0  0 39.1   0  0 25.4    1  5 40.1
+
+Mode: Q65-60D
+Data: 60D_10_GHz_EME (14 files)
+Message: "VK7MO K6QPV DM12", "VK7MO K6QPV -15"
+RxFreq: 1000/50
+
+Commit       No_AP       MyCall     BothCalls
+----------------------------------------------
+10f574:    9 10 13.6  10 11 12.7   14 14  7.1
+b8ea4v:    9 10 13.7  10 11 12.6   14 14  7.5

@@ -11,12 +11,15 @@ module q65
                                      38,46,50,55,60,62,66,69,74,76,85/)
   integer codewords(63,206)
   integer ibwa,ibwb,ncw,nsps,mode_q65,nfa,nfb
-  integer istep,nsmo,lag1,lag2,npasses,nused,iseq
+  integer idf,idt,ibw
+  integer istep,nsmo,lag1,lag2,npasses,nused,iseq,ncand
   integer i0,j0
   integer navg(0:1)
+  logical lnewdat
+  real candidates(20,3)                    !snr, xdt, and f0 of top candidates
   real,allocatable,save :: s1a(:,:,:)      !Cumulative symbol spectra
   real sync(85)                            !sync vector
-  real df,dtstep,dtdec,f0dec
+  real df,dtstep,dtdec,f0dec,ftol
 
 contains
 
@@ -59,9 +62,8 @@ subroutine q65_dec0(iavg,nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
   logical first,lclearave
   real, allocatable :: s1(:,:)           !Symbol spectra, 1/8-symbol steps
   real, allocatable :: s3(:,:)           !Data-symbol energies s3(LL,63)
-  real, allocatable :: ccf(:,:)          !CCF(freq,lag)
-  real, allocatable :: ccf1(:)           !CCF(freq) at best lag
-  real, allocatable :: ccf2(:)           !CCF(freq) at any lag
+  real, allocatable :: ccf1(:)           !CCF(freq) at fixed lag (red)
+  real, allocatable :: ccf2(:)           !Max CCF(freq) at any lag (orange)
   data first/.true./
   save first
 
@@ -80,6 +82,7 @@ subroutine q65_dec0(iavg,nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
   txt=85.0*nsps/12000.0
   jz=(txt+1.0)*12000.0/istep             !Number of symbol/NSTEP bins
   if(nsps.ge.6912) jz=(txt+2.0)*12000.0/istep   !For TR 60 s and higher
+  ftol=ntol
   ia=ntol/df
   ia2=max(ia,10*mode_q65,nint(100.0/df))
   nsmo=int(0.7*mode_q65*mode_q65)
@@ -93,9 +96,8 @@ subroutine q65_dec0(iavg,nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
 
   allocate(s1(iz,jz))
   allocate(s3(-64:LL-65,63))
-  allocate(ccf(-ia2:ia2,-53:214))
   allocate(ccf1(-ia2:ia2))
-  allocate(ccf2(-ia2:ia2))
+  allocate(ccf2(iz))
   if(LL.ne.LL0 .or. iz.ne.iz0 .or. jz.ne.jz0 .or. lclearave) then
      if(allocated(s1a)) deallocate(s1a)
      allocate(s1a(iz,jz,0:1))
@@ -140,59 +142,36 @@ subroutine q65_dec0(iavg,nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
 ! Try list decoding via "Deep Likelihood".
      call timer('ccf_85  ',0)
 ! Try to synchronize using all 85 symbols
-     call q65_ccf_85(s1,iz,jz,nfqso,ia,ia2,ipk,jpk,f0,xdt,imsg_best,ccf,ccf1)
+     call q65_ccf_85(s1,iz,jz,nfqso,ia,ia2,ipk,jpk,f0,xdt,imsg_best,ccf1)
      call timer('ccf_85  ',1)
 
      call timer('list_dec',0)
      call q65_dec_q3(s1,iz,jz,s3,LL,ipk,jpk,snr2,dat4,idec,decoded)
      call timer('list_dec',1)
-     if(idec.ne.0) then
-        ic=ia2/4;
-        base=(sum(ccf1(-ia2:-ia2+ic)) + sum(ccf1(ia2-ic:ia2)))/(2.0+2.0*ic);
-        ccf1=ccf1-base
-        smax=maxval(ccf1)
-        if(smax.gt.10.0) ccf1=10.0*ccf1/smax
-        base=(sum(ccf2(-ia2:-ia2+ic)) + sum(ccf2(ia2-ic:ia2)))/(2.0+2.0*ic);
-        ccf2=ccf2-base
-        smax=maxval(ccf2)
-        if(smax.gt.10.0) ccf2=10.0*ccf2/smax
-     endif
   endif
 
 ! Get 2d CCF and ccf2 using sync symbols only
-  call q65_ccf_22(s1,iz,jz,nfqso,ia,ia2,ipk,jpk,f0a,xdta,ccf,ccf2)
+  call q65_ccf_22(s1,iz,jz,nfqso,ipk,jpk,f0a,xdta,ccf2)
   if(idec.lt.0) then
      f0=f0a
      xdt=xdta
   endif
 
-! Estimate rms on ccf baseline
-  sq=0.
-  nsq=0
-  jd=(lag2-lag1)/4
-  do i=-ia2,ia2
-     do j=lag1,lag2
-        if(abs(j-jpk).gt.jd .and. abs(i-ipk).gt.ia/2) then
-           sq=sq + ccf(i,j)**2
-           nsq=nsq+1
-        endif
-     enddo
-  enddo
-  rms=sqrt(sq/nsq)
-  smax=ccf(ipk,jpk)
-  snr1=smax/rms
-  ccf2=ccf2/rms
-  if(snr1.gt.10.0) ccf2=(10.0/snr1)*ccf2
+! Estimate rms on ccf2 baseline
+  call q65_sync_curve(ccf2,1,iz,rms2)
+  smax=maxval(ccf2)
+  snr1=0.
+  if(rms2.gt.0) snr1=smax/rms2
 
   if(idec.le.0) then
-! The q3 decode attempt failed. Copy synchronied symbol spectra from s1
+! The q3 decode attempt failed. Copy synchronized symbol energies from s1
 ! into s3 and prepare to try a more general decode.
-     ccf1=ccf(:,jpk)/rms
-     if(snr1.gt.10.0) ccf1=(10.0/snr1)*ccf1
      call q65_s1_to_s3(s1,iz,jz,ipk,jpk,LL,mode_q65,sync,s3)
   endif
 
   smax=maxval(ccf1)
+
+! Estimate frequenct spread
   i1=-9999
   i2=-9999
   do i=-ia,ia
@@ -201,16 +180,8 @@ subroutine q65_dec0(iavg,nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
   enddo
   width=df*(i2-i1)
 
-! Write data for the red and orange sync curves.
-  do i=-ia2,ia2
-     freq=nfqso + i*df
-     if(freq.ge.float(nfa) .and. freq.le.float(nfb)) then
-        write(17,1100) freq,ccf1(i),xdt,ccf2(i)
-1100    format(4f10.3)
-     endif
-  enddo
-  rewind 17
-
+  if(ncw.eq.0) ccf1=0.
+  call q65_write_red(iz,ia2,xdt,ccf1,ccf2)
 
   if(iavg.eq.2) then
      call q65_dec_q012(s3,LL,snr2,dat4,idec,decoded)
@@ -261,43 +232,31 @@ subroutine q65_symspec(iwave,nmax,iz,jz,s1)
         call smo121(s1(1:iz,j),iz)
      enddo
   enddo
-  s1a(:,:,iseq)=s1a(:,:,iseq) + s1
-  navg(iseq)=navg(iseq) + 1
+  if(lnewdat) then
+     s1a(:,:,iseq)=s1a(:,:,iseq) + s1
+     navg(iseq)=navg(iseq) + 1
+  endif
 
   return
 end subroutine q65_symspec
 
 subroutine q65_dec_q3(s1,iz,jz,s3,LL,ipk,jpk,snr2,dat4,idec,decoded)
 
-! Copy synchronized symbol spectra from s1 into s3, then attempt a q3 decode.
+! Copy synchronized symbol energies from s1 into s3, then attempt a q3 decode.
 
   character*37 decoded
   integer dat4(13)
   real s1(iz,jz)
   real s3(-64:LL-65,63)
 
-  i1=i0+ipk-64
-  i2=i1+LL-1
-  j=j0+jpk-7
-  n=0
-  do k=1,85
-     j=j+8
-     if(sync(k).gt.0.0) then
-        cycle
-     endif
-     n=n+1
-     if(j.ge.1 .and. j.le.jz) then
-        do i=0,LL-1
-           s3(i-64,n)=s1(i+i1,j)              !Copy from s1 into s3
-        enddo
-     endif
-  enddo
+  call q65_s1_to_s3(s1,iz,jz,ipk,jpk,LL,mode_q65,sync,s3)
 
   nsubmode=0
   if(mode_q65.eq.2) nsubmode=1
   if(mode_q65.eq.4) nsubmode=2
   if(mode_q65.eq.8) nsubmode=3
   if(mode_q65.eq.16) nsubmode=4
+  if(mode_q65.eq.32) nsubmode=5
   baud=12000.0/nsps
 
   do ibw=ibwa,ibwb
@@ -366,17 +325,18 @@ subroutine q65_dec_q012(s3,LL,snr2,dat4,idec,decoded)
 100 return
 end subroutine q65_dec_q012
 
-subroutine q65_ccf_85(s1,iz,jz,nfqso,ia,ia2,ipk,jpk,f0,xdt,imsg_best,ccf,ccf1)
+subroutine q65_ccf_85(s1,iz,jz,nfqso,ia,ia2,ipk,jpk,f0,xdt,imsg_best,ccf1)
 
 ! Attempt synchronization using all 85 symbols, in advance of an
 ! attempt at q3 decoding.  Return ccf1 for the "red sync curve".
   
   real s1(iz,jz)
-  real ccf(-ia2:ia2,-53:214)
+  real, allocatable :: ccf(:,:)          !CCF(freq,lag)
   real ccf1(-ia2:ia2)
   integer ijpk(2)
   integer itone(85)
-  
+
+  allocate(ccf(-ia2:ia2,-53:214))
   ipk=0
   jpk=0
   ccf_best=0.
@@ -387,10 +347,10 @@ subroutine q65_ccf_85(s1,iz,jz,nfqso,ia,ia2,ipk,jpk,f0,xdt,imsg_best,ccf,ccf1)
      do j=1,85
         if(j.eq.isync(i)) then
            i=i+1
-           itone(j)=-1
+           itone(j)=0
         else
            k=k+1
-           itone(j)=codewords(k,imsg)
+           itone(j)=codewords(k,imsg) + 1
         endif
      enddo
 
@@ -416,47 +376,89 @@ subroutine q65_ccf_85(s1,iz,jz,nfqso,ia,ia2,ipk,jpk,f0,xdt,imsg_best,ccf,ccf1)
         ijpk=maxloc(ccf(-ia:ia,:))
         ipk=ijpk(1)-ia-1
         jpk=ijpk(2)-53-1
-        f0=nfqso + (ipk-mode_q65)*df
+        f0=nfqso + ipk*df
         xdt=jpk*dtstep
         imsg_best=imsg
         ccf1=ccf(:,jpk)
      endif
   enddo  ! imsg
+  deallocate(ccf)
 
   return
 end subroutine q65_ccf_85
 
-subroutine q65_ccf_22(s1,iz,jz,nfqso,ia,ia2,ipk,jpk,f0,xdt,ccf,ccf2)
+subroutine q65_ccf_22(s1,iz,jz,nfqso,ipk,jpk,f0,xdt,ccf2)
 
 ! Attempt synchronization using only the 22 sync symbols.  Return ccf2
 ! for the "orange sync curve".
-  
-  real s1(iz,jz)
-  real ccf(-ia2:ia2,-53:214)
-  real ccf2(-ia2:ia2)
-  integer ijpk(2)
 
-  ccf=0.
-  do lag=lag1,lag2
-     do k=1,85
-        n=NSTEP*(k-1) + 1
-        j=n+lag+j0
-        if(j.ge.1 .and. j.le.jz) then
-           do i=-ia2,ia2
-              if(i0+i.lt.1 .or. i0+i.gt.iz) cycle
-              ccf(i,lag)=ccf(i,lag) + sync(k)*s1(i0+i,j)
-           enddo
+  real s1(iz,jz)
+  real ccf2(iz)                               !Orange sync curve
+  real, allocatable :: xdt2(:)
+  integer, allocatable :: indx(:)
+
+  allocate(xdt2(iz))
+  allocate(indx(iz))
+
+  ccfbest=0.
+  ibest=0
+  lagpk=0
+  lagbest=0
+  do i=1,iz
+     ccfmax=0.
+     do lag=lag1,lag2
+        ccft=0.
+        do k=1,85
+           n=NSTEP*(k-1) + 1
+           j=n+lag+j0
+           if(j.ge.1 .and. j.le.jz) then
+              ccft=ccft + sync(k)*s1(i,j)
+           endif
+        enddo
+        if(ccft.gt.ccfmax) then
+           ccfmax=ccft
+           lagpk=lag
         endif
      enddo
+     ccf2(i)=ccfmax
+     xdt2(i)=lagpk*dtstep
+     if(ccfmax.gt.ccfbest .and. abs(i*df-nfqso).le.ftol) then
+        ccfbest=ccfmax
+        ibest=i
+        lagbest=lagpk
+     endif
   enddo
-  do i=-ia2,ia2
-     ccf2(i)=maxval(ccf(i,:))
-  enddo
-  ijpk=maxloc(ccf(-ia:ia,:))
-  ipk=ijpk(1)-ia-1
-  jpk=ijpk(2)-53-1
+
+! Parameters for the top candidate:
+  ipk=ibest - i0
+  jpk=lagbest
   f0=nfqso + ipk*df
   xdt=jpk*dtstep
+
+! Save parameters for best candidates
+  i1=max(nfa,100)/df
+  i2=min(nfb,4900)/df
+  jzz=i2-i1+1
+  call pctile(ccf2(i1:i2),jzz,40,base)
+  ccf2=ccf2/base
+  call indexx(ccf2(i1:i2),jzz,indx)
+  ncand=0
+  maxcand=20
+  do j=1,20
+     i=indx(jzz-j+1)+i1-1
+     if(ccf2(i).lt.3.4) exit                !Candidate limit
+     f=i*df
+     if(f.ge.(nfqso-ftol) .and. f.le.(nfqso+ftol)) cycle
+     i3=max(1,i-67*mode_q65)
+     i4=min(iz,i+3*mode_q65)
+     biggest=maxval(ccf2(i3:i4))
+     if(ccf2(i).ne.biggest) cycle
+     ncand=ncand+1
+     candidates(ncand,1)=ccf2(i)
+     candidates(ncand,2)=xdt2(i)
+     candidates(ncand,3)=f
+     if(ncand.ge.maxcand) exit
+  enddo
 
   return
 end subroutine q65_ccf_22
@@ -538,5 +540,53 @@ subroutine q65_s1_to_s3(s1,iz,jz,ipk,jpk,LL,mode_q65,sync,s3)
 
   return
 end subroutine q65_s1_to_s3
+
+subroutine q65_write_red(iz,ia2,xdt,ccf1,ccf2)
+
+! Write data for the red and orange sync curves to LU 17.
+
+  real ccf1(-ia2:ia2)
+  real ccf2(iz)
+
+  call q65_sync_curve(ccf1,-ia2,ia2,rms1)
+  call q65_sync_curve(ccf2,1,iz,rms2)
+
+  rewind 17
+  write(17,1000) xdt
+  do i=1,iz
+     freq=i*df
+     ii=i-i0
+     if(freq.ge.float(nfa) .and. freq.le.float(nfb)) then
+        ccf1a=-99.0
+        if(ii.ge.-ia2 .and. ii.le.ia2) ccf1a=ccf1(ii)
+        write(17,1000) freq,ccf1a,ccf2(i)
+1000    format(3f10.3)
+     endif
+  enddo
+
+  return
+end subroutine q65_write_red
+
+subroutine q65_sync_curve(ccf1,ia,ib,rms1)
+
+! Condition the red or orange sync curve for plotting.
+
+  real ccf1(ia:ib)
+
+  ic=(ib-ia)/8;
+  nsum=2*(ic+1)
+
+  base1=(sum(ccf1(ia:ia+ic)) + sum(ccf1(ib-ic:ib)))/nsum
+  ccf1=ccf1-base1
+  sq=dot_product(ccf1(ia:ia+ic),ccf1(ia:ia+ic)) +         &
+       dot_product(ccf1(ib-ic:ib),ccf1(ib-ic:ib))
+  rms1=0.
+  if(nsum.gt.0) rms1=sqrt(sq/nsum)
+  if(rms1.gt.0.0) ccf1=2.0*ccf1/rms1
+  smax1=maxval(ccf1)
+  if(smax1.gt.10.0) ccf1=10.0*ccf1/smax1
+
+  return
+end subroutine q65_sync_curve
 
 end module q65

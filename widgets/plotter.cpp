@@ -141,7 +141,7 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
 //move current data down one line (must do this before attaching a QPainter object)
   if(bScroll and !m_bReplot) m_WaterfallPixmap.scroll(0,1,0,0,m_w,m_h1);
   QPainter painter1(&m_WaterfallPixmap);
-  if(m_bFirst or bRed or (!m_bQ65_Sync and !m_bQ65_MultiSync) or m_mode!=m_mode0
+  if(m_bFirst or bRed or !m_bQ65_Sync or m_mode!=m_mode0
      or m_bResized or m_rxFreq!=m_rxFreq0) {
     m_2DPixmap = m_OverlayPixmap.copy(0,0,m_w,m_h2);
     m_bFirst=false;
@@ -165,6 +165,7 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
   }
   static QPoint LineBuf[MAX_SCREENSIZE];
   static QPoint LineBuf2[MAX_SCREENSIZE];
+  static QPoint LineBuf3[MAX_SCREENSIZE];
   j=0;
   j0=int(m_startFreq/m_fftBinWidth + 0.5);
   int iz=XfromFreq(5000.0);
@@ -229,7 +230,7 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
 
     }
 
-    if(i==iz-1 and !m_bQ65_Sync and !m_bQ65_MultiSync) {
+    if(i==iz-1 and !m_bQ65_Sync) {
       painter2D.drawPolyline(LineBuf,j);
     }
     LineBuf[j].setX(i);
@@ -273,28 +274,37 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
     painter2D.drawText(x1-4,y,"73");
   }
 
-  if(bRed and (m_bQ65_Sync or m_bQ65_MultiSync)) {      //Plot the Q65 red or orange sync curve
+  if(bRed and m_bQ65_Sync) {      //Plot the Q65 red or orange sync curve
     int k=0;
+    int k2=0;
     std::ifstream f;
     f.open(m_redFile.toLatin1());
     if(f) {
       int x,y;
-      float freq,sync,xdt,sync2;
+      float freq,xdt,sync,sync2;
+      f >> xdt;
       for(int i=0; i<99999; i++) {
-        f >> freq >> sync >> xdt >> sync2;
+        f >> freq >> sync >> sync2;
         if(f.eof()) break;
         x=XfromFreq(freq);
-        if(m_bQ65_MultiSync) sync=sync2;
-        y=m_h2*(0.9 - 0.09*gain2d*sync) - m_plot2dZero;
-        LineBuf2[k].setX(x);
-        LineBuf2[k].setY(y);
+        if(sync > -99.0 and sync != 0.0) {
+          y=m_h2*(0.9 - 0.09*gain2d*sync) - m_plot2dZero - 10;
+          LineBuf2[k2].setX(x);                          //Red sync curve
+          LineBuf2[k2].setY(y);
+          k2++;
+        }
+        y=m_h2*(0.9 - 0.09*gain2d*sync2) - m_plot2dZero;
+        LineBuf3[k].setX(x);                            //Orange sync curve
+        LineBuf3[k].setY(y);
         k++;
       }
       f.close();
      QPen pen0(Qt::red,2);
-     if(m_bQ65_MultiSync) pen0.setColor("orange");
       painter2D.setPen(pen0);
-      painter2D.drawPolyline(LineBuf2,k);
+      painter2D.drawPolyline(LineBuf2,k2);
+      pen0.setColor("orange");
+      painter2D.setPen(pen0);
+      painter2D.drawPolyline(LineBuf3,k);
       if(m_bQ65_Sync) {
         QString t;
         t = t.asprintf("DT = %6.2f",xdt);

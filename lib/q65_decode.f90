@@ -26,9 +26,9 @@ module q65_decode
 
 contains
 
-  subroutine decode(this,callback,iwave,nutc,ntrperiod,nsubmode,nfqso,      &
-       ntol,ndepth,nfa0,nfb0,lclearave,emedelay,mycall,hiscall,hisgrid,       &
-       nQSOprogress,ncontest,lapcqonly,navg0)
+  subroutine decode(this,callback,iwave,nutc,ntrperiod,nsubmode,nfqso,   &
+       ntol,ndepth,nfa0,nfb0,lclearave,single_decode,lagain,lnewdat0,    &
+       emedelay,mycall,hiscall,hisgrid,nQSOprogress,ncontest,lapcqonly,navg0)
 
 ! Top-level routine that organizes the decoding of Q65 signals
 ! Input:  iwave            Raw data, i*2
@@ -49,6 +49,7 @@ contains
     use packjt77
     use, intrinsic :: iso_c_binding
     use q65                               !Shared variables
+    use prog_args
  
     parameter (NMAX=300*12000)            !Max TRperiod is 300 s
     class(q65_decoder), intent(inout) :: this
@@ -59,18 +60,26 @@ contains
     character*77 c77
     character*78 c78
     character*6 cutc
+    character c6*6,c4*4,cmode*4
+    character*80 fmt
     integer*2 iwave(NMAX)                 !Raw data
     real, allocatable :: dd(:)            !Raw data
     integer dat4(13)                      !Decoded message as 12 6-bit integers
     integer dgen(13)
-    logical lclearave,lapcqonly,unpk77_success
+    logical lclearave,lnewdat0,lapcqonly,unpk77_success
+    logical single_decode,lagain
     complex, allocatable :: c00(:)        !Analytic signal, 6000 Sa/s
     complex, allocatable :: c0(:)         !Analytic signal, 6000 Sa/s
 
 ! Start by setting some parameters and allocating storage for large arrays
+    call sec0(0,tdecode)
     nfa=nfa0
     nfb=nfb0
+    lnewdat=lnewdat0
     idec=-1
+    idf=0
+    idt=0
+    irc=0
     mode_q65=2**nsubmode
     npts=ntrperiod*12000
     nfft1=ntrperiod*12000
@@ -106,9 +115,12 @@ contains
     baud=12000.0/nsps
     this%callback => callback
     nFadingModel=1
-    ibwa=max(1,int(1.8*log(baud*mode_q65)) + 2)
-    ibwb=min(10,ibwa+4)
-    if(iand(ndepth,3).eq.3) then
+    ibwa=max(1,int(1.8*log(baud*mode_q65)) + 1)
+    ibwb=min(10,ibwa+3)
+    if(iand(ndepth,3).ge.2) then
+       ibwa=max(1,int(1.8*log(baud*mode_q65)) + 2)
+       ibwb=min(10,ibwa+5)
+    else if(iand(ndepth,3).eq.3) then
        ibwa=max(1,ibwa-1)
        ibwb=min(10,ibwb+1)
     endif
@@ -128,24 +140,16 @@ contains
     call timer('q65_dec0',1)
 
     if(idec.ge.0) then
-       dtdec=xdt                          !We have a list-decode result
+       dtdec=xdt                        !We have a list-decode result at nfqso
        f0dec=f0
        go to 100
     endif
 
-    if(snr1.lt.2.8) then
-       dtdec=0.                   !No reliable sync, abandon decoding attempt
-       f0dec=0.
-       go to 100
-    endif
-
-! Prepare for a single-period decode woth iaptype = 0, 1, or 2  (also 4?)
+! Prepare for a single-period decode with iaptype = 0, 1, 2, or 4
     jpk0=(xdt+1.0)*6000                      !Index of nominal start of signal
     if(ntrperiod.le.30) jpk0=(xdt+0.5)*6000  !For shortest sequences
     if(jpk0.lt.0) jpk0=0
-    fac=1.0/32767.0
-    dd=fac*iwave(1:npts)
-    call ana64(dd,npts,c00)              !Convert to complex c00() at 6000 Sa/s
+    call ana64(iwave,npts,c00)          !Convert to complex c00() at 6000 Sa/s
     call ft8apset(mycall,hiscall,ncontest,apsym0,aph10) ! Generate ap symbols
     where(apsym0.eq.-1) apsym0=0
 
@@ -196,7 +200,7 @@ contains
        go to 100
     endif
 
-! There was no 'q3n' decode.  Try for a 'q[012]n' decode.
+! There was no 'q3n' decode.  Try for a 'q[0124]n' decode.
 ! Call top-level routine in q65 module: establish sync and try for a q[012]n
 ! decode, this time using the cumulative 's1a' symbol spectra.
 
@@ -229,17 +233,109 @@ contains
        call this%callback(nutc,snr1,nsnr,dtdec,f0dec,decoded,    &
             idec,nused,ntrperiod)
        if(iand(ndepth,128).ne.0) call q65_clravg    !AutoClrAvg after decode
+       call sec0(1,tdecode)
+       open(22,file=trim(data_dir)//'/q65_decodes.dat',status='unknown',     &
+            position='append',iostat=ios)
+       if(ios.eq.0) then
+! Save decoding parameters to q65_decoded.dat, for later analysis.
+          write(cmode,'(i3)') ntrperiod
+          cmode(4:4)=char(ichar('A')+nsubmode)
+          c6=hiscall(1:6)
+          if(c6.eq.'      ') c6='<b>   '
+          c4=hisgrid(1:4)
+          if(c4.eq.'    ') c4='<b> '
+          fmt='(i6.4,1x,a4,5i2,3i3,f6.2,f7.1,f7.2,f6.1,f6.2,'//   &
+               '1x,a6,1x,a6,1x,a4,1x,a)'
+          if(ntrperiod.le.30) fmt(5:5)='6'
+          write(22,fmt) nutc,cmode,nQSOprogress,idec,idf,idt,ibw,nused,    &
+               icand,ncand,xdt,f0,snr1,snr2,tdecode,mycall(1:6),c6,c4,     &
+               trim(decoded)
+          close(22)
+       endif
     else
 ! Report snr1, even if no decode.
        nsnr=db(snr1) - 35.0
        if(nsnr.lt.-35) nsnr=-35
        idec=-1
-       call this%callback(nutc,snr1,nsnr,xdt,f0,decoded,              &
+       call this%callback(nutc,snr1,nsnr,xdt,f0,decoded,                  &
             idec,0,ntrperiod)
     endif
     navg0=1000*navg(0) + navg(1)
+    if(single_decode .or. lagain) go to 900
 
-    return
+    do icand=1,ncand
+! Prepare for single-period candidate decodes with iaptype = 0, 1, 2, or 4
+       snr1=candidates(icand,1)
+       xdt= candidates(icand,2)
+       f0 = candidates(icand,3)
+       jpk0=(xdt+1.0)*6000                   !Index of nominal start of signal
+       if(ntrperiod.le.30) jpk0=(xdt+0.5)*6000  !For shortest sequences
+       if(jpk0.lt.0) jpk0=0
+       call ana64(iwave,npts,c00)       !Convert to complex c00() at 6000 Sa/s
+       call ft8apset(mycall,hiscall,ncontest,apsym0,aph10) ! Generate ap symbols
+       where(apsym0.eq.-1) apsym0=0
+
+       npasses=2
+       if(nQSOprogress.eq.5) npasses=3
+       if(lapcqonly) npasses=1
+       iaptype=0
+       do ipass=0,npasses                  !Loop over AP passes
+          apmask=0                         !Try first with no AP information
+          apsymbols=0
+          if(ipass.ge.1) then
+          ! Subsequent passes use AP information appropiate for nQSOprogress
+             call q65_ap(nQSOprogress,ipass,ncontest,lapcqonly,iaptype,   &
+                  apsym0,apmask1,apsymbols1)
+             write(c78,1050) apmask1
+             read(c78,1060) apmask
+             write(c78,1050) apsymbols1
+             read(c78,1060) apsymbols
+          endif
+
+          call timer('q65loops',0)
+          call q65_loops(c00,npts/2,nsps/2,nsubmode,ndepth,jpk0,   &
+               xdt,f0,iaptype,xdt1,f1,snr2,dat4,idec)
+!       idec=-1   !### TEMPORARY ###
+          call timer('q65loops',1)
+          if(idec.ge.0) then
+             dtdec=xdt1
+             f0dec=f1
+             go to 200       !Successful decode, we're done
+          endif
+       enddo  ! ipass
+
+200    decoded='                                     '
+       if(idec.ge.0) then
+! Unpack decoded message for display to user
+          write(c77,1000) dat4(1:12),dat4(13)/2
+          call unpack77(c77,0,decoded,unpk77_success) !Unpack to get msgsent
+          nsnr=nint(snr2)
+          call this%callback(nutc,snr1,nsnr,dtdec,f0dec,decoded,    &
+               idec,nused,ntrperiod)
+          if(iand(ndepth,128).ne.0) call q65_clravg    !AutoClrAvg after decode
+          call sec0(1,tdecode)
+          open(22,file=trim(data_dir)//'/q65_decodes.dat',status='unknown',     &
+               position='append',iostat=ios)
+          if(ios.eq.0) then
+! Save decoding parameters to q65_decoded.dat, for later analysis.
+             write(cmode,'(i3)') ntrperiod
+             cmode(4:4)=char(ichar('A')+nsubmode)
+             c6=hiscall(1:6)
+             if(c6.eq.'      ') c6='<b>   '
+             c4=hisgrid(1:4)
+             if(c4.eq.'    ') c4='<b> '
+             fmt='(i6.4,1x,a4,5i2,3i3,f6.2,f7.1,f7.2,f6.1,f6.2,'//   &
+                  '1x,a6,1x,a6,1x,a4,1x,a)'
+             if(ntrperiod.le.30) fmt(5:5)='6'
+             write(22,fmt) nutc,cmode,nQSOprogress,idec,idf,idt,ibw,nused,    &
+                  icand,ncand,xdt,f0,snr1,snr2,tdecode,mycall(1:6),c6,c4,     &
+                  trim(decoded)
+             close(22)
+          endif
+       endif
+    enddo
+
+900 return
   end subroutine decode
 
 end module q65_decode

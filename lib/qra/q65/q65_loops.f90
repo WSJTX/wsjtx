@@ -6,7 +6,7 @@ subroutine q65_loops(c00,npts2,nsps2,nsubmode,ndepth,jpk0,    &
   use q65
   
   parameter (NN=63)
-  parameter (LN=1152*63)           !LN=LL*NN; LL=64*(mode_q65+2), NN=63
+  parameter (LN=2176*63)           !LN=LL*NN; LL=64*(mode_q65+2), NN=63
   complex c00(0:npts2-1)           !Analytic representation of dd(), 6000 Hz
   complex ,allocatable :: c0(:)    !Ditto, with freq shift
   character decoded*37
@@ -51,7 +51,7 @@ subroutine q65_loops(c00,npts2,nsps2,nsubmode,ndepth,jpk0,    &
         jpk=jpk0 + nsps2*ndt/16              !tsym/16
         if(jpk.lt.0) jpk=0
         call timer('spec64  ',0)
-        call spec64(c0,nsps2,65,mode_q65,jpk,s3,LL,NN)
+        call spec64(c0,nsps2,mode_q65,jpk,s3,LL,NN)
         call timer('spec64  ',1)
         call pctile(s3,LL*NN,40,base)
         s3=s3/base
@@ -75,9 +75,6 @@ subroutine q65_loops(c00,npts2,nsps2,nsubmode,ndepth,jpk0,    &
   enddo  ! idf (f0 loop)
 
 100 if(irc.ge.0) then
-!     write(55,3055) ndepth,iaptype,idf,idt,ibw,ndist,irc,sum(s3(1:LL*NN)), &
-!          trim(decoded)
-!3055 format(7i4,f10.1,1x,a)
      idec=iaptype
      snr2=esnodb - db(2500.0/baud)
      xdt1=xdt0 +  nsps2*ndt/(16.0*6000.0)
