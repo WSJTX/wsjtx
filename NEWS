@@ -13,6 +13,28 @@
 Copyright 2001 - 2021 by Joe Taylor, K1JT.
 
 
+		   Release: WSJT-X 2.4.0-rc1
+		         Feb 3, 2021
+		   -------------------------
+
+WSJT-X 2.4.0 is  a program upgrade offering a new  mode called Q65. It
+builds on the capabilities of the QRA64 mode to offer a flexible large
+symbol alphabet,  low code  rate, mode with  excellent characteristics
+when  used  for EME  on  VHF  through  to  microwave bands,  and  with
+challenging weak  signal propagation  via iono-scatter and  similar on
+VHF bands. The Q65 mode carries the same 77-bit message payload as the
+popular FT8, MSK144, FT4, and FST4  QSO modes. Q65 also offers a range
+of T/R periods (15 second through to  5 mins) and tone spacings (up to
+32  times  the  base  spacing)   suitable  for  adapting  to  required
+sensitivity and  various channel frequency  spreading characteristics.
+The Wide Graph plotter  has a super-sensitive synchronization spectrum
+capable of detecting  signals below visibility on  the waterfall plot.
+The new synchronization plot combined with comprehensive a priori (AP)
+decoding techniques and message summing and averaging over multiple Rx
+periods  should  make use  near  the  limits  of extreme  weak  signal
+operating better than prior modes in all appropriate situations.
+
+
 		   Release: WSJT-X 2.3.0
 		         Feb 2, 2021
 		   ---------------------
