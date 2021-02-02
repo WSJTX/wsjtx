@@ -60,7 +60,8 @@ contains
     character*77 c77
     character*78 c78
     character*6 cutc
-    character c6*6,c4*4
+    character c6*6,c4*4,cmode*4
+    character*80 fmt
     integer*2 iwave(NMAX)                 !Raw data
     real, allocatable :: dd(:)            !Raw data
     integer dat4(13)                      !Decoded message as 12 6-bit integers
@@ -113,9 +114,12 @@ contains
     baud=12000.0/nsps
     this%callback => callback
     nFadingModel=1
-    ibwa=max(1,int(1.8*log(baud*mode_q65)) + 2)
-    ibwb=min(10,ibwa+5)
-    if(iand(ndepth,3).eq.3) then
+    ibwa=max(1,int(1.8*log(baud*mode_q65)) + 1)
+    ibwb=min(10,ibwa+3)
+    if(iand(ndepth,3).ge.2) then
+       ibwa=max(1,int(1.8*log(baud*mode_q65)) + 2)
+       ibwb=min(10,ibwa+5)
+    else if(iand(ndepth,3).eq.3) then
        ibwa=max(1,ibwa-1)
        ibwb=min(10,ibwb+1)
     endif
@@ -233,21 +237,18 @@ contains
             position='append',iostat=ios)
        if(ios.eq.0) then
 ! Save decoding parameters to q65_decoded.dat, for later analysis.
+          write(cmode,'(i3)') ntrperiod
+          cmode(4:4)=char(ichar('A')+nsubmode)
           c6=hiscall(1:6)
           if(c6.eq.'      ') c6='<b>   '
           c4=hisgrid(1:4)
           if(c4.eq.'    ') c4='<b> '
-          if(ntrperiod.ge.60) then
-             write(22,1022) nutc,ntrperiod,nsubmode,nQSOprogress,idec,     &
-                  nused,iaptype,irc,idf,idt,ibw,xdt,f0,snr1,snr2,          &
-                  tdecode,mycall(1:6),c6,c4,trim(decoded)
-1022         format(i6.4,10i3,f6.2,f7.1,f7.2,f6.1,f6.2,1x,a6,1x,a6,1x,a4,1x,a)
-          else
-             write(22,1023) nutc,ntrperiod,nsubmode,nQSOprogress,idec,     &
-                  nused,iaptype,irc,idf,idt,ibw,xdt,f0,snr1,snr2,          &
-                  tdecode,mycall(1:6),c6,c4,trim(decoded)
-1023         format(i6.6,10i3,f6.2,f7.1,f7.2,f6.1,f6.2,1x,a6,1x,a6,1x,a4,1x,a)
-          endif
+          fmt='(i6.4,1x,a4,5i2,3i3,f6.2,f7.1,f7.2,f6.1,f6.2,'//   &
+               '1x,a6,1x,a6,1x,a4,1x,a)'
+          if(ntrperiod.le.30) fmt(5:5)='6'
+          write(22,fmt) nutc,cmode,nQSOprogress,idec,idf,idt,ibw,nused,    &
+               icand,ncand,xdt,f0,snr1,snr2,tdecode,mycall(1:6),c6,c4,     &
+               trim(decoded)
           close(22)
        endif
     else
@@ -315,19 +316,18 @@ contains
                position='append',iostat=ios)
           if(ios.eq.0) then
 ! Save decoding parameters to q65_decoded.dat, for later analysis.
+             write(cmode,'(i3)') ntrperiod
+             cmode(4:4)=char(ichar('A')+nsubmode)
              c6=hiscall(1:6)
              if(c6.eq.'      ') c6='<b>   '
              c4=hisgrid(1:4)
              if(c4.eq.'    ') c4='<b> '
-             if(ntrperiod.ge.60) then
-                write(22,1022) nutc,ntrperiod,nsubmode,nQSOprogress,idec,     &
-                     nused,iaptype,irc,idf,idt,ibw,xdt,f0,snr1,snr2,          &
-                     tdecode,mycall(1:6),c6,c4,trim(decoded)
-             else
-                write(22,1023) nutc,ntrperiod,nsubmode,nQSOprogress,idec,     &
-                     nused,iaptype,irc,idf,idt,ibw,xdt,f0,snr1,snr2,          &
-                     tdecode,mycall(1:6),c6,c4,trim(decoded)
-             endif
+             fmt='(i6.4,1x,a4,5i2,3i3,f6.2,f7.1,f7.2,f6.1,f6.2,'//   &
+                  '1x,a6,1x,a6,1x,a4,1x,a)'
+             if(ntrperiod.le.30) fmt(5:5)='6'
+             write(22,fmt) nutc,cmode,nQSOprogress,idec,idf,idt,ibw,nused,    &
+                  icand,ncand,xdt,f0,snr1,snr2,tdecode,mycall(1:6),c6,c4,     &
+                  trim(decoded)
              close(22)
           endif
        endif
