@@ -33,7 +33,7 @@ set (SAMPLE_FILES
   Q65/300A_Optical_Scatter/201210_0505.wav
   )
 
-set (contents_file_name contents_${WSJTX_VERSION_MAJOR}.${WSJTX_VERSION_MINOR}.json)
+set (contents_file_name contents_${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.json)
 set (contents_file ${CMAKE_CURRENT_BINARY_DIR}/${contents_file_name})
 set (web_tree ${CMAKE_CURRENT_BINARY_DIR}/web)
 set_source_files_properties (${contents_file} PROPERTIES GENERATED ON)
