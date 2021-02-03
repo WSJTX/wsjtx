@@ -18,10 +18,10 @@ set (SAMPLE_FILES
   MSK144/181211_120500.wav
   MSK144/181211_120800.wav
   WSPR/150426_0918.wav
-  Q65/30A_Ionoscatter/201203_022700.wav
-  Q65/30A_Ionoscatter/201203_022800.wav
-  Q65/30A_Ionoscatter/201203_022900.wav
-  Q65/30A_Ionoscatter/201203_024000.wav
+  Q65/30A_Ionoscatter_6m/201203_022700.wav
+  Q65/30A_Ionoscatter_6m/201203_022800.wav
+  Q65/30A_Ionoscatter_6m/201203_022900.wav
+  Q65/30A_Ionoscatter_6m/201203_024000.wav
   Q65/60A_EME_6m/210106_1621.wav
   Q65/60B_1296_Troposcatter/210109_0007.wav
   Q65/60B_1296_Troposcatter/210109_0147.wav
