@@ -98,9 +98,8 @@ contains
     allocate (c00(0:nfft1-1))
     allocate (c0(0:nfft1-1))
 
-    if(ntrperiod.eq.15) then
-       nsps=1800
-    else if(ntrperiod.eq.30) then
+    nsps=1800
+    if(ntrperiod.eq.30) then
        nsps=3600
     else if(ntrperiod.eq.60) then
        nsps=7200
@@ -108,8 +107,6 @@ contains
        nsps=16000
     else if(ntrperiod.eq.300) then
        nsps=41472
-    else
-       stop 'Invalid TR period'
     endif
 
     baud=12000.0/nsps
