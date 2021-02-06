@@ -6427,7 +6427,7 @@ void MainWindow::on_actionQ65_triggered()
   m_wideGraph->setTxFreq(ui->TxFreqSpinBox->value());
   switch_mode (Modes::Q65);
 //                         0123456789012345678901234567890123456
-  displayWidgets(nWidgets("1111110101101101001110000001000000001"));
+  displayWidgets(nWidgets("1111110101101101001110000000000000001"));
   ui->lh_decodes_title_label->setText(tr ("Single-Period Decodes"));
   ui->rh_decodes_title_label->setText(tr ("Average Decodes"));
   ui->lh_decodes_headings_label->setText("UTC   dB   DT Freq    " + tr ("Message"));
