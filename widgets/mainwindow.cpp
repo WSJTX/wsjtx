@@ -4783,6 +4783,7 @@ void MainWindow::doubleClickOnCall(Qt::KeyboardModifiers modifiers)
 
 void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifiers modifiers)
 {
+  m_lastQSOProgress=m_QSOProgress;
   // decode keyboard modifiers we are interested in
   auto shift = modifiers.testFlag (Qt::ShiftModifier);
   auto ctrl = modifiers.testFlag (Qt::ControlModifier);
@@ -5191,10 +5192,7 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
   qDebug() << "aa" << m_lastQSOProgress << m_QSOProgress << rpt << m_lastMessageSent.trimmed();
 // Keep signal report fixed during a QSO.
   if((m_lastQSOProgress < REPORT or m_lastQSOProgress > ROGER_REPORT) and
-     (m_QSOProgress==REPORT or m_QSOProgress==ROGER_REPORT)) {
-    ui->rptSpinBox->setValue(n);
-    m_lastQSOProgress=m_QSOProgress;
-  }
+     (m_QSOProgress==REPORT or m_QSOProgress==ROGER_REPORT)) ui->rptSpinBox->setValue(n);
 
 // Don't genStdMsgs if we're already sending 73, or a "TU; " msg is queued.
   m_bTUmsg=false;   //### Temporary: disable use of "TU;" messages
