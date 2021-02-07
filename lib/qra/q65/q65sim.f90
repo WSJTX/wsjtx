@@ -9,6 +9,7 @@ program q65sim
   integer*2 iwave(NMAX)                  !Generated waveform
   integer itone(85)                      !Channel symbols (values 0-65)
   integer y(63)                          !Codeword
+  integer ifilenum(1)                    !new period lenth adjusted filenumber to work with averaging
   real*4 xnoise(NMAX)                    !Generated random noise
   real*4 dat(NMAX)                       !Generated real data
   complex cdat(NMAX)                     !Generated complex waveform
@@ -26,6 +27,7 @@ program q65sim
      print*,'         f1   = Drift or Doppler rate (Hz/min)'
      print*,'         Stp  = Step size (Hz)'
      print*,'         Stp  = 0 implies no Doppler tracking'
+	 print*,'         Modified version for timestamp incrementing for 30-300s periods'
      go to 999
   endif
   call getarg(1,msg)
@@ -96,12 +98,13 @@ program q65sim
   write(*,1004) 
 1004 format('File    TR   Freq Mode  S/N   Dop    DT   f1  Stp  Message'/70('-'))
 
-  do ifile=1,nfiles                  !Loop over requested number of files
-     if(ntrperiod.lt.60) then
-        write(fname,1005) ifile         !Output filename
+  do ifile=1,nfiles  !Loop over requested number of files
+	 ifilenum = (ifile*ntrperiod/30) - (ntrperiod/30)
+     if(ntrperiod.lt.30) then          !wdg was 60
+        write(fname,1005) ifile        !Output filename
 1005    format('000000_',i6.6,'.wav')
      else
-        write(fname,1106) ifile
+        write(fname,1106) ifilenum     !Output filename to be compatible with averaging
 1106    format('000000_',i4.4,'.wav')
      endif
 
