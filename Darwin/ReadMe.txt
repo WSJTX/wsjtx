@@ -21,7 +21,7 @@ There are two system variables that must be set manually since the M1 Macs do no
 automatic parameter settings by means of the sysctl.conf file present in the download.
 Type these commands - you will be asked for your password which will not be echoed:
 
-      sudo  sysctl  -w  kern.sysv.shmmax=104857600
+      sudo  sysctl  -w  kern.sysv.shmmax=52428800
       sudo  sysctl  -w  kern.sysv.shmall=25600
 
 It is important to note that these parameter settings will not survive a reboot.  If you
@@ -46,7 +46,7 @@ change has been made by typing:
 
       sysctl -a | grep sysv.shm
 
-If shmmax is not shown as 104857600 then contact me since WSJT-X will fail to load with
+If shmmax is not shown as 52428800 then contact me since WSJT-X will fail to load with
 an error message: "Unable to create shared memory segment".
 
 You can now close the Terminal window.  It will not be necessary to repeat this procedure 
@@ -105,10 +105,23 @@ would probably be corrupted.)
 
 It is possible to run two instances of WSJT-X simultaneously.  See "Section 16.2 
 Frequently asked Questions" in the User Guide.  If you wish to run more than two instances
-simultaneously, the sysctl.conf file needs to be modified.  Please email me with your
-requirements and I will provide a replacement sysctl.conf to suit.
+simultaneously, the shmall parameter in the sysctl.conf file needs to be modified as follows.
+
+The shmall parameter determines the amount of shared memory which is allocated in 4096 byte pages
+with 50MB (52428800) required for each instance.   The shmall parameter is calculated as: 
+(n * 52428800)/4096  where 'n' is the number of instances required to run simultaneously. If
+you are using an Intel Mac, modify the shmall parameter in the sysctl.conf file using a Mac editor
+and then install in the /etc directory using the installation procedure described above for an 
+Intel Mac.  Remember to reboot your Mac afterwards.
+
+If you are using an M1 Mac, then simply issue the sudo sysctl -w kern.sysv.shmall=xxx command where
+xxx is the new value of shmall that is required.
+
+Note that the shmmax parameter remains unchanged.  This is the maximum amount of shared memory that
+any one instance is allowed to request from the total shared memory allocation and should not
+be changed.
 
 If two instances of WSJT-X are running, it is likely that you might need additional
 audio devices, from two rigs for example.  Visit Audio MIDI Setup and create an Aggregate Device
-which will allow you to specific more than one interface.  I recommend you consult Apple's guide
+which will allow you to specify more than one interface.  I recommend you consult Apple's guide
 on combining multiple audio interfaces which is at https://support.apple.com/en-us/HT202000.  
