@@ -64,6 +64,7 @@ subroutine q65_loops(c00,npts2,nsps2,nsubmode,ndepth,jpk0,    &
            b90ts = b90/baud
            call timer('dec2    ',0)
            call q65_dec2(s3,nsubmode,b90ts,esnodb,irc,dat4,decoded)
+           nrc=irc
            call timer('dec2    ',1)
               ! irc > 0 ==> number of iterations required to decode
               !  -1 = invalid params

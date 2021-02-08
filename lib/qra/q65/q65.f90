@@ -12,7 +12,7 @@ module q65
   integer codewords(63,206)
   integer ibwa,ibwb,ncw,nsps,mode_q65,nfa,nfb
   integer idf,idt,ibw
-  integer istep,nsmo,lag1,lag2,npasses,nused,iseq,ncand
+  integer istep,nsmo,lag1,lag2,npasses,nused,iseq,ncand,nrc
   integer i0,j0
   integer navg(0:1)
   logical lnewdat
@@ -71,6 +71,7 @@ subroutine q65_dec0(iavg,nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
 
 ! Set some parameters and allocate storage for large arrays
   irc=-2
+  nrc=-2
   idec=-1
   snr1=0.
   dat4=0
@@ -263,6 +264,7 @@ subroutine q65_dec_q3(s1,iz,jz,s3,LL,ipk,jpk,snr2,dat4,idec,decoded)
      b90=1.72**ibw
      b90ts=b90/baud
      call q65_dec1(s3,nsubmode,b90ts,esnodb,irc,dat4,decoded)
+     nrc=irc
      if(irc.ge.0) then
         snr2=esnodb - db(2500.0/baud) + 3.0     !Empirical adjustment
         idec=3
@@ -314,6 +316,7 @@ subroutine q65_dec_q012(s3,LL,snr2,dat4,idec,decoded)
         b90=1.72**ibw
         b90ts=b90/baud
         call q65_dec2(s3,nsubmode,b90ts,esnodb,irc,dat4,decoded)
+        nrc=irc
         if(irc.ge.0) then
            snr2=esnodb - db(2500.0/baud) + 3.0     !Empirical adjustment
            idec=iaptype
@@ -486,6 +489,7 @@ subroutine q65_dec1(s3,nsubmode,b90ts,esnodb,irc,dat4,decoded)
   else
      irc=-1
   endif
+  nrc=irc
   
   return
 end subroutine q65_dec1
@@ -506,6 +510,7 @@ subroutine q65_dec2(s3,nsubmode,b90ts,esnodb,irc,dat4,decoded)
   call q65_intrinsics_ff(s3,nsubmode,b90ts,nFadingModel,s3prob)
   call q65_dec(s3,s3prob,APmask,APsymbols,esnodb,dat4,irc)
   if(sum(dat4).le.0) irc=-2
+  nrc=irc
   if(irc.ge.0) then
      write(c77,1000) dat4(1:12),dat4(13)/2
 1000 format(12b6.6,b5.5)

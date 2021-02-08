@@ -79,7 +79,7 @@ contains
     idec=-1
     idf=0
     idt=0
-    irc=0
+    nrc=-2
     mode_q65=2**nsubmode
     npts=ntrperiod*12000
     nfft1=ntrperiod*12000
@@ -172,7 +172,6 @@ contains
        call timer('q65loops',0)
        call q65_loops(c00,npts/2,nsps/2,nsubmode,ndepth,jpk0,   &
             xdt,f0,iaptype,xdt1,f1,snr2,dat4,idec)
-!       idec=-1   !### TEMPORARY ###
        call timer('q65loops',1)
        if(idec.ge.0) then
           dtdec=xdt1
@@ -241,12 +240,13 @@ contains
           if(c6.eq.'      ') c6='<b>   '
           c4=hisgrid(1:4)
           if(c4.eq.'    ') c4='<b> '
-          fmt='(i6.4,1x,a4,5i2,3i3,f6.2,f7.1,f7.2,f6.1,f6.2,'//   &
+          fmt='(i6.4,1x,a4,5i2,4i3,f6.2,f7.1,f7.2,f6.1,f6.2,'//   &
                '1x,a6,1x,a6,1x,a4,1x,a)'
           if(ntrperiod.le.30) fmt(5:5)='6'
+          if(idec.eq.3) nrc=0
           write(22,fmt) nutc,cmode,nQSOprogress,idec,idf,idt,ibw,nused,    &
-               icand,ncand,xdt,f0,snr1,snr2,tdecode,mycall(1:6),c6,c4,     &
-               trim(decoded)
+               icand,ncand,nrc,xdt,f0,db(snr1),snr2,tdecode,mycall(1:6),   &
+               c6,c4,trim(decoded)
           close(22)
        endif
     else
@@ -321,12 +321,13 @@ contains
              if(c6.eq.'      ') c6='<b>   '
              c4=hisgrid(1:4)
              if(c4.eq.'    ') c4='<b> '
-             fmt='(i6.4,1x,a4,5i2,3i3,f6.2,f7.1,f7.2,f6.1,f6.2,'//   &
+             fmt='(i6.4,1x,a4,5i2,4i3,f6.2,f7.1,f7.2,f6.1,f6.2,'//   &
                   '1x,a6,1x,a6,1x,a4,1x,a)'
              if(ntrperiod.le.30) fmt(5:5)='6'
+             if(idec.eq.3) nrc=0
              write(22,fmt) nutc,cmode,nQSOprogress,idec,idf,idt,ibw,nused,    &
-                  icand,ncand,xdt,f0,snr1,snr2,tdecode,mycall(1:6),c6,c4,     &
-                  trim(decoded)
+                  icand,ncand,nrc,xdt,f0,db(snr1),snr2,tdecode,mycall(1:6),   &
+                  c6,c4,trim(decoded)
              close(22)
           endif
        endif
