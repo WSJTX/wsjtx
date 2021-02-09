@@ -33,7 +33,7 @@ SplashScreen::SplashScreen ()
         revision ()}.simplified () + "</h2>"
     "V2.0 has many new features.<br /><br />"
     "The release notes have more details.<br /><br />"
-    "Send issue reports to wsjtgroup@yahoogroups.com, and be sure to save .wav<br />"
+    "Send issue reports to https://wsjtx.groups.io, and be sure to save .wav<br />"
     "files where appropriate.<br /><br />"
     "<b>Open the Help menu and select Release Notes for more details.</b><br />"
     "<img src=\":/icon_128x128.png\" />"
