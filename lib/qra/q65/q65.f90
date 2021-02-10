@@ -234,11 +234,11 @@ subroutine q65_symspec(iwave,nmax,iz,jz,s1)
      enddo
   enddo
   if(lnewdat) then
-     ntc=3
+     navg(iseq)=navg(iseq) + 1
+     ntc=min(navg(iseq),4)               !Averaging time constant in sequences
      u=1.0/ntc
      s1a(:,:,iseq)=u*s1 + (1.0-u)*s1a(:,:,iseq)
-     navg(iseq)=navg(iseq) + 1
-  endif
+   endif
 
   return
 end subroutine q65_symspec
