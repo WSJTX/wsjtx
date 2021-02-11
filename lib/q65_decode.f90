@@ -249,13 +249,13 @@ contains
                c6,c4,trim(decoded)
           close(22)
        endif
-    else
+!    else
 ! Report snr1, even if no decode.
-       nsnr=db(snr1) - 35.0
-       if(nsnr.lt.-35) nsnr=-35
-       idec=-1
-       call this%callback(nutc,snr1,nsnr,xdt,f0,decoded,                  &
-            idec,0,ntrperiod)
+!       nsnr=db(snr1) - 35.0
+!       if(nsnr.lt.-35) nsnr=-35
+!       idec=-1
+!       call this%callback(nutc,snr1,nsnr,xdt,f0,decoded,                  &
+!            idec,0,ntrperiod)
     endif
     navg0=1000*navg(0) + navg(1)
     if(single_decode .or. lagain) go to 900

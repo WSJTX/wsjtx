@@ -58,8 +58,10 @@ subroutine q65_dec0(iavg,nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
   parameter (LN=2176*63)           !LN=LL*NN; LL=64*(mode_q65+2), NN=63
   integer*2 iwave(0:12000*ntrperiod-1)   !Raw data
   integer dat4(13)
+  integer ipk1(1)
   character*37 decoded
   logical first,lclearave
+  integer, allocatable :: hist(:)
   real, allocatable :: s1(:,:)           !Symbol spectra, 1/8-symbol steps
   real, allocatable :: s3(:,:)           !Data-symbol energies s3(LL,63)
   real, allocatable :: ccf1(:)           !CCF(freq) at fixed lag (red)
@@ -99,6 +101,7 @@ subroutine q65_dec0(iavg,nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
   allocate(s3(-64:LL-65,63))
   allocate(ccf1(-ia2:ia2))
   allocate(ccf2(iz))
+  allocate(hist(LL))
   if(LL.ne.LL0 .or. iz.ne.iz0 .or. jz.ne.jz0 .or. lclearave) then
      if(allocated(s1a)) deallocate(s1a)
      allocate(s1a(iz,jz,0:1))
@@ -128,9 +131,21 @@ subroutine q65_dec0(iavg,nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
 
   i0=nint(nfqso/df)                             !Target QSO frequency
   if(i0-64.lt.1 .or. i0-65+LL.gt.iz) go to 900  !Frequency out of range
-  call pctile(s1(i0-64:i0-65+LL,1:jz),LL*jz,40,base)
+  call pctile(s1(i0-64:i0-65+LL,1:jz),LL*jz,45,base)
   s1=s1/base
 
+! Detect and remove strong non-drifting birdies
+  hist=0
+  do j=1,jz
+     ipk1=maxloc(s1(i0-64:i0+LL-65,j))
+     i=ipk1(1)
+     hist(i)=hist(i)+1
+  enddo
+  nbirdie=80
+  do i=1,LL
+     if(hist(i).gt.nbirdie) s1(i0-65+i,1:jz)=1.0
+  enddo
+  
 ! Apply fast AGC to the symbol spectra
   s1max=20.0                                  !Empirical choice
   do j=1,jz                                   !### Maybe wrong way? ###
