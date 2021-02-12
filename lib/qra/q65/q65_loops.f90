@@ -56,6 +56,7 @@ subroutine q65_loops(c00,npts2,nsps2,nsubmode,ndepth,jpk0,    &
         call pctile(s3,LL*NN,40,base)
         s3=s3/base
         where(s3(1:LL*NN)>s3lim) s3(1:LL*NN)=s3lim
+        call q65_bzap(s3,LL)                   !Zap birdies
         do ibw=ibwa,ibwb
            ndist=ndf**2 + ndt**2 + (ibw-ibw0)**2
            if(ndist.gt.maxdist) cycle
