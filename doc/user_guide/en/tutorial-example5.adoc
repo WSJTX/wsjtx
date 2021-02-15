@@ -1,5 +1,17 @@
 Do not confuse FST4 with FT4, which has a very different purpose!
-FST4 is designed primarily for making 2-way QSOs on the LF and MF bands.
+FST4 is designed primarily for making weak-signal 2-way QSOs on the 
+LF and MF bands. T/R periods from 15s up to 1800s are 
+available. Longer T/R periods provide better sensitivity provided that the
+combined effects of Tx and Rx frequency instability and channel Doppler spread
+yield a received signal that remains coherent over the duration of 
+several transmitted symbols. Generally speaking, Rx and Tx frequency changes 
+during the transmission and channel Doppler spread should each be small compared
+to the symbol keying rate shown for each T/R duration in Table 7 within section
+<<PROTOCOL_OVERVIEW,Protocol Specifications>>. For example, the keying rate for the 1800s T/R period is 0.089 Baud, so
+successful operation using this T/R length requires Tx and Rx frequency
+stability better than 0.089 Hz over the duration of the 1800s transmission in 
+addition to channel Doppler spread smaller than 0.089 Hz. 
+
 Operation with FST4 is similar to that with other _WSJT-X_ modes: most
 on-screen controls, auto-sequencing, and other features behave in
 familiar ways.  However, operating conventions on the 2200 and 630 m
@@ -21,3 +33,12 @@ decoding process (and of course will be undecodable).  By checking
 further limit the decoding range to the setting of *F Tol* on
 either side of *Rx Freq*.
 
+.Open a Wave File:
+
+- Select *FST4* on the *Mode* menu. Set *T/R* to 60 s and *Decode | Deep*.
+- Set *F Low* 1000, *F High* 1400. 
+- Open a sample Wave file using *File | Open* and select the file
+...\save\samples\FST4+FST4W\210115_0058.wav. When the file opens you should see something similar to the following screen shots:
+
+image::FST4-1.png[align="left"]
+image::FST4-2.png[align="left"]
