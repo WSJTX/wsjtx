@@ -36,9 +36,12 @@ either side of *Rx Freq*.
 .Open a Wave File:
 
 - Select *FST4* on the *Mode* menu. Set *T/R* to 60 s and *Decode | Deep*.
-- Set *F Low* 1000, *F High* 1400. 
+- Set up the Wide Graph display so that it has settings appropriate for the FST4-60 mode. 
+For example, try *Bins/Pixel* 2 and *N Avg* 4. Set the *Start* frequency and the width of 
+the Wide Graph to cover the entire frequency range that you want to decode. For this
+example, make sure that *Start* is less than 1000 Hz and that the Wide Graph extends to above 1400 Hz.
+- Set *F Low* 1000, *F High* 1400. These settings define the decoder's frequency search range.
 - Open a sample Wave file using *File | Open* and select the file
-...\save\samples\FST4+FST4W\210115_0058.wav. When the file opens you should see something similar to the following screen shots:
+...\save\samples\FST4+FST4W\210115_0058.wav. When the file opens you should see something similar to the following screen shot:
 
 image::FST4-1.png[align="left"]
-image::FST4-2.png[align="left"]
