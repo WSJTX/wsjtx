@@ -40,7 +40,7 @@ void DirectoryDelegate::paint (QPainter * painter, QStyleOptionViewItem const& o
       // workaround for broken QProgressBar item delegates on macOS
       QStyleOptionViewItem progress_option;
       auto control_element = QStyle::CE_ItemViewItem;
-      progress_option.displayAlignment = Qt::AlignLeft;
+      progress_option.displayAlignment = Qt::AlignHCenter;
       progress_option.index = index;
       progress_option.features = QStyleOptionViewItem::HasDisplay;
 #endif
