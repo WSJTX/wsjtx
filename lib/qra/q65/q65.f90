@@ -636,8 +636,6 @@ subroutine q65_snr(dat4,dtdec,f0dec,mode_q65,snr2)
   integer itone(85)
   real, allocatable :: spec(:)
 
-!  write(70) mode_q65,df,dtdec,f0dec,iz0,jz0,s1raw
-
   allocate(spec(iz0))
   call q65_enc(dat4,codeword)
   i=1
