@@ -70,7 +70,7 @@ contains
     logical single_decode,lagain
     complex, allocatable :: c00(:)        !Analytic signal, 6000 Sa/s
     complex, allocatable :: c0(:)         !Analytic signal, 6000 Sa/s
-
+    
 ! Start by setting some parameters and allocating storage for large arrays
     call sec0(0,tdecode)
     nfa=nfa0
@@ -112,13 +112,12 @@ contains
     baud=12000.0/nsps
     this%callback => callback
     nFadingModel=1
-    maxiters=50
+    maxiters=67
     ibwa=max(1,int(1.8*log(baud*mode_q65)) + 1)
-    ibwb=min(10,ibwa+3)
+    ibwb=min(10,ibwa+4)
     if(iand(ndepth,3).ge.2) then
        ibwa=max(1,int(1.8*log(baud*mode_q65)) + 1)
        ibwb=min(10,ibwa+5)
-       maxiters=75
     else if(iand(ndepth,3).eq.3) then
        ibwa=max(1,ibwa-1)
        ibwb=min(10,ibwb+1)
@@ -228,7 +227,7 @@ contains
        write(c77,1000) dat4(1:12),dat4(13)/2
 1000   format(12b6.6,b5.5)
        call unpack77(c77,0,decoded,unpk77_success) !Unpack to get msgsent
-       call q65_snr(dat4,dtdec,f0dec,mode_q65,snr2)
+       call q65_snr(dat4,dtdec,f0dec,mode_q65,nused,snr2)
        nsnr=nint(snr2)
        call this%callback(nutc,snr1,nsnr,dtdec,f0dec,decoded,    &
             idec,nused,ntrperiod)
@@ -248,8 +247,8 @@ contains
                '1x,a6,1x,a6,1x,a4,1x,a)'
           if(ntrperiod.le.30) fmt(5:5)='6'
           if(idec.eq.3) nrc=0
-          write(22,fmt) nutc,cmode,nQSOprogress,idec,idf,idt,ibw,ndist,    &
-               nused,icand,ncand,nrc,ndepth,xdt,f0,snr2,tdecode,           &
+          write(22,fmt) nutc,cmode,nQSOprogress,idec,idfbest,idtbest,ibw,    &
+               ndistbest,nused,icand,ncand,nrc,ndepth,xdt,f0,snr2,tdecode,   &
                mycall(1:6),c6,c4,trim(decoded)
           close(22)
        endif
@@ -310,7 +309,7 @@ contains
 ! Unpack decoded message for display to user
           write(c77,1000) dat4(1:12),dat4(13)/2
           call unpack77(c77,0,decoded,unpk77_success) !Unpack to get msgsent
-          call q65_snr(dat4,dtdec,f0dec,mode_q65,snr2)
+          call q65_snr(dat4,dtdec,f0dec,mode_q65,nused,snr2)
           nsnr=nint(snr2)
           call this%callback(nutc,snr1,nsnr,dtdec,f0dec,decoded,    &
                idec,nused,ntrperiod)
@@ -330,8 +329,8 @@ contains
                   '1x,a6,1x,a6,1x,a4,1x,a)'
              if(ntrperiod.le.30) fmt(5:5)='6'
              if(idec.eq.3) nrc=0
-             write(22,fmt) nutc,cmode,nQSOprogress,idec,idf,idt,ibw,ndist,    &
-                  nused,icand,ncand,nrc,ndepth,xdt,f0,snr2,tdecode,           &
+             write(22,fmt) nutc,cmode,nQSOprogress,idec,idfbest,idtbest,ibw,  &
+                  ndistbest,nused,icand,ncand,nrc,ndepth,xdt,f0,snr2,tdecode, &
                   mycall(1:6),c6,c4,trim(decoded)
              close(22)
           endif

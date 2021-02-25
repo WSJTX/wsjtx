@@ -38,6 +38,9 @@ subroutine q65_loops(c00,npts2,nsps2,nsubmode,ndepth,jpk0,    &
   napmin=99
   xdt1=xdt0
   f1=f0
+  idfbest=0
+  idtbest=0
+  ndistbest=0
 
   do idf=1,idfmax
      ndf=idf/2
@@ -65,13 +68,18 @@ subroutine q65_loops(c00,npts2,nsps2,nsubmode,ndepth,jpk0,    &
            b90ts = b90/baud
            call timer('dec2    ',0)
            call q65_dec2(s3,nsubmode,b90ts,esnodb,irc,dat4,decoded)
-           nrc=irc
            call timer('dec2    ',1)
               ! irc > 0 ==> number of iterations required to decode
               !  -1 = invalid params
               !  -2 = decode failed
               !  -3 = CRC mismatch
-           if(irc.ge.0) go to 100
+           if(irc.ge.0) then
+              idfbest=idf
+              idtbest=idt
+              ndistbest=ndist
+              nrc=irc
+              go to 100
+           endif
         enddo  ! ibw (b90 loop)
      enddo  ! idt (DT loop)
   enddo  ! idf (f0 loop)

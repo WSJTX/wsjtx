@@ -11,7 +11,7 @@ module q65
                                      38,46,50,55,60,62,66,69,74,76,85/)
   integer codewords(63,206)
   integer ibwa,ibwb,ncw,nsps,mode_q65,nfa,nfb
-  integer idf,idt,ibw,ndist,maxiters
+  integer idfbest,idtbest,ibw,ndistbest,maxiters
   integer istep,nsmo,lag1,lag2,npasses,nused,iseq,ncand,nrc
   integer i0,j0
   integer navg(0:1)
@@ -626,7 +626,7 @@ subroutine q65_bzap(s3,LL)
   return
 end subroutine q65_bzap
 
-subroutine q65_snr(dat4,dtdec,f0dec,mode_q65,snr2)
+subroutine q65_snr(dat4,dtdec,f0dec,mode_q65,nused,snr2)
 
 ! Estimate SNR of a decoded transmission by aligning the spectra of
 ! all 85 symbols.
@@ -674,6 +674,9 @@ subroutine q65_snr(dat4,dtdec,f0dec,mode_q65,snr2)
   sig_area=sum(spec(ia+nsum:ib-nsum)-1.0)
   w_equiv=sig_area/(smax-1.0)
   snr2=db(max(1.0,sig_area)) - db(2500.0/df)
+  if(nused.eq.2) snr2=snr2 - 2.0
+  if(nused.eq.3) snr2=snr2 - 2.9
+  if(nused.ge.4) snr2=snr2 - 3.5
 
 !  do i=ia,ib
 !     write(71,3071) i*df,spec(i),db(spec(i))
