@@ -206,6 +206,7 @@ program jt9
      go to 999
   endif
 
+  if(mycall.eq.'b') mycall='            '
   if(hiscall.eq.'b') then
      hiscall='            '
      hisgrid='      '
