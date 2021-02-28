@@ -25,11 +25,13 @@ program q65sim
   if(nargs.ne.10) then
      print*,'Usage:   q65sim         "msg"     A-E freq fDop DT  f1 Stp TRp Nfile SNR'
      print*,'Example: q65sim "K1ABC W9XYZ EN37" A  1500 0.0 0.0 0.0  1   60   1   -26'
+     print*,'Example: q65sim "ST" A  1500 0.0 0.0 0.0  1   60   1   -26'
      print*,'         fDop = Doppler spread'
      print*,'         f1   = Drift or Doppler rate (Hz/min)'
      print*,'         Stp  = Step size (Hz)'
      print*,'         Stp  = 0 implies no Doppler tracking'
      print*,'         Creates filenames which increment to permit averaging in first period'
+     print*,'         If msg = ST program produces a single tone at freq'
      go to 999
   endif
   call getarg(1,msg)
@@ -137,7 +139,11 @@ program q65sim
         if(isym.ne.isym0) then
            freq_drift=f1*i*dt/60.0
            if(nstp.ne.0) freq_drift=freq_drift - nstp*nint(freq_drift/nstp)
-           freq = f0 + freq_drift + itone(isym)*baud*mode65
+                if (msg(1:2).eq.'ST') then
+                   freq = f0 + freq_drift
+                else
+                   freq = f0 + freq_drift + itone(isym)*baud*mode65
+                endif
            dphi=twopi*freq*dt
            isym0=isym
         endif
