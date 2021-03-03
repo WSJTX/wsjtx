@@ -4999,8 +4999,9 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
             ui->tx3->setText(t);
             m_bTUmsg=true;
           } else {
-            if (SpecOp::NONE < m_config.special_op_id () && SpecOp::FOX > m_config.special_op_id ()
-               && ("RR73" == word_3 || 73 == word_3_as_number))
+            if (m_QSOProgress > CALLING && m_QSOProgress < SIGNOFF
+                && SpecOp::NONE < m_config.special_op_id () && SpecOp::FOX > m_config.special_op_id ()
+                && ("RR73" == word_3 || 73 == word_3_as_number))
               {
                 logQSOTimer.start(0);
                 m_ntx=6;
