@@ -4982,10 +4982,9 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
         }
       } else {  // no grid on end of msg
         auto const& word_3 = message_words.at (3);
-        bool word_3_is_int;
-        auto word_3_as_number = word_3.toInt (&word_3_is_int);
+        auto word_3_as_number = word_3.toInt ();
         if (("RRR" == word_3
-             || (word_3_is_int && word_3_as_number == 73)
+             || word_3_as_number == 73
              || "RR73" == word_3
              || ("R" == word_3 && m_QSOProgress != REPORT))) {
           if(m_mode=="FT4" and "RR73" == word_3) m_dateTimeRcvdRR73=QDateTime::currentDateTimeUtc();
