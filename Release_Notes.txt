@@ -9,8 +9,42 @@
  \$$      \$$  \$$$$$$   \$$$$$$     \$$        \$$   \$$
                                                          
                                                          
-                                                         
 Copyright 2001 - 2021 by Joe Taylor, K1JT.
+
+
+		   Release: WSJT-X 2.3.1
+		         Mar 8, 2021
+		   ---------------------
+
+WSJT-X 2.3.1  General Availability release  updates the User  Guide to
+cover the  new modes FST4 and  FST4W along with sample  .WAV files and
+decoding tutorials. This release also  repairs a number of defects and
+regressions  discovered  since  the v2.3.0  release,  including  those
+below.
+
+ - When  sending traffic  to a  multicast UDP  server ensure  that the
+   local loop-back interface is used if no others are selected.
+
+ - Repair  a defect  in instance  lock  file handling  that causes  an
+   infinite loop on start up.
+
+ - Invert the  PTT serial port  sharing default behaviour,  and enable
+   sharing when non-Hamlib CAT control  is combined with direct serial
+   port PTT control.
+
+ - Allow  the FST4  and FST4W  decoders  to continue  after the  first
+   successful decode when using negative  NB values to try multiple NB
+   values.
+
+ - Repair defects in auto-sequencing,  particularly with responding to
+   a repeated final message. In general a double-click of the repeated
+   message now does the right thing.
+
+ - Repair a regression that had  inadvertently disabled EU VHF Contest
+   mode when using the MSK144 mode.
+
+ - Repair a defect  that could caused incorrect log  entry fields when
+   using FT4 mode and a priori (AP) decoding.
 
 
 		   Release: WSJT-X 2.4.0-rc1
