@@ -42,7 +42,7 @@ control.  The *Sync* control sets a minimum threshold for establishing
 time and frequency synchronization with a received signal.
 
 * Spinner control *T/R xx s* sets sequence lengths for transmission
-and reception in ISCAT, MSK144, and the fast JT9 modes.
+and reception in Q65, MSK144, and the fast JT9 modes.
 
 * With *Split operation* activated on the *File -> Settings -> Radio* tab, in
 MSK144 and the fast JT9 submodes you can activate the spinner control
@@ -60,7 +60,7 @@ specified response frequency.
 * Checkboxes at bottom center of the main window control special
 features for particular operating modes:
 
-** *Sh* enables shorthand messages in JT4, JT65, QRA64 and MSK144 modes
+** *Sh* enables shorthand messages in JT4, JT65, Q65, and MSK144 modes
 
 ** *Fast* enables fast JT9 submodes
 
@@ -69,4 +69,5 @@ features for particular operating modes:
 ** *Call 1st* enables automatic response to the first decoded
 responder to your CQ
 
-** *Tx6* toggles between two types of shorthand messages in JT4 mode
+** *Tx6* toggles between two types of shorthand messages in JT4 and
+    Q65 modes

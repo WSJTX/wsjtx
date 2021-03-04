@@ -166,9 +166,9 @@ function (document)
       COMMAND ${ASCIIDOCTOR_EXECUTABLE} ${_args_ASCIIDOCTOR_OPTIONS}
       -b html5
       -a nofooter
-      -a VERSION_MAJOR=${WSJTX_VERSION_MAJOR}
-      -a VERSION_MINOR=${WSJTX_VERSION_MINOR}
-      -a VERSION_PATCH=${WSJTX_VERSION_PATCH}
+      -a VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
+      -a VERSION_MINOR=${PROJECT_VERSION_MINOR}
+      -a VERSION_PATCH=${PROJECT_VERSION_PATCH}
       -a VERSION=${wsjtx_VERSION}
       --out-file=${_html_file} ${_source_name}
       DEPENDS ${_args_DEPENDS}
@@ -195,9 +195,9 @@ function (document)
       COMMAND ${ASCIIDOCTOR_EXECUTABLE} ARGS ${_args_ASCIIDOCTOR_OPTIONS}
       -b docbook
       -a data-uri!
-      -a VERSION_MAJOR=${WSJTX_VERSION_MAJOR}
-      -a VERSION_MINOR=${WSJTX_VERSION_MINOR}
-      -a VERSION_PATCH=${WSJTX_VERSION_PATCH}${BUILD_TYPE_REVISION}
+      -a VERSION_MAJOR=${wsjtx_VERSION_MAJOR}
+      -a VERSION_MINOR=${wsjtx_VERSION_MINOR}
+      -a VERSION_PATCH=${wsjtx_VERSION_PATCH}${BUILD_TYPE_REVISION}
       -a VERSION=${wsjtx_VERSION}
       -D ${CMAKE_CURRENT_BINARY_DIR}
       -o ${_docbook_file} ${_source_name}

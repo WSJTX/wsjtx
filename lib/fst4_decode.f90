@@ -614,7 +614,7 @@ contains
                      endif
                      call this%callback(nutc,smax1,nsnr,xdt,fsig,msg,    &
                         iaptype,qual,ntrperiod,lwspr,fmid,w50)
-                     if(iwspr.eq.0 .and. nb.lt.0) go to 900
+!                     if(iwspr.eq.0 .and. nb.lt.0) go to 900
                      goto 800
                   endif
                enddo  ! metrics

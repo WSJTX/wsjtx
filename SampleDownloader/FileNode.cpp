@@ -27,7 +27,12 @@ FileNode::FileNode (QTreeWidgetItem * parent
 
 void FileNode::error (QString const& title, QString const& message)
 {
-  MessageBox::warning_message (treeWidget (), title, message);
+  if (MessageBox::Retry == MessageBox::warning_message (treeWidget (), title, message
+                                                        , QString {}, MessageBox::Cancel | MessageBox::Retry
+                                                        , MessageBox::Cancel))
+    {
+      sync (true);
+    }
 }
 
 bool FileNode::sync (bool local)

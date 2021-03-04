@@ -368,7 +368,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   endif
   if(params%nmode.ne.8 .or. params%nzhsym.eq.50 .or.                     &
        .not.params%ndiskdat) then
-     
+
      write(*,1010) nsynced,ndecoded,navg0
 1010 format('<DecodeFinished>',2i4,i9)
      call flush(6)
@@ -806,7 +806,7 @@ contains
 
     select type(this)
     type is (counting_q65_decoder)
-       if(idec.gt.0) this%decoded = this%decoded + 1
+       if(idec.ge.0) this%decoded = this%decoded + 1
     end select
 
    return

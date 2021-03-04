@@ -9,10 +9,13 @@ program q65sim
   integer*2 iwave(NMAX)                  !Generated waveform
   integer itone(85)                      !Channel symbols (values 0-65)
   integer y(63)                          !Codeword
+  integer istart                         !averaging compatible start seconds
+  integer imins                          !minutes for 15s period timestamp
+  integer isecs                          !seconds for 15s period timestamp
   real*4 xnoise(NMAX)                    !Generated random noise
   real*4 dat(NMAX)                       !Generated real data
   complex cdat(NMAX)                     !Generated complex waveform
-  complex cspread(0:NMAX-1)              !Complex amplitude for Rayleigh fading
+  complex cspread(0:NMAX-1)              !Complex amplitude for Rayleigh fading 
   complex z
   real*8 f0,dt,twopi,phi,dphi,baud,fsample,freq
   character msg*37,fname*17,csubmode*1,arg*12
@@ -22,10 +25,13 @@ program q65sim
   if(nargs.ne.10) then
      print*,'Usage:   q65sim         "msg"     A-E freq fDop DT  f1 Stp TRp Nfile SNR'
      print*,'Example: q65sim "K1ABC W9XYZ EN37" A  1500 0.0 0.0 0.0  1   60   1   -26'
+     print*,'Example: q65sim "ST" A  1500 0.0 0.0 0.0  1   60   1   -26'
      print*,'         fDop = Doppler spread'
      print*,'         f1   = Drift or Doppler rate (Hz/min)'
      print*,'         Stp  = Step size (Hz)'
      print*,'         Stp  = 0 implies no Doppler tracking'
+     print*,'         Creates filenames which increment to permit averaging in first period'
+     print*,'         If msg = ST program produces a single tone at freq'
      go to 999
   endif
   call getarg(1,msg)
@@ -94,14 +100,17 @@ program q65sim
   h=default_header(12000,npts)
 
   write(*,1004) 
-1004 format('File    TR   Freq Mode  S/N   Dop    DT   f1  Stp  Message'/70('-'))
+1004 format('File    TR   Freq Mode  S/N   Dop     DT   f1  Stp  Message'/70('-'))
 
-  do ifile=1,nfiles                  !Loop over requested number of files
-     if(ntrperiod.lt.60) then
-        write(fname,1005) ifile         !Output filename
-1005    format('000000_',i6.6,'.wav')
+  do ifile=1,nfiles  !Loop over requested number of files
+     istart = (ifile*ntrperiod*2) - (ntrperiod*2)
+     if(ntrperiod.lt.30) then !wdg was 60
+        imins=istart/60
+        isecs=istart-(60*imins)
+        write(fname,1005) imins,isecs        !Construction of output  filename for 15s periods with averaging
+1005    format('000000_',i4.4, i2.2,'.wav')
      else
-        write(fname,1106) ifile
+        write(fname,1106) istart/60     !Output filename to be compatible with averaging 30-300s periods
 1106    format('000000_',i4.4,'.wav')
      endif
 
@@ -118,7 +127,7 @@ program q65sim
      sig=sqrt(2*bandwidth_ratio)*10.0**(0.05*snrdb)
      if(snrdb.gt.90.0) sig=1.0
      write(*,1020) ifile,ntrperiod,f0,csubmode,snrdb,fspread,xdt,f1,nstp,trim(msgsent)
-1020    format(i4,i6,f7.1,2x,a1,2x,f5.1,f6.2,2f6.1,i4,2x,a)
+1020    format(i4,i6,f7.1,2x,a1,2x,f5.1,1x,f6.2,2f6.1,i4,2x,a)
      phi=0.d0
      dphi=0.d0
      k=(xdt+0.5)*12000                   !Start audio at t=xdt+0.5 s (TR=15 and 30 s)
@@ -130,7 +139,11 @@ program q65sim
         if(isym.ne.isym0) then
            freq_drift=f1*i*dt/60.0
            if(nstp.ne.0) freq_drift=freq_drift - nstp*nint(freq_drift/nstp)
-           freq = f0 + freq_drift + itone(isym)*baud*mode65
+                if (msg(1:2).eq.'ST') then
+                   freq = f0 + freq_drift
+                else
+                   freq = f0 + freq_drift + itone(isym)*baud*mode65
+                endif
            dphi=twopi*freq*dt
            isym0=isym
         endif

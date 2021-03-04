@@ -16,11 +16,15 @@ namespace
 
 DecodedText::DecodedText (QString const& the_string)
   : string_ {the_string.left (the_string.indexOf (QChar::Nbsp))} // discard appended info
+  , clean_string_ {string_}
   , padding_ {string_.indexOf (" ") > 4 ? 2 : 0} // allow for
                                                     // seconds
   , message_ {string_.mid (column_qsoText + padding_).trimmed ()}
   , is_standard_ {false}
 {
+  // discard appended AP info
+  clean_string_.replace (QRegularExpression {R"(^(.*)(?:(?:\?\s)?a[0-9].*)$)"}, "\\1");
+
 //  qDebug () << "DecodedText: the_string:" << the_string << "Nbsp pos:" << the_string.indexOf (QChar::Nbsp);
   if (message_.length() >= 1)
     {

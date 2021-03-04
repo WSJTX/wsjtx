@@ -77,7 +77,7 @@ void q65_intrinsics_ff_(float s3[], int* submode, float* B90Ts,
 }
 		
 void q65_dec_(float s3[], float s3prob[], int APmask[], int APsymbols[],
-	      float* esnodb0, int xdec[], int* rc0)
+	      int* maxiters0, float* esnodb0, int xdec[], int* rc0)
 {
 
 /* Input:   s3[LL,NN]       Symbol spectra
@@ -93,8 +93,9 @@ void q65_dec_(float s3[], float s3prob[], int APmask[], int APsymbols[],
   int rc;
   int ydec[63];
   float esnodb;
+  int maxiters=*maxiters0;
 
-  rc = q65_decode(&codec,ydec,xdec,s3prob,APmask,APsymbols);
+  rc = q65_decode(&codec,ydec,xdec,s3prob,APmask,APsymbols,maxiters);
   *rc0=rc;
   // rc = -1:  Invalid params
   // rc = -2:  Decode failed

@@ -31,7 +31,7 @@ TIP: The PC audio mixer normally has two sliders, one for each
   conventional JT65 and JT9 sub-bands simultaneously on most HF bands.
   Further details are provided in the <<TUTORIAL,Basic Operating
   Tutorial>>.  A wider displayed bandwidth may also be helpful at VHF
-  and above, where FT8, JT4, JT65, and QRA64 signals may be found over
+  and above, where FT8, JT4, JT65, and Q65 signals may be found over
   much wider ranges of frequencies.
 
 - If you have only a standard SSB filter you won’t be able to display

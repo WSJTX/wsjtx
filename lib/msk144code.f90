@@ -51,7 +51,8 @@ program msk144code
      if(i3.eq.2) msgtype="EU VHF Contest"
      if(i3.eq.3) msgtype="ARRL RTTY Roundup"
      if(i3.eq.4) msgtype="Nonstandard calls"
-     if(i3.ge.5) msgtype="Undefined msg type"
+     if(i3.eq.5) msgtype="EU VHF Contest"
+     if(i3.ge.6) msgtype="Undefined msg type"
      if(i3.ge.1) n3=-1
      if(i4tone(41).lt.0) then
         msgtype="Sh msg"

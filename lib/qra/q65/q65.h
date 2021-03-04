@@ -75,11 +75,12 @@ int		q65_intrinsics_fastfading(q65_codec_ds *pCodec,
 
 
 int		q65_decode(q65_codec_ds *pCodec, 
-					 int* pDecodedCodeword, 
-					 int *pDecodedMsg, 
-					 const float *pIntrinsics, 
-					 const int *pAPMask, 
-					 const int *pAPSymbols);
+			   int* pDecodedCodeword, 
+			   int *pDecodedMsg, 
+			   const float *pIntrinsics, 
+			   const int *pAPMask, 
+			   const int *pAPSymbols,
+			   const int maxiters);
 
 int		q65_decode_fullaplist(q65_codec_ds *codec,
 						   int *ydec,

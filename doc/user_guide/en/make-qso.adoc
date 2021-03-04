@@ -60,12 +60,10 @@ or rag-chewing.
 
 === Auto-Sequencing
 
-The 15-second T/R cycles of FT8 allow only about two seconds to inspect 
-decoded messages and decide how to reply, which is often not enough.
-The slow modes JT4, JT9, JT65, and QRA64 allow nearly 10 seconds
-for this task, but operators may find that this is still insufficient
-when workload is high, especially on EME. For these  reasons a basic
-auto-sequencing feature is offered.
+The T/R cycles of many _WSJT-X_ modes allow only a few seconds to
+inspect decoded messages and decide how to reply.  Often this is not
+enough time, so for FST4, FT4, FT8, MSK144, and Q65 the program
+offers a basic auto-sequencing feature.
 
 Check *Auto Seq* on the main window to enable this feature:
 
@@ -77,7 +75,8 @@ responder to your CQ.
 
 NOTE: When *Auto-Seq* is enabled, the program de-activates *Enable Tx*
 at the end of each QSO.  It is not intended that _WSJT-X_ should make
-fully automated QSOs.
+fully automated QSOs.  *Auto-sequencing is an operator aid, not an
+operator replacement.*
 
 [[CONTEST_MSGS]]
 === Contest Messages
@@ -160,7 +159,7 @@ guidelines for contest logging with FT4, FT8, and MSK144:
 [[COMP-CALL]] 
 === Nonstandard Callsigns
 
-*FT4, FT8, and MSK144*
+*FST4, FT4, FT8, MSK144, and Q65*
 
 Compound callsigns like xx/K1ABC or K1ABC/x and special event
 callsigns like YW18FIFA are supported for normal QSOs but not for 
@@ -196,7 +195,7 @@ the types of information that can be included in a message.  It
 prevents including your locator in standard messages, which
 necessarily impairs the usefulness of tools like PSK Reporter.
 
-*JT4, JT9, JT65, and QRA64*
+*JT4, JT9, and JT65*
 
 In the 72-bit modes, compound callsigns are handled in one of two
 possible ways:

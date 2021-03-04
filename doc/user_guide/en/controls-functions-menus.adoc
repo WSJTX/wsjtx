@@ -37,6 +37,12 @@ examples for configurations `FT8` and `Echo`:
 ==== View Menu
 image::view-menu.png[align="left",alt="View Menu"]
 
+The *SWL Mode* action reduces the _WSJT-X_ main window to a minimum
+size with just the menus, decodes windows, and status bar visible. You
+may find this useful when running multiple instances of the
+application. Both size and location of the main window are saved and
+recalled independently for this view.
+
 [[MODE_MENU]]
 ==== Mode Menu
 image::mode-menu.png[align="left",alt="Mode Menu"]

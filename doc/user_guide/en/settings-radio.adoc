@@ -96,5 +96,6 @@ green to indicate that proper communication has been established.
 Failure of the CAT-control test turns the button red and displays an
 error message.  After a successful CAT test, toggle the *Test PTT*
 button to confirm that your selected method of T/R control is working
-properly. (If you selected *VOX* for _PTT Method_, you can test T/R
+properly, the button turns red if the rig has been successfully
+keyed. (If you selected *VOX* for _PTT Method_, you can test T/R
 switching later by using the *Tune* button on the main window.)

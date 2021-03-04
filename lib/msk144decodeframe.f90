@@ -100,7 +100,7 @@ subroutine msk144decodeframe(c,softbits,msgreceived,nsuccess)
     nsuccess=1
     write(c77,'(77i1)') decoded77
     read(c77(72:77),'(2b3)') n3,i3
-    if( (i3.eq.0.and.(n3.eq.1 .or. n3.eq.3 .or. n3.eq.4 .or. n3.gt.5)) .or. i3.eq.3 .or. i3.gt.4 ) then
+    if( (i3.eq.0.and.(n3.eq.1 .or. n3.eq.3 .or. n3.eq.4 .or. n3.gt.5)) .or. i3.eq.3 .or. i3.gt.5 ) then
         nsuccess=0 
     else 
         call unpack77(c77,1,msgreceived,unpk77_success)

@@ -103,7 +103,7 @@ program test_q65
   dterr=tsym/4.0
   nferr=max(1,nint(0.5*baud),nint(fdop/3.0))
   ndec1z=nfiles
-  
+
   do nsnr=ia,ib,-1
      snr1=nsnr
      if(ia.eq.99) snr1=snr

@@ -16,6 +16,5 @@ characters) in the entry field at top, then click *Add*.
 - You can reorder your macro messages by using drag-and-drop. The
 new order will be preserved when _WSJT-X_ is restarted.
 
-- Messages can also be added from the main window's *Tx5* field on Tab
-1 or the *Free msg* field on Tab 2. Simply hit [Enter] after the
-message has been entered.
+- Messages can also be added from the main window's *Tx5*
+  field. Simply hit [Enter] after the message has been entered.

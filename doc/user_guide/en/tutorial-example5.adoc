@@ -1,5 +1,19 @@
 Do not confuse FST4 with FT4, which has a very different purpose!
-FST4 is is designed for making 2-way QSOs on the LF and MF bands.
+FST4 is designed primarily for making weak-signal 2-way QSOs on the 
+LF and MF bands. T/R periods from 15 s up to 1800 s are 
+available. Longer T/R periods provide better sensitivity only if 
+Tx and Rx frequency instability and channel Doppler spread
+are small enough so that received signals 
+remain phase coherent over periods spanning several transmitted symbols.
+Generally speaking, Rx and Tx frequency changes 
+during the transmission and channel Doppler spread should each be small compared
+to the symbol keying rate shown for each T/R duration in Table 7 within section
+<<PROTOCOL_OVERVIEW,Protocol Specifications>>. For example, the keying rate for 
+the 1800 s T/R period is 0.089 Baud, so
+successful operation using this T/R length requires Tx and Rx frequency
+stability better than 0.089 Hz over the duration of the 1800 s transmission in 
+addition to channel Doppler spread smaller than 0.089 Hz. 
+
 Operation with FST4 is similar to that with other _WSJT-X_ modes: most
 on-screen controls, auto-sequencing, and other features behave in
 familiar ways.  However, operating conventions on the 2200 and 630 m
@@ -21,3 +35,26 @@ decoding process (and of course will be undecodable).  By checking
 further limit the decoding range to the setting of *F Tol* on
 either side of *Rx Freq*.
 
+A noise blanker can be enabled by setting the *NB* percentage to a non-zero value. 
+This setting determines how many of the largest-amplitude samples will be 
+blanked (zeroed) before the data is submitted to the decoder. Most users find
+that settings between 0% (no blanking) and 10% work best. If the noise 
+blanker percentage is set to -1%, then the decoder will try 0, 5, 10, 15, and 20 %
+in succession. Similarly, a setting of -2% causes the decoder to loop over
+blanking percentages 0, 2, 4, ... 20 %. To save time, the multiple blanking 
+percentages triggered by negative *NB* settings are tried only for signal 
+candidates located near (within +/- 20 Hz) of the *Rx* frequency setting.
+
+.Open a sample Wave File:
+
+- Select *FST4* on the *Mode* menu. Set *T/R* to 60 s and *Decode | Deep*.
+- Set *NB* (noise blanker) to 0%.
+- Set up the Wide Graph display with settings appropriate for the FST4-60 mode. 
+For example, try *Bins/Pixel* 2 and *N Avg* 4. Set the *Start* frequency and the width of 
+the Wide Graph to include the frequency range that you want to decode. For this
+example, make sure that *Start* is less than 1000 Hz and that the Wide Graph extends to above 1400 Hz.
+- Set *F Low* 1000, *F High* 1400. These settings define the decoder's frequency search range.
+- Open a sample Wave file using *File | Open* and select the file
+...\save\samples\FST4+FST4W\210115_0058.wav. After _WSJT-X_ has processed the file you should see something similar to the following screen shot:
+
+image::FST4-1.png[align="left"]

@@ -119,6 +119,15 @@ In macOS, enter the following command from a terminal:
 
  open /Applications/wsjtx.app --args -stylesheet :/qdarkstyle/style.qss
 
+In Linux using the Unity or GNOME GUI the following commands will
+update the _WSJT-X_ start up:
+
+....
+sed '/Exec=wsjtx/ s/$/ -stylesheet :\/qdarkstyle\/style.qss/' \
+  /usr/share/applications/wsjtx.desktop >~/.local/share/applications/wsjtx.desktop
+update-desktop-database ~/.local/share/applications/
+....
+
 Depending on your operating system, the main _WSJT-X_ window will look
 something like this:
 
@@ -193,7 +202,7 @@ include::wspr.adoc[]
 include::controls-functions-menus.adoc[]
 
 [[CONTROLS_MAIN]]
-=== Button Row
+    === Button Row
 include::controls-functions-main-window.adoc[]
 
 [[CONTROLS_LEFT]]

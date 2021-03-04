@@ -19,6 +19,10 @@ QRZ messages. Full details of the protocol can be found in comments
 at the top of this file in our source code repository:
 https://sourceforge.net/p/wsjt/wsjtx/ci/master/tree/Network/NetworkMessage.hpp
 
+NOTE: The *Outgoing interfaces* and *Multicast TTL* fields are only
+      present when a multicast group IP address has been entered in
+      the *UDP Server* field.
+
 Programs like _JTAlert_ use the _UDP Server_ feature to obtain
 information about running _WSJT-X_ instances.  If you are using
 _JTAlert_ to control _WSJT-X_, be sure to check the

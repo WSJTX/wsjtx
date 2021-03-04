@@ -19,7 +19,6 @@ namespace
     "JT4",
     "WSPR",
     "Echo",
-    "ISCAT",
     "MSK144",
     "FreqCal",
     "FT8",

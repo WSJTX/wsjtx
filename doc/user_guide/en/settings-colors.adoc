@@ -18,6 +18,13 @@ image::colors.png[align="center",alt="Colors Screen"]
 * Check *Highlight by Mode* if you wish worked before status to be per
   <<INTRO,mode>>.
 
+* Check *Only grid Fields sought* if you are only interested in the
+  leading two character grid locator Fields rather than teh four
+  character grid locator Squares.
+
+* Check *Include extra WAE entities* if you are interested in the
+  extra entities defined for DARC WAE and CQ Marathon awards.
+
 * Worked before status is calculated from your _WSJT-X_ ADIF
   <<LOGGING, Logging>> file, you may replace ADIF log file with one
   exported from your station logging application, *Rescan ADIF Log*

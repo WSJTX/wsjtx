@@ -24,6 +24,7 @@ public:
   ~HamlibTransceiver ();
 
 private:
+  void load_user_settings ();
   int do_start () override;
   void do_stop () override;
   void do_frequency (Frequency, MODE, bool no_ignore) override;

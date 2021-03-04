@@ -1,34 +1,15 @@
 [[NEW_FEATURES]]
 === New in Version {VERSION}
 
-_WSJT-X 2.3.0_ introduces *FST4* and *FST4W*, new digital protocols
-designed particularly for the LF and MF bands.  Decoders for these
-modes can take advantage of the very small Doppler spreads present at
-these frequencies, even over intercontinental distances.  As a
-consequence, fundamental sensitivities of FST4 and FST4W are better
-than other _WSJT-X_ modes with the same sequence lengths, approaching
-the theoretical limits for their rates of information throughput.  The
-FST4 protocol is optimized for two-way QSOs, while FST4W is for
-quasi-beacon transmissions of WSPR-style messages.  FST4 and FST4W do
-not require the strict, independent phase locking and time
-synchronization of modes like EbNaut.
+_WSJT-X 2.4.0_ introduces *Q65*, a new digital protocol designed for
+minimal two-way QSOs over especially difficult propagation paths.  On
+paths with Doppler spread more than a few Hz, the weak-signal
+performance of Q65 is the best among all WSJT-X modes.
 
-The new modes use 4-GFSK modulation and share common software for
-encoding and decoding messages.  FST4 offers T/R sequence lengths of
-15, 30, 60, 120, 300, 900, and 1800 seconds, while FST4W omits the
-lengths shorter than 120 s.  Submodes are given names like FST4-60,
-FST4W-300, etc., the appended numbers indicating sequence length in
-seconds.  Message payloads contain either 77 bits, as in FT4, FT8, and
-MSK144, or 50 bits for the WSPR-like messages of FST4W.  Message
-formats displayed to the user are like those in the other 77-bit and
-50-bit modes in _WSJT-X_.  Forward error correction uses a low density
-parity check (LDPC) code with 240 information and parity bits.
-Transmissions consist of 160 symbols: 120 information-carrying symbols
-of two bits each, interspersed with five groups of eight predefined
-synchronization symbols.
-
-*We recommend that on the 2200 and 630 m bands FST4 should replace JT9
-for making 2-way QSOs, and FST4W should replace WSPR for propagation
-tests*.  Operating conventions on these LF and MF bands will
-eventually determine the most useful T/R sequence lengths for each
-type of operation.
+Q65 uses message formats and sequencing identical to those used in
+FST4, FT4, FT8, and MSK144.  Submodes are provided with a wide variety
+of tone spacings and T/R sequence lengths 15, 30, 60, 120, and 300 s.
+A new, highly reliable list-decoding technique is used for messages
+that contain previously copied message fragments.  Message averaging
+is provided for situations where single transmissions are too weak or
+signal enhancements too sparse for a signal to be decoded.

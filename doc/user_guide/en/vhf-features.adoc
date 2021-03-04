@@ -11,11 +11,10 @@ higher bands.  These features include:
 
 - *JT65*, widely used for EME on VHF and higher bands
 
-- *QRA64*, another mode for EME
+- *Q65*, for ionospheric scatter, tropospheric scatter, rain scatter, 
+TEP, and EME
 
 - *MSK144*, for meteor scatter
-
-- *ISCAT*, for aircraft scatter and other types of scatter propagation
 
 - *Echo* mode, for detecting and measuring your own lunar echoes
 
@@ -174,55 +173,33 @@ RO, RRR, and 73.
 
 image::JT65B.png[align="center",alt="JT65B"]
 
-=== QRA64
+=== Q65
 
-QRA64 is designed for EME on VHF and higher bands; its
-operation is generally similar to JT4 and JT65.  The following screen
-shot shows an example of a QRA64C transmission from DL7YC recorded at
-G3WDG over the EME path at 24 GHz.  Doppler spread on the path was 78
-Hz, so although the signal is reasonably strong its tones are
-broadened enough to make them hard to see on the waterfall.  The
-triangular red marker below the frequency scale shows that the decoder
-has achieved synchronization with a signal at approximately 967 Hz.
+Q65 is designed for propagation paths that produce fast fading
+signals: tropospheric scatter, rain scatter, ionospheric scatter,
+trans-equatorial propagation (TEP), EME, and the like.  The following
+screen shot shows an example with submode Q65-30A on a 6-meter
+ionospheric scatter path of about 1100 km.
 
-image::QRA64.png[align="center",alt="QRA64"]
+image::Q65_6m_ionoscatter.png[align="center",alt="Q65"]
 
-The QRA64 decoder makes no use of a callsign database.  Instead, it
+The Q65 decoder makes no use of a callsign database.  Instead, it
 takes advantage of _a priori_ (AP) information such as one's own
-callsign and the encoded form of message word `CQ`.  In normal usage,
-as a QSO progresses the available AP information increases to include
-the callsign of the station being worked and perhaps also his/her
-4-digit grid locator.  The decoder always begins by attempting to
-decode the full message using no AP information.  If this attempt
-fails, additional attempts are made using available AP information to
-provide initial hypotheses about the message content.  At the end of
-each iteration the decoder computes the extrinsic probability of the
-most likely value for each of the message's 12 six-bit information
-symbols.  A decode is declared only when the total probability for all
-12 symbols has converged to an unambiguous value very close to 1.
+callsign and the message word `CQ`.  In normal usage, as a QSO
+progresses the available AP information increases to include the
+callsign of the station being worked and perhaps also his/her 4-digit
+grid locator.  The decoder takes advantage of whatever AP information
+is available.  
 
-For EME QSOs some operators use short-form QRA64 messages consisting
-of a single tone.  To activate automatic generation of these messages,
-check the box labeled *Sh*.  This also enables the generation of a
-single tone at 1000Hz by selecting Tx6, to assist in finding  signals
-initially, as the QRA64 tones are often not visible on the waterfall.
-The box labeled *Tx6* switches the Tx6 message from 1000Hz to 1250Hz
-to indicate to the other station that you are ready to receive messages.
+For Q65 EME QSOs, particularly on the micriowave bands, some operators
+use short-form messages consisting of a single tone.  To activate
+automatic generation of these messages, check the box labeled *Sh*.
+This also enables the generation of a single tone at 1000Hz by
+selecting Tx6, to assist in finding signals initially.  The box
+labeled *Tx6* switches the Tx6 message from 1000Hz to 1250Hz to
+indicate to the other station that you are ready to receive messages.
 
-TIP: QRA64 attempts to find and decode only a single signal in the
-receiver passband.  If many signals are present, you may be able to
-decode them by double-clicking on the lowest tone of each one in the
-waterfall.
-
-TIP: G3WDG has prepared a more detailed tutorial on using {QRA64_EME}. 
-
-=== ISCAT
-
-ISCAT is a useful mode for signals that are weak but more or less
-steady in amplitude over several seconds or longer.  Aircraft scatter
-at 10 GHz is a good example.  ISCAT messages are free-format and may
-have any length from 1 to 28 characters.  This protocol includes no
-error-correction facility.
+// TIP: G3WDG has prepared a more detailed tutorial on using {QRA64_EME}. 
 
 === MSK144
 
@@ -335,21 +312,28 @@ image::echo_144.png[align="center",alt="Echo 144 MHz"]
 
 === Tips for EME
 
-Current conventions dictate that digital EME is usually done with
-JT65A on the 50 MHz band, JT65B on 144 and 432 MHz, and JT65C on 1296
-MHz.  On higher microwave bands typical choices are JT65C or one of
+Until the advent of Q65, digital EME has mostly been done using JT65A
+on the 50 MHz band, JT65B on 144 and 432 MHz, and JT65C on 1296 MHz.
+On higher microwave bands typical choices have been JT65C or one of
 the wider QRA64 or JT4 submodes, depending on the expected amount of
-Doppler spread.  JT4 and JT65 offer message *Averaging* -- the
-summation of subsequent transmissions that convey the same message --
-to enable decodes at signal-to-noise ratios several dB below the
-threshold for single transmissions.  These modes also allow *Deep
-Search* decoding, in which the decoder hypothesizes messages
-containing known or previously decoded callsigns and tests them for
-reliability using a correlation algorithm.  Finally, JT65 and QRA64
-offer _a priori_ (AP) decoding, which takes advantage of naturally
-accumulating information during a QSO.  The following tutorial aims to
-familiarize you with these program features, all of which are of
-special interest for EME and other extreme weak-signal conditions.
+Doppler spread.  We now recommend a suitable submodes of Q65 for EME
+on all bands: for example, Q65-60A on 50 and 144 MHz, -60B on
+432 MHz, -60C on 1296 MHz, and -60D on 10 GHz.
+
+JT4, JT65, and Q65 offer *Message Averaging* -- the summation of
+subsequent transmissions that convey the same message -- to enable
+decodes at signal-to-noise ratios several dB below the threshold for
+single transmissions.  JT4 and JT65 also allow *Deep Search* decoding,
+in which the decoder hypothesizes messages containing known or
+previously decoded callsigns and tests them for reliability using a
+correlation algorithm.  JT65 and Q65 offer _a priori_ (AP)
+decoding, which takes advantage of naturally accumulating information
+during a QSO.
+
+////
+The following tutorial aims to familiarize you with
+these program features, all of which are of special interest for EME
+and other extreme weak-signal conditions.
 
 As a starting point, configure _WSJT-X_ as follows:
 
@@ -381,7 +365,7 @@ decode*, *Decode after EME delay*
 
 .Wide Graph:
 
-- *Bins/Pixel* = 3, *N Avg* = 10
+- *Bins/Pixel* = 4, *N Avg* = 10
 
 - Adjust the width of the window so that the frequency range extends
   up to at least 2400 Hz.
@@ -437,3 +421,5 @@ You might wish to experiment with other combinations of entries for
 options of the *Decode* menu on and off.  For best sensitivity, most
 users will want to use *Deep* decoding with  *Enable averaging*, 
 *Enable deep search*, and *Enable AP* all turned on.
+
+////

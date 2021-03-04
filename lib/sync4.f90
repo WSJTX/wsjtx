@@ -29,7 +29,7 @@ subroutine sync4(dat,jz,ntol,nfqso,mode,mode4,minwidth,dtx,dfx,snrx,    &
   df=0.5*11025.0/nfft
   ftop=nfqso + 7*mode4*df
   if(ftop.gt.11025.0/4.0) then
-     print*,'*** Rx Freq is set too high for this sybmode ***'
+     print*,'*** Rx Freq is set too high for this submode ***'
      go to 900
   endif
 
@@ -85,7 +85,7 @@ subroutine sync4(dat,jz,ntol,nfqso,mode,mode4,minwidth,dtx,dfx,snrx,    &
   enddo
   if(syncbest.lt.-1.e29) go to 900
   ccfred=red
-  call pctile(ccfred(iaa:ibb),ibb-iaa+1,45,base)
+  call pctile(ccfred(ia:ib),ib-ia+1,45,base)
   ccfred=ccfred-base
   
   dfx=ipk*df

@@ -47,17 +47,17 @@
 #define NUM_JT65_SYMBOLS 126               //63 data + 63 sync
 #define NUM_JT9_SYMBOLS 85                 //69 data + 16 sync
 #define NUM_WSPR_SYMBOLS 162               //(50+31)*2, embedded sync
-#define NUM_ISCAT_SYMBOLS 1291             //30*11025/256
 #define NUM_MSK144_SYMBOLS 144             //s8 + d48 + s8 + d80
 #define NUM_Q65_SYMBOLS 85                 //63 data + 22 sync
 #define NUM_FT8_SYMBOLS 79
 #define NUM_FT4_SYMBOLS 105
 #define NUM_FST4_SYMBOLS 160             //240/2 data + 5*8 sync
 #define NUM_CW_SYMBOLS 250
+#define MAX_NUM_SYMBOLS 250
 #define TX_SAMPLE_RATE 48000
 #define NRING 3456000
 
-extern int volatile itone[NUM_ISCAT_SYMBOLS];   //Audio tones for all Tx symbols
+extern int volatile itone[MAX_NUM_SYMBOLS];   //Audio tones for all Tx symbols
 extern int volatile icw[NUM_CW_SYMBOLS];	    //Dits for CW ID
 
 //--------------------------------------------------------------- MainWindow
@@ -291,7 +291,6 @@ private slots:
   void on_pbTxNext_clicked(bool b);
   void on_actionEcho_Graph_triggered();
   void on_actionEcho_triggered();
-  void on_actionISCAT_triggered();
   void on_actionFast_Graph_triggered();
   void fast_decode_done();
   void on_actionMeasure_reference_spectrum_triggered();
@@ -538,6 +537,7 @@ private:
   bool    m_bTUmsg;
   bool    m_bBestSPArmed=false;
   bool    m_bOK_to_chk=false;
+  bool    m_bSentReport=false;
 
   enum
     {

@@ -2,12 +2,12 @@
 
 === AP Decoding
 
-The _WSJT-X_ decoders for FT4, FT8, JT65, QRA64, include 
+The _WSJT-X_ decoders for FST4, FT4, FT8, JT65, and Q65 include
 procedures that use naturally accumulating information during a
 minimal QSO.  This _a priori_ (AP) information increases sensitivity
 of the decoder by up to 4 dB, at the cost of a slightly higher rate of
-false decodes.  AP is optional in FT8, JT65, and QRA64, but is always
-enabled for FT4.
+false decodes.  AP is optional in FT8 and JT65, but is always enabled
+for Q65 and for FT4 and FST4 when decode depth is Normal or Deep.
 
 For example: when you decide to answer a CQ, you already know your own
 callsign and that of your potential QSO partner.  The software
@@ -27,7 +27,7 @@ example, `a2` indicates that the successful decode used MyCall as
 hypothetically known information.
 
 [[FT8_AP_INFO_TABLE]]
-.FT4 and FT8 AP information types
+.FST4, FT4, and FT8 AP information types
 [width="35%",cols="h10,<m20",frame=topbot,options="header"]
 |===============================================
 |aP | Message components
@@ -47,7 +47,9 @@ forwarded to {pskreporter}.
 
 Table 2 lists the six possible QSO states that are tracked by the
 _WSJT-X_ auto-sequencer, along with the type of AP decoding that would
-be attempted in each state.
+be attempted in each state in FT4 or FT8. The FST4 table (not shown) 
+is the same except that it omits the decoding attempts for AP types 
+4 and 5 to save time.
 
 [[FT8_AP_DECODING_TYPES_TABLE]]
 .FT4 and FT8 AP decoding types for each QSO state
@@ -109,14 +111,14 @@ summarized in the following Table:
 [width="50%",cols="h,3*^",frame=topbot,options="header"]
 |===========================================
 |Mode    |Mode character|Sync character|End of line information
+|FST4    | `            |      | ? &#160; aP
 |FT4     | ~            |      | ? &#160; aP
 |FT8     | ~            |      | ? &#160; aP
 |JT4     | $            | *, # | f, fN, dCN
 |JT9     | @            |      |
 |JT65    | #            |      |
 |JT65 VHF| #            | *, # | f, fN, dCN
-|QRA64   | :            | *    | R
-|ISCAT   |              | *    | M  N  C  T
+|Q65     | :            |      | qP
 |MSK144  | &            |      |
 |===========================================
 Sync character::
@@ -126,32 +128,20 @@ Sync character::
 End of line information::
  `?` - Decoded with lower confidence +
  `a` - Decoded with aid of some _a priori_ (AP) information +
- `C` - Confidence indicator [ISCAT and Deep Search; (0-9,*)] +
+ `C` - Confidence indicator [Deep Search; (0-9,*)] +
  `d` - Deep Search algorithm +
  `f` - Franke-Taylor or Fano algorithm +
- `M` - Message length (characters) +
  `N` - Number of Rx intervals or frames averaged +
- `P` - Number indicating type of AP information (Table 1, above) +
- `R` - Return code from QRA64 decoder +
- `T` - Length of analyzed region (s)
+ `P` - Number indicating type of AP information (Table 1 or Table 6) +
 
-Table 6 below shows the meaning of the return codes R in QRA64 mode.
-
-[[QRA64_AP_INFO_TABLE]]
-.QRA64 AP return codes
-[width="35%",cols="h10,<m20",frame=topbot,options="header"]
+[[Q65_AP_INFO_TABLE]]
+.Q65 end-of-line codes
+[width="45%",cols="h10,<m20",frame=topbot,options="header"]
 |===============================================
-|rc | Message components
-|0  | ?    &#160; &#160;   ?   &#160; &#160;   ?
-|1  | CQ   &#160; &#160;   ?   &#160; &#160;   ? 
-|2  | CQ   &#160; &#160;   ?   
-|3  | MyCall   &#160; &#160;   ?   &#160; &#160;   ? 
-|4  | MyCall   &#160; &#160;   ?  
-|5  | MyCall DxCall &#160; &#160;   ?
-|6  | ?    &#160; &#160;   DxCall   &#160; &#160;   ?
-|7  | ?    &#160; &#160;   DxCall   
-|8  | MyCall     DxCall DxGrid
-|9  | CQ     DxCall &#160; &#160;   ?
-|10 | CQ     DxCall 
-|11 | CQ     DxCall DxGrid
+|   | Message components
+|q0  | ?    &#160; &#160;   ?   &#160; &#160;   ?
+|q1  | CQ   &#160; &#160;   ?   &#160; &#160;   ? 
+|q2  | MyCall   &#160; &#160;   ?   &#160; &#160;   ? 
+|q3  | MyCall DxCall &#160; &#160;   ?
+|q4  | MyCall DxCall &#160; &#160; [<blank> \| RRR \| RR73 \| 73]
 |===============================================

@@ -67,10 +67,10 @@ contains
     integer dat4(13)                      !Decoded message as 12 6-bit integers
     integer dgen(13)
     logical lclearave,lnewdat0,lapcqonly,unpk77_success
-    logical single_decode,lagain
+    logical single_decode,lagain,ex
     complex, allocatable :: c00(:)        !Analytic signal, 6000 Sa/s
     complex, allocatable :: c0(:)         !Analytic signal, 6000 Sa/s
-
+    
 ! Start by setting some parameters and allocating storage for large arrays
     call sec0(0,tdecode)
     nfa=nfa0
@@ -79,7 +79,7 @@ contains
     idec=-1
     idf=0
     idt=0
-    irc=0
+    nrc=-2
     mode_q65=2**nsubmode
     npts=ntrperiod*12000
     nfft1=ntrperiod*12000
@@ -98,9 +98,8 @@ contains
     allocate (c00(0:nfft1-1))
     allocate (c0(0:nfft1-1))
 
-    if(ntrperiod.eq.15) then
-       nsps=1800
-    else if(ntrperiod.eq.30) then
+    nsps=1800
+    if(ntrperiod.eq.30) then
        nsps=3600
     else if(ntrperiod.eq.60) then
        nsps=7200
@@ -108,23 +107,26 @@ contains
        nsps=16000
     else if(ntrperiod.eq.300) then
        nsps=41472
-    else
-       stop 'Invalid TR period'
     endif
 
     baud=12000.0/nsps
     this%callback => callback
     nFadingModel=1
+
+    inquire(file='ndepth.dat',exist=ex)
+    if(.not.ex) ndepth=iand(ndepth,not(3)) + 1    !Treat any ndepth as "Fast"
+    maxiters=67
     ibwa=max(1,int(1.8*log(baud*mode_q65)) + 1)
-    ibwb=min(10,ibwa+3)
+    ibwb=min(10,ibwa+4)
     if(iand(ndepth,3).ge.2) then
-       ibwa=max(1,int(1.8*log(baud*mode_q65)) + 2)
+       ibwa=max(1,int(1.8*log(baud*mode_q65)) + 1)
        ibwb=min(10,ibwa+5)
     else if(iand(ndepth,3).eq.3) then
        ibwa=max(1,ibwa-1)
        ibwb=min(10,ibwb+1)
+       maxiters=100
     endif
-    
+
 ! Generate codewords for full-AP list decoding    
     call q65_set_list(mycall,hiscall,hisgrid,codewords,ncw) 
     dgen=0
@@ -175,7 +177,6 @@ contains
        call timer('q65loops',0)
        call q65_loops(c00,npts/2,nsps/2,nsubmode,ndepth,jpk0,   &
             xdt,f0,iaptype,xdt1,f1,snr2,dat4,idec)
-!       idec=-1   !### TEMPORARY ###
        call timer('q65loops',1)
        if(idec.ge.0) then
           dtdec=xdt1
@@ -229,6 +230,7 @@ contains
        write(c77,1000) dat4(1:12),dat4(13)/2
 1000   format(12b6.6,b5.5)
        call unpack77(c77,0,decoded,unpk77_success) !Unpack to get msgsent
+       call q65_snr(dat4,dtdec,f0dec,mode_q65,nused,snr2)
        nsnr=nint(snr2)
        call this%callback(nutc,snr1,nsnr,dtdec,f0dec,decoded,    &
             idec,nused,ntrperiod)
@@ -244,21 +246,22 @@ contains
           if(c6.eq.'      ') c6='<b>   '
           c4=hisgrid(1:4)
           if(c4.eq.'    ') c4='<b> '
-          fmt='(i6.4,1x,a4,5i2,3i3,f6.2,f7.1,f7.2,f6.1,f6.2,'//   &
+          fmt='(i6.4,1x,a4,4i2,6i3,i4,f6.2,f7.1,f6.1,f6.2,'//   &
                '1x,a6,1x,a6,1x,a4,1x,a)'
           if(ntrperiod.le.30) fmt(5:5)='6'
-          write(22,fmt) nutc,cmode,nQSOprogress,idec,idf,idt,ibw,nused,    &
-               icand,ncand,xdt,f0,snr1,snr2,tdecode,mycall(1:6),c6,c4,     &
-               trim(decoded)
+          if(idec.eq.3) nrc=0
+          write(22,fmt) nutc,cmode,nQSOprogress,idec,idfbest,idtbest,ibw,    &
+               ndistbest,nused,icand,ncand,nrc,ndepth,xdt,f0,snr2,tdecode,   &
+               mycall(1:6),c6,c4,trim(decoded)
           close(22)
        endif
-    else
+!    else
 ! Report snr1, even if no decode.
-       nsnr=db(snr1) - 35.0
-       if(nsnr.lt.-35) nsnr=-35
-       idec=-1
-       call this%callback(nutc,snr1,nsnr,xdt,f0,decoded,                  &
-            idec,0,ntrperiod)
+!       nsnr=db(snr1) - 35.0
+!       if(nsnr.lt.-35) nsnr=-35
+!       idec=-1
+!       call this%callback(nutc,snr1,nsnr,xdt,f0,decoded,                  &
+!            idec,0,ntrperiod)
     endif
     navg0=1000*navg(0) + navg(1)
     if(single_decode .or. lagain) go to 900
@@ -309,6 +312,7 @@ contains
 ! Unpack decoded message for display to user
           write(c77,1000) dat4(1:12),dat4(13)/2
           call unpack77(c77,0,decoded,unpk77_success) !Unpack to get msgsent
+          call q65_snr(dat4,dtdec,f0dec,mode_q65,nused,snr2)
           nsnr=nint(snr2)
           call this%callback(nutc,snr1,nsnr,dtdec,f0dec,decoded,    &
                idec,nused,ntrperiod)
@@ -324,12 +328,13 @@ contains
              if(c6.eq.'      ') c6='<b>   '
              c4=hisgrid(1:4)
              if(c4.eq.'    ') c4='<b> '
-             fmt='(i6.4,1x,a4,5i2,3i3,f6.2,f7.1,f7.2,f6.1,f6.2,'//   &
+             fmt='(i6.4,1x,a4,4i2,6i3,i4,f6.2,f7.1,f6.1,f6.2,'//   &
                   '1x,a6,1x,a6,1x,a4,1x,a)'
              if(ntrperiod.le.30) fmt(5:5)='6'
-             write(22,fmt) nutc,cmode,nQSOprogress,idec,idf,idt,ibw,nused,    &
-                  icand,ncand,xdt,f0,snr1,snr2,tdecode,mycall(1:6),c6,c4,     &
-                  trim(decoded)
+             if(idec.eq.3) nrc=0
+             write(22,fmt) nutc,cmode,nQSOprogress,idec,idfbest,idtbest,ibw,  &
+                  ndistbest,nused,icand,ncand,nrc,ndepth,xdt,f0,snr2,tdecode, &
+                  mycall(1:6),c6,c4,trim(decoded)
              close(22)
           endif
        endif

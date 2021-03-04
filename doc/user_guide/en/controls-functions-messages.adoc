@@ -1,11 +1,10 @@
 // Status=edited
 
-Two arrangements of controls are provided for generating and selecting
-Tx messages.  Controls familiar to users of program _WSJT_
-appear on *Tab 1*, providing six fields for message entry.
-Pre-formatted messages for the standard minimal QSO are generated when
-you click *Generate Std Msgs* or double-click on an appropriate line
-in one of the decoded text windows.
+Controls familiar to users of program _WSJT_ appear on *Tab 1*,
+providing six fields for message entry.  Pre-formatted messages for
+the standard minimal QSO are generated when you click *Generate Std
+Msgs* or double-click on an appropriate line in one of the decoded
+text windows.
 
 //.Traditional Message Menu
 image::traditional-msg-box.png[align="center",alt="Traditional Message Menu"]
@@ -28,31 +27,12 @@ stored messages entered on the *Files -> Settings -> Tx Macros* tab.
 Pressing *Enter* on a modified message #5 automatically adds that
 message to the stored macros.
 
-* In some circumstances it may be desirable to make your QSOs as
-short as possible.  To configure the program to start contacts with
-message #2, disable message #1 by double-clicking its radio-button in the *Next* column or *Tx 1* button in the *Now* column.  Similarly, to send RR73
-rather than RRR for message #4, double-click one of its buttons.
-
-The second arrangement of controls for generating and selecting
-Tx messages appears on *Tab 2* of the Message Control Panel:
-
-//.New Message Menu
-image::new-msg-box.png[align="center",alt="New Message Menu"]
-
-With this setup you normally follow a top-to-bottom sequence of
-transmissions from the left column if you are calling CQ, or the right
-column if answering a CQ.  
-
-* Clicking a button puts the appropriate message in the *Gen Msg* box.
-If you are already transmitting, the Tx message is changed
-immediately.
-
-* You can enter and transmit anything (up to 13 characters, including
-spaces) in the *Free Msg* box.
-
-* Click the pull-down arrow in the *Free Msg* box to select a
-stored macro.  Pressing *Enter* on a modified message here
-automatically adds that message to the table of stored macros.
+* In some circumstances it may be desirable to make your QSOs as short
+as possible.  To configure the program to start contacts with message
+#2, disable message #1 by double-clicking its radio-button in the
+*Next* column or *Tx 1* button in the *Now* column.  Similarly, to
+send RR73 rather than RRR for message #4, double-click one of its
+buttons.
 
 +
 

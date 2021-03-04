@@ -4170,55 +4170,56 @@ listen. Makro listen kan også ændfres i Inderstillinger (F2).</translation>
 &lt;/table&gt;</source>
         <extracomment>Keyboard shortcuts help window contents</extracomment>
         <translatorcomment>Hjælpetekst til Tastetur genveje</translatorcomment>
-        <translation>&lt;tabelcelleafstand = 1&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; Esc &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Stop Tx, afbryd QSO, ryd kø ved næste kald &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; F1 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Online brugervejledning (Alt: transmitter Tx6) &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; Shift + F1 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Meddelelse om ophavsret &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; Ctrl + F1 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Om WSJT-X &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; F2 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Åbn indstillingsvinduet (Alt: send Tx2) &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; F3 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Vis tastaturgenveje (Alt: transmitter Tx3) &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; F4 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Ryd DX Call, DX Grid, Tx meddelelser 1-4 (Alt: send Tx4) &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; Alt + F4 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Afslutningsprogram &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; F5 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Vis specielle musekommandoer (Alt: transmitter Tx5) &lt;/td&gt; &lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt; &lt;b&gt; F6 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Åbn næste fil i biblioteket (Alt: skift &quot;Call 1st&quot;) &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; Shift + F6 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Dekod alle resterende filer i biblioteket &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; F7 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Vis vindue for gennemsnitsmeddelelse &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; F11 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Flyt Rx-frekvensen ned 1 Hz &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; Ctrl + F11 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Flyt identiske Rx- og Tx-frekvenser ned 1 Hz &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; Shift + F11 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Flyt Tx-frekvensen 60 Hz ned (FT8) eller 90 Hz (FT4) &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; Ctrl + Shift + F11 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Flyt kaldefrekvensen 2000 Hz ned &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; F12 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Flyt Rx-frekvensen 1 Hz op &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; Ctrl + F12 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Flyt identiske Rx- og Tx-frekvenser 1 Hz op &lt;/td&gt; &lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt; &lt;b&gt; Ctrl + F11 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Flyt identiske Rx- og Tx-frekvenser ned 1 Hz &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; Shift + F11 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Flyt Tx-frekvensen ned 60 Hz (FT8) eller 90 Hz (FT4) &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; Ctrl + Shift + F11 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Flyt kaldefrekvensen ned 2000 Hz &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; F12 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Flyt Rx-frekvensen op 1 Hz &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; Ctrl + F12 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Flyt identiske Rx- og Tx-frekvenser 1 Hz op &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; Shift + F12 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Flyt Tx-frekvensen 60 Hz op (FT8) eller 90 Hz (FT4) &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; Ctrl + Shift + F12 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Flyt kaldefrekvensen 2000 Hz op&lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; Alt + 1-6 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Indstil NU transmission til dette nummer på fane 1 &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; Ctl + 1-6 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Indstil næste transmission til dette nummer på fane 1 &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; Alt + B &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Skift status &quot;Bedste S + P&quot; &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; Alt + C &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Skift afkrydsningsfelt &quot;Kald 1st&quot; &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; Alt + D &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Dekod igen ved QSO-frekvens &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; Shift + D &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Fuld Dekodning (begge vinduer) &lt;/td&gt; &lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt; &lt;b&gt; Ctrl + E &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Aktiver TX lige / 1. &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; Shift + E &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Deaktiver TX lige / 1. &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; Alt + E &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Sætning&lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; Ctrl + F &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Rediger fri tekstmeddelelsesfelt &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; Alt + G &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Generer standardmeddelelser &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; Alt + H &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Stop Tx &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; Ctrl + L &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Opslag af kaldesignal i database, generer standardbeskeder &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; Alt + M &lt;/b&gt;&lt;/td&gt;&lt;td&gt; Skærm&lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; Alt + N &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Aktivér Tx &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; Ctrl + O &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Åbn en .wav-fil &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; Alt + O &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Skift operatør &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; Alt + Q &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Log QSO &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; Ctrl + R &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Indstil Tx4-besked til RRR (ikke i FT4) &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; Alt + R &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Indstil Tx4-besked til RR73 &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; Alt + S &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Stop overvågning &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; Alt + T &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Skift Tune status &lt;/td&gt; &lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt; &lt;b&gt; Alt + Z &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Ryd fyldt buffer dekoderstatus &lt;/td&gt; &lt;/tr&gt;
+        <translation>&lt;table cellspacing=1&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Esc      &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Stop Tx, abort QSO, clear next-call queue&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Esc      &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Stop Tx, afbryd QSO, ryd Næste-Kaldesignal kø&lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt; F1 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Online brugervejledning (Alt: transmitter Tx6) &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt; Shift + F1 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Meddelelse om ophavsret &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt; Ctrl + F1 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Om WSJT-X &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt; F2 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Åbn indstillingsvinduet (Alt: send Tx2) &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt; F3 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Vis tastaturgenveje (Alt: transmitter Tx3) &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt; F4 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Ryd DX Call, DX Grid, Tx meddelelser 1-4 (Alt: send Tx4) &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt; Alt + F4 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Afslutningsprogram &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt; F5 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Vis specielle musekommandoer (Alt: transmitter Tx5) &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt; F6 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Åbn næste fil i biblioteket (Alt: skift &quot;Call 1st&quot;) &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt; Shift + F6 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Dekod alle resterende filer i biblioteket &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt; F7 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Vis vindue for gennemsnitsmeddelelse &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt; F11 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Flyt Rx-frekvensen ned 1 Hz &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt; Ctrl + F11 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Flyt identiske Rx- og Tx-frekvenser ned 1 Hz &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt; Shift + F11 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Flyt Tx-frekvensen 60 Hz ned (FT8) eller 90 Hz (FT4) &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt; Ctrl + Shift + F11 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Flyt kaldefrekvensen 2000 Hz ned &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt; F12 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Flyt Rx-frekvensen 1 Hz op &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl + F12 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Flyt identiske Rx- og Tx-frekvenser 1 Hz op &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl + F11 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Flyt identiske Rx- og Tx-frekvenser ned 1 Hz &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;Shift + F11 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Flyt Tx-frekvensen ned 60 Hz (FT8) eller 90 Hz (FT4) &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt; &lt;b&gt;Ctrl + Shift + F11 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Flyt kaldefrekvensen ned 2000 Hz &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt; &lt;b&gt;F12 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Flyt Rx-frekvensen op 1 Hz &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt; &lt;b&gt;Ctrl + F12 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Flyt identiske Rx- og Tx-frekvenser 1 Hz op &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt; &lt;b&gt;Shift + F12 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Flyt Tx-frekvensen 60 Hz op (FT8) eller 90 Hz (FT4) &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt; &lt;b&gt;Ctrl + Shift + F12 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Flyt kaldefrekvensen 2000 Hz op&lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt; &lt;b&gt;Alt + 1-6 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Indstil NU transmission til dette nummer på fane 1 &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt; &lt;b&gt;Ctl + 1-6 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Indstil næste transmission til dette nummer på fane 1 &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt; &lt;b&gt;Alt + B &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Skift status &quot;Bedste S + P&quot; &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt; &lt;b&gt;Alt + C &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Skift afkrydsningsfelt &quot;Kald 1st&quot; &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt; &lt;b&gt;Alt + D &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Dekod igen ved QSO-frekvens &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt; &lt;b&gt;Shift + D &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Fuld Dekodning (begge vinduer) &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt; &lt;b&gt;Ctrl + E &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Aktiver TX lige / 1. &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt; &lt;b&gt;Shift + E &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Deaktiver TX lige / 1. &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt; &lt;b&gt;Alt + E &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Sætning&lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt; &lt;b&gt;Ctrl + F &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Rediger fri tekstmeddelelsesfelt &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt; &lt;b&gt;Alt + G &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Generer standardmeddelelser &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt; &lt;b&gt;Alt + H &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Stop Tx &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt; &lt;b&gt;Ctrl + L &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Opslag af kaldesignal i database, generer standardbeskeder &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt; &lt;b&gt;Alt + M &lt;/b&gt;&lt;/td&gt;&lt;td&gt; Skærm&lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt; &lt;b&gt;Alt + N &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Aktivér Tx &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt; &lt;b&gt;Ctrl + O &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Åbn en .wav-fil &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt; &lt;b&gt;Alt + O &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Skift operatør &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt; &lt;b&gt;Alt + Q &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Log QSO &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt; &lt;b&gt;Ctrl + R &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Indstil Tx4-besked til RRR (ikke i FT4) &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt; &lt;b&gt;Alt + R &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Indstil Tx4-besked til RR73 &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt; &lt;b&gt;Alt + S &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Stop overvågning &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt; &lt;b&gt;Alt + T &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Skift Tune status &lt;/td&gt; &lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt; &lt;b&gt;Alt + Z &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Ryd fyldt buffer dekoderstatus &lt;/td&gt; &lt;/tr&gt;
 &lt;/tabel&gt;</translation>
     </message>
     <message>
@@ -6627,12 +6628,12 @@ Højre klik for at indsætte eller slette elementer.</translation>
     <message>
         <location filename="../Configuration.ui" line="2362"/>
         <source>Check to for grid highlighting to only apply to unworked grid fields</source>
-        <translation>Marker for Grid Highlighting for kun at tilføje ikke kørte Lokator felter</translation>
+        <translation>Marker for kun at vise ikke kørte Lokator felter (Contest)</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2365"/>
         <source>Only grid Fields sought</source>
-        <translation>Kun søgte GRID felter</translation>
+        <translation>Vis kun ikke kørte GRID felter (Contest)</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2375"/>

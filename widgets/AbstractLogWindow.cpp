@@ -64,7 +64,10 @@ void AbstractLogWindow::impl::delete_QSOs ()
                                                        , tr ("Confirm Delete")
                                                        , tr ("Are you sure you want to delete the %n "
                                                              "selected QSO(s) from the log?", ""
-                                                             , row_indexes.size ())))
+                                                             , row_indexes.size ())
+                                                       , QString {}
+                                                       , MessageBox::Yes | MessageBox::No
+                                                       , MessageBox::No))
     {
       // We must work with source model indexes because we don't want row
       // removes to invalidate model indexes we haven't yet processed. We

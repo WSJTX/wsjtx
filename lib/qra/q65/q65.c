@@ -522,7 +522,9 @@ int q65_esnodb_fastfading(
 }
 
 
-int q65_decode(q65_codec_ds *pCodec, int* pDecodedCodeword, int *pDecodedMsg, const float *pIntrinsics, const int *pAPMask, const int *pAPSymbols)
+int q65_decode(q65_codec_ds *pCodec, int* pDecodedCodeword, int *pDecodedMsg,
+	       const float *pIntrinsics, const int *pAPMask,
+	       const int *pAPSymbols, const int maxiters)
 {
 	const qracode *pQraCode;
 	float	*ix, *ex;
@@ -579,7 +581,7 @@ int q65_decode(q65_codec_ds *pCodec, int* pDecodedCodeword, int *pDecodedMsg, co
 	rc = qra_extrinsic( pQraCode,
 						ex,
 						ix,
-						100,
+						maxiters,
 						pCodec->qra_v2cmsg,
 						pCodec->qra_c2vmsg);
 

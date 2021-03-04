@@ -2226,7 +2226,17 @@ Error(%2): %3</source>
         <translation>選單</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1297"/>
+        <location filename="../widgets/mainwindow.ui" line="1143"/>
+        <source>Decode other Hounds calling above 1000 Hz audio offset</source>
+        <translation>解碼其他獵犬調用超過 1000 Hz 音訊偏移</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="1192"/>
+        <source>Enable auto response to the first decode from a new DXCC or new call on the current band.</source>
+        <translation>啟用對當前頻段上新 DXCC 或新呼叫的第一個解碼的自動回應.</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="1605"/>
         <source>F High </source>
         <translation>F 高 </translation>
     </message>
@@ -2351,7 +2361,12 @@ Error(%2): %3</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;在下一個序列中傳送.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3390"/>
+        <location filename="../widgets/mainwindow.ui" line="3376"/>
+        <source>Q65</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="3384"/>
         <source>SWL Mode</source>
         <translation>SWL 模式</translation>
     </message>
@@ -3431,12 +3446,7 @@ list. The list can be maintained in Settings (F2).</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3096"/>
-        <source>JT9+JT65</source>
-        <translation></translation>
-    </message>
-    <message>
-        <location filename="../widgets/mainwindow.ui" line="3104"/>
+        <location filename="../widgets/mainwindow.ui" line="3090"/>
         <source>Astronomical data</source>
         <translation>天文數據</translation>
     </message>
@@ -3647,7 +3657,17 @@ list. The list can be maintained in Settings (F2).</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="253"/>
+        <location filename="../widgets/mainwindow.ui" line="3392"/>
+        <source>Quick-Start Guide to Q65</source>
+        <translation>Q65 快速入門指南</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="3400"/>
+        <source>Auto Clear Avg after decode</source>
+        <translation>解碼後自動清除平均值</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.cpp" line="258"/>
         <source>Rig Control Error</source>
         <translation>無線電設備控制錯誤</translation>
     </message>
@@ -3885,16 +3905,16 @@ list. The list can be maintained in Settings (F2).</source>
         <translation>&quot;fmt.all&quot; 檔案將重新命名為 &quot;fmt.bak&quot;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2551"/>
+        <location filename="../widgets/mainwindow.cpp" line="2599"/>
         <source>If you make fair use of any part of WSJT-X under terms of the GNU General Public License, you must display the following copyright notice prominently in your derivative work:
 
-&quot;The algorithms, source code, look-and-feel of WSJT-X and related programs, and protocol specifications for the modes FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 are Copyright (C) 2001-2020 by one or more of the following authors: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; and other members of the WSJT Development Group.&quot;</source>
-        <translation>如果您根據 GNU 通用公共授權條款合理使用 WSJT-X 的任何部分, 則必須在衍生作品中醒目地顯示以下版權聲明:
+&quot;The algorithms, source code, look-and-feel of WSJT-X and related programs, and protocol specifications for the modes FSK441, FST4, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, Q65, ISCAT, MSK144 are Copyright (C) 2001-2021 by one or more of the following authors: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; and other members of the WSJT Development Group.&quot;</source>
+        <translation>如果您根據 GNU 通用公共許可證的條款合理使用 WSJT-X 的任何部分, 您必須在衍生作品中顯著顯示以下版權聲明:
 
-&quot;WSJT-X 的演演演算法, 原始碼, 外觀和感覺及相關程式, 和協定規格模式 FSK441, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, ISCAT, MSK144 的版權 (C) 2001-2019 由以下一個或多個作者: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; 和 WSJT 開發組的其他成員.&quot;</translation>
+&quot;WSJT-X 及相關程式的演算法、原始程式碼、外觀和協定規範 FSK441, FST4, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, Q65, ISCAT, MSK144 版權所有 （C） 2001-2021 由以下一個或多個作者提供: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; 和WSJT發展團的其他成員.&quot;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="2846"/>
+        <location filename="../widgets/mainwindow.cpp" line="2889"/>
         <source>No data read from disk. Wrong file format?</source>
         <translation>沒有從磁盤讀取數據. 檔案格式錯誤?</translation>
     </message>
@@ -4954,7 +4974,12 @@ Error(%2): %3</source>
         <translation>參考</translation>
     </message>
     <message>
-        <location filename="../widgets/widegraph.ui" line="343"/>
+        <location filename="../widgets/widegraph.ui" line="340"/>
+        <source>Q65_Sync</source>
+        <translation>Q65_同步</translation>
+    </message>
+    <message>
+        <location filename="../widgets/widegraph.ui" line="348"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Frequency at left edge of waterfall&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;波段在瀑布左邊緣顯示&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
@@ -5004,7 +5029,7 @@ Error(%2): %3</source>
         <translation>頻譜零度</translation>
     </message>
     <message>
-        <location filename="../widgets/widegraph.cpp" line="33"/>
+        <location filename="../widgets/widegraph.cpp" line="28"/>
         <source>Wide Graph</source>
         <translation>寬圖</translation>
     </message>

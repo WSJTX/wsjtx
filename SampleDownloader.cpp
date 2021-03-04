@@ -117,7 +117,7 @@ SampleDownloader::impl::impl (QSettings * settings
   main_layout_.addLayout (&left_layout_, 0, 0);
   main_layout_.addWidget (&button_box_, 0, 1);
   main_layout_.addWidget (&details_widget_, 1, 0, 1, 2);
-  main_layout_.setRowStretch (1, 2);
+  main_layout_.setRowStretch (0, 2);
   setLayout (&main_layout_);
 
   connect (&button_box_, &QDialogButtonBox::clicked, this, &SampleDownloader::impl::button_clicked);

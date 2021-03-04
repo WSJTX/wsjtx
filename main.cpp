@@ -225,8 +225,7 @@ int main(int argc, char *argv[])
       // disallow multiple instances with same instance key
       QLockFile instance_lock {temp_dir.absoluteFilePath (a.applicationName () + ".lock")};
       instance_lock.setStaleLockTime (0);
-      bool lock_ok {false};
-      while (!(lock_ok = instance_lock.tryLock ()))
+      while (!instance_lock.tryLock ())
         {
           if (QLockFile::LockFailedError == instance_lock.error ())
             {
@@ -248,6 +247,10 @@ int main(int argc, char *argv[])
                 default:
                   throw std::runtime_error {"Multiple instances must have unique rig names"};
                 }
+            }
+          else
+            {
+              throw std::runtime_error {"Failed to access lock file"};
             }
         }
 

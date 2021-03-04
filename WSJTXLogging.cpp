@@ -192,7 +192,7 @@ WSJTXLogging::WSJTXLogging ()
         (
          sinks::file::make_collector
          (
-          keywords::max_size = 40 * 1024 * 1024
+          keywords::max_size = 5 * 1024 * 1024
           , keywords::min_free_space = 1024 * 1024 * 1024
           , keywords::max_files = 12
           , keywords::target = app_data.absoluteFilePath ("logs").toStdWString ()

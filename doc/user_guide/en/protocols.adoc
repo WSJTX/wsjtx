@@ -3,9 +3,9 @@
 [[PROTOCOL_OVERVIEW]]
 === Overview
 
-All QSO modes except ISCAT use structured messages that compress
-user-readable information into fixed-length packets.  JT4, JT9, JT65,
-and QRA64 use 72-bit payloads.  Standard messages consist of two
+All QSO modes use structured messages that compress
+user-readable information into fixed-length packets.  JT4, JT9, and JT65
+use 72-bit payloads.  Standard messages consist of two
 28-bit fields normally used for callsigns and a 15-bit field for a
 grid locator, report, acknowledgment, or 73.  An additional bit flags
 a message containing arbitrary free text, up to 13 characters.
@@ -14,7 +14,7 @@ Special cases allow other information such as add-on callsign prefixes
 aim is to compress the most common messages used for minimally valid
 QSOs into a fixed 72-bit length.
 
-Information payloads for FST4, FT4, FT8, and MSK144 contain 77 bits.
+Information payloads for FST4, FT4, FT8, Q65, and MSK144 contain 77 bits.
 The 5 additional bits are used to flag special message types used for
 nonstandard callsigns, contest exchanges, FT8 DXpedition Mode, and a
 few other possibilities.  Full details have been published in QEX, see
@@ -169,25 +169,25 @@ same as that of the sync tone used in long messages, and the frequency
 separation is 110250/4096 = 26.92 Hz multiplied by n for JT65A, with n
 = 2, 3, 4 used to convey the messages RO, RRR, and 73, respectively.
 
-[[QRA64_PROTOCOL]]
-==== QRA64
+[[Q65_PROTOCOL]]
+==== Q65
 
-QRA64 is intended for EME and other extreme weak-signal applications.
-Its internal code was designed by IV3NWV.  The protocol uses a (63,12)
-**Q**-ary **R**epeat **A**ccumulate code that is inherently better
-than the Reed Solomon (63,12) code used in JT65, yielding a 1.3 dB
-advantage. A new synchronizing scheme is based on three 7 x 7 Costas
-arrays.  This change yields another 1.9 dB advantage.
+Q65 is intended for scatter, EME, and other extreme weak-signal
+applications.  Forward error correction (FEC) uses a specially
+designed (65,15) block code with six-bit symbols.  Two symbols are
+“punctured” from the code, yielding an effective (63,13) code with a
+payload of k = 13 information symbols conveyed by n = 63 channel
+symbols.  The punctured symbols consist of a 12-bit CRC computed from
+the 13 information symbols.  The CRC is used to reduce the
+false-decode rate to a very low value.  A 22-symbol pseudo-random
+sequence spread throughout a transmission is sent as “tone 0” and used
+for synchronization.  The total number of channel symbols in a Q65
+transmission is thus 63 + 22 = 85.
 
-In most respects the current implementation of QRA64 is operationally
-similar to JT65.  QRA64 does not use two-tone shorthand messages, and
-it makes no use of a callsign database.  Rather, additional
-sensitivity is gained by making use of already known information as a
-QSO progresses -- for example, when reports are being exchanged and
-you have already decoded both callsigns in a previous transmission.
-QRA64 presently offers no message averaging capability, though that
-feature may be added.  In early tests, many EME QSOs were made using
-submodes QRA64A-E on bands from 144 MHz to 24 GHz.  
+For each T/R sequence length, submodes A - E have tone spacings and
+occupied bandwidths 1, 2, 4, 8, and 16 times those specified in the
+above table.  Full submode designations include a number for sequence
+length and a letter for tone spacing, as in Q65-15A, Q65-120C, etc.
 
 [[WSPR_PROTOCOL]]
 ==== WSPR
@@ -277,8 +277,12 @@ which the probability of decoding is 50% or higher.
 |FT8  |LDPC |(174,91)| 8| 8-GFSK| 6.25 | 50.0 | 0.27| 12.6 | -21
 |JT4A |K=32, r=1/2|(206,72)| 2| 4-FSK| 4.375| 17.5 | 0.50| 47.1 | -23
 |JT9A |K=32, r=1/2|(206,72)| 8| 9-FSK| 1.736| 15.6 | 0.19| 49.0 | -26
-|JT65A |Reed Solomon|(63,12) |64|65-FSK| 2.692| 177.6 | 0.50| 46.8 | -25
-|QRA64A|Q-ary Repeat Accumulate|(63,12) |64|64-FSK|1.736|111.1|0.25|48.4| -26
+|JT65A |RS|(63,12) |64|65-FSK| 2.692| 177.6 | 0.50| 46.8 | -25
+|Q65-15A |QRA|(63,13) |64|65-FSK|6.667|433|0.26| 12.8| -22.2
+|Q65-30A |QRA|(63,13) |64|65-FSK|3.333|217|0.26| 25.5| -24.8
+|Q65-60A |QRA|(63,13) |64|65-FSK|1.667|108|0.26| 51.0| -27.6
+|Q65-120A|QRA|(63,13) |64|65-FSK|0.750| 49|0.26|113.3| -30.8
+|Q65-300A|QRA|(63,13) |64|65-FSK|0.289| 19|0.26|293.8| -33.8
 | WSPR |K=32, r=1/2|(162,50)| 2| 4-FSK| 1.465| 5.9 | 0.50|110.6 | -31
 |FST4W-120  |LDPC |  (240,74)| 4| 4-GFSK|  1.46  |  5.9  | 0.25| 109.3 | -32.8
 |FST4W-300  |LDPC |  (240,74)| 4| 4-GFSK|  0.558  |  2.2  | 0.25| 286.7 | -36.8
@@ -286,14 +290,18 @@ which the probability of decoding is 50% or higher.
 |FST4W-1800 |LDPC |  (240,74)| 4| 4-GFSK|  0.089 |  0.36 | 0.25| 1792.0| -44.8
 |===============================================================================
 
-Submodes of JT4, JT9, JT65, and QRA64 offer wider tone spacings for
+ LDPC = Low Density Parity Check
+ RS = Reed Solomon
+ QRA = Q-ary Repeat Accumulate
+
+Submodes of JT4, JT9, and JT65 offer wider tone spacings for
 circumstances that may require them, such as significant Doppler spread.
 Table 8 summarizes the tone spacings, bandwidths, and approximate
 threshold sensitivities of the various submodes when spreading is
 comparable to tone spacing.
 
 [[SLOW_SUBMODES]]
-.Parameters of Slow Submodes with Selectable Tone Spacings
+.Parameters of Slow Submodes JT4, JT9, and JT65 with Selectable Tone Spacings
 [width="50%",cols="h,3*^",frame=topbot,options="header"]
 |=====================================
 |Mode  |Tone Spacing  |BW (Hz)|S/N (dB)
@@ -315,55 +323,21 @@ comparable to tone spacing.
 |JT65A |2.692| 177.6  |-25
 |JT65B |5.383| 352.6  |-25
 |JT65C |10.767| 702.5 |-25
-|QRA64A|1.736| 111.1  |-26
-|QRA64B|3.472| 220.5  |-25
-|QRA64C|6.944| 439.2  |-24
-|QRA64D|13.889| 876.7 |-23
-|QRA64E|27.778|1751.7 |-22
+|=====================================
+
+.Parameters of Q65 Submodes
+[width="100%",cols="h,5*^",frame=topbot,options="header"]
+|=====================================
+|T/R Period (s)  |A Spacing Width (Hz)|B Spacing Width (Hz)|C Spacing Width (Hz)|D Spacing Width (Hz)|E Spacing Width (Hz)
+|15|6.67 &#160; &#160; 4.33|13.33 &#160; &#160; 867|26.67 &#160; &#160; 1733|N/A|N/A
+|30|3.33 &#160; &#160; 217|6.67 &#160; &#160; 433|13.33 &#160; &#160; 867| 26.67 &#160; &#160; 1733| N/A
+|60|1.67 &#160; &#160; 108|3.33 &#160; &#160; 217|6.67 &#160; &#160; 433|13.33 &#160; &#160; 867|26.67 &#160; &#160; 1733
+|120|0.75 &#160; &#160; 49|1.50 &#160; &#160; 98|3.00 &#160; &#160; 195|6.00 &#160; &#160; 390| 12.00 &#160; &#160; 780
+|300|0.29 &#160; &#160; 19|0.58 &#160; &#160; 38|1.16 &#160; &#160; 75|2.31 &#160; &#160; 150|4.63 &#160; &#160; 301
 |=====================================
 
 [[FAST_MODES]]
 === Fast Modes
-
-==== ISCAT
-
-ISCAT messages are free-form, up to 28 characters in length.
-Modulation is 42-tone frequency-shift keying at 11025 / 512 = 21.533
-baud (ISCAT-A), or 11025 / 256 = 43.066 baud (ISCAT-B).  Tone
-frequencies are spaced by an amount in Hz equal to the baud rate.  The
-available character set is:
-
-----
- 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ /.?@-
-----
-
-Transmissions consist of sequences of 24 symbols: a synchronizing
-pattern of four symbols at tone numbers 0, 1, 3, and 2, followed by
-two symbols with tone number corresponding to (message length) and
-(message length + 5), and, finally, 18 symbols conveying the user's
-message, sent repeatedly character by character.  The message always
-starts with `@`, the beginning-of-message symbol, which is not
-displayed to the user.  The sync pattern and message-length indicator
-have a fixed repetition period, recurring every 24 symbols.  Message
-information occurs periodically within the 18 symbol positions set
-aside for its use, repeating at its own natural length.
-
-For example, consider the user message `CQ WA9XYZ`.  Including the
-beginning-of-message symbol `@`, the message is 10 characters long.
-Using the character sequence displayed above to indicate tone numbers,
-the transmitted message will therefore start out as shown in the first
-line below:
-
-----
- 0132AF@CQ WA9XYZ@CQ WA9X0132AFYZ@CQ WA9XYZ@CQ W0132AFA9X ...
- sync##                  sync##                 sync##
-----
-
-Note that the first six symbols (four for sync, two for message
-length) repeat every 24 symbols.  Within the 18 information-carrying
-symbols in each 24, the user message `@CQ WA9XYZ` repeats at its own
-natural length, 10 characters.  The resulting sequence is extended as
-many times as will fit into a Tx sequence.
 
 ==== JT9
 
@@ -419,8 +393,6 @@ and your QSO partner ± 200 Hz.
 |=====================================================================
 |Mode     |FEC Type   |(n,k)   | Q|Modulation Type|Keying rate (Baud)
 |Bandwidth (Hz)|Sync Energy|Tx Duration (s)
-|ISCAT-A  |   -       |  -     |42|42-FSK| 21.5 |  905  | 0.17| 1.176 
-|ISCAT-B  |   -       |  -     |42|42-FSK| 43.1 | 1809  | 0.17| 0.588 
 |JT9E     |K=32, r=1/2|(206,72)| 8| 9-FSK| 25.0 |  225  | 0.19| 3.400 
 |JT9F     |K=32, r=1/2|(206,72)| 8| 9-FSK| 50.0 |  450  | 0.19| 1.700 
 |JT9G     |K=32, r=1/2|(206,72)| 8| 9-FSK|100.0 |  900  | 0.19| 0.850 

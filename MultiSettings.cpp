@@ -576,20 +576,28 @@ void MultiSettings::impl::select_configuration (QString const& target_name)
 {
   if (main_window_ && target_name != current_)
     {
+      bool changed {false};
       {
         auto const& current_group = settings_.group ();
         if (current_group.size ()) settings_.endGroup ();
         // position to the alternative settings
         SettingsGroup alternatives {&settings_, multi_settings_root_group};
-        // save the target settings
-        SettingsGroup target_group {&settings_, target_name};
-        new_settings_ = get_settings ();
+        if (settings_.childGroups ().contains (target_name))
+          {
+            changed = true;
+            // save the target settings
+            SettingsGroup target_group {&settings_, target_name};
+            new_settings_ = get_settings ();
+          }
         if (current_group.size ()) settings_.beginGroup (current_group);
       }
-      // and set up the restart
-      current_ = target_name;
-      Q_EMIT parent_->configurationNameChanged (unescape_ampersands (current_));
-      restart (RepositionType::save_and_replace);
+      if (changed)
+        {
+          // and set up the restart
+          current_ = target_name;
+          Q_EMIT parent_->configurationNameChanged (unescape_ampersands (current_));
+          restart (RepositionType::save_and_replace);
+        }
     }
 }
 

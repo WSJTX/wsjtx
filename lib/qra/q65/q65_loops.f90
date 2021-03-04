@@ -38,6 +38,9 @@ subroutine q65_loops(c00,npts2,nsps2,nsubmode,ndepth,jpk0,    &
   napmin=99
   xdt1=xdt0
   f1=f0
+  idfbest=0
+  idtbest=0
+  ndistbest=0
 
   do idf=1,idfmax
      ndf=idf/2
@@ -56,6 +59,7 @@ subroutine q65_loops(c00,npts2,nsps2,nsubmode,ndepth,jpk0,    &
         call pctile(s3,LL*NN,40,base)
         s3=s3/base
         where(s3(1:LL*NN)>s3lim) s3(1:LL*NN)=s3lim
+        call q65_bzap(s3,LL)                   !Zap birdies
         do ibw=ibwa,ibwb
            ndist=ndf**2 + ndt**2 + (ibw-ibw0)**2
            if(ndist.gt.maxdist) cycle
@@ -69,7 +73,13 @@ subroutine q65_loops(c00,npts2,nsps2,nsubmode,ndepth,jpk0,    &
               !  -1 = invalid params
               !  -2 = decode failed
               !  -3 = CRC mismatch
-           if(irc.ge.0) go to 100
+           if(irc.ge.0) then
+              idfbest=idf
+              idtbest=idt
+              ndistbest=ndist
+              nrc=irc
+              go to 100
+           endif
         enddo  ! ibw (b90 loop)
      enddo  ! idt (DT loop)
   enddo  ! idf (f0 loop)

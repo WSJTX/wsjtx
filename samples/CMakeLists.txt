@@ -1,6 +1,10 @@
 set (SAMPLE_FILES
   FT4/000000_000002.wav
   FT8/181201_180245.wav
+  FST4+FST4W/210115_0058.wav
+  FST4+FST4W/201230_0300.wav
+  MSK144/181211_120500.wav
+  MSK144/181211_120800.wav
   ISCAT/ISCAT-A/VK7MO_110401_235515.wav
   ISCAT/ISCAT-B/K0AWU_100714_115000.wav
   JT4/JT4A/DF2ZC_070926_040700.WAV
@@ -19,9 +23,22 @@ set (SAMPLE_FILES
   MSK144/181211_120800.wav
   QRA64/QRA64C/161113_0111.wav
   WSPR/150426_0918.wav
+  Q65/30A_Ionoscatter_6m/201203_022700.wav
+  Q65/30A_Ionoscatter_6m/201203_022800.wav
+  Q65/30A_Ionoscatter_6m/201203_022900.wav
+  Q65/30A_Ionoscatter_6m/201203_024000.wav
+  Q65/60A_EME_6m/210106_1621.wav
+  Q65/60B_1296_Troposcatter/210109_0007.wav
+  Q65/60B_1296_Troposcatter/210109_0147.wav
+  Q65/60B_1296_Troposcatter/210109_0151.wav
+  Q65/60D_EME_10GHz/201212_1838.wav
+  Q65/120D_Rainscatter_10_GHz/210117_0920.wav
+  Q65/120E_Ionoscatter_6m/210130_1438.wav
+  Q65/120E_Ionoscatter_6m/210130_1442.wav
+  Q65/300A_Optical_Scatter/201210_0505.wav
   )
 
-set (contents_file_name contents_${WSJTX_VERSION_MAJOR}.${WSJTX_VERSION_MINOR}.json)
+set (contents_file_name contents_${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.json)
 set (contents_file ${CMAKE_CURRENT_BINARY_DIR}/${contents_file_name})
 set (web_tree ${CMAKE_CURRENT_BINARY_DIR}/web)
 set_source_files_properties (${contents_file} PROPERTIES GENERATED ON)

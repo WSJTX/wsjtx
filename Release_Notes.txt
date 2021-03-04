@@ -9,8 +9,92 @@
  \$$      \$$  \$$$$$$   \$$$$$$     \$$        \$$   \$$
                                                          
                                                          
-                                                         
 Copyright 2001 - 2021 by Joe Taylor, K1JT.
+
+
+	        Release: WSJT-X 2.4.0-rc2
+	               Mar 6, 2021
+	        -------------------------
+
+WSJT-X 2.4.0 Release Candidate 2 adds new Q65 mode functionality and
+decoder optimizations; repairs defects and regressions discovered in
+the RC1 release.
+
+ - Q65 sample .WAV files added.
+
+ - Repair a defect that caused WSJT-X to crash when launched from an
+   icon on macOS.
+   
+ - Repair a crash when using the JT4 mode.
+
+ - Sequencing improvements to hold transmitted signal report fixed
+   during a QSO.
+
+ - UI translation updates tnx to Sze-to, VR2UPU, and Michael, 5P1KZX.
+
+ - Enable the "Call 1st" option for Q65.
+
+ - Improved Q65 message averaging that linearly averages the first 4
+   sequences and averages exponentially thereafter using a
+   time-constant of 4 sequences.
+
+ - Improved macOS post-install instructions, tnx to John, G4KLA.
+
+ - Enhanced Q65 simulator that generates file names compatible with
+   message averaging, tnx Charlie, G3WDG.
+
+ - Q65 simulator option to generate single tone waveforms, tnx to
+   Charlie, G3WDG.
+
+ - Better suppression of birdies in the Q65 decoder.
+
+ - Blank Q65 decode messages removed.
+ 
+ - Automatic low Tx audio offset for the widest Q65 modes to keep Tx
+   signal in transmitter passband, tnx to Charlie, G3WDG.
+
+ - Improved SNR estimates for Q65 mode.
+
+ - Decode depths Fast/Normal/Deep are now identical in Q65 mode.
+
+ - "Save decoded" is now enabled for Q65 mode.
+
+ - The obsolete ISCAT mode has been removed.
+
+
+		   Release: WSJT-X 2.3.1
+		         Mar 8, 2021
+		   ---------------------
+
+WSJT-X 2.3.1  General Availability release  updates the User  Guide to
+cover the  new modes FST4 and  FST4W along with sample  .WAV files and
+decoding tutorials. This release also  repairs a number of defects and
+regressions  discovered  since  the v2.3.0  release,  including  those
+below.
+
+ - When  sending traffic  to a  multicast UDP  server ensure  that the
+   local loop-back interface is used if no others are selected.
+
+ - Repair  a defect  in instance  lock  file handling  that causes  an
+   infinite loop on start up.
+
+ - Invert the  PTT serial port  sharing default behaviour,  and enable
+   sharing when non-Hamlib CAT control  is combined with direct serial
+   port PTT control.
+
+ - Allow  the FST4  and FST4W  decoders  to continue  after the  first
+   successful decode when using negative  NB values to try multiple NB
+   values.
+
+ - Repair defects in auto-sequencing,  particularly with responding to
+   a repeated final message. In general a double-click of the repeated
+   message now does the right thing.
+
+ - Repair a regression that had  inadvertently disabled EU VHF Contest
+   mode when using the MSK144 mode.
+
+ - Repair a defect  that could caused incorrect log  entry fields when
+   using FT4 mode and a priori (AP) decoding.
 
 
 		   Release: WSJT-X 2.4.0-rc1
@@ -352,7 +436,7 @@ prior v2.2.0 release. Here is a brief summary;
 
  - Italian UI translation, tnx Marco, PY1ZRJ.
 
- - Updated Spanish UI translation, tnx Cédric, EA4AC. 
+ - Updated Spanish UI translation, tnx CÃ©dric, EA4AC. 
 
 
 		   Release: WSJT-X 2.2

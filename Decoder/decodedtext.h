@@ -32,6 +32,7 @@ public:
   explicit DecodedText (QString const& message);
 
   QString string() const { return string_; };
+  QString clean_string() const { return clean_string_; };
   QStringList messageWords () const;
   int indexOf(QString s) const { return string_.indexOf(s); };
   int indexOf(QString s, int i) const { return string_.indexOf(s,i); };
@@ -76,6 +77,7 @@ private:
       column_qsoText = 22 };
 
   QString string_;
+  QString clean_string_;
   int padding_;
   QString message_;
   QString message0_;

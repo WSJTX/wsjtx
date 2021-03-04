@@ -1,5 +1,5 @@
 FST4W is used in the same way as WSPR, but FST4W has significant
-advantages for use on the 2200 and 630 m bands.  By default the
+advantages for use on the 2200 m and 630 m bands.  By default the
 central *Rx Freq* is 1500 Hz and *F Tol* is 100 Hz, so the active
 decoding range is 1400 to 1600 Hz.  However, for added flexibility you
 can select different center frequencies and *F Tol* values.  We expect
@@ -16,3 +16,19 @@ If three operators agree in advance to select the options *1/3*,
 a fixed sequence with no two stations transmitting simultaneously.
 Sequence 1 is the first sequence after 00:00 UTC.  For WSPR-like
 scheduling behavior, you should select *Random* with this control.
+
+.Open a Wave File:
+
+- Select *FST4W* on the *Mode* menu. Set *T/R* to 1800 s and *Decode | Deep*.
+- Set *NB* to 0%.
+- Select appropriate wide graph settings. For example, try *Bins/Pixel* 1, 
+*Start* 1200 Hz and *N Avg* 150. 
+- Open a sample Wave file using *File | Open* and select the file
+...\save\samples\FST4+FST4W\201230_0300.wav. 
+When it is finished you should see a single decode as shown in the 
+screenshot:
+
+image::FST4W-1.png[align="left"]
+
+Note that the weak signal associated with the single decode is all but invisible on the 
+widegraph spectrogram. 
