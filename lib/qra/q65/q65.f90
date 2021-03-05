@@ -99,6 +99,8 @@ subroutine q65_dec0(iavg,nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
   allocate(s3(-64:LL-65,63))
   allocate(ccf1(-ia2:ia2))
   allocate(ccf2(iz))
+  ccf1=0.
+  ccf2=0.
   if(LL.ne.LL0 .or. iz.ne.iz0 .or. jz.ne.jz0 .or. lclearave) then
      if(allocated(s1raw)) deallocate(s1raw)
      allocate(s1raw(iz,jz))
@@ -567,16 +569,15 @@ subroutine q65_write_red(iz,ia2,xdt,ccf1,ccf2)
 
   rewind 17
   write(17,1000) xdt
-  do i=1,iz
+  do i=nint(nfa/df),nint(nfb/df)
      freq=i*df
      ii=i-i0
-     if(freq.ge.float(nfa) .and. freq.le.float(nfb)) then
-        ccf1a=-99.0
-        if(ii.ge.-ia2 .and. ii.le.ia2) ccf1a=ccf1(ii)
-        write(17,1000) freq,ccf1a,ccf2(i)
-1000    format(3f10.3)
-     endif
+     ccf1a=-99.0
+     if(ii.ge.-ia2 .and. ii.le.ia2) ccf1a=ccf1(ii)
+     write(17,1000) freq,ccf1a,ccf2(i)
+1000 format(f10.3,2e12.3)
   enddo
+  flush(17)
 
   return
 end subroutine q65_write_red
