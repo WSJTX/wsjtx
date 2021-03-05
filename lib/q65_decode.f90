@@ -87,7 +87,7 @@ contains
 
 ! Determine the T/R sequence: iseq=0 (even), or iseq=1 (odd)
     n=nutc
-    if(ntrperiod.ge.60) n=100*n
+    if(ntrperiod.ge.60 .and. nutc.le.2359) n=100*n
     write(cutc,'(i6.6)') n
     read(cutc,'(3i2)') ih,im,is
     nsec=3600*ih + 60*im + is
