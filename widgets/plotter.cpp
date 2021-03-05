@@ -283,20 +283,22 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
       int x,y;
       float freq,xdt,sync,sync2;
       f >> xdt;
-      for(int i=0; i<99999; i++) {
-        f >> freq >> sync >> sync2;
-        if(f.eof()) break;
-        x=XfromFreq(freq);
-        if(sync > -99.0 and sync != 0.0) {
-          y=m_h2*(0.9 - 0.09*gain2d*sync) - m_plot2dZero - 10;
-          LineBuf2[k2].setX(x);                          //Red sync curve
-          LineBuf2[k2].setY(y);
-          k2++;
+      if(f) {
+        for(int i=0; i<99999; i++) {
+          f >> freq >> sync >> sync2;
+          if(!f or f.eof()) break;
+          x=XfromFreq(freq);
+          if(sync > -99.0 and sync != 0.0) {
+            y=m_h2*(0.9 - 0.09*gain2d*sync) - m_plot2dZero - 10;
+            LineBuf2[k2].setX(x);                          //Red sync curve
+            LineBuf2[k2].setY(y);
+            k2++;
+          }
+          y=m_h2*(0.9 - 0.09*gain2d*sync2) - m_plot2dZero;
+          LineBuf3[k].setX(x);                            //Orange sync curve
+          LineBuf3[k].setY(y);
+          k++;
         }
-        y=m_h2*(0.9 - 0.09*gain2d*sync2) - m_plot2dZero;
-        LineBuf3[k].setX(x);                            //Orange sync curve
-        LineBuf3[k].setY(y);
-        k++;
       }
       f.close();
      QPen pen0(Qt::red,2);
