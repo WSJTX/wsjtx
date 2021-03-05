@@ -436,7 +436,7 @@ prior v2.2.0 release. Here is a brief summary;
 
  - Italian UI translation, tnx Marco, PY1ZRJ.
 
- - Updated Spanish UI translation, tnx Cédric, EA4AC. 
+ - Updated Spanish UI translation, tnx CÃ©dric, EA4AC. 
 
 
 		   Release: WSJT-X 2.2

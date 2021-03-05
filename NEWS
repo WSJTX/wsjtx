@@ -16,50 +16,50 @@ Copyright 2001 - 2021 by Joe Taylor, K1JT.
 	               Mar 6, 2021
 	        -------------------------
 
-WSJT-X 2.4.0 Release  Candidate 2 adds new Q65  mode functionality and
-decoder  optimizations, as  well  as repairs  defects and  regressions
-discovered in the RC1 release.
+WSJT-X 2.4.0 Release Candidate 2 adds new Q65 mode functionality and
+decoder optimizations; repairs defects and regressions discovered in
+the RC1 release.
 
  - Q65 sample .WAV files added.
 
- - Repair a defect that caused the  WSJT-X to crash when launched from
-   an icon on macOS.
+ - Repair a defect that caused WSJT-X to crash when launched from an
+   icon on macOS.
    
- - Repair an application crash when using the JT4 mode.
+ - Repair a crash when using the JT4 mode.
 
- - Sequencing  improvements  to  avoid  the sent  signal  report  from
-   updating once it has been sent once in a QSO.
+ - Sequencing improvements to hold transmitted signal report fixed
+   during a QSO.
 
- - UI translation updates, tnx to Sze-to, VR2UPU, and Michael, 5P1KZX.
+ - UI translation updates tnx to Sze-to, VR2UPU, and Michael, 5P1KZX.
 
  - Enable the "Call 1st" option for Q65.
 
- - Much improved Q65 message averaging that linearly averages the last
-   4  periods  then exponentially  reduces  the  contributions of  the
-   remainder.
+ - Improved Q65 message averaging that linearly averages the first 4
+   sequences and averages exponentially thereafter using a
+   time-constant of 4 sequences.
 
- - Improved macOS post install instructions, tnx to John,G4KLA.
+ - Improved macOS post-install instructions, tnx to John, G4KLA.
 
- - Enhanced Q65  simulator that  generates file names  compatible with
+ - Enhanced Q65 simulator that generates file names compatible with
    message averaging, tnx Charlie, G3WDG.
 
- - Q65  simulator option  to generate  single tone  waveforms, tnx  to
+ - Q65 simulator option to generate single tone waveforms, tnx to
    Charlie, G3WDG.
 
  - Better suppression of birdies in the Q65 decoder.
 
  - Blank Q65 decode messages removed.
  
- - Automatic low Tx  audio offset for the widest Q65  modes to keep Tx
+ - Automatic low Tx audio offset for the widest Q65 modes to keep Tx
    signal in transmitter passband, tnx to Charlie, G3WDG.
 
- - Much improved SNR estimates for Q65 mode.
+ - Improved SNR estimates for Q65 mode.
 
- - Decode depth is always "Fast" for Q65 mode.
+ - Decode depths Fast/Normal/Deep are now identical in Q65 mode.
 
- - Save decoded .WAV files enabled for Q65 mode.
+ - "Save decoded" is now enabled for Q65 mode.
 
- - ISCAT mode removed.
+ - The obsolete ISCAT mode has been removed.
 
 
 		   Release: WSJT-X 2.3.1
@@ -435,7 +435,7 @@ prior v2.2.0 release. Here is a brief summary;
 
  - Italian UI translation, tnx Marco, PY1ZRJ.
 
- - Updated Spanish UI translation, tnx Cédric, EA4AC. 
+ - Updated Spanish UI translation, tnx CÃ©dric, EA4AC. 
 
 
 		   Release: WSJT-X 2.2
