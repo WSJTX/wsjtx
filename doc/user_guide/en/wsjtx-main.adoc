@@ -6,7 +6,7 @@ Joseph H Taylor, Jr, K1JT
 // package building .deb, .rpm, etc as it exposes the IP address and the images
 // are non-free, so can't be included as part of the Debian package.
 // :badges:
-:docinfo1:
+:docinfo: shared
 :imagesdir: {docdir}/images
 :icons: font
 :numbered:

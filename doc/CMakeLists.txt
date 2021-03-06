@@ -224,7 +224,7 @@ foreach (lang ${LANGUAGES})
     SOURCE user_guide/wsjtx-main.adoc
     LANG "${lang}"
     OUTPUT html
-    ASCIIDOCTOR_OPTIONS -d book -a data-uri -a toc=left -a max-width=1024px
+    ASCIIDOCTOR_OPTIONS -d book -a data-uri -a toc=left
     DEPENDS ${common_SRCS} ${_sources}
     )
   document(
