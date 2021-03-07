@@ -20,6 +20,7 @@ sky background temperature in the direction of the moon, scaled to the
 operating frequency; *Dpol*, the spatial polarization offset in
 degrees; *MNR*, the maximum non-reciprocity of the EME path in dB,
 owing to a combination of Faraday rotation and spatial polarization;
+*Dist*, the distance from your location to the moon, in km;
 and finally *Dgrd*, an estimate of the signal degradation in dB,
 relative to the best possible time with the moon at perigee in a cold
 part of the sky.
