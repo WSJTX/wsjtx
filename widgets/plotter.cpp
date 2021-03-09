@@ -239,7 +239,7 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
     if(y2>y2max) y2max=y2;
     j++;
   }
-  if(m_bReplot) return;
+  if(m_bReplot and m_mode!="Q65") return;
 
   if(swide[0]>1.0e29) m_line=0;
   if(m_mode=="FT4" and m_line==34) m_line=0;
@@ -274,7 +274,7 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
     painter2D.drawText(x1-4,y,"73");
   }
 
-  if(bRed and m_bQ65_Sync) {      //Plot the Q65 red or orange sync curve
+  if(bRed and m_bQ65_Sync) {      //Plot the Q65 red/orange sync curves
     int k=0;
     int k2=0;
     std::ifstream f;
@@ -301,7 +301,7 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
         }
       }
       f.close();
-     QPen pen0(Qt::red,2);
+      QPen pen0(Qt::red,2);
       painter2D.setPen(pen0);
       painter2D.drawPolyline(LineBuf2,k2);
       pen0.setColor("orange");
@@ -336,6 +336,9 @@ void CPlotter::replot()
     m_j=irow;
     plotsave_(swide,&m_w,&m_h1,&irow);
     draw(swide,false,false);
+  }
+  if(m_mode=="Q65" and m_bQ65_Sync) {
+    draw(swide,false,true);
   }
   update();                                    //trigger a new paintEvent
   m_bReplot=false;
@@ -767,6 +770,7 @@ void CPlotter::mouseReleaseEvent (QMouseEvent * event)
   else {
     event->ignore ();           // let parent handle
   }
+  replot();
 }
 
 void CPlotter::mouseDoubleClickEvent (QMouseEvent * event)
