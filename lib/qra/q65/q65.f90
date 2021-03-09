@@ -168,7 +168,7 @@ subroutine q65_dec0(iavg,nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
   endif
 
 ! Get 2d CCF and ccf2 using sync symbols only
-  if(iavg.eq.2) then
+  if(iavg.ge.1) then
      call q65_ccf_22(s1,iz,jz,nfqso,ipk,jpk,f0a,xdta,ccf2_avg)
   endif
   if(idec.lt.0) then
@@ -200,6 +200,8 @@ subroutine q65_dec0(iavg,nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
   width=df*(i2-i1)
 
   if(ncw.eq.0) ccf1=0.
+!  write(*,3001) nutc,iavg,navg(0),sum(ccf2_avg),sum(ccf2)
+!3001 format(i4.4,2i4,2f8.2)
   call q65_write_red(iz,xdt,ccf2_avg,ccf2)
 
   if(iavg.eq.2) then
@@ -604,9 +606,9 @@ subroutine q65_sync_curve(ccf1,ia,ib,rms1)
        dot_product(ccf1(ib-ic:ib),ccf1(ib-ic:ib))
   rms1=0.
   if(nsum.gt.0) rms1=sqrt(sq/nsum)
-  if(rms1.gt.0.0) ccf1=2.0*ccf1/rms1
-  smax1=maxval(ccf1)
-  if(smax1.gt.10.0) ccf1=10.0*ccf1/smax1
+  if(rms1.gt.0.0) ccf1=ccf1/rms1
+!  smax1=maxval(ccf1)
+!  if(smax1.gt.10.0) ccf1=10.0*ccf1/smax1
 
   return
 end subroutine q65_sync_curve
