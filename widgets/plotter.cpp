@@ -628,7 +628,6 @@ void CPlotter::MakeFrequencyStrs()                       //MakeFrequencyStrs
 
 int CPlotter::XfromFreq(float f)                               //XfromFreq()
 {
-//  float w = m_WaterfallPixmap.width();
   int x = int(m_w * (f - m_startFreq)/m_fSpan + 0.5);
   if(x<0 ) return 0;
   if(x>m_w) return m_w;
@@ -770,7 +769,7 @@ void CPlotter::mouseReleaseEvent (QMouseEvent * event)
   else {
     event->ignore ();           // let parent handle
   }
-  replot();
+//  replot();                // ### Not needed?  ###
 }
 
 void CPlotter::mouseDoubleClickEvent (QMouseEvent * event)
@@ -780,8 +779,7 @@ void CPlotter::mouseDoubleClickEvent (QMouseEvent * event)
     int n=2;
     if(ctrl) n+=100;
     emit freezeDecode1(n);
-  }
-  else {
+  } else {
     event->ignore ();           // let parent handle
   }
 }
