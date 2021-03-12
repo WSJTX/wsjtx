@@ -21,7 +21,7 @@ CAboutDlg::CAboutDlg(QWidget *parent) :
                          "&copy; 2001-2021 by Joe Taylor, K1JT, Bill Somerville, G4WJS, <br />"
                          "and Steve Franke, K9AN.  <br /><br />"
                          "We gratefully acknowledge contributions from AC6SL, AE4JY,<br />"
-                         "DF2ET, DJ0OT, G3WDG, G4KLA, IW3RAB, KA1GT, K3WYC,<br />"
+                         "DF2ET, DJ0OT, G3WDG, G4KLA, IW3RAB, K3WYC, KA1GT,<br />"
                          "KA6MAL, KA9Q, KB1ZMX, KD6EKQ, KI7MT, KK1D, ND0B, PY2SDR,<br />"
                          "VE1SKY, VK3ACF, VK4BDJ, VK7MO, W3DJS, W4TI, W4TV, and W9MDB.<br /><br />"
                          "WSJT-X is licensed under the terms of Version 3 <br />"
