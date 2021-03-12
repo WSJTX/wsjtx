@@ -23,7 +23,7 @@ module q65
   real, allocatable,save :: ccf2(:)      !Max CCF(freq) at any lag, single seq
   real, allocatable,save :: ccf2_avg(:)  !Like ccf2, but for accumulated average
   real sync(85)                          !sync vector
-  real df,dtstep,dtdec,f0dec,ftol
+  real df,dtstep,dtdec,f0dec,ftol,plog
 
 contains
 

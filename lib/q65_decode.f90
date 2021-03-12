@@ -248,13 +248,13 @@ contains
           if(c6.eq.'      ') c6='<b>   '
           c4=hisgrid(1:4)
           if(c4.eq.'    ') c4='<b> '
-          fmt='(i6.4,1x,a4,4i2,6i3,i4,f6.2,f7.1,f6.1,f6.2,'//   &
+          fmt='(i6.4,1x,a4,4i2,6i3,i4,f6.2,f7.1,f6.1,f7.1,f6.2,'//   &
                '1x,a6,1x,a6,1x,a4,1x,a)'
           if(ntrperiod.le.30) fmt(5:5)='6'
           if(idec.eq.3) nrc=0
           write(22,fmt) nutc,cmode,nQSOprogress,idec,idfbest,idtbest,ibw,    &
-               ndistbest,nused,icand,ncand,nrc,ndepth,xdt,f0,snr2,tdecode,   &
-               mycall(1:6),c6,c4,trim(decoded)
+               ndistbest,nused,icand,ncand,nrc,ndepth,xdt,f0,snr2,plog,      &
+               tdecode,mycall(1:6),c6,c4,trim(decoded)
           close(22)
        endif
 !    else
@@ -332,13 +332,13 @@ contains
              if(c6.eq.'      ') c6='<b>   '
              c4=hisgrid(1:4)
              if(c4.eq.'    ') c4='<b> '
-             fmt='(i6.4,1x,a4,4i2,6i3,i4,f6.2,f7.1,f6.1,f6.2,'//   &
+             fmt='(i6.4,1x,a4,4i2,6i3,i4,f6.2,f7.1,f6.1,f7.1,f6.2,'//   &
                   '1x,a6,1x,a6,1x,a4,1x,a)'
              if(ntrperiod.le.30) fmt(5:5)='6'
              if(idec.eq.3) nrc=0
              write(22,fmt) nutc,cmode,nQSOprogress,idec,idfbest,idtbest,ibw,  &
-                  ndistbest,nused,icand,ncand,nrc,ndepth,xdt,f0,snr2,tdecode, &
-                  mycall(1:6),c6,c4,trim(decoded)
+                  ndistbest,nused,icand,ncand,nrc,ndepth,xdt,f0,snr2,plog,    &
+                  tdecode,mycall(1:6),c6,c4,trim(decoded)
              close(22)
           endif
        endif
