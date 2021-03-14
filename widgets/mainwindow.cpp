@@ -4038,8 +4038,8 @@ void MainWindow::guiUpdate()
     if(m_tune or m_mode=="Echo") {
       itone[0]=0;
     } else {
-      if(m_QSOProgress==2 or m_QSOProgress==3) m_bSentReport=true;
-      if(m_bSentReport and (m_QSOProgress<2 or m_QSOProgress>3)) m_bSentReport=false;
+      if(m_QSOProgress==REPORT || m_QSOProgress==ROGER_REPORT) m_bSentReport=true;
+      if(m_bSentReport and (m_QSOProgress<REPORT or m_QSOProgress>ROGER_REPORT)) m_bSentReport=false;
       if(m_modeTx=="JT4") gen4_(message, &ichk , msgsent, const_cast<int *> (itone),
                                 &m_currentMessageType, 22, 22);
       if(m_modeTx=="JT9") gen9_(message, &ichk, msgsent, const_cast<int *> (itone),
@@ -5211,25 +5211,24 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
   lookup();
   m_hisGrid = ui->dxGridEntry->text();
 
-  QString rpt = message.report();
-  int n=rpt.toInt();
-  if(m_mode=="MSK144" and m_bShMsgs) {
-    int n=rpt.toInt();
-    if(n<=-2) n=-3;
-    if(n>=-1 and n<=1) n=0;
-    if(n>=2 and n<=4) n=3;
-    if(n>=5 and n<=7) n=6;
-    if(n>=8 and n<=11) n=10;
-    if(n>=12 and n<=14) n=13;
-    if(n>=15) n=16;
-    rpt=QString::number(n);
-  }
-
-  if(!m_bSentReport) ui->rptSpinBox->setValue(n);    //Don't change report within a QSO
+  if (!m_bSentReport || base_call != qso_partner_base_call) // Don't change report within a QSO
+    {
+      auto n = message.report ().toInt ();
+      if(m_mode=="MSK144" and m_bShMsgs) {
+        if(n<=-2) n=-3;
+        if(n>=-1 and n<=1) n=0;
+        if(n>=2 and n<=4) n=3;
+        if(n>=5 and n<=7) n=6;
+        if(n>=8 and n<=11) n=10;
+        if(n>=12 and n<=14) n=13;
+        if(n>=15) n=16;
+      }
+      ui->rptSpinBox->setValue (n);
+    }
 // Don't genStdMsgs if we're already sending 73, or a "TU; " msg is queued.
   m_bTUmsg=false;   //### Temporary: disable use of "TU;" messages
-  if (!m_bSentReport and !m_nTx73 and !m_bTUmsg) {
-    genStdMsgs(rpt);
+  if (!m_nTx73 and !m_bTUmsg) {
+    genStdMsgs (QString::number (ui->rptSpinBox->value ()));
   }
   if(m_transmitting) m_restart=true;
   if (ui->cbAutoSeq->isVisible () && ui->cbAutoSeq->isChecked ()
