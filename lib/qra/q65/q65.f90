@@ -119,7 +119,7 @@ subroutine q65_dec0(iavg,nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
      lclearave=.false.
   endif
   ccf1=0.
-  ccf2_avg=0.
+  if(iavg.eq.0) ccf2_avg=0.
   dtstep=nsps/(NSTEP*12000.0)                 !Step size in seconds
   lag1=-1.0/dtstep
   lag2=1.0/dtstep + 0.9999
@@ -471,7 +471,7 @@ subroutine q65_ccf_22(s1,iz,jz,nfqso,ipk,jpk,f0,xdt,ccf2)
   maxcand=20
   do j=1,20
      i=indx(jzz-j+1)+i1-1
-     if(ccf2(i).lt.3.4) exit                !Candidate limit
+     if(ccf2(i).lt.3.3) exit                !Candidate limit
      f=i*df
      if(f.ge.(nfqso-ftol) .and. f.le.(nfqso+ftol)) cycle
      i3=max(1,i-67*mode_q65)
@@ -581,7 +581,7 @@ subroutine q65_write_red(iz,xdt,ccf2_avg,ccf2)
 
   rewind 17
   write(17,1000) xdt,minval(ccf2_avg),maxval(ccf2_avg)
-  do i=max(1,nint(nfa/df)),nint(nfb/df)
+  do i=max(1,nint(nfa/df)),min(iz,int(nfb/df))
      freq=i*df
      y1=ccf2_avg(i)
      if(y1.gt.10.0) y1=10.0 + 2.0*log10(y1/10.0)

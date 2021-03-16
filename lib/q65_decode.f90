@@ -186,8 +186,9 @@ contains
     enddo  ! ipass
 
     if(iand(ndepth,16).eq.0 .or. navg(iseq).lt.2) go to 100
+
 ! There was no single-transmission decode. Try for an average 'q3n' decode.
-    call timer('list_avg',0)
+50  call timer('list_avg',0)
 ! Call top-level routine in q65 module: establish sync and try for a q3
 ! decode, this time using the cumulative 's1a' symbol spectra.
     iavg=1
@@ -257,13 +258,6 @@ contains
                tdecode,mycall(1:6),c6,c4,trim(decoded)
           close(22)
        endif
-!    else
-! Report snr1, even if no decode.
-!       nsnr=db(snr1) - 35.0
-!       if(nsnr.lt.-35) nsnr=-35
-!       idec=-1
-!       call this%callback(nutc,snr1,nsnr,xdt,f0,decoded,                  &
-!            idec,0,ntrperiod)
     endif
     navg0=1000*navg(0) + navg(1)
     if(single_decode .or. lagain) go to 900
@@ -342,7 +336,8 @@ contains
              close(22)
           endif
        endif
-    enddo
+    enddo  ! icand
+    if(iavg.eq.0 .and.navg(iseq).ge.2) go to 50
 
 900 return
   end subroutine decode
