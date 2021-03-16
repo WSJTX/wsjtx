@@ -473,9 +473,9 @@ subroutine q65_ccf_22(s1,iz,jz,nfqso,ipk,jpk,f0,xdt,ccf2)
      i=indx(jzz-j+1)+i1-1
      if(ccf2(i).lt.3.3) exit                !Candidate limit
      f=i*df
-     if(f.ge.(nfqso-ftol) .and. f.le.(nfqso+ftol)) cycle
-     i3=max(1,i-67*mode_q65)
-     i4=min(iz,i+3*mode_q65)
+     if(f.ge.(nfqso-ftol) .and. f.le.(nfqso+ftol)) cycle  !Looked here already
+     i3=max(1, i-mode_q65)
+     i4=min(iz,i+mode_q65)
      biggest=maxval(ccf2(i3:i4))
      if(ccf2(i).ne.biggest) cycle
      ncand=ncand+1
