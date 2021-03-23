@@ -236,7 +236,7 @@ void WideGraph::keyPressEvent(QKeyEvent *e)                                 //F1
 void WideGraph::setRxFreq(int n)                                           //setRxFreq
 {
   ui->widePlot->setRxFreq(n);
-  ui->widePlot->draw(m_swide,false,false);
+  if(m_mode!="Q65") ui->widePlot->draw(m_swide,false,false);
 }
 
 int WideGraph::rxFreq()                                                   //rxFreq

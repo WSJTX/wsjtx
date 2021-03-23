@@ -703,15 +703,20 @@ end subroutine q65_snr
 
 subroutine q65_hist(if0,msg0,dxcall,dxgrid)
 
+! Save the MAXHIST most receent decodes, and their f0 values; or, if
+! dxcall is present, look up the most recent dxcall and dxgrid at the
+! specified f0.
+
   parameter (MAXHIST=100)
-  integer,intent(in) :: if0
-  character(len=37),intent(in),optional :: msg0
-  character(len=12),intent(out),optional :: dxcall
-  character(len=6),intent(out),optional :: dxgrid
+  integer,intent(in) :: if0                         !Audio freq of decode
+  character(len=37),intent(in),optional :: msg0     !Decoded message
+  character(len=12),intent(out),optional :: dxcall  !Second callsign in message
+  character(len=6),intent(out),optional :: dxgrid   !Third word in msg, if grid
+
   character*6 g1
-  character*37 msg(MAXHIST)
-  integer nf0(MAXHIST)
-  logical isgrid
+  character*37 msg(MAXHIST)                      !Saved messages
+  integer nf0(MAXHIST)                           !Saved frequencies
+  logical isgrid                                 !Statement function
   data nhist/0/
   save nhist,nf0,msg
 
@@ -719,28 +724,30 @@ subroutine q65_hist(if0,msg0,dxcall,dxgrid)
        g1(2:2).le.'R' .and. g1(3:3).ge.'0' .and. g1(3:3).le.'9' .and.       &
        g1(4:4).ge.'0' .and. g1(4:4).le.'9' .and. g1(1:4).ne.'RR73'
 
-  if(present(dxcall)) go to 100
+  if(present(dxcall)) go to 100                  !This is a lookup request
 
   if(nhist.eq.MAXHIST) then
-     nf0(1:MAXHIST-1)=nf0(2:MAXHIST)
+     nf0(1:MAXHIST-1)=nf0(2:MAXHIST)             !List is full, must make room
      msg(1:MAXHIST-1)=msg(2:MAXHIST)
      nhist=MAXHIST-1
   endif
-  nhist=nhist+1
+  nhist=nhist+1                                  !Insert msg0 at end of list
   nf0(nhist)=if0
   msg(nhist)=msg0
   go to 900
 
-100 dxcall='            '
+100 dxcall='            '                        !This is a lookup request
   dxgrid='      '
-  do i=1,nhist
+! Look for a decode close to if0, starting with most recent ones
+  do i=nhist,1,-1                     
      if(abs(nf0(i)-if0).gt.10) cycle
      i1=index(msg(i),' ')
      if(i1.ge.4 .and. i1.le.13) then
         i2=index(msg(i)(i1+1:),' ') + i1
-        dxcall=msg(i)(i1+1:i2-1)
+        dxcall=msg(i)(i1+1:i2-1)                 !Extract dxcall
         g1=msg(i)(i2+1:i2+4)
-        if(isgrid(g1)) dxgrid=g1(1:4)
+        if(isgrid(g1)) dxgrid=g1(1:4)            !Extract dxgrid
+        exit
      endif
   enddo
 
