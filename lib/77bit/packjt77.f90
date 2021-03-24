@@ -816,8 +816,8 @@ subroutine split77(msg,nwords,nw,w)
      endif
      j=j+1                                      !Index in msg
      n=n+1                                      !Index in word
+     if(c.ge.'a' .and. c.le.'z') c=char(ichar(c)-32)  !Force upper case
      msg(j:j)=c
-     if(c.ge.'a' .and. c.le.'z') msg(j:j)=char(ichar(c)-32)  !Force upper case
      if(n.le.13) w(k)(n:n)=c                    !Copy character c into word
      c0=c
   enddo
@@ -830,7 +830,7 @@ subroutine split77(msg,nwords,nw,w)
   call chkcall(w(3),bcall_1,ok1)
   if(ok1 .and. w(1)(1:3).eq.'CQ ') then
      w(1)='CQ_'//w(2)(1:10)             !Make "CQ " into "CQ_"
-     w(2:12)=w(3:13)                    !Move all remeining words down by one
+     w(2:12)=w(3:13)                    !Move all remaining words down by one
      nwords=nwords-1
   endif
   
