@@ -10,7 +10,7 @@ program allsim
   integer*2 iwave(NMAX)                  !Generated waveform (no noise)
   integer itone(206)                     !Channel symbols (values 0-8)
   integer icw(250)                       !Encoded CW message bits
-  integer*1 msgbits(77)                  !Encoded message bits for FT8, FT4
+  integer*1 msgbits(101)                 !Encoded message bits for FST4 FT8 FT4
   real dat(NMAX)                         !Audio waveform
   complex cwave(NMAX)
   real wave(NMAX)
@@ -22,8 +22,8 @@ program allsim
      print*,'Usage:    allsim snr [isig]'
      print*,'Examples: allsim -10           #Include all signal types'
      print*,'          allsim -10 6         #Include FT8 only'
-     print*,'isig order:    1     2   3   4   5   6   7    8     9'
-     print*,'            Carrier CW WSPR JT9 JT4 FT8 FT4 QRA64 JT65'
+     print*,'isig order:    1     2   3    4   5   6   7   8   9   10'
+     print*,'            Carrier CW WSPR FST4 JT9 JT4 FT8 FT4 Q65 JT65'
      go to 999
   endif
 
@@ -52,42 +52,50 @@ program allsim
 
   itone=0
   if(isig.eq.0 .or. isig.eq.1) then
-     call addit(itone,12000,85,6912,400,sig,dat)    !Unmodulated carrier
+     call addit(itone,12000,85,6912,400,sig,dat)    !1 Unmodulated carrier
   endif
 
   if(isig.eq.0 .or. isig.eq.2) then
      call morse('CQ CQ DE KA2ABC KA2ABC',icw,ncw)
-     call addcw(icw,ncw,600,sig,dat)                !CW
+     call addcw(icw,ncw,600,sig,dat)                !2 CW at 20 WPM
   endif
 
   if(isig.eq.0 .or. isig.eq.3) then
      call genwspr(message,msgsent,itone)
-     call addit(itone,12000,86,8192,800,sig,dat)       !WSPR (only 59 s of data)
+     call addit(itone,12000,86,8192,800,sig,dat)    !3 WSPR (only 59 s of data)
   endif
 
-  if(isig.eq.0 .or. isig.eq.4) then
-     call gen9(message,0,msgsent,itone,itype)
-     call addit(itone,12000,85,6912,1000,sig,dat)      !JT9
+  if(isig.eq.0 .or. isig.eq.4) then                    !4 FST4-60
+     iwspr=0
+     call genfst4(msg37,0,msgsent37,msgbits,itone,iwspr)
+     nwave=162*3888
+     call gen_fst4wave(itone,160,3888,nwave,12000.0,1,1000.0,0,cwave,wave)
+     dat(6001:6000+nwave)=dat(6001:6000+nwave) + sig*wave(1:nwave)
   endif
 
   if(isig.eq.0 .or. isig.eq.5) then
-     call gen4(message,0,msgsent,itone,itype)
-     call addit(itone,11025,206,2520,1200,sig,dat)     !JT4
+     call gen9(message,0,msgsent,itone,itype)
+     call addit(itone,12000,85,6912,1200,sig,dat)      !4 JT9
   endif
 
   if(isig.eq.0 .or. isig.eq.6) then
-     call genft8(msg37,i3,n3,msgsent37,msgbits,itone)  !FT8
+     call gen4(message,0,msgsent,itone,itype)
+     call addit(itone,11025,206,2520,1400,sig,dat)     !6 JT4
+  endif
+
+  if(isig.eq.0 .or. isig.eq.7) then
+     call genft8(msg37,i3,n3,msgsent37,msgbits,itone)  !7 FT8
      nwave=79*1920
-     call gen_ft8wave(itone,79,1920,2.0,12000.0,1400.0,cwave,wave,0,nwave)
+     call gen_ft8wave(itone,79,1920,2.0,12000.0,1600.0,cwave,wave,0,nwave)
      dat(6001:6000+nwave)=dat(6001:6000+nwave) + sig*wave(1:nwave)
      k=30*12000
      dat(6001+k:6000+nwave+k)=dat(6001+k:6000+nwave+k) + sig*wave(1:nwave)
   endif
 
-  if(isig.eq.0 .or. isig.eq.7) then
-     call genft4(msg37,0,msgsent37,msgbits,itone)      !FT4
+  if(isig.eq.0 .or. isig.eq.8) then
+     call genft4(msg37,0,msgsent37,msgbits,itone)      !8 FT4
      nwave=105*576
-     call gen_ft4wave(itone,103,576,12000.0,1600.0,cwave,wave,0,nwave)
+     call gen_ft4wave(itone,103,576,12000.0,1800.0,cwave,wave,0,nwave)
      dat(6001:6000+nwave)=dat(6001:6000+nwave) + sig*wave(1:nwave)
      k=15*12000
      dat(6001+k:6000+nwave+k)=dat(6001+k:6000+nwave+k) + sig*wave(1:nwave)
@@ -95,17 +103,16 @@ program allsim
      dat(6001+k:6000+nwave+k)=dat(6001+k:6000+nwave+k) + sig*wave(1:nwave)
      k=45*12000
      dat(6001+k:6000+nwave+k)=dat(6001+k:6000+nwave+k) + sig*wave(1:nwave)
-
-  endif
-
-  if(isig.eq.0 .or. isig.eq.8) then
-     call genqra64(message,0,msgsent,itone,itype)
-     call addit(itone,12000,84,6912,1800,sig,dat)      !QRA64
   endif
 
   if(isig.eq.0 .or. isig.eq.9) then
+     call genq65(msg37,0,msgsent37,itone,i3,n3)
+     call addit(itone,12000,85,7200,2000,sig,dat)      !9 Q65
+  endif
+
+  if(isig.eq.0 .or. isig.eq.10) then
      call gen65(message,0,msgsent,itone,itype)
-     call addit(itone,11025,126,4096,2000,sig,dat)     !JT65
+     call addit(itone,11025,126,4096,2200,sig,dat)     !10 JT65A
   endif
 
   iwave=nint(rms*dat)

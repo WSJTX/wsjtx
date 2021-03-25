@@ -11,9 +11,41 @@
                                                          
 Copyright 2001 - 2021 by Joe Taylor, K1JT.
 
+	        Release: WSJT-X 2.4.0-rc4
+	               Mar 26, 2021
+	        -------------------------
+
+WSJT-X 2.4.0 Release Candidate 4 adds new Q65 mode functionality and
+decoder optimizations and repairs several defects and regressions
+discovered in the RC3 and v2.3.0 GA releases.
+
+ - Correct a problem with display of Q65 sync curves for submodes
+   Q65-120x and Q65-300x.
+
+ - Audio frequency and decoded message are now saved for up to 100
+   most recent Q65 decodes.  Subsequent double-click on waterfall will
+   search the list for the clicked frequency +/- 10 Hz, recover
+   "DXCall" from the mosr recent decode there, and attempt a decode at
+   that frequency with full "q3" sensitivity.
+
+ - Use new ADIF recommendations for Q65: mode=MFSK, submode=Q65.
+
+ - If "Single decode" is unchecked, look for Q65 decodes from
+   accumulated average even after obtaining a single-sequence
+   decode at selected Rx Freq.
+
+ - For data read from .wav files, display the original UTC (derived
+   from file name) on the waterfall instead of current UTC.
+   
+ - Protect against bounds errors caused by unusual settings on the
+   Wide Graph.
+
+ - Correct a problem with Split operation in FT4 mode.  Thanks to
+   JG1APX.
+
 
 	        Release: WSJT-X 2.4.0-rc3
-	               Mar 16, 2021
+	               Mar 15, 2021
 	        -------------------------
 
 WSJT-X 2.4.0 Release Candidate 3 adds new Q65 mode functionality and
@@ -28,7 +60,7 @@ the RC2 and v2.3.0 GA releases.
 
  - Behavior of "Save decoded" has been corrected.
 
- - Repaied a defect that caused crash when displaying the Wide Graph
+ - Repaired a defect that caused crash when displaying the Wide Graph
    with lower frequency limit set to 0.
 
  - Program no longer terminates a transmission when Settings is

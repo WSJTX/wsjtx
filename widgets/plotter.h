@@ -87,6 +87,7 @@ public:
   void setRedFile(QString fRed);
   void setFST4_FreqRange(int fLow,int fHigh);
   void setSingleDecode(bool b);
+  void setDiskUTC(int nutc);
 
   bool scaleOK () const {return m_bScaleOK;}
 signals:
@@ -136,6 +137,7 @@ private:
   qint32  m_ib;
   qint32  m_nfa;
   qint32  m_nfb;
+  qint32  m_nUTC;
 
   QPixmap m_WaterfallPixmap;
   QPixmap m_2DPixmap;

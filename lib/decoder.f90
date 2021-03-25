@@ -269,8 +269,6 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   
   if(params%nmode.eq.4 .or. params%nmode.eq.65) open(14,file=trim(temp_dir)// &
        '/avemsg.txt',status='unknown')
-  if(params%nmode.eq.164) open(17,file=trim(temp_dir)//'/red.dat',          &
-       status='unknown')
 
   if(params%nmode.eq.4) then
      jz=52*nfsample
@@ -289,7 +287,6 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   endif
 
   npts65=52*12000
-  if(params%nmode.eq.164) npts65=54*12000
   if(baddata(id2,npts65)) then
      nsynced=0
      ndecoded=0

@@ -7,12 +7,13 @@
 #include <QPen>
 #include <QMouseEvent>
 #include <QDebug>
+#include "qt_helpers.hpp"
 #include "commons.h"
 #include "moc_plotter.cpp"
 #include <fstream>
 #include <iostream>
 
-#define MAX_SCREENSIZE 2048
+#define MAX_SCREENSIZE 8192
 
 extern "C" {
   void flat4_(float swide[], int* iz, int* nflatten);
@@ -246,13 +247,15 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
   if(m_line == painter1.fontMetrics ().height ()) {
     painter1.setPen(Qt::white);
     QString t;
-    qint64 ms = QDateTime::currentMSecsSinceEpoch() % 86400000;
-    int n = fmod(0.001*ms,m_TRperiod);
-    QDateTime t1=QDateTime::currentDateTimeUtc().addSecs(-n);
-    if(m_TRperiod<60.0) {
-      t=t1.toString("hh:mm:ss") + "    " + m_rxBand;
+    if(m_nUTC<0) {
+      auto start = qt_truncate_date_time_to (QDateTime::currentDateTimeUtc(), m_TRperiod * 1e3)
+        .toString (m_TRperiod < 60. ? "hh:mm:ss" : "hh:mm");
+      t = QString {"%1    %2"}.arg (start, m_rxBand);
     } else {
-      t=t1.toString("hh:mm") + "    " + m_rxBand;
+      auto hr = m_nUTC / 10000;
+      auto start = QTime {hr, (m_nUTC - 10000 * hr) / 100, m_nUTC % 100}
+         .toString (m_TRperiod < 60. ? "hh:mm:ss" : "hh:mm");
+      t = QString {"%1    %2"}.arg (start).arg (m_rxBand);
     }
     painter1.drawText (5, painter1.fontMetrics ().ascent (), t);
   }
@@ -281,14 +284,14 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
     f.open(m_redFile.toLatin1());
     if(f) {
       int x,y;
-      float freq,xdt,sync,sync2;
-      f >> xdt;
+      float freq,xdt,smin,smax,sync,sync2;
+      f >> xdt >> smin >> smax;
       if(f) {
         for(int i=0; i<99999; i++) {
           f >> freq >> sync >> sync2;
-          if(!f or f.eof()) break;
+          if(!f or f.eof() or k>=MAX_SCREENSIZE or k2>=MAX_SCREENSIZE) break;
           x=XfromFreq(freq);
-          if(sync > -99.0 and sync != 0.0) {
+          if(sync > -99.0 and (smin!=0.0 or smax != 0.0)) {
             y=m_h2*(0.9 - 0.09*gain2d*sync) - m_plot2dZero - 10;
             LineBuf2[k2].setX(x);                          //Red sync curve
             LineBuf2[k2].setY(y);
@@ -303,18 +306,18 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
       f.close();
       QPen pen0(Qt::red,2);
       painter2D.setPen(pen0);
-      painter2D.drawPolyline(LineBuf2,k2);
+      if(smin!=0.0 or smax != 0.0) {
+        painter2D.drawPolyline(LineBuf2,k2);
+      }
       pen0.setColor("orange");
       painter2D.setPen(pen0);
       painter2D.drawPolyline(LineBuf3,k);
-      if(m_bQ65_Sync) {
-        QString t;
-        t = t.asprintf("DT = %6.2f",xdt);
-        painter2D.setPen(Qt::white);
-        Font.setWeight(QFont::Bold);
-        painter2D.setFont(Font);
-        painter2D.drawText(m_w-100,m_h2/2,t);
-      }
+      QString t;
+      t = t.asprintf("DT = %6.2f",xdt);
+      painter2D.setPen(Qt::white);
+      Font.setWeight(QFont::Bold);
+      painter2D.setFont(Font);
+      painter2D.drawText(m_w-100,m_h2/2,t);
     }
   }
   update();                                    //trigger a new paintEvent
@@ -881,4 +884,9 @@ void CPlotter::setVHF(bool bVHF)
 void CPlotter::setRedFile(QString fRed)
 {
   m_redFile=fRed;
+}
+
+void CPlotter::setDiskUTC(int nutc)
+{
+  m_nUTC=nutc;
 }

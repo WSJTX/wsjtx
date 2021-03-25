@@ -64,6 +64,7 @@ subroutine morse(msg,idat,n)
 
 ! Insert this character
      nmax=ic(21,j)
+     if (n + nmax + 4 .gt. size (idat)) exit
      do i=1,nmax
         n=n+1
         idat(n)=ic(i,j)

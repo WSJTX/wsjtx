@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
-<TS version="2.1" language="it_IT">
+<TS version="2.0" language="it_IT">
 <context>
     <name>AbstractLogWindow</name>
     <message>
@@ -475,7 +475,7 @@ Formato:
     </message>
     <message>
         <source>Invalid audio out device</source>
-        <translation type="vanished">Dispositivo di uscita audio non valido</translation>
+        <translation>Dispositivo di uscita audio non valido</translation>
     </message>
     <message>
         <location filename="../Configuration.cpp" line="1840"/>
@@ -511,7 +511,7 @@ Formato:
     <message>
         <location filename="../Configuration.cpp" line="1880"/>
         <source>Pending DNS lookup, please try again later</source>
-        <translation type="unfinished"></translation>
+        <translation>In attesa della ricerca DNS, riprova più tardi</translation>
     </message>
     <message>
         <location filename="../Configuration.cpp" line="2223"/>
@@ -531,12 +531,12 @@ Formato:
     <message>
         <location filename="../Configuration.cpp" line="2435"/>
         <source>UDP server DNS lookup failed</source>
-        <translation type="unfinished"></translation>
+        <translation>Ricerca DNS del server UDP non riuscita</translation>
     </message>
     <message>
         <location filename="../Configuration.cpp" line="2459"/>
         <source>MAC-ambiguous multicast groups addresses not supported</source>
-        <translation type="unfinished"></translation>
+        <translation>Indirizzi di gruppi multicast MAC ambigui non supportati</translation>
     </message>
     <message>
         <location filename="../Configuration.cpp" line="2477"/>
@@ -641,7 +641,8 @@ Formato:
         <location filename="../Configuration.cpp" line="2950"/>
         <source>Not found</source>
         <comment>audio device missing</comment>
-        <translation type="unfinished"></translation>
+        <translatorcomment>dispositivo audio mancante</translatorcomment>
+        <translation>Non trovato</translation>
     </message>
 </context>
 <context>
@@ -720,7 +721,7 @@ Formato:
     <message>
         <source>DX Lab Suite Commander failed to send command &quot;%1&quot;: %2
 </source>
-        <translation type="vanished">DX Lab Suite Commander non è riuscito a inviare il comando &quot;%1&quot;: %2
+        <translation>DX Lab Suite Commander non è riuscito a inviare il comando &quot;%1&quot;: %2
 </translation>
     </message>
     <message>
@@ -1788,15 +1789,15 @@ Errore: %2 - %3</translation>
     <name>HelpTextWindow</name>
     <message>
         <source>Help file error</source>
-        <translation type="vanished">Aiuto file di errore</translation>
+        <translation>Aiuto file di errore</translation>
     </message>
     <message>
         <source>Cannot open &quot;%1&quot; for reading</source>
-        <translation type="vanished">Impossibile aprire &quot;%1&quot; per la lettura</translation>
+        <translation>Impossibile aprire &quot;%1&quot; per la lettura</translation>
     </message>
     <message>
         <source>Error: %1</source>
-        <translation type="vanished">Errore: %1</translation>
+        <translation>Errore: %1</translation>
     </message>
 </context>
 <context>
@@ -2271,22 +2272,23 @@ Errore (%2):%3</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1143"/>
         <source>Decode other Hounds calling above 1000 Hz audio offset</source>
-        <translation>Nota che in modo Hound, WSJT-X è normalmente configurato per ignorare i segnali sopra 1000 Hz. Se vuoi decodificare i segnali oltre la gamma totale del waterfall, per mantenereun tracciamento più vicino del pileup, spunta la casella Rx All Freqs</translation>
+        <translatorcomment>Nota che in modo Hound, WSJT-X è normalmente configurato per ignorare i segnali sopra 1000 Hz. Se vuoi decodificare i segnali oltre la gamma totale del waterfall, per mantenereun tracciamento più vicino del pileup, spunta la casella Rx All Freqs</translatorcomment>
+        <translation>Decodifica altri segugi che chiamano con offset audio superiore a 1000 Hz Nota che in modo Hound, WSJT-X è normalmente configurato per ignorare i segnali sopra 1000 Hz. Se vuoi decodificare i segnali oltre la gamma totale del waterfall, per mantenereun tracciamento più vicino del pileup, spunta la casella Rx All Freqs</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1192"/>
         <source>Enable auto response to the first decode from a new DXCC or new call on the current band.</source>
-        <translation type="unfinished"></translation>
+        <translation>Abilita la risposta automatica alla prima decodifica da un nuovo DXCC o una nuova chiamata sulla banda corrente.</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1615"/>
         <source>F Low   </source>
-        <translation type="unfinished"></translation>
+        <translation>F Basso</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1640"/>
         <source>F High </source>
-        <translation type="unfinished"></translation>
+        <translation>F Alto</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2615"/>
@@ -2306,12 +2308,12 @@ Errore (%2):%3</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3418"/>
         <source>SWL Mode</source>
-        <translation type="unfinished"></translation>
+        <translation>Modo SWL</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3421"/>
         <source>Hide lower panel controls to maximize deocde windows</source>
-        <translation type="unfinished"></translation>
+        <translation>Nascondi i controlli del pannello inferiore per massimizzare le finestre di decodifica </translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="565"/>
@@ -3008,11 +3010,11 @@ elenco. L&apos;elenco può essere gestito in Impostazioni (F2).</translation>
     </message>
     <message>
         <source>Calling CQ </source>
-        <translation type="vanished">Chiamando CQ </translation>
+        <translation>Chiamando CQ </translation>
     </message>
     <message>
         <source>Generate a CQ message</source>
-        <translation type="vanished">Genera un messaggio CQ</translation>
+        <translation>Genera un messaggio CQ</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2102"/>
@@ -3022,27 +3024,27 @@ elenco. L&apos;elenco può essere gestito in Impostazioni (F2).</translation>
     </message>
     <message>
         <source>Generate message with RRR</source>
-        <translation type="vanished">Genera un messaggio con RRR</translation>
+        <translation>Genera un messaggio con RRR</translation>
     </message>
     <message>
         <source>RRR</source>
-        <translation type="vanished">RRR</translation>
+        <translation>RRR</translation>
     </message>
     <message>
         <source>Generate message with report</source>
-        <translation type="vanished">Genera un messaggio con rapporto</translation>
+        <translation>Genera un messaggio con rapporto</translation>
     </message>
     <message>
         <source>dB</source>
-        <translation type="vanished">dB</translation>
+        <translation>dB</translation>
     </message>
     <message>
         <source>Answering CQ</source>
-        <translation type="vanished">Rispondere al CQ</translation>
+        <translation>Rispondere al CQ</translation>
     </message>
     <message>
         <source>Generate message for replying to a CQ</source>
-        <translation type="vanished">Genera messaggio di risposta al CQ</translation>
+        <translation>Genera messaggio di risposta al CQ</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2297"/>
@@ -3051,39 +3053,39 @@ elenco. L&apos;elenco può essere gestito in Impostazioni (F2).</translation>
     </message>
     <message>
         <source>Generate message with R+report</source>
-        <translation type="vanished">Genera messaggio con R+rapporto</translation>
+        <translation>Genera messaggio con R+rapporto</translation>
     </message>
     <message>
         <source>R+dB</source>
-        <translation type="vanished">R+dB</translation>
+        <translation>R+dB</translation>
     </message>
     <message>
         <source>Generate message with 73</source>
-        <translation type="vanished">Genera messaggio con 73</translation>
+        <translation>Genera messaggio con 73</translation>
     </message>
     <message>
         <source>73</source>
-        <translation type="vanished">73</translation>
+        <translation>73</translation>
     </message>
     <message>
         <source>Send this standard (generated) message</source>
-        <translation type="vanished">Invia questo messaggio standard (generato)</translation>
+        <translation>Invia questo messaggio standard (generato)</translation>
     </message>
     <message>
         <source>Gen msg</source>
-        <translation type="vanished">Gen msg</translation>
+        <translation>Gen msg</translation>
     </message>
     <message>
         <source>Send this free-text message (max 13 characters)</source>
-        <translation type="vanished">Invia questo messaggio di testo libero (massimo 13 caratteri)</translation>
+        <translation>Invia questo messaggio di testo libero (massimo 13 caratteri)</translation>
     </message>
     <message>
         <source>Free msg</source>
-        <translation type="vanished">Msg libero</translation>
+        <translation>Msg libero</translation>
     </message>
     <message>
         <source>3</source>
-        <translation type="vanished">3</translation>
+        <translation>3</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2086"/>
@@ -3223,7 +3225,7 @@ elenco. L&apos;elenco può essere gestito in Impostazioni (F2).</translation>
     </message>
     <message>
         <source>Percentage of 2-minute sequences devoted to transmitting.</source>
-        <translation type="vanished">Percentuale di sequenze di 2 minuti dedicate alla trasmissione.</translation>
+        <translation>Percentuale di sequenze di 2 minuti dedicate alla trasmissione.</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="668"/>
@@ -3394,7 +3396,7 @@ elenco. L&apos;elenco può essere gestito in Impostazioni (F2).</translation>
     </message>
     <message>
         <source>Prefer type 1 messages</source>
-        <translation type="vanished">Preferisci i messaggi di tipo 1</translation>
+        <translation>Preferisci i messaggi di tipo 1</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2723"/>
@@ -3403,7 +3405,7 @@ elenco. L&apos;elenco può essere gestito in Impostazioni (F2).</translation>
     </message>
     <message>
         <source>Transmit during the next 2-minute sequence.</source>
-        <translation type="vanished">Trasmettere durante la sequenza di 2 minuti successiva.</translation>
+        <translation>Trasmettere durante la sequenza di 2 minuti successiva.</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2747"/>
@@ -3467,11 +3469,11 @@ elenco. L&apos;elenco può essere gestito in Impostazioni (F2).</translation>
     </message>
     <message>
         <source>Configuration</source>
-        <translation type="vanished">Configurazione</translation>
+        <translation>Configurazione</translation>
     </message>
     <message>
         <source>F2</source>
-        <translation type="vanished">F2</translation>
+        <translation>F2</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2975"/>
@@ -3560,7 +3562,7 @@ elenco. L&apos;elenco può essere gestito in Impostazioni (F2).</translation>
     </message>
     <message>
         <source>Monitor OFF at startup</source>
-        <translation type="vanished">Monitor OFF all&apos;avvio</translation>
+        <translation>Monitor OFF all&apos;avvio</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3103"/>
@@ -3574,31 +3576,31 @@ elenco. L&apos;elenco può essere gestito in Impostazioni (F2).</translation>
     </message>
     <message>
         <source>Convert mode to RTTY for logging</source>
-        <translation type="vanished">Convertire la modalità in RTTY per la registrazione</translation>
+        <translation>Convertire la modalità in RTTY per la registrazione</translation>
     </message>
     <message>
         <source>Log dB reports to Comments</source>
-        <translation type="vanished">Registra rapporto dB nei commenti</translation>
+        <translation>Registra rapporto dB nei commenti</translation>
     </message>
     <message>
         <source>Prompt me to log QSO</source>
-        <translation type="vanished">Avvisami di registrare il QSO</translation>
+        <translation>Avvisami di registrare il QSO</translation>
     </message>
     <message>
         <source>Blank line between decoding periods</source>
-        <translation type="vanished">Riga vuota tra i periodi di decodifica</translation>
+        <translation>Riga vuota tra i periodi di decodifica</translation>
     </message>
     <message>
         <source>Clear DX Call and Grid after logging</source>
-        <translation type="vanished">Cancella chiamata DX e griglia dopo la registrazione</translation>
+        <translation>Cancella chiamata DX e griglia dopo la registrazione</translation>
     </message>
     <message>
         <source>Display distance in miles</source>
-        <translation type="vanished">Visualizza la distanza in miglia</translation>
+        <translation>Visualizza la distanza in miglia</translation>
     </message>
     <message>
         <source>Double-click on call sets Tx Enable</source>
-        <translation type="vanished">Fare doppio clic sui set di chiamate Abilita Tx</translation>
+        <translation>Fare doppio clic sui set di chiamate Abilita Tx</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3171"/>
@@ -3607,7 +3609,7 @@ elenco. L&apos;elenco può essere gestito in Impostazioni (F2).</translation>
     </message>
     <message>
         <source>Tx disabled after sending 73</source>
-        <translation type="vanished">Tx disabilitato dopo l&apos;invio 73</translation>
+        <translation>Tx disabilitato dopo l&apos;invio 73</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="8474"/>
@@ -3616,11 +3618,11 @@ elenco. L&apos;elenco può essere gestito in Impostazioni (F2).</translation>
     </message>
     <message>
         <source>Allow multiple instances</source>
-        <translation type="vanished">Consenti più istanze</translation>
+        <translation>Consenti più istanze</translation>
     </message>
     <message>
         <source>Tx freq locked to Rx freq</source>
-        <translation type="vanished">Tx freq bloccato su Rx freq</translation>
+        <translation>Tx freq bloccato su Rx freq</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3116"/>
@@ -3634,15 +3636,15 @@ elenco. L&apos;elenco può essere gestito in Impostazioni (F2).</translation>
     </message>
     <message>
         <source>Tx messages to Rx Frequency window</source>
-        <translation type="vanished">Messaggi Tx alla finestra Frequenza Rx</translation>
+        <translation>Messaggi Tx alla finestra Frequenza Rx</translation>
     </message>
     <message>
         <source>Gray1</source>
-        <translation type="vanished">Gray1</translation>
+        <translation>Gray1</translation>
     </message>
     <message>
         <source>Show DXCC entity and worked B4 status</source>
-        <translation type="vanished">Mostra entità DXCC e stato B4 lavorato</translation>
+        <translation>Mostra entità DXCC e stato B4 lavorato</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3132"/>
@@ -3791,11 +3793,11 @@ elenco. L&apos;elenco può essere gestito in Impostazioni (F2).</translation>
     </message>
     <message>
         <source>WSPR-LF</source>
-        <translation type="vanished">WSPR-LF</translation>
+        <translation>WSPR-LF</translation>
     </message>
     <message>
         <source>Experimental LF/MF mode</source>
-        <translation type="vanished">Modo Sperimentale LF/MF</translation>
+        <translation>Modo Sperimentale LF/MF</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3314"/>
@@ -3846,7 +3848,7 @@ elenco. L&apos;elenco può essere gestito in Impostazioni (F2).</translation>
     </message>
     <message>
         <source>Contest Log</source>
-        <translation type="vanished">Log del Contest</translation>
+        <translation>Log del Contest</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3371"/>
@@ -3855,7 +3857,7 @@ elenco. L&apos;elenco può essere gestito in Impostazioni (F2).</translation>
     </message>
     <message>
         <source>Quick-Start Guide to WSJT-X 2.0</source>
-        <translation type="vanished">Guida rapida per WSJT-X 2.0</translation>
+        <translation>Guida rapida per WSJT-X 2.0</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3381"/>
@@ -3891,19 +3893,19 @@ elenco. L&apos;elenco può essere gestito in Impostazioni (F2).</translation>
     </message>
     <message>
         <source>%1 (%2 sec) audio frames dropped</source>
-        <translation type="vanished">%1 (%2 sec) frames audio perse</translation>
+        <translation>%1 (%2 sec) frames audio perse</translation>
     </message>
     <message>
         <source>Audio Source</source>
-        <translation type="vanished">Sorgente Audio</translation>
+        <translation>Sorgente Audio</translation>
     </message>
     <message>
         <source>Reduce system load</source>
-        <translation type="vanished">Riduci carico di sistema</translation>
+        <translation>Riduci carico di sistema</translation>
     </message>
     <message>
         <source>Excessive dropped samples - %1 (%2 sec) audio frames dropped</source>
-        <translation type="vanished">Eccessivi campioni persi - %1 (%2 sec) frames audio ignorate</translation>
+        <translation>Eccessivi campioni persi - %1 (%2 sec) frames audio ignorate</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="518"/>
@@ -3928,7 +3930,7 @@ elenco. L&apos;elenco può essere gestito in Impostazioni (F2).</translation>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="783"/>
         <source>Enumerating audio devices</source>
-        <translation type="unfinished"></translation>
+        <translation>Enumerazione dei dispositivi audio</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="798"/>
@@ -4187,7 +4189,7 @@ elenco. L&apos;elenco può essere gestito in Impostazioni (F2).</translation>
   &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+Z    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Clear hung decoder status&lt;/td&gt;&lt;/tr&gt;
 &lt;/table&gt;</source>
         <extracomment>Keyboard shortcuts help window contents</extracomment>
-        <translation type="unfinished"></translation>
+        <translation>Finestra Scorciatoie.Tastiera dei contenuti di help</translation>
     </message>
     <message>
         <source>&lt;table cellspacing=1&gt;
@@ -4237,7 +4239,7 @@ elenco. L&apos;elenco può essere gestito in Impostazioni (F2).</translation>
 &lt;/table&gt;</source>
         <extracomment>Keyboard shortcuts help window contents</extracomment>
         <translatorcomment>Scorciatoie da tastiera contenuto della finestra della guida</translatorcomment>
-        <translation type="vanished">&lt;table cellspacing = 1&gt;
+        <translation>&lt;table cellspacing = 1&gt;
   &lt;tr&gt;&lt;td&gt; &lt;b&gt; Esc &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Ferma Tx, interrompi QSO, cancella la coda della chiamata successiva &lt;/td&gt; &lt;/tr&gt;
   &lt;tr&gt;&lt;td&gt; &lt;b&gt; F1 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Guida in linea dell&apos;utente (Alt: trasmissione Tx6) &lt;/td&gt; &lt;/tr&gt;
   &lt;tr&gt;&lt;td&gt; &lt;b&gt; Maiusc + F1 &lt;/b&gt;&lt;/td&gt; &lt;td&gt; Avviso sul copyright &lt;/td&gt; &lt;/tr&gt;
@@ -4522,7 +4524,7 @@ is already in CALL3.TXT, do you wish to replace it?</source>
     </message>
     <message>
         <source>VHF features warning</source>
-        <translation type="vanished">VHF presenta un avviso</translation>
+        <translation>VHF presenta un avviso</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="7453"/>
@@ -4745,7 +4747,7 @@ Server UDP%2:%3</translation>
     <name>QObject</name>
     <message>
         <source>User Defined</source>
-        <translation type="vanished">Definito dall&apos;utente</translation>
+        <translation>Definito dall&apos;utente</translation>
     </message>
     <message>
         <location filename="../Network/LotWUsers.cpp" line="229"/>
@@ -4908,7 +4910,7 @@ Errore (%2):%3</translation>
     </message>
     <message>
         <source>Check this is you get SSL/TLS errors</source>
-        <translation type="vanished">Verifica che si ottengano errori SSL / TLS</translation>
+        <translation>Verifica che si ottengano errori SSL / TLS</translation>
     </message>
     <message>
         <location filename="../SampleDownloader.cpp" line="132"/>
@@ -4935,7 +4937,7 @@ Errore (%2):%3</translation>
     </message>
     <message>
         <source>Audio data not being fed to the audio input device fast enough.</source>
-        <translation type="vanished">I dati audio non vengono inviati al dispositivo di input audio abbastanza velocemente.</translation>
+        <translation>I dati audio non vengono inviati al dispositivo di input audio abbastanza velocemente.</translation>
     </message>
     <message>
         <location filename="../Audio/soundin.cpp" line="36"/>
@@ -5274,11 +5276,11 @@ Errore (%2):%3</translation>
     </message>
     <message>
         <source>  JT9</source>
-        <translation type="vanished">  JT9</translation>
+        <translation>  JT9</translation>
     </message>
     <message>
         <source>JT65  </source>
-        <translation type="vanished">JT65  </translation>
+        <translation>JT65  </translation>
     </message>
     <message>
         <location filename="../widgets/widegraph.ui" line="387"/>
@@ -5303,7 +5305,7 @@ Errore (%2):%3</translation>
     <message>
         <location filename="../widgets/widegraph.cpp" line="24"/>
         <source>User Defined</source>
-        <translation type="unfinished">Definito dall&apos;utente</translation>
+        <translation>Definito dall&apos;.utente</translation>
     </message>
     <message>
         <location filename="../widgets/widegraph.cpp" line="28"/>
@@ -5539,7 +5541,7 @@ Errore (%2):%3</translation>
     </message>
     <message>
         <source>Enable VHF/UHF/Microwave features</source>
-        <translation type="vanished">Abilita le funzionalità VHF / UHF / Microonde</translation>
+        <translation>Abilita le funzionalità VHF / UHF / Microonde</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="367"/>
@@ -6082,27 +6084,27 @@ periodi di trasmissione.</translation>
     <message>
         <location filename="../Configuration.ui" line="1888"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enter the service port number of the UDP server that WSJT-X should send updates to. If this is zero no updates will be sent.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Immettere il numero di porta del servizio del server UDP a cui WSJT-X deve inviare gli aggiornamenti. Se questo è zero, non verrà inviato alcun aggiornamento.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1898"/>
         <source>Outgoing interfaces:</source>
-        <translation type="unfinished"></translation>
+        <translation>Interfacce di uscita:</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1908"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;When sending updates to a multicast group address it is necessary to specify which network interface(s) to send them to. If the loop-back interface is multicast capable then at least that one will be selected.&lt;/p&gt;&lt;p&gt;For most users the loop-back interface is all that is needed, that will allow multiple other applications on the same machine to interoperate with WSJT-X. If applications running on other hosts are to receive status updates then a suitable network interface should be used.&lt;/p&gt;&lt;p&gt;On some Linux systems it may be necessary to enable multicast on the loop-back network interface.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Quando si inviano aggiornamenti a un indirizzo di gruppo multicast, è necessario specificare a quale interfaccia di rete inviarli. Se l&apos;interfaccia di loop-back è compatibile con il multicast, verrà selezionata almeno quella. &lt;/p&gt; &lt;p&gt; Per la maggior parte degli utenti l&apos;interfaccia di loop-back è tutto ciò che è necessario, ciò consentirà a più altre applicazioni sulla stessa macchina di interoperare con WSJT-X. Se le applicazioni in esecuzione su altri host devono ricevere gli aggiornamenti di stato, è necessario utilizzare un&apos;interfaccia di rete adatta. &lt;/p&gt; &lt;p&gt; Su alcuni sistemi Linux potrebbe essere necessario abilitare il multicast sull&apos;interfaccia di rete loop-back.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1915"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Sets the number or router hops that multicast datagrams are allowed to make. Almost everyone should set this to 1 to keep outgoing multicast traffic withn the local subnet.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Imposta il numero o gli hop del router che i datagrammi multicast possono effettuare. Quasi tutti dovrebbero impostarlo su 1 per mantenere il traffico multicast in uscita nella sottorete locale.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1928"/>
         <source>Multicast TTL:</source>
-        <translation type="unfinished"></translation>
+        <translation>Multicast.TTL:</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2434"/>
@@ -6378,7 +6380,7 @@ e i campi della Griglia DX quando viene inviato un messaggio di testo libero o 7
 decoded signals as spots to the http://pskreporter.info web site.
 This is used for reverse beacon analysis which is very useful
 for assessing propagation and system performance.</source>
-        <translation type="vanished">Il programma può inviare i dettagli della tua stazione e tutto il resto
+        <translation>Il programma può inviare i dettagli della tua stazione e tutto il resto
 segnali decodificati come spot per il sito Web http://pskreporter.info.
 Questo è usato per l&apos;analisi del beacon inverso che è molto utile
 per valutare la propagazione e le prestazioni del sistema.</translation>
@@ -6420,7 +6422,7 @@ per valutare la propagazione e le prestazioni del sistema.</translation>
     </message>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enter the service port number of the UDP server that WSJT-X should send updates to. If this is zero no updates will be broadcast.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="vanished">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Immettere il numero di porta del servizio del server UDP a cui WSJT-X deve inviare gli aggiornamenti. Se questo è zero, non verranno trasmessi aggiornamenti.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Immettere il numero di porta del servizio del server UDP a cui WSJT-X deve inviare gli aggiornamenti. Se questo è zero, non verranno trasmessi aggiornamenti.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1942"/>
@@ -6932,19 +6934,19 @@ Fare clic con il tasto destro per inserire ed eliminare le opzioni.</translation
     <name>main</name>
     <message>
         <source>Fatal error</source>
-        <translation type="vanished">Errore fatale</translation>
+        <translation>Errore fatale</translation>
     </message>
     <message>
         <source>Unexpected fatal error</source>
-        <translation type="vanished">Errore fatale inatteso</translation>
+        <translation>Errore fatale inatteso</translation>
     </message>
     <message>
         <source>Another instance may be running</source>
-        <translation type="vanished">Un&apos;altra istanza potrebbe essere in esecuzione</translation>
+        <translation>Un&apos;altra istanza potrebbe essere in esecuzione</translation>
     </message>
     <message>
         <source>try to remove stale lock file?</source>
-        <translation type="vanished">Provo a rimuovere il file di blocco non aggiornato?</translation>
+        <translation>Provo a rimuovere il file di blocco non aggiornato?</translation>
     </message>
     <message>
         <location filename="../main.cpp" line="263"/>

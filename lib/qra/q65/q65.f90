@@ -119,7 +119,7 @@ subroutine q65_dec0(iavg,nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
      lclearave=.false.
   endif
   ccf1=0.
-  ccf2_avg=0.
+  if(iavg.eq.0) ccf2_avg=0.
   dtstep=nsps/(NSTEP*12000.0)                 !Step size in seconds
   lag1=-1.0/dtstep
   lag2=1.0/dtstep + 0.9999
@@ -471,11 +471,11 @@ subroutine q65_ccf_22(s1,iz,jz,nfqso,ipk,jpk,f0,xdt,ccf2)
   maxcand=20
   do j=1,20
      i=indx(jzz-j+1)+i1-1
-     if(ccf2(i).lt.3.4) exit                !Candidate limit
+     if(ccf2(i).lt.3.3) exit                !Candidate limit
      f=i*df
-     if(f.ge.(nfqso-ftol) .and. f.le.(nfqso+ftol)) cycle
-     i3=max(1,i-67*mode_q65)
-     i4=min(iz,i+3*mode_q65)
+     if(f.ge.(nfqso-ftol) .and. f.le.(nfqso+ftol)) cycle  !Looked here already
+     i3=max(1, i-mode_q65)
+     i4=min(iz,i+mode_q65)
      biggest=maxval(ccf2(i3:i4))
      if(ccf2(i).ne.biggest) cycle
      ncand=ncand+1
@@ -580,8 +580,8 @@ subroutine q65_write_red(iz,xdt,ccf2_avg,ccf2)
   call q65_sync_curve(ccf2,1,iz,rms2)
 
   rewind 17
-  write(17,1000) xdt
-  do i=max(1,nint(nfa/df)),nint(nfb/df)
+  write(17,1000) xdt,minval(ccf2_avg),maxval(ccf2_avg)
+  do i=max(1,nint(nfa/df)),min(iz,int(nfb/df))
      freq=i*df
      y1=ccf2_avg(i)
      if(y1.gt.10.0) y1=10.0 + 2.0*log10(y1/10.0)
@@ -678,8 +678,8 @@ subroutine q65_snr(dat4,dtdec,f0dec,mode_q65,nused,snr2)
 
   i0=nint(f0dec/df)
   nsum=max(10*mode_q65,nint(50.0/df))
-  ia=i0 - 2*nsum
-  ib=i0 + 2*nsum
+  ia=max(1,i0-2*nsum)
+  ib=min(iz0,i0+2*nsum)
   sum1=sum(spec(ia:ia+nsum-1))
   sum2=sum(spec(ib-nsum+1:ib))
   avg=(sum1+sum2)/(2.0*nsum)
@@ -700,5 +700,58 @@ subroutine q65_snr(dat4,dtdec,f0dec,mode_q65,nused,snr2)
 
   return
 end subroutine q65_snr
-  
+
+subroutine q65_hist(if0,msg0,dxcall,dxgrid)
+
+! Save the MAXHIST most receent decodes, and their f0 values; or, if
+! dxcall is present, look up the most recent dxcall and dxgrid at the
+! specified f0.
+
+  parameter (MAXHIST=100)
+  integer,intent(in) :: if0                         !Audio freq of decode
+  character(len=37),intent(in),optional :: msg0     !Decoded message
+  character(len=12),intent(out),optional :: dxcall  !Second callsign in message
+  character(len=6),intent(out),optional :: dxgrid   !Third word in msg, if grid
+
+  character*6 g1
+  character*37 msg(MAXHIST)                      !Saved messages
+  integer nf0(MAXHIST)                           !Saved frequencies
+  logical isgrid                                 !Statement function
+  data nhist/0/
+  save nhist,nf0,msg
+
+  isgrid(g1)=g1(1:1).ge.'A' .and. g1(1:1).le.'R' .and. g1(2:2).ge.'A' .and. &
+       g1(2:2).le.'R' .and. g1(3:3).ge.'0' .and. g1(3:3).le.'9' .and.       &
+       g1(4:4).ge.'0' .and. g1(4:4).le.'9' .and. g1(1:4).ne.'RR73'
+
+  if(present(dxcall)) go to 100                  !This is a lookup request
+
+  if(nhist.eq.MAXHIST) then
+     nf0(1:MAXHIST-1)=nf0(2:MAXHIST)             !List is full, must make room
+     msg(1:MAXHIST-1)=msg(2:MAXHIST)
+     nhist=MAXHIST-1
+  endif
+  nhist=nhist+1                                  !Insert msg0 at end of list
+  nf0(nhist)=if0
+  msg(nhist)=msg0
+  go to 900
+
+100 dxcall='            '                        !This is a lookup request
+  dxgrid='      '
+! Look for a decode close to if0, starting with most recent ones
+  do i=nhist,1,-1                     
+     if(abs(nf0(i)-if0).gt.10) cycle
+     i1=index(msg(i),' ')
+     if(i1.ge.4 .and. i1.le.13) then
+        i2=index(msg(i)(i1+1:),' ') + i1
+        dxcall=msg(i)(i1+1:i2-1)                 !Extract dxcall
+        g1=msg(i)(i2+1:i2+4)
+        if(isgrid(g1)) dxgrid=g1(1:4)            !Extract dxgrid
+        exit
+     endif
+  enddo
+
+900 return
+end subroutine q65_hist
+
 end module q65
