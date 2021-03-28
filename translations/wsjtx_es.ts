@@ -2480,12 +2480,12 @@ Error(%2): %3</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3399"/>
         <source>Quick-Start Guide to Q65</source>
-        <translation type="unfinished"></translation>
+        <translation>Guía de inicio rápido de Q65</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3407"/>
         <source>Auto Clear Avg after decode</source>
-        <translation type="unfinished"></translation>
+        <translation>Auto Clear Avg después de decodificar</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1588"/>
@@ -2610,7 +2610,7 @@ Error(%2): %3</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3383"/>
         <source>Q65</source>
-        <translation type="unfinished"></translation>
+        <translation>Q65</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3391"/>
@@ -4442,7 +4442,9 @@ Error al cargar datos de usuarios de LotW</translatorcomment>
         <source>If you make fair use of any part of WSJT-X under terms of the GNU General Public License, you must display the following copyright notice prominently in your derivative work:
 
 &quot;The algorithms, source code, look-and-feel of WSJT-X and related programs, and protocol specifications for the modes FSK441, FST4, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, Q65, MSK144 are Copyright (C) 2001-2021 by one or more of the following authors: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; and other members of the WSJT Development Group.&quot;</source>
-        <translation type="unfinished"></translation>
+        <translation>Si hace un uso legítimo de cualquier parte del programa WSJT-X según los términos de la Licencia Pública General GNU, debe mostrar el siguiente aviso de derechos de autor en un lugar destacado en su trabajo derivado:
+
+&quot;Los algoritmos, código fuente, apariencia de WSJT-X y programas relacionados, y especificaciones de protocolo para los modos FSK441, FST4, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, Q65, MSK144 son Copyright (C) 2001-2021 por uno o más de los siguientes autores: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; y otros miembros del Grupo de Desarrollo WSJT &quot;.</translation>
     </message>
     <message>
         <source>If you make fair use of any part of WSJT-X under terms of the GNU General Public License, you must display the following copyright notice prominently in your derivative work:
@@ -5698,7 +5700,7 @@ Error(%2): %3</translation>
     <message>
         <location filename="../widgets/widegraph.ui" line="340"/>
         <source>Q65_Sync</source>
-        <translation type="unfinished"></translation>
+        <translation>Q65_Sync</translation>
     </message>
     <message>
         <location filename="../widgets/widegraph.ui" line="348"/>
