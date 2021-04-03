@@ -3,8 +3,7 @@
 #include <stdexcept>
 #include <string>
 #include <memory>
-
-#include <locale.h>
+#include <locale>
 
 #include <QCoreApplication>
 #include <QTextStream>
@@ -239,11 +238,9 @@ int main(int argc, char *argv[])
   QCoreApplication app {argc, argv};
   try
     {
-      ::setlocale (LC_NUMERIC, "C"); // ensure number forms are in
-                                     // consistent format, do this
-                                     // after instantiating
-                                     // QApplication so that Qt has
-                                     // correct l18n
+      // ensure number forms are in consistent format, do this after
+      // instantiating QApplication so that Qt has correct l18n
+      std::locale::global (std::locale::classic ());
 
       // Override programs executable basename as application name.
       app.setApplicationName ("WSJT-X Record Time Signal");

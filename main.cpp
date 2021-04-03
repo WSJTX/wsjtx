@@ -130,12 +130,8 @@ int main(int argc, char *argv[])
 
       QLocale locale;              // get the current system locale
 
-      // Set C/C++ locale used for logging etc.
-#if defined (Q_OS_WIN)
-      std::locale::global (std::locale ("C"));
-#else
-      std::locale::global (std::locale ("en_US.UTF-8"));
-#endif
+      // reset the C+ & C global locales to the classic C locale
+      std::locale::global (std::locale::classic ());
 
       // Override programs executable basename as application name.
       a.setApplicationName ("WSJT-X");

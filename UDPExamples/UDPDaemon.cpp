@@ -17,6 +17,7 @@
 
 #include <iostream>
 #include <exception>
+#include <locale>
 #include <cstdlib>
 
 #include <QCoreApplication>
@@ -263,10 +264,9 @@ int main (int argc, char * argv[])
   QCoreApplication app {argc, argv};
   try
     {
-      setlocale (LC_NUMERIC, "C"); // ensure number forms are in
-                                   // consistent format, do this after
-                                   // instantiating QApplication so
-                                   // that GUI has correct l18n
+      // ensure number forms are in consistent format, do this after
+      // instantiating QApplication so that GUI has correct l18n
+      std::locale::global (std::locale::classic ());
 
       app.setApplicationName ("WSJT-X UDP Message Server Daemon");
       app.setApplicationVersion ("1.0");

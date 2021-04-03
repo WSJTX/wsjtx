@@ -1493,8 +1493,8 @@ void MainWindow::dataSink(qint64 frames)
     freqcal_(&dec_data.d2[0],&k,&nkhz,&RxFreq,&ftol,&line[0],80);
     QString t=QString::fromLatin1(line);
     DecodedText decodedtext {t};
-    ui->decodedTextBrowser->displayDecodedText (decodedtext,m_baseCall,m_mode,m_config.DXCC(),
-          m_logBook,m_currentBand, m_config.ppfx());
+    ui->decodedTextBrowser->displayDecodedText (decodedtext, m_config.my_callsign (), m_mode, m_config.DXCC (),
+          m_logBook, m_currentBand, m_config.ppfx ());
     if (ui->measure_check_box->isChecked ()) {
       // Append results text to file "fmt.all".
       QFile f {m_config.writeable_data_dir ().absoluteFilePath ("fmt.all")};
@@ -1748,8 +1748,8 @@ void MainWindow::fastSink(qint64 frames)
   if(bmsk144 and (line[0]!=0)) {
     QString message {QString::fromLatin1 (line)};
     DecodedText decodedtext {message.replace (QChar::LineFeed, "")};
-    ui->decodedTextBrowser->displayDecodedText (decodedtext,m_baseCall,m_mode,m_config.DXCC(),
-         m_logBook,m_currentBand,m_config.ppfx());
+    ui->decodedTextBrowser->displayDecodedText (decodedtext, m_config.my_callsign (), m_mode, m_config.DXCC(),
+         m_logBook, m_currentBand, m_config.ppfx ());
     m_bDecoded=true;
     auto_sequence (decodedtext, ui->sbFtol->value (), std::numeric_limits<unsigned>::max ());
     postDecode (true, decodedtext.string ());
@@ -3253,8 +3253,8 @@ void::MainWindow::fast_decode_done()
 //Left (Band activity) window
     DecodedText decodedtext {message.replace (QChar::LineFeed, "")};
     if(!m_bFastDone) {
-      ui->decodedTextBrowser->displayDecodedText (decodedtext,m_baseCall,m_mode,m_config.DXCC(),
-         m_logBook,m_currentBand,m_config.ppfx());
+      ui->decodedTextBrowser->displayDecodedText (decodedtext, m_config.my_callsign (), m_mode, m_config.DXCC (),
+         m_logBook, m_currentBand, m_config.ppfx ());
     }
 
     t=message.mid(10,5).toFloat();
@@ -3460,16 +3460,16 @@ void MainWindow::readFromStdout()                             //readFromStdout
           if(!m_bDisplayedOnce) {
             // This hack sets the font.  Surely there's a better way!
             DecodedText dt{"."};
-            ui->decodedTextBrowser->displayDecodedText(dt,m_baseCall,m_mode,m_config.DXCC(),
-                m_logBook,m_currentBand,m_config.ppfx());
+            ui->decodedTextBrowser->displayDecodedText (dt, m_config.my_callsign (), m_mode, m_config.DXCC (),
+                m_logBook, m_currentBand, m_config.ppfx ());
             m_bDisplayedOnce=true;
           }
         } else {
           DecodedText decodedtext1=decodedtext0;
-          ui->decodedTextBrowser->displayDecodedText(decodedtext1,m_baseCall,m_mode,m_config.DXCC(),
-                                                     m_logBook,m_currentBand,m_config.ppfx(),
-                                                     ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
-                                                     haveFSpread, fSpread);
+          ui->decodedTextBrowser->displayDecodedText (decodedtext1, m_config.my_callsign (), m_mode, m_config.DXCC (),
+                                                      m_logBook, m_currentBand, m_config.ppfx (),
+                                                      ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
+                                                      haveFSpread, fSpread);
 
           if(m_bBestSPArmed && m_mode=="FT4" && CALLING == m_QSOProgress) {
             QString messagePriority=ui->decodedTextBrowser->CQPriority();
@@ -3498,7 +3498,6 @@ void MainWindow::readFromStdout()                             //readFromStdout
       bool bDisplayRight=bAvgMsg;
       int audioFreq=decodedtext.frequencyOffset();
       if(m_mode=="FT8" or m_mode=="FT4" or m_mode=="FST4" or m_mode=="Q65") {
-//      if(m_mode=="FT8" or m_mode=="FT4" or m_mode=="FST4") {
         int ftol=10;
         if(m_mode=="Q65") ftol=ui->sbFtol->value();
         auto const& parts = decodedtext.string().remove("<").remove(">")
@@ -3506,7 +3505,23 @@ void MainWindow::readFromStdout()                             //readFromStdout
         if (parts.size() > 6) {
           auto for_us = parts[5].contains (m_baseCall)
             || ("DE" == parts[5] && qAbs (ui->RxFreqSpinBox->value () - audioFreq) <= ftol);
-          if(m_baseCall==m_config.my_callsign() and m_baseCall!=parts[5]) for_us=false;
+          if(m_baseCall == m_config.my_callsign())
+            {
+              if (m_baseCall != parts[5])
+                {
+                  for_us=false;
+                }
+            }
+          else
+            {
+              if (m_config.my_callsign () != parts[5])
+                {
+                  for_us = false; // same base call as ours but
+                                  // different prefix or suffix, rare
+                                  // but can happen with multi station
+                                  // special events
+                }
+            }
           if(m_bCallingCQ && !m_bAutoReply && for_us && ui->cbFirst->isChecked() and
              SpecOp::FOX > m_config.special_op_id()) {
             m_bDoubleClicked=true;
@@ -3527,8 +3542,8 @@ void MainWindow::readFromStdout()                             //readFromStdout
         // This msg is within 10 hertz of our tuned frequency, or a JT4 or JT65 avg,
         // or contains MyCall
         if(!m_bBestSPArmed or m_mode!="FT4") {
-          ui->decodedTextBrowser2->displayDecodedText(decodedtext0,m_baseCall,m_mode,m_config.DXCC(),
-                m_logBook,m_currentBand,m_config.ppfx());
+          ui->decodedTextBrowser2->displayDecodedText (decodedtext0, m_config.my_callsign (), m_mode, m_config.DXCC (),
+                m_logBook, m_currentBand, m_config.ppfx ());
         }
         m_QSOText = decodedtext.string ().trimmed ();
       }
@@ -5194,8 +5209,8 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
   QString s2 = message.clean_string ().trimmed();
   if (s1!=s2 and !message.isTX()) {
     if (!s2.contains(m_baseCall) or m_mode=="MSK144") {  // Taken care of elsewhere if for_us and slow mode
-      ui->decodedTextBrowser2->displayDecodedText(message, m_baseCall,m_mode,m_config.DXCC(),
-      m_logBook,m_currentBand,m_config.ppfx());
+      ui->decodedTextBrowser2->displayDecodedText (message, m_config.my_callsign (), m_mode, m_config.DXCC (),
+      m_logBook, m_currentBand, m_config.ppfx ());
     }
     m_QSOText = s2;
   }

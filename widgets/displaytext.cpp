@@ -413,17 +413,19 @@ void DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
   else
     {
       if (bCQonly) return;
-      if (myCall != "" && (decodedText.indexOf (" " + myCall + " ") >= 0
-                           or decodedText.indexOf (" " + myCall + "/") >= 0
-                           or decodedText.indexOf ("<" + myCall + "/") >= 0
-                           or decodedText.indexOf ("/" + myCall + " ") >= 0
-                           or decodedText.indexOf ("/" + myCall + ">") >= 0
-                           or decodedText.indexOf ("<" + myCall + " ") >= 0
-                           or decodedText.indexOf ("<" + myCall + ">") >= 0
-                           or decodedText.indexOf (" " + myCall + ">") >= 0)) {
-        highlight_types types {Highlight::MyCall};
-        set_colours (m_config, &bg, &fg, types);
-      }
+      if (myCall.size ())
+        {
+          QString regexp {"[ <]" + myCall + "[ >]"};
+          if (Radio::is_compound_callsign (myCall))
+            {
+              regexp = "(?:" + regexp + "|[ <]" + Radio::base_callsign (myCall) + "[ >])";
+            }
+          if ((decodedText.clean_string () + " ").contains (QRegularExpression {regexp}))
+            {
+              highlight_types types {Highlight::MyCall};
+              set_colours (m_config, &bg, &fg, types);
+            }
+        }
     }
   auto message = decodedText.string();
   QString dxCall;

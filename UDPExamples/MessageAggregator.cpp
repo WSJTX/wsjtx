@@ -31,7 +31,7 @@
 // menu that allows each dock window to be hidden or revealed.
 //
 
-#include <clocale>
+#include <locale>
 #include <iostream>
 #include <exception>
 
@@ -52,10 +52,9 @@ int main (int argc, char * argv[])
   QApplication app {argc, argv};
   try
     {
-      setlocale (LC_NUMERIC, "C"); // ensure number forms are in
-                                   // consistent format, do this after
-                                   // instantiating QApplication so
-                                   // that GUI has correct l18n
+      // ensure number forms are in consistent format, do this after
+      // instantiating QApplication so that GUI has correct l18n
+      std::locale::global (std::locale::classic ());
 
       app.setApplicationName ("WSJT-X Reference UDP Message Aggregator Server");
       app.setApplicationVersion ("1.0");
