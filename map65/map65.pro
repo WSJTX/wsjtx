@@ -13,7 +13,7 @@ TARGET = map65
 VERSION = 2.5.0
 TEMPLATE = app
 DEFINES = QT5
-DESTDIR = ../map65_install
+DESTDIR = /MAP65_2.9
 
 F90 = gfortran
 gfortran.output = ${QMAKE_FILE_BASE}.o

@@ -74,7 +74,8 @@ LIBS3 = -L'C:/JTSDK/Qt55/5.5/mingw492_32/lib' -lQt5Core
 m65.exe: $(OBJS3) libm65.a
 	$(CXX) -o m65.exe $(OBJS3) $(LIBS3) libm65.a ../libfftw3f_win.a \
 	-lgfortran
-	cp m65.exe ../../map65_install
+#	cp m65.exe ../../map65_install
+	cp m65.exe /c/MAP65_2.9
 
 OBJS7 = astrosub.o astro0.o astro.o tm2.o grid2deg.o sun.o moondop.o \
 	coord.o dot.o moon2.o tmoonsub.o toxyz.o geocentric.o \
