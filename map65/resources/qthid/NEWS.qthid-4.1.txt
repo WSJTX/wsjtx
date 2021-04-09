@@ -1,0 +1,64 @@
+Changes in version 4.1:
+
+- Special release with Funcube Dongle Pro+ support.
+
+
+Changes in version 4.0:
+
+- New layout with IF, IQ and firmware controls hidden by default.
+- New frequency controller widget.
+- Support for up- and downconverters.
+
+
+Changes in version 3.2:
+
+- Switch to using hidraw driver on Linux 2.6.38 or later (fixes crashes
+  experienced on recent Linux with libusb-1.0.9).
+- Update HID API.
+- Reduce widow width.
+
+
+Changes in version 3.1:
+
+- Support for Mac OS X 10.7 Lion.
+- Support for Bias-T with firmware 18h and later.
+- Allow user to force band selection to be different from the one chosen by
+  the FCD (temporary workaround for a FW 18f bug occurring at 861 MHz).
+- Change default value of IQ gain correction from 0.0 to 1.0.
+- Use correct FCD command for setting IQ phase correction (GH-5).
+- Various fixes for windows build using latest SDK (7.0).
+- Removed RSSI indicator since it is unlikely that it will ever work.
+
+
+Changes in version 3.0:
+
+- Implement full API in firmware 18f (thanks Mario Lorenz, DL5MLO).
+- Requires firmware 18f or later (earlier firmwares are not detected).
+- Added auto-repeat to tuning buttons (click and hold the button to scan).
+- Added new RF chain diagram.
+- Show firmware version in status message.
+
+
+Changes in version 2.2:
+
+- Use native toolbar and status bar on Mac OS X
+- New application icon based on SVG drawing
+- Correctly set application and bundle icon on Mac OS X and Windows
+- Minor UI tweaks.
+- Fix qthid.pro to allow correct build on Ubuntu 9.04 (thanks EA4FVS).
+- Correct application name in file headers (thanks Andrew Elwell)
+
+
+Changes in version 2.1:
+
+- Various fixes and workarounds to prevent crash and freeze when switching
+  between application and bootloader mode. The application can now run with or
+  without FCD (hotplug). Upgrade and verify firmware have been tested on Linux
+  (32 and 64 bit) and OSX 10.6.
+- Updated HID API to hidapi/master from 2011-02-17
+- Retrieve libusb configuration on Linux using pkg-config
+- Remove local Qt Creator configuration from distribution
+- Improvements to the UI layout and widgets
+- Added application icon
+- Applied GPL V3 license
+
