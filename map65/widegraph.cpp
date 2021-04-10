@@ -1,5 +1,4 @@
 #include "widegraph.h"
-#include <math.h>
 #include "ui_widegraph.h"
 
 #define NFFT 32768
@@ -381,9 +380,9 @@ void WideGraph::tx570()
 
 void WideGraph::updateFreqLabel()
 {
-  double rxFreq = floor (ui->widePlot->rxFreq () * 1e3) * 1e3;
-  double txFreq = floor (ui->widePlot->txFreq() * 1e3) * 1e3;
-  ui->labFreq->setText (QString {"Rx:  %1\n%2"}.arg (rxFreq, 7, 'f', 3).arg (txFreq, 7, 'f', 3));
+  auto rxFreq = QString {"%1"}.arg (ui->widePlot->rxFreq (), 10, 'f', 6).insert (7, '.');
+  auto txFreq = QString {"%1"}.arg (ui->widePlot->txFreq (), 10, 'f', 6).insert (7, '.');
+  ui->labFreq->setText (QString {"Rx:  %1\nTx:  %2"}.arg (rxFreq, txFreq));
 }
 
 void WideGraph::enableSetRxHardware(bool b)

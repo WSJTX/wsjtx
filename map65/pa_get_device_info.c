@@ -1,5 +1,6 @@
 #include <portaudio.h>
 #include <stdio.h>
+#include <string.h>
 
 #define MAX_LATENCY 20
 

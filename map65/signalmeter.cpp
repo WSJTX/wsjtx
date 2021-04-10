@@ -29,7 +29,7 @@ SignalMeter::~SignalMeter()
 void SignalMeter::paintEvent( QPaintEvent * )
 {
     QPainter p;
-    p.begin(this);
+
     p.drawLine(22, 10, 22, 130);
 
     for ( int i = 0; i <= 60; i += 10 ) {

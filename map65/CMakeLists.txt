@@ -1,3 +1,7 @@
+find_package (portaudio REQUIRED)
+
+find_package (usb REQUIRED)
+
 set (map65_CXXSRCS
   about.cpp
   astro.cpp
@@ -46,7 +50,8 @@ add_subdirectory (libm65)
 qt5_wrap_ui (map65_GENUISRCS ${map65_UISRCS})
 
 add_executable (map65 ${map65_CXXSRCS} ${map65_CSRCS} ${map65_GENUISRCS} map65.rc)
-target_link_libraries (map65 m65impl ${FFTW3_LIBRARIES} Qt5::Widgets)
+target_include_directories (map65 PRIVATE ${PORTAUDIO_INCLUDE_DIRS})
+target_link_libraries (map65 m65impl ${FFTW3_LIBRARIES} Qt5::Widgets Qt5::Network ${PORTAUDIO_STATIC_LDFLAGS} usb::usb)
 
 install (
   TARGETS map65

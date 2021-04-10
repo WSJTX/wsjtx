@@ -331,9 +331,7 @@ void SoundInThread::inputUDP()
   }
 
   // Set this socket's total buffer space for received UDP packets
-  int v=141600;
-  ::setsockopt(udpSocket->socketDescriptor(), SOL_SOCKET, SO_RCVBUF,
-               (char *)&v, sizeof(v));
+  udpSocket->setSocketOption (QUdpSocket::ReceiveBufferSizeSocketOption, 141600);
 
   bool qe = quitExecution;
   struct linradBuffer {

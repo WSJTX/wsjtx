@@ -22,8 +22,7 @@
 #include <windows.h>
 #endif
 
-#include <usb.h>
-//#include "/users/joe/linrad/3.37/usb.h"
+#include <libusb.h>
 #include <QDebug>
 
 #define USB_SUCCESS	            0
@@ -48,21 +47,15 @@ int  increment_freq;
 int  retval = -1;
 int  display_freq = -1;
 int  delay;
-usb_dev_handle  *global_si570usb_handle = NULL;
+static libusb_device_handle * global_si570usb_handle;
 
-// ********sleep functions***************
-//use this function  under LINUX
-/*
 void si570_sleep(int us)
 {
-usleep(us);
-}
-*/
-
-//use this function under WINDOWS
-void si570_sleep(int us)
-{
-  Sleep(us/1000);
+#if defined (Q_OS_WIN)
+  ::Sleep (us / 1000);
+#else
+  ::usleep (us);
+#endif
 }
 
 double round(double x)
@@ -78,11 +71,9 @@ double current_time(void) //for delay measurements
   return 0.000001*t.tv_usec+t.tv_sec;
 }
 
-int  usbGetStringAscii(usb_dev_handle *dev, int my_index,
-               int langid, char *buf, int buflen);
-unsigned char Si570usbOpenDevice(usb_dev_handle **device, char *usbSerialID);
+unsigned char Si570usbOpenDevice(libusb_device_handle **device, char *usbSerialID);
 void setLongWord( int value, char * bytes);
-int setFreqByValue(usb_dev_handle * handle, double frequency);
+int setFreqByValue(libusb_device_handle * handle, double frequency);
 void sweepa_freq(void);
 void sweepm_freq(void);
 
@@ -105,111 +96,105 @@ int set570(double freq_MHz)
   return 0;
 }
 
-int  usbGetStringAscii(usb_dev_handle *dev, int my_index,
-                       int langid, char *buf, int buflen)
+unsigned char Si570usbOpenDevice (libusb_device_handle * * udh, char * usbSerialID)
 {
-  char    buffer[256];
-  int     rval, i;
-  if((rval = usb_control_msg(dev, USB_ENDPOINT_IN, USB_REQ_GET_DESCRIPTOR,
-     (USB_DT_STRING << 8) + my_index, langid, buffer,
-     sizeof(buffer), 1000)) < 0) return rval;
-  if(buffer[1] != USB_DT_STRING)  return 0;
-  if((unsigned char)buffer[0] < rval) rval = (unsigned char)buffer[0];
-  rval /= 2;
-// lossy conversion to ISO Latin1
-  for(i=1;i<rval;i++) {
-    if(i > buflen) break;                       // destination buffer overflow
-    buf[i-1] = buffer[2 * i];
-    if(buffer[2 * i + 1] != 0)  buf[i-1] = '?'; // outside of ISO Latin1 range
-  }
-  buf[i-1] = 0;
-  return i-1;
-}
+  // if (*udh) return USB_SUCCESS; // only scan USB devices 1st time
 
-unsigned char Si570usbOpenDevice(usb_dev_handle **device, char *usbSerialID)
-{
-  struct usb_bus      *bus;
-  struct usb_device   *dev;
-  usb_dev_handle      *handle = NULL;
-  unsigned char       errorCode = USB_ERROR_NOTFOUND;
-  char                string[256];
-  int                 len;
   int  vendor        = USBDEV_SHARED_VENDOR;
   char *vendorName   = (char *)VENDOR_NAME;
   int  product       = USBDEV_SHARED_PRODUCT;
   char *productName  = (char *)PRODUCT_NAME;
-  char serialNumberString[20];
-  static int  didUsbInit = 0;
 
-  if(!didUsbInit) {
-    didUsbInit = 1;
-    usb_init();
-  }
-  usb_find_busses();
-  usb_find_devices();
-  for(bus=usb_get_busses(); bus; bus=bus->next) {
-    for(dev=bus->devices; dev; dev=dev->next) {
-      if(dev->descriptor.idVendor == vendor &&
-     dev->descriptor.idProduct == product) {
-        handle = usb_open(dev); // open the device in order to query strings
-        if(!handle) {
-          errorCode = USB_ERROR_ACCESS;
-          printf("si570.c: Warning: cannot open Si570-USB device:\n");
-          printf("usb error message: %s\n",usb_strerror());
-          continue;
+  libusb_device_handle * handle = nullptr;
+  unsigned char errorCode = USB_ERROR_NOTFOUND;
+  char buffer[256];
+  int rc;
+  if ((rc = libusb_init (nullptr)) < 0) // init default context (safe to repeat)
+    {
+      printf ("usb initialization error message %s\n", libusb_error_name (rc));
+      return errorCode = USB_ERROR_ACCESS;
     }
-        if(vendorName == NULL && productName == NULL) {  //name does not matter
-          break;
+
+  libusb_device * * device_list;
+  int device_count = libusb_get_device_list (nullptr, &device_list);
+  if (device_count < 0)
+    {
+      puts ("no usb devices");
+      errorCode = USB_ERROR_NOTFOUND;
     }
-        // now check whether the names match
-        len = usbGetStringAscii(handle, dev->descriptor.iManufacturer, 0x0409, string, sizeof(string));
-        if(len < 0) {
-          errorCode = USB_ERROR_IO;
-          printf("si570.c: Warning: cannot query manufacturer for Si570-USB device:\n");
-          printf("usb error message: %s\n",usb_strerror());
-    } else {
-          errorCode = USB_ERROR_NOTFOUND;
-           //fprintf(stderr, "seen device from vendor ->%s<-\n", string);
-          if(strcmp(string, vendorName) == 0){
-            len = usbGetStringAscii(handle, dev->descriptor.iProduct,
-                    0x0409, string, sizeof(string));
-            if(len < 0) {
-              errorCode = USB_ERROR_IO;
-              printf("si570.c: Warning: cannot query product for Si570-USB device: \n");
-              printf("usb error message: %s\n",usb_strerror());
-        } else {
-              errorCode = USB_ERROR_NOTFOUND;
-              // fprintf(stderr, "seen product ->%s<-\n", string);
-              if(strcmp(string, productName) == 0) {
-        len = usbGetStringAscii(handle, dev->descriptor.iSerialNumber,
-             0x0409, serialNumberString, sizeof(serialNumberString));
-        if (len < 0) {
-          errorCode = USB_ERROR_IO;
-          printf("si570.c: Warning: cannot query serial number for Si570-USB device: \n");
-                  printf("usb error message: %s\n",usb_strerror());
-        } else {
-          errorCode = USB_ERROR_NOTFOUND;
-          if ((usbSerialID == NULL) ||
-              (strcmp(serialNumberString, usbSerialID) == 0)) {
-//                    printf("\nOpen Si570 USB device: OK\n");
-//                    printf("usbSerialID          : %s\n",serialNumberString);
-            break;
-          }
+  else
+    {
+      for (int i = 0; i < device_count; ++i)
+        {
+          libusb_device * device = device_list[i];
+          libusb_device_descriptor descriptor;
+          if ((rc = libusb_get_device_descriptor (device, &descriptor)) < 0)
+            {
+              printf ("usb get devive descriptor error message %s\n", libusb_error_name (rc));
+              errorCode = USB_ERROR_ACCESS;
+              continue;
+            }
+          if (vendor == descriptor.idVendor && product == descriptor.idProduct)
+            {
+              // now we must open the device to query strings
+              if ((rc = libusb_open (device, &handle)) < 0)
+                {
+                  printf ("usb open device descriptor error message %s\n", libusb_error_name (rc));
+                  errorCode = USB_ERROR_ACCESS;
+                  continue;
+                }
+              if (!vendorName && !productName)
+                {
+                  break;            // good to go
+                }
+              if (libusb_get_string_descriptor_ascii (handle, descriptor.iManufacturer
+                                                      , reinterpret_cast<unsigned char *> (buffer), sizeof buffer) < 0)
+                {
+                  printf ("usb get vendor name error message %s\n", libusb_error_name (rc));
+                  errorCode = USB_ERROR_IO;
+                }
+              else
+                {
+                  if (!vendorName || !strcmp (buffer, vendorName))
+                    {
+                      if (libusb_get_string_descriptor_ascii (handle, descriptor.iProduct
+                                                              , reinterpret_cast<unsigned char *> (buffer), sizeof buffer) < 0)
+                        {
+                          printf ("usb get product name error message %s\n", libusb_error_name (rc));
+                          errorCode = USB_ERROR_IO;
+                        }
+                      else
+                        {
+                          if (!productName || !strcmp (buffer, productName))
+                            {
+                              if (libusb_get_string_descriptor_ascii (handle, descriptor.iSerialNumber
+                                                                      , reinterpret_cast<unsigned char *> (buffer), sizeof buffer) < 0)
+                                {
+                                  printf ("usb get serial number error message %s\n", libusb_error_name (rc));
+                                  errorCode = USB_ERROR_IO;
+                                }
+                              else
+                                {
+                                  if (!usbSerialID || !strcmp (buffer, usbSerialID))
+                                    {
+                                      break; // good to go
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+              libusb_close (handle);
+              handle = nullptr;
+            }
         }
-          }
-        }
-      }
+      libusb_free_device_list (device_list, 1);
     }
-        usb_close(handle);
-        handle = NULL;
-      }
+  if (handle)
+    {
+      errorCode = USB_SUCCESS;
+      *udh = handle;
     }
-    if(handle) break;
-  }
-  if(handle != NULL) {
-    errorCode = USB_SUCCESS;
-    *device = handle;
-  }
   return errorCode;
 }
 
@@ -221,7 +206,7 @@ void setLongWord( int value, char * bytes)
   bytes[3] = ((value & 0xff000000) >> 24) & 0xff;
 }
 
-int setFreqByValue(usb_dev_handle * handle, double frequency)
+int setFreqByValue(libusb_device_handle * handle, double frequency)
 {
 // Windows Doc from PE0FKO:
 //
@@ -236,7 +221,7 @@ int setFreqByValue(usb_dev_handle * handle, double frequency)
 // Default:    None
 //
 // Parameters:
-//     requesttype:    USB_ENDPOINT_OUT
+//     requesttype:    LIBUSB_ENDPOINT_OUT
 //     request:         0x32
 //     value:           0
 //     index:           0
@@ -264,14 +249,14 @@ int setFreqByValue(usb_dev_handle * handle, double frequency)
   err_cnt =0;
  set_again:;
   setLongWord(round(frequency * 2097152.0), buffer);  //   2097152=2^21
-  retval=usb_control_msg(
-         handle, USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_ENDPOINT_OUT,
-         request,
-         value,
-         my_index,
-         buffer,
-         sizeof(buffer),
-         5000);
+  retval = libusb_control_transfer (
+                                    handle, LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_RECIPIENT_DEVICE | LIBUSB_ENDPOINT_OUT,
+                                    request,
+                                    value,
+                                    my_index,
+                                    reinterpret_cast<unsigned char *> (buffer),
+                                    sizeof(buffer),
+                                    5000);
   if (retval != 4) {
     err_cnt ++;
     if(err_cnt < MAX_USB_ERR_CNT) {
@@ -279,7 +264,7 @@ int setFreqByValue(usb_dev_handle * handle, double frequency)
       goto set_again;
     } else {
       printf("Error when setting frequency, returncode=%i\n",retval);
-      printf("usb error message: %s\n", usb_strerror());
+      printf("usb error message: %s\n", libusb_error_name (retval));
     }
   }
   return retval;

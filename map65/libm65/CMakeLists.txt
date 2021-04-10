@@ -32,6 +32,7 @@ set (libm65_FSRCS
   ftninit.f90
   ftnquit.f90
   q65b.f90
+  gen65.f90
   gen_q65_wave.f90
   genqra64a.f90
   geocentric.f90

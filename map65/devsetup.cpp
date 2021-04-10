@@ -27,7 +27,7 @@ void DevSetup::initDlg()
   int minSpeed[MAXDEVICES];
   int maxSpeed[MAXDEVICES];
   char hostAPI_DeviceName[MAXDEVICES][50];
-  char s[60];
+  char s[256];
   int numDevices=Pa_GetDeviceCount();
   getDev(&numDevices,hostAPI_DeviceName,minChan,maxChan,minSpeed,maxSpeed);
   k=0;
@@ -45,7 +45,7 @@ void DevSetup::initDlg()
   const PaDeviceInfo *pdi;
   int nchout;
   char *p,*p1;
-  char p2[50];
+  char p2[256];
   char pa_device_name[128];
   char pa_device_hostapi[128];
 

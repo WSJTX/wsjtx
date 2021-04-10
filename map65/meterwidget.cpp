@@ -32,9 +32,7 @@ void MeterWidget::setValue(int value)
 void MeterWidget::paintEvent( QPaintEvent * )
 {
     int pos;
-    QPainter p;
-
-    p.begin(this);
+    QPainter p {this};
 
     // Sanitize
     m_signal = m_signal < 0 ? 0 : m_signal;

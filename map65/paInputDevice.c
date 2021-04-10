@@ -14,7 +14,7 @@ void paInputDevice(int id, char* hostAPI_DeviceName, int* minChan,
   int pa_device_min_bytes;
   int pa_device_max_channels;
   int pa_device_min_channels;
-  char p2[50];
+  char p2[256];
   char *p,*p1;
   static int iret, valid_dev_cnt;
 

@@ -285,7 +285,6 @@ void CPlotter::DrawOverlay()                                 //DrawOverlay()
 
   QRect rect0;
   QPainter painter0(&m_ScalePixmap);
-  painter0.begin (this);
 
   //create Font to use for scales
   QFont Font("Arial");
@@ -365,7 +364,6 @@ void CPlotter::DrawOverlay()                                 //DrawOverlay()
   // Now make the zoomed scale, using m_ZoomScalePixmap and painter3
   QRect rect1;
   QPainter painter3(&m_ZoomScalePixmap);
-  painter3.begin (this);
   painter3.setFont(Font);
   painter3.setPen(Qt::black);
 

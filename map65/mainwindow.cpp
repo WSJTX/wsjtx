@@ -10,7 +10,7 @@
 #include "bandmap.h"
 #include "txtune.h"
 #include "sleep.h"
-#include "portaudio.h"
+#include <portaudio.h>
 
 #define NFFT 32768
 
@@ -1308,11 +1308,11 @@ void MainWindow::decode()                                       //decode()
   QString hcall=(ui->dxCallEntry->text()+"            ").mid(0,12);
   QString hgrid=(ui->dxGridEntry->text()+"      ").mid(0,6);
 
-  strncpy(datcom_.mycall, mcall.toLatin1(), 12);
-  strncpy(datcom_.mygrid, mgrid.toLatin1(), 6);
-  strncpy(datcom_.hiscall, hcall.toLatin1(), 12);
-  strncpy(datcom_.hisgrid, hgrid.toLatin1(), 6);
-  strncpy(datcom_.datetime, m_dateTime.toLatin1(), 20);
+  memcpy(datcom_.mycall, mcall.toLatin1(), 12);
+  memcpy(datcom_.mygrid, mgrid.toLatin1(), 6);
+  memcpy(datcom_.hiscall, hcall.toLatin1(), 12);
+  memcpy(datcom_.hisgrid, hgrid.toLatin1(), 6);
+  memcpy(datcom_.datetime, m_dateTime.toLatin1(), 20);
 
   //newdat=1  ==> this is new data, must do the big FFT
   //nagain=1  ==> decode only at fQSO +/- Tol
@@ -1661,14 +1661,14 @@ void MainWindow::ba2msg(QByteArray ba, char message[])             //ba2msg()
   bool eom;
   eom=false;
   for(int i=0;i<22; i++) {
-    if((int)ba[i] == 0) eom=true;
+    if (i >= ba.size () || !ba[i]) eom=true;
     if(eom) {
-      message[i]=32;
+      message[i] = ' ';
     } else {
       message[i]=ba[i];
     }
   }
-  message[22]=0;
+  message[22] = '\0';
 }
 
 void MainWindow::on_txFirstCheckBox_stateChanged(int nstate)        //TxFirst
