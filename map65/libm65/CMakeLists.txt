@@ -124,6 +124,14 @@ set (libm65_CXXSRCS
 add_definitions (-DBIGSYM=1)
 set_source_files_properties (sec_midn.f90 PROPERTIES COMPILE_FLAGS -fno-second-underscore)
 
+set (libm65_C_and_CXXSRCS
+  ${libm65_CSRCS}
+  ${libm65_CXXSRCS}
+  )
+set_property (SOURCE ${libm65_C_and_CXXSRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -include wsjtx_config.h")
+set_property (SOURCE ${libm65_C_and_CXXSRCS} APPEND PROPERTY OBJECT_DEPENDS ${CMAKE_BINARY_DIR}/wsjtx_config.h)
+
+
 #
 # build our targets
 #

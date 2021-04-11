@@ -298,7 +298,6 @@ void WideGraph::on_fCenterLineEdit_editingFinished()
 
 void WideGraph::on_pbSetRxHardware_clicked()
 {
-#ifdef WIN32
   int iret=set570(m_mult570*(1.0+0.000001*m_cal570)*m_dForceCenterFreq);
   if(iret != 0) {
     QMessageBox mb;
@@ -306,12 +305,10 @@ void WideGraph::on_pbSetRxHardware_clicked()
     if(iret==-2) mb.setText("Frequency out of permitted range.");
     mb.exec();
   }
-#endif
 }
 
 void WideGraph::initIQplus()
 {
-#ifdef WIN32
   int iret=set570(288.0);
   if(iret != 0) {
     QMessageBox mb;
@@ -321,7 +318,6 @@ void WideGraph::initIQplus()
   } else {
     on_pbSetRxHardware_clicked();
   }
-#endif
 }
 
 void WideGraph::on_cbSpec2d_toggled(bool b)
@@ -348,7 +344,6 @@ void WideGraph::on_cbLockTxRx_stateChanged(int n)
 void WideGraph::rx570()
 {
   double f=m_mult570*(1.0+0.000001*m_cal570)*m_dForceCenterFreq;
-#ifdef WIN32
   int iret=set570(f);
   if(iret != 0) {
     QMessageBox mb;
@@ -356,7 +351,6 @@ void WideGraph::rx570()
     if(iret==-2) mb.setText("Frequency out of permitted range.");
     mb.exec();
   }
-#endif
 }
 
 void WideGraph::tx570()
@@ -367,7 +361,6 @@ void WideGraph::tx570()
 //  double f1=m_mult570Tx*(1.0+0.000001*m_cal570) * f;
   double f1=m_mult570Tx*(1.0+0.000001*m_cal570) * (f - m_TxOffset);
 
-#ifdef WIN32
   int iret=set570(f1);
   if(iret != 0) {
     QMessageBox mb;
@@ -375,7 +368,6 @@ void WideGraph::tx570()
     if(iret==-2) mb.setText("Frequency out of permitted range.");
     mb.exec();
   }
-#endif
 }
 
 void WideGraph::updateFreqLabel()

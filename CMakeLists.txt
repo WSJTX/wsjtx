@@ -813,11 +813,26 @@ endif (APPLE)
 #
 include (CheckTypeSize)
 include (CheckCSourceCompiles)
+include (CheckIncludeFiles)
 include (CheckSymbolExists)
 include (generate_version_info)
 
 find_program(CTAGS ctags)
 find_program(ETAGS etags)
+
+#
+# Platform checks
+#
+check_include_files ("stdlib.h;stdarg.h;string.h;float.h" STDC_HEADERS)
+check_include_files (stdio.h HAVE_STDIO_H)
+check_include_files (stdlib.h HAVE_STDLIB_H)
+check_include_files (unistd.h HAVE_UNISTD_H)
+check_include_files (sys/ioctl.h HAVE_SYS_IOCTL_H)
+check_include_files (sys/types.h HAVE_SYS_TYPES_H)
+check_include_files (fcntl.h HAVE_FCNTL_H)
+check_include_files (sys/stat.h HAVE_SYS_STAT_H)
+check_include_files ("linux/ppdev.h;linux/parport.h" HAVE_LINUX_PPDEV_H)
+check_include_files ("dev/ppbus/ppi.h;dev/ppbus/ppbconf.h" HAVE_DEV_PPBUS_PPI_H)
 
 #
 # Standard C Math Library

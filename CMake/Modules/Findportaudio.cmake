@@ -3,45 +3,83 @@
 # Once done, this will define:
 #
 #  portaudio_FOUND - system has portaudio
-#  portaudio_INCLUDE_DIRS - the portaudio include directories
-#  portaudio_LIBRARIES - link these to use portaudio
-#  portaudio_LIBRARY_DIRS - required shared/dynamic libraries are here
+#  portaudio_VERSION - The version of the portaudio library which was found
+#
+# and the following imported targets::
+#
+#   portaudio::portaudio	- The portaudio library
 #
 # If portaudio_STATIC is TRUE then static linking will be assumed
 #
 
+function(dump_cmake_variables)
+  get_cmake_property(_variableNames VARIABLES)
+  list (SORT _variableNames)
+  foreach (_variableName ${_variableNames})
+    if (ARGV0)
+      unset(MATCHED)
+      string(REGEX MATCH ${ARGV0} MATCHED ${_variableName})
+      if (NOT MATCHED)
+        continue()
+      endif()
+    endif()
+    message(STATUS "${_variableName}=${${_variableName}}")
+  endforeach()
+endfunction()
+
 include (LibFindMacros)
 
-set (portaudio_LIBRARY_DIRS)
-
-# pkg-config?
-find_path (__portaudio_pc_path NAMES portaudio-2.0.pc
-  PATH_SUFFIXES lib/pkgconfig lib64/pkgconfig
-  )
-if (__portaudio_pc_path)
-  set (__pc_path $ENV{PKG_CONFIG_PATH})
-  list (APPEND __pc_path "${__portaudio_pc_path}")
-  set (ENV{PKG_CONFIG_PATH} "${__pc_path}")
-  unset (__pc_path CACHE)
-endif ()
-unset (__portaudio_pc_path CACHE)
-
 # Use pkg-config to get hints about paths, libs and, flags
-unset (__pkg_config_checked_hamlib CACHE)
-libfind_pkg_check_modules (PORTAUDIO portaudio-2.0)
+libfind_pkg_check_modules (portaudio_PC portaudio-2.0)
 
+# Include dir
+find_path (portaudio_INCLUDE_DIR
+  NAMES portaudio.h
+  PATHS ${portaudio_PC_INCLUDE_DIRS}
+  )
+
+# Library
 if (portaudio_STATIC)
-  set (portaudio_PROCESS_INCLUDES PORTAUDIO_STATIC_INCLUDE_DIRS)
-  set (portaudio_PROCESS_LIBS PORTAUDIO_STATIC_LDFLAGS)
-  set (portaudio_LIBRARY_DIRS ${PORTAUDIO_STATIC_LIBRARY_DIRS})
+  find_library (portaudio_LIBRARY
+    NAMES portaudio
+    PATHS ${portaudio_PC_STATIC_LIBRARY_DIRS}
+    )
 else ()
-  set (portaudio_PROCESS_INCLUDES PORTAUDIO_INCLUDE_DIRS)
-  set (portaudio_PROCESS_LIBS PORTAUDIO_LDFLAGS)
-  set (portaudio_LIBRARY_DIRS ${PORTAUDIO_LIBRARY_DIRS})
+  find_library (portaudio_LIBRARY
+    NAMES portaudio
+    PATHS ${portaudio_PC_LIBRARY_DIRS}
+    )
 endif ()
+set (portaudio_PROCESS_INCLUDES portaudio_INCLUDE_DIR)
+set (portaudio_PROCESS_LIBS portaudio_LIBRARY)
 libfind_process (portaudio)
 
 # Handle the  QUIETLY and REQUIRED  arguments and set  PORTAUDIO_FOUND to
 # TRUE if all listed variables are TRUE
 include (FindPackageHandleStandardArgs)
-find_package_handle_standard_args (portaudio DEFAULT_MSG portaudio_INCLUDE_DIRS portaudio_LIBRARIES portaudio_LIBRARY_DIRS)
+find_package_handle_standard_args (portaudio
+  REQUIRED_VARS
+     portaudio_LIBRARY
+     portaudio_INCLUDE_DIR
+  VERSION_VAR portaudio_VERSION
+  )
+
+if (portaudio_FOUND)
+  set (portaudio_LIBRARIES ${portaudio_LIBRARY})
+  set (portaudio_INCLUDE_DIRS ${portaudio_INCLUDE_DIR})
+  set (portaudio_DEFINITIONS ${portaudio_CFLAGS_OTHER})
+endif ()
+
+if (portaudio_FOUND AND NOT TARGET portaudio::portaudio)
+  add_library (portaudio::portaudio UNKNOWN IMPORTED)
+  set_target_properties (portaudio::portaudio PROPERTIES
+    IMPORTED_LOCATION "${portaudio_LIBRARY}"
+    INTERFACE_COMPILE_OPTIONS "${portaudio_CFLAGS_OTHER}"
+    INTERFACE_INCLUDE_DIRECTORIES "${portaudio_INCLUDE_DIR}"
+    )
+endif ()
+
+mark_as_advanced (
+  portaudio_INCLUDE_DIR
+  portaudio_LIBRARY
+  )

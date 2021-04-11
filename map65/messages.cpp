@@ -1,6 +1,7 @@
 #include "messages.h"
 #include "ui_messages.h"
 #include "mainwindow.h"
+#include "../qt_helpers.hpp"
 
 Messages::Messages(QWidget *parent) :
   QDialog(parent),
@@ -31,7 +32,7 @@ void Messages::setText(QString t, QString t2)
   ui->messagesTextBrowser->setStyleSheet(s);
 
   ui->messagesTextBrowser->clear();
-  QStringList lines = t.split( "\n", Qt::SkipEmptyParts );
+  QStringList lines = t.split( "\n", SkipEmptyParts );
   foreach( QString line, lines ) {
     QString t1=line.mid(0,50);
     int ncq=t1.indexOf(" CQ ");

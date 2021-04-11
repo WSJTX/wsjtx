@@ -1,6 +1,6 @@
 find_package (portaudio REQUIRED)
 
-find_package (usb REQUIRED)
+find_package (libusb REQUIRED)
 
 set (map65_CXXSRCS
   about.cpp
@@ -43,6 +43,13 @@ set (map65_UISRCS
   widegraph.ui
 )
 
+set (map65_C_and_CXXSRCS
+  ${map65_CSRCS}
+  ${map65_CXXSRCS}
+  )
+set_property (SOURCE ${map65_C_and_CXXSRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -include wsjtx_config.h")
+set_property (SOURCE ${map65_C_and_CXXSRCS} APPEND PROPERTY OBJECT_DEPENDS ${CMAKE_BINARY_DIR}/wsjtx_config.h)
+
 # build the subdirectories
 add_subdirectory (libm65)
 
@@ -51,7 +58,7 @@ qt5_wrap_ui (map65_GENUISRCS ${map65_UISRCS})
 
 add_executable (map65 ${map65_CXXSRCS} ${map65_CSRCS} ${map65_GENUISRCS} map65.rc)
 target_include_directories (map65 PRIVATE ${PORTAUDIO_INCLUDE_DIRS})
-target_link_libraries (map65 m65impl ${FFTW3_LIBRARIES} Qt5::Widgets Qt5::Network ${PORTAUDIO_STATIC_LDFLAGS} usb::usb)
+target_link_libraries (map65 m65impl ${FFTW3_LIBRARIES} Qt5::Widgets Qt5::Network portaudio::portaudio libusb::libusb)
 
 install (
   TARGETS map65

@@ -1520,7 +1520,13 @@ void MainWindow::guiUpdate()
       f.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Append);
       QTextStream out(&f);
       out << QDateTime::currentDateTimeUtc().toString("yyyy-MMM-dd hh:mm")
-          << "  Tx message:  " << QString::fromLatin1(msgsent) << Qt::endl;
+          << "  Tx message:  " << QString::fromLatin1(msgsent)
+#if QT_VERSION >= QT_VERSION_CHECK (5, 15, 0)
+          << Qt::endl
+#else
+          << endl
+#endif
+        ;
       f.close();
     }
 
@@ -1543,7 +1549,13 @@ void MainWindow::guiUpdate()
     f.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Append);
     QTextStream out(&f);
     out << QDateTime::currentDateTimeUtc().toString("yyyy-MMM-dd hh:mm")
-        << "  Tx message:  " << QString::fromLatin1(msgsent) << Qt::endl;
+        << "  Tx message:  " << QString::fromLatin1(msgsent)
+#if QT_VERSION >= QT_VERSION_CHECK (5, 15, 0)
+        << Qt::endl
+#else
+        << endl
+#endif
+      ;
     f.close();
   }
 
@@ -1885,7 +1897,13 @@ void MainWindow::on_addButton_clicked()                       //Add button
 
   if(f1.size()==0) {
     QTextStream out(&f1);
-    out << "ZZZZZZ" << Qt::endl;
+    out << "ZZZZZZ"
+#if QT_VERSION >= QT_VERSION_CHECK (5, 15, 0)
+        << Qt::endl
+#else
+        << endl
+#endif
+      ;
     f1.close();
     f1.open(QIODevice::ReadOnly | QIODevice::Text);
   }

@@ -36,6 +36,9 @@
 #if HAVE_UNISTD_H
 # include <unistd.h>
 #endif
+#if HAVE_SYS_STAT_H
+# include <sys/stat.h>
+#endif
 #if HAVE_SYS_IOCTL_H
 # include <sys/ioctl.h>
 #endif
@@ -171,6 +174,7 @@ ptt_serial(int fd, int *ntx, int *iptt)
 {
   int control = TIOCM_RTS | TIOCM_DTR;
 
+#if defined (TIOCMBIS) && defined (TIOCMBIS)
   if(*ntx) {
     ioctl(fd, TIOCMBIS, &control);               /* Set DTR and RTS */
     *iptt = 1;
@@ -178,6 +182,16 @@ ptt_serial(int fd, int *ntx, int *iptt)
     ioctl(fd, TIOCMBIC, &control);
     *iptt = 0;
   }
+#else
+	unsigned y;
+	ioctl(fd, TIOCMGET, &y);
+	if (*ntx) {
+		y |= control;
+	} else {
+		y &= ~control;
+	}
+	ioctl(fd, TIOCMSET, &y);
+#endif
   return(0);
 }
 

@@ -84,8 +84,6 @@ private:
   Ui::WideGraph *ui;
 };
 
-#ifdef WIN32
 extern int set570(double freq_MHz);
-#endif
 
 #endif // WIDEGRAPH_H
