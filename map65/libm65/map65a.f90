@@ -339,10 +339,11 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
            endif
         enddo
 
-        if(nwrite.eq.0 .and. nwrite_q65.eq.0) then
-           write(*,1012) mousefqso,nutc
-1012       format('!',i3,9x,i6.4,'  ')
-        endif
+! Comment out these lines to prevent display of non-decode lines:
+!        if(nwrite.eq.0 .and. nwrite_q65.eq.0) then
+!           write(*,1012) mousefqso,nutc
+!1012       format('!',i3,9x,i6.4,'  ')
+!        endif
      endif  !nqd.eq.1
 
      if(ndphi.eq.1 .and.iloop.lt.12) then

@@ -1,5 +1,5 @@
 subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
-     mycall0,hiscall0,hisgrid,mode65)
+     mycall0,hiscall0,hisgrid,mode_q65)
 
   use wavhdr
   parameter (MAXFFT1=5376000)              !56*96000
@@ -73,8 +73,6 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
 !   96000  5376000  0.017857143  336000   6000.000
 !   95238  5120000  0.018601172  322560   5999.994
 
-  write(71,*) nutc,ikhz,mousedf,ntol,mode65
-
 !                1         2         3         4         5         6         7         8         9        10
 !       12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901'
   cmnd='jt9 -3 -X 32 -f 1079 -F 1000 -c MyCall      -x HisCall     -g FN42 -b A 000000_0001.wav  > q65_decodes.txt'
@@ -83,7 +81,7 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
   write(cmnd(33:44),'(a12)') mycall
   write(cmnd(48:59),'(a12)') hiscall
   write(cmnd(63:66),'(a4)') grid4
-  write(cmnd(71:71),'(a1)') char(ichar('A')+mode65-1)
+  write(cmnd(71:71),'(a1)') char(ichar('A') + mode_q65-1)
   fname='000000_0001.wav'
   npol=1
   if(xpol) npol=4
@@ -140,6 +138,9 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
 100 if(nsnr0.gt.-40) then
      write(*,1100) trim(line2)
 1100 format(a)
+
+! Should write to lu 26 here, for Messages and Band Map windows ?
+
      write(21,1110)  freq0,nfreq0,xdt0,ipol0,nsnr0,nutc,msg40(1:28),msg40(39:40)
 1110 format(f8.3,i5,f5.1,2i4,i5.4,2x,a28,': A',2x,a2)
   endif
