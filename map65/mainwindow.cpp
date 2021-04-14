@@ -2254,7 +2254,7 @@ void MainWindow::on_pbTxMode_clicked()
     ui->pbTxMode->setText("Tx JT65   #");
   } else {
     m_modeTx="Q65";
-    ui->pbTxMode->setText("Tx Q65  $");
+    ui->pbTxMode->setText("Tx Q65  :");
   }
 //  m_wideGraph->setModeTx(m_modeTx);
 //  statusChanged();
