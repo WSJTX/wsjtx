@@ -32,8 +32,7 @@ BandMap*   g_pBandMap = NULL;
 TxTune*    g_pTxTune = NULL;
 QSharedMemory mem_m65("mem_m65");
 
-QString rev="$Rev$";                            //Must update by hand ????
-QString Program_Title_Version="  MAP65 2.9.0-devel    by K1JT";
+QString Program_Title_Version="  MAP65 3.0.0-devel";
 
 extern const int RxDataFrequency = 96000;
 extern const int TxDataFrequency = 11025;
@@ -484,7 +483,7 @@ void MainWindow::readSettings()
   if(m_modeQ65==4) ui->actionQ65D->setChecked(true);
   if(m_modeQ65==5) ui->actionQ65E->setChecked(true);
   if(m_modeTx=="JT65")  ui->pbTxMode->setText("Tx JT65   #");
-  if(m_modeTx=="Q65") ui->pbTxMode->setText("Tx Q65  $");
+  if(m_modeTx=="Q65") ui->pbTxMode->setText("Tx Q65  :");
 
   ui->actionNone->setChecked(settings.value("SaveNone",true).toBool());
   ui->actionSave_all->setChecked(settings.value("SaveAll",false).toBool());
@@ -1764,7 +1763,7 @@ void MainWindow::doubleClickOnCall(QString hiscall, bool ctrl)
   m_txFirst = ((n%2) == 1);
   ui->txFirstCheckBox->setChecked(m_txFirst);
   if((t2.indexOf("#")>0) and m_modeTx!="JT65") on_pbTxMode_clicked();
-  if((t2.indexOf("$")>0) and m_modeTx!="Q65") on_pbTxMode_clicked();
+  if((t2.indexOf(":")>0) and m_modeTx!="Q65") on_pbTxMode_clicked();
   QString rpt="";
   if(ctrl or m_modeTx=="Q65") rpt=t2.mid(25,3);
   lookup();
