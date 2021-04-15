@@ -32,7 +32,7 @@ BandMap*   g_pBandMap = NULL;
 TxTune*    g_pTxTune = NULL;
 QSharedMemory mem_m65("mem_m65");
 
-QString Program_Title_Version="  MAP65 3.0.0-devel";
+QString Program_Title_Version="  MAP65 3.0.0-devel   by K1JT, G4WJS, K9AN, and IV3NWV";
 
 extern const int RxDataFrequency = 96000;
 extern const int TxDataFrequency = 11025;
