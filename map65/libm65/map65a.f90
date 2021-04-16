@@ -1,7 +1,7 @@
 subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
      mousedf,mousefqso,nagain,ndecdone,ndiskdat,nfshift,ndphi,              &
      nfcal,nkeep,mcall3b,nsum,nsave,nxant,rmsdd,mycall,mygrid,              &
-     neme,ndepth,hiscall,hisgrid,nhsym,nfsample,nxpol,nmode)
+     neme,ndepth,nstandalone,hiscall,hisgrid,nhsym,nfsample,nxpol,nmode)
 
 !  Processes timf2 data from Linrad to find and decode JT65 signals.
 
@@ -31,12 +31,22 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
   data shmsg0/'ATT','RO ','RRR','73 '/
   data nfile/0/,nutc0/-999/,nid/0/,ip000/1/,ip001/1/,mousefqso0/-999/
   save
-  
+
   mode65=mod(nmode,10)
   if(mode65.eq.3) mode65=4
   mode_q65=nmode/10
   nwrite_q65=0
   bq65=mode_q65.gt.0
+
+  !###
+  write(71,3071) newdat,nutc,ntol,idphi,nfa,nfb,                     &
+     mousedf,mousefqso,nagain,ndecdone,ndiskdat,nfshift,ndphi,       &
+     nfcal,nkeep,mcall3b,nsum,nsave,nxant,neme,ndepth,               &
+     nhsym,nfsample,nxpol,nmode,mycall,mygrid,hiscall,hisgrid,       &
+     sum(dd),sum(ss),sum(savg)
+3071 format(16i5/9i6/a12,a6,2x,a12,a6/3e15.6)
+!###
+
   mcall3a=mcall3b
   mousefqso0=mousefqso
   xpol=(nxpol.ne.0)
@@ -44,7 +54,6 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
   nsum=0
 
 !### Should use AppDir! ###
-!  open(23,file='release/CALL3.TXT',status='unknown')
   open(23,file='CALL3.TXT',status='unknown')
 
   df=96000.0/NFFT                     !df = 96000/NFFT = 2.930 Hz
@@ -58,7 +67,9 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
 2  if(ndphi.eq.1) dphi=30*iloop/57.2957795
 
   nqdz=1
-  if(bq65 .and. nutc0.ge.0) nqdz=2
+  if(bq65 .and. (nutc0.ge.0 .or. (nstandalone.eq.1))) nqdz=2
+!  if(bq65) nqdz=2
+  write(69,*) nqdz,mousefqso
   if(nutc.ne.nutc0) nfile=nfile+1
   nutc0=nutc
 

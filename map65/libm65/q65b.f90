@@ -25,6 +25,9 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
   data first/.true./
   save
 
+  write(72,*) nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
+       mycall0,hiscall0,hisgrid,mode_q65
+
   if(first) then
      open(9,file='wsjtx_dir.txt',status='old')
      read(9,*) wsjtx_dir

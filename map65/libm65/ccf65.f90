@@ -48,6 +48,8 @@ subroutine ccf65(ss,nhsym,ssmax,sync1,ipol1,jpz,dt1,flipk,      &
      call four2a(pr2,NFFT,1,-1,0)
      first=.false.
   endif
+  syncshort=0.
+  snr2=0.
 
 ! Look for JT65 sync pattern and shorthand square-wave pattern.
   ccfbest=0.
@@ -82,7 +84,10 @@ subroutine ccf65(ss,nhsym,ssmax,sync1,ipol1,jpz,dt1,flipk,      &
            if(ccf(lag,ip).lt.0.0) flipk=-1.0
         endif
      enddo
-
+     
+!###  Not sure why this is ever true???  
+     if(sum(ccf).eq.0.0) return
+!###
      do lag=-11,54                             !Check for best shorthand
         ccf2=s2(lag+28)
         if(ccf2.gt.ccfbest2) then
@@ -95,11 +100,11 @@ subroutine ccf65(ss,nhsym,ssmax,sync1,ipol1,jpz,dt1,flipk,      &
   enddo
 
 ! Find rms level on baseline of "ccfblue", for normalization.
-  sum=0.
+  sumccf=0.
   do lag=-11,54
-     if(abs(lag-lagpk).gt.1) sum=sum + ccf(lag,ipol1)
+     if(abs(lag-lagpk).gt.1) sumccf=sumccf + ccf(lag,ipol1)
   enddo
-  base=sum/50.0
+  base=sumccf/50.0
   sq=0.
   do lag=-11,54
      if(abs(lag-lagpk).gt.1) sq=sq + (ccf(lag,ipol1)-base)**2
