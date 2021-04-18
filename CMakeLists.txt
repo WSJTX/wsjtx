@@ -880,6 +880,9 @@ find_program (RIGCTLCOM_EXE rigctlcom)
 check_type_size (CACHE_ALL HAMLIB_OLD_CACHING)
 check_symbol_exists (rig_set_cache_timeout_ms "hamlib/rig.h" HAVE_HAMLIB_CACHING)
 
+find_package (Portaudio REQUIRED)
+
+find_package (Usb REQUIRED)
 
 #
 # Qt5 setup
@@ -1764,8 +1767,15 @@ if (NOT is_debug_build)
     endif (APPLE)
 
     if (WIN32)
-      # DLL directory
-      #set (hamlib_lib_dir ${hamlib_lib_dir}/../bin)
+      # DLL directories
+      get_filename_component (hamlib_lib_dir ${Hamlib_LIBRARY} PATH)
+      list (APPEND fixup_library_dirs ${hamlib_lib_dir}/../bin)
+
+      get_filename_component (usb_lib_dir ${Usb_LIBRARY} PATH)
+      list (APPEND fixup_library_dirs ${usb_lib_dir})
+
+      get_filename_component (portaudio_lib_dir ${Portaudio_LIBRARY} PATH)
+      list (APPEND fixup_library_dirs ${portaudio_lib_dir}/../bin)
 
       get_filename_component (fftw_lib_dir ${FFTW3F_LIBRARY} PATH)
       list (APPEND fixup_library_dirs ${fftw_lib_dir})
@@ -1822,13 +1832,9 @@ if (NOT is_debug_build)
       set (gp_tool "objdump")	# we want MinGW tool - not MSVC (See GetPrerequisites.cmake)
     endif (WIN32)
 
-    #list (APPEND fixup_library_dirs ${hamlib_lib_dir})
-    list (APPEND fixup_library_dirs ${Hamlib_LIBRARY_DIRS})
-
     INSTALL (CODE "
         get_filename_component (the_path \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${WSJT_PLUGIN_DESTINATION}\" REALPATH)
         file (GLOB_RECURSE QTPLUGINS \"\${the_path}/*${CMAKE_SHARED_LIBRARY_SUFFIX}\")
-        set (CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/CMake/Modules ${CMAKE_MODULE_PATH})
         include (BundleUtilities)
         set (BU_CHMOD_BUNDLE_ITEMS ON)
         set (gp_tool ${gp_tool})
