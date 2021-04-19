@@ -38,6 +38,8 @@ extern struct {                     //This is "common/datcom/..." in Fortran
   char hiscall[12];
   char hisgrid[6];
   char datetime[20];
+  char datadir[200];
+  char tempdir[200];
 } datcom_;
 }
 

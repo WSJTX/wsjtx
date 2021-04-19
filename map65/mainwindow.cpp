@@ -292,6 +292,10 @@ MainWindow::MainWindow(QWidget *parent) :
   if(ui->actionCuteSDR->isChecked()) on_actionCuteSDR_triggered();
   if(ui->actionAFMHot->isChecked()) on_actionAFMHot_triggered();
   if(ui->actionBlue->isChecked()) on_actionBlue_triggered();
+
+  m_dataDir = QStandardPaths::writableLocation (QStandardPaths::DataLocation);
+  m_tempDir = QStandardPaths::writableLocation (QStandardPaths::TempLocation) + "/map65";
+
                                              // End of MainWindow constructor
 }
 
@@ -950,7 +954,6 @@ void MainWindow::OnExit()
 {
   g_pWideGraph->saveSettings();
   m_killAll=true;
-  mem_m65.detach();
   QFile quitFile(m_appDir + "/.quit");
   quitFile.open(QIODevice::ReadWrite);
   QFile lockFile(m_appDir + "/.lock");
@@ -958,6 +961,7 @@ void MainWindow::OnExit()
   bool b=proc_m65.waitForFinished(1000);
   if(!b) proc_m65.kill();
   quitFile.remove();
+  mem_m65.detach();
   qApp->exit(0);                          // Exit the event loop
 }
 
@@ -1313,7 +1317,8 @@ void MainWindow::decode()                                       //decode()
   memcpy(datcom_.hiscall, hcall.toLatin1(), 12);
   memcpy(datcom_.hisgrid, hgrid.toLatin1(), 6);
   memcpy(datcom_.datetime, m_dateTime.toLatin1(), 20);
-
+  memcpy(datcom_.datadir, m_dataDir.toLatin1(),m_dataDir.length());
+  memcpy(datcom_.tempdir, m_tempDir.toLatin1(),m_tempDir.length());
   //newdat=1  ==> this is new data, must do the big FFT
   //nagain=1  ==> decode only at fQSO +/- Tol
 
@@ -1326,6 +1331,7 @@ void MainWindow::decode()                                       //decode()
     from += noffset;
     size -= noffset;
   }
+
   memcpy(to, from, qMin(mem_m65.size(), size));
   datcom_.nagain=0;
   datcom_.ndiskdat=0;
