@@ -311,7 +311,7 @@ MainWindow::~MainWindow()
     soundOutThread.quitExecution=true;
     soundOutThread.wait(3000);
   }
-  PaError paerr=Pa_Terminate();
+  Pa_Terminate();
   if(!m_decoderBusy) {
     QFile lockFile(m_appDir + "/.lock");
     lockFile.remove();
