@@ -27,7 +27,7 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
 
   if(first) then
      open(9,file='wsjtx_dir.txt',status='old')
-     read(9,*) wsjtx_dir
+     read(9,'(a)') wsjtx_dir
      close(9)
      first=.false.
   endif
