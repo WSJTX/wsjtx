@@ -1,7 +1,3 @@
-find_package (Portaudio REQUIRED)
-
-find_package (Usb REQUIRED)
-
 set (map65_CXXSRCS
   about.cpp
   astro.cpp
@@ -56,6 +52,6 @@ target_link_libraries (map65 m65impl ${FFTW3_LIBRARIES} Qt5::Widgets Qt5::Networ
 
 install (
   TARGETS map65
-  RUNTIME DESTINATION bin
-  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
+  BUNDLE DESTINATION . COMPONENT runtime
   )
