@@ -124,7 +124,6 @@ subroutine display(nkeep,ftol)
           line3(k)(35:38)//line3(k)(46:74)
      if(out(1:3).ne.'   ') then
         cfreq0=out(1:3)
-        if(iw.lt.MAXLINES-1) iw=iw+1
         livecq=line3(k)(6:13)//line3(k)(28:31)//line3(k)(39:45)//       &
              line3(k)(23:27)//line3(k)(35:38)//line3(k)(46:70)//        &
              line3(k)(73:77)

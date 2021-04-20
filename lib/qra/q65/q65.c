@@ -434,11 +434,14 @@ int q65_intrinsics_fastfading(q65_codec_ds *pCodec,
 
 		// exponentiate and accumulate the normalization constant
 		sumix = 0.0f;
-		for (k=0;k<nM;k++) {   
-			fTemp = expf(pCurIx[k]-maxlogp);
-			pCurIx[k]=fTemp;
-			sumix  +=fTemp;
-			}
+		for (k=0;k<nM;k++) {
+		  float x=pCurIx[k]-maxlogp;
+		  if(x < -85.0) x=-85.0;
+		  if(x >  85.0) x= 85.0;
+		  fTemp = expf(x);
+		  pCurIx[k]=fTemp;
+		  sumix  +=fTemp;
+		}
 
 		// scale to a probability distribution
 		sumix = 1.0f/sumix;
@@ -663,9 +666,11 @@ int q65_check_llh(float *llh, const int* ydec, const int nN, const int nM, const
 	float t = 0;
 
 	for (k=0;k<nN;k++) {
-		t+=logf(pIntrin[ydec[k]]);
-		pIntrin+=nM;
-		}
+	  float x=pIntrin[ydec[k]];
+	  if(x < 1.0e-36) x = 1.0e-36; 
+	  t+=logf(x);
+	  pIntrin+=nM;
+	}
 
 	if (llh!=NULL)
 		*llh = t;
