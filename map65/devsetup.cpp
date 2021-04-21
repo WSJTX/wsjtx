@@ -274,6 +274,7 @@ void DevSetup::updateColorLabels()
                             .arg (b3, 2, 16, QLatin1Char {'0'})
                          );
 
+  m_colors.clear ();
   QTextStream ots {&m_colors, QIODevice::WriteOnly};
   ots.setIntegerBase (16);
   ots.setFieldWidth (2);
