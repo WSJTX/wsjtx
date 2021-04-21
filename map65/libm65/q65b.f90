@@ -126,8 +126,8 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
      if(nsnr.gt.nsnr0) then
         ipol0=(i/2)*45
         nsnr0=nsnr
-        write(line2,1020) ikhz,nfreq-1000,ipol0,nutc,xdt,nsnr0,msg40(1:30),msg40(39:40)
-1020    format('!',i3.3,i5,i4,i6.4,f5.1,i5,' : ',a30,2x,a2)
+        write(line2,1020) ikhz,nfreq-1000,ipol0,nutc,xdt,nsnr0,msg40(1:27),msg40(39:40)
+1020    format('!',i3.3,i5,i4,i6.4,f5.1,i5,' : ',a27,a2)
         nsnr0=nsnr
         freq0=144.0 + 0.001*ikhz
         nfreq0=nfreq-1000
