@@ -9214,7 +9214,7 @@ void MainWindow::write_all(QString txRx, QString message)
   t = t.asprintf("%5d",ui->TxFreqSpinBox->value());
   if (txRx=="Tx") msg="   0  0.0" + t + " " + message;
   auto time = QDateTime::currentDateTimeUtc ();
-  if( txRx=="Rx" ) time=m_dateTimeSeqStart;
+  if( txRx=="Rx" && !m_bFastMode ) time=m_dateTimeSeqStart;
 
   t = t.asprintf("%10.3f ",m_freqNominal/1.e6);
   if (m_diskData) {
