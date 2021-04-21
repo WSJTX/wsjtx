@@ -341,8 +341,7 @@ contains
           endif
        endif
     enddo  ! icand
-    if(iavg.eq.0 .and.navg(iseq).ge.2) go to 50
-
+    if(iavg.eq.0 .and.navg(iseq).ge.2 .and. iand(ndepth,16).ne.0) go to 50
 900 return
   end subroutine decode
 
