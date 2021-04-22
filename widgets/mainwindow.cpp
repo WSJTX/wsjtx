@@ -825,7 +825,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect(&logQSOTimer, &QTimer::timeout, this, &MainWindow::on_logQSOButton_clicked);
 
   tuneButtonTimer.setSingleShot(true);
-  connect(&tuneButtonTimer, &QTimer::timeout, this, &MainWindow::on_stopTxButton_clicked);
+  connect(&tuneButtonTimer, &QTimer::timeout, this, &MainWindow::end_tuning);
 
   tuneATU_Timer.setSingleShot(true);
   connect(&tuneATU_Timer, &QTimer::timeout, this, &MainWindow::stopTuneATU);
@@ -6935,14 +6935,14 @@ void MainWindow::on_bandComboBox_activated (int index)
 void MainWindow::band_changed (Frequency f)
 {
   // Set the attenuation value if options are checked
-  QString curBand = ui->bandComboBox->currentText();
   if (m_config.pwrBandTxMemory() && !m_tune) {
-      if (m_pwrBandTxMemory.contains(curBand)) {
-        ui->outAttenuation->setValue(m_pwrBandTxMemory[curBand].toInt());
-      }
-      else {
-        m_pwrBandTxMemory[curBand] = ui->outAttenuation->value();
-      }
+    auto const&curBand = ui->bandComboBox->currentText();
+    if (m_pwrBandTxMemory.contains(curBand)) {
+      ui->outAttenuation->setValue(m_pwrBandTxMemory[curBand].toInt());
+    }
+    else {
+      m_pwrBandTxMemory[curBand] = ui->outAttenuation->value();
+    }
   }
 
   if (m_bandEdited) {
@@ -7012,23 +7012,14 @@ void MainWindow::on_tuneButton_clicked (bool checked)
   static bool lastChecked = false;
   if (lastChecked == checked) return;
   lastChecked = checked;
-  QString curBand = ui->bandComboBox->currentText();
   if (checked && m_tune==false) { // we're starting tuning so remember Tx and change pwr to Tune value
     if (m_config.pwrBandTuneMemory ()) {
+      auto const& curBand = ui->bandComboBox->currentText();
       m_pwrBandTxMemory[curBand] = ui->outAttenuation->value(); // remember our Tx pwr
       m_PwrBandSetOK = false;
       if (m_pwrBandTuneMemory.contains(curBand)) {
         ui->outAttenuation->setValue(m_pwrBandTuneMemory[curBand].toInt()); // set to Tune pwr
       }
-      m_PwrBandSetOK = true;
-    }
-  }
-  else { // we're turning off so remember our Tune pwr setting and reset to Tx pwr
-    if (m_config.pwrBandTuneMemory() || m_config.pwrBandTxMemory()) {
-      stopTx();
-      m_pwrBandTuneMemory[curBand] = ui->outAttenuation->value(); // remember our Tune pwr
-      m_PwrBandSetOK = false;
-      ui->outAttenuation->setValue(m_pwrBandTxMemory[curBand].toInt()); // set to Tx pwr
       m_PwrBandSetOK = true;
     }
   }
@@ -7041,6 +7032,19 @@ void MainWindow::on_tuneButton_clicked (bool checked)
     m_tune=true;
   }
   Q_EMIT tune (checked);
+}
+
+void MainWindow::end_tuning ()
+{
+  on_stopTxButton_clicked ();
+  // we're turning off so remember our Tune pwr setting and reset to Tx pwr
+  if (m_config.pwrBandTuneMemory() || m_config.pwrBandTxMemory()) {
+    auto const& curBand = ui->bandComboBox->currentText();
+    m_pwrBandTuneMemory[curBand] = ui->outAttenuation->value(); // remember our Tune pwr
+    m_PwrBandSetOK = false;
+    ui->outAttenuation->setValue(m_pwrBandTxMemory[curBand].toInt()); // set to Tx pwr
+    m_PwrBandSetOK = true;
+  }
 }
 
 void MainWindow::stop_tuning ()

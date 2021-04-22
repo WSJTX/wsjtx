@@ -254,6 +254,7 @@ private slots:
   void on_actionShort_list_of_add_on_prefixes_and_suffixes_triggered();
   void band_changed (Frequency);
   void monitor (bool);
+  void end_tuning ();
   void stop_tuning ();
   void stopTuneATU();
   void auto_tx_mode(bool);
