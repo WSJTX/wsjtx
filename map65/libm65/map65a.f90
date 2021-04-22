@@ -1,6 +1,6 @@
 subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
-     mousedf,mousefqso,nagain,ndecdone,ndiskdat,nfshift,ndphi,              &
-     nfcal,nkeep,mcall3b,nsum,nsave,nxant,rmsdd,mycall,mygrid,              &
+     mousedf,mousefqso,nagain,ndecdone,nfshift,ndphi,                       &
+     nfcal,nkeep,mcall3b,nsum,nsave,nxant,mycall,mygrid,                    &
      neme,ndepth,nstandalone,hiscall,hisgrid,nhsym,nfsample,nxpol,nmode)
 
 !  Processes timf2 data from Linrad to find and decode JT65 signals.
@@ -101,7 +101,7 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
                  if(iii.ge.1 .and. iii.le.32768) then
                     tavg(ii)=savg(jp,iii)
                  else
-                    write(13,*) ,'Error in iii:',iii,ia,ib,fa,fb
+                    write(13,*) 'Error in iii:',iii,ia,ib,fa,fb
                     flush(13)
                     go to 999
                  endif
@@ -221,12 +221,12 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
                  idf=nint(1000.0*(freq+0.5*(nfa+nfb)-foffset-(ikHz+nfshift)))
                  call decode1a(dd,newdat,f00,nflip,mode65,nfsample,       &
                       xpol,mycall,hiscall,hisgrid,neme,ndepth,nqd,dphi,   &
-                      ndphi,iloop,nutc,ikHz,idf,ipol,ntol,bq65,sync2,   &
+                      ndphi,nutc,ikHz,idf,ipol,ntol,sync2,                &
                       a,dt,pol,nkv,nhist,nsum,nsave,qual,decoded)
                  call timer('decode1a',1)
                  if(nqd.eq.2) then
                     call timer('q65     ',0)
-                    call q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,     &
+                    call q65b(nutc,fcenter,nfcal,nfsample,ikhz,             &
                          mousedf,ntol,xpol,mycall,hiscall,hisgrid,mode_q65)
                     call timer('q65     ',1)
                     cycle
@@ -319,7 +319,7 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
                        if(ntxpol.gt.45 .and. ntxpol.le.135) cp='V'
                     else
                        cp='/'
-                       if(ntxpol.ge.90 .and. ntxpol.lt.180) cp='\\'
+                       if(ntxpol.ge.90 .and. ntxpol.lt.180) cp='\'
                     endif
                  endif
               endif
@@ -446,7 +446,7 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
                     if(ntxpol.gt.45 .and. ntxpol.le.135) cp='V'
                  else
                     cp='/'
-                    if(ntxpol.ge.90 .and. ntxpol.lt.180) cp='\\'
+                    if(ntxpol.ge.90 .and. ntxpol.lt.180) cp='\'
                  endif
               endif
            endif

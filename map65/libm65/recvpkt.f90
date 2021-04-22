@@ -16,6 +16,7 @@ subroutine recvpkt(nsam,nblock2,userx_no,k,buf4,buf8,buf16)
   equivalence (jd,d8,yd)
   equivalence (xd,c16)
 
+  if(nblock2.eq.-9999) nblock2=-9998    !Silence a compiler warning
   if(nsam.eq.-1) then
 ! Move data from the UDP packet buffer into array dd().
      if(userx_no.eq.-1) then

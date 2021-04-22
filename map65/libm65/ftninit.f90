@@ -25,7 +25,6 @@ subroutine ftninit(appd)
   character*(*) appd
   character firstline*30
   character addpfx*8
-  integer junk(256)
   common/pfxcom/addpfx
 
   addpfx='    '

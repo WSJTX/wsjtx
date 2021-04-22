@@ -301,6 +301,9 @@ program jt9
      shared_data%params%napwid=75
      shared_data%params%dttol=3.
      if(mode.eq.164 .and. nsubmode.lt.100) nsubmode=nsubmode+100
+     shared_data%params%nagain=.false.
+     shared_data%params%nclearave=.false.
+     shared_data%params%lapcqonly=.false.
      shared_data%params%naggressive=0
      shared_data%params%n2pass=2
      shared_data%params%nQSOprogress=nQSOProg

@@ -18,9 +18,8 @@ subroutine MoonDop(nyear,month,nday,uth4,lon4,lat4,RAMoon4,DecMoon4,   &
   real*8 RME(6)                  !Vector from Earth center to Moon
   real*8 RAE(6)                  !Vector from Earth center to Obs
   real*8 RMA(6)                  !Vector from Obs to Moon
-  real*8 pvsun(6)
   real*8 rme0(6)
-  logical km,bary
+  logical km
 
   data rad/57.2957795130823d0/,twopi/6.28310530717959d0/
 

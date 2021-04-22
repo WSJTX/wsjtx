@@ -1,4 +1,4 @@
-subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
+subroutine q65b(nutc,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
      mycall0,hiscall0,hisgrid,mode_q65)
 
   use wavhdr
@@ -9,7 +9,7 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
   integer*2 iwave(60*12000)
   complex ca(MAXFFT1),cb(MAXFFT1)          !FFTs of raw x,y data
   complex cx(0:MAXFFT2-1),cy(0:MAXFFT2-1),cz(0:MAXFFT2)
-  logical xpol,first
+  logical xpol
   real*8 fcenter
   character*12 mycall0,hiscall0
   character*12 mycall,hiscall
@@ -22,16 +22,9 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
   character*15 fname
   character*80 wsjtx_dir
   common/cacb/ca,cb
-  data first/.true./
   save
-
-  if(first) then
-     open(9,file='wsjtx_dir.txt',status='old')
-     read(9,'(a)') wsjtx_dir
-     close(9)
-     first=.false.
-  endif
-
+  wsjtx_dir='.\'
+  
   mycall='K1JT'
   hiscall='IV3NWV'
   grid4='AA00'

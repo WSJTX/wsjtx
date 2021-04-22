@@ -5,7 +5,7 @@ real function dpol(mygrid,hisgrid)
 
   character*6 MyGrid,HisGrid
   real lat,lon,LST
-  character cdate*8,ctime2*10,czone*5,fnamedate*6
+  character cdate*8,ctime2*10,czone*5
   integer  it(8)
   data rad/57.2957795/
 

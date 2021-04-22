@@ -631,8 +631,8 @@ void MainWindow::dataSink(int k)
     n=0;
   }
 
-  if(ihsym == 280) {   //For JT65, decode at t=52 s (also for old *.tf2/*.iq disk files)
-  //if(ihsym == 302) {   //For Q65, decode at t=56 s
+//  if(ihsym == 280) {   //For JT65, decode at t=52 s (also for old *.tf2/*.iq disk files)
+  if(ihsym == 302) {   //For Q65, decode at t=56 s
     datcom_.newdat=1;
     datcom_.nagain=0;
     QDateTime t = QDateTime::currentDateTimeUtc();
@@ -1126,7 +1126,7 @@ void MainWindow::diskDat()                                   //diskDat()
 
   if(m_fs96000) hsym=2048.0*96000.0/11025.0;   //Samples per JT65 half-symbol
   if(!m_fs96000) hsym=2048.0*95238.1/11025.0;
-  for(int i=0; i<284; i++) {           // Do the half-symbol FFTs
+  for(int i=0; i<304; i++) {           // Do the half-symbol FFTs
     int k = i*hsym + 2048.5;
     dataSink(k);
     if(i%10 == 0) qApp->processEvents();       //Keep the GUI responsive
@@ -1503,9 +1503,7 @@ void MainWindow::guiUpdate()
     ba2msg(ba,message);
     int len1=22;
     int mode65=m_mode65;
-    int ichk=0;
     int ntxFreq=1000;
-    int itype=0;
     double samfac=1.0;
 
     if(m_modeTx=="JT65") {
@@ -1513,7 +1511,7 @@ void MainWindow::guiUpdate()
              &nwave,len1,len1);
     } else {
       if(m_modeQ65==5) ntxFreq=700;
-      gen_q65_wave_(message,&ichk,&ntxFreq,&m_modeQ65,&itype,msgsent,iwave,
+      gen_q65_wave_(message,&ntxFreq,&m_modeQ65,msgsent,iwave,
                  &nwave,len1,len1);
     }
     msgsent[22]=0;

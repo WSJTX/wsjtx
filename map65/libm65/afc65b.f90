@@ -1,5 +1,4 @@
-subroutine afc65b(cx,cy,npts,fsample,nflip,ipol,xpol,ndphi,iloop,  &
-     a,ccfbest,dtbest)
+subroutine afc65b(cx,cy,npts,fsample,nflip,ipol,xpol,ndphi,a,ccfbest,dtbest)
 
   logical xpol
   complex cx(npts)

@@ -40,6 +40,7 @@ subroutine timf2(k,nxpol,nfft,nwindow,nb,peaklimit,iqadjust,iqapply,faclim, &
   data k0/99999999/
   save
 
+  if(faclim+iqadjust.eq.-9999.0) iqadjust=0   !Silence compiler warning.
   if(first) then
      pi=4.0*atan(1.0)
      do i=0,nfft-1

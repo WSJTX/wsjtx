@@ -3,12 +3,12 @@ subroutine extract(s3,nadd,ncount,nhist,decoded,ltext)
   use packjt
   real s3(64,63)
   character decoded*22
-  integer era(51),dat4(12),indx(64)
+  integer dat4(12)
   integer mrsym(63),mr2sym(63),mrprob(63),mr2prob(63)
   logical first,ltext
   integer correct(63),itmp(63)
   integer param(0:8)
-  integer h0(0:11),d0(0:11),ne(0:11)
+  integer h0(0:11),d0(0:11)
   real r0(0:11)
   common/test001/s3a(64,63),mrs(63),mrs2(63)        !### TEST ONLY ###
 

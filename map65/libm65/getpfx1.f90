@@ -69,7 +69,7 @@ subroutine getpfx1(callsign,k,nv2)
         k=-1
      else
         if(ispfx) then
-           tpfx=lof
+           tpfx=lof(1:4)
            k=nchar(tpfx(1:1))
            k=37*k + nchar(tpfx(2:2))
            k=37*k + nchar(tpfx(3:3))
@@ -80,7 +80,7 @@ subroutine getpfx1(callsign,k,nv2)
            callsign=callsign0(i+1:)
         endif
         if(issfx) then
-           tsfx=rof
+           tsfx=rof(1:3)
            k=nchar(tsfx(1:1))
            k=37*k + nchar(tsfx(2:2))
            k=37*k + nchar(tsfx(3:3))

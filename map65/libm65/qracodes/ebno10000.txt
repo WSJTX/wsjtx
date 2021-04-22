@@ -1,7 +1,0 @@
-# Eb/No Values to be used during the code simulation
-# Each line of this file indicates the Eb/No value to be simulated (in dB) 
-# and the number of errors to be detected by the decoder
-0.6 10000
-1.1 10000
-1.6 10000
-2.1 10000

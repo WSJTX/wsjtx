@@ -34,7 +34,6 @@ set (libm65_FSRCS
   q65b.f90
   gen65.f90
   gen_q65_wave.f90
-  genqra64a.f90
   geocentric.f90
   getdphi.f90
   getpfx1.f90
@@ -58,9 +57,6 @@ set (libm65_FSRCS
   packjt.f90
   pctile.f90
   pfxdump.f90
-  qra64b.f90
-  qra64c.f90
-  qra64zap.f90
   recvpkt.f90
   rfile3a.f90
   s3avg.f90
@@ -70,10 +66,8 @@ set (libm65_FSRCS
   shell.f90
   sleep_msec.f90
   smo.f90
-  spec64.f90
   sun.f90
   symspec.f90
-  sync64.f90
   timer.f90
   timf2.f90
   tm2.f90
@@ -101,14 +95,6 @@ set (libm65_CSRCS
   tmoonsub.c
   usleep.c
   wrapkarn.c
-  qra64/qra64.c
-  qra64/qra64_subs.c
-  qracodes/npfwht.c
-  qracodes/pdmath.c 
-  qracodes/qra12_63_64_irr_b.c
-  qracodes/qra13_64_64_irr_e.c
-  qracodes/qracodes.c
-  qracodes/normrnd.c
 )
 
 if (WIN32)

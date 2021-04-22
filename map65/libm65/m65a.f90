@@ -6,7 +6,7 @@ subroutine m65a
      end function address_m65
   end interface
   
-  integer*1 attach_m65,lock_m65,unlock_m65
+  integer*1 attach_m65
   integer size_m65
   integer*1, pointer :: p_m65
   character*80 cwd
@@ -60,7 +60,6 @@ subroutine m65b(m65com,nbytes)
 end subroutine m65b
 
 subroutine m65c(dd,ss,savg,nparams0)
-  integer*1 detach_m65
   real*4 dd(4,5760000),ss(4,322,32768),savg(4,32768)
   real*8 fcenter
   integer nparams0(40),nparams(40)

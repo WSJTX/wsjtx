@@ -1,6 +1,6 @@
 subroutine decode1a(dd,newdat,f0,nflip,mode65,nfsample,xpol,            &
-     mycall,hiscall,hisgrid,neme,ndepth,nqd,dphi,ndphi,iloop,           &
-     nutc,nkhz,ndf,ipol,ntol,bq65,sync2,a,dt,pol,nkv,nhist,nsum,nsave,  &
+     mycall,hiscall,hisgrid,neme,ndepth,nqd,dphi,ndphi,                 &
+     nutc,nkhz,ndf,ipol,ntol,sync2,a,dt,pol,nkv,nhist,nsum,nsave,       &
      qual,decoded)
 
 ! Apply AFC corrections to a candidate JT65 signal, then decode it.
@@ -14,7 +14,7 @@ subroutine decode1a(dd,newdat,f0,nflip,mode65,nfsample,xpol,            &
   real s2(66,126)
   real s3(64,63),sy(63)
   real a(5)
-  logical first,xpol,bq65
+  logical first,xpol
   character decoded*22
   character mycall*12,hiscall*12,hisgrid*6
   data first/.true./,jjjmin/1000/,jjjmax/-1000/
@@ -68,8 +68,7 @@ subroutine decode1a(dd,newdat,f0,nflip,mode65,nfsample,xpol,            &
 ! factor of 1/8, say?  Should be a significant execution speed-up.
   call timer('afc65b  ',0)
 ! Best fit for DF, f1, f2, pol
-  call afc65b(c5x(i0),c5y(i0),nz,fsample,nflip,ipol,xpol,      &
-       ndphi,iloop,a,ccfbest,dtbest)
+  call afc65b(c5x(i0),c5y(i0),nz,fsample,nflip,ipol,xpol,ndphi,a,ccfbest,dtbest)
   call timer('afc65b  ',1)
 
   pol=a(4)/57.2957795

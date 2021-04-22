@@ -2,7 +2,6 @@ subroutine iqfix(c,nfft,gain,phase)
 
   complex c(0:nfft-1)
   complex z,h,u,v
-  real*8 sq1,sq2
 
   nh=nfft/2
   h=gain*cmplx(cos(phase),sin(phase))
