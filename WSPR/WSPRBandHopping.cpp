@@ -473,7 +473,6 @@ auto WSPRBandHopping::next_hop (bool tx_enabled) -> Hop
 
       , frequencies_index >= 0               // new band
       && tx_enabled                          // transmit is allowed
-      && !tx_next                            // not going to Tx anyway
       && m_->bands_[4].testBit (band_index)  // tune up required
       && !m_->bands_[5].testBit (band_index) // not an Rx only band
 
