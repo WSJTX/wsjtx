@@ -11,7 +11,6 @@ subroutine gen_q65_wave(msg,ntxfreq,mode65,msgsent,iwave,nwave)
   character*16 cjunk
   real*8 t,dt,phi,f,f0,dfgen,dphi,twopi,tsym
   integer itone(85)
-  integer sent(63)
   integer*2 iwave(NMAX)
   integer icos7(0:6)
   logical first
