@@ -1,4 +1,4 @@
-subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
+subroutine q65b(nutc,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
      mycall0,hiscall0,hisgrid,mode_q65)
 
   use wavhdr
