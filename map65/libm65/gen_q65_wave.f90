@@ -13,18 +13,11 @@ subroutine gen_q65_wave(msg,ntxfreq,mode65,msgsent,iwave,nwave)
   integer itone(85)
   integer*2 iwave(NMAX)
   integer icos7(0:6)
-  logical first
   data icos7/2,5,6,0,4,1,3/     !Defines a 7x7 Costas array
-  data twopi/6.283185307179586476d0/,first/.true./
+  data twopi/6.283185307179586476d0/
   save
 
-  if(first) then
-     open(9,file='wsjtx_dir.txt',status='old')
-     read(9,*) wsjtx_dir
-     close(9)
-     first=.false.
-  endif
-
+  wsjtx_dir='.\'
   msgsent=msg
 !                1         2         3         4         5
 !       12345678901234567890123456789012345678901234567890123456789012345
@@ -41,6 +34,7 @@ subroutine gen_q65_wave(msg,ntxfreq,mode65,msgsent,iwave,nwave)
   enddo
   read(9,1002) itone
 1002 format(20i3)
+  close(9)
 
 ! Set up necessary constants
   nsym=85
