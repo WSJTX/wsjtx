@@ -1,4 +1,4 @@
-subroutine gen_q65_wave(msg,ichk,ntxfreq,mode65,itype,msgsent,iwave,nwave)
+subroutine gen_q65_wave(msg,ntxfreq,mode65,msgsent,iwave,nwave)
 
 ! Encodes a QRA64 message to yield complex iwave() at fsample = 11025 Hz
 
@@ -11,7 +11,6 @@ subroutine gen_q65_wave(msg,ichk,ntxfreq,mode65,itype,msgsent,iwave,nwave)
   character*16 cjunk
   real*8 t,dt,phi,f,f0,dfgen,dphi,twopi,tsym
   integer itone(85)
-  integer dgen(13)
   integer sent(63)
   integer*2 iwave(NMAX)
   integer icos7(0:6)

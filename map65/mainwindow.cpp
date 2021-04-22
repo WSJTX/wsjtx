@@ -1503,9 +1503,7 @@ void MainWindow::guiUpdate()
     ba2msg(ba,message);
     int len1=22;
     int mode65=m_mode65;
-    int ichk=0;
     int ntxFreq=1000;
-    int itype=0;
     double samfac=1.0;
 
     if(m_modeTx=="JT65") {
@@ -1513,7 +1511,7 @@ void MainWindow::guiUpdate()
              &nwave,len1,len1);
     } else {
       if(m_modeQ65==5) ntxFreq=700;
-      gen_q65_wave_(message,&ichk,&ntxFreq,&m_modeQ65,&itype,msgsent,iwave,
+      gen_q65_wave_(message,&ntxFreq,&m_modeQ65,msgsent,iwave,
                  &nwave,len1,len1);
     }
     msgsent[22]=0;
