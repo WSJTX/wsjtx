@@ -23,8 +23,11 @@ subroutine q65b(nutc,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
   character*80 wsjtx_dir
   common/cacb/ca,cb
   save
-  wsjtx_dir='./'
-  
+
+  open(9,file='wsjtx_dir.txt',status='old')
+  read(9,'(a)') wsjtx_dir
+  close(9)
+
   mycall='K1JT'
   hiscall='IV3NWV'
   grid4='AA00'
