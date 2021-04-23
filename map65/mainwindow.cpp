@@ -200,7 +200,7 @@ MainWindow::MainWindow(QWidget *parent) :
   readSettings();		             //Restore user's setup params
   QFile lockFile(m_appDir + "/.lock"); //Create .lock so m65 will wait
   lockFile.open(QIODevice::ReadWrite);
-  QFile quitFile(m_appDir + "/.lock");
+  QFile quitFile(m_appDir + "/.quit");
   quitFile.remove();
   proc_m65.start(QDir::toNativeSeparators(m_appDir + "/m65"), {"-s", });
 
