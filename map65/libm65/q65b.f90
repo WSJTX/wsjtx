@@ -23,7 +23,7 @@ subroutine q65b(nutc,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
   character*80 wsjtx_dir
   common/cacb/ca,cb
   save
-  wsjtx_dir='.\'
+  wsjtx_dir='./'
   
   mycall='K1JT'
   hiscall='IV3NWV'

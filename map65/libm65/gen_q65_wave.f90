@@ -17,7 +17,7 @@ subroutine gen_q65_wave(msg,ntxfreq,mode65,msgsent,iwave,nwave)
   data twopi/6.283185307179586476d0/
   save
 
-  wsjtx_dir='.\'
+  wsjtx_dir='./'
   msgsent=msg
 !                1         2         3         4         5
 !       12345678901234567890123456789012345678901234567890123456789012345
