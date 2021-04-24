@@ -51,6 +51,12 @@ add_executable (map65 ${map65_CXXSRCS} ${map65_CSRCS} ${map65_GENUISRCS} map65.r
 target_link_libraries (map65 m65impl ${FFTW3_LIBRARIES} Qt5::Widgets Qt5::Network Portaudio::Portaudio Usb::Usb)
 
 install (
+  CODE "file (TO_NATIVE_PATH \"/\" _separator)
+get_filename_component (_path \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/wsjtx_dir.txt\" REALPATH)
+file (WRITE \"\${_path}\" \".\${_separator}\\n\")"
+  )
+
+install (
   TARGETS map65
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   BUNDLE DESTINATION . COMPONENT runtime
