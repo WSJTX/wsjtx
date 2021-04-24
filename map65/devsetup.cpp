@@ -2,6 +2,7 @@
 #include "mainwindow.h"
 #include <QTextStream>
 #include <QDebug>
+#include <cstdio>
 #include <portaudio.h>
 
 #define MAXDEVICES 200
@@ -111,10 +112,8 @@ void DevSetup::initDlg()
   ui.mult570TxSpinBox->setValue(m_mult570Tx);
   ui.cal570SpinBox->setValue(m_cal570);
   ui.sbTxOffset->setValue(m_TxOffset);
-  QTextStream its {&m_colors, QIODevice::ReadOnly};
-  its.setIntegerBase (16);
-  its.setFieldWidth (2);
-  its >> r >> g >> b >> r0 >> g0 >> b0 >> r1 >> g1 >> b1 >> r2 >> g2 >> b2 >> r3 >> g3 >> b3;
+  ::sscanf (m_colors.toLatin1(),"%2x%2x%2x%2x%2x%2x%2x%2x%2x%2x%2x%2x%2x%2x%2x",
+            &r,&g,&b,&r0,&g0,&b0,&r1,&g1,&b1,&r2,&g2,&b2,&r3,&g3,&b3);
   updateColorLabels();
   ui.sbBackgroundRed->setValue(r);
   ui.sbBackgroundGreen->setValue(g);
