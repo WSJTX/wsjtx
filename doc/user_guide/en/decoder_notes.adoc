@@ -112,7 +112,7 @@ summarized in the following Table:
 |===========================================
 |Mode    |Mode character|Sync character|End of line information
 |FST4    | `            |      | ? &#160; aP
-|FT4     | ~            |      | ? &#160; aP
+|FT4     | +            |      | ? &#160; aP
 |FT8     | ~            |      | ? &#160; aP
 |JT4     | $            | *, # | f, fN, dCN
 |JT9     | @            |      |
