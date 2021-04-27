@@ -69,6 +69,7 @@ subroutine q65_dec0(iavg,nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
   data first/.true./
   save first
 
+  NN=63
   if(nutc+ndepth.eq.-999) stop           !Silence compiler warnings
 
 ! Set some parameters and allocate storage for large arrays
@@ -190,7 +191,7 @@ subroutine q65_dec0(iavg,nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
 
   smax=maxval(ccf1)
 
-! Estimate frequenct spread
+! Estimate frequency spread
   i1=-9999
   i2=-9999
   do i=-ia,ia
