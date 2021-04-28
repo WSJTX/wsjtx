@@ -51,14 +51,6 @@ subroutine map65_mmdec(nutc,id2,nsubmode,nfa,nfb,nfqso,ntol,newdat,nagain,  &
        ntol,ndepth,nfa,nfb,lclearave,single_decode,lagain,lnewdat,            &
        emedelay,mycall,hiscall,hisgrid,nQSOProgress,ncontest,lapcqonly,navg0)
   call timer('dec_q65 ',1)
-  close(17)
-
-  ndecoded = my_q65%decoded
-  write(*,1010) nsynced,ndecoded,navg0
-1010 format('<DecodeFinished>',2i4,i9)
-  call flush(6)
-  close(13)
-  close(14)
 
   return
 
