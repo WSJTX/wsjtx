@@ -72,18 +72,18 @@ program m65
   mygrid='FN20QI'
   hiscall='K9AN'
   hisgrid='EN50'
-  nfa=100
-  nfb=162
+  nfa=100          !144.100
+  nfb=162          !144.162
   ntol=100
-  nkeep=10
-  mousefqso=141
-  mousedf=-201
-  nfcal=-720
+  nkeep=10         !???
+  mousefqso=140    !For IK4WLV in 210220_1814.tf2
+  mousedf=79
+  nfcal=0
 
   if(nxpol.eq.0) then
-     nfa=55
+     nfa=55        !For KA1GT files
      nfb=143
-     mousefqso=70
+     mousefqso=70  !W2HRO signal
   endif
 
   call ftninit('.')
