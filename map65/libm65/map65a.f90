@@ -5,10 +5,11 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
 
 !  Processes timf2 data from Linrad to find and decode JT65 signals.
 
+  use wideband_sync
   use timer_module, only: timer
+
   parameter (MAXMSG=1000)            !Size of decoded message list
   parameter (NSMAX=60*96000)
-  parameter (NFFT=32768)
   real dd(4,NSMAX)
   real*4 ss(4,322,NFFT),savg(4,NFFT)
   real tavg(-50:50)                  !Temp for finding local base level

@@ -2,7 +2,9 @@ subroutine q65b(nutc,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
      mycall0,hiscall0,hisgrid,mode_q65)
 
   use q65_decode
+  use wideband_sync
   use timer_module, only: timer
+
   parameter (MAXFFT1=5376000)              !56*96000
   parameter (MAXFFT2=336000)               !56*6000 (downsampled by 1/16)
   parameter (NMAX=60*12000)
@@ -10,6 +12,7 @@ subroutine q65b(nutc,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
   complex ca(MAXFFT1),cb(MAXFFT1)          !FFTs of raw x,y data
   complex cx(0:MAXFFT2-1),cy(0:MAXFFT2-1),cz(0:MAXFFT2)
   logical xpol
+  integer ipk1(1)
   real*8 fcenter
   character*12 mycall0,hiscall0
   character*12 mycall,hiscall
@@ -67,43 +70,50 @@ subroutine q65b(nutc,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
 !   96000  5376000  0.017857143  336000   6000.000
 !   95238  5120000  0.018601172  322560   5999.994
 
+! Get best ipol by referring to the "orange sync curve".
+  ff=ikhz+0.001*(mousedf+1270.459)              !supposed freq of sync tone
+  ifreq=nint(1000.0*(ff-77.0)*32768.0/96000.0)  !Freq index into ss(4,322,32768)
+  dff=96000.0/32768.0
+  ia=nint(ifreq-ntol/dff)
+  ib=nint(ifreq+ntol/dff)
+  ipk1=maxloc(sync_dat(ia:ib,2))
+  ipk=ia+ipk1(1)-1
+  ipol=nint(sync_dat(ipk,4))
+
   nsnr1=-99
-  npol=1
-  if(xpol) npol=4
-  do ipol=1,npol
-     if(ipol.eq.1) cz(0:MAXFFT2-1)=cx
-     if(ipol.eq.2) cz(0:MAXFFT2-1)=0.707*(cx+cy)
-     if(ipol.eq.3) cz(0:MAXFFT2-1)=cy
-     if(ipol.eq.4) cz(0:MAXFFT2-1)=0.707*(cx-cy)
-     cz(MAXFFT2)=0.
+  if(ipol.eq.1) cz(0:MAXFFT2-1)=cx
+  if(ipol.eq.2) cz(0:MAXFFT2-1)=0.707*(cx+cy)
+  if(ipol.eq.3) cz(0:MAXFFT2-1)=cy
+  if(ipol.eq.4) cz(0:MAXFFT2-1)=0.707*(cx-cy)
+  cz(MAXFFT2)=0.
 !Transform to time domain (real), fsample=12000 Hz
-     call four2a(cz,2*nfft2,1,1,-1)
-     do i=0,nfft2-1
-        j=nfft2-1-i
-        iwave(2*i+1)=nint(real(cz(j)))
-        iwave(2*i+2)=nint(aimag(cz(j)))
-     enddo
-     iwave(2*nfft2+1:)=0
-     nsubmode=mode_q65-1
-     nfa=300
-     nfb=2883
-     nfqso=1000 + mousedf
-     newdat=1
-     nagain=0
-     nsnr0=-99             !Default snr for no decode
-     call timer('mmdec   ',0)
-     call map65_mmdec(nutc,iwave,nsubmode,nfa,nfb,nfqso,ntol,newdat,nagain,  &
-          mycall,hiscall,hisgrid)
-     call timer('mmdec   ',1)
-     if(nsnr0.gt.nsnr1) then
-        nsnr1=nsnr0
-        xdt1=xdt0
-        nfreq1=nfreq0
-        msg1=msg0
-        cq1=cq0
-        ipol1=45*ipol
-     endif
-  enddo  !ipol
+  call four2a(cz,2*nfft2,1,1,-1)
+  do i=0,nfft2-1
+     j=nfft2-1-i
+     iwave(2*i+1)=nint(real(cz(j)))
+     iwave(2*i+2)=nint(aimag(cz(j)))
+  enddo
+  iwave(2*nfft2+1:)=0
+  nsubmode=mode_q65-1
+  nfa=300
+  nfb=2883
+  nfqso=1000 + mousedf
+  newdat=1
+  nagain=0
+  nsnr0=-99             !Default snr for no decode
+
+  call timer('mmdec   ',0)
+  call map65_mmdec(nutc,iwave,nsubmode,nfa,nfb,nfqso,ntol,newdat,nagain,  &
+       mycall,hiscall,hisgrid)
+  call timer('mmdec   ',1)
+  if(nsnr0.gt.nsnr1) then
+     nsnr1=nsnr0
+     xdt1=xdt0
+     nfreq1=nfreq0
+     msg1=msg0
+     cq1=cq0
+     ipol1=45*(ipol-1)
+  endif
 
   nfreq=nfreq1+mousedf-1000
   write(line,1020) ikhz,nfreq,ipol1,nutc,xdt1,nsnr1,msg1(1:27),cq1

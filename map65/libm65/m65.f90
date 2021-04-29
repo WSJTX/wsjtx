@@ -107,7 +107,6 @@ program m65
      nch=2
      if(nxpol.eq.1) nch=4
 
-!     if(ifile.eq.ifile1) call timer('m65     ',0)
      do irec=1,9999999
         read(10,end=10) i2
         do i=1,NREAD,nch
@@ -139,9 +138,8 @@ program m65
                 rejecty,pxdb,pydb,ssz5a,nkhz,ihsym,nzap,slimit,lstrong)
            call timer('symspec ',1)
            nhsym0=nhsym
-!           if(ihsym.ge.278) go to 10
         endif
-     enddo
+     enddo  ! irec
 
 10   continue
      if(iqadjust.ne.0) write(*,3002) rejectx,rejecty
@@ -149,7 +147,7 @@ program m65
      nutc=nutc0
      nstandalone=1
      call decode0(dd,ss,savg,nstandalone)
-  enddo
+  enddo  ! ifile
 
   call timer('m65     ',1)
   call timer('m65     ',101)

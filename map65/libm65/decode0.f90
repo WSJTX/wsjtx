@@ -1,8 +1,8 @@
 subroutine decode0(dd,ss,savg,nstandalone)
 
+  use wideband_sync
   use timer_module, only: timer
   parameter (NSMAX=60*96000)
-  parameter (NFFT=32768)
 
   real*4 dd(4,NSMAX),ss(4,322,NFFT),savg(4,NFFT)
   real*8 fcenter
@@ -17,8 +17,11 @@ subroutine decode0(dd,ss,savg,nstandalone)
   data neme0/-99/,mcall3b/1/
   save
 
-!  write(60) ss,savg
   call timer('decode0 ',0)
+
+  call timer('wb_sync ',0)
+  call wb_sync(ss,savg)
+  call timer('wb_sync ',1)
 
   if(newdat.ne.0) then
      nz=52*96000
