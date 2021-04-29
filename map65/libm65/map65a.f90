@@ -5,6 +5,7 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
 
 !  Processes timf2 data from Linrad to find and decode JT65 signals.
 
+  use timer_module, only: timer
   parameter (MAXMSG=1000)            !Size of decoded message list
   parameter (NSMAX=60*96000)
   parameter (NFFT=32768)

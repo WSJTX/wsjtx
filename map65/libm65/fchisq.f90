@@ -1,5 +1,6 @@
 real function fchisq(cx,cy,npts,fsample,nflip,a,ccfmax,dtmax)
 
+  use timer_module, only: timer
   parameter (NMAX=60*96000)          !Samples per 60 s
   complex cx(npts),cy(npts)
   real a(5)

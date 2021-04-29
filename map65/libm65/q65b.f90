@@ -2,6 +2,7 @@ subroutine q65b(nutc,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
      mycall0,hiscall0,hisgrid,mode_q65)
 
   use q65_decode
+  use timer_module, only: timer
   parameter (MAXFFT1=5376000)              !56*96000
   parameter (MAXFFT2=336000)               !56*6000 (downsampled by 1/16)
   parameter (NMAX=60*12000)

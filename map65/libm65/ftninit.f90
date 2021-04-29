@@ -2,7 +2,7 @@
 !
 !   10  binary input data, *.tf2 files
 !   11  prefixes.txt
-!   12  timer.out
+!   12
 !   13  map65.log
 !   14  
 !   15  
@@ -22,6 +22,7 @@
 !------------------------------------------------ ftn_init
 subroutine ftninit(appd)
 
+  use timer_module, only: timer
   character*(*) appd
   character firstline*30
   character addpfx*8
@@ -29,7 +30,6 @@ subroutine ftninit(appd)
 
   addpfx='    '
   call pfxdump(appd//'/prefixes.txt')
-  open(12,file=appd//'/timer_map65.out',status='unknown',err=920)
   open(13,file=appd//'/map65.log',status='unknown')
   open(19,file=appd//'/livecq.txt',status='unknown')
   open(21,file=appd//'/map65_rx.log',status='unknown',access='append',err=950)

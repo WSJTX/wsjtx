@@ -1,5 +1,8 @@
 subroutine m65a
-
+  
+  use timer_module, only: timer
+  use timer_impl, only: init_timer !, limtrace
+  
   interface
      function address_m65()
      integer*1, pointer :: address_m65
@@ -15,6 +18,8 @@ subroutine m65a
 
   call getcwd(cwd)
   call ftninit(trim(cwd))
+  call init_timer (trim(cwd)//'/timer.out')
+
   limtrace=0
   lu=12
   i1=attach_m65()

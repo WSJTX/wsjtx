@@ -3,6 +3,9 @@ program m65
 ! Decoder for map65.  Can run stand-alone, reading data from *.tf2 files;
 ! or as the back end of map65, with data placed in a shared memory region.
 
+  use timer_module, only: timer
+  use timer_impl, only: init_timer, fini_timer
+
   parameter (NSMAX=60*96000)
   parameter (NFFT=32768)
   parameter (NREAD=2048)
@@ -84,7 +87,9 @@ program m65
   endif
 
   call ftninit('.')
-
+  call init_timer('timer.out')
+  call timer('m65     ',0)
+        
   do ifile=ifile1,nargs
      call getarg(ifile,infile)
      open(10,file=infile,access='stream',status='old',err=998)
@@ -102,7 +107,7 @@ program m65
      nch=2
      if(nxpol.eq.1) nch=4
 
-     if(ifile.eq.ifile1) call timer('m65     ',0)
+!     if(ifile.eq.ifile1) call timer('m65     ',0)
      do irec=1,9999999
         read(10,end=10) i2
         do i=1,NREAD,nch
@@ -148,10 +153,12 @@ program m65
 
   call timer('m65     ',1)
   call timer('m65     ',101)
-  call ftnquit
   go to 999
 
 998 print*,'Cannot open file:'
   print*,infile
 
-999 end program m65
+999 call fini_timer()
+  call ftnquit
+
+end program m65

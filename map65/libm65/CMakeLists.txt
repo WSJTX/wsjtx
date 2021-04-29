@@ -68,7 +68,7 @@ set (libm65_FSRCS
   smo.f90
   sun.f90
   symspec.f90
-  timer.f90
+#  timer.f90
   timf2.f90
   tm2.f90
   toxyz.f90

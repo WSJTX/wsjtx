@@ -1,5 +1,6 @@
 subroutine decode0(dd,ss,savg,nstandalone)
 
+  use timer_module, only: timer
   parameter (NSMAX=60*96000)
   parameter (NFFT=32768)
 

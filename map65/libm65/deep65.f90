@@ -1,5 +1,6 @@
 subroutine deep65(s3,mode65,neme,flip,mycall,hiscall,hisgrid,decoded,qual)
 
+  use timer_module, only: timer
   parameter (MAXCALLS=10000,MAXRPT=63)
   real s3(64,63)
   character callsign*12,grid*4,message*22,hisgrid*6,c*1,ceme*3
