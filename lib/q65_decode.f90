@@ -132,7 +132,9 @@ contains
        ibwb=min(10,ibwb+1)
        maxiters=100
     endif
-! Generate codewords for full-AP list decoding    
+! Generate codewords for full-AP list decoding
+    if(ichar(hiscall(1:1)).eq.0) hiscall=' '
+    if(ichar(hisgrid(1:1)).eq.0) hisgrid=' '
     call q65_set_list(mycall,hiscall,hisgrid,codewords,ncw) 
     dgen=0
     call q65_enc(dgen,codewords)         !Initialize the Q65 codec
@@ -143,7 +145,6 @@ contains
 ! Call top-level routine in q65 module: establish sync and try for a q3 decode.
     call q65_dec0(iavg,nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
          emedelay,xdt,f0,snr1,width,dat4,snr2,idec)
-!    idec=-1   !### TEMPORARY ###
     call timer('q65_dec0',1)
 
     if(idec.ge.0) then
@@ -299,7 +300,6 @@ contains
           call timer('q65loops',0)
           call q65_loops(c00,npts/2,nsps/2,nsubmode,ndepth,jpk0,   &
                xdt,f0,iaptype,xdt1,f1,snr2,dat4,idec)
-!       idec=-1   !### TEMPORARY ###
           call timer('q65loops',1)
           if(idec.ge.0) then
              dtdec=xdt1

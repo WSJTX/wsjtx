@@ -27,9 +27,6 @@ subroutine q65b(nutc,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
   read(9,'(a)') wsjtx_dir
   close(9)
 
-  mycall='K1JT'
-  hiscall='IV3NWV'
-  grid4='AA00'
   if(mycall0(1:1).ne.' ') mycall=mycall0
   if(hiscall0(1:1).ne.' ') hiscall=hiscall0
   if(hisgrid(1:4).ne.'    ') grid4=hisgrid(1:4)

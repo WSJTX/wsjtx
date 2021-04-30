@@ -693,12 +693,6 @@ subroutine q65_snr(dat4,dtdec,f0dec,mode_q65,nused,snr2)
   if(nused.eq.3) snr2=snr2 - 2.9
   if(nused.ge.4) snr2=snr2 - 3.5
 
-!  do i=ia,ib
-!     write(71,3071) i*df,spec(i),db(spec(i))
-!3071 format(3f10.3)
-!  enddo
-!  flush(71)
-
   return
 end subroutine q65_snr
 
