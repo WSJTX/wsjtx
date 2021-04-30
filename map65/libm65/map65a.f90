@@ -227,10 +227,10 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
                       a,dt,pol,nkv,nhist,nsum,nsave,qual,decoded)
                  call timer('decode1a',1)
                  if(nqd.eq.2) then
-                    call timer('q65     ',0)
+                    call timer('q65b    ',0)
                     call q65b(nutc,fcenter,nfcal,nfsample,ikhz,             &
                          mousedf,ntol,xpol,mycall,hiscall,hisgrid,mode_q65)
-                    call timer('q65     ',1)
+                    call timer('q65b    ',1)
                     cycle
                  endif
 
