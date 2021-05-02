@@ -131,8 +131,11 @@ target_link_libraries (m65impl wsjt_fort wsjt_cxx Qt5::Core)
 add_executable (m65 m65.f90 m65a.f90)
 target_link_libraries (m65 m65impl ${FFTW3_LIBRARIES})
 
+add_executable (mapsim mapsim.f90)
+target_link_libraries (mapsim m65impl ${FFTW3_LIBRARIES})
+
 install (
-  TARGETS m65
+  TARGETS m65 mapsim
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   BUNDLE DESTINATION . COMPONENT runtime
   )
