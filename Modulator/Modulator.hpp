@@ -66,7 +66,7 @@ private:
   double m_dphi;
   double m_amp;
   double m_nsps;
-  double volatile m_frequency;
+  double m_frequency;
   double m_frequency0;
   double m_snr;
   double m_fac;
@@ -80,9 +80,9 @@ private:
   qint16 m_ramp;
 
   unsigned m_frameRate;
-  ModulatorState volatile m_state;
+  ModulatorState m_state;
 
-  bool volatile m_tuning;
+  bool m_tuning;
   bool m_addNoise;
   bool m_bFastMode;
 

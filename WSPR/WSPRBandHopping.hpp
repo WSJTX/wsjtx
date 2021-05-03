@@ -24,7 +24,8 @@ class QWidget;
 //
 //  Along with selecting bands a flag  indicating that a short tune up
 //  signal is  required for specified  bands before they are  used for
-//  receive.
+//  transmit or receive, unless they  are flagged as Rx Only (intended
+//  to protect Rx active aerials and non-licensed bands).
 //
 //  Provides a Qt property that holds  the Tx percentage which is used
 //  to generate a semi-randomized schedule of period to transmit. This
