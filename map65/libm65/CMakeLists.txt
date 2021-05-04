@@ -37,6 +37,7 @@ set (libm65_FSRCS
   ftnquit.f90
   q65b.f90
   gen65.f90
+  gen_q65_cwave.f90
   gen_q65_wave.f90
   geocentric.f90
   getdphi.f90
@@ -94,7 +95,7 @@ set_source_files_properties (${libm65_ka9q_CSRCS} PROPERTIES COMPILE_FLAGS -Wno-
 set (libm65_CSRCS
   ${libm65_ka9q_CSRCS}
   ftrsd2.c
-  gran.c
+#  gran.c
   igray.c
   tmoonsub.c
   usleep.c

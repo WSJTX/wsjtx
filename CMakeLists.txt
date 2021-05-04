@@ -1128,6 +1128,9 @@ target_link_libraries (sumsim wsjt_fort wsjt_cxx)
 add_executable (q65sim lib/qra/q65/q65sim.f90)
 target_link_libraries (q65sim wsjt_fort wsjt_cxx)
 
+add_executable (q65code lib/qra/q65/q65code.f90)
+target_link_libraries (q65code wsjt_fort wsjt_cxx)
+
 add_executable (test_q65 lib/test_q65.f90)
 target_link_libraries (test_q65 wsjt_fort wsjt_cxx)
 
@@ -1563,7 +1566,8 @@ install (TARGETS jt9 wsprd fmtave fcal fmeasure
   )
 
 if(WSJT_BUILD_UTILS)
-install (TARGETS ft8code jt65code jt9code jt4code msk144code fst4sim q65sim
+install (TARGETS ft8code jt65code jt9code jt4code msk144code 
+  q65code fst4sim q65sim
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   )
