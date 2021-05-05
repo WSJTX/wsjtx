@@ -10,7 +10,7 @@ program mapsim
   complex z,zx,zy
   real*8 fcenter,fsample,samfac,f,dt,twopi,phi,dphi
   logical bq65
-  character msg0*22,message*22,msgsent*22,arg*8,fname*13,mode*2
+  character msg0*22,message*22,msgsent*22,arg*8,fname*11,mode*2
   character*16 msg_list(60)
   data ilist/0/,msg_list/                                          &
        'W1AAA K2BBB EM00','W2CCC K3DDD EM01','W3EEE K4FFF EM02',   &
@@ -94,7 +94,7 @@ program mapsim
      nmin=ifile-1
      if(mode(2:2).eq.' ') nmin=2*nmin
      write(fname,1002) nmin                      !Create the output filenames
-1002 format('000000_',i4.4,'00')
+1002 format('000000_',i4.4)
      open(10,file=fname//'.iq',access='stream',status='unknown')
      open(11,file=fname//'.tf2',access='stream',status='unknown')
 
