@@ -333,6 +333,7 @@ set (wsjt_FSRCS
   lib/timer_impl.f90
   lib/timer_module.f90
   lib/wavhdr.f90
+  lib/qra/q65/q65_encoding_modules.f90
 
   # remaining non-module sources
   lib/addit.f90
