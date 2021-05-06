@@ -20,8 +20,9 @@ subroutine decode0(dd,ss,savg,nstandalone)
   call timer('decode0 ',0)
 
   nkhz_center=nint(1000.0*(fcenter-int(fcenter)))
+  ntone_spacing=2**(nmode/10)
   call timer('wb_sync ',0)
-  call wb_sync(ss,savg)
+  call wb_sync(ss,savg,ntone_spacing)
   call timer('wb_sync ',1)
 
   if(newdat.ne.0) then
