@@ -105,7 +105,7 @@ subroutine decode1a(dd,newdat,f0,nflip,mode65,nfsample,xpol,            &
 !         do n=1,mode65
      do n=1,1
         do i=1,nfft
-           j=j+1
+           j=min(j+1,NMAX/64)
            c5a(i)=aa*cx(j) + bb*cy(j)
         enddo
         call four2a(c5a,nfft,1,1,1)
