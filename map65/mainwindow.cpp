@@ -1458,7 +1458,7 @@ void MainWindow::guiUpdate()
 
   double tx1=0.0;
   double tx2=126.0*4096.0/11025.0 + 1.8;
-  if(m_modeTx=="Q65") tx2=84.0*6912.0/12000.0 + 1.8;
+  if(m_modeTx=="Q65") tx2=85.0*7200.0/12000.0 + 1.8;
 
   if(!m_txFirst) {
     tx1 += m_TRperiod;
