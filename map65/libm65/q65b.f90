@@ -144,7 +144,7 @@ subroutine q65b(nutc,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
 
 ! Should write to lu 26 here, for Messages and Band Map windows ?
      write(26,1014) freq0,nfreq0,0,0,0,xdt0,ipol0,0,                   &
-          nsnr0,nutc,msg0(1:22),'Q',char(ichar('A') + mode_q65-1)
+          nsnr0,nutc,msg0(1:22),':',char(ichar('A') + mode_q65-1)
 1014 format(f8.3,i5,3i3,f5.1,i4,i3,i4,i5.4,4x,a22,2x,a1,3x,':',a1)
 
 ! Write to file map65_rx.log:
