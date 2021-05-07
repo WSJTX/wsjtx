@@ -1,6 +1,7 @@
 //------------------------------------------------------------------ MainWindow
 #include "mainwindow.h"
 #include "revision_utils.hpp"
+#include "widgets/MessageBox.hpp"
 #include "ui_mainwindow.h"
 #include "devsetup.h"
 #include "plotter.h"
@@ -101,14 +102,15 @@ MainWindow::MainWindow(QWidget *parent) :
           SLOT(showStatusMessage(QString)));
   createStatusBar();
 
-  connect(&proc_m65, SIGNAL(readyReadStandardOutput()),
-                    this, SLOT(readFromStdout()));
-
-  connect(&proc_m65, SIGNAL(error(QProcess::ProcessError)),
-          this, SLOT(m65_error()));
-
-  connect(&proc_m65, SIGNAL(readyReadStandardError()),
-          this, SLOT(readFromStderr()));
+  connect(&proc_m65, SIGNAL(readyReadStandardOutput()), this, SLOT(readFromStdout()));
+  connect(&proc_m65, &QProcess::errorOccurred, this, &MainWindow::m65_error);
+  connect(&proc_m65, static_cast<void (QProcess::*) (int, QProcess::ExitStatus)> (&QProcess::finished),
+          [this] (int exitCode, QProcess::ExitStatus status) {
+            if (subProcessFailed (&proc_m65, exitCode, status))
+              {
+                QTimer::singleShot (0, this, SLOT (close ()));
+              }
+          });
 
   connect(&proc_editor, SIGNAL(error(QProcess::ProcessError)),
           this, SLOT(editor_error()));
@@ -1341,11 +1343,33 @@ void MainWindow::decode()                                       //decode()
   decodeBusy(true);
 }
 
-void MainWindow::m65_error()                                     //m65_error
+bool MainWindow::subProcessFailed (QProcess * process, int exit_code, QProcess::ExitStatus status)
+{
+  if (exit_code || QProcess::NormalExit != status)
+    {
+      QStringList arguments;
+      for (auto argument: process->arguments ())
+        {
+          if (argument.contains (' ')) argument = '"' + argument + '"';
+          arguments << argument;
+        }
+      MessageBox::critical_message (this, tr ("Subprocess Error")
+                                    , tr ("Subprocess failed with exit code %1")
+                                    .arg (exit_code)
+                                    , tr ("Running: %1\n%2")
+                                    .arg (process->program () + ' ' + arguments.join (' '))
+                                    .arg (QString {process->readAllStandardError()}));
+      return true;
+    }
+  return false;
+}
+
+void MainWindow::m65_error (QProcess::ProcessError)
 {
   if(!m_killAll) {
-    msgBox("Error starting or running\n" + m_appDir + "/m65 -s");
-    exit(1);
+    msgBox("Error starting or running\n" + m_appDir + "/m65 -s\n\n"
+           + proc_m65.errorString ());
+    QTimer::singleShot (0, this, SLOT (close ()));
   }
 }
 
@@ -1354,12 +1378,6 @@ void MainWindow::editor_error()                                 //editor_error
   if(!m_killAll) {
     msgBox("Error starting or running\n" + m_appDir + "/" + m_editorCommand);
   }
-}
-
-void MainWindow::readFromStderr()                             //readFromStderr
-{
-  QByteArray t=proc_m65.readAllStandardError();
-  msgBox(t);
 }
 
 void MainWindow::readFromStdout()                             //readFromStdout

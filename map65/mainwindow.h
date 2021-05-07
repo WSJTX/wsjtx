@@ -6,6 +6,7 @@
 #include <QTimer>
 #include <QDateTime>
 #include <QHash>
+#include <QProcess>
 #include "getfile.h"
 #include "soundin.h"
 #include "soundout.h"
@@ -39,8 +40,7 @@ public slots:
   void diskWriteFinished();
   void freezeDecode(int n);
   void readFromStdout();
-  void readFromStderr();
-  void m65_error();
+  void m65_error (QProcess::ProcessError);
   void editor_error();
   void guiUpdate();
   void doubleClickOnCall(QString hiscall, bool ctrl);
@@ -277,6 +277,7 @@ private:
     void ba2msg(QByteArray ba, char* message);
     void msgtype(QString t, QLineEdit* tx);
     void stub();
+  bool subProcessFailed (QProcess *, int exit_code, QProcess::ExitStatus);
 };
 
 extern void getfile(QString fname, bool xpol, int idInt);
