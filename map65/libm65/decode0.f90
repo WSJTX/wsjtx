@@ -1,6 +1,5 @@
 subroutine decode0(dd,ss,savg,nstandalone)
 
-  use wideband_sync
   use timer_module, only: timer
   parameter (NSMAX=60*96000)
 
@@ -23,12 +22,6 @@ subroutine decode0(dd,ss,savg,nstandalone)
 !  npol=1 + 3*nxpol
 !  write(50) nutc,npol,ss(1:npol,:,:),savg(1:npol,:)
 !###
-  
-  nkhz_center=nint(1000.0*(fcenter-int(fcenter)))
-  ntone_spacing=2**(nmode/10)
-  call timer('wb_sync ',0)
-  call wb_sync(ss,savg,ntone_spacing)
-  call timer('wb_sync ',1)
 
   if(newdat.ne.0) then
      nz=52*96000

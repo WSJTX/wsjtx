@@ -5,7 +5,7 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
 
 !  Processes timf2 data from Linrad to find and decode JT65 signals.
 
-  use wideband_sync
+  use wideband2_sync
   use timer_module, only: timer
 
   parameter (MAXMSG=1000)            !Size of decoded message list
@@ -26,6 +26,8 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
   character decoded*22,blank*22,cmode*2
   real short(3,NFFT)                 !SNR dt ipol for potential shorthands
   real qphi(12)
+  type(candidate) :: cand(MAX_CANDIDATES)
+  
   common/c3com/ mcall3a
   common/testcom/ifreq
   
@@ -33,6 +35,21 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
   data shmsg0/'ATT','RO ','RRR','73 '/
   data nfile/0/,nutc0/-999/,nid/0/,ip000/1/,ip001/1/,mousefqso0/-999/
   save
+
+  nkhz_center=nint(1000.0*(fcenter-int(fcenter)))
+  ntone_spacing=2**(nmode/10)
+  call timer('wb_sync ',0)
+!  call wb_sync(ss,savg,ntone_spacing)
+  call timer('wb_sync ',1)
+
+!###
+  mfa=nfa-nkhz_center+48
+  mfb=nfb-nkhz_center+48
+  nts_jt65=2
+  nts_q65=1
+  call get_candidates(ss,savg,mfa,mfb,nts_jt65,nts_q65,cand,ncand)
+!  print*,'AAA',nfa,nfb,ncand
+!###
 
   mode65=mod(nmode,10)
   if(mode65.eq.3) mode65=4

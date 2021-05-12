@@ -14,7 +14,12 @@ module wideband2_sync
      integer :: iflip
      logical :: birdie
   end type sync_dat
-  
+
+  parameter (NFFT=32768)
+  parameter (MAX_CANDIDATES=20)
+  type(sync_dat) :: sync(NFFT)
+  integer nkhz_center
+
   contains
 
 subroutine get_candidates(ss,savg,nfa,nfb,nts_jt65,nts_q65,cand,ncand)
@@ -24,21 +29,19 @@ subroutine get_candidates(ss,savg,nfa,nfb,nts_jt65,nts_q65,cand,ncand)
 ! spacings: 1 2 4 8 16 for A B C D E.  Birdies are detected and
 ! excised.  Candidates are returned in the structure array cand().
 
-  parameter (NFFT=32768)
-  parameter (MAX_PEAKS=300,MAX_CANDIDATES=20)
+  parameter (MAX_PEAKS=300)
   real ss(4,322,NFFT),savg(4,NFFT)
   real pavg(-20:20)
   integer indx(NFFT)
   logical skip
   type(candidate) :: cand(MAX_CANDIDATES)
-  type(sync_dat) :: sync(NFFT)
 
   do j=322,1,-1                            !Find end of data in ss()
      if(sum(ss(1,j,1:NFFT)).gt.0.0) exit
   enddo
   jz=j
   
-call wb2_sync(ss,savg,jz,nfa,nfb,sync)
+call wb2_sync(ss,savg,jz,nfa,nfb)
 
   tstep=2048.0/11025.0        !0.185760 s: 0.5*tsym_jt65, 0.3096*tsym_q65
   df3=96000.0/NFFT
@@ -101,7 +104,7 @@ call wb2_sync(ss,savg,jz,nfa,nfb,sync)
   return
 end subroutine get_candidates
 
-subroutine wb2_sync(ss,savg,jz,nfa,nfb,sync)
+subroutine wb2_sync(ss,savg,jz,nfa,nfb)
 
 ! Compute "orange sync curve" using the Q65 sync pattern
 
@@ -113,7 +116,6 @@ subroutine wb2_sync(ss,savg,jz,nfa,nfb,sync)
   logical first
   integer isync(22)
   integer jsync0(63),jsync1(63)
-  type(sync_dat) :: sync(NFFT)
 
 ! Q65 sync symbols
   data isync/1,9,12,13,15,22,23,26,27,33,35,38,46,50,55,60,62,66,69,74,76,85/

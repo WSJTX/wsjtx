@@ -25,10 +25,10 @@ program m65
 !   27
 !   28  fftw_wisdom.dat
 
-  use wideband_sync
   use timer_module, only: timer
   use timer_impl, only: init_timer, fini_timer
 
+  parameter (NFFT=32768)
   parameter (NSMAX=60*96000)
   parameter (NREAD=2048)
   integer*2 i2(NREAD)

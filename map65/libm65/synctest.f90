@@ -2,13 +2,12 @@ program synctest
 
   ! Program to test an algorithm for detecting sync signals for both
   ! JT65 and Q65-60x signals and rejecting birdies in MAP65 data.
-  ! The important work is done in module wideband_sync.
+  ! The important work is done in module wideband2_sync.
 
   use timer_module, only: timer
   use timer_impl, only: init_timer, fini_timer
   use wideband2_sync
-  parameter (NFFT=32768)
-  parameter (MAX_CANDIDATES=20)
+
   real ss(4,322,NFFT),savg(4,NFFT)
 !  real candidate(MAX_CANDIDATES,5)             !snr1,f0,xdt0,ipol,flip
   character*8 arg

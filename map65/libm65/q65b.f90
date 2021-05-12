@@ -10,7 +10,7 @@ subroutine q65b(nutc,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
 
 !  use wavhdr
   use q65_decode
-  use wideband_sync
+  use wideband2_sync
   use timer_module, only: timer
 
   parameter (MAXFFT1=5376000)              !56*96000
@@ -46,13 +46,16 @@ subroutine q65b(nutc,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
   ifreq=nint(1000.0*(ff-nkhz_center+48)/df3)   !Freq index into ss(4,322,32768)
   ia=nint(ifreq-ntol/df3)
   ib=nint(ifreq+ntol/df3)
-  ipk1=maxloc(sync_dat(ia:ib,2))
-  ipk=ia+ipk1(1)-1
-  ipol=1
-  if(xpol) ipol=nint(sync_dat(ipk,4))
-  nhz=nint((ipk-ifreq)*df3)
-  snr1=sync_dat(ipk,2)
 
+!###
+  ipk1=maxloc(sync(ia:ib)%ccfmax)
+  ipk=ia+ipk1(1)-1
+  snr1=sync(ipk)%ccfmax
+  ipol=1
+  if(xpol) ipol=sync(ipk)%ipol
+!  print*,'BBB',ipk00,ipk,snr1,ipol
+!###
+  
   nfft1=MAXFFT1
   nfft2=MAXFFT2
   df=96000.0/NFFT1
