@@ -83,13 +83,10 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
 
 2  if(ndphi.eq.1) dphi=30*iloop/57.2957795
 
-  nqdz=1
-  if(bq65 .and. (nutc0.ge.0 .or. (nstandalone.eq.1))) nqdz=2
-!  if(bq65) nqdz=2
   if(nutc.ne.nutc0) nfile=nfile+1
   nutc0=nutc
 
-  do nqd=nqdz,0,-1
+  do nqd=1,0,-1
      if(nqd.eq.2) then
         fa=1000.0*fqso
         fb=1000.0*fqso
@@ -251,13 +248,6 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
                       ndphi,nutc,ikHz,idf,ipol,ntol,sync2,                &
                       a,dt,pol,nkv,nhist,nsum,nsave,qual,decoded)
                  call timer('decode1a',1)
-                 if(nqd.eq.2) then
-                    call timer('q65b    ',0)
-                    call q65b(nutc,fcenter,nfcal,nfsample,ikhz,             &
-                         mousedf,ntol,xpol,mycall,hiscall,hisgrid,mode_q65)
-                    call timer('q65b    ',1)
-                    cycle
-                 endif
 
                  if(km.lt.MAXMSG) km=km+1
                  sig(km,1)=nfile
@@ -385,7 +375,22 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
      endif
      if(nqd.eq.2 .and. mode65.eq.0) go to 999
      if(nqd.eq.1 .and. nagain.eq.1) go to 999
-  enddo
+
+!     if(nqd.eq.0) cycle
+     do k=1,ncand
+        if(cand(k)%iflip.ne.0) cycle
+        freq=cand(k)%f+77.0-1.27046
+        ikhz=nint(freq)
+!        write(*,3010) nutc,k,cand(k)%snr,cand(k)%f,freq,cand(k)%xdt,    &
+!             cand(k)%ipol,cand(k)%iflip
+!3010    format('= ',i4.4,i5,f10.1,3f10.3,2i3)
+        call timer('q65b    ',0)
+        call q65b(nutc,fcenter,nfcal,nfsample,ikhz,             &
+             mousedf,ntol,xpol,mycall,hiscall,hisgrid,mode_q65)
+        call timer('q65b    ',1)
+     enddo
+
+  enddo  ! nqd
 
 !  Trim the list and produce a sorted index and sizes of groups.
 !  (Should trimlist remove all but best SNR for given UTC and message content?)
