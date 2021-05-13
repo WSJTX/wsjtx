@@ -148,10 +148,10 @@ subroutine wb2_sync(ss,savg,jz,nfa,nfb)
   do i=1,4
      call pctile(savg(i,ia:ib),ib-ia+1,50,savg_med(i))
   enddo
-  do i=ia,ib
-     write(14,3014) 0.001*(i-1)*df3,savg(1:4,i)
-3014 format(5f10.3)
-  enddo
+!  do i=ia,ib
+!     write(14,3014) 0.001*(i-1)*df3,savg(1:4,i)
+!3014 format(5f10.3)
+!  enddo
 
   lagbest=0
   ipolbest=1
