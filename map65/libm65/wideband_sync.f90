@@ -83,9 +83,9 @@ call wb_sync(ss,savg,jz,nfa,nfb)
      skip=.false.
      do m=1,k                              !Skip false syncs within signal bw
         diffhz=1000.0*(f0-cand(m)%f)
-        bw=nts_q65*108.0
+        bw=nts_q65*110.0
         if(cand(m)%iflip.ne.0) bw=nts_jt65*178.0
-        if(diffhz.gt.-20.0 .and. diffhz.lt.bw) skip=.true.
+        if(diffhz.gt.-20.0 .and. diffhz.lt.bw+20.0) skip=.true.
 !        write(*,3301) i,k,m,f0,cand(m)%f,diffhz,snr1,skip
 !3301    format('=',3i5,f10.1,3f10.3,L3)
      enddo
