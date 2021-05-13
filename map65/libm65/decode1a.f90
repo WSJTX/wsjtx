@@ -43,7 +43,6 @@ subroutine decode1a(dd,newdat,f0,nflip,mode65,nfsample,xpol,            &
      z=cmplx(cos(dphi),sin(dphi))
      cy(:n5)=z*cy(:n5)                !Adjust for cable length difference
   endif
-  call timer('fil6521 ',0)
 ! Add some zeros at start of c5 arrays -- empirical fix for negative DT's
   nadd=1089
   c5x(:nadd)=0.
@@ -53,7 +52,6 @@ subroutine decode1a(dd,newdat,f0,nflip,mode65,nfsample,xpol,            &
      call fil6521(cy,n5,c5y(nadd+1),n6)
   endif
   n6=n6+nadd
-  call timer('fil6521 ',1)
 
   fsample=1378.125/4.
   a(5)=dt00
@@ -80,9 +78,7 @@ subroutine decode1a(dd,newdat,f0,nflip,mode65,nfsample,xpol,            &
 ! Now we are back to using the 1378.125 Hz sample rate, enough to 
 ! accommodate the full JT65C bandwidth.
 
-  call timer('twkfreq_',0)
   call twkfreq_xy(cx,cy,n5,a)
-  call timer('twkfreq_',1)
 
 ! Compute spectrum at best polarization for each half symbol.
 ! Adding or subtracting a small number (e.g., 5) to j may make it decode.\
@@ -94,7 +90,6 @@ subroutine decode1a(dd,newdat,f0,nflip,mode65,nfsample,xpol,            &
   j=(dt00+dtbest+2.685)*1378.125
   if(j.lt.0) j=0
 
-  call timer('sh_ffts ',0)
 
 ! Perhaps should try full-symbol-length FFTs even in B, C sub-modes?
 ! (Tried this, found no significant difference in decodes.)
@@ -122,8 +117,6 @@ subroutine decode1a(dd,newdat,f0,nflip,mode65,nfsample,xpol,            &
         endif
      enddo
   enddo
-
-  call timer('sh_ffts ',1)
 
   flip=nflip
   call timer('dec65b  ',0)
