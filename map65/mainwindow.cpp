@@ -1428,7 +1428,6 @@ void MainWindow::readFromStdout()                             //readFromStdout
       m=3;
 #endif
       if(n>=30) ui->decodedTextBrowser->append(t.mid(1,n-m));
-//      if(n<30) ui->decodedTextBrowser->append(t.mid(1,n-3));  //Write a no-decode JT65 line
       n=ui->decodedTextBrowser->verticalScrollBar()->maximum();
       ui->decodedTextBrowser->verticalScrollBar()->setValue(n);
       m_messagesText="";
