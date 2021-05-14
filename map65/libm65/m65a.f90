@@ -17,7 +17,6 @@ subroutine m65a
   character*80 cwd
   character wisfile*256
   logical fileExists
-  common/tracer/limtrace,lu
 
   call getcwd(cwd)
   call ftninit(trim(cwd))

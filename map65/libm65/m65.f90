@@ -33,7 +33,6 @@ program m65
   real*8 hsym
   real*4 ssz5a(NFFT)
   logical*1 lstrong(0:1023)
-  common/tracer/limtrace,lu
   real*8 fc0,fcenter
   character*80 arg,infile
   character mycall*12,hiscall*12,mygrid*6,hisgrid*6,datetime*20
@@ -83,8 +82,6 @@ program m65
   if(arg.eq.'95238') nfsample=95238
 
   ifile1=5
-  limtrace=0
-  lu=12
 
 ! Some default parameters for command-line execution, in early testing.
   mycall='K1JT'

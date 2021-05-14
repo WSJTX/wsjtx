@@ -12,7 +12,6 @@ subroutine decode0(dd,ss,savg,nstandalone)
        ndepth,ndiskdat,neme,newdat,nfa,nfb,nfcal,nfshift,                 &
        mcall3,nkeep,ntol,nxant,nrxlog,nfsample,nxpol,nmode,               &
        nfast,nsave,mycall,mygrid,hiscall,hisgrid,datetime
-  common/tracer/ limtrace,lu
   data neme0/-99/,mcall3b/1/
   save
 
