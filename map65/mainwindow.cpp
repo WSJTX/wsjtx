@@ -1460,10 +1460,16 @@ void MainWindow::readFromStdout()                             //readFromStdout
   }
 }
 
-void MainWindow::on_EraseButton_clicked()                          //Erase
+void MainWindow::on_EraseButton_clicked()
 {
+  qint64 ms=QDateTime::currentMSecsSinceEpoch();
   ui->decodedTextBrowser->clear();
+  if((ms-m_msErase)<500) {
+    on_actionErase_Band_Map_and_Messages_triggered();
+  }
+  m_msErase=ms;
 }
+
 
 void MainWindow::decodeBusy(bool b)                             //decodeBusy()
 {

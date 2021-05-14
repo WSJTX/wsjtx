@@ -140,6 +140,7 @@ private slots:
 
 private:
     Ui::MainWindow *ui;
+    qint64  m_msErase;
     qint32  m_nDevIn;
     qint32  m_nDevOut;
     qint32  m_idInt;
