@@ -2119,7 +2119,7 @@ void MainWindow::on_logQSOButton_clicked()                 //Log QSO button
   QDateTime t = QDateTime::currentDateTimeUtc();
   QString logEntry=t.date().toString("yyyy-MMM-dd,") +
       t.time().toString("hh:mm,") + m_hisCall + "," + m_hisGrid + "," +
-          QString::number(nMHz) + "," + m_mode + "\r\n";
+          QString::number(nMHz) + "," + lab6->text() + "\r\n";
 
   int ret = QMessageBox::warning(this, "Log Entry",
        "Please confirm log entry:\n\n" + logEntry + "\n",
