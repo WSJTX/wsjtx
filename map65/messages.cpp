@@ -1,24 +1,35 @@
 #include "messages.h"
+#include <QSettings>
+#include "SettingsGroup.hpp"
 #include "ui_messages.h"
 #include "mainwindow.h"
 #include "qt_helpers.hpp"
 
-Messages::Messages(QWidget *parent) :
-  QDialog(parent),
-  ui(new Ui::Messages)
+Messages::Messages (QString const& settings_filename, QWidget * parent) :
+  QDialog {parent},
+  ui {new Ui::Messages},
+  m_settings_filename {settings_filename}
 {
   ui->setupUi(this);
+  setWindowTitle("Messages");
+  setWindowFlags (Qt::Dialog | Qt::WindowCloseButtonHint | Qt::WindowMinimizeButtonHint);
+  QSettings settings {m_settings_filename, QSettings::IniFormat};
+  SettingsGroup g {&settings, "MainWindow"}; // MainWindow group for
+                                             // historical reasons
+  setGeometry (settings.value ("MessagesGeom", QRect {800, 400, 381, 400}).toRect ());
   ui->messagesTextBrowser->setStyleSheet( \
           "QTextBrowser { background-color : #000066; color : red; }");
   ui->messagesTextBrowser->clear();
   m_cqOnly=false;
   m_cqStarOnly=false;
-  connect(ui->messagesTextBrowser,SIGNAL(selectCallsign(bool)),this,
-          SLOT(selectCallsign2(bool)));
+  connect (ui->messagesTextBrowser, &DisplayText::selectCallsign, this, &Messages::selectCallsign2);
 }
 
 Messages::~Messages()
 {
+  QSettings settings {m_settings_filename, QSettings::IniFormat};
+  SettingsGroup g {&settings, "MainWindow"};
+  settings.setValue ("MessagesGeom", geometry ());
   delete ui;
 }
 

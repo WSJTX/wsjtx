@@ -1,16 +1,34 @@
 #include "astro.h"
+#include <QSettings>
 #include "ui_astro.h"
 #include <QDebug>
 #include <QFile>
 #include <QMessageBox>
 #include <stdio.h>
+#include "SettingsGroup.hpp"
 #include "commons.h"
 
-Astro::Astro(QWidget *parent) :
+extern "C" {
+  void astrosub_ (int* nyear, int* month, int* nday, double* uth, int* nfreq,
+                  const char* mygrid, const char* hisgrid, double* azsun,
+                  double* elsun, double* azmoon, double* elmoon, double* azmoondx,
+                  double* elmoondx, int* ntsky, int* ndop, int* ndop00,
+                  double* ramoon, double* decmoon, double* dgrd, double* poloffset,
+                  double* xnr, int len1, int len2);
+}
+
+Astro::Astro (QString const& settings_filename, QWidget *parent) :
   QWidget(parent),
-  ui(new Ui::Astro)
+  ui(new Ui::Astro),
+  m_settings_filename {settings_filename}
 {
-  ui->setupUi(this);
+  ui->setupUi (this);
+  setWindowTitle ("Astronomical Data");
+  setWindowFlags(Qt::Dialog | Qt::WindowCloseButtonHint | Qt::WindowMinimizeButtonHint);
+  QSettings settings {m_settings_filename, QSettings::IniFormat};
+  SettingsGroup g {&settings, "MainWindow"}; // MainWindow group for
+                                             // historical reasons
+  setGeometry (settings.value ("AstroGeom", QRect {71, 390, 227, 403}).toRect ());
   ui->astroTextBrowser->setStyleSheet(
         "QTextBrowser { background-color : cyan; color : black; }");
   ui->astroTextBrowser->clear();
@@ -19,7 +37,10 @@ Astro::Astro(QWidget *parent) :
 
 Astro::~Astro()
 {
-    delete ui;
+  QSettings settings {m_settings_filename, QSettings::IniFormat};
+  SettingsGroup g {&settings, "MainWindow"};
+  settings.setValue ("AstroGeom", geometry ());
+  delete ui;
 }
 
 void Astro::astroUpdate(QDateTime t, QString mygrid, QString hisgrid,

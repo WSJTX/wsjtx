@@ -1,21 +1,31 @@
 #include "bandmap.h"
+#include <QSettings>
 #include "ui_bandmap.h"
 #include "qt_helpers.hpp"
+#include "SettingsGroup.hpp"
 #include <QDebug>
 
-BandMap::BandMap(QWidget *parent) :
-  QWidget(parent),
-  ui(new Ui::BandMap)
+BandMap::BandMap (QString const& settings_filename, QWidget * parent)
+  : QWidget {parent},
+    ui {new Ui::BandMap},
+    m_settings_filename {settings_filename}
 {
-  ui->setupUi(this);
+  ui->setupUi (this);
+  setWindowTitle ("Band Map");
+  setWindowFlags (Qt::Dialog | Qt::WindowCloseButtonHint | Qt::WindowMinimizeButtonHint);
+  QSettings settings {m_settings_filename, QSettings::IniFormat};
+  SettingsGroup g {&settings, "MainWindow"}; // MainWindow group for
+                                             // historical reasons
+  setGeometry (settings.value ("BandMapGeom", QRect {280, 400, 142, 400}).toRect ());
   ui->bmTextBrowser->setStyleSheet(
-        "QTextBrowser { background-color : #000066; color : red; }");
-  m_bandMapText="";
-  ui->bmTextBrowser->clear();
+                                   "QTextBrowser { background-color : #000066; color : red; }");
 }
 
-BandMap::~BandMap()
+BandMap::~BandMap ()
 {
+  QSettings settings {m_settings_filename, QSettings::IniFormat};
+  SettingsGroup g {&settings, "MainWindow"};
+  settings.setValue ("BandMapGeom", geometry ());
   delete ui;
 }
 

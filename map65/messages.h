@@ -12,11 +12,11 @@ class Messages : public QDialog
   Q_OBJECT
 
 public:
-  explicit Messages(QWidget *parent = 0);
+  explicit Messages (QString const& settings_filename, QWidget * parent = nullptr);
   void setText(QString t, QString t2);
   void setColors(QString t);
 
-    ~Messages();
+  ~Messages();
 
 signals:
   void click2OnCallsign(QString hiscall, QString t2);
@@ -27,17 +27,18 @@ private slots:
   void on_cbCQstar_toggled(bool checked);
 
 private:
-    Ui::Messages *ui;
-    QString m_t;
-    QString m_t2;
-    QString m_colorBackground;
-    QString m_color0;
-    QString m_color1;
-    QString m_color2;
-    QString m_color3;
+  Ui::Messages *ui;
+  QString m_settings_filename;
+  QString m_t;
+  QString m_t2;
+  QString m_colorBackground;
+  QString m_color0;
+  QString m_color1;
+  QString m_color2;
+  QString m_color3;
 
-    bool m_cqOnly;
-    bool m_cqStarOnly;
+  bool m_cqOnly;
+  bool m_cqStarOnly;
 };
 
-#endif // MESSAGES_H
+#endif

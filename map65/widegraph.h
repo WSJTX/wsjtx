@@ -1,6 +1,6 @@
 #ifndef WIDEGRAPH_H
 #define WIDEGRAPH_H
-#include <QtWidgets>
+
 #include <QDialog>
 
 namespace Ui {
@@ -12,16 +12,8 @@ class WideGraph : public QDialog
   Q_OBJECT
 
 public:
-  explicit WideGraph(QWidget *parent = 0);
+  explicit WideGraph (QString const& settings_filename, QWidget * parent = nullptr);
   ~WideGraph();
-
-  bool   m_bForceCenterFreq;
-  bool   m_bLockTxRx;
-  qint32 m_mult570;
-  qint32 m_mult570Tx;
-  double m_dForceCenterFreq;
-  double m_cal570;
-  double m_TxOffset;
 
   void   dataSink2(float s[], int nkhz, int ihsym, int ndiskdata,
                    uchar lstrong[]);
@@ -74,14 +66,25 @@ private slots:
   void on_cbLockTxRx_stateChanged(int arg1);
 
 private:
+  Ui::WideGraph * ui;
+  QString m_settings_filename;
+public:
+  bool   m_bForceCenterFreq;
+private:
+  bool   m_bLockTxRx;
+public:
+  qint32 m_mult570;
+  qint32 m_mult570Tx;
+  double m_dForceCenterFreq;
+  double m_cal570;
+  double m_TxOffset;
+private:
   bool   m_bIQxt;
   qint32 m_waterfallAvg;
   qint32 m_fCal;
   qint32 m_fSample;
   qint32 m_mode65;
   qint32 m_TRperiod=60;
-
-  Ui::WideGraph *ui;
 };
 
 extern int set570(double freq_MHz);

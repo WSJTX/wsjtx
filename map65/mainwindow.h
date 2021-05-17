@@ -2,6 +2,7 @@
 #define MAINWINDOW_H
 #include <QtGui>
 #include <QtWidgets>
+#include <QPointer>
 #include <QLabel>
 #include <QTimer>
 #include <QDateTime>
@@ -20,8 +21,13 @@
 
 //--------------------------------------------------------------- MainWindow
 namespace Ui {
-    class MainWindow;
+  class MainWindow;
 }
+
+class Astro;
+class BandMap;
+class Messages;
+class WideGraph;
 
 class MainWindow : public QMainWindow
 {
@@ -139,147 +145,149 @@ private slots:
   void on_pbTxMode_clicked();
 
 private:
-    Ui::MainWindow *ui;
-    qint64  m_msErase;
-    qint32  m_nDevIn;
-    qint32  m_nDevOut;
-    qint32  m_idInt;
-    qint32  m_waterfallAvg;
-    qint32  m_DF;
-    qint32  m_tol;
-    qint32  m_QSOfreq0;
-    qint32  m_ntx;
-    qint32  m_pttPort;
-    qint32  m_astroFont;
-    qint32  m_timeout;
-    qint32  m_dPhi;
-    qint32  m_fCal;
-    qint32  m_txFreq;
-    qint32  m_setftx;
-    qint32  m_ndepth;
-    qint32  m_sec0;
-    qint32  m_map65RxLog;
-    qint32  m_nutc0;
-    qint32  m_mode65;
-    qint32  m_nrx;
-    qint32  m_hsym0;
-    qint32  m_paInDevice;
-    qint32  m_paOutDevice;
-    qint32  m_udpPort;
-    qint32  m_NBslider;
-    qint32  m_adjustIQ;
-    qint32  m_applyIQcal;
-    qint32  m_mult570;
-    qint32  m_mult570Tx;
-    qint32  m_nsum;
-    qint32  m_nsave;
-    qint32  m_TRperiod;
-    qint32  m_modeJT65;
-    qint32  m_modeQ65;
+  Ui::MainWindow *ui;
+  QString m_appDir;
+  QString m_settings_filename;
+  QPointer<Astro> m_astro_window;
+  QPointer<BandMap> m_band_map_window;
+  QPointer<Messages> m_messages_window;
+  QPointer<WideGraph> m_wide_graph_window;
+  qint64  m_msErase;
+  qint32  m_nDevIn;
+  qint32  m_nDevOut;
+  qint32  m_idInt;
+  qint32  m_waterfallAvg;
+  qint32  m_DF;
+  qint32  m_tol;
+  qint32  m_QSOfreq0;
+  qint32  m_ntx;
+  qint32  m_pttPort;
+  qint32  m_astroFont;
+  qint32  m_timeout;
+  qint32  m_dPhi;
+  qint32  m_fCal;
+  qint32  m_txFreq;
+  qint32  m_setftx;
+  qint32  m_ndepth;
+  qint32  m_sec0;
+  qint32  m_map65RxLog;
+  qint32  m_nutc0;
+  qint32  m_mode65;
+  qint32  m_nrx;
+  qint32  m_hsym0;
+  qint32  m_paInDevice;
+  qint32  m_paOutDevice;
+  qint32  m_udpPort;
+  qint32  m_NBslider;
+  qint32  m_adjustIQ;
+  qint32  m_applyIQcal;
+  qint32  m_mult570;
+  qint32  m_mult570Tx;
+  qint32  m_nsum;
+  qint32  m_nsave;
+  qint32  m_TRperiod;
+  qint32  m_modeJT65;
+  qint32  m_modeQ65;
 
-    double  m_fAdd;
-//    double  m_IQamp;
-//    double  m_IQphase;
-    double  m_cal570;
-    double  m_TxOffset;
+  double  m_fAdd;
+  //    double  m_IQamp;
+  //    double  m_IQphase;
+  double  m_cal570;
+  double  m_TxOffset;
 
-    bool    m_monitoring;
-    bool    m_transmitting;
-    bool    m_diskData;
-    bool    m_loopall;
-    bool    m_decoderBusy;
-    bool    m_txFirst;
-    bool    m_auto;
-    bool    m_txMute;
-    bool    m_restart;
-    bool    m_killAll;
-    bool    m_xpol;
-    bool    m_xpolx;
-    bool    m_call3Modified;
-    bool    m_startAnother;
-    bool    m_saveAll;
-    bool    m_onlyEME;
-    bool    m_widebandDecode;
-    bool    m_kb8rq;
-    bool    m_NB;
-    bool    m_fs96000;
-    bool    m_IQswap;
-    bool    m_10db;
-    bool    m_initIQplus;
-    bool    m_bIQxt;
+  bool    m_monitoring;
+  bool    m_transmitting;
+  bool    m_diskData;
+  bool    m_loopall;
+  bool    m_decoderBusy;
+  bool    m_txFirst;
+  bool    m_auto;
+  bool    m_txMute;
+  bool    m_restart;
+  bool    m_killAll;
+  bool    m_xpol;
+  bool    m_xpolx;
+  bool    m_call3Modified;
+  bool    m_startAnother;
+  bool    m_saveAll;
+  bool    m_onlyEME;
+  bool    m_widebandDecode;
+  bool    m_kb8rq;
+  bool    m_NB;
+  bool    m_fs96000;
+  bool    m_IQswap;
+  bool    m_10db;
+  bool    m_initIQplus;
+  bool    m_bIQxt;
 
-    float   m_gainx;
-    float   m_gainy;
-    float   m_phasex;
-    float   m_phasey;
-    float   m_pctZap;
+  float   m_gainx;
+  float   m_gainy;
+  float   m_phasex;
+  float   m_phasey;
+  float   m_pctZap;
 
-    QRect   m_astroGeom;
-    QRect   m_wideGraphGeom;
-    QRect   m_messagesGeom;
-    QRect   m_bandMapGeom;
+  QRect   m_wideGraphGeom;
 
-    QLabel* lab1;                            // labels in status bar
-    QLabel* lab2;
-    QLabel* lab3;
-    QLabel* lab4;
-    QLabel* lab5;
-    QLabel* lab6;
-    QLabel* lab7;
+  QLabel* lab1;                            // labels in status bar
+  QLabel* lab2;
+  QLabel* lab3;
+  QLabel* lab4;
+  QLabel* lab5;
+  QLabel* lab6;
+  QLabel* lab7;
 
-    QMessageBox msgBox0;
+  QMessageBox msgBox0;
 
-    QFuture<void>* future1;
-    QFuture<void>* future2;
-    QFutureWatcher<void>* watcher1;
-    QFutureWatcher<void>* watcher2;
+  QFuture<void>* future1;
+  QFuture<void>* future2;
+  QFutureWatcher<void>* watcher1;
+  QFutureWatcher<void>* watcher2;
 
-    QProcess proc_m65;
-    QProcess proc_qthid;
-    QProcess proc_editor;
-
-
-    QString m_path;
-    QString m_pbdecoding_style1;
-    QString m_pbmonitor_style;
-    QString m_pbAutoOn_style;
-    QString m_messagesText;
-    QString m_bandmapText;
-    QString m_myCall;
-    QString m_myGrid;
-    QString m_hisCall;
-    QString m_hisGrid;
-    QString m_appDir;
-    QString m_saveDir;
-    QString m_azelDir;
-    QString m_dxccPfx;
-    QString m_palette;
-    QString m_dateTime;
-    QString m_mode;
-    QString m_colors;
-    QString m_editorCommand;
-    QString m_modeTx;
-
-    QHash<QString,bool> m_worked;
-
-    SignalMeter *xSignalMeter;
-    SignalMeter *ySignalMeter;
+  QProcess proc_m65;
+  QProcess proc_qthid;
+  QProcess proc_editor;
 
 
-    SoundInThread soundInThread;             //Instantiate the audio threads
-    SoundOutThread soundOutThread;
+  QString m_path;
+  QString m_pbdecoding_style1;
+  QString m_pbmonitor_style;
+  QString m_pbAutoOn_style;
+  QString m_messagesText;
+  QString m_bandmapText;
+  QString m_myCall;
+  QString m_myGrid;
+  QString m_hisCall;
+  QString m_hisGrid;
+  QString m_saveDir;
+  QString m_azelDir;
+  QString m_dxccPfx;
+  QString m_palette;
+  QString m_dateTime;
+  QString m_mode;
+  QString m_colors;
+  QString m_editorCommand;
+  QString m_modeTx;
 
-//---------------------------------------------------- private functions
-    void readSettings();
-    void writeSettings();
-    void createStatusBar();
-    void updateStatusBar();
-    void msgBox(QString t);
-    void genStdMsgs(QString rpt);
-    void lookup();
-    void ba2msg(QByteArray ba, char* message);
-    void msgtype(QString t, QLineEdit* tx);
-    void stub();
+  QHash<QString,bool> m_worked;
+
+  SignalMeter *xSignalMeter;
+  SignalMeter *ySignalMeter;
+
+
+  SoundInThread soundInThread;             //Instantiate the audio threads
+  SoundOutThread soundOutThread;
+
+  //---------------------------------------------------- private functions
+  void readSettings();
+  void writeSettings();
+  void createStatusBar();
+  void updateStatusBar();
+  void msgBox(QString t);
+  void genStdMsgs(QString rpt);
+  void lookup();
+  void ba2msg(QByteArray ba, char* message);
+  void msgtype(QString t, QLineEdit* tx);
+  void stub();
   bool subProcessFailed (QProcess *, int exit_code, QProcess::ExitStatus);
 };
 

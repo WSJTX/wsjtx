@@ -2,7 +2,9 @@
 #include "mainwindow.h"
 #include <fftw3.h>
 #include <QDir>
+#include <QSettings>
 #include "revision_utils.hpp"
+#include "SettingsGroup.hpp"
 #include "widgets/MessageBox.hpp"
 #include "ui_mainwindow.h"
 #include "devsetup.h"
@@ -29,10 +31,6 @@ int iqAmp;
 int iqPhase;
 qint16 id[4*60*96000];
 
-Astro*     g_pAstro = NULL;
-WideGraph* g_pWideGraph = NULL;
-Messages*  g_pMessages = NULL;
-BandMap*   g_pBandMap = NULL;
 TxTune*    g_pTxTune = NULL;
 QSharedMemory mem_m65("mem_m65");
 
@@ -42,10 +40,15 @@ extern const int TxDataFrequency = 11025;
 //-------------------------------------------------- MainWindow constructor
 MainWindow::MainWindow(QWidget *parent) :
   QMainWindow(parent),
-  ui(new Ui::MainWindow)
+  ui(new Ui::MainWindow),
+  m_appDir {QApplication::applicationDirPath ()},
+  m_settings_filename {m_appDir + "/map65.ini"},
+  m_astro_window {new Astro {m_settings_filename}},
+  m_band_map_window {new BandMap {m_settings_filename}},
+  m_messages_window {new Messages {m_settings_filename}},
+  m_wide_graph_window {new WideGraph {m_settings_filename}}
 {
   ui->setupUi(this);
-
   on_EraseButton_clicked();
   ui->labUTC->setStyleSheet( \
         "QLabel { background-color : black; color : yellow; }");
@@ -133,7 +136,6 @@ MainWindow::MainWindow(QWidget *parent) :
   m_ntx=1;
   m_myCall="K1JT";
   m_myGrid="FN20qi";
-  m_appDir = QApplication::applicationDirPath();
   m_saveDir="/users/joe/map65/install/save";
   m_azelDir="/users/joe/map65/install/";
   m_editorCommand="notepad";
@@ -224,9 +226,9 @@ MainWindow::MainWindow(QWidget *parent) :
   on_actionWide_Waterfall_triggered();
   on_actionMessages_triggered();
   on_actionBand_Map_triggered();
-  g_pMessages->setColors(m_colors);
-  g_pBandMap->setColors(m_colors);
-  g_pAstro->setFontSize(m_astroFont);
+  if (m_messages_window) m_messages_window->setColors(m_colors);
+  m_band_map_window->setColors(m_colors);
+  if (m_astro_window) m_astro_window->setFontSize (m_astroFont);
 
   if(m_modeQ65==0) on_actionNoQ65_triggered();
   if(m_modeQ65==1) on_actionQ65A_triggered();
@@ -266,15 +268,15 @@ MainWindow::MainWindow(QWidget *parent) :
   soundInThread.setMonitoring(m_monitoring);
   m_diskData=false;
   m_tol=500;
-  g_pWideGraph->setTol(m_tol);
-  g_pWideGraph->setFcal(m_fCal);
-  if(m_fs96000) g_pWideGraph->setFsample(96000);
-  if(!m_fs96000) g_pWideGraph->setFsample(95238);
-  g_pWideGraph->m_mult570=m_mult570;
-  g_pWideGraph->m_mult570Tx=m_mult570Tx;
-  g_pWideGraph->m_cal570=m_cal570;
-  g_pWideGraph->m_TxOffset=m_TxOffset;
-  if(m_initIQplus) g_pWideGraph->initIQplus();
+  m_wide_graph_window->setTol(m_tol);
+  m_wide_graph_window->setFcal(m_fCal);
+  if(m_fs96000) m_wide_graph_window->setFsample(96000);
+  if(!m_fs96000) m_wide_graph_window->setFsample(95238);
+  m_wide_graph_window->m_mult570=m_mult570;
+  m_wide_graph_window->m_mult570Tx=m_mult570Tx;
+  m_wide_graph_window->m_cal570=m_cal570;
+  m_wide_graph_window->m_TxOffset=m_TxOffset;
+  if(m_initIQplus) m_wide_graph_window->initIQplus();
 
 // Create "m_worked", a dictionary of all calls in wsjt.log
   QFile f("wsjt.log");
@@ -296,6 +298,10 @@ MainWindow::MainWindow(QWidget *parent) :
   if(ui->actionCuteSDR->isChecked()) on_actionCuteSDR_triggered();
   if(ui->actionAFMHot->isChecked()) on_actionAFMHot_triggered();
   if(ui->actionBlue->isChecked()) on_actionBlue_triggered();
+
+  connect (m_messages_window, &Messages::click2OnCallsign, this, &MainWindow::doubleClickOnMessages);
+  connect (m_wide_graph_window, &WideGraph::freezeDecode2, this, &MainWindow::freezeDecode);
+  connect (m_wide_graph_window, &WideGraph::f11f12, this, &MainWindow::bumpDF);
 
   // only start the guiUpdate timer after this constructor has finished
   QTimer::singleShot (0, [=] {
@@ -327,36 +333,17 @@ MainWindow::~MainWindow()
 //-------------------------------------------------------- writeSettings()
 void MainWindow::writeSettings()
 {
-  QString inifile = m_appDir + "/map65.ini";
-  QSettings settings(inifile, QSettings::IniFormat);
-
-  settings.beginGroup("MainWindow");
-  settings.setValue("geometry", saveGeometry());
-  settings.setValue("MRUdir", m_path);
-  settings.setValue("TxFirst",m_txFirst);
-  settings.setValue("DXcall",ui->dxCallEntry->text());
-  settings.setValue("DXgrid",ui->dxGridEntry->text());
-
-  if(g_pAstro->isVisible()) {
-    m_astroGeom = g_pAstro->geometry();
-    settings.setValue("AstroGeom",m_astroGeom);
+  QSettings settings(m_settings_filename, QSettings::IniFormat);
+  {
+    SettingsGroup g {&settings, "MainWindow"};
+    settings.setValue("geometry", saveGeometry());
+    settings.setValue("MRUdir", m_path);
+    settings.setValue("TxFirst",m_txFirst);
+    settings.setValue("DXcall",ui->dxCallEntry->text());
+    settings.setValue("DXgrid",ui->dxGridEntry->text());
   }
 
-  if(g_pWideGraph->isVisible()) {
-    m_wideGraphGeom = g_pWideGraph->geometry();
-    settings.setValue("WideGraphGeom",m_wideGraphGeom);
-  }
-  if(g_pMessages->isVisible()) {
-    m_messagesGeom = g_pMessages->geometry();
-    settings.setValue("MessagesGeom",m_messagesGeom);
-  }
-  if(g_pBandMap->isVisible()) {
-    m_bandMapGeom = g_pBandMap->geometry();
-    settings.setValue("BandMapGeom",m_bandMapGeom);
-  }
-  settings.endGroup();
-
-  settings.beginGroup("Common");
+  SettingsGroup g {&settings, "Common"};
   settings.setValue("MyCall",m_myCall);
   settings.setValue("MyGrid",m_myGrid);
   settings.setValue("IDint",m_idInt);
@@ -411,33 +398,23 @@ void MainWindow::writeSettings()
   settings.setValue("Cal570",m_cal570);
   settings.setValue("TxOffset",m_TxOffset);
   settings.setValue("Colors",m_colors);
-  settings.endGroup();
 }
 
 //---------------------------------------------------------- readSettings()
 void MainWindow::readSettings()
 {
-  QString inifile = m_appDir + "/map65.ini";
-  QSettings settings(inifile, QSettings::IniFormat);
-  settings.beginGroup("MainWindow");
-  restoreGeometry(settings.value("geometry").toByteArray());
-  ui->dxCallEntry->setText(settings.value("DXcall","").toString());
-  ui->dxGridEntry->setText(settings.value("DXgrid","").toString());
+  QSettings settings(m_settings_filename, QSettings::IniFormat);
+  {
+    SettingsGroup g {&settings, "MainWindow"};
+    restoreGeometry(settings.value("geometry").toByteArray());
+    ui->dxCallEntry->setText(settings.value("DXcall","").toString());
+    ui->dxGridEntry->setText(settings.value("DXgrid","").toString());
+    m_path = settings.value("MRUdir", m_appDir + "/save").toString();
+    m_txFirst = settings.value("TxFirst",false).toBool();
+    ui->txFirstCheckBox->setChecked(m_txFirst);
+  }
 
-  m_astroGeom = settings.value("AstroGeom", QRect(71,390,227,403)).toRect();
-
-  m_wideGraphGeom = settings.value("WideGraphGeom", \
-                                   QRect(45,30,1023,340)).toRect();
-  m_messagesGeom = settings.value("MessagesGeom", \
-                                  QRect(800,400,381,400)).toRect();
-  m_bandMapGeom = settings.value("BandMapGeom", \
-                                  QRect(280,400,142,400)).toRect();
-  m_path = settings.value("MRUdir", m_appDir + "/save").toString();
-  m_txFirst = settings.value("TxFirst",false).toBool();
-  ui->txFirstCheckBox->setChecked(m_txFirst);
-  settings.endGroup();
-
-  settings.beginGroup("Common");
+  SettingsGroup g {&settings, "Common"};
   m_myCall=settings.value("MyCall","").toString();
   m_myGrid=settings.value("MyGrid","").toString();
   m_idInt=settings.value("IDint",0).toInt();
@@ -517,7 +494,6 @@ void MainWindow::readSettings()
   m_cal570=settings.value("Cal570",0.0).toDouble();
   m_TxOffset=settings.value("TxOffset",130.9).toDouble();
   m_colors=settings.value("Colors","000066ff0000ffff00969696646464").toString();
-  settings.endGroup();
 
   if(!ui->actionLinrad->isChecked() && !ui->actionCuteSDR->isChecked() &&
     !ui->actionAFMHot->isChecked() && !ui->actionBlue->isChecked()) {
@@ -565,7 +541,7 @@ void MainWindow::dataSink(int k)
   if(!m_fs96000) nfsample=95238;
   nxpol=0;
   if(m_xpol) nxpol=1;
-  fgreen=(float)g_pWideGraph->fGreen();
+  fgreen=m_wide_graph_window->fGreen();
   nadj++;
   if(m_adjustIQ==0) nadj=0;
   symspec_(&k, &nxpol, &ndiskdat, &nb, &m_NBslider, &m_dPhi,
@@ -591,7 +567,7 @@ void MainWindow::dataSink(int k)
   xSignalMeter->setValue(px);                   // Update the signal meters
   ySignalMeter->setValue(py);
   if(m_monitoring || m_diskData) {
-    g_pWideGraph->dataSink2(s,nkhz,ihsym,m_diskData,lstrong);
+    m_wide_graph_window->dataSink2(s,nkhz,ihsym,m_diskData,lstrong);
   }
 
   if(nadj == 10) {
@@ -705,7 +681,7 @@ void MainWindow::on_actionDeviceSetup_triggered()               //Setup Dialog
     m_idInt=dlg.m_idInt;
     m_pttPort=dlg.m_pttPort;
     m_astroFont=dlg.m_astroFont;
-    if(g_pAstro->isVisible()) g_pAstro->setFontSize(m_astroFont);
+    if(m_astro_window && m_astro_window->isVisible()) m_astro_window->setFontSize(m_astroFont);
     m_xpol=dlg.m_xpol;
     ui->actionFind_Delta_Phi->setEnabled(m_xpol);
     m_xpolx=dlg.m_xpolx;
@@ -717,7 +693,7 @@ void MainWindow::on_actionDeviceSetup_triggered()               //Setup Dialog
     m_dPhi=dlg.m_dPhi;
     m_fCal=dlg.m_fCal;
     m_fAdd=dlg.m_fAdd;
-    g_pWideGraph->setFcal(m_fCal);
+    m_wide_graph_window->setFcal(m_fCal);
     m_fs96000=dlg.m_fs96000;
     m_network=dlg.m_network;
     m_nDevIn=dlg.m_nDevIn;
@@ -730,14 +706,14 @@ void MainWindow::on_actionDeviceSetup_triggered()               //Setup Dialog
     m_initIQplus=dlg.m_initIQplus;
     m_bIQxt=dlg.m_bIQxt;
     m_colors=dlg.m_colors;
-    g_pMessages->setColors(m_colors);
-    g_pBandMap->setColors(m_colors);
+    m_messages_window->setColors(m_colors);
+    m_band_map_window->setColors(m_colors);
     m_cal570=dlg.m_cal570;
     m_TxOffset=dlg.m_TxOffset;
     m_mult570Tx=dlg.m_mult570Tx;
-    g_pWideGraph->m_mult570=m_mult570;
-    g_pWideGraph->m_mult570Tx=m_mult570Tx;
-    g_pWideGraph->m_cal570=m_cal570;
+    m_wide_graph_window->m_mult570=m_mult570;
+    m_wide_graph_window->m_mult570Tx=m_mult570Tx;
+    m_wide_graph_window->m_cal570=m_cal570;
     soundInThread.setSwapIQ(m_IQswap);
     soundInThread.set10db(m_10db);
 
@@ -771,22 +747,22 @@ void MainWindow::on_monitorButton_clicked()                  //Monitor
 }
 void MainWindow::on_actionLinrad_triggered()                 //Linrad palette
 {
-  if(g_pWideGraph != NULL) g_pWideGraph->setPalette("Linrad");
+  if(m_wide_graph_window) m_wide_graph_window->setPalette("Linrad");
 }
 
 void MainWindow::on_actionCuteSDR_triggered()                //CuteSDR palette
 {
-  if(g_pWideGraph != NULL) g_pWideGraph->setPalette("CuteSDR");
+  if(m_wide_graph_window) m_wide_graph_window->setPalette("CuteSDR");
 }
 
 void MainWindow::on_actionAFMHot_triggered()
 {
-  if(g_pWideGraph != NULL) g_pWideGraph->setPalette("AFMHot");
+  if(m_wide_graph_window) m_wide_graph_window->setPalette("AFMHot");
 }
 
 void MainWindow::on_actionBlue_triggered()
 {
-  if(g_pWideGraph != NULL) g_pWideGraph->setPalette("Blue");
+  if(m_wide_graph_window) m_wide_graph_window->setPalette("Blue");
 }
 
 void MainWindow::on_actionAbout_triggered()                  //Display "About"
@@ -838,19 +814,19 @@ void MainWindow::keyPressEvent( QKeyEvent *e )                //keyPressEvent
   case Qt::Key_F11:
     if(e->modifiers() & Qt::ShiftModifier) {
     } else {
-      int n0=g_pWideGraph->DF();
+      int n0=m_wide_graph_window->DF();
       int n=(n0 + 10000) % 5;
       if(n==0) n=5;
-      g_pWideGraph->setDF(n0-n);
+      m_wide_graph_window->setDF(n0-n);
     }
     break;
   case Qt::Key_F12:
     if(e->modifiers() & Qt::ShiftModifier) {
     } else {
-      int n0=g_pWideGraph->DF();
+      int n0=m_wide_graph_window->DF();
       int n=(n0 + 10000) % 5;
       if(n==0) n=5;
-      g_pWideGraph->setDF(n0+n);
+      m_wide_graph_window->setDF(n0+n);
     }
     break;
   case Qt::Key_G:
@@ -870,16 +846,16 @@ void MainWindow::keyPressEvent( QKeyEvent *e )                //keyPressEvent
 void MainWindow::bumpDF(int n)                                  //bumpDF()
 {
   if(n==11) {
-    int n0=g_pWideGraph->DF();
+    int n0=m_wide_graph_window->DF();
     int n=(n0 + 10000) % 5;
     if(n==0) n=5;
-    g_pWideGraph->setDF(n0-n);
+    m_wide_graph_window->setDF(n0-n);
   }
   if(n==12) {
-    int n0=g_pWideGraph->DF();
+    int n0=m_wide_graph_window->DF();
     int n=(n0 + 10000) % 5;
     if(n==0) n=5;
-    g_pWideGraph->setDF(n0+n);
+    m_wide_graph_window->setDF(n0+n);
   }
 }
 
@@ -944,7 +920,7 @@ void MainWindow::on_tolSpinBox_valueChanged(int i)             //tolSpinBox
 {
   static int ntol[] = {10,20,50,100,200,500,1000};
   m_tol=ntol[i];
-  g_pWideGraph->setTol(m_tol);
+  m_wide_graph_window->setTol(m_tol);
   ui->labTol1->setText(QString::number(ntol[i]));
 }
 
@@ -960,9 +936,11 @@ void MainWindow::closeEvent(QCloseEvent*)
 
 void MainWindow::OnExit()
 {
-  g_pWideGraph->saveSettings();
+  m_wide_graph_window->saveSettings();
   m_killAll=true;
   mem_m65.detach();
+  proc_m65.closeReadChannel (QProcess::StandardOutput);
+  proc_m65.closeReadChannel (QProcess::StandardError);
   QFile quitFile(m_appDir + "/.quit");
   quitFile.open(QIODevice::ReadWrite);
   QFile lockFile(m_appDir + "/.lock");
@@ -1010,60 +988,22 @@ void MainWindow::on_actionQSG_MAP65_v3_triggered()
 
 void MainWindow::on_actionAstro_Data_triggered()             //Display Astro
 {
-  if(g_pAstro==NULL) {
-    g_pAstro = new Astro(0);
-    g_pAstro->setWindowTitle("Astronomical Data");
-    Qt::WindowFlags flags = Qt::Dialog | Qt::WindowCloseButtonHint |
-        Qt::WindowMinimizeButtonHint;
-    g_pAstro->setWindowFlags(flags);
-    g_pAstro->setGeometry(m_astroGeom);
-  }
-  g_pAstro->show();
+  if (m_astro_window ) m_astro_window->show();
 }
 
 void MainWindow::on_actionWide_Waterfall_triggered()      //Display Waterfalls
 {
-  if(g_pWideGraph==NULL) {
-    g_pWideGraph = new WideGraph(0);
-    g_pWideGraph->setWindowTitle("Wide Graph");
-    g_pWideGraph->setGeometry(m_wideGraphGeom);
-    Qt::WindowFlags flags = Qt::WindowCloseButtonHint |
-        Qt::WindowMinimizeButtonHint;
-    g_pWideGraph->setWindowFlags(flags);
-    connect(g_pWideGraph, SIGNAL(freezeDecode2(int)),this,
-            SLOT(freezeDecode(int)));
-    connect(g_pWideGraph, SIGNAL(f11f12(int)),this,
-            SLOT(bumpDF(int)));
-  }
-  g_pWideGraph->show();
+  m_wide_graph_window->show();
 }
 
 void MainWindow::on_actionBand_Map_triggered()              //Display BandMap
 {
-  if(g_pBandMap==NULL) {
-    g_pBandMap = new BandMap(0);
-    g_pBandMap->setWindowTitle("Band Map");
-    Qt::WindowFlags flags = Qt::Dialog | Qt::WindowCloseButtonHint |
-        Qt::WindowMinimizeButtonHint;
-    g_pBandMap->setWindowFlags(flags);
-    g_pBandMap->setGeometry(m_bandMapGeom);
-  }
-  g_pBandMap->show();
+  m_band_map_window->show ();
 }
 
 void MainWindow::on_actionMessages_triggered()              //Display Messages
 {
-  if(g_pMessages==NULL) {
-    g_pMessages = new Messages(0);
-    g_pMessages->setWindowTitle("Messages");
-    Qt::WindowFlags flags = Qt::Dialog | Qt::WindowCloseButtonHint |
-        Qt::WindowMinimizeButtonHint;
-    g_pMessages->setWindowFlags(flags);
-    g_pMessages->setGeometry(m_messagesGeom);
-    connect(g_pMessages, SIGNAL(click2OnCallsign(QString, QString)),this,
-            SLOT(doubleClickOnMessages(QString, QString)));
-  }
-  g_pMessages->show();
+  m_messages_window->show();
 }
 
 void MainWindow::on_actionOpen_triggered()                     //Open File
@@ -1181,8 +1121,8 @@ void MainWindow::on_actionDelete_all_tf2_files_in_SaveDir_triggered()
                                           //Clear BandMap and Messages windows
 void MainWindow::on_actionErase_Band_Map_and_Messages_triggered()
 {
-  g_pBandMap->setText("");
-  g_pMessages->setText("","");
+  m_band_map_window->setText("");
+  m_messages_window->setText("","");
   m_map65RxLog |= 4;
 }
 
@@ -1289,18 +1229,18 @@ void MainWindow::decode()                                       //decode()
   }
 
   datcom_.idphi=m_dPhi;
-  datcom_.mousedf=g_pWideGraph->DF();
-  datcom_.mousefqso=g_pWideGraph->QSOfreq();
+  datcom_.mousedf=m_wide_graph_window->DF();
+  datcom_.mousefqso=m_wide_graph_window->QSOfreq();
   datcom_.ndepth=m_ndepth;
   datcom_.ndiskdat=0;
   if(m_diskData) datcom_.ndiskdat=1;
   datcom_.neme=0;
   if(ui->actionOnly_EME_calls->isChecked()) datcom_.neme=1;
 
-  int ispan=int(g_pWideGraph->fSpan());
+  int ispan=int(m_wide_graph_window->fSpan());
   if(ispan%2 == 1) ispan++;
   int ifc=int(1000.0*(datcom_.fcenter - int(datcom_.fcenter))+0.5);
-  int nfa=g_pWideGraph->nStartFreq();
+  int nfa=m_wide_graph_window->nStartFreq();
   int nfb=nfa+ispan;
   int nfshift=nfa + ispan/2 - ifc;
 
@@ -1404,12 +1344,12 @@ void MainWindow::readFromStdout()                             //readFromStdout
       m_nsum=t.mid(17,4).toInt();
       m_nsave=t.mid(21,4).toInt();
       lab7->setText (QString {"Avg: %1"}.arg (m_nsum));
-      if(m_modeQ65>0) g_pWideGraph->setDecodeFinished();
+      if(m_modeQ65>0) m_wide_graph_window->setDecodeFinished();
     }
     if(t.indexOf("<DecodeFinished>") >= 0) {
       if(m_widebandDecode) {
-        g_pMessages->setText(m_messagesText,m_bandmapText);
-        g_pBandMap->setText(m_bandmapText);
+        m_messages_window->setText(m_messagesText,m_bandmapText);
+        m_band_map_window->setText(m_bandmapText);
         m_widebandDecode=false;
       }
       QFile lockFile(m_appDir + "/.lock");
@@ -1527,7 +1467,7 @@ void MainWindow::guiUpdate()
         msgBox(s);
       }
 
-      if(m_bIQxt) g_pWideGraph->tx570();     // Set Si570 to Tx Freq
+      if(m_bIQxt) m_wide_graph_window->tx570();     // Set Si570 to Tx Freq
 
       if(!soundOutThread.isRunning()) {
         soundOutThread.start(QThread::HighPriority);
@@ -1593,7 +1533,7 @@ void MainWindow::guiUpdate()
     soundInThread.setMonitoring(false);
     btxok=true;
     m_transmitting=true;
-    g_pWideGraph->enableSetRxHardware(false);
+    m_wide_graph_window->enableSetRxHardware(false);
 
     QFile f("map65_tx.log");
     f.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Append);
@@ -1614,14 +1554,14 @@ void MainWindow::guiUpdate()
   btxok0=btxok;
   if(nc0 <= 0) nc0++;
   if(nc0 == 0) {
-    if(m_bIQxt) g_pWideGraph->rx570();     // Set Si570 back to Rx Freq
+    if(m_bIQxt) m_wide_graph_window->rx570();     // Set Si570 back to Rx Freq
     int itx=0;
     ptt_(&m_pttPort,&itx,&iptt);       // Lower PTT
     if(!m_txMute) {
       soundOutThread.quitExecution=true;\
     }
     m_transmitting=false;
-    g_pWideGraph->enableSetRxHardware(true);
+    m_wide_graph_window->enableSetRxHardware(true);
     if(m_auto) {
       m_monitoring=true;
       soundInThread.setMonitoring(m_monitoring);
@@ -1639,10 +1579,10 @@ void MainWindow::guiUpdate()
     ui->monitorButton->setStyleSheet("");
   }
 
-  lab2->setText("QSO Freq:  " + QString::number(g_pWideGraph->QSOfreq()));
-  lab3->setText("QSO DF:  " + QString::number(g_pWideGraph->DF()));
+  lab2->setText("QSO Freq:  " + QString::number(m_wide_graph_window->QSOfreq()));
+  lab3->setText("QSO DF:  " + QString::number(m_wide_graph_window->DF()));
 
-  g_pWideGraph->updateFreqLabel();
+  m_wide_graph_window->updateFreqLabel();
 
   if(m_startAnother) {
     m_startAnother=false;
@@ -1653,8 +1593,8 @@ void MainWindow::guiUpdate()
 
   if(nsec != m_sec0) {                                     //Once per second
 //    qDebug() << "A" << nsec%60 << m_mode65 << m_modeQ65 << m_modeTx;
-    soundInThread.setForceCenterFreqMHz(g_pWideGraph->m_dForceCenterFreq);
-    soundInThread.setForceCenterFreqBool(g_pWideGraph->m_bForceCenterFreq);
+    soundInThread.setForceCenterFreqMHz(m_wide_graph_window->m_dForceCenterFreq);
+    soundInThread.setForceCenterFreqBool(m_wide_graph_window->m_bForceCenterFreq);
 
     if(m_pctZap>30.0 and !m_transmitting) {
       lab4->setStyleSheet("QLabel{background-color: #ff0000}");
@@ -1700,8 +1640,8 @@ void MainWindow::guiUpdate()
     }
 
     QDateTime t = QDateTime::currentDateTimeUtc();
-    int fQSO=g_pWideGraph->QSOfreq();
-    g_pAstro->astroUpdate(t, m_myGrid, m_hisGrid, fQSO, m_setftx,
+    int fQSO=m_wide_graph_window->QSOfreq();
+    m_astro_window->astroUpdate(t, m_myGrid, m_hisGrid, fQSO, m_setftx,
                           m_txFreq, m_azelDir);
     m_setftx=0;
     QString utc = t.date().toString(" yyyy MMM dd \n") + t.time().toString();
@@ -2087,7 +2027,7 @@ void MainWindow::on_tx6_editingFinished()                       //tx6 edited
 void MainWindow::on_setTxFreqButton_clicked()                  //Set Tx Freq
 {
   m_setftx=1;
-  m_txFreq=g_pWideGraph->QSOfreq();
+  m_txFreq=m_wide_graph_window->QSOfreq();
 }
 
 void MainWindow::on_dxCallEntry_textChanged(const QString &t) //dxCall changed
@@ -2164,8 +2104,8 @@ void MainWindow::on_actionNoJT65_triggered()
   m_TRperiod=60;
   soundInThread.setPeriod(m_TRperiod);
   soundOutThread.setPeriod(m_TRperiod);
-  g_pWideGraph->setMode65(m_mode65);
-  g_pWideGraph->setPeriod(m_TRperiod);
+  m_wide_graph_window->setMode65(m_mode65);
+  m_wide_graph_window->setPeriod(m_TRperiod);
   lab5->setStyleSheet("");
   lab5->setText("");
 }
@@ -2178,8 +2118,8 @@ void MainWindow::on_actionJT65A_triggered()
   m_TRperiod=60;
   soundInThread.setPeriod(m_TRperiod);
   soundOutThread.setPeriod(m_TRperiod);
-  g_pWideGraph->setMode65(m_mode65);
-  g_pWideGraph->setPeriod(m_TRperiod);
+  m_wide_graph_window->setMode65(m_mode65);
+  m_wide_graph_window->setPeriod(m_TRperiod);
   lab5->setStyleSheet("QLabel{background-color: #ff6666}");
   lab5->setText("JT65A");
   ui->actionJT65A->setChecked(true);
@@ -2194,8 +2134,8 @@ void MainWindow::on_actionJT65B_triggered()
   m_TRperiod=60;
   soundInThread.setPeriod(m_TRperiod);
   soundOutThread.setPeriod(m_TRperiod);
-  g_pWideGraph->setMode65(m_mode65);
-  g_pWideGraph->setPeriod(m_TRperiod);
+  m_wide_graph_window->setMode65(m_mode65);
+  m_wide_graph_window->setPeriod(m_TRperiod);
   lab5->setStyleSheet("QLabel{background-color: #ffff66}");
   lab5->setText("JT65B");
   ui->actionJT65B->setChecked(true);
@@ -2209,8 +2149,8 @@ void MainWindow::on_actionJT65C_triggered()
   m_TRperiod=60;
   soundInThread.setPeriod(m_TRperiod);
   soundOutThread.setPeriod(m_TRperiod);
-  g_pWideGraph->setMode65(m_mode65);
-  g_pWideGraph->setPeriod(m_TRperiod);
+  m_wide_graph_window->setMode65(m_mode65);
+  m_wide_graph_window->setPeriod(m_TRperiod);
   lab5->setStyleSheet("QLabel{background-color: #66ffb2}");
   lab5->setText("JT65C");
   ui->actionJT65C->setChecked(true);

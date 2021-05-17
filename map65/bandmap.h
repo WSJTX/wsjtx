@@ -9,10 +9,10 @@ namespace Ui {
 
 class BandMap : public QWidget
 {
-    Q_OBJECT
+  Q_OBJECT
 
 public:
-  explicit BandMap(QWidget *parent = 0);
+  explicit BandMap (QString const& settings_filename, QWidget *parent = 0);
   void setText(QString t);
   void setColors(QString t);
 
@@ -22,13 +22,14 @@ protected:
   void resizeEvent(QResizeEvent* event);
 
 private:
-    Ui::BandMap *ui;
-    QString m_bandMapText;
-    QString m_colorBackground;
-    QString m_color0;
-    QString m_color1;
-    QString m_color2;
-    QString m_color3;
+  Ui::BandMap *ui;
+  QString m_settings_filename;
+  QString m_bandMapText;
+  QString m_colorBackground;
+  QString m_color0;
+  QString m_color1;
+  QString m_color2;
+  QString m_color3;
 };
 
-#endif // BANDMAP_H
+#endif

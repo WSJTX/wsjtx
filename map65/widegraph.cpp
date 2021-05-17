@@ -1,29 +1,35 @@
 #include "widegraph.h"
+#include <QSettings>
+#include <QMessageBox>
+#include "SettingsGroup.hpp"
 #include "ui_widegraph.h"
 
 #define NFFT 32768
 
-WideGraph::WideGraph(QWidget *parent) :
-  QDialog(parent),
-  ui(new Ui::WideGraph)
+WideGraph::WideGraph (QString const& settings_filename, QWidget * parent)
+  : QDialog {parent},
+    ui {new Ui::WideGraph},
+    m_settings_filename {settings_filename}
 {
   ui->setupUi(this);
-  this->setWindowFlags(Qt::Dialog);
-  this->installEventFilter(parent); //Installing the filter
+  setWindowTitle("Wide Graph");
+  setWindowFlags(Qt::WindowCloseButtonHint | Qt::WindowMinimizeButtonHint);
+  installEventFilter(parent); //Installing the filter
   ui->widePlot->setCursor(Qt::CrossCursor);
-  this->setMaximumWidth(2048);
-  this->setMaximumHeight(880);
+  setMaximumWidth(2048);
+  setMaximumHeight(880);
   ui->widePlot->setMaximumHeight(800);
   m_bIQxt=false;
   connect(ui->widePlot, SIGNAL(freezeDecode1(int)),this,
           SLOT(wideFreezeDecode(int)));
 
   //Restore user's settings
-  QString inifile(QApplication::applicationDirPath());
-  inifile += "/map65.ini";
-  QSettings settings(inifile, QSettings::IniFormat);
-
-  settings.beginGroup("WideGraph");
+  QSettings settings {m_settings_filename, QSettings::IniFormat};
+  {
+    SettingsGroup g {&settings, "MainWindow"}; // historical reasons
+    setGeometry (settings.value ("WideGraphGeom", QRect {45,30,1023,340}).toRect ());
+  }
+  SettingsGroup g {&settings, "WideGraph"};
   ui->widePlot->setPlotZero(settings.value("PlotZero", 20).toInt());
   ui->widePlot->setPlotGain(settings.value("PlotGain", 0).toInt());
   ui->zeroSpinBox->setValue(ui->widePlot->getPlotZero());
@@ -44,7 +50,6 @@ WideGraph::WideGraph(QWidget *parent) :
   ui->fCenterLineEdit->setText(QString::number(m_dForceCenterFreq));
   m_bLockTxRx=settings.value("LockTxRx",false).toBool();
   ui->cbLockTxRx->setChecked(m_bLockTxRx);
-  settings.endGroup();
 }
 
 WideGraph::~WideGraph()
@@ -64,11 +69,12 @@ void WideGraph::resizeEvent(QResizeEvent* )                    //resizeEvent()
 void WideGraph::saveSettings()
 {
   //Save user's settings
-  QString inifile(QApplication::applicationDirPath());
-  inifile += "/map65.ini";
-  QSettings settings(inifile, QSettings::IniFormat);
-
-  settings.beginGroup("WideGraph");
+  QSettings settings {m_settings_filename, QSettings::IniFormat};
+  {
+    SettingsGroup g {&settings, "MainWindow"}; // for historical reasons
+    settings.setValue ("WideGraphGeom", geometry());
+  }
+  SettingsGroup g {&settings, "WideGraph"};
   settings.setValue("PlotZero",ui->widePlot->m_plotZero);
   settings.setValue("PlotGain",ui->widePlot->m_plotGain);
   settings.setValue("PlotWidth",ui->widePlot->plotWidth());
@@ -78,7 +84,6 @@ void WideGraph::saveSettings()
   settings.setValue("ForceCenterFreqBool",m_bForceCenterFreq);
   settings.setValue("ForceCenterFreqMHz",m_dForceCenterFreq);
   settings.setValue("LockTxRx",m_bLockTxRx);
-  settings.endGroup();
 }
 
 void WideGraph::dataSink2(float s[], int nkhz, int ihsym, int ndiskdata,
