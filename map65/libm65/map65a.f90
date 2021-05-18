@@ -215,7 +215,7 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
            if(nqd.eq.1 .and. ntol.le.100) thresh1=0.
            noffset=0
            if(nqd.ge.1) noffset=nint(1000.0*(freq-fqso)-mousedf)
-           if(first_loop .and. sync1.gt.0.0) then
+           if(first_loop .and. sync1.gt.-99.0) then
               sync1=thresh1+1.0
               noffset=0
               first_loop=.false.
@@ -357,27 +357,35 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
            endif
         enddo  ! k=1,km
 
-        if(mode_q65.ge.1) then
+        if(mode_q65.ne.0) then
            q65b_called=.false.
            do icand=1,ncand
               if(cand(icand)%iflip.ne.0) cycle        !Keep only Q65 candidates
               freq=cand(icand)%f+nkhz_center-48.0-1.27046
               nhzdiff=nint(1000.0*(freq-mousefqso)-mousedf)
               if(nqd.eq.1 .and. abs(nhzdiff).gt.ntol) cycle
-              ikhz=nint(freq)
+!              ikhz=nint(freq)
+              ikhz=mousefqso
               q65b_called=.true.
+              f0=cand(icand)%f
+!              write(*,3002) nqd,f0
+!3002          format('=A',i3,f10.3)
               call timer('q65b    ',0)
               call q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,             &
-                   mousedf,ntol,xpol,mycall,hiscall,hisgrid,mode_q65,idec)
+                   mousedf,ntol,xpol,mycall,hiscall,hisgrid,mode_q65,f0,idec)
               call timer('q65b    ',1)
               if(idec.ge.0) candec(icand)=.true.
            enddo
            if(.not.q65b_called) then
               freq=mousefqso + 0.001*mousedf
-              ikhz=nint(freq)
+!              ikhz=nint(freq)
+              ikhz=mousefqso
+              f0=freq - (nkhz_center-48.0-1.27046)   !### ??? ###
+!              write(*,3004) nqd,f0
+!3004          format('=B',i3,f10.3)
               call timer('q65b    ',0)
               call q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,             &
-                   mousedf,ntol,xpol,mycall,hiscall,hisgrid,mode_q65,idec)
+                   mousedf,ntol,xpol,mycall,hiscall,hisgrid,mode_q65,f0,idec)
               call timer('q65b    ',1)
            endif
         endif
@@ -408,11 +416,12 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
            freq=cand(icand)%f+nkhz_center-48.0-1.27046
            if(nqd.eq.1 .and. abs(freq-mousefqso).gt.0.001*ntol) cycle
            ikhz=nint(freq)
-!           write(*,3202) nqd,freq,mousefqso,mousedf,ntol
-!3202       format('=B',i3,f10.3,3i5)
+           f0=cand(icand)%f
+!              write(*,3006) nqd,f0
+!3006          format('=C',i3,f10.3)
            call timer('q65b    ',0)
            call q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,             &
-                mousedf,ntol,xpol,mycall,hiscall,hisgrid,mode_q65,idec)
+                mousedf,ntol,xpol,mycall,hiscall,hisgrid,mode_q65,f0,idec)
            call timer('q65b    ',1)
            if(idec.ge.0) candec(icand)=.true.
         enddo  ! icand

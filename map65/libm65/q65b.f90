@@ -1,5 +1,5 @@
 subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
-     mycall0,hiscall0,hisgrid,mode_q65,idec)
+     mycall0,hiscall0,hisgrid,mode_q65,f0,idec)
 
 ! This routine provides an interface between MAP65 and the Q65 decoder
 ! in WSJT-X.  All arguments are input data obtained from the MAP65 GUI.
@@ -8,7 +8,7 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
 ! orthogonal polarization.  Decoded messages are sent back to the GUI
 ! on stdout.
 
-!  use wavhdr
+  use wavhdr
   use q65_decode
   use wideband_sync
   use timer_module, only: timer
@@ -16,7 +16,7 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
   parameter (MAXFFT1=5376000)              !56*96000
   parameter (MAXFFT2=336000)               !56*6000 (downsampled by 1/16)
   parameter (NMAX=60*12000)
-!  type(hdr) h                            !Header for the .wav file
+  type(hdr) h                            !Header for the .wav file
   integer*2 iwave(60*12000)
   complex ca(MAXFFT1),cb(MAXFFT1)          !FFTs of raw x,y data
   complex cx(0:MAXFFT2-1),cy(0:MAXFFT2-1),cz(0:MAXFFT2)
@@ -42,13 +42,15 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
 
 ! Find best frequency and  ipol from sync_dat, the "orange sync curve".
   df3=96000.0/32768.0
-  ff=ikhz+0.001*(mousedf+nfcal+1270.459)       !Supposed freq of sync tone
-  ifreq=nint(1000.0*(ff-nkhz_center+48)/df3)   !Freq index into ss(4,322,32768)
+!  ff=ikhz+0.001*(mousedf+nfcal+1270.459)       !Supposed freq of sync tone
+!  ifreq=nint(1000.0*(ff-nkhz_center+48)/df3)   !Freq index into ss(4,322,32768)
+  ifreq=nint((1000.0*f0+nfcal)/df3)
   ia=nint(ifreq-ntol/df3)
   ib=nint(ifreq+ntol/df3)
   ipk1=maxloc(sync(ia:ib)%ccfmax)
   ipk=ia+ipk1(1)-1
   snr1=sync(ipk)%ccfmax
+
   ipol=1
   if(xpol) ipol=sync(ipk)%ipol
 
@@ -62,6 +64,9 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
   endif
   nh=nfft2/2
   k0=nint((ipk*df3-1000.0)/df)
+
+!  write(*,3001) nqd,f0+0.001*nfcal,0.001*ipk*df3,0.001*k0*df+1.0,mousedf,ipk,snr1
+!3001 format('=D',i3,3f10.3,2i7,f7.2)
 
   if(k0.lt.nh .or. k0.gt.nfft1-nh) go to 900
   if(snr1.lt.1.5) go to 900                      !### Threshold needs work? ###
@@ -109,9 +114,14 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
   enddo
   iwave(2*nfft2+1:)=0
 
+  open(30,file='000000_0001.wav',status='unknown',access='stream')
+  h=default_header(12000,NMAX)
+  write(30) h,iwave
+  close(30)
+
   nsubmode=mode_q65-1
   nfa=max(100,1000-ntol)
-  nfb=min(4900,1000+ntol)
+  nfb=min(2500,1000+ntol)
   newdat=1
   nagain=0
   nsnr0=-99             !Default snr for no decode
@@ -124,7 +134,7 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
   freq0=MHz + 0.001*ikhz
   if(nsnr0.gt.-99) then
      nq65df=nint(1000*(0.001*k0*df+nkhz_center-48.0+1.000-1.27046-ikhz))-nfcal
-     if(nqd.eq.1) then
+     if(nqd.eq.1 .and. abs(nfreq0-1000.0).lt.0.9*ntol) then
         write(line,1020) ikhz,nq65df,45*(ipol-1),nutc,xdt0,nsnr0,msg0(1:27),cq0
 1020    format('!',i3.3,i5,i4,i6.4,f5.1,i5,' : ',a27,a3)
         write(*,1100) trim(line)
