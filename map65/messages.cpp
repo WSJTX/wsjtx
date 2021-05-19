@@ -80,9 +80,9 @@ void Messages::selectCallsign2(bool /*ctrl*/)
   QString hiscall=t.mid(i0+1,i1-i0-1);
   if(hiscall!="") {
     if(hiscall.length() < 13) {
-      QString t1 = t.mid(0,i);              //contents up to text cursor
+      QString t1 = t.mid(0,i+14);              //contents up to text cursor
       int i1=t1.lastIndexOf("\n") + 1;
-      QString t2 = t1.mid(i1,i-i1);         //selected line
+      QString t2 = t1.mid(i1,i+14-i1);         //selected line
       emit click2OnCallsign(hiscall,t2);
     }
   }

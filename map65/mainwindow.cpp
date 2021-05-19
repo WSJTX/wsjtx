@@ -1763,9 +1763,21 @@ void MainWindow::doubleClickOnCall(QString hiscall, bool ctrl)
   ui->txFirstCheckBox->setChecked(m_txFirst);
   if((t2.indexOf("#")>0) and m_modeTx!="JT65") on_pbTxMode_clicked();
   if((t2.indexOf(":")>0) and m_modeTx!="Q65") on_pbTxMode_clicked();
+
+  QString t3=t.mid(i1);
+  int i3=t3.indexOf("\n");
+  if(i3<0) i3=t3.length();
+  t3=t3.left(i3);
+  auto const& words = t3.mid(30).split(' ', Qt::SkipEmptyParts);
+  QString grid=words[2];
+  if(isGrid4(grid) and hiscall==words[1]) {
+    ui->dxGridEntry->setText(grid);
+  } else {
+    lookup();
+  }
+
   QString rpt="";
   if(ctrl or m_modeTx=="Q65") rpt=t2.mid(25,3);
-  lookup();
   genStdMsgs(rpt);
   if(t2.indexOf(m_myCall)>0) {
     m_ntx=2;
@@ -1778,6 +1790,7 @@ void MainWindow::doubleClickOnCall(QString hiscall, bool ctrl)
                                                       //doubleClickOnMessages
 void MainWindow::doubleClickOnMessages(QString hiscall, QString t2)
 {
+  if(hiscall.length()<3) return;
   if(m_worked[hiscall]) {
     msgBox("Possible dupe: " + hiscall + " already in log.");
   }
@@ -1785,7 +1798,15 @@ void MainWindow::doubleClickOnMessages(QString hiscall, QString t2)
   int n = 60*t2.mid(13,2).toInt() + t2.mid(15,2).toInt();
   m_txFirst = ((n%2) == 1);
   ui->txFirstCheckBox->setChecked(m_txFirst);
-  lookup();
+
+  auto const& words = t2.mid(25).split(' ', Qt::SkipEmptyParts);
+  QString grid=words[2];
+  if(isGrid4(grid) and hiscall==words[1]) {
+    ui->dxGridEntry->setText(grid);
+  } else {
+    lookup();
+  }
+
   genStdMsgs("");
   if(t2.indexOf(m_myCall)>0) {
     m_ntx=2;
@@ -2065,9 +2086,11 @@ void MainWindow::on_logQSOButton_clicked()                 //Log QSO button
 {
   int nMHz=int(datcom_.fcenter);
   QDateTime t = QDateTime::currentDateTimeUtc();
+  QString qsoMode=lab5->text();
+  if(m_modeTx.startsWith("Q65")) qsoMode=lab6->text();
   QString logEntry=t.date().toString("yyyy-MMM-dd,") +
       t.time().toString("hh:mm,") + m_hisCall + "," + m_hisGrid + "," +
-          QString::number(nMHz) + "," + lab6->text() + "\r\n";
+          QString::number(nMHz) + "," + qsoMode + "\r\n";
 
   int ret = QMessageBox::warning(this, "Log Entry",
        "Please confirm log entry:\n\n" + logEntry + "\n",
@@ -2261,4 +2284,14 @@ void MainWindow::on_pbTxMode_clicked()
   }
 //  m_wideGraph->setModeTx(m_modeTx);
 //  statusChanged();
+}
+
+bool MainWindow::isGrid4(QString g)
+{
+  if(g.length()!=4) return false;
+  if(g.mid(0,1)<'A' or g.mid(0,1)>'R') return false;
+  if(g.mid(1,1)<'A' or g.mid(1,1)>'R') return false;
+  if(g.mid(2,1)<'0' or g.mid(2,1)>'9') return false;
+  if(g.mid(3,1)<'0' or g.mid(3,1)>'9') return false;
+  return true;
 }
