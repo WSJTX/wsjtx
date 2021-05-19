@@ -162,6 +162,7 @@ subroutine q65_dec0(iavg,nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
      call timer('list_dec',0)
      call q65_dec_q3(s1,iz,jz,s3,LL,ipk,jpk,snr2,dat4,idec,decoded)
      call timer('list_dec',1)
+     if(idec.eq.3) go to 900         !Good q3 decode, we're done
   endif
 
   if(iavg.eq.0) then
