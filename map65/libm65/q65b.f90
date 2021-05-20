@@ -133,14 +133,12 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
 ! NB: Frequency of ipk is now shifted to 1000 Hz.
   call map65_mmdec(nutc,iwave,nqd,nsubmode,nfa,nfb,1000,ntol,     &
        newdat,nagain,mycall,hiscall,hisgrid)
-  print*,'=A',nqd,nsnr0
   MHz=fcenter
   freq0=MHz + 0.001*ikhz
   if(nsnr0.gt.-99) then
      nq65df=nint(1000*(0.001*k0*df+nkhz_center-48.0+1.000-1.27046-ikhz))-nfcal
      nq65df=nq65df + nfreq0 - 1000
 
-     print*,'=B',nqd,nq65df,ntol
      if(nqd.eq.1 .and. abs(nq65df).lt.ntol) then
         write(line,1020) ikhz,nq65df,45*(ipol-1),nutc,xdt0,nsnr0,msg0(1:27),cq0
 1020    format('!',i3.3,i5,i4,i6.4,f5.1,i5,' : ',a27,a3)
