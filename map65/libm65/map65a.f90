@@ -365,28 +365,22 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
               freq=cand(icand)%f+nkhz_center-48.0-1.27046
               nhzdiff=nint(1000.0*(freq-mousefqso)-mousedf)
               if(nqd.eq.1 .and. abs(nhzdiff).gt.ntol) cycle
-!              ikhz=nint(freq)
               ikhz=mousefqso
               q65b_called=.true.
               f0=cand(icand)%f
-!              write(*,3002) nqd,f0
-!3002          format('=A',i3,f10.3)
               call timer('q65b    ',0)
-              call q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,             &
-                   mousedf,ntol,xpol,mycall,hiscall,hisgrid,mode_q65,f0,idec)
+              call q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,    &
+                   xpol,mycall,hiscall,hisgrid,mode_q65,f0,fqso,nagain,idec)
               call timer('q65b    ',1)
               if(idec.ge.0) candec(icand)=.true.
            enddo
            if(.not.q65b_called) then
               freq=mousefqso + 0.001*mousedf
-!              ikhz=nint(freq)
               ikhz=mousefqso
               f0=freq - (nkhz_center-48.0-1.27046)   !### ??? ###
-!              write(*,3004) nqd,f0
-!3004          format('=B',i3,f10.3)
               call timer('q65b    ',0)
-              call q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,             &
-                   mousedf,ntol,xpol,mycall,hiscall,hisgrid,mode_q65,f0,idec)
+              call q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,  &
+                   xpol,mycall,hiscall,hisgrid,mode_q65,f0,fqso,nagain,idec)
               call timer('q65b    ',1)
            endif
         endif
@@ -418,11 +412,9 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
            if(nqd.eq.1 .and. abs(freq-mousefqso).gt.0.001*ntol) cycle
            ikhz=nint(freq)
            f0=cand(icand)%f
-!              write(*,3006) nqd,f0
-!3006          format('=C',i3,f10.3)
            call timer('q65b    ',0)
-           call q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,             &
-                mousedf,ntol,xpol,mycall,hiscall,hisgrid,mode_q65,f0,idec)
+           call q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,  &
+                xpol,mycall,hiscall,hisgrid,mode_q65,f0,fqso,nagain,idec)
            call timer('q65b    ',1)
            if(idec.ge.0) candec(icand)=.true.
         enddo  ! icand

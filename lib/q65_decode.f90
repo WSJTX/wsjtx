@@ -88,6 +88,7 @@ contains
     npts=ntrperiod*12000
     nfft1=ntrperiod*12000
     nfft2=ntrperiod*6000
+    npasses=1
 
 ! Determine the T/R sequence: iseq=0 (even), or iseq=1 (odd)
     n=nutc

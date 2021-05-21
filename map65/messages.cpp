@@ -56,8 +56,8 @@ void Messages::setText(QString t, QString t2)
       if(t2.mid(i-1,1)==" ") continue;
     }
     int n=line.mid(50,2).toInt();
-    if(line.indexOf(":")>0) n=-1;
-    if(n==-1) ui->messagesTextBrowser->setTextColor("#ffffff");  // white
+//    if(line.indexOf(":")>0) n=-1;
+//    if(n==-1) ui->messagesTextBrowser->setTextColor("#ffffff");  // white
     if(n==0) ui->messagesTextBrowser->setTextColor(m_color0);
     if(n==1) ui->messagesTextBrowser->setTextColor(m_color1);
     if(n==2) ui->messagesTextBrowser->setTextColor(m_color2);

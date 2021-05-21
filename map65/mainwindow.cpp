@@ -994,6 +994,11 @@ void MainWindow::on_actionQSG_MAP65_v3_triggered()
   QDesktopServices::openUrl (QUrl {"https://physics.princeton.edu/pulsar/k1jt/MAP65_3.0_Quick_Start.pdf"});
 }
 
+void MainWindow::on_actionQ65_Sensitivity_in_MAP65_3_0_triggered()
+{
+  QDesktopServices::openUrl (QUrl {"https://physics.princeton.edu/pulsar/k1jt/Q65_Sensitivity_in_MAP65.pdf"});
+}
+
 void MainWindow::on_actionAstro_Data_triggered()             //Display Astro
 {
   if (m_astro_window ) m_astro_window->show();
@@ -1807,7 +1812,10 @@ void MainWindow::doubleClickOnMessages(QString hiscall, QString t2)
     lookup();
   }
 
-  genStdMsgs("");
+  QString rpt="";
+  if(m_modeTx=="Q65") rpt=t2.mid(20,3);
+  genStdMsgs(rpt);
+
   if(t2.indexOf(m_myCall)>0) {
     m_ntx=2;
     ui->txrb2->setChecked(true);

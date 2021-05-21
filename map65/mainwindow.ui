@@ -276,7 +276,7 @@ p, li { white-space: pre-wrap; }
              <string notr="true"/>
             </property>
             <property name="title">
-             <string>    DX   Call           Grid     </string>
+             <string>       DX Call             DX Grid     </string>
             </property>
             <widget class="QPushButton" name="pushButton">
              <property name="geometry">
@@ -1218,6 +1218,7 @@ p, li { white-space: pre-wrap; }
     <addaction name="actionOnline_Users_Guide"/>
     <addaction name="actionQSG_Q65"/>
     <addaction name="actionQSG_MAP65_v3"/>
+    <addaction name="actionQ65_Sensitivity_in_MAP65_3_0"/>
     <addaction name="actionKeyboard_shortcuts"/>
     <addaction name="actionSpecial_mouse_commands"/>
     <addaction name="actionAvailable_suffixes_and_add_on_prefixes"/>
@@ -1674,6 +1675,11 @@ p, li { white-space: pre-wrap; }
     <string>Quick-Start Guide to MAP65 3.0 and WSJT-X 2.5.0</string>
    </property>
   </action>
+  <action name="actionQ65_Sensitivity_in_MAP65_3_0">
+   <property name="text">
+    <string>Q65 Sensitivity in MAP65 3.0</string>
+   </property>
+  </action>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
  <customwidgets>
@@ -1692,8 +1698,8 @@ p, li { white-space: pre-wrap; }
    <slot>update()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>264</x>
-     <y>275</y>
+     <x>269</x>
+     <y>255</y>
     </hint>
     <hint type="destinationlabel">
      <x>126</x>
