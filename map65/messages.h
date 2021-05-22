@@ -19,7 +19,7 @@ public:
   ~Messages();
 
 signals:
-  void click2OnCallsign(QString hiscall, QString t2);
+  void click2OnCallsign(QString hiscall, QString t2, bool ctrl);
 
 private slots:
   void selectCallsign2(bool ctrl);

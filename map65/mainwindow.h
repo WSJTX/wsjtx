@@ -51,7 +51,7 @@ public slots:
   void editor_error();
   void guiUpdate();
   void doubleClickOnCall(QString hiscall, bool ctrl);
-  void doubleClickOnMessages(QString hiscall, QString t2);
+  void doubleClickOnMessages(QString hiscall, QString t2, bool ctrl);
 
 private:
   virtual void keyPressEvent (QKeyEvent *) override;

@@ -1793,7 +1793,7 @@ void MainWindow::doubleClickOnCall(QString hiscall, bool ctrl)
   }
 }
                                                       //doubleClickOnMessages
-void MainWindow::doubleClickOnMessages(QString hiscall, QString t2)
+void MainWindow::doubleClickOnMessages(QString hiscall, QString t2, bool ctrl)
 {
   if(hiscall.length()<3) return;
   if(m_worked[hiscall]) {
@@ -1804,6 +1804,9 @@ void MainWindow::doubleClickOnMessages(QString hiscall, QString t2)
   m_txFirst = ((n%2) == 1);
   ui->txFirstCheckBox->setChecked(m_txFirst);
 
+  if((t2.indexOf(":")<0) and m_modeTx!="JT65") on_pbTxMode_clicked();
+  if((t2.indexOf(":")>0) and m_modeTx!="Q65") on_pbTxMode_clicked();
+
   auto const& words = t2.mid(25).split(' ', Qt::SkipEmptyParts);
   QString grid=words[2];
   if(isGrid4(grid) and hiscall==words[1]) {
@@ -1813,7 +1816,7 @@ void MainWindow::doubleClickOnMessages(QString hiscall, QString t2)
   }
 
   QString rpt="";
-  if(m_modeTx=="Q65") rpt=t2.mid(20,3);
+  if(ctrl or m_modeTx=="Q65") rpt=t2.mid(20,3);
   genStdMsgs(rpt);
 
   if(t2.indexOf(m_myCall)>0) {
