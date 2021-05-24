@@ -22,7 +22,7 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
   character mycall*12,hiscall*12,mygrid*6,hisgrid*6,grid*6,cp*1,cm*1
   integer indx(MAXMSG),nsiz(MAXMSG)
   logical done(MAXMSG)
-  logical xpol,bq65,first_loop,q65b_called
+  logical xpol,bq65,q65b_called
   logical candec(MAX_CANDIDATES)
   character decoded*22,blank*22,cmode*2
   real short(3,NFFT)                 !SNR dt ipol for potential shorthands
@@ -44,8 +44,8 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
   if(mode65.eq.3) mode65=4
   mode_q65=nmode/10
 
-  nts_jt65=2**(mode65-1)
-  nts_q65=2**(mode_q65)
+  nts_jt65=2**(mode65-1)              !JT65 tone separation factor
+  nts_q65=2**(mode_q65)               !Q65 tone separation factor
   if(nagain.eq.0) then
      call timer('get_cand',0)
      call get_candidates(ss,savg,mfa,mfb,nts_jt65,nts_q65,cand,ncand)
@@ -55,9 +55,9 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
 !###
 !  do k=1,ncand
 !     freq=cand(k)%f+nkhz_center-48.0-1.27046
-!     write(*,3010) nutc,k,cand(k)%snr,cand(k)%f,freq,cand(k)%xdt,    &
+!     write(70,3010) nutc,k,cand(k)%snr,cand(k)%f,freq,cand(k)%xdt,    &
 !          cand(k)%ipol,cand(k)%iflip
-!3010 format('=aaa ',i4.4,i5,f10.1,3f10.3,2i3)
+!3010 format(i4.4,i5,f10.1,3f10.3,2i3)
 !  enddo
 !###
 
@@ -111,7 +111,6 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
      jpz=1
      if(xpol) jpz=4
 
-     first_loop=.true.
      do i=ia,ib                               !Search over freq range
         freq=0.001*(i-16385)*df
 !  Find the local base level for each polarization; update every 10 bins.
@@ -215,10 +214,9 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
            if(nqd.eq.1 .and. ntol.le.100) thresh1=0.
            noffset=0
            if(nqd.ge.1) noffset=nint(1000.0*(freq-fqso)-mousedf)
-           if(first_loop .and. sync1.gt.-99.0) then
+           if(newdat.eq.1 .and. sync1.gt.-99.0) then
               sync1=thresh1+1.0
               noffset=0
-              first_loop=.false.
            endif
            if(sync1.gt.thresh1 .and. abs(noffset).le.ntol) then
 !  Keep only the best candidate within ftol.
@@ -248,7 +246,7 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
                       a,dt,pol,nkv,nhist,nsum,nsave,qual,decoded)
                  call timer('decode1a',1)
 
-! The case sycc1=2.0 is just to make sure decode1a is called and bigfft done.
+! The case sync1=2.0 is just to make sure decode1a is called and bigfft done.
                  if(mode65.ne.0 .and. sync1.ne.2.000000) then
                     if(km.lt.MAXMSG) km=km+1
                     sig(km,1)=nfile
@@ -261,7 +259,7 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
                     sig(km,8)=sync2
                     sig(km,9)=nkv
                     sig(km,10)=qual
-!                 sig(km,11)=idphi
+!                    sig(km,11)=idphi
                     sig(km,12)=savg(ipol,i)
                     sig(km,13)=a(1)
                     sig(km,14)=a(2)
@@ -358,19 +356,21 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
            endif
         enddo  ! k=1,km
 
-        if(mode_q65.ne.0) then
+        if(bq65) then
            q65b_called=.false.
            do icand=1,ncand
               if(cand(icand)%iflip.ne.0) cycle        !Keep only Q65 candidates
               freq=cand(icand)%f+nkhz_center-48.0-1.27046
               nhzdiff=nint(1000.0*(freq-mousefqso)-mousedf)
+! Now looking for "quick decode" (nqd=1) candidates at cursor freq +/- ntol.
               if(nqd.eq.1 .and. abs(nhzdiff).gt.ntol) cycle
               ikhz=mousefqso
               q65b_called=.true.
               f0=cand(icand)%f
               call timer('q65b    ',0)
               call q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,    &
-                   xpol,mycall,hiscall,hisgrid,mode_q65,f0,fqso,nagain,idec)
+                   xpol,mycall,hiscall,hisgrid,mode_q65,f0,fqso,newdat,       &
+                   nagain,idec)
               call timer('q65b    ',1)
               if(idec.ge.0) candec(icand)=.true.
            enddo
@@ -380,7 +380,8 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
               f0=freq - (nkhz_center-48.0-1.27046)   !### ??? ###
               call timer('q65b    ',0)
               call q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,  &
-                   xpol,mycall,hiscall,hisgrid,mode_q65,f0,fqso,nagain,idec)
+                   xpol,mycall,hiscall,hisgrid,mode_q65,f0,fqso,newdat,     &
+                   nagain,idec)
               call timer('q65b    ',1)
            endif
         endif
@@ -404,17 +405,20 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
      endif
      if(nqd.eq.1 .and. nagain.eq.1) go to 900
 
-     if(nqd.eq.0 .and. mode_q65.ge.1) then
+     if(nqd.eq.0 .and. bq65) then
+! Do the wideband Q65 decode        
         do icand=1,ncand
-           if(cand(icand)%iflip.ne.0) cycle
-           if(candec(icand)) cycle
+           if(cand(icand)%iflip.ne.0) cycle    !Do only Q65 candidates here
+           if(candec(icand)) cycle             !Skip if already decoded
            freq=cand(icand)%f+nkhz_center-48.0-1.27046
+! If here at nqd=1, do only candidates at mousefqso +/- ntol
            if(nqd.eq.1 .and. abs(freq-mousefqso).gt.0.001*ntol) cycle
            ikhz=nint(freq)
            f0=cand(icand)%f
            call timer('q65b    ',0)
            call q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,  &
-                xpol,mycall,hiscall,hisgrid,mode_q65,f0,fqso,nagain,idec)
+                xpol,mycall,hiscall,hisgrid,mode_q65,f0,fqso,newdat,     &
+                nagain,idec)
            call timer('q65b    ',1)
            if(idec.ge.0) candec(icand)=.true.
         enddo  ! icand
@@ -539,7 +543,6 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
 
 900 close(23)
   ndphi=0
-  nagain=0
   mcall3b=mcall3a
 
   return

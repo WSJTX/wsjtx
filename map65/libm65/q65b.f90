@@ -1,5 +1,5 @@
 subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
-     mycall0,hiscall0,hisgrid,mode_q65,f0,fqso,nagain,idec)
+     mycall0,hiscall0,hisgrid,mode_q65,f0,fqso,newdat,nagain,idec)
 
 ! This routine provides an interface between MAP65 and the Q65 decoder
 ! in WSJT-X.  All arguments are input data obtained from the MAP65 GUI.
@@ -40,11 +40,9 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
   if(hiscall0(1:1).ne.' ') hiscall=hiscall0
   if(hisgrid(1:4).ne.'    ') grid4=hisgrid(1:4)
 
-! Find best frequency and  ipol from sync_dat, the "orange sync curve".
+! Find best frequency and ipol from sync_dat, the "orange sync curve".
   df3=96000.0/32768.0
-!  ff=ikhz+0.001*(mousedf+nfcal+1270.459)       !Supposed freq of sync tone
-!  ifreq=nint(1000.0*(ff-nkhz_center+48)/df3)   !Freq index into ss(4,322,32768)
-  ifreq=nint((1000.0*f0+nfcal)/df3)
+  ifreq=nint((1000.0*f0)/df3)
   ia=nint(ifreq-ntol/df3)
   ib=nint(ifreq+ntol/df3)
   ipk1=maxloc(sync(ia:ib)%ccfmax)
@@ -126,15 +124,15 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
      nfa=max(100,1000-ntol)
      nfb=min(2500,1000+ntol)
   endif
-  newdat=1
-  nagain=0
   nsnr0=-99             !Default snr for no decode
 
 ! NB: Frequency of ipk is now shifted to 1000 Hz.
   call map65_mmdec(nutc,iwave,nqd,nsubmode,nfa,nfb,1000,ntol,     &
        newdat,nagain,mycall,hiscall,hisgrid)
+
   MHz=fcenter
   freq0=MHz + 0.001*ikhz
+
   if(nsnr0.gt.-99) then
      nq65df=nint(1000*(0.001*k0*df+nkhz_center-48.0+1.000-1.27046-ikhz))-nfcal
      nq65df=nq65df + nfreq0 - 1000
