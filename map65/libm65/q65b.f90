@@ -118,9 +118,9 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
   close(30)
 
   nsubmode=mode_q65-1
-  nfa=100
-  nfb=1900
-  if(nagain.eq.1) then
+  nfa=990                   !Tight limits around ipk for the wideband decode
+  nfb=1010
+  if(nagain.eq.1) then      !For nagain=1, use limits of +/- ntol
      nfa=max(100,1000-ntol)
      nfb=min(2500,1000+ntol)
   endif
