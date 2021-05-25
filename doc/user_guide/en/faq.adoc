@@ -74,12 +74,6 @@ _Omni-Rig_ apparently has a bug that appears when you click *Test
 CAT*.  Forget using *Test CAT* and just click *OK*.  _Omni-Rig_ then
 behaves normally.
 
-I am using _WSJT-X_ with _Ham Radio Deluxe_.  All seems well until I start HRD Logbook or DM780 running in parallel; then CAT control becomes unreliable.::
-
-You may see delays up to 20 seconds or so in frequency changes or
-other radio commands, due to a bug in HRD.  HRD folks are aware of the
-problem, and are working to resolve it.
-
 I am running _WSJT-X_ under Ubuntu.  The program starts, but the menu bar is missing from the top of the main window and the hot-keys don't work.::
 
 Ubuntu's new "`Unity`" desktop puts the menu for the currently active

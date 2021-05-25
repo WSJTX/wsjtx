@@ -267,7 +267,7 @@ which the probability of decoding is 50% or higher.
 |===============================================================================
 |Mode |FEC Type |(n,k) | Q|Modulation type|Keying rate (Baud)|Bandwidth (Hz)
 |Sync Energy|Tx Duration (s)|S/N Threshold (dB)
-|FST4-15   |LDPC |  (240,101)| 4| 4-GFSK| 16.67 | 67.7 | 0.25| 9.6  | -20.7
+|FST4-15   |LDPC |  (240,101)| 4| 4-GFSK| 16.67 | 66.7 | 0.25| 9.6  | -20.7
 |FST4-30   |LDPC |  (240,101)| 4| 4-GFSK|  7.14  | 28.6  | 0.25| 22.4  | -24.2
 |FST4-60   |LDPC |  (240,101)| 4| 4-GFSK|  3.09  | 12.4  | 0.25| 51.8  | -28.1
 |FST4-120  |LDPC |  (240,101)| 4| 4-GFSK|  1.46  |  5.9  | 0.25| 109.3 | -31.3
