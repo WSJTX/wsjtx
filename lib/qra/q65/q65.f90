@@ -167,14 +167,16 @@ subroutine q65_dec0(iavg,nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
 
   if(iavg.eq.0) then
      call timer('ccf_22a ',0)
-     call q65_ccf_22(s1,iz,jz,nfqso,ntol,ndepth,iavg,ipk,jpk,f0a,xdta,ccf2)
+     call q65_ccf_22(s1,iz,jz,nfqso,ntol,ndepth,ntrperiod,iavg,ipk,jpk,  &
+          f0a,xdta,ccf2)
      call timer('ccf_22a ',1)
   endif
 
 ! Get 2d CCF and ccf2 using sync symbols only
   if(iavg.ge.1) then
      call timer('ccf_22b ',0)
-     call q65_ccf_22(s1,iz,jz,nfqso,ntol,ndepth,iavg,ipk,jpk,f0a,xdta,ccf2_avg)
+     call q65_ccf_22(s1,iz,jz,nfqso,ntol,ndepth,ntrperiod,iavg,ipk,jpk,  &
+          f0a,xdta,ccf2_avg)
      call timer('ccf_22b ',1)
   endif
   if(idec.lt.0) then
@@ -417,7 +419,8 @@ subroutine q65_ccf_85(s1,iz,jz,nfqso,ia,ia2,ipk,jpk,f0,xdt,imsg_best,ccf1)
   return
 end subroutine q65_ccf_85
 
-subroutine q65_ccf_22(s1,iz,jz,nfqso,ntol,ndepth,iavg,ipk,jpk,f0,xdt,ccf2)
+subroutine q65_ccf_22(s1,iz,jz,nfqso,ntol,ndepth,ntrperiod,iavg,ipk,jpk,  &
+     f0,xdt,ccf2)
 
 ! Attempt synchronization using only the 22 sync symbols.  Return ccf2
 ! for the "orange sync curve".
@@ -434,16 +437,17 @@ subroutine q65_ccf_22(s1,iz,jz,nfqso,ntol,ndepth,iavg,ipk,jpk,f0,xdt,ccf2)
 
   ia=max(nfa,100)/df
   ib=min(nfb,4900)/df
-  if(nqd.eq.1 .and. iavg.eq.0 .and. ntol.le.100) then
+  max_drift=0
+  if(nqd.eq.1 .and. iavg.eq.0 .and. ntol.le.100 .and. ntrperiod.eq.60) then
      ia=nint((nfqso-ntol)/df)
      ib=nint((nfqso+ntol)/df)
+     max_drift=10                        !Drift units: bins/TRperiod (?)
   endif
 
   do i=ia,ib
      s1avg(i)=sum(s1(i,1:jz))
   enddo
 
-  max_drift=10                             !Drift units: bins/TRperiod ?
   ccfbest=0.
   ibest=0
   lagpk=0
