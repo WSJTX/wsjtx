@@ -398,6 +398,7 @@ void MainWindow::writeSettings()
   settings.setValue("Cal570",m_cal570);
   settings.setValue("TxOffset",m_TxOffset);
   settings.setValue("Colors",m_colors);
+  settings.setValue("MaxDrift",ui->sbMaxDrift->value());
 }
 
 //---------------------------------------------------------- readSettings()
@@ -483,6 +484,7 @@ void MainWindow::readSettings()
   ui->actionF4_sets_Tx6->setChecked(m_kb8rq);
   m_NB=settings.value("NB",false).toBool();
   ui->NBcheckBox->setChecked(m_NB);
+  ui->sbMaxDrift->setValue(settings.value("MaxDrift",0).toInt());
   m_NBslider=settings.value("NBslider",40).toInt();
   ui->NBslider->setValue(m_NBslider);
   m_gainx=settings.value("GainX",1.0).toFloat();
@@ -1281,6 +1283,7 @@ void MainWindow::decode()                                       //decode()
   datcom_.nmode=10*m_modeQ65 + m_modeJT65;
   datcom_.nfast=1;                               //No longer used
   datcom_.nsave=m_nsave;
+  datcom_.max_drift=ui->sbMaxDrift->value();
 
   QString mcall=(m_myCall+"            ").mid(0,12);
   QString mgrid=(m_myGrid+"            ").mid(0,6);

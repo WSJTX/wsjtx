@@ -79,7 +79,7 @@ subroutine m65c(dd,ss,savg,nparams0)
   common/npar/fcenter,nutc,idphi,mousedf,mousefqso,nagain,              &
        ndepth,ndiskdat,neme,newdat,nfa,nfb,nfcal,nfshift,               &
        mcall3,nkeep,ntol,nxant,nrxlog,nfsample,nxpol,nmode,             &
-       nfast,nsave,mycall,mygrid,hiscall,hisgrid,datetime
+       nfast,nsave,max_drift,mycall,mygrid,hiscall,hisgrid,datetime
   equivalence (nparams,fcenter)
   
   nparams=nparams0                     !Copy parameters into common/npar/

@@ -575,6 +575,22 @@ p, li { white-space: pre-wrap; }
            </widget>
           </item>
           <item>
+           <widget class="QSpinBox" name="sbMaxDrift">
+            <property name="alignment">
+             <set>Qt::AlignCenter</set>
+            </property>
+            <property name="prefix">
+             <string>Max Drift  </string>
+            </property>
+            <property name="maximum">
+             <number>50</number>
+            </property>
+            <property name="singleStep">
+             <number>5</number>
+            </property>
+           </widget>
+          </item>
+          <item>
            <spacer name="verticalSpacer">
             <property name="orientation">
              <enum>Qt::Vertical</enum>

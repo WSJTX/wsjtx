@@ -33,6 +33,7 @@ extern struct {                     //This is "common/datcom/..." in Fortran
   int nmode;                        //nmode = 10*m_modeQ65 + m_modeJT65
   int nfast;                        //No longer used
   int nsave;                        //Number of s3(64,63) spectra saved
+  int max_drift;                    //Maximum Q65 drift: units symbol_rate/TxT
   char mycall[12];
   char mygrid[6];
   char hiscall[12];

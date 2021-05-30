@@ -11,7 +11,7 @@ subroutine decode0(dd,ss,savg,nstandalone)
   common/npar/fcenter,nutc,idphi,mousedf,mousefqso,nagain,                &
        ndepth,ndiskdat,neme,newdat,nfa,nfb,nfcal,nfshift,                 &
        mcall3,nkeep,ntol,nxant,nrxlog,nfsample,nxpol,nmode,               &
-       nfast,nsave,mycall,mygrid,hiscall,hisgrid,datetime
+       nfast,nsave,max_drift,mycall,mygrid,hiscall,hisgrid,datetime
   data neme0/-99/,mcall3b/1/
   save
 
@@ -50,7 +50,7 @@ subroutine decode0(dd,ss,savg,nstandalone)
 
   call timer('map65a  ',0)
   call map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,           &
-       mousedf,mousefqso,nagain,ndecdone,nfshift,ndphi,                    &
+       mousedf,mousefqso,nagain,ndecdone,nfshift,ndphi,max_drift,          &
        nfcal,nkeep,mcall3b,nsum,nsave,nxant,mycall,mygrid,                 &
        neme,ndepth,nstandalone,hiscall,hisgrid,nhsym,nfsample,nxpol,nmode)
   call timer('map65a  ',1)

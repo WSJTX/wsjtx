@@ -11,7 +11,7 @@ module q65
                                      38,46,50,55,60,62,66,69,74,76,85/)
   integer codewords(63,206)
   integer ibwa,ibwb,ncw,nsps,mode_q65,nfa,nfb,nqd
-  integer idfbest,idtbest,ibw,ndistbest,maxiters
+  integer idfbest,idtbest,ibw,ndistbest,maxiters,max_drift
   integer istep,nsmo,lag1,lag2,npasses,nused,iseq,ncand,nrc
   integer i0,j0
   integer navg(0:1)
@@ -437,13 +437,7 @@ subroutine q65_ccf_22(s1,iz,jz,nfqso,ntol,ndepth,ntrperiod,iavg,ipk,jpk,  &
 
   ia=max(nfa,100)/df
   ib=min(nfb,4900)/df
-  max_drift=0                         !Drift units: bins/TxT
-! Do we need a GUI control to set max_drift ?
-! For now, turn on drift compensation only for submodes 15B amd 60A.  
-  if(nqd.eq.1 .and. iavg.eq.0 .and. ntol.le.100 .and. ntrperiod.eq.60 .and. &
-       mode_q65.eq.1) max_drift=10    !Q65-60A
-  if(nqd.eq.1 .and. iavg.eq.0 .and. ntol.le.100 .and. ntrperiod.eq.15 .and. &
-       mode_q65.eq.4) max_drift=40    !Q65-15C
+  if(nqd.ne.1 .or. iavg.ne.0 .or. ntol.ge.200) max_drift=0
   if(max_drift.ne.0) then
      ia=nint((nfqso-ntol)/df)
      ib=nint((nfqso+ntol)/df)

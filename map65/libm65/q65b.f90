@@ -1,5 +1,5 @@
 subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
-     mycall0,hiscall0,hisgrid,mode_q65,f0,fqso,newdat,nagain,idec)
+     mycall0,hiscall0,hisgrid,mode_q65,f0,fqso,newdat,nagain,max_drift,idec)
 
 ! This routine provides an interface between MAP65 and the Q65 decoder
 ! in WSJT-X.  All arguments are input data obtained from the MAP65 GUI.
@@ -128,7 +128,7 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
 
 ! NB: Frequency of ipk is now shifted to 1000 Hz.
   call map65_mmdec(nutc,iwave,nqd,nsubmode,nfa,nfb,1000,ntol,     &
-       newdat,nagain,mycall,hiscall,hisgrid)
+       newdat,nagain,max_drift,mycall,hiscall,hisgrid)
 
   MHz=fcenter
   freq0=MHz + 0.001*ikhz

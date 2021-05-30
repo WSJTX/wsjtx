@@ -1,5 +1,5 @@
 subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
-     mousedf,mousefqso,nagain,ndecdone,nfshift,ndphi,                       &
+     mousedf,mousefqso,nagain,ndecdone,nfshift,ndphi,max_drift,             &
      nfcal,nkeep,mcall3b,nsum,nsave,nxant,mycall,mygrid,                    &
      neme,ndepth,nstandalone,hiscall,hisgrid,nhsym,nfsample,nxpol,nmode)
 
@@ -370,7 +370,7 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
               call timer('q65b    ',0)
               call q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,    &
                    xpol,mycall,hiscall,hisgrid,mode_q65,f0,fqso,newdat,       &
-                   nagain,idec)
+                   nagain,max_drift,idec)
               call timer('q65b    ',1)
               if(idec.ge.0) candec(icand)=.true.
            enddo
@@ -381,7 +381,7 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
               call timer('q65b    ',0)
               call q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,  &
                    xpol,mycall,hiscall,hisgrid,mode_q65,f0,fqso,newdat,     &
-                   nagain,idec)
+                   nagain,max_drift,idec)
               call timer('q65b    ',1)
            endif
         endif
@@ -418,7 +418,7 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
            call timer('q65b    ',0)
            call q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,  &
                 xpol,mycall,hiscall,hisgrid,mode_q65,f0,fqso,newdat,     &
-                nagain,idec)
+                nagain,max_drift,idec)
            call timer('q65b    ',1)
            if(idec.ge.0) candec(icand)=.true.
         enddo  ! icand
