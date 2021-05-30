@@ -12,6 +12,43 @@
 Copyright 2001 - 2021 by Joe Taylor, K1JT.
 
 
+	          Release: WSJT-X 2.4.0
+	                May 24, 2021
+	          ---------------------
+
+WSJT-X 2.4.0 General Availability Release adds new Q65 mode
+functionality and decoder optimizations and repairs several defects
+and regressions discovered in the RC4 and v2.3.1 GA releases. Since
+the release candidates documented below this final release includes
+the following enhancements and defect repairs.
+
+ - On MS Windows WSJT-X now ships with a DLL version of the Hamlib
+   library, specifically Hamlib version 4.2. This should allow Hamlib
+   bug fixes to resolved by the user replacing the DLL with an updated
+   version.
+
+ - Repair a defect with own call decode highlighting when callsigns
+   with a common root are decoded.
+
+ - Q65 message averaging correctly disabled as be menu option.
+
+ - Repair a regression with missing timestamps in AlL.TXT for the
+   MSK144 mode.
+
+ - Repair a defect in the selection of working frequencies matching
+   the current band and mode combination.
+
+ - WSPR band hopping mode now generates a tune up tone for bands where
+   it is scheduled to transmit.
+
+ - Repair a long standing defect per band tune and Tx power level
+   memories.
+
+ - More flexibility for inputting calls into the DX Call field,
+   leading and trailing white space characters are allowed but
+   ignored.
+
+
 	        Release: WSJT-X 2.4.0-rc4
 	               Mar 26, 2021
 	        -------------------------

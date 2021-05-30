@@ -18,13 +18,13 @@ Here is an overview list, details are filled out below:
      * MSYS2 *nix like command line environment
      * Hamlib rig control library
      * Pkg Config Lite
-     * Boost C++ libraries
+     * Boost C++ libraries (see separate document)
      * portaudio library (used by map65)
 
 Qt Framework
 ------------
 
-At the  time of writing I  recommend using Qt v5.15.0  64-bit, v5.15.1
+At the  time of writing I  recommend using Qt v5.15.2  64-bit, v5.15.1
 has a defect  that affects us so  is best avoided. You  need the MinGW
 version  as we  do not  support  the MSVC  version  due to  lack of  a
 suitable FOSS  Fortran complier. To  install the Qt developer  SDK you
@@ -32,7 +32,7 @@ should download the official Qt  on-line installer, this allows you to
 install one or  more variants of the  Qt SDK and also  to maintain and
 update the installation  at a later date. There are  many versions and
 components within  versions available, you  only need the  base 64-bit
-MinGW framework  for Qt  v5.15.0 and the  matching MinGW  8.1.0 64-bit
+MinGW framework  for Qt  v5.15.2 and the  matching MinGW  8.1.0 64-bit
 developer tools, other components can  be unchecked within the on-line
 installer.  The  default install location  is C:\Qt which is  fine, do
 not attempt  to move the  location of  the installed libraries  if you
@@ -86,14 +86,10 @@ Hamlib from sources.
 Hamlib
 ------
 
-Currently   we  statically   link   Hamlib  to   avoid  clashes   with
-pre-installed DLLs  that may be  older versions than we  support. Once
-Hamlib v1.4 is officially released and commonly available we will move
-to  dynamic   linking.   Until   then  Hamlib   must  be   built  from
-sources. There is a fork of  the official Hamlib project which we keep
-up  to date  with the  official  project master  branch, we  recommend
-building from the 'integration' branch of that fork. The fork is a git
-repository which can be cloned with this command:
+There is  a fork of  the official Hamlib project  which we keep  up to
+date with  the official project  master branch, we  recommend building
+from the  'integration' branch, or  a suitable  tag on that  fork. The
+fork is a git repository which can be cloned with this command:
 
     mkdir -p ~/src/sf/bsomervi
     cd !$
@@ -106,7 +102,7 @@ Qt. As you  will build Hamlib again when there  are updates you should
 set  up  you  MSYS2  command  line  environment  for  this.  I  use  a
 $HOME/.bash_profile file containing these lines:
 
-    dll_paths_64bit=/c/Tools/libusb-1.0.23/MinGW64/dll
+    dll_paths_64bit=/c/Tools/libusb-1.0.23/MinGW64/dll:$HOME/local/hamlib/mingw64/release/bin
     export PATH=/c/Qt/Tools/mingw810_64/bin:$dll_paths_64bit:$PATH
 
 Test the amended ~/.bash_profile file by opening a new MSYS2 shell and
@@ -128,7 +124,7 @@ then change working directory to that build directory.
 
     mkdir -p ~/build/hamlib/release
     cd !$
-    ~/src/sf/bsomervi/hamlib/configure --disable-shared \
+    ~/src/sf/bsomervi/hamlib/configure --enable-shared --disable-static \
         --prefix=$HOME/local/hamlib/mingw64/release \
 	CFLAGS="-DNDEBUG -g -O2 -fdata-sections -ffunction-sections -I/c/Tools/libusb-1.0.23/include" \
 	CXXFLAGS="-DNDEBUG -g -O2 -fdata-sections -ffunction-sections" \
@@ -145,7 +141,7 @@ for tracking down issues:
 
     mkdir -p ~/build/hamlib/debug
     cd !$
-    ~/src/sf/bsomervi/hamlib/configure --disable-shared \
+    ~/src/sf/bsomervi/hamlib/configure --enable-shared --disable-static \
         --prefix=$HOME/local/hamlib/mingw64/debug \
 	CFLAGS="-g -O0 -I/c/Tools/libusb-1.0.23/include" \
 	CXXFLAGS="-g -O0" \
@@ -160,6 +156,12 @@ To update the Hamlib sources to the latest commit and rebuild:
     make & make install-strip
     cd ~/build/hamlib/debug
     make && make install
+
+Note that  the WSJT-X CMake  build script  will not detect  an updated
+build of the  Hamlib DLL, so to avoid using  an out-of-date Hamlib DLL
+you should  delete the Hamlib  DLL (libhamlib-4.dll) from  your WSJT-X
+release configuration  install tree  before rebuilding  and installing
+WSJT-X after a Hamlib update.
 
 Pkg Config Lite
 ---------------
