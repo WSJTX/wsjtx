@@ -138,8 +138,10 @@ target_link_libraries (mapsim m65impl ${FFTW3_LIBRARIES})
 add_executable (synctest synctest.f90)
 target_link_libraries (synctest m65impl ${FFTW3_LIBRARIES})
 
-install (
-  TARGETS m65 mapsim
-  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
-  BUNDLE DESTINATION . COMPONENT runtime
-  )
+if (WIN32)
+  install (
+    TARGETS m65 mapsim
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
+    BUNDLE DESTINATION . COMPONENT runtime
+    )
+endif ()
