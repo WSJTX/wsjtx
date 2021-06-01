@@ -20,7 +20,7 @@ program jt9
   real*8 TRperiod
   character c
   character(len=500) optarg, infile
-  character wisfile*80
+  character wisfile*256
 !### ndepth was defined as 60001.  Why???
   integer :: arglen,stat,offset,remain,mode=0,flow=200,fsplit=2700,          &
        fhigh=4000,nrxfreq=1500,ndepth=1,nexp_decode=0,nQSOProg=0
@@ -301,6 +301,9 @@ program jt9
      shared_data%params%napwid=75
      shared_data%params%dttol=3.
      if(mode.eq.164 .and. nsubmode.lt.100) nsubmode=nsubmode+100
+     shared_data%params%nagain=.false.
+     shared_data%params%nclearave=.false.
+     shared_data%params%lapcqonly=.false.
      shared_data%params%naggressive=0
      shared_data%params%n2pass=2
      shared_data%params%nQSOprogress=nQSOProg
@@ -322,6 +325,10 @@ program jt9
         shared_data%params%nmode=mode
      end if
      shared_data%params%nsubmode=nsubmode
+
+!### temporary, for MAP65:
+     if(mode.eq.66 .and. TRperiod.eq.60) shared_data%params%emedelay=2.5
+
      datetime="2013-Apr-16 15:13" !### Temp
      shared_data%params%datetime=transfer(datetime,shared_data%params%datetime)
      if(mode.eq.9 .and. fsplit.ne.2700) shared_data%params%nfa=fsplit

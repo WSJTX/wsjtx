@@ -41,9 +41,7 @@ subroutine decode65a(dd,npts,newdat,nqd,f0,nflip,mode65,ntrials,     &
   if(nflip.eq.0) go to 900
 
 ! Find best DF, drift, curvature, and DT.  Start by downsampling to 344.53125 Hz
-  call timer('fil6521 ',0)
   call fil6521(cx,n5,c5x,n6)
-  call timer('fil6521 ',1)
 
   fsample=1378.125/4.
 
@@ -60,10 +58,8 @@ subroutine decode65a(dd,npts,newdat,nqd,f0,nflip,mode65,ntrials,     &
 ! Apply AFC corrections to the time-domain signal
 ! Now we are back to using the 1378.125 Hz sample rate, enough to 
 ! accommodate the full JT65C bandwidth.
-  a(3)=0 
-  call timer('twkfreq ',0)
+  a(3)=0
   call twkfreq65(cx,n5,a)
-  call timer('twkfreq ',1)
 
 ! Compute spectrum for each symbol.
   nsym=126
@@ -71,7 +67,6 @@ subroutine decode65a(dd,npts,newdat,nqd,f0,nflip,mode65,ntrials,     &
   df=1378.125/nfft
   j=int(dtbest*1378.125)
 
-  call timer('sh_ffts ',0)
   c5a=cmplx(0.0,0.0)
   do k=1,nsym
      do i=1,nfft
@@ -89,7 +84,6 @@ subroutine decode65a(dd,npts,newdat,nqd,f0,nflip,mode65,ntrials,     &
         s1(jj,k)=real(c5a(i))**2 + aimag(c5a(i))**2
      enddo
   enddo
-  call timer('sh_ffts ',1)
 
   call timer('dec65b  ',0)
   qualbest=0.

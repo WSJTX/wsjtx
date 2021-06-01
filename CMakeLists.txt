@@ -45,7 +45,7 @@ if (POLICY CMP0075)
 endif ()
 
 project (wsjtx
-  VERSION 2.4.0.0
+  VERSION 2.5.0.0
   LANGUAGES C CXX Fortran
   )
 set (PROJECT_DESCRIPTION "WSJT-X: Digital Modes for Weak Signal Communications in Amateur Radio")
@@ -71,7 +71,7 @@ message (STATUS "******************************************************")
 
 include (set_build_type)
 # RC 0 or omitted is a development build, GA is a General Availability release build
-set_build_type (GA)
+set_build_type (RC 1)
 set (wsjtx_VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}${BUILD_TYPE_REVISION}")
 
 #
@@ -333,6 +333,7 @@ set (wsjt_FSRCS
   lib/timer_impl.f90
   lib/timer_module.f90
   lib/wavhdr.f90
+  lib/qra/q65/q65_encoding_modules.f90
 
   # remaining non-module sources
   lib/addit.f90
@@ -462,6 +463,7 @@ set (wsjt_FSRCS
   lib/lorentzian.f90
   lib/fst4/lorentzian_fading.f90
   lib/lpf1.f90
+  lib/map65_mmdec.f90
   lib/mixlpf.f90
   lib/makepings.f90
   lib/moondopjpl.f90
@@ -813,11 +815,26 @@ endif (APPLE)
 #
 include (CheckTypeSize)
 include (CheckCSourceCompiles)
+include (CheckIncludeFiles)
 include (CheckSymbolExists)
 include (generate_version_info)
 
 find_program(CTAGS ctags)
 find_program(ETAGS etags)
+
+#
+# Platform checks
+#
+check_include_files ("stdlib.h;stdarg.h;string.h;float.h" STDC_HEADERS)
+check_include_files (stdio.h HAVE_STDIO_H)
+check_include_files (stdlib.h HAVE_STDLIB_H)
+check_include_files (unistd.h HAVE_UNISTD_H)
+check_include_files (sys/ioctl.h HAVE_SYS_IOCTL_H)
+check_include_files (sys/types.h HAVE_SYS_TYPES_H)
+check_include_files (fcntl.h HAVE_FCNTL_H)
+check_include_files (sys/stat.h HAVE_SYS_STAT_H)
+check_include_files ("linux/ppdev.h;linux/parport.h" HAVE_LINUX_PPDEV_H)
+check_include_files ("dev/ppbus/ppi.h;dev/ppbus/ppbconf.h" HAVE_DEV_PPBUS_PPI_H)
 
 #
 # Standard C Math Library
@@ -855,24 +872,19 @@ find_package (OpenMP)
 find_package (FFTW3 COMPONENTS single threads REQUIRED)
 
 #
-# libhamlib setup
+# hamlib setup
 #
-set (hamlib_STATIC 1)
-find_package (hamlib 3 REQUIRED)
+find_package (Hamlib REQUIRED)
 find_program (RIGCTL_EXE rigctl)
 find_program (RIGCTLD_EXE rigctld)
 find_program (RIGCTLCOM_EXE rigctlcom)
 
-message (STATUS "hamlib_INCLUDE_DIRS: ${hamlib_INCLUDE_DIRS}")
-message (STATUS "hamlib_LIBRARIES: ${hamlib_LIBRARIES}")
-message (STATUS "hamlib_LIBRARY_DIRS: ${hamlib_LIBRARY_DIRS}")
-
-set (CMAKE_REQUIRED_INCLUDES "${hamlib_INCLUDE_DIRS}")
-set (CMAKE_REQUIRED_LIBRARIES "${hamlib_LIBRARIES}")
-set (CMAKE_EXTRA_INCLUDE_FILES "hamlib/rig.h")
 check_type_size (CACHE_ALL HAMLIB_OLD_CACHING)
 check_symbol_exists (rig_set_cache_timeout_ms "hamlib/rig.h" HAVE_HAMLIB_CACHING)
 
+find_package (Portaudio REQUIRED)
+
+find_package (Usb REQUIRED)
 
 #
 # Qt5 setup
@@ -885,19 +897,6 @@ if (WIN32)
   add_definitions (-DQT_NEEDS_QTMAIN)
   find_package (Qt5AxContainer REQUIRED)
 endif (WIN32)
-
-#
-# sub-directories
-#
-if (EXISTS ${CMAKE_SOURCE_DIR}/samples AND IS_DIRECTORY ${CMAKE_SOURCE_DIR}/samples)
-  add_subdirectory (samples)
-endif ()
-if (WSJT_GENERATE_DOCS)
-  add_subdirectory (doc)
-endif (WSJT_GENERATE_DOCS)
-if (EXISTS ${CMAKE_SOURCE_DIR}/tests AND IS_DIRECTORY ${CMAKE_SOURCE_DIR}/tests)
-  add_subdirectory (tests)
-endif ()
 
 #
 # Library building setup
@@ -961,8 +960,15 @@ if (Fortran_COMPILER_NAME MATCHES "gfortran.*")
     set (CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -isysroot ${CMAKE_OSX_SYSROOT}")
   endif (CMAKE_OSX_SYSROOT)
 
-  set (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} -fbounds-check -funroll-all-loops -fno-f2c ${General_FFLAGS}")
-  set (CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS_DEBUG} -fbounds-check -fno-f2c ${General_FFLAGS}")
+  set (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} -fbounds-check -funroll-all-loops -fno-f2c -ffpe-summary=invalid,zero,overflow,underflow ${General_FFLAGS}")
+
+set (CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS_DEBUG} -g -fbacktrace -fbounds-check -fno-f2c -ffpe-summary=invalid,zero,overflow,underflow ${General_FFLAGS}")
+  
+  # FPE traps currently disabled in Debug configuration builds until
+  # we decide if they are meaningful, without these FP instructions
+  # run in nonstop mode and do not trap
+  #set (CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS_DEBUG} ${CMAKE_Fortran_FLAGS_DEBUG}  -ffpe-trap=invalid,zero,overflow")
+  
 elseif (Fortran_COMPILER_NAME MATCHES "ifort.*")
   # ifort (untested)
   set (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} -f77rtl ${General_FFLAGS}")
@@ -1064,6 +1070,19 @@ elseif (CMAKE_HOST_WIN32)
   add_definitions (-DWIN32)
 endif ()
 
+#
+# sub-directories
+#
+if (EXISTS ${CMAKE_SOURCE_DIR}/samples AND IS_DIRECTORY ${CMAKE_SOURCE_DIR}/samples)
+  add_subdirectory (samples)
+endif ()
+if (WSJT_GENERATE_DOCS)
+  add_subdirectory (doc)
+endif (WSJT_GENERATE_DOCS)
+if (EXISTS ${CMAKE_SOURCE_DIR}/tests AND IS_DIRECTORY ${CMAKE_SOURCE_DIR}/tests)
+  add_subdirectory (tests)
+endif ()
+
 # build a library of package functionality (without and optionally with OpenMP support)
 add_library (wsjt_cxx STATIC ${wsjt_CSRCS} ${wsjt_CXXSRCS})
 target_link_libraries (wsjt_cxx ${LIBM_LIBRARIES} Boost::log_setup ${LIBM_LIBRARIES})
@@ -1109,6 +1128,9 @@ target_link_libraries (sumsim wsjt_fort wsjt_cxx)
 
 add_executable (q65sim lib/qra/q65/q65sim.f90)
 target_link_libraries (q65sim wsjt_fort wsjt_cxx)
+
+add_executable (q65code lib/qra/q65/q65code.f90)
+target_link_libraries (q65code wsjt_fort wsjt_cxx)
 
 add_executable (test_q65 lib/test_q65.f90)
 target_link_libraries (test_q65 wsjt_fort wsjt_cxx)
@@ -1317,8 +1339,7 @@ target_link_libraries (qcp Qt5::Widgets Qt5::PrintSupport)
 add_library (wsjt_qt STATIC ${wsjt_qt_CXXSRCS} ${wsjt_qt_GENUISRCS} ${GENAXSRCS})
 # set wsjtx_udp exports to static variants
 target_compile_definitions (wsjt_qt PUBLIC UDP_STATIC_DEFINE)
-target_link_libraries (wsjt_qt Boost::log qcp Qt5::Widgets Qt5::Network Qt5::Sql)
-target_include_directories (wsjt_qt BEFORE PRIVATE ${hamlib_INCLUDE_DIRS})
+target_link_libraries (wsjt_qt Hamlib::Hamlib Boost::log qcp Qt5::Widgets Qt5::Network Qt5::Sql)
 if (WIN32)
   target_link_libraries (wsjt_qt Qt5::AxContainer Qt5::AxBase)
 endif (WIN32)
@@ -1380,6 +1401,9 @@ else (${OPENMP_FOUND} OR APPLE)
   target_link_libraries (jt9 wsjt_fort wsjt_cxx fort_qt)
 endif (${OPENMP_FOUND} OR APPLE)
 
+# build map65
+add_subdirectory (map65)
+
 # build the main application
 generate_version_info (wsjtx_VERSION_RESOURCES
   NAME wsjtx
@@ -1432,7 +1456,7 @@ else ()
       )
   endif ()
 endif ()
-target_link_libraries (wsjtx Qt5::SerialPort wsjt_cxx wsjt_qt wsjt_qtmm ${hamlib_LIBRARIES} ${FFTW3_LIBRARIES} ${LIBM_LIBRARIES})
+target_link_libraries (wsjtx Qt5::SerialPort wsjt_cxx wsjt_qt wsjt_qtmm ${FFTW3_LIBRARIES} ${LIBM_LIBRARIES})
 
 # make a library for WSJT-X UDP servers
 # add_library (wsjtx_udp SHARED ${UDP_library_CXXSRCS})
@@ -1543,7 +1567,8 @@ install (TARGETS jt9 wsprd fmtave fcal fmeasure
   )
 
 if(WSJT_BUILD_UTILS)
-install (TARGETS ft8code jt65code jt9code jt4code msk144code fst4sim q65sim
+install (TARGETS ft8code jt65code jt9code jt4code msk144code 
+  q65code fst4sim q65sim
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   )
@@ -1663,174 +1688,27 @@ if (NOT WIN32 AND NOT APPLE)
     )
 endif (NOT WIN32 AND NOT APPLE)
 
+if (APPLE)
+  set (CMAKE_POSTFLIGHT_SCRIPT
+    "${wsjtx_BINARY_DIR}/postflight.sh")
+  set (CMAKE_POSTUPGRADE_SCRIPT
+    "${wsjtx_BINARY_DIR}/postupgrade.sh")
+  configure_file ("${wsjtx_SOURCE_DIR}/Darwin/postflight.sh.in"
+    "${CMAKE_POSTFLIGHT_SCRIPT}")
+  configure_file ("${wsjtx_SOURCE_DIR}/Darwin/postupgrade.sh.in"
+    "${CMAKE_POSTUPGRADE_SCRIPT}")
+endif ()
+
 
 #
 # bundle fixup only done in non-Debug configurations
 #
 if (NOT is_debug_build)
-
-  get_target_property (QtCore_location Qt5::Core LOCATION)
-  get_filename_component (QtCore_location ${QtCore_location} PATH)
-  list (APPEND fixup_library_dirs ${QtCore_location})
-
-  if (APPLE)
-    set (CMAKE_POSTFLIGHT_SCRIPT
-      "${wsjtx_BINARY_DIR}/postflight.sh")
-    set (CMAKE_POSTUPGRADE_SCRIPT
-      "${wsjtx_BINARY_DIR}/postupgrade.sh")
-    configure_file ("${wsjtx_SOURCE_DIR}/Darwin/postflight.sh.in"
-      "${CMAKE_POSTFLIGHT_SCRIPT}")
-    configure_file ("${wsjtx_SOURCE_DIR}/Darwin/postupgrade.sh.in"
-      "${CMAKE_POSTUPGRADE_SCRIPT}")
-  endif ()
-
-  if (APPLE OR WIN32)
-    # install rules for including 3rd party libs such as Qt
-
-    # install a qt.conf file
-    install (CODE "
-        get_filename_component (the_qt_conf \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${WSJT_QT_CONF_DESTINATION}/qt.conf\" REALPATH)
-        file (WRITE \"\${the_qt_conf}\"
-\"[Paths]
-\")
-"
-      #COMPONENT runtime
-      )
-
-    # if a system Qt is used (e.g. installed in /usr/lib/), it will not be included in the installation
-    set (fixup_exe "\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/${CMAKE_PROJECT_NAME}${CMAKE_EXECUTABLE_SUFFIX}")
-
-    #get_filename_component (hamlib_lib_dir ${hamlib_LIBRARIES} PATH)
-
-    if (APPLE)
-      # install required Qt plugins
-      install (
-	DIRECTORY
-	${QT_PLUGINS_DIR}/platforms
-	${QT_PLUGINS_DIR}/audio
-	${QT_PLUGINS_DIR}/accessible
-	${QT_PLUGINS_DIR}/imageformats
-	${QT_PLUGINS_DIR}/styles
-	DESTINATION ${WSJT_PLUGIN_DESTINATION}
-	CONFIGURATIONS Release MinSizeRel RelWithDebInfo
-	#COMPONENT runtime
-	FILES_MATCHING PATTERN "*${CMAKE_SHARED_LIBRARY_SUFFIX}"
-	PATTERN "*minimal*${CMAKE_SHARED_LIBRARY_SUFFIX}" EXCLUDE
-	PATTERN "*offscreen*${CMAKE_SHARED_LIBRARY_SUFFIX}" EXCLUDE
-	PATTERN "*quick*${CMAKE_SHARED_LIBRARY_SUFFIX}" EXCLUDE
-	PATTERN "*webgl*${CMAKE_SHARED_LIBRARY_SUFFIX}" EXCLUDE
-	PATTERN "*_debug${CMAKE_SHARED_LIBRARY_SUFFIX}" EXCLUDE
-	PATTERN "*${CMAKE_SHARED_LIBRARY_SUFFIX}.dSYM" EXCLUDE
-	)
-      install (
-	FILES
-	${QT_PLUGINS_DIR}/sqldrivers/libqsqlite${CMAKE_SHARED_LIBRARY_SUFFIX}
-	DESTINATION ${WSJT_PLUGIN_DESTINATION}/sqldrivers
-	CONFIGURATIONS Release MinSizeRel RelWithDebInfo
-	#COMPONENT runtime
-	)
-      # install (
-      # 	DIRECTORY
-      # 	${QT_PLUGINS_DIR}/platforms
-      # 	${QT_PLUGINS_DIR}/audio
-      #         ${QT_PLUGINS_DIR}/accessible
-      # 	DESTINATION ${WSJT_PLUGIN_DESTINATION}
-      # 	CONFIGURATIONS Debug
-      # 	#COMPONENT runtime
-      # 	FILES_MATCHING PATTERN "*_debug${CMAKE_SHARED_LIBRARY_SUFFIX}"
-      # 	PATTERN "*minimal*${CMAKE_SHARED_LIBRARY_SUFFIX}" EXCLUDE
-      # 	PATTERN "*offscreen*${CMAKE_SHARED_LIBRARY_SUFFIX}" EXCLUDE
-      # 	PATTERN "*quick*${CMAKE_SHARED_LIBRARY_SUFFIX}" EXCLUDE
-      # 	)
-
-      # add plugins path for Mac Bundle
-      install (CODE "
-          get_filename_component (the_qt_conf \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${WSJT_QT_CONF_DESTINATION}/qt.conf\" REALPATH)
-          file (APPEND \"\${the_qt_conf}\"
-\"Plugins = PlugIns
-\")
-"
-	#COMPONENT runtime
-	)
-    endif (APPLE)
-
-    if (WIN32)
-      # DLL directory
-      #set (hamlib_lib_dir ${hamlib_lib_dir}/../bin)
-
-      get_filename_component (fftw_lib_dir ${FFTW3F_LIBRARY} PATH)
-      list (APPEND fixup_library_dirs ${fftw_lib_dir})
-
-      # install required Qt plugins
-      install (
-	DIRECTORY
-	${QT_PLUGINS_DIR}/platforms
-	${QT_PLUGINS_DIR}/styles
-	${QT_PLUGINS_DIR}/accessible
-	${QT_PLUGINS_DIR}/audio
-	${QT_PLUGINS_DIR}/imageformats
-	DESTINATION ${WSJT_PLUGIN_DESTINATION}
-	CONFIGURATIONS Release MinSizeRel RelWithDebInfo
-	#COMPONENT runtime
-	FILES_MATCHING PATTERN "*${CMAKE_SHARED_LIBRARY_SUFFIX}"
-	PATTERN "*minimal*${CMAKE_SHARED_LIBRARY_SUFFIX}" EXCLUDE
-	PATTERN "*offscreen*${CMAKE_SHARED_LIBRARY_SUFFIX}" EXCLUDE
-	PATTERN "*quick*${CMAKE_SHARED_LIBRARY_SUFFIX}" EXCLUDE
-	PATTERN "*d${CMAKE_SHARED_LIBRARY_SUFFIX}" EXCLUDE
-	)
-      install (
-	FILES
-	${QT_PLUGINS_DIR}/sqldrivers/qsqlite${CMAKE_SHARED_LIBRARY_SUFFIX}
-	DESTINATION ${WSJT_PLUGIN_DESTINATION}/sqldrivers
-	CONFIGURATIONS Release MinSizeRel RelWithDebInfo
-	#COMPONENT runtime
-	)
-      # install (
-      # 	DIRECTORY
-      # 	${QT_PLUGINS_DIR}/platforms
-      # 	${QT_PLUGINS_DIR}/accessible
-      # 	${QT_PLUGINS_DIR}/audio
-      # 	DESTINATION ${WSJT_PLUGIN_DESTINATION}
-      # 	CONFIGURATIONS Debug
-      # 	#COMPONENT runtime
-      # 	FILES_MATCHING PATTERN "*d${CMAKE_SHARED_LIBRARY_SUFFIX}"
-      # 	PATTERN "*minimal*${CMAKE_SHARED_LIBRARY_SUFFIX}" EXCLUDE
-      # 	PATTERN "*offscreen*${CMAKE_SHARED_LIBRARY_SUFFIX}" EXCLUDE
-      # 	PATTERN "*quick*${CMAKE_SHARED_LIBRARY_SUFFIX}" EXCLUDE
-      # 	)
-
-      # add paths for WIN32
-      file (RELATIVE_PATH _plugins_path "${CMAKE_INSTALL_PREFIX}/${WSJT_QT_CONF_DESTINATION}" "${CMAKE_INSTALL_PREFIX}/${WSJT_PLUGIN_DESTINATION}")
-      install (CODE "
-        get_filename_component (the_qt_conf \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${WSJT_QT_CONF_DESTINATION}/qt.conf\" REALPATH)
-        file (APPEND \"\${the_qt_conf}\"
-\"Plugins = ${_plugins_path}
-\")
-"
-	#COMPONENT runtime
-	)
-
-      set (gp_tool "objdump")	# we want MinGW tool - not MSVC (See GetPrerequisites.cmake)
-    endif (WIN32)
-
-    #list (APPEND fixup_library_dirs ${hamlib_lib_dir})
-    list (APPEND fixup_library_dirs ${hamlib_LIBRARY_DIRS})
-
-    install (CODE "
-        get_filename_component (the_path \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${WSJT_PLUGIN_DESTINATION}\" REALPATH)
-        file (GLOB_RECURSE QTPLUGINS \"\${the_path}/*${CMAKE_SHARED_LIBRARY_SUFFIX}\")
-        set (CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/CMake/Modules ${CMAKE_MODULE_PATH})
-        include (BundleUtilities)
-        set (BU_CHMOD_BUNDLE_ITEMS ON)
-        set (gp_tool ${gp_tool})
-        # canonicalize path in install context
-        get_filename_component (the_exe ${fixup_exe} REALPATH)
-        fixup_bundle (\"\${the_exe}\" \"\${QTPLUGINS}\" \"${fixup_library_dirs}\")"
-      #COMPONENT runtime
-      )
-  endif (APPLE OR WIN32)
-
-endif (NOT is_debug_build)
+  # add this sub-sirectory after all install steps and other
+  # sub-directories to ensure that all executables are in-place before
+  # any fixup is done
+  add_subdirectory (bundle_fixup)
+endif ()
 
 
 #

@@ -26,10 +26,9 @@ typedef struct dec_data {
     int nutc;                   //UTC as integer, HHMM
     bool ndiskdat;              //true ==> data read from *.wav file
     int ntrperiod;              //TR period (seconds)
-    int nQSOProgress;           /* QSO state machine state */
+    int nQSOProgress;           //QSO state machine state
     int nfqso;                  //User-selected QSO freq (kHz)
-    int nftx;                   /* Transmit audio offset where
-                                   replies might be expected */
+    int nftx;                   //TX audio offset where replies might be expected
     bool newdat;                //true ==> new data, must do long FFT
     int npts8;                  //npts for c0() array
     int nfa;                    //Low decode limit (Hz)
@@ -59,6 +58,7 @@ typedef struct dec_data {
     int naggressive;
     bool nrobust;
     int nexp_decode;
+    int max_drift;
     char datetime[20];
     char mycall[12];
     char mygrid[6];

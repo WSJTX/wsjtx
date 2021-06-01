@@ -494,7 +494,7 @@ static const int qra_pmat[qra_M*qra_M] = {
   3,   1,   7,   5,  11,   9,  15,  13,  19,  17,  23,  21,  27,  25,  31,  29, 
  35,  33,  39,  37,  43,  41,  47,  45,  51,  49,  55,  53,  59,  57,  63,  61
 };
-
+/*
 // SO array
 static const int SO[qra_N-qra_K+1] = {
  14,   2,   4,   5,   9,  13,  10,  15,  11,   6,   1,   8,   2,  12,   9,  10, 
@@ -515,6 +515,7 @@ static const int LOGWO[qra_N-qra_K+1] = {
 static const int repfact[qra_K] = {
   3,   3,   3,   3,   3,   3,   3,   4,   4,   4,   4,   4,   4,   3,   3
 };
+*/
 
 const qracode qra15_65_64_irr_e23 = {
       qra_K,

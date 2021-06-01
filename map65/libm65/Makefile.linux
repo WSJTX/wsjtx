@@ -1,0 +1,96 @@
+CC = gcc
+FC = gfortran
+
+FFLAGS = -O2 -fbounds-check -Wall 
+# For ptt_unix:
+CFLAGS = -I. -fbounds-check -DHAVE_STDLIB_H=1 -DHAVE_STDIO_H=1 \
+	-DHAVE_FCNTL_H=1 -DHAVE_SYS_IOCTL_H=1
+
+# Default rules
+%.o: %.c
+	${CC} ${CFLAGS} -c $<
+%.o: %.f
+	${FC} ${FFLAGS} -c $<
+%.o: %.F
+	${FC} ${FFLAGS} -c $<
+%.o: %.f90
+	${FC} ${FFLAGS} -c $<
+%.o: %.F90
+	${FC} ${FFLAGS} -c $<
+
+all:    libm65.a m65
+
+OBJS1 = trimlist.o display.o getdphi.o pctile.o ccf65.o \
+	decode1a.o sort.o filbig.o fil6521.o afc65b.o \
+	twkfreq.o decode65b.o indexx.o ssort.o fchisq.o setup65.o \
+	extract.o deep65.o ccf2.o demod64a.o chkhist.o graycode.o \
+	interleave63.o unpackmsg.o encode65.o igray.o set.o unpackcall.o \
+	unpackgrid.o grid2k.o unpacktext.o getpfx2.o packmsg.o \
+	deg2grid.o packtext.o getpfx1.o packcall.o k2grid.o packgrid.o \
+	wrapkarn.o nchar.o init_rs.o encode_rs.o decode_rs.o \
+	four2a.o rfile3a.o grid2deg.o pfxdump.o dpol.o \
+	astro.o tm2.o sun.o moondop.o coord.o tmoonsub.o \
+	geocentric.o moon2.o toxyz.o dot.o dcoord.o f77_wisdom.o \
+	gen65.o chkmsg.o ptt_unix.o astrosub.o astro0.o recvpkt.o \
+	symspec.o iqcal.o iqfix.o timf2.o s3avg.o
+
+libm65.a: $(OBJS1)
+	ar cr libm65.a $(OBJS1) 
+	ranlib libm65.a
+
+OBJS3 = m65.o m65a.o map65a.o symspec.o decode0.o ftninit.o ftnquit.o \
+	timer.o ipcomm.o sec_midn.o cutil.o 
+
+m65:	$(OBJS3) libm65.a
+	g++ -o m65 $(OBJS3) libm65.a -lfftw3f -lQtCore -lfftw3f -lgfortran
+
+OBJS2 = m65a.o ipcomm.o sec_midn.o cutil.o decode0.o map65a.o \
+	timer.o ftninit.o ftnquit.o
+LIBS2    = -lQtCore -lfftw3f -lgfortran
+
+m65a: 	 $(OBJS2) libm65.a
+	 g++ -o m65a $(OBJS2) libm65.a -lQtCore -lfftw3f -lgfortran
+
+OBJS6 = t3.o ipcomm.o 
+LIBS2    = -lQtCore -lgfortran
+
+t3: 	 $(OBJS6) 
+	 g++ -o t3 $(OBJS6) $(LIBS2)
+
+t3:	
+
+INCPATH = -I. -I'/usr/include/qt4' -I'/usr/include/qt4/QtCore'
+
+ipcomm.o: ipcomm.cpp
+	g++ -c $(INCPATH) ipcomm.cpp
+
+m65a.o:	m65a.F90
+	$(FC) -c -fno-second-underscore -DUNIX m65a.F90
+
+extract.o: extract.F
+	$(FC) -c -fno-second-underscore -DUNIX extract.F
+
+sec_midn.o: sec_midn.f90
+	$(FC) -c -fno-second-underscore sec_midn.f90
+
+OBJS4 = tastro.o astro0.o libm65.a
+tastro: $(OBJS4)
+	$(FC) $(FFLAGS) -o tastro $(OBJS4) libm65.a 
+
+OBJS5 = t1.o timer.o libm65.a
+t1: $(OBJS5)
+	$(FC) $(FFLAGS) -o t1 $(OBJS5) libm65.a 
+
+init_rs.o: init_rs.c
+	$(CC) -c -DBIGSYM=1 -o init_rs.o init_rs.c
+
+encode_rs.o: encode_rs.c
+	$(CC) -c -DBIGSYM=1 -o encode_rs.o encode_rs.c
+
+decode_rs.o: decode_rs.c
+	$(CC) -c -DBIGSYM=1 -o decode_rs.o decode_rs.c
+
+.PHONY : clean
+
+clean:
+	rm -f *.o libm65.a m65 m65a

@@ -41,6 +41,7 @@
      integer(c_int) :: naggressive
      logical(c_bool) :: nrobust
      integer(c_int) :: nexp_decode
+     integer(c_int) :: max_drift
      character(kind=c_char) :: datetime(20)
      character(kind=c_char) :: mycall(12)
      character(kind=c_char) :: mygrid(6)

@@ -11,30 +11,35 @@ subroutine q65_loops(c00,npts2,nsps2,nsubmode,ndepth,jpk0,    &
   complex ,allocatable :: c0(:)    !Ditto, with freq shift
   character decoded*37
   real a(3)                        !twkfreq params f,f1,f2
-  real s3(LN)                      !Symbol spectra
+  real,allocatable :: s3(:)        !Symbol spectra
   integer dat4(13)                 !Decoded message (as 13 six-bit integers)
   integer nap(0:11)                !AP return codes
   data nap/0,2,3,2,3,4,2,3,6,4,6,6/
 
+  LL=64*(mode_q65+2)
+  allocate(s3(LL*NN))
+  allocate(c0(0:npts2-1))
   idec=-1
   ircbest=9999
-  allocate(c0(0:npts2-1))
   irc=-99
   s3lim=20.
   baud=6000.0/nsps2
 
-  idfmax=3
-  idtmax=3
+  idfmax=1
+  idtmax=1
+  maxdist=4
   ibw0=(ibwa+ibwb)/2
-  maxdist=5
-  if(iand(ndepth,3).ge.2) then
+  if(iand(ndepth,3).eq.2) then
+     idfmax=3
+     idtmax=3
+     maxdist=5
+  endif
+  if(iand(ndepth,3).eq.3) then
      idfmax=5
      idtmax=5
-     maxdist=10
+     maxdist=15
   endif
-  if(iand(ndepth,3).eq.3) maxdist=15
 
-  LL=64*(mode_q65+2)
   napmin=99
   xdt1=xdt0
   f1=f0
@@ -47,15 +52,15 @@ subroutine q65_loops(c00,npts2,nsps2,nsubmode,ndepth,jpk0,    &
      if(mod(idf,2).eq.0) ndf=-ndf
      a=0.
      a(1)=-(f0+0.5*baud*ndf)
+! Variable 'drift' is frequency increase over full TxT.  Therefore we want:
+     a(2)=-0.5*drift
      call twkfreq(c00,c0,npts2,6000.0,a)
      do idt=1,idtmax
         ndt=idt/2
         if(mod(idt,2).eq.0) ndt=-ndt
         jpk=jpk0 + nsps2*ndt/16              !tsym/16
         if(jpk.lt.0) jpk=0
-        call timer('spec64  ',0)
         call spec64(c0,nsps2,mode_q65,jpk,s3,LL,NN)
-        call timer('spec64  ',1)
         call pctile(s3,LL*NN,40,base)
         s3=s3/base
         where(s3(1:LL*NN)>s3lim) s3(1:LL*NN)=s3lim

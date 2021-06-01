@@ -9,7 +9,6 @@ subroutine fast_decode(id2,narg,trperiod,line,mycall_12,   &
   double precision trperiod
   real dat(30*12000)
   complex cdat(262145),cdat2(262145)
-  real psavg(450)
   logical pick,first
   character*6 cfile6
   character*80 line(100)

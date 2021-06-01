@@ -205,10 +205,11 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
      open(17,file=trim(temp_dir)//'/red.dat',status='unknown')
      open(14,file=trim(temp_dir)//'/avemsg.txt',status='unknown')
      call timer('dec_q65 ',0)
-     call my_q65%decode(q65_decoded,id2,params%nutc,params%ntr,          &
+     nqd=1
+     call my_q65%decode(q65_decoded,id2,nqd,params%nutc,params%ntr,      &
           params%nsubmode,params%nfqso,params%ntol,params%ndepth,        &
           params%nfa,params%nfb,logical(params%nclearave),               &
-          single_decode,logical(params%nagain),                          &
+          single_decode,logical(params%nagain),params%max_drift,         &
           logical(params%newdat),params%emedelay,mycall,hiscall,hisgrid, &
           params%nQSOProgress,ncontest,logical(params%lapcqonly),navg0)
      call timer('dec_q65 ',1)
