@@ -32,6 +32,16 @@ extern "C"  {
 #cmakedefine01 HAVE_HAMLIB_OLD_CACHING
 #cmakedefine01 HAVE_HAMLIB_CACHING
 
+#cmakedefine HAVE_STDIO_H 1
+#cmakedefine STDC_HEADERS 1
+#cmakedefine HAVE_STDLIB_H 1
+#cmakedefine HAVE_UNISTD_H 1
+#cmakedefine HAVE_SYS_IOCTL_H 1
+#cmakedefine HAVE_FCNTL_H 1
+#cmakedefine HAVE_SYS_STAT_H 1
+#cmakedefine HAVE_LINUX_PPDEV_H 1
+#cmakedefine HAVE_DEV_PPBUS_PPI_H 1
+
 #cmakedefine01 WSJT_SHARED_RUNTIME
 #cmakedefine01 WSJT_SOFT_KEYING
 #cmakedefine01 WSJT_ENABLE_EXPERIMENTAL_FEATURES

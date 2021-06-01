@@ -1,5 +1,9 @@
 subroutine twkfreq(c3,c4,npts,fsample,a)
 
+  ! Adjust frequency of complex data
+  ! a(1)    Hz
+  ! a(2)    Hz/(0.5*TxT), where TxT = npts/fsample = file duration
+  
   complex c3(npts)
   complex c4(npts)
   complex w,wstep

@@ -1,6 +1,6 @@
 program test_q65
 
-  character*82 cmd1,cmd2,line
+  character*84 cmd1,cmd2,line
   character*22 msg
   character*8 arg
   character*1 csubmode
@@ -71,8 +71,8 @@ program test_q65
   tsym=1.0/baud
 
 !                1         2         3         4         5         6         7
-!       123456789012345678901234567890123456789012345678901234567890123456789012345'
-  cmd1='q65sim   "K1ABC W9XYZ EN37      " A 1500  5.0  0.0 0.0  1  60  100   -10.0 > junk0'
+!       1234567890123456789012345678901234567890123456789012345678901234567890123456'
+  cmd1='q65sim   "K1ABC W9XYZ EN37      " A 1500  5.0  0.0   0.0  1  60  100   -10.0 > junk0'
   cmd2='jt9 -3 -p  15 -L 300 -H 3000 -d   3 -b A -Q 3 -f 1500 *.wav > junk'
 
   write(cmd1(10:33),'(a)') '"'//msg//'"'
@@ -80,10 +80,10 @@ program test_q65
   write(cmd1(37:40),'(i4)') nf0
   write(cmd1(41:45),'(f5.0)') fDop
   write(cmd1(46:50),'(f5.2)') dt
-  write(cmd1(51:54),'(f4.0)') f1
-  write(cmd1(55:57),'(i3)') nstp
-  write(cmd1(58:61),'(i4)') ntrperiod
-  write(cmd1(62:66),'(i5)') nfiles
+  write(cmd1(51:56),'(i6)') nint(f1)
+  write(cmd1(57:59),'(i3)') nstp
+  write(cmd1(60:63),'(i4)') ntrperiod
+  write(cmd1(64:68),'(i5)') nfiles
 
   write(cmd2(11:13),'(i3)') ntrperiod
   write(cmd2(33:35),'(i3)') ndepth
@@ -94,7 +94,7 @@ program test_q65
   call system('rm -f *.wav')
 
   write(*,1008) ntrperiod,csubmode,ndepth,fDop,f1,nstp
-1008 format('Mode:',i4,a1,'  Depth:',i3,'  fDop:',f6.1,'  Drift:',f6.1,  &
+1008 format('Mode:',i4,a1,'  Depth:',i3,'  fDop:',f6.1,'  Drift:',f8.1,  &
           '  Steps:',i3)
   write(*,1010) (j,j=0,5)
   write(12,1010) (j,j=0,5)
@@ -112,7 +112,7 @@ program test_q65
      nfalse=0
      naptype=0
      ndecn=0
-     write(cmd1(70:74),'(f5.1)') snr1
+     write(cmd1(72:76),'(f5.1)') snr1
      call system(cmd1)
      call sec0(0,tdec)
      call system(cmd2)

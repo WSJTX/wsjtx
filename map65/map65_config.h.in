@@ -1,0 +1,4 @@
+#include "svnversion.h"
+
+#define MAP65_VERSION_MAJOR @MAP65_VERSION_MAJOR@
+#define MAP65_VERSION_MINOR @MAP65_VERSION_MINOR@

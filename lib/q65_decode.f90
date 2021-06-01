@@ -1,5 +1,9 @@
 module q65_decode
 
+  integer nsnr0,nfreq0
+  real xdt0
+  character msg0*37,cq0*3
+
   type :: q65_decoder
      procedure(q65_decode_callback), pointer :: callback
    contains
@@ -26,9 +30,10 @@ module q65_decode
 
 contains
 
-  subroutine decode(this,callback,iwave,nutc,ntrperiod,nsubmode,nfqso,   &
-       ntol,ndepth,nfa0,nfb0,lclearave,single_decode,lagain,lnewdat0,    &
-       emedelay,mycall,hiscall,hisgrid,nQSOprogress,ncontest,lapcqonly,navg0)
+  subroutine decode(this,callback,iwave,nqd0,nutc,ntrperiod,nsubmode,nfqso,  &
+       ntol,ndepth,nfa0,nfb0,lclearave,single_decode,lagain,max_drift0,      &
+       lnewdat0,emedelay,mycall,hiscall,hisgrid,nQSOprogress,ncontest,       &
+       lapcqonly,navg0)
 
 ! Top-level routine that organizes the decoding of Q65 signals
 ! Input:  iwave            Raw data, i*2
@@ -67,15 +72,17 @@ contains
     integer dat4(13)                      !Decoded message as 12 6-bit integers
     integer dgen(13)
     logical lclearave,lnewdat0,lapcqonly,unpk77_success
-    logical single_decode,lagain,ex
+    logical single_decode,lagain
     complex, allocatable :: c00(:)        !Analytic signal, 6000 Sa/s
     complex, allocatable :: c0(:)         !Analytic signal, 6000 Sa/s
-    
+
 ! Start by setting some parameters and allocating storage for large arrays
     call sec0(0,tdecode)
     nfa=nfa0
     nfb=nfb0
+    nqd=nqd0
     lnewdat=lnewdat0
+    max_drift=max_drift0
     idec=-1
     idf=0
     idt=0
@@ -84,6 +91,7 @@ contains
     npts=ntrperiod*12000
     nfft1=ntrperiod*12000
     nfft2=ntrperiod*6000
+    npasses=1
 
 ! Determine the T/R sequence: iseq=0 (even), or iseq=1 (odd)
     n=nutc
@@ -116,33 +124,33 @@ contains
     baud=12000.0/nsps
     this%callback => callback
     nFadingModel=1
-
-    inquire(file='ndepth.dat',exist=ex)
-    if(.not.ex) ndepth=iand(ndepth,not(3)) + 1    !Treat any ndepth as "Fast"
-    maxiters=67
+    maxiters=33
     ibwa=max(1,int(1.8*log(baud*mode_q65)) + 1)
-    ibwb=min(10,ibwa+4)
+    ibwb=min(10,ibwa+2)
     if(iand(ndepth,3).ge.2) then
        ibwa=max(1,int(1.8*log(baud*mode_q65)) + 1)
        ibwb=min(10,ibwa+5)
+       maxiters=67
     else if(iand(ndepth,3).eq.3) then
        ibwa=max(1,ibwa-1)
        ibwb=min(10,ibwb+1)
        maxiters=100
     endif
-
-! Generate codewords for full-AP list decoding    
-    call q65_set_list(mycall,hiscall,hisgrid,codewords,ncw) 
+! Generate codewords for full-AP list decoding
+    if(ichar(hiscall(1:1)).eq.0) hiscall=' '
+    if(ichar(hisgrid(1:1)).eq.0) hisgrid=' '
+    ncw=0
+    if(nqd.eq.1 .or. lagain) then
+       call q65_set_list(mycall,hiscall,hisgrid,codewords,ncw)
+    endif
     dgen=0
     call q65_enc(dgen,codewords)         !Initialize the Q65 codec
-
     nused=1
     iavg=0
     call timer('q65_dec0',0)
 ! Call top-level routine in q65 module: establish sync and try for a q3 decode.
     call q65_dec0(iavg,nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
          emedelay,xdt,f0,snr1,width,dat4,snr2,idec)
-!    idec=-1   !### TEMPORARY ###
     call timer('q65_dec0',1)
 
     if(idec.ge.0) then
@@ -298,7 +306,6 @@ contains
           call timer('q65loops',0)
           call q65_loops(c00,npts/2,nsps/2,nsubmode,ndepth,jpk0,   &
                xdt,f0,iaptype,xdt1,f1,snr2,dat4,idec)
-!       idec=-1   !### TEMPORARY ###
           call timer('q65loops',1)
           if(idec.ge.0) then
              dtdec=xdt1

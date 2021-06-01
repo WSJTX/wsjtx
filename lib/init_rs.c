@@ -28,10 +28,9 @@ void FREE_RS(void *p){
  * fcr = first root of RS code generator polynomial, index form
  * prim = primitive element to generate polynomial roots
  * nroots = RS code generator polynomial degree (number of roots)
- * pad = padding bytes at front of shortened block
  */
-void *INIT_RS(int symsize,int gfpoly,int fcr,int prim,
-	int nroots,int pad){
+void *INIT_RS(unsigned int symsize,unsigned int gfpoly,unsigned fcr,unsigned prim,
+		unsigned int nroots){
   struct rs *rs;
   int i, j, sr,root,iprim;
 
@@ -39,19 +38,16 @@ void *INIT_RS(int symsize,int gfpoly,int fcr,int prim,
   if(symsize < 0 || symsize > (int)(8*sizeof(DTYPE)))
     return NULL; /* Need version with ints rather than chars */
 
-  if(fcr < 0 || fcr >= (1<<symsize))
+  if(fcr >= (1<<symsize))
     return NULL;
-  if(prim <= 0 || prim >= (1<<symsize))
+  if(prim == 0 || prim >= (1<<symsize))
     return NULL;
-  if(nroots < 0 || nroots >= (1<<symsize))
+  if(nroots >= (1<<symsize))
     return NULL; /* Can't have more roots than symbol values! */
-  if(pad < 0 || pad >= ((1<<symsize) -1 - nroots))
-    return NULL; /* Too much padding */
 
   rs = (struct rs *)calloc(1,sizeof(struct rs));
   rs->mm = symsize;
   rs->nn = (1<<symsize)-1;
-  rs->pad = pad;
 
   rs->alpha_to = (DTYPE *)malloc(sizeof(DTYPE)*(rs->nn+1));
   if(rs->alpha_to == NULL){

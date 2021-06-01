@@ -19,6 +19,7 @@ Here is an overview list, details are filled out below:
      * Hamlib rig control library
      * Pkg Config Lite
      * Boost C++ libraries (see separate document)
+     * portaudio library (used by map65)
 
 Qt Framework
 ------------
@@ -80,7 +81,7 @@ installed and  updated you will  need to install some  packages, these
 are needed to provide the necessary  *nix tools and utilities to build
 Hamlib from sources.
 
-    pacman -S autoconf automake libtool make
+    pacman -S autoconf automake libtool make tar
 
 Hamlib
 ------
@@ -98,13 +99,13 @@ fork is a git repository which can be cloned with this command:
 
 Next you must build Hamlib using the MinGW compiler tools bundled with
 Qt. As you  will build Hamlib again when there  are updates you should
-set  up  you  Msys2  command  line  environment  for  this.  I  use  a
+set  up  you  MSYS2  command  line  environment  for  this.  I  use  a
 $HOME/.bash_profile file containing these lines:
 
     dll_paths_64bit=/c/Tools/libusb-1.0.23/MinGW64/dll:$HOME/local/hamlib/mingw64/release/bin
     export PATH=/c/Qt/Tools/mingw810_64/bin:$dll_paths_64bit:$PATH
 
-Test the amended ~/.bash_profile file by opening a new Msys2 shell and
+Test the amended ~/.bash_profile file by opening a new MSYS2 shell and
 typing:
 
     which gcc
@@ -117,7 +118,7 @@ Hamlib sources:
     cd ~/src/sf/bsomervi/hamlib
     ./bootstrap
 
-Now you need to configure and build Hamlib from an Msys2 shell. Create
+Now you need to configure and build Hamlib from an MSYS2 shell. Create
 a build directory outside of the  Hamlib sources you have just cloned,
 then change working directory to that build directory.
 
@@ -171,3 +172,74 @@ from  https://sourceforge.net/projects/pkgconfiglite/files/0.28-1/ and
 unzip it into a convenient location, as with other ancillary tools and
 libraries I put these under C:\Tools\.
 
+portaudio
+---------
+
+This library  is only available as  sources so must be  built. It uses
+autotools  and building  using  MinGW  tools from  an  MSYS2 shell  is
+recommended. Ensure  your MSYS2 shell environment  (PATH) is correctly
+set up for the MinGW tool chain you wish to build with, i.e. the MinGW
+tools bundled with the Qt installation for 32-, or 64-bit as required.
+
+Download    this    specific    version's   sources    tarball    from
+http://files.portaudio.com/download.html , at the time of writing that
+was  the pa_stable_v190600_20161030.tgz  file.  Unzip  and unpack  the
+tarball in a suitable location like ~/src :
+
+    cd ~/src
+    tar xf ~/Downloads/pa_stable_v190600_20161030.tgz
+
+
+Note that on Windows portaudio  will only build static libraries using
+the standard configuration, we  prefer dynamic libraries for portaudio
+as  users may  wish to  substitute a  build of  the library  with ASIO
+support for personal  use (we cannot redistribute  binaries built from
+proprietary closed source sources like the Steinberg ASIO SDK).
+
+In order  to build  DLLs on  Windows the  configure script  requires a
+patch as follows:
+
+    sed -i -e 's/-luuid//g' ~/src/portaudio/configure
+
+This removes  linker dependencies on the  MS uuid library since  it is
+only  available as  a static  archive  and using  that would  disallow
+shared library creation.
+
+Out-of-source-tree builds are recommended, create a build directory in
+a suitable location like ~/build and change working directory to it:
+
+    mkdir -p ~/build/portaudio/mingw64
+    cd !$
+
+Configure and build and install the library in a suitable place (I use
+~/local as a root directory for installed packages.
+
+    ~/src/portaudio/configure --prefix=$(HOME)/local/portaudio/mingw64 \
+       --with-winapi=wmme,directx,wdmks --disable-static --enable-shared CFLAGS=-DNDEBUG
+    make && make install
+
+Repeat for the 32-bit architecture if required, using a suitable MSYS2
+environment for  the required  tool chain, different  build directory,
+and install location.
+
+Update your CMake  tool chain files to include  the install directory,
+or directories, above.  I have something like this in  the 64-bit tool
+chain files:
+
+    # ...
+    set (PORTAUDIODIR C:/Users/bill/local/portaudio/mingw64)
+    # ...
+    set (CMAKE_PREFIX_PATH ... ${PORTAUDIODIR} ...)
+    #...
+
+and similarly with  the 32-bit tool chain file  specifying the mingw32
+portaudio installation root directory.
+
+To run Debug configuration WSJT-X builds you will also need to add the
+location of the portaudio DLL to your PATH environment variable, like:
+
+   SET "Path=%UserProfile%\local\portaudio\mingw64\bin;%Path%"
+
+Verify the setup with:
+
+   WHERE libportaudio-2.dll

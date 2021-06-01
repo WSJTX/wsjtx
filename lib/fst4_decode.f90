@@ -630,7 +630,7 @@ contains
          close(42)
       endif
 
-900   return
+      return
    end subroutine decode
 
    subroutine sync_fst4(cd0,i0,f0,hmod,ncoh,np,nss,ntr,fs,sync)

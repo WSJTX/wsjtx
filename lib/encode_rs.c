@@ -13,24 +13,19 @@
 #endif
 
 void ENCODE_RS(
-#ifdef FIXED
-DTYPE *data, DTYPE *bb,int pad){
-#else
-void *p,DTYPE *data, DTYPE *bb){
+#ifndef FIXED
+void *p,
+#endif
+DTYPE *data, DTYPE *bb){
+#ifndef FIXED
   struct rs *rs = (struct rs *)p;
 #endif
   int i, j;
   DTYPE feedback;
 
-#ifdef FIXED
-  /* Check pad parameter for validity */
-  if(pad < 0 || pad >= NN)
-    return;
-#endif
-
   memset(bb,0,NROOTS*sizeof(DTYPE));
 
-  for(i=0;i<NN-NROOTS-PAD;i++){
+  for(i=0;i<NN-NROOTS;i++){
     feedback = INDEX_OF[data[i] ^ bb[0]];
     if(feedback != A0){      /* feedback term is non-zero */
 #ifdef UNNORMALIZED

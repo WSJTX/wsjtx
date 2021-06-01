@@ -1678,6 +1678,22 @@ When not checked you can view the calibration results.</string>
                      </widget>
                     </item>
                     <item>
+                     <widget class="QSpinBox" name="sbMaxDrift">
+                      <property name="toolTip">
+                       <string>Maximum drift rate in units of symbol rate per transmission.</string>
+                      </property>
+                      <property name="prefix">
+                       <string>Max Drift  </string>
+                      </property>
+                      <property name="maximum">
+                       <number>50</number>
+                      </property>
+                      <property name="singleStep">
+                       <number>5</number>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
                      <spacer name="verticalSpacer_6">
                       <property name="orientation">
                        <enum>Qt::Vertical</enum>
@@ -2876,6 +2892,7 @@ Double-click to reset to the standard 73 message</string>
     <addaction name="actionFT8_DXpedition_Mode_User_Guide"/>
     <addaction name="actionQSG_FST4"/>
     <addaction name="actionQSG_Q65"/>
+    <addaction name="actionQSG_X250_M3"/>
     <addaction name="download_samples_action"/>
     <addaction name="separator"/>
     <addaction name="actionKeyboard_shortcuts"/>
@@ -3405,6 +3422,11 @@ Double-click to reset to the standard 73 message</string>
    </property>
    <property name="text">
     <string>Auto Clear Avg after decode</string>
+   </property>
+  </action>
+  <action name="actionQSG_X250_M3">
+   <property name="text">
+    <string>Quick-Start Guide to WSJT-X 2.5.0 and MAP65 3.0</string>
    </property>
   </action>
  </widget>
