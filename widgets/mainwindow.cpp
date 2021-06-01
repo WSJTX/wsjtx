@@ -1586,7 +1586,7 @@ void MainWindow::dataSink(qint64 frames)
       {
         Q_EMIT reset_audio_input_stream (true); // reports dropped samples
       }
-    if(!m_diskData and (m_saveAll or m_saveDecoded or m_mode=="WSPR" or m_mode=="FST4W")) {
+    if(!m_diskData and (m_saveAll or m_saveDecoded or m_mode=="WSPR")) {
       //Always save unless "Save None"; may delete later
       if(m_TRperiod < 60) {
         int n=fmod(double(now.time().second()),m_TRperiod);
