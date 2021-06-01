@@ -1031,14 +1031,14 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
 void MainWindow::not_GA_warning_message ()
 {
-  // MessageBox::critical_message (this,
-  //                               "This is a pre-release version of WSJT-X 2.4.0 made\n"
-  //                               "available for testing purposes.  By design it will\n"
-  //                               "be nonfunctional after May 30, 2021.");
-  // auto now = QDateTime::currentDateTimeUtc ();
-  // if (now >= QDateTime {{2021, 5, 30}, {23, 59, 59, 999}, Qt::UTC}) {
-  //   Q_EMIT finished ();
-  // }
+  MessageBox::critical_message (this,
+                                "This is a pre-release version of WSJT-X 2.5.0 made\n"
+                                "available for testing purposes.  By design it will\n"
+                                "be nonfunctional after Aug 31, 2021.");
+  auto now = QDateTime::currentDateTimeUtc ();
+  if (now >= QDateTime {{2021, 8, 31}, {23, 59, 59, 999}, Qt::UTC}) {
+    Q_EMIT finished ();
+  }
 }
 
 void MainWindow::initialize_fonts ()
