@@ -24,8 +24,8 @@ public:
   explicit CPlotter(QWidget *parent = 0);
   ~CPlotter();
 
-  QSize minimumSizeHint() const;
-  QSize sizeHint() const;
+  QSize minimumSizeHint() const override;
+  QSize sizeHint() const override;
   QColor  m_ColorTbl[256];
   bool    m_bDecodeFinished;
   int     m_plotZero;
@@ -81,8 +81,8 @@ signals:
 
 protected:
   //re-implemented widget event handlers
-  void paintEvent(QPaintEvent *event);
-  void resizeEvent(QResizeEvent* event);
+  void paintEvent(QPaintEvent *event) override;
+  void resizeEvent(QResizeEvent* event) override;
   void mouseMoveEvent(QMouseEvent * event) override;
 
 private:
@@ -132,8 +132,8 @@ private:
   qint32  m_TxDF;
 
 private slots:
-  void mousePressEvent(QMouseEvent *event);
-  void mouseDoubleClickEvent(QMouseEvent *event);
+  void mousePressEvent(QMouseEvent *event) override;
+  void mouseDoubleClickEvent(QMouseEvent *event) override;
 };
 
 #endif // PLOTTER_H
