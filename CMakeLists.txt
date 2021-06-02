@@ -1401,8 +1401,10 @@ else (${OPENMP_FOUND} OR APPLE)
   target_link_libraries (jt9 wsjt_fort wsjt_cxx fort_qt)
 endif (${OPENMP_FOUND} OR APPLE)
 
-# build map65
-add_subdirectory (map65)
+if (WIN32)
+  # build map65
+  add_subdirectory (map65)
+endif ()
 
 # build the main application
 generate_version_info (wsjtx_VERSION_RESOURCES
