@@ -12,6 +12,21 @@
 Copyright 2001 - 2021 by Joe Taylor, K1JT.
 
 
+	        Release: WSJT-X 2.5.0-rc1
+	                Jun 3, 2021
+	        -------------------------
+
+WSJT-X in  this release is nearly  identical to that in  WSJT-X 2.4.0.
+The Q65 decoder has been enhanced to measure and compensate for linear
+frequency drift in Q65 signals.  In addition, the Windows installation
+package now  includes version 3.0  of application MAP65 which  has Q65
+support to  match and improve  on its existing JT65  capabilities. The
+following notable defect and regression repairs are included:
+
+ - FST4W mode no longer saves .WAV files when "Menu->Save->None" is
+   checked.
+
+
 	          Release: WSJT-X 2.4.0
 	                May 24, 2021
 	          ---------------------
