@@ -98,7 +98,7 @@ subroutine extract(s3,nadd,ncount,nhist,decoded,ltext)
        itmp(i)=correct(64-i)
      enddo
      correct(1:63)=itmp(1:63)
-     call interleave63(correct,63,1)
+     call interleave63(correct,1)
      call graycode65(correct,63,1)
      call unpackmsg(dat4,decoded)     !Unpack the user message
      ncount=0
@@ -120,7 +120,7 @@ subroutine getpp(workdat,p)
 
   a(1:63)=workdat(63:1:-1)
   call interleave63(a,1)
-  call graycode(a,63,1,a)
+  call graycode(a,63,1)
 
   psum=0.
   do j=1,63
