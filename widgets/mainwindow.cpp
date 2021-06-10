@@ -3904,7 +3904,7 @@ void MainWindow::guiUpdate()
       tx_watchdog (true);       // disable transmit
     }
 
-    float fTR=float((ms%int(1000.0*m_TRperiod)))/int(1000.0*m_TRperiod);
+    double fTR=float((ms%int(1000.0*m_TRperiod)))/int(1000.0*m_TRperiod);
 
     QString txMsg;
     if(m_ntx == 1) txMsg=ui->tx1->text();
@@ -3916,7 +3916,7 @@ void MainWindow::guiUpdate()
     int msgLength=txMsg.trimmed().length();
     if(msgLength==0 and !m_tune) on_stopTxButton_clicked();
 
-    if(g_iptt==0 and ((m_bTxTime and fTR<0.75 and msgLength>0) or m_tune)) {
+    if(g_iptt==0 and ((m_bTxTime and (fTR < 0.75) and (msgLength>0)) or m_tune)) {
       //### Allow late starts
       icw[0]=m_ncw;
       g_iptt = 1;
@@ -4278,6 +4278,7 @@ void MainWindow::guiUpdate()
       m_sentFirst73 = false;
     }
   }
+
   if (g_iptt == 1 && m_iptt0 == 0) {
     auto const& current_message = QString::fromLatin1 (msgsent);
     if(m_config.watchdog () && m_mode!="WSPR" && m_mode!="FST4W"
@@ -4310,15 +4311,14 @@ void MainWindow::guiUpdate()
     transmitDisplay (true);
     statusUpdate ();
   }
-  if(!m_btxok && m_btxok0 && g_iptt==1)
-    {
-      stopTx();
-      if ("1" == m_env.value ("WSJT_TX_BOTH", "0"))
-        {
-          m_txFirst = !m_txFirst;
-          ui->txFirstCheckBox->setChecked (m_txFirst);
-        }
+
+  if(!m_btxok && m_btxok0 && g_iptt==1) {
+    stopTx();
+    if ("1" == m_env.value ("WSJT_TX_BOTH", "0")) {
+      m_txFirst = !m_txFirst;
+      ui->txFirstCheckBox->setChecked (m_txFirst);
     }
+  }
 
   if(m_startAnother) {
     if(m_mode=="MSK144") {
@@ -4332,16 +4332,16 @@ void MainWindow::guiUpdate()
   }
 
   if(m_mode=="FT8" or m_mode=="MSK144" or m_mode=="FT4") {
-    if(ui->txrb1->isEnabled() and 
-       (SpecOp::NA_VHF==m_config.special_op_id() or 
-        SpecOp::FIELD_DAY==m_config.special_op_id() or 
-        SpecOp::RTTY==m_config.special_op_id() or 
-        SpecOp::WW_DIGI==m_config.special_op_id()) ) { 
+    if(ui->txrb1->isEnabled() and
+       (SpecOp::NA_VHF==m_config.special_op_id() or
+        SpecOp::FIELD_DAY==m_config.special_op_id() or
+        SpecOp::RTTY==m_config.special_op_id() or
+        SpecOp::WW_DIGI==m_config.special_op_id()) ) {
       //We're in a contest-like mode other than EU_VHF: start QSO with Tx2.
       ui->tx1->setEnabled(false);
       ui->txb1->setEnabled(false);
     }
-    if(!ui->tx1->isEnabled() and SpecOp::EU_VHF==m_config.special_op_id()) { 
+    if(!ui->tx1->isEnabled() and SpecOp::EU_VHF==m_config.special_op_id()) {
       //We're in EU_VHF mode: start QSO with Tx1.
       ui->tx1->setEnabled(true);
       ui->txb1->setEnabled(true);
