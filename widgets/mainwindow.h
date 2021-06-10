@@ -612,7 +612,6 @@ private:
   QString m_palette;
   QString m_dateTime;
   QString m_mode;
-  QString m_modeTx;
   QString m_fnameWE;            // save path without extension
   QString m_rpt;
   QString m_nextRpt;
