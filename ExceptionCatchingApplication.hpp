@@ -3,6 +3,7 @@
 
 #include <QApplication>
 
+#include <boost/log/core.hpp>
 #include "Logger.hpp"
 
 class QObject;
@@ -12,8 +13,8 @@ class QEvent;
 // We  can't  use the  GUI  after  QApplication::exit() is  called  so
 // uncaught exceptions can get lost  on Windows systems where there is
 // no console terminal, so here we override QApplication::notify() and
-// wrap the  base class  call with  a try block  to catch  and display
-// exceptions in a message box.
+// wrap the  base class  call with a  try block to  catch and  log any
+// uncaught exceptions.
 //
 class ExceptionCatchingApplication
   : public QApplication
@@ -32,13 +33,15 @@ public:
     catch (std::exception const& e)
       {
         LOG_FATAL ("Unexpected exception caught in event loop: " << e.what ());
-        qFatal ("Aborting");
       }
     catch (...)
       {
         LOG_FATAL ("Unexpected unknown exception caught in event loop");
-        qFatal ("Aborting");
       }
+    // There's nowhere to go from here as Qt will not pass exceptions
+    // through the event loop, so we must abort.
+    boost::log::core::get ()->flush ();
+    qFatal ("Aborting");
     return false;
   }
 };
