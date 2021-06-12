@@ -31,11 +31,13 @@ public:
       }
     catch (std::exception const& e)
       {
-        LOG_FATAL (e.what ());
+        LOG_FATAL ("Unexpected exception caught in event loop: " << e.what ());
+        qFatal ("Aborting");
       }
     catch (...)
       {
-        LOG_FATAL ("Unexpected fatal error");
+        LOG_FATAL ("Unexpected unknown exception caught in event loop");
+        qFatal ("Aborting");
       }
     return false;
   }
