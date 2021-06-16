@@ -166,7 +166,7 @@ subroutine wb_sync(ss,savg,jz,nfa,nfb)
         do lag=0,LAGMAX
 
            ccf=0.
-           do j=1,22
+           do j=1,22                        !Test for Q65 sync
               k=isync(j) + lag
               ccf=ccf + ss(ipol,k,i+1) + ss(ipol,k+1,i+1) + ss(ipol,k+2,i+1) 
            enddo
@@ -179,7 +179,7 @@ subroutine wb_sync(ss,savg,jz,nfa,nfb)
            endif
 
            ccf=0.
-           do j=1,63
+           do j=1,63                       !Test for JT65 sync, std msg
               k=jsync0(j) + lag
               ccf=ccf + ss(ipol,k,i+1) + ss(ipol,k+1,i+1)
            enddo
@@ -192,7 +192,7 @@ subroutine wb_sync(ss,savg,jz,nfa,nfb)
            endif
 
            ccf=0.
-           do j=1,63
+           do j=1,63                       !Test for JT65 sync, OOO msg
               k=jsync1(j) + lag
               ccf=ccf + ss(ipol,k,i+1) + ss(ipol,k+1,i+1)
            enddo
