@@ -19,7 +19,7 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
   real*8 fcenter
   character*22 msg(MAXMSG)
   character*3 shmsg0(4)
-  character mycall*12,hiscall*12,mygrid*6,hisgrid*6,grid*6,cp*1,cm*1
+  character mycall*12,hiscall*12,mygrid*6,hisgrid*6,cp*1,cm*1
   integer indx(MAXMSG),nsiz(MAXMSG)
   logical done(MAXMSG)
   logical xpol,bq65,q65b_called
@@ -43,12 +43,13 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
   mode65=mod(nmode,10)
   if(mode65.eq.3) mode65=4
   mode_q65=nmode/10
+  xpol=(nxpol.ne.0)
 
   nts_jt65=2**(mode65-1)              !JT65 tone separation factor
   nts_q65=2**(mode_q65)               !Q65 tone separation factor
   if(nagain.eq.0) then
      call timer('get_cand',0)
-     call get_candidates(ss,savg,mfa,mfb,nts_jt65,nts_q65,cand,ncand)
+     call get_candidates(ss,savg,xpol,mfa,mfb,nts_jt65,nts_q65,cand,ncand)
      call timer('get_cand',1)
      candec=.false.
   endif
@@ -66,7 +67,6 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
 
   mcall3a=mcall3b
   mousefqso0=mousefqso
-  xpol=(nxpol.ne.0)
   if(.not.xpol) ndphi=0
   nsum=0
 
@@ -318,28 +318,7 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
                  if(npol.lt.0) npol=npol+180
               endif
 
-!  If Tx station's grid is in decoded message, compute optimum TxPol
-              i1=index(decoded,' ')
-              i2=index(decoded(i1+1:),' ') + i1
-              grid='      '
-              if(i2.ge.8 .and. i2.le.18) grid=decoded(i2+1:i2+4)//'mm'
-              ntxpol=0
-              cp=' '
-              if(xpol) then
-                 if(grid(1:1).ge.'A' .and. grid(1:1).le.'R' .and.           &
-                      grid(2:2).ge.'A' .and. grid(2:2).le.'R' .and.         &
-                      grid(3:3).ge.'0' .and. grid(3:3).le.'9' .and.         &
-                      grid(4:4).ge.'0' .and. grid(4:4).le.'9') then                 
-                    ntxpol=mod(npol-nint(2.0*dpol(mygrid,grid))+720,180)
-                    if(nxant.eq.0) then
-                       cp='H'
-                       if(ntxpol.gt.45 .and. ntxpol.le.135) cp='V'
-                    else
-                       cp='/'
-                       if(ntxpol.ge.90 .and. ntxpol.lt.180) cp='\'
-                    endif
-                 endif
-              endif
+              call txpol(xpol,decoded,mygrid,npol,nxant,ntxpol,cp)
 
               if(ndphi.eq.0) then
                  write(*,1010) nkHz,ndf,npol,nutc,dt,nsync2,    &
@@ -368,9 +347,9 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
               q65b_called=.true.
               f0=cand(icand)%f
               call timer('q65b    ',0)
-              call q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,    &
-                   xpol,mycall,hiscall,hisgrid,mode_q65,f0,fqso,newdat,       &
-                   nagain,max_drift,idec)
+              call q65b(nutc,nqd,nxant,fcenter,nfcal,nfsample,ikhz,mousedf,   &
+                   ntol,xpol,mycall,mygrid, hiscall,hisgrid,mode_q65,f0,fqso, &
+                   newdat,nagain,max_drift,idec)
               call timer('q65b    ',1)
               if(idec.ge.0) candec(icand)=.true.
            enddo
@@ -379,9 +358,9 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
               ikhz=mousefqso
               f0=freq - (nkhz_center-48.0-1.27046)   !### ??? ###
               call timer('q65b    ',0)
-              call q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,  &
-                   xpol,mycall,hiscall,hisgrid,mode_q65,f0,fqso,newdat,     &
-                   nagain,max_drift,idec)
+              call q65b(nutc,nqd,nxant,fcenter,nfcal,nfsample,ikhz,mousedf,   &
+                   ntol,xpol,mycall,mygrid,hiscall,hisgrid,mode_q65,f0,fqso,  &
+                   newdat,nagain,max_drift,idec)
               call timer('q65b    ',1)
            endif
         endif
@@ -416,8 +395,8 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
            ikhz=nint(freq)
            f0=cand(icand)%f
            call timer('q65b    ',0)
-           call q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,  &
-                xpol,mycall,hiscall,hisgrid,mode_q65,f0,fqso,newdat,     &
+           call q65b(nutc,nqd,nxant,fcenter,nfcal,nfsample,ikhz,mousedf,ntol, &
+                xpol,mycall,mygrid,hiscall,hisgrid,mode_q65,f0,fqso,newdat,   &
                 nagain,max_drift,idec)
            call timer('q65b    ',1)
            if(idec.ge.0) candec(icand)=.true.
@@ -494,28 +473,8 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
               if(npol.lt.0) npol=npol+180
            endif
 
-!  If Tx station's grid is in decoded message, compute optimum TxPol
-           i1=index(decoded,' ')
-           i2=index(decoded(i1+1:),' ') + i1
-           grid='      '
-           if(i2.ge.8 .and. i2.le.18) grid=decoded(i2+1:i2+4)//'mm'
-           ntxpol=0
-           cp=' '
-           if(xpol) then
-              if(grid(1:1).ge.'A' .and. grid(1:1).le.'R' .and.           &
-                   grid(2:2).ge.'A' .and. grid(2:2).le.'R' .and.         &
-                   grid(3:3).ge.'0' .and. grid(3:3).le.'9' .and.         &
-                   grid(4:4).ge.'0' .and. grid(4:4).le.'9') then                 
-                 ntxpol=mod(npol-nint(2.0*dpol(mygrid,grid))+720,180)
-                 if(nxant.eq.0) then
-                    cp='H'
-                    if(ntxpol.gt.45 .and. ntxpol.le.135) cp='V'
-                 else
-                    cp='/'
-                    if(ntxpol.ge.90 .and. ntxpol.lt.180) cp='\'
-                 endif
-              endif
-           endif
+           call txpol(xpol,decoded,mygrid,npol,nxant,ntxpol,cp)
+
            cmode='#A'
            if(mode65.eq.2) cmode='#B'
            if(mode65.eq.4) cmode='#C'

@@ -4,12 +4,14 @@ module wideband_sync
      real :: snr          !Relative S/N of sync detection
      real :: f            !Freq of sync tone, 0 to 96000 Hz
      real :: xdt          !DT of matching sync pattern, -1.0 to +4.0 s
+     real :: pol          !Polarization angle, degrees
      integer :: ipol      !Polarization angle, 1 to 4 ==> 0, 45, 90, 135 deg
      integer :: iflip     !Sync type: JT65 = +/- 1, Q65 = 0
   end type candidate
   type sync_dat
      real :: ccfmax
      real :: xdt
+     real :: pol
      integer :: ipol
      integer :: iflip
      logical :: birdie
@@ -17,12 +19,13 @@ module wideband_sync
 
   parameter (NFFT=32768)
   parameter (MAX_CANDIDATES=50)
+  parameter (SNR1_THRESHOLD=4.5)
   type(sync_dat) :: sync(NFFT)
   integer nkhz_center
 
   contains
 
-subroutine get_candidates(ss,savg,nfa,nfb,nts_jt65,nts_q65,cand,ncand)
+subroutine get_candidates(ss,savg,xpol,nfa,nfb,nts_jt65,nts_q65,cand,ncand)
 
 ! Search symbol spectra ss() over frequency range nfa to nfb (in kHz) for
 ! JT65 and Q65 sync patterns. The nts_* variables are the submode tone
@@ -33,7 +36,7 @@ subroutine get_candidates(ss,savg,nfa,nfb,nts_jt65,nts_q65,cand,ncand)
   real ss(4,322,NFFT),savg(4,NFFT)
   real pavg(-20:20)
   integer indx(NFFT)
-  logical skip
+  logical xpol,skip
   type(candidate) :: cand(MAX_CANDIDATES)
 
   do j=322,1,-1                            !Find end of data in ss()
@@ -41,7 +44,7 @@ subroutine get_candidates(ss,savg,nfa,nfb,nts_jt65,nts_q65,cand,ncand)
   enddo
   jz=j
   
-call wb_sync(ss,savg,jz,nfa,nfb)
+call wb_sync(ss,savg,xpol,jz,nfa,nfb)
 
   tstep=2048.0/11025.0        !0.185760 s: 0.5*tsym_jt65, 0.3096*tsym_q65
   df3=96000.0/NFFT
@@ -57,7 +60,7 @@ call wb_sync(ss,savg,jz,nfa,nfb)
      f0=0.001*(n-1)*df3
      snr1=sync(n)%ccfmax
 !     print*,'=A',f0,snr1
-     if(snr1.lt.4.5) exit
+     if(snr1.lt.SNR1_THRESHOLD) exit
      flip=sync(n)%iflip
      if(flip.ne.0.0 .and. nts_jt65.eq.0) cycle
      if(flip.eq.0.0 .and. nts_q65.eq.0) cycle
@@ -94,6 +97,7 @@ call wb_sync(ss,savg,jz,nfa,nfb)
      cand(k)%snr=snr1
      cand(k)%f=f0
      cand(k)%xdt=sync(n)%xdt
+     cand(k)%pol=sync(n)%pol
      cand(k)%ipol=sync(n)%ipol
      cand(k)%iflip=nint(flip)
      if(k.ge.MAX_CANDIDATES) exit
@@ -103,18 +107,21 @@ call wb_sync(ss,savg,jz,nfa,nfb)
   return
 end subroutine get_candidates
 
-subroutine wb_sync(ss,savg,jz,nfa,nfb)
+subroutine wb_sync(ss,savg,xpol,jz,nfa,nfb)
 
 ! Compute "orange sync curve" using the Q65 sync pattern
 
+  use timer_module, only: timer
   parameter (NFFT=32768)
   parameter (LAGMAX=30)
   real ss(4,322,NFFT)
   real savg(4,NFFT)
   real savg_med(4)
-  logical first
+  real ccf4(4),ccf4best(4),a(3)
+  logical first,xpol
   integer isync(22)
   integer jsync0(63),jsync1(63)
+  integer ip(1)
 
 ! Q65 sync symbols
   data isync/1,9,12,13,15,22,23,26,27,33,35,38,46,50,55,60,62,66,69,74,76,85/
@@ -147,12 +154,14 @@ subroutine wb_sync(ss,savg,jz,nfa,nfb)
   df3=96000.0/NFFT
   ia=nint(1000*nfa/df3) + 1          !Flat frequency range for WSE converters
   ib=nint(1000*nfb/df3) + 1
+  npol=1
+  if(xpol) npol=4
 
-  do i=1,4
+  do i=1,npol
      call pctile(savg(i,ia:ib),ib-ia+1,50,savg_med(i))
   enddo
 !  do i=ia,ib
-!     write(14,3014) 0.001*(i-1)*df3,savg(1:4,i)
+!     write(14,3014) 0.001*(i-1)*df3,savg(1:npol,i)
 !3014 format(5f10.3)
 !  enddo
 
@@ -162,57 +171,82 @@ subroutine wb_sync(ss,savg,jz,nfa,nfb)
 
   do i=ia,ib
      ccfmax=0.
-     do ipol=1,4
-        do lag=0,LAGMAX
+     do lag=0,LAGMAX
 
-           ccf=0.
-           do j=1,22                        !Test for Q65 sync
-              k=isync(j) + lag
-              ccf=ccf + ss(ipol,k,i+1) + ss(ipol,k+1,i+1) + ss(ipol,k+2,i+1) 
-           enddo
-           ccf=ccf - savg(ipol,i+1)*3*22/float(jz)
-           if(ccf.gt.ccfmax) then
-              ipolbest=ipol
-              lagbest=lag
-              ccfmax=ccf
-              flip=0.
-           endif
+        ccf=0.
+        ccf4=0.
+        do j=1,22                        !Test for Q65 sync
+           k=isync(j) + lag
+           ccf4=ccf4 + ss(1:npol,k,i+1) + ss(1:npol,k+1,i+1) + ss(1:npol,k+2,i+1) 
+        enddo
+        ccf4=ccf4 - savg(1:npol,i+1)*3*22/float(jz)
+        ccf=maxval(ccf4)
+        ip=maxloc(ccf4)
+        ipol=ip(1)
+        if(ccf.gt.ccfmax) then
+           ipolbest=ipol
+           lagbest=lag
+           ccfmax=ccf
+           ccf4best=ccf4
+           flip=0.
+        endif
 
-           ccf=0.
-           do j=1,63                       !Test for JT65 sync, std msg
-              k=jsync0(j) + lag
-              ccf=ccf + ss(ipol,k,i+1) + ss(ipol,k+1,i+1)
-           enddo
-           ccf=ccf - savg(ipol,i+1)*2*63/float(jz)
-           if(ccf.gt.ccfmax) then
-              ipolbest=ipol
-              lagbest=lag
-              ccfmax=ccf
-              flip=1.0
-           endif
+        ccf=0.
+        ccf4=0.
+        do j=1,63                       !Test for JT65 sync, std msg
+           k=jsync0(j) + lag
+           ccf4=ccf4 + ss(1:npol,k,i+1) + ss(1:npol,k+1,i+1)
+        enddo
+        ccf4=ccf4 - savg(1:npol,i+1)*2*63/float(jz)
+        ccf=maxval(ccf4)
+        ip=maxloc(ccf4)
+        ipol=ip(1)
+        if(ccf.gt.ccfmax) then
+           ipolbest=ipol
+           lagbest=lag
+           ccfmax=ccf
+           ccf4best=ccf4
+           flip=1.0
+        endif
 
-           ccf=0.
-           do j=1,63                       !Test for JT65 sync, OOO msg
-              k=jsync1(j) + lag
-              ccf=ccf + ss(ipol,k,i+1) + ss(ipol,k+1,i+1)
-           enddo
-           ccf=ccf - savg(ipol,i+1)*2*63/float(jz)
-           if(ccf.gt.ccfmax) then
-              ipolbest=ipol
-              lagbest=lag
-              ccfmax=ccf
-              flip=-1.0
-           endif
+        ccf=0.
+        ccf4=0.
+        do j=1,63                       !Test for JT65 sync, OOO msg
+           k=jsync1(j) + lag
+           ccf4=ccf4 + ss(1:npol,k,i+1) + ss(1:npol,k+1,i+1)
+        enddo
+        ccf4=ccf4 - savg(1:npol,i+1)*2*63/float(jz)
+        ccf=maxval(ccf4)
+        ip=maxloc(ccf4)
+        ipol=ip(1)
+        if(ccf.gt.ccfmax) then
+           ipolbest=ipol
+           lagbest=lag
+           ccfmax=ccf
+           ccf4best=ccf4
+           flip=-1.0
+        endif
 
-        enddo  ! lag
-     enddo  !ipol
+     enddo  ! lag
 
+     poldeg=0.
+     if(xpol .and. ccfmax.ge.SNR1_THRESHOLD) then
+        call polfit(ccf4best,4,a)
+        poldeg=a(3)
+     endif
      sync(i)%ccfmax=ccfmax
      sync(i)%xdt=lagbest*tstep-1.0
+     sync(i)%pol=poldeg
      sync(i)%ipol=ipolbest
      sync(i)%iflip=flip
      sync(i)%birdie=.false.
      if(ccfmax/(savg(ipolbest,i)/savg_med(ipolbest)).lt.3.0) sync(i)%birdie=.true.
+     if(sync(i)%iflip.eq.0 .and. sync(i)%ccfmax .gt. 20.0) then
+        write(50,3050) i,lagbest,sync(i)%ccfmax,sync(i)%xdt,sync(i)%ipol,  &
+             sync(i)%birdie,ccf4best
+3050    format(2i5,f10.3,f8.2,i5,1x,L3,4f7.1)
+     endif
+
   enddo  ! i (frequency bin)
 
 !  do i=ia,ib
@@ -223,7 +257,6 @@ subroutine wb_sync(ss,savg,jz,nfa,nfb)
   
   call pctile(sync(ia:ib)%ccfmax,ib-ia+1,50,base)
   sync(ia:ib)%ccfmax=sync(ia:ib)%ccfmax/base
-!  print*,base
 
   return
 end subroutine wb_sync

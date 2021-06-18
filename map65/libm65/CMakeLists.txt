@@ -60,8 +60,8 @@ set (libm65_FSRCS
   nchar.f90
   noisegen.f90
   packjt.f90
-#  pctile.f90
   pfxdump.f90
+  polfit.f90
   recvpkt.f90
   rfile3a.f90
   s3avg.f90
@@ -80,6 +80,7 @@ set (libm65_FSRCS
   trimlist.f90
   twkfreq.f90
   twkfreq_xy.f90
+  txpol.f90
   wavhdr.f90
 
   f77_wisdom.f

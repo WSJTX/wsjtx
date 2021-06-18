@@ -1,5 +1,6 @@
-subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
-     mycall0,hiscall0,hisgrid,mode_q65,f0,fqso,newdat,nagain,max_drift,idec)
+subroutine q65b(nutc,nqd,nxant,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol, &
+     mycall0,mygrid,hiscall0,hisgrid,mode_q65,f0,fqso,newdat,nagain,          &
+     max_drift,idec)
 
 ! This routine provides an interface between MAP65 and the Q65 decoder
 ! in WSJT-X.  All arguments are input data obtained from the MAP65 GUI.
@@ -16,6 +17,7 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
   parameter (MAXFFT1=5376000)              !56*96000
   parameter (MAXFFT2=336000)               !56*6000 (downsampled by 1/16)
   parameter (NMAX=60*12000)
+  parameter (RAD=57.2957795)
 !  type(hdr) h                            !Header for the .wav file
   integer*2 iwave(60*12000)
   complex ca(MAXFFT1),cb(MAXFFT1)          !FFTs of raw x,y data
@@ -25,10 +27,11 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
   real*8 fcenter,freq0
   character*12 mycall0,hiscall0
   character*12 mycall,hiscall
-  character*6 hisgrid
+  character*6 mygrid,hisgrid
   character*4 grid4
   character*80 line
   character*80 wsjtx_dir
+  character*1 cp,cmode*2
   common/cacb/ca,cb
   save
 
@@ -88,10 +91,14 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
 !   96000  5376000  0.017857143  336000   6000.000
 !   95238  5120000  0.018601172  322560   5999.994
 
-  if(ipol.eq.1) cz(0:MAXFFT2-1)=cx
-  if(ipol.eq.2) cz(0:MAXFFT2-1)=0.707*(cx+cy)
-  if(ipol.eq.3) cz(0:MAXFFT2-1)=cy
-  if(ipol.eq.4) cz(0:MAXFFT2-1)=0.707*(cx-cy)
+  poldeg=0.
+  if(xpol) then
+     poldeg=sync(ipk)%pol
+     cz(0:MAXFFT2-1)=cos(poldeg/RAD)*cx + sin(poldeg/RAD)*cy
+  else
+     cz(0:MAXFFT2-1)=cx
+  endif
+
   cz(MAXFFT2)=0.
 ! Roll off below 500 Hz and above 2500 Hz.
   ja=nint(500.0/df)
@@ -136,21 +143,30 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol,  &
   if(nsnr0.gt.-99) then
      nq65df=nint(1000*(0.001*k0*df+nkhz_center-48.0+1.000-1.27046-ikhz))-nfcal
      nq65df=nq65df + nfreq0 - 1000
-
+     npol=nint(poldeg)
+     if(nxant.ne.0) then
+        npol=npol-45
+        if(npol.lt.0) npol=npol+180
+     endif
+     call txpol(xpol,msg0(1:22),mygrid,npol,nxant,ntxpol,cp)
      if(nqd.eq.1 .and. abs(nq65df-mousedf).lt.ntol) then
-        write(line,1020) ikhz,nq65df,45*(ipol-1),nutc,xdt0,nsnr0,msg0(1:27),cq0
-1020    format('!',i3.3,i5,i4,i6.4,f5.1,i5,' : ',a27,a3)
+        write(line,1020) ikhz,nq65df,npol,nutc,xdt0,nsnr0,msg0(1:27),cq0,  &
+             ntxpol,cp
+1020    format('!',i3.3,i5,i4,i6.4,f5.1,i5,' : ',a27,a3,i4,1x,a1)
         write(*,1100) trim(line)
 1100    format(a)
      endif
 
 ! Write to lu 26, for Messages and Band Map windows
-     write(26,1014) freq0,nq65df,0,0,0,xdt0,45*(ipol-1),0,                   &
-          nsnr0,nutc,msg0(1:22),':',char(ichar('A') + mode_q65-1)
-1014 format(f8.3,i5,3i3,f5.1,i4,i3,i4,i5.4,4x,a22,2x,a1,3x,':',a1)
+
+     cmode=': '
+     cmode(2:2)=char(ichar('A') + mode_q65-1)
+     write(26,1014) freq0,nq65df,0,0,0,xdt0,npol,0,                 &
+          nsnr0,nutc,msg0(1:22),':',cp,cmode
+1014 format(f8.3,i5,3i3,f5.1,i4,i3,i4,i5.4,4x,a22,1x,2a1,2x,a2)
 
 ! Write to file map65_rx.log:
-     write(21,1110)  freq0,nq65df,xdt0,45*(ipol-1),nsnr0,nutc,msg0(1:28),cq0
+     write(21,1110)  freq0,nq65df,xdt0,npol,nsnr0,nutc,msg0(1:28),cq0
 1110 format(f8.3,i5,f5.1,2i4,i5.4,2x,a28,': A',2x,a3)
   endif
 
