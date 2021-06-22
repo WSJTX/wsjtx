@@ -124,7 +124,7 @@ subroutine q65_dec0(iavg,nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
   dtstep=nsps/(NSTEP*12000.0)                 !Step size in seconds
   lag1=-1.0/dtstep
   lag2=1.0/dtstep + 0.9999
-  if(nsps.ge.3600 .and. emedelay.gt.0) lag2=4.0/dtstep + 0.9999  !Include EME
+  if(nsps.ge.3600 .and. emedelay.gt.0) lag2=5.0/dtstep + 0.9999  !Include EME
   j0=0.5/dtstep
   if(nsps.ge.7200) j0=1.0/dtstep              !Nominal start-signal index
 
