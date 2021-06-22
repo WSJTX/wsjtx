@@ -12,6 +12,10 @@
 Copyright 2001 - 2021 by Joe Taylor, K1JT.
 
 
+	        Release: WSJT-X 2.5.0-rc2
+	               Jun 28, 2021
+	        -------------------------
+
 	        Release: WSJT-X 2.5.0-rc1
 	                Jun 3, 2021
 	        -------------------------
