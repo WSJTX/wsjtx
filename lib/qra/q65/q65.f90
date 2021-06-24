@@ -439,8 +439,8 @@ subroutine q65_ccf_22(s1,iz,jz,nfqso,ntol,ndepth,ntrperiod,iavg,ipk,jpk,  &
   ib=min(nfb,4900)/df
   if(nqd.ne.1 .or. iavg.ne.0) max_drift=0
   if(max_drift.ne.0) then
-     ia=max(100,nint((nfqso-ntol)/df))
-     ib=min(4900,nint((nfqso+ntol)/df))
+     ia=max(nint(100/df),nint((nfqso-ntol)/df))
+     ib=min(nint(4900/df),nint((nfqso+ntol)/df))
   endif
 
   do i=ia,ib
