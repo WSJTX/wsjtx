@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>635</width>
-    <height>512</height>
+    <height>523</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -1704,7 +1704,7 @@ p, li { white-space: pre-wrap; }
   <customwidget>
    <class>DisplayText</class>
    <extends>QTextBrowser</extends>
-   <header>displaytext.h</header>
+   <header>widgets/displaytext.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

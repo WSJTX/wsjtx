@@ -644,7 +644,7 @@ QPushButton[state=&quot;ok&quot;] {
           </widget>
          </item>
          <item row="0" column="0">
-          <widget class="QComboBox" name="bandComboBox">
+          <widget class="BandComboBox" name="bandComboBox">
            <property name="toolTip">
             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Select operating band or enter frequency in MHz or enter kHz increment followed by k.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
            </property>
@@ -661,7 +661,7 @@ QPushButton[state=&quot;ok&quot;] {
             <enum>QComboBox::NoInsert</enum>
            </property>
            <property name="sizeAdjustPolicy">
-            <enum>QComboBox::AdjustToMinimumContentsLength</enum>
+            <enum>QComboBox::AdjustToMinimumContentsLengthWithIcon</enum>
            </property>
           </widget>
          </item>
@@ -3434,7 +3434,7 @@ Double-click to reset to the standard 73 message</string>
  <customwidgets>
   <customwidget>
    <class>DisplayText</class>
-   <extends>QTextEdit</extends>
+   <extends>QTextBrowser</extends>
    <header>widgets/displaytext.h</header>
   </customwidget>
   <customwidget>
@@ -3467,6 +3467,11 @@ Double-click to reset to the standard 73 message</string>
    <class>DoubleClickablePushButton</class>
    <extends>QPushButton</extends>
    <header>widgets/DoubleClickablePushButton.hpp</header>
+  </customwidget>
+  <customwidget>
+   <class>BandComboBox</class>
+   <extends>QComboBox</extends>
+   <header>widgets/BandComboBox.hpp</header>
   </customwidget>
  </customwidgets>
  <tabstops>

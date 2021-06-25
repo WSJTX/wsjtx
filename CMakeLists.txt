@@ -238,6 +238,7 @@ set (wsjt_qt_CXXSRCS
   Network/NetworkAccessManager.cpp
   widgets/LazyFillComboBox.cpp
   widgets/CheckableItemComboBox.cpp
+  widgets/BandComboBox.cpp
   )
 
 set (wsjt_qtmm_CXXSRCS

@@ -5534,8 +5534,7 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
       msgtype(t, ui->tx5->lineEdit ());
     }
   } else {
-    if (hisCall != hisBase && hisCall != (hisBase+"/P") && hisCall != (hisBase+"/R")
-        && SpecOp::HOUND != m_config.special_op_id()) {
+    if (hisCall != hisBase and SpecOp::HOUND != m_config.special_op_id()) {
       if (shortList(hisCall)) {
         // cfm we know his full call with a type 1 tx1 message
         t = hisCall + " " + my_callsign;
