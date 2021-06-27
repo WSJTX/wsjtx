@@ -16,6 +16,32 @@ Copyright 2001 - 2021 by Joe Taylor, K1JT.
 	               Jun 28, 2021
 	        -------------------------
 
+Remember that the WSJT-X 2.5.0 package includes MAP65 3.0.0.  Changes
+in the package since WSJT-X 2.5.0-rc1 include the following
+enhancements and defect repairs:
+
+MAP65:
+ - Compute polarization angle for Xpol systems and display to nearest
+   degree
+ - Compute and display the recommended Tx polarization
+ - Protect against Fortran bounds errors in several places
+ - Insert leading 0 when needed in UTC hours and minutes on waterfall
+ - Wideband Q65 synchronization corrected to include single-polarization
+   mode
+ - Corrected a one-symbol (0.6 s) delay in Q65 Tx audio
+
+WSJT-X, including the decoder for Q65  used by MAP65:
+ - Increase maximum DT to 5.5 s when EME decoding is enabled in Q65
+ - Repair a minor defect in callsign input validation
+ - Fix generation of Tx5 message when "hiscall" has suffix /P or /R.
+ - Improve width management of GUI's band-selection combo box
+ - Restore plotting of Q65 sync curve after a q3 decode
+ - Disable selection of "View | Message Averaging F7" for modes
+   other than JT4 and JT65
+ - Switching to Q65 mode now defaults to "Decode | Fast"
+ - Updated CTY.DAT database
+
+
 	        Release: WSJT-X 2.5.0-rc1
 	                Jun 3, 2021
 	        -------------------------
