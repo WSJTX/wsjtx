@@ -16,49 +16,41 @@ Copyright 2001 - 2021 by Joe Taylor, K1JT.
 	               Jun 28, 2021
 	        -------------------------
 
-This release repairs several MAP65 defects and omissions discovered in
-the  first release  candidate,  it also  repairs  some regressions  in
-WSJT-X, including some in the Hamlib library.
+Remember that the WSJT-X 2.5.0 package includes MAP65 3.0.0.  Changes
+in the package since WSJT-X 2.5.0-rc1 include the following
+enhancements and defect repairs:
 
-Changes for MAP65:
-
- - Implement linear drift compensation for Q65 mode when FTol >100 Hz.
-
- - Implement a "Max drift" UI control for Q65.
-
- - Repair a regression which omitted signal meter scales.
-
+MAP65:
+ - Compute polarization angle for Xpol systems and display to nearest
+   degree
+ - Compute and display the recommended Tx polarization
+ - Protect against Fortran bounds errors in several places
+ - Insert leading 0 when needed in UTC hours and minutes on waterfall
+ - Wideband Q65 synchronization corrected to include single-polarization
+   mode
+ - Corrected a one-symbol (0.6 s) delay in Q65 Tx audio
  - Basic instruction document for building an MS Windows portaudio DLL
-   for MAP65  users who  are unable  to use  WDM/KS drivers  for their
+   for MAP65 users who are unable to use WDM/KS drivers for their
    multi-channel sound cards.
 
-Changes for WSJT-X:
-
- - Implement linear drift compensation for Q65 mode when FTol >100 Hz.
-
- - Implement a "Max drift" UI control for Q65.
-
+WSJT-X (including the decoder for Q65  used by MAP65):
+ - Increase maximum DT to 5.5 s when EME decoding is enabled in Q65
+ - Fix generation of Tx5 message when "hiscall" has suffix /P or /R.
+ - Improve width management of GUI's band-selection combo box
+ - Restore plotting of Q65 sync curve after a q3 decode
+ - Disable selection of "View | Message Averaging F7" for modes
+   other than JT4 and JT65
+ - Switching to Q65 mode now defaults to "Decode | Fast"
  - Repair a long standing regression with message generation for
    72-bit modes when using a compound callsign.
-
- - Message averaging window no longer available in Q65 mode as it is
-   not relevant.
-
- - Improvements to the frequency/band combo box pop up list width to
-   address a regression occurring in recent releases.
-
- - Updated CTY database.
-
- - Repair a defect  in diagnostic logging that could  cause crashes on
+ - Repair a defect in diagnostic logging that could cause crashes on
    some platforms.
-
  - Repair a defect which failed to strip leading and trailing spaces
    on input of callsigns during validation.
-
  - Hamlib updates including repair of defects with PTT handling on a
    separate serial port via rigctld, delayed PTT with Elecraft K3
    series rigs, and support for the Icom IC-575 rig.
-
+ - Updated CTY.DAT database
 
 	        Release: WSJT-X 2.5.0-rc1
 	                Jun 3, 2021
