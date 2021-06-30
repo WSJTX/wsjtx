@@ -76,6 +76,7 @@ private slots:
   void on_tolSpinBox_valueChanged(int arg1);
   void on_actionAstro_Data_triggered();
   void on_stopButton_clicked();
+  void on_actionRelease_Notes_triggered();
   void on_actionOnline_Users_Guide_triggered();
   void on_actionQSG_Q65_triggered();
   void on_actionQSG_MAP65_v3_triggered();

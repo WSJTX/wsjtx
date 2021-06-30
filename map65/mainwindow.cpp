@@ -981,6 +981,13 @@ void MainWindow::stub()                                        //stub()
   msgBox("Not yet implemented.");
 }
 
+void MainWindow::on_actionRelease_Notes_triggered()
+{
+  QDesktopServices::openUrl(QUrl(
+  "https://www.physics.princeton.edu/pulsar/K1JT/Release_Notes.txt",
+                              QUrl::TolerantMode));
+}
+
 void MainWindow::on_actionOnline_Users_Guide_triggered()      //Display manual
 {
   QDesktopServices::openUrl(QUrl(
