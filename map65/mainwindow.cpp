@@ -952,8 +952,8 @@ void MainWindow::closeEvent (QCloseEvent * e)
   proc_m65.setReadChannel (QProcess::StandardError);
   proc_m65.readAll ();
 
-  // allow time for any decode cycle to finish
-  if (!proc_m65.waitForFinished ()) proc_m65.kill();
+  proc_m65.disconnect ();
+  if (!proc_m65.waitForFinished (1000)) proc_m65.kill();
   quitFile.remove();
   mem_m65.detach();
   if (m_astro_window) m_astro_window->close ();
