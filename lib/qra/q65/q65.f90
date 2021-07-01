@@ -160,9 +160,9 @@ subroutine q65_dec0(iavg,nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
      call q65_ccf_85(s1,iz,jz,nfqso,ia,ia2,ipk,jpk,f0,xdt,imsg_best,ccf1)
      call timer('ccf_85  ',1)
 
-     call timer('list_dec',0)
+     call timer('dec_q3  ',0)
      call q65_dec_q3(s1,iz,jz,s3,LL,ipk,jpk,snr2,dat4,idec,decoded)
-     call timer('list_dec',1)
+     call timer('dec_q3  ',1)
 ! If idec=3 we have a q3 decode.  Continue to compute sync curve for plotting.
   endif
 
