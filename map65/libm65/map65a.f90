@@ -37,6 +37,7 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
   data nfile/0/,nutc0/-999/,nid/0/,ip000/1/,ip001/1/,mousefqso0/-999/
   save
 
+  call sec0(0,tquick)
   nkhz_center=nint(1000.0*(fcenter-int(fcenter)))
   mfa=nfa-nkhz_center+48
   mfb=nfb-nkhz_center+48
@@ -381,6 +382,11 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
         write(*,1013) nsum,nsave
 1013    format('<QuickDecodeDone>',2i4)
         flush(6)
+        call sec0(1,tquick)
+        open(16,file='tquick.dat',status='unknown',access='append')
+        write(16,1016) nutc,tquick
+1016    format(i4.4,f7.1)
+        close(16)
      endif
      if(nqd.eq.1 .and. nagain.eq.1) go to 900
 
@@ -481,9 +487,9 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
            write(26,1014) f0,ndf,ndf0,ndf1,ndf2,dt,npol,nsync1,       &
                 nsync2,nutc,decoded,cp,cmode
 1014       format(f8.3,i5,3i3,f5.1,i4,i3,i4,i5.4,4x,a22,2x,a1,3x,a2)
-           write(21,1016) f0,ndf,dt,npol,nsync2,nutc,decoded,cp,          &
+           write(21,1100) f0,ndf,dt,npol,nsync2,nutc,decoded,cp,          &
                 cmode(1:1),cmode(2:2)
-1016       format(f8.3,i5,f5.1,2i4,i5.4,2x,a22,2x,a1,3x,a1,1x,a1)
+1100       format(f8.3,i5,f5.1,2i4,i5.4,2x,a22,2x,a1,3x,a1,1x,a1)
           
 !           write(21,1014) f0,ndf,ndf0,ndf1,ndf2,dt,npol,nsync1,       &
 !                nutc,decoded,cp,cmode

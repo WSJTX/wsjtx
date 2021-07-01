@@ -11,7 +11,7 @@ program m65
 !   13  map65.log
 !   14
 !   15
-!   16
+!   16  tquick log
 !   17  saved *.tf2 files
 !   18  test file to be transmitted (wsjtgen.f90)
 !   19  livecq.txt
