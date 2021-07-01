@@ -37,7 +37,6 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
   data nfile/0/,nutc0/-999/,nid/0/,ip000/1/,ip001/1/,mousefqso0/-999/
   save
 
-  call timer('quick   ',0)
   nkhz_center=nint(1000.0*(fcenter-int(fcenter)))
   mfa=nfa-nkhz_center+48
   mfb=nfb-nkhz_center+48
@@ -382,7 +381,6 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
         write(*,1013) nsum,nsave
 1013    format('<QuickDecodeDone>',2i4)
         flush(6)
-        call timer('quick   ',1)
      endif
      if(nqd.eq.1 .and. nagain.eq.1) go to 900
 
