@@ -13,7 +13,7 @@ Copyright 2001 - 2021 by Joe Taylor, K1JT.
 
 
 	        Release: WSJT-X 2.5.0-rc3
-	               Jul 3, 2021
+	               Jul 5, 2021
 	        -------------------------
 
 Remember that the WSJT-X 2.5.0 package includes MAP65 3.0.0.  Changes
@@ -25,6 +25,7 @@ MAP65:
  - Translate reported frequencies so that |DF| <= 500 Hz for Q65
    decodes.
  - Provide access to Release Notes from the Help menu
+ - Correct the formatting of Q65 messages to livecq
 
 WSJT-X:
  - Repair a long standing defect that caused UDP Protocol Heartbeat
