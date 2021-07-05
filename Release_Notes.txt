@@ -26,6 +26,8 @@ MAP65:
    decodes.
  - Provide access to Release Notes from the Help menu
  - Correct the formatting of Q65 messages to livecq
+ - Repair an Xpol polarization finding hang
+ - Build MAP65 to start without an attached console
 
 WSJT-X:
  - Repair a long standing defect that caused UDP Protocol Heartbeat
