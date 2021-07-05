@@ -17,7 +17,7 @@ subroutine polfit(y,npts,a)
   ipk=maxloc(y)
   a(3)=(ipk(1)-1)*45.0
 
-  deltaa(1:2)=0.1*(a(2)-a(1))
+  deltaa(1:2)=0.1*a(2)
   deltaa(3)=10.0
   nterms=3
 
