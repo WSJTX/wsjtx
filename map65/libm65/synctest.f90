@@ -41,7 +41,7 @@ program synctest
   call timer('synctest',0)
 
   call timer('get_cand',0)
-  call  get_candidates(ss,savg,.true.,nfa,nfb,nts_jt65,nts_q65,cand,ncand)
+  call  get_candidates(ss,savg,302,.true.,nfa,nfb,nts_jt65,nts_q65,cand,ncand)
   call timer('get_cand',1)
 
   do k=1,ncand
