@@ -136,8 +136,8 @@ target_link_libraries (m65 m65impl ${FFTW3_LIBRARIES})
 add_executable (mapsim mapsim.f90)
 target_link_libraries (mapsim m65impl ${FFTW3_LIBRARIES})
 
-add_executable (synctest synctest.f90)
-target_link_libraries (synctest m65impl ${FFTW3_LIBRARIES})
+#add_executable (synctest synctest.f90)
+#target_link_libraries (synctest m65impl ${FFTW3_LIBRARIES})
 
 if (WIN32)
   install (
