@@ -16,8 +16,15 @@ subroutine decode0(dd,ss,savg,nstandalone)
   save
 
   call timer('decode0 ',0)
+  nhsym=302
   if(newdat.ne.0) then
-     nz=52*96000
+     istep=10000
+     do i=NSMAX,1,-istep
+        n=maxval(abs(dd(1,i-istep+1:i)))
+        if(n.gt.10) exit
+     enddo
+     nz=i
+     nhsym=5.3833*nz/96000.0
      hist=0
      do i=1,nz
         j1=min(abs(dd(1,i)),32768.0)
@@ -36,7 +43,6 @@ subroutine decode0(dd,ss,savg,nstandalone)
      enddo
 10   rmsdd=1.5*i
   endif
-  nhsym=279
   ndphi=0
   if(iand(nrxlog,8).ne.0) ndphi=1
 

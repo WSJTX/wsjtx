@@ -26,7 +26,7 @@ module wideband_sync
 
   contains
 
-subroutine get_candidates(ss,savg,xpol,nfa,nfb,nts_jt65,nts_q65,cand,ncand)
+subroutine get_candidates(ss,savg,xpol,jz,nfa,nfb,nts_jt65,nts_q65,cand,ncand)
 
 ! Search symbol spectra ss() over frequency range nfa to nfb (in kHz) for
 ! JT65 and Q65 sync patterns. The nts_* variables are the submode tone
@@ -40,10 +40,6 @@ subroutine get_candidates(ss,savg,xpol,nfa,nfb,nts_jt65,nts_q65,cand,ncand)
   logical xpol,skip
   type(candidate) :: cand(MAX_CANDIDATES)
 
-  do j=322,1,-1                            !Find end of data in ss()
-     if(sum(ss(1,j,1:NFFT)).gt.0.0) exit
-  enddo
-  jz=j
   call wb_sync(ss,savg,xpol,jz,nfa,nfb)
 
   tstep=2048.0/11025.0        !0.185760 s: 0.5*tsym_jt65, 0.3096*tsym_q65
