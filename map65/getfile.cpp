@@ -56,7 +56,7 @@ void getfile(QString fname, bool xpol, int dbDgrd)
 
 void savetf2(QString fname, bool xpol)
 {
-  int npts=2*52*96000;
+  int npts=2*56*96000;
   if(xpol) npts=2*npts;
 
   qint16* buf=(qint16*)malloc(2*npts);
