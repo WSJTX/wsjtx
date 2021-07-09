@@ -7,6 +7,7 @@ module wideband_sync
      real :: pol          !Polarization angle, degrees
      integer :: ipol      !Polarization angle, 1 to 4 ==> 0, 45, 90, 135 deg
      integer :: iflip     !Sync type: JT65 = +/- 1, Q65 = 0
+     integer :: indx
   end type candidate
   type sync_dat
      real :: ccfmax
@@ -21,7 +22,6 @@ module wideband_sync
   parameter (MAX_CANDIDATES=50)
   parameter (SNR1_THRESHOLD=4.5)
   type(sync_dat) :: sync(NFFT)
-  logical ldecoded(NFFT)
   integer nkhz_center
 
   contains
@@ -37,8 +37,9 @@ subroutine get_candidates(ss,savg,xpol,jz,nfa,nfb,nts_jt65,nts_q65,cand,ncand)
   real ss(4,322,NFFT),savg(4,NFFT)
   real pavg(-20:20)
   integer indx(NFFT)
-  logical xpol,skip
+  logical xpol,skip,ldecoded
   type(candidate) :: cand(MAX_CANDIDATES)
+  common/early/nhsym1,nhsym2,ldecoded(32768)
 
   call wb_sync(ss,savg,xpol,jz,nfa,nfb)
 
@@ -95,6 +96,7 @@ subroutine get_candidates(ss,savg,xpol,jz,nfa,nfb,nts_jt65,nts_q65,cand,ncand)
      cand(k)%pol=sync(n)%pol
      cand(k)%ipol=sync(n)%ipol
      cand(k)%iflip=nint(flip)
+     cand(k)%indx=n
      if(k.ge.MAX_CANDIDATES) exit
   enddo
   ncand=k

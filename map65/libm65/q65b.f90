@@ -1,6 +1,6 @@
 subroutine q65b(nutc,nqd,nxant,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol, &
      mycall0,mygrid,hiscall0,hisgrid,mode_q65,f0,fqso,newdat,nagain,          &
-     max_drift,idec)
+     max_drift,nhsym,idec)
 
 ! This routine provides an interface between MAP65 and the Q65 decoder
 ! in WSJT-X.  All arguments are input data obtained from the MAP65 GUI.
@@ -22,7 +22,7 @@ subroutine q65b(nutc,nqd,nxant,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol, &
   integer*2 iwave(60*12000)
   complex ca(MAXFFT1),cb(MAXFFT1)          !FFTs of raw x,y data
   complex cx(0:MAXFFT2-1),cy(0:MAXFFT2-1),cz(0:MAXFFT2)
-  logical xpol
+  logical xpol,ldecoded
   integer ipk1(1)
   real*8 fcenter,freq0,freq1
   character*12 mycall0,hiscall0
@@ -33,6 +33,7 @@ subroutine q65b(nutc,nqd,nxant,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol, &
   character*80 wsjtx_dir
   character*1 cp,cmode*2
   common/cacb/ca,cb
+  common/early/nhsym1,nhsym2,ldecoded(32768)
   save
 
   open(9,file='wsjtx_dir.txt',status='old')

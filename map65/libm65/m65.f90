@@ -32,7 +32,7 @@ program m65
   integer*2 i2(NREAD)
   real*8 hsym
   real*4 ssz5a(NFFT)
-  logical*1 lstrong(0:1023)
+  logical*1 lstrong(0:1023),ldecoded,eof
   real*8 fc0,fcenter
   character*80 arg,infile
   character mycall*12,hiscall*12,mygrid*6,hisgrid*6,datetime*20
@@ -41,6 +41,7 @@ program m65
        ndepth,ndiskdat,neme,newdat,nfa,nfb,nfcal,nfshift,                 &
        mcall3,nkeep,ntol,nxant,nrxlog,nfsample,nxpol,nmode,               &
        nfast,nsave,max_drift,nhsym,mycall,mygrid,hiscall,hisgrid,datetime
+  common/early/nhsym1,nhsym2,ldecoded(32768)
 
   nargs=iargc()
   if(nargs.ne.1 .and. nargs.lt.5) then
@@ -52,6 +53,9 @@ program m65
      print*,'  (Gets data from MAP65, via shared memory region.)'
      go to 999
   endif
+  nstandalone=1
+  nhsym1=280
+  nhsym2=302
   call getarg(1,arg)
   if(arg(1:2).eq.'-s') then
      call m65a
@@ -124,9 +128,12 @@ program m65
 
      nch=2
      if(nxpol.eq.1) nch=4
-
+     eof=.false.
      do irec=1,9999999
-        read(10,end=10) i2
+        if(.not.eof) read(10,end=4) i2
+        go to 6
+4       eof=.true.
+6       if(eof) i2=0
         do i=1,NREAD,nch
            k=k+1
            if(k.gt.60*96000) exit
@@ -156,15 +163,18 @@ program m65
                 rejecty,pxdb,pydb,ssz5a,nkhz,ihsym,nzap,slimit,lstrong)
            call timer('symspec ',1)
            nhsym0=nhsym
+
+           nutc=nutc0
+           if(nhsym.eq.nhsym1) call decode0(dd,ss,savg,nstandalone)
+           if(nhsym.eq.nhsym2) then
+              call decode0(dd,ss,savg,nstandalone)
+              exit
+           endif
         endif
      enddo  ! irec
 
-10   continue
      if(iqadjust.ne.0) write(*,3002) rejectx,rejecty
 3002 format('Image rejection:',2f7.1,' dB')
-     nutc=nutc0
-     nstandalone=1
-     call decode0(dd,ss,savg,nstandalone)
   enddo  ! ifile
 
   call timer('m65     ',1)

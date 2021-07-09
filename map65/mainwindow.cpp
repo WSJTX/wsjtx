@@ -620,8 +620,16 @@ void MainWindow::dataSink(int k)
     n=0;
   }
 
-//  if(ihsym == 280) {   //For JT65, decode at t=52 s (also for old *.tf2/*.iq disk files)
-  if(ihsym == 302) {   //For Q65, decode at t=56 s
+  if(ihsym == 280 and !m_diskData) {   //Early decode, t=52 s
+    datcom_.newdat=1;
+    datcom_.nagain=0;
+    datcom_.nhsym=ihsym;
+    QDateTime t = QDateTime::currentDateTimeUtc();
+    m_dateTime=t.toString("yyyy-MMM-dd hh:mm");
+    decode();                                           //Start the decoder
+  }
+
+  if(ihsym == 302) {   //Decode at t=56 s (for Q65 and data from disk)
     datcom_.newdat=1;
     datcom_.nagain=0;
     datcom_.nhsym=ihsym;
@@ -637,6 +645,7 @@ void MainWindow::dataSink(int k)
       watcher2->setFuture(*future2);
     }
   }
+
   soundInThread.m_dataSinkBusy=false;
 }
 
@@ -1372,7 +1381,8 @@ void MainWindow::readFromStdout()                             //readFromStdout
       lab7->setText (QString {"Avg: %1"}.arg (m_nsum));
       if(m_modeQ65>0) m_wide_graph_window->setDecodeFinished();
     }
-    if(t.indexOf("<DecodeFinished>") >= 0) {
+
+    if((t.indexOf("<EarlyFinished>") >= 0) or (t.indexOf("<DecodeFinished>") >= 0)) {
       if(m_widebandDecode) {
         m_messages_window->setText(m_messagesText,m_bandmapText);
         m_band_map_window->setText(m_bandmapText);
@@ -1380,10 +1390,12 @@ void MainWindow::readFromStdout()                             //readFromStdout
       }
       QFile lockFile(m_appDir + "/.lock");
       lockFile.open(QIODevice::ReadWrite);
-      ui->DecodeButton->setStyleSheet("");
-      decodeBusy(false);
-      m_map65RxLog=0;
-      m_startAnother=m_loopall;
+      if(t.indexOf("<DecodeFinished>") >= 0) {
+        ui->DecodeButton->setStyleSheet("");
+        decodeBusy(false);
+        m_map65RxLog=0;
+        m_startAnother=m_loopall;
+      }
       return;
     }
 
