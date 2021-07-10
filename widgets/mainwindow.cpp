@@ -5604,8 +5604,8 @@ void MainWindow::lookup()
           break;
         }
         QString t=QString(c);
-        if(t.indexOf(hisCall+" ")==0) {
-          int i1=t.indexOf(",");
+        int i1=t.indexOf(",");
+        if(t.left(i1)==hisCall) {
           QString hisgrid=t.mid(i1+1,6);
           i1=hisgrid.indexOf(",");
           if(i1>0) {
