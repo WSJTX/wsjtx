@@ -56,6 +56,7 @@ public slots:
 
 private:
   void inputUDP();
+  void inputMockRT();
 
   double m_fAdd;
   bool   m_net;
@@ -63,6 +64,7 @@ private:
   bool   m_bForceCenterFreq;
   bool   m_IQswap;
   bool   m_10db;
+  bool   m_mockRT;
   double m_dForceCenterFreq;
   qint32 m_nrx;
   qint32 m_hsym;
@@ -77,6 +79,7 @@ private:
 extern "C" {
   void recvpkt_(int* nsam, quint16* iblk, qint8* nrx, int* k, double s1[],
                 double s2[], double s3[]);
+  void read_tf2_(int* k);
 }
 
 #endif // SOUNDIN_H

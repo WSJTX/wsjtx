@@ -164,10 +164,16 @@ void SoundInThread::run()                           //SoundInThread::run()
 {
   quitExecution = false;
 
+  QFile f("mockRTfiles.txt");
+  m_mockRT=f.exists();
+
+  if(m_mockRT) {
+    inputMockRT();                         //"Mock realtime" input from a .tf2 file
+    return;
+  }
+
   if (m_net) {
-//    qDebug() << "Start inputUDP()";
-    inputUDP();
-//    qDebug() << "Finished inputUDP()";
+    inputUDP();                            //Network input from Linrad (or equivalent)
     return;
   }
 
@@ -449,3 +455,59 @@ void SoundInThread::inputUDP()
   }
   delete udpSocket;
 }
+
+
+//--------------------------------------------------------------- inputMockRT()
+void SoundInThread::inputMockRT()
+{
+  bool qe = quitExecution;
+  int ntr0=99;
+  int k=0;
+  int nsec;
+  int ntr;
+  int nhsym0=0;
+  int iz=174;
+  int nBusy=0;
+  int mstr=0;
+  int mswait=0;
+
+  // Main loop for mock realtime input of data from .tf2 files
+  while (!qe) {
+    qe = quitExecution;
+    if (qe) break;
+    qint64 ms = QDateTime::currentMSecsSinceEpoch();  // Time according to this computer
+    mstr = ms % (1000*m_TRperiod);
+    nsec = (ms % 86400000l) / 1000;
+    ntr = nsec % m_TRperiod;
+
+// Reset buffer pointer and symbol number at start of minute
+    if(ntr < ntr0 or !m_monitoring or m_TRperiod!=m_TRperiod0) {
+      k=0;
+      nhsym0=0;
+      m_TRperiod0=m_TRperiod;
+    }
+    ntr0=ntr;
+
+    if(m_monitoring) {
+      // If buffer will not overflow, move data into datcom_
+      if ((k+iz) <= 60*96000) {
+        if(k>mstr*96) {
+          mswait=(k-mstr*96)/96;
+          msleep(mswait);
+        }
+        read_tf2_(&k);
+      }
+      m_hsym=(k-2048)*11025.0/(2048.0*m_rate);
+      if(m_hsym != nhsym0) {
+        if(m_dataSinkBusy) {
+          nBusy++;
+        } else {
+          m_dataSinkBusy=true;
+          emit readyForFFT(k);         //Signal to compute new FFTs
+        }
+        nhsym0=m_hsym;
+      }
+    }
+  }
+}
+

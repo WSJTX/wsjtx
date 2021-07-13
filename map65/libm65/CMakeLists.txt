@@ -62,6 +62,7 @@ set (libm65_FSRCS
   packjt.f90
   pfxdump.f90
   polfit.f90
+  read_tf2.f90
   recvpkt.f90
   rfile3a.f90
   s3avg.f90
