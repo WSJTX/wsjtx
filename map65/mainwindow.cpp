@@ -1258,6 +1258,9 @@ void MainWindow::freezeDecode(int n)                          //freezeDecode()
 void MainWindow::decode()                                       //decode()
 {
   ui->DecodeButton->setStyleSheet(m_pbdecoding_style1);
+
+//  QFile f("mockRTfiles.txt");
+//  if(datcom_.nagain==0 && (!m_diskData) && !f.exists()) {
   if(datcom_.nagain==0 && (!m_diskData)) {
     qint64 ms = QDateTime::currentMSecsSinceEpoch() % 86400000;
     int imin=ms/60000;
@@ -1313,7 +1316,7 @@ void MainWindow::decode()                                       //decode()
   memcpy(datcom_.mygrid, mgrid.toLatin1(), 6);
   memcpy(datcom_.hiscall, hcall.toLatin1(), 12);
   memcpy(datcom_.hisgrid, hgrid.toLatin1(), 6);
-  memcpy(datcom_.datetime, m_dateTime.toLatin1(), 20);
+//  memcpy(datcom_.datetime, m_dateTime.toLatin1(), 17);    //This causes problems!!!  Why???
 
   //newdat=1  ==> this is new data, must do the big FFT
   //nagain=1  ==> decode only at fQSO +/- Tol
