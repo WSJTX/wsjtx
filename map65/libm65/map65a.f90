@@ -400,7 +400,7 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
         close(16)
      endif
      call sec0(1,tsec0)
-     if(nhsym.eq.nhsym1 .and. tsec0.gt.3.0) go to 900
+     if(nhsym.eq.nhsym1 .and. tsec0.gt.3.0) go to 700
      if(nqd.eq.1 .and. nagain.eq.1) go to 900
 
      if(nqd.eq.0 .and. bq65) then
@@ -427,11 +427,8 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
 
 !  Trim the list and produce a sorted index and sizes of groups.
 !  (Should trimlist remove all but best SNR for given UTC and message content?)
-  call trimlist(sig,km,ftol,indx,nsiz,nz)
-
-  do i=1,km
-     done(i)=.false.
-  enddo
+700 call trimlist(sig,km,ftol,indx,nsiz,nz)
+  done(1:km)=.false.
   j=0
   ilatest=-1
   do n=1,nz
