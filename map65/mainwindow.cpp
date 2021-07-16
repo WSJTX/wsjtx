@@ -620,7 +620,7 @@ void MainWindow::dataSink(int k)
     n=0;
   }
 
-  if(ihsym == 280 and !m_diskData) {   //Early decode, t=52 s
+  if(ihsym == 280) {   //Early decode, t=52 s
     datcom_.newdat=1;
     datcom_.nagain=0;
     datcom_.nhsym=ihsym;
@@ -1126,6 +1126,9 @@ void MainWindow::diskDat()                                   //diskDat()
   for(int i=0; i<304; i++) {           // Do the half-symbol FFTs
     int k = i*hsym + 2048.5;
     dataSink(k);
+    while(m_decoderBusy) {
+      qApp->processEvents();
+    }
     if(i%10 == 0) qApp->processEvents();       //Keep the GUI responsive
   }
 }
