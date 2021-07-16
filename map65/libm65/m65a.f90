@@ -91,8 +91,11 @@ subroutine m65c(dd,ss,savg,nparams0)
 1000 format(/'UTC Date: 'a17/78('-'))
      flush(21)
   endif
-  if(iand(nrxlog,2).ne.0) rewind 21
-  if(iand(nrxlog,4).ne.0) rewind 26
+  if(iand(nrxlog,2).ne.0) rewind(21)
+  if(iand(nrxlog,4).ne.0) then
+     if(nhsym.eq.nhsym1) rewind(26)
+     if(nhsym.eq.nhsym2) backspace(26)
+  endif
 
   nstandalone=0
   if(sum(nparams).ne.0) call decode0(dd,ss,savg,nstandalone)

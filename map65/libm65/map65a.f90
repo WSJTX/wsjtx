@@ -54,7 +54,9 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
   xpol=(nxpol.ne.0)
   
 ! No second decode for JT65?
-  if(nhsym.eq.nhsym2 .and. (nstandalone.eq.1 .or. ndiskdat.eq.0)) mode65=0
+!  if(nhsym.eq.nhsym2 .and. (nstandalone.eq.1 .or. ndiskdat.eq.0)) mode65=0
+  if(nhsym.eq.nhsym2 .and. nagain.eq.0) mode65=0
+!  print*,'=a',nhsym,nagain,mode65
 
   if(nagain.eq.0) then
      call timer('get_cand',0)

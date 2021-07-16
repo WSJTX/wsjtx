@@ -11,7 +11,7 @@ subroutine display(nkeep,ftol)
   real*8 f0
 
   out0=' '
-  rewind 26
+  rewind(26)
 
   do i=1,MAXLINES
      read(26,1010,end=10) line(i)
@@ -46,7 +46,7 @@ subroutine display(nkeep,ftol)
      enddo
 20   i0=i
      nz=nz-i0+1
-     rewind 26
+     rewind(26)
      if(nz.lt.1) go to 999
      do i=1,nz
         j=i+i0-1
