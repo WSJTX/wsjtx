@@ -425,9 +425,13 @@ subroutine q65_ccf_85(s1,iz,jz,nfqso,ia,ia2,ipk,jpk,f0,xdt,imsg_best,   &
      endif
      best(imsg)=ccfmax
   enddo  ! imsg
+
   deallocate(ccf)
-  best(imsg_best)=0.
-  better=ccf_best/maxval(best)
+  better=0.
+  if(imsg_best.gt.0) then
+     best(imsg_best)=0.
+     better=ccf_best/maxval(best)
+  endif
 
   return
 end subroutine q65_ccf_85
