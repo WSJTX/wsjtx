@@ -620,6 +620,8 @@ void MainWindow::dataSink(int k)
     n=0;
   }
 
+  if(ihsym<280) iRxState=0;
+
   if(iRxState==0 and ihsym>=280) {   //Early decode, t=52 s
     iRxState=1;
     datcom_.newdat=1;
