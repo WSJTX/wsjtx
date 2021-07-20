@@ -2,6 +2,7 @@ subroutine recvpkt(nsam,nblock2,userx_no,k,buf4,buf8,buf16)
 
 ! Reformat timf2 data from Linrad and stuff data into r*4 array dd().
 
+  include 'njunk.f90'
   parameter (NSMAX=60*96000)          !Total sample intervals per minute
   parameter (NFFT=32768)
   integer*1 userx_no
@@ -11,7 +12,8 @@ subroutine recvpkt(nsam,nblock2,userx_no,k,buf4,buf8,buf16)
   integer*2 jd(4),kd(2),nblock2
   real*4 xd(4),yd(2)
   real*8 fcenter
-  common/datcom/dd(4,5760000),ss(4,322,NFFT),savg(4,NFFT),fcenter,nutc,junk(38)
+  common/datcom/dd(4,5760000),ss(4,322,NFFT),savg(4,NFFT),fcenter,nutc,  &
+       junk(NJUNK)
   equivalence (kd,d4)
   equivalence (jd,d8,yd)
   equivalence (xd,c16)

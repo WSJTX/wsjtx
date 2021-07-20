@@ -40,6 +40,8 @@ extern struct {                     //This is "common/datcom/..." in Fortran
   char hiscall[12];
   char hisgrid[6];
   char datetime[20];
+  int junk1;                        //Used to test extent of copy to shared memory
+  int junk2;
 } datcom_;
 }
 

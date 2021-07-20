@@ -1319,7 +1319,9 @@ void MainWindow::decode()                                       //decode()
   memcpy(datcom_.mygrid, mgrid.toLatin1(), 6);
   memcpy(datcom_.hiscall, hcall.toLatin1(), 12);
   memcpy(datcom_.hisgrid, hgrid.toLatin1(), 6);
-//  memcpy(datcom_.datetime, m_dateTime.toLatin1(), 17);    //This causes problems!!!  Why???
+  memcpy(datcom_.datetime, m_dateTime.toLatin1(), 17);
+  datcom_.junk1=1234;
+  datcom_.junk2=5678;
 
   //newdat=1  ==> this is new data, must do the big FFT
   //nagain=1  ==> decode only at fQSO +/- Tol
@@ -1333,7 +1335,7 @@ void MainWindow::decode()                                       //decode()
     from += noffset;
     size -= noffset;
   }
-  memcpy(to, from, qMin(mem_m65.size(), size));
+  memcpy(to, from, qMin(mem_m65.size(), size-8));
   datcom_.nagain=0;
   datcom_.ndiskdat=0;
   m_call3Modified=false;

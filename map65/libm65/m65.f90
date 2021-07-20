@@ -26,6 +26,7 @@ program m65
   use timer_module, only: timer
   use timer_impl, only: init_timer, fini_timer
 
+  include 'njunk.f90'
   parameter (NFFT=32768)
   parameter (NSMAX=60*96000)
   parameter (NREAD=2048)
@@ -36,7 +37,7 @@ program m65
   real*8 fc0,fcenter
   character*80 arg,infile
   character mycall*12,hiscall*12,mygrid*6,hisgrid*6,datetime*20
-  common/datcom/dd(4,5760000),ss(4,322,NFFT),savg(4,NFFT),fc0,nutc0,junk(38)
+  common/datcom/dd(4,5760000),ss(4,322,NFFT),savg(4,NFFT),fc0,nutc0,junk(NJUNK)
   common/npar/fcenter,nutc,idphi,mousedf,mousefqso,nagain,                &
        ndepth,ndiskdat,neme,newdat,nfa,nfb,nfcal,nfshift,                 &
        mcall3,nkeep,ntol,nxant,nrxlog,nfsample,nxpol,nmode,               &
