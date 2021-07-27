@@ -141,26 +141,19 @@ include::transceiver-setup.adoc[]
 == Basic Operating Tutorial
 
 This section introduces the basic user controls and program behavior
-of _WSJT-X_, with particular emphasis on the JT9, JT65, and FT8 modes.
+of _WSJT-X_, with particular emphasis on the FT8 mode.
 We suggest that new users should go through the full HF-oriented
-tutorial, preferably while at your radio.  Note that as of late 2018,
-digital usage on the HF bands has mostly moved from JT65 and JT9 to FT8.  So
-you may wish to pay particular attention to *FT8*, in Section 6.6.
+tutorial, preferably while at your radio.  
 
 Subsequent sections cover additional details on <<MAKE_QSOS,Making
 QSOs>>, <<WSPR,WSPR mode>> and <<VHF_AND_UP,VHF+ Features>>.
 
-[[TUT_MAIN]]
-=== Main Window Settings
-include::tutorial-main-window.adoc[]
+[[TUT_SAMPLES]]
+include::tutorial-download-samples.adoc[]
 
 [[TUT_WIDE_GRAPH]]
 === Wide Graph Settings
 include::tutorial-wide-graph-settings.adoc[]
-
-[[TUT_EX1]]
-=== JT9
-include::tutorial-example1.adoc[]
 
 [[TUT_EX3]]
 === FT8

@@ -1,13 +1,20 @@
 // Status=review
 
-- *Bins/Pixel* = 4
-- *Start* = 200 Hz
-- *N Avg* = 5
-- *Palette* = Digipan
-- *Flatten* = checked
+Set up the Wide Graph (also called the Waterfall). It is important to set appropriate lower and upper 
+audio frequency limits for the Wide Graph because these limits define the FT8 decoder's search window.
+
+- Set *Start* = 100 Hz.
+- Set *Bins/Pixel* = 5. Smaller/larger values make the Wide Graph cover a smaller/larger 
+frequency range.
+- Use the mouse to grab the left or right edge of the *Wide Graph*, and
+adjust its width so that the upper frequency limit is about 3300 Hz.
+- Set *N Avg* = 2. Smaller/larger values will make the wide graph update more/less frequently, resulting
+in signals being more/less spread out in the vertical (time) direction on the Wide Graph spectrogram. 
+Larger values make it easier to see very weak signals. 
+- *Palette* = Digipan 
+- *Flatten* = checked 
 - Select *Cumulative* for data display
 - *Gain* and *Zero* sliders for waterfall and spectrum set near midscale
-- *Spec* = 25%
+- Set *Spec* = 25%. This value determines the percentage of the vertical size of the Wide Graph 
+that will be used for the line plot of the spectrum.
 
-- Use the mouse to grab the left or right edge of the *Wide Graph*, and
-adjust its width so that the upper frequency limit is about 2400 Hz.

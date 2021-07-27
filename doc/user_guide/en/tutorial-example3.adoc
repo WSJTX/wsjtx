@@ -1,13 +1,8 @@
 // Status=review
 .Main Window:
-- Select *FT8* on the *Mode* menu.
+- Click the *Stop* button on the main window to halt any data acquisition.  
+- Select *FT8* from the *Mode* menu and *Deep* from the *Decode* menu.
 - Double-click on *Erase* to clear both text windows.
-
-.Wide Graph Settings:
-
-- *Bins/Pixel* = 5, *Start* = 100 Hz, *N Avg* = 2
-- Adjust the width of the Wide Graph window so that the upper
-frequency limit is approximately 3300 Hz.
 
 .Open a Wave File:
 
@@ -52,6 +47,11 @@ box *Hold Tx Freq*.
 
 TIP: Keyboard shortcuts *Shift+F11* and *Shift+F12* provide an easy
 way to move your Tx frequency down or up in 60 Hz steps.
+
+TIP: Sliders and spinner controls respond to *Arrow* key presses
+and *Page Up/Down* key presses, with the *Page* keys moving the
+controls in larger steps.  You can also type numbers directly into
+the spinner controls or use the mouse wheel.
 
 TIP: An online {ft8_tips} by ZL2IFB offers many additional tips on
 operating procedures.

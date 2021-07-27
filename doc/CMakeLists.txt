@@ -53,7 +53,7 @@ set (UG_SRCS
   tutorial-example4.adoc
   tutorial-example5.adoc
   tutorial-example6.adoc
-  tutorial-main-window.adoc
+  tutorial-download-samples.adoc
   tutorial-wide-graph-settings.adoc
   utilities.adoc
   vhf-features.adoc
