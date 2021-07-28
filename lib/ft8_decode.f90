@@ -131,7 +131,8 @@ contains
     endif
     ifa=nfa
     ifb=nfb
-    if(nzhsym.eq.50 .and. nagain) then
+!    if(nzhsym.eq.50 .and. nagain) then
+    if(nagain) then
        dd=iwave
        ifa=nfqso-20
        ifb=nfqso+20
