@@ -133,7 +133,7 @@ contains
     ifb=nfb
 !    if(nzhsym.eq.50 .and. nagain) then
     if(nagain) then
-!       dd=iwave
+       dd=iwave
        ifa=nfqso-20
        ifb=nfqso+20
     endif
