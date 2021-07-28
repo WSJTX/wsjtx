@@ -8,7 +8,7 @@
 
 - Select *File | Open* and navigate to
 +...\save\samples\FT8\210703_133430.wav+.  The waterfall and Band
-Activity window should look something like the following screen shots:
+Activity/Rx Frequency windows should look something like the following screen shots:
 
 - You may want to pretend you are K1JT
 by entering that callsign temporarily as *My Call* on the 
@@ -25,22 +25,21 @@ image::ft8_decodes.png[align="left"]
 .Decoding Overview
 
 Decoding takes place at the end of a receive sequence. With *Decode* set
-to *Deep*, three decoding passes will be done. The *Decode* button on the 
+to *Deep*, three decoding passes will be done and the *Decode* button on the 
 mainwindow will illuminate three times, once for each pass. 
 The first decoding attempt in each decoding pass is done at the selected Rx frequency,
 indicated by the U-shaped green marker on the waterfall frequency
-scale.  Results appear in both the left (*Band Activity*) and right
-(*Rx Frequency*) text windows on the main screen. The program then
-finds and decodes all signals in the selected mode over the displayed
-frequency range. The red marker on the waterfall scale indicates your
+scale. All decodes appear in the left (*Band Activity*) window. The right
+(*Rx Frequency*) text window displays any decodes obtained at the current
+Rx frequency along with any decodes addressed to *My Call* (K1JT in this case).
+The red marker on the waterfall scale indicates your
 Tx frequency.
 
 Twenty one FT8 signals are decoded from the example file. The number
-of decodes is shown at the bottom of the main window.
-When this file was recorded HA5WA was finishing a QSO with K1JT and
+of decodes is shown in a box at the bottom of the main window.
+When this file was recorded HA5WA was finishing a QSO with K1JT, and
 his 73 message is shown in red because it is addressed to *My Call* (in this case K1JT). 
-The *Band Activity* window shows this message along with  
-all decodes at other frequencies.  By default, lines containing `CQ`
+By default, lines containing `CQ`
 are highlighted in green, and lines with *My Call* (K1JT)
 in red. Notice that K1JT has two callers; HA0DU and EA3AGB.  
 
@@ -52,11 +51,11 @@ try double-clicking with the mouse on the decoded text lines and on the
 waterfall spectral display. You should be able to confirm the
 following behavior:
 
-- Double-click on one of the decoded lines highlighted in
+- Double-click on one of the decoded *CQ* messages highlighted in
 green. These actions produce the following results:
 
-** Callsign and locator of a station calling CQ are copied to the *DX
-Call* and *DX Grid* entry fields.
+** Callsign and locator of the station calling CQ are copied to the *DX
+Call* and *DX Grid* entry fields. 
 
 ** Messages are generated for a standard minimal QSO.
 

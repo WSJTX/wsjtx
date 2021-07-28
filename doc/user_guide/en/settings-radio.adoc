@@ -39,7 +39,7 @@ image::RadioTab.png[align="center",alt="Radio Tab"]
 +
 
 NOTE: A special value of *USB* is available for custom USB devices
-      like those used by some SDR kits. This is not the same a virtual
+      like those used by some SDR kits. This is not the same as the virtual
       serial port provided by USB connected transceivers and CAT
       interfaces, for those use the COM or serial port name that
       refers to them.

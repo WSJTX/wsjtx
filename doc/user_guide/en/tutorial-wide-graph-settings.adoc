@@ -1,8 +1,14 @@
 // Status=review
 
-Set up the Wide Graph (also called the Waterfall). 
+The WSJT-X Wide Graph window displays the frequency spectrum of the received audio. Usually, the 
+upper portion of the window shows a waterfall plot of the frequency spectrum (a spectrogram) and 
+a line plot of the current or average spectrum. Controls at the bottom of the window are used to 
+set up the displayed audio frequency range, color palette, and scaling of the spectrum displays. 
+A control on the bottom right of the Wide Graph (displayed as *Spec nn%*) allows the user to control
+the vertical fraction of the window that is occupied by the spectrum line plot.
 It is important to set appropriate lower and upper 
-audio frequency limits for the Wide Graph because these limits define the FT8 decoder's search window:
+audio frequency limits for the Wide Graph because these limits define the FT8 decoder's search window.
+For this tutorial, the limits will be set to cover 100-3300 Hz:
 
 - Set *Start* = 100 Hz.
 - Set *Bins/Pixel* = 5. Smaller/larger values make the Wide Graph cover a smaller/larger 
@@ -25,11 +31,16 @@ When *Flatten* is checked, WSJT-X attempts to correct for rolloff at the lowest 
 frequencies in the spectrum: 
 
 - *Flatten* = checked 
+
+The line plot can be set up to display the current (un-averaged) spectrum or the cumulative (averaged)
+spectrum:
+
 - Select *Cumulative* for data display
 - Set the *Gain* and *Zero* sliders for the waterfall and spectrum to near midscale
 
-The *Spec* setting determines what fraction of the vertical extent of the Wide Graph will
-be used for the line plot of the spectrum. Setting *Spec* to 0 will eliminate the line plot.
+The *Spec nn%* setting determines what fraction of the vertical extent of the Wide Graph will
+be used for the line plot of the spectrum. Setting *Spec* to 0 will eliminate the line plot and
+a setting of 100 will eliminate the spectrogram and show only the line plot:
 
-- Set *Spec* = 25% 
+- Set *Spec* = 50% 
 

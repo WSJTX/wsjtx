@@ -4,7 +4,8 @@
 === Download Samples
 
 The following steps will download sample audio Wave files that were originally recorded
-by WSJT-X. These files can be read in to simulate realtime operation. 
+by WSJT-X. These files can be read in and processed by WSJT-X to simulate realtime 
+operation. 
  
 - Select *Download samples...* from the *Help* menu.
 
