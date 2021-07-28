@@ -6,7 +6,7 @@
 
 .Open a Wave File:
 
-- Select *File | Open* and navigate to
+- Select *File | Open log directory* and navigate to
 +...\save\samples\FT8\210703_133430.wav+.  The waterfall and Band
 Activity/Rx Frequency windows should look something like the following screen shots:
 
