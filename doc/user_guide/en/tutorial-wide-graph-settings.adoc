@@ -4,8 +4,8 @@ The WSJT-X Wide Graph window displays the frequency spectrum of the received aud
 upper portion of the window shows a waterfall plot of the frequency spectrum (a spectrogram) and 
 a line plot of the current or average spectrum. Controls at the bottom of the window are used to 
 set up the displayed audio frequency range, color palette, and scaling of the spectrum displays. 
-A control on the bottom right of the Wide Graph (displayed as *Spec nn%*) allows the user to control
-the vertical fraction of the window that is occupied by the spectrum line plot.
+A control on the bottom right of the Wide Graph (displayed as *Spec nn%*) lets you control
+the vertical fraction of the window occupied by the spectrum line plot.
 It is important to set appropriate lower and upper 
 audio frequency limits for the Wide Graph because these limits define the FT8 decoder's search window.
 For this tutorial, the limits will be set to cover 100-3300 Hz:
@@ -27,12 +27,12 @@ The *Palette* setting controls the color scheme used for the spectrogram:
 
 - Set *Palette* = Fldigi 
 
-When *Flatten* is checked, WSJT-X attempts to correct for rolloff at the lowest and highest
-frequencies in the spectrum: 
+When *Flatten* is checked, WSJT-X attempts to correct for slope or curvature in the receiver's
+passband shape.  
 
 - *Flatten* = checked 
 
-The line plot can be set up to display the current (un-averaged) spectrum or the cumulative (averaged)
+The line plot can be set to display the current (un-averaged) spectrum or the cumulative (averaged)
 spectrum:
 
 - Select *Cumulative* for data display

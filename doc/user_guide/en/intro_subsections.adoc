@@ -1,5 +1,13 @@
 === Documentation Conventions
 
+We include screen shots that illustrate many of the settings and
+features of _WSJT-X_.  Keep in mind that _WSJT-X_ is a multi-platform
+application: the detailed appearance of windows and user controls may
+be significantly different in Windows, Linux, or macOS environments.
+The underlying functionality is the same on all operating systems,
+however.  Where desirable we call special attention to important
+platform differences.
+
 In this manual the following icons call attention to particular types
 of information:
 
