@@ -6454,13 +6454,21 @@ void MainWindow::on_actionQ65_triggered()
   ui->lh_decodes_headings_label->setText("UTC   dB   DT Freq    " + tr ("Message"));
   ui->rh_decodes_headings_label->setText("UTC   dB   DT Freq    " + tr ("Message"));
   statusChanged();
-  if(SpecOp::NONE < m_config.special_op_id()) {
-    ui->labDXped->setVisible(true);
-    ui->labDXped->setText("Contest ?");
-  } else {
-    ui->labDXped->setVisible(false);
-    ui->labDXped->setText("");
+
+  if (SpecOp::NONE < m_config.special_op_id () && SpecOp::FOX > m_config.special_op_id ()) {
+    QString t0="";
+    if(SpecOp::NA_VHF==m_config.special_op_id()) t0="NA VHF";
+    if(SpecOp::EU_VHF==m_config.special_op_id()) t0="EU VHF";
+    if(SpecOp::FIELD_DAY==m_config.special_op_id()) t0="Field Day";
+    if(t0=="") {
+      ui->labDXped->setVisible(false);
+    } else {
+      ui->labDXped->setVisible(true);
+      ui->labDXped->setText(t0);
+    }
+    on_contest_log_action_triggered();
   }
+
 }
 
 void MainWindow::on_actionMSK144_triggered()
