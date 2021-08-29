@@ -118,8 +118,8 @@ auto Astro::astroUpdate(QDateTime const& t, QString const& mygrid, QString const
            &azmoondx, &elmoondx, &ntsky, &m_dop, &m_dop00, &ramoon, &decmoon,
            &dgrd, &poloffset, &xnr, &techo, &width1, &width2,
            bTx,
-           AzElFileName.toLatin1().data(),
-           jpleph.toLatin1().data());
+           AzElFileName.toLocal8Bit ().constData (),
+           jpleph.toLocal8Bit ().constData ());
 
     if(!hisgrid.size ()) {
     azmoondx=0.0;
@@ -229,7 +229,7 @@ auto Astro::astroUpdate(QDateTime const& t, QString const& mygrid, QString const
                   &dgrd, &poloffset, &xnr, &techo, &width1, &width2,
                   bTx,
                   nullptr,      // don't overwrite azel.dat
-                  jpleph.toLatin1().data());
+                  jpleph.toLocal8Bit ().constData ());
         FrequencyDelta offset {0};
         switch (m_DopplerMethod)
           {

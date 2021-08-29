@@ -12,8 +12,8 @@ subroutine calibrate(data_dir,iz,a,b,rms,sigmaa,sigmab,irc)
   real*8 fd(NZ),deltaf(NZ),r(NZ),rmsd(NZ)
   integer nn(NZ)
 
-  infile=trim(data_dir)//'fmt.all'
-  outfile=trim(data_dir)//'fcal2.out'
+  infile=trim(data_dir)//'/'//'fmt.all'
+  outfile=trim(data_dir)//'/'//'fcal2.out'
 
   open(10,file=trim(infile),status='old',err=996)
   open(12,file=trim(outfile),status='unknown',err=997)

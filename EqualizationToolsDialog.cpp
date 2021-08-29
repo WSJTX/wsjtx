@@ -443,7 +443,7 @@ void EqualizationToolsDialog::impl::plot_current ()
   plot_.graph (3)->rescaleValueAxis ();
 
   QFileInfo refspec_file_info {data_directory_.absoluteFilePath ("refspec.dat")};
-  std::ifstream refspec_file (refspec_file_info.absoluteFilePath ().toLatin1 ().constData (), std::ifstream::in);
+  std::ifstream refspec_file (refspec_file_info.absoluteFilePath ().toLocal8Bit ().constData (), std::ifstream::in);
   unsigned n;
   if (refspec_file >> amp_poly_low_ >> amp_poly_high_ >> n)
     {
@@ -499,7 +499,7 @@ void EqualizationToolsDialog::impl::plot_phase ()
                                                               , "Phase Coefficient Files (*.pcoeff)");
   if (!phase_file_name.size ()) return;
 
-  std::ifstream phase_file (phase_file_name.toLatin1 ().constData (), std::ifstream::in);
+  std::ifstream phase_file (phase_file_name.toLocal8Bit ().constData (), std::ifstream::in);
   int n;
   float chi;
   float rmsdiff;

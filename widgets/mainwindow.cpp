@@ -98,7 +98,8 @@ extern "C" {
 
   void hspec_(short int d2[], int* k, int* nutc0, int* ntrperiod, int* nrxfreq, int* ntol,
               bool* bmsk144, bool* btrain, double const pcoeffs[], int* ingain,
-              char mycall[], char hiscall[], bool* bshmsg, bool* bswl, char ddir[], float green[],
+              char const * mycall, char const * hiscall, bool* bshmsg, bool* bswl,
+              char const * ddir, float green[],
               float s[], int* jh, float *pxmax, float *rmsNoGain, char line[],
               fortran_charlen_t, fortran_charlen_t, fortran_charlen_t, fortran_charlen_t);
 
@@ -150,7 +151,7 @@ extern "C" {
 
   void wspr_downsample_(short int d2[], int* k);
 
-  int savec2_(char* fname, int* TR_seconds, double* dial_freq, fortran_charlen_t);
+  int savec2_(char const * fname, int* TR_seconds, double* dial_freq, fortran_charlen_t);
 
   void avecho_( short id2[], int* dop, int* nfrit, int* nqual, float* f1,
                 float* level, float* sigdb, float* snr, float* dfreq,
@@ -171,7 +172,7 @@ extern "C" {
 
   void fix_contest_msg_(char* MyGrid, char* msg, fortran_charlen_t, fortran_charlen_t);
 
-  void calibrate_(char data_dir[], int* iz, double* a, double* b, double* rms,
+  void calibrate_(char const * data_dir, int* iz, double* a, double* b, double* rms,
                   double* sigmaa, double* sigmab, int* irc, fortran_charlen_t);
 
   void foxgen_();
@@ -919,9 +920,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   proc_jt9.start(QDir::toNativeSeparators (m_appDir) + QDir::separator () +
           "jt9", jt9_args, QIODevice::ReadWrite | QIODevice::Unbuffered);
 
-  QString fname {QDir::toNativeSeparators(m_config.writeable_data_dir ().absoluteFilePath ("wsjtx_wisdom.dat"))};
-  QByteArray cfname=fname.toLocal8Bit();
-  fftwf_import_wisdom_from_filename(cfname);
+  auto fname {QDir::toNativeSeparators(m_config.writeable_data_dir ().absoluteFilePath ("wsjtx_wisdom.dat"))};
+  fftwf_import_wisdom_from_filename (fname.toLocal8Bit ());
 
   m_ntx = 6;
   ui->txrb6->setChecked(true);
@@ -1075,9 +1075,8 @@ void MainWindow::on_the_minute ()
 MainWindow::~MainWindow()
 {
   m_astroWidget.reset ();
-  QString fname {QDir::toNativeSeparators(m_config.writeable_data_dir ().absoluteFilePath ("wsjtx_wisdom.dat"))};
-  QByteArray cfname=fname.toLocal8Bit();
-  fftwf_export_wisdom_to_filename(cfname);
+  auto fname {QDir::toNativeSeparators(m_config.writeable_data_dir ().absoluteFilePath ("wsjtx_wisdom.dat"))};
+  fftwf_export_wisdom_to_filename (fname.toLocal8Bit ());
   m_audioThread.quit ();
   m_audioThread.wait ();
   remove_child_from_event_filter (this);
@@ -1428,10 +1427,7 @@ void MainWindow::dataSink(qint64 frames)
   static float s[NSMAX];
   char line[80];
   int k(frames);
-  QString fname {QDir::toNativeSeparators(m_config.writeable_data_dir ().absoluteFilePath ("refspec.dat"))};
-  QByteArray bafname = fname.toLatin1();
-  const char *c_fname = bafname.data();
-  int len=fname.length();
+  auto fname {QDir::toNativeSeparators(m_config.writeable_data_dir ().absoluteFilePath ("refspec.dat")).toLocal8Bit ()};
 
   if(m_diskData) {
     dec_data.params.ndiskdat=1;
@@ -1443,7 +1439,7 @@ void MainWindow::dataSink(qint64 frames)
   m_bUseRef=m_wideGraph->useRef();
   if(!m_diskData) {
     refspectrum_(&dec_data.d2[k-m_nsps/2],&m_bClearRefSpec,&m_bRefSpec,
-        &m_bUseRef,c_fname,len);
+                 &m_bUseRef, fname.constData (), fname.size ());
   }
   m_bClearRefSpec=false;
 
@@ -1598,14 +1594,11 @@ void MainWindow::dataSink(qint64 frames)
             this, m_fnameWE, &dec_data.d2[0], samples, m_config.my_callsign(),
             m_config.my_grid(), m_mode, m_nSubMode, m_freqNominal, m_hisCall, m_hisGrid)));
       if (m_mode=="WSPR") {
-        QString c2name_string {m_fnameWE + ".c2"};
-        int len1=c2name_string.length();
-        char c2name[80];
-        strcpy(c2name,c2name_string.toLatin1 ().constData ());
+        auto c2name {(m_fnameWE + ".c2").toLocal8Bit ()};
         int nsec=120;
         int nbfo=1500;
         double f0m1500=m_freqNominal/1000000.0 + nbfo - 1500;
-        int err = savec2_(c2name,&nsec,&f0m1500,len1);
+        int err = savec2_(c2name.constData (),&nsec,&f0m1500, c2name.size ());
         if (err!=0) MessageBox::warning_message (this, tr ("Error saving c2 file"), c2name);
       }
     }
@@ -1721,17 +1714,14 @@ void MainWindow::fastSink(qint64 frames)
 //  ::memcpy(dec_data.params.hiscall,(Radio::base_callsign (hisCall) +  "            ").toLatin1 ().constData (), sizeof dec_data.params.hiscall);
   ::memcpy(dec_data.params.hiscall,(hisCall + "            ").toLatin1 ().constData (), sizeof dec_data.params.hiscall);
   ::memcpy(dec_data.params.mygrid, (m_config.my_grid()+"      ").toLatin1(), sizeof dec_data.params.mygrid);
-  QString dataDir;
-  dataDir = m_config.writeable_data_dir ().absolutePath ();
-  char ddir[512];
-  ::strncpy(ddir,dataDir.toLatin1(), sizeof (ddir) - 1);
+  auto data_dir {m_config.writeable_data_dir ().absolutePath ().toLocal8Bit ()};
   float pxmax = 0;
   float rmsNoGain = 0;
   int ftol = ui->sbFtol->value ();
   hspec_(dec_data.d2,&k,&nutc0,&nTRpDepth,&RxFreq,&ftol,&bmsk144,
          &m_bTrain,m_phaseEqCoefficients.constData(),&m_inGain,&dec_data.params.mycall[0],
          &dec_data.params.hiscall[0],&bshmsg,&bswl,
-         &ddir[0],fast_green,fast_s,&fast_jh,&pxmax,&rmsNoGain,&line[0],12,12,512,80);
+         data_dir.constData (),fast_green,fast_s,&fast_jh,&pxmax,&rmsNoGain,&line[0],12,12,data_dir.size (),80);
   float px = fast_green[fast_jh];
   QString t;
   t = t.asprintf(" Rx noise: %5.1f ",px);
@@ -2543,16 +2533,13 @@ void MainWindow::on_actionFast_Graph_triggered()
 
 void MainWindow::on_actionSolve_FreqCal_triggered()
 {
-  QString dpath{QDir::toNativeSeparators(m_config.writeable_data_dir().absolutePath()+"/")};
-  char data_dir[512];
-  int len=dpath.length();
+  auto data_dir {QDir::toNativeSeparators(m_config.writeable_data_dir().absolutePath()).toLocal8Bit ()};
   int iz,irc;
   double a,b,rms,sigmaa,sigmab;
-  strncpy(data_dir,dpath.toLatin1(),len);
-  calibrate_(data_dir,&iz,&a,&b,&rms,&sigmaa,&sigmab,&irc,len);
+  calibrate_(data_dir.constData (),&iz,&a,&b,&rms,&sigmaa,&sigmab,&irc,data_dir.size ());
   QString t2;
-  if(irc==-1) t2="Cannot open " + dpath + "fmt.all";
-  if(irc==-2) t2="Cannot open " + dpath + "fcal2.out";
+  if(irc==-1) t2="Cannot open " + data_dir + "/fmt.all";
+  if(irc==-2) t2="Cannot open " + data_dir + "/fcal2.out";
   if(irc==-3) t2="Insufficient data in fmt.all";
   if(irc==-4) t2 = tr ("Invalid data in fmt.all at line %1").arg (iz);
   if(irc>0 or rms>1.0) t2="Check fmt.all for possible bad data.";
@@ -8164,9 +8151,9 @@ void MainWindow::WSPR_scheduling ()
     return;
   }
   m_WSPR_tx_next = false;
-  if (!ui->sbTxPercent->isEnabled () || !ui->sbTxPercent->value ())
+  if (!ui->sbTxPercent->isEnabled ())
     {
-      return;                   // don't schedule if %age disabled or zero
+      return;                   // don't schedule if %age disabled
     }
   if (m_config.is_transceiver_online () // need working rig control for hopping
       && !m_config.is_dummy_rig ()

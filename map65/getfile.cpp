@@ -18,7 +18,7 @@ void getfile(QString fname, bool xpol, int dbDgrd)
 
   memset(id,0,2*npts);
   char name[80];
-  strcpy(name,fname.toLatin1());
+  strcpy(name,fname.toLocal8Bit());
   FILE* fp=fopen(name,"rb");
 
   if(fp != NULL) {
@@ -61,7 +61,7 @@ void savetf2(QString fname, bool xpol)
 
   qint16* buf=(qint16*)malloc(2*npts);
   char name[80];
-  strcpy(name,fname.toLatin1());
+  strcpy(name,fname.toLocal8Bit());
   FILE* fp=fopen(name,"wb");
 
   if(fp != NULL) {

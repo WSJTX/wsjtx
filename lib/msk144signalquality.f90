@@ -9,7 +9,7 @@ subroutine msk144signalquality(cframe,snr,freq,t0,softbits,msg,dxcall,       &
   character*8 date
   character*10 time
   character*5 zone
-  character*512 datadir
+  character*(*) datadir
 
   complex cframe(864)
   complex cross(864)
@@ -191,9 +191,7 @@ subroutine msk144signalquality(cframe,snr,freq,t0,softbits,msg,dxcall,       &
         write(pcoeff_filename,'(i2.2,i2.2,i2.2,"_",i2.2,i2.2,i2.2)')    &
           values(1)-2000,values(2),values(3),values(5),values(6),values(7)
         pcoeff_filename=trim(trained_dxcall)//"_"//trim(pcoeff_filename)//".pcoeff"
-        l1=index(datadir,char(0))-1
-        datadir(l1+1:l1+1)="/"
-        pcoeff_filename=datadir(1:l1+1)//trim(pcoeff_filename)
+        pcoeff_filename=datadir//'/'//trim(pcoeff_filename)
 !write(*,*) 'trained - writing coefficients to: ',pcoeff_filename
         open(17,file=pcoeff_filename,status='new')
         write(17,'(i4,2f10.2,3i5,5e25.16)') navg,sqrt(chisqr),rmsdiff,NFREQLOW,NFREQHIGH,nterms,a

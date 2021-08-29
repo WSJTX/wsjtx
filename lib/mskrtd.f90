@@ -19,7 +19,7 @@ subroutine mskrtd(id2,nutc0,tsec,ntol,nrxfreq,ndepth,mycall,hiscall,      &
   character*80 line                  !Formatted line with UTC dB T Freq Msg
   character*12 mycall,hiscall
   character*37 recent_shmsgs(NSHMEM)
-  character*512 datadir
+  character*(*) datadir
 
   complex cdat(NFFT1)                !Analytic signal
   complex c(NSPM)                    !Coherently averaged complex data
