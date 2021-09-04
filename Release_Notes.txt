@@ -29,8 +29,8 @@ WSJT-X:
    modes.
  - Q65 mode now supports contest special operating modes.
  - Repair an issue when non-ASCII characters used in account names.
- - Repair a regression that stopped WSPR band-hopping working when the
-   Tx percentage is zero.
+ - Repair a regression that prevented WSPR band-hopping working when
+   the Tx percentage is zero.
  
 	        Release: WSJT-X 2.5.0-rc5
 	               Aug 5, 2021

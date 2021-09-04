@@ -12,6 +12,26 @@
 Copyright 2001 - 2021 by Joe Taylor, K1JT.
 
 
+	        Release: WSJT-X 2.5.0-rc6
+	              Sept 6, 2021
+	        -------------------------
+
+Remember that the WSJT-X 2.5.0 package includes MAP65 3.0.0.  Changes
+in the package since WSJT-X 2.5.0-rc5 include the following
+enhancements and defect repairs:
+
+MAP65:
+ - There are no functional changes to MAP65 in this release.
+ 
+WSJT-X:
+ - Repair a file handle leak in wsprd (tnx Phil, KA9Q).
+ - Better handling of the Tx1 buttons when changing special operating
+   modes.
+ - Q65 mode now supports contest special operating modes.
+ - Repair an issue when non-ASCII characters used in account names.
+ - Repair a regression that prevented WSPR band-hopping working when
+   the Tx percentage is zero.
+ 
 	        Release: WSJT-X 2.5.0-rc5
 	               Aug 6, 2021
 	        -------------------------
