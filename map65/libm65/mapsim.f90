@@ -135,7 +135,7 @@ program mapsim
         dphi=twopi*f*dt + 0.5*twopi
 
         snrdbx=snrdb
-        if(snrdb.ge.-1.0) snrdbx=-15.0 - 15.0*(isig-1.0)/nsigs
+        if(snrdb.eq.0.0) snrdbx=-15.0 - 15.0*(isig-1.0)/nsigs
         sig=sqrt(2.2*2500.0/96000.0) * 10.0**(0.05*snrdbx)
         write(*,1020) ifile,isig,mode,dt0,0.001*f,nint(pol),fDop,snrdbx,msgsent
 1020    format(i3,i3,2x,a2,f6.2,f8.3,i5,2f7.1,2x,a22)
