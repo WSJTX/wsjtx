@@ -76,6 +76,10 @@ contains
     complex, allocatable :: c00(:)        !Analytic signal, 6000 Sa/s
     complex, allocatable :: c0(:)         !Analytic signal, 6000 Sa/s
 
+!w3sz added
+    integer stageno
+    stageno=0
+
 ! Start by setting some parameters and allocating storage for large arrays
     call sec0(0,tdecode)
     nfa=nfa0
@@ -151,7 +155,7 @@ contains
 ! Call top-level routine in q65 module: establish sync and try for a
 ! q3 or q0 decode.
     call q65_dec0(iavg,nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
-         emedelay,xdt,f0,snr1,width,dat4,snr2,idec)
+         emedelay,xdt,f0,snr1,width,dat4,snr2,idec,stageno)
     call timer('q65_dec0',1)
 !    write(*,3001) '=a',sum(abs(float(iwave))),nfqso,ntol,ndepth,xdt,f0,idec
 !3001 format(a2,f15.0,3i5,f7.2,f7.1,i5)
@@ -208,7 +212,7 @@ contains
 ! decode, this time using the cumulative 's1a' symbol spectra.
     iavg=1
     call q65_dec0(iavg,nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
-         emedelay,xdt,f0,snr1,width,dat4,snr2,idec)
+         emedelay,xdt,f0,snr1,width,dat4,snr2,idec,stageno)
     call timer('list_avg',1)
 
     if(idec.ge.0) then
@@ -225,7 +229,7 @@ contains
     call timer('q65_avg ',0)
     iavg=2
     call q65_dec0(iavg,nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
-         emedelay,xdt,f0,snr1,width,dat4,snr2,idec)
+         emedelay,xdt,f0,snr1,width,dat4,snr2,idec,stageno)
     call timer('q65_avg ',1)
     if(idec.ge.0) then
        dtdec=xdt                          !We have a q[012]n result
@@ -233,7 +237,22 @@ contains
        nused=navg(iseq)
     endif
 
-100 decoded='                                     '
+100 stageno = 5
+
+    if(idec.lt.0) then
+       call timer('q65_dec0',0)
+       ! Call top-level routine in q65 module: establish sync and try for a
+       ! q3 or q0 decode.
+       call q65_dec0(iavg,nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
+            emedelay,xdt,f0,snr1,width,dat4,snr2,idec,stageno)
+       call timer('q65_dec0',1)
+       if(idec.ge.0) then
+          dtdec=xdt             !We have a q[012]n result
+          f0dec=f0
+       endif
+    endif                       ! if(idec.lt.0)
+
+    decoded='                                     '
     if(idec.ge.0) then
 ! idec Meaning
 ! ------------------------------------------------------
