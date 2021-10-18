@@ -249,7 +249,7 @@ contains
 ! Unpack decoded message for display to user
        write(c77,1000) dat4(1:12),dat4(13)/2
 1000   format(12b6.6,b5.5)
-       call unpack77(c77,0,decoded,unpk77_success) !Unpack to get msgsent
+       call unpack77(c77,1,decoded,unpk77_success) !Unpack to get msgsent
        call q65_snr(dat4,dtdec,f0dec,mode_q65,nused,snr2)
        nsnr=nint(snr2)
        call this%callback(nutc,snr1,nsnr,dtdec,f0dec,decoded,    &
@@ -325,7 +325,7 @@ contains
        if(idec.ge.0) then
 ! Unpack decoded message for display to user
           write(c77,1000) dat4(1:12),dat4(13)/2
-          call unpack77(c77,0,decoded,unpk77_success) !Unpack to get msgsent
+          call unpack77(c77,1,decoded,unpk77_success) !Unpack to get msgsent
           call q65_snr(dat4,dtdec,f0dec,mode_q65,nused,snr2)
           nsnr=nint(snr2)
           call this%callback(nutc,snr1,nsnr,dtdec,f0dec,decoded,    &
