@@ -67,7 +67,7 @@ subroutine four2a(a,nfft,ndim,isign,iform)
 
      if(nfft.le.NSMALL) then
         jz=nfft
-        if(iform.eq.0) jz=nfft/2
+        if(iform.le.0) jz=nfft/2
         aa(1:jz)=a(1:jz)
      endif
 
@@ -87,7 +87,7 @@ subroutine four2a(a,nfft,ndim,isign,iform)
 
      if(nfft.le.NSMALL) then
         jz=nfft
-        if(iform.eq.0) jz=nfft/2
+        if(iform.le.0) jz=nfft/2
         a(1:jz)=aa(1:jz)
      endif
   end if
