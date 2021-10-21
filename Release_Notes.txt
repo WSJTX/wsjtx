@@ -11,40 +11,39 @@
                                                          
 Copyright 2001 - 2021 by Joe Taylor, K1JT.
 
-
-<<<<<<< HEAD
 	        Release: WSJT-X 2.5.1
 	              Oct 23, 2021
 	        ----------------------
 
-This release  mainly contains improvements and  defect repairs related
-to  Q65  and  JT65  mode  when used  with  non-standard  and  compound
-calls. Also included  is a new feature for  microwave aircraft scatter
-and a number of defect repairs detected since the 2.5.0 GA release.
+This release mainly contains improvements and defect repairs related
+to Q65 and JT65 modes when used with non-standard and compound
+calls. Also included is a new feature for microwave aircraft scatter
+and repairs for defects detected since the 2.5.0 GA release.
 
- - Support for 10GHz  Aircraft Scatter contributed by  Rex, VK7MO, and
-   Roger, W3SZ. See  Rex Moncur, VK7MO et al "10  GHz Terrestrial with
-   Q65" DUBUS Vol 1/2021 page 64.
+ - Improved Q65 support for 10GHz Aircraft Scatter contributed by Rex,
+   VK7MO, and Roger, W3SZ. (See "10 GHz Terrestrial with Q65" in DUBUS
+   Vol 1/2021 page 64.)  Decodes of type 'q3' may now include
+   corrections for frequency drift.
 
- - Repair a defect that failed to pre-load  the DE and DX calls to the
+ - Repair a defect that failed to pre-load the DE and DX calls to the
    hash lookup tables in the Q65 decoder.
 
- - Repair standard  message Tx4  and Tx5 generation  in Q65  mode when
+ - Repair standard message Tx4 and Tx5 generation in Q65 mode when
    using a non-standard call.
 
- - Repair a defect  in generation of the standard Tx2  JT65 message in
+ - Repair a defect in generation of the standard Tx2 JT65 message in
    EME mode when using a compound call.
 
- - Repair  a defect  when  decoding 77-bit  type  4 non-standard  call
+ - Repair a defect when decoding 77-bit type 4 non-standard call
    message.
 
  - Repair a defect that could cause a crash when switching from Q65 to
    JT65 mode and attempting a double-click decode.
 
- - Enable  'q3' AP  decoding in  Q65  mode for  messages containing  a
+ - Enable 'q3' AP decoding in Q65 mode for messages containing a
    non-standard call.
 
- - Repair a defect that required a blank DX Grid  to achieve  Q65 'q3'
+ - Repair a defect that required a blank DX Grid to achieve Q65 'q3'
    decodes of messages containing a non-standard call.
 
  - Repair the logic that sets parameters for Q65 "Deep" decoding.
@@ -52,8 +51,11 @@ and a number of defect repairs detected since the 2.5.0 GA release.
  - In Q65 mode, allow 'q2' decodes when MyCall is compound or
    non-standard.
 
- - Repair  a  long-standing  defect  that could  cause  a  crash  when
+ - Repair a long-standing defect that could cause a crash when
    reference spectrum correction is enabled.
+
+ - Adjusted the stretch parameters affecting some main window widget
+   sizes, for better visibility of long Tx messages.
 
  - Updated UI translations from Xavi, EA3W, Oba-san, JA7UDE, and a new
    translation for Traditional Chinese by Steven, BU2EL.
