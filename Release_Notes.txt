@@ -54,9 +54,6 @@ and repairs for defects detected since the 2.5.0 GA release.
  - Repair a long-standing defect that could cause a crash when
    reference spectrum correction is enabled.
 
- - Adjusted the stretch parameters affecting some main window widget
-   sizes, for better visibility of long Tx messages.
-
  - Updated UI translations from Xavi, EA3W, Oba-san, JA7UDE, and a new
    translation for Traditional Chinese by Steven, BU2EL.
 
