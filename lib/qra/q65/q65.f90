@@ -19,6 +19,7 @@ module q65
   real candidates(20,3)                  !snr, xdt, and f0 of top candidates
   real, allocatable :: s1raw(:,:)        !Symbol spectra, 1/8-symbol steps
   real, allocatable :: s1(:,:)           !Symbol spectra w/suppressed peaks
+  real, allocatable :: s1w(:,:)           !Symbol spectra w/suppressed peaks  !w3sz added
   real, allocatable,save :: s1a(:,:,:)   !Cumulative symbol spectra
   real, allocatable,save :: ccf2(:)      !Max CCF(freq) at any lag, single seq
   real, allocatable,save :: ccf2_avg(:)  !Like ccf2, but for accumulated average
@@ -28,7 +29,7 @@ module q65
 contains
 
 subroutine q65_dec0(iavg,nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
-     emedelay,xdt,f0,snr1,width,dat4,snr2,idec)
+     emedelay,xdt,f0,snr1,width,dat4,snr2,idec,stageno)
 
 ! Top-level routine in q65 module
 !   - Compute symbol spectra
@@ -68,6 +69,11 @@ subroutine q65_dec0(iavg,nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
   real, allocatable :: ccf1(:)           !CCF(freq) at fixed lag (red)
   data first/.true./
   save first
+
+  integer w3t
+  integer w3f
+  integer mm
+  integer stageno
 
   NN=63
   if(nutc+ndepth.eq.-999) stop           !Silence compiler warnings
@@ -222,7 +228,49 @@ subroutine q65_dec0(iavg,nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
      call q65_dec_q012(s3,LL,snr2,dat4,idec,decoded)
   endif
 
-900 return
+  if(idec.lt.0 .and. max_drift.eq.50 .and. stageno.eq.5) then
+
+     if(allocated(s1w)) deallocate(s1w) ! w3sz
+     allocate(s1w(iz,jz))               ! w3sz	 
+	 
+     s1w=s1
+     do w3t=1,jz
+        do w3f=1,iz
+           mm=w3f + nint(drift*w3t/(jz*df))
+           if(mm.ge.1 .and. mm.le.iz) then
+              s1w(w3f,w3t)=s1(mm,w3t)
+           endif
+        end do
+     end do
+
+     if(ncw.gt.0 .and. iavg.le.1) then
+        ! Try list decoding via "Deep Likelihood".
+        call timer('ccf_85  ',0)
+        ! Try to synchronize using all 85 symbols
+        call q65_ccf_85(s1w,iz,jz,nfqso,ia,ia2,ipk,jpk,f0,xdt,imsg_best,   &
+             better,ccf1)
+        call timer('ccf_85  ',1)
+	!         nsubmode  is Tone-spacing indicator, 0-4 for A-E: a 0; b 1; c 2; d 3; e 4.
+	!         and mode_q65=2**nsubmode
+        if(better.ge.1.10) then
+           !     if(better.ge.1.04 .or. mode_q65.ge.8) then
+           !     if(better.ge.1.10 .or. mode_q65.ge.8) then  ORIGINAL
+           call timer('list_dec',0)
+           call q65_dec_q3(s1w,iz,jz,s3,LL,ipk,jpk,snr2,dat4,idec,decoded)
+           call timer('list_dec',1)
+           !        if(idec.ge.0) write(70,3070) idec,mode_q65,better,trim(decoded)
+           !3070    format(i3,i5,f8.2,2x,a)
+        endif ! if(better.ge.1.10)
+     endif    ! if(ncw.gt.0 .and. iavg.le.1)
+     ! If idec=3 we have a q3 decode.  Continue to compute sync curve for plotting.
+
+     if(idec.eq.3) then
+        idec=5
+     endif
+
+  endif        ! if(idec.lt.0 .and. maxdrift.eq.50 .and. stageno.eq.5)
+
+  return
 end subroutine q65_dec0
 
 subroutine q65_clravg
