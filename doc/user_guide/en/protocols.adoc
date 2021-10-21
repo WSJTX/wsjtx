@@ -263,8 +263,8 @@ which the probability of decoding is 50% or higher.
 
 [[SLOW_TAB]]
 .Parameters of Slow Modes
-[width="100%",cols="3h,^3,^2,^1,^2,^2,^2,^2,^2,^2",frame=topbot,options="header"]
-|===============================================================================
+[width="100%",cols="3h,^3,^2,^1,6*^2",frame=topbot,options="header"]
+|===
 |Mode |FEC Type |(n,k) | Q|Modulation type|Keying rate (Baud)|Bandwidth (Hz)
 |Sync Energy|Tx Duration (s)|S/N Threshold (dB)
 |FST4-15   |LDPC |  (240,101)| 4| 4-GFSK| 16.67 | 66.7 | 0.25| 9.6  | -20.7
@@ -289,7 +289,7 @@ which the probability of decoding is 50% or higher.
 |FST4W-300  |LDPC |  (240,74)| 4| 4-GFSK|  0.558  |  2.2  | 0.25| 286.7 | -36.8
 |FST4W-900  |LDPC |  (240,74)| 4| 4-GFSK|  0.180 |  0.72 | 0.25| 887.5 | -41.7
 |FST4W-1800 |LDPC |  (240,74)| 4| 4-GFSK|  0.089 |  0.36 | 0.25| 1792.0| -44.8
-|===============================================================================
+|===
 
  LDPC = Low Density Parity Check
  RS = Reed Solomon
@@ -304,7 +304,7 @@ comparable to tone spacing.
 [[SLOW_SUBMODES]]
 .Parameters of Slow Submodes JT4, JT9, and JT65 with Selectable Tone Spacings
 [width="50%",cols="h,3*^",frame=topbot,options="header"]
-|=====================================
+|===
 |Mode  |Tone Spacing  |BW (Hz)|S/N (dB)
 |JT4A  |4.375|  17.5  |-23
 |JT4B  |8.75 |  30.6  |-22
@@ -324,18 +324,18 @@ comparable to tone spacing.
 |JT65A |2.692| 177.6  |-25
 |JT65B |5.383| 352.6  |-25
 |JT65C |10.767| 702.5 |-25
-|=====================================
+|===
 
 .Parameters of Q65 Submodes
 [width="100%",cols="h,5*^",frame=topbot,options="header"]
-|=====================================
+|===
 |T/R Period (s)  |A Spacing Width (Hz)|B Spacing Width (Hz)|C Spacing Width (Hz)|D Spacing Width (Hz)|E Spacing Width (Hz)
 |15|6.67 &#160; &#160; 4.33|13.33 &#160; &#160; 867|26.67 &#160; &#160; 1733|N/A|N/A
 |30|3.33 &#160; &#160; 217|6.67 &#160; &#160; 433|13.33 &#160; &#160; 867| 26.67 &#160; &#160; 1733| N/A
 |60|1.67 &#160; &#160; 108|3.33 &#160; &#160; 217|6.67 &#160; &#160; 433|13.33 &#160; &#160; 867|26.67 &#160; &#160; 1733
 |120|0.75 &#160; &#160; 49|1.50 &#160; &#160; 98|3.00 &#160; &#160; 195|6.00 &#160; &#160; 390| 12.00 &#160; &#160; 780
 |300|0.29 &#160; &#160; 19|0.58 &#160; &#160; 38|1.16 &#160; &#160; 75|2.31 &#160; &#160; 150|4.63 &#160; &#160; 301
-|=====================================
+|===
 
 [[FAST_MODES]]
 === Fast Modes
@@ -390,8 +390,8 @@ and your QSO partner ± 200 Hz.
 ==== Summary
 
 .Parameters of Fast Modes
-[width="90%",cols="3h,^3,^2,^1,^2,^2,^2,^2,^2",frame="topbot",options="header"]
-|=====================================================================
+[width="90%",cols="3h,^3,^2,^1,5*^2",frame="topbot",options="header"]
+|===
 |Mode     |FEC Type   |(n,k)   | Q|Modulation Type|Keying rate (Baud)
 |Bandwidth (Hz)|Sync Energy|Tx Duration (s)
 |JT9E     |K=32, r=1/2|(206,72)| 8| 9-FSK| 25.0 |  225  | 0.19| 3.400 
@@ -400,4 +400,4 @@ and your QSO partner ± 200 Hz.
 |JT9H     |K=32, r=1/2|(206,72)| 8| 9-FSK|200.0 | 1800  | 0.19| 0.425 
 |MSK144   |LDPC       |(128,90)| 2| OQPSK| 2000 | 2400  | 0.11| 0.072 
 |MSK144 Sh|LDPC       |(32,16) | 2| OQPSK| 2000 | 2400  | 0.20| 0.020 
-|=====================================================================
+|===

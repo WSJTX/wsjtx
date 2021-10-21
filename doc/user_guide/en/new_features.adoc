@@ -1,7 +1,7 @@
 [[NEW_FEATURES]]
-=== New in Version {VERSION}
+=== New in Version {VERSION_MAJOR}.{VERSION_MINOR}
 
-_WSJT-X 2.5.0_ introduces an enhanced Q65 decoder that measures and
+_WSJT-X 2.5_ introduces an enhanced Q65 decoder that measures and
 compensates for linear frequency drifts of Q65 signals.  Activate this
 feature by setting a spinner control *Max Drift* on the _WSJT-X_ main
 window to a number greater than 0.  We suggest a setting of 10 for
@@ -9,9 +9,11 @@ submode Q65-60A, the recommended submode for EME on 50 and 144 MHz,
 which will accommodate drift rates up to 20 Hz/minute.  Similarly, we
 suggest *Max Drift* = 40 for submode Q65-15C, used for for 10 GHz QSOs
 (up to 900 km) via aircraft scatter and drift rates up to about 20
-Hz/s.
+Hz/s. When *Max Drift* = 50 the decoder will use an enhanced algorithm
+to compensate for larger aircraft scatter drift rates, successful
+decodes with this algorithm are tagged with a `q5` indicator.
 
-On the Windows platform only, _WSJT-X 2.5.0_ installations now include
+On the Windows platform only, _WSJT-X 2.5_ installations now include
 an early version of _MAP65 3.0_.  This program works together with
 suitable hardware that converts RF to baseband.  The hardware/software
 combination implements a wideband, highly optimized receiver for the

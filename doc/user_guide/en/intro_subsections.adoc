@@ -22,9 +22,11 @@ consequences.
 
 === User Interface in Other Languages
 
-The _WSJT-X_ user interface is now available in many languages.  When
-a translated user interface is available for the computer's default
-System Language, it will appear automatically on program startup.
+The _WSJT-X_ user interface (UI) is now available in many languages.
+When a translated UI is available for the computer's default System
+Language, it will appear automatically on program startup. The UI
+language may be overriden if desired by starting _WSJT-X_ with a
+command line option.
 
 === How You Can Contribute
 
