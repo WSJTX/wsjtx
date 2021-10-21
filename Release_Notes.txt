@@ -12,9 +12,8 @@
 Copyright 2001 - 2021 by Joe Taylor, K1JT.
 
 
-<<<<<<< HEAD
 	        Release: WSJT-X 2.5.1
-	              Oct 23, 2021
+	             Oct 22, 2021
 	        ----------------------
 
 This release  mainly contains improvements and  defect repairs related
@@ -59,6 +58,9 @@ and a number of defect repairs detected since the 2.5.0 GA release.
    translation for Traditional Chinese by Steven, BU2EL.
 
  - Updated CTY.DAT database, tnx to Jim AD1C
+
+ - Improved main window layout to ensure TxN messages are fully
+   visible.
  
 	        Release: WSJT-X 2.5.0
 	              Sept 27, 2021
