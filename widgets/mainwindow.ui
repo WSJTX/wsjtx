@@ -1283,7 +1283,7 @@ When not checked you can view the calibration results.</string>
                         </property>
                         <property name="minimumSize">
                          <size>
-                          <width>30</width>
+                          <width>35</width>
                           <height>0</height>
                          </size>
                         </property>
@@ -1330,7 +1330,7 @@ When not checked you can view the calibration results.</string>
                         </property>
                         <property name="minimumSize">
                          <size>
-                          <width>30</width>
+                          <width>35</width>
                           <height>0</height>
                          </size>
                         </property>
