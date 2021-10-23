@@ -4,6 +4,9 @@ module astro_module
   private
   public :: astrosub
 
+  logical :: initialized = .false.
+  integer :: azel_extra_lines = 0
+
 contains
 
   subroutine astrosub(nyear,month,nday,uth8,freq8,mygrid_cp,                    &
@@ -28,10 +31,17 @@ contains
     character(len=6) :: mygrid, hisgrid
     character(len=:), allocatable :: AzElFileName
     character(len=1) :: c1
-    integer :: ih, im, imin, is, isec, nfreq, nRx
+    character(len=32) :: envvar
+    integer :: ih, im, imin, is, isec, nfreq, env_status
     real(dp) :: AzAux, ElAux, dbMoon8, dfdt, dfdt0, doppler, doppler00, HA8, sd8, xlst8
     character*256 jpleph_file_name
     common/jplcom/jpleph_file_name
+
+    if (.not.initialized) then
+       call get_environment_variable ('WSJT_AZEL_EXTRA_LINES', envvar, status=env_status)
+       if (env_status.eq.0) read (envvar, *, iostat=env_status) azel_extra_lines
+       initialized = .true.
+    end if
 
     mygrid = mygrid_cp
     hisgrid = hisgrid_cp
@@ -51,10 +61,8 @@ contains
     is=mod(isec,60)
     open(15,file=AzElFileName,status='unknown',err=900)
     c1='R'
-    nRx=1
     if(bTx) then
        c1='T'
-       nRx=0
     endif
     AzAux=0.
     ElAux=0.
@@ -65,13 +73,13 @@ contains
          ih,im,is,AzSun8,ElSun8,                                        &
          ih,im,is,AzAux,ElAux,                                          &
          nfreq,doppler,dfdt,doppler00,dfdt0,c1
-    !       TXFirst,TRPeriod,poloffset,Dgrd,xnr,ave,rms,nRx
+    if (azel_extra_lines.ge.1) write(15, 1020, err=10) poloffset8,xnr8,Dgrd8
 1010 format(                                                          &
          i2.2,':',i2.2,':',i2.2,',',f5.1,',',f5.1,',Moon'/               &
          i2.2,':',i2.2,':',i2.2,',',f5.1,',',f5.1,',Sun'/                &
          i2.2,':',i2.2,':',i2.2,',',f5.1,',',f5.1,',Source'/             &
          i5,',',f8.1,',',f8.2,',',f8.1,',',f8.2,',Doppler, ',a1)
-    !      i1,',',i3,',',f8.1,','f8.1,',',f8.1,',',f12.3,',',f12.3,',',i1,',RPol')
+1020 format(f8.1,','f8.1,',',f8.1,',Pol')
 10  close(15)
     go to 999
 
