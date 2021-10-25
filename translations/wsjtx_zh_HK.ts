@@ -20,7 +20,7 @@
         <location filename="../widgets/AbstractLogWindow.cpp" line="65"/>
         <source>Are you sure you want to delete the %n selected QSO(s) from the log?</source>
         <translation>
-            <numerusform>是否確定要從日誌中刪除 %n 選取的通聯?</numerusform>
+            <numerusform>是否確定要從日誌中刪除 %n 選取的通聯資料?</numerusform>
         </translation>
     </message>
 </context>
@@ -30,7 +30,7 @@
         <location filename="../widgets/astro.ui" line="34"/>
         <location filename="../widgets/astro.ui" line="260"/>
         <source>Doppler tracking</source>
-        <translation>多普勒跟蹤</translation>
+        <translation>多普勒追蹤</translation>
     </message>
     <message>
         <location filename="../widgets/astro.ui" line="40"/>
@@ -141,7 +141,7 @@
     <message>
         <location filename="../widgets/astro.cpp" line="268"/>
         <source>Go to &quot;Menu-&gt;File-&gt;Settings-&gt;Radio&quot; to enable split operation</source>
-        <translation>轉到 &quot;菜單-&gt;檔案-&gt;設置-&gt;無線電設備&quot; 啟用異頻操作</translation>
+        <translation>轉到 &quot;選單-&gt;檔案-&gt;設置-&gt;無線電設備&quot; 啟用異頻操作</translation>
     </message>
 </context>
 <context>
@@ -423,17 +423,17 @@
     <message>
         <location filename="../Configuration.cpp" line="1766"/>
         <source>Serial Port:</source>
-        <translation>串行端口:</translation>
+        <translation>序列埠:</translation>
     </message>
     <message>
         <location filename="../Configuration.cpp" line="1767"/>
         <source>Serial port used for CAT control</source>
-        <translation>用於CAT控制的串行端口</translation>
+        <translation>用於CAT控制的序列埠</translation>
     </message>
     <message>
         <location filename="../Configuration.cpp" line="1774"/>
         <source>Network Server:</source>
-        <translation>網絡服務器:</translation>
+        <translation>網絡伺服器:</translation>
     </message>
     <message>
         <location filename="../Configuration.cpp" line="1775"/>
@@ -443,17 +443,17 @@ Formats:
 	hostname:port
 	IPv4-address:port
 	[IPv6-address]:port</source>
-        <translation>可選主機名和網絡服務端口.
-為無線電設備合理默認值保留空白.
+        <translation>可選主機名和網絡伺服埠.
+為無線電設備合理預設值保留空白.
 格式:
-	主機名:端口
-	IP v4-地址:端口
-	[IPv6-地址]:端口</translation>
+	主機名:埠號
+	IP v4-地址:埠號
+	[IPv6-地址]:埠號</translation>
     </message>
     <message>
         <location filename="../Configuration.cpp" line="1787"/>
         <source>USB Device:</source>
-        <translation>USB設備:</translation>
+        <translation>USB 設備:</translation>
     </message>
     <message>
         <location filename="../Configuration.cpp" line="1788"/>
@@ -462,7 +462,7 @@ Leave blank for a sensible default for the rig.
 Format:
 	[VID[:PID[:VENDOR[:PRODUCT]]]]</source>
         <translation>可選設備標識.
-為無線電設備合理默認值保留空白.
+為無線電設備合理預設值保留空白.
 格式:
 	[VID[:PID[:供應商[:產品]]]]</translation>
     </message>
@@ -485,7 +485,7 @@ Format:
     <message>
         <location filename="../Configuration.cpp" line="1856"/>
         <source>Invalid PTT port</source>
-        <translation>無效的PTT端口</translation>
+        <translation>無效的PTT埠號</translation>
     </message>
     <message>
         <location filename="../Configuration.cpp" line="1864"/>
@@ -506,7 +506,7 @@ Format:
     <message>
         <location filename="../Configuration.cpp" line="1880"/>
         <source>Pending DNS lookup, please try again later</source>
-        <translation>等待 DNS 查找, 請稍後再試</translation>
+        <translation>等待域名系統查找, 請稍後再試</translation>
     </message>
     <message>
         <location filename="../Configuration.cpp" line="2223"/>
@@ -531,7 +531,7 @@ Format:
     <message>
         <location filename="../Configuration.cpp" line="2459"/>
         <source>MAC-ambiguous multicast groups addresses not supported</source>
-        <translation>MAC 模棱兩可的多播組位址不受支援</translation>
+        <translation>不支持MAC不明確的多播組地址</translation>
     </message>
     <message>
         <location filename="../Configuration.cpp" line="2477"/>
@@ -605,7 +605,7 @@ Format:
     <message>
         <location filename="../Configuration.cpp" line="2569"/>
         <source>Are you sure you want to discard your current working frequencies and replace them with default ones?</source>
-        <translation>您確定要放棄您當前的工作頻率並用默認值頻率替換它們嗎?</translation>
+        <translation>您確定要放棄您當前的工作頻率並用預設值頻率替換它們嗎?</translation>
     </message>
     <message>
         <location filename="../Configuration.cpp" line="2607"/>
@@ -636,7 +636,7 @@ Format:
         <location filename="../Configuration.cpp" line="2956"/>
         <source>Not found</source>
         <comment>audio device missing</comment>
-        <translation>音訊設備未找到</translation>
+        <translation>未找到音訊設備</translation>
     </message>
 </context>
 <context>
@@ -853,7 +853,7 @@ Format:
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="177"/>
         <source>f/g unset</source>
-        <translation>字体颜色未設定</translation>
+        <translation>字體顏色未設定</translation>
     </message>
     <message>
         <location filename="../models/DecodeHighlightingModel.cpp" line="179"/>
@@ -953,7 +953,7 @@ Format:
     <message>
         <location filename="../SampleDownloader/Directory.cpp" line="142"/>
         <source>Contents file top level must be a JSON array</source>
-        <translation>內容檔案頂層必須是JSON數組</translation>
+        <translation>檔案內容頂層必須是JSON陣列</translation>
     </message>
     <message>
         <location filename="../SampleDownloader/Directory.cpp" line="153"/>
@@ -964,13 +964,13 @@ Format:
         <location filename="../SampleDownloader/Directory.cpp" line="154"/>
         <source>Failed to open &quot;%1&quot;
 Error: %2 - %3</source>
-        <translation>未能開啟 &quot;%1&quot;
+        <translation>無法開啟 &quot;%1&quot;
 錯誤: %2 - %3</translation>
     </message>
     <message>
         <location filename="../SampleDownloader/Directory.cpp" line="210"/>
         <source>Contents entries must be a JSON array</source>
-        <translation>輸入內容必須是 JSON 數組</translation>
+        <translation>輸入內容必須是 JSON 陣列</translation>
     </message>
     <message>
         <location filename="../SampleDownloader/Directory.cpp" line="216"/>
@@ -1104,7 +1104,7 @@ Error: %2 - %3</source>
         <location filename="../EqualizationToolsDialog.cpp" line="307"/>
         <location filename="../EqualizationToolsDialog.cpp" line="348"/>
         <source>Freq (Hz)</source>
-        <translation>頻率 (赫兹)</translation>
+        <translation>頻率 (赫茲)</translation>
     </message>
     <message>
         <location filename="../EqualizationToolsDialog.cpp" line="309"/>
@@ -1159,7 +1159,7 @@ Error: %2 - %3</source>
     <message>
         <location filename="../EqualizationToolsDialog.cpp" line="364"/>
         <source>Refresh</source>
-        <translation>刷新</translation>
+        <translation>更新</translation>
     </message>
     <message>
         <location filename="../EqualizationToolsDialog.cpp" line="365"/>
@@ -1172,7 +1172,7 @@ Error: %2 - %3</source>
     <message>
         <location filename="../MultiSettings.cpp" line="123"/>
         <source>Configuration to Clone From</source>
-        <translation>從克隆中的設定</translation>
+        <translation>從複製中的設定</translation>
     </message>
     <message>
         <location filename="../MultiSettings.cpp" line="128"/>
@@ -1525,7 +1525,7 @@ Error: %2 - %3</source>
     <message>
         <location filename="../Transceiver/HRDTransceiver.cpp" line="422"/>
         <source>Ham Radio Deluxe: rig doesn&apos;t support mode</source>
-        <translation>Ham Radio Deluxe: 無線電設備不支持模式</translation>
+        <translation>Ham Radio Deluxe: 無線電設備不支持的模式</translation>
     </message>
     <message>
         <location filename="../Transceiver/HRDTransceiver.cpp" line="441"/>
@@ -1813,7 +1813,7 @@ Error: %2 - %3</source>
     <message>
         <location filename="../widgets/logqso.ui" line="69"/>
         <source>Start</source>
-        <translation>開始</translation>
+        <translation>開始日期/時間</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.ui" line="88"/>
@@ -1824,7 +1824,7 @@ Error: %2 - %3</source>
     <message>
         <location filename="../widgets/logqso.ui" line="107"/>
         <source>End</source>
-        <translation>結束</translation>
+        <translation>結束日期/時間</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.ui" line="149"/>
@@ -2021,21 +2021,21 @@ Error: %2 - %3</source>
         <location filename="../Network/LotWUsers.cpp" line="111"/>
         <source>Network Error - SSL/TLS support not installed, cannot fetch:
 &apos;%1&apos;</source>
-        <translation>網路錯誤 - SSL/TLS 支援未安裝, 無法提取:
+        <translation>網絡錯誤 - SSL/TLS 支援未安裝, 無法提取:
 &apos;%1&apos;</translation>
     </message>
     <message>
         <location filename="../Network/LotWUsers.cpp" line="123"/>
         <source>Network Error - Too many redirects:
 &apos;%1&apos;</source>
-        <translation>網路錯誤 - 重定向太多:
+        <translation>網絡錯誤 - 重定向太多:
 &apos;%1&apos;</translation>
     </message>
     <message>
         <location filename="../Network/LotWUsers.cpp" line="137"/>
         <source>Network Error:
 %1</source>
-        <translation>網路錯誤:
+        <translation>網絡錯誤:
 %1</translation>
     </message>
     <message>
@@ -2067,12 +2067,12 @@ Error(%2): %3</source>
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="14"/>
+        <location filename="../widgets/mainwindow.ui" line="6"/>
         <source>WSJT-X   by K1JT</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="44"/>
+        <location filename="../widgets/mainwindow.ui" line="36"/>
         <location filename="../widgets/mainwindow.cpp" line="6082"/>
         <location filename="../widgets/mainwindow.cpp" line="6168"/>
         <location filename="../widgets/mainwindow.cpp" line="6215"/>
@@ -2083,13 +2083,13 @@ Error(%2): %3</source>
         <translation>波段活動</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="133"/>
-        <location filename="../widgets/mainwindow.ui" line="277"/>
+        <location filename="../widgets/mainwindow.ui" line="125"/>
+        <location filename="../widgets/mainwindow.ui" line="269"/>
         <source>UTC           dB            DT           Freq          Dr </source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="188"/>
+        <location filename="../widgets/mainwindow.ui" line="180"/>
         <location filename="../widgets/mainwindow.cpp" line="6083"/>
         <location filename="../widgets/mainwindow.cpp" line="6167"/>
         <location filename="../widgets/mainwindow.cpp" line="6210"/>
@@ -2099,650 +2099,650 @@ Error(%2): %3</source>
         <translation>接收信息</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="333"/>
+        <location filename="../widgets/mainwindow.ui" line="325"/>
         <source>CQ only</source>
-        <translation>只顯示 CQ</translation>
+        <translation>只顯示CQ</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="346"/>
+        <location filename="../widgets/mainwindow.ui" line="338"/>
         <source>Enter this QSO in log</source>
         <translation>在日誌中輸入此通聯紀錄</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="349"/>
+        <location filename="../widgets/mainwindow.ui" line="341"/>
         <source>Log &amp;QSO</source>
         <translation>記錄通聯(&amp;Q)</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="362"/>
+        <location filename="../widgets/mainwindow.ui" line="354"/>
         <source>Stop monitoring</source>
         <translation>停止監聽</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="365"/>
+        <location filename="../widgets/mainwindow.ui" line="357"/>
         <source>&amp;Stop</source>
         <translation>停止(&amp;S)</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="378"/>
+        <location filename="../widgets/mainwindow.ui" line="370"/>
         <source>Toggle monitoring On/Off</source>
         <translation>切換監聽開/關</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="393"/>
+        <location filename="../widgets/mainwindow.ui" line="385"/>
         <source>&amp;Monitor</source>
         <translation>監聽(&amp;M)</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="412"/>
+        <location filename="../widgets/mainwindow.ui" line="404"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Erase right window. Double-click to erase both windows.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;擦除右視窗. 雙擊可擦除兩個視窗.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;擦除接收資訊視窗.按兩下可擦除波段活動視窗和接收資訊視窗.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="415"/>
+        <location filename="../widgets/mainwindow.ui" line="407"/>
         <source>Erase right window. Double-click to erase both windows.</source>
         <translation>擦除右視窗. 雙擊可擦除兩個視窗.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="418"/>
+        <location filename="../widgets/mainwindow.ui" line="410"/>
         <source>&amp;Erase</source>
         <translation>擦除(&amp;E)</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="428"/>
+        <location filename="../widgets/mainwindow.ui" line="420"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Clear the accumulating message average.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;清除累積信息平均值.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="431"/>
+        <location filename="../widgets/mainwindow.ui" line="423"/>
         <source>Clear the accumulating message average.</source>
         <translation>清除累積信息平均值.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="434"/>
+        <location filename="../widgets/mainwindow.ui" line="426"/>
         <source>Clear Avg</source>
         <translation>清除平均</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="447"/>
+        <location filename="../widgets/mainwindow.ui" line="439"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Decode most recent Rx period at QSO Frequency&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;在通聯頻率下解碼最近的接收週期&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;在通聯頻率下解碼信息&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="450"/>
+        <location filename="../widgets/mainwindow.ui" line="442"/>
         <source>Decode most recent Rx period at QSO Frequency</source>
-        <translation>在通聯頻率下解碼最近的接收週期</translation>
+        <translation>在通聯頻率下解碼信息</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="465"/>
+        <location filename="../widgets/mainwindow.ui" line="457"/>
         <source>&amp;Decode</source>
         <translation>解碼(&amp;D)</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="481"/>
+        <location filename="../widgets/mainwindow.ui" line="473"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle Auto-Tx On/Off&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;切換自動發射 開/關&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;切換啟用或停用自動發射&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="484"/>
+        <location filename="../widgets/mainwindow.ui" line="476"/>
         <source>Toggle Auto-Tx On/Off</source>
-        <translation>切換自動發射 開/關</translation>
+        <translation>切換啟用或停用自動發射</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="499"/>
+        <location filename="../widgets/mainwindow.ui" line="491"/>
         <source>E&amp;nable Tx</source>
         <translation>啟用發射(&amp;n)</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="515"/>
+        <location filename="../widgets/mainwindow.ui" line="507"/>
         <source>Stop transmitting immediately</source>
         <translation>立即停止發射</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="518"/>
+        <location filename="../widgets/mainwindow.ui" line="510"/>
         <source>&amp;Halt Tx</source>
         <translation>停止發射(&amp;H)</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="525"/>
+        <location filename="../widgets/mainwindow.ui" line="517"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle a pure Tx tone On/Off&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;切換發射純音調 開/關&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;切換啟用或停用發射純音調&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="528"/>
+        <location filename="../widgets/mainwindow.ui" line="520"/>
         <source>Toggle a pure Tx tone On/Off</source>
-        <translation>切換發射純音調 開/關</translation>
+        <translation>切換啟用或停用發射純音調</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="543"/>
+        <location filename="../widgets/mainwindow.ui" line="535"/>
         <source>&amp;Tune</source>
         <translation>調諧(&amp;T)</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="553"/>
+        <location filename="../widgets/mainwindow.ui" line="545"/>
         <source>Menus</source>
-        <translation>選單</translation>
+        <translation>顯示選單</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1151"/>
+        <location filename="../widgets/mainwindow.ui" line="1077"/>
         <source>Decode other Hounds calling above 1000 Hz audio offset</source>
         <translation>解碼其他獵犬調用超過 1000 Hz 音訊偏移</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1200"/>
+        <location filename="../widgets/mainwindow.ui" line="1126"/>
         <source>Enable auto response to the first decode from a new DXCC or new call on the current band.</source>
         <translation>啟用對當前頻段上新 DXCC 或新呼叫的第一個解碼的自動回應.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1613"/>
+        <location filename="../widgets/mainwindow.ui" line="1539"/>
         <source>F High </source>
         <translation>F 高 </translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1588"/>
+        <location filename="../widgets/mainwindow.ui" line="1514"/>
         <source>F Low   </source>
         <translation>F 低   </translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2501"/>
+        <location filename="../widgets/mainwindow.ui" line="2481"/>
         <source>1/2</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2506"/>
+        <location filename="../widgets/mainwindow.ui" line="2486"/>
         <source>2/2</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2511"/>
+        <location filename="../widgets/mainwindow.ui" line="2491"/>
         <source>1/3</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2516"/>
+        <location filename="../widgets/mainwindow.ui" line="2496"/>
         <source>2/3</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2521"/>
+        <location filename="../widgets/mainwindow.ui" line="2501"/>
         <source>3/3</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2526"/>
+        <location filename="../widgets/mainwindow.ui" line="2506"/>
         <source>1/4</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2531"/>
+        <location filename="../widgets/mainwindow.ui" line="2511"/>
         <source>2/4</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2536"/>
+        <location filename="../widgets/mainwindow.ui" line="2516"/>
         <source>3/4</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2541"/>
+        <location filename="../widgets/mainwindow.ui" line="2521"/>
         <source>4/4</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2546"/>
+        <location filename="../widgets/mainwindow.ui" line="2526"/>
         <source>1/5</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2551"/>
+        <location filename="../widgets/mainwindow.ui" line="2531"/>
         <source>2/5</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2556"/>
+        <location filename="../widgets/mainwindow.ui" line="2536"/>
         <source>3/5</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2561"/>
+        <location filename="../widgets/mainwindow.ui" line="2541"/>
         <source>4/5</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2566"/>
+        <location filename="../widgets/mainwindow.ui" line="2546"/>
         <source>5/5</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2571"/>
+        <location filename="../widgets/mainwindow.ui" line="2551"/>
         <source>1/6</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2576"/>
+        <location filename="../widgets/mainwindow.ui" line="2556"/>
         <source>2/6</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2581"/>
+        <location filename="../widgets/mainwindow.ui" line="2561"/>
         <source>3/6</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2586"/>
+        <location filename="../widgets/mainwindow.ui" line="2566"/>
         <source>4/6</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2591"/>
+        <location filename="../widgets/mainwindow.ui" line="2571"/>
         <source>5/6</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2596"/>
+        <location filename="../widgets/mainwindow.ui" line="2576"/>
         <source>6/6</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2604"/>
+        <location filename="../widgets/mainwindow.ui" line="2584"/>
         <source>Percentage of minute sequences devoted to transmitting.</source>
         <translation>用於傳輸的分鐘序列的百分比.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2702"/>
+        <location filename="../widgets/mainwindow.ui" line="2682"/>
         <source>Prefer Type 1 messages</source>
         <translation>首選類型 1 資訊</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2721"/>
+        <location filename="../widgets/mainwindow.ui" line="2701"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Transmit during the next sequence.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;在下一個序列中傳送.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3400"/>
+        <location filename="../widgets/mainwindow.ui" line="3459"/>
         <source>Q65</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3408"/>
+        <location filename="../widgets/mainwindow.ui" line="3467"/>
         <source>SWL Mode</source>
         <translation>SWL 模式</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3411"/>
+        <location filename="../widgets/mainwindow.ui" line="3470"/>
         <source>Hide lower panel controls to maximize deocde windows</source>
         <translation>隱藏下面板控制項以最大化解碼視窗</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="573"/>
+        <location filename="../widgets/mainwindow.ui" line="958"/>
         <source>USB dial frequency</source>
         <translation>上邊帶頻率</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="587"/>
+        <location filename="../widgets/mainwindow.ui" line="972"/>
         <source>14.078 000</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="704"/>
+        <location filename="../widgets/mainwindow.ui" line="2827"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;30dB recommended when only noise present&lt;br/&gt;Green when good&lt;br/&gt;Red when clipping may occur&lt;br/&gt;Yellow when too low&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;當只存在噪音時建議30dB&lt;br/&gt;綠色好&lt;br/&gt;紅色時可能發生剪切&lt;br/&gt;黃色時太低&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;當只存在噪音時建議30dB&lt;br/&gt;綠色範圍最好&lt;br/&gt;紅色範圍時可能發生剪裁&lt;br/&gt;黃色範圍最太低&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="707"/>
+        <location filename="../widgets/mainwindow.ui" line="2830"/>
         <source>Rx Signal</source>
         <translation>接收信號</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="710"/>
+        <location filename="../widgets/mainwindow.ui" line="2833"/>
         <source>30dB recommended when only noise present
 Green when good
 Red when clipping may occur
 Yellow when too low</source>
         <translation>當只存在噪音時建議30dB
-綠色好
-紅色時可能發生剪切
-黃色時太低</translation>
+綠色範圍最好
+紅色範圍可能發生剪裁
+黃色範圍太低</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="822"/>
+        <location filename="../widgets/mainwindow.ui" line="724"/>
         <source>DX Call</source>
         <translation>DX 呼號</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="956"/>
+        <location filename="../widgets/mainwindow.ui" line="810"/>
         <source>DX Grid</source>
         <translation>DX 網格</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="975"/>
+        <location filename="../widgets/mainwindow.ui" line="835"/>
         <source>Callsign of station to be worked</source>
         <translation>正在通聯的電臺呼號</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="873"/>
+        <location filename="../widgets/mainwindow.ui" line="872"/>
         <source>Search for callsign in database</source>
         <translation>在數據庫中搜索此呼號的網格數據</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="876"/>
+        <location filename="../widgets/mainwindow.ui" line="875"/>
         <source>&amp;Lookup</source>
         <translation>檢索(&amp;L)</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="988"/>
+        <location filename="../widgets/mainwindow.ui" line="854"/>
         <source>Locator of station to be worked</source>
         <translation>通聯中的電臺定位</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="860"/>
+        <location filename="../widgets/mainwindow.ui" line="895"/>
         <source>Az: 251     16553 km</source>
         <translation>角度: 251     16553 公里</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="841"/>
+        <location filename="../widgets/mainwindow.ui" line="882"/>
         <source>Add callsign and locator to database</source>
         <translation>增加這呼號及網格的數據在數據庫中</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="844"/>
+        <location filename="../widgets/mainwindow.ui" line="885"/>
         <source>Add</source>
         <translation>增加</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="642"/>
+        <location filename="../widgets/mainwindow.ui" line="601"/>
         <source> Pwr</source>
         <translation> 功率</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="603"/>
+        <location filename="../widgets/mainwindow.ui" line="562"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;If orange or red there has been a rig control failure, click to reset and read the dial frequency.  S implies split mode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;如果橙色或紅色出現表示無線電設備控制故障, 請單擊以重置並讀取頻率. S 表示異頻模式.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="606"/>
+        <location filename="../widgets/mainwindow.ui" line="565"/>
         <source>If orange or red there has been a rig control failure, click to reset and read the dial frequency. S implies split mode.</source>
         <translation>如果橙色或紅色出現表示無線電設備控制故障, 請按下以重置並讀取頻率. S 表示異頻模式.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="635"/>
+        <location filename="../widgets/mainwindow.ui" line="594"/>
         <source>?</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1043"/>
+        <location filename="../widgets/mainwindow.ui" line="608"/>
         <source>Adjust Tx audio level</source>
         <translation>調整發射音效電平</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="649"/>
+        <location filename="../widgets/mainwindow.ui" line="2851"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Select operating band or enter frequency in MHz or enter kHz increment followed by k.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;選擇工作頻段或輸入兆赫頻率或輸入千赫增量,然後輸入 k.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="652"/>
+        <location filename="../widgets/mainwindow.ui" line="2854"/>
         <source>Frequency entry</source>
         <translation>輸入頻率</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="655"/>
+        <location filename="../widgets/mainwindow.ui" line="2857"/>
         <source>Select operating band or enter frequency in MHz or enter kHz increment followed by k.</source>
         <translation>選擇工作頻段或輸入兆赫頻率或輸入千赫增量,然後輸入 k.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1030"/>
+        <location filename="../widgets/mainwindow.ui" line="939"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt; 2015 Jun 17 &lt;/p&gt;&lt;p align=&quot;center&quot;&gt; 01:23:45 &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1521"/>
+        <location filename="../widgets/mainwindow.ui" line="1447"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to keep Tx frequency fixed when double-clicking on decoded text.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;按兩下解碼文字時, 選擇以保持發射頻率固定.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1524"/>
+        <location filename="../widgets/mainwindow.ui" line="1450"/>
         <source>Check to keep Tx frequency fixed when double-clicking on decoded text.</source>
         <translation>按兩下解碼文字時, 選擇以保持發射頻率固定.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1527"/>
+        <location filename="../widgets/mainwindow.ui" line="1453"/>
         <source>Hold Tx Freq</source>
         <translation>保持發射頻率</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1439"/>
+        <location filename="../widgets/mainwindow.ui" line="1365"/>
         <source>Audio Rx frequency</source>
         <translation>音頻接收頻率</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1332"/>
-        <location filename="../widgets/mainwindow.ui" line="1445"/>
-        <location filename="../widgets/mainwindow.ui" line="2423"/>
-        <location filename="../widgets/mainwindow.ui" line="2445"/>
-        <location filename="../widgets/mainwindow.ui" line="2470"/>
+        <location filename="../widgets/mainwindow.ui" line="1258"/>
+        <location filename="../widgets/mainwindow.ui" line="1371"/>
+        <location filename="../widgets/mainwindow.ui" line="2403"/>
+        <location filename="../widgets/mainwindow.ui" line="2425"/>
+        <location filename="../widgets/mainwindow.ui" line="2450"/>
         <source>  Hz</source>
         <translation>  赫茲</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1448"/>
-        <location filename="../widgets/mainwindow.ui" line="2448"/>
+        <location filename="../widgets/mainwindow.ui" line="1374"/>
+        <location filename="../widgets/mainwindow.ui" line="2428"/>
         <source>Rx  </source>
         <translation>接收  </translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1371"/>
-        <location filename="../widgets/mainwindow.ui" line="1374"/>
+        <location filename="../widgets/mainwindow.ui" line="1297"/>
+        <location filename="../widgets/mainwindow.ui" line="1300"/>
         <source>Set Tx frequency to Rx Frequency</source>
         <translation>將發射頻率設定為接收頻率</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1377"/>
+        <location filename="../widgets/mainwindow.ui" line="1303"/>
         <source>▲</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1384"/>
+        <location filename="../widgets/mainwindow.ui" line="1310"/>
         <source>Frequency tolerance (Hz)</source>
-        <translation>頻率容差 (赫兹)</translation>
+        <translation>頻率容差 (赫茲)</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1390"/>
-        <location filename="../widgets/mainwindow.ui" line="2473"/>
+        <location filename="../widgets/mainwindow.ui" line="1316"/>
+        <location filename="../widgets/mainwindow.ui" line="2453"/>
         <source>F Tol  </source>
         <translation>容差  </translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1424"/>
-        <location filename="../widgets/mainwindow.ui" line="1427"/>
+        <location filename="../widgets/mainwindow.ui" line="1350"/>
+        <location filename="../widgets/mainwindow.ui" line="1353"/>
         <source>Set Rx frequency to Tx Frequency</source>
         <translation>將接收頻率位置移往發射頻率位置</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1430"/>
+        <location filename="../widgets/mainwindow.ui" line="1356"/>
         <source>▼</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1658"/>
+        <location filename="../widgets/mainwindow.ui" line="1584"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Synchronizing threshold.  Lower numbers accept weaker sync signals.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;同步閾值. 較低的數位接受較弱的同步訊號.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;同步閾值. 較低的數據接受較弱的同步訊號.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1661"/>
+        <location filename="../widgets/mainwindow.ui" line="1587"/>
         <source>Synchronizing threshold. Lower numbers accept weaker sync signals.</source>
-        <translation>同步閾值. 較低的數位接受較弱的同步訊號.</translation>
+        <translation>同步閾值. 較低的數據接受較弱的同步訊號.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1667"/>
+        <location filename="../widgets/mainwindow.ui" line="1593"/>
         <source>Sync   </source>
         <translation>同步   </translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1244"/>
+        <location filename="../widgets/mainwindow.ui" line="1170"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to use short-format messages.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;選擇以使用短格式信息.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1247"/>
+        <location filename="../widgets/mainwindow.ui" line="1173"/>
         <source>Check to use short-format messages.</source>
-        <translation>選擇以使用短格式信息.</translation>
+        <translation>選擇使用短格式信息.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1250"/>
+        <location filename="../widgets/mainwindow.ui" line="1176"/>
         <source>Sh</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1257"/>
+        <location filename="../widgets/mainwindow.ui" line="1183"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to enable JT9 fast modes&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;選擇以開啟 JT9 快速模式&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1260"/>
+        <location filename="../widgets/mainwindow.ui" line="1186"/>
         <source>Check to enable JT9 fast modes</source>
         <translation>選擇以開啟 JT9 快速模式</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1263"/>
-        <location filename="../widgets/mainwindow.ui" line="3010"/>
+        <location filename="../widgets/mainwindow.ui" line="1189"/>
+        <location filename="../widgets/mainwindow.ui" line="3069"/>
         <source>Fast</source>
         <translation>快速</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1270"/>
+        <location filename="../widgets/mainwindow.ui" line="1196"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to enable automatic sequencing of Tx messages based on received messages.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;選擇以開啟接收到信息自動排序發射信息.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;選擇開啟自動排序的發射信息基於接收到信息.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1273"/>
+        <location filename="../widgets/mainwindow.ui" line="1199"/>
         <source>Check to enable automatic sequencing of Tx messages based on received messages.</source>
-        <translation>選擇以開啟接收到信息自動排序發射信息.</translation>
+        <translation>選擇開啟自動排序的發射信息基於接收到信息.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1276"/>
+        <location filename="../widgets/mainwindow.ui" line="1202"/>
         <source>Auto Seq</source>
         <translation>自動程序</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1283"/>
+        <location filename="../widgets/mainwindow.ui" line="1209"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to call the first decoded responder to my CQ.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;選擇以呼叫第一個解碼的回應器到我的 CQ.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;選擇呼叫第一個解碼出來回應我的 CQ.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1286"/>
+        <location filename="../widgets/mainwindow.ui" line="1212"/>
         <source>Check to call the first decoded responder to my CQ.</source>
-        <translation>選擇以呼叫第一個解碼的回應我的 CQ.</translation>
+        <translation>選擇呼叫第一個解碼出來回應我的 CQ.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1289"/>
+        <location filename="../widgets/mainwindow.ui" line="1215"/>
         <source>Call 1st</source>
         <translation>呼叫第一個解碼</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1299"/>
+        <location filename="../widgets/mainwindow.ui" line="1225"/>
         <source>Check to generate &quot;@1250  (SEND MSGS)&quot; in Tx6.</source>
         <translation>選擇以產生 &quot;@1250  (傳送信息)&quot; 在發射6.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1302"/>
+        <location filename="../widgets/mainwindow.ui" line="1228"/>
         <source>Tx6</source>
         <translation>發射6</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1313"/>
+        <location filename="../widgets/mainwindow.ui" line="1239"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to Tx in even-numbered minutes or sequences, starting at 0; uncheck for odd sequences.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;選擇發射以偶數分鐘或序列, 從 0 開始; 取消選擇以奇數序列.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1316"/>
+        <location filename="../widgets/mainwindow.ui" line="1242"/>
         <source>Check to Tx in even-numbered minutes or sequences, starting at 0; uncheck for odd sequences.</source>
         <translation>選擇發射以偶數分鐘或序列, 從 0 開始; 取消選擇以奇數序列.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1319"/>
+        <location filename="../widgets/mainwindow.ui" line="1245"/>
         <source>Tx even/1st</source>
         <translation>發射偶數/第一</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1112"/>
+        <location filename="../widgets/mainwindow.ui" line="1038"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Frequency to call CQ on in kHz above the current MHz&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;呼叫CQ 的頻率以千赫高於目前的兆赫&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1115"/>
+        <location filename="../widgets/mainwindow.ui" line="1041"/>
         <source>Frequency to call CQ on in kHz above the current MHz</source>
         <translation>呼叫 CQ 的頻率以千赫高於目前的兆赫</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1118"/>
+        <location filename="../widgets/mainwindow.ui" line="1044"/>
         <source>Tx CQ </source>
         <translation>發射 CQ </translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1137"/>
+        <location filename="../widgets/mainwindow.ui" line="1063"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check this to call CQ on the &amp;quot;Tx CQ&amp;quot; frequency. Rx will be on the current frequency and the CQ message wiill include the current Rx frequency so callers know which frequency to reply on.&lt;/p&gt;&lt;p&gt;Not available to nonstandard callsign holders.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;勾選此項, 以發射CQ呼叫. 接收將在當前頻率上,CQ信息將顯示在當前的接收資訊視窗, 以便呼叫者知道回覆的頻率.&lt;/p&gt;&lt;p&gt; 不適用於非標準呼號持有者.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1140"/>
+        <location filename="../widgets/mainwindow.ui" line="1066"/>
         <source>Check this to call CQ on the &quot;Tx CQ&quot; frequency. Rx will be on the current frequency and the CQ message wiill include the current Rx frequency so callers know which frequency to reply on.
 Not available to nonstandard callsign holders.</source>
         <translation>勾選此項, 以發射CQ呼叫. 接收將在當前頻率上,CQ信息將顯示在當前的接收資訊視窗, 以便呼叫者知道回覆的頻率.
 不適用於非標準呼號持有者.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1154"/>
+        <location filename="../widgets/mainwindow.ui" line="1080"/>
         <source>Rx All Freqs</source>
         <translation>接收所有頻率</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1636"/>
+        <location filename="../widgets/mainwindow.ui" line="1562"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Submode determines tone spacing; A is narrowest.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;子模式確定音調間距; A 最窄.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1639"/>
+        <location filename="../widgets/mainwindow.ui" line="1565"/>
         <source>Submode determines tone spacing; A is narrowest.</source>
         <translation>子模式確定音調間距; A 最窄.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1645"/>
+        <location filename="../widgets/mainwindow.ui" line="1571"/>
         <source>Submode </source>
         <translation>子模式 </translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1177"/>
+        <location filename="../widgets/mainwindow.ui" line="1103"/>
         <location filename="../widgets/mainwindow.cpp" line="6239"/>
         <source>Fox</source>
         <translation>狐狸</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1187"/>
+        <location filename="../widgets/mainwindow.ui" line="1113"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to monitor Sh messages.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;選擇以監視速記信息.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1190"/>
+        <location filename="../widgets/mainwindow.ui" line="1116"/>
         <source>Check to monitor Sh messages.</source>
         <translation>選擇以監視速記信息.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1193"/>
+        <location filename="../widgets/mainwindow.ui" line="1119"/>
         <source>SWL</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1215"/>
+        <location filename="../widgets/mainwindow.ui" line="1141"/>
         <source>Best S+P</source>
         <translation>最佳 S+P</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1225"/>
+        <location filename="../widgets/mainwindow.ui" line="1151"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check this to start recording calibration data.&lt;br/&gt;While measuring calibration correction is disabled.&lt;br/&gt;When not checked you can view the calibration results.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;勾選可開始記錄校準資料.&lt;br/&gt;當測量校準校正被禁用時.&lt;br/&gt;未檢查時您可以查看校準結果.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1228"/>
+        <location filename="../widgets/mainwindow.ui" line="1154"/>
         <source>Check this to start recording calibration data.
 While measuring calibration correction is disabled.
 When not checked you can view the calibration results.</source>
@@ -2751,201 +2751,181 @@ When not checked you can view the calibration results.</source>
 未檢查時您可以查看校準結果.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1233"/>
+        <location filename="../widgets/mainwindow.ui" line="1159"/>
         <source>Measure</source>
         <translation>測量</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1464"/>
+        <location filename="../widgets/mainwindow.ui" line="1390"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Signal report: Signal-to-noise ratio in 2500 Hz reference bandwidth (dB).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;信號報告: 參考2500赫兹頻寬 (dB) 中的信噪比.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;信號報告: 參考2500赫茲頻寬 (dB) 中的信噪比.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1467"/>
+        <location filename="../widgets/mainwindow.ui" line="1393"/>
         <source>Signal report: Signal-to-noise ratio in 2500 Hz reference bandwidth (dB).</source>
-        <translation>信號報告: 參考2500赫兹頻寬 (dB) 中的信噪比.</translation>
+        <translation>信號報告: 參考2500赫茲頻寬 (dB) 中的信噪比.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1473"/>
+        <location filename="../widgets/mainwindow.ui" line="1399"/>
         <source> Report </source>
         <translation> 報告 </translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1489"/>
+        <location filename="../widgets/mainwindow.ui" line="1415"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Tx/Rx or Frequency calibration sequence length&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;發射/接收 或頻率校準序列長度&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1492"/>
+        <location filename="../widgets/mainwindow.ui" line="1418"/>
         <source>Tx/Rx or Frequency calibration sequence length</source>
         <translation>發射/接收 或頻率校準序列長度</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1498"/>
-        <location filename="../widgets/mainwindow.ui" line="2632"/>
+        <location filename="../widgets/mainwindow.ui" line="1424"/>
+        <location filename="../widgets/mainwindow.ui" line="2612"/>
         <source>  s</source>
         <translation>  秒</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1501"/>
-        <location filename="../widgets/mainwindow.ui" line="2635"/>
+        <location filename="../widgets/mainwindow.ui" line="1427"/>
+        <location filename="../widgets/mainwindow.ui" line="2615"/>
         <source>T/R  </source>
         <translation></translation>
     </message>
     <message>
-        <source>Toggle Tx mode</source>
-        <translation type="vanished">切換發射模式</translation>
-    </message>
-    <message>
-        <source>Tx JT9 @</source>
-        <translation type="vanished">發射 JT9 @</translation>
-    </message>
-    <message>
-        <location filename="../widgets/mainwindow.ui" line="1326"/>
+        <location filename="../widgets/mainwindow.ui" line="1252"/>
         <source>Audio Tx frequency</source>
         <translation>音訊發射頻率</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1335"/>
-        <location filename="../widgets/mainwindow.ui" line="2426"/>
+        <location filename="../widgets/mainwindow.ui" line="1261"/>
+        <location filename="../widgets/mainwindow.ui" line="2406"/>
         <source>Tx  </source>
         <translation>發射  </translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1556"/>
+        <location filename="../widgets/mainwindow.ui" line="1482"/>
         <source>Tx# </source>
         <translation>發射# </translation>
     </message>
     <message>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Double-click on another caller to queue that call for your next QSO.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="vanished">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;按兩下另一個呼號以排隊呼叫您的下一個通聯.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
-        <source>Double-click on another caller to queue that call for your next QSO.</source>
-        <translation type="vanished">按兩下另一個呼號以排隊呼叫您的下一個通聯.</translation>
-    </message>
-    <message>
-        <source>Next Call</source>
-        <translation type="vanished">下一個通聯</translation>
-    </message>
-    <message>
-        <location filename="../widgets/mainwindow.ui" line="1745"/>
+        <location filename="../widgets/mainwindow.ui" line="1671"/>
         <source>1</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1753"/>
-        <location filename="../widgets/mainwindow.ui" line="1892"/>
-        <location filename="../widgets/mainwindow.ui" line="2000"/>
+        <location filename="../widgets/mainwindow.ui" line="1679"/>
+        <location filename="../widgets/mainwindow.ui" line="1840"/>
+        <location filename="../widgets/mainwindow.ui" line="1968"/>
         <source>Send this message in next Tx interval</source>
         <translation>在下一個發射間隔內發送此信息</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1901"/>
+        <location filename="../widgets/mainwindow.ui" line="1849"/>
         <source>Ctrl+2</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1813"/>
+        <location filename="../widgets/mainwindow.ui" line="1745"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Send this message in next Tx interval&lt;/p&gt;&lt;p&gt;Double click to toggle the use of the Tx1 message to start a QSO with a station (not allowed for type 1 compound call holders)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;在下一個發射間隔中傳送此訊息&lt;/p&gt;&lt;p&gt;按兩下以切換使用 發射 1 訊息以啟動電臺的通聯 (不允許 1 型複合呼叫持有者)&lt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1816"/>
+        <location filename="../widgets/mainwindow.ui" line="1748"/>
         <source>Send this message in next Tx interval
 Double click to toggle the use of the Tx1 message to start a QSO with a station (not allowed for type 1 compound call holders)</source>
         <translation>在下一個發射間隔中傳送此訊息
 按兩下以切換使用 發射 1 訊息以啟動電臺的通聯 (不允許 1 型複合呼叫持有者)</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1826"/>
+        <location filename="../widgets/mainwindow.ui" line="1758"/>
         <source>Ctrl+1</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1860"/>
-        <location filename="../widgets/mainwindow.ui" line="1879"/>
-        <location filename="../widgets/mainwindow.ui" line="1924"/>
-        <location filename="../widgets/mainwindow.ui" line="1984"/>
+        <location filename="../widgets/mainwindow.ui" line="1798"/>
+        <location filename="../widgets/mainwindow.ui" line="1827"/>
+        <location filename="../widgets/mainwindow.ui" line="1892"/>
+        <location filename="../widgets/mainwindow.ui" line="1952"/>
         <source>Switch to this Tx message NOW</source>
         <translation>立即切換到此發射信息</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1866"/>
+        <location filename="../widgets/mainwindow.ui" line="1804"/>
         <source>Tx &amp;2</source>
         <translation>發射 &amp;2</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1869"/>
+        <location filename="../widgets/mainwindow.ui" line="1807"/>
         <source>Alt+2</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1961"/>
+        <location filename="../widgets/mainwindow.ui" line="1929"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to this Tx message NOW&lt;/p&gt;&lt;p&gt;Double click to toggle the use of the Tx1 message to start a QSO with a station (not allowed for type 1 compound call holders)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;立即切換到此發射信息&lt;/p&gt;&lt;p&gt;按兩下以切換使用 發射 1 訊息以啟動電臺的通聯 (不允許 1 型複合呼叫持有者)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1964"/>
+        <location filename="../widgets/mainwindow.ui" line="1932"/>
         <source>Switch to this Tx message NOW
 Double click to toggle the use of the Tx1 message to start a QSO with a station (not allowed for type 1 compound call holders)</source>
         <translation>立即切換到此發射信息
 按兩下以切換使用 發射 1 訊息以啟動電臺的通聯 (不允許 1 型複合呼叫持有者)</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1974"/>
+        <location filename="../widgets/mainwindow.ui" line="1942"/>
         <source>Tx &amp;1</source>
         <translation>發射 &amp;1</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1977"/>
+        <location filename="../widgets/mainwindow.ui" line="1945"/>
         <source>Alt+1</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1762"/>
+        <location filename="../widgets/mainwindow.ui" line="1688"/>
         <source>Ctrl+6</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2032"/>
+        <location filename="../widgets/mainwindow.ui" line="2006"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Send this message in next Tx interval&lt;/p&gt;&lt;p&gt;Double-click to reset to the standard 73 message&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;在下一個發射間隔內傳送此信息&lt;/p&gt;&lt;p&gt;雙擊可重置為標準 73 信息&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2035"/>
+        <location filename="../widgets/mainwindow.ui" line="2009"/>
         <source>Send this message in next Tx interval
 Double-click to reset to the standard 73 message</source>
         <translation>在下一個發射間隔內傳送此信息
 雙擊可重置為標準 73 信息</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2045"/>
+        <location filename="../widgets/mainwindow.ui" line="2019"/>
         <source>Ctrl+5</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2009"/>
+        <location filename="../widgets/mainwindow.ui" line="1977"/>
         <source>Ctrl+3</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1930"/>
+        <location filename="../widgets/mainwindow.ui" line="1898"/>
         <source>Tx &amp;3</source>
         <translation>發射 &amp;3</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1933"/>
+        <location filename="../widgets/mainwindow.ui" line="1901"/>
         <source>Alt+3</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1792"/>
+        <location filename="../widgets/mainwindow.ui" line="1724"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Send this message in next Tx interval&lt;/p&gt;&lt;p&gt;Double-click to toggle between RRR and RR73 messages in Tx4 (not allowed for type 2 compound call holders)&lt;/p&gt;&lt;p&gt;RR73 messages should only be used when you are reasonably confident that no message repetitions will be required&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;在下一個發射間隔內傳送此信息&lt;/p&gt;&lt;p&gt;按兩下可在 發射4 中的 RRR 和 RR73 信息之間切換 (不允許類型 2 複合呼叫持有者)&lt;/p&gt;&lt;p&gt;RR73 信息僅在您有理由相信不需要重複信息時才應使用&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1795"/>
+        <location filename="../widgets/mainwindow.ui" line="1727"/>
         <source>Send this message in next Tx interval
 Double-click to toggle between RRR and RR73 messages in Tx4 (not allowed for type 2 compound call holders)
 RR73 messages should only be used when you are reasonably confident that no message repetitions will be required</source>
@@ -2954,17 +2934,17 @@ RR73 messages should only be used when you are reasonably confident that no mess
 RR73 信息僅在您有理由相信不需要重複信息時才應使用</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1806"/>
+        <location filename="../widgets/mainwindow.ui" line="1738"/>
         <source>Ctrl+4</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1940"/>
+        <location filename="../widgets/mainwindow.ui" line="1908"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to this Tx message NOW&lt;/p&gt;&lt;p&gt;Double-click to toggle between RRR and RR73 messages in Tx4 (not allowed for type2 compound call holders)&lt;/p&gt;&lt;p&gt;RR73 messages should only be used when you are reasonably confident that no message repetitions will be required&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;立即切換到此發射信息&lt;/p&gt;&lt;p&gt;按兩下可在 發射 4 中的 RRR 和 RR73 信息之間切換 (不允許類型 2 複合呼叫持有者)&lt;/p&gt;&lt;p&gt;RR73 信息僅在您有理由相信不需要重複信息時才應使用&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1943"/>
+        <location filename="../widgets/mainwindow.ui" line="1911"/>
         <source>Switch to this Tx message NOW
 Double-click to toggle between RRR and RR73 messages in Tx4 (not allowed for type2 compound call holders)
 RR73 messages should only be used when you are reasonably confident that no message repetitions will be required</source>
@@ -2973,223 +2953,228 @@ RR73 messages should only be used when you are reasonably confident that no mess
 RR73 信息僅在您有理由相信不需要重複信息時才應使用</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1951"/>
+        <location filename="../widgets/mainwindow.ui" line="1919"/>
         <source>Tx &amp;4</source>
         <translation>發射 &amp;4</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1954"/>
+        <location filename="../widgets/mainwindow.ui" line="1922"/>
         <source>Alt+4</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1840"/>
+        <location filename="../widgets/mainwindow.ui" line="1778"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to this Tx message NOW&lt;/p&gt;&lt;p&gt;Double-click to reset to the standard 73 message&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;立即切换到此发射信息&lt;/p&gt;&lt;p&gt;雙擊可重置為標準 73 信息&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;立即切换到此發射信息&lt;/p&gt;&lt;p&gt;雙擊可重置為標準 73 信息&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1843"/>
+        <location filename="../widgets/mainwindow.ui" line="1781"/>
         <source>Switch to this Tx message NOW
 Double-click to reset to the standard 73 message</source>
-        <translation>立即切换到此发射信息
+        <translation>立即切换到此發射信息
 雙擊可重置為標準 73 信息</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1850"/>
+        <location filename="../widgets/mainwindow.ui" line="1788"/>
         <source>Tx &amp;5</source>
         <translation>發射 &amp;5</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1853"/>
+        <location filename="../widgets/mainwindow.ui" line="1791"/>
         <source>Alt+5</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1882"/>
+        <location filename="../widgets/mainwindow.ui" line="1830"/>
         <source>Now</source>
         <translation>現在</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1914"/>
+        <location filename="../widgets/mainwindow.ui" line="1882"/>
         <source>Generate standard messages for minimal QSO</source>
-        <translation>產生標準信息用於通聯</translation>
+        <translation>產生標準通聯信息</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1917"/>
+        <location filename="../widgets/mainwindow.ui" line="1885"/>
         <source>Generate Std Msgs</source>
         <translation>產生標準信息</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1990"/>
+        <location filename="../widgets/mainwindow.ui" line="1958"/>
         <source>Tx &amp;6</source>
         <translation>發射 &amp;6</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1993"/>
+        <location filename="../widgets/mainwindow.ui" line="1961"/>
         <source>Alt+6</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2016"/>
+        <location filename="../widgets/mainwindow.ui" line="1990"/>
         <source>Enter a free text message (maximum 13 characters)
 or select a predefined macro from the dropdown list.
 Press ENTER to add the current text to the predefined
 list. The list can be maintained in Settings (F2).</source>
         <translation>輸入自訂義文字資訊(最多13個字元)
 或從下拉清單中選擇預定義的巨集.
-按回車鍵將目前的文字加入預先定義的
+按輸入鍵將目前的文字加入預先定義的
 清單. 該清單可在設定(F2)中維護.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1772"/>
+        <location filename="../widgets/mainwindow.ui" line="1698"/>
         <source>Queue up the next Tx message</source>
         <translation>排到下一個發射信息</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1775"/>
+        <location filename="../widgets/mainwindow.ui" line="1701"/>
         <source>Next</source>
         <translation>下一個</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2055"/>
+        <location filename="../widgets/mainwindow.ui" line="2029"/>
         <source>2</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3358"/>
+        <location filename="../widgets/mainwindow.ui" line="3417"/>
         <source>Quick-Start Guide to FST4 and FST4W</source>
         <translation>FST4和FST4W快速入門指南</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3384"/>
+        <location filename="../widgets/mainwindow.ui" line="3443"/>
         <source>FST4</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3392"/>
+        <location filename="../widgets/mainwindow.ui" line="3451"/>
         <source>FST4W</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2091"/>
-        <location filename="../widgets/mainwindow.ui" line="2095"/>
+        <location filename="../widgets/mainwindow.ui" line="2065"/>
+        <location filename="../widgets/mainwindow.ui" line="2069"/>
         <source>CQ</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2286"/>
+        <location filename="../widgets/mainwindow.ui" line="2260"/>
         <source>Grid</source>
         <translation>網格</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2075"/>
+        <location filename="../widgets/mainwindow.ui" line="2049"/>
         <source>Max dB  </source>
         <translation>最大分貝  </translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2100"/>
+        <location filename="../widgets/mainwindow.ui" line="857"/>
+        <source>`</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="2074"/>
         <source>CQ AF</source>
         <translation>CQ 非洲</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2105"/>
+        <location filename="../widgets/mainwindow.ui" line="2079"/>
         <source>CQ AN</source>
-        <translation>CQ 南極</translation>
+        <translation>CQ 南極洲</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2110"/>
+        <location filename="../widgets/mainwindow.ui" line="2084"/>
         <source>CQ AS</source>
         <translation>CQ 亞洲</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2115"/>
+        <location filename="../widgets/mainwindow.ui" line="2089"/>
         <source>CQ EU</source>
         <translation>CQ 歐洲</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2120"/>
+        <location filename="../widgets/mainwindow.ui" line="2094"/>
         <source>CQ NA</source>
-        <translation>CQ 北美</translation>
+        <translation>CQ 北美洲</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2125"/>
+        <location filename="../widgets/mainwindow.ui" line="2099"/>
         <source>CQ OC</source>
         <translation>CQ 大洋洲</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2130"/>
+        <location filename="../widgets/mainwindow.ui" line="2104"/>
         <source>CQ SA</source>
-        <translation>CQ 南美</translation>
+        <translation>CQ 南美洲</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2135"/>
+        <location filename="../widgets/mainwindow.ui" line="2109"/>
         <source>CQ 0</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2140"/>
+        <location filename="../widgets/mainwindow.ui" line="2114"/>
         <source>CQ 1</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2145"/>
+        <location filename="../widgets/mainwindow.ui" line="2119"/>
         <source>CQ 2</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2150"/>
+        <location filename="../widgets/mainwindow.ui" line="2124"/>
         <source>CQ 3</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2155"/>
+        <location filename="../widgets/mainwindow.ui" line="2129"/>
         <source>CQ 4</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2160"/>
+        <location filename="../widgets/mainwindow.ui" line="2134"/>
         <source>CQ 5</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2165"/>
+        <location filename="../widgets/mainwindow.ui" line="2139"/>
         <source>CQ 6</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2170"/>
+        <location filename="../widgets/mainwindow.ui" line="2144"/>
         <source>CQ 7</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2175"/>
+        <location filename="../widgets/mainwindow.ui" line="2149"/>
         <source>CQ 8</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2180"/>
+        <location filename="../widgets/mainwindow.ui" line="2154"/>
         <source>CQ 9</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2188"/>
+        <location filename="../widgets/mainwindow.ui" line="2162"/>
         <source>Reset</source>
         <translation>重置</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2207"/>
+        <location filename="../widgets/mainwindow.ui" line="2181"/>
         <source>N List     </source>
         <translation>N 清單     </translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2238"/>
+        <location filename="../widgets/mainwindow.ui" line="2212"/>
         <source>N Slots    </source>
         <translation>N 插槽    </translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2269"/>
-        <location filename="../widgets/mainwindow.ui" line="2276"/>
-        <location filename="../widgets/mainwindow.ui" line="2496"/>
+        <location filename="../widgets/mainwindow.ui" line="2243"/>
+        <location filename="../widgets/mainwindow.ui" line="2250"/>
+        <location filename="../widgets/mainwindow.ui" line="2476"/>
         <location filename="../widgets/mainwindow.cpp" line="1265"/>
         <location filename="../widgets/mainwindow.cpp" line="5822"/>
         <location filename="../widgets/mainwindow.cpp" line="6692"/>
@@ -3198,243 +3183,243 @@ list. The list can be maintained in Settings (F2).</source>
         <translation>隨機</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2281"/>
+        <location filename="../widgets/mainwindow.ui" line="2255"/>
         <source>Call</source>
         <translation>呼號</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2291"/>
+        <location filename="../widgets/mainwindow.ui" line="2265"/>
         <source>S/N (dB)</source>
         <translation>信噪比(分貝)</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2296"/>
+        <location filename="../widgets/mainwindow.ui" line="2270"/>
         <source>Distance</source>
         <translation>距離</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2317"/>
+        <location filename="../widgets/mainwindow.ui" line="2291"/>
         <source>More CQs</source>
         <translation>更多 CQ</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="676"/>
-        <location filename="../widgets/mainwindow.ui" line="2616"/>
+        <location filename="../widgets/mainwindow.ui" line="2596"/>
+        <location filename="../widgets/mainwindow.ui" line="2799"/>
         <source>  %</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2619"/>
+        <location filename="../widgets/mainwindow.ui" line="2599"/>
         <source>Tx Pct </source>
         <translation>發射 Pct </translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2648"/>
+        <location filename="../widgets/mainwindow.ui" line="2628"/>
         <source>Band Hopping</source>
-        <translation>波段預案</translation>
+        <translation>切換波段</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2657"/>
+        <location filename="../widgets/mainwindow.ui" line="2637"/>
         <source>Choose bands and times of day for band-hopping.</source>
-        <translation>選擇波段和一天之中的時間進行波段跳躍.</translation>
+        <translation>選擇波段在一天之中的時間進行切換波段.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2660"/>
+        <location filename="../widgets/mainwindow.ui" line="2640"/>
         <source>Schedule ...</source>
         <translation>時間流程 ...</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2678"/>
+        <location filename="../widgets/mainwindow.ui" line="2658"/>
         <source>Upload decoded messages to WSPRnet.org.</source>
-        <translation>將解碼的信息上載到 WSPRnet.org.</translation>
+        <translation>將解碼的信息上傳至 WSPRnet.org.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2687"/>
+        <location filename="../widgets/mainwindow.ui" line="2667"/>
         <source>Upload spots</source>
         <translation>上傳 spots</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2696"/>
+        <location filename="../widgets/mainwindow.ui" line="2676"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;6 digit locators cause 2 different messages to be sent, the second contains the full locator but only a hashed callsign, other stations must have decoded the first once before they can decode your call in the second. Check this option to only send 4 digit locators if it will avoid the two message protocol.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;6 位定位器會導致發送 2 個不同的信息, 第二個包含完整定位器, 但只有哈希呼號,其他電臺必須解碼第一個一次, 然後才能在第二個中解碼您的呼叫. 如果此選項將避免兩個信息協定, 則選中此選項僅發送 4 位定位器.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2699"/>
+        <location filename="../widgets/mainwindow.ui" line="2679"/>
         <source>6 digit locators cause 2 different messages to be sent, the second contains the full locator but only a hashed callsign, other stations must have decoded the first once before they can decode your call in the second. Check this option to only send 4 digit locators if it will avoid the two message protocol.</source>
         <translation>6 位定位器會導致發送 2 個不同的信息, 第二個包含完整定位器, 但只有哈希呼號,其他電臺必須解碼第一個一次, 然後才能在第二個中解碼您的呼叫. 如果此選項將避免兩個信息協定, 則選中此選項僅發送 4 位定位器.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2712"/>
+        <location filename="../widgets/mainwindow.ui" line="2692"/>
         <source>No own call decodes</source>
         <translation>沒有自己的呼號解碼</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2736"/>
+        <location filename="../widgets/mainwindow.ui" line="2716"/>
         <source>Tx Next</source>
         <translation>發射下一個信息</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2763"/>
+        <location filename="../widgets/mainwindow.ui" line="2743"/>
         <source>Set Tx power in dBm (dB above 1 mW) as part of your WSPR message.</source>
         <translation>將發射功率設置為 dBm （dB 高於 1 mW） 作為 WSPR 信息的一部分.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="679"/>
+        <location filename="../widgets/mainwindow.ui" line="2802"/>
         <source>NB  </source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1683"/>
+        <location filename="../widgets/mainwindow.ui" line="1609"/>
         <source>Maximum drift rate in units of symbol rate per transmission.</source>
         <translation>以每次傳輸的符號速率為單位的最大漂移率.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1686"/>
+        <location filename="../widgets/mainwindow.ui" line="1612"/>
         <source>Max Drift  </source>
         <translation>最大漂移率  </translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2829"/>
+        <location filename="../widgets/mainwindow.ui" line="2888"/>
         <source>File</source>
         <translation>檔案</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2850"/>
+        <location filename="../widgets/mainwindow.ui" line="2909"/>
         <source>View</source>
         <translation>顯示</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2864"/>
+        <location filename="../widgets/mainwindow.ui" line="2923"/>
         <source>Decode</source>
         <translation>解碼</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2879"/>
+        <location filename="../widgets/mainwindow.ui" line="2938"/>
         <source>Save</source>
         <translation>儲存</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2887"/>
+        <location filename="../widgets/mainwindow.ui" line="2946"/>
         <source>Help</source>
         <translation>說明</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2908"/>
+        <location filename="../widgets/mainwindow.ui" line="2967"/>
         <source>Mode</source>
         <translation>模式</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2929"/>
+        <location filename="../widgets/mainwindow.ui" line="2988"/>
         <source>Configurations</source>
         <translation>設定</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2934"/>
+        <location filename="../widgets/mainwindow.ui" line="2993"/>
         <source>Tools</source>
         <translation>工具</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2957"/>
+        <location filename="../widgets/mainwindow.ui" line="3016"/>
         <source>Exit</source>
-        <translation>關閉軟件</translation>
+        <translation>關閉程式</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2965"/>
+        <location filename="../widgets/mainwindow.ui" line="3024"/>
         <source>About WSJT-X</source>
-        <translation>有關 WSJT-X</translation>
+        <translation>關於 WSJT-X</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2973"/>
+        <location filename="../widgets/mainwindow.ui" line="3032"/>
         <source>Waterfall</source>
         <translation>瀑布圖</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2978"/>
+        <location filename="../widgets/mainwindow.ui" line="3037"/>
         <source>Open</source>
         <translation>開啟檔案</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2981"/>
+        <location filename="../widgets/mainwindow.ui" line="3040"/>
         <source>Ctrl+O</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2986"/>
+        <location filename="../widgets/mainwindow.ui" line="3045"/>
         <source>Open next in directory</source>
         <translation>開啟下一個檔案</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2991"/>
+        <location filename="../widgets/mainwindow.ui" line="3050"/>
         <source>Decode remaining files in directory</source>
         <translation>開啟剩餘檔案</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2994"/>
+        <location filename="../widgets/mainwindow.ui" line="3053"/>
         <source>Shift+F6</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2999"/>
+        <location filename="../widgets/mainwindow.ui" line="3058"/>
         <source>Delete all *.wav &amp;&amp; *.c2 files in SaveDir</source>
-        <translation>刪除所有在SaveDir目錄內 *.wav &amp;&amp; *.c2</translation>
+        <translation>刪除所有 SaveDir目錄內 *.wav &amp;&amp; *.c2 檔案</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3021"/>
+        <location filename="../widgets/mainwindow.ui" line="3080"/>
         <source>None</source>
         <translation>不儲存</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3029"/>
+        <location filename="../widgets/mainwindow.ui" line="3088"/>
         <source>Save all</source>
-        <translation>儲存所有</translation>
+        <translation>儲存全部檔案</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3034"/>
+        <location filename="../widgets/mainwindow.ui" line="3093"/>
         <source>Online User Guide</source>
         <translation>線上使用者指南</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3039"/>
+        <location filename="../widgets/mainwindow.ui" line="3098"/>
         <source>Keyboard shortcuts</source>
         <translation>鍵盤快捷鍵</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3044"/>
+        <location filename="../widgets/mainwindow.ui" line="3103"/>
         <source>Special mouse commands</source>
         <translation>滑鼠特殊組合</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3055"/>
+        <location filename="../widgets/mainwindow.ui" line="3114"/>
         <source>JT9</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3066"/>
+        <location filename="../widgets/mainwindow.ui" line="3125"/>
         <source>Save decoded</source>
-        <translation>儲存解碼</translation>
+        <translation>儲存解碼檔案</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3077"/>
+        <location filename="../widgets/mainwindow.ui" line="3136"/>
         <source>Normal</source>
         <translation>正常</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3088"/>
+        <location filename="../widgets/mainwindow.ui" line="3147"/>
         <source>Deep</source>
         <translation>深度</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3093"/>
+        <location filename="../widgets/mainwindow.ui" line="3152"/>
         <source>Erase ALL.TXT</source>
         <translation>刪除 ALL.TXT</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3098"/>
+        <location filename="../widgets/mainwindow.ui" line="3157"/>
         <source>Erase wsjtx_log.adi</source>
         <translation>刪除通聯日誌 wsjtx_log.adi</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3153"/>
+        <location filename="../widgets/mainwindow.ui" line="3212"/>
         <source>F7</source>
         <translation></translation>
     </message>
@@ -3444,233 +3429,233 @@ list. The list can be maintained in Settings (F2).</source>
         <translation>運行發射監管計時器</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3106"/>
+        <location filename="../widgets/mainwindow.ui" line="3165"/>
         <source>JT65</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3114"/>
+        <location filename="../widgets/mainwindow.ui" line="3173"/>
         <source>Astronomical data</source>
         <translation>天文數據</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3119"/>
+        <location filename="../widgets/mainwindow.ui" line="3178"/>
         <source>List of Type 1 prefixes and suffixes</source>
-        <translation>型態 1 前置碼與後綴清單</translation>
+        <translation>型態 1 前置與後綴清單</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3124"/>
+        <location filename="../widgets/mainwindow.ui" line="3183"/>
         <source>Settings...</source>
         <translation>設置...</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3132"/>
+        <location filename="../widgets/mainwindow.ui" line="3191"/>
         <source>Local User Guide</source>
         <translation>本地使用者指南</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3137"/>
+        <location filename="../widgets/mainwindow.ui" line="3196"/>
         <source>Open log directory</source>
         <translation>開啟日誌檔案目錄</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3145"/>
+        <location filename="../widgets/mainwindow.ui" line="3204"/>
         <source>JT4</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3150"/>
+        <location filename="../widgets/mainwindow.ui" line="3209"/>
         <source>Message averaging</source>
         <translation>信息平均值</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3161"/>
+        <location filename="../widgets/mainwindow.ui" line="3220"/>
         <source>Enable averaging</source>
         <translation>平均值</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3169"/>
+        <location filename="../widgets/mainwindow.ui" line="3228"/>
         <source>Enable deep search</source>
         <translation>開啟深度搜尋</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3177"/>
+        <location filename="../widgets/mainwindow.ui" line="3236"/>
         <source>WSPR</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3182"/>
+        <location filename="../widgets/mainwindow.ui" line="3241"/>
         <source>Echo Graph</source>
         <translation>回波圖</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3185"/>
+        <location filename="../widgets/mainwindow.ui" line="3244"/>
         <source>F8</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3193"/>
+        <location filename="../widgets/mainwindow.ui" line="3252"/>
         <source>Echo</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3196"/>
+        <location filename="../widgets/mainwindow.ui" line="3255"/>
         <source>EME Echo mode</source>
         <translation>EME 回波模式</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3204"/>
+        <location filename="../widgets/mainwindow.ui" line="3263"/>
         <source>ISCAT</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3209"/>
+        <location filename="../widgets/mainwindow.ui" line="3268"/>
         <source>Fast Graph</source>
         <translation>快速圖</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3212"/>
+        <location filename="../widgets/mainwindow.ui" line="3271"/>
         <source>F9</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3217"/>
+        <location filename="../widgets/mainwindow.ui" line="3276"/>
         <source>&amp;Download Samples ...</source>
-        <translation>下載樣本(&amp;D) ...</translation>
+        <translation>下載範例檔案(&amp;D) ...</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3220"/>
+        <location filename="../widgets/mainwindow.ui" line="3279"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Download sample audio files demonstrating the various modes.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;下載演示各種模式的示例音頻檔案.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3228"/>
+        <location filename="../widgets/mainwindow.ui" line="3287"/>
         <source>MSK144</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3236"/>
+        <location filename="../widgets/mainwindow.ui" line="3295"/>
         <source>QRA64</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3241"/>
+        <location filename="../widgets/mainwindow.ui" line="3300"/>
         <source>Release Notes</source>
-        <translation>發行說明</translation>
+        <translation>版本發行說明</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3249"/>
+        <location filename="../widgets/mainwindow.ui" line="3308"/>
         <source>Enable AP for DX Call</source>
         <translation>開啟 AP 為 DX 呼叫</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3257"/>
+        <location filename="../widgets/mainwindow.ui" line="3316"/>
         <source>FreqCal</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3262"/>
+        <location filename="../widgets/mainwindow.ui" line="3321"/>
         <source>Measure reference spectrum</source>
         <translation>測量參考頻譜</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3267"/>
+        <location filename="../widgets/mainwindow.ui" line="3326"/>
         <source>Measure phase response</source>
         <translation>測量相位回應</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3272"/>
+        <location filename="../widgets/mainwindow.ui" line="3331"/>
         <source>Erase reference spectrum</source>
         <translation>清除參考頻譜</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3280"/>
+        <location filename="../widgets/mainwindow.ui" line="3339"/>
         <source>Execute frequency calibration cycle</source>
         <translation>執行頻率校準週期</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3285"/>
+        <location filename="../widgets/mainwindow.ui" line="3344"/>
         <source>Equalization tools ...</source>
         <translation>均衡工具 ...</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3296"/>
+        <location filename="../widgets/mainwindow.ui" line="3355"/>
         <source>FT8</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3304"/>
-        <location filename="../widgets/mainwindow.ui" line="3312"/>
+        <location filename="../widgets/mainwindow.ui" line="3363"/>
+        <location filename="../widgets/mainwindow.ui" line="3371"/>
         <source>Enable AP</source>
         <translation>開啟 AP</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3317"/>
+        <location filename="../widgets/mainwindow.ui" line="3376"/>
         <source>Solve for calibration parameters</source>
-        <translation>修正參數的解算</translation>
+        <translation>修正校準參數</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3322"/>
+        <location filename="../widgets/mainwindow.ui" line="3381"/>
         <source>Copyright notice</source>
         <translation>版權聲明</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3325"/>
+        <location filename="../widgets/mainwindow.ui" line="3384"/>
         <source>Shift+F1</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3333"/>
+        <location filename="../widgets/mainwindow.ui" line="3392"/>
         <source>Fox log</source>
         <translation>狐狸日誌</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3338"/>
+        <location filename="../widgets/mainwindow.ui" line="3397"/>
         <source>FT8 DXpedition Mode User Guide</source>
         <translation>FT8 遠征模式使用者指南</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3343"/>
+        <location filename="../widgets/mainwindow.ui" line="3402"/>
         <source>Reset Cabrillo log ...</source>
         <translation>重置卡布里略日誌 ...</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3348"/>
+        <location filename="../widgets/mainwindow.ui" line="3407"/>
         <source>Color highlighting scheme</source>
-        <translation>顏色突出顯示方案</translation>
+        <translation>顏色突出顯示設置</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3353"/>
+        <location filename="../widgets/mainwindow.ui" line="3412"/>
         <source>Export Cabrillo log ...</source>
         <translation>匯出卡布里略日誌 ...</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3363"/>
+        <location filename="../widgets/mainwindow.ui" line="3422"/>
         <source>Contest log</source>
         <translation>競賽日誌</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3368"/>
+        <location filename="../widgets/mainwindow.ui" line="3427"/>
         <source>Erase WSPR hashtable</source>
         <translation>擦除 WSPR 哈希表</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3376"/>
+        <location filename="../widgets/mainwindow.ui" line="3435"/>
         <source>FT4</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3416"/>
+        <location filename="../widgets/mainwindow.ui" line="3475"/>
         <source>Quick-Start Guide to Q65</source>
         <translation>Q65 快速入門指南</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3424"/>
+        <location filename="../widgets/mainwindow.ui" line="3483"/>
         <source>Auto Clear Avg after decode</source>
         <translation>解碼後自動清除平均值</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3429"/>
+        <location filename="../widgets/mainwindow.ui" line="3488"/>
         <source>Quick-Start Guide to WSJT-X 2.5.0 and MAP65 3.0</source>
         <translation>WSJT-X 2.5.0和MAP65 3.0快速入門指南</translation>
     </message>
@@ -3689,23 +3674,7 @@ list. The list can be maintained in Settings (F2).</source>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="451"/>
         <source>Do you want to reconfigure the radio interface?</source>
-        <translation>是否要重新配置無線電設備接口?</translation>
-    </message>
-    <message>
-        <source>%1 (%2 sec) audio frames dropped</source>
-        <translation type="vanished">%1 (%2 秒) 音訊幀被丟棄</translation>
-    </message>
-    <message>
-        <source>Audio Source</source>
-        <translation type="vanished">音訊源</translation>
-    </message>
-    <message>
-        <source>Reduce system load</source>
-        <translation type="vanished">降低系統負載</translation>
-    </message>
-    <message>
-        <source>Excessive dropped samples - %1 (%2 sec) audio frames dropped in period starting %3</source>
-        <translation type="vanished">樣品遺失過多 -%1 (%2 sec) 音效的畫面在週期開始時遺失 %3</translation>
+        <translation>是否要重新配置無線電設備介面?</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="519"/>
@@ -3814,7 +3783,7 @@ list. The list can be maintained in Settings (F2).</source>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="1804"/>
         <source>Error in Sound Output</source>
-        <translation>聲音輸錯誤</translation>
+        <translation>聲音輸出錯誤</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="1869"/>
@@ -3884,7 +3853,7 @@ list. The list can be maintained in Settings (F2).</source>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="2543"/>
         <source>Invalid data in fmt.all at line %1</source>
-        <translation>在 %1 行中 fmt.all 的不合法資料</translation>
+        <translation>在 %1 行中 fmt.all 的錯誤資料</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="2549"/>
@@ -3911,26 +3880,18 @@ list. The list can be maintained in Settings (F2).</source>
         <translation>&quot;fmt.all&quot; 檔案將重新命名為 &quot;fmt.bak&quot;</translation>
     </message>
     <message>
-        <source>If you make fair use of any part of WSJT-X under terms of the GNU General Public License, you must display the following copyright notice prominently in your derivative work:
-
-&quot;The algorithms, source code, look-and-feel of WSJT-X and related programs, and protocol specifications for the modes FSK441, FST4, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, Q65, ISCAT, MSK144 are Copyright (C) 2001-2021 by one or more of the following authors: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; and other members of the WSJT Development Group.&quot;</source>
-        <translation type="vanished">如果您根據 GNU 通用公共許可證的條款合理使用 WSJT-X 的任何部分, 您必須在衍生作品中顯著顯示以下版權聲明:
-
-&quot;WSJT-X 及相關程式的演算法、原始程式碼、外觀和協定規範 FSK441, FST4, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, Q65, ISCAT, MSK144 版權所有 （C） 2001-2021 由以下一個或多個作者提供: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; 和WSJT發展團的其他成員.&quot;</translation>
-    </message>
-    <message>
         <location filename="../widgets/mainwindow.cpp" line="2577"/>
         <source>If you make fair use of any part of WSJT-X under terms of the GNU General Public License, you must display the following copyright notice prominently in your derivative work:
 
 &quot;The algorithms, source code, look-and-feel of WSJT-X and related programs, and protocol specifications for the modes FSK441, FST4, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, Q65, MSK144 are Copyright (C) 2001-2021 by one or more of the following authors: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; and other members of the WSJT Development Group.&quot;</source>
-        <translation>如果您根據 GNU 通用公共許可證的條款合理使用 WSJT-X 的任何部分, 您必須在衍生作品中顯著顯示以下版權聲明:
+        <translation>如果您根據 GNU 通用公共許可證的條款合理使用 WSJT-X 的任何部分, 您必須在衍生作品的顯著位置顯示以下版權聲明:
 
-&quot;WSJT-X 及相關程式的演算法、原始程式碼、外觀和協定規範 FSK441, FST4, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, Q65, MSK144 版權所有 （C） 2001-2021 由以下一個或多個作者提供: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; 和WSJT發展團的其他成員.&quot;</translation>
+&quot;WSJT-X 和相關程式的算法 原始程式碼 外觀和感覺, 以及 FSK441, FST4, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, Q65, MSK144模式的協定規範版權所有 (C) 2001-2021由以下一位或多位作者: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; 和WSJT開發組的其他成員.&quot;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="2868"/>
         <source>No data read from disk. Wrong file format?</source>
-        <translation>沒有從磁盤讀取數據. 檔案格式錯誤?</translation>
+        <translation>沒有從磁碟讀取數據. 檔案格式錯誤?</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="2875"/>
@@ -4000,7 +3961,7 @@ list. The list can be maintained in Settings (F2).</source>
   &lt;tr&gt;&lt;td&gt;&lt;b&gt;F1       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;在線用戶指南  (Alt: 發射 Tx6)&lt;/td&gt;&lt;/tr&gt;
   &lt;tr&gt;&lt;td&gt;&lt;b&gt;Shift+F1  &lt;/b&gt;&lt;/td&gt;&lt;td&gt;版權聲明&lt;/td&gt;&lt;/tr&gt;
   &lt;tr&gt;&lt;td&gt;&lt;b&gt;Ctrl+F1  &lt;/b&gt;&lt;/td&gt;&lt;td&gt;關於 WSJT-X&lt;/td&gt;&lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt;&lt;b&gt;F2       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;打開設置窗口 (Alt: 發射 Tx2)&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;td&gt;&lt;b&gt;F2       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;打開設置視窗 (Alt: 發射 Tx2)&lt;/td&gt;&lt;/tr&gt;
   &lt;tr&gt;&lt;td&gt;&lt;b&gt;F3       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;顯示鍵盤快捷鍵  (Alt: 發射 Tx3)&lt;/td&gt;&lt;/tr&gt;
   &lt;tr&gt;&lt;td&gt;&lt;b&gt;F4       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;清除DX呼號, DX網格, 發射信息 1-4 (Alt: 發射 Tx4)&lt;/td&gt;&lt;/tr&gt;
   &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+F4   &lt;/b&gt;&lt;/td&gt;&lt;td&gt;退出程序&lt;/td&gt;&lt;/tr&gt;
@@ -4115,7 +4076,7 @@ list. The list can be maintained in Settings (F2).</source>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="3325"/>
         <source>No more files to open.</source>
-        <translation>沒有要打開的檔.</translation>
+        <translation>沒有要打開的檔案.</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="3722"/>
@@ -4130,7 +4091,7 @@ list. The list can be maintained in Settings (F2).</source>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="3862"/>
         <source>WSPR Guard Band</source>
-        <translation>WSPR保護波段</translation>
+        <translation>WSPR保護頻帶</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="3875"/>
@@ -4191,7 +4152,7 @@ To do so, check &apos;Special operating activity&apos; and
         <source>%1
 is already in CALL3.TXT, do you wish to replace it?</source>
         <translation>%1
-已經在 CALL3.TXT, 你想替換它嗎?</translation>
+CALL3.TXT已經存在, 你想替換它嗎?</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="5895"/>
@@ -4294,14 +4255,14 @@ is already in CALL3.TXT, do you wish to replace it?</source>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="7884"/>
         <source>Network Error</source>
-        <translation>網路錯誤</translation>
+        <translation>網絡錯誤</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="7885"/>
         <source>Error: %1
 UDP server %2:%3</source>
         <translation>錯誤: %1
-UDP 服務器 %2:%3</translation>
+UDP 伺服器 %2:%3</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="8045"/>
@@ -4321,7 +4282,7 @@ UDP 服務器 %2:%3</translation>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="8479"/>
         <source>WD:%1m</source>
-        <translation></translation>
+        <translation>WD:%1分</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="8548"/>
@@ -4363,7 +4324,7 @@ UDP 服務器 %2:%3</translation>
     <message>
         <location filename="../MultiSettings.cpp" line="39"/>
         <source>Default</source>
-        <translation>默認值</translation>
+        <translation>預設值</translation>
     </message>
 </context>
 <context>
@@ -4376,12 +4337,12 @@ UDP 服務器 %2:%3</translation>
     <message>
         <location filename="../MultiSettings.cpp" line="497"/>
         <source>&amp;Clone</source>
-        <translation>克隆(&amp;C)</translation>
+        <translation>複製(&amp;C)</translation>
     </message>
     <message>
         <location filename="../MultiSettings.cpp" line="508"/>
         <source>Clone &amp;Into ...</source>
-        <translation>克隆到(&amp;I) ...</translation>
+        <translation>複製到(&amp;I) ...</translation>
     </message>
     <message>
         <location filename="../MultiSettings.cpp" line="515"/>
@@ -4401,7 +4362,7 @@ UDP 服務器 %2:%3</translation>
     <message>
         <location filename="../MultiSettings.cpp" line="672"/>
         <source>Clone Into Configuration</source>
-        <translation>克隆到設定</translation>
+        <translation>複製到設定</translation>
     </message>
     <message>
         <location filename="../MultiSettings.cpp" line="673"/>
@@ -4434,17 +4395,17 @@ UDP 服務器 %2:%3</translation>
     <message>
         <location filename="../MultiSettings.cpp" line="76"/>
         <source>New Configuration Name</source>
-        <translation>新設定名稱</translation>
+        <translation>新設定檔名稱</translation>
     </message>
     <message>
         <location filename="../MultiSettings.cpp" line="79"/>
         <source>Old name:</source>
-        <translation>舊名稱:</translation>
+        <translation>舊設定檔名稱:</translation>
     </message>
     <message>
         <location filename="../MultiSettings.cpp" line="81"/>
         <source>&amp;New name:</source>
-        <translation>新名稱(&amp;N):</translation>
+        <translation>新設定檔名稱(&amp;N):</translation>
     </message>
 </context>
 <context>
@@ -4452,7 +4413,7 @@ UDP 服務器 %2:%3</translation>
     <message>
         <location filename="../Network/NetworkAccessManager.cpp" line="38"/>
         <source>Network SSL/TLS Errors</source>
-        <translation>SSL/TLS 網路錯誤</translation>
+        <translation>SSL/TLS 網絡錯誤</translation>
     </message>
 </context>
 <context>
@@ -4460,7 +4421,7 @@ UDP 服務器 %2:%3</translation>
     <message>
         <location filename="../Transceiver/OmniRigTransceiver.cpp" line="53"/>
         <source>OmniRig: unrecognized mode</source>
-        <translation>OmniRig: 無法識別的模式</translation>
+        <translation>OmniRig: 無法辨識的模式</translation>
     </message>
     <message>
         <location filename="../Transceiver/OmniRigTransceiver.cpp" line="134"/>
@@ -4471,11 +4432,11 @@ UDP 服務器 %2:%3</translation>
         <location filename="../Transceiver/OmniRigTransceiver.cpp" line="253"/>
         <location filename="../Transceiver/OmniRigTransceiver.cpp" line="723"/>
         <source>OmniRig: don&apos;t know how to set rig frequency</source>
-        <translation>OmniRig:不知道如何設置無線電設備頻率</translation>
+        <translation>OmniRig:無法設置無線電設備頻率</translation>
     </message>
     <message>
         <source>OmniRig: timeout waiting for update from rig</source>
-        <translation type="vanished">OmniRig:等待從無線電設備更新的超時</translation>
+        <translation type="vanished">OmniRig:等待從無線電設備更新超時</translation>
     </message>
     <message>
         <location filename="../Transceiver/OmniRigTransceiver.cpp" line="343"/>
@@ -4493,10 +4454,6 @@ UDP 服務器 %2:%3</translation>
 </context>
 <context>
     <name>QObject</name>
-    <message>
-        <source>User Defined</source>
-        <translation type="vanished">用戶定義</translation>
-    </message>
     <message>
         <location filename="../Network/LotWUsers.cpp" line="229"/>
         <source>Failed to open LotW users CSV file: &apos;%1&apos;</source>
@@ -4578,12 +4535,12 @@ Error(%3): %4</source>
     <message>
         <location filename="../SampleDownloader/RemoteFile.cpp" line="193"/>
         <source>Too many redirects: %1</source>
-        <translation>太多重定向: %1</translation>
+        <translation>太多重新定向: %1</translation>
     </message>
     <message>
         <location filename="../SampleDownloader/RemoteFile.cpp" line="205"/>
         <source>Redirect not followed: %1</source>
-        <translation>未遵循重定向:%1</translation>
+        <translation>未遵循重新定向:%1</translation>
     </message>
     <message>
         <location filename="../SampleDownloader/RemoteFile.cpp" line="234"/>
@@ -4624,7 +4581,7 @@ Error(%2): %3</source>
         <location filename="../SampleDownloader.cpp" line="91"/>
         <location filename="../SampleDownloader.cpp" line="101"/>
         <source>Download Samples</source>
-        <translation>下載樣本</translation>
+        <translation>下載範例</translation>
     </message>
     <message>
         <location filename="../SampleDownloader.cpp" line="104"/>
@@ -4644,7 +4601,7 @@ Error(%2): %3</source>
     <message>
         <location filename="../SampleDownloader.cpp" line="112"/>
         <source>Base URL for samples:</source>
-        <translation>樣本下載網址:</translation>
+        <translation>範例下載網址:</translation>
     </message>
     <message>
         <location filename="../SampleDownloader.cpp" line="113"/>
@@ -4664,7 +4621,7 @@ Error(%2): %3</source>
     <message>
         <location filename="../SampleDownloader.cpp" line="132"/>
         <source>Invalid URL format</source>
-        <translation>不合法網址格式</translation>
+        <translation>錯誤網址格式</translation>
     </message>
 </context>
 <context>
@@ -4687,7 +4644,7 @@ Error(%2): %3</source>
     <message>
         <location filename="../Audio/soundin.cpp" line="68"/>
         <source>Requested input audio format is not valid.</source>
-        <translation>請求的輸入音頻格式無效.</translation>
+        <translation>請求輸入的音頻格式無效.</translation>
     </message>
     <message>
         <location filename="../Audio/soundin.cpp" line="74"/>
@@ -4702,7 +4659,7 @@ Error(%2): %3</source>
     <message>
         <location filename="../Audio/soundin.cpp" line="137"/>
         <source>Idle</source>
-        <translation>閑置</translation>
+        <translation>閒置</translation>
     </message>
     <message>
         <location filename="../Audio/soundin.cpp" line="142"/>
@@ -4770,7 +4727,7 @@ Error(%2): %3</source>
     <message>
         <location filename="../Audio/soundout.cpp" line="184"/>
         <source>Idle</source>
-        <translation>閑置</translation>
+        <translation>閒置</translation>
     </message>
     <message>
         <location filename="../Audio/soundout.cpp" line="188"/>
@@ -4872,7 +4829,7 @@ Error(%2): %3</source>
     <message>
         <location filename="../widgets/widegraph.ui" line="68"/>
         <source>Controls</source>
-        <translation>控件列</translation>
+        <translation>控制列</translation>
     </message>
     <message>
         <location filename="../widgets/widegraph.ui" line="124"/>
@@ -4902,7 +4859,7 @@ Error(%2): %3</source>
     <message>
         <location filename="../widgets/widegraph.ui" line="207"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Set fractional size of spectrum in this window.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;在此窗口中設置頻譜的大小.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;在此視窗中設置頻譜的大小.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/widegraph.ui" line="213"/>
@@ -5047,7 +5004,7 @@ Error(%2): %3</source>
     <message>
         <location filename="../widgets/widegraph.cpp" line="28"/>
         <source>Wide Graph</source>
-        <translation>寬圖</translation>
+        <translation>瀑布圖</translation>
     </message>
     <message>
         <location filename="../widgets/widegraph.cpp" line="393"/>
@@ -5124,12 +5081,12 @@ Error(%2): %3</source>
     <message>
         <location filename="../Configuration.ui" line="83"/>
         <source>Check to allow grid changes from external programs</source>
-        <translation>選擇允許從外部程式變更格線</translation>
+        <translation>選擇允許從外部程式變更網格</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="86"/>
         <source>AutoGrid</source>
-        <translation>自動格線</translation>
+        <translation>自動網格</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="95"/>
@@ -5174,12 +5131,12 @@ Error(%2): %3</source>
     <message>
         <location filename="../Configuration.ui" line="177"/>
         <source>Show outgoing transmitted messages in the Rx frequency window.</source>
-        <translation>在接收信息窗口中顯示已發射的信息.</translation>
+        <translation>在接收信息視窗中顯示已發射的信息.</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="180"/>
         <source>&amp;Tx messages to Rx frequency window</source>
-        <translation>發出訊息在接收信息窗口顯示(&amp;T)</translation>
+        <translation>發出訊息在接收信息視窗顯示(&amp;T)</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="187"/>
@@ -5199,12 +5156,12 @@ Error(%2): %3</source>
     <message>
         <location filename="../Configuration.ui" line="203"/>
         <source>Start new period decodes at top</source>
-        <translation>在頂部開始新期間解碼</translation>
+        <translation>保持新訊息於波段視窗頂部</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="210"/>
         <source>Show principal prefix instead of country name</source>
-        <translation>顯示主體前綴而不是國家 地區名稱</translation>
+        <translation>顯示前綴而不是國家或地區名稱</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="234"/>
@@ -5214,12 +5171,12 @@ Error(%2): %3</source>
     <message>
         <location filename="../Configuration.ui" line="237"/>
         <source>Font...</source>
-        <translation>軟件字體...</translation>
+        <translation>軟體字體...</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="244"/>
         <source>Set the font characteristics for the Band Activity and Rx Frequency areas.</source>
-        <translation>設置波段活動和接收信息窗口的字體.</translation>
+        <translation>設置波段活動和接收信息視窗的字體.</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="247"/>
@@ -5229,17 +5186,17 @@ Error(%2): %3</source>
     <message>
         <location filename="../Configuration.ui" line="271"/>
         <source>Include a separator line between periods in the band activity window.</source>
-        <translation>在波段活動窗口中加入時間分隔行.</translation>
+        <translation>在波段活動視窗中加入時間分隔行.</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="274"/>
         <source>&amp;Blank line between decoding periods</source>
-        <translation>每解碼周期插入間隔行(&amp;B)</translation>
+        <translation>每個解碼周期插入間隔行(&amp;B)</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="281"/>
         <source>Show distance to DX station in miles rather than kilometers.</source>
-        <translation>以英里為單位顯示 DX 電臺的距離 而不是顯示公里.</translation>
+        <translation>以英里為單位顯示 DX 電臺的距離而不是顯示公里.</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="284"/>
@@ -5294,7 +5251,7 @@ Error(%2): %3</source>
     <message>
         <location filename="../Configuration.ui" line="384"/>
         <source>Don&apos;t start decoding until the monitor button is clicked.</source>
-        <translation>軟件開啟時, 關閉監聽按鈕.</translation>
+        <translation>軟體開啟時, 關閉監聽按鈕.</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="387"/>
@@ -5367,7 +5324,7 @@ quiet period when decoding is done.</source>
     <message>
         <location filename="../Configuration.ui" line="488"/>
         <source>Calling CQ forces Call 1st</source>
-        <translation>呼叫 CQ 強制呼叫第 1</translation>
+        <translation>CQ呼叫時強制呼叫第 1</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="512"/>
@@ -5377,7 +5334,7 @@ quiet period when decoding is done.</source>
     <message>
         <location filename="../Configuration.ui" line="515"/>
         <source>Radio interface configuration settings.</source>
-        <translation>設置無線電設備接口設置.</translation>
+        <translation>設置無線電設備介面設置.</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="527"/>
@@ -5393,18 +5350,18 @@ quiet period when decoding is done.</source>
         <location filename="../Configuration.ui" line="541"/>
         <location filename="../Configuration.ui" line="1018"/>
         <source>Port:</source>
-        <translation>端口:</translation>
+        <translation>序列埠:</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="557"/>
         <source>Serial port used for CAT control.</source>
-        <translation>用於CAT控制的串行端口.</translation>
+        <translation>用於CAT控制的序列埠.</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="581"/>
         <location filename="../Configuration.ui" line="584"/>
         <source>Serial Port Parameters</source>
-        <translation>串口參數</translation>
+        <translation>序列埠參數</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="595"/>
@@ -5414,7 +5371,7 @@ quiet period when decoding is done.</source>
     <message>
         <location filename="../Configuration.ui" line="611"/>
         <source>Serial port data rate which must match the setting of your radio.</source>
-        <translation>串行端口數據速率必須與您的無線電設置相匹配.</translation>
+        <translation>序列埠數據速率必須與您的無線電設置相匹配.</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="618"/>
@@ -5459,7 +5416,7 @@ quiet period when decoding is done.</source>
     <message>
         <location filename="../Configuration.ui" line="663"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Number of data bits used to communicate with your radio&apos;s CAT interface (usually eight).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;用於與無線電設備 CAT 接口通信的數據位數 (通常為 8 ).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;用於與無線電設備 CAT 介面通信的數據位數 (通常為 8 ).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="666"/>
@@ -5474,7 +5431,7 @@ quiet period when decoding is done.</source>
     <message>
         <location filename="../Configuration.ui" line="675"/>
         <source>D&amp;efault</source>
-        <translation>默認值(&amp;e)</translation>
+        <translation>預設值(&amp;e)</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="688"/>
@@ -5489,7 +5446,7 @@ quiet period when decoding is done.</source>
     <message>
         <location filename="../Configuration.ui" line="717"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Number of stop bits used when communicating with your radio&apos;s CAT interface&lt;/p&gt;&lt;p&gt;(consult you radio&apos;s manual for details).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;與無線電設備 CAT 接口通信時使用的停止位數&lt;/p&gt;&lt;p&gt;(詳情請參閱無線電設備手冊).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;與無線電設備CAT介面通信時使用的停止位數&lt;/p&gt;&lt;p&gt;(詳情請參閱無線電設備手冊).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="720"/>
@@ -5505,7 +5462,7 @@ quiet period when decoding is done.</source>
         <location filename="../Configuration.ui" line="729"/>
         <location filename="../Configuration.ui" line="780"/>
         <source>Default</source>
-        <translation>默認值</translation>
+        <translation>預設值</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="742"/>
@@ -5520,7 +5477,7 @@ quiet period when decoding is done.</source>
     <message>
         <location filename="../Configuration.ui" line="768"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Flow control protocol used between this computer and your radio&apos;s CAT interface (usually &amp;quot;None&amp;quot; but some require &amp;quot;Hardware&amp;quot;).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;電腦和無線電設備 CAT 接口 之間使用的流量控制協議 (通常是 &quot;None&quot;,但有些要求&quot;硬件&quot;).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;電腦和無線電設備CAT介面之間使用的流量控制協議 (通常是 &quot;None&quot;,但有些要求&quot;硬件&quot;).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="771"/>
@@ -5536,7 +5493,7 @@ quiet period when decoding is done.</source>
     <message>
         <location filename="../Configuration.ui" line="806"/>
         <source>Software flow control (very rare on CAT interfaces).</source>
-        <translation>軟件控制流 (在CAT接口上非常罕見).</translation>
+        <translation>軟體控制流 (在CAT介面上非常罕見).</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="809"/>
@@ -5555,7 +5512,7 @@ a few, particularly some Kenwood rigs, require it).</source>
     <message>
         <location filename="../Configuration.ui" line="824"/>
         <source>&amp;Hardware</source>
-        <translation>硬件(&amp;H)</translation>
+        <translation>硬體(&amp;H)</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="837"/>
@@ -5566,7 +5523,7 @@ a few, particularly some Kenwood rigs, require it).</source>
         <location filename="../Configuration.ui" line="840"/>
         <location filename="../Configuration.ui" line="843"/>
         <source>Force Control Lines</source>
-        <translation>強制控制線</translation>
+        <translation>硬體流控制</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="860"/>
@@ -5598,12 +5555,12 @@ a few, particularly some Kenwood rigs, require it).</source>
     <message>
         <location filename="../Configuration.ui" line="950"/>
         <source>PTT Method</source>
-        <translation>PTT 方法</translation>
+        <translation>PTT 方式</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="956"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;No PTT activation, instead the radio&apos;s automatic VOX is used to key the transmitter.&lt;/p&gt;&lt;p&gt;Use this if you have no radio interface hardware.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;如果您沒有無線電設備接口硬件,沒法PTT而是使用無線電設備的自動聲控來發射,請使用此選項.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;如果您沒有無線電設備介面硬件,沒法PTT而是使用無線電設備的自動聲控來發射,請使用此選項.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="959"/>
@@ -5627,7 +5584,7 @@ use this option if your radio supports it and you have no
 other hardware interface for PTT.</source>
         <translation>一些無線電設備通過CAT命令支持 PTT, 
 如果您的無線電設備支持此選項請使用此選項而且您沒有
-PTT的其它硬件接口.</translation>
+PTT的其它硬體介面.</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="990"/>
@@ -5647,7 +5604,7 @@ PTT的其它硬件接口.</translation>
     <message>
         <location filename="../Configuration.ui" line="1034"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Select the RS-232 serial port utilised for PTT control, this option is available when DTR or RTS is selected above as a transmit method.&lt;/p&gt;&lt;p&gt;This port can be the same one as the one used for CAT control.&lt;/p&gt;&lt;p&gt;For some interface types the special value CAT may be chosen, this is used for non-serial CAT interfaces that can control serial port control lines remotely (OmniRig for example).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;選擇用於 ptt 控制的RS-232 串行端口,當選擇上述DTR或RTS作為發射方法時,此選項可用.此端口可以與用於CAT控制的端口相同.對於某些接口類型,可以選擇特殊值CAT,這用於可以遠程控制串口控制線的非串行CAT接口 (例如 omnirig).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;選擇用於 ptt 控制的RS-232 序列埠,當選擇上述DTR或RTS作為發射方法時,此選項可用.此埠可以與用於CAT控制的埠相同.對於某些介面類型,可以選擇特殊值CAT,這用於可以遠程控制串口控制線的非串行CAT介面 (例如 omnirig).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1058"/>
@@ -5711,12 +5668,12 @@ this setting allows you to select which audio input will be used
     <message>
         <location filename="../Configuration.ui" line="1125"/>
         <source>Rear&amp;/Data</source>
-        <translation>後方&amp;/數據口</translation>
+        <translation>後方&amp;/數據埠</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1135"/>
         <source>&amp;Front/Mic</source>
-        <translation>前方/咪高峰(&amp;F)</translation>
+        <translation>前方/麥克風(&amp;F)</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1186"/>
@@ -5726,12 +5683,12 @@ this setting allows you to select which audio input will be used
     <message>
         <location filename="../Configuration.ui" line="1206"/>
         <source>Poll Interval:</source>
-        <translation>時間間隔:</translation>
+        <translation>輪詢間隔:</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1216"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Interval to poll rig for status. Longer intervals will mean that changes to the rig will take longer to be detected.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;為軟件與無線電設備溝通的時間間隔.時間間隔較長,意味着對無線電設備的更改需要更長的時間才能檢測到.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;軟體與無線電設備溝通的輪詢時間間隔.時間間隔較長,意味着對無線電設備的更改需要更長的時間才能檢測到.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1219"/>
@@ -5758,7 +5715,7 @@ radio interface behave as expected.</source>
         <translation>嘗試激活無線電設備.
 再次單擊以停用.通常沒有功率輸出
 因為此時沒有音頻生成.檢查無線電設備
-和/或您的無線電設備接口上
+和/或您的無線電設備介面上
 的任何發射指示是否如預期的那樣.</translation>
     </message>
     <message>
@@ -5774,7 +5731,7 @@ radio interface behave as expected.</source>
     <message>
         <location filename="../Configuration.ui" line="1302"/>
         <source>Fake It</source>
-        <translation>虛假</translation>
+        <translation>虛擬</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1312"/>
@@ -5789,7 +5746,7 @@ radio interface behave as expected.</source>
     <message>
         <location filename="../Configuration.ui" line="1355"/>
         <source>Audio interface settings</source>
-        <translation>音頻接口設置</translation>
+        <translation>音頻介面設置</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1361"/>
@@ -5809,7 +5766,7 @@ ensure that all system sounds are disabled otherwise
 you will broadcast any systems sounds generated during
 transmitting periods.</source>
         <translation>選擇要用於發射的音頻信號.
-如果這是您的默認值設備的系統聲音
+如果這是您的預設值設備的系統聲音
 然後確保所有系統聲音被禁用
 否則您將任何系統生成的聲音
 向外發射輸出.</translation>
@@ -5827,17 +5784,17 @@ transmitting periods.</source>
     <message>
         <location filename="../Configuration.ui" line="1908"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;When sending updates to a multicast group address it is necessary to specify which network interface(s) to send them to. If the loop-back interface is multicast capable then at least that one will be selected.&lt;/p&gt;&lt;p&gt;For most users the loop-back interface is all that is needed, that will allow multiple other applications on the same machine to interoperate with WSJT-X. If applications running on other hosts are to receive status updates then a suitable network interface should be used.&lt;/p&gt;&lt;p&gt;On some Linux systems it may be necessary to enable multicast on the loop-back network interface.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;向組播組地址發送更新時需要指定要將其發送到哪個網路介面. 如果環回介面支援組播則至少將選擇該介面.&lt;/p&gt;&lt;p&gt;對於大多數用戶來說迴圈回式介面是所有需要的, 將允許同一台電腦上的多個其他應用程式與 WSJT-X 進行互通. 如果在其他主機上運行的應用程式要接收狀態更新則應使用合適的網路介面.&lt;/p&gt;&lt;p&gt;在某些 Linux 系統上可能需要在環回網路介面上啟用組播.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;向組播組地址發送更新時需要指定要將其發送到哪個網絡介面. 如果環回介面支援組播則至少將選擇該介面.&lt;/p&gt;&lt;p&gt;對於大多數用戶來說迴圈回式介面是所有需要的, 將允許同一台電腦上的多個其他應用程式與 WSJT-X 進行互通. 如果在其他主機上運行的應用程式要接收狀態更新則應使用合適的網絡介面.&lt;/p&gt;&lt;p&gt;在某些 Linux 系統上可能需要在環回網絡介面上啟用組播.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1915"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Sets the number or router hops that multicast datagrams are allowed to make. Almost everyone should set this to 1 to keep outgoing multicast traffic withn the local subnet.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;設置允許組播數據報進行的數位或路由器躍點. 幾乎每個人都應該將此設置為 1 以保持傳出的組播流量與本地子網.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;設置允許組播數據報進行的數據或路由器躍點. 幾乎每個人都應該將此設置為 1 以保持傳出的組播流量與本地子網.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1928"/>
         <source>Multicast TTL:</source>
-        <translation>組播 TTL TTL:</translation>
+        <translation>組播 TTL :</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2434"/>
@@ -5847,7 +5804,7 @@ transmitting periods.</source>
     <message>
         <location filename="../Configuration.ui" line="1420"/>
         <source>Select the audio CODEC to use for receiving.</source>
-        <translation>選擇要用於接收的音頻信號.</translation>
+        <translation>選擇接收的音頻聲道.</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1467"/>
@@ -5857,7 +5814,7 @@ transmitting periods.</source>
     <message>
         <location filename="../Configuration.ui" line="1387"/>
         <source>Select the channel to use for receiving.</source>
-        <translation>選擇要用於接收的通道.</translation>
+        <translation>選擇接收音頻聲道.</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1391"/>
@@ -5889,9 +5846,9 @@ transmitting periods.</source>
 Unless you have multiple radios connected on different
 channels; then you will usually want to select mono or
 both here.</source>
-        <translation>選擇用於發射的音頻通道.
+        <translation>選擇用於發射的音頻聲道.
 除非您在不同無線電設備連接多個到不同的
-通道; 那麼你通常會想要選擇單聲道或
+聲道; 那麼你通常會想要選擇單聲道或
 雙聲道.</translation>
     </message>
     <message>
@@ -6072,7 +6029,7 @@ and DX Grid fields when a 73 or free text message is sent.</source>
     <message>
         <location filename="../Configuration.ui" line="1781"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Some logging programs will not accept WSJT-X mode names.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;某些日志紀錄程式不接受 WSJT-X 模式名稱.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;某些日誌紀錄程式不接受 WSJT-X 模式名稱.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1784"/>
@@ -6092,7 +6049,7 @@ and DX Grid fields when a 73 or free text message is sent.</source>
     <message>
         <location filename="../Configuration.ui" line="1801"/>
         <source>Log automatically (contesting only)</source>
-        <translation>日誌自動記錄 (僅限競赛)</translation>
+        <translation>日誌自動記錄 (僅限競賽)</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1818"/>
@@ -6102,7 +6059,7 @@ and DX Grid fields when a 73 or free text message is sent.</source>
     <message>
         <location filename="../Configuration.ui" line="1824"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The program can send your station details and all decoded signals with grid squares as spots to the http://pskreporter.info web site.&lt;/p&gt;&lt;p&gt;This is used for reverse beacon analysis which is very useful for assessing propagation and system performance.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;該程式可以將你的電臺詳細資訊和所有解碼信號以網格發送到http://pskreporter.info網站.&lt;/p&gt;&lt;p&gt;這用於反向信標分析,這對於評估傳播和系統性能非常有用.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;程式可以將你的電臺詳細資訊和所有解碼信號以網格發送到http://pskreporter.info網站.&lt;/p&gt;&lt;p&gt;這用於反向信標分析,這對於評估傳播和系統性能非常有用.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1827"/>
@@ -6112,7 +6069,7 @@ and DX Grid fields when a 73 or free text message is sent.</source>
     <message>
         <location filename="../Configuration.ui" line="1834"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check this option if a reliable connection is needed&lt;/p&gt;&lt;p&gt;Most users do not need this, the default uses UDP which is more efficient. Only check this if you have evidence that UDP traffic from you to PSK Reporter is being lost.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;如果需要可靠的連接, 請選擇此選項&lt;/p&gt;&lt;p&gt;大多數使用者不需要這個, 預設使用UDP, 效率更高. 只有當你有證據表明從你到PSK Reporter的UDP流量丟失時, 才選擇這個.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;選擇此選項需要可靠的連接&lt;/p&gt;&lt;p&gt;大多數使用者不需要這個, 預設使用UDP, 效率更高. 只有當你有證據表明從你到PSK Reporter的UDP流量丟失時, 才選擇這個.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1837"/>
@@ -6122,12 +6079,12 @@ and DX Grid fields when a 73 or free text message is sent.</source>
     <message>
         <location filename="../Configuration.ui" line="1847"/>
         <source>UDP Server</source>
-        <translation>UDP服務器</translation>
+        <translation>UDP伺服器</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1858"/>
         <source>UDP Server:</source>
-        <translation>UDP服務器:</translation>
+        <translation>UDP伺服器:</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1868"/>
@@ -6137,11 +6094,7 @@ and DX Grid fields when a 73 or free text message is sent.</source>
     <message>
         <location filename="../Configuration.ui" line="1878"/>
         <source>UDP Server port number:</source>
-        <translation>主要UDP服務器端口:</translation>
-    </message>
-    <message>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enter the service port number of the UDP server that WSJT-X should send updates to. If this is zero no updates will be broadcast.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="vanished">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;輸入 WSJT-X 應向其發送更新的 UDP 伺服器的服務埠號. 如果為零, 將不會廣播任何更新.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>主要UDP伺服器埠:</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1942"/>
@@ -6156,7 +6109,7 @@ and DX Grid fields when a 73 or free text message is sent.</source>
     <message>
         <location filename="../Configuration.ui" line="1952"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Indicate acceptance of an incoming UDP request. The effect of this option varies depending on the operating system and window manager, its intent is to notify the acceptance of an incoming UDP request even if this application is minimized or hidden.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;指示接受傳入的 UDP 請求.此選項的效果因操作系統和窗口管理器而異,其目的是通知接受傳入的 UDP 請求,即使此應用程序最小化或隱藏&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;指示接受傳入的 UDP 請求.此選項的效果因操作系統和視窗管理器而異,其目的是通知接受傳入的 UDP 請求,即使此應用程序最小化或隱藏&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1955"/>
@@ -6166,17 +6119,17 @@ and DX Grid fields when a 73 or free text message is sent.</source>
     <message>
         <location filename="../Configuration.ui" line="1962"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Restore the window from minimized if an UDP request is accepted.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;如果接受 UDP 請求,則從最小化還原窗口.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;如果接受 UDP 請求,則從最小化還原視窗.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1965"/>
         <source>Accepted UDP request restores window</source>
-        <translation>接受UDP請求還原窗口</translation>
+        <translation>接受UDP請求還原視窗</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1977"/>
         <source>Secondary UDP Server (deprecated)</source>
-        <translation>輔助UDP 伺服器 (已棄用)</translation>
+        <translation>備用UDP 伺服器 (已棄用)</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1983"/>
@@ -6186,7 +6139,7 @@ and DX Grid fields when a 73 or free text message is sent.</source>
     <message>
         <location filename="../Configuration.ui" line="1986"/>
         <source>Enable logged contact ADIF broadcast</source>
-        <translation>開啟紀錄連絡 ADIF 廣播</translation>
+        <translation>開啟日誌紀錄 ADIF 廣播</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1993"/>
@@ -6216,17 +6169,17 @@ and DX Grid fields when a 73 or free text message is sent.</source>
     <message>
         <location filename="../Configuration.ui" line="2050"/>
         <source>Default frequencies and band specific station details setup</source>
-        <translation>設置默認值頻率和帶寬點特定的電臺詳細信息</translation>
+        <translation>設置預設值頻率和帶寬點特定的電臺詳細信息</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2056"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;See &amp;quot;Frequency Calibration&amp;quot; in the WSJT-X User Guide for details of how to determine these parameters for your radio.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;閱讀 &amp;quot;頻率校準&amp;quot; 在 WSJT-X 使用者指南中, 有關如何確定無線電的這些參數的詳細資訊.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;參閱 &amp;quot;頻率校準&amp;quot; 在 WSJT-X 使用者指南中, 有關如何確定無線電的這些參數的詳細資訊.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2059"/>
         <source>Frequency Calibration</source>
-        <translation>頻率校准</translation>
+        <translation>頻率校準</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2067"/>
@@ -6293,7 +6246,7 @@ Right click for insert and delete options.</source>
     <message>
         <location filename="../Configuration.ui" line="2298"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Push to reset all highlight items above to default values and priorities.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;推送將上述所有突出顯示項重置為預設值和優先順序.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;將上述所有突出顯示項重置為預設值和優先順序.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2301"/>
@@ -6308,7 +6261,7 @@ Right click for insert and delete options.</source>
     <message>
         <location filename="../Configuration.ui" line="2345"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to indicate new DXCC entities, grid squares, and callsigns per mode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;選擇以指示每個模式新的 DXCC 實體, 網格和呼號.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;選擇以顯示每個模式新的 DXCC 實體, 網格和呼號.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2348"/>
@@ -6323,12 +6276,12 @@ Right click for insert and delete options.</source>
     <message>
         <location filename="../Configuration.ui" line="2362"/>
         <source>Check to for grid highlighting to only apply to unworked grid fields</source>
-        <translation>檢查到格線突出顯示僅套用於未通聯的網格欄位</translation>
+        <translation>突出顯示網格突出顯示僅套用於未通聯的網格欄位</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2365"/>
         <source>Only grid Fields sought</source>
-        <translation>只尋求格格欄位</translation>
+        <translation>僅尋求網格欄位</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2375"/>
@@ -6423,12 +6376,12 @@ Right click for insert and delete options.</source>
     <message>
         <location filename="../Configuration.ui" line="2544"/>
         <source>Two-pass decoding</source>
-        <translation>以二次解碼</translation>
+        <translation>使用二次解碼</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2557"/>
         <source>Special operating activity:  Generation of FT4, FT8, and MSK144 messages</source>
-        <translation>特殊操作活動: 產生FT4, FT8 和 MSK144 信息</translation>
+        <translation>特殊競賽活動: 產生FT4, FT8 和 MSK144 信息</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2569"/>
@@ -6455,7 +6408,7 @@ Right click for insert and delete options.</source>
     <message>
         <location filename="../Configuration.ui" line="2610"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;FT8 DXpedition mode:  Fox (DXpedition) operator.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;FT8 DX远征模式:  狐狸 (DX远征) 操作员.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;FT8 DX遠征模式:  狐狸 (DX遠征) 操作員.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2613"/>
@@ -6514,7 +6467,7 @@ Right click for insert and delete options.</source>
     <message>
         <location filename="../Configuration.ui" line="2738"/>
         <source>A R R L Field Day</source>
-        <translation>A R R L 競賽日</translation>
+        <translation>ARRL 競賽日</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2741"/>
@@ -6539,17 +6492,17 @@ Right click for insert and delete options.</source>
     <message>
         <location filename="../Configuration.ui" line="2808"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;World-Wide Digi-mode contest&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;世界數字模式競賽&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;世界數據模式競賽&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2811"/>
         <source>WW Digital Contest</source>
-        <translation>世界數字競賽</translation>
+        <translation>世界數據通聯競賽</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2814"/>
         <source>WW Digi Contest</source>
-        <translation>世界數字競賽</translation>
+        <translation>世界數據通聯競賽</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2827"/>
@@ -6637,7 +6590,7 @@ Right click for insert and delete options.</source>
     <message>
         <location filename="../Configuration.ui" line="2986"/>
         <source>Most sensitive</source>
-        <translation>最敏感</translation>
+        <translation>最敏銳</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="3016"/>
@@ -6647,14 +6600,6 @@ Right click for insert and delete options.</source>
 </context>
 <context>
     <name>main</name>
-    <message>
-        <source>Another instance may be running</source>
-        <translation type="vanished">另一個應用程式可能正在執行</translation>
-    </message>
-    <message>
-        <source>try to remove stale lock file?</source>
-        <translation type="vanished">嘗試刪除陳舊的鎖檔?</translation>
-    </message>
     <message>
         <location filename="../main.cpp" line="265"/>
         <source>Failed to create a temporary directory</source>
