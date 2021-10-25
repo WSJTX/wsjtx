@@ -5204,6 +5204,12 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
   lookup();
   m_hisGrid = ui->dxGridEntry->text();
 
+  if (m_bDoubleClicked)
+    {
+      // extract our report if present
+      message.report (m_baseCall, Radio::base_callsign(ui->dxCallEntry->text()), m_rptRcvd);
+    }
+
   if (!m_bSentReport || base_call != qso_partner_base_call) // Don't change report within a QSO
     {
       auto n = message.report ().toInt ();

@@ -552,7 +552,7 @@
         </layout>
        </item>
        <item>
-        <layout class="QGridLayout" name="gridLayout_5" rowstretch="1,0,0" columnstretch="0,0,1,5,0">
+        <layout class="QGridLayout" name="gridLayout_5" rowstretch="1,0,0" columnstretch="0,0,1,4,0">
          <item row="0" column="1" alignment="Qt::AlignHCenter|Qt::AlignVCenter">
           <widget class="QPushButton" name="readFreq">
            <property name="enabled">
@@ -1276,21 +1276,15 @@ When not checked you can view the calibration results.</string>
                       <item>
                        <widget class="QPushButton" name="pbR2T">
                         <property name="sizePolicy">
-                         <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+                         <sizepolicy hsizetype="Ignored" vsizetype="Fixed">
                           <horstretch>0</horstretch>
                           <verstretch>0</verstretch>
                          </sizepolicy>
                         </property>
                         <property name="minimumSize">
                          <size>
-                          <width>20</width>
+                          <width>35</width>
                           <height>0</height>
-                         </size>
-                        </property>
-                        <property name="maximumSize">
-                         <size>
-                          <width>50</width>
-                          <height>20</height>
                          </size>
                         </property>
                         <property name="toolTip">
@@ -1329,21 +1323,15 @@ When not checked you can view the calibration results.</string>
                       <item>
                        <widget class="QPushButton" name="pbT2R">
                         <property name="sizePolicy">
-                         <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+                         <sizepolicy hsizetype="Ignored" vsizetype="Fixed">
                           <horstretch>0</horstretch>
                           <verstretch>0</verstretch>
                          </sizepolicy>
                         </property>
                         <property name="minimumSize">
                          <size>
-                          <width>20</width>
+                          <width>35</width>
                           <height>0</height>
-                         </size>
-                        </property>
-                        <property name="maximumSize">
-                         <size>
-                          <width>50</width>
-                          <height>20</height>
                          </size>
                         </property>
                         <property name="toolTip">
@@ -1980,12 +1968,6 @@ Double click to toggle the use of the Tx1 message to start a QSO with a station 
                       </item>
                       <item row="5" column="0">
                        <widget class="QComboBox" name="tx5">
-                        <property name="sizePolicy">
-                         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                          <horstretch>0</horstretch>
-                          <verstretch>0</verstretch>
-                         </sizepolicy>
-                        </property>
                         <property name="toolTip">
                          <string>Enter a free text message (maximum 13 characters)
 or select a predefined macro from the dropdown list.
@@ -1997,6 +1979,9 @@ list. The list can be maintained in Settings (F2).</string>
                         </property>
                         <property name="insertPolicy">
                          <enum>QComboBox::InsertAtBottom</enum>
+                        </property>
+                        <property name="sizeAdjustPolicy">
+                         <enum>QComboBox::AdjustToMinimumContentsLength</enum>
                         </property>
                        </widget>
                       </item>
@@ -2028,7 +2013,7 @@ Double-click to reset to the standard 73 message</string>
                    <attribute name="title">
                     <string>2</string>
                    </attribute>
-                   <layout class="QGridLayout" name="gridLayout_11">
+                   <layout class="QGridLayout" name="gridLayout_11" columnstretch="1,0">
                     <item row="0" column="1" rowspan="2">
                      <layout class="QGridLayout" name="gridLayout_10">
                       <item row="2" column="0">
@@ -2307,6 +2292,9 @@ Double-click to reset to the standard 73 message</string>
                         <width>16777215</width>
                         <height>16777215</height>
                        </size>
+                      </property>
+                      <property name="sizeAdjustPolicy">
+                       <enum>QAbstractScrollArea::AdjustToContentsOnFirstShow</enum>
                       </property>
                      </widget>
                     </item>
@@ -2875,14 +2863,6 @@ Yellow when too low</string>
    </layout>
   </widget>
   <widget class="QMenuBar" name="menuBar">
-   <property name="geometry">
-    <rect>
-     <x>0</x>
-     <y>0</y>
-     <width>968</width>
-     <height>21</height>
-    </rect>
-   </property>
    <widget class="QMenu" name="menuFile">
     <property name="title">
      <string>File</string>
