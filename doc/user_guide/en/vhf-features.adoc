@@ -333,6 +333,27 @@ correlation algorithm.  JT65 and Q65 offer _a priori_ (AP)
 decoding, which takes advantage of naturally accumulating information
 during a QSO.
 
+For CW mode on SHF and microwave EME WSJT-X can be used to do Doppler
+shift correction if desired:
+
+- Check the *Settings -> Radio -> Mode -> None* option, this stops _WSJT-X_
+  from trying to set the mode of your rig.
+
+- Put you rig into CW mode as normal.
+
+- Before transmitting press *Tune* in _WSJT-X_, no tones will be
+  transmitted as the rig is in CW mode, but importantly WSJT-X knows
+  your are transmitting and adjusts the Doppler shift correction as
+  needed for the currently selected Doppler shift correction mode in
+  transmit.
+
+- When you have finish transmitting CW press *Tune* again to revert to
+  receive mode and the correct Doppler shift correction for receiving.
+
+NOTE: The above assumes you are already set up for _WSJT-X_
+<<VHF_SETUP,Doppler shift correction>> with working CAT control, and
+*Monitor* enabled etc..
+
 ////
 The following tutorial aims to familiarize you with
 these program features, all of which are of special interest for EME

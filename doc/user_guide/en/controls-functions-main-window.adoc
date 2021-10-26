@@ -11,7 +11,9 @@ image::main-ui-controls.png[align="center",width=650,alt="Main UI Controls"]
 * *Log QSO* raises a dialog window pre-filled with known information
 about a QSO you have nearly completed.  You can edit or add to this
 information before clicking *OK* to log the QSO.  If you check *Prompt
-me to log QSO* on the *File -> Settings -> Reporting* tab, the program raises the confirmation screen automatically when you send a message containing +73+.  *Start Date* and *Start Time* are set when you click
+me to log QSO* on the *File -> Settings -> Reporting* tab, the program
+raises the confirmation screen automatically when you send a message
+containing +73+.  *Start Date* and *Start Time* are set when you click
 to send the *Tx 2* or *Tx 3* message, and backed up by one or two
 sequence lengths, respectively.  (Note that the actual start time may
 have been earlier if repeats of early transmissions were required.)
