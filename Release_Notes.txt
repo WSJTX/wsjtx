@@ -15,33 +15,37 @@ Copyright 2001 - 2021 by Joe Taylor, K1JT.
 	             Oct 29, 2021
 	        ----------------------
 
-This is mostly a bug fix release.  It has the following changes since
+This is mostly a bug fix  release.  It has the following changes since
 release 2.5.1:
 
- - Repair a longstanding regression that caused signal reports from
+ - Repair a  longstanding regression  that caused signal  reports from
    tail-ended Tx2 messages to be omitted from logged information
 
- - Repair a regression associated with setting the main window width
+ - Repair a regression  associated with setting the  main window width
    on program startup.
 
- - Repair a problem with Q65 decodes of type 'q3' for messages of the
+ - Repair a problem with Q65 decodes  of type 'q3' for messages of the
    form "<Call_1> Call_2"
 
  - Implement Q65 decodes of type 'q3' for the message "TNX 73 GL".
 
  - Execute code associated with Q65 decodes of type 'q5' only when the
-   Max Drift control is set to 50.  This fix prevents
-   double-incrementing of the message averaging counter on the first
+   Max   Drift   control   is   set  to   50.    This   fix   prevents
+   double-incrementing of  the message averaging counter  on the first
    decoding sequence.
 
- - Polarization offset 'Dpol' from the asronomical data window is now
-   written to file azel.dat if environment variable
-   WSJT_AZEL_EXTRA_LINES has been defined as 1 or greater. Dpol is
+ - Polarization offset 'Dpol' from the astronomical data window is now
+   written    to    file     azel.dat    if    environment    variable
+   WSJT_AZEL_EXTRA_LINES has  been defined as  1 or greater.   Dpol is
    especially useful for EME on the higher microwave bands.
 
- - New hamlib code to correct minor flaws in controlling several rigs
+ - The Auto  Log QSO option  in "Settings->Reporting" now  behaves the
+   same  as  the Prompt  to  log  QSO option  when  not  in a  special
+   operating context mode.
 
- - Update the Chinese and Hong Kong translations of the user
+ - New hamlib code to correct minor flaws in controlling several rigs.
+
+ - Update  the  Chinese  and  Hong   Kong  translations  of  the  user
    interface.
 
  - Note  that since  the WSJT-X  v2.5.0 GA  release we  have not  been
