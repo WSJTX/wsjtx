@@ -385,7 +385,7 @@ auto DXLabSuiteCommanderTransceiver::get_mode () -> MODE
 
 void DXLabSuiteCommanderTransceiver::simple_command (QString const& cmd)
 {
-  Q_ASSERT (commander_);
+  if (!commander_) return;
 
   CAT_TRACE (cmd);
 
@@ -398,7 +398,7 @@ void DXLabSuiteCommanderTransceiver::simple_command (QString const& cmd)
 
 QString DXLabSuiteCommanderTransceiver::command_with_reply (QString const& cmd)
 {
-  Q_ASSERT (commander_);
+  if (!commander_) return QString {};
 
   if (!write_to_port (cmd))
     {

@@ -1005,7 +1005,7 @@ void HRDTransceiver::do_poll ()
 
 QString HRDTransceiver::send_command (QString const& cmd, bool prepend_context, bool recurse)
 {
-  Q_ASSERT (hrd_);
+  if (!hrd_) return QString {};
 
   QString result;
 
