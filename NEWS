@@ -12,7 +12,7 @@
 Copyright 2001 - 2021 by Joe Taylor, K1JT.
 
 	        Release: WSJT-X 2.5.2
-	             Oct 29, 2021
+	             Nov 4, 2021
 	        ----------------------
 
 This is mostly a bug fix  release.  It has the following changes since
@@ -21,13 +21,14 @@ release 2.5.1:
  - Repair a  longstanding regression  that caused signal  reports from
    tail-ended Tx2 messages to be omitted from logged information
 
+ - Parse   "dx-call-1 RR73; dx-call-2 <de-call> +nn"  messages  (i3=0,
+   n3=1 DXpedition mode) in regular 77-bit modes
+
  - Repair a regression  associated with setting the  main window width
    on program startup.
 
  - Repair a problem with Q65 decodes  of type 'q3' for messages of the
    form "<Call_1> Call_2"
-
- - Implement Q65 decodes of type 'q3' for the message "TNX 73 GL".
 
  - Execute code associated with Q65 decodes of type 'q5' only when the
    Max   Drift   control   is   set  to   50.    This   fix   prevents
@@ -43,6 +44,11 @@ release 2.5.1:
    same  as  the Prompt  to  log  QSO option  when  not  in a  special
    operating context mode.
 
+ - The Fast/Normal/Deep  setting in  Q65 mode is  now a sticky setting
+   and is no longer reset to Fast on program startup or  when Settings
+   has  been opened. The user selection is used for automatic decodes,
+   but Deep is used for any subsequent manual decode attempts.
+
  - New hamlib code to correct minor flaws in controlling several rigs.
 
  - Update  the  Chinese  and  Hong   Kong  translations  of  the  user
@@ -54,7 +60,7 @@ release 2.5.1:
    providing updates for 32-bit only  systems. 32-bit WSJT-X can still
    be  built for  Linux Intel  and is  supported at  least until  some
    prerequisite package is no longer available.
- 
+   
 	        Release: WSJT-X 2.5.1
 	             Oct 21, 2021
 	        ----------------------

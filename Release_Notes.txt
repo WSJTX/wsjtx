@@ -12,7 +12,7 @@
 Copyright 2001 - 2021 by Joe Taylor, K1JT.
 
 	        Release: WSJT-X 2.5.2
-	             Nov 3, 2021
+	             Nov 4, 2021
 	        ----------------------
 
 This is mostly a bug fix  release.  It has the following changes since
@@ -20,6 +20,9 @@ release 2.5.1:
 
  - Repair a  longstanding regression  that caused signal  reports from
    tail-ended Tx2 messages to be omitted from logged information
+
+ - Parse   "dx-call-1 RR73; dx-call-2 <de-call> +nn"  messages  (i3=0,
+   n3=1 DXpedition mode) in regular 77-bit modes
 
  - Repair a regression  associated with setting the  main window width
    on program startup.
@@ -58,7 +61,6 @@ release 2.5.1:
    be  built for  Linux Intel  and is  supported at  least until  some
    prerequisite package is no longer available.
    
-  
 	        Release: WSJT-X 2.5.1
 	             Oct 21, 2021
 	        ----------------------
