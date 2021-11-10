@@ -12,6 +12,19 @@
 Copyright 2001 - 2021 by Joe Taylor, K1JT.
 
 	        Release: WSJT-X 2.5.2
+	             Nov xx, 2021
+	        ----------------------
+
+This is mostly a bug fix  release.  It has the following changes since
+release 2.5.2:
+
+ - Repair a long standing defect with reporting low confidence decodes
+   in the UDP Decode message.
+
+ - Repair several defects in parsing of decoded messages, particularly
+   in EU Contest Mode where sequencing failed.
+ 
+	        Release: WSJT-X 2.5.2
 	             Nov 4, 2021
 	        ----------------------
 
