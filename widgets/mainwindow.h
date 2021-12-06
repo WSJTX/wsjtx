@@ -204,6 +204,7 @@ private slots:
   void on_addButton_clicked();
   void on_dxCallEntry_textChanged (QString const&);
   void on_dxGridEntry_textChanged (QString const&);
+  void on_dxCallEntry_editingFinished();
   void on_dxCallEntry_returnPressed ();
   void on_genStdMsgsPushButton_clicked();
   void on_logQSOButton_clicked();

@@ -8,6 +8,7 @@ module packjt77
   character (len=13), dimension(1:MAXRECENT) :: recent_calls=''
   character (len=13) :: mycall13=''
   character (len=13) :: dxcall13=''
+  character (len=6)  :: dxbase=''
   integer, dimension(1:MAXHASH) :: ihash22=-1
   integer :: nzhash=0
   integer n28a,n28b
@@ -124,6 +125,11 @@ subroutine pack77(msg0,i3,n3,c77)
   integer ntel(3)
 
   msg=msg0
+  if(msg(1:3).eq.'$DX') then
+     i1=index(msg,' ')
+     msg=trim(dxbase)//' '//msg(i1+1:)
+  endif
+
   i3_hint=i3
   n3_hint=n3
   i3=-1

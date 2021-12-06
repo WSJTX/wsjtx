@@ -184,6 +184,8 @@ extern "C" {
   void get_ft4msg_(int* idecode, char* line, int len);
 
   void chk_samples_(int* m_ihsym,int* k, int* m_hsymStop);
+
+  void save_dxbase_(char* dxbase, int len);
 }
 
 int volatile itone[MAX_NUM_SYMBOLS];   //Audio tones for all Tx symbols
@@ -210,7 +212,7 @@ using SpecOp = Configuration::SpecialOperatingActivity;
 namespace
 {
   Radio::Frequency constexpr default_frequency {14076000};
-  QRegExp message_alphabet {"[- @A-Za-z0-9+./?#<>;]*"};
+  QRegExp message_alphabet {"[$- @A-Za-z0-9+./?#<>;]*"};
   // grid exact match excluding RR73
   QRegularExpression grid_regexp {"\\A(?![Rr]{2}73)[A-Ra-r]{2}[0-9]{2}([A-Xa-x]{2}){0,1}\\z"};
   auto quint32_max = std::numeric_limits<quint32>::max ();
@@ -5371,6 +5373,7 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
   auto is_type_one = !is77BitMode () && is_compound && shortList (my_callsign);
   auto const& my_grid = m_config.my_grid ().left (4);
   auto const& hisBase = Radio::base_callsign (hisCall);
+  save_dxbase_(const_cast <char *> ((hisBase + "   ").left (6).toLatin1().constData()),6);
   auto eme_short_codes = m_config.enable_VHF_features () && ui->cbShMsgs->isChecked ()
       && m_mode == "JT65";
 
@@ -5851,6 +5854,13 @@ void MainWindow::on_dxCallEntry_textChanged (QString const& call)
   statusChanged();
   statusUpdate ();
 }
+
+void MainWindow::on_dxCallEntry_editingFinished()
+{
+  auto const& dxBase = Radio::base_callsign (m_hisCall);
+  save_dxbase_(const_cast <char *> ((dxBase + "   ").left (6).toLatin1().constData()),6);
+}
+
 
 void MainWindow::on_dxCallEntry_returnPressed ()
 {
