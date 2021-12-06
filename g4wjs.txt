@@ -408,131 +408,162 @@ Bill helped me in many occasions with WSJT-X always with a very pure
 My very sincere condolence to all his family and friends, I will miss
 him a lot despite I never had the pleasure to meet him.
 
+Martin Davies, G0HDB:
 
-That is truly unwelcome and most distressing news, Joe; I'm sure the vast amounts of time 
-and effort that Bill devoted to the development and support of WSJT-X will be very sorely 
-missed by everyone in the community, whether or not they had ever had any direct dealings 
-with Bill.  
+That is truly unwelcome and most distressing news, Joe; I'm sure the
+vast amounts of time and effort that Bill devoted to the development
+and support of WSJT-X will be very sorely missed by everyone in the
+community, whether or not they had ever had any direct dealings with
+Bill.
 
-Please convey all our sympathies and our deepest condolences to Bill's relatives and friends.
+Please convey all our sympathies and our deepest condolences to Bill's
+relatives and friends.
 
---
-73, Martin G0HDB
+John Nelson, G4KLA:
 
-I am saddened to learn of your news.   This is blow to the WSJT-X community.
+I am saddened to learn of your news.  This is blow to the WSJT-X
+community.
 
-In the early days of Bill’s involvement with WSJT he often logged into my Macs at home to test his software modifications on a Mac until he got a VM working.  He and I had numerous discussions while testing new versions on various Mac OS.   He was generous with his time in helping folks with problems either running the codes or attempting to build the software on various platforms.    The multitude of emails to the development list is a tribute to his commitment to ensure that the various programs operated flawlessly.
+In the early days of Bill’s involvement with WSJT he often logged into
+my Macs at home to test his software modifications on a Mac until he
+got a VM working.  He and I had numerous discussions while testing new
+versions on various Mac OS.  He was generous with his time in helping
+folks with problems either running the codes or attempting to build
+the software on various platforms.  The multitude of emails to the
+development list is a tribute to his commitment to ensure that the
+various programs operated flawlessly.
 
-His involvement with the development of WSJT-X code especially with modernising the structure of the whole program has been immense.   I will certainly miss his advice.
+His involvement with the development of WSJT-X code especially with
+modernising the structure of the whole program has been immense.  I
+will certainly miss his advice.
 
 A sad day…
 
-— John G4KLA
+Alan, G0TLK:
 
 Shocking and saddening news, he will be greatly missed.
 
 My condolences to his family and friends, and RIP Bill.
 
-Alan G0TLK, sent from my mobile device
+Robin, G8DQX:
 
-I only knew Bill through his contributions to the WSJT lists. Those contributions were sharp, radical, and usually encouraging. He was a clearly essential part of a team that is helping Amateur Radio to grow, expand and develop, far beyond what you and I knew when, soldering iron in hand, we first played with radio, all those years ago.
+I only knew Bill through his contributions to the WSJT lists. Those
+contributions were sharp, radical, and usually encouraging. He was a
+clearly essential part of a team that is helping Amateur Radio to
+grow, expand and develop, far beyond what you and I knew when,
+soldering iron in hand, we first played with radio, all those years
+ago.
 
 My condolences to his family and friends. We shall all miss him.
 
 Robin, G8DQX
 
-We were also shocked and very sorry to hear of Bill's sudden passing. I never had the pleasure of meeting him in person.  Like Bob, he attended the same University and read the same degree.
+Charlie Suckling, G3WDG/DL3WDG:
 
-We are so grateful for his contributions over many years to WSJT-X. His support for users was first class, and he even joined the EME reflectors to give support to EME users during the roll-out of Q65, despite not being active himself on EME.  He was contributing there regularly, and some of his last efforts were to support the use of WSJT-X for Doppler control on CW on the microwave bands.
+We were also shocked and very sorry to hear of Bill's sudden
+passing. I never had the pleasure of meeting him in person.  Like Bob,
+he attended the same University and read the same degree.
 
-He was also a very patient and diligent teacher, tutoring and helping  those who wished to make small contributions to the project. I am very grateful for the time he spent in such ways.
+We are so grateful for his contributions over many years to
+WSJT-X. His support for users was first class, and he even joined the
+EME reflectors to give support to EME users during the roll-out of
+Q65, despite not being active himself on EME.  He was contributing
+there regularly, and some of his last efforts were to support the use
+of WSJT-X for Doppler control on CW on the microwave bands.
 
-Bill will surely be greatly missed, and sincere condolences to his family and many friends.
+He was also a very patient and diligent teacher, tutoring and helping
+those who wished to make small contributions to the project. I am very
+grateful for the time he spent in such ways.
+
+Bill will surely be greatly missed, and sincere condolences to his
+family and many friends.
 
 RIP Bill.
 
-Charlie G3WDG / DL3WDG
+James Shaver, N2ADV:
 
-I had the pleasure of taking to Bill over Skype a few times during the development of 1.7 and later 1.8 to chase down some CAT control gremlins with several radios I happen to own. His patience and intelligence was incredible. Such a huge loss to us all. 
+I had the pleasure of talking to Bill over Skype a few times during
+the development of 1.7 and later 1.8 to chase down some CAT control
+gremlins with several radios I happen to own. His patience and
+intelligence was incredible. Such a huge loss to us all.
 
 My sincerest condolences to his family and friends. 
 
-He will definitely be missed but his contributions to the advancement of amateur radio will live on indefinitely. 
+He will definitely be missed but his contributions to the advancement
+of amateur radio will live on indefinitely.
 
-73,
-
-Jim S. 
-N2ADV
+Alessandro Gorobey, IK2
 
 Very sad news and a great loss.
 
 A great teacher.
 
 My sincerest condolences to his family and friends.
-Alessandro Gorobey <algiuga@libero.it>
 
+Jim Preston, N6VH:
 
-This is definitely very sad news. Bill was a very important part of the WSJT team. He will be missed very much.
+This is definitely very sad news. Bill was a very important part of
+the WSJT team. He will be missed very much.
 
 My condolences to his family.
 
-73,
-
-Jim N6VH
+Gary Lane, VK4OO
 
 Very sad news, my condolences to Bills friends and family….
 
-Gary
-VK4OO
+Bob Atkins, KA1GT:
 
-Very sad news, my condolences to Bills friends and family….
-
-Gary
-VK4OO
-
- I was shocked and saddened by the news of Bill's passing.  We chatted on line quite often though we never met in person.  He attended the same university as I didn't, reading the same subjects, but was a hear of two behind me, so we never met their either. Bill will be greatly missed and I send my condolences to his friends and family.
+I was shocked and saddened by the news of Bill's passing.  We chatted
+on line quite often though we never met in person.  He attended the
+same university as I didn't, reading the same subjects, but was a hear
+of two behind me, so we never met their either. Bill will be greatly
+missed and I send my condolences to his friends and family.
 
 RIP Bill.
 
-Bob, KA1GT
+Dave Schmocker, KJ9I:
 
-Joe and everyone:
-This is incredibly sad news.    Bill was always so helpful, highly responsive, and on-target with deep technical solutions. 
-What a wonderful asset Bill was to the hobby and to all with whom he interfaced.  
+This is incredibly sad news.  Bill was always so helpful, highly
+responsive, and on-target with deep technical solutions.
 
-Dave KJ9I
+What a wonderful asset Bill was to the hobby and to all with whom he
+interfaced.
 
-Joe:
+Jim, WB4CGS:
 
-I am very sorry for your loss.
+I am very sorry for this loss.
 
-Jim WB4GCS
+Conrad Farlow, Jim WB4GCS
 
-Joe I am absolutely lost for words. What a terrible shock. I cannot imagine him not being there. My condolences to you, Bill's family and well the whole dev team. We will all miss him Most of all I am sorry that you lost such a good friend.
+Joe I am absolutely lost for words. What a terrible shock. I cannot
+imagine him not being there. My condolences to you, Bill's family and
+well the whole dev team. We will all miss him Most of all I am sorry
+that you lost such a good friend.
 
-73
+Sam Jewell, G4DDK:
 
-Conrad PA5Y
+So sad to hear this news. One of the team who have revolutionised ham
+radio operation, popularised digital and helped realise what we
+thought should be possible.
+
+Vale Bill.
 
 
-So sad to hear this news. One of the team who have revolutionised ham radio operation, popularised digital and helped realise what we thought should be possible.
+Nick, NN3Y:
 
-Vale Bill
+R I. P. Bill.  He'll be missed. My sincere condolences to his family
+and friends.
 
-Sam Jewell, G4DDK
 
-R I. P. Bill, 
+Jay, KA9CFD:
 
-He'll be missed. My sincere condolences to his family and friends.
-
-Nick NN3Y
-
-Jay KA9CFD — 12/04/2021
 Shocking and very sorry news. RIP Bill.
 
-Mirek OK2AQ — Yesterday at 7:24 AM
+Mirek, OK2AQ:
+
 Very sad news  for us WSJT-X users. R.I.P. Bill
 
-OH6KTL  Lasse — Yesterday at 9:15 AM
+OH6KTL, Lasse:
+
 ge and  sad to hear about Bill
 
