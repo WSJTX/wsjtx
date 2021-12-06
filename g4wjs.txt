@@ -1,0 +1,821 @@
+K1JT: I am very sorry to convey the sad news that Bill Somerville,
+G4WJS, died suddenly and unexpectedly a few days ago.  He was only
+about 65 years old.
+
+Bill was a dear friend and very close colleague, though (as is often
+the case with worldwide ham radio friendships) we had met in person
+only a few times.  In 2013 he was the first to join me in forming a
+core development group for WSJT-X, which at that time was at program
+version 0.99.  Bill has been closely involved with WSJT-X and related
+software projects ever since.
+
+Our free, open-source software could not have achieved its extensive
+worldwide popularity and influence in ham radio without Bill's
+essential contributions.  In addition to writing code for important
+portions of the Qt-based user interface for WSJT-X, Bill helped to
+bring the overall program structure more nearly up to professional
+standards.  Moreover, he devoted countless hours to program support,
+patiently answering user's questions on WSJT-related forums.
+
+I have only started to think about the many ways in which I will miss
+Bill -- not no mention how we all will miss his immense and positive
+impact on WSJT-X and related projects.  For more than eight years Bill
+and I communicated closely and regularly on ham radio topics,
+sometimes many times per day.  Perhaps I will be able to write more
+about it in the near future.
+
+Rest in peace, dear friend G4WJS.
+
+
+ Reply
+ Like
+ More
+ 3 people liked this
+ Stan GammonsDec 4   #30504  
+So sad to hear that Joe. Bill will be greatly missed.
+
+Prayers for his family and friends.
+
+Rest in peace Bill
+
+Stan
+KM4HQE
+toggle quoted messageShow quoted text
+ Reply
+ Like
+ More
+ ColinDec 4   #30505  
+Joe, this is truly sad news.  Bill has been a wonderful resource and supported all of us.
+Please pass condolences to his family.
+Sincerely,
+Colin Haig VE3MSC
+toggle quoted messageShow quoted text
+ Reply
+ Like
+ More
+ Pa3gcuDec 4   #30506  
+May he rest in peace.
+
+Verstuurd vanaf mijn iPhone
+toggle quoted messageShow quoted text
+ Reply
+ Like
+ More
+ Phil HazeltonDec 4   #30507  
+This is shocking news, he was such talent, he will be sorely missed, condolences to his family.
+Philip G8PJH
+toggle quoted messageShow quoted text
+ Reply
+ Like
+ More
+ Philip RoseDec 4   #30508  
+RIP indeed Bill,
+
+ 
+
+You have provided an excellent service to the WSJT-X community. I think your last post was a couple of days ago. We will all miss you, and your incisive resolution of all our problems.
+
+ 
+
+Requiescat in pace.
+
+ 
+
+73 Phil GM3ZZA.
+
+ 
+
+Sent from Mail for Windows
+
+ 
+
+toggle quoted messageShow quoted text
+ Reply
+ Like
+ More
+ Dave AA6YQDec 4   #30509  
+I am very sorry to convey the sad news that Bill Somerville, G4WJS, died suddenly and unexpectedly a few days ago.  He was only about 65 years old.
+
+Bill was a dear friend and very close colleague, though (as is often the case with worldwide ham radio friendships) we had met in person only a few times.  In 2013 he was the first to join me in forming a core development group for WSJT-X, which at that time was at program version 0.99.  Bill has been closely involved with WSJT-X and related software projects ever since.
+
+Our free, open-source software could not have achieved its extensive worldwide popularity and influence in ham radio without Bill's essential contributions.  In addition to writing code for important portions of the Qt-based user interface for WSJT-X, Bill helped to bring the overall program structure more nearly up to professional standards.  Moreover, he devoted countless hours to program support, patiently answering user's questions on WSJT-related forums.
+
+I have only started to think about the many ways in which I will miss Bill -- not no mention how we all will miss his immense and positive impact on WSJT-X and related projects.  For more than eight years Bill and I communicated closely and regularly on ham radio topics, sometimes many times per day.  Perhaps I will be able to write more about it in the near future.
+
+Rest in peace, dear friend G4WJS.
+
++ A huge loss for all of us. Bill always took the time to provide a friendly, accurate, and helpful answer to any question that came his way.  He set one good example after another.
+
+        73,
+
+              Dave, AA6YQ
+ Reply
+ Like
+ More
+ Reino TalarmoDec 4   #30510  
+RIP Bill,
+
+We will miss your kind advice.
+
+Reino, OH3mA
+ Reply
+ Like
+ More
+ Tom V. SegalstadDec 4   #30511  
+The silent key of Bill is very sad news.
+
+Bill has been extremely helpful for radio amateurs to make WSJT-X fit their different radios and computers. We have seen E-mail answers from him coming at all times during borh day and night. And we wonder if he ever got time to sleep or eat, in-between his good answers and advices to radio amateurs world wide.
+
+So rest in peace Bill, and thank you very much for all the help you have provided to radio amateurs world wide, for making their digital radio amateur activity very successful.
+
+73 from Tom, LA4LN
+(NRRL HF Traffic Manager)
+
+
+Sent from Outlook Mobile
+toggle quoted messageShow quoted text
+ Reply
+ Like
+ More
+ JohnDec 4   #30512  
+So long, Bill, condolences to his family.
+
+John
+VE7KKQ
+toggle quoted messageShow quoted text
+ Reply
+ Like
+ More
+ Tom M0LTEDec 4   #30513  
+Unreal. Deeply shocking. 
+
+Heartfelt condolences from us all at the Reading club, where Bill was a member.
+
+Tom M0LTE
+
+
+toggle quoted messageShow quoted text
+ Reply
+ Like
+ More
+ Борис РомановDec 4   #30514  
+Sad news. Condolences to Bill's family and friends.
+Boris UX8IW
+ 
+Суббота, 4 декабря 2021, 20:25 +02:00 от Joe <joe@...>:
+ 
+I am very sorry to convey the sad news that Bill Somerville, G4WJS, died
+suddenly and unexpectedly a few days ago. He was only about 65 years old.
+
+Bill was a dear friend and very close colleague, though (as is often the
+case with worldwide ham radio friendships) we had met in person only a
+few times. In 2013 he was the first to join me in forming a core
+development group for WSJT-X, which at that time was at program version
+0.99. Bill has been closely involved with WSJT-X and related software
+projects ever since.
+
+Our free, open-source software could not have achieved its extensive
+worldwide popularity and influence in ham radio without Bill's essential
+contributions. In addition to writing code for important portions of
+the Qt-based user interface for WSJT-X, Bill helped to bring the overall
+program structure more nearly up to professional standards. Moreover,
+he devoted countless hours to program support, patiently answering
+user's questions on WSJT-related forums.
+
+I have only started to think about the many ways in which I will miss
+Bill -- not no mention how we all will miss his immense and positive
+impact on WSJT-X and related projects. For more than eight years Bill
+and I communicated closely and regularly on ham radio topics, sometimes
+many times per day. Perhaps I will be able to write more about it in
+the near future.
+
+Rest in peace, dear friend G4WJS.
+
+-- Joe, K1JT
+
+
+ 
+ 
+ 
+--
+Борис Романов
+ 
+ Reply
+ Like
+ More
+ Ken CoxDec 4   #30515  
+Sorry to hear about Bill's passing. I will miss reading his answers to the many questions posted. I have learned a lot from them.Ken WA8OMR.
+ Reply
+ Like
+ More
+ Gary trockDec 4   #30516  
+Very Sad.
+I’ve been reading his posts since I joined.
+RIP.  Z’’l.
+toggle quoted messageShow quoted text
+ Reply
+ Like
+ More
+ Dave SellarsDec 4   #30517  
+Very sad news indeed.  Amateur Radio worldwide has lost a tremendous ham and friend.  His contributions to WSJT-X and this group will never be forgotten.
+
+Dave
+KB4JB
+
+toggle quoted messageShow quoted text
+ Reply
+ Like
+ More
+ Lynn MearsDec 4   #30519  
+Extremely sad news. I haven’t been involved with WSJT that long, but it was obvious that Bill donated a lot of time and effort towards WSJT and helping in many different ways.  He will be missed greatly. 
+
+Lynn, K0CLM
+(Previously WA4FKX)
+toggle quoted messageShow quoted text
+ Reply
+ Like
+ More
+ M0PWXDec 4   #30524  
+Sad news indeed,
+
+ 
+
+Bill was a great resource and font of so much knowledge, as well as having the patience of a saint when dealing with some members / questions
+
+ 
+
+Will be greatly missed on here
+
+ 
+
+Peter
+
+M0PWX
+
+ 
+
+M0PWX Grabber Page (qsl.net)
+
+ 
+
+
+> On Dec 4, 2021, at 11:25 AM, Joe <joe@...> wrote:
+>
+> ﻿I am very sorry to convey the sad news that Bill Somerville, G4WJS, died suddenly and unexpectedly a few days ago.  He was only about 65 years old.
+>
+> Bill was a dear friend and very close colleague, though (as is often the case with worldwide ham radio friendships) we had met in person only a few times.  In 2013 he was the first to join me in forming a core development group for WSJT-X, which at that time was at program version 0.99.  Bill has been closely involved with WSJT-X and related software projects ever since.
+>
+> Our free, open-source software could not have achieved its extensive worldwide popularity and influence in ham radio without Bill's essential contributions.  In addition to writing code for important portions of the Qt-based user interface for WSJT-X, Bill helped to bring the overall program structure more nearly up to professional standards.  Moreover, he devoted countless hours to program support, patiently answering user's questions on WSJT-related forums.
+>
+> I have only started to think about the many ways in which I will miss Bill -- not no mention how we all will miss his immense and positive impact on WSJT-X and related projects.  For more than eight years Bill and I communicated closely and regularly on ham radio topics, sometimes many times per day.  Perhaps I will be able to write more about it in the near future.
+>
+> Rest in peace, dear friend G4WJS.
+>
+>    -- Joe, K1JT
+
+ Reply
+ Like
+ More
+ Russ RavellaDec 4   #30526  
+Incredibly sad news.  What a wonderful, valuable and kind man Bill was.  How much better the world would be with more Bill’s in it.  Thank you and Rest In Peace Bill Somerville.
+
+
+toggle quoted messageShow quoted text
+ Reply
+ Like
+ More
+ Philip RoseDec 4   #30527  
+That said, I did notice Bill was  getting a bit tetchy of late to people who were asking questions that had already been answered.
+
+ 
+
+As I said before – let him rest in peace.
+
+ 
+
+Phil GM3ZZA
+
+ 
+
+Sent from Mail for Windows
+
+ 
+
+toggle quoted messageShow quoted text
+ Reply
+ Like
+ More
+ Sam BirnbaumDec 4   #30528  
+So very sorry to hear this sad news. Bill has been very extremely helpful to me in 
+providing the information that allowed me to provide a complimentary program for 
+WSJT-X so that visually impaired/blind hams can also partake in this fantastic 
+program and its modes.
+
+Rest In Peace Bill, you will be sorely missed by all.
+
+Sam W2JDB
+
+
+
+toggle quoted messageShow quoted text
+
+
+ Jack TramplerDec 4   #30531  
+I never worked Bill.  Did he even have time to operate?  I never met Bill.  But I would have liked to.  I never sent him an email, either personal or on this group.  I wish I had.
+
+I enjoyed my daily (actually several times a day) reading of the messages posted in this group and his replies.  I learned a lot from them.  This man had so much knowledge and the fact that he took the time to deal with almost every post in this group and share that knowledge, its truly a testament to this man.  I for one will surely miss him.
+
+I wish I knew him better.  Rest in Peace, Bill.
+
+73,
+Jack - N2JT
+
+toggle quoted messageShow quoted text
+ Reply
+ Like
+ More
+ Pete SmithDec 4   #30532  
+Terrible news.  Though I'm not a great devotee of the digital modes (except CW), without Bill I'm convinced I would not have made a single QSO using WSJT-X.  My sympathy to his family and friends.
+73, Pete N4ZR
+Check out the new Reverse Beacon Network
+web server at <http://beta.reversebeacon.net>.
+For spots, please use your favorite 
+"retail" DX cluster.
+On 12/4/2021 1:24 PM, Joe wrote:
+toggle quoted messageShow quoted text
+ Reply
+ Like
+ More
+ neil_zampellaDec 4   #30534  
+I agree.   Bill was patient with everyone, even me when I replied to a post and chewed my foot up to the ankle.    
+
+His passing will affect much done within WSJT-X, as well as Hamlib.   He was a font of knowledge and 'corporate' memory.
+
+We may not see his like again.
+
+Neil, KN3ILZ
+toggle quoted messageShow quoted text
+ Reply
+ Like
+ More
+ Jim BrownDec 4   #30535  
+If Bill had done nothing more than provide what seemed like 24/7 support here, his contribution would have been monumental. Thanks Bill, RIP.
+
+73, Jim K9YC
+toggle quoted messageShow quoted text
+ Reply
+ Like
+ More
+ K3JRZDec 4   #30538  
+
+Wow. Very sad to hear.
+
+I had sent many emails to him looking for help with WSJT-X when I first started having my first issues with it when I started with the software and then again after several macOS updates. Always a great guy to get help from. He will surely be missed. My condolences to his family and to all that knew him.
+
+73 BIll G4WJS.
+
+Jeff
+K3JRZ
+
+
+
+
+toggle quoted messageShow quoted text
+--
+
+Thanks & 73,
+
+Jeff
+K3JRZ
+https://www.qrz.com/db/K3JRZ
+100WAAW #404
+ Reply
+ Like
+ More
+ Lance Collister, W7GJDec 4   #30539  
+Our heart-felt condolences to you, Joe, and to all the folks like me whom he so patiently helped over the years. He was an amazing member of the WSJT-X team, and I found myself always amazed at how in the world he was able to answer all the questions posed to him by users of WSJT-X on such a myriad of different rigs with different software. His contributions will be long remembered, and very much appreciated. So sad to see someone go who gave so much so freely to our community. RIP, Bill.
+
+73, Lance
+toggle quoted messageShow quoted text
+-- 
+Lance Collister, W7GJ(ex WA3GPL, WA1JXN, WA1JXN/C6A, ZF2OC/ZF8, E51SIX, 3D2LR, 5W0GJ, E6M, TX5K, KH8/W7GJ, V6M, T8GJ, VK9CGJ, VK9XGJ, C21GJ, CP1GJ, S79GJ, TX7MB)
+P.O. Box 73
+Frenchtown, MT   59834-0073
+USA
+TEL: (406) 626-5728
+QTH: DN27ub
+URL: http://www.bigskyspaces.com/w7gj
+Skype: lanceW7GJ
+2m DXCC #11 - 6m DXCC #815 - FFMA #7
+
+Interested in 6m EME?  Ask me about subscribing to the new Magic Band EME
+email group, or just fill in the request box at the bottom of my web
+page (above)!
+ Reply
+ Like
+ More
+ Klaus WernerDec 4   #30540  
+Thanks to Bill’s helpful explanations I was able to get going on WSJTX.
+
+I didn’t know him or anything about him except what has been written in previous comments.
+
+May he rest in peace.
+
+73
+
+Klaus G7RTI
+
+ Reply
+ Like
+ More
+ Wayne RashDec 4   #30541  
+This is so sad. Bill always showed great patience with my dumb questions. He played a big role in making WSJTX a joy to use. Ham radio owes him a huge debt. 
+
+Rest In Peace, Bill. 
+
+Wayne, N4HCR
+toggle quoted messageShow quoted text
+ Reply
+ Like
+ More
+ DaveDec 4   #30543  
+Very sad to hear. He will live in our memories and our operating.
+toggle quoted messageShow quoted text
+ Reply
+ Like
+ More
+ Ed RadloDec 4   #30546  
+Bill always answered the various online queries vey quickly, and his vast knowledge helped many of us
+get on track with all of these new digital modes.
+
+A great loss to ham radio.
+
+Ed  AJ6V
+
+
+toggle quoted messageShow quoted text
+ Reply
+ Like
+ More
+ bownesDec 4   #30547  
+Very sad to hear. May his memory be a blessing to his family and all who knew him.
+
+In the Law Enforcement, Fire and Emergency Medical Services, the passing on of one such is often marked with a 'Last Call' or 'Final Dispatch' in which the departed's call sign is requested thrice for one last time. Usually at a pre-arranged or significant time. Seems appropriate in this case as well. Perhaps you could do that for us Joe.
+
+Bob
+
+toggle quoted messageShow quoted text
+ Reply
+ Like
+ More
+ Rick I2BRTDec 5   #30549  
+Very sad news and a great loss for our cumunity.
+Thanks for all the effort and friendship Bill.
+Rest in peace.
+Rick.
+ Reply
+ Like
+ More
+ Andy GD0TEPDec 5   #30550  
+>>>I never worked Bill.  Did he even have time to operate? 
+
+ 
+
+Yes, I worked him on 15m in August just gone, and on 6m back in May. Both on FT8 of course 😊
+
+ 
+
+73
+
+Andy
+
+http://gd0tep.com
+
+ 
+
+ Reply
+ Like
+ More
+ GwenDec 5   #30551  
+I also worked him,   1600Z on the 24th of October,   15 meters, FT8
+
+Gwen
+KI5PXQ
+
+ 
+toggle quoted messageShow quoted text
+ Reply
+ Like
+ More
+ Ria, N2RJDec 5   #30552  
+This is truly awful news. Bill will certainly be missed.
+
+73
+Ria
+N2RJ
+
+
+toggle quoted messageShow quoted text
+ Reply
+ Like
+ More
+ Walter OE6IWG (JN77pk)Dec 5   #30553  
+VY sad News :-(
+
+Bill was a GREAT helper - also for me.
+my condolences to his family and friends
+
+RIP Bill, cul
+--
+--- 
+73 de Walter - OE6IWG
+ Reply
+ Like
+ More
+ Ed WilsonDec 5   #30554  
+This is a tremendous loss to the amateur radio community, but as someone who lost his brother only a few weeks ago, I know that the loss is much greater to his family and close friends...my condolences to each of them. RIP, Bill...
+
+Ed, K0KC
+ Reply
+ Like
+ More
+ Amos Sobel 4X4MFDec 5   #30555  
+Me and the WSJT-X community mourn the departure of Bill Somerville
+
+RIP ZL Bill
+
+Amos 4X4MF
+toggle quoted messageShow quoted text
+ Reply
+ Like
+ More
+ BobDec 5   #30556  
+I deeply regret not sending Bill a "personal thank you" e-mail for his support of our hobby.  I had planned on doing so, but didn't want to add traffic to his in-box admin!  He will be missed, but fondly remembered.
+
+Bob
+K4RCG
+
+toggle quoted messageShow quoted text
+ Reply
+ Like
+ More
+ Hamish G0GLGDec 5   #30557  
+Very sad day for amateur radio.
+
+A Tribute to my dearest friend Bill Somerville G4WJS.
+
+I apologize for length of this post. This might answer a few previous posts .Knowing Bill he will be still reading all these posts from a better place.
+
+I thank you for your speedy post Joe.
+
+Bill G4WJS was one of my dearest friends living just 4 miles apart.We spoke 2/3 times a week and at times several times a day.
+After a 20 year plus break Bill spurred me on to come back into the radio family.I OWE HIM A LOT.Thanks to him my major interest in the last 10 years has been WSJT-X. Bill also had a passion for Photography and me being a Photographer for The Sun Newspaper In London before I retired had another common interest we liked to have a good natter but I often came off the worst.Bill lived on his own so we kept a close eye on each other.
+Bill had a degree in Chemistry but as I understand was self taught in computing and electronics.Please see his QRZ page.
+He was a whizz.He was a great natural teacher and Joe I think this was one of the reasons he got on so well with you and the group.He remarked to me many times "I never mind helping anyone provided they help themselves" At times glaring at me  muttering under his breath "Read the notes and the posts" Sometimes it so annoyed him when I could not keep a straight face..we all know the story.Bill always willing to help with a computer grafted to his hand.
+Over the last ten years he has like others in the group spent hours and hours involved with WSJX-X.He had a great admiration for open source programs.Made many friends within the digital community and a big respect for Dxlabs {Dave] JTalert [Laurie] among others. I was always giving him praise for taking a break and TXing winding up this 4 ele ,of late not often[Bill head in PC} every day I would have a crafty check on his PSK. Bill was very much in favour of Using L.O.T.W but never collected awards,but on receiving a trophy for technical achievement announced at Dayton when he told me there was no emotion but I knew Bill just to well he was chuffed !
+
+Sadly last Friday after never responding to my calls I found Bill seated in his shack at peace surrounded by the things he loved most.
+I am still total shock!!!
+Such a loss of a talented and loyal friend and as I have said he shall be greatly missed by many in our radio family.
+
+R.I.P.William [Bill ] G4WJS. God Bless you and till we meet again 73..........................................Cheers mate!
+
+
+ 
+
+
+
+toggle quoted messageShow quoted text
+ Reply
+ Like
+ More
+ 3 people liked this
+ Ronnie HullDec 5   #30559  
+I am greatly saddened to hear this news
+toggle quoted messageShow quoted text
+ Reply
+ Like
+ More
+ KeithDec 5   #30560  
+Great tribute to a wonderful man.
+
+Keith Wood 
+W4RPE
+
+
+
+
+
+toggle quoted messageShow quoted text
+ Reply
+ Like
+ More
+ CarlosDec 5   #30561  
+May I also do my sadly condolences to his family and his friends !
+He will surely be missed by all the hams.
+Thanks for got in touch with you, dear Bill.
+Good luck in your new place, Bill, I miss you,
+Karl OE3JAG
+Am 05.12.21, 17:20 schrieb Ronnie Hull <w5sum@...>:
+toggle quoted messageShow quoted text
+ Reply
+ Like
+ More
+ William HensleyDec 5   #30563  
+A great tribute, Paul!  I'm sorry you were the one to find him, yet I sense you would both want it that way.  I did not know Bill, but he made a tremendous contribution to the WSJT-X community.  He will be missed.
+
+RIP, Bill.  Thank you, Paul.
+
+73, Kim - WG8S
+
+toggle quoted messageShow quoted text
+ Reply
+ Like
+ More
+ Bernd - KB7AKDec 5   #30564  
+Thank you for your tribute Paul, we will all miss Bill dearly.
+
+73,
+Bernd - KB7AK
+ Reply
+ Like
+ More
+ Philip RoseDec 5   #30565  
+I am so sorry Paul, it must have been awful for you to find Bill like that.
+
+ 
+
+As far as I can see we as amateurs who have been helped by Bill, should keep up his good work. I know I can’t alone.
+
+ 
+
+His advice was definitive. Others not so.
+
+ 
+
+88 Phil GM3ZZA
+
+ 
+
+Sent from Mail for Windows
+
+ 
+
+toggle quoted messageShow quoted text
+ Reply
+ Like
+ More
+ Jim BrownDec 5   #30571  
+On 12/5/2021 8:17 AM, Paul via groups.io wrote:
+A Tribute to my dearest friend Bill Somerville G4WJS.
+Thanks very much for this lovely and loving post. As you and Joe have so eloquently written, Bill exemplified  the best of the ham spirit, by giving and sharing far more than he received.
+
+73, Jim K9YC
+ Reply
+ Like
+ More
+ va7qiDec 5   #30572  
+Very sorry to hear about Bill.  I enjoyed reading his comments and very much appreciate his contribution for WSTJ-X.
+
+His name and callsign will be remembered for a long time as a shining light of the ham radio community.
+
+73 de va7qi,               ....Erik.
+
+My God!
+
+Whats terrible news is this!
+
+Bill helped me in many occasions with WSJT-X always with a very pure "ham-spirit" and availability.
+
+My very sincere condolence to all his family and friends, I will miss him a lot despite I never had the pleasure to meet him.
+
+---
+73 de Marco, PY1ZRJ (former IK5BCU)
+
+That is truly unwelcome and most distressing news, Joe; I'm sure the vast amounts of time 
+and effort that Bill devoted to the development and support of WSJT-X will be very sorely 
+missed by everyone in the community, whether or not they had ever had any direct dealings 
+with Bill.  
+
+Please convey all our sympathies and our deepest condolences to Bill's relatives and friends.
+
+--
+73, Martin G0HDB
+
+I am saddened to learn of your news.   This is blow to the WSJT-X community.
+
+In the early days of Bill’s involvement with WSJT he often logged into my Macs at home to test his software modifications on a Mac until he got a VM working.  He and I had numerous discussions while testing new versions on various Mac OS.   He was generous with his time in helping folks with problems either running the codes or attempting to build the software on various platforms.    The multitude of emails to the development list is a tribute to his commitment to ensure that the various programs operated flawlessly.
+
+His involvement with the development of WSJT-X code especially with modernising the structure of the whole program has been immense.   I will certainly miss his advice.
+
+A sad day…
+
+— John G4KLA
+
+Shocking and saddening news, he will be greatly missed.
+
+My condolences to his family and friends, and RIP Bill.
+
+Alan G0TLK, sent from my mobile device
+
+I only knew Bill through his contributions to the WSJT lists. Those contributions were sharp, radical, and usually encouraging. He was a clearly essential part of a team that is helping Amateur Radio to grow, expand and develop, far beyond what you and I knew when, soldering iron in hand, we first played with radio, all those years ago.
+
+My condolences to his family and friends. We shall all miss him.
+
+Robin, G8DQX
+
+We were also shocked and very sorry to hear of Bill's sudden passing. I never had the pleasure of meeting him in person.  Like Bob, he attended the same University and read the same degree.
+
+We are so grateful for his contributions over many years to WSJT-X. His support for users was first class, and he even joined the EME reflectors to give support to EME users during the roll-out of Q65, despite not being active himself on EME.  He was contributing there regularly, and some of his last efforts were to support the use of WSJT-X for Doppler control on CW on the microwave bands.
+
+He was also a very patient and diligent teacher, tutoring and helping  those who wished to make small contributions to the project. I am very grateful for the time he spent in such ways.
+
+Bill will surely be greatly missed, and sincere condolences to his family and many friends.
+
+RIP Bill.
+
+Charlie G3WDG / DL3WDG
+
+I had the pleasure of taking to Bill over Skype a few times during the development of 1.7 and later 1.8 to chase down some CAT control gremlins with several radios I happen to own. His patience and intelligence was incredible. Such a huge loss to us all. 
+
+My sincerest condolences to his family and friends. 
+
+He will definitely be missed but his contributions to the advancement of amateur radio will live on indefinitely. 
+
+73,
+
+Jim S. 
+N2ADV
+
+Very sad news and a great loss.
+
+A great teacher.
+
+My sincerest condolences to his family and friends.
+Alessandro Gorobey <algiuga@libero.it>
+
+
+This is definitely very sad news. Bill was a very important part of the WSJT team. He will be missed very much.
+
+My condolences to his family.
+
+73,
+
+Jim N6VH
+
+Very sad news, my condolences to Bills friends and family….
+
+Gary
+VK4OO
+
+Very sad news, my condolences to Bills friends and family….
+
+Gary
+VK4OO
+
+ I was shocked and saddened by the news of Bill's passing.  We chatted on line quite often though we never met in person.  He attended the same university as I didn't, reading the same subjects, but was a hear of two behind me, so we never met their either. Bill will be greatly missed and I send my condolences to his friends and family.
+
+RIP Bill.
+
+Bob, KA1GT
+
+Joe and everyone:
+This is incredibly sad news.    Bill was always so helpful, highly responsive, and on-target with deep technical solutions. 
+What a wonderful asset Bill was to the hobby and to all with whom he interfaced.  
+
+Dave KJ9I
+
+Joe:
+
+I am very sorry for your loss.
+
+Jim WB4GCS
+
+Joe I am absolutely lost for words. What a terrible shock. I cannot imagine him not being there. My condolences to you, Bill's family and well the whole dev team. We will all miss him Most of all I am sorry that you lost such a good friend.
+
+73
+
+Conrad PA5Y
+
+
+So sad to hear this news. One of the team who have revolutionised ham radio operation, popularised digital and helped realise what we thought should be possible.
+
+Vale Bill
+
+Sam Jewell, G4DDK
+
+R I. P. Bill, 
+
+He'll be missed. My sincere condolences to his family and friends.
+
+Nick NN3Y
+
+Jay KA9CFD — 12/04/2021
+Shocking and very sorry news. RIP Bill.
+
+Mirek OK2AQ — Yesterday at 7:24 AM
+Very sad news  for us WSJT-X users. R.I.P. Bill
+
+OH6KTL  Lasse — Yesterday at 9:15 AM
+ge and  sad to hear about Bill
+
