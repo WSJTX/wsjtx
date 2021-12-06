@@ -208,7 +208,7 @@ namespace
   int const combo_box_item_disabled (0);
 
 //  QRegExp message_alphabet {"[- A-Za-z0-9+./?]*"};
-  QRegularExpression message_alphabet {"[- @A-Za-z0-9+./?#<>]*"};
+  QRegularExpression message_alphabet {"[- @A-Za-z0-9+./?#<>;$]*"};
   QRegularExpression RTTY_roundup_exchange_re {
     R"(
         (
