@@ -451,11 +451,11 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,nzhsym,lapon,     &
      if(.not.nagain) then
        xsnr=xsnr2
     endif
-    if(nsync.le.10 .and. xsnr.lt.-24.0) then    !bail out, likely false decode
+    if(nsync.le.6 .and. xsnr.lt.-26.0) then    !bail out, likely false decode
        nbadcrc=1
        return
     endif
-    if(xsnr .lt. -24.0) xsnr=-24.0
+    if(xsnr .lt. -26.0) xsnr=-26.0
     return
   enddo
   return
