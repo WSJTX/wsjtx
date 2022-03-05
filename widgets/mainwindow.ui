@@ -3460,6 +3460,7 @@ QLabel[oob=&quot;true&quot;] {
     <addaction name="actionEnable_AP_JT65"/>
     <addaction name="actionEnable_AP_DXcall"/>
     <addaction name="actionAuto_Clear_Avg"/>
+    <addaction name="actionReduce_false_decodes"/>
    </widget>
    <widget class="QMenu" name="menuSave">
     <property name="title">
@@ -4054,6 +4055,14 @@ QLabel[oob=&quot;true&quot;] {
    </property>
    <property name="text">
     <string>Disable writing of ALL.TXT</string>
+   </property>
+  </action>
+  <action name="actionReduce_false_decodes">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Reduce false decodes</string>
    </property>
   </action>
  </widget>

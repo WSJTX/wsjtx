@@ -1223,6 +1223,7 @@ void MainWindow::writeSettings()
   m_settings->setValue ("bh_17mDXp", ui->cb17mDXp->isChecked() );
   m_settings->setValue ("bh_15mDXp", ui->cb15mDXp->isChecked() );
   m_settings->setValue ("bh_10mDXp", ui->cb10mDXp->isChecked() );
+  m_settings->setValue ("reduceFalseDecodes", ui->actionReduce_false_decodes->isChecked() );
   m_settings->setValue ("actionDontSplitALLTXT", ui->actionDon_t_split_ALL_TXT->isChecked() );
   m_settings->setValue ("splitAllTxtYearly", ui->actionSplit_ALL_TXT_yearly->isChecked() );
   m_settings->setValue ("splitAllTxtMonthly", ui->actionSplit_ALL_TXT_monthly->isChecked() );
@@ -1301,6 +1302,7 @@ void MainWindow::readSettings()
   ui->cb17mDXp->setChecked(m_settings->value("bh_17mDXp", false).toBool());
   ui->cb15mDXp->setChecked(m_settings->value("bh_15mDXp", false).toBool());
   ui->cb10mDXp->setChecked(m_settings->value("bh_10mDXp", false).toBool());
+  ui->actionReduce_false_decodes->setChecked(m_settings->value("reduceFalseDecodes", false).toBool());
   ui->actionDon_t_split_ALL_TXT->setChecked(m_settings->value("actionDontSplitALLTXT", true).toBool());
   ui->actionSplit_ALL_TXT_yearly->setChecked(m_settings->value("splitAllTxtYearly", false).toBool());
   ui->actionSplit_ALL_TXT_monthly->setChecked(m_settings->value("splitAllTxtMonthly", false).toBool());
@@ -3416,6 +3418,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
       line_read = line_read.left (p - line_read.constData ());
     }
     bool haveFSpread {false};
+    bool blockUDP {false};                   // UR  allow udp spotting (JTAlert) for all non-filtered messages
     float fSpread {0.};
     if (m_mode.startsWith ("FST4"))
       {
@@ -3530,10 +3533,45 @@ void MainWindow::readFromStdout()                             //readFromStdout
           }
         } else {
           DecodedText decodedtext1=decodedtext0;
-          ui->decodedTextBrowser->displayDecodedText (decodedtext1, m_config.my_callsign (), m_mode, m_config.DXCC (),
-                                                      m_logBook, m_currentBand, m_config.ppfx (),
-                                                      ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
-                                                      haveFSpread, fSpread);
+
+          // Filtering out some false decodes
+          if (SpecOp::NONE == m_config.special_op_id() && ui->actionReduce_false_decodes->isChecked()
+              && !decodedtext.string().contains("QRP")                    // pass all QRP stations
+              ) {
+              if (((decodedtext.string().contains(m_baseCall+"/R")        // rover calls
+                   || decodedtext.string().contains("/R")                 // rover calls
+                   || decodedtext.string().contains(" R ")                // R in contest message
+                   || decodedtext.string().contains("<...> <...>")        // two unresolved hash codes
+                   || (decodedtext.string().contains("<...>")
+                       && (decodedtext.string().contains(QRegularExpression {"\\s\\D\\D\\D"})       // hash + invalid prefix
+                       || decodedtext.string().contains("/P")))                                     // hash + /P call
+                   || decodedtext.string().contains(QRegularExpression {"(\\w+)/P (\\w+)/P"})       // two /P calls
+                   || decodedtext.string().contains(QRegularExpression {"\\w\\w\\w\\w\\w\\w\\w\\w"})   // likely invalid calls
+                   || decodedtext.string().contains(QRegularExpression {"\\d\\d\\d \\d\\d\\d"})     // contest messages
+                    )                                                // for such SNRmin = -22 and -2 < dt <2
+                 && (decodedtext.string().contains("-23") || decodedtext.string().contains("-24") ||
+                     decodedtext.string().contains("-25") || decodedtext.string().contains("-26")
+                   || decodedtext.string().contains("2.")))
+              or ((decodedtext.string().contains("<...>")                 // one unresolved hash code
+                   || decodedtext.string().contains(";")                  // DXp mode messages
+                   || decodedtext.string().contains("/"))                 // any "/" call
+                 && (decodedtext.string().contains("-26")            // for such SNRmin = -25 and -2.4 < dt <2.4
+                   || decodedtext.string().contains("2.5")))
+              or (decodedtext.string().contains("-26") && decodedtext.string().contains("2."))     // extremely weak decodes with dt > 2)
+                  )  {
+                   blockUDP = true;                              // block udp spotting for false decodes (JTAlert)
+              } else {
+                ui->decodedTextBrowser->displayDecodedText (decodedtext1, m_config.my_callsign (), m_mode, m_config.DXCC (),
+                    m_logBook, m_currentBand, m_config.ppfx (),
+                ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
+                    haveFSpread, fSpread);
+              }
+          } else {
+            ui->decodedTextBrowser->displayDecodedText (decodedtext1, m_config.my_callsign (), m_mode, m_config.DXCC (),
+                m_logBook, m_currentBand, m_config.ppfx (),
+            ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
+                haveFSpread, fSpread);
+            }
 
           if (m_config.highlight_DXcall () && (m_hisCall!="") && ((decodedtext.string().contains(QRegularExpression {"(\\w+) " + m_hisCall}))
                || (decodedtext.string().contains(QRegularExpression {"(\\w+) <" + m_hisCall +">"}))
@@ -3642,6 +3680,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
         m_QSOText = decodedtext.string ().trimmed ();
       }
 
+      if (!blockUDP)    // block udp spotting for false decodes (JTAlert)
       postDecode (true, decodedtext.string ());
 
       if(m_mode=="FT8" and SpecOp::HOUND==m_config.special_op_id()) {
