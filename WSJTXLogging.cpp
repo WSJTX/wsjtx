@@ -155,9 +155,9 @@ namespace
     // Per channel severity level filter
     using min_severity_filter = expr::channel_severity_filter_actor<std::string, trivial::severity_level>;
     min_severity_filter min_severity = expr::channel_severity_filter (channel, severity);
-    min_severity["SYSLOG"] = trivial::info;
-    min_severity["RIGCTRL"] = trivial::info;
-    min_severity["DATALOG"] = trivial::info;
+    min_severity["SYSLOG"] = trivial::error;
+    min_severity["RIGCTRL"] = trivial::warning;
+    min_severity["DATALOG"] = trivial::error;
     sys_sink->set_filter (min_severity || severity >= trivial::fatal);
 
     sys_sink->set_formatter
