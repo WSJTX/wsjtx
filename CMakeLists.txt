@@ -771,9 +771,9 @@ set_source_files_properties (lib/decoder.f90 PROPERTIES COMPILE_FLAGS "-Wno-unus
 set_source_files_properties (lib/filbig.f90 PROPERTIES COMPILE_FLAGS "-Wno-aliasing")
 
 ## disable Qt trace and warning messages from release configurations
-#set_property (DIRECTORY APPEND PROPERTY
-#  COMPILE_DEFINITIONS $<$<NOT:$<CONFIG:Debug>>:QT_NO_DEBUG_OUTPUT;QT_NO_WARNING_OUTPUT>
-#  )
+set_property (DIRECTORY APPEND PROPERTY
+  COMPILE_DEFINITIONS $<$<NOT:$<CONFIG:Debug>>:QT_NO_DEBUG_OUTPUT;QT_NO_WARNING_OUTPUT>
+  )
 
 set_property (SOURCE ${all_C_and_CXXSRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -include wsjtx_config.h")
 set_property (SOURCE ${all_C_and_CXXSRCS} APPEND PROPERTY OBJECT_DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/wsjtx_config.h)
