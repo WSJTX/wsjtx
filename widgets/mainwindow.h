@@ -371,6 +371,7 @@ private:
   void setColorHighlighting();
   void chkFT4();
   bool elide_tx1_not_allowed () const;
+  bool play_DXcall = false;
 
   QProcessEnvironment const& m_env;
   NetworkAccessManager m_network_manager;

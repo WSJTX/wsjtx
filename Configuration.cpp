@@ -732,6 +732,20 @@ private:
   bool clear_DXgrid_;
   bool erase_BandActivity_;
   bool set_RXtoTX_;
+  bool alert_CQ_;
+  bool alert_MyCall_;
+  bool alert_DXCC_;
+  bool alert_DXCCOB_;
+  bool alert_Grid_;
+  bool alert_GridOB_;
+  bool alert_Continent_;
+  bool alert_ContinentOB_;
+  bool alert_CQZ_;
+  bool alert_CQZOB_;
+  bool alert_ITUZ_;
+  bool alert_ITUZOB_;
+  bool alert_DXcall_;
+  bool alert_Enabled_;
 
   QAudioDeviceInfo audio_input_device_;
   QAudioDeviceInfo next_audio_input_device_;
@@ -861,6 +875,20 @@ bool Configuration::highlight_DXgrid () const {return m_->highlight_DXgrid_;}
 bool Configuration::clear_DXgrid () const {return m_->clear_DXgrid_;}
 bool Configuration::erase_BandActivity () const {return m_->erase_BandActivity_;}
 bool Configuration::set_RXtoTX () const {return m_->set_RXtoTX_;}
+bool Configuration::alert_CQ () const {return m_->alert_CQ_;}
+bool Configuration::alert_MyCall () const {return m_->alert_MyCall_;}
+bool Configuration::alert_DXCC () const {return m_->alert_DXCC_;}
+bool Configuration::alert_DXCCOB () const {return m_->alert_DXCCOB_;}
+bool Configuration::alert_Grid () const {return m_->alert_Grid_;}
+bool Configuration::alert_GridOB () const {return m_->alert_GridOB_;}
+bool Configuration::alert_Continent () const {return m_->alert_Continent_;}
+bool Configuration::alert_ContinentOB () const {return m_->alert_ContinentOB_;}
+bool Configuration::alert_CQZ () const {return m_->alert_CQZ_;}
+bool Configuration::alert_CQZOB () const {return m_->alert_CQZOB_;}
+bool Configuration::alert_ITUZ () const {return m_->alert_ITUZ_;}
+bool Configuration::alert_ITUZOB () const {return m_->alert_ITUZOB_;}
+bool Configuration::alert_DXcall () const {return m_->alert_DXcall_;}
+bool Configuration::alert_Enabled () const {return m_->alert_Enabled_;}
 
 
 void Configuration::set_calibration (CalibrationParams params)
@@ -1635,6 +1663,20 @@ void Configuration::impl::initialize_models ()
   ui_->cbClearDXgrid->setChecked(clear_DXgrid_);
   ui_->cbEraseBandActivity->setChecked(erase_BandActivity_);
   ui_->cbRxToTxAfterQSO->setChecked(set_RXtoTX_);
+  ui_->cbCQ->setChecked(alert_CQ_);
+  ui_->cbMyCall->setChecked(alert_MyCall_);
+  ui_->cbDXCC->setChecked(alert_DXCC_);
+  ui_->cbDXCCOB->setChecked(alert_DXCCOB_);
+  ui_->cbGrid->setChecked(alert_Grid_);
+  ui_->cbGridOB->setChecked(alert_GridOB_);
+  ui_->cbContinent->setChecked(alert_Continent_);
+  ui_->cbContinentOB->setChecked(alert_ContinentOB_);
+  ui_->cbCQZ->setChecked(alert_CQZ_);
+  ui_->cbCQZOB->setChecked(alert_CQZOB_);
+  ui_->cbITUZ->setChecked(alert_ITUZ_);
+  ui_->cbITUZOB->setChecked(alert_ITUZOB_);
+  ui_->cbDXcall->setChecked(alert_DXcall_);
+  ui_->pbAlerts->setChecked(alert_Enabled_);
 
   set_rig_invariants ();
 }
@@ -1853,6 +1895,20 @@ void Configuration::impl::read_settings ()
   clear_DXgrid_ = settings_->value("clear_DXgrid",false).toBool ();
   erase_BandActivity_ = settings_->value("erase_BandActivity",false).toBool ();
   set_RXtoTX_ = settings_->value("set_RXtoTX",false).toBool ();
+  alert_CQ_ = settings_->value("alert_CQ",false).toBool ();
+  alert_MyCall_ = settings_->value("alert_MyCall",false).toBool ();
+  alert_DXCC_ = settings_->value("alert_DXCC",false).toBool ();
+  alert_DXCCOB_ = settings_->value("alert_DXCCOB",false).toBool ();
+  alert_Grid_ = settings_->value("alert_Grid",false).toBool ();
+  alert_GridOB_ = settings_->value("alert_GridOB",false).toBool ();
+  alert_Continent_ = settings_->value("alert_Continent",false).toBool ();
+  alert_ContinentOB_ = settings_->value("alert_ContinentOB",false).toBool ();
+  alert_CQZ_ = settings_->value("alert_CQZ",false).toBool ();
+  alert_CQZOB_ = settings_->value("alert_CQZOB",false).toBool ();
+  alert_ITUZ_ = settings_->value("alert_ITUZ",false).toBool ();
+  alert_ITUZOB_ = settings_->value("alert_ITUZOB",false).toBool ();
+  alert_DXcall_ = settings_->value("alert_DXcall",false).toBool ();
+  alert_Enabled_ = settings_->value("alert_Enabled",false).toBool ();
 }
 
 void Configuration::impl::find_audio_devices ()
@@ -2021,6 +2077,20 @@ void Configuration::impl::write_settings ()
   settings_->setValue ("clear_DXgrid", clear_DXgrid_);
   settings_->setValue ("erase_BandActivity", erase_BandActivity_);
   settings_->setValue ("set_RXtoTX", set_RXtoTX_);
+  settings_->setValue ("alert_CQ", alert_CQ_);
+  settings_->setValue ("alert_MyCall", alert_MyCall_);
+  settings_->setValue ("alert_DXCC", alert_DXCC_);
+  settings_->setValue ("alert_DXCCOB", alert_DXCCOB_);
+  settings_->setValue ("alert_Grid", alert_Grid_);
+  settings_->setValue ("alert_GridOB", alert_GridOB_);
+  settings_->setValue ("alert_Continent", alert_Continent_);
+  settings_->setValue ("alert_ContinentOB", alert_ContinentOB_);
+  settings_->setValue ("alert_CQZ", alert_CQZ_);
+  settings_->setValue ("alert_CQZOB", alert_CQZOB_);
+  settings_->setValue ("alert_ITUZ", alert_ITUZ_);
+  settings_->setValue ("alert_ITUZOB", alert_ITUZOB_);
+  settings_->setValue ("alert_DXcall", alert_DXcall_);
+  settings_->setValue ("alert_Enabled", alert_Enabled_);
   settings_->sync ();
 }
 
@@ -2548,6 +2618,20 @@ void Configuration::impl::accept ()
   Individual_Contest_Name_ = ui_->cbContestName->isChecked();
   Blacklisted_ = ui_->cbBlacklist->isChecked();
   Whitelisted_ = ui_->cbWhitelist->isChecked();
+  alert_CQ_ = ui_->cbCQ->isChecked();
+  alert_MyCall_ = ui_->cbMyCall->isChecked();
+  alert_DXCC_ = ui_->cbDXCC->isChecked();
+  alert_DXCCOB_ = ui_->cbDXCCOB->isChecked();
+  alert_Grid_ = ui_->cbGrid->isChecked();
+  alert_GridOB_ = ui_->cbGridOB->isChecked();
+  alert_Continent_ = ui_->cbContinent->isChecked();
+  alert_ContinentOB_ = ui_->cbContinentOB->isChecked();
+  alert_CQZ_ = ui_->cbCQZ->isChecked();
+  alert_CQZOB_ = ui_->cbCQZOB->isChecked();
+  alert_ITUZ_ = ui_->cbITUZ->isChecked();
+  alert_ITUZOB_ = ui_->cbITUZOB->isChecked();
+  alert_DXcall_ = ui_->cbDXcall->isChecked();
+  alert_Enabled_ = ui_->pbAlerts->isChecked();
 
   write_settings ();		// make visible to all
 }

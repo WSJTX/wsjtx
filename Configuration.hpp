@@ -221,6 +221,20 @@ public:
   bool Individual_Contest_Name() const;
   bool Blacklisted() const;
   bool Whitelisted() const;
+  bool alert_CQ () const;
+  bool alert_MyCall () const;
+  bool alert_DXCC () const;
+  bool alert_DXCCOB () const;
+  bool alert_Grid () const;
+  bool alert_GridOB () const;
+  bool alert_Continent () const;
+  bool alert_ContinentOB () const;
+  bool alert_CQZ () const;
+  bool alert_CQZOB () const;
+  bool alert_ITUZ () const;
+  bool alert_ITUZOB () const;
+  bool alert_DXcall () const;
+  bool alert_Enabled () const;
 
   enum class SpecialOperatingActivity {NONE, NA_VHF, EU_VHF, FIELD_DAY, RTTY, WW_DIGI, FOX, HOUND};
   SpecialOperatingActivity special_op_id () const;

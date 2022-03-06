@@ -7,6 +7,7 @@
 #include <QHash>
 #include <QPair>
 #include <QString>
+#include <QTimer>
 
 class QAction;
 class Configuration;
@@ -46,6 +47,8 @@ public:
   Q_SLOT void highlight_callsign (QString const& callsign, QColor const& bg, QColor const& fg, bool last_period_only);
 
 private:
+  void AudioAlerts();
+  QTimer alertsTimer;
   QString leftJustifyAppendage (QString message, QString const& appendage) const;
   void mouseDoubleClickEvent (QMouseEvent *) override;
 

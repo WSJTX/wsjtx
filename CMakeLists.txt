@@ -1630,6 +1630,22 @@ install (DIRECTORY
   #COMPONENT runtime
   )
 
+if (NOT UNIX)
+  install (DIRECTORY
+  ${PROJECT_SOURCE_DIR}/sounds
+  DESTINATION ${CMAKE_INSTALL_BINDIR}
+  #COMPONENT runtime
+  )
+  endif (NOT UNIX)
+	
+if (UNIX)
+  install (DIRECTORY
+  ${PROJECT_SOURCE_DIR}/sounds
+  DESTINATION $ENV{HOME}
+  #COMPONENT runtime
+  )
+  endif (UNIX)
+
 #
 # Mac installer files
 #

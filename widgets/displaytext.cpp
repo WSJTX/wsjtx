@@ -3,6 +3,9 @@
 #include <vector>
 #include <algorithm>
 
+#include <QSound>
+#include <QAudioOutput>
+#include <QTimer>
 #include <QMouseEvent>
 #include <QDateTime>
 #include <QTextCharFormat>
@@ -22,6 +25,19 @@
 
 #include "qt_helpers.hpp"
 #include "moc_displaytext.cpp"
+
+bool play_CQ = false;
+bool play_MyCall = false;
+bool play_DXCC = false;
+bool play_DXCCOB = false;
+bool play_Grid = false;
+bool play_GridOB = false;
+bool play_Continent = false;
+bool play_ContinentOB = false;
+bool play_CQZ = false;
+bool play_CQZOB = false;
+bool play_ITUZ = false;
+bool play_ITUZOB = false;
 
 DisplayText::DisplayText(QWidget *parent)
   : QTextEdit(parent)
@@ -229,7 +245,17 @@ void DisplayText::extend_vertical_scrollbar (int min, int max)
 
 void DisplayText::new_period ()
 {
-  extend_vertical_scrollbar (verticalScrollBar ()->minimum (), verticalScrollBar ()->maximum ());
+    alertsTimer.stop ();
+    disconnect (&alertsTimer, &QTimer::timeout, this, &DisplayText::AudioAlerts);
+    if((m_config->alert_Enabled()) && ((m_config->alert_DXCC()) || (m_config->alert_DXCCOB()) || (m_config->alert_Grid()) ||
+       (m_config->alert_GridOB()) || (m_config->alert_Continent()) || (m_config->alert_ContinentOB()) || (m_config->alert_CQZ()) ||
+       (m_config->alert_CQZOB()) || (m_config->alert_ITUZ()) || (m_config->alert_ITUZOB()) || (m_config->alert_CQ()))) {
+        connect (&alertsTimer, &QTimer::timeout, this, &DisplayText::AudioAlerts);
+        alertsTimer.setSingleShot (true);
+        alertsTimer.start (1000);
+    }
+
+    extend_vertical_scrollbar (verticalScrollBar ()->minimum (), verticalScrollBar ()->maximum ());
   if (high_volume_ && m_config && m_config->decodes_from_top () && !vertical_scroll_connection_)
     {
       vertical_scroll_connection_ = connect (verticalScrollBar (), &QScrollBar::rangeChanged
@@ -283,15 +309,27 @@ QString DisplayText::appendWorkedB4 (QString message, QString call, QString cons
   // no shortcuts here as some types may be disabled
   if (!countryB4) {
     types.push_back (Highlight::DXCC);
+    if (m_config->alert_DXCC()) {
+        play_DXCC = true;
+    }
   }
   if(!countryB4onBand) {
-    types.push_back (Highlight::DXCCBand);
+      types.push_back (Highlight::DXCCBand);
+      if (m_config->alert_DXCCOB()) {
+         play_DXCCOB = true;
+      }
   }
   if(!gridB4) {
     types.push_back (Highlight::Grid);
+    if (m_config->alert_Grid()) {
+        play_Grid = true;
+    }
   }
   if(!gridB4onBand) {
     types.push_back (Highlight::GridBand);
+    if (m_config->alert_GridOB()) {
+        play_GridOB = true;
+    }
   }
   if (!callB4) {
     types.push_back (Highlight::Call);
@@ -301,21 +339,39 @@ QString DisplayText::appendWorkedB4 (QString message, QString call, QString cons
   }
   if (!continentB4) {
     types.push_back (Highlight::Continent);
+    if (m_config->alert_Continent()) {
+        play_Continent = true;
+    }
   }
   if(!continentB4onBand) {
     types.push_back (Highlight::ContinentBand);
+    if (m_config->alert_ContinentOB()) {
+        play_ContinentOB = true;
+    }
   }
   if (!CQZoneB4) {
     types.push_back (Highlight::CQZone);
+    if (m_config->alert_CQZ()) {
+        play_CQZ = true;
+    }
   }
   if(!CQZoneB4onBand) {
     types.push_back (Highlight::CQZoneBand);
+    if (m_config->alert_CQZOB()) {
+        play_CQZOB = true;
+    }
   }
   if (!ITUZoneB4) {
     types.push_back (Highlight::ITUZone);
+    if (m_config->alert_ITUZ()) {
+        play_ITUZ = true;
+    }
   }
   if(!ITUZoneB4onBand) {
     types.push_back (Highlight::ITUZoneBand);
+    if (m_config->alert_ITUZOB()) {
+        play_ITUZOB = true;
+    }
   }
   if (m_config && m_config->lotw_users ().user (call))
     {
@@ -405,6 +461,11 @@ void DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
   QColor fg;
   bool CQcall = false;
   auto is_73 = decodedText.messageWords().filter (QRegularExpression {"^(73|RR73)$"}).size();
+  if (decodedText.string ().contains ("CQ ")) {
+          if (m_config->alert_CQ()) {
+              play_CQ = true;
+          }
+  }
   if (decodedText.string ().contains (" CQ ")
       || decodedText.string ().contains (" CQDX ")
       || decodedText.string ().contains (" QRZ "))
@@ -483,7 +544,10 @@ void DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
         {
           highlight_types types {Highlight::MyCall};
           set_colours (m_config, &bg, &fg, types);
+          if (m_config->alert_MyCall()) {
+              play_MyCall = true;
         }
+      }
     }
 
   if (ppfx) {               //NJ0A
@@ -678,4 +742,183 @@ void DisplayText::highlight_callsign (QString const& callsign, QColor const& bg,
         }
     }
   setCurrentCharFormat (old_format);
+}
+
+void DisplayText::AudioAlerts()
+{
+    QAudioOutput (QAudioDeviceInfo::defaultOutputDevice());
+    if(m_config->alert_Enabled()) {
+    static int startIndex = 0;
+    int nextStartIndex = startIndex +1;
+    switch (startIndex){
+    case 0:
+        if (play_MyCall) {
+            QSound::play("./bin/sounds/MyCall.wav");  // UR
+            QSound::play("./sounds/MyCall.wav");  // UR for Linux
+            play_MyCall = false;
+            alertsTimer.start (1000);
+            startIndex = nextStartIndex;
+            return;
+        } else {
+            nextStartIndex++;
+        }
+        Q_FALLTHROUGH();
+    case 1:
+        if (play_DXCC) {
+            QSound::play("./bin/sounds/DXCC.wav");  // UR
+            QSound::play("./sounds/DXCC.wav");  // UR for Linux
+            play_DXCC = false;
+            play_DXCCOB = false;
+            alertsTimer.start (1200);
+            startIndex = nextStartIndex;
+            return;
+        } else {
+            nextStartIndex++;
+        }
+        Q_FALLTHROUGH();
+    case 2:
+        if (play_DXCCOB && !play_DXCC) {
+            QSound::play("./bin/sounds/DXCCOnBand.wav");  // UR
+            QSound::play("./sounds/DXCCOnBand.wav");  // UR for Linux
+            play_DXCCOB = false;
+            alertsTimer.start (1800);
+            startIndex = nextStartIndex;
+            return;
+        } else {
+            nextStartIndex++;
+        }
+        Q_FALLTHROUGH();
+    case 3:
+        if (play_Continent) {
+            QSound::play("./bin/sounds/Continent.wav");  // UR
+            QSound::play("./sounds/Continent.wav");  // UR for Linux
+            play_Continent = false;
+            play_ContinentOB = false;
+            play_GridOB = false;
+            play_CQZOB = false;
+            play_ITUZOB = false;
+            alertsTimer.start (1000);
+            startIndex = nextStartIndex;
+            return;
+        } else {
+            nextStartIndex++;
+        }
+        Q_FALLTHROUGH();
+    case 4:
+        if (play_ContinentOB && !play_Continent) {
+            QSound::play("./bin/sounds/ContinentOnBand.wav");  // UR
+            QSound::play("./sounds/ContinentOnBand.wav");  // UR for Linux
+            play_ContinentOB = false;
+            play_GridOB = false;
+            play_CQZOB = false;
+            play_ITUZOB = false;
+            alertsTimer.start (2000);
+            startIndex = nextStartIndex;
+            return;
+        } else {
+            nextStartIndex++;
+        }
+        Q_FALLTHROUGH();
+    case 5:
+        if (play_CQZ) {
+            QSound::play("./bin/sounds/CQZone.wav");  // UR
+            QSound::play("./sounds/CQZone.wav");  // UR for Linux
+            play_CQZ = false;
+            play_CQZOB = false;
+            alertsTimer.stop ();    // UR
+            alertsTimer.start (1500);
+            startIndex = nextStartIndex;
+            return;
+        } else {
+            nextStartIndex++;
+        }
+        Q_FALLTHROUGH();
+    case 6:
+        if (play_CQZOB && !play_CQZ) {
+            QSound::play("./bin/sounds/CQZoneOnBand.wav");  // UR
+            QSound::play("./sounds/CQZoneOnBand.wav");  // UR for Linux
+            play_CQZOB = false;
+            alertsTimer.start (1800);
+            startIndex = nextStartIndex;
+            return;
+        } else {
+            nextStartIndex++;
+        }
+        Q_FALLTHROUGH();
+    case 7:
+        if (play_ITUZ) {
+            QSound::play("./bin/sounds/ITUZone.wav");  // UR
+            QSound::play("./sounds/ITUZone.wav");  // UR for Linux
+            play_ITUZ = false;
+            play_ITUZOB = false;
+            play_GridOB = false;
+            alertsTimer.start (1500);
+            startIndex = nextStartIndex;
+            return;
+        } else {
+            nextStartIndex++;
+        }
+        Q_FALLTHROUGH();
+    case 8:
+        if (play_ITUZOB && !(play_ITUZ)) {
+            QSound::play("./bin/sounds/ITUZoneOnBand.wav");  // UR
+            QSound::play("./sounds/ITUZoneOnBand.wav");  // UR for Linux
+            play_ITUZOB = false;
+            play_GridOB = false;
+            alertsTimer.start (1900);
+            startIndex = nextStartIndex;
+            return;
+        } else {
+            nextStartIndex++;
+        }
+        Q_FALLTHROUGH();
+    case 9:
+        if (play_Grid) {
+            QSound::play("./bin/sounds/Grid.wav");  // UR
+            QSound::play("./sounds/Grid.wav");  // UR for Linux
+            play_Grid = false;
+            play_GridOB = false;
+            alertsTimer.start (1000);
+            startIndex = nextStartIndex;
+            return;
+        } else {
+            nextStartIndex++;
+        }
+        Q_FALLTHROUGH();
+    case 10:
+        if (play_GridOB && !play_Grid) {
+            QSound::play("./bin/sounds/GridOnBand.wav");  // UR
+            QSound::play("./sounds/GridOnBand.wav");  // UR for Linux
+            play_GridOB = false;
+            alertsTimer.start (1500);
+            startIndex = nextStartIndex;
+            return;
+        } else {
+            nextStartIndex++;
+        }
+        Q_FALLTHROUGH();
+    case 11:
+        if (play_CQ) {
+            QSound::play("./bin/sounds/CQ.wav");  // UR
+            QSound::play("./sounds/CQ.wav");  // UR for Linux
+            play_CQ = false;
+            alertsTimer.start (1000);
+            startIndex = 0;
+            return;
+        } else {
+            nextStartIndex++;
+        }
+        Q_FALLTHROUGH();
+    case 12:
+        if (!play_CQ && !play_MyCall && !play_DXCC && !play_DXCCOB && !play_Grid && !play_GridOB &&
+            !play_Continent && ! play_ContinentOB && !play_CQZ && !play_CQZOB && !play_ITUZ && !play_ITUZOB) {
+            startIndex = 0;
+            return;
+        } else {
+            alertsTimer.start (1000);
+            startIndex = 0;
+            return;
+        }
+    }
+  }
 }
