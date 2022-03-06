@@ -53,7 +53,6 @@ namespace
 
       {474200, Modes::JT9, IARURegions::ALL},
       {474200, Modes::FST4, IARURegions::ALL},
-      {474200, Modes::FT8, IARURegions::ALL},   // provisional
       {474200, Modes::WSPR, IARURegions::ALL},
       {474200, Modes::FST4W, IARURegions::ALL},
 
@@ -97,12 +96,6 @@ namespace
       {3568600, Modes::WSPR, IARURegions::ALL}, // needs guard marker and lock out
       {3575000, Modes::FT4, IARURegions::ALL},  // provisional
       {3568000, Modes::FT4, IARURegions::R3},   // provisional
-
-      {5357000, Modes::FT8, IARURegions::ALL},   // provisional
-      {5357000, Modes::FT4, IARURegions::ALL},   // provisional
-      {5357000, Modes::FST4, IARURegions::ALL},  // provisional
-      {5357000, Modes::JT9, IARURegions::ALL},   // provisional
-      {5357000, Modes::JT65, IARURegions::ALL},  // provisional
 
       // Band plans (all USB dial unless stated otherwise)
       //
@@ -274,7 +267,7 @@ namespace
       {50275000, Modes::Q65, IARURegions::ALL},
       {50276000, Modes::JT65, IARURegions::R2},
       {50276000, Modes::JT65, IARURegions::R3},
-      {50280000, Modes::MSK144, IARURegions::R1},
+      {50380000, Modes::MSK144, IARURegions::R1},
       {50260000, Modes::MSK144, IARURegions::R2},
       {50260000, Modes::MSK144, IARURegions::R3},
       {50293000, Modes::WSPR, IARURegions::R2},
@@ -285,18 +278,17 @@ namespace
       {50318000, Modes::FT4, IARURegions::ALL}, // provisional
       {50323000, Modes::FT8, IARURegions::ALL},
       
-      {70154000, Modes::FT8, IARURegions::R1}, // provisional
+      {70100000, Modes::FT8, IARURegions::R1},
       {70102000, Modes::JT65, IARURegions::R1},
       {70104000, Modes::JT9, IARURegions::R1},
       {70091000, Modes::WSPR, IARURegions::R1},
       {70230000, Modes::MSK144, IARURegions::R1},
       
-//      {144116000, Modes::Q65, IARURegions::ALL},
+      {144116000, Modes::Q65, IARURegions::ALL},
       {144120000, Modes::JT65, IARURegions::ALL},
       {144120000, Modes::Echo, IARURegions::ALL},
       {144170000, Modes::FT4, IARURegions::ALL},
       {144174000, Modes::FT8, IARURegions::ALL},
-      {144180000, Modes::Q65, IARURegions::R1}, // provisional
       {144360000, Modes::MSK144, IARURegions::R1},
       {144150000, Modes::MSK144, IARURegions::R2},
       {144489000, Modes::WSPR, IARURegions::ALL},
@@ -307,7 +299,6 @@ namespace
 	  
       {432065000, Modes::Echo, IARURegions::ALL},
       {432065000, Modes::JT65, IARURegions::ALL},
-      {432174000, Modes::FT8, IARURegions::ALL},
       {432300000, Modes::WSPR, IARURegions::ALL},
       {432360000, Modes::MSK144, IARURegions::ALL},
       {432065000, Modes::Q65, IARURegions::ALL},
@@ -317,7 +308,6 @@ namespace
       
       {1296065000, Modes::Echo, IARURegions::ALL},
       {1296065000, Modes::JT65, IARURegions::ALL},
-      {1296174000, Modes::FT8, IARURegions::ALL},
       {1296500000, Modes::WSPR, IARURegions::ALL},
       {1296065000, Modes::Q65, IARURegions::ALL},
       
