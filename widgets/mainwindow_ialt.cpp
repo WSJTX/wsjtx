@@ -3544,7 +3544,7 @@ void MainWindow::ARRL_Digi_Display()
     if(icall.value().txEven) itx=0;
     int snr=icall.value().snr;
     int freq=icall.value().audioFreq;
-    if(age>maxAge or age<0) {
+    if(age>maxAge) {
       icall.remove();
     } else {
       bool bReady=false;
