@@ -3670,21 +3670,21 @@ void MainWindow::readFromStdout()                             //readFromStdout
            || (line_read.contains("/R") && line_read.contains("/P"))               // /R and /P
            || (line_read.contains("/P") && line_read.contains(" R "))              // /P and R
            || (line_read.contains("/R") && line_read.contains(" R "))              // /R and R
-           || (line_read.contains(";") && line_read.contains(" R"))                // ; and P
            || (line_read.contains(";") && line_read.contains("/R"))                // ; and /R
            || (line_read.contains(";") && line_read.contains("/P"))                // ; and /P
            || line_read.contains("? a")                                            // ap decodes of low confidence
-           || line_read.contains("<...> <...>")                                    // two unresolved hash codes
            || (line_read.contains("<...>") && line_read.contains(" R "))           // hash and R
            || (line_read.contains("<...>") && line_read.contains("/R"))            // hash and /R
            || (line_read.contains("<...>") && line_read.contains("/P"))            // hash and /P
            || (line_read.contains("<...>") && line_read.contains(";"))             // hash and ;
            || line_read.contains("2.") || line_read.contains("1."))                //  -0.9 < dt <0.9
-           && (line_read.contains("-24") || line_read.contains("-25") || line_read.contains("-26")
-               || line_read.contains("<...> <...>")))                       // for such SNRmin = -23 and no two hash codes
+           && (line_read.contains("-24") || line_read.contains("-25")
+               || line_read.contains("-26")))                               // for such SNRmin = -23
            or (((line_read.contains("<...>") || line_read.contains(";")            // unresolved hash, F/H messages
                || line_read.contains("/R") || line_read.contains(" R ") )          // /R, contest calls
-               && line_read.contains("2."))))))                             // for such -1.9 < dt <1.9
+               && line_read.contains("2.")))
+           or (line_read.contains(";") && line_read.contains(" R "))        // don't allow such
+               || line_read.contains("<...> <...>"))))                      // no unresolved hash codes
   {
     if (m_mode!="FT8" and m_mode!="FT4" and !m_mode.startsWith ("FST4") and m_mode!="Q65") {
       //Pad 22-char msg to at least 37 chars
