@@ -542,6 +542,7 @@ set (wsjt_FSRCS
   lib/sync9.f90
   lib/sync9f.f90
   lib/sync9w.f90
+  lib/test_snr.f90
   lib/timf2.f90
   lib/tweak1.f90
   lib/twkfreq.f90

@@ -1,4 +1,4 @@
-subroutine avecho(id2,ndop,nfrit,nqual,f1,xlevel,sigdb,snr,dfreq,width)
+subroutine avecho(id2,ndop,nfrit,nqual,f1,xlevel,snrdb,db_err,dfreq,width)
 
   integer TXLENGTH
   parameter (TXLENGTH=27648)           !27*1024
@@ -13,10 +13,21 @@ subroutine avecho(id2,ndop,nfrit,nqual,f1,xlevel,sigdb,snr,dfreq,width)
   real s(8192)
   real x(NFFT)
   integer ipkv(1)
+  logical ex
   complex c(0:NH)
   equivalence (x,c),(ipk,ipkv)
   common/echocom/nclearave,nsum,blue(NZ),red(NZ)
+  common/echocom2/echo_spread
   save dop0,sa,sb
+
+  fspread=echo_spread                !### Use the predicted Doppler spread ###
+  inquire(file='fspread.txt',exist=ex)
+  if(ex) then
+     open(39,file='fspread.txt',status='old')
+     read(39,*) fspread
+     close(39)
+  endif
+  width=fspread
 
   dop=ndop
   sq=0.
@@ -48,69 +59,28 @@ subroutine avecho(id2,ndop,nfrit,nqual,f1,xlevel,sigdb,snr,dfreq,width)
   if(ia.gt.7590 .or. ib.gt.7590) go to 900
 
   nsum=nsum+1
-
   do i=1,NZ
      sa(i)=sa(i) + s(ia+i-2048)    !Center at initial doppler freq
      sb(i)=sb(i) + s(ib+i-2048)    !Center at expected echo freq
   enddo
-
-  call pctile(sb,200,50,r0)
-  call pctile(sb(1800),200,50,r1)
-
-  sum=0.
-  sq=0.
-  do i=1,NZ
-     y=r0 + (r1-r0)*(i-100.0)/1800.0
-     blue(i)=sa(i)/y
-     red(i)=sb(i)/y
-     if(i.le.500 .or. i.ge.3597) then
-        sum=sum+red(i)
-        sq=sq + (red(i)-1.0)**2
-     endif
-  enddo
-  ave=sum/1000.0
-  rms=sqrt(sq/1000.0)
-
-  redmax=maxval(red)
-  ipkv=maxloc(red)
-  fac=10.0/max(redmax,10.0)
-  dfreq=(ipk-2048)*df
-  snr=(redmax-ave)/rms
-
-  sigdb=-99.0
-  if(ave.gt.0.0) sigdb=10.0*log10(redmax/ave - 1.0) - 35.7
-
-  nqual=0
-  if(nsum.ge.2 .and. nsum.lt.4)  nqual=(snr-4)/5
-  if(nsum.ge.4 .and. nsum.lt.8)  nqual=(snr-3)/4
-  if(nsum.ge.8 .and. nsum.lt.12) nqual=(snr-3)/3
-  if(nsum.ge.12) nqual=(snr-2.5)/2.5
-  if(nqual.lt.0)  nqual=0
+  call echo_snr(sa,sb,fspread,blue,red,snrdb,db_err,dfreq,snr_detect)
+  nqual=snr_detect-2
+  if(nqual.lt.0) nqual=0
   if(nqual.gt.10) nqual=10
 
 ! Scale for plotting
+  redmax=maxval(red)
+  fac=10.0/max(redmax,10.0)
   blue=fac*blue
   red=fac*red
-
-  sum=0.
-  do i=ipk,ipk+300
-     if(i.gt.NZ) exit
-     if(red(i).lt.1.0) exit
-     sum=sum+(red(i)-1.0)
-  enddo
-  do i=ipk-1,ipk-300,-1
-     if(i.lt.1) exit
-     if(red(i).lt.1.0) exit
-     sum=sum+(red(i)-1.0)
-  enddo
-  bins=sum/(red(ipk)-1.0)
-  width=df*bins
-  nsmo=max(0.0,0.25*bins)
-
+  nsmo=max(0.0,0.25*width/df)
   do i=1,nsmo
      call smo121(red,NZ)
      call smo121(blue,NZ)
   enddo
+
+!  write(*,3001) snrdb,db_err,dfreq,snr_detect,redmax,nqual,nsmo,nclearave,nsum
+!3001 format('A',5f10.1,4i4)
 
 900  return
 end subroutine avecho

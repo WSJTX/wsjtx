@@ -1638,7 +1638,7 @@ void MainWindow::dataSink(qint64 frames)
   }
   if(bCallDecoder) {
     if(m_mode=="Echo") {
-      float snr=0;
+      float dBerr=0.0;
       int nfrit=0;
       int nqual=0;
       float f1=1500.0;
@@ -1649,10 +1649,10 @@ void MainWindow::dataSink(qint64 frames)
       echocom_.nclearave=m_nclearave;
       int nDop=0;
       avecho_(dec_data.d2,&nDop,&nfrit,&nqual,&f1,&xlevel,&sigdb,
-          &snr,&dfreq,&width);
+          &dBerr,&dfreq,&width);
       QString t;
-      t = t.asprintf("%3d %7.1f %7.1f %7.1f %7.1f %3d",echocom_.nsum,xlevel,sigdb,
-                dfreq,width,nqual);
+      t = t.asprintf("%3d %7.1f %7.1f %7.1f %7.1f %7.1f %3d",echocom_.nsum,xlevel,sigdb,
+                dBerr,dfreq,width,nqual);
       t=QDateTime::currentDateTimeUtc().toString("hh:mm:ss  ") + t;
       if (ui) ui->decodedTextBrowser->appendText(t);
       if(m_echoGraph->isVisible()) m_echoGraph->plotSpec();
@@ -7175,7 +7175,7 @@ void MainWindow::on_actionEcho_triggered()
   m_bFastMode=false;
   m_bFast9=false;
   WSPR_config(true);
-  ui->lh_decodes_headings_label->setText("   UTC      N   Level    Sig      DF    Width   Q");
+  ui->lh_decodes_headings_label->setText("   UTC      N   Level    SNR     dBerr    DF    Width   Q");
   //                       01234567890123456789012345678901234567
   displayWidgets(nWidgets("00000000000000000000001000000000000000"));
   fast_config(false);

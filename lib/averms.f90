@@ -7,7 +7,7 @@ subroutine averms(x,n,nskip,ave,rms)
   sq=0.
   ipk=maxloc(x)
   do i=1,n
-     if(abs(i-ipk(1)).gt.nskip) then
+     if((nskip.lt.0) .or. (abs(i-ipk(1)).gt.nskip)) then
         s=s + x(i)
         sq=sq + x(i)**2
         ns=ns+1
