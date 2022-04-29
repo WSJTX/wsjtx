@@ -570,7 +570,7 @@ void DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
       message = leftJustifyAppendage(message, state);    //NJ0A
   }
 
-  if (m_config->alert_DXcall() && (message.trimmed().contains(QRegularExpression {"(\\w+) " + DXCall_})) && message.trimmed().contains("CQ ") && DXCall_!="") fg = "#ffffff", bg = "#ff0000";
+  if (m_config->highlight_DXcall() && (message.trimmed().contains(QRegularExpression {"(\\w+) " + DXCall_})) && message.trimmed().contains("CQ ") && DXCall_!="") fg = "#ffffff", bg = "#ff0000";
   appendText (message.trimmed (), bg, fg, decodedText.call (), dxCall);
 }
 
