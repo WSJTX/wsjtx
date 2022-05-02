@@ -3875,6 +3875,15 @@ void MainWindow::readFromStdout()                             //readFromStdout
             || (decodedtext.string().contains(QRegularExpression {"(\\w+) <" + m_hisCall +">"}))
             || (decodedtext.string().contains(QRegularExpression {"<(\\w+)> " + m_hisCall}))))  {
            ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);
+           QTimer::singleShot (500, [=] {                       // repeated highlighting to override JTAlert
+               ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);
+               });
+           QTimer::singleShot (1000, [=] {                      // repeated highlighting to override JTAlert
+               ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);
+               });
+           QTimer::singleShot (2500, [=] {                      // repeated highlighting to override JTAlert
+               ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);
+               });
        }
        if (m_config.highlight_DXgrid () && (m_hisGrid!="") && (decodedtext.string().contains(m_hisGrid)))  {
            ui->decodedTextBrowser->highlight_callsign(m_hisGrid, QColor(0,0,255), QColor(255,255,255), true);
