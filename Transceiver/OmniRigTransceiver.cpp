@@ -280,24 +280,30 @@ int OmniRigTransceiver::do_start ()
               resolution = 2;   // 20Hz rounded
             }
         }
-      QThread::msleep (200);   // For Omnirig v1.19 or later we need a delay here, otherwise rig QRG stays at +55 Hz.
-                               // 200 ms should do job for all modern transceivers. However, with very slow
-                               // transceivers or receivers, rig QRG may still stay at +55 Hz.
-                               // Because of the asynchronous nature of Omnirig commands, a better solution would be
-                               // to implement an event handler for the OnParamChange event of OmniRig,
-                               // and read the frequency inside that handler.
+
+      // For OmniRig v1.19 or later we need a delay between GetRxFrequency () and SetFreq (f),
+      // otherwise rig QRG stays at f+55 Hz. 200 ms should do job for all modern transceivers.
+      // However, with very slow rigs, QRG may still stay at f+55 Hz. Such rigs should use v1.18.
+      // Due to the asynchronous nature of Omnirig commands, a better solution would be to implement
+      // an event handler for OmniRig's OnParamChange event and read the frequency inside that handler.
 
       if (OmniRig::PM_FREQ & writable_params_)
         {
-          rig_->SetFreq (f);
+          QTimer::singleShot (200, [=] {
+              rig_->SetFreq (f);
+              });
         }
       else if (reversed_ && (OmniRig::PM_FREQB & writable_params_))
         {
-          rig_->SetFreqB (f);
+          QTimer::singleShot (200, [=] {
+              rig_->SetFreqB (f);
+              });
         }
       else if (!reversed_ && (OmniRig::PM_FREQA & writable_params_))
         {
-          rig_->SetFreqA (f);
+          QTimer::singleShot (200, [=] {
+              rig_->SetFreqA (f);
+              });
         }
       update_rx_frequency (f);
       CAT_TRACE ("started");
