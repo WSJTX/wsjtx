@@ -10098,6 +10098,7 @@ void MainWindow::bandHoppingTimer()
             startIndex = nextStartIndex;  // band hopping every other minute
             return;
     case 1:
+            m_displayBand = false;
             bandHopping();
             startIndex = 0;
             return;
