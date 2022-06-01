@@ -41,8 +41,6 @@ In program WSJT-X:
 
  - Add optional highlighting of DX Call and DX Grid
 
- - Add "Clear DX Call / DX Grid after QSO"
-
  - Add optional highlighting of messages containing RR73 or 73
 
  - New options for writing to ALL.TXT: split the file yearly, monthly,
@@ -69,6 +67,9 @@ In program WSJT-X:
  - Correct the auto-sequencing logic in several specific circumstances
 
  - Correct a flaw in WSPR mode when handling three-character callsigns
+
+ - Correct a flaw that could cause Omnirig 1.19 or later to set
+   incorrect frequencies after initialization 
 
  - Clean up some ToolTips
 
