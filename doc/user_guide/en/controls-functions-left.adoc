@@ -1,8 +1,10 @@
 // Status=edited
 
 Controls related to frequency selection, received audio level, the
-station being called, and date and time are found in the lower, left-hand section of the
-main window:
+station being called, and date and time are found in the lower,
+left-hand section of the main window.  Buttons are provided for making
+quick changes among he modes FT8, FT4, MSK144, Q65, and JT65, and
+for toggling FT8 Hound mode ON or OFF.
 
 //.Misc Controls Left
 image::misc-main-ui.png[align="center",alt="Misc Menu Items"]

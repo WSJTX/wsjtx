@@ -1,29 +1,39 @@
 [[NEW_FEATURES]]
 === New in Version {VERSION_MAJOR}.{VERSION_MINOR}
 
-_WSJT-X 2.5_ introduces an enhanced Q65 decoder that measures and
-compensates for linear frequency drifts of Q65 signals.  Activate this
-feature by setting a spinner control *Max Drift* on the _WSJT-X_ main
-window to a number greater than 0.  We suggest a setting of 10 for
-submode Q65-60A, the recommended submode for EME on 50 and 144 MHz,
-which will accommodate drift rates up to 20 Hz/minute.  Similarly, we
-suggest *Max Drift* = 40 for submode Q65-15C, used for for 10 GHz QSOs
-(up to 900 km) via aircraft scatter and drift rates up to about 20
-Hz/s. When *Max Drift* = 50 the decoder will use an enhanced algorithm
-to compensate for larger aircraft scatter drift rates, successful
-decodes with this algorithm are tagged with a `q5` indicator.
+- _WSJT-X 2.6_ implements new features supporting the ARRL
+International Digital Contest and its distance based scoring.  The
+*Call 1st* checkbox has been replaced by a drop-down control offering
+*CQ Max Dist* as an alternative.  With this option selected, the
+program will select the reply to your CQ that yields the most contest
+points.  In addition, a new window labeled *Active Stations* displays
+a list of received but unworked callsigns, sorted in decreasing order
+of potential contest points.  Click on a line in this window to call
+that station.
 
-On the Windows platform only, _WSJT-X 2.5_ installations now include
-an early version of _MAP65 3.0_.  This program works together with
-suitable hardware that converts RF to baseband.  The hardware/software
-combination implements a wideband, highly optimized receiver for the
-Q65 and JT65 protocols, with matching transmitting features that
-require a standard SSB transceiver.  _MAP65_ is effective in both
-single-polarization and dual-polarization systems.  If two
-polarization channels are available, _MAP65_ determines and matches
-the linear polarization angle of each decodable signal.  This
-capability provides a major advantage for efficient EME communication
-on bands up to 432 MHz.  A single-channel _MAP65_ system works
-extremely well for EME on 1296 MHz and higher bands, displaying all
-signals in a 90 kHz sub-band and decoding all the Q65 and JT65
-signals.
+- Decoding performance for FT8 and Q65 has been improved in a variety
+of situations with available _a priori_ (AP) information.
+
+- *Echo* mode now offers a *Clear Avg* button and produces reliable
+measurements of SNR even when Doppler spread is large.  The *Measure*
+function can be used to measure SNR for a received unmodulated carrier
+-- for example, a key-down test signal emitted by another station and
+reflected from the Moon.
+
+- New buttons on the main window allow quick changes between modes
+FT4, FT8, MSK144, Q65, and JT65.  Another new button allows toggling
+FT8 Hound mode ON or OFF.
+
+- Optional color highlighting is provided for specified DX Call and DX
+Grid, and for messages containing RR73 or 73.
+
+- New options are provided for writing to file ALL.TXT.  You can
+request automatic starting of a new file every month or every year,
+and you can disable writing altogether.
+
+- Other changes include bug fixes and rig control for some new radios.
+
+- _MAP65 3.0_ (available for Windows only) now sends additional
+information to file azel.dat and offers digital scaling of input I/Q
+data.
+

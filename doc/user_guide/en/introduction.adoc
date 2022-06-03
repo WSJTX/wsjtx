@@ -89,3 +89,11 @@ Release candidates should be used _only_ during a short testing
 period. They carry an implied obligation to provide feedback to the
 program development group.  Candidate releases should not be used on
 the air after a full release with the same number is made.
+
+A companion program _MAP65_, written by K1JT, is designed for EME
+communication using the JT65 and Q65 protocols. When used with RF
+hardware providing coherent signal channels for two orthogonal
+polarizations, the program provides automatic polarization-matched
+reception for every JT65 or Q65 signal in a 90 kHz passband.  On the
+Windows platform, _MAP65_ is installed automatically along with
+_WSJT-X_.

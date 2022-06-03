@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1208</width>
+    <width>1229</width>
     <height>666</height>
    </rect>
   </property>
@@ -36,7 +36,6 @@
           <property name="font">
            <font>
             <pointsize>10</pointsize>
-            <weight>50</weight>
             <bold>false</bold>
            </font>
           </property>
@@ -180,7 +179,6 @@
           <property name="font">
            <font>
             <pointsize>10</pointsize>
-            <weight>50</weight>
             <bold>false</bold>
            </font>
           </property>
@@ -664,9 +662,6 @@ QPushButton[state=&quot;ok&quot;] {
                </property>
                <property name="insertPolicy">
                 <enum>QComboBox::NoInsert</enum>
-               </property>
-               <property name="sizeAdjustPolicy">
-                <enum>QComboBox::AdjustToMinimumContentsLength</enum>
                </property>
               </widget>
              </item>
@@ -3410,8 +3405,8 @@ Double-click to reset to the standard 73 message</string>
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1208</width>
-     <height>21</height>
+     <width>1229</width>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -3447,8 +3442,8 @@ Double-click to reset to the standard 73 message</string>
     <addaction name="contest_log_action"/>
     <addaction name="fox_log_action"/>
     <addaction name="actionColors"/>
-    <addaction name="actionSWL_Mode"/>
     <addaction name="actionActiveStations"/>
+    <addaction name="actionSWL_Mode"/>
    </widget>
    <widget class="QMenu" name="menuDecode">
     <property name="title">

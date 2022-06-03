@@ -37,7 +37,18 @@ examples for configurations `FT8` and `Echo`:
 ==== View Menu
 image::view-menu.png[align="left",alt="View Menu"]
 
-The *SWL Mode* action reduces the _WSJT-X_ main window to a minimum
+*Active Stations* displays a window that can help you to work the most
+distant stations, in particular for the distance-scored ARRL
+International Digital Contest.  Controls are provided to set the
+maximum length of the list and the maximum "`age`" of decodes in Rx
+sequences.  You can request display of only ready-to-be-called
+stations.  For the ARRL International Digital Contest the window
+displays scoring rate (points in the most recent hour), total score,
+and the number of band changes in the past hour.
+
+image::active_stations.png[align="left",alt="Active Stations"]
+
+*SWL Mode* reduces the _WSJT-X_ main window to a minimum
 size with just the menus, decodes windows, and status bar visible. You
 may find this useful when running multiple instances of the
 application. Both size and location of the main window are saved and

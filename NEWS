@@ -9,7 +9,7 @@
  \$$      \$$  \$$$$$$   \$$$$$$     \$$        \$$   \$$
                                                          
                                                          
-Copyright 2001 - 2021 by Joe Taylor, K1JT.
+Copyright 2001 - 2022 by Joe Taylor, K1JT, and the WSJT Development Team
 
 	        Release: WSJT-X 2.6.0-rc1
 	             June 16, 2022
@@ -22,22 +22,22 @@ bug fixes.
 
 In program WSJT-X:
 
- - Improved decoding for FT8; additional messages are marked 'a7'
+ - Improved decoding for FT8: additional messages are marked 'a7'
 
  - Improved decoding for Q65 when AP is in use
 
  - Optional new "Active Stations" window and other features
-   supporting the ARRL International Digital Contest
+   supporting ARRL International Digital Contest
 
- - Accurate SNR measurements in EME Echo mode, even for large Doppler
+ - Accurate SNR measurements in Echo mode, including large Doppler
    spreads
 
- - Add mode-select buttons on main window for FT4, FT8, MSK144, Q65,
-   JT65, and FT8
+ - Add mode selection buttons on main window for FT4, FT8, JT65,
+   MSK144, and Q65
 
  - Add a button to toggle FT8's Hound mode ON or OFF
 
- - Add a "Clr Avg" button for EME Echo mode
+ - Add a "Clr Avg" button for Echo mode
 
  - Add optional highlighting of DX Call and DX Grid
 
@@ -46,9 +46,9 @@ In program WSJT-X:
  - New options for writing to ALL.TXT: split the file yearly, monthly,
    or disable writing altogether
 
- - Add Russian to available translations of the user interface
+ - Add Russian to available translations of user interface
 
- - Add a Tune watchdog, defaulting to 90 s 
+ - Add a 90 s Tune watchdog with optional disable
 
  - Allow auto reply for non-CQ messages via UDP (JTAlert, etc.) when 
    Hold Tx Freq is enabled
@@ -62,7 +62,7 @@ In program WSJT-X:
  - Correct a flaw that could cause Windows to drop audio samples
 
  - Correct a flaw that could send incorrect frequencies to ALL.TXT
-   and PSK Reporter, following a band change
+   and PSK Reporter after a band change
 
  - Correct the auto-sequencing logic in several specific circumstances
 
@@ -78,12 +78,12 @@ In program WSJT-X:
 
 In program MAP65 (Windows only):
 
- - Additional information now sent to file azel.dat
+ - Send additional information to file azel.dat
 
- - Optional digital scaling of input I/Q data
+ - Allow optional scaling of digital I/Q data
 
- - Suppress a bounds error caused by user setting a display bandwidth
-   that is too wide
+ - Suppress a bounds error caused by too-wide setting of display
+   bandwidth
 
 
 	        Release: WSJT-X 2.5.4

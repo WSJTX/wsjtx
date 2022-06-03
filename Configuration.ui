@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>643</width>
-    <height>687</height>
+    <height>753</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -282,13 +282,6 @@
             </property>
            </widget>
           </item>
-          <item row="6" column="1">
-           <widget class="QCheckBox" name="cbClearDXgrid">
-            <property name="text">
-             <string>Clear DX Grid after QSO</string>
-            </property>
-           </widget>
-          </item>
           <item row="1" column="0">
            <widget class="QCheckBox" name="insert_blank_check_box">
             <property name="toolTip">
@@ -303,13 +296,6 @@
            <widget class="QCheckBox" name="cbHighlightDXgrid">
             <property name="text">
              <string>Highlight DX Grid in message</string>
-            </property>
-           </widget>
-          </item>
-          <item row="6" column="0">
-           <widget class="QCheckBox" name="cbClearDXcall">
-            <property name="text">
-             <string>Clear DX Call after QSO</string>
             </property>
            </widget>
           </item>
@@ -519,6 +505,9 @@ quiet period when decoding is done.</string>
           </item>
           <item row="4" column="1">
            <widget class="QCheckBox" name="disable_Tune_watchdog_check_box">
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Disable the Tune watchdog.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
             <property name="text">
              <string>Disable Tune watchdog</string>
             </property>
@@ -540,17 +529,17 @@ quiet period when decoding is done.</string>
           <string>Additional features</string>
          </property>
          <layout class="QGridLayout" name="gridLayout_17">
-          <item row="0" column="1">
-           <widget class="QCheckBox" name="cbEraseBandActivity">
-            <property name="text">
-             <string>Erase Band Activity window after band change</string>
-            </property>
-           </widget>
-          </item>
           <item row="1" column="1">
            <widget class="QCheckBox" name="cbRxToTxAfterQSO">
             <property name="text">
              <string>Set Rx frequency to Tx frequency after QSO</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QCheckBox" name="cbEraseBandActivity">
+            <property name="text">
+             <string>Erase Band Activity window after band change</string>
             </property>
            </widget>
           </item>
@@ -565,6 +554,20 @@ quiet period when decoding is done.</string>
            <widget class="QCheckBox" name="Map_All_Messages">
             <property name="text">
              <string>Show U.S. States in all messages with grid</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QCheckBox" name="cbClearDXcall">
+            <property name="text">
+             <string>Clear DX Call after QSO</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QCheckBox" name="cbClearDXgrid">
+            <property name="text">
+             <string>Clear DX Grid after QSO</string>
             </property>
            </widget>
           </item>
@@ -2695,13 +2698,13 @@ Right click for insert and delete options.</string>
             <item>
              <widget class="QRadioButton" name="rbRTTY_Roundup">
               <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;ARRL RTTY Roundup and similar contests.  Exchange is US state, Canadian province, or &amp;quot;DX&amp;quot;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;FT Roundup and similar contests. Exchange is US state, Canadian province, or &amp;quot;DX&amp;quot;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
               <property name="accessibleName">
                <string>R T T Y Roundup</string>
               </property>
               <property name="text">
-               <string>RTTY Roundup messages</string>
+               <string>FT Roundup messages</string>
               </property>
               <attribute name="buttonGroup">
                <string notr="true">special_op_activity_button_group</string>
@@ -2729,7 +2732,7 @@ Right click for insert and delete options.</string>
                  <string>RTTY Roundup exchange</string>
                 </property>
                 <property name="text">
-                 <string>RTTY RU Exch:</string>
+                 <string>FT RU Exch:</string>
                 </property>
                 <property name="buddy">
                  <cstring>RTTY_Exchange</cstring>
@@ -2745,7 +2748,7 @@ Right click for insert and delete options.</string>
                  </size>
                 </property>
                 <property name="toolTip">
-                 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;ARRL RTTY Roundup and similar contests.  Exchange is US state, Canadian province, or &amp;quot;DX&amp;quot;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;FT Roundup and similar contests. Exchange is US state, Canadian province, or &amp;quot;DX&amp;quot;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                 </property>
                 <property name="text">
                  <string>NJ</string>
@@ -2951,7 +2954,7 @@ Right click for insert and delete options.</string>
             <property name="text">
              <string>ARRL Digi Contest</string>
             </property>
-             <attribute name="buttonGroup">
+            <attribute name="buttonGroup">
              <string notr="true">special_op_activity_button_group</string>
             </attribute>
            </widget>
@@ -3819,13 +3822,13 @@ Right click for insert and delete options.</string>
   </connection>
  </connections>
  <buttongroups>
+  <buttongroup name="TX_audio_source_button_group"/>
   <buttongroup name="CAT_data_bits_button_group"/>
-  <buttongroup name="CAT_handshake_button_group"/>
-  <buttongroup name="CAT_stop_bits_button_group"/>
-  <buttongroup name="PTT_method_button_group"/>
   <buttongroup name="split_mode_button_group"/>
   <buttongroup name="special_op_activity_button_group"/>
-  <buttongroup name="TX_audio_source_button_group"/>
+  <buttongroup name="PTT_method_button_group"/>
+  <buttongroup name="CAT_stop_bits_button_group"/>
   <buttongroup name="TX_mode_button_group"/>
+  <buttongroup name="CAT_handshake_button_group"/>
  </buttongroups>
 </ui>

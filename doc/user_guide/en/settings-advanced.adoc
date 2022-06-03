@@ -38,15 +38,14 @@ with twice or four times the normal tone spacing.  This feature is
 intended for use with specialized LF/MF transmitters that divide
 generated frequencies by 2 or 4 as part of the transmission process.
 
-_Special Operating Activity: Generation of FT4, FT8, and MSK144
-messages_
+_Special Operating Activity_
 
 - Check this box and select the type of activity to enable
 auto-generation of special message formats for contesting and
 DXpeditions.  For *ARRL Field Day*, enter your operating Class and
-ARRL/RAC section; for *ARRL RTTY Roundup*, enter your state or province.
+ARRL/RAC section; for *FT Roundup*, enter your state or province.
 Use “DX” for section or state if you are not in the US or Canada.  In
-the RTTY Roundup, Stations in Alaska and Hawaii should enter “DX”.
+the FT Roundup, Stations in Alaska and Hawaii should enter “DX”.
 
 - Check *Fox* if you are a DXpedition station operating in FT8
 DXpedition Mode.  Check *Hound* if you wish to make QSOs with such a

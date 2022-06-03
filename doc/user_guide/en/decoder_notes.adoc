@@ -24,7 +24,8 @@ AP bits, with a specified level of confidence.  Successful AP decodes
 are labeled with an end-of-line indicator of the form `aP`, where `P`
 is one of the single-digit AP decoding types listed in Table 1.  For
 example, `a2` indicates that the successful decode used MyCall as
-hypothetically known information.
+hypothetically known information.  Type `a7`, used only in FT8 mode,
+uses information from the previous Rx sequence.
 
 [[FT8_AP_INFO_TABLE]]
 .FST4, FT4, and FT8 AP information types
@@ -37,6 +38,7 @@ hypothetically known information.
 |a4|MyCall DxCall RRR
 |a5|MyCall DxCall 73
 |a6|MyCall DxCall RR73
+|a7|Call_1 Call_2 &#160; &#160;   ?
 |===
 
 If a codeword is found that is judged to have high (but not

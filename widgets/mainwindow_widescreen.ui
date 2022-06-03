@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1220</width>
+    <width>1241</width>
     <height>658</height>
    </rect>
   </property>
@@ -36,7 +36,6 @@
           <property name="font">
            <font>
             <pointsize>10</pointsize>
-            <weight>50</weight>
             <bold>false</bold>
            </font>
           </property>
@@ -180,7 +179,6 @@
           <property name="font">
            <font>
             <pointsize>10</pointsize>
-            <weight>50</weight>
             <bold>false</bold>
            </font>
           </property>
@@ -1591,9 +1589,6 @@ list. The list can be maintained in Settings (F2).</string>
                             </property>
                             <property name="insertPolicy">
                              <enum>QComboBox::InsertAtBottom</enum>
-                            </property>
-                            <property name="sizeAdjustPolicy">
-                             <enum>QComboBox::AdjustToMinimumContentsLength</enum>
                             </property>
                            </widget>
                           </item>
@@ -3443,8 +3438,8 @@ QLabel[oob=&quot;true&quot;] {
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1220</width>
-     <height>21</height>
+     <width>1241</width>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -3480,8 +3475,8 @@ QLabel[oob=&quot;true&quot;] {
     <addaction name="contest_log_action"/>
     <addaction name="fox_log_action"/>
     <addaction name="actionColors"/>
-    <addaction name="actionSWL_Mode"/>
     <addaction name="actionActiveStations"/>
+    <addaction name="actionSWL_Mode"/>
    </widget>
    <widget class="QMenu" name="menuDecode">
     <property name="title">

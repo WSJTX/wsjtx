@@ -1,7 +1,7 @@
 // Status=edited
 
 The following controls appear just under the decoded text windows on
-the main screen:
+the main screen.  Some of them are visible only in certain modes.
 
 //.Main UI 
 image::main-ui-controls.png[align="center",width=650,alt="Main UI Controls"]

@@ -62,6 +62,7 @@ set (UG_SRCS
   )
 
 set (UG_IMGS
+  images/active_stations.png
   images/AstroData_2.png
   images/Astronomical_data.png
   images/auto-seq.png

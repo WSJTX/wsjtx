@@ -2698,13 +2698,13 @@ Right click for insert and delete options.</string>
             <item>
              <widget class="QRadioButton" name="rbRTTY_Roundup">
               <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;ARRL RTTY Roundup and similar contests.  Exchange is US state, Canadian province, or &amp;quot;DX&amp;quot;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;FT Roundup and similar contests. Exchange is US state, Canadian province, or &amp;quot;DX&amp;quot;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
               <property name="accessibleName">
                <string>R T T Y Roundup</string>
               </property>
               <property name="text">
-               <string>RTTY Roundup messages</string>
+               <string>FT Roundup messages</string>
               </property>
               <attribute name="buttonGroup">
                <string notr="true">special_op_activity_button_group</string>
@@ -2732,7 +2732,7 @@ Right click for insert and delete options.</string>
                  <string>RTTY Roundup exchange</string>
                 </property>
                 <property name="text">
-                 <string>RTTY RU Exch:</string>
+                 <string>FT RU Exch:</string>
                 </property>
                 <property name="buddy">
                  <cstring>RTTY_Exchange</cstring>
@@ -2748,7 +2748,7 @@ Right click for insert and delete options.</string>
                  </size>
                 </property>
                 <property name="toolTip">
-                 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;ARRL RTTY Roundup and similar contests.  Exchange is US state, Canadian province, or &amp;quot;DX&amp;quot;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;FT Roundup and similar contests. Exchange is US state, Canadian province, or &amp;quot;DX&amp;quot;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                 </property>
                 <property name="text">
                  <string>NJ</string>
@@ -3560,12 +3560,12 @@ Right click for insert and delete options.</string>
  </connections>
  <buttongroups>
   <buttongroup name="TX_audio_source_button_group"/>
-  <buttongroup name="TX_mode_button_group"/>
   <buttongroup name="CAT_data_bits_button_group"/>
-  <buttongroup name="CAT_stop_bits_button_group"/>
-  <buttongroup name="CAT_handshake_button_group"/>
-  <buttongroup name="special_op_activity_button_group"/>
   <buttongroup name="split_mode_button_group"/>
+  <buttongroup name="special_op_activity_button_group"/>
   <buttongroup name="PTT_method_button_group"/>
+  <buttongroup name="CAT_stop_bits_button_group"/>
+  <buttongroup name="TX_mode_button_group"/>
+  <buttongroup name="CAT_handshake_button_group"/>
  </buttongroups>
 </ui>

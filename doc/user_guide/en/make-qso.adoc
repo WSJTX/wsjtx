@@ -69,9 +69,9 @@ Check *Auto Seq* on the main window to enable this feature:
 
 image::auto-seq.png[align="center",alt="AutoSeq"]
 
-When calling CQ you may also choose to check the box *Call 1st*.
-_WSJT-X_ will then respond automatically to the first decoded
-responder to your CQ.
+When calling CQ you may choose to select *CQ: First* to reply
+automatically to the first decoded responder, or *CQ: Max Dist*
+to reply to the most distant responder.
 
 NOTE: When *Auto-Seq* is enabled, the program de-activates *Enable Tx*
 at the end of each QSO.  It is not intended that _WSJT-X_ should make
@@ -83,14 +83,14 @@ operator replacement.
 
 The FT4, FT8, and MSK144 protocols support special messages optimized
 for *NA VHF* and *EU VHF* contests.  FT4 and FT8 also support messages
-for *ARRL Field Day*, *ARRL RTTY Roundup*, and the *WW Digi* contest.
+for *ARRL Field Day*, *FT Roundup*, and the *WW Digi* contest.
 The decoders recognize and decode these messages at any time.
 Configure the program to automatically generate the required message
 types for contest exchanges and carry out suitable auto-sequencing by
 selecting a supported operating activity on the *Settings | Advanced*
 tab.  Model QSOs then proceed as follows, for each event type:
 
-*NA VHF Contest*
+*NA VHF Contest* and *ARRL International Digital Contest*
 
  CQ TEST K1ABC FN42
                        K1ABC W9XYZ EN37
@@ -98,8 +98,9 @@ tab.  Model QSOs then proceed as follows, for each event type:
                        K1ABC W9XYZ RRR
  W9XYZ K1ABC 73
 
-Either callsign (or both) may have /R appended.  You can use RR73 in
-place of RRR, and the final 73 is optional.
+Either callsign (or both) may have /R appended to signify a Rover in a
+VHF contest.  You can use RR73 in place of RRR, and the final 73 is
+optional.
 
 
 *EU VHF Contest*
@@ -124,7 +125,7 @@ to upgrade _WSJT-X_ if you will use *EU VHF Contest* messages.
  W9XYZ K1ABC R 2B EMA
                        K1ABC W9XYZ RR73
 
-*ARRL RTTY Roundup*
+*FT Roundup*
 
  CQ RU K1ABC FN42
                        K1ABC W9XYZ 579 WI

@@ -19,7 +19,7 @@ frequency limit is approximately 3300 Hz.
 +...\save\samples\FT4\200514_182053.wav+.  The waterfall and Band
 Activity window should look something like the following screen shots.
 This sample file was recorded during a practice contest test session, so
-most of the decoded messages use the *RTTY Roundup* message formats.
+most of the decoded messages use the *FT Roundup* message formats.
 
 [[X16]]
 image::ft4_waterfall.png[align="left",alt="Wide Graph Decode FT4"]
@@ -56,7 +56,7 @@ and treat it as if you had double-clicked on that line of decoded
 text. Here "best potential QSO partner" means "New Multiplier" (1st
 priority) or "New Call on Band" (2nd priority).  "New Multiplier" is
 currently interpreted to mean "New DXCC"; a more broadly defined
-multiplier category (for the ARRL RTTY Roundup rules) will be
+multiplier category (for the FT Roundup rules) will be
 implemented in due course.  We may provide additional priority
 rankings, for example “New Grid on Band” (useful for North American
 VHF contests), sorting by signal strength, etc.
@@ -66,7 +66,7 @@ supposed to mean.  This is done by configuring suitable options on the
 *Settings | Colors* tab.  Selection and ordering of color-highlighting
 options determines what potential QSO partners will be chosen by the
 "Best S+P" feature.  Optimum choices will be different for different
-contests.  In a contest using RTTY Roundup rules we recommend
+contests.  In a contest using FT Roundup rules we recommend
 activating *My Call in message*, *New DXCC*, *New Call on Band*, *CQ
 in message* and *Transmitted message*, reading from top to bottom.
 
