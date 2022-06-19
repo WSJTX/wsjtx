@@ -751,7 +751,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
   // ensure a balanced layout of the mode buttons
   qreal pointSize = m_config.text_font().pointSizeF();                // UR disable for AL
-  if (pointSize < 12) {
+  if (pointSize < 11) {
       ui->houndButton->setMaximumWidth(40);
       ui->ft8Button->setMaximumWidth(40);
       ui->ft4Button->setMaximumWidth(40);
@@ -759,12 +759,12 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
       ui->q65Button->setMaximumWidth(40);
       ui->jt65Button->setMaximumWidth(40);
   } else {
-      ui->houndButton->setMinimumWidth(0);
-      ui->ft8Button->setMinimumWidth(0);
-      ui->ft4Button->setMinimumWidth(0);
-      ui->msk144Button->setMinimumWidth(0);
-      ui->q65Button->setMinimumWidth(0);
-      ui->jt65Button->setMinimumWidth(0);
+      ui->houndButton->setMinimumWidth(50);
+      ui->ft8Button->setMinimumWidth(50);
+      ui->ft4Button->setMinimumWidth(50);
+      ui->msk144Button->setMinimumWidth(50);
+      ui->q65Button->setMinimumWidth(50);
+      ui->jt65Button->setMinimumWidth(50);
   }                                                                   // UR disable for AL
 
   // hook up save WAV file exit handling
@@ -1045,7 +1045,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
   if(QCoreApplication::applicationVersion().contains("-devel") or
      QCoreApplication::applicationVersion().contains("-rc")) {
-    QTimer::singleShot (0, this, SLOT (not_GA_warning_message ()));
+//    QTimer::singleShot (0, this, SLOT (not_GA_warning_message ()));
   }
 
   ui->pbBestSP->setVisible(m_mode=="FT4");
@@ -3891,13 +3891,13 @@ void MainWindow::readFromStdout()                             //readFromStdout
             || (decodedtext.string().contains(QRegularExpression {"<(\\w+)> " + m_hisCall}))))  {
            ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,116,244), QColor(0,0,0), true);  // UR Mod for G4GVB
            QTimer::singleShot (500, [=] {                       // repeated highlighting to override JTAlert
-               ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);
+               ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,116,244), QColor(0,0,0), true);
                });
            QTimer::singleShot (1000, [=] {                      // repeated highlighting to override JTAlert
-               ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);
+               ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,116,244), QColor(0,0,0), true);
                });
            QTimer::singleShot (2500, [=] {                      // repeated highlighting to override JTAlert
-               ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);
+               ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,116,244), QColor(0,0,0), true);
                });
        }
        if (m_config.highlight_DXgrid () && (m_hisGrid!="") && (decodedtext.string().contains(m_hisGrid)))  {
