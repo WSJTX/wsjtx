@@ -297,6 +297,9 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_secID {0},
   m_idleMinutes {0},
   m_nSubMode {0},
+  m_nSubMode_Q65 {0},
+  m_nSubMode_JT65 {0},
+  m_nSubMode_JT4 {0},
   m_nclearave {1},
   m_nWSPRdecodes {0},
   m_k0 {9999999},
@@ -1177,7 +1180,7 @@ void MainWindow::writeSettings()
   m_settings->setValue("FST4W_FTol",ui->sbFST4W_FTol->value());
   m_settings->setValue("FST4_FLow",ui->sbF_Low->value());
   m_settings->setValue("FST4_FHigh",ui->sbF_High->value());
-  m_settings->setValue("SubMode",ui->sbSubmode->value());
+//  m_settings->setValue("SubMode",ui->sbSubmode->value());
   m_settings->setValue("DTtol",m_DTtol);
   m_settings->setValue("Ftol", ui->sbFtol->value ());
   m_settings->setValue("MinSync",m_minSync);
@@ -1199,7 +1202,7 @@ void MainWindow::writeSettings()
   m_settings->setValue("UploadSpots",m_uploadWSPRSpots);
   m_settings->setValue("NoOwnCall",ui->cbNoOwnCall->isChecked());
   m_settings->setValue ("BandHopping", ui->band_hopping_group_box->isChecked ());
-  m_settings->setValue ("TRPeriod", ui->sbTR->value ());
+//  m_settings->setValue ("TRPeriod", ui->sbTR->value ());
   m_settings->setValue ("MaxDrift", ui->sbMaxDrift->value());
   m_settings->setValue ("TRPeriod_FST4W", ui->sbTR_FST4W->value ());
   m_settings->setValue("FastMode",m_bFastMode);
@@ -1349,8 +1352,14 @@ void MainWindow::readSettings()
   ui->sbFST4W_RxFreq->setValue(m_settings->value("FST4W_RxFreq",1500).toInt());
   ui->sbF_Low->setValue(m_settings->value("FST4_FLow",600).toInt());
   ui->sbF_High->setValue(m_settings->value("FST4_FHigh",1400).toInt());
-  m_nSubMode=m_settings->value("SubMode",0).toInt();
-  ui->sbSubmode->setValue(m_nSubMode);
+//  m_nSubMode=m_settings->value("SubMode",0).toInt();
+  if (m_mode=="Q65") m_nSubMode=m_settings->value("SubMode_Q65",0).toInt();
+  if (m_mode=="JT65") m_nSubMode=m_settings->value("SubMode_JT65",0).toInt();
+  if (m_mode=="JT4") m_nSubMode=m_settings->value("SubMode_JT4",0).toInt();
+//  ui->sbSubmode->setValue(m_nSubMode);
+  if (m_mode=="Q65") ui->sbSubmode->setValue(m_nSubMode_Q65);
+  if (m_mode=="JT65") ui->sbSubmode->setValue(m_nSubMode_JT65);
+  if (m_mode=="JT4") ui->sbSubmode->setValue(m_nSubMode_JT4);
   ui->sbFtol->setValue (m_settings->value("Ftol", 50).toInt());
   ui->sbFST4W_FTol->setValue(m_settings->value("FST4W_FTol",100).toInt());
   m_minSync=m_settings->value("MinSync",0).toInt();
@@ -1361,7 +1370,10 @@ void MainWindow::readSettings()
   m_bSWL=m_settings->value("SWL",false).toBool();
   m_bFast9=m_settings->value("Fast9",false).toBool();
   m_bFastMode=m_settings->value("FastMode",false).toBool();
-  ui->sbTR->setValue (m_settings->value ("TRPeriod", 15).toInt());
+//  ui->sbTR->setValue (m_settings->value ("TRPeriod", 15).toInt());
+  if (m_mode=="Q65") ui->sbTR->setValue (m_settings->value ("TRPeriod_Q65", 15).toInt());
+  if (m_mode=="MSK144") ui->sbTR->setValue (m_settings->value ("TRPeriod_MSK144", 15).toInt());
+  if (m_mode=="FST4") ui->sbTR->setValue (m_settings->value ("TRPeriod_FST4", 15).toInt());
   ui->sbMaxDrift->setValue (m_settings->value ("MaxDrift",0).toInt());
   ui->sbTR_FST4W->setValue (m_settings->value ("TRPeriod_FST4W", 15).toInt());
   m_lastMonitoredFrequency = m_settings->value ("DialFreq",
@@ -6916,7 +6928,9 @@ void MainWindow::on_actionJT4_triggered()
   ui->lh_decodes_headings_label->setText("UTC   dB   DT Freq    " + tr ("Message"));
   ui->rh_decodes_headings_label->setText("UTC   dB   DT Freq    " + tr ("Message"));
   if(bVHF) {
-    ui->sbSubmode->setValue(m_nSubMode);
+//    ui->sbSubmode->setValue(m_nSubMode);
+    m_nSubMode=m_settings->value("SubMode_JT4",0).toInt();
+    QTimer::singleShot (100, [=] {ui->sbSubmode->setValue(m_nSubMode);});
   } else {
     ui->sbSubmode->setValue(0);
   }
@@ -7017,8 +7031,10 @@ void MainWindow::on_actionJT65_triggered()
   m_bFast9=false;
   ui->sbSubmode->setMaximum(2);
   if(bVHF) {
-    ui->sbSubmode->setValue(m_nSubMode);
-    ui->lh_decodes_title_label->setText(tr ("Single-Period Decodes"));
+//    ui->sbSubmode->setValue(m_nSubMode);
+      m_nSubMode=m_settings->value("SubMode_JT65",0).toInt();
+      QTimer::singleShot (100, [=] {ui->sbSubmode->setValue(m_nSubMode);});
+      ui->lh_decodes_title_label->setText(tr ("Single-Period Decodes"));
     ui->rh_decodes_title_label->setText(tr ("Average Decodes"));
   } else {
     ui->sbSubmode->setValue(0);
@@ -7053,8 +7069,11 @@ void MainWindow::on_actionQ65_triggered()
   Q_EMIT FFTSize(m_FFTSize);
   m_hsymStop=49;
   ui->sbTR->values ({15, 30, 60, 120, 300});
-  on_sbTR_valueChanged (ui->sbTR->value());
-  ui->sbSubmode->setValue(m_nSubMode);
+//  on_sbTR_valueChanged (ui->sbTR->value());
+  ui->sbTR->setValue (m_settings->value ("TRPeriod_Q65", 30).toInt());    // remember sbTR settings by mode
+//  ui->sbSubmode->setValue(m_nSubMode);
+  m_nSubMode=m_settings->value("SubMode_Q65",0).toInt();
+  QTimer::singleShot (100, [=] {ui->sbSubmode->setValue(m_nSubMode);});
   QString fname {QDir::toNativeSeparators(m_config.temp_dir().absoluteFilePath ("red.dat"))};
   m_wideGraph->setRedFile(fname);
   m_wideGraph->setMode(m_mode);
@@ -7124,7 +7143,8 @@ void MainWindow::on_actionMSK144_triggered()
   m_bFastMode=true;
   m_bFast9=false;
   ui->sbTR->values ({5, 10, 15, 30});
-  on_sbTR_valueChanged (ui->sbTR->value());
+//  on_sbTR_valueChanged (ui->sbTR->value());
+  ui->sbTR->setValue (m_settings->value ("TRPeriod_MSK144", 15).toInt());    // remember sbTR settings by mode
   m_wideGraph->hide();
   m_fastGraph->showNormal();
   ui->TxFreqSpinBox->setValue(1500);
@@ -8243,7 +8263,16 @@ void MainWindow::on_sbTR_valueChanged(int value)
     m_wideGraph->setPeriod (value, m_nsps);
     progressBar.setMaximum (value);
   }
-  if(m_mode=="FST4") chk_FST4_freq_range();
+  if (m_mode=="Q65") {
+      QTimer::singleShot (200, [=] {m_settings->setValue ("TRPeriod_Q65", ui->sbTR->value ());});
+  }
+  if (m_mode=="MSK144") {
+      QTimer::singleShot (200, [=] {m_settings->setValue ("TRPeriod_MSK144", ui->sbTR->value ());});
+  }
+  if (m_mode=="FST4") {
+      chk_FST4_freq_range();
+      QTimer::singleShot (200, [=] {m_settings->setValue ("TRPeriod_FST4", ui->sbTR->value ());});
+  }
 //  if(m_transmitting) on_stopTxButton_clicked();      //### Is this needed or desirable? ###
   on_sbSubmode_valueChanged(ui->sbSubmode->value());
   statusUpdate ();
@@ -8299,6 +8328,9 @@ void MainWindow::on_sbSubmode_valueChanged(int n)
     if(m_bFast9) ui->TxFreqSpinBox->setValue(700);
   }
   if(m_transmitting and m_bFast9 and m_nSubMode>=4) transmit (99.0);
+  if (m_mode=="Q65") {QTimer::singleShot (200, [=] {m_settings->setValue("SubMode_Q65",ui->sbSubmode->value());});}
+  if (m_mode=="JT65") {QTimer::singleShot (200, [=] {m_settings->setValue("SubMode_JT65",ui->sbSubmode->value());});}
+  if (m_mode=="JT4") {QTimer::singleShot (200, [=] {m_settings->setValue("SubMode_JT4",ui->sbSubmode->value());});}
   statusUpdate ();
 }
 

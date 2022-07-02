@@ -465,6 +465,9 @@ private:
   qint32  m_secID;
   qint32  m_idleMinutes;
   qint32  m_nSubMode;
+  qint32  m_nSubMode_Q65;
+  qint32  m_nSubMode_JT65;
+  qint32  m_nSubMode_JT4;
   qint32  m_nclearave;
   qint32  m_minSync;
   qint32  m_dBm;
