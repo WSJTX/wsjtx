@@ -11,7 +11,7 @@ subroutine astro0(nyear,month,nday,uth8,freq8,mygrid,hisgrid,              &
   real*8 uth8,techo8,freq8
   real*8 xl,b
   common/librcom/xl(2),b(2)
-  common/echocom2/echo_spread
+  common/echocom2/fspread_self,fspread_dx
   data uth8z/0.d0/
   save
 
@@ -43,9 +43,11 @@ subroutine astro0(nyear,month,nday,uth8,freq8,mygrid,hisgrid,              &
   dbdt2=DEGS*(b2a-b2)
   rate1=2.0*sqrt(dldt1**2 + dbdt1**2)
   width1=0.5*6741*fghz*rate1
-  echo_spread=width1                            !Save echo_spread for avecho()
   rate2=sqrt((dldt1+dldt2)**2 + (dbdt1+dbdt2)**2)
   width2=0.5*6741*fghz*rate2
+  if(hisgrid(1:4).eq.'    ') width2=width1       !No hisgrid, use self width
+  fspread_self=width1                            !Save for avecho()
+  fspread_dx=width2                              !Save for avecho()
 
   AzSun8=AzSun
   ElSun8=ElSun

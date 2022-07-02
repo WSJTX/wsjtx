@@ -1,4 +1,5 @@
-subroutine avecho(id2,ndop,nfrit,nqual,f1,xlevel,snrdb,db_err,dfreq,width)
+subroutine avecho(id2,ndop,nfrit,nauto,nqual,f1,xlevel,snrdb,db_err,  &
+     dfreq,width)
 
   integer TXLENGTH
   parameter (TXLENGTH=27648)           !27*1024
@@ -17,18 +18,19 @@ subroutine avecho(id2,ndop,nfrit,nqual,f1,xlevel,snrdb,db_err,dfreq,width)
   complex c(0:NH)
   equivalence (x,c),(ipk,ipkv)
   common/echocom/nclearave,nsum,blue(NZ),red(NZ)
-  common/echocom2/echo_spread
+  common/echocom2/fspread_self,fspread_dx
   save dop0,sa,sb
 
-  fspread=echo_spread                !### Use the predicted Doppler spread ###
+  fspread=fspread_dx                !### Use the predicted Doppler spread ###
+  if(nauto.eq.1) fspread=fspread_self
   inquire(file='fspread.txt',exist=ex)
   if(ex) then
      open(39,file='fspread.txt',status='old')
      read(39,*) fspread
      close(39)
   endif
+  fspread=min(max(0.1,fspread),700.0)
   width=fspread
-
   dop=ndop
   sq=0.
   do i=1,TXLENGTH
