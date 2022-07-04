@@ -6942,7 +6942,7 @@ void MainWindow::on_actionJT4_triggered()
   if(bVHF) {
 //    ui->sbSubmode->setValue(m_nSubMode);
     m_nSubMode=m_settings->value("SubMode_JT4",0).toInt();
-    QTimer::singleShot (100, [=] {ui->sbSubmode->setValue(m_nSubMode);});
+    QTimer::singleShot (50, [=] {ui->sbSubmode->setValue(m_settings->value("SubMode_JT4",0).toInt());});
   } else {
     ui->sbSubmode->setValue(0);
   }
@@ -7045,7 +7045,7 @@ void MainWindow::on_actionJT65_triggered()
   if(bVHF) {
 //    ui->sbSubmode->setValue(m_nSubMode);
       m_nSubMode=m_settings->value("SubMode_JT65",0).toInt();
-      QTimer::singleShot (100, [=] {ui->sbSubmode->setValue(m_nSubMode);});
+      QTimer::singleShot (50, [=] {ui->sbSubmode->setValue(m_settings->value("SubMode_JT65",0).toInt());});
       ui->lh_decodes_title_label->setText(tr ("Single-Period Decodes"));
     ui->rh_decodes_title_label->setText(tr ("Average Decodes"));
   } else {
@@ -7085,7 +7085,7 @@ void MainWindow::on_actionQ65_triggered()
   QTimer::singleShot (50, [=] {on_sbTR_valueChanged (ui->sbTR->value());});
 //  ui->sbSubmode->setValue(m_nSubMode);
   m_nSubMode=m_settings->value("SubMode_Q65",0).toInt();
-  QTimer::singleShot (100, [=] {ui->sbSubmode->setValue(m_nSubMode);});
+  QTimer::singleShot (50, [=] {ui->sbSubmode->setValue(m_settings->value("SubMode_Q65",0).toInt());});
   QString fname {QDir::toNativeSeparators(m_config.temp_dir().absoluteFilePath ("red.dat"))};
   m_wideGraph->setRedFile(fname);
   m_wideGraph->setMode(m_mode);
