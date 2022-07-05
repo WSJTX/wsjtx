@@ -3,7 +3,8 @@ subroutine grid2deg(grid0,dlong,dlat)
 ! Converts Maidenhead grid locator to degrees of West longitude
 ! and North latitude.
 
-  character*6 grid0,grid
+  character*(*) grid0
+  character*6 grid
   character*1 g1,g2,g3,g4,g5,g6
 
   grid=grid0
