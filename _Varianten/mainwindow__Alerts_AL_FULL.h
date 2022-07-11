@@ -152,6 +152,8 @@ private slots:
   void on_msk144Button_clicked();
   void on_q65Button_clicked();
   void on_jt65Button_clicked();
+  void on_fst4Button_clicked();
+  void on_wsprButton_clicked();
   void on_tx1_editingFinished();
   void on_tx2_editingFinished();
   void on_tx3_editingFinished();
@@ -179,9 +181,6 @@ private slots:
   void on_actionOpen_log_directory_triggered ();
   void on_actionNone_triggered();
   void on_actionSave_all_triggered();
-  void on_actionDefault_event_logging_triggered();
-  void on_actionDiagnostic_mode_triggered();
-  void on_actionDisable_event_logging_triggered();
   void on_actionKeyboard_shortcuts_triggered();
   void on_actionSpecial_mouse_commands_triggered();
   void on_actionSolve_FreqCal_triggered();

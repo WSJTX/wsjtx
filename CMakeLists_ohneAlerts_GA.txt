@@ -221,7 +221,6 @@ set (wsjt_qt_CXXSRCS
   widgets/DoubleClickablePushButton.cpp
   widgets/DoubleClickableRadioButton.cpp
   Network/LotWUsers.cpp
-  Network/Cloudlog.cpp
   models/DecodeHighlightingModel.cpp
   widgets/DecodeHighlightingListView.cpp
   models/FoxLog.cpp
@@ -1637,22 +1636,6 @@ install (DIRECTORY
   FILES_MATCHING REGEX "^.*[^~]$"
   #COMPONENT runtime
   )
-
-if (NOT UNIX)
-  install (DIRECTORY
-  ${PROJECT_SOURCE_DIR}/sounds
-  DESTINATION ${CMAKE_INSTALL_BINDIR}
-  #COMPONENT runtime
-  )
-  endif (NOT UNIX)
-	
-if (UNIX)
-  install (DIRECTORY
-  ${PROJECT_SOURCE_DIR}/sounds
-  DESTINATION $ENV{HOME}
-  #COMPONENT runtime
-  )
-  endif (UNIX)
 
 #
 # Mac installer files

@@ -3506,10 +3506,6 @@ QLabel[oob=&quot;true&quot;] {
     <addaction name="actionSplit_ALL_TXT_yearly"/>
     <addaction name="actionSplit_ALL_TXT_monthly"/>
     <addaction name="actionDisable_writing_of_ALL_TXT"/>
-    <addaction name="separator"/>
-    <addaction name="actionDefault_event_logging"/>
-    <addaction name="actionDiagnostic_mode"/>
-    <addaction name="actionDisable_event_logging"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -4104,41 +4100,6 @@ QLabel[oob=&quot;true&quot;] {
   <action name="actionActiveStations">
    <property name="text">
     <string>Active Stations</string>
-   </property>
-  </action>
-  <action name="actionEnable_trace_logging">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Enable trace logging</string>
-   </property>
-  </action>
-  <action name="actionDefault_event_logging">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="checked">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Default event logging</string>
-   </property>
-  </action>
-  <action name="actionDiagnostic_mode">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Diagnostic mode</string>
-   </property>
-  </action>
-  <action name="actionDisable_event_logging">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Disable event logging</string>
    </property>
   </action>
  </widget>
