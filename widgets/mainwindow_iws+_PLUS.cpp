@@ -432,7 +432,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
         m_config.udp_server_name (), m_config.udp_server_port (),
         m_config.udp_interface_names (), m_config.udp_TTL (),
         this}},
-  m_psk_Reporter {&m_config, QString {"WSJT-X v" + version () + " ial+"}.simplified ()},     // UR
+  m_psk_Reporter {&m_config, QString {"WSJT-X v" + version () + " iws+"}.simplified ()},     // UR
   m_manual {&m_network_manager},
   m_block_udp_status_updates {false}
 {
@@ -760,7 +760,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
           });
 
   // ensure a balanced layout of the mode buttons
-/*  qreal pointSize = m_config.text_font().pointSizeF();                // UR disable for AL
+  qreal pointSize = m_config.text_font().pointSizeF();                // UR disable for AL
   if (pointSize < 11) {
       ui->houndButton->setMaximumWidth(40);
       ui->ft8Button->setMaximumWidth(40);
@@ -775,7 +775,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
       ui->msk144Button->setMinimumWidth(50);
       ui->q65Button->setMinimumWidth(50);
       ui->jt65Button->setMinimumWidth(50);
-  }     */                                                              // UR disable for AL
+  }                                                                   // UR disable for AL
 
   // hook up save WAV file exit handling
   connect (&m_saveWAVWatcher, &QFutureWatcher<QString>::finished, [this] {
@@ -4940,9 +4940,9 @@ void MainWindow::guiUpdate()
     }
 
     QDateTime t = QDateTime::currentDateTimeUtc();
-//    QString utc = t.date().toString("yyyy MMM dd") + "\n " +
-//      t.time().toString() + " ";
-    QString utc = t.time().toString();      // UR for AL version use this and disable the 2 lines above
+    QString utc = t.date().toString("yyyy MMM dd") + "\n " +
+      t.time().toString() + " ";
+//    QString utc = t.time().toString();      // UR for AL version use this and disable the 2 lines above
     ui->labUTC->setText(utc);
     if(m_bBestSPArmed and (m_dateTimeBestSP.secsTo(t) >= 120)) on_pbBestSP_clicked(); //BestSP timeout
     if(!m_monitoring and !m_diskData) ui->signal_meter_widget->setValue(0,0);
@@ -6684,6 +6684,7 @@ void MainWindow::on_actionFST4_triggered()
     ui->RxFreqSpinBox->setValue(m_settings->value("RxFreq_old",1500).toInt());
     on_sbSubmode_valueChanged(ui->sbSubmode->value());
   });
+  m_mode="FST4";
   m_mode="FST4";
   ui->actionFST4->setChecked(true);
   m_bFast9=false;
@@ -10152,22 +10153,6 @@ void MainWindow::on_jt65Button_clicked()
     on_actionJT65_triggered();
 }
 
-void MainWindow::on_fst4Button_clicked()     // UR disable for normal + widescreen versions
-{
-    ui->houndButton->setChecked(false);
-    ui->houndButton->setStyleSheet("");
-    if(m_config.special_op_id()==SpecOp::HOUND) m_config.setSpecial_None();
-    on_actionFST4_triggered();
-}
-
-void MainWindow::on_wsprButton_clicked()     // UR disable for normal + widescreen versions
-{
-    ui->houndButton->setChecked(false);
-    ui->houndButton->setStyleSheet("");
-    if(m_config.special_op_id()==SpecOp::HOUND) m_config.setSpecial_None();
-    on_actionWSPR_triggered();
-}
-
 void MainWindow::bandHoppingTimer()
 {
     if(ui->pbBandHopping->isChecked()) {
@@ -10559,12 +10544,20 @@ void MainWindow::bandHopping()
 
 void MainWindow::on_actionDefault_event_logging_triggered()
 {
+#if defined(Q_OS_LINUX)
+    QFile::remove ("./.config/wsjtx_log_config.ini");
+#else
     QFile::remove (QDir {QStandardPaths::writableLocation (QStandardPaths::DataLocation)}.absoluteFilePath ("wsjtx_log_config.ini"));
+#endif
 }
 
 void MainWindow::on_actionDiagnostic_mode_triggered()
 {
+#if defined(Q_OS_LINUX)
+    static QFile f ("./.config/wsjtx_log_config.ini");
+#else
     static QFile f {QDir {QStandardPaths::writableLocation (QStandardPaths::DataLocation)}.absoluteFilePath ("wsjtx_log_config.ini")};
+#endif
     if(!f.open(QIODevice::WriteOnly | QIODevice::Text)) {
       QMessageBox mb;
       mb.setText("Cannot write wsjtx_log_config.ini file");

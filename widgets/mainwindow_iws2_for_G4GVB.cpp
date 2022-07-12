@@ -10526,12 +10526,20 @@ void MainWindow::bandHopping()
 
 void MainWindow::on_actionDefault_event_logging_triggered()
 {
+#if defined(Q_OS_LINUX)
+    QFile::remove ("./.config/wsjtx_log_config.ini");
+#else
     QFile::remove (QDir {QStandardPaths::writableLocation (QStandardPaths::DataLocation)}.absoluteFilePath ("wsjtx_log_config.ini"));
+#endif
 }
 
 void MainWindow::on_actionDiagnostic_mode_triggered()
 {
+#if defined(Q_OS_LINUX)
+    static QFile f ("./.config/wsjtx_log_config.ini");
+#else
     static QFile f {QDir {QStandardPaths::writableLocation (QStandardPaths::DataLocation)}.absoluteFilePath ("wsjtx_log_config.ini")};
+#endif
     if(!f.open(QIODevice::WriteOnly | QIODevice::Text)) {
       QMessageBox mb;
       mb.setText("Cannot write wsjtx_log_config.ini file");
