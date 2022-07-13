@@ -6185,7 +6185,7 @@ void MainWindow::on_lookupButton_clicked()                    //Lookup button
     lookup();
     if((ms-m_msErase)<500) {
         QString hisCall=ui->dxCallEntry->text();
-        QDesktopServices::openUrl (QUrl {"https://www.qrz.com/db/" + hisCall});
+        if (hisCall !="") QDesktopServices::openUrl (QUrl {"https://www.qrz.com/db/" + hisCall});
     }
     m_msErase=ms;
 }
