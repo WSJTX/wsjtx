@@ -12,33 +12,36 @@
 Copyright 2001 - 2022 by Joe Taylor, K1JT, and the WSJT Development Team
 
 	        Release: WSJT-X 2.6.0-rc2
-	             August 01, 2022
+	             July 25, 2022
 	        ----------------------
 
-WSJT-X 2.6.0 Release Candidate 2 brings a number of useful improvements, 
-and some bug fixes.
+WSJT-X 2.6.0 Release Candidate 2 brings a number of improvements as
+well as some bug fixes.
 
-In program WSJT-X:
+In program WSJT-X :
 
  - Echo-mode now lets the "Measure" function use the computed fspread 
    for DX grid
 
  - Fix VFOB not getting set on some rigs (e.g. IC7610 & IC7100)
 
- - The settings for T/R period and Submode are now remembered by mode. 
-   This is especially helpful for VHF / EME activities, and on HF for 
-   FST4. You can now switch directly e.g. between MSK144-15, Q65-60A, 
-   JT65-C, FST4-120 or whatever, and wsjt-x_improved remembers all that.
+ - Show contacts by ID in the contest log, scroll to insertion when  
+   sorted by the column up or down 
 
- - Also your last TX and RX audio frequencies are now remembered when 
-   coming back from any mode which sets AF to 1500 Hz (MSK144, FST4W, 
-   Echo, WSPR, FreqCal). 
-   Note: when you start this version for the very first time, it will 
-   set the RX and Tx audio frequencies for the non-restricted modes 
-   (FT4, FT8, Q65, JT65, FST4) to 1500 Hz. Once you have changed the RX 
-   and Tx audio frequencies in any of the non-restricted modes at least 
-   one time, such values are saved and remembered.
+ - Remember the settings for T/R period and Submode by mode; you can now
+   switch directly e.g. between MSK144-15, Q65-60A, JT65-C, FST4-120
 
+ - Restore Tx & Rx offset when coming from a mode which sets AF to
+   1500 Hz (MSK144, FST4W, Echo, WSPR, FreqCal) and switch back to 
+   FT4, FT8, Q65, JT65, or FST4
+
+ - Set 4m FT8 default frequency for Region 1 to 70.154 MHz
+
+ - Optimize mode button layout for 4K screens
+
+ - Minor edits to display of Keyboard Shortcuts
+
+ - Fix some bugs
 
 
 	        Release: WSJT-X 2.6.0-rc1
