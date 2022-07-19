@@ -18,19 +18,19 @@ Copyright 2001 - 2022 by Joe Taylor, K1JT, and the WSJT Development Team
 WSJT-X 2.6.0 Release Candidate 2 brings a number of improvements as
 well as some bug fixes.
 
- - The "Measure function in Echo mode now uses the computed fspread
-   for DX grid, when available.  This feature is especially useful for
-   microwave EME tests, enabling accurate measurement of SNR for a DX
-   station.
+ - The "Measure" function in Echo mode now uses the computed Doppler
+   spread for DX grid, when available.  This feature is especially
+   helpful for microwave EME tests, enabling accurate measurement of
+   SNR for a DX station.
 
  - Settings for T/R period and Submode are now remembered by mode when
    you switch directly between (for example) MSK144-15, Q65-60A,
-   JT65-C, or FST4-120.
+   JT65C, or FST4-120.
 
  - Tx and Rx audio frequencies are remembered and restored when you
-   return from a mode that sets a default frequency 1500 Hz (MSK144,
-   FST4W, Echo, WSPR, FreqCal), switching back to FT4, FT8, Q65, JT65,
-   or FST4.
+   return from a mode that sets a default frequency of 1500 Hz
+   (MSK144, FST4W, Echo, WSPR, FreqCal) and then switching back to
+   FT4, FT8, Q65, JT65, or FST4.
 
  - QSOs in the Contest Log can now be displayed in increasing or
    decreasing order of logged time.  By default the log is scrolled to
@@ -50,8 +50,8 @@ well as some bug fixes.
 -  Bug fix: The Tx Freq spinbox remained red when coming back from
    some Q65 submodes.  Corrected.
 
- - Hamlib bug fix: make sure that VFOB is selected when required on
-   some rigs (e.g. IC7610, IC7100).
+ - Hamlib bug fixes: make sure that VFOB is selected when required on
+   some rigs (e.g. IC7610, IC7100), and others.
 
 
 	        Release: WSJT-X 2.6.0-rc1
