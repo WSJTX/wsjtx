@@ -3797,7 +3797,6 @@ Double-click to reset to the standard 73 message</string>
     <addaction name="actionFT8"/>
     <addaction name="actionJT4"/>
     <addaction name="actionJT9"/>
-    <addaction name="actionJT9_JT65"/>
     <addaction name="actionJT65"/>
     <addaction name="actionQ65"/>
     <addaction name="separator"/>
@@ -4415,7 +4414,7 @@ Double-click to reset to the standard 73 message</string>
  <customwidgets>
   <customwidget>
    <class>DisplayText</class>
-   <extends>QTextEdit</extends>
+   <extends>QTextBrowser</extends>
    <header>widgets/displaytext.h</header>
   </customwidget>
   <customwidget>
