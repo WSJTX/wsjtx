@@ -2082,6 +2082,7 @@ void MainWindow::on_actionAbout_triggered()                  //Display "About"
 
 void MainWindow::on_autoButton_clicked (bool checked)
 {
+  QTimer::singleShot (3000, [=] {tuneATU_Timer.stop ();});  // Stop the Tune watchdog
   ui->pbBandHopping->setChecked(false); // disable band hopping when Tx is enabled
   m_auto = checked;
   m_maxPoints=-1;
@@ -10601,7 +10602,11 @@ void MainWindow::on_actionDiagnostic_mode_triggered()
 
 void MainWindow::on_actionDisable_event_logging_triggered()
 {
+#if defined(Q_OS_WIN)
     static QFile f {QDir {QStandardPaths::writableLocation (QStandardPaths::DataLocation)}.absoluteFilePath ("wsjtx_log_config.ini")};
+#else
+    static QFile f {QDir {QStandardPaths::writableLocation (QStandardPaths::ConfigLocation)}.absoluteFilePath ("wsjtx_log_config.ini")};
+#endif
     if(!f.open(QIODevice::WriteOnly | QIODevice::Text)) {
       QMessageBox mb;
       mb.setText("Cannot write wsjtx_log_config.ini file");
