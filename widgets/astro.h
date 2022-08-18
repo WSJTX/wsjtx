@@ -66,6 +66,7 @@ public:
   void selectOwnEcho();
   void selectOnDxEcho();
   qint32 nfRIT();
+  qint32 DopplerMethod();
 
   Q_SLOT void nominal_frequency (Frequency rx, Frequency tx);
   Q_SIGNAL void tracking_update () const;

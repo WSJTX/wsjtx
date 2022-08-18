@@ -367,3 +367,8 @@ qint32 Astro::nfRIT()
     return 0;
   }
 }
+
+qint32 Astro::DopplerMethod()
+{
+  return m_DopplerMethod;
+}
