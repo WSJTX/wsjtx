@@ -879,8 +879,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   decodeBusy(false);
 
   m_msg[0][0]=0;
-  ui->labDXped->setVisible(false);
-  ui->labDXped->setStyleSheet("QLabel {background-color: red; color: white;}");
 
   char const * const power[] = {"1 mW","2 mW","5 mW","10 mW","20 mW","50 mW","100 mW","200 mW","500 mW",
                   "1 W","2 W","5 W","10 W","20 W","50 W","100 W","200 W","500 W","1 kW"};
@@ -1059,6 +1057,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   }
 
   m_specOp=m_config.special_op_id();
+  ui->labDXped->setVisible(SpecOp::NONE != m_specOp);
+  ui->labDXped->setStyleSheet("QLabel {background-color: red; color: white;}");
   ui->pbBestSP->setVisible(m_mode=="FT4");
 
 // this must be the last statement of constructor
@@ -1222,6 +1222,7 @@ void MainWindow::writeSettings()
   m_settings->setValue("SplitterState",ui->decodes_splitter->saveState());
   m_settings->setValue("Blanker",ui->sbNB->value());
   m_settings->setValue("Score",m_score);
+  m_settings->setValue("labDXpedText",ui->labDXped->text());
 
   {
     QList<QVariant> coeffs;     // suitable for QSettings
@@ -1345,6 +1346,7 @@ void MainWindow::readSettings()
   ui->cb15mDXp->setChecked(m_settings->value("bh_15mDXp", false).toBool());
   ui->cb10mDXp->setChecked(m_settings->value("bh_10mDXp", false).toBool());
   ui->actionReduce_false_decodes->setChecked(m_settings->value("reduceFalseDecodes", false).toBool());
+  ui->labDXped->setText(m_settings->value("labDXpedText",QString {}).toString ());
   ui->actionDon_t_split_ALL_TXT->setChecked(m_settings->value("actionDontSplitALLTXT", true).toBool());
   ui->actionSplit_ALL_TXT_yearly->setChecked(m_settings->value("splitAllTxtYearly", false).toBool());
   ui->actionSplit_ALL_TXT_monthly->setChecked(m_settings->value("splitAllTxtMonthly", false).toBool());
@@ -2047,6 +2049,7 @@ void MainWindow::on_actionSettings_triggered()               //Setup Dialog
     if(m_specOp!=nContest0) {
       ui->tx1->setEnabled(true);
       ui->txb1->setEnabled(true);
+      set_mode(m_mode);
     }
     chkFT4();
     if(SpecOp::EU_VHF==m_specOp and m_config.my_grid().size()<6) {
@@ -2058,6 +2061,8 @@ void MainWindow::on_actionSettings_triggered()               //Setup Dialog
       MessageBox::information_message (this,
           "Fox-and-Hound operation is available only in FT8 mode.\nGo back and change your selection.");
     }
+    ui->labDXped->setVisible(SpecOp::NONE != m_specOp);
+    set_mode(m_mode);
   }
 }
 
@@ -4875,7 +4880,7 @@ void MainWindow::guiUpdate()
 
 //Once per second (onesec)
   if(nsec != m_sec0) {
-//    qDebug() << "AAA" << nsec;
+//    qDebug() << "AAA" << nsec << int(m_specOp) << ui->labDXped->text();
 
     if(m_mode=="FST4") chk_FST4_freq_range();
     m_currentBand=m_config.bands()->find(m_freqNominal);
@@ -7132,7 +7137,6 @@ void MainWindow::on_actionQ65_triggered()
   switch_mode (Modes::Q65);
 //                         01234567890123456789012345678901234567
   displayWidgets(nWidgets("11111101011011010011100000010000000011"));
-  ui->labDXped->setText("");
   ui->lh_decodes_title_label->setText(tr ("Single-Period Decodes"));
   ui->rh_decodes_title_label->setText(tr ("Average Decodes"));
   ui->lh_decodes_headings_label->setText("UTC   dB   DT Freq    " + tr ("Message"));
@@ -7293,6 +7297,7 @@ void MainWindow::on_actionEcho_triggered()
   fast_config(false);
   if(m_astroWidget) m_astroWidget->selectOwnEcho();
   statusChanged();
+  monitor(false);
 }
 
 void MainWindow::on_actionFreqCal_triggered()
@@ -8932,7 +8937,6 @@ void MainWindow::astroUpdate ()
            m_transmitting,m_auto,!m_config.tx_QSY_allowed (),m_TRperiod);
       m_fDop=correction.dop;
       m_fSpread=correction.width;
-//      qDebug() << "bb" << m_fDop << m_fSpread;
 
       if (m_transmitting && !m_config.tx_QSY_allowed ()) return;  // No Tx Doppler correction if rig can't do it
       if (!m_astroWidget->doppler_tracking() or m_astroWidget->DopplerMethod()==0) {

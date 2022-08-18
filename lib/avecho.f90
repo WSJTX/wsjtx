@@ -60,7 +60,6 @@ subroutine avecho(id2,ndop,nfrit,nauto,nqual,f1,xlevel,snrdb,db_err,  &
   ia=nint((fnominal+dop0-nfrit)/df)
   ib=nint((f1+dop-nfrit)/df)
   if(ia.lt.2048 .or. ib.lt.2048 .or. ia.gt.6144 .or. ib.gt.6144) then
-     xlevel=0.
      snrdb=0.
      db_err=0.
      dfreq=0.

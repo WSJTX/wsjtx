@@ -121,7 +121,6 @@ auto Astro::astroUpdate(QDateTime const& t, QString const& mygrid, QString const
            AzElFileName.toLocal8Bit ().constData (),
            jpleph.toLocal8Bit ().constData ());
 
-//  qDebug() << "AA1" << m_dop00 << m_dop << width1 << width2;
   QString message;
   {
     QTextStream out {&message};
@@ -152,7 +151,7 @@ auto Astro::astroUpdate(QDateTime const& t, QString const& mygrid, QString const
     if(freq>=5000000ull) {                     //Suppress data not relevant below VHF
       out << "Tsky:   " << ntsky << "\n"
         "Dpol:   " << poloffset << "\n"
-		"MNR:    " << xnr << "\n"
+        "MNR:    " << xnr << "\n"
         "Dist:   " << int((techo*149896)) << "\n" //wdg
         "Dgrd:   " << dgrd;
     }
@@ -166,8 +165,8 @@ auto Astro::astroUpdate(QDateTime const& t, QString const& mygrid, QString const
     correction.dop=m_dop;
     correction.width=width2;
   }
-  if (ui_->cbDopplerTracking->isChecked ()) {
-    ui_->sbRIT->setEnabled(m_DopplerMethod==0);
+  if (ui_->cbDopplerTracking->isChecked()) {
+    ui_->sbRIT->setEnabled(bEchoMode and m_DopplerMethod==0);
     switch (m_DopplerMethod)
       {
       case 1: // All Doppler correction done here; DX station stays at nominal dial frequency.
