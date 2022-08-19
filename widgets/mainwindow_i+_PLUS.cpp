@@ -6084,35 +6084,34 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
         case Configuration::type_2_msg_1_full:
           msgtype(t + my_grid, ui->tx1);
           if (!eme_short_codes) {
-              if (!eme_short_codes) {
-                if(is77BitMode () && SpecOp::NA_VHF == m_specOp) {
-                  msgtype(t + "R " + my_grid, ui->tx3); // #### Unreachable code
-                } else {
-                  msgtype(t + "R" + rpt, ui->tx3);
-                }
-                if ((m_mode != "JT4" && m_mode != "Q65") || !m_bShMsgs) {
-                  msgtype(t + "73", ui->tx5->lineEdit ());
-                }
-              }
-              break;
+            if(is77BitMode () && SpecOp::NA_VHF == m_specOp) {
+              msgtype(t + "R " + my_grid, ui->tx3); // #### Unreachable code
+            } else {
+              msgtype(t + "R" + rpt, ui->tx3);
+            }
+            if ((m_mode != "JT4" && m_mode != "Q65") || !m_bShMsgs) {
+              msgtype(t + "73", ui->tx5->lineEdit ());
+            }
+          }
+          break;
 
-            case Configuration::type_2_msg_3_full:
-              if (is77BitMode () && SpecOp::NA_VHF == m_specOp) {
-                msgtype(t + "R " + my_grid, ui->tx3);
-                msgtype(t + "RRR", ui->tx4);
-              } else {
-                msgtype(t00 + my_grid, ui->tx1);
-                msgtype(t + "R" + rpt, ui->tx3);
-              }
-              if (!eme_short_codes && ((m_mode != "JT4" && m_mode != "Q65") || !m_bShMsgs)) {
-                msgtype(t + "73", ui->tx5->lineEdit ());
-              }
-              break;
+        case Configuration::type_2_msg_3_full:
+          if (is77BitMode () && SpecOp::NA_VHF == m_specOp) {
+            msgtype(t + "R " + my_grid, ui->tx3);
+            msgtype(t + "RRR", ui->tx4);
+          } else {
+            msgtype(t00 + my_grid, ui->tx1);
+            msgtype(t + "R" + rpt, ui->tx3);
+          }
+          if (!eme_short_codes && ((m_mode != "JT4" && m_mode != "Q65") || !m_bShMsgs)) {
+            msgtype(t + "73", ui->tx5->lineEdit ());
+          }
+          break;
 
-            case Configuration::type_2_msg_5_only:
-              msgtype(t00 + my_grid, ui->tx1);
-              if (!eme_short_codes) {
-                if (is77BitMode () && SpecOp::NA_VHF == m_specOp) {
+        case Configuration::type_2_msg_5_only:
+          msgtype(t00 + my_grid, ui->tx1);
+          if (!eme_short_codes) {
+            if (is77BitMode () && SpecOp::NA_VHF == m_specOp) {
               msgtype(t + "R " + my_grid, ui->tx3); // #### Unreachable code
               msgtype(t + "RRR", ui->tx4);
             } else {
@@ -6132,45 +6131,45 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
       t = hisCall + " 73";
       msgtype(t, ui->tx5->lineEdit ());
     }
-    } else {
-      if (hisCall != hisBase and SpecOp::HOUND != m_specOp) {
-        if (shortList(hisCall)) {
-          // cfm we know his full call with a type 1 tx1 message
-          t = hisCall + " " + my_callsign;
-          msgtype(t, ui->tx1);
-        }
-        else if (!eme_short_codes
-                 && ("MSK144" != m_mode || !m_bShMsgs)) {
-          t=hisCall + " 73";
-          msgtype(t, ui->tx5->lineEdit ());
-        }
+  } else {
+    if (hisCall != hisBase and SpecOp::HOUND != m_specOp) {
+      if (shortList(hisCall)) {
+        // cfm we know his full call with a type 1 tx1 message
+        t = hisCall + " " + my_callsign;
+        msgtype(t, ui->tx1);
+      }
+      else if (!eme_short_codes
+               && ("MSK144" != m_mode || !m_bShMsgs)) {
+        t=hisCall + " 73";
+        msgtype(t, ui->tx5->lineEdit ());
       }
     }
-    m_rpt=rpt;
-    if(SpecOp::HOUND == m_specOp and is_compound) ui->tx1->setText("DE " + my_callsign);
   }
+  m_rpt=rpt;
+  if(SpecOp::HOUND == m_specOp and is_compound) ui->tx1->setText("DE " + my_callsign);
+}
 
-  void MainWindow::TxAgain()
-  {
-    auto_tx_mode(true);
+void MainWindow::TxAgain()
+{
+  auto_tx_mode(true);
+}
+
+void MainWindow::clearDX ()
+{
+  set_dateTimeQSO (-1);
+  if (m_QSOProgress != CALLING) {
+    auto_tx_mode (false);
   }
-
-  void MainWindow::clearDX ()
-  {
-    set_dateTimeQSO (-1);
-    if (m_QSOProgress != CALLING) {
-      auto_tx_mode (false);
-    }
-    ui->dxCallEntry->clear ();
-    ui->dxGridEntry->clear ();
-    m_lastCallsign.clear ();
-    m_rptSent.clear ();
-    m_rptRcvd.clear ();
-    m_qsoStart.clear ();
-    m_qsoStop.clear ();
-    m_inQSOwith.clear();
-    genStdMsgs (QString {});
-    if (m_mode=="FT8" and SpecOp::HOUND == m_specOp) {
+  ui->dxCallEntry->clear ();
+  ui->dxGridEntry->clear ();
+  m_lastCallsign.clear ();
+  m_rptSent.clear ();
+  m_rptRcvd.clear ();
+  m_qsoStart.clear ();
+  m_qsoStop.clear ();
+  m_inQSOwith.clear();
+  genStdMsgs (QString {});
+  if (m_mode=="FT8" and SpecOp::HOUND == m_specOp) {
     m_ntx=1;
     ui->txrb1->setChecked(true);
   } else {
