@@ -6927,6 +6927,7 @@ void MainWindow::on_actionFT8_triggered()
       ui->houndButton->setStyleSheet("");
   }
 
+  m_specOp=m_config.special_op_id();
   if(m_specOp!=SpecOp::NONE and m_specOp!=SpecOp::FOX and m_specOp!=SpecOp::HOUND) {
     QString t0="";
     if(SpecOp::NA_VHF==m_specOp) t0="NA VHF";
@@ -7161,6 +7162,7 @@ void MainWindow::on_actionQ65_triggered()
   ui->rh_decodes_headings_label->setText("UTC   dB   DT Freq    " + tr ("Message"));
   statusChanged();
 
+  m_specOp=m_config.special_op_id();
   if(m_specOp!=SpecOp::NONE and m_specOp!=SpecOp::FOX and m_specOp!=SpecOp::HOUND) {
     QString t0="";
     if(SpecOp::NA_VHF==m_specOp) t0="NA VHF";
@@ -9982,6 +9984,7 @@ void MainWindow::chkFT4()
   ui->labDXped->setVisible(m_specOp!=SpecOp::NONE);
   ui->respondComboBox->setVisible(ui->cbAutoSeq->isChecked());
 
+  m_specOp=m_config.special_op_id();
   if(m_specOp!=SpecOp::NONE and m_specOp!=SpecOp::FOX and m_specOp!=SpecOp::HOUND) {
     QString t0="";
     if(SpecOp::NA_VHF==m_specOp) t0="NA VHF";
