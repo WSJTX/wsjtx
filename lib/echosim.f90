@@ -90,8 +90,12 @@ program echosim
      fspread0=fspread
      
      h=default_header(12000,NMAX)
-     write(fname,1102) 3*ifile
-1102 format('000000_',i6.6,'.wav')
+     n=3*(ifile-1)
+     ihr=n/3600
+     imin=(n-3600*ihr)/60
+     isec=mod(n,60)
+     write(fname,1102) ihr,imin,isec
+1102 format('000000_',3i2.2,'.wav')
      open(10,file=fname,status='unknown',access='stream')
      write(10) h,iwave                !Save to *.wav file
      close(10)

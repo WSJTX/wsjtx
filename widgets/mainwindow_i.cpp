@@ -1697,15 +1697,26 @@ void MainWindow::dataSink(qint64 frames)
       }
 
       if(m_monitoring or m_auto or m_diskData) {
-        QString t;
-        t = t.asprintf("%5.2f %7d %7.1f %7d %7d %7d %7.1f %7.1f",xlevel,nDopTotal,width,echocom_.nsum,
-                       nqual,qRound(dfreq),sigdb,dBerr);
         QString t0;
         if(m_diskData) {
           t0=t0.asprintf("%06d  ",m_UTCdisk);
         } else {
-          t0=QDateTime::currentDateTimeUtc().toString("hhmmss  ");
+          QDateTime now=QDateTime::currentDateTimeUtc();
+          int ihr=now.toString("hh").toInt();
+          int imin=now.toString("mm").toInt();
+          int isec=now.toString("ss").toInt();
+          if(m_auto) isec=isec - isec%6;
+          if(!m_auto) isec=isec - isec%3;
+          t0=t0.asprintf("%02d%02d%02d  ",ihr,imin,isec);
         }
+        int n=t0.toInt();
+        int nsec=((n/10000)*3600) + (((n/100)%100)*60) + (n%100);
+        if(!m_echoRunning) m_echoSec0=nsec;
+        n=(nsec-m_echoSec0 + 864000)%86400;
+        m_echoRunning=true;
+        QString t;
+        t = t.asprintf("%6d  %5.2f %7d %7.1f %7d %7d %7d %7.1f %7.1f",n,xlevel,
+                       nDopTotal,width,echocom_.nsum,nqual,qRound(dfreq),sigdb,dBerr);
         t = t0 + t;
         if (ui) ui->decodedTextBrowser->appendText(t);
       }
