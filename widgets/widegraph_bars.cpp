@@ -54,7 +54,7 @@ WideGraph::WideGraph(QSettings * settings, QWidget *parent) :
     ui->gainSlider->setValue(ui->widePlot->plotGain());
     ui->gain2dSlider->setValue(ui->widePlot->plot2dGain());
     ui->zero2dSlider->setValue(ui->widePlot->plot2dZero());
-    m_bars=m_settings->value("Bars",false).toBool();
+    m_bars=m_settings->value("Bars",true).toBool();
     ui->cbBars->setChecked(m_bars);
     ui->widePlot->setBars(m_bars);
     m_freq=m_settings->value("Freq",true).toBool();
