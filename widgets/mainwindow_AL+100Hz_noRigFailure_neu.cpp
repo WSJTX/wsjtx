@@ -1497,8 +1497,12 @@ void MainWindow::set_application_font (QFont const& font)
       qApp->setStyleSheet (ss + "* {" + font_as_stylesheet (font) + '}');
   }
 
-  // ensure a balanced layout of the mode buttons
+  // ensure a balanced layout
   qreal pointSize = m_config.text_font().pointSizeF();
+  if (pointSize < 9) ui->controls_stack_widget->setMaximumWidth(180);   // UR for AL
+  if (pointSize == 9) ui->controls_stack_widget->setMaximumWidth(200);  // UR for AL
+  if (pointSize == 10) ui->controls_stack_widget->setMaximumWidth(220); // UR for AL
+  if (pointSize > 10) ui->controls_stack_widget->setMaximumWidth(240);  // UR for AL
   if (pointSize < 11) {
       ui->tabWidget->setMaximumHeight(210);                           // UR for AL
 //      if (ui->actionUse_Dark_Style->isChecked()) ui->tabWidget->setMaximumHeight(225);  // UR for normal + widescreen
@@ -10984,13 +10988,20 @@ void MainWindow::on_actionUse_Dark_Style_triggered (bool checked)
         }
         qApp->setStyleSheet (ss + "* {" + font_as_stylesheet (font) + '}');
     }
+    // ensure a balanced layout
     qreal pointSize = m_config.text_font().pointSizeF();
+    if (pointSize < 9) ui->controls_stack_widget->setMaximumWidth(180);     // UR for AL
+    if (pointSize == 9) ui->controls_stack_widget->setMaximumWidth(200);    // UR for AL
+    if (pointSize == 10) ui->controls_stack_widget->setMaximumWidth(220);   // UR for AL
+    if (pointSize > 10) ui->controls_stack_widget->setMaximumWidth(240);    // UR for AL
     if (pointSize < 11) {
-        ui->tabWidget->setMaximumHeight(210);                         // UR for AL
+        ui->tabWidget->setMaximumHeight(210);                               // UR for AL
+        ui->controls_stack_widget->setMaximumHeight(200);                   // UR for AL
 //        if (ui->actionUse_Dark_Style->isChecked()) ui->tabWidget->setMaximumHeight(225);  // UR for normal + widescreen
     } else {
-        ui->tabWidget->setMaximumHeight(255);                         // UR for AL
-//        ui->tabWidget->setMaximumHeight(500);                         // UR for normal + widescreen
+        ui->tabWidget->setMaximumHeight(255);                               // UR for AL
+        ui->controls_stack_widget->setMaximumHeight(225);                   // UR for AL
+//        ui->tabWidget->setMaximumHeight(500);                               // UR for normal + widescreen
     }
     for (auto& widget : qApp->topLevelWidgets ())
       {
