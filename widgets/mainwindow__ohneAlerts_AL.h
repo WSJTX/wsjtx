@@ -143,6 +143,9 @@ private:
 
 private slots:
   void initialize_fonts ();
+  void on_actionUse_Dark_Style_triggered (bool checked);
+  void stopWRTimeout();
+  void stopWCTimeout();
   void bandHoppingTimer();
   void bandHopping();
   void on_houndButton_clicked(bool checked);
@@ -218,6 +221,7 @@ private slots:
   void on_txb6_clicked();
   void on_lookupButton_clicked();
   void on_addButton_clicked();
+  void on_DX_Call_Button_clicked (bool checked);
   void on_dxCallEntry_textChanged (QString const&);
   void on_dxGridEntry_textChanged (QString const&);
   void on_dxCallEntry_editingFinished();
@@ -625,6 +629,8 @@ private:
   WSPRNet *wsprNet;
 
   QTimer m_guiTimer;
+  QTimer stopWRTimer;               //Wait & Reply
+  QTimer stopWCTimer;               //Wait & Call
   QTimer ptt1Timer;                 //StartTx delay
   QTimer ptt0Timer;                 //StopTx delay
   QTimer logQSOTimer;
@@ -765,6 +771,7 @@ private:
   QByteArray m_geometryNoControls;
   QVector<double> m_phaseEqCoefficients;
   bool m_block_udp_status_updates;
+  bool m_useDarkStyle;
 
   //---------------------------------------------------- private functions
   void readSettings();

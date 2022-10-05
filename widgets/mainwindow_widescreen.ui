@@ -13,6 +13,9 @@
   <property name="windowTitle">
    <string>WSJT-X   by K1JT</string>
   </property>
+  <property name="toolTip">
+   <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle Wait &amp;amp; Call on/off. Wait &amp;amp; Call turns on Enable Tx as soon as the callsign from the DX Call box is decoded, and calls it a maximum of three times. Auto Seq must be enabled.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+  </property>
   <property name="styleSheet">
    <string notr="true"/>
   </property>
@@ -2924,92 +2927,6 @@ Yellow when too low</string>
                 <property name="bottomMargin">
                  <number>0</number>
                 </property>
-                <item row="0" column="0">
-                 <widget class="QLabel" name="label_3">
-                  <property name="palette">
-                   <palette>
-                    <active>
-                     <colorrole role="Base">
-                      <brush brushstyle="SolidPattern">
-                       <color alpha="255">
-                        <red>252</red>
-                        <green>252</green>
-                        <blue>252</blue>
-                       </color>
-                      </brush>
-                     </colorrole>
-                     <colorrole role="Window">
-                      <brush brushstyle="SolidPattern">
-                       <color alpha="255">
-                        <red>159</red>
-                        <green>175</green>
-                        <blue>213</blue>
-                       </color>
-                      </brush>
-                     </colorrole>
-                    </active>
-                    <inactive>
-                     <colorrole role="Base">
-                      <brush brushstyle="SolidPattern">
-                       <color alpha="255">
-                        <red>252</red>
-                        <green>252</green>
-                        <blue>252</blue>
-                       </color>
-                      </brush>
-                     </colorrole>
-                     <colorrole role="Window">
-                      <brush brushstyle="SolidPattern">
-                       <color alpha="255">
-                        <red>159</red>
-                        <green>175</green>
-                        <blue>213</blue>
-                       </color>
-                      </brush>
-                     </colorrole>
-                    </inactive>
-                    <disabled>
-                     <colorrole role="Base">
-                      <brush brushstyle="SolidPattern">
-                       <color alpha="255">
-                        <red>159</red>
-                        <green>175</green>
-                        <blue>213</blue>
-                       </color>
-                      </brush>
-                     </colorrole>
-                     <colorrole role="Window">
-                      <brush brushstyle="SolidPattern">
-                       <color alpha="255">
-                        <red>159</red>
-                        <green>175</green>
-                        <blue>213</blue>
-                       </color>
-                      </brush>
-                     </colorrole>
-                    </disabled>
-                   </palette>
-                  </property>
-                  <property name="autoFillBackground">
-                   <bool>true</bool>
-                  </property>
-                  <property name="text">
-                   <string>DX Call</string>
-                  </property>
-                  <property name="alignment">
-                   <set>Qt::AlignCenter</set>
-                  </property>
-                  <property name="margin">
-                   <number>5</number>
-                  </property>
-                  <property name="indent">
-                   <number>2</number>
-                  </property>
-                  <property name="buddy">
-                   <cstring>dxCallEntry</cstring>
-                  </property>
-                 </widget>
-                </item>
                 <item row="0" column="1">
                  <widget class="QLabel" name="label_4">
                   <property name="palette">
@@ -3176,6 +3093,28 @@ Yellow when too low</string>
                    </widget>
                   </item>
                  </layout>
+                </item>
+                <item row="0" column="0">
+                 <widget class="QPushButton" name="DX_Call_Button">
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="styleSheet">
+                   <string notr="true">QPushButton {
+	background-color: #9fafd5;
+    border: none;
+}</string>
+                  </property>
+                  <property name="text">
+                   <string>DX Call</string>
+                  </property>
+                  <property name="checkable">
+                   <bool>true</bool>
+                  </property>
+                 </widget>
                 </item>
                </layout>
               </widget>
@@ -3478,6 +3417,7 @@ QLabel[oob=&quot;true&quot;] {
     <addaction name="actionColors"/>
     <addaction name="actionActiveStations"/>
     <addaction name="actionSWL_Mode"/>
+    <addaction name="actionUse_Dark_Style"/>
    </widget>
    <widget class="QMenu" name="menuDecode">
     <property name="title">
@@ -4137,6 +4077,14 @@ QLabel[oob=&quot;true&quot;] {
   <action name="actionCopy_to_WSJTX_txt">
    <property name="text">
     <string>Copy main text window to WSJT-X.txt</string>
+   </property>
+  </action>
+  <action name="actionUse_Dark_Style">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Use Dark Style</string>
    </property>
   </action>
  </widget>

@@ -210,6 +210,8 @@ QVector<QColor> g_ColorTbl;
 using SpecOp = Configuration::SpecialOperatingActivity;
 
 bool m_displayBand = false;
+bool wait_and_call = false;
+bool no_wait_and_call = false;
 
 namespace
 {
@@ -761,24 +763,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
               }
           });
 
-  // ensure a balanced layout of the mode buttons
-  qreal pointSize = m_config.text_font().pointSizeF();                // UR disable for AL
-  if (pointSize < 11) {
-      ui->houndButton->setMaximumWidth(40);
-      ui->ft8Button->setMaximumWidth(40);
-      ui->ft4Button->setMaximumWidth(40);
-      ui->msk144Button->setMaximumWidth(40);
-      ui->q65Button->setMaximumWidth(40);
-      ui->jt65Button->setMaximumWidth(40);
-  } else {
-      ui->houndButton->setMinimumWidth(50);
-      ui->ft8Button->setMinimumWidth(50);
-      ui->ft4Button->setMinimumWidth(50);
-      ui->msk144Button->setMinimumWidth(50);
-      ui->q65Button->setMinimumWidth(50);
-      ui->jt65Button->setMinimumWidth(50);
-  }                                                                   // UR disable for AL
-
   // hook up save WAV file exit handling
   connect (&m_saveWAVWatcher, &QFutureWatcher<QString>::finished, [this] {
       // extract the promise from the future
@@ -847,6 +831,12 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
            [this] () {on_tx5_currentTextChanged (ui->tx5->lineEdit()->text());});
   connect(&m_guiTimer, &QTimer::timeout, this, &MainWindow::guiUpdate);
   m_guiTimer.start(100);   //### Don't change the 100 ms! ###
+
+  stopWRTimer.setSingleShot(true);
+  connect(&stopWRTimer, &QTimer::timeout, this, &MainWindow::stopWRTimeout);
+
+  stopWCTimer.setSingleShot(true);
+  connect(&stopWCTimer, &QTimer::timeout, this, &MainWindow::stopWCTimeout);
 
   ptt0Timer.setSingleShot(true);
   connect(&ptt0Timer, &QTimer::timeout, this, &MainWindow::stopTx2);
@@ -1443,6 +1433,7 @@ void MainWindow::readSettings()
   m_audioThreadPriority = static_cast<QThread::Priority> (m_settings->value ("Audio/ThreadPriority", QThread::TimeCriticalPriority).toInt () % 8);
   m_settings->endGroup ();
 
+  m_specOp=m_config.special_op_id();
   checkMSK144ContestType();
   if (displayMsgAvg) on_actionMessage_averaging_triggered();
   if (displayFoxLog) on_fox_log_action_triggered ();
@@ -1469,21 +1460,70 @@ void MainWindow::checkMSK144ContestType()
 
 void MainWindow::set_application_font (QFont const& font)
 {
-  qApp->setFont (font);
-  // set font in the application style sheet as well in case it has
-  // been modified in the style sheet which has priority
-  QString ss;
-  if (qApp->styleSheet ().size ())
-    {
-      auto sheet = qApp->styleSheet ();
-      sheet.remove ("file:///");
-      QFile sf {sheet};
-      if (sf.open (QFile::ReadOnly | QFile::Text))
-        {
-          ss = sf.readAll () + ss;
-        }
-    }
-  qApp->setStyleSheet (ss + "* {" + font_as_stylesheet (font) + '}');
+  // check if dark style is enabled, this check is also effective during the program start
+  if (ui->actionUse_Dark_Style->isChecked()) {
+      QFile f(":qdarkstyle/style.qss");
+      if (!f.exists())   {
+          printf("Unable to set stylesheet, file not found\n");
+      } else {
+          qApp->setFont (font);
+          QString ss;
+          f.open(QFile::ReadOnly | QFile::Text);
+          QTextStream ts(&f);
+          qApp->setStyleSheet(ts.readAll() + "* {" + font_as_stylesheet (font) + '}');
+          m_useDarkStyle = true;
+          m_wideGraph->setDarkStyle(m_useDarkStyle);
+          ui->DX_Call_Button->setStyleSheet("QPushButton {background-color: #505F69; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none;}");
+          ui->tabWidget->setTabShape(QTabWidget::Rounded);
+      }
+   } else {
+      m_useDarkStyle = false;
+      m_wideGraph->setDarkStyle(m_useDarkStyle);
+      ui->DX_Call_Button->setStyleSheet("QPushButton {background-color: #9fafd5; border: none;}");
+      ui->tabWidget->setTabShape(QTabWidget::Triangular);
+      qApp->setFont (font);
+      // set font in the application style sheet as well in case it has
+      // been modified in the style sheet which has priority
+      QString ss;
+      if (qApp->styleSheet ().size ()) {
+         auto sheet = qApp->styleSheet ();
+         sheet.remove ("file:///");
+         QFile sf {sheet};
+         if (sf.open (QFile::ReadOnly | QFile::Text)) ss = sf.readAll () + ss;
+      }
+      qApp->setStyleSheet (ss + "* {" + font_as_stylesheet (font) + '}');
+  }
+
+  // ensure a balanced layout
+  qreal pointSize = m_config.text_font().pointSizeF();
+//  if (pointSize < 9) ui->controls_stack_widget->setMaximumWidth(180);   // UR for AL
+//  if (pointSize == 9) ui->controls_stack_widget->setMaximumWidth(200);  // UR for AL
+//  if (pointSize == 10) ui->controls_stack_widget->setMaximumWidth(220); // UR for AL
+//  if (pointSize > 10) ui->controls_stack_widget->setMaximumWidth(240);  // UR for AL
+  if (pointSize < 11) {
+//      ui->tabWidget->setMaximumHeight(210);                           // UR for AL
+      if (ui->actionUse_Dark_Style->isChecked()) ui->tabWidget->setMaximumHeight(225);  // UR for normal + widescreen
+      ui->houndButton->setMaximumWidth(40);                           // UR for normal + widescreen
+      ui->ft8Button->setMaximumWidth(40);                             // UR for normal + widescreen
+      ui->ft4Button->setMaximumWidth(40);                             // UR for normal + widescreen
+      ui->msk144Button->setMaximumWidth(40);                          // UR for normal + widescreen
+      ui->q65Button->setMaximumWidth(40);                             // UR for normal + widescreen
+      ui->jt65Button->setMaximumWidth(40);                            // UR for normal + widescreen
+      ui->houndButton->setMinimumWidth(0);                            // UR for normal + widescreen
+      ui->ft8Button->setMinimumWidth(0);                              // UR for normal + widescreen
+      ui->ft4Button->setMinimumWidth(0);                              // UR for normal + widescreen
+      ui->msk144Button->setMinimumWidth(0);                           // UR for normal + widescreen
+      ui->q65Button->setMinimumWidth(0);                              // UR for normal + widescreen
+      ui->jt65Button->setMinimumWidth(0);                             // UR for normal + widescreen
+//      ui->tabWidget->setMaximumHeight(255);                           // UR for AL
+      ui->tabWidget->setMaximumHeight(500);                           // UR for normal + widescreen
+      ui->houndButton->setMinimumWidth(50);                           // UR for normal + widescreen
+      ui->ft8Button->setMinimumWidth(50);                             // UR for normal + widescreen
+      ui->ft4Button->setMinimumWidth(50);                             // UR for normal + widescreen
+      ui->msk144Button->setMinimumWidth(50);                          // UR for normal + widescreen
+      ui->q65Button->setMinimumWidth(50);                             // UR for normal + widescreen
+      ui->jt65Button->setMinimumWidth(50);                            // UR for normal + widescreen
+  }
   for (auto& widget : qApp->topLevelWidgets ())
     {
       widget->updateGeometry ();
@@ -1910,6 +1950,86 @@ void MainWindow::fastSink(qint64 frames)
     DecodedText decodedtext {message.replace (QChar::LineFeed, "")};
     ui->decodedTextBrowser->displayDecodedText (decodedtext, m_config.my_callsign (), m_mode, m_config.DXCC(),
          m_logBook, m_currentBand, m_config.ppfx ());
+
+    QString text = decodedtext.string().replace("<","").replace(">","");   // for Wait & Reply/Call
+
+    // Wait & Reply for MSK144
+    if (text.contains(m_config.my_callsign() + " " + m_hisCall) && m_hisCall!="" &&
+        !decodedtext.string().contains("73 ") && m_mode=="MSK144") {
+          m_bDoubleClicked = true;
+          processMessage(decodedtext);
+          auto_tx_mode(true);
+          stopWRTimer.start(int(12000.0*m_TRperiod));     // Wait & Reply Tx max 12*TRperiod
+    }
+    // Wait & Call for MSK144
+    if (m_mode=="MSK144" && wait_and_call && m_specOp!=SpecOp::FOX && ui->cbAutoSeq->isChecked() &&
+        m_hisCall!="" && (text.contains("CQ " + m_hisCall) or text.contains(m_hisCall + " RR73")
+         or text.contains(m_hisCall + " RRR") or text.contains(m_hisCall + " 73"))) {
+          m_bDoubleClicked = true;
+          processMessage(decodedtext);
+          auto_tx_mode(true);
+          no_wait_and_call = true;
+          stopWCTimer.start(int(6000.0*m_TRperiod));     // Wait & Call Tx max 8*TRperiod
+    }
+    // CQ First for MSK144
+    if (m_bCallingCQ && !m_bAutoReply && decodedtext.string().contains(m_config.my_callsign())
+       && m_specOp!=SpecOp::FOX && m_specOp!=SpecOp::HOUND) {
+      bool bProcessMsgNormally=ui->respondComboBox->currentText()=="CQ: First" or
+          (ui->respondComboBox->currentText()=="CQ: Max Dist" and m_ActiveStationsWidget==NULL) or
+          (m_ActiveStationsWidget!=NULL and !m_ActiveStationsWidget->isVisible());
+      QString t=decodedtext.messageWords()[4];
+      if(t.contains("R+") or t.contains("R-") or t=="R" or t=="RRR" or t=="RR73") bProcessMsgNormally=true;
+      if(bProcessMsgNormally) {
+        m_bDoubleClicked=true;
+        m_bAutoReply = true;
+        processMessage (decodedtext);
+      }
+    // CQ Max Dist for MSK144
+    if (!bProcessMsgNormally and m_ActiveStationsWidget and ui->respondComboBox->currentText()=="CQ: Max Dist") {
+      QString deCall;
+      QString deGrid;
+      decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
+      if(deGrid.contains(grid_regexp) or
+         (deGrid.contains("+") or deGrid.contains("-"))) {
+        int points=0;
+        if(m_activeCall.contains(deCall)) {
+          points=m_activeCall[deCall].points;
+          deGrid=m_activeCall[deCall].grid4;
+        } else if(deGrid.contains(grid_regexp)) {
+          double utch=0.0;
+          int nAz,nEl,nDmiles,nDkm,nHotAz,nHotABetter;
+          azdist_(const_cast <char *> ((m_config.my_grid () + "      ").left (6).toLatin1 ().constData ()),
+                  const_cast <char *> ((deGrid + "      ").left(6).toLatin1 ().constData ()),&utch,
+                  &nAz,&nEl,&nDmiles,&nDkm,&nHotAz,&nHotABetter,(FCL)6,(FCL)6);
+          points=nDkm/500;
+          if(nDkm > 500*points) points += 1;
+          points += 1;
+        }
+        if(points>m_maxPoints) {
+          m_maxPoints=points;
+          m_deCall=deCall;
+          m_bDoubleClicked=true;
+          ui->dxCallEntry->setText(deCall);
+          int m_ntx=2;
+          bool bContest=m_specOp==SpecOp::NA_VHF or m_specOp==SpecOp::ARRL_DIGI;
+          if(bContest) m_ntx=3;
+          if(deGrid.contains(grid_regexp)) {
+            m_deGrid=deGrid;
+            ui->dxGridEntry->setText(deGrid);
+          } else {
+            m_ntx=3;
+          }
+          if(m_ntx==2) m_QSOProgress = REPORT;
+          if(m_ntx==3) m_QSOProgress = ROGER_REPORT;
+          genStdMsgs(QString::number(decodedtext.snr()));
+          ui->RxFreqSpinBox->setValue(decodedtext.frequencyOffset());
+          setTxMsg(m_ntx);
+          m_currentMessageType=m_ntx;
+        }
+       }
+      }
+    }
+
     m_bDecoded=true;
     auto_sequence (decodedtext, ui->sbFtol->value (), std::numeric_limits<unsigned>::max ());
     postDecode (true, decodedtext.string ());
@@ -2123,7 +2243,13 @@ void MainWindow::on_actionAbout_triggered()                  //Display "About"
 
 void MainWindow::on_autoButton_clicked (bool checked)
 {
-  QTimer::singleShot (3000, [=] {tuneATU_Timer.stop ();});  // Stop the Tune watchdog
+  QTimer::singleShot (3000, [=] {tuneATU_Timer.stop ();});  // stop the Tune watchdog
+  stopWRTimer.stop();                                       // stop any Wait & Reply timeout
+  if (!checked && ui->DX_Call_Button->isChecked()) {
+      stopWCTimer.stop();                                   // stop any Wait & Call timeout
+      ui->DX_Call_Button->click ();                         // disable Wait & Call
+      no_wait_and_call = false;                             // reset Wait & Call
+  }
   ui->pbBandHopping->setChecked(false); // disable band hopping when Tx is enabled
   m_auto = checked;
   m_maxPoints=-1;
@@ -2404,6 +2530,7 @@ void MainWindow::bumpFqso(int n)                                 //bumpFqso()
 
 void MainWindow::displayDialFrequency ()
 {
+  if (ui->actionUse_Dark_Style->isChecked()) ui->bandComboBox->setStyleSheet("QLineEdit {background-color: #31363b}");  // initialize dark style at startup
   Frequency dial_frequency {m_rigState.ptt () && m_rigState.split () ?
       m_rigState.tx_frequency () : m_rigState.frequency ()};
 
@@ -2451,8 +2578,26 @@ void MainWindow::displayDialFrequency ()
   ui->labDialFreq->setText (Radio::pretty_frequency_MHz_string (dial_frequency));
 }
 
+void MainWindow::stopWRTimeout()
+{
+    auto_tx_mode(false);
+}
+
+void MainWindow::stopWCTimeout()
+{
+    auto_tx_mode(false);
+    if (ui->DX_Call_Button->isChecked()) ui->DX_Call_Button->click ();
+    no_wait_and_call = false;
+}
+
 void MainWindow::statusChanged()
 {
+  QTimer::singleShot (50, [=] {       // only allow Wait & Call where it is appropriate
+      if((m_mode.startsWith("JT") or m_mode=="WSPR" or m_mode=="Echo" or m_mode=="FST4W"
+         or (m_specOp!=SpecOp::NONE and m_specOp!=SpecOp::HOUND)
+         or !ui->cbAutoSeq->isChecked() or m_hisCall=="") && ui->DX_Call_Button->isChecked())
+          ui->DX_Call_Button->click ();
+  });
   statusUpdate ();
   QFile f {m_config.temp_dir ().absoluteFilePath ("wsjtx_status.txt")};
   if(f.open(QFile::WriteOnly | QIODevice::Text)) {
@@ -2665,6 +2810,10 @@ void MainWindow::on_stopButton_clicked()                       //stopButton
     MessageBox::information_message (this, tr ("Reference spectrum saved"));
     m_bRefSpec=false;
   }
+  if (ui->DX_Call_Button->isChecked()) ui->DX_Call_Button->click ();
+  stopWRTimer.stop();           // Stop any Wait & Reply timeout
+  stopWCTimer.stop();           // Stop any Wait & Call timeout
+  no_wait_and_call = false;
 }
 
 void MainWindow::on_actionRelease_Notes_triggered ()
@@ -3735,6 +3884,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
     if(bDisplayPoints) line_read=line_read.replace("a7","  ");
     bool haveFSpread {false};
     bool blockUDP {false};                   // allow udp spotting (JTAlert) for all non-filtered messages
+    bool block_right_display {false};
     float fSpread {0.};
     if (m_mode.startsWith ("FST4"))
       {
@@ -3836,7 +3986,11 @@ void MainWindow::readFromStdout()                             //readFromStdout
                 or m_displayBand) {
               band = ' ' + m_config.bands ()->find (m_freqNominal);
             }
-            ui->decodedTextBrowser->insertLineSpacer (band.rightJustified  (40, '-'));
+            if (ui->actionUse_Dark_Style->isChecked()) {
+                ui->decodedTextBrowser->appendText(band.rightJustified(40, '-'), "#a2a2a2", "#000000");
+            } else {
+                ui->decodedTextBrowser->insertLineSpacer (band.rightJustified  (40, '-'));
+            }
           }
         m_tBlankLine = line_read.left(ntime);
       }
@@ -3878,6 +4032,32 @@ void MainWindow::readFromStdout()                             //readFromStdout
           if((m_mode=="FT4" or m_mode=="FT8") and bDisplayPoints and decodedtext1.isStandardMessage()) {
             ARRL_Digi_Update(decodedtext1);
           }
+
+        QString text = decodedtext.string().replace("<","").replace(">","");   // for Wait & Reply/Call
+
+        // Wait & Reply
+        if ((m_mode=="FT8" or m_mode=="FT4" or m_mode=="Q65" or m_mode=="FST4") && (m_hisCall!="") &&
+            (text.contains(m_config.my_callsign() + " " + m_hisCall) && !text.contains("73 "))) {
+                m_bDoubleClicked = true;
+                processMessage(decodedtext0);
+                auto_tx_mode(true);
+                stopWRTimer.start(int(8000.0*m_TRperiod));    // Wait & Reply Tx max 8*TRperiod
+        }
+
+          // Wait & Call
+        if (wait_and_call && (m_mode=="FT8" or m_mode=="FT4" or m_mode=="Q65" or m_mode=="FST4") &&
+            m_specOp!=SpecOp::FOX && ui->cbAutoSeq->isChecked() && m_hisCall!="" && !no_wait_and_call &&
+            (text.contains("CQ " + m_hisCall) or text.contains(m_hisCall + " RR73")
+             or text.contains(m_hisCall + " RRR") or text.contains(m_hisCall + " 73"))) {
+              if (!text.contains(m_config.my_callsign() + " " + m_hisCall))
+                  block_right_display = true;                // prevent display of first message twice
+              if (m_specOp==SpecOp::HOUND) ui->TxFreqSpinBox->setValue(2300);
+              m_bDoubleClicked = true;
+              processMessage(decodedtext0);
+              auto_tx_mode(true);
+              no_wait_and_call = true;
+              stopWCTimer.start(int(6000.0*m_TRperiod));     // Wait & Call Tx max 8*TRperiod
+        }
 
           // Filtering out messages with keywords from Blacklist
        if (SpecOp::NONE==m_specOp && m_config.Blacklisted ()
@@ -3956,9 +4136,8 @@ void MainWindow::readFromStdout()                             //readFromStdout
          if(bWorkedOnBand) activeWorked(deCall,m_currentBand);
        }
 
-       if (m_config.highlight_DXcall () && (m_hisCall!="") && ((decodedtext.string().contains(QRegularExpression {"(\\w+) " + m_hisCall}))
-            || (decodedtext.string().contains(QRegularExpression {"(\\w+) <" + m_hisCall +">"}))
-            || (decodedtext.string().contains(QRegularExpression {"<(\\w+)> " + m_hisCall}))))  {
+       if (m_config.highlight_DXcall () && (m_hisCall!="") && ((text.contains(QRegularExpression {"(\\w+) " + m_hisCall}))
+            || (decodedtext.string().contains("<...> " + m_hisCall))))  {
            ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);
            if (m_config.alert_Enabled()) play_DXcall = true;    // UR disable for versions without alerts
            QTimer::singleShot (500, [=] {                       // repeated highlighting to override JTAlert
@@ -4091,7 +4270,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
            !m_config.enable_VHF_features()) bDisplayRight=true;
       }
 
-      if (bDisplayRight) {
+      if (bDisplayRight && !block_right_display) {
         // This msg is within 10 hertz of our tuned frequency, or a JT4 or JT65 avg,
         // or contains MyCall
         if(!m_bBestSPArmed or m_mode!="FT4") {
@@ -6430,11 +6609,28 @@ void MainWindow::on_RoundRobin_currentTextChanged(QString text)
   ui->sbTxPercent->setEnabled (text == tr ("Random"));
 }
 
+void MainWindow::on_DX_Call_Button_clicked (bool checked)
+{
+  if((m_mode=="FT8" or m_mode=="FT4" or m_mode=="Q65" or m_mode=="FST4" or m_mode=="MSK144") &&
+     (m_specOp==SpecOp::NONE or m_specOp==SpecOp::HOUND) && ui->cbAutoSeq->isChecked() && m_hisCall!="" && checked) {
+      wait_and_call = true;       // toggle Wait & Call on when allowed
+      ui->DX_Call_Button->setStyleSheet("QPushButton {background-color: #ff0000; border-style: outset; border-width: 1px; border-radius: 5px; border-color: black; min-width: 5em; padding: 3px;}");
+  } else {
+      wait_and_call = false;      // toggle Wait & Call off in any other case
+      ui->DX_Call_Button->setChecked (false);
+      if (ui->actionUse_Dark_Style->isChecked()) {
+         ui->DX_Call_Button->setStyleSheet("QPushButton {background-color: #505F69; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none;}");
+      } else {
+         ui->DX_Call_Button->setStyleSheet("QPushButton {background-color: #9fafd5; border: none;}");
+      }
+  }
+}
 
 void MainWindow::on_dxCallEntry_textChanged (QString const& call)
 {
   m_hisCall = call;
 //  ui->dxGridEntry->clear();    // UR disabled because not useful with highlightDXCall/DXGrid feature
+  if (ui->DX_Call_Button->isChecked()) ui->DX_Call_Button->click ();
   statusChanged();
   statusUpdate ();
 }
@@ -6444,7 +6640,6 @@ void MainWindow::on_dxCallEntry_editingFinished()
   auto const& dxBase = Radio::base_callsign (m_hisCall);
   save_dxbase_(const_cast <char *> ((dxBase + "   ").left (6).toLatin1().constData()), (FCL)6);
 }
-
 
 void MainWindow::on_dxCallEntry_returnPressed ()
 {
@@ -6827,6 +7022,7 @@ void MainWindow::on_actionFT4_triggered()
   m_wideGraph->setMode(m_mode);
   m_send_RR73=true;
   VHF_features_enabled(bVHF);
+  ui->cbAutoSeq->setChecked(true);
   m_fastGraph->hide();
   m_wideGraph->show();
   ui->rh_decodes_headings_label->setText("  UTC   dB   DT Freq    " + tr ("Message"));
@@ -7144,6 +7340,7 @@ void MainWindow::on_actionQ65_triggered()
   m_mode="Q65";
   ui->actionQ65->setChecked(true);
   switch_mode(Modes::Q65);
+  ui->cbAutoSeq->setChecked(true);
   fast_config(false);
   WSPR_config(false);
   setup_status_bar(true);
@@ -7225,6 +7422,7 @@ void MainWindow::on_actionMSK144_triggered()
   m_toneSpacing=0.0;
   WSPR_config(false);
   VHF_features_enabled(true);
+  ui->cbAutoSeq->setChecked(true);
   m_bFastMode=true;
   m_bFast9=false;
   ui->sbTR->values ({5, 10, 15, 30});
@@ -7254,7 +7452,7 @@ void MainWindow::on_actionMSK144_triggered()
   ui->rptSpinBox->setSingleStep(1);
   ui->sbFtol->values ({20, 50, 100, 200});
   //                       01234567890123456789012345678901234567
-  displayWidgets(nWidgets("10111111010000000001000100001000000000"));
+  displayWidgets(nWidgets("10111111010000000001000100011000000000"));
   fast_config(m_bFastMode);
   statusChanged();
 
@@ -7660,7 +7858,7 @@ void MainWindow::band_changed (Frequency f)
   }
 
   if (m_bandEdited) {
-    if (m_mode!="WSPR") { // band hopping preserves auto Tx
+    if (m_mode!="WSPR" && !ui->pbBandHopping->isChecked() && !ui->DX_Call_Button->isChecked()) { // preserves auto Tx
       if (f + m_wideGraph->nStartFreq () > m_freqNominal + ui->TxFreqSpinBox->value ()
           || f + m_wideGraph->nStartFreq () + m_wideGraph->fSpan () <=
           m_freqNominal + ui->TxFreqSpinBox->value ()) {
@@ -7724,7 +7922,8 @@ void MainWindow::on_rptSpinBox_valueChanged(int n)
 
 void MainWindow::on_tuneButton_clicked (bool checked)
 {
-  if (!(m_config.Tune_watchdog_disabled() || m_mode=="WSPR" || m_mode=="FST4W"))  tuneATU_Timer.start (120000); // tune watchdog (90s)
+  if (checked && !(m_config.Tune_watchdog_disabled() || m_mode=="WSPR" || m_mode=="FST4W"))  tuneATU_Timer.start (120000); // tune watchdog
+  if (!checked) tuneATU_Timer.stop ();    // stop tune watchdog when stopping Tune manually
   static bool lastChecked = false;
   if (lastChecked == checked) return;
   lastChecked = checked;
@@ -7785,6 +7984,10 @@ void MainWindow::on_stopTxButton_clicked()                    //Stop Tx
   m_bCallingCQ = false;
   m_bAutoReply = false;         // ready for next
   m_maxPoints=-1;
+  if (ui->DX_Call_Button->isChecked()) ui->DX_Call_Button->click ();
+  stopWRTimer.stop();           // Stop any Wait & Reply timeout
+  stopWCTimer.stop();           // Stop any Wait & Call timeout
+  no_wait_and_call = false;
 }
 
 void MainWindow::rigOpen ()
@@ -9248,7 +9451,7 @@ void MainWindow::on_cbCQonly_toggled(bool)
 void MainWindow::on_cbAutoSeq_toggled(bool b)
 {
   ui->respondComboBox->setVisible((m_mode=="FT8" or m_mode=="FT4" or m_mode=="FST4"
-                           or m_mode=="Q65") and b);
+                           or m_mode=="Q65" or m_mode=="MSK144") and b);
 }
 
 void MainWindow::on_measure_check_box_stateChanged (int state)
@@ -9953,7 +10156,11 @@ void MainWindow::write_all(QString txRx, QString message)
   auto time = QDateTime::currentDateTimeUtc ();
   if( txRx=="Rx" && !m_bFastMode ) time=m_dateTimeSeqStart;
 
-  t = t.asprintf("%10.3f ",m_freqNominalPeriod/1.e6);   // prevent writing of wrong frequencies
+  if (txRx=="Rx") {
+     t = t.asprintf("%10.3f ",m_freqNominalPeriod/1.e6);   // prevent writing of wrong frequencies
+  } else {
+     t = t.asprintf("%10.3f ",m_freqNominal/1.e6);
+  }
   if (m_diskData) {
     if (m_fileDateTime.size()==11) {
       line=m_fileDateTime + "  " + t + txRx + " " + mode_string + msg;
@@ -10717,4 +10924,59 @@ void MainWindow::on_actionDisable_event_logging_triggered()
     out << EventConfig;
     f.close();
     QFile::remove (QDir {QStandardPaths::writableLocation (QStandardPaths::DataLocation)}.absoluteFilePath ("wsjtx_syslog.log"));
+}
+
+void MainWindow::on_actionUse_Dark_Style_triggered (bool checked)
+{
+    QFont font = m_config.text_font();
+    if (checked) {
+        QFile f(":qdarkstyle/style.qss");
+        if (!f.exists())   {
+            printf("Unable to set stylesheet, file not found\n");
+        } else {
+            qApp->setFont (font);
+            QString ss;
+            f.open(QFile::ReadOnly | QFile::Text);
+            QTextStream ts(&f);
+            qApp->setStyleSheet(ts.readAll() + "* {" + font_as_stylesheet (font) + '}');
+            m_useDarkStyle = true;
+            m_wideGraph->setDarkStyle(m_useDarkStyle);
+            ui->DX_Call_Button->setStyleSheet("QPushButton {background-color: #505F69; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none;}");
+            ui->tabWidget->setTabShape(QTabWidget::Rounded);
+        }
+    } else {
+        m_useDarkStyle = false;
+        m_wideGraph->setDarkStyle(m_useDarkStyle);
+        ui->DX_Call_Button->setStyleSheet("QPushButton {background-color: #9fafd5; border: none;}");
+        ui->tabWidget->setTabShape(QTabWidget::Triangular);
+        qApp->setFont (font);
+        QString ss;
+        if (qApp->styleSheet ().size ()) {
+           auto sheet = qApp->styleSheet ();
+           sheet.remove ("file:///");
+           QFile sf {sheet};
+           if (sf.open (QFile::ReadOnly | QFile::Text)) ss = sf.readAll () + ss;
+        }
+        qApp->setStyleSheet (ss + "* {" + font_as_stylesheet (font) + '}');
+    }
+    // ensure a balanced layout
+    qreal pointSize = m_config.text_font().pointSizeF();
+//    if (pointSize < 9) ui->controls_stack_widget->setMaximumWidth(180);     // UR for AL
+//    if (pointSize == 9) ui->controls_stack_widget->setMaximumWidth(200);    // UR for AL
+//    if (pointSize == 10) ui->controls_stack_widget->setMaximumWidth(220);   // UR for AL
+//    if (pointSize > 10) ui->controls_stack_widget->setMaximumWidth(240);    // UR for AL
+    if (pointSize < 11) {
+//        ui->tabWidget->setMaximumHeight(210);                               // UR for AL
+//        ui->controls_stack_widget->setMaximumHeight(200);                   // UR for AL
+        if (ui->actionUse_Dark_Style->isChecked()) ui->tabWidget->setMaximumHeight(225);  // UR for normal + widescreen
+    } else {
+//        ui->tabWidget->setMaximumHeight(255);                               // UR for AL
+//        ui->controls_stack_widget->setMaximumHeight(225);                   // UR for AL
+        ui->tabWidget->setMaximumHeight(500);                               // UR for normal + widescreen
+    }
+    for (auto& widget : qApp->topLevelWidgets ())
+      {
+        widget->updateGeometry ();
+      }
+    guiUpdate();
 }

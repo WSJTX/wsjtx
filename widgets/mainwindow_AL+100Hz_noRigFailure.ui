@@ -6,9 +6,21 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>748</width>
-    <height>761</height>
+    <width>756</width>
+    <height>667</height>
    </rect>
+  </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Preferred" vsizetype="MinimumExpanding">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>0</width>
+    <height>480</height>
+   </size>
   </property>
   <property name="windowTitle">
    <string>WSJT-X   by K1JT</string>
@@ -455,7 +467,7 @@ QLabel[oob=&quot;true&quot;] {
          <verstretch>0</verstretch>
         </sizepolicy>
        </property>
-       <layout class="QVBoxLayout" name="verticalLayout_9">
+       <layout class="QVBoxLayout" name="verticalLayout_9" stretch="0,0,0,0,0">
         <property name="leftMargin">
          <number>0</number>
         </property>
@@ -590,7 +602,7 @@ QLabel[oob=&quot;true&quot;] {
           <property name="minimumSize">
            <size>
             <width>0</width>
-            <height>0</height>
+            <height>50</height>
            </size>
           </property>
           <property name="sizeIncrement">
@@ -614,7 +626,7 @@ QLabel[oob=&quot;true&quot;] {
          </widget>
         </item>
         <item>
-         <layout class="QGridLayout" name="gridLayout_5" rowstretch="0,0,0" columnstretch="0,0,0">
+         <layout class="QGridLayout" name="gridLayout_5" rowstretch="0,0,0" columnstretch="0,1,1">
           <property name="sizeConstraint">
            <enum>QLayout::SetMinimumSize</enum>
           </property>
@@ -629,7 +641,7 @@ QLabel[oob=&quot;true&quot;] {
               <verstretch>0</verstretch>
              </sizepolicy>
             </property>
-            <layout class="QGridLayout" name="gridLayout_2">
+            <layout class="QGridLayout" name="gridLayout_2" columnstretch="3,2">
              <property name="leftMargin">
               <number>0</number>
              </property>
@@ -642,13 +654,16 @@ QLabel[oob=&quot;true&quot;] {
              <property name="bottomMargin">
               <number>0</number>
              </property>
-             <item row="3" column="1">
-              <widget class="QPushButton" name="addButton">
+             <item row="2" column="1">
+              <widget class="QLineEdit" name="dxGridEntry">
                <property name="toolTip">
-                <string>Add callsign and locator to database</string>
+                <string>Locator of station to be worked</string>
                </property>
                <property name="text">
-                <string>Add</string>
+                <string/>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignCenter</set>
                </property>
               </widget>
              </item>
@@ -744,7 +759,7 @@ QLabel[oob=&quot;true&quot;] {
                </property>
               </widget>
              </item>
-             <item row="1" column="0">
+             <item row="2" column="0">
               <widget class="QLineEdit" name="dxCallEntry">
                <property name="toolTip">
                 <string>Callsign of station to be worked</string>
@@ -757,7 +772,7 @@ QLabel[oob=&quot;true&quot;] {
                </property>
               </widget>
              </item>
-             <item row="3" column="0">
+             <item row="4" column="0">
               <widget class="QPushButton" name="lookupButton">
                <property name="toolTip">
                 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Search for callsign in database, doubleclick searches for callsign on QRZ.com.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -767,99 +782,7 @@ QLabel[oob=&quot;true&quot;] {
                </property>
               </widget>
              </item>
-             <item row="0" column="0">
-              <widget class="QLabel" name="label_3">
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
-               </property>
-               <property name="palette">
-                <palette>
-                 <active>
-                  <colorrole role="Base">
-                   <brush brushstyle="SolidPattern">
-                    <color alpha="255">
-                     <red>252</red>
-                     <green>252</green>
-                     <blue>252</blue>
-                    </color>
-                   </brush>
-                  </colorrole>
-                  <colorrole role="Window">
-                   <brush brushstyle="SolidPattern">
-                    <color alpha="255">
-                     <red>159</red>
-                     <green>175</green>
-                     <blue>213</blue>
-                    </color>
-                   </brush>
-                  </colorrole>
-                 </active>
-                 <inactive>
-                  <colorrole role="Base">
-                   <brush brushstyle="SolidPattern">
-                    <color alpha="255">
-                     <red>252</red>
-                     <green>252</green>
-                     <blue>252</blue>
-                    </color>
-                   </brush>
-                  </colorrole>
-                  <colorrole role="Window">
-                   <brush brushstyle="SolidPattern">
-                    <color alpha="255">
-                     <red>159</red>
-                     <green>175</green>
-                     <blue>213</blue>
-                    </color>
-                   </brush>
-                  </colorrole>
-                 </inactive>
-                 <disabled>
-                  <colorrole role="Base">
-                   <brush brushstyle="SolidPattern">
-                    <color alpha="255">
-                     <red>159</red>
-                     <green>175</green>
-                     <blue>213</blue>
-                    </color>
-                   </brush>
-                  </colorrole>
-                  <colorrole role="Window">
-                   <brush brushstyle="SolidPattern">
-                    <color alpha="255">
-                     <red>159</red>
-                     <green>175</green>
-                     <blue>213</blue>
-                    </color>
-                   </brush>
-                  </colorrole>
-                 </disabled>
-                </palette>
-               </property>
-               <property name="autoFillBackground">
-                <bool>true</bool>
-               </property>
-               <property name="text">
-                <string>DX Call</string>
-               </property>
-               <property name="alignment">
-                <set>Qt::AlignCenter</set>
-               </property>
-               <property name="margin">
-                <number>5</number>
-               </property>
-               <property name="indent">
-                <number>2</number>
-               </property>
-               <property name="buddy">
-                <cstring>dxCallEntry</cstring>
-               </property>
-              </widget>
-             </item>
-             <item row="2" column="0" colspan="2">
+             <item row="3" column="0" colspan="2">
               <widget class="QLabel" name="labAz">
                <property name="sizePolicy">
                 <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
@@ -881,16 +804,44 @@ QLabel[oob=&quot;true&quot;] {
                </property>
               </widget>
              </item>
-             <item row="1" column="1">
-              <widget class="QLineEdit" name="dxGridEntry">
+             <item row="4" column="1">
+              <widget class="QPushButton" name="addButton">
                <property name="toolTip">
-                <string>Locator of station to be worked</string>
+                <string>Add callsign and locator to database</string>
                </property>
                <property name="text">
-                <string/>
+                <string>Add</string>
                </property>
-               <property name="alignment">
-                <set>Qt::AlignCenter</set>
+              </widget>
+             </item>
+             <item row="0" column="0">
+              <widget class="QPushButton" name="DX_Call_Button">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="minimumSize">
+                <size>
+                 <width>0</width>
+                 <height>0</height>
+                </size>
+               </property>
+               <property name="toolTip">
+                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle Wait &amp;amp; Call on/off. Wait &amp;amp; Call turns on Enable Tx as soon as the callsign from the DX Call box is decoded, and calls it a maximum of three times. Auto Seq must be enabled.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               </property>
+               <property name="styleSheet">
+                <string notr="true">QPushButton {
+	background-color: #9fafd5;
+    border: none;
+}</string>
+               </property>
+               <property name="text">
+                <string>DX Call</string>
+               </property>
+               <property name="checkable">
+                <bool>true</bool>
                </property>
               </widget>
              </item>
@@ -902,8 +853,8 @@ QLabel[oob=&quot;true&quot;] {
             <property name="spacing">
              <number>0</number>
             </property>
-            <item row="4" column="4" alignment="Qt::AlignRight">
-             <widget class="QPushButton" name="fst4Button">
+            <item row="0" column="2" alignment="Qt::AlignHCenter">
+             <widget class="QPushButton" name="ft8Button">
               <property name="minimumSize">
                <size>
                 <width>38</width>
@@ -917,10 +868,54 @@ QLabel[oob=&quot;true&quot;] {
                </size>
               </property>
               <property name="toolTip">
-               <string>Switch to FST4 mode</string>
+               <string>Switch to FT8 mode</string>
               </property>
               <property name="text">
-               <string>FST4</string>
+               <string>FT8</string>
+              </property>
+             </widget>
+            </item>
+            <item row="4" column="3" alignment="Qt::AlignHCenter">
+             <widget class="QPushButton" name="jt65Button">
+              <property name="minimumSize">
+               <size>
+                <width>38</width>
+                <height>0</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>16777215</width>
+                <height>16777215</height>
+               </size>
+              </property>
+              <property name="toolTip">
+               <string>Switch to JT65 mode</string>
+              </property>
+              <property name="text">
+               <string>JT65</string>
+              </property>
+             </widget>
+            </item>
+            <item row="4" column="2" alignment="Qt::AlignHCenter">
+             <widget class="QPushButton" name="q65Button">
+              <property name="minimumSize">
+               <size>
+                <width>38</width>
+                <height>0</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>16777215</width>
+                <height>16777215</height>
+               </size>
+              </property>
+              <property name="toolTip">
+               <string>Switch to Q65 mode</string>
+              </property>
+              <property name="text">
+               <string>Q65</string>
               </property>
              </widget>
             </item>
@@ -946,6 +941,28 @@ QLabel[oob=&quot;true&quot;] {
               </property>
               <property name="checkable">
                <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item row="4" column="4" alignment="Qt::AlignRight">
+             <widget class="QPushButton" name="fst4Button">
+              <property name="minimumSize">
+               <size>
+                <width>38</width>
+                <height>0</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>16777215</width>
+                <height>16777215</height>
+               </size>
+              </property>
+              <property name="toolTip">
+               <string>Switch to FST4 mode</string>
+              </property>
+              <property name="text">
+               <string>FST4</string>
               </property>
              </widget>
             </item>
@@ -996,28 +1013,6 @@ QLabel[oob=&quot;true&quot;] {
               </property>
              </widget>
             </item>
-            <item row="4" column="3" alignment="Qt::AlignHCenter">
-             <widget class="QPushButton" name="jt65Button">
-              <property name="minimumSize">
-               <size>
-                <width>38</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="maximumSize">
-               <size>
-                <width>16777215</width>
-                <height>16777215</height>
-               </size>
-              </property>
-              <property name="toolTip">
-               <string>Switch to JT65 mode</string>
-              </property>
-              <property name="text">
-               <string>JT65</string>
-              </property>
-             </widget>
-            </item>
             <item row="0" column="3" alignment="Qt::AlignHCenter">
              <widget class="QPushButton" name="ft4Button">
               <property name="minimumSize">
@@ -1037,50 +1032,6 @@ QLabel[oob=&quot;true&quot;] {
               </property>
               <property name="text">
                <string>FT4</string>
-              </property>
-             </widget>
-            </item>
-            <item row="0" column="2" alignment="Qt::AlignHCenter">
-             <widget class="QPushButton" name="ft8Button">
-              <property name="minimumSize">
-               <size>
-                <width>38</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="maximumSize">
-               <size>
-                <width>16777215</width>
-                <height>16777215</height>
-               </size>
-              </property>
-              <property name="toolTip">
-               <string>Switch to FT8 mode</string>
-              </property>
-              <property name="text">
-               <string>FT8</string>
-              </property>
-             </widget>
-            </item>
-            <item row="4" column="2" alignment="Qt::AlignHCenter">
-             <widget class="QPushButton" name="q65Button">
-              <property name="minimumSize">
-               <size>
-                <width>38</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="maximumSize">
-               <size>
-                <width>16777215</width>
-                <height>16777215</height>
-               </size>
-              </property>
-              <property name="toolTip">
-               <string>Switch to Q65 mode</string>
-              </property>
-              <property name="text">
-               <string>Q65</string>
               </property>
              </widget>
             </item>
@@ -1104,7 +1055,7 @@ QLabel[oob=&quot;true&quot;] {
              <number>0</number>
             </property>
             <widget class="QWidget" name="page">
-             <layout class="QHBoxLayout" name="horizontalLayout_8">
+             <layout class="QHBoxLayout" name="horizontalLayout_8" stretch="0">
               <property name="spacing">
                <number>0</number>
               </property>
@@ -1542,7 +1493,7 @@ When not checked you can view the calibration results.</string>
                     </layout>
                    </item>
                    <item row="0" column="0">
-                    <layout class="QVBoxLayout" name="verticalLayout_14">
+                    <layout class="QVBoxLayout" name="verticalLayout_14" stretch="0,0,0,0,0,0">
                      <property name="spacing">
                       <number>0</number>
                      </property>
@@ -3694,7 +3645,7 @@ Double-click to reset to the standard 73 message</string>
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>748</width>
+     <width>756</width>
      <height>22</height>
     </rect>
    </property>
@@ -3734,6 +3685,7 @@ Double-click to reset to the standard 73 message</string>
     <addaction name="actionColors"/>
     <addaction name="actionActiveStations"/>
     <addaction name="actionSWL_Mode"/>
+    <addaction name="actionUse_Dark_Style"/>
    </widget>
    <widget class="QMenu" name="menuDecode">
     <property name="title">
@@ -4413,6 +4365,17 @@ Double-click to reset to the standard 73 message</string>
   <action name="actionCopy_to_WSJTX_txt">
    <property name="text">
     <string>Copy main text window to WSJT-X.txt</string>
+   </property>
+  </action>
+  <action name="actionUse_Dark_Style">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Use Dark Style</string>
    </property>
   </action>
  </widget>
