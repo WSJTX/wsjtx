@@ -24,7 +24,7 @@
 //
 //  Implements the QAbstractTableModel interface as an immutable table
 //  where rows  are bands and  columns are band name,  lower frequency
-//  limit and, upper ferquency limit respectively.
+//  limit and, upper frequency limit respectively.
 //
 class Bands final
   : public QAbstractTableModel
