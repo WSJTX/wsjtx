@@ -226,7 +226,7 @@ void LogQSO::initLogQSO(QString const& hisCall, QString const& hisGrid, QString 
     }
   // put contest name in comments
   if (SpOp::NONE != special_op && m_config->Individual_Contest_Name() && !m_config->report_in_comments()
-      && m_config->Contest_Name() !="") {
+      && m_config->Contest_Name() !="" && !ui->cbComments->isChecked()) {
     QString Contest_Name = (m_config->Contest_Name() + " Contest");
     ui->comments->setText(Contest_Name);
   }
