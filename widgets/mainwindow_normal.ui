@@ -574,15 +574,69 @@
         </layout>
        </item>
        <item>
-        <layout class="QGridLayout" name="gridLayout_5" rowstretch="1,0,0" columnstretch="0,0,1,1,5,0">
-         <item row="0" column="5">
-          <widget class="QLabel" name="label">
-           <property name="text">
-            <string> Pwr</string>
+        <layout class="QGridLayout" name="gridLayout_5" rowstretch="1,0,0" columnstretch="0,0,0,0,1,1,5,0">
+         <item row="1" column="7" rowspan="2">
+          <widget class="QSlider" name="outAttenuation">
+           <property name="toolTip">
+            <string>Adjust Tx audio level</string>
+           </property>
+           <property name="maximum">
+            <number>450</number>
+           </property>
+           <property name="value">
+            <number>0</number>
+           </property>
+           <property name="orientation">
+            <enum>Qt::Vertical</enum>
+           </property>
+           <property name="invertedAppearance">
+            <bool>true</bool>
+           </property>
+           <property name="invertedControls">
+            <bool>true</bool>
+           </property>
+           <property name="tickPosition">
+            <enum>QSlider::TicksBelow</enum>
+           </property>
+           <property name="tickInterval">
+            <number>50</number>
            </property>
           </widget>
          </item>
-         <item row="2" column="2" colspan="2">
+         <item row="0" column="4" colspan="2">
+          <widget class="QLabel" name="labDialFreq">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="toolTip">
+            <string>USB dial frequency</string>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">QLabel {
+  font-family: MS Shell Dlg 2;
+  font-size: 16pt;
+   color : yellow;
+   background-color : black;
+}
+QLabel[oob=&quot;true&quot;] {
+  background-color: red;
+}</string>
+           </property>
+           <property name="text">
+            <string>14.078 000</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
+           </property>
+           <property name="margin">
+            <number>5</number>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="4" colspan="2">
           <widget class="QLabel" name="labUTC">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
@@ -621,7 +675,7 @@
            </property>
           </widget>
          </item>
-         <item row="0" column="4" rowspan="3">
+         <item row="0" column="6" rowspan="3">
           <widget class="QStackedWidget" name="controls_stack_widget">
            <property name="sizePolicy">
             <sizepolicy hsizetype="MinimumExpanding" vsizetype="Preferred">
@@ -2832,139 +2886,146 @@ Double-click to reset to the standard 73 message</string>
            </widget>
           </widget>
          </item>
-         <item row="0" column="0">
-          <widget class="BandComboBox" name="bandComboBox">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>100</width>
-             <height>16777215</height>
-            </size>
-           </property>
-           <property name="toolTip">
-            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Select operating band or enter frequency in MHz or enter kHz increment followed by k.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-           </property>
-           <property name="accessibleName">
-            <string>Frequency entry</string>
-           </property>
-           <property name="accessibleDescription">
-            <string>Select operating band or enter frequency in MHz or enter kHz increment followed by k.</string>
-           </property>
-           <property name="editable">
-            <bool>true</bool>
-           </property>
-           <property name="maxVisibleItems">
-            <number>25</number>
-           </property>
-           <property name="insertPolicy">
-            <enum>QComboBox::NoInsert</enum>
-           </property>
-           <property name="sizeAdjustPolicy">
-            <enum>QComboBox::AdjustToMinimumContentsLengthWithIcon</enum>
-           </property>
-          </widget>
-         </item>
-         <item row="1" column="0" rowspan="2">
-          <layout class="QVBoxLayout" name="verticalLayout_11">
+         <item row="1" column="3" rowspan="2">
+          <layout class="QVBoxLayout" name="verticalLayout_15">
            <item>
-            <widget class="QSpinBox" name="sbNB">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
+            <widget class="QPushButton" name="houndButton">
+             <property name="minimumSize">
+              <size>
+               <width>32</width>
+               <height>0</height>
+              </size>
              </property>
              <property name="maximumSize">
               <size>
-               <width>100</width>
+               <width>16777215</width>
                <height>16777215</height>
               </size>
              </property>
-             <property name="alignment">
-              <set>Qt::AlignCenter</set>
+             <property name="toolTip">
+              <string>Toggle FT8 hound mode On/Off</string>
              </property>
-             <property name="suffix">
-              <string>  %</string>
+             <property name="text">
+              <string>H</string>
              </property>
-             <property name="prefix">
-              <string>NB  </string>
-             </property>
-             <property name="minimum">
-              <number>-2</number>
-             </property>
-             <property name="maximum">
-              <number>25</number>
+             <property name="checkable">
+              <bool>true</bool>
              </property>
             </widget>
            </item>
            <item>
-            <layout class="QHBoxLayout" name="horizontalLayout">
-             <property name="spacing">
-              <number>0</number>
+            <widget class="QPushButton" name="ft8Button">
+             <property name="minimumSize">
+              <size>
+               <width>32</width>
+               <height>0</height>
+              </size>
              </property>
-             <item>
-              <widget class="SignalMeter" name="signal_meter_widget">
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Minimum" vsizetype="MinimumExpanding">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
-               </property>
-               <property name="minimumSize">
-                <size>
-                 <width>0</width>
-                 <height>0</height>
-                </size>
-               </property>
-               <property name="maximumSize">
-                <size>
-                 <width>100</width>
-                 <height>16777215</height>
-                </size>
-               </property>
-               <property name="toolTip">
-                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;30dB recommended when only noise present&lt;br/&gt;Green when good&lt;br/&gt;Red when clipping may occur&lt;br/&gt;Yellow when too low&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-               </property>
-               <property name="accessibleName">
-                <string>Rx Signal</string>
-               </property>
-               <property name="accessibleDescription">
-                <string>30dB recommended when only noise present
-Green when good
-Red when clipping may occur
-Yellow when too low</string>
-               </property>
-               <property name="frameShape">
-                <enum>QFrame::Panel</enum>
-               </property>
-               <property name="frameShadow">
-                <enum>QFrame::Sunken</enum>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <spacer name="horizontalSpacer">
-               <property name="orientation">
-                <enum>Qt::Horizontal</enum>
-               </property>
-               <property name="sizeHint" stdset="0">
-                <size>
-                 <width>0</width>
-                 <height>20</height>
-                </size>
-               </property>
-              </spacer>
-             </item>
-            </layout>
+             <property name="maximumSize">
+              <size>
+               <width>16777215</width>
+               <height>16777215</height>
+              </size>
+             </property>
+             <property name="toolTip">
+              <string>Switch to FT8 mode</string>
+             </property>
+             <property name="text">
+              <string>FT8</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="ft4Button">
+             <property name="minimumSize">
+              <size>
+               <width>32</width>
+               <height>0</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>16777215</width>
+               <height>16777215</height>
+              </size>
+             </property>
+             <property name="toolTip">
+              <string>Switch to FT4 mode</string>
+             </property>
+             <property name="text">
+              <string>FT4</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="msk144Button">
+             <property name="minimumSize">
+              <size>
+               <width>32</width>
+               <height>0</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>16777215</width>
+               <height>16777215</height>
+              </size>
+             </property>
+             <property name="toolTip">
+              <string>Switch to MSK144 mode</string>
+             </property>
+             <property name="text">
+              <string>MSK</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="q65Button">
+             <property name="minimumSize">
+              <size>
+               <width>32</width>
+               <height>0</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>16777215</width>
+               <height>16777215</height>
+              </size>
+             </property>
+             <property name="toolTip">
+              <string>Switch to Q65 mode</string>
+             </property>
+             <property name="text">
+              <string>Q65</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="jt65Button">
+             <property name="minimumSize">
+              <size>
+               <width>32</width>
+               <height>0</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>16777215</width>
+               <height>16777215</height>
+              </size>
+             </property>
+             <property name="toolTip">
+              <string>Switch to JT65 mode</string>
+             </property>
+             <property name="text">
+              <string>JT65</string>
+             </property>
+            </widget>
            </item>
           </layout>
          </item>
-         <item row="1" column="2" colspan="2">
+         <item row="1" column="4" colspan="2">
           <widget class="QWidget" name="DX_controls_widget" native="true">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
@@ -3180,47 +3241,160 @@ Yellow when too low</string>
            </layout>
           </widget>
          </item>
-         <item row="1" column="5" rowspan="2">
-          <widget class="QSlider" name="outAttenuation">
-           <property name="toolTip">
-            <string>Adjust Tx audio level</string>
-           </property>
-           <property name="maximum">
-            <number>450</number>
-           </property>
-           <property name="value">
-            <number>0</number>
-           </property>
-           <property name="orientation">
-            <enum>Qt::Vertical</enum>
-           </property>
-           <property name="invertedAppearance">
-            <bool>true</bool>
-           </property>
-           <property name="invertedControls">
-            <bool>true</bool>
-           </property>
-           <property name="tickPosition">
-            <enum>QSlider::TicksBelow</enum>
-           </property>
-           <property name="tickInterval">
-            <number>50</number>
+         <item row="0" column="7">
+          <widget class="QLabel" name="label">
+           <property name="text">
+            <string> Pwr</string>
            </property>
           </widget>
          </item>
-         <item row="0" column="1" alignment="Qt::AlignHCenter|Qt::AlignVCenter">
-          <widget class="QPushButton" name="readFreq">
-           <property name="enabled">
-            <bool>false</bool>
-           </property>
-           <property name="toolTip">
-            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;If orange or red there has been a rig control failure, click to reset and read the dial frequency.  S implies split mode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-           </property>
-           <property name="accessibleDescription">
-            <string>If orange or red there has been a rig control failure, click to reset and read the dial frequency. S implies split mode.</string>
-           </property>
-           <property name="styleSheet">
-            <string notr="true">QPushButton {
+         <item row="1" column="2" rowspan="2">
+          <layout class="QVBoxLayout" name="verticalLayout_11">
+           <item>
+            <widget class="QSpinBox" name="sbNB">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>100</width>
+               <height>16777215</height>
+              </size>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+             <property name="suffix">
+              <string>  %</string>
+             </property>
+             <property name="prefix">
+              <string>NB  </string>
+             </property>
+             <property name="minimum">
+              <number>-2</number>
+             </property>
+             <property name="maximum">
+              <number>25</number>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout">
+             <property name="spacing">
+              <number>0</number>
+             </property>
+             <item>
+              <widget class="SignalMeter" name="signal_meter_widget">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Minimum" vsizetype="MinimumExpanding">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="minimumSize">
+                <size>
+                 <width>0</width>
+                 <height>0</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>100</width>
+                 <height>16777215</height>
+                </size>
+               </property>
+               <property name="toolTip">
+                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;30dB recommended when only noise present&lt;br/&gt;Green when good&lt;br/&gt;Red when clipping may occur&lt;br/&gt;Yellow when too low&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               </property>
+               <property name="accessibleName">
+                <string>Rx Signal</string>
+               </property>
+               <property name="accessibleDescription">
+                <string>30dB recommended when only noise present
+Green when good
+Red when clipping may occur
+Yellow when too low</string>
+               </property>
+               <property name="frameShape">
+                <enum>QFrame::Panel</enum>
+               </property>
+               <property name="frameShadow">
+                <enum>QFrame::Sunken</enum>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="horizontalSpacer">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>0</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </item>
+         <item row="0" column="2" colspan="2">
+          <layout class="QHBoxLayout" name="horizontalLayout_16">
+           <item>
+            <widget class="BandComboBox" name="bandComboBox">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>100</width>
+               <height>16777215</height>
+              </size>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Select operating band or enter frequency in MHz or enter kHz increment followed by k.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="accessibleName">
+              <string>Frequency entry</string>
+             </property>
+             <property name="accessibleDescription">
+              <string>Select operating band or enter frequency in MHz or enter kHz increment followed by k.</string>
+             </property>
+             <property name="editable">
+              <bool>true</bool>
+             </property>
+             <property name="maxVisibleItems">
+              <number>25</number>
+             </property>
+             <property name="insertPolicy">
+              <enum>QComboBox::NoInsert</enum>
+             </property>
+             <property name="sizeAdjustPolicy">
+              <enum>QComboBox::AdjustToMinimumContentsLengthWithIcon</enum>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="readFreq">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;If orange or red there has been a rig control failure, click to reset and read the dial frequency.  S implies split mode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="accessibleDescription">
+              <string>If orange or red there has been a rig control failure, click to reset and read the dial frequency. S implies split mode.</string>
+             </property>
+             <property name="styleSheet">
+              <string notr="true">QPushButton {
  font-family: helvetica;
  font-size: 9pt;
  font-weight: bold;
@@ -3244,179 +3418,9 @@ QPushButton[state=&quot;warning&quot;] {
 QPushButton[state=&quot;ok&quot;] {
  background-color: #00ff00;
 }</string>
-           </property>
-           <property name="text">
-            <string>?</string>
-           </property>
-          </widget>
-         </item>
-         <item row="0" column="2" colspan="2">
-          <widget class="QLabel" name="labDialFreq">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="toolTip">
-            <string>USB dial frequency</string>
-           </property>
-           <property name="styleSheet">
-            <string notr="true">QLabel {
-  font-family: MS Shell Dlg 2;
-  font-size: 16pt;
-   color : yellow;
-   background-color : black;
-}
-QLabel[oob=&quot;true&quot;] {
-  background-color: red;
-}</string>
-           </property>
-           <property name="text">
-            <string>14.078 000</string>
-           </property>
-           <property name="alignment">
-            <set>Qt::AlignCenter</set>
-           </property>
-           <property name="margin">
-            <number>5</number>
-           </property>
-          </widget>
-         </item>
-         <item row="1" column="1" rowspan="2">
-          <layout class="QVBoxLayout" name="verticalLayout_15">
-           <item>
-            <widget class="QPushButton" name="houndButton">
-             <property name="minimumSize">
-              <size>
-               <width>32</width>
-               <height>0</height>
-              </size>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>16777215</height>
-              </size>
-             </property>
-             <property name="toolTip">
-              <string>Toggle FT8 hound mode On/Off</string>
              </property>
              <property name="text">
-              <string>H</string>
-             </property>
-             <property name="checkable">
-              <bool>true</bool>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="ft8Button">
-             <property name="minimumSize">
-              <size>
-               <width>32</width>
-               <height>0</height>
-              </size>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>16777215</height>
-              </size>
-             </property>
-             <property name="toolTip">
-              <string>Switch to FT8 mode</string>
-             </property>
-             <property name="text">
-              <string>FT8</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="ft4Button">
-             <property name="minimumSize">
-              <size>
-               <width>32</width>
-               <height>0</height>
-              </size>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>16777215</height>
-              </size>
-             </property>
-             <property name="toolTip">
-              <string>Switch to FT4 mode</string>
-             </property>
-             <property name="text">
-              <string>FT4</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="msk144Button">
-             <property name="minimumSize">
-              <size>
-               <width>32</width>
-               <height>0</height>
-              </size>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>16777215</height>
-              </size>
-             </property>
-             <property name="toolTip">
-              <string>Switch to MSK144 mode</string>
-             </property>
-             <property name="text">
-              <string>MSK</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="q65Button">
-             <property name="minimumSize">
-              <size>
-               <width>32</width>
-               <height>0</height>
-              </size>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>16777215</height>
-              </size>
-             </property>
-             <property name="toolTip">
-              <string>Switch to Q65 mode</string>
-             </property>
-             <property name="text">
-              <string>Q65</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="jt65Button">
-             <property name="minimumSize">
-              <size>
-               <width>32</width>
-               <height>0</height>
-              </size>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>16777215</height>
-              </size>
-             </property>
-             <property name="toolTip">
-              <string>Switch to JT65 mode</string>
-             </property>
-             <property name="text">
-              <string>JT65</string>
+              <string>?</string>
              </property>
             </widget>
            </item>
@@ -4209,7 +4213,6 @@ QLabel[oob=&quot;true&quot;] {
   <tabstop>stopTxButton</tabstop>
   <tabstop>tuneButton</tabstop>
   <tabstop>cbMenus</tabstop>
-  <tabstop>bandComboBox</tabstop>
   <tabstop>sbNB</tabstop>
   <tabstop>dxCallEntry</tabstop>
   <tabstop>dxGridEntry</tabstop>
