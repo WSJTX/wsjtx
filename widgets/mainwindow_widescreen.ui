@@ -3340,7 +3340,10 @@ Yellow when too low</string>
               </layout>
              </item>
              <item row="0" column="2" colspan="2">
-              <layout class="QHBoxLayout" name="horizontalLayout_16">
+              <layout class="QHBoxLayout" name="horizontalLayout_16" stretch="1,0">
+               <property name="spacing">
+                <number>6</number>
+               </property>
                <item>
                 <widget class="BandComboBox" name="bandComboBox">
                  <property name="sizePolicy">
@@ -3351,7 +3354,7 @@ Yellow when too low</string>
                  </property>
                  <property name="maximumSize">
                   <size>
-                   <width>100</width>
+                   <width>16777215</width>
                    <height>16777215</height>
                   </size>
                  </property>

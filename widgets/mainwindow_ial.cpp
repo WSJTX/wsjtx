@@ -1512,20 +1512,30 @@ void MainWindow::set_application_font (QFont const& font)
   if (pointSize == 10) ui->controls_stack_widget->setMaximumWidth(220); // UR for AL
   if (pointSize > 10) ui->controls_stack_widget->setMaximumWidth(240);  // UR for AL
   if (pointSize < 11) {
-      ui->tabWidget->setMaximumHeight(210);                             // UR for AL
-//      if (ui->actionUse_Dark_Style->isChecked()) ui->tabWidget->setMaximumHeight(225);  // UR for normal + widescreen
-//      ui->houndButton->setMaximumWidth(40);                             // UR for normal + widescreen
-//      ui->ft8Button->setMaximumWidth(40);                               // UR for normal + widescreen
-//      ui->ft4Button->setMaximumWidth(40);                               // UR for normal + widescreen
-//      ui->msk144Button->setMaximumWidth(40);                            // UR for normal + widescreen
-//      ui->q65Button->setMaximumWidth(40);                               // UR for normal + widescreen
-//      ui->jt65Button->setMaximumWidth(40);                              // UR for normal + widescreen
-//      ui->houndButton->setMinimumWidth(0);                              // UR for normal + widescreen
-//      ui->ft8Button->setMinimumWidth(0);                                // UR for normal + widescreen
-//      ui->ft4Button->setMinimumWidth(0);                                // UR for normal + widescreen
-//      ui->msk144Button->setMinimumWidth(0);                             // UR for normal + widescreen
-//      ui->q65Button->setMinimumWidth(0);                                // UR for normal + widescreen
-//      ui->jt65Button->setMinimumWidth(0);                               // UR for normal + widescreen
+      ui->tabWidget->setMaximumHeight(210);                           // UR for AL
+//      if (ui->actionUse_Dark_Style->isChecked()) {
+//          ui->tabWidget->setMaximumHeight(225);                       // UR for normal + widescreen
+//          ui->houndButton->setMinimumWidth(50);                       // UR for normal + widescreen
+//          ui->ft8Button->setMinimumWidth(50);                         // UR for normal + widescreen
+//          ui->ft4Button->setMinimumWidth(50);                         // UR for normal + widescreen
+//          ui->msk144Button->setMinimumWidth(50);                      // UR for normal + widescreen
+//          ui->q65Button->setMinimumWidth(50);                         // UR for normal + widescreen
+//          ui->jt65Button->setMinimumWidth(50);                        // UR for normal + widescreen
+//      } else {
+//          ui->tabWidget->setMaximumHeight(225);                       // UR for normal + widescreen
+//          ui->houndButton->setMaximumWidth(40);                       // UR for normal + widescreen
+//          ui->ft8Button->setMaximumWidth(40);                         // UR for normal + widescreen
+//          ui->ft4Button->setMaximumWidth(40);                         // UR for normal + widescreen
+//          ui->msk144Button->setMaximumWidth(40);                      // UR for normal + widescreen
+//          ui->q65Button->setMaximumWidth(40);                         // UR for normal + widescreen
+//          ui->jt65Button->setMaximumWidth(40);                        // UR for normal + widescreen
+//          ui->houndButton->setMinimumWidth(0);                        // UR for normal + widescreen
+//          ui->ft8Button->setMinimumWidth(0);                          // UR for normal + widescreen
+//          ui->ft4Button->setMinimumWidth(0);                          // UR for normal + widescreen
+//          ui->msk144Button->setMinimumWidth(0);                       // UR for normal + widescreen
+//          ui->q65Button->setMinimumWidth(0);                          // UR for normal + widescreen
+//          ui->jt65Button->setMinimumWidth(0);                         // UR for normal + widescreen
+//      }
   } else {
       ui->tabWidget->setMaximumHeight(255);                             // UR for AL
 //      ui->tabWidget->setMaximumHeight(500);                             // UR for normal + widescreen
