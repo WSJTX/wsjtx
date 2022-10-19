@@ -8,6 +8,7 @@
 #include <QScopedPointer>
 #include <QDateTime>
 
+#include "HelpTextWindow.hpp"
 #include "Radio.hpp"
 
 namespace Ui {
@@ -52,6 +53,8 @@ private:
   void loadSettings ();
   void storeSettings () const;
   void propModeChanged ();
+  void commentsChanged(const QString& text);
+  void on_addButton_clicked ();
 
   QScopedPointer<Ui::LogQSO> ui;
   QSettings * m_settings;
@@ -59,6 +62,7 @@ private:
   LogBook * m_log;
   QString m_txPower;
   QString m_comments;
+  QString m_comments_temp = "";
   Radio::Frequency m_dialFreq;
   QString m_myCall;
   QString m_myGrid;

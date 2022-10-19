@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>440</width>
+    <width>468</width>
     <height>418</height>
    </rect>
   </property>
@@ -369,15 +369,34 @@
        <property name="text">
         <string>Comments</string>
        </property>
-       <property name="buddy">
-        <cstring>comments</cstring>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="comments">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="editable">
+        <bool>true</bool>
        </property>
       </widget>
      </item>
      <item>
-      <widget class="QLineEdit" name="comments">
-       <property name="enabled">
-        <bool>true</bool>
+      <widget class="QPushButton" name="addButton">
+       <property name="maximumSize">
+        <size>
+         <width>45</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="toolTip">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Add comment to the comments list.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+       <property name="text">
+        <string>Add</string>
        </property>
       </widget>
      </item>
@@ -633,7 +652,6 @@
   <tabstop>name</tabstop>
   <tabstop>txPower</tabstop>
   <tabstop>cbTxPower</tabstop>
-  <tabstop>comments</tabstop>
   <tabstop>cbComments</tabstop>
   <tabstop>loggedOperator</tabstop>
   <tabstop>exchSent</tabstop>

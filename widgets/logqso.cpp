@@ -6,8 +6,10 @@
 #include <QStandardPaths>
 #include <QStringList>
 #include <QDir>
-// #include <QPushButton>
+#include <QTimer>
+#include <QPushButton>
 
+#include "HelpTextWindow.hpp"
 #include "logbook/logbook.h"
 #include "MessageBox.hpp"
 #include "Configuration.hpp"
@@ -81,6 +83,8 @@ LogQSO::LogQSO(QString const& programTitle, QSettings * settings
     }
   loadSettings ();
   connect (ui->comboBoxPropMode, &QComboBox::currentTextChanged, this, &LogQSO::propModeChanged);
+  connect (ui->comments, &QComboBox::currentTextChanged, this, &LogQSO::commentsChanged);
+  connect (ui->addButton, &QPushButton::clicked, this, &LogQSO::on_addButton_clicked);
   auto date_time_format = QLocale {}.dateFormat (QLocale::ShortFormat) + " hh:mm:ss";
   ui->start_date_time->setDisplayFormat (date_time_format);
   ui->end_date_time->setDisplayFormat (date_time_format);
@@ -99,8 +103,11 @@ void LogQSO::loadSettings ()
   ui->cbComments->setChecked (m_settings->value ("SaveComments", false).toBool ());
   ui->cbPropMode->setChecked (m_settings->value ("SavePropMode", false).toBool ());
   ui->cbSatellite->setChecked (m_settings->value ("SaveSatellite", false).toBool ());
-  m_txPower = m_settings->value ("TxPower", "").toString ();
   m_comments = m_settings->value ("LogComments", "").toString();
+  ui->comments->setCurrentIndex(0);
+  ui->comments->setItemText (ui->comments->currentIndex(), m_comments);
+  m_txPower = m_settings->value ("TxPower", "").toString ();
+
   int prop_index {0};
   if (ui->cbPropMode->isChecked ())
     {
@@ -120,6 +127,21 @@ void LogQSO::loadSettings ()
   }
   m_freqRx = m_settings->value ("FreqRx", "").toString ();
   ui->cbFreqRx->setChecked (m_settings->value ("SaveFreqRx", false).toBool ());
+
+  QString comments_location;  // load the content of comments.txt file to the comments combo box
+  QDir dataPath {QStandardPaths::writableLocation (QStandardPaths::DataLocation)};
+  comments_location = dataPath.exists("comments.txt") ? dataPath.absoluteFilePath("comments.txt") : m_config->data_dir ().absoluteFilePath ("comments.txt");
+  QFile file2 = {comments_location};
+  QTextStream stream2(&file2);
+  if(file2.open (QIODevice::ReadOnly | QIODevice::Text)) {
+      while (!stream2.atEnd()) {
+          QString line = stream2.readLine();
+          ui->comments->addItem (line);
+      }
+      stream2.flush();
+      file2.close();
+  }
+
   m_settings->endGroup ();
 }
 
@@ -176,17 +198,20 @@ void LogQSO::initLogQSO(QString const& hisCall, QString const& hisGrid, QString 
     }
   if (ui->cbComments->isChecked ())
     {
-      ui->comments->setText (m_comments);
+      ui->comments->setCurrentIndex(0);
+      ui->comments->setItemText(ui->comments->currentIndex(), m_comments);
     }
   else
     {
-      ui->comments->clear ();
+      ui->comments->setCurrentIndex(0);
+      ui->comments->setItemText(ui->comments->currentIndex(), "");
     }
   if (m_config->report_in_comments()) {
     auto t=mode;
     if(rptSent!="") t+="  Sent: " + rptSent;
     if(rptRcvd!="") t+="  Rcvd: " + rptRcvd;
-    ui->comments->setText(t);
+    ui->comments->setCurrentIndex(0);
+    ui->comments->setItemText(ui->comments->currentIndex(), t);
   }
   if(noSuffix and mode.mid(0,3)=="JT9") mode="JT9";
   if(m_config->log_as_RTTY() and mode.mid(0,3)=="JT9") mode="RTTY";
@@ -228,7 +253,8 @@ void LogQSO::initLogQSO(QString const& hisCall, QString const& hisGrid, QString 
   if (SpOp::NONE != special_op && m_config->Individual_Contest_Name() && !m_config->report_in_comments()
       && m_config->Contest_Name() !="" && !ui->cbComments->isChecked()) {
     QString Contest_Name = (m_config->Contest_Name() + " Contest");
-    ui->comments->setText(Contest_Name);
+    ui->comments->setCurrentIndex(0);
+    ui->comments->setItemText(ui->comments->currentIndex(), Contest_Name);
   }
 }
 
@@ -244,7 +270,6 @@ void LogQSO::accept()
   auto band = ui->band->text ();
   auto name = ui->name->text ();
   m_txPower = ui->txPower->text ();
-  m_comments = ui->comments->text ();
   auto strDialFreq = QString::number (m_dialFreq / 1.e6,'f',6);
   auto operator_call = ui->loggedOperator->text ();
   auto xsent = ui->exchSent->text ();
@@ -368,14 +393,84 @@ void LogQSO::accept()
 
 void LogQSO::propModeChanged()
 {
-    if (ui->comboBoxPropMode->currentData() != "SAT") {
-        ui->comboBoxSatellite->setDisabled(true);
-        ui->cbSatellite->setDisabled(true);
-    } else {
-        ui->comboBoxSatellite->setDisabled(false);
-        ui->cbSatellite->setDisabled(false);
-    }
+  if (ui->comboBoxPropMode->currentData() != "SAT") {
+      ui->comboBoxSatellite->setDisabled(true);
+      ui->cbSatellite->setDisabled(true);
+  } else {
+      ui->comboBoxSatellite->setDisabled(false);
+      ui->cbSatellite->setDisabled(false);
+  }
+}
 
+void LogQSO::commentsChanged(const QString& text)   // UR
+{
+  int index = ui->comments->findText(text);
+  if(index != -1)
+  {
+    ui->comments->setCurrentIndex(index);
+   }
+  ui->comments->setItemText(ui->comments->currentIndex(), text);
+  m_comments = text;
+  m_comments_temp = text;
+}
+
+void LogQSO::on_addButton_clicked()
+{
+  m_settings->setValue ("LogComments", m_comments_temp);
+  if (m_comments_temp != "") {
+      QString comments_location = m_config->writeable_data_dir().absoluteFilePath("comments.txt");
+      if(QFileInfo::exists(m_config->writeable_data_dir().absoluteFilePath("comments.txt"))) {
+      QFile file2 = {comments_location};
+        if (file2.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Append)) {
+            QTextStream out(&file2);
+            out << m_comments_temp              // append new line to comments.txt
+    #if QT_VERSION >= QT_VERSION_CHECK (5, 15, 0)
+            << Qt::endl
+    #else
+            << endl
+    #endif
+            ;
+          file2.close();
+          MessageBox::information_message (this,
+                                           "Your comment has been added to the comments list.\n\n"
+                                           "To edit your comments list, open the file\n"
+                                           "\"comments.txt\" from your log directory");
+        }
+      } else {
+          QFile file2 = {comments_location};
+         if (file2.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Append)) {
+             QTextStream out(&file2);
+             out << ("\n" + m_comments_temp)    // create file "comments.txt" and add a blank line
+    #if QT_VERSION >= QT_VERSION_CHECK (5, 15, 0)
+              << Qt::endl
+    #else
+              << endl
+    #endif
+            ;
+          file2.close();
+          MessageBox::information_message (this,
+                                           "Your comment has been added to the comments list.\n\n"
+                                           "To edit your comments list, open the file\n"
+                                           "\"comments.txt\" from your log directory");
+         }
+      }
+      ui->comments->clear();               // clear the comments combo box and reload updated content
+      QFile file2 = {comments_location};
+      QTextStream stream2(&file2);
+      if(file2.open (QIODevice::ReadOnly | QIODevice::Text)) {
+          while (!stream2.atEnd()) {
+              QString line = stream2.readLine();
+              ui->comments->addItem (line);
+          }
+          stream2.flush();
+          file2.close();
+          if (ui->cbComments->isChecked ()) {
+              m_comments = m_settings->value ("LogComments", "").toString();
+              ui->comments->setCurrentIndex(0);
+              ui->comments->setItemText (ui->comments->currentIndex(), m_comments);
+          }
+      }
+  }
 }
 
 // closeEvent is only called from the system menu close widget for a
