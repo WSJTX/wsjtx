@@ -2,8 +2,9 @@ subroutine sync8(dd,nfa,nfb,syncmin,nfqso,maxcand,s,candidate,   &
      ncand,sbase)
 
   include 'ft8_params.f90'
-  parameter (MAXPRECAND=500)
-! Search over +/- 2.5s relative to 0.5s TX start time. 
+  parameter (MAXPRECAND=1000)
+! Maximum sync correlation lag +/- 2.5s relative to 0.5s TX start time. 
+! 2.5s / 0.16s/symbol * 4 samples/symbol = 62.5 lag steps in 2.5s
   parameter (JZ=62)                        
   complex cx(0:NH1)
   real s(NH1,NHSYM)
@@ -12,11 +13,14 @@ subroutine sync8(dd,nfa,nfb,syncmin,nfqso,maxcand,s,candidate,   &
   real x(NFFT1)
   real sync2d(NH1,-JZ:JZ)
   real red(NH1)
+  real red2(NH1)
   real candidate0(3,MAXPRECAND)
   real candidate(3,maxcand)
   real dd(NMAX)
   integer jpeak(NH1)
+  integer jpeak2(NH1)
   integer indx(NH1)
+  integer indx2(NH1)
   integer ii(1)
   integer icos7(0:6)
   data icos7/3,1,4,0,6,5,2/                   !Costas 7x7 tone pattern
@@ -82,11 +86,16 @@ subroutine sync8(dd,nfa,nfb,syncmin,nfqso,maxcand,s,candidate,   &
   enddo
 
   red=0.
+  red2=0.
+  mlag=20
+  mlag2=62
   do i=ia,ib
-     ii=maxloc(sync2d(i,-JZ:JZ)) - 1 - JZ
-     j0=ii(1)
-     jpeak(i)=j0
-     red(i)=sync2d(i,j0)
+     ii=maxloc(sync2d(i,-mlag:mlag)) - 1 - mlag 
+     jpeak(i)=ii(1)
+     red(i)=sync2d(i,jpeak(i))
+     ii=maxloc(sync2d(i,-mlag2:mlag2)) - 1 - mlag2
+     jpeak2(i)=ii(1)
+     red2(i)=sync2d(i,jpeak2(i))
   enddo
   iz=ib-ia+1
   call indexx(red(ia:ib),iz,indx)
@@ -100,14 +109,30 @@ subroutine sync8(dd,nfa,nfb,syncmin,nfqso,maxcand,s,candidate,   &
   if(ibase.gt.nh1) ibase=nh1
   base=red(ibase)
   red=red/base
+  call indexx(red2(ia:ib),iz,indx2)
+  ibase=indx2(npctile) - 1 + ia
+  if(ibase.lt.1) ibase=1
+  if(ibase.gt.nh1) ibase=nh1
+  base2=red2(ibase)
+  red2=red2/base2
 
   do i=1,min(MAXPRECAND,iz)
      n=ia + indx(iz+1-i) - 1
-     if(red(n).lt.syncmin.or.isnan(red(n)).or.k.eq.MAXPRECAND) exit
-     k=k+1
-     candidate0(1,k)=n*df
-     candidate0(2,k)=(jpeak(n)-0.5)*tstep
-     candidate0(3,k)=red(n)
+     if(k.ge.MAXPRECAND) exit
+     if( (red(n).ge.syncmin) .and. (.not.isnan(red(n))) ) then 
+        k=k+1
+        candidate0(1,k)=n*df
+        candidate0(2,k)=(jpeak(n)-0.5)*tstep
+        candidate0(3,k)=red(n)
+     endif
+     if(abs(jpeak2(n)-jpeak(n)).eq.0) cycle 
+     if(k.ge.MAXPRECAND) exit
+     if( (red2(n).ge.syncmin) .and. (.not.isnan(red2(n))) ) then
+        k=k+1
+        candidate0(1,k)=n*df
+        candidate0(2,k)=(jpeak2(n)-0.5)*tstep
+        candidate0(3,k)=red2(n)
+     endif
   enddo
   ncand=k
 
@@ -116,7 +141,8 @@ subroutine sync8(dd,nfa,nfb,syncmin,nfqso,maxcand,s,candidate,   &
      if(i.ge.2) then
         do j=1,i-1
            fdiff=abs(candidate0(1,i))-abs(candidate0(1,j))
-           if(abs(fdiff).lt.4.0) then
+           tdiff=abs(candidate0(2,i)-candidate0(2,j))
+           if(abs(fdiff).lt.4.0.and.tdiff.lt.0.04) then
               if(candidate0(3,i).ge.candidate0(3,j)) candidate0(3,j)=0.
               if(candidate0(3,i).lt.candidate0(3,j)) candidate0(3,i)=0.
            endif
@@ -148,6 +174,5 @@ subroutine sync8(dd,nfa,nfb,syncmin,nfqso,maxcand,s,candidate,   &
      endif
   enddo
   ncand=k-1
-
   return
 end subroutine sync8

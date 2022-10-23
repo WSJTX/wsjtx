@@ -44,7 +44,7 @@ contains
 
     class(ft8_decoder), intent(inout) :: this
     procedure(ft8_decode_callback) :: callback
-    parameter (MAXCAND=300,MAX_EARLY=100)
+    parameter (MAXCAND=500,MAX_EARLY=100)
     real*8 tsec,tseq
     real s(NH1,NHSYM)
     real sbase(NH1)
