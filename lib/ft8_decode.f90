@@ -80,7 +80,9 @@ contains
        dt0=0.
        f0=0.
     endif
-    if(nutc.ne.nutc0) then
+!Added 41==nzhsym to force a reset if the same wav file is processed twice or more in a row,
+!in which case nutc.eq.nutc0 and ndec(jseq,1) doesn't get reset
+    if(nzhsym==41 .or. (nutc.ne.nutc0)) then
 ! New UTC.  Move previously saved 'a7' data from k=1 to k=0
        iz=ndec(jseq,1)
        dt0(1:iz,jseq,0)  = dt0(1:iz,jseq,1)

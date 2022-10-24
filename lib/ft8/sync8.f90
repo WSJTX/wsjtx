@@ -88,7 +88,7 @@ subroutine sync8(dd,nfa,nfb,syncmin,nfqso,maxcand,s,candidate,   &
   red=0.
   red2=0.
   mlag=20
-  mlag2=62
+  mlag2=JZ
   do i=ia,ib
      ii=maxloc(sync2d(i,-mlag:mlag)) - 1 - mlag 
      jpeak(i)=ii(1)
