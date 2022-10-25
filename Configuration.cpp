@@ -1688,7 +1688,9 @@ void Configuration::impl::initialize_models ()
   ui_->TX_audio_source_button_group->button (rig_params_.audio_source)->setChecked (true);
   ui_->CAT_poll_interval_spin_box->setValue (rig_params_.poll_interval);
   ui_->opCallEntry->setText (opCall_);
+  ui_->udp_server_line_edit->setEnabled(false);
   ui_->udp_server_line_edit->setText (udp_server_name_);
+  ui_->udp_server_line_edit->setEnabled(true);
   on_udp_server_line_edit_editingFinished ();
   ui_->udp_server_port_spin_box->setValue (udp_server_port_);
   load_network_interfaces (ui_->udp_interfaces_combo_box, udp_interface_names_);
@@ -1925,6 +1927,10 @@ void Configuration::impl::read_settings ()
               LOG_INFO(QString{"read_settings INVALID FrequenciesForRegionModes"});
               frequencies_.reset_to_defaults();
             }
+        }
+      else
+        {
+          frequencies_.reset_to_defaults();
         }
     }
 
@@ -3005,6 +3011,27 @@ void Configuration::impl::on_udp_server_line_edit_textChanged (QString const&)
 
 void Configuration::impl::on_udp_server_line_edit_editingFinished ()
 {
+  if (this->isVisible())
+  {
+    int q1,q2,q3,q4;
+    char tmpbuf[2];
+    int n = sscanf(ui_->udp_server_line_edit->text ().trimmed ().toLatin1(), "%d.%d.%d.%d.%1s", &q1, &q2, &q3, &q4, tmpbuf);
+    const char *iperr;
+    switch(n)
+    {
+      case 0: iperr = "Error before first number";break;
+      case 1: iperr = "Error between first and second number";break;
+      case 2: iperr = "Error between second and third number";break;
+      case 3: iperr = "Error between third and fourth number";break;
+      case 4: iperr = ""; break;
+      default: iperr = "Unknown error n=" + n;
+    }
+    if (n != 4)
+    {
+       MessageBox::warning_message (this, tr ("Error in network address"), tr (iperr));
+       return;
+    }
+
   if (udp_server_name_edited_)
     {
       auto const& server = ui_->udp_server_line_edit->text ().trimmed ();
@@ -3024,6 +3051,7 @@ void Configuration::impl::on_udp_server_line_edit_editingFinished ()
           check_multicast (ha);
         }
     }
+  }
 }
 
 void Configuration::impl::host_info_results (QHostInfo host_info)

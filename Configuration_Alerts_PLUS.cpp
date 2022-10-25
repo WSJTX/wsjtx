@@ -1928,6 +1928,10 @@ void Configuration::impl::read_settings ()
               frequencies_.reset_to_defaults();
             }
         }
+      else
+        {
+          frequencies_.reset_to_defaults();
+        }
     }
 
   stations_.station_list (settings_->value ("stations").value<StationList::Stations> ());
