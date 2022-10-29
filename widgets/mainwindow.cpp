@@ -1515,19 +1515,29 @@ void MainWindow::set_application_font (QFont const& font)
 //  if (pointSize > 10) ui->controls_stack_widget->setMaximumWidth(240);  // UR for AL
   if (pointSize < 11) {
 //      ui->tabWidget->setMaximumHeight(210);                           // UR for AL
-      if (ui->actionUse_Dark_Style->isChecked()) ui->tabWidget->setMaximumHeight(225);  // UR for normal + widescreen
-      ui->houndButton->setMaximumWidth(40);                           // UR for normal + widescreen
-      ui->ft8Button->setMaximumWidth(40);                             // UR for normal + widescreen
-      ui->ft4Button->setMaximumWidth(40);                             // UR for normal + widescreen
-      ui->msk144Button->setMaximumWidth(40);                          // UR for normal + widescreen
-      ui->q65Button->setMaximumWidth(40);                             // UR for normal + widescreen
-      ui->jt65Button->setMaximumWidth(40);                            // UR for normal + widescreen
-      ui->houndButton->setMinimumWidth(0);                            // UR for normal + widescreen
-      ui->ft8Button->setMinimumWidth(0);                              // UR for normal + widescreen
-      ui->ft4Button->setMinimumWidth(0);                              // UR for normal + widescreen
-      ui->msk144Button->setMinimumWidth(0);                           // UR for normal + widescreen
-      ui->q65Button->setMinimumWidth(0);                              // UR for normal + widescreen
-      ui->jt65Button->setMinimumWidth(0);                             // UR for normal + widescreen
+      if (ui->actionUse_Dark_Style->isChecked()) {
+          ui->tabWidget->setMaximumHeight(225);                       // UR for normal + widescreen
+          ui->houndButton->setMinimumWidth(50);                       // UR for normal + widescreen
+          ui->ft8Button->setMinimumWidth(50);                         // UR for normal + widescreen
+          ui->ft4Button->setMinimumWidth(50);                         // UR for normal + widescreen
+          ui->msk144Button->setMinimumWidth(50);                      // UR for normal + widescreen
+          ui->q65Button->setMinimumWidth(50);                         // UR for normal + widescreen
+          ui->jt65Button->setMinimumWidth(50);                        // UR for normal + widescreen
+      } else {
+          ui->tabWidget->setMaximumHeight(225);                       // UR for normal + widescreen
+          ui->houndButton->setMaximumWidth(40);                       // UR for normal + widescreen
+          ui->ft8Button->setMaximumWidth(40);                         // UR for normal + widescreen
+          ui->ft4Button->setMaximumWidth(40);                         // UR for normal + widescreen
+          ui->msk144Button->setMaximumWidth(40);                      // UR for normal + widescreen
+          ui->q65Button->setMaximumWidth(40);                         // UR for normal + widescreen
+          ui->jt65Button->setMaximumWidth(40);                        // UR for normal + widescreen
+          ui->houndButton->setMinimumWidth(0);                        // UR for normal + widescreen
+          ui->ft8Button->setMinimumWidth(0);                          // UR for normal + widescreen
+          ui->ft4Button->setMinimumWidth(0);                          // UR for normal + widescreen
+          ui->msk144Button->setMinimumWidth(0);                       // UR for normal + widescreen
+          ui->q65Button->setMinimumWidth(0);                          // UR for normal + widescreen
+          ui->jt65Button->setMinimumWidth(0);                         // UR for normal + widescreen
+      }
   } else {
 //      ui->tabWidget->setMaximumHeight(255);                           // UR for AL
       ui->tabWidget->setMaximumHeight(500);                           // UR for normal + widescreen
@@ -2261,7 +2271,10 @@ void MainWindow::on_actionAbout_triggered()                  //Display "About"
 
 void MainWindow::on_autoButton_clicked (bool checked)
 {
-  QTimer::singleShot (3000, [=] {tuneATU_Timer.stop ();});  // stop the Tune watchdog
+  QTimer::singleShot (3000, [=] {
+      tuneATU_Timer.stop ();                                // stop the Tune watchdog
+      if (ui->tuneButton->isChecked()) ui->tuneButton->click (); // uncheck the Tune button
+  });
   stopWRTimer.stop();                                       // stop any Wait & Reply timeout
   if (!checked && ui->DX_Call_Button->isChecked()) {
       stopWCTimer.stop();                                   // stop any Wait & Call timeout
@@ -3939,7 +3952,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
                || line_read.contains("-26")))                               // for such SNRmin = -23
            or (((line_read.contains("<...>") || line_read.contains(";")            // unresolved hash, F/H messages
                || line_read.contains("/R") || line_read.contains(" R ") )          // /R, contest calls
-               && line_read.contains("2.")))
+               && (line_read.contains("3.") || line_read.contains("2."))))         // not in time
            or (line_read.contains(";") && line_read.contains(" R "))        // don't allow such
                || line_read.contains("<...> <...>"))))                      // no unresolved hash codes
   {
@@ -4120,17 +4133,16 @@ void MainWindow::readFromStdout()                             //readFromStdout
               ) {
               if (((decodedtext.string().contains("/R")                   // rover calls
                    || decodedtext.string().contains(" R ")                // R in contest message
-                   || (decodedtext.string().contains("/R") && decodedtext.string().contains("/P"))   // /R and /P
+                   || (decodedtext.string().contains("/R") && decodedtext.string().contains("/P"))     // /R and /P
                    || (decodedtext.string().contains("<...>")
-                       && (decodedtext.string().contains(QRegularExpression {"\\s\\D\\D\\D"})        // hash + invalid prefix
-                       || decodedtext.string().contains("/P")))                                      // hash + /P call
-                   || decodedtext.string().contains(QRegularExpression {"(\\w+)/P (\\w+)/P"})        // two /P calls
-                   || decodedtext.string().contains(QRegularExpression {"\\w\\w\\w\\w\\w\\w\\w\\w"}) // likely invalid calls
-                   || decodedtext.string().contains(QRegularExpression {"\\d\\d\\d \\d\\d\\d"})      // contest messages
-                    )                                                // for such SNRmin = -20 and -0.9 < dt <0.9
-                 && (decodedtext.string().contains("-21") || decodedtext.string().contains("-22") ||
-                     decodedtext.string().contains("-23") || decodedtext.string().contains("-24") ||
-                     decodedtext.string().contains("-25") || decodedtext.string().contains("-26")
+                       && (decodedtext.string().contains(QRegularExpression {"\\s\\D\\D\\D"})          // hash + invalid prefix
+                       || decodedtext.string().contains("/P")))                                        // hash + /P call
+                   || decodedtext.string().contains(QRegularExpression {"(\\w+)/P (\\w+)/P"})          // two /P calls
+                   || decodedtext.string().contains(QRegularExpression {"\\w\\w\\w\\w\\w\\w\\w\\w"})   // likely invalid calls
+                   || decodedtext.string().contains(QRegularExpression {"\\d\\d\\d \\d\\d\\d"})        // contest messages
+                   || (!(decodedtext.string().contains(QRegularExpression {"\\D\\d\\D\\D"})))          // invalid call
+                    )                                                // for such SNRmin = -19 and -0.9 < dt <0.9
+                 && (decodedtext.string().contains(" -2") || decodedtext.string().contains("3.")
                    || decodedtext.string().contains("2.") || decodedtext.string().contains("1.")))
                       )  {
                    blockUDP = true;                              // block udp spotting for false decodes (JTAlert)
@@ -5104,6 +5116,12 @@ void MainWindow::guiUpdate()
 //Once per second (onesec)
   if(nsec != m_sec0) {
 //    qDebug() << "AAA" << nsec << int(m_specOp) << ui->labDXped->text();
+
+    if (m_tune && !(m_config.Tune_watchdog_disabled() || m_mode=="WSPR" || m_mode=="FST4W")) {
+        QString remtime;
+        remtime = QString::asprintf("%.0f s",tuneATU_Timer.remainingTime()/1000.0);
+        ui->tuneButton->setText(remtime);  // display Tune watchdog countdog
+    }
 
     if(m_mode=="FST4") chk_FST4_freq_range();
     m_currentBand=m_config.bands()->find(m_freqNominal);
@@ -7950,8 +7968,13 @@ void MainWindow::on_rptSpinBox_valueChanged(int n)
 
 void MainWindow::on_tuneButton_clicked (bool checked)
 {
-  if (checked && !(m_config.Tune_watchdog_disabled() || m_mode=="WSPR" || m_mode=="FST4W"))  tuneATU_Timer.start (120000); // tune watchdog
-  if (!checked) tuneATU_Timer.stop ();    // stop tune watchdog when stopping Tune manually
+  if (checked && !(m_config.Tune_watchdog_disabled() || m_mode=="WSPR" || m_mode=="FST4W")) {
+      tuneATU_Timer.start (90000); // tune watchdog
+  }
+  if (!checked) {
+      tuneATU_Timer.stop ();    // stop tune watchdog when stopping Tune manually
+      ui->tuneButton->setText("Tune");
+  }
   static bool lastChecked = false;
   if (lastChecked == checked) return;
   lastChecked = checked;
@@ -8002,6 +8025,7 @@ void MainWindow::stopTuneATU()
 {
   on_tuneButton_clicked(false);
   m_bTxTime=false;
+  ui->tuneButton->setText("Tune");
 }
 
 void MainWindow::on_stopTxButton_clicked()                    //Stop Tx
