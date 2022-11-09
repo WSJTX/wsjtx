@@ -166,14 +166,12 @@ contains
 ! ndepth=2: subtraction, 3 passes, bp+osd (no subtract refinement) 
 ! ndepth=3: subtraction, 3 passes, bp+osd
     npass=3
-    if(ndepth.eq.1) npass=2
+    if(ndepth.eq.1) npass=1
     do ipass=1,npass
       newdat=.true.
       syncmin=1.25
       if(ndepth.eq.1) syncmin=1.6
       if(ndepth.eq.2) syncmin=1.4
-!      if(nzhsym.eq.41.or.ipass.eq.1) syncmin=2.0
-!      if(nzhsym.eq.41) syncmin=2.0
       if(ipass.eq.1) then
         lsubtract=.true.
         ndeep=ndepth
@@ -190,7 +188,7 @@ contains
       endif 
       call timer('sync8   ',0)
       maxc=MAXCAND
-      call sync8(dd,ifa,ifb,syncmin,nfqso,maxc,nzhsym,candidate,   &
+      call sync8(dd,ifa,ifb,syncmin,nfqso,maxc,s,candidate,   &
            ncand,sbase)
       call timer('sync8   ',1)
       do icand=1,ncand
