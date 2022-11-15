@@ -8,7 +8,7 @@ subroutine subtractft8(dd0,itone,f0,dt,lrefinedt)
 ! Subtract         : dd(t)    = dd(t) - 2*REAL{cref*cfilt}
 
   parameter (NMAX=15*12000,NFRAME=1920*79)
-  parameter (NFFT=NMAX,NFILT=3500)
+  parameter (NFFT=NMAX,NFILT=3750)
   real dd(NMAX),dd0(NMAX)
   real window(-NFILT/2:NFILT/2)
   real x(NFFT+2)
