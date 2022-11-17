@@ -28,7 +28,7 @@ contains
       use timer_module, only: timer
       use packjt77
       include 'ft4/ft4_params.f90'
-      parameter (MAXCAND=100)
+      parameter (MAXCAND=200)
       class(ft4_decoder), intent(inout) :: this
       procedure(ft4_decode_callback) :: callback
       parameter (NSS=NSPS/NDOWN,NDMAX=NMAX/NDOWN)
@@ -192,7 +192,7 @@ contains
 ! ndepth=1: 1 pass, no subtraction
 
       max_iterations=40
-      syncmin=1.2
+      syncmin=1.18
       dosubtract=.true.
       doosd=.true.
       nsp=3
