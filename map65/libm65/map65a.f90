@@ -34,11 +34,14 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
   common/c3com/ mcall3a
   common/testcom/ifreq
   common/early/nhsym1,nhsym2,ldecoded(32768)
+  common/decodes/ndecodes
 
   data blank/'                      '/,cm/'#'/
   data shmsg0/'ATT','RO ','RRR','73 '/
   data nfile/0/,nutc0/-999/,nid/0/,ip000/1/,ip001/1/,mousefqso0/-999/
   save
+
+  ndecodes=0
 
 ! Clean start for Q65 at early decode
   if(nhsym.eq.nhsym1 .or. nagain.ne.0) ldecoded=.false.
@@ -499,6 +502,7 @@ subroutine map65a(dd,ss,savg,newdat,nutc,fcenter,ntol,idphi,nfa,nfb,        &
            write(26,1014) f0,ndf,ndf0,ndf1,ndf2,dt,npol,nsync1,       &
                 nsync2,nutc,decoded,cp,cmode
 1014       format(f8.3,i5,3i3,f5.1,i4,i3,i4,i5.4,4x,a22,2x,a1,3x,a2)
+           ndecodes=ndecodes+1
            write(21,1100) f0,ndf,dt,npol,nsync2,nutc,decoded,cp,          &
                 cmode(1:1),cmode(2:2)
 1100       format(f8.3,i5,f5.1,2i4,i5.4,2x,a22,2x,a1,3x,a1,1x,a1)

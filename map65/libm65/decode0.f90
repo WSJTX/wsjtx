@@ -14,6 +14,7 @@ subroutine decode0(dd,ss,savg,nstandalone)
        mcall3,nkeep,ntol,nxant,nrxlog,nfsample,nxpol,nmode,               &
        nfast,nsave,max_drift,nhsym,mycall,mygrid,hiscall,hisgrid,datetime
   common/early/nhsym1,nhsym2,ldecoded(32768)
+  common/decodes/ndecodes
   data neme0/-99/,mcall3b/1/
   save
 
@@ -62,8 +63,8 @@ subroutine decode0(dd,ss,savg,nstandalone)
   call sec0(1,tdec)
   if(nhsym.eq.nhsym1) write(*,1010) nsum,nsave,nstandalone,nhsym,tdec
 1010 format('<EarlyFinished>',3i4,i6,f6.2)
-  if(nhsym.eq.nhsym2) write(*,1012) nsum,nsave,nstandalone,nhsym,tdec
-1012 format('<DecodeFinished>',3i4,i6,f6.2)
+  if(nhsym.eq.nhsym2) write(*,1012) nsum,nsave,nstandalone,nhsym,tdec,ndecodes
+1012 format('<DecodeFinished>',3i4,i6,f6.2,i5)
   flush(6)
 
   return

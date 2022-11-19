@@ -1416,6 +1416,8 @@ void MainWindow::readFromStdout()                             //readFromStdout
       QFile lockFile(m_appDir + "/.lock");
       lockFile.open(QIODevice::ReadWrite);
       if(t.indexOf("<DecodeFinished>") >= 0) {
+        int ndecodes=t.mid(40,5).toInt();
+        lab5->setText(QString::number(ndecodes));
         m_map65RxLog=0;
         m_startAnother=m_loopall;
       }

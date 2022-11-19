@@ -194,7 +194,6 @@ private:
   qint32  m_RxState;
   qint32  m_dB;
 
-
   double  m_fAdd;
   //    double  m_IQamp;
   //    double  m_IQphase;
