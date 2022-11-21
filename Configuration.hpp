@@ -217,6 +217,8 @@ public:
   bool highlight_only_fields () const;
   bool include_WAE_entities () const;
   bool highlight_73 () const;
+  bool show_country_names () const;
+  bool erase_like_JTDX () const;
   void setSpecial_Hound();
   void setSpecial_Fox();
   void setSpecial_None();

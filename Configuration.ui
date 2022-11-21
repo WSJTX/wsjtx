@@ -453,6 +453,16 @@ quiet period when decoding is done.</string>
           <item row="5" column="1">
            <layout class="QHBoxLayout" name="horizontalLayout_12">
             <item>
+             <widget class="QCheckBox" name="disable_Tune_watchdog_check_box">
+              <property name="toolTip">
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Disable the Tune watchdog.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+              </property>
+              <property name="text">
+               <string>Disable Tune watchdog</string>
+              </property>
+             </widget>
+            </item>
+            <item>
              <spacer name="horizontalSpacer_7">
               <property name="orientation">
                <enum>Qt::Horizontal</enum>
@@ -504,12 +514,9 @@ quiet period when decoding is done.</string>
            </widget>
           </item>
           <item row="4" column="1">
-           <widget class="QCheckBox" name="disable_Tune_watchdog_check_box">
-            <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Disable the Tune watchdog.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
+           <widget class="QCheckBox" name="erase_like_JTDX_check_box">
             <property name="text">
-             <string>Disable Tune watchdog</string>
+             <string>Erase button behavior like JTDX</string>
             </property>
            </widget>
           </item>
@@ -3938,13 +3945,13 @@ Right click for insert and delete options.</string>
   </connection>
  </connections>
  <buttongroups>
+  <buttongroup name="CAT_stop_bits_button_group"/>
+  <buttongroup name="PTT_method_button_group"/>
   <buttongroup name="TX_mode_button_group"/>
-  <buttongroup name="CAT_data_bits_button_group"/>
   <buttongroup name="split_mode_button_group"/>
   <buttongroup name="TX_audio_source_button_group"/>
-  <buttongroup name="PTT_method_button_group"/>
-  <buttongroup name="CAT_stop_bits_button_group"/>
-  <buttongroup name="special_op_activity_button_group"/>
   <buttongroup name="CAT_handshake_button_group"/>
+  <buttongroup name="CAT_data_bits_button_group"/>
+  <buttongroup name="special_op_activity_button_group"/>
  </buttongroups>
 </ui>

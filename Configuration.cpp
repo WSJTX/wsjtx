@@ -668,6 +668,8 @@ private:
   bool highlight_only_fields_;
   bool include_WAE_entities_;
   bool highlight_73_;
+  bool erase_like_JTDX_;
+  bool show_country_names_;
   int LotW_days_since_upload_;
 
   TransceiverFactory::ParameterPack rig_params_;
@@ -929,6 +931,8 @@ bool Configuration::highlight_by_mode () const {return m_->highlight_by_mode_;}
 bool Configuration::highlight_only_fields () const {return m_->highlight_only_fields_;}
 bool Configuration::include_WAE_entities () const {return m_->include_WAE_entities_;}
 bool Configuration::highlight_73 () const {return m_->highlight_73_;}
+bool Configuration::erase_like_JTDX () const {return m_->erase_like_JTDX_;}
+bool Configuration::show_country_names () const {return m_->show_country_names_;}
 bool Configuration::highlight_DXcall () const {return m_->highlight_DXcall_;}
 bool Configuration::clear_DXcall () const {return m_->clear_DXcall_;}
 bool Configuration::highlight_DXgrid () const {return m_->highlight_DXgrid_;}
@@ -1289,6 +1293,8 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   , highlight_only_fields_ {false}
   , include_WAE_entities_ {false}
   , highlight_73_ {false}
+  , erase_like_JTDX_ {false}
+  , show_country_names_ {false}
   , LotW_days_since_upload_ {0}
   , last_port_type_ {TransceiverFactory::Capabilities::none}
   , rig_is_dummy_ {false}
@@ -1733,6 +1739,8 @@ void Configuration::impl::initialize_models ()
   ui_->only_fields_check_box->setChecked (highlight_only_fields_);
   ui_->include_WAE_check_box->setChecked (include_WAE_entities_);
   ui_->highlight_73_check_box->setChecked (highlight_73_);
+  ui_->erase_like_JTDX_check_box->setChecked (erase_like_JTDX_);
+  ui_->show_country_names_check_box->setChecked (show_country_names_);
   ui_->LotW_days_since_upload_spin_box->setValue (LotW_days_since_upload_);
   ui_->cbHighlightDXcall->setChecked(highlight_DXcall_);
   ui_->cbClearDXcall->setChecked(clear_DXcall_);
@@ -1943,6 +1951,8 @@ void Configuration::impl::read_settings ()
   highlight_only_fields_ = settings_->value("OnlyFieldsSought", false).toBool ();
   include_WAE_entities_ = settings_->value("IncludeWAEEntities", false).toBool ();
   highlight_73_ = settings_->value("Highlight73", true).toBool ();
+  erase_like_JTDX_ = settings_->value("EraseButtonLikeJTDX", false).toBool ();
+  show_country_names_ = settings_->value("AlwaysShowCountryNames", false).toBool ();
   LotW_days_since_upload_ = settings_->value ("LotWDaysSinceLastUpload", 365).toInt ();
   lotw_users_.set_age_constraint (LotW_days_since_upload_);
 
@@ -2133,6 +2143,8 @@ void Configuration::impl::write_settings ()
   settings_->setValue ("OnlyFieldsSought", highlight_only_fields_);
   settings_->setValue ("IncludeWAEEntities", include_WAE_entities_);
   settings_->setValue ("Highlight73", highlight_73_);
+  settings_->setValue ("EraseButtonLikeJTDX", erase_like_JTDX_);
+  settings_->setValue ("AlwaysShowCountryNames", show_country_names_);
   settings_->setValue ("LotWDaysSinceLastUpload", LotW_days_since_upload_);
   settings_->setValue ("toRTTY", log_as_RTTY_);
   settings_->setValue ("dBtoComments", report_in_comments_);
@@ -2735,6 +2747,8 @@ void Configuration::impl::accept ()
   highlight_only_fields_ = ui_->only_fields_check_box->isChecked ();
   include_WAE_entities_ = ui_->include_WAE_check_box->isChecked ();
   highlight_73_ = ui_->highlight_73_check_box->isChecked ();
+  erase_like_JTDX_ = ui_->erase_like_JTDX_check_box->isChecked ();
+  show_country_names_ = ui_->show_country_names_check_box->isChecked ();
   LotW_days_since_upload_ = ui_->LotW_days_since_upload_spin_box->value ();
   lotw_users_.set_age_constraint (LotW_days_since_upload_);
 
