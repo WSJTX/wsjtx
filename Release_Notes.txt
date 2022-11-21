@@ -20,14 +20,14 @@ well as some bug fixes.
 
 In program WSJT-X:
 
- - Our FT8 decoder has been further improved, resulting in more decodes 
-   especially on crowded bands, and in an improved sync  
-   for early decodes.
+ - Better calibration for FST4/W SNR estimates.
+
+ - Improved FT8 decoding on crowded bands. 
 
  - The Working frequency table now offers the following options:
    - Better handling of more than one frequency per band.
-   - Set your prefered frequencies, wsjt-x_improved always comes back 
-     to these QRGs when changing band or mode.
+   - Set your preferred frequencies, WSJT-X always comes back to these
+     QRGs when changing band or mode.
    - You can label your frequencies with discriptions (e.g. DXp AB0YXZ).
    - Option to set Start and End Date/Time, so that the frequencies 
      automatically appear and disappear. Useful for contest or 
@@ -38,21 +38,29 @@ In program WSJT-X:
  - In Fox mode, there are now a few additional functions that allow 
    operators to react even better to different QSO situations:
    - A new two-column table in Tab 2 provides a better overview of 
-     the queue and of the callsigns in QSO.   
-   - The operator can now change the order of QSOs in the queue so 
-     that he can react if there is only a narrow time slot for a 
-     particular QSO due to propagation.
-   - The Fox now responds for another two cycles to stations whose 
-     report was not received, increasing the success rate for a QSO.
+     the queue and of the callsigns with QSOs in progress.
+   - Fox operator can now change the ordering of callsigns in the
+     queue so that he can react if there is only a narrow time slot
+     for a particular QSO due to propagation.
+   - Fox now responds for another two cycles to stations whose 
+     report was not received, increasing the success rate for a
+     difficult QSO.
 
- - Correct a flaw in Hound mode that sometimes prevented QSOs with 
-   non-standard calls.
+ - Correct a flaw in Hound mode that sometimes prevented completion of
+   QSOs with non-standard calls.
+
+ - Improvements to EME Echo mode:
+   - New control "Avg" sets the number of Echo cycles to be averaged.
+   - New capability to display measurements of wideband noise power as
+     a function of time.  This can be useful for measuring Sun noise,
+     antenna tracking errors, and the like.
+   - Several minor bug fixes
 
  - Correct a flaw that prevented WSJT-X from always initializing 
    correctly when special operating activities were enabled.
 
- - Correct a flaw that caused wrong frequencies to be written to  
-   ALL.TXT for Tx.
+ - Correct a flaw that caused wrong Tx frequencies to be written to  
+   ALL.TXT.
 
  - The GUI has been improved regarding some details. The controls now 
    scale better at different font sizes and on different operating 
@@ -65,16 +73,16 @@ In program WSJT-X:
     - Click the "FT8" button (or use the Settings menu). It brings  
       you back to the default FT8 QRG.
 
- - A7 decodes are now disabled when "Enable AP" is not checked, and   
-   during the first period after a band change.
+ - Decodes flagged as 'a7' are now disabled when "Enable AP" is not
+   checked, and during the first period after a band change.
 
  - The network address of the UDP server is now checked for errors  
-   before accepting it.
+   before being accepted.
 
  - Some improvements to the DX Lab Suite Commander interface. 
 
  - Correct some possible flaws that could cause segfault errors in 
-   certain situations.
+   certain unusual situations.
 
  - Warnings on dropped audio have been disabled for now, as detection  
    has turned out to be not reliable enough.
@@ -82,28 +90,17 @@ In program WSJT-X:
  - Correct a long-standing flaw which caused the "Transmit digital gain" 
    overlay toappear somewhere on the screen.
 
- - Highlight DX Call now also works when the other station is <...>.
+ - "Highlight DX Call" now also works when the other station is <...>.
 
- - Further improvements to Echo mode:
-   - Some improvements on the Echo-mode averaging.
-   - Single-echo SNR measurement has been added.
-   - On the Wide Graph, a total-power plot has been added. 
-   - Don't allow decoding depth to be changed just because Echo mode 
-     was entered.
-   - Adjust the UTC wrap-around problem to yield time difference 
-     within +/- 12 hours.
-   - New MAP65 feature: read wsjtx.log to recognize EME contest dupes.
+ - CQ messages without a grid are now sent to PSK reporter.
 
- - Some other minor corrections (tool tips, etc.). 
+ - Several other minor corrections (tool tips, etc.). 
 
-In program MAP65 (Windows only):
-
- - Update to version 3.0.1.
- - A feature for measuring antenna pointing errors has been added.
- - Writing an invalid datetime to map65_rx.log is now prevented.
- - Correct a flaw in the definition of the variable nts_jt65.
- - Use "Force center freq" also for data read from disk.
-
+Program MAP65 (Windows only) includes several minor bug fixes and two 
+tentative new features:
+ - an aid for measuring antenna pointing errors
+ - an ability to read the file wsjtx.log (kept by WSJT-X) to recognize
+   EME contest dupes.
 
                       Release: WSJT-X 2.6.0-rc4
                           September 8, 2022
