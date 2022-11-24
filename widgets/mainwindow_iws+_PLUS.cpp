@@ -4317,7 +4317,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
 
           }
           if(SpecOp::FOX==m_specOp and decodedtext.string().contains(" DE ")) for_us=true; //Hound with compound callsign
-          if(SpecOp::FOX==m_specOp and for_us and (audioFreq<1000)) bDisplayRight=true;
+          if(SpecOp::FOX==m_specOp and for_us) bDisplayRight=true;
           if(SpecOp::FOX!=m_specOp and (for_us or (abs(audioFreq - m_wideGraph->rxFreq()) <= 10))) bDisplayRight=true;
         }
       } else {
