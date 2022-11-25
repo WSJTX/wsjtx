@@ -214,6 +214,9 @@ bool wait_and_call = false;
 bool no_wait_and_call = false;
 bool no_a7_decodes = false;
 bool keep_frequency = false;
+bool first_Fox_alert = true;
+bool second_Fox_alert = true;
+bool no_Fox_alert = false;
 
 namespace
 {
@@ -4312,6 +4315,33 @@ void MainWindow::readFromStdout()                             //readFromStdout
           if(SpecOp::FOX==m_specOp and decodedtext.string().contains(" DE ")) for_us=true; //Hound with compound callsign
           if(SpecOp::FOX==m_specOp and for_us and decodedtext.string().contains(QRegularExpression{" R\\W\\d"})) bDisplayRight=true;
           if(SpecOp::FOX!=m_specOp and (for_us or (abs(audioFreq - m_wideGraph->rxFreq()) <= 10))) bDisplayRight=true;
+
+          // Give the Fox a warning when there is probably another Fox on the frequency
+          if(SpecOp::FOX==m_specOp and audioFreq<1000 and !for_us and decodedtext.string().contains(QRegularExpression{" R\\W\\d"})) {
+              if (first_Fox_alert) {
+                  first_Fox_alert = false;
+                  QTimer::singleShot (120000, [=] {first_Fox_alert = true;});   // Reset after 2 minutes
+              } else {
+                  if (second_Fox_alert) {
+                      second_Fox_alert = false;
+                      QTimer::singleShot (300000, [=] {second_Fox_alert = true;});   // Reset after 5 minutes
+                  } else {
+                      if (!no_Fox_alert) {
+                           MessageBox::warning_message (this,
+                              "Looks like another fox is working on this frequency.\n\n"
+                              "Stop transmitting, exit Fox mode for a few minutes,\n"
+                              "and check the incoming FT8 messages.");
+                           no_Fox_alert = true;
+                           QTimer::singleShot (600000, [=] {   // No further Fox alerts for 10 minutes
+                               no_Fox_alert = false;
+                               first_Fox_alert = true;
+                               second_Fox_alert = true;
+                           });
+                      }
+                  }
+              }
+          }
+
         }
       } else {
         if((abs(audioFreq - m_wideGraph->rxFreq()) <= 10) and
