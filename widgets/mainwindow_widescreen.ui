@@ -3538,7 +3538,6 @@ QPushButton[state=&quot;ok&quot;] {
     <addaction name="actionEnable_AP_DXcall"/>
     <addaction name="actionAuto_Clear_Avg"/>
     <addaction name="actionReduce_false_decodes"/>
-    <addaction name="actionDisable_event_logging"/>
    </widget>
    <widget class="QMenu" name="menuSave">
     <property name="title">
@@ -3555,6 +3554,7 @@ QPushButton[state=&quot;ok&quot;] {
     <addaction name="separator"/>
     <addaction name="actionDefault_event_logging"/>
     <addaction name="actionDiagnostic_mode"/>
+    <addaction name="actionDisable_event_logging"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
