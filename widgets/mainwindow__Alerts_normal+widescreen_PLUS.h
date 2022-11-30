@@ -129,6 +129,7 @@ public slots:
   void doubleClickOnCall (Qt::KeyboardModifiers);
   void doubleClickOnCall2(Qt::KeyboardModifiers);
   void doubleClickOnFoxQueue(Qt::KeyboardModifiers);
+  void doubleClickOnFoxInProgress(Qt::KeyboardModifiers modifiers);
   void readFromStdout();
   void p1ReadFromStdout();
   void setXIT(int n, Frequency base = 0u);
@@ -221,7 +222,7 @@ private slots:
   void on_lookupButton_clicked();
   void on_addButton_clicked();
   void on_DX_Call_Button_clicked (bool checked);
-  void mousePressEvent(QMouseEvent *event);
+  void mousePressEvent(QMouseEvent *event) override;
   void on_dxCallEntry_textChanged (QString const&);
   void on_dxGridEntry_textChanged (QString const&);
   void on_dxCallEntry_editingFinished();
@@ -849,8 +850,10 @@ private:
   void displayWidgets(qint64 n);
   QChar current_submode () const; // returns QChar {0} if submode is not appropriate
   void write_transmit_entry (QString const& file_name);
-  void selectHound(QString t);
+  void selectHound(QString t, bool bTopQueue);
   void houndCallers();
+  void updateFoxQSOsInProgressDisplay();
+  void foxQueueTopCallCommand();
   void foxRxSequencer(QString msg, QString houndCall, QString rptRcvd);
   void foxTxSequencer();
   void foxGenWaveform(int i,QString fm);
