@@ -1177,7 +1177,7 @@ When not checked you can view the calibration results.</string>
                         <item>
                          <widget class="QCheckBox" name="txFirstCheckBox">
                           <property name="toolTip">
-                           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to Tx in even-numbered minutes or sequences, starting at 0; uncheck for odd sequences.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to Tx in even-numbered minutes or sequences, starting at 0; uncheck for odd sequences. In MSK144 mode, right-click to freeze the state of the checkbox to avoid starting a QSO with a station operating in the same time slot.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                           </property>
                           <property name="accessibleDescription">
                            <string>Check to Tx in even-numbered minutes or sequences, starting at 0; uncheck for odd sequences.</string>

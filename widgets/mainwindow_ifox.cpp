@@ -1395,7 +1395,9 @@ void MainWindow::readSettings()
   m_bFastMode=m_settings->value("FastMode",false).toBool();
 //  ui->sbTR->setValue (m_settings->value ("TRPeriod", 15).toInt());
   if (m_mode=="Q65") ui->sbTR->setValue (m_settings->value ("TRPeriod_Q65", 30).toInt());
-  if (m_mode=="MSK144") ui->sbTR->setValue (m_settings->value ("TRPeriod_MSK144", 15).toInt());
+  if (m_mode=="MSK144" && (!(m_currentBand=="6m" or m_currentBand=="4m" or m_currentBand=="2m"))) ui->sbTR->setValue (m_settings->value ("TRPeriod_MSK144", 30).toInt());
+  if (m_mode=="MSK144" && (m_currentBand=="6m" or m_currentBand=="4m")) ui->sbTR->setValue (m_settings->value ("TRPeriod_MSK144_6m", 15).toInt());
+  if (m_mode=="MSK144" && (m_currentBand=="2m")) ui->sbTR->setValue (m_settings->value ("TRPeriod_MSK144_2m", 30).toInt());
   if (m_mode=="FST4") ui->sbTR->setValue (m_settings->value ("TRPeriod_FST4", 60).toInt());
   ui->sbMaxDrift->setValue (m_settings->value ("MaxDrift",0).toInt());
   ui->sbTR_FST4W->setValue (m_settings->value ("TRPeriod_FST4W", 15).toInt());
@@ -5608,8 +5610,21 @@ void MainWindow::doubleClickOnCall(Qt::KeyboardModifiers modifiers)
     return;
   }
   DecodedText message {cursor.block().text().trimmed().left(61).remove("TU; ")};
-  m_bDoubleClicked = true;
-  processMessage (message, modifiers);
+  int nmod = fmod(double(message.timeInSeconds()),2.0*m_TRperiod);
+  if(m_mode=="MSK144" && !ui->txFirstCheckBox->isEnabled() && (
+        (nmod!=0 && !ui->txFirstCheckBox->isChecked()) or
+        (nmod==0 && ui->txFirstCheckBox->isChecked()))) {
+      auto const& msg = tr("This station transmits in the same time slot as you do.\n\n"
+                           "You must not start a QSO if both stations Tx even/1st\n"
+                           "or Tx odd/2nd, while the Tx even/1st checkbox is disabled.\n\n"
+                           "Click the MSK144 button to re-enable the Tx even/1st\n"
+                           "checkbox, or choose another station.");
+      MessageBox::warning_message (this, msg);
+      return;    // don't allow a QSO when both stations Tx 1st or Tx 2nd, and the Tx 1st checkbox is frozen
+  } else {
+      m_bDoubleClicked = true;
+      processMessage (message, modifiers);
+  }
 }
 
 void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifiers modifiers)
@@ -6744,6 +6759,9 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mousePressEvents
   if (m_config.alternate_erase_button() && ui->EraseButton->hasFocus() && (event->button() & Qt::RightButton)) {
      ui->decodedTextBrowser2->erase ();
   }
+  if(m_mode=="MSK144" && ui->txFirstCheckBox->hasFocus() && (event->button() & Qt::RightButton)) {  // txFirstCheckBox
+      ui->txFirstCheckBox->setEnabled(false);
+  }
 }
 
 void MainWindow::on_dxCallEntry_textChanged (QString const& call)
@@ -7556,7 +7574,10 @@ void MainWindow::on_actionMSK144_triggered()
   m_bFastMode=true;
   m_bFast9=false;
   ui->sbTR->values ({5, 10, 15, 30});
-  ui->sbTR->setValue (m_settings->value ("TRPeriod_MSK144", 15).toInt());    // remember sbTR settings by mode
+  if (!(m_currentBand=="6m" or m_currentBand=="4m" or m_currentBand=="2m")) ui->sbTR->setValue (m_settings->value ("TRPeriod_MSK144", 30).toInt());    // remember sbTR settings by mode
+  if (m_currentBand=="6m" or m_currentBand=="4m") ui->sbTR->setValue (m_settings->value ("TRPeriod_MSK144_6m", 15).toInt());    // remember sbTR settings by mode
+  if (m_currentBand=="2m") ui->sbTR->setValue (m_settings->value ("TRPeriod_MSK144_2m", 30).toInt());    // remember sbTR settings by mode
+  ui->txFirstCheckBox->setEnabled(true);
   QTimer::singleShot (50, [=] {
       on_sbTR_valueChanged (ui->sbTR->value());
       on_sbSubmode_valueChanged(ui->sbSubmode->value());
@@ -7985,6 +8006,14 @@ void MainWindow::on_bandComboBox_activated (int index)
 
 void MainWindow::band_changed (Frequency f)
 {
+  QTimer::singleShot (1000, [=] {
+      if (m_mode=="MSK144" && (!(m_currentBand=="6m" or m_currentBand=="4m" or m_currentBand=="2m")))
+          ui->sbTR->setValue (m_settings->value ("TRPeriod_MSK144", 30).toInt());
+      if (m_mode=="MSK144" && (m_currentBand=="6m" or m_currentBand=="4m"))
+          ui->sbTR->setValue (m_settings->value ("TRPeriod_MSK144_6m", 15).toInt());
+      if (m_mode=="MSK144" && m_currentBand=="2m")
+          ui->sbTR->setValue (m_settings->value ("TRPeriod_MSK144_2m", 30).toInt());
+  });
   // Don't allow a7 decodes during the first period because they can be leftovers from the previous band
   no_a7_decodes = true;
   QTimer::singleShot ((int(1500.0*m_TRperiod)), [=] {no_a7_decodes = false;});
@@ -8729,8 +8758,14 @@ void MainWindow::on_sbTR_valueChanged(int value)
   if (m_mode=="Q65") {
       QTimer::singleShot (200, [=] {m_settings->setValue ("TRPeriod_Q65", ui->sbTR->value ());});
   }
-  if (m_mode=="MSK144") {
+  if (m_mode=="MSK144" && (!(m_currentBand=="6m" or m_currentBand=="4m" or m_currentBand=="2m"))) {
       QTimer::singleShot (200, [=] {m_settings->setValue ("TRPeriod_MSK144", ui->sbTR->value ());});
+  }
+  if (m_mode=="MSK144" && (m_currentBand=="6m" or m_currentBand=="4m")) {
+      QTimer::singleShot (200, [=] {m_settings->setValue ("TRPeriod_MSK144_6m", ui->sbTR->value ());});
+  }
+  if (m_mode=="MSK144" && m_currentBand=="2m") {
+      QTimer::singleShot (200, [=] {m_settings->setValue ("TRPeriod_MSK144_2m", ui->sbTR->value ());});
   }
   if (m_mode=="FST4") {
       chk_FST4_freq_range();
