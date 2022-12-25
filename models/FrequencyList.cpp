@@ -351,6 +351,7 @@ namespace
       {2320065000, Modes::JT4, IARURegions::ALL,"","", QDateTime(), QDateTime(), false},
       {2320065000, Modes::JT65, IARURegions::ALL,"","", QDateTime(), QDateTime(), false},
       {2320065000, Modes::Q65, IARURegions::ALL,"","", QDateTime(), QDateTime(), false},
+      {2400040000, Modes::ALL, IARURegions::ALL,"QO-100 Uplink","", QDateTime(), QDateTime(), false},
       
       {3400065000, Modes::Echo, IARURegions::ALL,"","", QDateTime(), QDateTime(), false},
       {3400065000, Modes::JT4, IARURegions::ALL,"","", QDateTime(), QDateTime(), false},
@@ -365,6 +366,7 @@ namespace
       {10368100000, Modes::Echo, IARURegions::ALL,"","", QDateTime(), QDateTime(), false},
       {10368200000, Modes::JT4, IARURegions::ALL,"","", QDateTime(), QDateTime(), false},
       {10368200000, Modes::Q65, IARURegions::ALL,"","", QDateTime(), QDateTime(), false},
+      {10489540000, Modes::ALL, IARURegions::ALL,"QO-100 Downlink","", QDateTime(), QDateTime(), false},
 	  
       {24048100000, Modes::Echo, IARURegions::ALL,"","", QDateTime(), QDateTime(), false},
       {24048200000, Modes::JT4, IARURegions::ALL,"","", QDateTime(), QDateTime(), false},
