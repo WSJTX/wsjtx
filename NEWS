@@ -12,17 +12,28 @@
 Copyright 2001 - 2023 by Joe Taylor, K1JT, and the WSJT Development Team
 
                         Release: WSJT-X 2.6.0
-                           Januar 2, 2023
+                           January 2, 2023
                       -------------------------
 
-WSJT-X 2.6.0 is very similar to rc5, but contains some bug fixes. It has 
-the following changes since Release Candidate 5:
+WSJT-X 2.6.0 is a General Availability (GA) release, the first since
+version 2.5.4.  Its major enhancements include the following:
+
+ - Support for the ARRL International DX Contest
+ - Performance enhancements for the FT8 and Q65 modes
+ - New features for EME Echo mode, including calibrated SNR reports
+ - Several new convenience features for Fox operators 
+ - Save/Restore capability, "Preferred" status, and effective date
+   ranges for mode-dependent tables of default frequencies
+ - Improved display features for contest log
+ - Improved calibration of SNR estimates for modes FST4 and FST4W
+
+Other enhancements and bug fixes since 2.6.0-rc5 include the following:
 
  - PSK Reporter spotting is now also possible for frequencies > 4 GHz. 
    This is required for QO-100, for example.
 
  - The minimum width of the main window has been further reduced, and 
-   such small sizes are now remembered.
+   such small sizes are now remembered and properly restored.
 
  - Some further improvements for Fox operators.
 
@@ -36,6 +47,17 @@ the following changes since Release Candidate 5:
    switching between configurations when connected via HRD.
 
  - Add tooltips to better explain the split operation options.
+
+ - Add some additional FT roundup exchanges which can be used for 
+   local contests or QSO parties.
+
+ - Add an option to call CQ with an individual contest name.
+
+ - Update of some ARRL section abbreviations.
+
+For full details on changes since WSJT-X version 2.5.4, be sure to
+read the Release Notes sections for 2.6.0-rc1 through rc5, immediately
+following.
 
 
                       Release: WSJT-X 2.6.0-rc5
