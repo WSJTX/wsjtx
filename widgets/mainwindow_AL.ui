@@ -887,7 +887,7 @@ QLabel[oob=&quot;true&quot;] {
             <property name="maximumSize">
              <size>
               <width>16777215</width>
-              <height>200</height>
+              <height>16777215</height>
              </size>
             </property>
             <property name="currentIndex">
@@ -1559,7 +1559,7 @@ When not checked you can view the calibration results.</string>
              </layout>
             </widget>
             <widget class="QWidget" name="page_2">
-             <layout class="QVBoxLayout" name="verticalLayout_5">
+             <layout class="QVBoxLayout" name="verticalLayout_5" stretch="0">
               <property name="spacing">
                <number>0</number>
               </property>
@@ -1624,7 +1624,7 @@ When not checked you can view the calibration results.</string>
                      <number>0</number>
                     </property>
                     <item row="0" column="0">
-                     <layout class="QHBoxLayout" name="horizontalLayout_12">
+                     <layout class="QHBoxLayout" name="horizontalLayout_12" stretch="2,1">
                       <property name="spacing">
                        <number>0</number>
                       </property>
@@ -3498,7 +3498,7 @@ Double-click to reset to the standard 73 message</string>
                        <string>6m Q65</string>
                       </property>
                       <property name="text">
-                       <string>6m Q65</string>
+                       <string>QO FT8</string>
                       </property>
                      </widget>
                     </item>
@@ -3508,7 +3508,7 @@ Double-click to reset to the standard 73 message</string>
                        <string>2m Q65</string>
                       </property>
                       <property name="text">
-                       <string>2m Q65</string>
+                       <string>QO FT4</string>
                       </property>
                      </widget>
                     </item>
