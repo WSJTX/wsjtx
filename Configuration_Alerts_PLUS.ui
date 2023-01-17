@@ -3244,9 +3244,6 @@ Right click for insert and delete options.</string>
             </item>
             <item row="2" column="1">
              <widget class="QSpinBox" name="sbCloudlogStationID">
-              <property name="enabled">
-               <bool>false</bool>
-              </property>
               <property name="minimumSize">
                <size>
                 <width>50</width>
