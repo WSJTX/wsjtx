@@ -104,8 +104,6 @@ void LogQSO::loadSettings ()
   ui->cbPropMode->setChecked (m_settings->value ("SavePropMode", false).toBool ());
   ui->cbSatellite->setChecked (m_settings->value ("SaveSatellite", false).toBool ());
   m_comments = m_settings->value ("LogComments", "").toString();
-  ui->comments->setCurrentIndex(0);
-  ui->comments->setItemText (ui->comments->currentIndex(), m_comments);
   m_txPower = m_settings->value ("TxPower", "").toString ();
 
   int prop_index {0};
@@ -140,7 +138,12 @@ void LogQSO::loadSettings ()
       }
       stream2.flush();
       file2.close();
+  } else {
+      ui->comments->addItem ("");
   }
+
+  ui->comments->setCurrentIndex(0);
+  ui->comments->setItemText (ui->comments->currentIndex(), m_comments);
 
   m_settings->endGroup ();
 }
