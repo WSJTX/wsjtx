@@ -1163,7 +1163,7 @@ When not checked you can view the calibration results.</string>
                        <number>-1</number>
                       </property>
                       <property name="maxVisibleItems">
-                       <number>3</number>
+                       <number>4</number>
                       </property>
                      </widget>
                     </item>
@@ -3442,6 +3442,9 @@ QLabel[oob=&quot;true&quot;] {
              </property>
              <property name="editable">
               <bool>true</bool>
+             </property>
+             <property name="maxVisibleItems">
+              <number>28</number>
              </property>
              <property name="insertPolicy">
               <enum>QComboBox::NoInsert</enum>
