@@ -218,6 +218,8 @@ bool keep_frequency = false;
 bool first_Fox_alert = true;
 bool second_Fox_alert = true;
 bool no_Fox_alert = false;
+int dBpoints=-28;
+int maxdBPoints;
 
 namespace
 {
@@ -2093,10 +2095,9 @@ void MainWindow::fastSink(qint64 frames)
       decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
       // if they dont' send their grid we'll use ours and assume dx=0
       if (deGrid.length() == 0) deGrid = m_config.my_grid();
-      int points=0;
-      points=decodedtext.string().mid(7,3).toInt();
-      if(points>m_maxPoints) {
-          m_maxPoints=points;
+      dBpoints=decodedtext.string().mid(7,3).toInt();
+      if(dBpoints>maxdBPoints) {
+          maxdBPoints=dBpoints;
           m_deCall=deCall;
           m_bDoubleClicked=true;
           ui->dxCallEntry->setText(deCall);
@@ -2345,6 +2346,7 @@ void MainWindow::on_autoButton_clicked (bool checked)
   ui->pbBandHopping->setChecked(false); // disable band hopping when Tx is enabled
   m_auto = checked;
   m_maxPoints=-1;
+  maxdBPoints=-28;
   if (checked
       && ui->respondComboBox->isVisible () && ui->respondComboBox->currentText() != "CQ: None"
       && CALLING == m_QSOProgress) {
@@ -4370,10 +4372,9 @@ void MainWindow::readFromStdout()                             //readFromStdout
               decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
               // if they dont' send their grid we'll use ours and assume dx=0
               if (deGrid.length() == 0) deGrid = m_config.my_grid();
-              int points=0;
-              points=decodedtext.string().mid(7,3).toInt();
-              if(points>m_maxPoints) {
-                  m_maxPoints=points;
+              dBpoints=decodedtext.string().mid(7,3).toInt();
+              if(dBpoints>maxdBPoints) {
+                  maxdBPoints=dBpoints;
                   m_deCall=deCall;
                   m_bDoubleClicked=true;
                   ui->dxCallEntry->setText(deCall);
