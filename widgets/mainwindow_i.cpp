@@ -5353,6 +5353,13 @@ void MainWindow::guiUpdate()
   }
   m_iptt0=g_iptt;
   m_btxok0=m_btxok;
+
+  if (m_config.highlight_73()) {
+      ui->cbCQonly->setText("CQ/73");
+  } else {
+      ui->cbCQonly->setText("CQ only");
+  }
+
 }               //End of guiUpdate
 
 void MainWindow::useNextCall()

@@ -495,7 +495,8 @@ void DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
   }
   if (decodedText.string ().contains (" CQ ")
       || decodedText.string ().contains (" CQDX ")
-      || decodedText.string ().contains (" QRZ "))
+      || decodedText.string ().contains (" QRZ ")
+      || (is_73 && (m_config->highlight_73 ())))
     {
       CQcall = true;
     }
