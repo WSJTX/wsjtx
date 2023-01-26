@@ -2354,7 +2354,7 @@ void MainWindow::on_autoButton_clicked (bool checked)
   maxdBPoints=-28;
   if (checked
       && ui->respondComboBox->isVisible () && ui->respondComboBox->currentText() != "CQ: None"
-      && CALLING == m_QSOProgress) {
+      && ui->respondComboBox->currentText() != "CQ: Max dB" && CALLING == m_QSOProgress) {
     m_bAutoReply = false;         // ready for next
     m_bCallingCQ = true;          // allows tail-enders to be picked up
   }
@@ -6901,10 +6901,12 @@ void MainWindow::on_dxGridEntry_textChanged (QString const& grid)
 void MainWindow::on_genStdMsgsPushButton_clicked()          //genStdMsgs button
 {
   genStdMsgs(m_rpt);
-  if (ui->tx1->isEnabled ()) {
-      QTimer::singleShot (0, ui->txrb1, SLOT (click ()));   // Go to Tx1
-  } else {
-      QTimer::singleShot (0, ui->txrb2, SLOT (click ()));   // Go to Tx2 if Tx1 is disabled
+  if (m_hisCall!="") {
+      if (ui->tx1->isEnabled ()) {
+          QTimer::singleShot (0, ui->txrb1, SLOT (click ()));   // Go to Tx1
+      } else {
+          QTimer::singleShot (0, ui->txrb2, SLOT (click ()));   // Go to Tx2 if Tx1 is disabled
+      }
   }
 }
 
