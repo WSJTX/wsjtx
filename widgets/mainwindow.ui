@@ -342,7 +342,7 @@
              <bool>true</bool>
             </property>
             <property name="maxVisibleItems">
-             <number>25</number>
+             <number>28</number>
             </property>
             <property name="insertPolicy">
              <enum>QComboBox::NoInsert</enum>
@@ -851,7 +851,7 @@ QLabel[oob=&quot;true&quot;] {
                 </size>
                </property>
                <property name="toolTip">
-                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle Wait &amp;amp; Call on/off. Wait &amp;amp; Call turns on Enable Tx as soon as the callsign from the DX Call box is decoded, and calls it a maximum of three times. Auto Seq must be enabled.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;DX Call button: &lt;span style=&quot; font-weight:700;&quot;&gt;yellow&lt;/span&gt; when Wait &amp;amp; Reply is active, &lt;span style=&quot; font-weight:700;&quot;&gt;red&lt;/span&gt; when Wait &amp;amp; Call has been switched on. &lt;/p&gt;&lt;p&gt;When the DX Call button is yellow, AutoSeq replies to messages from the callsign in the DX Call box directed to you. Right-click on the DX Call button to disable and to clear the DX Call box.&lt;/p&gt;&lt;p&gt;Left-click on the DX Call button to toggle Wait &amp;amp; Call on/off. Wait &amp;amp; Call turns on Enable Tx as soon as the callsign from the DX Call box is decoded, and calls it a maximum of three times. Auto Seq must be enabled.&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-weight:700;&quot;&gt;Attention:&lt;/span&gt; your rig may be set to Tx when the DX Call button is red or yellow!&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                </property>
                <property name="styleSheet">
                 <string notr="true">QPushButton {
@@ -1313,6 +1313,9 @@ When not checked you can view the calibration results.</string>
                        </property>
                        <property name="toolTip">
                         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Select &lt;span style=&quot; font-weight:600;&quot;&gt;CQ: First&lt;/span&gt; to respond automatically to the first decoded reply to your CQ. &lt;/p&gt;&lt;p&gt;Select &lt;span style=&quot; font-weight:600;&quot;&gt;CQ: Max Pts&lt;/span&gt; to respond automatically to the reply yielding most points in the ARRL International Digital Contest.&lt;/p&gt;&lt;p&gt;Select &lt;span style=&quot; font-weight:600;&quot;&gt;CQ: None&lt;/span&gt; to choose callers manually.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                       </property>
+                       <property name="maxVisibleItems">
+                        <number>4</number>
                        </property>
                       </widget>
                      </item>

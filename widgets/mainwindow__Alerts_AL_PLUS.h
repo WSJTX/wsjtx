@@ -147,6 +147,7 @@ private:
 private slots:
   void initialize_fonts ();
   void on_actionUse_Dark_Style_triggered (bool checked);
+  void check_DX_Call_button_color();
   void stopWRTimeout();
   void stopWCTimeout();
   void bandHoppingTimer();
