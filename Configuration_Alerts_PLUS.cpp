@@ -771,6 +771,7 @@ private:
   bool Tune_watchdog_disabled_;
   bool Tx_warning_disabled_;
   bool Wait_features_enabled_;
+  bool repeat_Tx_;
   bool single_decode_;
   bool twoPass_;
   bool Individual_Contest_Name_;
@@ -909,6 +910,7 @@ bool Configuration::decode_at_52s () const {return m_->decode_at_52s_;}
 bool Configuration::Tune_watchdog_disabled () const {return m_->Tune_watchdog_disabled_;}
 bool Configuration::Tx_warning_disabled () const {return m_->Tx_warning_disabled_;}
 bool Configuration::Wait_features_enabled () const {return m_->Wait_features_enabled_;}
+bool Configuration::repeat_Tx () const {return m_->repeat_Tx_;}
 bool Configuration::single_decode () const {return m_->single_decode_;}
 bool Configuration::twoPass() const {return m_->twoPass_;}
 bool Configuration::Individual_Contest_Name() const {return m_->Individual_Contest_Name_;}
@@ -1674,6 +1676,7 @@ void Configuration::impl::initialize_models ()
   ui_->disable_Tune_watchdog_check_box->setChecked(Tune_watchdog_disabled_);
   ui_->disable_Tx_warning_check_box->setChecked(Tx_warning_disabled_);
   ui_->enable_Wait_features_check_box->setChecked(Wait_features_enabled_);
+  ui_->repeat_Tx_check_box->setChecked(repeat_Tx_);
   ui_->single_decode_check_box->setChecked(single_decode_);
   ui_->cbTwoPass->setChecked(twoPass_);
   ui_->cbContestName->setChecked(Individual_Contest_Name_);
@@ -2019,9 +2022,10 @@ void Configuration::impl::read_settings ()
   Tune_watchdog_disabled_ = settings_->value("TuneWatchdogDisabled",false).toBool ();
   Tx_warning_disabled_ = settings_->value("TxWarningDisabled",false).toBool ();
   Wait_features_enabled_ = settings_->value("WaitFeaturesEnabled",true).toBool ();
+  repeat_Tx_ = settings_->value("RepeatTx",false).toBool ();
   single_decode_ = settings_->value("SingleDecode",false).toBool ();
   twoPass_ = settings_->value("TwoPass",true).toBool ();
-  Individual_Contest_Name_ = settings_->value("Individual_Contest_Name",true).toBool ();
+  Individual_Contest_Name_ = settings_->value("Individual_Contest_Name",false).toBool ();
   Blacklisted_ = settings_->value("Blacklisted",false).toBool ();
   Whitelisted_ = settings_->value("Whitelisted",false).toBool ();
   bSpecialOp_ = settings_->value("SpecialOpActivity",false).toBool ();
@@ -2210,6 +2214,7 @@ void Configuration::impl::write_settings ()
   settings_->setValue ("TuneWatchdogDisabled", Tune_watchdog_disabled_);
   settings_->setValue ("TxWarningDisabled", Tx_warning_disabled_);
   settings_->setValue ("WaitFeaturesEnabled", Wait_features_enabled_);
+  settings_->setValue ("RepeatTx", repeat_Tx_);
   settings_->setValue ("SingleDecode", single_decode_);
   settings_->setValue ("TwoPass", twoPass_);
   settings_->setValue ("Individual_Contest_Name", Individual_Contest_Name_);
@@ -2692,6 +2697,7 @@ void Configuration::impl::accept ()
   Tune_watchdog_disabled_ = ui_->disable_Tune_watchdog_check_box->isChecked ();
   Tx_warning_disabled_ = ui_->disable_Tx_warning_check_box->isChecked ();
   Wait_features_enabled_ = ui_->enable_Wait_features_check_box->isChecked ();
+  repeat_Tx_ = ui_->repeat_Tx_check_box->isChecked ();
   single_decode_ = ui_->single_decode_check_box->isChecked ();
   twoPass_ = ui_->cbTwoPass->isChecked ();
   Individual_Contest_Name_ = ui_->cbContestName->isChecked ();

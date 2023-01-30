@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>771</width>
-    <height>727</height>
+    <height>701</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -171,13 +171,6 @@
           <string>Display</string>
          </property>
          <layout class="QGridLayout" name="gridLayout_4">
-          <item row="5" column="0">
-           <widget class="QCheckBox" name="cbHighlightDXcall">
-            <property name="text">
-             <string>Highlight DX Call in message</string>
-            </property>
-           </widget>
-          </item>
           <item row="4" column="1">
            <widget class="QCheckBox" name="ppfx_check_box">
             <property name="text">
@@ -215,13 +208,6 @@
             </property>
             <property name="checked">
              <bool>false</bool>
-            </property>
-           </widget>
-          </item>
-          <item row="5" column="1">
-           <widget class="QCheckBox" name="cbHighlightDXgrid">
-            <property name="text">
-             <string>Highlight DX Grid in message</string>
             </property>
            </widget>
           </item>
@@ -286,6 +272,20 @@
             </property>
             <property name="text">
              <string>&amp;Blank line between decoding periods</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QCheckBox" name="cbHighlightDXcall">
+            <property name="text">
+             <string>Highlight DX Call in message</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="1">
+           <widget class="QCheckBox" name="cbHighlightDXgrid">
+            <property name="text">
+             <string>Highlight DX Grid in message</string>
             </property>
            </widget>
           </item>
@@ -518,6 +518,13 @@ quiet period when decoding is done.</string>
              </size>
             </property>
            </spacer>
+          </item>
+          <item row="0" column="3">
+           <widget class="QCheckBox" name="repeat_Tx_check_box">
+            <property name="text">
+             <string>MSK144/Q65: Tx until 73 is received</string>
+            </property>
+           </widget>
           </item>
          </layout>
         </widget>
@@ -3968,13 +3975,13 @@ Right click for insert and delete options.</string>
   </connection>
  </connections>
  <buttongroups>
-  <buttongroup name="CAT_handshake_button_group"/>
-  <buttongroup name="TX_mode_button_group"/>
-  <buttongroup name="CAT_data_bits_button_group"/>
-  <buttongroup name="CAT_stop_bits_button_group"/>
+  <buttongroup name="TX_audio_source_button_group"/>
   <buttongroup name="special_op_activity_button_group"/>
   <buttongroup name="PTT_method_button_group"/>
+  <buttongroup name="TX_mode_button_group"/>
+  <buttongroup name="CAT_data_bits_button_group"/>
+  <buttongroup name="CAT_handshake_button_group"/>
+  <buttongroup name="CAT_stop_bits_button_group"/>
   <buttongroup name="split_mode_button_group"/>
-  <buttongroup name="TX_audio_source_button_group"/>
  </buttongroups>
 </ui>

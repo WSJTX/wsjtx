@@ -5117,6 +5117,10 @@ void MainWindow::guiUpdate()
       }
       if((m_config.prompt_to_log() or m_config.autoLog()) && !m_tune && CALLING != m_QSOProgress)
         {
+          // always stop Tx after sending 73
+          if(m_config.repeat_Tx() && (m_mode=="MSK144" or m_mode=="Q65") && m_ntx != 4) cease_auto_Tx_after_QSO ();
+          // send RR73 up to 5 times
+          if(m_config.repeat_Tx() && (m_mode=="MSK144" or m_mode=="Q65")) stopWRTimer.start(int(9000.0*m_TRperiod));
           logQSOTimer.start(0);
         }
       else
@@ -6922,7 +6926,7 @@ void MainWindow::cease_auto_Tx_after_QSO ()
 
 void MainWindow::on_logQSOButton_clicked()                 //Log QSO button
 {
-  cease_auto_Tx_after_QSO ();
+  if (!m_config.repeat_Tx() && (m_mode=="MSK144" or m_mode=="Q65")) cease_auto_Tx_after_QSO ();
 
   if (!m_hisCall.size ()) {
     MessageBox::warning_message (this, tr ("Warning:  DX Call field is empty."));
