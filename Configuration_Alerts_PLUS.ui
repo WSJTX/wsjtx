@@ -2867,13 +2867,13 @@ Right click for insert and delete options.</string>
                  </size>
                 </property>
                 <property name="text">
-                 <string>PACC</string>
+                 <string/>
                 </property>
                 <property name="maxLength">
                  <number>4</number>
                 </property>
                 <property name="cursorPosition">
-                 <number>2</number>
+                 <number>0</number>
                 </property>
                 <property name="alignment">
                  <set>Qt::AlignCenter</set>
@@ -3985,13 +3985,13 @@ Right click for insert and delete options.</string>
   </connection>
  </connections>
  <buttongroups>
-  <buttongroup name="CAT_stop_bits_button_group"/>
-  <buttongroup name="split_mode_button_group"/>
-  <buttongroup name="special_op_activity_button_group"/>
-  <buttongroup name="CAT_data_bits_button_group"/>
-  <buttongroup name="PTT_method_button_group"/>
   <buttongroup name="TX_mode_button_group"/>
+  <buttongroup name="CAT_data_bits_button_group"/>
   <buttongroup name="TX_audio_source_button_group"/>
+  <buttongroup name="CAT_stop_bits_button_group"/>
+  <buttongroup name="PTT_method_button_group"/>
+  <buttongroup name="special_op_activity_button_group"/>
   <buttongroup name="CAT_handshake_button_group"/>
+  <buttongroup name="split_mode_button_group"/>
  </buttongroups>
 </ui>
