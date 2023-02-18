@@ -6189,7 +6189,8 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
       message.report (m_baseCall, Radio::base_callsign(ui->dxCallEntry->text()), m_rptRcvd);
     }
 
-  if (!m_bSentReport || base_call != qso_partner_base_call) // Don't change report within a QSO
+  if (!m_bSentReport || base_call != qso_partner_base_call || m_mode == "FT8" || m_mode == "FT4"
+          || m_mode == "Q65" || m_mode == "FST4") // Change report within a QSO
     {
       auto n = message.report ().toInt ();
       if(m_mode=="MSK144" and m_bShMsgs) {
@@ -8100,7 +8101,8 @@ void MainWindow::on_bandComboBox_activated (int index)
   m_bandEdited = true;
   band_changed (frequency);
   m_wideGraph->setRxBand (m_config.bands ()->find (frequency));
-  auto_tx_mode(false);
+  m_specOp=m_config.special_op_id();
+  if (m_specOp==SpecOp::HOUND) auto_tx_mode(false);
 }
 
 void MainWindow::band_changed (Frequency f)
