@@ -5714,6 +5714,11 @@ void MainWindow::doubleClickOnCall(Qt::KeyboardModifiers modifiers)
   } else {
       m_bDoubleClicked = true;
       processMessage (message, modifiers);
+      // pressing ALT while double-clicking on a call only adds the callsign to DX Call Box
+      if(SpecOp::FOX!=m_specOp && modifiers==Qt::AltModifier) {
+          m_bDoubleClicked = false;
+          if (m_auto) auto_tx_mode (false);
+      }
   }
 }
 
