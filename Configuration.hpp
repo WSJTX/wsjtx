@@ -170,6 +170,8 @@ public:
   bool Tune_watchdog_disabled () const;
   bool Tx_warning_disabled () const;
   bool Wait_features_enabled () const;
+  bool showDistance() const ;
+  bool showBearing() const ;
   bool repeat_Tx () const;
   bool single_decode () const;
   bool twoPass() const;

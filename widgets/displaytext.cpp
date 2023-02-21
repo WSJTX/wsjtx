@@ -479,7 +479,7 @@ void DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
                                      QString const& mode,
                                      bool displayDXCCEntity, LogBook const& logBook,
                                      QString const& currentBand, bool ppfx, bool bCQonly,
-                                     bool haveFSpread, float fSpread, bool bDisplayPoints, int points)
+                                     bool haveFSpread, float fSpread, bool bDisplayPoints, int points,QString distance)
 {
   m_points=points;
   m_bDisplayPoints=bDisplayPoints;
@@ -495,7 +495,8 @@ void DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
   }
   if (decodedText.string ().contains (" CQ ")
       || decodedText.string ().contains (" CQDX ")
-      || decodedText.string ().contains (" QRZ "))
+      || decodedText.string ().contains (" QRZ ")
+      || (is_73 && (m_config->highlight_73 ())))
     {
       CQcall = true;
     }
@@ -615,6 +616,10 @@ void DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
           extra = "      ";
       }
       message = leftJustifyAppendage(message, state);    //NJ0A
+  }
+
+  if (distance.length() > 0) {
+      message = leftJustifyAppendage (message, "[" + distance + "]");
   }
 
   insertText (message.trimmed (), bg, fg, decodedText.call (), dxCall);

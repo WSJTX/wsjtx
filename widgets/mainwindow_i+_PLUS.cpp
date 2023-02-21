@@ -4205,8 +4205,33 @@ void MainWindow::readFromStdout()                             //readFromStdout
                 ) {
                      return;
 
-          // Filtering out some more false decodes when FDR is enabled and SpecOp::NONE
        } else {
+
+           // show distance and bearing
+           QString distance;
+           QString deCall;
+           QString grid;
+           decodedtext.deCallAndGrid(deCall,grid);
+           if ((m_config.showDistance() || m_config.showBearing()) && grid.contains(grid_regexp)) {
+               double utch=0.0;
+               int nAz,nEl,nDmiles,nDkm,nHotAz,nHotABetter;
+               azdist_(const_cast <char *> ((m_config.my_grid () + "      ").left (6).toLatin1().constData()),
+                       const_cast <char *> ((grid + "      ").left (6).toLatin1().constData()),&utch,
+                       &nAz,&nEl,&nDmiles,&nDkm,&nHotAz,&nHotABetter,6,6);
+               if (m_config.showDistance()) {
+                   int nd=nDkm;
+                   if(m_config.miles()) nd=nDmiles;
+                   distance = QString::number(nd);
+                   if(m_config.miles()) distance += " mi";
+                   if(!m_config.miles()) distance += " km";
+               }
+               if (m_config.showBearing()) {
+                   if (distance.length()) distance += " / ";
+                   distance += QString::number(nAz) + "°";
+               }
+           }
+
+           // Filtering out some more false decodes when FDR is enabled and SpecOp::NONE
           if (SpecOp::NONE==m_specOp && ui->actionReduce_false_decodes->isChecked()
               && !decodedtext.string().contains("QRP")                    // pass all QRP stations
               ) {
@@ -4226,13 +4251,13 @@ void MainWindow::readFromStdout()                             //readFromStdout
                   ui->decodedTextBrowser->displayDecodedText (decodedtext1, m_config.my_callsign (), m_mode, m_config.DXCC (),
                                                               m_logBook, m_currentBandPeriod, m_config.ppfx (),
                                                               ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
-                                                              haveFSpread, fSpread, bDisplayPoints, m_points);
+                                                              haveFSpread, fSpread, bDisplayPoints, m_points, distance);
               }
           } else {
               ui->decodedTextBrowser->displayDecodedText (decodedtext1, m_config.my_callsign (), m_mode, m_config.DXCC (),
                                                           m_logBook, m_currentBandPeriod, m_config.ppfx (),
                                                           ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
-                                                          haveFSpread, fSpread, bDisplayPoints, m_points);
+                                                          haveFSpread, fSpread, bDisplayPoints, m_points, distance);
           }
        }
 

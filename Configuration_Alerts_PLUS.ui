@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>802</width>
-    <height>701</height>
+    <height>727</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -542,13 +542,6 @@ quiet period when decoding is done.</string>
           <string>Additional features</string>
          </property>
          <layout class="QGridLayout" name="gridLayout_17">
-          <item row="1" column="0">
-           <widget class="QCheckBox" name="Map_Grid_to_State">
-            <property name="text">
-             <string>Map Grid locator to U.S. State</string>
-            </property>
-           </widget>
-          </item>
           <item row="2" column="1">
            <widget class="QCheckBox" name="cbRxToTxAfterQSO">
             <property name="text">
@@ -556,31 +549,10 @@ quiet period when decoding is done.</string>
             </property>
            </widget>
           </item>
-          <item row="3" column="1">
-           <widget class="QCheckBox" name="cbClearDXgrid">
-            <property name="text">
-             <string>Clear DX Grid after QSO</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="1">
-           <widget class="QCheckBox" name="cbEraseBandActivity">
-            <property name="text">
-             <string>Erase Band Activity window after band change</string>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="0">
-           <widget class="QCheckBox" name="cbClearDXcall">
-            <property name="text">
-             <string>Clear DX Call after QSO</string>
-            </property>
-           </widget>
-          </item>
           <item row="2" column="0">
            <widget class="QCheckBox" name="Map_All_Messages">
             <property name="text">
-             <string>Show U.S. States in all messages with grid</string>
+             <string>Show U.S. States in messages with grid</string>
             </property>
            </widget>
           </item>
@@ -591,6 +563,20 @@ quiet period when decoding is done.</string>
             </property>
            </widget>
           </item>
+          <item row="1" column="2">
+           <widget class="QCheckBox" name="alternate_erase_button_check_box">
+            <property name="text">
+             <string>Alternate Erase button behavior</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QCheckBox" name="Map_Grid_to_State">
+            <property name="text">
+             <string>Map Grid locator to U.S. State</string>
+            </property>
+           </widget>
+          </item>
           <item row="2" column="2">
            <widget class="QCheckBox" name="enable_Wait_features_check_box">
             <property name="text">
@@ -598,10 +584,44 @@ quiet period when decoding is done.</string>
             </property>
            </widget>
           </item>
-          <item row="1" column="2">
-           <widget class="QCheckBox" name="alternate_erase_button_check_box">
+          <item row="3" column="0">
+           <widget class="QCheckBox" name="cbClearDXcall">
             <property name="text">
-             <string>Alternate Erase button behavior</string>
+             <string>Clear DX Call after QSO</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QCheckBox" name="cbEraseBandActivity">
+            <property name="text">
+             <string>Erase Band Activity window after band change</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="1">
+           <widget class="QCheckBox" name="cbClearDXgrid">
+            <property name="text">
+             <string>Clear DX Grid after QSO</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="0">
+           <widget class="QCheckBox" name="cb_showDistance">
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;If a station sends locator, calculate and show the distance in Band Activity pane.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>Show distance in messages with grid</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="1">
+           <widget class="QCheckBox" name="cb_showBearing">
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;If a station sends locator, calculate and show the beaming in Band Activity pane.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>Show beaming in messages with grid</string>
             </property>
            </widget>
           </item>
@@ -3985,13 +4005,13 @@ Right click for insert and delete options.</string>
   </connection>
  </connections>
  <buttongroups>
-  <buttongroup name="TX_mode_button_group"/>
   <buttongroup name="CAT_data_bits_button_group"/>
-  <buttongroup name="TX_audio_source_button_group"/>
-  <buttongroup name="CAT_stop_bits_button_group"/>
   <buttongroup name="PTT_method_button_group"/>
-  <buttongroup name="special_op_activity_button_group"/>
+  <buttongroup name="TX_audio_source_button_group"/>
   <buttongroup name="CAT_handshake_button_group"/>
+  <buttongroup name="TX_mode_button_group"/>
+  <buttongroup name="special_op_activity_button_group"/>
   <buttongroup name="split_mode_button_group"/>
+  <buttongroup name="CAT_stop_bits_button_group"/>
  </buttongroups>
 </ui>
