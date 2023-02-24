@@ -413,9 +413,9 @@ QString DisplayText::leftJustifyAppendage (QString message, QString const& appen
       // there is space otherwise let it float to the right
       int space_count;
       if (m_config->align()) {
-          space_count = (42 + padding - message.size ());
+          space_count = (41 + m_config->align_steps() + padding - message.size ());
       } else {
-          space_count = (41 + padding - message.size ());
+          space_count = (40 + m_config->align_steps() + padding - message.size ());
       }
       if (space_count > 0) {
         message += QString {space_count, QChar {' '}};
@@ -571,14 +571,14 @@ void DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
               message = leftJustifyAppendage (message, "[" + distance + "]");
           } else {
               if (m_bPrincipalPrefix) {
-                  if (message.length() < 50) {
-                      message = leftJustifyAppendage ((message + "                    ").left(49), "[" + distance + "]");
+                  if (message.length() < (49 + m_config->align_steps())) {
+                      message = leftJustifyAppendage ((message + "                              ").left(48 + 2*m_config->align_steps()), "[" + distance + "]");
                   } else {
                       message = leftJustifyAppendage (message, " [" + distance + "]");
                   }
               } else {
-                  if (message.length() < 60) {
-                      message = leftJustifyAppendage ((message + "                          ").left(60), "[" + distance + "]");
+                  if (message.length() < 59 + m_config->align_steps()) {
+                      message = leftJustifyAppendage ((message + "                                    ").left(59 + 2*m_config->align_steps()), "[" + distance + "]");
                   } else {
                       message = leftJustifyAppendage (message, "[" + distance + "]");
                   }

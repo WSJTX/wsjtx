@@ -129,6 +129,7 @@ public:
   QFont text_font () const;
   QFont decoded_text_font () const;
   qint32 id_interval () const;
+  qint32 align_steps () const;
   qint32 ntrials() const;
   qint32 aggressive() const;
   qint32 RxBandwidth() const;

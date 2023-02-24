@@ -737,6 +737,7 @@ private:
   QString cloudLogApiKey_;
 
   qint32 id_interval_;
+  qint32 align_steps_;
   qint32 ntrials_;
   qint32 aggressive_;
   qint32 RxBandwidth_;
@@ -873,6 +874,7 @@ QString Configuration::my_callsign () const {return m_->my_callsign_;}
 QFont Configuration::text_font () const {return m_->font_;}
 QFont Configuration::decoded_text_font () const {return m_->decoded_text_font_;}
 qint32 Configuration::id_interval () const {return m_->id_interval_;}
+qint32 Configuration::align_steps () const {return m_->align_steps_;}
 qint32 Configuration::ntrials() const {return m_->ntrials_;}
 qint32 Configuration::aggressive() const {return m_->aggressive_;}
 double Configuration::degrade() const {return m_->degrade_;}
@@ -1657,6 +1659,7 @@ void Configuration::impl::initialize_models ()
   ui_->grid_line_edit->setText (my_grid_);
   ui_->use_dynamic_grid->setChecked(use_dynamic_grid_);
   ui_->CW_id_interval_spin_box->setValue (id_interval_);
+  ui_->align_spin_box->setValue (align_steps_);
   ui_->sbNtrials->setValue (ntrials_);
   ui_->sbTxDelay->setValue (txDelay_);
   ui_->sbAggressive->setValue (aggressive_);
@@ -1915,6 +1918,7 @@ void Configuration::impl::read_settings ()
     }
 
   id_interval_ = settings_->value ("IDint", 0).toInt ();
+  align_steps_ = settings_->value ("AlignInt", 1).toInt ();
   ntrials_ = settings_->value ("nTrials", 6).toInt ();
   txDelay_ = settings_->value ("TxDelay",0.2).toDouble();
   aggressive_ = settings_->value ("Aggressive", 0).toInt ();
@@ -2167,6 +2171,7 @@ void Configuration::impl::write_settings ()
   settings_->setValue ("Font", font_.toString ());
   settings_->setValue ("DecodedTextFont", decoded_text_font_.toString ());
   settings_->setValue ("IDint", id_interval_);
+  settings_->setValue ("AlignInt", align_steps_);
   settings_->setValue ("nTrials", ntrials_);
   settings_->setValue ("TxDelay", txDelay_);
   settings_->setValue ("Aggressive", aggressive_);
@@ -2693,6 +2698,7 @@ void Configuration::impl::accept ()
   spot_to_psk_reporter_ = ui_->psk_reporter_check_box->isChecked ();
   psk_reporter_tcpip_ = ui_->psk_reporter_tcpip_check_box->isChecked ();
   id_interval_ = ui_->CW_id_interval_spin_box->value ();
+  align_steps_ = ui_->align_spin_box->value ();
   ntrials_ = ui_->sbNtrials->value ();
   txDelay_ = ui_->sbTxDelay->value ();
   aggressive_ = ui_->sbAggressive->value ();
