@@ -43,7 +43,7 @@ private:
   Q_SLOT void on_cbReadyOnly_toggled(bool b);
   Q_SLOT void on_textEdit_clicked();
 
-  qint64 m_msec0=0;
+//  qint64 m_msec0=0;
   QString m_mode="";
   QSettings * settings_;
 
