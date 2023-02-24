@@ -575,6 +575,7 @@ private:
   Q_SLOT void on_calibration_slope_ppm_spin_box_valueChanged (double);
   Q_SLOT void handle_transceiver_update (TransceiverState const&, unsigned sequence_number);
   Q_SLOT void handle_transceiver_failure (QString const& reason);
+  Q_SLOT void on_DXCC_check_box_clicked(bool checked);
   Q_SLOT void on_reset_highlighting_to_defaults_push_button_clicked (bool);
   Q_SLOT void on_rescan_log_push_button_clicked (bool);
   Q_SLOT void on_LotW_CSV_fetch_push_button_clicked (bool);
@@ -2923,6 +2924,15 @@ void Configuration::impl::on_decoded_text_font_push_button_clicked ()
                                                   , tr ("WSJT-X Decoded Text Font Chooser")
                                                   , QFontDialog::MonospacedFonts
                                                   );
+}
+
+void Configuration::impl::on_DXCC_check_box_clicked(bool checked)
+{
+    if (checked) {
+        ui_->ppfx_check_box->setEnabled (true);
+    } else {
+        ui_->ppfx_check_box->setEnabled (false);
+    }
 }
 
 void Configuration::impl::on_PTT_port_combo_box_activated (int /* index */)
