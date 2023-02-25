@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>803</width>
+    <width>837</width>
     <height>703</height>
    </rect>
   </property>
@@ -549,17 +549,34 @@ quiet period when decoding is done.</string>
           <string>Additional features</string>
          </property>
          <layout class="QGridLayout" name="gridLayout_17">
-          <item row="2" column="2">
-           <widget class="QCheckBox" name="enable_Wait_features_check_box">
+          <item row="2" column="1">
+           <widget class="QCheckBox" name="cbRxToTxAfterQSO">
             <property name="text">
-             <string>Enable Wait features</string>
+             <string>Set Rx frequency to Tx frequency after QSO</string>
             </property>
            </widget>
           </item>
-          <item row="3" column="2">
-           <widget class="QCheckBox" name="disable_Tx_warning_check_box">
+          <item row="4" column="0">
+           <widget class="QCheckBox" name="cb_showDistance">
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;If a station sends locator, calculate and show the distance in Band Activity pane.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
             <property name="text">
-             <string>Disable Tx warning</string>
+             <string>Show distance in messages with grid</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QCheckBox" name="cbEraseBandActivity">
+            <property name="text">
+             <string>Erase Band Activity window after band change</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="1">
+           <widget class="QCheckBox" name="cbClearDXgrid">
+            <property name="text">
+             <string>Clear DX Grid after QSO</string>
             </property>
            </widget>
           </item>
@@ -577,20 +594,13 @@ quiet period when decoding is done.</string>
             </property>
            </widget>
           </item>
-          <item row="3" column="1">
-           <widget class="QCheckBox" name="cbClearDXgrid">
-            <property name="text">
-             <string>Clear DX Grid after QSO</string>
-            </property>
-           </widget>
-          </item>
-          <item row="4" column="0">
-           <widget class="QCheckBox" name="cb_showDistance">
+          <item row="4" column="2">
+           <widget class="QCheckBox" name="cb_Align">
             <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;If a station sends locator, calculate and show the distance in Band Activity pane.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Align the text for DXCC, distance and azimuth.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
             </property>
             <property name="text">
-             <string>Show distance in messages with grid</string>
+             <string>Align DXCC / distance / azimuth</string>
             </property>
            </widget>
           </item>
@@ -608,17 +618,33 @@ quiet period when decoding is done.</string>
             </property>
            </widget>
           </item>
-          <item row="2" column="1">
-           <widget class="QCheckBox" name="cbRxToTxAfterQSO">
-            <property name="text">
-             <string>Set Rx frequency to Tx frequency after QSO</string>
+          <item row="4" column="3">
+           <widget class="QSpinBox" name="align_spin_box">
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Increase or decrease the space between massage text and DXCC.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="minimum">
+             <number>-2</number>
+            </property>
+            <property name="maximum">
+             <number>10</number>
+            </property>
+            <property name="value">
+             <number>1</number>
             </property>
            </widget>
           </item>
-          <item row="1" column="1">
-           <widget class="QCheckBox" name="cbEraseBandActivity">
+          <item row="2" column="2">
+           <widget class="QCheckBox" name="enable_Wait_features_check_box">
             <property name="text">
-             <string>Erase Band Activity window after band change</string>
+             <string>Enable Wait features</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="2">
+           <widget class="QCheckBox" name="disable_Tx_warning_check_box">
+            <property name="text">
+             <string>Disable Tx warning</string>
             </property>
            </widget>
           </item>
@@ -632,29 +658,16 @@ quiet period when decoding is done.</string>
             </property>
            </widget>
           </item>
-          <item row="4" column="2">
-           <widget class="QCheckBox" name="cb_Align">
+          <item row="4" column="4">
+           <widget class="QSpinBox" name="align_spin_box2">
             <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Align the text for DXCC, distance and azimuth.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-            <property name="text">
-             <string>Align DXCC / distance / azimuth</string>
-            </property>
-           </widget>
-          </item>
-          <item row="4" column="3">
-           <widget class="QSpinBox" name="align_spin_box">
-            <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Increase or decrease the space between massage text, DXCC and distance/azimuth.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Increase or decrease the space between DXCC and distance/azimuth.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
             </property>
             <property name="minimum">
-             <number>-2</number>
+             <number>-5</number>
             </property>
             <property name="maximum">
              <number>5</number>
-            </property>
-            <property name="value">
-             <number>1</number>
             </property>
            </widget>
           </item>
@@ -4048,13 +4061,13 @@ Right click for insert and delete options.</string>
   </connection>
  </connections>
  <buttongroups>
-  <buttongroup name="special_op_activity_button_group"/>
   <buttongroup name="CAT_data_bits_button_group"/>
-  <buttongroup name="TX_audio_source_button_group"/>
   <buttongroup name="TX_mode_button_group"/>
   <buttongroup name="split_mode_button_group"/>
   <buttongroup name="CAT_stop_bits_button_group"/>
-  <buttongroup name="PTT_method_button_group"/>
   <buttongroup name="CAT_handshake_button_group"/>
+  <buttongroup name="special_op_activity_button_group"/>
+  <buttongroup name="PTT_method_button_group"/>
+  <buttongroup name="TX_audio_source_button_group"/>
  </buttongroups>
 </ui>
