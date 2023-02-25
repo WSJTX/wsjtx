@@ -330,6 +330,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_nPick {0},
   m_frequency_list_fcal_iter {m_config.frequencies ()->begin ()},
   m_nTx73 {0},
+  m_position {0},
   m_btxok {false},
   m_diskData {false},
   m_loopall {false},
@@ -702,6 +703,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect (ui->foxTxListTextBrowser, &DisplayText::selectCallsign, this, &MainWindow::doubleClickOnFoxInProgress);
   connect (ui->decodedTextBrowser, &DisplayText::erased, this, &MainWindow::band_activity_cleared);
   connect (ui->decodedTextBrowser2, &DisplayText::erased, this, &MainWindow::rx_frequency_activity_cleared);
+  connect (ui->decodedTextBrowser->horizontalScrollBar(),SIGNAL(sliderMoved(int)),SLOT(ScrollBarPosition(int)));
 
   // initialize decoded text font and hook up font change signals
   // defer initialization until after construction otherwise menu fonts do not get set
@@ -4401,6 +4403,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
                                                           ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
                                                           haveFSpread, fSpread, bDisplayPoints, m_points, distance);
           }
+          if(m_position != 0) ui->decodedTextBrowser->horizontalScrollBar()->setValue(m_position);
        }
 
        if((m_mode=="FT4" or m_mode=="FT8") and bDisplayPoints and decodedtext1.isStandardMessage()) {
@@ -6505,6 +6508,10 @@ bool MainWindow::is77BitMode () const
 {
   return "FT8" == m_mode || "FT4" == m_mode || "MSK144" == m_mode
     || "FST4" == m_mode || "Q65" == m_mode;
+}
+
+void MainWindow::ScrollBarPosition(int n) {
+  m_position=n;
 }
 
 void MainWindow::genStdMsgs(QString rpt, bool unconditional)

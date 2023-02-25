@@ -22,6 +22,7 @@
 #include <QPointer>
 #include <QSet>
 #include <QVector>
+#include <QScrollBar>
 #include <QQueue>
 #include <QFuture>
 #include <QFutureWatcher>
@@ -146,6 +147,7 @@ private:
 
 private slots:
   void initialize_fonts ();
+  void ScrollBarPosition(int n);
   void on_actionUse_Dark_Style_triggered (bool checked);
   void check_button_color();
   void stopWRTimeout();
@@ -531,6 +533,7 @@ private:
   qint32  m_fDop=0;
   qint32  m_echoSec0=0;
   qint32  m_fetched=0;
+  qint32  m_position;
 
   bool    m_btxok;		//True if OK to transmit
   bool    m_diskData;
