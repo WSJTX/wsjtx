@@ -633,15 +633,16 @@ void DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
           if (!displayDXCCEntity) {
               message = leftJustifyAppendage (message, "[" + distance + "]");
           } else {
+              QString space = " ";
               if (m_bPrincipalPrefix) {
                   if (message.length() < (49 + m_config->align_steps())) {
-                      message = leftJustifyAppendage ((message + "                              ").left(48 + 2*m_config->align_steps()), "[" + distance + "]");
+                      message = leftJustifyAppendage ((message + (space.repeated(30))).left(48 + 2*m_config->align_steps()), "[" + distance + "]");
                   } else {
                       message = leftJustifyAppendage (message, " [" + distance + "]");
                   }
               } else {
                   if (message.length() < 59 + m_config->align_steps()) {
-                      message = leftJustifyAppendage ((message + "                                    ").left(59 + 2*m_config->align_steps()), "[" + distance + "]");
+                      message = leftJustifyAppendage ((message + (space.repeated(40))).left(59 + 2*m_config->align_steps()), "[" + distance + "]");
                   } else {
                       message = leftJustifyAppendage (message, "[" + distance + "]");
                   }
