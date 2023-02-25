@@ -106,7 +106,7 @@ d). Edit lines as needed. Keeping them in alphabetic order help see dupes.
 :wsprnet_activity: https://wsprnet.org/drupal/wsprnet/activity[WSPRnet Activity page]
 
 // Download Links
-:cty_dat: https://www.country-files.com/cty/[Amateur Radio Country Files]
+:cty_dat: https://www.country-files.com/bigcty/cty.dat/[Amateur Radio Country Files]
 :jtbridge: https://jt-bridge.eller.nu/[JT-Bridge]
 :jtsdk_doc: https://sourceforge.net/projects/wsjt/files/wsjtx-{VERSION}/JTSDK-DOC.exe[Download]
 :jtsdk_installer: https://sourceforge.net/projects/jtsdk/files/win32/2.0.0/JTSDK-2.0.0-B2-Win32.exe/download[Download]
