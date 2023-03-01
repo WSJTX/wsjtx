@@ -4657,7 +4657,8 @@ void MainWindow::readFromStdout()                             //readFromStdout
             hound_reply ();
           }
         } else {
-          QStringList w=decodedtext.string().replace("<","").replace(">","").mid(24).split(" ",SkipEmptyParts); // .replace("<","").replace(">","") is needed for MSHV multistream messages
+            QString text = decodedtext.string().replace("<","").replace(">","");   // needed for MSHV multistream messages
+            QStringList w=text.mid(24).split(" ",SkipEmptyParts);
           if(decodedtext.string().contains("/")) w.append(" +00");  //Add a dummy report
           if(w.size()>=3) {
             QString foxCall=w.at(1);
@@ -4673,6 +4674,8 @@ void MainWindow::readFromStdout()                             //readFromStdout
                   m_rptSent=decodedtext.string().mid(7,3);
                   m_nFoxFreq=decodedtext.string().mid(16,4).toInt();
                   hound_reply ();
+                } else {
+                  if (text.contains(m_config.my_callsign() + " " + m_hisCall) && !text.contains("73 "))  processMessage(decodedtext0);   // needed for MSHV multistream messages
                 }
               }
             }
