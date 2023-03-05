@@ -879,7 +879,7 @@ subroutine q65_hist2(nfreq,msg0,callers,nhist2)
        g4(4:4).ge.'0' .and. g4(4:4).le.'9' .and. g4(1:4).ne.'RR73'
 
   msg=msg0
-  if(index(msg,'/').gt.0) goto 900            !Ignore messages withcompound calls
+  if(index(msg,'/').gt.0) goto 900         !Ignore messages with compound calls
   i0=index(msg,' R ')
   if(i0.ge.7) msg=msg(1:i0)//msg(i0+3:)
   i1=index(msg,' ')
@@ -896,6 +896,7 @@ subroutine q65_hist2(nfreq,msg0,callers,nhist2)
      if(callers(i)%call .eq. c6) then
         newcall=.false.
         callers(i)%nsec=time()
+        callers(i)%nfreq=nfreq
         exit
      endif
   enddo

@@ -22,7 +22,7 @@ subroutine q65_set_list2(mycall,hiscall,hisgrid,callers,nhist2,codewords,ncw)
   call stdcall(hiscall,std)
   jmax=nhist2
   if(std .and. isgrid(hisgrid(1:4))) then
-     jmax=nhist2+1
+     jmax=min(MAX_CALLERS,nhist2+1)
      do j=1,nhist2
         if(callers(j)%call .eq. hiscall(1:6)) then
            jmax=nhist2

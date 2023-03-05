@@ -808,7 +808,7 @@ void MainWindow::decode()                                       //decode()
     datcom_.nutc=100*ihr + imin;
   }
 
-  datcom_.mousedf=m_wide_graph_window->DF();
+  datcom_.mousedf=m_wide_graph_window->DF() + m_fCal;
   datcom_.mousefqso=m_wide_graph_window->QSOfreq();
   datcom_.fselected=datcom_.mousefqso + 0.001*datcom_.mousedf;
   datcom_.ndiskdat=0;

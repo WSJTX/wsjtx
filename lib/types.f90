@@ -12,6 +12,7 @@ module types
      character*4 grid
      integer nsec
      integer nfreq
+     integer moonel
   end type q3list
 
 end module types

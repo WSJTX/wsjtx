@@ -3838,7 +3838,7 @@ Double-click to reset to the standard 73 message</string>
     <addaction name="actionQSG_FST4"/>
     <addaction name="actionQSG_Q65"/>
     <addaction name="actionQSG_X250_M3"/>
-    <addaction name="actionQuick_Start_Guide_to_WSJT_X_2_7_0_and_QMAP"/>
+    <addaction name="actionQuick_Start_Guide_to_WSJT_X_2_7_and_QMAP"/>
     <addaction name="download_samples_action"/>
     <addaction name="separator"/>
     <addaction name="actionWSJT_X_improved_Home_Page"/>
@@ -4446,9 +4446,9 @@ Double-click to reset to the standard 73 message</string>
     <string>Active Stations</string>
    </property>
   </action>
-  <action name="actionQuick_Start_Guide_to_WSJT_X_2_7_0_and_QMAP">
+  <action name="actionQuick_Start_Guide_to_WSJT_X_2_7_and_QMAP">
    <property name="text">
-    <string>Quick-Start Guide to WSJT-X 2.7.0 and QMAP</string>
+    <string>Quick-Start Guide to WSJT-X 2.7 and QMAP</string>
    </property>
   </action>
   <action name="actionDiagnostic_mode">

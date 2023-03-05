@@ -177,7 +177,7 @@ private slots:
   void on_actionQSG_FST4_triggered();
   void on_actionQSG_Q65_triggered();
   void on_actionQSG_X250_M3_triggered();
-  void on_actionQuick_Start_Guide_to_WSJT_X_2_7_0_and_QMAP_triggered();
+  void on_actionQuick_Start_Guide_to_WSJT_X_2_7_and_QMAP_triggered();
   void on_actionWSJT_X_improved_Home_Page_triggered();
   void on_actionThe_additional_features_of_wsjt_x_improved_triggered();
   void on_actionOnline_User_Guide_triggered();
@@ -689,7 +689,7 @@ private:
   QString m_deCall;
   QString m_deGrid;
   QString m_ready2call[50];
-  QString m_callers[40];
+  QString m_callers[50];
 
   QSet<QString> m_pfx;
   QSet<QString> m_sfx;
@@ -888,6 +888,7 @@ private:
   void ARRL_Digi_Update(DecodedText dt);
   void activeWorked(QString call, QString band);
   void read_log();
+  void refreshPileupList();
 };
 
 extern int killbyname(const char* progName);

@@ -627,7 +627,7 @@ void CPlotter::mouseDoubleClickEvent(QMouseEvent *event)  //mouse2click
   if(y < h+30) {
     m_DF=0;
     setFQSO(x,false);
-    emit freezeDecode1(2);                  //### ???
+    emit freezeDecode1(2);
   } else {
     float f = m_ZoomStartFreq + x*m_fSample/32768.0;
     m_DF=int(f);

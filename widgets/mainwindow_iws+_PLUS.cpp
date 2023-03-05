@@ -188,7 +188,9 @@ extern "C" {
 
   void indexx_(float arr[], int* n, int indx[]);
 
-  void get_q3list_(char* fname, int* nlist, char* list, FCL len1, FCL len2);
+  void get_q3list_(char* fname, bool* bDiskData, int* nlist, char* list, FCL len1, FCL len2);
+
+  void rm_q3list_(char* callsign, FCL len);
 
   void jpl_setup_(char* fname, FCL len);
 }
@@ -2635,6 +2637,16 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
       }
       break;
   case Qt::Key_R:
+    if(m_mode=="Q65" and e->modifiers() & Qt::ShiftModifier and
+       e->modifiers() & Qt::ControlModifier) {
+      if(m_specOp==SpecOp::Q65_PILEUP) {
+        refreshPileupList();
+      } else {
+        m_fetched=0;
+        readWidebandDecodes();
+      }
+      return;
+    }
     if(e->modifiers() & Qt::AltModifier) {
       if(!m_send_RR73) on_txrb4_doubleClicked();
     return;
@@ -2990,7 +3002,7 @@ void MainWindow::on_actionQSG_X250_M3_triggered()
   QDesktopServices::openUrl (QUrl {"https://wsjt.sourceforge.io/WSJTX_2.5.0_MAP65_3.0_Quick_Start.pdf"});
 }
 
-void MainWindow::on_actionQuick_Start_Guide_to_WSJT_X_2_7_0_and_QMAP_triggered()
+void MainWindow::on_actionQuick_Start_Guide_to_WSJT_X_2_7_and_QMAP_triggered()
 {
   QDesktopServices::openUrl (QUrl {"https://wsjt.sourceforge.io/Quick_Start_WSJT-X_2.7_QMAP.pdf"});
 }
@@ -3478,6 +3490,7 @@ void MainWindow::on_actionKeyboard_shortcuts_triggered()
   <tr><td><b>Alt+Q    </b></td><td>Open "Log QSO" window</td></tr>
   <tr><td><b>Ctrl+R   </b></td><td>Set Tx4 message to RRR (not in FT4)</td></tr>
   <tr><td><b>Alt+R    </b></td><td>Set Tx4 message to RR73</td></tr>
+  <tr><td><b>Ctrl+Shift+R  </b></td><td>Refresh Active Stations window</td></tr>
   <tr><td><b>Alt+S    </b></td><td>Stop monitoring</td></tr>
   <tr><td><b>Alt+T    </b></td><td>Toggle Tune status</td></tr>
   <tr><td><b>Alt+Z    </b></td><td>Clear hung decoder status</td></tr>
@@ -3757,8 +3770,10 @@ void MainWindow::decode()                                       //decode()
         decodeBusy(true);
       }
     }
-  if((m_mode=="FT4" or (m_mode=="FT8" and m_ihsym==41) or m_diskData or m_mode=="Q65") and
-     m_ActiveStationsWidget != NULL) m_ActiveStationsWidget->erase();  //TEMP
+  if((m_mode=="FT4" or (m_mode=="FT8" and m_ihsym==41) or m_diskData) and
+     m_ActiveStationsWidget != NULL) {
+    if(m_mode!="Q65") m_ActiveStationsWidget->erase();  //TEMP
+  }
 }
 
 void::MainWindow::fast_decode_done()
@@ -3875,30 +3890,32 @@ void MainWindow::decodeDone ()
   if(m_mode=="Q65" and (m_specOp==SpecOp::NA_VHF or m_specOp==SpecOp::ARRL_DIGI
                         or m_specOp==SpecOp::WW_DIGI or m_specOp==SpecOp::Q65_PILEUP)
                         and m_ActiveStationsWidget!=NULL) {
-
-    int nlist=0;
-    char list[2000];
-    char line[36];
-    list[0]=0;
-//    QString t="1200 W9XYZ  EN37";
-    auto fname {QDir::toNativeSeparators(m_config.writeable_data_dir ().absoluteFilePath ("tsil.3q"))};
-
-//    morse_(const_cast<char *> (m_config.my_callsign ().toLatin1().constData()),
-//           const_cast<int *> (icw), &m_ncw, (FCL)m_config.my_callsign().length());
-    get_q3list_(const_cast<char *> (fname.toLatin1().constData()), &nlist,
-                &list[0], (FCL)fname.length(), (FCL)2000);
-    QString t="";
-    QString t0="";
-    for(int i=0; i<nlist; i++) {
-      memcpy(line,&list[36*i],36);
-      t0=QString::fromLatin1(line)+"\n";
-      m_callers[i]=t0;
-      t+=t0;
-    }
-    m_ActiveStationsWidget->setClickOK(false);
-    m_ActiveStationsWidget->displayRecentStations("Q65-pileup",t);
-    m_ActiveStationsWidget->setClickOK(true);
+    refreshPileupList();
   }
+}
+
+void MainWindow::refreshPileupList()
+{
+  // Update the ActiveStations display for Q65 pileup situation...
+      int nlist=0;
+      char list[2000];
+      char line[36];
+      list[0]=0;
+      auto fname {QDir::toNativeSeparators(m_config.writeable_data_dir().absoluteFilePath("tsil.3q"))};
+      get_q3list_(const_cast<char *> (fname.toLatin1().constData()), &m_diskData, &nlist,
+                  &list[0], (FCL)fname.length(), (FCL)2000);
+      QString t="";
+      QString t0="";
+      for(int i=0; i<nlist; i++) {
+        memcpy(line,&list[36*i],36);
+        t0=QString::fromLatin1(line)+"\n";
+        m_callers[i]=t0;
+  //      qDebug() << "aa" << t0;
+        t+=t0;
+      }
+      m_ActiveStationsWidget->setClickOK(false);
+      m_ActiveStationsWidget->displayRecentStations("Q65-pileup",t);
+      m_ActiveStationsWidget->setClickOK(true);
 }
 
 void MainWindow::read_log()
@@ -4062,14 +4079,20 @@ void MainWindow::ARRL_Digi_Display()
 
 void MainWindow::callSandP2(int n)
 {
-  bool bHoldFreq = (n<0);
+  bool bCtrl = (n<0);
   n=qAbs(n)-1;
   if(m_mode!="Q65" and m_ready2call[n]=="") return;
   QStringList w=m_ready2call[n].split(' ', SkipEmptyParts);
-  if(m_mode=="Q65" and m_specOp==SpecOp::Q65_PILEUP and n <= m_callers->size()) {
-    // This is the mode for 6m EME DXpeditions
+  if(m_mode=="Q65" and m_specOp==SpecOp::Q65_PILEUP and n < 40) {
+    // This code is for 6m EME DXpedition operator
     w=m_callers[n].split(' ', SkipEmptyParts);
     m_deCall=w[2];
+    if(bCtrl) {
+      // Remove this call from q3list.
+      rm_q3list_(const_cast<char *> (m_deCall.toLatin1().constData()), m_deCall.size());
+      refreshPileupList();
+      return;
+    }
     m_deGrid=w[3];
     m_bDoubleClicked=true;               //### needed?
     m_txFirst=true;
@@ -4084,7 +4107,7 @@ void MainWindow::callSandP2(int n)
   }
 
   if(m_mode=="Q65") {
-    if(!bHoldFreq) {
+    if(!bCtrl) {                          //Do not reset m_freqNominal if CTRL was down
       double kHz=w[1].toDouble();
       int nMHz=m_freqNominal/1000000;
       m_freqNominal=(nMHz*1000 + kHz)* 1000;

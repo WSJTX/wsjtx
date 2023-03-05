@@ -331,10 +331,7 @@ contains
           call this%callback(nutc,snr1,nsnr,dtdec,f0dec,decoded,    &
                idec,nused,ntrperiod)
           if(ncontest.eq.1) then
-             open(24,file=trim(data_dir)//'/tsil.3q',status='unknown',     &
-                  form='unformatted')
              call q65_hist2(nint(f0dec),decoded,callers,nhist2)
-             close(24)
           else
              call q65_hist(nint(f0dec),msg0=decoded)
           endif
@@ -446,10 +443,7 @@ contains
              call this%callback(nutc,snr1,nsnr,dtdec,f0dec,decoded,    &
                   idec,nused,ntrperiod)
              if(ncontest.eq.1) then
-                open(24,file=trim(data_dir)//'/tsil.3q',status='unknown',     &
-                     form='unformatted')
                 call q65_hist2(nint(f0dec),decoded,callers,nhist2)
-                close(24)
              else
                 call q65_hist(nint(f0dec),msg0=decoded)
              endif
