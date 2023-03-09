@@ -1428,8 +1428,7 @@ endif (${OPENMP_FOUND} OR APPLE)
 
 if (WIN32)
   find_package (Portaudio REQUIRED)
-# build map65 OR qmap
-#  add_subdirectory (map65)
+  add_subdirectory (map65)
   add_subdirectory (qmap)
 endif ()
 
