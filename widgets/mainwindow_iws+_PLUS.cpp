@@ -2789,6 +2789,18 @@ void MainWindow::statusChanged()
                                  .arg (f.fileName ()).arg (f.errorString ()));
   }
   on_dxGridEntry_textChanged(m_hisGrid);
+  if(m_specOp!=SpecOp::HOUND) {
+      ui->txb2->setEnabled(true);
+      ui->txrb2->setEnabled(true);
+      ui->txb4->setEnabled(true);
+      ui->txrb4->setEnabled(true);
+      ui->txb5->setEnabled(true);
+      ui->txrb5->setEnabled(true);
+      ui->txb6->setEnabled(true);
+      ui->txrb6->setEnabled(true);
+      ui->houndButton->setChecked(false);
+      ui->houndButton->setStyleSheet("");
+  }
 }
 
 bool MainWindow::eventFilter (QObject * object, QEvent * event)
@@ -7099,10 +7111,10 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mousePressEvents
       m_specOp=m_config.special_op_id();
       if (m_specOp==SpecOp::Q65_PILEUP) {
           m_config.setSpecial_None();
+          ui->tx1->setEnabled(true);
+          ui->txb1->setEnabled(true);
       } else {
           m_config.setSpecial_Q65_Pileup();
-          ui->houndButton->setChecked(false);
-          ui->houndButton->setStyleSheet("");
       }
       m_specOp=m_config.special_op_id();
       on_actionQ65_triggered();
@@ -7888,7 +7900,6 @@ void MainWindow::on_actionQ65_triggered()
   ui->rh_decodes_title_label->setText(tr ("Average Decodes"));
   ui->lh_decodes_headings_label->setText("UTC   dB   DT Freq    " + tr ("Message"));
   ui->rh_decodes_headings_label->setText("UTC   dB   DT Freq    " + tr ("Message"));
-  statusChanged();
 
   m_specOp=m_config.special_op_id();
   if(m_specOp!=SpecOp::NONE and m_specOp!=SpecOp::FOX and m_specOp!=SpecOp::HOUND) {
@@ -7906,9 +7917,15 @@ void MainWindow::on_actionQ65_triggered()
       ui->labDXped->setVisible(true);
       ui->labDXped->setText(t0);
     }
-    if(m_specOp!=SpecOp::Q65_PILEUP) on_contest_log_action_triggered();
+    if(m_specOp!=SpecOp::Q65_PILEUP) {
+        on_contest_log_action_triggered();
+    } else {
+        if(ui->txrb1->isChecked()) on_txb2_clicked();
+        ui->tx1->setEnabled(true);
+        ui->txb1->setEnabled(true);
+    }
   }
-
+  statusChanged();
 }
 
 void MainWindow::on_actionMSK144_triggered()
@@ -8090,6 +8107,8 @@ void MainWindow::switch_mode (Mode mode)
   if (m_mode != "Q65" && m_specOp==SpecOp::Q65_PILEUP) {
       m_config.setSpecial_None();
       m_specOp=m_config.special_op_id();
+      ui->tx1->setEnabled(true);
+      ui->txb1->setEnabled(true);
    }
   m_fastGraph->setMode(m_mode);
   m_config.frequencies ()->filter (m_config.region (), mode, true); // filter on current time
@@ -11188,6 +11207,9 @@ void MainWindow::on_houndButton_clicked (bool checked)
   if (checked) {
     ui->houndButton->setStyleSheet("background-color: #ff0000;");
     m_config.setSpecial_Hound();
+    ui->tx1->setVisible(true);
+    ui->tx1->setEnabled(true);
+    ui->txb1->setEnabled(true);
   } else {
     ui->houndButton->setStyleSheet("");
     m_config.setSpecial_None();
@@ -11201,8 +11223,6 @@ void MainWindow::on_houndButton_clicked (bool checked)
 
 void MainWindow::on_ft8Button_clicked()
 {
-    ui->houndButton->setChecked(false);
-    ui->houndButton->setStyleSheet("");
     if(m_specOp==SpecOp::HOUND) {
       m_config.setSpecial_None();
       m_specOp=m_config.special_op_id();
@@ -11212,8 +11232,6 @@ void MainWindow::on_ft8Button_clicked()
 
 void MainWindow::on_ft4Button_clicked()
 {
-    ui->houndButton->setChecked(false);
-    ui->houndButton->setStyleSheet("");
     if(m_specOp==SpecOp::HOUND) {
       m_config.setSpecial_None();
       m_specOp=m_config.special_op_id();
@@ -11223,8 +11241,6 @@ void MainWindow::on_ft4Button_clicked()
 
 void MainWindow::on_msk144Button_clicked()
 {
-    ui->houndButton->setChecked(false);
-    ui->houndButton->setStyleSheet("");
     if(m_specOp==SpecOp::HOUND) {
       m_config.setSpecial_None();
       m_specOp=m_config.special_op_id();
@@ -11234,8 +11250,6 @@ void MainWindow::on_msk144Button_clicked()
 
 void MainWindow::on_q65Button_clicked()
 {
-    ui->houndButton->setChecked(false);
-    ui->houndButton->setStyleSheet("");
     if(m_specOp==SpecOp::HOUND) {
       m_config.setSpecial_None();
       m_specOp=m_config.special_op_id();
@@ -11245,8 +11259,6 @@ void MainWindow::on_q65Button_clicked()
 
 void MainWindow::on_jt65Button_clicked()
 {
-    ui->houndButton->setChecked(false);
-    ui->houndButton->setStyleSheet("");
     if(m_specOp==SpecOp::HOUND) {
       m_config.setSpecial_None();
       m_specOp=m_config.special_op_id();
