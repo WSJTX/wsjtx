@@ -181,7 +181,7 @@ void FileDownload::download(QUrl qurl)
 #if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
   QObject::connect(reply_, &QNetworkReply::errorOccurred,this, &FileDownload::errorOccurred, Qt::UniqueConnection);
 #else
-//  QObject::connect(reply_, &QNetworkReply::error, this, &FileDownload::errorOccurred, Qt::UniqueConnection);
+  QObject::connect(reply_, QOverload<QNetworkReply::NetworkError>::of(&QNetworkReply::error), this, &FileDownload::errorOccurred, Qt::UniqueConnection);
 #endif
   QObject::connect(reply_, &QNetworkReply::readyRead, this, &FileDownload::store, Qt::UniqueConnection);
 
