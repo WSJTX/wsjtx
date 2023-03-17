@@ -43,7 +43,11 @@ public slots:
     void abort();
     void downloadComplete(QNetworkReply* data);
     void downloadProgress(qint64 recieved, qint64 total);
+#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
     void errorOccurred(QNetworkReply::NetworkError code);
+#else
+    void obsoleteError();
+#endif
     void replyComplete();
 };
 

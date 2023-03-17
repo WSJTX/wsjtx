@@ -20,7 +20,7 @@ FileDownload::FileDownload() : QObject(nullptr)
 FileDownload::~FileDownload()
 {
 }
-
+#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
 void FileDownload::errorOccurred(QNetworkReply::NetworkError code)
 {
   LOG_INFO(QString{"FileDownload [%1]: errorOccurred %2 -> %3"}.arg(user_agent_).arg(code).arg(reply_->errorString()));
@@ -28,6 +28,15 @@ void FileDownload::errorOccurred(QNetworkReply::NetworkError code)
   destfile_.cancelWriting ();
   destfile_.commit ();
 }
+#else
+void FileDownload::obsoleteError()
+{
+  LOG_INFO(QString{"FileDownload [%1]: error -> %3"}.arg(user_agent_).arg(reply_->errorString()));
+  Q_EMIT error (reply_->errorString ());
+  destfile_.cancelWriting ();
+  destfile_.commit ();
+}
+#endif
 
 void FileDownload::configure(QNetworkAccessManager *network_manager, const QString &source_url, const QString &destination_path, const QString &user_agent)
 {
@@ -177,11 +186,11 @@ void FileDownload::download(QUrl qurl)
 
   QObject::connect(manager_, &QNetworkAccessManager::finished, this, &FileDownload::downloadComplete, Qt::UniqueConnection);
   QObject::connect(reply_, &QNetworkReply::downloadProgress, this, &FileDownload::downloadProgress, Qt::UniqueConnection);
-  QObject::connect(reply_, &QNetworkReply::finished, this,&FileDownload::replyComplete, Qt::UniqueConnection);
+  QObject::connect(reply_, &QNetworkReply::finished, this, &FileDownload::replyComplete, Qt::UniqueConnection);
 #if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
   QObject::connect(reply_, &QNetworkReply::errorOccurred,this, &FileDownload::errorOccurred, Qt::UniqueConnection);
 #else
-  QObject::connect(reply_, QOverload<QNetworkReply::NetworkError>::of(&QNetworkReply::error), this, &FileDownload::errorOccurred, Qt::UniqueConnection);
+  QObject::connect(reply_, QOverload<QNetworkReply::NetworkError>::of(&QNetworkReply::error), this, &FileDownload::obsoleteError, Qt::UniqueConnection);
 #endif
   QObject::connect(reply_, &QNetworkReply::readyRead, this, &FileDownload::store, Qt::UniqueConnection);
 
