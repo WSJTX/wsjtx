@@ -268,7 +268,7 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
 
   if(swide[0]>1.0e29) m_line=0;
   if(m_mode=="FT4" and m_line==34) m_line=0;
-  if(m_line == painter1.fontMetrics ().height ()) {
+  if(m_line == painter1.fontMetrics ().height () && m_timestamp!=0) {
     painter1.setPen(Qt::white);
     QString t;
     if(m_nUTC<0) {
@@ -281,7 +281,9 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
          .toString (m_TRperiod < 60. ? "hh:mm:ss" : "hh:mm");
       t = QString {"%1    %2"}.arg (start).arg (m_rxBand);
     }
-    painter1.drawText (5, painter1.fontMetrics ().ascent (), t);
+    QRect rect{5, -2, m_w-10, painter1.fontMetrics().ascent()};
+    QRect boundingRect;
+    painter1.drawText(rect, m_timestamp==2?0x0082:0x0081,t, &boundingRect);
   }
 
   if(m_mode=="JT4" or (m_mode=="Q65" and m_nSubMode>=2)) {
@@ -1039,6 +1041,11 @@ void CPlotter::drawTotalPower(float pdB)
 void CPlotter::restartTotalPower()
 {
   m_x=0;
+}
+
+void CPlotter::setTimestamp(int n)
+{
+    m_timestamp=n;
 }
 
 void CPlotter::setBars(bool b)

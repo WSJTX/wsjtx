@@ -75,6 +75,7 @@ public:
   qint32 breadth() const {return m_w;}
   float fSpan() const {return m_fSpan;}
   void setColours(QVector<QColor> const& cl);
+  void setTimestamp(int n);
   void setBars(bool b);
   void showFreq(bool b);
   void setFlatten(bool b1, bool b2);
@@ -150,6 +151,7 @@ private:
   qint32  m_nfb;
   qint32  m_nUTC;
   qint32  m_x=0;
+  qint32  m_timestamp;
 
   QPixmap m_DialOverlayPixmap;
   QPixmap m_HoverOverlayPixmap;

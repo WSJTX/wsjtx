@@ -54,6 +54,10 @@ WideGraph::WideGraph(QSettings * settings, QWidget *parent) :
     ui->gainSlider->setValue(ui->widePlot->plotGain());
     ui->gain2dSlider->setValue(ui->widePlot->plot2dGain());
     ui->zero2dSlider->setValue(ui->widePlot->plot2dZero());
+    m_timestamp = 1; int itstamp=m_settings->value("Timestamp",1).toInt();
+    QString ststamp=m_settings->value("Timestamp","1").toString();
+    if(ststamp == "0" || ststamp == "1" || ststamp == "2") m_timestamp = itstamp;
+    ui->timestampComboBox->setCurrentIndex(m_timestamp); ui->widePlot->setTimestamp(m_timestamp);
     m_bars=m_settings->value("Bars",true).toBool();
     ui->cbBars->setChecked(m_bars);
     ui->widePlot->setBars(m_bars);
@@ -151,6 +155,7 @@ void WideGraph::saveSettings()                                           //saveS
   m_settings->setValue("Flatten",m_bFlatten);
   m_settings->setValue("UseRef",m_bRef);
   m_settings->setValue ("HideControls", ui->controls_widget->isHidden ());
+  m_settings->setValue ("Timestamp",m_timestamp);
   m_settings->setValue ("Bars", m_bars);
   m_settings->setValue ("Freq", m_freq);
   m_settings->setValue ("FminPerBand", m_fMinPerBand);
@@ -306,7 +311,10 @@ void WideGraph::setTxFreq(int n)                                   //setTxFreq
 void WideGraph::setMode(QString mode)                              //setMode
 {
   m_mode=mode;
+  ui->fSplitSpinBox->setVisible(m_mode.startsWith("FST4"));
   ui->fSplitSpinBox->setEnabled(m_mode.startsWith("FST4"));
+  ui->labTime->setVisible(!m_mode.startsWith("FST4"));
+  ui->timestampComboBox->setVisible(!m_mode.startsWith("FST4"));
   ui->widePlot->setMode(mode);
   ui->widePlot->DrawOverlay();
   ui->widePlot->update();
@@ -442,6 +450,12 @@ void WideGraph::on_cbRef_toggled(bool b)
 void WideGraph::on_cbControls_toggled(bool b)
 {
   ui->controls_widget->setVisible(b);
+}
+
+void WideGraph::on_timestampComboBox_currentIndexChanged(int n)
+{
+  m_timestamp = n;
+  ui->widePlot->setTimestamp(n);
 }
 
 void WideGraph::on_cbBars_toggled(bool b)

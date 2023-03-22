@@ -76,6 +76,7 @@ private slots:
   void on_fSplitSpinBox_valueChanged(int n);
   void on_fStartSpinBox_valueChanged(int n);
   void on_paletteComboBox_activated(const QString &palette);
+  void on_timestampComboBox_currentIndexChanged(int n);
   void on_cbFlatten_toggled(bool b);
   void on_cbRef_toggled(bool b);
   void on_cbControls_toggled(bool b);
@@ -112,6 +113,7 @@ private:
   qint32 m_Percent2DScreen;
   qint32 m_jz=MAX_SCREENSIZE;
   qint32 m_n;
+  qint32 m_timestamp;
 
   bool	 m_bars;
   bool	 m_freq;
