@@ -42,6 +42,9 @@ bool play_CQZOB = false;
 bool play_ITUZ = false;
 bool play_ITUZOB = false;
 
+QString binPath = QCoreApplication::applicationDirPath();
+QString homePath = QDir::homePath();
+
 DisplayText::DisplayText(QWidget *parent)
   : QTextEdit(parent)
   , m_config {nullptr}
@@ -842,8 +845,6 @@ void DisplayText::highlight_callsign (QString const& callsign, QColor const& bg,
 void DisplayText::AudioAlerts()
 {
     QAudioOutput device(QAudioDeviceInfo::defaultOutputDevice());
-    QString binPath = QCoreApplication::applicationDirPath();
-    QString homePath = QDir::homePath();
     if(m_config->alert_Enabled()) {
     static int startIndex = 0;
     int nextStartIndex = startIndex +1;
