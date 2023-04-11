@@ -2388,6 +2388,11 @@ void MainWindow::on_autoButton_clicked (bool checked)
       ui->DX_Call_Button->click ();                         // disable Wait & Call
       no_wait_and_call = false;                             // reset Wait & Call
   }
+  m_specOp=m_config.special_op_id();
+  if(!checked && m_specOp==SpecOp::HOUND && m_txFirst) {    // reset Hound to correct time slot
+      m_txFirst=false;
+      ui->txFirstCheckBox->setChecked(false);
+  }
   ui->pbBandHopping->setChecked(false); // disable band hopping when Tx is enabled
   m_auto = checked;
   m_maxPoints=-1;
@@ -2984,6 +2989,12 @@ void MainWindow::on_stopButton_clicked()                       //stopButton
   stopWRTimer.stop();           // Stop any Wait & Reply timeout
   stopWCTimer.stop();           // Stop any Wait & Call timeout
   no_wait_and_call = false;
+  m_specOp=m_config.special_op_id();
+  if(m_specOp==SpecOp::HOUND && m_txFirst) {  // reset Hound to correct time slot
+      m_txFirst=false;
+      ui->txFirstCheckBox->setChecked(false);
+      auto_tx_mode (false);
+  }
 }
 
 void MainWindow::on_actionRelease_Notes_triggered ()
@@ -4344,7 +4355,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
           // Wait & Reply
           if ((m_mode=="FT8" or m_mode=="FT4" or m_mode=="Q65" or m_mode=="FST4") && (m_hisCall!="") &&
               (text.contains(m_config.my_callsign() + " " + m_hisCall) && !text.contains("73 "))
-              && m_config.Wait_features_enabled()) {
+              && (m_config.Wait_features_enabled() or m_specOp==SpecOp::HOUND)) {
                   tx_watchdog (false);
                   m_bDoubleClicked = true;
                   processMessage(decodedtext0);
@@ -4666,6 +4677,10 @@ void MainWindow::readFromStdout()                             //readFromStdout
             //### Check for ui->dxCallEntry->text()==foxCall before logging! ###
             ui->stopTxButton->click ();
             logQSOTimer.start(0);
+            if(m_txFirst) {
+                m_txFirst=false;
+                ui->txFirstCheckBox->setChecked(false);
+            }
           }
           if((w.at(2)==m_config.my_callsign() or w.at(2)==Radio::base_callsign(m_config.my_callsign()))
              and ui->tx3->text().length()>0) {
@@ -4685,6 +4700,10 @@ void MainWindow::readFromStdout()                             //readFromStdout
               if(w.at(2)=="RR73") {
                 ui->stopTxButton->click ();
                 logQSOTimer.start(0);
+                if(m_txFirst) {
+                    m_txFirst=false;
+                    ui->txFirstCheckBox->setChecked(false);
+                }
               } else {
                 if(w.at(1)==Radio::base_callsign(ui->dxCallEntry->text()) and
                    (w.at(2).mid(0,1)=="+" or w.at(2).mid(0,1)=="-")) {
@@ -5996,8 +6015,8 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
 
   int nmod = fmod(double(message.timeInSeconds()),2.0*m_TRperiod);
   m_txFirst=(nmod!=0);
-  if( SpecOp::HOUND == m_specOp ) m_txFirst=false;          //Hound must not transmit first
-  if( SpecOp::FOX == m_specOp ) m_txFirst=true;             //Fox must always transmit first
+  if(SpecOp::HOUND == m_specOp && !m_bDoubleClicked) m_txFirst=false;  //Hound usually transmits first
+  if(SpecOp::FOX == m_specOp) m_txFirst=true;                          //Fox must always transmit first
   ui->txFirstCheckBox->setChecked(m_txFirst);
 
   auto const& message_words = message.messageWords ();
@@ -8554,6 +8573,11 @@ void MainWindow::on_stopTxButton_clicked()                    //Stop Tx
   stopWRTimer.stop();           // Stop any Wait & Reply timeout
   stopWCTimer.stop();           // Stop any Wait & Call timeout
   no_wait_and_call = false;
+  m_specOp=m_config.special_op_id();
+  if(m_specOp==SpecOp::HOUND && m_txFirst) {  // reset Hound to the correct time slot
+      m_txFirst=false;
+      ui->txFirstCheckBox->setChecked(false);
+  }
 }
 
 void MainWindow::rigOpen ()
