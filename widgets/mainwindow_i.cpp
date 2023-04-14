@@ -223,7 +223,9 @@ bool first_Fox_alert = true;
 bool second_Fox_alert = true;
 bool no_Fox_alert = false;
 int dBpoints=-28;
-int maxdBPoints;
+int dBpoints2=99;
+int maxdBPoints=-28;
+int mindBPoints=99;
 
 QSharedMemory mem_qmap("mem_qmap");         //Memory segment to be shared (optionally) with QMAP
 struct {
@@ -923,6 +925,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   ui->respondComboBox->addItem("CQ: First");
   ui->respondComboBox->addItem("CQ: Max Dist");
   ui->respondComboBox->addItem("CQ: Max dB");
+  ui->respondComboBox->addItem("CQ: Min dB");
 
   m_dateTimeRcvdRR73=QDateTime::currentDateTimeUtc();
   m_dateTimeSentTx3=QDateTime::currentDateTimeUtc();
@@ -2052,7 +2055,8 @@ void MainWindow::fastSink(qint64 frames)
 
     // Wait & Reply for MSK144
     if (text.contains(m_config.my_callsign() + " " + m_hisCall) && m_hisCall!="" &&
-        !decodedtext.string().contains("73 ") && m_mode=="MSK144" && m_config.Wait_features_enabled()) {
+        !decodedtext.string().contains("73 ") && m_mode=="MSK144" && m_config.Wait_features_enabled()
+        && m_QSOProgress != CALLING) {
           tx_watchdog (false);
           m_bDoubleClicked = true;
           processMessage(decodedtext);
@@ -2160,6 +2164,36 @@ void MainWindow::fastSink(qint64 frames)
          }
        }
      }
+    // CQ Min dB for MSK144
+    if(!bProcessMsgNormally and ui->respondComboBox->currentText()=="CQ: Min dB") {
+       QString deCall;
+       QString deGrid;
+       decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
+       if (!decodedtext.string().contains(" 73")) {
+         dBpoints2=decodedtext.string().mid(7,3).toInt();
+         if(dBpoints2<mindBPoints) {
+            mindBPoints=dBpoints2;
+            m_deCall=deCall;
+            m_bDoubleClicked=true;
+            ui->dxCallEntry->setText(deCall);
+            int m_ntx=2;
+            bool bContest=m_specOp==SpecOp::NA_VHF or m_specOp==SpecOp::ARRL_DIGI;
+            if(bContest) m_ntx=3;
+            if(deGrid.contains(grid_regexp)) {
+              m_deGrid=deGrid;
+              ui->dxGridEntry->setText(deGrid);
+            } else {
+              m_ntx=3;
+            }
+            if(m_ntx==2) m_QSOProgress = REPORT;
+            if(m_ntx==3) m_QSOProgress = ROGER_REPORT;
+            genStdMsgs(QString::number(decodedtext.snr()));
+            ui->RxFreqSpinBox->setValue(decodedtext.frequencyOffset());
+            setTxMsg(m_ntx);
+            m_currentMessageType=m_ntx;
+         }
+       }
+    }
     }
 
     m_bDecoded=true;
@@ -2395,9 +2429,11 @@ void MainWindow::on_autoButton_clicked (bool checked)
   m_auto = checked;
   m_maxPoints=-1;
   maxdBPoints=-28;
+  mindBPoints=99;
   if (checked
       && ui->respondComboBox->isVisible () && ui->respondComboBox->currentText() != "CQ: None"
-      && ui->respondComboBox->currentText() != "CQ: Max dB" && CALLING == m_QSOProgress) {
+      && ui->respondComboBox->currentText() != "CQ: Max dB" && ui->respondComboBox->currentText() != "CQ: Min dB"
+      && CALLING == m_QSOProgress) {
     m_bAutoReply = false;         // ready for next
     m_bCallingCQ = true;          // allows tail-enders to be picked up
   }
@@ -4354,7 +4390,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
         // Wait & Reply
         if ((m_mode=="FT8" or m_mode=="FT4" or m_mode=="Q65" or m_mode=="FST4") && (m_hisCall!="") &&
             (text.contains(m_config.my_callsign() + " " + m_hisCall) && !text.contains("73 "))
-            && (m_config.Wait_features_enabled() or m_specOp==SpecOp::HOUND)) {
+            && (m_config.Wait_features_enabled() or m_specOp==SpecOp::HOUND) && m_QSOProgress != CALLING) {
                 tx_watchdog (false);
                 m_bDoubleClicked = true;
                 processMessage(decodedtext0);
@@ -4583,6 +4619,36 @@ void MainWindow::readFromStdout()                             //readFromStdout
                   dBpoints=decodedtext.string().mid(7,3).toInt();
                   if(dBpoints>maxdBPoints) {
                     maxdBPoints=dBpoints;
+                    m_deCall=deCall;
+                    m_bDoubleClicked=true;
+                    ui->dxCallEntry->setText(deCall);
+                    int m_ntx=2;
+                    bool bContest=m_specOp==SpecOp::NA_VHF or m_specOp==SpecOp::ARRL_DIGI;
+                    if(bContest) m_ntx=3;
+                    if(deGrid.contains(grid_regexp)) {
+                      m_deGrid=deGrid;
+                      ui->dxGridEntry->setText(deGrid);
+                    } else {
+                      m_ntx=3;
+                    }
+                    if(m_ntx==2) m_QSOProgress = REPORT;
+                    if(m_ntx==3) m_QSOProgress = ROGER_REPORT;
+                    genStdMsgs(QString::number(decodedtext.snr()));
+                    ui->RxFreqSpinBox->setValue(decodedtext.frequencyOffset());
+                    setTxMsg(m_ntx);
+                    m_currentMessageType=m_ntx;
+                 }
+              }
+            }
+
+            if(!bProcessMsgNormally and ui->respondComboBox->currentText()=="CQ: Min dB") {
+              QString deCall;
+              QString deGrid;
+              decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
+              if (!decodedtext.string().contains(" 73")) {
+                 dBpoints2=decodedtext.string().mid(7,3).toInt();
+                 if(dBpoints2<mindBPoints) {
+                    mindBPoints=dBpoints2;
                     m_deCall=deCall;
                     m_bDoubleClicked=true;
                     ui->dxCallEntry->setText(deCall);
@@ -6414,7 +6480,8 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
     }
     // his base call different or his call more qualified
     // i.e. compound version of same base call
-    if (!((s2.contains(m_config.my_callsign()) && s2.contains(" 73")) && ui->respondComboBox->currentText()=="CQ: Max dB")) ui->dxCallEntry->setText (hiscall);
+    if (!((s2.contains(m_config.my_callsign()) && s2.contains(" 73")) && (ui->respondComboBox->currentText()=="CQ: Max dB"
+           or ui->respondComboBox->currentText()=="CQ: Max dB"))) ui->dxCallEntry->setText (hiscall);
   }
   if (hisgrid.contains (grid_regexp)) {
     if(ui->dxGridEntry->text().mid(0,4) != hisgrid) ui->dxGridEntry->setText(hisgrid);

@@ -1169,7 +1169,7 @@ When not checked you can view the calibration results.</string>
                        <number>-1</number>
                       </property>
                       <property name="maxVisibleItems">
-                       <number>4</number>
+                       <number>5</number>
                       </property>
                      </widget>
                     </item>
