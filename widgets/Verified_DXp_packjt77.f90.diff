@@ -1,0 +1,43 @@
+--- packjt77_with_#.f90	2023-03-23 10:46:30.404237600 +0100
++++ packjt77_bisher.f90	2022-12-30 11:10:51.195804500 +0100
+@@ -1419,9 +1419,9 @@
+ 
+   character*13 c13,w
+   character*71 c71
+-  character*43 c
++  character*42 c
+   character*1 qa(10),qb(10)
+-  data c/' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ+-./?#'/
++  data c/' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ+-./?'/
+ 
+   call mp_short_init
+   qa=char(0)
+@@ -1429,7 +1429,7 @@
+   do i=1,13
+      j=index(c,w(i:i))-1
+      if(j.lt.0) j=0
+-     call mp_short_mult(qb,qa(2:10),9,43)     !qb(1:9)=43*qa(2:9)
++     call mp_short_mult(qb,qa(2:10),9,42)     !qb(1:9)=42*qa(2:9)
+      call mp_short_add(qa,qb(2:10),9,j)      !qa(1:9)=qb(2:9)+j
+   enddo
+ 
+@@ -1445,16 +1445,16 @@
+   character*1 qa(10),qb(10)
+   character*13 c13
+   character*71 c71
+-  character*43 c
++  character*42 c
+   equivalence (qa,ia),(qb,ib)
+-  data c/' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ+-./?#'/
++  data c/' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ+-./?'/
+ 
+   qa(1)=char(0)
+   read(c71,1010) qa(2:10)
+ 1010 format(b7.7,8b8.8)
+ 
+   do i=13,1,-1
+-     call mp_short_div(qb,qa(2:10),9,43,ir)
++     call mp_short_div(qb,qa(2:10),9,42,ir)
+      c13(i:i)=c(ir+1:ir+1)
+      qa(2:10)=qb(1:9)
+   enddo

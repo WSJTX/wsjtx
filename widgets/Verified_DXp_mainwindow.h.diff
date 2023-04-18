@@ -1,0 +1,10 @@
+--- mainwindow__Alerts_AL_PLUS.h	2023-03-19 18:12:08.444701300 +0100
++++ mainwindow.h	2023-03-23 11:13:35.165511900 +0100
+@@ -150,6 +150,7 @@
+   void ScrollBarPosition(int n);
+   void on_actionUse_Dark_Style_triggered (bool checked);
+   void check_button_color();
++  void authentication();
+   void stopWRTimeout();
+   void stopWCTimeout();
+   void bandHoppingTimer();

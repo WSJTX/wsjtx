@@ -1,0 +1,95 @@
+--- mainwindow_AL+100Hz_noRigFailure_QO-100.cpp	2023-03-22 12:10:07.134848800 +0100
++++ mainwindow.cpp	2023-03-23 13:12:58.971763300 +0100
+@@ -225,6 +225,10 @@
+ bool no_Fox_alert = false;
+ int dBpoints=-28;
+ int maxdBPoints;
++bool m_authentify = false;  // URUR
++bool m_authentified = false;  // URUR
++QString m_key = "#AB14DEFBCD";  // URUR
++QString m_authCall = "TE0ST";  // URUR
+ 
+ QSharedMemory mem_qmap("mem_qmap");         //Memory segment to be shared (optionally) with QMAP
+ struct {
+@@ -4178,6 +4182,21 @@
+     bool blockUDP {false};                   // allow udp spotting (JTAlert) for all non-filtered messages
+     bool block_right_display {false};
+     float fSpread {0.};
++
++    // URUR Fox authentication
++    QString message0 {QString::fromUtf8(line_read.constData())};
++    if (message0.contains("#")) {
++      if (m_specOp==SpecOp::HOUND && m_hisCall==m_authCall && message0.contains(m_key)) {
++          m_authentified = true;
++          authentication();
++          QTimer::singleShot (3000, [=] {m_authentified = false;});  // reset authentication
++          QTimer::singleShot (35000, [=] {authentication();});     // check authentication
++      }
++      blockUDP = true;
++      return;
++    }
++    // URUR
++
+     if (m_mode.startsWith ("FST4"))
+       {
+         auto text = line_read.mid (64, 6).trimmed ();
+@@ -7088,6 +7107,7 @@
+ 
+ void MainWindow::mousePressEvent(QMouseEvent *event)    // mousePressEvents
+ {
++  m_specOp=m_config.special_op_id();
+   if(ui->DX_Call_Button->hasFocus() && (event->button() & Qt::RightButton)) {  // DX_Call_Button
+       clearDX();                     // clear dxCallEntry
+       ui->tx5->setCurrentText("");   // clear tx5
+@@ -7099,7 +7119,6 @@
+       ui->txFirstCheckBox->setEnabled(false);
+   }
+   if(ui->q65Button->hasFocus() && (event->button() & Qt::RightButton)) {  // toggle Q65_Pileup mode On/Off
+-      m_specOp=m_config.special_op_id();
+       if (m_specOp==SpecOp::Q65_PILEUP) {
+           m_config.setSpecial_None();
+           ui->tx1->setEnabled(true);
+@@ -7110,6 +7129,19 @@
+       m_specOp=m_config.special_op_id();
+       on_actionQ65_triggered();
+   }
++
++  // URUR
++  if(m_specOp==SpecOp::FOX && ui->autoButton->hasFocus() && (event->button() & Qt::RightButton)) {  // toggle Fox authentication On/Off
++      if (!m_authentify) {
++          ui->labDXped->setStyleSheet("QLabel {background-color: #00ff00; color: black;}");
++          m_authentify = true;
++      } else {
++          ui->labDXped->setStyleSheet("QLabel {background-color: red; color: white;}");
++          m_authentify = false;
++      }
++  }
++  // URUR
++
+ }
+ 
+ void MainWindow::on_dxCallEntry_textChanged (QString const& call)
+@@ -10702,7 +10734,7 @@
+     }
+   }
+ 
+-Transmit:
++Transmit:   // URUR
+   foxcom_.nslots=islot;
+   foxcom_.nfreq=ui->TxFreqSpinBox->value();
+   if(m_config.split_mode()) foxcom_.nfreq = foxcom_.nfreq - m_XIT;  //Fox Tx freq
+@@ -11913,3 +11945,14 @@
+                                     "Double-click to erase both windows.");
+     }
+ }
++
++void MainWindow::authentication()  // URUR
++{
++    m_specOp=m_config.special_op_id();
++    if (m_specOp==SpecOp::HOUND && m_authentified) {
++        ui->labDXped->setStyleSheet("QLabel {background-color: #00ff00; color: black;}");
++    } else {
++        ui->labDXped->setStyleSheet("QLabel {background-color: red; color: white;}");
++    }
++    statusChanged();
++}
