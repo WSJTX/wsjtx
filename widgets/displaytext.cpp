@@ -1143,7 +1143,7 @@ void DisplayText::AudioAlerts()
             effect13->deleteLater();
             audio->deleteLater();  // remove QAudioSink to avoid a memory leak
 #endif
-            alertsTimer.start (1500);
+            alertsTimer.start (1250);
             startIndex = 0;
             return;
         }
