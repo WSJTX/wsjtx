@@ -2080,7 +2080,7 @@ void MainWindow::fastSink(qint64 frames)
     // Wait & Reply for MSK144
     if (text.contains(m_config.my_callsign() + " " + m_hisCall) && m_hisCall!="" &&
         !decodedtext.string().contains("73 ") && m_mode=="MSK144" && m_config.Wait_features_enabled()
-        && m_QSOProgress != CALLING) {
+        && !ui->autoButton->isChecked()) {
           tx_watchdog (false);
           m_bDoubleClicked = true;
           processMessage(decodedtext);
@@ -4414,9 +4414,9 @@ void MainWindow::readFromStdout()                             //readFromStdout
           QString text = decodedtext.string().replace("<","").replace(">","");   // for Wait & Reply/Call
 
           // Wait & Reply
-          if ((m_mode=="FT8" or m_mode=="FT4" or m_mode=="Q65" or m_mode=="FST4") && (m_hisCall!="") &&
-              (text.contains(m_config.my_callsign() + " " + m_hisCall) && !text.contains("73 "))
-              && (m_config.Wait_features_enabled() or m_specOp==SpecOp::HOUND) && m_QSOProgress != CALLING) {
+          if ((m_mode=="FT8" or m_mode=="FT4" or m_mode=="Q65" or m_mode=="FST4") && (m_hisCall!="")
+              && (text.contains(m_config.my_callsign() + " " + m_hisCall) && !text.contains("73 "))
+              && m_config.Wait_features_enabled() && (!ui->autoButton->isChecked() or m_specOp==SpecOp::HOUND)) {
                   tx_watchdog (false);
                   m_bDoubleClicked = true;
                   processMessage(decodedtext0);
