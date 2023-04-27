@@ -2,7 +2,7 @@
 
 The best source of help in setting up your station or configuring
 _WSJT-X_ is the {wsjtx_group} at email address
-wsjtx@groups.io.  The chances are good that someone with
+wsjtgroup@groups.io.  The chances are good that someone with
 similar interests and equipment has already solved your problem and
 will be happy to help.  To post messages here you will need to
 {wsjt-devel}.
@@ -11,7 +11,7 @@ will be happy to help.  To post messages here you will need to
 
 One of your responsibilities as a _WSJT-X_ user is to help the
 volunteer programmers to make the program better.  Bugs may be
-reported to the WSJTX forum on Groups.io {wsjtgroup_mail} or the WSJT
+reported to the WSJTGROUP forum on Groups.io {wsjtgroup_mail} or the WSJT
 Developers list (wsjt-devel@lists.sourceforge.net).  Again, you will
 need to {wsjtx_group2} or {wsjt-devel2}. 
 
