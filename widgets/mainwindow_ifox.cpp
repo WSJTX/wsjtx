@@ -2286,7 +2286,6 @@ void MainWindow::fastSink(qint64 frames)
     if (!pounce && m_config.highlight_DXcall () && (m_hisCall!="") && ((text.contains(QRegularExpression {"(\\w+) " + m_hisCall}))
         || (decodedtext.string().contains("<...> " + m_hisCall))))  {
         ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);
-        if (m_config.alert_Enabled()) play_DXcall = true;    // UR disable for versions without alerts
         QTimer::singleShot (500, [=] {                       // repeated highlighting to override JTAlert
             ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);
         });
@@ -2299,33 +2298,7 @@ void MainWindow::fastSink(qint64 frames)
     }
     if (!pounce && m_config.highlight_DXgrid () && (m_hisGrid!="") && (decodedtext.string().contains(m_hisGrid)))  {
         ui->decodedTextBrowser->highlight_callsign(m_hisGrid, QColor(0,0,255), QColor(255,255,255), true);
-        if (m_config.alert_Enabled()) play_DXcall = true;    // UR disable for versions without alerts
     }
-    QTimer::singleShot (100, [=] {                       // UR delete for versions without alerts
-        if ((m_config.alert_Enabled()) && (m_config.alert_DXcall()) && (play_DXcall) && (m_hisCall!="")) {
-#ifdef WIN32
-            QAudioOutput info(QAudioDeviceInfo::defaultOutputDevice());
-            QString binPath = QCoreApplication::applicationDirPath();
-            QAudioFormat format;
-            format.setCodec("audio/pcm");
-            format.setSampleRate (48000);
-            format.setChannelCount (1);
-            format.setSampleSize (16);
-            format.setSampleType(QAudioFormat::SignedInt);
-            QAudioOutput* audio;
-            audio = new QAudioOutput(format, this);
-            connect(audio, SIGNAL(stateChanged(QAudio::State)), this, SLOT(handleStateChanged(QAudio::State)));
-            QFile *effect1 = new QFile(this);
-            effect1->setFileName(QString("%1/%2").arg(binPath, "/sounds/DXcall.wav"));
-            effect1->open(QIODevice::ReadOnly);
-            audio->start(effect1);
-#else
-                QString homePath = QDir::homePath();
-                QSound::play(QDir::homePath() + "/sounds/DXcall.wav");  // for Linux and macOS
-#endif
-            play_DXcall = false;
-        }
-    });                                                  // UR delete for versions without alerts
 
     if (!filtered or (filtered && m_config.filters_for_Wait_and_Pounce_only()))
         ui->decodedTextBrowser->displayDecodedText (decodedtext, m_config.my_callsign (), m_mode, m_config.DXCC(),
