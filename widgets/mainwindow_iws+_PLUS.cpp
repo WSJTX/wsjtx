@@ -12297,10 +12297,11 @@ void MainWindow::check_button_color()
 
 void MainWindow::read_txlog()
 {
-    QString logs_location;
-    QDir dataPath {QStandardPaths::writableLocation (QStandardPaths::DataLocation)};
-    logs_location = dataPath.exists("wsjtx.log") ? dataPath.absoluteFilePath("wsjtx.log") : m_config.data_dir ().absoluteFilePath ("wsjtx.log");
-    QFile logfile = {logs_location};
+#if defined(Q_OS_WIN)
+    static QFile logfile {QDir {QStandardPaths::writableLocation (QStandardPaths::DataLocation)}.absoluteFilePath ("wsjtx.log")};
+#else
+    static QFile logfile {QDir {QStandardPaths::writableLocation (QStandardPaths::ConfigLocation)}.absoluteFilePath ("wsjtx.log")};
+#endif
     QTextStream logstream(&logfile);
     if(logfile.open (QIODevice::ReadOnly | QIODevice::Text)) {
         while (!logstream.atEnd()) {
