@@ -26,6 +26,9 @@ public:
   QSqlTableModel * model ();
   void reset ();
   void export_qsos (QTextStream&) const;
+  QString rate();
+  double rate_last_n(int n);  // get the rate for the last n
+  int rate_60m();
 
 private:
   class impl;

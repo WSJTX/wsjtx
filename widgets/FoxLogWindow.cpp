@@ -47,7 +47,7 @@ FoxLogWindow::FoxLogWindow (QSettings * settings, Configuration const * configur
   m_->ui_.log_table_view->setItemDelegateForColumn (3, new MaidenheadLocatorDelegate {this});
   m_->ui_.log_table_view->setItemDelegateForColumn (6, new ForeignKeyDelegate {configuration->bands (), 0, this});
   m_->ui_.log_table_view->horizontalHeader ()->moveSection (6, 1); // move band to first column
-  m_->ui_.rate_label->setNum (0);
+  m_->ui_.rate_label->setText ("");
   m_->ui_.queued_label->setNum (0);
   m_->ui_.callers_label->setNum (0);
 
@@ -109,6 +109,11 @@ void FoxLogWindow::queued (int n)
 void FoxLogWindow::rate (int n)
 {
   m_->ui_.rate_label->setNum (n);
+}
+
+void FoxLogWindow::rate (QString s)
+{
+  m_->ui_.rate_label->setText(s);
 }
 
 void FoxLogWindow::log_model_changed (int row)

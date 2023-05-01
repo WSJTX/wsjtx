@@ -11,6 +11,7 @@
 #include <QSqlQuery>
 #include <QTextStream>
 #include <QDebug>
+#include "Logger.hpp"
 #include "Configuration.hpp"
 #include "qt_db_helpers.hpp"
 #include "pimpl_impl.hpp"
@@ -37,6 +38,10 @@ public:
   Configuration const * configuration_;
   QSqlQuery mutable dupe_query_;
   QSqlQuery mutable export_query_;
+  // queries for rates
+  QSqlQuery mutable rate_n_query_;
+  QSqlQuery mutable rate60m_query_;
+  QString rate();
 };
 
 #include "FoxLog.moc"
@@ -118,6 +123,25 @@ FoxLog::impl::impl (Configuration const * configuration)
                    "  ORDER BY "
                    "    \"when\"");
 
+  SQL_error_check (rate_n_query_, &QSqlQuery::prepare,
+                   "SELECT "
+                   " \"when\""
+                   "  FROM "
+                   "    fox_log "
+                   "  ORDER BY "
+                   "    \"when\" DESC"
+                   "  LIMIT :limitn"
+  );
+
+  SQL_error_check (rate60m_query_, &QSqlQuery::prepare,
+                   "SELECT "
+                   " COUNT() "
+                   "  FROM "
+                   "    fox_log "
+                   " where \"when\" > :one_hour_ago"
+                   "  ORDER BY "
+                   "    \"when\" DESC"
+  );
   setEditStrategy (QSqlTableModel::OnFieldChange);
   setTable ("fox_log");
   setHeaderData (fieldIndex ("when"), Qt::Horizontal, tr ("Date & Time(UTC)"));
@@ -133,6 +157,13 @@ FoxLog::impl::impl (Configuration const * configuration)
   setSort (fieldIndex ("when"), Qt::DescendingOrder);
 
   SQL_error_check (*this, &QSqlTableModel::select);
+}
+
+QString FoxLog::rate()
+{
+  return QString("Last_10: %1, Last_100: %2, Last_60m: %3").arg(QString::number(this->rate_last_n(10),'f',0),
+                                               QString::number(this->rate_last_n(100),'f',0),
+                                               QString::number(this->rate_60m()));
 }
 
 FoxLog::FoxLog (Configuration const * configuration)
@@ -219,6 +250,47 @@ void FoxLog::reset ()
       m_->select ();            // to refresh views
       m_->setEditStrategy (QSqlTableModel::OnFieldChange);
     }
+}
+
+int FoxLog::rate_60m()
+{
+  int rate60m = 0;
+  qlonglong const& one_hour_ago = QDateTime::currentDateTime().addSecs(-3600).toMSecsSinceEpoch () / 1000;
+
+  // query the 60m rate
+  m_->rate60m_query_.bindValue (":one_hour_ago", one_hour_ago);
+  SQL_error_check (m_->rate60m_query_, static_cast<bool (QSqlQuery::*) ()> (&QSqlQuery::exec));
+  m_->rate60m_query_.next ();
+  rate60m = m_->rate60m_query_.value (0).toLongLong();
+  return rate60m;
+  //
+}
+
+double FoxLog::rate_last_n(int n)
+{
+  double rate_interval = 0;
+
+  qlonglong const& secs_now = QDateTime::currentDateTime().toMSecsSinceEpoch () / 1000;
+
+  // get last n or up to n
+  m_->rate_n_query_.bindValue (":limitn", n);
+  SQL_error_check (m_->rate_n_query_, static_cast<bool (QSqlQuery::*) ()> (&QSqlQuery::exec));
+
+  m_->rate_n_query_.next();
+  if (!m_->rate_n_query_.isValid()) {
+    LOG_ERROR(QString("rate_n result is not valid. Last error %1").arg(m_->rate_n_query_.lastError().text()));
+    return 0.0;
+  }
+  // size / (time_now - time_of_first)
+  m_->rate_n_query_.last();
+  rate_interval = secs_now - m_->rate_n_query_.value (0).toLongLong ();
+  if (rate_interval == 0) return 0.0;
+
+  m_->rate_n_query_.first(); // count the records
+
+  int size = 1;
+  while (m_->rate_n_query_.next() && m_->rate_n_query_.isValid()) size++;
+  return (size/rate_interval) * 3600;
 }
 
 namespace

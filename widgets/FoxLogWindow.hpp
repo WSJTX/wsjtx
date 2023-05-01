@@ -22,6 +22,7 @@ public:
   void callers (int);
   void queued (int);
   void rate (int);
+  void rate (QString);
 
   Q_SIGNAL void reset_log_model () const;
 

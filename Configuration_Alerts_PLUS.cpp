@@ -616,6 +616,14 @@ private:
   Q_SLOT void on_Whitelist10_textEdited (QString const&);
   Q_SLOT void on_Whitelist11_textEdited (QString const&);
   Q_SLOT void on_Whitelist12_textEdited (QString const&);
+  Q_SLOT void on_Pass1_textEdited (QString const&);
+  Q_SLOT void on_Pass2_textEdited (QString const&);
+  Q_SLOT void on_Pass3_textEdited (QString const&);
+  Q_SLOT void on_Pass4_textEdited (QString const&);
+  Q_SLOT void on_Pass5_textEdited (QString const&);
+  Q_SLOT void on_Pass6_textEdited (QString const&);
+  Q_SLOT void on_Pass7_textEdited (QString const&);
+  Q_SLOT void on_Pass8_textEdited (QString const&);
 
   // typenames used as arguments must match registered type names :(
   Q_SIGNAL void start_transceiver (unsigned seqeunce_number) const;
@@ -739,6 +747,14 @@ private:
   QString Whitelist10_;
   QString Whitelist11_;
   QString Whitelist12_;
+  QString Pass1_;
+  QString Pass2_;
+  QString Pass3_;
+  QString Pass4_;
+  QString Pass5_;
+  QString Pass6_;
+  QString Pass7_;
+  QString Pass8_;
   QString cloudLogApiUrl_;
   QString cloudLogApiKey_;
 
@@ -790,6 +806,9 @@ private:
   bool Individual_Contest_Name_;
   bool Blacklisted_;
   bool Whitelisted_;
+  bool AlwaysPass_;
+  bool filters_for_Wait_and_Pounce_only_;
+  bool filters_for_word2_;
   bool bSpecialOp_;
   bool bCloudLog_;
   int  SelectedActivity_;
@@ -935,6 +954,9 @@ bool Configuration::twoPass() const {return m_->twoPass_;}
 bool Configuration::Individual_Contest_Name() const {return m_->Individual_Contest_Name_;}
 bool Configuration::Blacklisted() const {return m_->Blacklisted_;}
 bool Configuration::Whitelisted() const {return m_->Whitelisted_;}
+bool Configuration::AlwaysPass() const {return m_->AlwaysPass_;}
+bool Configuration::filters_for_Wait_and_Pounce_only() const {return m_->filters_for_Wait_and_Pounce_only_;}
+bool Configuration::filters_for_word2() const {return m_->filters_for_word2_;}
 bool Configuration::x2ToneSpacing() const {return m_->x2ToneSpacing_;}
 bool Configuration::x4ToneSpacing() const {return m_->x4ToneSpacing_;}
 bool Configuration::split_mode () const {return m_->split_mode ();}
@@ -1235,6 +1257,46 @@ QString Configuration::Whitelist11() const
 QString Configuration::Whitelist12() const
 {
   return m_->Whitelist12_;
+}
+
+QString Configuration::Pass1() const
+{
+  return m_->Pass1_;
+}
+
+QString Configuration::Pass2() const
+{
+  return m_->Pass2_;
+}
+
+QString Configuration::Pass3() const
+{
+  return m_->Pass3_;
+}
+
+QString Configuration::Pass4() const
+{
+  return m_->Pass4_;
+}
+
+QString Configuration::Pass5() const
+{
+  return m_->Pass5_;
+}
+
+QString Configuration::Pass6() const
+{
+  return m_->Pass6_;
+}
+
+QString Configuration::Pass7() const
+{
+  return m_->Pass7_;
+}
+
+QString Configuration::Pass8() const
+{
+  return m_->Pass8_;
 }
 
 auto Configuration::special_op_id () const -> SpecialOperatingActivity
@@ -1727,6 +1789,9 @@ void Configuration::impl::initialize_models ()
   ui_->cbContestName->setChecked(Individual_Contest_Name_);
   ui_->cbBlacklist->setChecked(Blacklisted_);
   ui_->cbWhitelist->setChecked(Whitelisted_);
+  ui_->cbPass->setChecked(AlwaysPass_);
+  ui_->cb_filters_for_Wait_and_Pounce_only->setChecked(filters_for_Wait_and_Pounce_only_);
+  ui_->cb_filters_for_word2->setChecked(filters_for_word2_);
   ui_->gbSpecialOpActivity->setChecked(bSpecialOp_);
   ui_->gbCloudlog->setChecked(bCloudLog_);
   ui_->leCloudlogApiUrl->setText(cloudLogApiUrl_);
@@ -1888,6 +1953,14 @@ void Configuration::impl::read_settings ()
   Whitelist10_ = settings_->value ("Whitelist10",QString {}).toString ();
   Whitelist11_ = settings_->value ("Whitelist11",QString {}).toString ();
   Whitelist12_ = settings_->value ("Whitelist12",QString {}).toString ();
+  Pass1_ = settings_->value ("Pass1",QString {}).toString ();
+  Pass2_ = settings_->value ("Pass2",QString {}).toString ();
+  Pass3_ = settings_->value ("Pass3",QString {}).toString ();
+  Pass4_ = settings_->value ("Pass4",QString {}).toString ();
+  Pass5_ = settings_->value ("Pass5",QString {}).toString ();
+  Pass6_ = settings_->value ("Pass6",QString {}).toString ();
+  Pass7_ = settings_->value ("Pass7",QString {}).toString ();
+  Pass8_ = settings_->value ("Pass8",QString {}).toString ();
   ui_->Blacklist1->setText(Blacklist1_);
   ui_->Blacklist2->setText(Blacklist2_);
   ui_->Blacklist3->setText(Blacklist3_);
@@ -1912,6 +1985,14 @@ void Configuration::impl::read_settings ()
   ui_->Whitelist10->setText(Whitelist10_);
   ui_->Whitelist11->setText(Whitelist11_);
   ui_->Whitelist12->setText(Whitelist12_);
+  ui_->Pass1->setText(Pass1_);
+  ui_->Pass2->setText(Pass2_);
+  ui_->Pass3->setText(Pass3_);
+  ui_->Pass4->setText(Pass4_);
+  ui_->Pass5->setText(Pass5_);
+  ui_->Pass6->setText(Pass6_);
+  ui_->Pass7->setText(Pass7_);
+  ui_->Pass8->setText(Pass8_);
 
   if (next_font_.fromString (settings_->value ("Font", QGuiApplication::font ().toString ()).toString ())
       && next_font_ != font_)
@@ -2081,6 +2162,9 @@ void Configuration::impl::read_settings ()
   Individual_Contest_Name_ = settings_->value("Individual_Contest_Name",false).toBool ();
   Blacklisted_ = settings_->value("Blacklisted",false).toBool ();
   Whitelisted_ = settings_->value("Whitelisted",false).toBool ();
+  AlwaysPass_ = settings_->value("AlwaysPass",false).toBool ();
+  filters_for_Wait_and_Pounce_only_ = settings_->value("FiltersForWaitAndPounceOnly",false).toBool ();
+  filters_for_word2_ = settings_->value("FiltersForWord2",false).toBool ();
   bSpecialOp_ = settings_->value("SpecialOpActivity",false).toBool ();
   bCloudLog_ = settings_->value("CloudLog",false).toBool ();
   cloudLogApiUrl_ = settings_->value ("CloudLogApiUrl", QString {}).toString ();
@@ -2188,6 +2272,14 @@ void Configuration::impl::write_settings ()
   settings_->setValue ("Whitelist10", Whitelist10_);
   settings_->setValue ("Whitelist11", Whitelist11_);
   settings_->setValue ("Whitelist12", Whitelist12_);
+  settings_->setValue ("Pass1", Pass1_);
+  settings_->setValue ("Pass2", Pass2_);
+  settings_->setValue ("Pass3", Pass3_);
+  settings_->setValue ("Pass4", Pass4_);
+  settings_->setValue ("Pass5", Pass5_);
+  settings_->setValue ("Pass6", Pass6_);
+  settings_->setValue ("Pass7", Pass7_);
+  settings_->setValue ("Pass8", Pass8_);
   settings_->setValue ("Font", font_.toString ());
   settings_->setValue ("DecodedTextFont", decoded_text_font_.toString ());
   settings_->setValue ("IDint", id_interval_);
@@ -2279,6 +2371,9 @@ void Configuration::impl::write_settings ()
   settings_->setValue ("Individual_Contest_Name", Individual_Contest_Name_);
   settings_->setValue ("Blacklisted", Blacklisted_);
   settings_->setValue ("Whitelisted", Whitelisted_);
+  settings_->setValue ("AlwaysPass", AlwaysPass_);
+  settings_->setValue ("FiltersForWaitAndPounceOnly", filters_for_Wait_and_Pounce_only_);
+  settings_->setValue ("FiltersForWord2", filters_for_word2_);
   settings_->setValue ("SelectedActivity", SelectedActivity_);
   settings_->setValue ("SpecialOpActivity", bSpecialOp_);
   settings_->setValue ("CloudLog", bCloudLog_);
@@ -2716,6 +2811,14 @@ void Configuration::impl::accept ()
   Whitelist10_= ui_->Whitelist10->text ().toUpper ();
   Whitelist11_= ui_->Whitelist11->text ().toUpper ();
   Whitelist12_= ui_->Whitelist12->text ().toUpper ();
+  Pass1_= ui_->Pass1->text ().toUpper ();
+  Pass2_= ui_->Pass2->text ().toUpper ();
+  Pass3_= ui_->Pass3->text ().toUpper ();
+  Pass4_= ui_->Pass4->text ().toUpper ();
+  Pass5_= ui_->Pass5->text ().toUpper ();
+  Pass6_= ui_->Pass6->text ().toUpper ();
+  Pass7_= ui_->Pass7->text ().toUpper ();
+  Pass8_= ui_->Pass8->text ().toUpper ();
   spot_to_psk_reporter_ = ui_->psk_reporter_check_box->isChecked ();
   psk_reporter_tcpip_ = ui_->psk_reporter_tcpip_check_box->isChecked ();
   id_interval_ = ui_->CW_id_interval_spin_box->value ();
@@ -2768,6 +2871,9 @@ void Configuration::impl::accept ()
   Individual_Contest_Name_ = ui_->cbContestName->isChecked ();
   Blacklisted_ = ui_->cbBlacklist->isChecked ();
   Whitelisted_ = ui_->cbWhitelist->isChecked ();
+  AlwaysPass_ = ui_->cbPass->isChecked ();
+  filters_for_Wait_and_Pounce_only_ = ui_->cb_filters_for_Wait_and_Pounce_only->isChecked ();
+  filters_for_word2_ = ui_->cb_filters_for_word2->isChecked ();
   bSpecialOp_ = ui_->gbSpecialOpActivity->isChecked ();
   bCloudLog_ = ui_->gbCloudlog->isChecked ();
   cloudLogApiUrl_ = ui_->leCloudlogApiUrl->text ();
@@ -2866,6 +2972,9 @@ void Configuration::impl::accept ()
   Individual_Contest_Name_ = ui_->cbContestName->isChecked();
   Blacklisted_ = ui_->cbBlacklist->isChecked();
   Whitelisted_ = ui_->cbWhitelist->isChecked();
+  AlwaysPass_ = ui_->cbPass->isChecked();
+  filters_for_Wait_and_Pounce_only_ = ui_->cb_filters_for_Wait_and_Pounce_only->isChecked();
+  filters_for_word2_ = ui_->cb_filters_for_word2->isChecked();
   alert_CQ_ = ui_->cbCQ->isChecked();
   alert_MyCall_ = ui_->cbMyCall->isChecked();
   alert_DXCC_ = ui_->cbDXCC->isChecked();
@@ -3645,6 +3754,46 @@ void Configuration::impl::on_Whitelist11_textEdited (QString const& exchange)
 void Configuration::impl::on_Whitelist12_textEdited (QString const& exchange)
 {
   ui_->Whitelist12->setText (exchange.toUpper ());
+}
+
+void Configuration::impl::on_Pass1_textEdited (QString const& exchange)
+{
+  ui_->Pass1->setText (exchange.toUpper ());
+}
+
+void Configuration::impl::on_Pass2_textEdited (QString const& exchange)
+{
+  ui_->Pass2->setText (exchange.toUpper ());
+}
+
+void Configuration::impl::on_Pass3_textEdited (QString const& exchange)
+{
+  ui_->Pass3->setText (exchange.toUpper ());
+}
+
+void Configuration::impl::on_Pass4_textEdited (QString const& exchange)
+{
+  ui_->Pass4->setText (exchange.toUpper ());
+}
+
+void Configuration::impl::on_Pass5_textEdited (QString const& exchange)
+{
+  ui_->Pass5->setText (exchange.toUpper ());
+}
+
+void Configuration::impl::on_Pass6_textEdited (QString const& exchange)
+{
+  ui_->Pass6->setText (exchange.toUpper ());
+}
+
+void Configuration::impl::on_Pass7_textEdited (QString const& exchange)
+{
+  ui_->Pass7->setText (exchange.toUpper ());
+}
+
+void Configuration::impl::on_Pass8_textEdited (QString const& exchange)
+{
+  ui_->Pass8->setText (exchange.toUpper ());
 }
 
 bool Configuration::impl::have_rig ()

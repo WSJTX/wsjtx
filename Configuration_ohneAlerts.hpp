@@ -125,6 +125,14 @@ public:
   QString Whitelist10() const;
   QString Whitelist11() const;
   QString Whitelist12() const;
+  QString Pass1() const;
+  QString Pass2() const;
+  QString Pass3() const;
+  QString Pass4() const;
+  QString Pass5() const;
+  QString Pass6() const;
+  QString Pass7() const;
+  QString Pass8() const;
   void setEU_VHF_Contest();
   QFont text_font () const;
   QFont decoded_text_font () const;
@@ -234,6 +242,9 @@ public:
   bool Individual_Contest_Name() const;
   bool Blacklisted() const;
   bool Whitelisted() const;
+  bool AlwaysPass() const;
+  bool filters_for_Wait_and_Pounce_only() const;
+  bool filters_for_word2() const;
 
 //                                      0       1      2         3       4       5      6     7        8           9
   enum class SpecialOperatingActivity {NONE, NA_VHF, EU_VHF, FIELD_DAY, RTTY, WW_DIGI, FOX, HOUND, ARRL_DIGI, Q65_PILEUP};
