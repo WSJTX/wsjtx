@@ -11,9 +11,8 @@ will be happy to help.  To post messages here you will need to
 
 One of your responsibilities as a _WSJT-X_ user is to help the
 volunteer programmers to make the program better.  Bugs may be
-reported to the WSJTGROUP forum on Groups.io {wsjtgroup_mail} or the WSJT
-Developers list (wsjt-devel@lists.sourceforge.net).  You will
-need to {wsjt-devel2}. 
+reported preferably to the WSJT Developers email list 
+(wsjt-devel@lists.sourceforge.net).  You will need to {wsjt-devel2}. 
 
 To be useful, bug reports should include at least the following
 information:
