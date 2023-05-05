@@ -11,6 +11,72 @@
                                                          
 Copyright 2001 - 2023 by Joe Taylor, K1JT, and the WSJT Development Team
 
+                      Release: WSJT-X 2.7.0-rc1
+                             May 12, 2023
+                      -------------------------
+
+WSJT-X_v2.7.0-rc1 is the first Release Candidate that introduces a new QMAP 
+program. The target application is EME. Besides that, there are a number of 
+other enhancements and fixes.
+
+ - New QMAP program: 
+   - QMAP is an independent program but is expected to be used cooperatively 
+     with WSJT-X. QMAP acts as a wideband decoder for one of the 60-second 
+     submodes of Q65. Decoding results are shared with WSJT-X, which manages 
+     operator interactions and rig control.
+   - WSJT-X can cooperate with QMAP via shared memory. In such operation WSJT-X 
+     provides a narrow (up to 5 kHz) view in which to conduct EME QSOs with 
+     full Doppler control, T/R switching, message sequencing, etc., and QMAP 
+     provides a wideband (90 kHz) view of all digital EME activity on the band.
+   - The Q65 decoder has been enhanced for better performance. These improvements 
+     apply to decodes made in WSJT-X and also to those made in QMAP, which uses 
+     the identical downstream code.
+   - QMAP provides most of the capabilities of map65, excert for adaptive
+     polarization.
+
+ - New Q65 Pileup mode, designed to help manage weak-signal pileup situations such 
+   as those experienced by 6-meter EME DXpeditions. Messages exchange 4-character 
+   locators rather than signal reports. Decoder "memory" provides q3-level 
+   sensitivity for up to 40 callers decoded at least once in the past 24 hours, 
+   and for whom the Moon is above the horizon.
+
+ - More efficient spotting to PSK Reporter. The transmission is now spread in time 
+   and redundant spots are removed, which will hopefully lead to a noticeably lower 
+   load for PSK Reporter.
+
+ - Support of the HamSCI Festivals of Eclipse Ionospheric Science: Temporarily, 
+   during the upcoming solar eclipses, spots are transmitted more frequently to   
+   PSK Reporter where this data is collected and used for analysis.  
+
+ - WSJT-X is now able to process more than 100 FT8 decodes per period.
+
+ - Further improvements to the Fox mode:
+   - Better internal handling of the two queues.
+   - The Fox Log window now displays statistical data on the QSO rate.
+
+ - When the location is changed (e.g during portable operations) an updated grid 
+   will be sent to PSK Reporter.
+
+ - The cty.dat file can now be updated from the settings. Just click the new 
+   button on the Colors tab.
+
+ - New status display when fetching a new LotW file.
+
+ - AutoSeq now also accepts MSHV multistream messages when in Hound mode.
+
+ - Better protection against unwanted effects caused by late FT8 decodes.
+
+ - Fixing an inconsistency where in the Contest Name was not correctly
+   remembered.
+
+ - Various other minor fixes and improvements to the code.
+
+ - Updated hyperlinks to our homepage and to our new WSJT GROUP User Forum 
+   (https://groups.io/g/wsjtgroup/) can now also be found in the User Guide.
+
+ - Some clarifications to the build instructions for macOS.
+
+
                         Release: WSJT-X 2.6.1
                            January 16, 2023
                       -------------------------
