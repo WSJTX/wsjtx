@@ -36,9 +36,10 @@ other enhancements and fixes.
 
  - New Q65 Pileup mode, designed to help manage weak-signal pileup situations such 
    as those experienced by 6-meter EME DXpeditions. Messages exchange 4-character 
-   locators rather than signal reports. Decoder "memory" provides q3-level 
-   sensitivity for up to 40 callers decoded at least once in the past 24 hours, 
-   and for whom the Moon is above the horizon.
+   locators rather than signal reports. Decoder provides q3-level sensitivity for
+   up to 40 callers decoded at least once in the past 24 hours, and for whom the 
+   Moon is above the horizon. Right-click on the Q65 button to enable or disable
+   the Q65 Pileup mode.
 
  - More efficient spotting to PSK Reporter. The transmission is now spread in time 
    and redundant spots are removed, which will hopefully lead to a noticeably lower 
