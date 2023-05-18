@@ -1910,7 +1910,7 @@ void Configuration::impl::read_settings ()
   Pass7_ = settings_->value ("Pass7",QString {}).toString ();
   Pass8_ = settings_->value ("Pass8",QString {}).toString ();
   highlight_orange_callsigns_ = settings_->value ("HighlightOrangeCallsigns",QString {}).toString ();
-  highlight_blue_callsigns_ = settings_->value ("HighlightBlackCallsigns",QString {}).toString ();
+  highlight_blue_callsigns_ = settings_->value ("HighlightBlueCallsigns",QString {}).toString ();
   ui_->Blacklist1->setText(Blacklist1_);
   ui_->Blacklist2->setText(Blacklist2_);
   ui_->Blacklist3->setText(Blacklist3_);
@@ -2059,7 +2059,7 @@ void Configuration::impl::read_settings ()
   include_WAE_entities_ = settings_->value("IncludeWAEEntities", false).toBool ();
   highlight_73_ = settings_->value("Highlight73", true).toBool ();
   highlight_orange_ = settings_->value("HighlightOrange", false).toBool ();
-  highlight_blue_ = settings_->value("HighlightBlack", false).toBool ();
+  highlight_blue_ = settings_->value("HighlightBlue", false).toBool ();
   alternate_erase_button_ = settings_->value("AlternateEraseButtonBehavior", false).toBool ();
   show_country_names_ = settings_->value("AlwaysShowCountryNames", false).toBool ();
   LotW_days_since_upload_ = settings_->value ("LotWDaysSinceLastUpload", 365).toInt ();
@@ -2217,7 +2217,7 @@ void Configuration::impl::write_settings ()
   settings_->setValue ("Pass7", Pass7_);
   settings_->setValue ("Pass8", Pass8_);
   settings_->setValue ("HighlightOrangeCallsigns", highlight_orange_callsigns_);
-  settings_->setValue ("HighlightBlackCallsigns", highlight_blue_callsigns_);
+  settings_->setValue ("HighlightBlueCallsigns", highlight_blue_callsigns_);
   settings_->setValue ("Font", font_.toString ());
   settings_->setValue ("DecodedTextFont", decoded_text_font_.toString ());
   settings_->setValue ("IDint", id_interval_);
@@ -2257,7 +2257,7 @@ void Configuration::impl::write_settings ()
   settings_->setValue ("IncludeWAEEntities", include_WAE_entities_);
   settings_->setValue ("Highlight73", highlight_73_);
   settings_->setValue ("HighlightOrange", highlight_orange_);
-  settings_->setValue ("HighlightBlack", highlight_blue_);
+  settings_->setValue ("HighlightBlue", highlight_blue_);
   settings_->setValue ("AlternateEraseButtonBehavior", alternate_erase_button_);
   settings_->setValue ("AlwaysShowCountryNames", show_country_names_);
   settings_->setValue ("LotWDaysSinceLastUpload", LotW_days_since_upload_);
