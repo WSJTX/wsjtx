@@ -2084,7 +2084,7 @@ void MainWindow::fastSink(qint64 frames)
     QString text2;
     QStringList tw=decodedtext.string().mid(24).split(" ",SkipEmptyParts);
     if (m_config.filters_for_word2()) {
-        text2 = tw[1].left(4);   // for Blacklist  URUR
+        text2 = tw[1].left(4);   // for Blacklist
     } else {
         text2 = text;   // for Blacklist
     }
@@ -2169,7 +2169,7 @@ void MainWindow::fastSink(qint64 frames)
 
     // Wait & Reply for MSK144
     if (text.contains(m_config.my_callsign() + " " + m_hisCall) && m_hisCall!="" &&
-        !text.string().contains("73 ") && m_mode=="MSK144" && m_config.Wait_features_enabled()
+        !text.contains("73 ") && m_mode=="MSK144" && m_config.Wait_features_enabled()
         && !ui->autoButton->isChecked()) {
                   tx_watchdog (false);
                   m_bDoubleClicked = true;
