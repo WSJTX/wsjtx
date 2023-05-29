@@ -3873,6 +3873,8 @@ Double-click to reset to the standard 73 message</string>
     <addaction name="actionEcho"/>
     <addaction name="separator"/>
     <addaction name="actionFreqCal"/>
+    <addaction name="separator"/>
+    <addaction name="actionFT4NS"/>
    </widget>
    <widget class="QMenu" name="menuConfig">
     <property name="title">
@@ -4519,6 +4521,14 @@ Double-click to reset to the standard 73 message</string>
   <action name="actionErase_list_of_Q65_callers">
    <property name="text">
     <string>Erase list of Q65 callers</string>
+   </property>
+  </action>
+  <action name="actionFT4NS">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>FT4 NS (NCCC Sprints)</string>
    </property>
   </action>
  </widget>

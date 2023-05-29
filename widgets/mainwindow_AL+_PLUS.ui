@@ -1367,7 +1367,7 @@ When not checked you can view the calibration results.</string>
                         <string>Tx  </string>
                        </property>
                        <property name="minimum">
-                        <number>100</number>
+                        <number>200</number>
                        </property>
                        <property name="maximum">
                         <number>5000</number>
@@ -1489,7 +1489,7 @@ When not checked you can view the calibration results.</string>
                         <string>Rx  </string>
                        </property>
                        <property name="minimum">
-                        <number>100</number>
+                        <number>200</number>
                        </property>
                        <property name="maximum">
                         <number>5000</number>
