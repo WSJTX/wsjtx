@@ -4477,8 +4477,6 @@ void MainWindow::readFromStdout()                             //readFromStdout
     bool bAvgMsg=false;
     int navg=0;
 
-    qint64 ms = QDateTime::currentMSecsSinceEpoch() % 86400000;
-    double fTR=float((ms%int(1000.0*m_TRperiod)))/int(1000.0*m_TRperiod);
     if(line_read.indexOf("<DecodeFinished>") >= 0) {
       m_bDecoded =  line_read.mid(20).trimmed().toInt() > 0;
       int n=line_read.trimmed().size();
@@ -4542,7 +4540,6 @@ void MainWindow::readFromStdout()                             //readFromStdout
           }
         m_tBlankLine = line_read.left(ntime);
       }
-      if(m_mode=="FT8" && fTR>0.6 && fTR<0.75) decodeDone();  // Clear a hung decoder status
     }   // Filtering out some false decodes, and don't write all.txt for such
 
       if ("FST4W" == m_mode)
@@ -6379,7 +6376,6 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
   // decode keyboard modifiers we are interested in
   auto shift = modifiers.testFlag (Qt::ShiftModifier);
   auto ctrl = modifiers.testFlag (Qt::ControlModifier);
-  // auto alt = modifiers.testFlag (Qt::AltModifier);
   auto auto_seq = ui->cbAutoSeq->isVisible () && ui->cbAutoSeq->isEnabled () && ui->cbAutoSeq->isChecked ();
   // basic mode sanity checks
   auto const& parts = message.clean_string ().split (' ', SkipEmptyParts);
@@ -7548,6 +7544,14 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
       } else {
         pounce = false;
         check_button_color();
+      }
+  }
+  // Reset a hung decoder
+  if(ui->DecodeButton->hasFocus() && (event->button() & Qt::RightButton)) {
+      to_jt9(m_ihsym,-1,-1);     // Allow jt9 to bail out early, if necessary
+      if(m_ihsym==40 and m_decoderBusy) {
+        qDebug() << "Clearing hung decoder status";
+        decodeDone();  // Clear a hung decoder status
       }
   }
   // Switch contest mode on/off
