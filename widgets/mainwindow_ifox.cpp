@@ -4413,7 +4413,6 @@ void MainWindow::readFromStdout()                             //readFromStdout
            ((((message0.contains("/P") && message0.contains(" R "))                    // /P and R
            || (message0.contains(";") && message0.contains("/R"))                      // ; and /R
            || (message0.contains(";") && message0.contains("/P"))                      // ; and /P
-           || message0.contains("? a")                                                 // ap decodes of low confidence
            || (message0.contains("<...>") && message0.contains(" R "))                 // hash and R
            || (message0.contains("<...>") && message0.contains("/P"))                  // hash and /P
            || (message0.contains("<...>") && message0.contains(";"))                   // hash and ;
@@ -4421,9 +4420,10 @@ void MainWindow::readFromStdout()                             //readFromStdout
            || message0.contains(QRegularExpression {"\\d\\d\\d \\d\\d\\d"})            // contest messages
            || message0.contains("3.") || message0.contains("2.")
            || message0.contains("1."))                                                 // -0.9 < dt <  0.9
-           && (message0.contains("-24") || message0.contains("-25")))          // for such SNRmin = -23
+           && (message0.contains("-1") || message0.contains("-2")))            // for such SNRmin = -09
            or (message0.contains("/R") && message0.contains("-2"))             // very weak rover calls
            or (((message0.contains("<...>") || message0.contains(";")                  // unresolved hash and F/H messages
+               || message0.contains("? a")                                             // ap decodes of low confidence
                || message0.contains("/R") || message0.contains(" R ")                  // rover and contest calls
                || message0.contains("-24") || message0.contains("-25"))                // SNR < -23
                && (message0.contains("3.") || message0.contains("2.")))))))    // for such -1.9 < dt < 1.9
