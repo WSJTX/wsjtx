@@ -17,7 +17,7 @@
    <item>
     <widget class="QTabWidget" name="configuration_tabs">
      <property name="currentIndex">
-      <number>6</number>
+      <number>0</number>
      </property>
      <widget class="QWidget" name="general_tab">
       <attribute name="title">
@@ -2589,7 +2589,7 @@ Right click for insert and delete options.</string>
             <item row="0" column="2">
              <widget class="QCheckBox" name="highlight_orange_check_box">
               <property name="toolTip">
-               <string>Highlight callsigns or grids with orange background color. Callsigns and/or grids must be separated by comma or space.</string>
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Highlight callsigns or grids with orange background color. Callsigns and/or grids must be separated by a comma, and there must be a comma after each callsign.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
               <property name="text">
                <string>Highlight orange:</string>
@@ -2599,7 +2599,7 @@ Right click for insert and delete options.</string>
             <item row="2" column="2">
              <widget class="QCheckBox" name="highlight_blue_check_box">
               <property name="toolTip">
-               <string>Highlight callsigns or grids with blue background color. Callsigns and/or grids must be separated by comma or space.</string>
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Highlight callsigns or grids with blue background color. Callsigns and/or grids must be separated by a comma, and there must be a comma after each callsign.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
               <property name="text">
                <string>Highlight blue:</string>
@@ -2609,14 +2609,14 @@ Right click for insert and delete options.</string>
             <item row="1" column="2">
              <widget class="QLineEdit" name="highlight_orange_callsigns">
               <property name="toolTip">
-               <string>Highlight callsigns or grids with orange background color. Callsigns and/or grids must be separated by comma or space.</string>
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Highlight callsigns or grids with orange background color. Callsigns and/or grids must be separated by a comma, and there must be a comma after each callsign.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
              </widget>
             </item>
             <item row="3" column="2">
              <widget class="QLineEdit" name="highlight_blue_callsigns">
               <property name="toolTip">
-               <string>Highlight callsigns or grids with blue background color. Callsigns and/or grids must be separated by comma or space.</string>
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Highlight callsigns or grids with blue background color. Callsigns and/or grids must be separated by a comma, and there must be a comma after each callsign.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
              </widget>
             </item>
@@ -4236,13 +4236,13 @@ Right click for insert and delete options.</string>
   </connection>
  </connections>
  <buttongroups>
-  <buttongroup name="CAT_stop_bits_button_group"/>
+  <buttongroup name="CAT_data_bits_button_group"/>
+  <buttongroup name="special_op_activity_button_group"/>
   <buttongroup name="PTT_method_button_group"/>
   <buttongroup name="CAT_handshake_button_group"/>
-  <buttongroup name="CAT_data_bits_button_group"/>
-  <buttongroup name="split_mode_button_group"/>
+  <buttongroup name="CAT_stop_bits_button_group"/>
   <buttongroup name="TX_mode_button_group"/>
   <buttongroup name="TX_audio_source_button_group"/>
-  <buttongroup name="special_op_activity_button_group"/>
+  <buttongroup name="split_mode_button_group"/>
  </buttongroups>
 </ui>
