@@ -2235,13 +2235,7 @@ When not checked you can view the calibration results.</string>
               </property>
               <property name="styleSheet">
                <string notr="true">QPushButton:checked {
-	color: rgb(0, 0, 0);
 	background-color: red;
-	border-style: outset;
-	border-width: 1px;
-	border-radius: 5px;
-	border-color: black;
-	padding: 3px;
 }</string>
               </property>
               <property name="text">

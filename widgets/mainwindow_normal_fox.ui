@@ -3242,13 +3242,7 @@ QLabel[oob=&quot;true&quot;] {
              </property>
              <property name="styleSheet">
               <string notr="true">QPushButton:checked {
-	color: rgb(0, 0, 0);
-	background-color: #00ff00;
-	border-style: outset;
-	border-width: 1px;
-	border-radius: 5px;
-	border-color: black;
-	padding: 3px;
+	background-color: #009b00;
 }</string>
              </property>
              <property name="text">
@@ -3278,13 +3272,7 @@ QLabel[oob=&quot;true&quot;] {
              </property>
              <property name="styleSheet">
               <string notr="true">QPushButton:checked {
-	color: rgb(0, 0, 0);
 	background-color: red;
-	border-style: outset;
-	border-width: 1px;
-	border-radius: 5px;
-	border-color: black;
-	padding: 3px;
 }</string>
              </property>
              <property name="text">
