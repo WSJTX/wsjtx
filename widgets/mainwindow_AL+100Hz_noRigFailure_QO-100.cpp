@@ -4593,8 +4593,6 @@ void MainWindow::readFromStdout()                             //readFromStdout
             if (m_config.prompt_to_log() || m_config.autoLog()) logQSOTimer.start(0);
             QTimer::singleShot (500, [=] {
               on_stopTxButton_clicked();
-              clearDX();
-              ui->tx5->setCurrentText("");   // clear tx5
             });
           }
 
@@ -6562,10 +6560,11 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
           m_QSOProgress=ROGER_REPORT;
           // FT4 NS (NCCC Sprints): Log QSO after sending "hiscall mycall R mygrid"
           if (SpecOp::NA_VHF==m_specOp && m_mode=="FT4" && m_config.NCCC_Sprints()) {
-              if (m_config.prompt_to_log() || m_config.autoLog()) logQSOTimer.start(0);
-              auto_tx_mode(false);
-              if (m_auto) ui->autoButton->click();
-              QTimer::singleShot (int(850.0*m_TRperiod), [=] {clearDX();});
+              if (m_auto && (m_config.prompt_to_log() || m_config.autoLog())) logQSOTimer.start(0);
+              QTimer::singleShot (int(850.0*m_TRperiod), [=] {
+                auto_tx_mode(false);
+                if (m_auto) ui->autoButton->click();
+              });
           }
         } else {
           if(m_mode=="JT65" and message_words.size()>5 and message_words.at(5)=="OOO") {
