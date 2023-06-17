@@ -2280,7 +2280,7 @@ void MainWindow::fastSink(qint64 frames)
         QString deCall;
         QString deGrid;
         decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
-        if (!filtered && deGrid.contains(grid_regexp) && (
+        if (!filtered && (deGrid.contains(grid_regexp) or m_bCallingCQ) && (
              (pounce && text.contains(" CQ ") && !txlog.contains(deCall) && m_config.Wait_features_enabled()) or
              (m_bCallingCQ && text.contains(m_config.my_callsign()) && !text.contains("73 "))
                                                                     )) {
@@ -4872,7 +4872,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
          // if they dont' send their grid we'll use ours and assume dx=0
          if (deGrid.length() == 0) deGrid = m_config.my_grid();
 
-         if (!filtered && deGrid.contains(grid_regexp) && (
+         if (!filtered && (deGrid.contains(grid_regexp) or m_bCallingCQ) && (
              (pounce && text.contains(" CQ ") && !txlog.contains(deCall) && m_config.Wait_features_enabled()) or
              (m_bCallingCQ && text.contains(m_config.my_callsign()) && !text.contains("73 "))
                                                            )) {
@@ -7698,6 +7698,7 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
 
 void MainWindow::on_dxCallEntry_textChanged (QString const& call)
 {
+  set_dateTimeQSO (-1);  // reset the QSO start time when DXCall changes
   m_hisCall = call;
 //  ui->dxGridEntry->clear();    // UR disabled because not useful with highlightDXCall/DXGrid feature
   if (ui->DX_Call_Button->isChecked()) ui->DX_Call_Button->click ();
