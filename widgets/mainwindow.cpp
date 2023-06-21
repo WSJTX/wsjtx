@@ -1361,6 +1361,7 @@ void MainWindow::writeSettings()
   m_settings->setValue ("HideAF", ui->actionHideAF->isChecked() );
   m_settings->setValue ("HideOC", ui->actionHideOC->isChecked() );
   m_settings->setValue ("HideAN", ui->actionHideAN->isChecked() );
+  m_settings->setValue ("HighlightCallsigns", ui->actionHighlightCallsigns->isChecked() );
   m_settings->endGroup();
 }
 
@@ -1456,6 +1457,7 @@ void MainWindow::readSettings()
   ui->actionHideAF->setChecked(m_settings->value("HideAF", false).toBool());
   ui->actionHideOC->setChecked(m_settings->value("HideOC", false).toBool());
   ui->actionHideAN->setChecked(m_settings->value("HideAN", false).toBool());
+  ui->actionHighlightCallsigns->setChecked(m_settings->value("HighlightCallsigns", false).toBool());
   m_mode=m_settings->value("Mode","FT8").toString();
   ui->actionNone->setChecked(m_settings->value("SaveNone",true).toBool());
   ui->actionSave_decoded->setChecked(m_settings->value("SaveDecoded",false).toBool());
@@ -5188,6 +5190,35 @@ void MainWindow::readFromStdout()                             //readFromStdout
                                                       ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
                                                       haveFSpread, fSpread, bDisplayPoints, m_points, distance);
            if(m_position != 0) ui->decodedTextBrowser->horizontalScrollBar()->setValue(m_position);
+       }
+
+       // highlight callsigns   // DG2YCB only
+       if(ui->actionHighlightCallsigns->isChecked()) {
+           QString deCall;
+           QString deGrid;
+           decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
+           bool callB4;
+           bool countryB4;
+           bool gridB4;
+           bool continentB4;
+           bool CQZoneB4;
+           bool ITUZoneB4;
+           auto const& looked_up = m_logBook.countries ()->lookup (deCall);
+           Frequency dial_frequency {m_rigState.ptt () && m_rigState.split () ?
+                                       m_rigState.tx_frequency () : m_rigState.frequency ()};
+           auto const& band_name = m_config.bands ()->find (dial_frequency);
+           auto countryName = looked_up.entity_name;
+           QString continent = AD1CCty::continent (looked_up.continent);
+           m_logBook.match (deCall, m_mode, deGrid, looked_up, callB4, countryB4, gridB4, continentB4, CQZoneB4, ITUZoneB4);
+           if (deCall!="" && (!countryB4 or (band_name == "2m" && (!(countryName.contains("Germany") or
+               countryName.contains("Netherlands") or countryName.contains("Belgium") or countryName.contains("Denmark")))))) {
+              ui->decodedTextBrowser->highlight_callsign(deCall, QColor(255,255,0), QColor(0,0,0), true);
+           }
+           if ((band_name == "2m" or band_name == "6m" or band_name == "160m") && continent != "EU") {
+              ui->decodedTextBrowser->highlight_callsign(deCall, QColor(255,130,255), QColor(0,0,0), true);
+           }
+           if (deCall=="MM0HVU" or deCall=="LZ2HV" or deCall=="ES1JA" or deCall=="UA3DJY" or deCall=="OE1MWW")
+              ui->decodedTextBrowser->highlight_callsign(deCall, QColor(0,0,0), QColor(255,255,0), true);
        }
 
        if((m_mode=="FT4" or m_mode=="FT8") and bDisplayPoints and decodedtext1.isStandardMessage()) {
