@@ -3527,7 +3527,7 @@ Double-click to reset to the standard 73 message</string>
                        <string>6m Q65</string>
                       </property>
                       <property name="text">
-                       <string>QO FT8</string>
+                       <string>6m Q65</string>
                       </property>
                      </widget>
                     </item>
@@ -3537,7 +3537,7 @@ Double-click to reset to the standard 73 message</string>
                        <string>2m Q65</string>
                       </property>
                       <property name="text">
-                       <string>QO FT4</string>
+                       <string>2m Q65</string>
                       </property>
                      </widget>
                     </item>
