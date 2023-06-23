@@ -170,8 +170,8 @@ contains
     ibwa=1                          !Q65-60A
     if(mode_q65.eq.2) ibwa=3        !Q65-60B
     if(mode_q65.eq.4) ibwa=8        !Q65-60C
-    if(mode_q65.eq.2) ibwa=9        !Q65-60D
-    if(mode_q65.eq.2) ibwa=10       !Q65-60E
+    if(mode_q65.eq.8) ibwa=8        !Q65-60D
+    if(mode_q65.eq.16) ibwa=8       !Q65-60E
 !###
 
 !    ibwb=min(15,ibwa+4)
@@ -180,7 +180,7 @@ contains
     if(iand(ndepth,3).eq.2) maxiters=60
     if(iand(ndepth,3).eq.3) then
        ibwa=max(1,ibwa-2)
-       ibwb=ibwb+2
+       ibwb=min(15,ibwb+2)
        maxiters=100
     endif
 
