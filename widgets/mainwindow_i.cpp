@@ -12721,8 +12721,11 @@ void MainWindow::check_button_color()
     if (m_config.Wait_features_enabled()) {
         ui->DX_Call_Button->setToolTip("Toggle Wait & Call On/Off.\n"
                                        "Right-click to clear the DX Call box.");
+        ui->autoButton->setToolTip("Toggle Auto-Tx On/Off.\n"
+                                   "Right-click to toggle Wait & Pounce On/Off.");
     } else {
         ui->DX_Call_Button->setToolTip("Right-click to clear the DX Call box");
+        ui->autoButton->setToolTip("Toggle Auto-Tx On/Off");
     }
     if (m_config.alternate_erase_button()) {
         ui->EraseButton->setToolTip("Left-click to erase left window.\n"
