@@ -11,21 +11,25 @@
                                                          
 Copyright 2001 - 2023 by Joe Taylor, K1JT, and the WSJT Development Team
 
-
                       Release: WSJT-X 2.7.0-rc2
-                             July 10, 2023
+                             July 7, 2023
                       -------------------------
 
-WSJT-X 2.7.0 Release Candidate 2 brings primarily a couple of bug fixes.
+WSJT-X 2.7.0 Release Candidate 2 introduces several minor improvements
+and bug fixes.
 
- - CTRL+SHIFT+F11/F12 now changes the frequency by 1000 Hz instead of 
+ - CTRL+SHIFT+F11/F12 now changes dial frequency by 1000 Hz instead of
    2000 Hz.
+
+ - Improved spotting to PSK Reporter for upcoming HamSCI Festivals of
+   Eclipse Ionospheric Science.
+
+ - Added optional Hungarian translation of the user interface.
+
+ - Fixed a flaw that could produce false decodes in Q65 submodes D and E.
 
  - Fixed a flaw with the QSO start time. It is now reset when the DX 
    Call changes.
-
- - Some improvements for upcoming HamSCI Festivals of Eclipse Ionospheric 
-   Science.
 
  - Fixed a flaw that prevented contest logging of the ARRL Digi Contest.
 
