@@ -2542,8 +2542,8 @@ void MainWindow::fastSink(qint64 frames)
             ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);
         });
     }
-    if (!pounce && m_config.highlight_DXgrid () && (m_hisGrid!="") && (decodedtext.string().contains(m_hisGrid)))  {
-        ui->decodedTextBrowser->highlight_callsign(m_hisGrid, QColor(0,0,200), QColor(255,255,255), true);
+    if (!pounce && m_config.highlight_DXgrid () && (m_hisGrid!="") && (decodedtext.string().contains(m_hisGrid.left(4))))  {
+        ui->decodedTextBrowser->highlight_callsign(m_hisGrid.left(4), QColor(0,0,200), QColor(255,255,255), true);
     }
 
     m_bDecoded=true;
@@ -5271,8 +5271,8 @@ void MainWindow::readFromStdout()                             //readFromStdout
                ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);
                });
        }
-       if (!pounce && m_config.highlight_DXgrid () && (m_hisGrid!="") && (decodedtext.string().contains(m_hisGrid)))  {
-           ui->decodedTextBrowser->highlight_callsign(m_hisGrid, QColor(0,0,200), QColor(255,255,255), true);
+       if (!pounce && m_config.highlight_DXgrid () && (m_hisGrid!="") && (decodedtext.string().contains(m_hisGrid.left(4))))  {
+           ui->decodedTextBrowser->highlight_callsign(m_hisGrid.left(4), QColor(0,0,200), QColor(255,255,255), true);
        }
 
           if(m_bBestSPArmed && m_mode=="FT4" && CALLING == m_QSOProgress) {
