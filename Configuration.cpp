@@ -827,8 +827,7 @@ private:
   bool showAzimuth_;
   bool align_;
   bool repeat_Tx_;
-  bool auto_open_;
-  bool auto_close_;
+  bool auto_astro_;
   bool single_decode_;
   bool twoPass_;
   bool Individual_Contest_Name_;
@@ -977,8 +976,7 @@ bool Configuration::showDistance() const {return m_->showDistance_;}
 bool Configuration::showAzimuth() const {return m_->showAzimuth_;}
 bool Configuration::align() const {return m_->align_;}
 bool Configuration::repeat_Tx () const {return m_->repeat_Tx_;}
-bool Configuration::auto_open () const {return m_->auto_open_;}
-bool Configuration::auto_close () const {return m_->auto_close_;}
+bool Configuration::auto_astro () const {return m_->auto_astro_;}
 bool Configuration::single_decode () const {return m_->single_decode_;}
 bool Configuration::twoPass() const {return m_->twoPass_;}
 bool Configuration::Individual_Contest_Name() const {return m_->Individual_Contest_Name_;}
@@ -1879,8 +1877,7 @@ void Configuration::impl::initialize_models ()
   ui_->cb_showAzimuth->setChecked(showAzimuth_);
   ui_->cb_Align->setChecked(align_);
   ui_->repeat_Tx_check_box->setChecked(repeat_Tx_);
-  ui_->auto_open_check_box->setChecked(auto_open_);
-  ui_->auto_close_check_box->setChecked(auto_close_);
+  ui_->auto_astro_check_box->setChecked(auto_astro_);
   ui_->single_decode_check_box->setChecked(single_decode_);
   ui_->cbTwoPass->setChecked(twoPass_);
   ui_->cbContestName->setChecked(Individual_Contest_Name_);
@@ -2278,8 +2275,7 @@ void Configuration::impl::read_settings ()
   showAzimuth_ = settings_->value("showAzimuth", false).toBool();
   align_ = settings_->value("AlignDistanceAzimuth", false).toBool();
   repeat_Tx_ = settings_->value("RepeatTx",false).toBool ();
-  auto_open_ = settings_->value("AutoOpenAstroWindow",false).toBool ();
-  auto_close_ = settings_->value("AutoCloseAstroWindow",false).toBool ();
+  auto_astro_ = settings_->value("AutoAstroWindow",false).toBool ();
   single_decode_ = settings_->value("SingleDecode",false).toBool ();
   twoPass_ = settings_->value("TwoPass",true).toBool ();
   Individual_Contest_Name_ = settings_->value("Individual_Contest_Name",false).toBool ();
@@ -2502,8 +2498,7 @@ void Configuration::impl::write_settings ()
   settings_->setValue ("showAzimuth", showAzimuth_);
   settings_->setValue ("AlignDistanceAzimuth", align_);
   settings_->setValue ("RepeatTx", repeat_Tx_);
-  settings_->setValue ("AutoOpenAstroWindow", auto_open_);
-  settings_->setValue ("AutoCloseAstroWindow", auto_close_);
+  settings_->setValue ("AutoAstroWindow", auto_astro_);
   settings_->setValue ("SingleDecode", single_decode_);
   settings_->setValue ("TwoPass", twoPass_);
   settings_->setValue ("Individual_Contest_Name", Individual_Contest_Name_);
@@ -3015,8 +3010,7 @@ void Configuration::impl::accept ()
   showAzimuth_ = ui_->cb_showAzimuth->isChecked();
   align_ = ui_->cb_Align->isChecked();
   repeat_Tx_ = ui_->repeat_Tx_check_box->isChecked ();
-  auto_open_ = ui_->auto_open_check_box->isChecked ();
-  auto_close_ = ui_->auto_close_check_box->isChecked ();
+  auto_astro_ = ui_->auto_astro_check_box->isChecked ();
   single_decode_ = ui_->single_decode_check_box->isChecked ();
   twoPass_ = ui_->cbTwoPass->isChecked ();
   Individual_Contest_Name_ = ui_->cbContestName->isChecked ();

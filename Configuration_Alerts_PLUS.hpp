@@ -195,6 +195,7 @@ public:
   bool showAzimuth() const ;
   bool align() const;
   bool repeat_Tx () const;
+  bool auto_astro () const;
   bool single_decode () const;
   bool twoPass() const;
   bool bFox() const;
