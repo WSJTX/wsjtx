@@ -2443,7 +2443,7 @@ void MainWindow::fastSink(qint64 frames)
                   auto_tx_mode(true);
                   processMessage(decodedtext);
                   QTimer::singleShot (6000, [=] {selected = false;});
-                  stopWCTimer.start(int(6000.0*m_TRperiod));     // Tx max 8*TRperiod
+                  if (pounce) stopWCTimer.start(int(6000.0*m_TRperiod));     // Tx max 8*TRperiod
     }
 
     // CQ: Max Dist for MSK144
@@ -2469,7 +2469,7 @@ void MainWindow::fastSink(qint64 frames)
                 if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {
                    auto_tx_mode(true);
                    processMessage(decodedtext);
-                   stopWCTimer.start(int(6000.0*m_TRperiod));     // Tx max 8*TRperiod
+                   if (pounce) stopWCTimer.start(int(6000.0*m_TRperiod));     // Tx max 8*TRperiod
                 }
                 ui->dxCallEntry->setText(deCall);
                 genStdMsgs(QString::number(decodedtext.snr()));
@@ -2497,7 +2497,7 @@ void MainWindow::fastSink(qint64 frames)
                 if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {
                     auto_tx_mode(true);
                     processMessage(decodedtext);
-                    stopWCTimer.start(int(6000.0*m_TRperiod));     // Tx max 8*TRperiod
+                    if (pounce) stopWCTimer.start(int(6000.0*m_TRperiod));     // Tx max 8*TRperiod
                 }
                 ui->dxCallEntry->setText(deCall);
                 genStdMsgs(QString::number(decodedtext.snr()));
@@ -2525,7 +2525,7 @@ void MainWindow::fastSink(qint64 frames)
                 if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {
                     auto_tx_mode(true);
                     processMessage(decodedtext);
-                    stopWCTimer.start(int(6000.0*m_TRperiod));     // Tx max 8*TRperiod
+                    if (pounce) stopWCTimer.start(int(6000.0*m_TRperiod));     // Tx max 8*TRperiod
                 }
                 ui->dxCallEntry->setText(deCall);
                 genStdMsgs(QString::number(decodedtext.snr()));
@@ -2541,7 +2541,11 @@ void MainWindow::fastSink(qint64 frames)
         ui->decodedTextBrowser->displayDecodedText (decodedtext, m_config.my_callsign (), m_mode, m_config.DXCC(),
           m_logBook, m_currentBand, m_config.ppfx ());
 
-           // highlight orange and blue callsigns for MSK144
+    // Ensure that Tx stops when "RR73" or "73" is received and repeat_Tx is enabled for MSK144
+    if (m_config.repeat_Tx() && m_mode=="MSK144" && m_hisCall!="" && text.contains(m_baseCall)
+        && text.contains(m_hisCall + " 73"))  cease_auto_Tx_after_QSO();
+
+    // highlight orange and blue callsigns for MSK144
     if(m_config.highlight_orange() or (m_config.highlight_blue())) {
         QString deCall;
         QString deGrid;
@@ -4812,10 +4816,10 @@ void MainWindow::readFromStdout()                             //readFromStdout
               m_bDoubleClicked = true;
               processMessage(decodedtext0);
               auto_tx_mode(true);
-              if(m_mode=="FT4" && SpecOp::NA_VHF==m_specOp && m_config.NCCC_Sprint()) {
-                if(!no_logging) logQSOTimer.start(0);  // logging of stations not in contest mode
+              if (m_mode=="FT4" && SpecOp::NA_VHF==m_specOp && m_config.NCCC_Sprint()) {
+                if (!no_logging) logQSOTimer.start(0);  // logging of stations not in contest mode
               } else {
-                stopWRTimer.start(int(8000.0*m_TRperiod));    // Wait & Reply Tx max 8*TRperiod
+                if (m_config.Wait_features_enabled()) stopWRTimer.start(int(8000.0*m_TRperiod));    // Wait & Reply Tx max 8*TRperiod
               }
         }
 
@@ -5211,7 +5215,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
          auto_tx_mode(true);
          processMessage(decodedtext0);
          QTimer::singleShot (6000, [=] {selected = false;});
-         stopWCTimer.start(int(6000.0*m_TRperiod));     // Tx max 8*TRperiod
+         if (pounce) stopWCTimer.start(int(6000.0*m_TRperiod));     // Tx max 8*TRperiod
        }
 
        // CQ: Max Dist
@@ -5237,7 +5241,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
                    if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {
                        auto_tx_mode(true);
                        processMessage(decodedtext0);
-                       stopWCTimer.start(int(6000.0*m_TRperiod));     // Tx max 8*TRperiod
+                       if (pounce) stopWCTimer.start(int(6000.0*m_TRperiod));     // Tx max 8*TRperiod
                    }
                    ui->dxCallEntry->setText(deCall);
                    genStdMsgs(QString::number(decodedtext.snr()));
@@ -5265,7 +5269,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
                    if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {
                        auto_tx_mode(true);
                        processMessage(decodedtext0);
-                       stopWCTimer.start(int(6000.0*m_TRperiod));     // Tx max 8*TRperiod
+                       if (pounce) stopWCTimer.start(int(6000.0*m_TRperiod));     // Tx max 8*TRperiod
                    }
                    ui->dxCallEntry->setText(deCall);
                    genStdMsgs(QString::number(decodedtext.snr()));
@@ -5293,7 +5297,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
                    if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {
                        auto_tx_mode(true);
                        processMessage(decodedtext0);
-                       stopWCTimer.start(int(6000.0*m_TRperiod));     // Tx max 8*TRperiod
+                       if (pounce) stopWCTimer.start(int(6000.0*m_TRperiod));     // Tx max 8*TRperiod
                    }
                    ui->dxCallEntry->setText(deCall);
                    genStdMsgs(QString::number(decodedtext.snr()));
@@ -5303,6 +5307,10 @@ void MainWindow::readFromStdout()                             //readFromStdout
                }
          }
        }
+
+       // Ensure that Tx stops when "RR73" or "73" is received and repeat_Tx is enabled
+       if (m_config.repeat_Tx() && m_mode=="Q65" && m_hisCall!="" && text.contains(m_baseCall)
+           && text.contains(m_hisCall + " 73"))  cease_auto_Tx_after_QSO();
 
        // highlight orange and blue callsigns
        if(m_config.highlight_orange() or (m_config.highlight_blue())) {
@@ -6141,11 +6149,9 @@ void MainWindow::guiUpdate()
       }
       if((m_config.prompt_to_log() or m_config.autoLog()) && !m_tune && CALLING != m_QSOProgress)
         {
-          // always stop Tx after sending 73
-          if(m_config.repeat_Tx() && (m_mode=="MSK144" or m_mode=="Q65") && m_ntx != 4) cease_auto_Tx_after_QSO ();
-          // send RR73 up to 10 times
-          if(m_config.repeat_Tx() && (m_mode=="MSK144" or m_mode=="Q65")) stopWRTimer.start(int(20000.0*m_TRperiod));
-          if (!(m_mode=="FT4" && SpecOp::NA_VHF==m_specOp && m_config.NCCC_Sprint())) logQSOTimer.start(0);
+        // always stop Tx after sending 73
+        if(m_config.repeat_Tx() && (m_mode=="MSK144" or m_mode=="Q65") && m_ntx != 4) cease_auto_Tx_after_QSO ();
+        if (!(m_mode=="FT4" && SpecOp::NA_VHF==m_specOp && m_config.NCCC_Sprint())) logQSOTimer.start(0);
         }
       else
         {
@@ -6160,11 +6166,15 @@ void MainWindow::guiUpdate()
       if(m_nextCall!="") {
         useNextCall();
       } else {
-        auto_tx_mode (false);
-        if(b) {
-          m_ntx=6;
-          ui->txrb6->setChecked(true);
-          m_QSOProgress = CALLING;
+        if(m_config.repeat_Tx() && (m_mode=="MSK144" or m_mode=="Q65")) {
+           stopWRTimer.start(int(20000.0*m_TRperiod));  // send RR73 up to 10 times
+        } else {
+          auto_tx_mode (false);
+          if(b) {
+            m_ntx=6;
+            ui->txrb6->setChecked(true);
+            m_QSOProgress = CALLING;
+          }
         }
       }
     }
