@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>840</width>
+    <width>853</width>
     <height>703</height>
    </rect>
   </property>
@@ -543,6 +543,16 @@ quiet period when decoding is done.</string>
             </property>
             <property name="text">
              <string>Auto-open/close Astronomical Data window</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="3">
+           <widget class="QCheckBox" name="progress_bar_check_box">
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Turn the progress bar red while transmitting.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>Turn progress bar red while transmitting</string>
             </property>
            </widget>
           </item>
@@ -4293,13 +4303,13 @@ Right click for insert and delete options.</string>
   </connection>
  </connections>
  <buttongroups>
-  <buttongroup name="CAT_stop_bits_button_group"/>
-  <buttongroup name="CAT_data_bits_button_group"/>
-  <buttongroup name="CAT_handshake_button_group"/>
-  <buttongroup name="TX_audio_source_button_group"/>
-  <buttongroup name="PTT_method_button_group"/>
   <buttongroup name="special_op_activity_button_group"/>
-  <buttongroup name="split_mode_button_group"/>
   <buttongroup name="TX_mode_button_group"/>
+  <buttongroup name="PTT_method_button_group"/>
+  <buttongroup name="split_mode_button_group"/>
+  <buttongroup name="CAT_data_bits_button_group"/>
+  <buttongroup name="TX_audio_source_button_group"/>
+  <buttongroup name="CAT_handshake_button_group"/>
+  <buttongroup name="CAT_stop_bits_button_group"/>
  </buttongroups>
 </ui>

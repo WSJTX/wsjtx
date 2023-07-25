@@ -788,6 +788,7 @@ private:
   double txDelay_;
   bool id_after_73_;
   bool tx_QSY_allowed_;
+  bool progressBar_red_;
   bool spot_to_psk_reporter_;
   bool psk_reporter_tcpip_;
   bool monitor_off_at_startup_;
@@ -914,6 +915,7 @@ double Configuration::txDelay() const {return m_->txDelay_;}
 qint32 Configuration::RxBandwidth() const {return m_->RxBandwidth_;}
 bool Configuration::id_after_73 () const {return m_->id_after_73_;}
 bool Configuration::tx_QSY_allowed () const {return m_->tx_QSY_allowed_;}
+bool Configuration::progressBar_red () const {return m_->progressBar_red_;}
 bool Configuration::spot_to_psk_reporter () const
 {
   // rig must be open and working to spot externally
@@ -1789,6 +1791,7 @@ void Configuration::impl::initialize_models ()
   ui_->azel_path_display_label->setText (azel_directory_.absolutePath ());
   ui_->CW_id_after_73_check_box->setChecked (id_after_73_);
   ui_->tx_QSY_check_box->setChecked (tx_QSY_allowed_);
+  ui_->progress_bar_check_box->setChecked (progressBar_red_);
   ui_->psk_reporter_check_box->setChecked (spot_to_psk_reporter_);
   ui_->psk_reporter_tcpip_check_box->setChecked (psk_reporter_tcpip_);
   ui_->monitor_off_check_box->setChecked (monitor_off_at_startup_);
@@ -2075,6 +2078,7 @@ void Configuration::impl::read_settings ()
   psk_reporter_tcpip_ = settings_->value ("PSKReporterTCPIP", false).toBool ();
   id_after_73_ = settings_->value ("After73", false).toBool ();
   tx_QSY_allowed_ = settings_->value ("TxQSYAllowed", false).toBool ();
+  progressBar_red_ = settings_->value ("ProgresBarRed", true).toBool ();
   use_dynamic_grid_ = settings_->value ("AutoGrid", false).toBool ();
 
   macros_.setStringList (settings_->value ("Macros", QStringList {"TNX 73 GL"}).toStringList ());
@@ -2346,6 +2350,7 @@ void Configuration::impl::write_settings ()
   settings_->setValue ("PSKReporterTCPIP", psk_reporter_tcpip_);
   settings_->setValue ("After73", id_after_73_);
   settings_->setValue ("TxQSYAllowed", tx_QSY_allowed_);
+  settings_->setValue ("ProgressBarRed", progressBar_red_);
   settings_->setValue ("Macros", macros_.stringList ());
   settings_->setValue ("stations", QVariant::fromValue (stations_.station_list ()));
   settings_->setValue ("FrequenciesForRegionModes_v2", QVariant::fromValue (frequencies_.frequency_list ()));
@@ -2863,6 +2868,7 @@ void Configuration::impl::accept ()
   RxBandwidth_ = ui_->sbBandwidth->value ();
   id_after_73_ = ui_->CW_id_after_73_check_box->isChecked ();
   tx_QSY_allowed_ = ui_->tx_QSY_check_box->isChecked ();
+  progressBar_red_ = ui_->progress_bar_check_box->isChecked ();
   monitor_off_at_startup_ = ui_->monitor_off_check_box->isChecked ();
   monitor_last_used_ = ui_->monitor_last_used_check_box->isChecked ();
   type_2_msg_gen_ = static_cast<Type2MsgGen> (ui_->type_2_msg_gen_combo_box->currentIndex ());

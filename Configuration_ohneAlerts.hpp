@@ -157,6 +157,7 @@ public:
   double txDelay() const;
   bool id_after_73 () const;
   bool tx_QSY_allowed () const;
+  bool progressBar_red () const;
   bool spot_to_psk_reporter () const;
   bool psk_reporter_tcpip () const;
   bool monitor_off_at_startup () const;

@@ -6360,7 +6360,33 @@ void MainWindow::guiUpdate()
     }
 
     progressBar.setVisible(true);
-    progressBar.setFormat ("%v/%m");
+    // turn the progressbar red during transmission
+    if(m_config.progressBar_red()) {
+      if(m_transmitting) {
+        if (m_useDarkStyle) {
+          progressBar.setStyleSheet(QString("QProgressBar {color: #ffffff; text-align: center;} QProgressBar::chunk {background-color: #ff0000;}"));  // #ff6464;
+          progressBar.setFormat ("%v/%m");
+          } else {
+#ifdef WIN32
+            if(m_TRperiod > 99) {
+              progressBar.setStyleSheet(QString("QProgressBar {color: #000000; text-align: right; margin-right: 4em;} QProgressBar::chunk {background-color: #ff0000;}")); // #ff4141
+              progressBar.setFormat ("%v/%m ");
+            } else {
+              progressBar.setStyleSheet(QString("QProgressBar {color: #000000; text-align: right; margin-right: 3em;} QProgressBar::chunk {background-color: #ff0000;}")); // #ff4141
+              progressBar.setFormat ("%v/%m  ");
+            }
+#else
+            progressBar.setStyleSheet(QString("QProgressBar {color: #000000; text-align: center;} QProgressBar::chunk {background-color: #ff4141;}"));  // #ff6464;
+            progressBar.setFormat ("%v/%m");
+#endif
+          }
+      } else {
+          progressBar.setStyleSheet("");
+          progressBar.setFormat ("%v/%m");
+      }
+    } else {
+      progressBar.setFormat ("%v/%m");
+    }
     if(m_mode=="Echo") {
       progressBar.setMaximum(3);
       int n=0;
@@ -6428,7 +6454,7 @@ void MainWindow::guiUpdate()
               or ui->actionHideNA->isChecked() or ui->actionHideSA->isChecked() or ui->actionHideAF->isChecked()
               or ui->actionHideOC->isChecked() or ui->actionHideAN->isChecked()) {
           tx_status_label.setMinimumSize (QSize  {120, 18});
-          tx_status_label.setStyleSheet ("QLabel{color: #000000; background-color: #00ffff}");  // #00ff7f  #aaff00
+          tx_status_label.setStyleSheet ("QLabel{color: #000000; background-color: #00ffff}");
           t = "Receiving, Filters On";
         } else {
           tx_status_label.setMinimumSize (QSize  {100, 18});
