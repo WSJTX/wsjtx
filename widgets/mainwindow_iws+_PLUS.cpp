@@ -2109,15 +2109,15 @@ void MainWindow::fastSink(qint64 frames)
     QStringList tw=text.mid(24).split(" ",SkipEmptyParts);
     if (m_config.filters_for_word2()) {
       if (tw.size () < 2) {
-        text2 == "___";  // prevent segfault errors with free text messages
+        text2 = "___";    // prevent segfault errors with free text messages
       } else if (tw[1].length() == 2 && tw[1].contains(QRegularExpression{"\\w\\w"})) {   // directional calls
         if (tw.size () > 2) {
-          text2 = tw[2];   // for directional calls analyze word 3 for filtering
+          text2 = tw[2];  // for directional calls analyze word 3 for filtering
         } else {
-          text2 == "___";  // prevent segfault errors with free text messages
+          text2 = "___";  // prevent segfault errors with free text messages
         }
       } else {
-        text2 = tw[1];   // otherwise analyze word 2 for filtering
+        text2 = tw[1];    // otherwise analyze word 2 for filtering
       }
       if (!(SpecOp::NONE==m_specOp && m_config.AlwaysPass () // Always pass messages with keywords from Always Pass list
             && (
@@ -4850,15 +4850,15 @@ void MainWindow::readFromStdout()                             //readFromStdout
         QStringList tw=text.mid(24).split(" ",SkipEmptyParts);
         if (m_config.filters_for_word2()) {
               if (tw.size () < 2) {
-                  text2 == "___";  // prevent segfault errors with free text messages
+                  text2 = "___";    // prevent segfault errors with free text messages
               } else if (tw[1].length() == 2 && tw[1].contains(QRegularExpression{"\\w\\w"})) {   // directional calls
                   if (tw.size () > 2) {
-                    text2 = tw[2];   // for directional calls analyze word 3 for filtering
+                    text2 = tw[2];  // for directional calls analyze word 3 for filtering
                   } else {
-                    text2 == "___";  // prevent segfault errors with free text messages
+                    text2 = "___";  // prevent segfault errors with free text messages
                   }
               } else {
-                  text2 = tw[1];   // otherwise analyze word 2 for filtering
+                  text2 = tw[1];    // otherwise analyze word 2 for filtering
               }
               if (!(SpecOp::NONE==m_specOp && m_config.AlwaysPass () // Always pass messages with keywords from Always Pass list
                     && (
