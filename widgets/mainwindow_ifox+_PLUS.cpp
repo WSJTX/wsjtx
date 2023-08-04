@@ -9669,6 +9669,7 @@ void MainWindow::setXIT(int n, Frequency base)
 
 void MainWindow::setFreq4(int rxFreq, int txFreq)
 {
+  if (m_mode=="ECHO") return; // we do not adjust rx/tx for echo mode -- always 1500Hz
   if (ui->RxFreqSpinBox->isEnabled ()) ui->RxFreqSpinBox->setValue(rxFreq);
   if(m_mode=="WSPR" or m_mode=="FST4W") {
     ui->WSPRfreqSpinBox->setValue(txFreq);
