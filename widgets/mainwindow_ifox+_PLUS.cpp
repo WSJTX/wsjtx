@@ -3469,8 +3469,8 @@ void MainWindow::on_stopButton_clicked()                       //stopButton
       dBpoints2=99;                       // reset points
       maxdBPoints=-28;                    // reset points
       mindBPoints=99;                     // reset points
-      clearDX();                          // clear dxCallEntry
-      if (!keepTx5) ui->tx5->setCurrentText("");        // clear tx5
+      if (!(m_mode=="Q65" or m_mode=="JT65")) clearDX();  // clear dxCallEntry
+      if (!(keepTx5 or m_mode=="Q65" or m_mode=="JT65")) ui->tx5->setCurrentText("");  // clear tx5
       ui->autoButton->setChecked(false);  // ensure auoButton is unchecked
   }
   pounce = false;

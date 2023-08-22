@@ -168,7 +168,7 @@ subroutine q65_dec0(iavg,iwave,ntrperiod,nfqso,ntol,lclearave,  &
           better,ccf1)
      call timer('ccf_85  ',1)
 
-     if(better.ge.1.10) then
+     if(better.ge.1.10 .or. mode_q65.ge.8) then
         call timer('list_dec',0)
         call q65_dec_q3(s1,iz,jz,s3,LL,ipk,jpk,snr2,dat4,idec,decoded)
         call timer('list_dec',1)

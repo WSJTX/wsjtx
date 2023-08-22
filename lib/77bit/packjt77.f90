@@ -370,15 +370,28 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
      msg=adjustl(msg)
 
   else if(i3.eq.0 .and. n3.eq.6) then
-     read(c77(49:50),'(2b1)') j2a,j2b
-     itype=2
-     if(j2b.eq.0 .and. j2a.eq.0) itype=1
-     if(j2b.eq.0 .and. j2a.eq.1) itype=3
+     read(c77(48:50),'(3b1)') j48,j49,j50
+! bits 48:50
+! itype=1: x00
+! itype=2: xx1
+! itype=3: 010
+     if(j50.eq.1) then
+        itype=2
+     else if(j49.eq.0) then
+        itype=1
+     else if(j48.eq.0) then
+        itype=3
+     else
+        itype=-1
+        unpk77_success=.false.
+     endif
+
      if(itype.eq.1) then
 ! WSPR Type 1
         read(c77,2010) n28,igrid4,idbm
 2010    format(b28.28,b15.15,b5.5)
         idbm=nint(idbm*10.0/3.0)
+        if(idbm.lt.0 .or. idbm.gt.60) unpk77_success=.false.
         call unpack28(n28,call_1,unpk28_success) 
         if(.not.unpk28_success) unpk77_success=.false.
         call to_grid4(igrid4,grid4,unpkg4_success)
@@ -392,6 +405,7 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
         read(c77,2020) n28,npfx,idbm
 2020    format(b28.28,b16.16,b5.5)
         idbm=nint(idbm*10.0/3.0)        
+        if(idbm.lt.0 .or. idbm.gt.60) unpk77_success=.false.
         call unpack28(n28,call_1,unpk28_success) 
         if(.not.unpk28_success) unpk77_success=.false.
         write(crpt,'(i3)') idbm
