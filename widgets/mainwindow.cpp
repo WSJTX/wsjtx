@@ -4441,6 +4441,12 @@ void MainWindow::read_log()
 
 void MainWindow::ARRL_Digi_Update(DecodedText dt)
 {
+  if(m_mode=="Q65") {
+    m_fetched=0;
+    readWidebandDecodes();
+    return;
+  }
+
   // Extract information relevant for the ARRL Digi contest
   QString deCall;
   QString deGrid;
@@ -4500,6 +4506,11 @@ void MainWindow::ARRL_Digi_Update(DecodedText dt)
 
 void MainWindow::ARRL_Digi_Display()
 {
+  if(m_mode=="Q65") {
+    m_fetched=0;
+    readWidebandDecodes();
+    return;
+  }
   QMutableMapIterator<QString,RecentCall> icall(m_recentCall);
   QString deCall,deGrid;
   int age=0;
@@ -5458,6 +5469,24 @@ void MainWindow::readFromStdout()                             //readFromStdout
 // Same base call as ours but different prefix or suffix.  Rare but can happen with
 // multi-station special events.
                   for_us = false;
+            }
+          }
+
+          // Reply also to averaged messages that are only displayed in the right window
+          if(m_bCallingCQ && !m_bAutoReply && for_us && m_specOp!=SpecOp::FOX && m_specOp!=SpecOp::HOUND
+              && ui->actionInclude_averaging->isVisible() && ui->actionInclude_averaging->isChecked()) {
+            bool bProcessMsgNormally=ui->respondComboBox->currentText()!="CQ: None" or
+                                       (m_ActiveStationsWidget!=NULL and !m_ActiveStationsWidget->isVisible());
+            if (decodedtext.messageWords().length() >= 3) {
+                  QString t=decodedtext.messageWords()[2];
+                  if(t.contains("R+") or t.contains("R-") or t=="R" or t=="RRR" or t=="RR73") bProcessMsgNormally=true;
+            } else {
+                  bProcessMsgNormally=true;
+            }
+            if(bProcessMsgNormally) {
+                  m_bDoubleClicked=true;
+                  m_bAutoReply = true;
+                  processMessage (decodedtext);
             }
           }
 
