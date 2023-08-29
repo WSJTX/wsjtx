@@ -31,7 +31,7 @@ image::RadioTab.png[align="center",alt="Radio Tab"]
   suitable.
 
 * _CAT Control_: To have _WSJT-X_ control the radio directly rather
-  than though another program, make the following settings:
+  than through another program, make the following settings:
 
 ** Select the *Serial Port* or *Network Server* including the service
   port number used to communicate with your radio.
