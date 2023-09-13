@@ -307,7 +307,7 @@
         <item row="2" column="4" colspan="2">
          <widget class="QSpinBox" name="sbOffset">
           <property name="toolTip">
-           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Offset.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Select offset announced by calling station, or use commonly used value for the band in use. Manually set WSJT-X TX and RX offset to same value.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignCenter</set>
