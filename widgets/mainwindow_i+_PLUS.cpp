@@ -4066,7 +4066,7 @@ void MainWindow::on_actionSpecial_mouse_commands_triggered()
     <td align="right">Waterfall:</td>
     <td><b>Click</b> to set Rx frequency.<br/>
         <b>Right-click</b> to set Tx frequency.<br/>
-        <b>Double-click</b> to set Rx and Tx frequencies.<br/>
+        <b>Double-right-click</b> to set Rx and Tx frequencies.<br/>
     </td>
   </tr>
   <tr>
@@ -4081,7 +4081,7 @@ void MainWindow::on_actionSpecial_mouse_commands_triggered()
   </tr>
   <tr>
     <td align="right">H Button</td>
-    <td><b>Click</b> to toggle Fox/Hound Mode.<br/>
+    <td><b>Click</b> to toggle FT8 Hound Mode On/Off.<br/>
         <b>Right-click</b> to toggle last used Special Operating Activity On/Off.<br/>
     </td>
   </tr>
