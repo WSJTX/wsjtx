@@ -2346,7 +2346,7 @@ Double-click to reset to the standard 73 message</string>
                    <attribute name="title">
                     <string>3</string>
                    </attribute>
-                   <layout class="QGridLayout" name="gridLayout_10">
+                   <layout class="QGridLayout" name="gridLayout_13">
                     <property name="leftMargin">
                      <number>2</number>
                     </property>
@@ -2354,374 +2354,232 @@ Double-click to reset to the standard 73 message</string>
                      <number>3</number>
                     </property>
                     <property name="rightMargin">
-                     <number>2</number>
+                     <number>0</number>
                     </property>
                     <property name="bottomMargin">
                      <number>1</number>
                     </property>
-                    <property name="spacing">
-                     <number>3</number>
-                    </property>
                     <item row="0" column="0">
-                     <widget class="QWidget" name="widget_3" native="true">
-                      <property name="sizePolicy">
-                       <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-                        <horstretch>0</horstretch>
-                        <verstretch>0</verstretch>
-                       </sizepolicy>
+                     <layout class="QHBoxLayout" name="horizontalLayout_3">
+                      <property name="spacing">
+                       <number>0</number>
                       </property>
-                      <layout class="QGridLayout" name="gridLayout_8">
-                       <property name="leftMargin">
-                        <number>3</number>
-                       </property>
-                       <property name="topMargin">
-                        <number>0</number>
-                       </property>
-                       <property name="rightMargin">
-                        <number>3</number>
-                       </property>
-                       <property name="bottomMargin">
-                        <number>0</number>
-                       </property>
-                       <property name="spacing">
-                        <number>3</number>
-                       </property>
-                       <item row="7" column="0">
-                        <widget class="QCheckBox" name="cb15m">
-                         <property name="toolTip">
-                          <string>15m FT8</string>
-                         </property>
-                         <property name="text">
-                          <string>15m</string>
-                         </property>
-                        </widget>
-                       </item>
-                       <item row="0" column="0">
-                        <widget class="QCheckBox" name="cb160m">
-                         <property name="toolTip">
-                          <string>160m FT8</string>
-                         </property>
-                         <property name="text">
-                          <string>160m</string>
-                         </property>
-                        </widget>
-                       </item>
-                       <item row="3" column="2">
-                        <widget class="QCheckBox" name="cb17mFT4">
-                         <property name="toolTip">
-                          <string>17m FT4</string>
-                         </property>
-                         <property name="text">
-                          <string>17m FT4</string>
-                         </property>
-                        </widget>
-                       </item>
-                       <item row="6" column="0">
-                        <widget class="QCheckBox" name="cb17m">
-                         <property name="toolTip">
-                          <string>17m FT8</string>
-                         </property>
-                         <property name="text">
-                          <string>17m</string>
-                         </property>
-                        </widget>
-                       </item>
-                       <item row="4" column="0">
-                        <widget class="QCheckBox" name="cb30m">
-                         <property name="toolTip">
-                          <string>30m FT8</string>
-                         </property>
-                         <property name="text">
-                          <string>30m</string>
-                         </property>
-                        </widget>
-                       </item>
-                       <item row="3" column="0">
-                        <widget class="QCheckBox" name="cb40m">
-                         <property name="toolTip">
-                          <string>40m FT8</string>
-                         </property>
-                         <property name="text">
-                          <string>40m</string>
-                         </property>
-                        </widget>
-                       </item>
-                       <item row="5" column="0">
-                        <widget class="QCheckBox" name="cb20m">
-                         <property name="toolTip">
-                          <string>20m FT8</string>
-                         </property>
-                         <property name="text">
-                          <string>20m</string>
-                         </property>
-                        </widget>
-                       </item>
-                       <item row="2" column="0">
-                        <widget class="QCheckBox" name="cb60m">
-                         <property name="toolTip">
-                          <string>60m FT8</string>
-                         </property>
-                         <property name="text">
-                          <string>60m</string>
-                         </property>
-                        </widget>
-                       </item>
-                       <item row="2" column="2">
-                        <widget class="QCheckBox" name="cb20mFT4">
-                         <property name="toolTip">
-                          <string>20m FT4</string>
-                         </property>
-                         <property name="text">
-                          <string>20m FT4</string>
-                         </property>
-                        </widget>
-                       </item>
-                       <item row="1" column="2">
-                        <widget class="QCheckBox" name="cb30mFT4">
-                         <property name="toolTip">
-                          <string>30m FT4</string>
-                         </property>
-                         <property name="text">
-                          <string>30m FT4</string>
-                         </property>
-                        </widget>
-                       </item>
-                       <item row="0" column="2">
-                        <widget class="QCheckBox" name="cb40mFT4">
-                         <property name="toolTip">
-                          <string>40m FT4</string>
-                         </property>
-                         <property name="text">
-                          <string>40m FT4</string>
-                         </property>
-                        </widget>
-                       </item>
-                       <item row="1" column="0">
-                        <widget class="QCheckBox" name="cb80m">
-                         <property name="toolTip">
-                          <string>80m FT8</string>
-                         </property>
-                         <property name="text">
-                          <string>80m</string>
-                         </property>
-                        </widget>
-                       </item>
-                       <item row="8" column="0">
-                        <widget class="QCheckBox" name="cb12m">
-                         <property name="toolTip">
-                          <string>12m FT8</string>
-                         </property>
-                         <property name="text">
-                          <string>12m</string>
-                         </property>
-                        </widget>
-                       </item>
-                       <item row="0" column="1">
-                        <widget class="QCheckBox" name="cb10m">
-                         <property name="toolTip">
-                          <string>10m FT8</string>
-                         </property>
-                         <property name="text">
-                          <string>10m</string>
-                         </property>
-                        </widget>
-                       </item>
-                       <item row="1" column="1">
-                        <widget class="QCheckBox" name="cb6m">
-                         <property name="toolTip">
-                          <string>6m FT8</string>
-                         </property>
-                         <property name="text">
-                          <string>6m</string>
-                         </property>
-                        </widget>
-                       </item>
-                       <item row="2" column="1">
-                        <widget class="QCheckBox" name="cb4m">
-                         <property name="toolTip">
-                          <string>4m FT8</string>
-                         </property>
-                         <property name="text">
-                          <string>4m</string>
-                         </property>
-                        </widget>
-                       </item>
-                       <item row="3" column="1">
-                        <widget class="QCheckBox" name="cb2m">
-                         <property name="toolTip">
-                          <string>2m FT8</string>
-                         </property>
-                         <property name="text">
-                          <string>2m</string>
-                         </property>
-                        </widget>
-                       </item>
-                       <item row="4" column="1">
-                        <widget class="QCheckBox" name="cb70cm">
-                         <property name="toolTip">
-                          <string>70cm FT8</string>
-                         </property>
-                         <property name="text">
-                          <string>70cm</string>
-                         </property>
-                        </widget>
-                       </item>
-                       <item row="5" column="1">
-                        <widget class="QCheckBox" name="cb6mQ65">
-                         <property name="toolTip">
-                          <string>6m Q65</string>
-                         </property>
-                         <property name="text">
-                          <string>6m Q65</string>
-                         </property>
-                        </widget>
-                       </item>
-                       <item row="6" column="1">
-                        <widget class="QCheckBox" name="cb2mQ65">
-                         <property name="toolTip">
-                          <string>2m Q65</string>
-                         </property>
-                         <property name="text">
-                          <string>2m Q65</string>
-                         </property>
-                        </widget>
-                       </item>
-                       <item row="7" column="1">
-                        <widget class="QCheckBox" name="cb6mMSK">
-                         <property name="toolTip">
-                          <string>6m MSK144</string>
-                         </property>
-                         <property name="text">
-                          <string>6m MSK</string>
-                         </property>
-                        </widget>
-                       </item>
-                       <item row="8" column="1">
-                        <widget class="QCheckBox" name="cb2mMSK">
-                         <property name="toolTip">
-                          <string>2m MSK144</string>
-                         </property>
-                         <property name="whatsThis">
-                          <string/>
-                         </property>
-                         <property name="text">
-                          <string>2m MSK</string>
-                         </property>
-                        </widget>
-                       </item>
-                       <item row="4" column="2">
-                        <widget class="QCheckBox" name="cb15mFT4">
-                         <property name="toolTip">
-                          <string>15m FT4</string>
-                         </property>
-                         <property name="text">
-                          <string>15m FT4</string>
-                         </property>
-                        </widget>
-                       </item>
-                       <item row="5" column="2">
-                        <widget class="QCheckBox" name="cb12mFT4">
-                         <property name="toolTip">
-                          <string>12m FT4</string>
-                         </property>
-                         <property name="text">
-                          <string>12m FT4</string>
-                         </property>
-                        </widget>
-                       </item>
-                       <item row="6" column="2">
-                        <widget class="QCheckBox" name="cb10mFT4">
-                         <property name="toolTip">
-                          <string>10m FT4</string>
-                         </property>
-                         <property name="text">
-                          <string>10m FT4</string>
-                         </property>
-                        </widget>
-                       </item>
-                       <item row="6" column="3">
-                        <widget class="QCheckBox" name="cb10mDXp">
-                         <property name="toolTip">
-                          <string>28,091 MHz FT8</string>
-                         </property>
-                         <property name="text">
-                          <string>28,091</string>
-                         </property>
-                        </widget>
-                       </item>
-                       <item row="5" column="3">
-                        <widget class="QCheckBox" name="cb15mDXp">
-                         <property name="toolTip">
-                          <string>21,091 MHz FT8</string>
-                         </property>
-                         <property name="text">
-                          <string>21,091</string>
-                         </property>
-                        </widget>
-                       </item>
-                       <item row="4" column="3">
-                        <widget class="QCheckBox" name="cb17mDXp">
-                         <property name="toolTip">
-                          <string>18,095 MHz FT8</string>
-                         </property>
-                         <property name="text">
-                          <string>18,095</string>
-                         </property>
-                        </widget>
-                       </item>
-                       <item row="3" column="3">
-                        <widget class="QCheckBox" name="cb20mDXp">
-                         <property name="toolTip">
-                          <string>14,090 MHz FT8</string>
-                         </property>
-                         <property name="text">
-                          <string>14,090</string>
-                         </property>
-                        </widget>
-                       </item>
-                       <item row="2" column="3">
-                        <widget class="QCheckBox" name="cb30mDXp">
-                         <property name="toolTip">
-                          <string>10,131 MHz FT8</string>
-                         </property>
-                         <property name="text">
-                          <string>10,131</string>
-                         </property>
-                        </widget>
-                       </item>
-                       <item row="1" column="3">
-                        <widget class="QCheckBox" name="cb40mDXp">
-                         <property name="toolTip">
-                          <string>7,056 MHz FT8</string>
-                         </property>
-                         <property name="text">
-                          <string>7,056</string>
-                         </property>
-                        </widget>
-                       </item>
-                       <item row="0" column="3">
-                        <widget class="QCheckBox" name="cb80mDXp">
-                         <property name="toolTip">
-                          <string>3,567 MHz FT8</string>
-                         </property>
-                         <property name="text">
-                          <string>3,567</string>
-                         </property>
-                        </widget>
-                       </item>
-                       <item row="7" column="2" rowspan="2" colspan="2">
-                        <widget class="QPushButton" name="pbBandHopping">
-                         <property name="minimumSize">
-                          <size>
-                           <width>0</width>
-                           <height>34</height>
-                          </size>
-                         </property>
-                         <property name="toolTip">
-                          <string>Toggle band hopping On/Off. Band hopping occurs every other full minute. Changes to the checkboxes take effect immediately.</string>
-                         </property>
-                         <property name="styleSheet">
-                          <string notr="true">QPushButton:checked {
+                      <item>
+                       <widget class="QWidget" name="widget_3" native="true">
+                        <property name="sizePolicy">
+                         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                          <horstretch>0</horstretch>
+                          <verstretch>0</verstretch>
+                         </sizepolicy>
+                        </property>
+                        <layout class="QGridLayout" name="gridLayout_8" columnstretch="1,1,1">
+                         <property name="leftMargin">
+                          <number>0</number>
+                         </property>
+                         <property name="topMargin">
+                          <number>0</number>
+                         </property>
+                         <property name="rightMargin">
+                          <number>1</number>
+                         </property>
+                         <property name="bottomMargin">
+                          <number>0</number>
+                         </property>
+                         <property name="horizontalSpacing">
+                          <number>1</number>
+                         </property>
+                         <property name="verticalSpacing">
+                          <number>6</number>
+                         </property>
+                         <item row="6" column="2">
+                          <widget class="QCheckBox" name="cb10mFT4">
+                           <property name="toolTip">
+                            <string>10m FT4</string>
+                           </property>
+                           <property name="text">
+                            <string>10m FT4</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="1" column="0">
+                          <widget class="QCheckBox" name="cb80m">
+                           <property name="toolTip">
+                            <string>80m FT8</string>
+                           </property>
+                           <property name="text">
+                            <string>80m</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="4" column="2">
+                          <widget class="QCheckBox" name="cb15mFT4">
+                           <property name="toolTip">
+                            <string>15m FT4</string>
+                           </property>
+                           <property name="text">
+                            <string>15m FT4</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="4" column="0">
+                          <widget class="QCheckBox" name="cb30m">
+                           <property name="toolTip">
+                            <string>30m FT8</string>
+                           </property>
+                           <property name="text">
+                            <string>30m</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="5" column="2">
+                          <widget class="QCheckBox" name="cb12mFT4">
+                           <property name="toolTip">
+                            <string>12m FT4</string>
+                           </property>
+                           <property name="text">
+                            <string>12m FT4</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="1" column="2">
+                          <widget class="QCheckBox" name="cb30mFT4">
+                           <property name="toolTip">
+                            <string>30m FT4</string>
+                           </property>
+                           <property name="text">
+                            <string>30m FT4</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="3" column="1">
+                          <widget class="QCheckBox" name="cb6m">
+                           <property name="toolTip">
+                            <string>6m FT8</string>
+                           </property>
+                           <property name="text">
+                            <string>6m</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="5" column="0">
+                          <widget class="QCheckBox" name="cb20m">
+                           <property name="toolTip">
+                            <string>20m FT8</string>
+                           </property>
+                           <property name="text">
+                            <string>20m</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="2" column="0">
+                          <widget class="QCheckBox" name="cb60m">
+                           <property name="toolTip">
+                            <string>60m FT8</string>
+                           </property>
+                           <property name="text">
+                            <string>60m</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="1" column="1">
+                          <widget class="QCheckBox" name="cb12m">
+                           <property name="toolTip">
+                            <string>12m FT8</string>
+                           </property>
+                           <property name="text">
+                            <string>12m</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="0" column="2">
+                          <widget class="QCheckBox" name="cb40mFT4">
+                           <property name="toolTip">
+                            <string>40m FT4</string>
+                           </property>
+                           <property name="text">
+                            <string>40m FT4</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="2" column="1">
+                          <widget class="QCheckBox" name="cb10m">
+                           <property name="toolTip">
+                            <string>10m FT8</string>
+                           </property>
+                           <property name="text">
+                            <string>10m</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="2" column="2">
+                          <widget class="QCheckBox" name="cb20mFT4">
+                           <property name="toolTip">
+                            <string>20m FT4</string>
+                           </property>
+                           <property name="text">
+                            <string>20m FT4</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="0" column="0">
+                          <widget class="QCheckBox" name="cb160m">
+                           <property name="sizePolicy">
+                            <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+                             <horstretch>0</horstretch>
+                             <verstretch>0</verstretch>
+                            </sizepolicy>
+                           </property>
+                           <property name="toolTip">
+                            <string>160m FT8</string>
+                           </property>
+                           <property name="text">
+                            <string>160m</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="3" column="2">
+                          <widget class="QCheckBox" name="cb17mFT4">
+                           <property name="toolTip">
+                            <string>17m FT4</string>
+                           </property>
+                           <property name="text">
+                            <string>17m FT4</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="4" column="1">
+                          <widget class="QCheckBox" name="cb4m">
+                           <property name="toolTip">
+                            <string>4m FT8</string>
+                           </property>
+                           <property name="text">
+                            <string>4m</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="6" column="1">
+                          <widget class="QCheckBox" name="cb70cm">
+                           <property name="toolTip">
+                            <string>70cm FT8</string>
+                           </property>
+                           <property name="text">
+                            <string>70cm</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="7" column="0" rowspan="2" colspan="2">
+                          <widget class="QPushButton" name="pbBandHopping">
+                           <property name="minimumSize">
+                            <size>
+                             <width>0</width>
+                             <height>34</height>
+                            </size>
+                           </property>
+                           <property name="toolTip">
+                            <string>Toggle band hopping On/Off. Band hopping occurs every other full minute. Changes to the checkboxes take effect immediately.</string>
+                           </property>
+                           <property name="styleSheet">
+                            <string notr="true">QPushButton:checked {
 	background-color: red;
 	border-style: outset;
 	border-width: 1px;
@@ -2730,17 +2588,501 @@ Double-click to reset to the standard 73 message</string>
 	min-width: 5em;
 	padding: 3px;
 }</string>
-                         </property>
-                         <property name="text">
-                          <string>  Band Hopping  </string>
-                         </property>
-                         <property name="checkable">
-                          <bool>true</bool>
-                         </property>
-                        </widget>
-                       </item>
-                      </layout>
-                     </widget>
+                           </property>
+                           <property name="text">
+                            <string>  Band Hopping  </string>
+                           </property>
+                           <property name="checkable">
+                            <bool>true</bool>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="0" column="1">
+                          <widget class="QCheckBox" name="cb15m">
+                           <property name="toolTip">
+                            <string>15m FT8</string>
+                           </property>
+                           <property name="text">
+                            <string>15m</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="6" column="0">
+                          <widget class="QCheckBox" name="cb17m">
+                           <property name="toolTip">
+                            <string>17m FT8</string>
+                           </property>
+                           <property name="text">
+                            <string>17m</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="3" column="0">
+                          <widget class="QCheckBox" name="cb40m">
+                           <property name="toolTip">
+                            <string>40m FT8</string>
+                           </property>
+                           <property name="text">
+                            <string>40m</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="7" column="2">
+                          <widget class="QCheckBox" name="cb6mMSK">
+                           <property name="toolTip">
+                            <string>6m MSK144</string>
+                           </property>
+                           <property name="text">
+                            <string>6m MSK</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="8" column="2">
+                          <widget class="QCheckBox" name="cb2mMSK">
+                           <property name="toolTip">
+                            <string>2m MSK144</string>
+                           </property>
+                           <property name="whatsThis">
+                            <string/>
+                           </property>
+                           <property name="text">
+                            <string>2m MSK</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="5" column="1">
+                          <widget class="QCheckBox" name="cb2m">
+                           <property name="toolTip">
+                            <string>2m FT8</string>
+                           </property>
+                           <property name="text">
+                            <string>2m</string>
+                           </property>
+                          </widget>
+                         </item>
+                        </layout>
+                       </widget>
+                      </item>
+                      <item>
+                       <layout class="QGridLayout" name="gridLayout_10" columnstretch="0,1">
+                        <property name="bottomMargin">
+                         <number>0</number>
+                        </property>
+                        <property name="horizontalSpacing">
+                         <number>1</number>
+                        </property>
+                        <property name="verticalSpacing">
+                         <number>6</number>
+                        </property>
+                        <item row="6" column="0">
+                         <widget class="QCheckBox" name="cbQRG6">
+                          <property name="maximumSize">
+                           <size>
+                            <width>16777215</width>
+                            <height>16777215</height>
+                           </size>
+                          </property>
+                          <property name="toolTip">
+                           <string>FT8 QRG6</string>
+                          </property>
+                          <property name="text">
+                           <string/>
+                          </property>
+                         </widget>
+                        </item>
+                        <item row="0" column="0">
+                         <widget class="QCheckBox" name="cbQRG1">
+                          <property name="sizePolicy">
+                           <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+                            <horstretch>0</horstretch>
+                            <verstretch>0</verstretch>
+                           </sizepolicy>
+                          </property>
+                          <property name="maximumSize">
+                           <size>
+                            <width>16777215</width>
+                            <height>16777215</height>
+                           </size>
+                          </property>
+                          <property name="toolTip">
+                           <string>FT8 QRG1</string>
+                          </property>
+                          <property name="text">
+                           <string/>
+                          </property>
+                         </widget>
+                        </item>
+                        <item row="1" column="0">
+                         <widget class="QCheckBox" name="cbQRG2">
+                          <property name="maximumSize">
+                           <size>
+                            <width>16777215</width>
+                            <height>16777215</height>
+                           </size>
+                          </property>
+                          <property name="toolTip">
+                           <string>FT8 QRG2</string>
+                          </property>
+                          <property name="text">
+                           <string/>
+                          </property>
+                         </widget>
+                        </item>
+                        <item row="7" column="0">
+                         <widget class="QCheckBox" name="cbQRG7">
+                          <property name="toolTip">
+                           <string>FT8 QRG7</string>
+                          </property>
+                          <property name="text">
+                           <string/>
+                          </property>
+                         </widget>
+                        </item>
+                        <item row="8" column="1">
+                         <widget class="QSpinBox" name="sbQRG8">
+                          <property name="sizePolicy">
+                           <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+                            <horstretch>0</horstretch>
+                            <verstretch>0</verstretch>
+                           </sizepolicy>
+                          </property>
+                          <property name="minimumSize">
+                           <size>
+                            <width>57</width>
+                            <height>0</height>
+                           </size>
+                          </property>
+                          <property name="maximumSize">
+                           <size>
+                            <width>16777215</width>
+                            <height>16777215</height>
+                           </size>
+                          </property>
+                          <property name="toolTip">
+                           <string>FT8 QRG8 in kHz.</string>
+                          </property>
+                          <property name="showGroupSeparator" stdset="0">
+                           <bool>true</bool>
+                          </property>
+                          <property name="maximum">
+                           <number>99999999</number>
+                          </property>
+                          <property name="value">
+                           <number>28091</number>
+                          </property>
+                          <property name="displayIntegerBase">
+                           <number>10</number>
+                          </property>
+                         </widget>
+                        </item>
+                        <item row="5" column="0">
+                         <widget class="QCheckBox" name="cbQRG5">
+                          <property name="maximumSize">
+                           <size>
+                            <width>16777215</width>
+                            <height>16777215</height>
+                           </size>
+                          </property>
+                          <property name="toolTip">
+                           <string>FT8 QRG5</string>
+                          </property>
+                          <property name="text">
+                           <string/>
+                          </property>
+                         </widget>
+                        </item>
+                        <item row="2" column="0">
+                         <widget class="QCheckBox" name="cbQRG3">
+                          <property name="maximumSize">
+                           <size>
+                            <width>16777215</width>
+                            <height>16777215</height>
+                           </size>
+                          </property>
+                          <property name="toolTip">
+                           <string>FT8 QRG3</string>
+                          </property>
+                          <property name="text">
+                           <string/>
+                          </property>
+                         </widget>
+                        </item>
+                        <item row="4" column="0">
+                         <widget class="QCheckBox" name="cbQRG4">
+                          <property name="maximumSize">
+                           <size>
+                            <width>16777215</width>
+                            <height>16777215</height>
+                           </size>
+                          </property>
+                          <property name="toolTip">
+                           <string>FT8 QRG4</string>
+                          </property>
+                          <property name="text">
+                           <string/>
+                          </property>
+                         </widget>
+                        </item>
+                        <item row="8" column="0">
+                         <widget class="QCheckBox" name="cbQRG8">
+                          <property name="maximumSize">
+                           <size>
+                            <width>16777215</width>
+                            <height>16777215</height>
+                           </size>
+                          </property>
+                          <property name="toolTip">
+                           <string>FT8 QRG8</string>
+                          </property>
+                          <property name="text">
+                           <string/>
+                          </property>
+                         </widget>
+                        </item>
+                        <item row="7" column="1">
+                         <widget class="QSpinBox" name="sbQRG7">
+                          <property name="sizePolicy">
+                           <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+                            <horstretch>0</horstretch>
+                            <verstretch>0</verstretch>
+                           </sizepolicy>
+                          </property>
+                          <property name="minimumSize">
+                           <size>
+                            <width>57</width>
+                            <height>0</height>
+                           </size>
+                          </property>
+                          <property name="maximumSize">
+                           <size>
+                            <width>16777215</width>
+                            <height>16777215</height>
+                           </size>
+                          </property>
+                          <property name="toolTip">
+                           <string>FT8 QRG7 in kHz.</string>
+                          </property>
+                          <property name="showGroupSeparator" stdset="0">
+                           <bool>true</bool>
+                          </property>
+                          <property name="maximum">
+                           <number>99999999</number>
+                          </property>
+                          <property name="value">
+                           <number>24911</number>
+                          </property>
+                         </widget>
+                        </item>
+                        <item row="6" column="1">
+                         <widget class="QSpinBox" name="sbQRG6">
+                          <property name="sizePolicy">
+                           <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+                            <horstretch>0</horstretch>
+                            <verstretch>0</verstretch>
+                           </sizepolicy>
+                          </property>
+                          <property name="minimumSize">
+                           <size>
+                            <width>57</width>
+                            <height>0</height>
+                           </size>
+                          </property>
+                          <property name="maximumSize">
+                           <size>
+                            <width>16777215</width>
+                            <height>16777215</height>
+                           </size>
+                          </property>
+                          <property name="toolTip">
+                           <string>FT8 QRG6 in kHz.</string>
+                          </property>
+                          <property name="showGroupSeparator" stdset="0">
+                           <bool>true</bool>
+                          </property>
+                          <property name="maximum">
+                           <number>99999999</number>
+                          </property>
+                          <property name="value">
+                           <number>21091</number>
+                          </property>
+                         </widget>
+                        </item>
+                        <item row="5" column="1">
+                         <widget class="QSpinBox" name="sbQRG5">
+                          <property name="sizePolicy">
+                           <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+                            <horstretch>0</horstretch>
+                            <verstretch>0</verstretch>
+                           </sizepolicy>
+                          </property>
+                          <property name="minimumSize">
+                           <size>
+                            <width>57</width>
+                            <height>0</height>
+                           </size>
+                          </property>
+                          <property name="maximumSize">
+                           <size>
+                            <width>16777215</width>
+                            <height>16777215</height>
+                           </size>
+                          </property>
+                          <property name="toolTip">
+                           <string>FT8 QRG5 in kHz.</string>
+                          </property>
+                          <property name="showGroupSeparator" stdset="0">
+                           <bool>true</bool>
+                          </property>
+                          <property name="maximum">
+                           <number>99999999</number>
+                          </property>
+                          <property name="value">
+                           <number>18095</number>
+                          </property>
+                         </widget>
+                        </item>
+                        <item row="4" column="1">
+                         <widget class="QSpinBox" name="sbQRG4">
+                          <property name="sizePolicy">
+                           <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+                            <horstretch>0</horstretch>
+                            <verstretch>0</verstretch>
+                           </sizepolicy>
+                          </property>
+                          <property name="minimumSize">
+                           <size>
+                            <width>57</width>
+                            <height>0</height>
+                           </size>
+                          </property>
+                          <property name="maximumSize">
+                           <size>
+                            <width>16777215</width>
+                            <height>16777215</height>
+                           </size>
+                          </property>
+                          <property name="toolTip">
+                           <string>FT8 QRG4 in kHz.</string>
+                          </property>
+                          <property name="showGroupSeparator" stdset="0">
+                           <bool>true</bool>
+                          </property>
+                          <property name="maximum">
+                           <number>99999999</number>
+                          </property>
+                          <property name="value">
+                           <number>14090</number>
+                          </property>
+                         </widget>
+                        </item>
+                        <item row="2" column="1">
+                         <widget class="QSpinBox" name="sbQRG3">
+                          <property name="sizePolicy">
+                           <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+                            <horstretch>0</horstretch>
+                            <verstretch>0</verstretch>
+                           </sizepolicy>
+                          </property>
+                          <property name="minimumSize">
+                           <size>
+                            <width>57</width>
+                            <height>0</height>
+                           </size>
+                          </property>
+                          <property name="maximumSize">
+                           <size>
+                            <width>16777215</width>
+                            <height>16777215</height>
+                           </size>
+                          </property>
+                          <property name="toolTip">
+                           <string>FT8 QRG3 in kHz.</string>
+                          </property>
+                          <property name="showGroupSeparator" stdset="0">
+                           <bool>true</bool>
+                          </property>
+                          <property name="maximum">
+                           <number>99999999</number>
+                          </property>
+                          <property name="value">
+                           <number>10131</number>
+                          </property>
+                         </widget>
+                        </item>
+                        <item row="1" column="1">
+                         <widget class="QSpinBox" name="sbQRG2">
+                          <property name="sizePolicy">
+                           <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+                            <horstretch>0</horstretch>
+                            <verstretch>0</verstretch>
+                           </sizepolicy>
+                          </property>
+                          <property name="minimumSize">
+                           <size>
+                            <width>57</width>
+                            <height>0</height>
+                           </size>
+                          </property>
+                          <property name="maximumSize">
+                           <size>
+                            <width>16777215</width>
+                            <height>16777215</height>
+                           </size>
+                          </property>
+                          <property name="toolTip">
+                           <string>FT8 QRG2 in kHz.</string>
+                          </property>
+                          <property name="showGroupSeparator" stdset="0">
+                           <bool>true</bool>
+                          </property>
+                          <property name="maximum">
+                           <number>99999999</number>
+                          </property>
+                          <property name="value">
+                           <number>7056</number>
+                          </property>
+                         </widget>
+                        </item>
+                        <item row="0" column="1">
+                         <widget class="QSpinBox" name="sbQRG1">
+                          <property name="sizePolicy">
+                           <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+                            <horstretch>0</horstretch>
+                            <verstretch>0</verstretch>
+                           </sizepolicy>
+                          </property>
+                          <property name="minimumSize">
+                           <size>
+                            <width>57</width>
+                            <height>0</height>
+                           </size>
+                          </property>
+                          <property name="maximumSize">
+                           <size>
+                            <width>16777215</width>
+                            <height>16777215</height>
+                           </size>
+                          </property>
+                          <property name="toolTip">
+                           <string>FT8 QRG1 in kHz.</string>
+                          </property>
+                          <property name="showGroupSeparator" stdset="0">
+                           <bool>true</bool>
+                          </property>
+                          <property name="maximum">
+                           <number>99999999</number>
+                          </property>
+                          <property name="singleStep">
+                           <number>1</number>
+                          </property>
+                          <property name="value">
+                           <number>3567</number>
+                          </property>
+                         </widget>
+                        </item>
+                       </layout>
+                      </item>
+                     </layout>
                     </item>
                    </layout>
                   </widget>
