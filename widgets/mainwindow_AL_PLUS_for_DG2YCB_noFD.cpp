@@ -2554,10 +2554,41 @@ void MainWindow::fastSink(qint64 frames)
         }
     }
 
-    // display decodes for the fast modes must be done before highlighting any call or grid
-    if (!filtered or (filtered && m_config.filters_for_Wait_and_Pounce_only()))
-        ui->decodedTextBrowser->displayDecodedText (decodedtext, m_config.my_callsign (), m_mode, m_config.DXCC(),
-          m_logBook, m_currentBand, m_config.ppfx ());
+    // show distance and bearing for MSK144
+    if (!filtered or m_config.filters_for_Wait_and_Pounce_only()) {
+        QString distance;
+        QString deCall;
+        QString grid;
+        decodedtext.deCallAndGrid(deCall,grid);
+        if ((m_config.showDistance() || m_config.showAzimuth()) && grid.contains(grid_regexp)) {
+            double utch=0.0;
+            int nAz,nEl,nDmiles,nDkm,nHotAz,nHotABetter;
+            azdist_(const_cast <char *> ((m_config.my_grid () + "      ").left (6).toLatin1().constData()),
+              const_cast <char *> ((grid + "      ").left (6).toLatin1().constData()),&utch,
+              &nAz,&nEl,&nDmiles,&nDkm,&nHotAz,&nHotABetter,6,6);
+            if (m_config.showDistance()) {
+                int nd=nDkm;
+                if(m_config.miles()) nd=nDmiles;
+                distance = QString::number(nd);
+                if(m_config.miles()) distance += " mi";
+                if(!m_config.miles()) distance += " km";
+            }
+            if (m_config.showAzimuth()) {
+                if (distance.length()) distance += " / ";
+                distance += QString::number(nAz) + "°";
+            }
+        }
+        // display decodes for the fast modes must be done before highlighting any call or grid
+        bool haveFSpread {false};
+        float fSpread {0.};
+        bool bDisplayPoints {false};
+        m_points = 0;
+        ui->decodedTextBrowser->displayDecodedText (decodedtext, m_config.my_callsign (), m_mode, m_config.DXCC (),
+          m_logBook, m_currentBandPeriod, m_config.ppfx (),
+          ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
+          haveFSpread, fSpread, bDisplayPoints, m_points, distance);
+        if(m_position != 0) ui->decodedTextBrowser->horizontalScrollBar()->setValue(m_position);
+    }
 
     // Ensure that Tx stops when "RR73" or "73" is received and repeat_Tx is enabled for MSK144
     if (m_config.repeat_Tx() && m_mode=="MSK144" && m_hisCall!="" && text.contains(m_baseCall)
@@ -4065,6 +4096,11 @@ void MainWindow::on_actionSpecial_mouse_commands_triggered()
     </td>
   </tr>
   <tr>
+    <td align="right">Q65 Button</td>
+    <td><b>Right-click</b> to toggle Q65 Pileup Mode On/Off.<br/>
+    </td>
+  </tr>
+  <tr>
     <td align="right">Tx5 Button</td>
     <td><b>Right-click</b> to retain Tx5 free text.<br/>
     </td>
@@ -5258,8 +5294,8 @@ void MainWindow::readFromStdout()                             //readFromStdout
               m_tBlankLine = line_read.left(ntime);
         }
 
+       // show distance and bearing
        if (!filtered or m_config.filters_for_Wait_and_Pounce_only()) {  // show decodes if not filtered
-           // show distance and bearing
            QString distance;
            QString deCall;
            QString grid;
