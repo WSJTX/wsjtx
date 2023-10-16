@@ -17,7 +17,6 @@ module q65
   integer navg(0:1)
   logical lnewdat
   real candidates(20,3)                  !snr, xdt, and f0 of top candidates
-  real, allocatable :: s1raw(:,:)        !Symbol spectra, 1/8-symbol steps
   real, allocatable :: s1(:,:)           !Symbol spectra w/suppressed peaks
   real, allocatable :: s1w(:,:)       !Symbol spectra w/suppressed peaks (W3SZ)
   real, allocatable,save :: s1a(:,:,:)   !Cumulative symbol spectra
@@ -106,8 +105,6 @@ subroutine q65_dec0(iavg,iwave,ntrperiod,nfqso,ntol,lclearave,  &
   allocate(s3(-64:LL-65,63))
   allocate(ccf1(-ia2:ia2))
   if(LL.ne.LL0 .or. iz.ne.iz0 .or. jz.ne.jz0 .or. lclearave) then
-     if(allocated(s1raw)) deallocate(s1raw)
-     allocate(s1raw(iz,jz))
      if(allocated(s1)) deallocate(s1)
      allocate(s1(iz,jz))
      if(allocated(s1a)) deallocate(s1a)
@@ -146,19 +143,6 @@ subroutine q65_dec0(iavg,iwave,ntrperiod,nfqso,ntol,lclearave,  &
   endif
 
   i0=nint(nfqso/df)                             !Target QSO frequency
-  ii1=max(1,i0-64)
-  ii2=i0-65+LL
-  call pctile(s1(ii1:ii2,1:jz),ii2-ii1+1*jz,45,base)
-!  s1=s1/base
-  s1raw=s1
-
-! Apply fast AGC to the symbol spectra
-!  s1max=20.0                                  !Empirical choice
-!  do j=1,jz                                   !### Maybe wrong way? ###
-!     smax=maxval(s1(ii1:ii2,j))
-!     if(smax.gt.s1max) s1(ii1:ii2,j)=s1(ii1:ii2,j)*s1max/smax
-!  enddo
-
   dat4=0
   if(ncw.gt.0 .and. iavg.le.1) then
 ! Try list decoding via "Deep Likelihood".
@@ -788,7 +772,7 @@ subroutine q65_snr(dat4,dtdec,f0dec,mode_q65,snr2)
      if(j.ge.1 .and. j.le.jz0) then
         do i=1,iz0
            ii=i+mode_q65*itone(k)
-           if(ii.ge.1 .and. ii.le.iz0) spec(i)=spec(i) + s1raw(ii,j)
+           if(ii.ge.1 .and. ii.le.iz0) spec(i)=spec(i) + s1(ii,j)
         enddo
      endif
   enddo
