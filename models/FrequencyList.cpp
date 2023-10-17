@@ -678,7 +678,7 @@ QModelIndex FrequencyList_v2_101::impl::add (Item f)
       endInsertRows ();
 
       // if we added one that had a preferred frequency, unprefer everything else
- //     unprefer_all_but(f, row, {Qt::DisplayRole, Qt::CheckStateRole});
+      if (f.preferred_) unprefer_all_but(f, row, {Qt::DisplayRole, Qt::CheckStateRole});
 
       return index (row, 0);
     }
