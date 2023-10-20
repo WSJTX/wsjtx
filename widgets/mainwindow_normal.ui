@@ -45,6 +45,7 @@
           <property name="font">
            <font>
             <pointsize>10</pointsize>
+            <weight>50</weight>
             <bold>false</bold>
            </font>
           </property>
@@ -188,6 +189,7 @@
           <property name="font">
            <font>
             <pointsize>10</pointsize>
+            <weight>50</weight>
             <bold>false</bold>
            </font>
           </property>
@@ -333,11 +335,24 @@
         <number>0</number>
        </property>
        <item>
-        <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="0,2,2,2,2,2,0,2,2,2,2,1">
+        <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="0,0,2,2,2,2,2,0,2,2,2,2,1">
          <item>
           <widget class="QCheckBox" name="cbCQonly">
+           <property name="toolTip">
+            <string>CQ messages only.</string>
+           </property>
            <property name="text">
             <string>CQ only</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="cbBypass">
+           <property name="toolTip">
+            <string>Bypass Filters toggled via Settings or the View menu.</string>
+           </property>
+           <property name="text">
+            <string>BP</string>
            </property>
           </widget>
          </item>
@@ -3889,7 +3904,7 @@ QPushButton[state=&quot;ok&quot;] {
      <x>0</x>
      <y>0</y>
      <width>880</width>
-     <height>22</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">

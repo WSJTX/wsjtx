@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>840</width>
+    <width>879</width>
     <height>680</height>
    </rect>
   </property>
@@ -174,14 +174,24 @@
          </widget>
         </item>
         <item>
-         <layout class="QHBoxLayout" name="horizontalLayout">
+         <layout class="QHBoxLayout" name="horizontalLayout" stretch="0,0,3,3,3,3,3,3">
           <item>
            <widget class="QCheckBox" name="cbCQonly">
             <property name="toolTip">
-             <string>CQ messages only</string>
+             <string>CQ messages only.</string>
             </property>
             <property name="text">
              <string>CQ only</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="cbBypass">
+            <property name="toolTip">
+             <string>Bypass Filters toggled via Settings or the View menu.</string>
+            </property>
+            <property name="text">
+             <string>BP</string>
             </property>
            </widget>
           </item>
@@ -4130,7 +4140,7 @@ Double-click to reset to the standard 73 message</string>
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>840</width>
+     <width>879</width>
      <height>22</height>
     </rect>
    </property>
