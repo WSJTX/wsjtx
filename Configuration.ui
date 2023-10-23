@@ -1551,13 +1551,6 @@ other hardware interface for PTT.</string>
           <string>Update Hamlib (Windows only)</string>
          </property>
          <layout class="QGridLayout" name="gridLayout_24">
-          <item row="0" column="1">
-           <widget class="QRadioButton" name="rbHamlib32">
-            <property name="text">
-             <string>32-bit</string>
-            </property>
-           </widget>
-          </item>
           <item row="0" column="0">
            <widget class="QRadioButton" name="rbHamlib64">
             <property name="text">
@@ -1565,6 +1558,13 @@ other hardware interface for PTT.</string>
             </property>
             <property name="checked">
              <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QRadioButton" name="rbHamlib32">
+            <property name="text">
+             <string>32-bit</string>
             </property>
            </widget>
           </item>
@@ -1580,7 +1580,17 @@ other hardware interface for PTT.</string>
              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Download the latest libhamlib-4.dll file from https://n0nb.users.sourceforge.net/. &lt;/p&gt;&lt;p&gt;Note: This function is only available on Windows.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
             </property>
             <property name="text">
-             <string>Download latest libhamlib-4.dll file</string>
+             <string>Udpate Hamlib</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="3">
+           <widget class="QPushButton" name="revert_update_button">
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Revert the last Hamlib update. &lt;/p&gt;&lt;p&gt;Note: This function is only available on Windows.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>Revert Update</string>
             </property>
            </widget>
           </item>
@@ -4339,13 +4349,13 @@ Right click for insert and delete options.</string>
   </connection>
  </connections>
  <buttongroups>
-  <buttongroup name="special_op_activity_button_group"/>
-  <buttongroup name="CAT_stop_bits_button_group"/>
-  <buttongroup name="TX_audio_source_button_group"/>
   <buttongroup name="CAT_handshake_button_group"/>
-  <buttongroup name="PTT_method_button_group"/>
+  <buttongroup name="CAT_stop_bits_button_group"/>
   <buttongroup name="TX_mode_button_group"/>
-  <buttongroup name="split_mode_button_group"/>
   <buttongroup name="CAT_data_bits_button_group"/>
+  <buttongroup name="split_mode_button_group"/>
+  <buttongroup name="special_op_activity_button_group"/>
+  <buttongroup name="TX_audio_source_button_group"/>
+  <buttongroup name="PTT_method_button_group"/>
  </buttongroups>
 </ui>

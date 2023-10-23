@@ -585,6 +585,7 @@ private:
   Q_SLOT void on_CTY_download_button_clicked (bool);
   Q_SLOT void on_LotW_CSV_fetch_push_button_clicked (bool);
   Q_SLOT void on_hamlib_download_button_clicked (bool);
+  Q_SLOT void on_revert_update_button_clicked (bool);
   void error_during_hamlib_download (QString const& reason);
   void after_hamlib_downloaded();
 
@@ -3150,41 +3151,80 @@ void Configuration::impl::on_decoded_text_font_push_button_clicked ()
                                                   );
 }
 
-void Configuration::impl::on_hamlib_download_button_clicked (bool /*clicked*/)  // URUR
+void Configuration::impl::on_hamlib_download_button_clicked (bool /*clicked*/)
 {
 #ifdef WIN32
-  ui_->hamlib_download_button->setEnabled (false); // disable button until download is complete
-//  QDir dataPath {QStandardPaths::writableLocation (QStandardPaths::DataLocation)};
   QDir dataPath = QCoreApplication::applicationDirPath();
+  QFile f1 {dataPath.absolutePath() + "/" + "libhamlib-4_old.dll"};
+  QFile f2 {dataPath.absolutePath() + "/" + "libhamlib-4_new.dll"};
+  if (f1.exists()) f1.remove();
+  if (f2.exists()) f2.remove();
+  ui_->hamlib_download_button->setEnabled (false);
+  ui_->revert_update_button->setEnabled (false);
   if (ui_->rbHamlib32->isChecked()) {
     cty_download.configure(network_manager_,
                            "https://n0nb.users.sourceforge.net/dll32/libhamlib-4.dll",
-                           dataPath.absoluteFilePath("libhamlib-4.dll"),
+                           dataPath.absoluteFilePath("libhamlib-4_new.dll"),
                            "Downloading latest libhamlib-4.dll");
   } else {
     cty_download.configure(network_manager_,
                            "https://n0nb.users.sourceforge.net/dll64/libhamlib-4.dll",
-                           dataPath.absoluteFilePath("libhamlib-4.dll"),
+                           dataPath.absoluteFilePath("libhamlib-4_new.dll"),
                            "Downloading latest libhamlib-4.dll");
   }
   connect (&cty_download, &FileDownload::complete, this, &Configuration::impl::after_hamlib_downloaded, Qt::UniqueConnection);
   connect (&cty_download, &FileDownload::error, this, &Configuration::impl::error_during_hamlib_download, Qt::UniqueConnection);
   cty_download.start_download();
 #else
-  MessageBox::warning_message (this, tr ("Hamlib download only available on Windows."));
+  MessageBox::warning_message (this, tr ("Hamlib update only available on Windows."));
 #endif
 }
 
 void Configuration::impl::error_during_hamlib_download (QString const& reason)
 {
+  QDir dataPath = QCoreApplication::applicationDirPath();
   MessageBox::warning_message (this, tr ("Error Loading libhamlib-4.dll"), reason);
   ui_->hamlib_download_button->setEnabled (true);
+  ui_->revert_update_button->setEnabled (true);
 }
 
 void Configuration::impl::after_hamlib_downloaded ()
 {
-  MessageBox::information_message (this, tr ("Download completed. Restart the program."));
-  ui_->hamlib_download_button->setEnabled (true);
+  QDir dataPath = QCoreApplication::applicationDirPath();
+  QFile::rename(dataPath.absolutePath() + "/" + "libhamlib-4.dll", dataPath.absolutePath() + "/" + "libhamlib-4_old.dll");
+  QTimer::singleShot (1000, [=] {
+    QFile::rename(dataPath.absolutePath() + "/" + "libhamlib-4_new.dll", dataPath.absolutePath() + "/" + "libhamlib-4.dll");
+  });
+  QTimer::singleShot (2000, [=] {
+    MessageBox::information_message (this, tr ("Hamlib Update successful \n\nNew Hamlib will be used after restart"));
+    ui_->revert_update_button->setEnabled (true);
+    ui_->hamlib_download_button->setEnabled (true);
+  });
+}
+
+void Configuration::impl::on_revert_update_button_clicked (bool /*clicked*/)
+{
+#ifdef WIN32
+  QDir dataPath = QCoreApplication::applicationDirPath();
+  QFile f {dataPath.absolutePath() + "/" + "libhamlib-4_old.dll"};
+  if (f.exists()) {
+    ui_->revert_update_button->setEnabled (false);
+    ui_->hamlib_download_button->setEnabled (false);
+    QFile::rename(dataPath.absolutePath() + "/" + "libhamlib-4.dll", dataPath.absolutePath() + "/" + "libhamlib-4_new.dll");
+    QTimer::singleShot (1000, [=] {
+      QFile::rename(dataPath.absolutePath() + "/" + "libhamlib-4_old.dll", dataPath.absolutePath() + "/" + "libhamlib-4.dll");
+    });
+    QTimer::singleShot (2000, [=] {
+      MessageBox::information_message (this, tr ("Hamlib successfully reverted \n\nReverted Hamlib will be used after restart"));
+      ui_->revert_update_button->setEnabled (true);
+      ui_->hamlib_download_button->setEnabled (true);
+    });
+  } else {
+    MessageBox::warning_message (this, tr ("No Hamlib update found that could be reverted"));
+  }
+#else
+  MessageBox::warning_message (this, tr ("Hamlib update only available on Windows."));
+#endif
 }
 
 void Configuration::impl::on_special_op_activity_button_group_buttonClicked (int /* id */)
