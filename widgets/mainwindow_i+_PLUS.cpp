@@ -2266,7 +2266,7 @@ void MainWindow::fastSink(qint64 frames)
                 && (m_config.Territory2()!="") && !ui->cbBypass->isChecked()) filtered = true;;
             if (ui->actionHideTerritory3->isChecked() && countryName.contains(m_config.Territory3())
                 && (m_config.Territory3()!="") && !ui->cbBypass->isChecked()) filtered = true;;
-            if (ui->actionHideTerritory4->isChecked() && countryName.contains(m_config.Territory3())
+            if (ui->actionHideTerritory4->isChecked() && countryName.contains(m_config.Territory4())
                 && (m_config.Territory4()!="") && !ui->cbBypass->isChecked()) filtered = true;;
           }
           // search for callsigns worked B4 on band
@@ -2415,7 +2415,7 @@ void MainWindow::fastSink(qint64 frames)
                 && (m_config.Territory2()!="") && !ui->cbBypass->isChecked()) filtered = true;;
             if (ui->actionHideTerritory3->isChecked() && countryName.contains(m_config.Territory3())
                 && (m_config.Territory3()!="") && !ui->cbBypass->isChecked()) filtered = true;;
-            if (ui->actionHideTerritory4->isChecked() && countryName.contains(m_config.Territory3())
+            if (ui->actionHideTerritory4->isChecked() && countryName.contains(m_config.Territory4())
                 && (m_config.Territory4()!="") && !ui->cbBypass->isChecked()) filtered = true;;
           }
           // search for callsigns worked B4 on band
@@ -5143,7 +5143,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
                           && (m_config.Territory2()!="") && !ui->cbBypass->isChecked()) filtered = true;;
                       if (ui->actionHideTerritory3->isChecked() && countryName.contains(m_config.Territory3())
                           && (m_config.Territory3()!="") && !ui->cbBypass->isChecked()) filtered = true;;
-                      if (ui->actionHideTerritory4->isChecked() && countryName.contains(m_config.Territory3())
+                      if (ui->actionHideTerritory4->isChecked() && countryName.contains(m_config.Territory4())
                           && (m_config.Territory4()!="") && !ui->cbBypass->isChecked()) filtered = true;;
                     }
                     // search for callsigns worked B4 on band
@@ -5292,7 +5292,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
                           && (m_config.Territory2()!="") && !ui->cbBypass->isChecked()) filtered = true;;
                       if (ui->actionHideTerritory3->isChecked() && countryName.contains(m_config.Territory3())
                           && (m_config.Territory3()!="") && !ui->cbBypass->isChecked()) filtered = true;;
-                      if (ui->actionHideTerritory4->isChecked() && countryName.contains(m_config.Territory3())
+                      if (ui->actionHideTerritory4->isChecked() && countryName.contains(m_config.Territory4())
                           && (m_config.Territory4()!="") && !ui->cbBypass->isChecked()) filtered = true;;
                     }
                     // search for callsigns worked B4 on band
