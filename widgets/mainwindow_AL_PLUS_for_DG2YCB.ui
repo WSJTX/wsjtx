@@ -51,7 +51,6 @@
           <property name="font">
            <font>
             <pointsize>10</pointsize>
-            <weight>50</weight>
             <bold>false</bold>
            </font>
           </property>
@@ -521,7 +520,6 @@ QLabel[oob=&quot;true&quot;] {
           <property name="font">
            <font>
             <pointsize>10</pointsize>
-            <weight>50</weight>
             <bold>false</bold>
            </font>
           </property>
@@ -1392,6 +1390,45 @@ When not checked you can view the calibration results.</string>
                      <property name="spacing">
                       <number>0</number>
                      </property>
+                     <item>
+                      <layout class="QGridLayout" name="submode_gridLayout">
+                       <property name="spacing">
+                        <number>0</number>
+                       </property>
+                       <item row="0" column="0">
+                        <widget class="QPushButton" name="pb30B">
+                         <property name="minimumSize">
+                          <size>
+                           <width>32</width>
+                           <height>0</height>
+                          </size>
+                         </property>
+                         <property name="toolTip">
+                          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to T/R 30 s and Submode B.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                         </property>
+                         <property name="text">
+                          <string>30B</string>
+                         </property>
+                        </widget>
+                       </item>
+                       <item row="0" column="1">
+                        <widget class="QPushButton" name="pb60C">
+                         <property name="minimumSize">
+                          <size>
+                           <width>32</width>
+                           <height>0</height>
+                          </size>
+                         </property>
+                         <property name="toolTip">
+                          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to T/R 60 s and Submode C.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                         </property>
+                         <property name="text">
+                          <string>60C</string>
+                         </property>
+                        </widget>
+                       </item>
+                      </layout>
+                     </item>
                      <item>
                       <widget class="QCheckBox" name="cbHoldTxFreq">
                        <property name="toolTip">
@@ -4143,7 +4180,7 @@ Double-click to reset to the standard 73 message</string>
      <x>0</x>
      <y>0</y>
      <width>879</width>
-     <height>21</height>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">

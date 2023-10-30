@@ -1417,6 +1417,42 @@ When not checked you can view the calibration results.</string>
                   <item row="0" column="1">
                    <layout class="QVBoxLayout" name="verticalLayout_13">
                     <item>
+                     <layout class="QGridLayout" name="submode_gridLayout">
+                      <item row="0" column="0">
+                       <widget class="QPushButton" name="pb30B">
+                        <property name="minimumSize">
+                         <size>
+                          <width>32</width>
+                          <height>0</height>
+                         </size>
+                        </property>
+                        <property name="toolTip">
+                         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to T/R 30 s and Submode B.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                        </property>
+                        <property name="text">
+                         <string>30B</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item row="0" column="1">
+                       <widget class="QPushButton" name="pb60C">
+                        <property name="minimumSize">
+                         <size>
+                          <width>32</width>
+                          <height>0</height>
+                         </size>
+                        </property>
+                        <property name="toolTip">
+                         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to T/R 60 s and Submode C.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                        </property>
+                        <property name="text">
+                         <string>60C</string>
+                        </property>
+                       </widget>
+                      </item>
+                     </layout>
+                    </item>
+                    <item>
                      <widget class="QCheckBox" name="cbHoldTxFreq">
                       <property name="toolTip">
                        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to keep Tx frequency fixed when double-clicking on decoded text.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>

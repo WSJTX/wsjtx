@@ -3326,6 +3326,13 @@ void MainWindow::statusChanged()
       }
     }
   }
+  if (m_mode=="Q65" && m_config.enable_VHF_features()) {
+    ui->pb30B->setVisible(true);
+    ui->pb60C->setVisible(true);
+  } else {
+    ui->pb30B->setVisible(false);
+    ui->pb60C->setVisible(false);
+  }
 }
 
 bool MainWindow::eventFilter (QObject * object, QEvent * event)
@@ -12507,6 +12514,18 @@ void MainWindow::on_jt65Button_clicked()
       m_specOp=m_config.special_op_id();
     }
     on_actionJT65_triggered();
+}
+
+void MainWindow::on_pb30B_clicked()
+{
+    ui->sbTR->setValue(30);
+    ui->sbSubmode->setValue(1);
+}
+
+void MainWindow::on_pb60C_clicked()
+{
+    ui->sbTR->setValue(60);
+    ui->sbSubmode->setValue(2);
 }
 
 void MainWindow::bandHoppingTimer()
