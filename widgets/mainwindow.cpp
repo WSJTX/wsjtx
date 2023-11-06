@@ -218,6 +218,7 @@ QVector<QColor> g_ColorTbl;
 
 using SpecOp = Configuration::SpecialOperatingActivity;
 
+bool blocked = false;
 bool m_displayBand = false;
 bool wait_and_call = false;
 bool no_wait_and_call = false;
@@ -10126,12 +10127,16 @@ void MainWindow::rigFailure (QString const& reason)
   if (m_first_error)
     {
       // one automatic retry
-      QTimer::singleShot (0, this, SLOT (rigOpen ()));
-//      m_first_error = false;
-      ui->pbBandHopping->setChecked(false);  // UR stop BandHopping instead of rigErrorMessageBox
-      ui->stopTxButton->click();             // stop Tx instead of rigErrorMessageBox
-      monitor (false);                       // stop monitoring instead of rigErrorMessageBox
-      m_loopall=false;                       // stop monitoring instead of rigErrorMessageBox
+      QTimer::singleShot (1000, this, SLOT (rigOpen ()));          // UR retry each second
+//      m_first_error = false;                                     // UR retry for 10 seconds before MessageBox comes
+      if (!blocked) {
+        QTimer::singleShot (10000, [=] {m_first_error = false;});  // UR retry for 10 seconds
+        ui->pbBandHopping->setChecked(false);                      // UR stop BandHopping
+        ui->stopTxButton->click();                                 // UR stop Tx instead
+        monitor (false);                                           // UR stop monitoring
+        m_loopall=false;                                           // UR stop monitoring
+        blocked = true;
+      }
     }
   else
     {
@@ -10172,6 +10177,7 @@ void MainWindow::rigFailure (QString const& reason)
             }
         }
       m_first_error = true;     // reset
+      blocked = false;          // UR reset done bolean
     }
 }
 
