@@ -64,7 +64,7 @@ WideGraph::WideGraph(QSettings * settings, QWidget *parent) :
     m_freq=m_settings->value("Freq",true).toBool();
     ui->cbFreq->setChecked(m_freq);
     ui->widePlot->showFreq(m_freq);
-    int n = m_settings->value("BinsPerPixel",2).toInt();
+    int n = m_settings->value("BinsPerPixel",4).toInt();
     m_bFlatten=m_settings->value("Flatten",true).toBool();
     m_bRef=m_settings->value("UseRef",false).toBool();
     ui->cbFlatten->setChecked(m_bFlatten);
@@ -75,7 +75,7 @@ WideGraph::WideGraph(QSettings * settings, QWidget *parent) :
     m_nsmo=m_settings->value("SmoothYellow",1).toInt();
     ui->smoSpinBox->setValue(m_nsmo);
     m_Percent2DScreen=m_settings->value("Percent2D",30).toInt();
-    m_waterfallAvg = m_settings->value("WaterfallAvg",5).toInt();
+    m_waterfallAvg = m_settings->value("WaterfallAvg",2).toInt();
     ui->waterfallAvgSpinBox->setValue(m_waterfallAvg);
     ui->widePlot->setWaterfallAvg(m_waterfallAvg);
     ui->widePlot->setCurrent(m_settings->value("Current",false).toBool());
@@ -90,7 +90,7 @@ WideGraph::WideGraph(QSettings * settings, QWidget *parent) :
     if(ui->widePlot->Reference()) ui->spec2dComboBox->setCurrentIndex(3);
     if(ui->widePlot->Q65_Sync()) ui->spec2dComboBox->setCurrentIndex(4);
     if(ui->widePlot->TotalPower()) ui->spec2dComboBox->setCurrentIndex(5);
-    int nbpp=m_settings->value("BinsPerPixel",2).toInt();
+    int nbpp=m_settings->value("BinsPerPixel",4).toInt();
     ui->widePlot->setBinsPerPixel(nbpp);
     ui->sbPercent2dPlot->setValue(m_Percent2DScreen);
     ui->widePlot->setStartFreq(m_settings->value("StartFreq",0).toInt());

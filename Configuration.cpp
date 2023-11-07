@@ -2163,7 +2163,7 @@ void Configuration::impl::read_settings ()
     }
 
   id_interval_ = settings_->value ("IDint", 0).toInt ();
-  align_steps_ = settings_->value ("AlignSteps", 1).toInt ();
+  align_steps_ = settings_->value ("AlignSteps", 2).toInt ();
   align_steps2_ = settings_->value ("AlignSteps2", 0).toInt ();
   ntrials_ = settings_->value ("nTrials", 6).toInt ();
   txDelay_ = settings_->value ("TxDelay",0.2).toDouble();
@@ -2254,14 +2254,14 @@ void Configuration::impl::read_settings ()
   highlight_73_ = settings_->value("Highlight73", true).toBool ();
   highlight_orange_ = settings_->value("HighlightOrange", false).toBool ();
   highlight_blue_ = settings_->value("HighlightBlue", false).toBool ();
-  alternate_erase_button_ = settings_->value("AlternateEraseButtonBehavior", false).toBool ();
+  alternate_erase_button_ = settings_->value("AlternateEraseButtonBehavior", true).toBool ();
   show_country_names_ = settings_->value("AlwaysShowCountryNames", false).toBool ();
   LotW_days_since_upload_ = settings_->value ("LotWDaysSinceLastUpload", 365).toInt ();
   lotw_users_.set_age_constraint (LotW_days_since_upload_);
 
   log_as_RTTY_ = settings_->value ("toRTTY", false).toBool ();
   report_in_comments_ = settings_->value("dBtoComments", false).toBool ();
-  specOp_in_comments_ = settings_->value("specOptoComments", false).toBool ();
+  specOp_in_comments_ = settings_->value("specOptoComments", true).toBool ();
   rig_params_.rig_name = settings_->value ("Rig", TransceiverFactory::basic_transceiver_name_).toString ();
   rig_is_dummy_ = TransceiverFactory::basic_transceiver_name_ == rig_params_.rig_name;
   rig_params_.network_port = settings_->value ("CATNetworkPort").toString ();
@@ -2281,18 +2281,18 @@ void Configuration::impl::read_settings ()
   data_mode_ = settings_->value ("DataMode", QVariant::fromValue (data_mode_none)).value<Configuration::DataMode> ();
   bLowSidelobes_ = settings_->value("LowSidelobes",true).toBool();
   prompt_to_log_ = settings_->value ("PromptToLog", false).toBool ();
-  autoLog_ = settings_->value ("AutoLog", false).toBool ();
+  autoLog_ = settings_->value ("AutoLog", true).toBool ();
   decodes_from_top_ = settings_->value ("DecodesFromTop", false).toBool ();
-  insert_blank_ = settings_->value ("InsertBlank", false).toBool ();
-  detailed_blank_ = settings_->value ("DetailedBlank", false).toBool ();
-  DXCC_ = settings_->value ("DXCCEntity", false).toBool ();
-  gridMap_ = settings_->value("MapGridEntity", false).toBool();
-  gridMapAll_ = settings_->value("MapGridAllEntity", false).toBool();
+  insert_blank_ = settings_->value ("InsertBlank", true).toBool ();
+  detailed_blank_ = settings_->value ("DetailedBlank", true).toBool ();
+  DXCC_ = settings_->value ("DXCCEntity", true).toBool ();
+  gridMap_ = settings_->value("MapGridEntity", true).toBool();
+  gridMapAll_ = settings_->value("MapGridAllEntity", true).toBool();
   ppfx_ = settings_->value ("PrincipalPrefix", false).toBool ();
   clear_DX_ = settings_->value ("ClearCallGrid", false).toBool ();
   miles_ = settings_->value ("Miles", false).toBool ();
   quick_call_ = settings_->value ("QuickCall", false).toBool ();
-  disable_TX_on_73_ = settings_->value ("73TxDisable", false).toBool ();
+  disable_TX_on_73_ = settings_->value ("73TxDisable", true).toBool ();
   force_call_1st_ = settings_->value ("ForceCallFirst", false).toBool ();
   alternate_bindings_ = settings_->value ("AlternateBindings", false).toBool ();
   watchdog_ = settings_->value ("TxWatchdog", 6).toInt ();
@@ -2342,9 +2342,9 @@ void Configuration::impl::read_settings ()
   calibration_.slope_ppm = settings_->value ("CalibrationSlopePPM", 0.).toDouble ();
   pwrBandTxMemory_ = settings_->value("pwrBandTxMemory",false).toBool ();
   pwrBandTuneMemory_ = settings_->value("pwrBandTuneMemory",false).toBool ();
-  highlight_DXcall_ = settings_->value("highlight_DXcall",false).toBool ();
+  highlight_DXcall_ = settings_->value("highlight_DXcall",true).toBool ();
   clear_DXcall_ = settings_->value("clear_DXcall",false).toBool ();
-  highlight_DXgrid_ = settings_->value("highlight_DXgrid",false).toBool ();
+  highlight_DXgrid_ = settings_->value("highlight_DXgrid",true).toBool ();
   clear_DXgrid_ = settings_->value("clear_DXgrid",false).toBool ();
   erase_BandActivity_ = settings_->value("erase_BandActivity",false).toBool ();
   set_RXtoTX_ = settings_->value("set_RXtoTX",false).toBool ();
