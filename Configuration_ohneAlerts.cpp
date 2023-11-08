@@ -1888,7 +1888,7 @@ void Configuration::impl::initialize_models ()
       ui_->force_RTS_combo_box->setCurrentIndex (0);
     }
   ui_->TX_audio_source_button_group->button (rig_params_.audio_source)->setChecked (true);
-  ui_->CAT_poll_interval_spin_box->setValue (rig_params_.poll_interval);
+  ui_->CAT_poll_interval_spin_box->setValue (rig_params_.poll_interval & 0x7fff);
   ui_->opCallEntry->setText (opCall_);
   ui_->udp_server_line_edit->setEnabled(false);
   ui_->udp_server_line_edit->setText (udp_server_name_);
