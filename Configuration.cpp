@@ -2167,7 +2167,7 @@ void Configuration::impl::read_settings ()
   align_steps2_ = settings_->value ("AlignSteps2", 0).toInt ();
   ntrials_ = settings_->value ("nTrials", 6).toInt ();
   txDelay_ = settings_->value ("TxDelay",0.2).toDouble();
-  aggressive_ = settings_->value ("Aggressive", 0).toInt ();
+  aggressive_ = settings_->value ("Aggressive", 4).toInt ();
   RxBandwidth_ = settings_->value ("RxBandwidth", 2500).toInt ();
   save_directory_.setPath (settings_->value ("SaveDir", default_save_directory_.absolutePath ()).toString ());
   azel_directory_.setPath (settings_->value ("AzElDir", default_azel_directory_.absolutePath ()).toString ());
