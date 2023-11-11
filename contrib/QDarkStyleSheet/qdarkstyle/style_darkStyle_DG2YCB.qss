@@ -100,11 +100,11 @@ QMainWindow::separator:vertical {
 /* QToolTip --------------------------------------------------------------- */
 
 QToolTip {
-    background-color: #148CD2;
+    background-color: #aaffff;   /* old value #148CD2; */
     border: 1px solid #19232D;
     color: #19232D;
     padding: 0;   /*remove padding, for fix combo box tooltip*/
-    opacity: 230; /*reducing transparency to read better*/
+    opacity: 255; /*reducing transparency to read better, old value 230*/
 }
 
 /* QStatusBar ------------------------------------------------------------- */
