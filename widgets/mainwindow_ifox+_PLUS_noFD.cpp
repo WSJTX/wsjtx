@@ -10010,14 +10010,19 @@ void MainWindow::handle_transceiver_update (Transceiver::TransceiverState const&
       ui->label->setText("Pwr");
     }
     if (m_rigState.swr() != s.swr()) {
+      static bool s_alreadyShowingSWRAlert = false;
       if (s.swr() > 0) {
         if (s.swr()>150) band_hopping_label.setStyleSheet ("QLabel{color: #000000; background-color: #ffff00}");
         if (s.swr()>200) band_hopping_label.setStyleSheet ("QLabel{color: #ffffff; background-color: #ff0000}");
         if (s.swr()>250 && m_config.check_SWR()) {
-          on_stopTxButton_clicked();
-          MessageBox::warning_message (this, tr ("SWR > 2.5 !!!\n\n"
-                                                 "Transmission was stopped\n\n"
-                                                 "Check your antenna"));
+          if (!s_alreadyShowingSWRAlert) {     // avoid recursion
+            on_stopTxButton_clicked();
+            s_alreadyShowingSWRAlert = true;
+            MessageBox::warning_message (this, tr ("SWR > 2.5 !!!\n\n"
+                                                   "Transmission was stopped\n\n"
+                                                   "Check your antenna"));
+            s_alreadyShowingSWRAlert = false;
+          }
         }
         if (s.swr()<1000) {
           band_hopping_label.setText(QString {"SWR: %1"}.arg (s.swr()/100.,0,'f',2));
@@ -10025,8 +10030,10 @@ void MainWindow::handle_transceiver_update (Transceiver::TransceiverState const&
           band_hopping_label.setText(QString {"SWR: %1"}.arg (s.swr()/100.,0,'f',1));
         }
       } else {
-        band_hopping_label.setText("");
-        band_hopping_label.setStyleSheet("");
+        if (!s_alreadyShowingSWRAlert) {      // retain value and color if SWR was > 2.5
+          band_hopping_label.setText("");
+          band_hopping_label.setStyleSheet("");
+        }
       }
     }
   }
