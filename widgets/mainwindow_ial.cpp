@@ -237,6 +237,7 @@ bool keepTx5 = false;
 bool no_logging = false;
 bool BlankLineInserted = false;
 bool m_txing;
+bool HoldTxFreqStatus;
 QString txlog;
 
 QSharedMemory mem_qmap("mem_qmap");         //Memory segment to be shared (optionally) with QMAP
@@ -12641,12 +12642,14 @@ QString MainWindow::WSPR_message()
 void MainWindow::on_houndButton_clicked (bool checked)
 {
   if (checked) {
+    HoldTxFreqStatus = ui->cbHoldTxFreq->isChecked();  // save state of the Hold Tx Freq checkbox
     m_config.setSpecial_Hound();
     ui->tx1->setVisible(true);
     ui->tx1->setEnabled(true);
     ui->txb1->setEnabled(true);
   } else {
     m_config.setSpecial_None();
+    ui->cbHoldTxFreq->setChecked (HoldTxFreqStatus);  // restore state of the Hold Tx Freq checkbox
     keep_frequency = true;
     QTimer::singleShot (250, [=] {keep_frequency = false;});
   }
@@ -12657,6 +12660,10 @@ void MainWindow::on_houndButton_clicked (bool checked)
 
 void MainWindow::on_ft8Button_clicked()
 {
+    if(m_specOp==SpecOp::HOUND) {
+      m_config.setSpecial_None();
+      m_specOp=m_config.special_op_id();
+    }
     on_actionFT8_triggered();
 }
 
