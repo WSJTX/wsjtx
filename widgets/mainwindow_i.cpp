@@ -7650,7 +7650,7 @@ void MainWindow::genCQMsg ()
        ( tlist.at(1)==my_callsign or
          tlist.at(2)==my_callsign ) and
        stdCall(my_callsign)) {
-       if(m_config.Individual_Contest_Name())  {
+       if(m_config.Individual_Contest_Name() && SpecOp::FOX != m_specOp)  {
             m_cqStr = m_config.Contest_Name();
        } else {
        if(SpecOp::NA_VHF == m_specOp)    m_cqStr="TEST";
