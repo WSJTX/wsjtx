@@ -181,7 +181,6 @@ public:
   bool GridMap() const;
   bool GridMapAll() const;
   bool ppfx() const;
-  bool clear_DX () const;
   bool miles () const;
   bool quick_call () const;
   bool disable_TX_on_73 () const;

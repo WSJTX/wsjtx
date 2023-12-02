@@ -7952,7 +7952,16 @@ void MainWindow::clearDX ()
     auto_tx_mode (false);
   }
   ui->dxCallEntry->clear ();
-  ui->dxGridEntry->clear ();
+  if (m_config.clear_DXgrid ()) ui->dxGridEntry->clear ();
+  if (!keepTx5) ui->tx5->setCurrentText("");   // clear tx5
+  if (ui->respondComboBox->isVisible()) {
+    Dpoints=0;                          // reset points
+    maxDPoints=0;                       // reset points
+    dBpoints=-28;                       // reset points
+    dBpoints2=99;                       // reset points
+    maxdBPoints=-28;                    // reset points
+    mindBPoints=99;                     // reset points
+  }
   m_lastCallsign.clear ();
   m_rptSent.clear ();
   m_rptRcvd.clear ();
@@ -8537,7 +8546,8 @@ void MainWindow::acceptQSO (QDateTime const& QSO_date_off, QString const& call, 
         }
     }
 
-  if(m_config.clear_DX () and SpecOp::HOUND != m_specOp) clearDX ();
+  if (m_config.clear_DXcall ()) clearDX ();
+  if (m_config.clear_DXgrid ()) ui->dxGridEntry->clear ();
   m_dateTimeQSOOn = QDateTime {};
   if(m_specOp!=SpecOp::NONE and m_specOp!=SpecOp::FOX and m_specOp!=SpecOp::HOUND) {
     ui->sbSerialNumber->setValue(ui->sbSerialNumber->value() + 1);
@@ -8569,8 +8579,6 @@ void MainWindow::acceptQSO (QDateTime const& QSO_date_off, QString const& call, 
   m_xSent.clear ();
   m_xRcvd.clear ();
   if (m_config.set_RXtoTX ()) on_pbT2R_clicked();   // Mod for WD5DHK
-  if (m_config.clear_DXcall ()) ui->dxCallEntry->clear ();
-  if (m_config.clear_DXgrid ()) ui->dxGridEntry->clear ();
 }
 
 void MainWindow::updateRate()

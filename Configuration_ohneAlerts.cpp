@@ -813,7 +813,6 @@ private:
   bool gridMap_;
   bool gridMapAll_;
   bool ppfx_;
-  bool clear_DX_;
   bool miles_;
   bool quick_call_;
   bool disable_TX_on_73_;
@@ -945,7 +944,6 @@ bool Configuration::DXCC () const {return m_->DXCC_;}
 bool Configuration::GridMap() const { return m_->gridMap_;}
 bool Configuration::GridMapAll() const { return m_->gridMapAll_;}
 bool Configuration::ppfx() const {return m_->ppfx_;}
-bool Configuration::clear_DX () const {return m_->clear_DX_;}
 bool Configuration::miles () const {return m_->miles_;}
 bool Configuration::quick_call () const {return m_->quick_call_;}
 bool Configuration::disable_TX_on_73 () const {return m_->disable_TX_on_73_;}
@@ -1828,7 +1826,6 @@ void Configuration::impl::initialize_models ()
   }
   ui_->Map_Grid_to_State->setChecked(gridMap_);
   ui_->Map_All_Messages->setChecked(gridMapAll_);
-  ui_->clear_DX_check_box->setChecked (clear_DX_);
   ui_->miles_check_box->setChecked (miles_);
   ui_->quick_call_check_box->setChecked (quick_call_);
   ui_->disable_TX_on_73_check_box->setChecked (disable_TX_on_73_);
@@ -2213,7 +2210,6 @@ void Configuration::impl::read_settings ()
   gridMap_ = settings_->value("MapGridEntity", true).toBool();
   gridMapAll_ = settings_->value("MapGridAllEntity", true).toBool();
   ppfx_ = settings_->value ("PrincipalPrefix", false).toBool ();
-  clear_DX_ = settings_->value ("ClearCallGrid", false).toBool ();
   miles_ = settings_->value ("Miles", false).toBool ();
   quick_call_ = settings_->value ("QuickCall", false).toBool ();
   disable_TX_on_73_ = settings_->value ("73TxDisable", true).toBool ();
@@ -2429,7 +2425,6 @@ void Configuration::impl::write_settings ()
   settings_->setValue ("MapGridEntity", gridMap_);
   settings_->setValue ("MapGridAllEntity", gridMapAll_);
   settings_->setValue ("PrincipalPrefix", ppfx_);
-  settings_->setValue ("ClearCallGrid", clear_DX_);
   settings_->setValue ("Miles", miles_);
   settings_->setValue ("QuickCall", quick_call_);
   settings_->setValue ("73TxDisable", disable_TX_on_73_);
@@ -2943,7 +2938,6 @@ void Configuration::impl::accept ()
   gridMap_= ui_->Map_Grid_to_State->isChecked ();
   gridMapAll_ = ui_->Map_All_Messages->isChecked();
   ppfx_ = ui_->ppfx_check_box->isChecked ();
-  clear_DX_ = ui_->clear_DX_check_box->isChecked ();
   miles_ = ui_->miles_check_box->isChecked ();
   quick_call_ = ui_->quick_call_check_box->isChecked ();
   disable_TX_on_73_ = ui_->disable_TX_on_73_check_box->isChecked ();
