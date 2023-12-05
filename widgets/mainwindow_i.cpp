@@ -4161,7 +4161,14 @@ void MainWindow::on_actionSpecial_mouse_commands_triggered()
   </tr>
   <tr>
     <td align="right">Q65 Button</td>
-    <td><b>Right-click</b> to toggle Q65 Pileup Mode On/Off.<br/>
+    <td><b>Click</b> to switch to Q65 Mode.<br/>
+        <b>Right-click</b> to switch to Q65 Pileup Mode.<br/>
+    </td>
+  </tr>
+  <tr>
+    <td align="right">JT65 Button</td>
+    <td><b>Click</b> to switch to JT65 Mode.<br/>
+        <b>Right-click</b> to switch to JT9 Mode.<br/>
     </td>
   </tr>
   <tr>
@@ -8254,21 +8261,19 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
   if((ui->ft8Button->hasFocus() or ui->msk144Button->hasFocus()) && (event->button() & Qt::RightButton)) {
       ui->txFirstCheckBox->setEnabled(true);  // unfreeze txFirstCheckBox
   }
-  if(ui->q65Button->hasFocus() && (event->button() & Qt::RightButton)) {  // toggle Q65_Pileup mode On/Off
-      m_specOp=m_config.special_op_id();
-      if (m_specOp==SpecOp::Q65_PILEUP) {
-          m_config.setSpecial_None();
-          ui->tx1->setEnabled(true);
-          ui->txb1->setEnabled(true);
-      } else {
-          m_config.setSpecial_Q65_Pileup();
-      }
+  if(ui->q65Button->hasFocus() && (event->button() & Qt::RightButton)) {     // switch to Q65_Pileup mode
+      m_config.setSpecial_Q65_Pileup();
       m_specOp=m_config.special_op_id();
       on_actionQ65_triggered();
   }
-  if(ui->jt65Button->hasFocus() && (event->button() & Qt::RightButton)) {  // switch to JT9 mode
+  if(ui->jt65Button->hasFocus() && (event->button() & Qt::RightButton)) {    // switch to JT9 mode
       on_actionJT9_triggered();
   }
+  if(ui->lookupButton->hasFocus() && (event->button() & Qt::RightButton)) {  // search callsign at QRZ.com
+      QString hisCall=ui->dxCallEntry->text();
+      if (hisCall !="") QDesktopServices::openUrl (QUrl {"https://www.qrz.com/db/" + hisCall});
+  }
+
   // Wait & Pounce
   if(ui->autoButton->hasFocus() && (event->button() & Qt::RightButton) && ui->respondComboBox->currentText()!="CQ: None") {
       if (!pounce && !m_auto && m_config.Wait_features_enabled()) {
@@ -12673,7 +12678,7 @@ void MainWindow::on_houndButton_clicked (bool checked)
 
 void MainWindow::on_ft8Button_clicked()
 {
-    if(m_specOp==SpecOp::HOUND) {
+    if (m_specOp==SpecOp::HOUND) {
       m_config.setSpecial_None();
       m_specOp=m_config.special_op_id();
     }
@@ -12692,6 +12697,10 @@ void MainWindow::on_msk144Button_clicked()
 
 void MainWindow::on_q65Button_clicked()
 {
+    if (m_specOp==SpecOp::Q65_PILEUP) {
+      m_config.setSpecial_None();
+      m_specOp=m_config.special_op_id();
+    }
     on_actionQ65_triggered();
 }
 

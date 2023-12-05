@@ -2109,8 +2109,11 @@ When not checked you can view the calibration results.</string>
              </item>
              <item row="4" column="0">
               <widget class="QPushButton" name="lookupButton">
+               <property name="focusPolicy">
+                <enum>Qt::StrongFocus</enum>
+               </property>
                <property name="toolTip">
-                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Search for callsign in database, doubleclick searches for callsign on QRZ.com.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Search for callsign in database. &lt;br&gt;Right-click or double-click searches for callsign on QRZ.com.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                </property>
                <property name="text">
                 <string>&amp;Lookup</string>
@@ -2328,7 +2331,7 @@ When not checked you can view the calibration results.</string>
                </size>
               </property>
               <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to Q65 mode. Right-click to toggle Q65 Pileup mode On/Off.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to Q65 mode.&lt;br&gt; Right-click to switch to Q65 Pileup mode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
               <property name="text">
                <string>Q65</string>
