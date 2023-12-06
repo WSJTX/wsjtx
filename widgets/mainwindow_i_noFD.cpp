@@ -4107,45 +4107,44 @@ void MainWindow::on_actionSpecial_mouse_commands_triggered()
   </tr>
   <tr>
     <td align="right">Decoded text:</td>
-    <td><b>Double-click</b> to copy second callsign to Dx Call, locator to Dx Grid,<br/>
-        change Rx and Tx frequency to decoded signal's frequency, and<br/>
-        generate standard messages.<br/>
+    <td><b>Double-click</b> to copy second callsign to Dx Call, locator to Dx Grid, change Rx<br/>
+        and Tx frequency to decoded signal's frequency, and generate standard messages.<br/>
         Hold down <b>Alt</b> to prevent Tx from being enabled on <b>double-click</b>.<br/>
         If <b>Hold Tx Freq</b> is checked or first callsign in message is your<br/>
         own call, Tx frequency is not changed unless <b>Ctrl</b> is held down.<br/>
     </td>
   </tr>
   <tr>
-    <td align="right">H Button</td>
+    <td align="right">H Button:</td>
     <td><b>Click</b> to toggle FT8 Hound Mode On/Off.<br/>
         <b>Right-click</b> to toggle last used Special Operating Activity On/Off.<br/>
     </td>
   </tr>
   <tr>
-    <td align="right">Q65 Button</td>
+    <td align="right">Q65 Button:</td>
     <td><b>Click</b> to switch to Q65 Mode.<br/>
         <b>Right-click</b> to switch to Q65 Pileup Mode.<br/>
     </td>
   </tr>
   <tr>
-    <td align="right">JT65 Button</td>
+    <td align="right">JT65 Button:</td>
     <td><b>Click</b> to switch to JT65 Mode.<br/>
         <b>Right-click</b> to switch to JT9 Mode.<br/>
     </td>
   </tr>
   <tr>
-    <td align="right">Tx5 Button</td>
+    <td align="right">Tx5 Button:</td>
     <td><b>Right-click</b> to retain Tx5 free text.<br/>
     </td>
   </tr>
   <tr>
-    <td align="right">Tx Even/1st</td>
+    <td align="right">Tx Even/1st:</td>
     <td><b>Right-click</b> to freeze the state of the checkbox.<br/>
         <b>Right-click on the FT8 Button</b> to unfreeze.<br/>
     </td>
   </tr>
   <tr>
-    <td align="right">Enable Tx Button</td>
+    <td align="right">Enable Tx Button:</td>
     <td><b>Click</b> to toggle Auto-Tx mode On/Off.<br/>
         <b>Right-click</b> to toggle Wait & Pounce On/Off.<br/>
     </td>
@@ -4161,9 +4160,14 @@ void MainWindow::on_actionSpecial_mouse_commands_triggered()
     </td>
   </tr>
   <tr>
-    <td align="right">DX Call Button</td>
+    <td align="right">DX Call Button:</td>
     <td><b>Click</b> to toggle Wait & Call On/Off.<br/>
         <b>Right-click</b> to clear the Dx Call, Dx Grid and Std Msgs.<br/>
+    </td>
+  </tr>
+  <tr>
+    <td align="right">Lookup Button:</td>
+    <td><b>Right-click</b> or <b>Double-click</b> to search for Dx Call on QRZ.com.<br/>
     </td>
   </tr>
 </table>)"), font});
