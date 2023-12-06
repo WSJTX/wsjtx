@@ -4101,7 +4101,7 @@ void MainWindow::on_actionSpecial_mouse_commands_triggered()
     <td align="right">Waterfall:</td>
     <td><b>Click</b> to set Rx frequency.<br/>
         <b>Right-click</b> to set Tx frequency.<br/>
-        <b>Double-right-click</b> to set Rx and Tx frequencies.<br/>
+        <b>Double-right-click</b> to set Rx and Tx frequencies.
     </td>
   </tr>
   <tr>
@@ -4110,42 +4110,42 @@ void MainWindow::on_actionSpecial_mouse_commands_triggered()
         and Tx frequency to decoded signal's frequency, and generate standard messages.<br/>
         Hold down <b>Alt</b> to prevent Tx from being enabled on <b>double-click</b>.<br/>
         If <b>Hold Tx Freq</b> is checked or first callsign in message is your<br/>
-        own call, Tx frequency is not changed unless <b>Ctrl</b> is held down.<br/>
+        own call, Tx frequency is not changed unless <b>Ctrl</b> is held down.
     </td>
   </tr>
   <tr>
     <td align="right">H Button:</td>
     <td><b>Click</b> to toggle FT8 Hound Mode On/Off.<br/>
-        <b>Right-click</b> to toggle last used Special Operating Activity On/Off.<br/>
+        <b>Right-click</b> to toggle last used Special Operating Activity On/Off.
     </td>
   </tr>
   <tr>
     <td align="right">Q65 Button:</td>
     <td><b>Click</b> to switch to Q65 Mode.<br/>
-        <b>Right-click</b> to switch to Q65 Pileup Mode.<br/>
+        <b>Right-click</b> to switch to Q65 Pileup Mode.
     </td>
   </tr>
   <tr>
     <td align="right">JT65 Button:</td>
     <td><b>Click</b> to switch to JT65 Mode.<br/>
-        <b>Right-click</b> to switch to JT9 Mode.<br/>
+        <b>Right-click</b> to switch to JT9 Mode.
     </td>
   </tr>
   <tr>
     <td align="right">Tx5 Button:</td>
-    <td><b>Right-click</b> to retain Tx5 free text.<br/>
+    <td><b>Right-click</b> to retain Tx5 free text.
     </td>
   </tr>
   <tr>
     <td align="right">Tx Even/1st:</td>
     <td><b>Right-click</b> to freeze the state of the checkbox.<br/>
-        <b>Right-click on the FT8 Button</b> to unfreeze.<br/>
+        <b>Right-click on the FT8 Button</b> to unfreeze.
     </td>
   </tr>
   <tr>
     <td align="right">Enable Tx Button:</td>
     <td><b>Click</b> to toggle Auto-Tx mode On/Off.<br/>
-        <b>Right-click</b> to toggle Wait & Pounce On/Off.<br/>
+        <b>Right-click</b> to toggle Wait & Pounce On/Off.
     </td>
   </tr>
   <tr>
@@ -4155,18 +4155,18 @@ void MainWindow::on_actionSpecial_mouse_commands_triggered()
         If <b>Alternate Erase button behavior</b> is checked:<br/>
         <b>Click</b> to erase Band Activity window.<br/>
         <b>Right-click</b> to erase Rx Frequency window.<br/>
-        <b>Double-click</b> to erase Rx Frequency and Band Activity windows.<br/>
+        <b>Double-click</b> to erase Rx Frequency and Band Activity windows.
     </td>
   </tr>
   <tr>
     <td align="right">DX Call Button:</td>
     <td><b>Click</b> to toggle Wait & Call On/Off.<br/>
-        <b>Right-click</b> to clear the Dx Call, Dx Grid and Std Msgs.<br/>
+        <b>Right-click</b> to clear the Dx Call, Dx Grid and Std Msgs.
     </td>
   </tr>
   <tr>
     <td align="right">Lookup Button:</td>
-    <td><b>Right-click</b> or <b>Double-click</b> to search for Dx Call on QRZ.com.<br/>
+    <td><b>Right-click</b> or <b>Double-click</b> to search for Dx Call on QRZ.com.
     </td>
   </tr>
 </table>)"), font});
