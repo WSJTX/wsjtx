@@ -4629,7 +4629,7 @@ Double-click to reset to the standard 73 message</string>
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>Hide callsigns worked B4 on band</string>
+    <string>Hide callsigns worked before on band</string>
    </property>
   </action>
   <action name="actionHideTerritory1">

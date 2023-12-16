@@ -4363,7 +4363,7 @@ QPushButton[state=&quot;ok&quot;] {
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>Hide B4 callsigns</string>
+    <string>Hide callsigns worked before on band</string>
    </property>
   </action>
   <action name="actionHideTerritory1">
