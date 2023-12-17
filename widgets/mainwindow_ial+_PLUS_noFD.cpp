@@ -5376,11 +5376,10 @@ void MainWindow::readFromStdout()                             //readFromStdout
 
         // insert blank line, but only if not filtered and no decodes
         int ntime=6;
-        if(m_TRperiod>=60) ntime=4;
-        if (line_read.left(ntime) != m_tBlankLine or !BlankLineInserted) {
+        if (m_TRperiod>=60) ntime=4;
+        if (m_config.insert_blank () && (line_read.left(ntime) != m_tBlankLine)) {
               ui->decodedTextBrowser->new_period ();
-              if (m_config.insert_blank () && SpecOp::FOX != m_specOp
-                  && (!filtered or m_config.filters_for_Wait_and_Pounce_only())) {
+              if (SpecOp::FOX != m_specOp && (!filtered or m_config.filters_for_Wait_and_Pounce_only())) {
                   QString band;
                   if(((QDateTime::currentMSecsSinceEpoch() / 1000 - m_secBandChanged) > 4*int(m_TRperiod)/4)
                       or m_displayBand) {
@@ -5407,10 +5406,8 @@ void MainWindow::readFromStdout()                             //readFromStdout
                       ui->decodedTextBrowser->insertLineSpacer (band.rightJustified  (40, '-'));
                     }
                   }
-                  BlankLineInserted = true;
-                  QTimer::singleShot ((int(850.0*m_TRperiod)), [=] {BlankLineInserted = false;});
+                  m_tBlankLine = line_read.left(ntime);
               }
-              m_tBlankLine = line_read.left(ntime);
         }
 
        // show distance and bearing
