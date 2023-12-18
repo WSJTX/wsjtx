@@ -10099,7 +10099,7 @@ void MainWindow::handle_transceiver_update (Transceiver::TransceiverState const&
       band_hopping_label.setMinimumSize (QSize  {80, 18});
       band_hopping_label.show();
     }
-    if (m_rigState.power() != s.power() && s.power() > 0) {
+    if (m_rigState.power() != s.power() && m_transmitting) {
       ui->label->setText(QString {tr("%1 W")}.arg (round(s.power()/1000.)));
     } else {
       ui->label->setText("Pwr");
