@@ -50,7 +50,7 @@ subroutine sun(y,m,DD,UT,lon,lat,RA,Dec,LST,Az,El,mjd,day)
   MM = mod(356.0470d0 + 0.9856002585d0 * d + 360000.d0,360.d0)
   Ls = mod(w+MM+720.0,360.0)
 
-  EE = MM + e*rad*sin(MM/rad) * (1.0 + e*cos(M/rad))
+  EE = MM + e*rad*sin(MM/rad) * (1.0 + e*cos(MM/rad))
   EE = EE - (EE - e*rad*sin(EE/rad)-MM) / (1.0 - e*cos(EE/rad))
 
   xv = cos(EE/rad) - e
