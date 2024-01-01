@@ -568,6 +568,8 @@ private:
   void after_CTY_downloaded();
   void set_CTY_DAT_version(QString const& version);
   void error_during_CTY_download (QString const& reason);
+  void after_CALL3_downloaded();
+  void error_during_CALL3_download (QString const& reason);
   Q_SLOT void on_udp_server_line_edit_textChanged (QString const&);
   Q_SLOT void on_udp_server_line_edit_editingFinished ();
   Q_SLOT void on_save_path_select_push_button_clicked (bool);
@@ -583,6 +585,8 @@ private:
   Q_SLOT void on_reset_highlighting_to_defaults2_push_button_clicked (bool);
   Q_SLOT void on_rescan_log_push_button_clicked (bool);
   Q_SLOT void on_CTY_download_button_clicked (bool);
+  Q_SLOT void on_CALL3_download_button_clicked (bool);
+  Q_SLOT void on_CALL3_EME_download_button_clicked (bool);
   Q_SLOT void on_LotW_CSV_fetch_push_button_clicked (bool);
   Q_SLOT void on_hamlib_download_button_clicked (bool);
   Q_SLOT void on_revert_update_button_clicked (bool);
@@ -3174,6 +3178,56 @@ void Configuration::impl::after_CTY_downloaded ()
     logbook_->rescan ();
     ui_->CTY_file_label->setText(QString{"CTY File Version: %1"}.arg(logbook_->cty_version()));
   }
+}
+
+void Configuration::impl::on_CALL3_download_button_clicked (bool /*clicked*/)
+{
+  ui_->CALL3_download_button->setEnabled (false); // disable button until download is complete
+  QDir dataPath {QStandardPaths::writableLocation (QStandardPaths::DataLocation)};
+  QFile f {dataPath.absolutePath() + "/" + "CALL3.TXT"};
+  if (f.exists()) QFile::rename(dataPath.absolutePath() + "/" + "CALL3.TXT", dataPath.absolutePath() + "/" + "CALL3_backup.TXT");
+  cty_download.configure(network_manager_,
+                         "http://dr-risse-consulting.de/hamlib/call3/CALL3.TXT",
+                         dataPath.absoluteFilePath("CALL3.TXT"),
+                         "Downloadeing latest CALL3.TXT file");
+
+  // set up CALL3.TXT file fetching
+  connect (&cty_download, &FileDownload::complete, this, &Configuration::impl::after_CALL3_downloaded, Qt::UniqueConnection);
+  connect (&cty_download, &FileDownload::error, this, &Configuration::impl::error_during_CALL3_download, Qt::UniqueConnection);
+  cty_download.start_download();
+}
+
+void Configuration::impl::on_CALL3_EME_download_button_clicked (bool /*clicked*/)
+{
+  ui_->CALL3_EME_download_button->setEnabled (false); // disable button until download is complete
+  QDir dataPath {QStandardPaths::writableLocation (QStandardPaths::DataLocation)};
+  QFile f {dataPath.absolutePath() + "/" + "CALL3.TXT"};
+  if (f.exists()) QFile::rename(dataPath.absolutePath() + "/" + "CALL3.TXT", dataPath.absolutePath() + "/" + "CALL3_backup.TXT");
+  cty_download.configure(network_manager_,
+                         "http://dr-risse-consulting.de/hamlib/call3/CALL3_EME.TXT",
+                         dataPath.absoluteFilePath("CALL3.TXT"),
+                         "Downloadeing latest CALL3.TXT file");
+
+  // set up CALL3.TXT file fetching
+  connect (&cty_download, &FileDownload::complete, this, &Configuration::impl::after_CALL3_downloaded, Qt::UniqueConnection);
+  connect (&cty_download, &FileDownload::error, this, &Configuration::impl::error_during_CALL3_download, Qt::UniqueConnection);
+  cty_download.start_download();
+}
+
+void Configuration::impl::error_during_CALL3_download (QString const& reason)
+{
+  MessageBox::warning_message (this, tr ("Error Loading CALL3.TXT file"), reason);
+  ui_->CALL3_download_button->setEnabled (true);
+  ui_->CALL3_EME_download_button->setEnabled (true);
+  QDir dataPath {QStandardPaths::writableLocation (QStandardPaths::DataLocation)};
+  QFile f {dataPath.absolutePath() + "/" + "CALL3.TXT"};
+  if (!f.exists()) QFile::copy(dataPath.absolutePath() + "/" + "CALL3_backup.TXT", dataPath.absolutePath() + "/" + "CALL3.TXT");
+}
+
+void Configuration::impl::after_CALL3_downloaded ()
+{
+  ui_->CALL3_download_button->setEnabled (true);
+  ui_->CALL3_EME_download_button->setEnabled (true);
 }
 
 void Configuration::impl::on_LotW_CSV_fetch_push_button_clicked (bool /*checked*/)

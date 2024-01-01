@@ -2917,11 +2917,11 @@ Right click for insert and delete options.</string>
         </spacer>
        </item>
        <item>
-        <widget class="QGroupBox" name="groupBox_8">
+        <widget class="QGroupBox" name="cty_groupBox">
          <property name="title">
           <string>CTY File Download</string>
          </property>
-         <layout class="QHBoxLayout" name="horizontalLayout_23">
+         <layout class="QHBoxLayout" name="cty_horizontalLayout">
           <item>
            <widget class="QLabel" name="CTY_file_label">
             <property name="text">
@@ -2933,6 +2933,35 @@ Right click for insert and delete options.</string>
            <widget class="QPushButton" name="CTY_download_button">
             <property name="text">
              <string>Download Latest CTY.dat</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="call3_groupBox">
+         <property name="title">
+          <string>CALL3 File Download</string>
+         </property>
+         <layout class="QHBoxLayout" name="call3_horizontalLayout">
+          <item>
+           <widget class="QPushButton" name="CALL3_download_button">
+            <property name="toolTip">
+             <string>Dowload latest CALL3.TXT file.</string>
+            </property>
+            <property name="text">
+             <string>Download CALL3.TXT for terrestrial use</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="CALL3_EME_download_button">
+            <property name="toolTip">
+             <string>Dowload latest CALL3.TXT file for EME. This version is suitable for JT65 Deep Search.</string>
+            </property>
+            <property name="text">
+             <string>Download CALL3.TXT for EME</string>
             </property>
            </widget>
           </item>
@@ -4454,13 +4483,13 @@ Right click for insert and delete options.</string>
   </connection>
  </connections>
  <buttongroups>
-  <buttongroup name="PTT_method_button_group"/>
-  <buttongroup name="TX_mode_button_group"/>
-  <buttongroup name="TX_audio_source_button_group"/>
-  <buttongroup name="CAT_stop_bits_button_group"/>
-  <buttongroup name="CAT_handshake_button_group"/>
-  <buttongroup name="CAT_data_bits_button_group"/>
-  <buttongroup name="special_op_activity_button_group"/>
   <buttongroup name="split_mode_button_group"/>
+  <buttongroup name="CAT_stop_bits_button_group"/>
+  <buttongroup name="TX_mode_button_group"/>
+  <buttongroup name="PTT_method_button_group"/>
+  <buttongroup name="special_op_activity_button_group"/>
+  <buttongroup name="CAT_data_bits_button_group"/>
+  <buttongroup name="TX_audio_source_button_group"/>
+  <buttongroup name="CAT_handshake_button_group"/>
  </buttongroups>
 </ui>
