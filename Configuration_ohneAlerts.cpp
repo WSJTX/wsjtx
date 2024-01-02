@@ -244,7 +244,9 @@ namespace
           |X85|X86|X87|X88|X89|X90|X91
           |X92|X93|X94|X95|X96|X97|X98
           |X99
-          |[0-9][0-9][0-9][0-9]            # 4-digit numbers
+          |[0][0][0][1-9]                  # 4-digit numbers
+          |[0][0-9][1-9][0-9]              # between 0001
+          |[1-7][0-9][0-9][0-9]            # and 7999
         )
       )", QRegularExpression::CaseInsensitiveOption | QRegularExpression::ExtendedPatternSyntaxOption};
 
