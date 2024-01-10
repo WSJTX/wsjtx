@@ -493,8 +493,21 @@
             </property>
            </widget>
           </item>
-         </layout>
-        </item>
+          <item>
+          <widget class="QPushButton" name="pb70">
+           <property name="minimumSize">
+            <size>
+             <width>20</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>2</string>
+           </property>
+          </widget>
+         </item>
+       </layout>
+       </item>
        <item>
         <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="0,0,2,2,2,2,2,0,2,2,2,2,1">
          <item>
@@ -4191,7 +4204,7 @@ QPushButton[state=&quot;ok&quot;] {
     <addaction name="actionColors"/>
     <addaction name="actionActiveStations"/>
     <addaction name="actionSWL_Mode"/>
-	<addaction name="actionBand_Buttons"/>
+    <addaction name="actionBand_Buttons"/>
     <addaction name="actionUse_Dark_Style"/>
     <addaction name="separator"/>
     <addaction name="actionHideB4"/>

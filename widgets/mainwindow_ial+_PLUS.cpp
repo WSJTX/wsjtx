@@ -13589,6 +13589,7 @@ void MainWindow::check_button_color()
         ui->pb10->setVisible(true);
         ui->pb6->setVisible(true);
         ui->pb2->setVisible(true);
+        ui->pb70->setVisible(true);
         QString band=m_config.bands()->find(m_freqNominal);
         if (band=="160m") {
             ui->pb160->setStyleSheet("QPushButton {background-color: #00ff00; color: #000000; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none;}");
@@ -13698,6 +13699,15 @@ void MainWindow::check_button_color()
                ui->pb2->setStyleSheet("QPushButton {background-color: #e1e1e1; border: 1px solid #adadad; border-radius: 0px; padding: 3px; outline: none;}");
             }
         }
+        if (band=="70cm") {
+            ui->pb70->setStyleSheet("QPushButton {background-color: #00ff00; color: #000000; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none;}");
+        } else {
+            if (m_useDarkStyle) {
+               ui->pb70->setStyleSheet("QPushButton {background-color: #505F69; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none;}");
+            } else {
+               ui->pb70->setStyleSheet("QPushButton {background-color: #e1e1e1; border: 1px solid #adadad; border-radius: 0px; padding: 3px; outline: none;}");
+            }
+        }
     } else {
         ui->pb160->setVisible(false);
         ui->pb80->setVisible(false);
@@ -13711,6 +13721,7 @@ void MainWindow::check_button_color()
         ui->pb10->setVisible(false);
         ui->pb6->setVisible(false);
         ui->pb2->setVisible(false);
+        ui->pb70->setVisible(false);
     }
 }
 
@@ -13860,6 +13871,19 @@ void MainWindow::on_pb2_clicked()
     } else {
       keep_frequency = true;
       setRig(144077000);
+      QTimer::singleShot (250, [=] {keep_frequency = false;});
+    }
+}
+
+void MainWindow::on_pb70_clicked()
+{
+    auto const& row = m_config.frequencies ()->best_working_frequency (432074000);
+    ui->bandComboBox->setCurrentIndex (row);
+    if (row >= 0) {
+      on_bandComboBox_activated (row);
+    } else {
+      keep_frequency = true;
+      setRig(432077000);
       QTimer::singleShot (250, [=] {keep_frequency = false;});
     }
 }
