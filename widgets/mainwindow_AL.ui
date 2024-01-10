@@ -180,7 +180,6 @@
          </widget>
         </item>
         <item>
-        <item>
          <layout class="QHBoxLayout" name="Band_buttons_Layout">
           <property name="spacing">
            <number>3</number>
@@ -350,7 +349,7 @@
              </size>
             </property>
             <property name="text">
-             <string>2</string>
+             <string>70</string>
             </property>
            </widget>
           </item>
@@ -4547,7 +4546,7 @@ Double-click to reset to the standard 73 message</string>
     <addaction name="actionHideAN"/>
     <addaction name="separator"/>
     <addaction name="actionHighlightB4"/>
-	<addaction name="actionHighlightToday"/>
+    <addaction name="actionHighlightToday"/>
    </widget>
    <widget class="QMenu" name="menuDecode">
     <property name="title">
@@ -4574,7 +4573,7 @@ Double-click to reset to the standard 73 message</string>
     <addaction name="actionNone"/>
     <addaction name="actionSave_decoded"/>
     <addaction name="actionSave_all"/>
-	<addaction name="actionRemove_after_30days"/>
+    <addaction name="actionRemove_after_30days"/>
     <addaction name="separator"/>
     <addaction name="actionDon_t_split_ALL_TXT"/>
     <addaction name="actionSplit_ALL_TXT_yearly"/>
@@ -4743,7 +4742,7 @@ Double-click to reset to the standard 73 message</string>
    <property name="text">
     <string>Remove saved files after 30 days</string>
    </property>
-  </action>  
+  </action>
   <action name="actionOnline_User_Guide">
    <property name="text">
     <string>Online User Guide</string>
