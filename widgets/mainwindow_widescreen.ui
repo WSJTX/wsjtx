@@ -354,6 +354,9 @@
               <height>0</height>
              </size>
             </property>
+            <property name="focusPolicy">
+             <enum>Qt::StrongFocus</enum>
+            </property>
             <property name="text">
              <string>80</string>
             </property>
@@ -380,6 +383,9 @@
               <height>0</height>
              </size>
             </property>
+            <property name="focusPolicy">
+             <enum>Qt::StrongFocus</enum>
+            </property>
             <property name="text">
              <string>40</string>
             </property>
@@ -392,6 +398,9 @@
               <width>20</width>
               <height>0</height>
              </size>
+            </property>
+            <property name="focusPolicy">
+             <enum>Qt::StrongFocus</enum>
             </property>
             <property name="text">
              <string>30</string>
@@ -406,6 +415,9 @@
               <height>0</height>
              </size>
             </property>
+            <property name="focusPolicy">
+             <enum>Qt::StrongFocus</enum>
+            </property>
             <property name="text">
              <string>20</string>
             </property>
@@ -418,6 +430,9 @@
               <width>20</width>
               <height>0</height>
              </size>
+            </property>
+            <property name="focusPolicy">
+             <enum>Qt::StrongFocus</enum>
             </property>
             <property name="text">
              <string>17</string>
@@ -432,6 +447,9 @@
               <height>0</height>
              </size>
             </property>
+            <property name="focusPolicy">
+             <enum>Qt::StrongFocus</enum>
+            </property>
             <property name="text">
              <string>15</string>
             </property>
@@ -444,6 +462,9 @@
               <width>20</width>
               <height>0</height>
              </size>
+            </property>
+            <property name="focusPolicy">
+             <enum>Qt::StrongFocus</enum>
             </property>
             <property name="text">
              <string>12</string>
@@ -458,6 +479,9 @@
               <height>0</height>
              </size>
             </property>
+            <property name="focusPolicy">
+             <enum>Qt::StrongFocus</enum>
+            </property>
             <property name="text">
              <string>10</string>
             </property>
@@ -470,6 +494,9 @@
               <width>15</width>
               <height>0</height>
              </size>
+            </property>
+            <property name="focusPolicy">
+             <enum>Qt::StrongFocus</enum>
             </property>
             <property name="text">
              <string>6</string>
