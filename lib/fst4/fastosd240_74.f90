@@ -171,15 +171,15 @@ subroutine fastosd240_74(llr,k,apmask,ndeep,message74,cw,nhardmin,dmin)
       if( ndeep.eq. 1) then
          nord=1
          xlambda=0.0
-         nsyncmax=np
+         nsyndmax=np
       elseif(ndeep.eq.2) then
          nord=2
          xlambda=0.0
-         nsyncmax=np
+         nsyndmax=np
       elseif(ndeep.eq.3) then
          nord=3
          xlambda=4.0
-         nsyncmax=11
+         nsyndmax=11
       elseif(ndeep.eq.4) then
          nord=4
          xlambda=3.4
@@ -190,7 +190,6 @@ subroutine fastosd240_74(llr,k,apmask,ndeep,message74,cw,nhardmin,dmin)
       s2=sum(absrx(k+1:N))
       rho=s1/(s1+xlambda*s2)
       rhodmin=rho*dmin
-      nerr64=-1
       do iorder=1,nord
 !beta=0.0
 !if(iorder.ge.3) beta=0.4
@@ -216,7 +215,6 @@ subroutine fastosd240_74(llr,k,apmask,ndeep,message74,cw,nhardmin,dmin)
                   cw=ce
                   nhardmin=sum(nxor)
                   nwhspmin=nwhsp
-                  nerr64=sum(nxor(1:K))
                endif
             endif
 ! Get the next test error pattern, iflag will go negative
@@ -224,7 +222,6 @@ subroutine fastosd240_74(llr,k,apmask,ndeep,message74,cw,nhardmin,dmin)
             call nextpat74(mi,k,iorder,iflag)
          enddo
       enddo
-
 998   continue
 ! Re-order the codeword to [message bits][parity bits] format.
       cw(indices)=cw
