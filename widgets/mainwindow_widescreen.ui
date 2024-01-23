@@ -828,7 +828,7 @@
               <height>0</height>
              </size>
             </property>
-            <layout class="QVBoxLayout" name="verticalLayout_11">
+            <layout class="QVBoxLayout" name="verticalLayout_110">
              <property name="leftMargin">
               <number>0</number>
              </property>
@@ -842,7 +842,7 @@
               <number>1</number>
              </property>
              <item>
-              <layout class="QGridLayout" name="gridLayout" columnstretch="3,2">
+              <layout class="QGridLayout" name="gridLayout_14" columnstretch="3,2">
                <item row="0" column="0">
                 <widget class="QPushButton" name="DX_Call_Button">
                  <property name="sizePolicy">
@@ -2676,7 +2676,7 @@ Double-click to reset to the standard 73 message</string>
                          <number>1</number>
                         </property>
                         <item row="0" column="0">
-                         <layout class="QHBoxLayout" name="horizontalLayout_3">
+                         <layout class="QHBoxLayout" name="horizontalLayout_30">
                           <property name="spacing">
                            <number>0</number>
                           </property>
@@ -4294,7 +4294,6 @@ QPushButton[state=&quot;ok&quot;] {
     <addaction name="actionHideOC"/>
     <addaction name="actionHideAN"/>
     <addaction name="separator"/>
-    <addaction name="actionHighlightCallsigns"/>
     <addaction name="actionHighlightB4"/>
     <addaction name="actionHighlightToday"/>
     <addaction name="actionHighlightIgnored"/>

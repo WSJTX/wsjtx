@@ -5533,14 +5533,6 @@ Double-click to reset to the standard 73 message</string>
     <string>Hide stations from Antarctica</string>
    </property>
   </action>
-  <action name="actionHighlightCallsigns">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Highlight DX callsigns on VHF and 160m</string>
-   </property>
-  </action>
   <action name="actionFull_Duplex_Mode">
    <property name="checkable">
     <bool>true</bool>
