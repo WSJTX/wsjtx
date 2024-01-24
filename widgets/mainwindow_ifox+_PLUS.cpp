@@ -8168,7 +8168,7 @@ void MainWindow::lookup()
 {
   QString hisCall {ui->dxCallEntry->text()};
   QString hisgrid0 {ui->dxGridEntry->text()};
-  if (!hisCall.size ()) return;
+  if (!hisCall.size () or (!(m_specOp==SpecOp::NONE or m_specOp==SpecOp::HOUND or m_specOp==SpecOp::Q65_PILEUP))) return;
   QFile f {m_config.writeable_data_dir ().absoluteFilePath ("CALL3.TXT")};
   if (f.open (QIODevice::ReadOnly | QIODevice::Text))
     {
