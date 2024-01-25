@@ -1353,8 +1353,8 @@ void MainWindow::writeSettings()
   m_settings->setValue ("bh_4m", ui->cb4m->isChecked() );
   m_settings->setValue ("bh_2m", ui->cb2m->isChecked() );
   m_settings->setValue ("bh_70cm", ui->cb70cm->isChecked() );
-  m_settings->setValue ("bh_6mMSK", ui->cb6mMSK->isChecked() );
   m_settings->setValue ("bh_2mMSK", ui->cb2mMSK->isChecked() );
+  m_settings->setValue ("bh_80mFT4", ui->cb80mFT4->isChecked() );
   m_settings->setValue ("bh_40mFT4", ui->cb40mFT4->isChecked() );
   m_settings->setValue ("bh_30mFT4", ui->cb30mFT4->isChecked() );
   m_settings->setValue ("bh_20mFT4", ui->cb20mFT4->isChecked() );
@@ -1505,8 +1505,8 @@ void MainWindow::readSettings()
   ui->cb4m->setChecked(m_settings->value("bh_4m", false).toBool());
   ui->cb2m->setChecked(m_settings->value("bh_2m", false).toBool());
   ui->cb70cm->setChecked(m_settings->value("bh_70cm", false).toBool());
-  ui->cb6mMSK->setChecked(m_settings->value("bh_6mMSK", false).toBool());
   ui->cb2mMSK->setChecked(m_settings->value("bh_2mMSK", false).toBool());
+  ui->cb80mFT4->setChecked(m_settings->value("bh_80mFT4", false).toBool());
   ui->cb40mFT4->setChecked(m_settings->value("bh_40mFT4", false).toBool());
   ui->cb30mFT4->setChecked(m_settings->value("bh_30mFT4", false).toBool());
   ui->cb20mFT4->setChecked(m_settings->value("bh_20mFT4", false).toBool());
@@ -12942,8 +12942,10 @@ void MainWindow::bandHopping()
     switch (startIndex){
     case 0:
         if (ui->cb160m->isChecked()) {
-            setRig (1840000);
             on_actionFT8_triggered();
+            auto const& row = m_config.frequencies ()->best_working_frequency (1840000);
+            ui->bandComboBox->setCurrentIndex (row);
+            if (row >= 0) on_bandComboBox_activated (row);
             ui->pbBandHopping->setChecked(true);
             startIndex = nextStartIndex;
             return;
@@ -12953,8 +12955,10 @@ void MainWindow::bandHopping()
         Q_FALLTHROUGH();
     case 1:
         if (ui->cb80m->isChecked()) {
-            setRig (3573000);
             on_actionFT8_triggered();
+            auto const& row = m_config.frequencies ()->best_working_frequency (3573000);
+            ui->bandComboBox->setCurrentIndex (row);
+            if (row >= 0) on_bandComboBox_activated (row);
             ui->pbBandHopping->setChecked(true);
             startIndex = nextStartIndex;
             return;
@@ -12964,8 +12968,10 @@ void MainWindow::bandHopping()
         Q_FALLTHROUGH();
     case 2:
         if (ui->cb60m->isChecked()) {
-            setRig (5357000);
             on_actionFT8_triggered();
+            auto const& row = m_config.frequencies ()->best_working_frequency (5357000);
+            ui->bandComboBox->setCurrentIndex (row);
+            if (row >= 0) on_bandComboBox_activated (row);
             ui->pbBandHopping->setChecked(true);
             startIndex = nextStartIndex;
             return;
@@ -12975,8 +12981,10 @@ void MainWindow::bandHopping()
         Q_FALLTHROUGH();
     case 3:
         if (ui->cb40m->isChecked()) {
-            setRig (7074000);
             on_actionFT8_triggered();
+            auto const& row = m_config.frequencies ()->best_working_frequency (7074000);
+            ui->bandComboBox->setCurrentIndex (row);
+            if (row >= 0) on_bandComboBox_activated (row);
             ui->pbBandHopping->setChecked(true);
             startIndex = nextStartIndex;
             return;
@@ -12986,8 +12994,10 @@ void MainWindow::bandHopping()
         Q_FALLTHROUGH();
     case 4:
         if (ui->cb30m->isChecked()) {
-            setRig (10136000);
             on_actionFT8_triggered();
+            auto const& row = m_config.frequencies ()->best_working_frequency (10136000);
+            ui->bandComboBox->setCurrentIndex (row);
+            if (row >= 0) on_bandComboBox_activated (row);
             ui->pbBandHopping->setChecked(true);
             startIndex = nextStartIndex;
             return;
@@ -12997,8 +13007,10 @@ void MainWindow::bandHopping()
         Q_FALLTHROUGH();
     case 5:
         if (ui->cb20m->isChecked()) {
-            setRig (14074000);
             on_actionFT8_triggered();
+            auto const& row = m_config.frequencies ()->best_working_frequency (14074000);
+            ui->bandComboBox->setCurrentIndex (row);
+            if (row >= 0) on_bandComboBox_activated (row);
             ui->pbBandHopping->setChecked(true);
             startIndex = nextStartIndex;
             return;
@@ -13008,8 +13020,10 @@ void MainWindow::bandHopping()
         Q_FALLTHROUGH();
     case 6:
         if (ui->cb17m->isChecked()) {
-            setRig (18100000);
             on_actionFT8_triggered();
+            auto const& row = m_config.frequencies ()->best_working_frequency (18100000);
+            ui->bandComboBox->setCurrentIndex (row);
+            if (row >= 0) on_bandComboBox_activated (row);
             ui->pbBandHopping->setChecked(true);
             startIndex = nextStartIndex;
             return;
@@ -13019,8 +13033,10 @@ void MainWindow::bandHopping()
         Q_FALLTHROUGH();
     case 7:
         if (ui->cb15m->isChecked()) {
-            setRig (21074000);
             on_actionFT8_triggered();
+            auto const& row = m_config.frequencies ()->best_working_frequency (21074000);
+            ui->bandComboBox->setCurrentIndex (row);
+            if (row >= 0) on_bandComboBox_activated (row);
             ui->pbBandHopping->setChecked(true);
             startIndex = nextStartIndex;
             return;
@@ -13030,8 +13046,10 @@ void MainWindow::bandHopping()
         Q_FALLTHROUGH();
     case 8:
         if (ui->cb12m->isChecked()) {
-            setRig (24915000);
             on_actionFT8_triggered();
+            auto const& row = m_config.frequencies ()->best_working_frequency (24915000);
+            ui->bandComboBox->setCurrentIndex (row);
+            if (row >= 0) on_bandComboBox_activated (row);
             ui->pbBandHopping->setChecked(true);
             startIndex = nextStartIndex;
             return;
@@ -13041,8 +13059,10 @@ void MainWindow::bandHopping()
         Q_FALLTHROUGH();
     case 9:
         if (ui->cb10m->isChecked()) {
-            setRig (28074000);
             on_actionFT8_triggered();
+            auto const& row = m_config.frequencies ()->best_working_frequency (28074000);
+            ui->bandComboBox->setCurrentIndex (row);
+            if (row >= 0) on_bandComboBox_activated (row);
             ui->pbBandHopping->setChecked(true);
             startIndex = nextStartIndex;
             return;
@@ -13052,8 +13072,10 @@ void MainWindow::bandHopping()
         Q_FALLTHROUGH();
     case 10:
         if (ui->cb6m->isChecked()) {
-            setRig (50313000);
             on_actionFT8_triggered();
+            auto const& row = m_config.frequencies ()->best_working_frequency (50313000);
+            ui->bandComboBox->setCurrentIndex (row);
+            if (row >= 0) on_bandComboBox_activated (row);
             ui->pbBandHopping->setChecked(true);
             startIndex = nextStartIndex;
             return;
@@ -13063,8 +13085,10 @@ void MainWindow::bandHopping()
         Q_FALLTHROUGH();
     case 11:
         if (ui->cb4m->isChecked()) {
-            setRig (70154000);
             on_actionFT8_triggered();
+            auto const& row = m_config.frequencies ()->best_working_frequency (70154000);
+            ui->bandComboBox->setCurrentIndex (row);
+            if (row >= 0) on_bandComboBox_activated (row);
             ui->pbBandHopping->setChecked(true);
             startIndex = nextStartIndex;
             return;
@@ -13074,8 +13098,10 @@ void MainWindow::bandHopping()
         Q_FALLTHROUGH();
     case 12:
         if (ui->cb2m->isChecked()) {
-            setRig (144174000);
             on_actionFT8_triggered();
+            auto const& row = m_config.frequencies ()->best_working_frequency (144174000);
+            ui->bandComboBox->setCurrentIndex (row);
+            if (row >= 0) on_bandComboBox_activated (row);
             ui->pbBandHopping->setChecked(true);
             startIndex = nextStartIndex;
             return;
@@ -13085,8 +13111,10 @@ void MainWindow::bandHopping()
         Q_FALLTHROUGH();
     case 13:
         if (ui->cb70cm->isChecked()) {
-            setRig (432174000);
             on_actionFT8_triggered();
+            auto const& row = m_config.frequencies ()->best_working_frequency (432174000);
+            ui->bandComboBox->setCurrentIndex (row);
+            if (row >= 0) on_bandComboBox_activated (row);
             ui->pbBandHopping->setChecked(true);
             startIndex = nextStartIndex;
             return;
@@ -13095,9 +13123,11 @@ void MainWindow::bandHopping()
         }
         Q_FALLTHROUGH();
     case 14:
-        if (ui->cb40mFT4->isChecked()) {
-            setRig (7047500);
+       if (ui->cb80mFT4->isChecked()) {
             on_actionFT4_triggered();
+            auto const& row = m_config.frequencies ()->best_working_frequency (3575000);
+            ui->bandComboBox->setCurrentIndex (row);
+            if (row >= 0) on_bandComboBox_activated (row);
             ui->pbBandHopping->setChecked(true);
             startIndex = nextStartIndex;
             return;
@@ -13106,9 +13136,11 @@ void MainWindow::bandHopping()
         }
         Q_FALLTHROUGH();
     case 15:
-        if (ui->cb30mFT4->isChecked()) {
-            setRig (10140000);
+        if (ui->cb40mFT4->isChecked()) {
             on_actionFT4_triggered();
+            auto const& row = m_config.frequencies ()->best_working_frequency (7047500);
+            ui->bandComboBox->setCurrentIndex (row);
+            if (row >= 0) on_bandComboBox_activated (row);
             ui->pbBandHopping->setChecked(true);
             startIndex = nextStartIndex;
             return;
@@ -13117,9 +13149,11 @@ void MainWindow::bandHopping()
         }
         Q_FALLTHROUGH();
     case 16:
-        if (ui->cb20mFT4->isChecked()) {
-            setRig (14080000);
+        if (ui->cb30mFT4->isChecked()) {
             on_actionFT4_triggered();
+            auto const& row = m_config.frequencies ()->best_working_frequency (10140000);
+            ui->bandComboBox->setCurrentIndex (row);
+            if (row >= 0) on_bandComboBox_activated (row);
             ui->pbBandHopping->setChecked(true);
             startIndex = nextStartIndex;
             return;
@@ -13128,9 +13162,24 @@ void MainWindow::bandHopping()
         }
         Q_FALLTHROUGH();
     case 17:
-        if (ui->cb17mFT4->isChecked()) {
-            setRig (18104000);
+        if (ui->cb20mFT4->isChecked()) {
             on_actionFT4_triggered();
+            auto const& row = m_config.frequencies ()->best_working_frequency (14080000);
+            ui->bandComboBox->setCurrentIndex (row);
+            if (row >= 0) on_bandComboBox_activated (row);
+            ui->pbBandHopping->setChecked(true);
+            startIndex = nextStartIndex;
+            return;
+        } else {
+            nextStartIndex++;
+        }
+        Q_FALLTHROUGH();
+    case 18:
+        if (ui->cb17mFT4->isChecked()) {
+            on_actionFT4_triggered();
+            auto const& row = m_config.frequencies ()->best_working_frequency (18104000);
+            ui->bandComboBox->setCurrentIndex (row);
+            if (row >= 0) on_bandComboBox_activated (row);
             ui->pbBandHopping->setChecked(true);
             startIndex = nextStartIndex;
             return;
@@ -13139,21 +13188,12 @@ void MainWindow::bandHopping()
         }
         Q_FALLTHROUGH();
 
-    case 18:
-        if (ui->cb15mFT4->isChecked()) {
-            setRig (21140000);
-            on_actionFT4_triggered();
-            ui->pbBandHopping->setChecked(true);
-            startIndex = nextStartIndex;
-            return;
-        } else {
-            nextStartIndex++;
-        }
-        Q_FALLTHROUGH();
     case 19:
-        if (ui->cb12mFT4->isChecked()) {
-            setRig (24919000);
+        if (ui->cb15mFT4->isChecked()) {
             on_actionFT4_triggered();
+            auto const& row = m_config.frequencies ()->best_working_frequency (21140000);
+            ui->bandComboBox->setCurrentIndex (row);
+            if (row >= 0) on_bandComboBox_activated (row);
             ui->pbBandHopping->setChecked(true);
             startIndex = nextStartIndex;
             return;
@@ -13162,9 +13202,11 @@ void MainWindow::bandHopping()
         }
         Q_FALLTHROUGH();
     case 20:
-        if (ui->cb10mFT4->isChecked()) {
-            setRig (28180000);
+        if (ui->cb12mFT4->isChecked()) {
             on_actionFT4_triggered();
+            auto const& row = m_config.frequencies ()->best_working_frequency (24919000);
+            ui->bandComboBox->setCurrentIndex (row);
+            if (row >= 0) on_bandComboBox_activated (row);
             ui->pbBandHopping->setChecked(true);
             startIndex = nextStartIndex;
             return;
@@ -13173,9 +13215,11 @@ void MainWindow::bandHopping()
         }
         Q_FALLTHROUGH();
     case 21:
-        if (ui->cb6mMSK->isChecked()) {
-            setRig (50280000);
-            on_actionMSK144_triggered();
+        if (ui->cb10mFT4->isChecked()) {
+            on_actionFT4_triggered();
+            auto const& row = m_config.frequencies ()->best_working_frequency (28180000);
+            ui->bandComboBox->setCurrentIndex (row);
+            if (row >= 0) on_bandComboBox_activated (row);
             ui->pbBandHopping->setChecked(true);
             startIndex = nextStartIndex;
             return;
@@ -13185,8 +13229,10 @@ void MainWindow::bandHopping()
         Q_FALLTHROUGH();
     case 22:
         if (ui->cb2mMSK->isChecked()) {
-            setRig (144360000);
             on_actionMSK144_triggered();
+            auto const& row = m_config.frequencies ()->best_working_frequency (144360000);
+            ui->bandComboBox->setCurrentIndex (row);
+            if (row >= 0) on_bandComboBox_activated (row);
             ui->pbBandHopping->setChecked(true);
             startIndex = nextStartIndex;
             return;

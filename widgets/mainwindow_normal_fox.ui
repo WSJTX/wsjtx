@@ -332,195 +332,195 @@
        <property name="bottomMargin">
         <number>0</number>
        </property>
-        <item>
-         <layout class="QHBoxLayout" name="Band_buttons_Layout">
-          <property name="spacing">
-           <number>3</number>
-          </property>
-          <item>
-           <widget class="QPushButton" name="pb160">
-            <property name="minimumSize">
-             <size>
-              <width>25</width>
-              <height>0</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>160</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QPushButton" name="pb80">
-            <property name="minimumSize">
-             <size>
-              <width>20</width>
-              <height>0</height>
-             </size>
-            </property>
-            <property name="focusPolicy">
-             <enum>Qt::StrongFocus</enum>
-            </property>
-            <property name="text">
-             <string>80</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QPushButton" name="pb60">
-            <property name="minimumSize">
-             <size>
-              <width>20</width>
-              <height>0</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>60</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QPushButton" name="pb40">
-            <property name="minimumSize">
-             <size>
-              <width>20</width>
-              <height>0</height>
-             </size>
-            </property>
-            <property name="focusPolicy">
-             <enum>Qt::StrongFocus</enum>
-            </property>
-            <property name="text">
-             <string>40</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QPushButton" name="pb30">
-            <property name="minimumSize">
-             <size>
-              <width>20</width>
-              <height>0</height>
-             </size>
-            </property>
-            <property name="focusPolicy">
-             <enum>Qt::StrongFocus</enum>
-            </property>
-            <property name="text">
-             <string>30</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QPushButton" name="pb20">
-            <property name="minimumSize">
-             <size>
-              <width>20</width>
-              <height>0</height>
-             </size>
-            </property>
-            <property name="focusPolicy">
-             <enum>Qt::StrongFocus</enum>
-            </property>
-            <property name="text">
-             <string>20</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QPushButton" name="pb17">
-            <property name="minimumSize">
-             <size>
-              <width>20</width>
-              <height>0</height>
-             </size>
-            </property>
-            <property name="focusPolicy">
-             <enum>Qt::StrongFocus</enum>
-            </property>
-            <property name="text">
-             <string>17</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QPushButton" name="pb15">
-            <property name="minimumSize">
-             <size>
-              <width>20</width>
-              <height>0</height>
-             </size>
-            </property>
-            <property name="focusPolicy">
-             <enum>Qt::StrongFocus</enum>
-            </property>
-            <property name="text">
-             <string>15</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QPushButton" name="pb12">
-            <property name="minimumSize">
-             <size>
-              <width>20</width>
-              <height>0</height>
-             </size>
-            </property>
-            <property name="focusPolicy">
-             <enum>Qt::StrongFocus</enum>
-            </property>
-            <property name="text">
-             <string>12</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QPushButton" name="pb10">
-            <property name="minimumSize">
-             <size>
-              <width>20</width>
-              <height>0</height>
-             </size>
-            </property>
-            <property name="focusPolicy">
-             <enum>Qt::StrongFocus</enum>
-            </property>
-            <property name="text">
-             <string>10</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QPushButton" name="pb6">
-            <property name="minimumSize">
-             <size>
-              <width>15</width>
-              <height>0</height>
-             </size>
-            </property>
-            <property name="focusPolicy">
-             <enum>Qt::StrongFocus</enum>
-            </property>
-            <property name="text">
-             <string>6</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QPushButton" name="pb2">
-            <property name="minimumSize">
-             <size>
-              <width>15</width>
-              <height>0</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>2</string>
-            </property>
-           </widget>
-          </item>
-          <item>
+       <item>
+        <layout class="QHBoxLayout" name="Band_buttons_Layout">
+         <property name="spacing">
+          <number>3</number>
+         </property>
+         <item>
+          <widget class="QPushButton" name="pb160">
+           <property name="minimumSize">
+            <size>
+             <width>25</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>160</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pb80">
+           <property name="minimumSize">
+            <size>
+             <width>20</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="focusPolicy">
+            <enum>Qt::StrongFocus</enum>
+           </property>
+           <property name="text">
+            <string>80</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pb60">
+           <property name="minimumSize">
+            <size>
+             <width>20</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>60</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pb40">
+           <property name="minimumSize">
+            <size>
+             <width>20</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="focusPolicy">
+            <enum>Qt::StrongFocus</enum>
+           </property>
+           <property name="text">
+            <string>40</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pb30">
+           <property name="minimumSize">
+            <size>
+             <width>20</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="focusPolicy">
+            <enum>Qt::StrongFocus</enum>
+           </property>
+           <property name="text">
+            <string>30</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pb20">
+           <property name="minimumSize">
+            <size>
+             <width>20</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="focusPolicy">
+            <enum>Qt::StrongFocus</enum>
+           </property>
+           <property name="text">
+            <string>20</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pb17">
+           <property name="minimumSize">
+            <size>
+             <width>20</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="focusPolicy">
+            <enum>Qt::StrongFocus</enum>
+           </property>
+           <property name="text">
+            <string>17</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pb15">
+           <property name="minimumSize">
+            <size>
+             <width>20</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="focusPolicy">
+            <enum>Qt::StrongFocus</enum>
+           </property>
+           <property name="text">
+            <string>15</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pb12">
+           <property name="minimumSize">
+            <size>
+             <width>20</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="focusPolicy">
+            <enum>Qt::StrongFocus</enum>
+           </property>
+           <property name="text">
+            <string>12</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pb10">
+           <property name="minimumSize">
+            <size>
+             <width>20</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="focusPolicy">
+            <enum>Qt::StrongFocus</enum>
+           </property>
+           <property name="text">
+            <string>10</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pb6">
+           <property name="minimumSize">
+            <size>
+             <width>15</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="focusPolicy">
+            <enum>Qt::StrongFocus</enum>
+           </property>
+           <property name="text">
+            <string>6</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pb2">
+           <property name="minimumSize">
+            <size>
+             <width>15</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>2</string>
+           </property>
+          </widget>
+         </item>
+         <item>
           <widget class="QPushButton" name="pb70">
            <property name="minimumSize">
             <size>
@@ -533,7 +533,7 @@
            </property>
           </widget>
          </item>
-       </layout>
+        </layout>
        </item>
        <item>
         <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="0,0,2,2,2,2,2,0,2,2,2,2,1">
@@ -813,276 +813,276 @@
        <item>
         <layout class="QGridLayout" name="gridLayout_5" rowstretch="1,0,0" columnstretch="0,0,0,0,1,1,5,0">
          <item row="1" column="4" colspan="2">
-           <widget class="QWidget" name="DX_controls_widget" native="true">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
+          <widget class="QWidget" name="DX_controls_widget" native="true">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>114</width>
+             <height>0</height>
+            </size>
+           </property>
+           <layout class="QVBoxLayout" name="verticalLayout_110">
+            <property name="leftMargin">
+             <number>0</number>
             </property>
-            <property name="minimumSize">
-             <size>
-              <width>114</width>
-              <height>0</height>
-             </size>
+            <property name="topMargin">
+             <number>0</number>
             </property>
-            <layout class="QVBoxLayout" name="verticalLayout_110">
-             <property name="leftMargin">
-              <number>0</number>
-             </property>
-             <property name="topMargin">
-              <number>0</number>
-             </property>
-             <property name="rightMargin">
-              <number>0</number>
-             </property>
-             <property name="bottomMargin">
-              <number>1</number>
-             </property>
-             <item>
-              <layout class="QGridLayout" name="gridLayout" columnstretch="3,2">
-               <item row="0" column="0">
-                <widget class="QPushButton" name="DX_Call_Button">
-                 <property name="sizePolicy">
-                  <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-                   <horstretch>0</horstretch>
-                   <verstretch>0</verstretch>
-                  </sizepolicy>
-                 </property>
-                 <property name="minimumSize">
-                  <size>
-                   <width>0</width>
-                   <height>0</height>
-                  </size>
-                 </property>
-                 <property name="focusPolicy">
-                  <enum>Qt::StrongFocus</enum>
-                 </property>
-                 <property name="toolTip">
-                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle Wait &amp;amp; Call On/Off. Right-click to clear the DX Call box.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-                 </property>
-                 <property name="styleSheet">
-                  <string notr="true">QPushButton {
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>1</number>
+            </property>
+            <item>
+             <layout class="QGridLayout" name="gridLayout" columnstretch="3,2">
+              <item row="0" column="0">
+               <widget class="QPushButton" name="DX_Call_Button">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="minimumSize">
+                 <size>
+                  <width>0</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="focusPolicy">
+                 <enum>Qt::StrongFocus</enum>
+                </property>
+                <property name="toolTip">
+                 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle Wait &amp;amp; Call On/Off. Right-click to clear the DX Call box.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                </property>
+                <property name="styleSheet">
+                 <string notr="true">QPushButton {
 	background-color: #9fafd5;
     border: none;
 }</string>
-                 </property>
-                 <property name="text">
-                  <string>DX Call</string>
-                 </property>
-                 <property name="checkable">
-                  <bool>true</bool>
-                 </property>
-                </widget>
-               </item>
-               <item row="1" column="1">
-                <widget class="QLineEdit" name="dxGridEntry">
-                 <property name="toolTip">
-                  <string>Locator of station to be worked</string>
-                 </property>
-                 <property name="text">
-                  <string/>
-                 </property>
-                 <property name="alignment">
-                  <set>Qt::AlignCenter</set>
-                 </property>
-                </widget>
-               </item>
-               <item row="1" column="0">
-                <widget class="QLineEdit" name="dxCallEntry">
-                 <property name="toolTip">
-                  <string>Callsign of station to be worked</string>
-                 </property>
-                 <property name="text">
-                  <string/>
-                 </property>
-                 <property name="alignment">
-                  <set>Qt::AlignCenter</set>
-                 </property>
-                </widget>
-               </item>
-               <item row="0" column="1">
-                <widget class="QLabel" name="label_4">
-                 <property name="sizePolicy">
-                  <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                   <horstretch>0</horstretch>
-                   <verstretch>0</verstretch>
-                  </sizepolicy>
-                 </property>
-                 <property name="palette">
-                  <palette>
-                   <active>
-                    <colorrole role="Base">
-                     <brush brushstyle="SolidPattern">
-                      <color alpha="255">
-                       <red>252</red>
-                       <green>252</green>
-                       <blue>252</blue>
-                      </color>
-                     </brush>
-                    </colorrole>
-                    <colorrole role="Window">
-                     <brush brushstyle="SolidPattern">
-                      <color alpha="255">
-                       <red>159</red>
-                       <green>175</green>
-                       <blue>213</blue>
-                      </color>
-                     </brush>
-                    </colorrole>
-                   </active>
-                   <inactive>
-                    <colorrole role="Base">
-                     <brush brushstyle="SolidPattern">
-                      <color alpha="255">
-                       <red>252</red>
-                       <green>252</green>
-                       <blue>252</blue>
-                      </color>
-                     </brush>
-                    </colorrole>
-                    <colorrole role="Window">
-                     <brush brushstyle="SolidPattern">
-                      <color alpha="255">
-                       <red>159</red>
-                       <green>175</green>
-                       <blue>213</blue>
-                      </color>
-                     </brush>
-                    </colorrole>
-                   </inactive>
-                   <disabled>
-                    <colorrole role="Base">
-                     <brush brushstyle="SolidPattern">
-                      <color alpha="255">
-                       <red>159</red>
-                       <green>175</green>
-                       <blue>213</blue>
-                      </color>
-                     </brush>
-                    </colorrole>
-                    <colorrole role="Window">
-                     <brush brushstyle="SolidPattern">
-                      <color alpha="255">
-                       <red>159</red>
-                       <green>175</green>
-                       <blue>213</blue>
-                      </color>
-                     </brush>
-                    </colorrole>
-                   </disabled>
-                  </palette>
-                 </property>
-                 <property name="autoFillBackground">
-                  <bool>true</bool>
-                 </property>
-                 <property name="text">
-                  <string>DX Grid</string>
-                 </property>
-                 <property name="alignment">
-                  <set>Qt::AlignCenter</set>
-                 </property>
-                 <property name="margin">
-                  <number>5</number>
-                 </property>
-                 <property name="indent">
-                  <number>2</number>
-                 </property>
-                 <property name="buddy">
-                  <cstring>dxGridEntry</cstring>
-                 </property>
-                </widget>
-               </item>
-              </layout>
-             </item>
-             <item>
-              <widget class="QLabel" name="labAz">
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
-               </property>
-               <property name="autoFillBackground">
-                <bool>true</bool>
-               </property>
-               <property name="text">
-                <string>Az: 251     16553 km</string>
-               </property>
-               <property name="alignment">
-                <set>Qt::AlignCenter</set>
-               </property>
-               <property name="indent">
-                <number>4</number>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <layout class="QHBoxLayout" name="lookup_control_layout">
-               <property name="spacing">
-                <number>3</number>
-               </property>
-               <item>
-                <widget class="QPushButton" name="lookupButton">
-                 <property name="minimumSize">
-                  <size>
-                   <width>0</width>
-                   <height>0</height>
-                  </size>
-                 </property>
-                 <property name="focusPolicy">
-                  <enum>Qt::StrongFocus</enum>
-                 </property>
-                 <property name="toolTip">
-                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Search for callsign in database. &lt;br&gt;Right-click searches for callsign on QRZ.com.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-                 </property>
-                 <property name="text">
-                  <string>&amp;Lookup</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QPushButton" name="addButton">
-                 <property name="minimumSize">
-                  <size>
-                   <width>0</width>
-                   <height>0</height>
-                  </size>
-                 </property>
-                 <property name="focusPolicy">
-                  <enum>Qt::StrongFocus</enum>
-                 </property>
-                 <property name="toolTip">
-                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Add callsign and locator to database. &lt;br&gt;Right-click searches for callsign on hamqth.com.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-                 </property>
-                 <property name="text">
-                  <string>Add</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QPushButton" name="ignoreButton">
-                 <property name="minimumSize">
-                  <size>
-                   <width>0</width>
-                   <height>0</height>
-                  </size>
-                 </property>
-                 <property name="focusPolicy">
-                  <enum>Qt::StrongFocus</enum>
-                 </property>
-                 <property name="toolTip">
-                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Put callsign on the Ignore List.&lt;br&gt;Right-click searches for callsign on qrzcq.com.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-                 </property>
-                 <property name="text">
-                  <string>Ignore</string>
-                 </property>
-                </widget>
-               </item>
-              </layout>
-             </item>
-            </layout>
-           </widget>
+                </property>
+                <property name="text">
+                 <string>DX Call</string>
+                </property>
+                <property name="checkable">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="1">
+               <widget class="QLineEdit" name="dxGridEntry">
+                <property name="toolTip">
+                 <string>Locator of station to be worked</string>
+                </property>
+                <property name="text">
+                 <string/>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignCenter</set>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="0">
+               <widget class="QLineEdit" name="dxCallEntry">
+                <property name="toolTip">
+                 <string>Callsign of station to be worked</string>
+                </property>
+                <property name="text">
+                 <string/>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignCenter</set>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1">
+               <widget class="QLabel" name="label_4">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="palette">
+                 <palette>
+                  <active>
+                   <colorrole role="Base">
+                    <brush brushstyle="SolidPattern">
+                     <color alpha="255">
+                      <red>252</red>
+                      <green>252</green>
+                      <blue>252</blue>
+                     </color>
+                    </brush>
+                   </colorrole>
+                   <colorrole role="Window">
+                    <brush brushstyle="SolidPattern">
+                     <color alpha="255">
+                      <red>159</red>
+                      <green>175</green>
+                      <blue>213</blue>
+                     </color>
+                    </brush>
+                   </colorrole>
+                  </active>
+                  <inactive>
+                   <colorrole role="Base">
+                    <brush brushstyle="SolidPattern">
+                     <color alpha="255">
+                      <red>252</red>
+                      <green>252</green>
+                      <blue>252</blue>
+                     </color>
+                    </brush>
+                   </colorrole>
+                   <colorrole role="Window">
+                    <brush brushstyle="SolidPattern">
+                     <color alpha="255">
+                      <red>159</red>
+                      <green>175</green>
+                      <blue>213</blue>
+                     </color>
+                    </brush>
+                   </colorrole>
+                  </inactive>
+                  <disabled>
+                   <colorrole role="Base">
+                    <brush brushstyle="SolidPattern">
+                     <color alpha="255">
+                      <red>159</red>
+                      <green>175</green>
+                      <blue>213</blue>
+                     </color>
+                    </brush>
+                   </colorrole>
+                   <colorrole role="Window">
+                    <brush brushstyle="SolidPattern">
+                     <color alpha="255">
+                      <red>159</red>
+                      <green>175</green>
+                      <blue>213</blue>
+                     </color>
+                    </brush>
+                   </colorrole>
+                  </disabled>
+                 </palette>
+                </property>
+                <property name="autoFillBackground">
+                 <bool>true</bool>
+                </property>
+                <property name="text">
+                 <string>DX Grid</string>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignCenter</set>
+                </property>
+                <property name="margin">
+                 <number>5</number>
+                </property>
+                <property name="indent">
+                 <number>2</number>
+                </property>
+                <property name="buddy">
+                 <cstring>dxGridEntry</cstring>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <widget class="QLabel" name="labAz">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="autoFillBackground">
+               <bool>true</bool>
+              </property>
+              <property name="text">
+               <string>Az: 251     16553 km</string>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignCenter</set>
+              </property>
+              <property name="indent">
+               <number>4</number>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="lookup_control_layout">
+              <property name="spacing">
+               <number>3</number>
+              </property>
+              <item>
+               <widget class="QPushButton" name="lookupButton">
+                <property name="minimumSize">
+                 <size>
+                  <width>0</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="focusPolicy">
+                 <enum>Qt::StrongFocus</enum>
+                </property>
+                <property name="toolTip">
+                 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Search for callsign in database. &lt;br&gt;Right-click searches for callsign on QRZ.com.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                </property>
+                <property name="text">
+                 <string>&amp;Lookup</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="addButton">
+                <property name="minimumSize">
+                 <size>
+                  <width>0</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="focusPolicy">
+                 <enum>Qt::StrongFocus</enum>
+                </property>
+                <property name="toolTip">
+                 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Add callsign and locator to database. &lt;br&gt;Right-click searches for callsign on hamqth.com.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                </property>
+                <property name="text">
+                 <string>Add</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="ignoreButton">
+                <property name="minimumSize">
+                 <size>
+                  <width>0</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="focusPolicy">
+                 <enum>Qt::StrongFocus</enum>
+                </property>
+                <property name="toolTip">
+                 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Put callsign on the Ignore List.&lt;br&gt;Right-click searches for callsign on qrzcq.com.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                </property>
+                <property name="text">
+                 <string>Ignore</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+           </layout>
+          </widget>
          </item>
          <item row="1" column="7" rowspan="2">
           <widget class="QSlider" name="outAttenuation">
@@ -1253,7 +1253,7 @@ Yellow when too low</string>
                  <verstretch>0</verstretch>
                 </sizepolicy>
                </property>
-               <layout class="QHBoxLayout" name="horizontalLayout_6" stretch="1,2">
+               <layout class="QHBoxLayout" name="horizontalLayout_6" stretch="1,0">
                 <property name="leftMargin">
                  <number>0</number>
                 </property>
@@ -2705,97 +2705,27 @@ Double-click to reset to the standard 73 message</string>
                          <property name="verticalSpacing">
                           <number>6</number>
                          </property>
-                         <item row="6" column="2">
-                          <widget class="QCheckBox" name="cb10mFT4">
+                         <item row="1" column="1">
+                          <widget class="QCheckBox" name="cb15m">
                            <property name="toolTip">
-                            <string>10m FT4</string>
+                            <string>15m FT8</string>
                            </property>
                            <property name="text">
-                            <string>10m FT4</string>
-                           </property>
-                          </widget>
-                         </item>
-                         <item row="1" column="0">
-                          <widget class="QCheckBox" name="cb80m">
-                           <property name="toolTip">
-                            <string>80m FT8</string>
-                           </property>
-                           <property name="text">
-                            <string>80m</string>
-                           </property>
-                          </widget>
-                         </item>
-                         <item row="4" column="2">
-                          <widget class="QCheckBox" name="cb15mFT4">
-                           <property name="toolTip">
-                            <string>15m FT4</string>
-                           </property>
-                           <property name="text">
-                            <string>15m FT4</string>
+                            <string>15m</string>
                            </property>
                           </widget>
                          </item>
                          <item row="4" column="0">
-                          <widget class="QCheckBox" name="cb30m">
+                          <widget class="QCheckBox" name="cb40m">
                            <property name="toolTip">
-                            <string>30m FT8</string>
+                            <string>40m FT8</string>
                            </property>
                            <property name="text">
-                            <string>30m</string>
+                            <string>40m</string>
                            </property>
                           </widget>
                          </item>
-                         <item row="5" column="2">
-                          <widget class="QCheckBox" name="cb12mFT4">
-                           <property name="toolTip">
-                            <string>12m FT4</string>
-                           </property>
-                           <property name="text">
-                            <string>12m FT4</string>
-                           </property>
-                          </widget>
-                         </item>
-                         <item row="1" column="2">
-                          <widget class="QCheckBox" name="cb30mFT4">
-                           <property name="toolTip">
-                            <string>30m FT4</string>
-                           </property>
-                           <property name="text">
-                            <string>30m FT4</string>
-                           </property>
-                          </widget>
-                         </item>
-                         <item row="3" column="1">
-                          <widget class="QCheckBox" name="cb6m">
-                           <property name="toolTip">
-                            <string>6m FT8</string>
-                           </property>
-                           <property name="text">
-                            <string>6m</string>
-                           </property>
-                          </widget>
-                         </item>
-                         <item row="5" column="0">
-                          <widget class="QCheckBox" name="cb20m">
-                           <property name="toolTip">
-                            <string>20m FT8</string>
-                           </property>
-                           <property name="text">
-                            <string>20m</string>
-                           </property>
-                          </widget>
-                         </item>
-                         <item row="2" column="0">
-                          <widget class="QCheckBox" name="cb60m">
-                           <property name="toolTip">
-                            <string>60m FT8</string>
-                           </property>
-                           <property name="text">
-                            <string>60m</string>
-                           </property>
-                          </widget>
-                         </item>
-                         <item row="1" column="1">
+                         <item row="2" column="1">
                           <widget class="QCheckBox" name="cb12m">
                            <property name="toolTip">
                             <string>12m FT8</string>
@@ -2805,17 +2735,17 @@ Double-click to reset to the standard 73 message</string>
                            </property>
                           </widget>
                          </item>
-                         <item row="0" column="2">
-                          <widget class="QCheckBox" name="cb40mFT4">
+                         <item row="3" column="0">
+                          <widget class="QCheckBox" name="cb60m">
                            <property name="toolTip">
-                            <string>40m FT4</string>
+                            <string>60m FT8</string>
                            </property>
                            <property name="text">
-                            <string>40m FT4</string>
+                            <string>60m</string>
                            </property>
                           </widget>
                          </item>
-                         <item row="2" column="1">
+                         <item row="3" column="1">
                           <widget class="QCheckBox" name="cb10m">
                            <property name="toolTip">
                             <string>10m FT8</string>
@@ -2825,63 +2755,27 @@ Double-click to reset to the standard 73 message</string>
                            </property>
                           </widget>
                          </item>
-                         <item row="2" column="2">
-                          <widget class="QCheckBox" name="cb20mFT4">
+                         <item row="5" column="0">
+                          <widget class="QCheckBox" name="cb30m">
                            <property name="toolTip">
-                            <string>20m FT4</string>
+                            <string>30m FT8</string>
                            </property>
                            <property name="text">
-                            <string>20m FT4</string>
-                           </property>
-                          </widget>
-                         </item>
-                         <item row="0" column="0">
-                          <widget class="QCheckBox" name="cb160m">
-                           <property name="sizePolicy">
-                            <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-                             <horstretch>0</horstretch>
-                             <verstretch>0</verstretch>
-                            </sizepolicy>
-                           </property>
-                           <property name="toolTip">
-                            <string>160m FT8</string>
-                           </property>
-                           <property name="text">
-                            <string>160m</string>
-                           </property>
-                          </widget>
-                         </item>
-                         <item row="3" column="2">
-                          <widget class="QCheckBox" name="cb17mFT4">
-                           <property name="toolTip">
-                            <string>17m FT4</string>
-                           </property>
-                           <property name="text">
-                            <string>17m FT4</string>
+                            <string>30m</string>
                            </property>
                           </widget>
                          </item>
                          <item row="4" column="1">
-                          <widget class="QCheckBox" name="cb4m">
+                          <widget class="QCheckBox" name="cb6m">
                            <property name="toolTip">
-                            <string>4m FT8</string>
+                            <string>6m FT8</string>
                            </property>
                            <property name="text">
-                            <string>4m</string>
+                            <string>6m</string>
                            </property>
                           </widget>
                          </item>
-                         <item row="6" column="1">
-                          <widget class="QCheckBox" name="cb70cm">
-                           <property name="toolTip">
-                            <string>70cm FT8</string>
-                           </property>
-                           <property name="text">
-                            <string>70cm</string>
-                           </property>
-                          </widget>
-                         </item>
-                         <item row="7" column="0" rowspan="2" colspan="2">
+                         <item row="8" column="0" rowspan="2" colspan="2">
                           <widget class="QPushButton" name="pbBandHopping">
                            <property name="minimumSize">
                             <size>
@@ -2911,47 +2805,7 @@ Double-click to reset to the standard 73 message</string>
                            </property>
                           </widget>
                          </item>
-                         <item row="0" column="1">
-                          <widget class="QCheckBox" name="cb15m">
-                           <property name="toolTip">
-                            <string>15m FT8</string>
-                           </property>
-                           <property name="text">
-                            <string>15m</string>
-                           </property>
-                          </widget>
-                         </item>
-                         <item row="6" column="0">
-                          <widget class="QCheckBox" name="cb17m">
-                           <property name="toolTip">
-                            <string>17m FT8</string>
-                           </property>
-                           <property name="text">
-                            <string>17m</string>
-                           </property>
-                          </widget>
-                         </item>
-                         <item row="3" column="0">
-                          <widget class="QCheckBox" name="cb40m">
-                           <property name="toolTip">
-                            <string>40m FT8</string>
-                           </property>
-                           <property name="text">
-                            <string>40m</string>
-                           </property>
-                          </widget>
-                         </item>
-                         <item row="7" column="2">
-                          <widget class="QCheckBox" name="cb6mMSK">
-                           <property name="toolTip">
-                            <string>6m MSK144</string>
-                           </property>
-                           <property name="text">
-                            <string>6m MSK</string>
-                           </property>
-                          </widget>
-                         </item>
-                         <item row="8" column="2">
+                         <item row="9" column="2">
                           <widget class="QCheckBox" name="cb2mMSK">
                            <property name="toolTip">
                             <string>2m MSK144</string>
@@ -2964,13 +2818,159 @@ Double-click to reset to the standard 73 message</string>
                            </property>
                           </widget>
                          </item>
+                         <item row="7" column="0">
+                          <widget class="QCheckBox" name="cb17m">
+                           <property name="toolTip">
+                            <string>17m FT8</string>
+                           </property>
+                           <property name="text">
+                            <string>17m</string>
+                           </property>
+                          </widget>
+                         </item>
                          <item row="5" column="1">
+                          <widget class="QCheckBox" name="cb4m">
+                           <property name="toolTip">
+                            <string>4m FT8</string>
+                           </property>
+                           <property name="text">
+                            <string>4m</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="6" column="0">
+                          <widget class="QCheckBox" name="cb20m">
+                           <property name="toolTip">
+                            <string>20m FT8</string>
+                           </property>
+                           <property name="text">
+                            <string>20m</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="1" column="0">
+                          <widget class="QCheckBox" name="cb160m">
+                           <property name="sizePolicy">
+                            <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+                             <horstretch>0</horstretch>
+                             <verstretch>0</verstretch>
+                            </sizepolicy>
+                           </property>
+                           <property name="toolTip">
+                            <string>160m FT8</string>
+                           </property>
+                           <property name="text">
+                            <string>160m</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="6" column="1">
                           <widget class="QCheckBox" name="cb2m">
                            <property name="toolTip">
                             <string>2m FT8</string>
                            </property>
                            <property name="text">
                             <string>2m</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="2" column="0">
+                          <widget class="QCheckBox" name="cb80m">
+                           <property name="toolTip">
+                            <string>80m FT8</string>
+                           </property>
+                           <property name="text">
+                            <string>80m</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="7" column="1">
+                          <widget class="QCheckBox" name="cb70cm">
+                           <property name="toolTip">
+                            <string>70cm FT8</string>
+                           </property>
+                           <property name="text">
+                            <string>70cm</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="8" column="2">
+                          <widget class="QCheckBox" name="cb10mFT4">
+                           <property name="toolTip">
+                            <string>10m FT4</string>
+                           </property>
+                           <property name="text">
+                            <string>10m FT4</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="7" column="2">
+                          <widget class="QCheckBox" name="cb12mFT4">
+                           <property name="toolTip">
+                            <string>12m FT4</string>
+                           </property>
+                           <property name="text">
+                            <string>12m FT4</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="6" column="2">
+                          <widget class="QCheckBox" name="cb15mFT4">
+                           <property name="toolTip">
+                            <string>15m FT4</string>
+                           </property>
+                           <property name="text">
+                            <string>15m FT4</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="5" column="2">
+                          <widget class="QCheckBox" name="cb17mFT4">
+                           <property name="toolTip">
+                            <string>17m FT4</string>
+                           </property>
+                           <property name="text">
+                            <string>17m FT4</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="4" column="2">
+                          <widget class="QCheckBox" name="cb20mFT4">
+                           <property name="toolTip">
+                            <string>20m FT4</string>
+                           </property>
+                           <property name="text">
+                            <string>20m FT4</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="3" column="2">
+                          <widget class="QCheckBox" name="cb30mFT4">
+                           <property name="toolTip">
+                            <string>30m FT4</string>
+                           </property>
+                           <property name="text">
+                            <string>30m FT4</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="2" column="2">
+                          <widget class="QCheckBox" name="cb40mFT4">
+                           <property name="toolTip">
+                            <string>40m FT4</string>
+                           </property>
+                           <property name="text">
+                            <string>40m FT4</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="1" column="2">
+                          <widget class="QCheckBox" name="cb80mFT4">
+                           <property name="toolTip">
+                            <string>80m FT4</string>
+                           </property>
+                           <property name="text">
+                            <string>80m FT4</string>
                            </property>
                           </widget>
                          </item>
@@ -4044,7 +4044,7 @@ QLabel[oob=&quot;true&quot;] {
                <height>16777215</height>
               </size>
              </property>
-			 <property name="focusPolicy">
+             <property name="focusPolicy">
               <enum>Qt::StrongFocus</enum>
              </property>
              <property name="toolTip">
@@ -4069,7 +4069,7 @@ QLabel[oob=&quot;true&quot;] {
                <height>16777215</height>
               </size>
              </property>
-			 <property name="focusPolicy">
+             <property name="focusPolicy">
               <enum>Qt::StrongFocus</enum>
              </property>
              <property name="toolTip">
@@ -4336,7 +4336,7 @@ QPushButton[state=&quot;ok&quot;] {
     <addaction name="actionNone"/>
     <addaction name="actionSave_decoded"/>
     <addaction name="actionSave_all"/>
-	<addaction name="actionRemove_after_30days"/>
+    <addaction name="actionRemove_after_30days"/>
     <addaction name="separator"/>
     <addaction name="actionDon_t_split_ALL_TXT"/>
     <addaction name="actionSplit_ALL_TXT_yearly"/>
@@ -4499,14 +4499,14 @@ QPushButton[state=&quot;ok&quot;] {
     <string>Save all</string>
    </property>
   </action>
-    <action name="actionRemove_after_30days">
+  <action name="actionRemove_after_30days">
    <property name="checkable">
     <bool>true</bool>
    </property>
    <property name="text">
     <string>Remove saved files after 30 days</string>
    </property>
-  </action>  
+  </action>
   <action name="actionOnline_User_Guide">
    <property name="text">
     <string>Online User Guide</string>

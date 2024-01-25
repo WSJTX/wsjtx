@@ -3787,117 +3787,7 @@ Double-click to reset to the standard 73 message</string>
                       <property name="verticalSpacing">
                        <number>6</number>
                       </property>
-                      <item row="6" column="2">
-                       <widget class="QCheckBox" name="cb10mFT4">
-                        <property name="toolTip">
-                         <string>10m FT4</string>
-                        </property>
-                        <property name="text">
-                         <string>10m FT4</string>
-                        </property>
-                       </widget>
-                      </item>
-                      <item row="1" column="0">
-                       <widget class="QCheckBox" name="cb80m">
-                        <property name="toolTip">
-                         <string>80m FT8</string>
-                        </property>
-                        <property name="text">
-                         <string>80m</string>
-                        </property>
-                       </widget>
-                      </item>
-                      <item row="4" column="2">
-                       <widget class="QCheckBox" name="cb15mFT4">
-                        <property name="toolTip">
-                         <string>15m FT4</string>
-                        </property>
-                        <property name="text">
-                         <string>15m FT4</string>
-                        </property>
-                       </widget>
-                      </item>
-                      <item row="4" column="0">
-                       <widget class="QCheckBox" name="cb30m">
-                        <property name="toolTip">
-                         <string>30m FT8</string>
-                        </property>
-                        <property name="text">
-                         <string>30m</string>
-                        </property>
-                       </widget>
-                      </item>
-                      <item row="5" column="2">
-                       <widget class="QCheckBox" name="cb12mFT4">
-                        <property name="toolTip">
-                         <string>12m FT4</string>
-                        </property>
-                        <property name="text">
-                         <string>12m FT4</string>
-                        </property>
-                       </widget>
-                      </item>
-                      <item row="1" column="2">
-                       <widget class="QCheckBox" name="cb30mFT4">
-                        <property name="toolTip">
-                         <string>30m FT4</string>
-                        </property>
-                        <property name="text">
-                         <string>30m FT4</string>
-                        </property>
-                       </widget>
-                      </item>
                       <item row="3" column="1">
-                       <widget class="QCheckBox" name="cb6m">
-                        <property name="toolTip">
-                         <string>6m FT8</string>
-                        </property>
-                        <property name="text">
-                         <string>6m</string>
-                        </property>
-                       </widget>
-                      </item>
-                      <item row="5" column="0">
-                       <widget class="QCheckBox" name="cb20m">
-                        <property name="toolTip">
-                         <string>20m FT8</string>
-                        </property>
-                        <property name="text">
-                         <string>20m</string>
-                        </property>
-                       </widget>
-                      </item>
-                      <item row="2" column="0">
-                       <widget class="QCheckBox" name="cb60m">
-                        <property name="toolTip">
-                         <string>60m FT8</string>
-                        </property>
-                        <property name="text">
-                         <string>60m</string>
-                        </property>
-                       </widget>
-                      </item>
-                      <item row="1" column="1">
-                       <widget class="QCheckBox" name="cb12m">
-                        <property name="toolTip">
-                         <string>12m FT8</string>
-                        </property>
-                        <property name="text">
-                         <string>12m</string>
-                        </property>
-                       </widget>
-                      </item>
-                      <item row="0" column="2">
-                       <widget class="QCheckBox" name="cb40mFT4">
-                        <property name="toolTip">
-                         <string>40m FT4</string>
-                        </property>
-                        <property name="text">
-                         <string>40m FT4</string>
-                        </property>
-                       </widget>
-                      </item>
-                      <item row="2" column="1">
                        <widget class="QCheckBox" name="cb10m">
                         <property name="toolTip">
                          <string>10m FT8</string>
@@ -3907,17 +3797,77 @@ Double-click to reset to the standard 73 message</string>
                         </property>
                        </widget>
                       </item>
-                      <item row="2" column="2">
-                       <widget class="QCheckBox" name="cb20mFT4">
+                      <item row="5" column="1">
+                       <widget class="QCheckBox" name="cb4m">
                         <property name="toolTip">
-                         <string>20m FT4</string>
+                         <string>4m FT8</string>
                         </property>
                         <property name="text">
-                         <string>20m FT4</string>
+                         <string>4m</string>
                         </property>
                        </widget>
                       </item>
-                      <item row="0" column="0">
+                      <item row="7" column="0">
+                       <widget class="QCheckBox" name="cb17m">
+                        <property name="toolTip">
+                         <string>17m FT8</string>
+                        </property>
+                        <property name="text">
+                         <string>17m</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item row="4" column="1">
+                       <widget class="QCheckBox" name="cb6m">
+                        <property name="toolTip">
+                         <string>6m FT8</string>
+                        </property>
+                        <property name="text">
+                         <string>6m</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item row="2" column="0">
+                       <widget class="QCheckBox" name="cb80m">
+                        <property name="toolTip">
+                         <string>80m FT8</string>
+                        </property>
+                        <property name="text">
+                         <string>80m</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item row="6" column="1">
+                       <widget class="QCheckBox" name="cb2m">
+                        <property name="toolTip">
+                         <string>2m FT8</string>
+                        </property>
+                        <property name="text">
+                         <string>2m</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item row="3" column="0">
+                       <widget class="QCheckBox" name="cb60m">
+                        <property name="toolTip">
+                         <string>60m FT8</string>
+                        </property>
+                        <property name="text">
+                         <string>60m</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item row="7" column="1">
+                       <widget class="QCheckBox" name="cb70cm">
+                        <property name="toolTip">
+                         <string>70cm FT8</string>
+                        </property>
+                        <property name="text">
+                         <string>70cm</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item row="1" column="0">
                        <widget class="QCheckBox" name="cb160m">
                         <property name="sizePolicy">
                          <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
@@ -3933,37 +3883,40 @@ Double-click to reset to the standard 73 message</string>
                         </property>
                        </widget>
                       </item>
-                      <item row="3" column="2">
-                       <widget class="QCheckBox" name="cb17mFT4">
+                      <item row="4" column="0">
+                       <widget class="QCheckBox" name="cb40m">
                         <property name="toolTip">
-                         <string>17m FT4</string>
+                         <string>40m FT8</string>
                         </property>
                         <property name="text">
-                         <string>17m FT4</string>
+                         <string>40m</string>
                         </property>
                        </widget>
                       </item>
-                      <item row="4" column="1">
-                       <widget class="QCheckBox" name="cb4m">
+                      <item row="6" column="0">
+                       <widget class="QCheckBox" name="cb20m">
                         <property name="toolTip">
-                         <string>4m FT8</string>
+                         <string>20m FT8</string>
                         </property>
                         <property name="text">
-                         <string>4m</string>
+                         <string>20m</string>
                         </property>
                        </widget>
                       </item>
-                      <item row="6" column="1">
-                       <widget class="QCheckBox" name="cb70cm">
+                      <item row="9" column="2">
+                       <widget class="QCheckBox" name="cb2mMSK">
                         <property name="toolTip">
-                         <string>70cm FT8</string>
+                         <string>2m MSK144</string>
+                        </property>
+                        <property name="whatsThis">
+                         <string/>
                         </property>
                         <property name="text">
-                         <string>70cm</string>
+                         <string>2m MSK</string>
                         </property>
                        </widget>
                       </item>
-                      <item row="7" column="0" rowspan="2" colspan="2">
+                      <item row="8" column="0" rowspan="2" colspan="2">
                        <widget class="QPushButton" name="pbBandHopping">
                         <property name="minimumSize">
                          <size>
@@ -3993,7 +3946,17 @@ Double-click to reset to the standard 73 message</string>
                         </property>
                        </widget>
                       </item>
-                      <item row="0" column="1">
+                      <item row="2" column="1">
+                       <widget class="QCheckBox" name="cb12m">
+                        <property name="toolTip">
+                         <string>12m FT8</string>
+                        </property>
+                        <property name="text">
+                         <string>12m</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item row="1" column="1">
                        <widget class="QCheckBox" name="cb15m">
                         <property name="toolTip">
                          <string>15m FT8</string>
@@ -4003,56 +3966,93 @@ Double-click to reset to the standard 73 message</string>
                         </property>
                        </widget>
                       </item>
-                      <item row="6" column="0">
-                       <widget class="QCheckBox" name="cb17m">
+                      <item row="5" column="0">
+                       <widget class="QCheckBox" name="cb30m">
                         <property name="toolTip">
-                         <string>17m FT8</string>
+                         <string>30m FT8</string>
                         </property>
                         <property name="text">
-                         <string>17m</string>
-                        </property>
-                       </widget>
-                      </item>
-                      <item row="3" column="0">
-                       <widget class="QCheckBox" name="cb40m">
-                        <property name="toolTip">
-                         <string>40m FT8</string>
-                        </property>
-                        <property name="text">
-                         <string>40m</string>
-                        </property>
-                       </widget>
-                      </item>
-                      <item row="7" column="2">
-                       <widget class="QCheckBox" name="cb6mMSK">
-                        <property name="toolTip">
-                         <string>6m MSK144</string>
-                        </property>
-                        <property name="text">
-                         <string>6m MSK</string>
+                         <string>30m</string>
                         </property>
                        </widget>
                       </item>
                       <item row="8" column="2">
-                       <widget class="QCheckBox" name="cb2mMSK">
+                       <widget class="QCheckBox" name="cb10mFT4">
                         <property name="toolTip">
-                         <string>2m MSK144</string>
-                        </property>
-                        <property name="whatsThis">
-                         <string/>
+                         <string>10m FT4</string>
                         </property>
                         <property name="text">
-                         <string>2m MSK</string>
+                         <string>10m FT4</string>
                         </property>
                        </widget>
                       </item>
-                      <item row="5" column="1">
-                       <widget class="QCheckBox" name="cb2m">
+                      <item row="7" column="2">
+                       <widget class="QCheckBox" name="cb12mFT4">
                         <property name="toolTip">
-                         <string>2m FT8</string>
+                         <string>12m FT4</string>
                         </property>
                         <property name="text">
-                         <string>2m</string>
+                         <string>12m FT4</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item row="6" column="2">
+                       <widget class="QCheckBox" name="cb15mFT4">
+                        <property name="toolTip">
+                         <string>15m FT4</string>
+                        </property>
+                        <property name="text">
+                         <string>15m FT4</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item row="5" column="2">
+                       <widget class="QCheckBox" name="cb17mFT4">
+                        <property name="toolTip">
+                         <string>17m FT4</string>
+                        </property>
+                        <property name="text">
+                         <string>17m FT4</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item row="4" column="2">
+                       <widget class="QCheckBox" name="cb20mFT4">
+                        <property name="toolTip">
+                         <string>20m FT4</string>
+                        </property>
+                        <property name="text">
+                         <string>20m FT4</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item row="3" column="2">
+                       <widget class="QCheckBox" name="cb30mFT4">
+                        <property name="toolTip">
+                         <string>30m FT4</string>
+                        </property>
+                        <property name="text">
+                         <string>30m FT4</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item row="2" column="2">
+                       <widget class="QCheckBox" name="cb40mFT4">
+                        <property name="toolTip">
+                         <string>40m FT4</string>
+                        </property>
+                        <property name="text">
+                         <string>40m FT4</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item row="1" column="2">
+                       <widget class="QCheckBox" name="cb80mFT4">
+                        <property name="toolTip">
+                         <string>80m FT4</string>
+                        </property>
+                        <property name="text">
+                         <string>80m FT4</string>
                         </property>
                        </widget>
                       </item>
