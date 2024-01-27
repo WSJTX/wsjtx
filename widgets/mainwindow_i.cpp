@@ -5825,7 +5825,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
       }
       if(m_mode=="Q65" and !bAvgMsg and !decodedtext.string().contains(m_baseCall)) bDisplayRight=false;
       if((m_mode=="JT4" or m_mode=="Q65" or m_mode=="JT65") and decodedtext.string().contains(m_baseCall) && ui->actionInclude_averaging->isVisible() && !ui->actionInclude_averaging->isChecked()) bDisplayRight=true;
-      if(m_mode=="FT8" and SpecOp::HOUND==m_specOp && decodedtext.string().contains(m_baseCall)) bDisplayRight=true;
+      if(m_mode=="FT8" and SpecOp::HOUND==m_specOp && decodedtext0.string().replace("<","").replace(">","").contains(" " + m_baseCall + " ")) bDisplayRight=true;
 
       // AutoSeq for JT65/JT4 short messages
       if ((m_mode=="JT65" or m_mode=="JT4") and m_config.enable_VHF_features() and ui->cbShMsgs->isChecked() && ui->cbAutoSeq->isChecked () && (abs(audioFreq - m_wideGraph->rxFreq()) <= 15)) {
