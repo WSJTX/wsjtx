@@ -765,6 +765,7 @@ private:
     qint32 t;
     bool worked;
     bool ready2call;
+    QString submode;
   };
   QMap<QString,EMECall> m_EMECall;
 

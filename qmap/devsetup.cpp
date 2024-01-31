@@ -20,6 +20,8 @@ void DevSetup::initDlg()
   ui.myCallEntry->setText(m_myCall);
   ui.myGridEntry->setText(m_myGrid);
   ui.astroFont->setValue(m_astroFont);
+  ui.myCallColor->addItems({"","red","green","cyan"});
+  ui.myCallColor->setCurrentIndex(m_myCallColor);
   ui.saveDirEntry->setText(m_saveDir);
   ui.azelDirEntry->setText(m_azelDir);
   ui.fCalSpinBox->setValue(m_fCal);
@@ -38,6 +40,7 @@ void DevSetup::accept()
   m_myCall=ui.myCallEntry->text();
   m_myGrid=ui.myGridEntry->text();
   m_astroFont=ui.astroFont->value();
+  m_myCallColor=ui.myCallColor->currentIndex();
   m_saveDir=ui.saveDirEntry->text();
   m_azelDir=ui.azelDirEntry->text();
   m_fCal=ui.fCalSpinBox->value();

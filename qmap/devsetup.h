@@ -12,10 +12,6 @@ public:
   ~DevSetup();
 
   void initDlg();
-  qint32  m_idInt;
-  qint32  m_pttPort;
-  qint32  m_timeout;
-  qint32  m_dPhi;
   qint32  m_fCal;
   qint32  m_udpPort;
   qint32  m_astroFont;
@@ -25,14 +21,14 @@ public:
   double  m_TxOffset;
 
   bool    m_network;
-  bool    m_fs96000;
   bool    m_restartSoundIn;
+
+  int     m_myCallColor;
 
   QString m_myCall;
   QString m_myGrid;
   QString m_saveDir;
   QString m_azelDir;
-  QString m_editorCommand;
 
 public slots:
   void accept();

@@ -140,7 +140,7 @@ subroutine q65b(nutc,nqd,nxant,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol, &
   ndpth=3
 
 ! NB: Frequency of ipk is now shifted to 1000 Hz.
-  call map65_mmdec(nutc,iwave,nqd,nsubmode,nfa,nfb,1000,ntol,     &
+  call map65_mmdec(nutc,iwave,nqd,60,nsubmode,nfa,nfb,1000,ntol,     &
        newdat,nagain,max_drift,ndepth,mycall,hiscall0,hisgrid)
 
   MHz=fcenter

@@ -1,5 +1,5 @@
-subroutine map65_mmdec(nutc,id2,nqd,nsubmode,nfa,nfb,nfqso,ntol,newdat,   &
-     nagain,max_drift,ndepth,mycall,hiscall,hisgrid)
+subroutine map65_mmdec(nutc,id2,nqd,ntrperiod, nsubmode,nfa,nfb,nfqso,   &
+     ntol,newdat,nagain,max_drift,ndepth,mycall,hiscall,hisgrid)
 
   use prog_args
   use timer_module, only: timer
@@ -39,7 +39,7 @@ subroutine map65_mmdec(nutc,id2,nqd,nsubmode,nfa,nfb,nfqso,ntol,newdat,   &
   lagain=(nagain.ne.0)
   bVHF=.true.
   emedelay=2.5
-  ntrperiod=60
+!  ntrperiod=60
 
   call timer('dec_q65 ',0)
   call my_q65%decode(q65_decoded,id2,nqd,nutc,ntrperiod,nsubmode,nfqso,       &

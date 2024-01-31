@@ -82,7 +82,7 @@
           <bool>false</bool>
          </property>
          <property name="text">
-          <string>Wanted only</string>
+          <string># Wanted only</string>
          </property>
         </widget>
        </item>

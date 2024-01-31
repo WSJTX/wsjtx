@@ -5,14 +5,14 @@ set (libq65_FSRCS
   astro.f90
   astro0.f90
   astrosub.f90
+  chkstat.f90
   dcoord.f90
   decode0.f90
   dot.f90
   fchisq0.f90
-  filbig.f90
-  four2a.f90
+  fftbig.f90
   ftninit.f90
-  ftnquit.f90
+#  ftnquit.f90
   geocentric.f90
   getcand2.f90
   grid2deg.f90
@@ -24,12 +24,15 @@ set (libq65_FSRCS
   q65c.f90
   q65_sync.f90
   qmapa.f90
+  read_qm.f90
   recvpkt.f90
+  save_qm.f90
   sun.f90
   symspec.f90
   timf2.f90
   tm2.f90
   toxyz.f90
+  zaptx.f90
 
   f77_wisdom.f
   )

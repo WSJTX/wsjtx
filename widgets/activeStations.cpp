@@ -47,7 +47,7 @@ void ActiveStations::read_settings ()
   ui->sbMaxRecent->setValue(settings_->value("MaxRecent",10).toInt());
   ui->sbMaxAge->setValue(settings_->value("MaxAge",10).toInt());
   ui->cbReadyOnly->setChecked(settings_->value("ReadyOnly",false).toBool());
-  ui->cbWantedOnly->setChecked(settings_->value("WantedOnly",false).toBool());
+  ui->cbWantedOnly->setChecked(settings_->value("# WantedOnly",false).toBool());
 }
 
 void ActiveStations::write_settings ()
@@ -64,11 +64,11 @@ void ActiveStations::displayRecentStations(QString mode, QString const& t)
 {
   if(mode!=m_mode) {
     m_mode=mode;
-    ui->cbReadyOnly->setText("Ready only");
+    ui->cbReadyOnly->setText(" Ready only");
     if(m_mode=="Q65") {
-      ui->header_label2->setText("  N    Frx   Fsked  S/N   Call     Grid  Tx  Age");
+      ui->header_label2->setText("  N    Frx   Fsked  S/N  Q65  Call     Grid  Tx  Age");
       ui->label->setText("QSOs:");
-      ui->cbReadyOnly->setText("CQ only");
+      ui->cbReadyOnly->setText("* CQ only");
     } else if(m_mode=="Q65-pileup") {
       ui->header_label2->setText("  N   Freq  Call    Grid   El   Age(h)");
     } else {
@@ -92,6 +92,32 @@ void ActiveStations::displayRecentStations(QString mode, QString const& t)
   bool bClickOK=m_clickOK;
   m_clickOK=false;
   ui->RecentStationsPlainTextEdit->setPlainText(t);
+
+//White background for Q65-60x decodes, yellow for Q65-30x:
+  int i0=0;
+  int i1=0;
+  int npos=0;
+  int nlines=t.count("\n");
+  QTextCursor cursor=ui->RecentStationsPlainTextEdit->textCursor();
+  QTextCharFormat fmt;
+  for(int i=0; i<nlines; i++) {
+    i1=t.indexOf("\n",i0);
+    npos=t.indexOf(QRegularExpression(" 30[ABCD] "), i0);
+    if(npos>0) {
+      cursor.setPosition(npos);
+      cursor.select(QTextCursor::LineUnderCursor);
+      fmt.setBackground(QBrush(Qt::yellow));
+      fmt.setForeground(QBrush(Qt::black));
+    } else {
+      cursor.setPosition(i0+10);
+      cursor.select(QTextCursor::LineUnderCursor);
+      fmt.clearForeground();
+      fmt.clearBackground();
+    }
+    cursor.setCharFormat(fmt);
+    i0=i1+1;
+  }
+
   m_clickOK=bClickOK;
 }
 

@@ -642,7 +642,8 @@ void DisplayText::displayTransmittedText(QString text, QString modeTx, qint32 tx
     QString t2;
     t2 = t2.asprintf("%4d",txFreq);
     QString t;
-    if(bFastMode or modeTx=="FT8" or modeTx=="FT4" or (TRperiod<60)) {
+    if(bFastMode or modeTx=="FT8" or modeTx=="FT4" or (TRperiod<60) or
+       (modeTx=="Q65" and TRperiod==60)) {
       t = QDateTime::currentDateTimeUtc().toString("hhmmss") + \
         "  Tx      " + t2 + t1 + text;
     } else if(modeTx.mid(0,6)=="FT8fox") {

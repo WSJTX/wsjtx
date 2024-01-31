@@ -39,8 +39,7 @@ public slots:
   void showSoundInError(const QString& errorMsg);
   void showStatusMessage(const QString& statusMsg);
   void dataSink(int k);
-  void diskDat();
-  void diskWriteFinished();
+  void diskDat(int iret);
   void decoderFinished();
   void freezeDecode(int n);
   void guiUpdate();
@@ -82,6 +81,14 @@ private slots:
   void on_actionQ65E_triggered();
   void on_actionQuick_Start_Guide_to_Q65_triggered();
   void on_actionQuick_Start_Guide_to_WSJT_X_2_7_and_QMAP_triggered();
+  void on_actionAlso_Q65_30x_toggled(bool b);
+  void on_sbMaxDrift_valueChanged(int arg1);
+  void on_actionSave_decoded_triggered();
+  void on_actionExport_wav_file_at_fQSO_triggered();
+
+  void on_actionExport_wav_file_at_fQSO_30a_triggered();
+
+  void on_actionExport_wav_file_at_fQSO_30b_triggered();
 
 private:
   Ui::MainWindow *ui;
@@ -90,16 +97,11 @@ private:
   QScopedPointer<Astro> m_astro_window;
   QScopedPointer<WideGraph> m_wide_graph_window;
   QPointer<QTimer> m_gui_timer;
-  qint32  m_idInt;
   qint32  m_waterfallAvg;
   qint32  m_DF;
   qint32  m_tol;
-  qint32  m_QSOfreq0;
   qint32  m_astroFont;
-  qint32  m_timeout;
   qint32  m_fCal;
-  qint32  m_txFreq;
-  qint32  m_setftx;
   qint32  m_sec0;
   qint32  m_nutc0;
   qint32  m_nrx;
@@ -107,15 +109,20 @@ private:
   qint32  m_paInDevice;
   qint32  m_udpPort;
   qint32  m_NBslider;
-  qint32  m_nsum;
-  qint32  m_nsave;
   qint32  m_TRperiod;
   qint32  m_modeQ65;
   qint32  m_dB;
   qint32  m_fetched=0;
-  qint32  m_hsymStop=302;
-  qint32  m_nTransmitted=0;
+  qint32  m_hsymStop=390;             //390*0.15 = 58.5 s
+  qint32  m_nTx30a=0;
+  qint32  m_nTx30b=0;
+  qint32  m_nTx60=0;
   qint32  m_nDoubleClicked=0;
+  qint32  m_nline=0;
+  qint32  m_WSJTX_TRperiod=0;
+  qint32  m_dop00=0;
+  qint32  m_dop58=0;
+  qint32  m_n60;
 
   double  m_fAdd;
   double  m_xavg;
@@ -125,20 +132,19 @@ private:
   bool    m_loopall;
   bool    m_decoderBusy=false;
   bool    m_restart;
-  bool    m_call3Modified;
   bool    m_startAnother;
   bool    m_saveAll;
-  bool    m_onlyEME;
-  bool    m_kb8rq;
+  bool    m_saveDecoded;
   bool    m_NB;
-  bool    m_fs96000;
   bool    m_decode_called=false;
+  bool    m_bAlso30=true;
+  bool    m_bDiskDatBusy=false;
+  bool    m_bWTransmitting=false;
+  bool    m_bDecodeAgain=false;
 
-  float   m_gainx;
-  float   m_gainy;
-  float   m_phasex;
-  float   m_phasey;
   float   m_pctZap;
+
+  int     m_myCallColor;
 
   QRect   m_wideGraphGeom;
 
@@ -152,14 +158,7 @@ private:
 
   QMessageBox msgBox0;
 
-  QFuture<void>* future1;
-  QFuture<void>* future2;
-  QFutureWatcher<void>* watcher1;
-  QFutureWatcher<void>* watcher2;
-
   QFutureWatcher<void> watcher3;     //For decoder
-
-  QDateTime m_decoder_start_time;
 
   QString m_path;
   QString m_pbdecoding_style1;
@@ -175,13 +174,12 @@ private:
   QString m_dateTime;
   QString m_mode;
   QString m_UTC0="";
+  QString m_revision;
+  QString m_saveFileName;
 
+  QDateTime m_dateTimeSeqStart;        //Nominal start time of Rx sequence about to be decoded
   QHash<QString,bool> m_worked;
-
   SignalMeter *xSignalMeter;
-  SignalMeter *ySignalMeter;
-
-
   SoundInThread soundInThread;             //Instantiate the audio threads
 
   //---------------------------------------------------- private functions
@@ -194,7 +192,7 @@ private:
 };
 
 extern void getfile(QString fname, bool xpol, int idInt);
-extern void savetf2(QString fname, bool xpol);
+extern void save_iq(QString fname);
 extern int killbyname(const char* progName);
 
 extern "C" {
@@ -206,7 +204,18 @@ extern "C" {
   void astrosub00_ (int* nyear, int* month, int* nday, double* uth, int* nfreq,
                     const char* mygrid, int* ndop00, int len1);
 
-  void q65c_(int* itimer);
+  void q65c_();
+
+  void all_done_();
+
+  void zaptx_(float d4[], int* k0, int* k);
+
+  void save_qm_(const char* fname, const char* prog_id, const char* mycall, const char* mygrid,
+                float d4[], int* ntx30a, int* ntx30b, double* fcenter, int* nutc,
+                int* dop00, int* dop58, int len1, int len2, int len3, int len4);
+
+  void read_qm_(const char* fname, int* iret, int len);
+
   }
 
 #endif // MAINWINDOW_H

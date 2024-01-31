@@ -67,7 +67,8 @@ private:
 };
 
 extern "C" {
-  void recvpkt_(int* nsam, quint16* iblk, qint8* nrx, int* k, double s1[], double s2[]);
+  void recvpkt_(int* nsam, quint16* iblk, qint8* nrx, int* k,
+                double s1[], double s2[], int* ndb);
 }
 
 #endif // SOUNDIN_H

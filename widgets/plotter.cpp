@@ -279,7 +279,7 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
     painter1.drawText(rect, m_timestamp==2?0x0082:0x0081,t, &boundingRect);
   }
 
-  if(m_mode=="JT4" or (m_mode=="Q65" and m_nSubMode>=2)) {
+  if(m_mode=="JT4" or (m_mode=="Q65" and m_nSubMode>=3)) {
     DrawOverlay();
     QPen pen3(Qt::yellow);                     //Mark freqs of JT4/Q65 single-tone msgs
     painter2D.setPen(pen3);

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>441</width>
-    <height>483</height>
+    <width>431</width>
+    <height>393</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -19,7 +19,7 @@
      <x>269</x>
      <y>19</y>
      <width>151</width>
-     <height>431</height>
+     <height>361</height>
     </rect>
    </property>
    <property name="title">
@@ -29,7 +29,7 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>100</y>
+      <y>70</y>
       <width>30</width>
       <height>17</height>
      </rect>
@@ -42,7 +42,7 @@
     <property name="geometry">
      <rect>
       <x>60</x>
-      <y>100</y>
+      <y>70</y>
       <width>40</width>
       <height>17</height>
      </rect>
@@ -58,7 +58,7 @@
     <property name="geometry">
      <rect>
       <x>110</x>
-      <y>100</y>
+      <y>70</y>
       <width>30</width>
       <height>17</height>
      </rect>
@@ -71,7 +71,7 @@
     <property name="geometry">
      <rect>
       <x>60</x>
-      <y>150</y>
+      <y>120</y>
       <width>30</width>
       <height>17</height>
      </rect>
@@ -84,7 +84,7 @@
     <property name="geometry">
      <rect>
       <x>60</x>
-      <y>50</y>
+      <y>20</y>
       <width>30</width>
       <height>17</height>
      </rect>
@@ -97,7 +97,7 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>230</y>
+      <y>180</y>
       <width>130</width>
       <height>22</height>
      </rect>
@@ -131,7 +131,7 @@
     <property name="geometry">
      <rect>
       <x>30</x>
-      <y>330</y>
+      <y>260</y>
       <width>91</width>
       <height>17</height>
      </rect>
@@ -144,7 +144,7 @@
     <property name="geometry">
      <rect>
       <x>30</x>
-      <y>380</y>
+      <y>300</y>
       <width>70</width>
       <height>17</height>
      </rect>
@@ -157,7 +157,7 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>280</y>
+      <y>220</y>
       <width>130</width>
       <height>22</height>
      </rect>
@@ -172,28 +172,46 @@
      <string>Dwell   </string>
     </property>
     <property name="minimum">
-     <number>10</number>
+     <number>15</number>
     </property>
     <property name="maximum">
      <number>300</number>
     </property>
     <property name="singleStep">
-     <number>10</number>
+     <number>5</number>
     </property>
    </widget>
   </widget>
-  <widget class="QWidget" name="">
+  <widget class="QWidget" name="layoutWidget">
    <property name="geometry">
     <rect>
      <x>0</x>
      <y>10</y>
      <width>258</width>
-     <height>471</height>
+     <height>371</height>
     </rect>
    </property>
    <layout class="QVBoxLayout" name="verticalLayout">
     <item>
      <widget class="QTextBrowser" name="astroTextBrowser">
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
+      </property>
+      <property name="minimumSize">
+       <size>
+        <width>0</width>
+        <height>325</height>
+       </size>
+      </property>
+      <property name="maximumSize">
+       <size>
+        <width>16777215</width>
+        <height>16777215</height>
+       </size>
+      </property>
       <property name="font">
        <font>
         <family>Courier New</family>
@@ -207,7 +225,7 @@
     <item>
      <layout class="QHBoxLayout" name="horizontalLayout">
       <item>
-       <spacer name="horizontalSpacer_2">
+       <spacer name="horizontalSpacer">
         <property name="orientation">
          <enum>Qt::Horizontal</enum>
         </property>
@@ -227,7 +245,7 @@
        </widget>
       </item>
       <item>
-       <spacer name="horizontalSpacer">
+       <spacer name="horizontalSpacer_2">
         <property name="orientation">
          <enum>Qt::Horizontal</enum>
         </property>
@@ -240,6 +258,22 @@
        </spacer>
       </item>
      </layout>
+    </item>
+    <item>
+     <spacer name="verticalSpacer">
+      <property name="orientation">
+       <enum>Qt::Vertical</enum>
+      </property>
+      <property name="sizeType">
+       <enum>QSizePolicy::Fixed</enum>
+      </property>
+      <property name="sizeHint" stdset="0">
+       <size>
+        <width>20</width>
+        <height>10</height>
+       </size>
+      </property>
+     </spacer>
     </item>
    </layout>
   </widget>

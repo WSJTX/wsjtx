@@ -20,7 +20,7 @@ subroutine four2a(a,nfft,ndim,isign,iform)
 ! actual computations.
 
   use fftw3
-  parameter (NPMAX=2100)                 !Max numberf of stored plans
+  parameter (NPMAX=2100)                 !Max number of stored plans
   parameter (NSMALL=16385)               !Max half complex size of "small" FFTs
   complex a(nfft)                        !Array to be transformed
   complex aa(NSMALL)                     !Local copy of "small" a()

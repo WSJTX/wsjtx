@@ -253,7 +253,8 @@ struct {
   int nQDecoderDone;     //QMAP decoder is finished (0 or 1)
   int nWDecoderBusy;     //WSJT-X decoder is busy (0 or 1)
   int nWTransmitting;    //WSJT-X is transmitting (0 or 1)
-  char result[50][60];   //Decodes as character*60 arrays
+  int kHzRequested;      //Integer kHz dial frequency requested from QMAP
+  char result[50][64];   //Decodes as character*64 arrays
 } qmapcom;
 int* ipc_qmap;
 
@@ -1976,6 +1977,7 @@ void MainWindow::dataSink(qint64 frames)
       float width=m_fSpread;
       echocom_.nclearave=m_nclearave;
       int nDop=m_fAudioShift;
+      if(m_astroWidget->DopplerMethod()==2) nDop=0;   //Using CFOM
       int nDopTotal=m_fDop;
       int navg=ui->sbEchoAvg->value();
       if(m_diskData) {
@@ -4926,9 +4928,9 @@ void MainWindow::callSandP2(int n)
       int nMHz=m_freqNominal/1000000;
       m_freqNominal=(nMHz*1000 + kHz)* 1000;
     }
-    m_deCall=w[3];
-    m_deGrid=w[4];
-    m_txFirst=(w[5]=="0");
+    m_deCall=w[4];
+    m_deGrid=w[5];
+    m_txFirst=(w[6]=="0");
 //    ui->TxFreqSpinBox->setValue(1500);
   } else {
     m_deCall=w[0];
@@ -4936,6 +4938,18 @@ void MainWindow::callSandP2(int n)
     ui->RxFreqSpinBox->setValue(w[4].toInt());
     m_txFirst = (w[5]=="0");
   }
+
+  if(w[3].left(2)=="30") {
+    ui->sbTR->setValue(30);
+  } else {
+    ui->sbTR->setValue(60);
+  }
+  if(w[3].right(1)=="A") ui->sbSubmode->setValue(0);
+  if(w[3].right(1)=="B") ui->sbSubmode->setValue(1);
+  if(w[3].right(1)=="C") ui->sbSubmode->setValue(2);
+  if(w[3].right(1)=="D") ui->sbSubmode->setValue(3);
+  if(w[3].right(1)=="E") ui->sbSubmode->setValue(4);
+
   m_bDoubleClicked=true;               //### needed?
   ui->dxCallEntry->setText(m_deCall);
   ui->dxGridEntry->setText(m_deGrid);
@@ -4947,7 +4961,14 @@ void MainWindow::callSandP2(int n)
   }
   setTxMsg(1);
   ui->txFirstCheckBox->setChecked(m_txFirst);
-  if (!ui->autoButton->isChecked()) ui->autoButton->click(); // Enable Tx
+  static qint64 ms0=0;
+  qint64 ms=QDateTime::currentMSecsSinceEpoch();
+  if(ui->autoButton->isChecked()) {
+    if((ms-ms0)<=500) ui->autoButton->click(); // Disable Tx on double click
+  } else if((ms-ms0)>500) {
+    ui->autoButton->click(); // Enable Tx on single click
+  }
+  ms0=ms;
   if(m_transmitting) m_restart=true;
 }
 
@@ -6744,11 +6765,17 @@ void MainWindow::guiUpdate()
     if(m_decoderBusy) n=1;
     ipc_qmap[3]=n;
     n=0;
-    if(m_transmitting) n=1;
+    if(m_transmitting) n=m_TRperiod;
     ipc_qmap[4]=n;
     if(ipc_qmap[0] > 0) {             //ndecodes
       memcpy(&qmapcom, (char*)ipc_qmap, sizeof(qmapcom));  //Fetch the new decode(s)
       readWidebandDecodes();
+    }
+    if(ipc_qmap[5]>0) {
+//      qDebug() << "aa" << m_freqNominal << ipc_qmap[5];
+      setRig((m_freqNominal/1000000)*1000000 + 1000*ipc_qmap[5]);
+      ipc_qmap[5]=0;
+//      qDebug() << "bb" << m_freqNominal << ipc_qmap[5];
     }
     mem_qmap.unlock();
   }
@@ -11777,25 +11804,30 @@ void MainWindow::readWidebandDecodes()
   if(m_ActiveStationsWidget==NULL) return;
   int nhr=0;
   int nmin=0;
+  int nsec=0;
   int nsnr=0;
   while(m_fetched < qmapcom.ndecodes) {
+    // Recover and parse each decoded line.
     QString line=QString::fromLatin1(qmapcom.result[m_fetched]);
     m_fetched++;
     nhr=line.mid(0,2).toInt();
     nmin=line.mid(2,2).toInt();
-    double frx=line.mid(4,9).toDouble();
-    double fsked=line.mid(13,7).toDouble();
-    QString msg=line.mid(34,-1);
+    nsec=line.mid(4,2).toInt();
+    double frx=line.mid(6,9).toDouble();
+    double fsked=line.mid(16,7).toDouble();
+    QString submode=line.mid(36,3);
+    QString msg=line.mid(41,-1);
     int i1=msg.indexOf(" ");
     int i2=i1 +1 + msg.mid(i1+1,-1).indexOf(" ");
     QString dxcall=msg.mid(i1+1,i2-i1-1);
     if(stdCall(dxcall)) {
       QString w3=msg.mid(i2+1,-1);
-      nsnr=line.mid(29,3).toInt();
+      nsnr=line.mid(31,3).toInt();
       m_EMECall[dxcall].frx=frx;
       m_EMECall[dxcall].fsked=fsked;
       m_EMECall[dxcall].nsnr=nsnr;
-      m_EMECall[dxcall].t=60*nhr + nmin;
+      m_EMECall[dxcall].t=3600*nhr + 60*nmin + nsec;
+      m_EMECall[dxcall].submode=submode;
       if(w3.contains(grid_regexp)) m_EMECall[dxcall].grid4=w3;
       bool bCQ=line.contains(" CQ ");
 //      m_EMECall[dxcall].ready2call=(bCQ or line.contains(" 73") or line.contains(" RR73"));
@@ -11835,8 +11867,11 @@ void MainWindow::readWidebandDecodes()
     if(m_ActiveStationsWidget->readyOnly() and !i->ready2call) bSkip=true;
     if(!bSkip) {
       int snr=i->nsnr;
-      int odd=1 - (i->t)%2;
-      int age=60*nhr + nmin - (i->t);
+      QString submode=i->submode;
+      int odd=0;
+      if(submode.left(2)=="30" and (i->t%60)==0) odd=1;
+      if(submode.left(2)=="60" and (i->t%120)==0) odd=1;
+      int age=(3600*nhr + 60*nmin + nsec - (i->t))/60;
       char c2[3]={32,32,0};
       if(age<0) age += 1440;
       if(age<=maxAge) {
@@ -11844,7 +11879,8 @@ void MainWindow::readWidebandDecodes()
         dxgrid4=(i->grid4+"... ").left(4);
         if(!m_EMEworked[dxcall.trimmed()]) c2[0]=35;       //# for not in log
         if(i->ready2call) c2[1]=42;                        //* for ready to call
-        t1=t1.asprintf("%7.3f %5.1f  %+03d   %8s %4s %3d %3d %2s\n",i->frx,i->fsked,snr,dxcall.toLatin1().constData(),
+        t1=t1.asprintf("%7.3f %5.1f  %+03d  %3s  %8s %4s %3d %3d %2s\n",i->frx,i->fsked,snr,
+                       submode.toLatin1().constData(),dxcall.toLatin1().constData(),
                        dxgrid4.toLatin1().constData(),odd,age,c2);
         f[k]=i->fsked;
         list.append(t1);

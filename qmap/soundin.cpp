@@ -15,37 +15,43 @@ extern "C"
   struct
   {
     double d8[60*96000];              //This is "common/datcom/..." in fortran
-    float ss[322*NFFT];
-    float savg[NFFT];
-    double fcenter;
-    int nutc;
+    float ss[400*NFFT];
+    float savg[NFFT];                 //Avg spectra at 0,45,90,135 deg pol
+    double fcenter;                   //Center freq from Linrad (MHz)
+    int nutc;                         //UTC as integer, HHMM
     float fselected;                  //Selected frequency for nagain decodes
     int mousedf;                      //User-selected DF
     int mousefqso;                    //User-selected QSO freq (kHz)
     int nagain;                       //1 ==> decode only at fQSO +/- Tol
     int ndepth;                       //How much hinted decoding to do?
-    int ndiskdat;                     //1 ==> data read from *.tf2 or *.iq file
-    int neme;                         //Hinted decoding tries only for EME calls
+    int ndiskdat;                     //1 ==> data read from *.iq file
+    int ntx60;                        //Number of seconds transmitted in Q65-60x
     int newdat;                       //1 ==> new data, must do long FFT
     int nfa;                          //Low decode limit (kHz)
     int nfb;                          //High decode limit (kHz)
     int nfcal;                        //Frequency correction, for calibration (Hz)
     int nfshift;                      //Shift of displayed center freq (kHz)
-    int mcall3;                       //1 ==> CALL3.TXT has been modified
-    int ntimeout;                     //Max for timeouts in Messages and BandMap
+    int ntx30a;                       //Number of seconds transmitted in first half minute , Q65-30x
+    int ntx30b;                       //Number of seconds transmitted in second half minute, Q65-30x
     int ntol;                         //+/- decoding range around fQSO (Hz)
-    int nxant;                        //1 ==> add 45 deg to measured pol angle
-    int junk_1;                       //Flags to control log files
+    int junk5;                        //
+    int junk4;                        //
     int nfsample;                     //Input sample rate
-    int nxpol;                        //1 if using xpol antennas, 0 otherwise
-    int mode65;                       //JT65 sub-mode: A=1, B=2, C=4
-    int nfast;                        //1No longer used
+    int junk3;                        //
+    int nBaseSubmode;                 //Base submode for Q65-60x (aka m_modeQ65)
+    int ndop00;                       //EME Self Doppler
     int nsave;                        //Number of s3(64,63) spectra saved
+    int max_drift;                    //Maximum Q65 drift: units symbol_rate/TxT
+    int offset;                       //Offset in Hz
+    int nhsym;                        //Number of available JT65 half-symbols
     char mycall[12];
     char mygrid[6];
     char hiscall[12];
     char hisgrid[6];
     char datetime[20];
+    int junk1;                        //Used to test extent of copy to shared memory
+    int junk2;
+    bool bAlso30;                     //Process for 30-second submode as well as 60-second
   } datcom_;
 }
 
@@ -208,12 +214,10 @@ void SoundInThread::inputUDP()
         // If buffer will not overflow, move data into datcom_
         if ((k+iz) <= 60*96000) {
           int nsam=-1;
-          recvpkt_(&nsam, &b.iblk, &b.nrx, &k, b.d8, b.d8);
+          recvpkt_(&nsam, &b.iblk, &b.nrx, &k, b.d8, b.d8, &m_dB);
           datcom_.fcenter=b.cfreq + m_fAdd;
-//          qDebug() << "bb" << b.cfreq << m_fAdd << datcom_.fcenter;
         }
-
-        m_hsym=(k-2048)*11025.0/(2048.0*m_rate);
+        m_hsym=(k-2048)/14400;           //14400 = 0.15 * 96000
         if(m_hsym != nhsym0) {
           if(!m_dataSinkBusy) {
             m_dataSinkBusy=true;

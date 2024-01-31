@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>400</width>
-    <height>250</height>
+    <height>268</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -63,6 +63,13 @@
                </property>
               </widget>
              </item>
+             <item>
+              <widget class="QLabel" name="label_3">
+               <property name="text">
+                <string>Highlight My Call:</string>
+               </property>
+              </widget>
+             </item>
             </layout>
            </item>
            <item>
@@ -105,6 +112,9 @@
                 <number>20</number>
                </property>
               </widget>
+             </item>
+             <item>
+              <widget class="QComboBox" name="myCallColor"/>
              </item>
             </layout>
            </item>
@@ -175,10 +185,10 @@
              <item>
               <widget class="QSpinBox" name="fCalSpinBox">
                <property name="minimum">
-                <number>-20000</number>
+                <number>-50000</number>
                </property>
                <property name="maximum">
-                <number>20000</number>
+                <number>50000</number>
                </property>
               </widget>
              </item>
@@ -287,7 +297,7 @@
            </sizepolicy>
           </property>
           <property name="title">
-           <string>Input from Linrad</string>
+           <string>Input from Linrad or SDR Console</string>
           </property>
           <layout class="QGridLayout" name="gridLayout">
            <item row="0" column="0">
@@ -312,7 +322,7 @@
                   <number>-50</number>
                  </property>
                  <property name="maximum">
-                  <number>10</number>
+                  <number>50</number>
                  </property>
                  <property name="singleStep">
                   <number>1</number>

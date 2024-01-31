@@ -2,12 +2,17 @@ program cablog
 
   character*100 line,infile,outfile
   character cband*4,cmode*2,cdate*10,cutc*4,callsign*10,mycall*10
-  character csent*3,crcvd*3,dsent*3,drcvd*3
+  character csent*4,crcvd*4,dsent*4,drcvd*4,g1*4
   character*3 cmo(12)
   integer icomma(20)
   logical map65
+  logical isgrid,gridx
   data cmo/'Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep',   &
            'Oct','Nov','Dec'/
+
+  isgrid(g1)=g1(1:1).ge.'A' .and. g1(1:1).le.'R' .and. g1(2:2).ge.'A' .and. &
+       g1(2:2).le.'R' .and. g1(3:3).ge.'0' .and. g1(3:3).le.'9' .and.       &
+       g1(4:4).ge.'0' .and. g1(4:4).le.'9' .and. g1(1:4).ne.'RR73'
 
   nargs=iargc()
   if(nargs.ne.4) then
@@ -25,6 +30,7 @@ program cablog
   call getarg(1,mycall)
   outfile=trim(mycall)//'.log'
   call getarg(2,dsent)
+  gridx=isgrid(dsent)
   call getarg(3,drcvd)
   call getarg(4,infile)
   open(10,file=trim(infile),status='old')
@@ -115,9 +121,13 @@ program cablog
            crcvd=line(icomma(9)+1:icomma(10)-1)
         endif
      endif
+     if(gridx) then
+        csent=dsent
+        crcvd=line(icomma(5)+1:icomma(6)-1)
+     endif
      
      write(12,1030) cband,cmode,cdate,cutc,mycall,csent,callsign,crcvd
-1030 format('QSO: ',a4,1x,a2,1x,a10,1x,a4,1x,a6,1x,a3,5x,a10,1x,a3)
+1030 format('QSO: ',a4,1x,a2,1x,a10,1x,a4,1x,a6,1x,a4,4x,a10,1x,a4)
   enddo
 
 900 write(12,1900)

@@ -60,8 +60,9 @@ MainWindow::MainWindow(QWidget *parent) :
   ui->actionQ65E->setActionGroup(modeGroup2);
 
   QActionGroup* saveGroup = new QActionGroup(this);
-  ui->actionSave_all->setActionGroup(saveGroup);
   ui->actionNone->setActionGroup(saveGroup);
+  ui->actionSave_all->setActionGroup(saveGroup);
+  ui->actionSave_decoded->setActionGroup(saveGroup);
 
   setWindowTitle (program_title ());
 
@@ -71,27 +72,25 @@ MainWindow::MainWindow(QWidget *parent) :
   createStatusBar();
   connect(m_gui_timer, &QTimer::timeout, this, &MainWindow::guiUpdate);
 
-  m_waterfallAvg = 1;
-  m_network = true;
+  m_waterfallAvg=1;
+  m_network=true;
   m_restart=false;
   m_myCall="K1JT";
   m_myGrid="FN20qi";
+  m_myCallColor=0;
   m_saveDir="";
   m_azelDir="";
   m_loopall=false;
   m_startAnother=false;
   m_saveAll=false;
-  m_onlyEME=false;
+  m_saveDecoded=false;
   m_sec0=-1;
   m_hsym0=-1;
   m_palette="CuteSDR";
   m_nutc0=9999;
-  m_kb8rq=false;
   m_NB=false;
   m_mode="Q65";
-  m_fs96000=true;
   m_udpPort=50004;
-  m_nsave=0;
   m_modeQ65=0;
   m_TRperiod=60;
 
@@ -110,8 +109,7 @@ MainWindow::MainWindow(QWidget *parent) :
   memset(ipc_wsjtx,0,memSize);         //Zero all of shared memory
   mem_qmap.unlock();
 
-  fftwf_import_wisdom_from_filename (QDir {m_appDir}.absoluteFilePath ("qmap_wisdom.dat").toLocal8Bit ());
-
+//  fftwf_import_wisdom_from_filename (QDir {m_appDir}.absoluteFilePath ("qmap_wisdom.dat").toLocal8Bit ());
   readSettings();		             //Restore user's setup params
 
   m_pbdecoding_style1="QPushButton{background-color: cyan; \
@@ -134,14 +132,6 @@ MainWindow::MainWindow(QWidget *parent) :
   if(m_modeQ65==4) on_actionQ65D_triggered();
   if(m_modeQ65==5) on_actionQ65E_triggered();
 
-  future1 = new QFuture<void>;
-  watcher1 = new QFutureWatcher<void>;
-  connect(watcher1, SIGNAL(finished()),this,SLOT(diskDat()));
-
-  future2 = new QFuture<void>;
-  watcher2 = new QFutureWatcher<void>;
-  connect(watcher2, SIGNAL(finished()),this,SLOT(diskWriteFinished()));
-
   connect(&watcher3, SIGNAL(finished()),this,SLOT(decoderFinished()));
 
 // Assign input device and start input thread
@@ -159,6 +149,8 @@ MainWindow::MainWindow(QWidget *parent) :
   m_wide_graph_window->setTol(m_tol);
   m_wide_graph_window->setFcal(m_fCal);
   m_wide_graph_window->setFsample(96000);
+  QString rev{"QMAP v" + QCoreApplication::applicationVersion() + " " + revision()};
+  m_revision=rev;
 
 // Create "m_worked", a dictionary of all calls in wsjt.log
   QFile f("wsjt.log");
@@ -194,14 +186,12 @@ MainWindow::MainWindow(QWidget *parent) :
 MainWindow::~MainWindow()
 {
   writeSettings();
-  int itimer=1;
-  q65c_(&itimer);
+  all_done_();
 
   if (soundInThread.isRunning()) {
     soundInThread.quit();
     soundInThread.wait(3000);
   }
-  fftwf_export_wisdom_to_filename (QDir {m_appDir}.absoluteFilePath ("qmap_wisdom.dat").toLocal8Bit ());
   delete ui;
 }
 
@@ -218,15 +208,13 @@ void MainWindow::writeSettings()
   SettingsGroup g {&settings, "Common"};
   settings.setValue("MyCall",m_myCall);
   settings.setValue("MyGrid",m_myGrid);
-  settings.setValue("IDint",m_idInt);
   settings.setValue("AstroFont",m_astroFont);
+  settings.setValue("MyCallColor",m_myCallColor);
   settings.setValue("SaveDir",m_saveDir);
   settings.setValue("AzElDir",m_azelDir);
-  settings.setValue("Timeout",m_timeout);
   settings.setValue("Fcal",m_fCal);
   settings.setValue("Fadd",m_fAdd);
   settings.setValue("NetworkInput", m_network);
-  settings.setValue("FSam96000", m_fs96000);
   settings.setValue("paInDevice",m_paInDevice);
   settings.setValue("Scale_dB",m_dB);
   settings.setValue("UDPport",m_udpPort);
@@ -238,16 +226,13 @@ void MainWindow::writeSettings()
   settings.setValue("nModeQ65",m_modeQ65);
   settings.setValue("SaveNone",ui->actionNone->isChecked());
   settings.setValue("SaveAll",ui->actionSave_all->isChecked());
-  settings.setValue("NEME",m_onlyEME);
-  settings.setValue("KB8RQ",m_kb8rq);
+  settings.setValue("SaveDecoded",ui->actionSave_decoded->isChecked());
+  settings.setValue("ContinuousWaterfall",ui->continuous_waterfall->isChecked());
   settings.setValue("NB",m_NB);
   settings.setValue("NBslider",m_NBslider);
-  settings.setValue("GainX",(double)m_gainx);
-  settings.setValue("GainY",(double)m_gainy);
-  settings.setValue("PhaseX",(double)m_phasex);
-  settings.setValue("PhaseY",(double)m_phasey);
   settings.setValue("MaxDrift",ui->sbMaxDrift->value());
   settings.setValue("Offset",ui->sbOffset->value());
+  settings.setValue("Also30",m_bAlso30);
 }
 
 //---------------------------------------------------------- readSettings()
@@ -263,16 +248,14 @@ void MainWindow::readSettings()
   SettingsGroup g {&settings, "Common"};
   m_myCall=settings.value("MyCall","").toString();
   m_myGrid=settings.value("MyGrid","").toString();
-  m_idInt=settings.value("IDint",0).toInt();
-  m_astroFont=settings.value("AstroFont",16).toInt();
+  m_astroFont=settings.value("AstroFont",18).toInt();
+  m_myCallColor=settings.value("MyCallColor",1).toInt();
   m_saveDir=settings.value("SaveDir",m_appDir + "/save").toString();
   m_azelDir=settings.value("AzElDir",m_appDir).toString();
-  m_timeout=settings.value("Timeout",20).toInt();
   m_fCal=settings.value("Fcal",0).toInt();
   m_fAdd=settings.value("FAdd",0).toDouble();
   soundInThread.setFadd(m_fAdd);
   m_network = settings.value("NetworkInput",true).toBool();
-  m_fs96000 = settings.value("FSam96000",true).toBool();
   m_dB = settings.value("Scale_dB",0).toInt();
   m_udpPort = settings.value("UDPport",50004).toInt();
   soundInThread.setScale(m_dB);
@@ -291,21 +274,29 @@ void MainWindow::readSettings()
 
   ui->actionNone->setChecked(settings.value("SaveNone",true).toBool());
   ui->actionSave_all->setChecked(settings.value("SaveAll",false).toBool());
+  ui->actionSave_decoded->setChecked(settings.value("SaveDecoded",false).toBool());
+  ui->continuous_waterfall->setChecked(settings.value("ContinuousWaterfall",false).toBool());
   m_saveAll=ui->actionSave_all->isChecked();
-  m_onlyEME=settings.value("NEME",false).toBool();
-  ui->actionOnly_EME_calls->setChecked(m_onlyEME);
-  m_kb8rq=settings.value("KB8RQ",false).toBool();
+  m_saveDecoded=ui->actionSave_decoded->isChecked();
+  if(m_saveAll) {
+    lab5->setStyleSheet("QLabel{background-color: #ffff00}");
+    lab5->setText("Save all");
+  } else if(m_saveDecoded) {
+    lab5->setStyleSheet("QLabel{background-color: #ffff00}");
+    lab5->setText("Save decoded");
+  } else {
+    lab5->setStyleSheet("");
+    lab5->setText("");
+  }
   m_NB=settings.value("NB",false).toBool();
   ui->NBcheckBox->setChecked(m_NB);
   ui->sbMaxDrift->setValue(settings.value("MaxDrift",0).toInt());
   ui->sbOffset->setValue(settings.value("Offset",1500).toInt());
   m_NBslider=settings.value("NBslider",40).toInt();
   ui->NBslider->setValue(m_NBslider);
-  m_gainx=settings.value("GainX",1.0).toFloat();
-  m_gainy=settings.value("GainY",1.0).toFloat();
-  m_phasex=settings.value("PhaseX",0.0).toFloat();
-  m_phasey=settings.value("PhaseY",0.0).toFloat();
-
+  m_bAlso30=settings.value("Also30",true).toBool();
+  ui->actionAlso_Q65_30x->setChecked(m_bAlso30);
+  on_actionAlso_Q65_30x_toggled(m_bAlso30);
   if(!ui->actionLinrad->isChecked() && !ui->actionCuteSDR->isChecked() &&
     !ui->actionAFMHot->isChecked() && !ui->actionBlue->isChecked()) {
     on_actionLinrad_triggered();
@@ -319,6 +310,7 @@ void MainWindow::dataSink(int k)
   static float s[NFFT],splot[NFFT];
   static int n=0;
   static int ihsym=0;
+  static int ihsym0=0;
   static int nzap=0;
   static int ntrz=0;
   static int nkhz;
@@ -327,6 +319,7 @@ void MainWindow::dataSink(int k)
   static int nsum=0;
   static int ndiskdat;
   static int nb;
+  static int k0=0;
   static float px=0.0;
   static uchar lstrong[1024];
   static float slimit;
@@ -343,7 +336,10 @@ void MainWindow::dataSink(int k)
   nb=0;
   if(m_NB) nb=1;
   nfsample=96000;
-  if(!m_fs96000) nfsample=95238;
+
+  if(m_bWTransmitting) zaptx_(datcom_.d4, &k0, &k);
+  k0=k;
+
   symspec_(&k, &ndiskdat, &nb, &m_NBslider, &nfsample,
            &px, s, &nkhz, &ihsym, &nzap, &slimit, lstrong);
 
@@ -359,6 +355,7 @@ void MainWindow::dataSink(int k)
   }
   nsec0=nsec;
 
+  if(m_bWTransmitting) px=0.0;
   QString t;
   m_pctZap=nzap/178.3;
 
@@ -368,9 +365,9 @@ void MainWindow::dataSink(int k)
         .arg (m_pctZap, 5, 'f', 1)
         );
 
-  xSignalMeter->setValue(px);                   // Update the signal meters
+  xSignalMeter->setValue(px);                   // Update the signal meter
   //Suppress scrolling if WSJT-X is transmitting
-  if((m_monitoring and ipc_wsjtx[4] != 1) or m_diskData) {
+  if((m_monitoring and (!m_bWTransmitting or ui->continuous_waterfall->isChecked())) or m_diskData) {
       m_wide_graph_window->dataSink2(s,nkhz,ihsym,m_diskData,lstrong);
   }
 
@@ -401,26 +398,26 @@ void MainWindow::dataSink(int k)
     n=0;
   }
 
+  bool bCallDecoder=false;
   if(ihsym < m_hsymStop) m_decode_called=false;
+  if(ihsym==m_hsymStop and !m_decode_called) bCallDecoder=true; //Decode at t=58.5 s
+  if(ihsym==130) bCallDecoder=true;
+  if(m_bAlso30 and (ihsym==200)) bCallDecoder=true;
+  if(ihsym==330) bCallDecoder=true;
+  if(ihsym==ihsym0) bCallDecoder=false;
 
-  if(ihsym >= m_hsymStop and !m_decode_called) {   //Decode at t=56 s (for Q65 and data from disk)
-    m_decode_called=true;
-    datcom_.newdat=1;
+  ihsym0=ihsym;
+  if(bCallDecoder) {
+    if(ihsym==m_hsymStop) m_decode_called=true;
     datcom_.nagain=0;
     datcom_.nhsym=ihsym;
-    QDateTime t = QDateTime::currentDateTimeUtc();
-    m_dateTime=t.toString("yymmdd_hhmm");
-    decode();                                           //Start the decoder
-    if(m_saveAll and !m_diskData and m_nTransmitted<10) {
-      QString fname=m_saveDir + "/" + t.date().toString("yyMMdd") + "_" +
-          t.time().toString("hhmm");
-      fname += ".iq";
-      *future2 = QtConcurrent::run(savetf2, fname, false);
-      watcher2->setFuture(*future2);
+    decode();                                           //Prepare to start the decoder
+    if(ihsym==m_hsymStop) {
+      m_nTx30a=0;
+      m_nTx30b=0;
+      m_nTx60=0;
     }
-    m_nTransmitted=0;
   }
-
   soundInThread.m_dataSinkBusy=false;
 }
 
@@ -435,33 +432,29 @@ void MainWindow::on_actionSettings_triggered()
   DevSetup dlg(this);
   dlg.m_myCall=m_myCall;
   dlg.m_myGrid=m_myGrid;
-  dlg.m_idInt=m_idInt;
   dlg.m_astroFont=m_astroFont;
+  dlg.m_myCallColor=m_myCallColor;
   dlg.m_saveDir=m_saveDir;
   dlg.m_azelDir=m_azelDir;
-  dlg.m_timeout=m_timeout;
   dlg.m_fCal=m_fCal;
   dlg.m_fAdd=m_fAdd;
   dlg.m_network=m_network;
-  dlg.m_fs96000=m_fs96000;
   dlg.m_udpPort=m_udpPort;
   dlg.m_dB=m_dB;
   dlg.initDlg();
   if(dlg.exec() == QDialog::Accepted) {
     m_myCall=dlg.m_myCall;
     m_myGrid=dlg.m_myGrid;
-    m_idInt=dlg.m_idInt;
     m_astroFont=dlg.m_astroFont;
+    m_myCallColor=dlg.m_myCallColor;
     if(m_astro_window && m_astro_window->isVisible()) m_astro_window->setFontSize(m_astroFont);
     ui->actionFind_Delta_Phi->setEnabled(false);
     m_saveDir=dlg.m_saveDir;
     m_azelDir=dlg.m_azelDir;
-    m_timeout=dlg.m_timeout;
     m_fCal=dlg.m_fCal;
     m_fAdd=dlg.m_fAdd;
     soundInThread.setFadd(m_fAdd);
     m_wide_graph_window->setFcal(m_fCal);
-    m_fs96000=dlg.m_fs96000;
     m_network=dlg.m_network;
     m_udpPort=dlg.m_udpPort;
     m_dB=dlg.m_dB;
@@ -597,9 +590,16 @@ void MainWindow::createStatusBar()                           //createStatusBar
 
   lab4 = new QLabel("");
   lab4->setAlignment(Qt::AlignHCenter);
-  lab4->setMinimumSize(QSize(50,10));
+  lab4->setMinimumSize(QSize(80,10));
   lab4->setFrameStyle(QFrame::Panel | QFrame::Sunken);
   statusBar()->addWidget(lab4);
+
+  lab5 = new QLabel("");
+  lab5->setAlignment(Qt::AlignHCenter);
+  lab5->setMinimumSize(QSize(100,10));
+  lab5->setFrameStyle(QFrame::Panel | QFrame::Sunken);
+  lab5->setStyleSheet("");
+  statusBar()->addWidget(lab5);
 }
 
 void MainWindow::on_tolSpinBox_valueChanged(int i)             //tolSpinBox
@@ -646,11 +646,11 @@ void MainWindow::on_actionOpen_triggered()                     //Open File
   soundInThread.setMonitoring(m_monitoring);
   QString fname;
   fname=QFileDialog::getOpenFileName(this, "Open File", m_path,
-                                     "MAP65/QMAP Files (*.iq)");
+                                     "MAP65/QMAP Files (*.iq *.qm)");
   if(fname != "") {
     m_path=fname;
     int i;
-    i=fname.indexOf(".iq") - 11;
+    i=qMax(fname.indexOf(".iq") - 11, fname.indexOf(".qm") - 11);
     if(i>=0) {
       lab1->setStyleSheet("QLabel{background-color: #66ff66}");
       lab1->setText(" " + fname.mid(i,15) + " ");
@@ -658,9 +658,13 @@ void MainWindow::on_actionOpen_triggered()                     //Open File
     if(m_monitoring) on_monitorButton_clicked();
     m_diskData=true;
     int dbDgrd=0;
-    if(m_myCall=="K1JT" and m_idInt<0) dbDgrd=m_idInt;
-    *future1 = QtConcurrent::run(getfile, fname, false, dbDgrd);
-    watcher1->setFuture(*future1);
+    int iret=4;
+    if(m_path.indexOf(".iq")>0) {
+      getfile(fname, dbDgrd);
+    } else {
+      read_qm_(fname.toLatin1(), &iret, fname.length());
+    }
+    if(iret > 0) diskDat(iret);
   }
 }
 
@@ -669,7 +673,11 @@ void MainWindow::on_actionOpen_next_in_directory_triggered()   //Open Next
   int i,len;
   QFileInfo fi(m_path);
   QStringList list;
-  list= fi.dir().entryList().filter(".iq");
+  if(m_path.indexOf(".iq")>0) {
+    list= fi.dir().entryList().filter(".iq");
+  } else {
+    list= fi.dir().entryList().filter(".qm");
+  }
   for (i = 0; i < list.size()-1; ++i) {
     if(i==list.size()-2) m_loopall=false;
     len=list.at(i).length();
@@ -678,16 +686,20 @@ void MainWindow::on_actionOpen_next_in_directory_triggered()   //Open Next
       QString fname=m_path.replace(n-len,len,list.at(i+1));
       m_path=fname;
       int i;
-      i=fname.indexOf(".iq") - 11;
+      i=qMax(fname.indexOf(".iq") - 11, fname.indexOf(".qm") - 11);
       if(i>=0) {
         lab1->setStyleSheet("QLabel{background-color: #66ff66}");
         lab1->setText(" " + fname.mid(i,len) + " ");
       }
       m_diskData=true;
       int dbDgrd=0;
-      if(m_myCall=="K1JT" and m_idInt<0) dbDgrd=m_idInt;
-      *future1 = QtConcurrent::run(getfile, fname, false, dbDgrd);
-      watcher1->setFuture(*future1);
+      int iret=4;
+      if(m_path.indexOf(".iq")>0) {
+        getfile(fname, dbDgrd);
+      } else {
+        read_qm_(fname.toLatin1(), &iret, fname.length());
+      }
+      if(iret > 0) diskDat(iret);
       return;
     }
   }
@@ -699,41 +711,54 @@ void MainWindow::on_actionDecode_remaining_files_in_directory_triggered()
   on_actionOpen_next_in_directory_triggered();
 }
 
-void MainWindow::diskDat()                                   //diskDat()
+void MainWindow::diskDat(int iret)                                   //diskDat()
 {
+  int ia=0;
+  int ib=400;
+  if(iret==1) ib=202;
+  m_bDiskDatBusy=true;
   double hsym;
   //These may be redundant??
   m_diskData=true;
   datcom_.newdat=1;
-  hsym=2048.0*96000.0/11025.0;         //Samples per JT65 half-symbol
-  for(int i=0; i<304; i++) {           // Do the half-symbol FFTs
-    int k = i*hsym + 2048.5;
+  m_nTx30a=datcom_.ntx30a;
+  m_nTx30b=datcom_.ntx30b;
+  hsym=0.15*96000.0;                   //Samples per Q65-30x half-symbol or Q65-60x quarter-symbol
+  for(int i=ia; i<ib; i++) {           // Do the half-symbol FFTs
+    int k = i*hsym + 0.5;
+    if(k > 60*96000) break;
     dataSink(k);
     qApp->processEvents();             // Allow the waterfall to update
+    while(m_decoderBusy) {
+      qApp->processEvents();           // Wait for an early decode to finish
+    }
   }
+  m_bDiskDatBusy=false;
 }
 
-void MainWindow::diskWriteFinished()                      //diskWriteFinished
-{
-//  qDebug() << "diskWriteFinished";
-}
-
-void MainWindow::decoderFinished()                      //diskWriteFinished
+void MainWindow::decoderFinished()
 {
   m_startAnother=m_loopall;
-  ui->DecodeButton->setStyleSheet("");
-  decodeBusy(false);
   decodes_.nQDecoderDone=1;
+  decodes_.kHzRequested=0;
   if(m_diskData) decodes_.nQDecoderDone=2;
   mem_qmap.lock();
   decodes_.nWDecoderBusy=ipc_wsjtx[3];                   //Prevent overwriting values
   decodes_.nWTransmitting=ipc_wsjtx[4];                  //written here by WSJT-X
+  m_bWTransmitting=decodes_.nWTransmitting>0;
   memcpy((char*)ipc_wsjtx, &decodes_, sizeof(decodes_)); //Send decodes and flags to WSJT-X
   mem_qmap.unlock();
   QString t1;
-  t1=t1.asprintf(" %d ",decodes_.ndecodes);
+  t1=t1.asprintf(" %.1f s  %d/%d ", 0.15*datcom2_.nhsym, decodes_.ndecodes, decodes_.ncand);
   lab4->setText(t1);
-  QDateTime now=QDateTime::currentDateTimeUtc();
+  decodeBusy(false);
+
+  if(m_bDecodeAgain) {
+    datcom_.nhsym=390;
+    datcom_.nagain=1;
+    m_bDecodeAgain=false;
+    decode();
+  }
 }
 
 void MainWindow::on_actionDelete_all_iq_files_in_SaveDir_triggered()
@@ -741,7 +766,7 @@ void MainWindow::on_actionDelete_all_iq_files_in_SaveDir_triggered()
   int i;
   QString fname;
   int ret = QMessageBox::warning(this, "Confirm Delete",
-      "Are you sure you want to delete all *.iq files in\n" +
+      "Are you sure you want to delete all *.iq and *.qm files in\n" +
        QDir::toNativeSeparators(m_saveDir) + " ?",
        QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
   if(ret==QMessageBox::Yes) {
@@ -752,6 +777,8 @@ void MainWindow::on_actionDelete_all_iq_files_in_SaveDir_triggered()
       fname=*f;
       i=(fname.indexOf(".iq"));
       if(i==11) dir.remove(fname);
+      i=(fname.indexOf(".qm"));
+      if(i==11) dir.remove(fname);
     }
   }
 }
@@ -759,13 +786,25 @@ void MainWindow::on_actionDelete_all_iq_files_in_SaveDir_triggered()
 void MainWindow::on_actionNone_triggered()                    //Save None
 {
   m_saveAll=false;
+  m_saveDecoded=false;
+  lab5->setStyleSheet("");
+  lab5->setText("");
 }
 
-// ### Implement "Save Last" here? ###
+void MainWindow::on_actionSave_decoded_triggered()
+{
+  m_saveDecoded=true;
+  m_saveAll=false;
+  lab5->setStyleSheet("QLabel{background-color: #ffff00}");
+  lab5->setText("Save decoded");
+}
 
-void MainWindow::on_actionSave_all_triggered()                //Save All
+void MainWindow::on_actionSave_all_triggered()
 {
   m_saveAll=true;
+  m_saveDecoded=false;
+  lab5->setStyleSheet("QLabel{background-color: #ffff00}");
+  lab5->setText("Save all");
 }
 
 void MainWindow::on_DecodeButton_clicked()                    //Decode request
@@ -773,12 +812,23 @@ void MainWindow::on_DecodeButton_clicked()                    //Decode request
   if(!m_decoderBusy) {
     datcom_.newdat=0;
     datcom_.nagain=1;
+    if(m_bAlso30 and m_nTx30a<5) {
+      datcom_.nhsym=200;                   //Decode the first half-minute
+      if(m_nTx30b<5) m_bDecodeAgain=true;  //Queue up decoding of the seciond half minute
+    }
     decode();
   }
 }
 
 void MainWindow::freezeDecode(int n)                          //freezeDecode()
 {
+  if(n==3) {
+    decodes_.kHzRequested=m_wide_graph_window->QSOfreq();
+    mem_qmap.lock();
+    ipc_wsjtx[5]=decodes_.kHzRequested;
+    mem_qmap.unlock();
+    return;
+  }
   if(n==2) {
     ui->tolSpinBox->setValue(5);
     datcom_.ntol=m_tol;
@@ -791,17 +841,17 @@ void MainWindow::freezeDecode(int n)                          //freezeDecode()
   if(!m_decoderBusy) {
     datcom_.nagain=1;
     datcom_.newdat=0;
-    decode();
+    on_DecodeButton_clicked();
   }
 }
 
 void MainWindow::decode()                                       //decode()
 {
-//Don't attempt to decode if decoder is already busy, or if we transmitted for 10 s or more.
-  if(m_decoderBusy or m_nTransmitted>10) return;
+  if(m_decoderBusy) {
+    return;  //Don't attempt decode if decoder already busy
+  }
+  decodeBusy(true);
   QString fname="           ";
-  ui->DecodeButton->setStyleSheet(m_pbdecoding_style1);
-
   if(datcom_.nagain==0 && (!m_diskData)) {
     qint64 ms = QDateTime::currentMSecsSinceEpoch() % 86400000;
     int imin=ms/60000;
@@ -816,24 +866,11 @@ void MainWindow::decode()                                       //decode()
   datcom_.ndiskdat=0;
   if(m_diskData) {
     datcom_.ndiskdat=1;
-    int i0=m_path.indexOf(".iq");
+    int i0=qMax(m_path.indexOf(".iq"),m_path.indexOf(".qm"));
     if(i0>0) {
-      // Compute self Doppler using the filename for Date and Time
-      int nyear=m_path.mid(i0-11,2).toInt()+2000;
-      int month=m_path.mid(i0-9,2).toInt();
-      int nday=m_path.mid(i0-7,2).toInt();
-      int nhr=m_path.mid(i0-4,2).toInt();
-      int nmin=m_path.mid(i0-2,2).toInt();
-      double uth=nhr + nmin/60.0;
-      int nfreq=(int)datcom_.fcenter;
-      int ndop00;
-      astrosub00_(&nyear, &month, &nday, &uth, &nfreq, m_myGrid.toLatin1(),&ndop00,6);
-      datcom_.ndop00=ndop00;               //Send self Doppler to decoder, via datcom
       fname=m_path.mid(i0-11,11);
     }
   }
-  datcom_.neme=0;
-  if(ui->actionOnly_EME_calls->isChecked()) datcom_.neme=1;
 
   int ispan=int(m_wide_graph_window->fSpan());
   if(ispan%2 == 1) ispan++;
@@ -846,18 +883,10 @@ void MainWindow::decode()                                       //decode()
   datcom_.nfb=nfb;
   datcom_.nfcal=m_fCal;
   datcom_.nfshift=nfshift;
-  datcom_.mcall3=0;
-  if(m_call3Modified) datcom_.mcall3=1;
-  datcom_.ntimeout=m_timeout;
   datcom_.ntol=m_tol;
-  datcom_.nxant=0;
   m_nutc0=datcom_.nutc;
-  datcom_.junk_1=0;
   datcom_.nfsample=96000;
-  if(!m_fs96000) datcom_.nfsample=95238;
-  datcom_.nxpol=0;
-  datcom_.nmode=10*m_modeQ65;
-  datcom_.nsave=m_nsave;
+  datcom_.nBaseSubmode=m_modeQ65;
   datcom_.max_drift=ui->sbMaxDrift->value();
   datcom_.offset=ui->sbOffset->value();
   datcom_.ndepth=1;
@@ -873,24 +902,64 @@ void MainWindow::decode()                                       //decode()
   } else {
     memcpy(datcom_.datetime, m_dateTime.toLatin1(), 11);
   }
-  datcom_.junk1=1234;                                     //Cecck for these values in m65
+  datcom_.ntx30a=m_nTx30a;
+  datcom_.ntx30b=m_nTx30b;
+  datcom_.ntx60=m_nTx60;
+
+  datcom_.nsave=0;
+  if(m_saveDecoded) datcom_.nsave=1;
+  if(m_saveAll) datcom_.nsave=2;
+
+  datcom_.n60=m_n60;
+  datcom_.junk1=1234;                                     //Check for these values in m65
   datcom_.junk2=5678;
+  datcom_.bAlso30=m_bAlso30;
+  datcom_.ndop00=m_dop00;
+  datcom_.ndop58=m_dop58;
 
   char *to = (char*) datcom2_.d4;
   char *from = (char*) datcom_.d4;
-  memcpy(to, from, sizeof(datcom_));
-  datcom_.nagain=0;
-  datcom_.ndiskdat=0;
-  m_call3Modified=false;
+  memcpy(to, from, sizeof(datcom_));    //Copy the full datcom_ common block into datcom2_
 
-  decodes_.ndecodes=0;
+  datcom_.ndiskdat=0;
+
+  if((!m_bAlso30 and (datcom2_.nhsym==330)) or (m_bAlso30 and (datcom2_.nhsym==130))) {
+    decodes_.ndecodes=0;    //Start the decode cycle with a clean slate
+    m_fetched=0;
+  }
   decodes_.ncand=0;
   decodes_.nQDecoderDone=0;
-  m_fetched=0;
-  int itimer=0;
-  m_decoder_start_time=QDateTime::currentDateTimeUtc();
-  watcher3.setFuture(QtConcurrent::run (std::bind (q65c_, &itimer)));
 
+  m_saveFileName="NoSave";
+  if(!m_diskData) {
+    QDateTime t = QDateTime::currentDateTimeUtc();
+    m_dateTime=t.toString("yyMMdd_hhmm");
+    QDir dir(m_saveDir);
+    if (!dir.exists()) dir.mkpath(".");
+    m_saveFileName=m_saveDir + "/" + m_dateTime + ".qm";
+  }
+
+  bool bSkipDecode=false;
+  //No need to call decoder for first half, if we transmitted in the first half:
+  if((datcom2_.nhsym<=200) and (m_nTx30a>5)) bSkipDecode=true;
+  //No need to call decoder at 330, if we transmitted in 2nd half:
+  if((datcom2_.nhsym==330) and (m_nTx30b>5)) bSkipDecode=true;
+  //No need to call decoder at all, if we transmitted in a 60 s submode.
+  if(m_nTx60>5) bSkipDecode=true;
+
+  if(bSkipDecode) {
+    decodeBusy(false);
+    return;
+  }
+
+  int len1=m_saveFileName.length();
+  int len2=m_revision.length();
+
+  memcpy(savecom_.revision, m_revision.toLatin1(), len2);
+  memcpy(savecom_.saveFileName, m_saveFileName.toLatin1(),len1);
+
+  ui->actionExport_wav_file_at_fQSO->setEnabled(m_diskData);
+  watcher3.setFuture(QtConcurrent::run (q65c_));
   decodeBusy(true);
 }
 
@@ -898,6 +967,7 @@ void MainWindow::on_EraseButton_clicked()
 {
   ui->decodedTextBrowser->clear();
   lab4->clear();
+  m_nline=0;
 }
 
 
@@ -905,6 +975,8 @@ void MainWindow::decodeBusy(bool b)                             //decodeBusy()
 {
   m_decoderBusy=b;
   ui->DecodeButton->setEnabled(!b);
+  if(!b) ui->DecodeButton->setStyleSheet("");
+  if(b) ui->DecodeButton->setStyleSheet(m_pbdecoding_style1);
   ui->actionOpen->setEnabled(!b);
   ui->actionOpen_next_in_directory->setEnabled(!b);
   ui->actionDecode_remaining_files_in_directory->setEnabled(!b);
@@ -926,7 +998,7 @@ void MainWindow::guiUpdate()
 
   m_wide_graph_window->updateFreqLabel();
 
-  if(m_startAnother) {
+  if(m_startAnother and !m_bDiskDatBusy) {
     m_startAnother=false;
     on_actionOpen_next_in_directory_triggered();
   }
@@ -937,30 +1009,59 @@ void MainWindow::guiUpdate()
       QString t=QString::fromLatin1(decodes_.result[m_fetched]);
       if(m_UTC0!="" and m_UTC0!=t.left(4)) {
         t1="-";
-        ui->decodedTextBrowser->append(t1.repeated(56));
+        ui->decodedTextBrowser->append(t1.repeated(60));
+        m_nline++;
+        QTextCursor cursor(ui->decodedTextBrowser->document()->findBlockByLineNumber(m_nline-1));
+        QTextBlockFormat f = cursor.blockFormat();
+        f.setBackground(QBrush(Qt::white));
+        cursor.setBlockFormat(f);
       }
       m_UTC0=t.left(4);
-      ui->decodedTextBrowser->append(t.trimmed());
+      t=t.trimmed();
+      ui->decodedTextBrowser->append(t);
       m_fetched++;
+      m_nline++;
+      QTextCursor cursor(ui->decodedTextBrowser->document()->findBlockByLineNumber(m_nline-1));
+      QTextBlockFormat f = cursor.blockFormat();
+      f.setBackground(QBrush(Qt::white));
+      if(t.mid(36,2)=="30") f.setBackground(QBrush(Qt::yellow));
+      if(t.indexOf(m_myCall)>10 and m_myCallColor==1) f.setBackground(QColor(255,102,102));
+      if(t.indexOf(m_myCall)>10 and m_myCallColor==2) f.setBackground(QBrush(Qt::green));
+      if(t.indexOf(m_myCall)>10 and m_myCallColor==3) f.setBackground(QBrush(Qt::cyan));
+      cursor.setBlockFormat(f);
     }
   }
+
   t1="";
   t1=t1.asprintf("%.3f",datcom_.fcenter);
   ui->labFreq->setText(t1);
 
   if(nsec != m_sec0) {                                     //Once per second
-//    qDebug() << "AAA" << nsec << m_fAdd;
+
     static int n60z=99;
-    int n60=nsec%60;
+    m_n60=nsec%60;
+
+// See if WSJT-X is transmitting
     int itest[5];
     mem_qmap.lock();
     memcpy(&itest, (char*)ipc_wsjtx, 20);
     mem_qmap.unlock();
-    if(itest[4]==1) m_nTransmitted++;
-//    qDebug() << "AAA" << n60 << itest[0] << itest[1] << itest[2] << itest[3] << itest[4]
-//             << m_nTransmitted;
-    if(n60<n60z) m_nTransmitted=0;
-    n60z=n60;
+    if(itest[4]>0) {
+      m_WSJTX_TRperiod=itest[4];
+      m_bWTransmitting=true;
+      if(m_WSJTX_TRperiod==30 and m_n60<30) m_nTx30a++;
+      if(m_WSJTX_TRperiod==30 and m_n60>=30) m_nTx30b++;
+      if(m_WSJTX_TRperiod==60) m_nTx60++;
+    } else {
+      m_bWTransmitting=false;
+    }
+
+    if((m_n60<n60z) and !m_diskData) {
+      m_nTx30a=0;
+      m_nTx30b=0;
+      m_nTx60=0;
+    }
+    n60z=m_n60;
 
     if(m_pctZap>30.0) {
       lab2->setStyleSheet("QLabel{background-color: #ff0000}");
@@ -968,8 +1069,7 @@ void MainWindow::guiUpdate()
       lab2->setStyleSheet("");
     }
 
-
-    if(m_monitoring) {
+    if(m_monitoring and !m_bWTransmitting) {
       lab1->setStyleSheet("QLabel{background-color: #00ff00}");
       m_nrx=soundInThread.nrx();
       khsym=soundInThread.mhsym();
@@ -988,26 +1088,30 @@ void MainWindow::guiUpdate()
         lab1->setStyleSheet("QLabel{background-color: #ffc0cb}");
       }
       lab1->setText("Receiving " + t);
-    } else if (!m_diskData) {
+    } else if(m_bWTransmitting) {
+      lab1->setStyleSheet("QLabel{background-color: #ffff00}");  //Yellow
+      lab1->setText("WSJT-X Transmitting");
+    } else if(!m_diskData) {
       lab1->setStyleSheet("");
       lab1->setText("");
     }
 
+    datcom_.mousefqso=m_wide_graph_window->QSOfreq();
     QDateTime t = QDateTime::currentDateTimeUtc();
-    int fQSO=m_wide_graph_window->QSOfreq();
-    m_astro_window->astroUpdate(t, m_myGrid, m_hisGrid, fQSO, m_setftx,
-                          m_txFreq, m_azelDir, m_xavg);
-    m_setftx=0;
+    m_astro_window->astroUpdate(t, m_myGrid, m_azelDir, m_xavg);
     QString utc = t.date().toString(" yyyy MMM dd \n") + t.time().toString();
     ui->labUTC->setText(utc);
     m_hsym0=khsym;
     m_sec0=nsec;
+    if(m_n60==0) m_dop00=datcom_.ndop00;
+    if(m_n60==58) m_dop58=datcom_.ndop00;
   }
 }
 
 void MainWindow::on_actionQ65A_triggered()
 {
   m_modeQ65=1;
+   ui->actionAlso_Q65_30x->setText("Also Q65-30A");
   lab3->setStyleSheet("QLabel{background-color: #ffb266}");
   lab3->setText("Q65-60A");
 }
@@ -1015,6 +1119,7 @@ void MainWindow::on_actionQ65A_triggered()
 void MainWindow::on_actionQ65B_triggered()
 {
   m_modeQ65=2;
+  ui->actionAlso_Q65_30x->setText("Also Q65-30A");
   lab3->setStyleSheet("QLabel{background-color: #b2ff66}");
   lab3->setText("Q65-60B");
 }
@@ -1022,6 +1127,7 @@ void MainWindow::on_actionQ65B_triggered()
 void MainWindow::on_actionQ65C_triggered()
 {
   m_modeQ65=3;
+  ui->actionAlso_Q65_30x->setText("Also Q65-30B");
   lab3->setStyleSheet("QLabel{background-color: #66ffff}");
   lab3->setText("Q65-60C");
 }
@@ -1029,13 +1135,15 @@ void MainWindow::on_actionQ65C_triggered()
 void MainWindow::on_actionQ65D_triggered()
 {
   m_modeQ65=4;
-  lab3->setStyleSheet("QLabel{background-color: #b266ff}");
+  ui->actionAlso_Q65_30x->setText("Also Q65-30C");
+  lab3->setStyleSheet("QLabel{background-color: #d9b3ff}");
   lab3->setText("Q65-60D");
 }
 
 void MainWindow::on_actionQ65E_triggered()
 {
   m_modeQ65=5;
+  ui->actionAlso_Q65_30x->setText("Also Q65-30D");
   lab3->setStyleSheet("QLabel{background-color: #ff66ff}");
   lab3->setText("Q65-60E");
 }
@@ -1072,3 +1180,35 @@ void MainWindow::on_actionQuick_Start_Guide_to_WSJT_X_2_7_and_QMAP_triggered()
   QDesktopServices::openUrl (QUrl {"https://wsjt.sourceforge.io/Quick_Start_WSJT-X_2.7_QMAP.pdf"});
 }
 
+void MainWindow::on_actionAlso_Q65_30x_toggled(bool b)
+{
+  m_bAlso30=b;
+}
+
+
+void MainWindow::on_sbMaxDrift_valueChanged(int n)
+{
+  if(n==0) ui->sbMaxDrift->setStyleSheet("");
+  if(n==5) ui->sbMaxDrift->setStyleSheet("QSpinBox { background-color: #ffff82; }");
+  if(n>=10) ui->sbMaxDrift->setStyleSheet("QSpinBox { background-color: #ffff00; }");
+}
+
+void MainWindow::on_actionExport_wav_file_at_fQSO_triggered()
+{
+  datcom_.newdat=0;
+  datcom_.nagain=2;
+  decode();
+}
+
+void MainWindow::on_actionExport_wav_file_at_fQSO_30a_triggered()
+{
+  datcom_.newdat=0;
+  datcom_.nagain=3;
+  decode();
+}
+
+void MainWindow::on_actionExport_wav_file_at_fQSO_30b_triggered()
+{
+  datcom_.newdat=0;
+  datcom_.nagain=4;
+  decode();}

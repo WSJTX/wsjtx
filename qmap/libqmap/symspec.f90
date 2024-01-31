@@ -8,7 +8,7 @@ subroutine symspec(k,ndiskdat,nb,nbslider,nfsample,    &
 !  pxdb     power in x channel (0-60 dB)
 !  ssz5a    polarized spectrum, for waterfall display
 !  nkhz     integer kHz portion of center frequency, e.g., 125 for 144.125
-!  ihsym    index number of this half-symbol (1-322)
+!  ihsym    index number of this half-symbol (1-400)
 !  nzap     number of samples zero'ed by noise blanker
 
   include 'njunk.f90'
@@ -16,9 +16,9 @@ subroutine symspec(k,ndiskdat,nb,nbslider,nfsample,    &
   parameter (NFFT=32768)              !Length of FFTs
   real*8 ts,hsym
   real*8 fcenter
-  common/datcom/dd(2,5760000),ss(322,NFFT),savg(NFFT),fcenter,nutc,  &
+  common/datcom/dd(2,5760000),ss(400,NFFT),savg(NFFT),fcenter,nutc,  &
        junk(NJUNK)
-  real*4 ssz5a(NFFT),w(NFFT),w2a(NFFT),w2b(NFFT)
+  real*4 ssz5a(NFFT),w(NFFT)
   complex cx(NFFT)
   complex cx00(NFFT)
   complex cx0(0:1023),cx1(0:1023)
@@ -26,31 +26,24 @@ subroutine symspec(k,ndiskdat,nb,nbslider,nfsample,    &
   data rms/999.0/,k0/99999999/,nadjx/0/,nadjy/0/
   save
 
-  nfast=1
+  hsym=0.15d0*96000.d0                 !Samples per Q65-30x half-symbol
+  npts=2*hsym                          !Full Q65-30x symbol
   if(k.gt.5751000) go to 999
-  if(k.lt.NFFT) then
+  if(k.lt.npts) then
      ihsym=0
      go to 999             !Wait for enough samples to start
   endif
   if(k0.eq.99999999) then
-     pi=4.0*atan(1.0)
-     w2a=0.
-     w2b=0.
-     do i=1,NFFT
-        w(i)=(sin(i*pi/NFFT))**2                          !Window for nfast=1
-        if(i.lt.17833) w2a(i)=(sin(i*pi/17832.925))**2    !Window a for nfast=2
-        j=i-8916
-        if(j.gt.0 .and. j.lt.17833) w2b(i)=(sin(j*pi/17832.925))**2    ! b
-     enddo
-     w2a=sqrt(2.0)*w2a
-     w2b=sqrt(2.0)*w2b
+!     pi=4.0*atan(1.0)
+!     do i=1,NFFT
+!        w(i)=(sin(i*pi/NFFT))**2                          !Window
+!     enddo
+     w=0.7                             !Flat window
   endif
-
-  hsym=2048.d0*96000.d0/11025.d0      !Samples per JT65 half-symbol
-  if(nfsample.eq.95238)   hsym=2048.d0*95238.1d0/11025.d0
 
   if(k.lt.k0) then
      ts=1.d0 - hsym
+     ss=0.
      savg=0.
      ihsym=0
      k1=0
@@ -85,12 +78,9 @@ subroutine symspec(k,ndiskdat,nb,nbslider,nfsample,    &
      k1=k1+kstep
   enddo
 
-  npts=NFFT                           !Samples used in each half-symbol FFT
-
   ts=ts+hsym
   ja=ts                               !Index of first sample
   jb=ja+npts-1                        !Last sample
-
   i=0
   fac=0.0002
   do j=ja,jb                          !Copy data into cx
@@ -99,11 +89,12 @@ subroutine symspec(k,ndiskdat,nb,nbslider,nfsample,    &
      i=i+1
      cx(i)=fac*cmplx(x1,x2)
   enddo
+  cx(npts+1:)=0.
 
   if(nzap/178.lt.50 .and. (ndiskdat.eq.0 .or. ihsym.lt.280)) then
      nsum=nblks*kstep - nzap
      if(nsum.le.0) nsum=1
-     rmsx=sqrt(0.5*px/nsum)
+     rmsx=sqrt(px/nsum)
      rms=rmsx
   endif
   pxdb=0.
@@ -112,31 +103,21 @@ subroutine symspec(k,ndiskdat,nb,nbslider,nfsample,    &
 
   cx00=cx
 
-  do mm=1,nfast
-     ihsym=ihsym+1
-     if(nfast.eq.1) then
-        cx=w*cx00                           !Apply window for 2nd forward FFT
-     else
-        if(mm.eq.1) then
-           cx=w2a*cx00
-        else
-           cx=w2b*cx00
-        endif
-     endif
-
-     call four2a(cx,NFFT,1,1,1)          !Second forward FFT (X)
-
-     n=min(322,ihsym)
-     do i=1,NFFT
-        sx=real(cx(i))**2 + aimag(cx(i))**2  
-        ss(n,i)=sx                    ! Pol = 0
-        savg(i)=savg(i) + sx
-        ssz5a(i)=sx
-     enddo
+  ihsym=ihsym+1
+  cx=w*cx00                           !Apply window for 2nd forward FFT
+  call four2a(cx,NFFT,1,1,1)          !Second forward FFT (X)
+  n=min(400,ihsym)
+  do i=1,NFFT
+     sx=real(cx(i))**2 + aimag(cx(i))**2
+     ss(n,i)=sx                    ! Pol = 0
+     savg(i)=savg(i) + sx
+     ssz5a(i)=sx
   enddo
 
   nkhz=nint(1000.d0*(fcenter-int(fcenter)))
   if(fcenter.eq.0.d0) nkhz=125
+!  write(*,3001) hsym,ts,ja,jb,ihsym
+!3001 format(2f12.3,3i10)
 
 999 return
 end subroutine symspec

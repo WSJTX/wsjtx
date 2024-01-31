@@ -602,6 +602,7 @@ void CPlotter::mousePressEvent(QMouseEvent *event)       //mousePressEvent
   if(y < h+30) {                                      // Wideband waterfall
     if(button==1) {
       setFQSO(x,false);
+      if(event->modifiers() & Qt::ControlModifier) emit freezeDecode1(3);
     }
     if(button==2 and !m_bLockTxRx) {
       if(x<0) x=0;      // x is pixel number

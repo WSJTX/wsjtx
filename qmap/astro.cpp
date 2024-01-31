@@ -44,10 +44,8 @@ Astro::~Astro()
   delete ui;
 }
 
-void Astro::astroUpdate(QDateTime t, QString mygrid, QString hisgrid,
-                        int fQSO, int nsetftx, int ntxFreq, QString azelDir, double xavg)
+void Astro::astroUpdate(QDateTime t, QString mygrid, QString azelDir, double xavg)
 {
-  static int ntxFreq0=-99;
   char cc[300];
   double azsun,elsun,azmoon,elmoon,azmoondx,elmoondx;
   double ramoon,decmoon,dgrd,poloffset,xnr;
@@ -63,32 +61,29 @@ void Astro::astroUpdate(QDateTime t, QString mygrid, QString hisgrid,
   int isec=sec;
   double uth=nhr + nmin/60.0 + sec/3600.0;
   int nfreq=(int)datcom_.fcenter;
-//  if(nfreq<10 or nfreq > 50000) nfreq=144;
 
   astrosub_(&nyear, &month, &nday, &uth, &nfreq, mygrid.toLatin1(),
-            hisgrid.toLatin1(), &azsun, &elsun, &azmoon, &elmoon,
+            mygrid.toLatin1(), &azsun, &elsun, &azmoon, &elmoon,
             &azmoondx, &elmoondx, &ntsky, &ndop, &ndop00,&ramoon, &decmoon,
             &dgrd, &poloffset, &xnr, 6, 6);
 
   datcom_.ndop00=ndop00;               //Send self Doppler to decoder, via datcom
-//  qDebug() << "aa" << isec << datcom_.fcenter << nfreq << ndop00;
+  m_ndop00=ndop00;
+
   snprintf(cc, sizeof(cc),
-          "Az:    %6.1f\n"
-          "El:    %6.1f\n"
-          "MyDop: %6d\n"
-          "DxAz:  %6.1f\n"
-          "DxEl:  %6.1f\n"
-          "DxDop: %6d\n"
-          "Dec:   %6.1f\n"
-          "SunAz: %6.1f\n"
-          "SunEl: %6.1f\n"
-          "Freq:  %6d\n"
-          "Tsky:  %6d\n"
-          "MNR:   %6.1f\n"
-          "Dgrd:  %6.1f",
-          azmoon,elmoon,ndop00,azmoondx,elmoondx,ndop,decmoon,azsun,elsun,
+          "Az:     %6.1f\n"
+          "El:     %6.1f\n"
+          "SelfDop:%6d\n"
+          "MoonDec:%6.1f\n"
+          "SunAz:  %6.1f\n"
+          "SunEl:  %6.1f\n"
+          "Freq:   %6d\n"
+          "Tsky:   %6d\n"
+          "MNR:    %6.1f\n"
+          "Dgrd:   %6.1f",
+          azmoon,elmoon,ndop00,decmoon,azsun,elsun,
           nfreq,ntsky,xnr,dgrd);
-  ui->astroTextBrowser->setText(" "+ date + "\nUTC: " + utc + "\n" + cc);
+  ui->astroTextBrowser->setText(" "+ date + "\nUTC:  " + utc + "\n" + cc);
 
   double azOffset=0.0;
   double elOffset=0.0;
@@ -154,7 +149,6 @@ void Astro::astroUpdate(QDateTime t, QString mygrid, QString hisgrid,
 
 // Write pointing data to azel.dat
   QString fname=azelDir+"/azel.dat";
-//  qDebug() << "aa" << fname << isec << bPointing << azOffset << elOffset;
   QFile f(fname);
   if(!f.open(QIODevice::WriteOnly | QIODevice::Text)) {
     if(azelDir==m_AzElDir0) return;
@@ -164,22 +158,18 @@ void Astro::astroUpdate(QDateTime t, QString mygrid, QString hisgrid,
     mb.exec();
     return;
   }
-  int ndiff=0;
-  if(ntxFreq != ntxFreq0) ndiff=1;
-  ntxFreq0=ntxFreq;
+
   QTextStream out(&f);
   snprintf(cc,sizeof(cc),"%2.2d:%2.2d:%2.2d,%5.1f,%5.1f,Moon\n"
           "%2.2d:%2.2d:%2.2d,%5.1f,%5.1f,Sun\n"
           "%2.2d:%2.2d:%2.2d,%5.1f,%5.1f,Source\n"
           "%4d,%6d,%6d,Doppler\n"
-          "%3d,%1d,fQSO\n"
-          "%3d,%1d,fQSO2\n",
+          "%3d,%1d,fQSO\n",
           nhr,nmin,isec,azmoon,elmoon,
           nhr,nmin,isec,azsun+azOffset,elsun+elOffset,
           nhr,nmin,isec,0.0,0.0,
           nfreq,ndop,ndop00,
-          fQSO,nsetftx,
-          ntxFreq,ndiff);
+          datcom_.mousefqso,0);
   out << cc;
   f.close();
 }
@@ -199,3 +189,7 @@ void Astro::on_cbOnOff_clicked(bool checked)
   if(checked) ui->cbAutoCycle->setChecked(false);
 }
 
+int Astro::getSelfDop()
+{
+  return m_ndop00;
+}
