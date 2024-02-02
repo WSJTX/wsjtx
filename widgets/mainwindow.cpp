@@ -5659,7 +5659,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
            QString continent = AD1CCty::continent (looked_up.continent);
            m_logBook.match (deCall, m_mode, deGrid, looked_up, callB4onBand, countryB4onBand, gridB4onBand,
              continentB4onBand, CQZoneB4onBand, ITUZoneB4onBand, m_currentBand);
-           if (ui->actionHighlightCallsigns->isChecked() && deCall!="" && (m_currentBandPeriod == "2m" or m_currentBandPeriod == "70cm") && (!countryB4onBand and
+           if (ui->actionHighlightCallsigns->isChecked() && deCall!="" && (m_currentBandPeriod == "2m" or m_currentBandPeriod == "70cm") && (!callB4onBand and
                (!(countryName.contains("Germany") or countryName.contains("Netherlands") or countryName.contains("Belgium"))))) {
               ui->decodedTextBrowser->highlight_callsign(deCall, QColor(255,255,0), QColor(0,0,0), true);
            }
