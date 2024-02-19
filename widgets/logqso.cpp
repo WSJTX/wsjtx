@@ -212,7 +212,7 @@ void LogQSO::initLogQSO(QString const& hisCall, QString const& hisGrid, QString 
                         Radio::Frequency dialFreq, bool noSuffix, QString xSent, QString xRcvd)
 {
   if(!isHidden()) return;
-/*
+
   QPushButton* okBtn = ui->buttonBox->button(QDialogButtonBox::Ok);
   okBtn->setAutoDefault(true);
   okBtn->setDefault(true);
@@ -220,7 +220,7 @@ void LogQSO::initLogQSO(QString const& hisCall, QString const& hisGrid, QString 
   QPushButton* caBtn = ui->buttonBox->button(QDialogButtonBox::Cancel);
   caBtn->setAutoDefault(false);
   caBtn->setDefault(false);
-*/
+
   ui->call->setText (hisCall);
   ui->grid->setText (hisGrid);
   ui->name->clear ();
