@@ -2480,12 +2480,12 @@ Error(%2): %3</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1683"/>
         <source>Maximum drift rate in units of symbol rate per transmission.</source>
-        <translation type="unfinished"></translation>
+        <translation>Tasa de deriva máxima en unidades de tasa de símbolos por transmisión.</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1686"/>
         <source>Max Drift  </source>
-        <translation type="unfinished"></translation>
+        <translation>Máxima deriva  </translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3416"/>
@@ -2500,7 +2500,7 @@ Error(%2): %3</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="3429"/>
         <source>Quick-Start Guide to WSJT-X 2.5.0 and MAP65 3.0</source>
-        <translation type="unfinished"></translation>
+        <translation>Guía de inicio rápido para WSJT-X 2.5.0 y MAP65 3.0</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1588"/>
@@ -2703,7 +2703,7 @@ Amarillo cuando esta muy bajo.</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="876"/>
         <source>&amp;Lookup</source>
-        <translation>Buscar</translation>
+        <translation>Buscar (&amp;L)</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="988"/>
@@ -3044,7 +3044,7 @@ No está disponible para los titulares de indicativo no estándar.</translatorco
         <location filename="../widgets/mainwindow.ui" line="1215"/>
         <source>Best S+P</source>
         <translatorcomment>El mejor S+P </translatorcomment>
-        <translation>Mejor S+P (&amp;B)</translation>
+        <translation>Mejor S+P</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1225"/>
@@ -3181,7 +3181,8 @@ Cuando no está marcado, puede verse los resultados de la calibración.</transla
 Double click to toggle the use of the Tx1 message to start a QSO with a station (not allowed for type 1 compound call holders)</source>
         <translatorcomment>Enviar este mensaje en el siguiente intervalo de transmisión.
 Haz doble clic para alternar el uso del mensaje TX1 para iniciar un QSO con una estación (no está permitido para titulares de indicativos compuestos de tipo 1).</translatorcomment>
-        <translation>Enviar este mensaje en el siguiente intervalo de TX. Doble clic para alternar el uso del mensaje TX1 para iniciar un QSO con una estación (no está permitido para titulares de indicativos compuestos de tipo 1).</translation>
+        <translation>Enviar este mensaje en el siguiente intervalo de TX.
+Doble clic para alternar el uso del mensaje TX1 para iniciar un QSO con una estación (no está permitido para titulares de indicativos compuestos de tipo 1).</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1826"/>
@@ -3246,7 +3247,8 @@ Haz doble clic para alternar el uso del mensaje TX1 para iniciar un QSO con una 
         <location filename="../widgets/mainwindow.ui" line="2035"/>
         <source>Send this message in next Tx interval
 Double-click to reset to the standard 73 message</source>
-        <translation>Enviar este mensaje en el siguiente intervalo de TX. Doble clic para restablecer el mensaje 73 estándar.</translation>
+        <translation>Enviar este mensaje en el siguiente intervalo de TX.
+Doble clic para restablecer el mensaje 73 estándar.</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="2045"/>
@@ -3300,7 +3302,9 @@ RR73 messages should only be used when you are reasonably confident that no mess
         <translatorcomment>Cambia a este mensaje de TX AHORA.
 Haz doble clic para alternar entre los mensajes RRR y RR73 en TX4 (no está permitido para titulares de indicativos compuestos de tipo 2).
 Los mensajes RR73 solo deben usarse cuando esté razonablemente seguro de que no se requerirán repeticiones de mensajes.</translatorcomment>
-        <translation>Cambiar a este mensaje de TX AHORA. Doble clic para alternar entre los mensajes RRR y RR73 en TX4 (no está permitido para titulares de indicativos compuestos de tipo 2). Los mensajes RR73 solo deben usarse cuando esté razonablemente seguro de que no se requerirán repeticiones de mensajes.</translation>
+        <translation>Cambiar a este mensaje de TX AHORA.
+Doble clic para alternar entre los mensajes RRR y RR73 en TX4 (no está permitido para titulares de indicativos compuestos de tipo 2).
+ Los mensajes RR73 solo deben usarse cuando esté razonablemente seguro de que no se requerirán repeticiones de mensajes.</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="1951"/>
@@ -4239,7 +4243,7 @@ predefinida. La lista se puede modificar en &quot;Ajustes&quot; (F2).</translati
         <location filename="../widgets/mainwindow.cpp" line="523"/>
         <source>Scanned ADIF log, %1 worked-before records created. CTY: %2</source>
         <translatorcomment>Log ADIF escaneado, %1 funcionaba antes de la creación de registros</translatorcomment>
-        <translation>Log ADIF escaneado, %1 registros trabajados B4 creados</translation>
+        <translation>Log ADIF escaneado, %1 registros trabajados B4 creados. CTY: %2</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="631"/>
@@ -4912,7 +4916,7 @@ ya está en CALL3.TXT, ¿desea reemplazarlo?</translation>
         <location filename="../widgets/mainwindow.cpp" line="8593"/>
         <source>Confirm Reset</source>
         <translatorcomment>Confirmar reinicio</translatorcomment>
-        <translation>Confirmar restablecer</translation>
+        <translation>Confirmar borrado</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.cpp" line="6841"/>
@@ -5483,7 +5487,7 @@ Error(%2): %3</translation>
     <message>
         <location filename="../Audio/soundout.cpp" line="95"/>
         <source>No audio output device configured.</source>
-        <translation>No hay dispositivo de salida de audio configurado</translation>
+        <translation>No hay dispositivo de salida de audio configurado.</translation>
     </message>
     <message>
         <location filename="../Audio/soundout.cpp" line="184"/>
@@ -5974,7 +5978,7 @@ Error(%2): %3</translation>
         <location filename="../Configuration.ui" line="237"/>
         <source>Font...</source>
         <translatorcomment>Letra...</translatorcomment>
-        <translation>Tipo de letra para la aplicación</translation>
+        <translation>Tipo de letra para la aplicación..</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="244"/>
@@ -6220,7 +6224,7 @@ período de silencio cuando se ha realizado la decodificación.</translation>
     <message>
         <location filename="../Configuration.ui" line="628"/>
         <source>4800</source>
-        <translation></translation>
+        <translation>4800</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="633"/>
@@ -6832,7 +6836,7 @@ Haz clic derecho para acciones específicas del artículo.
 Clic, Mayúsculas+Clic y, CTRL+Clic para seleccionar elementos.</translatorcomment>
         <translation>Arrastre y suelte elementos para reorganizar el orden
 Clic derecho para acciones específicas del elemento.
-Clic, Mayús+Clic y CTRL+Clic para seleccionar elementos.</translation>
+Clic, Mayús+Clic y CTRL+Clic para seleccionar elementos</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="1709"/>
