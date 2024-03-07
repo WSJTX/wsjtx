@@ -11,6 +11,50 @@
                                                          
 Copyright 2001 - 2024 by Joe Taylor, K1JT, and the WSJT Development Team
 
+                      Release: WSJT-X 2.7.0-rc4
+                           March 11, 2024
+                      -------------------------
+
+WSJT-X 2.7.0 Release Candidate 4 brings some improvements for Fox-mode
+operators, new features for companion program QMAP, and a number of
+relatively minor enhancements and bug fixes.
+
+QMAP enhancements -- of particular interest to EME operators:
+
+ - QMAP now decodes Q65 submodes with both 60-second and 30-second T/R
+   sequence lengths. Clicking on a resulting line in the WSJT-X Active
+   Stations window automatically sets dial frequency and working
+   submode as needed to call that station.
+
+ - QMAP operates in 60-second receive sequences, and its Q65 decoder
+   starts at t=19.5, 30.0, 49.5, and 58.5 s into the sequence.  Most
+   decoded messages are displayed well before the end of the relevant
+   time slot.
+
+ - A new, more compact file format is now used for wideband data
+   files.  A "Save decoded" option has been added to the Save menu.
+
+ - An option has been added to allow exporting a 3 kHz portion of a
+   wideband data file as a standard WSJT-X *.wav file.
+
+ - CTRL+click on QMAP's upper waterfall sends an integer kHz dial
+   frequency request to WSJT-X.
+
+ - With focus on the WSJT-X main window, hit Alt+A on the keyboard to
+   clear the Active Stations window.
+
+ - Many minor enhancements to the User Interface.
+
+WSJT-X:
+
+ - Enable decoding of MSK144 from the jt9[.exe] executable.
+
+ - Several changes to reduce problems experienced when (contrary to
+   our recommendations) messages with short (10-bit) callsign hashes
+   are used in standard FT4/FT8 sub-bands.
+
+ - Enhancements useful for Fox operators.
+
                       Release: WSJT-X 2.7.0-rc3
                            January 1, 2024
                       -------------------------
