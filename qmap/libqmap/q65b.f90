@@ -31,7 +31,7 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,          &
   character*17 fname
   character*64 result,ctmp
   character*20 datetime,datetime1
-  common/decodes/ndecodes,ncand,nQDecoderDone,nWDecoderBusy,              &
+  common/decodes/ndecodes,ncand2,nQDecoderDone,nWDecoderBusy,              &
        nWTransmitting,kHzRequested,result(50)
   common/cacb/ca
   data ifile/0/

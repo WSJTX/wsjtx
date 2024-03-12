@@ -35,7 +35,7 @@ subroutine qmapa(dd,ss,savg,newdat,nutc,fcenter,ntol,nfa,nfb,         &
   type(good_decode) found(MAX_CANDIDATES)
   character*64 result
   character*20 datetime
-  common/decodes/ndecodes,ncand,nQDecoderDone,nWDecoderBusy,              &
+  common/decodes/ndecodes,ncand2,nQDecoderDone,nWDecoderBusy,              &
        nWTransmitting,kHzRequested,result(50)
   save
 
@@ -52,7 +52,7 @@ subroutine qmapa(dd,ss,savg,newdat,nutc,fcenter,ntol,nfa,nfb,         &
      call timer('get_cand',0)
      ! Get a list of decoding candidates
      call getcand2(ss,savg,nts_q65,nagain,nhsym,ntx30a,ntx30b,ntol,     &
-          f0_selected,bAlso30,cand,ncand)
+          f0_selected,bAlso30,cand,ncand2)
      call timer('get_cand',1)
   endif
 
@@ -69,11 +69,11 @@ subroutine qmapa(dd,ss,savg,newdat,nutc,fcenter,ntol,nfa,nfb,         &
   call timer('fftbig  ',1)
 
   if(nagain.ge.2) then
-     ncand=1
+     ncand2=1
      fqso=fselected
   endif
 
-  do icand=1,ncand                        !Attempt to decode each candidate
+  do icand=1,ncand2                        !Attempt to decode each candidate
      tsec=sec_midn() - tsec0
      if(ndiskdat.eq.0) then
         ! No more realtime decode attempts if it's nearly too late, already

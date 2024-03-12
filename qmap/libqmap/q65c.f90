@@ -21,7 +21,7 @@ subroutine q65c
   character*6 mygrid,hisgrid
   character*20 datetime
   character*64 result
-  common/decodes/ndecodes,ncand,nQDecoderDone,nWDecoderBusy,              &
+  common/decodes/ndecodes,ncand2,nQDecoderDone,nWDecoderBusy,              &
        nWTransmitting,kHzRequested,result(50)
   common/datcom2/dd(2,5760000),ss(400,NFFT),savg(NFFT),nparams0
   common/savecom/revision,fname
@@ -90,7 +90,7 @@ subroutine q65c
      endif
   endif
 
-999 return
+  return
 end subroutine q65c
 
 subroutine all_done

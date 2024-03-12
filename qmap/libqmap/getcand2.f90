@@ -1,5 +1,5 @@
 subroutine getcand2(ss,savg0,nts_q65,nagain,nhsym,ntx30a,ntx30b,     &
-     ntol,f0_selected,bAlso30,cand,ncand)
+     ntol,f0_selected,bAlso30,cand,ncand2)
 
 ! Get candidates for Q65 decodes, based on presence of sync tone.
   
@@ -110,7 +110,7 @@ subroutine getcand2(ss,savg0,nts_q65,nagain,nhsym,ntx30a,ntx30b,     &
      endif
 
   enddo
-  ncand=j                              !Total number of candidates found
+  ncand2=j                              !Total number of candidates found
 
   return
 end subroutine getcand2
