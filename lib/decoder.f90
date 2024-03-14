@@ -143,9 +143,9 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
         if(params%nzhsym.lt.50) go to 800
 ! Call the superFox decoder
         open(47,file='fort.47',status='unknown',access='stream')
-        write(47) params%nutc/15,id2(1:20),id2(1:180000)
+        write(47) params%nutc,id2(1:20),id2(1:180000)
         close(47)
-        call execute_command_line('.\sf fort.47')
+        call execute_command_line('.\sfrx fort.47')
      else
         call timer('decft8  ',0)
         newdat=params%newdat
