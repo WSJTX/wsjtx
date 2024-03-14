@@ -262,6 +262,7 @@ public:
   void setSpecial_Fox();
   void setSpecial_None();
   void setSpecial_On();
+  void toggle_SF();
   bool highlight_DXcall () const;
   bool clear_DXcall () const;
   bool highlight_DXgrid () const;

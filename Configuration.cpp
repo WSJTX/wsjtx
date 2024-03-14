@@ -1484,6 +1484,17 @@ void Configuration::setSpecial_On()
   m_->write_settings();
 }
 
+void Configuration::toggle_SF()
+{
+  if (m_->bSuperFox_) {
+    m_->ui_->cbSuperFox->setChecked(false);
+  } else {
+    m_->ui_->cbSuperFox->setChecked(true);
+  }
+  m_->bSuperFox_ = m_->ui_->cbSuperFox->isChecked ();
+  m_->write_settings();
+}
+
 namespace
 {
 #if defined (Q_OS_MAC)

@@ -8639,7 +8639,7 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
       ui->txFirstCheckBox->setEnabled(false);  // freeze txFirstCheckBox
       ui->txFirstCheckBox->clearFocus();
   }
-  if((ui->ft8Button->hasFocus() or ui->msk144Button->hasFocus()) && (event->button() & Qt::RightButton)) {
+  if(ui->msk144Button->hasFocus() && (event->button() & Qt::RightButton)) {
       ui->txFirstCheckBox->setEnabled(true);  // unfreeze txFirstCheckBox
       ui->ft8Button->clearFocus();
       ui->msk144Button->clearFocus();
@@ -8654,6 +8654,19 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
       on_actionJT9_triggered();
       ui->jt65Button->clearFocus();
   }
+  // Switch SuperFox mode on/off
+  if(ui->ft8Button->hasFocus() && (event->button() & Qt::RightButton)) {
+      not_erase = true;  // prevent erasing the decodedTextBrowser
+      keep_frequency = true;
+      m_config.toggle_SF();
+      QTimer::singleShot (250, [=] {
+        keep_frequency = false;
+        not_erase = false;
+      });
+      on_actionFT8_triggered();
+      check_button_color();
+  }
+  // Search callsign on qrz.com, qrzcq.com or hamqth.com
   if(ui->lookupButton->hasFocus() && (event->button() & Qt::RightButton)) {  // search callsign on ...
     QString hisCall=ui->dxCallEntry->text();
     if (hisCall !="") QDesktopServices::openUrl (QUrl {"https://www.qrz.com/db/" + hisCall});  // QRZ.com
@@ -8669,7 +8682,6 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
     if (hisCall !="") QDesktopServices::openUrl (QUrl {"https://www.qrzcq.com/call/" + hisCall});  // qrzcq.com
     ui->ignoreButton->clearFocus();
   }
-
   // Wait & Pounce
   if(ui->autoButton->hasFocus() && (event->button() & Qt::RightButton) && ui->respondComboBox->currentText()!="CQ: None") {
       if (!pounce && !m_auto && m_config.Wait_features_enabled()) {

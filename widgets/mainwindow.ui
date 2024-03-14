@@ -2307,7 +2307,7 @@ When not checked you can view the calibration results.</string>
                <enum>Qt::StrongFocus</enum>
               </property>
               <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle FT8 hound mode On/Off. Right-click to toggle last used contest mode On/Off.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle FT8 hound mode On/Off.&lt;br&gt; Right-click to toggle last used contest mode On/Off.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
               <property name="styleSheet">
                <string notr="true"/>
@@ -2375,7 +2375,7 @@ When not checked you can view the calibration results.</string>
                <enum>Qt::StrongFocus</enum>
               </property>
               <property name="toolTip">
-               <string>Switch to FT8 mode</string>
+               <string>Switch to FT8 mode.&lt;br&gt; Right-click to toggle SuperFox mode On/Off.</string>
               </property>
               <property name="text">
                <string>FT8</string>
