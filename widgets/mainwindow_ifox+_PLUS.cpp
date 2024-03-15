@@ -10063,10 +10063,6 @@ void MainWindow::on_bandComboBox_activated (int index)
 
 void MainWindow::band_changed (Frequency f)
 {
-  static QString band_save;
-  if (m_config.bands()->find(f) == band_save) return; // band didn't change
-  band_save = m_config.bands()->find(f);
-
   QTimer::singleShot (1000, [=] {
       if (m_mode=="MSK144" && (!(m_currentBand=="6m" or m_currentBand=="4m" or m_currentBand=="2m")))
           ui->sbTR->setValue (m_settings->value ("TRPeriod_MSK144", 30).toInt());
@@ -10120,6 +10116,10 @@ void MainWindow::band_changed (Frequency f)
     if (m_specOp==SpecOp::FOX) FoxReset("BandChange");  // when changing bands, don't preserve the Fox queues
   }
 
+  // Erase the decodedTextBrowsers only if the band really changed
+  static QString band_save;
+  if (m_config.bands()->find(f) == band_save) return; // band didn't change
+  band_save = m_config.bands()->find(f);
   if (m_config.erase_BandActivity () && !not_erase) {
     ui->decodedTextBrowser->erase ();   // Mod for WD5DHK
     ui->decodedTextBrowser2->erase ();
