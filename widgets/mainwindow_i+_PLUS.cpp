@@ -243,9 +243,6 @@ bool no_logging = false;
 bool BlankLineInserted = false;
 bool m_txing;
 bool HoldTxFreqStatus;
-bool m_band_changed = false;
-bool no_decodes_to_UDP = false;
-bool rigFailed = false;
 QString txLog;
 QString ignoreList;
 
@@ -1548,7 +1545,7 @@ void MainWindow::readSettings()
   ui->actionDisable_writing_of_ALL_TXT->setChecked(m_settings->value("disableWritingOfAllTxt", false).toBool());
   ui->actionDisable_event_logging->setChecked(m_settings->value("DisableEventLogging", false).toBool());
   ui->actionUse_Dark_Style->setChecked(m_settings->value("DarkStyle", false).toBool());
-  ui->actionBand_Buttons->setChecked(m_settings->value("BandButtons", true).toBool());
+  ui->actionBand_Buttons->setChecked(m_settings->value("BandButtons", false).toBool());
   ui->actionHighlightB4->setChecked(m_settings->value("HighlightB4", false).toBool());
   ui->actionHighlightToday->setChecked(m_settings->value("HighlightToday", false).toBool());
   ui->actionHighlightIgnored->setChecked(m_settings->value("HighlightIgnored", false).toBool());
@@ -2543,15 +2540,8 @@ void MainWindow::fastSink(qint64 frames)
         }
     }
 
-    // Stop Wait & Call timeout when in QSO with this station for MSK144
-    if (ui->DX_Call_Button->isChecked() && m_hisCall!="" && text.contains(" " + m_config.my_callsign() + " " + m_hisCall)) {
-        stopWCTimer.stop();                                                   // stop any Wait & Call timeout
-        if (ui->DX_Call_Button->isChecked()) ui->DX_Call_Button->click ();    // disable Wait & Call
-        no_wait_and_call = false;                                             // reset Wait & Call
-    }
-
     // Wait & Reply for MSK144
-    if (text.contains(" " + m_config.my_callsign() + " " + m_hisCall) && m_hisCall!="" &&
+    if (text.contains(m_config.my_callsign() + " " + m_hisCall) && m_hisCall!="" &&
         !text.contains("73 ") && m_mode=="MSK144" && m_config.Wait_features_enabled()
         && !ui->autoButton->isChecked()
         && (!(ui->actionFull_Duplex_Mode->isChecked() && m_txing))) {
@@ -2571,12 +2561,12 @@ void MainWindow::fastSink(qint64 frames)
                   processMessage(decodedtext);
                   auto_tx_mode(true);
                   no_wait_and_call = true;
-                  stopWCTimer.start(int(6200.0*m_TRperiod));     // Wait & Call Tx max 6*TRperiod
+                  stopWCTimer.start(int(6000.0*m_TRperiod));     // Wait & Call Tx max 8*TRperiod
     }
 
     // CQ: First for MSK144
     if(((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled())
-        or (m_auto && m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " "))) && !ignored
+        or (m_auto && m_bCallingCQ && text.contains(m_config.my_callsign()))) && !ignored
         && !filtered && !selected && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText()=="CQ: First"
         && (!(ui->actionFull_Duplex_Mode->isChecked() && m_txing))) {
                   m_bDoubleClicked=true;
@@ -2586,7 +2576,7 @@ void MainWindow::fastSink(qint64 frames)
                   auto now = QDateTime::currentDateTimeUtc();
                   m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));
                   QTimer::singleShot (6000, [=] {selected = false;});
-                  if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));     // Tx max 6*TRperiod
+                  if (pounce) stopWCTimer.start(int(6000.0*m_TRperiod));     // Tx max 8*TRperiod
     }
 
     // CQ: Max Dist for MSK144
@@ -2597,7 +2587,7 @@ void MainWindow::fastSink(qint64 frames)
         decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
         if (!filtered && !ignored && (deGrid.contains(grid_regexp) or m_bCallingCQ) && (
              (pounce && text.contains(" CQ ") && !txLog.contains(deCall) && m_config.Wait_features_enabled()) or
-             (m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " ") && !text.contains("73 "))
+             (m_bCallingCQ && text.contains(m_config.my_callsign()) && !text.contains("73 "))
                                                                     )) {
             double utch=0.0;
             int nAz,nEl,nDmiles,nDkm,nHotAz,nHotABetter;
@@ -2613,7 +2603,7 @@ void MainWindow::fastSink(qint64 frames)
                 if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {
                    auto_tx_mode(true);
                    processMessage(decodedtext);
-                   if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));     // Tx max 6*TRperiod
+                   if (pounce) stopWCTimer.start(int(6000.0*m_TRperiod));     // Tx max 8*TRperiod
                 }
                 ui->dxCallEntry->setText(deCall);
                 genStdMsgs(QString::number(decodedtext.snr()));
@@ -2634,7 +2624,7 @@ void MainWindow::fastSink(qint64 frames)
         decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
         if (!filtered && !ignored && (
              (pounce && text.contains(" CQ ") && !txLog.contains(deCall) && m_config.Wait_features_enabled()) or
-             (m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " ") && !text.contains("73 "))
+             (m_bCallingCQ && text.contains(m_config.my_callsign()) && !text.contains("73 "))
                           )) {
             dBpoints=decodedtext.string().mid(7,3).toInt();
             if(dBpoints>maxdBPoints) {
@@ -2644,7 +2634,7 @@ void MainWindow::fastSink(qint64 frames)
                 if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {
                     auto_tx_mode(true);
                     processMessage(decodedtext);
-                    if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));     // Tx max 6*TRperiod
+                    if (pounce) stopWCTimer.start(int(6000.0*m_TRperiod));     // Tx max 8*TRperiod
                 }
                 ui->dxCallEntry->setText(deCall);
                 genStdMsgs(QString::number(decodedtext.snr()));
@@ -2665,7 +2655,7 @@ void MainWindow::fastSink(qint64 frames)
         decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
         if (!filtered && !ignored && (
              (pounce && text.contains(" CQ ") && !txLog.contains(deCall) && m_config.Wait_features_enabled()) or
-             (m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " ") && !text.contains("73 "))
+             (m_bCallingCQ && text.contains(m_config.my_callsign()) && !text.contains("73 "))
                           )) {
             dBpoints2=decodedtext.string().mid(7,3).toInt();
             if(dBpoints2<mindBPoints) {
@@ -2675,7 +2665,7 @@ void MainWindow::fastSink(qint64 frames)
                 if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {
                     auto_tx_mode(true);
                     processMessage(decodedtext);
-                    if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));     // Tx max 6*TRperiod
+                    if (pounce) stopWCTimer.start(int(6000.0*m_TRperiod));     // Tx max 8*TRperiod
                 }
                 ui->dxCallEntry->setText(deCall);
                 genStdMsgs(QString::number(decodedtext.snr()));
@@ -2809,8 +2799,8 @@ void MainWindow::fastSink(qint64 frames)
             effect1->open(QIODevice::ReadOnly);
             audio->start(effect1);
 #else
-            QString binPath = QCoreApplication::applicationDirPath();
-            QSound::play(binPath + "/sounds/DXcall.wav");  // for Linux and macOS
+                QString homePath = QDir::homePath();
+                QSound::play(QDir::homePath() + "/sounds/DXcall.wav");  // for Linux and macOS
 #endif
             play_DXcall = false;
         }
@@ -2893,9 +2883,8 @@ void MainWindow::showStatusMessage(const QString& statusMsg)
   statusBar()->showMessage(statusMsg, 5000);
 }
 
-void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settings)
+void MainWindow::on_actionSettings_triggered()               //Setup Dialog
 {
-  keep_frequency = true;
   m_config.read_CALL3_version();
   // things that might change that we need know about
   auto callsign = m_config.my_callsign ();
@@ -2937,7 +2926,7 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
                                           , m_tx_audio_buffer_frames);
     }
 
-    if (rigFailed or ui->bandComboBox->currentText()=="oob") displayDialFrequency ();   // reset frequency only when needed
+    displayDialFrequency ();
     bool vhf {m_config.enable_VHF_features()};
     m_wideGraph->setVHF(vhf);
     if (!vhf) ui->sbSubmode->setValue (0);
@@ -2945,11 +2934,9 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
     setup_status_bar (vhf);
     bool b = vhf && (m_mode=="JT4" or m_mode=="JT65" or
                      m_mode=="JT9" or m_mode=="MSK144" or m_mode=="Q65");
-    if (b) {
-      VHF_features_enabled(b);
-      set_mode (m_mode);
-      VHF_features_enabled(b);
-    }
+    if(b) VHF_features_enabled(b);
+    set_mode (m_mode);
+    if(b) VHF_features_enabled(b);
 
     m_config.transceiver_online ();
     if(!m_bFastMode) setXIT (ui->TxFreqSpinBox->value ());
@@ -2987,20 +2974,16 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
     ui->labDXped->setVisible(SpecOp::NONE != m_specOp);
     set_mode(m_mode);
 
-    // ensure a balanced layout
-    qreal pointSize = m_config.text_font().pointSizeF();
-    if (m_config.PWR_and_SWR()) {
+  // ensure a balanced layout
+  qreal pointSize = m_config.text_font().pointSizeF();
+  if (m_config.PWR_and_SWR()) {
       ui->label->setMinimumWidth (2.8*pointSize + 8);
       ui->label->setAlignment(Qt::AlignCenter);
       ui->outAttenuation->setMinimumWidth (2.8*pointSize + 8);
-    }
+  }
 
     configActiveStations();
     check_button_color();
-    rigFailed = false;
-    keep_frequency = false;
-  } else {
-    keep_frequency = false;
   }
 }
 
@@ -3048,8 +3031,10 @@ void MainWindow::on_actionAbout_triggered()                  //Display "About"
 
 void MainWindow::on_autoButton_clicked (bool checked)
 {
-  m_config.transceiver_tune (false);  // reset rig tuning
-  if (checked && ui->tuneButton->isChecked() && !(m_mode=="WSPR" || m_mode=="FST4W")) return; // not allowed while tuning
+  QTimer::singleShot (3000, [=] {
+      tuneATU_Timer.stop ();                                // stop the Tune watchdog
+      if (ui->tuneButton->isChecked()) ui->tuneButton->click (); // uncheck the Tune button
+  });
   stopWRTimer.stop();                                       // stop any Wait & Reply timeout
   if (!checked && ui->DX_Call_Button->isChecked()) {
       stopWCTimer.stop();                                   // stop any Wait & Call timeout
@@ -3057,6 +3042,10 @@ void MainWindow::on_autoButton_clicked (bool checked)
       no_wait_and_call = false;                             // reset Wait & Call
   }
   m_specOp=m_config.special_op_id();
+  if(!checked && m_specOp==SpecOp::HOUND && m_txFirst) {    // reset Hound to correct time slot
+      m_txFirst=false;
+      ui->txFirstCheckBox->setChecked(false);
+  }
   ui->pbBandHopping->setChecked(false); // disable band hopping when Tx is enabled
   if (checked) {
       m_auto = checked;
@@ -3398,13 +3387,10 @@ void MainWindow::displayDialFrequency ()
       band_changed(dial_frequency);
       // prevent wrong frequencies for all.txt, PSK Reporter and highlighting for late decodes after band changes
       m_displayBand = false;
-      no_decodes_to_UDP = true;  // prevent wrong frequencies for devices connected via UDP
       QTimer::singleShot ((int(600.0*m_TRperiod)), [=] {
           m_freqNominalPeriod = m_freqNominal;
           m_currentBandPeriod = m_currentBand;
           m_displayBand = true;
-          no_decodes_to_UDP = false;  // prevent wrong frequencies for devices connected via UDP
-          pskSetLocal ();   // prevent wrong frequencies for PSK Reporter antenna description
       });
     }
 
@@ -3442,10 +3428,8 @@ void MainWindow::stopWRTimeout()
 
 void MainWindow::stopWCTimeout()
 {
-    if (ui->DX_Call_Button->isChecked()) {
-      ui->DX_Call_Button->click ();
-      auto_tx_mode(false);
-    }
+    auto_tx_mode(false);
+    if (ui->DX_Call_Button->isChecked()) ui->DX_Call_Button->click ();
     no_wait_and_call = false;
 }
 
@@ -3717,6 +3701,11 @@ void MainWindow::on_stopButton_clicked()                       //stopButton
   stopWCTimer.stop();           // Stop any Wait & Call timeout
   no_wait_and_call = false;
   m_specOp=m_config.special_op_id();
+  if(m_specOp==SpecOp::HOUND && m_txFirst) {  // reset Hound to correct time slot
+      m_txFirst=false;
+      ui->txFirstCheckBox->setChecked(false);
+      auto_tx_mode (false);
+  }
   if (ui->respondComboBox->isVisible()) {
       Dpoints=0;                          // reset points
       maxDPoints=0;                       // reset points
@@ -3773,27 +3762,6 @@ void MainWindow::on_actionWSJT_X_improved_Home_Page_triggered()
 void MainWindow::on_actionThe_additional_features_of_wsjt_x_improved_triggered()
 {
   QDesktopServices::openUrl (QUrl {"https://wsjt-x-improved.sourceforge.io/The_additional_features_of_wsjt-x_improved.pdf"});
-}
-
-void MainWindow::on_actionRecommended_Audio_Settings_triggered()
-{
-  auto const& message = tr("It is very important to avoid audio harmonics and distorted audio signals.\n"
-                           "This is usually achieved by the following step-by-step approach:\n\n"
-                           "1. Select 'Fake it' in the Settings/Radio menu as your 'Split mode'. If your\n"
-                           "     rig does not support this, select 'Rig'. But really try to avoid 'None'!\n\n"
-                           "2. Set the transmission power of your transceiver to maximum.\n\n"
-                           "3. Set the Pwr slider to the minimum and click on the 'Tune' button.\n\n"
-                           "4. Observe the actual transmission power of your rig as well as ALC.\n\n"
-                           "5. Carefully increase the Pwr slider until you have reached the\n"
-                           "     maximum transmit powe of your transceiver.\n\n"
-                           "6. VERY IMPORTANT: Now reduce the Pwr slider until you reach approx. \n"
-                           "     90% of your max. Tx power. ALC should be close to zero.\n\n"
-                           "7. This is the maximum audio level permitted with your setup.\n"
-                           "     Always stay with the Pwr slider below this max. value.\n\n"
-                           "If possible, check your transmission from time to time with a webSDR\n"
-                           "to ensure the signal is clean and not distorted.");
-  QTimer::singleShot (0, [=] {                   // don't block guiUpdate
-    MessageBox::warning_message(this, tr ("<b>Recommended Audio Settings</b>"), message); });
 }
 
 void MainWindow::on_actionOnline_User_Guide_triggered()      //Display manual
@@ -5193,24 +5161,17 @@ void MainWindow::readFromStdout()                             //readFromStdout
 
         // FT4 NS (NCCC Sprints): Log QSO after receiving "mycall hiscall R hisgrid"
         if (m_mode=="FT4" && SpecOp::NA_VHF==m_specOp && m_config.NCCC_Sprint() && m_hisCall!="" && m_hisGrid!="" &&
-            text.contains(" " + m_config.my_callsign() + " " + m_hisCall + " R " + m_hisGrid.left(4))) {
+            text.contains(m_config.my_callsign() + " " + m_hisCall + " R " + m_hisGrid.left(4))) {
           if (m_config.prompt_to_log() || m_config.autoLog()) logQSOTimer.start(0);
           QTimer::singleShot (500, [=] {
             on_stopTxButton_clicked();
           });
         }
 
-        // Stop Wait & Call timeout when in QSO with this station
-        if (ui->DX_Call_Button->isChecked() && m_hisCall!="" && text.contains(" " + m_config.my_callsign() + " " + m_hisCall)) {
-            stopWCTimer.stop();                                                   // stop any Wait & Call timeout
-            if (ui->DX_Call_Button->isChecked()) ui->DX_Call_Button->click ();    // disable Wait & Call
-            no_wait_and_call = false;                                             // reset Wait & Call
-        }
-
         // Wait & Reply + FT4 NS (NCCC Sprints) reply to incoming RR73 messages
         if ((m_mode=="FT8" or m_mode=="FT4" or m_mode=="Q65" or m_mode=="FST4" or m_mode=="JT65" or m_mode=="JT9" or m_mode=="JT4") && m_hisCall!=""
-            && text.contains(" " + m_config.my_callsign() + " " + m_hisCall) && ((!text.contains("73 ")
-            && m_config.Wait_features_enabled() && !ui->autoButton->isChecked())
+            && text.contains(m_config.my_callsign() + " " + m_hisCall) && ((!text.contains("73 ")
+            && m_config.Wait_features_enabled() && (!ui->autoButton->isChecked() or m_specOp==SpecOp::HOUND))
             or (m_mode=="FT4" && SpecOp::NA_VHF==m_specOp && m_config.NCCC_Sprint()))) {
               tx_watchdog (false);
               m_bDoubleClicked = true;
@@ -5229,14 +5190,14 @@ void MainWindow::readFromStdout()                             //readFromStdout
             (text.contains("CQ " + m_hisCall) or text.contains(m_hisCall + " RR73")
              or text.contains(m_hisCall + " RRR") or text.contains(m_hisCall + " 73"))
             && m_config.Wait_features_enabled()) {
-              if (!text.contains(" " + m_config.my_callsign() + " " + m_hisCall))
+              if (!text.contains(m_config.my_callsign() + " " + m_hisCall))
                   block_right_display = true;                // prevent display of first message twice
               if (m_specOp==SpecOp::HOUND) ui->TxFreqSpinBox->setValue(2300);
               m_bDoubleClicked = true;
               processMessage(decodedtext0);
               auto_tx_mode(true);
               no_wait_and_call = true;
-              stopWCTimer.start(int(6200.0*m_TRperiod));     // Wait & Call Tx max 8*TRperiod
+              stopWCTimer.start(int(6000.0*m_TRperiod));     // Wait & Call Tx max 8*TRperiod
         }
 
         // Filtering
@@ -5257,11 +5218,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
                     text2 = "___";  // prevent segfault errors with free text messages
                   }
               } else {
-                  if (text.contains(";")) {
-                    text2 = tw[3];    // analyze word 4 for filtering of combined messages
-                  } else {
-                    text2 = tw[1];    // otherwise analyze word 2 for filtering
-                  }
+                  text2 = tw[1];    // otherwise analyze word 2 for filtering
               }
               if (!(SpecOp::NONE==m_specOp && m_config.AlwaysPass () // Always pass messages with keywords from Always Pass list
                     && (
@@ -5280,7 +5237,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
                          ))) {
 
                   // Filtering out messages with keywords from Blacklist
-                  if ((SpecOp::NONE==m_specOp or SpecOp::HOUND==m_specOp) && m_config.Blacklisted ()
+                  if (SpecOp::NONE==m_specOp && m_config.Blacklisted ()
                       && (
                            (text2.startsWith(m_config.Blacklist1()) && (m_config.Blacklist1()!=""))
                            || (text2.startsWith(m_config.Blacklist2()) && (m_config.Blacklist2()!=""))
@@ -5310,7 +5267,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
                     }
 
                   // Filtering out everything but messages with keywords from Whitelist
-                  } else if ((SpecOp::NONE==m_specOp or SpecOp::HOUND==m_specOp) && m_config.Whitelisted ()
+                  } else if (SpecOp::NONE==m_specOp && m_config.Whitelisted ()
                              && !(text2.startsWith(m_config.Whitelist1()) && (m_config.Whitelist1()!=""))
                              && !(text2.startsWith(m_config.Whitelist2()) && (m_config.Whitelist2()!=""))
                              && !(text2.startsWith(m_config.Whitelist3()) && (m_config.Whitelist3()!=""))
@@ -5429,7 +5386,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
                          ))) {
 
                   // Filtering out messages with keywords from Blacklist
-                  if ((SpecOp::NONE==m_specOp or SpecOp::HOUND==m_specOp) && m_config.Blacklisted ()
+                  if (SpecOp::NONE==m_specOp && m_config.Blacklisted ()
                       && (
                            (text.contains(m_config.Blacklist1()) && (m_config.Blacklist1()!=""))
                            || (text.contains(m_config.Blacklist2()) && (m_config.Blacklist2()!=""))
@@ -5459,7 +5416,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
                     }
 
                   // Filtering out everything but messages with keywords from Whitelist
-                  } else if ((SpecOp::NONE==m_specOp or SpecOp::HOUND==m_specOp) && m_config.Whitelisted ()
+                  } else if (SpecOp::NONE==m_specOp && m_config.Whitelisted ()
                              && !(text.contains(m_config.Whitelist1()) && (m_config.Whitelist1()!=""))
                              && !(text.contains(m_config.Whitelist2()) && (m_config.Whitelist2()!=""))
                              && !(text.contains(m_config.Whitelist3()) && (m_config.Whitelist3()!=""))
@@ -5697,7 +5654,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
 
        // CQ: First
        if(((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled())
-             or (m_auto && m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " "))) && !ignored
+             or (m_auto && m_bCallingCQ && text.contains(m_config.my_callsign()))) && !ignored
            && !filtered && !selected && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText()=="CQ: First"
            && (!(ui->actionFull_Duplex_Mode->isChecked() && m_txing))) {
          m_bDoubleClicked=true;
@@ -5707,7 +5664,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
          auto now = QDateTime::currentDateTimeUtc();
          m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));
          QTimer::singleShot (6000, [=] {selected = false;});
-         if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));     // Tx max 6*TRperiod
+         if (pounce) stopWCTimer.start(int(6000.0*m_TRperiod));     // Tx max 8*TRperiod
        }
 
        // CQ: Max Dist
@@ -5718,7 +5675,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
          decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
          if (!filtered && !ignored && (deGrid.contains(grid_regexp) or m_bCallingCQ) && (
              (pounce && text.contains(" CQ ") && !txLog.contains(deCall) && m_config.Wait_features_enabled()) or
-             (m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " ") && !text.contains("73 "))
+             (m_bCallingCQ && text.contains(m_config.my_callsign()) && !text.contains("73 "))
                                                            )) {
             double utch=0.0;
             int nAz,nEl,nDmiles,nDkm,nHotAz,nHotABetter;
@@ -5734,7 +5691,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
                    if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {
                        auto_tx_mode(true);
                        processMessage(decodedtext0);
-                       if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));     // Tx max 6*TRperiod
+                       if (pounce) stopWCTimer.start(int(6000.0*m_TRperiod));     // Tx max 8*TRperiod
                    }
                    ui->dxCallEntry->setText(deCall);
                    genStdMsgs(QString::number(decodedtext.snr()));
@@ -5755,7 +5712,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
          decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
          if (!filtered && !ignored && (
               (pounce && text.contains(" CQ ") && !txLog.contains(deCall) && m_config.Wait_features_enabled()) or
-              (m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " ") && !text.contains("73 "))
+              (m_bCallingCQ && text.contains(m_config.my_callsign()) && !text.contains("73 "))
                            )) {
                dBpoints=decodedtext.string().mid(7,3).toInt();
                if(dBpoints>maxdBPoints) {
@@ -5765,7 +5722,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
                    if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {
                        auto_tx_mode(true);
                        processMessage(decodedtext0);
-                       if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));     // Tx max 6*TRperiod
+                       if (pounce) stopWCTimer.start(int(6000.0*m_TRperiod));     // Tx max 8*TRperiod
                    }
                    ui->dxCallEntry->setText(deCall);
                    genStdMsgs(QString::number(decodedtext.snr()));
@@ -5786,7 +5743,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
          decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
          if (!filtered && !ignored && (
               (pounce && text.contains(" CQ ") && !txLog.contains(deCall) && m_config.Wait_features_enabled()) or
-              (m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " ") && !text.contains("73 "))
+              (m_bCallingCQ && text.contains(m_config.my_callsign()) && !text.contains("73 "))
                            )) {
                dBpoints2=decodedtext.string().mid(7,3).toInt();
                if(dBpoints2<mindBPoints) {
@@ -5796,7 +5753,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
                    if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {
                        auto_tx_mode(true);
                        processMessage(decodedtext0);
-                       if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));     // Tx max 6*TRperiod
+                       if (pounce) stopWCTimer.start(int(6000.0*m_TRperiod));     // Tx max 8*TRperiod
                    }
                    ui->dxCallEntry->setText(deCall);
                    genStdMsgs(QString::number(decodedtext.snr()));
@@ -5866,8 +5823,8 @@ void MainWindow::readFromStdout()                             //readFromStdout
                effect1->open(QIODevice::ReadOnly);
                audio->start(effect1);
 #else
-               QString binPath = QCoreApplication::applicationDirPath();
-               QSound::play(binPath + "/sounds/DXcall.wav");  // for Linux and macOS
+               QString homePath = QDir::homePath();
+               QSound::play(QDir::homePath() + "/sounds/DXcall.wav");  // for Linux and macOS
 #endif
                play_DXcall = false;
            }
@@ -5973,11 +5930,11 @@ void MainWindow::readFromStdout()                             //readFromStdout
       }
       if(m_mode=="Q65" and !bAvgMsg and !decodedtext.string().contains(m_baseCall)) bDisplayRight=false;
       if((m_mode=="JT4" or m_mode=="Q65" or m_mode=="JT65") and decodedtext.string().contains(m_baseCall) && ui->actionInclude_averaging->isVisible() && !ui->actionInclude_averaging->isChecked()) bDisplayRight=true;
-      if((m_mode=="FT8" or m_mode=="FT4") and SpecOp::FOX!=m_specOp && decodedtext0.string().replace("<","").replace(">","").contains(m_baseCall + " " + m_hisCall)) bDisplayRight=true;  // really all messages for us
+      if(m_mode=="FT8" and SpecOp::HOUND==m_specOp && decodedtext0.string().replace("<","").replace(">","").contains(" " + m_baseCall + " ")) bDisplayRight=true;
 
       // AutoSeq for JT65/JT4 short messages
       if ((m_mode=="JT65" or m_mode=="JT4") and m_config.enable_VHF_features() and ui->cbShMsgs->isChecked() && ui->cbAutoSeq->isChecked () && (abs(audioFreq - m_wideGraph->rxFreq()) <= 15)) {
-        if (decodedtext.string().contains(" " + m_config.my_callsign() + " ") && decodedtext.string().contains(" OOO")) {
+        if (decodedtext.string().contains(m_config.my_callsign()) && decodedtext.string().contains(" OOO")) {
           setTxMsg(3);
         }
         if (decodedtext.string().contains(" RO")) {
@@ -5992,18 +5949,9 @@ void MainWindow::readFromStdout()                             //readFromStdout
       }
 
       if (bDisplayRight && !block_right_display) {
-        // This msg is within 10 hertz of our tuned frequency, or a JT4 or JT65 avg, or contains MyCall
-
+        // This msg is within 10 hertz of our tuned frequency, or a JT4 or JT65 avg,
+        // or contains MyCall
         if(!pounce && (!m_bBestSPArmed or m_mode!="FT4")) {
-          // insert blank line when band was changed
-          if (m_config.insert_blank () && SpecOp::FOX!=m_specOp && m_band_changed && (m_currentBandPeriod == m_currentBand)) {
-            if (ui->actionUse_Dark_Style->isChecked()) {
-              ui->decodedTextBrowser2->insertText(("------------------- " + m_currentBandPeriod + " -----------------"), "#a2a2a2", "#000000");
-            } else {
-              ui->decodedTextBrowser2->insertLineSpacer ("------------------- " + m_currentBandPeriod + " -----------------");
-            }
-            m_band_changed = false;
-          }
           ui->decodedTextBrowser2->displayDecodedText (decodedtext0, m_config.my_callsign (), m_mode, m_config.DXCC (),
                 m_logBook, m_currentBand, m_config.ppfx (), false, false, 0.0, bDisplayPoints, m_points);
         }
@@ -6022,6 +5970,10 @@ void MainWindow::readFromStdout()                             //readFromStdout
             //### Check for ui->dxCallEntry->text()==foxCall before logging! ###
             ui->stopTxButton->click ();
             logQSOTimer.start(0);
+            if(m_txFirst) {
+                m_txFirst=false;
+                ui->txFirstCheckBox->setChecked(false);
+            }
           }
           if((w.at(2)==m_config.my_callsign() or w.at(2)==Radio::base_callsign(m_config.my_callsign()))
              and ui->tx3->text().length()>0) {
@@ -6041,6 +5993,10 @@ void MainWindow::readFromStdout()                             //readFromStdout
               if(w.at(2)=="RR73") {
                 ui->stopTxButton->click ();
                 logQSOTimer.start(0);
+                if(m_txFirst) {
+                    m_txFirst=false;
+                    ui->txFirstCheckBox->setChecked(false);
+                }
               } else {
                 if(w.at(1)==Radio::base_callsign(ui->dxCallEntry->text()) and
                    (w.at(2).mid(0,1)=="+" or w.at(2).mid(0,1)=="-")) {
@@ -6049,7 +6005,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
                   m_nFoxFreq=decodedtext.string().mid(16,4).toInt();
                   hound_reply ();
                 } else {
-                  if (text.contains(" " + m_config.my_callsign() + " " + m_hisCall) && !text.contains("73 "))  processMessage(decodedtext0);   // needed for MSHV multistream messages
+                  if (text.contains(m_config.my_callsign() + " " + m_hisCall) && !text.contains("73 "))  processMessage(decodedtext0);   // needed for MSHV multistream messages
                 }
               }
             }
@@ -6857,7 +6813,7 @@ void MainWindow::guiUpdate()
   if(nsec != m_sec0) {
 //    qDebug() << "AAA" << nsec%60 << int(m_specOp);
 
-    if (m_tune && m_config.tune_watchdog() && !(m_mode=="WSPR" || m_mode=="FST4W")) {
+    if (m_tune && !(m_config.Tune_watchdog_disabled() || m_mode=="WSPR" || m_mode=="FST4W")) {
         QString remtime;
         remtime = QString::asprintf("%.0f s",tuneATU_Timer.remainingTime()/1000.0);
         ui->tuneButton->setText(remtime);  // display Tune watchdog countdog
@@ -6961,7 +6917,7 @@ void MainWindow::guiUpdate()
         tx_status_label.setStyleSheet("QLabel{color: #000000; background-color: #00ff00}");
         auto t = tr ("Receiving");
         // switching tx_status_label text and color when filters are enabled
-        if (((SpecOp::NONE==m_specOp or SpecOp::HOUND==m_specOp) && !m_config.filters_for_Wait_and_Pounce_only() &&
+        if ((SpecOp::NONE==m_specOp && !m_config.filters_for_Wait_and_Pounce_only() &&
              (m_config.Blacklisted () or m_config.Whitelisted ())) or (ui->cbCQonly->isChecked() && ui->cbCQonly->isVisible())
               or ui->actionHideToday->isChecked() or ui->actionHideIgnored->isChecked()
               or ui->actionHideTerritory1->isChecked() or ui->actionHideTerritory2->isChecked()
@@ -7429,8 +7385,8 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
 
   int nmod = fmod(double(message.timeInSeconds()),2.0*m_TRperiod);
   m_txFirst=(nmod!=0);
-  if(SpecOp::HOUND == m_specOp) m_txFirst=false;          //Hound must not transmit first
-  if(SpecOp::FOX == m_specOp) m_txFirst=true;             //Fox must always transmit first
+  if(SpecOp::HOUND == m_specOp && !m_bDoubleClicked) m_txFirst=false;  //Hound usually transmits first
+  if(SpecOp::FOX == m_specOp) m_txFirst=true;                          //Fox must always transmit first
   ui->txFirstCheckBox->setChecked(m_txFirst);
 
   auto const& message_words = message.messageWords ();
@@ -7439,13 +7395,6 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
   QString hiscall;
   QString hisgrid;
   message.deCallAndGrid(/*out*/hiscall,hisgrid);
-
-  // prevent starting a QSO with yourself
-  if (m_bDoubleClicked && hiscall==m_baseCall) return;
-
-  // don't call CQ when double-clicking on the final "73" message of your QSO
-  if (m_bDoubleClicked && message.clean_string().remove("<").remove(">").contains((" " + m_baseCall + " "))
-      && message.clean_string().remove("<").remove(">").contains(" " + hiscall + " ") && message.clean_string().contains(" 73")) return;
 
   if(message.clean_string ().contains(hiscall+"/R")) {
     hiscall+="/R";
@@ -7860,7 +7809,7 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
     }
     // his base call different or his call more qualified
     // i.e. compound version of same base call
-    if (!((s2.contains(" " + m_config.my_callsign() + " ") && s2.contains(" 73")) && (ui->respondComboBox->currentText()=="CQ: Max dB"
+    if (!((s2.contains(m_config.my_callsign()) && s2.contains(" 73")) && (ui->respondComboBox->currentText()=="CQ: Max dB"
            or ui->respondComboBox->currentText()=="CQ: Max dB"))) ui->dxCallEntry->setText (hiscall);
   }
   if (hisgrid.contains (grid_regexp)) {
@@ -8292,7 +8241,7 @@ void MainWindow::lookup()
 {
   QString hisCall {ui->dxCallEntry->text()};
   QString hisgrid0 {ui->dxGridEntry->text()};
-  if (!hisCall.size ()) return;
+  if (!hisCall.size () or (!(m_specOp==SpecOp::NONE or m_specOp==SpecOp::HOUND or m_specOp==SpecOp::Q65_PILEUP))) return;
   QFile f {m_config.writeable_data_dir ().absoluteFilePath ("CALL3.TXT")};
   if (f.open (QIODevice::ReadOnly | QIODevice::Text))
     {
@@ -8545,74 +8494,47 @@ void MainWindow::on_DX_Call_Button_clicked (bool checked)
 
 void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
 {
-  if(ui->tuneButton->hasFocus() && (event->button() & Qt::RightButton)) {      // Tune button
-    blocked=true;
-    m_config.transceiver_tune (true);        // toggle rig tuning
-    blocked=false;
-    if(ui->tuneButton->text()=="Tuning") {   // reset Tune button by another right-click
-      ui->tuneButton->setChecked(false);
-      ui->tuneButton->setText("Tune");
-    } else {
-      ui->tuneButton->setChecked(true);
-      ui->tuneButton->setText("Tuning");
-      QTimer::singleShot (6000, [=] {        // reset Tune button after 6 seconds
-        ui->tuneButton->setChecked(false);
-        ui->tuneButton->setText("Tune");
-      });
-    }
-    ui->tuneButton->clearFocus();
-  }
   if(ui->DX_Call_Button->hasFocus() && (event->button() & Qt::RightButton)) {  // DX_Call_Button
-    clearDX();                                   // clear dxCallEntry
-    ui->dxGridEntry->clear ();                   // clear dxGridEntry
-    if (!keepTx5) ui->tx5->setCurrentText("");   // clear tx5
-    if (ui->respondComboBox->isVisible()) {
+      clearDX();                                   // clear dxCallEntry
+      ui->dxGridEntry->clear ();                   // clear dxGridEntry
+      if (!keepTx5) ui->tx5->setCurrentText("");   // clear tx5
+      if (ui->respondComboBox->isVisible()) {
       Dpoints=0;                          // reset points
       maxDPoints=0;                       // reset points
       dBpoints=-28;                       // reset points
       dBpoints2=99;                       // reset points
       maxdBPoints=-28;                    // reset points
       mindBPoints=99;                     // reset points
-    }
-    ui->DX_Call_Button->clearFocus();
+      }
   }
-  if(m_config.alternate_erase_button() && ui->EraseButton->hasFocus() && (event->button() & Qt::RightButton)) {
+  if (m_config.alternate_erase_button() && ui->EraseButton->hasFocus() && (event->button() & Qt::RightButton)) {
      ui->decodedTextBrowser2->erase ();
-     ui->EraseButton->clearFocus();
   }
   if(ui->txFirstCheckBox->isVisible() && ui->txFirstCheckBox->hasFocus() && (event->button() & Qt::RightButton)) {
       ui->txFirstCheckBox->setEnabled(false);  // freeze txFirstCheckBox
-      ui->txFirstCheckBox->clearFocus();
   }
   if((ui->ft8Button->hasFocus() or ui->msk144Button->hasFocus()) && (event->button() & Qt::RightButton)) {
       ui->txFirstCheckBox->setEnabled(true);  // unfreeze txFirstCheckBox
-      ui->ft8Button->clearFocus();
-      ui->msk144Button->clearFocus();
   }
   if(ui->q65Button->hasFocus() && (event->button() & Qt::RightButton)) {     // switch to Q65_Pileup mode
       m_config.setSpecial_Q65_Pileup();
       m_specOp=m_config.special_op_id();
       on_actionQ65_triggered();
-      ui->q65Button->clearFocus();
   }
   if(ui->jt65Button->hasFocus() && (event->button() & Qt::RightButton)) {    // switch to JT9 mode
       on_actionJT9_triggered();
-      ui->jt65Button->clearFocus();
   }
   if(ui->lookupButton->hasFocus() && (event->button() & Qt::RightButton)) {  // search callsign on ...
     QString hisCall=ui->dxCallEntry->text();
     if (hisCall !="") QDesktopServices::openUrl (QUrl {"https://www.qrz.com/db/" + hisCall});  // QRZ.com
-    ui->lookupButton->clearFocus();
   }
   if(ui->addButton->hasFocus() && (event->button() & Qt::RightButton)) {     // search callsign on ...
     QString hisCall=ui->dxCallEntry->text();
     if (hisCall !="") QDesktopServices::openUrl (QUrl {"https://www.hamqth.com/" + hisCall});  // hamqth.com
-    ui->addButton->clearFocus();
   }
   if(ui->ignoreButton->hasFocus() && (event->button() & Qt::RightButton)) {     // search callsign on ...
     QString hisCall=ui->dxCallEntry->text();
     if (hisCall !="") QDesktopServices::openUrl (QUrl {"https://www.qrzcq.com/call/" + hisCall});  // qrzcq.com
-    ui->ignoreButton->clearFocus();
   }
 
   // Wait & Pounce
@@ -8626,7 +8548,6 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
         pounce = false;
         check_button_color();
       }
-      ui->autoButton->clearFocus();
   }
   // Reset a hung decoder
   if(ui->DecodeButton->hasFocus() && (event->button() & Qt::RightButton)) {
@@ -8635,7 +8556,6 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
         qDebug() << "Clearing hung decoder status";
         decodeDone();  // Clear a hung decoder status
       }
-      ui->DecodeButton->clearFocus();
   }
   // Switch contest mode on/off
   if(ui->houndButton->hasFocus() && (event->button() & Qt::RightButton)) {
@@ -8683,7 +8603,6 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
       set_mode(m_mode);
       configActiveStations();
       check_button_color();
-      ui->houndButton->clearFocus();
   }
   // freeze the Tx5 text
   if(ui->txb5->hasFocus() && (event->button() & Qt::RightButton)) {
@@ -8694,92 +8613,52 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
         keepTx5 = false;
         ui->tx5->setStyleSheet("");
       }
-      ui->txb5->clearFocus();
   }
   // Toggle FT8 DXp frequencies
-  if(ui->pb80->hasFocus() && (event->button() & Qt::RightButton) && (m_mode=="FT8" || m_mode=="FT4")) {
+  if(ui->pb80->hasFocus() && (event->button() & Qt::RightButton) && m_mode=="FT8") {
     keep_frequency = true;
     setRig(3567000);
     QTimer::singleShot (250, [=] {keep_frequency = false;});
-    ui->pb80->clearFocus();
   }
-  if(ui->pb40->hasFocus() && (event->button() & Qt::RightButton) && (m_mode=="FT8" || m_mode=="FT4")) {
+  if(ui->pb40->hasFocus() && (event->button() & Qt::RightButton) && m_mode=="FT8") {
     keep_frequency = true;
     setRig(7056000);
     QTimer::singleShot (250, [=] {keep_frequency = false;});
-    ui->pb40->clearFocus();
   }
-  if(ui->pb30->hasFocus() && (event->button() & Qt::RightButton) && (m_mode=="FT8" || m_mode=="FT4")) {
+  if(ui->pb30->hasFocus() && (event->button() & Qt::RightButton) && m_mode=="FT8") {
     keep_frequency = true;
     setRig(10131000);
     QTimer::singleShot (250, [=] {keep_frequency = false;});
-    ui->pb30->clearFocus();
   }
-  if(ui->pb20->hasFocus() && (event->button() & Qt::RightButton) && (m_mode=="FT8" || m_mode=="FT4")) {
+  if(ui->pb20->hasFocus() && (event->button() & Qt::RightButton) && m_mode=="FT8") {
     keep_frequency = true;
     setRig(14090000);
     QTimer::singleShot (250, [=] {keep_frequency = false;});
-    ui->pb20->clearFocus();
   }
-  if(ui->pb17->hasFocus() && (event->button() & Qt::RightButton) && (m_mode=="FT8" || m_mode=="FT4")) {
+  if(ui->pb17->hasFocus() && (event->button() & Qt::RightButton) && m_mode=="FT8") {
     keep_frequency = true;
     setRig(18095000);
     QTimer::singleShot (250, [=] {keep_frequency = false;});
   }
-  if(ui->pb15->hasFocus() && (event->button() & Qt::RightButton) && (m_mode=="FT8" || m_mode=="FT4")) {
+  if(ui->pb15->hasFocus() && (event->button() & Qt::RightButton) && m_mode=="FT8") {
     keep_frequency = true;
     setRig(21091000);
     QTimer::singleShot (250, [=] {keep_frequency = false;});
-    ui->pb15->clearFocus();
   }
-  if(ui->pb12->hasFocus() && (event->button() & Qt::RightButton) && (m_mode=="FT8" || m_mode=="FT4")) {
+  if(ui->pb12->hasFocus() && (event->button() & Qt::RightButton) && m_mode=="FT8") {
     keep_frequency = true;
     setRig(24911000);
     QTimer::singleShot (250, [=] {keep_frequency = false;});
   }
-  if(ui->pb10->hasFocus() && (event->button() & Qt::RightButton) && (m_mode=="FT8" || m_mode=="FT4")) {
+  if(ui->pb10->hasFocus() && (event->button() & Qt::RightButton) && m_mode=="FT8") {
     keep_frequency = true;
     setRig(28091000);
     QTimer::singleShot (250, [=] {keep_frequency = false;});
-    ui->pb10->clearFocus();
   }
   if(ui->pb6->hasFocus() && (event->button() & Qt::RightButton) && m_mode=="FT8") {
     keep_frequency = true;
     setRig(50323000);
     QTimer::singleShot (250, [=] {keep_frequency = false;});
-    ui->pb6->clearFocus();
-  }
-  if(ui->pb2->hasFocus() && (event->button() & Qt::RightButton)) {
-    int f;
-    if (m_config.region()==2) {
-      f = 222174000;
-    } else {
-      f = 70154000;
-    }
-    auto const& row = m_config.frequencies ()->best_working_frequency (f);
-    ui->bandComboBox->setCurrentIndex (row);
-    if (row >= 0) {
-      on_bandComboBox_activated (row);
-    } else {
-      keep_frequency = true;
-      setRig(f);
-      QTimer::singleShot (250, [=] {keep_frequency = false;});
-    }
-    setXIT (ui->TxFreqSpinBox->value ());
-    ui->pb2->clearFocus();
-  }
-  if(ui->pb70->hasFocus() && (event->button() & Qt::RightButton)) {
-    auto const& row = m_config.frequencies ()->best_working_frequency (1296174000);
-    ui->bandComboBox->setCurrentIndex (row);
-    if (row >= 0) {
-      on_bandComboBox_activated (row);
-    } else {
-      keep_frequency = true;
-      setRig(1296174000);
-      QTimer::singleShot (250, [=] {keep_frequency = false;});
-    }
-    setXIT (ui->TxFreqSpinBox->value ());
-    ui->pb70->clearFocus();
   }
 // Testing the default audio device
 #ifdef WIN32
@@ -8801,11 +8680,10 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
   }
 #else
   if (ui->pbBandHopping->hasFocus() && event->button() & Qt::RightButton) {
-      QString binPath = QCoreApplication::applicationDirPath();
-      QSound::play(binPath + "/sounds/Testing_long.wav");  // for Linux and macOS
+      QString homePath = QDir::homePath();
+      QSound::play(QDir::homePath() + "/sounds/Testing_long.wav");  // for Linux and macOS
   }
 #endif
-  ui->pbBandHopping->clearFocus();
 }
 
 void MainWindow::on_dxCallEntry_textChanged (QString const& call)
@@ -8920,7 +8798,7 @@ void MainWindow::on_logQSOButton_clicked()                 //Log QSO button
     {
       case SpecOp::NA_VHF:
         m_xSent=m_config.my_grid().left(4);
-        m_xRcvd=m_hisGrid.left(4);
+        m_xRcvd=m_hisGrid;
         break;
       case SpecOp::EU_VHF:
         m_rptSent=m_xSent.split(" ").at(0).left(2);
@@ -8939,11 +8817,11 @@ void MainWindow::on_logQSOButton_clicked()                 //Log QSO button
         break;
       case SpecOp::WW_DIGI:
         m_xSent=m_config.my_grid().left(4);
-        m_xRcvd=m_hisGrid.left(4);
+        m_xRcvd=m_hisGrid;
         break;
       case SpecOp::ARRL_DIGI:
         m_xSent=m_config.my_grid().left(4);
-        m_xRcvd=m_hisGrid.left(4);
+        m_xRcvd=m_hisGrid;
         break;
       case SpecOp::Q65_PILEUP:
         m_xSent=m_config.my_grid().left(4);
@@ -9379,7 +9257,7 @@ void MainWindow::on_actionFT8_triggered()
     ui->txb5->setEnabled(false);
     ui->txb6->setEnabled(false);
   } else {
-    switch_mode (Modes::FT8);
+    if (!(keep_frequency)) switch_mode (Modes::FT8);
   }
   if(m_specOp != SpecOp::HOUND) {
       ui->houndButton->setChecked(false);
@@ -9893,11 +9771,9 @@ void MainWindow::switch_mode (Mode mode)
   m_fastGraph->setMode(m_mode);
   m_config.frequencies ()->filter (m_config.region (), mode, true); // filter on current time
   auto const& row = m_config.frequencies ()->best_working_frequency (m_freqNominal);
-  if (!keep_frequency) {
-      ui->bandComboBox->setCurrentIndex (row);
-    if (row >= 0 ) {
-      on_bandComboBox_activated (row);
-    }
+  ui->bandComboBox->setCurrentIndex (row);
+  if (row >= 0) {
+    on_bandComboBox_activated (row);
   }
   ui->rptSpinBox->setSingleStep(1);
   ui->rptSpinBox->setMinimum(-50);
@@ -9976,7 +9852,6 @@ void MainWindow::fast_config(bool b)
 
 void MainWindow::on_TxFreqSpinBox_valueChanged(int n)
 {
-  m_config.transceiver_tune (false);  // reset rig tuning
   m_wideGraph->setTxFreq(n);
 //  if (ui->cbHoldTxFreq->isChecked ()) ui->RxFreqSpinBox->setValue(n);
   if(m_mode!="MSK144") {
@@ -10202,6 +10077,10 @@ void MainWindow::on_bandComboBox_activated (int index)
 
 void MainWindow::band_changed (Frequency f)
 {
+  static QString band_save;
+  if (m_config.bands()->find(f) == band_save) return; // band didn't change
+  band_save = m_config.bands()->find(f);
+
   QTimer::singleShot (1000, [=] {
       if (m_mode=="MSK144" && (!(m_currentBand=="6m" or m_currentBand=="4m" or m_currentBand=="2m")))
           ui->sbTR->setValue (m_settings->value ("TRPeriod_MSK144", 30).toInt());
@@ -10255,11 +10134,6 @@ void MainWindow::band_changed (Frequency f)
     if (m_specOp==SpecOp::FOX) FoxReset("BandChange");  // when changing bands, don't preserve the Fox queues
   }
 
-  // Erase the decodedTextBrowsers only if the band really changed
-  static QString band_save;
-  if (m_config.bands()->find(f) == band_save) return; // band didn't change
-  band_save = m_config.bands()->find(f);
-  m_band_changed = true;
   if (m_config.erase_BandActivity () && !not_erase) {
     ui->decodedTextBrowser->erase ();   // Mod for WD5DHK
     ui->decodedTextBrowser2->erase ();
@@ -10301,17 +10175,14 @@ void MainWindow::on_rptSpinBox_valueChanged(int n)
 
 void MainWindow::on_tuneButton_clicked (bool checked)
 {
-  m_config.transceiver_tune (false);  // reset rig tuning
-  if (blocked) return;
-  if (m_auto && !(m_mode=="WSPR" || m_mode=="FST4W")) ui->autoButton->click();   // stop any other transmission
   stopWRTimer.stop();           // stop any Wait & Reply timeout
   stopWCTimer.stop();           // stop any Wait & Call timeout
-  if (checked && m_config.tune_watchdog() && !(m_mode=="WSPR" || m_mode=="FST4W")) {
-    tuneATU_Timer.start (m_config.tune_watchdog_time()*1000); // tune watchdog
+  if (checked && !(m_config.Tune_watchdog_disabled() || m_mode=="WSPR" || m_mode=="FST4W")) {
+      tuneATU_Timer.start (90000); // tune watchdog
   }
   if (!checked) {
-    ui->tuneButton->setText("Tune");
-    tuneATU_Timer.stop ();    // stop tune watchdog when stopping Tune manually
+      tuneATU_Timer.stop ();    // stop tune watchdog when stopping Tune manually
+      ui->tuneButton->setText("Tune");
   }
   static bool lastChecked = false;
   if (lastChecked == checked) return;
@@ -10369,7 +10240,7 @@ void MainWindow::stopTuneATU()
   ui->tuneButton->setText("Tune");
 }
 
-void MainWindow::on_stopTxButton_clicked()                    // Stop Tx
+void MainWindow::on_stopTxButton_clicked()                    //Stop Tx
 {
   if (m_tune) stop_tuning ();
   if (m_auto and !m_tuneup) auto_tx_mode (false);
@@ -10383,6 +10254,10 @@ void MainWindow::on_stopTxButton_clicked()                    // Stop Tx
   tuneATU_Timer.stop ();        // stop tune watchdog when stopping Tune manually
   no_wait_and_call = false;
   m_specOp=m_config.special_op_id();
+  if(m_specOp==SpecOp::HOUND && m_txFirst) {  // reset Hound to the correct time slot
+      m_txFirst=false;
+      ui->txFirstCheckBox->setChecked(false);
+  }
   if (ui->respondComboBox->isVisible() && ui->respondComboBox->currentText() != "CQ: None") {
       Dpoints=0;                          // reset points
       maxDPoints=0;                       // reset points
@@ -10599,7 +10474,7 @@ void MainWindow::handle_transceiver_update (Transceiver::TransceiverState const&
 
             m_lastDialFreq = m_freqNominal;
             m_secBandChanged=QDateTime::currentMSecsSinceEpoch()/1000;
-//            pskSetLocal ();  // better be done after a band change
+            pskSetLocal ();
             statusChanged();
             m_wideGraph->setDialFreq(m_freqNominal / 1.e6);
           }
@@ -10623,7 +10498,6 @@ void MainWindow::handle_transceiver_failure (QString const& reason)
   ui->readFreq->setEnabled (true);
   on_stopTxButton_clicked ();
   rigFailure (reason);
-  rigFailed = true;
 }
 
 void MainWindow::rigFailure (QString const& reason)
@@ -11228,8 +11102,7 @@ void MainWindow::replyToCQ (QTime time, qint32 snr, float delta_time, quint32 de
           showNormal ();
           raise ();
         }
-      if ((text.contains (QRegularExpression {R"(^(CQ |CQDX |QRZ ))"}))
-          || text.contains("73 ") || (ui->cbHoldTxFreq->isChecked ())) {
+      if ((text.contains (QRegularExpression {R"(^(CQ |CQDX |QRZ ))"})) || (ui->cbHoldTxFreq->isChecked ())) {
         // a message we are willing to accept and auto reply to
         m_bDoubleClicked = true;
       }
@@ -11300,8 +11173,6 @@ void MainWindow::replayDecodes ()
 
 void MainWindow::postDecode (bool is_new, QString const& message)
 {
-  if (no_decodes_to_UDP) return;  // Don't send decoded messages to messageClient after a band change
-  if (filtered) return;           // Don't send filtered messages to messageClient
   auto const& decode = message.trimmed ();
   auto const& parts = decode.left (22).split (' ', SkipEmptyParts);
   if (parts.size () >= 5)
@@ -13810,25 +13681,25 @@ void MainWindow::check_button_color()
           m_specOp==SpecOp::NONE && ui->cbAutoSeq->isChecked() && ui->cbAutoSeq->isChecked()
           && m_config.Wait_features_enabled()) or m_specOp==SpecOp::HOUND) && m_hisCall!="") {
         if (ui->DX_Call_Button->isChecked()) {
-            ui->DX_Call_Button->setStyleSheet("QPushButton {background-color: #ff0000; color: #ffffff; border-style: outset; border-width: 1px; border-radius: 5px; border-color: black; min-width: 5em; padding: 3px;}");
+            ui->DX_Call_Button->setStyleSheet("QPushButton {background-color: #ff0000; border-style: outset; border-width: 1px; border-radius: 5px; border-color: black; min-width: 5em; padding: 3px;}");
         } else {
             ui->DX_Call_Button->setStyleSheet("QPushButton {background-color: #ffff00; color: #000000; border: 1px solid #32414B; border-radius: 4px; padding: 3px; outline: none;}");
         }
         if (!m_auto) ui->autoButton->setStyleSheet("QPushButton {background-color: #ffff00; color: #000000; border: 1px solid #32414B; border-radius: 4px; padding: 3px; outline: none; min-width: 5em;}");
-        if (m_auto) ui->autoButton->setStyleSheet("QPushButton {background-color: #ff0000; color: #ffffff; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none; min-width: 5em;}");
+        if (m_auto) ui->autoButton->setStyleSheet("QPushButton {background-color: #ff0000; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none; min-width: 5em;}");
     } else {
         ui->DX_Call_Button->setChecked(false);
         if (m_useDarkStyle) {
-            ui->DX_Call_Button->setStyleSheet("QPushButton {background-color: #505F69; color: #ffffff; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none;}");
-            if (!m_auto) ui->autoButton->setStyleSheet("QPushButton {background-color: #505F69; color: #ffffff; border: 1px solid #32414B; color: #F0F0F0; border-radius: 5px; padding: 3px; outline: none; min-width: 5em;}");
-            if (m_auto) ui->autoButton->setStyleSheet("QPushButton {background-color: #ff0000; color: #ffffff; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none; min-width: 5em;}");
+            ui->DX_Call_Button->setStyleSheet("QPushButton {background-color: #505F69; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none;}");
+            if (!m_auto) ui->autoButton->setStyleSheet("QPushButton {background-color: #505F69; border: 1px solid #32414B; color: #F0F0F0; border-radius: 5px; padding: 3px; outline: none; min-width: 5em;}");
+            if (m_auto) ui->autoButton->setStyleSheet("QPushButton {background-color: #ff0000; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none; min-width: 5em;}");
         } else {
             ui->DX_Call_Button->setStyleSheet("QPushButton {background-color: #9fafd5; border: none;}");
             if (!m_auto) {
                 ui->autoButton->setStyleSheet("");
                 ui->autoButton->setStyleSheet("QPushButton {min-width: 5em;}");
             }
-            if (m_auto) ui->autoButton->setStyleSheet("QPushButton {background-color: #ff0000; color: #ffffff; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none; min-width: 5em;}");
+            if (m_auto) ui->autoButton->setStyleSheet("QPushButton {background-color: #ff0000; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none; min-width: 5em;}");
         }
     }
 
@@ -13878,12 +13749,12 @@ void MainWindow::check_button_color()
           }
       }
       if (ui->houndButton->isChecked()) {
-          ui->houndButton->setStyleSheet("QPushButton {background-color: #ff0000; color: #ffffff; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none; min-width: 3em;}");
+          ui->houndButton->setStyleSheet("QPushButton {background-color: #ff0000; color: #000000; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none; min-width: 3em;}");
       } else {
           if (m_useDarkStyle) {
-             ui->houndButton->setStyleSheet("QPushButton {background-color: #505F69; color: #ffffff; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none; min-width: 3em;}");
+             ui->houndButton->setStyleSheet("QPushButton {background-color: #505F69; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none; min-width: 3em;}");
           } else {
-             ui->houndButton->setStyleSheet("QPushButton {background-color: #e1e1e1; color: #000000; border: 1px solid #adadad; border-radius: 0px; padding: 3px; outline: none; min-width: 3em;}");
+             ui->houndButton->setStyleSheet("QPushButton {background-color: #e1e1e1; border: 1px solid #adadad; border-radius: 0px; padding: 3px; outline: none; min-width: 3em;}");
           }
       }
       if (m_mode=="FT8") {
@@ -14069,31 +13940,23 @@ void MainWindow::check_button_color()
                ui->pb6->setStyleSheet("QPushButton {background-color: #e1e1e1; border: 1px solid #adadad; border-radius: 0px; padding: 3px; outline: none;}");
             }
         }
-        if (band=="4m" or band=="1.25m" ) {
-            ui->pb2->setStyleSheet("QPushButton {background-color: #ffff00; color: #000000; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none;}");
+        if (band=="2m") {
+            ui->pb2->setStyleSheet("QPushButton {background-color: #00ff00; color: #000000; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none;}");
         } else {
-          if (band=="2m") {
-              ui->pb2->setStyleSheet("QPushButton {background-color: #00ff00; color: #000000; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none;}");
-          } else {
-              if (m_useDarkStyle) {
-                 ui->pb2->setStyleSheet("QPushButton {background-color: #505F69; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none;}");
-              } else {
-                 ui->pb2->setStyleSheet("QPushButton {background-color: #e1e1e1; border: 1px solid #adadad; border-radius: 0px; padding: 3px; outline: none;}");
-              }
-          }
+            if (m_useDarkStyle) {
+               ui->pb2->setStyleSheet("QPushButton {background-color: #505F69; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none;}");
+            } else {
+               ui->pb2->setStyleSheet("QPushButton {background-color: #e1e1e1; border: 1px solid #adadad; border-radius: 0px; padding: 3px; outline: none;}");
+            }
         }
-        if (band=="23cm") {
-            ui->pb70->setStyleSheet("QPushButton {background-color: #ffff00; color: #000000; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none;}");
+        if (band=="70cm") {
+            ui->pb70->setStyleSheet("QPushButton {background-color: #00ff00; color: #000000; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none;}");
         } else {
-          if (band=="70cm") {
-              ui->pb70->setStyleSheet("QPushButton {background-color: #00ff00; color: #000000; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none;}");
-          } else {
-              if (m_useDarkStyle) {
-                 ui->pb70->setStyleSheet("QPushButton {background-color: #505F69; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none;}");
-              } else {
-                 ui->pb70->setStyleSheet("QPushButton {background-color: #e1e1e1; border: 1px solid #adadad; border-radius: 0px; padding: 3px; outline: none;}");
-              }
-          }
+            if (m_useDarkStyle) {
+               ui->pb70->setStyleSheet("QPushButton {background-color: #505F69; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none;}");
+            } else {
+               ui->pb70->setStyleSheet("QPushButton {background-color: #e1e1e1; border: 1px solid #adadad; border-radius: 0px; padding: 3px; outline: none;}");
+            }
         }
     } else {
         ui->pb160->setVisible(false);
