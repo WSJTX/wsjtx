@@ -239,6 +239,7 @@ bool no_logging = false;
 bool BlankLineInserted = false;
 bool m_txing;
 bool HoldTxFreqStatus;
+bool m_band_changed = false;
 QString txLog;
 QString ignoreList;
 
@@ -5871,9 +5872,18 @@ void MainWindow::readFromStdout()                             //readFromStdout
       }
 
       if (bDisplayRight && !block_right_display) {
-        // This msg is within 10 hertz of our tuned frequency, or a JT4 or JT65 avg,
-        // or contains MyCall
+        // This msg is within 10 hertz of our tuned frequency, or a JT4 or JT65 avg, or contains MyCall
+
         if(!pounce && (!m_bBestSPArmed or m_mode!="FT4")) {
+          // insert blank line when band was changed
+          if (m_config.insert_blank () && m_band_changed && (m_currentBandPeriod == m_currentBand)) {
+            if (ui->actionUse_Dark_Style->isChecked()) {
+              ui->decodedTextBrowser2->insertText(("------------------- " + m_currentBandPeriod + " -----------------"), "#a2a2a2", "#000000");
+            } else {
+              ui->decodedTextBrowser2->insertLineSpacer ("------------------- " + m_currentBandPeriod + " -----------------");
+            }
+            m_band_changed = false;
+          }
           ui->decodedTextBrowser2->displayDecodedText (decodedtext0, m_config.my_callsign (), m_mode, m_config.DXCC (),
                 m_logBook, m_currentBand, m_config.ppfx (), false, false, 0.0, bDisplayPoints, m_points);
         }
@@ -10050,6 +10060,7 @@ void MainWindow::band_changed (Frequency f)
   static QString band_save;
   if (m_config.bands()->find(f) == band_save) return; // band didn't change
   band_save = m_config.bands()->find(f);
+  m_band_changed = true;
   if (m_config.erase_BandActivity () && !not_erase) {
     ui->decodedTextBrowser->erase ();   // Mod for WD5DHK
     ui->decodedTextBrowser2->erase ();
