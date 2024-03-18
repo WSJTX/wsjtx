@@ -29,8 +29,8 @@ the following copyright notice prominently:
 *The algorithms, source code, look-and-feel of _{prog}_ and related
 programs, and protocol specifications for the modes FSK441, FST4,
 FST4W, FT4, FT8, JT4, JT6M, JT9, JT44, JT65, JTMS, Q65, QRA64, ISCAT,
-and MSK144 are Copyright (C) 2001-2021 by one or more of the following
+and MSK144 are Copyright (C) 2001-2024 by one or more of the following
 authors: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke,
-K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB;
-Edson Pereira, PY2SDR; Philip Karn, KA9Q; and other members of the
-WSJT Development Group.*
+K9AN; Nico Palermo, IV3NWV; Uwe Risse, DG2YCB; Brian Moran, N9ADG;
+Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip
+Karn, KA9Q; and other members of the WSJT Development Group.*
