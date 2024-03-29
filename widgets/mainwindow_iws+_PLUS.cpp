@@ -5953,7 +5953,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
 
         if(!pounce && (!m_bBestSPArmed or m_mode!="FT4")) {
           // insert blank line when band was changed
-          if (m_config.insert_blank () && m_band_changed && (m_currentBandPeriod == m_currentBand)) {
+          if (m_config.insert_blank () && SpecOp::FOX!=m_specOp && m_band_changed && (m_currentBandPeriod == m_currentBand)) {
             if (ui->actionUse_Dark_Style->isChecked()) {
               ui->decodedTextBrowser2->insertText(("------------------- " + m_currentBandPeriod + " -----------------"), "#a2a2a2", "#000000");
             } else {
