@@ -216,8 +216,25 @@ void DisplayText::insertText(QString const& text, QColor bg, QColor fg
 
 void DisplayText::extend_vertical_scrollbar (int min, int max)
 {
+  static int mod_last;
+  static int height;
   if (high_volume_ && m_config && m_config->decodes_from_top ())
     {
+      auto m = modified_vertical_scrollbar_max_;
+      if (m != mod_last) { height = m - mod_last;mod_last = m; }
+      //auto vp_margins2 = viewportMargins ();
+      if (height == 0 && m > viewport()->height()) height =  abs( - viewport()->height());
+      //LOG_INFO ("scrollbar min=" << min << " max="  << max << " mod=" << modified_vertical_scrollbar_max_ << " height=" << viewport()->height() << " top=" << vp_margins2.top() << " bottom=" << vp_margins2.bottom()) << " height=" << height << " mod_last=" << mod_last;
+      if (max > 60000)
+        {
+          QString tmp = toPlainText();
+          while (tmp != NULL && tmp.length() > 100 &&  max > 50000)
+          {
+            tmp.remove(0, tmp.indexOf("\n")+1);
+            max -= height;
+          }
+          setPlainText(tmp);
+        }
       if (max && max != modified_vertical_scrollbar_max_)
         {
           setViewportMargins (0,4,0,0);  // ensure first line is readable
@@ -233,10 +250,6 @@ void DisplayText::extend_vertical_scrollbar (int min, int max)
 
 void DisplayText::new_period ()
 {
-  if (m_config->decodes_from_top ()) {
-    document ()->setMaximumBlockCount (4800);
-    document ()->setMaximumBlockCount (5000);
-  }
   extend_vertical_scrollbar (verticalScrollBar ()->minimum (), verticalScrollBar ()->maximum ());
   if (high_volume_ && m_config && m_config->decodes_from_top () && !vertical_scroll_connection_)
     {
@@ -715,11 +728,11 @@ namespace
 void DisplayText::highlight_callsign (QString const& callsign, QColor const& bg,
                                       QColor const& fg, bool last_period_only)
 {
-  auto regexp = callsign;
-  if (!callsign.size () || callsign == "" || callsign == " " || callsign == "0")
+  if (!callsign.size ())
     {
       return;
     }
+  auto regexp = callsign;
   // allow for hashed callsigns and escape any regexp metacharacters
   QRegularExpression target {QString {"<?"}
                              + regexp.replace (QLatin1Char {'+'}, QLatin1String {"\\+"})
