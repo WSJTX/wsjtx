@@ -1276,6 +1276,7 @@ void MainWindow::writeSettings()
   m_settings->setValue("FoxNslots",ui->sbNslots->value());
   m_settings->setValue("FoxMaxDB_v2",ui->sbMax_dB->value()); // original key abandoned
   m_settings->setValue ("SerialNumber",ui->sbSerialNumber->value ());
+  m_settings->setValue("FoxTextMsg", m_freeTextMsg0);
   m_settings->endGroup();
 
   // do this in the General group because we save the parameters from various places
@@ -1453,6 +1454,8 @@ void MainWindow::readSettings()
   ui->sbNslots->setValue(m_Nslots);
   ui->sbMax_dB->setValue(m_settings->value("FoxMaxDB_v2",70).toInt());
   ui->sbSerialNumber->setValue (m_settings->value ("SerialNumber", 1).toInt ());
+  m_freeTextMsg0=m_settings->value("FoxTextMsg","").toString();
+  m_freeTextMsg=m_freeTextMsg0;
   m_settings->endGroup();
 
   m_settings->beginGroup("Common");
@@ -1737,9 +1740,9 @@ void MainWindow::set_application_font (QFont const& font)
       ui->outAttenuation->setMinimumWidth (2.8*pointSize + 8);
   }
   if (pointSize < 11) {
-      ui->tabWidget->setMaximumHeight(210);                           // UR for AL
+      ui->tabWidget->setMaximumHeight(230);                           // UR for AL
 //      if (ui->actionUse_Dark_Style->isChecked()) {
-//          ui->tabWidget->setMaximumHeight(225);                       // UR for normal + widescreen
+//          ui->tabWidget->setMaximumHeight(230);                       // UR for normal + widescreen
 //          ui->houndButton->setMinimumWidth(50);                       // UR for normal + widescreen
 //          ui->ft8Button->setMinimumWidth(50);                         // UR for normal + widescreen
 //          ui->ft4Button->setMinimumWidth(50);                         // UR for normal + widescreen
@@ -1747,7 +1750,7 @@ void MainWindow::set_application_font (QFont const& font)
 //          ui->q65Button->setMinimumWidth(50);                         // UR for normal + widescreen
 //          ui->jt65Button->setMinimumWidth(50);                        // UR for normal + widescreen
 //      } else {
-//          ui->tabWidget->setMaximumHeight(225);                       // UR for normal + widescreen
+//          ui->tabWidget->setMaximumHeight(230);                       // UR for normal + widescreen
 //          ui->houndButton->setMaximumWidth(40);                       // UR for normal + widescreen
 //          ui->ft8Button->setMaximumWidth(40);                         // UR for normal + widescreen
 //          ui->ft4Button->setMaximumWidth(40);                         // UR for normal + widescreen
@@ -3109,13 +3112,11 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
       case Qt::Key_Backspace:
         qDebug() << "Key Backspace";
         return;
-//#ifdef DEBUG_FOX
       case Qt::Key_X:
         if(e->modifiers() & Qt::AltModifier) {
             foxTest();
             return;
           }
-//#endif
     }
     QMainWindow::keyPressEvent (e);
   }
@@ -3343,8 +3344,7 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
     break;
   case Qt::Key_X:
     if(e->modifiers() & Qt::AltModifier) {
-//      qDebug() << "Alt-X" << m_mode << m_TRperiod << m_nsps << m_bFast9
-//               << tx_duration(m_mode,m_TRperiod,m_nsps,m_bFast9);
+      foxTest();
       return;
     }
   }
@@ -4471,8 +4471,6 @@ void MainWindow::decode()                                       //decode()
   dec_data.params.b_even_seq=(dec_data.params.nutc%10)==0;
   dec_data.params.b_superfox=(m_config.superFox() and (SpecOp::FOX == m_specOp or SpecOp::HOUND == m_specOp));
   if(dec_data.params.b_superfox and dec_data.params.b_even_seq and m_ihsym<50) return;
-//  qDebug() << "aa" << dec_data.params.nutc << dec_data.params.b_even_seq
-//           << dec_data.params.b_superfox << m_ihsym;
 
   dec_data.params.ntol=ui->sbFtol->value ();
   if(!m_config.enable_VHF_features()) {
@@ -6410,8 +6408,12 @@ void MainWindow::guiUpdate()
       setRig ();
       if(m_mode=="FT8") {
         if (SpecOp::FOX == m_specOp) {
-          if (ui->TxFreqSpinBox->value() > 900) {
-            ui->TxFreqSpinBox->setValue(300);
+          if(m_config.superFox()) {
+            ui->TxFreqSpinBox->setValue(750);            //SuperFox transmits at 750 Hz
+          } else {
+            if (ui->TxFreqSpinBox->value() > 900) {
+              ui->TxFreqSpinBox->setValue(300);
+            }
           }
         }
         else if (SpecOp::HOUND == m_specOp) {
@@ -6564,6 +6566,9 @@ void MainWindow::guiUpdate()
               ::memcpy(foxcom_.mycall, foxCall.toLatin1(), sizeof foxcom_.mycall); //Copy Fox callsign into foxcom_
               bool bSuperFox=m_config.superFox();
               auto fname {QDir::toNativeSeparators(m_config.writeable_data_dir().absoluteFilePath("sfox_1.dat")).toLocal8Bit()};
+              foxcom_.bMoreCQs=ui->cbMoreCQs->isChecked();
+              foxcom_.bSendMsg=ui->cbSendMsg->isChecked();
+              memcpy(foxcom_.textMsg, m_freeTextMsg.leftJustified(26,' ').toLatin1(),26);
               foxgen_(&bSuperFox, fname.constData(), (FCL)fname.size());
               if(bSuperFox) sfox_tx();
             }
@@ -6855,10 +6860,8 @@ void MainWindow::guiUpdate()
       readWidebandDecodes();
     }
     if(ipc_qmap[5]>0) {
-//      qDebug() << "aa" << m_freqNominal << ipc_qmap[5];
       setRig((m_freqNominal/1000000)*1000000 + 1000*ipc_qmap[5]);
       ipc_qmap[5]=0;
-//      qDebug() << "bb" << m_freqNominal << ipc_qmap[5];
     }
     mem_qmap.unlock();
   }
@@ -9297,7 +9300,11 @@ void MainWindow::on_actionFT8_triggered()
     ui->cbHoldTxFreq->setChecked(true);
     ui->cbAutoSeq->setEnabled(false);
     ui->tabWidget->setCurrentIndex(1);
-    ui->TxFreqSpinBox->setValue(300);
+    if(m_config.superFox()) {
+      ui->TxFreqSpinBox->setValue(750);            //SuperFox transmits at 750 Hz
+    } else {
+      ui->TxFreqSpinBox->setValue(300);
+    }
   //                         01234567890123456789012345678901234567
     displayWidgets(nWidgets("11101000010011100001000000000010000000"));
     if(m_config.superFox()) {
@@ -11097,6 +11104,15 @@ void MainWindow::on_cbFast9_clicked(bool b)
   statusChanged ();
 }
 
+void MainWindow::on_cbSendMsg_toggled(bool b)
+{
+  if(m_Nslots0>0 and !b) {
+    ui->sbNslots->setValue(m_Nslots0);
+  } else {
+    m_Nslots0=m_Nslots;
+    if(m_Nslots>2) ui->sbNslots->setValue(2);
+  }
+}
 
 void MainWindow::on_cbShMsgs_toggled(bool b)
 {
@@ -12127,6 +12143,17 @@ void MainWindow::on_pbFoxReset_clicked()
   }
 }
 
+void MainWindow::on_pbFreeText_clicked()
+{
+  bool ok;
+  m_freeTextMsg = QInputDialog::getText (this, tr("Free Text Message"),
+         tr("Message:"), QLineEdit::Normal, m_freeTextMsg0, &ok);
+  if(ok) {
+    m_freeTextMsg=m_freeTextMsg.toUpper();
+    m_freeTextMsg0=m_freeTextMsg;
+  }
+}
+
 void MainWindow::on_comboBoxHoundSort_activated(int index)
 {
   if(index!=-99) houndCallers();            //Silence compiler warning
@@ -12577,6 +12604,11 @@ Transmit:
   QString foxCall=m_config.my_callsign() + "         ";
   ::memcpy(foxcom_.mycall, foxCall.toLatin1(),sizeof foxcom_.mycall);   //Copy Fox callsign into foxcom_
   bool bSuperFox=m_config.superFox();
+  foxcom_.bMoreCQs=ui->cbMoreCQs->isChecked();
+  foxcom_.bSendMsg=ui->cbSendMsg->isChecked();
+//  qDebug() << "bb" << foxcom_.bMoreCQs << foxcom_.bSendMsg << foxcom_.nslots
+//           << m_Nslots << m_freeTextMsg0;
+  ::memcpy(foxcom_.textMsg, m_freeTextMsg0.leftJustified(26,' ').toLatin1(),26);
   auto fname {QDir::toNativeSeparators(m_config.writeable_data_dir().absoluteFilePath("sfox_1.dat")).toLocal8Bit()};
   foxgen_(&bSuperFox, fname.constData(), (FCL)fname.size());
   if(bSuperFox) sfox_tx();
@@ -13174,7 +13206,6 @@ void MainWindow::on_wsprButton_clicked()     // UR disable for normal + widescre
 
 void MainWindow::sfox_tx()
 {
-//  qint64 ms0 = QDateTime::currentMSecsSinceEpoch();
   auto fname {QDir::toNativeSeparators(m_config.writeable_data_dir().absoluteFilePath("sfox_1.dat")).toLocal8Bit()};
 #ifdef WIN32
   p2.start("sftx", QStringList {fname});
@@ -13184,7 +13215,6 @@ void MainWindow::sfox_tx()
   p2.waitForFinished();
   auto fname2 {QDir::toNativeSeparators(m_config.writeable_data_dir().absoluteFilePath("sfox_2.dat")).toLocal8Bit()};
   sfox_wave_(fname2.constData(), (FCL)fname2.size());
-//  qDebug() << "cc" << QDateTime::currentMSecsSinceEpoch() - ms0;
 }
 
 void MainWindow::on_pb30B_clicked()

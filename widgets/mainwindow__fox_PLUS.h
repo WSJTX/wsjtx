@@ -325,6 +325,7 @@ private slots:
   void on_actionAuto_Clear_Avg_toggled (bool);
   void VHF_features_enabled(bool b);
   void on_sbSubmode_valueChanged(int n);
+  void on_cbSendMsg_toggled(bool b);
   void on_cbShMsgs_toggled(bool b);
   void on_cbSWL_toggled(bool b);
   void on_cbTx6_toggled(bool b);
@@ -371,6 +372,7 @@ private slots:
   void on_sbF_High_valueChanged(int n);
   void chk_FST4_freq_range();
   void on_pbFoxReset_clicked();
+  void on_pbFreeText_clicked();
   void FoxReset(QString reason);
   void on_comboBoxHoundSort_activated (int index);
   void not_GA_warning_message ();
@@ -539,6 +541,7 @@ private:
   qint32  m_nHoundsCalling=0;
   qint32  m_Nlist=12;
   qint32  m_Nslots=5;
+  qint32  m_Nslots0=0;
   qint32  m_nFoxMsgTimes[5]={0,0,0,0,0};
   qint32  m_tAutoOn;
   qint32  m_tFoxTx=0;
@@ -723,6 +726,8 @@ private:
   QString m_BestCQpriority;
   QString m_deCall;
   QString m_deGrid;
+  QString m_freeTextMsg;
+  QString m_freeTextMsg0;
   QString m_ready2call[50];
   QString m_callers[50];
 

@@ -17,7 +17,7 @@ subroutine foxgen(bSuperFox,fname)
   parameter (NN=79,ND=58,NSPS=4*1920)
   parameter (NWAVE=(160+2)*134400*4) !the biggest waveform we generate (FST4-1800 at 48kHz)
   parameter (NFFT=614400,NH=NFFT/2)
-  logical*1 bSuperFox
+  logical*1 bSuperFox,bMoreCQs
   character*(*) fname
   character*40 cmsg
   character*37 msg,msgsent
@@ -27,12 +27,12 @@ subroutine foxgen(bSuperFox,fname)
   real x(NFFT)
   real*8 dt,twopi,f0,fstep,dfreq,phi,dphi
   complex cx(0:NH)
-  common/foxcom/wave(NWAVE),nslots,nfreq,i3bit(5),cmsg(5),mycall(12)
+  common/foxcom/wave(NWAVE),nslots,nfreq,i3bit(5),cmsg(5),mycall(12),bMoreCQs
   common/foxcom2/itone2(NN),msgbits2(77)
   equivalence (x,cx),(y,cy)
 
   if(bSuperFox) then
-!     call foxgen2(nslots,cmsg,cmnd)
+     if(bMoreCQs) cmsg(1)(40:40)='1'
      open(25,file=fname,status='unknown')
      rewind(25)
      write(25,'(a40)') cmsg(1:nslots)

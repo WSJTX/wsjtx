@@ -2307,7 +2307,7 @@ When not checked you can view the calibration results.</string>
                <enum>Qt::StrongFocus</enum>
               </property>
               <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle FT8 hound mode On/Off. Right-click to toggle last used contest mode On/Off.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle FT8 hound mode On/Off.&lt;br&gt; Right-click to toggle last used contest mode On/Off.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
               <property name="styleSheet">
                <string notr="true"/>
@@ -2375,7 +2375,7 @@ When not checked you can view the calibration results.</string>
                <enum>Qt::StrongFocus</enum>
               </property>
               <property name="toolTip">
-               <string>Switch to FT8 mode</string>
+               <string>Switch to FT8 mode.&lt;br&gt; Right-click to toggle SuperFox mode On/Off.</string>
               </property>
               <property name="text">
                <string>FT8</string>
@@ -3014,7 +3014,7 @@ Yellow when too low</string>
                <property name="maximumSize">
                 <size>
                  <width>16777215</width>
-                 <height>210</height>
+                 <height>230</height>
                 </size>
                </property>
                <property name="tabPosition">
@@ -3423,79 +3423,6 @@ Double-click to reset to the standard 73 message</string>
                    <property name="spacing">
                     <number>3</number>
                    </property>
-                   <item row="3" column="2">
-                    <widget class="QSpinBox" name="sbMax_dB">
-                     <property name="sizePolicy">
-                      <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                       <horstretch>0</horstretch>
-                       <verstretch>0</verstretch>
-                      </sizepolicy>
-                     </property>
-                     <property name="maximumSize">
-                      <size>
-                       <width>16777215</width>
-                       <height>16777215</height>
-                      </size>
-                     </property>
-                     <property name="prefix">
-                      <string>Max dB  </string>
-                     </property>
-                     <property name="minimum">
-                      <number>-15</number>
-                     </property>
-                     <property name="maximum">
-                      <number>70</number>
-                     </property>
-                     <property name="value">
-                      <number>30</number>
-                     </property>
-                    </widget>
-                   </item>
-                   <item row="2" column="2">
-                    <widget class="QSpinBox" name="sbNlist">
-                     <property name="sizePolicy">
-                      <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                       <horstretch>0</horstretch>
-                       <verstretch>0</verstretch>
-                      </sizepolicy>
-                     </property>
-                     <property name="maximumSize">
-                      <size>
-                       <width>16777215</width>
-                       <height>16777215</height>
-                      </size>
-                     </property>
-                     <property name="prefix">
-                      <string>N List     </string>
-                     </property>
-                     <property name="minimum">
-                      <number>5</number>
-                     </property>
-                     <property name="maximum">
-                      <number>100</number>
-                     </property>
-                     <property name="value">
-                      <number>12</number>
-                     </property>
-                    </widget>
-                   </item>
-                   <item row="7" column="2">
-                    <widget class="QPushButton" name="pbFoxReset">
-                     <property name="text">
-                      <string>Reset</string>
-                     </property>
-                    </widget>
-                   </item>
-                   <item row="0" column="1">
-                    <widget class="QLabel" name="label_inProcess">
-                     <property name="text">
-                      <string>In Progress</string>
-                     </property>
-                     <property name="alignment">
-                      <set>Qt::AlignCenter</set>
-                     </property>
-                    </widget>
-                   </item>
                    <item row="1" column="2">
                     <widget class="QComboBox" name="comboBoxHoundSort">
                      <property name="sizePolicy">
@@ -3543,8 +3470,34 @@ Double-click to reset to the standard 73 message</string>
                      </item>
                     </widget>
                    </item>
-                   <item row="4" column="2">
-                    <widget class="QSpinBox" name="sbNslots">
+                   <item row="0" column="1">
+                    <widget class="QLabel" name="label_inProcess">
+                     <property name="text">
+                      <string>In Progress</string>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignCenter</set>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="1" column="1" rowspan="10">
+                    <widget class="DisplayText" name="foxTxListTextBrowser">
+                     <property name="sizePolicy">
+                      <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+                       <horstretch>0</horstretch>
+                       <verstretch>0</verstretch>
+                      </sizepolicy>
+                     </property>
+                     <property name="minimumSize">
+                      <size>
+                       <width>60</width>
+                       <height>0</height>
+                      </size>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="2" column="2">
+                    <widget class="QSpinBox" name="sbNlist">
                      <property name="sizePolicy">
                       <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
                        <horstretch>0</horstretch>
@@ -3557,23 +3510,27 @@ Double-click to reset to the standard 73 message</string>
                        <height>16777215</height>
                       </size>
                      </property>
-                     <property name="suffix">
-                      <string/>
-                     </property>
                      <property name="prefix">
-                      <string>N Slots    </string>
+                      <string>N List     </string>
                      </property>
                      <property name="minimum">
-                      <number>1</number>
-                     </property>
-                     <property name="maximum">
                       <number>5</number>
                      </property>
-                     <property name="value">
-                      <number>1</number>
+                     <property name="maximum">
+                      <number>100</number>
                      </property>
-                     <property name="displayIntegerBase">
-                      <number>10</number>
+                     <property name="value">
+                      <number>12</number>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="0" column="0">
+                    <widget class="QLabel" name="label_queue">
+                     <property name="text">
+                      <string>Queue</string>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignCenter</set>
                      </property>
                     </widget>
                    </item>
@@ -3674,6 +3631,54 @@ Double-click to reset to the standard 73 message</string>
                      </item>
                     </widget>
                    </item>
+                   <item row="9" column="2">
+                    <widget class="QCheckBox" name="cbSendMsg">
+                     <property name="text">
+                      <string>Send msg</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="4" column="2">
+                    <widget class="QSpinBox" name="sbNslots">
+                     <property name="sizePolicy">
+                      <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                       <horstretch>0</horstretch>
+                       <verstretch>0</verstretch>
+                      </sizepolicy>
+                     </property>
+                     <property name="maximumSize">
+                      <size>
+                       <width>16777215</width>
+                       <height>16777215</height>
+                      </size>
+                     </property>
+                     <property name="suffix">
+                      <string/>
+                     </property>
+                     <property name="prefix">
+                      <string>N Slots    </string>
+                     </property>
+                     <property name="minimum">
+                      <number>1</number>
+                     </property>
+                     <property name="maximum">
+                      <number>5</number>
+                     </property>
+                     <property name="value">
+                      <number>1</number>
+                     </property>
+                     <property name="displayIntegerBase">
+                      <number>10</number>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="7" column="2">
+                    <widget class="QPushButton" name="pbFoxReset">
+                     <property name="text">
+                      <string>Reset</string>
+                     </property>
+                    </widget>
+                   </item>
                    <item row="6" column="2">
                     <widget class="QCheckBox" name="cbMoreCQs">
                      <property name="text">
@@ -3681,46 +3686,35 @@ Double-click to reset to the standard 73 message</string>
                      </property>
                     </widget>
                    </item>
-                   <item row="0" column="0">
-                    <widget class="QLabel" name="label_queue">
-                     <property name="text">
-                      <string>Queue</string>
-                     </property>
-                     <property name="alignment">
-                      <set>Qt::AlignCenter</set>
-                     </property>
-                    </widget>
-                   </item>
-                   <item row="8" column="2">
-                    <spacer name="verticalSpacer">
-                     <property name="orientation">
-                      <enum>Qt::Vertical</enum>
-                     </property>
-                     <property name="sizeHint" stdset="0">
-                      <size>
-                       <width>20</width>
-                       <height>10</height>
-                      </size>
-                     </property>
-                    </spacer>
-                   </item>
-                   <item row="1" column="1" rowspan="8">
-                    <widget class="DisplayText" name="foxTxListTextBrowser">
+                   <item row="3" column="2">
+                    <widget class="QSpinBox" name="sbMax_dB">
                      <property name="sizePolicy">
-                      <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+                      <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
                        <horstretch>0</horstretch>
                        <verstretch>0</verstretch>
                       </sizepolicy>
                      </property>
-                     <property name="minimumSize">
+                     <property name="maximumSize">
                       <size>
-                       <width>60</width>
-                       <height>0</height>
+                       <width>16777215</width>
+                       <height>16777215</height>
                       </size>
+                     </property>
+                     <property name="prefix">
+                      <string>Max dB  </string>
+                     </property>
+                     <property name="minimum">
+                      <number>-15</number>
+                     </property>
+                     <property name="maximum">
+                      <number>70</number>
+                     </property>
+                     <property name="value">
+                      <number>30</number>
                      </property>
                     </widget>
                    </item>
-                   <item row="1" column="0" rowspan="8">
+                   <item row="1" column="0" rowspan="10">
                     <widget class="DisplayText" name="houndQueueTextBrowser">
                      <property name="sizePolicy">
                       <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
@@ -3739,6 +3733,13 @@ Double-click to reset to the standard 73 message</string>
                        <width>16777215</width>
                        <height>16777215</height>
                       </size>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="8" column="2">
+                    <widget class="QPushButton" name="pbFreeText">
+                     <property name="text">
+                      <string>Free Text</string>
                      </property>
                     </widget>
                    </item>
@@ -3932,9 +3933,9 @@ Double-click to reset to the standard 73 message</string>
                           <height>34</height>
                          </size>
                         </property>
-						<property name="focusPolicy">
-						 <enum>Qt::StrongFocus</enum>
-						</property>
+                        <property name="focusPolicy">
+                         <enum>Qt::StrongFocus</enum>
+                        </property>
                         <property name="toolTip">
                          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle band hopping On/Off. Band hopping occurs every other full minute. Changes to the checkboxes take effect immediately.&lt;br&gt;Right-click to test the default audio device.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                         </property>
