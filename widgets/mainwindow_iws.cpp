@@ -8189,7 +8189,7 @@ void MainWindow::lookup()
 {
   QString hisCall {ui->dxCallEntry->text()};
   QString hisgrid0 {ui->dxGridEntry->text()};
-  if (!hisCall.size () or (!(m_specOp==SpecOp::NONE or m_specOp==SpecOp::HOUND or m_specOp==SpecOp::Q65_PILEUP))) return;
+  if (!hisCall.size ()) return;
   QFile f {m_config.writeable_data_dir ().absoluteFilePath ("CALL3.TXT")};
   if (f.open (QIODevice::ReadOnly | QIODevice::Text))
     {
@@ -8758,7 +8758,7 @@ void MainWindow::on_logQSOButton_clicked()                 //Log QSO button
     {
       case SpecOp::NA_VHF:
         m_xSent=m_config.my_grid().left(4);
-        m_xRcvd=m_hisGrid;
+        m_xRcvd=m_hisGrid.left(4);
         break;
       case SpecOp::EU_VHF:
         m_rptSent=m_xSent.split(" ").at(0).left(2);
@@ -8777,11 +8777,11 @@ void MainWindow::on_logQSOButton_clicked()                 //Log QSO button
         break;
       case SpecOp::WW_DIGI:
         m_xSent=m_config.my_grid().left(4);
-        m_xRcvd=m_hisGrid;
+        m_xRcvd=m_hisGrid.left(4);
         break;
       case SpecOp::ARRL_DIGI:
         m_xSent=m_config.my_grid().left(4);
-        m_xRcvd=m_hisGrid;
+        m_xRcvd=m_hisGrid.left(4);
         break;
       case SpecOp::Q65_PILEUP:
         m_xSent=m_config.my_grid().left(4);
