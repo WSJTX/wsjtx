@@ -234,25 +234,8 @@ void DisplayText::insertText(QString const& text, QColor bg, QColor fg
 
 void DisplayText::extend_vertical_scrollbar (int min, int max)
 {
-  static int mod_last;
-  static int height;
   if (high_volume_ && m_config && m_config->decodes_from_top ())
     {
-      auto m = modified_vertical_scrollbar_max_;
-      if (m != mod_last) { height = m - mod_last;mod_last = m; }
-      //auto vp_margins2 = viewportMargins ();
-      if (height == 0 && m > viewport()->height()) height =  abs( - viewport()->height());
-      //LOG_INFO ("scrollbar min=" << min << " max="  << max << " mod=" << modified_vertical_scrollbar_max_ << " height=" << viewport()->height() << " top=" << vp_margins2.top() << " bottom=" << vp_margins2.bottom()) << " height=" << height << " mod_last=" << mod_last;
-      if (max > 60000)
-        {
-          QString tmp = toPlainText();
-          while (tmp != NULL && tmp.length() > 100 &&  max > 50000)
-          {
-            tmp.remove(0, tmp.indexOf("\n")+1);
-            max -= height;
-          }
-          setPlainText(tmp);
-        }
       if (max && max != modified_vertical_scrollbar_max_)
         {
           setViewportMargins (0,4,0,0);  // ensure first line is readable
@@ -268,6 +251,10 @@ void DisplayText::extend_vertical_scrollbar (int min, int max)
 
 void DisplayText::new_period ()
 {
+  if (m_config->decodes_from_top ()) {
+    document ()->setMaximumBlockCount (4800);
+    document ()->setMaximumBlockCount (5000);
+  }
   alertsTimer.stop ();
   disconnect (&alertsTimer, &QTimer::timeout, this, &DisplayText::AudioAlerts);
   if((m_config->alert_Enabled()) && ((m_config->alert_DXCC()) || (m_config->alert_DXCCOB()) || (m_config->alert_Grid()) ||
@@ -792,11 +779,12 @@ namespace
 void DisplayText::highlight_callsign (QString const& callsign, QColor const& bg,
                                       QColor const& fg, bool last_period_only)
 {
-  if (!callsign.size ())
+  auto regexp = callsign;
+  last_period_only = true;  // highlight last period only because it is faster and more robust
+  if (!callsign.size () || callsign == "" || callsign == " " || callsign == "0")
     {
       return;
     }
-  auto regexp = callsign;
   // allow for hashed callsigns and escape any regexp metacharacters
   QRegularExpression target {QString {"<?"}
                              + regexp.replace (QLatin1Char {'+'}, QLatin1String {"\\+"})
