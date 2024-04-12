@@ -6762,7 +6762,7 @@ void MainWindow::guiUpdate()
   if(nsec != m_sec0) {
 //    qDebug() << "AAA" << nsec%60 << int(m_specOp);
 
-    if (m_tune && !(m_config.Tune_watchdog_disabled() || m_mode=="WSPR" || m_mode=="FST4W")) {
+    if (m_tune && m_config.tune_watchdog() && !(m_mode=="WSPR" || m_mode=="FST4W")) {
         QString remtime;
         remtime = QString::asprintf("%.0f s",tuneATU_Timer.remainingTime()/1000.0);
         ui->tuneButton->setText(remtime);  // display Tune watchdog countdog
@@ -10145,8 +10145,8 @@ void MainWindow::on_tuneButton_clicked (bool checked)
 {
   stopWRTimer.stop();           // stop any Wait & Reply timeout
   stopWCTimer.stop();           // stop any Wait & Call timeout
-  if (checked && !(m_config.Tune_watchdog_disabled() || m_mode=="WSPR" || m_mode=="FST4W")) {
-      tuneATU_Timer.start (90000); // tune watchdog
+  if (checked && m_config.tune_watchdog() && !(m_mode=="WSPR" || m_mode=="FST4W")) {
+      tuneATU_Timer.start (m_config.tune_watchdog_time()*1000); // tune watchdog
   }
   if (!checked) {
       tuneATU_Timer.stop ();    // stop tune watchdog when stopping Tune manually
