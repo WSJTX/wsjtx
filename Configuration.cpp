@@ -2311,7 +2311,7 @@ void Configuration::impl::read_settings ()
   alternate_bindings_ = settings_->value ("AlternateBindings", false).toBool ();
   watchdog_ = settings_->value ("TxWatchdog", 6).toInt ();
   tune_watchdog_ = settings_->value("TuneWatchdog",true).toBool ();
-  tune_watchdog_time_ = settings_->value ("TuneWatchdogTime", 90).toInt ();
+  tune_watchdog_time_ = settings_->value ("TuneWatchdogTime", 60).toInt ();
   TX_messages_ = settings_->value ("Tx2QSO", true).toBool ();
   enable_VHF_features_ = settings_->value("VHFUHF",false).toBool ();
   decode_at_52s_ = settings_->value("Decode52",false).toBool ();
