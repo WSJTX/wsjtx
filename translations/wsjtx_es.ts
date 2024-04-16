@@ -2444,7 +2444,7 @@ Error(%2): %3</translation>
         <location filename="../widgets/mainwindow.ui" line="525"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle a pure Tx tone On/Off&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translatorcomment>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Activar/desactivar un tono de transmisión puro&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translatorcomment>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Activa/Desactiva la transmisión de un tono continuo&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Activa/Desactiva TX de un tono puro.  Botón derecho para ajustar la radio&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="528"/>
@@ -2455,7 +2455,7 @@ Error(%2): %3</translation>
     <message>
         <location filename="../widgets/mainwindow.ui" line="543"/>
         <source>&amp;Tune</source>
-        <translation>Tono TX (&amp;T)</translation>
+        <translation>TX Tono (&amp;T)</translation>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="553"/>
