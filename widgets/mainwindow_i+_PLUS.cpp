@@ -8650,42 +8650,42 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
       }
   }
   // Toggle FT8 DXp frequencies
-  if(ui->pb80->hasFocus() && (event->button() & Qt::RightButton) && m_mode=="FT8") {
+  if(ui->pb80->hasFocus() && (event->button() & Qt::RightButton) && (m_mode=="FT8" || m_mode=="FT4")) {
     keep_frequency = true;
     setRig(3567000);
     QTimer::singleShot (250, [=] {keep_frequency = false;});
   }
-  if(ui->pb40->hasFocus() && (event->button() & Qt::RightButton) && m_mode=="FT8") {
+  if(ui->pb40->hasFocus() && (event->button() & Qt::RightButton) && (m_mode=="FT8" || m_mode=="FT4")) {
     keep_frequency = true;
     setRig(7056000);
     QTimer::singleShot (250, [=] {keep_frequency = false;});
   }
-  if(ui->pb30->hasFocus() && (event->button() & Qt::RightButton) && m_mode=="FT8") {
+  if(ui->pb30->hasFocus() && (event->button() & Qt::RightButton) && (m_mode=="FT8" || m_mode=="FT4")) {
     keep_frequency = true;
     setRig(10131000);
     QTimer::singleShot (250, [=] {keep_frequency = false;});
   }
-  if(ui->pb20->hasFocus() && (event->button() & Qt::RightButton) && m_mode=="FT8") {
+  if(ui->pb20->hasFocus() && (event->button() & Qt::RightButton) && (m_mode=="FT8" || m_mode=="FT4")) {
     keep_frequency = true;
     setRig(14090000);
     QTimer::singleShot (250, [=] {keep_frequency = false;});
   }
-  if(ui->pb17->hasFocus() && (event->button() & Qt::RightButton) && m_mode=="FT8") {
+  if(ui->pb17->hasFocus() && (event->button() & Qt::RightButton) && (m_mode=="FT8" || m_mode=="FT4")) {
     keep_frequency = true;
     setRig(18095000);
     QTimer::singleShot (250, [=] {keep_frequency = false;});
   }
-  if(ui->pb15->hasFocus() && (event->button() & Qt::RightButton) && m_mode=="FT8") {
+  if(ui->pb15->hasFocus() && (event->button() & Qt::RightButton) && (m_mode=="FT8" || m_mode=="FT4")) {
     keep_frequency = true;
     setRig(21091000);
     QTimer::singleShot (250, [=] {keep_frequency = false;});
   }
-  if(ui->pb12->hasFocus() && (event->button() & Qt::RightButton) && m_mode=="FT8") {
+  if(ui->pb12->hasFocus() && (event->button() & Qt::RightButton) && (m_mode=="FT8" || m_mode=="FT4")) {
     keep_frequency = true;
     setRig(24911000);
     QTimer::singleShot (250, [=] {keep_frequency = false;});
   }
-  if(ui->pb10->hasFocus() && (event->button() & Qt::RightButton) && m_mode=="FT8") {
+  if(ui->pb10->hasFocus() && (event->button() & Qt::RightButton) && (m_mode=="FT8" || m_mode=="FT4")) {
     keep_frequency = true;
     setRig(28091000);
     QTimer::singleShot (250, [=] {keep_frequency = false;});
