@@ -2517,6 +2517,13 @@ void MainWindow::fastSink(qint64 frames)
         }
     }
 
+    // Stop Wait & Call timeout when in QSO with this station for MSK144
+    if (ui->DX_Call_Button->isChecked() && m_hisCall!="" && text.contains(m_config.my_callsign() + " " + m_hisCall)) {
+        stopWCTimer.stop();                                                   // stop any Wait & Call timeout
+        if (ui->DX_Call_Button->isChecked()) ui->DX_Call_Button->click ();    // disable Wait & Call
+        no_wait_and_call = false;                                             // reset Wait & Call
+    }
+
     // Wait & Reply for MSK144
     if (text.contains(m_config.my_callsign() + " " + m_hisCall) && m_hisCall!="" &&
         !text.contains("73 ") && m_mode=="MSK144" && m_config.Wait_features_enabled()
@@ -2538,7 +2545,7 @@ void MainWindow::fastSink(qint64 frames)
                   processMessage(decodedtext);
                   auto_tx_mode(true);
                   no_wait_and_call = true;
-                  stopWCTimer.start(int(6000.0*m_TRperiod));     // Wait & Call Tx max 8*TRperiod
+                  stopWCTimer.start(int(6200.0*m_TRperiod));     // Wait & Call Tx max 6*TRperiod
     }
 
     // CQ: First for MSK144
@@ -2553,7 +2560,7 @@ void MainWindow::fastSink(qint64 frames)
                   auto now = QDateTime::currentDateTimeUtc();
                   m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));
                   QTimer::singleShot (6000, [=] {selected = false;});
-                  if (pounce) stopWCTimer.start(int(6000.0*m_TRperiod));     // Tx max 8*TRperiod
+                  if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));     // Tx max 6*TRperiod
     }
 
     // CQ: Max Dist for MSK144
@@ -2580,7 +2587,7 @@ void MainWindow::fastSink(qint64 frames)
                 if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {
                    auto_tx_mode(true);
                    processMessage(decodedtext);
-                   if (pounce) stopWCTimer.start(int(6000.0*m_TRperiod));     // Tx max 8*TRperiod
+                   if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));     // Tx max 6*TRperiod
                 }
                 ui->dxCallEntry->setText(deCall);
                 genStdMsgs(QString::number(decodedtext.snr()));
@@ -2611,7 +2618,7 @@ void MainWindow::fastSink(qint64 frames)
                 if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {
                     auto_tx_mode(true);
                     processMessage(decodedtext);
-                    if (pounce) stopWCTimer.start(int(6000.0*m_TRperiod));     // Tx max 8*TRperiod
+                    if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));     // Tx max 6*TRperiod
                 }
                 ui->dxCallEntry->setText(deCall);
                 genStdMsgs(QString::number(decodedtext.snr()));
@@ -2642,7 +2649,7 @@ void MainWindow::fastSink(qint64 frames)
                 if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {
                     auto_tx_mode(true);
                     processMessage(decodedtext);
-                    if (pounce) stopWCTimer.start(int(6000.0*m_TRperiod));     // Tx max 8*TRperiod
+                    if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));     // Tx max 6*TRperiod
                 }
                 ui->dxCallEntry->setText(deCall);
                 genStdMsgs(QString::number(decodedtext.snr()));
@@ -3376,8 +3383,10 @@ void MainWindow::stopWRTimeout()
 
 void MainWindow::stopWCTimeout()
 {
-    auto_tx_mode(false);
-    if (ui->DX_Call_Button->isChecked()) ui->DX_Call_Button->click ();
+    if (ui->DX_Call_Button->isChecked()) {
+      ui->DX_Call_Button->click ();
+      auto_tx_mode(false);
+    }
     no_wait_and_call = false;
 }
 
@@ -5117,6 +5126,13 @@ void MainWindow::readFromStdout()                             //readFromStdout
           });
         }
 
+        // Stop Wait & Call timeout when in QSO with this station
+        if (ui->DX_Call_Button->isChecked() && m_hisCall!="" && text.contains(m_config.my_callsign() + " " + m_hisCall)) {
+            stopWCTimer.stop();                                                   // stop any Wait & Call timeout
+            if (ui->DX_Call_Button->isChecked()) ui->DX_Call_Button->click ();    // disable Wait & Call
+            no_wait_and_call = false;                                             // reset Wait & Call
+        }
+
         // Wait & Reply + FT4 NS (NCCC Sprints) reply to incoming RR73 messages
         if ((m_mode=="FT8" or m_mode=="FT4" or m_mode=="Q65" or m_mode=="FST4" or m_mode=="JT65" or m_mode=="JT9" or m_mode=="JT4") && m_hisCall!=""
             && text.contains(m_config.my_callsign() + " " + m_hisCall) && ((!text.contains("73 ")
@@ -5146,7 +5162,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
               processMessage(decodedtext0);
               auto_tx_mode(true);
               no_wait_and_call = true;
-              stopWCTimer.start(int(6000.0*m_TRperiod));     // Wait & Call Tx max 8*TRperiod
+              stopWCTimer.start(int(6200.0*m_TRperiod));     // Wait & Call Tx max 8*TRperiod
         }
 
         // Filtering
@@ -5613,7 +5629,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
          auto now = QDateTime::currentDateTimeUtc();
          m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));
          QTimer::singleShot (6000, [=] {selected = false;});
-         if (pounce) stopWCTimer.start(int(6000.0*m_TRperiod));     // Tx max 8*TRperiod
+         if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));     // Tx max 6*TRperiod
        }
 
        // CQ: Max Dist
@@ -5640,7 +5656,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
                    if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {
                        auto_tx_mode(true);
                        processMessage(decodedtext0);
-                       if (pounce) stopWCTimer.start(int(6000.0*m_TRperiod));     // Tx max 8*TRperiod
+                       if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));     // Tx max 6*TRperiod
                    }
                    ui->dxCallEntry->setText(deCall);
                    genStdMsgs(QString::number(decodedtext.snr()));
@@ -5671,7 +5687,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
                    if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {
                        auto_tx_mode(true);
                        processMessage(decodedtext0);
-                       if (pounce) stopWCTimer.start(int(6000.0*m_TRperiod));     // Tx max 8*TRperiod
+                       if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));     // Tx max 6*TRperiod
                    }
                    ui->dxCallEntry->setText(deCall);
                    genStdMsgs(QString::number(decodedtext.snr()));
@@ -5702,7 +5718,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
                    if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {
                        auto_tx_mode(true);
                        processMessage(decodedtext0);
-                       if (pounce) stopWCTimer.start(int(6000.0*m_TRperiod));     // Tx max 8*TRperiod
+                       if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));     // Tx max 6*TRperiod
                    }
                    ui->dxCallEntry->setText(deCall);
                    genStdMsgs(QString::number(decodedtext.snr()));
@@ -13626,7 +13642,7 @@ void MainWindow::check_button_color()
           m_specOp==SpecOp::NONE && ui->cbAutoSeq->isChecked() && ui->cbAutoSeq->isChecked()
           && m_config.Wait_features_enabled()) or m_specOp==SpecOp::HOUND) && m_hisCall!="") {
         if (ui->DX_Call_Button->isChecked()) {
-            ui->DX_Call_Button->setStyleSheet("QPushButton {background-color: #ff0000; border-style: outset; border-width: 1px; border-radius: 5px; border-color: black; min-width: 5em; padding: 3px;}");
+            ui->DX_Call_Button->setStyleSheet("QPushButton {background-color: #ff0000; color: #ffffff; border-style: outset; border-width: 1px; border-radius: 5px; border-color: black; min-width: 5em; padding: 3px;}");
         } else {
             ui->DX_Call_Button->setStyleSheet("QPushButton {background-color: #ffff00; color: #000000; border: 1px solid #32414B; border-radius: 4px; padding: 3px; outline: none;}");
         }
