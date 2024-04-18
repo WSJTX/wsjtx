@@ -2884,7 +2884,7 @@ When not checked you can view the calibration results.</string>
                  <enum>Qt::StrongFocus</enum>
                </property>
                <property name="toolTip">
-                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle a pure Tx tone On/Off &lt;br&gt;Right-click to tune rig&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>               </property>
+                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle a pure Tx tone On/Off &lt;br&gt;Right-click to tune rig&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                </property>
                <property name="accessibleDescription">
                 <string>Toggle a pure Tx tone On/Off</string>
