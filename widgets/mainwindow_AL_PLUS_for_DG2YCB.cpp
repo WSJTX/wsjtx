@@ -5235,7 +5235,11 @@ void MainWindow::readFromStdout()                             //readFromStdout
                     text2 = "___";  // prevent segfault errors with free text messages
                   }
               } else {
-                  text2 = tw[1];    // otherwise analyze word 2 for filtering
+                  if (text.contains(";")) {
+                    text2 = tw[3];    // analyze word 4 for filtering of combined messages
+                  } else {
+                    text2 = tw[1];    // otherwise analyze word 2 for filtering
+                  }
               }
               if (!(SpecOp::NONE==m_specOp && m_config.AlwaysPass () // Always pass messages with keywords from Always Pass list
                     && (
