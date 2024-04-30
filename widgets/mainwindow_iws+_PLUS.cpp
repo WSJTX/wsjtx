@@ -244,6 +244,7 @@ bool BlankLineInserted = false;
 bool m_txing;
 bool HoldTxFreqStatus;
 bool m_band_changed = false;
+bool rigFailed = false;
 QString txLog;
 QString ignoreList;
 
@@ -2890,8 +2891,9 @@ void MainWindow::showStatusMessage(const QString& statusMsg)
   statusBar()->showMessage(statusMsg, 5000);
 }
 
-void MainWindow::on_actionSettings_triggered()               //Setup Dialog
+void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settings)
 {
+   keep_frequency = true;
   m_config.read_CALL3_version();
   // things that might change that we need know about
   auto callsign = m_config.my_callsign ();
@@ -2933,7 +2935,7 @@ void MainWindow::on_actionSettings_triggered()               //Setup Dialog
                                           , m_tx_audio_buffer_frames);
     }
 
-    displayDialFrequency ();
+    if (rigFailed) displayDialFrequency ();   // reset frequency only when needed
     bool vhf {m_config.enable_VHF_features()};
     m_wideGraph->setVHF(vhf);
     if (!vhf) ui->sbSubmode->setValue (0);
@@ -2941,9 +2943,11 @@ void MainWindow::on_actionSettings_triggered()               //Setup Dialog
     setup_status_bar (vhf);
     bool b = vhf && (m_mode=="JT4" or m_mode=="JT65" or
                      m_mode=="JT9" or m_mode=="MSK144" or m_mode=="Q65");
-    if(b) VHF_features_enabled(b);
-    set_mode (m_mode);
-    if(b) VHF_features_enabled(b);
+    if (b) {
+      VHF_features_enabled(b);
+      set_mode (m_mode);
+      VHF_features_enabled(b);
+    }
 
     m_config.transceiver_online ();
     if(!m_bFastMode) setXIT (ui->TxFreqSpinBox->value ());
@@ -2991,6 +2995,8 @@ void MainWindow::on_actionSettings_triggered()               //Setup Dialog
 
     configActiveStations();
     check_button_color();
+    rigFailed = false;
+    keep_frequency = false;
   }
 }
 
@@ -10577,6 +10583,7 @@ void MainWindow::handle_transceiver_failure (QString const& reason)
   ui->readFreq->setEnabled (true);
   on_stopTxButton_clicked ();
   rigFailure (reason);
+  rigFailed = true;
 }
 
 void MainWindow::rigFailure (QString const& reason)
