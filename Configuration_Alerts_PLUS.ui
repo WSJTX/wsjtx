@@ -4146,10 +4146,10 @@ Right click for insert and delete options.</string>
          <item row="20" column="0" colspan="4">
           <widget class="QCheckBox" name="cb_filters_for_Wait_and_Pounce_only">
            <property name="toolTip">
-            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Use filters for Wait and Pounce only.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Use filters for Wait and Pounce, CQ: First, etc. only (all messages are still displayed).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
            </property>
            <property name="text">
-            <string>Use filters for Wait and Pounce only</string>
+            <string>Use filters for Wait and Pounce, CQ: First, etc. only (all messages are still displayed)</string>
            </property>
           </widget>
          </item>
@@ -4501,12 +4501,12 @@ Right click for insert and delete options.</string>
  </connections>
  <buttongroups>
   <buttongroup name="special_op_activity_button_group"/>
-  <buttongroup name="PTT_method_button_group"/>
+  <buttongroup name="CAT_stop_bits_button_group"/>
   <buttongroup name="split_mode_button_group"/>
   <buttongroup name="TX_audio_source_button_group"/>
   <buttongroup name="TX_mode_button_group"/>
-  <buttongroup name="CAT_stop_bits_button_group"/>
   <buttongroup name="CAT_data_bits_button_group"/>
+  <buttongroup name="PTT_method_button_group"/>
   <buttongroup name="CAT_handshake_button_group"/>
  </buttongroups>
 </ui>
