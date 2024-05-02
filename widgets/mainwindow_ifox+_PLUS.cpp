@@ -2940,7 +2940,7 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
                                           , m_tx_audio_buffer_frames);
     }
 
-    if (rigFailed) displayDialFrequency ();   // reset frequency only when needed
+    if (rigFailed or ui->bandComboBox->currentText()=="oob") displayDialFrequency ();   // reset frequency only when needed // URUR
     bool vhf {m_config.enable_VHF_features()};
     m_wideGraph->setVHF(vhf);
     if (!vhf) ui->sbSubmode->setValue (0);
@@ -9837,9 +9837,11 @@ void MainWindow::switch_mode (Mode mode)
   m_fastGraph->setMode(m_mode);
   m_config.frequencies ()->filter (m_config.region (), mode, true); // filter on current time
   auto const& row = m_config.frequencies ()->best_working_frequency (m_freqNominal);
-  ui->bandComboBox->setCurrentIndex (row);
-  if (row >= 0) {
-    on_bandComboBox_activated (row);
+  if (!keep_frequency) {
+      ui->bandComboBox->setCurrentIndex (row);
+    if (row >= 0 ) {
+      on_bandComboBox_activated (row);
+    }
   }
   ui->rptSpinBox->setSingleStep(1);
   ui->rptSpinBox->setMinimum(-50);
