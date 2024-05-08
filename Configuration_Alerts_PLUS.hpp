@@ -101,6 +101,7 @@ public:
   QString my_grid () const;
   QString Field_Day_Exchange() const;
   QString RTTY_Exchange() const;
+  QString FoxKey() const;
   QString Contest_Name() const;
   QString Blacklist1() const;
   QString Blacklist2() const;

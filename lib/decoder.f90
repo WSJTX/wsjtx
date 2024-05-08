@@ -67,7 +67,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   ntr0=params%ntr
   rms=sqrt(dot_product(float(id2(1:180000)),                         &
        float(id2(1:180000)))/180000.0)
-  if(rms.lt.3.0) go to 800
+  if(rms.lt.0.5) go to 800
 
   !cast C character arrays to Fortran character strings
   datetime=transfer(params%datetime, datetime)
@@ -143,7 +143,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
         if(params%nzhsym.lt.50) go to 800
 ! Call the superFox decoder
         open(47,file='fort.47',status='unknown',access='stream')
-        write(47) params%nutc,id2(1:20),id2(1:180000)
+        write(47) params%yymmdd,params%nutc,id2(1:20),id2(1:180000)
         close(47)
         call execute_command_line('.\sfrx fort.47')
      else

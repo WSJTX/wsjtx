@@ -1661,12 +1661,21 @@ install (DIRECTORY
   )
 
 if (NOT UNIX)
+  install (FILES
+  lib/superfox/sfrx.exe
+  lib/superfox/sftx.exe
+  DESTINATION ${CMAKE_INSTALL_BINDIR}
+  #COMPONENT runtime
+  )
+endif (NOT UNIX)
+
+if (NOT UNIX)
   install (DIRECTORY
   ${PROJECT_SOURCE_DIR}/sounds
   DESTINATION ${CMAKE_INSTALL_BINDIR}
   #COMPONENT runtime
   )
-  endif (NOT UNIX)
+endif (NOT UNIX)
 	
 if (UNIX)
   install (DIRECTORY
@@ -1674,7 +1683,7 @@ if (UNIX)
   DESTINATION $ENV{HOME}
   #COMPONENT runtime
   )
-  endif (UNIX)
+endif (UNIX)
 
 #
 # Mac installer files

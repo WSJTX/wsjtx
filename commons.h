@@ -66,6 +66,7 @@ typedef struct dec_data {
     char hisgrid[6];
     bool b_even_seq;
     bool b_superfox;
+    int yymmdd;
   } params;
 } dec_data_t;
 

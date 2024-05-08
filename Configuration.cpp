@@ -619,6 +619,7 @@ private:
   Q_SLOT void on_cbAutoLog_clicked(bool);
   Q_SLOT void on_Field_Day_Exchange_editingFinished ();
   Q_SLOT void on_RTTY_Exchange_editingFinished ();
+  Q_SLOT void on_FoxKey_textEdited (QString const&);
   Q_SLOT void on_Contest_Name_editingFinished ();
   Q_SLOT void on_Blacklist1_editingFinished ();
   Q_SLOT void on_Blacklist2_editingFinished ();
@@ -807,6 +808,7 @@ private:
   QString highlight_orange_callsigns_;
   QString highlight_blue_callsigns_;
   QString hamlib_backed_up_;
+  QString FoxKey_;
   QString cloudLogApiUrl_;
   QString cloudLogApiKey_;
 
@@ -1214,6 +1216,11 @@ QString Configuration::Field_Day_Exchange() const
 QString Configuration::RTTY_Exchange() const
 {
   return m_->RTTY_exchange_;
+}
+
+QString Configuration::FoxKey() const
+{
+  return m_->FoxKey_;
 }
 
 QString Configuration::Contest_Name() const
@@ -2095,9 +2102,11 @@ void Configuration::impl::read_settings ()
   my_grid_ = settings_->value ("MyGrid", QString {}).toString ();
   FD_exchange_ = settings_->value ("Field_Day_Exchange",QString {}).toString ();
   RTTY_exchange_ = settings_->value ("RTTY_Exchange",QString {}).toString ();
+  FoxKey_ = settings_->value ("FoxKey",QString {}).toString ();
   Contest_Name_ = settings_->value ("Contest_Name",QString {}).toString ();
   ui_->Field_Day_Exchange->setText(FD_exchange_);
   ui_->RTTY_Exchange->setText(RTTY_exchange_);
+  ui_->FoxKey->setText(FoxKey_);
   ui_->Contest_Name->setText(Contest_Name_);
 
   Blacklist1_ = settings_->value ("Blacklist1",QString {}).toString ();
@@ -2462,6 +2471,7 @@ void Configuration::impl::write_settings ()
   settings_->setValue ("MyGrid", my_grid_);
   settings_->setValue ("Field_Day_Exchange", FD_exchange_);
   settings_->setValue ("RTTY_Exchange", RTTY_exchange_);
+  settings_->setValue ("FoxKey", FoxKey_);
   settings_->setValue ("Contest_Name", Contest_Name_);
   settings_->setValue ("Blacklist1", Blacklist1_);
   settings_->setValue ("Blacklist2", Blacklist2_);
@@ -3034,6 +3044,7 @@ void Configuration::impl::accept ()
   my_grid_ = ui_->grid_line_edit->text ();
   FD_exchange_= ui_->Field_Day_Exchange->text ().toUpper ();
   RTTY_exchange_= ui_->RTTY_Exchange->text ().toUpper ();
+  FoxKey_= ui_->FoxKey->text().toUpper();
   Contest_Name_= ui_->Contest_Name->text ().toUpper ();
   Blacklist1_= ui_->Blacklist1->text ().toUpper ();
   Blacklist2_= ui_->Blacklist2->text ().toUpper ();
@@ -4233,6 +4244,11 @@ void Configuration::impl::on_Field_Day_Exchange_editingFinished ()
 void Configuration::impl::on_RTTY_Exchange_editingFinished ()
 {
   ui_->RTTY_Exchange->setText (ui_->RTTY_Exchange->text ().toUpper ());
+}
+
+void Configuration::impl::on_FoxKey_textEdited (QString const& ckey)
+{
+  ui_->FoxKey->setText (ckey.toUpper ());
 }
 
 void Configuration::impl::on_Contest_Name_editingFinished ()
