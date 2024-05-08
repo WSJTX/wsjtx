@@ -246,6 +246,7 @@ bool BlankLineInserted = false;
 bool m_txing;
 bool HoldTxFreqStatus;
 bool m_band_changed = false;
+bool no_decodes_to_UDP = false;
 bool rigFailed = false;
 QString txLog;
 QString ignoreList;
@@ -2940,7 +2941,7 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
                                           , m_tx_audio_buffer_frames);
     }
 
-    if (rigFailed or ui->bandComboBox->currentText()=="oob") displayDialFrequency ();   // reset frequency only when needed // URUR
+    if (rigFailed or ui->bandComboBox->currentText()=="oob") displayDialFrequency ();   // reset frequency only when needed
     bool vhf {m_config.enable_VHF_features()};
     m_wideGraph->setVHF(vhf);
     if (!vhf) ui->sbSubmode->setValue (0);
@@ -3400,10 +3401,13 @@ void MainWindow::displayDialFrequency ()
       band_changed(dial_frequency);
       // prevent wrong frequencies for all.txt, PSK Reporter and highlighting for late decodes after band changes
       m_displayBand = false;
+      no_decodes_to_UDP = true;  // prevent wrong frequencies for devices connected via UDP  // URUR
       QTimer::singleShot ((int(600.0*m_TRperiod)), [=] {
           m_freqNominalPeriod = m_freqNominal;
           m_currentBandPeriod = m_currentBand;
           m_displayBand = true;
+          no_decodes_to_UDP = false;  // prevent wrong frequencies for devices connected via UDP
+          pskSetLocal ();   // prevent wrong frequencies for PSK Reporter antenna description
       });
     }
 
@@ -10625,7 +10629,7 @@ void MainWindow::handle_transceiver_update (Transceiver::TransceiverState const&
 
             m_lastDialFreq = m_freqNominal;
             m_secBandChanged=QDateTime::currentMSecsSinceEpoch()/1000;
-            pskSetLocal ();
+//            pskSetLocal ();  // better be done after a band change  // URUR
             statusChanged();
             m_wideGraph->setDialFreq(m_freqNominal / 1.e6);
           }
@@ -10950,7 +10954,7 @@ void MainWindow::pskSetLocal ()
                                            , StationList::description_column).data ().toString ();
   }
   // qDebug() << "To PSKreporter: local station details";
-  m_psk_Reporter.setLocalStation(m_config.my_callsign (), m_config.my_grid (), antenna_description);
+  m_psk_Reporter.setLocalStation(m_config.my_callsign (), m_config.my_grid (), antenna_description);  // URUR
 }
 
 void MainWindow::transmitDisplay (bool transmitting)
@@ -11334,6 +11338,7 @@ void MainWindow::replayDecodes ()
 
 void MainWindow::postDecode (bool is_new, QString const& message)
 {
+  if (no_decodes_to_UDP) return;  // Don't send decoded messages to messageClient after a band change  // URUR
   auto const& decode = message.trimmed ();
   auto const& parts = decode.left (22).split (' ', SkipEmptyParts);
   if (parts.size () >= 5)
