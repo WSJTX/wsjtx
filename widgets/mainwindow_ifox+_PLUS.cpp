@@ -8773,6 +8773,38 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
     QTimer::singleShot (250, [=] {keep_frequency = false;});
     ui->pb6->clearFocus();
   }
+  if(ui->pb2->hasFocus() && (event->button() & Qt::RightButton)) {
+    int f;
+    if (m_config.region()==2) {
+      f = 222174000;
+    } else {
+      f = 70154000;
+    }
+    auto const& row = m_config.frequencies ()->best_working_frequency (f);
+    ui->bandComboBox->setCurrentIndex (row);
+    if (row >= 0) {
+      on_bandComboBox_activated (row);
+    } else {
+      keep_frequency = true;
+      setRig(f);
+      QTimer::singleShot (250, [=] {keep_frequency = false;});
+    }
+    setXIT (ui->TxFreqSpinBox->value ());
+    ui->pb2->clearFocus();
+  }
+  if(ui->pb70->hasFocus() && (event->button() & Qt::RightButton)) {
+    auto const& row = m_config.frequencies ()->best_working_frequency (1296174000);
+    ui->bandComboBox->setCurrentIndex (row);
+    if (row >= 0) {
+      on_bandComboBox_activated (row);
+    } else {
+      keep_frequency = true;
+      setRig(1296174000);
+      QTimer::singleShot (250, [=] {keep_frequency = false;});
+    }
+    setXIT (ui->TxFreqSpinBox->value ());
+    ui->pb70->clearFocus();
+  }
 // Testing the default audio device
 #ifdef WIN32
   if (ui->pbBandHopping->hasFocus() && event->button() & Qt::RightButton) {
@@ -14154,23 +14186,31 @@ void MainWindow::check_button_color()
                ui->pb6->setStyleSheet("QPushButton {background-color: #e1e1e1; border: 1px solid #adadad; border-radius: 0px; padding: 3px; outline: none;}");
             }
         }
-        if (band=="2m") {
-            ui->pb2->setStyleSheet("QPushButton {background-color: #00ff00; color: #000000; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none;}");
+        if (band=="4m" or band=="1.25m" ) {
+            ui->pb2->setStyleSheet("QPushButton {background-color: #ffff00; color: #000000; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none;}");
         } else {
-            if (m_useDarkStyle) {
-               ui->pb2->setStyleSheet("QPushButton {background-color: #505F69; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none;}");
-            } else {
-               ui->pb2->setStyleSheet("QPushButton {background-color: #e1e1e1; border: 1px solid #adadad; border-radius: 0px; padding: 3px; outline: none;}");
-            }
+          if (band=="2m") {
+              ui->pb2->setStyleSheet("QPushButton {background-color: #00ff00; color: #000000; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none;}");
+          } else {
+              if (m_useDarkStyle) {
+                 ui->pb2->setStyleSheet("QPushButton {background-color: #505F69; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none;}");
+              } else {
+                 ui->pb2->setStyleSheet("QPushButton {background-color: #e1e1e1; border: 1px solid #adadad; border-radius: 0px; padding: 3px; outline: none;}");
+              }
+          }
         }
-        if (band=="70cm") {
-            ui->pb70->setStyleSheet("QPushButton {background-color: #00ff00; color: #000000; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none;}");
+        if (band=="23cm") {
+            ui->pb70->setStyleSheet("QPushButton {background-color: #ffff00; color: #000000; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none;}");
         } else {
-            if (m_useDarkStyle) {
-               ui->pb70->setStyleSheet("QPushButton {background-color: #505F69; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none;}");
-            } else {
-               ui->pb70->setStyleSheet("QPushButton {background-color: #e1e1e1; border: 1px solid #adadad; border-radius: 0px; padding: 3px; outline: none;}");
-            }
+          if (band=="70cm") {
+              ui->pb70->setStyleSheet("QPushButton {background-color: #00ff00; color: #000000; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none;}");
+          } else {
+              if (m_useDarkStyle) {
+                 ui->pb70->setStyleSheet("QPushButton {background-color: #505F69; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none;}");
+              } else {
+                 ui->pb70->setStyleSheet("QPushButton {background-color: #e1e1e1; border: 1px solid #adadad; border-radius: 0px; padding: 3px; outline: none;}");
+              }
+          }
         }
     } else {
         ui->pb160->setVisible(false);
