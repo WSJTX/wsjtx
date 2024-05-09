@@ -3402,7 +3402,7 @@ void MainWindow::displayDialFrequency ()
       band_changed(dial_frequency);
       // prevent wrong frequencies for all.txt, PSK Reporter and highlighting for late decodes after band changes
       m_displayBand = false;
-      no_decodes_to_UDP = true;  // prevent wrong frequencies for devices connected via UDP  // URUR
+      no_decodes_to_UDP = true;  // prevent wrong frequencies for devices connected via UDP
       QTimer::singleShot ((int(600.0*m_TRperiod)), [=] {
           m_freqNominalPeriod = m_freqNominal;
           m_currentBandPeriod = m_currentBand;
@@ -10629,7 +10629,7 @@ void MainWindow::handle_transceiver_update (Transceiver::TransceiverState const&
 
             m_lastDialFreq = m_freqNominal;
             m_secBandChanged=QDateTime::currentMSecsSinceEpoch()/1000;
-//            pskSetLocal ();  // better be done after a band change  // URUR
+//            pskSetLocal ();  // better be done after a band change
             statusChanged();
             m_wideGraph->setDialFreq(m_freqNominal / 1.e6);
           }
@@ -10954,7 +10954,7 @@ void MainWindow::pskSetLocal ()
                                            , StationList::description_column).data ().toString ();
   }
   // qDebug() << "To PSKreporter: local station details";
-  m_psk_Reporter.setLocalStation(m_config.my_callsign (), m_config.my_grid (), antenna_description);  // URUR
+  m_psk_Reporter.setLocalStation(m_config.my_callsign (), m_config.my_grid (), antenna_description);
 }
 
 void MainWindow::transmitDisplay (bool transmitting)
@@ -11337,7 +11337,7 @@ void MainWindow::replayDecodes ()
 
 void MainWindow::postDecode (bool is_new, QString const& message)
 {
-  if (no_decodes_to_UDP) return;  // Don't send decoded messages to messageClient after a band change  // URUR
+  if (no_decodes_to_UDP) return;  // Don't send decoded messages to messageClient after a band change
   auto const& decode = message.trimmed ();
   auto const& parts = decode.left (22).split (' ', SkipEmptyParts);
   if (parts.size () >= 5)
