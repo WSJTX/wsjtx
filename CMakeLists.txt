@@ -1662,8 +1662,10 @@ install (DIRECTORY
 
 if (NOT UNIX)
   install (FILES
-  lib/superfox/sfrx.exe
-  lib/superfox/sftx.exe
+#  lib/superfox/sfrx.exe
+#  lib/superfox/sftx.exe
+#  lib/superfox/keygen.exe
+#  lib/superfox/foxchk.exe
   DESTINATION ${CMAKE_INSTALL_BINDIR}
   #COMPONENT runtime
   )

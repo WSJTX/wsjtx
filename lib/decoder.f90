@@ -52,6 +52,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   character(len=20) :: datetime
   character(len=12) :: mycall, hiscall
   character(len=6) :: mygrid, hisgrid
+  character(len=256) :: cmnd
   character*60 line
   data ndec8/0/,ntr0/-1/
   save
@@ -142,10 +143,17 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
      if(ncontest.eq.7 .and. params%b_superfox .and. params%b_even_seq) then
         if(params%nzhsym.lt.50) go to 800
 ! Call the superFox decoder
-        open(47,file='fort.47',status='unknown',access='stream')
+        open(47,file=trim(temp_dir)//'/fort.47',status='unknown',  &
+             access='stream')
         write(47) params%yymmdd,params%nutc,id2(1:20),id2(1:180000)
         close(47)
-        call execute_command_line('.\sfrx fort.47')
+        cmnd=trim(exe_dir)//'/sfrx '//'"'//trim(temp_dir)//'/fort.47"'
+        i1=index(cmnd,'fort.47')
+        do i=1,i1
+           if(cmnd(i:i).eq.char(92)) cmnd(i:i)='/'
+        enddo
+        call execute_command_line(cmnd,exitstat=ierr)
+        if(ierr.ne.0) print*,trim(cmnd),' failed'
      else
         call timer('decft8  ',0)
         newdat=params%newdat
