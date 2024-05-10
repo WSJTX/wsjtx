@@ -1543,7 +1543,7 @@ void MainWindow::readSettings()
   ui->actionDisable_writing_of_ALL_TXT->setChecked(m_settings->value("disableWritingOfAllTxt", false).toBool());
   ui->actionDisable_event_logging->setChecked(m_settings->value("DisableEventLogging", false).toBool());
   ui->actionUse_Dark_Style->setChecked(m_settings->value("DarkStyle", false).toBool());
-  ui->actionBand_Buttons->setChecked(m_settings->value("BandButtons", false).toBool());
+  ui->actionBand_Buttons->setChecked(m_settings->value("BandButtons", true).toBool());
   ui->actionHighlightB4->setChecked(m_settings->value("HighlightB4", false).toBool());
   ui->actionHighlightToday->setChecked(m_settings->value("HighlightToday", false).toBool());
   ui->actionHighlightIgnored->setChecked(m_settings->value("HighlightIgnored", false).toBool());
