@@ -2849,7 +2849,7 @@ void MainWindow::showStatusMessage(const QString& statusMsg)
 
 void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settings)
 {
-   keep_frequency = true;
+  keep_frequency = true;
   m_config.read_CALL3_version();
   // things that might change that we need know about
   auto callsign = m_config.my_callsign ();
@@ -2941,17 +2941,19 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
     ui->labDXped->setVisible(SpecOp::NONE != m_specOp);
     set_mode(m_mode);
 
-  // ensure a balanced layout
-  qreal pointSize = m_config.text_font().pointSizeF();
-  if (m_config.PWR_and_SWR()) {
+    // ensure a balanced layout
+    qreal pointSize = m_config.text_font().pointSizeF();
+    if (m_config.PWR_and_SWR()) {
       ui->label->setMinimumWidth (2.8*pointSize + 8);
       ui->label->setAlignment(Qt::AlignCenter);
       ui->outAttenuation->setMinimumWidth (2.8*pointSize + 8);
-  }
+    }
 
     configActiveStations();
     check_button_color();
     rigFailed = false;
+    keep_frequency = false;
+  } else {
     keep_frequency = false;
   }
 }
