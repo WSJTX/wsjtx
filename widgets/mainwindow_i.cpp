@@ -13218,13 +13218,7 @@ void MainWindow::sfox_tx()
   QStringList args{fname};
   args.append(m_config.FoxKey());
 //  qDebug() << "aa" << args;
-#ifdef WIN32
   p2.start(QDir::toNativeSeparators(m_appDir)+QDir::separator()+"sftx", args);
-//  p2.start("sftx", args);
-#else
-  p2.start("./sftx", args);
-//  p2.start("./sftx", QStringList {fname});   // former UR code
-#endif
   p2.waitForFinished();
   auto fname2 {QDir::toNativeSeparators(m_config.writeable_data_dir().absoluteFilePath("sfox_2.dat")).toLocal8Bit()};
   sfox_wave_(fname2.constData(), (FCL)fname2.size());

@@ -428,7 +428,7 @@ set (wsjt_FSRCS
   lib/fspread_lorentz.f90
   lib/ft8/foxfilt.f90
   lib/ft8/foxgen.f90
-#  lib/ft8/foxgen_wrap.f90
+  lib/ft8/foxgen_wrap.f90
   lib/freqcal.f90
   lib/ft8/ft8apset.f90
   lib/ft8/ft8b.f90
@@ -587,7 +587,6 @@ set (wsjt_FSRCS
   lib/fst4/get_crc24.f90
   lib/fst4/fst4_baseline.f90
   lib/77bit/hash22calc.f90
-  lib/superfox/sfox_wave.f90
   )
 
 # temporary workaround for a gfortran v7.3 ICE on Fedora 27 64-bit
@@ -1292,9 +1291,7 @@ set (LANGUAGES
   ru				# Russian
   #sv				# Swedish
   zh				# Chinese
-  zh_HK				# Chinese per Hong Kong
   zh_TW				# Chinese traditional
-  it				# Italian
   )
 foreach (lang_ ${LANGUAGES})
   file (TO_NATIVE_PATH ${CMAKE_SOURCE_DIR}/translations/wsjtx_${lang_}.ts ts_)
@@ -1660,30 +1657,11 @@ install (DIRECTORY
   #COMPONENT runtime
   )
 
-if (NOT UNIX)
-  install (FILES
-#  lib/superfox/sfrx.exe
-#  lib/superfox/sftx.exe
-#  lib/superfox/keygen.exe
-#  lib/superfox/foxchk.exe
-  DESTINATION ${CMAKE_INSTALL_BINDIR}
-  #COMPONENT runtime
-  )
-endif (NOT UNIX)
-
 install (DIRECTORY
   ${PROJECT_SOURCE_DIR}/sounds
   DESTINATION ${CMAKE_INSTALL_BINDIR}
   #COMPONENT runtime
   )
-	
-if (UNIX)
-  install (DIRECTORY
-  ${PROJECT_SOURCE_DIR}/sounds
-  DESTINATION $ENV{HOME}
-  #COMPONENT runtime
-  )
-endif (UNIX)
 
 #
 # Mac installer files

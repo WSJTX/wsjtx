@@ -1656,16 +1656,37 @@ install (DIRECTORY
   #COMPONENT runtime
   )
 
-if (NOT UNIX)
+if (WIN32)
   install (FILES
-  lib/superfox/sfrx.exe
-  lib/superfox/sftx.exe
-  lib/superfox/keygen.exe
-  lib/superfox/foxchk.exe
+  lib/superfox/win/sfrx.exe
+  lib/superfox/win/sftx.exe
+  lib/superfox/win/foxchk.exe
   DESTINATION ${CMAKE_INSTALL_BINDIR}
   #COMPONENT runtime
   )
-endif (NOT UNIX)
+endif (WIN32)
+
+if (UNIX)
+  install (FILES
+  lib/superfox/linux/sfrx
+  lib/superfox/linux/sftx
+  lib/superfox/linux/foxchk
+  DESTINATION ${CMAKE_INSTALL_BINDIR}
+  PERMISSIONS WORLD_READ WORLD_WRITE WORLD_EXECUTE
+  #COMPONENT runtime
+  )
+endif (UNIX)
+
+if (APPLE)
+  install (FILES
+  lib/superfox/mac/sfrx
+  lib/superfox/mac/sftx
+  lib/superfox/mac/foxchk
+  DESTINATION ${CMAKE_INSTALL_BINDIR}
+  PERMISSIONS WORLD_READ WORLD_WRITE WORLD_EXECUTE
+  #COMPONENT runtime
+  )
+endif (APPLE)
 
 #
 # Mac installer files

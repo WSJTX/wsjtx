@@ -153,7 +153,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
            if(cmnd(i:i).eq.char(92)) cmnd(i:i)='/'
         enddo
         call execute_command_line(cmnd,exitstat=ierr)
-        if(ierr.ne.0) print*,trim(cmnd),' failed'
+        if(ierr.ne.0) call execute_command_line('.\sfrx '//'"'//trim(temp_dir)//'/fort.47"')
      else
         call timer('decft8  ',0)
         newdat=params%newdat
