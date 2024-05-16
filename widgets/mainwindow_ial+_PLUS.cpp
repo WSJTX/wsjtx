@@ -3066,10 +3066,6 @@ void MainWindow::on_autoButton_clicked (bool checked)
       no_wait_and_call = false;                             // reset Wait & Call
   }
   m_specOp=m_config.special_op_id();
-  if(!checked && m_specOp==SpecOp::HOUND && m_txFirst) {    // reset Hound to correct time slot
-      m_txFirst=false;
-      ui->txFirstCheckBox->setChecked(false);
-  }
   ui->pbBandHopping->setChecked(false); // disable band hopping when Tx is enabled
   if (checked) {
       m_auto = checked;
@@ -3727,11 +3723,6 @@ void MainWindow::on_stopButton_clicked()                       //stopButton
   stopWCTimer.stop();           // Stop any Wait & Call timeout
   no_wait_and_call = false;
   m_specOp=m_config.special_op_id();
-  if(m_specOp==SpecOp::HOUND && m_txFirst) {  // reset Hound to correct time slot
-      m_txFirst=false;
-      ui->txFirstCheckBox->setChecked(false);
-      auto_tx_mode (false);
-  }
   if (ui->respondComboBox->isVisible()) {
       Dpoints=0;                          // reset points
       maxDPoints=0;                       // reset points
@@ -5232,7 +5223,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
         // Wait & Reply + FT4 NS (NCCC Sprints) reply to incoming RR73 messages
         if ((m_mode=="FT8" or m_mode=="FT4" or m_mode=="Q65" or m_mode=="FST4" or m_mode=="JT65" or m_mode=="JT9" or m_mode=="JT4") && m_hisCall!=""
             && text.contains(" " + m_config.my_callsign() + " " + m_hisCall) && ((!text.contains("73 ")
-            && m_config.Wait_features_enabled() && (!ui->autoButton->isChecked() or m_specOp==SpecOp::HOUND))
+            && m_config.Wait_features_enabled() && !ui->autoButton->isChecked())
             or (m_mode=="FT4" && SpecOp::NA_VHF==m_specOp && m_config.NCCC_Sprint()))) {
               tx_watchdog (false);
               m_bDoubleClicked = true;
@@ -6054,10 +6045,6 @@ void MainWindow::readFromStdout()                             //readFromStdout
             //### Check for ui->dxCallEntry->text()==foxCall before logging! ###
             ui->stopTxButton->click ();
             logQSOTimer.start(0);
-            if(m_txFirst) {
-                m_txFirst=false;
-                ui->txFirstCheckBox->setChecked(false);
-            }
           }
           if((w.at(2)==m_config.my_callsign() or w.at(2)==Radio::base_callsign(m_config.my_callsign()))
              and ui->tx3->text().length()>0) {
@@ -6077,10 +6064,6 @@ void MainWindow::readFromStdout()                             //readFromStdout
               if(w.at(2)=="RR73") {
                 ui->stopTxButton->click ();
                 logQSOTimer.start(0);
-                if(m_txFirst) {
-                    m_txFirst=false;
-                    ui->txFirstCheckBox->setChecked(false);
-                }
               } else {
                 if(w.at(1)==Radio::base_callsign(ui->dxCallEntry->text()) and
                    (w.at(2).mid(0,1)=="+" or w.at(2).mid(0,1)=="-")) {
@@ -7479,7 +7462,7 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
 
   int nmod = fmod(double(message.timeInSeconds()),2.0*m_TRperiod);
   m_txFirst=(nmod!=0);
-  if(SpecOp::HOUND == m_specOp && !m_bDoubleClicked) m_txFirst=false;  //Hound usually transmits first
+  if(SpecOp::HOUND == m_specOp) m_txFirst=false;  //Hound usually transmits first
   if(SpecOp::FOX == m_specOp) m_txFirst=true;                          //Fox must always transmit first
   ui->txFirstCheckBox->setChecked(m_txFirst);
 
@@ -10460,10 +10443,6 @@ void MainWindow::on_stopTxButton_clicked()                    // Stop Tx
   tuneATU_Timer.stop ();        // stop tune watchdog when stopping Tune manually
   no_wait_and_call = false;
   m_specOp=m_config.special_op_id();
-  if(m_specOp==SpecOp::HOUND && m_txFirst) {  // reset Hound to the correct time slot
-      m_txFirst=false;
-      ui->txFirstCheckBox->setChecked(false);
-  }
   if (ui->respondComboBox->isVisible() && ui->respondComboBox->currentText() != "CQ: None") {
       Dpoints=0;                          // reset points
       maxDPoints=0;                       // reset points
