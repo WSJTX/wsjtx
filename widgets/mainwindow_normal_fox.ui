@@ -3989,7 +3989,7 @@ QLabel[oob=&quot;true&quot;] {
               <enum>Qt::StrongFocus</enum>
              </property>
              <property name="toolTip">
-              <string>Switch to FT8 mode</string>
+              <string>Switch to FT8 mode.&lt;br&gt; Right-click to toggle SuperFox mode On/Off.</string>
              </property>
              <property name="text">
               <string>FT8</string>
