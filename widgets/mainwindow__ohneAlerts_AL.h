@@ -189,6 +189,7 @@ private slots:
   void on_stopButton_clicked();
   void on_actionRelease_Notes_triggered ();
   void on_actionFT8_DXpedition_Mode_User_Guide_triggered();
+  void on_actionSuperFox_User_Guide_triggered();
   void on_actionQSG_FST4_triggered();
   void on_actionQSG_Q65_triggered();
   void on_actionQSG_X250_M3_triggered();

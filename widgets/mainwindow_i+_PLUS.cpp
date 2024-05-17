@@ -3768,6 +3768,11 @@ void MainWindow::on_actionFT8_DXpedition_Mode_User_Guide_triggered()
   QDesktopServices::openUrl (QUrl {"https://wsjt.sourceforge.io/FT8_DXpedition_Mode.pdf"});
 }
 
+void MainWindow::on_actionSuperFox_User_Guide_triggered()
+{
+  QDesktopServices::openUrl (QUrl {"https://wsjt.sourceforge.io/SuperFox_User_Guide.pdf"});
+}
+
 void MainWindow::on_actionQSG_FST4_triggered()
 {
   QDesktopServices::openUrl (QUrl {"https://wsjt.sourceforge.io/FST4_Quick_Start.pdf"});

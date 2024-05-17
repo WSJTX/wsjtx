@@ -3423,22 +3423,8 @@ Double-click to reset to the standard 73 message</string>
                    <property name="spacing">
                     <number>3</number>
                    </property>
-                   <item row="8" column="2">
-                    <widget class="QPushButton" name="pbFreeText">
-                     <property name="text">
-                      <string>Free Text</string>
-                     </property>
-                    </widget>
-                   </item>
-                   <item row="9" column="2">
-                    <widget class="QCheckBox" name="cbSendMsg">
-                     <property name="text">
-                      <string>Send msg</string>
-                     </property>
-                    </widget>
-                   </item>
-                   <item row="4" column="2">
-                    <widget class="QSpinBox" name="sbNslots">
+                   <item row="1" column="2">
+                    <widget class="QComboBox" name="comboBoxHoundSort">
                      <property name="sizePolicy">
                       <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
                        <horstretch>0</horstretch>
@@ -3451,23 +3437,65 @@ Double-click to reset to the standard 73 message</string>
                        <height>16777215</height>
                       </size>
                      </property>
-                     <property name="suffix">
-                      <string/>
+                     <property name="toolTip">
+                      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Select a desired sort order for callsigns in the queue.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                      </property>
-                     <property name="prefix">
-                      <string>N Slots    </string>
+                     <property name="currentText">
+                      <string>Random</string>
                      </property>
-                     <property name="minimum">
-                      <number>1</number>
-                     </property>
-                     <property name="maximum">
+                     <property name="maxVisibleItems">
                       <number>5</number>
                      </property>
-                     <property name="value">
-                      <number>1</number>
+                     <item>
+                      <property name="text">
+                       <string>Random</string>
+                      </property>
+                     </item>
+                     <item>
+                      <property name="text">
+                       <string>Call</string>
+                      </property>
+                     </item>
+                     <item>
+                      <property name="text">
+                       <string>Grid</string>
+                      </property>
+                     </item>
+                     <item>
+                      <property name="text">
+                       <string>S/N (dB)</string>
+                      </property>
+                     </item>
+                     <item>
+                      <property name="text">
+                       <string>Distance</string>
+                      </property>
+                     </item>
+                    </widget>
+                   </item>
+                   <item row="0" column="1">
+                    <widget class="QLabel" name="label_inProcess">
+                     <property name="text">
+                      <string>In Progress</string>
                      </property>
-                     <property name="displayIntegerBase">
-                      <number>10</number>
+                     <property name="alignment">
+                      <set>Qt::AlignCenter</set>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="1" column="1" rowspan="10">
+                    <widget class="DisplayText" name="foxTxListTextBrowser">
+                     <property name="sizePolicy">
+                      <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+                       <horstretch>0</horstretch>
+                       <verstretch>0</verstretch>
+                      </sizepolicy>
+                     </property>
+                     <property name="minimumSize">
+                      <size>
+                       <width>60</width>
+                       <height>0</height>
+                      </size>
                      </property>
                     </widget>
                    </item>
@@ -3485,6 +3513,9 @@ Double-click to reset to the standard 73 message</string>
                        <height>16777215</height>
                       </size>
                      </property>
+                     <property name="toolTip">					 
+                      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Maximum number of callsigns to be displayed in the queue.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>					 
+                     </property>					 
                      <property name="prefix">
                       <string>N List     </string>
                      </property>
@@ -3499,31 +3530,21 @@ Double-click to reset to the standard 73 message</string>
                      </property>
                     </widget>
                    </item>
-                   <item row="6" column="2">
-                    <widget class="QCheckBox" name="cbMoreCQs">
+                   <item row="0" column="0">
+                    <widget class="QLabel" name="label_queue">
                      <property name="text">
-                      <string>More CQs</string>
+                      <string>Queue</string>
                      </property>
-                    </widget>
-                   </item>
-                   <item row="1" column="1" rowspan="11">
-                    <widget class="DisplayText" name="foxTxListTextBrowser">
-                     <property name="sizePolicy">
-                      <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-                       <horstretch>0</horstretch>
-                       <verstretch>0</verstretch>
-                      </sizepolicy>
-                     </property>
-                     <property name="minimumSize">
-                      <size>
-                       <width>60</width>
-                       <height>0</height>
-                      </size>
+                     <property name="alignment">
+                      <set>Qt::AlignCenter</set>
                      </property>
                     </widget>
                    </item>
                    <item row="5" column="2">
                     <widget class="QComboBox" name="comboBoxCQ">
+                     <property name="toolTip">					
+	                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Select a specific CQ message.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>				
+                     </property>					
                      <property name="currentText">
                       <string>CQ</string>
                      </property>
@@ -3619,8 +3640,18 @@ Double-click to reset to the standard 73 message</string>
                      </item>
                     </widget>
                    </item>
-                   <item row="1" column="2">
-                    <widget class="QComboBox" name="comboBoxHoundSort">
+                   <item row="9" column="2">
+                    <widget class="QCheckBox" name="cbSendMsg">
+                     <property name="toolTip">
+                      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Transmit free text message at the next opportunity.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>						
+                     </property>
+					 <property name="text">
+                      <string>Send msg</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="4" column="2">
+                    <widget class="QSpinBox" name="sbNslots">
                      <property name="sizePolicy">
                       <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
                        <horstretch>0</horstretch>
@@ -3633,37 +3664,47 @@ Double-click to reset to the standard 73 message</string>
                        <height>16777215</height>
                       </size>
                      </property>
-                     <property name="currentText">
-                      <string>Random</string>
+                     <property name="toolTip">							
+                      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Maximum number of concurrent streams for Fox transmissions.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>							
+                     </property>							
+                     <property name="suffix">
+                      <string/>
                      </property>
-                     <property name="maxVisibleItems">
+                     <property name="prefix">
+                      <string>N Slots    </string>
+                     </property>
+                     <property name="minimum">
+                      <number>1</number>
+                     </property>
+                     <property name="maximum">
                       <number>5</number>
                      </property>
-                     <item>
-                      <property name="text">
-                       <string>Random</string>
-                      </property>
-                     </item>
-                     <item>
-                      <property name="text">
-                       <string>Call</string>
-                      </property>
-                     </item>
-                     <item>
-                      <property name="text">
-                       <string>Grid</string>
-                      </property>
-                     </item>
-                     <item>
-                      <property name="text">
-                       <string>S/N (dB)</string>
-                      </property>
-                     </item>
-                     <item>
-                      <property name="text">
-                       <string>Distance</string>
-                      </property>
-                     </item>
+                     <property name="value">
+                      <number>1</number>
+                     </property>
+                     <property name="displayIntegerBase">
+                      <number>10</number>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="7" column="2">
+                    <widget class="QPushButton" name="pbFoxReset">
+                     <property name="toolTip">					
+                      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Clear all queues.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>					
+                     </property>					
+                     <property name="text">
+                      <string>Reset</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="6" column="2">
+                    <widget class="QCheckBox" name="cbMoreCQs">
+                     <property name="toolTip">					
+                      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Include a CQ message along with other messages.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>					
+                     </property>					
+                     <property name="text">
+                      <string>More CQs</string>
+                     </property>
                     </widget>
                    </item>
                    <item row="3" column="2">
@@ -3680,6 +3721,9 @@ Double-click to reset to the standard 73 message</string>
                        <height>16777215</height>
                       </size>
                      </property>
+		             <property name="toolTip">				   
+	                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Set the maximum permitted SNR for callers to be included in the queue.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>					   
+                     </property>						   
                      <property name="prefix">
                       <string>Max dB  </string>
                      </property>
@@ -3694,7 +3738,7 @@ Double-click to reset to the standard 73 message</string>
                      </property>
                     </widget>
                    </item>
-                   <item row="1" column="0" rowspan="11">
+                   <item row="1" column="0" rowspan="10">
                     <widget class="DisplayText" name="houndQueueTextBrowser">
                      <property name="sizePolicy">
                       <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
@@ -3716,45 +3760,15 @@ Double-click to reset to the standard 73 message</string>
                      </property>
                     </widget>
                    </item>
-                   <item row="7" column="2">
-                    <widget class="QPushButton" name="pbFoxReset">
+                   <item row="8" column="2">
+                    <widget class="QPushButton" name="pbFreeText">
+                     <property name="toolTip">
+                      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enter a free text message.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+					 </property>
                      <property name="text">
-                      <string>Reset</string>
+                      <string>Free Text</string>
                      </property>
                     </widget>
-                   </item>
-                   <item row="0" column="0">
-                    <widget class="QLabel" name="label_queue">
-                     <property name="text">
-                      <string>Queue</string>
-                     </property>
-                     <property name="alignment">
-                      <set>Qt::AlignCenter</set>
-                     </property>
-                    </widget>
-                   </item>
-                   <item row="0" column="1">
-                    <widget class="QLabel" name="label_inProcess">
-                     <property name="text">
-                      <string>In Progress</string>
-                     </property>
-                     <property name="alignment">
-                      <set>Qt::AlignCenter</set>
-                     </property>
-                    </widget>
-                   </item>
-                   <item row="10" column="2">
-                    <spacer name="verticalSpacer">
-                     <property name="orientation">
-                      <enum>Qt::Vertical</enum>
-                     </property>
-                     <property name="sizeHint" stdset="0">
-                      <size>
-                       <width>20</width>
-                       <height>0</height>
-                      </size>
-                     </property>
-                    </spacer>
                    </item>
                   </layout>
                  </item>
@@ -4708,6 +4722,7 @@ Double-click to reset to the standard 73 message</string>
     <addaction name="actionOnline_User_Guide"/>
     <addaction name="actionLocal_User_Guide"/>
     <addaction name="actionFT8_DXpedition_Mode_User_Guide"/>
+	<addaction name="actionSuperFox_User_Guide"/>
     <addaction name="actionQSG_FST4"/>
     <addaction name="actionQSG_Q65"/>
     <addaction name="actionQSG_X250_M3"/>
@@ -5435,6 +5450,11 @@ Double-click to reset to the standard 73 message</string>
     <string>FT4 NS (NCCC Sprints)</string>
    </property>
   </action>
+  <action name="actionSuperFox_User_Guide">
+   <property name="text">
+    <string>SuperFox User Guide</string>   
+   </property>
+  </action>   
   <action name="actionHideB4">
    <property name="checkable">
     <bool>true</bool>
