@@ -223,6 +223,7 @@ bool wait_and_call = false;
 bool no_wait_and_call = false;
 bool no_a7_decodes = false;
 bool keep_frequency = false;
+int m_Nslots0 {1};
 bool not_erase = false;
 bool first_Fox_alert = true;
 bool second_Fox_alert = true;
@@ -1275,7 +1276,7 @@ void MainWindow::writeSettings()
   m_settings->setValue("RespondCQ",ui->respondComboBox->currentIndex());
   m_settings->setValue("HoundSort",ui->comboBoxHoundSort->currentIndex());
   m_settings->setValue("FoxNlist",ui->sbNlist->value());
-  if(!m_config.superFox()) m_settings->setValue("FoxNslots",ui->sbNslots->value());
+  m_settings->setValue("FoxNslots",m_Nslots0);
   m_settings->setValue("FoxMaxDB_v2",ui->sbMax_dB->value()); // original key abandoned
   m_settings->setValue ("SerialNumber",ui->sbSerialNumber->value ());
   m_settings->setValue("FoxTextMsg", m_freeTextMsg0);
@@ -1452,6 +1453,7 @@ void MainWindow::readSettings()
   ui->comboBoxHoundSort->setCurrentIndex(m_settings->value("HoundSort",3).toInt());
   ui->sbNlist->setValue(m_settings->value("FoxNlist",12).toInt());
   m_Nslots=m_settings->value("FoxNslots",3).toInt();
+  m_Nslots0=m_Nslots;
   if(!m_config.superFox()) ui->sbNslots->setValue(m_Nslots);
   ui->sbMax_dB->setValue(m_settings->value("FoxMaxDB_v2",70).toInt());
   ui->sbSerialNumber->setValue (m_settings->value ("SerialNumber", 1).toInt ());
@@ -3488,11 +3490,8 @@ void MainWindow::statusChanged()
     ui->sbNslots->setVisible(true);
     ui->pbFreeText->setVisible(false);
     ui->cbSendMsg->setVisible(false);
-    ui->sbNslots->setValue(m_Nslots);
-    if (SpecOp::FOX==m_specOp) QTimer::singleShot (100, [=] {
-      readSettings();
-      ui->sbNslots->setValue(m_Nslots);
-    });
+    ui->sbNslots->setValue(m_Nslots0);
+    }
   }
   check_button_color();
 }
@@ -8574,17 +8573,13 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
       on_actionJT9_triggered();
       ui->jt65Button->clearFocus();
   }
-  // Switch SuperFox mode on/off
-  if(ui->ft8Button->hasFocus() && (event->button() & Qt::RightButton)) {
-      not_erase = true;  // prevent erasing the decodedTextBrowser
+  if(ui->ft8Button->hasFocus() && (event->button() & Qt::RightButton)) {     // toggle SuperFox mode
       keep_frequency = true;
       m_config.toggle_SF();
-      QTimer::singleShot (250, [=] {
-        keep_frequency = false;
-        not_erase = false;
-      });
+      QTimer::singleShot (250, [=] {keep_frequency = false;});
       on_actionFT8_triggered();
-      check_button_color();
+      ui->ft8Button->clearFocus();
+      ui->labDXped->setStyleSheet("QLabel {background-color: red; color: white;}");
   }
   // Search callsign on qrz.com, qrzcq.com or hamqth.com
   if(ui->lookupButton->hasFocus() && (event->button() & Qt::RightButton)) {  // search callsign on ...
@@ -12139,6 +12134,7 @@ void MainWindow::on_sbNslots_valueChanged(int n)
   QString t;
   t = t.asprintf(" NSlots %d",m_Nslots);
   writeFoxQSO(t);
+  if(!m_config.superFox()) m_Nslots0=n;
 }
 
 void MainWindow::on_sbMax_dB_valueChanged(int n)
