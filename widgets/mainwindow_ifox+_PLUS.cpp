@@ -7407,8 +7407,8 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
 
   int nmod = fmod(double(message.timeInSeconds()),2.0*m_TRperiod);
   m_txFirst=(nmod!=0);
-  if(SpecOp::HOUND == m_specOp) m_txFirst=false;  //Hound usually transmits first
-  if(SpecOp::FOX == m_specOp) m_txFirst=true;                          //Fox must always transmit first
+  if(SpecOp::HOUND == m_specOp) m_txFirst=false;          //Hound must not transmit first
+  if(SpecOp::FOX == m_specOp) m_txFirst=true;             //Fox must always transmit first
   ui->txFirstCheckBox->setChecked(m_txFirst);
 
   auto const& message_words = message.messageWords ();
