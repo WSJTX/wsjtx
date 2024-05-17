@@ -3541,7 +3541,6 @@ void MainWindow::statusChanged()
     ui->pbFreeText->setVisible(false);
     ui->cbSendMsg->setVisible(false);
     ui->sbNslots->setValue(m_Nslots0);
-    }
   }
   check_button_color();
 }
