@@ -8,6 +8,7 @@
 #include <locale>
 #include <fftw3.h>
 
+#include <QApplication>
 #include <QSharedMemory>
 #include <QProcessEnvironment>
 #include <QTemporaryFile>
@@ -113,9 +114,15 @@ int main(int argc, char *argv[])
   // Multiple instances communicate with jt9 via this
   QSharedMemory mem_jt9;
 
+#ifdef WIN32
+  QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+  QApplication a(argc, argv);
+#else
+  ExceptionCatchingApplication a(argc, argv);
+#endif
+
   auto const env = QProcessEnvironment::systemEnvironment ();
 
-  ExceptionCatchingApplication a(argc, argv);
   try
     {
       // LOG_INfO ("+++++++++++++++++++++++++++ Resources ++++++++++++++++++++++++++++");
