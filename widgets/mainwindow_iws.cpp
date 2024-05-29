@@ -6379,7 +6379,7 @@ void MainWindow::guiUpdate()
             }
           }
         }
-        else if (SpecOp::HOUND == m_specOp) {
+        else if (SpecOp::HOUND == m_specOp && !m_config.superFox()) {
           if(m_auto && !m_tune) {
             if (ui->TxFreqSpinBox->value() < 999 && m_ntx != 3) {
               // Hound randomized range: 1000-3000 Hz
@@ -6390,16 +6390,14 @@ void MainWindow::guiUpdate()
 #endif
             }
           }
-          if (!m_config.superFox()) {
-            if (m_nSentFoxRrpt==2 and m_ntx==3) {
-              // move off the original Fox frequency on subsequent tries of Tx3
-              int nfreq=m_nFoxFreq + 300;
-              if(m_nFoxFreq>600) nfreq=m_nFoxFreq - 300;  //keep nfreq below 900 Hz
-              ui->TxFreqSpinBox->setValue(nfreq);
-            }
-            if (m_nSentFoxRrpt == 1) {
-              ++m_nSentFoxRrpt;
-            }
+          if (m_nSentFoxRrpt==2 and m_ntx==3) {
+            // move off the original Fox frequency on subsequent tries of Tx3
+            int nfreq=m_nFoxFreq + 300;
+            if(m_nFoxFreq>600) nfreq=m_nFoxFreq - 300;  //keep nfreq below 900 Hz
+            ui->TxFreqSpinBox->setValue(nfreq);
+          }
+          if (m_nSentFoxRrpt == 1) {
+            ++m_nSentFoxRrpt;
           }
         }
       }
