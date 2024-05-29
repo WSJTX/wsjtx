@@ -677,7 +677,7 @@ contains
           endif
           b1=i3-i2.eq.5 .and. isgrid4(g2)
           b2=i3-i2.eq.1
-          if(b0 .and. (b1.or.b2) .and. nint(freq).ge.1000) then
+          if(b0 .and. (b1.or.b2) .and. (nint(freq).ge.1000 .or. params%b_superfox)) then
              n=params%nutc
              n30=(3600*(n/10000) + 60*mod((n/100),100) + mod(n,100))/30
              if(n30.lt.n30z) nwrap=nwrap+5760    !New UTC day, handle the wrap
