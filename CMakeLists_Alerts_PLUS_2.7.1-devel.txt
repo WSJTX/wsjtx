@@ -588,6 +588,7 @@ set (wsjt_FSRCS
   lib/fst4/fst4_baseline.f90
   lib/77bit/hash22calc.f90
   lib/superfox/sfox_wave.f90
+  lib/superfox/sfox_wave_gfsk.f90
   )
 
 # temporary workaround for a gfortran v7.3 ICE on Fedora 27 64-bit

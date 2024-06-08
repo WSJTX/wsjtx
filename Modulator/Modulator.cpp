@@ -70,9 +70,10 @@ void Modulator::start (QString mode, unsigned symbolsLength, double framesPerSym
   m_bFastMode=fastMode;
   m_TRperiod=TRperiod;
   unsigned delay_ms=1000;
-  if(mode=="FT8" or (mode=="FST4" and m_nsps==720)) delay_ms=500; //FT8, FST4-15
-  if(mode=="Q65" and m_nsps<=3600) delay_ms=500;                  //Q65-15 and Q65-30
-  if(mode=="FT4") delay_ms=300;                                   //FT4
+  if((mode=="FT8" and m_nsps==1920) or (mode=="FST4" and m_nsps==720)) delay_ms=500;  //FT8, FST4-15
+  if((mode=="FT8" and m_nsps==1024)) delay_ms=400;            //SuperFox Qary Polar Code transmission
+  if(mode=="Q65" and m_nsps<=3600) delay_ms=500;              //Q65-15 and Q65-30
+  if(mode=="FT4") delay_ms=300;                               //FT4
 
 // noise generator parameters
   if (m_addNoise) {

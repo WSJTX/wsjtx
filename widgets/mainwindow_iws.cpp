@@ -179,7 +179,7 @@ extern "C" {
 
   void foxgen_(bool* bSuperFox, char const * fname, FCL len);
 
-  void sfox_wave_(char const * fname, FCL len);
+  void sfox_wave_gfsk_(char const * fname, FCL len);
 
   void plotsave_(float swide[], int* m_w , int* m_h1, int* irow);
 
@@ -13262,7 +13262,7 @@ void MainWindow::sfox_tx()
   p2.start(QDir::toNativeSeparators(m_appDir)+QDir::separator()+"sftx", args);
   p2.waitForFinished();
   auto fname2 {QDir::toNativeSeparators(m_config.writeable_data_dir().absoluteFilePath("sfox_2.dat")).toLocal8Bit()};
-  sfox_wave_(fname2.constData(), (FCL)fname2.size());
+  sfox_wave_gfsk_(fname2.constData(), (FCL)fname2.size());
 }
 
 void MainWindow::on_pb30B_clicked()
