@@ -11317,6 +11317,7 @@ void MainWindow::replayDecodes ()
 void MainWindow::postDecode (bool is_new, QString const& message)
 {
   if (no_decodes_to_UDP) return;  // Don't send decoded messages to messageClient after a band change
+  if (filtered) return;           // Don't send filtered messages to messageClient
   auto const& decode = message.trimmed ();
   auto const& parts = decode.left (22).split (' ', SkipEmptyParts);
   if (parts.size () >= 5)
