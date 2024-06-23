@@ -1694,7 +1694,14 @@ if (APPLE)
   )
 endif (APPLE)
 
-if (NOT (WIN32 OR UNIX OR APPLE))
+execute_process(COMMAND
+  dpkg-architecture
+    -qDEB_HOST_ARCH
+  OUTPUT_VARIABLE
+    CMAKE_DEB_HOST_ARCH
+  OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+if(${CMAKE_DEB_HOST_ARCH}    MATCHES "arm64")
   install (FILES
   lib/superfox/arm/sfrx
   lib/superfox/arm/sftx
@@ -1705,6 +1712,19 @@ if (NOT (WIN32 OR UNIX OR APPLE))
   PERMISSIONS WORLD_READ WORLD_EXECUTE
   #COMPONENT runtime
   )
+endif()
+
+if(${CMAKE_DEB_HOST_ARCH}    MATCHES "armhf")
+   install (FILES
+   lib/superfox/arm32/sfrx
+   lib/superfox/arm32/sftx
+   lib/superfox/arm32/foxchk
+   DESTINATION ${CMAKE_INSTALL_BINDIR}
+   PERMISSIONS GROUP_READ GROUP_EXECUTE
+   PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
+   PERMISSIONS WORLD_READ WORLD_EXECUTE
+   #COMPONENT runtime
+   )
 endif()
 
 #
