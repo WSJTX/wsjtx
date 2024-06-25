@@ -1,11 +1,12 @@
 [[NEW_FEATURES]]
 === New in Version {VERSION_MAJOR}.{VERSION_MINOR}
 
-_WSJT-X 2.7_ introduces a new program called *QMAP*, a new Special
-Operating Activity *Q65 Pileup*, an option to *Update Hamlib* at the
-click of a button, and a number of other enhancements and bug fixes.
+_WSJT-X 2.7_ introduces a new program called *QMAP*, new Special
+Operating Activities *Q65 Pileup* and *SuperFox mode*, an option to
+*Update Hamlib* at the click of a button, and a number of other
+enhancements and bug fixes.
 
-- QMAP and Q65 Pileup mode are of particular interest to those engaged
+- *QMAP* and *Q65 Pileup* mode are of particular interest to those engaged
   in Earth-Moon-Earth (EME) communication, but other applications may
   be found for them as well.  QMAP is currently available for Windows
   only; it is derived from MAP65, an older program used since 2007 for
@@ -18,6 +19,15 @@ click of a button, and a number of other enhancements and bug fixes.
   Further details on QMAP and Q65 Pileup mode are available in a
   Quick-Start guide posted here:
   https://wsjt.sourceforge.io/Quick_Start_WSJT-X_2.7_QMAP.pdf
+
+- *SuperFox mode* behaves operationally like the old-style Fox and
+  Hounds mode but uses a new constant envelope waveform for Fox's
+  transmissions. Messages can be transmitted simultaneously to as many
+  as 9 Hounds with no signal-strength penalty, resulting in a system
+  gain of about +10 dB compared to the older Fox-and-Hound operation
+  with 5 slots.  Further details on SuperFox mode can be found in the
+  Quick-Start guide posted here:
+  https://wsjt.sourceforge.io/SuperFox_User_Guide.pdf
 
 - A button *Update Hamlib* now appears on the *Settings -> Radio* tab.
   On Windows it allows the user to automatically download and install

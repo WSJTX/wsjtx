@@ -15,7 +15,7 @@ Copyright 2001 - 2024 by Joe Taylor, K1JT, and the WSJT Development Team
                              July 1, 2024
                       -------------------------
 
-WSJT-X 2.7.0 Release Candidate 5 introduces a new "SuperFox" mode, a
+WSJT-X 2.7.0 Release Candidate 5 introduces "SuperFox" mode, a
 powerful new tool designed to help DXpeditions make digital QSOs at
 very high rates. RC5 also brings several other improvements and bug
 fixes.
@@ -26,29 +26,30 @@ SuperFox mode:
    Hounds mode but uses a constant envelope waveform for Fox's
    transmissions rather than sending concurrent streams of up to five
    normal FT8 signals. This approach means that up to 9 messages can
-   be transmitted with no signal-strength penalty, resulting in a
-   system gain of about +10 dB compared to the conventional Fox/Hound
-   operation with 5 slots.
+   be transmitted simultaneously with no signal-strength penalty,
+   resulting in a system gain of about +10 dB compared to the
+   conventional Fox/Hound operation with 5 slots.
 
- - IMPORTANT: Older revisions of WSJT-X and derivative programs cannot
-   decode SuperFox transmissions. Hounds must use WSJT-X 2.7.0-rc5 (or
-   a later release, when available) to be able to receive SuperFox
-   messages.
+ - IMPORTANT: Older revisions of WSJT-X and derivative programs will
+   not be able to decode SuperFox transmissions. Hounds must use
+   WSJT-X 2.7.0-rc5 (or a later release, when available) to receive
+   SuperFox messages.
 
- - Hounds chasing the DX station transmit normal FT8 signals, as in
-   the already familiar Fox and Hound mode.  QSOs are logged as FT8
+ - Hounds chasing the DX station will transmit normal FT8 signals, as
+   in the old-style Fox and Hound mode.  QSOs will be logged as FT8
    mode.
 
- - When in SuperFox mode, Hound stations may call at any frequency in
-   Fox's received passband, including the range 0 - 1000 Hz.  Hounds
-   do not QSY to a lower frequency for their final transmission.
+ - When using SuperFox mode, Hound stations may call at any frequency
+   in Fox's received passband, including the range 0 - 1000 Hz.
+   Hounds do not QSY to a lower frequency for their final
+   transmission.
 
  - SuperFox Operation requires the Fox operator to use a valid digital
-   key.  Keys will be issued in advance for legitimate DXpeditions by
+   key.  Keys will be issued in advance to legitimate DXpeditions by
    the Northern California DX Foundation, and will be kept secret.
 
  - Every SuperFox transmission includes a unique digital signature.
-   Hounds receiving a SuperFox message will see a "CALLSIGN verified"
+   Hounds receiving a SuperFox message will see a "<callsign> verified"
    flag if the transmitted signature is valid, and the on-screen 
    "Super Hound" label will turn from red to green.
 
@@ -78,7 +79,7 @@ Other enhancements:
    decodes at top" is checked.
 
  - 4-digit grids are now logged for certain contest modes to ensure that 
-   the log complies with the contest rules.
+   the log complies with contest rules.
 
  - The Fox Tx frequency is now saved and restored separately.
 
