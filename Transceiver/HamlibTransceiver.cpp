@@ -635,6 +635,12 @@ int HamlibTransceiver::do_start ()
   CAT_TRACE ("starting: " << rig_get_caps_cptr (m_->model_, RIG_CAPS_MFG_NAME_CPTR)
              << ": " << rig_get_caps_cptr (m_->model_, RIG_CAPS_MODEL_NAME_CPTR));
 
+  token_t token = rig_token_lookup (m_->rig_.data (), "client");
+  if (RIG_CONF_END != token)	// only set if valid for rig model
+    {
+      rig_set_conf (m_->rig_.data (), token, "WSJTX");
+    }
+
   m_->error_check (rig_open (m_->rig_.data ()), tr ("opening connection to rig"));
 
   // reset dynamic state
