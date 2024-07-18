@@ -10,6 +10,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   use ft4_decode
   use fst4_decode
   use q65_decode
+  use env_module
 
   include 'jt9com.f90'
   include 'timer_common.inc'
@@ -52,7 +53,8 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   character(len=20) :: datetime
   character(len=12) :: mycall, hiscall
   character(len=6) :: mygrid, hisgrid
-  character(len=256) :: cmnd
+  character(len=max_path_length) :: cmnd
+  character(len=max_path_length) :: executable_directory
   character*60 line
   data ndec8/0/,ntr0/-1/
   save
@@ -147,13 +149,10 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
              access='stream')
         write(47) params%yymmdd,params%nutc,id2(1:20),id2(1:180000)
         close(47)
-        cmnd=trim(exe_dir)//'/sfrx '//'"'//trim(temp_dir)//'/fort.47"'
-        i1=index(cmnd,'fort.47')
-        do i=1,i1
-           if(cmnd(i:i).eq.char(92)) cmnd(i:i)='/'
-        enddo
+        call get_executable_directory(executable_directory)
+        cmnd='"'//trim(executable_directory)//'/sfrx" '//'"'//trim(temp_dir)//'/fort.47"'
+        if (is_windows()) cmnd='.\sfrx '//'"'//trim(temp_dir)//'/fort.47"'
         call execute_command_line(cmnd,exitstat=ierr)
-        if(ierr.ne.0) call execute_command_line('.\sfrx '//'"'//trim(temp_dir)//'/fort.47"')
      else
         call timer('decft8  ',0)
         newdat=params%newdat
@@ -194,14 +193,15 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
                  nsnrfox(j)=nsnrfox(i)
                  nfreqfox(j)=nfreqfox(i)
                  n30fox(j)=n
-                 nage=n30-n
+                 nage=min(99,mod(n30-n+288000,2880))
                  if(len(trim(g2fox(j))).eq.4) then
                     call azdist(mygrid,g2fox(j)//'  ',0.d0,nAz,nEl,nDmiles, &
                          nDkm,nHotAz,nHotABetter)
                  else
                     nDkm=9999
                  endif
-                 write(19,1004) c2fox(j),g2fox(j),nsnrfox(j),nfreqfox(j),nDkm,nage
+                 write(19,1004) c2fox(j),g2fox(j),nsnrfox(j),nfreqfox(j), &
+                      nDkm,nage
 1004             format(a12,1x,a4,i5,i6,i7,i3)
               endif
            enddo

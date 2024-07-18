@@ -384,6 +384,7 @@ set (wsjt_FSRCS
   lib/decode9w.f90
   lib/ft8/decode174_91.f90
   lib/decoder.f90
+  lib/env_module.f90
   lib/deep4.f90
   lib/deg2grid.f90
   lib/degrade_snr.f90
