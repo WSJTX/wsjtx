@@ -5986,7 +5986,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
 
           if(SpecOp::FOX==m_specOp and decodedtext.string().contains(" DE ")) for_us=true; //Hound with compound callsign
           if(SpecOp::FOX==m_specOp and for_us and decodedtext.string().contains(QRegularExpression{" R\\W\\d"})) bDisplayRight=true;
-          if(SpecOp::FOX!=m_specOp and (for_us or ((abs(audioFreq - m_wideGraph->rxFreq()) <= 10) && !m_config.superFox()))) bDisplayRight=true;
+          if(SpecOp::FOX!=m_specOp and (for_us or ((abs(audioFreq - m_wideGraph->rxFreq()) <= 10) && !(m_config.superFox() && SpecOp::HOUND==m_specOp)))) bDisplayRight=true;
 
           // Give the Fox a warning when there is probably another Fox on the frequency
           if(SpecOp::FOX==m_specOp and audioFreq<1000 and !for_us and decodedtext.string().contains(QRegularExpression{" R\\W\\d"})) {
