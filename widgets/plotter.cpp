@@ -202,9 +202,9 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
     int irow=-1;
     plotsave_(swide,&m_w,&m_h1,&irow);
   }
+  ymin = 0;
   for(int i=0; i<iz; i++) {
     y=swide[i];
-    if(y<ymin) ymin=y;
     int y1 = 10.0*gain*y + m_plotZero;
     if (y1<0) y1=0;
     if (y1>254) y1=254;
