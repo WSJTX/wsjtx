@@ -16,8 +16,8 @@ subroutine mskrtd(id2,nutc0,tsec,ntol,nrxfreq,ndepth,mycall,hiscall,      &
   character*4 decsym                 !"&" for mskspd or "^" for long averages
   character*37 msgreceived           !Decoded message
   character*37 msglast,msglastswl    !Used for dupechecking
-  character*80 line                  !Formatted line with UTC dB T Freq Msg
-  character*12 mycall,hiscall
+  character*(*) line                  !Formatted line with UTC dB T Freq Msg
+  character*(*) mycall,hiscall
   character*37 recent_shmsgs(NSHMEM)
   character*(*) datadir
 
@@ -70,8 +70,12 @@ subroutine mskrtd(id2,nutc0,tsec,ntol,nrxfreq,ndepth,mycall,hiscall,      &
      msglastswl='                                     '
      nsnrlast=-99
      nsnrlastswl=-99
-     mycall13=mycall//' '
-     dxcall13=hiscall//' '
+!     mycall13=mycall//' '
+!     dxcall13=hiscall//' '
+     mycall13=' '
+     dxcall13=' '
+     mycall13(1:12)=mycall
+     dxcall13(1:12)=hiscall
      first=.false.
   endif
 
@@ -90,7 +94,7 @@ subroutine mskrtd(id2,nutc0,tsec,ntol,nrxfreq,ndepth,mycall,hiscall,      &
   endif
   
   tframe=float(NSPM)/12000.0 
-  line=char(0)
+  line(1:1)=char(0)
   msgreceived='                                     '
   max_iterations=10
   niterations=0
