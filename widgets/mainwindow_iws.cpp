@@ -13786,7 +13786,7 @@ void MainWindow::on_actionDiagnostic_mode_triggered()
             "FileName=\"${DesktopLocation}/logs/wsjtx_syslog.log\"\n"
             "Append=true\n"
             "Format=\"[%Channel%][%TimeStamp(format=\\\"%Y-%m-%d %H:%M:%S.%f\\\")%][%Uptime(format=\\\"%O:%M:%S.%f\\\")%][%Severity%] %Message%\"\n"
-            "Filter=\"%Severity% >= trace\"\n"
+            "Filter=\"%Channel% matches \\\"SYSLOG\\\" | %Severity% >= info\"\n"
             "\n"
             "\[Sinks.RIGCTRL]\n"
             "Destination=TextFile\n"
