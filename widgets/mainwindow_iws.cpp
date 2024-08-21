@@ -13813,12 +13813,21 @@ void MainWindow::on_actionDiagnostic_mode_triggered()
       mb.exec();
       return;
     }
+    QString instance = "";
+    QString path = "";
+#if defined(Q_OS_WIN)
+    path = QStandardPaths::writableLocation (QStandardPaths::DataLocation);
+#else
+    path = QStandardPaths::writableLocation (QStandardPaths::ConfigLocation);
+#endif
+    QStringList tw=path.split("/WSJT-X");
+    if (tw.size () > 0 && tw[1].remove(" - ") != "") instance = tw[1].remove(" - ") + "/";
     QString EventConfig = (
             "\[Sinks.SYSLOG]\n"
             "Destination=TextFile\n"
             "Asynchronous=true\n"
             "AutoFlush=true\n"
-            "FileName=\"${DesktopLocation}/logs/wsjtx_syslog.log\"\n"
+            "FileName=\"${DesktopLocation}/logs/" + instance + "wsjtx_syslog.log\"\n"
             "Append=true\n"
             "Format=\"[%Channel%][%TimeStamp(format=\\\"%Y-%m-%d %H:%M:%S.%f\\\")%][%Uptime(format=\\\"%O:%M:%S.%f\\\")%][%Severity%] %Message%\"\n"
             "Filter=\"%Channel% matches \\\"SYSLOG\\\" | %Severity% >= info\"\n"
@@ -13827,7 +13836,7 @@ void MainWindow::on_actionDiagnostic_mode_triggered()
             "Destination=TextFile\n"
             "Asynchronous=true\n"
             "AutoFlush=true\n"
-            "FileName=\"${DesktopLocation}/logs/WSJT-X_RigControl.log\"\n"
+            "FileName=\"${DesktopLocation}/logs/" + instance + "WSJT-X_RigControl.log\"\n"
             "Append=true\n"
             "Format=\"[%TimeStamp(format=\\\"%Y-%m-%d %H:%M:%S.%f\\\")%][%Uptime(format=\\\"%O:%M:%S.%f\\\")%][%Channel%:%Severity%] %Message%\"\n"
             "Filter=\"%Channel% matches \\\"RIGCTRL\\\" | %Severity% >= info\""
