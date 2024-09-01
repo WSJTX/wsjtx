@@ -5751,111 +5751,111 @@ void MainWindow::readFromStdout()                             //readFromStdout
         if ((!verified && ui->labDXped->isVisible()) or ui->labDXped->text()!="Super Hound")
           ui->labDXped->setStyleSheet("QLabel {background-color: red; color: white;}");
 
-       // show distance and bearing
-       if (!filtered or m_config.filters_for_Wait_and_Pounce_only()) {  // show decodes if not filtered
-           QString distance;
-           QString deCall;
-           QString deGrid;
-           decodedtext.deCallAndGrid(deCall,deGrid);
-           if ((m_config.showDistance() || m_config.showAzimuth()) && deGrid.contains(grid_regexp)) {
-              double utch=0.0;
-              int nAz,nEl,nDmiles,nDkm,nHotAz,nHotABetter;
-              QString my_Grid = m_config.my_grid();
-              if (my_Grid.length() < 5) my_Grid = m_config.my_grid().left(4)+"mm";
-              QString de_Grid= deGrid.left(4)+"mm";
-              azdist_(const_cast <char *> (my_Grid.toLatin1().constData()),
-                      const_cast <char *> (de_Grid.toLatin1().constData()),&utch,
-                      &nAz,&nEl,&nDmiles,&nDkm,&nHotAz,&nHotABetter,(FCL)6,(FCL)6);
-              if (m_config.showDistance()) {
-                   int nd=nDkm;
-                   if(m_config.miles()) nd=nDmiles;
-                   distance = QString::number(nd);
-                   if(m_config.miles()) distance += " mi";
-                   if(!m_config.miles()) distance += " km";
-              }
-              if (m_config.showAzimuth()) {
-                   if (distance.length()) distance += " / ";
-                   distance += QString::number(nAz) + "°";
-              }
-           }
+        // show distance and bearing
+        if (!filtered or m_config.filters_for_Wait_and_Pounce_only()) {  // show decodes if not filtered
+          QString distance;
+          QString deCall;
+          QString deGrid;
+          decodedtext.deCallAndGrid(deCall,deGrid);
+          if ((m_config.showDistance() || m_config.showAzimuth()) && deGrid.contains(grid_regexp)) {
+            double utch=0.0;
+            int nAz,nEl,nDmiles,nDkm,nHotAz,nHotABetter;
+            QString my_Grid = m_config.my_grid();
+            if (my_Grid.length() < 5) my_Grid = m_config.my_grid().left(4)+"mm";
+            QString de_Grid= deGrid.left(4)+"mm";
+            azdist_(const_cast <char *> (my_Grid.toLatin1().constData()),
+                    const_cast <char *> (de_Grid.toLatin1().constData()),&utch,
+                    &nAz,&nEl,&nDmiles,&nDkm,&nHotAz,&nHotABetter,(FCL)6,(FCL)6);
+            if (m_config.showDistance()) {
+                int nd=nDkm;
+                if(m_config.miles()) nd=nDmiles;
+                distance = QString::number(nd);
+                if(m_config.miles()) distance += " mi";
+                if(!m_config.miles()) distance += " km";
+            }
+            if (m_config.showAzimuth()) {
+                if (distance.length()) distance += " / ";
+                distance += QString::number(nAz) + "°";
+            }
+          }
 
-           // display country names for JT65 and JT9 like for FT8
-           if ((m_mode == "JT65" or m_mode == "JT9" or m_mode == "JT4") && m_config.DXCC()) {
-             DecodedText decodedtextJT {((QString::fromUtf8(line_read.left(44).constData())) + (QString::fromUtf8(line_read.mid(62, 2).constData())))};
-             ui->decodedTextBrowser->displayDecodedText (decodedtextJT, m_config.my_callsign (), m_mode, m_config.DXCC (),
-                                                        m_logBook, m_currentBandPeriod, m_config.ppfx (),
-                                                        ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
-                                                        haveFSpread, fSpread, bDisplayPoints, m_points, distance);
-           } else {
-             ui->decodedTextBrowser->displayDecodedText (decodedtext1, m_config.my_callsign (), m_mode, m_config.DXCC (),
-                                                        m_logBook, m_currentBandPeriod, m_config.ppfx (),
-                                                        ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
-                                                        haveFSpread, fSpread, bDisplayPoints, m_points, distance);
-           }
-           if(m_position != 0) ui->decodedTextBrowser->horizontalScrollBar()->setValue(m_position);
-       }
+          // display country names for JT65 and JT9 like for FT8
+          if ((m_mode == "JT65" or m_mode == "JT9" or m_mode == "JT4") && m_config.DXCC()) {
+              DecodedText decodedtextJT {((QString::fromUtf8(line_read.left(44).constData())) + (QString::fromUtf8(line_read.mid(62, 2).constData())))};
+              ui->decodedTextBrowser->displayDecodedText (decodedtextJT, m_config.my_callsign (), m_mode, m_config.DXCC (),
+                                                          m_logBook, m_currentBandPeriod, m_config.ppfx (),
+                                                          ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
+                                                          haveFSpread, fSpread, bDisplayPoints, m_points, distance);
+          } else {
+              ui->decodedTextBrowser->displayDecodedText (decodedtext1, m_config.my_callsign (), m_mode, m_config.DXCC (),
+                                                          m_logBook, m_currentBandPeriod, m_config.ppfx (),
+                                                          ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
+                                                          haveFSpread, fSpread, bDisplayPoints, m_points, distance);
+          }
+          if(m_position != 0) ui->decodedTextBrowser->horizontalScrollBar()->setValue(m_position);
+        }
 
-       // highlight callsigns worked B4 on band or worked today
-       if (ui->actionHighlightB4->isChecked() or ui->actionHighlightToday->isChecked() or ui->actionHighlightIgnored->isChecked()) {
-           QString today = QDateTime::currentDateTimeUtc().toString ("yyyy-MM-dd");
-           QString yesterday = QDateTime::currentDateTimeUtc().addDays(-1).toString ("yyyy-MM-dd");
-           QString deCall;
-           QString deGrid;
-           decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
-           bool callB4onBand;
-           bool countryB4onBand;
-           bool gridB4onBand;
-           bool continentB4onBand;
-           bool CQZoneB4onBand;
-           bool ITUZoneB4onBand;
-           if (ui->actionHighlightB4->isChecked()) {
-               auto const& looked_up = m_logBook.countries ()->lookup (deCall);
-               m_logBook.match (deCall, m_mode, deGrid, looked_up, callB4onBand, countryB4onBand, gridB4onBand,
-                                continentB4onBand, CQZoneB4onBand, ITUZoneB4onBand, m_currentBand);
-               if (callB4onBand) ui->decodedTextBrowser->highlight_callsign(deCall, QColor(195,195,195), QColor(0,0,0), true);
-           }
-           if (ui->actionHighlightToday->isChecked() && (
-                 txLog.contains(QRegularExpression{today + ",[0-9][0-9]:[0-9][0-9]:[0-9][0-9]," + (deCall + ",")})
-                 or txLog.contains(QRegularExpression{yesterday + ",[0-9][0-9]:[0-9][0-9]:[0-9][0-9]," + (deCall + ",")}))) {
+        // highlight callsigns worked B4 on band or worked today
+        if (ui->actionHighlightB4->isChecked() or ui->actionHighlightToday->isChecked() or ui->actionHighlightIgnored->isChecked()) {
+            QString today = QDateTime::currentDateTimeUtc().toString ("yyyy-MM-dd");
+            QString yesterday = QDateTime::currentDateTimeUtc().addDays(-1).toString ("yyyy-MM-dd");
+            QString deCall;
+            QString deGrid;
+            decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
+            bool callB4onBand;
+            bool countryB4onBand;
+            bool gridB4onBand;
+            bool continentB4onBand;
+            bool CQZoneB4onBand;
+            bool ITUZoneB4onBand;
+            if (ui->actionHighlightB4->isChecked()) {
+                auto const& looked_up = m_logBook.countries ()->lookup (deCall);
+                m_logBook.match (deCall, m_mode, deGrid, looked_up, callB4onBand, countryB4onBand, gridB4onBand,
+                                 continentB4onBand, CQZoneB4onBand, ITUZoneB4onBand, m_currentBand);
+                if (callB4onBand) ui->decodedTextBrowser->highlight_callsign(deCall, QColor(195,195,195), QColor(0,0,0), true);
+            }
+            if (ui->actionHighlightToday->isChecked() && (
+                txLog.contains(QRegularExpression{today + ",[0-9][0-9]:[0-9][0-9]:[0-9][0-9]," + (deCall + ",")})
+                or txLog.contains(QRegularExpression{yesterday + ",[0-9][0-9]:[0-9][0-9]:[0-9][0-9]," + (deCall + ",")}))) {
               ui->decodedTextBrowser->highlight_callsign(deCall, QColor(100,100,100), QColor(255,255,0), true);
-           }
-           if (ui->actionHighlightIgnored->isChecked() && ignoreList.contains(deCall + ",")) {
+            }
+            if (ui->actionHighlightIgnored->isChecked() && ignoreList.contains(deCall + ",")) {
               ui->decodedTextBrowser->highlight_callsign(deCall, QColor(85,0,0), QColor(255,255,0), true);
-           }
-       }
+            }
+        }
 
-       if((m_mode=="FT4" or m_mode=="FT8") and bDisplayPoints and decodedtext1.isStandardMessage()) {
+        if((m_mode=="FT4" or m_mode=="FT8") and bDisplayPoints and decodedtext1.isStandardMessage()) {
          QString deCall,deGrid;
          decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
          bool bWorkedOnBand=(ui->decodedTextBrowser->CQPriority()!="New Call on Band") and ui->decodedTextBrowser->CQPriority()!="";
          if(bWorkedOnBand) activeWorked(deCall,m_currentBand);
-       }
+        }
 
-       // CQ: First
-       if(((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled())
-             or (m_auto && m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " "))) && !ignored
-           && !filtered && !selected && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText()=="CQ: First"
-           && (!(ui->actionFull_Duplex_Mode->isChecked() && m_txing))) {
-         m_bDoubleClicked=true;
-         selected = true;
-         auto_tx_mode(true);
-         processMessage(decodedtext0);
-         auto now = QDateTime::currentDateTimeUtc();
-         m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));
-         QTimer::singleShot (6000, [=] {selected = false;});
-         if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));     // Tx max 6*TRperiod
-       }
+        // CQ: First
+        if(((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled())
+              or (m_auto && m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " "))) && !ignored
+            && !filtered && !selected && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText()=="CQ: First"
+            && (!(ui->actionFull_Duplex_Mode->isChecked() && m_txing))) {
+          m_bDoubleClicked=true;
+          selected = true;
+          auto_tx_mode(true);
+          processMessage(decodedtext0);
+          auto now = QDateTime::currentDateTimeUtc();
+          m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));
+          QTimer::singleShot (6000, [=] {selected = false;});
+          if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));     // Tx max 6*TRperiod
+        }
 
-       // CQ: Max Dist
-       if((pounce or m_auto) && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText()=="CQ: Max Dist"
-           && (!(ui->actionFull_Duplex_Mode->isChecked() && m_txing))) {
-         QString deCall;
-         QString deGrid;
-         decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
-         if (!filtered && !ignored && (deGrid.contains(grid_regexp) or m_bCallingCQ) && (
-             (pounce && text.contains(" CQ ") && !txLog.contains(deCall) && m_config.Wait_features_enabled()) or
-             (m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " ") && !text.contains("73 "))
-                                                           )) {
+        // CQ: Max Dist
+        if((pounce or m_auto) && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText()=="CQ: Max Dist"
+            && (!(ui->actionFull_Duplex_Mode->isChecked() && m_txing))) {
+          QString deCall;
+          QString deGrid;
+          decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
+          if (!filtered && !ignored && (deGrid.contains(grid_regexp) or m_bCallingCQ) && (
+              (pounce && text.contains(" CQ ") && !txLog.contains(deCall) && m_config.Wait_features_enabled()) or
+              (m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " ") && !text.contains("73 "))
+               )) {
             double utch=0.0;
             int nAz,nEl,nDmiles,nDkm,nHotAz,nHotABetter;
             azdist_(const_cast <char *> ((m_config.my_grid () + "      ").left (6).toLatin1().constData()),
@@ -5864,150 +5864,135 @@ void MainWindow::readFromStdout()                             //readFromStdout
             Dpoints=nDkm;
             if (!deGrid.contains(grid_regexp)) Dpoints=1;
             if(Dpoints>maxDPoints) {
-                   maxDPoints=Dpoints;
-                   m_deCall=deCall;
-                   m_bDoubleClicked=true;
-                   if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {
-                       auto_tx_mode(true);
-                       processMessage(decodedtext0);
-                       if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));     // Tx max 6*TRperiod
-                   }
-                   ui->dxCallEntry->setText(deCall);
-                   genStdMsgs(QString::number(decodedtext.snr()));
-                   ui->RxFreqSpinBox->setValue(decodedtext.frequencyOffset());
-                   setTxMsg(m_ntx);
-                   m_currentMessageType=m_ntx;
-                   auto now = QDateTime::currentDateTimeUtc();
-                   m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));
+                maxDPoints=Dpoints;
+                m_deCall=deCall;
+                m_bDoubleClicked=true;
+                if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {
+                  auto_tx_mode(true);
+                  processMessage(decodedtext0);
+                  if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));     // Tx max 6*TRperiod
+                }
+                ui->dxCallEntry->setText(deCall);
+                genStdMsgs(QString::number(decodedtext.snr()));
+                ui->RxFreqSpinBox->setValue(decodedtext.frequencyOffset());
+                setTxMsg(m_ntx);
+                m_currentMessageType=m_ntx;
+                auto now = QDateTime::currentDateTimeUtc();
+                m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));
             }
-         }
-       }
+          }
+        }
 
-       // CQ: Max dB
-       if((pounce or m_auto) && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText()=="CQ: Max dB"
-           && (!(ui->actionFull_Duplex_Mode->isChecked() && m_txing))) {
-         QString deCall;
-         QString deGrid;
-         decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
-         if (!filtered && !ignored && (
+        // CQ: Max dB
+        if((pounce or m_auto) && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText()=="CQ: Max dB"
+            && (!(ui->actionFull_Duplex_Mode->isChecked() && m_txing))) {
+          QString deCall;
+          QString deGrid;
+          decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
+          if (!filtered && !ignored && (
               (pounce && text.contains(" CQ ") && !txLog.contains(deCall) && m_config.Wait_features_enabled()) or
               (m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " ") && !text.contains("73 "))
-                           )) {
-               dBpoints=decodedtext.string().mid(7,3).toInt();
-               if(dBpoints>maxdBPoints) {
-                   maxdBPoints=dBpoints;
-                   m_deCall=deCall;
-                   m_bDoubleClicked=true;
-                   if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {
-                       auto_tx_mode(true);
-                       processMessage(decodedtext0);
-                       if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));     // Tx max 6*TRperiod
-                   }
-                   ui->dxCallEntry->setText(deCall);
-                   genStdMsgs(QString::number(decodedtext.snr()));
-                   ui->RxFreqSpinBox->setValue(decodedtext.frequencyOffset());
-                   setTxMsg(m_ntx);
-                   m_currentMessageType=m_ntx;
-                   auto now = QDateTime::currentDateTimeUtc();
-                   m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));
-               }
-         }
-       }
+               )) {
+                  dBpoints=decodedtext.string().mid(7,3).toInt();
+                  if(dBpoints>maxdBPoints) {
+                      maxdBPoints=dBpoints;
+                      m_deCall=deCall;
+                      m_bDoubleClicked=true;
+                      if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {
+                        auto_tx_mode(true);
+                        processMessage(decodedtext0);
+                        if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));     // Tx max 6*TRperiod
+                      }
+                      ui->dxCallEntry->setText(deCall);
+                      genStdMsgs(QString::number(decodedtext.snr()));
+                      ui->RxFreqSpinBox->setValue(decodedtext.frequencyOffset());
+                      setTxMsg(m_ntx);
+                      m_currentMessageType=m_ntx;
+                      auto now = QDateTime::currentDateTimeUtc();
+                      m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));        QTimer::singleShot (6000, [=] {selected = false;});
+                  }
+          }
+        }
 
-       // CQ: Min dB
-       if((pounce or m_auto) && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText()=="CQ: Min dB"
-           && (!(ui->actionFull_Duplex_Mode->isChecked() && m_txing))) {
-         QString deCall;
-         QString deGrid;
-         decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
-         if (!filtered && !ignored && (
+        // CQ: Min dB
+        if((pounce or m_auto) && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText()=="CQ: Min dB"
+            && (!(ui->actionFull_Duplex_Mode->isChecked() && m_txing))) {
+          QString deCall;
+          QString deGrid;
+          decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
+          if (!filtered && !ignored && (
               (pounce && text.contains(" CQ ") && !txLog.contains(deCall) && m_config.Wait_features_enabled()) or
               (m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " ") && !text.contains("73 "))
-                           )) {
-               dBpoints2=decodedtext.string().mid(7,3).toInt();
-               if(dBpoints2<mindBPoints) {
-                   mindBPoints=dBpoints2;
-                   m_deCall=deCall;
-                   m_bDoubleClicked=true;
-                   if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {
-                       auto_tx_mode(true);
-                       processMessage(decodedtext0);
-                       if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));     // Tx max 6*TRperiod
-                   }
-                   ui->dxCallEntry->setText(deCall);
-                   genStdMsgs(QString::number(decodedtext.snr()));
-                   ui->RxFreqSpinBox->setValue(decodedtext.frequencyOffset());
-                   setTxMsg(m_ntx);
-                   m_currentMessageType=m_ntx;
-                   auto now = QDateTime::currentDateTimeUtc();
-                   m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));
-               }
-         }
-       }
+               )) {
+                  dBpoints2=decodedtext.string().mid(7,3).toInt();
+                  if(dBpoints2<mindBPoints) {
+                      mindBPoints=dBpoints2;
+                      m_deCall=deCall;
+                      m_bDoubleClicked=true;
+                      if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {
+                        auto_tx_mode(true);
+                        processMessage(decodedtext0);
+                        if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));     // Tx max 6*TRperiod
+                      }
+                      ui->dxCallEntry->setText(deCall);
+                      genStdMsgs(QString::number(decodedtext.snr()));
+                      ui->RxFreqSpinBox->setValue(decodedtext.frequencyOffset());
+                      setTxMsg(m_ntx);
+                      m_currentMessageType=m_ntx;
+                      auto now = QDateTime::currentDateTimeUtc();
+                      m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));        QTimer::singleShot (6000, [=] {selected = false;});
+                  }
+          }
+        }
 
-       // Ensure that Tx stops when "RR73" or "73" is received and repeat_Tx is enabled
-       if (m_config.repeat_Tx() && m_mode=="Q65" && m_hisCall!="" && text.contains(m_baseCall)
-           && text.contains(m_hisCall + " 73"))  cease_auto_Tx_after_QSO();
+        // Ensure that Tx stops when "RR73" or "73" is received and repeat_Tx is enabled
+        if (m_config.repeat_Tx() && m_mode=="Q65" && m_hisCall!="" && text.contains(m_baseCall)
+            && text.contains(m_hisCall + " 73"))  cease_auto_Tx_after_QSO();
 
-       // highlight orange and blue callsigns
-       if(m_config.highlight_orange() or (m_config.highlight_blue())) {
-         QString deCall;
-         QString deGrid;
-         decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
-         if (m_config.highlight_orange() && m_config.highlight_orange_callsigns().contains(deCall + ","))
-               ui->decodedTextBrowser->highlight_callsign(deCall, QColor(225,75,0), QColor(255,255,255), true);
-         if (m_config.highlight_orange() && m_config.highlight_orange_callsigns().contains(deGrid))
-               ui->decodedTextBrowser->highlight_callsign(deGrid, QColor(225,75,0), QColor(255,255,255), true);
-         if (m_config.highlight_blue() && m_config.highlight_blue_callsigns().contains(deCall + ","))
-               ui->decodedTextBrowser->highlight_callsign(deCall, QColor(0,100,255), QColor(255,255,255), true);
-         if (m_config.highlight_blue() && m_config.highlight_blue_callsigns().contains(deGrid))
-               ui->decodedTextBrowser->highlight_callsign(deGrid, QColor(0,100,255), QColor(255,255,255), true);
-       }
-
-       // Highlight DX Call/Grid
-       if (!pounce && m_config.highlight_DXcall () && (m_hisCall!="") && ((text.contains(QRegularExpression {"(\\w+) " + m_hisCall}))
-            || (decodedtext.string().contains("<...> " + m_hisCall))))  {
-           ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);
-           if (m_config.alert_Enabled()) play_DXcall = true;    // UR disable for versions without alerts
-           QTimer::singleShot (500, [=] {                       // repeated highlighting to override JTAlert
-               ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);
-               });
-           QTimer::singleShot (1000, [=] {                      // repeated highlighting to override JTAlert
-               ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);
-               });
-           QTimer::singleShot (2500, [=] {                      // repeated highlighting to override JTAlert
-               ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);
-               });
-       }
-       if (!pounce && m_config.highlight_DXgrid () && (m_hisGrid!="") && (decodedtext.string().contains(m_hisGrid.left(4))))  {
-           ui->decodedTextBrowser->highlight_callsign(m_hisGrid.left(4), QColor(0,0,200), QColor(255,255,255), true);
-           if (m_config.alert_Enabled()) play_DXcall = true;    // UR disable for versions without alerts
-       }
-       QTimer::singleShot (100, [=] {                       // UR delete for versions without alerts
-           if ((m_config.alert_Enabled()) && (m_config.alert_DXcall()) && (play_DXcall) && (m_hisCall!="")) {
+        // Highlight DX Call/Grid
+        if (!pounce && m_config.highlight_DXcall () && (m_hisCall!="") && ((text.contains(QRegularExpression {"(\\w+) " + m_hisCall}))
+             || (decodedtext.string().contains("<...> " + m_hisCall))))  {
+            ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);
+            if (m_config.alert_Enabled()) play_DXcall = true;    // UR disable for versions without alerts
+            QTimer::singleShot (500, [=] {                       // repeated highlighting to override JTAlert
+                ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);
+                });
+            QTimer::singleShot (1000, [=] {                      // repeated highlighting to override JTAlert
+                ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);
+                });
+            QTimer::singleShot (2500, [=] {                      // repeated highlighting to override JTAlert
+                ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);
+                });
+        }
+        if (!pounce && m_config.highlight_DXgrid () && (m_hisGrid!="") && (decodedtext.string().contains(m_hisGrid.left(4))))  {
+            ui->decodedTextBrowser->highlight_callsign(m_hisGrid.left(4), QColor(0,0,200), QColor(255,255,255), true);
+            if (m_config.alert_Enabled()) play_DXcall = true;    // UR disable for versions without alerts
+        }
+        QTimer::singleShot (100, [=] {                       // UR delete for versions without alerts
+          if ((m_config.alert_Enabled()) && (m_config.alert_DXcall()) && (play_DXcall) && (m_hisCall!="")) {
 #ifdef WIN32
-               QAudioOutput info(QAudioDeviceInfo::defaultOutputDevice());
-               QString binPath = QCoreApplication::applicationDirPath();
-               QAudioFormat format;
-               format.setCodec("audio/pcm");
-               format.setSampleRate (48000);
-               format.setChannelCount (1);
-               format.setSampleSize (16);
-               format.setSampleType(QAudioFormat::SignedInt);
-               QAudioOutput* audio;
-               audio = new QAudioOutput(format, this);
-               connect(audio, SIGNAL(stateChanged(QAudio::State)), this, SLOT(handleStateChanged(QAudio::State)));
-               QFile *effect1 = new QFile(this);
-               effect1->setFileName(QString("%1/%2").arg(binPath, "/sounds/DXcall.wav"));
-               effect1->open(QIODevice::ReadOnly);
-               audio->start(effect1);
+              QAudioOutput info(QAudioDeviceInfo::defaultOutputDevice());
+              QString binPath = QCoreApplication::applicationDirPath();
+              QAudioFormat format;
+              format.setCodec("audio/pcm");
+              format.setSampleRate (48000);
+              format.setChannelCount (1);
+              format.setSampleSize (16);
+              format.setSampleType(QAudioFormat::SignedInt);
+              QAudioOutput* audio;
+              audio = new QAudioOutput(format, this);
+              connect(audio, SIGNAL(stateChanged(QAudio::State)), this, SLOT(handleStateChanged(QAudio::State)));
+              QFile *effect1 = new QFile(this);
+              effect1->setFileName(QString("%1/%2").arg(binPath, "/sounds/DXcall.wav"));
+              effect1->open(QIODevice::ReadOnly);
+              audio->start(effect1);
 #else
-               QString binPath = QCoreApplication::applicationDirPath();
-               QSound::play(binPath + "/sounds/DXcall.wav");  // for Linux and macOS
+              QString binPath = QCoreApplication::applicationDirPath();
+              QSound::play(binPath + "/sounds/DXcall.wav");  // for Linux and macOS
 #endif
-               play_DXcall = false;
-           }
-       });                                                  // UR delete for versions without alerts
+              play_DXcall = false;
+          }
+        });                                                  // UR delete for versions without alerts
 
           if(m_bBestSPArmed && m_mode=="FT4" && CALLING == m_QSOProgress && !ignored && !filtered) {
             QString messagePriority=ui->decodedTextBrowser->CQPriority();
