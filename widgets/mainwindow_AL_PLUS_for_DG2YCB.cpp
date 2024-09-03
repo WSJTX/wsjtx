@@ -8702,6 +8702,10 @@ void MainWindow::msgtype(QString t, QLineEdit* tx)               //msgtype()
 
 void MainWindow::on_tx1_editingFinished()                       //tx1 edited
 {
+  if (SpecOp::HOUND==m_specOp && m_config.superFox() && !m_bDoubleClicked) {
+    clearDX();
+    return;
+  }
   QString t=ui->tx1->text();
   msgtype(t, ui->tx1);
 }
@@ -9041,7 +9045,7 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
 
 void MainWindow::on_dxCallEntry_textChanged (QString const& call)
 {
-  if (m_mode=="FT8" && m_config.superFox() && !m_bDoubleClicked) {
+  if (SpecOp::HOUND==m_specOp && m_config.superFox() && !m_bDoubleClicked) {
     clearDX();
     return;
   }
