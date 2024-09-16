@@ -3661,7 +3661,7 @@ Right click for insert and delete options.</string>
            </widget>
           </item>
           <item row="1" column="0" colspan="4">
-           <layout class="QHBoxLayout" name="OTP_Layout" stretch="0,0,0,1,0,0,1,0,0,1">
+           <layout class="QHBoxLayout" name="OTP_Layout" stretch="0,0,0,1,0,0,0,0,0,0,0,1">
             <item>
              <widget class="QCheckBox" name="cbOTP">
               <property name="toolTip">
@@ -3715,14 +3715,14 @@ Right click for insert and delete options.</string>
             <item>
              <widget class="QLabel" name="lblOTPEvery">
               <property name="text">
-               <string>OTP every </string>
+               <string>Interval</string>
               </property>
              </widget>
             </item>
             <item>
              <widget class="QSpinBox" name="sbOTPinterval">
               <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;How many cycles between sends of the OTP.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Interval at which the OTP messages are sent. Select 1 to sign every message.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
               <property name="maximum">
                <number>20</number>
@@ -3739,7 +3739,33 @@ Right click for insert and delete options.</string>
               </property>
               <property name="sizeHint" stdset="0">
                <size>
-                <width>10</width>
+                <width>20</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="cbHideOTP">
+              <property name="toolTip">
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Hide OTP messages in the Band Activity window.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+              </property>
+              <property name="text">
+               <string>Hide OTP messages</string>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="horizontalSpacer_18">
+              <property name="orientation">
+               <enum>Qt::Orientation::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>20</width>
                 <height>20</height>
                </size>
               </property>
@@ -4718,13 +4744,13 @@ Right click for insert and delete options.</string>
   </connection>
  </connections>
  <buttongroups>
-  <buttongroup name="CAT_data_bits_button_group"/>
-  <buttongroup name="PTT_method_button_group"/>
-  <buttongroup name="TX_mode_button_group"/>
-  <buttongroup name="special_op_activity_button_group"/>
-  <buttongroup name="TX_audio_source_button_group"/>
-  <buttongroup name="CAT_stop_bits_button_group"/>
   <buttongroup name="CAT_handshake_button_group"/>
   <buttongroup name="split_mode_button_group"/>
+  <buttongroup name="PTT_method_button_group"/>
+  <buttongroup name="CAT_data_bits_button_group"/>
+  <buttongroup name="special_op_activity_button_group"/>
+  <buttongroup name="CAT_stop_bits_button_group"/>
+  <buttongroup name="TX_audio_source_button_group"/>
+  <buttongroup name="TX_mode_button_group"/>
  </buttongroups>
 </ui>

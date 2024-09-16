@@ -13689,8 +13689,6 @@ void MainWindow::sfox_tx() {
         LOG_INFO(QString("TOTP SF: seed not long enough"));
       }
   }
-#else
-  args.append(m_config.FoxKey());
 #endif
 //  qDebug() << "aa" << QDir::toNativeSeparators(m_appDir)+QDir::separator()+"sftx";
 //  qDebug() << "bb" << args;
