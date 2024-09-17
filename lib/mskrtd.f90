@@ -74,15 +74,15 @@ subroutine mskrtd(id2,nutc0,tsec,ntol,nrxfreq,ndepth,mycall,hiscall,      &
 !     dxcall13=hiscall//' '
      mycall13=' '
      dxcall13=' '
-     mycall13(1:12)=mycall
-     dxcall13(1:12)=hiscall
+     mycall13(1:12)=mycall(1:12)
+     dxcall13(1:12)=hiscall(1:12)
      first=.false.
   endif
 
   fc=nrxfreq
 
 ! Reset if mycall or dxcall changes
-  if(mycall13(1:12).ne.mycall .or. dxcall13(1:12).ne.hiscall) first=.true.
+  if(mycall13(1:12).ne.mycall(1:12) .or. dxcall13(1:12).ne.hiscall(1:12)) first=.true.
 
 ! Dupe checking setup 
   if(nutc00.ne.nutc0 .or. tsec.lt.tsec0) then ! reset dupe checker
