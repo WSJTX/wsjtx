@@ -1762,7 +1762,7 @@ void MainWindow::set_application_font (QFont const& font)
       ui->outAttenuation->setMinimumWidth (2.8*pointSize + 8);
   }
   if (pointSize < 10) {
-      ui->tabWidget->setMaximumHeight(220);                           // UR for AL
+      ui->tabWidget->setMaximumHeight(225);                           // UR for AL
 //      if (ui->actionUse_Dark_Style->isChecked()) {
 //          ui->tabWidget->setMaximumHeight(228);                       // UR for normal + widescreen
 //          ui->houndButton->setMinimumWidth(50);                       // UR for normal + widescreen
@@ -14380,7 +14380,7 @@ void MainWindow::on_actionUse_Dark_Style_triggered (bool checked)
     if (pointSize == 10) ui->controls_stack_widget->setMaximumWidth(220);   // UR for AL
     if (pointSize > 10) ui->controls_stack_widget->setMaximumWidth(240);    // UR for AL
     if (pointSize < 11) {
-        ui->tabWidget->setMaximumHeight(210);                               // UR for AL
+        ui->tabWidget->setMaximumHeight(225);                               // UR for AL
         ui->controls_stack_widget->setMaximumHeight(200);                   // UR for AL
 //        if (ui->actionUse_Dark_Style->isChecked()) ui->tabWidget->setMaximumHeight(225);  // UR for normal + widescreen
     } else {
