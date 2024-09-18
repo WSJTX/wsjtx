@@ -1289,7 +1289,6 @@ void MainWindow::writeSettings()
   m_settings->setValue("HoundSort",ui->comboBoxHoundSort->currentIndex());
   m_settings->setValue("FoxNlist",ui->sbNlist->value());
   m_settings->setValue("FoxNslots",m_Nslots0);
-  m_settings->setValue("FoxMaxDB_v2",ui->sbMax_dB->value()); // original key abandoned
   m_settings->setValue ("SerialNumber",ui->sbSerialNumber->value ());
   m_settings->setValue("FoxTextMsg", m_freeTextMsg0);
   m_settings->setValue("WorkDupes", ui->cbWorkDupes->isChecked());
@@ -1469,7 +1468,6 @@ void MainWindow::readSettings()
   m_Nslots=m_settings->value("FoxNslots",3).toInt();
   m_Nslots0=m_Nslots;
   if(!m_config.superFox()) ui->sbNslots->setValue(m_Nslots);
-  ui->sbMax_dB->setValue(m_settings->value("FoxMaxDB_v2",70).toInt());
   ui->sbSerialNumber->setValue (m_settings->value ("SerialNumber", 1).toInt ());
   m_freeTextMsg0=m_settings->value("FoxTextMsg","").toString();
   m_freeTextMsg=m_freeTextMsg0;
@@ -1651,7 +1649,7 @@ void MainWindow::readSettings()
     // We need this to initialize the height of tab 1 correctly
     ui->pbFreeText->setVisible(false);
     ui->cbSendMsg->setVisible(false);
-    ui->tabWidget->setCurrentIndex(1);
+    ui->tabWidget->setCurrentIndex(2);
     ui->tabWidget->setCurrentIndex(n);
   }
   outBufSize=m_settings->value("OutBufSize",4096).toInt();
@@ -1772,7 +1770,7 @@ void MainWindow::set_application_font (QFont const& font)
       ui->outAttenuation->setMinimumWidth (2.8*pointSize + 8);
   }
   if (pointSize < 10) {
-      ui->tabWidget->setMaximumHeight(225);                           // UR for AL
+      ui->tabWidget->setMaximumHeight(220);                           // UR for AL
 //      if (ui->actionUse_Dark_Style->isChecked()) {
 //          ui->tabWidget->setMaximumHeight(228);                       // UR for normal + widescreen
 //          ui->houndButton->setMinimumWidth(50);                       // UR for normal + widescreen
@@ -12560,15 +12558,6 @@ void MainWindow::on_sbNslots_valueChanged(int n)
   if(!m_config.superFox()) m_Nslots0=n;
 }
 
-void MainWindow::on_sbMax_dB_valueChanged(int n)
-{
-  m_max_dB=n;
-  if(m_specOp!=SpecOp::FOX) return;
-  QString t;
-  t = t.asprintf(" Max_dB %d",m_max_dB);
-  writeFoxQSO(t);
-}
-
 void MainWindow::FoxReset(QString reason="")
 {
   QFile f(m_config.temp_dir().absoluteFilePath("houndcallers.txt"));
@@ -14437,12 +14426,12 @@ void MainWindow::on_actionUse_Dark_Style_triggered (bool checked)
     if (pointSize == 10) ui->controls_stack_widget->setMaximumWidth(220);   // UR for AL
     if (pointSize > 10) ui->controls_stack_widget->setMaximumWidth(240);    // UR for AL
     if (pointSize < 11) {
-        ui->tabWidget->setMaximumHeight(225);                               // UR for AL
+        ui->tabWidget->setMaximumHeight(220);                               // UR for AL
         ui->controls_stack_widget->setMaximumHeight(200);                   // UR for AL
 //        if (ui->actionUse_Dark_Style->isChecked()) ui->tabWidget->setMaximumHeight(225);  // UR for normal + widescreen
     } else {
         ui->tabWidget->setMaximumHeight(255);                               // UR for AL
-        ui->controls_stack_widget->setMaximumHeight(225);                   // UR for AL
+        ui->controls_stack_widget->setMaximumHeight(220);                   // UR for AL
 //        ui->tabWidget->setMaximumHeight(500);                               // UR for normal + widescreen
     }
     for (auto& widget : qApp->topLevelWidgets ())

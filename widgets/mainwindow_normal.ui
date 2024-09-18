@@ -2340,69 +2340,27 @@ Double-click to reset to the standard 73 message</string>
                       <property name="horizontalSpacing">
                        <number>6</number>
                       </property>
+                      <item row="8" column="2">
+                       <widget class="QCheckBox" name="cbSendMsg">
+                        <property name="toolTip">
+                         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Transmit free text message at the next opportunity.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                        </property>
+                        <property name="text">
+                         <string>Send msg</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item row="7" column="2">
+                       <widget class="QPushButton" name="pbFreeText">
+                        <property name="toolTip">
+                         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enter a free text message.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                        </property>
+                        <property name="text">
+                         <string>Free Text</string>
+                        </property>
+                       </widget>
+                      </item>
                       <item row="4" column="2">
-                       <widget class="QSpinBox" name="sbNslots">
-                        <property name="sizePolicy">
-                         <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                          <horstretch>0</horstretch>
-                          <verstretch>0</verstretch>
-                         </sizepolicy>
-                        </property>
-                        <property name="maximumSize">
-                         <size>
-                          <width>16777215</width>
-                          <height>16777215</height>
-                         </size>
-                        </property>
-                        <property name="toolTip">
-                         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Maximum number of concurrent streams for Fox transmissions.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-                        </property>
-                        <property name="suffix">
-                         <string/>
-                        </property>
-                        <property name="prefix">
-                         <string>N Slots    </string>
-                        </property>
-                        <property name="minimum">
-                         <number>1</number>
-                        </property>
-                        <property name="maximum">
-                         <number>5</number>
-                        </property>
-                        <property name="value">
-                         <number>1</number>
-                        </property>
-                        <property name="displayIntegerBase">
-                         <number>10</number>
-                        </property>
-                       </widget>
-                      </item>
-                      <item row="0" column="0">
-                       <widget class="QLabel" name="label_queue">
-                        <property name="font">
-                         <font>
-                          <pointsize>9</pointsize>
-                         </font>
-                        </property>
-                        <property name="text">
-                         <string>Queue</string>
-                        </property>
-                        <property name="alignment">
-                         <set>Qt::AlignCenter</set>
-                        </property>
-                       </widget>
-                      </item>
-                      <item row="6" column="2">
-                       <widget class="QCheckBox" name="cbMoreCQs">
-                        <property name="toolTip">
-                         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Include a CQ message along with other messages.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-                        </property>
-                        <property name="text">
-                         <string>More CQs</string>
-                        </property>
-                       </widget>
-                      </item>
-                      <item row="5" column="2">
                        <widget class="QComboBox" name="comboBoxCQ">
                         <property name="toolTip">
                          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Select a specific CQ message.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -2502,6 +2460,38 @@ Double-click to reset to the standard 73 message</string>
                         </item>
                        </widget>
                       </item>
+                      <item row="0" column="0">
+                       <widget class="QLabel" name="label_queue">
+                        <property name="font">
+                         <font>
+                          <pointsize>9</pointsize>
+                         </font>
+                        </property>
+                        <property name="text">
+                         <string>Queue</string>
+                        </property>
+                        <property name="alignment">
+                         <set>Qt::AlignCenter</set>
+                        </property>
+                       </widget>
+                      </item>
+                      <item row="0" column="2">
+                       <widget class="QCheckBox" name="cbWorkDupes">
+                        <property name="text">
+                         <string>Allow Dupes</string>
+                        </property>
+                       </widget>
+                      </item>
+                      <item row="6" column="2">
+                       <widget class="QPushButton" name="pbFoxReset">
+                        <property name="toolTip">
+                         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Clear all queues.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                        </property>
+                        <property name="text">
+                         <string>Reset</string>
+                        </property>
+                       </widget>
+                      </item>
                       <item row="2" column="2">
                        <widget class="QSpinBox" name="sbNlist">
                         <property name="sizePolicy">
@@ -2533,8 +2523,8 @@ Double-click to reset to the standard 73 message</string>
                         </property>
                        </widget>
                       </item>
-                      <item row="3" column="2">
-                       <widget class="QSpinBox" name="sbMax_dB">
+                      <item row="1" column="2">
+                       <widget class="QComboBox" name="comboBoxHoundSort">
                         <property name="sizePolicy">
                          <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
                           <horstretch>0</horstretch>
@@ -2548,104 +2538,63 @@ Double-click to reset to the standard 73 message</string>
                          </size>
                         </property>
                         <property name="toolTip">
-                         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Set the maximum permitted SNR for callers to be included in the queue.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Select a desired sort order for callsigns in the queue.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                         </property>
-                        <property name="prefix">
-                         <string>Max dB  </string>
+                        <property name="currentText">
+                         <string>Random</string>
                         </property>
-                        <property name="minimum">
-                         <number>-15</number>
+                        <property name="maxVisibleItems">
+                         <number>8</number>
                         </property>
-                        <property name="maximum">
-                         <number>70</number>
-                        </property>
-                        <property name="value">
-                         <number>30</number>
-                        </property>
+                        <item>
+                         <property name="text">
+                          <string>Random</string>
+                         </property>
+                        </item>
+                        <item>
+                         <property name="text">
+                          <string>Call</string>
+                         </property>
+                        </item>
+                        <item>
+                         <property name="text">
+                          <string>Grid</string>
+                         </property>
+                        </item>
+                        <item>
+                         <property name="text">
+                          <string>S/N (dB)</string>
+                         </property>
+                        </item>
+                        <item>
+                         <property name="text">
+                          <string>Distance</string>
+                         </property>
+                        </item>
+                        <item>
+                         <property name="text">
+                          <string>Age</string>
+                         </property>
+                        </item>
+                        <item>
+                         <property name="text">
+                          <string>Continent</string>
+                         </property>
+                        </item>
+                        <item>
+                         <property name="text">
+                          <string>Score</string>
+                         </property>
+                        </item>
                        </widget>
                       </item>
-                   <item row="1" column="2">
-                    <widget class="QComboBox" name="comboBoxHoundSort">
-                     <property name="sizePolicy">
-                      <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                       <horstretch>0</horstretch>
-                       <verstretch>0</verstretch>
-                      </sizepolicy>
-                     </property>
-                     <property name="maximumSize">
-                      <size>
-                       <width>16777215</width>
-                       <height>16777215</height>
-                      </size>
-                     </property>
-                     <property name="toolTip">
-                      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Select a desired sort order for callsigns in the queue.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-                     </property>
-                     <property name="currentText">
-                      <string>Random</string>
-                     </property>
-                     <property name="maxVisibleItems">
-                      <number>8</number>
-                     </property>
-                     <item>
-                      <property name="text">
-                       <string>Random</string>
-                      </property>
-                     </item>
-                     <item>
-                      <property name="text">
-                       <string>Call</string>
-                      </property>
-                     </item>
-                     <item>
-                      <property name="text">
-                       <string>Grid</string>
-                      </property>
-                     </item>
-                     <item>
-                      <property name="text">
-                       <string>S/N (dB)</string>
-                      </property>
-                     </item>
-                     <item>
-                      <property name="text">
-                       <string>Distance</string>
-                      </property>
-                     </item>
-                     <item>					 
-	                  <property name="text">				 
-                       <string>Age</string>					 
-                      </property>
-                     </item>
-                     <item>					 
-	                  <property name="text">				 
-                       <string>Continent</string>					 
-                      </property>
-                     </item>
-                     <item>					 
-	                  <property name="text">				 
-                       <string>Score</string>					 
-                      </property>
-                     </item>
-                    </widget>
-                   </item>
-                      <item row="8" column="2">
-                       <widget class="QPushButton" name="pbFreeText">
+                      <item row="5" column="2">
+                       <widget class="QCheckBox" name="cbMoreCQs">
                         <property name="toolTip">
-                         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enter a free text message.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Include a CQ message along with other messages.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                         </property>
                         <property name="text">
-                         <string>Free Text</string>
-                        </property>
-                       </widget>
-                      </item>
-                      <item row="7" column="2">
-                       <widget class="QPushButton" name="pbFoxReset">
-                        <property name="toolTip">
-                         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Clear all queues.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-                        </property>
-                        <property name="text">
-                         <string>Reset</string>
+                         <string>More CQs</string>
                         </property>
                        </widget>
                       </item>
@@ -2659,15 +2608,55 @@ Double-click to reset to the standard 73 message</string>
                         </property>
                        </widget>
                       </item>
-                      <item row="9" column="2">
-                       <widget class="QCheckBox" name="cbSendMsg">
-                        <property name="toolTip">
-                         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Transmit free text message at the next opportunity.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                      <item row="3" column="2">
+                       <widget class="QSpinBox" name="sbNslots">
+                        <property name="sizePolicy">
+                         <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                          <horstretch>0</horstretch>
+                          <verstretch>0</verstretch>
+                         </sizepolicy>
                         </property>
-                        <property name="text">
-                         <string>Send msg</string>
+                        <property name="maximumSize">
+                         <size>
+                          <width>16777215</width>
+                          <height>16777215</height>
+                         </size>
+                        </property>
+                        <property name="toolTip">
+                         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Maximum number of concurrent streams for Fox transmissions.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                        </property>
+                        <property name="suffix">
+                         <string/>
+                        </property>
+                        <property name="prefix">
+                         <string>N Slots    </string>
+                        </property>
+                        <property name="minimum">
+                         <number>1</number>
+                        </property>
+                        <property name="maximum">
+                         <number>5</number>
+                        </property>
+                        <property name="value">
+                         <number>1</number>
+                        </property>
+                        <property name="displayIntegerBase">
+                         <number>10</number>
                         </property>
                        </widget>
+                      </item>
+                      <item row="9" column="2">
+                       <spacer name="verticalSpacer">
+                        <property name="orientation">
+                         <enum>Qt::Vertical</enum>
+                        </property>
+                        <property name="sizeHint" stdset="0">
+                         <size>
+                          <width>20</width>
+                          <height>40</height>
+                         </size>
+                        </property>
+                       </spacer>
                       </item>
                       <item row="1" column="1" rowspan="9">
                        <widget class="DisplayText" name="foxTxListTextBrowser">
@@ -2707,13 +2696,6 @@ Double-click to reset to the standard 73 message</string>
                         </property>
                         <property name="sizeAdjustPolicy">
                          <enum>QAbstractScrollArea::AdjustToContentsOnFirstShow</enum>
-                        </property>
-                       </widget>
-                      </item>
-                      <item row="0" column="2">
-                       <widget class="QCheckBox" name="cbWorkDupes">
-                        <property name="text">
-                         <string>Allow Dupes</string>
                         </property>
                        </widget>
                       </item>
@@ -4288,7 +4270,7 @@ QPushButton[state=&quot;ok&quot;] {
      <x>0</x>
      <y>0</y>
      <width>880</width>
-     <height>21</height>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">

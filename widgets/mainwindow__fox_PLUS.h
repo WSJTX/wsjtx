@@ -371,7 +371,6 @@ private slots:
   void on_measure_check_box_stateChanged (int);
   void on_sbNlist_valueChanged(int n);
   void on_sbNslots_valueChanged(int n);
-  void on_sbMax_dB_valueChanged(int n);
   void on_sbF_Low_valueChanged(int n);
   void on_sbF_High_valueChanged(int n);
   void chk_FST4_freq_range();

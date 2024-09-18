@@ -1289,7 +1289,6 @@ void MainWindow::writeSettings()
   m_settings->setValue("HoundSort",ui->comboBoxHoundSort->currentIndex());
   m_settings->setValue("FoxNlist",ui->sbNlist->value());
   m_settings->setValue("FoxNslots",m_Nslots0);
-  m_settings->setValue("FoxMaxDB_v2",ui->sbMax_dB->value()); // original key abandoned
   m_settings->setValue ("SerialNumber",ui->sbSerialNumber->value ());
   m_settings->setValue("FoxTextMsg", m_freeTextMsg0);
   m_settings->setValue("WorkDupes", ui->cbWorkDupes->isChecked());
@@ -1468,7 +1467,6 @@ void MainWindow::readSettings()
   m_Nslots=m_settings->value("FoxNslots",3).toInt();
   m_Nslots0=m_Nslots;
   if(!m_config.superFox()) ui->sbNslots->setValue(m_Nslots);
-  ui->sbMax_dB->setValue(m_settings->value("FoxMaxDB_v2",70).toInt());
   ui->sbSerialNumber->setValue (m_settings->value ("SerialNumber", 1).toInt ());
   m_freeTextMsg0=m_settings->value("FoxTextMsg","").toString();
   m_freeTextMsg=m_freeTextMsg0;
@@ -1649,7 +1647,7 @@ void MainWindow::readSettings()
     // We need this to initialize the height of tab 1 correctly
     ui->pbFreeText->setVisible(false);
     ui->cbSendMsg->setVisible(false);
-    ui->tabWidget->setCurrentIndex(1);
+    ui->tabWidget->setCurrentIndex(2);
     ui->tabWidget->setCurrentIndex(n);
   }
   outBufSize=m_settings->value("OutBufSize",4096).toInt();
@@ -12503,15 +12501,6 @@ void MainWindow::on_sbNslots_valueChanged(int n)
   t = t.asprintf(" NSlots %d",m_Nslots);
   writeFoxQSO(t);
   if(!m_config.superFox()) m_Nslots0=n;
-}
-
-void MainWindow::on_sbMax_dB_valueChanged(int n)
-{
-  m_max_dB=n;
-  if(m_specOp!=SpecOp::FOX) return;
-  QString t;
-  t = t.asprintf(" Max_dB %d",m_max_dB);
-  writeFoxQSO(t);
 }
 
 void MainWindow::FoxReset(QString reason="")
