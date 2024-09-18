@@ -1130,6 +1130,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   }
 
   m_specOp=m_config.special_op_id();
+
   // Starting in FT8 Hound mode needs this initialization
   if (m_specOp==SpecOp::HOUND) {
       on_ft8Button_clicked();
@@ -1644,8 +1645,15 @@ void MainWindow::readSettings()
   ui->sbCQTxFreq->setValue (m_settings->value ("CQTxFreq", 260).toInt());
   m_noSuffix=m_settings->value("NoSuffix",false).toBool();
   int n=m_settings->value("GUItab",0).toInt();
-  ui->tabWidget->setCurrentIndex(2);  // needed for GUI initialisation when SuperFox controls are invisible
-  ui->tabWidget->setCurrentIndex(n);
+  if (SpecOp::FOX==m_specOp) {
+    ui->tabWidget->setCurrentIndex(n);
+  } else {
+    // We need this to initialize the height of tab 1 correctly
+    ui->pbFreeText->setVisible(false);
+    ui->cbSendMsg->setVisible(false);
+    ui->tabWidget->setCurrentIndex(1);
+    ui->tabWidget->setCurrentIndex(n);
+  }
   outBufSize=m_settings->value("OutBufSize",4096).toInt();
   ui->cbHoldTxFreq->setChecked (m_settings->value ("HoldTxFreq", false).toBool ());
   HoldTxFreqStatus = m_settings->value ("HoldTxFreq", false).toBool ();
@@ -3580,19 +3588,23 @@ void MainWindow::statusChanged()
     ui->pb30B->setVisible(false);
     ui->pb60C->setVisible(false);
   }
-  if (SpecOp::FOX==m_specOp && m_config.superFox()) {
-    ui->sbNslots->setVisible(false);
+  if (SpecOp::FOX==m_specOp) {
     ui->pbFreeText->setVisible(true);
     ui->cbSendMsg->setVisible(true);
-    if(ui->cbSendMsg->isChecked()) {
-      ui->sbNslots->setValue(2);
+    if (m_config.superFox()) {
+      ui->sbNslots->setVisible(false);
+      if(ui->cbSendMsg->isChecked()) {
+        ui->sbNslots->setValue(2);
+      } else {
+        ui->sbNslots->setValue(5);
+      }
     } else {
-      ui->sbNslots->setValue(5);
+      ui->sbNslots->setVisible(true);
     }
   } else {
     ui->sbNslots->setVisible(true);
-    ui->pbFreeText->setVisible(true);
-    ui->cbSendMsg->setVisible(true);
+    ui->pbFreeText->setVisible(false);
+    ui->cbSendMsg->setVisible(false);
     ui->sbNslots->setValue(m_Nslots0);
   }
   if (SpecOp::HOUND==m_specOp) ui->cbRxAll->setVisible(!m_config.superFox());
