@@ -5390,14 +5390,14 @@ void MainWindow::readFromStdout()                             //readFromStdout
               callsign = otp_parts[0];
               otp = otp_parts[1];
               hz = lineparts[3].toInt();
-              if (m_config.ShowOTP()) filtered = true;
+              if (!m_config.ShowOTP()) filtered = true;
             } else
             {
               // split $VERIFY$ K8R 920749 into K8R and 920749
               callsign = lineparts[6];
               otp = lineparts[7];
               hz = 750; // SF is 750
-              if (m_config.ShowOTP()) filtered = true;
+              if (!m_config.ShowOTP()) filtered = true;
             }
             QDateTime verifyDateTime;
             if (m_diskData) {
