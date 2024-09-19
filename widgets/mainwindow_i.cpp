@@ -4547,10 +4547,6 @@ void MainWindow::decode()                                       //decode()
   if(dec_data.params.b_superfox and dec_data.params.b_even_seq and m_ihsym<50) return;
 
   dec_data.params.ntol=ui->sbFtol->value ();
-  if(!m_config.enable_VHF_features()) {
-    dec_data.params.ntol=20;
-    dec_data.params.naggressive=0;
-  }
   if(m_mode=="FST4") {
     dec_data.params.ntol=ui->sbFtol->value();
     if(m_config.single_decode()) {
