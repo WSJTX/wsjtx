@@ -8,7 +8,7 @@ before proceeding.
 I recommend that you follow the installation instructions especially if you
 are moving from v2.5 to v2.6 or later, of WSJT-X or you have upgraded macOS.
 
-Double-click on the wsjtx-...-Darwin.dmg file you have downloaded from K1JT's web-site.
+Double-click on the wsjtx-...-Darwin.dmg file you have downloaded from the main web-site.
 Make sure that you leave this window open for the remaining installation steps.
 
 Now open a Terminal window by going to Applications->Utilities and clicking on Terminal.
@@ -22,6 +22,10 @@ each line.
 
 you will be asked for your normal password because authorisation is needed to copy this file.
 (Your password will not be echoed but press the Return key when completed.)
+
+If your Mac is using Sonoma 14.6 or later then in addition to these two commands you must visit:
+    
+      System Settings > General > Login Items > sysctl    and select ON for sysctl.
 
 IMPORTANT: Now re-boot your Mac otherwise these changes will not take effect. 
 
@@ -39,7 +43,7 @@ You can now close the Terminal window.  It will not be necessary to repeat this 
 again, even when you download an updated version of WSJT-X.  It might be necessary if you
 upgrade macOS.
  
-Drag the WSJT-X app to your preferred location, such as Applications.
+Drag the WSJT-X app to your preferred location, such as Applications, and close the window.
 
 You need to configure your sound card.   Visit Applications > Utilities > Audio MIDI 
 Setup and select your sound card and then set Format to be "48000Hz 2ch-16bit" for 
