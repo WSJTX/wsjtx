@@ -6590,7 +6590,7 @@ void MainWindow::guiUpdate()
             ui->TxFreqSpinBox->setValue(750);            //SuperFox transmits at 750 Hz
           } else {
             if (ui->TxFreqSpinBox->value() > 900) {
-              ui->TxFreqSpinBox->setValue(300);
+              ui->TxFreqSpinBox->setValue(500);
             }
           }
         }
@@ -9588,7 +9588,7 @@ void MainWindow::on_actionFT8_triggered()
       ui->TxFreqSpinBox->setValue(750);            //SuperFox transmits at 750 Hz
       m_wideGraph->setSuperFox(true);
     } else {
-      ui->TxFreqSpinBox->setValue(300);
+      ui->TxFreqSpinBox->setValue(500);
     }
   //                         01234567890123456789012345678901234567
     displayWidgets(nWidgets("11101000010011100001000000000011000000"));
