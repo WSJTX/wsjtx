@@ -9649,12 +9649,6 @@ void MainWindow::on_actionFT8_triggered()
   QTimer::singleShot (50, [=] {
     if(m_specOp!=SpecOp::FOX) ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq_old",1500).toInt());
     if(m_specOp==SpecOp::FOX && !m_config.superFox()) ui->TxFreqSpinBox->setValue(m_TxFreqFox);
-    if(SpecOp::HOUND == m_specOp && m_config.superFox() &&
-       (ui->RxFreqSpinBox->value() < 700 or ui->RxFreqSpinBox->value() > 800)) {
-      ui->RxFreqSpinBox->setValue(750);
-    } else {
-      ui->RxFreqSpinBox->setValue(m_settings->value("RxFreq_old",1500).toInt());
-    }
     on_sbSubmode_valueChanged(ui->sbSubmode->value());
     ui->cbHoldTxFreq->setChecked (HoldTxFreqStatus);
   });
@@ -9741,12 +9735,16 @@ void MainWindow::on_actionFT8_triggered()
       m_wideGraph->setRxFreq(ui->RxFreqSpinBox->value());
       m_wideGraph->setTol(ui->sbFtol->value());
       m_wideGraph->setSuperHound(true);
+      clearDX();
+      if(ui->RxFreqSpinBox->value() < 700 or ui->RxFreqSpinBox->value() > 800)
+        ui->RxFreqSpinBox->setValue(750);
     } else {
       //                       01234567890123456789012345678901234567
       displayWidgets(nWidgets("11101000010011000001000000000011000000"));
       ui->labDXped->setText(tr ("Hound"));
       ui->cbRxAll->setEnabled(true);
       m_wideGraph->setSuperHound(false);
+      ui->RxFreqSpinBox->setValue(m_settings->value("RxFreq_old",1500).toInt());
     }
     ui->txrb1->setChecked(true);
     ui->txrb2->setEnabled(false);
