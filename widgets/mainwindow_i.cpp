@@ -8695,6 +8695,10 @@ void MainWindow::msgtype(QString t, QLineEdit* tx)               //msgtype()
 
 void MainWindow::on_tx1_editingFinished()                       //tx1 edited
 {
+  if (SpecOp::HOUND==m_specOp && m_config.superFox() && !m_bDoubleClicked) {
+    clearDX();
+    return;
+  }
   QString t=ui->tx1->text();
   msgtype(t, ui->tx1);
 }
@@ -8707,6 +8711,10 @@ void MainWindow::on_tx2_editingFinished()                       //tx2 edited
 
 void MainWindow::on_tx3_editingFinished()                       //tx3 edited
 {
+  if (SpecOp::HOUND==m_specOp && m_config.superFox() && !m_bDoubleClicked) {
+    clearDX();
+    return;
+  }
   QString t=ui->tx3->text();
   msgtype(t, ui->tx3);
 }
@@ -9034,6 +9042,10 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
 
 void MainWindow::on_dxCallEntry_textChanged (QString const& call)
 {
+  if (SpecOp::HOUND==m_specOp && m_config.superFox() && !m_bDoubleClicked) {
+    clearDX();
+    return;
+  }
   set_dateTimeQSO (-1);  // reset the QSO start time when DXCall changes
   m_hisCall = call;
   if (!blocked) ui->dxGridEntry->clear();  // conditional because not always useful with highlightDXCall/DXGrid feature
@@ -9523,6 +9535,7 @@ void MainWindow::on_actionFT8_triggered()
   QTimer::singleShot (50, [=] {
     if(m_specOp!=SpecOp::FOX) ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq_old",1500).toInt());
     if(m_specOp==SpecOp::FOX && !m_config.superFox()) ui->TxFreqSpinBox->setValue(m_TxFreqFox);
+    if(SpecOp::HOUND == m_specOp && m_config.superFox()) clearDX();
     on_sbSubmode_valueChanged(ui->sbSubmode->value());
     ui->cbHoldTxFreq->setChecked (HoldTxFreqStatus);
   });
