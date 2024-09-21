@@ -37,7 +37,7 @@ subroutine sftx_sub(ckey0)
   bSendMsg=cmsg(nslots)(39:39).eq.'1'
   if(bSendMsg) then
      freeTextMsg=cmsg(nslots)(1:26)
-     if(nslots.gt.2) nslots=2
+     if(nslots.gt.4) nslots=4
   endif
 
   call foxgen2(nslots,cmsg,line,foxcall)    !Parse old-style Fox messages

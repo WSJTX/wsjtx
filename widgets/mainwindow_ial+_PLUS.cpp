@@ -3590,7 +3590,7 @@ void MainWindow::statusChanged()
     if (m_config.superFox()) {
       ui->sbNslots->setVisible(false);
       if(ui->cbSendMsg->isChecked()) {
-        ui->sbNslots->setValue(2);
+        ui->sbNslots->setValue(4);
       } else {
         ui->sbNslots->setValue(5);
       }
@@ -11517,7 +11517,7 @@ void MainWindow::on_cbSendMsg_toggled(bool b)
   if (!(m_config.superFox() && m_specOp==SpecOp::FOX))
     return; // don't do anything with slot values unless SuperFox mode
   if(b) {
-    ui->sbNslots->setValue(2);
+    ui->sbNslots->setValue(4);
   } else {
     ui->sbNslots->setValue(5);
   }
@@ -12773,17 +12773,12 @@ void MainWindow::selectHound(QString line, bool bTopQueue)
   t1=t1.mid(0,12) + t2;
   // display the callers, highlighting calls if necessary
   ui->houndQueueTextBrowser->insertText(bTopQueue ? t1 + "\n" : t1, QColor{}, QColor{}, houndCall, "", bTopQueue ? QTextCursor::Start : QTextCursor::End);
-
   t1_with_grid=t1 + " " + houndGrid;                    // Append the grid
-
-  if (bTopQueue)
-    {
-      m_houndQueue.prepend(t1_with_grid);     // Put this hound into the queue at the top
-    }
-  else
-    {
-      m_houndQueue.enqueue(t1_with_grid);      // Put this hound into the queue
-    }
+  if (bTopQueue) {
+    m_houndQueue.prepend(t1_with_grid);     // Put this hound into the queue at the top
+  } else {
+    m_houndQueue.enqueue(t1_with_grid);      // Put this hound into the queue
+  }
   writeFoxQSO(" Sel:  " + t1_with_grid);
   QTextCursor cursor = ui->houndQueueTextBrowser->textCursor();
   cursor.setPosition(0);                                 // Scroll to top of list
@@ -13021,6 +13016,7 @@ list1Done:
 //Compile list2: Up to Nslots Hound calls to be sent a report.
 // For Superfox, up to 5 RR73, but only 4 callsigns with reports. m_NSlots should be 5 for SF.
   nMaxRemainingSlots = (m_config.superFox()) ? m_Nslots - 1 : m_Nslots;
+  if(m_config.superFox() and ui->cbSendMsg->isChecked()) nMaxRemainingSlots=4;
   for(int i=0; i<m_foxQSOinProgress.count(); i++) {
     //First do those for QSOs in progress
     hc=m_foxQSOinProgress.at(i);
@@ -13270,11 +13266,16 @@ void MainWindow::foxGenWaveform(int i,QString fm)
   QString txModeArg;
   txModeArg = txModeArg.asprintf("FT8fox %d",i+1);
   int nfreq=ui->TxFreqSpinBox->value()+60*i;
-  if(m_config.superFox()) nfreq=750;
+
+  if(m_config.superFox() && SpecOp::FOX==m_specOp) {
+      nfreq=750;
+      if(i==0 && ui->cbSendMsg->isChecked()) {
+        ui->decodedTextBrowser2->displayTransmittedText(m_freeTextMsg0, txModeArg,
+               nfreq,m_bFastMode,m_TRperiod,m_config.superFox());
+      }
+  }
+
   ui->decodedTextBrowser2->displayTransmittedText(fm.trimmed(), txModeArg,
-        nfreq,m_bFastMode,m_TRperiod,m_config.superFox());
-  if (SpecOp::FOX==m_specOp && m_config.superFox() && ui->cbSendMsg->isChecked())
-    ui->decodedTextBrowser2->displayTransmittedText(m_freeTextMsg0, txModeArg,
         nfreq,m_bFastMode,m_TRperiod,m_config.superFox());
   foxcom_.i3bit[i]=0;
   if(fm.indexOf("<")>0) foxcom_.i3bit[i]=1;
