@@ -618,6 +618,9 @@ set (wsjt_FSRCS
   lib/superfox/sfrx_sub.f90
   lib/superfox/sftx_sub.f90
   lib/superfox/twkfreq2.f90
+  lib/superfox/sfox_gen_gfsk.f90
+  lib/superfox/ran1.f90
+  lib/superfox/sfoxsim.f90
   )
 
 # temporary workaround for a gfortran v7.3 ICE on Fedora 27 64-bit
@@ -1253,6 +1256,9 @@ target_link_libraries (echosim wsjt_fort wsjt_cxx)
 
 add_executable (ft8sim lib/ft8/ft8sim.f90)
 target_link_libraries (ft8sim wsjt_fort wsjt_cxx)
+
+add_executable (sfoxsim lib/superfox/sfoxsim.f90)
+target_link_libraries (sfoxsim wsjt_fort wsjt_cxx)
 
 add_executable (msk144sim lib/msk144sim.f90)
 target_link_libraries (msk144sim wsjt_fort wsjt_cxx)

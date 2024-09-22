@@ -603,17 +603,21 @@ set (wsjt_FSRCS
   lib/fst4/fst4_baseline.f90
   lib/77bit/hash22calc.f90
 
+  lib/superfox/foxgen2.f90
   lib/superfox/qpc_decode2.f90
   lib/superfox/qpc_likelihoods2.f90
   lib/superfox/qpc_snr.f90
   lib/superfox/qpc_sync.f90
   lib/superfox/sfox_ana.f90
+  lib/superfox/sfox_assemble.f90
   lib/superfox/sfox_demod.f90
+  lib/superfox/sfox_pack.f90
   lib/superfox/sfox_remove_ft8.f90
   lib/superfox/sfox_unpack.f90
   lib/superfox/sfox_wave.f90
   lib/superfox/sfox_wave_gfsk.f90
   lib/superfox/sfrx_sub.f90
+  lib/superfox/sftx_sub.f90
   lib/superfox/twkfreq2.f90
   )
 
@@ -1250,9 +1254,6 @@ target_link_libraries (echosim wsjt_fort wsjt_cxx)
 
 add_executable (ft8sim lib/ft8/ft8sim.f90)
 target_link_libraries (ft8sim wsjt_fort wsjt_cxx)
-
-# add_executable (sfrx lib/superfox/sfrx.f90)
-# target_link_libraries (sfrx wsjt_fort wsjt_cxx)
 
 add_executable (msk144sim lib/msk144sim.f90)
 target_link_libraries (msk144sim wsjt_fort wsjt_cxx)

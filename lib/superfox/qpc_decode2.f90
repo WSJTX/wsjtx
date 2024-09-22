@@ -217,9 +217,9 @@ subroutine remove_tone(c0,fsync)
   enddo
   sigma=sqrt(s2/s0)*df
 
-!  write(61,*) 'frequency, spectral width ',f2,sigma
+!  write(*,*) 'frequency, spectral width ',f2,sigma
   if(sigma .gt. 2.5) go to 999
-!  write(61,*) 'remove_tone - frequency: ',f2
+!  write(*,*) 'remove_tone - frequency: ',f2
 
   dt=1.0/fsample
   do i=1, NMAX 

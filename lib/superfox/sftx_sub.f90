@@ -1,4 +1,4 @@
-subroutine sftx_sub(ckey0)
+subroutine sftx_sub(ckey0,nslots,bSendMsg)
 
 ! This routine is required in order to create a SuperFox transmission.
 
@@ -24,7 +24,7 @@ subroutine sftx_sub(ckey0)
   integer*1 y(0:127)                  !Encoded symbols as i*1 integers
   integer chansym0(127)               !Transmitted symbols, data only
   integer isync(24)                   !Symbol numbers for sync tones
-  common/foxcom3/nslots,cmsg(5),itone(151)
+  common/foxcom3/nslots2,cmsg(5),itone(151)
   data isync/1,2,4,7,11,16,22,29,37,39,42,43,45,48,52,57,63,70,78,80,  &
              83,84,86,89/
 
@@ -34,10 +34,8 @@ subroutine sftx_sub(ckey0)
   call sfox_init(7,127,50,'no',fspread,delay,fsample,24)
   freeTextMsg='                          '
   bMoreCQs=cmsg(1)(40:40).eq.'1'
-  bSendMsg=cmsg(nslots)(39:39).eq.'1'
   if(bSendMsg) then
      freeTextMsg=cmsg(nslots)(1:26)
-     if(nslots.gt.4) nslots=4
   endif
 
   call foxgen2(nslots,cmsg,line,foxcall)    !Parse old-style Fox messages
