@@ -148,7 +148,6 @@ void SoundOutput::stop ()
       m_stream->reset ();
       m_stream->stop ();
     }
-  m_stream.reset ();
 }
 
 qreal SoundOutput::attenuation () const
