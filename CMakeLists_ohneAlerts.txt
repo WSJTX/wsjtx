@@ -601,7 +601,7 @@ set (wsjt_FSRCS
   lib/fst4/get_crc24.f90
   lib/fst4/fst4_baseline.f90
   lib/77bit/hash22calc.f90
-
+  lib/superfox/sfox_remove_tone.f90
   lib/superfox/foxgen2.f90
   lib/superfox/qpc_decode2.f90
   lib/superfox/qpc_likelihoods2.f90
@@ -612,6 +612,7 @@ set (wsjt_FSRCS
   lib/superfox/sfox_demod.f90
   lib/superfox/sfox_pack.f90
   lib/superfox/sfox_remove_ft8.f90
+
   lib/superfox/sfox_unpack.f90
   lib/superfox/sfox_wave.f90
   lib/superfox/sfox_wave_gfsk.f90

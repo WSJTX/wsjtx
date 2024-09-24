@@ -613,6 +613,7 @@ set (wsjt_FSRCS
   lib/superfox/sfox_demod.f90
   lib/superfox/sfox_pack.f90
   lib/superfox/sfox_remove_ft8.f90
+  lib/superfox/sfox_remove_tone.f90
   lib/superfox/sfox_unpack.f90
   lib/superfox/sfox_wave.f90
   lib/superfox/sfox_wave_gfsk.f90
