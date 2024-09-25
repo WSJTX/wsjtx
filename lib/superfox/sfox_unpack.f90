@@ -1,6 +1,7 @@
-subroutine sfox_unpack(nutc,x,nsnr,f0,dt0,foxcall,nsignature)
+subroutine sfox_unpack(nutc,x,nsnr,f0,dt0,foxcall,notp)
 
   use packjt77
+  parameter (NQU1RKS=203514677)
   integer*1 x(0:49)
   integer*8 n58
   logical success
@@ -15,7 +16,7 @@ subroutine sfox_unpack(nutc,x,nsnr,f0,dt0,foxcall,nsignature)
   data c/' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ/'/
 
   ncq=0
-  if (nsignature.eq.0) then
+  if (notp.eq.0) then
      use_otp = .FALSE.
   else
      use_otp = .TRUE.
@@ -25,7 +26,6 @@ subroutine sfox_unpack(nutc,x,nsnr,f0,dt0,foxcall,nsignature)
   read(msgbits(327:329),'(b6)') i3            !Message type
   read(msgbits(1:28),'(b28)') n28           !Standard Fox call
   call unpack28(n28,foxcall,success)
-!  print*,'aa',i3,foxcall
 
   if(i3.eq.1) then                            !Compound Fox callsign
 !     read(msgbits(87:101),'(b15)') n15
@@ -40,7 +40,6 @@ subroutine sfox_unpack(nutc,x,nsnr,f0,dt0,foxcall,nsignature)
         if(freeTextMsg(i:i).ne.'.') exit
         freeTextMsg(i:i)=' '
      enddo
-!     print*,'aa1 ',freeTextMsg
      write(*,1100) nutc,nsnr,dt0,nint(f0),freeTextMsg
 1100 format(i6.6,i4,f5.1,i5,1x,"~",2x,a)
   else if(i3.eq.3) then                       !CQ FoxCall Grid     
@@ -55,6 +54,8 @@ subroutine sfox_unpack(nutc,x,nsnr,f0,dt0,foxcall,nsignature)
      call unpackgrid(n15,grid4)
      msg(1)='CQ '//trim(foxcall)//' '//grid4
      write(*,1100) nutc,nsnr,dt0,nint(f0),trim(msg(1))
+     read(msgbits(74:105),'(b32)') n32
+     if(n32.eq.NQU1RKS) go to 100
      call unpacktext77(msgbits(74:144),freeTextMsg(1:13))
      call unpacktext77(msgbits(145:215),freeTextMsg(14:26))
      do i=26,1,-1
@@ -69,7 +70,6 @@ subroutine sfox_unpack(nutc,x,nsnr,f0,dt0,foxcall,nsignature)
   j=281
   iz=4                                         !Max number of reports
   if(i3.eq.2) j=141
-!  print*,'aa2',j,iz
   do i=1,iz                                    !Extract the reports
      read(msgbits(j:j+4),'(b5)') n
      if(n.eq.31) then
@@ -79,27 +79,22 @@ subroutine sfox_unpack(nutc,x,nsnr,f0,dt0,foxcall,nsignature)
 1006    format(i3.2)
         if(crpt(i)(1:1).eq.' ') crpt(i)(1:1)='+'
      endif
-!     print*,'aa3',i,n,crpt(i)
      j=j+5
   enddo
 
 ! Unpack Hound callsigns and format user-level messages:
   iz=9                                          !Max number of hound calls
   if(i3.eq.2 .or. i3.eq.3) iz=4
-!  print*,'bb',i3,iz
-!  print*,msgbits
   do i=1,iz
      j=28*i + 1
      read(msgbits(j:j+27),'(b28)') n28
      call unpack28(n28,c13,success)
-!     print*,'cc',i,j,n28
-     if(n28.eq.0) cycle
+     if(n28.eq.0 .or. n28.eq.NQU1RKS) cycle 
      msg(i)=trim(c13)//' '//trim(foxcall)
      if(msg(i)(1:3).eq.'CQ ') then
         ncq=ncq+1
      else
         if(i3.eq.2) then
-!           print*,'dd',i,crpt(i)
            msg(i)=trim(msg(i))//' '//crpt(i)
         else
            if(i.le.5) msg(i)=trim(msg(i))//' RR73'
@@ -115,10 +110,9 @@ subroutine sfox_unpack(nutc,x,nsnr,f0,dt0,foxcall,nsignature)
      write(*,1100) nutc,nsnr,dt0,nint(f0),'CQ '//foxcall
   endif
 
-100 read(msgbits(307:326),'(b20)') nsignature
-!  print*,'i3:',i3
+100 read(msgbits(307:326),'(b20)') notp
   if (use_otp) then
-     write(ssignature,'(I6.6)') nsignature
+     write(ssignature,'(I6.6)') notp
      write(*,1100) nutc,nsnr,dt0,nint(f0),'$VERIFY$ '//trim(foxcall)//' '//trim(ssignature)
   endif
   return

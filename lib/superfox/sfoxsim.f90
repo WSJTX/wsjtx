@@ -107,6 +107,8 @@ program sfoxsim
 !  write(*,*) 'Debug ',cmsg(i)
   enddo
 
+  if((nh1+nh2).eq.0 .and. bMoreCQs) cmsg(1)='CQ '//trim(foxcall)//' FN20'
+
 ! Generate a SuperFox message
   nslots=5
   call foxgen2(nslots,cmsg,line,foxcall)      !Parse old-style Fox messages

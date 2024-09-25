@@ -4,10 +4,11 @@ subroutine sfox_pack(line,ckey,bMoreCQs,bSendMsg,freeTextMsg,xin)
   use packjt
   use packjt77
   use julian
+  parameter (NQU1RKS=203514677)
   integer*8 n47,n58,now
   integer*1 xin(0:49)                    !Packed message as 7-bit symbols
   logical*1 bMoreCQs,bSendMsg
-  logical text
+  logical text,allz
   character*120 line                     !SuperFox message pieces
   character*10 ckey
   character*26 freeTextMsg
@@ -19,6 +20,8 @@ subroutine sfox_pack(line,ckey,bMoreCQs,bSendMsg,freeTextMsg,xin)
 
   i0=index(line,'/')
   i3=0                                   !Default to i3=0, standard message
+  nh1=0                                      !Number of Hound calls with RR73 
+  nh2=0                                      !Number of Hound calls with report
 
 ! Split the command line into words
   w=' '
@@ -50,9 +53,9 @@ subroutine sfox_pack(line,ckey,bMoreCQs,bSendMsg,freeTextMsg,xin)
 
   now=itime8()/30
   now=30*now
-  read(ckey(5:10),*) nsignature
+  read(ckey(5:10),*) notp
 
-  write(msgbits(307:326),'(b20.20)') nsignature  !Insert the digital signature
+  write(msgbits(307:326),'(b20.20)') notp  !Insert the digital signature
 
   if(w(1)(1:3).eq.'CQ ') then
      i3=3
@@ -70,8 +73,6 @@ subroutine sfox_pack(line,ckey,bMoreCQs,bSendMsg,freeTextMsg,xin)
 
   call pack28(w(1),n28)                      !Fox call
   write(msgbits(1:28),'(b28.28)') n28
-  nh1=0                                      !Number of Hound calls with RR73 
-  nh2=0                                      !Number of Hound calls with report
 
 ! Default report is RR73 if we're also sending a free text message.
   if(bSendMsg) msgbits(141:160)='11111111111111111111'
@@ -138,6 +139,28 @@ subroutine sfox_pack(line,ckey,bMoreCQs,bSendMsg,freeTextMsg,xin)
   endif
   if(bMoreCQs) msgbits(306:306)='1'
 
+  read(msgbits(327:329),'(b3)') i3
+  if(i3.eq.0) then
+     do i=1,9
+        i0=i*28 + 1
+        read(msgbits(i0:i0+27),'(b28)') n28
+        if(n28.eq.0) write(msgbits(i0:i0+27),'(b28.28)') NQU1RKS
+     enddo
+  else if(i3.eq.3) then
+     allz=.true.
+     do i=0,6
+        i0=i*32 + 74
+        read(msgbits(i0:i0+31),'(b32)') n32
+        if(n32.ne.0) allz=.false.
+     enddo
+     if(allz) then
+        do i=0,6
+           i0=i*32 + 74
+           write(msgbits(i0:i0+31),'(b32.32)') NQU1RKS
+        enddo
+     endif
+  endif
+
   read(msgbits,1004) xin(0:46)
 1004 format(47b7)
 
@@ -150,8 +173,6 @@ subroutine sfox_pack(line,ckey,bMoreCQs,bSendMsg,freeTextMsg,xin)
   
   xin=xin(49:0:-1)                           !Reverse the symbol order
 ! NB: CRC is now in first three symbols, fox call in the last four.
-
-  read(msgbits(327:329),'(b3)') i3
 
   return
 end subroutine sfox_pack
