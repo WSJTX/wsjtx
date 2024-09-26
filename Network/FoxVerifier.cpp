@@ -11,7 +11,9 @@ FoxVerifier::FoxVerifier(QString user_agent, QNetworkAccessManager *manager,QStr
   ts_ = timestamp;
   hz_ = hz;
 
-  QString url = QString("%1/check/%2/%3/%4.text").arg(base_url).arg(callsign).arg(timestamp.toString(Qt::ISODate)).arg(code);
+  // make sure we URLencode the callsign, for things like E51D/MM
+  QString encodedCall = QString::fromUtf8(QUrl::toPercentEncoding(callsign));
+  QString url = QString("%1/check/").arg(base_url) + encodedCall + QString("/%1/%2.text").arg(timestamp.toString(Qt::ISODate)).arg(code);
   LOG_INFO(QString("FoxVerifier: url %1").arg(url).toStdString());
   q_url_ = QUrl(url);
   if (manager_ == nullptr) {
@@ -58,11 +60,13 @@ bool FoxVerifier::finished() {
 void FoxVerifier::errorOccurred(QNetworkReply::NetworkError code)
 {
   int status =  reply_->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+  QString reason = reply_->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
   errored_ = true;
   error_reason_ = reply_->errorString();
   if (reply_->error() != QNetworkReply::NoError) {
-    LOG_INFO(QString("FoxVerifier: errorOccurred status %1 error [%2] isFinished %3 isrunning %4 code %5").arg(status).arg(
-            error_reason_).arg(reply_->isFinished()).arg(reply_->isRunning()).arg(code).toStdString());
+
+    LOG_INFO(QString("FoxVerifier: errorOccurred status %1 error [%2][%3] isFinished %4 isrunning %5 code %6").arg(status).arg(
+            reason).arg(error_reason_).arg(reply_->isFinished()).arg(reply_->isRunning()).arg(code).toStdString());
     return;
   }
   // TODO emit
