@@ -5325,9 +5325,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
         }
         if(navg>=2) bAvgMsg=true;
       }
-      if (!line_read.trimmed().contains("$VERIFY$")) {
-        write_all("Rx", line_read.trimmed());
-      }
+      write_all("Rx", line_read.trimmed());
     }   // Filtering out some false decodes, and don't write all.txt for such
 
       if ("FST4W" == m_mode)
