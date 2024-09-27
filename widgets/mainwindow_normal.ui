@@ -3979,7 +3979,7 @@ QLabel[oob=&quot;true&quot;] {
               <enum>Qt::StrongFocus</enum>
              </property>
              <property name="toolTip">
-              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle FT8 hound mode On/Off. Right-click to toggle last used contest mode On/Off.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+              <string>Toggle FT8 hound mode On/Off.&lt;br&gt;Right-click to activate or deactivate SuperFox mode.</string>
              </property>
              <property name="text">
               <string>H</string>
@@ -4007,7 +4007,7 @@ QLabel[oob=&quot;true&quot;] {
               <enum>Qt::StrongFocus</enum>
              </property>
              <property name="toolTip">
-              <string>Switch to FT8 mode.&lt;br&gt; Right-click to toggle SuperFox mode On/Off.</string>
+              <string>Switch to FT8 mode.&lt;br&gt;Right-click to toggle last used contest mode On/Off.</string>
              </property>
              <property name="text">
               <string>FT8</string>

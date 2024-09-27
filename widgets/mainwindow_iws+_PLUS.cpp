@@ -4417,6 +4417,12 @@ void MainWindow::on_actionSpecial_mouse_commands_triggered()
   <tr>
     <td align="right">H Button:</td>
     <td><b>Click</b> to toggle FT8 Hound Mode On/Off.<br/>
+        <b>Right-click</b> to activate or deactivate SuperFox mode.
+    </td>
+  </tr>
+  <tr>
+    <td align="right">FT8 Button:</td>
+    <td><b>Click</b> to switch to FT8 Hound Mode.<br/>
         <b>Right-click</b> to toggle last used Special Operating Activity On/Off.
     </td>
   </tr>
@@ -8894,17 +8900,17 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
       ui->ft8Button->clearFocus();
       ui->msk144Button->clearFocus();
   }
-  if(ui->q65Button->hasFocus() && (event->button() & Qt::RightButton)) {     // switch to Q65_Pileup mode
+  if(ui->q65Button->hasFocus() && (event->button() & Qt::RightButton)) {       // switch to Q65_Pileup mode
       m_config.setSpecial_Q65_Pileup();
       m_specOp=m_config.special_op_id();
       on_actionQ65_triggered();
       ui->q65Button->clearFocus();
   }
-  if(ui->jt65Button->hasFocus() && (event->button() & Qt::RightButton)) {    // switch to JT9 mode
+  if(ui->jt65Button->hasFocus() && (event->button() & Qt::RightButton)) {      // switch to JT9 mode
       on_actionJT9_triggered();
       ui->jt65Button->clearFocus();
   }
-  if(ui->ft8Button->hasFocus() && (event->button() & Qt::RightButton)) {     // toggle SuperFox mode
+  if(ui->houndButton->hasFocus() && (event->button() & Qt::RightButton)) {     // toggle SuperFox mode
       keep_frequency = true;
       not_erase = true;         // prevent erasing the decodedTextBrowser
       m_config.toggle_SF();
@@ -8913,23 +8919,23 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
         not_erase = false;
       });
       on_actionFT8_triggered();
-      ui->ft8Button->clearFocus();
+      ui->houndButton->clearFocus();
       ui->labDXped->setStyleSheet("QLabel {background-color: red; color: white;}");
   }
   // Search callsign on qrz.com, qrzcq.com or hamqth.com
-  if(ui->lookupButton->hasFocus() && (event->button() & Qt::RightButton)) {  // search callsign on ...
+  if(ui->lookupButton->hasFocus() && (event->button() & Qt::RightButton)) {   // search callsign on QRZ.com
     QString hisCall=ui->dxCallEntry->text();
-    if (hisCall !="") QDesktopServices::openUrl (QUrl {"https://www.qrz.com/db/" + hisCall});  // QRZ.com
+    if (hisCall !="") QDesktopServices::openUrl (QUrl {"https://www.qrz.com/db/" + hisCall});
     ui->lookupButton->clearFocus();
   }
-  if(ui->addButton->hasFocus() && (event->button() & Qt::RightButton)) {     // search callsign on ...
+  if(ui->addButton->hasFocus() && (event->button() & Qt::RightButton)) {      // search callsign on hamqth.com
     QString hisCall=ui->dxCallEntry->text();
-    if (hisCall !="") QDesktopServices::openUrl (QUrl {"https://www.hamqth.com/" + hisCall});  // hamqth.com
+    if (hisCall !="") QDesktopServices::openUrl (QUrl {"https://www.hamqth.com/" + hisCall});
     ui->addButton->clearFocus();
   }
-  if(ui->ignoreButton->hasFocus() && (event->button() & Qt::RightButton)) {     // search callsign on ...
+  if(ui->ignoreButton->hasFocus() && (event->button() & Qt::RightButton)) {   // search callsign on qrzcq.com
     QString hisCall=ui->dxCallEntry->text();
-    if (hisCall !="") QDesktopServices::openUrl (QUrl {"https://www.qrzcq.com/call/" + hisCall});  // qrzcq.com
+    if (hisCall !="") QDesktopServices::openUrl (QUrl {"https://www.qrzcq.com/call/" + hisCall});
     ui->ignoreButton->clearFocus();
   }
   // Wait & Pounce
@@ -8945,8 +8951,7 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
       }
       ui->autoButton->clearFocus();
   }
-  // Reset a hung decoder
-  if(ui->DecodeButton->hasFocus() && (event->button() & Qt::RightButton)) {
+  if(ui->DecodeButton->hasFocus() && (event->button() & Qt::RightButton)) {   // Reset a hung decoder
       to_jt9(m_ihsym,-1,-1);     // Allow jt9 to bail out early, if necessary
       if(m_ihsym==40 and m_decoderBusy) {
         qDebug() << "Clearing hung decoder status";
@@ -8954,8 +8959,7 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
       }
       ui->DecodeButton->clearFocus();
   }
-  // Switch contest mode on/off
-  if(ui->houndButton->hasFocus() && (event->button() & Qt::RightButton)) {
+  if(ui->ft8Button->hasFocus() && (event->button() & Qt::RightButton)) {     // Switch contest mode on/off
       not_erase = true;  // prevent erasing the decodedTextBrowser
       QTimer::singleShot (350, [=] {not_erase = false;});
       m_specOp=m_config.special_op_id();
@@ -9002,7 +9006,7 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
       set_mode(m_mode);
       configActiveStations();
       check_button_color();
-      ui->houndButton->clearFocus();
+      ui->ft8Button->clearFocus();
   }
   // freeze the Tx5 text
   if(ui->txb5->hasFocus() && (event->button() & Qt::RightButton)) {
@@ -13765,7 +13769,7 @@ void MainWindow::on_cbHoldTxFreq_clicked (bool)
 
 void MainWindow::on_ft8Button_clicked()
 {
-    if (m_specOp==SpecOp::HOUND) {
+    if (m_specOp==SpecOp::HOUND or m_specOp==SpecOp::FOX) {
       m_config.setSpecial_None();
       m_specOp=m_config.special_op_id();
     }

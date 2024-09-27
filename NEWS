@@ -75,6 +75,8 @@ Improvements to SuperFox/Hound operation:
    750 Hz. The previously selected frequency is saved and restored 
    afterwards.
 
+ - Right-clicking on the H button now activates/deactivates SuperFox mode.
+
  - A flaw resulting in sub-optimal SuperFox QSO rates has been
    corrected.
 
