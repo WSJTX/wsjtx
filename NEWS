@@ -19,7 +19,8 @@ Copyright 2001 - 2024 by Joe Taylor, K1JT, and the WSJT Development Team
 WSJT-X 2.7.0 Release Candidate 7 brings significant improvements for
 the new SuperFox mode. It introduces a new verification system which
 replaces the previous one, and works for both the SuperFox mode and
-for old-style Fox and Hound operation. 
+for old-style Fox and Hound operation.  All code for SuperFox
+operation is now open source.
   
 IMPORTANT: OpenSSL v1.1.1 or higher is required for the real-time
 verification of Fox and SuperFox messages.
@@ -79,6 +80,14 @@ Improvements to SuperFox/Hound operation:
 
  - A flaw resulting in sub-optimal SuperFox QSO rates has been
    corrected.
+
+ - SuperFox decoder now does a more thorough job of rejecting QRM from
+   non-SuperFox signals.
+
+ - Fields in the SuperFox payload not otherwise used in a particular
+   transmission are now set to known nonzero values. Do NOT use RC6 or
+   earlier versions to decode SuperFox transmissions from RC7 or 
+   later.
 
  - Old-style Fox stations can now transmit free text messages (up to
    13 characters) by using an available stream.
