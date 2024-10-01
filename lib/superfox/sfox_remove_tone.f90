@@ -14,6 +14,8 @@ subroutine sfox_remove_tone(c0,fsync)
    data first/.true./
    save cwindow,first,pi
 
+   if(fsync.gt.1400.0) return     !Avoid a potential bounds error
+
    if(first) then
       pi=4.0*atan(1.0)
       fac=1.0/float(NMAX)
@@ -91,5 +93,4 @@ subroutine sfox_remove_tone(c0,fsync)
    enddo
 
    return
-
 end subroutine sfox_remove_tone
