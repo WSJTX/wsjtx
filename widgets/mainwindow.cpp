@@ -6323,9 +6323,9 @@ void MainWindow::readFromStdout()                             //readFromStdout
 
       if(m_mode=="FT8" and SpecOp::HOUND==m_specOp) {
         if(decodedtext.string().contains(";")) {
-          QStringList w=decodedtext.string().mid(24).split(" ",SkipEmptyParts);
+          QString text = decodedtext.string().remove("<").remove(">");   // needed for MSHV multistream messages
+          QStringList w=text.mid(24).split(" ",SkipEmptyParts);
           QString foxCall=w.at(3);
-          foxCall=foxCall.remove("<").remove(">");
           if(w.at(0)==m_config.my_callsign() or w.at(0)==Radio::base_callsign(m_config.my_callsign())) {
             //### Check for ui->dxCallEntry->text()==foxCall before logging! ###
             ui->stopTxButton->click ();
@@ -6339,8 +6339,8 @@ void MainWindow::readFromStdout()                             //readFromStdout
             hound_reply ();
           }
         } else {
-            QString text = decodedtext.string().replace("<","").replace(">","");   // needed for MSHV multistream messages
-            QStringList w=text.mid(24).split(" ",SkipEmptyParts);
+          QString text = decodedtext.string().remove("<").remove(">");   // needed for MSHV multistream messages
+          QStringList w=text.mid(24).split(" ",SkipEmptyParts);
           if(decodedtext.string().contains("/")) w.append(" +00");  //Add a dummy report
           if(w.size()>=3) {
             QString foxCall=w.at(1);
