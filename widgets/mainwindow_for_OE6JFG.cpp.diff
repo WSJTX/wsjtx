@@ -1,0 +1,57 @@
+--- mainwindow_ial+_PLUS.cpp	2024-10-05 14:04:02.383639500 +0200
++++ mainwindow_ial+_PLUS_for_OE6JFG.cpp	2024-10-07 15:49:53.274841300 +0200
+@@ -3142,6 +3142,7 @@
+ 
+ void MainWindow::keyPressEvent (QKeyEvent * e)
+ {
++  QString band=m_config.bands()->find(m_freqNominal);  // Extra code for OE6JFG
+   if(SpecOp::FOX == m_specOp) {
+     switch (e->key()) {
+       case Qt::Key_Return:
+@@ -3179,6 +3180,46 @@
+   bool bAltF1F6=m_config.alternate_bindings();
+   switch(e->key())
+     {
++// Extra code for OE6JFG
++    case Qt::Key_Slash:
++      m_bandEdited = true;
++      band_changed(m_freqNominal-1000);
++      return;
++    case Qt::Key_Asterisk:
++      m_bandEdited = true;
++      band_changed(m_freqNominal+1000);
++      return;
++    case Qt::Key_Plus:
++      if(band=="160m") on_bandComboBox_activated (m_config.frequencies ()->best_working_frequency (3573000));
++      if(band=="80m") on_bandComboBox_activated (m_config.frequencies ()->best_working_frequency (5357000));
++      if(band=="60m") on_bandComboBox_activated (m_config.frequencies ()->best_working_frequency (7074000));
++      if(band=="40m") on_bandComboBox_activated (m_config.frequencies ()->best_working_frequency (10136000));
++      if(band=="30m") on_bandComboBox_activated (m_config.frequencies ()->best_working_frequency (14074000));
++      if(band=="20m") on_bandComboBox_activated (m_config.frequencies ()->best_working_frequency (18100000));
++      if(band=="17m") on_bandComboBox_activated (m_config.frequencies ()->best_working_frequency (21074000));
++      if(band=="15m") on_bandComboBox_activated (m_config.frequencies ()->best_working_frequency (24915000));
++      if(band=="12m") on_bandComboBox_activated (m_config.frequencies ()->best_working_frequency (28074000));
++      if(band=="10m") on_bandComboBox_activated (m_config.frequencies ()->best_working_frequency (50313000));
++      if(band=="6m") on_bandComboBox_activated (m_config.frequencies ()->best_working_frequency (144174000));
++      if(band=="2m") on_bandComboBox_activated (m_config.frequencies ()->best_working_frequency (434174000));
++      if(band=="70cm") on_bandComboBox_activated (m_config.frequencies ()->best_working_frequency (1840000));
++      return;
++    case Qt::Key_Minus:
++      if(band=="160m") on_bandComboBox_activated (m_config.frequencies ()->best_working_frequency (434174000));
++      if(band=="80m") on_bandComboBox_activated (m_config.frequencies ()->best_working_frequency (1840000));
++      if(band=="60m") on_bandComboBox_activated (m_config.frequencies ()->best_working_frequency (3573000));
++      if(band=="40m") on_bandComboBox_activated (m_config.frequencies ()->best_working_frequency (5357000));
++      if(band=="30m") on_bandComboBox_activated (m_config.frequencies ()->best_working_frequency (7074000));
++      if(band=="20m") on_bandComboBox_activated (m_config.frequencies ()->best_working_frequency (10136000));
++      if(band=="17m") on_bandComboBox_activated (m_config.frequencies ()->best_working_frequency (14074000));
++      if(band=="15m") on_bandComboBox_activated (m_config.frequencies ()->best_working_frequency (18100000));
++      if(band=="12m") on_bandComboBox_activated (m_config.frequencies ()->best_working_frequency (21074000));
++      if(band=="10m") on_bandComboBox_activated (m_config.frequencies ()->best_working_frequency (24915000));
++      if(band=="6m") on_bandComboBox_activated (m_config.frequencies ()->best_working_frequency (28074000));
++      if(band=="2m") on_bandComboBox_activated (m_config.frequencies ()->best_working_frequency (50313000));
++      if(band=="70cm") on_bandComboBox_activated (m_config.frequencies ()->best_working_frequency (144174000));
++      return;
++// Extra code for OE6JFG
+     case Qt::Key_A:
+       if(m_mode=="Q65" && e->modifiers() & Qt::AltModifier) {
+         m_EMECall.clear();
