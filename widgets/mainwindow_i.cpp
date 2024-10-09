@@ -1327,6 +1327,7 @@ void MainWindow::writeSettings()
   m_settings->setValue("GUItab",ui->tabWidget->currentIndex());
   m_settings->setValue("OutBufSize",outBufSize);
   m_settings->setValue ("HoldTxFreq", ui->cbHoldTxFreq->isChecked ());
+  m_settings->setValue ("CQonly", ui->cbCQonly->isChecked ());
   m_settings->setValue ("BypassFilters", ui->cbBypass->isChecked ());
   m_settings->setValue("PctTx", ui->sbTxPercent->value ());
   m_settings->setValue("RoundRobin",ui->RoundRobin->currentText());
@@ -1649,6 +1650,7 @@ void MainWindow::readSettings()
   outBufSize=m_settings->value("OutBufSize",4096).toInt();
   ui->cbHoldTxFreq->setChecked (m_settings->value ("HoldTxFreq", false).toBool ());
   HoldTxFreqStatus = m_settings->value ("HoldTxFreq", false).toBool ();
+  ui->cbCQonly->setChecked (m_settings->value ("CQonly", false).toBool ());
   ui->cbBypass->setChecked (m_settings->value ("BypassFilters", false).toBool ());
   m_pwrBandTxMemory=m_settings->value("pwrBandTxMemory").toHash();
   m_pwrBandTuneMemory=m_settings->value("pwrBandTuneMemory").toHash();
