@@ -3618,7 +3618,8 @@ void MainWindow::statusChanged()
     m_wideGraph->setSuperFox(false);
     m_wideGraph->setSuperHound(false);
   }
-  if (ui->tx1->text()=="" && m_mode!="FT8" && !m_bDoubleClicked) ui->txb6->click();
+  if (ui->tx1->text()=="" && !(m_mode=="FT8" && (SpecOp::HOUND==m_specOp or SpecOp::FOX==m_specOp))
+      && !m_bDoubleClicked) ui->txb6->click();
   check_button_color();
 }
 
@@ -8610,7 +8611,7 @@ void MainWindow::clearDX ()
     auto_tx_mode (false);
   }
   ui->dxCallEntry->clear ();
-  if (m_config.clear_DXgrid ()) ui->dxGridEntry->clear ();
+  if (m_config.clear_DXgrid () or (SpecOp::HOUND == m_specOp && m_config.superFox())) ui->dxGridEntry->clear ();
   if (!keepTx5) ui->tx5->setCurrentText("");   // clear tx5
   if (ui->respondComboBox->isVisible()) {
     Dpoints=0;                          // reset points
