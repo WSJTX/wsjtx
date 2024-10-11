@@ -406,7 +406,7 @@
           <item>
            <widget class="QCheckBox" name="cbBypass">
             <property name="toolTip">
-             <string>Bypass Filters toggled via Settings or the View menu.</string>
+             <string>Bypass Filters toggled via Settings or the Filters menu.</string>
             </property>
             <property name="text">
              <string>BP</string>
