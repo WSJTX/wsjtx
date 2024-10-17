@@ -4651,6 +4651,7 @@ Double-click to reset to the standard 73 message</string>
     <addaction name="actionColors"/>
     <addaction name="actionActiveStations"/>
     <addaction name="actionSWL_Mode"/>
+	<addaction name="actionQSYMessage_Creator"/>
     <addaction name="actionBand_Buttons"/>
     <addaction name="actionUse_Dark_Style"/>
    </widget>
@@ -5469,6 +5470,14 @@ Double-click to reset to the standard 73 message</string>
     <string>SuperFox User Guide</string>
    </property>
   </action>
+  <action name="actionQSYMessage_Creator">
+   <property name="checkable">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>QSYMessage Creator</string>
+   </property>
+  </action>  
   <action name="actionHideB4">
    <property name="checkable">
     <bool>true</bool>

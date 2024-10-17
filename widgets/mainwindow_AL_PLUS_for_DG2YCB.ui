@@ -384,7 +384,7 @@
             <property name="focusPolicy">
              <enum>Qt::StrongFocus</enum>
             </property>
-           <property name="text">
+            <property name="text">
              <string>70</string>
             </property>
            </widget>
@@ -2887,10 +2887,11 @@ When not checked you can view the calibration results.</string>
                 </size>
                </property>
                <property name="focusPolicy">
-                 <enum>Qt::StrongFocus</enum>
+                <enum>Qt::StrongFocus</enum>
                </property>
                <property name="toolTip">
-                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle a pure Tx tone On/Off &lt;br&gt;Right-click to tune rig&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>               </property>
+                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle a pure Tx tone On/Off &lt;br&gt;Right-click to tune rig&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               </property>
                <property name="accessibleDescription">
                 <string>Toggle a pure Tx tone On/Off</string>
                </property>
@@ -3439,56 +3440,11 @@ Double-click to reset to the standard 73 message</string>
                      </property>
                     </widget>
                    </item>
-<<<<<<< HEAD
-                   <item row="2" column="2">
-                    <widget class="QSpinBox" name="sbNlist">
-                     <property name="sizePolicy">
-                      <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                       <horstretch>0</horstretch>
-                       <verstretch>0</verstretch>
-                      </sizepolicy>
-                     </property>
-                     <property name="maximumSize">
-                      <size>
-                       <width>16777215</width>
-                       <height>16777215</height>
-                      </size>
-                     </property>
-                     <property name="toolTip">					 
-                      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Maximum number of callsigns to be displayed in the queue.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>					 
-                     </property>					 
-                     <property name="prefix">
-                      <string>N List     </string>
-                     </property>
-                     <property name="minimum">
-                      <number>5</number>
-                     </property>
-                     <property name="maximum">
-                      <number>100</number>
-                     </property>
-                     <property name="value">
-                      <number>12</number>
-                     </property>
-                    </widget>
-                   </item>
-                   <item row="0" column="0">
-                    <widget class="QLabel" name="label_queue">
-                     <property name="text">
-                      <string>Queue</string>
-                     </property>
-                     <property name="alignment">
-                      <set>Qt::AlignCenter</set>
-                     </property>
-                    </widget>
-                   </item>
-                   <item row="5" column="2">
-=======
                    <item row="4" column="2">
->>>>>>> 50132c6a9 (Remove the Fox MaxDB function + improve AL GUI sizing. Keep m_max_dB for now, just set it to 70 dB.)
                     <widget class="QComboBox" name="comboBoxCQ">
-                     <property name="toolTip">					
-	                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Select a specific CQ message.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>				
-                     </property>					
+                     <property name="toolTip">
+                      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Select a specific CQ message.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                     </property>
                      <property name="currentText">
                       <string>CQ</string>
                      </property>
@@ -3584,21 +3540,7 @@ Double-click to reset to the standard 73 message</string>
                      </item>
                     </widget>
                    </item>
-<<<<<<< HEAD
-                   <item row="9" column="2">
-                    <widget class="QCheckBox" name="cbSendMsg">
-                     <property name="toolTip">
-                      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Transmit free text message at the next opportunity.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>						
-                     </property>
-					 <property name="text">
-                      <string>Send msg</string>
-                     </property>
-                    </widget>
-                   </item>
-                   <item row="4" column="2">
-=======
                    <item row="3" column="2">
->>>>>>> 50132c6a9 (Remove the Fox MaxDB function + improve AL GUI sizing. Keep m_max_dB for now, just set it to 70 dB.)
                     <widget class="QSpinBox" name="sbNslots">
                      <property name="sizePolicy">
                       <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
@@ -3612,9 +3554,9 @@ Double-click to reset to the standard 73 message</string>
                        <height>16777215</height>
                       </size>
                      </property>
-                     <property name="toolTip">							
-                      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Maximum number of concurrent streams for Fox transmissions.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>							
-                     </property>							
+                     <property name="toolTip">
+                      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Maximum number of concurrent streams for Fox transmissions.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                     </property>
                      <property name="suffix">
                       <string/>
                      </property>
@@ -3635,34 +3577,18 @@ Double-click to reset to the standard 73 message</string>
                      </property>
                     </widget>
                    </item>
-<<<<<<< HEAD
-                   <item row="7" column="2">
-                    <widget class="QPushButton" name="pbFoxReset">
-                     <property name="toolTip">					
-                      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Clear all queues.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>					
-                     </property>					
-=======
                    <item row="8" column="2">
                     <widget class="QCheckBox" name="cbSendMsg">
                      <property name="toolTip">
                       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Transmit free text message at the next opportunity.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                      </property>
->>>>>>> 50132c6a9 (Remove the Fox MaxDB function + improve AL GUI sizing. Keep m_max_dB for now, just set it to 70 dB.)
                      <property name="text">
                       <string>Send msg</string>
                      </property>
                     </widget>
                    </item>
-<<<<<<< HEAD
-                   <item row="6" column="2">
-                    <widget class="QCheckBox" name="cbMoreCQs">
-                     <property name="toolTip">					
-                      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Include a CQ message along with other messages.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>					
-                     </property>					
-=======
                    <item row="0" column="1">
                     <widget class="QLabel" name="label_inProcess">
->>>>>>> 50132c6a9 (Remove the Fox MaxDB function + improve AL GUI sizing. Keep m_max_dB for now, just set it to 70 dB.)
                      <property name="text">
                       <string>In Progress</string>
                      </property>
@@ -3685,19 +3611,11 @@ Double-click to reset to the standard 73 message</string>
                        <height>16777215</height>
                       </size>
                      </property>
-<<<<<<< HEAD
-		             <property name="toolTip">				   
-	                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Set the maximum permitted SNR for callers to be included in the queue.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>					   
-                     </property>						   
-                     <property name="prefix">
-                      <string>Max dB  </string>
-=======
                      <property name="toolTip">
                       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Select a desired sort order for callsigns in the queue.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                      </property>
                      <property name="currentText">
                       <string>Random</string>
->>>>>>> 50132c6a9 (Remove the Fox MaxDB function + improve AL GUI sizing. Keep m_max_dB for now, just set it to 70 dB.)
                      </property>
                      <property name="maxVisibleItems">
                       <number>8</number>
@@ -3821,14 +3739,12 @@ Double-click to reset to the standard 73 message</string>
                     <widget class="QPushButton" name="pbFreeText">
                      <property name="toolTip">
                       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enter a free text message.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-					 </property>
+                     </property>
                      <property name="text">
                       <string>Free Text</string>
                      </property>
                     </widget>
                    </item>
-<<<<<<< HEAD
-=======
                    <item row="0" column="2">
                     <widget class="QCheckBox" name="cbWorkDupes">
                      <property name="text">
@@ -3859,7 +3775,6 @@ Double-click to reset to the standard 73 message</string>
                      </property>
                     </spacer>
                    </item>
->>>>>>> 50132c6a9 (Remove the Fox MaxDB function + improve AL GUI sizing. Keep m_max_dB for now, just set it to 70 dB.)
                   </layout>
                  </item>
                 </layout>
@@ -4812,7 +4727,7 @@ Double-click to reset to the standard 73 message</string>
     <addaction name="actionOnline_User_Guide"/>
     <addaction name="actionLocal_User_Guide"/>
     <addaction name="actionFT8_DXpedition_Mode_User_Guide"/>
-	<addaction name="actionSuperFox_User_Guide"/>
+    <addaction name="actionSuperFox_User_Guide"/>
     <addaction name="actionQSG_FST4"/>
     <addaction name="actionQSG_Q65"/>
     <addaction name="actionQSG_X250_M3"/>
@@ -5551,9 +5466,9 @@ Double-click to reset to the standard 73 message</string>
   </action>
   <action name="actionSuperFox_User_Guide">
    <property name="text">
-    <string>SuperFox User Guide</string>   
+    <string>SuperFox User Guide</string>
    </property>
-  </action>   
+  </action>
   <action name="actionHideB4">
    <property name="checkable">
     <bool>true</bool>
