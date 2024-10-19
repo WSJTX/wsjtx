@@ -8297,7 +8297,7 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
     m_ntx=5;
     ui->txrb5->setChecked(true);
     m_QSOProgress = SIGNOFF;
-  } else {
+  } else if (!(m_auto && m_ntx == 3 && message.string().contains("73 "))) {  // don't interrupt Tx3 transmissions
     // just work them
     if (ui->tx1->isEnabled ()) {
       m_ntx = 1;
