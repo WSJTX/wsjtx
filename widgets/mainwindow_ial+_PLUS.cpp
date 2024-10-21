@@ -1451,8 +1451,11 @@ void MainWindow::update_tx5(const QString &qsy_text)
     ui->tx5->setCurrentIndex(ui->tx5->findText(qsy_text));
   }
   ui->txb5->click();
-  if(!m_auto) ui->autoButton->click();
-  QTimer::singleShot (1900*m_TRperiod, [=] {if(m_auto)ui->autoButton->click();});
+  stopWRTimer.stop();
+  if(m_hisCall!="" && !m_auto) {
+    ui->autoButton->click();
+    stopWRTimer.start(int(1750.0*m_TRperiod));
+  }
 }
 
 //w3sz  Enable timer durations set to 29 seconds to assure at least one complete Tx cycle
@@ -1465,8 +1468,9 @@ void MainWindow::reply_tx5(const QString &qsy_reply)
     ui->tx5->setCurrentIndex(ui->tx5->findText(qsy_reply));
   }
   ui->txb5->click();
+  stopWRTimer.stop();
   if(!m_auto) ui->autoButton->click();
-  QTimer::singleShot (1900*m_TRperiod, [=] {if(m_auto)ui->autoButton->click();});
+  stopWRTimer.start(int(1750.0*m_TRperiod));
 }
 
 void MainWindow::update_QSYMessageCreatorCheckBoxStatus(const bool &chkBoxValue)
@@ -3106,18 +3110,6 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
     if (rigFailed or ui->bandComboBox->currentText()=="oob") displayDialFrequency ();   // reset frequency only when needed
     bool vhf {m_config.enable_VHF_features()};
     m_wideGraph->setVHF(vhf);
-
-//start w3sz
-    if (!vhf) {
-	    ui->sbSubmode->setValue (0);
-	    ui->actionQSYMessage_Creator->setVisible(false); //w3sz	
-      if(m_QSYMessageCreatorWidget) m_QSYMessageCreatorWidget.reset();
-    } else {
-      ui->actionQSYMessage_Creator->setVisible(true); //w3sz
-      on_actionQSYMessage_Creator_triggered();
-    }
-//end w3sz
-	
     if (!vhf) ui->sbSubmode->setValue (0);
 
     setup_status_bar (vhf);
@@ -3763,14 +3755,17 @@ void MainWindow::statusChanged()
 // dg2ycb: for now, auto-start of QSYMessageCreator window only when Auto-open/close Astronomical Data window is checked
 // and f > 50 MHz. Seems to be not optimal to always start the QSYMessageCreator, after all.
   if (m_config.enable_VHF_features()) {
-    Frequency dial_frequency {m_rigState.ptt () && m_rigState.split () ?
-        m_rigState.tx_frequency () : m_rigState.frequency ()};
     ui->actionQSYMessage_Creator->setVisible(true);
-    if (m_config.auto_astro() && dial_frequency > 49999999 && !m_QSYMessageCreatorWidget) on_actionQSYMessage_Creator_triggered();  // URUR
-    if (m_config.auto_astro() && dial_frequency < 50000000) m_QSYMessageCreatorWidget.reset();
+    if (m_config.auto_astro()) {
+      if (SpecOp::NA_VHF==m_specOp && !(m_mode=="FT4" && m_config.NCCC_Sprint()) && m_freqNominal >= 50000000) {
+        if (!m_QSYMessageCreatorWidget) on_actionQSYMessage_Creator_triggered();
+      } else {
+        if (m_QSYMessageCreatorWidget) m_QSYMessageCreatorWidget.reset();
+      }
+    }
   } else {
     ui->actionQSYMessage_Creator->setVisible(false);
-    if(m_QSYMessageCreatorWidget) m_QSYMessageCreatorWidget.reset();
+    if (m_QSYMessageCreatorWidget) m_QSYMessageCreatorWidget.reset();
   }
 //end w3sz
 
@@ -9199,6 +9194,7 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
       configActiveStations();
       check_button_color();
       ui->ft8Button->clearFocus();
+      statusChanged();
   }
   // freeze the Tx5 text
   if(ui->txb5->hasFocus() && (event->button() & Qt::RightButton)) {
