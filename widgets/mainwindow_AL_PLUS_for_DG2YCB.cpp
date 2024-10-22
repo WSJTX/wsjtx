@@ -5382,9 +5382,9 @@ void MainWindow::callSandP2(int n)
   static qint64 ms0=0;
   qint64 ms=QDateTime::currentMSecsSinceEpoch();
   if(ui->autoButton->isChecked()) {
-    if((ms-ms0)<=500) ui->autoButton->click(); // Disable Tx on double click
-  } else if((ms-ms0)>500) {
-    ui->autoButton->click(); // Enable Tx on single click
+    if((ms-ms0)>500) ui->autoButton->click(); // Disable Tx on single click
+  } else if((ms-ms0)<=500) {
+    ui->autoButton->click(); // Enable Tx again, on double click
   }
   ms0=ms;
   if(m_transmitting) m_restart=true;
