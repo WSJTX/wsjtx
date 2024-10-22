@@ -2875,7 +2875,7 @@ void MainWindow::fastSink(qint64 frames)
         QTimer::singleShot (500, [=] {                       // repeated highlighting to override JTAlert
             ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);
         });
-        QTimer::singleShot (1000, [=, this] {                      // repeated highlighting to override JTAlert
+        QTimer::singleShot (1000, [=] {                      // repeated highlighting to override JTAlert
             ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);
         });
         QTimer::singleShot (2500, [=] {                      // repeated highlighting to override JTAlert
