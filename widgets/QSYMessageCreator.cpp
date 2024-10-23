@@ -43,6 +43,7 @@ QSYMessageCreator::QSYMessageCreator(QSettings * settings, Configuration const *
   bandButtonGroup->addButton(ui->radioBut10368);
   bandButtonGroup->addButton(ui->radioBut24192);
 
+#if QT_VERSION >= QT_VERSION_CHECK (5, 15, 0)
   QObject::connect(modeButtonGroup, &QButtonGroup::idToggled, [&](int id, bool checked) {
       qDebug() << "Button" << id << "toggled:" << checked;
       QString theBand = getBand();
@@ -56,10 +57,9 @@ QSYMessageCreator::QSYMessageCreator(QSettings * settings, Configuration const *
       QString theMode = getMode(theBand);
       WriteMessage(theBand, theMode);
   });
-
+#endif
 
 }
-
 
 QSYMessageCreator::~QSYMessageCreator()
 {
