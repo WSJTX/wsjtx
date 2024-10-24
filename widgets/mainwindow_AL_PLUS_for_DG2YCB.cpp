@@ -4354,7 +4354,6 @@ void MainWindow::on_actionActiveStations_triggered()
   connect(m_ActiveStationsWidget.data(), SIGNAL(callSandP(int)),this,SLOT(callSandP2(int)));
   // connect up another signal to handle clicks in the Activity window when in Fox mode
   connect(m_ActiveStationsWidget.data(), SIGNAL(queueActiveWindowHound(QString)),this,SLOT(queueActiveWindowHound2(QString)),static_cast<Qt::ConnectionType>(Qt::UniqueConnection));
-
   connect(m_ActiveStationsWidget.data(), SIGNAL(activeStationsDisplay()),this,SLOT(ARRL_Digi_Display()));
   m_ActiveStationsWidget->setScore(m_score);
   if(m_mode=="Q65") m_ActiveStationsWidget->setRate(m_score);
@@ -5392,6 +5391,10 @@ void MainWindow::callSandP2(int n)
       if((ms-ms0)>500) ui->autoButton->click(); // Disable Tx on single click
     } else if((ms-ms0)<=500) {
       ui->autoButton->click(); // Enable Tx again, on double click
+    }
+    if(m_mode=="Q65" && m_ActiveStationsWidget!=NULL) {
+      setRig (m_freqNominal);
+      setXIT (ui->TxFreqSpinBox->value ());
     }
   } else {
     if(ui->autoButton->isChecked()) {
