@@ -159,6 +159,48 @@ void QSYMessage::getBandModeFreq()
     }
     else if (bandParam ==  "93") {
       freq = "903.";
+    }
+    else if (bandParam ==  "J") {
+        freq = "24192.";
+    }
+    else if (bandParam ==  "K") {
+        freq = "903.";
+    }
+    else if (bandParam ==  "L") {
+        freq = "0.";
+    }
+    else if (bandParam ==  "M") {
+        freq = "1.";
+    }
+    else if (bandParam ==  "N") {
+        freq = "3.";
+    }
+    else if (bandParam ==  "O") {
+        freq = "5.";
+    }
+    else if (bandParam ==  "P") {
+        freq = "7.";
+    }
+    else if (bandParam ==  "Q") {
+        freq = "10.";
+    }
+    else if (bandParam ==  "R") {
+        freq = "14.";
+    }
+    else if (bandParam ==  "S") {
+        freq = "18.";
+    }
+    else if (bandParam ==  "T") {
+        freq = "21.";
+    }
+    else if (bandParam ==  "U") {
+        freq = "24.";
+    }
+    else if (bandParam ==  "V") {
+        freq = "28.";
+    }
+    else if (bandParam ==  "W") {
+        freq = "29.";
     } else {
       freq = "";
     }
@@ -168,8 +210,8 @@ void QSYMessage::getBandModeFreq()
     if (modeParam ==  'V') {
       mode = "SSB";
     }
-    else if (modeParam == '4') {
-      mode = "MSK";
+    else if (modeParam == 'R') {
+      mode = "RTTY";
     }
     else if (modeParam ==  '8') {
       mode = "FT8";
@@ -180,11 +222,44 @@ void QSYMessage::getBandModeFreq()
     else if (modeParam ==  'W') {
       mode = "CW";
     }
+    else if (modeParam ==  'A') {
+      mode = "JT9";
+    }
+    else if (modeParam ==  'B') {
+        mode = "JT65";
+    }
+    else if (modeParam ==  'C') {
+        mode = "FST4";
+    }
+    else if (modeParam ==  'D') {
+        mode = "Q65-30B";
+    }
+    else if (modeParam ==  'E') {
+        mode = "Q65-60C";
+    }
+    else if (modeParam ==  'F') {
+        mode = "Q65-60D";
+    }
+    else if (modeParam ==  'G') {
+        mode = "Q65-60E";
+    }
+    else if (modeParam ==  'H') {
+        mode = "Q65-120D";
+    }
+    else if (modeParam ==  'I') {
+        mode = "HB9Q";
+    }
     else {
       mode = "";
     }
-    ui->label->setText("QSY to");
-    ui->label_2->setText(freq + " MHz");
-    ui->label_3->setText("mode " + mode);
+    if (mode.compare("HB9Q") != 0) {
+      ui->label->setText("QSY to");
+      ui->label_2->setText(freq + " MHz");
+      ui->label_3->setText(mode);
+    } else {
+      ui->label->setText("QSY to");
+      ui->label_2->setText(freq + "HB9Q");
+      ui->label_3->setText("Logger");
+    }
   }
 }

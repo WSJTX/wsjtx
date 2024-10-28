@@ -9,27 +9,30 @@
 #include <QCloseEvent>
 #include <QTimer>
 #include <QThread>
+#include <QTabWidget>
 #include <QDialog>
 #include <QPushButton>
 #include <QLabel>
 #include <QWidget>
 #include <QLayout>
 #include <QSpinBox>
+#include "commons.h"
 #include "SettingsGroup.hpp"
 #include "Configuration.hpp"
+#include "qt_helpers.hpp"
+#include "QSYMessageCreator.h"
 #include "ui_QSYMessageCreator.h"
 
-
-QSYMessageCreator::QSYMessageCreator(QSettings * settings, Configuration const * configuration, QWidget *parent) :
-  QWidget {parent},
-  settings_ {settings},
-  configuration_ {configuration},
-  ui {new Ui::QSYMessageCreator}
-{
+QSYMessageCreator::QSYMessageCreator(QSettings * settings, Configuration const * configuration, QWidget *parent)
+    : QWidget(parent),
+    settings_ {settings},
+    configuration_ {configuration},
+    ui(new Ui::QSYMessageCreator) {
   ui->setupUi(this);
-  read_settings ();
+  read_settings();
   setWindowTitle ("QSYMessageCreator");
   QButtonGroup *modeButtonGroup = new QButtonGroup;
+  modeButtonGroup-> setExclusive(true);
   modeButtonGroup->addButton(ui->radioButFM);
   modeButtonGroup->addButton(ui->radioButSSB);
   modeButtonGroup->addButton(ui->radioButCW);
@@ -37,6 +40,7 @@ QSYMessageCreator::QSYMessageCreator(QSettings * settings, Configuration const *
   modeButtonGroup->addButton(ui->radioButMSK);
 
   QButtonGroup *bandButtonGroup = new QButtonGroup;
+  bandButtonGroup-> setExclusive(true);
   bandButtonGroup->addButton(ui->radioBut50);
   bandButtonGroup->addButton(ui->radioBut144);
   bandButtonGroup->addButton(ui->radioBut222);
@@ -50,39 +54,216 @@ QSYMessageCreator::QSYMessageCreator(QSettings * settings, Configuration const *
   bandButtonGroup->addButton(ui->radioBut10368);
   bandButtonGroup->addButton(ui->radioBut24192);
 
+  QButtonGroup *modeButtonGroup2 = new QButtonGroup;
+  modeButtonGroup2-> setExclusive(true);
+  modeButtonGroup2->addButton(ui->radioButFM2);
+  modeButtonGroup2->addButton(ui->radioButSSB2);
+  modeButtonGroup2->addButton(ui->radioButCW2);
+  modeButtonGroup2->addButton(ui->radioButFT82);
+  modeButtonGroup2->addButton(ui->radioButRTTY);
+  modeButtonGroup2->addButton(ui->radioButJT9);
+  modeButtonGroup2->addButton(ui->radioButJT65);
+  modeButtonGroup2->addButton(ui->radioButFST4);
+
+  QButtonGroup *bandButtonGroup2 = new QButtonGroup;
+  bandButtonGroup2-> setExclusive(true);
+  bandButtonGroup2->addButton(ui->radioBut630M);
+  bandButtonGroup2->addButton(ui->radioBut160M);
+  bandButtonGroup2->addButton(ui->radioBut80M);
+  bandButtonGroup2->addButton(ui->radioBut60M);
+  bandButtonGroup2->addButton(ui->radioBut40M);
+  bandButtonGroup2->addButton(ui->radioBut30M);
+  bandButtonGroup2->addButton(ui->radioBut20M);
+  bandButtonGroup2->addButton(ui->radioBut17M);
+  bandButtonGroup2->addButton(ui->radioBut15M);
+  bandButtonGroup2->addButton(ui->radioBut12M);
+  bandButtonGroup2->addButton(ui->radioBut10M1);
+  bandButtonGroup2->addButton(ui->radioBut10M2);
+
+  QButtonGroup *modeButtonGroup3 = new QButtonGroup;
+  modeButtonGroup3-> setExclusive(true);
+  modeButtonGroup3->addButton(ui->radioButQ6530B);
+  modeButtonGroup3->addButton(ui->radioButQ6560C);
+  modeButtonGroup3->addButton(ui->radioButCW3);
+  modeButtonGroup3->addButton(ui->radioButQ6560D);
+  modeButtonGroup3->addButton(ui->radioButQ6560E);
+  modeButtonGroup3->addButton(ui->radioButQ65120D);
+  modeButtonGroup3->addButton(ui->radioButHB9Q);
+
+  QButtonGroup *bandButtonGroup3 = new QButtonGroup;
+  bandButtonGroup3-> setExclusive(true);
+  bandButtonGroup3->addButton(ui->radioBut50A);
+  bandButtonGroup3->addButton(ui->radioBut144A);
+  bandButtonGroup3->addButton(ui->radioBut222A);
+  bandButtonGroup3->addButton(ui->radioBut432A);
+  bandButtonGroup3->addButton(ui->radioBut902A);
+  bandButtonGroup3->addButton(ui->radioBut903A);
+  bandButtonGroup3->addButton(ui->radioBut1296A);
+  bandButtonGroup3->addButton(ui->radioBut2304A);
+  bandButtonGroup3->addButton(ui->radioBut3400A);
+  bandButtonGroup3->addButton(ui->radioBut5760A);
+  bandButtonGroup3->addButton(ui->radioBut10368A);
+  bandButtonGroup3->addButton(ui->radioBut24192A);
+
 #if (QT_VERSION < QT_VERSION_CHECK(5, 15, 0))
   connect(modeButtonGroup, QOverload<int, bool>::of(&QButtonGroup::buttonToggled), [=](int id, bool checked){
-      qDebug() << "id" << id  << "toggled:" << checked;
-      QString theBand = getBand();
-      QString theMode = getMode(theBand, configuration_->region());
-      WriteMessage(theBand, theMode);
+    qDebug() << "id" << id  << "toggled:" << checked;
+    QString theBand = getBand();
+    QString theMode = getMode(theBand, configuration_->region());
+    WriteMessage(theBand, theMode);
   });
 
   connect(bandButtonGroup, QOverload<int, bool>::of(&QButtonGroup::buttonToggled), [=](int id, bool checked){
-      qDebug() << "id" << id  << "toggled:" << checked;
-      QString theBand = getBand();
-      QString theMode = getMode(theBand, configuration_->region());
-      WriteMessage(theBand, theMode);
+    qDebug() << "id" << id  << "toggled:" << checked;
+    QString theBand = getBand();
+    QString theMode = getMode(theBand, configuration_->region());
+    WriteMessage(theBand, theMode);
+  });
+
+  connect(modeButtonGroup2, QOverload<int, bool>::of(&QButtonGroup::buttonToggled), [=](int id, bool checked){
+    qDebug() << "id" << id  << "toggled:" << checked;
+    QString theBand = getBand();
+    QString theMode = getMode(theBand, configuration_->region());
+    WriteMessage(theBand, theMode);
+  });
+
+  connect(bandButtonGroup2, QOverload<int, bool>::of(&QButtonGroup::buttonToggled), [=](int id, bool checked){
+    qDebug() << "id" << id  << "toggled:" << checked;
+    QString theBand = getBand();
+    if(theBand.compare("L")==0) {
+      if((ui->kHzBox2->value() < 472) || ui->kHzBox2->value() > 479 ) {
+        ui->kHzBox2->setValue(472); }
+    } else if(theBand.compare("M")==0) {
+      if(ui->kHzBox2->value() < 800 ) {
+        ui->kHzBox2->setValue(800); }
+    } else if(theBand.compare("N")==0) {
+      if(ui->kHzBox2->value() < 500 ) {
+        ui->kHzBox2->setValue(500); }
+    } else if(theBand.compare("O")==0) {
+      if(ui->kHzBox2->value() < 330  || ui->kHzBox2->value() > 405) {
+        ui->kHzBox2->setValue(330); }
+    } else if(theBand.compare("P")==0) {
+      if(ui->kHzBox2->value() > 300) {
+        ui->kHzBox2->setValue(0); }
+    } else if(theBand.compare("Q")==0)  {
+      if(ui->kHzBox2->value() < 100  || ui->kHzBox2->value() > 150) {
+        ui->kHzBox2->setValue(100); }
+    } else if(theBand.compare("R")==0) {
+      if(ui->kHzBox2->value() > 350) {
+        ui->kHzBox2->setValue(0); }
+    } else if(theBand.compare("S")==0) {
+      if(ui->kHzBox2->value() < 68  || ui->kHzBox2->value() > 110) {
+        ui->kHzBox2->setValue(68); }
+    } else if(theBand.compare("T")==0) {
+      if(ui->kHzBox2->value() > 450) {
+        ui->kHzBox2->setValue(0); }
+    } else if(theBand.compare("U")==0) {
+      if(ui->kHzBox2->value() < 890  || ui->kHzBox2->value() > 930) {
+        ui->kHzBox2->setValue(890); }
+    } else if(theBand.compare("W")==0) {
+      if(ui->kHzBox2->value() > 700) {
+        ui->kHzBox2->setValue(0); }
+    }
+    QString theMode = getMode(theBand, configuration_->region());
+    WriteMessage(theBand, theMode);
+  });
+  connect(modeButtonGroup3, QOverload<int, bool>::of(&QButtonGroup::buttonToggled), [=](int id, bool checked){
+    qDebug() << "id" << id  << "toggled:" << checked;
+    QString theBand = getBand();
+    QString theMode = getMode(theBand, configuration_->region());
+    WriteMessage(theBand, theMode);
+  });
+
+  connect(bandButtonGroup3, QOverload<int, bool>::of(&QButtonGroup::buttonToggled), [=](int id, bool checked){
+    qDebug() << "id" << id  << "toggled:" << checked;
+    QString theBand = getBand();
+    QString theMode = getMode(theBand, configuration_->region());
+    WriteMessage(theBand, theMode);
   });
 #else
   QObject::connect(modeButtonGroup, &QButtonGroup::idToggled, [&](int id, bool checked) {
-      qDebug() << "Button" << id << "toggled:" << checked;
-      QString theBand = getBand();
-      QString theMode = getMode(theBand, configuration_->region());
-      QSYMessageCreator::WriteMessage(theBand, theMode);
+    qDebug() << "Button" << id << "toggled:" << checked;
+    QString theBand = getBand();
+    QString theMode = getMode(theBand, configuration_->region());
+    QSYMessageCreator::WriteMessage(theBand, theMode);
   });
 
   QObject::connect(bandButtonGroup, &QButtonGroup::idToggled, [&](int id, bool checked) {
-      qDebug() << "Button" << id << "toggled:" << checked;
-      QString theBand = getBand();
-      QString theMode = getMode(theBand, configuration_->region());
-      QSYMessageCreator::WriteMessage(theBand, theMode);
+    qDebug() << "Button" << id << "toggled:" << checked;
+    QString theBand = getBand();
+    QString theMode = getMode(theBand, configuration_->region());
+    QSYMessageCreator::WriteMessage(theBand, theMode);
   });
+  QObject::connect(modeButtonGroup2, &QButtonGroup::idToggled, [&](int id, bool checked) {
+    qDebug() << "Button" << id << "toggled:" << checked;
+    QString theBand = getBand();
+    QString theMode = getMode(theBand, configuration_->region());
+    QSYMessageCreator::WriteMessage(theBand, theMode);
+  });
+
+  QObject::connect(bandButtonGroup2, &QButtonGroup::idToggled, [&](int id, bool checked) {
+    qDebug() << "Button" << id << "toggled:" << checked;
+    QString theBand = getBand();
+    if(theBand.compare("L")==0) {
+      if((ui->kHzBox2->value() < 472) || ui->kHzBox2->value() > 479 ) {
+        ui->kHzBox2->setValue(472); }
+    } else if(theBand.compare("M")==0) {
+      if(ui->kHzBox2->value() < 800 ) {
+        ui->kHzBox2->setValue(800); }
+    } else if(theBand.compare("N")==0) {
+      if(ui->kHzBox2->value() < 500 ) {
+        ui->kHzBox2->setValue(500); }
+    } else if(theBand.compare("O")==0) {
+      if(ui->kHzBox2->value() < 330  || ui->kHzBox2->value() > 405) {
+        ui->kHzBox2->setValue(330); }
+    } else if(theBand.compare("P")==0) {
+      if(ui->kHzBox2->value() > 300) {
+        ui->kHzBox2->setValue(0); }
+    } else if(theBand.compare("Q")==0)  {
+      if(ui->kHzBox2->value() < 100  || ui->kHzBox2->value() > 150) {
+        ui->kHzBox2->setValue(100); }
+    } else if(theBand.compare("R")==0) {
+      if(ui->kHzBox2->value() > 350) {
+        ui->kHzBox2->setValue(0); }
+    } else if(theBand.compare("S")==0) {
+      if(ui->kHzBox2->value() < 68  || ui->kHzBox2->value() > 110) {
+        ui->kHzBox2->setValue(68); }
+    } else if(theBand.compare("T")==0) {
+      if(ui->kHzBox2->value() > 450) {
+        ui->kHzBox2->setValue(0); }
+    } else if(theBand.compare("U")==0) {
+      if(ui->kHzBox2->value() < 890  || ui->kHzBox2->value() > 930) {
+        ui->kHzBox2->setValue(890); }
+    } else if(theBand.compare("W")==0) {
+      if(ui->kHzBox2->value() > 700) {
+        ui->kHzBox2->setValue(0); }
+    }
+    QString theMode = getMode(theBand, configuration_->region());
+    QSYMessageCreator::WriteMessage(theBand, theMode);
+  });
+
+  QObject::connect(modeButtonGroup3, &QButtonGroup::idToggled, [&](int id, bool checked) {
+    qDebug() << "Button" << id << "toggled:" << checked;
+    QString theBand = getBand();
+    QString theMode = getMode(theBand, configuration_->region());
+    QSYMessageCreator::WriteMessage(theBand, theMode);
+  });
+
+  QObject::connect(bandButtonGroup3, &QButtonGroup::idToggled, [&](int id, bool checked) {
+    qDebug() << "Button" << id << "toggled:" << checked;
+    QString theBand = getBand();
+    QString theMode = getMode(theBand, configuration_->region());
+    QSYMessageCreator::WriteMessage(theBand, theMode);
+  });
+
 #endif
 
   connect(ui->kHzBox, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), this, &QSYMessageCreator::onkHzBoxValueChanged);
+  connect(ui->kHzBox2, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), this, &QSYMessageCreator::onkHzBox2ValueChanged);
+  connect(ui->kHzBox3, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), this, &QSYMessageCreator::onkHzBox3ValueChanged);
 
   setup(configuration_->region());
+
 }
 
 QSYMessageCreator::~QSYMessageCreator()
@@ -94,9 +275,25 @@ void QSYMessageCreator::onkHzBoxValueChanged()  {
   QString theBand = getBand();
   QString theMode = getMode(theBand, configuration_->region());
   QString message = WriteMessage(theBand, theMode);
+  setkHzVHF(ui->kHzBox->value());
   WriteMessage(theBand, theMode);
 }
 
+void QSYMessageCreator::onkHzBox2ValueChanged()  {
+  QString theBand = getBand();
+  QString theMode = getMode(theBand, configuration_->region());
+  QString message = WriteMessage(theBand, theMode);
+  setkHzHF(ui->kHzBox2->value());
+  WriteMessage(theBand, theMode);
+}
+
+void QSYMessageCreator::onkHzBox3ValueChanged()  {
+  QString theBand = getBand();
+  QString theMode = getMode(theBand, configuration_->region());
+  QString message = WriteMessage(theBand, theMode);
+  setkHzEME(ui->kHzBox3->value());
+  WriteMessage(theBand, theMode);
+}
 
 void QSYMessageCreator::setup(int region) {
   if (region == 0) {
@@ -117,6 +314,22 @@ void QSYMessageCreator::on_button1_clicked()
   Q_EMIT sendMessage(message);
 }
 
+void QSYMessageCreator::on_button2_clicked()
+{
+  QString theBand = getBand();
+  QString theMode = getMode(theBand, configuration_->region());
+  QString message = WriteMessage(theBand, theMode);
+  Q_EMIT sendMessage(message);
+}
+
+void QSYMessageCreator::on_button3_clicked()
+{
+  QString theBand = getBand();
+  QString theMode = getMode(theBand, configuration_->region());
+  QString message = WriteMessage(theBand, theMode);
+  Q_EMIT sendMessage(message);
+}
+
 void QSYMessageCreator::setQSYMessageCreatorStatusFalse()
 {
   Q_EMIT sendQSYMessageCreatorStatus(false);
@@ -124,141 +337,329 @@ void QSYMessageCreator::setQSYMessageCreatorStatusFalse()
 
 void QSYMessageCreator::closeEvent (QCloseEvent * e)
 {
-  write_settings ();
+  write_settings();
   setQSYMessageCreatorStatusFalse();
   e->accept();                 // was ignore
 }
-
 
 void QSYMessageCreator::read_settings ()
 {
   SettingsGroup g (settings_, "QSYMessageCreator");
   move (settings_->value ("window/pos", pos ()).toPoint ());
-  ui->kHzBox->setValue(settings_->value("kHz").toInt());
-  setBand(settings_->value("band").toString());
-  setMode(settings_->value("band").toString(), settings_->value("mode").toString(),configuration_->region());
-  WriteMessage(settings_->value("band").toString(), settings_->value("mode").toString());
-}
+  ui->kHzBox3->setValue(settings_->value("kHzEME").toInt());
+  setbandEME(settings_->value("bandEME").toString());
+  setmodeEME(settings_->value("modeEME").toString());
+  ui->kHzBox->setValue(settings_->value("kHzVHF").toInt());
+  setbandVHF(settings_->value("bandVHF").toString());
+  setmodeVHF(settings_->value("modeVHF").toString());
+  ui->kHzBox2->setValue(settings_->value("kHzHF").toInt());
+  setbandHF(settings_->value("bandHF").toString());
+  setmodeHF(settings_->value("modeHF").toString());
+  ui->tabWidget->setCurrentIndex(settings_->value("whichTab").toInt());
+  setkHzVHF(ui->kHzBox->value());
+  setkHzEME(ui->kHzBox3->value());
+  if((settings_->value("bandVHF").toString()).compare("")==0) {
+    setbandVHF("A");
+  }
+  if ((settings_->value("modeVHF").toString()).compare("")==0) {
+    setmodeVHF("V");
+  }
+  if((settings_->value("bandHF").toString()).compare("")==0) {
+    setbandHF("M");
+  }
+  if ((settings_->value("modeHF").toString()).compare("")==0) {
+    setmodeHF("V");
+  }
+  if((settings_->value("bandEME").toString()).compare("")==0) {
+    setbandEME("A");
+  }
+  if ((settings_->value("modeEME").toString()).compare("")==0) {
+    setmodeEME("V");
+  }
+  ui->tabWidget->setCurrentIndex(0);
+  setBand(getbandVHF());
+  setMode(getbandVHF(), getmodeVHF(), configuration_->region());
+  WriteMessage(getbandVHF(), getmodeVHF());
 
-void QSYMessageCreator::write_settings ()
-{
-  SettingsGroup g (settings_, "QSYMessageCreator");
-  settings_->setValue ("window/pos", pos ());
-  settings_->setValue ("band", getBand());
-  settings_->setValue ("mode", getMode(getBand(),configuration_->region()));
-  settings_->setValue ("kHz", ui->kHzBox->value());
+  ui->tabWidget->setCurrentIndex(1);
+  if((settings_->value("bandHF").toString()).compare("L")==0) {
+    if(settings_->value("kHzHF").toInt() < 472 || settings_->value("kHzHF").toInt() > 479  ) {
+      ui->kHzBox2->setValue(472); }
+  } else if((settings_->value("bandHF").toString()).compare("M")==0) {
+    if(settings_->value("kHzHF").toInt() < 800) {
+      ui->kHzBox2->setValue(800); }
+  } else if((settings_->value("bandHF").toString()).compare("N")==0) {
+    if(settings_->value("kHzHF").toInt() < 500) {
+      ui->kHzBox2->setValue(500); }
+  } else if((settings_->value("bandHF").toString()).compare("O")==0) {
+    if(settings_->value("kHzHF").toInt() < 330 || settings_->value("kHzHF").toInt() > 405 ) {
+      ui->kHzBox2->setValue(330); }
+  } else if((settings_->value("bandHF").toString()).compare("P")==0) {
+    if(ui->kHzBox2->value() > 300) {
+      ui->kHzBox2->setValue(0); }
+  } else if((settings_->value("bandHF").toString()).compare("Q")==0)  {
+    if(settings_->value("kHzHF").toInt() < 100 || settings_->value("kHzHF").toInt() > 150 ) {
+      ui->kHzBox2->setValue(100); }
+  } else if((settings_->value("bandHF").toString()).compare("R")==0) {
+    if(ui->kHzBox2->value() > 350) {
+      ui->kHzBox2->setValue(0); }
+  } else if((settings_->value("bandHF").toString()).compare("S")==0) {
+    if(settings_->value("kHzHF").toInt() < 68 || settings_->value("kHzHF").toInt() > 110 ) {
+      ui->kHzBox2->setValue(68); }
+  } else if((settings_->value("bandHF").toString()).compare("T")==0) {
+    if(settings_->value("kHzHF").toInt() > 450) {
+      ui->kHzBox2->setValue(0); }
+  } else if((settings_->value("bandHF").toString()).compare("U")==0) {
+    if(settings_->value("kHzHF").toInt() < 890 || settings_->value("kHzHF").toInt() > 930 ) {
+      ui->kHzBox2->setValue(890); }
+  } else if((settings_->value("bandHF").toString()).compare("W")==0) {
+    if(settings_->value("kHzHF").toInt() > 700 ) {
+      ui->kHzBox2->setValue(0); }
+  }
+  setkHzHF(ui->kHzBox2->value());
+  setBand(getbandHF());
+  setMode(getbandHF(), getmodeHF(), configuration_->region());
+  WriteMessage(getbandHF(), getmodeHF());
+
+  ui->tabWidget->setCurrentIndex(2);
+  setBand(getbandEME());
+  setMode(getbandEME(), getmodeEME(), configuration_->region());
+  WriteMessage(getbandEME(), getmodeEME());
+
+  ui->tabWidget->setCurrentIndex(settings_->value("whichTab").toInt());
 }
 
 QString QSYMessageCreator::WriteMessage (QString band, QString mode)
 {
-  qint16 kHzFreq = ui->kHzBox->value();
-  QString kHzStr = QStringLiteral("%1").arg(kHzFreq,3,10,QLatin1Char('0'));
-  QString message = "$DX " + band + mode + kHzStr;
-  ui->messageLabel->setText(message);
+  QString message = "";
+  if(ui->tabWidget->currentIndex() == 1) {
+    qint16 kHzFreq = ui->kHzBox->value();
+    QString kHzStr = QStringLiteral("%1").arg(kHzFreq,3,10,QLatin1Char('0'));
+    message = "$DX " + band + mode + kHzStr;
+    ui->messageLabel->setText(message);
+  }
+  else if(ui->tabWidget->currentIndex() == 0) {
+    qint16 kHzFreq = ui->kHzBox2->value();
+    QString kHzStr = QStringLiteral("%1").arg(kHzFreq,3,10,QLatin1Char('0'));
+    message = "$DX " + band + mode + kHzStr;
+    ui->messageLabel2->setText(message);
+  }
+  else if(ui->tabWidget->currentIndex() == 2) {
+    qint16 kHzFreq = ui->kHzBox3->value();
+    QString kHzStr = QStringLiteral("%1").arg(kHzFreq,3,10,QLatin1Char('0'));
+    message = "$DX " + band + mode + kHzStr;
+    ui->messageLabel3->setText(message);
+  }
   return message;
 }
-
 
 QString QSYMessageCreator::getBand()
 {
   QString band;
-  if (ui->radioBut50->isChecked()) band = "A";
-  else if (ui->radioBut144->isChecked()) band = "B";
-  else if (ui->radioBut222->isChecked()) band = "C";
-  else if (ui->radioBut432->isChecked()) band = "D";
-  else if (ui->radioBut902->isChecked()) band = "92";
-  else if (ui->radioBut903->isChecked()) band = "93";
-  else if (ui->radioBut1296->isChecked()) band = "E";
-  else if (ui->radioBut2304->isChecked()) band = "F";
-  else if (ui->radioBut3400->isChecked()) band = "G";
-  else if (ui->radioBut5760->isChecked()) band = "H";
-  else if (ui->radioBut10368->isChecked()) band = "I";
-  else if (ui->radioBut24192->isChecked()) band = "J";
+  if(ui->tabWidget->currentIndex() == 1) {
+    if (ui->radioBut50->isChecked()) band = "A";
+    else if (ui->radioBut144->isChecked()) band = "B";
+    else if (ui->radioBut222->isChecked()) band = "C";
+    else if (ui->radioBut432->isChecked()) band = "D";
+    else if (ui->radioBut902->isChecked()) band = "92";
+    else if (ui->radioBut903->isChecked()) band = "93";
+    else if (ui->radioBut1296->isChecked()) band = "E";
+    else if (ui->radioBut2304->isChecked()) band = "F";
+    else if (ui->radioBut3400->isChecked()) band = "G";
+    else if (ui->radioBut5760->isChecked()) band = "H";
+    else if (ui->radioBut10368->isChecked()) band = "I";
+    else if (ui->radioBut24192->isChecked()) band = "J";
+    setbandVHF(band);
+  } else if(ui->tabWidget->currentIndex() == 0) {
+    if (ui->radioBut630M->isChecked()) band = "L";
+    else if (ui->radioBut160M->isChecked()) band = "M";
+    else if (ui->radioBut80M->isChecked()) band = "N";
+    else if (ui->radioBut60M->isChecked()) band = "O";
+    else if (ui->radioBut40M->isChecked()) band = "P";
+    else if (ui->radioBut30M->isChecked()) band = "Q";
+    else if (ui->radioBut20M->isChecked()) band = "R";
+    else if (ui->radioBut17M->isChecked()) band = "S";
+    else if (ui->radioBut15M->isChecked()) band = "T";
+    else if (ui->radioBut12M->isChecked()) band = "U";
+    else if (ui->radioBut10M1->isChecked()) band = "V";
+    else if (ui->radioBut10M2->isChecked()) band = "W";
+    setbandHF(band);
+  } else if(ui->tabWidget->currentIndex() == 2) {
+    if (ui->radioBut50A->isChecked()) band = "A";
+    else if (ui->radioBut144A->isChecked()) band = "B";
+    else if (ui->radioBut222A->isChecked()) band = "C";
+    else if (ui->radioBut432A->isChecked()) band = "D";
+    else if (ui->radioBut902A->isChecked()) band = "92";
+    else if (ui->radioBut903A->isChecked()) band = "93";
+    else if (ui->radioBut1296A->isChecked()) band = "E";
+    else if (ui->radioBut2304A->isChecked()) band = "F";
+    else if (ui->radioBut3400A->isChecked()) band = "G";
+    else if (ui->radioBut5760A->isChecked()) band = "H";
+    else if (ui->radioBut10368A->isChecked()) band = "I";
+    else if (ui->radioBut24192A->isChecked()) band = "J";
+    setbandEME(band);
+  }
   return band;
 }
 
-
 void QSYMessageCreator::setBand(QString band)
 {
-  if (band == "A") ui->radioBut50->setChecked(true);
-  else if (band == "B") ui->radioBut144->setChecked(true);
-  else if (band == "C") ui->radioBut222->setChecked(true);
-  else if (band == "D") ui->radioBut432->setChecked(true);
-  else if (band == "92") ui->radioBut902->setChecked(true);
-  else if (band == "93") ui->radioBut903->setChecked(true);
-  else if (band == "E") ui->radioBut1296->setChecked(true);
-  else if (band == "F") ui->radioBut2304->setChecked(true);
-  else if (band == "G") ui->radioBut3400->setChecked(true);
-  else if (band == "H") ui->radioBut5760->setChecked(true);
-  else if (band == "I") ui->radioBut10368->setChecked(true);
-  else if (band == "J") ui->radioBut24192->setChecked(true);
+  if(ui->tabWidget->currentIndex() == 1) {
+    if (band == "A") ui->radioBut50->setChecked(true);
+    else if (band == "B") ui->radioBut144->setChecked(true);
+    else if (band == "C") ui->radioBut222->setChecked(true);
+    else if (band == "D") ui->radioBut432->setChecked(true);
+    else if (band == "92") ui->radioBut902->setChecked(true);
+    else if (band == "93") ui->radioBut903->setChecked(true);
+    else if (band == "E") ui->radioBut1296->setChecked(true);
+    else if (band == "F") ui->radioBut2304->setChecked(true);
+    else if (band == "G") ui->radioBut3400->setChecked(true);
+    else if (band == "H") ui->radioBut5760->setChecked(true);
+    else if (band == "I") ui->radioBut10368->setChecked(true);
+    else if (band == "J") ui->radioBut24192->setChecked(true);
+  } else if(ui->tabWidget->currentIndex() == 0) {
+    if (band == "L") ui->radioBut630M->setChecked(true);
+    else if (band == "M") ui->radioBut160M->setChecked(true);
+    else if (band == "N") ui->radioBut80M->setChecked(true);
+    else if (band == "O") ui->radioBut60M->setChecked(true);
+    else if (band == "P") ui->radioBut40M->setChecked(true);
+    else if (band == "Q") ui->radioBut30M->setChecked(true);
+    else if (band == "R") ui->radioBut20M->setChecked(true);
+    else if (band == "S") ui->radioBut17M->setChecked(true);
+    else if (band == "T") ui->radioBut15M->setChecked(true);
+    else if (band == "U") ui->radioBut12M->setChecked(true);
+    else if (band == "V") ui->radioBut10M1->setChecked(true);
+    else if (band == "W") ui->radioBut10M2->setChecked(true);
+  } else if(ui->tabWidget->currentIndex() == 2) {
+    if (band == "A") ui->radioBut50A->setChecked(true);
+    else if (band == "B") ui->radioBut144A->setChecked(true);
+    else if (band == "C") ui->radioBut222A->setChecked(true);
+    else if (band == "D") ui->radioBut432A->setChecked(true);
+    else if (band == "92") ui->radioBut902A->setChecked(true);
+    else if (band == "93") ui->radioBut903A->setChecked(true);
+    else if (band == "E") ui->radioBut1296A->setChecked(true);
+    else if (band == "F") ui->radioBut2304A->setChecked(true);
+    else if (band == "G") ui->radioBut3400A->setChecked(true);
+    else if (band == "H") ui->radioBut5760A->setChecked(true);
+    else if (band == "I") ui->radioBut10368A->setChecked(true);
+    else if (band == "J") ui->radioBut24192A->setChecked(true);
+  }
 }
 
 void QSYMessageCreator::setMode(QString band, QString mode, int region)
 {
   QString MHz;
-  if (mode=="V") {
-    ui->radioButSSB->setChecked(true);
-    ui->messageLabel_FM->setHidden(true);
-    ui->label_2_FM->setHidden(true);
-  }
-  else if (mode=="W") {
-    ui->radioButCW->setChecked(true);
-    ui->messageLabel_FM->setHidden(true);
-    ui->label_2_FM->setHidden(true);
-  }
-  else if (mode=="4") {
-    ui->radioButMSK->setChecked(true);
-    ui->messageLabel_FM->setHidden(true);
-    ui->label_2_FM->setHidden(true);
-  }
-  else if (mode=="8") {
-    ui->radioButFT8->setChecked(true);
-    ui->messageLabel_FM->setHidden(true);
-    ui->label_2_FM->setHidden(true);
-  }
-  else if (mode=="M") {
-    ui->radioButFM->setChecked(true);
-    if (band == "A") {
-      if (region==2) {
-        MHz = "52";
-      } else {
-        MHz = "51";
-      }
+  if(ui->tabWidget->currentIndex() == 1) {
+    if (mode=="V") {
+      ui->radioButSSB->setChecked(true);
+      ui->messageLabel_FM->setHidden(true);
+      ui->label_2_FM->setHidden(true);
     }
-    else if (band == "B") {
-      if (region==2) {
-        MHz = "146";
-      } else {
-        MHz = "145";
-      }
+    else if (mode=="W") {
+      ui->radioButCW->setChecked(true);
+      ui->messageLabel_FM->setHidden(true);
+      ui->label_2_FM->setHidden(true);
     }
-    else if (band == "C") {
-      if (region==2) {
-        MHz = "223";
-      } else {
-        MHz = "";
-      }
+    else if (mode=="4") {
+      ui->radioButMSK->setChecked(true);
+      ui->messageLabel_FM->setHidden(true);
+      ui->label_2_FM->setHidden(true);
     }
-    else if (band == "D") {
-      if (region==2) {
-        MHz = "446";
-      } else {
-        MHz = "433";
-      }
+    else if (mode=="8") {
+      ui->radioButFT8->setChecked(true);
+      ui->messageLabel_FM->setHidden(true);
+      ui->label_2_FM->setHidden(true);
     }
-    if ((band =="A" || band == "B" || band == "C" || band == "D") && configuration_->region () > 0) {
-      ui->label_2_FM->setText("Region " + QString::number(configuration_->region()) + " MHz");
-      ui->messageLabel_FM->setHidden(false);
-      ui->label_2_FM->setHidden(false);
-      ui->messageLabel_FM->setText(MHz);
-      if (region !=2 &&(band=="C")) {
+    else if (mode=="M") {
+      ui->radioButFM->setChecked(true);
+      if (band == "A") {
+        if (region==2) {
+          MHz = "52";
+        } else {
+          MHz = "51";
+        }
+      }
+      else if (band == "B") {
+        if (region==2) {
+          MHz = "146";
+        } else {
+          MHz = "145";
+        }
+      }
+      else if (band == "C") {
+        if (region==2) {
+          MHz = "223";
+        } else {
+          MHz = "";
+        }
+      }
+      else if (band == "D") {
+        if (region==2) {
+          MHz = "446";
+        } else {
+          MHz = "433";
+        }
+      }
+      if ((band =="A" || band == "B" || band == "C" || band == "D") && (configuration_->region () > 0)) {
+        ui->label_2_FM->setText("Region " + QString::number(configuration_->region()) + " MHz");
+        ui->messageLabel_FM->setHidden(false);
+        ui->label_2_FM->setHidden(false);
+        ui->messageLabel_FM->setText(MHz);
+        if (region !=2 &&(band=="C")) {
+          ui->messageLabel_FM->setHidden(true);
+          ui->label_2_FM->setHidden(true);
+        }
+      } else {
         ui->messageLabel_FM->setHidden(true);
         ui->label_2_FM->setHidden(true);
       }
-    } else {
-      ui->messageLabel_FM->setHidden(true);
-      ui->label_2_FM->setHidden(true);
+    }
+  } else if(ui->tabWidget->currentIndex() == 0) {
+    if (mode=="V") {
+      ui->radioButSSB2->setChecked(true);
+    }
+    else if (mode=="W") {
+      ui->radioButCW2->setChecked(true);
+    }
+    else if (mode=="M") {
+      ui->radioButFM2->setChecked(true);
+    }
+    else if (mode=="8") {
+      ui->radioButFT82->setChecked(true);
+    }
+    else if (mode=="R") {
+      ui->radioButRTTY->setChecked(true);
+    }
+    else if (mode=="A") {
+      ui->radioButJT9->setChecked(true);
+    }
+    else if (mode=="B") {
+      ui->radioButJT65->setChecked(true);
+    }
+    else if (mode=="C") {
+      ui->radioButFST4->setChecked(true);
+    }
+  } else if(ui->tabWidget->currentIndex() == 2) {
+    if (mode=="D") {
+      ui->radioButQ6530B->setChecked(true);
+    }
+    else if (mode=="W") {
+      ui->radioButCW3->setChecked(true);
+    }
+    else if (mode=="E") {
+      ui->radioButQ6560C->setChecked(true);
+    }
+    else if (mode=="F") {
+      ui->radioButQ6560D->setChecked(true);
+    }
+    else if (mode=="G") {
+      ui->radioButQ6560E->setChecked(true);
+    }
+    else if (mode=="H") {
+      ui->radioButQ65120D->setChecked(true);
+    }
+    else if (mode=="I") {
+      ui->radioButHB9Q->setChecked(true);
     }
   }
 }
@@ -267,61 +668,137 @@ QString QSYMessageCreator::getMode(QString band,int region)
 {
   QString mode;
   QString  MHz;
-  if (ui->radioButSSB->isChecked()) {
-    mode = "V";
-  }
-  else if (ui->radioButFM->isChecked()) {
-    mode = "M";
-    if(band == "A") {
-      if (region==2) {
-        MHz = "52";
-      } else {
-        MHz = "51";
+  qDebug() << "band" << band;
+  qDebug() << "band" << region;
+
+  if(ui->tabWidget->currentIndex() == 1) {
+    if (ui->radioButSSB->isChecked()) {
+      mode = "V";
+    }  else if (ui->radioButFM->isChecked()) {
+      mode = "M";
+      if(band == "A") {
+        if (region==2) {
+          MHz = "52";
+        } else {
+          MHz = "51";
+        }
+      }
+      else if (band == "B") {
+        if(region==2) {
+          MHz = "146";
+        } else {
+          MHz = "145";
+        }
+      }
+      else if (band == "C") {
+        if (region==2) {
+          MHz = "223";
+        } else {
+          MHz = "";
+        }
+      }
+      else if (band == "D") {
+        if (region==2) {
+          MHz = "446";
+        } else {
+          MHz = "433";
+        }
       }
     }
-    else if (band == "B") {
-      if(region==2) {
-        MHz = "146";
-      } else {
-        MHz = "145";
-      }
+    else if (ui->radioButCW->isChecked()) {
+      mode = "W";
     }
-    else if (band == "C") {
-      if (region==2) {
-        MHz = "223";
-      } else {
-        MHz = "";
-      }
+    else if (ui->radioButFT8->isChecked()) {
+      mode = "8";
     }
-    else if (band == "D") {
-      if (region==2) {
-        MHz = "446";
-      } else {
-        MHz = "433";
+    else if (ui->radioButMSK->isChecked()) {
+      mode = "4";
+    } else mode = "V";
+    if ((band =="A" || band == "B" || band == "C" || band == "D") && (mode =="M") && (configuration_->region () > 0)) {
+      ui->label_2_FM->setText("Region " + QString::number(configuration_->region()) + " MHz");
+      ui->messageLabel_FM->setHidden(false);
+      ui->label_2_FM->setHidden(false);
+      ui->messageLabel_FM->setText(MHz);
+      if(region !=2 &&(band=="C"))  {
+        ui->messageLabel_FM->setHidden(true);
+        ui->label_2_FM->setHidden(true);
       }
-    }
-  }
-  else if (ui->radioButCW->isChecked()) {
-    mode = "W";
-  }
-  else if (ui->radioButFT8->isChecked()) {
-    mode = "8";
-  }
-  else if (ui->radioButMSK->isChecked()) {
-    mode = "4";
-  }
-  if ((band =="A" || band == "B" || band == "C" || band == "D") && (mode =="M") && configuration_->region () > 0) {
-    ui->label_2_FM->setText("Region " + QString::number(configuration_->region()) + " MHz");
-    ui->messageLabel_FM->setHidden(false);
-    ui->label_2_FM->setHidden(false);
-    ui->messageLabel_FM->setText(MHz);
-    if(region !=2 &&(band=="C"))  {
+    } else {
       ui->messageLabel_FM->setHidden(true);
       ui->label_2_FM->setHidden(true);
     }
-  } else {
-    ui->messageLabel_FM->setHidden(true);
-    ui->label_2_FM->setHidden(true);
+    setmodeVHF(mode);
+  } else if(ui->tabWidget->currentIndex() == 0) {
+    if (ui->radioButSSB2->isChecked()) {
+      mode = "V";
+    }
+    else if (ui->radioButFM2->isChecked()) {
+      mode = "M";
+    }
+    else if (ui->radioButCW2->isChecked()) {
+      mode = "W";
+    }
+    else if (ui->radioButFT82->isChecked()) {
+      mode = "8";
+    }
+    else if (ui->radioButRTTY->isChecked()) {
+      mode = "R";
+    }
+    else if (ui->radioButJT9->isChecked()) {
+      mode = "A";
+    }
+    else if (ui->radioButJT65->isChecked()) {
+      mode = "B";
+    }
+    else if (ui->radioButFST4->isChecked()) {
+      mode = "C";
+    } else mode = "V";
+    setmodeHF(mode);
+  } else if(ui->tabWidget->currentIndex() == 2) {
+    if (ui->radioButQ6530B->isChecked()) {
+      mode = "D";
+    }
+    else if (ui->radioButQ6560C->isChecked()) {
+      mode = "E";
+    }
+    else if (ui->radioButCW3->isChecked()) {
+      mode = "W";
+    }
+    else if (ui->radioButQ6560D->isChecked()) {
+      mode = "F";
+    }
+    else if (ui->radioButQ6560E->isChecked()) {
+      mode = "G";
+    }
+    else if (ui->radioButQ65120D->isChecked()) {
+      mode = "H";
+    }
+    else if (ui->radioButHB9Q->isChecked()) {
+      mode = "I";
+    } else mode = "V";
+    setmodeEME(mode);
   }
   return mode;
 }
+
+
+void QSYMessageCreator::send_message(const QString message) {
+  Q_EMIT sendMessage(message);
+}
+
+void QSYMessageCreator::write_settings ()
+{
+  SettingsGroup g (settings_, "QSYMessageCreator");
+  settings_->setValue ("window/pos", pos ());
+  settings_->setValue ("whichTab", ui->tabWidget->currentIndex());
+  settings_->setValue ("bandVHF", getbandVHF());
+  settings_->setValue ("modeVHF", getmodeVHF());
+  settings_->setValue ("kHzVHF", getkHzVHF());
+  settings_->setValue ("bandHF", getbandHF());
+  settings_->setValue ("modeHF", getmodeHF());
+  settings_->setValue ("kHzHF", getkHzHF());
+  settings_->setValue ("bandEME", getbandEME());
+  settings_->setValue ("modeEME", getmodeEME());
+  settings_->setValue ("kHzEME", getkHzEME());
+}
+
