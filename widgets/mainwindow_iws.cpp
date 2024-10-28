@@ -1440,33 +1440,25 @@ void MainWindow::writeSettings()
 //w3sz  Enable timer durations set to 29 seconds to assure at least one complete Tx cycle
 void MainWindow::update_tx5(const QString &qsy_text)
 {
-  if((ui->tx5->findText(qsy_text)) == -1) {
-    ui->tx5->addItem(qsy_text);
-    ui->tx5->setCurrentIndex(ui->tx5->count() - 1);
-  } else {
-    ui->tx5->setCurrentIndex(ui->tx5->findText(qsy_text));
-  }
-  ui->txb5->click();
-  stopWRTimer.stop();
-  if(m_hisCall!="" && !m_auto) {
-    ui->autoButton->click();
-    stopWRTimer.start(int(1750.0*m_TRperiod));
-  }
-  else if (m_hisCall=="") {
+  if (m_hisCall=="") {
     QMessageBox::warning(this, "WSJT-X","There must be a callsign in the\n DX Call Box to send QSY Request");
+  } else {
+    QString text = qsy_text;
+    ui->tx6->setText(text.replace("$DX",m_hisCall));
+    ui->txb6->click();
+    stopWRTimer.stop();
+    if(!m_auto) {
+      ui->autoButton->click();
+      stopWRTimer.start(int(1750.0*m_TRperiod));
+    }
   }
 }
 
 //w3sz  Enable timer durations set to 29 seconds to assure at least one complete Tx cycle
 void MainWindow::reply_tx5(const QString &qsy_reply)
 {
-  if((ui->tx5->findText(qsy_reply)) == -1) {
-    ui->tx5->addItem(qsy_reply);
-    ui->tx5->setCurrentIndex(ui->tx5->count() - 1);
-  } else {
-    ui->tx5->setCurrentIndex(ui->tx5->findText(qsy_reply));
-  }
-  ui->txb5->click();
+  ui->tx6->setText(qsy_reply);
+  ui->txb6->click();
   stopWRTimer.stop();
   if(!m_auto) ui->autoButton->click();
   stopWRTimer.start(int(1750.0*m_TRperiod));
@@ -2950,7 +2942,7 @@ void MainWindow::showQSYMessage(QString message)
     qsizetype index = (bhList.indexOf(qCall));
     if(index != (-1)) {
       QString finalMatch = "";
-      QRegularExpression re1("[A-J][V48MW][0-9]{3}");
+      QRegularExpression re1("[A-Z][V48ABCDEFGHIMRW][0-9]{3}");
       QRegularExpression re2("(92)[V48MW][0-9]{3}");
       QRegularExpression re3("(93)[V48MW][0-9]{3}");
 
@@ -3707,23 +3699,11 @@ void MainWindow::statusChanged()
 //w3sz
 // dg2ycb: for now, auto-start of QSYMessageCreator window only when Auto-open/close Astronomical Data window is checked
 // and f > 50 MHz. Seems to be not optimal to always start the QSYMessageCreator, after all.
-  if (m_config.enable_VHF_features()) {
-    ui->actionQSYMessage_Creator->setVisible(true);
-    ui->actionEnable_QSY_Popups->setVisible(true);
-    if (m_config.auto_astro()) {
-      m_specOp=m_config.special_op_id();  // update m_specOp
-      if (SpecOp::NA_VHF==m_specOp && !(m_mode=="FT4" && m_config.NCCC_Sprint()) && m_freqNominal >= 50000000) {
-        if (!m_QSYMessageCreatorWidget) on_actionQSYMessage_Creator_triggered();
-      } else if (m_QSYMessageCreatorWidget) {
-        QCloseEvent closeEvent;
-        QApplication::sendEvent(m_QSYMessageCreatorWidget.data(), &closeEvent);
-        m_QSYMessageCreatorWidget.reset ();
-      }
-    }
-  } else {
-    ui->actionQSYMessage_Creator->setVisible(false);
-    ui->actionEnable_QSY_Popups->setVisible(false);
-    if(m_QSYMessageCreatorWidget) {
+  if (m_config.auto_astro()) {
+    m_specOp=m_config.special_op_id();  // update m_specOp
+    if (SpecOp::NA_VHF==m_specOp && !(m_mode=="FT4" && m_config.NCCC_Sprint()) && m_freqNominal >= 50000000) {
+      if (!m_QSYMessageCreatorWidget) on_actionQSYMessage_Creator_triggered();
+    } else if (m_QSYMessageCreatorWidget) {
       QCloseEvent closeEvent;
       QApplication::sendEvent(m_QSYMessageCreatorWidget.data(), &closeEvent);
       m_QSYMessageCreatorWidget.reset ();
@@ -4224,6 +4204,7 @@ void MainWindow::on_actionQSYMessage_Creator_triggered()
   m_QSYMessageCreatorWidget->showNormal();
   m_QSYMessageCreatorWidget->raise();
   m_QSYMessageCreatorWidget->activateWindow();
+  ui->actionEnable_QSY_Popups->setChecked(true);
 }
 //end w3sz
 
