@@ -2992,6 +2992,7 @@ void MainWindow::showQSYMessage(QString message)
   QString qCall = QString(m_config.my_callsign ());
   QString qDXCall = ui->dxCallEntry->text();
   if(the_line.contains(qCall + QString(" "))) {
+    the_line = the_line.mid(the_line.indexOf((qCall)),13);
     QStringList bhList = the_line.split(" ",SkipEmptyParts);
     qsizetype index = (bhList.indexOf(qCall));
     if(index != (-1)) {
