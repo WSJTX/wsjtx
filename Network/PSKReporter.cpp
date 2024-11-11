@@ -238,6 +238,7 @@ public:
   QString rx_call_;
   QString rx_grid_;
   QString rx_ant_;
+  QString rigInformation_;
   QString prog_id_;
   QByteArray tx_data_;
   QByteArray tx_residue_;
@@ -411,7 +412,7 @@ void PSKReporter::impl::build_preamble (QDataStream& message)
           << quint16 (3u)          // Options Template Set ID
           << quint16 (0u)          // Length (place-holder)
           << quint16 (0x50e2)      // Link ID
-          << quint16 (4u)          // Field Count
+          << quint16 (5u)          // Field Count
           << quint16 (0u)          // Scope Field Count
           << quint16 (0x8000 + 2u) // Option 1 Information Element ID (receiverCallsign)
           << quint16 (0xffff)      // Option 1 Field Length (variable)
@@ -424,6 +425,9 @@ void PSKReporter::impl::build_preamble (QDataStream& message)
           << quint32 (30351u)      // Option 3 Enterprise Number
           << quint16 (0x8000 + 9u) // Option 4 Information Element ID (antennaInformation)
           << quint16 (0xffff)      // Option 4 Field Length (variable)
+          << quint32 (30351u)      // Option 5 Enterprise Number
+          << quint16 (0x8000 + 13u)// Option 5 Information Element ID (rigInformation)
+          << quint16 (0xffff)      // Option 5 Field Length (variable)
           << quint32 (30351u);     // Option 4 Enterprise Number
         // insert Length
         set_length (out, descriptor);
@@ -450,6 +454,7 @@ void PSKReporter::impl::build_preamble (QDataStream& message)
     writeUtfString (out, rx_grid_);
     writeUtfString (out, prog_id_);
     writeUtfString (out, rx_ant_);
+    writeUtfString (out, rigInformation_);
 
     // insert Length and move to payload
     set_length (out, data);
@@ -605,7 +610,7 @@ bool PSKReporter::eclipse_active(QDateTime now)
   return m_->eclipse_active(now);
 }
 
-void PSKReporter::setLocalStation (QString const& call, QString const& gridSquare, QString const& antenna)
+void PSKReporter::setLocalStation (QString const& call, QString const& gridSquare, QString const& antenna, QString const& rigInformation)
 {
   LOG_LOG_LOCATION (m_->logger_, trace, "call: " << call << " grid: " << gridSquare << " ant: " << antenna);
   m_->check_connection ();
@@ -617,6 +622,7 @@ void PSKReporter::setLocalStation (QString const& call, QString const& gridSquar
       m_->rx_call_ = call;
       m_->rx_grid_ = gridSquare;
       m_->rx_ant_ = antenna;
+      m_->rigInformation_ = rigInformation;
     }
 }
 

@@ -11454,7 +11454,13 @@ void MainWindow::pskSetLocal ()
                                            , StationList::description_column).data ().toString ();
   }
   // qDebug() << "To PSKreporter: local station details";
-  m_psk_Reporter.setLocalStation(m_config.my_callsign (), m_config.my_grid (), antenna_description);
+  QString rig_information = m_config.rig_name();
+  if (rig_information == "None") rig_information = "No CAT control";
+  if (rig_information == "Ham Radio Deluxe") rig_information = "N/A (HRD)";
+  if (rig_information == "DX Lab Suite Commander") rig_information = "N/A (DXLab)";
+  if (rig_information.contains("OmniRig")) rig_information = "N/A (OmniRig)";
+  if (rig_information == "FLRig") rig_information = "N/A (FLRig)";
+  m_psk_Reporter.setLocalStation(m_config.my_callsign (), m_config.my_grid (), antenna_description, rig_information);
 }
 
 void MainWindow::transmitDisplay (bool transmitting)

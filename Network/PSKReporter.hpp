@@ -19,7 +19,7 @@ public:
 
   void reconnect ();
 
-  void setLocalStation (QString const& call, QString const& grid, QString const& antenna);
+  void setLocalStation (QString const& call, QString const& grid, QString const& antenna, QString const& rigInformation);
 
   //
   // Returns false if PSK Reporter connection is not available
