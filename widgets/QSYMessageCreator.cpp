@@ -106,6 +106,23 @@ QSYMessageCreator::QSYMessageCreator(QSettings * settings, Configuration const *
   bandButtonGroup3->addButton(ui->radioBut10368A);
   bandButtonGroup3->addButton(ui->radioBut24048);
 
+  QButtonGroup *messageButtonGroup = new QButtonGroup;
+  messageButtonGroup-> setExclusive(true);
+  messageButtonGroup->addButton(ui->message1);
+  messageButtonGroup->addButton(ui->message2);
+  messageButtonGroup->addButton(ui->message3);
+  messageButtonGroup->addButton(ui->message4);
+  messageButtonGroup->addButton(ui->message5);
+  messageButtonGroup->addButton(ui->message6);
+  messageButtonGroup->addButton(ui->message7);
+  messageButtonGroup->addButton(ui->message8);
+  messageButtonGroup->addButton(ui->message9);
+  messageButtonGroup->addButton(ui->message10);
+  messageButtonGroup->addButton(ui->message11);
+  messageButtonGroup->addButton(ui->message12);
+  messageButtonGroup->addButton(ui->message13);
+  messageButtonGroup->addButton(ui->message14);
+
   QPair<QString,QString> key("L","V"); //630m //SSB
   key.first = "M";  //160
   kHzFreqMap.insert(key, 910);
@@ -456,6 +473,13 @@ QSYMessageCreator::QSYMessageCreator(QSettings * settings, Configuration const *
     QString theMode = getMode(theBand, configuration_->region());
     WriteMessage(ui->DxBaseLabel->text(), theBand, theMode);
   });
+
+  //General Messages
+  connect(messageButtonGroup, QOverload<int, bool>::of(&QButtonGroup::buttonToggled), [=](int id, bool checked){
+    Debug() << "id" << id  << "toggled:" << checked;
+    QString message = getGenMessage();
+  });
+
 #else //VHF
   QObject::connect(modeButtonGroup, &QButtonGroup::idToggled, [&](int id, bool checked) {
     qDebug() << "Button" << id << "toggled:" << checked;
@@ -503,6 +527,12 @@ QSYMessageCreator::QSYMessageCreator(QSettings * settings, Configuration const *
     QString theMode = getMode(theBand, configuration_->region());
     setkHzBox(theBand, theMode, ui->tabWidget->currentIndex());
     QSYMessageCreator::WriteMessage(ui->DxBaseLabel->text(), theBand, theMode);
+  });
+
+  //General Messages
+  QObject::connect(messageButtonGroup, &QButtonGroup::idToggled, [&](int id, bool checked) {
+    qDebug() << "Button" << id << "toggled:" << checked;
+    QString message = getGenMessage();
   });
 
 #endif
@@ -645,10 +675,10 @@ void QSYMessageCreator::setup(int region)
     regionWarning->setWindowFlags(regionWarning->windowFlags() | Qt::WindowStaysOnTopHint);
     regionWarning->show();
   }
-  if (region ==2) {
-    ui->radioBut24192->setText("24192 MHz");
+  if (configuration_->region() ==2 ) {
+      ui->radioBut24192->setText("24192 MHz");
   } else {
-    ui->radioBut24192->setText("24048 MHz");
+      ui->radioBut24192->setText("24048 MHz");
   }
 }
 
@@ -659,6 +689,7 @@ void QSYMessageCreator::onTabChanged()
   } else {
     ui->radioBut24192->setText("24048 MHz");
   }
+  getGenMessage();
   QString theBand = getBand();
   QString theMode = getMode(theBand, configuration_->region());
   setkHzBox(theBand, theMode, ui->tabWidget->currentIndex());
@@ -697,25 +728,29 @@ void QSYMessageCreator::on_button3_clicked()
 
 void QSYMessageCreator::on_genButton_clicked()
 {
-  QString message;
-  if (ui->message1->isChecked()) message = "001";
-  else if (ui->message2->isChecked()) message = "002";
-  else if (ui->message3->isChecked()) message = "003";
-  else if (ui->message4->isChecked()) message = "004";
-  else if (ui->message5->isChecked()) message = "005";
-  else if (ui->message6->isChecked()) message = "006";
-  else if (ui->message7->isChecked()) message = "007";
-  else if (ui->message8->isChecked()) message = "008";
-  else if (ui->message9->isChecked()) message = "009";
-  else if (ui->message10->isChecked()) message = "010";
-  else if (ui->message11->isChecked()) message = "011";
-  else if (ui->message12->isChecked()) message = "012";
-  else if (ui->message13->isChecked()) message = "013";
-  else if (ui->message14->isChecked()) message = "014";
-
-  message = ui->DxBaseLabel->text() + " ZA" + message;
-  ui->messageLabel4->setText(message);
+  QString message = getGenMessage();
   Q_EMIT sendMessage(message);
+}
+
+QString QSYMessageCreator::getGenMessage()  {
+    QString message;
+    if (ui->message1->isChecked()) message = "001";
+    else if (ui->message2->isChecked()) message = "002";
+    else if (ui->message3->isChecked()) message = "003";
+    else if (ui->message4->isChecked()) message = "004";
+    else if (ui->message5->isChecked()) message = "005";
+    else if (ui->message6->isChecked()) message = "006";
+    else if (ui->message7->isChecked()) message = "007";
+    else if (ui->message8->isChecked()) message = "008";
+    else if (ui->message9->isChecked()) message = "009";
+    else if (ui->message10->isChecked()) message = "010";
+    else if (ui->message11->isChecked()) message = "011";
+    else if (ui->message12->isChecked()) message = "012";
+    else if (ui->message13->isChecked()) message = "013";
+    else if (ui->message14->isChecked()) message = "014";
+    message = ui->DxBaseLabel->text() + " ZA" + message;
+    ui->messageLabel4->setText(message);
+    return message;
 }
 
 void QSYMessageCreator::setQSYMessageCreatorStatusFalse()
@@ -729,6 +764,7 @@ void QSYMessageCreator::getDxBase(QString value)  {
     QString theMode = getMode(theBand, configuration_->region());
     setkHzBox(theBand, theMode, ui->tabWidget->currentIndex());
     WriteMessage(ui->DxBaseLabel->text(), theBand, theMode);
+    getGenMessage();
 }
 
 void QSYMessageCreator::closeEvent (QCloseEvent * e)

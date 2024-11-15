@@ -2997,6 +2997,7 @@ void MainWindow::showQSYMessage(QString message)
             QRegularExpressionMatch match = re1.match(the_message);
             if(match.hasMatch()) {
               finalMatch = match.captured();
+              if(m_QSYMessageWidget) m_QSYMessageWidget->write_settings();
               m_QSYMessageWidget.reset (new QSYMessage(finalMatch, qCall, m_settings, &m_config));
 
               //connect to signal finish
@@ -3020,6 +3021,7 @@ void MainWindow::showQSYMessage(QString message)
     on_stopTxButton_clicked();
 
     QString qNewMessage = QString("$ ") + qDXCall + yesOrNo;
+    if(m_QSYMessageWidget) m_QSYMessageWidget->write_settings();
     m_QSYMessageWidget.reset (new QSYMessage(qNewMessage, qDXCall, m_settings, &m_config));
 
     //connect to signal finish

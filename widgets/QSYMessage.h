@@ -21,6 +21,9 @@ public:
   explicit QSYMessage(const QString& message, const QString& theCall, QSettings * settings, Configuration const *, QWidget * parent = 0);
   ~QSYMessage();
   void getBandModeFreq();
+ 
+public slots:
+  void write_settings ();
 
 protected:
   void closeEvent(QCloseEvent *event) override;
@@ -39,7 +42,6 @@ private slots:
   void on_yesButton_clicked();
   void on_noButton_clicked();
   void read_settings ();
-  void write_settings ();
 };
 
 #endif //QSYMESSAGE_H

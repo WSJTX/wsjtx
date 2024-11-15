@@ -102,6 +102,7 @@ private:
   void read_settings();
   void write_settings();
   void send_message(const QString message);
+  QString getGenMessage();
 
 
 private slots:
