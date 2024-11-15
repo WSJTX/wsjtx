@@ -87,7 +87,7 @@ private:
   void setBand(QString band);
   void setMode(QString band, QString mode, int region);
   QString getMode(QString band, int region);
-  void setup(int region);
+  void setup();
 
   int m_kHzVHF = 123;
   QString m_bandVHF = "D";

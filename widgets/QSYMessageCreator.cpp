@@ -543,7 +543,7 @@ QSYMessageCreator::QSYMessageCreator(QSettings * settings, Configuration const *
 
   connect(ui->tabWidget, &QTabWidget::currentChanged, this, &QSYMessageCreator::onTabChanged);
 
-  setup(configuration_->region());
+  setup();
 }
 
 QSYMessageCreator::~QSYMessageCreator()
@@ -634,7 +634,6 @@ void QSYMessageCreator::setkHzBox(QString theBand, QString theMode, int tabNum)
         if (ui->kHzBox2->value() > 200) ui->kHzBox2->setValue(0);
     }
   }
-
   setkHzHF(ui->kHzBox2->value());
 }
 
@@ -665,17 +664,16 @@ void QSYMessageCreator::onkHzBox3ValueChanged()
   WriteMessage(ui->DxBaseLabel->text(), theBand, theMode);
 }
 
-void QSYMessageCreator::setup(int region)
+void QSYMessageCreator::setup()
 {
-  if (region == 0) {
+  if (configuration_->region() == 0) {
     QMessageBox *regionWarning = new QMessageBox(this);
     regionWarning->setModal(false);
     regionWarning->setIcon(QMessageBox::Warning);
     regionWarning->setText("You need to enter your IARU Region\nin Settings or FM frequencies\nwill not be shown!");
     regionWarning->setWindowFlags(regionWarning->windowFlags() | Qt::WindowStaysOnTopHint);
     regionWarning->show();
-  }
-  if (configuration_->region() ==2 ) {
+  } else if (configuration_->region() == 2) {
       ui->radioBut24192->setText("24192 MHz");
   } else {
       ui->radioBut24192->setText("24048 MHz");
@@ -684,7 +682,7 @@ void QSYMessageCreator::setup(int region)
 
 void QSYMessageCreator::onTabChanged()
 {
-  if (configuration_->region() ==2 ) {
+  if (configuration_->region() == 2) {
     ui->radioBut24192->setText("24192 MHz");
   } else {
     ui->radioBut24192->setText("24048 MHz");
