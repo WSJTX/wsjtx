@@ -184,6 +184,8 @@ private slots:
   void on_wsprButton_clicked();
   void on_pb30B_clicked();
   void on_pb60C_clicked();
+  void on_pb60D_clicked();
+  void on_pb60E_clicked();
   void on_tx1_editingFinished();
   void on_tx2_editingFinished();
   void on_tx3_editingFinished();

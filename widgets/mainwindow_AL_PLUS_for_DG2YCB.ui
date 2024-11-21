@@ -1463,6 +1463,38 @@ When not checked you can view the calibration results.</string>
                          </property>
                         </widget>
                        </item>
+                       <item row="1" column="0">
+                        <widget class="QPushButton" name="pb60D">
+                         <property name="minimumSize">
+                          <size>
+                           <width>32</width>
+                           <height>0</height>
+                          </size>
+                         </property>
+                         <property name="toolTip">
+                          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to T/R 60 s and Submode D.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                         </property>
+                         <property name="text">
+                          <string>60D</string>
+                         </property>
+                        </widget>
+                       </item>
+                       <item row="1" column="1">
+                        <widget class="QPushButton" name="pb60E">
+                         <property name="minimumSize">
+                          <size>
+                           <width>32</width>
+                           <height>0</height>
+                          </size>
+                         </property>
+                         <property name="toolTip">
+                          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to T/R 60 s and Submode E.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                         </property>
+                         <property name="text">
+                          <string>60E</string>
+                         </property>
+                        </widget>
+                       </item>
                       </layout>
                      </item>
                      <item>
@@ -2375,7 +2407,7 @@ When not checked you can view the calibration results.</string>
                <enum>Qt::StrongFocus</enum>
               </property>
               <property name="toolTip">
-               <string>witch to FT8 mode.&lt;br&gt;Right-click to toggle last used contest mode On/Off.</string>
+               <string>Switch to FT8 mode.&lt;br&gt;Right-click to toggle last used contest mode On/Off.</string>
               </property>
               <property name="text">
                <string>FT8</string>
@@ -4651,8 +4683,8 @@ Double-click to reset to the standard 73 message</string>
     <addaction name="actionColors"/>
     <addaction name="actionActiveStations"/>
     <addaction name="actionSWL_Mode"/>
-	<addaction name="actionQSYMessage_Creator"/>
-	<addaction name="actionEnable_QSY_Popups"/>
+    <addaction name="actionQSYMessage_Creator"/>
+    <addaction name="actionEnable_QSY_Popups"/>
     <addaction name="actionBand_Buttons"/>
     <addaction name="actionUse_Dark_Style"/>
    </widget>
@@ -5478,7 +5510,7 @@ Double-click to reset to the standard 73 message</string>
    <property name="text">
     <string>QSYMessage Creator</string>
    </property>
-  </action>  
+  </action>
   <action name="actionHideB4">
    <property name="checkable">
     <bool>true</bool>

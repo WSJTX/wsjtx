@@ -3689,9 +3689,13 @@ void MainWindow::statusChanged()
   if (m_mode=="Q65" && m_config.enable_VHF_features()) {
     ui->pb30B->setVisible(true);
     ui->pb60C->setVisible(true);
+    ui->pb60D->setVisible(true);
+    ui->pb60E->setVisible(true);
   } else {
     ui->pb30B->setVisible(false);
     ui->pb60C->setVisible(false);
+    ui->pb60D->setVisible(false);
+    ui->pb60E->setVisible(false);
   }
   if (SpecOp::FOX==m_specOp) {
     ui->pbFreeText->setVisible(true);
@@ -14051,6 +14055,18 @@ void MainWindow::on_pb60C_clicked()
     ui->sbSubmode->setValue(2);
 }
 
+void MainWindow::on_pb60D_clicked()
+{
+    ui->sbTR->setValue(60);
+    ui->sbSubmode->setValue(3);
+}
+
+void MainWindow::on_pb60E_clicked()
+{
+    ui->sbTR->setValue(60);
+    ui->sbSubmode->setValue(4);
+}
+
 void MainWindow::bandHoppingTimer()
 {
     if(ui->pbBandHopping->isChecked()) {
@@ -14728,6 +14744,24 @@ void MainWindow::check_button_color()
              ui->pb60C->setStyleSheet("QPushButton {background-color: #505F69; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none;}");
           } else {
              ui->pb60C->setStyleSheet("QPushButton {background-color: #e1e1e1; border: 1px solid #adadad; border-radius: 0px; padding: 3px; outline: none;}");
+          }
+      }
+      if (m_mode=="Q65" && m_config.enable_VHF_features() && m_TRperiod==60 && m_nSubMode==3) {
+          ui->pb60D->setStyleSheet("QPushButton {background-color: #00ff00; color: #000000; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none;}");
+      } else {
+          if (m_useDarkStyle) {
+              ui->pb60D->setStyleSheet("QPushButton {background-color: #505F69; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none;}");
+          } else {
+              ui->pb60D->setStyleSheet("QPushButton {background-color: #e1e1e1; border: 1px solid #adadad; border-radius: 0px; padding: 3px; outline: none;}");
+          }
+      }
+      if (m_mode=="Q65" && m_config.enable_VHF_features() && m_TRperiod==60 && m_nSubMode==4) {
+          ui->pb60E->setStyleSheet("QPushButton {background-color: #00ff00; color: #000000; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none;}");
+      } else {
+          if (m_useDarkStyle) {
+             ui->pb60E->setStyleSheet("QPushButton {background-color: #505F69; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none;}");
+          } else {
+             ui->pb60E->setStyleSheet("QPushButton {background-color: #e1e1e1; border: 1px solid #adadad; border-radius: 0px; padding: 3px; outline: none;}");
           }
       }
       if (ui->houndButton->isChecked() && !m_config.button_coloring_disabled()) {
