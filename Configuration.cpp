@@ -3495,6 +3495,7 @@ void Configuration::impl::on_CALL3_download_button_clicked (bool /*clicked*/)
   connect (&cty_download, &FileDownload::complete, this, &Configuration::impl::after_CALL3_downloaded, Qt::UniqueConnection);
   connect (&cty_download, &FileDownload::error, this, &Configuration::impl::error_during_CALL3_download, Qt::UniqueConnection);
   cty_download.start_download();
+  ui_->CALL3_file_label->setText("Downloading ...");
 }
 
 void Configuration::impl::on_CALL3_EME_download_button_clicked (bool /*clicked*/)
@@ -3514,6 +3515,7 @@ void Configuration::impl::on_CALL3_EME_download_button_clicked (bool /*clicked*/
   connect (&cty_download, &FileDownload::complete, this, &Configuration::impl::after_CALL3_downloaded, Qt::UniqueConnection);
   connect (&cty_download, &FileDownload::error, this, &Configuration::impl::error_during_CALL3_download, Qt::UniqueConnection);
   cty_download.start_download();
+  ui_->CALL3_file_label->setText("Downloading ...");
 }
 
 void Configuration::impl::error_during_CALL3_download (QString const& reason)
