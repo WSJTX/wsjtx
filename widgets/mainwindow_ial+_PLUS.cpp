@@ -3017,6 +3017,7 @@ void MainWindow::showQSYMessage(QString message)
                   m_QSYMessageWidget->activateWindow();
               }
               if(m_qsymonitorWidget && finalMatch.mid(0,1) !='Z') m_qsymonitorWidget->getQSYData(QString(bhList[0]) + " " + the_call + " " + finalMatch); //w3sz
+              if (m_config.alert_Enabled() && m_config.alert_QSYmessage()) alertQSYmessage();
             }
           }
         }
@@ -3040,30 +3041,8 @@ void MainWindow::showQSYMessage(QString message)
       m_QSYMessageWidget->show();
       m_QSYMessageWidget->raise();
       m_QSYMessageWidget->activateWindow();
-    }
 
-    // UR disable for versions without alerts
-    if (m_config.alert_Enabled() && m_config.alert_QSYmessage()) {
-  #ifdef WIN32
-      QAudioOutput info(QAudioDeviceInfo::defaultOutputDevice());
-      QString binPath = QCoreApplication::applicationDirPath();
-      QAudioFormat format;
-      format.setCodec("audio/pcm");
-      format.setSampleRate (48000);
-      format.setChannelCount (1);
-      format.setSampleSize (16);
-      format.setSampleType(QAudioFormat::SignedInt);
-      QAudioOutput* audio;
-      audio = new QAudioOutput(format, this);
-      connect(audio, SIGNAL(stateChanged(QAudio::State)), this, SLOT(handleStateChanged(QAudio::State)));
-      QFile *effect1 = new QFile(this);
-      effect1->setFileName(QString("%1/%2").arg(binPath, "/sounds/Message.wav"));
-      effect1->open(QIODevice::ReadOnly);
-      audio->start(effect1);
-  #else
-      QString binPath = QCoreApplication::applicationDirPath();
-      QSound::play(binPath + "/sounds/Message.wav");  // for Linux and macOS
-  #endif
+      if (m_config.alert_Enabled() && m_config.alert_QSYmessage()) alertQSYmessage();
     }
   }
 }
@@ -15366,4 +15345,28 @@ void MainWindow::remove_old_files(const QString &directoryPath, int daysOld)
             }
         }
     }
+}
+
+void MainWindow::alertQSYmessage ()
+{
+#ifdef WIN32
+  QAudioOutput info(QAudioDeviceInfo::defaultOutputDevice());
+  QString binPath = QCoreApplication::applicationDirPath();
+  QAudioFormat format;
+  format.setCodec("audio/pcm");
+  format.setSampleRate (48000);
+  format.setChannelCount (1);
+  format.setSampleSize (16);
+  format.setSampleType(QAudioFormat::SignedInt);
+  QAudioOutput* audio;
+  audio = new QAudioOutput(format, this);
+  connect(audio, SIGNAL(stateChanged(QAudio::State)), this, SLOT(handleStateChanged(QAudio::State)));
+  QFile *effect1 = new QFile(this);
+  effect1->setFileName(QString("%1/%2").arg(binPath, "/sounds/Message.wav"));
+  effect1->open(QIODevice::ReadOnly);
+  audio->start(effect1);
+#else
+  QString binPath = QCoreApplication::applicationDirPath();
+  QSound::play(binPath + "/sounds/Message.wav");  // for Linux and macOS
+#endif
 }
