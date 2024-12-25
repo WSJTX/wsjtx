@@ -362,22 +362,31 @@ QSYMessageCreator::QSYMessageCreator(QSettings * settings, Configuration const *
 
   key.second = '2'; // FM
   key.first = "A";  // 6M
-  kHzFreqMap.insert(key, 525);
-  key.second = '4'; // FM
+  kHzFreqMap.insert(key, 525); //region 2
+  key.second = '6'; // FM
   key.first = "B"; //2M
-  kHzFreqMap.insert(key, 520);
+  kHzFreqMap.insert(key, 520); //region 2
   key.second = '3'; // FM
   key.first = "C"; //222
-  kHzFreqMap.insert(key, 500);
+  kHzFreqMap.insert(key, 500); //region 2
   key.second = '6'; // FM
   key.first = "D"; //432
-  kHzFreqMap.insert(key, 000);
+  kHzFreqMap.insert(key, 000); //region 2
   key.second = '7'; // FM
   key.first = "E"; //1296
-  kHzFreqMap.insert(key, 000);
+  kHzFreqMap.insert(key, 000); //region 1
   key.second = '4'; // FM
   key.first = "E"; //1296
-  kHzFreqMap.insert(key, 000);
+  kHzFreqMap.insert(key, 000); //region 2
+  key.second = '1'; // FM
+  key.first = "A";  // 6M
+  kHzFreqMap.insert(key, 000); //region 1
+  key.second = '5'; // FM
+  key.first = "B"; //2M
+  kHzFreqMap.insert(key, 000); //region 1
+  key.second = '2'; // FM
+  key.first = "D"; //432
+  kHzFreqMap.insert(key, 000); //region 1
 
   key.second = 'L'; // FT8
   key.first = "A";  // 6M
