@@ -33,7 +33,7 @@ Operating Activities *Q65 Pileup* and *SuperFox mode*, an option to
   to your QSO partner, requesting a QSY to another frequency or submode,
   e.g during contests.  In addition, a number of preset messages 
   can also be sent. The features and useage of Message System are described
-  here <<Message_System,here>>.
+  <<Message_System,here>>.
 
 - A button *Update Hamlib* now appears on the *Settings -> Radio* tab.
   On Windows it allows the user to automatically download and install
