@@ -3,15 +3,15 @@
 
 _WSJT-X 2.7_ introduces a new program called *QMAP*, new Special
 Operating Activities *Q65 Pileup* and *SuperFox mode*, an option to
-*Update Hamlib* at the click of a button, and a number of other
-enhancements and bug fixes.
+*Update Hamlib* at the click of a button, a new program feature 
+*Message System*, and a number of other enhancements and bug fixes.
 
 - *QMAP* and *Q65 Pileup* mode are of particular interest to those engaged
   in Earth-Moon-Earth (EME) communication, but other applications may
-  be found for them as well.  QMAP is currently available for Windows
-  only; it is derived from MAP65, an older program used since 2007 for
+  be found for them as well.  QMAP is derived from MAP65, an older program used since 2007 for
   EME. QMAP provides single-polarization receive-only capabilities for
-  any one of the 60-second submodes of Q65. It allows you to monitor
+  any one of the 60-second submodes of Q65, and the associated 30-second 
+  submode with the same tone spacing.  It allows you to monitor
   all traffic in a 90 kHz sub-band while conducting EME QSOs in the
   usual way with _WSJT-X_.  Q65 Pileup mode helps DX operators using
   Q65 in pileup circumstances with many simultaneous callers and very
@@ -28,6 +28,12 @@ enhancements and bug fixes.
   with 5 slots.  Further details on SuperFox mode can be found in the
   Quick-Start guide posted here:
   https://wsjt.sourceforge.io/SuperFox_User_Guide.pdf
+  
+- *Message System* allows structured plain text messages to be sent
+  to your QSO partner, requesting a QSY to another frequency or submode,
+  e.g during contests.  In addition, a number of preset messages 
+  can also be sent. The features and useage of Message System are described
+  here <<Message_System,here>>.
 
 - A button *Update Hamlib* now appears on the *Settings -> Radio* tab.
   On Windows it allows the user to automatically download and install
