@@ -110,7 +110,7 @@ void QSYMessage::getBandModeFreq()
   else if(receivedMessage.at(0).isLetter() || receivedMessage.at(0) == '9' || receivedMessage.at(0) == '4' || receivedMessage.at(0) == '7')
   {
     QString bandParam = "";
-    QChar modeParam = '\0';
+    QString modeParam = receivedMessage.at(0);
     QString freqParam = "";
     bandParam = receivedMessage.mid(0,1);
     modeParam = receivedMessage.at(1);
@@ -120,7 +120,7 @@ void QSYMessage::getBandModeFreq()
     QString freq = "";
 
     if (bandParam ==  "A") {
-      if (modeParam.isLetter()) {
+      if (modeParam.at(0).isLetter()) {
         freq = "50.";
       } else {
         if (modeParam =="0") {
@@ -135,7 +135,7 @@ void QSYMessage::getBandModeFreq()
 			}
 		}
     else if (bandParam ==  "B") {
-      if (modeParam.isLetter()) {
+      if (modeParam.at(0).isLetter()) {
         freq = "144.";
       } else {
         if (modeParam =="4") {
@@ -150,7 +150,7 @@ void QSYMessage::getBandModeFreq()
 			}
 		}
     else if (bandParam ==  "C") {
-      if (modeParam.isLetter()) {
+      if (modeParam.at(0).isLetter()) {
         freq = "222.";
       } else {
         if (modeParam =="2") {
@@ -161,7 +161,7 @@ void QSYMessage::getBandModeFreq()
 			}
 		}
     else if (bandParam ==  "D") {
-      if (modeParam.isLetter()) {
+      if (modeParam.at(0).isLetter()) {
         freq = "432.";
       } else {
         if (configuration_->region()==2) {
@@ -212,7 +212,7 @@ void QSYMessage::getBandModeFreq()
       }
     }
     else if (bandParam ==  "E") {
-      if (modeParam.isLetter()) {
+      if (modeParam.at(0).isLetter()) {
         freq = "1296.";
       } else {
         if (modeParam =="0") {
@@ -315,7 +315,7 @@ void QSYMessage::getBandModeFreq()
     }
 
     freq = freq + freqParam;
-		if(!modeParam.isLetter()) {
+    if(!modeParam.at(0).isLetter()) {
 			mode = "FM";
 		}
     else if (modeParam ==  'V') {

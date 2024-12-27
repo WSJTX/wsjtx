@@ -1307,7 +1307,7 @@ QChar QSYMessageCreator::modeFromSpinBox(QString band, int MHzVHFInt)
        else if(MHzVHFInt == 223) mode = '3';
     }
     else { //not region 2
-      mode = 0;
+      mode = '0';
     }
   } else if(band=="D") {
     if(configuration_->region() ==2) {

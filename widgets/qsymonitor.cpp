@@ -83,7 +83,7 @@ void QSYMonitor::getBandModeFreq(QString theTime, QString theCall, QString value
 {
   if(value.at(0).isLetter() || value.at(0) == '9' || value.at(0) == '4' || value.at(0) == '7') {
     QString bandParam = "";
-    QChar modeParam = '\0';
+    QString modeParam = value.at(0);
     QString freqParam = "";
     bandParam = value.mid(0,1);
     modeParam = value.at(1);
@@ -93,7 +93,7 @@ void QSYMonitor::getBandModeFreq(QString theTime, QString theCall, QString value
     QString freq = "";
 
     if (bandParam ==  "A") {
-      if (modeParam.isLetter()) {
+      if (modeParam.at(0).isLetter()) {
         freq = "50.";
       } else {
         if (modeParam =="0") {
@@ -108,7 +108,7 @@ void QSYMonitor::getBandModeFreq(QString theTime, QString theCall, QString value
 			}
 		}
     else if (bandParam ==  "B") {
-      if (modeParam.isLetter()) {
+      if (modeParam.at(0).isLetter()) {
         freq = "144.";
       } else {
         if (modeParam =="4") {
@@ -123,7 +123,7 @@ void QSYMonitor::getBandModeFreq(QString theTime, QString theCall, QString value
 			}
 		}
     else if (bandParam ==  "C") {
-      if (modeParam.isLetter()) {
+      if (modeParam.at(0).isLetter()) {
         freq = "222.";
       } else {
 					if (modeParam =="2") {
@@ -134,7 +134,7 @@ void QSYMonitor::getBandModeFreq(QString theTime, QString theCall, QString value
 			}
 		}
     else if (bandParam ==  "D") {
-      if (modeParam.isLetter()) {
+      if (modeParam.at(0).isLetter()) {
         freq = "432.";
       } else {
 				if (configuration_->region()==2) {
@@ -186,7 +186,7 @@ void QSYMonitor::getBandModeFreq(QString theTime, QString theCall, QString value
 			}
     }
     else if (bandParam ==  "E") {
-      if (modeParam.isLetter()) {
+      if (modeParam.at(0).isLetter()) {
         freq = "1296.";
       } else {
         if (modeParam =="0") {
@@ -289,7 +289,7 @@ void QSYMonitor::getBandModeFreq(QString theTime, QString theCall, QString value
     }
 
     freq = freq + freqParam;
-		if(!modeParam.isLetter()) {
+    if(!modeParam.at(0).isLetter()) {
 			mode = "FM";
 		}
     else if (modeParam ==  'V') {
