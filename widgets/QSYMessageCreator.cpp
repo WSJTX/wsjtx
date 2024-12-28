@@ -1177,8 +1177,8 @@ void QSYMessageCreator::setMode(QString band, QChar mode, int region)
             if(mode=='5') ui->fmSpinBox->setValue(445);
             if(mode=='6') ui->fmSpinBox->setValue(446);
             if(mode=='7') ui->fmSpinBox->setValue(447);
-            if(mode=='6') ui->fmSpinBox->setValue(448);
-            if(mode=='7') ui->fmSpinBox->setValue(449);
+            if(mode=='8') ui->fmSpinBox->setValue(448);
+            if(mode=='9') ui->fmSpinBox->setValue(449);
           } else if(band=="E") {
             ui->fmSpinBox->setRange(1290,1299);
             if(mode=='0') ui->fmSpinBox->setValue(1290);
@@ -1189,8 +1189,8 @@ void QSYMessageCreator::setMode(QString band, QChar mode, int region)
             if(mode=='5') ui->fmSpinBox->setValue(1295);
             if(mode=='6') ui->fmSpinBox->setValue(1296);
             if(mode=='7') ui->fmSpinBox->setValue(1297);
-            if(mode=='6') ui->fmSpinBox->setValue(1298);
-            if(mode=='7') ui->fmSpinBox->setValue(1299);
+            if(mode=='8') ui->fmSpinBox->setValue(1298);
+            if(mode=='9') ui->fmSpinBox->setValue(1299);
           }
         } else { //not region 2
           if(band=="A") {
@@ -1215,8 +1215,8 @@ void QSYMessageCreator::setMode(QString band, QChar mode, int region)
             if(mode=='5') ui->fmSpinBox->setValue(435);
             if(mode=='6') ui->fmSpinBox->setValue(436);
             if(mode=='7') ui->fmSpinBox->setValue(437);
-            if(mode=='6') ui->fmSpinBox->setValue(438);
-            if(mode=='7') ui->fmSpinBox->setValue(439);
+            if(mode=='8') ui->fmSpinBox->setValue(438);
+            if(mode=='9') ui->fmSpinBox->setValue(439);
           } else if(band=="E") {
             ui->fmSpinBox->setRange(1290,1299);
             if(mode=='0') ui->fmSpinBox->setValue(1290);
@@ -1227,8 +1227,8 @@ void QSYMessageCreator::setMode(QString band, QChar mode, int region)
             if(mode=='5') ui->fmSpinBox->setValue(1295);
             if(mode=='6') ui->fmSpinBox->setValue(1296);
             if(mode=='7') ui->fmSpinBox->setValue(1297);
-            if(mode=='6') ui->fmSpinBox->setValue(1298);
-            if(mode=='7') ui->fmSpinBox->setValue(1299);
+            if(mode=='8') ui->fmSpinBox->setValue(1298);
+            if(mode=='9') ui->fmSpinBox->setValue(1299);
           }
         }
       } else {  // is not lower 4 bands FM Mode
