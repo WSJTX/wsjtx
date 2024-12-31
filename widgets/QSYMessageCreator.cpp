@@ -126,10 +126,10 @@ QSYMessageCreator::QSYMessageCreator(QSettings * settings, Configuration const *
 
   read_settings();
 
-  if(MHzFreqMap.isEmpty()) {
+  if(MHzFreqMap.size() < 4) {
     // need a MHZ map now that have selectable MHz values for FM mode
-    if(configuration->region() > 0) {
-      if(configuration->region() ==2) {
+    if(configuration_->region() > 0) {
+      if(configuration_->region() ==2) {
         MHzFreqMap.insert("A",52); //6M, 52 MHz
         MHzFreqMap.insert("B",146); //2M, 146 MHz
         MHzFreqMap.insert("C",223); //1.25M, 223 MHz
