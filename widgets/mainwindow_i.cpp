@@ -2604,7 +2604,7 @@ void MainWindow::fastSink(qint64 frames)
            ignored = true;
         }
     }
-    if (ui->actionIgnoreB4->isChecked()) {
+    if (ui->actionIgnoreB4->isChecked() && (pounce or m_auto)) {
       QString deCall;
       QString deGrid;
       decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
@@ -5981,10 +5981,10 @@ void MainWindow::readFromStdout()                             //readFromStdout
                ignored = true;
             }
         }
-        QString deCall;
-        QString deGrid;
-        decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
-        if (ui->actionIgnoreB4->isChecked()) {
+        if (ui->actionIgnoreB4->isChecked() && (pounce or m_auto)) {
+          QString deCall;
+          QString deGrid;
+          decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
           bool callB4onBand;
           bool countryB4onBand;
           bool gridB4onBand;
