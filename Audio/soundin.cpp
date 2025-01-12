@@ -109,7 +109,8 @@ void SoundInput::suspend ()
 {
   if (m_stream)
     {
-      m_stream->suspend ();
+//      m_stream->suspend ();
+      m_stream->stop();  // better stop and restart audio (fixes issues on Linux and macOS)
       checkStream ();
     }
 }
@@ -124,7 +125,8 @@ void SoundInput::resume ()
 
   if (m_stream)
     {
-      m_stream->resume ();
+//      m_stream->resume ();
+      m_stream->start (m_sink);  // better stop and restart audio (fixes issues on Linux and macOS)
       checkStream ();
     }
 }
