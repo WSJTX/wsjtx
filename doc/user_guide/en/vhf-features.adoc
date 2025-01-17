@@ -385,6 +385,40 @@ NOTE: The above assumes you are already set up for _WSJT-X_
 <<VHF_SETUP,Doppler shift correction>> with working CAT control, and
 *Monitor* enabled etc..
 
+=== Moving Tx Freq in-band
+
+A new feature is under development to permit transmit and receive frequencies
+to be different.  This may be of interest to stations trying to operate
+for example on 1268/1296, 1296/1298. 2304/2320 etc.  More information on possible
+changes to 1296/1298 may be found here:
+
+https://bobatkins.com/radio/WRC23_23cm_1298_EME.html
+
+Two new controls have been added to the Astro Window.  A spinbox allows 
+entry of the amount the TX frequency is shifted from the receive frequency
+in MHz.  An adjacent checkbox allows this feature to be enabled.
+
+To use the feature, first set the Sked frequency to the frequency you want to
+use for receiving in the normal way.  Next, select the amount you want your
+transmitted frequency to be shifted.  The figure below shows an example of a
+station receiving on 1296 MHz and transmitting on 1298 MHz.  In this case, a 
+Tx shift of +2 MHz has been selected.
+
+image::shift2.png[align="center",alt="tx shift"]
+
+It may be necessary to add frequencies to the Frequencies Table corresponding to
+the transmit and receive frequencies to avoid the dial frequency indicator turning
+red.
+
+NOTE: The feature will only work, of course, if your radio can be operated at both
+frequencies, eg TS2000X on 1296/1268, or a Region 2 radio covering 144-148Hz with
+a 2m IF for 23cm 1296/1298 operation.  13cm operation would require a radio that has 
+general coverage capability on receive, and a transverter with sufficient bandwidth at IF.
+
+IMPORTANT: When using this feature, please ensure that moving your transmit frequency
+will not result in transmitting out-of-band!
+
+
 ////
 The following tutorial aims to familiarize you with
 these program features, all of which are of special interest for EME
