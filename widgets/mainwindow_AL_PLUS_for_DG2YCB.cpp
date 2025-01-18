@@ -3992,7 +3992,8 @@ void MainWindow::on_stopButton_clicked()                       //stopButton
 
 void MainWindow::on_actionRelease_Notes_triggered ()
 {
-  QDesktopServices::openUrl (QUrl {"https://wsjt.sourceforge.io/Release_Notes.txt"});
+  QDesktopServices::openUrl (QUrl {"https://wsjt-x-improved.sourceforge.io/Release_Notes.txt"});
+//  QDesktopServices::openUrl (QUrl {"https://wsjt.sourceforge.io/Release_Notes.txt"});
 }
 
 void MainWindow::on_actionFT8_DXpedition_Mode_User_Guide_triggered()
@@ -4063,9 +4064,10 @@ void MainWindow::on_actionRig_Control_Errors_triggered()
 
 void MainWindow::on_actionOnline_User_Guide_triggered()      //Display manual
 {
-#if defined (CMAKE_BUILD)
-  m_manual.display_html_url (QUrl {PROJECT_MANUAL_DIRECTORY_URL}, PROJECT_MANUAL);
-#endif
+  QDesktopServices::openUrl (QUrl {"https://wsjt-x-improved.sourceforge.io/wsjtx-main_en.html"});
+// #if defined (CMAKE_BUILD)
+//   m_manual.display_html_url (QUrl {PROJECT_MANUAL_DIRECTORY_URL}, PROJECT_MANUAL);
+// #endif
 }
 
 //Display local copy of manual
