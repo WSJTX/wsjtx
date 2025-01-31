@@ -10,7 +10,7 @@ IV3NWV, have been major contributors to development of _WSJT-X_ since
 2013, 2015, and 2016, respectively. Bill Somerville died suddenly and
 unexpectedly in December 2021; Uwe Risse, DG2YCB, joined the core
 development team soon afterward, followed by Brian Moran, N9ADG
-(2022) and John Nelson, G4KLA and Charlie Suckling, Dl3WDG (2024). 
+(2022) and John Nelson, G4KLA and Charlie Suckling, DL3WDG (2024). 
 
 _WSJT-X_ Version {VERSION_MAJOR}.{VERSION_MINOR} offers eleven
 different protocols or modes: *FST4*, *FT4*, *FT8*, *JT4*, *JT9*,
@@ -52,7 +52,7 @@ structured messages as the slow modes and optionally an abbreviated
 format with hashed callsigns.
 
 Note that some of the modes classified as slow can have T/R sequence
-lengths as short the fast modes. As used here, "`slow`" implies that
+lengths as short as the fast modes. As used here, "`slow`" implies that
 message frames are sent once per transmission. Fast modes in _WSJT-X_
 send message frames repeatedly, as many times as will fit into the Tx
 sequence length, thereby making it possible to take advantage of short

@@ -23,12 +23,12 @@ Four tabs are available: HF, VHF, EME and General.
 
 image::mc3.png[align="center",alt="Creator Tabs"]
 
-To send a message, select the appropriate tab and then the a band,
+To send a message, select the appropriate tab and then the band,
 mode, and kHz part of frequency for a QSY request, or a canned message
 from the *General* tab. The actual message to be sent will be shown in
 the field indicated by the red arrow. Click *Send Message* to have
 this message conveyed in your next transmission. *Enable Tx* will be
-activated autonatically, and your message will be sent to the callsign
+activated automatically, and your message will be sent to the callsign
 in the *DX Call* field of the main window.  The example below shows
 the creation of a messsage to W3SZ asking him to QSY to 145.550 using
 FM.
@@ -37,7 +37,7 @@ image::mc4.png[align="center",alt="Creator window"]
 
 === Receiving Message System transmissions
 
-To receive these special mesages, select *Enable Message Popups* on the 
+To receive these special messages, select *Enable Message Popups* on the 
 *View* menu:
 
 image::mc5.png[align="center",alt="Enable Pop Ups"]
