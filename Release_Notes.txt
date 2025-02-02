@@ -16,42 +16,44 @@ Copyright 2001 - 2025 by Joe Taylor, K1JT, and the WSJT Development Team
                           February 17, 2025
                       -------------------------
 
-WSJT-X 2.7.0 is a General Availability (GA), the first since version 2.6.1.
-Its major enhancements include a new program called QMAP, new Special 
-Operating Activities Q65 Pileup and SuperFox mode, a new program feature 
-Message System, an option Update Hamlib at the click of a button, and 
-various other improvements.
+WSJT-X 2.7.0 is a General Availability (GA) release, the first since
+version 2.6.1. Major enhancements include a new companion program
+QMAP, new Special Operating Activities "Q65 Pileup" and "SuperFox", a
+new "Message System" feature, an option to update Hamlib at the click
+of a button, and various other improvements.
+
+ - QMAP is of particular interest to those engaged in Earth-Moon-Earth
+   (EME) communication. It provides single-polarization receive-only
+   capabilities for any one of the 60-second submodes of Q65 and the
+   associated 30-second submode with the same tone spacing. It lets
+   you monitor all corresponding traffic in a 90 kHz sub-band while
+   conducting EME QSOs in the usual way with WSJT-X.
+
+ - Q65 Pileup mode helps DX operators using Q65 in circumstances with
+   many simultaneous callers and very weak signals, such as those
+   experienced by 6-meter EME DXpeditions.
 
  - SuperFox mode behaves operationally like the old-style Fox and Hounds 
    mode but uses a new constant envelope waveform for Fox’s transmissions. 
    Messages can be transmitted simultaneously to as many as 9 Hounds with 
    no signal-strength penalty, resulting in a system gain of about +10 dB 
-   compared to the older Fox-and-Hound operation with 5 slots.
+   compared to the older Fox-and-Hound operation using 5 slots.
 
- - QMAP and Q65 Pileup mode are of particular interest to those engaged 
-   in Earth-Moon-Earth (EME) communication, but other applications may be 
-   found for them as well. QMAP provides single-polarization receive-only 
-   capabilities for any one of the 60-second submodes of Q65, and the 
-   associated 30-second submode with the same tone spacing. It allows you 
-   to monitor all traffic in a 90 kHz sub-band while conducting EME QSOs in 
-   the usual way with WSJT-X. Q65 Pileup mode helps DX operators using Q65 
-   in pileup circumstances with many simultaneous callers and very weak 
-   signals, such as those experienced by 6-meter EME DXpeditions.
+ - The new Message System allows structured plain text messages to be
+   sent to your QSO partner to request QSY to another band or mode, or
+   to send any one of a number of canned messages. This feature can be
+   especially useful during contests.
 
- - Message System allows structured plain text messages to be sent to your 
-   QSO partner, requesting a QSY to another frequency or submode, e.g during 
-   contests. In addition, a number of preset messages can also be sent.
-
- - On Windows, a button Update Hamlib allows the user to automatically 
-   download and install the latest version of the rig-control features in 
-   Hamlib.
+ - A button labeled "Update Hamlib" lets you download and install the
+   latest version of the rig-control features in Hamlib. 
 
  - The cty.dat file can now be updated by clicking a single button.
 
- - Numerous other enhancements and bug fixes make operation smoother and 
-   more intuitive. Among others, features for main-window switching between 
-   modes have been enhanced so that submode and status of the Sh and Fast 
-   checkboxes are saved and restored by mode.
+Numerous other enhancements and bug fixes make operation smoother and
+more intuitive. Features for main-window switching between modes have
+been enhanced so that submode and status of the Sh and Fast checkboxes
+are saved and restored by mode. Note that the "Update Hamlib" feature
+is currently available only in Windows.
 
 
                       Release: WSJT-X 2.7.0-rc8
