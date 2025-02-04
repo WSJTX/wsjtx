@@ -39,16 +39,15 @@ NOTE: Having a PC clock that appears to be synchronized to UTC is not
 
 [[OPENSSL]]
 
+* _WSJT-X_ requires installation of the _OpenSSL_ libraries. Suitable
+  libraries may already be installed on your system. If they are not,
+  you will see this error message shortly after requesting a fetch of
+  the latest LoTW users database.
+
 image:LoTW_TLS_error.png[_WSJT-X_ LoTW download TLS error,
   align="center"]
   
-* _WSJT-X_ requires installation of the _OpenSSL_ libraries. Suitable
-  libraries may already be installed on your system. If they are not,
-  you will see this error shortly after requesting a fetch of the
-  latest LoTW users database. To fix this, install the _OpenSSL_
-  libraries.
-
-** You can download a suitable _OpenSSL_ package for Windows from
+*  You can download a suitable _OpenSSL_ package for Windows from
    {win_openssl_packages}; you need the latest *Windows Light*
    version. For the 32-bit _WSJT-X_ build, use the latest Win32 v1.1.1
    version of the _OpenSSL_ libraries, for the 64-bit _WSJT-X_ use the
@@ -56,7 +55,7 @@ image:LoTW_TLS_error.png[_WSJT-X_ LoTW download TLS error,
    OK to install both versions on a 64-bit system) which, at the time
    of writing, were {win32_openssl} and {win64_openssl} respectively.
 
-** Install the package and accept the default options, including the
+*  Install the package and accept the default options, including the
    option to copy the _OpenSSL_ DLLs to the Windows system
    directory. There is no obligation to donate to the _OpenSSL_
    project. Un-check all the donation options if desired. +
