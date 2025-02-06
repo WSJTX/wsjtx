@@ -1240,9 +1240,9 @@ void MainWindow::on_the_minute ()
 MainWindow::~MainWindow()
 {
   if(m_astroWidget) m_astroWidget.reset ();
-  if(m_QSYMessageCreatorWidget) m_QSYMessageCreatorWidget.reset ();  //w3sz
-  if(m_QSYMessageWidget) m_QSYMessageWidget.reset ();  //w3sz
-  if(m_qsymonitorWidget) m_qsymonitorWidget.reset ();  //w3sz
+  if(m_QSYMessageCreatorWidget) m_QSYMessageCreatorWidget.reset ();
+  if(m_QSYMessageWidget) m_QSYMessageWidget.reset ();
+  if(m_qsymonitorWidget) m_qsymonitorWidget.reset ();
   auto fname {QDir::toNativeSeparators(m_config.writeable_data_dir ().absoluteFilePath ("wsjtx_wisdom.dat"))};
   fftwf_export_wisdom_to_filename (fname.toLocal8Bit ());
   m_audioThread.quit ();
@@ -1292,9 +1292,9 @@ void MainWindow::writeSettings()
   m_settings->setValue("FoxLogDisplayed", m_foxLogWindow && m_foxLogWindow->isVisible ());
   m_settings->setValue("ContestLogDisplayed", m_contestLogWindow && m_contestLogWindow->isVisible ());
   m_settings->setValue("ActiveStationsDisplayed", m_ActiveStationsWidget && m_ActiveStationsWidget->isVisible ());
-  m_settings->setValue("QSYMessageCreatorDisplayed", m_QSYMessageCreatorWidget && m_QSYMessageCreatorWidget->isVisible ()); //w3sz
-  m_settings->setValue("ShowQSYMessages", ui->actionEnable_QSY_Popups->isChecked()); //w3sz
-  m_settings->setValue("QSYMonitorDisplayed", m_qsymonitorWidget && m_qsymonitorWidget->isVisible ()); //w3sz
+  m_settings->setValue("QSYMessageCreatorDisplayed", m_QSYMessageCreatorWidget && m_QSYMessageCreatorWidget->isVisible ());
+  m_settings->setValue("ShowQSYMessages", ui->actionEnable_QSY_Popups->isChecked());
+  m_settings->setValue("QSYMonitorDisplayed", m_qsymonitorWidget && m_qsymonitorWidget->isVisible ());
   m_settings->setValue("RespondCQ",ui->respondComboBox->currentIndex());
   m_settings->setValue("HoundSort",ui->comboBoxHoundSort->currentIndex());
   m_settings->setValue("FoxNlist",ui->sbNlist->value());
@@ -1445,8 +1445,6 @@ void MainWindow::writeSettings()
   m_settings->endGroup();
 }
 
-
-//w3sz  Enable timer durations set to 29 seconds to assure at least one complete Tx cycle
 void MainWindow::update_tx5(const QString &qsy_text)
 {
   if (m_hisCall=="") {
@@ -1463,7 +1461,6 @@ void MainWindow::update_tx5(const QString &qsy_text)
   }
 }
 
-//w3sz  Enable timer durations set to 29 seconds to assure at least one complete Tx cycle
 void MainWindow::reply_tx5(const QString &qsy_reply)
 {
   ui->tx6->setText(qsy_reply);
@@ -1477,7 +1474,6 @@ void MainWindow::setQSYMessageCreatorStatus(const bool &QSYMessageCreatorValue)
 {
   m_QSYMessageCreatorValue = QSYMessageCreatorValue;
 }
-//end w3sz
 
 //---------------------------------------------------------- readSettings()
 void MainWindow::readSettings()
@@ -1507,9 +1503,9 @@ void MainWindow::readSettings()
   auto displayFoxLog = m_settings->value ("FoxLogDisplayed", false).toBool ();
   auto displayContestLog = m_settings->value ("ContestLogDisplayed", false).toBool ();
   bool displayActiveStations = m_settings->value ("ActiveStationsDisplayed", false).toBool ();
-  bool displayQSYMessageCreator = m_settings->value ("QSYMessageCreatorDisplayed", false).toBool (); //w3sz
-  bool displayQSYMonitor = m_settings->value("QSYMonitorDisplayed", false).toBool (); //w3sz
-  bool enableQSYpopups = m_settings->value("ShowQSYMessages", true).toBool (); //w3sz
+  bool displayQSYMessageCreator = m_settings->value ("QSYMessageCreatorDisplayed", false).toBool ();
+  bool displayQSYMonitor = m_settings->value("QSYMonitorDisplayed", false).toBool ();
+  bool enableQSYpopups = m_settings->value("ShowQSYMessages", true).toBool ();
   ui->respondComboBox->setCurrentIndex(m_settings->value("RespondCQ",0).toInt());
   ui->comboBoxHoundSort->setCurrentIndex(m_settings->value("HoundSort",3).toInt());
   ui->sbNlist->setValue(m_settings->value("FoxNlist",12).toInt());
@@ -1737,8 +1733,8 @@ void MainWindow::readSettings()
   if (displayFoxLog) on_fox_log_action_triggered ();
   if (displayContestLog) on_contest_log_action_triggered ();
   if (displayActiveStations) on_actionActiveStations_triggered();
-  if (displayQSYMessageCreator) on_actionQSYMessage_Creator_triggered();  //w3sz
-  if (displayQSYMonitor) on_actionQSY_Monitor_triggered();  //w3sz
+  if (displayQSYMessageCreator) on_actionQSYMessage_Creator_triggered();
+  if (displayQSYMonitor) on_actionQSY_Monitor_triggered();
 
 #ifdef WIN32
   if (m_config.alert_Enabled()) {  // testing and initializing the default audio device for playing audible alerts
@@ -2933,7 +2929,7 @@ void MainWindow::fastSink(qint64 frames)
     bool stdMsg = decodedtext.report(m_baseCall,
                   Radio::base_callsign(ui->dxCallEntry->text()),m_rptRcvd);
     if (stdMsg) pskPost (decodedtext);
-    if(ui->actionEnable_QSY_Popups->isChecked() || m_qsymonitorWidget) showQSYMessage(message);  //w3sz
+    if(ui->actionEnable_QSY_Popups->isChecked() || m_qsymonitorWidget) showQSYMessage(message);
   }
 
   float fracTR=float(k)/(12000.0*m_TRperiod);
@@ -3003,7 +2999,6 @@ void MainWindow::showStatusMessage(const QString& statusMsg)
   statusBar()->showMessage(statusMsg, 5000);
 }
 
-//w3sz
 void MainWindow::showQSYMessage(QString message)
 {
   QString the_line = message.mid(22);
@@ -3038,7 +3033,7 @@ void MainWindow::showQSYMessage(QString message)
                 m_QSYMessageWidget->raise();
                 m_QSYMessageWidget->activateWindow();
               }
-              if(m_qsymonitorWidget && finalMatch.mid(0,1) !='Z') m_qsymonitorWidget->getQSYData(QString(bhList[0]) + " " + the_call + " " + finalMatch); //w3sz
+              if(m_qsymonitorWidget && finalMatch.mid(0,1) !='Z') m_qsymonitorWidget->getQSYData(QString(bhList[0]) + " " + the_call + " " + finalMatch);
               if (m_config.alert_Enabled() && m_config.alert_QSYmessage() && (the_line.contains(qCall) or the_line.contains(qDXCall))) alertQSYmessage();
             }
           }
@@ -3066,7 +3061,6 @@ void MainWindow::showQSYMessage(QString message)
     }
   }
 }
-//end w3sz
 
 void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settings)
 {
@@ -4249,7 +4243,6 @@ void MainWindow::on_actionAstronomical_data_toggled (bool checked)
     }
 }
 
-//start w3sz
 void MainWindow::on_actionQSYMessage_Creator_triggered()
 {
   if (!m_QSYMessageCreatorWidget) {
@@ -4285,7 +4278,6 @@ void MainWindow::on_actionQSY_Monitor_triggered()
   m_qsymonitorWidget->raise();
   m_qsymonitorWidget->activateWindow();
 }
-//end w3sz
 
 void MainWindow::on_fox_log_action_triggered()
 {
@@ -5440,7 +5432,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
     auto line_read = proc_jt9.readLine ();
 
     QString the_line = QString(line_read);
-    if(ui->actionEnable_QSY_Popups->isChecked() || m_qsymonitorWidget) showQSYMessage(the_line);  //w3sz
+    if(ui->actionEnable_QSY_Popups->isChecked() || m_qsymonitorWidget) showQSYMessage(the_line);
 
     if (m_mode == "FT8" and m_specOp == SpecOp::FOX and m_ActiveStationsWidget != NULL) { // see if we should add this to ActiveStations window
       if (!m_ActiveStationsWidget->wantedOnly() ||
@@ -9381,7 +9373,7 @@ void MainWindow::on_dxCallEntry_textChanged (QString const& call)
   }
   set_dateTimeQSO (-1);  // reset the QSO start time when DXCall changes
   m_hisCall = call;
-  if(m_QSYMessageCreatorWidget) m_QSYMessageCreatorWidget->getDxBase(QString(Radio::base_callsign(call))); //w3sz
+  if(m_QSYMessageCreatorWidget) m_QSYMessageCreatorWidget->getDxBase(QString(Radio::base_callsign(call)));
   if (!blocked) ui->dxGridEntry->clear();  // conditional because not always useful with highlightDXCall/DXGrid feature
   if (ui->DX_Call_Button->isChecked() && !(m_mode=="FT8" && SpecOp::HOUND==m_specOp)) ui->DX_Call_Button->click ();
   statusChanged();
@@ -9393,7 +9385,7 @@ void MainWindow::on_dxCallEntry_editingFinished()
 {
   auto const& dxBase = Radio::base_callsign (m_hisCall);
   save_dxbase_(const_cast <char *> ((dxBase + "   ").left (6).toLatin1().constData()), (FCL)6);
-  if(m_QSYMessageCreatorWidget) m_QSYMessageCreatorWidget->getDxBase(QString(dxBase)); //w3sz
+  if(m_QSYMessageCreatorWidget) m_QSYMessageCreatorWidget->getDxBase(QString(dxBase));
 }
 
 void MainWindow::on_dxCallEntry_returnPressed ()
@@ -12368,8 +12360,8 @@ void MainWindow::astroUpdate ()
       if (!m_astroWidget->doppler_tracking() or m_astroWidget->DopplerMethod()==0) {
         // We are not using RF Doppler correction
         m_fAudioShift=m_fDop;
-        return; //else if below added by w3sz for enableShift fx
-      } else if (m_astroWidget->DopplerMethod()==10) {
+        return;
+      } else if (m_astroWidget->DopplerMethod()==10) {  // else if added for enableShift fx
         // We are not using RF Doppler correction
         m_fAudioShift=m_fDop;
       }
