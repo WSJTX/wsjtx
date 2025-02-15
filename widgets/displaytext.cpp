@@ -42,6 +42,7 @@ bool play_CQZ = false;
 bool play_CQZOB = false;
 bool play_ITUZ = false;
 bool play_ITUZOB = false;
+bool muted = false;
 
 using SpecOp = Configuration::SpecialOperatingActivity;
 
@@ -322,25 +323,25 @@ QString DisplayText::appendWorkedB4 (QString message, QString call, QString cons
   if (!countryB4) {
     types.push_back (Highlight::DXCC);
     if (m_config->alert_DXCC()) {
-        play_DXCC = true;
+      if (!muted) play_DXCC = true;
     }
   }
   if(!countryB4onBand) {
     types.push_back (Highlight::DXCCBand);
     if (m_config->alert_DXCCOB()) {
-       play_DXCCOB = true;
+       if (!muted) play_DXCCOB = true;
     }
   }
   if(!gridB4) {
     types.push_back (Highlight::Grid);
     if (m_config->alert_Grid()) {
-        play_Grid = true;
+      if (!muted) play_Grid = true;
     }
   }
   if(!gridB4onBand) {
     types.push_back (Highlight::GridBand);
     if (m_config->alert_GridOB()) {
-        play_GridOB = true;
+      if (!muted) play_GridOB = true;
     }
   }
   if (!callB4) {
@@ -352,37 +353,37 @@ QString DisplayText::appendWorkedB4 (QString message, QString call, QString cons
   if (!continentB4) {
     types.push_back (Highlight::Continent);
     if (m_config->alert_Continent()) {
-        play_Continent = true;
+      if (!muted) play_Continent = true;
     }
   }
   if(!continentB4onBand) {
     types.push_back (Highlight::ContinentBand);
     if (m_config->alert_ContinentOB()) {
-        play_ContinentOB = true;
+      if (!muted) play_ContinentOB = true;
     }
   }
   if (!CQZoneB4) {
     types.push_back (Highlight::CQZone);
     if (m_config->alert_CQZ()) {
-        play_CQZ = true;
+      if (!muted) play_CQZ = true;
     }
   }
   if(!CQZoneB4onBand) {
     types.push_back (Highlight::CQZoneBand);
     if (m_config->alert_CQZOB()) {
-        play_CQZOB = true;
+      if (!muted) play_CQZOB = true;
     }
   }
   if (!ITUZoneB4) {
     types.push_back (Highlight::ITUZone);
     if (m_config->alert_ITUZ()) {
-        play_ITUZ = true;
+      if (!muted) play_ITUZ = true;
     }
   }
   if(!ITUZoneB4onBand) {
     types.push_back (Highlight::ITUZoneBand);
     if (m_config->alert_ITUZOB()) {
-        play_ITUZOB = true;
+      if (!muted) play_ITUZOB = true;
     }
   }
   if (m_config && m_config->lotw_users ().user (call))
@@ -485,19 +486,21 @@ void DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
                                      QString const& mode,
                                      bool displayDXCCEntity, LogBook const& logBook,
                                      QString const& currentBand, bool ppfx, bool bCQonly,
-                                     bool haveFSpread, float fSpread, bool bDisplayPoints, int points,QString distance)
+                                     bool haveFSpread, float fSpread, bool bDisplayPoints,
+                                     int points, QString distance, bool alertsMuted)
 {
   m_points=points;
   m_bDisplayPoints=bDisplayPoints;
   m_bPrincipalPrefix=ppfx;
+  muted=alertsMuted;
   QColor bg;
   QColor fg;
   bool CQcall = false;
   auto is_73 = decodedText.messageWords().filter (QRegularExpression {"^(73|RR73)$"}).size();
-  if (decodedText.string ().contains ("CQ ")) {
-          if (m_config->alert_CQ()) {
-              play_CQ = true;
-          }
+  if (decodedText.string ().contains (" CQ ")) {
+    if (m_config->alert_CQ()) {
+      if (!muted) play_CQ = true;
+    }
   }
   if (decodedText.string ().contains (" CQ ")
       || decodedText.string ().contains (" CQDX ")
@@ -676,9 +679,21 @@ void DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
       }
   }
 
+  // initialize audible alerts for MSK144 (still experimental)
+  if(mode=="MSK144") {
+    if ((m_config->alert_Enabled()) && ((m_config->alert_DXCC()) || (m_config->alert_DXCCOB()) || (m_config->alert_Grid()) ||
+        (m_config->alert_GridOB()) || (m_config->alert_Continent()) || (m_config->alert_ContinentOB()) || (m_config->alert_CQZ()) ||
+        (m_config->alert_CQZOB()) || (m_config->alert_ITUZ()) || (m_config->alert_ITUZOB()) || (m_config->alert_CQ()))) {
+      alertsTimer.stop ();
+      disconnect (&alertsTimer, &QTimer::timeout, this, &DisplayText::AudioAlerts);
+      connect (&alertsTimer, &QTimer::timeout, this, &DisplayText::AudioAlerts);
+      alertsTimer.setSingleShot (true);
+      alertsTimer.start (1000);
+    }
+  }
+
   insertText (message.trimmed (), bg, fg, decodedText.call (), dxCall);
 }
-
 
 void DisplayText::displayTransmittedText(QString text, QString modeTx, qint32 txFreq,
                                          bool bFastMode, double TRperiod,bool bSuperfox)

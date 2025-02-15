@@ -256,6 +256,7 @@ bool BlankLineInserted = false;
 bool m_txing;
 bool HoldTxFreqStatus;
 bool m_band_changed = false;
+bool m_muted = false;
 bool no_decodes_to_UDP = false;
 bool rigFailed = false;
 QString txLog;
@@ -2244,6 +2245,7 @@ void MainWindow::fastSink(qint64 frames)
   bool decodeNow=false;
   filtered = false;
   ignored = false;
+  m_muted = false;
   if(k < m_k0) {                                 //New sequence ?
     memcpy(fast_green2,fast_green,4*703);        //Copy fast_green[] to fast_green2[]
     memcpy(fast_s2,fast_s,4*703*64);             //Copy fast_s[] into fast_s2[]
@@ -2816,7 +2818,11 @@ void MainWindow::fastSink(qint64 frames)
                 distance += QString::number(nAz) + "°";
             }
         }
-        // display decodes for the fast modes must be done before highlighting any call or grid
+
+        // mute audible alerts when callsign is on the Ignored List for MSK144
+        if (m_config.alert_Enabled() && !ui->cbBypass->isChecked() && deCall!="" && ignoreList.contains(deCall + ",")) m_muted = true;
+
+        // display decodes for the fast modes must be done before highlighting any call or grid for MSK144
         bool haveFSpread {false};
         float fSpread {0.};
         bool bDisplayPoints {false};
@@ -2824,7 +2830,7 @@ void MainWindow::fastSink(qint64 frames)
         ui->decodedTextBrowser->displayDecodedText (decodedtext, m_config.my_callsign (), m_mode, m_config.DXCC (),
           m_logBook, m_currentBandPeriod, m_config.ppfx (),
           ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
-          haveFSpread, fSpread, bDisplayPoints, m_points, distance);
+          haveFSpread, fSpread, bDisplayPoints, m_points, distance, m_muted);
         if(m_position != 0) ui->decodedTextBrowser->horizontalScrollBar()->setValue(m_position);
     }
 
@@ -2880,7 +2886,7 @@ void MainWindow::fastSink(qint64 frames)
     if (!pounce && m_config.highlight_DXcall () && (m_hisCall!="") && ((text.contains(QRegularExpression {"(\\w+) " + m_hisCall}))
         || (decodedtext.string().contains("<...> " + m_hisCall))))  {
         ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);
-        if (m_config.alert_Enabled() && m_config.alert_DXcall()) play_DXcall = true;    // UR disable for versions without alerts
+        if (m_config.alert_Enabled() && m_config.alert_DXcall() && !m_muted) play_DXcall = true;    // UR disable for versions without alerts
         QTimer::singleShot (500, [=] {                       // repeated highlighting to override JTAlert
             ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);
         });
@@ -2893,7 +2899,7 @@ void MainWindow::fastSink(qint64 frames)
     }
     if (!pounce && m_config.highlight_DXgrid () && (m_hisGrid!="") && (decodedtext.string().contains(m_hisGrid.left(4))))  {
         ui->decodedTextBrowser->highlight_callsign(m_hisGrid.left(4), QColor(0,0,200), QColor(255,255,255), true);
-        if (m_config.alert_Enabled() && m_config.alert_DXcall()) play_DXcall = true;    // UR disable for versions without alerts
+        if (m_config.alert_Enabled() && m_config.alert_DXcall() && !m_muted) play_DXcall = true;    // UR disable for versions without alerts
     }
     QTimer::singleShot (100, [=] {                       // UR delete for versions without alerts
         if ((m_config.alert_Enabled()) && (m_config.alert_DXcall()) && (play_DXcall) && (m_hisCall!="")) {
@@ -3241,6 +3247,7 @@ void MainWindow::on_autoButton_clicked (bool checked)
       ui->autoButton->setChecked(false);  // ensure autoButton is unchecked
       filtered = false;
       ignored = false;
+      m_muted = false;
       Dpoints=0;                          // reset points
       maxDPoints=0;                       // reset points
       dBpoints=-28;                       // reset points
@@ -3543,7 +3550,7 @@ void MainWindow::handleVerifyMsg(int status, QDateTime ts, QString callsign, QSt
           ui->labDXped->setStyleSheet("QLabel {background-color: #00ff00; color: black;}");
         }
         ui->decodedTextBrowser->displayDecodedText(DecodedText{msg}, m_config.my_callsign(), m_mode, m_config.DXCC(),
-                                                   m_logBook, m_currentBand, m_config.ppfx());
+                                                   m_logBook, m_currentBand, m_config.ppfx(), false, false, 0.0, false, -99, "", true);
         write_all("Ck",msg);
       }
     }
@@ -3987,6 +3994,7 @@ void MainWindow::on_stopButton_clicked()                       //stopButton
   ui->autoButton->setChecked(false);  // ensure auoButton is unchecked
   filtered = false;
   ignored = false;
+  m_muted = false;
   check_button_color();
 }
 
@@ -4956,7 +4964,7 @@ void::MainWindow::fast_decode_done()
     DecodedText decodedtext {message.replace (QChar::LineFeed, "")};
     if(!m_bFastDone) {
       ui->decodedTextBrowser->displayDecodedText (decodedtext, m_config.my_callsign (), m_mode, m_config.DXCC (),
-         m_logBook, m_currentBandPeriod, m_config.ppfx ());
+         m_logBook, m_currentBandPeriod, m_config.ppfx (), false, false, 0.0, false, -99, "", m_muted);
     }
 
     t=message.mid(10,5).toFloat();
@@ -5423,6 +5431,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
   bool bDisplayPoints = false;
   filtered = false;
   ignored = false;
+  m_muted = false;
   QString all_decodes;
   if(m_ActiveStationsWidget!=NULL) {
     bDisplayPoints=(m_mode=="FT4" or m_mode=="FT8") and
@@ -6021,6 +6030,14 @@ void MainWindow::readFromStdout()                             //readFromStdout
               }
         }
 
+        // mute alert sounds when callsign is on the Ignored List
+        if (m_config.alert_Enabled() && !ui->cbBypass->isChecked()) {
+          QString deCall;
+          QString deGrid;
+          decodedtext.deCallAndGrid(deCall,deGrid);
+          if (deCall!="" && ignoreList.contains(deCall + ",")) m_muted = true;
+        }
+
         // hide or ignore callsigns
         if (ui->actionHideIgnored->isChecked() or ui->actionHideToday->isChecked() or ui->actionIgnoreIgnored->isChecked() or ui->actionIgnoreToday->isChecked()) {
             QString today = QDateTime::currentDateTimeUtc().toString ("yyyy-MM-dd");
@@ -6143,12 +6160,12 @@ void MainWindow::readFromStdout()                             //readFromStdout
               ui->decodedTextBrowser->displayDecodedText (decodedtextJT, m_config.my_callsign (), m_mode, m_config.DXCC (),
                                                           m_logBook, m_currentBandPeriod, m_config.ppfx (),
                                                           ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
-                                                          haveFSpread, fSpread, bDisplayPoints, m_points, distance);
+                                                          haveFSpread, fSpread, bDisplayPoints, m_points, distance, m_muted);
           } else {
               ui->decodedTextBrowser->displayDecodedText (decodedtext1, m_config.my_callsign (), m_mode, m_config.DXCC (),
                                                           m_logBook, m_currentBandPeriod, m_config.ppfx (),
                                                           ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
-                                                          haveFSpread, fSpread, bDisplayPoints, m_points, distance);
+                                                          haveFSpread, fSpread, bDisplayPoints, m_points, distance, m_muted);
           }
           if(m_position != 0) ui->decodedTextBrowser->horizontalScrollBar()->setValue(m_position);
         }
@@ -6333,7 +6350,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
              || (decodedtext.string().contains(QRegularExpression{"<(\\w+)> " + m_hisCall}))
              || (decodedtext.string().contains(QRegularExpression{"<...> " + m_hisCall})))) {
             ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);
-            if (m_config.alert_Enabled() && m_config.alert_DXcall()) play_DXcall = true;    // UR disable for versions without alerts
+            if (m_config.alert_Enabled() && m_config.alert_DXcall() && !m_muted) play_DXcall = true;    // UR disable for versions without alerts
             QTimer::singleShot (500, [=] {                       // repeated highlighting to override JTAlert
                 ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);
                 });
@@ -6349,7 +6366,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
             if (m_config.alert_Enabled() && m_config.alert_DXcall()) play_DXcall = true;    // UR disable for versions without alerts
         }
         QTimer::singleShot (100, [=] {                       // UR delete for versions without alerts
-          if ((m_config.alert_Enabled()) && (m_config.alert_DXcall()) && (play_DXcall) && (m_hisCall!="")) {
+          if (m_config.alert_Enabled() && m_config.alert_DXcall() && play_DXcall && m_hisCall!="" && !m_muted) {
 #ifdef WIN32
               QAudioOutput info(QAudioDeviceInfo::defaultOutputDevice());
               QString binPath = QCoreApplication::applicationDirPath();
@@ -6489,7 +6506,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
             m_band_changed = false;
           }
           ui->decodedTextBrowser2->displayDecodedText (decodedtext0, m_config.my_callsign (), m_mode, m_config.DXCC (),
-                m_logBook, m_currentBand, m_config.ppfx (), false, false, 0.0, bDisplayPoints, m_points);
+            m_logBook, m_currentBand, m_config.ppfx (), false, false, 0.0, bDisplayPoints, m_points, "", m_muted);
         }
         m_QSOText = decodedtext.string ().trimmed ();
       }
@@ -7895,6 +7912,7 @@ void MainWindow::doubleClickOnCall(Qt::KeyboardModifiers modifiers)
       if(m_mode=="MSK144") MessageBox::warning_message (this, msg);
       return;    // don't allow a QSO when both stations Tx 1st or Tx 2nd, and the Tx 1st checkbox is frozen
   } else {
+      m_muted = true;  // Don't play alert sounds again
       m_bDoubleClicked = true;
       m_hisCall0 = m_hisCall;
       processMessage (message, modifiers);
@@ -7903,6 +7921,7 @@ void MainWindow::doubleClickOnCall(Qt::KeyboardModifiers modifiers)
           m_bDoubleClicked = false;
           if (m_auto) auto_tx_mode (false);
       }
+      m_muted = false;
   }
 }
 
@@ -8368,7 +8387,7 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
   if (s1!=s2 and !message.isTX()) {
     if (!s2.contains(m_baseCall) or m_mode=="MSK144") {  // Taken care of elsewhere if for_us and slow mode
       ui->decodedTextBrowser2->displayDecodedText (message, m_config.my_callsign (), m_mode, m_config.DXCC (),
-      m_logBook, m_currentBand, m_config.ppfx ());
+        m_logBook, m_currentBand, m_config.ppfx (), false, false, 0.0, false, -99, "", m_muted);
     }
     m_QSOText = s2;
   }
@@ -11038,6 +11057,7 @@ void MainWindow::on_stopTxButton_clicked()                    // Stop Tx
   ui->autoButton->setChecked(false);  // ensure auoButton is unchecked
   filtered = false;
   ignored = false;
+  m_muted = false;
   check_button_color();
 }
 
