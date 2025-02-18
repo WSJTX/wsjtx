@@ -2424,13 +2424,13 @@ void MainWindow::fastSink(qint64 frames)
             countryName.replace ("European", "EU");
             countryName.replace ("African", "AF");
             if (ui->actionHideTerritory1->isChecked() && countryName.contains(m_config.Territory1())
-                && (m_config.Territory1()!="") && !ui->cbBypass->isChecked()) filtered = true;;
+                && (m_config.Territory1()!="") && !ui->cbBypass->isChecked()) filtered = true;
             if (ui->actionHideTerritory2->isChecked() && countryName.contains(m_config.Territory2())
-                && (m_config.Territory2()!="") && !ui->cbBypass->isChecked()) filtered = true;;
+                && (m_config.Territory2()!="") && !ui->cbBypass->isChecked()) filtered = true;
             if (ui->actionHideTerritory3->isChecked() && countryName.contains(m_config.Territory3())
-                && (m_config.Territory3()!="") && !ui->cbBypass->isChecked()) filtered = true;;
+                && (m_config.Territory3()!="") && !ui->cbBypass->isChecked()) filtered = true;
             if (ui->actionHideTerritory4->isChecked() && countryName.contains(m_config.Territory4())
-                && (m_config.Territory4()!="") && !ui->cbBypass->isChecked()) filtered = true;;
+                && (m_config.Territory4()!="") && !ui->cbBypass->isChecked()) filtered = true;
           }
           // search for callsigns worked B4 on band
           if (ui->actionHideB4->isChecked()) {
@@ -2451,13 +2451,13 @@ void MainWindow::fastSink(qint64 frames)
               or ui->actionHideAN->isChecked()) {
             auto const& looked_up = m_logBook.countries ()->lookup (deCall);
             QString continent = AD1CCty::continent (looked_up.continent);
-            if (ui->actionHideEU->isChecked() && continent == "EU" && !ui->cbBypass->isChecked()) filtered = true;;
-            if (ui->actionHideAS->isChecked() && continent == "AS" && !ui->cbBypass->isChecked()) filtered = true;;
-            if (ui->actionHideNA->isChecked() && continent == "NA" && !ui->cbBypass->isChecked()) filtered = true;;
-            if (ui->actionHideSA->isChecked() && continent == "SA" && !ui->cbBypass->isChecked()) filtered = true;;
-            if (ui->actionHideAF->isChecked() && continent == "AF" && !ui->cbBypass->isChecked()) filtered = true;;
-            if (ui->actionHideOC->isChecked() && continent == "OC" && !ui->cbBypass->isChecked()) filtered = true;;
-            if (ui->actionHideAN->isChecked() && continent == "AN" && !ui->cbBypass->isChecked()) filtered = true;;
+            if (ui->actionHideEU->isChecked() && continent == "EU" && !ui->cbBypass->isChecked()) filtered = true;
+            if (ui->actionHideAS->isChecked() && continent == "AS" && !ui->cbBypass->isChecked()) filtered = true;
+            if (ui->actionHideNA->isChecked() && continent == "NA" && !ui->cbBypass->isChecked()) filtered = true;
+            if (ui->actionHideSA->isChecked() && continent == "SA" && !ui->cbBypass->isChecked()) filtered = true;
+            if (ui->actionHideAF->isChecked() && continent == "AF" && !ui->cbBypass->isChecked()) filtered = true;
+            if (ui->actionHideOC->isChecked() && continent == "OC" && !ui->cbBypass->isChecked()) filtered = true;
+            if (ui->actionHideAN->isChecked() && continent == "AN" && !ui->cbBypass->isChecked()) filtered = true;
           }
         }
       }
@@ -2573,13 +2573,13 @@ void MainWindow::fastSink(qint64 frames)
             countryName.replace ("European", "EU");
             countryName.replace ("African", "AF");
             if (ui->actionHideTerritory1->isChecked() && countryName.contains(m_config.Territory1())
-                && (m_config.Territory1()!="") && !ui->cbBypass->isChecked()) filtered = true;;
+                && (m_config.Territory1()!="") && !ui->cbBypass->isChecked()) filtered = true;
             if (ui->actionHideTerritory2->isChecked() && countryName.contains(m_config.Territory2())
-                && (m_config.Territory2()!="") && !ui->cbBypass->isChecked()) filtered = true;;
+                && (m_config.Territory2()!="") && !ui->cbBypass->isChecked()) filtered = true;
             if (ui->actionHideTerritory3->isChecked() && countryName.contains(m_config.Territory3())
-                && (m_config.Territory3()!="") && !ui->cbBypass->isChecked()) filtered = true;;
+                && (m_config.Territory3()!="") && !ui->cbBypass->isChecked()) filtered = true;
             if (ui->actionHideTerritory4->isChecked() && countryName.contains(m_config.Territory4())
-                && (m_config.Territory4()!="") && !ui->cbBypass->isChecked()) filtered = true;;
+                && (m_config.Territory4()!="") && !ui->cbBypass->isChecked()) filtered = true;
           }
           // search for callsigns worked B4 on band
           if (ui->actionHideB4->isChecked()) {
@@ -2600,13 +2600,13 @@ void MainWindow::fastSink(qint64 frames)
               or ui->actionHideAN->isChecked()) {
             auto const& looked_up = m_logBook.countries ()->lookup (deCall);
             QString continent = AD1CCty::continent (looked_up.continent);
-            if (ui->actionHideEU->isChecked() && continent == "EU" && !ui->cbBypass->isChecked()) filtered = true;;
-            if (ui->actionHideAS->isChecked() && continent == "AS" && !ui->cbBypass->isChecked()) filtered = true;;
-            if (ui->actionHideNA->isChecked() && continent == "NA" && !ui->cbBypass->isChecked()) filtered = true;;
-            if (ui->actionHideSA->isChecked() && continent == "SA" && !ui->cbBypass->isChecked()) filtered = true;;
-            if (ui->actionHideAF->isChecked() && continent == "AF" && !ui->cbBypass->isChecked()) filtered = true;;
-            if (ui->actionHideOC->isChecked() && continent == "OC" && !ui->cbBypass->isChecked()) filtered = true;;
-            if (ui->actionHideAN->isChecked() && continent == "AN" && !ui->cbBypass->isChecked()) filtered = true;;
+            if (ui->actionHideEU->isChecked() && continent == "EU" && !ui->cbBypass->isChecked()) filtered = true;
+            if (ui->actionHideAS->isChecked() && continent == "AS" && !ui->cbBypass->isChecked()) filtered = true;
+            if (ui->actionHideNA->isChecked() && continent == "NA" && !ui->cbBypass->isChecked()) filtered = true;
+            if (ui->actionHideSA->isChecked() && continent == "SA" && !ui->cbBypass->isChecked()) filtered = true;
+            if (ui->actionHideAF->isChecked() && continent == "AF" && !ui->cbBypass->isChecked()) filtered = true;
+            if (ui->actionHideOC->isChecked() && continent == "OC" && !ui->cbBypass->isChecked()) filtered = true;
+            if (ui->actionHideAN->isChecked() && continent == "AN" && !ui->cbBypass->isChecked()) filtered = true;
           }
         }
       }
@@ -5846,13 +5846,13 @@ void MainWindow::readFromStdout()                             //readFromStdout
                       countryName.replace ("European", "EU");
                       countryName.replace ("African", "AF");
                       if (ui->actionHideTerritory1->isChecked() && countryName.contains(m_config.Territory1())
-                          && (m_config.Territory1()!="") && !ui->cbBypass->isChecked()) filtered = true;;
+                          && (m_config.Territory1()!="") && !ui->cbBypass->isChecked()) filtered = true;
                       if (ui->actionHideTerritory2->isChecked() && countryName.contains(m_config.Territory2())
-                          && (m_config.Territory2()!="") && !ui->cbBypass->isChecked()) filtered = true;;
+                          && (m_config.Territory2()!="") && !ui->cbBypass->isChecked()) filtered = true;
                       if (ui->actionHideTerritory3->isChecked() && countryName.contains(m_config.Territory3())
-                          && (m_config.Territory3()!="") && !ui->cbBypass->isChecked()) filtered = true;;
+                          && (m_config.Territory3()!="") && !ui->cbBypass->isChecked()) filtered = true;
                       if (ui->actionHideTerritory4->isChecked() && countryName.contains(m_config.Territory4())
-                          && (m_config.Territory4()!="") && !ui->cbBypass->isChecked()) filtered = true;;
+                          && (m_config.Territory4()!="") && !ui->cbBypass->isChecked()) filtered = true;
                     }
                     // search for callsigns worked B4 on band
                     if (ui->actionHideB4->isChecked()) {
@@ -5873,13 +5873,13 @@ void MainWindow::readFromStdout()                             //readFromStdout
                         or ui->actionHideAN->isChecked()) {
                       auto const& looked_up = m_logBook.countries ()->lookup (deCall);
                       QString continent = AD1CCty::continent (looked_up.continent);
-                      if (ui->actionHideEU->isChecked() && continent == "EU" && !ui->cbBypass->isChecked()) filtered = true;;
-                      if (ui->actionHideAS->isChecked() && continent == "AS" && !ui->cbBypass->isChecked()) filtered = true;;
-                      if (ui->actionHideNA->isChecked() && continent == "NA" && !ui->cbBypass->isChecked()) filtered = true;;
-                      if (ui->actionHideSA->isChecked() && continent == "SA" && !ui->cbBypass->isChecked()) filtered = true;;
-                      if (ui->actionHideAF->isChecked() && continent == "AF" && !ui->cbBypass->isChecked()) filtered = true;;
-                      if (ui->actionHideOC->isChecked() && continent == "OC" && !ui->cbBypass->isChecked()) filtered = true;;
-                      if (ui->actionHideAN->isChecked() && continent == "AN" && !ui->cbBypass->isChecked()) filtered = true;;
+                      if (ui->actionHideEU->isChecked() && continent == "EU" && !ui->cbBypass->isChecked()) filtered = true;
+                      if (ui->actionHideAS->isChecked() && continent == "AS" && !ui->cbBypass->isChecked()) filtered = true;
+                      if (ui->actionHideNA->isChecked() && continent == "NA" && !ui->cbBypass->isChecked()) filtered = true;
+                      if (ui->actionHideSA->isChecked() && continent == "SA" && !ui->cbBypass->isChecked()) filtered = true;
+                      if (ui->actionHideAF->isChecked() && continent == "AF" && !ui->cbBypass->isChecked()) filtered = true;
+                      if (ui->actionHideOC->isChecked() && continent == "OC" && !ui->cbBypass->isChecked()) filtered = true;
+                      if (ui->actionHideAN->isChecked() && continent == "AN" && !ui->cbBypass->isChecked()) filtered = true;
                     }
                   }
               }
@@ -5995,13 +5995,13 @@ void MainWindow::readFromStdout()                             //readFromStdout
                       countryName.replace ("European", "EU");
                       countryName.replace ("African", "AF");
                       if (ui->actionHideTerritory1->isChecked() && countryName.contains(m_config.Territory1())
-                          && (m_config.Territory1()!="") && !ui->cbBypass->isChecked()) filtered = true;;
+                          && (m_config.Territory1()!="") && !ui->cbBypass->isChecked()) filtered = true;
                       if (ui->actionHideTerritory2->isChecked() && countryName.contains(m_config.Territory2())
-                          && (m_config.Territory2()!="") && !ui->cbBypass->isChecked()) filtered = true;;
+                          && (m_config.Territory2()!="") && !ui->cbBypass->isChecked()) filtered = true;
                       if (ui->actionHideTerritory3->isChecked() && countryName.contains(m_config.Territory3())
-                          && (m_config.Territory3()!="") && !ui->cbBypass->isChecked()) filtered = true;;
+                          && (m_config.Territory3()!="") && !ui->cbBypass->isChecked()) filtered = true;
                       if (ui->actionHideTerritory4->isChecked() && countryName.contains(m_config.Territory4())
-                          && (m_config.Territory4()!="") && !ui->cbBypass->isChecked()) filtered = true;;
+                          && (m_config.Territory4()!="") && !ui->cbBypass->isChecked()) filtered = true;
                     }
                     // search for callsigns worked B4 on band
                     if (ui->actionHideB4->isChecked()) {
@@ -6022,13 +6022,13 @@ void MainWindow::readFromStdout()                             //readFromStdout
                         or ui->actionHideAN->isChecked()) {
                       auto const& looked_up = m_logBook.countries ()->lookup (deCall);
                       QString continent = AD1CCty::continent (looked_up.continent);
-                      if (ui->actionHideEU->isChecked() && continent == "EU" && !ui->cbBypass->isChecked()) filtered = true;;
-                      if (ui->actionHideAS->isChecked() && continent == "AS" && !ui->cbBypass->isChecked()) filtered = true;;
-                      if (ui->actionHideNA->isChecked() && continent == "NA" && !ui->cbBypass->isChecked()) filtered = true;;
-                      if (ui->actionHideSA->isChecked() && continent == "SA" && !ui->cbBypass->isChecked()) filtered = true;;
-                      if (ui->actionHideAF->isChecked() && continent == "AF" && !ui->cbBypass->isChecked()) filtered = true;;
-                      if (ui->actionHideOC->isChecked() && continent == "OC" && !ui->cbBypass->isChecked()) filtered = true;;
-                      if (ui->actionHideAN->isChecked() && continent == "AN" && !ui->cbBypass->isChecked()) filtered = true;;
+                      if (ui->actionHideEU->isChecked() && continent == "EU" && !ui->cbBypass->isChecked()) filtered = true;
+                      if (ui->actionHideAS->isChecked() && continent == "AS" && !ui->cbBypass->isChecked()) filtered = true;
+                      if (ui->actionHideNA->isChecked() && continent == "NA" && !ui->cbBypass->isChecked()) filtered = true;
+                      if (ui->actionHideSA->isChecked() && continent == "SA" && !ui->cbBypass->isChecked()) filtered = true;
+                      if (ui->actionHideAF->isChecked() && continent == "AF" && !ui->cbBypass->isChecked()) filtered = true;
+                      if (ui->actionHideOC->isChecked() && continent == "OC" && !ui->cbBypass->isChecked()) filtered = true;
+                      if (ui->actionHideAN->isChecked() && continent == "AN" && !ui->cbBypass->isChecked()) filtered = true;
                     }
                   }
               }
