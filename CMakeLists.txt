@@ -1730,10 +1730,10 @@ install (DIRECTORY
 
 if (WIN32)
   install (FILES
-    tls/libssl-1_1.dll
-    tls/libcrypto-1_1.dll
-    tls/libssl-1_1-x64.dll
-    tls/libcrypto-1_1-x64.dll
+    contrib/tls/libssl-1_1.dll
+    contrib/tls/libcrypto-1_1.dll
+    contrib/tls/libssl-1_1-x64.dll
+    contrib/tls/libcrypto-1_1-x64.dll
     DESTINATION ${CMAKE_INSTALL_BINDIR}
     #COMPONENT runtime
   )
