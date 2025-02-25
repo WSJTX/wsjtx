@@ -9129,7 +9129,7 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
   }
   // Wait & Pounce
   if(ui->autoButton->hasFocus() && (event->button() & Qt::RightButton) && ui->respondComboBox->currentText()!="CQ: None") {
-      if (!pounce && !m_auto && m_config.Wait_features_enabled()) {
+      if (!pounce && !m_auto && m_config.Wait_features_enabled() && SpecOp::FOX!=m_specOp) {
         pounce = true;
         check_button_color();
         stopWRTimer.stop();           // Stop any Wait & Reply timeout

@@ -6097,7 +6097,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
         // insert blank line, but only if not filtered and no decodes
         int ntime=6;
         if (m_TRperiod>=60) ntime=4;
-        if ((m_config.insert_blank () or m_config.alert_Enabled()) && (line_read.left(ntime) != m_tBlankLine) && message0.left(4).contains(QRegularExpression {"\\d\\d\\d\\d"})) {  // URUR
+        if ((m_config.insert_blank () or m_config.alert_Enabled()) && (line_read.left(ntime) != m_tBlankLine) && message0.left(4).contains(QRegularExpression {"\\d\\d\\d\\d"})) {
           ui->decodedTextBrowser->new_period ();
           if (m_specOp == SpecOp::FOX and m_ActiveStationsWidget != NULL && m_config.insert_blank ()) { // clear the ActiveStations window
             m_ActiveStationsWidget->clearStations();
@@ -9239,7 +9239,7 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
   }
   // Wait & Pounce
   if(ui->autoButton->hasFocus() && (event->button() & Qt::RightButton) && ui->respondComboBox->currentText()!="CQ: None") {
-      if (!pounce && !m_auto && m_config.Wait_features_enabled()) {
+      if (!pounce && !m_auto && m_config.Wait_features_enabled() && SpecOp::FOX!=m_specOp) {
         pounce = true;
         check_button_color();
         stopWRTimer.stop();           // Stop any Wait & Reply timeout
