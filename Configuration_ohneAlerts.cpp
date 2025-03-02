@@ -2249,7 +2249,7 @@ void Configuration::impl::read_settings ()
   psk_reporter_tcpip_ = settings_->value ("PSKReporterTCPIP", false).toBool ();
   id_after_73_ = settings_->value ("After73", false).toBool ();
   tx_QSY_allowed_ = settings_->value ("TxQSYAllowed", false).toBool ();
-  progressBar_red_ = settings_->value ("ProgresBarRed", true).toBool ();
+  progressBar_red_ = settings_->value ("ProgressBarRed", true).toBool ();
   use_dynamic_grid_ = settings_->value ("AutoGrid", false).toBool ();
 
   macros_.setStringList (settings_->value ("Macros", QStringList {"TNX 73 GL"}).toStringList ());
