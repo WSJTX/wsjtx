@@ -395,6 +395,7 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
   double df = m_binsPerPixel*m_fftBinWidth;
   QPen penOrange(QColor(255,165,0),3);
   QPen penGreen(QColor(15,153,105), 3);        //Mark Tol range or BW with dark green line
+  if(m_useDarkStyle) penGreen.setBrush(Qt::green);   // lighter green for dark style
   QPen penRed(Qt::red, 3);                     //Mark Tx freq with red
   QPainter painter(&m_OverlayPixmap);
   painter.setBackground (palette ().brush (backgroundRole ()));
