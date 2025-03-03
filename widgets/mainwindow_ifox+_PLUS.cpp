@@ -3604,14 +3604,14 @@ void MainWindow::displayDialFrequency ()
 
   // lookup band
   auto const& band_name = m_config.bands ()->find (dial_frequency);
-  if (m_lastBand != band_name)
+  if (m_lastBand != band_name or m_freqNominalPeriod != m_freqNominal)
     {
       // only change this when necessary as we get called a lot and it
       // would trash any user input to the band combo box line edit
       ui->bandComboBox->setCurrentText (band_name.size () ? band_name : m_config.bands ()->oob ());
       m_wideGraph->setRxBand (band_name);
       m_lastBand = band_name;
-      band_changed(dial_frequency);
+      if (m_lastBand != band_name) band_changed(dial_frequency);
       // prevent wrong frequencies for all.txt, PSK Reporter and highlighting for late decodes after band changes
       m_displayBand = false;
       no_decodes_to_UDP = true;  // prevent wrong frequencies for devices connected via UDP
