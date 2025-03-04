@@ -321,7 +321,6 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
      call hash10(n10,call_3)
      if(nrx.eq.1     .and. &
         dxcall13_set .and. &
-        len(trim(dxcall13)).ge.3 .and. &
         hashdx10.eq.n10) call_3='<'//trim(dxcall13)//'>'
      if(nrx.eq.0     .and. &
         mycall13_set .and. &
