@@ -1078,7 +1078,18 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   ui->cbFast9->setChecked(m_bFast9 or m_bFastMode);
 
   set_mode (m_mode);
-  if(m_mode=="Echo") monitor(false);   //Don't auto-start Monitor in Echo mode.
+  if(m_mode=="Echo") monitor(false);  //Don't auto-start Monitor in Echo mode.
+
+  // Ensure that the correct frequency is set and displayed
+  if(m_mode=="Echo") {
+    QTimer::singleShot (5000, [=] {
+      auto const& row = m_config.frequencies ()->best_working_frequency (m_freqNominal);
+      ui->bandComboBox->setCurrentIndex (row);
+      if (row >= 0) on_bandComboBox_activated (row);
+      if (m_monitoring) ui->monitorButton->click();
+    });
+  }
+
   ui->sbSubmode->setValue (vhf ? m_nSubMode : 0);  //Submodes require VHF features
   if(m_mode=="MSK144") {
     Q_EMIT transmitFrequency (1000.0);
@@ -3194,8 +3205,8 @@ void MainWindow::on_monitorButton_clicked (bool checked)
     auto prior = m_monitoring;
     monitor (checked);
     if (checked && !prior) {
-      if (m_config.monitor_last_used ()) {
-              // put rig back where it was when last in control
+      if (m_config.monitor_last_used () && m_mode!="Echo") {
+        // put rig back where it was when last in control
         setRig (m_lastMonitoredFrequency);
         setXIT (ui->TxFreqSpinBox->value ());
       }
@@ -3206,11 +3217,12 @@ void MainWindow::on_monitorButton_clicked (bool checked)
         on_RxFreqSpinBox_valueChanged (ui->RxFreqSpinBox->value ());
       }
     }
-      //Get Configuration in/out of strict split and mode checking
+    //Get Configuration in/out of strict split and mode checking
     m_config.sync_transceiver (true, checked);
   } else {
     ui->monitorButton->setChecked (false); // disallow
   }
+  if(m_mode=="Echo") m_echoRunning=false;
   check_button_color();
 }
 
@@ -10550,7 +10562,15 @@ void MainWindow::on_actionEcho_triggered()
   fast_config(false);
   ui->sbEchoAvg->values ({1, 2, 5, 10, 20, 50, 100});
   statusChanged();
-  monitor(false);
+  monitor(false);  //Don't auto-start Monitor in Echo mode.
+
+  // Ensure that the correct frequency is set and displayed
+  QTimer::singleShot (500, [=] {
+    auto const& row = m_config.frequencies ()->best_working_frequency (m_freqNominal);
+    ui->bandComboBox->setCurrentIndex (row);
+    if (row >= 0) on_bandComboBox_activated (row);
+    if (m_monitoring) ui->monitorButton->click();
+  });
 }
 
 void MainWindow::on_actionFreqCal_triggered()
