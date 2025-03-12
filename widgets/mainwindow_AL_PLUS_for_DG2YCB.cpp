@@ -10993,6 +10993,7 @@ void MainWindow::band_changed (Frequency f)
     ui->decodedTextBrowser->erase ();   // Mod for WD5DHK
     ui->decodedTextBrowser2->erase ();
   }
+  if (m_mode=="Echo" && m_monitoring) ui->monitorButton->click();
 }
 
 void MainWindow::enable_DXCC_entity (bool on)
