@@ -112,9 +112,20 @@ protected:
 
   virtual void do_ptt (bool = true) = 0;
   virtual void do_post_ptt (bool = true) {}
-
+  
   // this is the rig tuning -- use false if need to turn off tune -- do we need that for anyone?
-  virtual void do_tune (bool = true) {};
+  virtual void do_audio (bool = false) {}
+  virtual void do_tune (bool = false) {}
+  virtual void do_period (double) {}
+  virtual void do_blocksize (qint32) {}
+  virtual void do_spread(double) {}
+  virtual void do_nsym(int) {}
+  virtual void do_trfrequency(double) {}
+  virtual void do_volume (qreal) {}
+  virtual void do_txvolume (qreal) {}
+  //parameters are MODE,symbolslength,framespersymbol,trfrequency,tonespacing,synchronize,FASTMODE,dbsdr,trperiod //parameters added by w3sz are in bold
+  virtual void do_modulator_start(QString, unsigned, double, double, double, bool, bool, double, double) {}
+  virtual void do_modulator_stop(bool) {}
 
   virtual bool do_pre_update () {return true;}
 
@@ -124,6 +135,7 @@ protected:
   void update_split (bool);
   void update_mode (MODE);
   void update_PTT (bool = true);
+  void update_level (int = 0);
   void update_power (unsigned int = 0);
   void update_swr (unsigned int = 0);
 
@@ -165,5 +177,19 @@ private:
 #define CAT_WARNING(MSG) LOG_LOG_LOCATION (logger (), warning, MSG)
 #define CAT_ERROR(MSG) LOG_LOG_LOCATION (logger (), error, MSG)
 #define CAT_FATAL(MSG) LOG_LOG_LOCATION (logger (), fatal, MSG)
+
+// some trace macros
+#if WSJT_TRACE_CAT
+#define TRACE_CAT(FAC, MSG) qDebug () << QString {"%1::%2:"}.arg ((FAC)).arg (__func__) << MSG
+#else
+#define TRACE_CAT(FAC, MSG)
+#endif
+
+#if WSJT_TRACE_CAT && WSJT_TRACE_CAT_POLLS
+#define TRACE_CAT_POLL(FAC, MSG) qDebug () << QString {"%1::%2:"}.arg ((FAC)).arg (__func__) << MSG
+#else
+#define TRACE_CAT_POLL(FAC, MSG)
+#endif
+
 
 #endif

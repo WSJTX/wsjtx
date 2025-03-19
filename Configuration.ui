@@ -4000,26 +4000,24 @@ Right click for insert and delete options.</string>
        <string>Alerts</string>
       </attribute>
       <layout class="QGridLayout" name="gridLayout_20">
-       <item row="5" column="0">
-        <spacer name="verticalSpacer_11">
-         <property name="orientation">
-          <enum>Qt::Vertical</enum>
-         </property>
-         <property name="sizeType">
-          <enum>QSizePolicy::Fixed</enum>
-         </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>20</width>
-           <height>10</height>
-          </size>
-         </property>
-        </spacer>
-       </item>
-       <item row="2" column="0">
-        <widget class="QLabel" name="label_19">
+       <item row="8" column="0">
+        <widget class="QLabel" name="label_23">
          <property name="text">
-          <string>Ensure that your rig is NOT connected via &quot;DefaultAudioDevice&quot; !!!</string>
+          <string>Ensure that you have made meaningful settings on the Colors tab, so that you see which message triggered the alert.</string>
+         </property>
+        </widget>
+       </item>
+       <item row="4" column="0">
+        <widget class="QLabel" name="label_21">
+         <property name="text">
+          <string>Audio Alerts will be played on the default audio device (usually the loudspeaker of your PC).</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="0">
+        <widget class="QLabel" name="label_16">
+         <property name="text">
+          <string>WARNING: THIS FEATURE IS FOR EXPERIENCED USERS ONLY !!!</string>
          </property>
         </widget>
        </item>
@@ -4235,6 +4233,29 @@ Right click for insert and delete options.</string>
          </property>
         </widget>
        </item>
+       <item row="7" column="0">
+        <widget class="QLabel" name="label_22">
+         <property name="text">
+          <string>IMPORTANT NOTES</string>
+         </property>
+        </widget>
+       </item>
+       <item row="5" column="0">
+        <spacer name="verticalSpacer_11">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeType">
+          <enum>QSizePolicy::Fixed</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>10</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
        <item row="3" column="0">
         <widget class="QLabel" name="label_20">
          <property name="text">
@@ -4242,24 +4263,17 @@ Right click for insert and delete options.</string>
          </property>
         </widget>
        </item>
-       <item row="4" column="0">
-        <widget class="QLabel" name="label_21">
+       <item row="2" column="0">
+        <widget class="QLabel" name="label_19">
          <property name="text">
-          <string>Audio Alerts will be played on the default audio device (usually the loudspeaker of your PC).</string>
+          <string>Ensure that your rig is NOT connected via &quot;DefaultAudioDevice&quot; !!!</string>
          </property>
         </widget>
        </item>
-       <item row="0" column="0">
-        <widget class="QLabel" name="label_16">
+       <item row="9" column="0">
+        <widget class="QLabel" name="label_24">
          <property name="text">
-          <string>WARNING: THIS FEATURE IS FOR EXPERIENCED USERS ONLY !!!</string>
-         </property>
-        </widget>
-       </item>
-       <item row="7" column="0">
-        <widget class="QLabel" name="label_22">
-         <property name="text">
-          <string>IMPORTANT NOTE: Enable Audio Alerts only in case your rig is NOT connected via &quot;DefaultAudioDevice&quot; !!! </string>
+          <string>Alert categories above the line require to have the box &quot;Show DXCC, grid, and worked-before status&quot; on the General tab checked.</string>
          </property>
         </widget>
        </item>
@@ -4783,13 +4797,13 @@ Right click for insert and delete options.</string>
   </connection>
  </connections>
  <buttongroups>
+  <buttongroup name="CAT_data_bits_button_group"/>
   <buttongroup name="split_mode_button_group"/>
   <buttongroup name="TX_audio_source_button_group"/>
-  <buttongroup name="special_op_activity_button_group"/>
   <buttongroup name="CAT_handshake_button_group"/>
-  <buttongroup name="TX_mode_button_group"/>
-  <buttongroup name="CAT_data_bits_button_group"/>
-  <buttongroup name="CAT_stop_bits_button_group"/>
   <buttongroup name="PTT_method_button_group"/>
+  <buttongroup name="TX_mode_button_group"/>
+  <buttongroup name="special_op_activity_button_group"/>
+  <buttongroup name="CAT_stop_bits_button_group"/>
  </buttongroups>
 </ui>

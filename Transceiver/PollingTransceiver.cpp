@@ -5,7 +5,9 @@
 #include <QObject>
 #include <QString>
 #include <QTimer>
-
+#include <QThread>
+#include <QDir>
+#include <QStandardPaths>
 #include "moc_PollingTransceiver.cpp"
 
 namespace

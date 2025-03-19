@@ -96,6 +96,7 @@ public:
   // re-opened if they return true.
   bool restart_audio_input () const;
   bool restart_audio_output () const;
+  bool restart_tci () const;
 
   QString my_callsign () const;
   QString my_grid () const;
@@ -154,10 +155,12 @@ public:
   qint32 align_steps () const;
   qint32 align_steps2 () const;
   qint32 ntrials() const;
+  qint32 volume() const;
   qint32 aggressive() const;
   qint32 RxBandwidth() const;
   double degrade() const;
   double txDelay() const;
+  bool tci_audio() const;
   bool id_after_73 () const;
   bool tx_QSY_allowed () const;
   bool progressBar_red () const;
@@ -321,6 +324,7 @@ public:
 
   // check if a real rig is configured
   bool is_dummy_rig () const;
+  bool is_tci () const;
 
   // Frequency resolution of the rig
   //
@@ -353,7 +357,43 @@ public:
   // the "Emulate Split" mode requires PTT information to coordinate
   // frequency changes.
   Q_SLOT void transceiver_ptt (bool = true);
-  Q_SLOT void transceiver_tune (bool = true);
+//  Q_SLOT void transceiver_tune (bool = true);
+
+  // Set/unset Audio streaming for TCI.
+  //
+  Q_SLOT void transceiver_audio (bool = false);
+
+  // Set/unset Tune for TCI.
+  //
+  Q_SLOT void transceiver_tune (bool = false);
+
+  // Set period for TCI audio
+  //
+  Q_SLOT void transceiver_period (double = 15.0);
+
+  // Set blocksize for TCI audio.
+  //
+  Q_SLOT void transceiver_blocksize (qint32 = 6912 / 2);
+
+  // Set modulation start TCI audio
+  //
+  Q_SLOT void transceiver_modulator_start (QString="FT8", unsigned = 79, double = 1920.0, double = 1500.0, double = -3.0, bool = true, bool=false, double = 99., double = 60.0);
+
+  // Set modulation start TCI audio
+  //
+  Q_SLOT void transceiver_modulator_stop (bool = false);
+
+  // Set spread for TCI audio
+  //
+  Q_SLOT void transceiver_spread (double = 0.0);
+
+  // Set nsym for TCI audio
+  //
+  Q_SLOT void transceiver_nsym (int = 79);
+
+  // Set trfrequency for TCI audio
+  //
+  Q_SLOT void transceiver_trfrequency (double = 1500.0);
 
   // Attempt to (re-)synchronise transceiver state.
   //
@@ -392,6 +432,9 @@ public:
 
   // signals a change in one of the TransceiverState members
   Q_SIGNAL void transceiver_update (Transceiver::TransceiverState const&) const;
+  Q_SIGNAL void transceiver_TCIframesWritten (qint64) const;
+  Q_SIGNAL void transceiver_TCImodActive (bool) const;
+  Q_SIGNAL void leavingSettings (bool) const;
 
   // Signals a failure of a control rig CAT or PTT connection.
   //
@@ -406,6 +449,10 @@ public:
   // As this can take some time, particularly on Linux, consumers
   // might like to notify the user.
   Q_SIGNAL void enumerating_audio_devices ();
+
+public slots:
+  Q_SLOT void transceiver_volume (double = 0);
+  Q_SLOT void transceiver_txvolume (double = 0);
 
 private:
   class impl;

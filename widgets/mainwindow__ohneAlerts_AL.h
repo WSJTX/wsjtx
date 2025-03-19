@@ -14,6 +14,7 @@
 #include <QDateTime>
 #include <QList>
 #include <QAudioDeviceInfo>
+#include <QStringList>
 #include <QScopedPointer>
 #include <QDir>
 #include <QProgressDialog>
@@ -64,8 +65,8 @@
 #define NRING 3456000
 #define MAX_HOUNDS_IN_QUEUE 10
 
-extern int volatile itone[MAX_NUM_SYMBOLS];   //Audio tones for all Tx symbols
-extern int volatile icw[NUM_CW_SYMBOLS];	    //Dits for CW ID
+// extern int volatile itone[MAX_NUM_SYMBOLS];   //Audio tones for all Tx symbols
+// extern int volatile icw[NUM_CW_SYMBOLS];	    //Dits for CW ID
 
 //--------------------------------------------------------------- MainWindow
 namespace Ui {
@@ -128,6 +129,7 @@ public slots:
   void showStatusMessage(const QString& statusMsg);
   void dataSink(qint64 frames);
   void fastSink(qint64 frames);
+  void tci_mod_active(bool on) {m_tci_mod_active = on;}
   void diskDat();
   void freezeDecode(int n);
   void guiUpdate();
@@ -320,6 +322,7 @@ private slots:
   void rigOpen ();
   void handle_transceiver_update (Transceiver::TransceiverState const&);
   void handle_transceiver_failure (QString const& reason);
+  void handle_leavingSettings();
   void on_actionAstronomical_data_toggled (bool);
   void on_actionQSYMessage_Creator_triggered();
   void on_actionQSY_Monitor_triggered();
@@ -444,6 +447,7 @@ private:
   void readWidebandDecodes();
   void configActiveStations();
   void sfox_tx();
+  bool inSettings = false;
 
   QProcessEnvironment const& m_env;
   NetworkAccessManager m_network_manager;
@@ -535,6 +539,9 @@ private:
   qint32  m_nutc0;
   qint32  m_ntr;
   qint32  m_tx;
+  quint64  m_mslastMon;
+  int     m_addtx;
+  quint32 m_delay;
   qint32  m_hsym;
   qint32  m_nsps;
   qint32  m_hsymStop;
@@ -606,6 +613,9 @@ private:
   bool    m_noSuffix;
   bool    m_decodedText2;
   bool    m_sentFirst73;
+  bool	  m_tci_mod_active;
+  bool    m_tci;
+  bool    m_tci_audio;
   int     m_currentMessageType;
   QString m_currentMessage;
   int     m_lastMessageType;

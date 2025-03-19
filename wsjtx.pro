@@ -63,6 +63,16 @@ SOURCES += \
   ExceptionCatchingApplication.cpp Logger.cpp WSJTXLogging.cpp \
   Radio.cpp NetworkServerLookup.cpp revision_utils.cpp \
   Configuration.cpp PSK_Reporter.cpp NonInheritingProcess.cpp \
+  Transceiver/DXLabSuiteCommanderTransceiver.cpp \
+  Transceiver/EmulateSplitTransceiver.cpp \
+  Transceiver/HRDTransceiver.cpp \
+  Transceiver/HamlibTransceiver.cpp \
+  Transceiver/OmniRigTransceiver.cpp \
+  Transceiver/PollingTransceiver.cpp \
+  Transceiver/TCITransceiver.cpp \
+  Transceiver/Transceiver.cpp \
+  Transceiver/TransceiverBase.cpp \
+  Transceiver/TransceiverFactory.cpp \
   getfile.cpp \
   WFPalette.cpp \
   WsprTxScheduler.cpp \
@@ -74,6 +84,17 @@ SOURCES += \
   LotWUsers.cpp TraceFile.cpp
 
 HEADERS  += qt_helpers.hpp qt_db_helpers.hpp \
+  Transceiver/DXLabSuiteCommanderTransceiver.hpp \
+  Transceiver/EmulateSplitTransceiver.hpp \
+  Transceiver/HRDTransceiver.hpp \
+  Transceiver/HamlibTransceiver.hpp \
+  Transceiver/OmniRigTransceiver.hpp \
+  Transceiver/PollingTransceiver.hpp \
+  Transceiver/TCITransceiver.hpp \
+  Transceiver/TCITransceiver_modified_but_not_yet_working.hpp \
+  Transceiver/Transceiver.hpp \
+  Transceiver/TransceiverBase.hpp \
+  Transceiver/TransceiverFactory.hpp \
   helper_functions.h \
   pimpl_h.hpp pimpl_impl.hpp \
   ExceptionCatchingApplication.hpp Logger.hpp WSJTXLogging.hpp \

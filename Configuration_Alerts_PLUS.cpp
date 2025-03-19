@@ -494,7 +494,17 @@ public:
   void transceiver_tx_frequency (Frequency);
   void transceiver_mode (MODE);
   void transceiver_ptt (bool);
+  void transceiver_audio (bool);
   void transceiver_tune (bool);
+  void transceiver_period (double);
+  void transceiver_blocksize (qint32);
+  void transceiver_modulator_start (QString, unsigned, double, double, double, bool, bool, double, double);
+  void transceiver_modulator_stop (bool);
+  void transceiver_spread (double);
+  void transceiver_nsym (int);
+  void transceiver_trfrequency (double);
+  void transceiver_volume (double);
+  void transceiver_txvolume (double);
   void sync_transceiver (bool force_signal);
 
   Q_SLOT int exec () override;
@@ -570,6 +580,9 @@ private:
   Q_SLOT void on_force_DTR_combo_box_currentIndexChanged (int);
   Q_SLOT void on_force_RTS_combo_box_currentIndexChanged (int);
   Q_SLOT void on_rig_combo_box_currentIndexChanged (int);
+  Q_SLOT void on_refresh_push_button_clicked ();
+  Q_SLOT void on_tci_audio_check_box_clicked(bool checked);
+  Q_SLOT void on_TCI_spin_box_valueChanged(double a);
   Q_SLOT void on_add_macro_push_button_clicked (bool = false);
   Q_SLOT void on_delete_macro_push_button_clicked (bool = false);
   Q_SLOT void on_PTT_method_button_group_buttonClicked (int);
@@ -587,7 +600,10 @@ private:
   Q_SLOT void on_save_path_select_push_button_clicked (bool);
   Q_SLOT void on_azel_path_select_push_button_clicked (bool);
   Q_SLOT void on_calibration_intercept_spin_box_valueChanged (double);
+  Q_SLOT void handle_leavingSettings ();
   Q_SLOT void on_calibration_slope_ppm_spin_box_valueChanged (double);
+  Q_SLOT void handle_transceiver_tciframeswritten (qint64);
+  Q_SLOT void handle_transceiver_tci_mod_active (bool);
   Q_SLOT void handle_transceiver_update (TransceiverState const&, unsigned sequence_number);
   Q_SLOT void handle_transceiver_failure (QString const& reason);
   Q_SLOT void on_DXCC_check_box_clicked(bool checked);
@@ -715,6 +731,7 @@ private:
 
   bool restart_sound_input_device_;
   bool restart_sound_output_device_;
+  bool restart_tci_device_;
 
   Type2MsgGen type_2_msg_gen_;
 
@@ -762,6 +779,7 @@ private:
   TransceiverFactory::ParameterPack saved_rig_params_;
   TransceiverFactory::Capabilities::PortType last_port_type_;
   bool rig_is_dummy_;
+  bool is_tci_;
   bool rig_active_;
   bool have_rig_;
   bool rig_changed_;
@@ -834,6 +852,7 @@ private:
   qint32 align_steps_;
   qint32 align_steps2_;
   qint32 ntrials_;
+  qint32 volume_;
   qint32 aggressive_;
   qint32 RxBandwidth_;
   qint32 cloudLogStationID_;
@@ -841,6 +860,7 @@ private:
   bool check_SWR_;
   double degrade_;
   double txDelay_;
+  bool tci_audio_;
   bool id_after_73_;
   bool tx_QSY_allowed_;
   bool progressBar_red_;
@@ -950,6 +970,10 @@ private:
   AudioDevice::Channel audio_output_channel_;
   AudioDevice::Channel next_audio_output_channel_;
   FileDownload cty_download;
+  
+  bool default_audio_input_device_selected_;
+  bool default_audio_output_device_selected_;
+  
   friend class Configuration;
 };
 
@@ -981,6 +1005,7 @@ QAudioDeviceInfo const& Configuration::audio_output_device () const {return m_->
 AudioDevice::Channel Configuration::audio_output_channel () const {return m_->audio_output_channel_;}
 bool Configuration::restart_audio_input () const {return m_->restart_sound_input_device_;}
 bool Configuration::restart_audio_output () const {return m_->restart_sound_output_device_;}
+bool Configuration::restart_tci () const {return m_->restart_tci_device_;}
 auto Configuration::type_2_msg_gen () const -> Type2MsgGen {return m_->type_2_msg_gen_;}
 QString Configuration::my_callsign () const {return m_->my_callsign_;}
 QFont Configuration::text_font () const {return m_->font_;}
@@ -989,10 +1014,12 @@ qint32 Configuration::id_interval () const {return m_->id_interval_;}
 qint32 Configuration::align_steps () const {return m_->align_steps_;}
 qint32 Configuration::align_steps2 () const {return m_->align_steps2_;}
 qint32 Configuration::ntrials() const {return m_->ntrials_;}
+qint32 Configuration::volume() const {return m_->volume_;}
 qint32 Configuration::aggressive() const {return m_->aggressive_;}
 double Configuration::degrade() const {return m_->degrade_;}
 double Configuration::txDelay() const {return m_->txDelay_;}
 qint32 Configuration::RxBandwidth() const {return m_->RxBandwidth_;}
+bool Configuration::tci_audio () const {return m_->tci_audio_;}
 bool Configuration::id_after_73 () const {return m_->id_after_73_;}
 bool Configuration::tx_QSY_allowed () const {return m_->tx_QSY_allowed_;}
 bool Configuration::progressBar_red () const {return m_->progressBar_red_;}
@@ -1153,6 +1180,11 @@ bool Configuration::is_dummy_rig () const
   return m_->rig_is_dummy_;
 }
 
+bool Configuration::is_tci () const
+{
+  return m_->is_tci_;
+}
+
 bool Configuration::transceiver_online ()
 {
   LOG_TRACE (m_->cached_rig_state_);
@@ -1194,11 +1226,100 @@ void Configuration::transceiver_ptt (bool on)
   m_->transceiver_ptt (on);
 }
 
+void Configuration::transceiver_audio (bool on)
+{
+  LOG_TRACE (on << ' ' << m_->cached_rig_state_);
+  m_->transceiver_audio (on);
+}
+
 void Configuration::transceiver_tune (bool on)
 {
   LOG_TRACE (on << ' ' << m_->cached_rig_state_);
   m_->transceiver_tune (on);
 }
+
+void Configuration::transceiver_period (double period)
+{
+#if WSJT_TRACE_CAT
+  qDebug () << "Configuration::transceiver_period:" << period << m_->cached_rig_state_;
+#endif
+
+  m_->transceiver_period (period);
+}
+
+void Configuration::transceiver_blocksize (qint32 blocksize)
+{
+#if WSJT_TRACE_CAT
+  qDebug () << "Configuration::transceiver_blocksize:" << blocksize << m_->cached_rig_state_;
+#endif
+
+  m_->transceiver_blocksize (blocksize);
+}
+
+void Configuration::transceiver_modulator_start(QString jtmode, unsigned symbolslength, double framespersymbol, double trfrequency,
+                     double tonespacing, bool synchronize, bool fastmode, double dbsnr, double trperiod)
+{
+#if WSJT_TRACE_CAT
+  qDebug () << "Configuration::transceiver_modulator_start:" << symbolslength << m_->cached_rig_state_;
+#endif
+
+  m_->transceiver_modulator_start(jtmode, symbolslength,framespersymbol,trfrequency,tonespacing,synchronize,fastmode,dbsnr,trperiod);
+}
+
+void Configuration::transceiver_modulator_stop (bool on)
+{
+#if WSJT_TRACE_CAT
+  qDebug () << "Configuration::transceiver_stop:" << on << m_->cached_rig_state_;
+#endif
+
+  m_->transceiver_modulator_stop (on);
+}
+
+void Configuration::transceiver_spread (double spread)
+{
+#if WSJT_TRACE_CAT
+  qDebug () << "Configuration::transceiver_spread:" << spread << m_->cached_rig_state_;
+#endif
+
+  m_->transceiver_spread (spread);
+}
+
+void Configuration::transceiver_nsym (qint32 nsym)
+{
+#if WSJT_TRACE_CAT
+  qDebug () << "Configuration::transceiver_nsym:" << nsym << m_->cached_rig_state_;
+#endif
+
+  m_->transceiver_nsym (nsym);
+}
+
+void Configuration::transceiver_trfrequency (double trfrequency)
+{
+#if WSJT_TRACE_CAT
+  qDebug () << "Configuration::transceiver_trfrequency:" << trfrequency << m_->cached_rig_state_;
+#endif
+
+  m_->transceiver_trfrequency (trfrequency);
+}
+
+void Configuration::transceiver_txvolume (qreal txvolume)
+{
+#if WSJT_TRACE_CAT
+  qDebug () << "Configuration::transceiver_txvolume:" << txvolume << m_->cached_rig_state_;
+#endif
+
+  m_->transceiver_txvolume (txvolume);
+}
+
+void Configuration::transceiver_volume (qreal volume)
+{
+#if WSJT_TRACE_CAT
+  qDebug () << "Configuration::transceiver_volume:" << volume << m_->cached_rig_state_;
+#endif
+
+  m_->transceiver_volume (volume);
+}
+
 
 void Configuration::sync_transceiver (bool force_signal, bool enforce_mode_and_split)
 {
@@ -1624,6 +1745,7 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   , cloudlog_ {self, network_manager_}
   , restart_sound_input_device_ {false}
   , restart_sound_output_device_ {false}
+  , restart_tci_device_ {false}
   , frequencies_ {&bands_}
   , next_frequencies_ {&bands_}
   , stations_ {&bands_}
@@ -1646,6 +1768,7 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   , LotW_days_since_upload_ {0}
   , last_port_type_ {TransceiverFactory::Capabilities::none}
   , rig_is_dummy_ {false}
+  , is_tci_ {false}
   , rig_active_ {false}
   , have_rig_ {false}
   , rig_changed_ {false}
@@ -1656,6 +1779,8 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
                                 // saved in settings
   , udp_server_name_edited_ {false}
   , dns_lookup_id_ {-1}
+  , default_audio_input_device_selected_ {false}
+  , default_audio_output_device_selected_ {false}
 {
   ui_->setupUi (this);
 
@@ -1915,6 +2040,7 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
 
   enumerate_rigs ();
   initialize_models ();
+  restart_tci_device_ = false;
 
   audio_input_device_ = next_audio_input_device_;
   audio_input_channel_ = next_audio_input_channel_;
@@ -1953,6 +2079,8 @@ void Configuration::impl::initialize_models ()
   next_audio_output_channel_ = audio_output_channel_;
   restart_sound_input_device_ = false;
   restart_sound_output_device_ = false;
+  restart_tci_device_ = false;
+
   {
     SettingsGroup g {settings_, "Configuration"};
     find_audio_devices ();
@@ -1975,10 +2103,12 @@ void Configuration::impl::initialize_models ()
   ui_->align_spin_box->setValue (align_steps_);
   ui_->align_spin_box2->setValue (align_steps2_);
   ui_->sbNtrials->setValue (ntrials_);
+  ui_->TCI_spin_box->setValue (volume_);
   ui_->sbTxDelay->setValue (txDelay_);
   ui_->sbAggressive->setValue (aggressive_);
   ui_->sbDegrade->setValue (degrade_);
   ui_->sbBandwidth->setValue (RxBandwidth_);
+  ui_->tci_audio_check_box->setChecked (tci_audio_);
   ui_->PTT_method_button_group->button (rig_params_.ptt_type)->setChecked (true);
   ui_->PWR_and_SWR_check_box->setChecked (PWR_and_SWR_);
   ui_->check_SWR_check_box->setChecked (check_SWR_);
@@ -2165,6 +2295,7 @@ void Configuration::impl::done (int r)
   // do this here since window is still on screen at this point
   SettingsGroup g {settings_, "Configuration"};
   settings_->setValue ("window/geometry", saveGeometry ());
+  handle_leavingSettings();
 
   QDialog::done (r);
 }
@@ -2314,11 +2445,14 @@ void Configuration::impl::read_settings ()
   align_steps_ = settings_->value ("AlignSteps", 2).toInt ();
   align_steps2_ = settings_->value ("AlignSteps2", 0).toInt ();
   ntrials_ = settings_->value ("nTrials", 6).toInt ();
+  volume_ = settings_->value ("volume", 0).toInt ();
   txDelay_ = settings_->value ("TxDelay",0.2).toDouble();
   aggressive_ = settings_->value ("Aggressive", 4).toInt ();
   RxBandwidth_ = settings_->value ("RxBandwidth", 2500).toInt ();
   save_directory_.setPath (settings_->value ("SaveDir", default_save_directory_.absolutePath ()).toString ());
   azel_directory_.setPath (settings_->value ("AzElDir", default_azel_directory_.absolutePath ()).toString ());
+
+  tci_audio_ = settings_->value ("TCIAudio", tci_audio_).toBool ();
 
   type_2_msg_gen_ = settings_->value ("Type2MsgGen", QVariant::fromValue (Configuration::type_2_msg_3_full)).value<Configuration::Type2MsgGen> ();
 
@@ -2412,6 +2546,8 @@ void Configuration::impl::read_settings ()
   specOp_in_comments_ = settings_->value("specOptoComments", false).toBool ();
   rig_params_.rig_name = settings_->value ("Rig", TransceiverFactory::basic_transceiver_name_).toString ();
   rig_is_dummy_ = TransceiverFactory::basic_transceiver_name_ == rig_params_.rig_name;
+  is_tci_ = rig_params_.rig_name.startsWith("TCI Cli");
+  rig_params_.tci_port = settings_->value ("CATTCIPort","").toString ();
   rig_params_.network_port = settings_->value ("CATNetworkPort").toString ();
   rig_params_.usb_port = settings_->value ("CATUSBPort").toString ();
   rig_params_.serial_port = settings_->value ("CATSerialPort").toString ();
@@ -2519,6 +2655,11 @@ void Configuration::impl::read_settings ()
   alert_DXcall_ = settings_->value("alert_DXcall",false).toBool ();
   alert_QSYmessage_ = settings_->value("alert_QSYmessage",false).toBool ();
   alert_Enabled_ = settings_->value("alert_Enabled",false).toBool ();
+  // Reset Rig to None if TCI was selected but no IP address was specified
+  if (is_tci_ && settings_->value("CATTCIPort")=="") {
+    rig_params_.rig_name = "None";
+    if (rig_params_.ptt_type == TransceiverFactory::PTT_method_CAT) rig_params_.ptt_type = TransceiverFactory::PTT_method_VOX;
+  }
 #ifdef WIN32
   QTimer::singleShot (2500, [=] {display_file_information ();});
 #else
@@ -2539,6 +2680,7 @@ void Configuration::impl::find_audio_devices ()
   // retrieve audio input device
   //
   auto saved_name = settings_->value ("SoundInName").toString ();
+  if (is_tci_ && tci_audio_) saved_name = "TCI audio";  // TCI
   if (next_audio_input_device_.deviceName () != saved_name || next_audio_input_device_.isNull ())
     {
       next_audio_input_device_ = find_audio_device (QAudio::AudioInput, ui_->sound_input_combo_box, saved_name);
@@ -2546,11 +2688,11 @@ void Configuration::impl::find_audio_devices ()
       update_audio_channels (ui_->sound_input_combo_box, ui_->sound_input_combo_box->currentIndex (), ui_->sound_input_channel_combo_box, false);
       ui_->sound_input_channel_combo_box->setCurrentIndex (next_audio_input_channel_);
     }
-
   //
   // retrieve audio output device
   //
   saved_name = settings_->value("SoundOutName").toString();
+  if (is_tci_ && tci_audio_) saved_name = "TCI audio";  // TCI
   if (next_audio_output_device_.deviceName () != saved_name || next_audio_output_device_.isNull ())
     {
       next_audio_output_device_ = find_audio_device (QAudio::AudioOutput, ui_->sound_output_combo_box, saved_name);
@@ -2620,23 +2762,30 @@ void Configuration::impl::write_settings ()
   settings_->setValue ("AlignSteps", align_steps_);
   settings_->setValue ("AlignSteps2", align_steps2_);
   settings_->setValue ("nTrials", ntrials_);
+  settings_->setValue ("volume", volume_);
   settings_->setValue ("TxDelay", txDelay_);
   settings_->setValue ("Aggressive", aggressive_);
   settings_->setValue ("RxBandwidth", RxBandwidth_);
+  settings_->setValue ("TCIAudio", tci_audio_);
+  settings_->setValue ("CATTCIPort", rig_params_.tci_port);
   settings_->setValue ("PTTMethod", QVariant::fromValue (rig_params_.ptt_type));
   settings_->setValue ("PTTport", rig_params_.ptt_port);
   settings_->setValue ("SaveDir", save_directory_.absolutePath ());
   settings_->setValue ("AzElDir", azel_directory_.absolutePath ());
-  if (!audio_input_device_.isNull ())
-    {
+  if (!audio_input_device_.isNull ()) {
       settings_->setValue ("SoundInName", audio_input_device_.deviceName ());
       settings_->setValue ("AudioInputChannel", AudioDevice::toString (audio_input_channel_));
-    }
-  if (!audio_output_device_.isNull ())
-    {
-      settings_->setValue ("SoundOutName", audio_output_device_.deviceName ());
-      settings_->setValue ("AudioOutputChannel", AudioDevice::toString (audio_output_channel_));
-    }
+  } else if (is_tci_ && tci_audio_) {
+    settings_->setValue ("SoundInName", "TCI audio");
+    settings_->setValue ("AudioInputChannel", "TCI audio");
+  }
+  if (!audio_output_device_.isNull ()) {
+    settings_->setValue ("SoundOutName", audio_output_device_.deviceName ());
+    settings_->setValue ("AudioOutputChannel", AudioDevice::toString (audio_input_channel_));
+  } else if (is_tci_ && tci_audio_) {
+    settings_->setValue ("SoundOutName", "TCI audio");
+    settings_->setValue ("AudioOutputChannel", "TCI audio");
+  }
   settings_->setValue ("Type2MsgGen", QVariant::fromValue (type_2_msg_gen_));
   settings_->setValue ("MonitorOFF", monitor_off_at_startup_);
   settings_->setValue ("MonitorLastUsed", monitor_last_used_);
@@ -2788,9 +2937,16 @@ void Configuration::impl::set_rig_invariants ()
   auto asynchronous_CAT = transceiver_factory_.has_asynchronous_CAT (rig);
   auto is_hw_handshake = ui_->CAT_handshake_group_box->isEnabled ()
     && TransceiverFactory::handshake_hardware == static_cast<TransceiverFactory::Handshake> (ui_->CAT_handshake_button_group->checkedId ());
-
+  is_tci_ = ui_->rig_combo_box->currentText().startsWith("TCI Cli");
+  ui_->tci_audio_check_box->setVisible(is_tci_);
+  ui_->TCI_spin_box->setVisible(is_tci_);
+//  ui_->refresh_push_button->setVisible(is_tci_);
+  if (is_tci_ && tci_audio_) {
+    find_audio_devices ();
+    ui_->sound_input_channel_combo_box->setCurrentIndex (0);
+    ui_->sound_output_channel_combo_box->setCurrentIndex (0);
+  }
   ui_->test_CAT_push_button->setStyleSheet ({});
-
   ui_->CAT_poll_interval_label->setEnabled (!asynchronous_CAT);
   ui_->CAT_poll_interval_spin_box->setEnabled (!asynchronous_CAT);
 
@@ -2801,6 +2957,8 @@ void Configuration::impl::set_rig_invariants ()
 
   // only enable CAT option if transceiver has CAT PTT
   ui_->PTT_CAT_radio_button->setEnabled (CAT_PTT_enabled);
+  ui_->PTT_VOX_radio_button->setEnabled (!is_tci_);
+  ui_->PTT_DTR_radio_button->setEnabled (!is_tci_);
 
   auto enable_ptt_port = TransceiverFactory::PTT_method_CAT != ptt_method && TransceiverFactory::PTT_method_VOX != ptt_method;
   ui_->PTT_port_combo_box->setEnabled (enable_ptt_port);
@@ -2820,7 +2978,7 @@ void Configuration::impl::set_rig_invariants ()
           ui_->PTT_port_combo_box->setCurrentIndex (ui_->PTT_port_combo_box->currentIndex () - 1);
         }
     }
-  ui_->PTT_RTS_radio_button->setEnabled (!(is_serial_CAT && ptt_port == cat_port && is_hw_handshake));
+  ui_->PTT_RTS_radio_button->setEnabled (!((is_serial_CAT && ptt_port == cat_port && is_hw_handshake) || is_tci_));
 
   if (TransceiverFactory::basic_transceiver_name_ == rig)
     {
@@ -2864,6 +3022,19 @@ void Configuration::impl::set_rig_invariants ()
                 }
               ui_->CAT_port_label->setText (tr ("Serial Port:"));
               ui_->CAT_port_combo_box->setToolTip (tr ("Serial port used for CAT control"));
+              ui_->CAT_port_combo_box->setEnabled (true);
+              break;
+
+            case TransceiverFactory::Capabilities::tci:
+              ui_->CAT_port_combo_box->clear ();
+              ui_->CAT_port_combo_box->setCurrentText (rig_params_.tci_port);
+              ui_->CAT_port_label->setText (tr ("TCI Server:"));
+              ui_->CAT_port_combo_box->setToolTip (tr ("Optional hostname and port of TCI service.\n"
+                                                     "Leave blank for a sensible default on this machine.\n"
+                                                     "Formats:\n"
+                                                     "\thostname:port\n"
+                                                     "\tIPv4-address:port\n"
+                                                     "\t[IPv6-address]:port"));
               ui_->CAT_port_combo_box->setEnabled (true);
               break;
 
@@ -3006,20 +3177,30 @@ TransceiverFactory::ParameterPack Configuration::impl::gather_rig_data ()
 
   switch (transceiver_factory_.CAT_port_type (result.rig_name))
     {
+    case TransceiverFactory::Capabilities::tci:
+      result.tci_port = ui_->CAT_port_combo_box->currentText ();
+      result.network_port = rig_params_.network_port;
+      result.usb_port = rig_params_.usb_port;
+      result.serial_port = rig_params_.serial_port;
+      break;
+
     case TransceiverFactory::Capabilities::network:
       result.network_port = ui_->CAT_port_combo_box->currentText ();
+      result.tci_port = rig_params_.tci_port;
       result.usb_port = rig_params_.usb_port;
       result.serial_port = rig_params_.serial_port;
       break;
 
     case TransceiverFactory::Capabilities::usb:
       result.usb_port = ui_->CAT_port_combo_box->currentText ();
+      result.tci_port = rig_params_.tci_port;
       result.network_port = rig_params_.network_port;
       result.serial_port = rig_params_.serial_port;
       break;
 
     default:
       result.serial_port = ui_->CAT_port_combo_box->currentText ();
+      result.tci_port = rig_params_.tci_port;
       result.network_port = rig_params_.network_port;
       result.usb_port = rig_params_.usb_port;
       break;
@@ -3035,6 +3216,7 @@ TransceiverFactory::ParameterPack Configuration::impl::gather_rig_data ()
   result.rts_high = ui_->force_RTS_combo_box->isEnabled () && 1 == ui_->force_RTS_combo_box->currentIndex ();
   result.poll_interval = ui_->CAT_poll_interval_spin_box->value ();
   if (ui_->PWR_and_SWR_check_box->isChecked ()) result.poll_interval |= do__pwr;
+  if (is_tci_ && ui_->tci_audio_check_box->isChecked ()) result.poll_interval |= tci__audio;
   result.ptt_type = static_cast<TransceiverFactory::PTTMethod> (ui_->PTT_method_button_group->checkedId ());
   result.ptt_port = ui_->PTT_port_combo_box->currentText ();
   result.audio_source = static_cast<TransceiverFactory::TXAudioSource> (ui_->TX_audio_source_button_group->checkedId ());
@@ -3092,7 +3274,9 @@ void Configuration::impl::accept ()
   rig_params_ = temp_rig_params; // now we can go live with the rig
                                  // related configuration parameters
   rig_is_dummy_ = TransceiverFactory::basic_transceiver_name_ == rig_params_.rig_name;
-
+  is_tci_ = rig_params_.rig_name.startsWith("TCI Cli");
+  // Check to see whether SoundInThread must be restarted,
+  // and save user parameters.
   {
     auto const& selected_device = ui_->sound_input_combo_box->currentData ().value<audio_info_type> ().first;
     if (selected_device != next_audio_input_device_)
@@ -3204,10 +3388,12 @@ void Configuration::impl::accept ()
   align_steps_ = ui_->align_spin_box->value ();
   align_steps2_ = ui_->align_spin_box2->value ();
   ntrials_ = ui_->sbNtrials->value ();
+  volume_ = ui_->TCI_spin_box->value ();
   txDelay_ = ui_->sbTxDelay->value ();
   aggressive_ = ui_->sbAggressive->value ();
   degrade_ = ui_->sbDegrade->value ();
   RxBandwidth_ = ui_->sbBandwidth->value ();
+  tci_audio_ = ui_->tci_audio_check_box->isChecked ();
   id_after_73_ = ui_->CW_id_after_73_check_box->isChecked ();
   tx_QSY_allowed_ = ui_->tx_QSY_check_box->isChecked ();
   progressBar_red_ = ui_->progress_bar_check_box->isChecked ();
@@ -3633,8 +3819,9 @@ void Configuration::impl::on_hamlib_download_button_clicked (bool /*clicked*/)
   }
   connect (&cty_download, &FileDownload::complete, this, &Configuration::impl::after_hamlib_downloaded, Qt::UniqueConnection);
   connect (&cty_download, &FileDownload::error, this, &Configuration::impl::error_during_hamlib_download, Qt::UniqueConnection);
-  cty_download.start_download();
   ui_->in_use->setText("Downloading ...");
+
+  cty_download.start_download();
 #else
   MessageBox::warning_message (this, tr ("Hamlib update only available on Windows."));
 #endif
@@ -3821,7 +4008,7 @@ void Configuration::impl::on_test_CAT_push_button_clicked ()
   ui_->test_CAT_push_button->setStyleSheet ({});
   if (open_rig (true))
     {
-      //Q_EMIT sync (true);
+       // Q_EMIT sync (true);
     }
 
   set_rig_invariants ();
@@ -3867,6 +4054,41 @@ void Configuration::impl::on_PTT_method_button_group_buttonClicked (int /* id */
 {
   set_rig_invariants ();
 }
+
+void Configuration::impl::on_refresh_push_button_clicked ()
+{
+  //
+  // load combo boxes with audio setup choices
+  //
+//  default_audio_input_device_selected_ = load_audio_devices (QAudio::AudioInput, ui_->sound_input_combo_box, &audio_input_device_);
+//  default_audio_output_device_selected_ = load_audio_devices (QAudio::AudioOutput, ui_->sound_output_combo_box, &audio_output_device_);
+
+  update_audio_channels (ui_->sound_input_combo_box, ui_->sound_input_combo_box->currentIndex (), ui_->sound_input_channel_combo_box, false);
+  update_audio_channels (ui_->sound_output_combo_box, ui_->sound_output_combo_box->currentIndex (), ui_->sound_output_channel_combo_box, true);
+
+  ui_->sound_input_channel_combo_box->setCurrentIndex (audio_input_channel_);
+  ui_->sound_output_channel_combo_box->setCurrentIndex (audio_output_channel_);
+
+  restart_sound_input_device_ = false;
+  restart_sound_output_device_ = false;
+  restart_tci_device_ = false;
+}
+
+void Configuration::impl::on_tci_audio_check_box_clicked(bool checked)
+{
+  tci_audio_ = checked;
+  if (is_tci_ && checked) {
+    find_audio_devices ();
+    ui_->sound_input_channel_combo_box->setCurrentIndex (0);
+    ui_->sound_output_channel_combo_box->setCurrentIndex (0);
+  }
+}
+
+void Configuration::impl::on_TCI_spin_box_valueChanged(double a)
+{
+  volume_ = a;
+}
+
 
 void Configuration::impl::on_add_macro_line_edit_editingFinished ()
 {
@@ -4698,6 +4920,7 @@ bool Configuration::impl::open_rig (bool force)
     {
       try
         {
+          if (is_tci_ && rig_active_ && tci_audio_) restart_tci_device_ = true;
           close_rig ();
 
           // create a new Transceiver object
@@ -4716,6 +4939,8 @@ bool Configuration::impl::open_rig (bool force)
           rig_connections_ << connect (rig.get (), &Transceiver::resolution, this, [=] (int resolution) {
               rig_resolution_ = resolution;
             });
+          rig_connections_ << connect (rig.get (), &Transceiver::tciframeswritten, this, &Configuration::impl::handle_transceiver_tciframeswritten);
+          rig_connections_ << connect (rig.get (), &Transceiver::tci_mod_active, this, &Configuration::impl::handle_transceiver_tci_mod_active);
           rig_connections_ << connect (rig.get (), &Transceiver::update, this, &Configuration::impl::handle_transceiver_update);
           rig_connections_ << connect (rig.get (), &Transceiver::failure, this, &Configuration::impl::handle_transceiver_failure);
 
@@ -4742,10 +4967,12 @@ bool Configuration::impl::open_rig (bool force)
           rig_active_ = true;
           LOG_TRACE ("emitting startup_transceiver");
           Q_EMIT start_transceiver (++transceiver_command_number_); // start rig on its thread
+          if(is_tci_) rig_params_ = gather_rig_data ();
           result = true;
         }
       catch (std::exception const& e)
         {
+          qDebug() << "Configuration::impl::open_rig failed with error " << e.what();
           handle_transceiver_failure (e.what ());
         }
 
@@ -4839,6 +5066,18 @@ void Configuration::impl::transceiver_ptt (bool on)
   Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
 }
 
+void Configuration::impl::transceiver_audio (bool on)
+{
+  cached_rig_state_.online (true); // we want the rig online
+  set_cached_mode ();
+  if (cached_rig_state_.audio() != on)
+  {
+    cached_rig_state_.audio (on);
+//    printf("%s(%0.1f) Configuration #:%d audio: %d\n",QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),transceiver_command_number_+1,on);
+    Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
+  }
+}
+
 void Configuration::impl::transceiver_tune (bool on)
 {
   cached_rig_state_.online (true); // we want the rig online
@@ -4850,10 +5089,146 @@ void Configuration::impl::transceiver_tune (bool on)
   Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
 }
 
+
+void Configuration::impl::transceiver_period (double period)
+{
+  cached_rig_state_.online (true); // we want the rig online
+  set_cached_mode ();
+  if (cached_rig_state_.period() != period)
+  {
+//    printf("%s(%0.1f) Configuration #:%d period: %0.1f cached: %0.1f\n",QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),transceiver_command_number_+1,period,cached_rig_state_.period());
+    cached_rig_state_.period (period);
+    Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
+  }
+}
+
+void Configuration::impl::transceiver_blocksize (qint32 blocksize)
+{
+  cached_rig_state_.online (true); // we want the rig online
+  set_cached_mode ();
+  if (cached_rig_state_.blocksize() != blocksize)
+  {
+//    printf("%s(%0.1f) Configuration #:%d blocksize: %d cached:%d\n",QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),transceiver_command_number_+1,blocksize,cached_rig_state_.blocksize());
+    cached_rig_state_.blocksize (blocksize);
+    Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
+  }
+}
+
+void Configuration::impl::transceiver_spread (double spread)
+{
+  cached_rig_state_.online (true); // we want the rig online
+  set_cached_mode ();
+  if (cached_rig_state_.spread() != spread)
+  {
+//    printf("%s(%0.1f) Configuration #:%d spread: %0.1f cached: %0.1f\n",QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),transceiver_command_number_+1,spread,cached_rig_state_.spread());
+    cached_rig_state_.spread (spread);
+    Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
+  }
+}
+
+void Configuration::impl::transceiver_nsym (int nsym)
+{
+  cached_rig_state_.online (true); // we want the rig online
+  set_cached_mode ();
+  if (cached_rig_state_.nsym() != nsym)
+  {
+//    printf("%s(%0.1f) Configuration #:%d nsym: %d cached:%d\n",QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),transceiver_command_number_+1,nsym,cached_rig_state_.nsym());
+    cached_rig_state_.nsym (nsym);
+    Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
+  }
+}
+
+void Configuration::impl::transceiver_trfrequency (double trfrequency)
+{
+  cached_rig_state_.online (true); // we want the rig online
+  set_cached_mode ();
+  if (cached_rig_state_.trfrequency() != trfrequency)
+  {
+//    printf("%s(%0.1f) Configuration #:%d trfrequency: %0.1f cached: %0.1f\n",QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),transceiver_command_number_+1,trfrequency,cached_rig_state_.trfrequency());
+    cached_rig_state_.trfrequency (trfrequency);
+    Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
+  }
+}
+
+void Configuration::impl::transceiver_txvolume (double txvolume)
+{
+  cached_rig_state_.online (true); // we want the rig online
+  set_cached_mode ();
+  if (cached_rig_state_.txvolume() != txvolume)
+  {
+//    printf("%s(%0.1f) Configuration #:%d txvolume: %0.1f cached: %0.1f\n",QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),transceiver_command_number_+1,txvolume,cached_rig_state_.txvolume());
+    cached_rig_state_.txvolume (txvolume);
+    Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
+  }
+}
+
+void Configuration::impl::transceiver_volume (double volume)
+{
+  cached_rig_state_.online (true); // we want the rig online
+  set_cached_mode ();
+  if (cached_rig_state_.volume() != volume)
+  {
+    //printf("In Configuration::transceiver_volume, volume: %f cached: %f\n",volume,cached_rig_state_.volume());
+    cached_rig_state_.volume (volume);
+    Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
+  }
+}
+
+void Configuration::impl::transceiver_modulator_start (QString jtmode, unsigned symbolslength, double framespersymbol, double frequency, double tonespacing, bool synchronize, bool fastmode, double dbsnr, double trperiod)
+{
+  cached_rig_state_.online (true); // we want the rig online
+  set_cached_mode ();
+  if (!cached_rig_state_.tx_audio())
+  {
+    cached_rig_state_.tx_audio (true);
+    cached_rig_state_.symbolslength (symbolslength);
+    cached_rig_state_.framespersymbol (framespersymbol);
+    cached_rig_state_.trfrequency (frequency);
+    cached_rig_state_.tonespacing (tonespacing);
+    cached_rig_state_.synchronize (synchronize);
+    cached_rig_state_.dbsnr (dbsnr);
+    cached_rig_state_.trperiod (trperiod);
+    cached_rig_state_.jtmode(jtmode);
+    cached_rig_state_.fastmode(fastmode);
+    //    printf("%s(%0.1f) Configuration #:%d modulator_start: symbolslength=%d framespersymbol=%0.1f frequency=%0.1f tonespacing=%0.1f synchronize= %d dbsnr=%0.1f trperiod=%0.1f\n",QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),transceiver_command_number_+1,symbolslength,framespersymbol,frequency,tonespacing,synchronize,dbsnr,trperiod);
+    Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
+  }
+//  else printf("%s(%0.1f) Configuration modulator_start: WAS ALLREADY RUNNING\n",QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str());
+}
+
+void Configuration::impl::transceiver_modulator_stop (bool on)
+{
+  cached_rig_state_.online (true); // we want the rig online
+  set_cached_mode ();
+  if (cached_rig_state_.tx_audio())
+  {
+    cached_rig_state_.tx_audio (false);
+    cached_rig_state_.quick (on);
+//    printf("%s(%0.1f) Configuration #:%d modulator_stop: quick=%d\n",QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),transceiver_command_number_+1,on);
+    Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
+  }
+//  else printf("%s(%0.1f) Configuration modulator_stop: WAS NOT RUNNING\n",QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str());
+}
+
 void Configuration::impl::sync_transceiver (bool /*force_signal*/)
 {
   // pass this on as cache must be ignored
   // Q_EMIT sync (force_signal);
+}
+
+void Configuration::impl::handle_transceiver_tciframeswritten (qint64 count)
+{
+  Q_EMIT self_->transceiver_TCIframesWritten (count);
+}
+
+void Configuration::impl::handle_transceiver_tci_mod_active (bool on)
+{
+  Q_EMIT self_->transceiver_TCImodActive (on);
+}
+
+void Configuration::impl::handle_leavingSettings ()
+{
+  Q_EMIT self_->leavingSettings (true);
 }
 
 void Configuration::impl::handle_transceiver_update (TransceiverState const& state,
@@ -4864,7 +5239,7 @@ void Configuration::impl::handle_transceiver_update (TransceiverState const& sta
   // only follow rig on some information, ignore other stuff
   cached_rig_state_.online (state.online ());
   cached_rig_state_.frequency (state.frequency ());
-  cached_rig_state_.mode (state.mode ());
+  if(!is_tci_) cached_rig_state_.mode (state.mode ());  //was not present in jtdx
   cached_rig_state_.split (state.split ());
 
   if (state.online ())
@@ -4885,7 +5260,10 @@ void Configuration::impl::handle_transceiver_update (TransceiverState const& sta
     }
   else
     {
-      close_rig ();
+      if (is_tci_) {
+      	if (sequence_number == transceiver_command_number_)  close_rig (); 
+      }
+      else close_rig();
     }
 
   // pass on to clients if current command is processed
@@ -4908,6 +5286,7 @@ void Configuration::impl::handle_transceiver_update (TransceiverState const& sta
 void Configuration::impl::handle_transceiver_failure (QString const& reason)
 {
   LOG_ERROR ("handle_transceiver_failure: reason: " << reason);
+  qDebug() << "Configuration::impl::handle_transceiver_failure called with reason: " << reason << "\n";
   close_rig ();
   ui_->test_PTT_push_button->setChecked (false);
 
@@ -4932,6 +5311,7 @@ void Configuration::impl::close_rig ()
       ui_->test_CAT_push_button->setStyleSheet ("QPushButton {background-color: red;}");
       LOG_TRACE ("emitting stop_transceiver");
       Q_EMIT stop_transceiver ();
+      if (is_tci_) QThread::msleep (100);
       for (auto const& connection: rig_connections_)
         {
           disconnect (connection);
@@ -4969,7 +5349,10 @@ QAudioDeviceInfo Configuration::impl::find_audio_device (QAudio::Mode mode, QCom
             }
         }
       // insert a place holder for the not found device
-      combo_box->insertItem (0, device_name + " (" + tr ("Not found", "audio device missing") + ")", QVariant::fromValue (audio_info_type {}));
+      if(!tci_audio_) combo_box->insertItem (0, device_name + " (" + tr ("Not found", "audio device missing") + ")", QVariant::fromValue (audio_info_type {}));
+      else {
+          combo_box->insertItem (0, "TCI audio", QVariant::fromValue (audio_info_type {}));
+      }
       combo_box->setCurrentIndex (0);
     }
   return {};
@@ -4986,6 +5369,19 @@ void Configuration::impl::load_audio_devices(QAudio::Mode mode, QComboBox * comb
 
     Q_EMIT self_->enumerating_audio_devices();
     auto const& devices = QAudioDeviceInfo::availableDevices(mode);
+
+    printf ("rig_active_ is: %d and tci_audio_ is %d\n", rig_active_, tci_audio_);
+    qDebug () << "qDebug says rig_active_ is: " << rig_active_ << '\n';
+    qDebug () << "qDebug says tci_audio_ is: " << tci_audio_ << '\n';
+    int current_index = -1;
+    if (is_tci_ && tci_audio_) {
+          QList<QVariant> channel_counts;
+          QList<int> scc({1});
+          copy (scc.cbegin (), scc.cend (), back_inserter (channel_counts));
+          combo_box->addItem ("TCI audio", channel_counts);
+          current_index = 0;
+          return;
+    }
 
     // Use a vector to store device names and associated audio_info_type
     std::vector<std::pair<QString, audio_info_type>> device_items;
@@ -5018,7 +5414,6 @@ void Configuration::impl::load_audio_devices(QAudio::Mode mode, QComboBox * comb
     }
 
     // Add the sorted items back to the combo box
-    int current_index = -1;
     for (int i = 0; i < static_cast<int>(device_items.size()); ++i)
     {
         const auto& item = device_items[i];

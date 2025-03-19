@@ -33,7 +33,7 @@ public:
   //
   struct Capabilities
   {
-    enum PortType {none, serial, network, usb};
+    enum PortType {none, serial, network, usb, tci};
 
     explicit Capabilities (unsigned model_number = 0
                            , PortType port_type = none
@@ -78,8 +78,14 @@ public:
   Q_ENUM (TXAudioSource)
   enum SplitMode {split_mode_none, split_mode_rig, split_mode_emulate};
   Q_ENUM (SplitMode)
-
+  
+  #define do__snr  0x10000
   #define do__pwr  0x20000
+  #define rig__power 0x40000
+  #define rig__power_off 0x80000
+  #define tci__audio 0x100000
+  #define tci__agcc 0x200000
+  #define ptt__share 0x400000
 
   TransceiverFactory ();
   ~TransceiverFactory ();
@@ -104,6 +110,7 @@ public:
     QString serial_port;        // serial port device name or empty
     QString network_port;       // hostname:port or empty
     QString usb_port;           // [vid[:pid[:vendor[:product]]]]
+    QString tci_port;           // hostname:port or empty
     int baud;
     DataBits data_bits;
     StopBits stop_bits;
@@ -127,6 +134,7 @@ public:
         && rhs.serial_port == serial_port
         && rhs.network_port == network_port
         && rhs.usb_port == usb_port
+        && rhs.tci_port == tci_port
         && rhs.baud == baud
         && rhs.data_bits == data_bits
         && rhs.stop_bits == stop_bits
@@ -154,6 +162,8 @@ public:
   // type
   //
   std::unique_ptr<Transceiver> create (ParameterPack const&, QThread * target_thread = nullptr);
+  
+  //w3sz using logger_type = boost::log::sources::severity_channel_logger_mt<boost::log::trivial::severity_level>;
   
 private:
   Transceiver::logger_type mutable logger_;

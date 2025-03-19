@@ -6,7 +6,8 @@
 #include <QRandomGenerator>
 #endif
 #include <QDebug>
-#include "widgets/mainwindow.h" // TODO: G4WJS - break this dependency
+#include "widgets/itoneAndicw.h"  //w3sz tci
+//#include "widgets/mainwindow.h" // TODO: G4WJS - break this dependency //w3sz tci
 #include "Audio/soundout.h"
 #include "commons.h"
 
