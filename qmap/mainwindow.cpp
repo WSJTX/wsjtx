@@ -17,6 +17,14 @@
 #include "widegraph.h"
 #include "sleep.h"
 
+#include <QCoreApplication>  //liveCQ
+#include <QNetworkAccessManager>  //liveCQ
+#include <QNetworkRequest>
+#include <QNetworkReply>
+#include <QUrl>
+#include <QUrlQuery>
+#include <QEventLoop>
+
 #define NFFT 32768
 
 qint16 id[2*60*96000];
@@ -34,7 +42,8 @@ MainWindow::MainWindow(QWidget *parent) :
   m_settings_filename {m_appDir + "/qmap.ini"},
   m_astro_window {new Astro {m_settings_filename}},
   m_wide_graph_window {new WideGraph {m_settings_filename}},
-  m_gui_timer {new QTimer {this}}
+  m_gui_timer {new QTimer {this}},
+  cqlfi(new QFile("livecq.txt"))  //liveCQ
 {
   ui->setupUi(this);
 //  ui->decodedTextBrowser->clear();
@@ -171,6 +180,8 @@ MainWindow::MainWindow(QWidget *parent) :
     f.close();
   }
 
+  cqlfi->resize(0);  //liveCQ
+
   if(ui->actionLinrad->isChecked()) on_actionLinrad_triggered();
   if(ui->actionCuteSDR->isChecked()) on_actionCuteSDR_triggered();
   if(ui->actionAFMHot->isChecked()) on_actionAFMHot_triggered();
@@ -236,6 +247,8 @@ void MainWindow::writeSettings()
   settings.setValue("MaxDrift",ui->sbMaxDrift->value());
   settings.setValue("Offset",ui->sbOffset->value());
   settings.setValue("Also30",m_bAlso30);
+  settings.setValue("w3szUrl",m_w3szUrl);  //liveCQ
+  settings.setValue("otherUrl",m_otherUrl);  //liveCQ
 }
 
 //---------------------------------------------------------- readSettings()
@@ -305,6 +318,8 @@ void MainWindow::readSettings()
     on_actionLinrad_triggered();
     ui->actionLinrad->setChecked(true);
   }
+  m_w3szUrl=settings.value("w3szUrl",true).toBool();
+  m_otherUrl=settings.value("otherUrl","").toString();
 }
 
 //-------------------------------------------------------------- dataSink()
@@ -444,6 +459,8 @@ void MainWindow::on_actionSettings_triggered()
   dlg.m_network=m_network;
   dlg.m_udpPort=m_udpPort;
   dlg.m_dB=m_dB;
+  dlg.m_w3szUrl = m_w3szUrl;  //liveCQ
+  dlg.m_otherUrl=m_otherUrl;  //liveCQ
   dlg.initDlg();
   if(dlg.exec() == QDialog::Accepted) {
     m_myCall=dlg.m_myCall;
@@ -461,6 +478,8 @@ void MainWindow::on_actionSettings_triggered()
     m_network=dlg.m_network;
     m_udpPort=dlg.m_udpPort;
     m_dB=dlg.m_dB;
+    m_w3szUrl=dlg.m_w3szUrl;
+    m_otherUrl=dlg.m_otherUrl;
     soundInThread.setScale(m_dB);
 
     if(dlg.m_restartSoundIn) {
@@ -999,9 +1018,11 @@ void MainWindow::CreateLiveCQ(QStringList cqliveText)
   bandInfo = ui->labFreq->text().split(".",SkipEmptyParts);
   QString bandFreq = bandInfo.at(0);
   QString theDate = ui->labUTC->text().trimmed().mid(0,12);
+  QList<QStringList> decodeList;
 
   for (const QString &item : cqliveText) {
     QString line = " ";
+    QStringList thePostLine;
     line = line.repeated(100);
     QStringList thePieces;
 
@@ -1009,18 +1030,20 @@ void MainWindow::CreateLiveCQ(QStringList cqliveText)
     if(thePieces.at(6) == "CQ" || thePieces.at(6) == "QRZ" || thePieces.at(6) == "CQV" ||  thePieces.at(6) == "CQH" ||  thePieces.at(6) == "QRT") {
       //extract Fsked freq and format to 3 digits no decimals
       QString theMsg = thePieces.at(6) + " " + thePieces.at(7) + " " +thePieces.at(8);
-      QStringList thekHz = thePieces.at(2).split(".");
-      int rxFreq = freqOffset + 100 * thekHz.at(1).toInt(&ok);
+      QStringList thekHz = thePieces.at(9).split(".");
+      int rxFreq = freqOffset + thekHz.at(1).toInt(&ok);
+      // int rxFreq = freqOffset + 100 * thekHz.at(1).toInt(&ok);
       int skedFreq;
+      QString skedFreqString;
       if (rxFreq <= freqOffset + 500) {
         skedFreq = thekHz.at(0).toInt(&ok);
-      }
-      else {
+      } else {
         skedFreq = thekHz.at(0).toInt(&ok) + 1;
         rxFreq=rxFreq - 1000;
       }
+      skedFreqString = QString::number(skedFreq).rightJustified(3,'0');
       QString mode = "0 Q65-" + thePieces.at(5);
-      line.insert(0,bandFreq + "." + QString::number(skedFreq));
+      line.insert(0,bandFreq + "." + skedFreqString);
       line.insert(10,QString::number(rxFreq));
       line.insert(15,"0");
       line.insert(18,thePieces.at(0));
@@ -1033,17 +1056,80 @@ void MainWindow::CreateLiveCQ(QStringList cqliveText)
       line.insert(76,theDate);
       line.insert(88,m_myCall.toUpper());
       cqliveFinalText << line.trimmed();
+
+      thePostLine.insert(0, bandFreq + "." + skedFreqString);  //skedfreq
+      thePostLine.insert(1, QString::number(rxFreq)); //rxfreq
+      thePostLine.insert(2, "0"); //rpol
+      thePostLine.insert(3,thePieces.at(0)); //utc HHmmSS
+      thePostLine.insert(4,thePieces.at(3)); //dt
+      thePostLine.insert(5, thePieces.at(4)); //dB
+      thePostLine.insert(6, "Q65-" + thePieces.at(5)); //Q65 submode
+      thePostLine.insert(7, thePieces.at(6)); //msg type
+      thePostLine.insert(8, thePieces.at(7)); //dx call
+      thePostLine.insert(9, thePieces.at(8)); //dx grid
+      thePostLine.insert(10, m_myGrid.toUpper()); //myGrid
+      thePostLine.insert(11, theDate);  //the date
+      thePostLine.insert(12, m_myCall.toUpper()); //myCall
+      decodeList.append(thePostLine);
     }
   }
 
-  QFile cqlfi("livecq.txt");
-  cqlfi.open(QIODevice::WriteOnly);
-  if(cqlfi.isOpen()) {
-    QTextStream out(&cqlfi);
+  sendLiveCQData(decodeList);
+
+  // QFile cqlfi("livecq.txt");
+  cqlfi->open(QIODevice::Append | QIODevice::Text);
+  if(cqlfi->isOpen()) {
+    QTextStream out(cqlfi);
     for (const QString &item : cqliveFinalText) {
       out << item << "\n";
     }
-    cqlfi.close();
+    out.flush();
+    cqlfi->flush();
+    cqlfi->close();
+  }
+}
+
+void MainWindow::sendLiveCQData(QList<QStringList>decodeList)
+{
+  QString theUrl;
+  if(m_w3szUrl) {
+    theUrl = w3szUrlAddr;
+  } else {
+    theUrl = m_otherUrl;
+  }
+
+  QNetworkAccessManager *manager = new QNetworkAccessManager(this);
+  QUrl url(theUrl);
+  QNetworkRequest request(url);
+  request.setRawHeader("User-Agent", "QMAP v0.5");
+  request.setRawHeader("X-Custom-User-Agent", "QMAP v0.5");
+  request.setHeader(QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
+
+  for (const QStringList &thePostLine : decodeList) {
+
+    QString utcdatetimestringOriginal = thePostLine.at(11) + " " + thePostLine.at(3);
+    QDateTime utcdatetimeUTC = QDateTime::fromString(utcdatetimestringOriginal, "yyyy MMM dd  HHmmss");
+    utcdatetimeUTC.setTimeSpec((Qt::UTC));
+    QString utcdatetimeUTCString = utcdatetimeUTC.toString("yyyy-MM-ddTHH:mm:ss");
+    utcdatetimeUTCString = utcdatetimeUTCString + "Z";
+
+    QString postString =  "skedfreq=" + thePostLine.at(0) + "&rxfreq=" + thePostLine.at(1) + "&rpol=" + thePostLine.at(2) + "&dt="  +  thePostLine.at(4) + "&dB="  + thePostLine.at(5) + "&msgtype="  +  thePostLine.at(7) + "&callsign="  +  thePostLine.at(8) + "&grid="  +  thePostLine.at(9) + "&mode="  +  thePostLine.at(6) + "&utcdatetime="  +  utcdatetimeUTCString + "&spotter="  +  thePostLine.at(12) + "&spottergrid="  +  thePostLine.at(10) + "&apptype=QMAP";
+
+    QByteArray postByteArray = postString.toUtf8();
+    request.setRawHeader("Content-Length",QByteArray::number(postByteArray.size()));
+
+    QNetworkReply *reply = manager->post(request,postByteArray);
+
+    QEventLoop loop;
+    connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    loop.exec();
+
+    if (!reply->error()) {
+      QByteArray responseData = reply->readAll();
+      qDebug() << reply->readAll();
+    } else {
+      qDebug() << reply->errorString();
+    }
   }
 }
 
@@ -1079,6 +1165,7 @@ void MainWindow::guiUpdate()
     doLiveCQ = true;
     while(m_fetched<decodes_.ndecodes) {
       QString t=QString::fromLatin1(decodes_.result[m_fetched]);
+      QString t2=QString::fromLatin1(decodes2_.result2[m_fetched]);
       if(m_UTC0!="" and m_UTC0!=t.left(4)) {
         t1="-";
         ui->decodedTextBrowser->append(t1.repeated(60));
@@ -1090,7 +1177,9 @@ void MainWindow::guiUpdate()
       }
       m_UTC0=t.left(4);
       t=t.trimmed();
-      cqliveText << t;  //liveCQ
+      t2=t2.trimmed();            //liveCQ
+      QString t3 = t + " " + t2;  //liveCQ
+      cqliveText.append(t3);      //liveCQ
       ui->decodedTextBrowser->append(t);
       m_fetched++;
       m_nline++;

@@ -46,8 +46,8 @@ void getfile(QString fname, int dbDgrd)
     fclose(fp);
 
     datcom_.ndiskdat=1;
-    int nfreq=(int)datcom_.fcenter;
-    if(nfreq!=144 and nfreq != 432 and nfreq != 1296) datcom_.fcenter=1296.090;
+  //  int nfreq=(int)datcom_.fcenter;
+  //  if(nfreq!=144 and nfreq != 432 and nfreq != 1296) datcom_.fcenter=1296.090;
     int i0=fname.indexOf(".iq");
     datcom_.nutc=0;
     if(i0>0) {

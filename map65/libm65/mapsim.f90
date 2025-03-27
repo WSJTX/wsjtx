@@ -12,10 +12,11 @@ program mapsim
   logical bq65
   character msg0*22,message*22,msgsent*22,arg*8,fname*11,mode*2
   character*16 msg_list(60)
+  integer*2 hhmm
   data msg_list/                                          &
-       'W1AAA K2BBB EM00','W2CCC K3DDD EM01','W3EEE K4FFF EM02',   &
-       'W5GGG K6HHH EM03','W7III K8JJJ EM04','W9KKK K0LLL EM05',   &
-       'G0MMM F1NNN JN06','G2OOO F3PPP JN07','G4QQQ F5RRR JN08',   &
+       'CQ K1JT FN20','CQ W3SZ FN10','CQ DL3WDG JN68',   &
+       'CQ DG2YCB JO42','CQ ON4AOI JO21','CQ KA1GT FN54',   &
+       'CQ DL4KGC JN68','CQ HB9Q JN47','CQ G3LTF IO91',   &
        'G6SSS F7TTT JN09','W1XAA K2XBB EM10','W2XCC K3XDD EM11',   &
        'W3XEE K4XFF EM12','W5XGG K6XHH EM13','W7XII K8XJJ EM14',   &
        'W9XKK K0XLL EM15','G0XMM F1XNN JN16','G2XOO F3XPP JN17',   &
@@ -35,9 +36,9 @@ program mapsim
        'G2OYO F3PYP JN57','G4QYQ F5RYR JN58','G6SYS F7TYT JN59'/
   
   nargs=iargc()
-  if(nargs.ne.10) then
-     print*,'Usage:   mapsim "message"     mode DT  fa fb nsigs pol fDop SNR nfiles'
-     print*,'Example: mapsim "CQ K1ABC FN42" B 2.5 -20 20  21    45  0.0 -20   1'
+  if(nargs.ne.12) then
+     print*,'Usage:   mapsim "message"     mode DT  fa fb nsigs pol fDop SNR nfiles fcenter HHmm'
+     print*,'Example: mapsim "CQ K1ABC FN42" B 2.5 -20 20  21    45  0.0 -20   1   1296.1  1803'
      print*,' '
      print*,'         mode = A B C for JT65; QA-QE for Q65-60A' 
      print*,'         fa = lowest freq in kHz, relative to center'
@@ -66,12 +67,16 @@ program mapsim
   call getarg(9,arg)
   read(arg,*) snrdb                  !S/N
   call getarg(10,arg)
-  read(arg,*) nfiles                 !Number of files
+  read(arg,*) nfiles                 !Number of files                !S/N
+  call getarg(11,arg) ! added by w3sz
+  read(arg,*) fcenter     ! added by w3sz
+  call getarg(12,arg) ! added by w3sz
+  read(arg,*) hhmm     ! added by w3sz
 
   message=msg0                       !Transmitted message
   rmsdb=25.
   rms=10.0**(0.05*rmsdb)
-  fcenter=144.125d0                  !Center frequency (MHz)
+  ! w3sz fcenter=144.125d0                  !Center frequency (MHz)
   fsample=96000.d0                   !Sample rate (Hz)
   dt=1.d0/fsample                    !Sample interval (s)
   twopi=8.d0*atan(1.d0)
@@ -94,7 +99,7 @@ program mapsim
      ilist=0
      nmin=ifile-1
      if(mode(2:2).eq.' ') nmin=2*nmin
-     write(fname,1002) nmin                      !Create the output filenames
+     write(fname,1002) hhmm                      !Create the output filenames  ! w3sz was nmin
 1002 format('000000_',i4.4)
      open(10,file=fname//'.iq',access='stream',status='unknown')
      open(11,file=fname//'.tf2',access='stream',status='unknown')

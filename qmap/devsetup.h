@@ -30,8 +30,12 @@ public:
   QString m_saveDir;
   QString m_azelDir;
 
+  QString m_otherUrl;  //liveCQ
+  bool m_w3szUrl;      //liveCQ
+
 public slots:
   void accept();
+  void onButtonClicked();
 
 private:
   int r,g,b,r0,g0,b0,r1,g1,b1,r2,g2,b2,r3,g3,b3;

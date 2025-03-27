@@ -21,8 +21,10 @@ subroutine q65c
   character*6 mygrid,hisgrid
   character*20 datetime
   character*64 result
+  character*8 result2               !liveCQ
   common/decodes/ndecodes,ncand2,nQDecoderDone,nWDecoderBusy,              &
        nWTransmitting,kHzRequested,result(50)
+  common/decodes2/result2(50)       !liveCQ
   common/datcom2/dd(2,5760000),ss(400,NFFT),savg(NFFT),nparams0
   common/savecom/revision,fname
 !### REMEMBER that /npar/ is not updated until nparams=nparams0 is executed. ###
@@ -35,7 +37,7 @@ subroutine q65c
   data first/.true./
   save first
 
-  nparams=nparams0                     !Copy parameters into common/npar/
+  nparams=nparams0                  !Copy parameters into common/npar/
   datetime(12:)='00       '
   npatience=1
   newdat=1                          !Always on ??

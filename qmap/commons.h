@@ -98,6 +98,10 @@ extern struct {
 } decodes_;
 
 extern struct {
+  char result2[50][8];
+} decodes2_;
+
+extern struct {
   char revision[22];
   char saveFileName[120];
 } savecom_;

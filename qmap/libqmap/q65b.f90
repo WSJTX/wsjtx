@@ -30,9 +30,11 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,          &
   character*3 csubmode
   character*17 fname
   character*64 result,ctmp
+  character*8 result2                      !liveCQ
   character*20 datetime,datetime1
   common/decodes/ndecodes,ncand2,nQDecoderDone,nWDecoderBusy,              &
        nWTransmitting,kHzRequested,result(50)
+  common/decodes2/result2(50)              !liveCQ, also changed result(50) to result(55)
   common/cacb/ca
   data ifile/0/
   save
@@ -141,7 +143,7 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,          &
 
   if(nsnr0.gt.-99) then
 
-     do i=1,ndecodes                    !Check for dupes
+     do i=1,ndecodes                        !Check for dupes
         i1=index(result(i)(42:),trim(msg0))
 !          If this is a dupe, don't save it again:
         if(i1.gt.0 .and. (.not.bClickDecode .or. nhsym.eq.390)) go to 800
@@ -161,9 +163,12 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,          &
      ndecodes=min(ndecodes+1,50)
      write(result(ndecodes),1120) nhhmmss,frx,fsked,xdt0,nsnr0,trim(ctmp)
 1120 format(i6.6,f9.3,f7.1,f7.2,i5,2x,a)
+     write(result2(ndecodes),1125) fsked    !liveCQ
+1125 format(f7.3)                           !liveCQ & changed from(f7.1) to give fsked Hz accuracy
      write(12,1130) datetime1,trim(result(ndecodes)(7:))
 1130 format(a13,1x,a)
      result(ndecodes)=trim(result(ndecodes))//char(0)
+     result2(ndecodes)=trim(result2(ndecodes))//char(0)
 800  idec=0
   endif
 

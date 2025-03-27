@@ -11,8 +11,10 @@ subroutine decode0(dd,ss,savg)
   character mycall*12,hiscall*12,mygrid*6,hisgrid*6,datetime*20
   character mycall0*12,hiscall0*12,hisgrid0*6
   character*64 result
+  character*8 result2               !liveCQ
   common/decodes/ndecodes,ncand2,nQDecoderDone,nWDecoderBusy,              &
        nWTransmitting,kHzRequested,result(50)
+  common/decodes2/result2(50)       !liveCQ
   common/npar/fcenter,nutc,fselected,mousedf,mousefqso,nagain,            &
        ndepth,ndiskdat,ntx60,newdat,nfa,nfb,nfcal,nfshift,                &
        ntx30a,ntx30b,ntol,n60,nCFOM,nfsample,ndop58,nmode,                 &

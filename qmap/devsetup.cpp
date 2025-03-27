@@ -9,6 +9,12 @@ DevSetup::DevSetup(QWidget *parent) :	QDialog(parent)
 {
   ui.setupUi(this);	//setup the dialog form
   m_restartSoundIn=false;
+
+  QButtonGroup *buttonGroup = new QButtonGroup(this);
+  buttonGroup->addButton(ui.w3szBut);
+  buttonGroup->addButton(ui.otherBut);
+
+  connect(buttonGroup, SIGNAL(buttonClicked(int)), this, SLOT(onButtonClicked(int)));
 }
 
 DevSetup::~DevSetup()
@@ -28,6 +34,9 @@ void DevSetup::initDlg()
   ui.faddEntry->setText(QString::number(m_fAdd,'f',3));
   ui.sbPort->setValue(m_udpPort);
   ui.sb_dB->setValue(m_dB);
+  ui.otherUrlBox->setText(m_otherUrl);
+  if(m_w3szUrl) ui.w3szBut->setChecked(true);
+  else ui.otherBut->setChecked(true);
 }
 
 //------------------------------------------------------- accept()
@@ -47,5 +56,15 @@ void DevSetup::accept()
   m_fAdd=ui.faddEntry->text().toDouble();
   m_udpPort=ui.sbPort->value();
   m_dB=ui.sb_dB->value();
+  m_otherUrl=ui.otherUrlBox->text();
+  m_w3szUrl = ui.w3szBut->isChecked();
   QDialog::accept();
+}
+
+void DevSetup::onButtonClicked()
+{
+  if(ui.w3szBut->isChecked())
+  {
+
+  }
 }
