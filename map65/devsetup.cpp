@@ -13,6 +13,13 @@ DevSetup::DevSetup(QWidget *parent) :	QDialog(parent)
   ui.setupUi(this);	//setup the dialog form
   m_restartSoundIn=false;
   m_restartSoundOut=false;
+
+  QButtonGroup *buttonGroup = new QButtonGroup(this);
+  buttonGroup->addButton(ui.w3szBut);
+  buttonGroup->addButton(ui.otherBut);
+
+  connect(buttonGroup, SIGNAL(buttonClicked(int)), this, SLOT(onButtonClicked(int)));
+
 }
 
 DevSetup::~DevSetup()
@@ -134,6 +141,10 @@ void DevSetup::initDlg()
   m_paInDevice=m_inDevList[m_nDevIn];
   m_paOutDevice=m_outDevList[m_nDevOut];
 
+  ui.otherUrlBox->setText(m_otherUrl);
+  if(m_w3szUrl) ui.w3szBut->setChecked(true);
+  else ui.otherBut->setChecked(true);
+
 }
 
 //------------------------------------------------------- accept()
@@ -182,6 +193,8 @@ void DevSetup::accept()
   m_mult570Tx=ui.mult570TxSpinBox->value();
   m_cal570=ui.cal570SpinBox->value();
   m_TxOffset=ui.sbTxOffset->value();
+  m_otherUrl=ui.otherUrlBox->text();
+  m_w3szUrl = ui.w3szBut->isChecked();
 
   QDialog::accept();
 }
@@ -196,6 +209,18 @@ void DevSetup::on_soundCardRadioButton_toggled(bool checked)
   ui.sbPort->setEnabled(!checked);
   ui.cbIQswap->setEnabled(checked);
   ui.sb_dB->setEnabled(checked);
+}
+
+void DevSetup::onButtonClicked()
+{
+    if(ui.w3szBut->isChecked())
+    {
+        m_w3szUrl = true;
+    }
+    else
+    {
+        m_w3szUrl = false;
+    }
 }
 
 void DevSetup::on_cbXpol_stateChanged(int n)

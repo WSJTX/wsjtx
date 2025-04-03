@@ -21,6 +21,10 @@
 #include "sleep.h"
 #include <portaudio.h>
 
+#include <QApplication>
+#include <QDebug>
+#include <QDateTime>
+
 #define NFFT 32768
 
 short int iwave[2*60*12000];          //Wave file for Tx audio
@@ -39,6 +43,12 @@ QSharedMemory mem_m65("mem_m65");
 
 extern const int RxDataFrequency = 96000;
 extern const int TxDataFrequency = 11025;
+
+QString guiDate; //liveCQ
+QStringList allDecodes; //liveCQ
+QString guiFreq;  //liveCQ
+QString m_otherUrl;
+bool m_w3szUrl;
 
 //-------------------------------------------------- MainWindow constructor
 MainWindow::MainWindow(QWidget *parent) :
@@ -307,8 +317,8 @@ MainWindow::MainWindow(QWidget *parent) :
 
   // only start the guiUpdate timer after this constructor has finished
   QTimer::singleShot (0, [=] {
-                           m_gui_timer->start(100); //Don't change the 100 ms!
-                         });
+           m_gui_timer->start(100); //Don't change the 100 ms!
+         });
 }
 
   //--------------------------------------------------- MainWindow destructor
@@ -401,6 +411,8 @@ void MainWindow::writeSettings()
   settings.setValue("TxOffset",m_TxOffset);
   settings.setValue("Colors",m_colors);
   settings.setValue("MaxDrift",ui->sbMaxDrift->value());
+  settings.setValue("w3szUrl",m_w3szUrl); //liveCQ
+  settings.setValue("otherUrl",m_otherUrl); //liveCQ
 }
 
 //---------------------------------------------------------- readSettings()
@@ -507,6 +519,8 @@ void MainWindow::readSettings()
   if(m_ndepth==0) ui->actionNo_Deep_Search->setChecked(true);
   if(m_ndepth==1) ui->actionNormal_Deep_Search->setChecked(true);
   if(m_ndepth==2) ui->actionAggressive_Deep_Search->setChecked(true);
+  m_w3szUrl=settings.value("w3szUrl",true).toBool();
+  m_otherUrl=settings.value("otherUrl","").toString();
 }
 
 //-------------------------------------------------------------- dataSink()
@@ -707,6 +721,8 @@ void MainWindow::on_actionDeviceSetup_triggered()               //Setup Dialog
   dlg.m_mult570=m_mult570;
   dlg.m_mult570Tx=m_mult570Tx;
   dlg.m_colors=m_colors;
+  dlg.m_w3szUrl = m_w3szUrl; //liveCQ
+  dlg.m_otherUrl=m_otherUrl; //liveCQ
 
   dlg.initDlg();
   if(dlg.exec() == QDialog::Accepted) {
@@ -750,6 +766,34 @@ void MainWindow::on_actionDeviceSetup_triggered()               //Setup Dialog
     m_wide_graph_window->m_cal570=m_cal570;
     soundInThread.setSwapIQ(m_IQswap);
     soundInThread.setScale(m_dB);
+    m_w3szUrl=dlg.m_w3szUrl;
+    m_otherUrl=dlg.m_otherUrl;
+    QSettings settings(m_settings_filename, QSettings::IniFormat);
+    {
+        SettingsGroup g {&settings, "MainWindow"};
+    }
+    SettingsGroup g {&settings, "Common"};
+    settings.setValue("w3szUrl",m_w3szUrl); //liveCQ
+    settings.setValue("otherUrl",m_otherUrl); //liveCQ
+    settings.setValue("MyCall",m_myCall);
+    settings.setValue("MyGrid",m_myGrid);
+    settings.setValue("IDint",m_idInt);
+    settings.setValue("PTTport",m_pttPort);
+    settings.setValue("AstroFont",m_astroFont);
+    settings.setValue("Xpol",m_xpol);
+    settings.setValue("XpolX",m_xpolx);
+    settings.setValue("SaveDir",m_saveDir);
+    settings.setValue("AzElDir",m_azelDir);
+    settings.setValue("Editor",m_editorCommand);
+    settings.setValue("DXCCpfx",m_dxccPfx);
+    settings.setValue("Timeout",m_timeout);
+    settings.setValue("TxPower",txPower);
+    settings.setValue("IQamp",iqAmp);
+    settings.setValue("IQphase",iqPhase);
+    settings.setValue("ApplyIQcal",m_applyIQcal);
+    settings.setValue("dPhi",m_dPhi);
+    settings.setValue("Fcal",m_fCal);
+    settings.setValue("Fadd",m_fAdd);
 
     if(dlg.m_restartSoundIn) {
       soundInThread.quit();
@@ -1734,6 +1778,7 @@ void MainWindow::guiUpdate()
     m_setftx=0;
     QString utc = t.date().toString(" yyyy MMM dd \n") + t.time().toString();
     ui->labUTC->setText(utc);
+    guiDate = ui->labUTC->text().trimmed().mid(0,12); //liveCQ
     if((!m_monitoring and !m_diskData) or (khsym==m_hsym0)) {
       xSignalMeter->setValue(0);
       ySignalMeter->setValue(0);

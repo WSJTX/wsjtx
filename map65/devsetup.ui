@@ -23,7 +23,7 @@
    <item>
     <widget class="QTabWidget" name="ioTabWidget">
      <property name="currentIndex">
-      <number>0</number>
+      <number>4</number>
      </property>
      <widget class="QWidget" name="tab">
       <attribute name="title">
@@ -1747,6 +1747,63 @@
         </layout>
        </item>
       </layout>
+     </widget>
+     <widget class="QWidget" name="tab_5">
+      <attribute name="title">
+       <string>LiveCQ</string>
+      </attribute>
+      <widget class="QGroupBox" name="groupBox_4">
+       <property name="geometry">
+        <rect>
+         <x>70</x>
+         <y>100</y>
+         <width>361</width>
+         <height>80</height>
+        </rect>
+       </property>
+       <property name="title">
+        <string>LiveCQ URL</string>
+       </property>
+       <widget class="QRadioButton" name="otherBut">
+        <property name="geometry">
+         <rect>
+          <x>10</x>
+          <y>50</y>
+          <width>51</width>
+          <height>20</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Other</string>
+        </property>
+       </widget>
+       <widget class="QRadioButton" name="w3szBut">
+        <property name="geometry">
+         <rect>
+          <x>10</x>
+          <y>20</y>
+          <width>131</width>
+          <height>20</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Official QMAP URL</string>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="otherUrlBox">
+        <property name="geometry">
+         <rect>
+          <x>70</x>
+          <y>50</y>
+          <width>281</width>
+          <height>22</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string/>
+        </property>
+       </widget>
+      </widget>
      </widget>
     </widget>
    </item>

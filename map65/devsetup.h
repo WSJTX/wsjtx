@@ -3,6 +3,7 @@
 
 #include <QDialog>
 #include "ui_devsetup.h"
+#include "commons.h"
 
 class DevSetup : public QDialog
 {
@@ -53,8 +54,12 @@ public:
 
   QColor  m_colorBackground;
 
+  QString m_otherUrl; //liveCQ
+  bool m_w3szUrl; //liveCQ
+
 public slots:
   void accept();
+  void onButtonClicked();
 
 private slots:
   void on_soundCardRadioButton_toggled(bool checked);

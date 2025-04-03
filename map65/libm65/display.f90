@@ -3,13 +3,15 @@ subroutine display(nkeep,ftol)
   parameter (MAXLINES=400,MX=400,MAXCALLS=500)
   integer indx(MAXLINES),indx2(MX)
   character*83 line(MAXLINES),line2(MX),line3(MAXLINES)
-  character out*52,out0*52,cfreq0*3,livecq*58
+  character out*52,out0*52,cfreq0*3,livecq*63
   character*6 callsign,callsign0
   character*12 freqcall(MAXCALLS)
   real freqkHz(MAXLINES)
   integer utc(MAXLINES),utc2(MX),utcz
   real*8 f0
-  save
+  character(len=83) :: livecq2
+  character(len=83) :: livecq3
+save
 
   out0=' '
   rewind(26)
@@ -126,20 +128,22 @@ subroutine display(nkeep,ftol)
           line3(k)(35:38)//line3(k)(46:74)
      if(out(1:3).ne.'   ') then
         cfreq0=out(1:3)
-        livecq=line3(k)(6:13)//line3(k)(28:31)//line3(k)(39:45)//       &
+        livecq2=line3(k)
+        livecq=line3(k)(1:13)//line3(k)(28:31)//line3(k)(39:45)//       &
              line3(k)(23:27)//line3(k)(35:38)//line3(k)(46:70)//        &
              line3(k)(73:77)
         if(livecq(56:56).eq.':') livecq(56:58)=' '//livecq(56:57)
-        if(index(livecq,' CQ ').gt.0 .or. index(livecq,' QRZ ').gt.0 .or.   &
-           index(livecq,' QRT ').gt.0 .or. index(livecq,' CQV ').gt.0 .or.  &
-           index(livecq,' CQH ').gt.0) write(19,1029) livecq
-1029    format(a58)
+!        if(index(livecq,' CQ ').gt.0 .or. index(livecq,' QRZ ').gt.0 .or.   &
+!            index(livecq,' QRT ').gt.0 .or. index(livecq,' CQV ').gt.0 .or.  &
+!           index(livecq,' CQH ').gt.0) write(19,1029) livecq
+!1029    format(a63)
 
 ! Suppress listing duplicate (same time, decoded message, and frequency)
         if(out(14:17).ne.out0(14:17) .or. out(26:50).ne.out0(26:50) .or.  &
              out(1:3).ne.out0(1:3)) then
-           write(*,1030) out                  !Messages
-1030       format('@',a52)
+             livecq3 = out(1:50) // ' ' // livecq2(23:27) // ' ' // livecq2(73:77)
+             write(*,1030) livecq3                 !Messages
+1030       format('@',a77)
            out0=out
         endif
 
@@ -161,7 +165,8 @@ subroutine display(nkeep,ftol)
         endif
      endif
   enddo
-  flush(19)
+
+ ! flush(19)
   if(nc.lt.MAXCALLS) nc=nc+1
   freqcall(nc)='            '
   if(nc.lt.MAXCALLS) nc=nc+1

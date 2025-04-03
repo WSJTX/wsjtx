@@ -230,6 +230,9 @@ private:
   float   m_phasey;
   float   m_pctZap;
 
+  //bool    m_w3szUrl = true; //liveCQ
+  //QString m_otherUrl=""; //liveCQ
+
   QRect   m_wideGraphGeom;
 
   QLabel* lab1;                            // labels in status bar

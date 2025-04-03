@@ -50,6 +50,7 @@ WideGraph::WideGraph (QString const& settings_filename, QWidget * parent)
   ui->fCenterLineEdit->setText(QString::number(m_dForceCenterFreq));
   m_bLockTxRx=settings.value("LockTxRx",false).toBool();
   ui->cbLockTxRx->setChecked(m_bLockTxRx);
+  QString guiFreq;
 }
 
 WideGraph::~WideGraph()
@@ -380,6 +381,13 @@ void WideGraph::updateFreqLabel()
   rxFreq.insert (rxFreq.size () - 3, '.');
   txFreq.insert (txFreq.size () - 3, '.');
   ui->labFreq->setText (QString {"Rx:  %1\nTx:  %2"}.arg (rxFreq, txFreq));
+#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
+  const auto skip_empty_parts = Qt::SkipEmptyParts;
+#else
+  const auto skip_empty_parts = QString::SkipEmptyParts;
+#endif
+  QStringList guiFreqList = rxFreq.split(".",skip_empty_parts);
+  guiFreq = guiFreqList.at(0);
 }
 
 void WideGraph::enableSetRxHardware(bool b)

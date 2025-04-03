@@ -2,6 +2,7 @@
 #define MESSAGES_H
 
 #include <QDialog>
+#include "commons.h"
 
 namespace Ui {
   class Messages;
@@ -39,6 +40,12 @@ private:
 
   bool m_cqOnly;
   bool m_cqStarOnly;
+  bool doLiveCQ=true; //liveCQ
+  void CreateLiveCQ(QStringList cqliveText);  //liveCQ
+  void sendLiveCQData(QStringList decodeList);  //liveCQ
+
+  QString w3szUrlAddr="https://w3sz.com/livecq_update.php"; //liveCQ
+
 };
 
 #endif
