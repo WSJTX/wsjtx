@@ -42,6 +42,7 @@ subroutine decode0(dd,ss,savg)
   hiscall0=hiscall
   hisgrid0=hisgrid
 
+  if(sum(dd).eq.0.0 .or. sum(ss).eq.0.0 .or. sum(savg).eq.0.0) return
   call timer('qmapa   ',0)
   call qmapa(dd,ss,savg,newdat,nutc,fcenter,ntol,nfa,nfb,                  &
        mousedf,mousefqso,nagain,ntx30a,ntx30b,nfshift,max_drift,offset,    &

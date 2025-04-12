@@ -270,9 +270,9 @@ subroutine q65_symspec(iwave,nmax,iz,jz,s1)
   
   integer*2 iwave(0:nmax-1)              !Raw data
   real s1(iz,jz)
-  complex, allocatable :: c0(:)          !Complex spectrum of symbol
+  complex c0(0:41472)                    !Largest requirement, Q65-300x
+  save c0
 
-  allocate(c0(0:nsps-1))
   nfft=nsps
   fac=1/32767.0
   do j=1,jz,2                     !Compute symbol spectra at 2*step size
@@ -285,7 +285,7 @@ subroutine q65_symspec(iwave,nmax,iz,jz,s1)
         k=k+1
         c0(k)=fac*cmplx(xx,yy)
      enddo
-     c0(k+1:)=0.
+     c0(k+1:nfft-1)=0.
      call four2a(c0,nfft,1,-1,0)              !r2c FFT
      do i=1,iz
         s1(i,j)=real(c0(i))**2 + aimag(c0(i))**2

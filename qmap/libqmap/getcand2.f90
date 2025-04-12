@@ -21,6 +21,8 @@ subroutine getcand2(ss,savg0,nts_q65,nagain,nhsym,ntx30a,ntx30b,     &
   logical*1 bAlso30
   data nseg/16/,npct/40/
 
+  if(savg0(NFFT).eq.0) return           !Avoid a program crash when spectrum is empty
+  
   savg=savg0                            !Save the original spectrum
   nlen=NFFT/nseg
   do iseg=1,nseg                        !Normalize spectrum with nearby baseline
