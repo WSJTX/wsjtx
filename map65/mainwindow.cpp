@@ -44,9 +44,8 @@ QSharedMemory mem_m65("mem_m65");
 extern const int RxDataFrequency = 96000;
 extern const int TxDataFrequency = 11025;
 
-QString guiDate; //liveCQ
-QStringList allDecodes; //liveCQ
-QString guiFreq;  //liveCQ
+QString guiDate;         //liveCQ
+QStringList allDecodes;  //liveCQ
 QString m_otherUrl;
 bool m_w3szUrl;
 

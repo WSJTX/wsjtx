@@ -418,10 +418,10 @@ void CPlotter::DrawOverlay()                                 //DrawOverlay()
   painter3.drawLine(x,0,x,15);
 }
 
-void CPlotter::MakeFrequencyStrs()                       //MakeFrequencyStrs
+void CPlotter::MakeFrequencyStrs()        //MakeFrequencyStrs
 {
-  float StartFreq = m_StartFreq;
-  float freq;
+  double StartFreq = m_StartFreq;
+  double freq;
   int i,j;
   int FreqPerDiv=5;
 
@@ -440,7 +440,7 @@ void CPlotter::MakeFrequencyStrs()                       //MakeFrequencyStrs
   if(1 == m_FreqUnits) {
     //if units is Hz then just output integer freq
     for(int i=0; i<=m_hdivs; i++) {
-      freq = StartFreq/(float)m_FreqUnits;
+      freq = StartFreq/(double)m_FreqUnits;
       m_HDivText[i].setNum((int)freq);
       StartFreq += FreqPerDiv;
     }
@@ -449,7 +449,7 @@ void CPlotter::MakeFrequencyStrs()                       //MakeFrequencyStrs
   //here if is fractional frequency values
   //so create max sized text based on frequency units
   for(int i=0; i<=m_hdivs; i++) {
-    freq = StartFreq/(float)m_FreqUnits;
+    freq = StartFreq/(double)m_FreqUnits;
     m_HDivText[i].setNum(freq,'f', numfractdigits);
     StartFreq += FreqPerDiv;
   }
@@ -469,7 +469,7 @@ void CPlotter::MakeFrequencyStrs()                       //MakeFrequencyStrs
   //truncate all strings to maximum fractional length
   StartFreq = m_CenterFreq - 0.5*m_fSpan;
   for( i=0; i<=m_hdivs; i++) {
-    freq = (float)StartFreq/(float)m_FreqUnits;
+    freq = (double)StartFreq/(double)m_FreqUnits;
     m_HDivText[i].setNum(freq,'f', max);
     StartFreq += FreqPerDiv;
   }
@@ -487,7 +487,7 @@ int CPlotter::XfromFreq(float f)                               //XfromFreq()
 float CPlotter::FreqfromX(int x)                               //FreqfromX()
 {
   float w = m_WaterfallPixmap.width();
-  float f =m_CenterFreq - 0.5*m_fSpan + m_fSpan * x/w;
+  double f =m_CenterFreq - 0.5*m_fSpan + m_fSpan * x/w;
   return f;
 }
 

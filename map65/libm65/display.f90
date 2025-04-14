@@ -3,15 +3,16 @@ subroutine display(nkeep,ftol)
   parameter (MAXLINES=400,MX=400,MAXCALLS=500)
   integer indx(MAXLINES),indx2(MX)
   character*83 line(MAXLINES),line2(MX),line3(MAXLINES)
-  character out*52,out0*52,cfreq0*3,livecq*63
+  character out*57,out0*57,cfreq0*3
   character*6 callsign,callsign0
   character*12 freqcall(MAXCALLS)
   real freqkHz(MAXLINES)
   integer utc(MAXLINES),utc2(MX),utcz
   real*8 f0
+  save
+
   character(len=83) :: livecq2
   character(len=83) :: livecq3
-save
 
   out0=' '
   rewind(26)
@@ -20,7 +21,7 @@ save
      read(26,1010,end=10) line(i)
 1010 format(a77)
      read(line(i),1020) f0,ndf,nh,nm
-1020 format(f8.3,i5,25x,i3,i2)
+1020 format(f9.3,i5,25x,i3,i2)  ! w3sz was format(f8.3... -->9.3
      utc(i)=60*nh + nm
      freqkHz(i)=1000.d0*(f0-144.d0) + 0.001d0*ndf
   enddo
@@ -124,31 +125,23 @@ save
   nc=0
   callsign0='      '
   do k=1,k3
-     out=line3(k)(6:13)//line3(k)(28:31)//line3(k)(39:45)//       &
+     out=line3(k)(1:13)//line3(k)(28:31)//line3(k)(39:45)//       &
           line3(k)(35:38)//line3(k)(46:74)
-     if(out(1:3).ne.'   ') then
-        cfreq0=out(1:3)
+     if(out(6:8).ne.'   ') then
+        cfreq0=out(6:8)
         livecq2=line3(k)
-        livecq=line3(k)(1:13)//line3(k)(28:31)//line3(k)(39:45)//       &
-             line3(k)(23:27)//line3(k)(35:38)//line3(k)(46:70)//        &
-             line3(k)(73:77)
-        if(livecq(56:56).eq.':') livecq(56:58)=' '//livecq(56:57)
-!        if(index(livecq,' CQ ').gt.0 .or. index(livecq,' QRZ ').gt.0 .or.   &
-!            index(livecq,' QRT ').gt.0 .or. index(livecq,' CQV ').gt.0 .or.  &
-!           index(livecq,' CQH ').gt.0) write(19,1029) livecq
-!1029    format(a63)
 
 ! Suppress listing duplicate (same time, decoded message, and frequency)
-        if(out(14:17).ne.out0(14:17) .or. out(26:50).ne.out0(26:50) .or.  &
-             out(1:3).ne.out0(1:3)) then
-             livecq3 = out(1:50) // ' ' // livecq2(23:27) // ' ' // livecq2(73:77)
-             write(*,1030) livecq3                 !Messages
-1030       format('@',a77)
-           out0=out
+        if(out(19:22).ne.out0(19:22) .or. out(31:55).ne.out0(31:55) .or.  &
+          out(6:8).ne.out0(6:8)) then
+          livecq3 = out(1:55) // ' ' // livecq2(23:27) // ' ' // livecq2(73:77)
+          write(*,1030) livecq3
+1030      format('@',a77)
+          out0=out
         endif
 
-        i1=index(out(26:),' ')
-        callsign=out(i1+26:)
+        i1=index(out(31:),' ')
+        callsign=out(i1+31:)
         i2=index(callsign,' ')
         if(i2.gt.1) callsign(i2:)='      '
         if(callsign.ne.'      ' .and. callsign.ne.callsign0) then
@@ -166,7 +159,6 @@ save
      endif
   enddo
 
- ! flush(19)
   if(nc.lt.MAXCALLS) nc=nc+1
   freqcall(nc)='            '
   if(nc.lt.MAXCALLS) nc=nc+1

@@ -44,7 +44,8 @@ void getfile(QString fname, bool xpol, int dbDgrd)
 
     datcom_.ndiskdat=1;
     int nfreq=(int)datcom_.fcenter;
-    if(nfreq!=144 and nfreq != 432 and nfreq != 1296) datcom_.fcenter=144.125;
+//  if(nfreq!=144 and nfreq != 432 and nfreq != 1296) datcom_.fcenter=144.125;
+    if(nfreq>9998) datcom_.fcenter=9990.100;  //get crash if fcenter > 9999
     int i0=fname.indexOf(".tf2");
     if(i0<0) i0=fname.indexOf(".iq");
     datcom_.nutc=0;

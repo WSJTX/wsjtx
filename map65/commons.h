@@ -49,7 +49,6 @@ extern struct {                     //This is "common/datcom/..." in Fortran
 
 extern QStringList allDecodes;
 extern QString guiDate;
-extern QString guiFreq;
 
 extern bool m_w3szUrl;
 extern QString m_otherUrl;

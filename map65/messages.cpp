@@ -35,7 +35,6 @@ Messages::Messages (QString const& settings_filename, QWidget * parent) :
   m_cqStarOnly=false;
   QString guiDate;
   QStringList allDecodes =  { "" };
-  QString guiFreq;
   connect (ui->messagesTextBrowser, &DisplayText::selectCallsign, this, &Messages::selectCallsign2);
 }
 
@@ -47,17 +46,8 @@ Messages::~Messages()
   delete ui;
 }
 
-void Messages::sendLiveCQData(QStringList decodeList)
+void Messages::sendLiveCQData(QStringList decodeList)  //liveCQ
 {
-  if(allDecodes.contains(decodeList.at(0))) return;
-  allDecodes += decodeList;
-  try {
-    //  QMessageBox msgbox;
-    //  msgbox.setText(QString::number(allDecodes.size()));
-    //  msgbox.exec();
-  }
-  catch(...){}
-
   QSettings settings(m_settings_filename, QSettings::IniFormat);
   {
     SettingsGroup g {&settings, "MainWindow"};
@@ -68,78 +58,90 @@ void Messages::sendLiveCQData(QStringList decodeList)
   QString m_otherUrl = settings.value("otherUrl","").toString();
   QString m_myCall=settings.value("MyCall","").toString();
   QString m_myGrid=settings.value("MyGrid","").toString();
+  bool m_xpol = settings.value("Xpol",false).toBool();
   QString theDate = guiDate; // "2025 Mar 26";
-
   QString theUrl;
 
-  if(m_w3szUrl)
-  {
+  if(m_w3szUrl) {
     theUrl = w3szUrlAddr;
-  }
-  else
-  {
+  } else {
     theUrl = m_otherUrl;
   }
 
   QNetworkAccessManager *manager = new QNetworkAccessManager(this);
   QUrl url(theUrl);
+  QString rpol = "--";
   QNetworkRequest request(url);
   request.setRawHeader("User-Agent", "QMAP v0.5");
   request.setRawHeader("X-Custom-User-Agent", "QMAP v0.5");
   request.setHeader(QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
-
   for (const QString &theLine : decodeList) {
     QStringList thePostLine = theLine.split(" ",SkipEmptyParts);
     if((thePostLine.at(5) == "CQ" || thePostLine.at(5) == "QRZ" || thePostLine.at(5) == "CQV" ||  thePostLine.at(5) == "CQH" || thePostLine.at(5) == "QRT") && m_myCall.length() >=3 && m_myGrid.length()>=4) {
-      QString freq = guiFreq + "." + thePostLine.at(0).trimmed();
-      QString dF = thePostLine.at(1).trimmed();
-      QString rpol = thePostLine.at(2).trimmed();
-      QString utcdatetimestringOriginal = guiDate + " " + thePostLine.at(3).trimmed() + "00"; //needs 2 spaces between date and time
-      QDateTime utcdatetimeUTC = QDateTime::fromString(utcdatetimestringOriginal, "yyyy MMM dd  HHmmss");
-      utcdatetimeUTC.setTimeSpec((Qt::UTC));
-      QString utcdatetimeUTCString = utcdatetimeUTC.toString("yyyy-MM-ddTHH:mm:ss");
-      utcdatetimeUTCString = utcdatetimeUTCString + "Z";
-      QString dB = thePostLine.at(4).trimmed();
-      QString msgType = thePostLine.at(5).trimmed().toUpper();
-      QString callsign = thePostLine.at(6).trimmed().toUpper();
-      QString grid = thePostLine.at(7).trimmed();
-      QString modeChar = thePostLine.at(9).trimmed();
-      QString mode;
-      if(modeChar=="0") {
-        modeChar = thePostLine.at(10).trimmed();
-        if(modeChar.contains("#")) mode = "JT65" + modeChar.back();
-      }
-      else if(modeChar.contains(":")) mode = "Q65-60" + modeChar.back();
-      else mode = theLine.right(5);
-      QString dT =thePostLine.at(8).trimmed();
-
-      QString postString =  "skedfreq=" + freq + "&rxfreq=" + dF + "&rpol=" + rpol + "&dt="  +  dT + "&dB="  + dB + "&msgtype="  +  msgType.toUpper() + "&callsign="  +  callsign.toUpper() + "&grid="  +  grid.toUpper() + "&mode="  +  mode + "&utcdatetime="  +  utcdatetimeUTCString + "&spotter="  +  m_myCall.toUpper() + "&spottergrid="  + m_myGrid.toUpper() + "&apptype=MAP65";
-
-      QByteArray postByteArray = postString.toUtf8();
-      request.setRawHeader("Content-Length",QByteArray::number(postByteArray.size()));
-
-      try {
-
-        QNetworkReply *reply = manager->post(request,postByteArray);
-
-        QEventLoop loop;
-        connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
-        loop.exec();
-
-        if (!reply->error()) {
-          QByteArray responseData = reply->readAll();
-          qDebug() << reply->readAll();
+      if(allDecodes.filter(theLine.mid(0,53)).length() == 0) {
+        allDecodes.append(theLine);
+        QString freq = thePostLine.at(0).trimmed();
+        QString dF = thePostLine.at(1).trimmed();
+        QString utcdatetimestringOriginal = guiDate + " " + thePostLine.at(3).trimmed() + "00"; //needs 2 spaces between date and time
+        QDateTime utcdatetimeUTC = QDateTime::fromString(utcdatetimestringOriginal, "yyyy MMM dd  HHmmss");
+        utcdatetimeUTC.setTimeSpec((Qt::UTC));
+        QString utcdatetimeUTCString = utcdatetimeUTC.toString("yyyy-MM-ddTHH:mm:ss");
+        utcdatetimeUTCString = utcdatetimeUTCString + "Z";
+        QString dB = thePostLine.at(4).trimmed();
+        QString msgType = thePostLine.at(5).trimmed().toUpper();
+        QString callsign = thePostLine.at(6).trimmed().toUpper();
+        QString grid = thePostLine.at(7).trimmed();
+        QString dT =thePostLine.at(8).trimmed();
+        QString modeChar = thePostLine.at(9).trimmed();
+        QString mode="";
+        QString txpol = " ";
+        //	qDebug() << "theLine is "  << theLine;
+        if(modeChar=="0" || modeChar=="1" || modeChar=="2" || modeChar=="3" || modeChar=="4") {
+          modeChar = thePostLine.at(10).trimmed();
+          if(modeChar.contains("#")) mode = "JT65" + modeChar.back();
+          if (m_xpol) {
+            rpol = thePostLine.at(2).trimmed();
+            if(thePostLine.at(11).contains("H")) txpol = "H";
+            else if(thePostLine.at(11).contains("V")) txpol = "V";
+            //	qDebug()<< "tx pol 11 is " << txpol ;
+          } else txpol="--";
         }
-        else {
-          qDebug() << reply->errorString();
+        else if(modeChar.contains(":")) {
+          mode = "Q65-60" + modeChar.back();
+          if (m_xpol) {
+            rpol = thePostLine.at(2).trimmed();
+            if(thePostLine.at(10).contains("H")) txpol = "H";
+            else if(thePostLine.at(10).contains("V")) txpol = "V";
+            //	qDebug()<< "tx pol 10 is " << txpol ;
+          } else txpol="--";
         }
-      }
-      catch(...)
-      {
+        //	qDebug() << "mode is " << mode;
+        if(mode.contains("JT65") || mode.contains("Q65")) {
+          QString postString =  "skedfreq=" + freq + "&rxfreq=" + dF + "&rpol=" + rpol + "&dt="  +  dT + "&dB="  + dB + "&msgtype="  +  msgType.toUpper() + "&callsign="  +  callsign.toUpper() + "&grid="  +  grid.toUpper() + "&mode="  +  mode + "&utcdatetime="  +  utcdatetimeUTCString + "&spotter="  +  m_myCall.toUpper() + "&spottergrid="  + m_myGrid.toUpper() + "&txpol=" + txpol + "&apptype=MAP65";
 
+          QByteArray postByteArray = postString.toUtf8();
+          request.setRawHeader("Content-Length",QByteArray::number(postByteArray.size()));
+
+          try {
+            QNetworkReply *reply = manager->post(request,postByteArray);
+            QEventLoop loop;
+            connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+            loop.exec();
+            if (!reply->error()) {
+              qDebug() << reply->readAll();
+            }
+            else {
+              qDebug() << reply->errorString();
+            }
+          }
+          catch(...)
+          {
+          }
+        }
       }
     }
   }
+  // qDebug() << "Size of allDecodes = " << allDecodes.size() ;
 }
 
 void Messages::setText(QString t, QString t2)
@@ -148,9 +150,8 @@ void Messages::setText(QString t, QString t2)
   m_t=t;
   m_t2=t2;
 
-  //liveCQ
-  QStringList cqliveText;
-  doLiveCQ = true;
+  QStringList cqliveText;  //liveCQ
+  doLiveCQ = true;         //liveCQ
 
   QString s="QTextBrowser{background-color: "+m_colorBackground+"}";
   ui->messagesTextBrowser->setStyleSheet(s);
@@ -168,31 +169,29 @@ void Messages::setText(QString t, QString t2)
       int i=t2.indexOf(caller);
       if(t2.mid(i-1,1)==" ") continue;
     }
-    int n=line.mid(50,2).toInt();
+    int n=line.mid(55,2).toInt();  //liveCQ
 //    if(line.indexOf(":")>0) n=-1;
 //    if(n==-1) ui->messagesTextBrowser->setTextColor("#ffffff");  // white
     if(n==0) ui->messagesTextBrowser->setTextColor(m_color0);
     if(n==1) ui->messagesTextBrowser->setTextColor(m_color1);
     if(n==2) ui->messagesTextBrowser->setTextColor(m_color2);
     if(n>=3) ui->messagesTextBrowser->setTextColor(m_color3);
-    cfreq=t1.mid(0,3);
+    QString livecqStr = t1.mid(0,53) + t1.mid(56,t1.length()-56) + " " + t1.mid(54,2);   //liveCQ
+    if(cqliveText.filter(livecqStr.mid(0,53)).length()==0) cqliveText.append(livecqStr); //liveCQ
+    cfreq=t1.mid(5,3);
     if(cfreq == cfreq0) {
-      t1="   " + t1.mid(3,-1);
+      t1="        " + t1.mid(8,-1);
     }
     cfreq0=cfreq;
-    ui->messagesTextBrowser->append(t1.mid(0,50)); //liveCQ
-    QString livecqStr = t1.mid(0,48) + t1.mid(51,t1.length()-51); //liveCQ
-    cqliveText.append(livecqStr);  //liveCQ
-
+    ui->messagesTextBrowser->append(t1.mid(5,61));
   }
 
-  if(doLiveCQ) {
-    if(cqliveText.size() != 0) {
-      sendLiveCQData(cqliveText);  //liveCQ
-      doLiveCQ = false;
-    }
-  }
-
+  if(doLiveCQ) {                      //liveCQ
+    if(cqliveText.size() > 0) {       //liveCQ
+      sendLiveCQData(cqliveText);     //liveCQ
+      doLiveCQ = false;               //liveCQ
+    }                                 //liveCQ
+  }                                   //liveCQ
 }
 
 void Messages::selectCallsign2(bool ctrl)

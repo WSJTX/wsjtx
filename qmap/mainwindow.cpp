@@ -315,8 +315,8 @@ void MainWindow::readSettings()
     on_actionLinrad_triggered();
     ui->actionLinrad->setChecked(true);
   }
-  m_w3szUrl=settings.value("w3szUrl",true).toBool();
-  m_otherUrl=settings.value("otherUrl","").toString();
+  m_w3szUrl=settings.value("w3szUrl",true).toBool();    //liveCQ
+  m_otherUrl=settings.value("otherUrl","").toString();  //liveCQ
 }
 
 //-------------------------------------------------------------- dataSink()
@@ -1056,7 +1056,7 @@ void MainWindow::CreateLiveCQ(QStringList cqliveText)
 
       thePostLine.insert(0, bandFreq + "." + skedFreqString);  //skedfreq
       thePostLine.insert(1, QString::number(rxFreq)); //rxfreq
-      thePostLine.insert(2, "0"); //rpol
+      thePostLine.insert(2, "--"); //rpol
       thePostLine.insert(3,thePieces.at(0)); //utc HHmmSS
       thePostLine.insert(4,thePieces.at(3)); //dt
       thePostLine.insert(5, thePieces.at(4)); //dB
@@ -1067,6 +1067,7 @@ void MainWindow::CreateLiveCQ(QStringList cqliveText)
       thePostLine.insert(10, m_myGrid.toUpper()); //myGrid
       thePostLine.insert(11, theDate);  //the date
       thePostLine.insert(12, m_myCall.toUpper()); //myCall
+      thePostLine.insert(13, "--"); //txpol
       decodeList.append(thePostLine);
     }
   }
@@ -1098,7 +1099,7 @@ void MainWindow::sendLiveCQData(QList<QStringList>decodeList)
     QString utcdatetimeUTCString = utcdatetimeUTC.toString("yyyy-MM-ddTHH:mm:ss");
     utcdatetimeUTCString = utcdatetimeUTCString + "Z";
 
-    QString postString =  "skedfreq=" + thePostLine.at(0) + "&rxfreq=" + thePostLine.at(1) + "&rpol=" + thePostLine.at(2) + "&dt="  +  thePostLine.at(4) + "&dB="  + thePostLine.at(5) + "&msgtype="  +  thePostLine.at(7) + "&callsign="  +  thePostLine.at(8) + "&grid="  +  thePostLine.at(9) + "&mode="  +  thePostLine.at(6) + "&utcdatetime="  +  utcdatetimeUTCString + "&spotter="  +  thePostLine.at(12) + "&spottergrid="  +  thePostLine.at(10) + "&apptype=QMAP";
+    QString postString =  "skedfreq=" + thePostLine.at(0) + "&rxfreq=" + thePostLine.at(1) + "&rpol=" + thePostLine.at(2) + "&dt="  +  thePostLine.at(4) + "&dB="  + thePostLine.at(5) + "&msgtype="  +  thePostLine.at(7) + "&callsign="  +  thePostLine.at(8) + "&grid="  +  thePostLine.at(9) + "&mode="  +  thePostLine.at(6) + "&utcdatetime="  +  utcdatetimeUTCString + "&spotter="  +  thePostLine.at(12) + "&spottergrid=" +  thePostLine.at(10)  + "&txpol=" + thePostLine.at(13) + "&apptype=QMAP";
 
     QByteArray postByteArray = postString.toUtf8();
     request.setRawHeader("Content-Length",QByteArray::number(postByteArray.size()));
@@ -1110,7 +1111,7 @@ void MainWindow::sendLiveCQData(QList<QStringList>decodeList)
     loop.exec();
 
     if (!reply->error()) {
-      QByteArray responseData = reply->readAll();
+      // QByteArray responseData = reply->readAll();
       qDebug() << reply->readAll();
     } else {
       qDebug() << reply->errorString();
