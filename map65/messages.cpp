@@ -59,7 +59,8 @@ void Messages::sendLiveCQData(QStringList decodeList)  //liveCQ
   QString m_myCall=settings.value("MyCall","").toString();
   QString m_myGrid=settings.value("MyGrid","").toString();
   bool m_xpol = settings.value("Xpol",false).toBool();
-  QString theDate = guiDate; // "2025 Mar 26";
+  QString theDate = guiDate;
+  QString rpol = "--";
   QString theUrl;
 
   if(m_w3szUrl) {
@@ -70,7 +71,6 @@ void Messages::sendLiveCQData(QStringList decodeList)  //liveCQ
 
   QNetworkAccessManager *manager = new QNetworkAccessManager(this);
   QUrl url(theUrl);
-  QString rpol = "--";
   QNetworkRequest request(url);
   request.setRawHeader("User-Agent", "QMAP v0.5");
   request.setRawHeader("X-Custom-User-Agent", "QMAP v0.5");
@@ -123,16 +123,8 @@ void Messages::sendLiveCQData(QStringList decodeList)  //liveCQ
           request.setRawHeader("Content-Length",QByteArray::number(postByteArray.size()));
 
           try {
-            QNetworkReply *reply = manager->post(request,postByteArray);
-            QEventLoop loop;
-            connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
-            loop.exec();
-            if (!reply->error()) {
-              qDebug() << reply->readAll();
-            }
-            else {
-              qDebug() << reply->errorString();
-            }
+			QNetworkReply *reply = manager->post(request,postByteArray);				
+			QObject::connect(reply, &QNetworkReply::finished, this, &Messages::handleReply);
           }
           catch(...)
           {
@@ -142,6 +134,16 @@ void Messages::sendLiveCQData(QStringList decodeList)  //liveCQ
     }
   }
   // qDebug() << "Size of allDecodes = " << allDecodes.size() ;
+}
+
+void Messages::handleReply()
+{
+    QNetworkReply *reply = qobject_cast<QNetworkReply*>(sender());
+    if (reply->error() == QNetworkReply::NoError) {
+		qDebug() << reply->readAll();
+    } else {
+		qDebug() << reply->errorString();
+    }
 }
 
 void Messages::setText(QString t, QString t2)

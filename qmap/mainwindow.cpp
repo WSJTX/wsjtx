@@ -1104,20 +1104,27 @@ void MainWindow::sendLiveCQData(QList<QStringList>decodeList)
     QByteArray postByteArray = postString.toUtf8();
     request.setRawHeader("Content-Length",QByteArray::number(postByteArray.size()));
 
-    QNetworkReply *reply = manager->post(request,postByteArray);
 
-    QEventLoop loop;
-    connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
-    loop.exec();
-
-    if (!reply->error()) {
-      // QByteArray responseData = reply->readAll();
-      qDebug() << reply->readAll();
-    } else {
-      qDebug() << reply->errorString();
+    try {
+	  QNetworkReply *reply = manager->post(request,postByteArray);		
+	  QObject::connect(reply, &QNetworkReply::finished, this, &MainWindow::handleReply);
+    }
+    catch(...)
+    {
     }
   }
 }
+
+void MainWindow::handleReply()
+{
+    QNetworkReply *reply = qobject_cast<QNetworkReply*>(sender());
+    if (reply->error() == QNetworkReply::NoError) {
+		qDebug() << reply->readAll();
+    } else {
+		qDebug() << reply->errorString();
+    }
+}
+
 
 //------------------------------------------------------------- //guiUpdate()
 void MainWindow::guiUpdate()

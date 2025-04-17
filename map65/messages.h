@@ -26,6 +26,7 @@ private slots:
   void selectCallsign2(bool ctrl);
   void on_cbCQ_toggled(bool checked);
   void on_cbCQstar_toggled(bool checked);
+  void handleReply(); //liveCQ
 
 private:
   Ui::Messages *ui;

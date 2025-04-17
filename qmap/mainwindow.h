@@ -89,6 +89,7 @@ private slots:
   void on_actionExport_wav_file_at_fQSO_30a_triggered();
 
   void on_actionExport_wav_file_at_fQSO_30b_triggered();
+  void handleReply(); //liveCQ
 
 private:
   Ui::MainWindow *ui;
