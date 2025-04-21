@@ -17,7 +17,7 @@ The *Wait* features are enabled using the checkbox in the *File | Settings | Gen
 
 image::wait1.png[align="center",alt="wait1"]
 
-When selected, both the ^DX Call* field and *Monitor* button will turn yellow, to warn you that
+When selected, both the *DX Call* field and *Enable Tx* button will turn yellow, to warn you that
 an automatic transmission could occur. 
 
 .Wait and Reply
@@ -40,7 +40,7 @@ for example by right clicking on the *DX Call* button.
 .Wait and Call
 
 *Wait and Call* is useful if the station you are trying to work disappears for a time, for example in QSB.
-To enable the feature, click on the *DX Call* box, which will then turn red (if a callsign is present in
+To enable the feature, click on the *DX Call* button, which will then turn red (if a callsign is present in
 the *DX Call* field). If that station is subsequently decoded sending a message containing CQ, RR73, RRR or 73,
 up to three calls to that station will be made automatically. Any manual intervention, such as pressing the 
 *Halt Tx* or *Stop* buttons, will immediately disable *Wait and Call* giving you full control
@@ -109,14 +109,14 @@ combined in a separate Filters menu, which can be viewed using the *Filters* tab
 
 image::filters2.png[align="center",alt="Quick Filters"]
 
-An additional option allows the three respective Hide/Ignore/Highlight Quick Filters to be  switchable between “worked today”
+An additional option allows the three respective Hide/Ignore/Highlight Quick Filters to be switchable between “worked today”
 and “worked today or yesterday”. There is now a third checkbox for this in Settings/Filters. The text displayed in the main program
 under Filters switches accordingly. The new additional option is shown below.
 
 image::filters3.png[align="center",alt="Quick Filters 2"]
 
-A checkbox (labelled *BP*) on the main window allows all set filter options to be disabled temporarily with a single
-click. This can be used, for example, if you have skipped certain areas (e.g. to display only DX stations) but now
+A checkbox (labelled *BP*) on the main window allows all set filter options to be bypassed temporarily with a single
+click. This can be used, for example, if you have hidden certain areas (e.g. to display only DX stations) but now
 want to monitor the entire band activity for a certain time.
 
 .Ignore List
@@ -137,14 +137,13 @@ unless you have activated the *BP* (bypass) checkbox. This can be used to tempor
 Several GUI indicators/buttons change colour to indicate that certain features have been enabled, or can 
 have their function modified.  These are listed below:
 
-.DX Call box
+.DX Call Button
 
-If *Wait* features have been selected, the *DX Call* box turns yellow to warn that your station is 'primed' to transmit.
+If *Wait* features have been selected and there is a callsign in the *DX Call* box, then the *DX Call* button turns yellow to warn that your station is 'primed' to transmit.
 
 .Enable Tx
 
-If *Wait* features have been selected, the *DX Call* box turns yellow to warn that your station is 'primed' to transmit.
-If *Wait and Pounce* has been set, *Enable Tx* turns orange (with black lettering.
+If *Wait and Pounce* has been set, *Enable Tx* turns orange (with black lettering).
 
 .Monitor
 
@@ -304,8 +303,8 @@ image::audiostep2.png[align="center", alt="audiostep2"]
 IMPORTANT: Ensure that your rig is NOT connected via "Default Device", else your audio alerts could be tranmitted
 over the air!
 
-You can check that the audio alerts are being directed to the correct device by right clicking once on the *Band Hopping*
-button in Tab 3, as shown below:
+You can check that the audio alerts are being directed to the correct device by right-clicking once on the *Band Hopping*
+button in Tab 3, as shown below. A test message will then be played.
 
 image::testalerts.png[align="center",alt="testalerts"]
 
