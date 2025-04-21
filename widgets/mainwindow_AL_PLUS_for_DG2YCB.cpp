@@ -4753,6 +4753,14 @@ void MainWindow::on_actionSpecial_mouse_commands_triggered()
     </td>
   </tr>
   <tr>
+    <td align="right">Dial Frequency:</td>
+    <td><b>Turn the mouse wheel</b> to change the kHz values, or:<br/>
+        <b>Right-click</b> to increase frequency by 1 kHz.<br/>
+        <b>Left-click</b> to decrease frequency by 1 kHz.<br/>
+        The mouse pointer must be over the Dial Frequency indicator.
+    </td>
+  </tr>
+  <tr>
     <td align="right">H Button:</td>
     <td><b>Click</b> to toggle FT8 Hound Mode On/Off.<br/>
         <b>Right-click</b> to activate or deactivate SuperFox mode.
