@@ -1274,6 +1274,9 @@ target_link_libraries (sfoxsim wsjt_fort wsjt_cxx)
 add_executable (sfrx lib/superfox/sfrx.f90)
 target_link_libraries (sfrx wsjt_fort wsjt_cxx)
 
+add_executable (sfrx lib/superfox/sftx.f90)
+target_link_libraries (sfrx wsjt_fort wsjt_cxx)
+
 add_executable (msk144sim lib/msk144sim.f90)
 target_link_libraries (msk144sim wsjt_fort wsjt_cxx)
 
