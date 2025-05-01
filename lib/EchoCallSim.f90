@@ -26,8 +26,8 @@ program EchoCallSim
   
   nargs=iargc()
   if(nargs.ne.7) then
-     print*,'Usage:   EchoCallSim callsign f0 fdop fspread dftone nfiles snrdb'
-     print*,'Example: EchoCallSim   K1JT  1500 0.0   4.0     5.0    10    -15'
+     print*,'Usage:   EchoCallSim callsign f0 fdop fspread ndf nfiles snrdb'
+     print*,'Example: EchoCallSim   K1JT  1500 0.0  10.0    2    10    -15'
      go to 999
   endif
   call getarg(1,callsign)
@@ -38,7 +38,7 @@ program EchoCallSim
   call getarg(4,arg)
   read(arg,*) fspread
   call getarg(5,arg)
-  read(arg,*) dftone
+  read(arg,*) ndf
   call getarg(6,arg)
   read(arg,*) nfiles
   call getarg(7,arg)
@@ -63,6 +63,8 @@ program EchoCallSim
   nfft=npts
   nh=nfft/2
   dt=1.d0/fsample                    !Sample interval (s)
+  df=12000.0/NSPS
+  dftone=ndf*df
   
   do ifile=1,nfiles  !Loop over requested number of files
      xnoise=0.

@@ -1,11 +1,11 @@
 program testEchoCall
 
-  parameter (NSPS=4480,NZ=3*12000)
+  parameter (NSPS=4480,NH=NSPS/2,NZ=3*12000)
   integer ihdr(11)
   integer itone(6)
   integer*2 iwave(NZ)                    !Raw data, 12000 Hz sample rate
   complex c0(NZ)                         !Analytic data, 6000 Hz sample rate
-  complex c1(0:NSPS-1)
+  complex c1(0:NH-1)
   real s(0:NSPS-1),p(0:NSPS-1)
   character*120 fname
   character*37 c
@@ -33,7 +33,7 @@ program testEchoCall
      if(m.ge.97 .and. m.le.122) itone(i)=m-86      !a-z
   enddo
 
-  df=6000.0/NSPS
+  df=6000.0/NH
   do ifile=2,narg
      call getarg(ifile,fname)
      open(10,file=trim(fname),access='stream',status='unknown')
@@ -43,15 +43,15 @@ program testEchoCall
      call ana64(iwave,NZ,c0)
      p=0.
      do j=1,6
-        ib=j*NSPS
-        ia=ib-NSPS+1
+        ib=j*NH
+        ia=ib-NH+1
         c1=c0(ia:ib)
-        call four2a(c1,nsps,1,-1,1)           !Forward c2c
-        do i=0,NSPS/2
+        call four2a(c1,NH,1,-1,1)           !Forward c2c
+        do i=0,NH-1
            s(i)=real(c1(i))**2 + aimag(c1(i))**2
            write(12,3012) i*df,s(i)
         enddo
-        n=nint(itone(j)*5.0/df)
+        n=nint(itone(j)*2*df/df)
         p=p+cshift(s,n)
      enddo
      do i=0,NSPS/2
