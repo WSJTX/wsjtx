@@ -9,6 +9,7 @@ program testEchoCall
   complex c0(NZ)                         !Analytic data, 6000 Hz sample rate
   complex c1(0:NH-1)
   real s(0:NSPS-1),p(0:NSPS-1)
+  real p2(0:NSPS-1,6)
   character*120 fname
   character*37 c
   character*6 txcall,rxcall
@@ -35,6 +36,8 @@ program testEchoCall
   enddo
 
   df=6000.0/NH
+  p2=0.
+
   do ifile=2,narg
      call getarg(ifile,fname)
      open(10,file=trim(fname),access='stream',status='unknown')
@@ -55,7 +58,9 @@ program testEchoCall
         enddo
         n=nint(itone(j)*DFTONE/df)
         p=p+cshift(s,n)
-        ipk=maxloc(s)
+        p2(:,j)=p2(:,j)+s
+!        ipk=maxloc(s)
+        ipk=maxloc(p2(:,j))
         k=nint(((ipk(1)-1)*df - 1500.0)/DFTONE) + 1
         if(k.ge.1 .and. k.le.37) rxcall(j:j)=c(k:k)
      enddo
