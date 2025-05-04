@@ -32,7 +32,7 @@
 
 #include "moc_PSKReporter.cpp"
 
-#define DEBUGECLIPSE 0
+//#define DEBUGECLIPSE 0
 
 namespace
 {
@@ -294,8 +294,9 @@ namespace
   }
 }
 
-bool PSKReporter::impl::eclipse_active(QDateTime timeutc) 
+bool PSKReporter::impl::eclipse_active(QDateTime timeutc)
 {
+	qDebug() << timeutc;
 #ifdef DEBUGECLIPSE
     std::ofstream mylog("/temp/eclipse.log", std::ios_base::app);
 #endif
