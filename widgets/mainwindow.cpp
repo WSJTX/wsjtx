@@ -147,7 +147,7 @@ extern "C" {
                        int* hmod, float* f0, int* icmplx, float xjunk[], float wave[]);
 
   void genwave_(int itone[], int* nsym, int* nsps, int* nwave, float* fsample,
-                       int* hmod, float* f0, int* icmplx, float xjunk[], float wave[]);
+                double* toneSpacing, float* f0, int* icmplx, float xjunk[], float wave[]);
 
   void gen4_(char* msg, int* ichk, char* msgsent, int itone[],
                int* itext, fortran_charlen_t, fortran_charlen_t);
@@ -7395,10 +7395,10 @@ void MainWindow::guiUpdate()
           float fsample=48000.0;
           int nwave=(nsym+2)*nsps4;
           int icmplx=0;
-          int hmod=1;
           float f0=ui->TxFreqSpinBox->value()-m_XIT;
+          double toneSpacing=fsample/nsps4;
           genwave_(const_cast<int *>(itone),&nsym,&nsps4,&nwave,
-                   &fsample,&hmod,&f0,&icmplx,foxcom_.wave,foxcom_.wave);
+                   &fsample,&toneSpacing,&f0,&icmplx,foxcom_.wave,foxcom_.wave);
         }
 
         if(SpecOp::EU_VHF==m_specOp) {
