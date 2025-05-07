@@ -34,6 +34,7 @@ public:
       , tx {0}
       , dop {0}
       , width {0}
+      , techo {0}
     {}
     Correction (Correction const&) = default;
     Correction& operator = (Correction const&) = default;
@@ -49,6 +50,7 @@ public:
     FrequencyDelta tx;
     double dop;
     double width;
+    double techo;
   };
 
   Correction astroUpdate(QDateTime const& t,

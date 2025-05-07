@@ -1405,6 +1405,7 @@ void MainWindow::writeSettings()
   m_settings->setValue("FST4W_FTol",ui->sbFST4W_FTol->value());
   m_settings->setValue("FST4_FLow",ui->sbF_Low->value());
   m_settings->setValue("FST4_FHigh",ui->sbF_High->value());
+  m_settings->setValue("EchoToneSpacing",ui->sbToneSpacing->value());
   m_settings->setValue("DTtol",m_DTtol);
   m_settings->setValue("MinSync",m_minSync);
   m_settings->setValue ("AutoSeq", ui->cbAutoSeq->isChecked ());
@@ -1724,6 +1725,7 @@ void MainWindow::readSettings()
   ui->sbF_Low->setValue(m_settings->value("FST4_FLow",600).toInt());
   ui->sbF_High->setValue(m_settings->value("FST4_FHigh",1400).toInt());
   ui->sbFST4W_FTol->setValue(m_settings->value("FST4W_FTol",100).toInt());
+  ui->sbToneSpacing->setValue(m_settings->value("EchoToneSpacing",10).toInt());
   m_minSync=m_settings->value("MinSync",0).toInt();
   ui->syncSpinBox->setValue(m_minSync);
   ui->cbAutoSeq->setChecked (m_settings->value ("AutoSeq", false).toBool());
@@ -3382,9 +3384,14 @@ void MainWindow::monitor (bool state)
           rigFailure("TCI audio cannot be started as frequency is OOB");
         }
       } else {
-        qint64 ms=QDateTime::currentMSecsSinceEpoch();
-        qDebug() << "Rx start: " << ms << ms-m_msEchoTxStart;
-        Q_EMIT resumeAudioInputStream ();
+        float t_rxdelay=0.001*(QDateTime::currentMSecsSinceEpoch() - m_msEchoTxStart);
+        int ms=int(1000*(m_tEcho-t_rxdelay));
+//        if(m_msEchoTxStart>0) qDebug() << "t_rxdelay:" << t_rxdelay << m_tEcho << ms;
+        if(ms>=10) {
+          QTimer::singleShot (ms, [=] {resumeAudioInputStream();});
+        } else {
+          Q_EMIT resumeAudioInputStream ();
+        }
       }
     }
   } else {
@@ -7269,7 +7276,8 @@ void MainWindow::guiUpdate()
     if(m_tune or m_mode=="Echo") {
       itone[0]=0;
       if(ui->cbEchoCall->isChecked()) {
-        gen_echocall_(const_cast <char *> (m_baseCall.toLatin1().constData()),const_cast<int *>(itone),(FCL)6);
+        QString echoMsg=ui->dxCallEntry->text().left(6);
+        gen_echocall_(const_cast <char *> (echoMsg.toLatin1().constData()),const_cast<int *>(itone),(FCL)6);
       }
     } else {
       if(m_QSOProgress==REPORT || m_QSOProgress==ROGER_REPORT) m_bSentReport=true;
@@ -11988,13 +11996,12 @@ void MainWindow::transmit (double snr)
 
     toneSpacing=-5.0;  //Flag Modulator to use precomputed foxcom_.wave[].
     m_msEchoTxStart=QDateTime::currentMSecsSinceEpoch();
-    qDebug() << "Tx start: " << m_msEchoTxStart;
     if (m_tci_audio) {
       Q_EMIT m_config.transceiver_modulator_start(m_mode,numEchoSymbols,framesPerSymbol,freq,toneSpacing,
-             true,false,snr,m_TRperiod);
+             false,false,snr,m_TRperiod);
     } else {
       Q_EMIT sendMessage (m_mode,numEchoSymbols,framesPerSymbol,freq,toneSpacing,m_soundOutput,
-                          m_config.audio_output_channel(), true, false, snr, m_TRperiod);
+                          m_config.audio_output_channel(), false, false, snr, m_TRperiod);
     }
   }
 
@@ -12881,6 +12888,7 @@ void MainWindow::astroUpdate ()
          m_transmitting,m_auto,!m_config.tx_QSY_allowed (),m_TRperiod);
     m_fDop=correction.dop;
     m_fSpread=correction.width;
+    m_tEcho=correction.techo;
 
     if (m_transmitting && !m_config.tx_QSY_allowed ()) return;  // No Tx Doppler correction if rig can't do it
     if (!m_astroWidget->doppler_tracking() or m_astroWidget->DopplerMethod()==0) {
