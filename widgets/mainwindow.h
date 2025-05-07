@@ -512,6 +512,7 @@ private:
   qint64  m_secBandChanged;
   qint64  m_freqMoon;
   qint64  m_fullFoxCallTime;
+  qint64  m_msEchoTxStart;
 
   Frequency m_freqNominal;
   Frequency m_freqNominalPeriod;

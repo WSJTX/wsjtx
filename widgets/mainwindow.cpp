@@ -1240,6 +1240,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 #endif
 
   ui->cbEchoCall->setVisible(false);
+  ui->sbToneSpacing->setVisible(false);
+  ui->sbToneSpacing->values({5, 10, 20, 50});
 
 // this must be the last statement of constructor
   if (!m_valid) throw std::runtime_error {"Fatal initialization exception"};
@@ -3380,6 +3382,8 @@ void MainWindow::monitor (bool state)
           rigFailure("TCI audio cannot be started as frequency is OOB");
         }
       } else {
+        qint64 ms=QDateTime::currentMSecsSinceEpoch();
+        qDebug() << "Rx start: " << ms << ms-m_msEchoTxStart;
         Q_EMIT resumeAudioInputStream ();
       }
     }
@@ -7265,7 +7269,6 @@ void MainWindow::guiUpdate()
     if(m_tune or m_mode=="Echo") {
       itone[0]=0;
       if(ui->cbEchoCall->isChecked()) {
-//        qDebug() << "aa" << m_baseCall << ui->cbEchoCall->isChecked();
         gen_echocall_(const_cast <char *> (m_baseCall.toLatin1().constData()),const_cast<int *>(itone),(FCL)6);
       }
     } else {
@@ -11966,12 +11969,13 @@ void MainWindow::transmit (double snr)
 #endif
 
     unsigned int numEchoSymbols=6;
-    double framesPerSymbol=4480;
+    double framesPerSymbol=4096;
     double freq=1500.0+m_fDither;
     double toneSpacing=0.0;
     if(ui->cbEchoCall->isChecked()) {
       freq=1500.0;
-      toneSpacing=10.0;
+      toneSpacing=ui->sbToneSpacing->value();
+      if(toneSpacing==50.0) freq=500.0;
     }
     int nsps4=4*framesPerSymbol;                           //48000 Hz sampling
     int nsym=numEchoSymbols;
@@ -11983,12 +11987,14 @@ void MainWindow::transmit (double snr)
              &fsample,&toneSpacing,&f0,&icmplx,foxcom_.wave,foxcom_.wave);
 
     toneSpacing=-5.0;  //Flag Modulator to use precomputed foxcom_.wave[].
+    m_msEchoTxStart=QDateTime::currentMSecsSinceEpoch();
+    qDebug() << "Tx start: " << m_msEchoTxStart;
     if (m_tci_audio) {
       Q_EMIT m_config.transceiver_modulator_start(m_mode,numEchoSymbols,framesPerSymbol,freq,toneSpacing,
-             false,false,snr,m_TRperiod);
+             true,false,snr,m_TRperiod);
     } else {
       Q_EMIT sendMessage (m_mode,numEchoSymbols,framesPerSymbol,freq,toneSpacing,m_soundOutput,
-                          m_config.audio_output_channel(), false, false, snr, m_TRperiod);
+                          m_config.audio_output_channel(), true, false, snr, m_TRperiod);
     }
   }
 
@@ -13030,8 +13036,13 @@ void MainWindow::on_cbCQTx_toggled(bool b)
 
 void MainWindow::on_cbEchoCall_toggled(bool b)
 {
-    if(m_mode=="Echo" and !b) mode_label.setText("Echo");
-    if(m_mode=="Echo" and b) mode_label.setText("Echo Call");
+  ui->sbToneSpacing->setVisible(b);
+  if(b) {
+    mode_label.setText("Echo Call");
+    ui->dxCallEntry->setText(m_baseCall);
+  } else {
+    mode_label.setText("Echo");
+  }
 }
 
 void MainWindow::statusUpdate () const

@@ -1,6 +1,6 @@
 program testEchoCall
 
-  parameter (NSPS=4480,NH=NSPS/2,NZ=3*12000)
+  parameter (NSPS=4096,NH=NSPS/2,NZ=3*12000)
   parameter (DFTONE=10.0)
   integer ihdr(11)
   integer itone(6)

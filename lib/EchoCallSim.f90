@@ -3,7 +3,7 @@ program EchoCallSim
 ! Generate simulated transmissions for echo_call mode.
 
   use wavhdr
-  parameter (NSPS=4480,NZ=3*12000)
+  parameter (NSPS=4096,NZ=3*12000)
   parameter (NMAX=6*NSPS)                !Samples in .wav file, 2.2*12000
   parameter (DFTONE=10.0)                !Tone spacing, Hz)
   type(hdr) h                            !Header for .wav file
