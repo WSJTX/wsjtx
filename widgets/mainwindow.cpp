@@ -176,7 +176,7 @@ extern "C" {
   int savec2_(char const * fname, int* TR_seconds, double* dial_freq, fortran_charlen_t);
 
   void save_echo_params_(int* ndoptotal, int* ndop, int* nfrit, float* f1, float* fspread,
-                         int* toneSpacing, short id2[], int* idir);
+                         int* toneSpacing, volatile int itone[], short id2[], int* idir);
 
   void avecho_( short id2[], int* dop, int* nfrit, int* ntonespacing, int* nauto, int* navg,
                 int* nqual, float* f1, float* level, float* sigdb, float* snr, float* dfreq,
@@ -222,8 +222,8 @@ extern "C" {
 QList<FoxVerifier *> m_verifications;
 int volatile itone[MAX_NUM_SYMBOLS];   //Audio tones for all Tx symbols
 int volatile itone0[MAX_NUM_SYMBOLS];  //Dummy array, data not actually used
-int volatile icw[NUM_CW_SYMBOLS];        //Dits for CW ID
-dec_data_t dec_data;                // for sharing with Fortran
+int volatile icw[NUM_CW_SYMBOLS];      //Dits for CW ID
+dec_data_t dec_data;                   //For sharing with Fortran
 int outBufSize;
 int rc;
 qint32  g_iptt {0};
@@ -2147,7 +2147,8 @@ void MainWindow::dataSink(qint64 frames)
       int ntonespacing=0;
       if(m_diskData) {
         int idir=-1;
-        save_echo_params_(&nDopTotal,&nDop,&nfrit,&f1,&width,&ntonespacing,dec_data.d2,&idir);
+
+        save_echo_params_(&nDopTotal,&nDop,&nfrit,&f1,&width,&ntonespacing,&itone[0],dec_data.d2,&idir);
       }
       bool bEchoCall=ui->cbEchoCall->isChecked();
       QString txcall=m_baseCall;
@@ -2198,7 +2199,7 @@ void MainWindow::dataSink(qint64 frames)
         int ntoneSpacing=0;
         if(ui->cbEchoCall->isChecked()) ntoneSpacing=ui->sbToneSpacing->value();
         int idir=1;
-        save_echo_params_(&m_fDop,&nDop,&nfrit,&f1,&width,&ntoneSpacing,dec_data.d2,&idir);
+        save_echo_params_(&m_fDop,&nDop,&nfrit,&f1,&width,&ntoneSpacing,&itone[0],dec_data.d2,&idir);
         m_fSpread=width;
       }
       m_nclearave=0;
