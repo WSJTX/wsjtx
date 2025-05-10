@@ -2093,6 +2093,7 @@ void MainWindow::dataSink(qint64 frames)
     if(m_ihsym==m_hsymStop && ui->actionFrequency_calibration->isChecked()) {
       freqCalStep();
     }
+    if(m_position != 0) ui->decodedTextBrowser->horizontalScrollBar()->setValue(m_position);
   }
 
   if(m_ihsym==3*m_hsymStop/4) {
@@ -2169,6 +2170,7 @@ void MainWindow::dataSink(qint64 frames)
         if (ui) ui->decodedTextBrowser->insertText(t);
         t=t1+t;
         write_all("Rx",t);
+        if(m_position != 0) ui->decodedTextBrowser->horizontalScrollBar()->setValue(m_position);
       }
 
       if(m_echoGraph->isVisible()) m_echoGraph->plotSpec();
@@ -5102,6 +5104,7 @@ void::MainWindow::fast_decode_done()
     if(!m_bFastDone) {
       ui->decodedTextBrowser->displayDecodedText (decodedtext, m_config.my_callsign (), m_mode, m_config.DXCC (),
          m_logBook, m_currentBandPeriod, m_config.ppfx (), false, false, 0.0, false, -99, "", m_muted);
+      if(m_position != 0) ui->decodedTextBrowser->horizontalScrollBar()->setValue(m_position);
     }
 
     t=message.mid(10,5).toFloat();
@@ -7798,6 +7801,7 @@ void MainWindow::startTx2()
         ui->decodedTextBrowser->insertText(t);
       }
       write_all("Tx",m_currentMessage);
+      if(m_position != 0) ui->decodedTextBrowser->horizontalScrollBar()->setValue(m_position);
     }
   }
 }
@@ -12540,6 +12544,7 @@ void MainWindow::p1ReadFromStdout()                        //p1readFromStdout
       m_nWSPRdecodes += 1;
       ui->decodedTextBrowser->insertText(rxLine);
     }
+  if(m_position != 0) ui->decodedTextBrowser->horizontalScrollBar()->setValue(m_position);
   }
 }
 
