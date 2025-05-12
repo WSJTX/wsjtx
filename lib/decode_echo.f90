@@ -25,7 +25,7 @@ subroutine decode_echo(iwave,rxcall)
   call save_echo_params(nDop,nDopAudio,nfrit,f1,fspread,ndf,itone,iwave,-1)
   if(ndf.eq.0) return
 !  itone=(/21,24,3,19,30,26/)  !KN2ITP
-  itone=(/33,3,36,27,0,0/)    !W2ZQ
+!  itone=(/33,3,36,27,0,0/)    !W2ZQ
 
   df=12000.0/NSPS
   if(nclearave.ne.0) p=0.
