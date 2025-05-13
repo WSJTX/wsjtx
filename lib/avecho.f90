@@ -37,8 +37,8 @@ subroutine avecho(id2,ndop,nfrit,ntonespacing,nauto,navg,nqual,f1,xlevel,  &
 
 !###
 !  id2a=id2(1:15)
-!  write(*,4001) txcall,itone1,bEchoCall
-!4001 format('cc',2x,a6,2x,6i3,2x,L3)
+!  write(*,4001) txcall,itone1,bEchoCall,bDiskData
+!4001 format('cc',2x,a6,2x,6i4,2x,L3,2x,L3)
 !###
 
   rxcall='      '

@@ -26,7 +26,8 @@ namespace
 
 QString revision (QString const& scs_rev_string)
 {
-  return "250510";
+  // During heavy development, use the commit code rather than a date
+  //  return "250510";
   QString result;
   auto revision_from_scs = revision_extract_number (scs_rev_string);
 
