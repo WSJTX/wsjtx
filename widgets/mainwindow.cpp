@@ -2157,7 +2157,7 @@ void MainWindow::dataSink(qint64 frames)
         ui->cbEchoCall->setChecked(ndf!=0);
 //        QTextStream out(stdout);
 //        out << "aa " << ndf << " " << itone[0] << " " << itone[1] << " " << itone[2] << " "
-//                  << itone[3] << " " << itone[4] << " " << itone[5] << Qt::endl;
+//                  << itone[3] << " " << itone[4] << " " << itone[5] << "\n";
 //        qDebug() << "bb" << ndf << itone[0] << itone[1] << itone[2]
 //                 << itone[3] << itone[4] << itone[5];
 
