@@ -14,8 +14,8 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,nzhsym,lapon,     &
   real a(5)
   real s8(0:7,NN)
   real s2(0:511)
-  real bmeta(174),bmetb(174),bmetc(174),bmetd(174)
-  real llra(174),llrb(174),llrc(174),llrd(174),llrz(174)           !Soft symbols
+  real bmeta(174),bmetb(174),bmetc(174),bmetd(174),bmete(174)
+  real llra(174),llrb(174),llrc(174),llrd(174),llre(174),llrz(174)  !Soft symbols
   real dd0(15*12000)
   real ss(9)
   integer*1 message77(77),message91(91),apmask(174),cw(174)
@@ -208,9 +208,14 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,nzhsym,lapon,     &
         do ib=0,ibmax
           bm=maxval(s2(0:nt-1),one(0:nt-1,ibmax-ib)) - &
              maxval(s2(0:nt-1),.not.one(0:nt-1,ibmax-ib))
+          if(nsym.eq.1) then
+            bm2=maxval(s2(0:nt-1)**2,one(0:nt-1,ibmax-ib)) - &
+               maxval(s2(0:nt-1)**2,.not.one(0:nt-1,ibmax-ib))
+          endif
           if(i32+ib .gt.174) cycle
           if(nsym.eq.1) then
             bmeta(i32+ib)=bm
+            bmetb(i32+ib)=bm2
             den=max(maxval(s2(0:nt-1),one(0:nt-1,ibmax-ib)), &
                     maxval(s2(0:nt-1),.not.one(0:nt-1,ibmax-ib)))
             if(den.gt.0.0) then
@@ -218,80 +223,80 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,nzhsym,lapon,     &
             else ! erase it
               cm=0.0
             endif
-            bmetd(i32+ib)=cm
+            bmetc(i32+ib)=cm
           elseif(nsym.eq.2) then
-            bmetb(i32+ib)=bm
+            bmetd(i32+ib)=bm
           elseif(nsym.eq.3) then
-            bmetc(i32+ib)=bm
+            bmete(i32+ib)=bm
           endif
-        enddo
-      enddo
-    enddo
-  enddo
+        enddo  ! ib loop
+      enddo  ! k loop
+    enddo  ! ihalf loop
+  enddo  ! nsym loop
   call normalizebmet(bmeta,174)
   call normalizebmet(bmetb,174)
   call normalizebmet(bmetc,174)
   call normalizebmet(bmetd,174)
+  call normalizebmet(bmete,174)
 
   scalefac=2.83
-  llra=scalefac*bmeta
-  llrb=scalefac*bmetb
-  llrc=scalefac*bmetc
-  llrd=scalefac*bmetd
+  llra=scalefac*bmeta  ! nsym=1, s2
+  llrb=scalefac*bmetb  ! nsym=1, s2**2
+  llrc=scalefac*bmetc  ! nsym=1, s2, bit by bit normalized
+  llrd=scalefac*bmetd  ! nsym=2
+  llre=scalefac*bmete  ! nsym=3
 
   apmag=maxval(abs(llra))*1.01
 
 ! pass #
 !------------------------------
-!   1        regular decoding, nsym=1 
-!   2        regular decoding, nsym=2 
-!   3        regular decoding, nsym=3 
-!   4        regular decoding, nsym=1, bit-by-bit normalized 
-!   5        ap pass 1, nsym=1
-!   6        ap pass 1, nsym=2
-!   7        ap pass 1, nsym=3
-!   8        ap pass 1, nsym=1, bit-by-bit normalized
-!   9        ap pass 2
-!   10       ap pass 2
-!   11       ap pass 2
-!   12       ap pass 2
-!   13       ap pass 3
-!   14       ap pass 3
-!   15       ap pass 3
-!   16       ap pass 3
-!   17       ap pass 4
-!   18       ap pass 4
-!   19       ap pass 4
-!   20       ap pass 4
+!   1        no ap, bmeta 
+!   2        no ap, bmetb 
+!   3        no ap, bmetc 
+!   4        no ap, bmetd
+!   5        no ap, bmete  
+!   6        ap pass 1, bmeta
+!   7        ap pass 1, bmetd 
+!   8        ap pass 1, bmete 
+!   9        ap pass 2, bmeta
+!   10       ap pass 2, bmetd
+!   11       ap pass 2, bmete
+!   12       ap pass 3, bmeta
+!   13       ap pass 3, bmetd
+!   14       ap pass 3, bmete
+!   15       ap pass 4, bmeta
+!   16       ap pass 4, bmetd
+!   17       ap pass 4, bmete
 
   if(lapon.or.ncontest.eq.7) then !Hounds always use AP
      if(.not.lapcqonly) then
-        npasses=4+4*nappasses(nQSOProgress)
+        npasses=5+3*nappasses(nQSOProgress)
      else
         npasses=8
      endif
   else
-     npasses=4
+     npasses=5
   endif
-  if(nzhsym.lt.50) npasses=4
+  if(nzhsym.lt.50) npasses=5
 
   do ipass=1,npasses 
-     if(mod(ipass,4).eq.1) llrz=llra
-     if(mod(ipass,4).eq.2) llrz=llrb
-     if(mod(ipass,4).eq.3) llrz=llrc
-     if(mod(ipass,4).eq.0) llrz=llrd
-     if(ipass.le.4) then
-        apmask=0
-        iaptype=0
-     endif
-     if(ipass .gt. 4) then
-!        llrz=llra
-        if(.not.lapcqonly) then
-           itype=(ipass-1)/4
-           iaptype=naptypes(nQSOProgress,itype)
-        else
-           iaptype=1
-        endif
+     if( ipass .le. 5 ) then ! no ap
+       if(ipass.eq.1) llrz=llra 
+       if(ipass.eq.2) llrz=llrb 
+       if(ipass.eq.3) llrz=llrc 
+       if(ipass.eq.4) llrz=llrd 
+       if(ipass.eq.5) llrz=llre
+       apmask=0
+       iaptype=0
+     elseif( ipass .gt. 5 ) then ! ap pass
+       if(mod(ipass-6,3).eq.1) llrz=llra
+       if(mod(ipass-6,3).eq.2) llrz=llrd
+       if(mod(ipass-6,3).eq.0) llrz=llre
+       if(.not.lapcqonly) then
+          iaptype=naptypes(nQSOProgress,(ipass-6)/3+1)
+       else
+          iaptype=1
+       endif
 
 ! ncontest=0 : NONE
 !          1 : NA_VHF
@@ -442,6 +447,7 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,nzhsym,lapon,     &
      if(i3.eq.0 .and. n3.eq.2) cycle
      call unpack77(c77,1,msg37,unpk77_success)
      if(.not.unpk77_success) cycle
+!write(21,*) ipass, iaptype, nharderrors, dmin, msg37
      nbadcrc=0  ! If we get this far: valid codeword, valid (i3,n3), nonquirky message.
      call get_ft8_tones_from_77bits(message77,itone)
      if(lsubtract) then
