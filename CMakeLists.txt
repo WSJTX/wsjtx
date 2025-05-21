@@ -1030,7 +1030,7 @@ endif ()
 #
 # Fortran setup
 #
-set (General_FFLAGS "-Wall -Wno-conversion -fno-second-underscore")
+set (General_FFLAGS "-Wall -Wno-conversion -Wno-c-binding-type -fno-second-underscore")
 
 # FFLAGS depend on the compiler
 get_filename_component (Fortran_COMPILER_NAME ${CMAKE_Fortran_COMPILER} NAME)

@@ -9,7 +9,6 @@ subroutine sfox_gen_gfsk(idat,f0,isync,itone,cdat)
   parameter (BT=8)               !GFSK time-bandwidth product
 
   complex cdat(NMAX)
-  complex w, wstep
   integer idat(NN)
   integer isync(NS)
   integer itone(NDS)

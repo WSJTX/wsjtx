@@ -168,6 +168,7 @@ subroutine fastosd240_74(llr,k,apmask,ndeep,message74,cw,nhardmin,dmin)
 
       if(ndeep.eq.0) goto 998  ! norder=0
       if(ndeep.gt.4) ndeep=4
+      nsyndmax=0
       if( ndeep.eq. 1) then
          nord=1
          xlambda=0.0

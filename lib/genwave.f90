@@ -4,10 +4,8 @@ subroutine genwave(itone,nsym,nsps,nwave,fsample,tonespacing,f0,icmplx, &
   real*8 tonespacing
   real wave(nwave)
   complex cwave(nwave)
-  integer hmod
   integer itone(nsym)
-  logical ex
-  real*8 dt,phi,dphi,twopi,freq,baud
+  real*8 dt,phi,dphi,twopi,freq
 
   dt=1.d0/fsample
   twopi=8.d0*atan(1.d0)
