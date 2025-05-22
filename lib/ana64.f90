@@ -1,7 +1,5 @@
 subroutine ana64(iwave,npts,c0)
 
-  use timer_module, only: timer
-
   integer*2 iwave(npts)                      !Raw data at 12000 Hz
   complex c0(0:npts-1)                       !Complex data at 6000 Hz
   save

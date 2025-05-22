@@ -412,6 +412,7 @@ private slots:
   void update_tx5(const QString &qsy_text);
   void reply_tx5(const QString &qsy_text);
   void setQSYMessageCreatorStatus(const bool &QSYMessageCreatorValue);
+  void on_cbEchoCall_toggled(bool b);
 
 private:
   Q_SIGNAL void initializeAudioOutputStream (QAudioDeviceInfo,
@@ -511,6 +512,7 @@ private:
   qint64  m_secBandChanged;
   qint64  m_freqMoon;
   qint64  m_fullFoxCallTime;
+  qint64  m_msEchoTxStart=0;
 
   Frequency m_freqNominal;
   Frequency m_freqNominalPeriod;
@@ -531,6 +533,7 @@ private:
   float   m_t0Pick;
   float   m_t1Pick;
   float   m_fCPUmskrtd;
+  float   m_tEcho=0;
 
   qint32  m_waterfallAvg;
   qint32  m_ntx;

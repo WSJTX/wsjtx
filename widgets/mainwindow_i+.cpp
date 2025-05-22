@@ -126,6 +126,8 @@ extern "C" {
               float s[], int* jh, float *pxmax, float *rmsNoGain, char line[],
               fortran_charlen_t, fortran_charlen_t, fortran_charlen_t, fortran_charlen_t);
 
+  void gen_echocall_(char* basecall, int itone[], fortran_charlen_t);
+
   void genft8_(char* msg, int* i3, int* n3, char* msgsent, char ft8msgbits[],
                int itone[], fortran_charlen_t, fortran_charlen_t);
 
@@ -145,7 +147,7 @@ extern "C" {
                        int* hmod, float* f0, int* icmplx, float xjunk[], float wave[]);
 
   void genwave_(int itone[], int* nsym, int* nsps, int* nwave, float* fsample,
-                       int* hmod, float* f0, int* icmplx, float xjunk[], float wave[]);
+                double* toneSpacing, float* f0, int* icmplx, float xjunk[], float wave[]);
 
   void gen4_(char* msg, int* ichk, char* msgsent, int itone[],
                int* itext, fortran_charlen_t, fortran_charlen_t);
@@ -173,11 +175,13 @@ extern "C" {
 
   int savec2_(char const * fname, int* TR_seconds, double* dial_freq, fortran_charlen_t);
 
-  void save_echo_params_(int* ndoptotal, int* ndop, int* nfrit, float* f1, float* fspread, short id2[], int* idir);
+  void save_echo_params_(int* ndoptotal, int* ndop, int* nfrit, float* f1, float* fspread,
+                         int* toneSpacing, volatile int itone[], short id2[], int* idir);
 
-  void avecho_( short id2[], int* dop, int* nfrit, int* nauto, int* navg, int* nqual, float* f1,
-                float* level, float* sigdb, float* snr, float* dfreq,
-                float* width, bool* bDiskData);
+  void avecho_( short id2[], int* dop, int* nfrit, int* ntonespacing, int* nauto, int* navg,
+                int* nqual, float* f1, float* level, float* sigdb, float* snr, float* dfreq,
+                float* width, bool* bDiskData, bool* bEchoCall, char const * txcall,
+                char rxcall[], FCL len1, FCL len2);
 
   void fast_decode_(short id2[], int narg[], double * trperiod,
                     char msg[], char mycall[], char hiscall[],
@@ -218,8 +222,8 @@ extern "C" {
 QList<FoxVerifier *> m_verifications;
 int volatile itone[MAX_NUM_SYMBOLS];   //Audio tones for all Tx symbols
 int volatile itone0[MAX_NUM_SYMBOLS];  //Dummy array, data not actually used
-int volatile icw[NUM_CW_SYMBOLS];        //Dits for CW ID
-dec_data_t dec_data;                // for sharing with Fortran
+int volatile icw[NUM_CW_SYMBOLS];      //Dits for CW ID
+dec_data_t dec_data;                   //For sharing with Fortran
 int outBufSize;
 int rc;
 qint32  g_iptt {0};
@@ -1236,6 +1240,10 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   }
 #endif
 
+  ui->cbEchoCall->setVisible(false);
+  ui->sbToneSpacing->setVisible(false);
+  ui->sbToneSpacing->values({10, 15, 20, 25, 30});
+
 // this must be the last statement of constructor
   if (!m_valid) throw std::runtime_error {"Fatal initialization exception"};
 }
@@ -1398,6 +1406,7 @@ void MainWindow::writeSettings()
   m_settings->setValue("FST4W_FTol",ui->sbFST4W_FTol->value());
   m_settings->setValue("FST4_FLow",ui->sbF_Low->value());
   m_settings->setValue("FST4_FHigh",ui->sbF_High->value());
+  m_settings->setValue("EchoToneSpacing",ui->sbToneSpacing->value());
   m_settings->setValue("DTtol",m_DTtol);
   m_settings->setValue("MinSync",m_minSync);
   m_settings->setValue ("AutoSeq", ui->cbAutoSeq->isChecked ());
@@ -1717,6 +1726,7 @@ void MainWindow::readSettings()
   ui->sbF_Low->setValue(m_settings->value("FST4_FLow",600).toInt());
   ui->sbF_High->setValue(m_settings->value("FST4_FHigh",1400).toInt());
   ui->sbFST4W_FTol->setValue(m_settings->value("FST4W_FTol",100).toInt());
+  ui->sbToneSpacing->setValue(m_settings->value("EchoToneSpacing",10).toInt());
   m_minSync=m_settings->value("MinSync",0).toInt();
   ui->syncSpinBox->setValue(m_minSync);
   ui->cbAutoSeq->setChecked (m_settings->value ("AutoSeq", false).toBool());
@@ -2133,12 +2143,33 @@ void MainWindow::dataSink(qint64 frames)
       if(m_astroWidget && m_astroWidget->DopplerMethod()==2) nDop=0;   //Using CFOM
       int nDopTotal=m_fDop;
       int navg=ui->sbEchoAvg->value();
-      if(m_diskData) {
-        int idir=-1;
-        save_echo_params_(&nDopTotal,&nDop,&nfrit,&f1,&width,dec_data.d2,&idir);
+      int ndf=0;
+      int idir=1;
+      if(ui->cbEchoCall->isChecked() and !m_diskData) {
+        ndf=ui->sbToneSpacing->value();
+        save_echo_params_(&nDopTotal,&nDop,&nfrit,&f1,&width,&ndf,&itone[0],dec_data.d2,&idir);
       }
-      avecho_(dec_data.d2,&nDop,&nfrit,&nauto,&navg,&nqual,&f1,&xlevel,&sigdb,
-          &dBerr,&dfreq,&width,&m_diskData);
+      if(m_diskData) {
+        idir=-1;
+        save_echo_params_(&nDopTotal,&nDop,&nfrit,&f1,&width,&ndf,&itone[0],dec_data.d2,&idir);
+
+        ui->cbEchoCall->setChecked(ndf!=0);
+//        QTextStream out(stdout);
+//        out << "aa " << ndf << " " << itone[0] << " " << itone[1] << " " << itone[2] << " "
+//                  << itone[3] << " " << itone[4] << " " << itone[5] << "\n";
+//        qDebug() << "bb" << ndf << itone[0] << itone[1] << itone[2]
+//                 << itone[3] << itone[4] << itone[5];
+
+      }
+      bool bEchoCall=ui->cbEchoCall->isChecked();
+      QString txcall=m_baseCall;
+      static char crxcall[7];
+      avecho_(dec_data.d2,&nDop,&nfrit,&ndf,&nauto,&navg,&nqual,&f1,&xlevel,&sigdb,
+          &dBerr,&dfreq,&width,&m_diskData,&bEchoCall,txcall.toLatin1().constData(),
+          &crxcall[0],(FCL)6,(FCL)6);
+      crxcall[6]=0;
+      QString rxcall {QString::fromLatin1(crxcall)};
+
       //Don't restart Monitor after an Echo transmission
       if(m_bEchoTxed and !m_auto) {
         monitor(false);
@@ -2164,24 +2195,27 @@ void MainWindow::dataSink(qint64 frames)
         if(!m_echoRunning or echocom_.nsum<2) m_echoSec0=nsec;
         float hour=n/10000 + ((n/100)%100)/60.0 + (n%100)/3600.0;
         m_echoRunning=true;
+        if(ndf<0 or ndf>30) ndf=0;
         QString t;
-        t = t.asprintf("%9.6f  %5.2f %7d %7.1f %7d %7d %7d %7.1f %7.1f",hour,xlevel,
-                       nDopTotal,width,echocom_.nsum,nqual,qRound(dfreq),sigdb,dBerr);
-        t = t0 + t;
-        if (ui) ui->decodedTextBrowser->insertText(t);
-        t=t1+t;
+        t = t.asprintf("%7.4f  %5.2f %7d %7.1f %5d %5d %6d %6.1f %7.1f %3d",hour,xlevel,
+                       nDopTotal,width,echocom_.nsum,nqual,qRound(dfreq),sigdb,dBerr,ndf);
+        t = t0 + t + "  " + rxcall;
+        if(ui) ui->decodedTextBrowser->insertText(t);
+        t=t1 + t;
         write_all("Rx",t);
         if(m_position != 0) ui->decodedTextBrowser->horizontalScrollBar()->setValue(m_position);
       }
 
       if(m_echoGraph->isVisible()) m_echoGraph->plotSpec();
       if(m_saveAll and !m_diskData) {
+        if(ui->cbEchoCall->isChecked()) ndf=ui->sbToneSpacing->value();
         int idir=1;
-        save_echo_params_(&m_fDop,&nDop,&nfrit,&f1,&width,dec_data.d2,&idir);
+        save_echo_params_(&m_fDop,&nDop,&nfrit,&f1,&width,&ndf,&itone[0],dec_data.d2,&idir);
         m_fSpread=width;
       }
       m_nclearave=0;
     }
+
     if(m_mode=="FreqCal") return;
 
     if(m_dialFreqRxWSPR==0) m_dialFreqRxWSPR=m_freqNominal;
@@ -3331,7 +3365,16 @@ void MainWindow::monitor (bool state)
           rigFailure("TCI audio cannot be started as frequency is OOB");
         }
       } else {
-        Q_EMIT resumeAudioInputStream ();
+        float t_rxdelay=0.001*(QDateTime::currentMSecsSinceEpoch() - m_msEchoTxStart);
+        int ms=int(1000*(m_tEcho-t_rxdelay));
+//        if(m_msEchoTxStart>0) qDebug() << "t_rxdelay:" << t_rxdelay << m_tEcho << ms;
+        if(ms>=10) {
+          QTimer::singleShot (ms, [=] {resumeAudioInputStream();});
+        } else {
+//        qint64 ms=QDateTime::currentMSecsSinceEpoch();
+//        qDebug() << "Rx start: " << ms << ms-m_msEchoTxStart;
+          Q_EMIT resumeAudioInputStream ();
+        }
       }
     }
   } else {
@@ -3904,6 +3947,7 @@ void MainWindow::statusChanged()
   if (ui->tx1->text()=="" && !(m_mode=="FT8" && (SpecOp::HOUND==m_specOp or SpecOp::FOX==m_specOp))
       && !m_bDoubleClicked) ui->txb6->click();
   check_button_color();
+  ui->cbEchoCall->setVisible(m_mode=="Echo");
 }
 
 bool MainWindow::eventFilter (QObject * object, QEvent * event)
@@ -7207,6 +7251,10 @@ void MainWindow::guiUpdate()
     m_currentMessageType = 0;
     if(m_tune or m_mode=="Echo") {
       itone[0]=0;
+      if(ui->cbEchoCall->isChecked()) {
+        QString echoMsg=ui->dxCallEntry->text().left(6);
+        gen_echocall_(const_cast <char *> (echoMsg.toLatin1().constData()),const_cast<int *>(itone),(FCL)6);
+      }
     } else {
       if(m_QSOProgress==REPORT || m_QSOProgress==ROGER_REPORT) m_bSentReport=true;
       if(m_bSentReport and (m_QSOProgress<REPORT or m_QSOProgress>ROGER_REPORT)) m_bSentReport=false;
@@ -7334,10 +7382,10 @@ void MainWindow::guiUpdate()
           float fsample=48000.0;
           int nwave=(nsym+2)*nsps4;
           int icmplx=0;
-          int hmod=1;
           float f0=ui->TxFreqSpinBox->value()-m_XIT;
+          double toneSpacing=fsample/nsps4;
           genwave_(const_cast<int *>(itone),&nsym,&nsps4,&nwave,
-                   &fsample,&hmod,&f0,&icmplx,foxcom_.wave,foxcom_.wave);
+                   &fsample,&toneSpacing,&f0,&icmplx,foxcom_.wave,foxcom_.wave);
         }
 
         if(SpecOp::EU_VHF==m_specOp) {
@@ -10762,7 +10810,7 @@ void MainWindow::on_actionEcho_triggered()
   m_bFastMode=false;
   m_bFast9=false;
   WSPR_config(true);
-  ui->lh_decodes_headings_label->setText("  UTC      Hour    Level  Doppler  Width       N       Q      DF     SNR    dBerr");
+  ui->lh_decodes_headings_label->setText("  UTC    Hour    Level  Doppler  Width     N     Q     DF    SNR   dBerr  TS  Echo Call");
   //                       01234567890123456789012345678901234567
   displayWidgets(nWidgets("00000000000000000010001000000000000000"));
   fast_config(false);
@@ -11876,11 +11924,32 @@ void MainWindow::transmit (double snr)
 #else
     if(m_astroWidget && m_astroWidget->bDither()) m_fDither = 20.0*(double(qrand())/RAND_MAX) - 10.0; //Dither by +/- 10 Hz
 #endif
+
+    unsigned int numEchoSymbols=6;
+    double framesPerSymbol=4096;
+    double freq=1500.0+m_fDither;
+    double toneSpacing=0.0;
+    if(ui->cbEchoCall->isChecked()) {
+      freq=1500.0;
+      toneSpacing=ui->sbToneSpacing->value();
+//      if(toneSpacing==50.0) freq=500.0;
+    }
+    int nsps4=4*framesPerSymbol;                           //48000 Hz sampling
+    int nsym=numEchoSymbols;
+    float fsample=48000.0;
+    int nwave=nsym*nsps4;
+    int icmplx=0;
+    float f0=freq;
+    genwave_(const_cast<int *>(itone),&nsym,&nsps4,&nwave,
+             &fsample,&toneSpacing,&f0,&icmplx,foxcom_.wave,foxcom_.wave);
+
+    toneSpacing=-5.0;  //Flag Modulator to use precomputed foxcom_.wave[].
+    m_msEchoTxStart=QDateTime::currentMSecsSinceEpoch();
     if (m_tci_audio) {
-      Q_EMIT m_config.transceiver_modulator_start(m_mode, 27,1024.0,1500.0+m_fDither, 0.0,
+      Q_EMIT m_config.transceiver_modulator_start(m_mode,numEchoSymbols,framesPerSymbol,freq,toneSpacing,
              false,false,snr,m_TRperiod);
     } else {
-      Q_EMIT sendMessage (m_mode, 27, 1024.0, 1500.0+m_fDither, 0.0, m_soundOutput,
+      Q_EMIT sendMessage (m_mode,numEchoSymbols,framesPerSymbol,freq,toneSpacing,m_soundOutput,
                           m_config.audio_output_channel(), false, false, snr, m_TRperiod);
     }
   }
@@ -12768,6 +12837,7 @@ void MainWindow::astroUpdate ()
          m_transmitting,m_auto,!m_config.tx_QSY_allowed (),m_TRperiod);
     m_fDop=correction.dop;
     m_fSpread=correction.width;
+    m_tEcho=correction.techo;
 
     if (m_transmitting && !m_config.tx_QSY_allowed ()) return;  // No Tx Doppler correction if rig can't do it
     if (!m_astroWidget->doppler_tracking() or m_astroWidget->DopplerMethod()==0) {
@@ -12919,6 +12989,18 @@ void MainWindow::on_cbCQTx_toggled(bool b)
   }
   setRig ();
   setXIT (ui->TxFreqSpinBox->value ());
+}
+
+void MainWindow::on_cbEchoCall_toggled(bool b)
+{
+  ui->sbToneSpacing->setVisible(b);
+  ui->lh_decodes_headings_label->setText("  UTC    Hour    Level  Doppler  Width     N     Q     DF    SNR   dBerr  TS  Echo Call");
+  if(b) {
+    mode_label.setText("Echo Call");
+    ui->dxCallEntry->setText(m_baseCall);
+  } else {
+    mode_label.setText("Echo");
+  }
 }
 
 void MainWindow::statusUpdate () const

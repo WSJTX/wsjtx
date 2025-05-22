@@ -88,6 +88,8 @@ private:
 
   bool m_cwLevel;
   unsigned m_ic;
+  unsigned m_icmin;
+  unsigned m_icmax;
   unsigned m_isym0;
   int m_j0;
   double m_toneFrequency0;

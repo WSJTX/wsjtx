@@ -28,6 +28,6 @@ double tx_duration(QString mode, double trPeriod, int nsps, bool bFast9)
   if(mode=="MSK144" or bFast9) {
     txt=trPeriod-0.25; // JT9-fast, MSK144
   }
-  if(mode=="Echo") txt=2.4;
+  if(mode=="Echo") txt=2.6;
   return txt;
 }

@@ -101,7 +101,7 @@ void Astro::write_settings ()
 }
 
 auto Astro::astroUpdate(QDateTime const& t, QString const& mygrid, QString const& hisgrid, Frequency freq,
-                        bool bEchoMode, bool bTx, bool bAuto, bool no_tx_QSY, double TR_period) -> Correction
+     bool bEchoMode, bool bTx, bool bAuto, bool no_tx_QSY, double TR_period) -> Correction
 {
   Frequency freq_moon {freq};
   double azsun,elsun,azmoon,elmoon,azmoondx,elmoondx;
@@ -262,6 +262,7 @@ auto Astro::astroUpdate(QDateTime const& t, QString const& mygrid, QString const
                   bTx,
                   nullptr,      // don't overwrite azel.dat
                   jpleph.toLocal8Bit ().constData ());
+
         FrequencyDelta offset {0};
         switch (m_DopplerMethod)
           {
@@ -293,7 +294,7 @@ auto Astro::astroUpdate(QDateTime const& t, QString const& mygrid, QString const
         //qDebug () << "correction.tx (no tx qsy):" << correction.tx;
       }
   }
-
+  correction.techo=techo;
 //  qDebug() << "AA0" << m_DopplerMethod << bAuto << correction.tx << correction.rx << correction.width;
   return correction;
 }
