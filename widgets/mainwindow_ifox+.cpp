@@ -183,6 +183,8 @@ extern "C" {
                 float* width, bool* bDiskData, bool* bEchoCall, char const * txcall,
                 char rxcall[], FCL len1, FCL len2);
 
+  void echo_time_(int* icall, float echo_data[]);
+
   void fast_decode_(short id2[], int narg[], double * trperiod,
                     char msg[], char mycall[], char hiscall[],
                     fortran_charlen_t, fortran_charlen_t, fortran_charlen_t);
@@ -232,6 +234,7 @@ float fast_green[703];
 float fast_green2[703];
 float fast_s[44992];                                    //44992=64*703
 float fast_s2[44992];
+float echo_data[6];
 int   fast_jh {0};
 int   fast_jhpeak {0};
 int   fast_jh2 {0};
@@ -1246,6 +1249,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 #endif
 
   ui->cbEchoCall->setVisible(false);
+  ui->sbEchoAdjust->setVisible(false);
   ui->sbToneSpacing->setVisible(false);
   ui->sbToneSpacing->values({10, 15, 20, 25, 30});
 
@@ -1412,6 +1416,7 @@ void MainWindow::writeSettings()
   m_settings->setValue("FST4_FLow",ui->sbF_Low->value());
   m_settings->setValue("FST4_FHigh",ui->sbF_High->value());
   m_settings->setValue("EchoToneSpacing",ui->sbToneSpacing->value());
+  m_settings->setValue("EchoAdjust",ui->sbEchoAdjust->value());
   m_settings->setValue("DTtol",m_DTtol);
   m_settings->setValue("MinSync",m_minSync);
   m_settings->setValue ("AutoSeq", ui->cbAutoSeq->isChecked ());
@@ -1732,6 +1737,7 @@ void MainWindow::readSettings()
   ui->sbF_High->setValue(m_settings->value("FST4_FHigh",1400).toInt());
   ui->sbFST4W_FTol->setValue(m_settings->value("FST4W_FTol",100).toInt());
   ui->sbToneSpacing->setValue(m_settings->value("EchoToneSpacing",10).toInt());
+  ui->sbEchoAdjust->setValue(m_settings->value("EchoAdjust",0.0).toDouble());
   m_minSync=m_settings->value("MinSync",0).toInt();
   ui->syncSpinBox->setValue(m_minSync);
   ui->cbAutoSeq->setChecked (m_settings->value ("AutoSeq", false).toBool());
@@ -2157,25 +2163,25 @@ void MainWindow::dataSink(qint64 frames)
       if(ui->cbEchoCall->isChecked() and !m_diskData) {
         ndf=ui->sbToneSpacing->value();
         save_echo_params_(&nDopTotal,&nDop,&nfrit,&f1,&width,&ndf,&itone[0],dec_data.d2,&idir);
+//        QTextStream out(stdout);
+//        out << "aa " << ndf << " " << itone[0] << " " << itone[1] << " " << itone[2] << " "
+//                  << itone[3] << " " << itone[4] << " " << itone[5] << "\n";
       }
       if(m_diskData) {
         idir=-1;
         save_echo_params_(&nDopTotal,&nDop,&nfrit,&f1,&width,&ndf,&itone[0],dec_data.d2,&idir);
-
         ui->cbEchoCall->setChecked(ndf!=0);
-//        QTextStream out(stdout);
-//        out << "aa " << ndf << " " << itone[0] << " " << itone[1] << " " << itone[2] << " "
-//                  << itone[3] << " " << itone[4] << " " << itone[5] << "\n";
-//        qDebug() << "bb" << ndf << itone[0] << itone[1] << itone[2]
-//                 << itone[3] << itone[4] << itone[5];
-
       }
+
       bool bEchoCall=ui->cbEchoCall->isChecked();
-      QString txcall=m_baseCall;
+      QString txcall=ui->dxCallEntry->text();
       static char crxcall[7];
       avecho_(dec_data.d2,&nDop,&nfrit,&nauto,&navg,&nqual,&f1,&xlevel,&sigdb,
           &dBerr,&dfreq,&width,&m_diskData,&bEchoCall,txcall.toLatin1().constData(),
           &crxcall[0],(FCL)6,(FCL)6);
+      int icall=99;
+      echo_data[5]=sigdb;
+      echo_time_(&icall,echo_data);
       crxcall[6]=0;
       QString rxcall {QString::fromLatin1(crxcall)};
 
@@ -3429,6 +3435,11 @@ void MainWindow::monitor (bool state)
 //        qDebug() << "Rx start: " << ms << ms-m_msEchoTxStart;
           Q_EMIT resumeAudioInputStream ();
         }
+        int icall=2;
+        echo_data[0]=m_config.txDelay();
+        echo_data[1]=ui->sbEchoAdjust->value();
+        echo_data[2]=m_tEcho;
+        echo_time_(&icall,echo_data);
       }
     }
   } else {
@@ -7102,7 +7113,9 @@ void MainWindow::guiUpdate()
   } else {
     // For all modes other than WSPR and FST4W
     m_bTxTime = (t2p >= tx1) and (t2p < tx2);
-    if(m_mode=="Echo") m_bTxTime = m_bTxTime and m_bEchoTxOK;
+    if(m_mode=="Echo") {
+      m_bTxTime = (t2p >= tx1) and (t2p < (tx2+ui->sbEchoAdjust->value())) and m_bEchoTxOK;
+    }
     if(m_mode=="FT8" and ui->tx5->currentText().contains("/B ")) {
       //FT8 beacon transmission from Tx5 only at top of a UTC minute
       double t4p=fmod(tsec,4*m_TRperiod);
@@ -7978,7 +7991,7 @@ void MainWindow::stopTx()
 }
 
 void MainWindow::stopTx2()
-{    
+{
   if (m_tci_audio) {
       Q_EMIT m_config.transceiver_ptt (false);      //Lower PTT
       monitor (true);
@@ -12093,6 +12106,8 @@ void MainWindow::transmit (double snr)
 
     toneSpacing=-5.0;  //Flag Modulator to use precomputed foxcom_.wave[].
     m_msEchoTxStart=QDateTime::currentMSecsSinceEpoch();
+    int icall=1;
+    echo_time_(&icall,echo_data);
     if (m_tci_audio) {
       Q_EMIT m_config.transceiver_modulator_start(m_mode,numEchoSymbols,framesPerSymbol,freq,toneSpacing,
              false,false,snr,m_TRperiod);
@@ -13142,6 +13157,7 @@ void MainWindow::on_cbCQTx_toggled(bool b)
 void MainWindow::on_cbEchoCall_toggled(bool b)
 {
   ui->sbToneSpacing->setVisible(b);
+  ui->sbEchoAdjust->setVisible(b);
   ui->lh_decodes_headings_label->setText("  UTC    Hour    Level  Doppler  Width     N     Q     DF    SNR   dBerr  TS  Echo Call");
   if(b) {
     mode_label.setText("Echo Call");

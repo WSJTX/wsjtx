@@ -855,7 +855,7 @@
              <number>1</number>
             </property>
             <item>
-             <layout class="QGridLayout" name="gridLayout_14" columnstretch="3,2">
+             <layout class="QGridLayout" name="DXCall_gridLayout" columnstretch="3,2">
               <item row="1" column="0">
                <widget class="QLineEdit" name="dxCallEntry">
                 <property name="toolTip">
