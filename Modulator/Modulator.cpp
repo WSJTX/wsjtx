@@ -340,6 +340,12 @@ qint64 Modulator::readData (char * data, qint64 maxSize)
           ++m_ic;
         }
 
+        if(m_TRperiod==3 and m_ic >i1) {
+          qDebug() << "Modulator stop (344)" << tsec;
+          Q_EMIT stateChanged ((m_state = Idle));
+          return framesGenerated * bytesPerFrame ();
+        }
+
 //        qDebug() << "dd" << QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz")
 //                 << tsec << m_ic << i1;
 

@@ -2134,6 +2134,7 @@ void MainWindow::dataSink(qint64 frames)
   }
   if(bCallDecoder) {
     if(m_mode=="Echo") {
+      qDebug() << "Decoder called (2136)" << m_s6;
       float dBerr=0.0;
       int nfrit=0;
       if(m_astroWidget) nfrit=m_astroWidget->nfRIT();
@@ -3418,12 +3419,11 @@ void MainWindow::monitor (bool state)
       } else {
         float t_rxdelay=0.001*(QDateTime::currentMSecsSinceEpoch() - m_msEchoTxStart);
         int ms=int(1000*(m_tEcho-t_rxdelay));
-//        if(m_msEchoTxStart>0) qDebug() << "t_rxdelay:" << t_rxdelay << m_tEcho << ms;
+        if(m_mode=="Echo") ms=0;
+        qDebug() << "Start Rx audio (3378)" << m_s6;
         if(ms>=10) {
           QTimer::singleShot (ms, [=] {resumeAudioInputStream();});
         } else {
-//        qint64 ms=QDateTime::currentMSecsSinceEpoch();
-//        qDebug() << "Rx start: " << ms << ms-m_msEchoTxStart;
           Q_EMIT resumeAudioInputStream ();
         }
         int icall=2;
@@ -7253,6 +7253,8 @@ void MainWindow::guiUpdate()
       }
 
       setXIT (ui->TxFreqSpinBox->value ());
+      qDebug() << "\nRequest to assert PTT (7204)" << m_s6 << m_config.txDelay()
+               << ui->sbEchoAdjust->value();
       m_config.transceiver_ptt (true); //Assert the PTT
       m_tx_when_ready = true;
     }
@@ -7916,6 +7918,7 @@ void MainWindow::startTx2()
       ui->cbAutoSeq->setChecked(true);
       ui->respondComboBox->setCurrentIndex(1);
     }
+    qDebug() << "Request to transmit (7855)" << m_s6;
     transmit (snr);
     ui->signal_meter_widget->setValue(0,0);
     if(m_mode=="Echo" and !m_tune) m_bTransmittedEcho=true;
@@ -11633,6 +11636,7 @@ void MainWindow::handle_transceiver_update (Transceiver::TransceiverState const&
     if (m_tx_when_ready && g_iptt) {    // waiting to Tx and still needed
       int ms_delay=1000*m_config.txDelay();
       if(m_mode=="FT4") ms_delay=20;
+      qDebug() << "Start ptt1Timer (11559)" << m_s6;
       ptt1Timer.start(ms_delay); //Start-of-transmission sequencer delay
       m_tx_when_ready = false;
     }
