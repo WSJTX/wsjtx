@@ -10885,7 +10885,7 @@ void MainWindow::on_actionEcho_triggered()
   m_bFastMode=false;
   m_bFast9=false;
   WSPR_config(true);
-  ui->lh_decodes_headings_label->setText("  UTC    Hour    Level  Doppler  Width     N     Q     DF    SNR   dBerr   DT   TS   Echo Call");
+  ui->lh_decodes_headings_label->setText("  UTC    Hour    Level  Doppler  Width     N     Q     DF    SNR   dBerr   DT   TS  Echo Call");
   //                       01234567890123456789012345678901234567
   displayWidgets(nWidgets("00000000000000000010001000000000000000"));
   fast_config(false);
@@ -13071,7 +13071,7 @@ void MainWindow::on_cbCQTx_toggled(bool b)
 void MainWindow::on_cbEchoCall_toggled(bool b)
 {
   ui->sbToneSpacing->setVisible(b);
-  ui->lh_decodes_headings_label->setText("  UTC    Hour    Level  Doppler  Width     N     Q     DF    SNR   dBerr   DT   TS   Echo Call");
+  ui->lh_decodes_headings_label->setText("  UTC    Hour    Level  Doppler  Width     N     Q     DF    SNR   dBerr   DT   TS  Echo Call");
   if(b) {
     mode_label.setText("Echo Call");
     ui->dxCallEntry->setText(m_baseCall);
