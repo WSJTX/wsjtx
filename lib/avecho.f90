@@ -35,8 +35,8 @@ subroutine avecho(id2_0,ndop,nfrit,nauto,navg,nqual,f1,xlevel,  &
   dtime=0.05
   idtbest=-9999
   snrbest=-9999.
-  idt1=-20
-  idt2=20
+  idt1=-10
+  idt2=10
 
 10 do idt=idt1,idt2
      i0=12000.0*dtime*idt
@@ -54,7 +54,7 @@ subroutine avecho(id2_0,ndop,nfrit,nauto,navg,nqual,f1,xlevel,  &
      endif
 
      rxcall='      '
-     call decode_echo(id2,rxcall)
+     call decode_echo(id2,rxcall,ndf)
 
      if(navg.ne.navg0) then
         if(allocated(sax)) deallocate(sax)
@@ -123,7 +123,7 @@ subroutine avecho(id2_0,ndop,nfrit,nauto,navg,nqual,f1,xlevel,  &
      if(nqual.lt.0) nqual=0
      if(nqual.gt.10) nqual=10
      if(idt1.ne.idt2) then
-        if(snrdb.gt.snrbest) then
+        if(snrdb.gt.snrbest .and. (ndf.eq.0 .or. dfreq.le.0.5*ndf)) then
            snrbest=snrdb
            idtbest=idt
         endif

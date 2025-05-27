@@ -1,4 +1,4 @@
-subroutine decode_echo(iwave,rxcall)
+subroutine decode_echo(iwave,rxcall,ndf)
 
 ! For EchoCall mode, recovers transmitted callsign from received echoes.
 !     iwave(NZ)  received echo data
