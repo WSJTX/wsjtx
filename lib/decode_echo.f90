@@ -1,20 +1,21 @@
-subroutine decode_echo(id2,rxcall)
+subroutine decode_echo(id2,searching,rxcall)
 
 ! For EchoCall mode, recovers transmitted callsign from received echoes.
 !     id2(NZ)  received echo data
-!     rxcall     decoded callsign
+!     rxcall     decoded message (callsign, usually)
 ! Time alignment of received data is assumed accurate, as EME delay is known.
 
   parameter (NSPS=4096,NZ=6*NSPS)
   integer*2 id2(NZ)      !Raw Rx data
   integer itone(6)         !Tone offsets corresponding to ransmitted callsign
   integer ipk(1)
+  logical searching
   complex c0(0:NZ)         !Analytic data, 12000 Hz sample rate
   complex c1(0:NSPS-1)     !Data for a single echo character
   complex c2(0:NZ)         !Analytic data with shifted tone freqs
   character*6 rxcall       !The recovered callsign
   real s(0:NSPS-1)         !Spectrum for one received character
-  real p(0:NSPS-1,6)
+  real p(0:NSPS-1,6)       !Summed spectra for all six received characters
   real a(3)
   character*37 c
   common/echocom/nclearave,nsum,blue(4096),red(4096)
@@ -54,10 +55,12 @@ subroutine decode_echo(id2,rxcall)
      do i=0,NSPS/2
         s(i)=real(c1(i))**2 + aimag(c1(i))**2
      enddo
-     p(:,j)=p(:,j) + s                     !Sum the spectra for each character
-     ipk=maxloc(p(i1:i2,j))
-     k=nint(((ipk1+i1-1)*df - f1)/ndf) + 1
-     if(k.ge.1 .and. k.le.37) rxcall(j:j)=c(k:k)    !SNR test here ???
+     if(.not.searching) then
+        p(:,j)=p(:,j) + s                     !Sum the spectra for each character
+        ipk=maxloc(p(i1:i2,j))
+        k=nint(((ipk1+i1-1)*df - f1)/ndf) + 1
+        if(k.ge.1 .and. k.le.37) rxcall(j:j)=c(k:k)    !SNR test here ???
+     endif
   enddo
 
   do j=1,6                               !Move all tone frequencies to f1

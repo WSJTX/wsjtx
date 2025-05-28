@@ -6,7 +6,7 @@ subroutine avecho(id2_0,ndop,nfrit,nauto,ndf,navg,nqual,f1,xlevel,  &
   parameter (NZ=4096)
   integer*2 id2_0(NTX+4096)                 !Raw Rx data
   integer*2 id2(NTX+4096)                   !Local copy of Rx data
-  integer*2 id2_ts(NTX+4096)                !Tone-shifted Rx data
+  integer*2 id2_best(NTX+4096)              !Best time-shifted Rx data
   integer*2 id2a(15)                        !Just the parameter portion
   integer*4 itone4(6)
   integer*1 itone1(6)
@@ -88,7 +88,7 @@ subroutine avecho(id2_0,ndop,nfrit,nauto,ndf,navg,nqual,f1,xlevel,  &
 10 searching=(idt1.ne.idt2)
   do idt=idt1,idt2
      
-! Copy time-shifted data from id2_0 to id2     
+! Copy time-shifted data from id2_0 to id2
      i0=12000*dtime*idt
      id2(1:15)=id2_0(1:15)
      do i=16,NTX
@@ -100,7 +100,7 @@ subroutine avecho(id2_0,ndop,nfrit,nauto,ndf,navg,nqual,f1,xlevel,  &
 ! Shift all tone frequencies to 1500 Hz. Return modified data in id2 and decoded 
 ! message in rxcall.
      rxcall='      '
-     call decode_echo(id2,rxcall)
+     call decode_echo(id2,searching,rxcall)
 
      x(1:NTX)=id2(1:NTX)
      x(NTX+1:)=0.
@@ -128,11 +128,21 @@ subroutine avecho(id2_0,ndop,nfrit,nauto,ndf,navg,nqual,f1,xlevel,  &
            snrbest=snrdb
            idtbest=idt
            j=mod(nsum,navg)+1
-!           print*,'A',j,idtbest,snrbest
+
            do i=1,NZ
               sax(j,i)=s(ia+i-2048)    !Center at initial doppler freq
               sbx(j,i)=s(ib+i-2048)    !Center at expected echo freq
            enddo
+
+! Copy time-shifted data from id2_0 to id2_best
+           i0=12000*dtime*idt
+           id2_best(1:15)=id2_0(1:15)
+           do i=16,NTX
+              j=i+i0
+              id2_best(i)=0
+              if(j.ge.16 .and. j.le.NTX) id2_best(i)=id2_0(j)
+           enddo
+
         endif
      endif
   enddo
@@ -151,7 +161,6 @@ subroutine avecho(id2_0,ndop,nfrit,nauto,ndf,navg,nqual,f1,xlevel,  &
   nqual=snr_detect-2
   if(nqual.lt.0) nqual=0
   if(nqual.gt.10) nqual=10
-  print*,'B',snrdb
  
 ! Scale for plotting
   redmax=maxval(red)
