@@ -1071,7 +1071,11 @@ void MainWindow::CreateLiveCQ(QStringList cqliveText)
       thePostLine.insert(6, "Q65-" + thePieces.at(5)); //Q65 submode
       thePostLine.insert(7, thePieces.at(6)); //msg type
       thePostLine.insert(8, thePieces.at(7)); //dx call
-      thePostLine.insert(9, thePieces.at(8)); //dx grid
+      if (thePieces.at(8).contains(".")) {
+        thePostLine.insert(9, "--"); //no dx grid
+      } else {
+        thePostLine.insert(9, thePieces.at(8)); //dx grid
+      }
       thePostLine.insert(10, m_myGrid.toUpper()); //myGrid
       thePostLine.insert(11, theDate);  //the date
       thePostLine.insert(12, m_myCall.toUpper()); //myCall
