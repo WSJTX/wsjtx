@@ -179,20 +179,12 @@ MainWindow::MainWindow(QWidget *parent) :
     f.close();
   }
 
-  // If file "fadd.txt" exists, read items for fAdd combo box
-  ui->fAddComboBox->setVisible(false);
-  ui->fAdd_label->setVisible(false);
-  ui->pbSet->setVisible(false);
-  ui->pbAdd->setVisible(false);
+// Read items for fAddComboBox
+  ui->fAddComboBox->addItem (0);
+  ui->fAddComboBox->setItemText(0, QString::number(m_fAdd));
   QFile g("fadd.txt");
   QTextStream stream(&g);
   if(g.open (QIODevice::ReadOnly | QIODevice::Text)) {
-    ui->fAddComboBox->setVisible(true);
-    ui->fAdd_label->setVisible(true);
-    ui->pbSet->setVisible(true);
-    ui->pbAdd->setVisible(true);
-    ui->fAddComboBox->addItem (0);
-    ui->fAddComboBox->setItemText(0, QString::number(m_fAdd));
     while (!stream.atEnd()) {
       QString fAddline = stream.readLine();
       if (fAddline != "") ui->fAddComboBox->addItem (fAddline);
@@ -261,6 +253,7 @@ void MainWindow::writeSettings()
   settings.setValue("SaveAll",ui->actionSave_all->isChecked());
   settings.setValue("SaveDecoded",ui->actionSave_decoded->isChecked());
   settings.setValue("ContinuousWaterfall",ui->continuous_waterfall->isChecked());
+  settings.setValue("FaddControls",ui->actionFadd_controls->isChecked());
   settings.setValue("NB",m_NB);
   settings.setValue("NBslider",m_NBslider);
   settings.setValue("MaxDrift",ui->sbMaxDrift->value());
@@ -311,6 +304,7 @@ void MainWindow::readSettings()
   ui->actionSave_all->setChecked(settings.value("SaveAll",false).toBool());
   ui->actionSave_decoded->setChecked(settings.value("SaveDecoded",false).toBool());
   ui->continuous_waterfall->setChecked(settings.value("ContinuousWaterfall",false).toBool());
+  ui->actionFadd_controls->setChecked(settings.value("FaddControls",false).toBool());
   m_saveAll=ui->actionSave_all->isChecked();
   m_saveDecoded=ui->actionSave_decoded->isChecked();
   if(m_saveAll) {
@@ -339,6 +333,10 @@ void MainWindow::readSettings()
   }
   m_w3szUrl=settings.value("w3szUrl",true).toBool();    //liveCQ
   m_otherUrl=settings.value("otherUrl","").toString();  //liveCQ
+  ui->fAddComboBox->setVisible(ui->actionFadd_controls->isChecked());
+  ui->fAdd_label->setVisible(ui->actionFadd_controls->isChecked());
+  ui->pbSet->setVisible(ui->actionFadd_controls->isChecked());
+  ui->pbAdd->setVisible(ui->actionFadd_controls->isChecked());
 }
 
 //-------------------------------------------------------------- dataSink()
@@ -1412,6 +1410,21 @@ void MainWindow::on_actionExport_wav_file_at_fQSO_30b_triggered()
   datcom_.newdat=0;
   datcom_.nagain=4;
   decode();
+}
+
+void MainWindow::on_actionFadd_controls_triggered()
+{
+  if (ui->actionFadd_controls->isChecked()) {
+    ui->fAddComboBox->setVisible(true);
+    ui->fAdd_label->setVisible(true);
+    ui->pbSet->setVisible(true);
+    ui->pbAdd->setVisible(true);
+  } else {
+    ui->fAddComboBox->setVisible(false);
+    ui->fAdd_label->setVisible(false);
+    ui->pbSet->setVisible(false);
+    ui->pbAdd->setVisible(false);
+  }
 }
 
 void MainWindow::on_fAddComboBox_activated()

@@ -87,6 +87,7 @@ private slots:
   void on_actionExport_wav_file_at_fQSO_triggered();
   void on_actionExport_wav_file_at_fQSO_30a_triggered();
   void on_actionExport_wav_file_at_fQSO_30b_triggered();
+  void on_actionFadd_controls_triggered();
   void on_fAddComboBox_activated();
   void on_pbSet_clicked();
   void on_pbAdd_clicked();
