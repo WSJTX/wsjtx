@@ -12016,7 +12016,7 @@ void MainWindow::transmit (double snr)
       if(ui->rbEchoCW->isChecked()) {
         freq=700.0;
         int ifreq=freq;
-        int n=ui->dxCallEntry->text().length();
+        int n=ui->leEchoMessage->text().length();
         gen_cw_wave_(const_cast<char *> (ui->leEchoMessage->text().toLatin1().constData()), &ifreq,
                    foxcom_.wave, (FCL)n);
       } else {
@@ -12433,14 +12433,23 @@ void MainWindow::on_rbFixedTone_toggled(bool b)
   ui->leEchoMessage->setEnabled(!b);
   ui->sbToneSpacing->setEnabled(!b);
 }
+
 void MainWindow::on_rbEchoMessage_toggled(bool b)
 {
   ui->sbToneSpacing->setEnabled(b);
 }
+
 void MainWindow::on_rbEchoCW_toggled(bool b)
 {
   ui->sbToneSpacing->setEnabled(!b);
 }
+
+void MainWindow::on_leEchoMessage_textChanged()
+{
+  QString t=ui->leEchoMessage->text().toUpper();
+  ui->leEchoMessage->setText(t);
+}
+
 
 // Takes a decoded CQ line and sets it up for reply
 void MainWindow::replyToCQ (QTime time, qint32 snr, float delta_time, quint32 delta_frequency

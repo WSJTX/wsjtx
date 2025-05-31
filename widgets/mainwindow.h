@@ -415,6 +415,7 @@ private slots:
   void on_rbFixedTone_toggled(bool b);
   void on_rbEchoMessage_toggled(bool b);
   void on_rbEchoCW_toggled(bool b);
+  void on_leEchoMessage_textChanged();
 
 private:
   Q_SIGNAL void initializeAudioOutputStream (QAudioDeviceInfo,
