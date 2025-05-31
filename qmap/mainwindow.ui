@@ -40,19 +40,41 @@
      <layout class="QFormLayout" name="formLayout">
       <item row="1" column="0">
        <layout class="QGridLayout" name="gridLayout">
-        <item row="0" column="0" rowspan="4">
-         <widget class="QFrame" name="xMeterFrame">
-          <property name="minimumSize">
+        <item row="4" column="4" colspan="2">
+         <widget class="QSlider" name="NBslider">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="maximumSize">
            <size>
-            <width>50</width>
-            <height>150</height>
+            <width>80</width>
+            <height>16777215</height>
            </size>
           </property>
-          <property name="frameShape">
-           <enum>QFrame::StyledPanel</enum>
+          <property name="minimum">
+           <number>0</number>
           </property>
-          <property name="frameShadow">
-           <enum>QFrame::Raised</enum>
+          <property name="maximum">
+           <number>100</number>
+          </property>
+          <property name="value">
+           <number>40</number>
+          </property>
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+         </widget>
+        </item>
+        <item row="4" column="3">
+         <widget class="QCheckBox" name="NBcheckBox">
+          <property name="text">
+           <string>NB</string>
           </property>
          </widget>
         </item>
@@ -108,70 +130,33 @@
           </property>
          </widget>
         </item>
-        <item row="0" column="5">
-         <widget class="QPushButton" name="DecodeButton">
-          <property name="minimumSize">
-           <size>
-            <width>50</width>
-            <height>0</height>
-           </size>
-          </property>
-          <property name="toolTip">
-           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Decode most recent Rx period&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-          </property>
+        <item row="2" column="3">
+         <widget class="QLabel" name="fAdd_label">
           <property name="text">
-           <string>&amp;Decode</string>
+           <string>Fadd</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
           </property>
          </widget>
         </item>
-        <item row="0" column="3" colspan="2">
-         <widget class="QPushButton" name="EraseButton">
-          <property name="minimumSize">
-           <size>
-            <width>50</width>
-            <height>0</height>
-           </size>
-          </property>
-          <property name="toolTip">
-           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Erase window&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-          </property>
-          <property name="text">
-           <string>&amp;Erase</string>
-          </property>
-         </widget>
-        </item>
-        <item row="3" column="4" colspan="2">
-         <widget class="QSlider" name="NBslider">
-          <property name="enabled">
-           <bool>false</bool>
-          </property>
+        <item row="2" column="2">
+         <widget class="QComboBox" name="fAddComboBox">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+           <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
           </property>
-          <property name="maximumSize">
-           <size>
-            <width>80</width>
-            <height>16777215</height>
-           </size>
+          <property name="editable">
+           <bool>true</bool>
           </property>
-          <property name="minimum">
-           <number>0</number>
-          </property>
-          <property name="maximum">
-           <number>100</number>
-          </property>
-          <property name="value">
-           <number>40</number>
-          </property>
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
+          <property name="maxVisibleItems">
+           <number>20</number>
           </property>
          </widget>
         </item>
-        <item row="1" column="1" rowspan="3">
+        <item row="1" column="1" rowspan="4">
          <widget class="QLabel" name="labUTC">
           <property name="minimumSize">
            <size>
@@ -230,49 +215,19 @@
           </property>
          </widget>
         </item>
-        <item row="1" column="4" colspan="2">
-         <widget class="QSpinBox" name="sbMaxDrift">
-          <property name="toolTip">
-           <string>Maximum drift rate in units of symbol rate per transmission.</string>
+        <item row="0" column="0" rowspan="5">
+         <widget class="QFrame" name="xMeterFrame">
+          <property name="minimumSize">
+           <size>
+            <width>50</width>
+            <height>150</height>
+           </size>
           </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
+          <property name="frameShape">
+           <enum>QFrame::StyledPanel</enum>
           </property>
-          <property name="prefix">
-           <string>Max Drift  </string>
-          </property>
-          <property name="maximum">
-           <number>50</number>
-          </property>
-          <property name="singleStep">
-           <number>5</number>
-          </property>
-         </widget>
-        </item>
-        <item row="3" column="3">
-         <widget class="QCheckBox" name="NBcheckBox">
-          <property name="text">
-           <string>NB</string>
-          </property>
-         </widget>
-        </item>
-        <item row="2" column="2">
-         <widget class="QComboBox" name="fAddComboBox">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-         </widget>
-        </item>
-        <item row="2" column="3">
-         <widget class="QLabel" name="fAdd_label">
-          <property name="text">
-           <string>Fadd</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
+          <property name="frameShadow">
+           <enum>QFrame::Raised</enum>
           </property>
          </widget>
         </item>
@@ -342,6 +297,38 @@
           </item>
          </layout>
         </item>
+        <item row="0" column="5">
+         <widget class="QPushButton" name="DecodeButton">
+          <property name="minimumSize">
+           <size>
+            <width>50</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Decode most recent Rx period&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          </property>
+          <property name="text">
+           <string>&amp;Decode</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="3" colspan="2">
+         <widget class="QPushButton" name="EraseButton">
+          <property name="minimumSize">
+           <size>
+            <width>50</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Erase window&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          </property>
+          <property name="text">
+           <string>&amp;Erase</string>
+          </property>
+         </widget>
+        </item>
         <item row="1" column="3">
          <widget class="QLabel" name="labTol2">
           <property name="sizePolicy">
@@ -363,6 +350,85 @@
            <set>Qt::AlignCenter</set>
           </property>
          </widget>
+        </item>
+        <item row="1" column="4" colspan="2">
+         <widget class="QSpinBox" name="sbMaxDrift">
+          <property name="toolTip">
+           <string>Maximum drift rate in units of symbol rate per transmission.</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+          <property name="prefix">
+           <string>Max Drift  </string>
+          </property>
+          <property name="maximum">
+           <number>50</number>
+          </property>
+          <property name="singleStep">
+           <number>5</number>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="2">
+         <layout class="QHBoxLayout" name="horizontalLayout_2">
+          <item>
+           <widget class="QPushButton" name="pbSet">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>35</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Set a manually entered Fadd value.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>Set</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pbAdd">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>35</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Add a manually entered Fadd value to the file &amp;quot;fadd.txt&amp;quot;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>Add</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
         </item>
        </layout>
       </item>

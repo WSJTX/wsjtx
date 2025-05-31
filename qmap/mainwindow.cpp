@@ -182,16 +182,20 @@ MainWindow::MainWindow(QWidget *parent) :
   // If file "fadd.txt" exists, read items for fAdd combo box
   ui->fAddComboBox->setVisible(false);
   ui->fAdd_label->setVisible(false);
+  ui->pbSet->setVisible(false);
+  ui->pbAdd->setVisible(false);
   QFile g("fadd.txt");
   QTextStream stream(&g);
   if(g.open (QIODevice::ReadOnly | QIODevice::Text)) {
     ui->fAddComboBox->setVisible(true);
     ui->fAdd_label->setVisible(true);
+    ui->pbSet->setVisible(true);
+    ui->pbAdd->setVisible(true);
     ui->fAddComboBox->addItem (0);
     ui->fAddComboBox->setItemText(0, QString::number(m_fAdd));
     while (!stream.atEnd()) {
       QString fAddline = stream.readLine();
-      ui->fAddComboBox->addItem (fAddline);
+      if (fAddline != "") ui->fAddComboBox->addItem (fAddline);
     }
     stream.flush();
     g.close();
@@ -1415,6 +1419,35 @@ void MainWindow::on_fAddComboBox_activated()
   if (ui->fAddComboBox->isVisible() && ui->fAddComboBox->currentText() != "") {
     m_fAdd=ui->fAddComboBox->currentText().toDouble();
     soundInThread.setFadd(m_fAdd);
-    ui->decodedTextBrowser->append("Setting Fadd to " + QString::number(m_fAdd,'f',3) + " MHz");
+    ui->decodedTextBrowser->append("Setting Fadd to " + QString::number(m_fAdd) + " MHz");
+  }
+}
+
+void MainWindow::on_pbSet_clicked()
+{
+  m_fAdd=ui->fAddComboBox->currentText().toDouble();
+  soundInThread.setFadd(m_fAdd);
+  ui->decodedTextBrowser->append("Setting Fadd to " + QString::number(m_fAdd) + " MHz");
+}
+
+void MainWindow::on_pbAdd_clicked()
+{
+  m_fAdd=ui->fAddComboBox->currentText().toDouble();
+  if (ui->fAddComboBox->currentText() != "") {
+    QFile g("fadd.txt");
+    if(g.open(QIODevice::Text | QIODevice::Append)) {
+      QString addedEntry = (ui->fAddComboBox->currentText());
+      QTextStream out(&g);
+      out << addedEntry <<
+#if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
+          endl
+#else
+          Qt::endl
+#endif
+          ;
+      g.close();
+      if (ui->fAddComboBox->findText(addedEntry) < 0) ui->fAddComboBox->addItem (QString::number(m_fAdd));
+      ui->decodedTextBrowser->append("Adding " + QString::number(m_fAdd) + " to file fadd.txt");
+    }
   }
 }
