@@ -162,6 +162,8 @@ extern "C" {
 
   void gen_cw_wave_(char* msg, int* ifreq, float wave[], fortran_charlen_t);
 
+  void wave_out_(float wave[]);
+
   void genq65_(char* msg, int* ichk, char* msgsent, int itone[],
               int* i3, int* n3, fortran_charlen_t, fortran_charlen_t);
 
@@ -12011,6 +12013,7 @@ void MainWindow::transmit (double snr)
     double framesPerSymbol=4096;
     double freq=1500.0+m_fDither;
     double toneSpacing=0.0;
+
     if(ui->rbEchoMessage->isChecked() or ui->rbEchoCW->isChecked()) {
 
       if(ui->rbEchoCW->isChecked()) {
@@ -12032,6 +12035,8 @@ void MainWindow::transmit (double snr)
       }
       toneSpacing=-5.0;  //Flag Modulator to use precomputed foxcom_.wave[].
     }
+
+//    wave_out_(foxcom_.wave);
 
     m_msEchoTxStart=QDateTime::currentMSecsSinceEpoch();
     if (m_tci_audio) {

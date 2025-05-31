@@ -27,7 +27,6 @@ subroutine gen_cw_wave(message,ifreq,wave)
   fsample=48000.d0
   nspd=2.048d0*fsample/ncw
   wpm=1.2d0*fsample/nspd
-  ifreq=700
   dt=1.d0/fsample                    !Sample interval (s)
   tdit=nspd*dt
   twopi=8.d0*atan(1.d0)
@@ -49,8 +48,12 @@ subroutine gen_cw_wave(message,ifreq,wave)
 
   nadd=0.001/dt
   call smo(x,NMAX,y,nadd)
-  y=y/nadd
-  cdat=y*z
+  call smo(y,NMAX,x,nadd)
+  call smo(x,NMAX,y,nadd)
+  call smo(y,NMAX,x,nadd)
+  call smo(x,NMAX,y,nadd)
+  fac=0.99999/maxval(abs(y))
+  cdat=fac*y*z
   wave=real(cdat)
   
 999 return
