@@ -70,14 +70,11 @@ void Modulator::start (QString mode, unsigned symbolsLength, double framesPerSym
   m_toneSpacing = toneSpacing;
   m_bFastMode=fastMode;
   m_TRperiod=TRperiod;
-  m_icmin=4294967295;
-  m_icmax=0;
   unsigned delay_ms=1000;
   if((mode=="FT8" and m_nsps==1920) or (mode=="FST4" and m_nsps==720)) delay_ms=500;  //FT8, FST4-15
   if((mode=="FT8" and m_nsps==1024)) delay_ms=400;            //SuperFox Qary Polar Code transmission
   if(mode=="Q65" and m_nsps<=3600) delay_ms=500;              //Q65-15 and Q65-30
   if(mode=="FT4") delay_ms=300;                               //FT4
-  if(mode=="Echo") delay_ms=400;
 
 // noise generator parameters
   if (m_addNoise) {
@@ -108,8 +105,7 @@ void Modulator::start (QString mode, unsigned symbolsLength, double framesPerSym
   Q_EMIT stateChanged ((m_state = (synchronize && m_silentFrames) ?
                         Synchronizing : Active));
 
-//  qDebug() << "delay_ms:" << delay_ms << "mstr:" << mstr << "m_silentFrames:"
-//           << m_silentFrames << "m_ic:" << m_ic << "m_state:" << m_state << synchronize;
+  // qDebug() << "delay_ms:" << delay_ms << "mstr:" << mstr << "m_silentFrames:" << m_silentFrames << "m_ic:" << m_ic << "m_state:" << m_state;
 
   m_stream = stream;
   if (m_stream)
@@ -152,7 +148,6 @@ void Modulator::close ()
       Q_EMIT stateChanged ((m_state = Idle));
     }
   AudioDevice::close ();
-//  qDebug() << "zz" << m_icmin << m_icmax << m_icmax/48000.0;
 }
 
 qint64 Modulator::readData (char * data, qint64 maxSize)
@@ -328,8 +323,6 @@ qint64 Modulator::readData (char * data, qint64 maxSize)
           if(!m_tuning and (m_toneSpacing < 0) and (itone[0]<100)) {
             m_amp=32767.0;
             sample=qRound(m_amp*foxcom_.wave[m_ic]);
-            m_icmin=qMin(m_ic,m_icmin);
-            m_icmax=qMax(m_ic,m_icmax);
           }
 /*
           if((m_ic<1000 or (4*m_symbolsLength*m_nsps - m_ic) < 1000) and (m_ic%10)==0) {
@@ -342,7 +335,7 @@ qint64 Modulator::readData (char * data, qint64 maxSize)
         }
 
 //        qDebug() << "dd" << QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz")
-//                 << tsec << m_ic << i1;
+//                 << m_ic << i1 << foxcom_.wave[m_ic] << framesGenerated;
 
         if (m_amp == 0.0) { // TODO G4WJS: compare double with zero might not be wise
           if (icw[0] == 0) {
@@ -363,8 +356,6 @@ qint64 Modulator::readData (char * data, qint64 maxSize)
             samples = load (0, samples);
             ++framesGenerated;
           }
-//        if(tsec<0.5) qDebug() << "ee" << QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz")
-//                 << tsec << m_ic << i1 << m_icmin << m_icmax;
         return framesGenerated * bytesPerFrame ();
       }
       // fall through
