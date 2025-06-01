@@ -162,8 +162,6 @@ extern "C" {
 
   void gen_cw_wave_(char* msg, int* ifreq, float wave[], fortran_charlen_t);
 
-  void wave_out_(float wave[]);
-
   void genq65_(char* msg, int* ichk, char* msgsent, int itone[],
               int* i3, int* n3, fortran_charlen_t, fortran_charlen_t);
 
@@ -7308,7 +7306,7 @@ void MainWindow::guiUpdate()
     if(m_tune or m_mode=="Echo") {
       itone[0]=0;
       if(ui->rbEchoMessage->isChecked() or ui->rbEchoCW->isChecked()) {
-        QString echoMsg=ui->leEchoMessage->text();
+        QString echoMsg=(ui->leEchoMessage->text()+"      ").left(6);
         gen_echocall_(const_cast <char *> (echoMsg.toLatin1().constData()),const_cast<int *>(itone),(FCL)6);
       }
     } else {
@@ -12035,8 +12033,6 @@ void MainWindow::transmit (double snr)
       }
       toneSpacing=-5.0;  //Flag Modulator to use precomputed foxcom_.wave[].
     }
-
-//    wave_out_(foxcom_.wave);
 
     m_msEchoTxStart=QDateTime::currentMSecsSinceEpoch();
     if (m_tci_audio) {
