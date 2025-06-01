@@ -852,23 +852,44 @@
                 </property>
                 <item>
                  <layout class="QGridLayout" name="DXCall_gridLayout" columnstretch="3,2">
+                  <item row="0" column="0">
+                   <widget class="QPushButton" name="DX_Call_Button">
+                    <property name="sizePolicy">
+                     <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                      <horstretch>0</horstretch>
+                      <verstretch>0</verstretch>
+                     </sizepolicy>
+                    </property>
+                    <property name="minimumSize">
+                     <size>
+                      <width>0</width>
+                      <height>0</height>
+                     </size>
+                    </property>
+                    <property name="focusPolicy">
+                     <enum>Qt::StrongFocus</enum>
+                    </property>
+                    <property name="toolTip">
+                     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle Wait &amp;amp; Call On/Off. Right-click to clear the DX Call box.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                    </property>
+                    <property name="styleSheet">
+                     <string notr="true">QPushButton {
+	background-color: #9fafd5;
+    border: none;
+}</string>
+                    </property>
+                    <property name="text">
+                     <string>DX Call</string>
+                    </property>
+                    <property name="checkable">
+                     <bool>true</bool>
+                    </property>
+                   </widget>
+                  </item>
                   <item row="1" column="0">
                    <widget class="QLineEdit" name="dxCallEntry">
                     <property name="toolTip">
                      <string>Callsign of station to be worked</string>
-                    </property>
-                    <property name="text">
-                     <string/>
-                    </property>
-                    <property name="alignment">
-                     <set>Qt::AlignCenter</set>
-                    </property>
-                   </widget>
-                  </item>
-                  <item row="1" column="1">
-                   <widget class="QLineEdit" name="dxGridEntry">
-                    <property name="toolTip">
-                     <string>Locator of station to be worked</string>
                     </property>
                     <property name="text">
                      <string/>
@@ -970,42 +991,18 @@
                     </property>
                    </widget>
                   </item>
-                  <item row="0" column="0">
-                   <widget class="QPushButton" name="DX_Call_Button">
-                    <property name="sizePolicy">
-                     <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-                      <horstretch>0</horstretch>
-                      <verstretch>0</verstretch>
-                     </sizepolicy>
-                    </property>
-                    <property name="minimumSize">
-                     <size>
-                      <width>0</width>
-                      <height>0</height>
-                     </size>
-                    </property>
-                    <property name="focusPolicy">
-                     <enum>Qt::StrongFocus</enum>
-                    </property>
+                  <item row="1" column="1">
+                   <widget class="QLineEdit" name="dxGridEntry">
                     <property name="toolTip">
-                     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle Wait &amp;amp; Call On/Off. Right-click to clear the DX Call box.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-                    </property>
-                    <property name="styleSheet">
-                     <string notr="true">QPushButton {
-	background-color: #9fafd5;
-    border: none;
-}</string>
+                     <string>Locator of station to be worked</string>
                     </property>
                     <property name="text">
-                     <string>DX Call</string>
+                     <string/>
                     </property>
-                    <property name="checkable">
-                     <bool>true</bool>
+                    <property name="alignment">
+                     <set>Qt::AlignCenter</set>
                     </property>
                    </widget>
-                  </item>
-                  <item row="2" column="0" colspan="2">
-                   <layout class="QHBoxLayout" name="horizontalLayout"/>
                   </item>
                  </layout>
                 </item>
@@ -3997,9 +3994,12 @@ Double-click to reset to the standard 73 message</string>
                    <property name="orientation">
                     <enum>Qt::Horizontal</enum>
                    </property>
+                   <property name="sizeType">
+                    <enum>QSizePolicy::Expanding</enum>
+                   </property>
                    <property name="sizeHint" stdset="0">
                     <size>
-                     <width>161</width>
+                     <width>40</width>
                      <height>20</height>
                     </size>
                    </property>
@@ -4154,9 +4154,12 @@ Double-click to reset to the standard 73 message</string>
                    <property name="orientation">
                     <enum>Qt::Horizontal</enum>
                    </property>
+                   <property name="sizeType">
+                    <enum>QSizePolicy::Expanding</enum>
+                   </property>
                    <property name="sizeHint" stdset="0">
                     <size>
-                     <width>160</width>
+                     <width>40</width>
                      <height>20</height>
                     </size>
                    </property>
