@@ -4011,7 +4011,7 @@ Double-click to reset to the standard 73 message</string>
                   <enum>Qt::Vertical</enum>
                  </property>
                  <property name="sizeType">
-                  <enum>QSizePolicy::Preferred</enum>
+                  <enum>QSizePolicy::Expanding</enum>
                  </property>
                  <property name="sizeHint" stdset="0">
                   <size>
@@ -4022,18 +4022,18 @@ Double-click to reset to the standard 73 message</string>
                 </spacer>
                </item>
                <item>
-                <layout class="QGridLayout" name="gridLayout_2">
+                <layout class="QGridLayout" name="gridLayout_2" columnstretch="3,2">
                  <item row="1" column="0">
                   <widget class="QRadioButton" name="rbEchoMessage">
                    <property name="minimumSize">
                     <size>
-                     <width>100</width>
+                     <width>0</width>
                      <height>0</height>
                     </size>
                    </property>
                    <property name="maximumSize">
                     <size>
-                     <width>100</width>
+                     <width>16777215</width>
                      <height>16777215</height>
                     </size>
                    </property>
@@ -4049,13 +4049,13 @@ Double-click to reset to the standard 73 message</string>
                    </property>
                    <property name="minimumSize">
                     <size>
-                     <width>100</width>
+                     <width>0</width>
                      <height>0</height>
                     </size>
                    </property>
                    <property name="maximumSize">
                     <size>
-                     <width>100</width>
+                     <width>16777215</width>
                      <height>16777215</height>
                     </size>
                    </property>
@@ -4074,13 +4074,13 @@ Double-click to reset to the standard 73 message</string>
                   <widget class="QRadioButton" name="rbFixedTone">
                    <property name="minimumSize">
                     <size>
-                     <width>100</width>
+                     <width>0</width>
                      <height>0</height>
                     </size>
                    </property>
                    <property name="maximumSize">
                     <size>
-                     <width>100</width>
+                     <width>16777215</width>
                      <height>16777215</height>
                     </size>
                    </property>
@@ -4099,7 +4099,7 @@ Double-click to reset to the standard 73 message</string>
                    </property>
                    <property name="maximumSize">
                     <size>
-                     <width>100</width>
+                     <width>16777215</width>
                      <height>16777215</height>
                     </size>
                    </property>
@@ -4115,13 +4115,13 @@ Double-click to reset to the standard 73 message</string>
                   <widget class="QRadioButton" name="rbEchoCW">
                    <property name="minimumSize">
                     <size>
-                     <width>100</width>
+                     <width>0</width>
                      <height>0</height>
                     </size>
                    </property>
                    <property name="maximumSize">
                     <size>
-                     <width>100</width>
+                     <width>16777215</width>
                      <height>16777215</height>
                     </size>
                    </property>
