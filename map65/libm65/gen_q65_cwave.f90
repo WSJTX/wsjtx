@@ -5,8 +5,8 @@ subroutine gen_q65_cwave(msg,ntxfreq,ntone_spacing,msgsent,cwave,nwave)
   use packjt
   use q65_encoding
   parameter (NMAX=60*96000)
-  character*22 msg
-  character*22 msgsent          !Message as it will be received
+  character*24 msg !w3sz was *22
+  character*24 msgsent  !w3sz was *22         !Message as it will be received
   character*37 msg37
   real*8 t,dt,phi,f,f0,dfgen,dphi,twopi,tsym
   complex cwave(NMAX)
@@ -18,7 +18,7 @@ subroutine gen_q65_cwave(msg,ntxfreq,ntone_spacing,msgsent,cwave,nwave)
 
   msgsent=msg
   msg37=''
-  msg37(1:22)=msg
+  msg37(1:24)=msg !w3sz was 1:22
   call get_q65_tones(msg37,codeword,itone)
 
 ! Set up necessary constants

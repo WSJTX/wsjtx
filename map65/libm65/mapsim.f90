@@ -10,8 +10,8 @@ program mapsim
   complex z,zx,zy
   real*8 fcenter,fsample,samfac,f,dt,twopi,phi,dphi
   logical bq65
-  character msg0*22,message*22,msgsent*22,arg*8,fname*11,mode*2
-  character*16 msg_list(60)
+  character msg0*24,message*24,msgsent*24,arg*8,fname*11,mode*2 !w3sz msg* was size 22
+  character*24 msg_list(60) ! was *16
   integer*2 hhmm
   data msg_list/                                          &
        'CQ K1JT FN20','CQ W3SZ FN10','CQ DL3WDG JN68',   &
@@ -143,7 +143,7 @@ program mapsim
         if(snrdb.eq.0.0) snrdbx=-15.0 - 15.0*(isig-1.0)/nsigs
         sig=sqrt(2.2*2500.0/96000.0) * 10.0**(0.05*snrdbx)
         write(*,1020) ifile,isig,mode,dt0,0.001*f,nint(pol),fDop,snrdbx,msgsent
-1020    format(i3,i3,2x,a2,f6.2,f8.3,i5,2f7.1,2x,a22)
+1020    format(i3,i3,2x,a2,f6.2,f8.3,i5,2f7.1,2x,a24)  !w3sz was a22
 
         phi=0.
 !        i0=fsample*(3.5d0+0.05d0*(isig-1))
