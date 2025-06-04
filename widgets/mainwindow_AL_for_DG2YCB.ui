@@ -4956,10 +4956,15 @@ Double-click to reset to the standard 73 message</string>
     <addaction name="actionHideOC"/>
     <addaction name="actionHideAN"/>
     <addaction name="separator"/>
-    <addaction name="actionHighlightCallsigns"/>
     <addaction name="actionHighlightB4"/>
     <addaction name="actionHighlightToday"/>
     <addaction name="actionHighlightIgnored"/>
+    <addaction name="separator"/>
+    <addaction name="actionHighlightCallsigns"/>
+    <addaction name="actionHighlightTerritory1"/>
+    <addaction name="actionHighlightTerritory2"/>
+    <addaction name="actionHighlightTerritory3"/>
+    <addaction name="actionHighlightTerritory4"/>
    </widget>
    <widget class="QMenu" name="menuDecode">
     <property name="title">
@@ -5948,6 +5953,38 @@ Double-click to reset to the standard 73 message</string>
    </property>
    <property name="text">
     <string>Ignore stations worked before on band</string>
+   </property>
+  </action>
+  <action name="actionHighlightTerritory1">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Highlight stations from Territory 1</string>
+   </property>
+  </action>
+  <action name="actionHighlightTerritory2">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Highlight stations from Territory 2</string>
+   </property>
+  </action>
+  <action name="actionHighlightTerritory3">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Highlight stations from Territory 3</string>
+   </property>
+  </action>
+  <action name="actionHighlightTerritory4">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Highlight stations from Territory 4</string>
    </property>
   </action>
  </widget>
