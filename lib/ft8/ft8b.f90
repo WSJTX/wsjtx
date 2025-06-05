@@ -175,7 +175,9 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,nzhsym,lapon,     &
   enddo
 ! hard sync sum - max is 21
   nsync=is1+is2+is3
-  if(nsync .le. 7) then ! bail out
+  syncmin=6
+  if(imetric.eq.2) syncmin=7
+  if(nsync .le. syncmin) then ! bail out
     nbadcrc=1
     return
   endif
