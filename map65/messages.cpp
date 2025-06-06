@@ -46,8 +46,8 @@ Messages::~Messages()
   delete ui;
 }
 
-void Messages::sendLiveCQData(QStringList decodeList)  //liveCQ
-{
+void Messages::sendLiveCQData(QStringList decodeList) {
+
   QSettings settings(m_settings_filename, QSettings::IniFormat);
   {
     SettingsGroup g {&settings, "MainWindow"};
@@ -90,35 +90,51 @@ void Messages::sendLiveCQData(QStringList decodeList)  //liveCQ
         QString dB = thePostLine.at(4).trimmed();
         QString msgType = thePostLine.at(5).trimmed().toUpper();
         QString callsign = thePostLine.at(6).trimmed().toUpper();
-        QString grid = thePostLine.at(7).trimmed();
-        QString dT =thePostLine.at(8).trimmed();
-        QString modeChar = thePostLine.at(9).trimmed();
+        QString grid = "--";
         QString mode="";
         QString txpol = " ";
-        //	qDebug() << "theLine is "  << theLine;
-        if(modeChar=="0" || modeChar=="1" || modeChar=="2" || modeChar=="3" || modeChar=="4") {
-          modeChar = thePostLine.at(10).trimmed();
-          if(modeChar.contains("#")) mode = "JT65" + modeChar.back();
-          if (m_xpol) {
-            rpol = thePostLine.at(2).trimmed();
-            if(thePostLine.at(11).contains("H")) txpol = "H";
-            else if(thePostLine.at(11).contains("V")) txpol = "V";
-            //	qDebug()<< "tx pol 11 is " << txpol ;
-          } else txpol="--";
+        QString dT = "";
+        QString modeChar = "";
+        if(thePostLine.at(7).contains(".")) {
+          dT =thePostLine.at(7).trimmed();
+          modeChar = thePostLine.at(8).trimmed(); 
+          if(modeChar=="0" || modeChar=="1" || modeChar=="2" || modeChar=="3" || modeChar=="4") {
+            modeChar = thePostLine.at(9).trimmed();
+            if(modeChar.contains("#")) mode = "JT65" + modeChar.back();
+          } else if(modeChar.contains(":")) {
+          	  mode = "Q65-60" + modeChar.back();          
+              if(m_xpol) {
+                rpol = thePostLine.at(2).trimmed();
+              } else {
+                rpol = "--";
+              }
+          }
+          txpol = "--";    
+        } else {
+          grid = thePostLine.at(7).trimmed();
+          dT =thePostLine.at(8).trimmed();
+          modeChar = thePostLine.at(9).trimmed();
+          if(modeChar=="0" || modeChar=="1" || modeChar=="2" || modeChar=="3" || modeChar=="4") {
+            modeChar = thePostLine.at(10).trimmed();
+            if(modeChar.contains("#")) mode = "JT65" + modeChar.back();            
+            if (m_xpol) {
+						  rpol = thePostLine.at(2).trimmed();
+						  if(thePostLine.at(11).contains("H")) txpol = "H";
+						  else if(thePostLine.at(11).contains("V")) txpol = "V";
+					  } else txpol="--"; 
+            
+          } else if(modeChar.contains(":")) {
+              mode = "Q65-60" + modeChar.back();            
+              if (m_xpol) {
+                rpol = thePostLine.at(2).trimmed();
+                if(thePostLine.at(10).contains("H")) txpol = "H";
+                else if(thePostLine.at(10).contains("V")) txpol = "V";
+              } else txpol="--";
+          }
         }
-        else if(modeChar.contains(":")) {
-          mode = "Q65-60" + modeChar.back();
-          if (m_xpol) {
-            rpol = thePostLine.at(2).trimmed();
-            if(thePostLine.at(10).contains("H")) txpol = "H";
-            else if(thePostLine.at(10).contains("V")) txpol = "V";
-            //	qDebug()<< "tx pol 10 is " << txpol ;
-          } else txpol="--";
-        }
-        //	qDebug() << "mode is " << mode;
         if(mode.contains("JT65") || mode.contains("Q65")) {
           QString postString =  "skedfreq=" + freq + "&rxfreq=" + dF + "&rpol=" + rpol + "&dt="  +  dT + "&dB="  + dB + "&msgtype="  +  msgType.toUpper() + "&callsign="  +  callsign.toUpper() + "&grid="  +  grid.toUpper() + "&mode="  +  mode + "&utcdatetime="  +  utcdatetimeUTCString + "&spotter="  +  m_myCall.toUpper() + "&spottergrid="  + m_myGrid.toUpper() + "&txpol=" + txpol + "&apptype=MAP65";
-
+          //qDebug() << postString;
           QByteArray postByteArray = postString.toUtf8();
           request.setRawHeader("Content-Length",QByteArray::number(postByteArray.size()));
 
@@ -171,21 +187,21 @@ void Messages::setText(QString t, QString t2)
       int i=t2.indexOf(caller);
       if(t2.mid(i-1,1)==" ") continue;
     }
-    int n=line.mid(62,2).toInt();  //liveCQ
+    int n=line.mid(55,2).toInt();
 //    if(line.indexOf(":")>0) n=-1;
 //    if(n==-1) ui->messagesTextBrowser->setTextColor("#ffffff");  // white
     if(n==0) ui->messagesTextBrowser->setTextColor(m_color0);
     if(n==1) ui->messagesTextBrowser->setTextColor(m_color1);
     if(n==2) ui->messagesTextBrowser->setTextColor(m_color2);
     if(n>=3) ui->messagesTextBrowser->setTextColor(m_color3);
-    QString livecqStr = t1.mid(0,53) + t1.mid(56,t1.length()-56) + " " + t1.mid(54,2);   //liveCQ
-    if(cqliveText.filter(livecqStr.mid(0,53)).length()==0) cqliveText.append(livecqStr); //liveCQ
+    QString livecqStr = t1.mid(0,53) + t1.mid(56,t1.length()-56) + " " + t1.mid(54,2); 
+    if(cqliveText.filter(livecqStr.mid(0,53)).length()==0) cqliveText.append(livecqStr);
     cfreq=t1.mid(5,3);
     if(cfreq == cfreq0) {
       t1="        " + t1.mid(8,-1);
     }
     cfreq0=cfreq;
-    ui->messagesTextBrowser->append(t1.mid(5,50));
+    ui->messagesTextBrowser->append(t1.mid(5,61));
   }
 
   if(doLiveCQ) {                      //liveCQ

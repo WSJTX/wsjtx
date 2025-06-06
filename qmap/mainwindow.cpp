@@ -1019,7 +1019,7 @@ void MainWindow::CreateLiveCQ(QStringList cqliveText)
   for (const QString &item : cqliveText) {
     QString line = " ";
     QStringList thePostLine;
-    line = line.repeated(100).replace("<","").replace(">","");
+    line = line.repeated(100);  //.replace("<","").replace(">","");
     QStringList thePieces;
 
     thePieces = item.split(" ",SkipEmptyParts);
@@ -1030,11 +1030,11 @@ void MainWindow::CreateLiveCQ(QStringList cqliveText)
       int nWords=thePieces.length();
       if(nWords==9) {
         // Handle CQ messages that do not include a locator
-        if(thePieces.at(6)==NULL or thePieces.at(7)==NULL or thePieces.at(8)==NULL) return;
+      if(thePieces.at(6)==NULL or thePieces.at(7)==NULL or thePieces.at(8)==NULL) return;
         theMsg = thePieces.at(6) + " " + thePieces.at(7);
         thekHz = thePieces.at(8).split(".");
       } else {
-        if(thePieces.at(6)==NULL or thePieces.at(7)==NULL or thePieces.at(8)==NULL or thePieces.at(9)==NULL) return;
+      if(thePieces.at(6)==NULL or thePieces.at(7)==NULL or thePieces.at(8)==NULL or thePieces.at(9)==NULL) return;
         theMsg = thePieces.at(6) + " " + thePieces.at(7) + " " + thePieces.at(8);
         thekHz = thePieces.at(9).split(".");
       }
