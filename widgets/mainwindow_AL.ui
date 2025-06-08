@@ -5129,6 +5129,11 @@ Double-click to reset to the standard 73 message</string>
     <addaction name="actionHighlightB4"/>
     <addaction name="actionHighlightToday"/>
     <addaction name="actionHighlightIgnored"/>
+    <addaction name="separator"/>
+    <addaction name="actionHighlightTerritory1"/>
+    <addaction name="actionHighlightTerritory2"/>
+    <addaction name="actionHighlightTerritory3"/>
+    <addaction name="actionHighlightTerritory4"/>
    </widget>
    <widget class="QMenu" name="menuDecode">
     <property name="title">

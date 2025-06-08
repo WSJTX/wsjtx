@@ -1519,10 +1519,10 @@ void MainWindow::writeSettings()
   m_settings->setValue ("HideTerritory2", ui->actionHideTerritory2->isChecked() );
   m_settings->setValue ("HideTerritory3", ui->actionHideTerritory3->isChecked() );
   m_settings->setValue ("HideTerritory4", ui->actionHideTerritory4->isChecked() );
-  m_settings->setValue ("HighlightTerritory1", ui->actionHighlightTerritory1->isChecked() );     // DG2YCB only
-  m_settings->setValue ("HighlightTerritory2", ui->actionHighlightTerritory2->isChecked() );     // DG2YCB only
-  m_settings->setValue ("HighlightTerritory3", ui->actionHighlightTerritory3->isChecked() );     // DG2YCB only
-  m_settings->setValue ("HighlightTerritory4", ui->actionHighlightTerritory4->isChecked() );     // DG2YCB only
+  m_settings->setValue ("HighlightTerritory1", ui->actionHighlightTerritory1->isChecked() );
+  m_settings->setValue ("HighlightTerritory2", ui->actionHighlightTerritory2->isChecked() );
+  m_settings->setValue ("HighlightTerritory3", ui->actionHighlightTerritory3->isChecked() );
+  m_settings->setValue ("HighlightTerritory4", ui->actionHighlightTerritory4->isChecked() );
   m_settings->setValue ("HideEU", ui->actionHideEU->isChecked() );
   m_settings->setValue ("HideNA", ui->actionHideNA->isChecked() );
   m_settings->setValue ("HideSA", ui->actionHideSA->isChecked() );
@@ -1719,10 +1719,10 @@ void MainWindow::readSettings()
   ui->actionHideTerritory2->setChecked(m_settings->value("HideTerritory2", false).toBool());
   ui->actionHideTerritory3->setChecked(m_settings->value("HideTerritory3", false).toBool());
   ui->actionHideTerritory4->setChecked(m_settings->value("HideTerritory4", false).toBool());
-  ui->actionHighlightTerritory1->setChecked(m_settings->value("HighlightTerritory1", false).toBool());     // DG2YCB only
-  ui->actionHighlightTerritory2->setChecked(m_settings->value("HighlightTerritory2", false).toBool());     // DG2YCB only
-  ui->actionHighlightTerritory3->setChecked(m_settings->value("HighlightTerritory3", false).toBool());     // DG2YCB only
-  ui->actionHighlightTerritory4->setChecked(m_settings->value("HighlightTerritory4", false).toBool());     // DG2YCB only
+  ui->actionHighlightTerritory1->setChecked(m_settings->value("HighlightTerritory1", false).toBool());
+  ui->actionHighlightTerritory2->setChecked(m_settings->value("HighlightTerritory2", false).toBool());
+  ui->actionHighlightTerritory3->setChecked(m_settings->value("HighlightTerritory3", false).toBool());
+  ui->actionHighlightTerritory4->setChecked(m_settings->value("HighlightTerritory4", false).toBool());
   ui->actionHideEU->setChecked(m_settings->value("HideEU", false).toBool());
   ui->actionHideNA->setChecked(m_settings->value("HideNA", false).toBool());
   ui->actionHideSA->setChecked(m_settings->value("HideSA", false).toBool());
@@ -3032,7 +3032,9 @@ void MainWindow::fastSink(qint64 frames)
     }
 
     // highlight callsigns worked B4 on band or worked today or from the Ignore List for MSK144
-    if (ui->actionHighlightB4->isChecked() or ui->actionHighlightToday->isChecked() or ui->actionHighlightIgnored->isChecked()) {
+    if(ui->actionHighlightB4->isChecked() or ui->actionHighlightToday->isChecked() or ui->actionHighlightIgnored->isChecked()
+       or ui->actionHighlightTerritory1->isChecked() or ui->actionHighlightTerritory2->isChecked()
+       or ui->actionHighlightTerritory3->isChecked() or ui->actionHighlightTerritory4->isChecked()) {
         QString today = QDateTime::currentDateTimeUtc().toString ("yyyy-MM-dd");
         QString yesterday = QDateTime::currentDateTimeUtc().addDays(-1).toString ("yyyy-MM-dd");
         QString deCall;
@@ -3057,6 +3059,40 @@ void MainWindow::fastSink(qint64 frames)
         }
         if (ui->actionHighlightIgnored->isChecked() && ignoreList.contains(deCall + ",")) {
            ui->decodedTextBrowser->highlight_callsign(deCall, QColor(85,0,0), QColor(255,255,0), true);
+        }
+        // search for country names
+        if (ui->actionHighlightTerritory1->isChecked() or ui->actionHighlightTerritory2->isChecked() or
+            ui->actionHighlightTerritory3->isChecked() or ui->actionHighlightTerritory4->isChecked()) {
+          auto const& looked_up = m_logBook.countries ()->lookup (deCall);
+          auto countryName = looked_up.entity_name;
+          // do some obvious abbreviations
+          countryName.replace ("Islands", "Is.");
+          countryName.replace ("Island", "Is.");
+          countryName.replace ("North ", "N. ");
+          countryName.replace ("Northern ", "N. ");
+          countryName.replace ("South ", "S. ");
+          countryName.replace ("East ", "E. ");
+          countryName.replace ("Eastern ", "E. ");
+          countryName.replace ("West ", "W. ");
+          countryName.replace ("Western ", "W. ");
+          countryName.replace ("Central ", "C. ");
+          countryName.replace (" and ", " & ");
+          countryName.replace ("Republic", "Rep.");
+          countryName.replace ("United States of America", "U.S.A.");
+          countryName.replace ("United States", "U.S.A.");
+          countryName.replace ("Fed. Rep. of ", "");
+          countryName.replace ("French ", "Fr.");
+          countryName.replace ("Asiatic", "AS");
+          countryName.replace ("European", "EU");
+          countryName.replace ("African", "AF");
+          if (ui->actionHighlightTerritory1->isChecked() && countryName.contains(m_config.Territory1())
+              && (m_config.Territory1()!="") && !ui->cbBypass->isChecked()) ui->decodedTextBrowser->highlight_callsign(deCall, QColor(115,43,245), QColor(255,255,255), true);
+          if (ui->actionHighlightTerritory2->isChecked() && countryName.contains(m_config.Territory2())
+              && (m_config.Territory2()!="") && !ui->cbBypass->isChecked()) ui->decodedTextBrowser->highlight_callsign(deCall, QColor(115,43,245), QColor(255,255,255), true);
+          if (ui->actionHighlightTerritory3->isChecked() && countryName.contains(m_config.Territory3())
+              && (m_config.Territory3()!="") && !ui->cbBypass->isChecked()) ui->decodedTextBrowser->highlight_callsign(deCall, QColor(115,43,245), QColor(255,255,255), true);
+          if (ui->actionHighlightTerritory4->isChecked() && countryName.contains(m_config.Territory4())
+              && (m_config.Territory4()!="") && !ui->cbBypass->isChecked()) ui->decodedTextBrowser->highlight_callsign(deCall, QColor(115,43,245), QColor(255,255,255), true);
         }
     }
 
@@ -6432,39 +6468,11 @@ void MainWindow::readFromStdout()                             //readFromStdout
           if(m_position != 0) ui->decodedTextBrowser->horizontalScrollBar()->setValue(m_position);
         }
 
-        // highlight callsigns worked B4 on band or worked today
-//        if (ui->actionHighlightB4->isChecked() or ui->actionHighlightToday->isChecked() or ui->actionHighlightIgnored->isChecked()) {
-//            QString today = QDateTime::currentDateTimeUtc().toString ("yyyy-MM-dd");
-//            QString yesterday = QDateTime::currentDateTimeUtc().addDays(-1).toString ("yyyy-MM-dd");
-//            QString deCall;
-//            QString deGrid;
-//            decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
-//            bool callB4onBand;
-//            bool countryB4onBand;
-//            bool gridB4onBand;
-//            bool continentB4onBand;
-//            bool CQZoneB4onBand;
-//            bool ITUZoneB4onBand;
-//            if (ui->actionHighlightB4->isChecked()) {
-//                auto const& looked_up = m_logBook.countries ()->lookup (deCall);
-//                m_logBook.match (deCall, m_mode, deGrid, looked_up, callB4onBand, countryB4onBand, gridB4onBand,
-//                                 continentB4onBand, CQZoneB4onBand, ITUZoneB4onBand, m_currentBand);
-//                if (callB4onBand) ui->decodedTextBrowser->highlight_callsign(deCall, QColor(195,195,195), QColor(0,0,0), true);
-//            }
-//            if (ui->actionHighlightToday->isChecked() && (
-//                  txLog.contains(QRegularExpression{today + ",[0-9][0-9]:[0-9][0-9]:[0-9][0-9]," + (deCall + ",")})
-//                  or (m_config.twoDays() && txLog.contains(QRegularExpression{yesterday + ",[0-9][0-9]:[0-9][0-9]:[0-9][0-9]," + (deCall + ",")})))) {
-//               ui->decodedTextBrowser->highlight_callsign(deCall, QColor(100,100,100), QColor(255,255,0), true);
-//            }
-//            if (ui->actionHighlightIgnored->isChecked() && ignoreList.contains(deCall + ",")) {
-//               ui->decodedTextBrowser->highlight_callsign(deCall, QColor(85,0,0), QColor(255,255,0), true);
-//            }
-//        }
-
-        // highlight callsigns   // DG2YCB only
-        if(ui->actionHighlightCallsigns->isChecked() or ui->actionHighlightB4->isChecked() or ui->actionHighlightToday->isChecked()
-           or ui->actionHighlightIgnored->isChecked() or ui->actionHighlightTerritory1->isChecked() or ui->actionHighlightTerritory2->isChecked()
-           or ui->actionHighlightTerritory3->isChecked() or ui->actionHighlightTerritory4->isChecked()) {
+        // highlight callsigns
+        if(ui->actionHighlightB4->isChecked() or ui->actionHighlightToday->isChecked() or ui->actionHighlightIgnored->isChecked()
+           or ui->actionHighlightTerritory1->isChecked() or ui->actionHighlightTerritory2->isChecked()
+//           or ui->actionHighlightTerritory3->isChecked() or ui->actionHighlightTerritory4->isChecked()) {
+           or ui->actionHighlightTerritory3->isChecked() or ui->actionHighlightTerritory4->isChecked() or ui->actionHighlightCallsigns->isChecked()) {            // DG2YCB only
             QString today = QDateTime::currentDateTimeUtc().toString ("yyyy-MM-dd");
             QString yesterday = QDateTime::currentDateTimeUtc().addDays(-1).toString ("yyyy-MM-dd");
             QString deCall;
@@ -6481,6 +6489,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
             QString continent = AD1CCty::continent (looked_up.continent);
             m_logBook.match (deCall, m_mode, deGrid, looked_up, callB4onBand, countryB4onBand, gridB4onBand,
               continentB4onBand, CQZoneB4onBand, ITUZoneB4onBand, m_currentBand);
+        // below DG2YCB only
             if (!m_band_changed) {
               if (ui->actionHighlightCallsigns->isChecked() && deCall!="" && (m_currentBandPeriod == "2m" or m_currentBandPeriod == "70cm") && (!callB4onBand and
                   (!(countryName.contains("Germany") or countryName.contains("Netherlands") or countryName.contains("Belgium"))))) {
@@ -6494,6 +6503,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
 //               ui->decodedTextBrowser->highlight_callsign(deCall, QColor(170,0,225), QColor(255,255,255), true);
             if (ui->actionHighlightCallsigns->isChecked() && (deCall=="MM0HVU" or deCall=="LZ2HV" or deCall=="ES1JA" or deCall=="UA3DJY" or deCall=="OE1MWW"))
               ui->decodedTextBrowser->highlight_callsign(deCall, QColor(0,0,0), QColor(255,255,0), true);
+        // above DG2YCB only
             if (ui->actionHighlightB4->isChecked() && callB4onBand) ui->decodedTextBrowser->highlight_callsign(deCall, QColor(195,195,195), QColor(0,0,0), true);
             if (ui->actionHighlightToday->isChecked() && (
                 txLog.contains(QRegularExpression{today + ",[0-9][0-9]:[0-9][0-9]:[0-9][0-9]," + (deCall + ",")})
@@ -15539,31 +15549,31 @@ void MainWindow::check_button_color()
     }
     if (m_config.Territory1()=="") {
       ui->actionHideTerritory1->setText("Hide stations from Territory 1");
-      ui->actionHighlightTerritory1->setText("Highlight stations from Territory 1");                 // DG2YCB only
+      ui->actionHighlightTerritory1->setText("Highlight stations from Territory 1");
     } else {
       ui->actionHideTerritory1->setText("Hide stations from " + m_config.Territory1());
-      ui->actionHighlightTerritory1->setText("Highlight stations from " + m_config.Territory1());    // DG2YCB only
+      ui->actionHighlightTerritory1->setText("Highlight stations from " + m_config.Territory1());
     }
     if (m_config.Territory2()=="") {
       ui->actionHideTerritory2->setText("Hide stations from Territory 2");
-      ui->actionHighlightTerritory2->setText("Highlight stations from Territory 2");                 // DG2YCB only
+      ui->actionHighlightTerritory2->setText("Highlight stations from Territory 2");
     } else {
       ui->actionHideTerritory2->setText("Hide stations from " + m_config.Territory2());
-      ui->actionHighlightTerritory2->setText("Highlight stations from " + m_config.Territory2());    // DG2YCB only
+      ui->actionHighlightTerritory2->setText("Highlight stations from " + m_config.Territory2());
     }
     if (m_config.Territory3()=="") {
       ui->actionHideTerritory3->setText("Hide stations from Territory 3");
-      ui->actionHighlightTerritory3->setText("Highlight stations from Territory 3");                 // DG2YCB only
+      ui->actionHighlightTerritory3->setText("Highlight stations from Territory 3");
     } else {
       ui->actionHideTerritory3->setText("Hide stations from " + m_config.Territory3());
-      ui->actionHighlightTerritory3->setText("Highlight stations from " + m_config.Territory3());    // DG2YCB only
+      ui->actionHighlightTerritory3->setText("Highlight stations from " + m_config.Territory3());
     }
     if (m_config.Territory4()=="") {
       ui->actionHideTerritory4->setText("Hide stations from Territory 4");
-      ui->actionHighlightTerritory4->setText("Highlight stations from Territory 4");                 // DG2YCB only
+      ui->actionHighlightTerritory4->setText("Highlight stations from Territory 4");
     } else {
       ui->actionHideTerritory4->setText("Hide stations from " + m_config.Territory4());
-      ui->actionHighlightTerritory4->setText("Highlight stations from " + m_config.Territory4());    // DG2YCB only
+      ui->actionHighlightTerritory4->setText("Highlight stations from " + m_config.Territory4());
     }
 
     if (m_config.twoDays()) {
