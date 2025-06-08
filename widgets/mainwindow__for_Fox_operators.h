@@ -169,6 +169,7 @@ private slots:
   void on_pb15_clicked();
   void on_pb12_clicked();
   void on_pb10_clicked();
+  void on_pb8_clicked();
   void on_pb6_clicked();
   void on_pb2_clicked();
   void on_pb70_clicked();
@@ -184,7 +185,6 @@ private slots:
   void on_pb5G_clicked();
   void on_pb10G_clicked();
   void on_pb24G_clicked();
-  void on_pb47G_clicked();
   void check_button_color();
   void stopWRTimeout();
   void stopWCTimeout();

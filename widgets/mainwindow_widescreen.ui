@@ -535,33 +535,7 @@
                </property>
               </widget>
              </item>
-             <item row="1" column="0">
-              <widget class="QPushButton" name="pb50">
-               <property name="minimumSize">
-                <size>
-                 <width>25</width>
-                 <height>0</height>
-                </size>
-               </property>
-               <property name="text">
-                <string>6</string>
-               </property>
-              </widget>
-             </item>
              <item row="1" column="13">
-              <widget class="QPushButton" name="pb47G">
-               <property name="minimumSize">
-                <size>
-                 <width>25</width>
-                 <height>0</height>
-                </size>
-               </property>
-               <property name="text">
-                <string>47G</string>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="11">
               <widget class="QPushButton" name="pb24G">
                <property name="minimumSize">
                 <size>
@@ -574,7 +548,7 @@
                </property>
               </widget>
              </item>
-             <item row="1" column="10">
+             <item row="1" column="11">
               <widget class="QPushButton" name="pb10G">
                <property name="minimumSize">
                 <size>
@@ -587,7 +561,7 @@
                </property>
               </widget>
              </item>
-             <item row="1" column="9">
+             <item row="1" column="10">
               <widget class="QPushButton" name="pb5G">
                <property name="minimumSize">
                 <size>
@@ -600,7 +574,7 @@
                </property>
               </widget>
              </item>
-             <item row="1" column="8">
+             <item row="1" column="9">
               <widget class="QPushButton" name="pb9">
                <property name="minimumSize">
                 <size>
@@ -613,7 +587,7 @@
                </property>
               </widget>
              </item>
-             <item row="1" column="7">
+             <item row="1" column="8">
               <widget class="QPushButton" name="pb13">
                <property name="minimumSize">
                 <size>
@@ -626,7 +600,7 @@
                </property>
               </widget>
              </item>
-             <item row="1" column="6">
+             <item row="1" column="7">
               <widget class="QPushButton" name="pb23">
                <property name="minimumSize">
                 <size>
@@ -639,7 +613,7 @@
                </property>
               </widget>
              </item>
-             <item row="1" column="5">
+             <item row="1" column="6">
               <widget class="QPushButton" name="pb902">
                <property name="minimumSize">
                 <size>
@@ -652,7 +626,7 @@
                </property>
               </widget>
              </item>
-             <item row="1" column="4">
+             <item row="1" column="5">
               <widget class="QPushButton" name="pb432">
                <property name="minimumSize">
                 <size>
@@ -665,7 +639,7 @@
                </property>
               </widget>
              </item>
-             <item row="1" column="3">
+             <item row="1" column="4">
               <widget class="QPushButton" name="pb220">
                <property name="minimumSize">
                 <size>
@@ -678,7 +652,7 @@
                </property>
               </widget>
              </item>
-             <item row="1" column="2">
+             <item row="1" column="3">
               <widget class="QPushButton" name="pb144">
                <property name="minimumSize">
                 <size>
@@ -691,7 +665,7 @@
                </property>
               </widget>
              </item>
-             <item row="1" column="1">
+             <item row="1" column="2">
               <widget class="QPushButton" name="pb4">
                <property name="minimumSize">
                 <size>
@@ -701,6 +675,32 @@
                </property>
                <property name="text">
                 <string>4</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QPushButton" name="pb50">
+               <property name="minimumSize">
+                <size>
+                 <width>25</width>
+                 <height>0</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>6</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="0">
+              <widget class="QPushButton" name="pb8">
+               <property name="minimumSize">
+                <size>
+                 <width>25</width>
+                 <height>0</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>8</string>
                </property>
               </widget>
              </item>

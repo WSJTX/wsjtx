@@ -15754,6 +15754,7 @@ void MainWindow::check_button_color()
           ui->pb15->setVisible(false);
           ui->pb12->setVisible(false);
           ui->pb10->setVisible(false);
+          ui->pb8->setVisible(true);
           ui->pb6->setVisible(false);
           ui->pb2->setVisible(false);
           ui->pb70->setVisible(false);
@@ -15769,7 +15770,15 @@ void MainWindow::check_button_color()
           ui->pb5G->setVisible(true);
           ui->pb10G->setVisible(true);
           ui->pb24G->setVisible(true);
-          ui->pb47G->setVisible(true);
+          if (band=="8m") {
+            ui->pb8->setStyleSheet("QPushButton {background-color: #00ff00; color: #000000; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none;}");
+          } else {
+              if (m_useDarkStyle) {
+                 ui->pb8->setStyleSheet("QPushButton {background-color: #505F69; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none;}");
+              } else {
+                 ui->pb8->setStyleSheet("QPushButton {background-color: #e1e1e1; border: 1px solid #adadad; border-radius: 0px; padding: 3px; outline: none;}");
+              }
+          }
           if (band=="6m") {
               ui->pb50->setStyleSheet("QPushButton {background-color: #00ff00; color: #000000; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none;}");
           } else {
@@ -15878,15 +15887,6 @@ void MainWindow::check_button_color()
                  ui->pb24G->setStyleSheet("QPushButton {background-color: #e1e1e1; border: 1px solid #adadad; border-radius: 0px; padding: 3px; outline: none;}");
               }
           }
-          if (band=="6mm") {
-            ui->pb47G->setStyleSheet("QPushButton {background-color: #00ff00; color: #000000; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none;}");
-          } else {
-              if (m_useDarkStyle) {
-                 ui->pb47G->setStyleSheet("QPushButton {background-color: #505F69; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none;}");
-              } else {
-                 ui->pb47G->setStyleSheet("QPushButton {background-color: #e1e1e1; border: 1px solid #adadad; border-radius: 0px; padding: 3px; outline: none;}");
-              }
-          }
       } else {
         ui->pb160->setVisible(true);
         ui->pb80->setVisible(true);
@@ -15898,6 +15898,7 @@ void MainWindow::check_button_color()
         ui->pb15->setVisible(true);
         ui->pb12->setVisible(true);
         ui->pb10->setVisible(true);
+        ui->pb8->setVisible(false);
         ui->pb6->setVisible(true);
         ui->pb2->setVisible(true);
         ui->pb70->setVisible(true);
@@ -15913,7 +15914,6 @@ void MainWindow::check_button_color()
         ui->pb5G->setVisible(false);
         ui->pb10G->setVisible(false);
         ui->pb24G->setVisible(false);
-        ui->pb47G->setVisible(false);
         if (band=="160m") {
             ui->pb160->setStyleSheet("QPushButton {background-color: #00ff00; color: #000000; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none;}");
         } else {
@@ -16051,6 +16051,7 @@ void MainWindow::check_button_color()
       ui->pb15->setVisible(false);
       ui->pb12->setVisible(false);
       ui->pb10->setVisible(false);
+      ui->pb8->setVisible(false);
       ui->pb6->setVisible(false);
       ui->pb2->setVisible(false);
       ui->pb70->setVisible(false);
@@ -16066,7 +16067,6 @@ void MainWindow::check_button_color()
       ui->pb5G->setVisible(false);
       ui->pb10G->setVisible(false);
       ui->pb24G->setVisible(false);
-      ui->pb47G->setVisible(false);
     }
     if (ui->monitorButton->isChecked()) {
       if (m_saveAll or m_saveDecoded) {
@@ -16273,6 +16273,20 @@ void MainWindow::on_pb70_clicked()
     setXIT (ui->TxFreqSpinBox->value ());
 }
 
+void MainWindow::on_pb8_clicked()
+{
+  auto const& row = m_config.frequencies ()->best_working_frequency (40680000);
+  ui->bandComboBox->setCurrentIndex (row);
+  if (row >= 0) {
+    on_bandComboBox_activated (row);
+  } else {
+    keep_frequency = true;
+    setRig(40680000);
+    QTimer::singleShot (250, [=] {keep_frequency = false;});
+  }
+  setXIT (ui->TxFreqSpinBox->value ());
+}
+
 void MainWindow::on_pb50_clicked()
 {
   auto const& row = m_config.frequencies ()->best_working_frequency (50313000);
@@ -16436,20 +16450,6 @@ void MainWindow::on_pb24G_clicked()
   } else {
     keep_frequency = true;
     setRig(24048200000);
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
-  }
-  setXIT (ui->TxFreqSpinBox->value ());
-}
-
-void MainWindow::on_pb47G_clicked()
-{
-  auto const& row = m_config.frequencies ()->best_working_frequency (47088000000);
-  ui->bandComboBox->setCurrentIndex (row);
-  if (row >= 0) {
-    on_bandComboBox_activated (row);
-  } else {
-    keep_frequency = true;
-    setRig(47088000000);
     QTimer::singleShot (250, [=] {keep_frequency = false;});
   }
   setXIT (ui->TxFreqSpinBox->value ());
