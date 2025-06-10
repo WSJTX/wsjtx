@@ -192,7 +192,7 @@
             <enum>Qt::AutoText</enum>
            </property>
            <property name="alignment">
-            <set>Qt::AlignCenter</set>
+            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
            </property>
            <property name="wordWrap">
             <bool>true</bool>
@@ -269,7 +269,7 @@
       <item>
        <widget class="QGroupBox" name="groupBox_4">
         <property name="title">
-         <string>Tx Shift relative to Rx Sked Freq</string>
+         <string>Tx Shift relative to Rx Sked frequency</string>
         </property>
         <layout class="QHBoxLayout" name="horizontalLayout_4">
          <item>
@@ -277,11 +277,14 @@
            <property name="toolTip">
             <string>Enter large offset</string>
            </property>
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
+           </property>
            <property name="suffix">
-            <string> MHz</string>
+            <string>  MHz</string>
            </property>
            <property name="prefix">
-            <string>Shift </string>
+            <string/>
            </property>
            <property name="minimum">
             <number>-30</number>
@@ -296,6 +299,19 @@
             <number>0</number>
            </property>
           </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer_2">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
          </item>
          <item>
           <widget class="QCheckBox" name="cbEnableShift">
