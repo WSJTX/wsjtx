@@ -421,71 +421,33 @@ and 2.3 GHz, Q65-60D on 3.4 and 5.7 GHz, Q65-60D or E on 10 GHz, and
 Q65-60E on 24 GHz and higher bands. Depending on libration spreading 
 and SNR, other submodes may perform better.  
 
-JT4, JT65, and Q65 offer *Message Averaging* -- the summation of
-subsequent transmissions that convey the same message -- to enable
+JT4, JT65, and Q65 offer message averaging -- the summation of
+successive transmissions conveying the same message -- to enable
 decodes at signal-to-noise ratios several dB below the threshold for
 single transmissions.  JT4 and JT65 also allow *Deep Search* decoding,
 in which the decoder hypothesizes messages containing known or
 previously decoded callsigns and tests them for reliability using a
 correlation algorithm.  JT65 and Q65 offer _a priori_ (AP)
 decoding, which takes advantage of naturally accumulating information
-during a QSO.
+during a QSO. These options can be activated on the *Decode* menu.
 
-For CW mode on SHF and microwave EME WSJT-X can be used to do Doppler
-shift correction if desired:
+With a CAT-controlled radio, _WSJT-X_ can be used to compensate for
+changing Doppler shifts during a CW EME QSO. This capability is
+especially useful on the higher microwave bands, where Doppler shifts
+are large. Put your rig in CW mode and set the option *File | Settings
+| Radio | Mode | None* to prevent _WSJT-X_ from trying to change the
+operating mode. Use the *Tune* button to switch between receiving and
+transmitting. No tones will be transmitted as the rig is in CW mode;
+but importantly WSJT-X knows you are transmitting and adjusts the dial
+frequency as needed for the currently selected Doppler tracking mode.
+Click *Tune* again to revert to receive mode, reactivating the proper
+Doppler corrections for receiving.
 
-- Check the *Settings -> Radio -> Mode -> None* option, this stops _WSJT-X_
-  from trying to set the mode of your rig.
-
-- Put you rig into CW mode as normal.
-
-- Before transmitting press *Tune* in _WSJT-X_, no tones will be
-  transmitted as the rig is in CW mode, but importantly WSJT-X knows
-  your are transmitting and adjusts the Doppler shift correction as
-  needed for the currently selected Doppler shift correction mode in
-  transmit.
-
-- When you have finish transmitting CW press *Tune* again to revert to
-  receive mode and the correct Doppler shift correction for receiving.
-
-NOTE: The above assumes you are already set up for _WSJT-X_
-<<VHF_SETUP,Doppler shift correction>> with working CAT control, and
-*Monitor* enabled etc..
-
-=== Moving Tx Freq in-band
-
-A new feature is under development to permit transmit and receive frequencies
-to be different.  This may be of interest to stations trying to operate
-for example on 1268/1296, 1296/1298. 2304/2320 etc.  More information on possible
-changes to 1296/1298 may be found here:
-
-https://bobatkins.com/radio/WRC23_23cm_1298_EME.html
-
-Two new controls have been added to the *Astronomical Data* window.  A
-spinbox allows entry of the amount the TX frequency is shifted from
-the receive frequency in MHz.  An adjacent checkbox allows this
-feature to be enabled.
-
-To use the feature, first set the Sked frequency to the frequency you want to
-use for receiving in the normal way.  Next, select the amount you want your
-transmitted frequency to be shifted.  The figure below shows an example of a
-station receiving on 1296 MHz and transmitting on 1298 MHz.  In this case, a 
-Tx shift of +2 MHz has been selected.
-
-image::shift2.png[align="center",alt="tx shift"]
-
-It may be necessary to add frequencies to the Frequencies Table corresponding to
-the transmit and receive frequencies to avoid the dial frequency indicator turning
-red.
-
-NOTE: The feature will only work, of course, if your radio can be operated at both
-frequencies, eg TS2000X on 1296/1268, or a Region 2 radio covering 144-148Hz with
-a 2m IF for 23cm 1296/1298 operation.  13cm operation would require a radio that has 
-general coverage capability on receive, and a transverter with sufficient bandwidth at IF.
-
-IMPORTANT: When using this feature, please ensure that moving your transmit frequency
-will not result in transmitting out-of-band!
-
+_WSJT-X_ supports the use of large additional offsets in dial
+frequency for transmitting and receiving -- for example, to allow EME
+QSOs between countries with spectral allocations at 2304 and 2320
+MHz. Set the desired Tx shift (an integer number of MHz) at bottom of
+the *Astronomical Data* window, and check the *Enable* box.
 
 ////
 The following tutorial aims to familiarize you with
