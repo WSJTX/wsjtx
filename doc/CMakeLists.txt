@@ -77,6 +77,7 @@ set (UG_IMGS
   images/auto-seq.png
   images/bandbutton1.png
   images/bandbutton2.png
+  images/bandbutton3.png
   images/band-settings.png
   images/Best_S+P.png
   images/colors.png
@@ -87,7 +88,9 @@ set (UG_IMGS
   images/decode-menu.png
   images/diagnostic.png
   images/download_samples.png
+  images/Echo_10GHz.png
   images/Echo_1296.png
+  images/Echo_controls.png
   images/EME_Deep_0.png
   images/EME_Deep_1.png
   images/EME_Deep_2.png

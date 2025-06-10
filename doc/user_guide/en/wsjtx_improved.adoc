@@ -243,7 +243,7 @@ If you have enabled the dark style, you should adjust the highlight color scheme
 
 image::dark.png[align="center",alt="Dark Style"]
 
-=== Optional Band Buttons
+=== Band Buttons
 
 Optional band select buttons can be switched on or off in the View menu.  A click on one of the band select buttons takes
 you to your preferred band/mode default frequency, and a right-click sets the main DXpedition frequencies.
@@ -253,6 +253,10 @@ image::bandbutton1.png[align="center",alt="bandbutton1"]
 Band select buttons are available for all 3 GUI layouts. This is how it looks with the AL version:
 
 image::bandbutton2.png[align="center",alt="bandbutton2"]
+
+A second set of band buttons is available for operations on the VHF / UHF / SHF bands. Switching is done via the "VHF / UHF Buttons" option in the View menu.
+
+image::bandbutton3.png[align="center",alt="bandbutton3"]
 
 === Extra Features for the Widegraph window
 
