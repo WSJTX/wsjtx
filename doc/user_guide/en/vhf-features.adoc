@@ -349,8 +349,8 @@ following information:
 In addition to the traditional Echo mode, for amusement you can
 transmit short messages (up to six alphanumeric characters) and
 receive their echoes, using either multi-tone frequency-shift keying
-or standard Morse code.  For the former, select *MFSK*, a suitable
-tone spacing at least one-third of the expected Soppler spread, and
+or standard Morse code.  For the former, select *MFSK*, set a suitable
+tone spacing at least one-third of the expected Doppler spread, and
 enter your callsign in the field provided. If your radio's dial
 frequency is controlled in 10 Hz steps, you should use tone spacing of
 at least 20 Hz.
@@ -363,9 +363,9 @@ field. Message encoding is trivial, with no forward error correction:
 each tone has a frequency offset from 1500 Hz corresponding to the
 position of that character in the sequence
 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ. Lines displayed in the main text
-window will now include three additional items:
+window will include three additional items:
 
- DT        Timing offset (s), for disgnostic purposes
+ DT        Timing offset (s), for diagnostic purposes
  TS        Tone spacing (Hz)
  EchoMsg   Decoded MFSK message
  
