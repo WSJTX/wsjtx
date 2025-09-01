@@ -13,7 +13,11 @@ especially if you have not previously used _WSJT-X Improved_.
 menu. Two sets of buttons are available: an HF-oriented set for 160 m
 through 70 cm bands, and a VHF-and-up set for 8 m through 24 GHz. See
 the <<BAND_BUTTONS,Band Buttons>> section for more details.
- 
+
+- *FT8 Decoding* includes an option for <<DECODE_MENU,parallel
+processing>> with up to a dozen concurrent threads, yielding improved
+performance.
+
 - *Filters* can be used to suppress display of certain categories of
 decodes. For example, you can hide, ignore, or highlight stations
 worked before on the current band, or worked today or

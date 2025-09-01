@@ -172,6 +172,14 @@ image::mode-menu.png[align="left",alt="Mode Menu"]
 
 [[DECODE_MENU]]
 === Decode Menu
+
+All _WSJT-X_ modes offer *Fast*, *Normal*, and *Deep* decoding
+options. *Deep* usually provides the best sensitivity, but at the cost
+of slower processing and a slightly higher probability of false
+decodes. In FT8 mode you can select a multithreaded decoder with
+additional options that are tunable for best overall performance
+in your setup.
+
 image::decode-menu.png[align="left",alt="Decode Menu"]
 
 To invoke *Full Duplex Mode*, select it from the *Decode* menu. Audio
