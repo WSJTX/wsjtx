@@ -64,9 +64,9 @@ automatically if SWR exceeds 2.5 -- for example, if you accidentally
 select the wrong antenna. These features work with most modern radios
 controlled via _Hamlib_ or _FLRig_.
 
-- *ATU On/Off Status* is remembered on a per-band basis for the Yaesu
-FT-991. Comparable support for other radios may be implemented in the
-future.
+- *Right-click of Tune Button* can be used to initiate ATU tuning in
+some rig models. This feature requires the radio to be equipped with
+an internal ATU and controlled via _Hamlib_.
 
 - *Band Hopping* checkboxes for FT8, FT4 and MSK144 can activate
 sequential reception intervals on the main sub-bands, or on up to eight 
