@@ -8588,6 +8588,10 @@ void MainWindow::on_txrb6_toggled(bool status)
     m_ntx=6;
     if (ui->txrb6->text().contains (QRegularExpression {"^(CQ|QRZ) "})) set_dateTimeQSO(-1);
   }
+  if(m_mode=="MSK144" && msk144qsy && !keep_frequency && m_msk144oldfreq > 0) {
+    setRig(m_msk144oldfreq);  // reset MSK144 QSY
+    msk144qsy = false;
+  }
 }
 
 void MainWindow::on_txb1_clicked()
