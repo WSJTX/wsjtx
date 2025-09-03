@@ -571,8 +571,6 @@ private:
   Frequency m_freqNominalPeriod;
   Frequency m_freqTxNominal;
   quint64 m_msk144basefreq;
-  quint64 m_msk144oldfreq;
-  quint64 m_msk144oldDialFreq;
   quint64  m_mslastTX;   //ft8md
   qint32  m_nlasttx;     //ft8md
   qint32  m_lapmyc;      //ft8md

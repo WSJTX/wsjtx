@@ -276,7 +276,6 @@ bool m_band_changed = false;
 bool m_muted = false;
 bool no_decodes_to_UDP = false;
 bool rigFailed = false;
-bool msk144qsy = false;
 bool programStart = true;
 QString txLog;
 QString ignoreList;
@@ -8574,10 +8573,7 @@ void MainWindow::on_txrb6_toggled(bool status)
     m_ntx=6;
     if (ui->txrb6->text().contains (QRegularExpression {"^(CQ|QRZ) "})) set_dateTimeQSO(-1);
   }
-  if(m_mode=="MSK144" && msk144qsy && !keep_msk144_frequency && m_msk144oldfreq > 0) {
-    setRig(m_msk144oldfreq);  // reset MSK144 QSY
-    msk144qsy = false;
-  }
+  if(m_mode=="MSK144" && !keep_msk144_frequency && m_msk144basefreq > 0) setRig(m_msk144basefreq);  // reset MSK144 QSY
 }
 
 void MainWindow::on_txb1_clicked()
@@ -8652,10 +8648,7 @@ void MainWindow::on_txb6_clicked()
     set_dateTimeQSO(-1);
     ui->txrb6->setChecked(true);
     if(m_transmitting) m_restart=true;
-    if(m_mode=="MSK144" && msk144qsy && !keep_msk144_frequency && m_msk144oldfreq > 0) {
-      setRig(m_msk144oldfreq);  // reset MSK144 QSY
-      msk144qsy = false;
-    }
+    if(m_mode=="MSK144" && !keep_msk144_frequency && m_msk144basefreq > 0) setRig(m_msk144basefreq);  // reset MSK144 QSY
 }
 
 void MainWindow::doubleClickOnCall2(Qt::KeyboardModifiers modifiers)
@@ -8739,17 +8732,9 @@ void MainWindow::doubleClickOnCall(Qt::KeyboardModifiers modifiers)
     if(m_mode=="MSK144" && message.frequencyOffset() > 0 && (modifiers==Qt::ControlModifier or modifiers==(Qt::ControlModifier+Qt::AltModifier))) {
       Frequency dial_frequency = m_msk144basefreq + (message.frequencyOffset() - 1500);
       keep_msk144_frequency = true;
-      if (msk144qsy && m_msk144oldfreq > 0) {
-        m_msk144oldfreq = m_freqNominal + m_msk144oldfreq - m_msk144oldDialFreq;
-        m_msk144oldDialFreq = dial_frequency;
-      } else {
-        m_msk144oldfreq = m_freqNominal;
-        m_msk144oldDialFreq = dial_frequency;
-      }
       monitor (true);
       setRig(dial_frequency);
       ui->labDialFreq->setText (Radio::pretty_frequency_MHz_string (dial_frequency));
-      msk144qsy = true;
       if(modifiers==Qt::AltModifier or modifiers==(Qt::ControlModifier+Qt::AltModifier)) {
         m_bDoubleClicked = false;
         if (m_auto) auto_tx_mode (false);
@@ -11342,7 +11327,6 @@ void MainWindow::on_actionMSK144_triggered()
     on_contest_log_action_triggered();
   }
   if(!(programStart or m_freqNominal == 0)) m_msk144basefreq = m_freqNominal;  // MSK144 QSY
-  msk144qsy = false;  // MSK144 QSY
 }
 
 void MainWindow::on_actionWSPR_triggered()
@@ -11477,8 +11461,8 @@ void MainWindow::on_actionFreqCal_triggered()
 
 void MainWindow::switch_mode (Mode mode)
 {
-  no_a7_decodes = true;  // Don't allow a7 decodes during the first period because they can be leftovers from the previous mode
-  msk144qsy = false;     // MSK144 QSY
+  // Don't allow a7 decodes during the first period because they can be leftovers from the previous mode
+  no_a7_decodes = true;
   QTimer::singleShot ((int(1500.0*m_TRperiod)), [=] {no_a7_decodes = false;});
   if (m_mode != "Q65" && m_specOp==SpecOp::Q65_PILEUP) {
       m_config.setSpecial_None();
@@ -11873,7 +11857,6 @@ void MainWindow::on_bandComboBox_activated (int index)
 
 void MainWindow::band_changed (Frequency f)
 {
-  msk144qsy = false;  // MSK144 QSY
   QTimer::singleShot (900, [=] {
       if (m_mode=="MSK144" && (!(m_currentBand=="6m" or m_currentBand=="4m" or m_currentBand=="2m")))
           ui->sbTR->setValue (m_settings->value ("TRPeriod_MSK144", 30).toInt());
