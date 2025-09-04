@@ -250,6 +250,7 @@ bool no_wait_and_call = false;
 bool no_a7_decodes = false;
 bool keep_frequency = false;
 bool keep_msk144_frequency = false;
+bool msk144qsy = false;
 bool keep_last_tx_label = false;
 int m_Nslots0 {1};
 int m_TxFreqFox {300};
@@ -276,7 +277,6 @@ bool m_band_changed = false;
 bool m_muted = false;
 bool no_decodes_to_UDP = false;
 bool rigFailed = false;
-bool msk144qsy = false;
 bool programStart = true;
 QString txLog;
 QString ignoreList;
@@ -4114,6 +4114,7 @@ void MainWindow::displayDialFrequency ()
 
   update_dynamic_property (ui->labDialFreq, "OOB", !valid);
   ui->labDialFreq->setText (Radio::pretty_frequency_MHz_string (dial_frequency));
+  if(m_mode=="MSK144" && !msk144qsy) m_msk144basefreq = dial_frequency;  // MSK144 QSY
 
   if (ui->actionBand_Buttons->isChecked()) check_button_color();  // update band buttons when dialling the VFO
 }
@@ -8575,8 +8576,8 @@ void MainWindow::on_txrb6_toggled(bool status)
     m_ntx=6;
     if (ui->txrb6->text().contains (QRegularExpression {"^(CQ|QRZ) "})) set_dateTimeQSO(-1);
   }
-  if(m_mode=="MSK144" && msk144qsy && !keep_msk144_frequency && m_msk144oldfreq > 0) {
-    setRig(m_msk144oldfreq);  // reset MSK144 QSY
+  if(m_mode=="MSK144" && !keep_msk144_frequency && m_msk144basefreq > 0) {
+    setRig(m_msk144basefreq);  // reset MSK144 QSY
     msk144qsy = false;
   }
 }
@@ -8653,8 +8654,8 @@ void MainWindow::on_txb6_clicked()
     set_dateTimeQSO(-1);
     ui->txrb6->setChecked(true);
     if(m_transmitting) m_restart=true;
-    if(m_mode=="MSK144" && msk144qsy && !keep_msk144_frequency && m_msk144oldfreq > 0) {
-      setRig(m_msk144oldfreq);  // reset MSK144 QSY
+    if(m_mode=="MSK144" && !keep_msk144_frequency && m_msk144basefreq > 0) {
+      setRig(m_msk144basefreq);  // reset MSK144 QSY
       msk144qsy = false;
     }
 }
@@ -8740,13 +8741,6 @@ void MainWindow::doubleClickOnCall(Qt::KeyboardModifiers modifiers)
     if(m_mode=="MSK144" && message.frequencyOffset() > 0 && (modifiers==Qt::ControlModifier or modifiers==(Qt::ControlModifier+Qt::AltModifier))) {
       Frequency dial_frequency = m_msk144basefreq + (message.frequencyOffset() - 1500);
       keep_msk144_frequency = true;
-      if (msk144qsy && m_msk144oldfreq > 0) {
-        m_msk144oldfreq = m_freqNominal + m_msk144oldfreq - m_msk144oldDialFreq;
-        m_msk144oldDialFreq = dial_frequency;
-      } else {
-        m_msk144oldfreq = m_freqNominal;
-        m_msk144oldDialFreq = dial_frequency;
-      }
       monitor (true);
       setRig(dial_frequency);
       ui->labDialFreq->setText (Radio::pretty_frequency_MHz_string (dial_frequency));
@@ -11343,7 +11337,6 @@ void MainWindow::on_actionMSK144_triggered()
     on_contest_log_action_triggered();
   }
   if(!(programStart or m_freqNominal == 0)) m_msk144basefreq = m_freqNominal;  // MSK144 QSY
-  msk144qsy = false;  // MSK144 QSY
 }
 
 void MainWindow::on_actionWSPR_triggered()
