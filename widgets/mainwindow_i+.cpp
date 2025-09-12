@@ -8702,7 +8702,7 @@ void MainWindow::doubleClickOnCall(Qt::KeyboardModifiers modifiers)
 //        }
 //    }
 //  }
-  if(modifiers==(Qt::ShiftModifier + Qt::ControlModifier + Qt::AltModifier)) {
+  if((modifiers & Qt::ShiftModifier) && (modifiers & Qt::ControlModifier) && (modifiers & Qt::AltModifier)) {
     //### What was the purpose of this ???  ###
     cursor.setPosition(0);
   } else {
@@ -8737,14 +8737,14 @@ void MainWindow::doubleClickOnCall(Qt::KeyboardModifiers modifiers)
         if (m_auto) auto_tx_mode (false);
     }
     // MSK144 QSY: set RF freq so next received MSK144 signal is at 1500 Hz
-    if(m_mode=="MSK144" && message.frequencyOffset() > 0 && (modifiers==Qt::ControlModifier or modifiers==(Qt::ControlModifier+Qt::AltModifier))) {
+    if(m_mode=="MSK144" && message.frequencyOffset() > 0 && ((modifiers & Qt::ControlModifier) && (modifiers & Qt::AltModifier)) ) {
       Frequency dial_frequency = m_msk144basefreq + (message.frequencyOffset() - 1500);
       keep_msk144_frequency = true;
       monitor (true);
       setRig(dial_frequency);
       ui->labDialFreq->setText (Radio::pretty_frequency_MHz_string (dial_frequency));
       msk144qsy = true;
-      if(modifiers==Qt::AltModifier or modifiers==(Qt::ControlModifier+Qt::AltModifier)) {
+      if(modifiers==Qt::AltModifier or  ((modifiers & Qt::ControlModifier) && (modifiers & Qt::AltModifier))) {
         m_bDoubleClicked = false;
         if (m_auto) auto_tx_mode (false);
       }
