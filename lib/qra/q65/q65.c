@@ -306,7 +306,7 @@ int q65_intrinsics_fastfading(q65_codec_ds *pCodec,
 		return Q65_DECODE_INVPARAMS;	// invalid pCodec pointer
 
 	
-	if (submode<0 || submode>4)
+	if (submode<0 || submode>5)
 		return Q65_DECODE_INVPARAMS;	// invalid submode
 
 	// As the symbol duration in q65 is different than in QRA64,

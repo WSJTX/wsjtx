@@ -24,7 +24,7 @@ program q65sim
   
   nargs=iargc()
   if(nargs.ne.11) then
-     print*,'Usage:   q65sim         "msg"     A-E freq fDop DT  f1 Stp TRp Nsig Nfile SNR'
+     print*,'Usage:   q65sim         "msg"     A-F freq fDop DT  f1 Stp TRp Nsig Nfile SNR'
      print*,'Example: q65sim "K1ABC W9XYZ EN37" A  1500 0.0 0.0 0.0  1   60   1    1   -26'
      print*,'Example: q65sim "ST" A  1500 0.0 0.0 0.0  1   60   1   -26'
      print*,'         fDop = Doppler spread'
