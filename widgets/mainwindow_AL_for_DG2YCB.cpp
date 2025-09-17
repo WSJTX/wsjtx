@@ -3224,9 +3224,9 @@ void MainWindow::fastSink(qint64 frames)
             ui->decodedTextBrowser->highlight_callsign(deGrid, QColor(0,100,255), QColor(255,255,255), true);
         // highlight directional calls
         if (tw.size () > 2) {
-          if (m_config.highlight_orange() && tw[0]=="CQ" && m_config.highlight_orange_callsigns().contains(tw[1] + ","))
+          if (m_config.highlight_orange() && tw[0]=="CQ" && m_config.highlight_orange_callsigns().contains("," + tw[1] + ","))
               ui->decodedTextBrowser->highlight_callsign(tw[1], QColor(225,75,0), QColor(255,255,255), true);
-          if (m_config.highlight_blue() && tw[0]=="CQ" && m_config.highlight_blue_callsigns().contains(tw[1] + ","))
+          if (m_config.highlight_blue() && tw[0]=="CQ" && m_config.highlight_blue_callsigns().contains("," + tw[1] + ","))
               ui->decodedTextBrowser->highlight_callsign(tw[1], QColor(0,100,255), QColor(255,255,255), true);
         }
     }
@@ -7071,9 +7071,9 @@ void MainWindow::readFromStdout()                             //readFromStdout
               ui->decodedTextBrowser->highlight_callsign(deGrid, QColor(0,100,255), QColor(255,255,255), true);
           // highlight directional calls
           if (tw.size () > 2) {
-            if (m_config.highlight_orange() && tw[0]=="CQ" && m_config.highlight_orange_callsigns().contains(tw[1] + ","))
+            if (m_config.highlight_orange() && tw[0]=="CQ" && m_config.highlight_orange_callsigns().contains("," + tw[1] + ","))
                 ui->decodedTextBrowser->highlight_callsign(tw[1], QColor(225,75,0), QColor(255,255,255), true);
-            if (m_config.highlight_blue() && tw[0]=="CQ" && m_config.highlight_blue_callsigns().contains(tw[1] + ","))
+            if (m_config.highlight_blue() && tw[0]=="CQ" && m_config.highlight_blue_callsigns().contains("," + tw[1] + ","))
                 ui->decodedTextBrowser->highlight_callsign(tw[1], QColor(0,100,255), QColor(255,255,255), true);
           }
         }
