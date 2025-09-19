@@ -76,6 +76,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   !character(len=12) :: mycall, hiscall  !ft8md
   character(len=6) :: mygrid!, hisgrid   !ft8md
   character*60 line
+  character*37 msg37
   data ndec8/0/,ntr0/-1/
   save
   type(counting_jt4_decoder) :: my_jt4
@@ -115,6 +116,9 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
 
   ncandall=0           !ft8md
   ncandallthr=0        !ft8md
+  
+! FT8 defaults at start to enable a8 decoding
+  if(params%nzhsym.eq.41 .or. params%lmultift8) ltry_a8=.true.
 
 ! For testing only: return Rx messages stored in a file as decodes
   inquire(file='rx_messages.txt',exist=ex)
@@ -1125,25 +1129,24 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
                  endif
               endif
            endif
+           
            if(nFT8decd.gt.10 .and. nintcount.eq.1) avexdt=sumxdt/nFT8decd ! fast track after Sync or mode change on crowded bands
            call fillhashvar(numthreads,.true.)
            ncandall=sum(ncandallthr(1:numthreads))
            if(nFT8decd.eq.0) avexdt=0. ! reset to let correct sliding in decoder
            call timer('decft8  ',1)
-
         else        ! still FT8 but not ft8md
-           call my_ft8%decode(ft8_decoded,id2,params%nQSOProgress,params%nfqso, &
-                params%nftx,newdat,params%nutc,params%nfa,params%nfb,           &
-                params%nzhsym,params%ndepth,params%emedelay,ncontest,           &
-                logical(params%nagain),logical(params%lft8apon),                &
-                logical(params%lapcqonly),params%napwid,mycall,hiscall,         &
+           call my_ft8%decode(ft8_decoded,id2,params%nQSOProgress,params%nfqso,  &
+                params%nftx,newdat,params%nutc,params%nfa,params%nfb,            &
+                params%nzhsym,params%ndepth,params%emedelay,ncontest,            &
+                logical(params%nagain),logical(params%lft8apon),ltry_a8,         &
+                logical(params%lapcqonly),params%napwid,mycall,hiscall,hisgrid,  &
                 params%ndiskdat)
            call timer('decft8  ',1)
         endif       ! end of 'still FT8 but not ft8md'
      endif         ! end of 'if not in SuperFox mode'
      
      j=0
-
      if(ncontest.eq.6) then
         ! Fox mode: save decoded Hound calls for possible selection by FoxOp
         n=params%nutc
@@ -1579,6 +1582,7 @@ contains
     character(len=22), intent(in) :: decoded
 
     !$omp critical(decode_results)
+
     write(*,1000) params%nutc,snr,dt,nint(freq),decoded
 1000 format(i4.4,i4,f5.1,i5,1x,'@ ',1x,a22)
     if(ios13.eq.0) write(13,1002) params%nutc,nint(sync),snr,dt,freq,  &
@@ -1600,7 +1604,8 @@ contains
     integer, intent(in) :: snr
     real, intent(in) :: dt
     real, intent(in) :: freq
-    real, intent(in) :: qual 
+    real, intent(in) :: qual
+    real fdiff
     character(len=37), intent(in) :: decodedvar !ft8md was 26
     character*3 annot !ft8md was 2
     character c1*12,c2*12,g2*4,w*4
@@ -1628,6 +1633,9 @@ contains
        nfox=0
        first=.false.
     endif
+
+    fdiff=freq-params%nfqso
+    if(abs(fdiff).lt.3.0) ltry_a8=.false.
 
     decoded0=trim(decodedvar)  
     annot='  '
@@ -1712,7 +1720,8 @@ contains
     character c1*12,c2*12,g2*4,w*4
     integer i0,i1,i2,i3,i4,i5,n30,nwrap
     integer, intent(in) :: nap 
-    real, intent(in) :: qual 
+    real, intent(in) :: qual
+    real fdiff
     character*2 annot
     character*37 decoded0
     logical isgrid4,first,b0,b1,b2
@@ -1737,6 +1746,8 @@ contains
     endif
 
     decoded0=decoded
+    fdiff=freq-params%nfqso
+    if(abs(fdiff).lt.3.0) ltry_a8=.false.
 
     annot='  '
     if(nap.ne.0) then

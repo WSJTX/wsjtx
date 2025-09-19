@@ -24,7 +24,7 @@ subroutine jt9a()
   call shmem_setkey(trim(shm_key)//c_null_char)
   ok=shmem_attach()
   if(.not.ok) call abort
-  msdelay=30
+  msdelay=10
   call c_f_pointer(shmem_address(),shared_data)
 
 ! Terminate if ipc(2) is 999

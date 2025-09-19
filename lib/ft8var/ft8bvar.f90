@@ -2754,7 +2754,10 @@ subroutine ft8bvar(newdat1,nQSOProgress,nfqso,nftx,napwid,lsubtract,npos,freqsub
         endif
      endif
 
-4    ldupemsg=.false.
+4    continue
+!### Possibly call ft8_a8d() here ??? ###
+
+     ldupemsg=.false.
      if(ndecodes.gt.0) then
         do i=1,ndecodes
            if(allmessages(i).eq.msg37 .and. abs(allfreq(i)-f1).lt.45.0) then

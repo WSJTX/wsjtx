@@ -72,7 +72,7 @@ message (STATUS "******************************************************")
 
 include (set_build_type)
 # RC 0 or omitted is a development build, GA is a General Availability release build
-set_build_type (RC1)
+set_build_type (RC 1)
 set (wsjtx_VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}${BUILD_TYPE_REVISION}")
 
 #
@@ -367,6 +367,7 @@ set (wsjt_FSRCS
   lib/wavhdr.f90
   lib/qra/q65/q65_encoding_modules.f90
   lib/ft8/ft8_a7.f90
+  lib/ft8/ft8_a8d.f90
   lib/superfox/sfox_mod.f90
   lib/superfox/julian.f90
   lib/superfox/popen_module.f90

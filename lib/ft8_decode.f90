@@ -34,7 +34,7 @@ contains
 
   subroutine decode(this,callback,iwave,nQSOProgress,nfqso,nftx,newdat,  &
        nutc,nfa,nfb,nzhsym,ndepth,emedelay,ncontest,nagain,lft8apon,     &
-       lapcqonly,napwid,mycall12,hiscall12,ldiskdat)
+       ltry_a8,lapcqonly,napwid,mycall12,hiscall12,hisgrid,ldiskdat)
     use iso_c_binding, only: c_bool, c_int
     use timer_module, only: timer
     use shmem, only: shmem_lock, shmem_unlock
@@ -50,10 +50,12 @@ contains
     real candidate(3,MAXCAND)
     real dd(NPTS),dd1(NPTS)
     logical, intent(in) :: lft8apon,lapcqonly,nagain
-    logical newdat,lsubtract,ldupe,lrefinedt
+    logical newdat,lsubtract,ldupe,lrefinedt,ltry_a8
     logical*1 ldiskdat
     logical lsubtracted(MAX_EARLY)
+    logical la8
     character*12 mycall12,hiscall12,call_1,call_2
+    character*6 hisgrid
     character*4 grid4
     integer*2 iwave(NPTS)
     integer apsym2(58),aph10(10)
@@ -73,21 +75,23 @@ contains
     write(datetime,1001) nutc        !### TEMPORARY ###
 1001 format("000000_",i6.6)
 
+    la8=.true.
     if(nzhsym .eq. 41) jseq=mod(nutc/5,2)
-
     if(nutc0.eq.-1) then
        msg0=' '
        dt0=0.
        f0=0.
     endif
-!Added 41==nzhsym to force a reset if the same wav file is processed twice or more in a row,
-!in which case nutc.eq.nutc0 and ndec(jseq,1) doesn't get reset
+
+! Added 41==nzhsym to force a reset if the same wav file is processed twice or
+! more in a row, in which case nutc.eq.nutc0 and ndec(jseq,1) doesn't get reset
     if(nzhsym==41 .or. (nutc.ne.nutc0)) then
 ! New UTC.  Move previously saved 'a7' data from k=1 to k=0
        iz=ndec(jseq,1)
        dt0(1:iz,jseq,0)  = dt0(1:iz,jseq,1)
        f0(1:iz,jseq,0)   = f0(1:iz,jseq,1)
        msg0(1:iz,jseq,0) = msg0(1:iz,jseq,1)
+
        ndec(jseq,0)=iz
        ndec(jseq,1)=0
        nutc0=nutc
@@ -103,6 +107,7 @@ contains
        dd=iwave
     endif
     call ft8apset(mycall12,hiscall12,ncontest,apsym2,aph10)
+
     if(nzhsym.le.47) then
        dd=iwave
        dd1=dd
@@ -173,15 +178,15 @@ contains
     if(ndepth.eq.1) npass=2
     do ipass=1,npass
       newdat=.true.
-	  syncmin=1.3
-	  if(ndepth.le.2) syncmin=2.1
+      syncmin=1.3
+      if(ndepth.le.2) syncmin=2.1
 !      if(nzhsym.eq.41) syncmin=2.0
       if(ipass.eq.1) then
         lsubtract=.true.
         imetric=1
       elseif(ipass.eq.2) then
         n2=ndecodes
-	    imetric=2
+        imetric=2
 !        if(ndecodes.eq.0) imetric=2 
         lsubtract=.true.
       elseif(ipass.eq.3) then
@@ -242,7 +247,9 @@ contains
    if(nzhsym.lt.50) ndec_early=ndecodes
    
 900 continue
-   if(lft8apon .and. ncontest.ne.6 .and. ncontest.ne.7 .and. nzhsym.eq.50 .and. ndec(jseq,0).ge.1) then
+
+   if(lft8apon .and. ncontest.ne.6 .and. ncontest.ne.7 .and. nzhsym.eq.50 .and. &
+        ndec(jseq,0).ge.1) then
       newdat=.true.
       do i=1,ndec(jseq,0)
          if(f0(i,jseq,0).eq.-99.0) exit
@@ -270,12 +277,36 @@ contains
                nsnr=xsnr
                iaptype=7
                qual=1.0
+               if(index(msg37,trim(hiscall12)).gt.0) la8=.false.
                call this%callback(sync,nsnr,xdt,f1,msg37,iaptype,qual)
                call ft8_a7_save(jseq,xdt,f1,msg37)  !Enter decode in table
             endif
          endif
       enddo
    endif
+
+   if(lft8apon .and. ncontest.ne.6 .and. ncontest.ne.7 .and. nzhsym.eq.50 .and.  &
+        la8 .and. len(trim(hiscall12)).ge.3 .and. len(trim(hisgrid)).ge.4 .and.  &
+        ltry_a8) then
+! Try for an a8 decode at nfqso
+      f1=nfqso
+      call timer('ft8_a8d ',0)
+      call ft8_a8d(dd,mycall12,hiscall12,hisgrid,f1,xdt,fbest,xsnr,plog,msg37)
+      call timer('ft8_a8d ',1)
+
+      if(msg37(1:1).ne.' ') then
+         if(associated(this%callback)) then
+            sync=10.0  !### ???
+            nsnr=nint(xsnr)
+            iaptype=8
+            qual=1.0
+            if(plog.lt.-147.0) qual=0.16
+            call this%callback(sync,nsnr,xdt,fbest,msg37,iaptype,qual)
+            call ft8_a7_save(jseq,xdt,f1,msg37)  !Enter decode in the a7 table
+         endif
+      endif
+   endif
+
    return
 end subroutine decode
 

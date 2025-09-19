@@ -51,7 +51,7 @@
         <location filename="../widgets/activeStations.ui" line="59"/>
         <location filename="../widgets/activeStations.ui" line="186"/>
         <source>0</source>
-        <translation></translation>
+        <translation>0</translation>
     </message>
     <message>
         <location filename="../widgets/activeStations.ui" line="85"/>
@@ -67,6 +67,11 @@
         <location filename="../widgets/activeStations.ui" line="136"/>
         <source>Max Age  </source>
         <translation>最长时间  </translation>
+    </message>
+    <message>
+        <location filename="../widgets/activeStations.ui" line="207"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Click on a line to call that station. &lt;/p&gt;&lt;p&gt;When using QMAP, single click to transfer QSO data and sked frequency to WSJT-X, and double click to call that station.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;单击一行呼叫该电台. &lt;/p&gt;&lt;p&gt;使用QMAP时, 单击将通联数据和sked频率传输到WSJT-X, 双击呼叫该电台.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/activeStations.ui" line="92"/>
@@ -104,21 +109,36 @@
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;过去一小时内的波段变更次数.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/activeStations.ui" line="207"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Click on a line to call that station.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;点击一条线呼叫该电台.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation type="vanished">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;点击一条线呼叫该电台.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/activeStations.cpp" line="21"/>
         <source>Active Stations</source>
         <translation>活动电台</translation>
     </message>
+    <message>
+        <location filename="../widgets/activeStations.cpp" line="93"/>
+        <location filename="../widgets/activeStations.cpp" line="101"/>
+        <source>Wanted only</source>
+        <translation>仅渴望</translation>
+    </message>
+    <message>
+        <location filename="../widgets/activeStations.cpp" line="95"/>
+        <source>Message</source>
+        <translation>信息</translation>
+    </message>
+    <message>
+        <location filename="../widgets/activeStations.cpp" line="96"/>
+        <source>My call only</source>
+        <translation>仅我的呼号</translation>
+    </message>
 </context>
 <context>
     <name>Astro</name>
     <message>
         <location filename="../widgets/astro.ui" line="34"/>
-        <location filename="../widgets/astro.ui" line="330"/>
+        <location filename="../widgets/astro.ui" line="355"/>
         <source>Doppler tracking</source>
         <translation>多普勒跟踪</translation>
     </message>
@@ -191,7 +211,7 @@
         <location filename="../widgets/astro.ui" line="134"/>
         <location filename="../widgets/astro.ui" line="151"/>
         <source>0</source>
-        <translation></translation>
+        <translation>0</translation>
     </message>
     <message>
         <location filename="../widgets/astro.ui" line="168"/>
@@ -214,22 +234,47 @@
         <translation>Echo 模式</translation>
     </message>
     <message>
-        <location filename="../widgets/astro.ui" line="235"/>
+        <location filename="../widgets/astro.ui" line="228"/>
         <source>  Hz</source>
         <translation>  赫兹</translation>
     </message>
     <message>
-        <location filename="../widgets/astro.ui" line="238"/>
+        <location filename="../widgets/astro.ui" line="231"/>
         <source>RIT  </source>
-        <translation></translation>
+        <translation>RIT  </translation>
     </message>
     <message>
-        <location filename="../widgets/astro.ui" line="267"/>
+        <location filename="../widgets/astro.ui" line="260"/>
         <source>Dither</source>
         <translation>抖动</translation>
     </message>
     <message>
-        <location filename="../widgets/astro.ui" line="312"/>
+        <location filename="../widgets/astro.ui" line="272"/>
+        <source>Tx Shift relative to Rx Sked Freq</source>
+        <translation>相对于接收 Sked 频率的发射偏移</translation>
+    </message>
+    <message>
+        <location filename="../widgets/astro.ui" line="278"/>
+        <source>Enter large offset</source>
+        <translation>输入大偏移量</translation>
+    </message>
+    <message>
+        <location filename="../widgets/astro.ui" line="281"/>
+        <source> MHz</source>
+        <translation> 兆赫</translation>
+    </message>
+    <message>
+        <location filename="../widgets/astro.ui" line="284"/>
+        <source>Shift </source>
+        <translation>偏移 </translation>
+    </message>
+    <message>
+        <location filename="../widgets/astro.ui" line="306"/>
+        <source>Enable</source>
+        <translation>启用</translation>
+    </message>
+    <message>
+        <location filename="../widgets/astro.ui" line="337"/>
         <source>Astro Data</source>
         <translation>天体数据</translation>
     </message>
@@ -351,7 +396,7 @@
     <message>
         <location filename="../widgets/CabrilloLogWindow.ui" line="42"/>
         <source>0  QSOs</source>
-        <translation></translation>
+        <translation>0  通联</translation>
     </message>
 </context>
 <context>
@@ -382,7 +427,7 @@
         <location filename="../widgets/colorhighlighting.ui" line="272"/>
         <location filename="../widgets/colorhighlighting.ui" line="285"/>
         <source>K1ABC</source>
-        <translation></translation>
+        <translation>K1ABC</translation>
     </message>
     <message>
         <location filename="../widgets/colorhighlighting.ui" line="43"/>
@@ -468,90 +513,110 @@
 <context>
     <name>Configuration::impl</name>
     <message>
-        <location filename="../Configuration.cpp" line="1570"/>
-        <location filename="../Configuration.cpp" line="1770"/>
-        <location filename="../Configuration.cpp" line="1799"/>
+        <location filename="../Configuration.cpp" line="1759"/>
+        <location filename="../Configuration.cpp" line="1964"/>
+        <location filename="../Configuration.cpp" line="1993"/>
         <source>&amp;Delete</source>
         <translation>删除(&amp;D)</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1571"/>
-        <location filename="../Configuration.cpp" line="1803"/>
+        <location filename="../Configuration.cpp" line="1760"/>
+        <location filename="../Configuration.cpp" line="1997"/>
         <source>&amp;Insert ...</source>
         <translation>插入(&amp;I) ...</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1605"/>
+        <location filename="../Configuration.cpp" line="1797"/>
         <source>Failed to create save directory</source>
         <translation>无法创建保存目录</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1606"/>
+        <location filename="../Configuration.cpp" line="1798"/>
         <source>path: &quot;%1%</source>
         <translation>目录: &quot;%1%</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1617"/>
+        <location filename="../Configuration.cpp" line="1809"/>
         <source>Failed to create samples directory</source>
         <translation>无法创建示例目录</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1618"/>
+        <location filename="../Configuration.cpp" line="1810"/>
         <source>path: &quot;%1&quot;</source>
         <translation>目录: &quot;%1&quot;</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1682"/>
+        <location filename="../Configuration.cpp" line="1874"/>
         <source>API key OK</source>
         <translation>API密匙确认</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1686"/>
+        <location filename="../Configuration.cpp" line="1878"/>
         <source>API key read-only</source>
         <translation>API密匙 唯读</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1690"/>
+        <location filename="../Configuration.cpp" line="1882"/>
         <source>API key invalid</source>
         <translation>API密匙 无效</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1807"/>
+        <location filename="../Configuration.cpp" line="2001"/>
         <source>&amp;Load ...</source>
         <translation>加载(&amp;L) ...</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1811"/>
+        <location filename="../Configuration.cpp" line="2005"/>
         <source>&amp;Save as ...</source>
         <translation>另存为(&amp;S) ...</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1815"/>
+        <location filename="../Configuration.cpp" line="2009"/>
         <source>&amp;Merge ...</source>
         <translation>合并(&amp;M) ...</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="1819"/>
+        <location filename="../Configuration.cpp" line="2013"/>
         <source>&amp;Reset</source>
         <translation>重置(&amp;R)</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2769"/>
+        <location filename="../Configuration.cpp" line="3032"/>
         <source>Serial Port:</source>
         <translation>串行端口:</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2770"/>
+        <location filename="../Configuration.cpp" line="3033"/>
         <source>Serial port used for CAT control</source>
         <translation>用于CAT控制的串行端口</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2777"/>
+        <location filename="../Configuration.cpp" line="3040"/>
+        <source>TCI Server:</source>
+        <translation>TCI 服务器:</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.cpp" line="3041"/>
+        <source>Optional hostname and port of TCI service.
+Leave blank for a sensible default on this machine.
+Formats:
+	hostname:port
+	IPv4-address:port
+	[IPv6-address]:port</source>
+        <translation>可选主机名和TCI服务端口.
+为无线电设备合理默认值保留空白.
+格式:
+	主机名:端口
+	IP v4-地址:端口
+	[IPv6-地址]:端口</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.cpp" line="3053"/>
         <source>Network Server:</source>
         <translation>网络服务器:</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2778"/>
+        <location filename="../Configuration.cpp" line="3054"/>
         <source>Optional hostname and port of network service.
 Leave blank for a sensible default on this machine.
 Formats:
@@ -566,12 +631,12 @@ Formats:
 	[IPv6-地址]:端口</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2790"/>
+        <location filename="../Configuration.cpp" line="3066"/>
         <source>USB Device:</source>
         <translation>USB 设备:</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2791"/>
+        <location filename="../Configuration.cpp" line="3067"/>
         <source>Optional device identification.
 Leave blank for a sensible default for the rig.
 Format:
@@ -582,87 +647,87 @@ Format:
 	[VID[:PID[:供应商[:产品]]]]</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2827"/>
-        <location filename="../Configuration.cpp" line="2835"/>
+        <location filename="../Configuration.cpp" line="3103"/>
+        <location filename="../Configuration.cpp" line="3111"/>
         <source>Invalid audio input device</source>
         <translation>无效的音频输入设备</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2843"/>
+        <location filename="../Configuration.cpp" line="3119"/>
         <source>Invalid audio output device</source>
         <translation>无效的音频输出设备</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2849"/>
+        <location filename="../Configuration.cpp" line="3125"/>
         <source>Invalid PTT method</source>
         <translation>无效的PTT方法</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2859"/>
+        <location filename="../Configuration.cpp" line="3135"/>
         <source>Invalid PTT port</source>
         <translation>无效的PTT端口</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2867"/>
-        <location filename="../Configuration.cpp" line="2876"/>
+        <location filename="../Configuration.cpp" line="3143"/>
+        <location filename="../Configuration.cpp" line="3152"/>
         <source>Invalid Contest Exchange</source>
         <translation>无效的竞赛交换数据</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2868"/>
+        <location filename="../Configuration.cpp" line="3144"/>
         <source>You must input a valid ARRL Field Day exchange</source>
         <translation>您必须输入有效的 ARRL Field Day交换数据</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2877"/>
+        <location filename="../Configuration.cpp" line="3153"/>
         <source>You must input a valid ARRL RTTY Roundup exchange</source>
         <translation>您必须输入有效的 ARRL RTTY Roundup 交换数据</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="2883"/>
+        <location filename="../Configuration.cpp" line="3159"/>
         <source>Pending DNS lookup, please try again later</source>
         <translation>等待域名系统查找, 请稍后再试</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="3336"/>
-        <location filename="../Configuration.cpp" line="3346"/>
+        <location filename="../Configuration.cpp" line="3639"/>
+        <location filename="../Configuration.cpp" line="3649"/>
         <source>Reset Decode Highlighting</source>
         <translation>重置解码突出显示</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="3337"/>
-        <location filename="../Configuration.cpp" line="3347"/>
+        <location filename="../Configuration.cpp" line="3640"/>
+        <location filename="../Configuration.cpp" line="3650"/>
         <source>Reset all decode highlighting and priorities to default values</source>
         <translation>将所有解码突出显示和优先级重置为默认值</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="3382"/>
+        <location filename="../Configuration.cpp" line="3685"/>
         <source>Error Loading CTY.DAT</source>
         <translation>载入 CTY.DAT 错误</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="3435"/>
+        <location filename="../Configuration.cpp" line="3740"/>
         <source>Error Loading CALL3.TXT file</source>
         <translation>载入 CALL3.TXT 错误</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="3496"/>
+        <location filename="../Configuration.cpp" line="3801"/>
         <source>WSJT-X Decoded Text Font Chooser</source>
         <translation>WSJT-X 解码文本字体选择</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="3533"/>
-        <location filename="../Configuration.cpp" line="3580"/>
+        <location filename="../Configuration.cpp" line="3838"/>
+        <location filename="../Configuration.cpp" line="3895"/>
         <source>Hamlib update only available on Windows.</source>
         <translation>Hamlib更新仅在Windows上可用.</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="3540"/>
+        <location filename="../Configuration.cpp" line="3845"/>
         <source>Error Loading libhamlib-4.dll</source>
         <translation>载入 libhamlib-4.dll 错误</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="3553"/>
+        <location filename="../Configuration.cpp" line="3868"/>
         <source>Hamlib Update successful 
 
 New Hamlib will be used after restart</source>
@@ -671,7 +736,7 @@ New Hamlib will be used after restart</source>
 重新启动后将使用新的Hamlib</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="3572"/>
+        <location filename="../Configuration.cpp" line="3887"/>
         <source>Hamlib successfully reverted 
 
 Reverted Hamlib will be used after restart</source>
@@ -680,131 +745,131 @@ Reverted Hamlib will be used after restart</source>
 重新启动后将使用还原的 Hamlib</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="3577"/>
+        <location filename="../Configuration.cpp" line="3892"/>
         <source>No Hamlib update found that could be reverted</source>
         <translation>找不到可以还原的Hamlib更新</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="3841"/>
+        <location filename="../Configuration.cpp" line="4191"/>
         <source>Error in network address</source>
         <translation>网络IP错误</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="3873"/>
+        <location filename="../Configuration.cpp" line="4223"/>
         <source>UDP server DNS lookup failed</source>
         <translation>UDP服务器域名系统查找失败</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="3897"/>
+        <location filename="../Configuration.cpp" line="4247"/>
         <source>MAC-ambiguous multicast groups addresses not supported</source>
         <translation>不支持MAC不明确的多播组地址</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="3923"/>
+        <location filename="../Configuration.cpp" line="4273"/>
         <source>Load Working Frequencies</source>
         <translation>载入工作频率</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="3923"/>
-        <location filename="../Configuration.cpp" line="3943"/>
-        <location filename="../Configuration.cpp" line="4017"/>
+        <location filename="../Configuration.cpp" line="4273"/>
+        <location filename="../Configuration.cpp" line="4293"/>
+        <location filename="../Configuration.cpp" line="4367"/>
         <source>Frequency files (*.qrg *.qrg.json);;All files (*.*)</source>
         <translation>频率文件 (*.qrg);;所有文件 (*.*)</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="3930"/>
+        <location filename="../Configuration.cpp" line="4280"/>
         <source>Replace Working Frequencies</source>
         <translation>替换工作频率</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="3931"/>
+        <location filename="../Configuration.cpp" line="4281"/>
         <source>Are you sure you want to discard your current working frequencies and replace them with the loaded ones?</source>
         <translation>是否确实要放弃当前工作频率, 并将其替换为加载的频率?</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="3943"/>
+        <location filename="../Configuration.cpp" line="4293"/>
         <source>Merge Working Frequencies</source>
         <translation>合并工作频率</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="3968"/>
+        <location filename="../Configuration.cpp" line="4318"/>
         <source>Error reading frequency file</source>
         <translation>读取频率文件错误</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="3977"/>
-        <location filename="../Configuration.cpp" line="3986"/>
-        <location filename="../Configuration.cpp" line="4008"/>
+        <location filename="../Configuration.cpp" line="4327"/>
+        <location filename="../Configuration.cpp" line="4336"/>
+        <location filename="../Configuration.cpp" line="4358"/>
         <source>Not a valid frequencies file</source>
         <translation>不是有效的频率文件</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="3977"/>
+        <location filename="../Configuration.cpp" line="4327"/>
         <source>Incorrect file magic</source>
         <translation>不正确的文件内容</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="3986"/>
+        <location filename="../Configuration.cpp" line="4336"/>
         <source>Version is too new</source>
         <translation>版本太新</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="4008"/>
+        <location filename="../Configuration.cpp" line="4358"/>
         <source>Contents corrupt</source>
         <translation>内容已损坏</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="4017"/>
+        <location filename="../Configuration.cpp" line="4367"/>
         <source>Save Working Frequencies</source>
         <translation>保存工作频率</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="4030"/>
+        <location filename="../Configuration.cpp" line="4380"/>
         <source>Only Save Selected  Working Frequencies</source>
         <translation>仅保存选定的工作频率</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="4031"/>
+        <location filename="../Configuration.cpp" line="4381"/>
         <source>Are you sure you want to save only the working frequencies that are currently selected? Click No to save all.</source>
         <translation>是否确实要仅保存当前选择的工作频率? 单击 否 可保存所有.</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="4064"/>
+        <location filename="../Configuration.cpp" line="4414"/>
         <source>Reset Working Frequencies</source>
         <translation>重置工作频率</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="4065"/>
+        <location filename="../Configuration.cpp" line="4415"/>
         <source>Are you sure you want to discard your current working frequencies and replace them with default ones?</source>
         <translation>您确定要放弃您当前的工作频率并用默认值频率替换它们吗?</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="4105"/>
+        <location filename="../Configuration.cpp" line="4455"/>
         <source>Save Directory</source>
         <translation>保存目录</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="4119"/>
+        <location filename="../Configuration.cpp" line="4469"/>
         <source>AzEl Directory</source>
         <translation>AzEl 目录</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="4518"/>
+        <location filename="../Configuration.cpp" line="4920"/>
         <source>Rig control error</source>
         <translation>无线电设备控制错误</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="4519"/>
+        <location filename="../Configuration.cpp" line="4921"/>
         <source>Failed to open connection to rig</source>
         <translation>无法打开无线电设备的连接</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="4748"/>
+        <location filename="../Configuration.cpp" line="5307"/>
         <source>Rig failure</source>
         <translation>无线电设备故障</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="4804"/>
+        <location filename="../Configuration.cpp" line="5364"/>
         <source>Not found</source>
         <comment>audio device missing</comment>
         <translation>未找到音频设备</translation>
@@ -835,68 +900,76 @@ Reverted Hamlib will be used after restart</source>
         <translation>DX Lab Suite Commander 没有测试正确响应轮询发送状态: </translation>
     </message>
     <message>
-        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="192"/>
         <source>DX Lab Suite Commander rig did not respond to PTT: </source>
-        <translation>DX Lab Suite Commander 未响应无线电设备发送PTT: </translation>
+        <translation type="vanished">DX Lab Suite Commander 未响应无线电设备发送PTT: </translation>
     </message>
     <message>
-        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="272"/>
+        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="192"/>
+        <source>Transceiver did not respond to PTT On/Off quickly enough; 
+reduce DX Lab Suite Commander&apos;s &apos;Command Interval&apos; setting 
+or contact DXLab support at DXLab@groups.io.</source>
+        <translation>收发器对PTT开/关响应不够快;
+减少DX Lab Suite Commander的 &quot;命令间隔&quot; 设置
+或通过DXLab@groups.io联系DXLab支持部门.</translation>
+    </message>
+    <message>
+        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="274"/>
         <source>DX Lab Suite Commander didn&apos;t respond correctly polling frequency: </source>
         <translation>DX Lab Suite Commander 没有正确响应轮询频率: </translation>
     </message>
     <message>
-        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="293"/>
+        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="295"/>
         <source>DX Lab Suite Commander didn&apos;t respond correctly polling TX frequency: </source>
         <translation>DX Lab Suite Commander 没有正确响应轮询发射频率: </translation>
     </message>
     <message>
-        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="312"/>
+        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="314"/>
         <source>DX Lab Suite Commander sent an unrecognised split state: </source>
         <translation>DX Lab Suite Commander 发送了一个无法识别的异频状态: </translation>
     </message>
     <message>
-        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="318"/>
+        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="320"/>
         <source>DX Lab Suite Commander didn&apos;t respond correctly polling split status: </source>
         <translation>DX Lab Suite Commander 没有正确响应轮询异频状态： </translation>
     </message>
     <message>
-        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="374"/>
+        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="376"/>
         <source>DX Lab Suite Commander sent an unrecognised mode: &quot;</source>
         <translation>DX Lab Suite Commander 发送了一个无法识别的模式: &quot;</translation>
     </message>
     <message>
-        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="381"/>
+        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="383"/>
         <source>DX Lab Suite Commander didn&apos;t respond correctly polling mode: </source>
         <translation>DX Lab Suite Commander 没有正确响应轮询模式: </translation>
     </message>
     <message>
-        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="395"/>
+        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="397"/>
         <source>DX Lab Suite Commander send command failed
 </source>
         <translation>DX Lab Suite Commander 发送命令失败
 </translation>
     </message>
     <message>
-        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="407"/>
+        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="409"/>
         <source>DX Lab Suite Commander send command failed &quot;%1&quot;: %2
 </source>
         <translation>DX Lab Suite Commander 发送命令失败 &quot;%1&quot;: %2
 </translation>
     </message>
     <message>
-        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="424"/>
+        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="426"/>
         <source>DX Lab Suite Commander send command &quot;%1&quot; read reply failed: %2
 </source>
         <translation>DX Lab Suite Commander 发送命令 &quot;%1&quot; 读取回复失败: %2
 </translation>
     </message>
     <message>
-        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="435"/>
+        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="437"/>
         <source>DX Lab Suite Commander retries exhausted sending command &quot;%1&quot;</source>
         <translation>DX Lab Suite Commander 发送命令重试失败 &quot;%1&quot;</translation>
     </message>
     <message>
-        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="493"/>
+        <location filename="../Transceiver/DXLabSuiteCommanderTransceiver.cpp" line="495"/>
         <source>DX Lab Suite Commander sent an unrecognized frequency</source>
         <translation>DX Lab Suite Commander 发送了无法识别的频率</translation>
     </message>
@@ -1177,7 +1250,7 @@ Error: %2 - %3</source>
 <context>
     <name>DisplayText</name>
     <message>
-        <location filename="../widgets/displaytext.cpp" line="51"/>
+        <location filename="../widgets/displaytext.cpp" line="53"/>
         <source>&amp;Erase</source>
         <translation>擦除(&amp;E)</translation>
     </message>
@@ -1243,7 +1316,7 @@ Error: %2 - %3</source>
     <message>
         <location filename="../widgets/echograph.ui" line="262"/>
         <source>N: 0</source>
-        <translation></translation>
+        <translation>N: 0</translation>
     </message>
     <message>
         <location filename="../widgets/echograph.ui" line="278"/>
@@ -1259,7 +1332,7 @@ Error: %2 - %3</source>
 <context>
     <name>EmulateSplitTransceiver</name>
     <message>
-        <location filename="../Transceiver/EmulateSplitTransceiver.cpp" line="50"/>
+        <location filename="../Transceiver/EmulateSplitTransceiver.cpp" line="52"/>
         <source>Emulated split mode requires rig to be in simplex mode</source>
         <translation>模拟异频模式要求无线电设备处于单工模式</translation>
     </message>
@@ -1371,7 +1444,7 @@ Error: %2 - %3</source>
     <message>
         <location filename="../widgets/ExportCabrillo.ui" line="24"/>
         <source>SNJ</source>
-        <translation></translation>
+        <translation>SNJ</translation>
     </message>
     <message>
         <location filename="../widgets/ExportCabrillo.ui" line="34"/>
@@ -1381,7 +1454,7 @@ Error: %2 - %3</source>
     <message>
         <location filename="../widgets/ExportCabrillo.ui" line="44"/>
         <source>ARRL-RTTY</source>
-        <translation></translation>
+        <translation>ARRL-RTTY</translation>
     </message>
     <message>
         <location filename="../widgets/ExportCabrillo.ui" line="54"/>
@@ -1396,7 +1469,7 @@ Error: %2 - %3</source>
     <message>
         <location filename="../widgets/ExportCabrillo.ui" line="84"/>
         <source>SINGLE-OP</source>
-        <translation></translation>
+        <translation>SINGLE-OP</translation>
     </message>
     <message>
         <location filename="../widgets/ExportCabrillo.ui" line="94"/>
@@ -1406,7 +1479,7 @@ Error: %2 - %3</source>
     <message>
         <location filename="../widgets/ExportCabrillo.ui" line="104"/>
         <source>ONE</source>
-        <translation></translation>
+        <translation>ONE</translation>
     </message>
     <message>
         <location filename="../widgets/ExportCabrillo.ui" line="114"/>
@@ -1416,7 +1489,7 @@ Error: %2 - %3</source>
     <message>
         <location filename="../widgets/ExportCabrillo.ui" line="124"/>
         <source>LOW</source>
-        <translation></translation>
+        <translation>LOW</translation>
     </message>
     <message>
         <location filename="../widgets/ExportCabrillo.ui" line="134"/>
@@ -1426,7 +1499,7 @@ Error: %2 - %3</source>
     <message>
         <location filename="../widgets/ExportCabrillo.ui" line="144"/>
         <source>NON-ASSISTED</source>
-        <translation></translation>
+        <translation>NON-ASSISTED</translation>
     </message>
     <message>
         <location filename="../widgets/ExportCabrillo.ui" line="154"/>
@@ -1436,7 +1509,7 @@ Error: %2 - %3</source>
     <message>
         <location filename="../widgets/ExportCabrillo.ui" line="164"/>
         <source>ALL</source>
-        <translation></translation>
+        <translation>ALL</translation>
     </message>
     <message>
         <location filename="../widgets/ExportCabrillo.ui" line="174"/>
@@ -1520,6 +1593,30 @@ Error: %2 - %3</source>
     </message>
 </context>
 <context>
+    <name>FileDownload</name>
+    <message>
+        <location filename="../Network/FileDownload.cpp" line="75"/>
+        <source>Network Error - SSL/TLS support not installed, cannot fetch:
+&apos;%1&apos;</source>
+        <translation>网络错误 - 未安装SSL/TLS支持, 无法获取:
+&apos;%1&apos;</translation>
+    </message>
+    <message>
+        <location filename="../Network/FileDownload.cpp" line="87"/>
+        <source>Network Error - Too many redirects:
+&apos;%1&apos;</source>
+        <translation>网络错误 - 太多重定向:
+&apos;%1&apos;</translation>
+    </message>
+    <message>
+        <location filename="../Network/FileDownload.cpp" line="101"/>
+        <source>Network Error:
+%1</source>
+        <translation>网络错误:
+%1</translation>
+    </message>
+</context>
+<context>
     <name>FoxLog::impl</name>
     <message>
         <location filename="../models/FoxLog.cpp" line="147"/>
@@ -1574,7 +1671,7 @@ Error: %2 - %3</source>
         <location filename="../widgets/FoxLogWindow.ui" line="72"/>
         <location filename="../widgets/FoxLogWindow.ui" line="102"/>
         <source>N</source>
-        <translation></translation>
+        <translation>N</translation>
     </message>
     <message>
         <location filename="../widgets/FoxLogWindow.ui" line="65"/>
@@ -1589,7 +1686,7 @@ Error: %2 - %3</source>
     <message>
         <location filename="../widgets/FoxLogWindow.ui" line="99"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Last 10: Average rate (QSOs/hour) for the last 10 QSOs.&lt;br/&gt;Last 100:  Average rate (QSOs/hour) for the last 100 QSOs. &lt;br/&gt;Last 60m: Average rate (QSOs/hour) for the last 60 minutes.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;最后10个: 最后10个QSO的平均速率 (QSOs/小时).&lt;br/&gt;最后100个:  最后100个QSO的平均速率 (QSOs/小时). &lt;br/&gt;最后60分钟: 最后60分钟的平均速率 (QSOs/小时).&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;最后10个: 最后10个通联的平均速率 (通联/小时).&lt;br/&gt;最后100个:  最后100个通联的平均速率 (通联/小时). &lt;br/&gt;最后60分钟: 最后60分钟的平均速率 (通联/小时).&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <location filename="../widgets/FoxLogWindow.cpp" line="55"/>
@@ -1635,62 +1732,62 @@ Error: %2 - %3</source>
 <context>
     <name>FrequencyDialog</name>
     <message>
-        <location filename="../Configuration.cpp" line="312"/>
+        <location filename="../Configuration.cpp" line="317"/>
         <source>Add Frequency</source>
         <translation>添加频率</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="318"/>
+        <location filename="../Configuration.cpp" line="323"/>
         <source>IARU &amp;Region:</source>
         <translation>IA&amp;RU 区域:</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="319"/>
+        <location filename="../Configuration.cpp" line="324"/>
         <source>&amp;Mode:</source>
         <translation>模式(&amp;M):</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="320"/>
+        <location filename="../Configuration.cpp" line="325"/>
         <source>&amp;Frequency (MHz):</source>
         <translation>频率 (M&amp;Hz):</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="321"/>
+        <location filename="../Configuration.cpp" line="326"/>
         <source>&amp;Preferred for Band/Mode:</source>
         <translation>首选波段/模式(&amp;P):</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="322"/>
+        <location filename="../Configuration.cpp" line="327"/>
         <source>&amp;Description:</source>
         <translation>描述(&amp;D):</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="323"/>
+        <location filename="../Configuration.cpp" line="328"/>
         <source>&amp;Enable Date Range:</source>
         <translation>启用日期范围(&amp;E):</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="324"/>
+        <location filename="../Configuration.cpp" line="329"/>
         <source>S&amp;tart:</source>
         <translation>开始(&amp;t):</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="325"/>
+        <location filename="../Configuration.cpp" line="330"/>
         <source>&amp;End:</source>
         <translation>结束(&amp;E):</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="326"/>
+        <location filename="../Configuration.cpp" line="331"/>
         <source>&amp;Source:</source>
         <translation>来源(&amp;S):</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="355"/>
+        <location filename="../Configuration.cpp" line="360"/>
         <source>Invalid Date Range</source>
         <translation>无效的日期范围</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="355"/>
+        <location filename="../Configuration.cpp" line="360"/>
         <source>Start date must be before end date</source>
         <translation>开始日期必须在结束日期之前</translation>
     </message>
@@ -1929,132 +2026,156 @@ Error: %2 - %3</source>
         <translation>Hamlib 设置文件错误: 配置必须是JSON为对象</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="638"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="644"/>
         <source>opening connection to rig</source>
         <translation>打开连接无线电设备</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="688"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="694"/>
         <source>getting current frequency</source>
         <translation>获取当前频率</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="692"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="698"/>
         <source>getting current mode</source>
         <translation>获取当前模式</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="721"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="741"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="727"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="747"/>
         <source>exchanging VFOs</source>
         <translation>在 VFOs 之间切换</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="729"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1182"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="735"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1188"/>
         <source>getting other VFO frequency</source>
         <translation>获取其他 VFO 频率</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="733"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="739"/>
         <source>getting other VFO mode</source>
         <translation>获取其他 VFO 模式</translation>
     </message>
     <message>
+<<<<<<< HEAD
         <location filename="../Transceiver/HamlibTransceiver.cpp" line="755"/>
+=======
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="303"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="752"/>
+        <source>setting current VFO</source>
+        <translation>设置当前 VFO</translation>
+    </message>
+    <message>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="761"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>getting frequency</source>
         <translation>获取频率</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="759"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="765"/>
         <source>getting mode</source>
         <translation>获取模式</translation>
     </message>
     <message>
+<<<<<<< HEAD
         <location filename="../Transceiver/HamlibTransceiver.cpp" line="827"/>
         <location filename="../Transceiver/HamlibTransceiver.cpp" line="835"/>
         <location filename="../Transceiver/HamlibTransceiver.cpp" line="849"/>
         <location filename="../Transceiver/HamlibTransceiver.cpp" line="1161"/>
+=======
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="291"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="782"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1128"/>
+        <source>getting current VFO</source>
+        <translation>获取当前 VFO</translation>
+    </message>
+    <message>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="833"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="841"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="855"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1167"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>getting current VFO frequency</source>
         <translation>获取当前 VFO 频率</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="833"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="848"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="855"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="909"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="927"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="990"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="839"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="854"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="861"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="915"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="933"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="996"/>
         <source>setting frequency</source>
         <translation>设置频率</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="917"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="997"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1075"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1088"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="923"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1003"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1081"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1094"/>
         <source>getting current VFO mode</source>
         <translation>获取当前 VFO 模式</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="923"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="932"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1003"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1081"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1094"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="929"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="938"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1009"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1087"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1100"/>
         <source>setting current VFO mode</source>
         <translation>设置当前 VFO 模式</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="935"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="941"/>
         <source>setting VFOB mode</source>
         <translation>设置 VFOB 模式</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="977"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1046"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="983"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1052"/>
         <source>setting/unsetting split mode</source>
         <translation>设置/取消 设置异频模式</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="988"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1028"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="994"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1034"/>
         <source>setting split mode</source>
         <translation>设置异频模式</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1016"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1022"/>
         <source>setting split TX frequency and mode</source>
         <translation>设置异频发射频率和模式</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1021"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1027"/>
         <source>setting split TX frequency</source>
         <translation>设置异频发射频率</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1099"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1105"/>
         <source>getting split TX VFO mode</source>
         <translation>获得异频发射 VFO 模式</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1106"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1112"/>
         <source>setting split TX VFO mode</source>
         <translation>设置异频发射 VFO 模式</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1219"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1225"/>
         <source>getting PTT state</source>
         <translation>获取PTT 状态</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1288"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1294"/>
         <source>setting PTT on</source>
         <translation>设置PTT 开启</translation>
     </message>
     <message>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1297"/>
-        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1326"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1303"/>
+        <location filename="../Transceiver/HamlibTransceiver.cpp" line="1332"/>
         <source>setting PTT off</source>
         <translation>设置 PTT 关闭</translation>
     </message>
@@ -2109,7 +2230,7 @@ Error: %2 - %3</source>
         <location filename="../widgets/logqso.ui" line="88"/>
         <location filename="../widgets/logqso.ui" line="126"/>
         <source>dd/MM/yyyy HH:mm:ss</source>
-        <translation></translation>
+        <translation>dd/MM/yyyy HH:mm:ss</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.ui" line="107"/>
@@ -2229,7 +2350,7 @@ Error: %2 - %3</source>
     <message>
         <location filename="../widgets/logqso.cpp" line="38"/>
         <source>Echolink</source>
-        <translation></translation>
+        <translation>Echolink</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="39"/>
@@ -2293,133 +2414,137 @@ Error: %2 - %3</source>
         <translation>跨赤道</translation>
     </message>
     <message>
-        <location filename="../widgets/logqso.cpp" line="51"/>
         <source>Troposheric ducting</source>
+        <translation type="vanished">对流层管道</translation>
+    </message>
+    <message>
+        <location filename="../widgets/logqso.cpp" line="51"/>
+        <source>Tropospheric ducting</source>
         <translation>对流层管道</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="61"/>
         <source>A</source>
-        <translation></translation>
+        <translation>A</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="62"/>
         <source>B</source>
-        <translation></translation>
+        <translation>B</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="63"/>
         <source>BS</source>
-        <translation></translation>
+        <translation>BS</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="64"/>
         <source>JA</source>
-        <translation></translation>
+        <translation>JA</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="65"/>
         <source>JD</source>
-        <translation></translation>
+        <translation>JD</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="66"/>
         <source>K</source>
-        <translation></translation>
+        <translation>K</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="67"/>
         <source>KA</source>
-        <translation></translation>
+        <translation>KA</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="68"/>
         <source>KT</source>
-        <translation></translation>
+        <translation>KT</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="69"/>
         <source>L</source>
-        <translation></translation>
+        <translation>L</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="70"/>
         <source>LS</source>
-        <translation></translation>
+        <translation>LS</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="71"/>
         <source>LU</source>
-        <translation></translation>
+        <translation>LU</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="72"/>
         <source>LX</source>
-        <translation></translation>
+        <translation>LX</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="73"/>
         <source>S</source>
-        <translation></translation>
+        <translation>S</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="74"/>
         <source>SX</source>
-        <translation></translation>
+        <translation>SX</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="75"/>
         <source>T</source>
-        <translation></translation>
+        <translation>T</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="76"/>
         <source>US</source>
-        <translation></translation>
+        <translation>US</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="77"/>
         <source>UV</source>
-        <translation></translation>
+        <translation>UV</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="78"/>
         <source>VS</source>
-        <translation></translation>
+        <translation>VS</translation>
     </message>
     <message>
         <location filename="../widgets/logqso.cpp" line="79"/>
         <source>VU</source>
-        <translation></translation>
+        <translation>VU</translation>
     </message>
     <message>
-        <location filename="../widgets/logqso.cpp" line="398"/>
-        <location filename="../widgets/logqso.cpp" line="406"/>
+        <location filename="../widgets/logqso.cpp" line="408"/>
+        <location filename="../widgets/logqso.cpp" line="416"/>
         <source>Invalid QSO Data</source>
         <translation>无效的通联数据</translation>
     </message>
     <message>
-        <location filename="../widgets/logqso.cpp" line="399"/>
+        <location filename="../widgets/logqso.cpp" line="409"/>
         <source>Check exchange sent and received</source>
         <translation>选择已交换的发送和接收</translation>
     </message>
     <message>
-        <location filename="../widgets/logqso.cpp" line="407"/>
+        <location filename="../widgets/logqso.cpp" line="417"/>
         <source>Check all fields</source>
         <translation>检查所有字段</translation>
     </message>
     <message>
-        <location filename="../widgets/logqso.cpp" line="424"/>
+        <location filename="../widgets/logqso.cpp" line="434"/>
         <source>Log file error</source>
         <translation>日志文件错误</translation>
     </message>
     <message>
-        <location filename="../widgets/logqso.cpp" line="425"/>
+        <location filename="../widgets/logqso.cpp" line="435"/>
         <source>Cannot open &quot;%1&quot; for append</source>
         <translation>无法打开 &quot;%1&quot; 的追加</translation>
     </message>
     <message>
-        <location filename="../widgets/logqso.cpp" line="426"/>
+        <location filename="../widgets/logqso.cpp" line="436"/>
         <source>Error: %1</source>
         <translation>错误: %1</translation>
     </message>
@@ -2427,11 +2552,12 @@ Error: %2 - %3</source>
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="32"/>
+        <location filename="../widgets/mainwindow.ui" line="20"/>
         <source>WSJT-X   by K1JT</source>
-        <translation></translation>
+        <translation>WSJT-X   by K1JT</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="52"/>
         <location filename="../widgets/mainwindow.cpp" line="3492"/>
@@ -2453,16 +2579,28 @@ Error: %2 - %3</source>
         <location filename="../widgets/mainwindow.cpp" line="9683"/>
         <location filename="../widgets/mainwindow.cpp" line="9838"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="52"/>
+        <location filename="../widgets/mainwindow.cpp" line="4200"/>
+        <location filename="../widgets/mainwindow.cpp" line="4203"/>
+        <location filename="../widgets/mainwindow.cpp" line="10682"/>
+        <location filename="../widgets/mainwindow.cpp" line="10793"/>
+        <location filename="../widgets/mainwindow.cpp" line="10864"/>
+        <location filename="../widgets/mainwindow.cpp" line="11111"/>
+        <location filename="../widgets/mainwindow.cpp" line="11175"/>
+        <location filename="../widgets/mainwindow.cpp" line="11342"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Band Activity</source>
         <translation>波段活动</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="153"/>
-        <location filename="../widgets/mainwindow.ui" line="840"/>
+        <location filename="../widgets/mainwindow.ui" line="141"/>
+        <location filename="../widgets/mainwindow.ui" line="284"/>
         <source>UTC           dB            DT           Freq          Dr </source>
-        <translation></translation>
+        <translation>UTC           dB            DT           Freq          Dr </translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="195"/>
         <location filename="../widgets/mainwindow.cpp" line="3496"/>
@@ -2480,240 +2618,244 @@ Error: %2 - %3</source>
         <location filename="../widgets/mainwindow.cpp" line="9626"/>
         <location filename="../widgets/mainwindow.cpp" line="9684"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="195"/>
+        <location filename="../widgets/mainwindow.cpp" line="4204"/>
+        <location filename="../widgets/mainwindow.cpp" line="10683"/>
+        <location filename="../widgets/mainwindow.cpp" line="10792"/>
+        <location filename="../widgets/mainwindow.cpp" line="10859"/>
+        <location filename="../widgets/mainwindow.cpp" line="11112"/>
+        <location filename="../widgets/mainwindow.cpp" line="11176"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Rx Frequency</source>
         <translation>接收信息</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="199"/>
+        <location filename="../widgets/mainwindow.ui" line="426"/>
         <source>160</source>
-        <translation></translation>
+        <translation>160</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="215"/>
+        <location filename="../widgets/mainwindow.ui" line="458"/>
         <source>80</source>
-        <translation></translation>
+        <translation>80</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="228"/>
+        <location filename="../widgets/mainwindow.ui" line="397"/>
         <source>60</source>
-        <translation></translation>
+        <translation>60</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="244"/>
+        <location filename="../widgets/mainwindow.ui" line="352"/>
         <source>40</source>
-        <translation></translation>
+        <translation>40</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="260"/>
+        <location filename="../widgets/mainwindow.ui" line="522"/>
         <source>30</source>
-        <translation></translation>
+        <translation>30</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="276"/>
+        <location filename="../widgets/mainwindow.ui" line="442"/>
         <source>20</source>
-        <translation></translation>
+        <translation>20</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="292"/>
+        <location filename="../widgets/mainwindow.ui" line="384"/>
         <source>17</source>
-        <translation></translation>
+        <translation>17</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="308"/>
+        <location filename="../widgets/mainwindow.ui" line="490"/>
         <source>15</source>
-        <translation></translation>
+        <translation>15</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="324"/>
+        <location filename="../widgets/mainwindow.ui" line="413"/>
+        <location filename="../widgets/mainwindow.ui" line="5924"/>
         <source>12</source>
-        <translation></translation>
+        <translation>12</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="340"/>
+        <location filename="../widgets/mainwindow.ui" line="368"/>
+        <location filename="../widgets/mainwindow.ui" line="5902"/>
+        <location filename="../widgets/mainwindow.ui" line="5905"/>
         <source>10</source>
-        <translation></translation>
+        <translation>10</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="356"/>
+        <location filename="../widgets/mainwindow.ui" line="538"/>
+        <location filename="../widgets/mainwindow.ui" line="694"/>
+        <location filename="../widgets/mainwindow.ui" line="5861"/>
+        <location filename="../widgets/mainwindow.ui" line="5864"/>
         <source>6</source>
-        <translation></translation>
+        <translation>6</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="388"/>
+        <location filename="../widgets/mainwindow.ui" line="474"/>
+        <location filename="../widgets/mainwindow.ui" line="642"/>
         <source>70</source>
-        <translation></translation>
+        <translation>70</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="399"/>
+        <location filename="../widgets/mainwindow.ui" line="718"/>
         <source>CQ messages only.</source>
         <translation>仅CQ信息.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="402"/>
+        <location filename="../widgets/mainwindow.ui" line="721"/>
         <source>CQ only</source>
         <translation>仅显示CQ</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="409"/>
         <source>Bypass Filters toggled via Settings or the View menu.</source>
-        <translation>通过设置或查看菜单切换的绕过过滤.</translation>
+        <translation type="vanished">通过设置或查看菜单切换的绕过过滤.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="412"/>
+        <location filename="../widgets/mainwindow.ui" line="731"/>
         <source>BP</source>
         <translation>绕过</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="425"/>
+        <location filename="../widgets/mainwindow.ui" line="744"/>
         <source>Enter this QSO in log</source>
         <translation>在日志中输入此通联记录</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="428"/>
+        <location filename="../widgets/mainwindow.ui" line="747"/>
         <source>Log &amp;QSO</source>
         <translation>记录通联(&amp;Q)</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="441"/>
+        <location filename="../widgets/mainwindow.ui" line="760"/>
         <source>Stop monitoring</source>
         <translation>停止监听</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="444"/>
+        <location filename="../widgets/mainwindow.ui" line="763"/>
         <source>&amp;Stop</source>
         <translation>停止(&amp;S)</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="457"/>
         <source>Toggle monitoring On/Off</source>
-        <translation>切换监听 启用/停用</translation>
+        <translation type="vanished">切换监听 启用/停用</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="472"/>
+        <location filename="../widgets/mainwindow.ui" line="791"/>
         <source>&amp;Monitor</source>
         <translation>监听(&amp;M)</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="708"/>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt; 01:23:45 &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation></translation>
-    </message>
-    <message>
-        <location filename="../widgets/mainwindow.ui" line="1280"/>
         <source>Tol  </source>
-        <translation>容差  </translation>
+        <translation type="vanished">容差  </translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2151"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;No own call decodes.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;解码中没有自己的呼号.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation type="vanished">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;解码中没有自己的呼号.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2310"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle FT8 hound mode On/Off.&lt;br&gt; Right-click to toggle last used contest mode On/Off.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;启用/停用 FT8猎犬模式.&lt;br&gt; 右键单击可 启用/停用 上次使用的竞赛模式.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation type="vanished">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;启用/停用 FT8猎犬模式.&lt;br&gt; 右键单击可 启用/停用 上次使用的竞赛模式.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2344"/>
         <source>Switch to WSPR mode</source>
-        <translation>切换到WSPR模式</translation>
+        <translation type="vanished">切换到WSPR模式</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2378"/>
         <source>Switch to FT8 mode.&lt;br&gt; Right-click to toggle SuperFox mode On/Off.</source>
-        <translation>切换到FT8模式.&lt;br&gt; 右键单击以 打开/关闭 超级狐狸模式.</translation>
+        <translation type="vanished">切换到FT8模式.&lt;br&gt; 右键单击以 打开/关闭 超级狐狸模式.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2503"/>
         <source>Switch to FST4 mode</source>
-        <translation>切换到FST4模式</translation>
+        <translation type="vanished">切换到FST4模式</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2818"/>
+        <location filename="../widgets/mainwindow.ui" line="810"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Erase right window. Double-click to erase both windows.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;擦除接收信息窗口. 双击可擦除波段活动窗口和接收信息窗口.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2821"/>
+        <location filename="../widgets/mainwindow.ui" line="813"/>
         <source>Erase right window. Double-click to erase both windows.</source>
         <translation>擦除右窗口. 双击可擦除两个窗口.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2824"/>
+        <location filename="../widgets/mainwindow.ui" line="816"/>
         <source>&amp;Erase</source>
         <translation>擦除(&amp;E)</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="494"/>
+        <location filename="../widgets/mainwindow.ui" line="832"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Clear the accumulating message average.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;清除累积信息平均值.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="497"/>
+        <location filename="../widgets/mainwindow.ui" line="835"/>
         <source>Clear the accumulating message average.</source>
         <translation>清除累积信息平均值.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="500"/>
+        <location filename="../widgets/mainwindow.ui" line="838"/>
         <source>Clear Avg</source>
         <translation>清除平均</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="532"/>
+        <location filename="../widgets/mainwindow.ui" line="870"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Decode most recent Rx period at QSO Frequency&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;在通联频率下解码最近的接收周期&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="535"/>
+        <location filename="../widgets/mainwindow.ui" line="873"/>
         <source>Decode most recent Rx period at QSO Frequency</source>
         <translation>在通联频率下解码最近的接收周期</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="550"/>
+        <location filename="../widgets/mainwindow.ui" line="888"/>
         <source>&amp;Decode</source>
         <translation>解码(&amp;D)</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2840"/>
+        <location filename="../widgets/mainwindow.ui" line="907"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle Auto-Tx On/Off&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;切换 启用/停用 自动发射&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2843"/>
+        <location filename="../widgets/mainwindow.ui" line="910"/>
         <source>Toggle Auto-Tx On/Off</source>
         <translation>切换 启用/停用 自动发射</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2858"/>
+        <location filename="../widgets/mainwindow.ui" line="925"/>
         <source>E&amp;nable Tx</source>
         <translation>启用发射(&amp;n)</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2874"/>
+        <location filename="../widgets/mainwindow.ui" line="941"/>
         <source>Stop transmitting immediately</source>
         <translation>立即停止发射</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2877"/>
+        <location filename="../widgets/mainwindow.ui" line="944"/>
         <source>&amp;Halt Tx</source>
         <translation>停止发射(&amp;H)</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2896"/>
+        <location filename="../widgets/mainwindow.ui" line="963"/>
         <source>Toggle a pure Tx tone On/Off</source>
         <translation>切换 启用/停用 发射纯音调</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2911"/>
+        <location filename="../widgets/mainwindow.ui" line="978"/>
         <source>&amp;Tune</source>
         <translation>调谐(&amp;T)</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2921"/>
+        <location filename="../widgets/mainwindow.ui" line="988"/>
         <source>Menus</source>
         <translation>显示菜单</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="5035"/>
 =======
@@ -2723,189 +2865,245 @@ Error: %2 - %3</source>
     </message>
     <message>
         <location filename="../widgets/mainwindow.ui" line="5299"/>
+=======
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Write ALL.TXT</source>
-        <translation>写入 ALL.TXT</translation>
+        <translation type="vanished">写入 ALL.TXT</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="5411"/>
         <source>Copy main text window to WSJT-X.txt</source>
-        <translation>将主文字视窗複製到 WSJT-X.txt</translation>
+        <translation type="vanished">将主文字视窗複製到 WSJT-X.txt</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="5454"/>
+        <location filename="../widgets/mainwindow.ui" line="5569"/>
         <source>Recommended audio settings</source>
         <translation>推荐的音频设置</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="5457"/>
+        <location filename="../widgets/mainwindow.ui" line="5572"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Recommended Audio Settings.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;推荐的音频设置.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="5470"/>
         <source>FT4 NS (NCCC Sprints)</source>
-        <translation>FT4 NS (NCCC 冲刺)</translation>
+        <translation type="vanished">FT4 NS (NCCC 冲刺)</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="5475"/>
+        <location filename="../widgets/mainwindow.ui" line="5590"/>
         <source>SuperFox User Guide</source>
         <translation>超级狐狸用户指南</translation>
     </message>
     <message>
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="5483"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5606"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Hide stations worked before on band</source>
         <translation>隐藏在波段上曾经通联的呼号</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="5043"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5491"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5614"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Hide stations worked today or yesterday</source>
         <translation>隐藏今天或昨天曾经通联的呼号</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="5051"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5499"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5622"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Hide stations from Ignore List</source>
         <translation>从忽略列表中隐藏呼号</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="5059"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5507"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5630"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Ignore stations worked today or yesterday</source>
         <translation>忽略今天或昨天曾经通联的呼号</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="5067"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5515"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5638"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Ignore stations from Ignore List</source>
         <translation>从忽略列表中忽略呼号</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="5075"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5523"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5646"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Hide stations from Territory 1</source>
         <translation>隐藏区域中的电台1</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="5083"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5531"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5654"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Hide stations from Territory 2</source>
         <translation>隐藏区域中的电台2</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="5091"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5539"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5662"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Hide stations from Territory 3</source>
         <translation>隐藏区域中的电台3</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="5099"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5547"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5670"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Hide stations from Territory 4</source>
         <translation>隐藏区域中的电台4</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="5179"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5627"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5750"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Highlight callsigns worked today or yesterday</source>
         <translation>突出显示今天或昨天曾经通联的呼号</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="5187"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5635"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5758"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Highlight callsigns from Ignore List</source>
         <translation>从忽略列表中突出显示呼号</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1057"/>
+        <location filename="../widgets/mainwindow.ui" line="1551"/>
         <source>Enable auto response to the first decode from a new DXCC or new call on the current band.</source>
         <translation>启用对当前频带上新 DXCC 或新呼叫的第一个解码的自动响应.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1443"/>
+        <location filename="../widgets/mainwindow.ui" line="1940"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to T/R 30 s and Submode B.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;切换到 T/R 30 s 和 Submode C.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1446"/>
+        <location filename="../widgets/mainwindow.ui" line="1943"/>
         <source>30B</source>
-        <translation></translation>
+        <translation>30B</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1459"/>
+        <location filename="../widgets/mainwindow.ui" line="1956"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to T/R 60 s and Submode C.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;切换到 T/R 60 s 和 Submode C.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1462"/>
+        <location filename="../widgets/mainwindow.ui" line="1959"/>
         <source>60C</source>
-        <translation></translation>
+        <translation>60C</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1575"/>
+        <location filename="../widgets/mainwindow.ui" line="2092"/>
         <source>F High </source>
         <translation>F 高 </translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1550"/>
+        <location filename="../widgets/mainwindow.ui" line="2067"/>
         <source>F Low   </source>
         <translation>F 低   </translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3800"/>
+        <location filename="../widgets/mainwindow.ui" line="2944"/>
+        <location filename="../widgets/mainwindow.ui" line="5831"/>
+        <location filename="../widgets/mainwindow.ui" line="5834"/>
+        <location filename="../widgets/mainwindow.ui" line="5978"/>
         <source>3</source>
-        <translation></translation>
+        <translation>3</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="2899"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="3900"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3176"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>2m FT8</source>
-        <translation></translation>
+        <translation>2米 FT8</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="2902"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="3903"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3179"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>2m</source>
-        <translation></translation>
+        <translation>2米</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="2949"/>
         <location filename="../widgets/mainwindow.ui" line="2952"/>
@@ -2913,55 +3111,80 @@ Error: %2 - %3</source>
         <location filename="../widgets/mainwindow.ui" line="4082"/>
         <location filename="../widgets/mainwindow.ui" line="4085"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3226"/>
+        <location filename="../widgets/mainwindow.ui" line="3229"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>20m FT4</source>
-        <translation></translation>
+        <translation>20米 FT4</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="2869"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="3870"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3146"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>17m FT8</source>
-        <translation></translation>
+        <translation>17米FT8</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="2872"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="3873"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3149"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>17m</source>
-        <translation></translation>
+        <translation>17米</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="2803"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="3850"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3080"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>10m FT8</source>
-        <translation></translation>
+        <translation>10米 FT8</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="2806"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="3853"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3083"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>10m</source>
-        <translation></translation>
+        <translation>10米</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="2790"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="3966"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3067"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>2m MSK144</source>
-        <translation></translation>
+        <translation>2米 MSK144</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="2939"/>
         <location filename="../widgets/mainwindow.ui" line="2942"/>
@@ -2969,92 +3192,129 @@ Error: %2 - %3</source>
         <location filename="../widgets/mainwindow.ui" line="4072"/>
         <location filename="../widgets/mainwindow.ui" line="4075"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3216"/>
+        <location filename="../widgets/mainwindow.ui" line="3219"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>17m FT4</source>
-        <translation></translation>
+        <translation>17米 FT4</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="4032"/>
+        <location filename="../widgets/mainwindow.ui" line="3004"/>
         <source>30m FT8</source>
-        <translation></translation>
+        <translation>30米 FT8</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="4035"/>
+        <location filename="../widgets/mainwindow.ui" line="3007"/>
         <source>30m</source>
-        <translation></translation>
+        <translation>30米</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="2849"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="3890"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3126"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>80m FT8</source>
-        <translation></translation>
+        <translation>80米 FT8</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="2852"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="3893"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3129"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>80m</source>
-        <translation></translation>
+        <translation>80米</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="2879"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="3860"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3156"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>4m FT8</source>
-        <translation></translation>
+        <translation>4米 FT8</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="2882"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="3863"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3159"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>4m</source>
-        <translation></translation>
+        <translation>4米</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="2770"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4012"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3047"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>12m FT8</source>
-        <translation></translation>
+        <translation>12米 FT8</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="2773"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4015"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3050"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>12m</source>
-        <translation></translation>
+        <translation>12米</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="2839"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="3936"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3116"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>160m FT8</source>
-        <translation></translation>
+        <translation>160米 FT8</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="2842"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="3939"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3119"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>160m</source>
-        <translation></translation>
+        <translation>160米</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="2959"/>
         <location filename="../widgets/mainwindow.ui" line="2962"/>
@@ -3062,56 +3322,77 @@ Error: %2 - %3</source>
         <location filename="../widgets/mainwindow.ui" line="4092"/>
         <location filename="../widgets/mainwindow.ui" line="4095"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3236"/>
+        <location filename="../widgets/mainwindow.ui" line="3239"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>30m FT4</source>
-        <translation></translation>
+        <translation>30米 FT4</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3920"/>
+        <location filename="../widgets/mainwindow.ui" line="2994"/>
         <source>70cm FT8</source>
-        <translation></translation>
+        <translation>70厘米 FT8</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3923"/>
+        <location filename="../widgets/mainwindow.ui" line="2997"/>
         <source>70cm</source>
-        <translation></translation>
+        <translation>70厘米</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="2823"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="3910"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3100"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>60m FT8</source>
-        <translation></translation>
+        <translation>60米 FT8</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="2826"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="3913"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3103"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>60m</source>
-        <translation></translation>
+        <translation>60米</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="2813"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="3880"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3090"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>6m FT8</source>
-        <translation></translation>
+        <translation>6米 FT8</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="2816"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="3883"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3093"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>6m</source>
-        <translation></translation>
+        <translation>6米</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="2969"/>
         <location filename="../widgets/mainwindow.ui" line="2972"/>
@@ -3119,92 +3400,193 @@ Error: %2 - %3</source>
         <location filename="../widgets/mainwindow.ui" line="4102"/>
         <location filename="../widgets/mainwindow.ui" line="4105"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3246"/>
+        <location filename="../widgets/mainwindow.ui" line="3249"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>40m FT4</source>
-        <translation></translation>
+        <translation>40米 FT4</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="2889"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4022"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3166"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>15m FT8</source>
-        <translation></translation>
+        <translation>15米 FT8</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="2892"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4025"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3169"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>15m</source>
-        <translation></translation>
+        <translation>15米</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="2780"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="3946"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3057"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>40m FT8</source>
-        <translation></translation>
+        <translation>40米 FT8</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="2783"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="3949"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3060"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>40m</source>
-        <translation></translation>
+        <translation>40米</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="2859"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="3956"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3136"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>20m FT8</source>
-        <translation></translation>
+        <translation>20米 FT8</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="2862"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="3959"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3139"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>20m</source>
-        <translation></translation>
+        <translation>20米</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="2760"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4002"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3037"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>  Band Hopping  </source>
         <translation>  波段跳跃  </translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3578"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="1868"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3855"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>1/2</source>
-        <translation></translation>
+        <translation>1/2</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="507"/>
+        <location filename="../widgets/mainwindow.ui" line="845"/>
         <source>Avg </source>
         <translation>平均 </translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2559"/>
+        <location filename="../widgets/mainwindow.ui" line="551"/>
+        <source>24G</source>
+        <translation>24G</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="564"/>
+        <source>10G</source>
+        <translation>10G</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="577"/>
+        <source>5G</source>
+        <translation>5G</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="590"/>
+        <location filename="../widgets/mainwindow.ui" line="5891"/>
+        <location filename="../widgets/mainwindow.ui" line="5894"/>
+        <source>9</source>
+        <translation>9</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="603"/>
+        <source>13</source>
+        <translation>13</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="616"/>
+        <source>23</source>
+        <translation>23</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="629"/>
+        <source>33</source>
+        <translation>33</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="655"/>
+        <source>1.25</source>
+        <translation>1.25</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="681"/>
+        <location filename="../widgets/mainwindow.ui" line="5842"/>
+        <source>4</source>
+        <translation>4</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="707"/>
+        <location filename="../widgets/mainwindow.ui" line="5883"/>
+        <source>8</source>
+        <translation>8</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="728"/>
+        <source>Bypass Filters toggled via Settings or the Filters menu.</source>
+        <translation>通过设置或查看菜单切换的绕过过滤.</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="776"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle monitoring On/Off. &lt;br&gt;Yellow when saving .wav files.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;打开/关闭监听. &lt;br&gt;保存 .wav文件时为黄色.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="1046"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle Wait &amp;amp; Call On/Off. Right-click to clear the DX Call box.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;切换等待 &amp;amp; 呼叫 启用/停用. 右键单击清除DX呼叫框.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3583"/>
 =======
@@ -3273,154 +3655,316 @@ Error: %2 - %3</source>
 =======
         <location filename="../widgets/mainwindow.ui" line="1908"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
-        <source>4/4</source>
-        <translation></translation>
+=======
+        <location filename="../widgets/mainwindow.ui" line="1908"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to T/R 15 s and Submode C.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;切换到 T/R 15 s 和 Submode C.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
+        <location filename="../widgets/mainwindow.ui" line="1911"/>
+        <source>15C</source>
+        <translation>15C</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="1924"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to T/R 15 s and Submode A.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;切换到 T/R 15 s 和 Submode A.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="1927"/>
+        <source>15A</source>
+        <translation>15A</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="1972"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to T/R 60 s and Submode D.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;切换到 T/R 60 s 和 Submode D.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="1975"/>
+        <source>60D</source>
+        <translation>60D</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="1988"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to T/R 60 s and Submode E.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;切换到 T/R 60 s 和 Submode E.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="1991"/>
+        <source>60E</source>
+        <translation>60E</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="2812"/>
+        <source>Age</source>
+        <translation>距今</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="2817"/>
+        <source>Continent</source>
+        <translation>大洲</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="2822"/>
+        <source>Score</source>
+        <translation>分数</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="3023"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle band hopping On/Off. Band hopping occurs every other full minute. Changes to the checkboxes take effect immediately.&lt;br/&gt;Right-click to switch to the next selected band hopping frequency, or to test the default audio device, when band hopping is disabled.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;打开/关闭 波段跳跃. 每隔整整一分钟就跳一次波段. 对复选框的更改会立即生效.&lt;br/&gt;右键单击切换到下一个选定的频段跳跃频率, 或者在频段跳跃被禁用时测试默认的音频设备.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="3860"/>
+        <source>2/2</source>
+        <translation>2/2</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="3865"/>
+        <source>1/3</source>
+        <translation>1/3</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="3870"/>
+        <source>2/3</source>
+        <translation>2/3</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="3875"/>
+        <source>3/3</source>
+        <translation>3/3</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="3880"/>
+        <source>1/4</source>
+        <translation>1/4</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="3885"/>
+        <source>2/4</source>
+        <translation>2/4</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="3890"/>
+        <source>3/4</source>
+        <translation>3/4</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="3895"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
+        <source>4/4</source>
+        <translation>4/4</translation>
+    </message>
+    <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3623"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="1913"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3900"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>1/5</source>
-        <translation></translation>
+        <translation>1/5</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3628"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="1918"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3905"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>2/5</source>
-        <translation></translation>
+        <translation>2/5</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3633"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="1923"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3910"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>3/5</source>
-        <translation></translation>
+        <translation>3/5</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3638"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="1928"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3915"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>4/5</source>
-        <translation></translation>
+        <translation>4/5</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3643"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="1933"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3920"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>5/5</source>
-        <translation></translation>
+        <translation>5/5</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3648"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="1938"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3925"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>1/6</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3653"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="1943"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3930"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>2/6</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3658"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="1948"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3935"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>3/6</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3663"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="1953"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3940"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>4/6</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3668"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="1958"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3945"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>5/6</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3673"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="1963"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3950"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>6/6</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3681"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="1977"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3958"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Percentage of minute sequences devoted to transmitting.</source>
         <translation>用于传输的分钟序列的百分比.</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3779"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="2135"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4056"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Prefer Type 1 messages</source>
         <translation>首选类型 1 信息</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3798"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="2215"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4075"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Transmit during the next sequence.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;在下一个序列中传送.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="2921"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="2958"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Toggle FT8 hound mode On/Off</source>
-        <translation>切换 FT8 猎犬模式 启用/停用</translation>
+        <translation type="vanished">切换 FT8 猎犬模式 启用/停用</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="2929"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="2316"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4404"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>H</source>
         <translation>猎犬</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3969"/>
         <source>Switch to FT8 mode</source>
@@ -3433,139 +3977,195 @@ Error: %2 - %3</source>
         <location filename="../widgets/mainwindow.ui" line="2459"/>
         <location filename="../widgets/mainwindow.ui" line="5121"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4504"/>
+        <location filename="../widgets/mainwindow.ui" line="5420"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Q65</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4016"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="2431"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4476"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Switch to MSK144 mode</source>
         <translation>切换到MSK144模式</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4019"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="2434"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4479"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>MSK</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3991"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="2406"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4451"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Switch to FT4 mode</source>
         <translation>切换到FT4模式</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4886"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5285"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5428"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>SWL Mode</source>
         <translation>SWL模式</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4889"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5288"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5431"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Hide lower panel controls to maximize deocde windows</source>
         <translation>隐藏下面板控件最大化解码窗口</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4958"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5422"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5500"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Band Buttons</source>
         <translation>波段按钮</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4974"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5325"/>
         <location filename="../widgets/mainwindow.ui" line="5328"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5516"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Reduce false decodes</source>
         <translation>减少错误解码</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4918"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5361"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5460"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Don&apos;t split ALL.TXT</source>
         <translation>不分拆 ALL.TXT</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4926"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5369"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5468"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Split ALL.TXT yearly</source>
         <translation>分拆每年 ALL.TXT</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4934"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5339"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5476"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Split ALL.TXT monthly</source>
         <translation>分拆每月 ALL.TXT</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4942"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5350"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5484"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Disable writing of ALL.TXT</source>
         <translation>禁止写入 ALL.TXT</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3897"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="649"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4357"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>USB dial frequency</source>
         <translation>上边带频率</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3911"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="663"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4371"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>14.078 000</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2980"/>
+        <location filename="../widgets/mainwindow.ui" line="1371"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;30dB recommended when only noise present&lt;br/&gt;Green when good&lt;br/&gt;Red when clipping may occur&lt;br/&gt;Yellow when too low&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;当只存在噪音时建议30dB&lt;br/&gt;绿色范围好&lt;br/&gt;红色范围时可能发生削波&lt;br/&gt;黄色范围时太低&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2983"/>
+        <location filename="../widgets/mainwindow.ui" line="1374"/>
         <source>Rx Signal</source>
         <translation>接收信号</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2986"/>
+        <location filename="../widgets/mainwindow.ui" line="1377"/>
         <source>30dB recommended when only noise present
 Green when good
 Red when clipping may occur
@@ -3576,100 +4176,125 @@ Yellow when too low</source>
 黄色范围时太低</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2568"/>
+        <location filename="../widgets/mainwindow.ui" line="1055"/>
         <source>DX Call</source>
         <translation>DX 呼号</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2677"/>
+        <location filename="../widgets/mainwindow.ui" line="1151"/>
         <source>DX Grid</source>
         <translation>DX 网格</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2591"/>
+        <location filename="../widgets/mainwindow.ui" line="1065"/>
         <source>Callsign of station to be worked</source>
         <translation>正在通联的电台呼号</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2737"/>
+        <location filename="../widgets/mainwindow.ui" line="1224"/>
         <source>&amp;Lookup</source>
         <translation>查找(&amp;L)</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2578"/>
+        <location filename="../widgets/mainwindow.ui" line="1170"/>
         <source>Locator of station to be worked</source>
         <translation>通联中的电台定位</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2707"/>
+        <location filename="../widgets/mainwindow.ui" line="1194"/>
         <source>Az: 251     16553 km</source>
         <translation>角度: 251     16553 公里</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2756"/>
+        <location filename="../widgets/mainwindow.ui" line="1243"/>
         <source>Add</source>
         <translation>增加</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4181"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="598"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4641"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;If orange or red there has been a rig control failure, click to reset and read the dial frequency.  S implies split mode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;如果橙色或红色出现表示无线电设备控制故障, 请单击以重置并读取频率. S 表示异频模式.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4184"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="601"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4644"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>If orange or red there has been a rig control failure, click to reset and read the dial frequency. S implies split mode.</source>
         <translation>如果橙色或红色出现表示无线电设备控制故障, 请单击以重置并读取频率. S 表示异频模式.</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4213"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="630"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4673"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>?</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="4586"/>
+        <location filename="../widgets/mainwindow.ui" line="1274"/>
         <source>Adjust Tx audio level</source>
         <translation>调整发射音频电平</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4153"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="570"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4613"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Select operating band or enter frequency in MHz or enter kHz increment followed by k.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;选择工作频段或输入兆赫频率或输入千赫增量，然后输入 k.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4156"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="573"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4616"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Frequency entry</source>
         <translation>输入频率</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4159"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="576"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4619"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Select operating band or enter frequency in MHz or enter kHz increment followed by k.</source>
         <translation>选择工作频段或输入兆赫频率或输入千赫增量, 然后输入 k.</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4120"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt; 2015 Jun 17 &lt;/p&gt;&lt;p align=&quot;center&quot;&gt; 01:23:45 &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
@@ -3680,25 +4305,29 @@ Yellow when too low</source>
 =======
         <location filename="../widgets/mainwindow.ui" line="1471"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="2000"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to keep Tx frequency fixed when double-clicking on decoded text.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;双击解码文本时, 选择以保持发射频率固定.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1474"/>
+        <location filename="../widgets/mainwindow.ui" line="2003"/>
         <source>Check to keep Tx frequency fixed when double-clicking on decoded text.</source>
         <translation>双击解码文本时, 选择以保持发射频率固定.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1477"/>
+        <location filename="../widgets/mainwindow.ui" line="2006"/>
         <source>Hold Tx Freq</source>
         <translation>保持发射频率</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1335"/>
+        <location filename="../widgets/mainwindow.ui" line="1802"/>
         <source>Audio Rx frequency</source>
         <translation>音频接收频率</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="1511"/>
         <location filename="../widgets/mainwindow.ui" line="1630"/>
@@ -3712,10 +4341,19 @@ Yellow when too low</source>
         <location filename="../widgets/mainwindow.ui" line="1800"/>
         <location filename="../widgets/mainwindow.ui" line="1831"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="1689"/>
+        <location filename="../widgets/mainwindow.ui" line="1808"/>
+        <location filename="../widgets/mainwindow.ui" line="3777"/>
+        <location filename="../widgets/mainwindow.ui" line="3799"/>
+        <location filename="../widgets/mainwindow.ui" line="3824"/>
+        <location filename="../widgets/mainwindow.ui" line="4241"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>  Hz</source>
         <translation>  赫兹</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="1633"/>
         <location filename="../widgets/mainwindow.ui" line="3525"/>
@@ -3723,67 +4361,77 @@ Yellow when too low</source>
         <location filename="../widgets/mainwindow.ui" line="1344"/>
         <location filename="../widgets/mainwindow.ui" line="1803"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="1811"/>
+        <location filename="../widgets/mainwindow.ui" line="3802"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Rx  </source>
         <translation>接收  </translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1255"/>
-        <location filename="../widgets/mainwindow.ui" line="1258"/>
+        <location filename="../widgets/mainwindow.ui" line="1728"/>
+        <location filename="../widgets/mainwindow.ui" line="1731"/>
         <source>Set Tx frequency to Rx Frequency</source>
         <translation>将发射频率设置为接收频率</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1261"/>
+        <location filename="../widgets/mainwindow.ui" line="1734"/>
         <source>▲</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1274"/>
+        <location filename="../widgets/mainwindow.ui" line="1747"/>
         <source>Frequency tolerance (Hz)</source>
         <translation>频率容差 (赫兹)</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="1575"/>
         <location filename="../widgets/mainwindow.ui" line="3550"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="1834"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="1753"/>
+        <location filename="../widgets/mainwindow.ui" line="3827"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>F Tol  </source>
         <translation>容差  </translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1314"/>
-        <location filename="../widgets/mainwindow.ui" line="1317"/>
+        <location filename="../widgets/mainwindow.ui" line="1787"/>
+        <location filename="../widgets/mainwindow.ui" line="1790"/>
         <source>Set Rx frequency to Tx Frequency</source>
         <translation>将接收频率位置移往发射频率位置</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1320"/>
+        <location filename="../widgets/mainwindow.ui" line="1793"/>
         <source>▼</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1632"/>
+        <location filename="../widgets/mainwindow.ui" line="2137"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Synchronizing threshold.  Lower numbers accept weaker sync signals.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;同步阈值. 较低的数字接受较弱的同步信号.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1635"/>
+        <location filename="../widgets/mainwindow.ui" line="2140"/>
         <source>Synchronizing threshold. Lower numbers accept weaker sync signals.</source>
         <translation>同步阈值. 较低的数字接受较弱的同步信号.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1641"/>
+        <location filename="../widgets/mainwindow.ui" line="2146"/>
         <source>Sync   </source>
         <translation>同步   </translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1104"/>
+        <location filename="../widgets/mainwindow.ui" line="1595"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to use short-format messages.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;选择以使用短格式信息.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="808"/>
         <source>`</source>
@@ -3809,25 +4457,29 @@ Yellow when too low</source>
 =======
         <location filename="../widgets/mainwindow.ui" line="1107"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="1598"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Check to use short-format messages.</source>
         <translation>选择以使用短格式信息.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1110"/>
+        <location filename="../widgets/mainwindow.ui" line="1601"/>
         <source>Sh</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1117"/>
+        <location filename="../widgets/mainwindow.ui" line="1608"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to enable JT9 fast modes&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;选择以启用 JT9 快速模式&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1120"/>
+        <location filename="../widgets/mainwindow.ui" line="1611"/>
         <source>Check to enable JT9 fast modes</source>
         <translation>选择以启用 JT9 快速模式</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="1436"/>
         <location filename="../widgets/mainwindow.ui" line="4470"/>
@@ -3835,25 +4487,30 @@ Yellow when too low</source>
         <location filename="../widgets/mainwindow.ui" line="1123"/>
         <location filename="../widgets/mainwindow.ui" line="4869"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="1614"/>
+        <location filename="../widgets/mainwindow.ui" line="5012"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Fast</source>
         <translation>快速</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1130"/>
+        <location filename="../widgets/mainwindow.ui" line="1621"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to enable automatic sequencing of Tx messages based on received messages.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;选择以启用基于收到的信息自动排序发射信息.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1133"/>
+        <location filename="../widgets/mainwindow.ui" line="1624"/>
         <source>Check to enable automatic sequencing of Tx messages based on received messages.</source>
         <translation>选择以启用基于收到的信息自动排序发射信息.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1136"/>
+        <location filename="../widgets/mainwindow.ui" line="1627"/>
         <source>Auto Seq</source>
         <translation>自动程序</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="1221"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Select &lt;span style=&quot; font-weight:600;&quot;&gt;CQ: First&lt;/span&gt; to respond automatically to the first decoded reply to your CQ. &lt;/p&gt;&lt;p&gt;Select &lt;span style=&quot; font-weight:600;&quot;&gt;CQ: Max Dist&lt;/span&gt; to respond automatically to the reply yielding most points in the ARRL International Digital Contest.&lt;/p&gt;&lt;p&gt;Select &lt;span style=&quot; font-weight:600;&quot;&gt;CQ: None&lt;/span&gt; to choose callers manually.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
@@ -3864,15 +4521,19 @@ Yellow when too low</source>
 =======
         <location filename="../widgets/mainwindow.ui" line="1162"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="1653"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Check to generate &quot;@1250  (SEND MSGS)&quot; in Tx6.</source>
         <translation>选择以生成 &quot;@1250  (发送信息)&quot; 在发射6.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1165"/>
+        <location filename="../widgets/mainwindow.ui" line="1656"/>
         <source>Tx6</source>
         <translation>发射6</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="1254"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to Tx in even-numbered minutes or sequences, starting at 0; uncheck for odd sequences.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
@@ -3888,57 +4549,61 @@ Yellow when too low</source>
 =======
         <location filename="../widgets/mainwindow.ui" line="1194"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="1676"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Tx even/1st</source>
         <translation>发射偶数/第一</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="969"/>
+        <location filename="../widgets/mainwindow.ui" line="1463"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Frequency to call CQ on in kHz above the current MHz&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;呼叫 CQ 的频率以千赫高于当前的兆赫&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="972"/>
+        <location filename="../widgets/mainwindow.ui" line="1466"/>
         <source>Frequency to call CQ on in kHz above the current MHz</source>
         <translation>呼叫 CQ 的频率以千赫高于当前的兆赫</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="975"/>
+        <location filename="../widgets/mainwindow.ui" line="1469"/>
         <source>Tx CQ </source>
         <translation>发射 CQ </translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="994"/>
+        <location filename="../widgets/mainwindow.ui" line="1488"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check this to call CQ on the &amp;quot;Tx CQ&amp;quot; frequency. Rx will be on the current frequency and the CQ message wiill include the current Rx frequency so callers know which frequency to reply on.&lt;/p&gt;&lt;p&gt;Not available to nonstandard callsign holders.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;选中此项, 以发射CQ呼叫. 接收将在当前频率上, CQ信息将显示在当前的接收信息窗口, 以便呼叫者知道回复的频率.&lt;/p&gt;&lt;p&gt;不适用于非标准呼号持有者.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="997"/>
+        <location filename="../widgets/mainwindow.ui" line="1491"/>
         <source>Check this to call CQ on the &quot;Tx CQ&quot; frequency. Rx will be on the current frequency and the CQ message wiill include the current Rx frequency so callers know which frequency to reply on.
 Not available to nonstandard callsign holders.</source>
         <translation>选中此项, 以发射CQ呼叫. 接收将在当前频率上, CQ信息将显示在当前的接收信息窗口, 以便呼叫者知道回复的频率.
 不适用于非标准呼号持有者.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1008"/>
+        <location filename="../widgets/mainwindow.ui" line="1505"/>
         <source>Rx All Freqs</source>
         <translation>接收全部频率</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1604"/>
+        <location filename="../widgets/mainwindow.ui" line="2115"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Submode determines tone spacing; A is narrowest.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;子模式确定音调间距离; A 最窄.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1607"/>
+        <location filename="../widgets/mainwindow.ui" line="2118"/>
         <source>Submode determines tone spacing; A is narrowest.</source>
         <translation>子模式确定音调间距离; A 最窄.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1613"/>
+        <location filename="../widgets/mainwindow.ui" line="2124"/>
         <source>Submode </source>
         <translation>子模式 </translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="1350"/>
         <location filename="../widgets/mainwindow.cpp" line="9237"/>
@@ -3946,36 +4611,40 @@ Not available to nonstandard callsign holders.</source>
         <location filename="../widgets/mainwindow.ui" line="1034"/>
         <location filename="../widgets/mainwindow.cpp" line="9439"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="1528"/>
+        <location filename="../widgets/mainwindow.cpp" line="10899"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Fox</source>
         <translation>狐狸</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1044"/>
+        <location filename="../widgets/mainwindow.ui" line="1538"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to monitor Sh messages.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;选择以监视速记信息.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1047"/>
+        <location filename="../widgets/mainwindow.ui" line="1541"/>
         <source>Check to monitor Sh messages.</source>
         <translation>选择以监视速记信息.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1050"/>
+        <location filename="../widgets/mainwindow.ui" line="1544"/>
         <source>SWL</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1072"/>
+        <location filename="../widgets/mainwindow.ui" line="1566"/>
         <source>Best S+P</source>
         <translation>最佳 S+P</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1082"/>
+        <location filename="../widgets/mainwindow.ui" line="1576"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check this to start recording calibration data.&lt;br/&gt;While measuring calibration correction is disabled.&lt;br/&gt;When not checked you can view the calibration results.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;选中可开始记录校准数据.&lt;br/&gt;当测量校准校正被禁用时.&lt;br/&gt;未检查时您可以查看校准结果.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1085"/>
+        <location filename="../widgets/mainwindow.ui" line="1579"/>
         <source>Check this to start recording calibration data.
 While measuring calibration correction is disabled.
 When not checked you can view the calibration results.</source>
@@ -3984,47 +4653,48 @@ When not checked you can view the calibration results.</source>
 未检查时您可以查看校准结果.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1090"/>
+        <location filename="../widgets/mainwindow.ui" line="1584"/>
         <source>Measure</source>
         <translation>测量</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1149"/>
+        <location filename="../widgets/mainwindow.ui" line="1634"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Select &lt;span style=&quot; font-weight:600;&quot;&gt;CQ: None&lt;/span&gt; to choose callers manually.&lt;/p&gt;&lt;p&gt;Select &lt;span style=&quot; font-weight:600;&quot;&gt;CQ: First&lt;/span&gt; to respond automatically to the first decoded reply to your CQ. &lt;/p&gt;&lt;p&gt;Select &lt;span style=&quot; font-weight:600;&quot;&gt;CQ: Max Dist&lt;/span&gt; to respond automatically to the reply yielding most points in the ARRL International Digital Contest, or in general to the most distant station, if its message has a valid grid.&lt;/p&gt;&lt;p&gt;Select &lt;span style=&quot; font-weight:600;&quot;&gt;CQ: Max dB&lt;/span&gt; to respond automatically to the the strongest station&apos;s reply to your CQ. &lt;/p&gt;&lt;p&gt;Select &lt;span style=&quot; font-weight:600;&quot;&gt;CQ: Min dB&lt;/span&gt; to respond automatically to the the weakest station&apos;s reply to your CQ. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;选择&lt;span style=&quot; font-weight:600;&quot;&gt;CQ: None&lt;/span&gt; 手动选择呼叫者.&lt;/p&gt;&lt;p&gt;选择 &lt;span style=&quot; font-weight:600;&quot;&gt;CQ: 第一&lt;/span&gt; 自动回复您的CQ的第一个解码回复. &lt;/p&gt;&lt;p&gt;选择 &lt;span style=&quot; font-weight:600;&quot;&gt;CQ: 最远&lt;/span&gt; 自动响应在ARRL International Digita竞赛中产生最多分数的回复, 或者一般来说, 自动响应最远的台, 如果其信息具有有效的网格.&lt;/p&gt;&lt;p&gt;选择 &lt;span style=&quot; font-weight:600;&quot;&gt;CQ: Max dB&lt;/span&gt; 自动回复最强的台回复你的CQ. &lt;/p&gt;&lt;p&gt;选择 &lt;span style=&quot; font-weight:600;&quot;&gt;CQ: Min dB&lt;/span&gt; 自动回复最弱的台回复你的CQ. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1188"/>
-        <location filename="../widgets/mainwindow.ui" line="1191"/>
+        <location filename="../widgets/mainwindow.ui" line="1670"/>
+        <location filename="../widgets/mainwindow.ui" line="1673"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to Tx in even-numbered minutes or sequences, starting at 0; uncheck for odd sequences. Right-click to freeze the state of the checkbox. Right-click either the FT8 or MSK button to unfreeze.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;以偶数分钟或序列检查到Tx, 从0开始；取消选中奇数序列. 右键单击以冻结复选框的状态. 右键单击FT8或MSK按钮解冻.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1366"/>
+        <location filename="../widgets/mainwindow.ui" line="1827"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Signal report: Signal-to-noise ratio in 2500 Hz reference bandwidth (dB).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;信号报告: 参考2500赫兹带宽 (分贝) 中的信噪比.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1369"/>
+        <location filename="../widgets/mainwindow.ui" line="1830"/>
         <source>Signal report: Signal-to-noise ratio in 2500 Hz reference bandwidth (dB).</source>
         <translation>信号报告: 参考2500赫兹带宽 (分贝) 中的信噪比.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1375"/>
+        <location filename="../widgets/mainwindow.ui" line="1836"/>
         <source> Report </source>
         <translation> 报告 </translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1397"/>
+        <location filename="../widgets/mainwindow.ui" line="1852"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Tx/Rx or Frequency calibration sequence length&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;发射/接收 或频率校准序列长度&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1400"/>
+        <location filename="../widgets/mainwindow.ui" line="1855"/>
         <source>Tx/Rx or Frequency calibration sequence length</source>
         <translation>发射/接收 或频率校准序列长度</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="1683"/>
         <location filename="../widgets/mainwindow.ui" line="3709"/>
@@ -4032,10 +4702,15 @@ When not checked you can view the calibration results.</source>
         <location filename="../widgets/mainwindow.ui" line="1406"/>
         <location filename="../widgets/mainwindow.ui" line="2011"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="1861"/>
+        <location filename="../widgets/mainwindow.ui" line="3986"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>  s</source>
         <translation>  秒</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="1686"/>
         <location filename="../widgets/mainwindow.ui" line="3712"/>
@@ -4043,15 +4718,20 @@ When not checked you can view the calibration results.</source>
         <location filename="../widgets/mainwindow.ui" line="1409"/>
         <location filename="../widgets/mainwindow.ui" line="2014"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="1864"/>
+        <location filename="../widgets/mainwindow.ui" line="3989"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>T/R  </source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1207"/>
+        <location filename="../widgets/mainwindow.ui" line="1683"/>
         <source>Audio Tx frequency</source>
         <translation>音频发射频率</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="1514"/>
         <location filename="../widgets/mainwindow.ui" line="3503"/>
@@ -4059,132 +4739,138 @@ When not checked you can view the calibration results.</source>
         <location filename="../widgets/mainwindow.ui" line="1216"/>
         <location filename="../widgets/mainwindow.ui" line="1775"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="1692"/>
+        <location filename="../widgets/mainwindow.ui" line="3780"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Tx  </source>
         <translation>发射  </translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1515"/>
+        <location filename="../widgets/mainwindow.ui" line="2035"/>
         <source>Tx# </source>
         <translation>发射# </translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3032"/>
+        <location filename="../widgets/mainwindow.ui" line="2214"/>
+        <location filename="../widgets/mainwindow.ui" line="5812"/>
+        <location filename="../widgets/mainwindow.ui" line="5959"/>
         <source>1</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3055"/>
-        <location filename="../widgets/mainwindow.ui" line="3208"/>
-        <location filename="../widgets/mainwindow.ui" line="3346"/>
+        <location filename="../widgets/mainwindow.ui" line="2222"/>
+        <location filename="../widgets/mainwindow.ui" line="2376"/>
+        <location filename="../widgets/mainwindow.ui" line="2498"/>
         <source>Send this message in next Tx interval</source>
         <translation>在下一个发射间隔内发送此信息</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3217"/>
+        <location filename="../widgets/mainwindow.ui" line="2385"/>
         <source>Ctrl+2</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3115"/>
+        <location filename="../widgets/mainwindow.ui" line="2285"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Send this message in next Tx interval&lt;/p&gt;&lt;p&gt;Double click to toggle the use of the Tx1 message to start a QSO with a station (not allowed for type 1 compound call holders)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;在下一个发射间隔内发送此信息&lt;/p&gt;&lt;p&gt;双击以切换使用 发射 1 信息以启动和电台的通联 (不允许 1 型复合呼叫持有者)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3118"/>
+        <location filename="../widgets/mainwindow.ui" line="2288"/>
         <source>Send this message in next Tx interval
 Double click to toggle the use of the Tx1 message to start a QSO with a station (not allowed for type 1 compound call holders)</source>
         <translation>在下一个发射间隔内发送此信息
 双击以切换使用 发射 1 信息以启动和电台的通联 (不允许 1 型复合呼叫持有者)</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3128"/>
+        <location filename="../widgets/mainwindow.ui" line="2298"/>
         <source>Ctrl+1</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3176"/>
-        <location filename="../widgets/mainwindow.ui" line="3195"/>
-        <location filename="../widgets/mainwindow.ui" line="3246"/>
-        <location filename="../widgets/mainwindow.ui" line="3330"/>
+        <location filename="../widgets/mainwindow.ui" line="2337"/>
+        <location filename="../widgets/mainwindow.ui" line="2363"/>
+        <location filename="../widgets/mainwindow.ui" line="2422"/>
+        <location filename="../widgets/mainwindow.ui" line="2482"/>
         <source>Switch to this Tx message NOW</source>
         <translation>立即切换到此发射信息</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3182"/>
+        <location filename="../widgets/mainwindow.ui" line="2343"/>
         <source>Tx &amp;2</source>
         <translation>发射 &amp;2</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3185"/>
+        <location filename="../widgets/mainwindow.ui" line="2346"/>
         <source>Alt+2</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3301"/>
+        <location filename="../widgets/mainwindow.ui" line="2459"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to this Tx message NOW&lt;/p&gt;&lt;p&gt;Double click to toggle the use of the Tx1 message to start a QSO with a station (not allowed for type 1 compound call holders)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;立即切换到此发射信息&lt;/p&gt;&lt;p&gt;双击以切换使用 发射 1 信息以启动和电台的通联 (不允许 1 型复合呼叫持有者)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3304"/>
+        <location filename="../widgets/mainwindow.ui" line="2462"/>
         <source>Switch to this Tx message NOW
 Double click to toggle the use of the Tx1 message to start a QSO with a station (not allowed for type 1 compound call holders)</source>
         <translation>立即切换到此发射信息
 双击以切换使用 发射 1 信息以启动和电台的通联 (不允许 1 型复合呼叫持有者)</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3314"/>
+        <location filename="../widgets/mainwindow.ui" line="2472"/>
         <source>Tx &amp;1</source>
         <translation>发射 &amp;1</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3317"/>
+        <location filename="../widgets/mainwindow.ui" line="2475"/>
         <source>Alt+1</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3064"/>
+        <location filename="../widgets/mainwindow.ui" line="2231"/>
         <source>Ctrl+6</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3378"/>
+        <location filename="../widgets/mainwindow.ui" line="2530"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Send this message in next Tx interval&lt;/p&gt;&lt;p&gt;Double-click to reset to the standard 73 message&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;在下一个发射间隔内发送此信息&lt;/p&gt;&lt;p&gt;双击可重置为标准 73 信息&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3381"/>
+        <location filename="../widgets/mainwindow.ui" line="2533"/>
         <source>Send this message in next Tx interval
 Double-click to reset to the standard 73 message</source>
         <translation>在下一个发射间隔内发送此信息
 双击可重置为标准 73 信息</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3391"/>
+        <location filename="../widgets/mainwindow.ui" line="2543"/>
         <source>Ctrl+5</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3355"/>
+        <location filename="../widgets/mainwindow.ui" line="2507"/>
         <source>Ctrl+3</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3252"/>
+        <location filename="../widgets/mainwindow.ui" line="2428"/>
         <source>Tx &amp;3</source>
         <translation>发射 &amp;3</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3255"/>
+        <location filename="../widgets/mainwindow.ui" line="2431"/>
         <source>Alt+3</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3094"/>
+        <location filename="../widgets/mainwindow.ui" line="2264"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Send this message in next Tx interval&lt;/p&gt;&lt;p&gt;Double-click to toggle between RRR and RR73 messages in Tx4 (not allowed for type 2 compound call holders)&lt;/p&gt;&lt;p&gt;RR73 messages should only be used when you are reasonably confident that no message repetitions will be required&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;在下一个发射间隔内发送此信息&lt;/p&gt;&lt;p&gt;双击可在 发射4 中的 RRR 和 RR73 信息之间切换 (不允许类型 2 复合呼叫持有者)&lt;/p&gt;&lt;p&gt;RR73 信息仅在您有理由相信不需要重复信息时才应使用&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3097"/>
+        <location filename="../widgets/mainwindow.ui" line="2267"/>
         <source>Send this message in next Tx interval
 Double-click to toggle between RRR and RR73 messages in Tx4 (not allowed for type 2 compound call holders)
 RR73 messages should only be used when you are reasonably confident that no message repetitions will be required</source>
@@ -4193,17 +4879,17 @@ RR73 messages should only be used when you are reasonably confident that no mess
 RR73 信息仅在您有理由相信不需要重复信息时才应使用</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3108"/>
+        <location filename="../widgets/mainwindow.ui" line="2278"/>
         <source>Ctrl+4</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3268"/>
+        <location filename="../widgets/mainwindow.ui" line="2438"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to this Tx message NOW&lt;/p&gt;&lt;p&gt;Double-click to toggle between RRR and RR73 messages in Tx4 (not allowed for type2 compound call holders)&lt;/p&gt;&lt;p&gt;RR73 messages should only be used when you are reasonably confident that no message repetitions will be required&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;立即切换到此发射信息&lt;/p&gt;&lt;p&gt;双击可在 发射 4 中的 RRR 和 RR73 信息之间切换 (不允许类型 2 复合呼叫持有者)&lt;/p&gt;&lt;p&gt;RR73 信息仅在您有理由相信不需要重复信息时才应使用&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3271"/>
+        <location filename="../widgets/mainwindow.ui" line="2441"/>
         <source>Switch to this Tx message NOW
 Double-click to toggle between RRR and RR73 messages in Tx4 (not allowed for type2 compound call holders)
 RR73 messages should only be used when you are reasonably confident that no message repetitions will be required</source>
@@ -4212,52 +4898,52 @@ RR73 messages should only be used when you are reasonably confident that no mess
 RR73 信息仅在您有理由相信不需要重复信息时才应使用</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3279"/>
+        <location filename="../widgets/mainwindow.ui" line="2449"/>
         <source>Tx &amp;4</source>
         <translation>发射 &amp;4</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3282"/>
+        <location filename="../widgets/mainwindow.ui" line="2452"/>
         <source>Alt+4</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3160"/>
+        <location filename="../widgets/mainwindow.ui" line="2327"/>
         <source>Tx &amp;5</source>
         <translation>发射 &amp;5</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3163"/>
+        <location filename="../widgets/mainwindow.ui" line="2330"/>
         <source>Alt+5</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3198"/>
+        <location filename="../widgets/mainwindow.ui" line="2366"/>
         <source>Now</source>
         <translation>现在</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3230"/>
+        <location filename="../widgets/mainwindow.ui" line="2412"/>
         <source>Generate standard messages for minimal QSO</source>
         <translation>生成标准信息用于通联</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3233"/>
+        <location filename="../widgets/mainwindow.ui" line="2415"/>
         <source>Generate Std Msgs</source>
         <translation>生成标准信息</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3336"/>
+        <location filename="../widgets/mainwindow.ui" line="2488"/>
         <source>Tx &amp;6</source>
         <translation>发射 &amp;6</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3339"/>
+        <location filename="../widgets/mainwindow.ui" line="2491"/>
         <source>Alt+6</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3362"/>
+        <location filename="../widgets/mainwindow.ui" line="2514"/>
         <source>Enter a free text message (maximum 13 characters)
 or select a predefined macro from the dropdown list.
 Press ENTER to add the current text to the predefined
@@ -4268,308 +4954,308 @@ list. The list can be maintained in Settings (F2).</source>
 列表. 该列表可在设置(F2)中维护.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3074"/>
+        <location filename="../widgets/mainwindow.ui" line="2241"/>
         <source>Queue up the next Tx message</source>
         <translation>排队下一个发射信息</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3077"/>
+        <location filename="../widgets/mainwindow.ui" line="2244"/>
         <source>Next</source>
         <translation>下一个</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="372"/>
-        <location filename="../widgets/mainwindow.ui" line="3401"/>
+        <location filename="../widgets/mainwindow.ui" line="506"/>
+        <location filename="../widgets/mainwindow.ui" line="668"/>
+        <location filename="../widgets/mainwindow.ui" line="2553"/>
+        <location filename="../widgets/mainwindow.ui" line="5820"/>
+        <location filename="../widgets/mainwindow.ui" line="5823"/>
+        <location filename="../widgets/mainwindow.ui" line="5967"/>
         <source>2</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4836"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5243"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5378"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Quick-Start Guide to FST4 and FST4W</source>
         <translation>FST4和FST4W快速入门指南</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4862"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="2506"/>
         <location filename="../widgets/mainwindow.ui" line="5269"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5404"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>FST4</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4870"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5277"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5412"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>FST4W</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3547"/>
-        <location filename="../widgets/mainwindow.ui" line="3551"/>
+        <location filename="../widgets/mainwindow.ui" line="2605"/>
+        <location filename="../widgets/mainwindow.ui" line="2609"/>
         <source>CQ</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3676"/>
+        <location filename="../widgets/mainwindow.ui" line="2797"/>
         <source>Grid</source>
         <translation>网格</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3709"/>
         <source>Max dB  </source>
-        <translation>最大分贝  </translation>
+        <translation type="vanished">最大分贝  </translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3556"/>
+        <location filename="../widgets/mainwindow.ui" line="2614"/>
         <source>CQ AF</source>
         <translation>CQ 非洲</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2734"/>
+        <location filename="../widgets/mainwindow.ui" line="1221"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Search for callsign in database. &lt;br&gt;Right-click searches for callsign on QRZ.com.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;在数据库中搜索呼号. &lt;br&gt;右键单击在 QRZ.com 上搜索呼号.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2772"/>
+        <location filename="../widgets/mainwindow.ui" line="1259"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Put callsign on the Ignore List.&lt;br&gt;Right-click searches for callsign on qrzcq.com.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;将呼号列入忽略名单.&lt;br&gt;右键单击在 qrzcq.com 上搜索呼号.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2775"/>
+        <location filename="../widgets/mainwindow.ui" line="1262"/>
         <source>Ignore</source>
         <translation>忽略</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2893"/>
+        <location filename="../widgets/mainwindow.ui" line="960"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle a pure Tx tone On/Off &lt;br&gt;Right-click to tune rig&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;打开/关闭 纯发射音调&lt;br &gt;右键单击以调整装备&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2955"/>
         <source>Rx</source>
-        <translation>接收</translation>
+        <translation type="vanished">接收</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3430"/>
+        <location filename="../widgets/mainwindow.ui" line="2592"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enter a free text message.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;输入自定义讯息.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3433"/>
+        <location filename="../widgets/mainwindow.ui" line="2595"/>
         <source>Free Text</source>
         <translation>自定义信息</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3440"/>
+        <location filename="../widgets/mainwindow.ui" line="2582"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Transmit free text message at the next opportunity.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;下次发送自定义信息.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3443"/>
+        <location filename="../widgets/mainwindow.ui" line="2585"/>
         <source>Send msg</source>
         <translation>发送信息</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3462"/>
+        <location filename="../widgets/mainwindow.ui" line="2862"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Maximum number of concurrent streams for Fox transmissions.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;狐狸传输的最大并发流数量.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3499"/>
+        <location filename="../widgets/mainwindow.ui" line="2746"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Maximum number of callsigns to be displayed in the queue.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;队列中显示的最大呼号数.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3518"/>
+        <location filename="../widgets/mainwindow.ui" line="2830"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Include a CQ message along with other messages.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;包括CQ信息以及其他信息.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3544"/>
+        <location filename="../widgets/mainwindow.ui" line="2602"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Select a specific CQ message.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;选择特定的CQ信息.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="547"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle a pure Tx tone On/Off&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;打开/关闭 纯发射音调&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation type="vanished">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;打开/关闭 纯发射音调&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="810"/>
-        <source>`</source>
-        <translation></translation>
-    </message>
-    <message>
-        <location filename="../widgets/mainwindow.ui" line="825"/>
         <source>Search for callsign in database</source>
-        <translation>在数据库中搜索呼号</translation>
+        <translation type="vanished">在数据库中搜索呼号</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="835"/>
         <source>Add callsign and locator to database</source>
-        <translation>将呼号和网格定位添加到数据库</translation>
+        <translation type="vanished">将呼号和网格定位添加到数据库</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="894"/>
         <source> Pwr</source>
-        <translation> 功率</translation>
+        <translation type="vanished"> 功率</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1091"/>
+        <location filename="../widgets/mainwindow.ui" line="1502"/>
         <source>Decode other Hounds calling above 1000 Hz audio offset</source>
         <translation>解码高于1000赫兹音频偏移的其他猎犬呼叫</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1223"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Select &lt;span style=&quot; font-weight:600;&quot;&gt;CQ: First&lt;/span&gt; to respond automatically to the first decoded reply to your CQ. &lt;/p&gt;&lt;p&gt;Select &lt;span style=&quot; font-weight:600;&quot;&gt;CQ: Max Dist&lt;/span&gt; to respond automatically to the reply yielding most points in the ARRL International Digital Contest.&lt;/p&gt;&lt;p&gt;Select &lt;span style=&quot; font-weight:600;&quot;&gt;CQ: None&lt;/span&gt; to choose callers manually.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;选择&lt;span style=&quot; font-weight:600;&quot;&gt;CQ: 第一&lt;/span&gt; 自动回复您的CQ的第一个解码回复. &lt;/p&gt;&lt;p&gt;选择 &lt;span style=&quot; font-weight:600;&quot;&gt;CQ: 最远&lt;/span&gt; 自动响应在ARRL International Digita竞赛中产生最多分数的回复, 或者一般来说, 自动响应最远的台, 如果其信息具有有效的网格.&lt;/p&gt;&lt;p&gt;选择 &lt;span style=&quot; font-weight:600;&quot;&gt;CQ: None&lt;/span&gt;手动选择呼叫者.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation type="vanished">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;选择&lt;span style=&quot; font-weight:600;&quot;&gt;CQ: 第一&lt;/span&gt; 自动回复您的CQ的第一个解码回复. &lt;/p&gt;&lt;p&gt;选择 &lt;span style=&quot; font-weight:600;&quot;&gt;CQ: 最远&lt;/span&gt; 自动响应在ARRL International Digita竞赛中产生最多分数的回复, 或者一般来说, 自动响应最远的台, 如果其信息具有有效的网格.&lt;/p&gt;&lt;p&gt;选择 &lt;span style=&quot; font-weight:600;&quot;&gt;CQ: None&lt;/span&gt;手动选择呼叫者.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1256"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to Tx in even-numbered minutes or sequences, starting at 0; uncheck for odd sequences.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;勾选偶数分钟发射或序列, 从0开始；取消选中奇数序列.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation type="vanished">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;勾选偶数分钟发射或序列, 从0开始；取消选中奇数序列.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1259"/>
         <source>Check to Tx in even-numbered minutes or sequences, starting at 0; uncheck for odd sequences.</source>
-        <translation>勾选偶数分钟发射或序列, 从0开始；取消选中奇数序列.</translation>
+        <translation type="vanished">勾选偶数分钟发射或序列, 从0开始；取消选中奇数序列.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1638"/>
+        <location filename="../widgets/mainwindow.ui" line="2162"/>
         <source>Maximum drift rate in units of symbol rate per transmission.</source>
         <translation>最大偏移速率, 单位为每次传输的符号速率.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1804"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to this Tx message NOW&lt;/p&gt;&lt;p&gt;Double-click to reset to the standard 73 message&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;立即切换到此发射信息&lt;/p&gt;&lt;p&gt;双击以重置为标准73信息&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation type="vanished">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;立即切换到此发射信息&lt;/p&gt;&lt;p&gt;双击以重置为标准73信息&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1807"/>
         <source>Switch to this Tx message NOW
 Double-click to reset to the standard 73 message</source>
-        <translation>立即切换到此发射信息
+        <translation type="vanished">立即切换到此发射信息
 双击以重置为标准73信息</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3561"/>
+        <location filename="../widgets/mainwindow.ui" line="2619"/>
         <source>CQ AN</source>
         <translation>CQ 南极洲</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3566"/>
+        <location filename="../widgets/mainwindow.ui" line="2624"/>
         <source>CQ AS</source>
         <translation>CQ 亚洲</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3571"/>
+        <location filename="../widgets/mainwindow.ui" line="2629"/>
         <source>CQ EU</source>
         <translation>CQ 欧洲</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3576"/>
+        <location filename="../widgets/mainwindow.ui" line="2634"/>
         <source>CQ NA</source>
         <translation>CQ 北美洲</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3581"/>
+        <location filename="../widgets/mainwindow.ui" line="2639"/>
         <source>CQ OC</source>
         <translation>CQ 大洋洲</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3586"/>
+        <location filename="../widgets/mainwindow.ui" line="2644"/>
         <source>CQ SA</source>
         <translation>CQ 南美洲</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3591"/>
+        <location filename="../widgets/mainwindow.ui" line="2649"/>
         <source>CQ 0</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3596"/>
+        <location filename="../widgets/mainwindow.ui" line="2654"/>
         <source>CQ 1</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3601"/>
+        <location filename="../widgets/mainwindow.ui" line="2659"/>
         <source>CQ 2</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3606"/>
+        <location filename="../widgets/mainwindow.ui" line="2664"/>
         <source>CQ 3</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3611"/>
+        <location filename="../widgets/mainwindow.ui" line="2669"/>
         <source>CQ 4</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3616"/>
+        <location filename="../widgets/mainwindow.ui" line="2674"/>
         <source>CQ 5</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3621"/>
+        <location filename="../widgets/mainwindow.ui" line="2679"/>
         <source>CQ 6</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3626"/>
+        <location filename="../widgets/mainwindow.ui" line="2684"/>
         <source>CQ 7</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3631"/>
+        <location filename="../widgets/mainwindow.ui" line="2689"/>
         <source>CQ 8</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3636"/>
+        <location filename="../widgets/mainwindow.ui" line="2694"/>
         <source>CQ 9</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3656"/>
+        <location filename="../widgets/mainwindow.ui" line="2777"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Select a desired sort order for callsigns in the queue.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;为队列中的呼号选择所需的排序顺序.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3706"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Set the maximum permitted SNR for callers to be included in the queue.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;为要包括在队列中的呼叫者设置最大允许信噪比.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation type="vanished">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;为要包括在队列中的呼叫者设置最大允许信噪比.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3747"/>
+        <location filename="../widgets/mainwindow.ui" line="2724"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Clear all queues.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;清除所有队列.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3750"/>
+        <location filename="../widgets/mainwindow.ui" line="2727"/>
         <source>Reset</source>
         <translation>重置</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3502"/>
+        <location filename="../widgets/mainwindow.ui" line="2749"/>
         <source>N List     </source>
         <translation>N 列表     </translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3468"/>
+        <location filename="../widgets/mainwindow.ui" line="2868"/>
         <source>N Slots    </source>
         <translation>N 插槽    </translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="2349"/>
         <location filename="../widgets/mainwindow.ui" line="2356"/>
@@ -4587,30 +5273,40 @@ Double-click to reset to the standard 73 message</source>
         <location filename="../widgets/mainwindow.cpp" line="10029"/>
         <location filename="../widgets/mainwindow.cpp" line="11697"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="2780"/>
+        <location filename="../widgets/mainwindow.ui" line="2787"/>
+        <location filename="../widgets/mainwindow.ui" line="3850"/>
+        <location filename="../widgets/mainwindow.cpp" line="1919"/>
+        <location filename="../widgets/mainwindow.cpp" line="9932"/>
+        <location filename="../widgets/mainwindow.cpp" line="11558"/>
+        <location filename="../widgets/mainwindow.cpp" line="13495"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Random</source>
         <translation>随机</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3671"/>
+        <location filename="../widgets/mainwindow.ui" line="2792"/>
         <source>Call</source>
         <translation>呼号</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3681"/>
+        <location filename="../widgets/mainwindow.ui" line="2802"/>
         <source>S/N (dB)</source>
         <translation>信噪比(分贝)</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3686"/>
+        <location filename="../widgets/mainwindow.ui" line="2807"/>
         <source>Distance</source>
         <translation>距离</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3521"/>
+        <location filename="../widgets/mainwindow.ui" line="2833"/>
         <source>More CQs</source>
         <translation>更多 CQ</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="1154"/>
         <location filename="../widgets/mainwindow.ui" line="3693"/>
@@ -4618,10 +5314,15 @@ Double-click to reset to the standard 73 message</source>
         <location filename="../widgets/mainwindow.ui" line="1989"/>
         <location filename="../widgets/mainwindow.ui" line="2182"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="1332"/>
+        <location filename="../widgets/mainwindow.ui" line="3970"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>  %</source>
         <translation></translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="1802"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to this Tx message NOW&lt;/p&gt;&lt;p&gt;Double-click to reset to the standard 73 message&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
@@ -4639,110 +5340,154 @@ Double-click to reset to the standard 73 message</source>
 =======
         <location filename="../widgets/mainwindow.ui" line="1992"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3973"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Tx Pct </source>
         <translation>发射 Pct </translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3725"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="2039"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4002"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Band Hopping</source>
         <translation>切换波段</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3734"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="2063"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4011"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Choose bands and times of day for band-hopping.</source>
         <translation>选择波段在一天之中的时间进行切换波段.</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3737"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="2066"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4014"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Schedule ...</source>
         <translation>时间流程 ...</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3755"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="2105"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4032"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Upload decoded messages to WSPRnet.org.</source>
         <translation>将解码的信息上载到 WSPRnet.org.</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3764"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="2114"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4041"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Upload spots</source>
         <translation>上传 spots</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3773"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="2129"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4050"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;6 digit locators cause 2 different messages to be sent, the second contains the full locator but only a hashed callsign, other stations must have decoded the first once before they can decode your call in the second. Check this option to only send 4 digit locators if it will avoid the two message protocol.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;6 位定位器会导致发送 2 个不同的信息, 第二个包含完整定位器, 但只有哈希呼号. 其他电台必须解码第一个一次. 然后才能在第二个中解码您的呼叫. 如果此选项将避免两个信息协议. 则选中此选项仅发送 4 位定位器.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3776"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="2132"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4053"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>6 digit locators cause 2 different messages to be sent, the second contains the full locator but only a hashed callsign, other stations must have decoded the first once before they can decode your call in the second. Check this option to only send 4 digit locators if it will avoid the two message protocol.</source>
         <translation>6 位定位器会导致发送 2 个不同的信息, 第二个包含完整定位器, 但只有哈希呼号. 其他电台必须解码第一个一次. 然后才能在第二个中解码您的呼叫. 如果此选项将避免两个信息协议. 则选中此选项仅发送 4 位定位器.</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3789"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="2154"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4066"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>No own call decodes</source>
         <translation>解码中没有自己的呼号</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3813"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="2230"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4090"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Tx Next</source>
         <translation>发射下一个信息</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3840"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="2259"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4117"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Set Tx power in dBm (dB above 1 mW) as part of your WSPR message.</source>
         <translation>将发射功率设置为 dBm （dB 高于 1 mW） 作为 WSPR 信息的一部分.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2185"/>
+        <location filename="../widgets/mainwindow.ui" line="1335"/>
         <source>NB  </source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="1666"/>
+        <location filename="../widgets/mainwindow.ui" line="2168"/>
         <source>Max Drift  </source>
         <translation>最大漂移率  </translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="2919"/>
         <location filename="../widgets/mainwindow.ui" line="2922"/>
@@ -4750,10 +5495,15 @@ Double-click to reset to the standard 73 message</source>
         <location filename="../widgets/mainwindow.ui" line="4052"/>
         <location filename="../widgets/mainwindow.ui" line="4055"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3196"/>
+        <location filename="../widgets/mainwindow.ui" line="3199"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>12m FT4</source>
         <translation></translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="2929"/>
         <location filename="../widgets/mainwindow.ui" line="2932"/>
@@ -4761,10 +5511,15 @@ Double-click to reset to the standard 73 message</source>
         <location filename="../widgets/mainwindow.ui" line="4062"/>
         <location filename="../widgets/mainwindow.ui" line="4065"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3206"/>
+        <location filename="../widgets/mainwindow.ui" line="3209"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>15m FT4</source>
         <translation></translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="2909"/>
         <location filename="../widgets/mainwindow.ui" line="2912"/>
@@ -4772,36 +5527,41 @@ Double-click to reset to the standard 73 message</source>
         <location filename="../widgets/mainwindow.ui" line="4042"/>
         <location filename="../widgets/mainwindow.ui" line="4045"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3186"/>
+        <location filename="../widgets/mainwindow.ui" line="3189"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>10m FT4</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3767"/>
+        <location filename="../widgets/mainwindow.ui" line="2840"/>
         <source>In Progress</source>
         <translation>正在进行中</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3757"/>
+        <location filename="../widgets/mainwindow.ui" line="2707"/>
         <source>Queue</source>
         <translation>队列</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="2753"/>
+        <location filename="../widgets/mainwindow.ui" line="1240"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Add callsign and locator to database. &lt;br&gt;Right-click searches for callsign on hamqth.com.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;将呼号和网格定位添加到数据库. &lt;br&gt;右击搜索 hamqth.com 上的呼号.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="4564"/>
+        <location filename="../widgets/mainwindow.ui" line="1302"/>
         <source>Pwr</source>
         <translation>功率</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="3151"/>
-        <location filename="../widgets/mainwindow.ui" line="3154"/>
+        <location filename="../widgets/mainwindow.ui" line="2318"/>
+        <location filename="../widgets/mainwindow.ui" line="2321"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to this Tx message NOW&lt;/p&gt;&lt;p&gt;Double-click to reset to the standard 73 message&lt;/p&gt;&lt;p&gt;Right-click to retain Tx5 free text&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;立即切换到此Tx信息&lt;/p&gt;&lt;p&gt;双击以重置为标准的73信息&lt;/p&gt;&lt;p&gt;右键单击保留Tx5自定义信息&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="2746"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle band hopping On/Off. Band hopping occurs every other full minute. Changes to the checkboxes take effect immediately.&lt;br&gt;Right-click to test the default audio device.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
@@ -4811,487 +5571,768 @@ Double-click to reset to the standard 73 message</source>
         <location filename="../widgets/mainwindow.ui" line="2796"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="3790"/>
+=======
+        <location filename="../widgets/mainwindow.ui" line="2717"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Allow Dupes</source>
         <translation>允许重複</translation>
     </message>
     <message>
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3972"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3073"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>2m MSK</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="2979"/>
         <location filename="../widgets/mainwindow.ui" line="2982"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="3988"/>
+=======
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle band hopping On/Off. Band hopping occurs every other full minute. Changes to the checkboxes take effect immediately.&lt;br&gt;Right-click to test the default audio device.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;切换波段跳跃 开/关. 波段跳跃每隔一整分钟发生一次. 对复选框的更改会立即生效.&lt;br&gt;右键单击测试默认音频设备.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation type="vanished">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;切换波段跳跃 开/关. 波段跳跃每隔一整分钟发生一次. 对复选框的更改会立即生效.&lt;br&gt;右键单击测试默认音频设备.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4112"/>
         <location filename="../widgets/mainwindow.ui" line="4115"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3256"/>
+        <location filename="../widgets/mainwindow.ui" line="3259"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>80m FT4</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3009"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4142"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3286"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>FT8 QRG6</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3031"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4164"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3308"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>FT8 QRG1</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3047"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4180"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3324"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>FT8 QRG2</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3057"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4190"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3334"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>FT8 QRG7</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3085"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4218"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3362"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>FT8 QRG8 in kHz.</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3110"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4243"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3387"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>FT8 QRG5</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3126"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4259"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3403"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>FT8 QRG3</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3142"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4275"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3419"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>FT8 QRG4</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3158"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4291"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3435"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>FT8 QRG8</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3186"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4319"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3463"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>FT8 QRG7 in kHz.</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3220"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4353"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3497"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>FT8 QRG6 in kHz.</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3254"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4387"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3531"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>FT8 QRG5 in kHz.</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3288"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4421"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3565"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>FT8 QRG4 in kHz.</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3322"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4455"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3599"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>FT8 QRG3 in kHz.</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3356"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4489"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3633"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>FT8 QRG2 in kHz.</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3390"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4523"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="3667"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>FT8 QRG1 in kHz.</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4041"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="2456"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4244"/>
+        <source>Spacing  </source>
+        <translation>间隔  </translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="4263"/>
+        <source>Fixed Tone</source>
+        <translation>固定音调</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="4282"/>
+        <source>K1JT</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="4304"/>
+        <source>CW</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="4401"/>
+        <source>Toggle FT8 hound mode On/Off.&lt;br&gt;Right-click to activate or deactivate SuperFox mode.</source>
+        <translation>打开/关闭 FT8猎犬模式.&lt;br &gt;右键单击 激活或取消激活 超级狐狸模式.</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="4429"/>
+        <source>Switch to FT8 mode.&lt;br&gt;Right-click to toggle last used contest mode On/Off.</source>
+        <translation>切换到FT8模式.&lt;br &gt;右键单击 打开/关闭 上次使用的竞赛模式.</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="4501"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to Q65 mode.&lt;br&gt; Right-click to switch to Q65 Pileup mode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;切换到 Q65 模式. &lt;br&gt;右键单击切换到 Q65 Pileup 模式.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4066"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="2481"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4526"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to JT65 mode. &lt;br&gt;Right-click to switch to JT9 mode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;切换到 JT65 模式. &lt;br&gt;右键单击切换到 JT9 模式.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4082"/>
+=======
+        <location filename="../widgets/mainwindow.ui" line="4542"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Switch to Echo mode&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;切换到 Echo 模式&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4237"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4635"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4697"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>File</source>
         <translation>文件</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4261"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4658"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4721"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>View</source>
         <translation>显示</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4278"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4675"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4742"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Filters</source>
         <translation>过滤</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4306"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4703"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4776"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Decode</source>
         <translation>解码</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4324"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4721"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4780"/>
+        <source>Parameters</source>
+        <translation>参数</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="4784"/>
+        <source>Decoder sensitivity</source>
+        <translation>解码器灵敏度</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="4792"/>
+        <source>Decoder start</source>
+        <translation>开始解码</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="4802"/>
+        <source>Number of threads</source>
+        <translation>线数量</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="4820"/>
+        <source>QSO RX freq sensitivity</source>
+        <translation>通联 接收频率敏感性</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="4828"/>
+        <source>Decoding cycles</source>
+        <translation>解码周期</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="4863"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Save</source>
         <translation>保存</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4342"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4739"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4881"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Help</source>
         <translation>帮助</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4367"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4766"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4909"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Mode</source>
         <translation>模式</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4388"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4787"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4930"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Configurations</source>
         <translation>配置</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4393"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4792"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4935"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Tools</source>
         <translation>工具</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4417"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4816"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4959"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Exit</source>
         <translation>关闭软件</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4425"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4824"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4967"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>About WSJT-X</source>
         <translation>关于 WSJT-X</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4433"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4832"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4975"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Waterfall</source>
         <translation>瀑布图</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4438"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4837"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4980"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Open</source>
         <translation>打开文件</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4441"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4840"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4983"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Ctrl+O</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4446"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4845"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4988"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Open next in directory</source>
         <translation>打开下一个文件</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4451"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4850"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4993"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Decode remaining files in directory</source>
         <translation>打开余下文件</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4454"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4853"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4996"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Shift+F6</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4459"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4858"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5001"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Delete all *.wav &amp;&amp; *.c2 files in SaveDir</source>
         <translation>删除所有在SaveDir目录内 *.wav &amp;&amp; *.c2</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4481"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4880"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5023"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>None</source>
         <translation>不保存</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4489"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4888"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5031"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Save all</source>
         <translation>保存所有文件</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4497"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4896"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5039"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Remove saved files after 30 days</source>
         <translation>30天后删除保存的文件</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4502"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4901"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5044"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Online User Guide</source>
         <translation>在线用户指南</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4507"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4906"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5049"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Keyboard shortcuts</source>
         <translation>键盘快捷键</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4512"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4911"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5054"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Special mouse commands</source>
         <translation>特殊鼠标动作</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4523"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4922"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5065"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>JT9</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4534"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4933"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5076"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Save decoded</source>
         <translation>保存解码文件</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4545"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4944"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5087"/>
+        <location filename="../widgets/mainwindow.ui" line="6040"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Normal</source>
         <translation>正常</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4556"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4955"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5098"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Deep</source>
         <translation>深度</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4561"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4960"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5103"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Erase ALL.TXT</source>
         <translation>删除 ALL.TXT</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4566"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4965"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5108"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Erase wsjtx_log.adi</source>
         <translation>删除通联日志 wsjtx_log.adi</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4571"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4970"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5113"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Erase wsjtx.log</source>
         <translation>删除 wsjtx.log</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4576"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="4975"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5118"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Erase Ignore List</source>
         <translation>删除忽略列表</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4714"/>
         <source>QRA64</source>
@@ -5302,190 +6343,422 @@ Double-click to reset to the standard 73 message</source>
 =======
         <location filename="../widgets/mainwindow.ui" line="5619"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5577"/>
+        <source>How to deal with rig control errors</source>
+        <translation>如何处理无线电设备控制错误</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="5580"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;How to deal with rig control errors.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;如何处理无线电设备控制错误.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="5598"/>
+        <source>Message Creator</source>
+        <translation>信息创建器</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="5742"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Highlight callsigns worked before on band</source>
         <translation>突出显示在波段曾经通联的呼号</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="5163"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5611"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5769"/>
+        <source>Enable Message Popups</source>
+        <translation>启用信息弹出窗口</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="5777"/>
+        <source>QSY Monitor</source>
+        <translation>QSY监听</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="5785"/>
+        <source>Ignore stations worked before on band</source>
+        <translation>忽略在这频段上曾经通联的电台</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="5793"/>
+        <source>Use multithreaded FT8 decoder</source>
+        <translation>使用多线程FT8解码器</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="5804"/>
+        <source>Auto</source>
+        <translation>自动</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="5850"/>
+        <location filename="../widgets/mainwindow.ui" line="5853"/>
+        <source>5</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="5872"/>
+        <location filename="../widgets/mainwindow.ui" line="5875"/>
+        <source>7</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="5913"/>
+        <location filename="../widgets/mainwindow.ui" line="5916"/>
+        <source>11</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="5932"/>
+        <source>Low</source>
+        <translation>低</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="5943"/>
+        <source>Medium</source>
+        <translation>中等</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="5951"/>
+        <source>High</source>
+        <translation>高</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="5986"/>
+        <source>Minimum</source>
+        <translation>最少</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="5994"/>
+        <source>Use low thresholds</source>
+        <translation>使用低阈值</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="6005"/>
+        <source>Use subpass</source>
+        <translation>使用子通道</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="6013"/>
+        <source>2-Stage</source>
+        <translation>阶段-2</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="6021"/>
+        <source>3-Stage</source>
+        <translation>阶段-3</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="6029"/>
+        <source>Early</source>
+        <translation>早期</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="6048"/>
+        <source>Late</source>
+        <translation>最新</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="6056"/>
+        <source>Wideband DX Call search</source>
+        <translation>宽带DX呼号搜索</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="6064"/>
+        <source>Hide FT8 dupe messages</source>
+        <translation>隐藏 FT8 重複信息</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="6072"/>
+        <source>VHF / UHF Buttons</source>
+        <translation>VHF / UHF 按钮</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="6080"/>
+        <source>Highlight stations from Territory 1</source>
+        <translation>突出显示区域 1 的电台</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="6088"/>
+        <source>Highlight stations from Territory 2</source>
+        <translation>突出显示区域 2 的电台</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="6096"/>
+        <source>Highlight stations from Territory 3</source>
+        <translation>突出显示区域 3 的电台</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="6104"/>
+        <source>Highlight stations from Territory 4</source>
+        <translation>突出显示区域 4 的电台</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="6112"/>
+        <source>Disable clicks on waterfall</source>
+        <translation>禁用在瀑布上点击</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.ui" line="5734"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Full Duplex Mode</source>
         <translation>全双工模式</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4631"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5038"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5173"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>F7</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4947"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5374"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5489"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Active Stations</source>
         <translation>活动电台</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="5006"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5379"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5548"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Quick-Start Guide to WSJT-X 2.7 and QMAP</source>
         <translation>WSJT-X 2.7 和 QMAP 快速入门指南</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4993"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5387"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5535"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Diagnostic mode</source>
         <translation>诊断模式</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4985"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5398"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5527"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Default event logging</source>
         <translation>默认事件记录</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="5001"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5406"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5543"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Disable event logging</source>
         <translation>禁用事件记录</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4966"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5433"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5508"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Use Dark Style</source>
         <translation>启用黑夜模式</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="5011"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5438"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5553"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>WSJT-X_improved Home Page</source>
         <translation>WSJT-X _改进版主页</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="5019"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5446"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5561"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>The additional features of wsjt-x_improved</source>
         <translation>WSJT-X _改进版的附加功能</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="5022"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5449"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5564"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Overview on the additional features of wsjt-x_improved.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;概述 WSJT-X _改进版的附加功能.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="5014"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5441"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5556"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Go to the wsjt-x_improved home page.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;转到 WSJT-X _改进版主页.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="5027"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5462"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5585"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Erase list of Q65 callers</source>
         <translation>清除Q65呼叫者列表</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="5107"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5555"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5678"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Hide stations from Europe</source>
         <translation>隐藏 欧洲 的电台</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="5115"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5563"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5686"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Hide stations from North America</source>
         <translation>隐藏 北美洲 的电台</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="5123"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5571"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5694"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Hide stations from South America</source>
         <translation>隐藏 南美洲 的电台</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="5131"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5579"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5702"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Hide stations from Asia</source>
         <translation>隐藏 亚洲 的电台</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="5139"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5587"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5710"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Hide stations from Africa</source>
         <translation>隐藏 非洲 的电台</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="5147"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5595"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5718"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Hide stations from Oceania</source>
         <translation>隐藏 大洋洲 的电台</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="5155"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5603"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5726"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Hide stations from Antarctica</source>
         <translation>隐藏 南极洲 的电台</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4069"/>
         <location filename="../widgets/mainwindow.ui" line="4584"/>
@@ -5493,106 +6766,155 @@ Double-click to reset to the standard 73 message</source>
         <location filename="../widgets/mainwindow.ui" line="2484"/>
         <location filename="../widgets/mainwindow.ui" line="4983"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4529"/>
+        <location filename="../widgets/mainwindow.ui" line="5126"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>JT65</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4592"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="3123"/>
+=======
+        <location filename="../widgets/mainwindow.ui" line="4580"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt; 2015 Jun 17 &lt;/p&gt;&lt;p align=&quot;center&quot;&gt; 01:23:45 &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation></translation>
     </message>
     <message>
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4999"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5134"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Astronomical data</source>
         <translation>天文数据</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4597"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5004"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5139"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>List of Type 1 prefixes and suffixes</source>
         <translation>类型 1 前缀和后缀的列表</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4602"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5009"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5144"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Settings...</source>
         <translation>设置...</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4610"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5017"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5152"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Local User Guide</source>
         <translation>本地用户指南</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4615"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5022"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5157"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Open log directory</source>
         <translation>打开日志文件目录</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4623"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5030"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5165"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>JT4</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4628"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5035"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5170"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Message averaging</source>
         <translation>信息平均值</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4639"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5046"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5181"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Enable averaging</source>
         <translation>平均值</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4647"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5054"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5189"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Enable deep search</source>
         <translation>启用深度搜索</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4655"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="2350"/>
         <location filename="../widgets/mainwindow.ui" line="5062"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5197"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>WSPR</source>
         <translation></translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3941"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle FT8 hound mode On/Off. Right-click to toggle last used contest mode On/Off.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
@@ -5603,169 +6925,246 @@ Double-click to reset to the standard 73 message</source>
 =======
         <location filename="../widgets/mainwindow.ui" line="5067"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5202"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Echo Graph</source>
         <translation>Echo 图</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4663"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5070"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5205"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>F8</source>
         <translation></translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4085"/>
         <location filename="../widgets/mainwindow.ui" line="4671"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5078"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4545"/>
+        <location filename="../widgets/mainwindow.ui" line="5213"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Echo</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4674"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5081"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5216"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>EME Echo mode</source>
         <translation>EME Echo 模式</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4682"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5089"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5224"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>ISCAT</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4687"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5094"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5229"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Fast Graph</source>
         <translation>快速图</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4690"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5097"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5232"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>F9</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4695"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5102"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5237"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>&amp;Download Samples ...</source>
         <translation>下载样本文件(&amp;D) ...</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4698"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5105"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5240"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Download sample audio files demonstrating the various modes.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;下载演示各种模式的示例音频文件.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4706"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5113"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5248"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>MSK144</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4719"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="3653"/>
+=======
+        <location filename="../widgets/mainwindow.ui" line="5256"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>QRA64</source>
         <translation></translation>
     </message>
     <message>
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="5126"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5261"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Release Notes</source>
         <translation>版本发行说明</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4727"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5134"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5269"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Enable AP for DX Call</source>
         <translation>启用 AP 为 DX 呼叫</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4735"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5142"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5277"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>FreqCal</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4740"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5147"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5282"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Measure reference spectrum</source>
         <translation>测量参考频谱</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4745"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5152"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5287"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Measure phase response</source>
         <translation>测量相位响应</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4750"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5157"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5292"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Erase reference spectrum</source>
         <translation>擦除参考频谱</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4758"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5165"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5300"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Execute frequency calibration cycle</source>
         <translation>执行频率校准周期</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4763"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5170"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5305"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Equalization tools ...</source>
         <translation>均衡工具 ...</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3972"/>
         <location filename="../widgets/mainwindow.ui" line="4774"/>
@@ -5773,10 +7172,15 @@ Double-click to reset to the standard 73 message</source>
         <location filename="../widgets/mainwindow.ui" line="2381"/>
         <location filename="../widgets/mainwindow.ui" line="5181"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4432"/>
+        <location filename="../widgets/mainwindow.ui" line="5316"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>FT8</source>
         <translation></translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4782"/>
         <location filename="../widgets/mainwindow.ui" line="4790"/>
@@ -5784,100 +7188,145 @@ Double-click to reset to the standard 73 message</source>
         <location filename="../widgets/mainwindow.ui" line="5189"/>
         <location filename="../widgets/mainwindow.ui" line="5197"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5324"/>
+        <location filename="../widgets/mainwindow.ui" line="5332"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Enable AP</source>
         <translation>启用 AP</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4795"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5202"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5337"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Solve for calibration parameters</source>
         <translation>校准参数的解算</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4800"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5207"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5342"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Copyright notice</source>
         <translation>版权声明</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4803"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5210"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5345"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Shift+F1</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4811"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5218"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5353"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Fox log</source>
         <translation>狐狸日志</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4816"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5223"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5358"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>FT8 DXpedition Mode User Guide</source>
         <translation>FT8 远征模式用户指南</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4821"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5228"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5363"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Reset Cabrillo log ...</source>
         <translation>重置Cabrillo日志 ...</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4826"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5233"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5368"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Color highlighting scheme</source>
         <translation>颜色突出显示设定</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4831"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5238"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5373"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Export Cabrillo log ...</source>
         <translation>导出Cabrillo日志 ...</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4841"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5248"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5383"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Contest log</source>
         <translation>竞赛日志</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4846"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5253"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5388"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Erase WSPR hashtable</source>
         <translation>擦除 WSPR 哈希表</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="3994"/>
         <location filename="../widgets/mainwindow.ui" line="4854"/>
@@ -5885,46 +7334,67 @@ Double-click to reset to the standard 73 message</source>
         <location filename="../widgets/mainwindow.ui" line="2409"/>
         <location filename="../widgets/mainwindow.ui" line="5261"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4454"/>
+        <location filename="../widgets/mainwindow.ui" line="5396"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>FT4</source>
         <translation></translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4894"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5312"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5436"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Quick-Start Guide to Q65</source>
         <translation>Q65 快速入门指南</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4902"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5307"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5444"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Auto Clear Avg after decode</source>
         <translation>解码后自动清除平均值</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.ui" line="4907"/>
 =======
         <location filename="../widgets/mainwindow.ui" line="5317"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="5449"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Quick-Start Guide to WSJT-X 2.5.0 and MAP65 3.0</source>
         <translation>WSJT-X 2.5.0和MAP65 3.0快速入门指南</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="310"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="318"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="348"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Rig Control Error</source>
         <translation>无线电设备控制错误</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="401"/>
         <location filename="../widgets/mainwindow.cpp" line="6918"/>
@@ -5934,28 +7404,42 @@ Double-click to reset to the standard 73 message</source>
         <location filename="../widgets/mainwindow.cpp" line="7020"/>
         <location filename="../widgets/mainwindow.cpp" line="11472"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="463"/>
+        <location filename="../widgets/mainwindow.cpp" line="8285"/>
+        <location filename="../widgets/mainwindow.cpp" line="13269"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Receiving</source>
         <translation>接收</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="517"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="525"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="580"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Do you want to reconfigure the radio interface?</source>
         <translation>是否要重新配置无线电设备接口?</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="585"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="593"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="648"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Error Scanning ADIF Log</source>
         <translation>扫描 ADIF 日志错误</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="590"/>
         <source>Scanned ADIF log, %1 worked-before records created. CTY: %2</source>
@@ -5966,37 +7450,53 @@ Double-click to reset to the standard 73 message</source>
 =======
         <location filename="../widgets/mainwindow.cpp" line="717"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="809"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Error Loading LotW Users Data</source>
         <translation>加载 LotW 用户数据错误</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="830"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="838"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="931"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Error Writing WAV File</source>
         <translation>写入 WAV 文件时错误</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="859"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="867"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="963"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Enumerating audio devices</source>
         <translation>列举音频设备</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="877"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="885"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="984"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Configurations...</source>
         <translation>配置文件...</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="952"/>
         <location filename="../widgets/mainwindow.cpp" line="9157"/>
@@ -6038,46 +7538,85 @@ Double-click to reset to the standard 73 message</source>
         <location filename="../widgets/mainwindow.cpp" line="11110"/>
         <location filename="../widgets/mainwindow.cpp" line="11113"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.ui" line="4216"/>
+        <location filename="../widgets/mainwindow.cpp" line="1059"/>
+        <location filename="../widgets/mainwindow.cpp" line="10784"/>
+        <location filename="../widgets/mainwindow.cpp" line="10794"/>
+        <location filename="../widgets/mainwindow.cpp" line="10851"/>
+        <location filename="../widgets/mainwindow.cpp" line="10865"/>
+        <location filename="../widgets/mainwindow.cpp" line="11018"/>
+        <location filename="../widgets/mainwindow.cpp" line="11019"/>
+        <location filename="../widgets/mainwindow.cpp" line="11093"/>
+        <location filename="../widgets/mainwindow.cpp" line="11094"/>
+        <location filename="../widgets/mainwindow.cpp" line="11100"/>
+        <location filename="../widgets/mainwindow.cpp" line="11101"/>
+        <location filename="../widgets/mainwindow.cpp" line="11241"/>
+        <location filename="../widgets/mainwindow.cpp" line="11242"/>
+        <location filename="../widgets/mainwindow.cpp" line="11333"/>
+        <location filename="../widgets/mainwindow.cpp" line="11334"/>
+        <location filename="../widgets/mainwindow.cpp" line="12865"/>
+        <location filename="../widgets/mainwindow.cpp" line="12868"/>
+        <location filename="../widgets/mainwindow.cpp" line="12873"/>
+        <location filename="../widgets/mainwindow.cpp" line="12876"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Message</source>
         <translation>信息</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="970"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="978"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="1077"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Error Killing jt9.exe Process</source>
         <translation>错误终止 jt9.exe 进程</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="971"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="979"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="1078"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>KillByName return code: %1</source>
         <translation>按名称终止返回代码: %1</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="986"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="994"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="1093"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Error removing &quot;%1&quot;</source>
         <translation>删除时错误 &quot;%1&quot;</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="987"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="995"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="1094"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Click OK to retry</source>
         <translation>单击 确定 重试</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="1680"/>
         <location filename="../widgets/mainwindow.cpp" line="9585"/>
@@ -6085,10 +7624,15 @@ Double-click to reset to the standard 73 message</source>
         <location filename="../widgets/mainwindow.cpp" line="1700"/>
         <location filename="../widgets/mainwindow.cpp" line="9795"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="2013"/>
+        <location filename="../widgets/mainwindow.cpp" line="11294"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Improper mode</source>
         <translation>模式不正确</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="1933"/>
         <location filename="../widgets/mainwindow.cpp" line="12659"/>
@@ -6096,10 +7640,15 @@ Double-click to reset to the standard 73 message</source>
         <location filename="../widgets/mainwindow.cpp" line="1954"/>
         <location filename="../widgets/mainwindow.cpp" line="12938"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="2280"/>
+        <location filename="../widgets/mainwindow.cpp" line="14871"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>File Open Error</source>
         <translation>文件打开错误</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="1934"/>
         <location filename="../widgets/mainwindow.cpp" line="11363"/>
@@ -6113,37 +7662,57 @@ Double-click to reset to the standard 73 message</source>
         <location filename="../widgets/mainwindow.cpp" line="12939"/>
         <location filename="../widgets/mainwindow.cpp" line="13116"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="2281"/>
+        <location filename="../widgets/mainwindow.cpp" line="13398"/>
+        <location filename="../widgets/mainwindow.cpp" line="13903"/>
+        <location filename="../widgets/mainwindow.cpp" line="14872"/>
+        <location filename="../widgets/mainwindow.cpp" line="15058"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Cannot open &quot;%1&quot; for append: %2</source>
         <translation>无法打开 &quot;%1&quot; 用于附加: %2</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="2071"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="2092"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="2478"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Error saving c2 file</source>
         <translation>保存 c2 文件错误</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="2872"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="2900"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="3403"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Error in Sound Input</source>
         <translation>声音输入错误</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="2878"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="2906"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="3409"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Error in Sound Output</source>
         <translation>声音输错误</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="2944"/>
         <location filename="../widgets/mainwindow.cpp" line="3488"/>
@@ -6151,10 +7720,15 @@ Double-click to reset to the standard 73 message</source>
         <location filename="../widgets/mainwindow.cpp" line="2975"/>
         <location filename="../widgets/mainwindow.cpp" line="3519"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="3571"/>
+        <location filename="../widgets/mainwindow.cpp" line="4196"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Single-Period Decodes</source>
         <translation>单周期解码</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="2945"/>
         <location filename="../widgets/mainwindow.cpp" line="3489"/>
@@ -6162,37 +7736,54 @@ Double-click to reset to the standard 73 message</source>
         <location filename="../widgets/mainwindow.cpp" line="2976"/>
         <location filename="../widgets/mainwindow.cpp" line="3520"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="3572"/>
+        <location filename="../widgets/mainwindow.cpp" line="4197"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Average Decodes</source>
         <translation>平均解码</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="3312"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="3339"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="3974"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Change Operator</source>
         <translation>改变操作员</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="3312"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="3339"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="3974"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>New operator:</source>
         <translation>新操作员:</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="3463"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="3494"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="4163"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Status File Error</source>
         <translation>状态文件错误</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="3464"/>
         <location filename="../widgets/mainwindow.cpp" line="8330"/>
@@ -6200,37 +7791,54 @@ Double-click to reset to the standard 73 message</source>
         <location filename="../widgets/mainwindow.cpp" line="3495"/>
         <location filename="../widgets/mainwindow.cpp" line="8439"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="4164"/>
+        <location filename="../widgets/mainwindow.cpp" line="9774"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Cannot open &quot;%1&quot; for writing: %2</source>
         <translation>无法打开 &quot;%1&quot; 用于写入: %2</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="3493"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="3524"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="4201"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Decodes containing My Call</source>
         <translation>解码包含我的呼叫</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="3636"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="3682"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="4389"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Subprocess Error</source>
         <translation>子流程错误</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="3637"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="3683"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="4390"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Subprocess failed with exit code %1</source>
         <translation>子流程失败, 退出代码为 %1</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="3639"/>
         <location filename="../widgets/mainwindow.cpp" line="3659"/>
@@ -6238,6 +7846,10 @@ Double-click to reset to the standard 73 message</source>
         <location filename="../widgets/mainwindow.cpp" line="3685"/>
         <location filename="../widgets/mainwindow.cpp" line="3705"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="4392"/>
+        <location filename="../widgets/mainwindow.cpp" line="4412"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Running: %1
 %2</source>
         <translation>运行: %1
@@ -6245,37 +7857,47 @@ Double-click to reset to the standard 73 message</source>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="3658"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="3704"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="4411"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Subprocess error</source>
         <translation>子进程错误</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="3696"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="3742"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="4465"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Reference spectrum saved</source>
         <translation>保存参考频谱</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="3807"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="9713"/>
+=======
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Runaway Tx watchdog</source>
-        <translation>发射监管计时器</translation>
+        <translation type="vanished">发射监管计时器</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="9728"/>
         <source>WD:%1m</source>
-        <translation>WD:%1分</translation>
+        <translation type="vanished">WD:%1分</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="3815"/>
+        <location filename="../widgets/mainwindow.cpp" line="4547"/>
         <source>It is very important to avoid audio harmonics and distorted audio signals.
 This is usually achieved by the following step-by-step approach:
 
@@ -6324,31 +7946,43 @@ to ensure the signal is clean and not distorted.</source>
 以确保信号干净且不失真.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="3831"/>
+        <location filename="../widgets/mainwindow.cpp" line="4563"/>
         <source>&lt;b&gt;Recommended Audio Settings&lt;/b&gt;</source>
         <translation>&lt;b&gt;推荐的音频设置&lt;/b&gt;</translation>
     </message>
     <message>
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="3874"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="4612"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Invalid data in fmt.all at line %1</source>
         <translation>在 %1 行中 fmt.all 的无效数据</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="3813"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="3880"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="4618"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Good Calibration Solution</source>
         <translation>良好的校准解决方案</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="3814"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="3881"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="4619"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>&lt;pre&gt;%1%L2 ±%L3 ppm
 %4%L5 ±%L6 Hz
 
@@ -6358,64 +7992,100 @@ to ensure the signal is clean and not distorted.</source>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="3828"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="3895"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="4633"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Delete Calibration Measurements</source>
         <translation>删除校准测量值</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="3829"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="3896"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="4634"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>The &quot;fmt.all&quot; file will be renamed as &quot;fmt.bak&quot;</source>
         <translation>&quot;fmt.all&quot; 文件将重命名为 &quot;fmt.bak&quot;</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="4153"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="4213"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="4646"/>
+        <source>If you make fair use of any part of WSJT-X under terms of the GNU General Public License, you must display the following copyright notice prominently in your derivative work:
+
+&quot;The algorithms, source code, look-and-feel of WSJT-X and related programs, and protocol specifications for the modes FSK441, FST4, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, Q65, MSK144 are Copyright (C) 2001-2025 by one or more of the following authors: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; Uwe Risse, DG2YCB; Brian Moran, N9ADG; and other members of the WSJT Development Group.&quot;</source>
+        <translation>如果您根据GNU通用公共许可证的条款合理使用WSJT-X的任何部分, 您必须在您的衍生作品中突出显示以下版权声明:
+
+&quot;WSJT-X和相关程序的算法 源代码 外观和感觉, 以及模式的协议规范 FSK441, FST4, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, Q65, MSK144  版权所有(C) 2001-2024是由以下一个或多个作者拥有: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; Uwe Risse, DG2YCB; Brian Moran, N9ADG; 和WSJT发展小组的其他成员.&quot;</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.cpp" line="5027"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>No data read from disk. Wrong file format?</source>
         <translation>没有从磁盘读取数据. 文件格式出错误?</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="4160"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="4220"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="5034"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Confirm Delete</source>
         <translation>确认删除</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="4161"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="4221"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="5035"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Are you sure you want to delete all *.wav and *.c2 files in &quot;%1&quot;?</source>
         <translation>是否确实要删除所有 *.wav 和 *.c2 文件在 &quot;%1&quot;?</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="4198"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="4258"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="5072"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Keyboard Shortcuts</source>
         <translation>键盘快捷键</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="3246"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="3281"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>&lt;table cellspacing=1&gt;
   &lt;tr&gt;&lt;td&gt;&lt;b&gt;Esc      &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Stop Tx, abort QSO, clear next-call queue&lt;/td&gt;&lt;/tr&gt;
   &lt;tr&gt;&lt;td&gt;&lt;b&gt;F1       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Online User&apos;s Guide (Alt: transmit Tx6)&lt;/td&gt;&lt;/tr&gt;
@@ -6466,7 +8136,7 @@ to ensure the signal is clean and not distorted.</source>
   &lt;tr&gt;&lt;td&gt;&lt;b&gt;Alt+Z    &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Clear hung decoder status&lt;/td&gt;&lt;/tr&gt;
 &lt;/table&gt;</source>
         <extracomment>Keyboard shortcuts help window contents</extracomment>
-        <translation>&lt;table cellspacing=1&gt;
+        <translation type="vanished">&lt;table cellspacing=1&gt;
   &lt;tr&gt;&lt;td&gt;&lt;b&gt;Esc      &lt;/b&gt;&lt;/td&gt;&lt;td&gt;停止发送,中止通联,清除下一个呼叫序列&lt;/td&gt;&lt;/tr&gt;
   &lt;tr&gt;&lt;td&gt;&lt;b&gt;F1       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;线上用户指南  (Alt: 发送 Tx6)&lt;/td&gt;&lt;/tr&gt;
   &lt;tr&gt;&lt;td&gt;&lt;b&gt;Shift+F1  &lt;/b&gt;&lt;/td&gt;&lt;td&gt;版权声明&lt;/td&gt;&lt;/tr&gt;
@@ -6515,7 +8185,7 @@ to ensure the signal is clean and not distorted.</source>
 &lt;/table&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="4260"/>
+        <location filename="../widgets/mainwindow.cpp" line="5074"/>
         <source>&lt;table cellspacing=1&gt;
   &lt;tr&gt;&lt;td&gt;&lt;b&gt;Esc      &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Stop Tx, abort QSO, clear next-call queue&lt;/td&gt;&lt;/tr&gt;
   &lt;tr&gt;&lt;td&gt;&lt;b&gt;F1       &lt;/b&gt;&lt;/td&gt;&lt;td&gt;Online User&apos;s Guide (Alt: transmit Tx6)&lt;/td&gt;&lt;/tr&gt;
@@ -6623,44 +8293,278 @@ to ensure the signal is clean and not distorted.</source>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="4260"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="4320"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="5134"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Special Mouse Commands</source>
         <translation>特殊鼠标组合</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="3306"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="4762"/>
+=======
+        <location filename="../widgets/mainwindow.cpp" line="5136"/>
+        <source>&lt;table cellpadding=5&gt;
+  &lt;tr&gt;
+    &lt;th align=&quot;right&quot;&gt;Click on&lt;/th&gt;
+    &lt;th align=&quot;left&quot;&gt;Action&lt;/th&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;Waterfall:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;Click&lt;/b&gt; to set Rx frequency.&lt;br/&gt;
+        &lt;b&gt;Right-click&lt;/b&gt; to set Tx frequency.&lt;br/&gt;
+        &lt;b&gt;Double-right-click&lt;/b&gt; to set Rx and Tx frequencies.
+    &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;Decoded text:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;Double-click&lt;/b&gt; to copy second callsign to Dx Call, locator to Dx Grid, change Rx&lt;br/&gt;
+        and Tx frequency to decoded signal&apos;s frequency, and generate standard messages.&lt;br/&gt;
+        Hold down &lt;b&gt;Alt&lt;/b&gt; to prevent Tx from being enabled on &lt;b&gt;double-click&lt;/b&gt;.&lt;br/&gt;
+        If &lt;b&gt;Hold Tx Freq&lt;/b&gt; is checked or first callsign in message is your&lt;br/&gt;
+        own call, Tx frequency is not changed unless &lt;b&gt;Ctrl&lt;/b&gt; is held down.
+    &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;Dial Frequency:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;Turn the mouse wheel&lt;/b&gt; to change the kHz values, or:&lt;br/&gt;
+        &lt;b&gt;Right-click&lt;/b&gt; to increase frequency by 1 kHz.&lt;br/&gt;
+        &lt;b&gt;Left-click&lt;/b&gt; to decrease frequency by 1 kHz.&lt;br/&gt;
+        The mouse pointer must be over the Dial Frequency indicator.
+    &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;H Button:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;Click&lt;/b&gt; to toggle FT8 Hound Mode On/Off.&lt;br/&gt;
+        &lt;b&gt;Right-click&lt;/b&gt; to activate or deactivate SuperFox mode.
+    &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;FT8 Button:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;Click&lt;/b&gt; to switch to FT8 Hound Mode.&lt;br/&gt;
+        &lt;b&gt;Right-click&lt;/b&gt; to toggle last used Special Operating Activity On/Off.
+    &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;Q65 Button:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;Click&lt;/b&gt; to switch to Q65 Mode.&lt;br/&gt;
+        &lt;b&gt;Right-click&lt;/b&gt; to switch to Q65 Pileup Mode.
+    &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;JT65 Button:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;Click&lt;/b&gt; to switch to JT65 Mode.&lt;br/&gt;
+        &lt;b&gt;Right-click&lt;/b&gt; to switch to JT9 Mode.
+    &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;Tx5 Button:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;Right-click&lt;/b&gt; to retain Tx5 free text.
+    &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;Tx Even/1st:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;Right-click&lt;/b&gt; to freeze the state of the checkbox.&lt;br/&gt;
+        &lt;b&gt;Right-click on the FT8 Button&lt;/b&gt; to unfreeze.
+    &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;Enable Tx Button:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;Click&lt;/b&gt; to toggle Auto-Tx mode On/Off.&lt;br/&gt;
+        &lt;b&gt;Right-click&lt;/b&gt; to toggle Wait &amp; Pounce On/Off.
+    &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;Erase button:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;Click&lt;/b&gt; to erase Rx Frequency window.&lt;br/&gt;
+        &lt;b&gt;Double-click&lt;/b&gt; to erase Rx Frequency and Band Activity windows.&lt;br/&gt;
+        If &lt;b&gt;Alternate Erase button behavior&lt;/b&gt; is checked:&lt;br/&gt;
+        &lt;b&gt;Click&lt;/b&gt; to erase Band Activity window.&lt;br/&gt;
+        &lt;b&gt;Right-click&lt;/b&gt; to erase Rx Frequency window.&lt;br/&gt;
+        &lt;b&gt;Double-click&lt;/b&gt; to erase Rx Frequency and Band Activity windows.
+    &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;DX Call Button:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;Click&lt;/b&gt; to toggle Wait &amp; Call On/Off.&lt;br/&gt;
+        &lt;b&gt;Right-click&lt;/b&gt; to clear the Dx Call, Dx Grid and Std Msgs.
+    &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;Lookup Button:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;Click&lt;/b&gt; to search for callsign in database.&lt;br/&gt;
+        &lt;b&gt;Right-click&lt;/b&gt; to search for Dx Call on qrz.com.
+    &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;Add Button:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;Click&lt;/b&gt; to add callsign and locator to database.&lt;br/&gt;
+        &lt;b&gt;Right-click&lt;/b&gt; to search for Dx Call on hamqth.com.
+    &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;Ignore Button:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;Click&lt;/b&gt; to add callsign to the Ignore List.&lt;br/&gt;
+       &lt;b&gt;Right-click&lt;/b&gt; to search for Dx Call on qrzcq.com.
+    &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+  &lt;td align=&quot;right&quot;&gt;Band Buttons:&lt;/td&gt;
+  &lt;td&gt;&lt;b&gt;Click&lt;/b&gt; to toggle band / mode default frequencies.&lt;br/&gt;
+      &lt;b&gt;Right-click&lt;/b&gt; to toggle FT8 DXpedition frequencies.
+    &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/table&gt;</source>
+        <extracomment>Mouse commands help window contents</extracomment>
+        <translation>&lt;table cellpadding=5&gt;
+  &lt;tr&gt;
+    &lt;th align=&quot;right&quot;&gt;点击&lt;/th&gt;
+    &lt;th align=&quot;left&quot;&gt;作用&lt;/th&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;瀑布:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;Click&lt;/b&gt; 设置接收频率.&lt;br/&gt;
+        &lt;b&gt;右键单击&lt;/b&gt; 设置发射频率.&lt;br/&gt;
+        &lt;b&gt;右键双击&lt;/b&gt; 设置接收和发射频率.
+    &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;解码文本:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;双击&lt;/b&gt; 将第二个呼号复制到Dx呼号, 将网格定位复制到Dx网格,&lt;br/&gt;
+        请更改接收和发射频率转换为解码信号的频率, 并生成标准消息.&lt;br/&gt;
+        按住 &lt;b&gt;Alt&lt;/b&gt; 键可防止 &lt;b&gt;双击&lt;/b&gt; 时启用发射.&lt;br/&gt;
+        如果 &lt;b&gt;保持发射频率&lt;/b&gt; 被选中或者第一个回答您的呼叫&lt;br/&gt;
+        自己呼叫l, 除非按住 &lt;b&gt;Ctrl&lt;/b&gt; 否则不改变发射频率.
+    &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+&lt;td align=&quot;right &quot;&gt;拨号频率:&lt;/td&gt;
+&lt;td&gt;&lt;b&gt;旋转鼠标滚轮&lt;/b&gt;以更改kHz值，或者:&lt;br/&gt;
+&lt;b&gt;右键单击&lt;/b&gt;将频率增加1 kHz.&lt;br/&gt;
+单击左键将频率降低1 kHz.&lt;br/&gt;
+鼠标指针必须在拨号频率指示器上.
+&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;H 按钮:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;单击&lt;/b&gt; 切换 FT8 猎犬模式 启用/停用.&lt;br/&gt;
+        &lt;b&gt;右键单击&lt;/b&gt; 切换 激活或取消激活 超级狐狸模式.
+    &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+&lt;td align=&quot;right&quot;&gt;FT8按钮:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;单击&lt;/b&gt; 以切换到FT8猎犬模式.&lt;br/&gt;
+        &lt;b&gt;右键单击&lt;/b&gt; 打开/关闭 上次使用的特殊操作活动.
+    &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;Q65 按钮:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;单击&lt;/b&gt; 切换到 Q65 模式.&lt;br/&gt;
+        &lt;b&gt;右键单击&lt;/b&gt; 切换到 Q65 堆积模式.
+    &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;JT65 按钮:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;单击&lt;/b&gt;切换到 JT65 模式.&lt;br/&gt;
+        &lt;b&gt;右键单击&lt;/b&gt; 切换到 JT9 模式.
+    &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;Tx5 按钮n:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;右键&lt;/b&gt; 要保留Tx5自定义文本.
+    &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;发射偶数/第一:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;右键&lt;/b&gt;冻结复选框的状态.&lt;br/&gt;
+        &lt;b&gt;右键单击 FT8 按钮&lt;/b&gt; 解冻.
+    &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;启用发射按钮:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;单击&lt;/b&gt;切换  启用/停用 自动发射模式.&lt;br/&gt;
+        &lt;b&gt;右键单击&lt;/b&gt; 切换 启用/停用 等待和突袭.
+    &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;擦除按钮:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;单击&lt;/b&gt; 擦除接收信息窗.&lt;br/&gt;
+        &lt;b&gt;双击&lt;/b&gt; 擦除接收信息窗 和 波段活动窗.&lt;br/&gt;
+        如果 &lt;b&gt;替代擦除按钮行为&lt;/b&gt; 已选:&lt;br/&gt;
+        &lt;b&gt;单击&lt;/b&gt; 擦除 波段活动窗.&lt;br/&gt;
+        &lt;b&gt;右键单击&lt;/b&gt; 擦除接收信息窗.&lt;br/&gt;
+        &lt;b&gt;双击&lt;/b&gt; 擦除接收信息窗 和 波段活动窗.
+    &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;DX 呼号按钮:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;单击&lt;/b&gt; 切换等待和呼叫 启用/停用.&lt;br/&gt;
+        &lt;b&gt;右键单击&lt;/b&gt; 要清除DX呼号, DX网格 和 标准信息.
+    &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;查找按钮:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;单击&lt;/b&gt;在数据库中搜索呼号.&lt;br/&gt;
+        &lt;b&gt;右键&lt;/b&gt; 在 qrz.com 上搜索DX 呼号.&lt;br/&gt;
+    &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;添加按钮:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;单击&lt;/b&gt;在数据库中添加呼号.&lt;br/&gt;
+    &lt;td&gt;&lt;b&gt;右键&lt;/b&gt; 在 hamqth.com 上搜索DX 呼号.
+    &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td align=&quot;right&quot;&gt;忽略按钮:&lt;/td&gt;
+    &lt;td&gt;&lt;b&gt;单击&lt;/b&gt; 呼号増加到忽略清單.&lt;br/&gt;
+       &lt;b&gt;右键&lt;/b&gt; 在 qrzcq.com 上搜索呼号.
+    &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+  &lt;td align=&quot;right&quot;&gt;波段按钮:&lt;/td&gt;
+  &lt;td&gt;&lt;b&gt;单击&lt;/b&gt; 切换 波段/模式 默认频率.&lt;br/&gt;
+      &lt;b&gt;右键&lt;/b&gt; 切换 FT8 DX遠征频率.
+    &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/table&gt;</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.cpp" line="5665"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>No more files to open.</source>
         <translation>没有要打开的文件.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6258"/>
-        <location filename="../widgets/mainwindow.cpp" line="12140"/>
+        <location filename="../widgets/mainwindow.cpp" line="7452"/>
+        <location filename="../widgets/mainwindow.cpp" line="13949"/>
         <source>Spotting to PSK Reporter unavailable</source>
         <translation>发送到 Pskreporter 不可用</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6402"/>
+        <location filename="../widgets/mainwindow.cpp" line="7598"/>
         <source>Please choose another Tx frequency. WSJT-X will not knowingly transmit another mode in the WSPR sub-band on 30m.</source>
         <translation>请选择另一个发射频率. WSJT-X 不会故意在 30m 的 WSPR 子频段中传输另一种模式.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6406"/>
+        <location filename="../widgets/mainwindow.cpp" line="7602"/>
         <source>WSPR Guard Band</source>
         <translation>WSPR保护波段</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="598"/>
+        <location filename="../widgets/mainwindow.cpp" line="653"/>
         <source>Scanned ADIF log, %1 worked-before records created. CTY: %2</source>
         <translation>扫描 ADIF 日志, %1 创建曾经通联记录. CTY: %2</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6420"/>
+        <location filename="../widgets/mainwindow.cpp" line="7616"/>
         <source>Please choose another dial frequency.
 Must be 3Khz away from %1.
 WSJT-X will not operate in Fox mode
@@ -6671,27 +8575,39 @@ WSJT-X不会以狐狸模式工作
 重叠标准FT8子频带.</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="6425"/>
+        <location filename="../widgets/mainwindow.cpp" line="7621"/>
+        <location filename="../widgets/mainwindow.cpp" line="7638"/>
         <source>Fox Mode warning</source>
         <translation>狐狸模式警告</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="7160"/>
+        <location filename="../widgets/mainwindow.cpp" line="7634"/>
+        <source>Please choose another dial frequency.
+WSJT-X will not operate in Fox mode
+overlapping the WSPR sub-bands.</source>
+        <translation>请选择其他频率.
+WSJT-X 不会操作在Fox模式下
+与WSPR子带重叠.</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.cpp" line="8447"/>
         <source>Last Tx: %1</source>
         <translation>最后发射: %1</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="3908"/>
         <source>If you make fair use of any part of WSJT-X under terms of the GNU General Public License, you must display the following copyright notice prominently in your derivative work:
 
 &quot;The algorithms, source code, look-and-feel of WSJT-X and related programs, and protocol specifications for the modes FSK441, FST4, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, Q65, MSK144 are Copyright (C) 2001-2024 by one or more of the following authors: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; Uwe Risse, DG2YCB; Brian Moran, N9ADG; and other members of the WSJT Development Group.&quot;</source>
-        <translation>如果您根据GNU通用公共许可证的条款合理使用WSJT-X的任何部分, 您必须在您的衍生作品中突出显示以下版权声明:
+        <translation type="vanished">如果您根据GNU通用公共许可证的条款合理使用WSJT-X的任何部分, 您必须在您的衍生作品中突出显示以下版权声明:
 
 &quot;WSJT-X和相关程序的算法 源代码 外观和感觉, 以及模式的协议规范 FSK441, FST4, FT8, JT4, JT6M, JT9, JT65, JTMS, QRA64, Q65, MSK144  版权所有(C) 2001-2024是由以下一个或多个作者拥有的: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; Uwe Risse, DG2YCB; Brian Moran, N9ADG; 和WSJT发展小组的其他成员.&quot;</translation>
     </message>
     <message>
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="3341"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>&lt;table cellpadding=5&gt;
   &lt;tr&gt;
     &lt;th align=&quot;right&quot;&gt;Click on&lt;/th&gt;
@@ -6736,7 +8652,7 @@ WSJT-X不会以狐狸模式工作
   &lt;/tr&gt;
 &lt;/table&gt;</source>
         <extracomment>Mouse commands help window contents</extracomment>
-        <translation>&lt;table cellpadding=5&gt;
+        <translation type="vanished">&lt;table cellpadding=5&gt;
   &lt;tr&gt;
     &lt;th align=&quot;right&quot;&gt;点击&lt;/th&gt;
     &lt;th align=&quot;left&quot;&gt;行动&lt;/th&gt;
@@ -6769,6 +8685,7 @@ WSJT-X不会以狐狸模式工作
 &lt;/table&gt;</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="4692"/>
         <source>No more files to open.</source>
@@ -6835,6 +8752,8 @@ WSJT-X不会以狐狸模式工作
 =======
         <location filename="../widgets/mainwindow.cpp" line="4322"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>&lt;table cellpadding=5&gt;
   &lt;tr&gt;
     &lt;th align=&quot;right&quot;&gt;Click on&lt;/th&gt;
@@ -6933,7 +8852,7 @@ WSJT-X不会以狐狸模式工作
   &lt;/tr&gt;
 &lt;/table&gt;</source>
         <extracomment>Mouse commands help window contents</extracomment>
-        <translation>&lt;table cellpadding=5&gt;
+        <translation type="vanished">&lt;table cellpadding=5&gt;
   &lt;tr&gt;
     &lt;th align=&quot;right&quot;&gt;点击&lt;/th&gt;
     &lt;th align=&quot;left&quot;&gt;作用&lt;/th&gt;
@@ -7033,10 +8952,14 @@ WSJT-X不会以狐狸模式工作
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="7325"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="7427"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="8743"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>This station transmits in the same time slot as you do.
 
 You must not start a QSO if both stations Tx even/1st
@@ -7046,7 +8969,7 @@ Click the MSK144 mode button to re-enable the Tx even/1st
 checkbox, or choose another station.</source>
         <translation>这个电台和你在同一个时间段发射信号.
 
-如果两个站都发送 偶数/第一, 则不得开始QSO
+如果两个站都发送 偶数/第一, 则不得开始通联
 或发送 奇数/第二, 同时禁用发送 偶数/第一 复选框.
 
 单击MSK144按钮, 重新启用发送 偶数/第一
@@ -7054,10 +8977,14 @@ checkbox, or choose another station.</source>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="7486"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="7595"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="8916"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Should you switch to EU VHF Contest mode?
 
 To do so, check &apos;Special operating activity&apos; and
@@ -7069,23 +8996,32 @@ To do so, check &apos;Special operating activity&apos; and
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="7505"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="7614"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="8935"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Should you switch to ARRL Field Day mode?</source>
         <translation>是否应切换到 ARRL Field Day 模式?</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="7510"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="7619"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="8940"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Should you switch to RTTY contest mode?</source>
         <translation>是否应切换到 RTTY 竞赛模式?</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="8292"/>
         <location filename="../widgets/mainwindow.cpp" line="8311"/>
@@ -7097,33 +9033,51 @@ To do so, check &apos;Special operating activity&apos; and
         <location filename="../widgets/mainwindow.cpp" line="8438"/>
         <location filename="../widgets/mainwindow.cpp" line="8465"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="9736"/>
+        <location filename="../widgets/mainwindow.cpp" line="9755"/>
+        <location filename="../widgets/mainwindow.cpp" line="9773"/>
+        <location filename="../widgets/mainwindow.cpp" line="9800"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Add to CALL3.TXT</source>
         <translation>添加到 CALL3.TXT</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="8293"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="8402"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="9737"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Please enter a valid grid locator</source>
         <translation>请输入有效的网格定位</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="8312"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="8421"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="9756"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Cannot open &quot;%1&quot; for read/write: %2</source>
         <translation>无法打开 &quot;%1&quot; 用于读/写: %2</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="8354"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="8463"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="9798"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>%1
 is already in CALL3.TXT, do you wish to replace it?</source>
         <translation>%1
@@ -7131,87 +9085,129 @@ CALL3.TXT已经存在, 你想替换它吗?</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="8780"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="8974"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="10376"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Warning:  DX Call field is empty.</source>
         <translation>警告:  DX 呼号字段为空.</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="8872"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="9066"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="10489"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Log file error</source>
         <translation>日志文件错误</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="8873"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="9067"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="10490"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Cannot open &quot;%1&quot;</source>
         <translation>无法打开 &quot;%1&quot;</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="8889"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="9083"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="10506"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Error sending log to N1MM</source>
         <translation>将日志发送到 N1MM 时发生错误</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="8890"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="9084"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="10507"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Write returned &quot;%1&quot;</source>
         <translation>写入返回 &quot;%1&quot;</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="9210"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="9405"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="10861"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Stations calling DXpedition %1</source>
         <translation>呼叫远征电台 %1</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="9249"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="9437"/>
+=======
+        <location filename="../widgets/mainwindow.cpp" line="10895"/>
+        <source>Show Already Worked</source>
+        <translation>显示已经通联过的</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.cpp" line="10897"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Super Fox</source>
         <translation>超级狐狸</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="9453"/>
+        <location filename="../widgets/mainwindow.cpp" line="10915"/>
         <source>Super Hound</source>
         <translation>超级猎犬</translation>
     </message>
     <message>
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="9456"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="10926"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Hound</source>
         <translation>猎犬</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="9629"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="9839"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="11343"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Tx Messages</source>
         <translation>发射信息</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="9960"/>
         <location filename="../widgets/mainwindow.cpp" line="9971"/>
@@ -7227,28 +9223,45 @@ CALL3.TXT已经存在, 你想替换它吗?</translation>
         <location filename="../widgets/mainwindow.cpp" line="14506"/>
         <location filename="../widgets/mainwindow.cpp" line="14552"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="11775"/>
+        <location filename="../widgets/mainwindow.cpp" line="11786"/>
+        <location filename="../widgets/mainwindow.cpp" line="11825"/>
+        <location filename="../widgets/mainwindow.cpp" line="11835"/>
+        <location filename="../widgets/mainwindow.cpp" line="16967"/>
+        <location filename="../widgets/mainwindow.cpp" line="17013"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Confirm Erase</source>
         <translation>确认擦除</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="9961"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="10176"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="11776"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Are you sure you want to erase file ALL.TXT?</source>
         <translation>是否确实要擦除 ALL.TXT 文件?</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="9972"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="10187"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="11787"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Are you sure you want to erase the list of Q65 callers?</source>
         <translation>是否确实要擦除 Q65呼叫者表?</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="9981"/>
         <location filename="../widgets/mainwindow.cpp" line="12037"/>
@@ -7256,69 +9269,101 @@ CALL3.TXT已经存在, 你想替换它吗?</translation>
         <location filename="../widgets/mainwindow.cpp" line="10196"/>
         <location filename="../widgets/mainwindow.cpp" line="12275"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="11796"/>
+        <location filename="../widgets/mainwindow.cpp" line="14078"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Confirm Reset</source>
         <translation>确认重置</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="9982"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="10197"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="11797"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Are you sure you want to erase your contest log?</source>
         <translation>是否确实要擦除竞赛日志?</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="9983"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="10198"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="11798"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Doing this will remove all QSO records for the current contest. They will be kept in the ADIF log file but will not be available for export in your Cabrillo log.</source>
         <translation>执行此操作将删除当前竞赛的所有通联记录. 它们将保留在 ADIF 日志文件中, 但无法导出到您的Cabrillo日志中.</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="10003"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="10218"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="11818"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Cabrillo Log saved</source>
         <translation>Cabrillo日志已保存</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="10011"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="10226"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="11826"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Are you sure you want to erase file wsjtx_log.adi?</source>
         <translation>是否确实要擦除 wsjtx_log.adi 文件?</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="10021"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="10236"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="11836"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Are you sure you want to erase the WSPR hashtable?</source>
         <translation>是否确实要擦除 WSPR 哈希表?</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="10394"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="10613"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="12263"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>%1 W</source>
         <translation>%1 瓦</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="10413"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="10632"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="12282"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>SWR &gt; 2.5 !!!
 
 Transmission was stopped
@@ -7332,46 +9377,66 @@ Check your antenna</source>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="10715"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="10942"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="12688"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Tune digital gain </source>
         <translation>调谐数码增益 </translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="10717"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="10944"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="12690"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Transmit digital gain </source>
         <translation>传输数码增益 </translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="10736"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="10963"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="12714"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Prefixes</source>
         <translation>前缀</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="11202"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="11439"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="13236"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Network Error</source>
         <translation>网络错误</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="11203"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="11440"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="13237"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Error: %1
 UDP server %2:%3</source>
         <translation>错误: %1
@@ -7379,41 +9444,58 @@ UDP 服务器 %2:%3</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="11362"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="11599"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="13397"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>File Error</source>
         <translation>文件错误</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="11645"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="11882"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="13689"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Phase Training Disabled</source>
         <translation>已禁用阶段训练</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="11648"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="11885"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="13692"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Phase Training Enabled</source>
         <translation>已启用阶段训练</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="11780"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="12017"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="13824"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source> WD:0m </source>
         <translation> WD:溢出 </translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="11783"/>
         <source> Runaway Tx watchdog </source>
@@ -7423,53 +9505,94 @@ UDP 服务器 %2:%3</translation>
         <location filename="../widgets/mainwindow.cpp" line="11798"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="12020"/>
+=======
+        <location filename="../widgets/mainwindow.cpp" line="13827"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source> Runaway Tx watchdog </source>
         <translation> 发射监管计时器 </translation>
     </message>
     <message>
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="12035"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="13844"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source> WD:%1m </source>
         <translation> WD:%1分 </translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="14172"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="12285"/>
+=======
+        <location filename="../widgets/mainwindow.cpp" line="14089"/>
+        <location filename="../widgets/mainwindow.cpp" line="14092"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Free Text Message</source>
         <translation>自定义信息</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.cpp" line="12286"/>
+        <location filename="../widgets/mainwindow.cpp" line="14090"/>
+        <location filename="../widgets/mainwindow.cpp" line="14093"/>
         <source>Message:</source>
         <translation>信息:</translation>
     </message>
     <message>
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="14507"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="14111"/>
+        <source>Directional calls not yet supported in SuperFox mode</source>
+        <translation>SuperFox模式尚不支持定向呼叫</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.cpp" line="14130"/>
+        <source>TOTP: No seed entered in fox configuration to generate verification code.</source>
+        <translation>TOTP: 没有在fox配置中输入种子来生成验证码.</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.cpp" line="15334"/>
+        <source>TOTP SF: seed not long enough.</source>
+        <translation>TOTP SF: 种子不够长.</translation>
+    </message>
+    <message>
+        <location filename="../widgets/mainwindow.cpp" line="16968"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Are you sure you want to erase the Tx Log?</source>
         <translation>您确定要清除发射日志吗?</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="14197"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="14532"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="16993"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>&quot;%1&quot; added to Ignore List</source>
         <translation>&quot;%1&quot; 已添加到忽略列表</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="14218"/>
 =======
         <location filename="../widgets/mainwindow.cpp" line="14553"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="17014"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Are you sure you want to erase the Ignore List?</source>
         <translation>您确定要删除忽略列表吗?</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="11860"/>
         <location filename="../widgets/mainwindow.cpp" line="12837"/>
@@ -7477,10 +9600,15 @@ UDP 服务器 %2:%3</translation>
         <location filename="../widgets/mainwindow.cpp" line="12097"/>
         <location filename="../widgets/mainwindow.cpp" line="13119"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="13906"/>
+        <location filename="../widgets/mainwindow.cpp" line="15061"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Log File Error</source>
         <translation>日志文件错误</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../widgets/mainwindow.cpp" line="4200"/>
         <source>&lt;table cellspacing=1&gt;
@@ -7585,13 +9713,15 @@ UDP 服务器 %2:%3</translation>
 =======
         <location filename="../widgets/mainwindow.cpp" line="12276"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../widgets/mainwindow.cpp" line="14079"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Are you sure you want to clear the QSO queues?</source>
         <translation>是否确实要清除通联队列?</translation>
     </message>
     <message>
-        <location filename="../plots/mainwindow.ui" line="14"/>
         <source>QCustomPlot plot examples</source>
-        <translation>QCustomPlot plot样本</translation>
+        <translation type="vanished">QCustomPlot plot样本</translation>
     </message>
 </context>
 <context>
@@ -7727,13 +9857,12 @@ UDP 服务器 %2:%3</translation>
         <translation>无法启动 OmniRig COM 服务器</translation>
     </message>
     <message>
-        <location filename="../Transceiver/OmniRigTransceiver.cpp" line="253"/>
-        <location filename="../Transceiver/OmniRigTransceiver.cpp" line="736"/>
+        <location filename="../Transceiver/OmniRigTransceiver.cpp" line="733"/>
         <source>OmniRig: don&apos;t know how to set rig frequency</source>
         <translation>OmniRig：不知道如何设置无线电设备频率</translation>
     </message>
     <message>
-        <location filename="../Transceiver/OmniRigTransceiver.cpp" line="356"/>
+        <location filename="../Transceiver/OmniRigTransceiver.cpp" line="353"/>
         <source>OmniRig COM/OLE error: %1 at %2: %3 (%4)</source>
         <translation>OmniRig COM/OLE 错误: %1 at %2: %3 (%4)</translation>
     </message>
@@ -7741,7 +9870,7 @@ UDP 服务器 %2:%3</translation>
 <context>
     <name>PollingTransceiver</name>
     <message>
-        <location filename="../Transceiver/PollingTransceiver.cpp" line="184"/>
+        <location filename="../Transceiver/PollingTransceiver.cpp" line="186"/>
         <source>Unexpected rig error</source>
         <translation>无线电设备意外错误</translation>
     </message>
@@ -7787,6 +9916,430 @@ UDP 服务器 %2:%3</translation>
         <location filename="../Network/LotWUsers.cpp" line="120"/>
         <source>Failed to open LotW users CSV file: &apos;%1&apos;</source>
         <translation>无法打开 LotW 用户 CSV 文件: &apos;%1&apos;</translation>
+    </message>
+</context>
+<context>
+    <name>QSYMessage</name>
+    <message>
+        <location filename="../widgets/QSYMessage.ui" line="26"/>
+        <source>WSJT-X Popup</source>
+        <translation>WSJT-X 弹出</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessage.ui" line="44"/>
+        <source>TextLabel</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessage.ui" line="72"/>
+        <source>Reply 
+Yes</source>
+        <translation>回答
+确定</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessage.ui" line="92"/>
+        <source>Reply 
+No</source>
+        <translation>回答
+否</translation>
+    </message>
+</context>
+<context>
+    <name>QSYMessageCreator</name>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="32"/>
+        <source>Message Creator</source>
+        <translation>信息创建器</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="87"/>
+        <source>HF</source>
+        <translation>HF</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="143"/>
+        <location filename="../widgets/QSYMessageCreator.ui" line="1042"/>
+        <source>SSB</source>
+        <translation>单边带</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="161"/>
+        <location filename="../widgets/QSYMessageCreator.ui" line="1060"/>
+        <location filename="../widgets/QSYMessageCreator.ui" line="1937"/>
+        <source>CW</source>
+        <translation>CW</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="176"/>
+        <location filename="../widgets/QSYMessageCreator.ui" line="1075"/>
+        <source>FM</source>
+        <translation>FM</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="191"/>
+        <source>FST4</source>
+        <translation>FST4</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="206"/>
+        <source>FT4</source>
+        <translation>FT4</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="221"/>
+        <location filename="../widgets/QSYMessageCreator.ui" line="1090"/>
+        <source>FT8</source>
+        <translation>FT8</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="236"/>
+        <source>JT9</source>
+        <translation>JT9</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="251"/>
+        <source>JT65</source>
+        <translation>JT65</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="274"/>
+        <location filename="../widgets/QSYMessageCreator.ui" line="1326"/>
+        <location filename="../widgets/QSYMessageCreator.ui" line="1772"/>
+        <location filename="../widgets/QSYMessageCreator.ui" line="2131"/>
+        <source>Message</source>
+        <translation>信息</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="367"/>
+        <source>630 M</source>
+        <translation>630米</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="385"/>
+        <source>160 M</source>
+        <translation>160米</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="400"/>
+        <source>80 M</source>
+        <translation>80米</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="415"/>
+        <source>60 M</source>
+        <translation>60米</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="430"/>
+        <source>40 M</source>
+        <translation>40米</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="445"/>
+        <source>30 M</source>
+        <translation>30米</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="460"/>
+        <source>20 M</source>
+        <translation>20米</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="475"/>
+        <source>17 M</source>
+        <translation>17米</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="490"/>
+        <source>15 M</source>
+        <translation>15米</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="505"/>
+        <source>12 M</source>
+        <translation>12米</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="520"/>
+        <source>28 MHz</source>
+        <translation>28兆赫</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="538"/>
+        <source>29 MHz</source>
+        <translation>29兆赫</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="553"/>
+        <location filename="../widgets/QSYMessageCreator.ui" line="747"/>
+        <location filename="../widgets/QSYMessageCreator.ui" line="1457"/>
+        <source>Mode</source>
+        <translation>模式</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="574"/>
+        <location filename="../widgets/QSYMessageCreator.ui" line="726"/>
+        <location filename="../widgets/QSYMessageCreator.ui" line="1958"/>
+        <source>Band</source>
+        <translation>波段</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="614"/>
+        <location filename="../widgets/QSYMessageCreator.ui" line="1126"/>
+        <location filename="../widgets/QSYMessageCreator.ui" line="1710"/>
+        <source>SAVE</source>
+        <translation>保存</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="632"/>
+        <location filename="../widgets/QSYMessageCreator.ui" line="1265"/>
+        <location filename="../widgets/QSYMessageCreator.ui" line="1747"/>
+        <source>kHz</source>
+        <translation>千赫</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="659"/>
+        <location filename="../widgets/QSYMessageCreator.ui" line="1286"/>
+        <location filename="../widgets/QSYMessageCreator.ui" line="1728"/>
+        <source>Send
+Message</source>
+        <translation>发送
+信息</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="691"/>
+        <source>VHF</source>
+        <translation>VHF</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="792"/>
+        <location filename="../widgets/QSYMessageCreator.ui" line="1502"/>
+        <source>50 MHz</source>
+        <translation>50兆赫</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="810"/>
+        <location filename="../widgets/QSYMessageCreator.ui" line="1520"/>
+        <source>144 MHz</source>
+        <translation>144兆赫</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="825"/>
+        <location filename="../widgets/QSYMessageCreator.ui" line="1535"/>
+        <source>222 MHz</source>
+        <translation>222兆赫</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="840"/>
+        <location filename="../widgets/QSYMessageCreator.ui" line="1550"/>
+        <source>432 MHz</source>
+        <translation>432兆赫</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="855"/>
+        <location filename="../widgets/QSYMessageCreator.ui" line="1565"/>
+        <source>902 MHz</source>
+        <translation>902兆赫</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="870"/>
+        <location filename="../widgets/QSYMessageCreator.ui" line="1580"/>
+        <source>903 MHz</source>
+        <translation>903兆赫</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="885"/>
+        <location filename="../widgets/QSYMessageCreator.ui" line="1595"/>
+        <source>1296 MHz</source>
+        <translation>1296兆赫</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="900"/>
+        <location filename="../widgets/QSYMessageCreator.ui" line="1610"/>
+        <source>2304 MHz</source>
+        <translation>2304兆赫</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="915"/>
+        <location filename="../widgets/QSYMessageCreator.ui" line="1625"/>
+        <source>3400 MHz</source>
+        <translation>3400兆赫</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="930"/>
+        <location filename="../widgets/QSYMessageCreator.ui" line="1640"/>
+        <source>5760 MHz</source>
+        <translation>5760兆赫</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="945"/>
+        <location filename="../widgets/QSYMessageCreator.ui" line="1655"/>
+        <source>10368 MHz</source>
+        <translation>10368兆赫</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="960"/>
+        <source>24192 MHz</source>
+        <translation>24192兆赫</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="982"/>
+        <source>40 MHz</source>
+        <translation>40兆赫</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="1000"/>
+        <source>70 MHz</source>
+        <translation>70兆赫</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="1105"/>
+        <source>MSK144</source>
+        <translation>MSK144</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="1305"/>
+        <source>FM MHz</source>
+        <translation>FM 兆赫</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="1422"/>
+        <source>EME</source>
+        <translation>EME</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="1670"/>
+        <source>24048 MHz</source>
+        <translation>24048兆赫</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="1859"/>
+        <source>Q65-30B</source>
+        <translation>Q65-30B</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="1877"/>
+        <source>Q65-60C</source>
+        <translation>Q65-60C</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="1892"/>
+        <source>Q65-60D</source>
+        <translation>Q65-60D</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="1907"/>
+        <source>Q65-60E</source>
+        <translation>Q65-60E</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="1922"/>
+        <source>Q65-120D</source>
+        <translation>Q65-120D</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="1969"/>
+        <source>General</source>
+        <translation>常规</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="2020"/>
+        <source>Please call me by phone</source>
+        <translation>请打电话给我</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="2027"/>
+        <source>Please check Ping Jockey</source>
+        <translation>请检查 Ping Jockey</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="2034"/>
+        <source>You are in the log</source>
+        <translation>您在纪录中</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="2044"/>
+        <source>You are transmitting in the wrong time slot</source>
+        <translation>你在错误的时间时隙</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="2051"/>
+        <source>You are not in Contest Mode</source>
+        <translation>您不是在竞赛模式中</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="2058"/>
+        <source>Your audio is distorted</source>
+        <translation>你的音频失真了</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="2065"/>
+        <source>Your transmitter is overmodulated</source>
+        <translation>你的发射机被过度调制了</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="2072"/>
+        <source>Please check ON4KST</source>
+        <translation>请检查 ON4KST</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="2079"/>
+        <source>Please transmit above 1000 Hz</source>
+        <translation>请在1000赫兹以上发射</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="2086"/>
+        <source>Check your email</source>
+        <translation>检查您的电子邮件</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="2093"/>
+        <source>Please check HB9Q Logger</source>
+        <translation>请检查 HB9Q Logger</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="2100"/>
+        <source>Please check your PC Clock</source>
+        <translation>请检查你的电脑时钟</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="2107"/>
+        <source>You are transmitting on top of a rare DX station</source>
+        <translation>你在一个罕见的DX之上</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="2114"/>
+        <source>Please QSL via LoTW</source>
+        <translation>请 QSL 经过 LoTW</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.ui" line="2198"/>
+        <source>Send Message</source>
+        <translation>发送信息</translation>
+    </message>
+    <message>
+        <location filename="../widgets/QSYMessageCreator.cpp" line="34"/>
+        <source>MessageCreator</source>
+        <translation>信息创建器</translation>
+    </message>
+</context>
+<context>
+    <name>QSYMonitor</name>
+    <message>
+        <location filename="../widgets/qsymonitor.ui" line="32"/>
+        <source>QSYMonitor</source>
+        <translation>QSY监听</translation>
+    </message>
+    <message>
+        <location filename="../widgets/qsymonitor.ui" line="60"/>
+        <source>Clear</source>
+        <translation>清除</translation>
+    </message>
+    <message>
+        <location filename="../widgets/qsymonitor.cpp" line="23"/>
+        <source>QSY Monitor</source>
+        <translation>QSY监听</translation>
     </message>
 </context>
 <context>
@@ -7951,32 +10504,32 @@ Error(%2): %3</source>
         <translation>无法初始化音频接收器设备</translation>
     </message>
     <message>
-        <location filename="../Audio/soundin.cpp" line="137"/>
+        <location filename="../Audio/soundin.cpp" line="139"/>
         <source>Idle</source>
         <translation>闲置</translation>
     </message>
     <message>
-        <location filename="../Audio/soundin.cpp" line="142"/>
+        <location filename="../Audio/soundin.cpp" line="144"/>
         <source>Receiving</source>
         <translation>接收</translation>
     </message>
     <message>
-        <location filename="../Audio/soundin.cpp" line="146"/>
+        <location filename="../Audio/soundin.cpp" line="148"/>
         <source>Suspended</source>
         <translation>暂停</translation>
     </message>
     <message>
-        <location filename="../Audio/soundin.cpp" line="151"/>
+        <location filename="../Audio/soundin.cpp" line="153"/>
         <source>Interrupted</source>
         <translation>中断</translation>
     </message>
     <message>
-        <location filename="../Audio/soundin.cpp" line="158"/>
+        <location filename="../Audio/soundin.cpp" line="160"/>
         <source>Error</source>
         <translation>错误</translation>
     </message>
     <message>
-        <location filename="../Audio/soundin.cpp" line="162"/>
+        <location filename="../Audio/soundin.cpp" line="164"/>
         <source>Stopped</source>
         <translation>停止</translation>
     </message>
@@ -8019,32 +10572,32 @@ Error(%2): %3</source>
         <translation>未配置音频输出设备.</translation>
     </message>
     <message>
-        <location filename="../Audio/soundout.cpp" line="184"/>
+        <location filename="../Audio/soundout.cpp" line="188"/>
         <source>Idle</source>
         <translation>闲置</translation>
     </message>
     <message>
-        <location filename="../Audio/soundout.cpp" line="188"/>
+        <location filename="../Audio/soundout.cpp" line="192"/>
         <source>Sending</source>
         <translation>发送</translation>
     </message>
     <message>
-        <location filename="../Audio/soundout.cpp" line="192"/>
+        <location filename="../Audio/soundout.cpp" line="196"/>
         <source>Suspended</source>
         <translation>暂停</translation>
     </message>
     <message>
-        <location filename="../Audio/soundout.cpp" line="197"/>
+        <location filename="../Audio/soundout.cpp" line="201"/>
         <source>Interrupted</source>
         <translation>中断</translation>
     </message>
     <message>
-        <location filename="../Audio/soundout.cpp" line="204"/>
+        <location filename="../Audio/soundout.cpp" line="208"/>
         <source>Error</source>
         <translation>错误</translation>
     </message>
     <message>
-        <location filename="../Audio/soundout.cpp" line="208"/>
+        <location filename="../Audio/soundout.cpp" line="212"/>
         <source>Stopped</source>
         <translation>停止</translation>
     </message>
@@ -8052,22 +10605,22 @@ Error(%2): %3</source>
 <context>
     <name>StationDialog</name>
     <message>
-        <location filename="../Configuration.cpp" line="405"/>
+        <location filename="../Configuration.cpp" line="410"/>
         <source>Add Station</source>
         <translation>添加电台</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="410"/>
+        <location filename="../Configuration.cpp" line="415"/>
         <source>&amp;Band:</source>
         <translation>波段(&amp;B):</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="411"/>
+        <location filename="../Configuration.cpp" line="416"/>
         <source>&amp;Offset (MHz):</source>
         <translation>偏移 (M&amp;Hz):</translation>
     </message>
     <message>
-        <location filename="../Configuration.cpp" line="412"/>
+        <location filename="../Configuration.cpp" line="417"/>
         <source>&amp;Antenna:</source>
         <translation>天线(&amp;A):</translation>
     </message>
@@ -8103,6 +10656,188 @@ Error(%2): %3</source>
         <location filename="../models/StationList.cpp" line="374"/>
         <source>Antenna Description</source>
         <translation>天线描述</translation>
+    </message>
+</context>
+<context>
+    <name>TCITransceiver</name>
+    <message>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="147"/>
+        <source>ConnectionRefused</source>
+        <translation>连接被拒绝</translation>
+    </message>
+    <message>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="148"/>
+        <source>RemoteHostClosed</source>
+        <translation>远程主机已关闭</translation>
+    </message>
+    <message>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="149"/>
+        <source>HostNotFound</source>
+        <translation>找不到主机</translation>
+    </message>
+    <message>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="150"/>
+        <source>SocketAccess</source>
+        <translation>Socket接入</translation>
+    </message>
+    <message>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="151"/>
+        <source>SocketResource</source>
+        <translation>Socket资源</translation>
+    </message>
+    <message>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="152"/>
+        <source>SocketTimeout</source>
+        <translation>Socket超时</translation>
+    </message>
+    <message>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="153"/>
+        <source>DatagramTooLarge</source>
+        <translation>数据报文太大</translation>
+    </message>
+    <message>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="154"/>
+        <source>Network</source>
+        <translation>网络</translation>
+    </message>
+    <message>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="155"/>
+        <source>AddressInUse</source>
+        <translation>地址使用中</translation>
+    </message>
+    <message>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="156"/>
+        <source>SocketAddressNotAvailable</source>
+        <translation>Socket 地址不可用</translation>
+    </message>
+    <message>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="157"/>
+        <source>UnsupportedSocketOperation</source>
+        <translation>不支持的Socket操作</translation>
+    </message>
+    <message>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="158"/>
+        <source>UnfinishedSocketOperation</source>
+        <translation>未完成的Socket操作</translation>
+    </message>
+    <message>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="159"/>
+        <source>ProxyAuthenticationRequired</source>
+        <translation>需要代理身份验证</translation>
+    </message>
+    <message>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="160"/>
+        <source>SslHandshakeFailed</source>
+        <translation>SSL握手失败</translation>
+    </message>
+    <message>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="161"/>
+        <source>ProxyConnectionRefused</source>
+        <translation>代理连接被拒绝</translation>
+    </message>
+    <message>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="162"/>
+        <source>ProxyConnectionClosed</source>
+        <translation>代理连接关闭</translation>
+    </message>
+    <message>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="163"/>
+        <source>ProxyConnectionTimeout</source>
+        <translation>代理连接超时</translation>
+    </message>
+    <message>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="164"/>
+        <source>ProxyNotFound</source>
+        <translation>找不到代理</translation>
+    </message>
+    <message>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="165"/>
+        <source>ProxyProtocol</source>
+        <translation>代理协议</translation>
+    </message>
+    <message>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="166"/>
+        <source>Operation</source>
+        <translation>操作</translation>
+    </message>
+    <message>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="167"/>
+        <source>SslInternal</source>
+        <translation>SSL内部</translation>
+    </message>
+    <message>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="168"/>
+        <source>SslInvalidUserData</source>
+        <translation>SSL无效用户数据</translation>
+    </message>
+    <message>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="169"/>
+        <source>Temporary</source>
+        <translation>临时</translation>
+    </message>
+    <message>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="170"/>
+        <source>UnknownSocket</source>
+        <translation>未知的Socket</translation>
+    </message>
+    <message>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="291"/>
+        <source>TCI websocket error: %1</source>
+        <translation>TCI WebSocket 错误: %1</translation>
+    </message>
+    <message>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="444"/>
+        <source>TCI SDR could not be switched on</source>
+        <translation>TCI SDR 无法打开</translation>
+    </message>
+    <message>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="447"/>
+        <source>TCI SDR is not switched on</source>
+        <translation>TCI SDR 未打开</translation>
+    </message>
+    <message>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="454"/>
+        <source>TCI RX2 could not be enabled</source>
+        <translation>TCI RX2无法启用</translation>
+    </message>
+    <message>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="462"/>
+        <source>TCI Audio could not be switched on</source>
+        <translation>TCI音频无法打开</translation>
+    </message>
+    <message>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="489"/>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="1264"/>
+        <source>TCI could not be opened</source>
+        <translation>TCI无法打开</translation>
+    </message>
+    <message>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="1104"/>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="1106"/>
+        <source>TCI failed to set ptt</source>
+        <translation>TCI未能设置PTT</translation>
+    </message>
+    <message>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="1113"/>
+        <source>TCI should use PTT via CAT</source>
+        <translation>TCI应通过CAT使用PTT</translation>
+    </message>
+    <message>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="1141"/>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="1148"/>
+        <source>TCI failed set rxfreq</source>
+        <translation>TCI设置接收频率失败</translation>
+    </message>
+    <message>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="1160"/>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="1253"/>
+        <source>TCI failed set mode</source>
+        <translation>TCI设置模式失败</translation>
+    </message>
+    <message>
+        <location filename="../Transceiver/TCITransceiver.cpp" line="1464"/>
+        <source>TCI modulator not Idle</source>
+        <translation>TCI调制器被占用</translation>
     </message>
 </context>
 <context>
@@ -8146,18 +10881,20 @@ Error(%2): %3</source>
         <translation>瀑布增益</translation>
     </message>
     <message>
-        <location filename="../widgets/widegraph.ui" line="68"/>
         <source>Controls</source>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <translation>控件列</translation>
 =======
         <translation>控制列</translation>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <translation type="vanished">控制列</translation>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
     </message>
     <message>
-        <location filename="../widgets/widegraph.ui" line="145"/>
         <source>  Palette </source>
-        <translation>  调色板 </translation>
+        <translation type="vanished">  调色板 </translation>
     </message>
     <message>
 <<<<<<< HEAD
@@ -8478,67 +11215,67 @@ Error(%2): %3</source>
         <translation>显示</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="284"/>
+        <location filename="../Configuration.ui" line="277"/>
         <source>Show outgoing transmitted messages in the Rx frequency window.</source>
         <translation>在接收信息窗口中显示已发射的信息.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="287"/>
+        <location filename="../Configuration.ui" line="280"/>
         <source>&amp;Tx messages to Rx frequency window</source>
         <translation>发出讯息在接收信息窗口显示(&amp;T)</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="264"/>
+        <location filename="../Configuration.ui" line="183"/>
         <source>Show if decoded stations are new DXCC entities or worked before.</source>
         <translation>显示解码的电台是新的 DXCC 实体还是以前曾经通联.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="244"/>
+        <location filename="../Configuration.ui" line="250"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to have decodes for a new period start at the top of the Band Activity window and not scroll off the top when the window is full.&lt;/p&gt;&lt;p&gt;This is to aid selecting decodes to double-click while decoding is still in progress. Use the Band Activity vertical scroll bar to reveal decodes past the bottom of the window.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;新周期的解码信息在波段活动视窗的顶部开始向下滚动.&lt;/p&gt;&lt;p&gt;这有助于在解码仍在进行时选择要双击的解码.使波段活动垂直滚动条显示视窗底部的解码.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="247"/>
+        <location filename="../Configuration.ui" line="253"/>
         <source>Start new period decodes at top</source>
         <translation>解码信息从上往下滚动</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="217"/>
+        <location filename="../Configuration.ui" line="206"/>
         <source>Set the font characteristics for the application.</source>
         <translation>设置应用程序的字体.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="220"/>
+        <location filename="../Configuration.ui" line="209"/>
         <source>Font...</source>
         <translation>软件字体...</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="254"/>
+        <location filename="../Configuration.ui" line="240"/>
         <source>Set the font characteristics for the Band Activity and Rx Frequency areas.</source>
         <translation>设置波段活动和接收信息窗口的字体.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="257"/>
+        <location filename="../Configuration.ui" line="243"/>
         <source>Decoded Text Font...</source>
         <translation>解码字体...</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="183"/>
+        <location filename="../Configuration.ui" line="196"/>
         <source>Include a separator line between periods in the band activity window.</source>
         <translation>在波段活动窗口中加入时间分隔行.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="186"/>
+        <location filename="../Configuration.ui" line="199"/>
         <source>&amp;Blank line between decoding periods</source>
         <translation>每个解码周期插入间隔行(&amp;B)</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="234"/>
+        <location filename="../Configuration.ui" line="230"/>
         <source>Show distance to DX station in miles rather than kilometers.</source>
         <translation>以英里为单位显示 DX 站的距离而不是显示公里.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="237"/>
+        <location filename="../Configuration.ui" line="233"/>
         <source>Display dista&amp;nce in miles</source>
         <translation>显示距离为英里(&amp;n)</translation>
     </message>
@@ -8548,99 +11285,97 @@ Error(%2): %3</source>
         <translation>惯常方式</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="340"/>
+        <location filename="../Configuration.ui" line="415"/>
         <source>Decode after EME delay</source>
         <translation>EME 延迟后解码</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="532"/>
         <source>Tx watchdog:</source>
-        <translation>发射监管计时器:</translation>
+        <translation type="vanished">发射监管计时器:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="542"/>
+        <location filename="../Configuration.ui" line="483"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Number of minutes before unattended transmissions are aborted&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;无人值守传输时到达设定分钟数中止发射&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="545"/>
+        <location filename="../Configuration.ui" line="486"/>
         <source>Disabled</source>
         <translation>停用</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="548"/>
+        <location filename="../Configuration.ui" line="489"/>
         <source> minutes</source>
         <translation> 分钟</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="347"/>
+        <location filename="../Configuration.ui" line="422"/>
         <source>Single decode</source>
         <translation>单独解码</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="461"/>
+        <location filename="../Configuration.ui" line="405"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Some rigs are not able to process CAT commands while transmitting. This means that if you are operating in split mode you may have to uncheck this option.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;某些无线电设备在发射时无法处理CAT 命令.这意味着, 如果您在异频模式下运行, 则可能必须取消选中此选项.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="464"/>
+        <location filename="../Configuration.ui" line="408"/>
         <source>Allow Tx frequency changes while transmitting</source>
         <translation>允许发射期间改变频率</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="354"/>
+        <location filename="../Configuration.ui" line="310"/>
         <source>Don&apos;t start decoding until the monitor button is clicked.</source>
         <translation>软件开启时, 关闭监听按钮.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="357"/>
+        <location filename="../Configuration.ui" line="313"/>
         <source>Mon&amp;itor off at startup</source>
         <translation>开启时关闭监听(&amp;i)</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="367"/>
+        <location filename="../Configuration.ui" line="323"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check this if you wish to automatically return to the last monitored frequency when monitor is enabled, leave it unchecked if you wish to have the current rig frequency maintained.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;如果您希望在启用监听时自动返回到无线电设备最后一个监听频率.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="370"/>
+        <location filename="../Configuration.ui" line="326"/>
         <source>Monitor returns to last used frequency</source>
         <translation>开始监听时使用上一次的频率</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="326"/>
+        <location filename="../Configuration.ui" line="340"/>
         <source>Alternate F1-F6 bindings</source>
         <translation>备用 F1-F6 绑定</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="450"/>
+        <location filename="../Configuration.ui" line="357"/>
         <source>Turns off automatic transmissions after sending a 73 or any other free
 text message.</source>
         <translation>发送 73 或任何其他自由文本消息后
 关闭自动发射.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="454"/>
+        <location filename="../Configuration.ui" line="361"/>
         <source>Di&amp;sable Tx after sending 73</source>
         <translation>发送 73 后关闭发射(&amp;s)</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="399"/>
+        <location filename="../Configuration.ui" line="504"/>
         <source>Send a CW ID after every 73 or free text message.</source>
         <translation>73或自定义信息发出后用CW模式发放你的呼号.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="402"/>
+        <location filename="../Configuration.ui" line="507"/>
         <source>CW ID a&amp;fter 73</source>
         <translation>73发出后用CW模式发放你的呼号(&amp;f)</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="428"/>
         <source>Periodic CW ID Inter&amp;val:</source>
-        <translation>发射CW信息时间间隔(&amp;v):</translation>
+        <translation type="vanished">发射CW信息时间间隔(&amp;v):</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="438"/>
+        <location filename="../Configuration.ui" line="532"/>
         <source>Send a CW ID periodically every few minutes.
 This might be required under your countries licence regulations.
 It will not interfere with other users as it is always sent in the
@@ -8651,314 +11386,316 @@ quiet period when decoding is done.</source>
 在解码完成后的安静期间发送.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="387"/>
+        <location filename="../Configuration.ui" line="347"/>
         <source>Automatic transmission mode.</source>
         <translation>自动发射模式.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="390"/>
+        <location filename="../Configuration.ui" line="350"/>
         <source>Doubl&amp;e-click on call sets Tx enable</source>
         <translation>双击呼号集启用发射(&amp;e)</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="333"/>
+        <location filename="../Configuration.ui" line="378"/>
         <source>Calling CQ forces Call 1st</source>
         <translation>CQ呼叫时强制呼叫第1</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="210"/>
+        <location filename="../Configuration.ui" line="270"/>
         <source>Show principal prefix instead of country name        </source>
         <translation>显示前缀而不是国家或地区名称        </translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="267"/>
+        <location filename="../Configuration.ui" line="186"/>
         <source>Show &amp;DXCC, grid, and worked-before status    </source>
         <translation>显示 &amp;DXCC, 网格和曾经通联状态    </translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="277"/>
+        <location filename="../Configuration.ui" line="223"/>
         <source>Show DXCC for all messages</source>
         <translation>所有信息显示DXCC</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="490"/>
+        <location filename="../Configuration.ui" line="431"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Disable the Tune watchdog.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;禁用调谐监察器.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="481"/>
+        <location filename="../Configuration.ui" line="388"/>
         <source>MSK144/Q65: Tx until 73 is received</source>
         <translation>MSK144/Q65: 发射直到接收到73</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="493"/>
         <source>Tune watchdog</source>
-        <translation>调谐监察器</translation>
+        <translation type="vanished">调谐监察器</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="500"/>
+        <location filename="../Configuration.ui" line="441"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Number of seconds before Tune is aborted&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;中止调谐前的秒数&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="503"/>
+        <location filename="../Configuration.ui" line="444"/>
         <source> seconds</source>
         <translation> 秒</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="612"/>
+        <location filename="../Configuration.ui" line="583"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;If a station sends locator, calculate and show the distance in Band Activity pane.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;如果电台发送定位, 则计算并在波段活动窗中显示距离.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="615"/>
+        <location filename="../Configuration.ui" line="586"/>
         <source>Show distance in messages with grid</source>
         <translation>在信息中带网格的显示距离</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="636"/>
+        <location filename="../Configuration.ui" line="610"/>
         <source>Show U.S. States in messages with grid</source>
         <translation>在信息中带有网格的显示美国各州</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="650"/>
+        <location filename="../Configuration.ui" line="624"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Align the text for DXCC, distance and azimuth.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;对齐DXCC, 距离和方位的文本.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="653"/>
         <source>Align DXCC / distance / azimuth</source>
-        <translation>对齐DXCC, 距离和方位</translation>
+        <translation type="vanished">对齐DXCC, 距离和方位</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="660"/>
+        <location filename="../Configuration.ui" line="634"/>
         <source>Alternate Erase button behavior</source>
         <translation>备用擦除按钮行为</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="674"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Increase or decrease the space between massage text and DXCC.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;增加或减少信息文本和DXCC之间的间距.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation type="vanished">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;增加或减少信息文本和DXCC之间的间距.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="690"/>
+        <location filename="../Configuration.ui" line="664"/>
         <source>Enable Wait features</source>
         <translation>启用等待功能</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="697"/>
+        <location filename="../Configuration.ui" line="671"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;If a station sends a valid Maidenhead locator, calculate and show the great-circle azimuth in Band Activity pane.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;如果一个电台发送一个有效的梅登黑德定位, 计算并在波段活动窗格中显示大圆方位角.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="700"/>
+        <location filename="../Configuration.ui" line="674"/>
         <source>Show azimuth in messages with grid</source>
         <translation>在信息中带网格的显示方位角</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="707"/>
+        <location filename="../Configuration.ui" line="681"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Increase or decrease the space between DXCC and distance/azimuth.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;增加或减少DXCC和距离/方位角之间的间距.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="720"/>
         <source>Disable button coloring unless mandatory (restart required)</source>
-        <translation>禁用按钮颜色, 除非是强制 (需要重新启动)</translation>
+        <translation type="vanished">禁用按钮颜色, 除非是强制 (需要重新启动)</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="744"/>
+        <location filename="../Configuration.ui" line="705"/>
         <source>&amp;Radio</source>
         <translation>电台(&amp;R)</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="747"/>
+        <location filename="../Configuration.ui" line="708"/>
         <source>Radio interface configuration settings.</source>
         <translation>设置无线电设备接口设置.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="912"/>
+        <location filename="../Configuration.ui" line="873"/>
         <source>Settings that control your CAT interface.</source>
         <translation>控制CAT界面的设置.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="915"/>
+        <location filename="../Configuration.ui" line="876"/>
         <source>CAT Control</source>
         <translation>CAT控制</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="926"/>
-        <location filename="../Configuration.ui" line="1461"/>
+        <location filename="../Configuration.ui" line="887"/>
+        <location filename="../Configuration.ui" line="1422"/>
         <source>Port:</source>
         <translation>端口:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="258"/>
         <source>Show principal prefix instead of country name</source>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <translation>显示前缀而非国家或地区名称</translation>
 =======
         <translation>显示前缀而不是国家或地区名称</translation>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <translation type="vanished">显示前缀而不是国家或地区名称</translation>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
     </message>
     <message>
-        <location filename="../Configuration.ui" line="295"/>
         <source>Show &amp;DXCC, grid, and worked-before status</source>
-        <translation>显示 &amp;DXCC, 网格和曾经通联状态</translation>
+        <translation type="vanished">显示 &amp;DXCC, 网格和曾经通联状态</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../Configuration.ui" line="845"/>
 =======
         <location filename="../Configuration.ui" line="942"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../Configuration.ui" line="903"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>Serial port used for CAT control.</source>
         <translation>用于CAT控制的串行端口.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="966"/>
-        <location filename="../Configuration.ui" line="969"/>
+        <location filename="../Configuration.ui" line="927"/>
+        <location filename="../Configuration.ui" line="930"/>
         <source>Serial Port Parameters</source>
         <translation>串口参数</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="980"/>
+        <location filename="../Configuration.ui" line="941"/>
         <source>Baud Rate:</source>
         <translation>波特率:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="996"/>
+        <location filename="../Configuration.ui" line="957"/>
         <source>Serial port data rate which must match the setting of your radio.</source>
         <translation>串行端口数据速率必须与您的无线电设置相匹配.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1003"/>
+        <location filename="../Configuration.ui" line="964"/>
         <source>1200</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1008"/>
+        <location filename="../Configuration.ui" line="969"/>
         <source>2400</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1013"/>
+        <location filename="../Configuration.ui" line="974"/>
         <source>4800</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1018"/>
+        <location filename="../Configuration.ui" line="979"/>
         <source>9600</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1023"/>
+        <location filename="../Configuration.ui" line="984"/>
         <source>19200</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1028"/>
+        <location filename="../Configuration.ui" line="989"/>
         <source>38400</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1033"/>
+        <location filename="../Configuration.ui" line="994"/>
         <source>57600</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1038"/>
+        <location filename="../Configuration.ui" line="999"/>
         <source>115200</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1048"/>
+        <location filename="../Configuration.ui" line="1009"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Number of data bits used to communicate with your radio&apos;s CAT interface (usually eight).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;用于与无线电设备 CAT 接口通信的数据位元 (通常为 8 ).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1051"/>
+        <location filename="../Configuration.ui" line="1012"/>
         <source>Data bits</source>
         <translation>数据位元</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1054"/>
+        <location filename="../Configuration.ui" line="1015"/>
         <source>Data Bits</source>
         <translation>数据位元</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1060"/>
+        <location filename="../Configuration.ui" line="1021"/>
         <source>D&amp;efault</source>
         <translation>默认值(&amp;e)</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1073"/>
+        <location filename="../Configuration.ui" line="1034"/>
         <source>Se&amp;ven</source>
         <translation>Se&amp;ven 7</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1086"/>
+        <location filename="../Configuration.ui" line="1047"/>
         <source>E&amp;ight</source>
         <translation>E&amp;ight 8</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1102"/>
+        <location filename="../Configuration.ui" line="1063"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Number of stop bits used when communicating with your radio&apos;s CAT interface&lt;/p&gt;&lt;p&gt;(consult you radio&apos;s manual for details).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;与无线电设备 CAT 接口通信时使用的停止位元&lt;/p&gt;&lt;p&gt;(详情请参阅无线电设备手册).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1105"/>
+        <location filename="../Configuration.ui" line="1066"/>
         <source>Stop bits</source>
         <translation>停止位元</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1108"/>
+        <location filename="../Configuration.ui" line="1069"/>
         <source>Stop Bits</source>
         <translation>停止位元</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1114"/>
-        <location filename="../Configuration.ui" line="1165"/>
+        <location filename="../Configuration.ui" line="1075"/>
+        <location filename="../Configuration.ui" line="1126"/>
         <source>Default</source>
         <translation>默认值</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1127"/>
+        <location filename="../Configuration.ui" line="1088"/>
         <source>On&amp;e</source>
         <translation>On&amp;e 1</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1137"/>
+        <location filename="../Configuration.ui" line="1098"/>
         <source>T&amp;wo</source>
         <translation>T&amp;wo 2</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1153"/>
+        <location filename="../Configuration.ui" line="1114"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Flow control protocol used between this computer and your radio&apos;s CAT interface (usually &amp;quot;None&amp;quot; but some require &amp;quot;Hardware&amp;quot;).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;电脑和无线电设备 CAT 接口 之间使用的流量控制协议 (通常是 &quot;None&quot;,但有些要求&quot;硬件&quot;).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1156"/>
-        <location filename="../Configuration.ui" line="1159"/>
+        <location filename="../Configuration.ui" line="1117"/>
+        <location filename="../Configuration.ui" line="1120"/>
         <source>Handshake</source>
         <translation>握手方式</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1178"/>
+        <location filename="../Configuration.ui" line="1139"/>
         <source>&amp;None</source>
         <translation>无(&amp;N)</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1191"/>
+        <location filename="../Configuration.ui" line="1152"/>
         <source>Software flow control (very rare on CAT interfaces).</source>
         <translation>软件控制流 (在CAT接口上非常罕见).</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1194"/>
+        <location filename="../Configuration.ui" line="1155"/>
         <source>XON/XOFF</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1204"/>
+        <location filename="../Configuration.ui" line="1165"/>
         <source>Flow control using the RTS and CTS RS-232 control lines
 not often used but some radios have it as an option and 
 a few, particularly some Kenwood rigs, require it).</source>
@@ -8967,75 +11704,75 @@ a few, particularly some Kenwood rigs, require it).</source>
   很少,特别是一些 健伍无线电设备,需要它).</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1209"/>
+        <location filename="../Configuration.ui" line="1170"/>
         <source>&amp;Hardware</source>
         <translation>硬件(&amp;H)</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1222"/>
+        <location filename="../Configuration.ui" line="1183"/>
         <source>Special control of CAT port control lines.</source>
         <translation>特殊控制的CAT控制线.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1225"/>
-        <location filename="../Configuration.ui" line="1228"/>
+        <location filename="../Configuration.ui" line="1186"/>
+        <location filename="../Configuration.ui" line="1189"/>
         <source>Force Control Lines</source>
         <translation>强制控制线</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1245"/>
-        <location filename="../Configuration.ui" line="1288"/>
+        <location filename="../Configuration.ui" line="1206"/>
+        <location filename="../Configuration.ui" line="1249"/>
         <source>High</source>
         <translation>高</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1250"/>
-        <location filename="../Configuration.ui" line="1293"/>
+        <location filename="../Configuration.ui" line="1211"/>
+        <location filename="../Configuration.ui" line="1254"/>
         <source>Low</source>
         <translation>低</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1258"/>
+        <location filename="../Configuration.ui" line="1219"/>
         <source>DTR:</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1272"/>
+        <location filename="../Configuration.ui" line="1233"/>
         <source>RTS:</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1390"/>
+        <location filename="../Configuration.ui" line="1351"/>
         <source>How this program activates the PTT on your radio?</source>
         <translation>此程序如何激活无线电设备上的 PTT?</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1393"/>
+        <location filename="../Configuration.ui" line="1354"/>
         <source>PTT Method</source>
         <translation>PTT 方法</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1399"/>
+        <location filename="../Configuration.ui" line="1360"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;No PTT activation, instead the radio&apos;s automatic VOX is used to key the transmitter.&lt;/p&gt;&lt;p&gt;Use this if you have no radio interface hardware.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;如果您没有无线电设备接口硬件,没法PTT而是使用无线电设备的自动声控来发射,请使用此选项.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1402"/>
+        <location filename="../Configuration.ui" line="1363"/>
         <source>VO&amp;X</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1412"/>
+        <location filename="../Configuration.ui" line="1373"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Use the RS-232 DTR control line to toggle your radio&apos;s PTT, requires hardware to interface the line.&lt;/p&gt;&lt;p&gt;Some commercial interface units also use this method.&lt;/p&gt;&lt;p&gt;The DTR control line of the CAT serial port may be used for this or a DTR control line on a different serial port may be used.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;使用 RS-232 DTR 控制线路切换无线电设备的 PTT, 需要硬件来接口线路.&lt;/p&gt;&lt;p&gt;某些商业接口单元也使用此方法.&lt;/p&gt;&lt;p&gt;CAT 串行端口的 DTR 控制线路可用于此或可用于其他串行端口上的 DTR 控制线路.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1415"/>
+        <location filename="../Configuration.ui" line="1376"/>
         <source>&amp;DTR</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1428"/>
+        <location filename="../Configuration.ui" line="1389"/>
         <source>Some radios support PTT via CAT commands,
 use this option if your radio supports it and you have no
 other hardware interface for PTT.</source>
@@ -9044,47 +11781,47 @@ other hardware interface for PTT.</source>
 PTT的其它硬件接口.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1433"/>
+        <location filename="../Configuration.ui" line="1394"/>
         <source>C&amp;AT</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1443"/>
+        <location filename="../Configuration.ui" line="1404"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Use the RS-232 RTS control line to toggle your radio&apos;s PTT, requires hardware to interface the line.&lt;/p&gt;&lt;p&gt;Some commercial interface units also use this method.&lt;/p&gt;&lt;p&gt;The RTS control line of the CAT serial port may be used for this or a RTS control line on a different serial port may be used. Note that this option is not available on the CAT serial port when hardware flow control is used.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;使用 RS-232 RTS 控制线路切换无线电设备的 PTT, 需要硬件来接口线路.&lt;/p&gt;&lt;p&gt;某些商业接口单元也使用此方法.&lt;/p&gt;&lt;p&gt;CAT 串行端口的 RTS 控制线路可用于此或可能用于其他串行端口上的 RTS 控制线路. 请注意, 使用硬件流控制时, CAT 串行端口上不可用此选项.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1446"/>
+        <location filename="../Configuration.ui" line="1407"/>
         <source>R&amp;TS</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1477"/>
+        <location filename="../Configuration.ui" line="1438"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Select the RS-232 serial port utilised for PTT control, this option is available when DTR or RTS is selected above as a transmit method.&lt;/p&gt;&lt;p&gt;This port can be the same one as the one used for CAT control.&lt;/p&gt;&lt;p&gt;For some interface types the special value CAT may be chosen, this is used for non-serial CAT interfaces that can control serial port control lines remotely (OmniRig for example).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;选择用于 PTT 控制的RS-232 串行端口,当选择上述DTR或RTS作为发射方法时,此选项可用.此端口可以与用于CAT控制的端口相同.对于某些接口类型,可以选择特殊值CAT,这用于可以远程控制串口控制线的非串行CAT接口 (例如 omnirig).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="836"/>
+        <location filename="../Configuration.ui" line="797"/>
         <source>Modulation mode selected on radio.</source>
         <translation>在无线电设备上选择的调制模式.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="839"/>
+        <location filename="../Configuration.ui" line="800"/>
         <source>Mode</source>
         <translation>模式</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="845"/>
+        <location filename="../Configuration.ui" line="806"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;USB is usually the correct modulation mode,&lt;/p&gt;&lt;p&gt;unless the radio has a special data or packet mode setting&lt;/p&gt;&lt;p&gt;for AFSK operation.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;上边带通常是正确的调制模式,除非无线电设备具有用于AFSK操作的特殊数据或数据包模式设置.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="848"/>
+        <location filename="../Configuration.ui" line="809"/>
         <source>US&amp;B</source>
         <translation>上边带(&amp;B)</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="861"/>
+        <location filename="../Configuration.ui" line="822"/>
         <source>Don&apos;t allow the program to set the radio mode
 (not recommended but use if the wrong mode
 or bandwidth is selected).</source>
@@ -9093,23 +11830,23 @@ or bandwidth is selected).</source>
 或带宽).</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="804"/>
-        <location filename="../Configuration.ui" line="866"/>
+        <location filename="../Configuration.ui" line="765"/>
+        <location filename="../Configuration.ui" line="827"/>
         <source>None</source>
         <translation>无</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="876"/>
+        <location filename="../Configuration.ui" line="837"/>
         <source>If this is available then it is usually the correct mode for this program.</source>
         <translation>如果这是可用的, 那么它通常是这个程序的正确模式.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="879"/>
+        <location filename="../Configuration.ui" line="840"/>
         <source>Data/P&amp;kt</source>
         <translation>数据/封包(&amp;k)</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1724"/>
+        <location filename="../Configuration.ui" line="1685"/>
         <source>Some radios can select the audio input using a CAT command,
 this setting allows you to select which audio input will be used
 (if it is available then generally the Rear/Data option is best).</source>
@@ -9118,52 +11855,52 @@ this setting allows you to select which audio input will be used
 (如果可用,则通常 后方/数据 选项是最佳选择).</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1729"/>
+        <location filename="../Configuration.ui" line="1690"/>
         <source>Transmit Audio Source</source>
         <translation>无线电设备音频源</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1735"/>
+        <location filename="../Configuration.ui" line="1696"/>
         <source>Rear&amp;/Data</source>
         <translation>后方&amp;/数据口</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1745"/>
+        <location filename="../Configuration.ui" line="1706"/>
         <source>&amp;Front/Mic</source>
         <translation>前方/麦克风(&amp;F)</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1593"/>
+        <location filename="../Configuration.ui" line="1554"/>
         <source>Rig:</source>
         <translation>无线电设备:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1613"/>
+        <location filename="../Configuration.ui" line="1574"/>
         <source>Poll Interval:</source>
         <translation>轮询间隔:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1623"/>
+        <location filename="../Configuration.ui" line="1584"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Interval to poll rig for status. Longer intervals will mean that changes to the rig will take longer to be detected.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;软件与无线电设备沟通的时间间隔.时间间隔较长,意味着对无线电设备的更改需要更长的时间才能检测到.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1626"/>
+        <location filename="../Configuration.ui" line="1587"/>
         <source> s</source>
         <translation> 秒</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1321"/>
+        <location filename="../Configuration.ui" line="1282"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Attempt to connect to the radio with these settings.&lt;/p&gt;&lt;p&gt;The button will turn green if the connection is successful or red if there is a problem.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;尝试使用这些设置连接到无线电设备.如果连接成功,该按钮将变为绿色; 如果有问题,则为红色.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1324"/>
+        <location filename="../Configuration.ui" line="1285"/>
         <source>Test CAT</source>
         <translation>测试 CAT</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1347"/>
+        <location filename="../Configuration.ui" line="1308"/>
         <source>Attempt to activate the transmitter.
 Click again to deactivate. Normally no power should be
 output since there is no audio being generated at this time.
@@ -9176,62 +11913,62 @@ radio interface behave as expected.</source>
 的任何发射指示是否如预期的那样.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1365"/>
+        <location filename="../Configuration.ui" line="1326"/>
         <source>Test PTT</source>
         <translation>测试 PTT</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="766"/>
+        <location filename="../Configuration.ui" line="727"/>
         <source>Split Operation</source>
         <translation>异频操作</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="772"/>
+        <location filename="../Configuration.ui" line="733"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Use only VFO A for split operation (the program temporarily changes the QRG of your rig during transmission).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;仅使用VFO A进行异频操作 (程序在传输过程中会暂时改变无线电设备的QRG).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="775"/>
+        <location filename="../Configuration.ui" line="736"/>
         <source>Fake It</source>
         <translation>软件虚拟</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="788"/>
+        <location filename="../Configuration.ui" line="749"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Use VFO A+B for split operation (works with many rigs, but requires the use of both VFOs).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;使用VFO A+B进行异频操作 (适用于许多无线电设备, 但需要使用两个VFO).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="791"/>
+        <location filename="../Configuration.ui" line="752"/>
         <source>Rig</source>
         <translation>无线电设备</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="801"/>
+        <location filename="../Configuration.ui" line="762"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Don&apos;t use split (not recommended).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;不要使用异频操作 (不推荐).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1762"/>
+        <location filename="../Configuration.ui" line="1723"/>
         <source>A&amp;udio</source>
         <translation>音频(&amp;u)</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1765"/>
+        <location filename="../Configuration.ui" line="1726"/>
         <source>Audio interface settings</source>
         <translation>音频接口设置</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1771"/>
+        <location filename="../Configuration.ui" line="1732"/>
         <source>Souncard</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1774"/>
+        <location filename="../Configuration.ui" line="1735"/>
         <source>Soundcard</source>
         <translation>声效卡</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1786"/>
+        <location filename="../Configuration.ui" line="1837"/>
         <source>Select the audio CODEC to use for transmitting.
 If this is your default device for system sounds then
 ensure that all system sounds are disabled otherwise
@@ -9244,123 +11981,147 @@ transmitting periods.</source>
 向外发射输出.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2147"/>
+        <location filename="../Configuration.ui" line="2197"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check this option to note any Special Operating Activity in the comments field.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;选中此选项可在注释字段中记录任何特殊操作活动.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2150"/>
+        <location filename="../Configuration.ui" line="2200"/>
         <source>Special operating activity to comments</source>
         <translation>特殊操作活动注释</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2297"/>
+        <location filename="../Configuration.ui" line="2275"/>
+        <source>Log automatically</source>
+        <translation>日志自动记录</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="2282"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Use &apos;Log automatically&apos; only for special operating activities.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;仅在特殊操作活动中使用 &quot;自动记录&quot;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="2285"/>
+        <source>Contesting only</source>
+        <translation>仅竞赛</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="2317"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Shorten 6-digit grid entries and log 4-digit grids instead.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;缩短6位数网格条目, 改为记录4位数网格.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="2320"/>
+        <source>Log 4-digit grids</source>
+        <translation>记录4位数网格</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="2407"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enter the service port number of the UDP server that WSJT-X should send updates to. If this is zero no updates will be sent.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;输入WSJT-X应该向其发送更新的UDP服务器的服务端口号. 如果该值为零则不会发送任何更新.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2307"/>
+        <location filename="../Configuration.ui" line="2417"/>
         <source>Outgoing interfaces:</source>
         <translation>传出接口:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2317"/>
+        <location filename="../Configuration.ui" line="2427"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;When sending updates to a multicast group address it is necessary to specify which network interface(s) to send them to. If the loop-back interface is multicast capable then at least that one will be selected.&lt;/p&gt;&lt;p&gt;For most users the loop-back interface is all that is needed, that will allow multiple other applications on the same machine to interoperate with WSJT-X. If applications running on other hosts are to receive status updates then a suitable network interface should be used.&lt;/p&gt;&lt;p&gt;On some Linux systems it may be necessary to enable multicast on the loop-back network interface.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;向多播组地址发送更新时需要指定将更新发送到哪个网络接口. 如果环回接口支持多播那么将至少选择该接口.&lt;/p&gt;&lt;p&gt;对于大多数用户来说环回接口是他们所需要的, 这将允许同一台机器上的多个其他应用程序与WSJT-X进行互操作. 如果运行在其他主机上的应用程序要接收状态更新则应使用合适的网络接口.&lt;/p&gt;&lt;p&gt;在某些Linux系统上可能需要在环回网络接口上启用多播.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2324"/>
+        <location filename="../Configuration.ui" line="2444"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Sets the number or router hops that multicast datagrams are allowed to make. Almost everyone should set this to 1 to keep outgoing multicast traffic withn the local subnet.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;设置允许多点传送数据报的资料元或路由器资料元. 几乎每个人都应该将该值设置为 1 以保持出站多点传送流量在本地子网中.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2337"/>
+        <location filename="../Configuration.ui" line="2434"/>
         <source>Multicast TTL:</source>
         <translation>多点传送 TTL:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2685"/>
+        <location filename="../Configuration.ui" line="2795"/>
         <source>Reset Highlighting to WSJT-X default</source>
         <translation>将高亮显示重置为 wsjt-x 默认值</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2692"/>
         <source>Reset Highlighting to wsjt-x_improved default</source>
-        <translation>将高亮显示重置为 wsjt-x_improved 默认值</translation>
+        <translation type="vanished">将高亮显示重置为 wsjt-x_improved 默认值</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2783"/>
+        <location filename="../Configuration.ui" line="2893"/>
         <source>Highlight also messages with 73 or RR73</source>
         <translation>突出显示 73 或 RR73 信息</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2800"/>
-        <location filename="../Configuration.ui" line="2820"/>
+        <location filename="../Configuration.ui" line="2910"/>
+        <location filename="../Configuration.ui" line="2930"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Highlight callsigns or grids with orange background color. Callsigns and/or grids must be separated by a comma, and there must be a comma after each callsign.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;用橙色背景色突出显示呼号或网格. 呼号 和/或 网格必须用逗号隔开, 每个呼号后面必须有一个逗号.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2803"/>
+        <location filename="../Configuration.ui" line="2913"/>
         <source>Highlight orange:</source>
         <translation>突出显示橙色:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2810"/>
-        <location filename="../Configuration.ui" line="2827"/>
+        <location filename="../Configuration.ui" line="2920"/>
+        <location filename="../Configuration.ui" line="2937"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Highlight callsigns or grids with blue background color. Callsigns and/or grids must be separated by a comma, and there must be a comma after each callsign.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;用蓝色背景色突出显示呼号或网格. 呼号 和/或 网格必须用逗号隔开, 每个呼号后面必须有一个逗号.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2813"/>
+        <location filename="../Configuration.ui" line="2923"/>
         <source>Highlight blue:</source>
         <translation>突出显示蓝色:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2890"/>
+        <location filename="../Configuration.ui" line="3000"/>
         <source>Days since last upload</source>
         <translation>自上次上传以来的天数</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1830"/>
+        <location filename="../Configuration.ui" line="1824"/>
         <source>Select the audio CODEC to use for receiving.</source>
         <translation>选择要用于接收的音频信号.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1877"/>
+        <location filename="../Configuration.ui" line="1741"/>
         <source>&amp;Input:</source>
         <translation>输入(&amp;I):</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1797"/>
+        <location filename="../Configuration.ui" line="1791"/>
         <source>Select the channel to use for receiving.</source>
         <translation>选择要用于接收的通道.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1801"/>
-        <location filename="../Configuration.ui" line="1854"/>
+        <location filename="../Configuration.ui" line="1768"/>
+        <location filename="../Configuration.ui" line="1795"/>
         <source>Mono</source>
         <translation>单声道</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1806"/>
-        <location filename="../Configuration.ui" line="1859"/>
+        <location filename="../Configuration.ui" line="1773"/>
+        <location filename="../Configuration.ui" line="1800"/>
         <source>Left</source>
         <translation>左声道</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1811"/>
-        <location filename="../Configuration.ui" line="1864"/>
+        <location filename="../Configuration.ui" line="1778"/>
+        <location filename="../Configuration.ui" line="1805"/>
         <source>Right</source>
         <translation>右声道</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1816"/>
-        <location filename="../Configuration.ui" line="1869"/>
+        <location filename="../Configuration.ui" line="1783"/>
+        <location filename="../Configuration.ui" line="1810"/>
         <source>Both</source>
         <translation>双声道</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1847"/>
+        <location filename="../Configuration.ui" line="1761"/>
         <source>Select the audio channel used for transmission.
 Unless you have multiple radios connected on different
 channels; then you will usually want to select mono or
@@ -9371,155 +12132,264 @@ both here.</source>
 双声道.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="471"/>
+        <location filename="../Configuration.ui" line="333"/>
         <source>Enable VHF and submode features</source>
         <translation>启用甚高频和子模式功能</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="599"/>
+        <location filename="../Configuration.ui" line="570"/>
         <source>Additional features</source>
         <translation>附加功能</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="622"/>
         <source>Erase Band Activity window after band change</source>
-        <translation>更换频段后抹掉频段活动窗口</translation>
+        <translation type="vanished">更换频段后抹掉频段活动窗口</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="193"/>
+        <location filename="../Configuration.ui" line="216"/>
         <source>Highlight DX Grid in message</source>
         <translation>突出显示信息中的DX网格</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="227"/>
+        <location filename="../Configuration.ui" line="287"/>
         <source>Highlight DX Call in message</source>
         <translation>突出显示信息中的DX呼号</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="667"/>
+        <location filename="../Configuration.ui" line="641"/>
         <source>Clear DX Call after QSO</source>
-        <translation>QSO后清除DX呼号</translation>
+        <translation>通联后清除DX呼号</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="605"/>
+        <location filename="../Configuration.ui" line="576"/>
         <source>Set Rx frequency to Tx frequency after QSO</source>
-        <translation>QSO后将Rx频率设置为Tx频率</translation>
+        <translation>通联后将Rx频率设置为Tx频率</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="629"/>
+        <location filename="../Configuration.ui" line="368"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Open the Astronomical Data window automatically when switching to Q65 or JT65 mode and Decode after EME delay is enabled, and close it when no longer needed.&lt;/p&gt;&lt;p&gt;Open the QSYMessage Creator automatically if the VHF Features are enabled and such QSY messages are applicable.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;启用EME延迟后, 切换到Q65或JT65模式并解码时, 自动打开天文数据窗口, 并在不再需要时将其关闭.&lt;/p&gt;&lt;p&gt;如果启用了VHF功能并且此类QSY消息适用，则自动打开QSY信息创建器.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="371"/>
+        <source>Auto-open/close Astronomical data window</source>
+        <translation>自动打开/关闭 天文数据窗口</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="434"/>
+        <source>Tune watchdog   </source>
+        <translation>调谐监察器   </translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="473"/>
+        <source>Tx watchdog: </source>
+        <translation>发射监管计时器: </translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="522"/>
+        <source>ID Inter&amp;val:</source>
+        <translation>时间间隔(&amp;v):</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="593"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Erase Band Activity and Rx frequency windows after band change.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;频段改变后擦除频段活动和接收频率窗口.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="596"/>
+        <source>Erase decodes after band change</source>
+        <translation>波段改变后擦除解码</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="603"/>
         <source>Clear DX Grid after QSO</source>
-        <translation>QSO后清除DX网格</translation>
+        <translation>通联后清除DX网格</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="643"/>
+        <location filename="../Configuration.ui" line="617"/>
         <source>Map Grid locator to U.S. State</source>
         <translation>将格网定位映射到美国各州</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1837"/>
+        <location filename="../Configuration.ui" line="627"/>
+        <source>Align DXCC/distance/azimuth</source>
+        <translation>对齐DXCC, 距离和方位</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="648"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Increase or decrease the space between message text and DXCC.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;增加或减少信息文本和DXCC之间的间距.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="694"/>
+        <source>Less button coloring (restart required)</source>
+        <translation>减少按钮颜色 (需要重新启动)</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="1751"/>
         <source>Ou&amp;tput:</source>
         <translation>输出(&amp;t):</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1890"/>
-        <location filename="../Configuration.ui" line="1893"/>
+        <location filename="../Configuration.ui" line="1848"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Refresh audio device list.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;刷新音频设备列表.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="1851"/>
+        <source>Refresh</source>
+        <translation>刷新</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="1860"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Use TCI Audio when available.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;使用TCI音频 (如果可用).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="1863"/>
+        <source>Use TCI Audio (restart required)</source>
+        <translation>使用TCI音频 (需要重新启动)</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="1870"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Rx audio level&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;接收音频音量&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="1879"/>
+        <source>Rx </source>
+        <translation>接收 </translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="1911"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Sort audio device names alphabetically.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;按字母顺序排列音频设备名称.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="1914"/>
+        <source>Sort alphabetically</source>
+        <translation>按字母顺序排列</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="1921"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Hide the usually unusable ALSA CARD subdevices on Linux.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;在 Linux 上隐藏通常无法使用的 ALSA 音效卡子设备.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="1924"/>
+        <source>Hide ALSA CARD subdevices (Linux only)</source>
+        <translation>隐藏 ALSA 音效卡子设备 (仅 Linux)</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="1936"/>
+        <location filename="../Configuration.ui" line="1939"/>
         <source>Save Directory</source>
         <translation>保存目录</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1899"/>
+        <location filename="../Configuration.ui" line="1945"/>
         <source>Loc&amp;ation:</source>
         <translation>目录位置(&amp;a):</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1915"/>
+        <location filename="../Configuration.ui" line="1961"/>
         <source>Path to which .WAV files are saved.</source>
         <translation>.WAV 文件被保存到哪条目录.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1925"/>
-        <location filename="../Configuration.ui" line="1974"/>
+        <location filename="../Configuration.ui" line="1971"/>
+        <location filename="../Configuration.ui" line="2025"/>
         <source>TextLabel</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1932"/>
+        <location filename="../Configuration.ui" line="1978"/>
         <source>Click to select a different save directory for .WAV files.</source>
         <translation>单击选择不同的保存目录 .WAV 文件.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1935"/>
+        <location filename="../Configuration.ui" line="1981"/>
         <source>S&amp;elect</source>
         <translation>选择(&amp;e)</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1945"/>
-        <location filename="../Configuration.ui" line="1948"/>
+        <location filename="../Configuration.ui" line="1991"/>
+        <location filename="../Configuration.ui" line="1994"/>
         <source>AzEl Directory</source>
         <translation>AzEl 目录</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1954"/>
+        <location filename="../Configuration.ui" line="2005"/>
         <source>Location:</source>
         <translation>位置:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1981"/>
+        <location filename="../Configuration.ui" line="2032"/>
         <source>Select</source>
         <translation>选择</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1991"/>
+        <location filename="../Configuration.ui" line="2041"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enables additional line in azel.dat for Dpol parameter.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;在azel.dat中为Dpol参数启用额外的行.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="2044"/>
+        <source>Enable extra line in azel.dat</source>
+        <translation>为 azel.dat 启用额外的行</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="2054"/>
         <source>Power Memory By Band</source>
         <translation>按频段存储功率</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1994"/>
+        <location filename="../Configuration.ui" line="2057"/>
         <source>Remember power settings by band</source>
         <translation>按频段功率记忆设置</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2000"/>
+        <location filename="../Configuration.ui" line="2063"/>
         <source>Enable power memory during transmit</source>
         <translation>在传输过程中启用功率记忆</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2003"/>
+        <location filename="../Configuration.ui" line="2066"/>
         <source>Transmit</source>
         <translation>发射</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2010"/>
+        <location filename="../Configuration.ui" line="2073"/>
         <source>Enable power memory during tuning</source>
         <translation>在调谐期间启用功率记忆</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2013"/>
+        <location filename="../Configuration.ui" line="2076"/>
         <source>Tune</source>
         <translation>调谐</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2037"/>
+        <location filename="../Configuration.ui" line="2100"/>
         <source>Tx &amp;Macros</source>
         <translation>自定义文字(&amp;M)</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2040"/>
+        <location filename="../Configuration.ui" line="2103"/>
         <source>Canned free text messages setup</source>
         <translation>设置自定义文字</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2046"/>
+        <location filename="../Configuration.ui" line="2109"/>
         <source>&amp;Add</source>
         <translation>增加(&amp;A)</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2056"/>
+        <location filename="../Configuration.ui" line="2119"/>
         <source>&amp;Delete</source>
         <translation>删除(&amp;D)</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2066"/>
+        <location filename="../Configuration.ui" line="2129"/>
         <source>Drag and drop items to rearrange order
 Right click for item specific actions
 Click, SHIFT+Click and, CRTL+Click to select items</source>
@@ -9528,37 +12398,47 @@ Click, SHIFT+Click and, CRTL+Click to select items</source>
 单击, SHIFT+单击 和, CRTL+单击 以选择项目</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2119"/>
+        <location filename="../Configuration.ui" line="2182"/>
         <source>Reportin&amp;g</source>
         <translation>报告(&amp;g)</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2122"/>
+        <location filename="../Configuration.ui" line="2185"/>
         <source>Reporting and logging settings</source>
         <translation>设置日志和报告</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2128"/>
+        <location filename="../Configuration.ui" line="2191"/>
         <source>Logging</source>
         <translation>记录日志</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2167"/>
+        <location filename="../Configuration.ui" line="2220"/>
         <source>The program will pop up a partially completed Log QSO dialog when you send a 73 or free text message.</source>
         <translation>当您发送73或自定义文字时,程序将弹出一个部分完成的日志通联对话框.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2170"/>
+        <location filename="../Configuration.ui" line="2223"/>
         <source>Promp&amp;t me to log QSO</source>
         <translation>提示我记录通联日志(&amp;t)</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2177"/>
+        <location filename="../Configuration.ui" line="2237"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Log &apos;ZZ00&apos; as grid if the other station doesn&apos;t send you a grid.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;如果另一个电台没有给你发送坐标, 记录 &apos;ZZ00&apos; 为坐标.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="2240"/>
+        <source>Fill missing grids with &apos;ZZ00&apos;</source>
+        <translation>用 &apos;ZZ00&apos; 填充缺失的网格</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="2247"/>
         <source>Op Call:</source>
         <translation>操作员呼号:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2197"/>
+        <location filename="../Configuration.ui" line="2257"/>
         <source>Some logging programs will not accept the type of reports
 saved by this program.
 Check this option to save the sent and received reports in the
@@ -9569,25 +12449,28 @@ comments field.</source>
 注释字段.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2203"/>
+        <location filename="../Configuration.ui" line="2263"/>
         <source>d&amp;B reports to comments</source>
         <translation>把d&amp;B信号报告写入备注栏</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1871"/>
         <source>Check this option to force the clearing of the DX Call
 and DX Grid fields when a 73 or free text message is sent.</source>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <translation>选择此选项当发射73或自定义文字讯息
 可强制清除DX呼叫和DX网格字段.</translation>
 =======
         <translation>选中此选项, 当发送一个 73或自订义文字,
+=======
+        <translation type="vanished">选中此选项, 当发送一个 73或自订义文字,
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
 可强制清除 DX 呼号和DX Grid 栏位.</translation>
 >>>>>>> 169d2215c (Update Chinese translation.)
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1875"/>
         <source>Clear &amp;DX call and grid after logging</source>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <translation>记录完成后清除 &amp;DX 呼号及网格</translation>
     </message>
@@ -9599,498 +12482,509 @@ and DX Grid fields when a 73 or free text message is sent.</source>
     <message>
         <location filename="../Configuration.ui" line="2187"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <translation type="vanished">日志记录后清除 &amp;DX 呼号和DX Grid 栏位</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="2307"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Some logging programs will not accept WSJT-X mode names.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;某些日志记录程序不接受 WSJT-X 模式名称.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2190"/>
+        <location filename="../Configuration.ui" line="2310"/>
         <source>Con&amp;vert mode to RTTY</source>
         <translation>把日志记录转成&amp;RTTY模式</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2210"/>
+        <location filename="../Configuration.ui" line="2230"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The callsign of the operator, if different from the station callsign.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;操作员的呼号, 如果与电台呼号不同.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2157"/>
+        <location filename="../Configuration.ui" line="2272"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to have QSOs logged automatically, when complete.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;选择当完成通联后, 自动记录.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="200"/>
+        <location filename="../Configuration.ui" line="260"/>
         <source>Show the separator line between periods with time stamp of the decode period.</source>
         <translation>用解码周期的时间戳显示周期之间的分隔线.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="203"/>
+        <location filename="../Configuration.ui" line="263"/>
         <source>Show blank line with time stamp</source>
         <translation>显示带有时间戳的空行</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="478"/>
+        <location filename="../Configuration.ui" line="385"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Tx until 73 is received when in MSK144 or Q65 mode. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;在MSK144或Q65模式下, 接收到73之前的Tx. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="563"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Open the Astronomical Data window automatically when switching to Q65 or JT65 mode and Decode after EME delay is enabled, and close it when no longer needed.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;当切换到Q65或JT65模式自动打开天文数据窗口, 并在EME延迟启用后解码时, 当不再需要时关闭它.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation type="vanished">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;当切换到Q65或JT65模式自动打开天文数据窗口, 并在EME延迟启用后解码时, 当不再需要时关闭它.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="566"/>
         <source>Auto-open/close Astronomical Data window</source>
-        <translation>自动打开/关闭 天文数据窗口</translation>
+        <translation type="vanished">自动打开/关闭 天文数据窗口</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="377"/>
+        <location filename="../Configuration.ui" line="544"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Turn the progress bar red while transmitting.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;发射时将进度条变为红色.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="380"/>
+        <location filename="../Configuration.ui" line="547"/>
         <source>Turn progress bar red while transmitting</source>
         <translation>发射时将进度条变为红色</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="573"/>
+        <location filename="../Configuration.ui" line="395"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Allow kHz frequency offset entry without &apos;k&apos; suffix.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;允许输入没有 &apos;k&apos; 后缀的kHz频率偏移.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="576"/>
+        <location filename="../Configuration.ui" line="398"/>
         <source>kHz entry without k (restart required)</source>
         <translation>kHz 输入没有 &apos;k&apos; (需要重启)</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1501"/>
-        <location filename="../Configuration.ui" line="1533"/>
+        <location filename="../Configuration.ui" line="1462"/>
+        <location filename="../Configuration.ui" line="1494"/>
         <source>Update Hamlib</source>
         <translation>更新 Hamlib</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1507"/>
+        <location filename="../Configuration.ui" line="1468"/>
         <source>32-bit</source>
         <translation>32-位元</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1514"/>
+        <location filename="../Configuration.ui" line="1475"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Revert the last Hamlib update. &lt;/p&gt;&lt;p&gt;Note: This function is only available on Windows.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;还原最后 Hamlib 更新. &lt;/p&gt;&lt;p&gt;注意: 此功能仅在Windows上可用.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1517"/>
+        <location filename="../Configuration.ui" line="1478"/>
         <source>Revert Update</source>
         <translation>还原更新</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1530"/>
+        <location filename="../Configuration.ui" line="1491"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Download the latest libhamlib-4.dll file from https://n0nb.users.sourceforge.net/. &lt;/p&gt;&lt;p&gt;Note: This function is only available on Windows.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;从 https://n0nb.users.sourceforge.net/ 下载最新的libhamlib-4.dll文件. &lt;/p&gt;&lt;p&gt;注意: 此功能仅在Windows上可用.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1542"/>
+        <location filename="../Configuration.ui" line="1503"/>
         <source>In use:</source>
         <translation>在使用:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1562"/>
+        <location filename="../Configuration.ui" line="1523"/>
         <source>Backed up:</source>
         <translation>已备份:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1578"/>
+        <location filename="../Configuration.ui" line="1539"/>
         <source>64-bit</source>
         <translation>64-位元</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1669"/>
+        <location filename="../Configuration.ui" line="1630"/>
         <source>Rig Data</source>
         <translation>无线电设备数据</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1675"/>
+        <location filename="../Configuration.ui" line="1636"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Stop transmitting immediately when SWR exceeds 2.5.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;当驻波比大于 2.5 时立即停止发射.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1678"/>
+        <location filename="../Configuration.ui" line="1639"/>
         <source>Halt Tx when SWR &gt; 2.5</source>
         <translation>当驻波比大于 2.5 时停止发射</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1698"/>
+        <location filename="../Configuration.ui" line="1659"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Read and display transmit PWR and SWR of your rig.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;读取并显示你的无线电设备的发射 功率和驻波比.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="1701"/>
+        <location filename="../Configuration.ui" line="1662"/>
         <source>Read and display PWR and SWR</source>
         <translation>读取并显示 功率和驻波比</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2160"/>
         <source>Log automatically (contesting only)</source>
-        <translation>日志自动记录 (仅限竞赛)</translation>
+        <translation type="vanished">日志自动记录 (仅限竞赛)</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2227"/>
+        <location filename="../Configuration.ui" line="2337"/>
         <source>Network Services</source>
         <translation>网络服务</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2233"/>
+        <location filename="../Configuration.ui" line="2343"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The program can send your station details and all decoded signals with grid squares as spots to the http://pskreporter.info web site.&lt;/p&gt;&lt;p&gt;This is used for reverse beacon analysis which is very useful for assessing propagation and system performance.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;程序可以将你的电台详细信息和所有解码信号以网格发送到http://pskreporter.info网站.&lt;/p&gt;&lt;p&gt;这用于反向信标分析, 这对于评估传播和系统性能非常有用.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2236"/>
+        <location filename="../Configuration.ui" line="2346"/>
         <source>Enable &amp;PSK Reporter Spotting</source>
         <translation>启用&amp;PSK Reporter Spotting</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2243"/>
+        <location filename="../Configuration.ui" line="2353"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check this option if a reliable connection is needed&lt;/p&gt;&lt;p&gt;Most users do not need this, the default uses UDP which is more efficient. Only check this if you have evidence that UDP traffic from you to PSK Reporter is being lost.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;选择此选项需要可靠的连接&lt;/p&gt;&lt;p&gt;大多数用户不需要这个, 默认使用UDP, 效率更高. 只有当你有证据表明从你到PSK Reporter的UDP流量丢失时, 才选择这个.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2246"/>
+        <location filename="../Configuration.ui" line="2356"/>
         <source>Use TCP/IP connection</source>
         <translation>使用TCP/IP连接</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2256"/>
+        <location filename="../Configuration.ui" line="2366"/>
         <source>UDP Server</source>
         <translation>UDP服务器</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2267"/>
+        <location filename="../Configuration.ui" line="2377"/>
         <source>UDP Server:</source>
         <translation>UDP服务器:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2277"/>
+        <location filename="../Configuration.ui" line="2387"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Optional hostname of network service to receive decodes.&lt;/p&gt;&lt;p&gt;Formats:&lt;/p&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;hostname&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv4 address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv6 address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv4 multicast group address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv6 multicast group address&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;Clearing this field will disable the broadcasting of UDP status updates.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;接收解码的网络服务的可选主机名称.&lt;/p&gt;&lt;p&gt;格式:&lt;/p&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;主机名称&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv4 address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv6 地址&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv4多点传送组地址&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv6 多点传送组地址&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;清除此字段将禁用UDP状态更新的广播.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2287"/>
+        <location filename="../Configuration.ui" line="2397"/>
         <source>UDP Server port number:</source>
         <translation>UDP服务器端口:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2351"/>
+        <location filename="../Configuration.ui" line="2461"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;With this enabled WSJT-X will accept certain requests back from a UDP server that receives decode messages.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;启用此功能后，WSJT-X 将接受来自接收解码消息的 UDP 服务器的某些请求.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2354"/>
+        <location filename="../Configuration.ui" line="2464"/>
         <source>Accept UDP requests</source>
         <translation>接受UDP请求</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2361"/>
+        <location filename="../Configuration.ui" line="2471"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Indicate acceptance of an incoming UDP request. The effect of this option varies depending on the operating system and window manager, its intent is to notify the acceptance of an incoming UDP request even if this application is minimized or hidden.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;指示接受传入的 UDP 请求.此选项的效果因操作系统和窗口管理器而异,其目的是通知接受传入的 UDP 请求,即使此应用程序最小化或隐藏&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2364"/>
+        <location filename="../Configuration.ui" line="2474"/>
         <source>Notify on accepted UDP request</source>
         <translation>接受UDP的请求时通知</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2371"/>
+        <location filename="../Configuration.ui" line="2481"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Restore the window from minimized if an UDP request is accepted.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;如果接受 UDP 请求,则从最小化还原窗口.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2374"/>
+        <location filename="../Configuration.ui" line="2484"/>
         <source>Accepted UDP request restores window</source>
         <translation>接受UDP请求还原窗口</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2386"/>
+        <location filename="../Configuration.ui" line="2496"/>
         <source>Secondary UDP Server (deprecated)</source>
         <translation>辅助 UDP 服务器 (已弃用)</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2392"/>
+        <location filename="../Configuration.ui" line="2502"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;When checked, WSJT-X will broadcast a logged contact in ADIF format to the configured hostname and port. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;选中后，WSJT-X 将以 ADIF 格式将记录的联系广播到配置的主机名和端口. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2395"/>
+        <location filename="../Configuration.ui" line="2505"/>
         <source>Enable logged contact ADIF broadcast</source>
         <translation>启用记录联系 ADIF 广播</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2402"/>
+        <location filename="../Configuration.ui" line="2512"/>
         <source>Server name or IP address:</source>
         <translation>服务器名称或 IP 地址:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2412"/>
+        <location filename="../Configuration.ui" line="2522"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Optional host name of N1MM Logger+ program to receive ADIF UDP broadcasts. This is usually &apos;localhost&apos; or ip address 127.0.0.1&lt;/p&gt;&lt;p&gt;Formats:&lt;/p&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;hostname&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv4 address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv6 address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv4 multicast group address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv6 multicast group address&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;Clearing this field will disable broadcasting of ADIF information via UDP.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;N1MM Logger+ 程序的可选电脑主机, 用于接收 ADIF UDP 广播. 这通常是 &apos;localhost&apos; 或 IP地址 127.0.0.1&lt;/p&gt;&lt;p&gt;格式:&lt;/p&gt;&lt;ul style=&quot;margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 1;&quot;&gt;&lt;li style=&quot; margin-top:12px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;主机名称&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv4 地址&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv6 address&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv4 多播组地址&lt;/li&gt;&lt;li style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;IPv6 多播组地址&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;清除此字段将禁用通过 UDP 广播 ADIF 信息.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2419"/>
+        <location filename="../Configuration.ui" line="2529"/>
         <source>Server port number:</source>
         <translation>服务器端口号：</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2429"/>
+        <location filename="../Configuration.ui" line="2539"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enter the port number that WSJT-X should use for UDP broadcasts of ADIF log information. For N1MM Logger+, this value should be 2333. If this is zero,  no updates will be broadcast.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;输入 WSJT-X 应用于 ADIF 日志信息的 UDP 广播的端口号. 对于 N1MM Logger+, 此值应为 2333. 如果为零, 将不会广播任何更新.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2456"/>
+        <location filename="../Configuration.ui" line="2566"/>
         <source>Frequencies</source>
         <translation>频率</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2459"/>
+        <location filename="../Configuration.ui" line="2569"/>
         <source>Default frequencies and band specific station details setup</source>
         <translation>设置默认值频率和带宽点特定的无线电设备详细信息</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2465"/>
+        <location filename="../Configuration.ui" line="2575"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;See &amp;quot;Frequency Calibration&amp;quot; in the WSJT-X User Guide for details of how to determine these parameters for your radio.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;阅读 &amp;quot;频率校准&amp;quot; 在 WSJT-X 用户指南中, 有关如何确定无线电的这些参数的详细信息.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2468"/>
+        <location filename="../Configuration.ui" line="2578"/>
         <source>Frequency Calibration</source>
         <translation>频率校准</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2476"/>
+        <location filename="../Configuration.ui" line="2586"/>
         <source>Slope:</source>
         <translation>倾斜率:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2489"/>
+        <location filename="../Configuration.ui" line="2599"/>
         <source> ppm</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2515"/>
+        <location filename="../Configuration.ui" line="2625"/>
         <source>Intercept:</source>
         <translation>拦截:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2528"/>
+        <location filename="../Configuration.ui" line="2638"/>
         <source> Hz</source>
         <translation> 赫兹</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2565"/>
+        <location filename="../Configuration.ui" line="2675"/>
         <source>Working Frequencies</source>
         <translation>工作频率</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2580"/>
+        <location filename="../Configuration.ui" line="2690"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Right click to maintain the working frequencies list.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;右键单击以保持工作频率列表.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2608"/>
+        <location filename="../Configuration.ui" line="2718"/>
         <source>Station Information</source>
         <translation>电台信息</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2620"/>
+        <location filename="../Configuration.ui" line="2730"/>
         <source>Items may be edited.
 Right click for insert and delete options.</source>
         <translation>项目可以编辑.
 右键单击以插入和删除选项.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2668"/>
+        <location filename="../Configuration.ui" line="2778"/>
         <source>Colors</source>
         <translation>颜色</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2674"/>
+        <location filename="../Configuration.ui" line="2784"/>
         <source>Decode Highlightling</source>
         <translation>解码突出显示</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2699"/>
+        <location filename="../Configuration.ui" line="2802"/>
+        <source>Reset Highlighting to WSJT-X Improved default</source>
+        <translation>将高亮显示重置为 wsjt-x_improved 默认值</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="2809"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Click to scan the wsjtx_log.adi ADIF file again for worked before information&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;单击以再次扫描wsjtx_log.adi ADIF文件，获取以前工作过的信息&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2702"/>
+        <location filename="../Configuration.ui" line="2812"/>
         <source>Rescan ADIF Log</source>
         <translation>重新扫描 ADIF 日志</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2682"/>
+        <location filename="../Configuration.ui" line="2792"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Push to reset all highlight items above to default values and priorities.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;将上述所有突出显示项重置为默认值和优先级.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2402"/>
         <source>Reset Highlighting</source>
-        <translation>重置突出显示</translation>
+        <translation type="vanished">重置突出显示</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../Configuration.ui" line="2438"/>
 =======
         <location filename="../Configuration.ui" line="2723"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../Configuration.ui" line="2833"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enable or disable using the check boxes and right-click an item to change or unset the foreground color, background color, or reset the item to default values. Drag and drop the items to change their priority, higher in the list is higher in priority.&lt;/p&gt;&lt;p&gt;Note that each foreground or background color may be either set or unset, unset means that it is not allocated for that item&apos;s type and lower priority items may apply.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;使用复选框启用或禁用项目，并右键单击项目以更改或取消设置前景颜色, 背景颜色, 或将项目重置为默认值. 拖放项目以更改其优先级, 列表中较高的优先级较高.&lt;/p&gt;&lt;p&gt;请注意, 每个前景或背景颜色都可以设置或取消设置, 取消设置意味着它未为该项分配, 其类型和低优先级项可能适用.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2790"/>
+        <location filename="../Configuration.ui" line="2900"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to indicate new DXCC entities, grid squares, and callsigns per mode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;选择以显示每个模式新的 DXCC 实体, 网格和呼号.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2793"/>
+        <location filename="../Configuration.ui" line="2903"/>
         <source>Highlight by Mode</source>
         <translation>按模式突出显示</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2776"/>
+        <location filename="../Configuration.ui" line="2886"/>
         <source>Include extra WAE entities</source>
         <translation>包括额外的 WAE 实体</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2750"/>
+        <location filename="../Configuration.ui" line="2860"/>
         <source>Check to for grid highlighting to only apply to unworked grid fields</source>
         <translation>突出显示网格突出显示仅应用于未通联的网格字段</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2753"/>
+        <location filename="../Configuration.ui" line="2863"/>
         <source>Only grid Fields sought</source>
         <translation>仅寻求网格字段</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2839"/>
+        <location filename="../Configuration.ui" line="2949"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Controls for Logbook of the World user lookup.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;控制 LoTW 用户查找日志.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2842"/>
+        <location filename="../Configuration.ui" line="2952"/>
         <source>Logbook of the World User Validation</source>
         <translation>LoTW 已验证用户</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2848"/>
+        <location filename="../Configuration.ui" line="2958"/>
         <source>Users CSV file URL:</source>
         <translation>用户 CSV 文件 网址:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2860"/>
+        <location filename="../Configuration.ui" line="2970"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;URL of the ARRL LotW user&apos;s last upload dates and times data file which is used to highlight decodes from stations that are known to upload their log file to LotW.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;ARRL LoTW 用户上次上传日期和时间数据文件的网址, 该文件用于突出显示已知将日志文件上载到 LoTW 的电台的解码.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2863"/>
+        <location filename="../Configuration.ui" line="2973"/>
         <source>URL</source>
         <translation>网址</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2873"/>
+        <location filename="../Configuration.ui" line="2983"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Push this button to fetch the latest LotW user&apos;s upload date and time data file.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;按下此按钮即可获取最新的 LoTW 用户的上传日期和时间数据文件.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2876"/>
+        <location filename="../Configuration.ui" line="2986"/>
         <source>Fetch Now</source>
         <translation>立即获取</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2937"/>
+        <location filename="../Configuration.ui" line="3047"/>
         <source>Age of last upload less than:</source>
         <translation>上次上传的日期小于:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2887"/>
+        <location filename="../Configuration.ui" line="2997"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Adjust this spin box to set the age threshold of LotW user&apos;s last upload date that is accepted as a current LotW user.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;调整此旋转框以设置 LoTW 用户最后一个上传日期的日期阈值, 该日期被接受为当前 LoTW 用户.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2893"/>
+        <location filename="../Configuration.ui" line="3003"/>
         <source> days</source>
         <translation> 天</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3036"/>
+        <location filename="../Configuration.ui" line="3133"/>
         <source>Advanced</source>
         <translation>高级设置</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3161"/>
+        <location filename="../Configuration.ui" line="3139"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;User-selectable parameters for JT65 VHF/UHF/Microwave decoding.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;用户可选参数用于 JT65 VHF/UHF/Microwave 的解码.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3164"/>
+        <location filename="../Configuration.ui" line="3142"/>
         <source>JT65 VHF/UHF/Microwave decoding parameters</source>
         <translation>JT65 VHF/UHF/Microwave 解码参数</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3170"/>
+        <location filename="../Configuration.ui" line="3148"/>
         <source>Random erasure patterns:</source>
         <translation>随机擦除模式:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3180"/>
+        <location filename="../Configuration.ui" line="3158"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Maximum number of erasure patterns for stochastic soft-decision Reed Solomon decoder is 10^(n/2).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;随机软判决 Reed Solomon 解码器的最大擦除模式数为 10^(n/2).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3196"/>
+        <location filename="../Configuration.ui" line="3174"/>
         <source>Aggressive decoding level:</source>
         <translation>主动解码级别:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3206"/>
+        <location filename="../Configuration.ui" line="3184"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Higher levels will increase the probability of decoding, but will also increase probability of a false decode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;较高的水平会增加解码的概率, 但也会增加错误解码的概率.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3216"/>
+        <location filename="../Configuration.ui" line="3194"/>
         <source>Two-pass decoding</source>
         <translation>通过二次解码</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3229"/>
         <source>Special operating activity:  Generation of FT4, FT8, and MSK144 messages</source>
-        <translation>特殊操作活动: 产生FT4, FT8 和 MSK144 信息</translation>
+        <translation type="vanished">特殊操作活动: 产生FT4, FT8 和 MSK144 信息</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3403"/>
+        <location filename="../Configuration.ui" line="3686"/>
         <source>NA VHF</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3608"/>
+        <location filename="../Configuration.ui" line="3467"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;FT8 DXpedition mode:  Hound operator calling the DX.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;FT8 DX远征模式呼叫DX的猎犬操作员.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3611"/>
-        <location filename="../Configuration.ui" line="3614"/>
+        <location filename="../Configuration.ui" line="3470"/>
+        <location filename="../Configuration.ui" line="3473"/>
         <source>Hound</source>
         <translation>猎犬</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3397"/>
+        <location filename="../Configuration.ui" line="3680"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;North American VHF/UHF/Microwave contests and others in which a 4-character grid locator is the required exchange.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;北美 VHF/UHF/Microwave 竞赛和其他需要交换的 4 个字符网格定位器的竞赛.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3400"/>
+        <location filename="../Configuration.ui" line="3683"/>
         <source>NA VHF Contest</source>
         <translation>NA VHF 竞赛</translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../Configuration.ui" line="3099"/>
         <source>FT Roundup</source>
@@ -10106,258 +13000,315 @@ Right click for insert and delete options.</source>
 =======
         <location filename="../Configuration.ui" line="3627"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../Configuration.ui" line="3696"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;FT8 DXpedition mode:  Fox (DXpedition) operator.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;FT8 DX远征模式:  狐狸 (DX远征) 操作员.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3630"/>
-        <location filename="../Configuration.ui" line="3633"/>
+        <location filename="../Configuration.ui" line="3699"/>
+        <location filename="../Configuration.ui" line="3702"/>
         <source>Fox</source>
         <translation>狐狸</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3523"/>
+        <location filename="../Configuration.ui" line="3576"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;European VHF+ contests requiring a signal report, serial number, and 6-character locator.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;欧洲 VHF+ 竞赛需要信号报告, 序列号和 6 个字符定位.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3526"/>
-        <location filename="../Configuration.ui" line="3529"/>
+        <location filename="../Configuration.ui" line="3579"/>
+        <location filename="../Configuration.ui" line="3582"/>
         <source>EU VHF Contest</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3544"/>
+        <location filename="../Configuration.ui" line="3506"/>
         <source>R T T Y Roundup</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2963"/>
+        <location filename="../Configuration.ui" line="3073"/>
         <source>CTY File Download</source>
         <translation>CTY 文件下载</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2969"/>
+        <location filename="../Configuration.ui" line="3079"/>
         <source>CTY File Version: </source>
         <translation>CTY 文件版本: </translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2976"/>
+        <location filename="../Configuration.ui" line="3086"/>
         <source>Download Latest CTY.dat</source>
         <translation>下载最新的 CTY.dat</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3195"/>
-        <source>FT Roundup</source>
-        <translation></translation>
-    </message>
-    <message>
-        <location filename="../Configuration.ui" line="3572"/>
+        <location filename="../Configuration.ui" line="3534"/>
         <source>RTTY Roundup exchange</source>
         <translation>RTTY Roundup 交换</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3239"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;FT Roundup and similar contests.  Exchange is US state, Canadian province, or &amp;quot;DX&amp;quot;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;FT Roundup 和类似的竞赛.  交换是美国州, 加拿大省或 &amp;quot;DX&amp;quot;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation type="vanished">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;FT Roundup 和类似的竞赛.  交换是美国州, 加拿大省或 &amp;quot;DX&amp;quot;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3594"/>
+        <location filename="../Configuration.ui" line="3556"/>
         <source>NJ</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3450"/>
-        <location filename="../Configuration.ui" line="3500"/>
+        <location filename="../Configuration.ui" line="3398"/>
+        <location filename="../Configuration.ui" line="3448"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;ARRL Field Day exchange: number of transmitters, Class, and ARRL/RAC section or &amp;quot;DX&amp;quot;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;ARRL Field Day 交换: 发射机数量, 类别, 和 ARRL/RAC 部分或 &amp;quot;DX&amp;quot;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2902"/>
+        <location filename="../Configuration.ui" line="3339"/>
         <source>Special operating activity</source>
         <translation>特殊操作活动</translation>
     </message>
     <message>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <location filename="../Configuration.ui" line="2960"/>
 =======
         <location filename="../Configuration.ui" line="3453"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../Configuration.ui" line="3401"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>A R R L Field Day</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3456"/>
+        <location filename="../Configuration.ui" line="3404"/>
         <source>ARRL Field Day</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3481"/>
+        <location filename="../Configuration.ui" line="3429"/>
         <source>Field Day exchange</source>
         <translation>Field Day 交换</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3484"/>
+        <location filename="../Configuration.ui" line="3432"/>
         <source>FD Exch:</source>
         <translation>FD 交换:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3503"/>
+        <location filename="../Configuration.ui" line="3451"/>
         <source>6A SNJ</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3072"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Call CQ with an individual contest name instead of TEST, RU, or WW. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;用一个单独的竞赛名称呼叫, 而不是CQ TEST, RU, 或 WW. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation type="vanished">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;用一个单独的竞赛名称呼叫, 而不是CQ TEST, RU, 或 WW. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3413"/>
+        <location filename="../Configuration.ui" line="3351"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;ARRL International Digital Contest&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;ARRL International Digital 竞赛&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3416"/>
+        <location filename="../Configuration.ui" line="3354"/>
         <source>ARRL Digi Contest</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3432"/>
+        <location filename="../Configuration.ui" line="3370"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;World-Wide Digi-mode contest&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;World-Wide Digi-mode 竞赛&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3435"/>
+        <location filename="../Configuration.ui" line="3373"/>
         <source>WW Digital Contest</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3438"/>
+        <location filename="../Configuration.ui" line="3376"/>
         <source>WW Digi Contest</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3328"/>
+        <location filename="../Configuration.ui" line="3893"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Exchange 4-character locator instead of signal report.  Provides q3-level sensitivities for the DX operator.  Especially useful for 6m EME DXpeditions.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;交换4字符的定位而不是信号报告. 为DX操作员提供 q3级 灵敏度. 对6m EME DX远征特别有用.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3331"/>
+        <location filename="../Configuration.ui" line="3896"/>
         <source>Q65 Pileup</source>
         <translation>Q65 堆迭</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3649"/>
+        <location filename="../Configuration.ui" line="3909"/>
         <source>Miscellaneous</source>
         <translation>杂项</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3655"/>
+        <location filename="../Configuration.ui" line="3915"/>
         <source>Degrade S/N of .wav file: </source>
         <translation>降低信噪比的 .wav文件: </translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3665"/>
-        <location filename="../Configuration.ui" line="3691"/>
+        <location filename="../Configuration.ui" line="3925"/>
+        <location filename="../Configuration.ui" line="3951"/>
         <source>For offline sensitivity tests</source>
         <translation>用于离线灵敏度测试</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3668"/>
+        <location filename="../Configuration.ui" line="1876"/>
+        <location filename="../Configuration.ui" line="3928"/>
         <source> dB</source>
         <translation> 分贝</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3681"/>
+        <location filename="../Configuration.ui" line="3604"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Show OTP messages in the Band Activity window.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;在波段活动窗口中显示OTP信息.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="3607"/>
+        <source>Show OTP messages</source>
+        <translation>显示OTP信息</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="3633"/>
+        <source>OTP URL:</source>
+        <translation>OTP 网址:</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="3662"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;URL used to verify OTP codes.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;用于验证 OTP 代码的网址.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="3665"/>
+        <source>https://www.9dx.cc</source>
+        <translation>https://www.9dx.cc</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="3720"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Click to enable OTP method of Fox verification. Requires internet.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;点击以启用狐狸验证 OTP 方法. 需要网络连接.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="3723"/>
+        <source>OTP</source>
+        <translation>OTP</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="3762"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Fox&apos;s key to generate OTP Codes.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;狐狸生成 OTP 密码的密钥.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="3765"/>
+        <source>M2ZUU5CW6EVOY2HU</source>
+        <translation>M2ZUU5CW6EVOY2HU</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="3788"/>
+        <source>Interval</source>
+        <translation>间隔</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="3795"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Interval at which the OTP messages are sent. Select 1 to sign every message.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;发送OTP信息的时间间隔. 选择1为每个信息签署.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="3941"/>
         <source>Receiver bandwidth:</source>
         <translation>接收器带宽:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3694"/>
+        <location filename="../Configuration.ui" line="3954"/>
         <source>  Hz</source>
         <translation>  赫兹</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3710"/>
+        <location filename="../Configuration.ui" line="3970"/>
         <source>Tx delay:</source>
         <translation>发射延迟:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3720"/>
+        <location filename="../Configuration.ui" line="3980"/>
         <source>Minimum delay between assertion of PTT and start of Tx audio.</source>
         <translation>PTT 验证与发射音频启动之间的最小延迟.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3723"/>
+        <location filename="../Configuration.ui" line="3983"/>
         <source>  s</source>
         <translation>  秒</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3748"/>
-        <location filename="../Configuration.ui" line="3751"/>
+        <location filename="../Configuration.ui" line="4008"/>
+        <location filename="../Configuration.ui" line="4011"/>
         <source>Tone spacing</source>
         <translation>音调间距</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3757"/>
+        <location filename="../Configuration.ui" line="4017"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Generate Tx audio with twice the normal tone spacing.  Intended for special LF/MF transmitters that use a divide-by-2 before generating RF.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;生成具有正常音调间距两倍的发射音频.  适用于在产生射频之前使用除以 2 的特殊 LF/MF 发射器.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3760"/>
+        <location filename="../Configuration.ui" line="4020"/>
         <source>x 2</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3770"/>
+        <location filename="../Configuration.ui" line="4030"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Generate Tx audio with four times the normal tone spacing. Intended for special LF/MF transmitters that use a divide-by-4 before generating RF.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;具有正常音调间距四倍的发射音频. 适用于在产生射频之前使用除以 4 的特殊 LF/MF 发射器.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3773"/>
+        <location filename="../Configuration.ui" line="4033"/>
         <source>x 4 </source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3789"/>
-        <location filename="../Configuration.ui" line="3792"/>
+        <location filename="../Configuration.ui" line="4049"/>
+        <location filename="../Configuration.ui" line="4052"/>
         <source>Waterfall spectra</source>
         <translation>瀑布频谱</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3798"/>
+        <location filename="../Configuration.ui" line="4058"/>
         <source>Low sidelobes</source>
         <translation>低侧边</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3808"/>
+        <location filename="../Configuration.ui" line="4068"/>
         <source>Most sensitive</source>
         <translation>最敏感</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3243"/>
+        <location filename="../Configuration.ui" line="3828"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Call CQ with an individual contest name instead of TEST, RU, or WW (for example CQ PACC).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;
 </source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;用一个单独的竞赛名称称呼叫, 而不是CQ TEST, RU, or WW (例如 CQ PACC).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;
 </translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3541"/>
-        <location filename="../Configuration.ui" line="3591"/>
+        <location filename="../Configuration.ui" line="3503"/>
+        <location filename="../Configuration.ui" line="3553"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;FT Roundup and similar contests. Exchange is US state, Canadian province, or &amp;quot;DX&amp;quot;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;FT Roundup 和类似的竞赛. Exchange 是美国州, 加拿大省或 &amp;quot;DX&amp;quot;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3547"/>
+        <location filename="../Configuration.ui" line="3509"/>
         <source>FT Roundup messages</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3575"/>
+        <location filename="../Configuration.ui" line="3537"/>
         <source>FT RU Exch:</source>
         <translation></translation>
     </message>
     <message>
+<<<<<<< HEAD
 <<<<<<< HEAD
         <location filename="../Configuration.ui" line="3203"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Call CQ with an individual contest name instead of TEST, RU, or WW. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
@@ -10368,343 +13319,384 @@ Right click for insert and delete options.</source>
 =======
         <location filename="../Configuration.ui" line="3247"/>
 >>>>>>> 169d2215c (Update Chinese translation.)
+=======
+        <location filename="../Configuration.ui" line="3832"/>
+>>>>>>> 86e7a4e8e (Replace all files in the develop branch with those from the master branch (up to commit e1d3aee), and use this as a new starting point, because some files were not up to date.)
         <source>CQ with individual contest name</source>
         <translation>CQ 单独竞赛名称</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3269"/>
+        <location filename="../Configuration.ui" line="3854"/>
         <source>Contest name:</source>
         <translation>竞赛名称:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="4114"/>
+        <location filename="../Configuration.ui" line="4088"/>
+        <source>Alert categories above the line require to have the box &quot;Show DXCC, grid, and worked-before status&quot; on the General tab checked.</source>
+        <translation>线上的警报类别要求选中常规选项卡上的 &quot;显示DXCC, 网格和曾通联状态&quot; 框.</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="4095"/>
+        <source>THIS FEATURE IS FOR EXPERIENCED USERS ONLY</source>
+        <translation>此功能仅供有经验的用户使用</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="4102"/>
+        <source>Ensure that you have made meaningful settings on the Colors tab, so that you see which message triggered the alert.</source>
+        <translation>请确保您在 &quot;颜色&quot; 选项卡上进行了有意义的设置, 以便您可以看到哪条消息触发了警报.</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="4109"/>
+        <source>Ensure that your rig is NOT connected via &quot;Default Device&quot;.</source>
+        <translation>确保您的无线电设备不是通过 &quot;默认音频设备&quot; 连接.</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="4193"/>
+        <source>Message received</source>
+        <translation>信息已接收</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="4337"/>
+        <source>This requirement is fulfilled when your rig is connected via USB audio.</source>
+        <translation>当您的无线电设备通过USB音频连接时,即已满足此要求.</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="4351"/>
+        <source>IMPORTANT NOTES</source>
+        <translation>重要注意事项</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="4366"/>
         <source>Filters</source>
         <translation>过滤</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="4235"/>
+        <location filename="../Configuration.ui" line="4459"/>
         <source>Hide messages containing the following callsigns or keywords:</source>
         <translation>隐藏包含以下呼号或关键字的消息:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="4125"/>
+        <location filename="../Configuration.ui" line="4478"/>
         <source>Show only messages containing the following callsigns or keywords:</source>
         <translation>仅显示包含以下呼号或关键字的消息:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2866"/>
+        <location filename="../Configuration.ui" line="2976"/>
         <source>http://lotw.arrl.org/lotw-user-activity.csv</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2986"/>
+        <location filename="../Configuration.ui" line="3096"/>
         <source>CALL3 File Download</source>
         <translation>CALL3 文件下载</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2992"/>
+        <location filename="../Configuration.ui" line="3102"/>
         <source>CALL3 File Version:</source>
         <translation>CALL3 文件版本:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="2999"/>
+        <location filename="../Configuration.ui" line="3109"/>
         <source>Dowload latest CALL3.TXT file.</source>
         <translation>下载最新的 CALL3.TXT 文件.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3002"/>
+        <location filename="../Configuration.ui" line="3112"/>
         <source>Download CALL3.TXT for terrestrial use</source>
         <translation>下载 CALL3.TXT 供 IARU 分区使用</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3009"/>
+        <location filename="../Configuration.ui" line="3119"/>
         <source>Dowload latest CALL3.TXT file for EME. This version is suitable for JT65 Deep Search.</source>
         <translation>为EME下载最新 CALL3.TXT 文件. 该版本适用于 JT65 深度搜索.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3012"/>
+        <location filename="../Configuration.ui" line="3122"/>
         <source>Download CALL3.TXT for EME</source>
         <translation>下载 CALL3.TXT 供 EME 使用</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3302"/>
+        <location filename="../Configuration.ui" line="3386"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle the NCCC Sprint FT4 short message protocol On/Off.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;启用/停用 NCCC Sprint FT4短信息协议.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3305"/>
+        <location filename="../Configuration.ui" line="3389"/>
         <source>NCCC Sprint</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3312"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Autofill &apos;ZZ00&apos; in the logbook if the other station doesn&apos;t send you a grid.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;如果另一个电台没有给你发送网格, 在日志中自动填充 &apos;ZZ00&apos;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation type="vanished">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;如果另一个电台没有给你发送网格, 在日志中自动填充 &apos;ZZ00&apos;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3315"/>
         <source>Autofill &apos;ZZ00&apos; for missing Grid</source>
-        <translation>为缺少的网格自动填充 &apos;ZZ00&apos;</translation>
+        <translation type="vanished">为缺少的网格自动填充 &apos;ZZ00&apos;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3054"/>
+        <location filename="../Configuration.ui" line="3248"/>
         <source>Enable Cloudlog Features</source>
         <translation>启用Cloudlog功能</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3068"/>
+        <location filename="../Configuration.ui" line="3262"/>
         <source>API URL: </source>
         <translation>API网址: </translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3075"/>
+        <location filename="../Configuration.ui" line="3269"/>
         <source>API Key: </source>
         <translation>API密匙: </translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3082"/>
+        <location filename="../Configuration.ui" line="3276"/>
         <source>Station ID: </source>
         <translation>电台 ID: </translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3117"/>
+        <location filename="../Configuration.ui" line="3311"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Test the Cloudlog API key.&lt;/p&gt;&lt;p&gt;The button will turn green if the API key is writable. It will turn orange if the API key is read-only. If the API key is invalid it will turn red.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;测试 API密匙.&lt;/p&gt;&lt;p&gt;如果API密钥是可写的, 该按钮将变为绿色. 如果API密钥是只读的, 它将变为橙色. 如果API密钥无效, 它将变成红色.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3120"/>
+        <location filename="../Configuration.ui" line="3314"/>
         <source>Test API Key</source>
         <translation>测试 API密匙</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3343"/>
+        <location filename="../Configuration.ui" line="3592"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check this box to transmit (Fox) or receive (Hound) the SuperFox waveform.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;勾选此框以发送 (狐狸) 或接收 (猎犬) 超级狐狸 波形.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3346"/>
+        <location filename="../Configuration.ui" line="3595"/>
         <source>SuperFox mode</source>
         <translation>超级狐狸模式</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3366"/>
+        <location filename="../Configuration.ui" line="3749"/>
         <source>Key:</source>
         <translation>密钥:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3379"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;SuperFox operator must enter a valid key to enable transmission.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;超级狐狸操作员必须输入有效的密钥才能启用发送.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation type="vanished">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;超级狐狸操作员必须输入有效的密钥才能启用发送.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3821"/>
+        <location filename="../Configuration.ui" line="3207"/>
         <source>GUI tweaks for high-resolution monitors</source>
         <translation>针对高分辨率显示器的用户介面调整</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3827"/>
+        <location filename="../Configuration.ui" line="3213"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;HighDPI scaling enables a larger and more proportionally correct display of the controls on 4K monitors (if supported by the OS).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;高DPI 缩放 允许在 4K 监视器上显示更大比例更正确的控件 (如果操作系统支持).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3830"/>
+        <location filename="../Configuration.ui" line="3216"/>
         <source>HighDPI scaling (restart required)</source>
         <translation>高DPI缩放 (需要重启)</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3837"/>
+        <location filename="../Configuration.ui" line="3223"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Increased height of some control elements.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;增加了一些控件元素的高度.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3840"/>
+        <location filename="../Configuration.ui" line="3226"/>
         <source>Increased height of the tab widget (restart required)</source>
         <translation>增加了选项卡小部件的高度 (需要重新启动)</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3851"/>
+        <location filename="../Configuration.ui" line="4082"/>
         <source>Alerts</source>
         <translation>警报</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3873"/>
         <source>Ensure that your rig is NOT connected via &quot;DefaultAudioDevice&quot; !!!</source>
-        <translation>确保您的无线电设备不是通过 &quot;默认音频设备&quot; 连接的 !!!</translation>
+        <translation type="vanished">确保您的无线电设备不是通过 &quot;默认音频设备&quot; 连接的 !!!</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3886"/>
+        <location filename="../Configuration.ui" line="4122"/>
         <source>Audio Alerts</source>
         <translation>音频警报</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3907"/>
-        <location filename="../Configuration.ui" line="3910"/>
+        <location filename="../Configuration.ui" line="4173"/>
+        <location filename="../Configuration.ui" line="4176"/>
         <source>New Grid</source>
         <translation>新网格</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3917"/>
+        <location filename="../Configuration.ui" line="4230"/>
         <source>My Call in message</source>
         <translation>我呼号在信息内</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3920"/>
+        <location filename="../Configuration.ui" line="4233"/>
         <source>My Call</source>
         <translation>我的呼号</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3927"/>
-        <location filename="../Configuration.ui" line="3930"/>
+        <location filename="../Configuration.ui" line="4153"/>
+        <location filename="../Configuration.ui" line="4156"/>
         <source>New Continent</source>
         <translation>新大洲</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3937"/>
-        <location filename="../Configuration.ui" line="3940"/>
+        <location filename="../Configuration.ui" line="4200"/>
+        <location filename="../Configuration.ui" line="4203"/>
         <source>New ITU Zone</source>
         <translation>新ITU区</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3954"/>
-        <location filename="../Configuration.ui" line="3957"/>
+        <location filename="../Configuration.ui" line="4210"/>
+        <location filename="../Configuration.ui" line="4213"/>
         <source>New CQ Zone</source>
         <translation>新CQ区</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3964"/>
-        <location filename="../Configuration.ui" line="3967"/>
+        <location filename="../Configuration.ui" line="4250"/>
+        <location filename="../Configuration.ui" line="4253"/>
         <source>New DXCC</source>
         <translation>新DXCC</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3974"/>
-        <location filename="../Configuration.ui" line="3977"/>
+        <location filename="../Configuration.ui" line="4220"/>
+        <location filename="../Configuration.ui" line="4223"/>
         <source>New DXCC on Band</source>
         <translation>新DXCC 波段</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3984"/>
-        <location filename="../Configuration.ui" line="3987"/>
+        <location filename="../Configuration.ui" line="4143"/>
+        <location filename="../Configuration.ui" line="4146"/>
         <source>New ITU Zone on Band</source>
         <translation>新ITU 区 波段</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="3994"/>
-        <location filename="../Configuration.ui" line="3997"/>
+        <location filename="../Configuration.ui" line="4183"/>
+        <location filename="../Configuration.ui" line="4186"/>
         <source>New Continent on Band</source>
         <translation>新大洲 波段</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="4004"/>
-        <location filename="../Configuration.ui" line="4007"/>
+        <location filename="../Configuration.ui" line="4260"/>
+        <location filename="../Configuration.ui" line="4263"/>
         <source>New Grid on Band</source>
         <translation>新网格 波段</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="4014"/>
-        <location filename="../Configuration.ui" line="4017"/>
+        <location filename="../Configuration.ui" line="4240"/>
+        <location filename="../Configuration.ui" line="4243"/>
         <source>New CQ Zone on Band</source>
         <translation>新CQ区 波段</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="4024"/>
-        <location filename="../Configuration.ui" line="4027"/>
+        <location filename="../Configuration.ui" line="4163"/>
+        <location filename="../Configuration.ui" line="4166"/>
         <source>DX Call or DX Grid in message</source>
         <translation>DX呼号或DX网格在信息内</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="4040"/>
+        <location filename="../Configuration.ui" line="4293"/>
         <source>Toggle Audio Alerts on/off. Alerts will be played on &quot;DefaultAudioDevice&quot;. DON&apos;T ENABLE AUDIO ALERTS WHEN YOUR RIG IS CONNECTED VIA THIS SOUNDCARD !!!</source>
         <translation>切换 启用/停用 音频警报. 警报将在 &quot;默认音频设备&quot; 上播放. 当您的无线电设备通过此声卡连接时, 不要启用音频警报 !!!</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="4055"/>
+        <location filename="../Configuration.ui" line="4308"/>
         <source>Enable Audio Alerts</source>
         <translation>启用 音频警报</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="4065"/>
-        <location filename="../Configuration.ui" line="4068"/>
+        <location filename="../Configuration.ui" line="4277"/>
+        <location filename="../Configuration.ui" line="4280"/>
         <source>CQ in message</source>
         <translation>CQ 信息</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="4078"/>
+        <location filename="../Configuration.ui" line="4358"/>
         <source>Use of this feature requires that your computer is equipped with two sound cards.</source>
         <translation>使用此功能您的计算机需要配备两个声卡.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="4085"/>
         <source>This requirement is fulfilled when your rig is connected via USB audio (FT-991, IC-7300, etc.).</source>
-        <translation>当您的无线电设备通过USB音频 (FT-991, IC-7300, 等) 连接时, 此要求即已满足.</translation>
+        <translation type="vanished">当您的无线电设备通过USB音频 (FT-991, IC-7300, 等) 连接时, 此要求即已满足.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="4092"/>
+        <location filename="../Configuration.ui" line="4344"/>
         <source>Audio Alerts will be played on the default audio device (usually the loudspeaker of your PC).</source>
         <translation>音频警报将在默认的音频设备 (通常是电脑的扬声器) 上播放.</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="4099"/>
         <source>WARNING: THIS FEATURE IS FOR EXPERIENCED USERS ONLY !!!</source>
-        <translation>警告: 此功能仅供有经验的用户使用 !!!</translation>
+        <translation type="vanished">警告: 此功能仅供有经验的用户使用 !!!</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="4106"/>
         <source>IMPORTANT NOTE: Enable Audio Alerts only in case your rig is NOT connected via &quot;DefaultAudioDevice&quot; !!! </source>
-        <translation>重要提示: 仅当您的无线电设备没有通过 &quot;默认音频设备&quot; 连接时才启用音频警报!!! </translation>
+        <translation type="vanished">重要提示: 仅当您的无线电设备没有通过 &quot;默认音频设备&quot; 连接时才启用音频警报!!! </translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="4135"/>
+        <location filename="../Configuration.ui" line="4562"/>
         <source>Always pass messages with the following keywords:</source>
         <translation>总是通过带有以下关键字的讯息:</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="4163"/>
+        <location filename="../Configuration.ui" line="4421"/>
         <source>Filters for the Band Activity window</source>
         <translation>波段活动窗口的过滤器</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="4185"/>
+        <location filename="../Configuration.ui" line="4395"/>
         <source>Territories 1-4 for the Hide checkboxes in the View menu</source>
         <translation>查看菜单中隐藏复选框的区域1-4</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="4242"/>
+        <location filename="../Configuration.ui" line="4494"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Use filters for Wait and Pounce, CQ: First, etc. only (all messages are still displayed).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;使用过滤器 等待和突袭, CQ:第一, 等. 仅 (仍显示所有消息).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="4245"/>
+        <location filename="../Configuration.ui" line="4497"/>
         <source>Use filters for Wait and Pounce, CQ: First, etc. only (all messages are still displayed)</source>
         <translation>使用过滤器 等待和突袭, CQ:第一, 等. 仅 (仍显示所有消息)</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="4341"/>
+        <location filename="../Configuration.ui" line="4600"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Apply filters only to the callsigns of the calling stations. Usually the second word of the messages is analyzed, for directional calls the third word.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;只对呼叫电台的呼号使用过滤. 通常分析消息的第二个字, 对于定向呼叫, 分析第三个字.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="4344"/>
+        <location filename="../Configuration.ui" line="4603"/>
         <source>Apply filters only to the callsigns of the calling stations</source>
         <translation>应用过滤仅对呼叫电台的呼号</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="4379"/>
+        <location filename="../Configuration.ui" line="4402"/>
         <source>Blacklist</source>
         <translation>黑名单</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="4277"/>
+        <location filename="../Configuration.ui" line="4587"/>
         <source>Whitelist</source>
         <translation>白名单</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="4258"/>
+        <location filename="../Configuration.ui" line="4622"/>
         <source>Always Pass</source>
         <translation>总是通过</translation>
     </message>
     <message>
-        <location filename="../Configuration.ui" line="4392"/>
+        <location filename="../Configuration.ui" line="4638"/>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Use “worked today and yesterday” instead of “worked today” for the 3 related Quick Filters.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;对于3个相关的快速筛选, 请使用 &quot;今天和昨天曾通联&quot; 而不是 &quot;今天曾通联&quot;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="4641"/>
+        <source>Quick Filters: Hide/Ignore/Highlight &quot;worked today and yesterday&quot; instead of &quot;worked today&quot; (UTC)</source>
+        <translation>快速筛选:隐藏/忽略/突出显示 &quot;今天和昨天曾通联&quot; 而不是 &quot;今天曾通联&quot; (UTC)</translation>
+    </message>
+    <message>
+        <location filename="../Configuration.ui" line="4654"/>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Discard (Cancel) or apply (OK) configuration changes including&lt;/p&gt;&lt;p&gt;resetting the radio interface and applying any soundcard changes&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;放弃 (取消) 或应用 (确定) 配置更改, 包括&lt;/p&gt;&lt;p&gt;重置无线电接口并应用任何声卡更改&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>

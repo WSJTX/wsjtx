@@ -1,5 +1,6 @@
 module ft8_decodevar
 
+  logical ltry_a8
   type :: ft8_decodervar
      procedure(ft8_decodevar_callback), pointer :: callback
    contains
