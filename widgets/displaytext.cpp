@@ -258,9 +258,10 @@ void DisplayText::new_period ()
   }
   alertsTimer.stop ();
   disconnect (&alertsTimer, &QTimer::timeout, this, &DisplayText::AudioAlerts);
-  if((m_config->alert_Enabled()) && ((m_config->alert_DXCC()) || (m_config->alert_DXCCOB()) || (m_config->alert_Grid()) ||
-     (m_config->alert_GridOB()) || (m_config->alert_Continent()) || (m_config->alert_ContinentOB()) || (m_config->alert_CQZ()) ||
-     (m_config->alert_CQZOB()) || (m_config->alert_ITUZ()) || (m_config->alert_ITUZOB()) || (m_config->alert_CQ()))) {
+  if (m_config->alert_Enabled() && (m_config->alert_MyCall() || m_config->alert_DXCC() || m_config->alert_DXCCOB() ||
+      m_config->alert_Grid() || m_config->alert_GridOB() || m_config->alert_Continent() || m_config->alert_ContinentOB() ||
+      m_config->alert_CQZ() || m_config->alert_CQZOB() || m_config->alert_ITUZ() || m_config->alert_ITUZOB() ||
+      m_config->alert_CQ())) {
       connect (&alertsTimer, &QTimer::timeout, this, &DisplayText::AudioAlerts);
       alertsTimer.setSingleShot (true);
       alertsTimer.start (1000);
@@ -1165,22 +1166,6 @@ void DisplayText::AudioAlerts()
             }
             Q_FALLTHROUGH();
         case 12:
-            if (play_MyCall) {
-#ifdef WIN32
-              effect2->open(QIODevice::ReadOnly);
-              audio->start(effect2);
-#else
-              QSound::play(binPath + "/sounds/MyCall.wav");  // for Linux and macOS
-#endif
-              play_MyCall = false;
-              alertsTimer.start (1000);
-              startIndex = nextStartIndex;
-              return;
-            } else {
-              nextStartIndex++;
-            }
-            Q_FALLTHROUGH();
-        case 13:
             // stop any running alerts timer, clear temp data, and restart alerts timer
             alertsTimer.stop ();
 #ifdef WIN32
