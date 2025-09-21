@@ -3820,12 +3820,14 @@ void Configuration::impl::on_hamlib_download_button_clicked (bool /*clicked*/)
   ui_->revert_update_button->setEnabled (false);
   if (ui_->rbHamlib32->isChecked()) {
     cty_download.configure(network_manager_,
-                           "https://n0nb.users.sourceforge.net/dll32/libhamlib-4.dll",
+//                           "https://n0nb.users.sourceforge.net/dll32/libhamlib-4.dll",
+                           "http://dr-risse-consulting.de/hamlib/dll32/libhamlib-4.dll",  // hamlib mirror DG2YCB
                            dataPath.absoluteFilePath("libhamlib-4_new.dll"),
                            "Downloading latest libhamlib-4.dll");
   } else {
     cty_download.configure(network_manager_,
-                           "https://n0nb.users.sourceforge.net/dll64/libhamlib-4.dll",
+//                           "https://n0nb.users.sourceforge.net/dll64/libhamlib-4.dll",
+                           "http://dr-risse-consulting.de/hamlib/dll64/libhamlib-4.dll",  // hamlib mirror DG2YCB
                            dataPath.absoluteFilePath("libhamlib-4_new.dll"),
                            "Downloading latest libhamlib-4.dll");
   }
