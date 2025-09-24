@@ -6841,8 +6841,8 @@ void MainWindow::readFromStdout()                             //readFromStdout
                                                           haveFSpread, fSpread, bDisplayPoints, m_points, distance, m_muted);
           }
           if(m_position != 0) ui->decodedTextBrowser->horizontalScrollBar()->setValue(m_position);
-          if (m_mode=="FT8" && m_multithreadFT8 && m_ft8DecoderStart<2) earlyDecodes.append(line_read); //ft8md
         }
+        if (m_mode=="FT8" && m_multithreadFT8 && m_ft8DecoderStart<2) earlyDecodes.append(line_read); //ft8md
 
         // highlight callsigns worked B4 on band or worked today
         if(ui->actionHighlightB4->isChecked() or ui->actionHighlightToday->isChecked() or ui->actionHighlightIgnored->isChecked()
