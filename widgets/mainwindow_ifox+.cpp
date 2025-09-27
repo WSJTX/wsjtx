@@ -10788,6 +10788,7 @@ void MainWindow::on_actionFST4W_triggered()
 
 void MainWindow::on_actionFT4_triggered()
 {
+  if (m_mode=="MSK144") QTimer::singleShot (75, [=] {on_actionFT4_triggered();});
   QTimer::singleShot (50, [=] {
     ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq_old",1500).toInt());
     ui->RxFreqSpinBox->setValue(m_settings->value("RxFreq_old",1500).toInt());
@@ -10847,6 +10848,7 @@ void MainWindow::on_actionFT4_triggered()
 
 void MainWindow::on_actionFT8_triggered()
 {
+  if (m_mode=="MSK144") QTimer::singleShot (75, [=] {on_actionFT8_triggered();});
   QTimer::singleShot (50, [=] {
     if(m_specOp!=SpecOp::FOX) ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq_old",1500).toInt());
     if(m_specOp==SpecOp::FOX && !m_config.superFox()) ui->TxFreqSpinBox->setValue(m_TxFreqFox);
@@ -11162,6 +11164,7 @@ void MainWindow::on_actionJT9_triggered()
 
 void MainWindow::on_actionJT65_triggered()
 {
+  if (m_mode=="MSK144") QTimer::singleShot (75, [=] {on_actionJT65_triggered();});
   QTimer::singleShot (50, [=] {
     ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq_old",1500).toInt());
     ui->RxFreqSpinBox->setValue(m_settings->value("RxFreq_old",1500).toInt());
@@ -11232,6 +11235,7 @@ void MainWindow::on_actionJT65_triggered()
 
 void MainWindow::on_actionQ65_triggered()
 {
+  if (m_mode=="MSK144") QTimer::singleShot (75, [=] {on_actionQ65_triggered();});
   QTimer::singleShot (50, [=] {
     ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq_old",1500).toInt());
     ui->RxFreqSpinBox->setValue(m_settings->value("RxFreq_old",1500).toInt());
