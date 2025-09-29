@@ -278,6 +278,9 @@ bool m_muted = false;
 bool no_decodes_to_UDP = false;
 bool rigFailed = false;
 bool programStart = true;
+int m_msk144_tr {30};
+int m_msk144_tr2 {30};
+int m_msk144_tr6 {15};
 QString txLog;
 QString ignoreList;
 QString ALLCALL7 = "";
@@ -972,6 +975,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
       else {
         config_label.hide ();
       }
+      programStart = true;
+      QTimer::singleShot (2000, [=] {programStart=false;});
       statusUpdate ();
 #if defined(Q_OS_WIN)
       QTimer::singleShot (250, [=] {
@@ -1739,9 +1744,14 @@ void MainWindow::readSettings()
   }
   if (m_mode=="MSK144") {
     ui->sbFtol->setValue (m_settings->value("Ftol_MSK144",50).toInt());
-    if (!(m_currentBand=="6m" or m_currentBand=="4m" or m_currentBand=="2m")) ui->sbTR->setValue (m_settings->value ("TRPeriod_MSK144", 30).toInt());
-    if (m_currentBand=="6m" or m_currentBand=="4m") ui->sbTR->setValue (m_settings->value ("TRPeriod_MSK144_6m", 15).toInt());
-    if (m_currentBand=="2m") ui->sbTR->setValue (m_settings->value ("TRPeriod_MSK144_2m", 30).toInt());
+    m_msk144_tr2=m_settings->value ("TRPeriod_MSK144_2m", 30).toInt();
+    m_msk144_tr6=m_settings->value ("TRPeriod_MSK144_6m", 15).toInt();
+    m_msk144_tr=m_settings->value ("TRPeriod_MSK144", 30).toInt();
+    QTimer::singleShot (3000, [=] {
+      if (m_currentBand=="2m") ui->sbTR->setValue (m_msk144_tr2);
+      else if (m_currentBand=="6m" or m_currentBand=="4m") ui->sbTR->setValue (m_msk144_tr6);
+      else ui->sbTR->setValue (m_msk144_tr);
+    });
   }
   if (m_mode=="MSK144") m_bShMsgs=m_settings->value("ShMsgs_MSK144",false).toBool();
   if (m_mode=="Q65") m_bShMsgs=m_settings->value("ShMsgs_Q65",false).toBool();
@@ -10215,6 +10225,11 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
       f = 222174000;
     } else {
       f = 70154000;
+      if (m_mode=="MSK144") {
+        ui->sbTR->setValue (m_msk144_tr6);
+        programStart = true;
+        QTimer::singleShot (250, [=] {programStart = false;});
+      }
     }
     auto const& row = m_config.frequencies ()->best_working_frequency (f);
     ui->bandComboBox->setCurrentIndex (row);
@@ -11299,9 +11314,11 @@ void MainWindow::on_actionMSK144_triggered()
   m_bFast9=false;
   ui->sbTR->values ({5, 10, 15, 30});
   // restore last used parameters
-  if (!(m_currentBand=="6m" or m_currentBand=="4m" or m_currentBand=="2m")) ui->sbTR->setValue (m_settings->value ("TRPeriod_MSK144", 30).toInt());
-  if (m_currentBand=="6m" or m_currentBand=="4m") ui->sbTR->setValue (m_settings->value ("TRPeriod_MSK144_6m", 15).toInt());
-  if (m_currentBand=="2m") ui->sbTR->setValue (m_settings->value ("TRPeriod_MSK144_2m", 30).toInt());
+  if (!programStart) {
+    if (m_currentBand=="2m") ui->sbTR->setValue (m_msk144_tr2);
+    else if (m_currentBand=="6m" or m_currentBand=="4m") ui->sbTR->setValue (m_msk144_tr6);
+    else ui->sbTR->setValue (m_msk144_tr);
+  }
   ui->txFirstCheckBox->setEnabled(true);
   QTimer::singleShot (50, [=] {on_sbTR_valueChanged (ui->sbTR->value());});
   ui->sbFtol->setValue (m_settings->value ("Ftol_MSK144", 50).toInt());   // restore last used parameter
@@ -11878,14 +11895,6 @@ void MainWindow::on_bandComboBox_activated (int index)
 void MainWindow::band_changed (Frequency f)
 {
   msk144qsy = false;  // MSK144 QSY
-  QTimer::singleShot (900, [=] {
-      if (m_mode=="MSK144" && (!(m_currentBand=="6m" or m_currentBand=="4m" or m_currentBand=="2m")))
-          ui->sbTR->setValue (m_settings->value ("TRPeriod_MSK144", 30).toInt());
-      if (m_mode=="MSK144" && (m_currentBand=="6m" or m_currentBand=="4m"))
-          ui->sbTR->setValue (m_settings->value ("TRPeriod_MSK144_6m", 15).toInt());
-      if (m_mode=="MSK144" && m_currentBand=="2m")
-          ui->sbTR->setValue (m_settings->value ("TRPeriod_MSK144_2m", 30).toInt());
-  });
   // Don't allow a7 decodes during the first period because they can be leftovers from the previous band
   no_a7_decodes = true;
   QTimer::singleShot ((int(1500.0*m_TRperiod)), [=] {no_a7_decodes = false;});
@@ -11934,7 +11943,14 @@ void MainWindow::band_changed (Frequency f)
     m_specOp=m_config.special_op_id();
     if (m_specOp==SpecOp::FOX) FoxReset("BandChange");  // when changing bands, don't preserve the Fox queues
     m_lastloggedcall.clear();  //ft8md
-    if(m_mode=="MSK144" && !(programStart or m_freqNominal == 0)) m_msk144basefreq = m_freqNominal;  // MSK144 QSY
+    if (m_mode=="MSK144" && !(programStart or m_freqNominal == 0)) m_msk144basefreq = m_freqNominal;  // MSK144 QSY
+    if (m_mode=="MSK144" && !programStart) { // restore MSK144 TRperiods by band
+      QTimer::singleShot (750, [=] {
+        if (m_currentBand=="2m" && m_msk144_tr2!=ui->sbTR->value()) ui->sbTR->setValue (m_msk144_tr2);
+        else if ((m_currentBand=="6m" or m_currentBand=="4m") && m_msk144_tr6!=ui->sbTR->value()) ui->sbTR->setValue (m_msk144_tr6);
+        else ui->sbTR->setValue (m_msk144_tr);
+      });
+    }
   }
 
   // Erase the decodedTextBrowsers only if the band really changed
@@ -12888,17 +12904,19 @@ void MainWindow::on_sbTR_valueChanged(int value)
   on_sbSubmode_valueChanged(ui->sbSubmode->value());
   statusUpdate ();
   check_button_color();
-  // save last used parameters
   if (!programStart) QTimer::singleShot (1000, [=] {
     if (m_mode=="Q65") m_settings->setValue ("TRPeriod_Q65", ui->sbTR->value ());
-    if (m_mode=="MSK144" && (!(m_currentBand=="6m" or m_currentBand=="4m" or m_currentBand=="2m"))) {
-      m_settings->setValue ("TRPeriod_MSK144", ui->sbTR->value ());
-    }
-    if (m_mode=="MSK144" && (m_currentBand=="6m" or m_currentBand=="4m")) {
-      m_settings->setValue ("TRPeriod_MSK144_6m", ui->sbTR->value ());
-    }
-    if (m_mode=="MSK144" && m_currentBand=="2m") {
-      m_settings->setValue ("TRPeriod_MSK144_2m", ui->sbTR->value ());
+    if (m_mode=="MSK144") {
+      if (m_currentBand=="2m") {
+        m_msk144_tr2=ui->sbTR->value ();
+        m_settings->setValue ("TRPeriod_MSK144_2m", ui->sbTR->value ());
+      } else if (m_currentBand=="6m" or m_currentBand=="4m") {
+        m_msk144_tr6=ui->sbTR->value ();
+        m_settings->setValue ("TRPeriod_MSK144_6m", ui->sbTR->value ());
+      } else {
+        m_msk144_tr=ui->sbTR->value ();
+        m_settings->setValue ("TRPeriod_MSK144", ui->sbTR->value ());
+      }
     }
     if (m_mode=="FST4") m_settings->setValue ("TRPeriod_FST4", ui->sbTR->value ());
     if (m_mode=="JT9") m_settings->setValue ("TRPeriod", ui->sbTR->value ());
@@ -16563,188 +16581,258 @@ void MainWindow::check_button_color()
 
 void MainWindow::on_pb160_clicked()
 {
-    auto const& row = m_config.frequencies ()->best_working_frequency (1840000);
-    ui->bandComboBox->setCurrentIndex (row);
-    if (row >= 0) {
-      on_bandComboBox_activated (row);
-    } else {
-      keep_frequency = true;
-      setRig(1837000);
-      QTimer::singleShot (250, [=] {keep_frequency = false;});
-    }
-    setXIT (ui->TxFreqSpinBox->value ());
+  if (m_mode=="MSK144") {
+    ui->sbTR->setValue (m_msk144_tr);
+    programStart = true;
+    QTimer::singleShot (250, [=] {programStart = false;});
+  }
+  auto const& row = m_config.frequencies ()->best_working_frequency (1840000);
+  ui->bandComboBox->setCurrentIndex (row);
+  if (row >= 0) {
+    on_bandComboBox_activated (row);
+  } else {
+    keep_frequency = true;
+    setRig(1837000);
+    QTimer::singleShot (250, [=] {keep_frequency = false;});
+  }
+  setXIT (ui->TxFreqSpinBox->value ());
 }
 
 void MainWindow::on_pb80_clicked()
 {
-    auto const& row = m_config.frequencies ()->best_working_frequency (3573000);
-    ui->bandComboBox->setCurrentIndex (row);
-    if (row >= 0) {
-      on_bandComboBox_activated (row);
-    } else {
-      keep_frequency = true;
-      setRig(3576000);
-      QTimer::singleShot (250, [=] {keep_frequency = false;});
-    }
-    setXIT (ui->TxFreqSpinBox->value ());
+  if (m_mode=="MSK144") {
+    ui->sbTR->setValue (m_msk144_tr);
+    programStart = true;
+    QTimer::singleShot (250, [=] {programStart = false;});
+  }
+  auto const& row = m_config.frequencies ()->best_working_frequency (3573000);
+  ui->bandComboBox->setCurrentIndex (row);
+  if (row >= 0) {
+    on_bandComboBox_activated (row);
+  } else {
+    keep_frequency = true;
+    setRig(3576000);
+    QTimer::singleShot (250, [=] {keep_frequency = false;});
+  }
+  setXIT (ui->TxFreqSpinBox->value ());
 }
 
 void MainWindow::on_pb60_clicked()
 {
-    auto const& row = m_config.frequencies ()->best_working_frequency (5357000);
-    ui->bandComboBox->setCurrentIndex (row);
-    if (row >= 0) {
-      on_bandComboBox_activated (row);
-    } else {
-      keep_frequency = true;
-      setRig(5357000);
-      QTimer::singleShot (250, [=] {keep_frequency = false;});
-    }
-    setXIT (ui->TxFreqSpinBox->value ());
+  if (m_mode=="MSK144") {
+    ui->sbTR->setValue (m_msk144_tr);
+    programStart = true;
+    QTimer::singleShot (250, [=] {programStart = false;});
+  }
+  auto const& row = m_config.frequencies ()->best_working_frequency (5357000);
+  ui->bandComboBox->setCurrentIndex (row);
+  if (row >= 0) {
+    on_bandComboBox_activated (row);
+  } else {
+    keep_frequency = true;
+    setRig(5357000);
+    QTimer::singleShot (250, [=] {keep_frequency = false;});
+  }
+  setXIT (ui->TxFreqSpinBox->value ());
 }
 
 void MainWindow::on_pb40_clicked()
 {
-    auto const& row = m_config.frequencies ()->best_working_frequency (7074000);
-    ui->bandComboBox->setCurrentIndex (row);
-    if (row >= 0) {
-      on_bandComboBox_activated (row);
-    } else {
-      keep_frequency = true;
-      setRig(7077000);
-      QTimer::singleShot (250, [=] {keep_frequency = false;});
-    }
-    setXIT (ui->TxFreqSpinBox->value ());
+  if (m_mode=="MSK144") {
+    ui->sbTR->setValue (m_msk144_tr);
+    programStart = true;
+    QTimer::singleShot (250, [=] {programStart = false;});
+  }
+  auto const& row = m_config.frequencies ()->best_working_frequency (7074000);
+  ui->bandComboBox->setCurrentIndex (row);
+  if (row >= 0) {
+    on_bandComboBox_activated (row);
+  } else {
+    keep_frequency = true;
+    setRig(7077000);
+    QTimer::singleShot (250, [=] {keep_frequency = false;});
+  }
+  setXIT (ui->TxFreqSpinBox->value ());
 }
 
 void MainWindow::on_pb30_clicked()
 {
-    auto const& row = m_config.frequencies ()->best_working_frequency (10136000);
-    ui->bandComboBox->setCurrentIndex (row);
-    if (row >= 0) {
-      on_bandComboBox_activated (row);
-    } else {
-      keep_frequency = true;
-      setRig(10139000);
-      QTimer::singleShot (250, [=] {keep_frequency = false;});
-    }
-    setXIT (ui->TxFreqSpinBox->value ());
+  if (m_mode=="MSK144") {
+    ui->sbTR->setValue (m_msk144_tr);
+    programStart = true;
+    QTimer::singleShot (250, [=] {programStart = false;});
+  }
+  auto const& row = m_config.frequencies ()->best_working_frequency (10136000);
+  ui->bandComboBox->setCurrentIndex (row);
+  if (row >= 0) {
+    on_bandComboBox_activated (row);
+  } else {
+    keep_frequency = true;
+    setRig(10139000);
+    QTimer::singleShot (250, [=] {keep_frequency = false;});
+  }
+  setXIT (ui->TxFreqSpinBox->value ());
 }
 
 void MainWindow::on_pb20_clicked()
 {
-    auto const& row = m_config.frequencies ()->best_working_frequency (14074000);
-    ui->bandComboBox->setCurrentIndex (row);
-    if (row >= 0) {
-      on_bandComboBox_activated (row);
-    } else {
-      keep_frequency = true;
-      setRig(14077000);
-      QTimer::singleShot (250, [=] {keep_frequency = false;});
-    }
-    setXIT (ui->TxFreqSpinBox->value ());
+  if (m_mode=="MSK144") {
+    ui->sbTR->setValue (m_msk144_tr);
+    programStart = true;
+    QTimer::singleShot (250, [=] {programStart = false;});
+  }
+  auto const& row = m_config.frequencies ()->best_working_frequency (14074000);
+  ui->bandComboBox->setCurrentIndex (row);
+  if (row >= 0) {
+    on_bandComboBox_activated (row);
+  } else {
+    keep_frequency = true;
+    setRig(14077000);
+    QTimer::singleShot (250, [=] {keep_frequency = false;});
+  }
+  setXIT (ui->TxFreqSpinBox->value ());
 }
 
 void MainWindow::on_pb17_clicked()
 {
-    auto const& row = m_config.frequencies ()->best_working_frequency (18100000);
-    ui->bandComboBox->setCurrentIndex (row);
-    if (row >= 0) {
-      on_bandComboBox_activated (row);
-    } else {
-      keep_frequency = true;
-      setRig(18103000);
-      QTimer::singleShot (250, [=] {keep_frequency = false;});
-    }
-    setXIT (ui->TxFreqSpinBox->value ());
+  if (m_mode=="MSK144") {
+    ui->sbTR->setValue (m_msk144_tr);
+    programStart = true;
+    QTimer::singleShot (250, [=] {programStart = false;});
+  }
+  auto const& row = m_config.frequencies ()->best_working_frequency (18100000);
+  ui->bandComboBox->setCurrentIndex (row);
+  if (row >= 0) {
+    on_bandComboBox_activated (row);
+  } else {
+    keep_frequency = true;
+    setRig(18103000);
+    QTimer::singleShot (250, [=] {keep_frequency = false;});
+  }
+  setXIT (ui->TxFreqSpinBox->value ());
 }
 
 void MainWindow::on_pb15_clicked()
 {
-    auto const& row = m_config.frequencies ()->best_working_frequency (21074000);
-    ui->bandComboBox->setCurrentIndex (row);
-    if (row >= 0) {
-      on_bandComboBox_activated (row);
-    } else {
-      keep_frequency = true;
-      setRig(21077000);
-      QTimer::singleShot (250, [=] {keep_frequency = false;});
-    }
-    setXIT (ui->TxFreqSpinBox->value ());
+  if (m_mode=="MSK144") {
+    ui->sbTR->setValue (m_msk144_tr);
+    programStart = true;
+    QTimer::singleShot (250, [=] {programStart = false;});
+  }
+  auto const& row = m_config.frequencies ()->best_working_frequency (21074000);
+  ui->bandComboBox->setCurrentIndex (row);
+  if (row >= 0) {
+    on_bandComboBox_activated (row);
+  } else {
+    keep_frequency = true;
+    setRig(21077000);
+    QTimer::singleShot (250, [=] {keep_frequency = false;});
+  }
+  setXIT (ui->TxFreqSpinBox->value ());
 }
 
 void MainWindow::on_pb12_clicked()
 {
-    auto const& row = m_config.frequencies ()->best_working_frequency (24915000);
-    ui->bandComboBox->setCurrentIndex (row);
-    if (row >= 0) {
-      on_bandComboBox_activated (row);
-    } else {
-      keep_frequency = true;
-      setRig(24918000);
-      QTimer::singleShot (250, [=] {keep_frequency = false;});
-    }
-    setXIT (ui->TxFreqSpinBox->value ());
+  if (m_mode=="MSK144") {
+    ui->sbTR->setValue (m_msk144_tr);
+    programStart = true;
+    QTimer::singleShot (250, [=] {programStart = false;});
+  }
+  auto const& row = m_config.frequencies ()->best_working_frequency (24915000);
+  ui->bandComboBox->setCurrentIndex (row);
+  if (row >= 0) {
+    on_bandComboBox_activated (row);
+  } else {
+    keep_frequency = true;
+    setRig(24918000);
+    QTimer::singleShot (250, [=] {keep_frequency = false;});
+  }
+  setXIT (ui->TxFreqSpinBox->value ());
 }
 
 void MainWindow::on_pb10_clicked()
 {
-    auto const& row = m_config.frequencies ()->best_working_frequency (28074000);
-    ui->bandComboBox->setCurrentIndex (row);
-    if (row >= 0) {
-      on_bandComboBox_activated (row);
-    } else {
-      keep_frequency = true;
-      setRig(28077000);
-      QTimer::singleShot (250, [=] {keep_frequency = false;});
-    }
-    setXIT (ui->TxFreqSpinBox->value ());
+  if (m_mode=="MSK144") {
+    ui->sbTR->setValue (m_msk144_tr);
+    programStart = true;
+    QTimer::singleShot (250, [=] {programStart = false;});
+  }
+  auto const& row = m_config.frequencies ()->best_working_frequency (28074000);
+  ui->bandComboBox->setCurrentIndex (row);
+  if (row >= 0) {
+    on_bandComboBox_activated (row);
+  } else {
+    keep_frequency = true;
+    setRig(28077000);
+    QTimer::singleShot (250, [=] {keep_frequency = false;});
+  }
+  setXIT (ui->TxFreqSpinBox->value ());
 }
 
 void MainWindow::on_pb6_clicked()
 {
-    auto const& row = m_config.frequencies ()->best_working_frequency (50313000);
-    ui->bandComboBox->setCurrentIndex (row);
-    if (row >= 0) {
-      on_bandComboBox_activated (row);
-    } else {
-      keep_frequency = true;
-      setRig(50316000);
-      QTimer::singleShot (250, [=] {keep_frequency = false;});
-    }
-    setXIT (ui->TxFreqSpinBox->value ());
+  if (m_mode=="MSK144") {
+    ui->sbTR->setValue (m_msk144_tr6);
+    programStart = true;
+    QTimer::singleShot (250, [=] {programStart = false;});
+  }
+  auto const& row = m_config.frequencies ()->best_working_frequency (50313000);
+  ui->bandComboBox->setCurrentIndex (row);
+  if (row >= 0) {
+    on_bandComboBox_activated (row);
+  } else {
+    keep_frequency = true;
+    setRig(50316000);
+    QTimer::singleShot (250, [=] {keep_frequency = false;});
+  }
+  setXIT (ui->TxFreqSpinBox->value ());
 }
 
 void MainWindow::on_pb2_clicked()
 {
-    auto const& row = m_config.frequencies ()->best_working_frequency (144074000);
-    ui->bandComboBox->setCurrentIndex (row);
-    if (row >= 0) {
-      on_bandComboBox_activated (row);
-    } else {
-      keep_frequency = true;
-      setRig(144077000);
-      QTimer::singleShot (250, [=] {keep_frequency = false;});
-    }
-    setXIT (ui->TxFreqSpinBox->value ());
+  if (m_mode=="MSK144") {
+    ui->sbTR->setValue (m_msk144_tr2);
+    programStart = true;
+    QTimer::singleShot (250, [=] {programStart = false;});
+  }
+  auto const& row = m_config.frequencies ()->best_working_frequency (144074000);
+  ui->bandComboBox->setCurrentIndex (row);
+  if (row >= 0) {
+    on_bandComboBox_activated (row);
+  } else {
+    keep_frequency = true;
+    setRig(144077000);
+    QTimer::singleShot (250, [=] {keep_frequency = false;});
+  }
+  setXIT (ui->TxFreqSpinBox->value ());
 }
 
 void MainWindow::on_pb70_clicked()
 {
-    auto const& row = m_config.frequencies ()->best_working_frequency (432074000);
-    ui->bandComboBox->setCurrentIndex (row);
-    if (row >= 0) {
-      on_bandComboBox_activated (row);
-    } else {
-      keep_frequency = true;
-      setRig(432077000);
-      QTimer::singleShot (250, [=] {keep_frequency = false;});
-    }
-    setXIT (ui->TxFreqSpinBox->value ());
+  if (m_mode=="MSK144") {
+    ui->sbTR->setValue (m_msk144_tr);
+    programStart = true;
+    QTimer::singleShot (250, [=] {programStart = false;});
+  }
+  auto const& row = m_config.frequencies ()->best_working_frequency (432074000);
+  ui->bandComboBox->setCurrentIndex (row);
+  if (row >= 0) {
+    on_bandComboBox_activated (row);
+  } else {
+    keep_frequency = true;
+    setRig(432077000);
+    QTimer::singleShot (250, [=] {keep_frequency = false;});
+  }
+  setXIT (ui->TxFreqSpinBox->value ());
 }
 
 void MainWindow::on_pb8_clicked()
 {
+  if (m_mode=="MSK144") {
+    ui->sbTR->setValue (m_msk144_tr);
+    programStart = true;
+    QTimer::singleShot (250, [=] {programStart = false;});
+  }
   auto const& row = m_config.frequencies ()->best_working_frequency (40680000);
   ui->bandComboBox->setCurrentIndex (row);
   if (row >= 0) {
@@ -16759,6 +16847,11 @@ void MainWindow::on_pb8_clicked()
 
 void MainWindow::on_pb50_clicked()
 {
+  if (m_mode=="MSK144") {
+    ui->sbTR->setValue (m_msk144_tr6);
+    programStart = true;
+    QTimer::singleShot (250, [=] {programStart = false;});
+  }
   auto const& row = m_config.frequencies ()->best_working_frequency (50313000);
   ui->bandComboBox->setCurrentIndex (row);
   if (row >= 0) {
@@ -16773,6 +16866,11 @@ void MainWindow::on_pb50_clicked()
 
 void MainWindow::on_pb4_clicked()
 {
+  if (m_mode=="MSK144") {
+    ui->sbTR->setValue (m_msk144_tr6);
+    programStart = true;
+    QTimer::singleShot (250, [=] {programStart = false;});
+  }
   auto const& row = m_config.frequencies ()->best_working_frequency (70154000);
   ui->bandComboBox->setCurrentIndex (row);
   if (row >= 0) {
@@ -16787,6 +16885,11 @@ void MainWindow::on_pb4_clicked()
 
 void MainWindow::on_pb144_clicked()
 {
+  if (m_mode=="MSK144") {
+    ui->sbTR->setValue (m_msk144_tr2);
+    programStart = true;
+    QTimer::singleShot (250, [=] {programStart = false;});
+  }
   auto const& row = m_config.frequencies ()->best_working_frequency (144074000);
   ui->bandComboBox->setCurrentIndex (row);
   if (row >= 0) {
@@ -16801,6 +16904,11 @@ void MainWindow::on_pb144_clicked()
 
 void MainWindow::on_pb220_clicked()
 {
+  if (m_mode=="MSK144") {
+    ui->sbTR->setValue (m_msk144_tr);
+    programStart = true;
+    QTimer::singleShot (250, [=] {programStart = false;});
+  }
   auto const& row = m_config.frequencies ()->best_working_frequency (222174000);
   ui->bandComboBox->setCurrentIndex (row);
   if (row >= 0) {
@@ -16815,6 +16923,11 @@ void MainWindow::on_pb220_clicked()
 
 void MainWindow::on_pb432_clicked()
 {
+  if (m_mode=="MSK144") {
+    ui->sbTR->setValue (m_msk144_tr);
+    programStart = true;
+    QTimer::singleShot (250, [=] {programStart = false;});
+  }
   auto const& row = m_config.frequencies ()->best_working_frequency (432174000);
   ui->bandComboBox->setCurrentIndex (row);
   if (row >= 0) {
@@ -16829,6 +16942,11 @@ void MainWindow::on_pb432_clicked()
 
 void MainWindow::on_pb902_clicked()
 {
+  if (m_mode=="MSK144") {
+    ui->sbTR->setValue (m_msk144_tr);
+    programStart = true;
+    QTimer::singleShot (250, [=] {programStart = false;});
+  }
   auto const& row = m_config.frequencies ()->best_working_frequency (902174000);
   ui->bandComboBox->setCurrentIndex (row);
   if (row >= 0) {
@@ -16843,6 +16961,11 @@ void MainWindow::on_pb902_clicked()
 
 void MainWindow::on_pb23_clicked()
 {
+  if (m_mode=="MSK144") {
+    ui->sbTR->setValue (m_msk144_tr);
+    programStart = true;
+    QTimer::singleShot (250, [=] {programStart = false;});
+  }
   auto const& row = m_config.frequencies ()->best_working_frequency (1296065000);
   ui->bandComboBox->setCurrentIndex (row);
   if (row >= 0) {
@@ -16857,6 +16980,11 @@ void MainWindow::on_pb23_clicked()
 
 void MainWindow::on_pb13_clicked()
 {
+  if (m_mode=="MSK144") {
+    ui->sbTR->setValue (m_msk144_tr);
+    programStart = true;
+    QTimer::singleShot (250, [=] {programStart = false;});
+  }
   auto const& row = m_config.frequencies ()->best_working_frequency (2304065000);
   ui->bandComboBox->setCurrentIndex (row);
   if (row >= 0) {
@@ -16871,6 +16999,11 @@ void MainWindow::on_pb13_clicked()
 
 void MainWindow::on_pb9_clicked()
 {
+  if (m_mode=="MSK144") {
+    ui->sbTR->setValue (m_msk144_tr);
+    programStart = true;
+    QTimer::singleShot (250, [=] {programStart = false;});
+  }
   auto const& row = m_config.frequencies ()->best_working_frequency (3400065000);
   ui->bandComboBox->setCurrentIndex (row);
   if (row >= 0) {
@@ -16885,6 +17018,11 @@ void MainWindow::on_pb9_clicked()
 
 void MainWindow::on_pb5G_clicked()
 {
+  if (m_mode=="MSK144") {
+    ui->sbTR->setValue (m_msk144_tr);
+    programStart = true;
+    QTimer::singleShot (250, [=] {programStart = false;});
+  }
   auto const& row = m_config.frequencies ()->best_working_frequency (5760200000);
   ui->bandComboBox->setCurrentIndex (row);
   if (row >= 0) {
@@ -16899,6 +17037,11 @@ void MainWindow::on_pb5G_clicked()
 
 void MainWindow::on_pb10G_clicked()
 {
+  if (m_mode=="MSK144") {
+    ui->sbTR->setValue (m_msk144_tr);
+    programStart = true;
+    QTimer::singleShot (250, [=] {programStart = false;});
+  }
   auto const& row = m_config.frequencies ()->best_working_frequency (10368200000);
   ui->bandComboBox->setCurrentIndex (row);
   if (row >= 0) {
@@ -16913,6 +17056,11 @@ void MainWindow::on_pb10G_clicked()
 
 void MainWindow::on_pb24G_clicked()
 {
+  if (m_mode=="MSK144") {
+    ui->sbTR->setValue (m_msk144_tr);
+    programStart = true;
+    QTimer::singleShot (250, [=] {programStart = false;});
+  }
   auto const& row = m_config.frequencies ()->best_working_frequency (24048200000);
   ui->bandComboBox->setCurrentIndex (row);
   if (row >= 0) {
