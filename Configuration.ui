@@ -4137,150 +4137,6 @@ Right click for insert and delete options.</string>
           <property name="spacing">
            <number>6</number>
           </property>
-          <item row="3" column="1">
-           <widget class="QCheckBox" name="cbITUZOB">
-            <property name="toolTip">
-             <string>New ITU Zone on Band</string>
-            </property>
-            <property name="text">
-             <string>New ITU Zone on Band</string>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="0">
-           <widget class="QCheckBox" name="cbContinent">
-            <property name="toolTip">
-             <string>New Continent</string>
-            </property>
-            <property name="text">
-             <string>New Continent</string>
-            </property>
-           </widget>
-          </item>
-          <item row="12" column="0">
-           <widget class="QCheckBox" name="cbDXcall">
-            <property name="toolTip">
-             <string>DX Call or DX Grid in message</string>
-            </property>
-            <property name="text">
-             <string>DX Call or DX Grid in message</string>
-            </property>
-           </widget>
-          </item>
-          <item row="5" column="0">
-           <widget class="QCheckBox" name="cbGrid">
-            <property name="toolTip">
-             <string>New Grid</string>
-            </property>
-            <property name="text">
-             <string>New Grid</string>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="1">
-           <widget class="QCheckBox" name="cbContinentOB">
-            <property name="toolTip">
-             <string>New Continent on Band</string>
-            </property>
-            <property name="text">
-             <string>New Continent on Band</string>
-            </property>
-           </widget>
-          </item>
-          <item row="13" column="0">
-           <widget class="QCheckBox" name="cbQSYmessage">
-            <property name="text">
-             <string>Message received</string>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="0">
-           <widget class="QCheckBox" name="cbITUZ">
-            <property name="toolTip">
-             <string>New ITU Zone</string>
-            </property>
-            <property name="text">
-             <string>New ITU Zone</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="0">
-           <widget class="QCheckBox" name="cbCQZ">
-            <property name="toolTip">
-             <string>New CQ Zone</string>
-            </property>
-            <property name="text">
-             <string>New CQ Zone</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="1">
-           <widget class="QCheckBox" name="cbDXCCOB">
-            <property name="toolTip">
-             <string>New DXCC on Band</string>
-            </property>
-            <property name="text">
-             <string>New DXCC on Band</string>
-            </property>
-           </widget>
-          </item>
-          <item row="10" column="0">
-           <widget class="QCheckBox" name="cbMyCall">
-            <property name="toolTip">
-             <string>My Call in message</string>
-            </property>
-            <property name="text">
-             <string>My Call</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="1">
-           <widget class="QCheckBox" name="cbCQZOB">
-            <property name="toolTip">
-             <string>New CQ Zone on Band</string>
-            </property>
-            <property name="text">
-             <string>New CQ Zone on Band</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="0">
-           <widget class="QCheckBox" name="cbDXCC">
-            <property name="toolTip">
-             <string>New DXCC</string>
-            </property>
-            <property name="text">
-             <string>New DXCC</string>
-            </property>
-           </widget>
-          </item>
-          <item row="5" column="1">
-           <widget class="QCheckBox" name="cbGridOB">
-            <property name="toolTip">
-             <string>New Grid on Band</string>
-            </property>
-            <property name="text">
-             <string>New Grid on Band</string>
-            </property>
-           </widget>
-          </item>
-          <item row="9" column="0" colspan="2">
-           <widget class="Line" name="line_9">
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
-            </property>
-           </widget>
-          </item>
-          <item row="11" column="0">
-           <widget class="QCheckBox" name="cbCQ">
-            <property name="toolTip">
-             <string>CQ in message</string>
-            </property>
-            <property name="text">
-             <string>CQ in message</string>
-            </property>
-           </widget>
-          </item>
           <item row="10" column="1" rowspan="3">
            <widget class="QPushButton" name="pbAlerts">
             <property name="minimumSize">
@@ -4309,6 +4165,160 @@ Right click for insert and delete options.</string>
             </property>
             <property name="checkable">
              <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="5" column="0">
+           <widget class="QCheckBox" name="cbGrid">
+            <property name="toolTip">
+             <string>New Grid</string>
+            </property>
+            <property name="text">
+             <string>New Grid</string>
+            </property>
+           </widget>
+          </item>
+          <item row="11" column="0">
+           <widget class="QCheckBox" name="cbCQ">
+            <property name="toolTip">
+             <string>CQ in message</string>
+            </property>
+            <property name="text">
+             <string>CQ in message</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QCheckBox" name="cbDXCC">
+            <property name="toolTip">
+             <string>New DXCC</string>
+            </property>
+            <property name="text">
+             <string>New DXCC</string>
+            </property>
+           </widget>
+          </item>
+          <item row="12" column="0">
+           <widget class="QCheckBox" name="cbDXcall">
+            <property name="toolTip">
+             <string>DX Call or DX Grid in message</string>
+            </property>
+            <property name="text">
+             <string>DX Call or DX Grid in message</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="0">
+           <widget class="QCheckBox" name="cbContinent">
+            <property name="toolTip">
+             <string>New Continent</string>
+            </property>
+            <property name="text">
+             <string>New Continent</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0">
+           <widget class="QCheckBox" name="cbITUZ">
+            <property name="toolTip">
+             <string>New ITU Zone</string>
+            </property>
+            <property name="text">
+             <string>New ITU Zone</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QCheckBox" name="cbDXCCOB">
+            <property name="toolTip">
+             <string>New DXCC on Band</string>
+            </property>
+            <property name="text">
+             <string>New DXCC on Band</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QCheckBox" name="cbCQZ">
+            <property name="toolTip">
+             <string>New CQ Zone</string>
+            </property>
+            <property name="text">
+             <string>New CQ Zone</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="1">
+           <widget class="QCheckBox" name="cbITUZOB">
+            <property name="toolTip">
+             <string>New ITU Zone on Band</string>
+            </property>
+            <property name="text">
+             <string>New ITU Zone on Band</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QCheckBox" name="cbContinentOB">
+            <property name="toolTip">
+             <string>New Continent on Band</string>
+            </property>
+            <property name="text">
+             <string>New Continent on Band</string>
+            </property>
+           </widget>
+          </item>
+          <item row="14" column="0">
+           <widget class="QCheckBox" name="cbQSYmessage">
+            <property name="text">
+             <string>Message received</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QCheckBox" name="cbCQZOB">
+            <property name="toolTip">
+             <string>New CQ Zone on Band</string>
+            </property>
+            <property name="text">
+             <string>New CQ Zone on Band</string>
+            </property>
+           </widget>
+          </item>
+          <item row="10" column="0">
+           <widget class="QCheckBox" name="cbMyCall">
+            <property name="toolTip">
+             <string>My Call in message</string>
+            </property>
+            <property name="text">
+             <string>My Call</string>
+            </property>
+           </widget>
+          </item>
+          <item row="9" column="0" colspan="2">
+           <widget class="Line" name="line_9">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+           </widget>
+          </item>
+          <item row="5" column="1">
+           <widget class="QCheckBox" name="cbGridOB">
+            <property name="toolTip">
+             <string>New Grid on Band</string>
+            </property>
+            <property name="text">
+             <string>New Grid on Band</string>
+            </property>
+           </widget>
+          </item>
+          <item row="13" column="0" colspan="2">
+           <widget class="QCheckBox" name="cbWanted">
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Wanted callsigns, grids, prefixes and directional calls. This alert category uses the entries from &amp;quot;Highlight orange&amp;quot; and &amp;quot;Highlight blue&amp;quot;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>Wanted callsigns, grids, prefixes and directional calls</string>
             </property>
            </widget>
           </item>
@@ -4889,12 +4899,12 @@ Right click for insert and delete options.</string>
  </connections>
  <buttongroups>
   <buttongroup name="CAT_data_bits_button_group"/>
-  <buttongroup name="PTT_method_button_group"/>
-  <buttongroup name="TX_mode_button_group"/>
+  <buttongroup name="TX_audio_source_button_group"/>
+  <buttongroup name="special_op_activity_button_group"/>
+  <buttongroup name="CAT_handshake_button_group"/>
   <buttongroup name="split_mode_button_group"/>
   <buttongroup name="CAT_stop_bits_button_group"/>
-  <buttongroup name="special_op_activity_button_group"/>
-  <buttongroup name="TX_audio_source_button_group"/>
-  <buttongroup name="CAT_handshake_button_group"/>
+  <buttongroup name="PTT_method_button_group"/>
+  <buttongroup name="TX_mode_button_group"/>
  </buttongroups>
 </ui>

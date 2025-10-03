@@ -2001,7 +2001,7 @@ void MainWindow::readSettings()
 #ifdef WIN32
   if (m_config.alert_Enabled()) {  // testing and initializing the default audio device for playing audible alerts
       QAudioOutput info(QAudioDeviceInfo::defaultOutputDevice());
-      QString binPath = QCoreApplication::applicationDirPath();
+      QString audioPath = QCoreApplication::applicationDirPath() + "/sounds" + m_config.voicesPath() + "/";
       QAudioFormat format;
       format.setCodec("audio/pcm");
       format.setSampleRate (48000);
@@ -2011,7 +2011,7 @@ void MainWindow::readSettings()
       QAudioOutput* audio;
       audio = new QAudioOutput(format, this);
       QFile *effect = new QFile(this);
-      effect->setFileName(QString("%1/%2").arg(binPath, "/sounds/Testing.wav"));
+      effect->setFileName(QString("%1/%2").arg(audioPath, "Testing.wav"));
       effect->open(QIODevice::ReadOnly);
       audio->start(effect);
   }
@@ -3346,7 +3346,7 @@ void MainWindow::fastSink(qint64 frames)
       if (m_config.alert_Enabled() && ((m_config.alert_DXcall() && play_DXcall && m_hisCall!="") or (m_config.alert_Wanted() && play_Wanted))) {
 #ifdef WIN32
         QAudioOutput info(QAudioDeviceInfo::defaultOutputDevice());
-        QString binPath = QCoreApplication::applicationDirPath();
+        QString audioPath = QCoreApplication::applicationDirPath() + "/sounds" + m_config.voicesPath() + "/";
         QAudioFormat format;
         format.setCodec("audio/pcm");
         format.setSampleRate (48000);
@@ -3357,14 +3357,14 @@ void MainWindow::fastSink(qint64 frames)
         audio = new QAudioOutput(format, this);
         connect(audio, SIGNAL(stateChanged(QAudio::State)), this, SLOT(handleStateChanged(QAudio::State)));
         QFile *effect1 = new QFile(this);
-        if (m_config.alert_DXcall() && play_DXcall) effect1->setFileName(QString("%1/%2").arg(binPath, "/sounds/DXcall.wav"));
-        else if (m_config.alert_Wanted() && play_Wanted) effect1->setFileName(QString("%1/%2").arg(binPath, "/sounds/Wanted.wav"));
+        if (m_config.alert_DXcall() && play_DXcall) effect1->setFileName(QString("%1/%2").arg(audioPath, "DXcall.wav"));
+        else if (m_config.alert_Wanted() && play_Wanted) effect1->setFileName(QString("%1/%2").arg(audioPath, "Wanted.wav"));
         effect1->open(QIODevice::ReadOnly);
         audio->start(effect1);
 #else
-        QString binPath = QCoreApplication::applicationDirPath();
-        if (m_config.alert_DXcall() && play_DXcall) QSound::play(binPath + "/sounds/DXcall.wav");  // for Linux and macOS
-        else if (m_config.alert_DXcall() && play_Wanted) QSound::play(binPath + "/sounds/Wanted.wav");  // for Linux and macOS
+        QString audioPath = QCoreApplication::applicationDirPath() + "/sounds" + m_config.voicesPath() + "/";
+        if (m_config.alert_DXcall() && play_DXcall) QSound::play(audioPath + "DXcall.wav");  // for Linux and macOS
+        else if (m_config.alert_DXcall() && play_Wanted) QSound::play(audioPath + "Wanted.wav");  // for Linux and macOS
 #endif
         play_DXcall = false;
         play_Wanted = false;
@@ -7142,7 +7142,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
           if (m_config.alert_Enabled() && ((m_config.alert_DXcall() && play_DXcall && m_hisCall!="") or (m_config.alert_Wanted() && play_Wanted))) {
 #ifdef WIN32
             QAudioOutput info(QAudioDeviceInfo::defaultOutputDevice());
-            QString binPath = QCoreApplication::applicationDirPath();
+            QString audioPath = QCoreApplication::applicationDirPath() + "/sounds" + m_config.voicesPath() + "/";
             QAudioFormat format;
             format.setCodec("audio/pcm");
             format.setSampleRate (48000);
@@ -7153,14 +7153,14 @@ void MainWindow::readFromStdout()                             //readFromStdout
             audio = new QAudioOutput(format, this);
             connect(audio, SIGNAL(stateChanged(QAudio::State)), this, SLOT(handleStateChanged(QAudio::State)));
             QFile *effect1 = new QFile(this);
-            if (m_config.alert_DXcall() && play_DXcall) effect1->setFileName(QString("%1/%2").arg(binPath, "/sounds/DXcall.wav"));
-            else if (m_config.alert_Wanted() && play_Wanted) effect1->setFileName(QString("%1/%2").arg(binPath, "/sounds/Wanted.wav"));
+            if (m_config.alert_DXcall() && play_DXcall) effect1->setFileName(QString("%1/%2").arg(audioPath, "DXcall.wav"));
+            else if (m_config.alert_Wanted() && play_Wanted) effect1->setFileName(QString("%1/%2").arg(audioPath, "Wanted.wav"));
             effect1->open(QIODevice::ReadOnly);
             audio->start(effect1);
 #else
-            QString binPath = QCoreApplication::applicationDirPath();
-            if (m_config.alert_DXcall() && play_DXcall) QSound::play(binPath + "/sounds/DXcall.wav");  // for Linux and macOS
-            else if (m_config.alert_DXcall() && play_Wanted) QSound::play(binPath + "/sounds/Wanted.wav");  // for Linux and macOS
+            QString audioPath = QCoreApplication::applicationDirPath() + "/sounds" + m_config.voicesPath() + "/";
+            if (m_config.alert_DXcall() && play_DXcall) QSound::play(audioPath + "DXcall.wav");  // for Linux and macOS
+            else if (m_config.alert_DXcall() && play_Wanted) QSound::play(audioPath + "Wanted.wav");  // for Linux and macOS
 #endif
             play_DXcall = false;
             play_Wanted = false;
@@ -10355,7 +10355,7 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
       // Testing the default audio device
 #ifdef WIN32
       QAudioOutput info(QAudioDeviceInfo::defaultOutputDevice());
-      QString binPath = QCoreApplication::applicationDirPath();
+      QString audioPath = QCoreApplication::applicationDirPath() + "/sounds" + m_config.voicesPath() + "/";
       QAudioFormat format;
       format.setCodec("audio/pcm");
       format.setSampleRate (48000);
@@ -10365,12 +10365,12 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
       QAudioOutput* audio;
       audio = new QAudioOutput(format, this);
       QFile *effect = new QFile(this);
-      effect->setFileName(QString("%1/%2").arg(binPath, "/sounds/Testing_long.wav"));
+      effect->setFileName(QString("%1/%2").arg(audioPath, "Testing_long.wav"));
       effect->open(QIODevice::ReadOnly);
       audio->start(effect);
 #else
-      QString binPath = QCoreApplication::applicationDirPath();
-      QSound::play(binPath + "/sounds/Testing_long.wav");  // for Linux and macOS
+      QString audioPath = QCoreApplication::applicationDirPath() + "/sounds" + m_config.voicesPath() + "/";
+      QSound::play(audioPath + "Testing_long.wav");  // for Linux and macOS
 #endif
     }
     ui->pbBandHopping->clearFocus();

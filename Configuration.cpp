@@ -141,8 +141,11 @@
 #include <QPair>
 #include <QVariant>
 #include <QSettings>
+#include <QAudio>
 #include <QAudioDeviceInfo>
 #include <QAudioInput>
+#include <QAudioOutput>
+#include <QSound>
 #include <QDialog>
 #include <QAction>
 #include <QFileDialog>
@@ -383,6 +386,7 @@ public:
 private:
   QComboBox region_combo_box_;
   QComboBox mode_combo_box_;
+  QComboBox voices_combo_box_;
   FrequencyLineEdit frequency_line_edit_;
   QLineEdit description_line_edit_;
   QLineEdit source_line_edit_;
@@ -691,6 +695,10 @@ private:
   Q_SLOT void on_Territory4_editingFinished ();
   Q_SLOT void on_highlight_orange_callsigns_editingFinished ();
   Q_SLOT void on_highlight_blue_callsigns_editingFinished ();
+  Q_SLOT void on_voices_combo_box_currentIndexChanged (int);
+  Q_SLOT void on_pb_test_alerts_clicked (bool);
+  void read_voices ();
+  void read_voicesPath ();
 
   // typenames used as arguments must match registered type names :(
   Q_SIGNAL void start_transceiver (unsigned seqeunce_number) const;
@@ -773,6 +781,7 @@ private:
   bool alternate_erase_button_;
   bool show_country_names_;
   int LotW_days_since_upload_;
+  int voice_;
 
   TransceiverFactory::ParameterPack rig_params_;
   TransceiverFactory::ParameterPack saved_rig_params_;
@@ -840,6 +849,7 @@ private:
   QString hamlib_backed_up_;
   QString cloudLogApiUrl_;
   QString cloudLogApiKey_;
+  QString voicesPath_;
 
   QString OTPUrl_;
   QString OTPSeed_;
@@ -1607,6 +1617,11 @@ QString Configuration::highlight_orange_callsigns() const
 QString Configuration::highlight_blue_callsigns() const
 {
   return m_->highlight_blue_callsigns_;
+}
+
+QString Configuration::voicesPath() const
+{
+  return m_->voicesPath_;
 }
 
 auto Configuration::special_op_id () const -> SpecialOperatingActivity
@@ -2425,7 +2440,6 @@ void Configuration::impl::read_settings ()
   ui_->cbOTP->setChecked(OTPEnabled_);
   ui_->cbHideOTP->setChecked(HideOTP_);
 
-
   if (next_font_.fromString (settings_->value ("Font", QGuiApplication::font ().toString ()).toString ())
       && next_font_ != font_)
     {
@@ -2666,6 +2680,8 @@ void Configuration::impl::read_settings ()
   alert_Wanted_ = settings_->value("alert_Wanted",false).toBool ();
   alert_QSYmessage_ = settings_->value("alert_QSYmessage",false).toBool ();
   alert_Enabled_ = settings_->value("alert_Enabled",false).toBool ();
+  voice_ = settings_->value ("Voice", 0).toInt ();
+  read_voices();
   // Reset Rig to None if TCI was selected but no IP address was specified
   if (is_tci_ && settings_->value("CATTCIPort")=="") {
     rig_params_.rig_name = "None";
@@ -2937,6 +2953,7 @@ void Configuration::impl::write_settings ()
   settings_->setValue ("alert_Wanted", alert_Wanted_);
   settings_->setValue ("alert_QSYmessage", alert_QSYmessage_);
   settings_->setValue ("alert_Enabled", alert_Enabled_);
+  settings_->setValue ("Voice", voice_);
   settings_->sync ();
 }
 
@@ -3395,6 +3412,8 @@ void Configuration::impl::accept ()
   highlight_blue_callsigns_= ui_-> highlight_blue_callsigns->text ().toUpper ();
   PWR_and_SWR_ = ui_->PWR_and_SWR_check_box->isChecked ();
   check_SWR_ = ui_->check_SWR_check_box->isChecked ();
+
+  read_voicesPath();
 
   spot_to_psk_reporter_ = ui_->psk_reporter_check_box->isChecked ();
   psk_reporter_tcpip_ = ui_->psk_reporter_tcpip_check_box->isChecked ();
@@ -4919,6 +4938,63 @@ void Configuration::impl::on_highlight_orange_callsigns_editingFinished ()
 void Configuration::impl::on_highlight_blue_callsigns_editingFinished ()
 {
   ui_->highlight_blue_callsigns->setText (ui_->highlight_blue_callsigns->text ().toUpper ());
+}
+
+void Configuration::impl::on_voices_combo_box_currentIndexChanged (int /* index */)
+{
+  voice_ = ui_->voices_combo_box->currentIndex();
+  read_voicesPath();
+}
+
+void Configuration::impl::read_voices ()
+{
+  QString audioPath = QCoreApplication::applicationDirPath() + "/sounds/";
+  QString voiceList = audioPath + "voices.dat";  // load the content of voices.dat file to the voices combo box
+  QFile file2 {voiceList};
+  QStringList wordList;
+  QTextStream stream2(&file2);
+  if(file2.open (QIODevice::ReadOnly | QIODevice::Text)) {
+    while (!stream2.atEnd()) {
+      QString line = stream2.readLine();
+      wordList = line.split('|');
+      ui_->voices_combo_box->addItem (wordList[1], wordList[0]);
+    }
+    stream2.flush();
+    file2.close();
+  } else {
+    voice_=0;
+  }
+  ui_->voices_combo_box->setCurrentIndex (voice_);
+  read_voicesPath();
+}
+
+void Configuration::impl::read_voicesPath ()
+{
+  voicesPath_ = ui_->voices_combo_box->currentData().toString().left('|');
+}
+
+void Configuration::impl::on_pb_test_alerts_clicked (bool)
+{
+  read_voicesPath();
+#ifdef WIN32
+  QAudioOutput info(QAudioDeviceInfo::defaultOutputDevice());
+  QString audioPath = QCoreApplication::applicationDirPath() + "/sounds" + voicesPath_ + "/";
+  QAudioFormat format;
+  format.setCodec("audio/pcm");
+  format.setSampleRate (48000);
+  format.setChannelCount (1);
+  format.setSampleSize (16);
+  format.setSampleType(QAudioFormat::SignedInt);
+  QAudioOutput* audio;
+  audio = new QAudioOutput(format, this);
+  QFile *effect = new QFile(this);
+  effect->setFileName(QString("%1/%2").arg(audioPath, "Testing123.wav"));
+  effect->open(QIODevice::ReadOnly);
+  audio->start(effect);
+#else
+  QString audioPath = QCoreApplication::applicationDirPath() + "/sounds" + voicesPath_ + "/";
+  QSound::play(audioPath + "Testing123.wav");  // for Linux and macOS
+#endif
 }
 
 bool Configuration::impl::have_rig ()

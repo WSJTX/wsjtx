@@ -919,7 +919,7 @@ void DisplayText::AudioAlerts()
 #ifdef WIN32
   if(m_config->alert_Enabled()) {
         QAudioOutput info(QAudioDeviceInfo::defaultOutputDevice());
-        QString binPath = QCoreApplication::applicationDirPath();
+        QString audioPath = QCoreApplication::applicationDirPath() + "/sounds" + m_config->voicesPath() + "/";
         QAudioFormat format;
         format.setCodec("audio/pcm");
         format.setSampleRate (48000);
@@ -931,7 +931,7 @@ void DisplayText::AudioAlerts()
         connect(audio, SIGNAL(stateChanged(QAudio::State)), this, SLOT(handleStateChanged(QAudio::State)));
 #else
   if(m_config->alert_Enabled()) {
-        QString binPath = QCoreApplication::applicationDirPath();
+        QString audioPath = QCoreApplication::applicationDirPath() + "/sounds" + m_config->voicesPath() + "/";
 #endif
         QFile *effect2 = new QFile(this);
         QFile *effect3 = new QFile(this);
@@ -945,18 +945,18 @@ void DisplayText::AudioAlerts()
         QFile *effect11 = new QFile(this);
         QFile *effect12 = new QFile(this);
         QFile *effect13 = new QFile(this);
-        effect2->setFileName(QString("%1/%2").arg(binPath, "/sounds/MyCall.wav"));
-        effect3->setFileName(QString("%1/%2").arg(binPath, "/sounds/DXCC.wav"));
-        effect4->setFileName(QString("%1/%2").arg(binPath, "/sounds/DXCCOnBand.wav"));
-        effect5->setFileName(QString("%1/%2").arg(binPath, "/sounds/Continent.wav"));
-        effect6->setFileName(QString("%1/%2").arg(binPath, "/sounds/ContinentOnBand.wav"));
-        effect7->setFileName(QString("%1/%2").arg(binPath, "/sounds/CQZone.wav"));
-        effect8->setFileName(QString("%1/%2").arg(binPath, "/sounds/CQZoneOnBand.wav"));
-        effect9->setFileName(QString("%1/%2").arg(binPath, "/sounds/ITUZone.wav"));
-        effect10->setFileName(QString("%1/%2").arg(binPath, "/sounds/ITUZoneOnBand.wav"));
-        effect11->setFileName(QString("%1/%2").arg(binPath, "/sounds/Grid.wav"));
-        effect12->setFileName(QString("%1/%2").arg(binPath, "/sounds/GridOnBand.wav"));
-        effect13->setFileName(QString("%1/%2").arg(binPath, "/sounds/CQ.wav"));
+        effect2->setFileName(QString("%1/%2").arg(audioPath, "MyCall.wav"));
+        effect3->setFileName(QString("%1/%2").arg(audioPath, "DXCC.wav"));
+        effect4->setFileName(QString("%1/%2").arg(audioPath, "DXCCOnBand.wav"));
+        effect5->setFileName(QString("%1/%2").arg(audioPath, "Continent.wav"));
+        effect6->setFileName(QString("%1/%2").arg(audioPath, "ContinentOnBand.wav"));
+        effect7->setFileName(QString("%1/%2").arg(audioPath, "CQZone.wav"));
+        effect8->setFileName(QString("%1/%2").arg(audioPath, "CQZoneOnBand.wav"));
+        effect9->setFileName(QString("%1/%2").arg(audioPath, "ITUZone.wav"));
+        effect10->setFileName(QString("%1/%2").arg(audioPath, "ITUZoneOnBand.wav"));
+        effect11->setFileName(QString("%1/%2").arg(audioPath, "Grid.wav"));
+        effect12->setFileName(QString("%1/%2").arg(audioPath, "GridOnBand.wav"));
+        effect13->setFileName(QString("%1/%2").arg(audioPath, "CQ.wav"));
         static int startIndex = 0;
         int nextStartIndex = startIndex +1;
         switch (startIndex) {
@@ -966,7 +966,7 @@ void DisplayText::AudioAlerts()
                 effect2->open(QIODevice::ReadOnly);
                 audio->start(effect2);
 #else
-                QSound::play(binPath + "/sounds/MyCall.wav");  // for Linux and macOS
+                QSound::play(audioPath + "/sounds/MyCall.wav");  // for Linux and macOS
 #endif
                 play_MyCall = false;
                 alertsTimer.start (1000);
@@ -982,7 +982,7 @@ void DisplayText::AudioAlerts()
                 effect3->open(QIODevice::ReadOnly);
                 audio->start(effect3);
 #else
-                QSound::play(binPath + "/sounds/DXCC.wav");  // for Linux and macOS
+                QSound::play(audioPath + "/sounds/DXCC.wav");  // for Linux and macOS
 #endif
                 play_DXCC = false;
                 play_DXCCOB = false;
@@ -999,7 +999,7 @@ void DisplayText::AudioAlerts()
                 effect4->open(QIODevice::ReadOnly);
                 audio->start(effect4);
 #else
-                QSound::play(binPath + "/sounds/DXCCOnBand.wav");  // for Linux and macOS
+                QSound::play(audioPath + "/sounds/DXCCOnBand.wav");  // for Linux and macOS
 #endif
                 play_DXCCOB = false;
                 alertsTimer.start (1800);
@@ -1015,7 +1015,7 @@ void DisplayText::AudioAlerts()
                 effect5->open(QIODevice::ReadOnly);
                 audio->start(effect5);
 #else
-                QSound::play(binPath + "/sounds/Continent.wav");  // for Linux and macOS
+                QSound::play(audioPath + "/sounds/Continent.wav");  // for Linux and macOS
 #endif
                 play_Continent = false;
                 play_ContinentOB = false;
@@ -1035,7 +1035,7 @@ void DisplayText::AudioAlerts()
                 effect6->open(QIODevice::ReadOnly);
                 audio->start(effect6);
 #else
-                QSound::play(binPath + "/sounds/ContinentOnBand.wav");  // for Linux and macOS
+                QSound::play(audioPath + "/sounds/ContinentOnBand.wav");  // for Linux and macOS
 #endif
                 play_ContinentOB = false;
                 play_GridOB = false;
@@ -1054,7 +1054,7 @@ void DisplayText::AudioAlerts()
                 effect7->open(QIODevice::ReadOnly);
                 audio->start(effect7);
 #else
-                QSound::play(binPath + "/sounds/CQZone.wav");  // for Linux and macOS
+                QSound::play(audioPath + "/sounds/CQZone.wav");  // for Linux and macOS
 #endif
                 play_CQZ = false;
                 play_CQZOB = false;
@@ -1071,7 +1071,7 @@ void DisplayText::AudioAlerts()
                 effect8->open(QIODevice::ReadOnly);
                 audio->start(effect8);
 #else
-                QSound::play(binPath + "/sounds/CQZoneOnBand.wav");  // for Linux and macOS
+                QSound::play(audioPath + "/sounds/CQZoneOnBand.wav");  // for Linux and macOS
 #endif
                 play_CQZOB = false;
                 alertsTimer.start (1800);
@@ -1087,7 +1087,7 @@ void DisplayText::AudioAlerts()
                 effect9->open(QIODevice::ReadOnly);
                 audio->start(effect9);
 #else
-                QSound::play(binPath + "/sounds/ITUZone.wav");  // for Linux and macOS
+                QSound::play(audioPath + "/sounds/ITUZone.wav");  // for Linux and macOS
 #endif
                 play_ITUZ = false;
                 play_ITUZOB = false;
@@ -1105,7 +1105,7 @@ void DisplayText::AudioAlerts()
                 effect10->open(QIODevice::ReadOnly);
                 audio->start(effect10);
 #else
-                QSound::play(binPath + "/sounds/ITUZoneOnBand.wav");  // for Linux and macOS
+                QSound::play(audioPath + "/sounds/ITUZoneOnBand.wav");  // for Linux and macOS
 #endif
                 play_ITUZOB = false;
                 play_GridOB = false;
@@ -1122,7 +1122,7 @@ void DisplayText::AudioAlerts()
                 effect11->open(QIODevice::ReadOnly);
                 audio->start(effect11);
 #else
-                QSound::play(binPath + "/sounds/Grid.wav");  // for Linux and macOS
+                QSound::play(audioPath + "/sounds/Grid.wav");  // for Linux and macOS
 #endif
                 play_Grid = false;
                 play_GridOB = false;
@@ -1139,7 +1139,7 @@ void DisplayText::AudioAlerts()
                 effect12->open(QIODevice::ReadOnly);
                 audio->start(effect12);
 #else
-                QSound::play(binPath + "/sounds/GridOnBand.wav");  // for Linux and macOS
+                QSound::play(audioPath + "/sounds/GridOnBand.wav");  // for Linux and macOS
 #endif
                 play_GridOB = false;
                 alertsTimer.start (1500);
@@ -1155,7 +1155,7 @@ void DisplayText::AudioAlerts()
                 effect13->open(QIODevice::ReadOnly);
                 audio->start(effect13);
 #else
-                QSound::play(binPath + "/sounds/CQ.wav");  // for Linux and macOS
+                QSound::play(audioPath + "/sounds/CQ.wav");  // for Linux and macOS
 #endif
                 play_CQ = false;
                 alertsTimer.start (1000);
