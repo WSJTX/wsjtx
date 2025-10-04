@@ -6654,6 +6654,7 @@ Double-click to reset to the standard 73 message</string>
   <tabstop>TxPowerComboBox</tabstop>
   <tabstop>outAttenuation</tabstop>
   <tabstop>sbSerialNumber</tabstop>
+  <tabstop>DX_Call_Button</tabstop>
  </tabstops>
  <resources/>
  <connections/>

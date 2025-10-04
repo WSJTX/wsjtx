@@ -6235,6 +6235,7 @@ QPushButton[state=&quot;ok&quot;] {
   <tabstop>TxPowerComboBox</tabstop>
   <tabstop>outAttenuation</tabstop>
   <tabstop>sbSerialNumber</tabstop>
+  <tabstop>DX_Call_Button</tabstop>
  </tabstops>
  <resources/>
  <connections/>
