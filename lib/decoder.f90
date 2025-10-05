@@ -1607,12 +1607,12 @@ contains
     real, intent(in) :: qual
     real fdiff
     character(len=37), intent(in) :: decodedvar !ft8md was 26
-    character*3 annot !ft8md was 2
+    character*2 annot
     character c1*12,c2*12,g2*4,w*4
     integer i1,i2,i3,i4,i5,n30,nwrap
     integer, intent(in) :: nap  !ft8md
     integer msglen
-    character*43 decoded0
+    character*37 decoded0
     logical isgrid4,first,b0,b1,b2
     data first/.true./
     save
@@ -1637,34 +1637,20 @@ contains
     fdiff=freq-params%nfqso
     if(abs(fdiff).lt.3.0) ltry_a8=.false.
 
-    decoded0=trim(decodedvar)  
-    annot='  '
+    decoded0=decodedvar
+
+    annot='  ' 
     if(nap.ne.0) then
-      msglen = len_trim(decoded0)
-      if(nap.ge.9) then 
-        write(annot,'(a1,i1)') 'a',9
-      else
-        write(annot,'(a1,i1)') 'a',nap
-      endif
-      if(qual.lt.0.17) then
-        if(msglen.lt.19) then
-          decoded0(20:20) = '?'           
-          decoded0 = trim(decoded0) // ' ' // trim(annot) 
-        else  
-          decoded0 = trim(decoded0) // ' ?'
-          decoded0 = trim(decoded0) // ' ' // trim(annot) 
-        endif
-      else
-        if(msglen.lt.19) then
-          decoded0 = decoded0(1:20) // ' ' // trim(annot)
-        else 
-          decoded0 = trim(decoded0) // ' ' // trim(annot) 
-        endif  
-      endif       
+       if(nap.ge.9) then 
+          write(annot,'(a1,i1)') 'a',9
+       else
+          write(annot,'(a1,i1)') 'a',nap
+       endif
+       if(qual.lt.0.17) decoded0(37:37)='?'
     endif
 
-    write(*,1000) params%nutc,snr,dt,nint(freq),decoded0
-1000 format(i6.6,i4,f5.1,i5,' ~ ',1x,a43,1x) ! was a26
+    write(*,1000) params%nutc,snr,dt,nint(freq),decoded0,annot
+1000 format(i6.6,i4,f5.1,i5,' + ',1x,a37,1x,a2)
     
     if(ncontest.eq.6) then
        i1=index(decoded0,' ')
