@@ -285,9 +285,9 @@ contains
       enddo
    endif
 
-   if(lft8apon .and. ncontest.ne.6 .and. ncontest.ne.7 .and. (nzhsym.eq.50 .or.  & 
-        nzhsym.eq.46) .and. la8 .and. len(trim(hiscall12)).ge.3 .and.            &
-        len(trim(hisgrid)).ge.4 .and. ltry_a8) then
+   if(lft8apon .and. ncontest.ne.6 .and. ncontest.ne.7 .and. nzhsym.eq.50 .and.  &
+        la8 .and. len(trim(hiscall12)).ge.3 .and. len(trim(hisgrid)).ge.4 .and.  &   
+        ltry_a8) then   
 ! Try for an a8 decode at nfqso
       f1=nfqso
       call timer('ft8_a8d ',0)
