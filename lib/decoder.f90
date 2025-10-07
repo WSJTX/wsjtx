@@ -346,7 +346,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,    &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,   &
                    1,numthreads,logical(params%nagainfil),params%lft8lowth, &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
            endif
 
            if(numthreads.eq.2) then
@@ -362,14 +362,14 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    1,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid+1,nfb,              &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    2,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp end parallel sections
            endif
 
@@ -387,21 +387,21 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    1,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid1+1,nfmid2,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    2,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid2+1,nfb,             &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    3,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp end parallel sections
            endif
 
@@ -421,28 +421,28 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    2,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid2+1,nfmid3,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    3,numthreads,logical(params%nagainfil),params%lft8lowth, &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfa,nfmid1,               &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    1,numthreads,logical(params%nagainfil),params%lft8lowth, &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid3+1,nfb,             &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    4,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp end parallel sections
            endif
 
@@ -463,35 +463,35 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    3,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid1+1,nfmid2,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    2,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid3+1,nfmid4,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    4,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfa,nfmid1,               &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    1,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid4+1,nfb,             &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    5,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp end parallel sections
            endif
 
@@ -513,42 +513,42 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    3,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid3+1,nfmid4,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    4,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid1+1,nfmid2,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    2,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid4+1,nfmid5,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    5,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfa,nfmid1,               &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    1,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid5+1,nfb,             &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    6,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp end parallel sections
            endif
 
@@ -571,49 +571,49 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    4,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid2+1,nfmid3,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    3,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid4+1,nfmid5,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    5,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid1+1,nfmid2,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    2,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid5+1,nfmid6,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    6,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfa,nfmid1,               &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    1,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid6+1,nfb,             &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    7,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp end parallel sections
            endif
 
@@ -637,56 +637,56 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    4,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid4+1,nfmid5,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    5,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid2+1,nfmid3,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    3,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid5+1,nfmid6,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    6,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid1+1,nfmid2,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    2,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid6+1,nfmid7,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    7,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfa,nfmid1,               &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    1,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid7+1,nfb,             &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    8,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp end parallel sections
            endif
 
@@ -711,63 +711,63 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    5,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid3+1,nfmid4,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    4,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid5+1,nfmid6,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    6,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid2+1,nfmid3,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    3,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid6+1,nfmid7,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    7,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid1+1,nfmid2,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    2,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid7+1,nfmid8,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    8,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfa,nfmid1,               &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    1,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid8+1,nfb,             &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    9,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp end parallel sections
            endif
 
@@ -793,70 +793,70 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    5,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid5+1,nfmid6,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    6,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid3+1,nfmid4,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    4,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid6+1,nfmid7,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    7,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid2+1,nfmid3,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    3,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid7+1,nfmid8,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    8,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid1+1,nfmid2,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    2,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid8+1,nfmid9,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    9,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfa,nfmid1,               &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    1,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                  params%lft8subpass,params%lhideft8dupes) 
+                  params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest) 
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid9+1,nfb,             &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    10,numthreads,logical(params%nagainfil),params%lft8lowth,     &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp end parallel sections
            endif
 
@@ -882,77 +882,77 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    6,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid4+1,nfmid5,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    5,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid6+1,nfmid7,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    7,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid3+1,nfmid4,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    4,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid7+1,nfmid8,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    8,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid2+1,nfmid3,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    3,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid8+1,nfmid9,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    9,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid1+1,nfmid2,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    2,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid9+1,nfmid10,         &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    10,numthreads,logical(params%nagainfil),params%lft8lowth,     &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfa,nfmid1,               &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    1,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid10+1,nfb,            &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    11,numthreads,logical(params%nagainfil),params%lft8lowth,     &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp end parallel sections
            endif
 
@@ -979,84 +979,84 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    6,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid6+1,nfmid7,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    7,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid4+1,nfmid5,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    5,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid7+1,nfmid8,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    8,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid3+1,nfmid4,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    4,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid8+1,nfmid9,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    9,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid2+1,nfmid3,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    3,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid9+1,nfmid10,         &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    10,numthreads,logical(params%nagainfil),params%lft8lowth,     &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid1+1,nfmid2,          &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    2,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid10+1,nfmid11,        &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    11,numthreads,logical(params%nagainfil),params%lft8lowth,     &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfa,nfmid1,               &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    1,numthreads,logical(params%nagainfil),params%lft8lowth,      &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp section
               call my_ft8var%decodevar(ft8_decodedvar,params%nQSOProgress,nfqso, &
                    params%nft8rxfsens,params%nftx,nutc,nfmid11+1,nfb,            &
                    params%ncandthin,params%ndtcenter,nsec,params%napwid,         &
                    params%lmycallstd,params%lhiscallstd,params%nstophint,        &
                    12,numthreads,logical(params%nagainfil),params%lft8lowth,     &
-                   params%lft8subpass,params%lhideft8dupes)
+                   params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp end parallel sections
            endif
            

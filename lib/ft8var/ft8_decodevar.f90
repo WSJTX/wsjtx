@@ -23,9 +23,12 @@ contains
 
   subroutine decodevar(this,callback,nQSOProgress,nfqso,nft8rxfsens,nftx,nutc,  &
        nfa,nfb,ncandthin,ndtcenter,nsec,napwid,lmycallstd,lhiscallstd,          &
-       stophint,nthr,numthreads,nagainfil,lft8lowth,lft8subpass,lhideft8dupes)
+       stophint,nthr,numthreads,nagainfil,lft8lowth,lft8subpass,lhideft8dupes,  &
+       lft8apon,ncontest)
 
+    use timer_module, only: timer
     use omp_lib
+    use ft8_a7
 
     use ft8_mod1, only : ndecodes,allmessages,allsnrs,allfreq,odd,even,nmsg,    &
          lastrxmsg,lasthcall,calldteven,calldtodd,incall,oddcopy,evencopy,      &
@@ -44,13 +47,16 @@ contains
          ncandthin,ndtcenter,nsec,napwid,nthr,numthreads
     logical, intent(in) :: nagainfil
     logical(1), intent(in) :: stophint,lft8lowth,lft8subpass,lhideft8dupes,     &
-         lmycallstd,lhiscallstd
+         lmycallstd,lhiscallstd,lft8apon
     logical newdat1,lsubtract,ldupe,lFreeText,lspecial
     logical(1) lft8sdec,lft8s,lft8sd,lrepliedother,lhashmsg,lqsothread,         &
          lhidemsg,lhighsens,lcqcand,lsubtracted,levenint,loddint,lnohiscall,    &
          lnomycall,lnohisgrid
     character msg37*37,msg37_2*37,msg26*37,call2*12 !ft8md msg26 was *26
     character*37 msgsrcvd(130)
+    logical la8
+    integer nsnr
+    character*6 dxgrid
 
     type oddtmp_struct
        real freq
@@ -102,6 +108,7 @@ contains
     type(tmpqsosig_struct) tmpqsosig(1)
 
     this%callback => callback
+    la8=.true.
 
     oddtmp%lstate=.false.
     eventmp%lstate=.false.
@@ -411,11 +418,12 @@ contains
 4               continue
              enddo !do k
 !$omp end critical(find_dupes)
-
           endif
        enddo !icand
        ncandthr=ncandthr+ncand
     enddo !ipass
+            
+!a8 test code was here            
 
     if(levenint) then
        evencq(1:ncqsignal,nthr)%freq=tmpcqsig(1:ncqsignal)%freq
@@ -475,6 +483,31 @@ contains
        endif
 !$omp end critical(update_structures)
     endif
+
+!$omp single            
+! test code for a8 start
+   if(lft8apon .and. ncontest.ne.6 .and. ncontest.ne.7 .and. la8 .and.          &
+        len(trim(hiscall)).ge.3 .and.            &
+        len(trim(hisgrid4)).ge.4 .and. ltry_a8) then
+! Try for an a8 decode at nfqso
+      f1=nfqso
+      dxgrid=hisgrid4
+      call timer('ft8_a8d ',0)
+      call ft8_a8d(dd8,mycall,hiscall,dxgrid,f1,xdt,fbest,xsnr,plog,msg37) !w3sz was dd
+      call timer('ft8_a8d ',1)
+      if(msg37(1:1).ne.' ') then
+         if(associated(this%callback)) then
+            sync=10.0  !### ???   !URUR was 10, tried 15
+            nsnr=nint(xsnr)
+            iaptype=8
+            qual=1.0
+            if(plog.lt.-147.0) qual=0.16
+            call this%callback(nsnr,xdt,fbest,msg37,iaptype,qual)
+         endif
+      endif
+   endif
+! test code for a8 stop    
+!$omp end single nowait
     
     return
   end subroutine decodevar
