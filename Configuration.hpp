@@ -168,6 +168,10 @@ public:
   bool progressBar_red () const;
   bool spot_to_psk_reporter () const;
   bool psk_reporter_tcpip () const;
+  bool send_to_eqsl () const;
+  QString eqsl_username () const;
+  QString eqsl_passwd () const;
+  QString eqsl_nickname () const;
   bool monitor_off_at_startup () const;
   bool monitor_last_used () const;
   bool log_as_RTTY () const;

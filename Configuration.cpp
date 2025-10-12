@@ -581,6 +581,7 @@ private:
   Q_SLOT void on_test_PTT_push_button_clicked (bool checked);
   Q_SLOT void on_pbTestCloudlog_clicked ();
   Q_SLOT void on_gbCloudlog_clicked ();
+  Q_SLOT void on_gbEQSL_clicked ();
   Q_SLOT void on_force_DTR_combo_box_currentIndexChanged (int);
   Q_SLOT void on_force_RTS_combo_box_currentIndexChanged (int);
   Q_SLOT void on_rig_combo_box_currentIndexChanged (int);
@@ -850,6 +851,10 @@ private:
   QString cloudLogApiUrl_;
   QString cloudLogApiKey_;
   QString voicesPath_;
+  bool send_to_eqsl_;
+  QString eqsl_username_;
+  QString eqsl_passwd_;
+  QString eqsl_nickname_;
 
   QString OTPUrl_;
   QString OTPSeed_;
@@ -1041,6 +1046,10 @@ bool Configuration::spot_to_psk_reporter () const
   return is_transceiver_online () && m_->spot_to_psk_reporter_;
 }
 bool Configuration::psk_reporter_tcpip () const {return m_->psk_reporter_tcpip_;}
+bool Configuration::send_to_eqsl () const {return m_->send_to_eqsl_;}
+QString Configuration::eqsl_username () const {return m_->eqsl_username_;}
+QString Configuration::eqsl_passwd () const {return m_->eqsl_passwd_;}
+QString Configuration::eqsl_nickname () const {return m_->eqsl_nickname_;}
 bool Configuration::monitor_off_at_startup () const {return m_->monitor_off_at_startup_;}
 bool Configuration::monitor_last_used () const {return m_->rig_is_dummy_ || m_->monitor_last_used_;}
 bool Configuration::log_as_RTTY () const {return m_->log_as_RTTY_;}
@@ -2082,6 +2091,10 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
 
   transceiver_thread_ = new QThread {this};
   transceiver_thread_->start ();
+
+  ui_->eqsluser_edit->setText (eqsl_username_);
+  ui_->eqslpasswd_edit->setText (eqsl_passwd_);
+  ui_->eqslnick_edit->setText (eqsl_nickname_);
 }
 
 Configuration::impl::~impl ()
@@ -2196,6 +2209,7 @@ void Configuration::impl::initialize_models ()
   ui_->cb_twoDays->setChecked(twoDays_);
   ui_->gbSpecialOpActivity->setChecked(bSpecialOp_);
   ui_->gbCloudlog->setChecked(bCloudLog_);
+  ui_->gbEQSL->setChecked(send_to_eqsl_);
   ui_->leCloudlogApiUrl->setText(cloudLogApiUrl_);
   ui_->leCloudlogApiKey->setText(cloudLogApiKey_);
   ui_->sbCloudlogStationID->setValue (cloudLogStationID_);
@@ -2482,6 +2496,10 @@ void Configuration::impl::read_settings ()
   monitor_last_used_ = settings_->value ("MonitorLastUsed", false).toBool ();
   spot_to_psk_reporter_ = settings_->value ("PSKReporter", false).toBool ();
   psk_reporter_tcpip_ = settings_->value ("PSKReporterTCPIP", false).toBool ();
+  eqsl_username_ = settings_->value ("EQSLUser", "").toString ();
+  eqsl_passwd_ = settings_->value ("EQSLPasswd", "").toString ();
+  eqsl_nickname_ = settings_->value ("EQSLNick", "").toString ();
+  send_to_eqsl_ = settings_->value ("EQSLSend", false).toBool ();
   id_after_73_ = settings_->value ("After73", false).toBool ();
   tx_QSY_allowed_ = settings_->value ("TxQSYAllowed", false).toBool ();
   progressBar_red_ = settings_->value ("ProgressBarRed", true).toBool ();
@@ -2818,6 +2836,10 @@ void Configuration::impl::write_settings ()
   settings_->setValue ("MonitorLastUsed", monitor_last_used_);
   settings_->setValue ("PSKReporter", spot_to_psk_reporter_);
   settings_->setValue ("PSKReporterTCPIP", psk_reporter_tcpip_);
+  settings_->setValue ("EQSLSend", send_to_eqsl_);
+  settings_->setValue ("EQSLUser", eqsl_username_);
+  settings_->setValue ("EQSLPasswd", eqsl_passwd_);
+  settings_->setValue ("EQSLNick", eqsl_nickname_);
   settings_->setValue ("After73", id_after_73_);
   settings_->setValue ("TxQSYAllowed", tx_QSY_allowed_);
   settings_->setValue ("ProgressBarRed", progressBar_red_);
@@ -3417,6 +3439,9 @@ void Configuration::impl::accept ()
 
   spot_to_psk_reporter_ = ui_->psk_reporter_check_box->isChecked ();
   psk_reporter_tcpip_ = ui_->psk_reporter_tcpip_check_box->isChecked ();
+  eqsl_username_ = ui_->eqsluser_edit->text ();
+  eqsl_passwd_ = ui_->eqslpasswd_edit->text ();
+  eqsl_nickname_ = ui_->eqslnick_edit->text ();
   id_interval_ = ui_->CW_id_interval_spin_box->value ();
   align_steps_ = ui_->align_spin_box->value ();
   align_steps2_ = ui_->align_spin_box2->value ();
@@ -3486,6 +3511,7 @@ void Configuration::impl::accept ()
   twoDays_ = ui_->cb_twoDays->isChecked ();
   bSpecialOp_ = ui_->gbSpecialOpActivity->isChecked ();
   bCloudLog_ = ui_->gbCloudlog->isChecked ();
+  send_to_eqsl_ = ui_->gbEQSL->isChecked ();
   cloudLogApiUrl_ = ui_->leCloudlogApiUrl->text ();
   cloudLogApiKey_ = ui_->leCloudlogApiKey->text ();
   cloudLogStationID_ = ui_->sbCloudlogStationID->value ();
@@ -4062,6 +4088,11 @@ void Configuration::impl::on_pbTestCloudlog_clicked ()
 void Configuration::impl::on_gbCloudlog_clicked ()
 {
   ui_->pbTestCloudlog->setStyleSheet ("QPushButton {background-color: none;}");
+}
+
+void Configuration::impl::on_gbEQSL_clicked ()
+{
+  send_to_eqsl_ = ui_->gbEQSL->isChecked();
 }
 
 void Configuration::impl::on_test_PTT_push_button_clicked (bool checked)

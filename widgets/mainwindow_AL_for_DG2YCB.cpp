@@ -110,6 +110,7 @@
 #include "widgets/QSYMessage.h"
 #include "widgets/QSYMessageCreator.h"
 #include "widgets/qsymonitor.h"
+#include "Network/eqsl.h"
 
 #define FCL fortran_charlen_t
 
@@ -466,6 +467,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_first_error {true},
   tx_status_label {tr ("Receiving")},
   wsprNet {new WSPRNet {&m_network_manager, this}},
+  Eqsl {new EQSL {&m_network_manager, this}},
   m_baseCall {Radio::base_callsign (m_config.my_callsign ())},
   m_appDir {QApplication::applicationDirPath ()},
   m_cqStr {""},
@@ -10583,6 +10585,9 @@ void MainWindow::acceptQSO (QDateTime const& QSO_date_off, QString const& call, 
   {
     m_cloudlog.logQso(ADIF);
   }
+
+  // Log to eqsl.cc
+  if (m_config.send_to_eqsl()) Eqsl->upload(m_config.eqsl_username(),m_config.eqsl_passwd(),m_config.eqsl_nickname(),call,mode,QSO_date_on,rpt_sent,m_config.bands ()->find (dial_freq),comments);
 
   blocked=true;                                      // needed to clear DXgrid only optionally
   if (m_config.clear_DXcall ()) clearDX ();

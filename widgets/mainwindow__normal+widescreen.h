@@ -95,6 +95,7 @@ class MessageClient;
 class QTime;
 class WSPRBandHopping;
 class HelpTextWindow;
+class EQSL;
 class WSPRNet;
 class SoundOutput;
 class Modulator;
@@ -809,6 +810,7 @@ private:
   QProcess p4;
 
   WSPRNet *wsprNet;
+  EQSL *Eqsl;
 
   QTimer m_guiTimer;
   QTimer stopWRTimer;               //Wait & Reply

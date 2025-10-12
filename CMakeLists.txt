@@ -235,6 +235,7 @@ set (wsjt_qt_CXXSRCS
   Network/FileDownload.cpp
   Network/FoxVerifier.cpp
   Network/Cloudlog.cpp
+  Network/eqsl.cpp
   models/DecodeHighlightingModel.cpp
   widgets/DecodeHighlightingListView.cpp
   models/FoxLog.cpp
