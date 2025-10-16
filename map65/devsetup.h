@@ -56,6 +56,7 @@ public:
 
   QString m_otherUrl; //liveCQ
   bool m_w3szUrl; //liveCQ
+  bool m_spot_to_psk_reporter; //PSKReporter
 
 public slots:
   void accept();

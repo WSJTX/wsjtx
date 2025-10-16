@@ -152,7 +152,9 @@ private:
   QString m_settings_filename;
   QScopedPointer<Astro> m_astro_window;
   QScopedPointer<BandMap> m_band_map_window;
-  QScopedPointer<Messages> m_messages_window;
+//  QScopedPointer<Messages> m_messages_window;
+  void createMessagesWindow();
+  Messages *m_messages_window;
   QScopedPointer<WideGraph> m_wide_graph_window;
   QPointer<QTimer> m_gui_timer;
   qint64  m_msErase;
@@ -229,9 +231,6 @@ private:
   float   m_phasex;
   float   m_phasey;
   float   m_pctZap;
-
-  //bool    m_w3szUrl = true; //liveCQ
-  //QString m_otherUrl=""; //liveCQ
 
   QRect   m_wideGraphGeom;
 

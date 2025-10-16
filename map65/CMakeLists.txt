@@ -1,16 +1,23 @@
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)   
+
 set (map65_CXXSRCS
   about.cpp
   astro.cpp
   bandmap.cpp
+  cqdatasender.cpp
   devsetup.cpp
   displaytext.cpp
   getdev.cpp
   getfile.cpp
+  liveCQSender.cpp
   main.cpp
   mainwindow.cpp
   messages.cpp
   meterwidget.cpp
   plotter.cpp
+  PSKReporter.cpp
+  Radio.cpp
   set570.cpp
   signalmeter.cpp
   soundin.cpp

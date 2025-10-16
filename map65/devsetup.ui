@@ -23,7 +23,7 @@
    <item>
     <widget class="QTabWidget" name="ioTabWidget">
      <property name="currentIndex">
-      <number>4</number>
+      <number>0</number>
      </property>
      <widget class="QWidget" name="tab">
       <attribute name="title">
@@ -1803,6 +1803,19 @@
          <string/>
         </property>
        </widget>
+      </widget>
+      <widget class="QCheckBox" name="pskBox">
+       <property name="geometry">
+        <rect>
+         <x>80</x>
+         <y>200</y>
+         <width>141</width>
+         <height>20</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Spot to PSKReporter</string>
+       </property>
       </widget>
      </widget>
     </widget>

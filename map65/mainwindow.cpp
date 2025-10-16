@@ -46,8 +46,10 @@ extern const int TxDataFrequency = 11025;
 
 QString guiDate;         //liveCQ
 QStringList allDecodes;  //liveCQ
+QStringList allDecodes2;  //liveCQ
 QString m_otherUrl;
 bool m_w3szUrl;
+bool m_spot_to_psk_reporter;
 
 //-------------------------------------------------- MainWindow constructor
 MainWindow::MainWindow(QWidget *parent) :
@@ -57,7 +59,7 @@ MainWindow::MainWindow(QWidget *parent) :
   m_settings_filename {m_appDir + "/map65.ini"},
   m_astro_window {new Astro {m_settings_filename}},
   m_band_map_window {new BandMap {m_settings_filename}},
-  m_messages_window {new Messages {m_settings_filename}},
+  m_messages_window(nullptr),
   m_wide_graph_window {new WideGraph {m_settings_filename}},
   m_gui_timer {new QTimer {this}}
 {
@@ -235,9 +237,8 @@ MainWindow::MainWindow(QWidget *parent) :
 
   on_actionAstro_Data_triggered();           //Create the other windows
   on_actionWide_Waterfall_triggered();
-  on_actionMessages_triggered();
+  
   on_actionBand_Map_triggered();
-  if (m_messages_window) m_messages_window->setColors(m_colors);
   m_band_map_window->setColors(m_colors);
   if (m_astro_window) m_astro_window->setFontSize (m_astroFont);
 
@@ -273,7 +274,6 @@ MainWindow::MainWindow(QWidget *parent) :
 
   // Assign output device and start output thread
   soundOutThread.setOutputDevice(m_paOutDevice);
-//  soundOutThread.start(QThread::HighPriority);
 
   m_monitoring=true;                           // Start with Monitoring ON
   soundInThread.setMonitoring(m_monitoring);
@@ -310,9 +310,16 @@ MainWindow::MainWindow(QWidget *parent) :
   if(ui->actionAFMHot->isChecked()) on_actionAFMHot_triggered();
   if(ui->actionBlue->isChecked()) on_actionBlue_triggered();
 
-  connect (m_messages_window.get (), &Messages::click2OnCallsign, this, &MainWindow::doubleClickOnMessages);
   connect (m_wide_graph_window.get (), &WideGraph::freezeDecode2, this, &MainWindow::freezeDecode);
   connect (m_wide_graph_window.get (), &WideGraph::f11f12, this, &MainWindow::bumpDF);
+
+  QTimer::singleShot (0, this,[this]() {
+    m_messages_window = new Messages(m_settings_filename);
+    m_messages_window->show();    
+    on_actionMessages_triggered();
+    connect (m_messages_window, &Messages::click2OnCallsign, this, &MainWindow::doubleClickOnMessages);
+    if (m_messages_window) m_messages_window->setColors(m_colors);
+  });
 
   // only start the guiUpdate timer after this constructor has finished
   QTimer::singleShot (0, [=] {
@@ -412,6 +419,7 @@ void MainWindow::writeSettings()
   settings.setValue("MaxDrift",ui->sbMaxDrift->value());
   settings.setValue("w3szUrl",m_w3szUrl); //liveCQ
   settings.setValue("otherUrl",m_otherUrl); //liveCQ
+  settings.setValue("spotPSK",m_spot_to_psk_reporter);
 }
 
 //---------------------------------------------------------- readSettings()
@@ -520,6 +528,8 @@ void MainWindow::readSettings()
   if(m_ndepth==2) ui->actionAggressive_Deep_Search->setChecked(true);
   m_w3szUrl=settings.value("w3szUrl",true).toBool();
   m_otherUrl=settings.value("otherUrl","").toString();
+  m_spot_to_psk_reporter=settings.value("spotPSK",true).toBool();
+  qDebug() << "In mainwindow m_spot_to_psk_reporter is: " << m_spot_to_psk_reporter;
 }
 
 //-------------------------------------------------------------- dataSink()
@@ -722,6 +732,7 @@ void MainWindow::on_actionDeviceSetup_triggered()               //Setup Dialog
   dlg.m_colors=m_colors;
   dlg.m_w3szUrl = m_w3szUrl; //liveCQ
   dlg.m_otherUrl=m_otherUrl; //liveCQ
+  dlg.m_spot_to_psk_reporter = m_spot_to_psk_reporter;
 
   dlg.initDlg();
   if(dlg.exec() == QDialog::Accepted) {
@@ -767,6 +778,7 @@ void MainWindow::on_actionDeviceSetup_triggered()               //Setup Dialog
     soundInThread.setScale(m_dB);
     m_w3szUrl=dlg.m_w3szUrl;
     m_otherUrl=dlg.m_otherUrl;
+    m_spot_to_psk_reporter=dlg.m_spot_to_psk_reporter;
     QSettings settings(m_settings_filename, QSettings::IniFormat);
     {
         SettingsGroup g {&settings, "MainWindow"};
@@ -774,6 +786,7 @@ void MainWindow::on_actionDeviceSetup_triggered()               //Setup Dialog
     SettingsGroup g {&settings, "Common"};
     settings.setValue("w3szUrl",m_w3szUrl); //liveCQ
     settings.setValue("otherUrl",m_otherUrl); //liveCQ
+    settings.setValue("spotPSK",m_spot_to_psk_reporter);
     settings.setValue("MyCall",m_myCall);
     settings.setValue("MyGrid",m_myGrid);
     settings.setValue("IDint",m_idInt);

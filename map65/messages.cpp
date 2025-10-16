@@ -4,6 +4,10 @@
 #include "ui_messages.h"
 #include "mainwindow.h"
 #include "qt_helpers.hpp"
+#include "../revision_utils.hpp"
+#include "../Logger.hpp"
+#include "PSKReporter.hpp"
+#include "liveCQSender.hpp"
 
 #include <QCoreApplication> //liveCQ
 #include <QNetworkAccessManager> //liveCQ
@@ -12,9 +16,14 @@
 #include <QUrl>
 #include <QUrlQuery>
 #include <QEventLoop>
+#include <QDateTime>
+#include <QString>
+#include <QThread>
+#include <QDebug>
 
 #include <iostream>
 #include <string>
+#include <memory>
 
 Messages::Messages (QString const& settings_filename, QWidget * parent) :
   QDialog {parent},
@@ -30,14 +39,71 @@ Messages::Messages (QString const& settings_filename, QWidget * parent) :
   setGeometry (settings.value ("MessagesGeom", QRect {800, 400, 381, 400}).toRect ());
   ui->messagesTextBrowser->setStyleSheet( \
           "QTextBrowser { background-color : #000066; color : red; }");
-  ui->messagesTextBrowser->clear();
+  ui->messagesTextBrowser->clear();  
+  
+  QSettings settings2 {m_settings_filename, QSettings::IniFormat};
+  SettingsGroup h {&settings2, "Common"};
+  bool m_w3szUrl = settings2.value("w3szUrl",true).toBool();
+  QString m_otherUrl = settings2.value("otherUrl","").toString();
+  QString m_myCall=settings2.value("MyCall","").toString();
+  QString m_myGrid=settings2.value("MyGrid","").toString();
+  QString theUrl;
+  
+  if(m_w3szUrl) {
+    theUrl = w3szUrlAddr;
+  } else {
+    theUrl = m_otherUrl;
+  }
+  theUrl = "w3sz.com";
+  
   m_cqOnly=false;
   m_cqStarOnly=false;
   QString guiDate;
   QStringList allDecodes =  { "" };
+  QStringList allDecodes2 = { "" };
   connect (ui->messagesTextBrowser, &DisplayText::selectCallsign, this, &Messages::selectCallsign2);
-}
+  
+    // Create the thread and your liveCQ object
+  QThread *livecqThread = new QThread(this);
+  
+  connect(livecqThread, &QThread::started, this, [this, livecqThread, m_myCall, m_myGrid, theUrl]() {
+    auto* reporter2 = new liveCQSender(m_myCall, m_myGrid, theUrl);
+    reporter2->moveToThread(livecqThread);      
 
+    connect(reporter2, &liveCQSender::destroyed, livecqThread, &QThread::quit);
+    QMetaObject::invokeMethod(reporter2, "init", Qt::QueuedConnection);
+    
+    // Connect signals for control and communication
+    connect(this, &Messages::sendRemoteStationData2, reporter2, &liveCQSender::addRemoteStation);
+  
+});
+  connect(livecqThread, &QThread::finished, livecqThread, &QObject::deleteLater);
+  livecqThread->start();  
+  
+    // Create the thread and your PSKReporter object
+  QThread *pskThread = new QThread(this);
+  
+  connect(pskThread, &QThread::started, this, [this, pskThread, m_myCall,m_myGrid]() {
+      auto* reporter = new PSKReporter(m_myCall, m_myGrid, QString {"MAP65 v"
+              + QCoreApplication::applicationVersion ()
+  + " " + revision ()}.simplified () + " improved PLUS");
+
+  reporter->moveToThread(pskThread);
+  connect(reporter, &PSKReporter::destroyed, pskThread, &QThread::quit);
+  QMetaObject::invokeMethod(reporter, "init", Qt::QueuedConnection);
+  
+  // Connect signals for control and communication
+  connect(this, &Messages::sendLocalStationData, reporter, &PSKReporter::setLocalStation);
+  connect(this, &Messages::sendRemoteStationData, reporter, &PSKReporter::addRemoteStation);
+    
+  });
+    connect(pskThread, &QThread::finished, pskThread, &QObject::deleteLater);
+    pskThread->start(); 
+    if (m_spot_to_psk_reporter) {   
+      initializePSKReporting();
+    }
+}
+ 
 Messages::~Messages()
 {
   QSettings settings {m_settings_filename, QSettings::IniFormat};
@@ -46,13 +112,17 @@ Messages::~Messages()
   delete ui;
 }
 
+void Messages::initializePSKReporting()
+{  
+  QSettings settings {m_settings_filename, QSettings::IniFormat};
+  SettingsGroup g {&settings, "Common"}; 
+  QString receiverCallsign=settings.value("MyCall","").toString();
+  QString receiverLocator=settings.value("MyGrid","").toString();
+  emit sendLocalStationData(receiverCallsign, receiverLocator, "N/A", "N/A (MAP65)");   
+}
+
 void Messages::sendLiveCQData(QStringList decodeList) {
-
   QSettings settings(m_settings_filename, QSettings::IniFormat);
-  {
-    SettingsGroup g {&settings, "MainWindow"};
-  }
-
   SettingsGroup g {&settings, "Common"};
   bool m_w3szUrl = settings.value("w3szUrl",true).toBool();
   QString m_otherUrl = settings.value("otherUrl","").toString();
@@ -68,13 +138,6 @@ void Messages::sendLiveCQData(QStringList decodeList) {
   } else {
     theUrl = m_otherUrl;
   }
-
-  QNetworkAccessManager *manager = new QNetworkAccessManager(this);
-  QUrl url(theUrl);
-  QNetworkRequest request(url);
-  request.setRawHeader("User-Agent", "QMAP v0.5");
-  request.setRawHeader("X-Custom-User-Agent", "QMAP v0.5");
-  request.setHeader(QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
   for (const QString &theLine : decodeList) {
     QStringList thePostLine = theLine.split(" ",SkipEmptyParts);
     if((thePostLine.at(5) == "CQ" || thePostLine.at(5) == "QRZ" || thePostLine.at(5) == "CQV" ||  thePostLine.at(5) == "CQH" || thePostLine.at(5) == "QRT") && m_myCall.length() >=3 && m_myGrid.length()>=4) {
@@ -186,25 +249,13 @@ void Messages::sendLiveCQData(QStringList decodeList) {
         if(mode.contains("JT65") || mode.contains("Q65")) {
           QString postString =  "skedfreq=" + freq + "&rxfreq=" + dF + "&rpol=" + rpol + "&dt="  +  dT + "&dB="  + dB + "&msgtype="  +  msgType.toUpper() + "&callsign="  +  callsign.toUpper() + "&grid="  +  grid.toUpper() + "&mode="  +  mode + "&utcdatetime="  +  utcdatetimeUTCString + "&spotter="  +  m_myCall.toUpper() + "&spottergrid="  + m_myGrid.toUpper() + "&txpol=" + txpol + "&apptype=MAP65";
           QByteArray postByteArray = postString.toUtf8();
-          request.setRawHeader("Content-Length",QByteArray::number(postByteArray.size()));
-
-          try {
-            QNetworkReply *reply = manager->post(request,postByteArray);				
-            QObject::connect(reply, &QNetworkReply::finished, this, &Messages::handleReply);
-          }
-          catch (const std::exception& e) {
-              // Handle standard C++ exceptions
-              QMessageBox::critical(this, "Exception", "Exception at line 1165 MainWindow::sendLiveCQData " + QString::fromStdString(e.what()));   
-          }
-          catch (...) {
-              // Handle any other type of exception
-              QMessageBox::critical(this, "Exception", "Unknown Exception at line 1170 MainWindow::sendLiveCQData");   
-          }
+          
+        emit sendRemoteStationData2(postByteArray, theUrl);        
+         
         }
       }
     }
   }
-  // qDebug() << "Size of allDecodes = " << allDecodes.size() ;
 }
 
 bool Messages::testCall(QString w)
@@ -236,7 +287,7 @@ bool Messages::testCall(QString w)
   int nbc=bc.trimmed().length();
   if(nbc > 8) return false;  //Base call should have no more than 8 characters  e.g. YW18FIFA
 
-// One of first two characters (c1 or c2) must be a letter
+// One of first two characters must be a letter
   if((!bc[0].isLetter()) && (!bc[1].isLetter())) return false;
 // Real calls don't start with Q, but we'll allow the placeholder
 // callsign QU1RK to be considered a standard call:
@@ -263,14 +314,15 @@ bool Messages::testCall(QString w)
   return false;  
 }
 
-void Messages::handleReply()
+
+void Messages::onFinished(QNetworkReply *reply)
 {
-    QNetworkReply *reply = qobject_cast<QNetworkReply*>(sender());
     if (reply->error() == QNetworkReply::NoError) {
 		qDebug() << reply->readAll();
     } else {
 		qDebug() << reply->errorString();
     }
+    reply->deleteLater();
 }
 
 void Messages::setText(QString t, QString t2)
@@ -307,10 +359,6 @@ void Messages::setText(QString t, QString t2)
     if(n==2) ui->messagesTextBrowser->setTextColor(m_color2);
     if(n>=3) ui->messagesTextBrowser->setTextColor(m_color3);
     QString livecqStr = t1.mid(0,59) + t1.mid(62,t1.length()-62) + " " + t1.mid(60,2); // was 53,56,56,54
-  //   QMessageBox msgBox;
-  //   msgBox.setText(livecqStr);
-  //   if(firstTime) msgBox.exec();
-  //   firstTime = false;
     if(cqliveText.filter(livecqStr.mid(0,59)).length()==0) cqliveText.append(livecqStr); // was 0,53
     cfreq=t1.mid(5,3);
     if(cfreq == cfreq0) {
@@ -319,13 +367,105 @@ void Messages::setText(QString t, QString t2)
     cfreq0=cfreq;
     ui->messagesTextBrowser->append(t1.mid(5,67)); //was 5,61
   }
-
   if(doLiveCQ) {                      //liveCQ
     if(cqliveText.size() > 0) {       //liveCQ
       sendLiveCQData(cqliveText);     //liveCQ
       doLiveCQ = false;               //liveCQ
     }                                 //liveCQ
-  }                                   //liveCQ
+  }  //liveCQ
+  if (m_spot_to_psk_reporter) {
+      sendPSKReporterData(cqliveText); //PSKReporter
+  }
+}
+
+void Messages::sendPSKReporterData(QStringList decodeList) {  
+    
+  QSettings settings(m_settings_filename, QSettings::IniFormat);
+  SettingsGroup g {&settings, "Common"};
+  
+  //QRZ parameters (3)
+  QString receiverCallsign=settings.value("MyCall","").toString();
+  QString receiverLocator=settings.value("MyGrid","").toString();
+  m_spot_to_psk_reporter = settings.value("spotPSK",true).toBool();
+  //QRZ parameters (8)
+  QString senderCallsign;
+  QString senderLocator;
+  double doubleFreq = 0.0; //(Hz)
+  qint64 frequency = 0.0; 
+  int sNR = -10;
+  QString mode = ""; 
+  bool ok = false;
+  
+  for (const QString &theLine : decodeList) {
+    QStringList thePostLine = theLine.split(" ",SkipEmptyParts);
+    if((thePostLine.at(5) == "CQ" || thePostLine.at(5) == "QRZ" || thePostLine.at(5) == "CQV" ||  thePostLine.at(5) == "CQH" || thePostLine.at(5) == "QRT") && receiverCallsign.length() >=3 && receiverLocator.length()>=4) {
+      if(allDecodes2.filter(theLine.mid(0,53)).length() == 0) {
+        allDecodes2.append(theLine);
+        QString freq = thePostLine.at(0).trimmed();
+        doubleFreq = freq.toDouble(&ok);
+        frequency = qRound64(doubleFreq * 1000000);
+        QString dF = thePostLine.at(1).trimmed();
+        QString dB = thePostLine.at(4).trimmed();
+        sNR = dB.toInt(&ok);
+        QString msgType = thePostLine.at(5).trimmed().toUpper();
+        senderCallsign = "";
+        senderLocator = "--";
+        mode="";
+        sNR=-10;
+        QString modeChar = "";        
+        
+        // Handle CQ CALL but NO GRID -- dot at 7
+      if(thePostLine.at(7).contains(".")) {
+          senderCallsign = thePostLine.at(6).trimmed().toUpper();
+          bool isCall = testCall(senderCallsign);
+          if(!isCall) continue;
+          modeChar = thePostLine.at(8).trimmed(); 
+          if(modeChar.contains("#")) mode = "JT65" + modeChar.back();
+          else if(modeChar.contains(":")) mode = "Q65-60" + modeChar.back();   
+          
+        // Handle CQ CALL GRID or CQ XXX CALL -- dot at 8
+        } else if (thePostLine.at(8).contains(".")) {
+          // Test for callsign at thePostLine(6)
+          senderCallsign = thePostLine.at(6).trimmed().toUpper();
+          bool isCall = testCall(senderCallsign);
+          if(isCall) {
+            senderLocator = thePostLine.at(7).trimmed();  
+            // Handle CQ XXX CALL
+          } else {
+            senderCallsign = thePostLine.at(7).trimmed().toUpper();
+            bool isCall = testCall(senderCallsign);
+            if(!isCall) continue;
+          }          
+          modeChar = thePostLine.at(9).trimmed();
+          if(modeChar.contains("#")) 
+          {  
+            mode = "JT65" + modeChar.back();   
+          } else if(modeChar.contains(":")) {
+            mode = "Q65-60" + modeChar.back();      
+          }
+        // Handle CQ XXX CALL GRID
+        }  else if(thePostLine.at(9).contains(".")) {
+            senderCallsign = thePostLine.at(7).trimmed().toUpper();
+            bool isCall = testCall(senderCallsign);
+            if(!isCall) continue;
+            senderLocator = thePostLine.at(8).trimmed();  
+             
+            modeChar = thePostLine.at(10).trimmed();
+            if(modeChar.contains("#")) 
+            {  
+              mode = "JT65" + modeChar.back();      
+            } else if(modeChar.contains(":")) {
+              mode = "Q65-60" + modeChar.back();     
+            } 
+        }
+        else {
+          continue; 
+        }             
+                
+        emit sendRemoteStationData(senderCallsign, senderLocator, frequency, mode, sNR);        
+      }
+    }
+  }
 }
 
 void Messages::selectCallsign2(bool ctrl)

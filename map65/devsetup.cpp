@@ -144,7 +144,8 @@ void DevSetup::initDlg()
   ui.otherUrlBox->setText(m_otherUrl);
   if(m_w3szUrl) ui.w3szBut->setChecked(true);
   else ui.otherBut->setChecked(true);
-
+  
+  ui.pskBox->setChecked(m_spot_to_psk_reporter);
 }
 
 //------------------------------------------------------- accept()
@@ -194,7 +195,9 @@ void DevSetup::accept()
   m_cal570=ui.cal570SpinBox->value();
   m_TxOffset=ui.sbTxOffset->value();
   m_otherUrl=ui.otherUrlBox->text();
-  m_w3szUrl = ui.w3szBut->isChecked();
+  m_w3szUrl = ui.w3szBut->isChecked();  
+  
+  m_spot_to_psk_reporter = ui.pskBox->isChecked();
 
   QDialog::accept();
 }
