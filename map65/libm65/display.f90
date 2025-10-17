@@ -147,7 +147,7 @@ subroutine display(nkeep,ftol)
         if(callsign.ne.'      ' .and. callsign.ne.callsign0) then
            len=i2-1
            if(len.lt.0) len=6
-           if(len.ge.4) then                        !Omit short "callsigns"
+           if(len.ge.3) then                        !Omit short "callsigns"
               if(nc.lt.MAXCALLS) nc=nc+1
               freqcall(nc)=cfreq0//' '//callsign//line3(k)(79:80) ! was 73:74
               callsign0=callsign
