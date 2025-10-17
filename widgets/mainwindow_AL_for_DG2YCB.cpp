@@ -4916,7 +4916,7 @@ void MainWindow::on_actionOpen_triggered()                     //Open File
 
 void MainWindow::read_wav_file (QString const& fname)
 {
-  if (m_mode=="FT8" && m_multithreadFT8) {
+  if (m_mode=="FT8" && (m_multithreadFT8 or m_freqNominal>45000000)) {
     m_nDecodes=0;                  // reset the decodes counter
     ndecodes_label.setText("");
     earlyDecodes = "";             // reset dupe check
@@ -6148,7 +6148,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
   // Filtering out some false decodes, and don't write all.txt for such
       // FDR step 1
       and (!((SpecOp::NONE==m_specOp or (m_multithreadFT8 && m_ft8DecoderStart<2)) &&
-           ((m_mode=="FT8" && ((m_multithreadFT8 && m_ft8DecoderStart<2) or m_freqNominal>45000000) && earlyDecodes.contains(line_read.mid(23,19)))   // MTD or a7 dupes
+           ((m_mode=="FT8" && ((m_multithreadFT8 && m_ft8DecoderStart<2) or m_freqNominal>45000000) && earlyDecodes.contains(line_read.mid(23,19)))   // MTD or a7/a8 dupes
            or ((SpecOp::NONE==m_specOp && decodedtext.snr() < -12) && (message0.contains("> <")   // two hashes
            || message0.contains(QRegularExpression {"(\\w+)/P (\\w+)/P "})             // two /P calls
            || message0.contains(QRegularExpression {"(\\w+)/R (\\w+)/R "})             // two /R calls

@@ -4931,7 +4931,7 @@ void MainWindow::on_actionOpen_triggered()                     //Open File
 
 void MainWindow::read_wav_file (QString const& fname)
 {
-  if (m_mode=="FT8" && m_multithreadFT8) {
+  if (m_mode=="FT8" && (m_multithreadFT8 or m_freqNominal>45000000)) {
     m_nDecodes=0;                  // reset the decodes counter
     ndecodes_label.setText("");
     earlyDecodes = "";             // reset dupe check
@@ -6163,7 +6163,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
   // Filtering out some false decodes, and don't write all.txt for such
       // FDR step 1
       and (!((SpecOp::NONE==m_specOp or (m_multithreadFT8 && m_ft8DecoderStart<2)) &&
-           ((m_mode=="FT8" && (m_multithreadFT8 && m_ft8DecoderStart<2) && earlyDecodes.contains(line_read.mid(23,19)))   // MTD dupes
+           ((m_mode=="FT8" && ((m_multithreadFT8 && m_ft8DecoderStart<2) or m_freqNominal>45000000) && earlyDecodes.contains(line_read.mid(23,19)))   // MTD or a7/a8 dupes
            or ((SpecOp::NONE==m_specOp && decodedtext.snr() < -12) && (message0.contains("> <")   // two hashes
            || message0.contains(QRegularExpression {"(\\w+)/P (\\w+)/P "})             // two /P calls
            || message0.contains(QRegularExpression {"(\\w+)/R (\\w+)/R "})             // two /R calls
@@ -6912,7 +6912,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
           }
           if(m_position != 0) ui->decodedTextBrowser->horizontalScrollBar()->setValue(m_position);
         }
-        if (m_mode=="FT8" && m_multithreadFT8 && m_ft8DecoderStart<2) earlyDecodes.append(line_read); //ft8md
+        if (m_mode=="FT8" && ((m_multithreadFT8 && m_ft8DecoderStart<2) or m_freqNominal>45000000)) earlyDecodes.append(line_read); //ft8md
 
         // highlight callsigns worked B4 on band or worked today
         if(ui->actionHighlightB4->isChecked() or ui->actionHighlightToday->isChecked() or ui->actionHighlightIgnored->isChecked()
@@ -8201,11 +8201,11 @@ void MainWindow::guiUpdate()
 //Once per second (onesec)
   if(nsec != m_sec0) {
 
-    // reset earlyDecodes for 2-stage or 3-stage decoding
-    if (m_mode=="FT8" && !m_diskData && m_multithreadFT8 && m_ft8DecoderStart<2) {
+    // reset earlyDecodes for 2-stage or 3-stage decoding, or if QRG > 45 MHz
+    if (m_mode=="FT8" && !m_diskData && ((m_multithreadFT8 && m_ft8DecoderStart<2) or m_freqNominal>45000000)) {
       QDateTime now = QDateTime::currentDateTimeUtc();
       int s = now.time().toString("ss").toInt();
-      if (m_ft8DecoderStart<2) {
+      if (m_ft8DecoderStart<2 or m_freqNominal>45000000) {
         if ((s == 7 || s == 22 ||s == 37 || s == 52) && m_decoderBusy) {
         to_jt9(m_ihsym,-1,-1);   //Allow jt9 to bail out early, if necessary
         decodeDone();            //We better clear a hung decoder status at this point
