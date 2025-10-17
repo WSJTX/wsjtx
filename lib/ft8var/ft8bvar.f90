@@ -2247,7 +2247,11 @@ subroutine ft8bvar(newdat1,nQSOProgress,nfqso,nftx,napwid,lsubtract,npos,freqsub
            read(c77(75:77),'(b3)') i3
            !print*,'line 2247 iaptype=',iaptype,' i3=',i3,' n3=',n3
            if((i3.gt.4 .or. (i3.eq.0 .and. n3.gt.5)) .and. (.not.(i3.eq.5 .and.   &
-                (n3.eq.1 .or. n3.eq.7 .or.n3.eq.6 .or.n3.eq.4 .or.n3.eq.3 .or.n3.eq.0 .or.n3.eq.5)))) cycle  ! ft8md added n3.eq.6 and n3.eq.4 and n3.eq.3 and n3.eq.0 and n3.eq.5 for USA calls with EU VHF
+                (n3.eq.1 .or. n3.eq.7 .or.n3.eq.6 .or.n3.eq.4 .or.n3.eq.3 .or.n3.eq.0 &
+                .or.n3.eq.5 .or. n3.eq.2 .or. n3.eq.8 .or. n3.eq.9)))) cycle  
+                ! ft8md added n3.eq.6 and n3.eq.4 and n3.eq.3 and n3.eq.0 
+                ! and n3.eq.5 for USA calls with EU VHF 
+                ! added .or. n3.eq.2 .or. n3.eq.8 .or. n3.eq.9 as test for EU VHF
            !print*,'did not cycle at line 2248'
            call unpack77var(c77,1,msg37,unpk77_success,nthr)
            if(.not.unpk77_success) then
