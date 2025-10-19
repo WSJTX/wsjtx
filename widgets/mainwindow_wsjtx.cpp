@@ -977,8 +977,10 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
       else {
         config_label.hide ();
       }
-      programStart = true;
-      QTimer::singleShot (2000, [=] {programStart=false;});
+      if (!programStart) {    // set programStart to true for 2 seconds when changing Configurations
+        programStart = true;
+        QTimer::singleShot (2000, [=] {programStart=false;});
+      }
       statusUpdate ();
 #if defined(Q_OS_WIN)
       QTimer::singleShot (250, [=] {
@@ -13701,29 +13703,23 @@ void MainWindow::astroUpdate ()
 
 void MainWindow::setRig (Frequency f)
 {
-  if (f)
-    {
-      m_freqNominal = f;
-      genCQMsg ();
-      m_freqTxNominal = m_freqNominal;
-      if (m_astroWidget) m_astroWidget->nominal_frequency (m_freqNominal, m_freqTxNominal);
-    }
-  if (m_mode == "FreqCal"
-      && m_frequency_list_fcal_iter != m_config.frequencies ()->end ()) {
+  if (f) {
+    m_freqNominal = f;
+    genCQMsg ();
+    m_freqTxNominal = m_freqNominal;
+    if (m_astroWidget) m_astroWidget->nominal_frequency (m_freqNominal, m_freqTxNominal);
+  }
+  if (m_mode == "FreqCal" && m_frequency_list_fcal_iter != m_config.frequencies ()->end ()) {
     m_freqNominal = m_frequency_list_fcal_iter->frequency_ - ui->RxFreqSpinBox->value ();
   }
-  if(m_transmitting && !m_config.tx_QSY_allowed ()) return;
-  if ((m_monitoring || m_transmitting) && m_config.transceiver_online ())
-    {
-      if (m_transmitting && m_config.split_mode () && !(m_config.superFox() && m_specOp==SpecOp::FOX))
-        {
-          m_config.transceiver_tx_frequency (m_freqTxNominal + m_astroCorrection.tx);
-        }
-      else
-        {
-          m_config.transceiver_frequency (m_freqNominal + m_astroCorrection.rx);
-        }
+  if (m_transmitting && !m_config.tx_QSY_allowed ()) return;
+  if ((m_monitoring || m_transmitting) && m_config.transceiver_online ()) {
+    if (m_transmitting && m_config.split_mode () && !(m_config.superFox() && m_specOp==SpecOp::FOX)) {
+      m_config.transceiver_tx_frequency (m_freqTxNominal + m_astroCorrection.tx);
+    } else {
+      m_config.transceiver_frequency (m_freqNominal + m_astroCorrection.rx);
     }
+  }
 }
 
 void MainWindow::fastPick(int x0, int x1, int y)
