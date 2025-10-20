@@ -320,7 +320,10 @@ MainWindow::MainWindow(QWidget *parent) :
     connect (m_messages_window, &Messages::click2OnCallsign, this, &MainWindow::doubleClickOnMessages);
     if (m_messages_window) m_messages_window->setColors(m_colors);
   });
-
+  
+  //default freq at startup for Doppler and Tsky  
+  datcom_.fcenter = m_wide_graph_window->m_dForceCenterFreq;
+  
   // only start the guiUpdate timer after this constructor has finished
   QTimer::singleShot (0, [=] {
            m_gui_timer->start(100); //Don't change the 100 ms!

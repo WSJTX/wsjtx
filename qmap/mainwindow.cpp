@@ -201,6 +201,9 @@ MainWindow::MainWindow(QWidget *parent) :
   connect (m_wide_graph_window.get (), &WideGraph::freezeDecode2, this, &MainWindow::freezeDecode);
   connect (m_wide_graph_window.get (), &WideGraph::f11f12, this, &MainWindow::bumpDF);
 
+  //default freq at startup for Doppler and Tsky  
+  datcom_.fcenter = 1296.150;
+  
   // only start the guiUpdate timer after this constructor has finished
   QTimer::singleShot (0, [=] {
                            m_gui_timer->start(100); //Don't change the 100 ms!
