@@ -6155,8 +6155,6 @@ void MainWindow::readFromStdout()                             //readFromStdout
     DecodedText decodedtext0 {QString::fromUtf8(line_read.constData())};
     DecodedText decodedtext {QString::fromUtf8(line_read.constData()).remove("TU; ")};
 
-    if (m_mode=="FT8" && m_multithreadFT8 && SpecOp::HOUND==m_specOp && !ui->cbRxAll->isChecked() && decodedtext.frequencyOffset()>1000) return;
-
   // Don't allow a7 decodes during the first period and for non-contest messages when in any contest mode
   if ((!((no_a7_decodes && line_read.contains("a7") && !m_diskData) or (line_read.contains("a7") && SpecOp::NONE!=m_specOp
           && !m_diskData && !(line_read.contains(" R ") or line_read.contains("RR73") or line_read.contains("CQ ")))))
