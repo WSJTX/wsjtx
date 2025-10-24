@@ -1650,7 +1650,7 @@ contains
     endif
 
     write(*,1000) params%nutc,snr,dt,nint(freq),decoded0,annot
-1000 format(i6.6,i4,f5.1,i5,' + ',1x,a37,1x,a2)
+1000 format(i6.6,i4,f5.1,i5,' ~ ',1x,a37,1x,a2)
     
     if(ncontest.eq.6) then
        i1=index(decoded0,' ')
