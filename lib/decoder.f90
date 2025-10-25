@@ -20,7 +20,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
        lwidedxcsearch,hisgrid4,lmultinst,dd8,nft8cycles,lskiptx1,ncandallthr,   &
        nincallthr,incall,msgincall,xdtincall,maskincallthr,ltxing,hisgrid
 
-  use packjt77var, only : lcommonft8b,ihash22,calls12,calls22
+  use packjt77, only : lcommonft8b,ihash22var,calls12var,calls22var
 
   include 'jt9com.f90'
   include 'timer_common.inc'
@@ -190,9 +190,9 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
         if(params%lmultift8 .and. params%nmode.eq.8) then
            if(params%lmodechanged) then
               avexdt=0.
-              ihash22=-1
-              calls22=''
-              calls12=''
+              ihash22var=-1
+              calls22var=''
+              calls12var=''
               nintcount=3
            endif ! avexdt fast track in FT8 after mode change
 

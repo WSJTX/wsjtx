@@ -8,14 +8,14 @@ subroutine genft8sdvar(msg,i3,n3,msgsent,msgbits,itone)
   character msg*37,msgsent*37,c77*77
   integer*1 msgbits(77),codeword(174)
   integer itone(79)
-  logical unpk77_success
+  logical unpk77_successvar
 
   i3=-1
   n3=-1
   call pack77sdvar(msg,i3,n3,c77)
-  call unpack77sdvar(c77,msgsent,unpk77_success)
+  call unpack77sdvar(c77,msgsent,unpk77_successvar)
   read(c77,'(77i1)',err=1) msgbits
-  if(unpk77_success) go to 2
+  if(unpk77_successvar) go to 2
 1 msgbits=0
   itone=0
   msgsent='*** bad message ***                  '

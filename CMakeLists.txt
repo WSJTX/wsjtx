@@ -375,7 +375,6 @@ set (wsjt_FSRCS
   lib/superfox/popen_module.f90
   lib/superfox/qpc/qpc_mod.f90
   lib/ft8var/ft8_decodevar.f90
-  lib/ft8var/packjt77var.f90
 
   # remaining non-module sources
   lib/addit.f90

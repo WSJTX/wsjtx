@@ -2,7 +2,7 @@
 module packjt77sdvar
 
 ! These variables are accessible from outside via "use packjt77sdvar":
-!  integer n28a,n28b
+!  integer n28avar,n28bvar
 
   contains
 
@@ -36,22 +36,22 @@ subroutine pack77sdvar(msg0,i3,n3,c77)
 900 return
 end subroutine pack77sdvar
 
-subroutine unpack77sdvar(c77,msg,unpk77_success)
+subroutine unpack77sdvar(c77,msg,unpk77_successvar)
 
   parameter (MAXGRID4=32400)
   integer*8 n58
   character*77 c77*77,msg*37,c*38,call_1*13,call_2*13,c11*11,grid4*4,crpt*3
-  logical unpk28_success,unpk77_success
+  logical unpk28_success,unpk77_successvar
 
   data c/' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ/'/
 
-  unpk77_success=.true.
+  unpk77_successvar=.true.
 
 ! Check for bad data
   do i=1,77
      if(c77(i:i).ne.'0' .and. c77(i:i).ne.'1') then
         msg='failed unpack'
-        unpk77_success=.false.
+        unpk77_successvar=.false.
         return
      endif
   enddo
@@ -66,12 +66,12 @@ subroutine unpack77sdvar(c77,msg,unpk77_success)
 
   else if(i3.eq.1 .or. i3.eq.2) then
 ! Type 1 (standard message) or Type 2 ("/P" form for EU VHF contest)
-     read(c77,1000) n28a,ipa,n28b,ipb,ir,igrid4,i3
+     read(c77,1000) n28avar,ipa,n28bvar,ipb,ir,igrid4,i3
 1000 format(2(b28,b1),b1,b15,b3)
-     call unpack28var(n28a,call_1,unpk28_success)
-     if(.not.unpk28_success) unpk77_success=.false.
-     call unpack28var(n28b,call_2,unpk28_success)
-     if(.not.unpk28_success) unpk77_success=.false.
+     call unpack28var(n28avar,call_1,unpk28_success)
+     if(.not.unpk28_success) unpk77_successvar=.false.
+     call unpack28var(n28bvar,call_2,unpk28_success)
+     if(.not.unpk28_success) unpk77_successvar=.false.
      if(call_1(1:3).eq.'CQ_') call_1(3:3)=' '
      if(index(call_1,'<').le.0) then
         i=index(call_1,' ')
@@ -97,7 +97,7 @@ subroutine unpack77sdvar(c77,msg,unpk77_success)
         grid4(4:4)=char(j4+ichar('0'))
         if(ir.eq.0) msg=trim(call_1)//' '//trim(call_2)//' '//grid4
         if(ir.eq.1) msg=trim(call_1)//' '//trim(call_2)//' R '//grid4
-        if(msg(1:3).eq.'CQ ' .and. ir.eq.1) unpk77_success=.false.
+        if(msg(1:3).eq.'CQ ' .and. ir.eq.1) unpk77_successvar=.false.
      else
         irpt=igrid4-MAXGRID4
         if(irpt.eq.1) msg=trim(call_1)//' '//trim(call_2)
@@ -110,7 +110,7 @@ subroutine unpack77sdvar(c77,msg,unpk77_success)
            if(ir.eq.0) msg=trim(call_1)//' '//trim(call_2)//' '//crpt
            if(ir.eq.1) msg=trim(call_1)//' '//trim(call_2)//' R'//crpt
         endif
-        if(msg(1:3).eq.'CQ ' .and. irpt.ge.2) unpk77_success=.false. 
+        if(msg(1:3).eq.'CQ ' .and. irpt.ge.2) unpk77_successvar=.false. 
      endif
 
   else if(i3.eq.4) then
@@ -124,9 +124,9 @@ subroutine unpack77sdvar(c77,msg,unpk77_success)
        enddo
        call_2=adjustl(c11)//'  '
        msg='CQ '//trim(call_2)
-       if(msg(1:4).eq.'CQ <') unpk77_success=.false.
+       if(msg(1:4).eq.'CQ <') unpk77_successvar=.false.
      else
-       unpk77_success=.false.
+       unpk77_successvar=.false.
      endif
   endif
 
@@ -430,10 +430,10 @@ subroutine pack77_1var(nwords,w,i3,n3,c77)
   endif
   c13=bcall_1
   if(c13(1:3).eq.'CQ_' .or. w(1)(1:1).eq.'<') c13=w(1)
-  call pack28var(c13,n28a)
+  call pack28var(c13,n28avar)
   c13=bcall_2
   if(w(2)(1:1).eq.'<') c13=w(2)
-  call pack28var(c13,n28b)
+  call pack28var(c13,n28bvar)
   ipa=0
   ipb=0
   if(i1psuffix.ge.4.or.index(w(1)//' ','/R ').ge.4) ipa=1
@@ -456,7 +456,7 @@ subroutine pack77_1var(nwords,w,i3,n3,c77)
      irpt=1
      igrid4=MAXGRID4+irpt
   endif
-  write(c77,1000) n28a,ipa,n28b,ipb,ir,igrid4,i3
+  write(c77,1000) n28avar,ipa,n28bvar,ipb,ir,igrid4,i3
 1000 format(2(b28.28,b1),b1,b15.15,b3.3)
   return
 

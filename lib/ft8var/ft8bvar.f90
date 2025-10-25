@@ -6,7 +6,7 @@ subroutine ft8bvar(newdat1,nQSOProgress,nfqso,nftx,napwid,lsubtract,npos,freqsub
      lft8lowth,lhighsens,lsubtracted,tmpcqsig,tmpmycsig,tmpqsosig,lnohiscall,     &
      lnomycall,lnohisgrid,qual,iaptype2)
 
-  use packjt77var, only : unpack77var
+  use packjt77, only : unpack77var
   use ft8_mod1, only : allmessages,ndecodes,apsym,mcq,m73,mrr73,mrrr,icos7,       &
        naptypes,nhaptypes,one,graymap,oddcopy,evencopy,lastrxmsg,lasthcall,       &
        nlasttx,calldteven,calldtodd,lqsomsgdcd,mycalllen1,msgroot,msgrootlen,     &
@@ -35,7 +35,7 @@ subroutine ft8bvar(newdat1,nQSOProgress,nfqso,nftx,napwid,lsubtract,npos,freqsub
   integer*1 message77(77),apmask(174),cw(174),nsmax(8)
   integer itone(79),ip(1),ka(1),nqsoend(3)
   integer, intent(in) :: nQSOProgress,nfqso,nftx,napwid,nthr,ipass,nft8rxfsens
-  logical newdat1,lsubtract,lFreeText,nagainfil,lspecial,unpk77_success
+  logical newdat1,lsubtract,lFreeText,nagainfil,lspecial,unpk77_successvar
   logical(1), intent(in) :: stophint,lft8subpass,lmycallstd,lhiscallstd,          &
        lqsothread,lft8lowth,lhighsens,lcqcand,levenint,loddint,lnohiscall,        &
        lnomycall,lnohisgrid
@@ -2253,8 +2253,8 @@ subroutine ft8bvar(newdat1,nQSOProgress,nfqso,nftx,napwid,lsubtract,npos,freqsub
                 ! and n3.eq.5 for USA calls with EU VHF 
                 ! added .or. n3.eq.2 .or. n3.eq.8 .or. n3.eq.9 as test for EU VHF
            !print*,'did not cycle at line 2248'
-           call unpack77var(c77,1,msg37,unpk77_success,nthr)
-           if(.not.unpk77_success) then
+           call unpack77var(c77,1,msg37,unpk77_successvar,nthr)
+           if(.not.unpk77_successvar) then
               if(lqsothread .and. (.not.lhound .and. iaptype.ge.3 .or. lhound .and. &
                    (iaptype.eq.21 .or. iaptype.eq.23)) .and. .not.lsdone) then
                  if(.not.lqsomsgdcd .and. .not.(.not.lmycallstd .and.             &
