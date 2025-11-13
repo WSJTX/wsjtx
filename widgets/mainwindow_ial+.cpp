@@ -12042,13 +12042,6 @@ void MainWindow::band_changed (Frequency f)
     if (m_specOp==SpecOp::FOX) FoxReset("BandChange");  // when changing bands, don't preserve the Fox queues
     m_lastloggedcall.clear();  //ft8md
     if (m_mode=="MSK144" && !(programStart or m_freqNominal == 0)) m_msk144basefreq = m_freqNominal;  // MSK144 QSY
-    if (m_mode=="MSK144" && !programStart) { // restore MSK144 TRperiods by band
-      QTimer::singleShot (750, [=] {
-        if (m_currentBand=="2m" && m_msk144_tr2!=ui->sbTR->value()) ui->sbTR->setValue (m_msk144_tr2);
-        else if ((m_currentBand=="6m" or m_currentBand=="4m") && m_msk144_tr6!=ui->sbTR->value()) ui->sbTR->setValue (m_msk144_tr6);
-        else ui->sbTR->setValue (m_msk144_tr);
-      });
-    }
   }
 
   // Erase the decodedTextBrowsers only if the band really changed
@@ -12059,6 +12052,13 @@ void MainWindow::band_changed (Frequency f)
   if (m_astroWidget && !programStart) {
     m_astroWidget->setSkedFreq(0.000001*f);
     m_skedFreq=0.000001*f;
+  }
+  if (m_mode=="MSK144" && !programStart) { // restore MSK144 TRperiods by band
+    QTimer::singleShot (750, [=] {
+      if (m_currentBand=="2m" && m_msk144_tr2!=ui->sbTR->value()) ui->sbTR->setValue (m_msk144_tr2);
+      else if ((m_currentBand=="6m" or m_currentBand=="4m") && m_msk144_tr6!=ui->sbTR->value()) ui->sbTR->setValue (m_msk144_tr6);
+      else ui->sbTR->setValue (m_msk144_tr);
+    });
   }
 
 /*
