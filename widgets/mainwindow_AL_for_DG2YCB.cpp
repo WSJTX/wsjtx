@@ -11739,6 +11739,19 @@ void MainWindow::on_TxFreqSpinBox_valueChanged(int n)
       QTimer::singleShot (200, [=] {m_settings->setValue("TxFreq_old",ui->TxFreqSpinBox->value());});
   }
   if(m_specOp==SpecOp::FOX && !m_config.superFox()) QTimer::singleShot (50, [=] {m_TxFreqFox=n;});
+
+  // UK stations must transmit below 5758 kHz on 60m
+  if((m_config.my_callsign().startsWith("G") or m_config.my_callsign().startsWith("M")
+      or m_config.my_callsign().startsWith("2")) && (m_freqNominal + ui->TxFreqSpinBox->value()) > 5357950) {
+    QString band=m_config.bands()->find(m_freqNominal);
+    if(band=="60m") {
+      ui->TxFreqSpinBox->setValue(5357950 - m_freqNominal);
+      m_wideGraph->setTxFreq(5357950 - m_freqNominal);
+      QTimer::singleShot (0, [=] {   // don't block guiUpdate
+        MessageBox::information_message (this, tr ("UK stations must transmit below 5758 kHz on 60m."));
+      });
+    }
+  }
   statusUpdate ();
 }
 
@@ -12080,6 +12093,19 @@ void MainWindow::band_changed (Frequency f)
       else if ((m_currentBand=="6m" or m_currentBand=="4m") && m_msk144_tr6!=ui->sbTR->value()) ui->sbTR->setValue (m_msk144_tr6);
       else ui->sbTR->setValue (m_msk144_tr);
     });
+  }
+
+  // UK stations must transmit below 5758 kHz on 60m
+  if((m_config.my_callsign().startsWith("G") or m_config.my_callsign().startsWith("M")
+      or m_config.my_callsign().startsWith("2")) && (m_freqNominal + ui->TxFreqSpinBox->value()) > 5357950) {
+    QString band=m_config.bands()->find(m_freqNominal);
+    if(band=="60m") {
+      ui->TxFreqSpinBox->setValue(5357950 - m_freqNominal);
+      m_wideGraph->setTxFreq(5357950 - m_freqNominal);
+      QTimer::singleShot (0, [=] {   // don't block guiUpdate
+        MessageBox::information_message (this, tr ("UK stations must transmit below 5758 kHz on 60m."));
+      });
+    }
   }
 
 /*
