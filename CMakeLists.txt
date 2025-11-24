@@ -1120,7 +1120,7 @@ if (Fortran_COMPILER_NAME MATCHES "gfortran.*")
   endif (CMAKE_OSX_SYSROOT)
 
   # Add assembler flag to disable executable stack
-  if (UNIX AND Fortran_COMPILER_NAME MATCHES "gfortran.*")
+  if (UNIX AND NOT APPLE AND Fortran_COMPILER_NAME MATCHES "gfortran.*")
      set (CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -Wa,--noexecstack")
   endif()
 
