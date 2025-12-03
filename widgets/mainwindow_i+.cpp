@@ -7563,11 +7563,11 @@ void MainWindow::pskPost (DecodedText const& decodedtext)
   int sTimeString = decodedtext.string().mid(0,6).toInt();
   QTime time2(h, m, s);
   QDateTime qSpotTime;
-  if (sTimeString + m_TRperiod >= 236000) {
-    qSpotTime = QDateTime((QDateTime::currentDateTimeUtc().addDays(-1)).date(), time2, Qt::UTC); 
+  if (sTimeString + m_TRperiod < 236000) {
+    qSpotTime = QDateTime(QDateTime::currentDateTimeUtc().date(), time2, Qt::UTC); 
   }
   else {
-    qSpotTime = QDateTime(QDateTime::currentDateTimeUtc().date(), time2, Qt::UTC); 
+    qSpotTime = QDateTime((QDateTime::currentDateTimeUtc().addDays(-1)).date(), time2, Qt::UTC); 
   }    
   QString msgmode=m_mode;
   QString deCall;
@@ -14099,11 +14099,11 @@ void MainWindow::readWidebandDecodes()
     int sTimeString = line.mid(0,6).toInt();
     QTime time2(nhr, nmin, nsec);
     QDateTime qSpotTime;
-    if (sTimeString + m_TRperiod >= 236000) {
-      qSpotTime = QDateTime((QDateTime::currentDateTimeUtc().addDays(-1)).date(), time2, Qt::UTC); 
+    if (sTimeString + m_TRperiod < 236000) {
+      qSpotTime = QDateTime(QDateTime::currentDateTimeUtc().date(), time2, Qt::UTC); 
     }
     else {
-      qSpotTime = QDateTime(QDateTime::currentDateTimeUtc().date(), time2, Qt::UTC); 
+      qSpotTime = QDateTime((QDateTime::currentDateTimeUtc().addDays(-1)).date(), time2, Qt::UTC); 
     }        
     double frx=line.mid(6,9).toDouble();
     double fsked=line.mid(16,7).toDouble();
