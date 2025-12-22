@@ -171,8 +171,6 @@ subroutine q65_dec0(iavg,nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
         call timer('list_dec',0)
         call q65_dec_q3(s1,iz,jz,s3,LL,ipk,jpk,snr2,dat4,idec,decoded)
         call timer('list_dec',1)
-!        if(idec.ge.0) write(70,3070) idec,mode_q65,better,trim(decoded)
-!3070    format(i3,i5,f8.2,2x,a)
      endif
 ! If idec=3 we have a q3 decode.  Continue to compute sync curve for plotting.
   endif
@@ -250,16 +248,15 @@ subroutine q65_dec0(iavg,nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
         call q65_ccf_85(s1w,iz,jz,nfqso,ia,ia2,ipk,jpk,f0,xdt,imsg_best,   &
              better,ccf1)
         call timer('ccf_85  ',1)
-	!         nsubmode  is Tone-spacing indicator, 0-4 for A-E: a 0; b 1; c 2; d 3; e 4.
-	!         and mode_q65=2**nsubmode
+
+! nsubmode  is Tone-spacing indicator, 0-4 for A-E: a 0; b 1; c 2; d 3; e 4.
+! and mode_q65=2**nsubmode
         if(better.ge.1.10) then
            !     if(better.ge.1.04 .or. mode_q65.ge.8) then
            !     if(better.ge.1.10 .or. mode_q65.ge.8) then  ORIGINAL
            call timer('list_dec',0)
            call q65_dec_q3(s1w,iz,jz,s3,LL,ipk,jpk,snr2,dat4,idec,decoded)
            call timer('list_dec',1)
-           !        if(idec.ge.0) write(70,3070) idec,mode_q65,better,trim(decoded)
-           !3070    format(i3,i5,f8.2,2x,a)
         endif ! if(better.ge.1.10)
      endif    ! if(ncw.gt.0 .and. iavg.le.1)
      ! If idec=3 we have a q3 decode.  Continue to compute sync curve for plotting.
@@ -570,7 +567,6 @@ subroutine q65_ccf_22(s1,iz,jz,nfqso,ntol,ndepth,ntrperiod,iavg,ipk,jpk,  &
      i=indx(k)+ia-1
      if(ccf2(i).lt.3.3) exit                !Candidate limit
      f=i*df
-     if(f.ge.(nfqso-ftol) .and. f.le.(nfqso+ftol)) cycle  !Looked here already
      i3=max(1, i-mode_q65)
      i4=min(iz,i+mode_q65)
      biggest=maxval(ccf2(i3:i4))
@@ -785,9 +781,9 @@ subroutine q65_snr(dat4,dtdec,f0dec,mode_q65,nused,snr2)
   sig_area=sum(spec(ia+nsum:ib-nsum)-1.0)
   w_equiv=sig_area/(smax-1.0)
   snr2=db(max(1.0,sig_area)) - db(2500.0/df)
-  if(nused.eq.2) snr2=snr2 - 2.0
-  if(nused.eq.3) snr2=snr2 - 2.9
-  if(nused.ge.4) snr2=snr2 - 3.5
+  if(nused.eq.2) snr2=snr2 - 1.5
+  if(nused.eq.3) snr2=snr2 - 2.4
+  if(nused.ge.4) snr2=snr2 - 3.0
 
   return
 end subroutine q65_snr

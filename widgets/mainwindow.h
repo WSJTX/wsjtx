@@ -141,6 +141,12 @@ private:
 
 private slots:
   void initialize_fonts ();
+  void on_houndButton_clicked(bool checked);
+  void on_ft8Button_clicked();
+  void on_ft4Button_clicked();
+  void on_msk144Button_clicked();
+  void on_q65Button_clicked();
+  void on_jt65Button_clicked();
   void on_tx1_editingFinished();
   void on_tx2_editingFinished();
   void on_tx3_editingFinished();
@@ -275,7 +281,7 @@ private slots:
   void on_cbTx6_toggled(bool b);
   void on_cbMenus_toggled(bool b);
   void on_cbCQonly_toggled(bool b);
-  void on_cbFirst_toggled(bool b);
+  void on_respondComboBox_currentIndexChanged (int n);
   void on_cbAutoSeq_toggled(bool b);
   void networkError (QString const&);
   void on_ClrAvgButton_clicked();
@@ -483,6 +489,7 @@ private:
   qint32  m_earlyDecode=41;
   qint32  m_earlyDecode2=47;
   qint32  m_nDecodes=0;
+  qint32  m_maxPoints=-1;
 
   bool    m_btxok;		//True if OK to transmit
   bool    m_diskData;
@@ -634,6 +641,8 @@ private:
   QString m_fileDateTime;
   QString m_inQSOwith;
   QString m_BestCQpriority;
+  QString m_deCall;
+  QString m_deGrid;
 
   QSet<QString> m_pfx;
   QSet<QString> m_sfx;

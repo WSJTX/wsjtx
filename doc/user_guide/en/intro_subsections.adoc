@@ -26,7 +26,10 @@ The _WSJT-X_ user interface (UI) is now available in many languages.
 When a translated UI is available for the computer's default System
 Language, it will appear automatically on program startup. The UI
 language may be overridden if desired by starting _WSJT-X_ with a
-command line option.
+command line option.  For example, to start _WSJT-X_ with its user
+interface in Spanish, enter this command at the prompt: +
+
+`wsjtx --language es`
 
 === How You Can Contribute
 

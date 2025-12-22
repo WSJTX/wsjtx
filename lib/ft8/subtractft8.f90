@@ -58,6 +58,8 @@ subroutine subtractft8(dd0,itone,f0,dt,lrefinedt)
      sq0=sqf(0)                        !Do the subtraction with idt=0
   endif
   dd0=dd                               !Return dd0 with this signal subtracted
+!  write(44,3044) nint(f0),dt-0.5,1.e-8*sum(dd*dd)
+!3044 format(i4,f7.2,f10.6)
   return
 
 contains

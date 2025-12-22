@@ -62,6 +62,7 @@ contains
     character(len=12) :: mycall, hiscall  !Used for AP decoding
     character(len=6) :: hisgrid
     character*37 decoded                  !Decoded message
+    character*37 decodes(100)
     character*77 c77
     character*78 c78
     character*6 cutc
@@ -80,6 +81,8 @@ contains
 
 ! Start by setting some parameters and allocating storage for large arrays
     call sec0(0,tdecode)
+    ndecodes=0
+    decodes=' '
     nfa=nfa0
     nfb=nfb0
     nqd=nqd0
@@ -153,14 +156,21 @@ contains
     call q65_enc(dgen,codewords)         !Initialize the Q65 codec
     nused=1
     iavg=0
+
+! W3SZ patch: Initialize AP params here, rather than afer the call to ana64().
+    call ft8apset(mycall,hiscall,ncontest,apsym0,aph10) ! Generate ap symbols
+    where(apsym0.eq.-1) apsym0=0
+    npasses=2
+    if(nQSOprogress.eq.5) npasses=3
+
     call timer('q65_dec0',0)
 ! Call top-level routine in q65 module: establish sync and try for a
 ! q3 or q0 decode.
     call q65_dec0(iavg,nutc,iwave,ntrperiod,nfqso,ntol,ndepth,lclearave,  &
          emedelay,xdt,f0,snr1,width,dat4,snr2,idec,stageno)
     call timer('q65_dec0',1)
-!    write(*,3001) '=a',sum(abs(float(iwave))),nfqso,ntol,ndepth,xdt,f0,idec
-!3001 format(a2,f15.0,3i5,f7.2,f7.1,i5)
+!    write(*,3001) '=a',nfqso,ntol,ndepth,xdt,f0,idec
+!3001 format(a2,3i5,f7.2,f7.1,i5)
 
     if(idec.ge.0) then
        dtdec=xdt                    !We have a q3 or q0 decode at nfqso
@@ -173,11 +183,6 @@ contains
     if(ntrperiod.le.30) jpk0=(xdt+0.5)*6000  !For shortest sequences
     if(jpk0.lt.0) jpk0=0
     call ana64(iwave,npts,c00)          !Convert to complex c00() at 6000 Sa/s
-    call ft8apset(mycall,hiscall,ncontest,apsym0,aph10) ! Generate ap symbols
-    where(apsym0.eq.-1) apsym0=0
-
-    npasses=2
-    if(nQSOprogress.eq.5) npasses=3
     if(lapcqonly) npasses=1
     iaptype=0
     do ipass=0,npasses                  !Loop over AP passes
@@ -199,6 +204,7 @@ contains
        call q65_loops(c00,npts/2,nsps/2,nsubmode,ndepth,jpk0,   &
             xdt,f0,iaptype,xdt1,f1,snr2,dat4,idec)
        call timer('q65loops',1)
+!       write(*,3001) '=b',nfqso,ntol,ndepth,xdt,f0,idec
        if(idec.ge.0) then
           dtdec=xdt1
           f0dec=f1
@@ -266,33 +272,41 @@ contains
 ! Unpack decoded message for display to user
        write(c77,1000) dat4(1:12),dat4(13)/2
 1000   format(12b6.6,b5.5)
-       call unpack77(c77,1,decoded,unpk77_success) !Unpack to get msgsent
-       call q65_snr(dat4,dtdec,f0dec,mode_q65,nused,snr2)
-       nsnr=nint(snr2)
-       call this%callback(nutc,snr1,nsnr,dtdec,f0dec,decoded,    &
-            idec,nused,ntrperiod)
-       call q65_hist(nint(f0dec),msg0=decoded)
-       if(iand(ndepth,128).ne.0 .and. .not.lagain .and.      &
-            int(abs(f0dec-nfqso)).le.ntol ) call q65_clravg    !AutoClrAvg
-       call sec0(1,tdecode)
-       open(22,file=trim(data_dir)//'/q65_decodes.dat',status='unknown',     &
-            position='append',iostat=ios)
-       if(ios.eq.0) then
+       call unpack77(c77,1,decoded,unpk77_success) !Unpack to get decoded
+       idupe=0
+       do i=1,ndecodes
+          if(decodes(i).eq.decoded) idupe=1
+       enddo
+       if(idupe.eq.0) then
+          ndecodes=min(ndecodes+1,100)
+          decodes(ndecodes)=decoded
+          call q65_snr(dat4,dtdec,f0dec,mode_q65,nused,snr2)
+          nsnr=nint(snr2)
+          call this%callback(nutc,snr1,nsnr,dtdec,f0dec,decoded,    &
+               idec,nused,ntrperiod)
+          call q65_hist(nint(f0dec),msg0=decoded)
+          if(iand(ndepth,128).ne.0 .and. .not.lagain .and.      &
+               int(abs(f0dec-nfqso)).le.ntol ) call q65_clravg    !AutoClrAvg
+          call sec0(1,tdecode)
+          open(22,file=trim(data_dir)//'/q65_decodes.dat',status='unknown',     &
+               position='append',iostat=ios)
+          if(ios.eq.0) then
 ! Save decoding parameters to q65_decoded.dat, for later analysis.
-          write(cmode,'(i3)') ntrperiod
-          cmode(4:4)=char(ichar('A')+nsubmode)
-          c6=hiscall(1:6)
-          if(c6.eq.'      ') c6='<b>   '
-          c4=hisgrid(1:4)
-          if(c4.eq.'    ') c4='<b> '
-          fmt='(i6.4,1x,a4,4i2,6i3,i4,f6.2,f7.1,f6.1,f7.1,f6.2,'//   &
-               '1x,a6,1x,a6,1x,a4,1x,a)'
-          if(ntrperiod.le.30) fmt(5:5)='6'
-          if(idec.eq.3) nrc=0
-          write(22,fmt) nutc,cmode,nQSOprogress,idec,idfbest,idtbest,ibw,    &
-               ndistbest,nused,icand,ncand,nrc,ndepth,xdt,f0,snr2,plog,      &
-               tdecode,mycall(1:6),c6,c4,trim(decoded)
-          close(22)
+             write(cmode,'(i3)') ntrperiod
+             cmode(4:4)=char(ichar('A')+nsubmode)
+             c6=hiscall(1:6)
+             if(c6.eq.'      ') c6='<b>   '
+             c4=hisgrid(1:4)
+             if(c4.eq.'    ') c4='<b> '
+             fmt='(i6.4,1x,a4,i5,4i2,6i3,i4,f6.2,f7.1,f6.1,f7.1,f6.2,'//   &
+                  '1x,a6,1x,a6,1x,a4,1x,a)'
+             if(ntrperiod.le.30) fmt(5:5)='6'
+             if(idec.eq.3) nrc=0
+             write(22,fmt) nutc,cmode,nfqso,nQSOprogress,idec,idfbest,idtbest, &
+                  ibw,ndistbest,nused,icand,ncand,nrc,ndepth,xdt,f0,snr2,plog, &
+                  tdecode,mycall(1:6),c6,c4,trim(decoded)
+             close(22)
+          endif
        endif
     endif
     navg0=1000*navg(0) + navg(1)
@@ -331,6 +345,7 @@ contains
           call q65_loops(c00,npts/2,nsps/2,nsubmode,ndepth,jpk0,   &
                xdt,f0,iaptype,xdt1,f1,snr2,dat4,idec)
           call timer('q65loops',1)
+!          write(*,3001) '=e',nfqso,ntol,ndepth,xdt,f0,idec
           if(idec.ge.0) then
              dtdec=xdt1
              f0dec=f1
@@ -342,33 +357,41 @@ contains
        if(idec.ge.0) then
 ! Unpack decoded message for display to user
           write(c77,1000) dat4(1:12),dat4(13)/2
-          call unpack77(c77,1,decoded,unpk77_success) !Unpack to get msgsent
-          call q65_snr(dat4,dtdec,f0dec,mode_q65,nused,snr2)
-          nsnr=nint(snr2)
-          call this%callback(nutc,snr1,nsnr,dtdec,f0dec,decoded,    &
-               idec,nused,ntrperiod)
-          call q65_hist(nint(f0dec),msg0=decoded)
-          if(iand(ndepth,128).ne.0 .and. .not.lagain .and.      &
-               int(abs(f0dec-nfqso)).le.ntol ) call q65_clravg    !AutoClrAvg
-          call sec0(1,tdecode)
-          open(22,file=trim(data_dir)//'/q65_decodes.dat',status='unknown',     &
-               position='append',iostat=ios)
-          if(ios.eq.0) then
+          call unpack77(c77,1,decoded,unpk77_success) !Unpack to get decoded
+          idupe=0
+          do i=1,ndecodes
+             if(decodes(i).eq.decoded) idupe=1
+          enddo
+          if(idupe.eq.0) then
+             ndecodes=min(ndecodes+1,100)
+             decodes(ndecodes)=decoded
+             call q65_snr(dat4,dtdec,f0dec,mode_q65,nused,snr2)
+             nsnr=nint(snr2)
+             call this%callback(nutc,snr1,nsnr,dtdec,f0dec,decoded,    &
+                  idec,nused,ntrperiod)
+             call q65_hist(nint(f0dec),msg0=decoded)
+             if(iand(ndepth,128).ne.0 .and. .not.lagain .and.      &
+                  int(abs(f0dec-nfqso)).le.ntol ) call q65_clravg    !AutoClrAvg
+             call sec0(1,tdecode)
+             open(22,file=trim(data_dir)//'/q65_decodes.dat',status='unknown',     &
+                  position='append',iostat=ios)
+             if(ios.eq.0) then
 ! Save decoding parameters to q65_decoded.dat, for later analysis.
-             write(cmode,'(i3)') ntrperiod
-             cmode(4:4)=char(ichar('A')+nsubmode)
-             c6=hiscall(1:6)
-             if(c6.eq.'      ') c6='<b>   '
-             c4=hisgrid(1:4)
-             if(c4.eq.'    ') c4='<b> '
-             fmt='(i6.4,1x,a4,4i2,6i3,i4,f6.2,f7.1,f6.1,f7.1,f6.2,'//   &
-                  '1x,a6,1x,a6,1x,a4,1x,a)'
-             if(ntrperiod.le.30) fmt(5:5)='6'
-             if(idec.eq.3) nrc=0
-             write(22,fmt) nutc,cmode,nQSOprogress,idec,idfbest,idtbest,ibw,  &
-                  ndistbest,nused,icand,ncand,nrc,ndepth,xdt,f0,snr2,plog,    &
-                  tdecode,mycall(1:6),c6,c4,trim(decoded)
-             close(22)
+                write(cmode,'(i3)') ntrperiod
+                cmode(4:4)=char(ichar('A')+nsubmode)
+                c6=hiscall(1:6)
+                if(c6.eq.'      ') c6='<b>   '
+                c4=hisgrid(1:4)
+                if(c4.eq.'    ') c4='<b> '
+                fmt='(i6.4,1x,a4,i5,4i2,6i3,i4,f6.2,f7.1,f6.1,f7.1,f6.2,'//   &
+                     '1x,a6,1x,a6,1x,a4,1x,a)'
+                if(ntrperiod.le.30) fmt(5:5)='6'
+                if(idec.eq.3) nrc=0
+                write(22,fmt) nutc,cmode,nfqso,nQSOprogress,idec,idfbest,idtbest, &
+                     ibw,ndistbest,nused,icand,ncand,nrc,ndepth,xdt,f0,snr2,plog, &
+                     tdecode,mycall(1:6),c6,c4,trim(decoded)
+                close(22)
+             endif
           endif
        endif
     enddo  ! icand

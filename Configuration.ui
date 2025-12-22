@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>554</width>
-    <height>560</height>
+    <height>599</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -181,29 +181,6 @@
             </property>
            </widget>
           </item>
-          <item row="4" column="0">
-           <widget class="QCheckBox" name="DXCC_check_box">
-            <property name="toolTip">
-             <string>Show if decoded stations are new DXCC entities or worked before.</string>
-            </property>
-            <property name="text">
-             <string>Show &amp;DXCC, grid, and worked-before status</string>
-            </property>
-            <property name="checked">
-             <bool>false</bool>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="0">
-           <widget class="QCheckBox" name="decodes_from_top_check_box">
-            <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to have decodes for a new period start at the top of the Band Activity window and not scroll off the top when the window is full.&lt;/p&gt;&lt;p&gt;This is to aid selecting decodes to double-click while decoding is still in progress. Use the Band Activity vertical scroll bar to reveal decodes past the bottom of the window.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-            <property name="text">
-             <string>Start new period decodes at top</string>
-            </property>
-           </widget>
-          </item>
           <item row="4" column="1">
            <widget class="QCheckBox" name="ppfx_check_box">
             <property name="text">
@@ -265,13 +242,10 @@
             </item>
            </layout>
           </item>
-          <item row="1" column="0">
-           <widget class="QCheckBox" name="insert_blank_check_box">
-            <property name="toolTip">
-             <string>Include a separator line between periods in the band activity window.</string>
-            </property>
+          <item row="5" column="0">
+           <widget class="QCheckBox" name="cbHighlightDXcall">
             <property name="text">
-             <string>&amp;Blank line between decoding periods</string>
+             <string>Highlight DX Call in message</string>
             </property>
            </widget>
           </item>
@@ -282,6 +256,60 @@
             </property>
             <property name="text">
              <string>Display dista&amp;nce in miles</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="0">
+           <widget class="QCheckBox" name="DXCC_check_box">
+            <property name="toolTip">
+             <string>Show if decoded stations are new DXCC entities or worked before.</string>
+            </property>
+            <property name="text">
+             <string>Show &amp;DXCC, grid, and worked-before status</string>
+            </property>
+            <property name="checked">
+             <bool>false</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="0">
+           <widget class="QCheckBox" name="decodes_from_top_check_box">
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Check to have decodes for a new period start at the top of the Band Activity window and not scroll off the top when the window is full.&lt;/p&gt;&lt;p&gt;This is to aid selecting decodes to double-click while decoding is still in progress. Use the Band Activity vertical scroll bar to reveal decodes past the bottom of the window.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>Start new period decodes at top</string>
+            </property>
+           </widget>
+          </item>
+          <item row="6" column="1">
+           <widget class="QCheckBox" name="cbClearDXgrid">
+            <property name="text">
+             <string>Clear DX Grid after QSO</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QCheckBox" name="insert_blank_check_box">
+            <property name="toolTip">
+             <string>Include a separator line between periods in the band activity window.</string>
+            </property>
+            <property name="text">
+             <string>&amp;Blank line between decoding periods</string>
+            </property>
+           </widget>
+          </item>
+          <item row="5" column="1">
+           <widget class="QCheckBox" name="cbHighlightDXgrid">
+            <property name="text">
+             <string>Highlight DX Grid in message</string>
+            </property>
+           </widget>
+          </item>
+          <item row="6" column="0">
+           <widget class="QCheckBox" name="cbClearDXcall">
+            <property name="text">
+             <string>Clear DX Call after QSO</string>
             </property>
            </widget>
           </item>
@@ -2302,6 +2330,23 @@ Right click for insert and delete options.</string>
             </property>
            </widget>
           </item>
+          <item row="4" column="0">
+           <widget class="QCheckBox" name="include_WAE_check_box">
+            <property name="text">
+             <string>Include extra WAE entities</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0">
+           <widget class="QCheckBox" name="only_fields_check_box">
+            <property name="toolTip">
+             <string>Check to for grid highlighting to only apply to unworked grid fields</string>
+            </property>
+            <property name="text">
+             <string>Only grid Fields sought</string>
+            </property>
+           </widget>
+          </item>
           <item row="0" column="0" colspan="2">
            <widget class="DecodeHighlightingListView" name="highlighting_list_view">
             <property name="sizePolicy">
@@ -2349,20 +2394,10 @@ Right click for insert and delete options.</string>
             </property>
            </widget>
           </item>
-          <item row="4" column="0">
-           <widget class="QCheckBox" name="include_WAE_check_box">
+          <item row="5" column="0">
+           <widget class="QCheckBox" name="highlight_73_check_box">
             <property name="text">
-             <string>Include extra WAE entities</string>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="0">
-           <widget class="QCheckBox" name="only_fields_check_box">
-            <property name="toolTip">
-             <string>Check to for grid highlighting to only apply to unworked grid fields</string>
-            </property>
-            <property name="text">
-             <string>Only grid Fields sought</string>
+             <string>Highlight also messages with 73 or RR73</string>
             </property>
            </widget>
           </item>
@@ -3233,13 +3268,13 @@ Right click for insert and delete options.</string>
   </connection>
  </connections>
  <buttongroups>
+  <buttongroup name="split_mode_button_group"/>
+  <buttongroup name="PTT_method_button_group"/>
+  <buttongroup name="special_op_activity_button_group"/>
   <buttongroup name="TX_audio_source_button_group"/>
   <buttongroup name="CAT_stop_bits_button_group"/>
-  <buttongroup name="CAT_handshake_button_group"/>
-  <buttongroup name="CAT_data_bits_button_group"/>
   <buttongroup name="TX_mode_button_group"/>
-  <buttongroup name="special_op_activity_button_group"/>
-  <buttongroup name="PTT_method_button_group"/>
-  <buttongroup name="split_mode_button_group"/>
+  <buttongroup name="CAT_data_bits_button_group"/>
+  <buttongroup name="CAT_handshake_button_group"/>
  </buttongroups>
 </ui>

@@ -54,7 +54,7 @@ namespace Radio
     value *= std::pow (10., scale);
     if (ok)
       {
-        if (value < 0. || value > std::numeric_limits<Frequency>::max ())
+        if (value < 0. || value > static_cast<double>(std::numeric_limits<Frequency>::max ()))
           {
             value = 0.;
             *ok = false;
@@ -91,8 +91,8 @@ namespace Radio
     value *= std::pow (10., scale);
     if (ok)
       {
-        if (value < -std::numeric_limits<Frequency>::max ()
-            || value > std::numeric_limits<Frequency>::max ())
+        if (value < static_cast<double>(std::numeric_limits<Frequency>::min ())
+            || value > static_cast<double>(std::numeric_limits<Frequency>::max ()))
           {
             value = 0.;
             *ok = false;

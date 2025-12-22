@@ -593,6 +593,7 @@ private:
   bool highlight_by_mode_;
   bool highlight_only_fields_;
   bool include_WAE_entities_;
+  bool highlight_73_;
   int LotW_days_since_upload_;
 
   TransceiverFactory::ParameterPack rig_params_;
@@ -670,6 +671,10 @@ private:
   bool bLowSidelobes_;
   bool pwrBandTxMemory_;
   bool pwrBandTuneMemory_;
+  bool highlight_DXcall_;
+  bool clear_DXcall_;
+  bool highlight_DXgrid_;
+  bool clear_DXgrid_;
 
   QAudioDeviceInfo audio_input_device_;
   QAudioDeviceInfo next_audio_input_device_;
@@ -787,6 +792,11 @@ DecodeHighlightingModel const& Configuration::decode_highlighting () const {retu
 bool Configuration::highlight_by_mode () const {return m_->highlight_by_mode_;}
 bool Configuration::highlight_only_fields () const {return m_->highlight_only_fields_;}
 bool Configuration::include_WAE_entities () const {return m_->include_WAE_entities_;}
+bool Configuration::highlight_73 () const {return m_->highlight_73_;}
+bool Configuration::highlight_DXcall () const {return m_->highlight_DXcall_;}
+bool Configuration::clear_DXcall () const {return m_->clear_DXcall_;}
+bool Configuration::highlight_DXgrid () const {return m_->highlight_DXgrid_;}
+bool Configuration::clear_DXgrid () const {return m_->clear_DXgrid_;}
 
 void Configuration::set_calibration (CalibrationParams params)
 {
@@ -920,6 +930,30 @@ void Configuration::set_location (QString const& grid_descriptor)
   m_->dynamic_grid_ = grid_descriptor.trimmed ();
 }
 
+void Configuration::setSpecial_Hound()
+{
+  m_->bSpecialOp_=true;
+  m_->ui_->gbSpecialOpActivity->setChecked(m_->bSpecialOp_);
+  m_->ui_->rbHound->setChecked(true);
+  m_->SelectedActivity_ = static_cast<int> (SpecialOperatingActivity::HOUND);
+  m_->write_settings();
+}
+
+void Configuration::setSpecial_Fox()
+{
+  m_->bSpecialOp_=true;
+  m_->ui_->gbSpecialOpActivity->setChecked(m_->bSpecialOp_);
+  m_->ui_->rbFox->setChecked(true);
+  m_->SelectedActivity_ = static_cast<int> (SpecialOperatingActivity::FOX);
+  m_->write_settings();
+}
+
+void Configuration::setSpecial_None()
+{
+  m_->bSpecialOp_=false;
+  m_->ui_->gbSpecialOpActivity->setChecked(m_->bSpecialOp_);
+  m_->write_settings();
+}
 namespace
 {
 #if defined (Q_OS_MAC)
@@ -984,6 +1018,7 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   , highlight_by_mode_ {false}
   , highlight_only_fields_ {false}
   , include_WAE_entities_ {false}
+  , highlight_73_ {false}
   , LotW_days_since_upload_ {0}
   , last_port_type_ {TransceiverFactory::Capabilities::none}
   , rig_is_dummy_ {false}
@@ -1397,7 +1432,12 @@ void Configuration::impl::initialize_models ()
   ui_->highlight_by_mode_check_box->setChecked (highlight_by_mode_);
   ui_->only_fields_check_box->setChecked (highlight_only_fields_);
   ui_->include_WAE_check_box->setChecked (include_WAE_entities_);
+  ui_->highlight_73_check_box->setChecked (highlight_73_);
   ui_->LotW_days_since_upload_spin_box->setValue (LotW_days_since_upload_);
+  ui_->cbHighlightDXcall->setChecked(highlight_DXcall_);
+  ui_->cbClearDXcall->setChecked(clear_DXcall_);
+  ui_->cbHighlightDXgrid->setChecked(highlight_DXgrid_);
+  ui_->cbClearDXgrid->setChecked(clear_DXgrid_);
 
   set_rig_invariants ();
 }
@@ -1492,6 +1532,7 @@ void Configuration::impl::read_settings ()
   highlight_by_mode_ = settings_->value("HighlightByMode", false).toBool ();
   highlight_only_fields_ = settings_->value("OnlyFieldsSought", false).toBool ();
   include_WAE_entities_ = settings_->value("IncludeWAEEntities", false).toBool ();
+  highlight_73_ = settings_->value("Highlight73", false).toBool ();
   LotW_days_since_upload_ = settings_->value ("LotWDaysSinceLastUpload", 365).toInt ();
   lotw_users_.set_age_constraint (LotW_days_since_upload_);
 
@@ -1554,6 +1595,10 @@ void Configuration::impl::read_settings ()
   calibration_.slope_ppm = settings_->value ("CalibrationSlopePPM", 0.).toDouble ();
   pwrBandTxMemory_ = settings_->value("pwrBandTxMemory",false).toBool ();
   pwrBandTuneMemory_ = settings_->value("pwrBandTuneMemory",false).toBool ();
+  highlight_DXcall_ = settings_->value("highlight_DXcall",false).toBool ();
+  clear_DXcall_ = settings_->value("clear_DXcall",false).toBool ();
+  highlight_DXgrid_ = settings_->value("highlight_DXgrid",false).toBool ();
+  clear_DXgrid_ = settings_->value("clear_DXgrid",false).toBool ();
 }
 
 void Configuration::impl::find_audio_devices ()
@@ -1626,6 +1671,7 @@ void Configuration::impl::write_settings ()
   settings_->setValue ("HighlightByMode", highlight_by_mode_);
   settings_->setValue ("OnlyFieldsSought", highlight_only_fields_);
   settings_->setValue ("IncludeWAEEntities", include_WAE_entities_);
+  settings_->setValue ("Highlight73", highlight_73_);
   settings_->setValue ("LotWDaysSinceLastUpload", LotW_days_since_upload_);
   settings_->setValue ("toRTTY", log_as_RTTY_);
   settings_->setValue ("dBtoComments", report_in_comments_);
@@ -1685,6 +1731,10 @@ void Configuration::impl::write_settings ()
   settings_->setValue ("pwrBandTuneMemory", pwrBandTuneMemory_);
   settings_->setValue ("Region", QVariant::fromValue (region_));
   settings_->setValue ("AutoGrid", use_dynamic_grid_);
+  settings_->setValue ("highlight_DXcall", highlight_DXcall_);
+  settings_->setValue ("clear_DXcall", clear_DXcall_);
+  settings_->setValue ("highlight_DXgrid", highlight_DXgrid_);
+  settings_->setValue ("clear_DXgrid", clear_DXgrid_);
   settings_->sync ();
 }
 
@@ -2163,6 +2213,7 @@ void Configuration::impl::accept ()
   highlight_by_mode_ = ui_->highlight_by_mode_check_box->isChecked ();
   highlight_only_fields_ = ui_->only_fields_check_box->isChecked ();
   include_WAE_entities_ = ui_->include_WAE_check_box->isChecked ();
+  highlight_73_ = ui_->highlight_73_check_box->isChecked ();
   LotW_days_since_upload_ = ui_->LotW_days_since_upload_spin_box->value ();
   lotw_users_.set_age_constraint (LotW_days_since_upload_);
 
@@ -2172,6 +2223,10 @@ void Configuration::impl::accept ()
     dynamic_grid_.clear ();
   }
   use_dynamic_grid_ = ui_->use_dynamic_grid->isChecked();
+  highlight_DXcall_ = ui_->cbHighlightDXcall->isChecked();
+  clear_DXcall_ = ui_->cbClearDXcall->isChecked();
+  highlight_DXgrid_ = ui_->cbHighlightDXgrid->isChecked();
+  clear_DXgrid_ = ui_->cbClearDXgrid->isChecked();
 
   write_settings ();		// make visible to all
 }

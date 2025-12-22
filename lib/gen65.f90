@@ -1,9 +1,10 @@
-subroutine gen65(msg0,ichk,msgsent,itone,itype)
+subroutine gen65(msg00,ichk,msgsent0,itone,itype) BIND(c)
 
 ! Encodes a JT65 message to yieild itone(1:126)
 ! Temporarily, does not implement EME shorthands
 
   use packjt
+  character*1 msg00(23),msgsent0(23)
   character*22 msg0
   character*22 message          !Message to be generated
   character*22 msgsent          !Message as it will be received
@@ -20,6 +21,10 @@ subroutine gen65(msg0,ichk,msgsent,itone,itype)
             0,1,0,1,0,0,1,1,0,0,1,0,0,1,0,0,0,0,1,1,  &
             1,1,1,1,1,1/
   save
+
+  do i=1,22
+     msg0(i:i)=msg00(i)
+  enddo
 
   if(msg0(1:1).eq.'@') then
      read(msg0(2:5),*,end=1,err=1) nfreq
@@ -48,7 +53,7 @@ subroutine gen65(msg0,ichk,msgsent,itone,itype)
         call unpackmsg(dgen,msgsent)        !Unpack to get message sent
         msgsent(20:22)=cok
         call fmtmsg(msgsent,iz)
-        if(ichk.ne.0) go to 999             !Return if checking only
+        if(ichk.ne.0) go to 900             !Return if checking only
 
         call rs_encode(dgen,sent)           !Apply Reed-Solomon code
         call interleave63(sent,1)           !Apply interleaving
@@ -79,5 +84,10 @@ subroutine gen65(msg0,ichk,msgsent,itone,itype)
      endif
   endif
 
-999 return
+900 do i=1,22
+     msgsent0(i)=msgsent(i:i)
+  enddo
+  msgsent0(23)=char(0)
+
+  return
 end subroutine gen65

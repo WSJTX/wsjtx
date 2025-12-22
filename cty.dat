@@ -2445,7 +2445,7 @@ Corsica:                  15:  28:  EU:   42.00:    -9.00:    -1.0:  TK:
 Central African Republic: 36:  47:  AF:    6.75:   -20.33:    -1.0:  TL:
     TL;
 Republic of the Congo:    36:  52:  AF:   -1.02:   -15.37:    -1.0:  TN:
-    TN;
+    TN0,TN1,TN2,TN3,TN4,TN5,TN6,TN7,TN8,TN9;
 Gabon:                    36:  52:  AF:   -0.37:   -11.73:    -1.0:  TR:
     TR;
 Chad:                     36:  47:  AF:   15.80:   -18.17:    -1.0:  TT:
@@ -3376,7 +3376,7 @@ Indonesia:                28:  51:  OC:   -7.30:  -109.88:    -7.0:  YB:
     8D8[54],8E8[54],8F8[54],8G8[54],8H8[54],8I8[54],YB8[54],YC8[54],YD8[54],YE8[54],YF8[54],YG8[54],
     YH8[54];
 Iraq:                     21:  39:  AS:   33.92:   -42.78:    -3.0:  YI:
-    HN,YI,=K4CY/M,=YI1IRQ/ND;
+    HN0,HN1,HN2,HN3,HN4,HN5,HN6,HN7,HN8,HN9,YI,=K4CY/M,=YI1IRQ/ND;
 Vanuatu:                  32:  56:  OC:  -17.67:  -168.38:   -11.0:  YJ:
     YJ;
 Syria:                    20:  39:  AS:   35.38:   -38.20:    -2.0:  YK:

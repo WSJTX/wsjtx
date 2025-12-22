@@ -830,7 +830,9 @@ subroutine split77(msg,nwords,nw,w)
   iz=j                                          !Message length
   nwords=k                                      !Number of words in msg
   if(nwords.le.0) go to 900
-  nw(k)=len(trim(w(k)))
+  do i=1,nwords
+     nw(i)=len(trim(w(i)))
+  enddo
   msg(iz+1:)='                                     '
   if(nwords.lt.3) go to 900
   call chkcall(w(3),bcall_1,ok1)
@@ -839,7 +841,7 @@ subroutine split77(msg,nwords,nw,w)
      w(2:12)=w(3:13)                    !Move all remaining words down by one
      nwords=nwords-1
   endif
-  
+
 900 return
 end subroutine split77
 

@@ -60,6 +60,8 @@ DecodedText::DecodedText (QString const& the_string)
 //  qDebug () << "DecodedText: the_string:" << the_string << "Nbsp pos:" << the_string.indexOf (QChar::Nbsp);
   if (message_.length() >= 1)
     {
+// remove appended confidence (?) and ap designators before truncating the message
+       message_ = clean_string_.mid (column_qsoText + padding_).trimmed ();
        message0_ = message_.left(37);
        message_ = message_.left(37).remove (QRegularExpression {"[<>]"});
       int i1 = message_.indexOf ('\r');

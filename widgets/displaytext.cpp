@@ -404,6 +404,7 @@ void DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
   QColor bg;
   QColor fg;
   bool CQcall = false;
+  auto is_73 = decodedText.messageWords().filter (QRegularExpression {"^(73|RR73)$"}).size();
   if (decodedText.string ().contains (" CQ ")
       || decodedText.string ().contains (" CQDX ")
       || decodedText.string ().contains (" QRZ "))
@@ -413,19 +414,6 @@ void DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
   else
     {
       if (bCQonly) return;
-      if (myCall.size ())
-        {
-          QString regexp {"[ <]" + myCall + "[ >]"};
-          if (Radio::is_compound_callsign (myCall))
-            {
-              regexp = "(?:" + regexp + "|[ <]" + Radio::base_callsign (myCall) + "[ >])";
-            }
-          if ((decodedText.clean_string () + " ").contains (QRegularExpression {regexp}))
-            {
-              highlight_types types {Highlight::MyCall};
-              set_colours (m_config, &bg, &fg, types);
-            }
-        }
     }
   auto message = decodedText.string();
   QString dxCall;
@@ -446,14 +434,14 @@ void DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
       message = message.left (ap_pos).trimmed ();
     }
   m_CQPriority="";
-  if (CQcall)
+  if (CQcall || (is_73 && (m_config->highlight_73 ())))
     {
       if (displayDXCCEntity)
         {
           // if enabled add the DXCC entity and B4 status to the end of the
           // preformated text line t1
           auto currentMode = mode;
-          message = appendWorkedB4 (message, decodedText.CQersCall(), dxGrid, &bg, &fg
+          message = appendWorkedB4 (message, dxCall, dxGrid, &bg, &fg
                                     , logBook, currentBand, currentMode, extra);
         }
       else
@@ -470,6 +458,20 @@ void DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
   else
     {
       message = leftJustifyAppendage (message, extra);
+    }
+
+  if (myCall.size ())
+    {
+      QString regexp {"[ <]" + myCall + "[ >]"};
+      if (Radio::is_compound_callsign (myCall))
+        {
+          regexp = "(?:" + regexp + "|[ <]" + Radio::base_callsign (myCall) + "[ >])";
+        }
+      if ((decodedText.clean_string () + " ").contains (QRegularExpression {regexp}))
+        {
+          highlight_types types {Highlight::MyCall};
+          set_colours (m_config, &bg, &fg, types);
+        }
     }
 
   appendText (message.trimmed (), bg, fg, decodedText.call (), dxCall);

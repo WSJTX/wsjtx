@@ -9,11 +9,12 @@ subroutine gen_ft8wave(itone,nsym,nsps,bt,fsample,f0,cwave,wave,icmplx,nwave)
   real pulse(23040)
   real dphi(0:(nsym+2)*nsps-1)
   integer itone(nsym)
-  data ibt0/0/
-  save pulse,twopi,dt,hmod,ibt0,ctab
+  data fchk0/0.0/
+  save pulse,twopi,dt,hmod,fchk0,ctab
 
   ibt=nint(10*bt)
-  if(ibt0.ne.ibt) then
+  fchk=nsym+nsps+bt+fsample
+  if(fchk.ne.fchk0) then
      twopi=8.0*atan(1.0)
      dt=1.0/fsample
      hmod=1.0
@@ -22,11 +23,11 @@ subroutine gen_ft8wave(itone,nsym,nsps,bt,fsample,f0,cwave,wave,icmplx,nwave)
         tt=(i-1.5*nsps)/real(nsps)
         pulse(i)=gfsk_pulse(bt,tt)
      enddo
-     ibt0=nint(10*bt)
      do i=0,NTAB-1
         phi=i*twopi/NTAB
         ctab(i)=cmplx(cos(phi),sin(phi))
      enddo
+     fchk0=fchk
   endif
 
 ! Compute the smoothed frequency waveform.

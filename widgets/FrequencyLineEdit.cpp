@@ -39,7 +39,7 @@ namespace
 FrequencyLineEdit::FrequencyLineEdit (QWidget * parent)
   : QLineEdit (parent)
 {
-  setValidator (new MHzValidator {0., std::numeric_limits<Radio::Frequency>::max () / 10.e6, this});
+  setValidator (new MHzValidator {0., static_cast<double>(std::numeric_limits<Radio::Frequency>::max ()) / 10.e6, this});
 }
 
 auto FrequencyLineEdit::frequency () const -> Frequency

@@ -39,8 +39,8 @@ namespace
 FrequencyDeltaLineEdit::FrequencyDeltaLineEdit (QWidget * parent)
   : QLineEdit (parent)
 {
-  setValidator (new MHzValidator {-std::numeric_limits<FrequencyDelta>::max () / 10.e6,
-        std::numeric_limits<FrequencyDelta>::max () / 10.e6, this});
+  setValidator (new MHzValidator {static_cast<double>(std::numeric_limits<FrequencyDelta>::min ()) / 10.e6,
+        static_cast<double>(std::numeric_limits<FrequencyDelta>::max ()) / 10.e6, this});
 }
 
 auto FrequencyDeltaLineEdit::frequency_delta () const -> FrequencyDelta

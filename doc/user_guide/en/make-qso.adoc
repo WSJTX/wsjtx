@@ -144,7 +144,7 @@ station's log and not the supposed QSO partner's.  To avoid Not-in-Log
 (NIL) penalties for yourself and others, we recommend the following
 guidelines for contest logging with FT4, FT8, and MSK144:
 
- - Activate and learn to use the alternate F1-F6 bindings selectable
+ - Activate and learn to use the *Alternate F1-F6 bindings* selectable
    on the *Settings | General* tab.
  
  - Always log a QSO when you have received RRR, RR73, or 73 from a
@@ -153,8 +153,9 @@ guidelines for contest logging with FT4, FT8, and MSK144:
  - Log a QSO when you send RR73 or 73 if you are reasonably confident
   it will be copied. But be sure to watch for any indication that it
   was not copied, and then take appropriate action. For example, if
-  you receive the Tx3 message (R plus contest exchange) again, hit F4
-  to re-send your RR73.
+  you receive the Tx3 message (R plus contest exchange) again, and if
+  you have activated the *Alternate F1-F6 bindings*, hit *F4* to
+  re-send your RR73.
 
 [[COMP-CALL]] 
 === Nonstandard Callsigns

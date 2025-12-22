@@ -77,7 +77,7 @@ SignalMeter::SignalMeter (QWidget * parent)
   outer_layout->setSpacing (0);
 
   auto inner_layout = new QHBoxLayout;
-  inner_layout->setContentsMargins (9, 0, 9, 0);
+  inner_layout->setContentsMargins (1, 0, 1, 0);
   inner_layout->setSpacing (0);
 
   m_meter = new MeterWidget;

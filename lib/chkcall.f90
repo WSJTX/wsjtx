@@ -34,7 +34,9 @@ subroutine chkcall(w,bc,cok)
 
 ! One of first two characters (c1 or c2) must be a letter
   if((.not.isletter(bc(1:1))) .and. (.not.isletter(bc(2:2)))) go to 100
-  if(bc(1:1).eq.'Q') go to 100              !Calls don't start with Q
+! Real calls don't start with Q, but we'll allow the placeholder
+! callsign QU1RK to be considered a standard call:
+  if(bc(1:1).eq.'Q' .and. bc(1:5).ne.'QU1RK') go to 100
 
 ! Must have a digit in 2nd or 3rd position
   i1=0
