@@ -436,6 +436,7 @@ private slots:
   void on_sbCQTxFreq_valueChanged(int n);
   void on_cbCQTx_toggled(bool b);
   void on_actionMSK144_triggered();
+  void on_actionJTTY_triggered();
   void on_actionQ65_triggered();
   void on_actionFreqCal_triggered();
   void splash_done ();

@@ -3696,6 +3696,7 @@ Double-click to reset to the standard 73 message</string>
              </item>
             </layout>
            </widget>
+           <widget class="QWidget" name="page_4"/>
            <widget class="QWidget" name="page_2">
             <layout class="QVBoxLayout" name="verticalLayout_5">
              <property name="leftMargin">
@@ -4923,6 +4924,7 @@ QPushButton[state=&quot;ok&quot;] {
     <addaction name="actionJT65"/>
     <addaction name="actionQ65"/>
     <addaction name="separator"/>
+    <addaction name="actionJTTY"/>
     <addaction name="actionMSK144"/>
     <addaction name="separator"/>
     <addaction name="actionFST4W"/>
@@ -6141,6 +6143,14 @@ QPushButton[state=&quot;ok&quot;] {
    </property>
    <property name="text">
     <string>Highlight Whitelist entries</string>
+   </property>
+  </action>
+  <action name="actionJTTY">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>JTTY</string>
    </property>
   </action>
  </widget>

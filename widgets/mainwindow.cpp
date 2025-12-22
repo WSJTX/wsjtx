@@ -729,6 +729,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   ui->actionJT4->setActionGroup(modeGroup);
   ui->actionWSPR->setActionGroup(modeGroup);
   ui->actionEcho->setActionGroup(modeGroup);
+  ui->actionJTTY->setActionGroup(modeGroup);
   ui->actionMSK144->setActionGroup(modeGroup);
   ui->actionQ65->setActionGroup(modeGroup);
   ui->actionFreqCal->setActionGroup(modeGroup);
@@ -2243,7 +2244,7 @@ void MainWindow::dataSink(qint64 frames)
   }
   m_bClearRefSpec=false;
 
-  if(m_mode=="MSK144" or m_bFast9) {
+  if(m_mode=="MSK144" or m_bFast9 or m_mode=="JTTY") {
     fastSink(frames);
     if(m_bFastMode) return;
   }
@@ -3846,6 +3847,7 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
 //  }
 
   int n;
+  qDebug() << "aa" << e->key();
   bool bAltF1F6=m_config.alternate_bindings();
   switch(e->key())
     {
@@ -11417,6 +11419,26 @@ void MainWindow::on_actionQ65_triggered()
   statusChanged();
 }
 
+void MainWindow::on_actionJTTY_triggered()
+{
+  m_mode = "JTTY";
+  ui->actionJTTY->setChecked(true);
+  switch_mode (Modes::JTTY);
+  WSPR_config(false);
+  VHF_features_enabled(false);
+  ui->cbAutoSeq->setChecked(false);
+  m_bFastMode=true;
+  m_bFast9=false;
+  ui->TxFreqSpinBox->setValue(1800);
+  ui->RxFreqSpinBox->setValue(1800);
+  ui->RxFreqSpinBox->setSingleStep(200);
+  ui->lh_decodes_headings_label->setText("");
+  ui->lh_decodes_title_label->setText(tr ("Rx Messages"));
+  ui->rh_decodes_title_label->setText(tr ("Tx Messages"));
+  qDebug() << "aa" << m_mode << ui->actionJTTY->isChecked();
+}
+
+
 void MainWindow::on_actionMSK144_triggered()
 {
   m_hsymStop=105;
@@ -11693,7 +11715,8 @@ void MainWindow::WSPR_config(bool b)
 {
   ui->rh_decodes_widget->setVisible(!b);     // UR disable for AL + widescreen version
   ui->controls_stack_widget->setCurrentIndex (b && m_mode != "Echo" ? 1 : 0);
-  if(m_mode=="Echo") ui->controls_stack_widget->setCurrentIndex(2);
+  if(m_mode=="Echo") ui->controls_stack_widget->setCurrentIndex(3);
+  if(m_mode=="JTTY") ui->controls_stack_widget->setCurrentIndex(2);
   ui->QSO_controls_widget->setVisible (!b);
   ui->DX_controls_widget->setVisible (!b or (m_mode=="Echo"));
   ui->WSPR_controls_widget->setVisible (b);
@@ -15320,9 +15343,11 @@ void MainWindow::set_mode (QString const& mode)
     else if ("JT65" == mode) on_actionJT65_triggered ();
     else if ("Q65" == mode) on_actionQ65_triggered ();
     else if ("FreqCal" == mode) on_actionFreqCal_triggered ();
+    else if ("JTTY" == mode) on_actionJTTY_triggered ();
     else if ("MSK144" == mode) on_actionMSK144_triggered ();
     else if ("WSPR" == mode) on_actionWSPR_triggered ();
     else if ("Echo" == mode) on_actionEcho_triggered ();
+    qDebug() << "bbb" << m_mode;
 }
 
 void MainWindow::configActiveStations()
