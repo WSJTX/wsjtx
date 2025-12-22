@@ -510,6 +510,7 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
   float bw=9.0*12000.0/m_nsps;               //JT9
   if(m_mode=="FT4") bw=3*12000.0/576.0;      //FT4  ### (3x, or 4x???) ###
   if(m_mode=="FT8") bw=7*12000.0/1920.0;     //FT8
+  if(m_mode=="JTTY") bw=3*12000.0/384.0;     //JTTY
   if(m_mode.startsWith("FST4")) {
     int h=int(pow(2.0,m_nSubMode));
     int nsps=800;
@@ -600,7 +601,7 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
   int yTxTop=12;
   int yRxBottom=yTxTop + 2*yh + 4;
   if(m_mode=="JT9" or m_mode=="JT65" or m_mode=="Q65" or m_mode=="FT8"
-     or m_mode=="FT4" or m_mode.startsWith("FST4")) {
+     or m_mode=="FT4" or m_mode.startsWith("FST4") or m_mode=="JTTY") {
 
     if(m_mode=="FST4" and !m_bSingleDecode) {
       x1=XfromFreq(m_nfa);
@@ -672,7 +673,8 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
   // red bars
   if(m_mode.startsWith("FT") or m_mode.startsWith("JT") or m_mode=="Q65" or m_mode.startsWith("FST4")
      or m_mode.mid(0,4)=="WSPR") {
-    x1=XfromFreq(m_txFreq); x2=XfromFreq(m_txFreq+bw);
+    x1=XfromFreq(m_txFreq);
+    x2=XfromFreq(m_txFreq+bw);
     if(m_mode=="FT8" and m_bSuperFox) x2=XfromFreq(m_txFreq+1500.0);
     if(m_mode=="WSPR") {
       bw=4*12000.0/8192.0;                  //WSPR
@@ -686,7 +688,7 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
 
   // red goal post
   if(m_mode=="JT9" or m_mode=="JT65" or m_mode.mid(0,4)=="WSPR" or m_mode=="Q65"
-     or m_mode=="FT8" or m_mode=="FT4" or m_mode.startsWith("FST4")) {
+     or m_mode=="FT8" or m_mode=="FT4" or m_mode.startsWith("FST4") or m_mode=="JTTY") {
     painter0.setPen(penRed);
     x1=XfromFreq(m_txFreq);
     if(m_mode=="FT8" and m_bSuperFox) {

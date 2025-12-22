@@ -3847,7 +3847,7 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
 //  }
 
   int n;
-  qDebug() << "aa" << e->key();
+  qDebug() << "Key struck:" << e->key();
   bool bAltF1F6=m_config.alternate_bindings();
   switch(e->key())
     {
@@ -4403,6 +4403,8 @@ void MainWindow::setup_status_bar (bool vhf)
     mode_label.setStyleSheet ("QLabel{color: #000000; background-color: #66ff66}");
   } else if ("Q65" == m_mode) {
     mode_label.setStyleSheet ("QLabel{color: #000000; background-color: #99ff33}");
+  } else if ("JTTY" == m_mode) {
+    mode_label.setStyleSheet ("QLabel{color: #000000; background-color: #9999ff}");
   } else if ("MSK144" == m_mode) {
     mode_label.setStyleSheet ("QLabel{color: #000000; background-color: #ff6666}");
   } else if ("FT4" == m_mode) {
@@ -11427,7 +11429,7 @@ void MainWindow::on_actionJTTY_triggered()
   WSPR_config(false);
   VHF_features_enabled(false);
   ui->cbAutoSeq->setChecked(false);
-  m_bFastMode=true;
+  m_bFastMode=false;
   m_bFast9=false;
   ui->TxFreqSpinBox->setValue(1800);
   ui->RxFreqSpinBox->setValue(1800);
@@ -11435,7 +11437,7 @@ void MainWindow::on_actionJTTY_triggered()
   ui->lh_decodes_headings_label->setText("");
   ui->lh_decodes_title_label->setText(tr ("Rx Messages"));
   ui->rh_decodes_title_label->setText(tr ("Tx Messages"));
-  qDebug() << "aa" << m_mode << ui->actionJTTY->isChecked();
+  setup_status_bar (false);
 }
 
 
