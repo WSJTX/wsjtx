@@ -551,7 +551,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
         m_config.udp_server_name (), m_config.udp_server_port (),
         m_config.udp_interface_names (), m_config.udp_TTL (),
         this}},
-  m_psk_Reporter {&m_config, QString {"WSJT-X v" + version () + " i+"}.simplified ()},     // UR
+  m_psk_Reporter {&m_config, QString {"WSJT-X v" + version () + " " + m_revision}.simplified ()},
   m_manual {&m_network_manager},
   m_block_udp_status_updates {false},
   m_useDarkStyle {false}
@@ -1280,7 +1280,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
   if(QCoreApplication::applicationVersion().contains("-devel") or
      QCoreApplication::applicationVersion().contains("-rc")) {
-//    QTimer::singleShot (0, this, SLOT (not_GA_warning_message ()));
+//    QTimer::singleShot (0, this, SLOT (not_GA_warning_message ()));     //Disabled for now
   }
 
   m_bMyCallStd=stdCall(m_config.my_callsign ()); //ft8md
@@ -1338,9 +1338,9 @@ void MainWindow::not_GA_warning_message ()
   MessageBox::critical_message (this,
                                 "This is a pre-release version of WSJT-X " + version (false) + " made\n"
                                 "available for testing purposes.  By design it will\n"
-                                "be nonfunctional after Jan 15, 2025.");
+                                "be nonfunctional after April 30, 2026.");
   auto now = QDateTime::currentDateTimeUtc ();
-  if (now >= QDateTime {{2025, 01, 15}, {23, 59, 59, 999}, Qt::UTC}) {
+  if (now >= QDateTime {{2026, 04, 30}, {23, 59, 59, 999}, Qt::UTC}) {
     Q_EMIT finished ();
   }
 }
@@ -3848,7 +3848,6 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
 //  }
 
   int n;
-  qDebug() << "Key struck:" << e->key();
   bool bAltF1F6=m_config.alternate_bindings();
   switch(e->key())
     {
@@ -3882,6 +3881,10 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
       }
       break;
     case Qt::Key_F1:
+      if(m_mode=="JTTY") {
+        jtty_tx("CQ " + m_config.my_callsign() + " CQ");
+        return;
+      }
       if(bAltF1F6) {
         auto_tx_mode(true);
         on_txb6_clicked();
@@ -3891,6 +3894,10 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
         return;
       }
     case Qt::Key_F2:
+      if(m_mode=="JTTY") {
+        jtty_tx(m_config.my_callsign());
+        return;
+      }
       if(bAltF1F6) {
         auto_tx_mode(true);
         on_txb2_clicked();
@@ -3900,6 +3907,10 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
         return;
       }
     case Qt::Key_F3:
+      if(m_mode=="JTTY") {
+        jtty_tx(ui->dxCallEntry->text() + " 599 0123");
+        return;
+      }
       if(bAltF1F6) {
         auto_tx_mode(true);
         on_txb3_clicked();
@@ -3909,6 +3920,10 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
         return;
       }
     case Qt::Key_F4:
+      if(m_mode=="JTTY") {
+        jtty_tx("TU " + m_config.my_callsign() + " CQ");
+        return;
+      }
       if(bAltF1F6) {
         auto_tx_mode(true);
         on_txb4_clicked();
@@ -3919,6 +3934,10 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
         return;
       }
     case Qt::Key_F5:
+      if(m_mode=="JTTY") {
+        jtty_tx("TU NOW " + ui->dxCallEntry->text() + " 599 0123");
+        return;
+      }
       if(bAltF1F6) {
         auto_tx_mode(true);
         on_txb5_clicked();
@@ -11439,6 +11458,7 @@ void MainWindow::on_actionJTTY_triggered()
   ui->RxFreqSpinBox->setValue(1800);
   ui->RxFreqSpinBox->setSingleStep(200);
   ui->lh_decodes_headings_label->setText("");
+  ui->rh_decodes_headings_label->setText("");
   ui->lh_decodes_title_label->setText(tr ("Rx Messages"));
   ui->rh_decodes_title_label->setText(tr ("Tx Messages"));
   setup_status_bar (false);
@@ -17430,4 +17450,9 @@ void MainWindow::alertQSYmessage ()
   QString binPath = QCoreApplication::applicationDirPath();
   QSound::play(binPath + "/sounds/Message.wav");  // for Linux and macOS
 #endif
+}
+
+void MainWindow::jtty_tx(QString message)
+{
+  ui->decodedTextBrowser2->insertText(message);
 }

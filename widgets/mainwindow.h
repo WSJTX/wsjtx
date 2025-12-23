@@ -508,6 +508,7 @@ private:
   void readWidebandDecodes();
   void configActiveStations();
   void sfox_tx();
+  void jtty_tx(QString message);
   bool play_DXcall = false;
   bool play_Wanted = false;
   bool inSettings = false;
