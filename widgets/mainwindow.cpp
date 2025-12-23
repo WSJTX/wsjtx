@@ -2268,9 +2268,10 @@ void MainWindow::dataSink(qint64 frames)
   if(m_ihsym <=0) return;
   if(ui) ui->signal_meter_widget->setValue(m_px,m_pxmax); // Update thermometer
   if(m_monitoring || m_diskData) {
+//    qDebug() << "aa" << k << m_ihsym << m_hsymStop << m_FFTSize << s[500] << s[1000] << s[1500];
     m_wideGraph->dataSink2(s,m_df3,m_ihsym,m_diskData,m_px);
   }
-  if(m_mode=="MSK144") return;
+  if(m_mode=="MSK144" or m_mode=="JTTY") return;
 
   fixStop();
   if (m_mode == "FreqCal"
@@ -11431,6 +11432,9 @@ void MainWindow::on_actionJTTY_triggered()
   ui->cbAutoSeq->setChecked(false);
   m_bFastMode=false;
   m_bFast9=false;
+  m_nsps=6192;
+  m_TRperiod=60;                   //We need a nonzero setting for WideGraph plotter to work.
+  m_wideGraph->setPeriod(m_TRperiod,m_nsps);
   ui->TxFreqSpinBox->setValue(1800);
   ui->RxFreqSpinBox->setValue(1800);
   ui->RxFreqSpinBox->setSingleStep(200);
@@ -15349,7 +15353,6 @@ void MainWindow::set_mode (QString const& mode)
     else if ("MSK144" == mode) on_actionMSK144_triggered ();
     else if ("WSPR" == mode) on_actionWSPR_triggered ();
     else if ("Echo" == mode) on_actionEcho_triggered ();
-    qDebug() << "bbb" << m_mode;
 }
 
 void MainWindow::configActiveStations()
