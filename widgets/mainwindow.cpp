@@ -2133,6 +2133,7 @@ void MainWindow::setDecodedTextFont (QFont const& font)
 {
   ui->decodedTextBrowser->setContentFont (font);
   ui->decodedTextBrowser2->setContentFont (font);
+  ui->Tx_Message->setFont (font);
   ui->houndQueueTextBrowser->setContentFont(font);
   ui->houndQueueTextBrowser->displayHoundToBeCalled(" ");
   ui->houndQueueTextBrowser->setText("");
