@@ -4083,7 +4083,6 @@ bool MainWindow::jtty_key_struck(QKeyEvent * e)
     if(n < 10) t = "00"+t;
     if(n < 100) t = "0"+t;
     t = " 599 " + t;
-    jtty_tx(ui->dxCallEntry->text() + t);
     jtty_tx("TU NOW " + ui->dxCallEntry->text() + t);
     return true;
   }
