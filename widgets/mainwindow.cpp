@@ -3833,20 +3833,10 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
     }
     QMainWindow::keyPressEvent (e);
   }
-
-  // Why shall RETURN switch Tx on when in Hound mode? Makes little sense and confuses many OMs!
-//  if(SpecOp::HOUND == m_specOp) {
-//    switch (e->key()) {
-//      case Qt::Key_Return:
-//        auto_tx_mode(true);
-//        return;
-//      case Qt::Key_Enter:
-//        auto_tx_mode(true);
-//        return;
-//    }
-//    QMainWindow::keyPressEvent (e);
-//  }
-
+  if(m_mode=="JTTY") {
+    bool handled = jtty_key_struck(e);
+    if(handled) return;
+  }
   int n;
   bool bAltF1F6=m_config.alternate_bindings();
   switch(e->key())
@@ -3881,10 +3871,6 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
       }
       break;
     case Qt::Key_F1:
-      if(m_mode=="JTTY") {
-        jtty_tx("CQ " + m_config.my_callsign() + " CQ");
-        return;
-      }
       if(bAltF1F6) {
         auto_tx_mode(true);
         on_txb6_clicked();
@@ -3894,10 +3880,6 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
         return;
       }
     case Qt::Key_F2:
-      if(m_mode=="JTTY") {
-        jtty_tx(m_config.my_callsign());
-        return;
-      }
       if(bAltF1F6) {
         auto_tx_mode(true);
         on_txb2_clicked();
@@ -3907,10 +3889,6 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
         return;
       }
     case Qt::Key_F3:
-      if(m_mode=="JTTY") {
-        jtty_tx(ui->dxCallEntry->text() + " 599 0123");
-        return;
-      }
       if(bAltF1F6) {
         auto_tx_mode(true);
         on_txb3_clicked();
@@ -3920,10 +3898,6 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
         return;
       }
     case Qt::Key_F4:
-      if(m_mode=="JTTY") {
-        jtty_tx("TU " + m_config.my_callsign() + " CQ");
-        return;
-      }
       if(bAltF1F6) {
         auto_tx_mode(true);
         on_txb4_clicked();
@@ -3934,10 +3908,6 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
         return;
       }
     case Qt::Key_F5:
-      if(m_mode=="JTTY") {
-        jtty_tx("TU NOW " + ui->dxCallEntry->text() + " 599 0123");
-        return;
-      }
       if(bAltF1F6) {
         auto_tx_mode(true);
         on_txb5_clicked();
@@ -4084,6 +4054,27 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
   }
 
   QMainWindow::keyPressEvent (e);
+}
+
+bool MainWindow::jtty_key_struck(QKeyEvent * e)
+{
+  if(e->key() == Qt::Key_F1) {
+    jtty_tx("CQ " + m_config.my_callsign() + " CQ");
+    return true;
+  } else if(e->key() == Qt::Key_F2) {
+    jtty_tx(m_config.my_callsign());
+    return true;
+  } else if(e->key() == Qt::Key_F3) {
+    jtty_tx(ui->dxCallEntry->text() + " 599 0123");
+    return true;
+  } else if(e->key() == Qt::Key_F4) {
+    jtty_tx("TU " + m_config.my_callsign() + " CQ");
+    return true;
+  } else if(e->key() == Qt::Key_F5) {
+    jtty_tx("TU NOW " + ui->dxCallEntry->text() + " 599 0123");
+    return true;
+  }
+  return false;
 }
 
 void MainWindow::handleVerifyMsg(int status, QDateTime ts, QString callsign, QString code, unsigned int hz, QString const &response)
@@ -17449,6 +17440,11 @@ void MainWindow::alertQSYmessage ()
   QString binPath = QCoreApplication::applicationDirPath();
   QSound::play(binPath + "/sounds/Message.wav");  // for Linux and macOS
 #endif
+}
+
+void MainWindow::on_pbSendMessage_clicked()
+{
+  jtty_tx(ui->Tx_Message->toPlainText().toUpper());
 }
 
 void MainWindow::jtty_tx(QString message)

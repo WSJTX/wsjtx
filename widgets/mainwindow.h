@@ -340,7 +340,6 @@ private slots:
   void on_actionStartLate_toggled(bool checked);
   void on_actionFT8WidebandDXCallSearch_toggled(bool checked);
   void on_actionUse_multithreaded_FT8_decoder_triggered(bool checked);
-  //ft8md
 
   void bumpFqso(int n);
   void on_actionErase_ALL_TXT_triggered();
@@ -469,6 +468,7 @@ private slots:
   void on_rbEchoMessage_toggled(bool b);
   void on_rbEchoCW_toggled(bool b);
   void on_leEchoMessage_textChanged();
+  void on_pbSendMessage_clicked();
 
 private:
   Q_SIGNAL void initializeAudioOutputStream (QAudioDeviceInfo,
@@ -509,6 +509,8 @@ private:
   void configActiveStations();
   void sfox_tx();
   void jtty_tx(QString message);
+  bool jtty_key_struck(QKeyEvent * e);
+
   bool play_DXcall = false;
   bool play_Wanted = false;
   bool inSettings = false;
