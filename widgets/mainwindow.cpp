@@ -1463,6 +1463,7 @@ void MainWindow::writeSettings()
   m_settings->setValue("FoxNlist",ui->sbNlist->value());
   m_settings->setValue("FoxNslots",m_Nslots0);
   m_settings->setValue("SerialNumber",ui->sbSerialNumber->value ());
+  m_settings->setValue("SerialNumberJTTY",ui->sbSerialNumber_2->value ());
   m_settings->setValue("FoxTextMsg", m_freeTextMsg0);
   m_settings->setValue("WorkDupes", ui->cbWorkDupes->isChecked());
   m_settings->endGroup();
@@ -1707,6 +1708,7 @@ void MainWindow::readSettings()
   m_Nslots0=m_Nslots;
   if(!m_config.superFox()) ui->sbNslots->setValue(m_Nslots);
   ui->sbSerialNumber->setValue (m_settings->value ("SerialNumber", 1).toInt ());
+  ui->sbSerialNumber_2->setValue (m_settings->value ("SerialNumberJTTY", 1).toInt ());
   m_freeTextMsg0=m_settings->value("FoxTextMsg","").toString();
   m_freeTextMsg=m_freeTextMsg0;
   ui->cbWorkDupes->setChecked(m_settings->value("WorkDupes",false).toBool());
@@ -4065,13 +4067,24 @@ bool MainWindow::jtty_key_struck(QKeyEvent * e)
     jtty_tx(m_config.my_callsign());
     return true;
   } else if(e->key() == Qt::Key_F3) {
-    jtty_tx(ui->dxCallEntry->text() + " 599 0123");
+    int n=ui->sbSerialNumber_2->value();
+    QString t=QString::number(n);
+    if(n < 10) t = "00"+t;
+    if(n < 100) t = "0"+t;
+    t = " 599 " + t;
+    jtty_tx(ui->dxCallEntry->text() + t);
     return true;
   } else if(e->key() == Qt::Key_F4) {
     jtty_tx("TU " + m_config.my_callsign() + " CQ");
     return true;
   } else if(e->key() == Qt::Key_F5) {
-    jtty_tx("TU NOW " + ui->dxCallEntry->text() + " 599 0123");
+    int n=ui->sbSerialNumber_2->value();
+    QString t=QString::number(n);
+    if(n < 10) t = "00"+t;
+    if(n < 100) t = "0"+t;
+    t = " 599 " + t;
+    jtty_tx(ui->dxCallEntry->text() + t);
+    jtty_tx("TU NOW " + ui->dxCallEntry->text() + t);
     return true;
   }
   return false;
