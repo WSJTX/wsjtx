@@ -2268,7 +2268,6 @@ void MainWindow::dataSink(qint64 frames)
   if(m_ihsym <=0) return;
   if(ui) ui->signal_meter_widget->setValue(m_px,m_pxmax); // Update thermometer
   if(m_monitoring || m_diskData) {
-//    qDebug() << "aa" << k << m_ihsym << m_hsymStop << m_FFTSize << s[500] << s[1000] << s[1500];
     m_wideGraph->dataSink2(s,m_df3,m_ihsym,m_diskData,m_px);
   }
   if(m_mode=="MSK144" or m_mode=="JTTY") return;
@@ -8291,7 +8290,6 @@ void MainWindow::guiUpdate()
 
 //Once per second (onesec)
   if(nsec != m_sec0) {
-
     // reset earlyDecodes for 2-stage or 3-stage decoding, or if QRG > 45 MHz
     if (m_mode=="FT8" && !m_diskData && ((m_multithreadFT8 && m_ft8DecoderStart<2) or m_freqNominal>45000000)) {
       QDateTime now = QDateTime::currentDateTimeUtc();
@@ -11740,9 +11738,9 @@ void MainWindow::switch_mode (Mode mode)
 void MainWindow::WSPR_config(bool b)
 {
   ui->rh_decodes_widget->setVisible(!b);     // UR disable for AL + widescreen version
-  ui->controls_stack_widget->setCurrentIndex (b && m_mode != "Echo" ? 1 : 0);
+  ui->controls_stack_widget->setCurrentIndex (b && m_mode != "Echo" ? 2 : 0);
   if(m_mode=="Echo") ui->controls_stack_widget->setCurrentIndex(3);
-  if(m_mode=="JTTY") ui->controls_stack_widget->setCurrentIndex(2);
+  if(m_mode=="JTTY") ui->controls_stack_widget->setCurrentIndex(1);
   ui->QSO_controls_widget->setVisible (!b);
   ui->DX_controls_widget->setVisible (!b or (m_mode=="Echo"));
   ui->WSPR_controls_widget->setVisible (b);
