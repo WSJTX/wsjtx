@@ -397,6 +397,8 @@ set (wsjt_FSRCS
   lib/superfox/popen_module.f90
   lib/superfox/qpc/qpc_mod.f90
   lib/ft8var/ft8_decodevar.f90
+  lib/jtty/jtty_mod.f90
+  lib/jtty/jtty_fec_mod.f90
 
   # remaining non-module sources
   lib/addit.f90
@@ -711,6 +713,14 @@ set (wsjt_FSRCS
   lib/superfox/sfox_gen_gfsk.f90
   lib/superfox/ran1.f90
   lib/superfox/sfoxsim.f90
+  lib/jtty/jtty_decode.f90
+  lib/jtty/rjtty.f90
+  lib/jtty/sjtty.f90
+  lib/jtty/crc12.f90
+  lib/jtty/cw_cwave.f90
+  lib/jtty/jtty_peakup.f90
+  lib/jtty/gen_jttywave.f90
+  lib/jtty/ana64a.f90
   )
 
 # temporary workaround for a gfortran v7.3 ICE on Fedora 27 64-bit
@@ -1287,6 +1297,12 @@ target_link_libraries (jt4sim wsjt_fort wsjt_cxx)
 add_executable (jt65sim lib/jt65sim.f90)
 target_link_libraries (jt65sim wsjt_fort wsjt_cxx)
 
+add_executable (sjtty lib/jtty/sjtty.f90)
+target_link_libraries (sjtty wsjt_fort wsjt_cxx)
+
+add_executable (rjtty lib/jtty/rjtty.f90)
+target_link_libraries (rjtty wsjt_fort wsjt_cxx)
+
 add_executable (sumsim lib/sumsim.f90)
 target_link_libraries (sumsim wsjt_fort wsjt_cxx)
 
@@ -1781,7 +1797,8 @@ install (TARGETS jt9 wsprd fmtave fcal fmeasure
 
 if(WSJT_BUILD_UTILS)
 install (TARGETS ft8code jt65code jt9code jt4code msk144code 
-  q65code fst4sim ft8sim q65sim EchoCallSim testEchoCall echosim hash22calc cablog
+  q65code fst4sim ft8sim q65sim EchoCallSim testEchoCall echosim
+  hash22calc cablog sjtty rjtty 
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   )
