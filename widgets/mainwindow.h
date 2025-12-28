@@ -44,8 +44,10 @@
 #include "Network/Cloudlog.hpp"
 #include "logbook/logbook.h"
 #include "astro.h"
+#include "qtextbrowser.h"
 #include "widgets/QSYMessageCreator.h"
 #include "widgets/QSYMessage.h"
+#include "widgets/displaytext.h"
 #include "widgets/qsymonitor.h"
 #include "MessageBox.hpp"
 #include "Network/NetworkAccessManager.hpp"
@@ -469,6 +471,7 @@ private slots:
   void on_rbEchoCW_toggled(bool b);
   void on_leEchoMessage_textChanged();
   void on_pbSendMessage_clicked();
+  void deleteLastLine();
 
 private:
   Q_SIGNAL void initializeAudioOutputStream (QAudioDeviceInfo,

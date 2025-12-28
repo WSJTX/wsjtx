@@ -2224,6 +2224,8 @@ void MainWindow::fixStop()
     } else {
       m_hsymStop=stop[i];
     }
+  } else if(m_mode=="JTTY") {
+    m_hsymStop=350;
   }
 }
 
@@ -2249,10 +2251,12 @@ void MainWindow::dataSink(qint64 frames)
   }
   m_bClearRefSpec=false;
 
-  if(m_mode=="MSK144" or m_bFast9 or m_mode=="JTTY") {
+  if(m_mode=="MSK144" or m_bFast9) {
     fastSink(frames);
     if(m_bFastMode) return;
   }
+
+  if(m_mode=="JTTY") fastSink(frames);
 
 // Get power, spectrum, and ihsym
   dec_data.params.nfa=m_wideGraph->nStartFreq();
@@ -2585,10 +2589,12 @@ QString MainWindow::save_wave_file (QString const& name, short const * data, int
 void MainWindow::fastSink(qint64 frames)
 {
   int k (frames);
+  static int k0=9999999;
   bool decodeNow=false;
   filtered = false;
   ignored = false;
   m_muted = false;
+
   if(k < m_k0) {                                 //New sequence ?
     memcpy(fast_green2,fast_green,4*703);        //Copy fast_green[] to fast_green2[]
     memcpy(fast_s2,fast_s,4*703*64);             //Copy fast_s[] into fast_s2[]
@@ -2638,13 +2644,11 @@ void MainWindow::fastSink(qint64 frames)
   if(m_mode=="JTTY") {
     rjtty_sub_(dec_data.d2,&k,&line[0],(FCL)80);
     QString message {QString::fromLatin1(line)};
-    int n=message.length();
-    if(n > 0) {
-      qDebug() << "cc" << k/12000.0 << message.length() << message;
-      if(n <= 80) {
-        ui->decodedTextBrowser->clear();
+    if(message.length() > 0 and message.length() < 81) {
+//        ui->decodedTextBrowser->clear();
+        if(k > k0) deleteLastLine();
+        k0 = k;
         ui->decodedTextBrowser->insertText(message);
-      }
     }
     return;
   }
@@ -17480,4 +17484,20 @@ void MainWindow::on_pbSendMessage_clicked()
 void MainWindow::jtty_tx(QString message)
 {
   ui->decodedTextBrowser2->insertText(message);
+}
+
+void MainWindow::deleteLastLine()
+{
+    QTextCursor cursor = ui->decodedTextBrowser->textCursor();
+    // Move the cursor to the end of the document
+    cursor.movePosition(QTextCursor::End);
+    // Select the entire line/block under the cursor
+    cursor.select(QTextCursor::LineUnderCursor);
+    // Remove the selected text (the last line)
+    cursor.removeSelectedText();
+    // Optionally, delete the previous character to clean up the extra newline character
+    // this can sometimes be necessary depending on how the text was added.
+    cursor.deletePreviousChar(); //
+    // Set the modified cursor back to the browser
+    ui->decodedTextBrowser->setTextCursor(cursor);
 }
