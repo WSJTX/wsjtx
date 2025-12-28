@@ -715,6 +715,7 @@ set (wsjt_FSRCS
   lib/superfox/sfoxsim.f90
   lib/jtty/jtty_decode.f90
   lib/jtty/rjtty.f90
+  lib/jtty/rjtty_sub.f90
   lib/jtty/sjtty.f90
   lib/jtty/crc12.f90
   lib/jtty/cw_cwave.f90

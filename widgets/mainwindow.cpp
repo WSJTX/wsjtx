@@ -2633,8 +2633,9 @@ void MainWindow::fastSink(qint64 frames)
   ui->signal_meter_widget->setValue(rmsNoGain,pxmax); // Update thermometer
   m_fastGraph->plotSpec(m_diskData,m_UTCdisk);
 
-  if(bmsk144 and (line[0]!=0)) {
+  if((bmsk144 or m_mode=="JTTY") and (line[0]!=0)) {
     QString message {QString::fromLatin1 (line)};
+    qDebug() << "aaa" << message;
     DecodedText decodedtext {message.replace (QChar::LineFeed, "")};
 
     QString text = decodedtext.string().replace("<","").replace(">","");   // for Wait features
@@ -5108,7 +5109,6 @@ void MainWindow::diskDat()                                   //diskDat()
     float bw=m_config.RxBandwidth();
     if(db > 0.0) degrade_snr_(dec_data.d2,&dec_data.params.kin,&db,&bw);
     for(int n=1; n<=m_hsymStop; n++) {                      // Do the waterfall spectra
-//      k=(n+1)*kstep;           //### Why was this (n+1) ??? ###
       k=n*kstep;
       if(k > dec_data.params.kin) break;
       dec_data.params.npts8=k/8;

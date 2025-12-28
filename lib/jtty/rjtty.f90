@@ -2,15 +2,16 @@ program rjtty
 
 ! Decode JTTY data in one or more WAV files.
 
-   use wavhdr
-!
+  use wavhdr
+  use jtty_mod
+
 ! MAX_FRAMES = 16 in pack_jtty. Each frame is
 ! 53 symbols (13 sync + 40 codeword).
 ! Maximum length of a transmission is
 ! 16*53*(symbol_duration).
 ! With baud rate 31.25 s^-1, symbol duration = 32 ms,
 ! so maximum txt = 16*53*0.032 = 27.136 s.
-!
+
    parameter (NMAX=20*12000)                 !Max length of data
    parameter (NSPB=2048)                     !Samples per buffer
    type(hdr) h
@@ -58,16 +59,22 @@ program rjtty
          write(*,3001) ifile,xdt,f1,snr,trim(umsg)
 3001     format(i3,f8.2,2f8.1,2x,a)
       else
-
-   istart=1
-   nframe=53*384+7680
-   kchar=0
+         istart=1
+         nframe=53*384+7680
+         kchar=0
 
 ! Process data on the fly, one buffer at a time:
          do ibuf=1,16
+            istart=(ibuf-1) * 53*NSPS + 1
+            if(nwave-istart .lt. nframe/2) exit
             synced=.false.                      ! sync on evey call for now
+            write(71,3071) ibuf,istart,iwave(istart:istart+4)
+3071        format(i2,i8,3x,5i6)
             call jtty_decode(iwave(istart),nframe,f0,ftol,smin,synced,xdt,  &
                  f1,snr,umsg)
+            write(72,3072) synced,xdt,f1,snr,trim(umsg)
+3072        format(L1,f8.3,2f7.1,2x,a)
+
             if(synced) then
                n = len(trim(umsg))
                do i=1,n
@@ -81,8 +88,6 @@ program rjtty
                   write(*,*) 'debug ',umsg(1:n)
                endif
             endif
-            istart=istart+53*384-1
-            if(nwave-istart .lt. nframe/2) exit
          enddo
          write(*,*)
       endif
