@@ -2641,7 +2641,10 @@ void MainWindow::fastSink(qint64 frames)
     int n=message.length();
     if(n > 0) {
       qDebug() << "cc" << k/12000.0 << message.length() << message;
-      ui->decodedTextBrowser->insertText(message);
+      if(n <= 80) {
+        ui->decodedTextBrowser->clear();
+        ui->decodedTextBrowser->insertText(message);
+      }
     }
     return;
   }
