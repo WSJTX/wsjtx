@@ -127,6 +127,8 @@ extern "C" {
               float s[], int* jh, float *pxmax, float *rmsNoGain, char line[],
               fortran_charlen_t, fortran_charlen_t, fortran_charlen_t, fortran_charlen_t);
 
+  void rjtty_sub_(short int d2[], int* k, char line[], fortran_charlen_t);
+
   void gen_echocall_(char* basecall, int itone[], fortran_charlen_t);
 
   void genft8_(char* msg, int* i3, int* n3, char* msgsent, char ft8msgbits[],
@@ -2633,9 +2635,19 @@ void MainWindow::fastSink(qint64 frames)
   ui->signal_meter_widget->setValue(rmsNoGain,pxmax); // Update thermometer
   m_fastGraph->plotSpec(m_diskData,m_UTCdisk);
 
-  if((bmsk144 or m_mode=="JTTY") and (line[0]!=0)) {
+  if(m_mode=="JTTY") {
+    rjtty_sub_(dec_data.d2,&k,&line[0],(FCL)80);
+    QString message {QString::fromLatin1(line)};
+    int n=message.length();
+    if(n > 0) {
+      qDebug() << "cc" << k/12000.0 << message.length() << message;
+      ui->decodedTextBrowser->insertText(message);
+    }
+    return;
+  }
+
+  if(bmsk144 and (line[0]!=0)) {
     QString message {QString::fromLatin1 (line)};
-    qDebug() << "aaa" << message;
     DecodedText decodedtext {message.replace (QChar::LineFeed, "")};
 
     QString text = decodedtext.string().replace("<","").replace(">","");   // for Wait features

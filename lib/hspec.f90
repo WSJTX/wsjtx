@@ -34,12 +34,6 @@ subroutine hspec(id2,k,nutc0,ntrpdepth,nrxfreq,ntol,bmsk144,             &
   equivalence (x,cx)
   save ja,rms0
 
-  if(k.ne.-9999) then
-!### Temporary kludge for tests of JTTY decoding ###
-     call rjtty_sub(id2,k,line1)
-     return
-  endif
-
   ndepth=ntrpdepth/1000
   ntrperiod=ntrpdepth - 1000*ndepth
   gain=10.0**(0.1*ingain)
