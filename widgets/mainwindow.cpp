@@ -2646,7 +2646,14 @@ void MainWindow::fastSink(qint64 frames)
     QString message {QString::fromLatin1(line)};
     if(message.length() > 0 and message.length() < 81) {
 //        ui->decodedTextBrowser->clear();
-        if(k > k0) deleteLastLine();
+        if(k > k0) {
+          QTextCursor cursor = ui->decodedTextBrowser->textCursor();
+          cursor.movePosition(QTextCursor::End);        // Cursor to end of text
+          cursor.select(QTextCursor::LineUnderCursor);  //Select line under cursor
+          cursor.removeSelectedText();                  //Remove the selected line
+          cursor.deletePreviousChar();                  //Delete previous newline
+          ui->decodedTextBrowser->setTextCursor(cursor); //Reset cursor back to browser
+        }
         k0 = k;
         ui->decodedTextBrowser->insertText(message);
     }
@@ -17484,20 +17491,4 @@ void MainWindow::on_pbSendMessage_clicked()
 void MainWindow::jtty_tx(QString message)
 {
   ui->decodedTextBrowser2->insertText(message);
-}
-
-void MainWindow::deleteLastLine()
-{
-    QTextCursor cursor = ui->decodedTextBrowser->textCursor();
-    // Move the cursor to the end of the document
-    cursor.movePosition(QTextCursor::End);
-    // Select the entire line/block under the cursor
-    cursor.select(QTextCursor::LineUnderCursor);
-    // Remove the selected text (the last line)
-    cursor.removeSelectedText();
-    // Optionally, delete the previous character to clean up the extra newline character
-    // this can sometimes be necessary depending on how the text was added.
-    cursor.deletePreviousChar(); //
-    // Set the modified cursor back to the browser
-    ui->decodedTextBrowser->setTextCursor(cursor);
 }

@@ -471,7 +471,6 @@ private slots:
   void on_rbEchoCW_toggled(bool b);
   void on_leEchoMessage_textChanged();
   void on_pbSendMessage_clicked();
-  void deleteLastLine();
 
 private:
   Q_SIGNAL void initializeAudioOutputStream (QAudioDeviceInfo,
