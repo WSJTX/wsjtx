@@ -3,17 +3,18 @@ program sjtty
   ! Simulate received data for JTTY, a mode operationally similar to RTTY
   ! but providing much better performance and reliability.
 
-  ! Messages are source encoded into 32-bit blocks and a 10-bit CRC 
-  ! is added to create a 42 bit message payload which is then encoded
-  ! using a systematic (80,42) block code to create 80-bit codewords.
-  ! Modulation is 4FSK at 32 baud. Each transmitted block consists
-  ! of 13 sync symbols followed by 40 codeword symbols. 
+  ! Messages are source-encoded into 32-bit blocks. A 10-bit CRC is
+  ! added to create a 42 bit payload, which is then FEC-encoded using
+  ! a systematic (80,42) block code to create 80-bit codewords.
+
+  ! Modulation is 4FSK at 12000/NSPS = 31.25 baud. Each transmitted frame
+  ! consists of 13 sync symbols followed by 40 codeword symbols. 
 
   use wavhdr
   use jtty_mod
   use jtty_fec
   parameter (NMAX=30*12000)         !Max size of .wav file
-  parameter (MAX_TONES=53*12)       !Max number of channel symbols
+  parameter (MAX_TONES=53*16)       !Max number of channel symbols
   character*12 arg                  !Command line argument
   character*2 arg4                  !The 4th command-line argument
   character*80 umsg                 !User-formatted message 
@@ -153,17 +154,18 @@ write(*,*) 'debug nsps:',nsps
   npts=2**(int(log(float(nwave))/log(2.0) + 0.9999))  !Round up to integer power of 2
   do ifile=1,nfiles
      c0=0.
-     c0(0:NWAVE-1)=cwave(0:NWAVE-1)
+     c0(0:nwave-1)=cwave(0:nwave-1)
      c0=cshift(c0,-nint(xdt/dt))
      if(fspread.ne.0.0 .or. delay.ne.0.0) then
         ! Apply channel propagation
-        call watterson(c0,npts,NWAVE,fsample,delay,fspread)
+        call watterson(c0,npts,nwave,fsample,delay,fspread)
      endif
-     c=sig*c0                        !Scale to specified SNR
-     wave=imag(c)                    !Received signal with SNR and prop degradation
+     c(0:nwave-1)=sig*c0(0:nwave-1)      !Scale to specified SNR
+     wave(1:nwave)=imag(c(0:nwave-1))    !Signal with SNR and prop degradation
 
+     iz=nwave + nsps*53              !Add one frame of noise at end
      if(snrdb.lt.90) then
-        do i=1,NMAX                  !Add gaussian noise for specified SNR
+        do i=1,iz                    !Add gaussian noise for specified SNR
            xnoise=gran()
            wave(i)=wave(i) + xnoise
         enddo
@@ -171,19 +173,19 @@ write(*,*) 'debug nsps:',nsps
 
      gain=100.0
      if(snrdb.lt.90.0) then
-       wave=gain*wave
+       wave(1:iz)=gain*wave(1:iz)
      else
-       datpk=maxval(abs(wave))
+       datpk=maxval(abs(wave(1:iz)))
        fac=32766.9/datpk
-       wave=fac*wave
+       wave(1:iz)=fac*wave(1:iz)
      endif
-     if(any(abs(wave).gt.32767.0)) print*,"Warning - data will be clipped."
-     iwave(1:nwave)=nint(wave(1:nwave))
-     h=default_header(12000,nwave)
+
+     iwave(1:iz)=nint(wave(1:iz))
+     h=default_header(12000,iz)
      write(fname,1102) ifile
 1102 format('000000_',i6.6,'.wav')
      open(10,file=fname,status='unknown',access='stream')
-     write(10) h,iwave(1:nwave)                !Save to *.wav file
+     write(10) h,iwave(1:iz)                !Save to *.wav file
      close(10)
      write(*,1110) ifile,xdt,f0,snrdb,fname
 1110 format(i4,f7.2,f8.2,f7.1,2x,a17)
