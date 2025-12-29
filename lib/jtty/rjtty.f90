@@ -12,7 +12,7 @@ program rjtty
 ! With baud rate 31.25 s^-1, symbol duration = 32 ms,
 ! so maximum txt = 16*53*0.032 = 27.136 s.
 
-   parameter (NMAX=20*12000)                 !Max length of data
+   parameter (NMAX=30*12000)                 !Max length of data
    parameter (NSPB=2048)                     !Samples per buffer
    type(hdr) h
    character*80 fname

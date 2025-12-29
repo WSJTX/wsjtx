@@ -129,6 +129,11 @@ extern "C" {
 
   void rjtty_sub_(short int d2[], int* k, char line[], fortran_charlen_t);
 
+  void genjtty_(char const * msg, int itone[], int* nsym, fortran_charlen_t);
+
+  void gen_jttywave_(int itone[], int* nsym, int* nsps, float* bt, float* fsample, float* f0,
+                    float xjunk[], float wave[], int* icmplx, int* nwave);
+
   void gen_echocall_(char* basecall, int itone[], fortran_charlen_t);
 
   void genft8_(char* msg, int* i3, int* n3, char* msgsent, char ft8msgbits[],
@@ -12752,6 +12757,21 @@ void MainWindow::transmit (double snr)
     }
   }
 
+  if (m_mode == "JTTY") {
+    m_dateTimeSentTx3=QDateTime::currentDateTimeUtc();
+    toneSpacing=-2.0;                     //Transmit a pre-computed, filtered waveform.
+    double txt=m_nsym_jtty*384.0/12000.0;
+    if (m_tci_audio) {
+      Q_EMIT m_config.transceiver_modulator_start(m_mode, m_nsym_jtty,
+             384.0,1500.0,toneSpacing,false,false,snr,txt);
+    } else {
+      qDebug() << "aa" << m_nsym_jtty << txt;
+      Q_EMIT sendMessage (m_mode, m_nsym_jtty,
+             384.0,1500.0,toneSpacing, m_soundOutput, m_config.audio_output_channel(),
+             false, false, snr, txt);
+    }
+  }
+
   if (m_mode == "FST4" or m_mode == "FST4W") {
     m_dateTimeSentTx3=QDateTime::currentDateTimeUtc();
     toneSpacing=-2.0;                     //Transmit a pre-computed, filtered waveform.
@@ -17496,5 +17516,20 @@ void MainWindow::on_pbSendMessage_clicked()
 
 void MainWindow::jtty_tx(QString message)
 {
+  int itone[848];
+  int n=message.length();
   ui->decodedTextBrowser2->insertText(message);
+  QString t = " ";
+  t = message + t.repeated(80-n);
+  genjtty_(t.toLatin1().constData(), &itone[0], &m_nsym_jtty, (FCL)80);
+
+  int nsps4=4*384;
+  float bt=2.0;
+  float fsample=48000.0;
+  float f0=1500.0;
+  int icmplx=0;
+  int nwave=nsps4*m_nsym_jtty;
+  gen_jttywave_(const_cast<int *>(itone), &m_nsym_jtty, &nsps4, &bt, &fsample, &f0,
+                foxcom_.wave, foxcom_.wave, &icmplx, &nwave);
+  startTx2();
 }

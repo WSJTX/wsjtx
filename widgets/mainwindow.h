@@ -623,6 +623,7 @@ private:
   qint32  m_ft8DecoderStart;
   qint32  m_nsecBandChanged;
   qint32  m_nFT4depth;
+  qint32  m_nsym_jtty;
   //ft8md
 
   qint32  m_sec0;
