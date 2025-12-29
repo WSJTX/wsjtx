@@ -8887,6 +8887,12 @@ void MainWindow::doubleClickOnCall(Qt::KeyboardModifiers modifiers)
   } else {
     cursor=ui->decodedTextBrowser2->textCursor();
   }
+  if(m_mode=="JTTY") {
+    cursor.select(QTextCursor::WordUnderCursor); // Select the word
+    m_deCall = cursor.selectedText();
+    ui->dxCallEntry->setText(m_deCall);
+    return;
+  }
   DecodedText message {cursor.block().text().trimmed().left(61).remove("TU; ")};
   if(SpecOp::HOUND==m_specOp && (message.string().mid(4,2).contains("15") or message.string().mid(4,2).contains("45"))) return;  // ignore stations calling in the wrong time slot
 //  if(message.string().contains(";") && message.string().contains("<")) {
