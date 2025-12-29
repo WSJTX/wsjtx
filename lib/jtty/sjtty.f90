@@ -162,6 +162,7 @@ write(*,*) 'debug nsps:',nsps
      endif
      c(0:nwave-1)=sig*c0(0:nwave-1)      !Scale to specified SNR
      wave(1:nwave)=imag(c(0:nwave-1))    !Signal with SNR and prop degradation
+     wave(nwave+1:)=0.
 
      iz=nwave + nsps*53              !Add one frame of noise at end
      if(snrdb.lt.90) then
