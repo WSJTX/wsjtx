@@ -31,7 +31,6 @@ subroutine rjtty_sub(iwave,kz,line1)
      do i=1,n
         if(umsg(i:i).eq.'~') umsg(i:i)=' '
         line(kchar+i:kchar+i) = umsg(i:i)
-!        print*,'AAA',i,kchar+i,umsg(i:i),'  ',line(1:kchar+i)
      enddo
      kchar = kchar + n
      if(kchar.lt.80) then
@@ -42,10 +41,7 @@ subroutine rjtty_sub(iwave,kz,line1)
   endif
 
 900 continue
-!  line(kchar+1:kchar+1)=char(0)
   if(kchar.gt.0) then
-!     print*,'aa',n,line1(1:n)
-!     print*,'bb',kchar,line(1:kchar)
   endif
   line1=line
 
