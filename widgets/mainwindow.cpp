@@ -2650,7 +2650,6 @@ void MainWindow::fastSink(qint64 frames)
     rjtty_sub_(dec_data.d2,&k,&line[0],(FCL)80);
     QString message {QString::fromLatin1(line)};
     if(message.length() > 0 and message.length() < 81) {
-//        ui->decodedTextBrowser->clear();
         if(k > k0) {
           QTextCursor cursor = ui->decodedTextBrowser->textCursor();
           cursor.movePosition(QTextCursor::End);        // Cursor to end of text
@@ -2660,6 +2659,10 @@ void MainWindow::fastSink(qint64 frames)
           ui->decodedTextBrowser->setTextCursor(cursor); //Reset cursor back to browser
         }
         k0 = k;
+        m_xRcvd="";
+        QStringList w = message.split(" ",SkipEmptyParts);
+        if((w.length() == 2) and (w[0] == "599")) m_xRcvd = w[1];
+        if((w.length() == 3) and (w[1] == "599")) m_xRcvd = w[2];
         ui->decodedTextBrowser->insertText(message);
     }
     return;
@@ -17523,6 +17526,7 @@ void MainWindow::jtty_tx(QString message)
     // ### Must send "sent" and "rcvd" info to logqso here. ###
     logQSOTimer.start(0);
     int nr = ui->sbSerialNumber_2->value();
+    m_xSent = QString::number(nr);
     ui->sbSerialNumber_2->setValue(nr+1);
   }
 
