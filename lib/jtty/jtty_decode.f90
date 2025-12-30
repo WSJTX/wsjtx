@@ -19,8 +19,7 @@ subroutine jtty_decode(iwave,nwave,f0,ftol,smin,synced,xdt,f1,snr,decoded)
    complex c(0:NFFT2-1)
    complex c0(0:262143)
    complex c1(0:NZ-1)
-   complex csync(0:2*NSC-1)           !Waveform for sync
-   complex cwave(NSC,0:63)            !Waveforms and for the 64 JTTY characters
+   complex csync(0:13*192-1)           !Waveform for sync
    complex ctones(0:191,0:3)
    integer*1 message42(42)
    integer*1 cw80(80)
@@ -28,15 +27,14 @@ subroutine jtty_decode(iwave,nwave,f0,ftol,smin,synced,xdt,f1,snr,decoded)
    complex z
    logical first,synced
    data first/.true./,snrbest/-9999.0/
-!  save first,snrbest,xdt_3,f1_3
    save
 
    if(first) then
-      ! Generate complex waveforms for sync and for the 64 JTTY characters.
-      call cw_cwave(NSC,csync,cwave)
+! Generate complex waveform for sync
+      call cw_cwave(csync)
 
       twopi=8.0*atan(1.0)
-      baud=6000/192.0   !31.25
+      baud=6000.0/192.0   !31.25
       dt=1/6000.0
 
       do i=0,3

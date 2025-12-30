@@ -131,7 +131,7 @@ extern "C" {
 
   void genjtty_(char const * msg, int itone[], int* nsym, fortran_charlen_t);
 
-  void gen_jttywave_(int itone[], int* nsym, int* nsps, float* bt, float* fsample, float* f0,
+  void gen_jttywave2_(int itone[], int* nsym, int* nsps, float* bt, float* fsample, float* f0,
                     float xjunk[], float wave[], int* icmplx, int* nwave);
 
   void gen_echocall_(char* basecall, int itone[], fortran_charlen_t);
@@ -12765,7 +12765,6 @@ void MainWindow::transmit (double snr)
       Q_EMIT m_config.transceiver_modulator_start(m_mode, m_nsym_jtty,
              384.0,1500.0,toneSpacing,false,false,snr,txt);
     } else {
-      qDebug() << "aa" << m_nsym_jtty << txt;
       Q_EMIT sendMessage (m_mode, m_nsym_jtty,
              384.0,1500.0,toneSpacing, m_soundOutput, m_config.audio_output_channel(),
              false, false, snr, txt);
@@ -17516,6 +17515,8 @@ void MainWindow::on_pbSendMessage_clicked()
 
 void MainWindow::jtty_tx(QString message)
 {
+  qDebug() << "aa" << message;
+
   int itone[848];
   int n=message.length();
   ui->decodedTextBrowser2->insertText(message);
@@ -17529,7 +17530,8 @@ void MainWindow::jtty_tx(QString message)
   float f0=1500.0;
   int icmplx=0;
   int nwave=nsps4*m_nsym_jtty;
-  gen_jttywave_(const_cast<int *>(itone), &m_nsym_jtty, &nsps4, &bt, &fsample, &f0,
+  qDebug() << "bb" << nsps4+bt+fsample+f0+icmplx+nwave;
+  gen_jttywave2_(const_cast<int *>(itone), &m_nsym_jtty, &nsps4, &bt, &fsample, &f0,
                 foxcom_.wave, foxcom_.wave, &icmplx, &nwave);
   startTx2();
 }

@@ -101,17 +101,14 @@ program sjtty
   sig=sqrt(2*bandwidth_ratio) * 10.0**(0.05*snrdb)
   if(snrdb.gt.90.0) sig=1.0
 !  nsps=384                         !Samples per symbol at 12000 Hz
-write(*,*) 'debug nsps:',nsps
   bt=2.0                           !Default bt=2 (smaller ==> more smoothing)
   baud=fsample/nsps                !Symbol rate
   bw=4.0*baud                      !Signal bandwidth
   hmod=1.0                         !Modulation index
 
-  write(*,*) 'umsg ',umsg
   call pack_jtty(umsg,c42,nframes)
   nsym=0
   do i=1,nframes
-    write(*,*) 'c42 frame ',i,':',c42(i)
     read(c42(i),'(42i1)') message42(1:42) 
     call encode_80_42(message42,codeword80)
     ib=(i-1)*53+1   ! 53 tones per frame

@@ -720,9 +720,10 @@ set (wsjt_FSRCS
   lib/jtty/crc12.f90
   lib/jtty/cw_cwave.f90
   lib/jtty/jtty_peakup.f90
-  lib/jtty/gen_jttywave.f90
   lib/jtty/ana64a.f90
   lib/jtty/genjtty.f90
+  lib/jtty/gen_jttywave.f90
+  lib/jtty/gen_jttywave2.f90
   )
 
 # temporary workaround for a gfortran v7.3 ICE on Fedora 27 64-bit
