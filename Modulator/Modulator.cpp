@@ -59,6 +59,7 @@ void Modulator::start (QString mode, unsigned symbolsLength, double framesPerSym
   unsigned mstr = ms0 % int(1000.0*m_period); // ms into the nominal Tx start time
 
   if(m_state != Idle) stop();
+  m_mode = mode;
   m_quickClose = false;
   m_symbolsLength = symbolsLength;
   m_isym0 = std::numeric_limits<unsigned>::max (); // big number
@@ -342,13 +343,13 @@ qint64 Modulator::readData (char * data, qint64 maxSize)
           ++m_ic;
         }
 
-        if(m_TRperiod==3 and m_ic >i1) {
+        if((m_TRperiod==3 or m_mode=="JTTY") and m_ic >i1) {
           Q_EMIT stateChanged ((m_state = Idle));
           return framesGenerated * bytesPerFrame ();
         }
 
-//        qDebug() << "dd" << QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz")
-//                 << tsec << m_ic << i1;
+//        qDebug() << "dd" << m_mode << QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz")
+//                 << tsec << m_TRperiod << m_ic << i1;
 
         if (m_amp == 0.0) { // TODO G4WJS: compare double with zero might not be wise
           if (icw[0] == 0) {
