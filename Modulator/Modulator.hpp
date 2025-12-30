@@ -82,6 +82,7 @@ private:
 
   unsigned m_frameRate;
   ModulatorState m_state;
+  QString m_mode;
 
   bool m_tuning;
   bool m_addNoise;
