@@ -1922,7 +1922,7 @@ void MainWindow::readSettings()
   else if(m_ft8threads==10) ui->actionMT10->setChecked(true);
   else if(m_ft8threads==11) ui->actionMT11->setChecked(true);
   else if(m_ft8threads==12) ui->actionMT12->setChecked(true);
-  qDebug() << "m_ft8threads is " << m_ft8threads;
+//  qDebug() << "m_ft8threads is " << m_ft8threads;
   dec_data.params.nmt = m_ft8threads;
 
   ui->actionHide_FT8_dupe_messages->setChecked(m_settings->value("HideFT8Dupes",true).toBool());
@@ -5614,7 +5614,7 @@ void MainWindow::decode()                                       //decode()
       dec_data.params.lmultift8 = false; // use the standard FT8 decoder for early decoding step
       if (m_ihsym==m_earlyDecode2) dec_data.params.ndepth=2;
     }
-    qDebug() << "dec_data.params.lmultift8 is" << dec_data.params.lmultift8; //ft8md
+//    qDebug() << "dec_data.params.lmultift8 is" << dec_data.params.lmultift8; //ft8md
     dec_data.params.ndiskdat=0;
     if(m_diskData) dec_data.params.ndiskdat=1;
     dec_data.params.nfa=m_wideGraph->nStartFreq();
@@ -8265,7 +8265,8 @@ void MainWindow::guiUpdate()
     statusUpdate ();
   }
 
-  if(!m_btxok && m_btxok0 && g_iptt==1) {
+  if((!m_btxok && m_btxok0 && g_iptt==1) or (m_mode=="JTTY" and m_transmitting
+                                             and !m_modulator->isActive())) {
     stopTx();
     if ("1" == m_env.value ("WSJT_TX_BOTH", "0")) {
       m_txFirst = !m_txFirst;
@@ -8572,12 +8573,12 @@ void MainWindow::useNextCall()
 }
 
 void MainWindow::startTx2()
-{    
+{
   bool modulator_active;
   bool tci_active = m_tci_audio;
   if (tci_active) modulator_active=m_tci_mod_active;
   else modulator_active=m_modulator->isActive ();
-    if (!modulator_active) { // TODO - not thread safe
+  if (!modulator_active) { // TODO - not thread safe
     double fSpread=0.0;
     double snr=99.0;
     QString t=ui->tx5->currentText();
@@ -11966,8 +11967,8 @@ void MainWindow::on_actionUse_multithreaded_FT8_decoder_triggered(bool checked)
 {
   m_multithreadFT8 = checked;
   dec_data.params.lmultift8 = m_multithreadFT8;
-  qDebug() << "m_multithreadFT8 is" << m_multithreadFT8;
-  qDebug() << "dec_data.params.lmultift8 is" << dec_data.params.lmultift8;
+//  qDebug() << "m_multithreadFT8 is" << m_multithreadFT8;
+//  qDebug() << "dec_data.params.lmultift8 is" << dec_data.params.lmultift8;
   if (checked && !(m_specOp==SpecOp::HOUND && m_config.superFox())) {
     if (m_ft8DecoderStart==0) m_hsymStop=49;
     else if (m_ft8DecoderStart==1) {
@@ -12631,7 +12632,7 @@ void MainWindow::handle_transceiver_failure (QString const& reason)
   update_dynamic_property (ui->readFreq, "state", "error");
   ui->readFreq->setEnabled (true);
   on_stopTxButton_clicked ();
-  qDebug() << "MainWindow::handle_transceiver_failure fired";
+//  qDebug() << "MainWindow::handle_transceiver_failure fired";
   rigFailure (reason);
   rigFailed = true;
 }
@@ -13446,7 +13447,7 @@ void MainWindow::locationChange (QString const& location)
     }
   }
   if (MaidenheadLocatorValidator::Acceptable == MaidenheadLocatorValidator ().validate (grid, len)) {
-    qDebug() << "locationChange: Grid supplied is " << grid;
+//    qDebug() << "locationChange: Grid supplied is " << grid;
     if (m_config.my_grid () != grid) {
       m_config.set_location (grid);
       genStdMsgs (m_rpt, false);
@@ -17515,11 +17516,16 @@ void MainWindow::on_pbSendMessage_clicked()
 
 void MainWindow::jtty_tx(QString message)
 {
-  qDebug() << "aa" << message;
-
   int itone[848];
   int n=message.length();
   ui->decodedTextBrowser2->insertText(message);
+  if(message.left(3) == "TU ") {
+    // ### Must send "sent" and "rcvd" info to logqso here. ###
+    logQSOTimer.start(0);
+    int nr = ui->sbSerialNumber_2->value();
+    ui->sbSerialNumber_2->setValue(nr+1);
+  }
+
   QString t = " ";
   t = message + t.repeated(80-n);
   genjtty_(t.toLatin1().constData(), &itone[0], &m_nsym_jtty, (FCL)80);
@@ -17530,8 +17536,8 @@ void MainWindow::jtty_tx(QString message)
   float f0=1500.0;
   int icmplx=0;
   int nwave=nsps4*m_nsym_jtty;
-  qDebug() << "bb" << nsps4+bt+fsample+f0+icmplx+nwave;
   gen_jttywave2_(const_cast<int *>(itone), &m_nsym_jtty, &nsps4, &bt, &fsample, &f0,
                 foxcom_.wave, foxcom_.wave, &icmplx, &nwave);
+  m_transmitting = true;
   startTx2();
 }

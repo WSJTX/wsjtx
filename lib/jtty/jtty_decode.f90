@@ -159,10 +159,11 @@ subroutine jtty_decode(iwave,nwave,f0,ftol,smin,synced,xdt,f1,snr,decoded)
       decoded=''
       return
    endif
+
    if( nharderror.ge.0 ) then
       call unpack_jtty(c42,1,decoded)
    else
-      decoded="*****"
+      decoded=""
    endif
    return
 end subroutine jtty_decode
