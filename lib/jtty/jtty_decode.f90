@@ -1,13 +1,10 @@
 subroutine jtty_decode(iwave,nwave,f0,ftol,smin,synced,xdt,f1,snr,decoded)
    use jtty_mod
    use jtty_fec
-   parameter (NMAX=20*12000)                 !Max length of data @12000 Hz
-   parameter (NZ=20*6000)                    !Max length of data @6000 Hz
-!  parameter (NSPS=384)                      !Samples per symbol @12000 Hz
+   parameter (NMAX=30*12000)                 !Max length of data @12000 Hz
+   parameter (NZ=30*6000)                    !Max length of data @6000 Hz
    parameter (NSS=NSPS/2)                    !Samples per symbol @6000 Hz
-   parameter (NSC=7*NSPS/2)                  !Samples per char @6000 Hz (1680)
-   parameter (NFFT2=4*NSC,NH2=NFFT2/2)
-   parameter (NFFT=NSC,NH=NFFT/2)
+   parameter (NFFT=13*NSPS,NH2=NFFT/2)
    character*80 decoded
    character*42 c42(MAX_FRAMES)
    integer*2 iwave(nwave)
@@ -16,7 +13,7 @@ subroutine jtty_decode(iwave,nwave,f0,ftol,smin,synced,xdt,f1,snr,decoded)
    real a(3)
    real bitmetrics(1:80)
    real pow(0:3)
-   complex c(0:NFFT2-1)
+   complex c(0:NFFT-1)
    complex c0(0:262143)
    complex c1(0:NZ-1)
    complex csync(0:13*192-1)           !Waveform for sync
@@ -56,8 +53,7 @@ subroutine jtty_decode(iwave,nwave,f0,ftol,smin,synced,xdt,f1,snr,decoded)
 
    fsample=6000.0
    dt=1.0/fsample
-   df=fsample/NFFT
-   df2=fsample/NFFT2
+   df2=fsample/NFFT
 
    if(.not.synced) then
       sbest=0.
@@ -70,7 +66,7 @@ subroutine jtty_decode(iwave,nwave,f0,ftol,smin,synced,xdt,f1,snr,decoded)
          xdt=i0*dt
          c(0:13*NSS-1)=conjg(csync(0:13*NSS-1))*c0(i0:i0+13*NSS-1)
          c(13*NSS:)=0.
-         call four2a(c,NFFT2,1,-1,1)            !Compute the sync-shifted spectrum
+         call four2a(c,NFFT,1,-1,1)            !Compute the sync-shifted spectrum
          spk=0.
          do j=ja,jb
             s(j)=real(c(j))**2 + aimag(c(j))**2
