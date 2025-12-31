@@ -2608,6 +2608,7 @@ void MainWindow::fastSink(qint64 frames)
     m_bFastDecodeCalled=false;
     m_bDecoded=false;
   }
+  m_k0=k;
 
   QDateTime tnow=QDateTime::currentDateTimeUtc();
   int ihr=tnow.toString("hh").toInt();
@@ -3449,7 +3450,6 @@ void MainWindow::fastSink(qint64 frames)
     m_bFastDone=true;
   }
 
-  m_k0=k;
   if(m_diskData and m_k0 >= dec_data.params.kin - 7 * 512) decodeNow=true;
   if(!m_diskData and m_tRemaining<0.35 and !m_bFastDecodeCalled) decodeNow=true;
   if(m_mode=="MSK144") decodeNow=false;
@@ -7907,7 +7907,6 @@ void MainWindow::guiUpdate()
       m_config.transceiver_ptt (true); //Assert the PTT
       m_tx_when_ready = true;
     }
-//    if(!m_bTxTime and !m_tune and m_mode!="FT4") m_btxok=false;       //Time to stop transmitting
     if(!m_bTxTime and !m_tune) m_btxok=false;       //Time to stop transmitting
   }
 
@@ -17542,6 +17541,20 @@ void MainWindow::jtty_tx(QString message)
   int nwave=nsps4*m_nsym_jtty;
   gen_jttywave2_(const_cast<int *>(itone), &m_nsym_jtty, &nsps4, &bt, &fsample, &f0,
                 foxcom_.wave, foxcom_.wave, &icmplx, &nwave);
+  monitor(false);
+  if(!m_diskData and m_saveAll and m_k0 > 53*384) {
+    //Save JTTY data to a .wav file
+    QDateTime now {QDateTime::currentDateTimeUtc ()};
+    qint64 ms = m_k0/12;
+    auto const& tstart=now.addMSecs(-ms);
+    m_fnameWE=m_config.save_directory().absoluteFilePath (tstart.toString("yyMMdd_hhmmss"));
+    int samples=m_k0;
+    // the following is potential a threading hazard - not a good
+    // idea to pass pointer to be processed in another thread
+    m_saveWAVWatcher.setFuture (QtConcurrent::run (std::bind (&MainWindow::save_wave_file,
+          this, m_fnameWE, &dec_data.d2[0], samples, m_config.my_callsign(),
+          m_config.my_grid(), m_mode, m_nSubMode, m_freqNominalPeriod, m_hisCall, m_hisGrid)));
+  }
   m_transmitting = true;
   startTx2();
 }
