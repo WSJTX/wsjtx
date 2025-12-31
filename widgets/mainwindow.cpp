@@ -8484,7 +8484,7 @@ void MainWindow::guiUpdate()
           if(SpecOp::FOX==m_specOp and ui->tabWidget->currentIndex()==1 and foxcom_.nslots==1) {
               t=m_fm1.trimmed();
           }
-          if(m_mode=="FT4") t="Tx: "+ m_currentMessage;
+          if(m_mode=="FT4" or m_mode == "JTTY") t="Tx: "+ m_currentMessage;
           tx_status_label.setText(t.trimmed());
         }
       }
@@ -17520,6 +17520,7 @@ void MainWindow::jtty_tx(QString message)
 {
   int itone[848];
   int n=message.length();
+  m_currentMessage = message;
   ui->decodedTextBrowser2->insertText(message);
   if(message.left(3) == "TU ") {
     // ### Must send "sent" and "rcvd" info to logqso here. ###
