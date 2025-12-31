@@ -8557,7 +8557,6 @@ void MainWindow::guiUpdate()
       ui->cbCQonly->setToolTip("CQ messages only.");
   }
   check_button_color();
-
 }               //End of guiUpdate
 
 void MainWindow::useNextCall()
@@ -11486,6 +11485,7 @@ void MainWindow::on_actionQ65_triggered()
 
 void MainWindow::on_actionJTTY_triggered()
 {
+  on_stopButton_clicked();
   m_mode = "JTTY";
   ui->actionJTTY->setChecked(true);
   switch_mode (Modes::JTTY);
