@@ -6,7 +6,7 @@ subroutine gen_jttywave(itone,nsym,nsps,bt,fsample,f0,cwave,wave,icmplx,nwave)
   real wave(nwave)
   complex cwave(nwave),ctab(0:NTAB-1)
   real pulse(23040)
-  real dphi(0:8*80*480-1)                     !### Upper limit? ###
+  real dphi(0:16*53*384*4-1)                  !16 frames at 48000 S/s 
   integer itone(nsym)
   data fchk0/0.0/
   save pulse,twopi,dt,hmod,fchk0,ctab
