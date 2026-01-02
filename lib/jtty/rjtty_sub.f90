@@ -1,7 +1,7 @@
 subroutine rjtty_sub(iwave,kz,line1)
 
   parameter (nframe=53*384)
-  parameter (nchunk=53*384+7680)
+  parameter (nchunk=53*384+10176)
   integer*2 iwave(kz)
   character*(*) line1
   character*80 line
@@ -29,21 +29,18 @@ subroutine rjtty_sub(iwave,kz,line1)
 
   if(synced) then
      n = len(trim(umsg))
+     if(n.gt.79) n=79                 ! truncate at 80 chars
      do i=1,n
         if(umsg(i:i).eq.'~') umsg(i:i)=' '
-        line(kchar+i:kchar+i) = umsg(i:i)
      enddo
+     if(kchar+n .gt. 79) kchar=0
+     line(kchar+1:kchar+n)=umsg(1:n)
+     line(kchar+n+1:kchar+n+1)=char(0)
      kchar = kchar + n
-     if(kchar.lt.80) then
-        write(line1,'(a)') umsg(1:n)
-     endif
+     line1(1:n)=umsg(1:n)
      line1(n+1:n+1)=char(0)
-     line(kchar+1:kchar+1)=char(0)
   endif
 
-900 continue
-  if(kchar.gt.0) then
-  endif
   line1=line
 
   return
