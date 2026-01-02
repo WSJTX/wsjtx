@@ -1,31 +1,33 @@
 subroutine rjtty_sub(iwave,kz,line1)
 
+  parameter (nframe=53*384)
+  parameter (nchunk=53*384+7680)
   integer*2 iwave(kz)
   character*(*) line1
   character*80 line
   character*80 umsg
   logical synced
   data kz0/9999999/
-  save nframe,kzmin,kz0,kchar,line
+  save i0,kz0,kchar,line
 
   f0=1500.0
   ftol=50.0
   smin=0.
 
-  if(kz.lt.kz0) then
-     nframe=53*384+7680
-     kzmin=nframe
+  if(kz .le. kz0 ) then
+     kz0=kz
+     i0=1
      kchar=0
      line=""
+     return
   endif
-  kz0=kz
-  if(kz .lt. kzmin) return
-  kzmin = kzmin + 53*384
-  ibuf=(kz-7680)/(53*384)
-  i0=(ibuf-1)*53*384 + 1
-  if(kz-i0 .lt. nframe/2) go to 900
-  synced=.false.                      ! sync on evey call for now
-  call jtty_decode(iwave(i0),nframe,f0,ftol,smin,synced,xdt,f1,snr,umsg)
+
+  write(*,*) 'rjtty_sub ',kz0,kz,i0,kz-i0+1
+  if(kz-i0+1 .lt. nchunk) return      ! wait for more data 
+  synced=.false.                      ! sync on every call for now
+  call jtty_decode(iwave(i0),nchunk,f0,ftol,smin,synced,xdt,f1,snr,umsg)
+  i0=i0+nframe/4
+
   if(synced) then
      n = len(trim(umsg))
      do i=1,n

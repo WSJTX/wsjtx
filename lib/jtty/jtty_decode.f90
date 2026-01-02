@@ -24,12 +24,13 @@ subroutine jtty_decode(iwave,nwave,f0,ftol,smin,synced,xdt,f1,snr,decoded)
    complex z
    logical first,synced
    data first/.true./,snrbest/-9999.0/
-   save
+   save csync, baud, dt, twopi, ctones, first
+
+   if(sum(abs(iwave)).eq.0) return
 
    if(first) then
 ! Generate complex waveform for sync
-      call cw_cwave(csync)
-
+      call gen_syncwave(csync)
       twopi=8.0*atan(1.0)
       baud=6000.0/192.0   !31.25
       dt=1/6000.0
@@ -45,7 +46,7 @@ subroutine jtty_decode(iwave,nwave,f0,ftol,smin,synced,xdt,f1,snr,decoded)
 
       first=.false.
    endif
-
+ 
    call ana64a(iwave,nwave,c0)
 
    npts=nwave/2
@@ -54,6 +55,7 @@ subroutine jtty_decode(iwave,nwave,f0,ftol,smin,synced,xdt,f1,snr,decoded)
    fsample=6000.0
    dt=1.0/fsample
    df2=fsample/NFFT
+   decoded=' '
 
    if(.not.synced) then
       sbest=0.
@@ -62,7 +64,7 @@ subroutine jtty_decode(iwave,nwave,f0,ftol,smin,synced,xdt,f1,snr,decoded)
       fbest=0.
       ja=(f0-ftol)/df2
       jb=(f0+ftol)/df2
-      do i0=0,2400,20                           !Search over xdt for sync pattern
+      do i0=0,2544,20                           !Search over xdt for sync pattern
          xdt=i0*dt
          c(0:13*NSS-1)=conjg(csync(0:13*NSS-1))*c0(i0:i0+13*NSS-1)
          c(13*NSS:)=0.
@@ -97,33 +99,35 @@ subroutine jtty_decode(iwave,nwave,f0,ftol,smin,synced,xdt,f1,snr,decoded)
 ! Also, we need a better SNR measurment.
 
       call jtty_peakup(c0,c1,csync,xdtbest,fbest,xdt,f1,snr)
-!     write(*,3081) 'aa',nwave,xdt,f1,snr
+      write(*,*) 'aa',xdtbest,fbest,xdt,f1,snr
 
-      if(snr.gt.snrbest) then
-         xdt_3=xdt
-         f1_3=f1
-         snrbest=snr
-      endif
+!      if(snr.gt.snrbest) then
+!         xdt_3=xdt
+!         f1_3=f1
+!         snrbest=snr
+!      endif
 !     write(*,3081) 'bb',nwave,xdt,f1,snr,snrbest,synced
 !3081  format(a2,i8,4f10.2,L3)
 !     if(snrbest.gt.smin .and. snr.lt.snrbest) go to 10
-      if(snrbest.gt.smin .and. snr.le.snrbest) go to 10
+!      if(snrbest.gt.smin .and. snr.le.snrbest) go to 10
+!      if(snr.gt.smin) go to 10
+      if(snr.gt.5.0) go to 10
       return
    endif
 
-10 if(.not.synced) then
-      xdtbest=xdt_3
-      fbest=f1_3
-!     write(*,3091) nwave,nwave/12000.0,xdtbest,fbest,snrbest
-!3091  format('Synced:',i8,4f10.2)
-      synced=.true.
-   endif
+10 synced=.true.
+!10 if(.not.synced) then
+!      xdtbest=xdt_3
+!      fbest=f1_3
+!     write(*,3091) 'debug ',nwave,xdtbest,fbest,snrbest
+!3091  format('Synced:',a6,i8,3f10.2)
+!      synced=.true.
+!   endif
 
 ! At this point we are 'synced" and have determined xdt and f1.
-
-   xdt=xdtbest
-   f1=fbest
-   snr=snrbest
+!   xdt=xdtbest
+!   f1=fbest
+!   snr=snrbest
 !  print*,'aa',npts,count(abs(c0).gt.0.0)
 
    a=0.
@@ -156,14 +160,13 @@ subroutine jtty_decode(iwave,nwave,f0,ftol,smin,synced,xdt,f1,snr,decoded)
    write(c42,'(42i1)') message42
    if(sum(message42) .eq. 0) then ! reject the all zero message
       nharderror=-1
-      decoded=''
+      decoded=' '
       return
    endif
 
+   decoded=' '
    if( nharderror.ge.0 ) then
       call unpack_jtty(c42,1,decoded)
-   else
-      decoded=""
    endif
    return
 end subroutine jtty_decode

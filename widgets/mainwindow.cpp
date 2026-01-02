@@ -131,7 +131,7 @@ extern "C" {
 
   void genjtty_(char const * msg, int itone[], int* nsym, fortran_charlen_t);
 
-  void gen_jttywave2_(int itone[], int* nsym, int* nsps, float* bt, float* fsample, float* f0,
+  void gen_jttywave_(int itone[], int* nsym, int* nsps, float* bt, float* fsample, float* f0,
                     float xjunk[], float wave[], int* icmplx, int* nwave);
 
   void gen_echocall_(char* basecall, int itone[], fortran_charlen_t);
@@ -17540,7 +17540,7 @@ void MainWindow::jtty_tx(QString message)
   float f0=1500.0;
   int icmplx=0;
   int nwave=nsps4*m_nsym_jtty;
-  gen_jttywave2_(const_cast<int *>(itone), &m_nsym_jtty, &nsps4, &bt, &fsample, &f0,
+  gen_jttywave_(const_cast<int *>(itone), &m_nsym_jtty, &nsps4, &bt, &fsample, &f0,
                 foxcom_.wave, foxcom_.wave, &icmplx, &nwave);
   monitor(false);
   if(!m_diskData and m_saveAll and m_k0 > 53*384) {
