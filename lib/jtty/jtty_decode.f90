@@ -64,7 +64,7 @@ subroutine jtty_decode(iwave,nwave,f0,ftol,smin,synced,xdt,f1,snr,decoded)
       fbest=0.
       ja=(f0-ftol)/df2
       jb=(f0+ftol)/df2
-      do i0=0,2544,20                           !Search over xdt for sync pattern
+      do i0=0,5088,20                           !Search over xdt for sync pattern
          xdt=i0*dt
          c(0:13*NSS-1)=conjg(csync(0:13*NSS-1))*c0(i0:i0+13*NSS-1)
          c(13*NSS:)=0.
@@ -72,16 +72,12 @@ subroutine jtty_decode(iwave,nwave,f0,ftol,smin,synced,xdt,f1,snr,decoded)
          spk=0.
          do j=ja,jb
             s(j)=real(c(j))**2 + aimag(c(j))**2
-!            write(13,3013) j*df2,s(j)
-!3013        format(2f12.3)
             if(s(j).gt.spk) then
                spk=s(j)
                fpk=j*df2
                xdt=i0*dt
             endif
          enddo
-!         write(14,3014) i0,xdt,fpk,spk
-!3014     format(i6,f10.6,f10.3,f12.3)
          if(spk.gt.sbest) then
             s0=s
             sbest=spk
@@ -94,41 +90,13 @@ subroutine jtty_decode(iwave,nwave,f0,ftol,smin,synced,xdt,f1,snr,decoded)
       snr=db(sbest)
       f1=fbest
 
-! Should do a peakup here, to get accurate values for f1 and DT
-! ... And make sure that 'blue' and 'red' curves have good peaks!
-! Also, we need a better SNR measurment.
-
       call jtty_peakup(c0,c1,csync,xdtbest,fbest,xdt,f1,snr)
-      write(*,*) 'aa',xdtbest,fbest,xdt,f1,snr
 
-!      if(snr.gt.snrbest) then
-!         xdt_3=xdt
-!         f1_3=f1
-!         snrbest=snr
-!      endif
-!     write(*,3081) 'bb',nwave,xdt,f1,snr,snrbest,synced
-!3081  format(a2,i8,4f10.2,L3)
-!     if(snrbest.gt.smin .and. snr.lt.snrbest) go to 10
-!      if(snrbest.gt.smin .and. snr.le.snrbest) go to 10
-!      if(snr.gt.smin) go to 10
-      if(snr.gt.5.0) go to 10
+      if(snr.gt.smin) go to 10
       return
    endif
 
 10 synced=.true.
-!10 if(.not.synced) then
-!      xdtbest=xdt_3
-!      fbest=f1_3
-!     write(*,3091) 'debug ',nwave,xdtbest,fbest,snrbest
-!3091  format('Synced:',a6,i8,3f10.2)
-!      synced=.true.
-!   endif
-
-! At this point we are 'synced" and have determined xdt and f1.
-!   xdt=xdtbest
-!   f1=fbest
-!   snr=snrbest
-!  print*,'aa',npts,count(abs(c0).gt.0.0)
 
    a=0.
    a(1)=-f1                                !Shift peak to zero frequency

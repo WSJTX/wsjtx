@@ -33,14 +33,12 @@ program rjtty
    read(arg,*) smin
    call getarg(2,arg)
    read(arg,*) ifly
-   call getarg(3,arg)
-   read(arg,*) icoh
 
    f0=1500.0
    ftol=50.0
 
-   do ifile=1,nargs-3
-      call getarg(ifile+3,fname)
+   do ifile=1,nargs-2
+      call getarg(ifile+2,fname)
       open(10,file=fname,status='old',access='stream')
       read(10) h
       nwave=h%ndata/2

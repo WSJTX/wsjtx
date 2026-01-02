@@ -718,7 +718,6 @@ set (wsjt_FSRCS
   lib/jtty/rjtty_sub.f90
   lib/jtty/sjtty.f90
   lib/jtty/crc12.f90
-  lib/jtty/cw_cwave.f90
   lib/jtty/jtty_peakup.f90
   lib/jtty/ana64a.f90
   lib/jtty/genjtty.f90

@@ -12,7 +12,7 @@ subroutine rjtty_sub(iwave,kz,line1)
 
   f0=1500.0
   ftol=50.0
-  smin=0.
+  smin=0.5
 
   if(kz .le. kz0 ) then
      kz0=kz
@@ -22,11 +22,10 @@ subroutine rjtty_sub(iwave,kz,line1)
      return
   endif
 
-  write(*,*) 'rjtty_sub ',kz0,kz,i0,kz-i0+1
   if(kz-i0+1 .lt. nchunk) return      ! wait for more data 
   synced=.false.                      ! sync on every call for now
   call jtty_decode(iwave(i0),nchunk,f0,ftol,smin,synced,xdt,f1,snr,umsg)
-  i0=i0+nframe/4
+  i0=i0+nframe/2
 
   if(synced) then
      n = len(trim(umsg))
