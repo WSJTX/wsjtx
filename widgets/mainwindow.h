@@ -511,6 +511,7 @@ private:
   void configActiveStations();
   void sfox_tx();
   void jtty_tx(QString message);
+  void jtty_save_wav();
   bool jtty_key_struck(QKeyEvent * e);
 
   bool play_DXcall = false;

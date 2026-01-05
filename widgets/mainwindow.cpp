@@ -2608,7 +2608,7 @@ void MainWindow::fastSink(qint64 frames)
     m_bFastDecodeCalled=false;
     m_bDecoded=false;
   }
-  m_k0=k;
+  m_k0 = k;
 
   QDateTime tnow=QDateTime::currentDateTimeUtc();
   int ihr=tnow.toString("hh").toInt();
@@ -17544,18 +17544,23 @@ void MainWindow::jtty_tx(QString message)
                 foxcom_.wave, foxcom_.wave, &icmplx, &nwave);
   monitor(false);
   if(!m_diskData and m_saveAll and m_k0 > 53*384) {
-    //Save JTTY data to a .wav file
-    QDateTime now {QDateTime::currentDateTimeUtc ()};
-    qint64 ms = m_k0/12;
-    auto const& tstart=now.addMSecs(-ms);
-    m_fnameWE=m_config.save_directory().absoluteFilePath (tstart.toString("yyMMdd_hhmmss"));
-    int samples=m_k0;
-    // the following is potential a threading hazard - not a good
-    // idea to pass pointer to be processed in another thread
-    m_saveWAVWatcher.setFuture (QtConcurrent::run (std::bind (&MainWindow::save_wave_file,
-          this, m_fnameWE, &dec_data.d2[0], samples, m_config.my_callsign(),
-          m_config.my_grid(), m_mode, m_nSubMode, m_freqNominalPeriod, m_hisCall, m_hisGrid)));
+    jtty_save_wav();
   }
   m_transmitting = true;
   startTx2();
+}
+
+void MainWindow::jtty_save_wav()
+{
+  //Save JTTY data to a .wav file
+  QDateTime now {QDateTime::currentDateTimeUtc ()};
+  qint64 ms = m_k0/12;
+  auto const& tstart=now.addMSecs(-ms);
+  m_fnameWE=m_config.save_directory().absoluteFilePath (tstart.toString("yyMMdd_hhmmss"));
+  int samples=m_k0;
+  // the following is potential a threading hazard - not a good
+  // idea to pass pointer to be processed in another thread
+  m_saveWAVWatcher.setFuture (QtConcurrent::run (std::bind (&MainWindow::save_wave_file,
+        this, m_fnameWE, &dec_data.d2[0], samples, m_config.my_callsign(),
+        m_config.my_grid(), m_mode, m_nSubMode, m_freqNominalPeriod, m_hisCall, m_hisGrid)));
 }
