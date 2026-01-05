@@ -122,18 +122,18 @@ subroutine jtty_decode(iwave,nwave,f0,ftol,smin,synced,xdt,f1,snr,decoded)
    x2=sum(bitmetrics**2)/80.0
    bitmetrics=2.75*bitmetrics/sqrt(x2)
 
-   maxiterations=20
-   nharderror=0
-   call bpdecode_80_42(bitmetrics,maxiterations,message42,cw80,nharderror)
-   write(c42,'(42i1)') message42
-   if(sum(message42) .eq. 0) then ! reject the all zero message
-      nharderror=-1
-      decoded=' '
-      return
+   maxiterations=25
+   nharderrors=0
+   call bpdecode_80_42(bitmetrics,maxiterations,message42,cw80,nharderrors)
+   if(nharderrors .ge. 0 .and. sum(message42) .eq. 0) nharderrors=-1  ! reject the all zero message
+   if(nharderrors .lt. 0) then
+      ndeep=3
+      call osd80_42(bitmetrics, ndeep, message42, cw80, nharderrors, dmin)
    endif
 
    decoded=' '
-   if( nharderror.ge.0 ) then
+   if( nharderrors .ge. 0 ) then
+      write(c42,'(42i1)') message42
       call unpack_jtty(c42,1,decoded)
    endif
    return

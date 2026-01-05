@@ -162,4 +162,8 @@ subroutine platanh(x,y)
   endif
 end subroutine platanh
 
+include "../indexx.f90"
+include "checkcrc.f90"
+include "osd80_42.f90"
+
 end module jtty_fec
