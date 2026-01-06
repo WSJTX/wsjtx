@@ -13,7 +13,7 @@ synchronising sequence followed by a data block with 32-bit
 payload. Two payload bits select one of 4 possible message types; the
 remainder convey details of user information for that type. The
 payload is large enough to convey a standard callsign plus flags to
-convey message words such as "CQ", "TU", "599", "AGN?", or "TU
+convey message words such as "CQ", "TU", "599", "AGN?", and "TU
 NOW". Alternatively, a packet may convey a sequence of any five
 characters chosen from a 64-character ASCII subset.
 
@@ -36,7 +36,11 @@ RTTY-style contesting, with one principle difference: repetition of
 important message fragments such as callsigns and contest exchange
 information is not needed, since JTTY's strong FEC already implies
 reliable copy. Most contest-style transmissions require only one or
-two packets.
+two packets. There is no need for archaic RTTY contesting necessities
+such as CR/LF at start of a transmission, LETTERS/NUMBERS shift
+characters, an extra space at end-of-message, etc. Real throughput for
+JTTY in contesti9ng circumstances will be significantly higher than
+for 45-baud RTTY.
 
 An example shopwing the messages exchanged for two successive
 contest-style QSOs is shown below, where I have also listed the number
