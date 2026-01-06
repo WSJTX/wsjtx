@@ -2,88 +2,55 @@ module jtty_fec
 
 contains
 
-subroutine encode_80_42(message42,codeword80)
+subroutine encode_80_42(message,codeword)
 
 use, intrinsic :: iso_c_binding
 use iso_c_binding, only: c_loc,c_size_t
 !use crc
 
-integer, parameter:: N=128, K=90, M=N-K
-integer*1 codeword80(80)
+integer, parameter:: N=80, K=42, M=N-K
+integer*1 codeword(N)
 integer*1 gen(M,K)
-integer*1 message(K), message42(42)
+integer*1 message(K)
 integer*1 pchecks(M)
-include "ldpc_128_90_generator.f90"
 logical first
+include "jtty_generator_80_42.f90"
 data first/.true./
 save first,gen
 
-if( first ) then ! fill the generator matrix
-  gen=0
-  do i=1,M
-    do j=1,23
-      read(g(i)(j:j),"(Z1)") istr
-        ibmax=4
-        if(j.eq.23) ibmax=2 
-        do jj=1, ibmax 
-          icol=(j-1)*4+jj
-          if( btest(istr,4-jj) ) gen(i,icol)=1
-        enddo
-    enddo
-  enddo
-first=.false.
-endif
-
-! Shorten the MSK144 (128,90) code by zeroing 48 bits of the 90-bit message.
-
-message(1:42)=message42
-message(43:90)=0
-
 do i=1,M
-  nsum=0
-  do j=1,K 
-    nsum=nsum+message(j)*gen(i,j)
-  enddo
-  pchecks(i)=mod(nsum,2)
+  pchecks(i)=mod( sum(message*gen(i,:)), 2)
 enddo
 
-codeword80(1:42)=message42
-codeword80(43:80)=pchecks
+codeword(1:42)=message
+codeword(43:80)=pchecks
 
 return
+
 end subroutine encode_80_42
 
-subroutine bpdecode_80_42(llr80,maxiterations,message42,cw80,nharderror)
+subroutine bpdecode_80_42(llr,maxiterations,message,cw,nharderror)
 !
-! A log-domain belief propagation decoder for the (128,90) code.
+! A log-domain belief propagation decoder for the (80,42) code.
 !
 !  use iso_c_binding, only: c_loc,c_size_t
 !  use crc
-  integer, parameter:: N=128, K=90, M=N-K
-  integer*1 cw(N),apmask(N),cw80(80)
-  integer*1 decoded(K)
-  integer*1 message42(42)
-  integer Nm(11,M)   
+  integer, parameter:: N=80, K=42, M=N-K
+  integer*1 cw(N)
+  integer*1 message(K)
+  integer Nm(7,M)   
   integer Mn(3,N) 
   integer nrw(M)
   integer synd(M)
-  real tov(4,N)
-  real toc(11,M)
-  real tanhtoc(11,M)
+  real tov(3,N)
+  real toc(7,M)
+  real tanhtoc(7,M)
   real zn(N)
-  real llr(N),llr80(80)
+  real llr(N)
   real Tmn
 
-  include "ldpc_128_90_reordered_parity.f90"
+  include "jtty_parity_80_42.f90"
 
-  apmask=0
-!  apmask(43:90)=1
-  apval=-20.0
-  llr(1:42)=llr80(1:42)
-  llr(43:90)=apval
-  llr(91:128)=llr80(43:80)
-
-  decoded=0
   toc=0
   tov=0
   tanhtoc=0
@@ -101,11 +68,7 @@ subroutine bpdecode_80_42(llr80,maxiterations,message42,cw80,nharderror)
 
 ! Update bit log likelihood ratios (tov=0 in iteration 0).
     do i=1,N
-      if( apmask(i) .ne. 1 ) then
-        zn(i)=llr(i)+sum(tov(1:ncw,i))
-      else
-        zn(i)=llr(i)
-      endif
+       zn(i)=llr(i)+sum(tov(1:ncw,i))
     enddo
 
 ! Check to see if we have a codeword (check before we do any iteration).
@@ -118,15 +81,10 @@ subroutine bpdecode_80_42(llr80,maxiterations,message42,cw80,nharderror)
 !     if( mod(synd(i),2) .ne. 0 ) write(*,*) 'check ',i,' unsatisfied'
     enddo
 !   write(*,*) 'number of unsatisfied parity checks ',ncheck
-    if( ncheck .eq. 0 ) then ! we have a codeword - reorder the columns and return it
-!      decoded=cw(1:K)
-!      if(nbadcrc.eq.0) then
-        message42=cw(1:42)
-        cw80(1:42)=cw(1:42)
-        cw80(43:80)=cw(91:128)
+    if( ncheck .eq. 0 ) then ! we have a codeword - return it
+        message=cw(1:42)
         nharderror=count( (2*cw-1)*llr .lt. 0.0 )
         return
-!      endif
     endif
 
     if( iter.gt.0 ) then  ! this code block implements an early stopping criterion
@@ -160,7 +118,7 @@ subroutine bpdecode_80_42(llr80,maxiterations,message42,cw80,nharderror)
 
 ! send messages from check nodes to variable nodes
     do i=1,M
-      tanhtoc(1:11,i)=tanh(-toc(1:11,i)/2)
+      tanhtoc(1:7,i)=tanh(-toc(1:7,i)/2)
     enddo
 
     do j=1,N
@@ -203,5 +161,9 @@ subroutine platanh(x,y)
     return
   endif
 end subroutine platanh
+
+include "../indexx.f90"
+include "checkcrc.f90"
+include "osd80_42.f90"
 
 end module jtty_fec

@@ -723,6 +723,7 @@ set (wsjt_FSRCS
   lib/jtty/genjtty.f90
   lib/jtty/gen_jttywave.f90
   lib/jtty/gen_syncwave.f90
+  lib/jtty/ldpcsim80_42.f90
   )
 
 # temporary workaround for a gfortran v7.3 ICE on Fedora 27 64-bit
@@ -1411,6 +1412,9 @@ target_link_libraries (ldpcsim240_101 wsjt_fort wsjt_cxx)
 
 add_executable (ldpcsim240_74 lib/fst4/ldpcsim240_74.f90)
 target_link_libraries (ldpcsim240_74 wsjt_fort wsjt_cxx)
+
+add_executable (ldpcsim80_42 lib/jtty/ldpcsim80_42.f90)
+target_link_libraries (ldpcsim80_42 wsjt_fort wsjt_cxx)
 
 endif(WSJT_BUILD_UTILS)
 

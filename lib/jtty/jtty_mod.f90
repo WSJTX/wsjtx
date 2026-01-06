@@ -13,7 +13,7 @@ contains
 subroutine pack_jtty(message,c42,nframes)
 
 ! Input:   character*80   message     !JTTY message, as it appears to a user
-! Output:  character*42   c42         !32-bit payload and 8-bit CRC
+! Output:  character*42   c42         !32-bit payload and 10-bit CRC
 !          integer        nframes     !Frames in this message (max = 16)
 
 !  use crc
