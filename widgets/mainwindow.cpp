@@ -4120,6 +4120,9 @@ bool MainWindow::jtty_key_struck(QKeyEvent * e)
     t = " 599 " + t;
     jtty_tx("TU NOW " + ui->dxCallEntry->text() + t);
     return true;
+  } else if((e->key() == int(Qt::Key_Enter)) or (e->key() == int(Qt::Key_Return))) {
+    jtty_tx(ui->Tx_Message->text());
+    ui->Tx_Message->clear();
   }
   return false;
 }
@@ -17513,7 +17516,7 @@ void MainWindow::alertQSYmessage ()
 
 void MainWindow::on_pbSendMessage_clicked()
 {
-  jtty_tx(ui->Tx_Message->toPlainText().toUpper());
+  jtty_tx(ui->Tx_Message->text().toUpper());
 }
 
 void MainWindow::jtty_tx(QString message)

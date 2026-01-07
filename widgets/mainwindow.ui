@@ -3697,16 +3697,42 @@ Double-click to reset to the standard 73 message</string>
             </layout>
            </widget>
            <widget class="QWidget" name="page_4">
-            <widget class="QWidget" name="">
+            <widget class="QWidget" name="layoutWidget">
              <property name="geometry">
               <rect>
                <x>13</x>
                <y>70</y>
                <width>541</width>
-               <height>224</height>
+               <height>71</height>
               </rect>
              </property>
              <layout class="QGridLayout" name="gridLayout_4">
+              <item row="1" column="0" colspan="5">
+               <widget class="QLineEdit" name="Tx_Message">
+                <property name="text">
+                 <string>CQ K1JT CQ</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="3">
+               <widget class="QSpinBox" name="sbSerialNumber_2">
+                <property name="minimumSize">
+                 <size>
+                  <width>100</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignCenter</set>
+                </property>
+                <property name="minimum">
+                 <number>1</number>
+                </property>
+                <property name="maximum">
+                 <number>5000</number>
+                </property>
+               </widget>
+              </item>
               <item row="0" column="0">
                <spacer name="horizontalSpacer_9">
                 <property name="orientation">
@@ -3733,38 +3759,6 @@ Double-click to reset to the standard 73 message</string>
                 </property>
                </widget>
               </item>
-              <item row="0" column="2">
-               <spacer name="horizontalSpacer_8">
-                <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
-                </property>
-                <property name="sizeHint" stdset="0">
-                 <size>
-                  <width>40</width>
-                  <height>20</height>
-                 </size>
-                </property>
-               </spacer>
-              </item>
-              <item row="0" column="3">
-               <widget class="QSpinBox" name="sbSerialNumber_2">
-                <property name="minimumSize">
-                 <size>
-                  <width>100</width>
-                  <height>0</height>
-                 </size>
-                </property>
-                <property name="alignment">
-                 <set>Qt::AlignCenter</set>
-                </property>
-                <property name="minimum">
-                 <number>1</number>
-                </property>
-                <property name="maximum">
-                 <number>5000</number>
-                </property>
-               </widget>
-              </item>
               <item row="0" column="4">
                <spacer name="horizontalSpacer_10">
                 <property name="orientation">
@@ -3778,8 +3772,18 @@ Double-click to reset to the standard 73 message</string>
                 </property>
                </spacer>
               </item>
-              <item row="1" column="0" colspan="5">
-               <widget class="QPlainTextEdit" name="Tx_Message"/>
+              <item row="0" column="2">
+               <spacer name="horizontalSpacer_8">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
               </item>
              </layout>
             </widget>
@@ -4780,7 +4784,7 @@ QPushButton[state=&quot;ok&quot;] {
      <x>0</x>
      <y>0</y>
      <width>880</width>
-     <height>22</height>
+     <height>17</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
