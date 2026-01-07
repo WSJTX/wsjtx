@@ -1305,6 +1305,9 @@ target_link_libraries (jt65sim wsjt_fort wsjt_cxx)
 add_executable (sjtty lib/jtty/sjtty.f90)
 target_link_libraries (sjtty wsjt_fort wsjt_cxx)
 
+add_executable (test_jtty_pack lib/jtty/test_jtty_pack.f90)
+target_link_libraries (test_jtty_pack wsjt_fort wsjt_cxx)
+
 add_executable (rjtty lib/jtty/rjtty.f90)
 target_link_libraries (rjtty wsjt_fort wsjt_cxx)
 
