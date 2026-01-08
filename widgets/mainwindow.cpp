@@ -2673,6 +2673,7 @@ void MainWindow::fastSink(qint64 frames)
         if((w.length() == 2) and (w[0] == "599")) m_xRcvd = w[1];
         if((w.length() == 3) and (w[1] == "599")) m_xRcvd = w[2];
         ui->decodedTextBrowser->insertText(message);
+        if(dec_data.params.kin - k < 10240) fast_decode_done();
     }
     return;
   }
@@ -17570,7 +17571,6 @@ void MainWindow::jtty_save_wav()
   auto const& tstart=now.addMSecs(-ms);
   m_fnameWE=m_config.save_directory().absoluteFilePath (tstart.toString("yyMMdd_hhmmss"));
   int samples=m_k0;
-  qDebug() << "aa" << m_sec0 % 60 << samples;
   m_saveWAVWatcher.setFuture (QtConcurrent::run (std::bind (&MainWindow::save_wave_file,
         this, m_fnameWE, &dec_data.d2[0], samples, m_config.my_callsign(),
         m_config.my_grid(), m_mode, m_nSubMode, m_freqNominalPeriod, m_hisCall, m_hisGrid)));
