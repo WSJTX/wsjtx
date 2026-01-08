@@ -2673,8 +2673,8 @@ void MainWindow::fastSink(qint64 frames)
         if((w.length() == 2) and (w[0] == "599")) m_xRcvd = w[1];
         if((w.length() == 3) and (w[1] == "599")) m_xRcvd = w[2];
         ui->decodedTextBrowser->insertText(message);
-        if(dec_data.params.kin - k < 10240) fast_decode_done();
     }
+    if(dec_data.params.kin - k < 10240) fast_decode_done();
     return;
   }
 
