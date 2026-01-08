@@ -2284,7 +2284,15 @@ void MainWindow::dataSink(qint64 frames)
   if(m_monitoring || m_diskData) {
     m_wideGraph->dataSink2(s,m_df3,m_ihsym,m_diskData,m_px);
   }
-  if(m_mode=="MSK144" or m_mode=="JTTY") return;
+  if(m_mode=="MSK144") return;
+  if(m_mode=="JTTY") {
+    if(m_ihsym >= m_hsymStop) {
+      monitor(false);
+      jtty_save_wav();
+      monitor(true);
+    }
+    return;
+  }
 
   fixStop();
   if (m_mode == "FreqCal"
@@ -7857,7 +7865,7 @@ void MainWindow::guiUpdate()
     int msgLength=txMsg.trimmed().length();
     if(msgLength==0 and !m_tune) on_stopTxButton_clicked();
 
-    if(g_iptt==0 and ((m_bTxTime and (fTR < 0.75) and (msgLength>0)) or m_tune)) {
+    if(g_iptt==0 and ((m_bTxTime and (fTR < 0.75) and (msgLength>0)) or m_tune or (m_mode=="JTTY"))) {
       //### Allow late starts
       icw[0]=m_ncw;
       g_iptt = 1;
@@ -7910,7 +7918,7 @@ void MainWindow::guiUpdate()
       m_config.transceiver_ptt (true); //Assert the PTT
       m_tx_when_ready = true;
     }
-    if(!m_bTxTime and !m_tune) m_btxok=false;       //Time to stop transmitting
+    if(!m_bTxTime and !m_tune and (m_mode != "JTTY")) m_btxok=false;       //Time to stop transmitting
   }
 
   if((m_mode=="WSPR" or m_mode=="FST4W") and
@@ -8331,6 +8339,7 @@ void MainWindow::guiUpdate()
 
 //Once per second (onesec)
   if(nsec != m_sec0) {
+//    qDebug() << "AAA" << nsec % 60 << m_k0 << m_k0/12000 << g_iptt;
     // reset earlyDecodes for 2-stage or 3-stage decoding, or if QRG > 45 MHz
     if (m_mode=="FT8" && !m_diskData && ((m_multithreadFT8 && m_ft8DecoderStart<2) or m_freqNominal>45000000)) {
       QDateTime now = QDateTime::currentDateTimeUtc();
@@ -17546,7 +17555,7 @@ void MainWindow::jtty_tx(QString message)
   gen_jttywave_(const_cast<int *>(itone), &m_nsym_jtty, &nsps4, &bt, &fsample, &f0,
                 foxcom_.wave, foxcom_.wave, &icmplx, &nwave);
   monitor(false);
-  if(!m_diskData and m_saveAll and m_k0 > 53*384) {
+  if(!m_diskData and m_saveAll and (m_k0 > 53*384) and (m_k0 < 9999999)) {
     jtty_save_wav();
   }
   m_transmitting = true;
@@ -17561,8 +17570,7 @@ void MainWindow::jtty_save_wav()
   auto const& tstart=now.addMSecs(-ms);
   m_fnameWE=m_config.save_directory().absoluteFilePath (tstart.toString("yyMMdd_hhmmss"));
   int samples=m_k0;
-  // the following is potential a threading hazard - not a good
-  // idea to pass pointer to be processed in another thread
+  qDebug() << "aa" << m_sec0 % 60 << samples;
   m_saveWAVWatcher.setFuture (QtConcurrent::run (std::bind (&MainWindow::save_wave_file,
         this, m_fnameWE, &dec_data.d2[0], samples, m_config.my_callsign(),
         m_config.my_grid(), m_mode, m_nSubMode, m_freqNominalPeriod, m_hisCall, m_hisGrid)));
