@@ -27,7 +27,6 @@ program test_jtty_pack
      endif
      write(*,1020) err,trim(msg)
 1020 format(6x,a1,2x,a)
-     if(nerr.gt.0) exit
   enddo
 
 100 nz=imsg
