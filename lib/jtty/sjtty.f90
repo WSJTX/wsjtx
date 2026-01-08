@@ -157,11 +157,12 @@ program sjtty
         ! Apply channel propagation
         call watterson(c0,npts,nwave,fsample,delay,fspread)
      endif
-     c(0:nwave-1)=sig*c0(0:nwave-1)      !Scale to specified SNR
-     wave(1:nwave)=imag(c(0:nwave-1))    !Signal with SNR and prop degradation
-     wave(nwave+1:)=0.
+     c=0.
+     c=sig*c0      !Scale to specified SNR
+     wave=0.
+     wave=imag(c)    !Signal with SNR and prop degradation
 
-     iz=nwave + nsps*53              !Add one frame of noise at end
+     iz=nint(xdt/dt) + nwave + nsps*53              !Add one frame of noise at end
      if(snrdb.lt.90) then
         do i=1,iz                    !Add gaussian noise for specified SNR
            xnoise=gran()
