@@ -2286,7 +2286,7 @@ void MainWindow::dataSink(qint64 frames)
   }
   if(m_mode=="MSK144") return;
   if(m_mode=="JTTY") {
-    if(m_ihsym >= m_hsymStop) {
+    if(m_ihsym >= m_hsymStop and m_saveAll) {
       monitor(false);
       jtty_save_wav();
       monitor(true);
@@ -8257,10 +8257,9 @@ void MainWindow::guiUpdate()
     if (m_mode != "FST4W" && m_mode != "WSPR" && m_mode!="Echo")
       {
         if(!m_tune) write_all("Tx",m_currentMessage);
-        if (m_config.TX_messages () && !m_tune && SpecOp::FOX!=m_specOp)
-          {
-            ui->decodedTextBrowser2->displayTransmittedText(current_message.trimmed(),
-                  m_mode,ui->TxFreqSpinBox->value(),m_bFastMode,m_TRperiod,m_config.superFox());
+          if (m_config.TX_messages () && !m_tune && SpecOp::FOX!=m_specOp && m_mode != "JTTY") {
+              ui->decodedTextBrowser2->displayTransmittedText(current_message.trimmed(),
+              m_mode,ui->TxFreqSpinBox->value(),m_bFastMode,m_TRperiod,m_config.superFox());
           }
       }
 
@@ -11793,6 +11792,7 @@ void MainWindow::switch_mode (Mode mode)
         && ui->actionAstronomical_data->isChecked () && m_config.auto_astro()) ui->actionAstronomical_data->setChecked (false);
   });
   check_button_color();
+  ui->autoButton->setEnabled(m_mode != "JTTY");
 }
 
 void MainWindow::WSPR_config(bool b)
@@ -17534,7 +17534,7 @@ void MainWindow::jtty_tx(QString message)
   int itone[848];
   int n=message.length();
   m_currentMessage = message;
-  ui->decodedTextBrowser2->insertText(message);
+  ui->decodedTextBrowser->insertText(message);
   if(message.left(3) == "TU ") {
     // ### Must send "sent" and "rcvd" info to logqso here. ###
     logQSOTimer.start(0);
@@ -17556,7 +17556,7 @@ void MainWindow::jtty_tx(QString message)
   gen_jttywave_(const_cast<int *>(itone), &m_nsym_jtty, &nsps4, &bt, &fsample, &f0,
                 foxcom_.wave, foxcom_.wave, &icmplx, &nwave);
   monitor(false);
-  if(!m_diskData and m_saveAll and (m_k0 > 53*384) and (m_k0 < 9999999)) {
+  if(!m_diskData && m_saveAll && (m_k0 > 53*384) && (m_k0 < 9999999)) {
     jtty_save_wav();
   }
   m_transmitting = true;
