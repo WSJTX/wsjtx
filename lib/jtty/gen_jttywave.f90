@@ -1,6 +1,18 @@
 subroutine gen_jttywave(itone,nsym,nsps,bt,fsample,f0,cwave,wave,icmplx,nwave)
 
 ! Generate JT2 waveform using Gaussian-filtered frequency pulses.
+  
+! Input:  integer*4 itone(1:nsym)      !Tones for channel symbols
+!         integer*4 nsym               !Number of channel symbols
+!         integer*4 nsps               !Number of samples per symbol
+!         real*4 bt                    !BT product for Gaussian smoothing
+!         real*4 fsample               !Sample rate, Hz
+!         real*4 f0                    !Nominal carrier frequency (lowest tone)
+!         integer*4 icmplx             !0 for real waveford, 1 for complex
+!         integer*4 nwave              !Length of output waveform
+  
+! Output: complex*8 cwave(nwave)       !Complex waveform
+!         read*4 wave(nwave)           !Real waveform
 
   parameter(NTAB=65536)
   real wave(nwave)
