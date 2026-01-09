@@ -1,5 +1,9 @@
 subroutine genjtty(umsg,itone,nsym)
 
+! Input:  character*80 umsg               !User message
+! Output: integer*4 itone(1:nsym)         !Tones for channel symbols
+!         integer*4 nsym                  !Number of channel symbols
+
   use jtty_mod
   use jtty_fec
   parameter (MAX_TONES=53*16)       !Max number of channel symbols
