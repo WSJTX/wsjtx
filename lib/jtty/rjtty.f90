@@ -18,6 +18,7 @@ program rjtty
    character*80 fname
    character*80 umsg
    character*8 arg
+   integer*8 count0,count1,clkfreq
    integer*2 iwave(NMAX)
    logical synced,eom,synced0
    data synced/.false./,eom/.false./
@@ -60,7 +61,8 @@ program rjtty
          istart=1
          nframe=53*384+7680
          kchar=0
-
+         call system_clock(count0,clkfreq)
+         
 ! Process data on the fly, one buffer at a time:
          do ibuf=1,16
             istart=(ibuf-1) * 53*NSPS + 1
@@ -70,6 +72,10 @@ program rjtty
 !3071        format(i2,i8,3x,5i6)
             call jtty_decode(iwave(istart),nframe,f0,ftol,smin,synced,xdt,  &
                  f1,snr,umsg)
+            call system_clock(count1,clkfreq)
+            tdecode=float(count1-count0)/clkfreq
+!            write(*,4001) xdt,f1,snr,tdecode,trim(umsg)
+!4001        format(f6.3,2f7.1,f8.3,2x,a)
 !            write(72,3072) synced,xdt,f1,snr,trim(umsg)
 !3072        format(L1,f8.3,2f7.1,2x,a)
 

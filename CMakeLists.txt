@@ -726,8 +726,6 @@ set (wsjt_FSRCS
   lib/jtty/ldpcsim80_42.f90
   lib/jtty/osd80_42.f90
   lib/jtty/checkcrc.f90
-  lib/jtty/transmit.f90
-  lib/jtty/update.f90
   )
 
 # temporary workaround for a gfortran v7.3 ICE on Fedora 27 64-bit
@@ -1308,7 +1306,8 @@ add_executable (sjtty lib/jtty/sjtty.f90)
 target_link_libraries (sjtty wsjt_fort wsjt_cxx)
 
 add_executable (jtty lib/jtty/jtty.f90 lib/jtty/update.f90 
-	       lib/jtty/cdatetime.f90 lib/jtty/jttyaudio.c)
+	       lib/jtty/cdatetime.f90 lib/jtty/transmit.f90
+	       lib/jtty/jttyaudio.c)
 target_link_libraries (jtty wsjt_fort wsjt_cxx Portaudio::Portaudio)
 
 add_executable (test_jtty_pack lib/jtty/test_jtty_pack.f90)
