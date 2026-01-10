@@ -30,8 +30,8 @@ subroutine jtty_peakup(c0,c1,csync,xdt0,f0,xdt,f1,snr)
         c(0:NB-1)=conjg(csync)*c1(i0:i0+NB-1)
         z=sum(c(0:NB-1))
         p=real(z)**2 + aimag(z)**2
-        write(71,3071) i0*dt,-a(1),p
-3071    format(3f10.3)
+!        write(71,3071) i0*dt,-a(1),p
+!3071    format(3f10.3)
         if(p.gt.pmax) then
            pmax=p
            fpk=-a(1)

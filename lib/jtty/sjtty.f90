@@ -126,8 +126,7 @@ program sjtty
   write(*,1012) trim(umsg)
 1012 format('User message:  ',a)
   write(*,1013) txt,nsym,itone(1:nsym)
-1013 format('Transmission length:',f5.1,' s,',i5,' channel symbols:'/  &
-          (30i2))
+1013 format('Transmission length:',f7.3,'   nsym:',i5/(30i2))
 
   nwave=nsps*nsym                  !Length of i*2 data written to *.wav file
   icmplx=1

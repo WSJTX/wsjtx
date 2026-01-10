@@ -66,12 +66,12 @@ program rjtty
             istart=(ibuf-1) * 53*NSPS + 1
             if(nwave-istart .lt. nframe/2) exit
             synced=.false.                      ! sync on evey call for now
-            write(71,3071) ibuf,istart,iwave(istart:istart+4)
-3071        format(i2,i8,3x,5i6)
+!            write(71,3071) ibuf,istart,iwave(istart:istart+4)
+!3071        format(i2,i8,3x,5i6)
             call jtty_decode(iwave(istart),nframe,f0,ftol,smin,synced,xdt,  &
                  f1,snr,umsg)
-            write(72,3072) synced,xdt,f1,snr,trim(umsg)
-3072        format(L1,f8.3,2f7.1,2x,a)
+!            write(72,3072) synced,xdt,f1,snr,trim(umsg)
+!3072        format(L1,f8.3,2f7.1,2x,a)
 
             if(synced) then
                n = len(trim(umsg))
