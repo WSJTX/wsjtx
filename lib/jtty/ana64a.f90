@@ -1,7 +1,7 @@
 subroutine ana64a(iwave,npts,c0)
 
-  parameter (NMAX=20*12000)                 !Max length of data @12000 Hz
-  parameter (NZ=20*6000)                    !Max length of data @6000 Hz
+  parameter (NMAX=30*12000)                 !Max length of data @12000 Hz
+  parameter (NZ=30*6000)                    !Max length of data @6000 Hz
   parameter (NFFT1=262144)
   integer*2 iwave(NMAX)                     !Raw data at 12000 Hz
   complex c0(0:NFFT1-1)                     !Complex data at 6000 Hz

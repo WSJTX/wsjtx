@@ -1,22 +1,20 @@
 subroutine update(total_time,ic1,ic2)
 
   ! When the audio streams are active, this routine gets called
-  ! approximately every 100 ms -- determined by the statement
+  ! approximately every 100 ms -- determined by this statement
+  ! near the end of C function jttyaudio_():
   !            Pa_Sleep(100);
-  ! ... near the end of C function jttyaudio_().
 
-  ! It functions somewhat like the GUIupdate() loop in WSJT-X.
+  ! It functions somewhat like the GUIupdate() loop in WSJT-X, calling
+  ! Rx or Tx routines as needed.
 
-!  use wavhdr
-!  type(hdr) h
+  use jttycom
   real*8 total_time
-!###  integer ptt
   integer*2 id(30000)
   logical transmitted,level
   character*50 line
   character*80 umsg
   character cdatetime*17
-  include 'gcom1.f90'
   logical synced,eom
   data nt0/-1/,transmitted/.false./,snr/-99.0/,iwrite0/0/
   data level/.false./,nverbose/0/
@@ -70,11 +68,11 @@ subroutine update(total_time,ic1,ic2)
      if(level) then
 ! Measure and display the average level of signal plus noise in past 0.5 s
         k=iwrite-6000
-        if(k.lt.1) k=k+NRING
+        if(k.lt.1) k=k+NMAX
         sq=0.
         do i=1,6000
            k=k+1
-           if(k.gt.NRING) k=k-NRING
+           if(k.gt.NMAX) k=k-NMAX
            x=y1(k)
            sq=sq + x*x
         enddo
@@ -96,10 +94,10 @@ subroutine update(total_time,ic1,ic2)
 
      noise=100
      k=iwrite-12000
-     if(k.lt.1) k=k+NRING
+     if(k.lt.1) k=k+NMAX
      do i=1,12000
         k=k+1
-        if(k.gt.NRING) k=k-NRING
+        if(k.gt.NMAX) k=k-NMAX
 !        id(i)=y1(k)
         id(i)=y1(k) + noise*gran()
      enddo
@@ -162,27 +160,3 @@ subroutine update(total_time,ic1,ic2)
 
   return
 end subroutine update
-
-subroutine addnoise(n)
-  integer*2 n
-  include 'gcom1.f90'
-  data txsnrdb0/-99.0/,rms/100.0/
-  save sig,txsnrdb0
-
-  if(txsnrdb.gt.40.0) return
-
-  if(txsnrdb.ne.txsnrdb0) then
-     bandwidth_ratio=2500.0/6000.0
-     sig=sqrt(2*bandwidth_ratio)*10.0**(0.05*txsnrdb)
-     if(txsnrdb.gt.90.0) sig=1.0
-     txsnrdb0=txsnrdb
-  endif
-
-  if(txsnrdb.ge.90.0) i=n
-  if(txsnrdb.lt.90.0) i=rms*(sig*(n/32728.0) + gran())
-  if(i>32767) i=32767;
-  if(i<-32767) i=-32767;
-  n=i
-
-  return
-end subroutine addnoise

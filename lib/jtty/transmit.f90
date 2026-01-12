@@ -1,13 +1,11 @@
 subroutine transmit(nfunc,ftx,iptt)
 
+  use jttycom
   parameter (MAX_TONES=85*7)             !Max number of channel symbols
-  include 'gcom1.f90'
   integer itone(MAX_TONES)               !Channel symbols (tone frequencies)
   character*17 cdatetime
   real wave(NMAX)
   complex cwave(NMAX)
-  common/jttycom/nwave0
-!  integer ptt
 
   if(nTxOK.eq.1) return
   if(iptt.eq.9999) stop           !Silence compiler warning
@@ -31,20 +29,16 @@ subroutine transmit(nfunc,ftx,iptt)
   nsps=384                                    !Samples per symbol at 12000 Hz
   nwave=nsps*nsym                  !Length of i*2 data written to *.wav file
   txt=nwave/12000.0
-!  write(*,1013) txt,nsym,itone(1:nsym)
-!1013 format('Transmission length:',f7.3,'   nsym:',i5/(30i2))
 
   icmplx=0
   bt=2.0
   fsample=12000.0
   f0=ftx
   call gen_jttywave(itone,nsym,nsps,bt,fsample,f0,cwave,wave,icmplx,nwave)
-  nwave0=nwave
 
   iwave(1:nwave)=1000.0*wave(1:nwave)
   iwave(nwave:)=0
   call set_tx_length(nwave)
-!  i1=ptt(nport,1,1,iptt)
   ntxok=1
   n=len(trim(txmsg))
 

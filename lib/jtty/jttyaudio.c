@@ -4,14 +4,13 @@
 #include <string.h>
 #include <time.h>
 
-// Prototypes for Fortran subroutines update and addnoise:
+// Prototypes for Fortran subroutine update
 void update_(double* total_time, int* ic1, int* ic2);
-void addnoise_(short int *n);
 
 int iaa;
 int icc;
 int n2send=0;
-int verbose=0;
+int ndebug=0;
 double total_time=0.0;
 
 //  Definition of structure pointing to the audio data
@@ -42,6 +41,8 @@ SoundIn( void *inputBuffer, void *outputBuffer,
   short *in = (short*)inputBuffer;
   unsigned int i;
   static int ia=0;
+  static int ibuf0=0;
+  static int ibuf=0;
 
 // Don't save audio input samples when we're transmitting
   if(*data->Transmitting) return 0;
@@ -72,8 +73,11 @@ SoundIn( void *inputBuffer, void *outputBuffer,
   *data->iwrite = ia;                  //Save buffer pointer
   iaa=ia;
   total_time += (double)framesPerBuffer/12000.0;
-  //  printf("SoundIn iwrite:  %d\n",*data->iwrite);
-  //  fivehz_();
+  ibuf++;
+  if(ndebug > 0 && (ibuf-ibuf0 > 31)) {
+    printf("SoundIn iwrite:  %d\n",*data->iwrite);
+    ibuf0=ibuf;
+  }
   return 0;
 }
 
@@ -98,7 +102,7 @@ SoundOut( void *inputBuffer, void *outputBuffer,
   if(inputBuffer == timeInfo) i=0; //Suppress 'unused' warnings
   if(statusFlags!=0) printf("Status flags %d\n",(int)statusFlags);
 
-  //  if(verbose) printf("SoundOut: %d  %d  %d\n",TxOKz,*data->TxOK,(int)framesPerBuffer);
+  //  if(ndebug>0) printf("SoundOut: %d  %d  %d\n",TxOKz,*data->TxOK,(int)framesPerBuffer);
 
   if(*data->TxOK && (!TxOKz)) ic=0;   //Reset buffer pointer to start Tx
   *data->Transmitting=*data->TxOK;    //Set the "transmitting" flag
@@ -108,12 +112,12 @@ SoundOut( void *inputBuffer, void *outputBuffer,
       // Start of a transmission
       tstart=clock();
       nsent=0;
-      //      if(verbose) printf("Start Tx\n");
+      //      if(ndebug>0) printf("Start Tx\n");
     }
     TxOKz=*data->TxOK;
     for(i=0 ; i < framesPerBuffer; i++ )  {
       n2=data->iwave[ic];
-      addnoise_(&n2);
+      //      addnoise_(&n2);
       *wptr++ = n2;                   //left
       *wptr++ = n2;                   //right
       ic++;
@@ -125,7 +129,7 @@ SoundOut( void *inputBuffer, void *outputBuffer,
 	TxOKz=0;  //### ??? ###
 	ic=0;
 	tend=clock();
-	if(verbose) {
+	if(ndebug>0) {
 	  double TxT=((double)(tend-tstart))/CLOCKS_PER_SEC;
 	  printf("TxT = %7.3f  nSent = %d  Frames = %7.3f\n",TxT,
 		 nsent,nsent/(53.0*384.0));
@@ -139,7 +143,6 @@ SoundOut( void *inputBuffer, void *outputBuffer,
   }
   *data->itx = icc;                    //Save buffer pointer
   icc=ic;
-  // fivehztx_();
   return 0;
 }
 
@@ -147,7 +150,7 @@ SoundOut( void *inputBuffer, void *outputBuffer,
 int jttyaudio_(int *ndevin, int *ndevout, int *npabuf, int *nright, 
 	      short y1[], short y2[], int *nring, int *iwrite, 
 	      int *itx, short iwave[], int *nwave, int *nfsample, 
-	      int *TxOK, int *Transmitting, int *ngo)
+	       int *TxOK, int *Transmitting, int *ngo, int *ndebug0)
 
 {
   paTestData data;
@@ -160,6 +163,7 @@ int jttyaudio_(int *ndevin, int *ndevout, int *npabuf, int *nright,
   int ndevice_in = *ndevin;
   int ndevice_out = *ndevout;
   double dSampleRate = (double) *nfsample;
+  ndebug = *ndebug0;
   PaError err_init, err_open_in, err_open_out, err_start_in, err_start_out;
   PaError err = 0;
 
@@ -191,7 +195,7 @@ int jttyaudio_(int *ndevin, int *ndevout, int *npabuf, int *nright,
   inputParameters.device = ndevice_in;
   inputParameters.channelCount = 2;
   inputParameters.sampleFormat = paInt16;
-  inputParameters.suggestedLatency = 0.2;
+  inputParameters.suggestedLatency = 0.1;
   inputParameters.hostApiSpecificStreamInfo = NULL;
 
 // Test if this configuration actually works, so we do not run into an
@@ -279,7 +283,7 @@ int jttyaudio_(int *ndevin, int *ndevout, int *npabuf, int *nright,
     } 
   }
 
-  if (err == 0) printf("Audio streams running normally.\n******************************************************************\n");
+  if (err != 0) printf("Error starting audio input or output.\n");
 
   while( Pa_IsStreamActive(instream) && (*ngo != 0) && (err == 0) )  {
     int ic1=0;
@@ -337,32 +341,34 @@ int padevsub_(int *idevin, int *idevout)
     ndefout = 0;
   }
 
-  printf("\nAudio     Input    Output     Device Name\n");
-  printf("Device  Channels  Channels\n");
-  printf("------------------------------------------------------------------\n");
+  if(*idevin < 0) {
+    printf("\nAudio     Input    Output     Device Name\n");
+    printf("Device  Channels  Channels\n");
+    printf("------------------------------------------------------------------\n");
 
-  for( i=0; i < numDevices; i++ )  {
-    pdi = Pa_GetDeviceInfo(i);
+    for( i=0; i < numDevices; i++ )  {
+      pdi = Pa_GetDeviceInfo(i);
 //    if(i == Pa_GetDefaultInputDevice()) ndefin = i;
 //    if(i == Pa_GetDefaultOutputDevice()) ndefout = i;
-    nchin[i]=pdi->maxInputChannels;
-    nchout[i]=pdi->maxOutputChannels;
-    printf("  %2d       %2d        %2d       %s\n",i,nchin[i],nchout[i],
-	   pdi->name);
+      nchin[i]=pdi->maxInputChannels;
+      nchout[i]=pdi->maxOutputChannels;
+      printf("  %2d       %2d        %2d       %s\n",i,nchin[i],nchout[i],
+	     pdi->name);
+    }
+    printf("\nDefault devices:          Input = %2d   Output = %2d\n",
+  	 ndefin,ndefout);
   }
 
-  printf("\nUser requested devices:   Input = %2d   Output = %2d\n",
-  	 *idevin,*idevout);
-  printf("Default devices:          Input = %2d   Output = %2d\n",
-  	 ndefin,ndefout);
+  //  printf("\nUser requested devices:   Input = %2d   Output = %2d\n",
+  //  	 *idevin,*idevout);
   if((*idevin<0) || (*idevin>=numdev)) *idevin=ndefin;
   if((*idevout<0) || (*idevout>=numdev)) *idevout=ndefout;
   if((*idevin==0) && (*idevout==0))  {
     *idevin=ndefin;
     *idevout=ndefout;
   }
-  printf("Will open devices:        Input = %2d   Output = %2d\n",
-  	 *idevin,*idevout);
+  //  printf("Will open devices:        Input = %2d   Output = %2d\n",
+  //  	 *idevin,*idevout);
 
   Pa_Terminate();
 
