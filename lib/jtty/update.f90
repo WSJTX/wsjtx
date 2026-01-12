@@ -1,0 +1,188 @@
+subroutine update(total_time,ic1,ic2)
+
+  ! When the audio streams are active, this routine gets called
+  ! approximately every 100 ms -- determined by the statement
+  !            Pa_Sleep(100);
+  ! ... near the end of C function jttyaudio_().
+
+  ! It functions somewhat like the GUIupdate() loop in WSJT-X.
+
+!  use wavhdr
+!  type(hdr) h
+  real*8 total_time
+!###  integer ptt
+  integer*2 id(30000)
+  logical transmitted,level
+  character*50 line
+  character*80 umsg
+  character cdatetime*17
+  include 'gcom1.f90'
+  logical synced,eom
+  data nt0/-1/,transmitted/.false./,snr/-99.0/,iwrite0/0/
+  data level/.false./,nverbose/0/
+  data synced/.false./,eom/.false./
+  data umsg/' '/
+  save nt0,transmitted,level,snr,iptt,iwrite0,synced
+
+  if(nverbose.gt.0) write(*,3001) total_time,ntransmitting,nverbose,   &
+       ic1,ic2,iwrite,iwrite/384.0
+3001 format(f10.3,4i5,i10,f10.3)
+
+! Some keyboard Scan Codes: ic1=0, ic2 given here
+!    13  27  59  60 61 62 63 64 65 66 67  68
+!    =  ESC  F1  F2 F3 F4 F5 F6 F7 F8 F9 F10
+  
+  if(ic1.ne.0 .or. ic2.ne.0) then
+     if(ic1.eq.27 .and. ic2.eq.0) ngo=0        !ESC ==> terminate program
+     if(nTxOK.eq.0 .and. ntransmitting.eq.0) then
+        nfunc=0
+        if(ic1.eq.0 .and. ic2.eq.59) nfunc=1   !F1 has Scan Code = 59
+        if(ic1.eq.0 .and. ic2.eq.60) nfunc=2   !F2
+        if(ic1.eq.0 .and. ic2.eq.61) nfunc=3   !F3
+        if(ic1.eq.0 .and. ic2.eq.62) nfunc=4   !F4
+        if(ic1.eq.0 .and. ic2.eq.63) nfunc=5   !F5
+        if(nfunc.eq.1 .or. (nfunc.ge.2 .and. hiscall.ne.'      ')) then
+           ftx=1500.0
+           call transmit(nfunc,ftx,iptt)
+        endif
+     endif
+     if(ic1.eq.13 .and. ic2.eq.0) hiscall=hiscall_next  !Enter key
+     if((ic1.eq.97 .or. ic1.eq.65) .and. ic2.eq.0) autoseq=.not.autoseq  !a or A
+     if(ic1.eq.76 .and. ic2.eq.0) level=.not.level     !l or L
+     if(ic1.eq.86 .and. ic2.eq.0) nverbose=1-nverbose
+     if(nverbose.gt.0) print*,'Scan Code:',ic1,ic2,nverbose,level
+
+     if(ic2.eq.0) then
+        call putchar(ic1)
+     endif
+  endif
+
+  if(ntransmitting.eq.1) transmitted=.true.
+  if(transmitted .and. ntransmitting.eq.0) then
+     i1=0
+!###     if(iptt.eq.1 .and. nport.gt.0) i1=ptt(nport,0,1,iptt)  !### RELEASE PTT
+     if(tx_once .and. transmitted) stop
+     transmitted=.false.
+  endif
+
+  nt=total_time/0.5       !Level estimates at 0.5 s steps
+  if(nt.gt.nt0 .or. ic1.ne.0 .or. ic2.ne.0) then
+     if(level) then
+! Measure and display the average level of signal plus noise in past 0.5 s
+        k=iwrite-6000
+        if(k.lt.1) k=k+NRING
+        sq=0.
+        do i=1,6000
+           k=k+1
+           if(k.gt.NRING) k=k-NRING
+           x=y1(k)
+           sq=sq + x*x
+        enddo
+        sigdb=0.
+        if(sq.gt.0.0) sigdb=10.0*log10((sq/6000.0))
+        n=0.5*sigdb
+        if(n.lt.1) n=1
+        if(n.gt.50) n=50
+        line=' '
+        line(n:n)='*'
+        write(*,1030) cdatetime(),sigdb,ntxed,nt,iwrite,iwrite-iwrite0,  &
+             autoseq,QSO_in_progress,trim(line)
+1030    format(a17,f6.1,i3,3i8,2L2,1x,a)
+        iwrite0=iwrite
+     endif  !level
+
+     ! Call the jtty decoder here, using code from rjtty.
+     ! ### Maybe call rjtty_sub(y1,iwrite,line1)  ??? ###
+
+     noise=100
+     k=iwrite-12000
+     if(k.lt.1) k=k+NRING
+     do i=1,12000
+        k=k+1
+        if(k.gt.NRING) k=k-NRING
+!        id(i)=y1(k)
+        id(i)=y1(k) + noise*gran()
+     enddo
+     nutc=0
+     nfqso=1500
+     ndecodes=0
+     if(maxval(abs(id)).gt.0) then
+        nrx=-1        
+        k0=0
+        k1=0
+        iz=30240  !### TEMPORARY ###
+        eom=.false.
+        f0=1500.0
+        ftol=100.0
+        smin=0
+        xdt=0.
+        f1=0.
+!### WORK NEEDED HERE ###
+        call jtty_decode(id,iz,f0,ftol,smin,synced,xdt,f1,snr,umsg)
+!        fname=cdatetime()
+!        fname(14:17)='.wav'
+!        open(13,file=fname,status='unknown',access='stream')
+!        h=default_header(12000,nwave)
+!        write(13) h,id
+!        close(13)
+        if(autoseq .and.nrx.eq.2) QSO_in_progress=.true.
+        if(autoseq .and. QSO_in_progress .and. nrx.ge.1 .and. nrx.le.4) then
+           lrx(nrx)=.true.
+           ftx=1500.0
+           if(ntxed.eq.1) then
+              if(nrx.eq.2) then
+                 call transmit(3,ftx,iptt)
+              else
+                 call transmit(1,ftx,iptt)
+              endif
+           endif
+           if(ntxed.eq.2) then
+              if(nrx.eq.3) then
+                 call transmit(4,ftx,iptt)
+                 QSO_in_progress=.false.
+                 write(*,1032)
+1032             format('QSO complete: S+P side')
+              else
+                 call transmit(2,ftx,iptt)
+              endif
+           endif
+           if(ntxed.eq.3) then
+              if(nrx.eq.4) then
+                 QSO_in_progress=.false.
+                 write(*,1034)
+1034             format('QSO complete: CQ side')
+              else
+                 call transmit(3,ftx,iptt)
+              endif
+           endif
+        endif
+     endif
+     nt0=nt
+  endif
+
+  return
+end subroutine update
+
+subroutine addnoise(n)
+  integer*2 n
+  include 'gcom1.f90'
+  data txsnrdb0/-99.0/,rms/100.0/
+  save sig,txsnrdb0
+
+  if(txsnrdb.gt.40.0) return
+
+  if(txsnrdb.ne.txsnrdb0) then
+     bandwidth_ratio=2500.0/6000.0
+     sig=sqrt(2*bandwidth_ratio)*10.0**(0.05*txsnrdb)
+     if(txsnrdb.gt.90.0) sig=1.0
+     txsnrdb0=txsnrdb
+  endif
+
+  if(txsnrdb.ge.90.0) i=n
+  if(txsnrdb.lt.90.0) i=rms*(sig*(n/32728.0) + gran())
+  if(i>32767) i=32767;
+  if(i<-32767) i=-32767;
+  n=i
+
+  return
+end subroutine addnoise
