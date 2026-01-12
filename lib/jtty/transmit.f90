@@ -7,7 +7,6 @@ subroutine transmit(nfunc,ftx)
   real wave(NMAX)
   complex cwave(NMAX)
 
-  print*,'AAA transmit() called',nfunx,ftx,ntxok,ntransmitting
   if(ntransmitting.eq.1) return          !Ignore if we're already transmitting
 
 !  if(nfunc.eq.1) txmsg='CQ '//trim(mycall)//' '//mygrid

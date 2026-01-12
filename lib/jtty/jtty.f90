@@ -50,7 +50,7 @@ program jtty
 ! Start the input and output audio streams. Note that in normal use this call
 ! does not return until an error or end-of-program occurs.
 
-  ierr=jttyaudio(idevin,idevout,npabuf,nright,y1,y2,NRING,iwrite,itx,     &
+  ierr=jttyaudio(idevin,idevout,npabuf,nright,y1,y2,NMAX,iwrite,itx,     &
        iwave,nwave+3*npabuf,nfsample,nTxOK,nTransmitting,ngo,ndebug)
 
   if(ierr.ne.0) then

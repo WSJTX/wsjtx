@@ -16,17 +16,17 @@ subroutine update(total_time,ic1,ic2)
   character*80 umsg
   character cdatetime*17
   logical synced,eom
-  data nt0/-1/,transmitted/.false./,snr/-99.0/,iwrite0/0/
+  data nt0/-1/,transmitted/.false./,snr/-99.0/,iwrite00/9999999/
   data level/.false./
   data synced/.false./,eom/.false./
   data umsg/' '/
-  save nt0,transmitted,level,snr,iwrite0,synced
+  save nt0,transmitted,level,snr,iwrite00,iwrite0,synced
 
   if(ndebug.gt.0 .and. ntransmitting.eq.0 .and. &
-       (abs(iwrite-iwrite0).ge.12000) .or. iwrite.lt.iwrite0) then
+       (abs(iwrite-iwrite00).ge.12000) .or. iwrite.lt.iwrite00) then
      write(*,1000) iwrite,ntxok,ic1,ic2
 1000 format('Receiving iwrite:',i8,i4,5x,2i4)
-     iwrite0=iwrite
+     iwrite00=iwrite
   endif
 
 ! Some keyboard Scan Codes: ic1=0, ic2 given here
@@ -86,7 +86,6 @@ subroutine update(total_time,ic1,ic2)
         write(*,1030) cdatetime(),sigdb,ntxed,nt,iwrite,iwrite-iwrite0,  &
              autoseq,QSO_in_progress,trim(line)
 1030    format(a17,f6.1,i3,3i8,2L2,1x,a)
-        iwrite0=iwrite
      endif  !level
 
      ! Call the jtty decoder here, using code from rjtty.
@@ -157,6 +156,7 @@ subroutine update(total_time,ic1,ic2)
      endif
      nt0=nt
   endif
+  iwrite0=iwrite
 
   return
 end subroutine update
