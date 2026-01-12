@@ -5,7 +5,7 @@
 #include <time.h>
 
 // Prototypes for Fortran subroutine update
-void update_(double* total_time, int* ic1, int* ic2);
+void update_(int* ic1, int* ic2);
 
 int iaa;
 int icc;
@@ -284,8 +284,8 @@ int jttyaudio_(int *ndevin, int *ndevout, int *npabuf, int *nright,
     //    if(ic1!=0 || ic2!=0) printf("%d   %d   %d\n",iaa,ic1,ic2);
     //    if(ic1!=0 && ic2==0) putchar(ic1);
     
-    update_(&total_time,&ic1,&ic2);
-    Pa_Sleep(10);
+    update_(&ic1,&ic2);
+    Pa_Sleep(100);
   }
 
   Pa_AbortStream(instream);              // Abort input stream

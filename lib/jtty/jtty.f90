@@ -38,7 +38,6 @@ program jtty
   npabuf=384        !PortAudio: 384 frames per buffer, 31.25 baud, 0.032 s
   ntxok=0
   ntransmitting=0
-  tx_once=.false.
   ltx=.false.
   lrx=.false.
   autoseq=.false.

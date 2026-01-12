@@ -34,7 +34,6 @@ subroutine transmit(nfunc)
   fsample=12000.0
   f0=ftx
   call gen_jttywave(itone,nsym,nsps,bt,fsample,f0,cwave,wave,icmplx,nwave)
-  print*,'aa',ftx,len(trim(txmsg)),trim(txmsg)
 
   iwave(1:nwave)=1000.0*wave(1:nwave)
   iwave(nwave:)=0

@@ -1,4 +1,4 @@
-subroutine update(total_time,ic1,ic2)
+subroutine update(ic1,ic2)
 
   ! When the audio streams are active, this routine gets called
   ! approximately every 100 ms -- determined by this statement
@@ -9,27 +9,26 @@ subroutine update(total_time,ic1,ic2)
   ! Rx or Tx routines as needed.
 
   use jttycom
-  real*8 total_time
   integer*2 id(30000)
-  logical transmitted,level
-  character*50 line
+  logical level
+!  character*50 line
   character*80 umsg
-  character cdatetime*17
+!  character cdatetime*17
   logical synced,eom
-  data nt0/-1/,transmitted/.false./,snr/-99.0/,iwrite00/9999999/
-  data level/.false./
+  data iwrite00/9999999/
+  data level/.false./,idone/0/
   data synced/.false./,eom/.false./
-  data umsg/' '/,m/0/
-  save nt0,transmitted,level,snr,iwrite00,iwrite0,synced,m
+  data umsg/' '/,m/0/,nt0/-1/
+  save level,iwrite00,iwrite0,synced,m,nt0,idone
 
   if(ndebug.gt.0 .and. ntransmitting.eq.0 .and. &
        (abs(iwrite-iwrite00).ge.12000 .or. iwrite.lt.iwrite00)) then
-     write(*,1000) iwrite,ntxok,ic1,ic2,ndebug
-1000 format('Receiving iwrite:',i8,4i5)
+     write(*,1000) iwrite,ntxok,ntransmitting,ndebug,ic1,ic2
+1000 format('Receiving iwrite:',i8,5i5)
      iwrite00=iwrite
   endif
 
-! Some keyboard Scan Codes: ic1=0, ic2 given here
+! Some keyboard Scan Codes: ic1=0, ic2 as follows
 !    13  27  59  60 61 62 63 64 65 66 67  68
 !    =  ESC  F1  F2 F3 F4 F5 F6 F7 F8 F9 F10
   
@@ -53,6 +52,8 @@ subroutine update(total_time,ic1,ic2)
 
      if(ic2.eq.0) then
         if(ic1.eq.13) then
+           call putchar(13)  ! CR
+           call putchar(12)  ! LF
            call transmit(0)
            m=0
         elseif(ic1.eq.8) then
@@ -70,106 +71,74 @@ subroutine update(total_time,ic1,ic2)
      endif
   endif
 
-  if(ntransmitting.eq.1) transmitted=.true.
-  if(transmitted .and. ntransmitting.eq.0) then
-     i1=0
-     if(tx_once .and. transmitted) stop
-     transmitted=.false.
-  endif
-
-  nt=total_time/0.5       !Level estimates at 0.5 s steps
-  if(nt.gt.nt0 .or. ic1.ne.0 .or. ic2.ne.0) then
-     if(level) then
-! Measure and display the average level of signal plus noise in past 0.5 s
-        k=iwrite-6000
-        if(k.lt.1) k=k+NMAX
-        sq=0.
-        do i=1,6000
-           k=k+1
-           if(k.gt.NMAX) k=k-NMAX
-           x=y1(k)
-           sq=sq + x*x
-        enddo
-        sigdb=0.
-        if(sq.gt.0.0) sigdb=10.0*log10((sq/6000.0))
-        n=0.5*sigdb
-        if(n.lt.1) n=1
-        if(n.gt.50) n=50
-        line=' '
-        line(n:n)='*'
-        write(*,1030) cdatetime(),sigdb,ntxed,nt,iwrite,iwrite-iwrite0,  &
-             autoseq,QSO_in_progress,trim(line)
-1030    format(a17,f6.1,i3,3i8,2L2,1x,a)
-     endif  !level
-
+  nready=iwrite-idone
+  if(nready.lt.0) nready=nready+NMAX
+  if(nready.lt.53*384) go to 100
+     
      ! Call the jtty decoder here, using code from rjtty.
      ! ### Maybe call rjtty_sub(y1,iwrite,line1)  ??? ###
 
-     noise=100
+     iz=30240  !### TEMPORARY ###
      k=iwrite-12000
      if(k.lt.1) k=k+NMAX
      do i=1,12000
         k=k+1
         if(k.gt.NMAX) k=k-NMAX
-!        id(i)=y1(k)
-        id(i)=y1(k) + noise*gran()
+        id(i)=y1(k)
      enddo
      nutc=0
      nfqso=1500
-     ndecodes=0
-     if(maxval(abs(id)).gt.0) then
-        nrx=-1        
-        k0=0
-        k1=0
-        iz=30240  !### TEMPORARY ###
-        eom=.false.
-        f0=1500.0
-        ftol=100.0
-        smin=0
-        xdt=0.
-        f1=0.
+     nrx=-1        
+     k0=0
+     k1=0
+     eom=.false.
+     f0=1500.0
+     ftol=100.0
+     smin=0
+     xdt=0.
+     f1=0.
 !### WORK NEEDED HERE ###
-        call jtty_decode(id,iz,f0,ftol,smin,synced,xdt,f1,snr,umsg)
+     call jtty_decode(id,iz,f0,ftol,smin,synced,xdt,f1,snr,umsg)
 !        fname=cdatetime()
 !        fname(14:17)='.wav'
 !        open(13,file=fname,status='unknown',access='stream')
 !        h=default_header(12000,nwave)
 !        write(13) h,id
 !        close(13)
-        if(autoseq .and.nrx.eq.2) QSO_in_progress=.true.
-        if(autoseq .and. QSO_in_progress .and. nrx.ge.1 .and. nrx.le.4) then
-           lrx(nrx)=.true.
-           if(ntxed.eq.1) then
-              if(nrx.eq.2) then
-                 call transmit(3)
-              else
-                 call transmit(1)
-              endif
+     if(autoseq .and.nrx.eq.2) QSO_in_progress=.true.
+     if(autoseq .and. QSO_in_progress .and. nrx.ge.1 .and. nrx.le.4) then
+        lrx(nrx)=.true.
+        if(ntxed.eq.1) then
+           if(nrx.eq.2) then
+              call transmit(3)
+           else
+              call transmit(1)
            endif
-           if(ntxed.eq.2) then
-              if(nrx.eq.3) then
-                 call transmit(4)
-                 QSO_in_progress=.false.
-                 write(*,1032)
-1032             format('QSO complete: S+P side')
-              else
-                 call transmit(2)
-              endif
+        endif
+        if(ntxed.eq.2) then
+           if(nrx.eq.3) then
+              call transmit(4)
+              QSO_in_progress=.false.
+              write(*,1032)
+1032          format('QSO complete: S+P side')
+           else
+              call transmit(2)
            endif
-           if(ntxed.eq.3) then
-              if(nrx.eq.4) then
-                 QSO_in_progress=.false.
-                 write(*,1034)
-1034             format('QSO complete: CQ side')
-              else
-                 call transmit(3)
-              endif
+        endif
+        if(ntxed.eq.3) then
+           if(nrx.eq.4) then
+              QSO_in_progress=.false.
+              write(*,1034)
+1034          format('QSO complete: CQ side')
+           else
+              call transmit(3)
            endif
         endif
      endif
      nt0=nt
-  endif
-  iwrite0=iwrite
+     idone=iwrite
+
+100 iwrite0=iwrite
 
   return
 end subroutine update

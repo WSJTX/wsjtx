@@ -13,7 +13,6 @@ module jttycom
   integer nTransmitting    !Actually transmitting?
   integer nTxOK            !OK to transmit?
   integer ndebug
-  logical tx_once          !Transmit one message, then exit
   logical ltx(5)           !True if msg i has been transmitted
   logical lrx(5)           !True if msg i has been received
   logical autoseq
