@@ -39,13 +39,14 @@ program jtty
   ntxok=0
   ntransmitting=0
   tx_once=.false.
-  txmsg='CQ K1JT FN20'
   ltx=.false.
   lrx=.false.
   autoseq=.false.
   QSO_in_progress=.false.
   ntxed=0
   nwave=53*384
+  txmsg=''
+  ftx=1500.0
 
 ! Start the input and output audio streams. Note that in normal use this call
 ! does not return until an error or end-of-program occurs.

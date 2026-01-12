@@ -19,13 +19,13 @@ subroutine update(total_time,ic1,ic2)
   data nt0/-1/,transmitted/.false./,snr/-99.0/,iwrite00/9999999/
   data level/.false./
   data synced/.false./,eom/.false./
-  data umsg/' '/
-  save nt0,transmitted,level,snr,iwrite00,iwrite0,synced
+  data umsg/' '/,m/0/
+  save nt0,transmitted,level,snr,iwrite00,iwrite0,synced,m
 
   if(ndebug.gt.0 .and. ntransmitting.eq.0 .and. &
-       (abs(iwrite-iwrite00).ge.12000) .or. iwrite.lt.iwrite00) then
-     write(*,1000) iwrite,ntxok,ic1,ic2
-1000 format('Receiving iwrite:',i8,i4,5x,2i4)
+       (abs(iwrite-iwrite00).ge.12000 .or. iwrite.lt.iwrite00)) then
+     write(*,1000) iwrite,ntxok,ic1,ic2,ndebug
+1000 format('Receiving iwrite:',i8,4i5)
      iwrite00=iwrite
   endif
 
@@ -42,9 +42,9 @@ subroutine update(total_time,ic1,ic2)
         if(ic1.eq.0 .and. ic2.eq.61) nfunc=3   !F3
         if(ic1.eq.0 .and. ic2.eq.62) nfunc=4   !F4
         if(ic1.eq.0 .and. ic2.eq.63) nfunc=5   !F5
+        if(ic1.eq.0 .and. ic2.eq.64) hiscall=txmsg(1:6)   !F6
         if(nfunc.eq.1 .or. (nfunc.ge.2 .and. hiscall.ne.'      ')) then
-           ftx=1500.0
-           call transmit(nfunc,ftx)
+           call transmit(nfunc)
         endif
      endif
      if(ic1.eq.13 .and. ic2.eq.0) hiscall=hiscall_next  !Enter key
@@ -52,7 +52,21 @@ subroutine update(total_time,ic1,ic2)
      if(ic1.eq.76 .and. ic2.eq.0) level=.not.level     !l or L
 
      if(ic2.eq.0) then
-        call putchar(ic1)
+        if(ic1.eq.13) then
+           call transmit(0)
+           m=0
+        elseif(ic1.eq.8) then
+           txmsg(m:m)=' '
+           if(m.ge.1) m=m-1
+           call putchar(ic1)
+           call putchar(32)
+           call putchar(ic1)
+        else
+           m=m+1
+           if(ic1.ge.97 .and. ic1.le.122) ic1=ic1-32
+           txmsg(m:m)=char(ic1)
+           call putchar(ic1)
+        endif
      endif
   endif
 
@@ -125,22 +139,21 @@ subroutine update(total_time,ic1,ic2)
         if(autoseq .and.nrx.eq.2) QSO_in_progress=.true.
         if(autoseq .and. QSO_in_progress .and. nrx.ge.1 .and. nrx.le.4) then
            lrx(nrx)=.true.
-           ftx=1500.0
            if(ntxed.eq.1) then
               if(nrx.eq.2) then
-                 call transmit(3,ftx)
+                 call transmit(3)
               else
-                 call transmit(1,ftx)
+                 call transmit(1)
               endif
            endif
            if(ntxed.eq.2) then
               if(nrx.eq.3) then
-                 call transmit(4,ftx)
+                 call transmit(4)
                  QSO_in_progress=.false.
                  write(*,1032)
 1032             format('QSO complete: S+P side')
               else
-                 call transmit(2,ftx)
+                 call transmit(2)
               endif
            endif
            if(ntxed.eq.3) then
@@ -149,7 +162,7 @@ subroutine update(total_time,ic1,ic2)
                  write(*,1034)
 1034             format('QSO complete: CQ side')
               else
-                 call transmit(3,ftx)
+                 call transmit(3)
               endif
            endif
         endif

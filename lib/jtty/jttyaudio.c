@@ -370,9 +370,7 @@ void set_tx_length_(int* nwave)
   //  printf("n2send = %d\n",n2send);
 }
 
-void putchar_(int *n0)
+void putchar_(int *n)
 {
-  int n = *n0;
-  if(n >= 97 && n <= 122) n=n-32;
-  putchar(n);
+  putchar(*n);
 }

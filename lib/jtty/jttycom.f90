@@ -6,6 +6,7 @@ module jttycom
 !---------------------------------------------------------------------------
   integer NMAX
   parameter(NMAX=30*12000) !Ring buffer at 12000 samples/sec
+  real ftx                 !Tx audio frequency
   integer iwrite           !Pointer to Rx ring buffer
   integer itx              !Pointer to Tx buffer
   integer ngo              !Set to 0 to terminate audio streams

@@ -1,4 +1,4 @@
-subroutine transmit(nfunc,ftx)
+subroutine transmit(nfunc)
 
   use jttycom
   parameter (MAX_TONES=85*7)             !Max number of channel symbols
@@ -34,6 +34,7 @@ subroutine transmit(nfunc,ftx)
   fsample=12000.0
   f0=ftx
   call gen_jttywave(itone,nsym,nsps,bt,fsample,f0,cwave,wave,icmplx,nwave)
+  print*,'aa',ftx,len(trim(txmsg)),trim(txmsg)
 
   iwave(1:nwave)=1000.0*wave(1:nwave)
   iwave(nwave:)=0
@@ -49,6 +50,7 @@ subroutine transmit(nfunc,ftx)
   if(nfunc.ge.1 .and. nfunc.le.4) ntxed=nfunc
   if(nfunc.ge.1 .and. nfunc.le.5) ltx(nfunc)=.true.
   if(nfunc.eq.2 .or. nfunc.eq.3) QSO_in_progress=.true.
+  txmsg=""
 
   return
 end subroutine transmit
