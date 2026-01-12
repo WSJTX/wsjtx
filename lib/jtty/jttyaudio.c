@@ -41,8 +41,6 @@ SoundIn( void *inputBuffer, void *outputBuffer,
   short *in = (short*)inputBuffer;
   unsigned int i;
   static int ia=0;
-  static int ibuf0=0;
-  static int ibuf=0;
 
 // Don't save audio input samples when we're transmitting
   if(*data->Transmitting) return 0;
@@ -59,25 +57,21 @@ SoundIn( void *inputBuffer, void *outputBuffer,
 	data->y1[ia] = (*in++);
 	data->y2[ia] = (*in++);
 	ia++;
+	if(ia >= data->nring) ia=0;          //Wrap buffer pointer if necessary
       }
     } else {                               //Use right channel
       for(i=0; i<framesPerBuffer; i++) {
 	data->y2[ia] = (*in++);
 	data->y1[ia] = (*in++);
 	ia++;
+	if(ia >= data->nring) ia=0;          //Wrap buffer pointer if necessary
       }
     }
   }
 
-  if(ia >= data->nring) ia=0;          //Wrap buffer pointer if necessary
   *data->iwrite = ia;                  //Save buffer pointer
   iaa=ia;
   total_time += (double)framesPerBuffer/12000.0;
-  ibuf++;
-  if(ndebug > 0 && (ibuf-ibuf0 > 31)) {
-    printf("SoundIn iwrite:  %d\n",*data->iwrite);
-    ibuf0=ibuf;
-  }
   return 0;
 }
 
@@ -95,8 +89,6 @@ SoundOut( void *inputBuffer, void *outputBuffer,
   static short int n2;
   static int ic=0;
   static int TxOKz=0;
-  static clock_t tstart=-1;
-  static clock_t tend=-1;
   static int nsent=0;
 
   if(inputBuffer == timeInfo) i=0; //Suppress 'unused' warnings
@@ -110,9 +102,8 @@ SoundOut( void *inputBuffer, void *outputBuffer,
   if(*data->TxOK)  {
     if(!TxOKz) {
       // Start of a transmission
-      tstart=clock();
       nsent=0;
-      //      if(ndebug>0) printf("Start Tx\n");
+      if(ndebug>0) printf("Start Tx %d  %d\n",TxOKz,*data->TxOK);
     }
     TxOKz=*data->TxOK;
     for(i=0 ; i < framesPerBuffer; i++ )  {
@@ -128,10 +119,8 @@ SoundOut( void *inputBuffer, void *outputBuffer,
 	*data->iwrite = 0;            //Reset Rx buffer pointer to 0
 	TxOKz=0;  //### ??? ###
 	ic=0;
-	tend=clock();
 	if(ndebug>0) {
-	  double TxT=((double)(tend-tstart))/CLOCKS_PER_SEC;
-	  printf("TxT = %7.3f  nSent = %d  Frames = %7.3f\n",TxT,
+	  printf("TxT = %7.3f  nSent = %d  Frames = %7.3f\n",nsent/12000.0,
 		 nsent,nsent/(53.0*384.0));
 	}
 	break;
@@ -296,7 +285,7 @@ int jttyaudio_(int *ndevin, int *ndevout, int *npabuf, int *nright,
     //    if(ic1!=0 && ic2==0) putchar(ic1);
     
     update_(&total_time,&ic1,&ic2);
-    Pa_Sleep(100);
+    Pa_Sleep(10);
   }
 
   Pa_AbortStream(instream);              // Abort input stream

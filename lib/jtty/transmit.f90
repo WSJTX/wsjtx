@@ -1,4 +1,4 @@
-subroutine transmit(nfunc,ftx,iptt)
+subroutine transmit(nfunc,ftx)
 
   use jttycom
   parameter (MAX_TONES=85*7)             !Max number of channel symbols
@@ -7,8 +7,8 @@ subroutine transmit(nfunc,ftx,iptt)
   real wave(NMAX)
   complex cwave(NMAX)
 
-  if(nTxOK.eq.1) return
-  if(iptt.eq.9999) stop           !Silence compiler warning
+  print*,'AAA transmit() called',nfunx,ftx,ntxok,ntransmitting
+  if(ntransmitting.eq.1) return          !Ignore if we're already transmitting
 
 !  if(nfunc.eq.1) txmsg='CQ '//trim(mycall)//' '//mygrid
 !  if(nfunc.eq.2) txmsg=trim(hiscall)//' '//trim(mycall)//     &

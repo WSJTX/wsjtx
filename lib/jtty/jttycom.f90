@@ -11,7 +11,7 @@ module jttycom
   integer ngo              !Set to 0 to terminate audio streams
   integer nTransmitting    !Actually transmitting?
   integer nTxOK            !OK to transmit?
-  integer nport            !COM port for PTT
+  integer ndebug
   logical tx_once          !Transmit one message, then exit
   logical ltx(5)           !True if msg i has been transmitted
   logical lrx(5)           !True if msg i has been received
