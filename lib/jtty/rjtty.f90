@@ -2,8 +2,8 @@ program rjtty
 
 ! Decode JTTY data in one or more WAV files.
 
-  use wavhdr
-  use jtty_mod
+   use wavhdr
+   use jtty_mod
 
 ! MAX_FRAMES = 16 in pack_jtty. Each frame is
 ! 53 symbols (13 sync + 40 codeword).
@@ -18,82 +18,74 @@ program rjtty
    character*80 fname
    character*80 umsg
    character*8 arg
+   integer*8 count0, count1, clkfreq
    integer*2 iwave(NMAX)
-   logical synced,eom,synced0
-   data synced/.false./,eom/.false./
+   logical synced
+   data synced/.false./
 
    f0=1500.0
    ftol=50.0
 
    nargs=iargc()
    if(nargs.lt.5) then
-      print*,'Usage:    rjtty smin ifly  f0  ftol  fname [...]'
-      print*,'Examples: rjtty   5    0  1500  50  000000_000001.wav'
-      print*,'          rjtty   5    1  1500  50  *.wav'
+      print*,'Usage:    rjtty smin ndebug  f0  ftol  fname [...]'
+      print*,'Examples: rjtty   5    0    1500  50  000000_000001.wav'
+      print*,'          rjtty   5    1    1500  50  *.wav'
       go to 999
    endif
    call getarg(1,arg)
    read(arg,*) smin
    call getarg(2,arg)
-   read(arg,*) ifly
+   read(arg,*) ndebug
    call getarg(3,arg)
-   read(arg,*) f0 
+   read(arg,*) f0
    call getarg(4,arg)
-   read(arg,*) ftol 
+   read(arg,*) ftol
 
 
    do ifile=1,nargs-4
       call getarg(ifile+4,fname)
-      write(*,'(a)',advance='no') fname
       open(10,file=fname,status='old',access='stream')
       read(10) h
       nwave=h%ndata/2
       read(10) iwave(1:min(nwave,360000))
       close(10)
       iwave(nwave+1:) = 0
-      iz=0
-      synced=.false.
-      synced0=.false.
-      eom=.false.
 
-      if(ifly.eq.0) then
-! Decode using the full iwave(1:nwave)
-         iz=nwave
-         call jtty_decode(iwave,iz,f0,ftol,smin,synced,xdt,f1,snr,umsg)
-         write(*,3001) ifile,xdt,f1,snr,trim(umsg)
-3001     format(i3,f8.2,2f8.1,2x,a)
-      else
-         nchunk=2*53*384
-         nframe=53*384
-         kchar=0
-         istart=1
+      synced=.false.
+      nchunk=2*53*384
+      nframe=53*384
+      kchar=0
+      istart=1
 
 ! Process data on the fly, one buffer at a time:
-         do while (istart+nchunk-1 .le. nwave) 
-            synced=.false.                      ! sync on evey call for now
-            write(71,3071) istart,iwave(istart:istart+4)
-3071        format(i8,3x,5i6)
-            call jtty_decode(iwave(istart),nchunk,f0,ftol,smin,synced,xdt,  &
-                 f1,snr,umsg)
-            write(72,3072) fname,istart,synced,xdt,f1,snr,trim(umsg)
-3072        format(a,i9,L1,f8.3,2f8.1,2x,a)
+      do while (istart+nchunk-1 .le. nwave)
+         synced=.false.                      ! sync on evey call for now
 
-            if(synced) then
-               n = len(trim(umsg))
-               do i=1,n
-                  if(umsg(i:i).eq.'~') umsg(i:i)=' '
-               enddo
-               kchar = kchar + n
-               if(kchar.lt.80) then
-                  write(*,'(a)',advance='no') umsg(1:n)
-               else
-                  write(*,'(a)') umsg(1:n)
-                  write(*,*) 'debug ',umsg(1:n)
-               endif
+         call system_clock(count0,clkfreq)
+         call jtty_decode(iwave(istart),nchunk,f0,ftol,smin,synced,xdt,  &
+            f1,snr,umsg)
+         call system_clock(count1,clkfreq)
+
+         if(synced) then
+            n = len(trim(umsg))
+            do i=1,n
+               if(umsg(i:i).eq.'~') umsg(i:i)=' '
+            enddo
+            kchar = kchar + n
+            if(kchar.lt.80) then
+               write(*,'(a)',advance='no') umsg(1:n)
+            else
+               write(*,'(a)') umsg(1:n)
+               write(*,*) 'debug ',umsg(1:n)
             endif
-            istart=istart+nframe
-         enddo
-      endif
+            tdecode=float(count1-count0)/clkfreq
+            if(ndebug.gt.0) write(71,3071) istart,xdt,f1,snr,synced,tdecode, &
+               trim(umsg)
+3071        format(i8,f7.3,f8.1,f6.1,L3,f7.3,2x,a)
+         endif
+         istart=istart+nframe
+      enddo
       write(*,*) ''
    enddo  !ifile
 
