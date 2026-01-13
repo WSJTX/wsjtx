@@ -24,22 +24,24 @@ program rjtty
    data synced/.false./,eom/.false./
 
    nargs=iargc()
-   if(nargs.lt.3) then
-      print*,'Usage:    rjtty smin ifly fname [...]'
-      print*,'Examples: rjtty   5    0  000000_000001.wav'
-      print*,'          rjtty   5    1    *.wav'
+   if(nargs.lt.4) then
+      print*,'Usage:    rjtty smin ifly ndebug fname [...]'
+      print*,'Examples: rjtty   3    0     0   000000_000001.wav'
+      print*,'          rjtty   3    1     1   *.wav'
       go to 999
    endif
    call getarg(1,arg)
    read(arg,*) smin
    call getarg(2,arg)
    read(arg,*) ifly
+   call getarg(3,arg)
+   read(arg,*) ndebug
 
    f0=1500.0
    ftol=50.0
 
-   do ifile=1,nargs-2
-      call getarg(ifile+2,fname)
+   do ifile=1,nargs-3
+      call getarg(ifile+3,fname)
       open(10,file=fname,status='old',access='stream')
       read(10) h
       nwave=h%ndata/2
@@ -65,19 +67,12 @@ program rjtty
          
 ! Process data on the fly, one buffer at a time:
          do ibuf=1,16
+            call system_clock(count1,clkfreq)
             istart=(ibuf-1) * 53*NSPS + 1
             if(nwave-istart .lt. nframe/2) exit
             synced=.false.                      ! sync on evey call for now
-!            write(71,3071) ibuf,istart,iwave(istart:istart+4)
-!3071        format(i2,i8,3x,5i6)
             call jtty_decode(iwave(istart),nframe,f0,ftol,smin,synced,xdt,  &
                  f1,snr,umsg)
-            call system_clock(count1,clkfreq)
-            tdecode=float(count1-count0)/clkfreq
-!            write(*,4001) xdt,f1,snr,tdecode,trim(umsg)
-!4001        format(f6.3,2f7.1,f8.3,2x,a)
-!            write(72,3072) synced,xdt,f1,snr,trim(umsg)
-!3072        format(L1,f8.3,2f7.1,2x,a)
 
             if(synced) then
                n = len(trim(umsg))
@@ -92,6 +87,10 @@ program rjtty
                   write(*,*) 'debug ',umsg(1:n)
                endif
             endif
+            tdecode=float(count1-count0)/clkfreq
+            if(ndebug.gt.0) write(71,3071) ibuf,xdt,f1,snr,synced,tdecode, &
+                 trim(umsg)
+3071        format(i3,f7.3,f8.1,f6.1,L3,f7.3,2x,a)
          enddo
          write(*,*)
       endif
