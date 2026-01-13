@@ -13,6 +13,7 @@ program sjtty
   use wavhdr
   use jtty_mod
   use jtty_fec
+  use crc
   parameter (NMAX=30*12000)         !Max size of .wav file
   parameter (MAX_TONES=53*16)       !Max number of channel symbols
   character*12 arg                  !Command line argument
@@ -20,7 +21,7 @@ program sjtty
   character*80 umsg                 !User-formatted message 
   character*40 fname                !Output file name
   character*10 flags                !Single-character shorthand flags
-  character*42 c42(16)
+  character*32 c32(16)
   complex cwave(0:NMAX-1)           !Complex generated waveform (12000 Hz)
   complex c0(0:NMAX-1)              !With propagation degradation
   complex c(0:NMAX-1)               !With propagation degradation
@@ -28,7 +29,7 @@ program sjtty
   type(hdr) h                       !Header for .wav file
   integer itone(MAX_TONES)          !Array of tone frequencies for this message
   integer*2 iwave(0:NMAX-1)         !Data written to the *.wav file
-  integer*1 message42(42)
+  integer*1 message32(32)
   integer*1 codeword80(80)
   integer graymap(0:3)
   integer ib13(13)
@@ -106,11 +107,11 @@ program sjtty
   bw=4.0*baud                      !Signal bandwidth
   hmod=1.0                         !Modulation index
 
-  call pack_jtty(umsg,c42,nframes)
+  call pack_jtty(umsg,c32,nframes)
   nsym=0
   do i=1,nframes
-    read(c42(i),'(42i1)') message42(1:42) 
-    call encode_80_42(message42,codeword80)
+    read(c32(i),'(32i1)') message32(1:32) 
+    call encode_80_32(message32,codeword80)
     ib=(i-1)*53+1   ! 53 tones per frame
     ie=ib+52       
     itone(ib:ib+12)=ib13
@@ -126,7 +127,8 @@ program sjtty
   write(*,1012) trim(umsg)
 1012 format('User message:  ',a)
   write(*,1013) txt,nsym,itone(1:nsym)
-1013 format('Transmission length:',f7.3,'   nsym:',i5/(30i2))
+1013 format('Transmission length:',f5.1,' s,',i5,' channel symbols:'/  &
+          (30i2))
 
   nwave=nsps*nsym                  !Length of i*2 data written to *.wav file
   icmplx=1

@@ -6,7 +6,7 @@ subroutine jtty_decode(iwave,nwave,f0,ftol,smin,synced,xdt,f1,snr,decoded)
    parameter (NSS=NSPS/2)                    !Samples per symbol @6000 Hz
    parameter (NFFT=13*NSPS,NH2=NFFT/2)
    character*80 decoded
-   character*42 c42(MAX_FRAMES)
+   character*32 c32(MAX_FRAMES)
    integer*2 iwave(nwave)
    real s(0:NH2)
    real s0(0:NH2)
@@ -18,7 +18,7 @@ subroutine jtty_decode(iwave,nwave,f0,ftol,smin,synced,xdt,f1,snr,decoded)
    complex c1(0:NZ-1)
    complex csync(0:13*192-1)           !Waveform for sync
    complex ctones(0:191,0:3)
-   integer*1 message42(42)
+   integer*1 message32(32)
    integer*1 cw80(80)
 
    complex z
@@ -64,7 +64,7 @@ subroutine jtty_decode(iwave,nwave,f0,ftol,smin,synced,xdt,f1,snr,decoded)
       fbest=0.
       ja=(f0-ftol)/df2
       jb=(f0+ftol)/df2
-      do i0=0,5088,20                           !Search over xdt for sync pattern
+      do i0=0,10176,20                           !Search over xdt for sync pattern
          xdt=i0*dt
          c(0:13*NSS-1)=conjg(csync(0:13*NSS-1))*c0(i0:i0+13*NSS-1)
          c(13*NSS:)=0.
@@ -91,7 +91,6 @@ subroutine jtty_decode(iwave,nwave,f0,ftol,smin,synced,xdt,f1,snr,decoded)
       f1=fbest
 
       call jtty_peakup(c0,c1,csync,xdtbest,fbest,xdt,f1,snr)
-
       if(snr.gt.smin) go to 10
       return
    endif
@@ -124,17 +123,17 @@ subroutine jtty_decode(iwave,nwave,f0,ftol,smin,synced,xdt,f1,snr,decoded)
 
    maxiterations=25
    nharderrors=0
-   call bpdecode_80_42(bitmetrics,maxiterations,message42,cw80,nharderrors)
-   if(nharderrors .ge. 0 .and. sum(message42) .eq. 0) nharderrors=-1  ! reject the all zero message
+   call bpdecode_80_32(bitmetrics,maxiterations,message32,cw80,nharderrors)
+   if(nharderrors .ge. 0 .and. sum(message32) .eq. 0) nharderrors=-1  ! reject the all zero message
    if(nharderrors .lt. 0) then
       ndeep=3
-      call osd80_42(bitmetrics, ndeep, message42, cw80, nharderrors, dmin)
+      call osd80_32(bitmetrics, ndeep, message32, cw80, nharderrors, dmin)
    endif
 
    decoded=' '
    if( nharderrors .ge. 0 ) then
-      write(c42,'(42i1)') message42
-      call unpack_jtty(c42,1,decoded)
+      write(c32,'(32i1)') message32
+      call unpack_jtty(c32,1,decoded)
    endif
    return
 end subroutine jtty_decode

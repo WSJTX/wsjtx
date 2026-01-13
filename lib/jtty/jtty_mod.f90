@@ -10,26 +10,22 @@ module jtty_mod
 
 contains
 
-subroutine pack_jtty(message,c42,nframes)
+subroutine pack_jtty(message,c32,nframes)
 
 ! Input:   character*80   message     !JTTY message, as it appears to a user
-! Output:  character*42   c42         !32-bit payload and 10-bit CRC
+! Output:  character*32   c32         !32-bit payload
 !          integer        nframes     !Frames in this message (max = 16)
 
-!  use crc
   use packjt77
   character*80 message,msg
-  character*42 c42(MAX_FRAMES)
+  character*32 c32(MAX_FRAMES)
   
   character*13 w(MAX_WORDS)      !Individual message words
   integer nw(MAX_WORDS)          !Sizes of message words
   logical bw(MAX_WORDS)          !bw(i) is True if w(i) is a standard callsign
   integer*4 nwords               !Number of words in message
   integer*4 n32
-  integer*1 n32a(4)
-  integer crc12
   logical btext,eom
-  equivalence (n32,n32a)
   data nmsg/0/
   save
 
@@ -46,7 +42,7 @@ subroutine pack_jtty(message,c42,nframes)
      i2=-1
      n2=-1
      nz=0
-     c42(iframe)=''
+     c32(iframe)=''
      if(trim(w(1)).eq.'CQ' .and. bw(2) .and. trim(w(3)).eq.'CQ' &
           .and. .not.btext) then
         i2=0
@@ -54,9 +50,8 @@ subroutine pack_jtty(message,c42,nframes)
         nz=3
         call pack28(w(2),n28)
         n32=shiftl(n28,4) + 4*n2 + i2
-        ncrc10=iand(crc12(n32a,4),1023)
-        write(c42(iframe),1002) n32,ncrc10
-1002    format(b32.32,b10.10)
+        write(c32(iframe),1002) n32
+1002    format(b32.32)
         eom=.true.
      else if(bw(1) .and. nwords.eq.1 .and. .not.btext) then
         i2=0
@@ -64,8 +59,7 @@ subroutine pack_jtty(message,c42,nframes)
         nz=1
         call pack28(w(1),n28)
         n32=shiftl(n28,4) + 4*n2 + i2
-        ncrc10=iand(crc12(n32a,4),1023)
-        write(c42(iframe),1002) n32,ncrc10
+        write(c32(iframe),1002) n32
         eom=.true.
      else if(trim(w(1)) .eq. 'TU' .and. bw(2) .and. trim(w(3)).eq.'CQ' &
            .and. .not.btext) then
@@ -74,8 +68,7 @@ subroutine pack_jtty(message,c42,nframes)
         nz=3
         call pack28(w(2),n28)
         n32=shiftl(n28,4) + 4*n2 + i2
-        ncrc10=iand(crc12(n32a,4),1023)
-        write(c42(iframe),1002) n32,ncrc10
+        write(c32(iframe),1002) n32
         eom=.true.
      else if(bw(1) .and. trim(w(2)).eq.'TU' .and. .not.btext) then
         i2=0
@@ -83,8 +76,7 @@ subroutine pack_jtty(message,c42,nframes)
         nz=2
         call pack28(w(1),n28)
         n32=shiftl(n28,4) + 4*n2 + i2
-        ncrc10=iand(crc12(n32a,4),1023)
-        write(c42(iframe),1002) n32,ncrc10
+        write(c32(iframe),1002) n32
         if(nwords.eq.2) then
            eom=.true.
         else
@@ -101,8 +93,7 @@ subroutine pack_jtty(message,c42,nframes)
         nz=2
         call pack28(w(1),n28)
         n32=shiftl(n28,4) + 4*n2 + i2
-        ncrc10=iand(crc12(n32a,4),1023)
-        write(c42(iframe),1002) n32,ncrc10
+        write(c32(iframe),1002) n32
         eom=.true.
      else if(bw(1)  .and. .not.btext) then
         i2=0
@@ -110,8 +101,7 @@ subroutine pack_jtty(message,c42,nframes)
         nz=nwords
         call pack28(w(1),n28)
         n32=shiftl(n28,4) + 4*n2 + i2
-        ncrc10=iand(crc12(n32a,4),1023)
-        write(c42(iframe),1002) n32,ncrc10
+        write(c32(iframe),1002) n32
         k1=nw(1)+2
         msg=message(k1:)
         if(verbose) print*,'aa',k1,trim(msg)
@@ -122,8 +112,7 @@ subroutine pack_jtty(message,c42,nframes)
         nz=3
         call pack28(w(3),n28)
         n32=shiftl(n28,4) + 4*n2 + i2
-        ncrc10=iand(crc12(n32a,4),1023)
-        write(c42(iframe),1002) n32,ncrc10
+        write(c32(iframe),1002) n32
         k1=len(trim(w(3))) + 9
         msg=message(k1:)
      else if(msg(1:4).eq.'599 ') then
@@ -136,8 +125,7 @@ subroutine pack_jtty(message,c42,nframes)
            n30=64*n30 + jchar(msg(i:i))
         enddo
         n32=ishft(n30,2) + i2
-        ncrc10=iand(crc12(n32a,4),1023)
-        write(c42(iframe),1002) n32,ncrc10
+        write(c32(iframe),1002) n32
         eom=.true.
      else
         i2=3                             !Use plain text, 5 characters per frame
@@ -149,8 +137,7 @@ subroutine pack_jtty(message,c42,nframes)
            n30=64*n30 + jchar(msg(i:i))
         enddo
         n32=ishft(n30,2) + i2
-        ncrc10=iand(crc12(n32a,4),1023)
-        write(c42(iframe),1002) n32,ncrc10
+        write(c32(iframe),1002) n32
         msg=msg(6:)
         ntext=ntext-5
      endif
@@ -189,38 +176,33 @@ subroutine pack_jtty(message,c42,nframes)
   return
 end subroutine pack_jtty
 
-subroutine unpack_jtty(c42,nframes,message)
+subroutine unpack_jtty(c32,nframes,message)
   
-! Input:   character*42   c42         !32-bit payload and 8-bit CRC
+! Input:   character*32   c32         !32-bit payload
 !          integer        nframes     !Frames in this message (max = 16)
 ! Output:  character*80   message     !JTTY message, as it appears to a user
 
-!  use crc
   use packjt77
   character*80 message
-  character*42 c42(MAX_FRAMES)
+  character*32 c32(MAX_FRAMES)
 
   character*13 c13
   integer*4 n32
-  integer*1 n32a(4)
-  integer crc12
-  logical success,crcok
-  equivalence (n32,n32a)
+  logical success
 
   message=''
   k=1
   do iframe=1,nframes
-     read(c42(iframe),1002) n28,n2,i2,ncrc10
-1002 format(b28.28,b2.2,b2.2,b10.10)
+     read(c32(iframe),1002) n28,n2,i2
+1002 format(b28.28,b2.2,b2.2)
      call unpack28(n28,c13,success)
      n=0
      if(success) n=len(trim(c13))
-     read(c42(iframe),1004) n32
+     read(c32(iframe),1004) n32
 1004 format(b32.32)
      n32=shiftl(n28,4) + 4*n2 + i2
-     crcok=ncrc10.eq.iand(crc12(n32a,4),1023)
      if(i2.eq.2 .or. i2.eq.3) then
-        read(c42(iframe),1006) n30
+        read(c32(iframe),1006) n30
 1006    format(b30.30)
         if(i2.eq.2) then
            message(k:k+3)='599 '
@@ -234,7 +216,7 @@ subroutine unpack_jtty(c42,nframes,message)
            k=k+1
         enddo
      else
-        if(success .and. crcok) then
+        if(success) then
            if(i2.eq.0 .and. n2.eq.0) then
               message(k:k+n+5) = 'CQ '//trim(c13)//' CQ'
               k=k+n+7

@@ -5,9 +5,9 @@ program ldpcsim80_42
    use jtty_fec
    integer, parameter:: N=80, K=42, M=N-K
    character*8 arg
-   character*42 c42(16)
+   character*32 c32(16)
    character*80 textmessage
-   integer*1 codeword(N), message42(42)
+   integer*1 codeword(N), message32(32)
    integer*1 cw(N)
    integer modtype, channeltype, graymap(0:3)
    integer itone(40)
@@ -65,13 +65,13 @@ program ldpcsim80_42
    endif
 
    textmessage="CQ K9AN CQ"
-   call pack_jtty(textmessage,c42,nframes)
-!   c42="111010110111010100010110110100111111001001"
-   read(c42(1),'(42i1)') message42(1:42)
-   write(*,*) 'message42'
-   write(*,'(42i1)') message42
+   call pack_jtty(textmessage,c32,nframes)
+   read(c32(1),'(32i1)') message32(1:32)
 
-   call encode_80_42(message42,codeword)
+   write(*,*) '32 bit message'
+   write(*,'(32i1)') message32
+
+   call encode_80_32(message32,codeword)
 
    write(*,*) 'codeword'
    write(*,'(80i1)') codeword
@@ -101,7 +101,6 @@ program ldpcsim80_42
       sigma=1/sqrt( 2*(10**(esn0db/10.0)) )  ! dB is Es/N0
       ngood=0
       nue=0
-      nbadcrc=0
       nbiterr=0
       nsymerr=0
 
@@ -176,10 +175,10 @@ program ldpcsim80_42
          nbiterr=nbiterr+nerr
 
 ! max_iterations is max number of belief propagation iterations
-         call bpdecode_80_42(llr, max_iterations, message42, cw, nharderrors)
+         call bpdecode_80_32(llr, max_iterations, message32, cw, nharderrors)
          ndeep=3
          if(nharderrors.lt.0) then 
-            call osd80_42(llr, ndeep, message42, cw, nharderrors, dmin)
+            call osd80_32(llr, ndeep, message32, cw, nharderrors, dmin)
          endif
 
 ! If the decoder finds a valid codeword, nharderrors will be .ge. 0.

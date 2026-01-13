@@ -2,7 +2,7 @@ program test_jtty_pack
 
   use jtty_mod
   character*80 msg0,msg
-  character*42 c42(MAX_FRAMES)
+  character*32 c32(MAX_FRAMES)
   character*1 err
 
   open(10,file='jtty_msgs.txt',status='old')
@@ -11,11 +11,11 @@ program test_jtty_pack
   do imsg=1,99
      read(10,'(a80)',end=100) msg0
      
-     call pack_jtty(msg0,c42,nframes)
+     call pack_jtty(msg0,c32,nframes)
      write(*,1010) imsg,nframes,trim(msg0)
 1010 format(i2,i3,4x,a)
 
-     call unpack_jtty(c42,nframes,msg)
+     call unpack_jtty(c32,nframes,msg)
      iz=len(trim(msg))
      do i=1,iz
         if(msg(i:i).eq.'~') msg(i:i)=' '
