@@ -13,7 +13,7 @@ program sjtty
   use wavhdr
   use jtty_mod
   use jtty_fec
-  use crc
+
   parameter (NMAX=30*12000)         !Max size of .wav file
   parameter (MAX_TONES=53*16)       !Max number of channel symbols
   character*12 arg                  !Command line argument

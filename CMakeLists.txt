@@ -1303,10 +1303,10 @@ target_link_libraries (jt65sim wsjt_fort wsjt_cxx)
 add_executable (sjtty lib/jtty/sjtty.f90)
 target_link_libraries (sjtty wsjt_fort wsjt_cxx)
 
-add_executable (jtty lib/jtty/jtty.f90 lib/jtty/update.f90 
-	       lib/jtty/cdatetime.f90 lib/jtty/transmit.f90
-	       lib/jtty/jttyaudio.c)
-target_link_libraries (jtty wsjt_fort wsjt_cxx Portaudio::Portaudio)
+#add_executable (jtty lib/jtty/jtty.f90 lib/jtty/update.f90 
+#	       lib/jtty/cdatetime.f90 lib/jtty/transmit.f90
+#	       lib/jtty/jttyaudio.c)
+#target_link_libraries (jtty wsjt_fort wsjt_cxx Portaudio::Portaudio)
 
 add_executable (test_jtty_pack lib/jtty/test_jtty_pack.f90)
 target_link_libraries (test_jtty_pack wsjt_fort wsjt_cxx)
