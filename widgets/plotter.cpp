@@ -271,7 +271,7 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
     } else {
       auto hr = m_nUTC / 10000;
       auto start = QTime {hr, (m_nUTC - 10000 * hr) / 100, m_nUTC % 100}
-         .toString (m_TRperiod < 60. ? "hh:mm:ss" : "hh:mm");
+         .toString ((m_TRperiod < 60.0) or (m_mode=="JTTY") ? "hh:mm:ss" : "hh:mm");
       t = QString {"%1    %2"}.arg (start).arg (m_rxBand);
     }
     QRect rect{5, -2, m_w-10, painter1.fontMetrics().ascent()};
