@@ -11505,7 +11505,7 @@ void MainWindow::on_actionJTTY_triggered()
   ui->cbAutoSeq->setChecked(false);
   m_bFastMode=false;
   m_bFast9=false;
-  m_nsps=2048;
+  m_nsps=6912;
   m_FFTSize = m_nsps / 2;
   if (m_tci_audio) Q_EMIT m_config.transceiver_blocksize (m_FFTSize);
   else Q_EMIT FFTSize (m_FFTSize);
