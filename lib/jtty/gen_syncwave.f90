@@ -1,8 +1,9 @@
 subroutine gen_syncwave(csync)
   integer barker13(13)
   complex csync(13*192)
-  data barker13/0,0,0,0,0,1,1,0,0,1,0,1,0/
-
+  data barker13/0,0,0,0,0,3,3,0,0,3,0,3,0/
+!  data barker13/0,0,0,0,0,1,1,0,0,1,0,1,0/
+!  data barker13/-1,-1,-1,-1,-1,5,5,-1,-1,5,-1,5,-1/
   twopi=8.0*atan(1.0)
   fsample = 6000.0
   dt=1.0/fsample
