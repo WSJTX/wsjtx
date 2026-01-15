@@ -191,7 +191,7 @@ extern "C" {
   void avecho_( short id2[], int* dop, int* nfrit, int* nauto, int* ndf, int* navg,
                 int* nqual, float* f1, float* level, float* sigdb, float* snr, float* dfreq,
                 float* width, bool* bDiskData, bool* bEchoCall, char const * txcall,
-                char rxcall[], float* xdt, FCL len1, FCL len2);
+                char rxcall[], FCL len1, FCL len2);
 
   void fast_decode_(short id2[], int narg[], double * trperiod,
                     char msg[], char mycall[], char hiscall[],
@@ -2417,10 +2417,9 @@ void MainWindow::dataSink(qint64 frames)
       bool bEchoCall=ui->rbEchoMessage->isChecked();
       QString txcall=ui->leEchoMessage->text();
       static char crxcall[7];
-      float xdt=0.0;
       avecho_(dec_data.d2,&nDop,&nfrit,&nauto,&ndf,&navg,&nqual,&f1,&xlevel,&sigdb,
           &dBerr,&dfreq,&width,&m_diskData,&bEchoCall,txcall.toLatin1().constData(),
-          &crxcall[0],&xdt,(FCL)6,(FCL)6);
+          &crxcall[0],(FCL)6,(FCL)6);
       crxcall[6]=0;
       QString rxcall {QString::fromLatin1(crxcall)};
 
@@ -2451,8 +2450,8 @@ void MainWindow::dataSink(qint64 frames)
         m_echoRunning=true;
         if(ndf<0 or ndf>30) ndf=0;
         QString t;
-        t = t.asprintf("%7.4f  %5.2f %7d %7.1f %5d %5d %6d %6.1f %7.1f %5.2f %3d",hour,xlevel,
-                       nDopTotal,width,echocom_.nsum,nqual,qRound(dfreq),sigdb,dBerr,xdt,ndf);
+        t = t.asprintf("%7.4f  %5.2f %7d %7.1f %5d %5d %6d %6.1f %7.1f  %3d",hour,xlevel,
+                       nDopTotal,width,echocom_.nsum,nqual,qRound(dfreq),sigdb,dBerr,ndf);
         t = t0 + t + "  " + rxcall;
         if(!bEchoCall) t=t.left(78);
         if(ui) ui->decodedTextBrowser->insertText(t);
@@ -11505,7 +11504,7 @@ void MainWindow::on_actionJTTY_triggered()
   ui->cbAutoSeq->setChecked(false);
   m_bFastMode=false;
   m_bFast9=false;
-  m_nsps=2048;
+  m_nsps=6912;
   m_FFTSize = m_nsps / 2;
   if (m_tci_audio) Q_EMIT m_config.transceiver_blocksize (m_FFTSize);
   else Q_EMIT FFTSize (m_FFTSize);
@@ -11694,7 +11693,7 @@ void MainWindow::on_actionEcho_triggered()
   m_bFastMode=false;
   m_bFast9=false;
   WSPR_config(true);
-  ui->lh_decodes_headings_label->setText("  UTC    Hour    Level  Doppler  Width     N     Q     DF    SNR   dBerr   DT   TS  EchoMsg");
+  ui->lh_decodes_headings_label->setText("  UTC    Hour    Level  Doppler  Width     N     Q     DF    SNR   dBerr   TS  EchoMsg");
   //                       01234567890123456789012345678901234567
   displayWidgets(nWidgets("00000000000000000010001000000000000000"));
   fast_config(false);

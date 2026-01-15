@@ -29,8 +29,8 @@ program rjtty
    nargs=iargc()
    if(nargs.lt.5) then
       print*,'Usage:    rjtty smin ndebug  f0  ftol  fname [...]'
-      print*,'Examples: rjtty   5    0    1500  50  000000_000001.wav'
-      print*,'          rjtty   5    1    1500  50  *.wav'
+      print*,'Examples: rjtty   3    0    1500  50  000000_000001.wav'
+      print*,'          rjtty   3    1    1500  50  *.wav'
       go to 999
    endif
    call getarg(1,arg)
