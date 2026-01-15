@@ -101,6 +101,7 @@ subroutine avecho(id2_0,ndop,nfrit,nauto,ndf,navg,nqual,f1,xlevel,  &
      call decode_echo(id2,searching,rxcall)
 
      x(1:NTX)=id2(1:NTX)
+     x(1:15)=0.
      x(NTX+1:)=0.
      x=x/NTX
      call four2a(x,NFFT,1,-1,0)              !Compute the tone-aligned spectrum
