@@ -24,7 +24,6 @@ subroutine decode_echo(id2,searching,rxcall)
 
 ! Retrieve params known at time of transmission and saved in id2
   call save_echo_params(nDop,nDopAudio,nfrit,f1,fspread,ndf,itone,id2,-1)
-
   df=12000.0/NSPS
   if(ndf.lt.10 .or. ndf.gt.30) return
   if(f1.eq.0.0) f1=1500.0
