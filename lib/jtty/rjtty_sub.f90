@@ -27,8 +27,6 @@ subroutine rjtty_sub(iwave,kz,line1)
   call jtty_decode(iwave(istart),NCHUNK,f0,ftol,smin,synced,xdt,f1,snr,umsg,success)
   istart=istart+NFRAME
 
-  print*,'bb',istart,f1,snr,synced,success,trim(umsg)
-
   if(synced) then
      n = len(trim(umsg))
      if(n.gt.79) n=79                 ! truncate at 80 chars
