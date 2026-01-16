@@ -27,7 +27,7 @@ subroutine avecho(id2_0,ndop,nfrit,nauto,ndf,navg,nqual,f1,xlevel,  &
   common/echocom/nclearave,nsum,blue(NZ),red(NZ)
   common/echocom2/fspread_self,fspread_dx
   data navg0/-1/
-  save dop0,navg0,sax,sbx,ssnr,sqsnr
+  save dop0,navg0,sax,sbx
 
   if(ndf.eq.-999) stop                !Silence compiler warning
   if(bEchoCall .and. .not.bDiskData) then
@@ -93,17 +93,18 @@ subroutine avecho(id2_0,ndop,nfrit,nauto,ndf,navg,nqual,f1,xlevel,  &
      s(i)=real(c(i))**2 + aimag(c(i))**2
   enddo
 
-  do i=1,NZ
-     sa(i)=s(ia+i-2048)    !Center at initial doppler freq
-     sb(i)=s(ib+i-2048)    !Center at expected echo freq
-  enddo
   nsum=nsum+1
- 
-  call echo_snr(sa,sb,fspread,blue,red,snrdb,db_err,dfreq,snr_detect)
+  j=mod(nsum-1,navg)+1
   do i=1,NZ
+     sax(j,i)=s(ia+i-2048)    !Center at initial doppler freq
+     sbx(j,i)=s(ib+i-2048)    !Center at expected echo freq
      sa(i)=sum(sax(1:navg,i))
      sb(i)=sum(sbx(1:navg,i))
   enddo
+
+  call echo_snr(sa,sb,fspread,blue,red,snrdb,db_err,dfreq,snr_detect)
+
+  db_err=db_err/sqrt(float(nsum))
   nqual=snr_detect-2
   if(nqual.lt.0) nqual=0
   if(nqual.gt.10) nqual=10
