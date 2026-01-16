@@ -64,10 +64,10 @@ program rjtty
  
          call system_clock(count0,clkfreq)
          call jtty_decode(iwave(istart),nchunk,f0,ftol,smin,synced,xdt,  &
-            f1,snr,umsg,success)
+            f1,snr,umsg,success,nharderrors,nsync)
          call system_clock(count1,clkfreq)
 
-         if(success) then
+         if(synced) then
             n = len(trim(umsg))
             do i=1,n
                if(umsg(i:i).eq.'~') umsg(i:i)=' '
@@ -80,9 +80,9 @@ program rjtty
                write(*,*) 'debug ',umsg(1:n)
             endif
             tdecode=float(count1-count0)/clkfreq
-            if(ndebug.gt.0) write(71,3071) istart,xdt,f1,snr,synced,tdecode, &
+            if(ndebug.gt.0) write(71,3071) istart,xdt,f1,snr,synced,nsync,nharderrors,tdecode, &
                trim(umsg)
-3071        format(i8,f7.3,f8.1,f6.1,L3,f7.3,2x,a)
+3071        format(i8,f7.3,f8.1,f6.1,L3,i5,i5,f7.3,2x,a)
          endif
          istart=istart+nframe/4
       enddo
