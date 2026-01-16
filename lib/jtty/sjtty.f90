@@ -36,7 +36,9 @@ program sjtty
   logical itu_model                 !True if fdop, delay are from an ITU model
   data flags/'!@#$%^&*()'/
   data graymap/0,1,3,2/
-  data ib13/0,0,0,0,0,1,1,0,0,1,0,1,0/
+  data ib13/0,0,0,0,0,3,3,0,0,3,0,3,0/
+!  data ib13/0,0,0,0,0,1,1,0,0,1,0,1,0/
+!  data ib13/-1,-1,-1,-1,-1,5,5,-1,-1,5,-1,5,-1/
   nargs=iargc()
   if(nargs.ne.7) then
      print*,'Usage:   sjtty    message     f0   DT fdop del nfiles SNR'
