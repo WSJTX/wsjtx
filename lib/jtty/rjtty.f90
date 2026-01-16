@@ -42,12 +42,11 @@ program rjtty
    call getarg(4,arg)
    read(arg,*) ftol
 
-
    do ifile=1,nargs-4
       call getarg(ifile+4,fname)
       open(10,file=fname,status='old',access='stream')
       read(10) h
-      nwave=min(h%ndata/2,360000)
+      nwave=min(h%ndata/2,NMAX)
       read(10) iwave(1:nwave)
       close(10)
       iwave(nwave+1:) = 0
