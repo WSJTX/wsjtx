@@ -24,7 +24,8 @@ subroutine rjtty_sub(iwave,kz,line1)
 
   if(kz-istart+1 .lt. NCHUNK) return      ! wait for enough data
   synced=.false.                          ! sync on every call for now
-  call jtty_decode(iwave(istart),NCHUNK,f0,ftol,smin,synced,xdt,f1,snr,umsg,success)
+  call jtty_decode(iwave(istart),NCHUNK,f0,ftol,smin,synced,xdt,f1,snr,umsg, &
+       success,nharderrors,nsync)
   istart=istart+NFRAME
 
   if(synced) then
