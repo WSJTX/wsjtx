@@ -47,8 +47,8 @@ program rjtty
       call getarg(ifile+4,fname)
       open(10,file=fname,status='old',access='stream')
       read(10) h
-      nwave=h%ndata/2
-      read(10) iwave(1:min(nwave,360000))
+      nwave=min(h%ndata/2,360000)
+      read(10) iwave(1:nwave)
       close(10)
       iwave(nwave+1:) = 0
 
