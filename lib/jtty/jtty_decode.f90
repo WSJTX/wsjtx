@@ -1,4 +1,4 @@
-subroutine jtty_decode(iwave,nwave,f0,ftol,smin,synced,xdt,f1,snr,decoded,success)
+subroutine jtty_decode(iwave,nwave,f0,ftol,smin,synced,xdt,f1,snr,decoded,success,nharderrors,nsync)
    use jtty_mod
    use jtty_fec
    parameter (NMAX=30*12000)                 !Max length of data @12000 Hz
@@ -21,7 +21,10 @@ subroutine jtty_decode(iwave,nwave,f0,ftol,smin,synced,xdt,f1,snr,decoded,succes
    complex ctones(0:191,0:3)
    integer*1 message32(32)
    integer*1 cw80(80)
+   integer   iloc(1)
+   integer isyncvec(13),irxsync(13)
    logical success
+   data isyncvec/0,0,0,0,0,3,3,0,0,3,0,3,0/
 
    complex z
    logical first,synced
@@ -98,15 +101,38 @@ subroutine jtty_decode(iwave,nwave,f0,ftol,smin,synced,xdt,f1,snr,decoded,succes
 
 !      call jtty_peakup(c0,c1,csync,xdtbest,fbest,xdt,f1,snr)
 
-      if(snr.gt.smin) go to 10
+      a=0.
+      a(1)=-f1                                !Shift peak to zero frequency
+      call twkfreq(c0,c1,npts,6000.0,a)
+
+      pt=0.
+      pa=0.
+      do j=1,13                                ! find tone powers for sync symbols 
+         i0=nint(xdt/dt) + (j-1)*192
+         if(i0.gt.npts) exit
+
+         do i=0,3
+            c(0:NSS-1)=conjg(ctones(0:NSS-1,i))*c1(i0:i0+NSS-1)
+            z=sum(c(0:NSS-1))
+            pow(i)=abs(z)**2
+          enddo
+          iloc=maxloc(pow)-1
+          irxsync(j)=iloc(1)
+          pt=pt+pow(isyncvec(j))
+          pa=pa+sum(pow)
+      enddo
+      ssnr=-99.0
+      pn=(pa-pt)/3.0
+      if(pn.gt.0.) ssnr=db(pt/pn)
+      snr=ssnr                                 ! replace the snr derived from sync-shifted spectrum
+      nsync=count(isyncvec.eq.irxsync)         ! nsync is the number of correct hard-decoded sync tones.
+
+      if(nsync .ge. 5 .and. snr .gt. smin) go to 10
       return
    endif
 
 10 synced=.true.
 
-   a=0.
-   a(1)=-f1                                !Shift peak to zero frequency
-   call twkfreq(c0,c1,npts,6000.0,a)
 
    do j=1,40                                ! find tone powers for 40 symbols
       i0=nint(xdt/dt) + 13*NSS + (j-1)*192
