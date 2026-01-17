@@ -150,7 +150,7 @@ program sjtty
 
 !  call sgran()
 
-  npts=2**(int(log(float(nwave))/log(2.0) + 0.9999))  !Round up to integer power of 2
+  npts=2**(int(log(float(nwave)+xdt/dt)/log(2.0) + 0.9999))  !Round up to integer power of 2
   do ifile=1,nfiles
      c0=0.
      c0(0:nwave-1)=cwave(0:nwave-1)
