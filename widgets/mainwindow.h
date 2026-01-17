@@ -513,6 +513,7 @@ private:
   void jtty_tx(QString message);
   void jtty_save_wav();
   bool jtty_key_struck(QKeyEvent * e);
+  void jtty_decode(int k);
 
   bool play_DXcall = false;
   bool play_Wanted = false;

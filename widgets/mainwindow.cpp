@@ -2601,7 +2601,6 @@ QString MainWindow::save_wave_file (QString const& name, short const * data, int
 void MainWindow::fastSink(qint64 frames)
 {
   int k (frames);
-  static int k0=9999999;
   bool decodeNow=false;
   filtered = false;
   ignored = false;
@@ -2655,24 +2654,7 @@ void MainWindow::fastSink(qint64 frames)
   m_fastGraph->plotSpec(m_diskData,m_UTCdisk);
 
   if(m_mode=="JTTY") {
-    rjtty_sub_(dec_data.d2,&k,&line[0],(FCL)80);
-    QString message {QString::fromLatin1(line)};
-    if(message.length() > 0 and message.length() < 81) {
-        if(k > k0) {
-          QTextCursor cursor = ui->decodedTextBrowser->textCursor();
-          cursor.movePosition(QTextCursor::End);        // Cursor to end of text
-          cursor.select(QTextCursor::LineUnderCursor);  //Select line under cursor
-          cursor.removeSelectedText();                  //Remove the selected line
-          cursor.deletePreviousChar();                  //Delete previous newline
-          ui->decodedTextBrowser->setTextCursor(cursor); //Reset cursor back to browser
-        }
-        k0 = k;
-        m_xRcvd="";
-        QStringList w = message.split(" ",SkipEmptyParts);
-        if((w.length() == 2) and (w[0] == "599")) m_xRcvd = w[1];
-        if((w.length() == 3) and (w[1] == "599")) m_xRcvd = w[2];
-        ui->decodedTextBrowser->insertText(message);
-    }
+    jtty_decode(k);
     if(dec_data.params.kin - k < 10240) fast_decode_done();
     return;
   }
@@ -5402,6 +5384,8 @@ void MainWindow::on_DecodeButton_clicked (bool /* checked */) //Decode request
 {
   if(m_mode=="MSK144") {
     ui->DecodeButton->setChecked(false);
+  } else if(m_mode=="JTTY") {
+    qDebug() << "aa";
   } else {
     if(m_mode!="WSPR" && !m_decoderBusy) {
       m_manualDecode=true;
@@ -17575,4 +17559,28 @@ void MainWindow::jtty_save_wav()
   m_saveWAVWatcher.setFuture (QtConcurrent::run (std::bind (&MainWindow::save_wave_file,
         this, m_fnameWE, &dec_data.d2[0], samples, m_config.my_callsign(),
         m_config.my_grid(), m_mode, m_nSubMode, m_freqNominalPeriod, m_hisCall, m_hisGrid)));
+}
+
+void MainWindow::jtty_decode(int k)
+{
+  static int k0=9999999;
+  char line[80];
+  rjtty_sub_(dec_data.d2,&k,&line[0],(FCL)80);
+  QString message {QString::fromLatin1(line)};
+  if(message.length() > 0 and message.length() < 81) {
+    if(k > k0) {
+      QTextCursor cursor = ui->decodedTextBrowser->textCursor();
+      cursor.movePosition(QTextCursor::End);        // Cursor to end of text
+      cursor.select(QTextCursor::LineUnderCursor);  //Select line under cursor
+      cursor.removeSelectedText();                  //Remove the selected line
+      cursor.deletePreviousChar();                  //Delete previous newline
+      ui->decodedTextBrowser->setTextCursor(cursor); //Reset cursor back to browser
+    }
+    k0=k;
+    m_xRcvd="";
+    QStringList w = message.split(" ",SkipEmptyParts);
+    if((w.length() == 2) and (w[0] == "599")) m_xRcvd = w[1];
+    if((w.length() == 3) and (w[1] == "599")) m_xRcvd = w[2];
+    ui->decodedTextBrowser->insertText(message);
+  }
 }
