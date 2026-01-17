@@ -43,7 +43,6 @@ program sjtty
   if(nargs.ne.7) then
      print*,'Usage:   sjtty    message     f0   DT fdop del nfiles SNR'
      print*,'Example: sjtty "CQ K1ABC CQ" 1500 0.0  0.5  1    10   -10'
-     print*,'Special shorthands for: CQ TU QRZ AGN NR 599 73 RPT TEST'
      print*,'ITU propagation models: set fdop to AW LQ LM LD MQ MM MD HQ HM HD'
      go to 999
   endif
