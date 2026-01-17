@@ -52,7 +52,7 @@ subroutine jtty_decode(iwave,nwave,f0,ftol,smin,synced,xdt,f1,snr,decoded,succes
 
       first=.false.
    endif
- 
+
    call ana64a(iwave,nwave,c0)
 
    npts=nwave/2
@@ -100,36 +100,36 @@ subroutine jtty_decode(iwave,nwave,f0,ftol,smin,synced,xdt,f1,snr,decoded,succes
       f1=fbest
 
 !      call jtty_peakup(c0,c1,csync,xdtbest,fbest,xdt,f1,snr)
-
-      a=0.
-      a(1)=-f1                                !Shift peak to zero frequency
-      call twkfreq(c0,c1,npts,6000.0,a)
-
-      pt=0.
-      pa=0.
-      do j=1,13                                ! find tone powers for sync symbols 
-         i0=nint(xdt/dt) + (j-1)*192
-         if(i0.gt.npts) exit
-
-         do i=0,3
-            c(0:NSS-1)=conjg(ctones(0:NSS-1,i))*c1(i0:i0+NSS-1)
-            z=sum(c(0:NSS-1))
-            pow(i)=abs(z)**2
-          enddo
-          iloc=maxloc(pow)-1
-          irxsync(j)=iloc(1)
-          pt=pt+pow(isyncvec(j))
-          pa=pa+sum(pow)
-      enddo
-      ssnr=-99.0
-      pn=(pa-pt)/3.0
-      if(pn.gt.0.) ssnr=db(pt/pn)
-      snr=ssnr                                 ! replace the snr derived from sync-shifted spectrum
-      nsync=count(isyncvec.eq.irxsync)         ! nsync is the number of correct hard-decoded sync tones.
-
-      if(nsync .ge. 5 .and. snr .gt. smin) go to 10
-      return
    endif
+
+   a=0.
+   a(1)=-f1                                !Shift peak to zero frequency
+   call twkfreq(c0,c1,npts,6000.0,a)
+
+   pt=0.
+   pa=0.
+   do j=1,13                                ! find tone powers for sync symbols
+      i0=nint(xdt/dt) + (j-1)*192
+      if(i0.gt.npts) exit
+
+      do i=0,3
+         c(0:NSS-1)=conjg(ctones(0:NSS-1,i))*c1(i0:i0+NSS-1)
+         z=sum(c(0:NSS-1))
+         pow(i)=abs(z)**2
+      enddo
+      iloc=maxloc(pow)-1
+      irxsync(j)=iloc(1)
+      pt=pt+pow(isyncvec(j))
+      pa=pa+sum(pow)
+   enddo
+   ssnr=-99.0
+   pn=(pa-pt)/3.0
+   if(pn.gt.0.) ssnr=db(pt/pn)
+   snr=ssnr                                 ! replace the snr derived from sync-shifted spectrum
+   nsync=count(isyncvec.eq.irxsync)         ! nsync is the number of correct hard-decoded sync tones.
+
+   if(nsync .ge. 5 .and. snr .gt. smin) go to 10
+   return
 
 10 synced=.true.
 
@@ -165,7 +165,7 @@ subroutine jtty_decode(iwave,nwave,f0,ftol,smin,synced,xdt,f1,snr,decoded,succes
 
    decoded=' '
    if( nharderrors .ge. 0 ) then
-      success=.true. 
+      success=.true.
       write(c32,'(32i1)') message32
       call unpack_jtty(c32,1,decoded)
    endif
