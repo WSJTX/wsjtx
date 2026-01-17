@@ -17560,7 +17560,7 @@ void MainWindow::jtty_tx(QString message)
   }
   m_transmitting = true;
   startTx2();
-  int msTx=nwave/48.0 + 10;
+  int msTx=nwave/48.0 + 1000*m_config.txDelay();
   QTimer::singleShot(msTx, this, SLOT (stopTx()));
 }
 
