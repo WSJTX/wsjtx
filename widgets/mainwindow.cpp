@@ -2230,7 +2230,7 @@ void MainWindow::fixStop()
       m_hsymStop=stop[i];
     }
   } else if(m_mode=="JTTY") {
-    m_hsymStop=350;
+    m_hsymStop=104;
   }
 }
 
