@@ -8,7 +8,7 @@ subroutine rjtty_sub(iwave,kz,line1)
   character*80 umsg
   logical synced,success
   data kz0/9999999/
-  save istart,kz0,kchar,line
+  save istart,kz0,kchar,line,success
 
   f0=1500.0
   ftol=50.0
@@ -19,29 +19,34 @@ subroutine rjtty_sub(iwave,kz,line1)
      istart=1
      kchar=0
      line=""
-     return
+     go to 999
   endif
 
   if(kz-istart+1 .lt. NCHUNK) return      ! wait for enough data
-  synced=.false.                          ! sync on every call for now
-  call jtty_decode(iwave(istart),NCHUNK,f0,ftol,smin,synced,xdt,f1,snr,umsg, &
-       success,nharderrors,nsync)
-  istart=istart+NFRAME
+  do while (istart+NCHUNK-1 .le. kz)
+     synced=.false.                          ! sync on every call for now
+     success=.false.
+     call jtty_decode(iwave(istart),NCHUNK,f0,ftol,smin,synced,xdt,f1,  &
+          snr,umsg,success,nharderrors,nsync)
 
-  if(synced) then
-     n = len(trim(umsg))
-     if(n.gt.79) n=79                 ! truncate at 80 chars
-     do i=1,n
-        if(umsg(i:i).eq.'~') umsg(i:i)=' '
-     enddo
-     if(kchar+n .gt. 79) kchar=0
-     line(kchar+1:kchar+n)=umsg(1:n)
-     line(kchar+n+1:kchar+n+1)=char(0)
-     kchar = kchar + n
-     line1(1:n)=umsg(1:n)
-     line1(n+1:n+1)=char(0)
-  endif
-  line1=line
+     if(success) then
+        n = len(trim(umsg))
+        if(n.gt.79) n=79                 ! truncate at 80 chars
+        do i=1,n
+           if(umsg(i:i).eq.'~') umsg(i:i)=' '
+        enddo
+        if(kchar+n .gt. 79) kchar=0
+        line(kchar+1:kchar+n)=umsg(1:n)
+        line(kchar+n+1:kchar+n+1)=char(0)
+        kchar = kchar + n
+        line1(1:n)=umsg(1:n)
+        line1(n+1:n+1)=char(0)
+        istart=istart+NFRAME
+     else
+        istart=istart+NFRAME/4
+     endif
+     line1=line
+  enddo
 
-  return
+999 return
 end subroutine rjtty_sub
