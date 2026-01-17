@@ -52,17 +52,16 @@ program rjtty
       if(nwave.lt.NMAX) iwave(nwave+1:NMAX) = 0
       kchar=0
       istart=1
-
+      synced=.false. 
+      nsync=0
 ! Process data on the fly, one buffer at a time:
       do while (istart+NCHUNK-1 .le. nwave)
-         synced=.false.                      ! sync on evey call for now
          success=.false.
- 
+!synced=.false.               !uncomment this to disable use of prior sync
          call system_clock(count0,clkfreq)
          call jtty_decode(iwave(istart),NCHUNK,f0,ftol,smin,synced,xdt,  &
             f1,snr,umsg,success,nharderrors,nsync)
          call system_clock(count1,clkfreq)
-
          if(success) then
             n = len(trim(umsg))
             do i=1,n
@@ -82,8 +81,10 @@ program rjtty
 3071           format(i8,f7.3,f8.1,f6.1,2L3,i5,i5,f7.3,2x,a)
             endif
             istart=istart+NFRAME
+            if(nsync.lt.12) synced=.false.
          else
             istart=istart+NFRAME/4
+            synced=.false.
          endif
       enddo
       write(*,*) ''
