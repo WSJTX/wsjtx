@@ -8277,8 +8277,7 @@ void MainWindow::guiUpdate()
     statusUpdate ();
   }
 
-  if((!m_btxok && m_btxok0 && g_iptt==1) or (m_mode=="JTTY" and m_transmitting
-                                             and !m_modulator->isActive())) {
+  if((!m_btxok && m_btxok0 && g_iptt==1)) {
     stopTx();
     if ("1" == m_env.value ("WSJT_TX_BOTH", "0")) {
       m_txFirst = !m_txFirst;
@@ -8338,7 +8337,8 @@ void MainWindow::guiUpdate()
 
 //Once per second (onesec)
   if(nsec != m_sec0) {
-//    qDebug() << "AAA" << nsec % 60 << m_k0 << m_k0/12000 << g_iptt;
+//    qDebug() << "AAA" << nsec % 60 << m_k0 << m_k0/12000 << g_iptt << m_transmitting
+//             << m_modulator->isActive();
     // reset earlyDecodes for 2-stage or 3-stage decoding, or if QRG > 45 MHz
     if (m_mode=="FT8" && !m_diskData && ((m_multithreadFT8 && m_ft8DecoderStart<2) or m_freqNominal>45000000)) {
       QDateTime now = QDateTime::currentDateTimeUtc();
@@ -17560,6 +17560,8 @@ void MainWindow::jtty_tx(QString message)
   }
   m_transmitting = true;
   startTx2();
+  int msTx=nwave/48.0 + 10;
+  QTimer::singleShot(msTx, this, SLOT (stopTx()));
 }
 
 void MainWindow::jtty_save_wav()
