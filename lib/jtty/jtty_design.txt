@@ -39,10 +39,10 @@ reliable copy. Most contest-style transmissions require only one or
 two packets. There is no need for archaic RTTY contesting necessities
 such as CR/LF at start of a transmission, LETTERS/NUMBERS shift
 characters, an extra space at end-of-message, etc. Real throughput for
-JTTY in contesti9ng circumstances will be significantly higher than
+JTTY in contesting circumstances will be significantly higher than
 for 45-baud RTTY.
 
-An example shopwing the messages exchanged for two successive
+An example showing the messages exchanged for two successive
 contest-style QSOs is shown below, where I have also listed the number
 of packets required and the user throughput in words per minute. In this
 sequence KA1ABC calls CQ, gets decoded replies from WB9XYZ and JA6DEF,
