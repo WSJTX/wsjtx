@@ -8,24 +8,27 @@ subroutine rjtty_sub(iwave,kz,line1)
   character*80 umsg
   logical synced,success
   data kz0/9999999/
-  save istart,kz0,kchar,line,success
+  save istart,kz0,kchar,line,success,synced,xdt,f1
 
   f0=1500.0
   ftol=50.0
-  smin=1.0
+  smin=2.0
 
   if(kz .le. kz0 ) then
      kz0=kz
      istart=1
      kchar=0
      line=""
+     synced=.false.
      go to 999
   endif
-
   if(kz-istart+1 .lt. NCHUNK) return      ! wait for enough data
+
+  nsync=0
   do while (istart+NCHUNK-1 .le. kz)
-     synced=.false.                          ! sync on every call for now
      success=.false.
+!     synced=.false.                          ! uncomment this to disable use of prior sync 
+
      call jtty_decode(iwave(istart),NCHUNK,f0,ftol,smin,synced,xdt,f1,  &
           snr,umsg,success,nharderrors,nsync)
 
@@ -42,8 +45,10 @@ subroutine rjtty_sub(iwave,kz,line1)
         line1(1:n)=umsg(1:n)
         line1(n+1:n+1)=char(0)
         istart=istart+NFRAME
+        if(nsync.lt.12) synced=.false.       ! don't use this sync for next frame if it's not strong
      else
         istart=istart+NFRAME/4
+        synced=.false.
      endif
      line1=line
   enddo
