@@ -4570,6 +4570,7 @@ void MainWindow::on_stopButton_clicked()                       //stopButton
 {
   ui->pbBandHopping->setChecked(false); // disable band hopping
   monitor (false);
+  if(m_mode=="JTTY" and m_saveAll) jtty_save_wav();
   m_loopall=false;
   if(m_bRefSpec) {
     MessageBox::information_message (this, tr ("Reference spectrum saved"));
