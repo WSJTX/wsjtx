@@ -2289,7 +2289,7 @@ void MainWindow::dataSink(qint64 frames)
     if(m_ihsym >= m_hsymStop and m_saveAll) {
       monitor(false);
       jtty_save_wav();
-      monitor(true);
+      if(!m_diskData) monitor(true);
     }
     return;
   }
@@ -5385,7 +5385,7 @@ void MainWindow::on_DecodeButton_clicked (bool /* checked */) //Decode request
   if(m_mode=="MSK144") {
     ui->DecodeButton->setChecked(false);
   } else if(m_mode=="JTTY") {
-    qDebug() << "aa";
+    qDebug() << "aa"<< "Decode clicked";
   } else {
     if(m_mode!="WSPR" && !m_decoderBusy) {
       m_manualDecode=true;
