@@ -11493,6 +11493,7 @@ void MainWindow::on_actionJTTY_triggered()
   if (m_tci_audio) Q_EMIT m_config.transceiver_blocksize (m_FFTSize);
   else Q_EMIT FFTSize (m_FFTSize);
   m_TRperiod=60;                   //We need a nonzero setting for WideGraph plotter to work.
+  m_hsymStop=6250;
   m_wideGraph->setPeriod(m_TRperiod,m_nsps);
   ui->TxFreqSpinBox->setValue(1500);
   ui->RxFreqSpinBox->setValue(1500);
