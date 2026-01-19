@@ -158,11 +158,11 @@ subroutine jtty_decode(iwave,nwave,f0,ftol,smin,synced,xdt,f1,snr,decoded,succes
    nharderrors=-1
    dmin=0.0
    call bpdecode_80_32(bitmetrics,maxiterations,message32,cw80,nharderrors)
-   if(nharderrors .ge. 0 .and. sum(message32) .eq. 0) nharderrors=-1  ! reject the all zero message
    if(nharderrors .lt. 0) then
       ndeep=3
       call osd80_32(bitmetrics, ndeep, message32, cw80, nharderrors, dmin)
    endif
+   if(nharderrors .ge. 0 .and. sum(message32) .eq. 0) nharderrors=-nharderrors  ! reject the all zero message
 
    decoded=' '
    if( nharderrors .ge. 0 ) then
