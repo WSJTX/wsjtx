@@ -11494,8 +11494,8 @@ void MainWindow::on_actionJTTY_triggered()
   else Q_EMIT FFTSize (m_FFTSize);
   m_TRperiod=60;                   //We need a nonzero setting for WideGraph plotter to work.
   m_wideGraph->setPeriod(m_TRperiod,m_nsps);
-  ui->TxFreqSpinBox->setValue(1800);
-  ui->RxFreqSpinBox->setValue(1800);
+  ui->TxFreqSpinBox->setValue(1500);
+  ui->RxFreqSpinBox->setValue(1500);
   ui->RxFreqSpinBox->setSingleStep(200);
   ui->lh_decodes_headings_label->setText("");
   ui->rh_decodes_headings_label->setText("");
