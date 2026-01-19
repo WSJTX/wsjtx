@@ -15,7 +15,8 @@ subroutine genjtty(umsg,itone,nsym)
   integer graymap(0:3)
   integer ib13(13)
   data graymap/0,1,3,2/
-  data ib13/0,0,0,0,0,1,1,0,0,1,0,1,0/
+!  data ib13/0,0,0,0,0,1,1,0,0,1,0,1,0/
+  data ib13/0,0,0,0,0,3,3,0,0,3,0,3,0/
 
   call pack_jtty(umsg,c32,nframes)
   nsym=0
