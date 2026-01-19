@@ -60,7 +60,7 @@ program rjtty
 !synced=.false.               !uncomment this to disable use of prior sync
          call system_clock(count0,clkfreq)
          call jtty_decode(iwave(istart),NCHUNK,f0,ftol,smin,synced,xdt,  &
-            f1,snr,umsg,success,nharderrors,nsync)
+            f1,snr,umsg,success,nharderrors,nsync,dmin)
          call system_clock(count1,clkfreq)
          if(success) then
             n = len(trim(umsg))
@@ -77,8 +77,8 @@ program rjtty
             tdecode=float(count1-count0)/clkfreq
             if(ndebug.gt.0) then
                write(71,3071) istart,xdt,f1,snr,synced,success,nsync,  &
-                    nharderrors,tdecode,trim(umsg)
-3071           format(i8,f7.3,f8.1,f6.1,2L3,i5,i5,f7.3,2x,a)
+                    nharderrors,dmin,tdecode,trim(umsg)
+3071           format(i8,f7.3,f8.1,f6.1,2L3,i5,i5,f9.1,f7.3,2x,a)
             endif
             istart=istart+NFRAME
             if(nsync.lt.12) synced=.false.

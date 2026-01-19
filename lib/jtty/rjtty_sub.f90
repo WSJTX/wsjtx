@@ -25,12 +25,13 @@ subroutine rjtty_sub(iwave,kz,line1)
   if(kz-istart+1 .lt. NCHUNK) return      ! wait for enough data
 
   nsync=0
+  dmin=0.0            ! A nonzero value will be returned if OSD produces the decode. Use to reject false decodes?
   do while (istart+NCHUNK-1 .le. kz)
      success=.false.
 !     synced=.false.                          ! uncomment this to disable use of prior sync 
 
      call jtty_decode(iwave(istart),NCHUNK,f0,ftol,smin,synced,xdt,f1,  &
-          snr,umsg,success,nharderrors,nsync)
+          snr,umsg,success,nharderrors,nsync,dmin)
 
      if(success) then
         n = len(trim(umsg))

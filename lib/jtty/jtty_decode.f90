@@ -1,4 +1,4 @@
-subroutine jtty_decode(iwave,nwave,f0,ftol,smin,synced,xdt,f1,snr,decoded,success,nharderrors,nsync)
+subroutine jtty_decode(iwave,nwave,f0,ftol,smin,synced,xdt,f1,snr,decoded,success,nharderrors,nsync,dmin)
    use jtty_mod
    use jtty_fec
    parameter (NMAX=30*12000)                 !Max length of data @12000 Hz
@@ -156,6 +156,7 @@ subroutine jtty_decode(iwave,nwave,f0,ftol,smin,synced,xdt,f1,snr,decoded,succes
 
    maxiterations=25
    nharderrors=-1
+   dmin=0.0
    call bpdecode_80_32(bitmetrics,maxiterations,message32,cw80,nharderrors)
    if(nharderrors .ge. 0 .and. sum(message32) .eq. 0) nharderrors=-1  ! reject the all zero message
    if(nharderrors .lt. 0) then
