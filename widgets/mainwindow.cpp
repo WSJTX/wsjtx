@@ -2230,7 +2230,7 @@ void MainWindow::fixStop()
       m_hsymStop=stop[i];
     }
   } else if(m_mode=="JTTY") {
-    m_hsymStop=104;
+    m_hsymStop=6250;
   }
 }
 
@@ -4570,7 +4570,9 @@ void MainWindow::on_stopButton_clicked()                       //stopButton
 {
   ui->pbBandHopping->setChecked(false); // disable band hopping
   monitor (false);
-  if(m_mode=="JTTY" and m_saveAll) jtty_save_wav();
+  if(m_mode=="JTTY" and m_saveAll) {
+    jtty_save_wav();
+  }
   m_loopall=false;
   if(m_bRefSpec) {
     MessageBox::information_message (this, tr ("Reference spectrum saved"));
@@ -5386,7 +5388,7 @@ void MainWindow::on_DecodeButton_clicked (bool /* checked */) //Decode request
   if(m_mode=="MSK144") {
     ui->DecodeButton->setChecked(false);
   } else if(m_mode=="JTTY") {
-    qDebug() << "aa"<< "Decode clicked";
+    qDebug() << "bb"<< "Decode clicked";
   } else {
     if(m_mode!="WSPR" && !m_decoderBusy) {
       m_manualDecode=true;
