@@ -2230,7 +2230,7 @@ void MainWindow::fixStop()
       m_hsymStop=stop[i];
     }
   } else if(m_mode=="JTTY") {
-    m_hsymStop=625;
+    m_hsymStop=620;
   }
 }
 
@@ -2286,9 +2286,11 @@ void MainWindow::dataSink(qint64 frames)
   }
   if(m_mode=="MSK144") return;
   if(m_mode=="JTTY") {
+//    if((m_ihsym % 5) == 0) qDebug() << "aa" << m_ihsym << m_hsymStop << m_saveAll;
     if(m_ihsym >= m_hsymStop and m_saveAll) {
       monitor(false);
       jtty_save_wav();
+//      qDebug() << "bb" << m_ihsym << m_hsymStop << m_saveAll;
       if(!m_diskData) monitor(true);
     }
     return;
@@ -4570,7 +4572,7 @@ void MainWindow::on_stopButton_clicked()                       //stopButton
 {
   ui->pbBandHopping->setChecked(false); // disable band hopping
   monitor (false);
-  if(m_mode=="JTTY" and m_saveAll) {
+  if(m_mode=="JTTY" and m_saveAll and !m_diskData) {
     jtty_save_wav();
   }
   m_loopall=false;
@@ -11496,7 +11498,7 @@ void MainWindow::on_actionJTTY_triggered()
   if (m_tci_audio) Q_EMIT m_config.transceiver_blocksize (m_FFTSize);
   else Q_EMIT FFTSize (m_FFTSize);
   m_TRperiod=60;                   //We need a nonzero setting for WideGraph plotter to work.
-  m_hsymStop=625;
+  m_hsymStop=620;
   m_wideGraph->setPeriod(m_TRperiod,m_nsps);
   ui->TxFreqSpinBox->setValue(1500);
   ui->RxFreqSpinBox->setValue(1500);
