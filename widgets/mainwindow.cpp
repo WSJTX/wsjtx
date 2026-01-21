@@ -2286,11 +2286,9 @@ void MainWindow::dataSink(qint64 frames)
   }
   if(m_mode=="MSK144") return;
   if(m_mode=="JTTY") {
-//    if((m_ihsym % 5) == 0) qDebug() << "aa" << m_ihsym << m_hsymStop << m_saveAll;
     if(m_ihsym >= m_hsymStop and m_saveAll) {
       monitor(false);
       jtty_save_wav();
-//      qDebug() << "bb" << m_ihsym << m_hsymStop << m_saveAll;
       if(!m_diskData) monitor(true);
     }
     return;
@@ -17576,10 +17574,10 @@ void MainWindow::jtty_decode(int k)
   if(message.length() > 0 and message.length() < 81) {
     if(k > k0) {
       QTextCursor cursor = ui->decodedTextBrowser->textCursor();
-      cursor.movePosition(QTextCursor::End);        // Cursor to end of text
-      cursor.select(QTextCursor::LineUnderCursor);  //Select line under cursor
-      cursor.removeSelectedText();                  //Remove the selected line
-      cursor.deletePreviousChar();                  //Delete previous newline
+      cursor.movePosition(QTextCursor::End);         //Cursor to end of text
+      cursor.select(QTextCursor::LineUnderCursor);   //Select line under cursor
+      cursor.removeSelectedText();                   //Remove the selected line
+      cursor.deletePreviousChar();                   //Delete previous newline
       ui->decodedTextBrowser->setTextCursor(cursor); //Reset cursor back to browser
     }
     k0=k;
