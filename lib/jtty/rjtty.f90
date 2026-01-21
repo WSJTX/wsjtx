@@ -63,6 +63,7 @@ program rjtty
             f1,snr,umsg,success,nharderrors,nsync,dmin)
          call system_clock(count1,clkfreq)
          if(success) then
+            if(umsg(1:4).eq.'599 ') umsg='~'//trim(umsg)
             n = len(trim(umsg))
             do i=1,n
                if(umsg(i:i).eq.'~') umsg(i:i)=' '
@@ -70,6 +71,7 @@ program rjtty
             kchar = kchar + n
             if(kchar.lt.80) then
                write(*,'(a)',advance='no') umsg(1:n)
+               if(umsg(n-2:n).eq.' CQ') write(*,'(a)',advance='no') ' '
             else
                write(*,'(a)') umsg(1:n)
                write(*,*) 'debug ',umsg(1:n)
