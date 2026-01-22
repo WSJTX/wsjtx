@@ -35,6 +35,7 @@ subroutine rjtty_sub(iwave,kz,line1)
           snr,umsg,success,nharderrors,nsync,dmin)
 
      if(success) then
+        if(umsg(1:4).eq.'599 ') umsg='~'//trim(umsg)
         n = len(trim(umsg))
         if(n.gt.79) n=79                 ! truncate at 80 chars
         do i=1,n
@@ -52,6 +53,8 @@ subroutine rjtty_sub(iwave,kz,line1)
         istart=istart+NFRAME/4
         synced=.false.
      endif
+     i0=index(line,' CQCQ ')
+     if(i0.ge.6) line=line(1:i0+2)//' '//trim(line(i0+3:))
      line1=line
   enddo
 
