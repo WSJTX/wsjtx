@@ -715,9 +715,7 @@ set (wsjt_FSRCS
   lib/superfox/ran1.f90
   lib/superfox/sfoxsim.f90
   lib/jtty/jtty_decode.f90
-  lib/jtty/rjtty.f90
   lib/jtty/rjtty_sub.f90
-  lib/jtty/sjtty.f90
   lib/jtty/jtty_peakup.f90
   lib/jtty/ana64a.f90
   lib/jtty/genjtty.f90
@@ -1303,10 +1301,8 @@ target_link_libraries (jt65sim wsjt_fort wsjt_cxx)
 add_executable (sjtty lib/jtty/sjtty.f90)
 target_link_libraries (sjtty wsjt_fort wsjt_cxx)
 
-#add_executable (jtty lib/jtty/jtty.f90 lib/jtty/update.f90 
-#	       lib/jtty/cdatetime.f90 lib/jtty/transmit.f90
-#	       lib/jtty/jttyaudio.c)
-#target_link_libraries (jtty wsjt_fort wsjt_cxx Portaudio::Portaudio)
+add_executable (sjtty_qrm lib/jtty/sjtty_qrm.f90)
+target_link_libraries (sjtty_qrm wsjt_fort wsjt_cxx)
 
 add_executable (test_jtty_pack lib/jtty/test_jtty_pack.f90)
 target_link_libraries (test_jtty_pack wsjt_fort wsjt_cxx)
