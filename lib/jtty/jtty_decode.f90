@@ -5,7 +5,6 @@ subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,
    use jtty_mod
    use jtty_fec
    implicit none
-   integer, parameter        :: NMAX=30*12000     !Max length of data @12000 Hz
    character*80, intent(out) :: decoded
    character*32              :: c32(MAX_FRAMES)
    integer*1                 :: message32(32), cw80(80)
@@ -58,11 +57,9 @@ subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,
       allocate(ctones(0:nss-1,0:3)) 
 
 ! Generate complex waveform for sync
-
       twopi=8.0*atan(1.0)
       baud=6000.0/real(nss)   !31.25 for nss=192
       dt=1/6000.0
-
       call gen_syncwave(csync,nss)
 
       do i=0,3
@@ -100,7 +97,7 @@ subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,
       fpk=0.
       ja=(f0-ftol)/df2
       jb=(f0+ftol)/df2
-      do i0=0,2544,10                           !Search over xdt for sync pattern
+      do i0=0,npts/4,10                        !Search over quarter-chunk segments
          xdt=i0*dt
          c(0:13*nss-1)=conjg(csync(0:13*nss-1))*c0(i0:i0+13*nss-1)
          c(13*nss:)=0.
@@ -149,12 +146,12 @@ subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,
       enddo
       iloc=maxloc(pow)-1
       irxsync(j)=iloc(1)
-      pt=pt+pow(isyncvec(j))
-      pa=pa+sum(pow)
+      pt=pt+pow(isyncvec(j))                !signal plus noise
+      pa=pa+sum(pow)                        !signal plus 4*noise
    enddo
    ssnr=-99.0
    pn=(pa-pt)/3.0
-   if(pn.gt.0.) ssnr=db(pt/pn)
+   if(pn.gt.0.) ssnr=db(pt/pn)              ! pt/pn instead of pt/pn-1 to avoid negative snr estimates
    snr=ssnr                                 ! replace the snr derived from sync-shifted spectrum
    nsync=count(isyncvec.eq.irxsync)         ! nsync is the number of correct hard-decoded sync tones.
 
@@ -166,7 +163,7 @@ subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,
 
    do j=1,40                                ! find tone powers for 40 symbols
       i0=nint(xdt/dt) + 13*nss + (j-1)*nss
-      if(i0.gt.npts) exit
+      if(i0+nss .gt. npts) exit
 
       do i=0,3
          c(0:nss-1)=conjg(ctones(0:nss-1,i))*c1(i0:i0+nss-1)

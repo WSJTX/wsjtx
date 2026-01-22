@@ -1,8 +1,5 @@
 subroutine rjtty_sub(iwave,kz,line1)
 
-  parameter (NSPS=384)
-  parameter (NFRAME=53*NSPS)
-  parameter (NCHUNK=NFRAME + NFRAME/4)
   integer*2 iwave(kz)
   character*(*) line1
   character*80 line
@@ -10,6 +7,10 @@ subroutine rjtty_sub(iwave,kz,line1)
   logical synced,success
   data kz0/9999999/
   save istart,kz0,kchar,line,success,synced,xdt,f1
+
+  nsps = 384
+  nframe = 53*nsps
+  nchunk = nframe + nframe/4
 
   f0=1500.0
   ftol=50.0
@@ -23,15 +24,15 @@ subroutine rjtty_sub(iwave,kz,line1)
      synced=.false.
      go to 999
   endif
-  if(kz-istart+1 .lt. NCHUNK) return      ! wait for enough data
+  if(kz-istart+1 .lt. nchunk) return      ! wait for enough data
 
   nsync=0
   dmin=0.0            ! A nonzero value will be returned if OSD produces the decode. Use to reject false decodes?
-  do while (istart+NCHUNK-1 .le. kz)
+  do while (istart+nchunk-1 .le. kz)
      success=.false.
 !     synced=.false.                          ! uncomment this to disable use of prior sync 
 
-     call jtty_decode(iwave(istart),NCHUNK,NSPS,f0,ftol,smin,synced,xdt,f1,  &
+     call jtty_decode(iwave(istart),nchunk,nsps,f0,ftol,smin,synced,xdt,f1,  &
           snr,umsg,success,nharderrors,nsync,dmin)
 
      if(success) then
@@ -47,10 +48,10 @@ subroutine rjtty_sub(iwave,kz,line1)
         kchar = kchar + n
         line1(1:n)=umsg(1:n)
         line1(n+1:n+1)=char(0)
-        istart=istart+NFRAME
+        istart=istart+nframe
         if(nsync.lt.12) synced=.false.       ! don't use this sync for next frame if it's not strong
      else
-        istart=istart+NFRAME/4
+        istart=istart+nframe/4
         synced=.false.
      endif
      i0=index(line,' CQCQ ')
