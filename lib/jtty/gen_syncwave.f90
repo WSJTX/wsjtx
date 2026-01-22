@@ -1,10 +1,12 @@
 subroutine gen_syncwave(csync,nss)
-!
-! nss is samples per symbol at 6000 samples/sec
-!
-  integer barker13(13)
-  complex csync(13*nss)
-  data barker13/0,0,0,0,0,3,3,0,0,3,0,3,0/
+
+  implicit none
+  integer, intent(in)  :: nss              ! samples/symbol at 6000 samples/sec
+  integer              :: barker13(13)
+  integer              :: i,j,k
+  real                 :: twopi, fsample, dt, baud, phi, dphi
+  complex, intent(out) :: csync(13*nss)
+  data barker13 /0,0,0,0,0,3,3,0,0,3,0,3,0/
 
   twopi=8.0*atan(1.0)
   fsample = 6000.0
