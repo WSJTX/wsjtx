@@ -127,7 +127,7 @@ extern "C" {
               float s[], int* jh, float *pxmax, float *rmsNoGain, char line[],
               fortran_charlen_t, fortran_charlen_t, fortran_charlen_t, fortran_charlen_t);
 
-  void rjtty_sub_(short int d2[], int* k, char line[], fortran_charlen_t);
+  void rjtty_sub_(short int d2[], int* k, int* nsps, char line[], fortran_charlen_t);
 
   void genjtty_(char const * msg, int itone[], int* nsym, fortran_charlen_t);
 
@@ -17568,8 +17568,9 @@ void MainWindow::jtty_save_wav()
 void MainWindow::jtty_decode(int k)
 {
   static int k0=9999999;
+  int nsps=384;
   char line[80];
-  rjtty_sub_(dec_data.d2,&k,&line[0],(FCL)80);
+  rjtty_sub_(dec_data.d2,&k,&nsps,&line[0],(FCL)80);
   QString message {QString::fromLatin1(line)};
   if(message.length() > 0 and message.length() < 81) {
     if(k > k0) {
@@ -17580,6 +17581,7 @@ void MainWindow::jtty_decode(int k)
       cursor.deletePreviousChar();                   //Delete previous newline
       ui->decodedTextBrowser->setTextCursor(cursor); //Reset cursor back to browser
     }
+//    qDebug() << "aa" << k0 << k << message.length() << message.trimmed();
     k0=k;
     m_xRcvd="";
     QStringList w = message.split(" ",SkipEmptyParts);
