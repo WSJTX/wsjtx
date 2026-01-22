@@ -12,10 +12,7 @@ program rjtty
 ! With baud rate 31.25 s^-1, symbol duration = 32 ms,
 ! so maximum txt = 16*53*0.032 = 27.136 s.
 
-   parameter (NSPS=384)
    parameter (NMAX=30*12000)                 !Max length of data
-   parameter (NFRAME=53*NSPS)
-   parameter (NCHUNK=NFRAME + NFRAME/4)
    type(hdr) h
    character*80 fname
    character*80 umsg
@@ -24,14 +21,17 @@ program rjtty
    integer*2 iwave(NMAX)
    logical synced,success
 
+    
    f0=1500.0
    ftol=50.0
+   nsps = 384
 
    nargs=iargc()
-   if(nargs.lt.5) then
-      print*,'Usage:    rjtty smin ndebug  f0  ftol  fname [...]'
-      print*,'Examples: rjtty   2    0    1500  50  000000_000001.wav'
-      print*,'          rjtty   2    1    1500  50  *.wav'
+   if(nargs.lt.6) then
+      print*,'Usage:    rjtty smin ndebug nsps  f0  ftol  fname [...]'
+      print*,'Examples: rjtty   2    0    384  1500  50  000000_000001.wav'
+      print*,'          rjtty   2    1    240  1500  50  *.wav'
+      print*,'nsps choices are: 240, 320, 384, 480 samples/symbol'
       go to 999
    endif
    call getarg(1,arg)
@@ -39,12 +39,20 @@ program rjtty
    call getarg(2,arg)
    read(arg,*) ndebug
    call getarg(3,arg)
-   read(arg,*) f0
+   read(arg,*) nsps 
+   if(nsps .ne. 240 .and. nsps .ne. 320 .and. nsps .ne. 384 .and. nsps .ne. 480) then
+      print*,'nsps choices are: 240, 320, 384, 480 samples/symbol'
+   endif
    call getarg(4,arg)
+   read(arg,*) f0
+   call getarg(5,arg)
    read(arg,*) ftol
 
-   do ifile=1,nargs-4
-      call getarg(ifile+4,fname)
+   nframe = 53*nsps
+   nchunk = nframe + nframe/4
+
+   do ifile=1,nargs-5
+      call getarg(ifile+5,fname)
       open(10,file=fname,status='old',access='stream')
       read(10) h
       nwave=min(h%ndata/2,NMAX)
@@ -56,11 +64,11 @@ program rjtty
       synced=.false. 
       nsync=0
 ! Process data on the fly, one buffer at a time:
-      do while (istart+NCHUNK-1 .le. nwave)
+      do while (istart+nchunk-1 .le. nwave)
          success=.false.
 !synced=.false.               !uncomment this to disable use of prior sync
          call system_clock(count0,clkfreq)
-         call jtty_decode(iwave(istart),NCHUNK,nsps,f0,ftol,smin,synced,xdt,  &
+         call jtty_decode(iwave(istart),nchunk,nsps,f0,ftol,smin,synced,xdt,  &
             f1,snr,umsg,success,nharderrors,nsync,dmin)
          call system_clock(count1,clkfreq)
          if(success) then
@@ -72,7 +80,9 @@ program rjtty
             kchar = kchar + n
             if(kchar.lt.80) then
                write(*,'(a)',advance='no') umsg(1:n)
-               if(umsg(n-2:n).eq.' CQ') write(*,'(a)',advance='no') ' '
+               if(n.ge.3) then
+                  if(umsg(n-2:n).eq.' CQ') write(*,'(a)',advance='no') ' '
+               endif
             else
                write(*,'(a)') umsg(1:n)
                write(*,*) 'debug ',umsg(1:n)
@@ -83,10 +93,10 @@ program rjtty
                     nharderrors,dmin,tdecode,trim(umsg)
 3071           format(i8,f7.3,f8.1,f6.1,2L3,i5,i5,f9.1,f7.3,2x,a)
             endif
-            istart=istart+NFRAME
+            istart=istart+nframe
             if(nsync.lt.12) synced=.false.
          else
-            istart=istart+NFRAME/4
+            istart=istart+nframe/4
             synced=.false.
          endif
       enddo

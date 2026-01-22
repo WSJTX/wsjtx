@@ -20,7 +20,6 @@ program sjtty
   character*2 arg4                  !The 4th command-line argument
   character*80 umsg                 !User-formatted message 
   character*40 fname                !Output file name
-  character*10 flags                !Single-character shorthand flags
   character*32 c32(16)
   complex cwave(0:NMAX-1)           !Complex generated waveform (12000 Hz)
   complex c0(0:NMAX-1)              !With propagation degradation
@@ -34,16 +33,14 @@ program sjtty
   integer graymap(0:3)
   integer ib13(13)
   logical itu_model                 !True if fdop, delay are from an ITU model
-  data flags/'!@#$%^&*()'/
   data graymap/0,1,3,2/
   data ib13/0,0,0,0,0,3,3,0,0,3,0,3,0/
-!  data ib13/0,0,0,0,0,1,1,0,0,1,0,1,0/
-!  data ib13/-1,-1,-1,-1,-1,5,5,-1,-1,5,-1,5,-1/
   nargs=iargc()
-  if(nargs.ne.7) then
-     print*,'Usage:   sjtty    message     f0   DT fdop del nfiles SNR'
-     print*,'Example: sjtty "CQ K1ABC CQ" 1500 0.0  0.5  1    10   -10'
+  if(nargs.ne.8) then
+     print*,'Usage:   sjtty    message     f0   DT fdop del nsps nfiles SNR'
+     print*,'Example: sjtty "CQ K1ABC CQ" 1500 0.0  0.5  1   384    10   -10'
      print*,'ITU propagation models: set fdop to AW LQ LM LD MQ MM MD HQ HM HD'
+     print*,'nsps: 240, 320, 384, or 480'
      go to 999
   endif
 
@@ -92,8 +89,14 @@ program sjtty
      read(arg,*) delay                   !Watterson delay (ms)
   endif
   call getarg(6,arg)
-  read(arg,*) nfiles                     !Number of files
+  read(arg,*) nsps                     !Number of files
+  if(nsps.ne.240 .and. nsps.ne.320 .and. nsps.ne.384 .and. nsps.ne.480) then
+     print*,'nsps: 240, 320, 384, or 480'
+     stop
+  endif
   call getarg(7,arg)
+  read(arg,*) nfiles                     !Number of files
+  call getarg(8,arg)
   read(arg,*) snrdb                      !SNR in 2500 Hz bandwidth
 
   fsample=12000.0
@@ -103,7 +106,6 @@ program sjtty
   sig=sqrt(2*bandwidth_ratio) * 10.0**(0.05*snrdb)
   if(snrdb.gt.90.0) sig=1.0
 
-  nsps=384                         !Samples per symbol at 12000 Hz
   bt=2.0                           !Default bt=2 (smaller ==> more smoothing)
   baud=fsample/nsps                !Symbol rate
   bw=4.0*baud                      !Signal bandwidth
@@ -128,8 +130,9 @@ program sjtty
   numsg=len(trim(umsg))
   write(*,1012) trim(umsg)
 1012 format('User message:  ',a)
-  write(*,1013) txt,nsym,itone(1:nsym)
-1013 format('Transmission length:',f5.1,' s,',i5,' channel symbols:'/  &
+  write(*,1013) nsps,txt,nsym,itone(1:nsym)
+1013 format('nsps:',i5,' samples/symbol  ','Transmission length:',f5.1, &
+     ' s,',i5,' channel symbols:'/  &
           (30i2))
 
   nwave=nsps*nsym                  !Length of i*2 data written to *.wav file
@@ -142,7 +145,7 @@ program sjtty
   cps=baud/7.0
   cps_effective=numsg/txt
   write(*,1001) cps,cps_effective
-1001 format('Raw character rate:'f5.1,' c/s   Effective character rate:',f5.1,' c/s')
+1001 format('Raw character rate:',f5.1,' c/s   Effective character rate:',f5.1,' c/s')
   write(*,1002) fspread,delay
 1002 format('Fspread:',f5.1,' Hz   Delay:',f5.1,' ms')
   if(itu_model) write(*,1003) arg4

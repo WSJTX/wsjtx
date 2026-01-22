@@ -2,7 +2,6 @@ module jtty_mod
 
   ! These variables are accessible from outside via "use pack_jtty"
 
-  parameter (NDOWN=15)                  !Downsampling factor
   parameter (MAX_WORDS=40)              !Max words in message
   parameter (MAX_FRAMES=16)             !Max frames for the encoded message
   logical verbose
