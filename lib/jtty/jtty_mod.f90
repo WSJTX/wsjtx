@@ -315,7 +315,9 @@ character*1 function charj(j)
   character*64 c
 !                   1         2         3         4         5         6
 ! j       0123456789012345678901234567890123456789012345678901234567890123
-  data c/'0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ +-./?!@#$%^&*()_`=[]{}<>|:;'/
+  data c/"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ +-./?!@#$%,&*()_'=[]{}<>|:;"/
+!                                                    "  
+  c(44:44)='"'                                !use " rather than @
 
   charj=c(j+1:j+1)
 
@@ -330,7 +332,9 @@ integer function jchar(c0)
   character*64 c
 !                   1         2         3         4         5         6
 ! j       0123456789012345678901234567890123456789012345678901234567890123
-  data c/'0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ +-./?!@#$%^&*()_`=[]{}<>|:;'/
+  data c/"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ +-./?!@#$%,&*()_'=[]{}<>|:;"/
+!                                                    "  
+  c(44:44)='"'                                !use " rather than @
 
   jchar=index(c,c0)-1
   

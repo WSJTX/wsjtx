@@ -1,4 +1,4 @@
-subroutine rjtty_sub(iwave,kz,line1)
+subroutine rjtty_sub(iwave,kz,nsps,line1)
 
   integer*2 iwave(kz)
   character*(*) line1
@@ -8,7 +8,8 @@ subroutine rjtty_sub(iwave,kz,line1)
   data kz0/9999999/
   save istart,kz0,kchar,line,success,synced,xdt,f1
 
-  nsps = 384
+  if(nsps.ne.240 .and. nsps.ne.320 .and. nsps.ne.384 .and. nsps.ne.480) return
+
   nframe = 53*nsps
   nchunk = nframe + nframe/4
 
