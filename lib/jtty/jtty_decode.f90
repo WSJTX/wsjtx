@@ -1,66 +1,96 @@
-subroutine jtty_decode(iwave,nwave,f0,ftol,smin,synced,xdt,f1,snr,decoded,success,nharderrors,nsync,dmin)
+subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,success,nharderrors,nsync,dmin)
+!
+!  note nsps is samples per symbol at 12000 s^-1 sample rate.
+!
    use jtty_mod
    use jtty_fec
-   parameter (NMAX=30*12000)                 !Max length of data @12000 Hz
-   parameter (NZ=30*6000)                    !Max length of data @6000 Hz
-   parameter (NSS=NSPS/2)                    !Samples per symbol @6000 Hz
-   parameter (NFFT=13*NSPS,NH2=NFFT/2)
-   character*80 decoded
-   character*32 c32(MAX_FRAMES)
-   integer*2 iwave(nwave)
-   real s(0:NH2)
-   real sm(0:NH2)
-   real s0(0:NH2)
-   real a(3)
-   real bitmetrics(1:80)
-   real pow(0:3)
-   complex c(0:NFFT-1)
-   complex c0(0:262143)
-   complex c1(0:NZ-1)
-   complex csync(0:13*192-1)           !Waveform for sync
-   complex ctones(0:191,0:3)
-   integer*1 message32(32)
-   integer*1 cw80(80)
-   integer   iloc(1)
-   integer isyncvec(13),irxsync(13)
-   logical success
-   data isyncvec/0,0,0,0,0,3,3,0,0,3,0,3,0/
-
-   complex z
-   logical first,synced
-   data first/.true./,snrbest/-9999.0/
-   save csync, baud, dt, twopi, ctones, first
+   implicit none
+   integer, parameter        :: NMAX=30*12000     !Max length of data @12000 Hz
+   character*80, intent(out) :: decoded
+   character*32              :: c32(MAX_FRAMES)
+   integer*1                 :: message32(32), cw80(80)
+   integer*2, intent(in)     :: iwave(nchunk)
+   integer                   :: i,j,i0,ja,jb
+   integer, intent(in)       :: nchunk,nsps
+   integer                   :: npts,nana
+   integer, save             :: nsps0=-999
+   integer, save             :: nfft,nh2,nss
+   integer                   :: iloc(1)
+   integer                   :: isyncvec(13)=(/0,0,0,0,0,3,3,0,0,3,0,3,0/)
+   integer                   :: irxsync(13)
+   integer                   :: ndeep, maxiterations
+   integer, intent(out)      :: nharderrors,nsync
+   real                      :: fsample
+   real                      :: spk,fpk,pa,pt,pn
+   real                      :: fbest,xdtbest,sbest
+   real, allocatable         :: s(:), sm(:), s0(:)
+   real                      :: a(3)
+   real                      :: bitmetrics(1:80), pow(0:3)
+   real                      :: p00, p01, p11, p10
+   real, save                :: twopi,baud,dt
+   real                      :: phi,dphi,df2
+   real                      :: x2,ssnr,db
+   real, intent(in)          :: f0,ftol,smin
+   real, intent(out)         :: dmin
+   real, intent(inout)       :: xdt,f1,snr
+   complex, allocatable      :: c(:)
+   complex, allocatable      :: c0(:)
+   complex, allocatable      :: c1(:)
+   complex, allocatable,save :: csync(:)    !Waveform for sync at 6000 s^-1 sample rate
+   complex, allocatable,save :: ctones(:,:)
+   complex                   :: z
+   logical, intent(out)      :: success
+   logical, intent(inout)    :: synced
 
    success=.false.
    if(sum(abs(iwave)).eq.0) return
 
-   if(first) then
+   if(nsps.ne.nsps0) then
+      nsps0=nsps
+      nss=nsps/2    ! samples per symbol at 6000 sa/s
+      nfft=8192     ! FFT size for sync search (was 13*192*2=4992)
+      nh2=nfft/2    ! spectrum size for sync search
+
+! allocate saved arrays
+      if(allocated(csync)) deallocate(csync)
+      allocate(csync(0:13*nss-1))
+      if(allocated(ctones)) deallocate(ctones)
+      allocate(ctones(0:nss-1,0:3)) 
+
 ! Generate complex waveform for sync
-      call gen_syncwave(csync)
+
       twopi=8.0*atan(1.0)
-      baud=6000.0/192.0   !31.25
+      baud=6000.0/real(nss)   !31.25 for nss=192
       dt=1/6000.0
+
+      call gen_syncwave(csync,nss)
 
       do i=0,3
          phi=0.0
          dphi=twopi*i*baud*dt
-         do j=0,191
+         do j=0,nss-1
             ctones(j,i)=cmplx(cos(phi),sin(phi))
             phi=phi+dphi
          enddo
       enddo
-
-      first=.false.
    endif
 
-   call ana64a(iwave,nwave,c0)
-
-   npts=nwave/2
+   npts=nchunk/2                ! chunk size at 6000 sa/s 
+! make size of c0 next power of 2 larger than nchunk
+   nana = 2**nint(log(real(nchunk))/log(2.0)+0.5)
+   allocate(c0(0:nana-1))
+   call ana64a(iwave,nchunk,c0,nana) 
    c0(npts:)=0.
+
+   allocate(c(0:nfft-1))        ! 
+   allocate(c1(0:npts-1))
+   allocate(s(0:nh2))
+   allocate(sm(0:nh2))
+   allocate(s0(0:nh2))
 
    fsample=6000.0
    dt=1.0/fsample
-   df2=fsample/NFFT
+   df2=fsample/nfft
    decoded=' '
 
    if(.not.synced) then
@@ -72,9 +102,9 @@ subroutine jtty_decode(iwave,nwave,f0,ftol,smin,synced,xdt,f1,snr,decoded,succes
       jb=(f0+ftol)/df2
       do i0=0,2544,10                           !Search over xdt for sync pattern
          xdt=i0*dt
-         c(0:13*NSS-1)=conjg(csync(0:13*NSS-1))*c0(i0:i0+13*NSS-1)
-         c(13*NSS:)=0.
-         call four2a(c,NFFT,1,-1,1)            !Compute the sync-shifted spectrum
+         c(0:13*nss-1)=conjg(csync(0:13*nss-1))*c0(i0:i0+13*nss-1)
+         c(13*nss:)=0.
+         call four2a(c,nfft,1,-1,1)            !Compute the sync-shifted spectrum
          spk=0.
          do j=ja-2,jb+2
             s(j)=real(c(j))**2 + aimag(c(j))**2
@@ -109,12 +139,12 @@ subroutine jtty_decode(iwave,nwave,f0,ftol,smin,synced,xdt,f1,snr,decoded,succes
    pt=0.
    pa=0.
    do j=1,13                                ! find tone powers for sync symbols
-      i0=nint(xdt/dt) + (j-1)*192
+      i0=nint(xdt/dt) + (j-1)*nss
       if(i0.gt.npts) exit
 
       do i=0,3
-         c(0:NSS-1)=conjg(ctones(0:NSS-1,i))*c1(i0:i0+NSS-1)
-         z=sum(c(0:NSS-1))
+         c(0:nss-1)=conjg(ctones(0:nss-1,i))*c1(i0:i0+nss-1)
+         z=sum(c(0:nss-1))
          pow(i)=abs(z)**2
       enddo
       iloc=maxloc(pow)-1
@@ -135,12 +165,12 @@ subroutine jtty_decode(iwave,nwave,f0,ftol,smin,synced,xdt,f1,snr,decoded,succes
 
 
    do j=1,40                                ! find tone powers for 40 symbols
-      i0=nint(xdt/dt) + 13*NSS + (j-1)*192
+      i0=nint(xdt/dt) + 13*nss + (j-1)*nss
       if(i0.gt.npts) exit
 
       do i=0,3
-         c(0:NSS-1)=conjg(ctones(0:NSS-1,i))*c1(i0:i0+NSS-1)
-         z=sum(c(0:NSS-1))
+         c(0:nss-1)=conjg(ctones(0:nss-1,i))*c1(i0:i0+nss-1)
+         z=sum(c(0:nss-1))
          pow(i)=abs(z)**2
       enddo
 

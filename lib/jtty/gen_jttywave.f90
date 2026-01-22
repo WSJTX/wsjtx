@@ -17,8 +17,8 @@ subroutine gen_jttywave(itone,nsym,nsps,bt,fsample,f0,cwave,wave,icmplx,nwave)
   parameter(NTAB=65536)
   real wave(nwave)
   complex cwave(nwave),ctab(0:NTAB-1)
-  real pulse(23040)
-  real dphi(0:16*53*384*4-1)                  !16 frames at 48000 S/s 
+  real, allocatable :: pulse(:)
+  real dphi(0:16*53*nsps-1)                  !16 frames at 48000 S/s 
   integer itone(nsym)
   data fchk0/0.0/
   save pulse,twopi,dt,hmod,fchk0,ctab
@@ -26,6 +26,11 @@ subroutine gen_jttywave(itone,nsym,nsps,bt,fsample,f0,cwave,wave,icmplx,nwave)
   ibt=nint(10*bt)
   fchk=nsym+nsps+bt+fsample
   if(fchk.ne.fchk0) then                      !Execute again only when params change
+     if( allocated(pulse) ) then
+       deallocate(pulse)
+     endif
+     allocate(pulse(1:3*nsps))
+
      twopi=8.0*atan(1.0)
      dt=1.0/fsample
      hmod=1.0

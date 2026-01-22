@@ -1,6 +1,7 @@
 subroutine rjtty_sub(iwave,kz,line1)
 
-  parameter (NFRAME=53*384)
+  parameter (NSPS=384)
+  parameter (NFRAME=53*NSPS)
   parameter (NCHUNK=NFRAME + NFRAME/4)
   integer*2 iwave(kz)
   character*(*) line1
@@ -30,7 +31,7 @@ subroutine rjtty_sub(iwave,kz,line1)
      success=.false.
 !     synced=.false.                          ! uncomment this to disable use of prior sync 
 
-     call jtty_decode(iwave(istart),NCHUNK,f0,ftol,smin,synced,xdt,f1,  &
+     call jtty_decode(iwave(istart),NCHUNK,NSPS,f0,ftol,smin,synced,xdt,f1,  &
           snr,umsg,success,nharderrors,nsync,dmin)
 
      if(success) then

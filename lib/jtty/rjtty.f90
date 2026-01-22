@@ -12,8 +12,9 @@ program rjtty
 ! With baud rate 31.25 s^-1, symbol duration = 32 ms,
 ! so maximum txt = 16*53*0.032 = 27.136 s.
 
+   parameter (NSPS=384)
    parameter (NMAX=30*12000)                 !Max length of data
-   parameter (NFRAME=53*384)
+   parameter (NFRAME=53*NSPS)
    parameter (NCHUNK=NFRAME + NFRAME/4)
    type(hdr) h
    character*80 fname
@@ -59,7 +60,7 @@ program rjtty
          success=.false.
 !synced=.false.               !uncomment this to disable use of prior sync
          call system_clock(count0,clkfreq)
-         call jtty_decode(iwave(istart),NCHUNK,f0,ftol,smin,synced,xdt,  &
+         call jtty_decode(iwave(istart),NCHUNK,nsps,f0,ftol,smin,synced,xdt,  &
             f1,snr,umsg,success,nharderrors,nsync,dmin)
          call system_clock(count1,clkfreq)
          if(success) then

@@ -11,7 +11,7 @@ program sjtty
   ! consists of 13 sync symbols followed by 40 codeword symbols. 
 
   use wavhdr
-  use jtty_mod
+  use jtty_mod                      ! This module provides NSPS
   use jtty_fec
 
   parameter (NMAX=30*12000)         !Max size of .wav file
@@ -102,7 +102,8 @@ program sjtty
   bandwidth_ratio=2500.0/(fsample/2.0)
   sig=sqrt(2*bandwidth_ratio) * 10.0**(0.05*snrdb)
   if(snrdb.gt.90.0) sig=1.0
-!  nsps=384                         !Samples per symbol at 12000 Hz
+
+  nsps=384                         !Samples per symbol at 12000 Hz
   bt=2.0                           !Default bt=2 (smaller ==> more smoothing)
   baud=fsample/nsps                !Symbol rate
   bw=4.0*baud                      !Signal bandwidth

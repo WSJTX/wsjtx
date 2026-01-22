@@ -1,15 +1,11 @@
-subroutine ana64a(iwave,npts,c0)
+subroutine ana64a(iwave,npts,c0,nfft1)
 
-  parameter (NMAX=30*12000)                 !Max length of data @12000 Hz
-  parameter (NZ=30*6000)                    !Max length of data @6000 Hz
-  parameter (NFFT1=262144)
-  integer*2 iwave(NMAX)                     !Raw data at 12000 Hz
-  complex c0(0:NFFT1-1)                     !Complex data at 6000 Hz
-  save
+  integer*2 iwave(npts)                     !Raw data at 12000 Hz
+  complex c0(0:nfft1-1)
 
-  nfft2=NFFT1/2
+  nfft2=nfft1/2
   df1=12000.0/NFFT1
-  fac=2.0/(32767.0*NFFT1)
+  fac=2.0/real(NFFT1*NFFT2)
   c0(0:npts-1)=fac*iwave(1:npts)
   c0(npts:)=0.
 !  print*,'bb2',NFFT1,nfft2,npts,sum(dfloat(abs(iwave(1:npts)))),sum(abs(c0))
@@ -19,6 +15,5 @@ subroutine ana64a(iwave,npts,c0)
   call four2a(c0,nfft2,1,1,1)              !Inverse c2c FFT; c0 is the analytic sig
   c0(npts:)=0.
 !  print*,'bb3',NFFT1,nfft2,sum(abs(c0))
-
   return
 end subroutine ana64a
