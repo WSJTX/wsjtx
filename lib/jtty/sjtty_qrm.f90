@@ -133,12 +133,9 @@ program sjtty_qrm
 
      do isig=1,nsigs
         f0=500.0 + 2000.0*ran1(idum)
-!        if(f0.ge.1350.0 .and. f0.le.1650.0) f0=f0+300
-        xdt=2.0*ran1(idum)
+        xdt=4.0*ran1(idum)
         snr=snrdb + 10.0*(ran1(idum)-0.5)
         sig=sqrt(2*bandwidth_ratio) * 10.0**(0.05*snr)
-        write(*,1006) isig,f0,xdt,snr,sig
-1006    format(i4,f8.1,f8.3,f7.1,f10.3)
         i0=i0+1
         if(i0.gt.25) i0=1
         umsg=xcall(i0)
@@ -146,6 +143,8 @@ program sjtty_qrm
            f0=1500.0
            umsg='599 123'
         endif
+        write(*,1006) isig,f0,xdt,snr,sig,trim(umsg)
+1006    format(i4,f8.1,f8.3,f7.1,f10.3,2x,a)
 
         call pack_jtty(umsg,c32,nframes)
         nsym=0
