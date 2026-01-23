@@ -47,7 +47,7 @@ subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,
    if(nsps.ne.nsps0) then
       nsps0=nsps
       nss=nsps/2    ! samples per symbol at 6000 sa/s
-      nfft=8192     ! FFT size for sync search (was 13*192*2=4992)
+      nfft=8192     ! FFT size for sync search, gives df2=0.732
       nh2=nfft/2    ! spectrum size for sync search
 
 ! allocate saved arrays
@@ -97,6 +97,7 @@ subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,
       fpk=0.
       ja=(f0-ftol)/df2
       jb=(f0+ftol)/df2
+      if(ja .lt. 3) ja=3
       do i0=0,npts/4,10                        !Search over quarter-chunk segments
          xdt=i0*dt
          c(0:13*nss-1)=conjg(csync(0:13*nss-1))*c0(i0:i0+13*nss-1)
