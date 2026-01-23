@@ -127,7 +127,8 @@ extern "C" {
               float s[], int* jh, float *pxmax, float *rmsNoGain, char line[],
               fortran_charlen_t, fortran_charlen_t, fortran_charlen_t, fortran_charlen_t);
 
-  void rjtty_sub_(short int d2[], int* k, int* nsps, char line[], fortran_charlen_t);
+  void rjtty_sub_(short int d2[], int* k, int* nsps, float* f0, float* ftol,
+                  char line[], fortran_charlen_t);
 
   void genjtty_(char const * msg, int itone[], int* nsym, fortran_charlen_t);
 
@@ -5388,7 +5389,7 @@ void MainWindow::on_DecodeButton_clicked (bool /* checked */) //Decode request
   if(m_mode=="MSK144") {
     ui->DecodeButton->setChecked(false);
   } else if(m_mode=="JTTY") {
-    qDebug() << "cc"<< "Decode clicked";
+    jtty_again();
   } else {
     if(m_mode!="WSPR" && !m_decoderBusy) {
       m_manualDecode=true;
@@ -17570,9 +17571,11 @@ void MainWindow::jtty_decode(int k)
   static int k0=9999999;
   int nsps=384;
   char line[80];
-  rjtty_sub_(dec_data.d2,&k,&nsps,&line[0],(FCL)80);
+  float f0 = m_wideGraph->rxFreq();
+  float ftol = 20.0;
+  rjtty_sub_(dec_data.d2,&k,&nsps,&f0,&ftol,&line[0],(FCL)80);
   QString message {QString::fromLatin1(line)};
-  if(message.length() > 0 and message.length() < 81) {
+  if(message.length() > 0 and message.length() < 80) {
     if(k > k0) {
       QTextCursor cursor = ui->decodedTextBrowser->textCursor();
       cursor.movePosition(QTextCursor::End);         //Cursor to end of text
@@ -17581,12 +17584,18 @@ void MainWindow::jtty_decode(int k)
       cursor.deletePreviousChar();                   //Delete previous newline
       ui->decodedTextBrowser->setTextCursor(cursor); //Reset cursor back to browser
     }
-//    qDebug() << "aa" << k0 << k << message.length() << message.trimmed();
     k0=k;
     m_xRcvd="";
     QStringList w = message.split(" ",SkipEmptyParts);
     if((w.length() == 2) and (w[0] == "599")) m_xRcvd = w[1];
     if((w.length() == 3) and (w[1] == "599")) m_xRcvd = w[2];
     ui->decodedTextBrowser->insertText(message);
+  }
+}
+
+void MainWindow::jtty_again()
+{
+  for(int k=3456; k<dec_data.params.kin; k+=3456) {
+    jtty_decode(k);
   }
 }
