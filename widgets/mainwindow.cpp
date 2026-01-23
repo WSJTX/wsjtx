@@ -11489,6 +11489,7 @@ void MainWindow::on_actionJTTY_triggered()
   switch_mode (Modes::JTTY);
   WSPR_config(false);
   VHF_features_enabled(false);
+  m_wideGraph->setMode(m_mode);
   ui->cbAutoSeq->setChecked(false);
   m_bFastMode=false;
   m_bFast9=false;
