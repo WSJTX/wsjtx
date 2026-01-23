@@ -17589,7 +17589,7 @@ void MainWindow::jtty_decode(int k)
     QStringList w = message.split(" ",SkipEmptyParts);
     if((w.length() == 2) and (w[0] == "599")) m_xRcvd = w[1];
     if((w.length() == 3) and (w[1] == "599")) m_xRcvd = w[2];
-    ui->decodedTextBrowser->insertText(message);
+    ui->decodedTextBrowser->insertText(message.trimmed());
   }
 }
 
