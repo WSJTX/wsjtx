@@ -4090,9 +4090,6 @@ bool MainWindow::jtty_key_struck(QKeyEvent * e)
     jtty_tx("CQ " + m_config.my_callsign() + " CQ");
     return true;
   } else if(e->key() == Qt::Key_F2) {
-    jtty_tx(m_config.my_callsign());
-    return true;
-  } else if(e->key() == Qt::Key_F3) {
     int n=ui->sbSerialNumber_2->value();
     QString t=QString::number(n);
     if(n < 10) t = "00"+t;
@@ -4100,16 +4097,36 @@ bool MainWindow::jtty_key_struck(QKeyEvent * e)
     t = " 599 " + t;
     jtty_tx(ui->dxCallEntry->text() + t);
     return true;
-  } else if(e->key() == Qt::Key_F4) {
+  } else if(e->key() == Qt::Key_F3) {
     jtty_tx("TU " + m_config.my_callsign() + " CQ");
     return true;
+  } else if(e->key() == Qt::Key_F4) {
+    jtty_tx(m_config.my_callsign());
+    return true;
   } else if(e->key() == Qt::Key_F5) {
+    jtty_tx(ui->dxCallEntry->text());
+    return true;
+  } else if(e->key() == Qt::Key_F6) {
     int n=ui->sbSerialNumber_2->value();
     QString t=QString::number(n);
     if(n < 10) t = "00"+t;
     if(n < 100) t = "0"+t;
     t = " 599 " + t;
     jtty_tx("TU NOW " + ui->dxCallEntry->text() + t);
+    return true;
+  } else if(e->key() == Qt::Key_F7) {
+    int n=ui->sbSerialNumber_2->value();
+    QString t=QString::number(n);
+    if(n < 10) t = "00"+t;
+    if(n < 100) t = "0"+t;
+    t = "599 " + t;
+    jtty_tx(t);
+    return true;
+  } else if(e->key() == Qt::Key_F8) {
+    jtty_tx("AGN?");
+    return true;
+  } else if(e->key() == Qt::Key_F9) {
+    jtty_tx("NR?");
     return true;
   } else if((e->key() == int(Qt::Key_Enter)) or (e->key() == int(Qt::Key_Return))) {
     jtty_tx(ui->Tx_Message->text());
