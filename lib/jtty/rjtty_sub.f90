@@ -14,7 +14,7 @@ subroutine rjtty_sub(iwave,kz,nsps,f0,ftol,line1)
   line1(1:1)=char(0)
   nframe = 53*nsps
   nchunk = nframe + nframe/4
-  smin=2.0
+  smin=3.0
 
   if(kz .le. kz0 ) then
      kz0=kz

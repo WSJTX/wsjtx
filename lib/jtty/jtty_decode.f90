@@ -156,7 +156,7 @@ subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,
    snr=ssnr                                 ! replace the snr derived from sync-shifted spectrum
    nsync=count(isyncvec.eq.irxsync)         ! nsync is the number of correct hard-decoded sync tones.
 
-   if(nsync .ge. 5 .and. snr .gt. smin) go to 10
+   if(nsync .gt. 6 .and. snr .gt. smin) go to 10
    return
 
 10 synced=.true.
@@ -190,12 +190,12 @@ subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,
       ndeep=3
       call osd80_32(bitmetrics, ndeep, message32, cw80, nharderrors, dmin)
    endif
-   if(nharderrors .ge. 0 .and. sum(message32) .eq. 0) nharderrors=-nharderrors  ! reject the all zero message
+   if(nharderrors .ge. 0 .and. sum(message32) .eq. 0) nharderrors=-1  ! reject the all zero message
 
    decoded=' '
    if( nharderrors .ge. 0 ) then
       success=.true.
-      write(c32,'(32i1)') message32
+      write(c32(1),'(32i1)') message32
       call unpack_jtty(c32,1,decoded)
    endif
    return
