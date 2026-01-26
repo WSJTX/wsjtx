@@ -4784,7 +4784,7 @@ QPushButton[state=&quot;ok&quot;] {
      <x>0</x>
      <y>0</y>
      <width>880</width>
-     <height>17</height>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -5269,9 +5269,6 @@ QPushButton[state=&quot;ok&quot;] {
    <property name="text">
     <string>Message averaging</string>
    </property>
-   <property name="shortcut">
-    <string>F7</string>
-   </property>
   </action>
   <action name="actionInclude_averaging">
    <property name="checkable">
@@ -5301,9 +5298,6 @@ QPushButton[state=&quot;ok&quot;] {
    <property name="text">
     <string>Echo Graph</string>
    </property>
-   <property name="shortcut">
-    <string>F8</string>
-   </property>
   </action>
   <action name="actionEcho">
    <property name="checkable">
@@ -5327,9 +5321,6 @@ QPushButton[state=&quot;ok&quot;] {
   <action name="actionFast_Graph">
    <property name="text">
     <string>Fast Graph</string>
-   </property>
-   <property name="shortcut">
-    <string>F9</string>
    </property>
   </action>
   <action name="download_samples_action">
