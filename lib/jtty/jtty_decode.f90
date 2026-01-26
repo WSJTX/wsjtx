@@ -10,8 +10,9 @@ subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,
    integer*1                 :: message32(32), cw80(80)
    integer*2, intent(in)     :: iwave(nchunk)
    integer                   :: i,j,i0,ja,jb
-   integer, intent(in)       :: nchunk,nsps
-   integer                   :: npts,nana
+   integer, intent(in)       :: nchunk,nsps   !size of chunk, nsps at 12000 Sa/s
+   integer                   :: nchunk6,nana  !size of chunk, nana at 6000 Sa/s
+   integer                   :: nframe6       !size of frame at 6000 Sa/s
    integer, save             :: nsps0=-999
    integer, save             :: nfft,nh2,nss
    integer                   :: iloc(1)
@@ -72,15 +73,19 @@ subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,
       enddo
    endif
 
-   npts=nchunk/2                ! chunk size at 6000 sa/s 
+   nchunk6=nchunk/2                ! chunk size at 6000 Sa/s 
+   nframe6=53*nss                  ! frame size at 6000 Sa/s
+
 ! make size of c0 next power of 2 larger than nchunk
    nana = 2**nint(log(real(nchunk))/log(2.0)+0.5)
    allocate(c0(0:nana-1))
+
+!  convert integer samples as 12K Sa/s to complex analytic signal at 6K Sa/s
    call ana64a(iwave,nchunk,c0,nana) 
-   c0(npts:)=0.
+   c0(nchunk6:)=0.
 
    allocate(c(0:nfft-1))        ! 
-   allocate(c1(0:npts-1))
+   allocate(c1(0:nchunk6-1))
    allocate(s(0:nh2))
    allocate(sm(0:nh2))
    allocate(s0(0:nh2))
@@ -98,7 +103,7 @@ subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,
       ja=(f0-ftol)/df2
       jb=(f0+ftol)/df2
       if(ja .lt. 3) ja=3
-      do i0=0,npts/4,10                        !Search over quarter-chunk segments
+      do i0=0,nframe6/4,12                     !Search over quarter-frame segments
          xdt=i0*dt
          c(0:13*nss-1)=conjg(csync(0:13*nss-1))*c0(i0:i0+13*nss-1)
          c(13*nss:)=0.
@@ -132,13 +137,13 @@ subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,
 
    a=0.
    a(1)=-f1                                !Shift peak to zero frequency
-   call twkfreq(c0,c1,npts,6000.0,a)
+   call twkfreq(c0,c1,nchunk6,6000.0,a)
 
    pt=0.
    pa=0.
    do j=1,13                                ! find tone powers for sync symbols
       i0=nint(xdt/dt) + (j-1)*nss
-      if(i0.gt.npts) exit
+      if(i0+nss.gt.nchunk6) exit
 
       do i=0,3
          c(0:nss-1)=conjg(ctones(0:nss-1,i))*c1(i0:i0+nss-1)
@@ -164,7 +169,7 @@ subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,
 
    do j=1,40                                ! find tone powers for 40 symbols
       i0=nint(xdt/dt) + 13*nss + (j-1)*nss
-      if(i0+nss .gt. npts) exit
+      if(i0+nss .gt. nchunk6) exit
 
       do i=0,3
          c(0:nss-1)=conjg(ctones(0:nss-1,i))*c1(i0:i0+nss-1)
