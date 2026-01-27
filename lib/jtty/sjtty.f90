@@ -31,10 +31,9 @@ program sjtty
   integer*1 message32(32)
   integer*1 codeword80(80)
   integer graymap(0:3)
-  integer ib13(13)
   logical itu_model                 !True if fdop, delay are from an ITU model
   data graymap/0,1,3,2/
-  data ib13/0,0,0,0,0,3,3,0,0,3,0,3,0/
+
   nargs=iargc()
   if(nargs.ne.8) then
      print*,'Usage:   sjtty    message     f0   DT fdop del nsps nfiles SNR'
@@ -118,7 +117,7 @@ program sjtty
     call encode_80_32(message32,codeword80)
     ib=(i-1)*53+1   ! 53 tones per frame
     ie=ib+52       
-    itone(ib:ib+12)=ib13
+    itone(ib:ib+12)=is13
     do j = 1, 40
        is=codeword80(2*j) + 2*codeword80(2*j-1)
        itone(ib+12+j) = graymap(is)

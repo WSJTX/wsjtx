@@ -13,10 +13,7 @@ subroutine genjtty(umsg,itone,nsym)
   integer*1 message32(32)
   integer*1 codeword80(80)
   integer graymap(0:3)
-  integer ib13(13)
   data graymap/0,1,3,2/
-!  data ib13/0,0,0,0,0,1,1,0,0,1,0,1,0/
-  data ib13/0,0,0,0,0,3,3,0,0,3,0,3,0/
 
   call pack_jtty(umsg,c32,nframes)
   nsym=0
@@ -25,7 +22,7 @@ subroutine genjtty(umsg,itone,nsym)
     call encode_80_32(message32,codeword80)
     ib=(i-1)*53+1   ! 53 tones per frame
     ie=ib+52       
-    itone(ib:ib+12)=ib13
+    itone(ib:ib+12)=is13
     do j = 1, 40
        is=codeword80(2*j) + 2*codeword80(2*j-1)
        itone(ib+12+j) = graymap(is)

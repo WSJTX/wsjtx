@@ -16,7 +16,6 @@ subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,
    integer, save             :: nsps0=-999
    integer, save             :: nfft,nh2,nss
    integer                   :: iloc(1)
-   integer                   :: isyncvec(13)=(/0,0,0,0,0,3,3,0,0,3,0,3,0/)
    integer                   :: irxsync(13)
    integer                   :: ndeep, maxiterations
    integer, intent(out)      :: nharderrors,nsync
@@ -152,14 +151,14 @@ subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,
       enddo
       iloc=maxloc(pow)-1
       irxsync(j)=iloc(1)
-      pt=pt+pow(isyncvec(j))                !signal plus noise
+      pt=pt+pow(is13(j))                !signal plus noise
       pa=pa+sum(pow)                        !signal plus 4*noise
    enddo
    ssnr=-99.0
    pn=(pa-pt)/3.0
    if(pn.gt.0.) ssnr=db(pt/pn)              ! pt/pn instead of pt/pn-1 to avoid negative snr estimates
    snr=ssnr                                 ! replace the snr derived from sync-shifted spectrum
-   nsync=count(isyncvec.eq.irxsync)         ! nsync is the number of correct hard-decoded sync tones.
+   nsync=count(is13.eq.irxsync)         ! nsync is the number of correct hard-decoded sync tones.
 
    if(nsync .gt. 6 .and. snr .gt. smin) go to 10
    return
