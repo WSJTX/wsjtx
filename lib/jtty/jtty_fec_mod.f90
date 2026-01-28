@@ -1,7 +1,8 @@
 module jtty_fec
 
-!   integer :: is13(13) = [1,3,2,0,3,2,3,0,1,3,1,2,0]
-   integer :: is13(13) = [0,0,0,0,0,3,3,0,0,3,0,3,0]
+! This sync sequence has peak sidelobe level of 3/13 and only 4 such sidelobes
+! over the entire 25x7 lag space.
+   integer :: is13(13) = [1,3,0,0,3,2,0,3,1,2,1,2,3] 
 
 contains
 
