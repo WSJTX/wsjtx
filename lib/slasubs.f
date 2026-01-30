@@ -133,11 +133,11 @@
 *     :     occasion that a leap second is      :
 *     :                announced                :
 *     :                                         :
-*     :  Latest leap second:  2015 July 1       :
+*     :  Latest leap second:  2016 Dec 31       :
 *     :                                         :
 *     :-----------------------------------------:
 *
-*  Last revision:   5 July 2008
+*  Last revision:   30 January 2026
 *
 *  Copyright P.T.Wallace.  All rights reserved.
 *-
