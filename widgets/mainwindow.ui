@@ -1027,7 +1027,7 @@
              <number>1</number>
             </property>
             <item>
-             <layout class="QGridLayout" name="DXCall_gridLayout" columnstretch="3,2">
+             <layout class="QGridLayout" name="DXCall_gridLayout" columnstretch="3,0">
               <item row="0" column="0">
                <widget class="QPushButton" name="DX_Call_Button">
                 <property name="sizePolicy">
@@ -1062,10 +1062,10 @@
                 </property>
                </widget>
               </item>
-              <item row="1" column="0">
-               <widget class="QLineEdit" name="dxCallEntry">
+              <item row="1" column="1">
+               <widget class="QLineEdit" name="dxGridEntry">
                 <property name="toolTip">
-                 <string>Callsign of station to be worked</string>
+                 <string>Locator of station to be worked</string>
                 </property>
                 <property name="text">
                  <string/>
@@ -1167,10 +1167,10 @@
                 </property>
                </widget>
               </item>
-              <item row="1" column="1">
-               <widget class="QLineEdit" name="dxGridEntry">
+              <item row="1" column="0">
+               <widget class="QLineEdit" name="dxCallEntry">
                 <property name="toolTip">
-                 <string>Locator of station to be worked</string>
+                 <string>Callsign of station to be worked</string>
                 </property>
                 <property name="text">
                  <string/>
@@ -2013,7 +2013,7 @@ When not checked you can view the calibration results.</string>
                     <item>
                      <widget class="QStackedWidget" name="opt_controls_stack">
                       <property name="currentIndex">
-                       <number>1</number>
+                       <number>0</number>
                       </property>
                       <widget class="QWidget" name="page_0">
                        <layout class="QVBoxLayout" name="verticalLayout">
@@ -3696,7 +3696,98 @@ Double-click to reset to the standard 73 message</string>
              </item>
             </layout>
            </widget>
-           <widget class="QWidget" name="page_4"/>
+           <widget class="QWidget" name="page_4">
+            <widget class="QWidget" name="layoutWidget">
+             <property name="geometry">
+              <rect>
+               <x>13</x>
+               <y>70</y>
+               <width>541</width>
+               <height>71</height>
+              </rect>
+             </property>
+             <layout class="QGridLayout" name="gridLayout_4">
+              <item row="1" column="0" colspan="5">
+               <widget class="QLineEdit" name="Tx_Message">
+                <property name="text">
+                 <string>CQ K1JT CQ</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="3">
+               <widget class="QSpinBox" name="sbSerialNumber_2">
+                <property name="minimumSize">
+                 <size>
+                  <width>100</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignCenter</set>
+                </property>
+                <property name="minimum">
+                 <number>1</number>
+                </property>
+                <property name="maximum">
+                 <number>5000</number>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="0">
+               <spacer name="horizontalSpacer_9">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+              <item row="0" column="1">
+               <widget class="QPushButton" name="pbSendMessage">
+                <property name="minimumSize">
+                 <size>
+                  <width>100</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="text">
+                 <string>Send Message</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="4">
+               <spacer name="horizontalSpacer_10">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+              <item row="0" column="2">
+               <spacer name="horizontalSpacer_8">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </widget>
+           </widget>
            <widget class="QWidget" name="page_2">
             <layout class="QVBoxLayout" name="verticalLayout_5">
              <property name="leftMargin">
@@ -5178,9 +5269,6 @@ QPushButton[state=&quot;ok&quot;] {
    <property name="text">
     <string>Message averaging</string>
    </property>
-   <property name="shortcut">
-    <string>F7</string>
-   </property>
   </action>
   <action name="actionInclude_averaging">
    <property name="checkable">
@@ -5210,9 +5298,6 @@ QPushButton[state=&quot;ok&quot;] {
    <property name="text">
     <string>Echo Graph</string>
    </property>
-   <property name="shortcut">
-    <string>F8</string>
-   </property>
   </action>
   <action name="actionEcho">
    <property name="checkable">
@@ -5236,9 +5321,6 @@ QPushButton[state=&quot;ok&quot;] {
   <action name="actionFast_Graph">
    <property name="text">
     <string>Fast Graph</string>
-   </property>
-   <property name="shortcut">
-    <string>F9</string>
    </property>
   </action>
   <action name="download_samples_action">

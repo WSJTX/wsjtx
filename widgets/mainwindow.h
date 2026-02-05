@@ -44,8 +44,10 @@
 #include "Network/Cloudlog.hpp"
 #include "logbook/logbook.h"
 #include "astro.h"
+#include "qtextbrowser.h"
 #include "widgets/QSYMessageCreator.h"
 #include "widgets/QSYMessage.h"
+#include "widgets/displaytext.h"
 #include "widgets/qsymonitor.h"
 #include "MessageBox.hpp"
 #include "Network/NetworkAccessManager.hpp"
@@ -340,7 +342,6 @@ private slots:
   void on_actionStartLate_toggled(bool checked);
   void on_actionFT8WidebandDXCallSearch_toggled(bool checked);
   void on_actionUse_multithreaded_FT8_decoder_triggered(bool checked);
-  //ft8md
 
   void bumpFqso(int n);
   void on_actionErase_ALL_TXT_triggered();
@@ -469,6 +470,7 @@ private slots:
   void on_rbEchoMessage_toggled(bool b);
   void on_rbEchoCW_toggled(bool b);
   void on_leEchoMessage_textChanged();
+  void on_pbSendMessage_clicked();
 
 private:
   Q_SIGNAL void initializeAudioOutputStream (QAudioDeviceInfo,
@@ -508,6 +510,12 @@ private:
   void readWidebandDecodes();
   void configActiveStations();
   void sfox_tx();
+  void jtty_tx(QString message);
+  void jtty_save_wav();
+  bool jtty_key_struck(QKeyEvent * e);
+  void jtty_decode(int k);
+  void jtty_again();
+
   bool play_DXcall = false;
   bool play_Wanted = false;
   bool inSettings = false;
@@ -618,6 +626,7 @@ private:
   qint32  m_ft8DecoderStart;
   qint32  m_nsecBandChanged;
   qint32  m_nFT4depth;
+  qint32  m_nsym_jtty;
   //ft8md
 
   qint32  m_sec0;

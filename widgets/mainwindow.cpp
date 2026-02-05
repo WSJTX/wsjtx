@@ -127,6 +127,14 @@ extern "C" {
               float s[], int* jh, float *pxmax, float *rmsNoGain, char line[],
               fortran_charlen_t, fortran_charlen_t, fortran_charlen_t, fortran_charlen_t);
 
+  void rjtty_sub_(short int d2[], int* k, int* nsps, float* f0, float* ftol,
+                  char line[], fortran_charlen_t);
+
+  void genjtty_(char const * msg, int itone[], int* nsym, fortran_charlen_t);
+
+  void gen_jttywave_(int itone[], int* nsym, int* nsps, float* bt, float* fsample, float* f0,
+                    float xjunk[], float wave[], int* icmplx, int* nwave);
+
   void gen_echocall_(char* basecall, int itone[], fortran_charlen_t);
 
   void genft8_(char* msg, int* i3, int* n3, char* msgsent, char ft8msgbits[],
@@ -184,7 +192,7 @@ extern "C" {
   void avecho_( short id2[], int* dop, int* nfrit, int* nauto, int* ndf, int* navg,
                 int* nqual, float* f1, float* level, float* sigdb, float* snr, float* dfreq,
                 float* width, bool* bDiskData, bool* bEchoCall, char const * txcall,
-                char rxcall[], float* xdt, FCL len1, FCL len2);
+                char rxcall[], FCL len1, FCL len2);
 
   void fast_decode_(short id2[], int narg[], double * trperiod,
                     char msg[], char mycall[], char hiscall[],
@@ -551,7 +559,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
         m_config.udp_server_name (), m_config.udp_server_port (),
         m_config.udp_interface_names (), m_config.udp_TTL (),
         this}},
-  m_psk_Reporter {&m_config, QString {"WSJT-X v" + version () + " i+"}.simplified ()},     // UR
+  m_psk_Reporter {&m_config, QString {"WSJT-X v" + version () + " " + m_revision}.simplified ()},
   m_manual {&m_network_manager},
   m_block_udp_status_updates {false},
   m_useDarkStyle {false}
@@ -1280,7 +1288,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
   if(QCoreApplication::applicationVersion().contains("-devel") or
      QCoreApplication::applicationVersion().contains("-rc")) {
-//    QTimer::singleShot (0, this, SLOT (not_GA_warning_message ()));
+//    QTimer::singleShot (0, this, SLOT (not_GA_warning_message ()));     //Disabled for now
   }
 
   m_bMyCallStd=stdCall(m_config.my_callsign ()); //ft8md
@@ -1338,9 +1346,9 @@ void MainWindow::not_GA_warning_message ()
   MessageBox::critical_message (this,
                                 "This is a pre-release version of WSJT-X " + version (false) + " made\n"
                                 "available for testing purposes.  By design it will\n"
-                                "be nonfunctional after Jan 15, 2025.");
+                                "be nonfunctional after April 30, 2026.");
   auto now = QDateTime::currentDateTimeUtc ();
-  if (now >= QDateTime {{2025, 01, 15}, {23, 59, 59, 999}, Qt::UTC}) {
+  if (now >= QDateTime {{2026, 04, 30}, {23, 59, 59, 999}, Qt::UTC}) {
     Q_EMIT finished ();
   }
 }
@@ -1463,6 +1471,7 @@ void MainWindow::writeSettings()
   m_settings->setValue("FoxNlist",ui->sbNlist->value());
   m_settings->setValue("FoxNslots",m_Nslots0);
   m_settings->setValue("SerialNumber",ui->sbSerialNumber->value ());
+  m_settings->setValue("SerialNumberJTTY",ui->sbSerialNumber_2->value ());
   m_settings->setValue("FoxTextMsg", m_freeTextMsg0);
   m_settings->setValue("WorkDupes", ui->cbWorkDupes->isChecked());
   m_settings->endGroup();
@@ -1707,6 +1716,7 @@ void MainWindow::readSettings()
   m_Nslots0=m_Nslots;
   if(!m_config.superFox()) ui->sbNslots->setValue(m_Nslots);
   ui->sbSerialNumber->setValue (m_settings->value ("SerialNumber", 1).toInt ());
+  ui->sbSerialNumber_2->setValue (m_settings->value ("SerialNumberJTTY", 1).toInt ());
   m_freeTextMsg0=m_settings->value("FoxTextMsg","").toString();
   m_freeTextMsg=m_freeTextMsg0;
   ui->cbWorkDupes->setChecked(m_settings->value("WorkDupes",false).toBool());
@@ -1913,7 +1923,7 @@ void MainWindow::readSettings()
   else if(m_ft8threads==10) ui->actionMT10->setChecked(true);
   else if(m_ft8threads==11) ui->actionMT11->setChecked(true);
   else if(m_ft8threads==12) ui->actionMT12->setChecked(true);
-  qDebug() << "m_ft8threads is " << m_ft8threads;
+//  qDebug() << "m_ft8threads is " << m_ft8threads;
   dec_data.params.nmt = m_ft8threads;
 
   ui->actionHide_FT8_dupe_messages->setChecked(m_settings->value("HideFT8Dupes",true).toBool());
@@ -2133,6 +2143,7 @@ void MainWindow::setDecodedTextFont (QFont const& font)
 {
   ui->decodedTextBrowser->setContentFont (font);
   ui->decodedTextBrowser2->setContentFont (font);
+  ui->Tx_Message->setFont (font);
   ui->houndQueueTextBrowser->setContentFont(font);
   ui->houndQueueTextBrowser->displayHoundToBeCalled(" ");
   ui->houndQueueTextBrowser->setText("");
@@ -2219,6 +2230,8 @@ void MainWindow::fixStop()
     } else {
       m_hsymStop=stop[i];
     }
+  } else if(m_mode=="JTTY") {
+    m_hsymStop=620;
   }
 }
 
@@ -2244,10 +2257,12 @@ void MainWindow::dataSink(qint64 frames)
   }
   m_bClearRefSpec=false;
 
-  if(m_mode=="MSK144" or m_bFast9 or m_mode=="JTTY") {
+  if(m_mode=="MSK144" or m_bFast9) {
     fastSink(frames);
     if(m_bFastMode) return;
   }
+
+  if(m_mode=="JTTY") fastSink(frames);
 
 // Get power, spectrum, and ihsym
   dec_data.params.nfa=m_wideGraph->nStartFreq();
@@ -2268,10 +2283,17 @@ void MainWindow::dataSink(qint64 frames)
   if(m_ihsym <=0) return;
   if(ui) ui->signal_meter_widget->setValue(m_px,m_pxmax); // Update thermometer
   if(m_monitoring || m_diskData) {
-//    qDebug() << "aa" << k << m_ihsym << m_hsymStop << m_FFTSize << s[500] << s[1000] << s[1500];
     m_wideGraph->dataSink2(s,m_df3,m_ihsym,m_diskData,m_px);
   }
-  if(m_mode=="MSK144" or m_mode=="JTTY") return;
+  if(m_mode=="MSK144") return;
+  if(m_mode=="JTTY") {
+    if(m_ihsym >= m_hsymStop and m_saveAll) {
+      monitor(false);
+      jtty_save_wav();
+      if(!m_diskData) monitor(true);
+    }
+    return;
+  }
 
   fixStop();
   if (m_mode == "FreqCal"
@@ -2396,10 +2418,9 @@ void MainWindow::dataSink(qint64 frames)
       bool bEchoCall=ui->rbEchoMessage->isChecked();
       QString txcall=ui->leEchoMessage->text();
       static char crxcall[7];
-      float xdt=0.0;
       avecho_(dec_data.d2,&nDop,&nfrit,&nauto,&ndf,&navg,&nqual,&f1,&xlevel,&sigdb,
           &dBerr,&dfreq,&width,&m_diskData,&bEchoCall,txcall.toLatin1().constData(),
-          &crxcall[0],&xdt,(FCL)6,(FCL)6);
+          &crxcall[0],(FCL)6,(FCL)6);
       crxcall[6]=0;
       QString rxcall {QString::fromLatin1(crxcall)};
 
@@ -2430,8 +2451,8 @@ void MainWindow::dataSink(qint64 frames)
         m_echoRunning=true;
         if(ndf<0 or ndf>30) ndf=0;
         QString t;
-        t = t.asprintf("%7.4f  %5.2f %7d %7.1f %5d %5d %6d %6.1f %7.1f %5.2f %3d",hour,xlevel,
-                       nDopTotal,width,echocom_.nsum,nqual,qRound(dfreq),sigdb,dBerr,xdt,ndf);
+        t = t.asprintf("%7.4f  %5.2f %7d %7.1f %5d %5d %6d %6.1f %7.1f  %3d",hour,xlevel,
+                       nDopTotal,width,echocom_.nsum,nqual,qRound(dfreq),sigdb,dBerr,ndf);
         t = t0 + t + "  " + rxcall;
         if(!bEchoCall) t=t.left(78);
         if(ui) ui->decodedTextBrowser->insertText(t);
@@ -2585,6 +2606,7 @@ void MainWindow::fastSink(qint64 frames)
   filtered = false;
   ignored = false;
   m_muted = false;
+
   if(k < m_k0) {                                 //New sequence ?
     memcpy(fast_green2,fast_green,4*703);        //Copy fast_green[] to fast_green2[]
     memcpy(fast_s2,fast_s,4*703*64);             //Copy fast_s[] into fast_s2[]
@@ -2593,6 +2615,7 @@ void MainWindow::fastSink(qint64 frames)
     m_bFastDecodeCalled=false;
     m_bDecoded=false;
   }
+  m_k0 = k;
 
   QDateTime tnow=QDateTime::currentDateTimeUtc();
   int ihr=tnow.toString("hh").toInt();
@@ -2630,6 +2653,12 @@ void MainWindow::fastSink(qint64 frames)
   t = t.asprintf(" Rx noise: %5.1f ",px);
   ui->signal_meter_widget->setValue(rmsNoGain,pxmax); // Update thermometer
   m_fastGraph->plotSpec(m_diskData,m_UTCdisk);
+
+  if(m_mode=="JTTY") {
+    jtty_decode(k);
+    if(dec_data.params.kin - k < 10240) fast_decode_done();
+    return;
+  }
 
   if(bmsk144 and (line[0]!=0)) {
     QString message {QString::fromLatin1 (line)};
@@ -3412,7 +3441,6 @@ void MainWindow::fastSink(qint64 frames)
     m_bFastDone=true;
   }
 
-  m_k0=k;
   if(m_diskData and m_k0 >= dec_data.params.kin - 7 * 512) decodeNow=true;
   if(!m_diskData and m_tRemaining<0.35 and !m_bFastDecodeCalled) decodeNow=true;
   if(m_mode=="MSK144") decodeNow=false;
@@ -3833,22 +3861,11 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
     }
     QMainWindow::keyPressEvent (e);
   }
-
-  // Why shall RETURN switch Tx on when in Hound mode? Makes little sense and confuses many OMs!
-//  if(SpecOp::HOUND == m_specOp) {
-//    switch (e->key()) {
-//      case Qt::Key_Return:
-//        auto_tx_mode(true);
-//        return;
-//      case Qt::Key_Enter:
-//        auto_tx_mode(true);
-//        return;
-//    }
-//    QMainWindow::keyPressEvent (e);
-//  }
-
+  if(m_mode=="JTTY") {
+    bool handled = jtty_key_struck(e);
+    if(handled) return;
+  }
   int n;
-  qDebug() << "Key struck:" << e->key();
   bool bAltF1F6=m_config.alternate_bindings();
   switch(e->key())
     {
@@ -4065,6 +4082,57 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
   }
 
   QMainWindow::keyPressEvent (e);
+}
+
+bool MainWindow::jtty_key_struck(QKeyEvent * e)
+{
+  if(e->key() == Qt::Key_F1) {
+    jtty_tx("CQ " + m_config.my_callsign() + " CQ");
+    return true;
+  } else if(e->key() == Qt::Key_F2) {
+    int n=ui->sbSerialNumber_2->value();
+    QString t=QString::number(n);
+    if(n < 10) t = "00"+t;
+    if(n < 100) t = "0"+t;
+    t = " 599 " + t;
+    jtty_tx(ui->dxCallEntry->text() + t);
+    return true;
+  } else if(e->key() == Qt::Key_F3) {
+    jtty_tx("TU " + m_config.my_callsign() + " CQ");
+    return true;
+  } else if(e->key() == Qt::Key_F4) {
+    jtty_tx(m_config.my_callsign());
+    return true;
+  } else if(e->key() == Qt::Key_F5) {
+    jtty_tx(ui->dxCallEntry->text());
+    return true;
+  } else if(e->key() == Qt::Key_F6) {
+    int n=ui->sbSerialNumber_2->value();
+    QString t=QString::number(n);
+    if(n < 10) t = "00"+t;
+    if(n < 100) t = "0"+t;
+    t = " 599 " + t;
+    jtty_tx("TU NOW " + ui->dxCallEntry->text() + t);
+    return true;
+  } else if(e->key() == Qt::Key_F7) {
+    int n=ui->sbSerialNumber_2->value();
+    QString t=QString::number(n);
+    if(n < 10) t = "00"+t;
+    if(n < 100) t = "0"+t;
+    t = "599 " + t;
+    jtty_tx(t);
+    return true;
+  } else if(e->key() == Qt::Key_F8) {
+    jtty_tx("AGN?");
+    return true;
+  } else if(e->key() == Qt::Key_F9) {
+    jtty_tx("NR?");
+    return true;
+  } else if((e->key() == int(Qt::Key_Enter)) or (e->key() == int(Qt::Key_Return))) {
+    jtty_tx(ui->Tx_Message->text());
+    ui->Tx_Message->clear();
+  }
+  return false;
 }
 
 void MainWindow::handleVerifyMsg(int status, QDateTime ts, QString callsign, QString code, unsigned int hz, QString const &response)
@@ -4520,6 +4588,9 @@ void MainWindow::on_stopButton_clicked()                       //stopButton
 {
   ui->pbBandHopping->setChecked(false); // disable band hopping
   monitor (false);
+  if(m_mode=="JTTY" and m_saveAll and !m_diskData) {
+    jtty_save_wav();
+  }
   m_loopall=false;
   if(m_bRefSpec) {
     MessageBox::information_message (this, tr ("Reference spectrum saved"));
@@ -5086,7 +5157,6 @@ void MainWindow::diskDat()                                   //diskDat()
     float bw=m_config.RxBandwidth();
     if(db > 0.0) degrade_snr_(dec_data.d2,&dec_data.params.kin,&db,&bw);
     for(int n=1; n<=m_hsymStop; n++) {                      // Do the waterfall spectra
-//      k=(n+1)*kstep;           //### Why was this (n+1) ??? ###
       k=n*kstep;
       if(k > dec_data.params.kin) break;
       dec_data.params.npts8=k/8;
@@ -5335,6 +5405,8 @@ void MainWindow::on_DecodeButton_clicked (bool /* checked */) //Decode request
 {
   if(m_mode=="MSK144") {
     ui->DecodeButton->setChecked(false);
+  } else if(m_mode=="JTTY") {
+    jtty_again();
   } else {
     if(m_mode!="WSPR" && !m_decoderBusy) {
       m_manualDecode=true;
@@ -5561,7 +5633,7 @@ void MainWindow::decode()                                       //decode()
       dec_data.params.lmultift8 = false; // use the standard FT8 decoder for early decoding step
       if (m_ihsym==m_earlyDecode2) dec_data.params.ndepth=2;
     }
-    qDebug() << "dec_data.params.lmultift8 is" << dec_data.params.lmultift8; //ft8md
+//    qDebug() << "dec_data.params.lmultift8 is" << dec_data.params.lmultift8; //ft8md
     dec_data.params.ndiskdat=0;
     if(m_diskData) dec_data.params.ndiskdat=1;
     dec_data.params.nfa=m_wideGraph->nStartFreq();
@@ -7798,7 +7870,7 @@ void MainWindow::guiUpdate()
     int msgLength=txMsg.trimmed().length();
     if(msgLength==0 and !m_tune) on_stopTxButton_clicked();
 
-    if(g_iptt==0 and ((m_bTxTime and (fTR < 0.75) and (msgLength>0)) or m_tune)) {
+    if(g_iptt==0 and ((m_bTxTime and (fTR < 0.75) and (msgLength>0)) or m_tune or (m_mode=="JTTY"))) {
       //### Allow late starts
       icw[0]=m_ncw;
       g_iptt = 1;
@@ -7851,8 +7923,7 @@ void MainWindow::guiUpdate()
       m_config.transceiver_ptt (true); //Assert the PTT
       m_tx_when_ready = true;
     }
-//    if(!m_bTxTime and !m_tune and m_mode!="FT4") m_btxok=false;       //Time to stop transmitting
-    if(!m_bTxTime and !m_tune) m_btxok=false;       //Time to stop transmitting
+    if(!m_bTxTime and !m_tune and (m_mode != "JTTY")) m_btxok=false;       //Time to stop transmitting
   }
 
   if((m_mode=="WSPR" or m_mode=="FST4W") and
@@ -8190,10 +8261,9 @@ void MainWindow::guiUpdate()
     if (m_mode != "FST4W" && m_mode != "WSPR" && m_mode!="Echo")
       {
         if(!m_tune) write_all("Tx",m_currentMessage);
-        if (m_config.TX_messages () && !m_tune && SpecOp::FOX!=m_specOp)
-          {
-            ui->decodedTextBrowser2->displayTransmittedText(current_message.trimmed(),
-                  m_mode,ui->TxFreqSpinBox->value(),m_bFastMode,m_TRperiod,m_config.superFox());
+          if (m_config.TX_messages () && !m_tune && SpecOp::FOX!=m_specOp && m_mode != "JTTY") {
+              ui->decodedTextBrowser2->displayTransmittedText(current_message.trimmed(),
+              m_mode,ui->TxFreqSpinBox->value(),m_bFastMode,m_TRperiod,m_config.superFox());
           }
       }
 
@@ -8212,7 +8282,7 @@ void MainWindow::guiUpdate()
     statusUpdate ();
   }
 
-  if(!m_btxok && m_btxok0 && g_iptt==1) {
+  if((!m_btxok && m_btxok0 && g_iptt==1)) {
     stopTx();
     if ("1" == m_env.value ("WSJT_TX_BOTH", "0")) {
       m_txFirst = !m_txFirst;
@@ -8272,7 +8342,8 @@ void MainWindow::guiUpdate()
 
 //Once per second (onesec)
   if(nsec != m_sec0) {
-
+//    qDebug() << "AAA" << nsec % 60 << m_k0 << m_k0/12000 << g_iptt << m_transmitting
+//             << m_modulator->isActive();
     // reset earlyDecodes for 2-stage or 3-stage decoding, or if QRG > 45 MHz
     if (m_mode=="FT8" && !m_diskData && ((m_multithreadFT8 && m_ft8DecoderStart<2) or m_freqNominal>45000000)) {
       QDateTime now = QDateTime::currentDateTimeUtc();
@@ -8429,7 +8500,7 @@ void MainWindow::guiUpdate()
           if(SpecOp::FOX==m_specOp and ui->tabWidget->currentIndex()==1 and foxcom_.nslots==1) {
               t=m_fm1.trimmed();
           }
-          if(m_mode=="FT4") t="Tx: "+ m_currentMessage;
+          if(m_mode=="FT4" or m_mode == "JTTY") t="Tx: "+ m_currentMessage;
           tx_status_label.setText(t.trimmed());
         }
       }
@@ -8501,7 +8572,6 @@ void MainWindow::guiUpdate()
       ui->cbCQonly->setToolTip("CQ messages only.");
   }
   check_button_color();
-
 }               //End of guiUpdate
 
 void MainWindow::useNextCall()
@@ -8520,12 +8590,12 @@ void MainWindow::useNextCall()
 }
 
 void MainWindow::startTx2()
-{    
+{
   bool modulator_active;
   bool tci_active = m_tci_audio;
   if (tci_active) modulator_active=m_tci_mod_active;
   else modulator_active=m_modulator->isActive ();
-    if (!modulator_active) { // TODO - not thread safe
+  if (!modulator_active) { // TODO - not thread safe
     double fSpread=0.0;
     double snr=99.0;
     QString t=ui->tx5->currentText();
@@ -8839,6 +8909,12 @@ void MainWindow::doubleClickOnCall(Qt::KeyboardModifiers modifiers)
     cursor=ui->decodedTextBrowser->textCursor();
   } else {
     cursor=ui->decodedTextBrowser2->textCursor();
+  }
+  if(m_mode=="JTTY") {
+    cursor.select(QTextCursor::WordUnderCursor); // Select the word
+    m_deCall = cursor.selectedText();
+    ui->dxCallEntry->setText(m_deCall);
+    return;
   }
   DecodedText message {cursor.block().text().trimmed().left(61).remove("TU; ")};
   if(SpecOp::HOUND==m_specOp && (message.string().mid(4,2).contains("15") or message.string().mid(4,2).contains("45"))) return;  // ignore stations calling in the wrong time slot
@@ -11424,21 +11500,28 @@ void MainWindow::on_actionQ65_triggered()
 
 void MainWindow::on_actionJTTY_triggered()
 {
+  on_stopButton_clicked();
   m_mode = "JTTY";
   ui->actionJTTY->setChecked(true);
   switch_mode (Modes::JTTY);
   WSPR_config(false);
   VHF_features_enabled(false);
+  m_wideGraph->setMode(m_mode);
   ui->cbAutoSeq->setChecked(false);
   m_bFastMode=false;
   m_bFast9=false;
-  m_nsps=6192;
+  m_nsps=6912;
+  m_FFTSize = m_nsps / 2;
+  if (m_tci_audio) Q_EMIT m_config.transceiver_blocksize (m_FFTSize);
+  else Q_EMIT FFTSize (m_FFTSize);
   m_TRperiod=60;                   //We need a nonzero setting for WideGraph plotter to work.
+  m_hsymStop=620;
   m_wideGraph->setPeriod(m_TRperiod,m_nsps);
-  ui->TxFreqSpinBox->setValue(1800);
-  ui->RxFreqSpinBox->setValue(1800);
+  ui->TxFreqSpinBox->setValue(1500);
+  ui->RxFreqSpinBox->setValue(1500);
   ui->RxFreqSpinBox->setSingleStep(200);
   ui->lh_decodes_headings_label->setText("");
+  ui->rh_decodes_headings_label->setText("");
   ui->lh_decodes_title_label->setText(tr ("Rx Messages"));
   ui->rh_decodes_title_label->setText(tr ("Tx Messages"));
   setup_status_bar (false);
@@ -11617,7 +11700,7 @@ void MainWindow::on_actionEcho_triggered()
   m_bFastMode=false;
   m_bFast9=false;
   WSPR_config(true);
-  ui->lh_decodes_headings_label->setText("  UTC    Hour    Level  Doppler  Width     N     Q     DF    SNR   dBerr   DT   TS  EchoMsg");
+  ui->lh_decodes_headings_label->setText("  UTC    Hour    Level  Doppler  Width     N     Q     DF    SNR   dBerr   TS  EchoMsg");
   //                       01234567890123456789012345678901234567
   displayWidgets(nWidgets("00000000000000000010001000000000000000"));
   fast_config(false);
@@ -11715,14 +11798,15 @@ void MainWindow::switch_mode (Mode mode)
         && ui->actionAstronomical_data->isChecked () && m_config.auto_astro()) ui->actionAstronomical_data->setChecked (false);
   });
   check_button_color();
+  ui->autoButton->setEnabled(m_mode != "JTTY");
 }
 
 void MainWindow::WSPR_config(bool b)
 {
   ui->rh_decodes_widget->setVisible(!b);     // UR disable for AL + widescreen version
-  ui->controls_stack_widget->setCurrentIndex (b && m_mode != "Echo" ? 1 : 0);
+  ui->controls_stack_widget->setCurrentIndex (b && m_mode != "Echo" ? 2 : 0);
   if(m_mode=="Echo") ui->controls_stack_widget->setCurrentIndex(3);
-  if(m_mode=="JTTY") ui->controls_stack_widget->setCurrentIndex(2);
+  if(m_mode=="JTTY") ui->controls_stack_widget->setCurrentIndex(1);
   ui->QSO_controls_widget->setVisible (!b);
   ui->DX_controls_widget->setVisible (!b or (m_mode=="Echo"));
   ui->WSPR_controls_widget->setVisible (b);
@@ -11904,8 +11988,8 @@ void MainWindow::on_actionUse_multithreaded_FT8_decoder_triggered(bool checked)
 {
   m_multithreadFT8 = checked;
   dec_data.params.lmultift8 = m_multithreadFT8;
-  qDebug() << "m_multithreadFT8 is" << m_multithreadFT8;
-  qDebug() << "dec_data.params.lmultift8 is" << dec_data.params.lmultift8;
+//  qDebug() << "m_multithreadFT8 is" << m_multithreadFT8;
+//  qDebug() << "dec_data.params.lmultift8 is" << dec_data.params.lmultift8;
   if (checked && !(m_specOp==SpecOp::HOUND && m_config.superFox())) {
     if (m_ft8DecoderStart==0) m_hsymStop=49;
     else if (m_ft8DecoderStart==1) {
@@ -12569,7 +12653,7 @@ void MainWindow::handle_transceiver_failure (QString const& reason)
   update_dynamic_property (ui->readFreq, "state", "error");
   ui->readFreq->setEnabled (true);
   on_stopTxButton_clicked ();
-  qDebug() << "MainWindow::handle_transceiver_failure fired";
+//  qDebug() << "MainWindow::handle_transceiver_failure fired";
   rigFailure (reason);
   rigFailed = true;
 }
@@ -12692,6 +12776,20 @@ void MainWindow::transmit (double snr)
              576.0, ui->TxFreqSpinBox->value() - m_XIT,
              toneSpacing, m_soundOutput, m_config.audio_output_channel(),
              true, false, snr, m_TRperiod);
+    }
+  }
+
+  if (m_mode == "JTTY") {
+    m_dateTimeSentTx3=QDateTime::currentDateTimeUtc();
+    toneSpacing=-2.0;                     //Transmit a pre-computed, filtered waveform.
+    double txt=m_nsym_jtty*384.0/12000.0;
+    if (m_tci_audio) {
+      Q_EMIT m_config.transceiver_modulator_start(m_mode, m_nsym_jtty,
+             384.0,1500.0,toneSpacing,false,false,snr,txt);
+    } else {
+      Q_EMIT sendMessage (m_mode, m_nsym_jtty,
+             384.0,1500.0,toneSpacing, m_soundOutput, m_config.audio_output_channel(),
+             false, false, snr, txt);
     }
   }
 
@@ -13370,7 +13468,7 @@ void MainWindow::locationChange (QString const& location)
     }
   }
   if (MaidenheadLocatorValidator::Acceptable == MaidenheadLocatorValidator ().validate (grid, len)) {
-    qDebug() << "locationChange: Grid supplied is " << grid;
+//    qDebug() << "locationChange: Grid supplied is " << grid;
     if (m_config.my_grid () != grid) {
       m_config.set_location (grid);
       genStdMsgs (m_rpt, false);
@@ -17430,4 +17528,92 @@ void MainWindow::alertQSYmessage ()
   QString binPath = QCoreApplication::applicationDirPath();
   QSound::play(binPath + "/sounds/Message.wav");  // for Linux and macOS
 #endif
+}
+
+void MainWindow::on_pbSendMessage_clicked()
+{
+  jtty_tx(ui->Tx_Message->text().toUpper());
+}
+
+void MainWindow::jtty_tx(QString message)
+{
+  int itone[848];
+  int n=message.length();
+  m_currentMessage = message;
+  ui->decodedTextBrowser->insertText(message);
+  if(message.left(3) == "TU ") {
+    // ### Must send "sent" and "rcvd" info to logqso here. ###
+    logQSOTimer.start(0);
+    int nr = ui->sbSerialNumber_2->value();
+    m_xSent = QString::number(nr);
+    ui->sbSerialNumber_2->setValue(nr+1);
+  }
+
+  QString t = " ";
+  t = message + t.repeated(80-n);
+  genjtty_(t.toLatin1().constData(), &itone[0], &m_nsym_jtty, (FCL)80);
+
+  int nsps4=4*384;
+  float bt=2.0;
+  float fsample=48000.0;
+  float f0=1500.0;
+  int icmplx=0;
+  int nwave=nsps4*m_nsym_jtty;
+  gen_jttywave_(const_cast<int *>(itone), &m_nsym_jtty, &nsps4, &bt, &fsample, &f0,
+                foxcom_.wave, foxcom_.wave, &icmplx, &nwave);
+  monitor(false);
+  if(!m_diskData && m_saveAll && (m_k0 > 53*384) && (m_k0 < 9999999)) {
+    jtty_save_wav();
+  }
+  m_transmitting = true;
+  startTx2();
+  int msTx=nwave/48.0 + 1000*m_config.txDelay();
+  QTimer::singleShot(msTx, this, SLOT (stopTx()));
+}
+
+void MainWindow::jtty_save_wav()
+{
+  //Save JTTY data to a .wav file
+  QDateTime now {QDateTime::currentDateTimeUtc ()};
+  qint64 ms = m_k0/12;
+  auto const& tstart=now.addMSecs(-ms);
+  m_fnameWE=m_config.save_directory().absoluteFilePath (tstart.toString("yyMMdd_hhmmss"));
+  int samples=m_k0;
+  m_saveWAVWatcher.setFuture (QtConcurrent::run (std::bind (&MainWindow::save_wave_file,
+        this, m_fnameWE, &dec_data.d2[0], samples, m_config.my_callsign(),
+        m_config.my_grid(), m_mode, m_nSubMode, m_freqNominalPeriod, m_hisCall, m_hisGrid)));
+}
+
+void MainWindow::jtty_decode(int k)
+{
+  static int k0=9999999;
+  int nsps=384;
+  char line[80];
+  float f0 = m_wideGraph->rxFreq();
+  float ftol = 20.0;
+  rjtty_sub_(dec_data.d2,&k,&nsps,&f0,&ftol,&line[0],(FCL)80);
+  QString message {QString::fromLatin1(line)};
+  if(message.length() > 0 and message.length() < 80) {
+    if(k > k0) {
+      QTextCursor cursor = ui->decodedTextBrowser->textCursor();
+      cursor.movePosition(QTextCursor::End);         //Cursor to end of text
+      cursor.select(QTextCursor::LineUnderCursor);   //Select line under cursor
+      cursor.removeSelectedText();                   //Remove the selected line
+      cursor.deletePreviousChar();                   //Delete previous newline
+      ui->decodedTextBrowser->setTextCursor(cursor); //Reset cursor back to browser
+    }
+    k0=k;
+    m_xRcvd="";
+    QStringList w = message.split(" ",SkipEmptyParts);
+    if((w.length() == 2) and (w[0] == "599")) m_xRcvd = w[1];
+    if((w.length() == 3) and (w[1] == "599")) m_xRcvd = w[2];
+    ui->decodedTextBrowser->insertText(message.trimmed());
+  }
+}
+
+void MainWindow::jtty_again()
+{
+  for(int k=3456; k<dec_data.params.kin; k+=3456) {
+    jtty_decode(k);
+  }
 }
