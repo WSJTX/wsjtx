@@ -4,6 +4,8 @@ module jtty_fec
 ! and 46 such values over the entire 25x7 lag space
    integer :: is13(13) = [0,2,2,3,0,0,3,2,1,3,1,2,0] 
 
+   integer :: indexes(5000,2), fp(0:525000), np(5000)
+   private :: indexes, fp, np 
 contains
 
 subroutine get_crc10(mc,len,ncrc)
@@ -517,9 +519,9 @@ end subroutine nextpat42
 
 subroutine boxit42(reset,e2,ntau,npindex,i1,i2)
   integer*1 e2(1:ntau)
-  integer indexes(5000,2),fp(0:525000),np(5000)
+!  integer indexes(5000,2),fp(0:525000),np(5000)
   logical reset
-  common/boxes/indexes,fp,np
+!  common/boxes/indexes,fp,np
 
   if(reset) then
      patterns=-1
@@ -552,11 +554,11 @@ subroutine boxit42(reset,e2,ntau,npindex,i1,i2)
 end subroutine boxit42
 
 subroutine fetchit42(reset,e2,ntau,i1,i2)
-  integer   indexes(5000,2),fp(0:525000),np(5000)
+!  integer   indexes(5000,2),fp(0:525000),np(5000)
   integer   lastpat
   integer*1 e2(ntau)
   logical reset
-  common/boxes/indexes,fp,np
+!  common/boxes/indexes,fp,np
   save lastpat,inext
 
   if(reset) then
