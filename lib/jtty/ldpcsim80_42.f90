@@ -37,7 +37,7 @@ program ldpcsim80_42
    call getarg(2,arg)
    read(arg,*) ndeep 
    if((ndeep.lt.-1) .or. (ndeep.gt.4)) then
-      print*,'ndeep should be in the range 0-4.'
+      print*,'invalid ndeep value: -1 through 4 are valid, -1 is BP only )'
       return
    endif
    call getarg(3,arg)

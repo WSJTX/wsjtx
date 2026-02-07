@@ -179,8 +179,8 @@ subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,
 ! tones 0:3 represent bit sequences 00, 01, 11, 10, respectively
       p00=pow(0); p01=pow(1); p11=pow(2); p10=pow(3)
 
-      bitmetrics(2*j-1) = (p11 + p10) - (p00 + p01)
-      bitmetrics(2*j  ) = (p11 + p01) - (p00 + p10)
+      bitmetrics(2*j-1) = max(p11,p10) - max(p00,p01)
+      bitmetrics(2*j  ) = max(p11,p01) - max(p00,p10)
    enddo
 
    x2=sum(bitmetrics**2)/80.0
