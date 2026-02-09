@@ -12,7 +12,7 @@ program rjtty
 ! With baud rate 31.25 s^-1, symbol duration = 32 ms,
 ! so maximum txt = 16*53*0.032 = 27.136 s.
 
-   parameter (NMAX=30*12000)                 !Max length of data
+   parameter (NMAX=180*12000)                 !Max length of data
    type(hdr) h
    character*80 fname
    character*80 umsg
@@ -84,8 +84,9 @@ program rjtty
                   if(umsg(n-2:n).eq.' CQ') write(*,'(a)',advance='no') ' '
                endif
             else
+               kchar=0
                write(*,'(a)') umsg(1:n)
-               write(*,*) 'debug ',umsg(1:n)
+!               write(*,*) 'debug ',umsg(1:n)
             endif
             tdecode=float(count1-count0)/clkfreq
             if(ndebug.gt.0) then

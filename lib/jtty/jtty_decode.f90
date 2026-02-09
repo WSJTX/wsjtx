@@ -79,7 +79,7 @@ subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,
    nana = 2**nint(log(real(nchunk))/log(2.0)+0.5)
    allocate(c0(0:nana-1))
 
-!  convert integer samples as 12K Sa/s to complex analytic signal at 6K Sa/s
+!  convert integer samples at 12K Sa/s to complex analytic signal at 6K Sa/s
    call ana64a(iwave,nchunk,c0,nana) 
    c0(nchunk6:)=0.
 
