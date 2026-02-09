@@ -4784,7 +4784,7 @@ QPushButton[state=&quot;ok&quot;] {
      <x>0</x>
      <y>0</y>
      <width>880</width>
-     <height>22</height>
+     <height>17</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -5087,13 +5087,16 @@ QPushButton[state=&quot;ok&quot;] {
    <property name="text">
     <string>Open next in directory</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+X</string>
+   </property>
   </action>
   <action name="actionDecode_remaining_files_in_directory">
    <property name="text">
     <string>Decode remaining files in directory</string>
    </property>
    <property name="shortcut">
-    <string>Shift+F6</string>
+    <string>Alt+X</string>
    </property>
   </action>
   <action name="actionDelete_all_wav_files_in_SaveDir">
