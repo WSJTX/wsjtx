@@ -73,7 +73,7 @@ program rjtty
          success=.false.
 !synced=.false.               !uncomment this to disable use of prior sync
          call system_clock(count0,clkfreq)
-         call jtty_decode(iwave(istart),nchunk,nsps,f0,ftol,smin,synced,xdt,  &
+         call jtty_mdecode(iwave(istart),nchunk,nsps,f0,ftol,smin,synced,xdt,  &
             f1,snr,umsg,success,nharderrors,nsync,dmin)
          call system_clock(count1,clkfreq)
 
