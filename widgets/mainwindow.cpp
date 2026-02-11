@@ -17545,7 +17545,7 @@ void MainWindow::jtty_tx(QString message)
   // Display Tx message highlighted in yellow
   ui->decodedTextBrowser->insertText(" ");
   QTextCursor cursor = ui->decodedTextBrowser->textCursor();
-  QTextCharFormat format;
+  QTextCharFormat format = cursor.charFormat();
   format.setBackground(QBrush(QColor(Qt::yellow))); // Set background to yellow
   cursor.setCharFormat(format);
   cursor.insertText(message);
@@ -17611,13 +17611,7 @@ void MainWindow::jtty_decode(int k)
   int n=message.length();
   if(n > 0 and n < 80) {
     bool eom=message.left(1)=="\n";
-    //    qDebug() << "aa" << k0 << k << eom;    
-    //    if(n > n0) debugit_(&n0, &n, &eom);
-    //    n0=n;
-    if(eom) {
-      //      ui->decodedTextBrowser->insertText("\n");
-      message=message.mid(1);
-    }
+    if(eom) message=message.mid(1);
     if(k > k0 and !eom) {
       QTextCursor cursor = ui->decodedTextBrowser->textCursor();
       cursor.movePosition(QTextCursor::End);         //Cursor to end of text
