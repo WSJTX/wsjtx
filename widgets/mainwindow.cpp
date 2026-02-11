@@ -17542,14 +17542,16 @@ void MainWindow::jtty_tx(QString message)
   int n=message.length();
   m_currentMessage = message;
 
-  ui->decodedTextBrowser->insertText(message.toLower());
-
-  /*
-  //  ui->decodedTextBrowser->insertText("\n");
-  QString t1="\n<span style=\"background-color: yellow;\">" +
-    message.remove("\n") + "</span><br>";
-  ui->decodedTextBrowser->insertHtml(t1);
-  */
+  // Display Tx message highlighted in yellow
+  ui->decodedTextBrowser->insertText(" ");
+  QTextCursor cursor = ui->decodedTextBrowser->textCursor();
+  QTextCharFormat format;
+  format.setBackground(QBrush(QColor(Qt::yellow))); // Set background to yellow
+  cursor.setCharFormat(format);
+  cursor.insertText(message);
+  // Reset format to default
+  format.setBackground(QBrush(QColor(Qt::white)));
+  cursor.setCharFormat(format);
 
   if(message.left(3) == "TU ") {
     // ### Must send "sent" and "rcvd" info to logqso here. ###
