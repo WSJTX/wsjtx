@@ -130,6 +130,8 @@ extern "C" {
   void rjtty_sub_(short int d2[], int* k, int* nsps, float* f0, float* ftol,
                   char line[], fortran_charlen_t);
 
+  void debugit_(int* k0, int* k, bool* eom);
+
   void genjtty_(char const * msg, int itone[], int* nsym, fortran_charlen_t);
 
   void gen_jttywave_(int itone[], int* nsym, int* nsps, float* bt, float* fsample, float* f0,
@@ -8342,8 +8344,7 @@ void MainWindow::guiUpdate()
 
 //Once per second (onesec)
   if(nsec != m_sec0) {
-//    qDebug() << "AAA" << nsec % 60 << m_k0 << m_k0/12000 << g_iptt << m_transmitting
-//             << m_modulator->isActive();
+    //    qDebug()   << "AAA" << nsec % 60;
     // reset earlyDecodes for 2-stage or 3-stage decoding, or if QRG > 45 MHz
     if (m_mode=="FT8" && !m_diskData && ((m_multithreadFT8 && m_ft8DecoderStart<2) or m_freqNominal>45000000)) {
       QDateTime now = QDateTime::currentDateTimeUtc();
@@ -17591,10 +17592,22 @@ void MainWindow::jtty_decode(int k)
   char line[80];
   float f0 = m_wideGraph->rxFreq();
   float ftol = 20.0;
+  //  static int n0=0;
+  static QString message0 = ""; 
+
   rjtty_sub_(dec_data.d2,&k,&nsps,&f0,&ftol,&line[0],(FCL)80);
   QString message {QString::fromLatin1(line)};
-  if(message.length() > 0 and message.length() < 80) {
-    if(k > k0) {
+  int n=message.length();
+  if(n > 0 and n < 80) {
+    bool eom=message.left(1)=="\n";
+    //    qDebug() << "aa" << k0 << k << eom;    
+    //    if(n > n0) debugit_(&n0, &n, &eom);
+    //    n0=n;
+    if(eom) {
+      //      ui->decodedTextBrowser->insertText("\n");
+      message=message.mid(1);
+    }
+    if(k > k0 and !eom) {
       QTextCursor cursor = ui->decodedTextBrowser->textCursor();
       cursor.movePosition(QTextCursor::End);         //Cursor to end of text
       cursor.select(QTextCursor::LineUnderCursor);   //Select line under cursor
@@ -17602,12 +17615,15 @@ void MainWindow::jtty_decode(int k)
       cursor.deletePreviousChar();                   //Delete previous newline
       ui->decodedTextBrowser->setTextCursor(cursor); //Reset cursor back to browser
     }
-    k0=k;
     m_xRcvd="";
     QStringList w = message.split(" ",SkipEmptyParts);
     if((w.length() == 2) and (w[0] == "599")) m_xRcvd = w[1];
     if((w.length() == 3) and (w[1] == "599")) m_xRcvd = w[2];
-    ui->decodedTextBrowser->insertText(message.trimmed());
+    if(k != k0 and message != message0) {
+      ui->decodedTextBrowser->insertText(message.trimmed());
+    }
+    message0 = message;
+    k0=k;
   }
 }
 

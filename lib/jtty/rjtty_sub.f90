@@ -2,11 +2,12 @@ subroutine rjtty_sub(iwave,kz,nsps,f0,ftol,line1)
 
   integer*2 iwave(kz)
   character*(*) line1
-  character*80 line
+  character*80 line,line2
   character*80 umsg
-  logical synced,success
-  data kz0/9999999/
-  save istart,kz0,kchar,line,success,synced,xdt,f1
+  logical synced,success,newsig
+  common/debug/line2
+  data kz0/9999999/,f1good/-99./,xdtgood/-99./,missed_syncs/0/,newsig/.false./
+  save istart,kz0,kchar,line,success,synced,xdt,f1,f1good,xdtgood,missed_syncs,newsig
 
   if(nsps.ne.240 .and. nsps.ne.320 .and. nsps.ne.384 .and. nsps.ne.480) return
 
@@ -35,21 +36,53 @@ subroutine rjtty_sub(iwave,kz,nsps,f0,ftol,line1)
      call jtty_decode(iwave(istart),nchunk,nsps,f0,ftol,smin,synced,xdt,f1,  &
           snr,umsg,success,nharderrors,nsync,dmin)
 
+     if(synced) then
+        missed_syncs=0
+        missed_syncs = 0
+     else
+        missed_syncs = missed_syncs + 1
+        if(missed_syncs.ge.2) then
+           f1good = -99.
+           xdtgood = -99.
+!           missed_syncs = 0
+           newsig = .false.
+        endif
+     endif
+
      if(success) then
+
+        ndecodes = ndecodes + 1
+        newsig = .false.
+        if(abs(f1-f1good).gt.2.0 .or. abs(xdt-xdtgood).gt.0.004) then
+           newsig = .true.
+           kchar = 0
+        endif
+        f1good = f1
+        xdtgood = xdt
+
+!        tdecode=0
+!        write(72,3072) istart,xdt,f1,snr,synced,success,newsig,kchar,   &
+!             missed_syncs,nsync,nharderrors,dmin,tdecode,trim(umsg)
+!3072    format(i8,f7.3,f7.1,f6.1,3L2,4i4,f7.1,f7.3,2x,a)
+
         if(umsg(1:4).eq.'599 ') umsg='~'//trim(umsg)
         n = len(trim(umsg))
         if(n.gt.79) n=79                 ! truncate at 80 chars
         do i=1,n
            if(umsg(i:i).eq.'~') umsg(i:i)=' '
         enddo
-        if(kchar+n .gt. 79) kchar=0
+        if(newsig) then
+           umsg=char(10)//trim(umsg(1:79))   ! Insert LF
+           n=n+1
+        endif
         line(kchar+1:kchar+n)=umsg(1:n)
         line(kchar+n+1:kchar+n+1)=char(0)
-        kchar = kchar + n
+        kchar = min(kchar + n, 80)
         line1(1:n)=umsg(1:n)
         line1(n+1:n+1)=char(0)
         istart=istart+nframe
-        if(nsync.lt.12) synced=.false.       !Use this sync for next frame only if strong
+! Use this sync for next frame only if was strong strong
+        if(nsync.lt.12) synced=.false.
      else
         istart=istart+nframe/4
         synced=.false.
@@ -59,6 +92,27 @@ subroutine rjtty_sub(iwave,kz,nsps,f0,ftol,line1)
      line1=line
   enddo
   if(line1(1:1).eq.' ') line1=line1(2:)
+!  nline1=len(trim(line1))
+  if(success .and. .not.newsig .and. line1(1:1).eq.char(10)) line1=line1(2:)
+!  if(nline1.gt.6) then
+!     i1=index(line1,char(10))
+!     write(73,3073) istart,xdt,f1,snr,synced,success,newsig,kchar,   &
+!          missed_syncs,i1,nsync,nharderrors,dmin,tdecode,trim(umsg)
+!3073 format(i8,f7.3,f7.1,f6.1,3L2,5i4,f7.1,f7.3,1x,a)
+!  endif
+     
+  line2=line1
 
 999 return
 end subroutine rjtty_sub
+
+subroutine debugit(n0,n,eom)
+  logical*1 eom,b
+  character*80 line2
+  common/debug/line2
+
+  b=line2(1:1).eq.char(10)
+  print*,n0,n,eom,b,trim(line2)
+  
+  return
+end subroutine debugit
