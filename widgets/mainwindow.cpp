@@ -17541,7 +17541,16 @@ void MainWindow::jtty_tx(QString message)
   int itone[848];
   int n=message.length();
   m_currentMessage = message;
-  ui->decodedTextBrowser->insertText(message);
+
+  ui->decodedTextBrowser->insertText(message.toLower());
+
+  /*
+  //  ui->decodedTextBrowser->insertText("\n");
+  QString t1="\n<span style=\"background-color: yellow;\">" +
+    message.remove("\n") + "</span><br>";
+  ui->decodedTextBrowser->insertHtml(t1);
+  */
+
   if(message.left(3) == "TU ") {
     // ### Must send "sent" and "rcvd" info to logqso here. ###
     logQSOTimer.start(0);
