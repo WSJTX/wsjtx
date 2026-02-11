@@ -2,10 +2,9 @@ subroutine rjtty_sub(iwave,kz,nsps,f0,ftol,line1)
 
   integer*2 iwave(kz)
   character*(*) line1
-  character*80 line,line2
+  character*80 line
   character*80 umsg
   logical synced,success,newsig
-  common/debug/line2
   data kz0/9999999/,f1good/-99./,xdtgood/-99./,missed_syncs/0/,newsig/.false./
   save istart,kz0,kchar,line,success,synced,xdt,f1,f1good,xdtgood,missed_syncs,newsig
 
@@ -92,27 +91,7 @@ subroutine rjtty_sub(iwave,kz,nsps,f0,ftol,line1)
      line1=line
   enddo
   if(line1(1:1).eq.' ') line1=line1(2:)
-!  nline1=len(trim(line1))
   if(success .and. .not.newsig .and. line1(1:1).eq.char(10)) line1=line1(2:)
-!  if(nline1.gt.6) then
-!     i1=index(line1,char(10))
-!     write(73,3073) istart,xdt,f1,snr,synced,success,newsig,kchar,   &
-!          missed_syncs,i1,nsync,nharderrors,dmin,tdecode,trim(umsg)
-!3073 format(i8,f7.3,f7.1,f6.1,3L2,5i4,f7.1,f7.3,1x,a)
-!  endif
-     
-  line2=line1
 
 999 return
 end subroutine rjtty_sub
-
-subroutine debugit(n0,n,eom)
-  logical*1 eom,b
-  character*80 line2
-  common/debug/line2
-
-  b=line2(1:1).eq.char(10)
-  print*,n0,n,eom,b,trim(line2)
-  
-  return
-end subroutine debugit

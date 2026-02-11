@@ -130,8 +130,6 @@ extern "C" {
   void rjtty_sub_(short int d2[], int* k, int* nsps, float* f0, float* ftol,
                   char line[], fortran_charlen_t);
 
-  void debugit_(int* k0, int* k, bool* eom);
-
   void genjtty_(char const * msg, int itone[], int* nsym, fortran_charlen_t);
 
   void gen_jttywave_(int itone[], int* nsym, int* nsps, float* bt, float* fsample, float* f0,
@@ -4631,8 +4629,7 @@ void MainWindow::on_pbBandHopping_clicked()
 
 void MainWindow::on_actionRelease_Notes_triggered ()
 {
-  QDesktopServices::openUrl (QUrl {"https://wsjt-x-improved.sourceforge.io/Release_Notes.txt"});
-//  QDesktopServices::openUrl (QUrl {"https://wsjt.sourceforge.io/Release_Notes.txt"});
+  QDesktopServices::openUrl (QUrl {"https://wsjt.sourceforge.io/Release_Notes.txt"});
 }
 
 void MainWindow::on_actionFT8_DXpedition_Mode_User_Guide_triggered()
