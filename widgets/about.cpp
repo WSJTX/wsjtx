@@ -15,11 +15,11 @@ CAboutDlg::CAboutDlg(QWidget *parent) :
 
   ui->labelTxt->setText ("<h2>" + QString {"WSJT-X v"
                                              + QCoreApplication::applicationVersion ()
-                                             + " " + revision ()}.simplified () + "<br />"
+                                             + " " + revision ()}.simplified () + "</h2>"
 
     "WSJT-X implements a number of digital modes designed for <br />"
     "weak-signal Amateur Radio communication.  <br /><br />"
-    "&copy; 2001-2025 by Joe Taylor, K1JT, Bill Somerville, G4WJS, <br />"
+    "&copy; 2001-2026 by Joe Taylor, K1JT, Bill Somerville, G4WJS, <br />"
     "Steve Franke, K9AN, Nico Palermo, IV3NWV, <br />"
     "Uwe Risse, DG2YCB, Brian Moran, N9ADG, <br />"
     "and Roger Rehr, W3SZ.<br /><br />"
