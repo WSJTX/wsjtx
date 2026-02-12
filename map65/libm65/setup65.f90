@@ -1,10 +1,16 @@
+module setup65_mod
+  implicit none
+contains  
+
 subroutine setup65
 
 ! Defines arrays related to the JT65 pseudo-random synchronizing pattern.
 ! Executed at program start.
 
-  integer nprc(126)
-  common/prcom/pr(126),mdat(126),mref(126,2),mdat2(126),mref2(126,2)
+  use pr_mod
+
+  integer :: nprc(126)
+  integer :: i,k,m,mr2,n,nsig,nsym,mr1
 
 ! JT65
   data nprc/                                    &
@@ -94,3 +100,5 @@ subroutine setup65
 
   return
 end subroutine setup65
+
+end module setup65_mod

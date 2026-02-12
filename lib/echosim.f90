@@ -109,7 +109,7 @@ program echosim
      f10=f0 + fdop
      fspread0=fspread
      
-     h=default_header(12000,NMAX)
+     h=default_header(12000,NZ)
      n=3*(ifile-1)
      ihr=n/3600
      imin=(n-3600*ihr)/60

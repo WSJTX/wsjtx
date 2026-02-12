@@ -1,7 +1,15 @@
+module deep65_mod
+  implicit none
+contains
+
 subroutine deep65(s3,mode65,neme,flip,mycall,hiscall,hisgrid,decoded,qual)
 
-  use timer_module, only: timer
-  parameter (MAXCALLS=10000,MAXRPT=63)
+  use timer_module, only: timer  
+  use decodes_mod, only: mcall3a
+  use mrs_mod
+  implicit none
+  
+  integer,parameter :: MAXCALLS=10000,MAXRPT=63
   real s3(64,63)
   character callsign*12,grid*4,message*22,hisgrid*6,c*1,ceme*3
   character*12 mycall,hiscall
@@ -11,9 +19,10 @@ subroutine deep65(s3,mode65,neme,flip,mycall,hiscall,hisgrid,decoded,qual)
   character*180 line
   character*4 rpt(MAXRPT)
   integer ncode(63,2*MAXCALLS + 2 + MAXRPT)
+  integer mode65,i,i1,i2,i3,icall,ip1,k,j,j1,j2,j3,j4,m
+  integer mz,n,ntot,neme
+  real flip,qual,bias,p,p1,p2,ref,ref0,sum
   real pp(2*MAXCALLS + 2 + MAXRPT)
-  common/mrscom/ mrs(63),mrs2(63)
-  common/c3com/ mcall3a
   data rpt/'-01','-02','-03','-04','-05',          &
            '-06','-07','-08','-09','-10',          &
            '-11','-12','-13','-14','-15',          &
@@ -168,3 +177,5 @@ subroutine deep65(s3,mode65,neme,flip,mycall,hiscall,hisgrid,decoded,qual)
 
   return
 end subroutine deep65
+
+end module deep65_mod

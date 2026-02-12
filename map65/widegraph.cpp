@@ -96,7 +96,6 @@ void WideGraph::dataSink2(float s[], int nkhz, int ihsym, int ndiskdata,
   static int n=0;
   static int nkhz0=-999;
   static int ntrz=0;
-
   df = m_fSample/32768.0;
   if(nkhz != nkhz0) {
     ui->widePlot->setNkhz(nkhz);                   //Why do we need both?
@@ -357,7 +356,7 @@ void WideGraph::rx570()
 
 void WideGraph::tx570()
 {
-  if(m_bForceCenterFreq) datcom_.fcenter=m_dForceCenterFreq;
+  if(m_bForceCenterFreq) setFcenter(m_dForceCenterFreq);
   m_bIQxt=true;
   double f=ui->widePlot->txFreq();
 //  double f1=m_mult570Tx*(1.0+0.000001*m_cal570) * f;

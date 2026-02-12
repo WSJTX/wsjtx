@@ -1,36 +1,47 @@
-subroutine decode0(dd,ss,savg,nstandalone)
+module decode0_mod
+  implicit none
+contains
+
+   subroutine decode0(nstandalone) bind(C, name='decode0_')
 
   use timer_module, only: timer
-  parameter (NSMAX=60*96000)
-
-  real*4 dd(4,NSMAX),ss(4,322,NFFT),savg(4,NFFT)
-  real*8 fcenter
+  use npar_ptrs_mod
+      use datcom_ptrs_mod, only: NFFT, dd, ss, savg
+  use debug_log
+  use map65a_mod
+  use stdout_channel_mod, only: write_stdout
+      use decodes_mod, only: ndecodes, nhsym1, nhsym2
+  
+  implicit none
+  
+  integer, parameter :: NSMAX=60*96000
+  integer(c_int) :: nstandalone
   integer hist(0:32768)
-  logical ldecoded
-  character mycall*12,hiscall*12,mygrid*6,hisgrid*6,datetime*20
+  integer i, j1,j2,j3,j4,m,mcall3b,ndphi,neme0,nsum
+  integer :: ndecdone
+  real :: tdec, tquick, rmsdd
+  integer nz  
+  character(len=128) :: line
   character mycall0*12,hiscall0*12,hisgrid0*6
-  common/npar/fcenter,nutc,idphi,mousedf,mousefqso,nagain,                &
-       ndepth,ndiskdat,neme,newdat,nfa,nfb,nfcal,nfshift,                 &
-       mcall3,nkeep,ntol,nxant,nrxlog,nfsample,nxpol,nmode,               &
-       ndop00,nsave,max_drift,nhsym,mycall,mygrid,hiscall,hisgrid,datetime
-  common/early/nhsym1,nhsym2,ldecoded(32768)
-  common/decodes/ndecodes
   data neme0/-99/,mcall3b/1/
+
   save
 
+  nkeep = 20
+  
   call sec0(0,tquick)
   call timer('decode0 ',0)
   if(newdat.ne.0) then
-     nz=96000*nhsym/5.3833
+         nz = int(96000.0*nhsym/5.3833)
      hist=0
      do i=1,nz
-        j1=min(abs(dd(1,i)),32768.0)
+            j1 = int(min(abs(dd(1, i)), 32768.0))
         hist(j1)=hist(j1)+1
-        j2=min(abs(dd(2,i)),32768.0)
+            j2 = int(min(abs(dd(2, i)), 32768.0))
         hist(j2)=hist(j2)+1
-        j3=min(abs(dd(3,i)),32768.0)
+            j3 = int(min(abs(dd(3, i)), 32768.0))
         hist(j3)=hist(j3)+1
-        j4=min(abs(dd(4,i)),32768.0)
+            j4 = int(min(abs(dd(4, i)), 32768.0))
         hist(j4)=hist(j4)+1
      enddo
      m=0
@@ -61,11 +72,20 @@ subroutine decode0(dd,ss,savg,nstandalone)
   call timer('decode0 ',1)
 
   call sec0(1,tdec)
-  if(nhsym.eq.nhsym1) write(*,1010) nsum,nsave,nstandalone,nhsym,tdec
-1010 format('<EarlyFinished>',3i4,i6,f6.2)
-  if(nhsym.eq.nhsym2) write(*,1012) nsum,nsave,nstandalone,nhsym,tdec,ndecodes
-1012 format('<DecodeFinished>',3i4,i6,f6.2,i5)
-  flush(6)
+  
+  if (nhsym == nhsym1) then
+      write(line, '("<EarlyFinished>",3I4,I6,F6.2)') &
+          nsum, nsave, nstandalone, nhsym, tdec
+      call write_stdout(trim(line)//new_line('a'))
+  end if
 
+  if (nhsym == nhsym2) then
+      write(line, '("<DecodeFinished>",3I4,I6,F6.2,I5)') &
+          nsum, nsave, nstandalone, nhsym, tdec, ndecodes
+      call write_stdout(trim(line)//new_line('a'))
+  end if
+!      print *, 'nhsym is: ',nhsym,' nhsym1 is: ',nhsym1,' nhsym2 is: ',nhsym2
   return
 end subroutine decode0
+
+end module decode0_mod

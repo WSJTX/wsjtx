@@ -1,13 +1,27 @@
-subroutine afc65b(cx,cy,npts,fsample,nflip,ipol,xpol,ndphi,a,ccfbest,dtbest)
+module afc65b_mod
+  implicit none
+contains  
 
+subroutine afc65b(cx,cy,npts,fsample,nflip,ipol,xpol,ndphi,a,ccfbest,dtbest)
+  use debug_log
+  use fchisq_mod
+  
+  implicit none
+ 
   logical xpol
   complex cx(npts)
   complex cy(npts)
   real a(5),deltaa(5)
-
+  integer npts,nflip,ipol,ndphi,iter,j,nterms,k
+  real ccfbest,dtbest,chisq1,chisq2,chisq3,chisqr,chisqr0,delta,dtmax,fn,tmp
+  real fsample,ccfmax
+  
   a(1)=0.
   a(2)=0.
   a(3)=0.
+  if (ipol < 1 .or. ipol > 4) then
+   ipol = 1
+  end if
   a(4)=45.0*(ipol-1.0)
   deltaa(1)=2.0
   deltaa(2)=2.0
@@ -23,6 +37,7 @@ subroutine afc65b(cx,cy,npts,fsample,nflip,ipol,xpol,ndphi,a,ccfbest,dtbest)
 !  Start the iteration
   chisqr=0.
   chisqr0=1.e6
+  
   do iter=1,3                               !One iteration is enough?
      do j=1,nterms
         chisq1=fchisq(cx,cy,npts,fsample,nflip,a,ccfmax,dtmax)
@@ -59,12 +74,20 @@ subroutine afc65b(cx,cy,npts,fsample,nflip,ipol,xpol,ndphi,a,ccfbest,dtbest)
 
 30 ccfbest=ccfmax * (1378.125/fsample)**2
   dtbest=dtmax
+  if (a(4) .lt. 0.0) a(4) = a(4) + 180.0
+  if (a(4) .ge. 180.0) a(4) = a(4) - 180.0
+  if (nint(a(4)) .eq. 180) a(4) = 0.
 
-  if(a(4).lt.0.0) a(4)=a(4)+180.0
-  if(a(4).ge.180.0) a(4)=a(4)-180.0
-  if(nint(a(4)).eq.180) a(4)=0.
-  ipol=nint(a(4)/45.0) + 1
-  if(ipol.gt.4) ipol=ipol-4
+  if (a(4) .lt. 0.0 .or. a(4) .ge. 180.0) then
+     print *, 'afc65b: bad a(4) after wrap, so set a(4) to 0.  before this reset, a(4)= ', a(4)
+     a(4) = 0
+  endif
 
+  ipol = nint(a(4)/45.0) + 1
+  
+  if (ipol .gt. 4) ipol = ipol - 4
+  
   return
 end subroutine afc65b
+
+end module afc65b_mod

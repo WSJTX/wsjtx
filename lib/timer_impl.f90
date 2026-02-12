@@ -17,7 +17,8 @@ module timer_impl
   character(len=8) :: name(MAXCALL),space='        '
   logical :: on(MAXCALL)
   real :: total,sum,sumf,ut(MAXCALL),ut0(MAXCALL)
-  !$ integer :: j,l,m,ntid(MAXCALL)
+!$ integer :: j, l, m
+   integer ntid(MAXCALL)
 
   !
   ! C interoperable callback setup
@@ -76,7 +77,7 @@ contains
 
     real :: ut1,eps=0.000001
     integer :: n,ndiv,ntrace=0
-    !$ integer :: tid
+      integer :: tid
     character(len=8) :: tname
     include 'timer_common.inc'
 
@@ -88,8 +89,7 @@ contains
     !$ tid=omp_get_thread_num()
     do n=1,nmax                                !Check for existing name/parent[/thread]
        if(name(n).eq.dname &
-                                !$ .and.ntid(n).eq.tid &
-            ) then
+             .and. ntid(n) .eq. tid) then
           if (on(n)) then
              if (nparent(n).eq.onlevel(level-1)) goto 20
           else
@@ -211,30 +211,30 @@ contains
     return
   end subroutine default_timer
 
-  recursive subroutine print_root(i)
+   recursive subroutine print_root(i1)
     implicit none
-    integer, intent(in) :: i
+      integer, intent(in) :: i1
     character(len=16) :: sname
     real :: dutf, utf
     integer :: j, kk
 
-    if (i.le.nmax) then
-       if (name(i).ne.space) then
-          dut=ut(i)
-          do j=i,nmax
-             if (name(j).ne.space.and.nparent(j).eq.i) dut=dut-ut(j)
+      if (i1 .le. nmax) then
+         if (name(i1) .ne. space) then
+            dut = ut(i1)
+            do j = i1, nmax
+               if (name(j) .ne. space .and. nparent(j) .eq. i1) dut = dut - ut(j)
           enddo
           if(dut.lt.0.0) dut=0.0
-          utf=ut(i)/total
+            utf = ut(i1)/total
           dutf=dut/total
           sum=sum+dut
           sumf=sumf+dutf
-          kk=nlevel(i)
-          sname=space(1:kk)//name(i)//space(1:8-kk)
-          write(lu,2000) sname,ut(i),utf,dut,dutf,ncall(i)
+            kk = nlevel(i1)
+            sname = space(1:kk)//name(i1)//space(1:8 - kk)
+            write (lu, 2000) sname, ut(i1), utf, dut, dutf, ncall(i1)
 2000      format(a16,2(f10.3,f6.2),i9)
-          do j=i,nmax
-             if(nparent(j).eq.i) call print_root(j)
+            do j = i1, nmax
+               if (nparent(j) .eq. i1) call print_root(j)
           enddo
        end if
     end if
