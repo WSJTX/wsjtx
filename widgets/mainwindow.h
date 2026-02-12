@@ -355,7 +355,7 @@ private slots:
   void stopTx();
   void stopTx2();
   void on_rptSpinBox_valueChanged(int n);
-  void killFile();
+  void killWaveFile();
   void on_tuneButton_clicked (bool);
   void on_pbR2T_clicked();
   void on_pbT2R_clicked();
@@ -515,6 +515,13 @@ private:
   bool jtty_key_struck(QKeyEvent * e);
   void jtty_decode(int k);
   void jtty_again();
+  QString specOpLabel() const;
+  void initializeFFT(int nsps);
+  void initializeFFT(int nsps, int fftSize);
+  void setTxButtonsEnabled(bool enabled);
+  void setDXInfo(QString const& call, QString const& grid);
+  void setDecodeTitles(QString const& lh, QString const& rh);
+  void setDecodeHeadings(QString const& lh, QString const& rh);
 
   bool play_DXcall = false;
   bool play_Wanted = false;
@@ -1035,16 +1042,6 @@ private:
   void write_all(QString txRx, QString message);
   bool isWorked(int itype, QString key, float fMHz=0, QString="");
 
-  QString save_wave_file (QString const& name
-                          , short const * data
-                          , int samples
-                          , QString const& my_callsign
-                          , QString const& my_grid
-                          , QString const& mode
-                          , qint32 sub_mode
-                          , Frequency frequency
-                          , QString const& his_call
-                          , QString const& his_grid) const;
   void hound_reply ();
   QString sortHoundCalls(QString t, int isort, int max_dB);
   void rm_tb4(QString houndCall);

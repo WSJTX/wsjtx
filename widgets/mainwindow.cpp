@@ -106,6 +106,12 @@
 #include "Network/Cloudlog.hpp"
 #include "ui_mainwindow.h"
 #include "moc_mainwindow.cpp"
+#include "MessageFilter.hpp"
+#include "PrefixSuffix.hpp"
+#include "CountryNames.hpp"
+#include "HelpText.hpp"
+#include "Audio/WavFile.hpp"
+#include "WSJTXLogging.hpp"
 #include "Logger.hpp"
 #include "widgets/QSYMessage.h"
 #include "widgets/QSYMessageCreator.h"
@@ -483,59 +489,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_mode {"FT8"},
   m_modeTx {"FT8"},
   m_rpt {"-15"},
-  m_pfx {
-    "1A", "1S",
-      "3A", "3B6", "3B8", "3B9", "3C", "3C0", "3D2", "3D2C",
-      "3D2R", "3DA", "3V", "3W", "3X", "3Y", "3YB", "3YP",
-      "4J", "4L", "4S", "4U1I", "4U1U", "4W", "4X",
-      "5A", "5B", "5H", "5N", "5R", "5T", "5U", "5V", "5W", "5X", "5Z",
-      "6W", "6Y",
-      "7O", "7P", "7Q", "7X",
-      "8P", "8Q", "8R",
-      "9A", "9G", "9H", "9J", "9K", "9L", "9M2", "9M6", "9N",
-      "9Q", "9U", "9V", "9X", "9Y",
-      "A2", "A3", "A4", "A5", "A6", "A7", "A9", "AP",
-      "BS7", "BV", "BV9", "BY",
-      "C2", "C3", "C5", "C6", "C9", "CE", "CE0X", "CE0Y",
-      "CE0Z", "CE9", "CM", "CN", "CP", "CT", "CT3", "CU",
-      "CX", "CY0", "CY9",
-      "D2", "D4", "D6", "DL", "DU",
-      "E3", "E4", "E5", "EA", "EA6", "EA8", "EA9", "EI", "EK",
-      "EL", "EP", "ER", "ES", "ET", "EU", "EX", "EY", "EZ",
-      "F", "FG", "FH", "FJ", "FK", "FKC", "FM", "FO", "FOA",
-      "FOC", "FOM", "FP", "FR", "FRG", "FRJ", "FRT", "FT5W",
-      "FT5X", "FT5Z", "FW", "FY",
-      "M", "MD", "MI", "MJ", "MM", "MU", "MW",
-      "H4", "H40", "HA", "HB", "HB0", "HC", "HC8", "HH",
-      "HI", "HK", "HK0", "HK0M", "HL", "HM", "HP", "HR",
-      "HS", "HV", "HZ",
-      "I", "IS", "IS0",
-      "J2", "J3", "J5", "J6", "J7", "J8", "JA", "JDM",
-      "JDO", "JT", "JW", "JX", "JY",
-      "K", "KC4", "KG4", "KH0", "KH1", "KH2", "KH3", "KH4", "KH5",
-      "KH5K", "KH6", "KH7", "KH8", "KH9", "KL", "KP1", "KP2",
-      "KP4", "KP5",
-      "LA", "LU", "LX", "LY", "LZ",
-      "OA", "OD", "OE", "OH", "OH0", "OJ0", "OK", "OM", "ON",
-      "OX", "OY", "OZ",
-      "P2", "P4", "PA", "PJ2", "PJ7", "PY", "PY0F", "PT0S", "PY0T", "PZ",
-      "R1F", "R1M",
-      "S0", "S2", "S5", "S7", "S9", "SM", "SP", "ST", "SU",
-      "SV", "SVA", "SV5", "SV9",
-      "T2", "T30", "T31", "T32", "T33", "T5", "T7", "T8", "T9", "TA",
-      "TF", "TG", "TI", "TI9", "TJ", "TK", "TL", "TN", "TR", "TT",
-      "TU", "TY", "TZ",
-      "UA", "UA2", "UA9", "UK", "UN", "UR",
-      "V2", "V3", "V4", "V5", "V6", "V7", "V8", "VE", "VK", "VK0H",
-      "VK0M", "VK9C", "VK9L", "VK9M", "VK9N", "VK9W", "VK9X", "VP2E",
-      "VP2M", "VP2V", "VP5", "VP6", "VP6D", "VP8", "VP8G", "VP8H",
-      "VP8O", "VP8S", "VP9", "VQ9", "VR", "VU", "VU4", "VU7",
-      "XE", "XF4", "XT", "XU", "XW", "XX9", "XZ",
-      "YA", "YB", "YI", "YJ", "YK", "YL", "YN", "YO", "YS", "YU", "YV", "YV0",
-      "Z2", "Z3", "ZA", "ZB", "ZC4", "ZD7", "ZD8", "ZD9", "ZF", "ZK1N",
-      "ZK1S", "ZK2", "ZK3", "ZL", "ZL7", "ZL8", "ZL9", "ZP", "ZS", "ZS8"
-      },
-  m_sfx {"P",  "0",  "1",  "2",  "3",  "4",  "5",  "6",  "7",  "8",  "9",  "A"},
+  m_pfx {Radio::PrefixSuffix::type1Prefixes()},
+  m_sfx {Radio::PrefixSuffix::type1Suffixes()},
   mem_jt9 {shdmem},
   m_downSampleFactor (downSampleFactor),
   m_audioThreadPriority (QThread::HighPriority),
@@ -1042,7 +997,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect(&tuneATU_Timer, &QTimer::timeout, this, &MainWindow::stopTuneATU);
 
   killFileTimer.setSingleShot(true);
-  connect(&killFileTimer, &QTimer::timeout, this, &MainWindow::killFile);
+  connect(&killFileTimer, &QTimer::timeout, this, &MainWindow::killWaveFile);
 
   uploadTimer.setSingleShot(true);
   connect(&uploadTimer, &QTimer::timeout, [this] () {uploadWSPRSpots ();});
@@ -1075,8 +1030,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   ui->labAz->setStyleSheet("border: 0px;");
   ui->labAz->setText("");
   auto t = "UTC   dB   DT Freq    " + tr ("Message");
-  ui->lh_decodes_headings_label->setText(t);
-  ui->rh_decodes_headings_label->setText(t);
+  setDecodeHeadings(t, t);
   readSettings();            //Restore user's setup parameters
   if(m_mode=="Q65") {
     m_score=0;
@@ -1423,230 +1377,6 @@ MainWindow::~MainWindow()
 }
 
 //-------------------------------------------------------- writeSettings()
-void MainWindow::writeSettings()
-{
-  m_settings->beginGroup("MainWindow");
-  if (ui->actionSWL_Mode->isChecked ())
-    {
-      m_settings->setValue ("SWLView", true);
-      m_settings->setValue ("ShowMenus", ui->cbMenus->isChecked ());
-      m_settings->setValue ("geometry", geometries ()[0]);
-      m_settings->setValue ("SWLModeGeometry", saveGeometry ());
-      m_settings->setValue ("geometryNoControls", geometries ()[2]);
-    }
-  else
-    {
-      if (ui->cbMenus->isChecked())
-        {
-          m_settings->setValue ("SWLView", ui->actionSWL_Mode->isChecked ());
-          m_settings->setValue ("ShowMenus", true);
-          m_settings->setValue ("geometry", saveGeometry ());
-          m_settings->setValue ("SWLModeGeometry", geometries ()[1]);
-          m_settings->setValue ("geometryNoControls", geometries ()[2]);
-        }
-      else
-        {
-          m_settings->setValue ("SWLView", ui->actionSWL_Mode->isChecked ());
-          m_settings->setValue ("ShowMenus", false);
-          m_settings->setValue ("geometry", geometries ()[0]);
-          m_settings->setValue ("SWLModeGeometry", geometries ()[1]);
-          m_settings->setValue ("geometryNoControls", saveGeometry ());
-        }
-    }
-  m_settings->setValue ("state", saveState ());
-  m_settings->setValue("MRUdir", m_path);
-  m_settings->setValue("TxFirst",m_txFirst);
-  m_settings->setValue("DXcall",ui->dxCallEntry->text());
-  m_settings->setValue("DXgrid",ui->dxGridEntry->text());
-  m_settings->setValue("AstroDisplayed", m_astroWidget && m_astroWidget->isVisible());
-  m_settings->setValue("MsgAvgDisplayed", m_msgAvgWidget && m_msgAvgWidget->isVisible ());
-  m_settings->setValue("FoxLogDisplayed", m_foxLogWindow && m_foxLogWindow->isVisible ());
-  m_settings->setValue("ContestLogDisplayed", m_contestLogWindow && m_contestLogWindow->isVisible ());
-  m_settings->setValue("ActiveStationsDisplayed", m_ActiveStationsWidget && m_ActiveStationsWidget->isVisible ());
-  m_settings->setValue("QSYMessageCreatorDisplayed", m_QSYMessageCreatorWidget && m_QSYMessageCreatorWidget->isVisible ());
-  m_settings->setValue("ShowQSYMessages", ui->actionEnable_QSY_Popups->isChecked());
-  m_settings->setValue("QSYMonitorDisplayed", m_qsymonitorWidget && m_qsymonitorWidget->isVisible ());
-  m_settings->setValue("RespondCQ",ui->respondComboBox->currentIndex());
-  m_settings->setValue("HoundSort",ui->comboBoxHoundSort->currentIndex());
-  m_settings->setValue("FoxNlist",ui->sbNlist->value());
-  m_settings->setValue("FoxNslots",m_Nslots0);
-  m_settings->setValue("SerialNumber",ui->sbSerialNumber->value ());
-  m_settings->setValue("SerialNumberJTTY",ui->sbSerialNumber_2->value ());
-  m_settings->setValue("FoxTextMsg", m_freeTextMsg0);
-  m_settings->setValue("WorkDupes", ui->cbWorkDupes->isChecked());
-  m_settings->endGroup();
-
-  // do this in the General group because we save the parameters from various places
-  if(m_mode=="JT9") {
-        m_settings->setValue("SubMode",ui->sbSubmode->value());
-        m_settings->setValue("TRPeriod", ui->sbTR->value());
-  }
-  if(m_mode=="MSK144") m_settings->setValue("ShMsgs_MSK144",m_bShMsgs);
-  if(m_mode=="Q65") m_settings->setValue("ShMsgs_Q65",m_bShMsgs);
-  if(m_mode=="JT65") m_settings->setValue("ShMsgs_JT65",m_bShMsgs);
-  if(m_mode=="JT4") m_settings->setValue("ShMsgs_JT4",m_bShMsgs);
-
-  m_settings->beginGroup("Common");
-  m_settings->setValue("Mode",m_mode);
-  m_settings->setValue("SaveNone",ui->actionNone->isChecked());
-  m_settings->setValue("SaveDecoded",ui->actionSave_decoded->isChecked());
-  m_settings->setValue("SaveAll",ui->actionSave_all->isChecked());
-  m_settings->setValue("RemoveAudioFiles",ui->actionRemove_after_30days->isChecked());
-  m_settings->setValue("NDepth",m_ndepth);
-
-  //ft8md
-  m_settings->setValue ("MultithreadedFT8decoder",ui->actionUse_multithreaded_FT8_decoder->isChecked() );
-  m_settings->setValue("NFT8Cycles",m_nFT8Cycles);
-  m_settings->setValue("NFT8QSORXfreqSensitivity",m_nFT8RXfSens);
-  m_settings->setValue("FT8threads",m_ft8threads);
-  m_settings->setValue("FT8Sensitivity",m_ft8Sensitivity);
-  m_settings->setValue("FT8DecoderStart",m_ft8DecoderStart);
-  m_settings->setValue("FT8WideDXCallSearch",m_FT8WideDxCallSearch);
-  m_settings->setValue("HideFT8Dupes",ui->actionHide_FT8_dupe_messages->isChecked());
-  //ft8md
-
-  m_settings->setValue("RxFreq",ui->RxFreqSpinBox->value());
-  if(m_specOp!=SpecOp::FOX) m_settings->setValue("TxFreq",ui->TxFreqSpinBox->value());
-  m_settings->setValue("TxFreqFox",m_TxFreqFox);
-  m_settings->setValue("WSPRfreq",ui->WSPRfreqSpinBox->value());
-  m_settings->setValue("FST4W_RxFreq",ui->sbFST4W_RxFreq->value());
-  m_settings->setValue("FST4W_FTol",ui->sbFST4W_FTol->value());
-  m_settings->setValue("FST4_FLow",ui->sbF_Low->value());
-  m_settings->setValue("FST4_FHigh",ui->sbF_High->value());
-  m_settings->setValue("EchoToneSpacing",ui->sbToneSpacing->value());
-  m_settings->setValue("EchoFixedTone",ui->rbFixedTone->isChecked());
-  m_settings->setValue("EchoMessageRB",ui->rbEchoMessage->isChecked());
-  m_settings->setValue("EchoCW",ui->rbEchoCW->isChecked());
-  m_settings->setValue("EchoMessage",ui->leEchoMessage->text());
-  m_settings->setValue("DTtol",m_DTtol);
-  m_settings->setValue("MinSync",m_minSync);
-  m_settings->setValue ("AutoSeq", ui->cbAutoSeq->isChecked ());
-  m_settings->setValue ("RxAll", ui->cbRxAll->isChecked ());
-// m_settings->setValue("ShMsgs",m_bShMsgs);
-  m_settings->setValue("SWL",ui->cbSWL->isChecked());
-  if(m_mode=="MSK144" && m_msk144basefreq > 0) {
-    m_settings->setValue ("DialFreq", QVariant::fromValue(m_msk144basefreq));  // MSK144 QSY
-  } else {
-    m_settings->setValue ("DialFreq", QVariant::fromValue(m_lastMonitoredFrequency));
-  }
-  m_settings->setValue("SkedFreq",m_skedFreq);
-  m_settings->setValue("OutAttenuation", ui->outAttenuation->value ());
-  m_settings->setValue("NoSuffix",m_noSuffix);
-  m_settings->setValue("GUItab",ui->tabWidget->currentIndex());
-  m_settings->setValue("OutBufSize",outBufSize);
-  m_settings->setValue ("HoldTxFreq", ui->cbHoldTxFreq->isChecked ());
-  m_settings->setValue ("CQonly", ui->cbCQonly->isChecked ());
-  m_settings->setValue ("BypassFilters", ui->cbBypass->isChecked ());
-  m_settings->setValue("PctTx", ui->sbTxPercent->value ());
-  m_settings->setValue("RoundRobin",ui->RoundRobin->currentText());
-  m_settings->setValue("dBm",m_dBm);
-  m_settings->setValue("RR73",m_send_RR73);
-  m_settings->setValue ("WSPRPreferType1", ui->WSPR_prefer_type_1_check_box->isChecked ());
-  m_settings->setValue("UploadSpots",m_uploadWSPRSpots);
-  m_settings->setValue("NoOwnCall",ui->cbNoOwnCall->isChecked());
-  m_settings->setValue ("BandHopping", ui->band_hopping_group_box->isChecked ());
-  m_settings->setValue ("MaxDrift", ui->sbMaxDrift->value());
-  m_settings->setValue ("TRPeriod_FST4W", ui->sbTR_FST4W->value ());
-  m_settings->setValue("FastMode",m_bFastMode);
-  m_settings->setValue("Fast9",m_bFast9);
-  m_settings->setValue ("CQTxfreq", ui->sbCQTxFreq->value ());
-  m_settings->setValue("pwrBandTxMemory",m_pwrBandTxMemory);
-  m_settings->setValue("pwrBandTuneMemory",m_pwrBandTuneMemory);
-  m_settings->setValue ("FT8AP", ui->actionEnable_AP_FT8->isChecked ());
-  m_settings->setValue ("JT65AP", ui->actionEnable_AP_JT65->isChecked ());
-  m_settings->setValue ("AutoClearAvg", ui->actionAuto_Clear_Avg->isChecked ());
-  m_settings->setValue ("DisableClicksOnWaterfall", ui->actionDisable_clicks_on_waterfall->isChecked ());
-  m_settings->setValue("SplitterState",ui->decodes_splitter->saveState());
-  m_settings->setValue("Blanker",ui->sbNB->value());
-  m_settings->setValue("Score",m_score);
-  m_settings->setValue("labDXpedText",ui->labDXped->text());
-  m_settings->setValue("EchoAvg",ui->sbEchoAvg->value());
-  {
-    QList<QVariant> coeffs;     // suitable for QSettings
-    for (auto const& coeff : m_phaseEqCoefficients)
-      {
-        coeffs << coeff;
-      }
-    m_settings->setValue ("PhaseEqualizationCoefficients", QVariant {coeffs});
-  }
-  m_settings->setValue ("bh_160m", ui->cb160m->isChecked() );
-  m_settings->setValue ("bh_80m", ui->cb80m->isChecked() );
-  m_settings->setValue ("bh_60m", ui->cb60m->isChecked() );
-  m_settings->setValue ("bh_40m", ui->cb40m->isChecked() );
-  m_settings->setValue ("bh_30m", ui->cb30m->isChecked() );
-  m_settings->setValue ("bh_20m", ui->cb20m->isChecked() );
-  m_settings->setValue ("bh_17m", ui->cb17m->isChecked() );
-  m_settings->setValue ("bh_15m", ui->cb15m->isChecked() );
-  m_settings->setValue ("bh_12m", ui->cb12m->isChecked() );
-  m_settings->setValue ("bh_10m", ui->cb10m->isChecked() );
-  m_settings->setValue ("bh_6m", ui->cb6m->isChecked() );
-  m_settings->setValue ("bh_4m", ui->cb4m->isChecked() );
-  m_settings->setValue ("bh_2m", ui->cb2m->isChecked() );
-  m_settings->setValue ("bh_70cm", ui->cb70cm->isChecked() );
-  m_settings->setValue ("bh_2mMSK", ui->cb2mMSK->isChecked() );
-  m_settings->setValue ("bh_80mFT4", ui->cb80mFT4->isChecked() );
-  m_settings->setValue ("bh_40mFT4", ui->cb40mFT4->isChecked() );
-  m_settings->setValue ("bh_30mFT4", ui->cb30mFT4->isChecked() );
-  m_settings->setValue ("bh_20mFT4", ui->cb20mFT4->isChecked() );
-  m_settings->setValue ("bh_17mFT4", ui->cb17mFT4->isChecked() );
-  m_settings->setValue ("bh_15mFT4", ui->cb15mFT4->isChecked() );
-  m_settings->setValue ("bh_12mFT4", ui->cb12mFT4->isChecked() );
-  m_settings->setValue ("bh_10mFT4", ui->cb10mFT4->isChecked() );
-  m_settings->setValue ("bh_QRG1", ui->cbQRG1->isChecked() );
-  m_settings->setValue ("bh_QRG2", ui->cbQRG2->isChecked() );
-  m_settings->setValue ("bh_QRG3", ui->cbQRG3->isChecked() );
-  m_settings->setValue ("bh_QRG4", ui->cbQRG4->isChecked() );
-  m_settings->setValue ("bh_QRG5", ui->cbQRG5->isChecked() );
-  m_settings->setValue ("bh_QRG6", ui->cbQRG6->isChecked() );
-  m_settings->setValue ("bh_QRG7", ui->cbQRG7->isChecked() );
-  m_settings->setValue ("bh_QRG8", ui->cbQRG8->isChecked() );
-  m_settings->setValue ("QRG1", ui->sbQRG1->value ());
-  m_settings->setValue ("QRG2", ui->sbQRG2->value ());
-  m_settings->setValue ("QRG3", ui->sbQRG3->value ());
-  m_settings->setValue ("QRG4", ui->sbQRG4->value ());
-  m_settings->setValue ("QRG5", ui->sbQRG5->value ());
-  m_settings->setValue ("QRG6", ui->sbQRG6->value ());
-  m_settings->setValue ("QRG7", ui->sbQRG7->value ());
-  m_settings->setValue ("QRG8", ui->sbQRG8->value ());
-  m_settings->setValue ("reduceFalseDecodes", ui->actionReduce_false_decodes->isChecked() );
-  m_settings->setValue ("HideAPInfo", ui->actionHide_AP_info->isChecked() );
-  m_settings->setValue ("FullDuplexMode", ui->actionFull_Duplex_Mode->isChecked() );
-  m_settings->setValue ("actionDontSplitALLTXT", ui->actionDon_t_split_ALL_TXT->isChecked() );
-  m_settings->setValue ("splitAllTxtYearly", ui->actionSplit_ALL_TXT_yearly->isChecked() );
-  m_settings->setValue ("splitAllTxtMonthly", ui->actionSplit_ALL_TXT_monthly->isChecked() );
-  m_settings->setValue ("disableWritingOfAllTxt", ui->actionDisable_writing_of_ALL_TXT->isChecked() );
-  m_settings->setValue ("DisableEventLogging", ui->actionDisable_event_logging->isChecked() );
-  m_settings->setValue ("DarkStyle", ui->actionUse_Dark_Style->isChecked() );
-  m_settings->setValue ("BandButtons", ui->actionBand_Buttons->isChecked() );
-  m_settings->setValue ("VHFUHFButtons", ui->actionVHF_UHF_Buttons->isChecked() );
-  m_settings->setValue ("tx1State", ui->tx1->isEnabled() );
-  m_settings->setValue ("HighlightB4", ui->actionHighlightB4->isChecked() );
-  m_settings->setValue ("HighlightToday", ui->actionHighlightToday->isChecked() );
-  m_settings->setValue ("HighlightIgnored", ui->actionHighlightIgnored->isChecked() );
-  m_settings->setValue ("HideB4", ui->actionHideB4->isChecked() );
-  m_settings->setValue ("HideToday", ui->actionHideToday->isChecked() );
-  m_settings->setValue ("HideIgnored", ui->actionHideIgnored->isChecked() );
-  m_settings->setValue ("IgnoreB4", ui->actionIgnoreB4->isChecked() );
-  m_settings->setValue ("IgnoreToday", ui->actionIgnoreToday->isChecked() );
-  m_settings->setValue ("IgnoreIgnored", ui->actionIgnoreIgnored->isChecked() );
-  m_settings->setValue ("HideTerritory1", ui->actionHideTerritory1->isChecked() );
-  m_settings->setValue ("HideTerritory2", ui->actionHideTerritory2->isChecked() );
-  m_settings->setValue ("HideTerritory3", ui->actionHideTerritory3->isChecked() );
-  m_settings->setValue ("HideTerritory4", ui->actionHideTerritory4->isChecked() );
-  m_settings->setValue ("HighlightTerritory1", ui->actionHighlightTerritory1->isChecked() );
-  m_settings->setValue ("HighlightTerritory2", ui->actionHighlightTerritory2->isChecked() );
-  m_settings->setValue ("HighlightTerritory3", ui->actionHighlightTerritory3->isChecked() );
-  m_settings->setValue ("HighlightTerritory4", ui->actionHighlightTerritory4->isChecked() );
-  m_settings->setValue ("HideEU", ui->actionHideEU->isChecked() );
-  m_settings->setValue ("HideNA", ui->actionHideNA->isChecked() );
-  m_settings->setValue ("HideSA", ui->actionHideSA->isChecked() );
-  m_settings->setValue ("HideAS", ui->actionHideAS->isChecked() );
-  m_settings->setValue ("HideAF", ui->actionHideAF->isChecked() );
-  m_settings->setValue ("HideOC", ui->actionHideOC->isChecked() );
-  m_settings->setValue ("HideAN", ui->actionHideAN->isChecked() );
-  m_settings->setValue ("HighlightWhitelistEntries", ui->actionHighlight_Whitelist_entries->isChecked() );
-  m_settings->endGroup();
-}
 
 void MainWindow::update_tx5(const QString &qsy_text)
 {
@@ -1679,362 +1409,6 @@ void MainWindow::setQSYMessageCreatorStatus(const bool &QSYMessageCreatorValue)
 }
 
 //---------------------------------------------------------- readSettings()
-void MainWindow::readSettings()
-{
-  ui->cbAutoSeq->setVisible(false);
-  ui->respondComboBox->setVisible(false);
-
-  m_settings->beginGroup("MainWindow");
-  std::array<QByteArray, 3> the_geometries;
-  the_geometries[0] = m_settings->value ("geometry", saveGeometry ()).toByteArray ();
-  the_geometries[1] = m_settings->value ("SWLModeGeometry", saveGeometry ()).toByteArray ();
-  the_geometries[2] = m_settings->value ("geometryNoControls", saveGeometry ()).toByteArray ();
-  auto SWL_mode = m_settings->value ("SWLView", false).toBool ();
-  auto show_menus = m_settings->value ("ShowMenus", true).toBool ();
-  ui->actionSWL_Mode->setChecked (SWL_mode);
-  ui->cbMenus->setChecked (show_menus);
-  auto current_view_mode = SWL_mode ? 1 : show_menus ? 0 : 2;
-  change_layout (current_view_mode);
-  geometries (current_view_mode, the_geometries);
-  restoreState (m_settings->value ("state", saveState ()).toByteArray ());
-  ui->dxCallEntry->setText (m_settings->value ("DXcall", QString {}).toString ());
-  ui->dxGridEntry->setText (m_settings->value ("DXgrid", QString {}).toString ());
-  m_path = m_settings->value("MRUdir", m_config.save_directory ().absolutePath ()).toString ();
-  m_txFirst = m_settings->value("TxFirst",false).toBool();
-  auto displayAstro = m_settings->value ("AstroDisplayed", false).toBool ();
-  auto displayMsgAvg = m_settings->value ("MsgAvgDisplayed", false).toBool ();
-  auto displayFoxLog = m_settings->value ("FoxLogDisplayed", false).toBool ();
-  auto displayContestLog = m_settings->value ("ContestLogDisplayed", false).toBool ();
-  bool displayActiveStations = m_settings->value ("ActiveStationsDisplayed", false).toBool ();
-  bool displayQSYMessageCreator = m_settings->value ("QSYMessageCreatorDisplayed", false).toBool ();
-  bool displayQSYMonitor = m_settings->value("QSYMonitorDisplayed", false).toBool ();
-  bool enableQSYpopups = m_settings->value("ShowQSYMessages", true).toBool ();
-  ui->respondComboBox->setCurrentIndex(m_settings->value("RespondCQ",0).toInt());
-  ui->comboBoxHoundSort->setCurrentIndex(m_settings->value("HoundSort",3).toInt());
-  ui->sbNlist->setValue(m_settings->value("FoxNlist",12).toInt());
-  m_Nslots=m_settings->value("FoxNslots",3).toInt();
-  m_Nslots0=m_Nslots;
-  if(!m_config.superFox()) ui->sbNslots->setValue(m_Nslots);
-  ui->sbSerialNumber->setValue (m_settings->value ("SerialNumber", 1).toInt ());
-  ui->sbSerialNumber_2->setValue (m_settings->value ("SerialNumberJTTY", 1).toInt ());
-  m_freeTextMsg0=m_settings->value("FoxTextMsg","").toString();
-  m_freeTextMsg=m_freeTextMsg0;
-  ui->cbWorkDupes->setChecked(m_settings->value("WorkDupes",false).toBool());
-  m_settings->endGroup();
-
-  m_settings->beginGroup("Common");
-  m_mode=m_settings->value("Mode","FT8").toString();
-  m_settings->endGroup();
-
-  // do this outside of settings group because it uses groups internally
-  ui->actionAstronomical_data->setChecked (displayAstro);
-  ui->actionEnable_QSY_Popups->setChecked (enableQSYpopups);
-
-  // do this in the General group because we save the parameters from various places
-  if(m_mode=="JT9") {
-    blocked=true;
-    m_nSubMode=m_settings->value("SubMode",0).toInt();
-    ui->sbSubmode->setValue(m_nSubMode);
-    ui->sbFtol->setValue (m_settings->value("Ftol_JT9", 50).toInt());
-    ui->sbTR->setValue (m_settings->value ("TRPeriod", 15).toInt());
-    QTimer::singleShot (50, [=] {blocked = false;});
-  }
-  if (m_mode=="FT8") {
-    ui->sbFtol->setValue (m_settings->value("Ftol_SF", 50).toInt());
-  }
-  if (m_mode=="Q65") {
-    m_nSubMode=m_settings->value("SubMode_Q65",0).toInt();
-    ui->sbSubmode->setValue(m_nSubMode);
-    ui->sbFtol->setValue (m_settings->value("Ftol_Q65", 50).toInt());
-    ui->sbTR->setValue (m_settings->value ("TRPeriod_Q65", 30).toInt());
-  }
-  if (m_mode=="JT65") {
-    m_nSubMode=m_settings->value("SubMode_JT65",0).toInt();
-    ui->sbSubmode->setValue(m_nSubMode);
-    ui->sbFtol->setValue (m_settings->value("Ftol_JT65", 50).toInt());
-  }
-  if (m_mode=="JT4") {
-    m_nSubMode=m_settings->value("SubMode_JT4",0).toInt();
-    ui->sbSubmode->setValue(m_nSubMode);
-    ui->sbFtol->setValue (m_settings->value("Ftol_JT4", 50).toInt());
-    ui->sbTR->setValue (m_settings->value ("TRPeriod_FST4", 60).toInt());
-  }
-  if (m_mode=="MSK144") {
-    ui->sbFtol->setValue (m_settings->value("Ftol_MSK144",50).toInt());
-    m_msk144_tr2=m_settings->value ("TRPeriod_MSK144_2m", 30).toInt();
-    m_msk144_tr6=m_settings->value ("TRPeriod_MSK144_6m", 15).toInt();
-    m_msk144_tr=m_settings->value ("TRPeriod_MSK144", 30).toInt();
-    QTimer::singleShot (3000, [=] {
-      if (m_currentBand=="2m") ui->sbTR->setValue (m_msk144_tr2);
-      else if (m_currentBand=="6m" or m_currentBand=="4m") ui->sbTR->setValue (m_msk144_tr6);
-      else ui->sbTR->setValue (m_msk144_tr);
-    });
-  }
-  if (m_mode=="MSK144") m_bShMsgs=m_settings->value("ShMsgs_MSK144",false).toBool();
-  if (m_mode=="Q65") m_bShMsgs=m_settings->value("ShMsgs_Q65",false).toBool();
-  if (m_mode=="JT65") m_bShMsgs=m_settings->value("ShMsgs_JT65",false).toBool();
-  if (m_mode=="JT4") m_bShMsgs=m_settings->value("ShMsgs_JT4",false).toBool();
-
-  m_settings->beginGroup("Common");
-  ui->cb160m->setChecked(m_settings->value("bh_160m", false).toBool());
-  ui->cb80m->setChecked(m_settings->value("bh_80m", false).toBool());
-  ui->cb60m->setChecked(m_settings->value("bh_60m", false).toBool());
-  ui->cb40m->setChecked(m_settings->value("bh_40m", false).toBool());
-  ui->cb30m->setChecked(m_settings->value("bh_30m", false).toBool());
-  ui->cb20m->setChecked(m_settings->value("bh_20m", false).toBool());
-  ui->cb17m->setChecked(m_settings->value("bh_17m", false).toBool());
-  ui->cb15m->setChecked(m_settings->value("bh_15m", false).toBool());
-  ui->cb12m->setChecked(m_settings->value("bh_12m", false).toBool());
-  ui->cb10m->setChecked(m_settings->value("bh_10m", false).toBool());
-  ui->cb6m->setChecked(m_settings->value("bh_6m", false).toBool());
-  ui->cb4m->setChecked(m_settings->value("bh_4m", false).toBool());
-  ui->cb2m->setChecked(m_settings->value("bh_2m", false).toBool());
-  ui->cb70cm->setChecked(m_settings->value("bh_70cm", false).toBool());
-  ui->cb2mMSK->setChecked(m_settings->value("bh_2mMSK", false).toBool());
-  ui->cb80mFT4->setChecked(m_settings->value("bh_80mFT4", false).toBool());
-  ui->cb40mFT4->setChecked(m_settings->value("bh_40mFT4", false).toBool());
-  ui->cb30mFT4->setChecked(m_settings->value("bh_30mFT4", false).toBool());
-  ui->cb20mFT4->setChecked(m_settings->value("bh_20mFT4", false).toBool());
-  ui->cb17mFT4->setChecked(m_settings->value("bh_17mFT4", false).toBool());
-  ui->cb15mFT4->setChecked(m_settings->value("bh_15mFT4", false).toBool());
-  ui->cb12mFT4->setChecked(m_settings->value("bh_12mFT4", false).toBool());
-  ui->cb10mFT4->setChecked(m_settings->value("bh_10mFT4", false).toBool());
-  ui->cbQRG1->setChecked(m_settings->value("bh_QRG1", false).toBool());
-  ui->cbQRG2->setChecked(m_settings->value("bh_QRG2", false).toBool());
-  ui->cbQRG3->setChecked(m_settings->value("bh_QRG3", false).toBool());
-  ui->cbQRG4->setChecked(m_settings->value("bh_QRG4", false).toBool());
-  ui->cbQRG5->setChecked(m_settings->value("bh_QRG5", false).toBool());
-  ui->cbQRG6->setChecked(m_settings->value("bh_QRG6", false).toBool());
-  ui->cbQRG7->setChecked(m_settings->value("bh_QRG7", false).toBool());
-  ui->cbQRG8->setChecked(m_settings->value("bh_QRG8", false).toBool());
-  ui->sbQRG1->setValue (m_settings->value ("QRG1", 3567).toInt ());
-  ui->sbQRG2->setValue (m_settings->value ("QRG2", 7056).toInt ());
-  ui->sbQRG3->setValue (m_settings->value ("QRG3", 10131).toInt ());
-  ui->sbQRG4->setValue (m_settings->value ("QRG4", 14090).toInt ());
-  ui->sbQRG5->setValue (m_settings->value ("QRG5", 18095).toInt ());
-  ui->sbQRG6->setValue (m_settings->value ("QRG6", 21091).toInt ());
-  ui->sbQRG7->setValue (m_settings->value ("QRG7", 24911).toInt ());
-  ui->sbQRG8->setValue (m_settings->value ("QRG8", 28091).toInt ());
-  ui->actionReduce_false_decodes->setChecked(m_settings->value("reduceFalseDecodes", false).toBool());
-  ui->actionHide_AP_info->setChecked(m_settings->value("HideAPInfo", false).toBool());
-  ui->actionFull_Duplex_Mode->setChecked(m_settings->value("FullDuplexMode", false).toBool());
-  ui->labDXped->setText(m_settings->value("labDXpedText",QString {}).toString ());
-  ui->actionDon_t_split_ALL_TXT->setChecked(m_settings->value("actionDontSplitALLTXT", true).toBool());
-  ui->actionSplit_ALL_TXT_yearly->setChecked(m_settings->value("splitAllTxtYearly", false).toBool());
-  ui->actionSplit_ALL_TXT_monthly->setChecked(m_settings->value("splitAllTxtMonthly", false).toBool());
-  ui->actionDisable_writing_of_ALL_TXT->setChecked(m_settings->value("disableWritingOfAllTxt", false).toBool());
-  ui->actionDisable_event_logging->setChecked(m_settings->value("DisableEventLogging", false).toBool());
-  ui->actionUse_Dark_Style->setChecked(m_settings->value("DarkStyle", false).toBool());
-  ui->actionBand_Buttons->setChecked(m_settings->value("BandButtons", true).toBool());
-  ui->actionVHF_UHF_Buttons->setChecked(m_settings->value("VHFUHFButtons", false).toBool());
-  ui->tx1->setEnabled(m_settings->value("tx1State", true).toBool());
-  ui->actionHighlightB4->setChecked(m_settings->value("HighlightB4", false).toBool());
-  ui->actionHighlightToday->setChecked(m_settings->value("HighlightToday", false).toBool());
-  ui->actionHighlightIgnored->setChecked(m_settings->value("HighlightIgnored", false).toBool());
-  ui->actionHideB4->setChecked(m_settings->value("HideB4", false).toBool());
-  ui->actionHideToday->setChecked(m_settings->value("HideToday", false).toBool());
-  ui->actionHideIgnored->setChecked(m_settings->value("HideIgnored", false).toBool());
-  ui->actionIgnoreB4->setChecked(m_settings->value("IgnoreB4", false).toBool());
-  ui->actionIgnoreToday->setChecked(m_settings->value("IgnoreToday", false).toBool());
-  ui->actionIgnoreIgnored->setChecked(m_settings->value("IgnoreIgnored", false).toBool());
-  ui->actionHideTerritory1->setChecked(m_settings->value("HideTerritory1", false).toBool());
-  ui->actionHideTerritory2->setChecked(m_settings->value("HideTerritory2", false).toBool());
-  ui->actionHideTerritory3->setChecked(m_settings->value("HideTerritory3", false).toBool());
-  ui->actionHideTerritory4->setChecked(m_settings->value("HideTerritory4", false).toBool());
-  ui->actionHighlightTerritory1->setChecked(m_settings->value("HighlightTerritory1", false).toBool());
-  ui->actionHighlightTerritory2->setChecked(m_settings->value("HighlightTerritory2", false).toBool());
-  ui->actionHighlightTerritory3->setChecked(m_settings->value("HighlightTerritory3", false).toBool());
-  ui->actionHighlightTerritory4->setChecked(m_settings->value("HighlightTerritory4", false).toBool());
-  ui->actionHideEU->setChecked(m_settings->value("HideEU", false).toBool());
-  ui->actionHideNA->setChecked(m_settings->value("HideNA", false).toBool());
-  ui->actionHideSA->setChecked(m_settings->value("HideSA", false).toBool());
-  ui->actionHideAS->setChecked(m_settings->value("HideAS", false).toBool());
-  ui->actionHideAF->setChecked(m_settings->value("HideAF", false).toBool());
-  ui->actionHideOC->setChecked(m_settings->value("HideOC", false).toBool());
-  ui->actionHideAN->setChecked(m_settings->value("HideAN", false).toBool());
-  ui->actionHighlight_Whitelist_entries->setChecked(m_settings->value("HighlightWhitelistEntries", false).toBool());
-//  m_mode=m_settings->value("Mode","FT8").toString();
-  ui->actionNone->setChecked(m_settings->value("SaveNone",true).toBool());
-  ui->actionSave_decoded->setChecked(m_settings->value("SaveDecoded",false).toBool());
-  ui->actionSave_all->setChecked(m_settings->value("SaveAll",false).toBool());
-  ui->actionRemove_after_30days->setChecked(m_settings->value("RemoveAudioFiles",false).toBool());
-  ui->RxFreqSpinBox->setValue(0); // ensure a change is signaled
-  ui->RxFreqSpinBox->setValue(m_settings->value("RxFreq",1500).toInt());
-  ui->sbFST4W_RxFreq->setValue(0);
-  ui->sbFST4W_RxFreq->setValue(m_settings->value("FST4W_RxFreq",1500).toInt());
-  ui->sbF_Low->setValue(m_settings->value("FST4_FLow",600).toInt());
-  ui->sbF_High->setValue(m_settings->value("FST4_FHigh",1400).toInt());
-  ui->sbFST4W_FTol->setValue(m_settings->value("FST4W_FTol",100).toInt());
-  ui->sbToneSpacing->setValue(m_settings->value("EchoToneSpacing",10).toInt());
-  ui->rbFixedTone->setChecked(m_settings->value("EchoFixedTone",true).toBool());
-  ui->rbEchoMessage->setChecked(m_settings->value("EchoMessageRB",false).toBool());
-  ui->rbEchoCW->setChecked(m_settings->value("EchoCW",false).toBool());
-  ui->leEchoMessage->setText(m_settings->value("EchoMessage",QString {}).toString());
-  m_minSync=m_settings->value("MinSync",0).toInt();
-  ui->syncSpinBox->setValue(m_minSync);
-  ui->cbAutoSeq->setChecked (m_settings->value ("AutoSeq", false).toBool());
-  ui->cbRxAll->setChecked (m_settings->value ("RxAll", false).toBool());
-// m_bShMsgs=m_settings->value("ShMsgs",false).toBool();
-  m_bSWL=m_settings->value("SWL",false).toBool();
-  m_bFast9=m_settings->value("Fast9",false).toBool();
-  m_bFastMode=m_settings->value("FastMode",false).toBool();
-  ui->sbMaxDrift->setValue (m_settings->value ("MaxDrift",0).toInt());
-  ui->sbTR_FST4W->setValue (m_settings->value ("TRPeriod_FST4W", 15).toInt());
-  m_lastMonitoredFrequency = m_settings->value ("DialFreq",
-    QVariant::fromValue<Frequency> (default_frequency)).value<Frequency> ();
-  m_skedFreq=m_settings->value("SkedFreq",1296.065).toDouble();
-  QTimer::singleShot (1000, [=] {if (m_astroWidget) m_astroWidget->setSkedFreq(m_skedFreq);});
-  if(m_mode=="MSK144") m_msk144basefreq = m_lastMonitoredFrequency;  // MSK144 QSY
-  ui->WSPRfreqSpinBox->setValue(0); // ensure a change is signaled
-  ui->WSPRfreqSpinBox->setValue(m_settings->value("WSPRfreq",1500).toInt());
-  ui->TxFreqSpinBox->setValue(0); // ensure a change is signaled
-  if(m_specOp!=SpecOp::FOX) ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq",1500).toInt());
-  m_TxFreqFox=m_settings->value("TxFreqFox",300).toInt();
-  if(m_specOp==SpecOp::FOX && !m_config.superFox()) ui->TxFreqSpinBox->setValue(m_TxFreqFox);
-  m_ndepth=m_settings->value("NDepth",3).toInt();
-
-  //ft8md
-  ui->actionUse_multithreaded_FT8_decoder->setChecked(m_settings->value("MultithreadedFT8decoder", false).toBool());
-  m_multithreadFT8 = ui->actionUse_multithreaded_FT8_decoder->isChecked();
-  dec_data.params.lmultift8 = m_multithreadFT8;
-
-  m_nFT8Cycles=m_settings->value("NFT8Cycles",3).toInt(); if(!(m_nFT8Cycles>=1 && m_nFT8Cycles<=3)) m_nFT8Cycles=3;
-  if(m_nFT8Cycles==1) ui->actionDecFT8cycles1->setChecked(true);
-  else if(m_nFT8Cycles==2) ui->actionDecFT8cycles2->setChecked(true);
-  else if(m_nFT8Cycles==3) ui->actionDecFT8cycles3->setChecked(true);
-
-  m_nFT8RXfSens=m_settings->value("NFT8QSORXfreqSensitivity",3).toInt(); if(!(m_nFT8RXfSens>=1 && m_nFT8RXfSens<=3)) m_nFT8RXfSens=3;
-  if(m_nFT8RXfSens==1) ui->actionRXfLow->setChecked(true);
-  else if(m_nFT8RXfSens==2) ui->actionRXfMedium->setChecked(true);
-  else if(m_nFT8RXfSens==3) ui->actionRXfHigh->setChecked(true);
-
-  m_ft8threads=m_settings->value("FT8threads",0).toInt();
-  if(!(m_ft8threads>=0 && m_ft8threads<25)) m_ft8threads=0;
-  if(m_ft8threads==0) ui->actionMTAuto->setChecked(true);
-  else if(m_ft8threads==1) ui->actionMT1->setChecked(true);
-  else if(m_ft8threads==2) ui->actionMT2->setChecked(true);
-  else if(m_ft8threads==3) ui->actionMT3->setChecked(true);
-  else if(m_ft8threads==4) ui->actionMT4->setChecked(true);
-  else if(m_ft8threads==5) ui->actionMT5->setChecked(true);
-  else if(m_ft8threads==6) ui->actionMT6->setChecked(true);
-  else if(m_ft8threads==7) ui->actionMT7->setChecked(true);
-  else if(m_ft8threads==8) ui->actionMT8->setChecked(true);
-  else if(m_ft8threads==9) ui->actionMT9->setChecked(true);
-  else if(m_ft8threads==10) ui->actionMT10->setChecked(true);
-  else if(m_ft8threads==11) ui->actionMT11->setChecked(true);
-  else if(m_ft8threads==12) ui->actionMT12->setChecked(true);
-//  qDebug() << "m_ft8threads is " << m_ft8threads;
-  dec_data.params.nmt = m_ft8threads;
-
-  ui->actionHide_FT8_dupe_messages->setChecked(m_settings->value("HideFT8Dupes",true).toBool());
-
-  m_ft8Sensitivity=m_settings->value("FT8Sensitivity",3).toInt();
-  if(!(m_ft8Sensitivity>0 && m_ft8Sensitivity<=3)) m_ft8Sensitivity=3;
-  if(m_ft8Sensitivity==1) ui->actionFT8SensMin->setChecked(true);
-  else if(m_ft8Sensitivity==2) ui->actionlowFT8thresholds->setChecked(true);
-  else if(m_ft8Sensitivity==3) ui->actionFT8subpass->setChecked(true);
-
-  m_ft8DecoderStart=m_settings->value("FT8DecoderStart",3).toInt();
-  if(!(m_ft8DecoderStart>=0 && m_ft8DecoderStart<=4)) m_ft8DecoderStart=3;
-  if(m_ft8DecoderStart==0) ui->actionStartTwoStage->setChecked(true);
-  else if(m_ft8DecoderStart==1) ui->actionStartThreeStage->setChecked(true);
-  else if(m_ft8DecoderStart==2) ui->actionStartEarly->setChecked(true);
-  else if(m_ft8DecoderStart==3) ui->actionStartNormal->setChecked(true);
-  else if(m_ft8DecoderStart==4) ui->actionStartLate->setChecked(true);
-
-  m_FT8WideDxCallSearch=m_settings->value("FT8WideDXCallSearch",true).toBool();
-  ui->actionFT8WidebandDXCallSearch->setChecked(m_FT8WideDxCallSearch);
-  //ft8md
-
-  ui->sbTxPercent->setValue (m_settings->value ("PctTx", 20).toInt ());
-  on_sbTxPercent_valueChanged (ui->sbTxPercent->value ());
-  ui->RoundRobin->setCurrentText(m_settings->value("RoundRobin",tr("Random")).toString());
-  m_dBm=m_settings->value("dBm",37).toInt();
-  m_send_RR73=m_settings->value("RR73",false).toBool();
-  m_score=m_settings->value("Score",0).toInt();
-  if(m_send_RR73) {
-    m_send_RR73=false;
-    on_txrb4_doubleClicked();
-  }
-  ui->WSPR_prefer_type_1_check_box->setChecked (m_settings->value ("WSPRPreferType1", true).toBool ());
-  m_uploadWSPRSpots=m_settings->value("UploadSpots",false).toBool();
-  ui->cbNoOwnCall->setChecked(m_settings->value("NoOwnCall",false).toBool());
-  ui->band_hopping_group_box->setChecked (m_settings->value ("BandHopping", false).toBool());
-  // setup initial value of tx attenuator
-  m_block_pwr_tooltip = true;
-  ui->outAttenuation->setValue (m_settings->value ("OutAttenuation", 0).toInt ());
-  m_block_pwr_tooltip = false;
-  ui->sbCQTxFreq->setValue (m_settings->value ("CQTxFreq", 260).toInt());
-  m_noSuffix=m_settings->value("NoSuffix",false).toBool();
-  int n=m_settings->value("GUItab",0).toInt();
-  if (SpecOp::FOX==m_specOp) {
-    ui->tabWidget->setCurrentIndex(n);
-  } else {
-    // We need this to initialize the height of tab 1 correctly
-    ui->pbFreeText->setVisible(false);
-    ui->cbSendMsg->setVisible(false);
-    ui->tabWidget->setCurrentIndex(1);
-    ui->tabWidget->setCurrentIndex(n);
-  }
-  outBufSize=m_settings->value("OutBufSize",4096).toInt();
-  ui->cbHoldTxFreq->setChecked (m_settings->value ("HoldTxFreq", false).toBool ());
-  HoldTxFreqStatus = m_settings->value ("HoldTxFreq", false).toBool ();
-  ui->cbCQonly->setChecked (m_settings->value ("CQonly", false).toBool ());
-  ui->cbBypass->setChecked (m_settings->value ("BypassFilters", false).toBool ());
-  m_pwrBandTxMemory=m_settings->value("pwrBandTxMemory").toHash();
-  m_pwrBandTuneMemory=m_settings->value("pwrBandTuneMemory").toHash();
-  ui->actionEnable_AP_FT8->setChecked (m_settings->value ("FT8AP", false).toBool());
-  ui->actionEnable_AP_JT65->setChecked (m_settings->value ("JT65AP", false).toBool());
-  ui->actionAuto_Clear_Avg->setChecked (m_settings->value ("AutoClearAvg", false).toBool());
-  ui->actionDisable_clicks_on_waterfall->setChecked (m_settings->value ("DisableClicksOnWaterfall", false).toBool());
-  ui->decodes_splitter->restoreState(m_settings->value("SplitterState").toByteArray());
-  ui->sbNB->setValue(m_settings->value("Blanker",0).toInt());
-  ui->sbEchoAvg->setValue(m_settings->value("EchoAvg",10).toInt());
-  {
-    auto const& coeffs = m_settings->value ("PhaseEqualizationCoefficients"
-                                            , QList<QVariant> {0., 0., 0., 0., 0.}).toList ();
-    m_phaseEqCoefficients.clear ();
-    for (auto const& coeff : coeffs)
-      {
-        m_phaseEqCoefficients.append (coeff.value<double> ());
-      }
-  }
-  m_settings->endGroup();
-
-  // use these initialisation settings to tune the audio o/p buffer
-  // size and audio thread priority
-  m_settings->beginGroup ("Tune");
-  m_audioThreadPriority = static_cast<QThread::Priority> (m_settings->value ("Audio/ThreadPriority", QThread::TimeCriticalPriority).toInt () % 8);
-  m_settings->endGroup ();
-
-  m_specOp=m_config.special_op_id();
-  checkMSK144ContestType();
-  if (displayMsgAvg) on_actionMessage_averaging_triggered();
-  if (displayFoxLog) on_fox_log_action_triggered ();
-  if (displayContestLog) on_contest_log_action_triggered ();
-  if (displayActiveStations) on_actionActiveStations_triggered();
-  if (displayQSYMessageCreator) on_actionQSYMessage_Creator_triggered();
-  if (displayQSYMonitor) on_actionQSY_Monitor_triggered();
-
-#ifdef WIN32
-  if (m_config.alert_Enabled()) {  // testing and initializing the default audio device for playing audible alerts
-      QAudioOutput info(QAudioDeviceInfo::defaultOutputDevice());
-      QString audioPath = QCoreApplication::applicationDirPath() + "/sounds" + m_config.voicesPath() + "/";
-      QAudioFormat format;
-      format.setCodec("audio/pcm");
-      format.setSampleRate (48000);
-      format.setChannelCount (1);
-      format.setSampleSize (16);
-      format.setSampleType(QAudioFormat::SignedInt);
-      QAudioOutput* audio;
-      audio = new QAudioOutput(format, this);
-      QFile *effect = new QFile(this);
-      effect->setFileName(QString("%1/%2").arg(audioPath, "Testing.wav"));
-      effect->open(QIODevice::ReadOnly);
-      audio->start(effect);
-  }
-#endif
-}
 
 void MainWindow::checkMSK144ContestType()
 {
@@ -2508,11 +1882,12 @@ void MainWindow::dataSink(qint64 frames)
       }
       int samples=m_TRperiod*12000;
       if(m_mode=="FT4") samples=21*3456;
-      // the following is potential a threading hazard - not a good
-      // idea to pass pointer to be processed in another thread
-      m_saveWAVWatcher.setFuture (QtConcurrent::run (std::bind (&MainWindow::save_wave_file,
-            this, m_fnameWE, &dec_data.d2[0], samples, m_config.my_callsign(),
-            m_config.my_grid(), m_mode, m_nSubMode, m_freqNominalPeriod, m_hisCall, m_hisGrid)));
+      short const * data = &dec_data.d2[0];
+      m_saveWAVWatcher.setFuture (QtConcurrent::run ([=] {
+        return Radio::WavFile::save (m_fnameWE, data, samples, m_config.my_callsign (),
+                                     m_config.my_grid (), m_mode, m_nSubMode, m_freqNominalPeriod,
+                                     m_hisCall, m_hisGrid);
+      }));
       if (m_mode=="WSPR") {
         auto c2name {(m_fnameWE + ".c2").toLocal8Bit ()};
         int nsec=120;
@@ -2554,49 +1929,6 @@ void MainWindow::startP1()
   p1.start (QDir::toNativeSeparators (QDir {QApplication::applicationDirPath ()}.absoluteFilePath ("wsprd")), m_cmndP1);
 }
 
-QString MainWindow::save_wave_file (QString const& name, short const * data, int samples,
-        QString const& my_callsign, QString const& my_grid, QString const& mode, qint32 sub_mode,
-        Frequency frequency, QString const& his_call, QString const& his_grid) const
-{
-  //
-  // This member function runs in a thread and should not access
-  // members that may be changed in the GUI thread or any other thread
-  // without suitable synchronization.
-  //
-  QAudioFormat format;
-  format.setCodec ("audio/pcm");
-  format.setSampleRate (12000);
-  format.setChannelCount (1);
-  format.setSampleSize (16);
-  format.setSampleType (QAudioFormat::SignedInt);
-  auto source = QString {"%1; %2"}.arg (my_callsign).arg (my_grid);
-  auto comment = QString {"Mode=%1%2; Freq=%3%4"}
-                   .arg (mode)
-                   .arg (QString {(mode.contains ('J') && !mode.contains ('+'))
-                         || mode.startsWith ("FST4") || mode.startsWith ('Q')
-                         ? QString {"; Sub Mode="} + QString::number (int (samples / 12000)) + QChar {'A' + sub_mode}
-                       : QString {}})
-                   .arg (Radio::frequency_MHz_string (frequency))
-                   .arg (QString {mode!="WSPR" ? QString {"; DXCall=%1; DXGrid=%2"}
-         .arg (his_call)
-         .arg (his_grid).toLocal8Bit () : ""});
-  BWFFile::InfoDictionary list_info {
-      {{{'I','S','R','C'}}, source.toLocal8Bit ()},
-      {{{'I','S','F','T'}}, program_title (revision ()).simplified ().toLocal8Bit ()},
-      {{{'I','C','R','D'}}, QDateTime::currentDateTimeUtc ()
-                          .toString ("yyyy-MM-ddTHH:mm:ss.zzzZ").toLocal8Bit ()},
-      {{{'I','C','M','T'}}, comment.toLocal8Bit ()},
-        };
-  auto file_name = name + ".wav";
-  BWFFile wav {format, file_name, list_info};
-  if (!wav.open (BWFFile::WriteOnly)
-      || 0 > wav.write (reinterpret_cast<char const *> (data)
-                        , sizeof (short) * samples))
-    {
-      return file_name + ": " + wav.errorString ();
-    }
-  return QString {};
-}
 
 //-------------------------------------------------------------- fastSink()
 void MainWindow::fastSink(qint64 frames)
@@ -2682,37 +2014,11 @@ void MainWindow::fastSink(qint64 frames)
         text2 = tw[1];    // otherwise analyze word 2 for filtering
       }
       if (!(SpecOp::NONE==m_specOp && m_config.AlwaysPass () // Always pass messages with keywords from Always Pass list
-            && (
-                 (text2.startsWith(m_config.Pass1()) && (m_config.Pass1()!=""))
-                 || (text2.startsWith(m_config.Pass2()) && (m_config.Pass2()!=""))
-                 || (text2.startsWith(m_config.Pass3()) && (m_config.Pass3()!=""))
-                 || (text2.startsWith(m_config.Pass4()) && (m_config.Pass4()!=""))
-                 || (text2.startsWith(m_config.Pass5()) && (m_config.Pass5()!=""))
-                 || (text2.startsWith(m_config.Pass6()) && (m_config.Pass6()!=""))
-                 || (text2.startsWith(m_config.Pass7()) && (m_config.Pass7()!=""))
-                 || (text2.startsWith(m_config.Pass8()) && (m_config.Pass8()!=""))
-                 || (text2.startsWith(m_config.Pass9()) && (m_config.Pass9()!=""))
-                 || (text2.startsWith(m_config.Pass10()) && (m_config.Pass10()!=""))
-                 || (text2.startsWith(m_config.Pass11()) && (m_config.Pass11()!=""))
-                 || (text2.startsWith(m_config.Pass12()) && (m_config.Pass12()!=""))
-                 ))) {
+            && MessageFilter::startsWithAny(text2, m_config.pass_keywords()))) {
 
         // Filtering out messages with keywords from Blacklist
         if (SpecOp::NONE==m_specOp && m_config.Blacklisted ()
-            && (
-                 (text2.startsWith(m_config.Blacklist1()) && (m_config.Blacklist1()!=""))
-                 || (text2.startsWith(m_config.Blacklist2()) && (m_config.Blacklist2()!=""))
-                 || (text2.startsWith(m_config.Blacklist3()) && (m_config.Blacklist3()!=""))
-                 || (text2.startsWith(m_config.Blacklist4()) && (m_config.Blacklist4()!=""))
-                 || (text2.startsWith(m_config.Blacklist5()) && (m_config.Blacklist5()!=""))
-                 || (text2.startsWith(m_config.Blacklist6()) && (m_config.Blacklist6()!=""))
-                 || (text2.startsWith(m_config.Blacklist7()) && (m_config.Blacklist7()!=""))
-                 || (text2.startsWith(m_config.Blacklist8()) && (m_config.Blacklist8()!=""))
-                 || (text2.startsWith(m_config.Blacklist9()) && (m_config.Blacklist9()!=""))
-                 || (text2.startsWith(m_config.Blacklist10()) && (m_config.Blacklist10()!=""))
-                 || (text2.startsWith(m_config.Blacklist11()) && (m_config.Blacklist11()!=""))
-                 || (text2.startsWith(m_config.Blacklist12()) && (m_config.Blacklist12()!=""))
-                 )) {
+            && MessageFilter::startsWithAny(text2, m_config.blacklist_keywords())) {
           if (!ui->cbBypass->isChecked()) filtered = true;
           if (!(m_config.filters_for_Wait_and_Pounce_only() or ui->cbBypass->isChecked()))  return;
           // reset dB score when filtered
@@ -2729,18 +2035,7 @@ void MainWindow::fastSink(qint64 frames)
 
         // Filtering out everything but messages with keywords from Whitelist
         } else if (SpecOp::NONE==m_specOp && m_config.Whitelisted ()
-                   && !(text2.startsWith(m_config.Whitelist1()) && (m_config.Whitelist1()!=""))
-                   && !(text2.startsWith(m_config.Whitelist2()) && (m_config.Whitelist2()!=""))
-                   && !(text2.startsWith(m_config.Whitelist3()) && (m_config.Whitelist3()!=""))
-                   && !(text2.startsWith(m_config.Whitelist4()) && (m_config.Whitelist4()!=""))
-                   && !(text2.startsWith(m_config.Whitelist5()) && (m_config.Whitelist5()!=""))
-                   && !(text2.startsWith(m_config.Whitelist6()) && (m_config.Whitelist6()!=""))
-                   && !(text2.startsWith(m_config.Whitelist7()) && (m_config.Whitelist7()!=""))
-                   && !(text2.startsWith(m_config.Whitelist8()) && (m_config.Whitelist8()!=""))
-                   && !(text2.startsWith(m_config.Whitelist9()) && (m_config.Whitelist9()!=""))
-                   && !(text2.startsWith(m_config.Whitelist10()) && (m_config.Whitelist10()!=""))
-                   && !(text2.startsWith(m_config.Whitelist11()) && (m_config.Whitelist11()!=""))
-                   && !(text2.startsWith(m_config.Whitelist12()) && (m_config.Whitelist12()!=""))
+                   && !MessageFilter::startsWithAny(text2, m_config.whitelist_keywords())
           ) {
           if (!ui->cbBypass->isChecked()) filtered = true;
           if (!(m_config.filters_for_Wait_and_Pounce_only() or ui->cbBypass->isChecked()))  return;
@@ -2770,27 +2065,7 @@ void MainWindow::fastSink(qint64 frames)
           if (ui->actionHideTerritory1->isChecked() or ui->actionHideTerritory2->isChecked() or
               ui->actionHideTerritory3->isChecked() or ui->actionHideTerritory4->isChecked()) {
             auto const& looked_up = m_logBook.countries ()->lookup (deCall);
-            auto countryName = looked_up.entity_name;
-            // do some obvious abbreviations
-            countryName.replace ("Islands", "Is.");
-            countryName.replace ("Island", "Is.");
-            countryName.replace ("North ", "N. ");
-            countryName.replace ("Northern ", "N. ");
-            countryName.replace ("South ", "S. ");
-            countryName.replace ("East ", "E. ");
-            countryName.replace ("Eastern ", "E. ");
-            countryName.replace ("West ", "W. ");
-            countryName.replace ("Western ", "W. ");
-            countryName.replace ("Central ", "C. ");
-            countryName.replace (" and ", " & ");
-            countryName.replace ("Republic", "Rep.");
-            countryName.replace ("United States of America", "U.S.A.");
-            countryName.replace ("United States", "U.S.A.");
-            countryName.replace ("Fed. Rep. of ", "");
-            countryName.replace ("French ", "Fr.");
-            countryName.replace ("Asiatic", "AS");
-            countryName.replace ("European", "EU");
-            countryName.replace ("African", "AF");
+            auto countryName = Radio::CountryNames::abbreviate(looked_up.entity_name);
             if (ui->actionHideTerritory1->isChecked() && countryName.contains(m_config.Territory1())
                 && (m_config.Territory1()!="") && !ui->cbBypass->isChecked()) filtered = true;
             if (ui->actionHideTerritory2->isChecked() && countryName.contains(m_config.Territory2())
@@ -2831,37 +2106,11 @@ void MainWindow::fastSink(qint64 frames)
       }
     } else {
       if (!(SpecOp::NONE==m_specOp && m_config.AlwaysPass () // Always pass messages with keywords from Always Pass list
-            && (
-                 (text.contains(m_config.Pass1()) && (m_config.Pass1()!=""))
-                 || (text.contains(m_config.Pass2()) && (m_config.Pass2()!=""))
-                 || (text.contains(m_config.Pass3()) && (m_config.Pass3()!=""))
-                 || (text.contains(m_config.Pass4()) && (m_config.Pass4()!=""))
-                 || (text.contains(m_config.Pass5()) && (m_config.Pass5()!=""))
-                 || (text.contains(m_config.Pass6()) && (m_config.Pass6()!=""))
-                 || (text.contains(m_config.Pass7()) && (m_config.Pass7()!=""))
-                 || (text.contains(m_config.Pass8()) && (m_config.Pass8()!=""))
-                 || (text.contains(m_config.Pass9()) && (m_config.Pass9()!=""))
-                 || (text.contains(m_config.Pass10()) && (m_config.Pass10()!=""))
-                 || (text.contains(m_config.Pass11()) && (m_config.Pass11()!=""))
-                 || (text.contains(m_config.Pass12()) && (m_config.Pass12()!=""))
-                 ))) {
+            && MessageFilter::containsAny(text, m_config.pass_keywords()))) {
 
         // Filtering out messages with keywords from Blacklist
         if (SpecOp::NONE==m_specOp && m_config.Blacklisted ()
-            && (
-                 (text.contains(m_config.Blacklist1()) && (m_config.Blacklist1()!=""))
-                 || (text.contains(m_config.Blacklist2()) && (m_config.Blacklist2()!=""))
-                 || (text.contains(m_config.Blacklist3()) && (m_config.Blacklist3()!=""))
-                 || (text.contains(m_config.Blacklist4()) && (m_config.Blacklist4()!=""))
-                 || (text.contains(m_config.Blacklist5()) && (m_config.Blacklist5()!=""))
-                 || (text.contains(m_config.Blacklist6()) && (m_config.Blacklist6()!=""))
-                 || (text.contains(m_config.Blacklist7()) && (m_config.Blacklist7()!=""))
-                 || (text.contains(m_config.Blacklist8()) && (m_config.Blacklist8()!=""))
-                 || (text.contains(m_config.Blacklist9()) && (m_config.Blacklist9()!=""))
-                 || (text.contains(m_config.Blacklist10()) && (m_config.Blacklist10()!=""))
-                 || (text.contains(m_config.Blacklist11()) && (m_config.Blacklist11()!=""))
-                 || (text.contains(m_config.Blacklist12()) && (m_config.Blacklist12()!=""))
-                 )) {
+            && MessageFilter::containsAny(text, m_config.blacklist_keywords())) {
           if (!ui->cbBypass->isChecked()) filtered = true;
           if (!(m_config.filters_for_Wait_and_Pounce_only() or ui->cbBypass->isChecked()))  return;
           // reset dB score when filtered
@@ -2878,18 +2127,7 @@ void MainWindow::fastSink(qint64 frames)
 
         // Filtering out everything but messages with keywords from Whitelist
         } else if (SpecOp::NONE==m_specOp && m_config.Whitelisted ()
-                   && !(text.contains(m_config.Whitelist1()) && (m_config.Whitelist1()!=""))
-                   && !(text.contains(m_config.Whitelist2()) && (m_config.Whitelist2()!=""))
-                   && !(text.contains(m_config.Whitelist3()) && (m_config.Whitelist3()!=""))
-                   && !(text.contains(m_config.Whitelist4()) && (m_config.Whitelist4()!=""))
-                   && !(text.contains(m_config.Whitelist5()) && (m_config.Whitelist5()!=""))
-                   && !(text.contains(m_config.Whitelist6()) && (m_config.Whitelist6()!=""))
-                   && !(text.contains(m_config.Whitelist7()) && (m_config.Whitelist7()!=""))
-                   && !(text.contains(m_config.Whitelist8()) && (m_config.Whitelist8()!=""))
-                   && !(text.contains(m_config.Whitelist9()) && (m_config.Whitelist9()!=""))
-                   && !(text.contains(m_config.Whitelist10()) && (m_config.Whitelist10()!=""))
-                   && !(text.contains(m_config.Whitelist11()) && (m_config.Whitelist11()!=""))
-                   && !(text.contains(m_config.Whitelist12()) && (m_config.Whitelist12()!=""))
+                   && !MessageFilter::containsAny(text, m_config.whitelist_keywords())
           ) {
           if (!ui->cbBypass->isChecked()) filtered = true;
           if (!(m_config.filters_for_Wait_and_Pounce_only() or ui->cbBypass->isChecked()))  return;
@@ -2919,27 +2157,7 @@ void MainWindow::fastSink(qint64 frames)
           if (ui->actionHideTerritory1->isChecked() or ui->actionHideTerritory2->isChecked() or
               ui->actionHideTerritory3->isChecked() or ui->actionHideTerritory4->isChecked()) {
             auto const& looked_up = m_logBook.countries ()->lookup (deCall);
-            auto countryName = looked_up.entity_name;
-            // do some obvious abbreviations
-            countryName.replace ("Islands", "Is.");
-            countryName.replace ("Island", "Is.");
-            countryName.replace ("North ", "N. ");
-            countryName.replace ("Northern ", "N. ");
-            countryName.replace ("South ", "S. ");
-            countryName.replace ("East ", "E. ");
-            countryName.replace ("Eastern ", "E. ");
-            countryName.replace ("West ", "W. ");
-            countryName.replace ("Western ", "W. ");
-            countryName.replace ("Central ", "C. ");
-            countryName.replace (" and ", " & ");
-            countryName.replace ("Republic", "Rep.");
-            countryName.replace ("United States of America", "U.S.A.");
-            countryName.replace ("United States", "U.S.A.");
-            countryName.replace ("Fed. Rep. of ", "");
-            countryName.replace ("French ", "Fr.");
-            countryName.replace ("Asiatic", "AS");
-            countryName.replace ("European", "EU");
-            countryName.replace ("African", "AF");
+            auto countryName = Radio::CountryNames::abbreviate(looked_up.entity_name);
             if (ui->actionHideTerritory1->isChecked() && countryName.contains(m_config.Territory1())
                 && (m_config.Territory1()!="") && !ui->cbBypass->isChecked()) filtered = true;
             if (ui->actionHideTerritory2->isChecked() && countryName.contains(m_config.Territory2())
@@ -3295,18 +2513,7 @@ void MainWindow::fastSink(qint64 frames)
         }
         // highlight Whitelist entries
         if (ui->actionHighlight_Whitelist_entries->isChecked() && deCall.size()>2 &&
-            ((deCall.contains(m_config.Whitelist1()) && m_config.Whitelist1() != "")
-             or (deCall.contains(m_config.Whitelist2()) && m_config.Whitelist2() != "")
-             or (deCall.contains(m_config.Whitelist3()) && m_config.Whitelist3() != "")
-             or (deCall.contains(m_config.Whitelist4()) && m_config.Whitelist4() != "")
-             or (deCall.contains(m_config.Whitelist5()) && m_config.Whitelist5() != "")
-             or (deCall.contains(m_config.Whitelist6()) && m_config.Whitelist6() != "")
-             or (deCall.contains(m_config.Whitelist7()) && m_config.Whitelist7() != "")
-             or (deCall.contains(m_config.Whitelist8()) && m_config.Whitelist8() != "")
-             or (deCall.contains(m_config.Whitelist9()) && m_config.Whitelist9() != "")
-             or (deCall.contains(m_config.Whitelist10()) && m_config.Whitelist10() != "")
-             or (deCall.contains(m_config.Whitelist11()) && m_config.Whitelist11() != "")
-             or (deCall.contains(m_config.Whitelist12()) && m_config.Whitelist12() != ""))) {
+            MessageFilter::containsAny(deCall, m_config.whitelist_keywords())) {
           ui->decodedTextBrowser->highlight_callsign(deCall, QColor(170,0,127), QColor(255,255,255), true);
           if (m_config.alert_Enabled() && m_config.alert_Wanted() && !m_muted) play_Wanted = true;
         }
@@ -3345,27 +2552,7 @@ void MainWindow::fastSink(qint64 frames)
         if (ui->actionHighlightTerritory1->isChecked() or ui->actionHighlightTerritory2->isChecked() or
             ui->actionHighlightTerritory3->isChecked() or ui->actionHighlightTerritory4->isChecked()) {
           auto const& looked_up = m_logBook.countries ()->lookup (deCall);
-          auto countryName = looked_up.entity_name;
-          // do some obvious abbreviations
-          countryName.replace ("Islands", "Is.");
-          countryName.replace ("Island", "Is.");
-          countryName.replace ("North ", "N. ");
-          countryName.replace ("Northern ", "N. ");
-          countryName.replace ("South ", "S. ");
-          countryName.replace ("East ", "E. ");
-          countryName.replace ("Eastern ", "E. ");
-          countryName.replace ("West ", "W. ");
-          countryName.replace ("Western ", "W. ");
-          countryName.replace ("Central ", "C. ");
-          countryName.replace (" and ", " & ");
-          countryName.replace ("Republic", "Rep.");
-          countryName.replace ("United States of America", "U.S.A.");
-          countryName.replace ("United States", "U.S.A.");
-          countryName.replace ("Fed. Rep. of ", "");
-          countryName.replace ("French ", "Fr.");
-          countryName.replace ("Asiatic", "AS");
-          countryName.replace ("European", "EU");
-          countryName.replace ("African", "AF");
+          auto countryName = Radio::CountryNames::abbreviate(looked_up.entity_name);
           if (ui->actionHighlightTerritory1->isChecked() && countryName.contains(m_config.Territory1())
               && (m_config.Territory1()!="") && !ui->cbBypass->isChecked()) ui->decodedTextBrowser->highlight_callsign(deCall, QColor(115,43,245), QColor(255,255,255), true);
           if (ui->actionHighlightTerritory2->isChecked() && countryName.contains(m_config.Territory2())
@@ -3468,9 +2655,12 @@ void MainWindow::fastSink(qint64 frames)
         m_bAltV=false;
         // the following is potential a threading hazard - not a good
         // idea to pass pointer to be processed in another thread
-        m_saveWAVWatcher.setFuture (QtConcurrent::run (std::bind (&MainWindow::save_wave_file,
-           this, m_fnameWE, &dec_data.d2[0], int(m_TRperiod*12000.0), m_config.my_callsign(),
-           m_config.my_grid(), m_mode, m_nSubMode, m_freqNominal, m_hisCall, m_hisGrid)));
+        short const * data = &dec_data.d2[0];
+        m_saveWAVWatcher.setFuture (QtConcurrent::run ([=] {
+          return Radio::WavFile::save (m_fnameWE, data, int (m_TRperiod * 12000.0),
+                                       m_config.my_callsign (), m_config.my_grid (), m_mode,
+                                       m_nSubMode, m_freqNominal, m_hisCall, m_hisGrid);
+        }));
       }
       if(m_mode!="MSK144") {
         killFileTimer.start (int(750.0*m_TRperiod)); //Kill 3/4 period from now
@@ -3653,8 +2843,7 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
     m_config.transceiver_online ();
     if(!m_bFastMode) setXIT (ui->TxFreqSpinBox->value ());
     if ((m_config.single_decode () && !m_mode.startsWith ("FST4")) || m_mode=="JT4") {
-      ui->lh_decodes_title_label->setText(tr ("Single-Period Decodes"));
-      ui->rh_decodes_title_label->setText(tr ("Average Decodes"));
+      setDecodeTitles(tr ("Single-Period Decodes"), tr ("Average Decodes"));
     }
 
     update_watchdog_label ();
@@ -4084,56 +3273,6 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
   QMainWindow::keyPressEvent (e);
 }
 
-bool MainWindow::jtty_key_struck(QKeyEvent * e)
-{
-  if(e->key() == Qt::Key_F1) {
-    jtty_tx("CQ " + m_config.my_callsign() + " CQ");
-    return true;
-  } else if(e->key() == Qt::Key_F2) {
-    int n=ui->sbSerialNumber_2->value();
-    QString t=QString::number(n);
-    if(n < 10) t = "00"+t;
-    if(n < 100) t = "0"+t;
-    t = " 599 " + t;
-    jtty_tx(ui->dxCallEntry->text() + t);
-    return true;
-  } else if(e->key() == Qt::Key_F3) {
-    jtty_tx("TU " + m_config.my_callsign() + " CQ");
-    return true;
-  } else if(e->key() == Qt::Key_F4) {
-    jtty_tx(m_config.my_callsign());
-    return true;
-  } else if(e->key() == Qt::Key_F5) {
-    jtty_tx(ui->dxCallEntry->text());
-    return true;
-  } else if(e->key() == Qt::Key_F6) {
-    int n=ui->sbSerialNumber_2->value();
-    QString t=QString::number(n);
-    if(n < 10) t = "00"+t;
-    if(n < 100) t = "0"+t;
-    t = " 599 " + t;
-    jtty_tx("TU NOW " + ui->dxCallEntry->text() + t);
-    return true;
-  } else if(e->key() == Qt::Key_F7) {
-    int n=ui->sbSerialNumber_2->value();
-    QString t=QString::number(n);
-    if(n < 10) t = "00"+t;
-    if(n < 100) t = "0"+t;
-    t = "599 " + t;
-    jtty_tx(t);
-    return true;
-  } else if(e->key() == Qt::Key_F8) {
-    jtty_tx("AGN?");
-    return true;
-  } else if(e->key() == Qt::Key_F9) {
-    jtty_tx("NR?");
-    return true;
-  } else if((e->key() == int(Qt::Key_Enter)) or (e->key() == int(Qt::Key_Return))) {
-    jtty_tx(ui->Tx_Message->text());
-    ui->Tx_Message->clear();
-  }
-  return false;
-}
 
 void MainWindow::handleVerifyMsg(int status, QDateTime ts, QString callsign, QString code, unsigned int hz, QString const &response)
 {
@@ -4292,14 +3431,7 @@ void MainWindow::statusChanged()
   }
   on_dxGridEntry_textChanged(m_hisGrid);
   if (m_specOp!=SpecOp::HOUND) {
-    ui->txb2->setEnabled(true);
-    ui->txrb2->setEnabled(true);
-    ui->txb4->setEnabled(true);
-    ui->txrb4->setEnabled(true);
-    ui->txb5->setEnabled(true);
-    ui->txrb5->setEnabled(true);
-    ui->txb6->setEnabled(true);
-    ui->txrb6->setEnabled(true);
+    setTxButtonsEnabled(true);
     ui->houndButton->setChecked(false);
   }
   if (m_specOp==SpecOp::FOX) {
@@ -4319,15 +3451,12 @@ void MainWindow::statusChanged()
   }
   if (m_mode=="JT4" or m_mode=="Q65" or m_mode=="JT65") {
     if (ui->actionInclude_averaging->isVisible() && ui->actionInclude_averaging->isChecked()) {
-      ui->lh_decodes_title_label->setText(tr ("Single-Period Decodes"));
-      ui->rh_decodes_title_label->setText(tr ("Average Decodes"));
+      setDecodeTitles(tr ("Single-Period Decodes"), tr ("Average Decodes"));
     } else {
       if (m_config.enable_VHF_features()) {
-        ui->lh_decodes_title_label->setText(tr ("Band Activity"));
-        ui->rh_decodes_title_label->setText(tr ("Decodes containing My Call"));
+        setDecodeTitles(tr ("Band Activity"), tr ("Decodes containing My Call"));
       } else {
-        ui->lh_decodes_title_label->setText(tr ("Band Activity"));
-        ui->rh_decodes_title_label->setText(tr ("Rx Frequency"));
+        setDecodeTitles(tr ("Band Activity"), tr ("Rx Frequency"));
       }
     }
   }
@@ -4571,7 +3700,7 @@ void MainWindow::closeEvent(QCloseEvent * e)
   m_shortcuts.reset ();
   m_mouseCmnds.reset ();
   m_colorHighlighting.reset ();
-  if(m_mode!="MSK144" and m_mode!="FT8") killFile();
+  if(m_mode!="MSK144" and m_mode!="FT8") killWaveFile();
   float sw=0.0;
   int nw=400;
   int nh=100;
@@ -5222,56 +4351,7 @@ void MainWindow::on_actionKeyboard_shortcuts_triggered()
       QFont font;
       font.setPointSize (10);
       m_shortcuts.reset (new HelpTextWindow {tr ("Keyboard Shortcuts"),
-                                               //: Keyboard shortcuts help window contents
-                                               tr (R"(<table cellspacing=1>
-  <tr><td><b>Esc      </b></td><td>Stop Tx, abort QSO, clear next-call queue</td></tr>
-  <tr><td><b>F1       </b></td><td>Online User's Guide (Alt: transmit Tx6)</td></tr>
-  <tr><td><b>Shift+F1  </b></td><td>Copyright Notice</td></tr>
-  <tr><td><b>Ctrl+F1  </b></td><td>About WSJT-X</td></tr>
-  <tr><td><b>F2       </b></td><td>Open settings window (Alt: transmit Tx2)</td></tr>
-  <tr><td><b>F3       </b></td><td>Display keyboard shortcuts (Alt: transmit Tx3)</td></tr>
-  <tr><td><b>F4       </b></td><td>Clear DX Call, DX Grid, Tx messages 1-4 (Alt: transmit Tx4)</td></tr>
-  <tr><td><b>Alt+F4   </b></td><td>Exit program</td></tr>
-  <tr><td><b>F5       </b></td><td>Display special mouse commands (Alt: transmit Tx5)</td></tr>
-  <tr><td><b>F6       </b></td><td>Open next file in directory (Alt: toggle "Call 1st")</td></tr>
-  <tr><td><b>Shift+F6 </b></td><td>Decode all remaining files in directory</td></tr>
-  <tr><td><b>F7       </b></td><td>Display Message Averaging window</td></tr>
-  <tr><td><b>F11      </b></td><td>Move Rx frequency down 1 Hz</td></tr>
-  <tr><td><b>Ctrl+F11 </b></td><td>Move identical Rx and Tx frequencies down 1 Hz</td></tr>
-  <tr><td><b>Shift+F11 </b></td><td>Move Tx frequency down 60 Hz (FT8) or 90 Hz (FT4)</td></tr>
-  <tr><td><b>Ctrl+Shift+F11 </b></td><td>Move dial frequency down 1000 Hz</td></tr>
-  <tr><td><b>F12      </b></td><td>Move Rx frequency up 1 Hz</td></tr>
-  <tr><td><b>Ctrl+F12 </b></td><td>Move identical Rx and Tx frequencies up 1 Hz</td></tr>
-  <tr><td><b>Shift+F12 </b></td><td>Move Tx frequency up 60 Hz (FT8) or 90 Hz (FT4)</td></tr>
-  <tr><td><b>Ctrl+Shift+F12 </b></td><td>Move dial frequency up 1000 Hz</td></tr>
-  <tr><td><b>Alt+1-6  </b></td><td>Set now transmission to this number on Tab 1</td></tr>
-  <tr><td><b>Ctl+1-6  </b></td><td>Set next transmission to this number on Tab 1</td></tr>
-  <tr><td><b>Alt+A    </b></td><td>Clear Active Stations for QMAP</td></tr>
-  <tr><td><b>Alt+B    </b></td><td>Toggle "Best S+P" status</td></tr>
-  <tr><td><b>Alt+C    </b></td><td>Toggle "Call 1st" checkbox</td></tr>
-  <tr><td><b>Alt+D    </b></td><td>Decode again at QSO frequency</td></tr>
-  <tr><td><b>Shift+D  </b></td><td>Full decode (both windows)</td></tr>
-  <tr><td><b>Ctrl+E   </b></td><td>Turn on TX even/1st</td></tr>
-  <tr><td><b>Shift+E  </b></td><td>Turn off TX even/1st</td></tr>
-  <tr><td><b>Alt+E    </b></td><td>Erase</td></tr>
-  <tr><td><b>Ctrl+F   </b></td><td>Edit the free text message box</td></tr>
-  <tr><td><b>Alt+G    </b></td><td>Generate standard messages</td></tr>
-  <tr><td><b>Alt+H    </b></td><td>Halt Tx</td></tr>
-  <tr><td><b>Ctrl+I   </b></td><td>Add Dx Call to the Ignore List</td></tr>
-  <tr><td><b>Ctrl+L   </b></td><td>Lookup callsign in database, generate standard messages</td></tr>
-  <tr><td><b>Alt+M    </b></td><td>Monitor</td></tr>
-  <tr><td><b>Alt+N    </b></td><td>Toggle "Enable Tx"</td></tr>
-  <tr><td><b>Ctrl+O   </b></td><td>Open a .wav file</td></tr>
-  <tr><td><b>Alt+O    </b></td><td>Change operator</td></tr>
-  <tr><td><b>Alt+Q    </b></td><td>Open "Log QSO" window</td></tr>
-  <tr><td><b>Ctrl+R   </b></td><td>Set Tx4 message to RRR (not in FT4)</td></tr>
-  <tr><td><b>Alt+R    </b></td><td>Set Tx4 message to RR73</td></tr>
-  <tr><td><b>Ctrl+Shift+R  </b></td><td>Refresh Active Stations window</td></tr>
-  <tr><td><b>Alt+S    </b></td><td>Stop monitoring</td></tr>
-  <tr><td><b>Alt+T    </b></td><td>Toggle Tune status</td></tr>
-  <tr><td><b>Alt+Z    </b></td><td>Clear hung decoder status</td></tr>
-
-</table>)"), font});
+                                               Radio::HelpText::keyboardShortcuts(), font});
     }
   m_shortcuts->showNormal ();
   m_shortcuts->raise ();
@@ -5284,118 +4364,7 @@ void MainWindow::on_actionSpecial_mouse_commands_triggered()
       QFont font;
       font.setPointSize (10);
       m_mouseCmnds.reset (new HelpTextWindow {tr ("Special Mouse Commands"),
-                                                //: Mouse commands help window contents
-                                                tr (R"(<table cellpadding=5>
-  <tr>
-    <th align="right">Click on</th>
-    <th align="left">Action</th>
-  </tr>
-  <tr>
-    <td align="right">Waterfall:</td>
-    <td><b>Click</b> to set Rx frequency.<br/>
-        <b>Right-click</b> to set Tx frequency.<br/>
-        <b>Double-right-click</b> to set Rx and Tx frequencies.
-    </td>
-  </tr>
-  <tr>
-    <td align="right">Decoded text:</td>
-    <td><b>Double-click</b> to copy second callsign to Dx Call, locator to Dx Grid, change Rx<br/>
-        and Tx frequency to decoded signal's frequency, and generate standard messages.<br/>
-        Hold down <b>Alt</b> to prevent Tx from being enabled on <b>double-click</b>.<br/>
-        If <b>Hold Tx Freq</b> is checked or first callsign in message is your<br/>
-        own call, Tx frequency is not changed unless <b>Ctrl</b> is held down.
-    </td>
-  </tr>
-  <tr>
-    <td align="right">Dial Frequency:</td>
-    <td><b>Turn the mouse wheel</b> to change the kHz values, or:<br/>
-        <b>Right-click</b> to increase frequency by 1 kHz.<br/>
-        <b>Left-click</b> to decrease frequency by 1 kHz.<br/>
-        The mouse pointer must be over the Dial Frequency indicator.
-    </td>
-  </tr>
-  <tr>
-    <td align="right">H Button:</td>
-    <td><b>Click</b> to toggle FT8 Hound Mode On/Off.<br/>
-        <b>Right-click</b> to activate or deactivate SuperFox mode.
-    </td>
-  </tr>
-  <tr>
-    <td align="right">FT8 Button:</td>
-    <td><b>Click</b> to switch to FT8 Hound Mode.<br/>
-        <b>Right-click</b> to toggle last used Special Operating Activity On/Off.
-    </td>
-  </tr>
-  <tr>
-    <td align="right">Q65 Button:</td>
-    <td><b>Click</b> to switch to Q65 Mode.<br/>
-        <b>Right-click</b> to switch to Q65 Pileup Mode.
-    </td>
-  </tr>
-  <tr>
-    <td align="right">JT65 Button:</td>
-    <td><b>Click</b> to switch to JT65 Mode.<br/>
-        <b>Right-click</b> to switch to JT9 Mode.
-    </td>
-  </tr>
-  <tr>
-    <td align="right">Tx5 Button:</td>
-    <td><b>Right-click</b> to retain Tx5 free text.
-    </td>
-  </tr>
-  <tr>
-    <td align="right">Tx Even/1st:</td>
-    <td><b>Right-click</b> to freeze the state of the checkbox.<br/>
-        <b>Right-click on the FT8 Button</b> to unfreeze.
-    </td>
-  </tr>
-  <tr>
-    <td align="right">Enable Tx Button:</td>
-    <td><b>Click</b> to toggle Auto-Tx mode On/Off.<br/>
-        <b>Right-click</b> to toggle Wait & Pounce On/Off.
-    </td>
-  </tr>
-  <tr>
-    <td align="right">Erase button:</td>
-    <td><b>Click</b> to erase Rx Frequency window.<br/>
-        <b>Double-click</b> to erase Rx Frequency and Band Activity windows.<br/>
-        If <b>Alternate Erase button behavior</b> is checked:<br/>
-        <b>Click</b> to erase Band Activity window.<br/>
-        <b>Right-click</b> to erase Rx Frequency window.<br/>
-        <b>Double-click</b> to erase Rx Frequency and Band Activity windows.
-    </td>
-  </tr>
-  <tr>
-    <td align="right">DX Call Button:</td>
-    <td><b>Click</b> to toggle Wait & Call On/Off.<br/>
-        <b>Right-click</b> to clear the Dx Call, Dx Grid and Std Msgs.
-    </td>
-  </tr>
-  <tr>
-    <td align="right">Lookup Button:</td>
-    <td><b>Click</b> to search for callsign in database.<br/>
-        <b>Right-click</b> to search for Dx Call on qrz.com.
-    </td>
-  </tr>
-  <tr>
-    <td align="right">Add Button:</td>
-    <td><b>Click</b> to add callsign and locator to database.<br/>
-        <b>Right-click</b> to search for Dx Call on hamqth.com.
-    </td>
-  </tr>
-  <tr>
-    <td align="right">Ignore Button:</td>
-    <td><b>Click</b> to add callsign to the Ignore List.<br/>
-       <b>Right-click</b> to search for Dx Call on qrzcq.com.
-    </td>
-  </tr>
-  <tr>
-  <td align="right">Band Buttons:</td>
-  <td><b>Click</b> to toggle band / mode default frequencies.<br/>
-      <b>Right-click</b> to toggle FT8 DXpedition frequencies.
-    </td>
-  </tr>
-</table>)"), font});
+                                                Radio::HelpText::specialMouseCommands(), font});
     }
   m_mouseCmnds->showNormal ();
   m_mouseCmnds->raise ();
@@ -6115,8 +5084,7 @@ void MainWindow::callSandP2(int n)
     m_deGrid=w[3];
     m_bDoubleClicked=true;               //### needed?
     m_txFirst=true;
-    ui->dxCallEntry->setText(m_deCall);
-    ui->dxGridEntry->setText(m_deGrid);
+    setDXInfo(m_deCall, m_deGrid);
     ui->txFirstCheckBox->setChecked(m_txFirst);
     genStdMsgs("-22");
     setTxMsg(3);
@@ -6155,8 +5123,7 @@ void MainWindow::callSandP2(int n)
   if(w[3].right(1)=="F") ui->sbSubmode->setValue(5);
 
   m_bDoubleClicked=true;               //### needed?
-  ui->dxCallEntry->setText(m_deCall);
-  ui->dxGridEntry->setText(m_deGrid);
+  setDXInfo(m_deCall, m_deGrid);
   if(m_mode=="Q65") {
     ui->rptSpinBox->setValue(w[2].toInt());
     genStdMsgs(w[2]);
@@ -6555,37 +5522,11 @@ void MainWindow::readFromStdout()                             //readFromStdout
                   }
               }
               if (!(SpecOp::NONE==m_specOp && m_config.AlwaysPass () // Always pass messages with keywords from Always Pass list
-                    && (
-                         (text2.startsWith(m_config.Pass1()) && (m_config.Pass1()!=""))
-                         || (text2.startsWith(m_config.Pass2()) && (m_config.Pass2()!=""))
-                         || (text2.startsWith(m_config.Pass3()) && (m_config.Pass3()!=""))
-                         || (text2.startsWith(m_config.Pass4()) && (m_config.Pass4()!=""))
-                         || (text2.startsWith(m_config.Pass5()) && (m_config.Pass5()!=""))
-                         || (text2.startsWith(m_config.Pass6()) && (m_config.Pass6()!=""))
-                         || (text2.startsWith(m_config.Pass7()) && (m_config.Pass7()!=""))
-                         || (text2.startsWith(m_config.Pass8()) && (m_config.Pass8()!=""))
-                         || (text2.startsWith(m_config.Pass9()) && (m_config.Pass9()!=""))
-                         || (text2.startsWith(m_config.Pass10()) && (m_config.Pass10()!=""))
-                         || (text2.startsWith(m_config.Pass11()) && (m_config.Pass11()!=""))
-                         || (text2.startsWith(m_config.Pass12()) && (m_config.Pass12()!=""))
-                         ))) {
+                    && MessageFilter::startsWithAny(text2, m_config.pass_keywords()))) {
 
                   // Filtering out messages with keywords from Blacklist
                   if ((SpecOp::NONE==m_specOp or SpecOp::HOUND==m_specOp) && m_config.Blacklisted ()
-                      && (
-                           (text2.startsWith(m_config.Blacklist1()) && (m_config.Blacklist1()!=""))
-                           || (text2.startsWith(m_config.Blacklist2()) && (m_config.Blacklist2()!=""))
-                           || (text2.startsWith(m_config.Blacklist3()) && (m_config.Blacklist3()!=""))
-                           || (text2.startsWith(m_config.Blacklist4()) && (m_config.Blacklist4()!=""))
-                           || (text2.startsWith(m_config.Blacklist5()) && (m_config.Blacklist5()!=""))
-                           || (text2.startsWith(m_config.Blacklist6()) && (m_config.Blacklist6()!=""))
-                           || (text2.startsWith(m_config.Blacklist7()) && (m_config.Blacklist7()!=""))
-                           || (text2.startsWith(m_config.Blacklist8()) && (m_config.Blacklist8()!=""))
-                           || (text2.startsWith(m_config.Blacklist9()) && (m_config.Blacklist9()!=""))
-                           || (text2.startsWith(m_config.Blacklist10()) && (m_config.Blacklist10()!=""))
-                           || (text2.startsWith(m_config.Blacklist11()) && (m_config.Blacklist11()!=""))
-                           || (text2.startsWith(m_config.Blacklist12()) && (m_config.Blacklist12()!=""))
-                           )) {
+                      && MessageFilter::startsWithAny(text2, m_config.blacklist_keywords())) {
                     if (!ui->cbBypass->isChecked()) filtered = true;
                     if (!(m_config.filters_for_Wait_and_Pounce_only() or ui->cbBypass->isChecked()))  return;
                     // reset dB score when filtered
@@ -6602,19 +5543,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
 
                   // Filtering out everything but messages with keywords from Whitelist
                   } else if ((SpecOp::NONE==m_specOp or SpecOp::HOUND==m_specOp) && m_config.Whitelisted ()
-                             && !(text2.startsWith(m_config.Whitelist1()) && (m_config.Whitelist1()!=""))
-                             && !(text2.startsWith(m_config.Whitelist2()) && (m_config.Whitelist2()!=""))
-                             && !(text2.startsWith(m_config.Whitelist3()) && (m_config.Whitelist3()!=""))
-                             && !(text2.startsWith(m_config.Whitelist4()) && (m_config.Whitelist4()!=""))
-                             && !(text2.startsWith(m_config.Whitelist5()) && (m_config.Whitelist5()!=""))
-                             && !(text2.startsWith(m_config.Whitelist6()) && (m_config.Whitelist6()!=""))
-                             && !(text2.startsWith(m_config.Whitelist7()) && (m_config.Whitelist7()!=""))
-                             && !(text2.startsWith(m_config.Whitelist8()) && (m_config.Whitelist8()!=""))
-                             && !(text2.startsWith(m_config.Whitelist9()) && (m_config.Whitelist9()!=""))
-                             && !(text2.startsWith(m_config.Whitelist10()) && (m_config.Whitelist10()!=""))
-                             && !(text2.startsWith(m_config.Whitelist11()) && (m_config.Whitelist11()!=""))
-                             && !(text2.startsWith(m_config.Whitelist12()) && (m_config.Whitelist12()!=""))
-                    ) {
+                             && !MessageFilter::startsWithAny(text2, m_config.whitelist_keywords())) {
                     if (!ui->cbBypass->isChecked()) filtered = true;
                     if (!(m_config.filters_for_Wait_and_Pounce_only() or ui->cbBypass->isChecked()))  return;
                     // reset dB score when filtered
@@ -6643,27 +5572,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
                     if (ui->actionHideTerritory1->isChecked() or ui->actionHideTerritory2->isChecked() or
                         ui->actionHideTerritory3->isChecked() or ui->actionHideTerritory4->isChecked()) {
                       auto const& looked_up = m_logBook.countries ()->lookup (deCall);
-                      auto countryName = looked_up.entity_name;
-                      // do some obvious abbreviations
-                      countryName.replace ("Islands", "Is.");
-                      countryName.replace ("Island", "Is.");
-                      countryName.replace ("North ", "N. ");
-                      countryName.replace ("Northern ", "N. ");
-                      countryName.replace ("South ", "S. ");
-                      countryName.replace ("East ", "E. ");
-                      countryName.replace ("Eastern ", "E. ");
-                      countryName.replace ("West ", "W. ");
-                      countryName.replace ("Western ", "W. ");
-                      countryName.replace ("Central ", "C. ");
-                      countryName.replace (" and ", " & ");
-                      countryName.replace ("Republic", "Rep.");
-                      countryName.replace ("United States of America", "U.S.A.");
-                      countryName.replace ("United States", "U.S.A.");
-                      countryName.replace ("Fed. Rep. of ", "");
-                      countryName.replace ("French ", "Fr.");
-                      countryName.replace ("Asiatic", "AS");
-                      countryName.replace ("European", "EU");
-                      countryName.replace ("African", "AF");
+                      auto countryName = Radio::CountryNames::abbreviate(looked_up.entity_name);
                       if (ui->actionHideTerritory1->isChecked() && countryName.contains(m_config.Territory1())
                           && (m_config.Territory1()!="") && !ui->cbBypass->isChecked()) filtered = true;
                       if (ui->actionHideTerritory2->isChecked() && countryName.contains(m_config.Territory2())
@@ -6704,37 +5613,11 @@ void MainWindow::readFromStdout()                             //readFromStdout
               }
         } else {
               if (!(SpecOp::NONE==m_specOp && m_config.AlwaysPass () // Always pass messages with keywords from Always Pass list
-                    && (
-                         (text.contains(m_config.Pass1()) && (m_config.Pass1()!=""))
-                         || (text.contains(m_config.Pass2()) && (m_config.Pass2()!=""))
-                         || (text.contains(m_config.Pass3()) && (m_config.Pass3()!=""))
-                         || (text.contains(m_config.Pass4()) && (m_config.Pass4()!=""))
-                         || (text.contains(m_config.Pass5()) && (m_config.Pass5()!=""))
-                         || (text.contains(m_config.Pass6()) && (m_config.Pass6()!=""))
-                         || (text.contains(m_config.Pass7()) && (m_config.Pass7()!=""))
-                         || (text.contains(m_config.Pass8()) && (m_config.Pass8()!=""))
-                         || (text.contains(m_config.Pass9()) && (m_config.Pass9()!=""))
-                         || (text.contains(m_config.Pass10()) && (m_config.Pass10()!=""))
-                         || (text.contains(m_config.Pass11()) && (m_config.Pass11()!=""))
-                         || (text.contains(m_config.Pass12()) && (m_config.Pass12()!=""))
-                         ))) {
+                    && MessageFilter::containsAny(text, m_config.pass_keywords()))) {
 
                   // Filtering out messages with keywords from Blacklist
                   if ((SpecOp::NONE==m_specOp or SpecOp::HOUND==m_specOp) && m_config.Blacklisted ()
-                      && (
-                           (text.contains(m_config.Blacklist1()) && (m_config.Blacklist1()!=""))
-                           || (text.contains(m_config.Blacklist2()) && (m_config.Blacklist2()!=""))
-                           || (text.contains(m_config.Blacklist3()) && (m_config.Blacklist3()!=""))
-                           || (text.contains(m_config.Blacklist4()) && (m_config.Blacklist4()!=""))
-                           || (text.contains(m_config.Blacklist5()) && (m_config.Blacklist5()!=""))
-                           || (text.contains(m_config.Blacklist6()) && (m_config.Blacklist6()!=""))
-                           || (text.contains(m_config.Blacklist7()) && (m_config.Blacklist7()!=""))
-                           || (text.contains(m_config.Blacklist8()) && (m_config.Blacklist8()!=""))
-                           || (text.contains(m_config.Blacklist9()) && (m_config.Blacklist9()!=""))
-                           || (text.contains(m_config.Blacklist10()) && (m_config.Blacklist10()!=""))
-                           || (text.contains(m_config.Blacklist11()) && (m_config.Blacklist11()!=""))
-                           || (text.contains(m_config.Blacklist12()) && (m_config.Blacklist12()!=""))
-                           )) {
+                      && MessageFilter::containsAny(text, m_config.blacklist_keywords())) {
                     if (!ui->cbBypass->isChecked()) filtered = true;
                     if (!(m_config.filters_for_Wait_and_Pounce_only() or ui->cbBypass->isChecked()))  return;
                     // reset dB score when filtered
@@ -6751,19 +5634,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
 
                   // Filtering out everything but messages with keywords from Whitelist
                   } else if ((SpecOp::NONE==m_specOp or SpecOp::HOUND==m_specOp) && m_config.Whitelisted ()
-                             && !(text.contains(m_config.Whitelist1()) && (m_config.Whitelist1()!=""))
-                             && !(text.contains(m_config.Whitelist2()) && (m_config.Whitelist2()!=""))
-                             && !(text.contains(m_config.Whitelist3()) && (m_config.Whitelist3()!=""))
-                             && !(text.contains(m_config.Whitelist4()) && (m_config.Whitelist4()!=""))
-                             && !(text.contains(m_config.Whitelist5()) && (m_config.Whitelist5()!=""))
-                             && !(text.contains(m_config.Whitelist6()) && (m_config.Whitelist6()!=""))
-                             && !(text.contains(m_config.Whitelist7()) && (m_config.Whitelist7()!=""))
-                             && !(text.contains(m_config.Whitelist8()) && (m_config.Whitelist8()!=""))
-                             && !(text.contains(m_config.Whitelist9()) && (m_config.Whitelist9()!=""))
-                             && !(text.contains(m_config.Whitelist10()) && (m_config.Whitelist10()!=""))
-                             && !(text.contains(m_config.Whitelist11()) && (m_config.Whitelist11()!=""))
-                             && !(text.contains(m_config.Whitelist12()) && (m_config.Whitelist12()!=""))
-                    ) {
+                             && !MessageFilter::containsAny(text, m_config.whitelist_keywords())) {
                     if (!ui->cbBypass->isChecked()) filtered = true;
                     if (!(m_config.filters_for_Wait_and_Pounce_only() or ui->cbBypass->isChecked()))  return;
                     // reset dB score when filtered
@@ -6792,27 +5663,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
                     if (ui->actionHideTerritory1->isChecked() or ui->actionHideTerritory2->isChecked() or
                         ui->actionHideTerritory3->isChecked() or ui->actionHideTerritory4->isChecked()) {
                       auto const& looked_up = m_logBook.countries ()->lookup (deCall);
-                      auto countryName = looked_up.entity_name;
-                      // do some obvious abbreviations
-                      countryName.replace ("Islands", "Is.");
-                      countryName.replace ("Island", "Is.");
-                      countryName.replace ("North ", "N. ");
-                      countryName.replace ("Northern ", "N. ");
-                      countryName.replace ("South ", "S. ");
-                      countryName.replace ("East ", "E. ");
-                      countryName.replace ("Eastern ", "E. ");
-                      countryName.replace ("West ", "W. ");
-                      countryName.replace ("Western ", "W. ");
-                      countryName.replace ("Central ", "C. ");
-                      countryName.replace (" and ", " & ");
-                      countryName.replace ("Republic", "Rep.");
-                      countryName.replace ("United States of America", "U.S.A.");
-                      countryName.replace ("United States", "U.S.A.");
-                      countryName.replace ("Fed. Rep. of ", "");
-                      countryName.replace ("French ", "Fr.");
-                      countryName.replace ("Asiatic", "AS");
-                      countryName.replace ("European", "EU");
-                      countryName.replace ("African", "AF");
+                      auto countryName = Radio::CountryNames::abbreviate(looked_up.entity_name);
                       if (ui->actionHideTerritory1->isChecked() && countryName.contains(m_config.Territory1())
                           && (m_config.Territory1()!="") && !ui->cbBypass->isChecked()) filtered = true;
                       if (ui->actionHideTerritory2->isChecked() && countryName.contains(m_config.Territory2())
@@ -7045,27 +5896,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
             if (ui->actionHighlightTerritory1->isChecked() or ui->actionHighlightTerritory2->isChecked() or
                 ui->actionHighlightTerritory3->isChecked() or ui->actionHighlightTerritory4->isChecked()) {
               auto const& looked_up = m_logBook.countries ()->lookup (deCall);
-              auto countryName = looked_up.entity_name;
-              // do some obvious abbreviations
-              countryName.replace ("Islands", "Is.");
-              countryName.replace ("Island", "Is.");
-              countryName.replace ("North ", "N. ");
-              countryName.replace ("Northern ", "N. ");
-              countryName.replace ("South ", "S. ");
-              countryName.replace ("East ", "E. ");
-              countryName.replace ("Eastern ", "E. ");
-              countryName.replace ("West ", "W. ");
-              countryName.replace ("Western ", "W. ");
-              countryName.replace ("Central ", "C. ");
-              countryName.replace (" and ", " & ");
-              countryName.replace ("Republic", "Rep.");
-              countryName.replace ("United States of America", "U.S.A.");
-              countryName.replace ("United States", "U.S.A.");
-              countryName.replace ("Fed. Rep. of ", "");
-              countryName.replace ("French ", "Fr.");
-              countryName.replace ("Asiatic", "AS");
-              countryName.replace ("European", "EU");
-              countryName.replace ("African", "AF");
+              auto countryName = Radio::CountryNames::abbreviate(looked_up.entity_name);
               if (ui->actionHighlightTerritory1->isChecked() && countryName.contains(m_config.Territory1())
                   && (m_config.Territory1()!="") && !ui->cbBypass->isChecked()) ui->decodedTextBrowser->highlight_callsign(deCall, QColor(115,43,245), QColor(255,255,255), true);
               if (ui->actionHighlightTerritory2->isChecked() && countryName.contains(m_config.Territory2())
@@ -7242,18 +6073,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
           }
           // highlight Whitelist entries
           if (ui->actionHighlight_Whitelist_entries->isChecked() && deCall.size()>2 &&
-              ((deCall.contains(m_config.Whitelist1()) && m_config.Whitelist1() != "")
-               or (deCall.contains(m_config.Whitelist2()) && m_config.Whitelist2() != "")
-               or (deCall.contains(m_config.Whitelist3()) && m_config.Whitelist3() != "")
-               or (deCall.contains(m_config.Whitelist4()) && m_config.Whitelist4() != "")
-               or (deCall.contains(m_config.Whitelist5()) && m_config.Whitelist5() != "")
-               or (deCall.contains(m_config.Whitelist6()) && m_config.Whitelist6() != "")
-               or (deCall.contains(m_config.Whitelist7()) && m_config.Whitelist7() != "")
-               or (deCall.contains(m_config.Whitelist8()) && m_config.Whitelist8() != "")
-               or (deCall.contains(m_config.Whitelist9()) && m_config.Whitelist9() != "")
-               or (deCall.contains(m_config.Whitelist10()) && m_config.Whitelist10() != "")
-               or (deCall.contains(m_config.Whitelist11()) && m_config.Whitelist11() != "")
-               or (deCall.contains(m_config.Whitelist12()) && m_config.Whitelist12() != ""))) {
+              MessageFilter::containsAny(deCall, m_config.whitelist_keywords())) {
             ui->decodedTextBrowser->highlight_callsign(deCall, QColor(170,0,127), QColor(255,255,255), true);
             if (m_config.alert_Enabled() && m_config.alert_Wanted() && !m_muted) play_Wanted = true;
           }
@@ -7665,16 +6485,9 @@ void MainWindow::pskPost (DecodedText const& decodedtext)
   }
 }
 
-void MainWindow::killFile ()
+void MainWindow::killWaveFile ()
 {
-  if (m_fnameWE.size () && !(m_saveAll || (m_saveDecoded && m_bDecoded))) {
-    QFile f1 {m_fnameWE + ".wav"};
-    if(f1.exists()) f1.remove();
-    if(m_mode=="WSPR" or m_mode=="FST4W") {
-      QFile f2 {m_fnameWE + ".c2"};
-      if(f2.exists()) f2.remove();
-    }
-  }
+  Radio::WavFile::killWaveFile (m_fnameWE, m_saveAll, m_saveDecoded, m_bDecoded, m_mode);
 }
 
 void MainWindow::on_EraseButton_clicked ()
@@ -10876,6 +9689,65 @@ void MainWindow::displayWidgets(qint64 n)
   configActiveStations();
 }
 
+QString MainWindow::specOpLabel() const
+{
+  if(SpecOp::NA_VHF==m_specOp && m_config.NCCC_Sprint()) return "NCCC Sprint";
+  if(SpecOp::NA_VHF==m_specOp) return "NA VHF";
+  if(SpecOp::EU_VHF==m_specOp) return "EU VHF";
+  if(SpecOp::FIELD_DAY==m_specOp) return "Field Day";
+  if(SpecOp::RTTY==m_specOp) return "FT RU";
+  if(SpecOp::WW_DIGI==m_specOp) return "WW Digi";
+  if(SpecOp::ARRL_DIGI==m_specOp) return "ARRL Digi";
+  if(SpecOp::Q65_PILEUP==m_specOp) return "Q65 Pileup";
+  return QString{};
+}
+
+void MainWindow::initializeFFT(int nsps)
+{
+  m_nsps = nsps;
+  m_FFTSize = m_nsps / 2;
+  if (m_tci_audio) Q_EMIT m_config.transceiver_blocksize(m_FFTSize);
+  else Q_EMIT FFTSize(m_FFTSize);
+}
+
+void MainWindow::initializeFFT(int nsps, int fftSize)
+{
+  m_nsps = nsps;
+  m_FFTSize = fftSize;
+  if (m_tci_audio) Q_EMIT m_config.transceiver_blocksize(m_FFTSize);
+  else Q_EMIT FFTSize(m_FFTSize);
+}
+
+void MainWindow::setTxButtonsEnabled(bool enabled)
+{
+  ui->txrb2->setEnabled(enabled);
+  ui->txrb4->setEnabled(enabled);
+  ui->txrb5->setEnabled(enabled);
+  ui->txrb6->setEnabled(enabled);
+  ui->txb2->setEnabled(enabled);
+  ui->txb4->setEnabled(enabled);
+  ui->txb5->setEnabled(enabled);
+  ui->txb6->setEnabled(enabled);
+}
+
+void MainWindow::setDXInfo(QString const& call, QString const& grid)
+{
+  ui->dxCallEntry->setText(call);
+  ui->dxGridEntry->setText(grid);
+}
+
+void MainWindow::setDecodeTitles(QString const& lh, QString const& rh)
+{
+  ui->lh_decodes_title_label->setText(lh);
+  ui->rh_decodes_title_label->setText(rh);
+}
+
+void MainWindow::setDecodeHeadings(QString const& lh, QString const& rh)
+{
+  ui->lh_decodes_headings_label->setText(lh);
+  ui->rh_decodes_headings_label->setText(rh);
+}
+
 void MainWindow::on_actionFST4_triggered()
 {
   QTimer::singleShot (50, [=] {
@@ -10896,12 +9768,8 @@ void MainWindow::on_actionFST4_triggered()
   m_wideGraph->show();
   if (m_tci_audio && ui->bandComboBox->currentText()!="OOB")
     Q_EMIT m_config.transceiver_period(m_TRperiod);
-  m_nsps=6912;                   //For symspec only
-  m_FFTSize = m_nsps / 2;  
-  if (m_tci_audio) Q_EMIT m_config.transceiver_blocksize (m_FFTSize);
-  else Q_EMIT FFTSize (m_FFTSize);
-  ui->lh_decodes_title_label->setText(tr ("Band Activity"));
-  ui->rh_decodes_title_label->setText(tr ("Rx Frequency"));
+  initializeFFT(6912);
+  setDecodeTitles(tr ("Band Activity"), tr ("Rx Frequency"));
   WSPR_config(false);
   if(m_config.single_decode()) {
 //                           01234567890123456789012345678901234567
@@ -10946,10 +9814,7 @@ void MainWindow::on_actionFST4W_triggered()
   m_wideGraph->show();
   if (m_tci_audio && ui->bandComboBox->currentText()!="OOB")
     Q_EMIT m_config.transceiver_period(m_TRperiod);
-  m_nsps=6912;                   //For symspec only
-  m_FFTSize = m_nsps / 2;
-  if (m_tci_audio) Q_EMIT m_config.transceiver_blocksize (m_FFTSize);
-  else Q_EMIT FFTSize (m_FFTSize);
+  initializeFFT(6912);
   WSPR_config(true);
 //                         01234567890123456789012345678901234567
   displayWidgets(nWidgets("00000000000000000101000000000000010000"));
@@ -10989,10 +9854,7 @@ void MainWindow::on_actionFT4_triggered()
   m_bFastMode=false;
   WSPR_config(false);
   switch_mode (Modes::FT4);
-  m_nsps=6912;
-  m_FFTSize = m_nsps/2;
-  if (m_tci_audio) Q_EMIT m_config.transceiver_blocksize (m_FFTSize);
-  else Q_EMIT FFTSize (m_FFTSize);
+  initializeFFT(6912);
   m_hsymStop=21;
   setup_status_bar (bVHF);
   m_toneSpacing=12000.0/576.0;
@@ -11003,7 +9865,6 @@ void MainWindow::on_actionFT4_triggered()
   ui->cbAutoSeq->setChecked(true);
   m_fastGraph->hide();
   m_wideGraph->show();
-  ui->rh_decodes_headings_label->setText("  UTC   dB   DT Freq    " + tr ("Message"));
   m_wideGraph->setPeriod(m_TRperiod,m_nsps);
   if (m_tci_audio && ui->bandComboBox->currentText()!="OOB")
     Q_EMIT m_config.transceiver_period(m_TRperiod);
@@ -11011,19 +9872,11 @@ void MainWindow::on_actionFT4_triggered()
     m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
     m_detector->setTRPeriod(m_TRperiod); // TODO - not thread safe
   }
-  ui->rh_decodes_title_label->setText(tr ("Rx Frequency"));
-  ui->lh_decodes_title_label->setText(tr ("Band Activity"));
-  ui->lh_decodes_headings_label->setText( "  UTC   dB   DT Freq    " + tr ("Message"));
+  setDecodeTitles(tr ("Band Activity"), tr ("Rx Frequency"));
+  setDecodeHeadings("  UTC   dB   DT Freq    " + tr ("Message"), "  UTC   dB   DT Freq    " + tr ("Message"));
 //                         01234567890123456789012345678901234567
   displayWidgets(nWidgets("11101000010011100001000000011000100000"));
-  ui->txrb2->setEnabled(true);
-  ui->txrb4->setEnabled(true);
-  ui->txrb5->setEnabled(true);
-  ui->txrb6->setEnabled(true);
-  ui->txb2->setEnabled(true);
-  ui->txb4->setEnabled(true);
-  ui->txb5->setEnabled(true);
-  ui->txb6->setEnabled(true);
+  setTxButtonsEnabled(true);
   ui->txFirstCheckBox->setEnabled(true);
   chkFT4();
   statusChanged();
@@ -11044,10 +9897,7 @@ void MainWindow::on_actionFT8_triggered()
   m_bFast9=false;
   m_bFastMode=false;
   WSPR_config(false);
-  m_nsps=6912;
-  m_FFTSize = m_nsps / 2;
-  if (m_tci_audio) Q_EMIT m_config.transceiver_blocksize (m_FFTSize);
-  else Q_EMIT FFTSize (m_FFTSize);
+  initializeFFT(6912);
   if (m_multithreadFT8 && !(m_specOp==SpecOp::HOUND && m_config.superFox())) {
     if (m_ft8DecoderStart==0) m_hsymStop=49;
     else if (m_ft8DecoderStart==1) {
@@ -11090,14 +9940,7 @@ void MainWindow::on_actionFT8_triggered()
 	
 //                         01234567890123456789012345678901234567
   displayWidgets(nWidgets("11101000010011100001000010011000100000"));
-  ui->txrb2->setEnabled(true);
-  ui->txrb4->setEnabled(true);
-  ui->txrb5->setEnabled(true);
-  ui->txrb6->setEnabled(true);
-  ui->txb2->setEnabled(true);
-  ui->txb4->setEnabled(true);
-  ui->txb5->setEnabled(true);
-  ui->txb6->setEnabled(true);
+  setTxButtonsEnabled(true);
   ui->txFirstCheckBox->setEnabled(true);
   ui->cbAutoSeq->setEnabled(true);
   if(SpecOp::FOX==m_specOp) {
@@ -11152,14 +9995,7 @@ void MainWindow::on_actionFT8_triggered()
       ui->RxFreqSpinBox->setValue(m_settings->value("RxFreq_old",1500).toInt());
     }
     ui->txrb1->setChecked(true);
-    ui->txrb2->setEnabled(false);
-    ui->txrb4->setEnabled(false);
-    ui->txrb5->setEnabled(false);
-    ui->txrb6->setEnabled(false);
-    ui->txb2->setEnabled(false);
-    ui->txb4->setEnabled(false);
-    ui->txb5->setEnabled(false);
-    ui->txb6->setEnabled(false);
+    setTxButtonsEnabled(false);
     if (m_ActiveStationsWidget) m_ActiveStationsWidget->setClickOK(false);
   } else {
     switch_mode (Modes::FT8);
@@ -11171,15 +10007,8 @@ void MainWindow::on_actionFT8_triggered()
 
   m_specOp=m_config.special_op_id();
   if(m_specOp!=SpecOp::NONE and m_specOp!=SpecOp::FOX and m_specOp!=SpecOp::HOUND) {
-    QString t0="";
-    if(SpecOp::NA_VHF==m_specOp) t0="NA VHF";
-    if(SpecOp::EU_VHF==m_specOp) t0="EU VHF";
-    if(SpecOp::FIELD_DAY==m_specOp) t0="Field Day";
-    if(SpecOp::RTTY==m_specOp) t0="FT RU";
-    if(SpecOp::WW_DIGI==m_specOp) t0="WW Digi";
-    if(SpecOp::ARRL_DIGI==m_specOp) t0="ARRL Digi";
-    if(SpecOp::Q65_PILEUP==m_specOp) t0="Q65 Pileup";
-    if(t0=="") {
+    QString t0 = specOpLabel();
+    if(t0.isEmpty()) {
       ui->labDXped->setVisible(false);
     } else {
       ui->labDXped->setVisible(true);
@@ -11223,10 +10052,7 @@ void MainWindow::on_actionJT4_triggered()
     m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
     m_detector->setTRPeriod(m_TRperiod); // TODO - not thread safe
   }
-  m_nsps=6912;                   //For symspec only
-  m_FFTSize = m_nsps / 2;
-  if (m_tci_audio) Q_EMIT m_config.transceiver_blocksize (m_FFTSize);
-  else Q_EMIT FFTSize (m_FFTSize);
+  initializeFFT(6912);
   m_hsymStop=176;
   if(m_config.decode_at_52s()) m_hsymStop=184;
   m_toneSpacing=0.0;
@@ -11238,8 +10064,7 @@ void MainWindow::on_actionJT4_triggered()
   m_bFast9=false;
   setup_status_bar (bVHF);
   ui->sbSubmode->setMaximum(6);
-  ui->lh_decodes_headings_label->setText("UTC   dB   DT Freq    " + tr ("Message"));
-  ui->rh_decodes_headings_label->setText("UTC   dB   DT Freq    " + tr ("Message"));
+  setDecodeHeadings("UTC   dB   DT Freq    " + tr ("Message"), "UTC   dB   DT Freq    " + tr ("Message"));
   if(bVHF) {
     // restore last used parameters
     ui->sbFtol->setValue (m_settings->value ("Ftol_JT4", 50).toInt());
@@ -11287,10 +10112,7 @@ void MainWindow::on_actionJT9_triggered()
   m_bFastMode=m_bFast9;
   WSPR_config(false);
   switch_mode (Modes::JT9);
-  m_nsps=6912;
-  m_FFTSize = m_nsps / 2;
-  if (m_tci_audio) Q_EMIT m_config.transceiver_blocksize (m_FFTSize);
-  else Q_EMIT FFTSize (m_FFTSize);
+  initializeFFT(6912);
   m_hsymStop=173;
   if(m_config.decode_at_52s()) m_hsymStop=179;
   setup_status_bar (bVHF);
@@ -11313,15 +10135,13 @@ void MainWindow::on_actionJT9_triggered()
     m_fastGraph->showNormal();
     ui->TxFreqSpinBox->setValue(700);
     ui->RxFreqSpinBox->setValue(700);
-    ui->lh_decodes_headings_label->setText("  UTC   dB    T Freq    " + tr ("Message"));
-    ui->rh_decodes_headings_label->setText("  UTC   dB    T Freq    " + tr ("Message"));
+    setDecodeHeadings("  UTC   dB    T Freq    " + tr ("Message"), "  UTC   dB    T Freq    " + tr ("Message"));
   } else {
 //    ui->cbAutoSeq->setChecked(false);
     if (m_mode != "FST4")
       {
         m_TRperiod=60.0;
-        ui->lh_decodes_headings_label->setText("UTC   dB   DT Freq    " + tr ("Message"));
-        ui->rh_decodes_headings_label->setText("UTC   dB   DT Freq    " + tr ("Message"));
+        setDecodeHeadings("UTC   dB   DT Freq    " + tr ("Message"), "UTC   dB   DT Freq    " + tr ("Message"));
       }
   }
   m_wideGraph->setPeriod(m_TRperiod,m_nsps);
@@ -11331,8 +10151,7 @@ void MainWindow::on_actionJT9_triggered()
     m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
     m_detector->setTRPeriod(m_TRperiod); // TODO - not thread safe
   }
-  ui->lh_decodes_title_label->setText(tr ("Band Activity"));
-  ui->rh_decodes_title_label->setText(tr ("Rx Frequency"));
+  setDecodeTitles(tr ("Band Activity"), tr ("Rx Frequency"));
   if(bVHF) {
     //                       01234567890123456789012345678901234567
     displayWidgets(nWidgets("11111010110011111001000000010000000000"));
@@ -11368,10 +10187,7 @@ void MainWindow::on_actionJT65_triggered()
     m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
     m_detector->setTRPeriod(m_TRperiod); // TODO - not thread safe
   }
-  m_nsps=6912;                   //For symspec only
-  m_FFTSize = m_nsps / 2;
-  if (m_tci_audio) Q_EMIT m_config.transceiver_blocksize (m_FFTSize);
-  else Q_EMIT FFTSize (m_FFTSize);
+  initializeFFT(6912);
   m_hsymStop=174;
   if(m_config.decode_at_52s()) m_hsymStop=183;
   m_toneSpacing=0.0;
@@ -11396,8 +10212,7 @@ void MainWindow::on_actionJT65_triggered()
     ui->cbShMsgs->setChecked(m_bShMsgs);
   } else {
     ui->sbSubmode->setValue(0);
-    ui->lh_decodes_title_label->setText(tr ("Band Activity"));
-    ui->rh_decodes_title_label->setText(tr ("Rx Frequency"));
+    setDecodeTitles(tr ("Band Activity"), tr ("Rx Frequency"));
   }
   if(bVHF) {
     //                       01234567890123456789012345678901234567
@@ -11436,10 +10251,7 @@ void MainWindow::on_actionQ65_triggered()
   setup_status_bar(true);
   m_bFastMode=false;
   m_bFast9=false;
-  m_nsps=6912;                   //For symspec only
-  m_FFTSize = m_nsps / 2;
-  if (m_tci_audio) Q_EMIT m_config.transceiver_blocksize (m_FFTSize);
-  else Q_EMIT FFTSize (m_FFTSize);
+  initializeFFT(6912);
   m_hsymStop=49;
   ui->sbTR->values ({15, 30, 60, 120, 300});
   // restore last used parameters
@@ -11463,22 +10275,14 @@ void MainWindow::on_actionQ65_triggered()
   switch_mode (Modes::Q65);
 //                         01234567890123456789012345678901234567
   displayWidgets(nWidgets("11111101011011010011100000010000000011"));
-  ui->lh_decodes_headings_label->setText("UTC   dB   DT Freq    " + tr ("Message"));
-  ui->rh_decodes_headings_label->setText("UTC   dB   DT Freq    " + tr ("Message"));
+  setDecodeHeadings("UTC   dB   DT Freq    " + tr ("Message"), "UTC   dB   DT Freq    " + tr ("Message"));
   if (m_tci_audio && ui->bandComboBox->currentText()!="OOB")
     Q_EMIT m_config.transceiver_period(m_TRperiod);
 
   m_specOp=m_config.special_op_id();
   if(m_specOp!=SpecOp::NONE and m_specOp!=SpecOp::FOX and m_specOp!=SpecOp::HOUND) {
-    QString t0="";
-    if(SpecOp::NA_VHF==m_specOp) t0="NA VHF";
-    if(SpecOp::EU_VHF==m_specOp) t0="EU VHF";
-    if(SpecOp::FIELD_DAY==m_specOp) t0="Field Day";
-    if(SpecOp::RTTY==m_specOp) t0="FT RU";
-    if(SpecOp::WW_DIGI==m_specOp) t0="WW Digi";
-    if(SpecOp::ARRL_DIGI==m_specOp) t0="ARRL Digi";
-    if(SpecOp::Q65_PILEUP==m_specOp) t0="Q65 Pileup";
-    if(t0=="") {
+    QString t0 = specOpLabel();
+    if(t0.isEmpty()) {
       ui->labDXped->setVisible(false);
     } else {
       ui->labDXped->setVisible(true);
@@ -11510,20 +10314,15 @@ void MainWindow::on_actionJTTY_triggered()
   ui->cbAutoSeq->setChecked(false);
   m_bFastMode=false;
   m_bFast9=false;
-  m_nsps=6912;
-  m_FFTSize = m_nsps / 2;
-  if (m_tci_audio) Q_EMIT m_config.transceiver_blocksize (m_FFTSize);
-  else Q_EMIT FFTSize (m_FFTSize);
+  initializeFFT(6912);
   m_TRperiod=60;                   //We need a nonzero setting for WideGraph plotter to work.
   m_hsymStop=620;
   m_wideGraph->setPeriod(m_TRperiod,m_nsps);
   ui->TxFreqSpinBox->setValue(1500);
   ui->RxFreqSpinBox->setValue(1500);
   ui->RxFreqSpinBox->setSingleStep(200);
-  ui->lh_decodes_headings_label->setText("");
-  ui->rh_decodes_headings_label->setText("");
-  ui->lh_decodes_title_label->setText(tr ("Rx Messages"));
-  ui->rh_decodes_title_label->setText(tr ("Tx Messages"));
+  setDecodeHeadings("", "");
+  setDecodeTitles(tr ("Rx Messages"), tr ("Tx Messages"));
   setup_status_bar (false);
 }
 
@@ -11557,10 +10356,7 @@ void MainWindow::on_actionMSK144_triggered()
   }
   ui->actionMSK144->setChecked(true);
   switch_mode (Modes::MSK144);
-  m_nsps=6;
-  m_FFTSize = 7 * 512;
-  if (m_tci_audio) Q_EMIT m_config.transceiver_blocksize (m_FFTSize);
-  else Q_EMIT FFTSize (m_FFTSize);
+  initializeFFT(6, 7 * 512);
   setup_status_bar (true);
   m_toneSpacing=0.0;
   WSPR_config(false);
@@ -11587,8 +10383,7 @@ void MainWindow::on_actionMSK144_triggered()
   ui->RxFreqSpinBox->setMinimum(1400);
   ui->RxFreqSpinBox->setMaximum(1600);
   ui->RxFreqSpinBox->setSingleStep(10);
-  ui->lh_decodes_headings_label->setText("  UTC   dB    T Freq    " + tr ("Message"));
-  ui->rh_decodes_headings_label->setText("  UTC   dB    T Freq    " + tr ("Message"));
+  setDecodeHeadings("  UTC   dB    T Freq    " + tr ("Message"), "  UTC   dB    T Freq    " + tr ("Message"));
   if (m_tci_audio && ui->bandComboBox->currentText()!="OOB")
     Q_EMIT m_config.transceiver_period(m_TRperiod);
   if (!m_tci_audio) {
@@ -11596,8 +10391,7 @@ void MainWindow::on_actionMSK144_triggered()
     m_detector->setTRPeriod(m_TRperiod); // TODO - not thread safe
   }
   m_fastGraph->setTRPeriod(m_TRperiod);
-  ui->lh_decodes_title_label->setText(tr ("Band Activity"));
-  ui->rh_decodes_title_label->setText(tr ("Tx Messages"));
+  setDecodeTitles(tr ("Band Activity"), tr ("Tx Messages"));
   ui->actionMSK144->setChecked(true);
   ui->rptSpinBox->setMinimum(-8);
   ui->rptSpinBox->setMaximum(24);
@@ -11609,10 +10403,10 @@ void MainWindow::on_actionMSK144_triggered()
   fast_config(m_bFastMode);
   statusChanged();
 
-  QString t0="";
-  if(SpecOp::NA_VHF==m_specOp) t0="NA VHF";
-  if(SpecOp::EU_VHF==m_specOp) t0="EU VHF";
-  if(t0=="") {
+  QString t0 = specOpLabel();
+  // MSK144 only supports NA_VHF and EU_VHF contests
+  if(t0 != "NA VHF" && t0 != "EU VHF") t0 = "";
+  if(t0.isEmpty()) {
     ui->labDXped->setVisible(false);
   } else {
     ui->labDXped->setVisible(true);
@@ -11638,10 +10432,7 @@ void MainWindow::on_actionWSPR_triggered()
     m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
     m_detector->setTRPeriod(m_TRperiod); // TODO - not thread safe
   }
-  m_nsps=6912;                   //For symspec only
-  m_FFTSize = m_nsps / 2;
-  if (m_tci_audio) Q_EMIT m_config.transceiver_blocksize (m_FFTSize);
-  else Q_EMIT FFTSize (m_FFTSize);
+  initializeFFT(6912);
   m_hsymStop=396;
   m_toneSpacing=12000.0/8192.0;
   setup_status_bar (false);
@@ -11682,10 +10473,7 @@ void MainWindow::on_actionEcho_triggered()
     m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
     m_detector->setTRPeriod(m_TRperiod); // TODO - not thread safe
   }
-  m_nsps=6912;                        //For symspec only
-  m_FFTSize = m_nsps / 2;
-  if (m_tci_audio) Q_EMIT m_config.transceiver_blocksize (m_FFTSize);
-  else Q_EMIT FFTSize (m_FFTSize);
+  initializeFFT(6912);
   m_hsymStop=9;
   m_toneSpacing=1.0;
   switch_mode(Modes::Echo);
@@ -11736,10 +10524,7 @@ void MainWindow::on_actionFreqCal_triggered()
     m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
     m_detector->setTRPeriod(m_TRperiod); // TODO - not thread safe
   }
-  m_nsps=6912;                        //For symspec only
-  m_FFTSize = m_nsps / 2;
-  if (m_tci_audio) Q_EMIT m_config.transceiver_blocksize (m_FFTSize);
-  else Q_EMIT FFTSize (m_FFTSize);
+  initializeFFT(6912);
   m_hsymStop=((int(m_TRperiod/0.288))/8)*8;
   m_frequency_list_fcal_iter = m_config.frequencies ()->begin ();
   ui->RxFreqSpinBox->setValue(1500);
@@ -12728,8 +11513,7 @@ void MainWindow::transmit (double snr)
   }
 
   if((m_mode=="FT4" or m_mode=="FT8") and m_maxPoints>0 and SpecOp::ARRL_DIGI==m_specOp) {
-    ui->dxCallEntry->setText(m_deCall);
-    ui->dxGridEntry->setText(m_deGrid);
+    setDXInfo(m_deCall, m_deGrid);
     genStdMsgs("-10");
   }
 
@@ -13017,33 +11801,7 @@ void MainWindow::on_actionShort_list_of_add_on_prefixes_and_suffixes_triggered()
 {
   if (!m_prefixes) {
     m_prefixes.reset (new HelpTextWindow {tr ("Prefixes")
-                                            , R"(Type 1 Prefixes:
-
- 1A    1S    3A    3B6   3B8   3B9   3C    3C0   3D2   3D2C  3D2R  3DA   3V    3W    3X   
- 3Y    3YB   3YP   4J    4L    4S    4U1I  4U1U  4W    4X    5A    5B    5H    5N    5R   
- 5T    5U    5V    5W    5X    5Z    6W    6Y    7O    7P    7Q    7X    8P    8Q    8R   
- 9A    9G    9H    9J    9K    9L    9M2   9M6   9N    9Q    9U    9V    9X    9Y    A2   
- A3    A4    A5    A6    A7    A9    AP    BS7   BV    BV9   BY    C2    C3    C5    C6   
- C9    CE    CE0X  CE0Y  CE0Z  CE9   CM    CN    CP    CT    CT3   CU    CX    CY0   CY9  
- D2    D4    D6    DL    DU    E3    E4    EA    EA6   EA8   EA9   EI    EK    EL    EP   
- ER    ES    ET    EU    EX    EY    EZ    F     FG    FH    FJ    FK    FKC   FM    FO   
- FOA   FOC   FOM   FP    FR    FRG   FRJ   FRT   FT5W  FT5X  FT5Z  FW    FY    M     MD   
- MI    MJ    MM    MU    MW    H4    H40   HA    HB    HB0   HC    HC8   HH    HI    HK   
- HK0A  HK0M  HL    HM    HP    HR    HS    HV    HZ    I     IS    IS0   J2    J3    J5   
- J6    J7    J8    JA    JDM   JDO   JT    JW    JX    JY    K     KG4   KH0   KH1   KH2  
- KH3   KH4   KH5   KH5K  KH6   KH7   KH8   KH9   KL    KP1   KP2   KP4   KP5   LA    LU   
- LX    LY    LZ    OA    OD    OE    OH    OH0   OJ0   OK    OM    ON    OX    OY    OZ   
- P2    P4    PA    PJ2   PJ7   PY    PY0F  PT0S  PY0T  PZ    R1F   R1M   S0    S2    S5   
- S7    S9    SM    SP    ST    SU    SV    SVA   SV5   SV9   T2    T30   T31   T32   T33  
- T5    T7    T8    T9    TA    TF    TG    TI    TI9   TJ    TK    TL    TN    TR    TT   
- TU    TY    TZ    UA    UA2   UA9   UK    UN    UR    V2    V3    V4    V5    V6    V7   
- V8    VE    VK    VK0H  VK0M  VK9C  VK9L  VK9M  VK9N  VK9W  VK9X  VP2E  VP2M  VP2V  VP5  
- VP6   VP6D  VP8   VP8G  VP8H  VP8O  VP8S  VP9   VQ9   VR    VU    VU4   VU7   XE    XF4  
- XT    XU    XW    XX9   XZ    YA    YB    YI    YJ    YK    YL    YN    YO    YS    YU   
- YV    YV0   Z2    Z3    ZA    ZB    ZC4   ZD7   ZD8   ZD9   ZF    ZK1N  ZK1S  ZK2   ZK3  
- ZL    ZL7   ZL8   ZL9   ZP    ZS    ZS8   KC4   E5   
-
-Type 1 Suffixes:    /0 /1 /2 /3 /4 /5 /6 /7 /8 /9 /A /P)", {"Courier", 10}});
+                                            , Radio::HelpText::prefixes(), {"Courier", 10}});
   }
   m_prefixes->showNormal();
   m_prefixes->raise ();
@@ -15405,16 +14163,8 @@ void MainWindow::chkFT4()
 
   m_specOp=m_config.special_op_id();
   if(m_specOp!=SpecOp::NONE and m_specOp!=SpecOp::FOX and m_specOp!=SpecOp::HOUND) {
-    QString t0="";
-    if(SpecOp::NA_VHF==m_specOp && m_config.NCCC_Sprint()) t0="NCCC Sprint";
-    if(SpecOp::NA_VHF==m_specOp && !m_config.NCCC_Sprint()) t0="NA VHF";
-    if(SpecOp::EU_VHF==m_specOp) t0="EU VHF";
-    if(SpecOp::FIELD_DAY==m_specOp) t0="Field Day";
-    if(SpecOp::RTTY==m_specOp) t0="FT RU";
-    if(SpecOp::WW_DIGI==m_specOp) t0="WW Digi";
-    if(SpecOp::ARRL_DIGI==m_specOp) t0="ARRL Digi";
-    if(SpecOp::Q65_PILEUP==m_specOp) t0="Q65 Pileup";
-    if(t0=="") {
+    QString t0 = specOpLabel();
+    if(t0.isEmpty()) {
       ui->labDXped->setVisible(false);
     } else {
       ui->labDXped->setVisible(true);
@@ -17535,85 +16285,3 @@ void MainWindow::on_pbSendMessage_clicked()
   jtty_tx(ui->Tx_Message->text().toUpper());
 }
 
-void MainWindow::jtty_tx(QString message)
-{
-  int itone[848];
-  int n=message.length();
-  m_currentMessage = message;
-  ui->decodedTextBrowser->insertText(message);
-  if(message.left(3) == "TU ") {
-    // ### Must send "sent" and "rcvd" info to logqso here. ###
-    logQSOTimer.start(0);
-    int nr = ui->sbSerialNumber_2->value();
-    m_xSent = QString::number(nr);
-    ui->sbSerialNumber_2->setValue(nr+1);
-  }
-
-  QString t = " ";
-  t = message + t.repeated(80-n);
-  genjtty_(t.toLatin1().constData(), &itone[0], &m_nsym_jtty, (FCL)80);
-
-  int nsps4=4*384;
-  float bt=2.0;
-  float fsample=48000.0;
-  float f0=1500.0;
-  int icmplx=0;
-  int nwave=nsps4*m_nsym_jtty;
-  gen_jttywave_(const_cast<int *>(itone), &m_nsym_jtty, &nsps4, &bt, &fsample, &f0,
-                foxcom_.wave, foxcom_.wave, &icmplx, &nwave);
-  monitor(false);
-  if(!m_diskData && m_saveAll && (m_k0 > 53*384) && (m_k0 < 9999999)) {
-    jtty_save_wav();
-  }
-  m_transmitting = true;
-  startTx2();
-  int msTx=nwave/48.0 + 1000*m_config.txDelay();
-  QTimer::singleShot(msTx, this, SLOT (stopTx()));
-}
-
-void MainWindow::jtty_save_wav()
-{
-  //Save JTTY data to a .wav file
-  QDateTime now {QDateTime::currentDateTimeUtc ()};
-  qint64 ms = m_k0/12;
-  auto const& tstart=now.addMSecs(-ms);
-  m_fnameWE=m_config.save_directory().absoluteFilePath (tstart.toString("yyMMdd_hhmmss"));
-  int samples=m_k0;
-  m_saveWAVWatcher.setFuture (QtConcurrent::run (std::bind (&MainWindow::save_wave_file,
-        this, m_fnameWE, &dec_data.d2[0], samples, m_config.my_callsign(),
-        m_config.my_grid(), m_mode, m_nSubMode, m_freqNominalPeriod, m_hisCall, m_hisGrid)));
-}
-
-void MainWindow::jtty_decode(int k)
-{
-  static int k0=9999999;
-  int nsps=384;
-  char line[80];
-  float f0 = m_wideGraph->rxFreq();
-  float ftol = 20.0;
-  rjtty_sub_(dec_data.d2,&k,&nsps,&f0,&ftol,&line[0],(FCL)80);
-  QString message {QString::fromLatin1(line)};
-  if(message.length() > 0 and message.length() < 80) {
-    if(k > k0) {
-      QTextCursor cursor = ui->decodedTextBrowser->textCursor();
-      cursor.movePosition(QTextCursor::End);         //Cursor to end of text
-      cursor.select(QTextCursor::LineUnderCursor);   //Select line under cursor
-      cursor.removeSelectedText();                   //Remove the selected line
-      cursor.deletePreviousChar();                   //Delete previous newline
-      ui->decodedTextBrowser->setTextCursor(cursor); //Reset cursor back to browser
-    }
-    k0=k;
-    m_xRcvd="";
-    QStringList w = message.split(" ",SkipEmptyParts);
-    if((w.length() == 2) and (w[0] == "599")) m_xRcvd = w[1];
-    if((w.length() == 3) and (w[1] == "599")) m_xRcvd = w[2];
-    ui->decodedTextBrowser->insertText(message.trimmed());
-  }
-}
-
-void MainWindow::jtty_again()
-{
-  for(int k=3456; k<dec_data.params.kin; k+=3456) {
-    jtty_decode(k);
-  }
-}

@@ -1633,6 +1633,29 @@ QString Configuration::voicesPath() const
   return m_->voicesPath_;
 }
 
+QStringList Configuration::pass_keywords() const
+{
+  return {m_->Pass1_, m_->Pass2_, m_->Pass3_, m_->Pass4_, m_->Pass5_, m_->Pass6_,
+          m_->Pass7_, m_->Pass8_, m_->Pass9_, m_->Pass10_, m_->Pass11_, m_->Pass12_};
+}
+
+QStringList Configuration::blacklist_keywords() const
+{
+  return {m_->Blacklist1_, m_->Blacklist2_, m_->Blacklist3_, m_->Blacklist4_, m_->Blacklist5_, m_->Blacklist6_,
+          m_->Blacklist7_, m_->Blacklist8_, m_->Blacklist9_, m_->Blacklist10_, m_->Blacklist11_, m_->Blacklist12_};
+}
+
+QStringList Configuration::whitelist_keywords() const
+{
+  return {m_->Whitelist1_, m_->Whitelist2_, m_->Whitelist3_, m_->Whitelist4_, m_->Whitelist5_, m_->Whitelist6_,
+          m_->Whitelist7_, m_->Whitelist8_, m_->Whitelist9_, m_->Whitelist10_, m_->Whitelist11_, m_->Whitelist12_};
+}
+
+QStringList Configuration::territory_keywords() const
+{
+  return {m_->Territory1_, m_->Territory2_, m_->Territory3_, m_->Territory4_};
+}
+
 auto Configuration::special_op_id () const -> SpecialOperatingActivity
 {
   return m_->bSpecialOp_ ? static_cast<SpecialOperatingActivity> (m_->SelectedActivity_) : SpecialOperatingActivity::NONE;

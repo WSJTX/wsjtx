@@ -354,7 +354,7 @@ private slots:
   void stopTx();
   void stopTx2();
   void on_rptSpinBox_valueChanged(int n);
-  void killFile();
+  void killWaveFile();
   void on_tuneButton_clicked (bool);
   void on_pbR2T_clicked();
   void on_pbT2R_clicked();

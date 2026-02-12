@@ -279,10 +279,15 @@ set (wsjt_qt_CXXSRCS
   widgets/CheckableItemComboBox.cpp
   widgets/BandComboBox.cpp
   otpgenerator.cpp
+  MessageFilter.cpp
+  PrefixSuffix.cpp
+  CountryNames.cpp
+  HelpText.cpp
   )
 
 set (wsjt_qtmm_CXXSRCS
   Audio/BWFFile.cpp
+  Audio/WavFile.cpp
   )
 
 set (jt9_FSRCS
@@ -317,6 +322,8 @@ set (wsjtx_CXXSRCS
   widgets/colorhighlighting.cpp
   WSPR/WsprTxScheduler.cpp
   widgets/mainwindow.cpp
+  widgets/mainwindow_jtty.cpp
+  widgets/mainwindow_settings.cpp
   Configuration.cpp
   main.cpp
   Network/wsprnet.cpp
