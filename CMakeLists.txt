@@ -1600,6 +1600,7 @@ add_executable (record_time_signal Audio/tools/record_time_signal.cpp)
 target_link_libraries (record_time_signal wsjt_cxx wsjt_qtmm wsjt_qt)
 
 add_executable (jt9 ${jt9_FSRCS} ${jt9_VERSION_RESOURCES})
+
 if (${OPENMP_FOUND} OR APPLE)
   if (APPLE)
     # On  Mac  we don't  have  working  OpenMP  support in  the  C/C++
@@ -1657,6 +1658,17 @@ add_executable (wsjtx MACOSX_BUNDLE
   ${wsjtx_RESOURCES_RCC}
   ${wsjtx_VERSION_RESOURCES}
   )
+
+if (APPLE)
+  add_custom_command(
+      TARGET wsjtx
+      POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different 
+      "${CMAKE_BINARY_DIR}/jt9"
+      "$<TARGET_FILE_DIR:wsjtx>"
+      COMMENT "Copying $<TARGET_FILE_DIR:jt9> into the Contents/MacOS/ directory"
+  )
+endif (APPLE)
 
 if (WSJT_CREATE_WINMAIN)
   set_target_properties (wsjtx PROPERTIES WIN32_EXECUTABLE ON)
