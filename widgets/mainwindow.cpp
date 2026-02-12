@@ -5,16 +5,12 @@
 #include <QAudioOutput>
 #include <QSound>
 #include <QCoreApplication>
-#include <cinttypes>
 #include <cstring>
 #include <cmath>
 #include <limits>
 #include <functional>
-#include <fstream>
-#include <iterator>
 #include <algorithm>
 #include <fftw3.h>
-#include <thread> // TCI
 #include <QApplication>
 #include <QStringListModel>
 #include <QSettings>
@@ -67,7 +63,6 @@
 #include "Modulator/Modulator.hpp"
 #include "Detector/Detector.hpp"
 #include "plotter.h"
-#include "echoplot.h"
 #include "echograph.h"
 #include "fastplot.h"
 #include "fastgraph.h"
@@ -77,7 +72,6 @@
 #include "activeStations.h"
 #include "colorhighlighting.h"
 #include "widegraph.h"
-#include "sleep.h"
 #include "logqso.h"
 #include "Decoder/decodedtext.h"
 #include "Radio.hpp"
