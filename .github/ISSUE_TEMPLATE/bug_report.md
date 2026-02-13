@@ -21,7 +21,7 @@ What Operating System, Version, CPU (if applicable) are you using (e.g. Windows 
 **What Radio and interface?**
 (e.g. Elecraft K3s via USB, Flex 6400 tcpip, QDX+ via USB)
 
-**Does this happen WITHOUT TRANSMITTING?**
+**Does this happen WITHOUT Transmitting?**
 Yes/No
 
 **Does this happen when transmitting with ZERO power output?**
