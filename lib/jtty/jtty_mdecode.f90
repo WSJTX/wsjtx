@@ -243,7 +243,8 @@ subroutine jtty_mdecode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snrdb,line,
          success=.true.
          write(c32(1),'(32i1)') message32
          call unpack_jtty(c32,1,allcand(ichan)%decoded)
-         write(*,'(i4,f9.1,f9.1,1x,a)') ichan,allcand(ichan)%f1,allcand(ichan)%snrdb,allcand(ichan)%decoded
+         write(*,'(i4,f9.1,f9.1,1x,a)') ichan,allcand(ichan)%f1,   &
+              allcand(ichan)%snrdb,trim(allcand(ichan)%decoded)
          if(ichan.eq.0) then
 ! make single-channel rjtty_sub happy
            line=allcand(ichan)%decoded
