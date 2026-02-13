@@ -1,4 +1,4 @@
-subroutine rjtty_sub(iwave,kz,nsps,f0,ftol,line1)
+subroutine rjtty_sub(iwave,kz,nsps,f0,ftol,xdt,f1,snr,line1)
 
   integer*2 iwave(kz)
   character*(*) line1
@@ -6,7 +6,7 @@ subroutine rjtty_sub(iwave,kz,nsps,f0,ftol,line1)
   character*80 umsg
   logical synced,success,newsig
   data kz0/9999999/,f1good/-99./,xdtgood/-99./,missed_syncs/0/,newsig/.false./
-  save istart,kz0,kchar,line,success,synced,xdt,f1,f1good,xdtgood,missed_syncs,newsig
+  save istart,kz0,kchar,line,success,synced,f1good,xdtgood,missed_syncs,newsig
 
   if(nsps.ne.240 .and. nsps.ne.320 .and. nsps.ne.384 .and. nsps.ne.480) return
 

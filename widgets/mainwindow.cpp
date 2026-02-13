@@ -122,7 +122,7 @@ extern "C" {
               fortran_charlen_t, fortran_charlen_t, fortran_charlen_t, fortran_charlen_t);
 
   void rjtty_sub_(short int d2[], int* k, int* nsps, float* f0, float* ftol,
-                  char line[], fortran_charlen_t);
+                  float* xdt, float* f1, float* snr, char line[], fortran_charlen_t);
 
   void genjtty_(char const * msg, int itone[], int* nsym, fortran_charlen_t);
 
@@ -17594,10 +17594,13 @@ void MainWindow::jtty_decode(int k)
   char line[80];
   float f0 = m_wideGraph->rxFreq();
   float ftol = 20.0;
+  static float xdt = 0.0;
+  static float f1 = 0.0;
+  float snr = 0.0;
   //  static int n0=0;
   static QString message0 = ""; 
 
-  rjtty_sub_(dec_data.d2,&k,&nsps,&f0,&ftol,&line[0],(FCL)80);
+  rjtty_sub_(dec_data.d2,&k,&nsps,&f0,&ftol,&xdt,&f1,&snr,&line[0],(FCL)80);
   QString message {QString::fromLatin1(line)};
   int n=message.length();
   if(n > 0 and n < 80) {
@@ -17616,7 +17619,10 @@ void MainWindow::jtty_decode(int k)
     if((w.length() == 2) and (w[0] == "599")) m_xRcvd = w[1];
     if((w.length() == 3) and (w[1] == "599")) m_xRcvd = w[2];
     if(k != k0 and message != message0) {
-      ui->decodedTextBrowser->insertText(message.trimmed());
+      int nf1=qRound(f1);
+      QString t;
+      t = t.asprintf("%4d: ",nf1);
+      ui->decodedTextBrowser->insertText(t + message.trimmed());
     }
     message0 = message;
     k0=k;
