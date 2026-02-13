@@ -98,10 +98,10 @@ set (wsjtx_VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_
 #
 # project information
 #
-set (PROJECT_BUNDLE_NAME "WSJT-X-improved")
-set (PROJECT_VENDOR "Uwe Risse, DG2YCB")
-set (PROJECT_CONTACT "dg2ycb@gmx.de")
-set (PROJECT_COPYRIGHT "Copyright (C) 2001-2025 by Joe Taylor, K1JT and 2020-2025 by Uwe Risse, DG2YCB")
+set (PROJECT_BUNDLE_NAME "WSJT-X")
+set (PROJECT_VENDOR "Joe Taylor, K1JT")
+set (PROJECT_CONTACT "joe@princeton.edu")
+set (PROJECT_COPYRIGHT "Copyright (C) 2001-2026 by Joe Taylor, K1JT and 2020-2026 by Uwe Risse, DG2YCB")
 set (PROJECT_HOMEPAGE https://wsjt.sourceforge.io/wsjtx.html)
 set (PROJECT_MANUAL wsjtx-main)
 set (PROJECT_MANUAL_DIRECTORY_URL https://wsjt.sourceforge.io/wsjtx-doc/)
