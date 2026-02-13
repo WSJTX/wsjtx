@@ -17619,9 +17619,8 @@ void MainWindow::jtty_decode(int k)
     if((w.length() == 2) and (w[0] == "599")) m_xRcvd = w[1];
     if((w.length() == 3) and (w[1] == "599")) m_xRcvd = w[2];
     if(k != k0 and message != message0) {
-      int nf1=qRound(f1);
       QString t;
-      t = t.asprintf("%4d: ",nf1);
+      t = t.asprintf("%4d %+3d: ",int(f1+0.5),int(snr-20.0));
       ui->decodedTextBrowser->insertText(t + message.trimmed());
     }
     message0 = message;
