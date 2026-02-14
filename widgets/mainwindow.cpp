@@ -107,6 +107,7 @@
 #include "ui_mainwindow.h"
 #include "moc_mainwindow.cpp"
 #include "MessageFilter.hpp"
+#include "MessageFilterLogic.hpp"
 #include "PrefixSuffix.hpp"
 #include "CountryNames.hpp"
 #include "HelpText.hpp"
@@ -317,10 +318,6 @@ int* ipc_qmap;
 namespace
 {
   Radio::Frequency constexpr default_frequency {14074000};
-  QRegExp message_alphabet {"[- @A-Za-z0-9+./?#<>;$]*"};
-  // grid exact match excluding RR73
-  QRegularExpression grid_regexp {"\\A(?![Rr]{2}73)[A-Ra-r]{2}[0-9]{2}([A-Xa-x]{2}){0,1}\\z"};
-  QRegularExpression non_r_db_regexp {"\\A[-+]{1}[0-9]{1,2}\\z"};
   auto quint32_max = std::numeric_limits<quint32>::max ();
   constexpr int N_WIDGETS {38};
   constexpr int default_rx_audio_buffer_frames {-1}; // lets Qt decide
@@ -342,6 +339,10 @@ namespace
     return now.msecsTo (now.addSecs (second > 30 ? 60 - second : -second)) - time.msec ();
   }
 }
+
+QRegExp const MainWindow::message_alphabet {"[- @A-Za-z0-9+./?#<>;$]*"};
+QRegularExpression const MainWindow::grid_regexp {"\\A(?![Rr]{2}73)[A-Ra-r]{2}[0-9]{2}([A-Xa-x]{2}){0,1}\\z"};
+QRegularExpression const MainWindow::non_r_db_regexp {"\\A[-+]{1}[0-9]{1,2}\\z"};
 
 //--------------------------------------------------- MainWindow constructor
 MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
@@ -958,12 +959,12 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
                                                             , QMessageBox::ActionRole);
 
   // set up message text validators
-  ui->tx1->setValidator (new QRegExpValidator {message_alphabet, this});
-  ui->tx2->setValidator (new QRegExpValidator {message_alphabet, this});
-  ui->tx3->setValidator (new QRegExpValidator {message_alphabet, this});
-  ui->tx4->setValidator (new QRegExpValidator {message_alphabet, this});
-  ui->tx5->setValidator (new QRegExpValidator {message_alphabet, this});
-  ui->tx6->setValidator (new QRegExpValidator {message_alphabet, this});
+  ui->tx1->setValidator (new QRegExpValidator {MainWindow::message_alphabet, this});
+  ui->tx2->setValidator (new QRegExpValidator {MainWindow::message_alphabet, this});
+  ui->tx3->setValidator (new QRegExpValidator {MainWindow::message_alphabet, this});
+  ui->tx4->setValidator (new QRegExpValidator {MainWindow::message_alphabet, this});
+  ui->tx5->setValidator (new QRegExpValidator {MainWindow::message_alphabet, this});
+  ui->tx6->setValidator (new QRegExpValidator {MainWindow::message_alphabet, this});
 
   // Free text macros model to widget hook up.
   ui->tx5->setModel (m_config.macros ());
@@ -1999,204 +2000,49 @@ void MainWindow::fastSink(qint64 frames)
     QString text = decodedtext.string().replace("<","").replace(">","");   // for Wait features
 
     // Filtering for MSK144
-    QString text2 = "";
-    QStringList tw=text.mid(24).split(" ",SkipEmptyParts);
-    if (m_config.filters_for_word2()) {
-      if (tw.size () < 2) {
-        text2 = "___";    // prevent segfault errors with free text messages
-      } else if (tw[1].length() == 2 && tw[1].contains(QRegularExpression{"\\w\\w"})) {   // directional calls
-        if (tw.size () > 2) {
-          text2 = tw[2];  // for directional calls analyze word 3 for filtering
-        } else {
-          text2 = "___";  // prevent segfault errors with free text messages
-        }
-      } else {
-        text2 = tw[1];    // otherwise analyze word 2 for filtering
-      }
-      if (!(SpecOp::NONE==m_specOp && m_config.AlwaysPass () // Always pass messages with keywords from Always Pass list
-            && MessageFilter::startsWithAny(text2, m_config.pass_keywords()))) {
+    MessageFilterLogic::FilterContext ctx;
+    ctx.specOp = m_specOp;
+    ctx.bypass = ui->cbBypass->isChecked();
+    ctx.filtersForWord2 = m_config.filters_for_word2();
+    ctx.filtersForWaitAndPounceOnly = m_config.filters_for_Wait_and_Pounce_only();
+    ctx.alwaysPass = m_config.AlwaysPass();
+    ctx.blacklisted = m_config.Blacklisted();
+    ctx.whitelisted = m_config.Whitelisted();
+    ctx.passKeywords = m_config.pass_keywords();
+    ctx.blacklistKeywords = m_config.blacklist_keywords();
+    ctx.whitelistKeywords = m_config.whitelist_keywords();
+    ctx.hideTerritory1 = ui->actionHideTerritory1->isChecked();
+    ctx.hideTerritory2 = ui->actionHideTerritory2->isChecked();
+    ctx.hideTerritory3 = ui->actionHideTerritory3->isChecked();
+    ctx.hideTerritory4 = ui->actionHideTerritory4->isChecked();
+    ctx.hideB4 = ui->actionHideB4->isChecked();
+    ctx.hideEU = ui->actionHideEU->isChecked();
+    ctx.hideAS = ui->actionHideAS->isChecked();
+    ctx.hideNA = ui->actionHideNA->isChecked();
+    ctx.hideSA = ui->actionHideSA->isChecked();
+    ctx.hideAF = ui->actionHideAF->isChecked();
+    ctx.hideOC = ui->actionHideOC->isChecked();
+    ctx.hideAN = ui->actionHideAN->isChecked();
+    ctx.territory1 = m_config.Territory1();
+    ctx.territory2 = m_config.Territory2();
+    ctx.territory3 = m_config.Territory3();
+    ctx.territory4 = m_config.Territory4();
+    ctx.currentBand = m_currentBand;
+    ctx.mode = m_mode;
+    ctx.pounce = pounce;
+    ctx.respondMode = ui->respondComboBox->currentText();
 
-        // Filtering out messages with keywords from Blacklist
-        if (SpecOp::NONE==m_specOp && m_config.Blacklisted ()
-            && MessageFilter::startsWithAny(text2, m_config.blacklist_keywords())) {
-          if (!ui->cbBypass->isChecked()) filtered = true;
-          if (!(m_config.filters_for_Wait_and_Pounce_only() or ui->cbBypass->isChecked()))  return;
-          // reset dB score when filtered
-          if (pounce && (ui->respondComboBox->currentText()=="CQ: Max Dist"
-                          or ui->respondComboBox->currentText()=="CQ: Max dB"
-                          or ui->respondComboBox->currentText()=="CQ: Min dB")) {
-            Dpoints=0;
-            maxDPoints=0;
-            dBpoints=-28;
-            dBpoints2=99;
-            maxdBPoints=-28;
-            mindBPoints=99;
-          }
-
-        // Filtering out everything but messages with keywords from Whitelist
-        } else if (SpecOp::NONE==m_specOp && m_config.Whitelisted ()
-                   && !MessageFilter::startsWithAny(text2, m_config.whitelist_keywords())
-          ) {
-          if (!ui->cbBypass->isChecked()) filtered = true;
-          if (!(m_config.filters_for_Wait_and_Pounce_only() or ui->cbBypass->isChecked()))  return;
-          // reset dB score when filtered
-          if (pounce && (ui->respondComboBox->currentText()=="CQ: Max Dist"
-                          or ui->respondComboBox->currentText()=="CQ: Max dB"
-                          or ui->respondComboBox->currentText()=="CQ: Min dB")) {
-            Dpoints=0;
-            maxDPoints=0;
-            dBpoints=-28;
-            dBpoints2=99;
-            maxdBPoints=-28;
-            mindBPoints=99;
-          }
-        }
-
-        // search logbook for filtering
-        if (ui->actionHideTerritory1->isChecked() or ui->actionHideTerritory2->isChecked() or
-            ui->actionHideTerritory3->isChecked() or ui->actionHideTerritory4->isChecked() or
-            ui->actionHideB4->isChecked() or ui->actionHideEU->isChecked() or ui->actionHideAS->isChecked() or
-            ui->actionHideNA->isChecked() or ui->actionHideSA->isChecked() or ui->actionHideAF->isChecked() or
-            ui->actionHideOC->isChecked() or ui->actionHideAN->isChecked()) {
-          QString deCall;
-          QString deGrid;
-          decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
-          // search for country names
-          if (ui->actionHideTerritory1->isChecked() or ui->actionHideTerritory2->isChecked() or
-              ui->actionHideTerritory3->isChecked() or ui->actionHideTerritory4->isChecked()) {
-            auto const& looked_up = m_logBook.countries ()->lookup (deCall);
-            auto countryName = Radio::CountryNames::abbreviate(looked_up.entity_name);
-            if (ui->actionHideTerritory1->isChecked() && countryName.contains(m_config.Territory1())
-                && (m_config.Territory1()!="") && !ui->cbBypass->isChecked()) filtered = true;
-            if (ui->actionHideTerritory2->isChecked() && countryName.contains(m_config.Territory2())
-                && (m_config.Territory2()!="") && !ui->cbBypass->isChecked()) filtered = true;
-            if (ui->actionHideTerritory3->isChecked() && countryName.contains(m_config.Territory3())
-                && (m_config.Territory3()!="") && !ui->cbBypass->isChecked()) filtered = true;
-            if (ui->actionHideTerritory4->isChecked() && countryName.contains(m_config.Territory4())
-                && (m_config.Territory4()!="") && !ui->cbBypass->isChecked()) filtered = true;
-          }
-          // search for callsigns worked B4 on band
-          if (ui->actionHideB4->isChecked()) {
-            bool callB4onBand;
-            bool countryB4onBand;
-            bool gridB4onBand;
-            bool continentB4onBand;
-            bool CQZoneB4onBand;
-            bool ITUZoneB4onBand;
-            auto const& looked_up = m_logBook.countries ()->lookup (deCall);
-            m_logBook.match (deCall, m_mode, deGrid, looked_up, callB4onBand, countryB4onBand, gridB4onBand,
-              continentB4onBand, CQZoneB4onBand, ITUZoneB4onBand, m_currentBand);
-            if (callB4onBand && ui->actionHideB4->isChecked() && !ui->cbBypass->isChecked()) filtered = true;
-          }
-          // search for continents
-          if (ui->actionHideEU->isChecked() or ui->actionHideAS->isChecked() or ui->actionHideNA->isChecked()
-              or ui->actionHideSA->isChecked() or ui->actionHideAF->isChecked() or ui->actionHideOC->isChecked()
-              or ui->actionHideAN->isChecked()) {
-            auto const& looked_up = m_logBook.countries ()->lookup (deCall);
-            QString continent = AD1CCty::continent (looked_up.continent);
-            if (ui->actionHideEU->isChecked() && continent == "EU" && !ui->cbBypass->isChecked()) filtered = true;
-            if (ui->actionHideAS->isChecked() && continent == "AS" && !ui->cbBypass->isChecked()) filtered = true;
-            if (ui->actionHideNA->isChecked() && continent == "NA" && !ui->cbBypass->isChecked()) filtered = true;
-            if (ui->actionHideSA->isChecked() && continent == "SA" && !ui->cbBypass->isChecked()) filtered = true;
-            if (ui->actionHideAF->isChecked() && continent == "AF" && !ui->cbBypass->isChecked()) filtered = true;
-            if (ui->actionHideOC->isChecked() && continent == "OC" && !ui->cbBypass->isChecked()) filtered = true;
-            if (ui->actionHideAN->isChecked() && continent == "AN" && !ui->cbBypass->isChecked()) filtered = true;
-          }
-        }
-      }
-    } else {
-      if (!(SpecOp::NONE==m_specOp && m_config.AlwaysPass () // Always pass messages with keywords from Always Pass list
-            && MessageFilter::containsAny(text, m_config.pass_keywords()))) {
-
-        // Filtering out messages with keywords from Blacklist
-        if (SpecOp::NONE==m_specOp && m_config.Blacklisted ()
-            && MessageFilter::containsAny(text, m_config.blacklist_keywords())) {
-          if (!ui->cbBypass->isChecked()) filtered = true;
-          if (!(m_config.filters_for_Wait_and_Pounce_only() or ui->cbBypass->isChecked()))  return;
-          // reset dB score when filtered
-          if (pounce && (ui->respondComboBox->currentText()=="CQ: Max Dist"
-                          or ui->respondComboBox->currentText()=="CQ: Max dB"
-                          or ui->respondComboBox->currentText()=="CQ: Min dB")) {
-            Dpoints=0;
-            maxDPoints=0;
-            dBpoints=-28;
-            dBpoints2=99;
-            maxdBPoints=-28;
-            mindBPoints=99;
-          }
-
-        // Filtering out everything but messages with keywords from Whitelist
-        } else if (SpecOp::NONE==m_specOp && m_config.Whitelisted ()
-                   && !MessageFilter::containsAny(text, m_config.whitelist_keywords())
-          ) {
-          if (!ui->cbBypass->isChecked()) filtered = true;
-          if (!(m_config.filters_for_Wait_and_Pounce_only() or ui->cbBypass->isChecked()))  return;
-          // reset dB score when filtered
-          if (pounce && (ui->respondComboBox->currentText()=="CQ: Max Dist"
-                          or ui->respondComboBox->currentText()=="CQ: Max dB"
-                          or ui->respondComboBox->currentText()=="CQ: Min dB")) {
-            Dpoints=0;
-            maxDPoints=0;
-            dBpoints=-28;
-            dBpoints2=99;
-            maxdBPoints=-28;
-            mindBPoints=99;
-          }
-        }
-
-        // search logbook for filtering
-        if (ui->actionHideTerritory1->isChecked() or ui->actionHideTerritory2->isChecked() or
-            ui->actionHideTerritory3->isChecked() or ui->actionHideTerritory4->isChecked() or
-            ui->actionHideB4->isChecked() or ui->actionHideEU->isChecked() or ui->actionHideAS->isChecked() or
-            ui->actionHideNA->isChecked() or ui->actionHideSA->isChecked() or ui->actionHideAF->isChecked() or
-            ui->actionHideOC->isChecked() or ui->actionHideAN->isChecked()) {
-          QString deCall;
-          QString deGrid;
-          decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
-          // search for country names
-          if (ui->actionHideTerritory1->isChecked() or ui->actionHideTerritory2->isChecked() or
-              ui->actionHideTerritory3->isChecked() or ui->actionHideTerritory4->isChecked()) {
-            auto const& looked_up = m_logBook.countries ()->lookup (deCall);
-            auto countryName = Radio::CountryNames::abbreviate(looked_up.entity_name);
-            if (ui->actionHideTerritory1->isChecked() && countryName.contains(m_config.Territory1())
-                && (m_config.Territory1()!="") && !ui->cbBypass->isChecked()) filtered = true;
-            if (ui->actionHideTerritory2->isChecked() && countryName.contains(m_config.Territory2())
-                && (m_config.Territory2()!="") && !ui->cbBypass->isChecked()) filtered = true;
-            if (ui->actionHideTerritory3->isChecked() && countryName.contains(m_config.Territory3())
-                && (m_config.Territory3()!="") && !ui->cbBypass->isChecked()) filtered = true;
-            if (ui->actionHideTerritory4->isChecked() && countryName.contains(m_config.Territory4())
-                && (m_config.Territory4()!="") && !ui->cbBypass->isChecked()) filtered = true;
-          }
-          // search for callsigns worked B4 on band
-          if (ui->actionHideB4->isChecked()) {
-            bool callB4onBand;
-            bool countryB4onBand;
-            bool gridB4onBand;
-            bool continentB4onBand;
-            bool CQZoneB4onBand;
-            bool ITUZoneB4onBand;
-            auto const& looked_up = m_logBook.countries ()->lookup (deCall);
-            m_logBook.match (deCall, m_mode, deGrid, looked_up, callB4onBand, countryB4onBand, gridB4onBand,
-              continentB4onBand, CQZoneB4onBand, ITUZoneB4onBand, m_currentBand);
-            if (callB4onBand && ui->actionHideB4->isChecked() && !ui->cbBypass->isChecked()) filtered = true;
-          }
-          // search for continents
-          if (ui->actionHideEU->isChecked() or ui->actionHideAS->isChecked() or ui->actionHideNA->isChecked()
-              or ui->actionHideSA->isChecked() or ui->actionHideAF->isChecked() or ui->actionHideOC->isChecked()
-              or ui->actionHideAN->isChecked()) {
-            auto const& looked_up = m_logBook.countries ()->lookup (deCall);
-            QString continent = AD1CCty::continent (looked_up.continent);
-            if (ui->actionHideEU->isChecked() && continent == "EU" && !ui->cbBypass->isChecked()) filtered = true;
-            if (ui->actionHideAS->isChecked() && continent == "AS" && !ui->cbBypass->isChecked()) filtered = true;
-            if (ui->actionHideNA->isChecked() && continent == "NA" && !ui->cbBypass->isChecked()) filtered = true;
-            if (ui->actionHideSA->isChecked() && continent == "SA" && !ui->cbBypass->isChecked()) filtered = true;
-            if (ui->actionHideAF->isChecked() && continent == "AF" && !ui->cbBypass->isChecked()) filtered = true;
-            if (ui->actionHideOC->isChecked() && continent == "OC" && !ui->cbBypass->isChecked()) filtered = true;
-            if (ui->actionHideAN->isChecked() && continent == "AN" && !ui->cbBypass->isChecked()) filtered = true;
-          }
-        }
-      }
+    auto filterResult = MessageFilterLogic::evaluateMSK144(decodedtext, ctx, &m_logBook);
+    if (filterResult.filtered) filtered = true;
+    if (filterResult.resetPoints) {
+      Dpoints=0;
+      maxDPoints=0;
+      dBpoints=-28;
+      dBpoints2=99;
+      maxdBPoints=-28;
+      mindBPoints=99;
     }
+    if (filterResult.shouldReturn) return;
 
     // hide or ignore callsigns for MSK144
     if (ui->actionHideIgnored->isChecked() or ui->actionHideToday->isChecked() or ui->actionIgnoreIgnored->isChecked() or ui->actionIgnoreToday->isChecked()) {
@@ -2292,7 +2138,7 @@ void MainWindow::fastSink(qint64 frames)
         QString deCall;
         QString deGrid;
         decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
-        if (!filtered && !ignored && (deGrid.contains(grid_regexp) or m_bCallingCQ) && (
+        if (!filtered && !ignored && (deGrid.contains(MainWindow::grid_regexp) or m_bCallingCQ) && (
              (pounce && text.contains(" CQ ") && !txLog.contains(deCall) && m_config.Wait_features_enabled()) or
              (m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " ") && !text.contains("73 "))
                                                                     )) {
@@ -2302,7 +2148,7 @@ void MainWindow::fastSink(qint64 frames)
                     const_cast <char *> ((deGrid + "      ").left (6).toLatin1().constData()),&utch,
                     &nAz,&nEl,&nDmiles,&nDkm,&nHotAz,&nHotABetter,6,6);
             Dpoints=nDkm;
-            if (!deGrid.contains(grid_regexp)) Dpoints=1;
+            if (!deGrid.contains(MainWindow::grid_regexp)) Dpoints=1;
             if(Dpoints>maxDPoints) {
                 maxDPoints=Dpoints;
                 m_deCall=deCall;
@@ -2390,7 +2236,7 @@ void MainWindow::fastSink(qint64 frames)
         QString deCall;
         QString deGrid;
         decodedtext.deCallAndGrid(deCall,deGrid);
-        if ((m_config.showDistance() || m_config.showAzimuth()) && deGrid.contains(grid_regexp)) {
+        if ((m_config.showDistance() || m_config.showAzimuth()) && deGrid.contains(MainWindow::grid_regexp)) {
             double utch=0.0;
             int nAz,nEl,nDmiles,nDkm,nHotAz,nHotABetter;
             QString my_Grid = m_config.my_grid();
@@ -2672,22 +2518,6 @@ void MainWindow::fastSink(qint64 frames)
   m_fCPUmskrtd=0.9*m_fCPUmskrtd + 0.1*tsec;
 }
 
-void MainWindow::showSoundInError(const QString& errorMsg)
-{
-  if (m_splash && m_splash->isVisible ()) m_splash->hide ();
-  MessageBox::critical_message (this, tr ("Error in Sound Input"), errorMsg);
-}
-
-void MainWindow::showSoundOutError(const QString& errorMsg)
-{
-  if (m_splash && m_splash->isVisible ()) m_splash->hide ();
-  MessageBox::critical_message (this, tr ("Error in Sound Output"), errorMsg);
-}
-
-void MainWindow::showStatusMessage(const QString& statusMsg)
-{
-  statusBar()->showMessage(statusMsg, 5000);
-}
 
 void MainWindow::showQSYMessage(QString message)
 {
@@ -2897,32 +2727,6 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
   }
 }
 
-void MainWindow::on_monitorButton_clicked (bool checked)
-{
-  if (!m_transmitting) {
-    auto prior = m_monitoring;
-    monitor (checked);
-    if (checked && !prior) {
-      if (m_config.monitor_last_used () && m_mode!="Echo") {
-        // put rig back where it was when last in control
-        setRig (m_lastMonitoredFrequency);
-        setXIT (ui->TxFreqSpinBox->value ());
-      }
-          // ensure FreqCal triggers
-      if(m_mode=="FST4W") {
-        on_sbFST4W_RxFreq_valueChanged(ui->sbFST4W_RxFreq->value());
-      } else {
-        on_RxFreqSpinBox_valueChanged (ui->RxFreqSpinBox->value ());
-      }
-    }
-    //Get Configuration in/out of strict split and mode checking
-    m_config.sync_transceiver (true, checked);
-  } else {
-    ui->monitorButton->setChecked (false); // disallow
-  }
-  if(m_mode=="Echo") m_echoRunning=false;
-  check_button_color();
-}
 
 void MainWindow::monitor (bool state)
 {
@@ -2970,53 +2774,6 @@ void MainWindow::on_actionAbout_triggered()                  //Display "About"
   CAboutDlg {this}.exec ();
 }
 
-void MainWindow::on_autoButton_clicked (bool checked)
-{
-  if (ui->DX_Call_Button->isChecked() && m_specOp==SpecOp::HOUND && m_config.superFox() && !m_bDoubleClicked) return;  // for Wait & Call
-  m_config.transceiver_tune (false);  // reset rig tuning
-  if (checked && ui->tuneButton->isChecked() && !(m_mode=="WSPR" || m_mode=="FST4W")) return; // not allowed while tuning
-  stopWRTimer.stop();                                       // stop any Wait & Reply timeout
-  if (!checked && ui->DX_Call_Button->isChecked()) {
-      stopWCTimer.stop();                                   // stop any Wait & Call timeout
-      ui->DX_Call_Button->click ();                         // disable Wait & Call
-      no_wait_and_call = false;                             // reset Wait & Call
-  }
-  m_specOp=m_config.special_op_id();
-  ui->pbBandHopping->setChecked(false); // disable band hopping when Tx is enabled
-  if (checked) {
-      m_auto = checked;
-      QTimer::singleShot (3000, [=] {pounce = false;});  // ensure to select only CQ messages
-  } else {
-      pounce = false;
-      m_auto = false;
-      m_bCallingCQ = false;
-      ui->autoButton->setChecked(false);  // ensure autoButton is unchecked
-      filtered = false;
-      ignored = false;
-      m_muted = false;
-      Dpoints=0;                          // reset points
-      maxDPoints=0;                       // reset points
-      dBpoints=-28;                       // reset points
-      dBpoints2=99;                       // reset points
-      maxdBPoints=-28;                    // reset points
-      mindBPoints=99;                     // reset points
-  }
-  m_maxPoints=-1;
-  if (checked && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText() != "CQ: None"
-      && CALLING == m_QSOProgress) {
-      m_bAutoReply = false;         // ready for next
-      m_bCallingCQ = true;          // allows tail-enders to be picked up
-  }
-  statusUpdate ();
-  m_bEchoTxOK=false;
-  if(m_mode=="Echo" and m_auto) {
-    m_nclearave=1;
-    echocom_.nsum=0;
-  }
-  m_tAutoOn=QDateTime::currentMSecsSinceEpoch()/1000;
-  if(m_mode=="Echo") m_echoRunning=false;
-  check_button_color();
-}
 
 void MainWindow::on_sbTxPercent_valueChanged (int n)
 {
@@ -3632,47 +3389,6 @@ void MainWindow::setup_status_bar (bool vhf)
   }
 }
 
-bool MainWindow::subProcessFailed (QProcess * process, int exit_code, QProcess::ExitStatus status)
-{
-  if (m_valid && (exit_code || QProcess::NormalExit != status))
-    {
-      QStringList arguments;
-      for (auto argument: process->arguments ())
-        {
-          if (argument.contains (' ')) argument = '"' + argument + '"';
-          arguments << argument;
-        }
-      if (m_splash && m_splash->isVisible ()) m_splash->hide ();
-      MessageBox::critical_message (this, tr ("Subprocess Error")
-                                    , tr ("Subprocess failed with exit code %1")
-                                    .arg (exit_code)
-                                    , tr ("Running: %1\n%2")
-                                    .arg (process->program () + ' ' + arguments.join (' '))
-                                    .arg (QString {process->readAllStandardError()}));
-      return true;
-    }
-  return false;
-}
-
-void MainWindow::subProcessError (QProcess * process, QProcess::ProcessError)
-{
-  if (m_valid)
-    {
-      QStringList arguments;
-      for (auto argument: process->arguments ())
-        {
-          if (argument.contains (' ')) argument = '"' + argument + '"';
-          arguments << argument;
-        }
-      if (m_splash && m_splash->isVisible ()) m_splash->hide ();
-      MessageBox::critical_message (this, tr ("Subprocess error")
-                                    , tr ("Running: %1\n%2")
-                                    .arg (process->program () + ' ' + arguments.join (' '))
-                                    .arg (process->errorString ()));
-      m_valid = false;              // ensures exit if still constructing
-      QTimer::singleShot (0, this, SLOT (close ()));
-    }
-}
 
 void MainWindow::closeEvent(QCloseEvent * e)
 {
@@ -3713,48 +3429,7 @@ void MainWindow::closeEvent(QCloseEvent * e)
   QMainWindow::closeEvent (e);
 }
 
-void MainWindow::on_stopButton_clicked()                       //stopButton
-{
-  ui->pbBandHopping->setChecked(false); // disable band hopping
-  monitor (false);
-  if(m_mode=="JTTY" and m_saveAll and !m_diskData) {
-    jtty_save_wav();
-  }
-  m_loopall=false;
-  if(m_bRefSpec) {
-    MessageBox::information_message (this, tr ("Reference spectrum saved"));
-    m_bRefSpec=false;
-  }
-  if (ui->DX_Call_Button->isChecked()) ui->DX_Call_Button->click ();
-  stopWRTimer.stop();           // Stop any Wait & Reply timeout
-  stopWCTimer.stop();           // Stop any Wait & Call timeout
-  no_wait_and_call = false;
-  m_specOp=m_config.special_op_id();
-  if (ui->respondComboBox->isVisible() and ui->respondComboBox->currentIndex()!=0 and !m_diskData) {
-    Dpoints=0;                          // reset points
-    maxDPoints=0;                       // reset points
-    dBpoints=-28;                       // reset points
-    dBpoints2=99;                       // reset points
-    maxdBPoints=-28;                    // reset points
-    mindBPoints=99;                     // reset points
-    if (!(m_mode=="Q65" or m_mode=="JT65")) {
-      clearDX();                                   // clear dxCallEntry
-      ui->dxGridEntry->clear ();                   // clear dxGridEntry
-      if (!keepTx5) ui->tx5->setCurrentText("");   // clear tx5
-    }
-  }
-  pounce = false;
-  ui->autoButton->setChecked(false);  // ensure auoButton is unchecked
-  filtered = false;
-  ignored = false;
-  m_muted = false;
-  check_button_color();
-}
 
-void MainWindow::on_pbBandHopping_clicked()
-{
-  if (m_auto) ui->pbBandHopping->setChecked(false); // don't allow band hopping when in QSO
-}
 
 void MainWindow::on_actionRelease_Notes_triggered ()
 {
@@ -4370,21 +4045,6 @@ void MainWindow::on_actionSpecial_mouse_commands_triggered()
   m_mouseCmnds->raise ();
 }
 
-void MainWindow::on_DecodeButton_clicked (bool /* checked */) //Decode request
-{
-  if(m_mode=="MSK144") {
-    ui->DecodeButton->setChecked(false);
-  } else if(m_mode=="JTTY") {
-    jtty_again();
-  } else {
-    if(m_mode!="WSPR" && !m_decoderBusy) {
-      m_manualDecode=true;
-      dec_data.params.newdat=0;
-      dec_data.params.nagain=1;
-      decode();
-    }
-  }
-}
 
 void MainWindow::freezeDecode(int n)                          //freezeDecode()
 {
@@ -4394,20 +4054,6 @@ void MainWindow::freezeDecode(int n)                          //freezeDecode()
   }
 }
 
-void MainWindow::on_ClrAvgButton_clicked()
-{
-  m_nclearave=1;
-  if(m_mode=="Echo") {
-    echocom_.nsum=0;
-    m_echoGraph->clearAvg();
-    m_wideGraph->restartTotalPower();
-  } else {
-    if(m_msgAvgWidget != NULL) {
-      if(m_msgAvgWidget->isVisible()) m_msgAvgWidget->displayAvg("");
-    }
-    if(m_mode=="Q65") ndecodes_label.setText("0  0");
-  }
-}
 
 void MainWindow::msgAvgDecode2()
 {
@@ -4859,161 +4505,6 @@ void MainWindow::read_log()
   }
 }
 
-void MainWindow::ARRL_Digi_Update(DecodedText dt)
-{
-  if(m_mode=="Q65") {
-    m_fetched=0;
-    readWidebandDecodes();
-    return;
-  }
-
-  // Extract information relevant for the ARRL Digi contest
-  QString deCall;
-  QString deGrid;
-  dt.deCallAndGrid(/*out*/deCall,deGrid);
-  ActiveCall ac;
-  RecentCall rc;
-
-  if(deGrid.contains(grid_regexp)) {
-     if(!m_activeCall.contains(deCall) or deGrid!=m_activeCall.value(deCall).grid4) {
-       // Transmitting station's call is not already in QMap "m_activeCall", or grid has changed.
-       // Insert the call, grid, and associated fixed data into the list.
-
-       double utch=0.0;
-       int nAz,nEl,nDmiles,nDkm,nHotAz,nHotABetter;
-       QString my_Grid = m_config.my_grid();
-       if (my_Grid.length() < 5) my_Grid = m_config.my_grid().left(4)+"mm";
-       QString de_Grid= deGrid.left(4)+"mm";
-       azdist_(const_cast <char *> (my_Grid.toLatin1().constData()),
-               const_cast <char *> (de_Grid.toLatin1().constData()),&utch,
-               &nAz,&nEl,&nDmiles,&nDkm,&nHotAz,&nHotABetter,(FCL)6,(FCL)6);
-       int points=nDkm/500;
-       if(nDkm > 500*points) points += 1;
-       points += 1;
-       ac.grid4=deGrid;
-       ac.bands=".......";
-       ac.az=nAz;
-       ac.points=points;
-       m_activeCall[deCall]=ac;
-     }
-  }
-
-  m_points=-1;
-  if(m_activeCall.contains(deCall)) {
-
-// Don't display stations we already worked on this band.
-    QString band=m_config.bands()->find(m_freqNominal);
-    if(band=="160m" and m_activeCall[deCall].bands.indexOf("a")>=0) {m_recentCall.remove(deCall); return;}
-    if(band=="80m"  and m_activeCall[deCall].bands.indexOf("b")>=0) {m_recentCall.remove(deCall); return;}
-    if(band=="40m"  and m_activeCall[deCall].bands.indexOf("c")>=0) {m_recentCall.remove(deCall); return;}
-    if(band=="20m"  and m_activeCall[deCall].bands.indexOf("d")>=0) {m_recentCall.remove(deCall); return;}
-    if(band=="15m"  and m_activeCall[deCall].bands.indexOf("e")>=0) {m_recentCall.remove(deCall); return;}
-    if(band=="10m"  and m_activeCall[deCall].bands.indexOf("f")>=0) {m_recentCall.remove(deCall); return;}
-    if(band=="6m"   and m_activeCall[deCall].bands.indexOf("g")>=0) {m_recentCall.remove(deCall); return;}
-
-    // Update the variable data for this deCall
-    rc.dialFreq=m_freqNominal;
-    rc.audioFreq=dt.frequencyOffset();
-    rc.snr=dt.snr();
-    m_latestDecodeTime=dt.timeInSeconds();
-    rc.txEven = (m_latestDecodeTime % int(2*m_TRperiod)) > 0;
-    rc.ready2call=false;
-    bool bCQ=dt.messageWords()[0].left(3)=="CQ ";
-    if(bCQ or deGrid=="RR73" or deGrid=="73") rc.ready2call=true;
-    rc.decodeTime=m_latestDecodeTime;
-    m_recentCall[deCall]=rc;
-    m_points=m_activeCall.value(deCall).points;
-  }
-  updateRate();
-}
-
-void MainWindow::ARRL_Digi_Display()
-{
-  if(m_mode=="Q65") {
-    m_fetched=0;
-    readWidebandDecodes();
-    return;
-  }
-  if (m_mode == "Fox Mode") { // ARRL_Digi_Display can be shown for other modes
-    if (m_ActiveStationsWidget != NULL) {
-      m_ActiveStationsWidget->setClickOK(true);
-    }
-    return;
-  }
-  QMutableMapIterator<QString,RecentCall> icall(m_recentCall);
-  QString deCall,deGrid;
-  int age=0;
-  int i=0;
-  int maxAge=m_ActiveStationsWidget->maxAge();
-  int points=0;
-  int maxPoints=0;
-  int indx[1000];
-  float pts[1000];
-  QStringList list;
-
-  while (icall.hasNext()) {
-    icall.next();
-    deCall=icall.key();
-    age=int((m_latestDecodeTime - icall.value().decodeTime)/m_TRperiod + 0.5);
-    if(age<0) age=age + int(86400/m_TRperiod);
-    int itx=1;
-    if(icall.value().txEven) itx=0;
-    int snr=icall.value().snr;
-    int freq=icall.value().audioFreq;
-    if(age>maxAge) {
-      icall.remove();
-    } else {
-      bool bReady=false;
-      if(age==0 and m_recentCall.value(deCall).ready2call) bReady=true;
-
-      QString bands=m_activeCall[deCall].bands;
-      bool bWorkedOnBand=false;
-      if(m_currentBand=="160m" and bands.mid(0,1)!=".") bWorkedOnBand=true;
-      if(m_currentBand=="80m"  and bands.mid(1,1)!=".") bWorkedOnBand=true;
-      if(m_currentBand=="40m"  and bands.mid(2,1)!=".") bWorkedOnBand=true;
-      if(m_currentBand=="20m"  and bands.mid(3,1)!=".") bWorkedOnBand=true;
-      if(m_currentBand=="15m"  and bands.mid(4,1)!=".") bWorkedOnBand=true;
-      if(m_currentBand=="10m"  and bands.mid(5,1)!=".") bWorkedOnBand=true;
-      if(m_currentBand=="6m"   and bands.mid(6,1)!=".") bWorkedOnBand=true;
-
-      if((bReady or !m_ActiveStationsWidget->readyOnly()) and !bWorkedOnBand) {
-        i++;
-        int az=m_activeCall[deCall].az;
-        deGrid=m_activeCall[deCall].grid4;
-        points=m_activeCall[deCall].points;
-        if(points>maxPoints) maxPoints=points;
-        float x=float(age)/(maxAge+1);
-        if(x>1.0) x=0;
-        pts[i-1]=points - x;
-        QString t1;
-        if(!bReady) t1 = t1.asprintf("  %3d  %+2.2d  %4d  %1d %2d %4d",az,snr,freq,itx,age,points);
-        if(bReady)  t1 = t1.asprintf("  %3d  %+2.2d  %4d  %1d %2d*%4d",az,snr,freq,itx,age,points);
-//        t1 = (deCall + "   ").left(6) + "  " + m_activeCall[deCall].grid4 + t1 + "  " + bands;
-        t1 = (deCall + "   ").left(6) + "  " + m_activeCall[deCall].grid4 + t1;
-        list.append(t1);
-      }
-    }
-  }
-  if(i==0) return;
-  int jz=i;
-  m_ActiveStationsWidget->setClickOK(false);
-  int maxRecent=qMin(i,m_ActiveStationsWidget->maxRecent());
-  indexx_(pts,&jz,indx);
-  QString t;
-  i=0;
-  for(int j=jz-1; j>=0; j--) {
-    int k=indx[j]-1;
-    m_ready2call[i]=list[k];
-    i++;
-    QString t1=QString::number(i) + ".  ";
-    if(i<10) t1=" " + t1;
-    t += (t1 + list[k] + "\n");
-    if(i>=maxRecent) break;
-  }
-  bool is_fox_mode = (m_mode=="FT8" && m_specOp == SpecOp::FOX);
-  if(m_ActiveStationsWidget!=NULL && !is_fox_mode) m_ActiveStationsWidget->displayRecentStations(m_mode,t);
-  m_ActiveStationsWidget->setClickOK(true);
-}
 
 void MainWindow::queueActiveWindowHound2(QString line) {
   // Active Window shows what's going on outside of current F/H display rules (calling below 1000Hz e.g.)
@@ -5024,15 +4515,15 @@ void MainWindow::queueActiveWindowHound2(QString line) {
     // make sure our call is the first in the list, or the station is CQing (not a directed CQ)
     if  ( (w.size() > 7) &&
           (w[5] == m_config.my_callsign() || w[5] == "<"+m_config.my_callsign()+">" || w[5]=="CQ") &&
-          ( w[7].contains(grid_regexp) || w[7].contains(non_r_db_regexp) )){
+          ( w[7].contains(MainWindow::grid_regexp) || w[7].contains(MainWindow::non_r_db_regexp) )){
       QString caller = w[6];
       QString grid = "";
       QString db = w[1];
       int db_i = w[1].toInt();
       db = (db_i >=0 ? "+":"") + QStringLiteral("%1").arg(db_i, (db_i >=0 ? 2:3), 10, QLatin1Char('0')); // +00, -01 etc.
       // houndcall rpt grid
-      if (w[7].contains(grid_regexp)) grid = w[7];
-      if (w[7].contains(non_r_db_regexp)) {
+      if (w[7].contains(MainWindow::grid_regexp)) grid = w[7];
+      if (w[7].contains(MainWindow::non_r_db_regexp)) {
         LOG_INFO(QString("ActiveStations Window click: %1 called with signal report %2").arg(caller).arg(w[7]));
       }
       if (caller.length() > 2) {
@@ -5220,39 +4711,8 @@ void MainWindow::readFromStdout()                             //readFromStdout
     QString message0 {QString::fromUtf8(line_read.constData())};
     DecodedText decodedtext0 {QString::fromUtf8(line_read.constData())};
     DecodedText decodedtext {QString::fromUtf8(line_read.constData()).remove("TU; ")};
+    if (isFalseDecode(line_read, decodedtext, message0)) continue;
 
-  // Don't allow a7 decodes during the first period and for non-contest messages when in any contest mode
-  if ((!((no_a7_decodes && line_read.contains("a7") && !m_diskData) or (line_read.contains("a7") && SpecOp::NONE!=m_specOp
-          && !m_diskData && !(line_read.contains(" R ") or line_read.contains("RR73") or line_read.contains("CQ ")))))
-
-  // Filtering out some false decodes, and don't write all.txt for such
-      // FDR step 1
-      and (!((SpecOp::NONE==m_specOp or (m_multithreadFT8 && m_ft8DecoderStart<2)) &&
-           ((m_mode=="FT8" && ((m_multithreadFT8 && m_ft8DecoderStart<2) or m_freqNominal>45000000) && earlyDecodes.contains(line_read.mid(23,19)))   // MTD or a7/a8 dupes
-           or ((SpecOp::NONE==m_specOp && decodedtext.snr() < -12) && (message0.contains("> <")   // two hashes
-           || message0.contains(QRegularExpression {"(\\w+)/P (\\w+)/P "})             // two /P calls
-           || message0.contains(QRegularExpression {"(\\w+)/R (\\w+)/R "})             // two /R calls
-           || (message0.contains("/R ") && message0.contains("?"))                     // insecure /R decodes
-           || (message0.contains(";") && message0.contains(" R ")))))))                // invalid combination
-      // FDR step 2
-      and (!(SpecOp::NONE==m_specOp && ui->actionReduce_false_decodes->isChecked() && m_mode=="FT8" &&
-           ((((message0.contains("/P ") && message0.contains(" R "))                   // /P and R
-           || (message0.contains(";") && message0.contains("/R "))                     // ; and /R
-           || (message0.contains(";") && message0.contains("/P "))                     // ; and /P
-           || (message0.contains("<...>") && message0.contains(" R "))                 // hash and R
-           || (message0.contains("<...>") && message0.contains("/P "))                 // hash and /P
-           || (message0.contains("<...>") && message0.contains(";"))                   // hash and ;
-           || message0.contains(QRegularExpression {"\\w\\w\\w\\w\\w\\w\\w\\w"})       // likely invalid callsigns
-           || message0.contains(QRegularExpression {"\\d\\d\\d \\d\\d\\d"})            // contest messages
-           || message0.contains("3.") || message0.contains("2."))                      // -1.9 < dt <  1.9
-           && (decodedtext.snr() < -15))                                       // for such SNRmin = -15
-           or ((message0.contains("/R ") or message0.contains(" R ")) && decodedtext.snr() < -18)  // for /R or contest calls SNRmin = -18
-           or (((message0.contains("<...>") || message0.contains(";")                  // unresolved hash and F/H messages
-               || message0.contains("? a")                                             // ap decodes of low confidence
-               || message0.contains("/R ") || message0.contains(" R ")                 // rover and contest callsigns
-               || decodedtext.snr() < -20)                                             // SNR < -20
-               && (message0.contains("3.") || message0.contains("2.")))))))    // for such -1.9 < dt < 1.9
-      )
     {
     if (m_mode!="FT8" and m_mode!="FT4" and !m_mode.startsWith ("FST4") and m_mode!="Q65") {
       //Pad 22-char msg to at least 37 chars
@@ -5277,33 +4737,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
     } else {
       m_nDecodes+=1;
       if(m_mode!="Q65") ndecodes_label.setText(QString::number(m_nDecodes));
-      if(m_mode=="JT4" or m_mode=="JT65" or m_mode=="Q65") {
-        //### Do something about Q65 here ?  ###
-        int nf=line_read.indexOf("f");
-        if(nf>0) {
-          navg=line_read.mid(nf+1,1).toInt();
-          if(line_read.indexOf("f*")>0) navg=10;
-        }
-        int nd=-1;
-        if(nf<0) nd=line_read.indexOf("d");
-        if(nd>0) {
-          navg=line_read.mid(nd+2,1).toInt();
-          if(line_read.mid(nd+2,1)=="*") navg=10;
-        }
-        int na=-1;
-        if(nf<0 and nd<0) na=line_read.indexOf("a");
-        if(na>0) {
-          navg=line_read.mid(na+2,1).toInt();
-          if(line_read.mid(na+2,1)=="*") navg=10;
-        }
-        int nq=-1;
-        if(nf<0 and nd<0 and na<0) nq=line_read.indexOf("q");
-        if(nq>0) {
-          navg=line_read.mid(nq+2,1).toInt();
-          if(line_read.mid(nq+2,1)=="*") navg=10;
-        }
-        if(navg>=2) bAvgMsg=true;
-      }
+      parseAveragingInfo(line_read, bAvgMsg, navg);
       write_all("Rx", line_read.trimmed());
     }   // Filtering out some false decodes, and don't write all.txt for such
 
@@ -5312,65 +4746,9 @@ void MainWindow::readFromStdout()                             //readFromStdout
           uploadWSPRSpots (true, line_read);
         }
 
-      // Check validity of callsigns if "Reduce false decodes" is checked   // EXPERIMENTAL FOR NOW
-      if (m_mode=="FT8" && !m_multithreadFT8 && ui->actionReduce_false_decodes->isChecked() && decodedtext.snr() < -20) {
-        bool notInALLCALL7 = false;
-        QString deCall;
-        QString deGrid;
-        decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
-        QStringList word;
-        word=decodedtext.string().mid(24).replace("<","").replace(">","").replace("/P","").replace("/R","").replace("/QRP","").replace("/5W","").split(" ",SkipEmptyParts);
+      applyExperimentalFT8Filter(decodedtext, filtered);
 
-        // check file ALLCALL7.TXT
-        if (deCall!="TNX" && deCall!="73" && deCall!="GL" && deCall!="HNY" && deCall!="TU" && !deCall.left(4).contains("/")
-            && !decodedtext.string().contains("<...>") && !ALLCALL7.contains(deCall)) {
-          notInALLCALL7 = true;
-//          ui->decodedTextBrowser->insertText("deCall not in ALLCALL7.TXT");
-        }
-        if (!ALLCALL7.contains(word[0]) && !(decodedtext.string().contains(" CQ ") or decodedtext.string().contains("TNX")
-            or decodedtext.string().contains("...") or decodedtext.string().contains("HNY") or decodedtext.string().contains("QSY")
-            or decodedtext.string().contains("73 ") or decodedtext.string().contains("GL ") or decodedtext.string().contains("PSE")
-            or decodedtext.string().contains("/") or decodedtext.string().contains("<...>"))) {
-          notInALLCALL7 = true;
-//          ui->decodedTextBrowser->insertText("word0 not in ALLCALL7.TXT");
-        }
-
-        // check syntax of the two callsigns before we hide such messages
-        if (notInALLCALL7) {
-          deCall=deCall.replace("<","").replace(">","").replace("/P","").replace("/R","").replace("/QRP","").replace("/5W","");
-          if (deCall!="TNX" && deCall!="73" && deCall!="GL" && deCall!="HNY" &&
-              !(deCall.left(3).contains(QRegularExpression {"\\w\\d\\w"}) or
-                deCall.left(3).contains(QRegularExpression {"\\d\\w\\d"}) or
-                deCall.left(3).contains(QRegularExpression {"\\w\\w\\d"}) or
-                deCall.left(4).contains("/") or decodedtext.string().contains("<...>"))) {
-//            ui->decodedTextBrowser->insertText("deCall has false syntax");
-            filtered = true;
-          }
-          if (word[0]!="CQ" && word[0]!="TNX" && word[0]!="73 " && word[0]!="HNY" && word[0]!="QSY" && word[0]!="PSE" &&
-              !(word[0].left(3).contains(QRegularExpression {"\\w\\d\\w"}) or
-                word[0].left(3).contains(QRegularExpression {"\\d\\w\\d"}) or
-                word[0].left(3).contains(QRegularExpression {"\\w\\w\\d"}) or
-                decodedtext.string().contains("/")or decodedtext.string().contains("<...>"))) {
-//            ui->decodedTextBrowser->insertText("word0 has false syntax");
-            filtered = true;
-          }
-        }
-        notInALLCALL7 = false;
-      }
-
-      if(m_mode=="FT8" and SpecOp::FOX == m_specOp and
-         (decodedtext.string().contains("R+") or decodedtext.string().contains("R-"))) {
-        auto for_us  = decodedtext.string().contains(" " + m_config.my_callsign() + " ") or
-            decodedtext.string().contains(" "+m_baseCall) or
-            decodedtext.string().contains(m_baseCall+" ") or
-            decodedtext.string().contains(" <" + m_config.my_callsign() + "> ");
-        if(decodedtext.string().contains(" DE ")) for_us=true;   //Hound with compound callsign
-        if(for_us) {
-          QString houndCall,houndGrid;
-          decodedtext.deCallAndGrid(/*out*/houndCall,houndGrid);
-          foxRxSequencer(decodedtext.string(),houndCall,houndGrid);
-        }
-      }
+      processFoxSignals(decodedtext);
 
 //Left (Band activity) window
       if(!bAvgMsg) {
@@ -5398,361 +4776,17 @@ void MainWindow::readFromStdout()                             //readFromStdout
             ARRL_Digi_Update(decodedtext1);
           }
 
-#ifdef FOX_OTP
-          if ((SpecOp::HOUND == m_specOp) &&
-               ((m_config.superFox() && (decodedtext0.mid(24, 8) == "$VERIFY$")) || // $VERIFY$ K8R 920749
-               (decodedtext0.mid(24,-1).contains(QRegularExpression{"^[A-Z0-9]{2,6}\\.[0-9]{6}"})))) // K8R.920749
-          {
-            // two cases:
-            // QString test_return = QString{"203630 -12  0.1  775 ~  K8R.920749"};
-            // $VERIFY$ foxcall otp
-            // QString test_return = QString{"203630 -12  0.1  775 ~  $VERIFY$ K8R 920749"};
-            QStringList lineparts;
-            QString callsign, otp;
-            unsigned int hz;
-            lineparts = decodedtext0.string().split(' ', SkipEmptyParts);
-            if (lineparts.length() <= 6) {
-              QStringList otp_parts;
-              // split K8.V920749 into K8R and 920749
-              otp_parts = lineparts[5].split('.', SkipEmptyParts);
-              callsign = otp_parts[0];
-              otp = otp_parts[1];
-              hz = lineparts[3].toInt();
-              if (!m_config.ShowOTP() or decodedtext0.mid(24,-1).contains(" 000000")) filtered = true;
-            } else {
-              // split $VERIFY$ K8R 920749 into K8R and 920749
-              callsign = lineparts[6];
-              otp = lineparts[7];
-              hz = 750; // SF is 750
-              if (!m_config.ShowOTP() or decodedtext0.mid(24,-1).contains(" 000000")) filtered = true;
-            }
-            QDateTime verifyDateTime;
-            if (m_diskData) {
-              verifyDateTime = m_UTCdiskDateTime; // get the date set from reading the wav file
-            } else {
-              verifyDateTime = QDateTime(QDateTime::currentDateTimeUtc().date(),
-                                         QTime::fromString(lineparts[0], "hhmmss"));
-            }
-            if (!decodedtext0.mid(24,-1).contains(" 000000")) {
-              FoxVerifier *fv = new FoxVerifier(MainWindow::userAgent(),
-                                                &m_network_manager,
-                                                m_config.OTPUrl(),
-                                                callsign, // foxcall
-                                                verifyDateTime,
-                                                otp,
-                                                hz); // freq
-              connect(fv, &FoxVerifier::verifyComplete, this, &MainWindow::handleVerifyMsg);
-              m_verifications << fv;
-            }
-          }
-#endif
+          processSFoxVerification(decodedtext0, filtered);
 
         QString text = decodedtext.string().replace("<","").replace(">","");   // for Wait & Reply/Call and filtering
 
-        // FT4 NS (NCCC Sprints): Log QSO after receiving "mycall hiscall R hisgrid"
-        if (m_mode=="FT4" && SpecOp::NA_VHF==m_specOp && m_config.NCCC_Sprint() && m_hisCall!="" && m_hisGrid!="" &&
-            text.contains(" " + m_config.my_callsign() + " " + m_hisCall + " R " + m_hisGrid.left(4))) {
-          if (m_config.prompt_to_log() || m_config.autoLog()) logQSOTimer.start(0);
-          QTimer::singleShot (500, [=] {
-            on_stopTxButton_clicked();
-          });
-        }
+        processSprintLogic(text);
+        if (!processWaitAndReply(decodedtext0, text)) return;
 
-        // Stop Wait & Call timeout when in QSO with this station
-        if (ui->DX_Call_Button->isChecked() && m_hisCall!="" && text.contains(" " + m_config.my_callsign() + " " + m_hisCall)) {
-            stopWCTimer.stop();                                                   // stop any Wait & Call timeout
-            if (ui->DX_Call_Button->isChecked()) ui->DX_Call_Button->click ();    // disable Wait & Call
-            no_wait_and_call = false;                                             // reset Wait & Call
-        }
+        processWaitAndCall(decodedtext0, text, block_right_display);
 
-        // Wait & Reply + FT4 NS (NCCC Sprints) reply to incoming RR73 messages
-        if ((m_mode=="FT8" or m_mode=="FT4" or m_mode=="Q65" or m_mode=="FST4" or m_mode=="JT65" or m_mode=="JT9" or m_mode=="JT4") && m_hisCall!=""
-            && text.contains(" " + m_config.my_callsign() + " " + m_hisCall) && ((!text.contains("73 ")
-            && m_config.Wait_features_enabled() && !ui->autoButton->isChecked())
-            or (m_mode=="FT4" && SpecOp::NA_VHF==m_specOp && m_config.NCCC_Sprint()))) {
-              if (SpecOp::HOUND==m_specOp && (text.mid(4,2).contains("15") or text.mid(4,2).contains("45"))) return;  // ignore stations calling in the wrong time slot
-              tx_watchdog (false);
-              m_bDoubleClicked = true;
-              processMessage(decodedtext0);
-              auto_tx_mode(true);
-              if (m_mode=="FT4" && SpecOp::NA_VHF==m_specOp && m_config.NCCC_Sprint()) {
-                if (!no_logging) logQSOTimer.start(0);  // logging of stations not in contest mode
-              } else {
-                if (m_config.Wait_features_enabled()) stopWRTimer.start(int(8000.0*m_TRperiod));    // Wait & Reply Tx max 8*TRperiod
-              }
-        }
+        if (!applyFiltering(decodedtext, text, filtered)) return;
 
-        // Wait & Call
-        if (wait_and_call && (m_mode=="FT8" or m_mode=="FT4" or m_mode=="Q65" or m_mode=="FST4" or m_mode=="JT65" or m_mode=="JT9" or m_mode=="JT4") &&
-            m_specOp!=SpecOp::FOX && ui->cbAutoSeq->isChecked() && m_hisCall!="" && !no_wait_and_call &&
-            (text.contains("CQ " + m_hisCall) or text.contains("CQ DX " + m_hisCall) or text.contains(m_hisCall + " RR73")
-             or text.contains(m_hisCall + " RRR") or text.contains(m_hisCall + " 73"))
-            && m_config.Wait_features_enabled()) {
-              if (!text.contains(" " + m_config.my_callsign() + " " + m_hisCall))
-                  block_right_display = true;                // prevent display of first message twice
-              m_bDoubleClicked = true;
-              processMessage(decodedtext0);
-              auto_tx_mode(true);
-              no_wait_and_call = true;
-              stopWCTimer.start(int(6200.0*m_TRperiod));     // Wait & Call Tx max 8*TRperiod
-        }
-
-        // Filtering
-        QString text2 = "";
-        QStringList tw;
-        if (m_mode == "FT8" or m_mode == "FT4" or m_mode == "Q65" or m_mode == "FST4") {
-          tw=text.mid(24).split(" ",SkipEmptyParts);
-        } else {
-          tw=text.mid(22).split(" ",SkipEmptyParts);
-        }
-        if (m_config.filters_for_word2()) {
-              if (tw.size () < 2) {
-                  text2 = "___";    // prevent segfault errors with free text messages
-              } else if (tw[1].length() == 2 && tw[1].contains(QRegularExpression{"\\w\\w"})) {   // directional calls
-                  if (tw.size () > 2) {
-                    text2 = tw[2];  // for directional calls analyze word 3 for filtering
-                  } else {
-                    text2 = "___";  // prevent segfault errors with free text messages
-                  }
-              } else {
-                  if (text.contains(";")) {
-                    text2 = tw[3];    // analyze word 4 for filtering of combined messages
-                  } else {
-                    text2 = tw[1];    // otherwise analyze word 2 for filtering
-                  }
-              }
-              if (!(SpecOp::NONE==m_specOp && m_config.AlwaysPass () // Always pass messages with keywords from Always Pass list
-                    && MessageFilter::startsWithAny(text2, m_config.pass_keywords()))) {
-
-                  // Filtering out messages with keywords from Blacklist
-                  if ((SpecOp::NONE==m_specOp or SpecOp::HOUND==m_specOp) && m_config.Blacklisted ()
-                      && MessageFilter::startsWithAny(text2, m_config.blacklist_keywords())) {
-                    if (!ui->cbBypass->isChecked()) filtered = true;
-                    if (!(m_config.filters_for_Wait_and_Pounce_only() or ui->cbBypass->isChecked()))  return;
-                    // reset dB score when filtered
-                    if (pounce && (ui->respondComboBox->currentText()=="CQ: Max Dist"
-                                    or ui->respondComboBox->currentText()=="CQ: Max dB"
-                                    or ui->respondComboBox->currentText()=="CQ: Min dB")) {
-                      Dpoints=0;
-                      maxDPoints=0;
-                      dBpoints=-28;
-                      dBpoints2=99;
-                      maxdBPoints=-28;
-                      mindBPoints=99;
-                    }
-
-                  // Filtering out everything but messages with keywords from Whitelist
-                  } else if ((SpecOp::NONE==m_specOp or SpecOp::HOUND==m_specOp) && m_config.Whitelisted ()
-                             && !MessageFilter::startsWithAny(text2, m_config.whitelist_keywords())) {
-                    if (!ui->cbBypass->isChecked()) filtered = true;
-                    if (!(m_config.filters_for_Wait_and_Pounce_only() or ui->cbBypass->isChecked()))  return;
-                    // reset dB score when filtered
-                    if (pounce && (ui->respondComboBox->currentText()=="CQ: Max Dist"
-                                    or ui->respondComboBox->currentText()=="CQ: Max dB"
-                                    or ui->respondComboBox->currentText()=="CQ: Min dB")) {
-                      Dpoints=0;
-                      maxDPoints=0;
-                      dBpoints=-28;
-                      dBpoints2=99;
-                      maxdBPoints=-28;
-                      mindBPoints=99;
-                    }
-                  }
-
-                  // search logbook for filtering
-                  if (ui->actionHideTerritory1->isChecked() or ui->actionHideTerritory2->isChecked() or
-                      ui->actionHideTerritory3->isChecked() or ui->actionHideTerritory4->isChecked() or
-                      ui->actionHideB4->isChecked() or ui->actionHideEU->isChecked() or ui->actionHideAS->isChecked() or
-                      ui->actionHideNA->isChecked() or ui->actionHideSA->isChecked() or ui->actionHideAF->isChecked() or
-                      ui->actionHideOC->isChecked() or ui->actionHideAN->isChecked()) {
-                    QString deCall;
-                    QString deGrid;
-                    decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
-                    // search for country names
-                    if (ui->actionHideTerritory1->isChecked() or ui->actionHideTerritory2->isChecked() or
-                        ui->actionHideTerritory3->isChecked() or ui->actionHideTerritory4->isChecked()) {
-                      auto const& looked_up = m_logBook.countries ()->lookup (deCall);
-                      auto countryName = Radio::CountryNames::abbreviate(looked_up.entity_name);
-                      if (ui->actionHideTerritory1->isChecked() && countryName.contains(m_config.Territory1())
-                          && (m_config.Territory1()!="") && !ui->cbBypass->isChecked()) filtered = true;
-                      if (ui->actionHideTerritory2->isChecked() && countryName.contains(m_config.Territory2())
-                          && (m_config.Territory2()!="") && !ui->cbBypass->isChecked()) filtered = true;
-                      if (ui->actionHideTerritory3->isChecked() && countryName.contains(m_config.Territory3())
-                          && (m_config.Territory3()!="") && !ui->cbBypass->isChecked()) filtered = true;
-                      if (ui->actionHideTerritory4->isChecked() && countryName.contains(m_config.Territory4())
-                          && (m_config.Territory4()!="") && !ui->cbBypass->isChecked()) filtered = true;
-                    }
-                    // search for callsigns worked B4 on band
-                    if (ui->actionHideB4->isChecked()) {
-                      bool callB4onBand;
-                      bool countryB4onBand;
-                      bool gridB4onBand;
-                      bool continentB4onBand;
-                      bool CQZoneB4onBand;
-                      bool ITUZoneB4onBand;
-                      auto const& looked_up = m_logBook.countries ()->lookup (deCall);
-                      m_logBook.match (deCall, m_mode, deGrid, looked_up, callB4onBand, countryB4onBand, gridB4onBand,
-                        continentB4onBand, CQZoneB4onBand, ITUZoneB4onBand, m_currentBand);
-                      if (callB4onBand && ui->actionHideB4->isChecked() && !ui->cbBypass->isChecked()) filtered = true;
-                    }
-                    // search for continents
-                    if (ui->actionHideEU->isChecked() or ui->actionHideAS->isChecked() or ui->actionHideNA->isChecked()
-                        or ui->actionHideSA->isChecked() or ui->actionHideAF->isChecked() or ui->actionHideOC->isChecked()
-                        or ui->actionHideAN->isChecked()) {
-                      auto const& looked_up = m_logBook.countries ()->lookup (deCall);
-                      QString continent = AD1CCty::continent (looked_up.continent);
-                      if (ui->actionHideEU->isChecked() && continent == "EU" && !ui->cbBypass->isChecked()) filtered = true;
-                      if (ui->actionHideAS->isChecked() && continent == "AS" && !ui->cbBypass->isChecked()) filtered = true;
-                      if (ui->actionHideNA->isChecked() && continent == "NA" && !ui->cbBypass->isChecked()) filtered = true;
-                      if (ui->actionHideSA->isChecked() && continent == "SA" && !ui->cbBypass->isChecked()) filtered = true;
-                      if (ui->actionHideAF->isChecked() && continent == "AF" && !ui->cbBypass->isChecked()) filtered = true;
-                      if (ui->actionHideOC->isChecked() && continent == "OC" && !ui->cbBypass->isChecked()) filtered = true;
-                      if (ui->actionHideAN->isChecked() && continent == "AN" && !ui->cbBypass->isChecked()) filtered = true;
-                    }
-                  }
-              }
-        } else {
-              if (!(SpecOp::NONE==m_specOp && m_config.AlwaysPass () // Always pass messages with keywords from Always Pass list
-                    && MessageFilter::containsAny(text, m_config.pass_keywords()))) {
-
-                  // Filtering out messages with keywords from Blacklist
-                  if ((SpecOp::NONE==m_specOp or SpecOp::HOUND==m_specOp) && m_config.Blacklisted ()
-                      && MessageFilter::containsAny(text, m_config.blacklist_keywords())) {
-                    if (!ui->cbBypass->isChecked()) filtered = true;
-                    if (!(m_config.filters_for_Wait_and_Pounce_only() or ui->cbBypass->isChecked()))  return;
-                    // reset dB score when filtered
-                    if (pounce && (ui->respondComboBox->currentText()=="CQ: Max Dist"
-                                    or ui->respondComboBox->currentText()=="CQ: Max dB"
-                                    or ui->respondComboBox->currentText()=="CQ: Min dB")) {
-                      Dpoints=0;
-                      maxDPoints=0;
-                      dBpoints=-28;
-                      dBpoints2=99;
-                      maxdBPoints=-28;
-                      mindBPoints=99;
-                    }
-
-                  // Filtering out everything but messages with keywords from Whitelist
-                  } else if ((SpecOp::NONE==m_specOp or SpecOp::HOUND==m_specOp) && m_config.Whitelisted ()
-                             && !MessageFilter::containsAny(text, m_config.whitelist_keywords())) {
-                    if (!ui->cbBypass->isChecked()) filtered = true;
-                    if (!(m_config.filters_for_Wait_and_Pounce_only() or ui->cbBypass->isChecked()))  return;
-                    // reset dB score when filtered
-                    if (pounce && (ui->respondComboBox->currentText()=="CQ: Max Dist"
-                                    or ui->respondComboBox->currentText()=="CQ: Max dB"
-                                    or ui->respondComboBox->currentText()=="CQ: Min dB")) {
-                      Dpoints=0;
-                      maxDPoints=0;
-                      dBpoints=-28;
-                      dBpoints2=99;
-                      maxdBPoints=-28;
-                      mindBPoints=99;
-                    }
-                  }
-
-                  // search logbook for filtering
-                  if (ui->actionHideTerritory1->isChecked() or ui->actionHideTerritory2->isChecked() or
-                      ui->actionHideTerritory3->isChecked() or ui->actionHideTerritory4->isChecked() or
-                      ui->actionHideB4->isChecked() or ui->actionHideEU->isChecked() or ui->actionHideAS->isChecked() or
-                      ui->actionHideNA->isChecked() or ui->actionHideSA->isChecked() or ui->actionHideAF->isChecked() or
-                      ui->actionHideOC->isChecked() or ui->actionHideAN->isChecked()) {
-                    QString deCall;
-                    QString deGrid;
-                    decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
-                    // search for country names
-                    if (ui->actionHideTerritory1->isChecked() or ui->actionHideTerritory2->isChecked() or
-                        ui->actionHideTerritory3->isChecked() or ui->actionHideTerritory4->isChecked()) {
-                      auto const& looked_up = m_logBook.countries ()->lookup (deCall);
-                      auto countryName = Radio::CountryNames::abbreviate(looked_up.entity_name);
-                      if (ui->actionHideTerritory1->isChecked() && countryName.contains(m_config.Territory1())
-                          && (m_config.Territory1()!="") && !ui->cbBypass->isChecked()) filtered = true;
-                      if (ui->actionHideTerritory2->isChecked() && countryName.contains(m_config.Territory2())
-                          && (m_config.Territory2()!="") && !ui->cbBypass->isChecked()) filtered = true;
-                      if (ui->actionHideTerritory3->isChecked() && countryName.contains(m_config.Territory3())
-                          && (m_config.Territory3()!="") && !ui->cbBypass->isChecked()) filtered = true;
-                      if (ui->actionHideTerritory4->isChecked() && countryName.contains(m_config.Territory4())
-                          && (m_config.Territory4()!="") && !ui->cbBypass->isChecked()) filtered = true;
-                    }
-                    // search for callsigns worked B4 on band
-                    if (ui->actionHideB4->isChecked()) {
-                      bool callB4onBand;
-                      bool countryB4onBand;
-                      bool gridB4onBand;
-                      bool continentB4onBand;
-                      bool CQZoneB4onBand;
-                      bool ITUZoneB4onBand;
-                      auto const& looked_up = m_logBook.countries ()->lookup (deCall);
-                      m_logBook.match (deCall, m_mode, deGrid, looked_up, callB4onBand, countryB4onBand, gridB4onBand,
-                        continentB4onBand, CQZoneB4onBand, ITUZoneB4onBand, m_currentBand);
-                      if (callB4onBand && ui->actionHideB4->isChecked() && !ui->cbBypass->isChecked()) filtered = true;
-                    }
-                    // search for continents
-                    if (ui->actionHideEU->isChecked() or ui->actionHideAS->isChecked() or ui->actionHideNA->isChecked()
-                        or ui->actionHideSA->isChecked() or ui->actionHideAF->isChecked() or ui->actionHideOC->isChecked()
-                        or ui->actionHideAN->isChecked()) {
-                      auto const& looked_up = m_logBook.countries ()->lookup (deCall);
-                      QString continent = AD1CCty::continent (looked_up.continent);
-                      if (ui->actionHideEU->isChecked() && continent == "EU" && !ui->cbBypass->isChecked()) filtered = true;
-                      if (ui->actionHideAS->isChecked() && continent == "AS" && !ui->cbBypass->isChecked()) filtered = true;
-                      if (ui->actionHideNA->isChecked() && continent == "NA" && !ui->cbBypass->isChecked()) filtered = true;
-                      if (ui->actionHideSA->isChecked() && continent == "SA" && !ui->cbBypass->isChecked()) filtered = true;
-                      if (ui->actionHideAF->isChecked() && continent == "AF" && !ui->cbBypass->isChecked()) filtered = true;
-                      if (ui->actionHideOC->isChecked() && continent == "OC" && !ui->cbBypass->isChecked()) filtered = true;
-                      if (ui->actionHideAN->isChecked() && continent == "AN" && !ui->cbBypass->isChecked()) filtered = true;
-                    }
-                  }
-              }
-        }
-
-        // mute audible alerts when callsign is on the Ignored List
-        if (m_config.alert_Enabled() && !ui->cbBypass->isChecked()) {
-          QString deCall;
-          QString deGrid;
-          decodedtext.deCallAndGrid(deCall,deGrid);
-          if (deCall!="" && ignoreList.contains(deCall + ",")) m_muted = true;
-        }
-
-        // hide or ignore callsigns
-        if (ui->actionHideIgnored->isChecked() or ui->actionHideToday->isChecked() or ui->actionIgnoreIgnored->isChecked() or ui->actionIgnoreToday->isChecked()) {
-            QString today = QDateTime::currentDateTimeUtc().toString ("yyyy-MM-dd");
-            QString yesterday = QDateTime::currentDateTimeUtc().addDays(-1).toString ("yyyy-MM-dd");
-            QString deCall;
-            QString deGrid;
-            decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
-            if (ui->actionHideIgnored->isChecked() && !ui->cbBypass->isChecked() && ignoreList.contains(deCall + ",")) filtered = true;
-            if (ui->actionHideToday->isChecked() && !ui->cbBypass->isChecked() && (
-                  txLog.contains(QRegularExpression{today + ",[0-9][0-9]:[0-9][0-9]:[0-9][0-9]," + (deCall + ",")})
-                  or (m_config.twoDays() && txLog.contains(QRegularExpression{yesterday + ",[0-9][0-9]:[0-9][0-9]:[0-9][0-9]," + (deCall + ",")})))) {
-               filtered = true;
-            }
-            if (ui->actionIgnoreIgnored->isChecked() && ignoreList.contains(deCall + ",")) {
-              ignored = true;
-              m_muted = true;
-            }
-            if (ui->actionIgnoreToday->isChecked() && (txLog.contains(QRegularExpression{today + ",[0-9][0-9]:[0-9][0-9]:[0-9][0-9]," + (deCall + ",")})
-                or (m_config.twoDays() && txLog.contains(QRegularExpression{yesterday + ",[0-9][0-9]:[0-9][0-9]:[0-9][0-9]," + (deCall + ",")})))) {
-               ignored = true;
-               m_muted = true;
-            }
-        }
-        if (ui->actionIgnoreB4->isChecked() && (pounce or m_auto)) {
-          QString deCall;
-          QString deGrid;
-          decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
-          bool callB4onBand;
-          bool countryB4onBand;
-          bool gridB4onBand;
-          bool continentB4onBand;
-          bool CQZoneB4onBand;
-          bool ITUZoneB4onBand;
-          auto const& looked_up = m_logBook.countries ()->lookup (deCall);
-          m_logBook.match (deCall, m_mode, deGrid, looked_up, callB4onBand, countryB4onBand, gridB4onBand,
-            continentB4onBand, CQZoneB4onBand, ITUZoneB4onBand, m_currentBand);
-          if (callB4onBand && ui->actionIgnoreB4->isChecked() && !ui->cbBypass->isChecked()) {
-            ignored = true;
-            m_muted = true;
-          }
-        }
 
         // insert blank line, but only if not filtered and no decodes
         int ntime=6;
@@ -5796,117 +4830,17 @@ void MainWindow::readFromStdout()                             //readFromStdout
         }
 
         // SuperHound label
-        if (ui->labDXped->text().contains("Hound") && decodedtext0.mid(3,18).contains(" verified")) {
-          verified = true;
-          write_all("Vf",decodedtext0.string());
-          ui->labDXped->setStyleSheet("QLabel {background-color: #00ff00; color: black;}");
-        } else {
-#ifndef FOX_OTP
-          if (m_specOp==SpecOp::HOUND && m_config.superFox() && (decodedtext0.mid(4,2).contains("00") or decodedtext0.mid(4,2).contains("30"))) verified = false;
-#endif
-        }
-        if ((!verified && ui->labDXped->isVisible()) or !ui->labDXped->text().contains("Hound"))
-          ui->labDXped->setStyleSheet("QLabel {background-color: red; color: white;}");
+        processSuperHoundVerification(decodedtext0, verified);
 
         // show distance and bearing
         if (!filtered or m_config.filters_for_Wait_and_Pounce_only()) {  // show decodes if not filtered
-          QString distance;
-          QString deCall;
-          QString deGrid;
-          decodedtext.deCallAndGrid(deCall,deGrid);
-          if ((m_config.showDistance() || m_config.showAzimuth()) && deGrid.contains(grid_regexp)) {
-            double utch=0.0;
-            int nAz,nEl,nDmiles,nDkm,nHotAz,nHotABetter;
-            QString my_Grid = m_config.my_grid();
-            if (my_Grid.length() < 5) my_Grid = m_config.my_grid().left(4)+"mm";
-            QString de_Grid= deGrid.left(4)+"mm";
-            azdist_(const_cast <char *> (my_Grid.toLatin1().constData()),
-                    const_cast <char *> (de_Grid.toLatin1().constData()),&utch,
-                    &nAz,&nEl,&nDmiles,&nDkm,&nHotAz,&nHotABetter,(FCL)6,(FCL)6);
-            if (m_config.showDistance()) {
-                int nd=nDkm;
-                if(m_config.miles()) nd=nDmiles;
-                distance = QString::number(nd);
-                if(m_config.miles()) distance += " mi";
-                if(!m_config.miles()) distance += " km";
-            }
-            if (m_config.showAzimuth()) {
-                if (distance.length()) distance += " / ";
-                distance += QString::number(nAz) + "°";
-            }
-          }
-
-          // display country names for JT65 and JT9 like for FT8
-          if ((m_mode == "JT65" or m_mode == "JT9" or m_mode == "JT4") && m_config.DXCC()) {
-            DecodedText decodedtextJT {((QString::fromUtf8(line_read.left(44).constData())) + (QString::fromUtf8(line_read.mid(62, 2).constData())))};
-            ui->decodedTextBrowser->displayDecodedText (decodedtextJT, m_config.my_callsign (), m_mode, m_config.DXCC (),
-                                                        m_logBook, m_currentBandPeriod, m_config.ppfx (),
-                                                        ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
-                                                        haveFSpread, fSpread, bDisplayPoints, m_points, distance, m_muted);
-          } else {
-            if (ui->actionHide_AP_info->isVisible() && ui->actionHide_AP_info->isChecked()) {
-              // Hide FT8 AP information
-              DecodedText decodedtext2 {(QString::fromUtf8(line_read.replace("a1","").replace("a2","").replace("a3","").replace("a4","")
-                                         .replace("a5","").replace("a6","").replace("a7","").replace("a8","").replace("a9","").replace("?","")))};
-              ui->decodedTextBrowser->displayDecodedText (decodedtext2, m_config.my_callsign (), m_mode, m_config.DXCC (),
-                                                          m_logBook, m_currentBandPeriod, m_config.ppfx (),
-                                                          ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
-                                                          haveFSpread, fSpread, bDisplayPoints, m_points, distance, m_muted);
-            } else {
-              ui->decodedTextBrowser->displayDecodedText (decodedtext1, m_config.my_callsign (), m_mode, m_config.DXCC (),
-                                                          m_logBook, m_currentBandPeriod, m_config.ppfx (),
-                                                          ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
-                                                          haveFSpread, fSpread, bDisplayPoints, m_points, distance, m_muted);
-            }
-          }
+          QString distance = calculateDistanceAndBearing(decodedtext);
+          displayDecodedTextLine(decodedtext1, line_read, distance, haveFSpread, fSpread, bDisplayPoints);
           if(m_position != 0) ui->decodedTextBrowser->horizontalScrollBar()->setValue(m_position);
         }
         if (m_mode=="FT8" && ((m_multithreadFT8 && m_ft8DecoderStart<2) or m_freqNominal>45000000)) earlyDecodes.append(line_read); //ft8md
 
-        // highlight callsigns worked B4 on band or worked today
-        if(ui->actionHighlightB4->isChecked() or ui->actionHighlightToday->isChecked() or ui->actionHighlightIgnored->isChecked()
-           or ui->actionHighlightTerritory1->isChecked() or ui->actionHighlightTerritory2->isChecked()
-           or ui->actionHighlightTerritory3->isChecked() or ui->actionHighlightTerritory4->isChecked()) {
-            QString today = QDateTime::currentDateTimeUtc().toString ("yyyy-MM-dd");
-            QString yesterday = QDateTime::currentDateTimeUtc().addDays(-1).toString ("yyyy-MM-dd");
-            QString deCall;
-            QString deGrid;
-            decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
-            bool callB4onBand;
-            bool countryB4onBand;
-            bool gridB4onBand;
-            bool continentB4onBand;
-            bool CQZoneB4onBand;
-            bool ITUZoneB4onBand;
-            if (ui->actionHighlightB4->isChecked()) {
-                auto const& looked_up = m_logBook.countries ()->lookup (deCall);
-                m_logBook.match (deCall, m_mode, deGrid, looked_up, callB4onBand, countryB4onBand, gridB4onBand,
-                                 continentB4onBand, CQZoneB4onBand, ITUZoneB4onBand, m_currentBand);
-                if (callB4onBand) ui->decodedTextBrowser->highlight_callsign(deCall, QColor(195,195,195), QColor(0,0,0), true);
-            }
-            if (ui->actionHighlightToday->isChecked() && (
-                txLog.contains(QRegularExpression{today + ",[0-9][0-9]:[0-9][0-9]:[0-9][0-9]," + (deCall + ",")})
-                or (m_config.twoDays() && txLog.contains(QRegularExpression{yesterday + ",[0-9][0-9]:[0-9][0-9]:[0-9][0-9]," + (deCall + ",")})))) {
-              ui->decodedTextBrowser->highlight_callsign(deCall, QColor(100,100,100), QColor(255,255,0), true);
-            }
-            if (ui->actionHighlightIgnored->isChecked() && ignoreList.contains(deCall + ",")) {
-              ui->decodedTextBrowser->highlight_callsign(deCall, QColor(85,0,0), QColor(255,255,0), true);
-            }
-            // search for country names
-            if (ui->actionHighlightTerritory1->isChecked() or ui->actionHighlightTerritory2->isChecked() or
-                ui->actionHighlightTerritory3->isChecked() or ui->actionHighlightTerritory4->isChecked()) {
-              auto const& looked_up = m_logBook.countries ()->lookup (deCall);
-              auto countryName = Radio::CountryNames::abbreviate(looked_up.entity_name);
-              if (ui->actionHighlightTerritory1->isChecked() && countryName.contains(m_config.Territory1())
-                  && (m_config.Territory1()!="") && !ui->cbBypass->isChecked()) ui->decodedTextBrowser->highlight_callsign(deCall, QColor(115,43,245), QColor(255,255,255), true);
-              if (ui->actionHighlightTerritory2->isChecked() && countryName.contains(m_config.Territory2())
-                  && (m_config.Territory2()!="") && !ui->cbBypass->isChecked()) ui->decodedTextBrowser->highlight_callsign(deCall, QColor(115,43,245), QColor(255,255,255), true);
-              if (ui->actionHighlightTerritory3->isChecked() && countryName.contains(m_config.Territory3())
-                  && (m_config.Territory3()!="") && !ui->cbBypass->isChecked()) ui->decodedTextBrowser->highlight_callsign(deCall, QColor(115,43,245), QColor(255,255,255), true);
-              if (ui->actionHighlightTerritory4->isChecked() && countryName.contains(m_config.Territory4())
-                  && (m_config.Territory4()!="") && !ui->cbBypass->isChecked()) ui->decodedTextBrowser->highlight_callsign(deCall, QColor(115,43,245), QColor(255,255,255), true);
-            }
-        }
+        applyHighlighting(decodedtext, play_Wanted, play_DXcall);
 
         if((m_mode=="FT4" or m_mode=="FT8") and bDisplayPoints and decodedtext1.isStandardMessage()) {
          QString deCall,deGrid;
@@ -5915,121 +4849,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
          if(bWorkedOnBand) activeWorked(deCall,m_currentBand);
         }
 
-        // CQ: First
-        if(((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled())
-              or (m_auto && m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " "))) && !ignored
-            && !filtered && !selected && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText()=="CQ: First"
-            && (!(ui->actionFull_Duplex_Mode->isChecked() && m_txing))) {
-          m_bDoubleClicked=true;
-          selected = true;
-          auto_tx_mode(true);
-          processMessage(decodedtext0);
-          auto now = QDateTime::currentDateTimeUtc();
-          m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));
-          QTimer::singleShot (6000, [=] {selected = false;});
-          if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));     // Tx max 6*TRperiod
-        }
-
-        // CQ: Max Dist
-        if((pounce or m_auto) && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText()=="CQ: Max Dist"
-            && (!(ui->actionFull_Duplex_Mode->isChecked() && m_txing))) {
-          QString deCall;
-          QString deGrid;
-          decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
-          if (!filtered && !ignored && (deGrid.contains(grid_regexp) or m_bCallingCQ) && (
-              (pounce && text.contains(" CQ ") && !txLog.contains(deCall) && m_config.Wait_features_enabled()) or
-              (m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " ") && !text.contains("73 "))
-               )) {
-            double utch=0.0;
-            int nAz,nEl,nDmiles,nDkm,nHotAz,nHotABetter;
-            azdist_(const_cast <char *> ((m_config.my_grid () + "      ").left (6).toLatin1().constData()),
-                    const_cast <char *> ((deGrid + "      ").left (6).toLatin1().constData()),&utch,
-                    &nAz,&nEl,&nDmiles,&nDkm,&nHotAz,&nHotABetter,6,6);
-            Dpoints=nDkm;
-            if (!deGrid.contains(grid_regexp)) Dpoints=1;
-            if(Dpoints>maxDPoints) {
-                maxDPoints=Dpoints;
-                m_deCall=deCall;
-                m_bDoubleClicked=true;
-                if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {
-                  auto_tx_mode(true);
-                  processMessage(decodedtext0);
-                  if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));     // Tx max 6*TRperiod
-                }
-                ui->dxCallEntry->setText(deCall);
-                genStdMsgs(QString::number(decodedtext.snr()));
-                ui->RxFreqSpinBox->setValue(decodedtext.frequencyOffset());
-                setTxMsg(m_ntx);
-                m_currentMessageType=m_ntx;
-                auto now = QDateTime::currentDateTimeUtc();
-                m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));
-            }
-          }
-        }
-
-        // CQ: Max dB
-        if((pounce or m_auto) && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText()=="CQ: Max dB"
-            && (!(ui->actionFull_Duplex_Mode->isChecked() && m_txing))) {
-          QString deCall;
-          QString deGrid;
-          decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
-          if (!filtered && !ignored && (
-              (pounce && text.contains(" CQ ") && !txLog.contains(deCall) && m_config.Wait_features_enabled()) or
-              (m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " ") && !text.contains("73 "))
-               )) {
-                  dBpoints=decodedtext.string().mid(7,3).toInt();
-                  if(dBpoints>maxdBPoints) {
-                      maxdBPoints=dBpoints;
-                      m_deCall=deCall;
-                      m_bDoubleClicked=true;
-                      if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {
-                        auto_tx_mode(true);
-                        processMessage(decodedtext0);
-                        if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));     // Tx max 6*TRperiod
-                      }
-                      ui->dxCallEntry->setText(deCall);
-                      genStdMsgs(QString::number(decodedtext.snr()));
-                      ui->RxFreqSpinBox->setValue(decodedtext.frequencyOffset());
-                      setTxMsg(m_ntx);
-                      m_currentMessageType=m_ntx;
-                      auto now = QDateTime::currentDateTimeUtc();
-                      m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));
-                      QTimer::singleShot (6000, [=] {selected = false;});
-                  }
-          }
-        }
-
-        // CQ: Min dB
-        if((pounce or m_auto) && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText()=="CQ: Min dB"
-            && (!(ui->actionFull_Duplex_Mode->isChecked() && m_txing))) {
-          QString deCall;
-          QString deGrid;
-          decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
-          if (!filtered && !ignored && (
-              (pounce && text.contains(" CQ ") && !txLog.contains(deCall) && m_config.Wait_features_enabled()) or
-              (m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " ") && !text.contains("73 "))
-               )) {
-                  dBpoints2=decodedtext.string().mid(7,3).toInt();
-                  if(dBpoints2<mindBPoints) {
-                      mindBPoints=dBpoints2;
-                      m_deCall=deCall;
-                      m_bDoubleClicked=true;
-                      if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {
-                        auto_tx_mode(true);
-                        processMessage(decodedtext0);
-                        if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));     // Tx max 6*TRperiod
-                      }
-                      ui->dxCallEntry->setText(deCall);
-                      genStdMsgs(QString::number(decodedtext.snr()));
-                      ui->RxFreqSpinBox->setValue(decodedtext.frequencyOffset());
-                      setTxMsg(m_ntx);
-                      m_currentMessageType=m_ntx;
-                      auto now = QDateTime::currentDateTimeUtc();
-                      m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));
-                      QTimer::singleShot (6000, [=] {selected = false;});
-                  }
-          }
-        }
+        updateRespondTarget(decodedtext0, text, selected, pounce);
 
         // Ensure that Tx stops and QSO is logged when repeat_Tx is enabled and "73" is received
         if(m_config.repeat_Tx() && m_mode=="Q65" && m_hisCall!="" && text.contains(m_baseCall) && text.contains(m_hisCall + " 73 ")) {
@@ -6037,68 +4857,6 @@ void MainWindow::readFromStdout()                             //readFromStdout
           cease_auto_Tx_after_QSO();
         }
 
-        // highlight orange and blue callsigns
-        if (m_config.highlight_orange() or (m_config.highlight_blue()) or ui->actionHighlight_Whitelist_entries->isChecked()) {
-          QString deCall;
-          QString deGrid;
-          decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
-          if (m_config.highlight_orange() && deCall.size()>2 && (m_config.highlight_orange_callsigns().contains(deCall + ",")
-              or m_config.highlight_orange_callsigns().contains(deCall.left(3) + ";") or m_config.highlight_orange_callsigns().contains(deCall.left(2) + ";"))) {
-            ui->decodedTextBrowser->highlight_callsign(deCall, QColor(225,75,0), QColor(255,255,255), true);
-            if (m_config.alert_Enabled() && m_config.alert_Wanted() && !m_muted) play_Wanted = true;
-          }
-          if (m_config.highlight_orange() && deGrid.size()>3 && m_config.highlight_orange_callsigns().contains(deGrid)) {
-            ui->decodedTextBrowser->highlight_callsign(deGrid, QColor(225,75,0), QColor(255,255,255), true);
-            if (m_config.alert_Enabled() && m_config.alert_Wanted() && !m_muted) play_Wanted = true;
-          }
-          if (m_config.highlight_blue() && deCall.size()>2 && (m_config.highlight_blue_callsigns().contains(deCall + ",")
-              or m_config.highlight_blue_callsigns().contains(deCall.left(3) + ";") or m_config.highlight_blue_callsigns().contains(deCall.left(2) + ";"))) {
-            ui->decodedTextBrowser->highlight_callsign(deCall, QColor(0,100,255), QColor(255,255,255), true);
-            if (m_config.alert_Enabled() && m_config.alert_Wanted() && !m_muted) play_Wanted = true;
-          }
-          if (m_config.highlight_blue() && deGrid.size()>3 && m_config.highlight_blue_callsigns().contains(deGrid)) {
-            ui->decodedTextBrowser->highlight_callsign(deGrid, QColor(0,100,255), QColor(255,255,255), true);
-            if (m_config.alert_Enabled() && m_config.alert_Wanted() && !m_muted) play_Wanted = true;
-          }
-          // highlight directional calls
-          if (tw.size () > 2) {
-            if (m_config.highlight_orange() && tw[0]=="CQ" && m_config.highlight_orange_callsigns().contains("," + tw[1] + ",")) {
-              ui->decodedTextBrowser->highlight_callsign(tw[1], QColor(225,75,0), QColor(255,255,255), true);
-              if (m_config.alert_Enabled() && m_config.alert_Wanted() && !m_muted && tw[1]!="") play_Wanted = true;
-            }
-            if (m_config.highlight_blue() && tw[0]=="CQ" && m_config.highlight_blue_callsigns().contains("," + tw[1] + ",")) {
-              ui->decodedTextBrowser->highlight_callsign(tw[1], QColor(0,100,255), QColor(255,255,255), true);
-              if (m_config.alert_Enabled() && m_config.alert_Wanted() && !m_muted && tw[1]!="") play_Wanted = true;
-            }
-          }
-          // highlight Whitelist entries
-          if (ui->actionHighlight_Whitelist_entries->isChecked() && deCall.size()>2 &&
-              MessageFilter::containsAny(deCall, m_config.whitelist_keywords())) {
-            ui->decodedTextBrowser->highlight_callsign(deCall, QColor(170,0,127), QColor(255,255,255), true);
-            if (m_config.alert_Enabled() && m_config.alert_Wanted() && !m_muted) play_Wanted = true;
-          }
-        }
-
-        // Highlight DX Call/Grid
-        if (!pounce && (m_config.highlight_DXcall() or m_config.alert_Enabled()) && (m_hisCall != "") &&
-            ((decodedtext.string().contains(QRegularExpression{"(\\w+) " + m_hisCall}))
-             || (decodedtext.string().contains(QRegularExpression{"(\\w+) <" + m_hisCall + ">"}))
-             || (decodedtext.string().contains(QRegularExpression{"<(\\w+)> " + m_hisCall}))
-             || (decodedtext.string().contains(QRegularExpression{"<...> " + m_hisCall})))) {
-          if (m_config.alert_Enabled() && m_config.alert_DXcall() && !m_muted) play_DXcall = true;
-          if (m_config.highlight_DXcall()) {
-            // repeated highlighting to override JTAlert
-            ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);
-            QTimer::singleShot (500, [=] {ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);});
-            QTimer::singleShot (1000, [=] {ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);});
-            QTimer::singleShot (2500, [=] {ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);});
-          }
-        }
-        if (!pounce && (m_config.highlight_DXgrid () or m_config.alert_Enabled()) && (m_hisGrid!="") &&
-            (decodedtext.string().contains(m_hisGrid.left(4))))  {
-          if (m_config.highlight_DXgrid()) ui->decodedTextBrowser->highlight_callsign(m_hisGrid.left(4), QColor(0,0,200), QColor(255,255,255), true);
-          if (m_config.alert_Enabled() && m_config.alert_DXcall() && !m_muted) play_DXcall = true;
-        }
         QTimer::singleShot (100, [=] {
           if (m_config.alert_Enabled() && ((m_config.alert_DXcall() && play_DXcall && m_hisCall!="") or (m_config.alert_Wanted() && play_Wanted))) {
 #ifdef WIN32
@@ -6476,7 +5234,7 @@ void MainWindow::pskPost (DecodedText const& decodedtext)
   }
   int snr = decodedtext.snr();
   Frequency frequency = m_freqNominalPeriod + audioFrequency;   // prevent spotting wrong band
-  if(grid.contains (grid_regexp)  || decodedtext.string().contains(" CQ ")) {
+  if(grid.contains (MainWindow::grid_regexp)  || decodedtext.string().contains(" CQ ")) {
 //    qDebug() << "To PSKreporter:" << deCall << grid << frequency << msgmode << snr;
     if (!m_psk_Reporter.addRemoteStation (deCall, grid, frequency, msgmode, snr, qSpotTime))
       {
@@ -6490,26 +5248,6 @@ void MainWindow::killWaveFile ()
   Radio::WavFile::killWaveFile (m_fnameWE, m_saveAll, m_saveDecoded, m_bDecoded, m_mode);
 }
 
-void MainWindow::on_EraseButton_clicked ()
-{
-  qint64 ms=QDateTime::currentMSecsSinceEpoch();
-  if (m_config.alternate_erase_button()) {
-     ui->decodedTextBrowser->erase ();
-     if((ms-m_msErase)<500) {
-       ui->decodedTextBrowser2->erase ();
-     }
-  } else {
-     ui->decodedTextBrowser2->erase ();
-     if(m_mode=="WSPR" or m_mode=="Echo" or m_mode=="FST4W") {
-       ui->decodedTextBrowser->erase ();
-     } else {
-       if((ms-m_msErase)<500) {
-         ui->decodedTextBrowser->erase ();
-       }
-     }
-  }
-  m_msErase=ms;
-}
 
 void MainWindow::band_activity_cleared ()
 {
@@ -7391,7 +6129,7 @@ void MainWindow::useNextCall()
 {
   ui->dxCallEntry->setText(m_nextCall);
   m_nextCall="";
-  if(m_nextGrid.contains(grid_regexp)) {
+  if(m_nextGrid.contains(MainWindow::grid_regexp)) {
     ui->dxGridEntry->setText(m_nextGrid);
     m_ntx=2;
     ui->txrb2->setChecked(true);
@@ -7621,47 +6359,14 @@ void MainWindow::on_txrb6_toggled(bool status)
   }
 }
 
-void MainWindow::on_txb1_clicked()
-{
-  if (ui->tx1->isEnabled ()) {
-    m_ntx=1;
-    m_QSOProgress = REPLYING;
-    ui->txrb1->setChecked(true);
-    if(m_transmitting) m_restart=true;
-  }
-  else {
-    on_txb2_clicked ();
-  }
-}
 
 void MainWindow::on_txb1_doubleClicked()
 {
   ui->tx1->setEnabled (elide_tx1_not_allowed () || !ui->tx1->isEnabled ());
 }
 
-void MainWindow::on_txb2_clicked()
-{
-    m_ntx=2;
-    m_QSOProgress = REPORT;
-    ui->txrb2->setChecked(true);
-    if(m_transmitting) m_restart=true;
-}
 
-void MainWindow::on_txb3_clicked()
-{
-    m_ntx=3;
-    m_QSOProgress = ROGER_REPORT;
-    ui->txrb3->setChecked(true);
-    if(m_transmitting) m_restart=true;
-}
 
-void MainWindow::on_txb4_clicked()
-{
-    m_ntx=4;
-    m_QSOProgress = ROGERS;
-    ui->txrb4->setChecked(true);
-    if(m_transmitting) m_restart=true;
-}
 
 void MainWindow::on_txb4_doubleClicked()
 {
@@ -7673,31 +6378,12 @@ void MainWindow::on_txb4_doubleClicked()
   genStdMsgs (m_rpt);
 }
 
-void MainWindow::on_txb5_clicked()
-{
-    m_ntx=5;
-    m_QSOProgress = SIGNOFF;
-    ui->txrb5->setChecked(true);
-    if(m_transmitting) m_restart=true;
-}
 
 void MainWindow::on_txb5_doubleClicked()
 {
   genStdMsgs (m_rpt, true);
 }
 
-void MainWindow::on_txb6_clicked()
-{
-    m_ntx=6;
-    m_QSOProgress = CALLING;
-    set_dateTimeQSO(-1);
-    ui->txrb6->setChecked(true);
-    if(m_transmitting) m_restart=true;
-    if(m_mode=="MSK144" && !keep_msk144_frequency && m_msk144basefreq > 0 && !programStart && !m_band_changed) {
-      setRig(m_msk144basefreq);  // reset MSK144 QSY
-      msk144qsy = false;
-    }
-}
 
 void MainWindow::doubleClickOnCall2(Qt::KeyboardModifiers modifiers)
 {
@@ -7993,7 +6679,7 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
        && (message_words.at(2).contains(m_baseCall) || "DE" == message_words.at(2))
        && (message_words.at(3).contains(qso_partner_base_call) or m_bDoubleClicked
            or bEU_VHF_w2 or (m_QSOProgress==CALLING))) {
-      if(message_words.at(4).contains(grid_regexp) and SpecOp::EU_VHF!=m_specOp) {
+      if(message_words.at(4).contains(MainWindow::grid_regexp) and SpecOp::EU_VHF!=m_specOp) {
         if((SpecOp::NA_VHF==m_specOp or SpecOp::WW_DIGI==m_specOp or
             SpecOp::ARRL_DIGI==m_specOp or SpecOp::Q65_PILEUP==m_specOp)
            and bContestOK) {
@@ -8020,7 +6706,7 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
             m_QSOProgress=REPORT;
           }
         }
-      } else if(w34.contains(grid_regexp) and SpecOp::EU_VHF==m_specOp) {
+      } else if(w34.contains(MainWindow::grid_regexp) and SpecOp::EU_VHF==m_specOp) {
 
         if(nrpt==0) {
           setTxMsg(2);
@@ -8296,7 +6982,7 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
     if (!((s2.contains(" " + m_config.my_callsign() + " ") && s2.mid(22).contains(" 73")) && (ui->respondComboBox->currentText()=="CQ: Max dB"
            or ui->respondComboBox->currentText()=="CQ: Max dB"))) ui->dxCallEntry->setText (hiscall);
   }
-  if (hisgrid.contains (grid_regexp)) {
+  if (hisgrid.contains (MainWindow::grid_regexp)) {
     if(ui->dxGridEntry->text().mid(0,4) != hisgrid) ui->dxGridEntry->setText(hisgrid);
   }
   lookup();
@@ -8738,7 +7424,7 @@ void MainWindow::lookup()
       for(int i=0; i<999999; i++) {
         n=f.readLine(c,sizeof(c));
         if(n <= 0) {
-          if(!hisgrid0.contains(grid_regexp)) {
+          if(!hisgrid0.contains(MainWindow::grid_regexp)) {
             ui->dxGridEntry->clear();
           }
           break;
@@ -8763,116 +7449,8 @@ void MainWindow::lookup()
     }
 }
 
-void MainWindow::on_lookupButton_clicked()                    //Lookup button
-{
-  qint64 ms=QDateTime::currentMSecsSinceEpoch();
-  lookup();
-  if((ms-m_msErase)<500) {
-    QString hisCall=ui->dxCallEntry->text();
-    if (hisCall !="") QDesktopServices::openUrl (QUrl {"https://www.qrz.com/db/" + hisCall});
-  }
-  m_msErase=ms;
-}
 
-void MainWindow::on_addButton_clicked()                       //Add button
-{
-  if(!ui->dxGridEntry->text ().size ()) {
-    MessageBox::warning_message (this, tr ("Add to CALL3.TXT")
-                                 , tr ("Please enter a valid grid locator"));
-    return;
-  }
-  m_call3Modified=false;
-  QString hisCall=ui->dxCallEntry->text();
-  QString hisgrid=ui->dxGridEntry->text();
-  QString newEntry=hisCall + "," + hisgrid;
 
-  //  int ret = MessageBox::query_message(this, tr ("Add to CALL3.TXT"),
-  //       tr ("Is %1 known to be active on EME?").arg (newEntry));
-  //  if(ret==MessageBox::Yes) {
-  //    newEntry += ",EME,,";
-  //  } else {
-  newEntry += ",,,";
-  //  }
-
-  QFile f1 {m_config.writeable_data_dir ().absoluteFilePath ("CALL3.TXT")};
-  if(!f1.open(QIODevice::ReadWrite | QIODevice::Text)) {
-    MessageBox::warning_message (this, tr ("Add to CALL3.TXT")
-                                 , tr ("Cannot open \"%1\" for read/write: %2")
-                                 .arg (f1.fileName ()).arg (f1.errorString ()));
-    return;
-  }
-  if(f1.size()==0) {
-    QTextStream out(&f1);
-    out << "ZZZZZZ"
-#if QT_VERSION >= QT_VERSION_CHECK (5, 15, 0)
-        << Qt::endl
-#else
-        << endl
-#endif
-      ;
-    f1.seek (0);
-  }
-  QFile f2 {m_config.writeable_data_dir ().absoluteFilePath ("CALL3.TMP")};
-  if(!f2.open(QIODevice::ReadWrite | QIODevice::Truncate | QIODevice::Text)) {
-    MessageBox::warning_message (this, tr ("Add to CALL3.TXT")
-                                 , tr ("Cannot open \"%1\" for writing: %2")
-                                 .arg (f2.fileName ()).arg (f2.errorString ()));
-    return;
-  }
-  {
-    QTextStream in(&f1);          //Read from CALL3.TXT
-    QTextStream out(&f2);         //Copy into CALL3.TMP
-    QString hc=hisCall;
-    QString hc1="";
-    QString hc2="000000";
-    QString s;
-    do {
-      s=in.readLine();
-      hc1=hc2;
-      if(s.mid(0,2)=="//") {
-        out << s + QChar::LineFeed; //Copy all comment lines
-      } else {
-        int i1=s.indexOf(",");
-        hc2=s.mid(0,i1);
-        if(hc>hc1 && hc<hc2) {
-          out << newEntry + QChar::LineFeed;
-          out << s + QChar::LineFeed;
-          m_call3Modified=true;
-        } else if(hc==hc2) {
-          QString t {tr ("%1\nis already in CALL3.TXT"
-                         ", do you wish to replace it?").arg (s)};
-          int ret = MessageBox::query_message (this, tr ("Add to CALL3.TXT"), t);
-          if(ret==MessageBox::Yes) {
-            out << newEntry + QChar::LineFeed;
-            m_call3Modified=true;
-          }
-        } else {
-          if(s!="") out << s + QChar::LineFeed;
-        }
-      }
-    } while(!s.isNull());
-    if(hc>hc1 && !m_call3Modified) out << newEntry + QChar::LineFeed;
-  }
-
-  if(m_call3Modified) {
-    auto const& old_path = m_config.writeable_data_dir ().absoluteFilePath ("CALL3.OLD");
-    QFile f0 {old_path};
-    if (f0.exists ()) f0.remove ();
-    f1.copy (old_path);                       // copying as we want to
-                                              // preserve symlinks
-    f1.open (QFile::WriteOnly | QFile::Text); // truncates
-    f2.seek (0);
-    QByteArray tmp = f2.readAll();
-    if (tmp != (const char*)NULL) f1.write (tmp);                 // copy contents
-    else qDebug() << "tmp==NULL at f1.write";
-    f2.remove ();
-  }
-}
-
-void MainWindow::on_ignoreButton_clicked()                    //Ignore button
-{
-  addCallsignToignoreList();
-}
 
 void MainWindow::msgtype(QString t, QLineEdit* tx)               //msgtype()
 {
@@ -8976,19 +7554,6 @@ void MainWindow::on_RoundRobin_currentTextChanged(QString text)
   ui->sbTxPercent->setEnabled (text == tr ("Random"));
 }
 
-void MainWindow::on_DX_Call_Button_clicked (bool checked)
-{
-  if((m_mode=="FT8" or m_mode=="FT4" or m_mode=="Q65" or m_mode=="FST4" or m_mode=="MSK144") &&
-     (m_specOp==SpecOp::NONE or m_specOp==SpecOp::HOUND) && ui->cbAutoSeq->isChecked() && checked
-     && (m_hisCall!="" or (m_mode=="FT8" && m_specOp==SpecOp::HOUND))) {
-      wait_and_call = true;       // toggle Wait & Call on when allowed
-  } else {
-      wait_and_call = false;      // toggle Wait & Call off in any other case
-      ui->DX_Call_Button->setChecked (false);
-      if (m_specOp==SpecOp::HOUND && m_config.superFox() && !m_auto) clearDX();
-  }
-  check_button_color();
-}
 
 void MainWindow::wheelEvent(QWheelEvent *event)         // mouse wheel events
 {
@@ -9384,21 +7949,6 @@ void MainWindow::on_dxGridEntry_textChanged (QString const& grid)
   }
 }
 
-void MainWindow::on_genStdMsgsPushButton_clicked()          //genStdMsgs button
-{
-  ui->pbBandHopping->setChecked(false); // disable band hopping
-  genStdMsgs(m_rpt);
-  if (!m_bDoubleClicked && m_hisCall!="") {
-      if (ui->tx1->isEnabled ()) {
-          QTimer::singleShot (0, ui->txrb1, SLOT (click ()));   // Go to Tx1
-      } else {
-          QTimer::singleShot (0, ui->txrb2, SLOT (click ()));   // Go to Tx2 if Tx1 is disabled
-      }
-      m_bMyCallStd=stdCall(m_config.my_callsign()); //ft8md
-      m_bHisCallStd=stdCall(m_hisCall); //ft8md
-      
-  }
-}
 
 void MainWindow::cease_auto_Tx_after_QSO ()
 {
@@ -9412,94 +7962,6 @@ void MainWindow::cease_auto_Tx_after_QSO ()
     }
 }
 
-void MainWindow::on_logQSOButton_clicked()                 //Log QSO button
-{
-  if (!((m_config.repeat_Tx() or !m_send_RR73) && (m_mode=="MSK144" or m_mode=="Q65"))) {
-    if (SpecOp::NA_VHF==m_specOp && m_mode=="FT4" && m_config.NCCC_Sprint()) {
-      QTimer::singleShot (int(850.0*m_TRperiod), [=] {cease_auto_Tx_after_QSO ();});
-    } else {
-      cease_auto_Tx_after_QSO ();
-    }
-  }
-
-  if (!m_hisCall.size ()) {
-    MessageBox::warning_message (this, tr ("Warning:  DX Call field is empty."));
-    if ((SpecOp::NA_VHF == m_specOp or SpecOp::WW_DIGI == m_specOp) && m_config.autoLog()) return;  // prevent program crash
-  }
-  // m_dateTimeQSOOn should really already be set but we'll ensure it gets set to something just in case
-  if (!m_dateTimeQSOOn.isValid ()) {
-    auto now = QDateTime::currentDateTimeUtc();
-    m_dateTimeQSOOn = now.addSecs (-(m_ntx - 2) * int(m_TRperiod) -
-                                   int(fmod(double(now.time().second()),m_TRperiod)));
-  }
-  auto dateTimeQSOOff = QDateTime::currentDateTimeUtc();
-  if (dateTimeQSOOff < m_dateTimeQSOOn) dateTimeQSOOff = m_dateTimeQSOOn;
-  QString grid=m_hisGrid;
-  if(grid=="....") grid="";
-
-  // Optionally replace empty grids by "ZZ00"
-  if(m_config.ZZ00() && m_hisGrid=="" && m_specOp!=SpecOp::NONE && m_specOp!=SpecOp::FOX && m_specOp!=SpecOp::HOUND) m_hisGrid = "ZZ00";
-
-  switch( m_specOp )
-    {
-      case SpecOp::NA_VHF:
-        m_xSent=m_config.my_grid().left(4);
-        m_xRcvd=m_hisGrid.left(4);
-        break;
-      case SpecOp::EU_VHF:
-        m_rptSent=m_xSent.split(" ").at(0).left(2);
-        m_rptRcvd=m_xRcvd.split(" ").at(0).left(2);
-        if(m_xRcvd.split(" ").size()>=2) m_hisGrid=m_xRcvd.split(" ").at(1);
-        grid=m_hisGrid;
-        ui->dxGridEntry->setText(grid);
-        break;
-      case SpecOp::FIELD_DAY:
-        m_rptSent=m_xSent.split(" ").at(0);
-        m_rptRcvd=m_xRcvd.split(" ").at(0);
-        break;
-      case SpecOp::RTTY:
-        m_rptSent=m_xSent.split(" ").at(0);
-        m_rptRcvd=m_xRcvd.split(" ").at(0);
-        break;
-      case SpecOp::WW_DIGI:
-        m_xSent=m_config.my_grid().left(4);
-        m_xRcvd=m_hisGrid.left(4);
-        break;
-      case SpecOp::ARRL_DIGI:
-        m_xSent=m_config.my_grid().left(4);
-        m_xRcvd=m_hisGrid.left(4);
-        break;
-      case SpecOp::Q65_PILEUP:
-        m_xSent=m_config.my_grid().left(4);
-        m_xRcvd=m_hisGrid;
-        break;
-      default: break;
-    }
-
-  m_logDlg->initLogQSO (m_hisCall, grid, m_mode, m_rptSent, m_rptRcvd,
-                        m_dateTimeQSOOn, dateTimeQSOOff, m_freqNominal +
-                        ui->TxFreqSpinBox->value(), m_noSuffix, m_xSent, m_xRcvd);
-  m_inQSOwith="";
-  if (ui->respondComboBox->isVisible() && ui->respondComboBox->currentText() != "CQ: None") {
-        Dpoints=0;                          // reset points
-        maxDPoints=0;                       // reset points
-        dBpoints=-28;                       // reset points
-        dBpoints2=99;                       // reset points
-        maxdBPoints=-28;                    // reset points
-        mindBPoints=99;                     // reset points
-  }
-  QTimer::singleShot (2000, [=] {
-      pounce = false;
-      filtered = false;
-      read_txLog();
-      check_button_color();
-  });
-  QTimer::singleShot (7000, [=] {
-      read_txLog();
-  });
-  stopWRTimer.stop();           // Stop any Wait & Reply timeout
-  stopWCTimer.stop();           // Stop any Wait & Call timeout
-}
 
 void MainWindow::acceptQSO (QDateTime const& QSO_date_off, QString const& call, QString const& grid
                             , Frequency dial_freq, QString const& mode
@@ -11085,56 +9547,6 @@ void MainWindow::on_rptSpinBox_valueChanged(int n)
   statusChanged();
 }
 
-void MainWindow::on_tuneButton_clicked (bool checked)
-{
-  ui->pbBandHopping->setChecked(false); // disable band hopping
-  // prevent tuning on top of a SuperFox message
-  if (SpecOp::HOUND==m_specOp && m_config.superFox() && !m_tune) {
-    QDateTime now = QDateTime::currentDateTimeUtc();
-    int s = now.time().toString("ss").toInt();
-    if ((s >= 0 && s < 15) || (s >= 30 && s < 45)) {
-      ui->tuneButton->setChecked (false);
-      m_config.transceiver_tune (false);  // reset rig tuning
-      return;
-    }
-  }
-  m_config.transceiver_tune (false);  // reset rig tuning
-  if (blocked) return;
-  if (m_auto && !(m_mode=="WSPR" || m_mode=="FST4W")) ui->autoButton->click();   // stop any other transmission
-  stopWRTimer.stop();           // stop any Wait & Reply timeout
-  stopWCTimer.stop();           // stop any Wait & Call timeout
-  if (checked && m_config.tune_watchdog() && !(m_mode=="WSPR" || m_mode=="FST4W")) {
-      tuneATU_Timer.start (m_config.tune_watchdog_time()*1000); // tune watchdog
-  }
-  if (!checked) {
-      tuneATU_Timer.stop ();    // stop tune watchdog when stopping Tune manually
-      ui->tuneButton->setText("Tune");
-  }
-  static bool lastChecked = false;
-  if (lastChecked == checked) return;
-  lastChecked = checked;
-  if (checked && m_tune==false) { // we're starting tuning so remember Tx and change pwr to Tune value
-    if (m_config.pwrBandTuneMemory ()) {
-      auto const& curBand = ui->bandComboBox->currentText();
-      m_pwrBandTxMemory[curBand] = ui->outAttenuation->value(); // remember our Tx pwr
-      m_PwrBandSetOK = false;
-      if (m_pwrBandTuneMemory.contains(curBand)) {
-        ui->outAttenuation->setValue(m_pwrBandTuneMemory[curBand].toInt()); // set to Tune pwr
-      }
-      m_PwrBandSetOK = true;
-    }
-  }
-  if (m_tune) {
-    tuneButtonTimer.start(250);
-  } else {
-    m_sentFirst73=false;
-    itone[0]=0;
-    on_monitorButton_clicked (true);
-    m_tune=true;
-  }
-  if (m_tci_audio) Q_EMIT m_config.transceiver_tune(checked);
-  else Q_EMIT tune (checked);
-}
 
 
 void MainWindow::end_tuning ()
@@ -11168,36 +9580,6 @@ void MainWindow::stopTuneATU()
   ui->tuneButton->setText("Tune");
 }
 
-void MainWindow::on_stopTxButton_clicked()                    // Stop Tx
-{
-  ui->pbBandHopping->setChecked(false); // disable band hopping
-  if (m_tune) stop_tuning ();
-  if (m_auto and !m_tuneup) auto_tx_mode (false);
-  m_btxok=false;
-  m_bCallingCQ = false;
-  m_bAutoReply = false;         // ready for next
-  m_maxPoints=-1;
-  if (ui->DX_Call_Button->isChecked()) ui->DX_Call_Button->click ();
-  stopWRTimer.stop();           // Stop any Wait & Reply timeout
-  stopWCTimer.stop();           // Stop any Wait & Call timeout
-  tuneATU_Timer.stop ();        // stop tune watchdog when stopping Tune manually
-  no_wait_and_call = false;
-  m_specOp=m_config.special_op_id();
-  if (ui->respondComboBox->isVisible() && ui->respondComboBox->currentText() != "CQ: None") {
-      Dpoints=0;                          // reset points
-      maxDPoints=0;                       // reset points
-      dBpoints=-28;                       // reset points
-      dBpoints2=99;                       // reset points
-      maxdBPoints=-28;                    // reset points
-      mindBPoints=99;                     // reset points
-  }
-  pounce = false;
-  ui->autoButton->setChecked(false);  // ensure auoButton is unchecked
-  filtered = false;
-  ignored = false;
-  m_muted = false;
-  check_button_color();
-}
 
 void MainWindow::rigOpen ()
 {
@@ -11208,29 +9590,9 @@ void MainWindow::rigOpen ()
   m_config.sync_transceiver (true, true);
 }
 
-void MainWindow::on_pbR2T_clicked()
-{
-  ui->TxFreqSpinBox->setValue(ui->RxFreqSpinBox->value ());
-}
-
-void MainWindow::on_pbT2R_clicked()
-{
-  if (ui->RxFreqSpinBox->isEnabled ())
-    {
-      ui->RxFreqSpinBox->setValue (ui->TxFreqSpinBox->value ());
-    }
-}
 
 
-void MainWindow::on_readFreq_clicked()
-{
-  if (m_transmitting) return;
 
-  if (m_config.transceiver_online ())
-    {
-      m_config.sync_transceiver (true, true);
-    }
-}
 
 void MainWindow::setXIT(int n, Frequency base)
 {
@@ -12047,29 +10409,6 @@ void MainWindow::on_sbSubmode_valueChanged(int n)
   });
 }
 
-void MainWindow::on_cbFast9_clicked(bool b)
-{
-  if(m_mode=="JT9") {
-    m_bFast9=b;
-//    ui->cbAutoSeq->setVisible(b);
-    blocked=true;   // needed to prevent a loop
-    on_actionJT9_triggered();
-    QTimer::singleShot (50, [=] {blocked = false;});   // needed to prevent a loop
-    QTimer::singleShot (200, [=] {
-      if(m_mode=="JT9") m_settings->setValue("JT9_Fast",m_bFast9);
-    });
-  }
-
-  if(b) {
-    m_TRperiod = ui->sbTR->value ();
-  } else {
-    m_TRperiod=60.0;
-  }
-  progressBar.setMaximum(int(m_TRperiod));
-  m_wideGraph->setPeriod(m_TRperiod,m_nsps);
-  fast_config(b);
-  statusChanged ();
-}
 
 void MainWindow::on_cbSendMsg_toggled(bool b)
 {
@@ -12561,13 +10900,6 @@ void MainWindow::on_sbFST4W_FTol_valueChanged(int n)
   statusUpdate ();
 }
 
-void MainWindow::on_pbTxNext_clicked(bool b)
-{
-  if (b && !ui->autoButton->isChecked ())
-    {
-      ui->autoButton->click (); // make sure Tx is possible
-    }
-}
 
 void MainWindow::WSPR_scheduling ()
 {
@@ -13026,13 +11358,13 @@ void MainWindow::readWidebandDecodes()
       m_EMECall[dxcall].nsnr=nsnr;
       m_EMECall[dxcall].t=3600*nhr + 60*nmin + nsec;
       m_EMECall[dxcall].submode=submode;
-      if(w3.contains(grid_regexp)) m_EMECall[dxcall].grid4=w3;
+      if(w3.contains(MainWindow::grid_regexp)) m_EMECall[dxcall].grid4=w3;
       bool bCQ=line.contains(" CQ ");
 //      m_EMECall[dxcall].ready2call=(bCQ or line.contains(" 73") or line.contains(" RR73"));
       m_EMECall[dxcall].ready2call=(bCQ);
       Frequency frequency = (m_freqNominal/1000000) * 1000000 + int(fsked*1000.0);
       bool bFromDisk=qmapcom.nQDecoderDone==2;
-      if(!bFromDisk and (m_EMECall[dxcall].grid4.contains(grid_regexp)  or bCQ)) {
+      if(!bFromDisk and (m_EMECall[dxcall].grid4.contains(MainWindow::grid_regexp)  or bCQ)) {
         qDebug() << "To PSKreporter:" << dxcall << m_EMECall[dxcall].grid4 << frequency << m_mode << nsnr;
         if (!m_psk_Reporter.addRemoteStation (dxcall, m_EMECall[dxcall].grid4, frequency, m_mode, nsnr, qSpotTime)) {
           showStatusMessage (tr ("Spotting to PSK Reporter unavailable"));
@@ -13161,31 +11493,7 @@ void MainWindow::FoxReset(QString reason="")
   writeFoxQSO(" Reset");
 }
 
-void MainWindow::on_pbFoxReset_clicked()
-{
-  if(m_specOp!=SpecOp::FOX) return;
-  auto button = MessageBox::query_message (this, tr ("Confirm Reset"),
-      tr ("Are you sure you want to clear the QSO queues?"));
-  if(button == MessageBox::Yes) {
-    FoxReset();
-  }
-}
 
-void MainWindow::on_pbFreeText_clicked()
-{
-  bool ok;
-  if(m_config.superFox()) {
-    m_freeTextMsg = QInputDialog::getText (this, tr("Free Text Message"),
-           tr("Message:"), QLineEdit::Normal, m_freeTextMsg0, &ok).left(26);
-  } else {
-    m_freeTextMsg = QInputDialog::getText (this, tr("Free Text Message"),
-           tr("Message:"), QLineEdit::Normal, m_freeTextMsg0, &ok).left(13);
-  }
-  if(ok) {
-    m_freeTextMsg=m_freeTextMsg.toUpper();
-    m_freeTextMsg0=m_freeTextMsg;
-  }
-}
 
 void MainWindow::on_comboBoxHoundSort_activated(int index)
 {
@@ -14178,13 +12486,6 @@ void MainWindow::chkFT4()
 
 }
 
-void MainWindow::on_pbBestSP_clicked()
-{
-  m_bBestSPArmed = !m_bBestSPArmed;
-  if(m_bBestSPArmed and !m_transmitting) ui->pbBestSP->setStyleSheet ("QPushButton{color:red}");
-  if(!m_bBestSPArmed) ui->pbBestSP->setStyleSheet ("");
-  if(m_bBestSPArmed) m_dateTimeBestSP=QDateTime::currentDateTimeUtc();
-}
 
 void MainWindow::set_mode (QString const& mode)
 {
@@ -14329,66 +12630,13 @@ QString MainWindow::WSPR_message()
   return msg2;
 }
 
-void MainWindow::on_houndButton_clicked (bool checked)
-{
-  if (checked) {
-    HoldTxFreqStatus = ui->cbHoldTxFreq->isChecked();  // save state of the Hold Tx Freq checkbox
-    m_config.setSpecial_Hound();
-    ui->tx1->setVisible(true);
-    ui->tx1->setEnabled(true);
-    ui->txb1->setEnabled(true);
-  } else {
-    m_config.setSpecial_None();
-    keep_frequency = true;
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
-  }
-  m_specOp=m_config.special_op_id();
-  on_actionFT8_triggered();
-  check_button_color();
-}
 
-void MainWindow::on_cbHoldTxFreq_clicked (bool)
-{
-    HoldTxFreqStatus = ui->cbHoldTxFreq->isChecked();  // save state of the Hold Tx Freq checkbox
-}
 
-void MainWindow::on_ft8Button_clicked()
-{
-    if (m_specOp==SpecOp::HOUND or m_specOp==SpecOp::FOX) {
-      m_config.setSpecial_None();
-      m_specOp=m_config.special_op_id();
-    }
-    on_actionFT8_triggered();
-}
 
-void MainWindow::on_ft4Button_clicked()
-{
-    on_actionFT4_triggered();
-}
 
-void MainWindow::on_msk144Button_clicked()
-{
-    on_actionMSK144_triggered();
-}
 
-void MainWindow::on_q65Button_clicked()
-{
-    if (m_specOp==SpecOp::Q65_PILEUP) {
-      m_config.setSpecial_None();
-      m_specOp=m_config.special_op_id();
-    }
-    on_actionQ65_triggered();
-}
 
-void MainWindow::on_jt65Button_clicked()
-{
-    on_actionJT65_triggered();
-}
 
-void MainWindow::on_echoButton_clicked()
-{
-    on_actionEcho_triggered();
-}
 
 void MainWindow::sfox_tx() {
   auto fname{QDir::toNativeSeparators(m_config.writeable_data_dir().absoluteFilePath("sfox_1.dat")).toLocal8Bit()};
@@ -14422,484 +12670,12 @@ void MainWindow::sfox_tx() {
   sfox_wave_gfsk_();
 }
 
-void MainWindow::on_pb15A_clicked()
-{
-    ui->sbTR->setValue(15);
-    ui->sbSubmode->setValue(0);
-}
 
-void MainWindow::on_pb15C_clicked()
-{
-    ui->sbTR->setValue(15);
-    ui->sbSubmode->setValue(2);
-    ui->TxFreqSpinBox->setValue(700);
-}
 
-void MainWindow::on_pb30B_clicked()
-{
-    ui->sbTR->setValue(30);
-    ui->sbSubmode->setValue(1);
-}
 
-void MainWindow::on_pb60C_clicked()
-{
-    ui->sbTR->setValue(60);
-    ui->sbSubmode->setValue(2);
-}
 
-void MainWindow::on_pb60D_clicked()
-{
-    ui->sbTR->setValue(60);
-    ui->sbSubmode->setValue(3);
-}
 
-void MainWindow::on_pb60E_clicked()
-{
-    ui->sbTR->setValue(60);
-    ui->sbSubmode->setValue(4);
-    ui->TxFreqSpinBox->setValue(700);
-}
 
-void MainWindow::bandHoppingTimer()
-{
-    if(ui->pbBandHopping->isChecked()) {
-    static int startIndex = 0;
-    int nextStartIndex = startIndex +1;
-    switch (startIndex){
-    case 0:
-            startIndex = nextStartIndex;  // band hopping every other minute
-            return;
-    case 1:
-            m_displayBand = false;
-            bandHopping();
-            startIndex = 0;
-            return;
-     }
-   }
-}
-
-void MainWindow::bandHopping()
-{
-    if(ui->pbBandHopping->isChecked() && !ui->autoButton->isChecked() && !ui->tuneButton->isChecked()) {
-    static int startIndex = 0;
-    int nextStartIndex = startIndex +1;
-    switch (startIndex){
-    case 0:
-        if (ui->cb160m->isChecked()) {
-            on_actionFT8_triggered();
-            auto const& row = m_config.frequencies ()->best_working_frequency (1840000);
-            ui->bandComboBox->setCurrentIndex (row);
-            if (row >= 0) on_bandComboBox_activated (row);
-            ui->pbBandHopping->setChecked(true);
-            startIndex = nextStartIndex;
-            return;
-        } else {
-            nextStartIndex++;
-        }
-        Q_FALLTHROUGH();
-    case 1:
-        if (ui->cb80m->isChecked()) {
-            on_actionFT8_triggered();
-            auto const& row = m_config.frequencies ()->best_working_frequency (3573000);
-            ui->bandComboBox->setCurrentIndex (row);
-            if (row >= 0) on_bandComboBox_activated (row);
-            ui->pbBandHopping->setChecked(true);
-            startIndex = nextStartIndex;
-            return;
-        } else {
-            nextStartIndex++;
-        }
-        Q_FALLTHROUGH();
-    case 2:
-        if (ui->cb60m->isChecked()) {
-            on_actionFT8_triggered();
-            auto const& row = m_config.frequencies ()->best_working_frequency (5357000);
-            ui->bandComboBox->setCurrentIndex (row);
-            if (row >= 0) on_bandComboBox_activated (row);
-            ui->pbBandHopping->setChecked(true);
-            startIndex = nextStartIndex;
-            return;
-        } else {
-            nextStartIndex++;
-        }
-        Q_FALLTHROUGH();
-    case 3:
-        if (ui->cb40m->isChecked()) {
-            on_actionFT8_triggered();
-            auto const& row = m_config.frequencies ()->best_working_frequency (7074000);
-            ui->bandComboBox->setCurrentIndex (row);
-            if (row >= 0) on_bandComboBox_activated (row);
-            ui->pbBandHopping->setChecked(true);
-            startIndex = nextStartIndex;
-            return;
-        } else {
-            nextStartIndex++;
-        }
-        Q_FALLTHROUGH();
-    case 4:
-        if (ui->cb30m->isChecked()) {
-            on_actionFT8_triggered();
-            auto const& row = m_config.frequencies ()->best_working_frequency (10136000);
-            ui->bandComboBox->setCurrentIndex (row);
-            if (row >= 0) on_bandComboBox_activated (row);
-            ui->pbBandHopping->setChecked(true);
-            startIndex = nextStartIndex;
-            return;
-        } else {
-            nextStartIndex++;
-        }
-        Q_FALLTHROUGH();
-    case 5:
-        if (ui->cb20m->isChecked()) {
-            on_actionFT8_triggered();
-            auto const& row = m_config.frequencies ()->best_working_frequency (14074000);
-            ui->bandComboBox->setCurrentIndex (row);
-            if (row >= 0) on_bandComboBox_activated (row);
-            ui->pbBandHopping->setChecked(true);
-            startIndex = nextStartIndex;
-            return;
-        } else {
-            nextStartIndex++;
-        }
-        Q_FALLTHROUGH();
-    case 6:
-        if (ui->cb17m->isChecked()) {
-            on_actionFT8_triggered();
-            auto const& row = m_config.frequencies ()->best_working_frequency (18100000);
-            ui->bandComboBox->setCurrentIndex (row);
-            if (row >= 0) on_bandComboBox_activated (row);
-            ui->pbBandHopping->setChecked(true);
-            startIndex = nextStartIndex;
-            return;
-        } else {
-            nextStartIndex++;
-        }
-        Q_FALLTHROUGH();
-    case 7:
-        if (ui->cb15m->isChecked()) {
-            on_actionFT8_triggered();
-            auto const& row = m_config.frequencies ()->best_working_frequency (21074000);
-            ui->bandComboBox->setCurrentIndex (row);
-            if (row >= 0) on_bandComboBox_activated (row);
-            ui->pbBandHopping->setChecked(true);
-            startIndex = nextStartIndex;
-            return;
-        } else {
-            nextStartIndex++;
-        }
-        Q_FALLTHROUGH();
-    case 8:
-        if (ui->cb12m->isChecked()) {
-            on_actionFT8_triggered();
-            auto const& row = m_config.frequencies ()->best_working_frequency (24915000);
-            ui->bandComboBox->setCurrentIndex (row);
-            if (row >= 0) on_bandComboBox_activated (row);
-            ui->pbBandHopping->setChecked(true);
-            startIndex = nextStartIndex;
-            return;
-        } else {
-            nextStartIndex++;
-        }
-        Q_FALLTHROUGH();
-    case 9:
-        if (ui->cb10m->isChecked()) {
-            on_actionFT8_triggered();
-            auto const& row = m_config.frequencies ()->best_working_frequency (28074000);
-            ui->bandComboBox->setCurrentIndex (row);
-            if (row >= 0) on_bandComboBox_activated (row);
-            ui->pbBandHopping->setChecked(true);
-            startIndex = nextStartIndex;
-            return;
-        } else {
-            nextStartIndex++;
-        }
-        Q_FALLTHROUGH();
-    case 10:
-        if (ui->cb6m->isChecked()) {
-            on_actionFT8_triggered();
-            auto const& row = m_config.frequencies ()->best_working_frequency (50313000);
-            ui->bandComboBox->setCurrentIndex (row);
-            if (row >= 0) on_bandComboBox_activated (row);
-            ui->pbBandHopping->setChecked(true);
-            startIndex = nextStartIndex;
-            return;
-        } else {
-            nextStartIndex++;
-        }
-        Q_FALLTHROUGH();
-    case 11:
-        if (ui->cb4m->isChecked()) {
-            on_actionFT8_triggered();
-            auto const& row = m_config.frequencies ()->best_working_frequency (70154000);
-            ui->bandComboBox->setCurrentIndex (row);
-            if (row >= 0) on_bandComboBox_activated (row);
-            ui->pbBandHopping->setChecked(true);
-            startIndex = nextStartIndex;
-            return;
-        } else {
-            nextStartIndex++;
-        }
-        Q_FALLTHROUGH();
-    case 12:
-        if (ui->cb2m->isChecked()) {
-            on_actionFT8_triggered();
-            auto const& row = m_config.frequencies ()->best_working_frequency (144174000);
-            ui->bandComboBox->setCurrentIndex (row);
-            if (row >= 0) on_bandComboBox_activated (row);
-            ui->pbBandHopping->setChecked(true);
-            startIndex = nextStartIndex;
-            return;
-        } else {
-            nextStartIndex++;
-        }
-        Q_FALLTHROUGH();
-    case 13:
-        if (ui->cb70cm->isChecked()) {
-            on_actionFT8_triggered();
-            auto const& row = m_config.frequencies ()->best_working_frequency (432174000);
-            ui->bandComboBox->setCurrentIndex (row);
-            if (row >= 0) on_bandComboBox_activated (row);
-            ui->pbBandHopping->setChecked(true);
-            startIndex = nextStartIndex;
-            return;
-        } else {
-            nextStartIndex++;
-        }
-        Q_FALLTHROUGH();
-    case 14:
-       if (ui->cb80mFT4->isChecked()) {
-            on_actionFT4_triggered();
-            auto const& row = m_config.frequencies ()->best_working_frequency (3575000);
-            ui->bandComboBox->setCurrentIndex (row);
-            if (row >= 0) on_bandComboBox_activated (row);
-            ui->pbBandHopping->setChecked(true);
-            startIndex = nextStartIndex;
-            return;
-        } else {
-            nextStartIndex++;
-        }
-        Q_FALLTHROUGH();
-    case 15:
-        if (ui->cb40mFT4->isChecked()) {
-            on_actionFT4_triggered();
-            auto const& row = m_config.frequencies ()->best_working_frequency (7047500);
-            ui->bandComboBox->setCurrentIndex (row);
-            if (row >= 0) on_bandComboBox_activated (row);
-            ui->pbBandHopping->setChecked(true);
-            startIndex = nextStartIndex;
-            return;
-        } else {
-            nextStartIndex++;
-        }
-        Q_FALLTHROUGH();
-    case 16:
-        if (ui->cb30mFT4->isChecked()) {
-            on_actionFT4_triggered();
-            auto const& row = m_config.frequencies ()->best_working_frequency (10140000);
-            ui->bandComboBox->setCurrentIndex (row);
-            if (row >= 0) on_bandComboBox_activated (row);
-            ui->pbBandHopping->setChecked(true);
-            startIndex = nextStartIndex;
-            return;
-        } else {
-            nextStartIndex++;
-        }
-        Q_FALLTHROUGH();
-    case 17:
-        if (ui->cb20mFT4->isChecked()) {
-            on_actionFT4_triggered();
-            auto const& row = m_config.frequencies ()->best_working_frequency (14080000);
-            ui->bandComboBox->setCurrentIndex (row);
-            if (row >= 0) on_bandComboBox_activated (row);
-            ui->pbBandHopping->setChecked(true);
-            startIndex = nextStartIndex;
-            return;
-        } else {
-            nextStartIndex++;
-        }
-        Q_FALLTHROUGH();
-    case 18:
-        if (ui->cb17mFT4->isChecked()) {
-            on_actionFT4_triggered();
-            auto const& row = m_config.frequencies ()->best_working_frequency (18104000);
-            ui->bandComboBox->setCurrentIndex (row);
-            if (row >= 0) on_bandComboBox_activated (row);
-            ui->pbBandHopping->setChecked(true);
-            startIndex = nextStartIndex;
-            return;
-        } else {
-            nextStartIndex++;
-        }
-        Q_FALLTHROUGH();
-
-    case 19:
-        if (ui->cb15mFT4->isChecked()) {
-            on_actionFT4_triggered();
-            auto const& row = m_config.frequencies ()->best_working_frequency (21140000);
-            ui->bandComboBox->setCurrentIndex (row);
-            if (row >= 0) on_bandComboBox_activated (row);
-            ui->pbBandHopping->setChecked(true);
-            startIndex = nextStartIndex;
-            return;
-        } else {
-            nextStartIndex++;
-        }
-        Q_FALLTHROUGH();
-    case 20:
-        if (ui->cb12mFT4->isChecked()) {
-            on_actionFT4_triggered();
-            auto const& row = m_config.frequencies ()->best_working_frequency (24919000);
-            ui->bandComboBox->setCurrentIndex (row);
-            if (row >= 0) on_bandComboBox_activated (row);
-            ui->pbBandHopping->setChecked(true);
-            startIndex = nextStartIndex;
-            return;
-        } else {
-            nextStartIndex++;
-        }
-        Q_FALLTHROUGH();
-    case 21:
-        if (ui->cb10mFT4->isChecked()) {
-            on_actionFT4_triggered();
-            auto const& row = m_config.frequencies ()->best_working_frequency (28180000);
-            ui->bandComboBox->setCurrentIndex (row);
-            if (row >= 0) on_bandComboBox_activated (row);
-            ui->pbBandHopping->setChecked(true);
-            startIndex = nextStartIndex;
-            return;
-        } else {
-            nextStartIndex++;
-        }
-        Q_FALLTHROUGH();
-    case 22:
-        if (ui->cb2mMSK->isChecked()) {
-            on_actionMSK144_triggered();
-            auto const& row = m_config.frequencies ()->best_working_frequency (144360000);
-            ui->bandComboBox->setCurrentIndex (row);
-            if (row >= 0) on_bandComboBox_activated (row);
-            ui->pbBandHopping->setChecked(true);
-            startIndex = nextStartIndex;
-            return;
-        } else {
-            nextStartIndex++;
-        }
-        Q_FALLTHROUGH();
-    case 23:
-        if (ui->cbQRG1->isChecked()) {
-            int f1 = ui->sbQRG1->value()*1000;
-            keep_frequency = true;
-            QTimer::singleShot (250, [=] {keep_frequency = false;});
-            setRig (f1);
-            on_actionFT8_triggered();
-            ui->pbBandHopping->setChecked(true);
-            startIndex = nextStartIndex;
-            return;
-        } else {
-            nextStartIndex++;
-        }
-        Q_FALLTHROUGH();
-    case 24:
-        if (ui->cbQRG2->isChecked()) {
-            int f2 = ui->sbQRG2->value()*1000;
-            keep_frequency = true;
-            QTimer::singleShot (250, [=] {keep_frequency = false;});
-            setRig (f2);
-            on_actionFT8_triggered();
-            ui->pbBandHopping->setChecked(true);
-            startIndex = nextStartIndex;
-            return;
-        } else {
-            nextStartIndex++;
-        }
-        Q_FALLTHROUGH();
-    case 25:
-        if (ui->cbQRG3->isChecked()) {
-            int f3 = ui->sbQRG3->value()*1000;
-            keep_frequency = true;
-            QTimer::singleShot (250, [=] {keep_frequency = false;});
-            setRig (f3);
-            on_actionFT8_triggered();
-            ui->pbBandHopping->setChecked(true);
-            startIndex = nextStartIndex;
-            return;
-        } else {
-            nextStartIndex++;
-        }
-        Q_FALLTHROUGH();
-    case 26:
-        if (ui->cbQRG4->isChecked()) {
-            int f4 = ui->sbQRG4->value()*1000;
-            keep_frequency = true;
-            QTimer::singleShot (250, [=] {keep_frequency = false;});
-            setRig (f4);
-            on_actionFT8_triggered();
-            ui->pbBandHopping->setChecked(true);
-            startIndex = nextStartIndex;
-            return;
-        } else {
-            nextStartIndex++;
-        }
-        Q_FALLTHROUGH();
-    case 27:
-        if (ui->cbQRG5->isChecked()) {
-            int f5 = ui->sbQRG5->value()*1000;
-            keep_frequency = true;
-            QTimer::singleShot (250, [=] {keep_frequency = false;});
-            setRig (f5);
-            on_actionFT8_triggered();
-            ui->pbBandHopping->setChecked(true);
-            startIndex = nextStartIndex;
-            return;
-        } else {
-            nextStartIndex++;
-        }
-        Q_FALLTHROUGH();
-    case 28:
-        if (ui->cbQRG6->isChecked()) {
-            int f6 = ui->sbQRG6->value()*1000;
-            keep_frequency = true;
-            QTimer::singleShot (250, [=] {keep_frequency = false;});
-            setRig (f6);
-            on_actionFT8_triggered();
-            ui->pbBandHopping->setChecked(true);
-            startIndex = nextStartIndex;
-            return;
-        } else {
-            nextStartIndex++;
-        }
-        Q_FALLTHROUGH();
-    case 29:
-        if (ui->cbQRG7->isChecked()) {
-            int f7 = ui->sbQRG7->value()*1000;
-            keep_frequency = true;
-            QTimer::singleShot (250, [=] {keep_frequency = false;});
-            setRig (f7);
-            on_actionFT8_triggered();
-            ui->pbBandHopping->setChecked(true);
-            startIndex = nextStartIndex;
-            return;
-        } else {
-            nextStartIndex++;
-        }
-        Q_FALLTHROUGH();
-    case 30:
-        if (ui->cbQRG8->isChecked()) {
-            int f8 = ui->sbQRG8->value()*1000;
-            keep_frequency = true;
-            QTimer::singleShot (250, [=] {keep_frequency = false;});
-            setRig (f8);
-            on_actionFT8_triggered();
-            ui->pbBandHopping->setChecked(true);
-            startIndex = 0;
-            return;
-            bandHopping();
-        } else {
-            startIndex = 0;
-            bandHopping();
-        }
-    }
-  }
-}
 
 void MainWindow::on_actionDefault_event_logging_triggered()
 {
@@ -15658,499 +13434,31 @@ void MainWindow::check_button_color()
     }
 }
 
-void MainWindow::on_pb160_clicked()
-{
-  if (m_mode=="MSK144") {
-    ui->sbTR->setValue (m_msk144_tr);
-    programStart = true;
-    QTimer::singleShot (250, [=] {programStart = false;});
-  }
-  auto const& row = m_config.frequencies ()->best_working_frequency (1840000);
-  ui->bandComboBox->setCurrentIndex (row);
-  if (row >= 0) {
-    on_bandComboBox_activated (row);
-  } else {
-    keep_frequency = true;
-    setRig(1837000);
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
-  }
-  setXIT (ui->TxFreqSpinBox->value ());
-}
 
-void MainWindow::on_pb80_clicked()
-{
-  if (m_mode=="MSK144") {
-    ui->sbTR->setValue (m_msk144_tr);
-    programStart = true;
-    QTimer::singleShot (250, [=] {programStart = false;});
-  }
-  auto const& row = m_config.frequencies ()->best_working_frequency (3573000);
-  ui->bandComboBox->setCurrentIndex (row);
-  if (row >= 0) {
-    on_bandComboBox_activated (row);
-  } else {
-    keep_frequency = true;
-    setRig(3576000);
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
-  }
-  setXIT (ui->TxFreqSpinBox->value ());
-}
 
-void MainWindow::on_pb60_clicked()
-{
-  if (m_mode=="MSK144") {
-    ui->sbTR->setValue (m_msk144_tr);
-    programStart = true;
-    QTimer::singleShot (250, [=] {programStart = false;});
-  }
-  auto const& row = m_config.frequencies ()->best_working_frequency (5357000);
-  ui->bandComboBox->setCurrentIndex (row);
-  if (row >= 0) {
-    on_bandComboBox_activated (row);
-  } else {
-    keep_frequency = true;
-    setRig(5357000);
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
-  }
-  setXIT (ui->TxFreqSpinBox->value ());
-}
 
-void MainWindow::on_pb40_clicked()
-{
-  if (m_mode=="MSK144") {
-    ui->sbTR->setValue (m_msk144_tr);
-    programStart = true;
-    QTimer::singleShot (250, [=] {programStart = false;});
-  }
-  auto const& row = m_config.frequencies ()->best_working_frequency (7074000);
-  ui->bandComboBox->setCurrentIndex (row);
-  if (row >= 0) {
-    on_bandComboBox_activated (row);
-  } else {
-    keep_frequency = true;
-    setRig(7077000);
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
-  }
-  setXIT (ui->TxFreqSpinBox->value ());
-}
 
-void MainWindow::on_pb30_clicked()
-{
-  if (m_mode=="MSK144") {
-    ui->sbTR->setValue (m_msk144_tr);
-    programStart = true;
-    QTimer::singleShot (250, [=] {programStart = false;});
-  }
-  auto const& row = m_config.frequencies ()->best_working_frequency (10136000);
-  ui->bandComboBox->setCurrentIndex (row);
-  if (row >= 0) {
-    on_bandComboBox_activated (row);
-  } else {
-    keep_frequency = true;
-    setRig(10139000);
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
-  }
-  setXIT (ui->TxFreqSpinBox->value ());
-}
 
-void MainWindow::on_pb20_clicked()
-{
-  if (m_mode=="MSK144") {
-    ui->sbTR->setValue (m_msk144_tr);
-    programStart = true;
-    QTimer::singleShot (250, [=] {programStart = false;});
-  }
-  auto const& row = m_config.frequencies ()->best_working_frequency (14074000);
-  ui->bandComboBox->setCurrentIndex (row);
-  if (row >= 0) {
-    on_bandComboBox_activated (row);
-  } else {
-    keep_frequency = true;
-    setRig(14077000);
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
-  }
-  setXIT (ui->TxFreqSpinBox->value ());
-}
 
-void MainWindow::on_pb17_clicked()
-{
-  if (m_mode=="MSK144") {
-    ui->sbTR->setValue (m_msk144_tr);
-    programStart = true;
-    QTimer::singleShot (250, [=] {programStart = false;});
-  }
-  auto const& row = m_config.frequencies ()->best_working_frequency (18100000);
-  ui->bandComboBox->setCurrentIndex (row);
-  if (row >= 0) {
-    on_bandComboBox_activated (row);
-  } else {
-    keep_frequency = true;
-    setRig(18103000);
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
-  }
-  setXIT (ui->TxFreqSpinBox->value ());
-}
 
-void MainWindow::on_pb15_clicked()
-{
-  if (m_mode=="MSK144") {
-    ui->sbTR->setValue (m_msk144_tr);
-    programStart = true;
-    QTimer::singleShot (250, [=] {programStart = false;});
-  }
-  auto const& row = m_config.frequencies ()->best_working_frequency (21074000);
-  ui->bandComboBox->setCurrentIndex (row);
-  if (row >= 0) {
-    on_bandComboBox_activated (row);
-  } else {
-    keep_frequency = true;
-    setRig(21077000);
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
-  }
-  setXIT (ui->TxFreqSpinBox->value ());
-}
 
-void MainWindow::on_pb12_clicked()
-{
-  if (m_mode=="MSK144") {
-    ui->sbTR->setValue (m_msk144_tr);
-    programStart = true;
-    QTimer::singleShot (250, [=] {programStart = false;});
-  }
-  auto const& row = m_config.frequencies ()->best_working_frequency (24915000);
-  ui->bandComboBox->setCurrentIndex (row);
-  if (row >= 0) {
-    on_bandComboBox_activated (row);
-  } else {
-    keep_frequency = true;
-    setRig(24918000);
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
-  }
-  setXIT (ui->TxFreqSpinBox->value ());
-}
 
-void MainWindow::on_pb10_clicked()
-{
-  if (m_mode=="MSK144") {
-    ui->sbTR->setValue (m_msk144_tr);
-    programStart = true;
-    QTimer::singleShot (250, [=] {programStart = false;});
-  }
-  auto const& row = m_config.frequencies ()->best_working_frequency (28074000);
-  ui->bandComboBox->setCurrentIndex (row);
-  if (row >= 0) {
-    on_bandComboBox_activated (row);
-  } else {
-    keep_frequency = true;
-    setRig(28077000);
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
-  }
-  setXIT (ui->TxFreqSpinBox->value ());
-}
 
-void MainWindow::on_pb6_clicked()
-{
-  if (m_mode=="MSK144") {
-    ui->sbTR->setValue (m_msk144_tr6);
-    programStart = true;
-    QTimer::singleShot (250, [=] {programStart = false;});
-  }
-  auto const& row = m_config.frequencies ()->best_working_frequency (50313000);
-  ui->bandComboBox->setCurrentIndex (row);
-  if (row >= 0) {
-    on_bandComboBox_activated (row);
-  } else {
-    keep_frequency = true;
-    setRig(50316000);
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
-  }
-  setXIT (ui->TxFreqSpinBox->value ());
-}
 
-void MainWindow::on_pb2_clicked()
-{
-  if (m_mode=="MSK144") {
-    ui->sbTR->setValue (m_msk144_tr2);
-    programStart = true;
-    QTimer::singleShot (250, [=] {programStart = false;});
-  }
-  auto const& row = m_config.frequencies ()->best_working_frequency (144074000);
-  ui->bandComboBox->setCurrentIndex (row);
-  if (row >= 0) {
-    on_bandComboBox_activated (row);
-  } else {
-    keep_frequency = true;
-    setRig(144077000);
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
-  }
-  setXIT (ui->TxFreqSpinBox->value ());
-}
 
-void MainWindow::on_pb70_clicked()
-{
-  if (m_mode=="MSK144") {
-    ui->sbTR->setValue (m_msk144_tr);
-    programStart = true;
-    QTimer::singleShot (250, [=] {programStart = false;});
-  }
-  auto const& row = m_config.frequencies ()->best_working_frequency (432074000);
-  ui->bandComboBox->setCurrentIndex (row);
-  if (row >= 0) {
-    on_bandComboBox_activated (row);
-  } else {
-    keep_frequency = true;
-    setRig(432077000);
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
-  }
-  setXIT (ui->TxFreqSpinBox->value ());
-}
 
-void MainWindow::on_pb8_clicked()
-{
-  if (m_mode=="MSK144") {
-    ui->sbTR->setValue (m_msk144_tr);
-    programStart = true;
-    QTimer::singleShot (250, [=] {programStart = false;});
-  }
-  auto const& row = m_config.frequencies ()->best_working_frequency (40680000);
-  ui->bandComboBox->setCurrentIndex (row);
-  if (row >= 0) {
-    on_bandComboBox_activated (row);
-  } else {
-    keep_frequency = true;
-    setRig(40680000);
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
-  }
-  setXIT (ui->TxFreqSpinBox->value ());
-}
 
-void MainWindow::on_pb50_clicked()
-{
-  if (m_mode=="MSK144") {
-    ui->sbTR->setValue (m_msk144_tr6);
-    programStart = true;
-    QTimer::singleShot (250, [=] {programStart = false;});
-  }
-  auto const& row = m_config.frequencies ()->best_working_frequency (50313000);
-  ui->bandComboBox->setCurrentIndex (row);
-  if (row >= 0) {
-    on_bandComboBox_activated (row);
-  } else {
-    keep_frequency = true;
-    setRig(50316000);
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
-  }
-  setXIT (ui->TxFreqSpinBox->value ());
-}
 
-void MainWindow::on_pb4_clicked()
-{
-  if (m_mode=="MSK144") {
-    ui->sbTR->setValue (m_msk144_tr6);
-    programStart = true;
-    QTimer::singleShot (250, [=] {programStart = false;});
-  }
-  auto const& row = m_config.frequencies ()->best_working_frequency (70154000);
-  ui->bandComboBox->setCurrentIndex (row);
-  if (row >= 0) {
-    on_bandComboBox_activated (row);
-  } else {
-    keep_frequency = true;
-    setRig(70154000);
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
-  }
-  setXIT (ui->TxFreqSpinBox->value ());
-}
 
-void MainWindow::on_pb144_clicked()
-{
-  if (m_mode=="MSK144") {
-    ui->sbTR->setValue (m_msk144_tr2);
-    programStart = true;
-    QTimer::singleShot (250, [=] {programStart = false;});
-  }
-  auto const& row = m_config.frequencies ()->best_working_frequency (144074000);
-  ui->bandComboBox->setCurrentIndex (row);
-  if (row >= 0) {
-    on_bandComboBox_activated (row);
-  } else {
-    keep_frequency = true;
-    setRig(144077000);
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
-  }
-  setXIT (ui->TxFreqSpinBox->value ());
-}
 
-void MainWindow::on_pb220_clicked()
-{
-  if (m_mode=="MSK144") {
-    ui->sbTR->setValue (m_msk144_tr);
-    programStart = true;
-    QTimer::singleShot (250, [=] {programStart = false;});
-  }
-  auto const& row = m_config.frequencies ()->best_working_frequency (222174000);
-  ui->bandComboBox->setCurrentIndex (row);
-  if (row >= 0) {
-    on_bandComboBox_activated (row);
-  } else {
-    keep_frequency = true;
-    setRig(222177000);
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
-  }
-  setXIT (ui->TxFreqSpinBox->value ());
-}
 
-void MainWindow::on_pb432_clicked()
-{
-  if (m_mode=="MSK144") {
-    ui->sbTR->setValue (m_msk144_tr);
-    programStart = true;
-    QTimer::singleShot (250, [=] {programStart = false;});
-  }
-  auto const& row = m_config.frequencies ()->best_working_frequency (432174000);
-  ui->bandComboBox->setCurrentIndex (row);
-  if (row >= 0) {
-    on_bandComboBox_activated (row);
-  } else {
-    keep_frequency = true;
-    setRig(432177000);
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
-  }
-  setXIT (ui->TxFreqSpinBox->value ());
-}
 
-void MainWindow::on_pb902_clicked()
-{
-  if (m_mode=="MSK144") {
-    ui->sbTR->setValue (m_msk144_tr);
-    programStart = true;
-    QTimer::singleShot (250, [=] {programStart = false;});
-  }
-  auto const& row = m_config.frequencies ()->best_working_frequency (902174000);
-  ui->bandComboBox->setCurrentIndex (row);
-  if (row >= 0) {
-    on_bandComboBox_activated (row);
-  } else {
-    keep_frequency = true;
-    setRig(902177000);
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
-  }
-  setXIT (ui->TxFreqSpinBox->value ());
-}
 
-void MainWindow::on_pb23_clicked()
-{
-  if (m_mode=="MSK144") {
-    ui->sbTR->setValue (m_msk144_tr);
-    programStart = true;
-    QTimer::singleShot (250, [=] {programStart = false;});
-  }
-  auto const& row = m_config.frequencies ()->best_working_frequency (1296065000);
-  ui->bandComboBox->setCurrentIndex (row);
-  if (row >= 0) {
-    on_bandComboBox_activated (row);
-  } else {
-    keep_frequency = true;
-    setRig(1296065000);
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
-  }
-  setXIT (ui->TxFreqSpinBox->value ());
-}
 
-void MainWindow::on_pb13_clicked()
-{
-  if (m_mode=="MSK144") {
-    ui->sbTR->setValue (m_msk144_tr);
-    programStart = true;
-    QTimer::singleShot (250, [=] {programStart = false;});
-  }
-  auto const& row = m_config.frequencies ()->best_working_frequency (2304065000);
-  ui->bandComboBox->setCurrentIndex (row);
-  if (row >= 0) {
-    on_bandComboBox_activated (row);
-  } else {
-    keep_frequency = true;
-    setRig(2304065000);
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
-  }
-  setXIT (ui->TxFreqSpinBox->value ());
-}
 
-void MainWindow::on_pb9_clicked()
-{
-  if (m_mode=="MSK144") {
-    ui->sbTR->setValue (m_msk144_tr);
-    programStart = true;
-    QTimer::singleShot (250, [=] {programStart = false;});
-  }
-  auto const& row = m_config.frequencies ()->best_working_frequency (3400065000);
-  ui->bandComboBox->setCurrentIndex (row);
-  if (row >= 0) {
-    on_bandComboBox_activated (row);
-  } else {
-    keep_frequency = true;
-    setRig(3400065000);
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
-  }
-  setXIT (ui->TxFreqSpinBox->value ());
-}
 
-void MainWindow::on_pb5G_clicked()
-{
-  if (m_mode=="MSK144") {
-    ui->sbTR->setValue (m_msk144_tr);
-    programStart = true;
-    QTimer::singleShot (250, [=] {programStart = false;});
-  }
-  auto const& row = m_config.frequencies ()->best_working_frequency (5760200000);
-  ui->bandComboBox->setCurrentIndex (row);
-  if (row >= 0) {
-    on_bandComboBox_activated (row);
-  } else {
-    keep_frequency = true;
-    setRig(5760200000);
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
-  }
-  setXIT (ui->TxFreqSpinBox->value ());
-}
 
-void MainWindow::on_pb10G_clicked()
-{
-  if (m_mode=="MSK144") {
-    ui->sbTR->setValue (m_msk144_tr);
-    programStart = true;
-    QTimer::singleShot (250, [=] {programStart = false;});
-  }
-  auto const& row = m_config.frequencies ()->best_working_frequency (10368200000);
-  ui->bandComboBox->setCurrentIndex (row);
-  if (row >= 0) {
-    on_bandComboBox_activated (row);
-  } else {
-    keep_frequency = true;
-    setRig(10368200000);
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
-  }
-  setXIT (ui->TxFreqSpinBox->value ());
-}
 
-void MainWindow::on_pb24G_clicked()
-{
-  if (m_mode=="MSK144") {
-    ui->sbTR->setValue (m_msk144_tr);
-    programStart = true;
-    QTimer::singleShot (250, [=] {programStart = false;});
-  }
-  auto const& row = m_config.frequencies ()->best_working_frequency (24048200000);
-  ui->bandComboBox->setCurrentIndex (row);
-  if (row >= 0) {
-    on_bandComboBox_activated (row);
-  } else {
-    keep_frequency = true;
-    setRig(24048200000);
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
-  }
-  setXIT (ui->TxFreqSpinBox->value ());
-}
 
 void MainWindow::read_txLog()
 {
@@ -16280,8 +13588,745 @@ void MainWindow::alertQSYmessage ()
 #endif
 }
 
-void MainWindow::on_pbSendMessage_clicked()
+
+
+bool MainWindow::isFalseDecode(const QByteArray& line_read, const DecodedText& decodedtext, const QString& message0) const
 {
-  jtty_tx(ui->Tx_Message->text().toUpper());
+  extern bool no_a7_decodes;
+  extern QString earlyDecodes;
+  if ((!((no_a7_decodes && line_read.contains("a7") && !m_diskData) or (line_read.contains("a7") && SpecOp::NONE!=m_specOp
+          && !m_diskData && !(line_read.contains(" R ") or line_read.contains("RR73") or line_read.contains("CQ ")))))
+      // FDR step 1
+      and (!((SpecOp::NONE==m_specOp or (m_multithreadFT8 && m_ft8DecoderStart<2)) &&
+           ((m_mode=="FT8" && ((m_multithreadFT8 && m_ft8DecoderStart<2) or m_freqNominal>45000000) && earlyDecodes.contains(line_read.mid(23,19)))   // MTD or a7/a8 dupes
+           or ((SpecOp::NONE==m_specOp && decodedtext.snr() < -12) && (message0.contains("> <")   // two hashes
+           || message0.contains(QRegularExpression {"(\\w+)/P (\\w+)/P "})             // two /P calls
+           || message0.contains(QRegularExpression {"(\\w+)/R (\\w+)/R "})             // two /R calls
+           || (message0.contains("/R ") && message0.contains("?"))                     // insecure /R decodes
+           || (message0.contains(";") && message0.contains(" R ")))))))
+      // FDR step 2
+      and (!(SpecOp::NONE==m_specOp && ui->actionReduce_false_decodes->isChecked() && m_mode=="FT8" &&
+           ((((message0.contains("/P ") && message0.contains(" R "))                   // /P and R
+           || (message0.contains(";") && message0.contains("/R "))                     // ; and /R
+           || (message0.contains(";") && message0.contains("/P "))                     // ; and /P
+           || (message0.contains("<...>") && message0.contains(" R "))                 // hash and R
+           || (message0.contains("<...>") && message0.contains("/P "))                 // hash and /P
+           || (message0.contains("<...>") && message0.contains(";"))                   // hash and ;
+           || message0.contains(QRegularExpression {"\\w\\w\\w\\w\\w\\w\\w\\w"})       // likely invalid callsigns
+           || message0.contains(QRegularExpression {"\\d\\d\\d \\d\\d\\d"})            // contest messages
+           || message0.contains("3.") || message0.contains("2."))                      // -1.9 < dt <  1.9
+           && (decodedtext.snr() < -15))                                       // for such SNRmin = -15
+           or ((message0.contains("/R ") or message0.contains(" R ")) && decodedtext.snr() < -18)  // for /R or contest calls SNRmin = -18
+           or (((message0.contains("<...>") || message0.contains(";")                  // unresolved hash and F/H messages
+               || message0.contains("? a")                                             // ap decodes of low confidence
+               || message0.contains("/R ") || message0.contains(" R ")                 // rover and contest callsigns
+               || decodedtext.snr() < -20)                                             // SNR < -20
+               && (message0.contains("3.") || message0.contains("2.")))))))
+      ) return false;
+  return true;
 }
 
+void MainWindow::parseAveragingInfo(const QByteArray& line_read, bool& bAvgMsg, int& navg) const
+{
+  if(m_mode=="JT4" or m_mode=="JT65" or m_mode=="Q65") {
+    int nf=line_read.indexOf("f");
+    if(nf>0) {
+      navg=line_read.mid(nf+1,1).toInt();
+      if(line_read.indexOf("f*")>0) navg=10;
+    }
+    int nd=-1;
+    if(nf<0) nd=line_read.indexOf("d");
+    if(nd>0) {
+      navg=line_read.mid(nd+2,1).toInt();
+      if(line_read.mid(nd+2,1)=="*") navg=10;
+    }
+    int na=-1;
+    if(nf<0 and nd<0) na=line_read.indexOf("a");
+    if(na>0) {
+      navg=line_read.mid(na+2,1).toInt();
+      if(line_read.mid(na+2,1)=="*") navg=10;
+    }
+    int nq=-1;
+    if(nf<0 and nd<0 and na<0) nq=line_read.indexOf("q");
+    if(nq>0) {
+      navg=line_read.mid(nq+2,1).toInt();
+      if(line_read.mid(nq+2,1)=="*") navg=10;
+    }
+    if(navg>=2) bAvgMsg=true;
+  }
+}
+
+void MainWindow::applyExperimentalFT8Filter(const DecodedText& decodedtext, bool& filtered)
+{
+  if (m_mode=="FT8" && !m_multithreadFT8 && ui->actionReduce_false_decodes->isChecked() && decodedtext.snr() < -20) {
+    bool notInALLCALL7 = false;
+    QString deCall;
+    QString deGrid;
+    decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
+    QStringList word;
+    word=decodedtext.string().mid(24).replace("<","").replace(">","").replace("/P","").replace("/R","").replace("/QRP","").replace("/5W","").split(" ",SkipEmptyParts);
+
+    if (deCall!="TNX" && deCall!="73" && deCall!="GL" && deCall!="HNY" && deCall!="TU" && !deCall.left(4).contains("/")
+        && !decodedtext.string().contains("<...>") && !ALLCALL7.contains(deCall)) {
+      notInALLCALL7 = true;
+    }
+    if (!ALLCALL7.contains(word[0]) && !(decodedtext.string().contains(" CQ ") or decodedtext.string().contains("TNX")
+        or decodedtext.string().contains("...") or decodedtext.string().contains("HNY") or decodedtext.string().contains("QSY")
+        or decodedtext.string().contains("73 ") or decodedtext.string().contains("GL ") or decodedtext.string().contains("PSE")
+        or decodedtext.string().contains("/") or decodedtext.string().contains("<...>"))) {
+      notInALLCALL7 = true;
+    }
+
+    if (notInALLCALL7) {
+      deCall=deCall.replace("<","").replace(">","").replace("/P","").replace("/R","").replace("/QRP","").replace("/5W","");
+      if (deCall!="TNX" && deCall!="73" && deCall!="GL" && deCall!="HNY" &&
+          !(deCall.left(3).contains(QRegularExpression {"\\w\\d\\w"}) or
+            deCall.left(3).contains(QRegularExpression {"\\d\\w\\d"}) or
+            deCall.left(3).contains(QRegularExpression {"\\w\\w\\d"}) or
+            deCall.left(4).contains("/") or decodedtext.string().contains("<...>"))) {
+        filtered = true;
+      }
+      if (word[0]!="CQ" && word[0]!="TNX" && word[0]!="73 " && word[0]!="HNY" && word[0]!="QSY" && word[0]!="PSE" &&
+          !(word[0].left(3).contains(QRegularExpression {"\\w\\d\\w"}) or
+            word[0].left(3).contains(QRegularExpression {"\\d\\w\\d"}) or
+            word[0].left(3).contains(QRegularExpression {"\\w\\w\\d"}) or
+            decodedtext.string().contains("/")or decodedtext.string().contains("<...>"))) {
+        filtered = true;
+      }
+    }
+  }
+}
+
+void MainWindow::processFoxSignals(const DecodedText& decodedtext)
+{
+  if(m_mode=="FT8" and SpecOp::FOX == m_specOp and
+     (decodedtext.string().contains("R+") or decodedtext.string().contains("R-"))) {
+    auto for_us  = decodedtext.string().contains(" " + m_config.my_callsign() + " ") or
+        decodedtext.string().contains(" "+m_baseCall) or
+        decodedtext.string().contains(m_baseCall+" ") or
+        decodedtext.string().contains(" <" + m_config.my_callsign() + "> ");
+    if(decodedtext.string().contains(" DE ")) for_us=true;
+    if(for_us) {
+      QString houndCall,houndGrid;
+      decodedtext.deCallAndGrid(/*out*/houndCall,houndGrid);
+      foxRxSequencer(decodedtext.string(),houndCall,houndGrid);
+    }
+  }
+}
+
+void MainWindow::processSFoxVerification(const DecodedText& decodedtext0, bool& filtered)
+{
+#ifdef FOX_OTP
+  if ((SpecOp::HOUND == m_specOp) &&
+       ((m_config.superFox() && (decodedtext0.mid(24, 8) == "\\$")) ||
+       (decodedtext0.mid(24,-1).contains(QRegularExpression{"^[A-Z0-9]{2,6}\\.[0-9]{6}"}))))
+  {
+    QStringList lineparts;
+    QString callsign, otp;
+    unsigned int hz;
+    lineparts = decodedtext0.string().split(' ', SkipEmptyParts);
+    if (lineparts.length() <= 6) {
+      QStringList otp_parts;
+      otp_parts = lineparts[5].split('.', SkipEmptyParts);
+      callsign = otp_parts[0];
+      otp = otp_parts[1];
+      hz = lineparts[3].toInt();
+      if (!m_config.ShowOTP() or decodedtext0.mid(24,-1).contains(" 000000")) filtered = true;
+    } else {
+      callsign = lineparts[6];
+      otp = lineparts[7];
+      hz = 750;
+      if (!m_config.ShowOTP() or decodedtext0.mid(24,-1).contains(" 000000")) filtered = true;
+    }
+    QDateTime verifyDateTime;
+    if (m_diskData) {
+      verifyDateTime = m_UTCdiskDateTime;
+    } else {
+      verifyDateTime = QDateTime(QDateTime::currentDateTimeUtc().date(),
+                                 QTime::fromString(lineparts[0], "hhmmss"));
+    }
+    if (!decodedtext0.mid(24,-1).contains(" 000000")) {
+      FoxVerifier *fv = new FoxVerifier(MainWindow::userAgent(),
+                                        &m_network_manager,
+                                        m_config.OTPUrl(),
+                                        callsign,
+                                        verifyDateTime,
+                                        otp,
+                                        hz);
+      connect(fv, &FoxVerifier::verifyComplete, this, &MainWindow::handleVerifyMsg);
+      m_verifications << fv;
+    }
+  }
+#endif
+}
+
+bool MainWindow::processWaitAndReply(const DecodedText& decodedtext0, const QString& text)
+{
+  if ((m_mode=="FT8" or m_mode=="FT4" or m_mode=="Q65" or m_mode=="FST4" or m_mode=="JT65" or m_mode=="JT9" or m_mode=="JT4") && m_hisCall!=""
+      && text.contains(" " + m_config.my_callsign() + " " + m_hisCall) && ((!text.contains("73 ")
+      && m_config.Wait_features_enabled() && !ui->autoButton->isChecked())
+      or (m_mode=="FT4" && SpecOp::NA_VHF==m_specOp && m_config.NCCC_Sprint()))) {
+        if (SpecOp::HOUND==m_specOp && (text.mid(4,2).contains("15") or text.mid(4,2).contains("45"))) return false;
+        tx_watchdog (false);
+        m_bDoubleClicked = true;
+        processMessage(decodedtext0);
+        auto_tx_mode(true);
+        if (m_mode=="FT4" && SpecOp::NA_VHF==m_specOp && m_config.NCCC_Sprint()) {
+          extern bool no_logging;
+          if (!no_logging) logQSOTimer.start(0);
+        } else {
+          if (m_config.Wait_features_enabled()) stopWRTimer.start(int(8000.0*m_TRperiod));
+        }
+  }
+  return true;
+}
+
+void MainWindow::processWaitAndCall(const DecodedText& decodedtext0, const QString& text, bool& block_right_display)
+{
+  if (wait_and_call && (m_mode=="FT8" or m_mode=="FT4" or m_mode=="Q65" or m_mode=="FST4" or m_mode=="JT65" or m_mode=="JT9" or m_mode=="JT4") &&
+      m_specOp!=SpecOp::FOX && ui->cbAutoSeq->isChecked() && m_hisCall!="" && !no_wait_and_call &&
+      (text.contains("CQ " + m_hisCall) or text.contains("CQ DX " + m_hisCall) or text.contains(m_hisCall + " RR73")
+       or text.contains(m_hisCall + " RRR") or text.contains(m_hisCall + " 73"))
+      && m_config.Wait_features_enabled()) {
+        if (!text.contains(" " + m_config.my_callsign() + " " + m_hisCall))
+            block_right_display = true;
+        m_bDoubleClicked = true;
+        processMessage(decodedtext0);
+        auto_tx_mode(true);
+        no_wait_and_call = true;
+        stopWCTimer.start(int(6200.0*m_TRperiod));
+  }
+}
+
+bool MainWindow::applyFiltering(const DecodedText& decodedtext, const QString& text, bool& filtered)
+{
+  QString text2 = "";
+  QStringList tw;
+  if (m_mode == "FT8" or m_mode == "FT4" or m_mode == "Q65" or m_mode == "FST4") {
+    tw=text.mid(24).split(" ",SkipEmptyParts);
+  } else {
+    tw=text.mid(22).split(" ",SkipEmptyParts);
+  }
+  if (m_config.filters_for_word2()) {
+        if (tw.size () < 2) {
+            text2 = "___";
+        } else if (tw[1].length() == 2 && tw[1].contains(QRegularExpression{"\\w\\w"})) {
+            if (tw.size () > 2) {
+              text2 = tw[2];
+            } else {
+              text2 = "___";
+            }
+        } else {
+            if (text.contains(";")) {
+              text2 = tw[3];
+            } else {
+              text2 = tw[1];
+            }
+        }
+        if (!(SpecOp::NONE==m_specOp && m_config.AlwaysPass ()
+              && MessageFilter::startsWithAny(text2, m_config.pass_keywords()))) {
+
+            extern int Dpoints,maxDPoints,dBpoints,dBpoints2,mindBPoints;
+            if ((SpecOp::NONE==m_specOp or SpecOp::HOUND==m_specOp) && m_config.Blacklisted ()
+                && MessageFilter::startsWithAny(text2, m_config.blacklist_keywords())) {
+              if (!ui->cbBypass->isChecked()) filtered = true;
+              if (!(m_config.filters_for_Wait_and_Pounce_only() or ui->cbBypass->isChecked()))  return false;
+              // reset dB score when filtered
+              if (pounce && (ui->respondComboBox->currentText()=="CQ: Max Dist"
+                              or ui->respondComboBox->currentText()=="CQ: Max dB"
+                              or ui->respondComboBox->currentText()=="CQ: Min dB")) {
+                Dpoints=0;
+                maxDPoints=0;
+                dBpoints=-28;
+                dBpoints2=99;
+                maxdBPoints=-28;
+                mindBPoints=99;
+              }
+
+            } else if ((SpecOp::NONE==m_specOp or SpecOp::HOUND==m_specOp) && m_config.Whitelisted ()
+                       && !MessageFilter::startsWithAny(text2, m_config.whitelist_keywords())) {
+              if (!ui->cbBypass->isChecked()) filtered = true;
+              if (!(m_config.filters_for_Wait_and_Pounce_only() or ui->cbBypass->isChecked()))  return false;
+              // reset dB score when filtered
+              if (pounce && (ui->respondComboBox->currentText()=="CQ: Max Dist"
+                              or ui->respondComboBox->currentText()=="CQ: Max dB"
+                              or ui->respondComboBox->currentText()=="CQ: Min dB")) {
+                Dpoints=0;
+                maxDPoints=0;
+                dBpoints=-28;
+                dBpoints2=99;
+                maxdBPoints=-28;
+                mindBPoints=99;
+              }
+            }
+
+            if (ui->actionHideTerritory1->isChecked() or ui->actionHideTerritory2->isChecked() or
+                ui->actionHideTerritory3->isChecked() or ui->actionHideTerritory4->isChecked() or
+                ui->actionHideB4->isChecked() or ui->actionHideEU->isChecked() or ui->actionHideAS->isChecked() or
+                ui->actionHideNA->isChecked() or ui->actionHideSA->isChecked() or ui->actionHideAF->isChecked() or
+                ui->actionHideOC->isChecked() or ui->actionHideAN->isChecked()) {
+              QString deCall;
+              QString deGrid;
+              decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
+              if (ui->actionHideTerritory1->isChecked() or ui->actionHideTerritory2->isChecked() or
+                  ui->actionHideTerritory3->isChecked() or ui->actionHideTerritory4->isChecked()) {
+                auto const& looked_up = m_logBook.countries ()->lookup (deCall);
+                auto countryName = Radio::CountryNames::abbreviate(looked_up.entity_name);
+                if (ui->actionHideTerritory1->isChecked() && countryName.contains(m_config.Territory1())
+                    && (m_config.Territory1()!="") && !ui->cbBypass->isChecked()) filtered = true;
+                if (ui->actionHideTerritory2->isChecked() && countryName.contains(m_config.Territory2())
+                    && (m_config.Territory2()!="") && !ui->cbBypass->isChecked()) filtered = true;
+                if (ui->actionHideTerritory3->isChecked() && countryName.contains(m_config.Territory3())
+                    && (m_config.Territory3()!="") && !ui->cbBypass->isChecked()) filtered = true;
+                if (ui->actionHideTerritory4->isChecked() && countryName.contains(m_config.Territory4())
+                    && (m_config.Territory4()!="") && !ui->cbBypass->isChecked()) filtered = true;
+              }
+              if (ui->actionHideB4->isChecked()) {
+                bool callB4onBand;
+                bool countryB4onBand;
+                bool gridB4onBand;
+                bool continentB4onBand;
+                bool CQZoneB4onBand;
+                bool ITUZoneB4onBand;
+                auto const& looked_up = m_logBook.countries ()->lookup (deCall);
+                m_logBook.match (deCall, m_mode, deGrid, looked_up, callB4onBand, countryB4onBand, gridB4onBand,
+                  continentB4onBand, CQZoneB4onBand, ITUZoneB4onBand, m_currentBand);
+                if (callB4onBand && ui->actionHideB4->isChecked() && !ui->cbBypass->isChecked()) filtered = true;
+              }
+              if (ui->actionHideEU->isChecked() or ui->actionHideAS->isChecked() or ui->actionHideNA->isChecked()
+                  or ui->actionHideSA->isChecked() or ui->actionHideAF->isChecked() or ui->actionHideOC->isChecked()
+                  or ui->actionHideAN->isChecked()) {
+                auto const& looked_up = m_logBook.countries ()->lookup (deCall);
+                QString continent = AD1CCty::continent (looked_up.continent);
+                if (ui->actionHideEU->isChecked() && continent == "EU" && !ui->cbBypass->isChecked()) filtered = true;
+                if (ui->actionHideAS->isChecked() && continent == "AS" && !ui->cbBypass->isChecked()) filtered = true;
+                if (ui->actionHideNA->isChecked() && continent == "NA" && !ui->cbBypass->isChecked()) filtered = true;
+                if (ui->actionHideSA->isChecked() && continent == "SA" && !ui->cbBypass->isChecked()) filtered = true;
+                if (ui->actionHideAF->isChecked() && continent == "AF" && !ui->cbBypass->isChecked()) filtered = true;
+                if (ui->actionHideOC->isChecked() && continent == "OC" && !ui->cbBypass->isChecked()) filtered = true;
+                if (ui->actionHideAN->isChecked() && continent == "AN" && !ui->cbBypass->isChecked()) filtered = true;
+              }
+            }
+        }
+  } else {
+        if (!(SpecOp::NONE==m_specOp && m_config.AlwaysPass ()
+              && MessageFilter::containsAny(text, m_config.pass_keywords()))) {
+
+            extern int Dpoints,maxDPoints,dBpoints,dBpoints2,mindBPoints;
+            if ((SpecOp::NONE==m_specOp or SpecOp::HOUND==m_specOp) && m_config.Blacklisted ()
+                && MessageFilter::containsAny(text, m_config.blacklist_keywords())) {
+              if (!ui->cbBypass->isChecked()) filtered = true;
+              if (!(m_config.filters_for_Wait_and_Pounce_only() or ui->cbBypass->isChecked()))  return false;
+              // reset dB score when filtered
+              if (pounce && (ui->respondComboBox->currentText()=="CQ: Max Dist"
+                              or ui->respondComboBox->currentText()=="CQ: Max dB"
+                              or ui->respondComboBox->currentText()=="CQ: Min dB")) {
+                Dpoints=0;
+                maxDPoints=0;
+                dBpoints=-28;
+                dBpoints2=99;
+                maxdBPoints=-28;
+                mindBPoints=99;
+              }
+
+            } else if ((SpecOp::NONE==m_specOp or SpecOp::HOUND==m_specOp) && m_config.Whitelisted ()
+                       && !MessageFilter::containsAny(text, m_config.whitelist_keywords())) {
+              if (!ui->cbBypass->isChecked()) filtered = true;
+              if (!(m_config.filters_for_Wait_and_Pounce_only() or ui->cbBypass->isChecked()))  return false;
+              // reset dB score when filtered
+              if (pounce && (ui->respondComboBox->currentText()=="CQ: Max Dist"
+                              or ui->respondComboBox->currentText()=="CQ: Max dB"
+                              or ui->respondComboBox->currentText()=="CQ: Min dB")) {
+                Dpoints=0;
+                maxDPoints=0;
+                dBpoints=-28;
+                dBpoints2=99;
+                maxdBPoints=-28;
+                mindBPoints=99;
+              }
+            }
+
+            if (ui->actionHideTerritory1->isChecked() or ui->actionHideTerritory2->isChecked() or
+                ui->actionHideTerritory3->isChecked() or ui->actionHideTerritory4->isChecked() or
+                ui->actionHideB4->isChecked() or ui->actionHideEU->isChecked() or ui->actionHideAS->isChecked() or
+                ui->actionHideNA->isChecked() or ui->actionHideSA->isChecked() or ui->actionHideAF->isChecked() or
+                ui->actionHideOC->isChecked() or ui->actionHideAN->isChecked()) {
+              QString deCall;
+              QString deGrid;
+              decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
+              if (ui->actionHideTerritory1->isChecked() or ui->actionHideTerritory2->isChecked() or
+                  ui->actionHideTerritory3->isChecked() or ui->actionHideTerritory4->isChecked()) {
+                auto const& looked_up = m_logBook.countries ()->lookup (deCall);
+                auto countryName = Radio::CountryNames::abbreviate(looked_up.entity_name);
+                if (ui->actionHideTerritory1->isChecked() && countryName.contains(m_config.Territory1())
+                    && (m_config.Territory1()!="") && !ui->cbBypass->isChecked()) filtered = true;
+                if (ui->actionHideTerritory2->isChecked() && countryName.contains(m_config.Territory2())
+                    && (m_config.Territory2()!="") && !ui->cbBypass->isChecked()) filtered = true;
+                if (ui->actionHideTerritory3->isChecked() && countryName.contains(m_config.Territory3())
+                    && (m_config.Territory3()!="") && !ui->cbBypass->isChecked()) filtered = true;
+                if (ui->actionHideTerritory4->isChecked() && countryName.contains(m_config.Territory4())
+                    && (m_config.Territory4()!="") && !ui->cbBypass->isChecked()) filtered = true;
+              }
+              if (ui->actionHideB4->isChecked()) {
+                bool callB4onBand;
+                bool countryB4onBand;
+                bool gridB4onBand;
+                bool continentB4onBand;
+                bool CQZoneB4onBand;
+                bool ITUZoneB4onBand;
+                auto const& looked_up = m_logBook.countries ()->lookup (deCall);
+                m_logBook.match (deCall, m_mode, deGrid, looked_up, callB4onBand, countryB4onBand, gridB4onBand,
+                  continentB4onBand, CQZoneB4onBand, ITUZoneB4onBand, m_currentBand);
+                if (callB4onBand && ui->actionHideB4->isChecked() && !ui->cbBypass->isChecked()) filtered = true;
+              }
+              if (ui->actionHideEU->isChecked() or ui->actionHideAS->isChecked() or ui->actionHideNA->isChecked()
+                  or ui->actionHideSA->isChecked() or ui->actionHideAF->isChecked() or ui->actionHideOC->isChecked()
+                  or ui->actionHideAN->isChecked()) {
+                auto const& looked_up = m_logBook.countries ()->lookup (deCall);
+                QString continent = AD1CCty::continent (looked_up.continent);
+                if (ui->actionHideEU->isChecked() && continent == "EU" && !ui->cbBypass->isChecked()) filtered = true;
+                if (ui->actionHideAS->isChecked() && continent == "AS" && !ui->cbBypass->isChecked()) filtered = true;
+                if (ui->actionHideNA->isChecked() && continent == "NA" && !ui->cbBypass->isChecked()) filtered = true;
+                if (ui->actionHideSA->isChecked() && continent == "SA" && !ui->cbBypass->isChecked()) filtered = true;
+                if (ui->actionHideAF->isChecked() && continent == "AF" && !ui->cbBypass->isChecked()) filtered = true;
+                if (ui->actionHideOC->isChecked() && continent == "OC" && !ui->cbBypass->isChecked()) filtered = true;
+                if (ui->actionHideAN->isChecked() && continent == "AN" && !ui->cbBypass->isChecked()) filtered = true;
+              }
+            }
+        }
+  }
+
+  if (ui->actionHideIgnored->isChecked() or ui->actionHideToday->isChecked()) {
+      QString today = QDateTime::currentDateTimeUtc().toString ("yyyy-MM-dd");
+      QString yesterday = QDateTime::currentDateTimeUtc().addDays(-1).toString ("yyyy-MM-dd");
+      QString deCall;
+      QString deGrid;
+      decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
+      if (ui->actionHideIgnored->isChecked() && !ui->cbBypass->isChecked() && ignoreList.contains(deCall + ",")) filtered = true;
+      if (ui->actionHideToday->isChecked() && !ui->cbBypass->isChecked() && (
+            txLog.contains(QRegularExpression{today + ",[0-9][0-9]:[0-9][0-9]:[0-9][0-9]," + (deCall + ",")})
+            or (m_config.twoDays() && txLog.contains(QRegularExpression{yesterday + ",[0-9][0-9]:[0-9][0-9]:[0-9][0-9]," + (deCall + ",")})))) {
+         filtered = true;
+      }
+  }
+  return true;
+}
+
+void MainWindow::processSprintLogic(const QString& text)
+{
+  // FT4 NS (NCCC Sprints): Log QSO after receiving "mycall hiscall R hisgrid"
+  if (m_mode=="FT4" && SpecOp::NA_VHF==m_specOp && m_config.NCCC_Sprint() && m_hisCall!="" && m_hisGrid!="" &&
+      text.contains(" " + m_config.my_callsign() + " " + m_hisCall + " R " + m_hisGrid.left(4))) {
+    if (m_config.prompt_to_log() || m_config.autoLog()) logQSOTimer.start(0);
+    QTimer::singleShot (500, [=] {
+      on_stopTxButton_clicked();
+    });
+  }
+}
+
+void MainWindow::applyHighlighting(const DecodedText& decodedtext, bool& play_Wanted, bool& play_DXcall)
+{
+  QString text = decodedtext.string().replace("<","").replace(">","");
+  if(ui->actionHighlightB4->isChecked() or ui->actionHighlightToday->isChecked() or ui->actionHighlightIgnored->isChecked()
+     or ui->actionHighlightTerritory1->isChecked() or ui->actionHighlightTerritory2->isChecked()
+     or ui->actionHighlightTerritory3->isChecked() or ui->actionHighlightTerritory4->isChecked()) {
+      QString today = QDateTime::currentDateTimeUtc().toString ("yyyy-MM-dd");
+      QString yesterday = QDateTime::currentDateTimeUtc().addDays(-1).toString ("yyyy-MM-dd");
+      QString deCall;
+      QString deGrid;
+      decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
+      bool callB4onBand;
+      bool countryB4onBand;
+      bool gridB4onBand;
+      bool continentB4onBand;
+      bool CQZoneB4onBand;
+      bool ITUZoneB4onBand;
+      if (ui->actionHighlightB4->isChecked()) {
+          auto const& looked_up = m_logBook.countries ()->lookup (deCall);
+          m_logBook.match (deCall, m_mode, deGrid, looked_up, callB4onBand, countryB4onBand, gridB4onBand,
+                           continentB4onBand, CQZoneB4onBand, ITUZoneB4onBand, m_currentBand);
+          if (callB4onBand) ui->decodedTextBrowser->highlight_callsign(deCall, QColor(195,195,195), QColor(0,0,0), true);
+      }
+      if (ui->actionHighlightToday->isChecked() && (
+          txLog.contains(QRegularExpression{today + ",[0-9][0-9]:[0-9][0-9]:[0-9][0-9]," + (deCall + ",")})
+          or (m_config.twoDays() && txLog.contains(QRegularExpression{yesterday + ",[0-9][0-9]:[0-9][0-9]:[0-9][0-9]," + (deCall + ",")})))) {
+        ui->decodedTextBrowser->highlight_callsign(deCall, QColor(100,100,100), QColor(255,255,0), true);
+      }
+      if (ui->actionHighlightIgnored->isChecked() && ignoreList.contains(deCall + ",")) {
+        ui->decodedTextBrowser->highlight_callsign(deCall, QColor(85,0,0), QColor(255,255,0), true);
+      }
+      if (ui->actionHighlightTerritory1->isChecked() or ui->actionHighlightTerritory2->isChecked() or
+          ui->actionHighlightTerritory3->isChecked() or ui->actionHighlightTerritory4->isChecked()) {
+        auto const& looked_up = m_logBook.countries ()->lookup (deCall);
+        auto countryName = Radio::CountryNames::abbreviate(looked_up.entity_name);
+        if (ui->actionHighlightTerritory1->isChecked() && countryName.contains(m_config.Territory1())
+            && (m_config.Territory1()!="") && !ui->cbBypass->isChecked()) ui->decodedTextBrowser->highlight_callsign(deCall, QColor(115,43,245), QColor(255,255,255), true);
+        if (ui->actionHighlightTerritory2->isChecked() && countryName.contains(m_config.Territory2())
+            && (m_config.Territory2()!="") && !ui->cbBypass->isChecked()) ui->decodedTextBrowser->highlight_callsign(deCall, QColor(115,43,245), QColor(255,255,255), true);
+        if (ui->actionHighlightTerritory3->isChecked() && countryName.contains(m_config.Territory3())
+            && (m_config.Territory3()!="") && !ui->cbBypass->isChecked()) ui->decodedTextBrowser->highlight_callsign(deCall, QColor(115,43,245), QColor(255,255,255), true);
+        if (ui->actionHighlightTerritory4->isChecked() && countryName.contains(m_config.Territory4())
+            && (m_config.Territory4()!="") && !ui->cbBypass->isChecked()) ui->decodedTextBrowser->highlight_callsign(deCall, QColor(115,43,245), QColor(255,255,255), true);
+      }
+  }
+
+  // highlight orange and blue callsigns
+  if (m_config.highlight_orange() or (m_config.highlight_blue()) or ui->actionHighlight_Whitelist_entries->isChecked()) {
+    QString deCall;
+    QString deGrid;
+    decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
+    if (m_config.highlight_orange() && deCall.size()>2 && (m_config.highlight_orange_callsigns().contains(deCall + ",")
+        or m_config.highlight_orange_callsigns().contains(deCall.left(3) + ";") or m_config.highlight_orange_callsigns().contains(deCall.left(2) + ";"))) {
+      ui->decodedTextBrowser->highlight_callsign(deCall, QColor(225,75,0), QColor(255,255,255), true);
+      if (m_config.alert_Enabled() && m_config.alert_Wanted() && !m_muted) play_Wanted = true;
+    }
+    if (m_config.highlight_orange() && deGrid.size()>3 && m_config.highlight_orange_callsigns().contains(deGrid)) {
+      ui->decodedTextBrowser->highlight_callsign(deGrid, QColor(225,75,0), QColor(255,255,255), true);
+      if (m_config.alert_Enabled() && m_config.alert_Wanted() && !m_muted) play_Wanted = true;
+    }
+    if (m_config.highlight_blue() && deCall.size()>2 && (m_config.highlight_blue_callsigns().contains(deCall + ",")
+        or m_config.highlight_blue_callsigns().contains(deCall.left(3) + ";") or m_config.highlight_blue_callsigns().contains(deCall.left(2) + ";"))) {
+      ui->decodedTextBrowser->highlight_callsign(deCall, QColor(0,100,255), QColor(255,255,255), true);
+      if (m_config.alert_Enabled() && m_config.alert_Wanted() && !m_muted) play_Wanted = true;
+    }
+    if (m_config.highlight_blue() && deGrid.size()>3 && m_config.highlight_blue_callsigns().contains(deGrid)) {
+      ui->decodedTextBrowser->highlight_callsign(deGrid, QColor(0,100,255), QColor(255,255,255), true);
+      if (m_config.alert_Enabled() && m_config.alert_Wanted() && !m_muted) play_Wanted = true;
+    }
+    // highlight directional calls
+    QStringList tw;
+    if (m_mode == "FT8" or m_mode == "FT4" or m_mode == "Q65" or m_mode == "FST4") {
+      tw=text.mid(24).split(" ",SkipEmptyParts);
+    } else {
+      tw=text.mid(22).split(" ",SkipEmptyParts);
+    }
+    if (tw.size() > 2) {
+      if (m_config.highlight_orange() && tw[0]=="CQ" && m_config.highlight_orange_callsigns().contains("," + tw[1] + ",")) {
+        ui->decodedTextBrowser->highlight_callsign(tw[1], QColor(225,75,0), QColor(255,255,255), true);
+        if (m_config.alert_Enabled() && m_config.alert_Wanted() && !m_muted && tw[1]!="") play_Wanted = true;
+      }
+      if (m_config.highlight_blue() && tw[0]=="CQ" && m_config.highlight_blue_callsigns().contains("," + tw[1] + ",")) {
+        ui->decodedTextBrowser->highlight_callsign(tw[1], QColor(0,100,255), QColor(255,255,255), true);
+        if (m_config.alert_Enabled() && m_config.alert_Wanted() && !m_muted && tw[1]!="") play_Wanted = true;
+      }
+    }
+    // highlight Whitelist entries
+    if (ui->actionHighlight_Whitelist_entries->isChecked() && deCall.size()>2 &&
+        MessageFilter::containsAny(deCall, m_config.whitelist_keywords())) {
+      ui->decodedTextBrowser->highlight_callsign(deCall, QColor(170,0,127), QColor(255,255,255), true);
+      if (m_config.alert_Enabled() && m_config.alert_Wanted() && !m_muted) play_Wanted = true;
+    }
+  }
+
+  // Highlight DX Call/Grid
+  if (!pounce && (m_config.highlight_DXcall() or m_config.alert_Enabled()) && (m_hisCall != "") &&
+      ((decodedtext.string().contains(QRegularExpression{"(\\w+) " + m_hisCall}))
+       || (decodedtext.string().contains(QRegularExpression{"(\\w+) <" + m_hisCall + ">"}))
+       || (decodedtext.string().contains(QRegularExpression{"<(\\w+)> " + m_hisCall}))
+       || (decodedtext.string().contains(QRegularExpression{"<...> " + m_hisCall})))) {
+    if (m_config.alert_Enabled() && m_config.alert_DXcall() && !m_muted) play_DXcall = true;
+    if (m_config.highlight_DXcall()) {
+      // repeated highlighting to override JTAlert
+      ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);
+      QTimer::singleShot (500, [=] {ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);});
+      QTimer::singleShot (1000, [=] {ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);});
+      QTimer::singleShot (2500, [=] {ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);});
+    }
+  }
+  if (!pounce && (m_config.highlight_DXgrid () or m_config.alert_Enabled()) && (m_hisGrid!="") &&
+      (decodedtext.string().contains(m_hisGrid.left(4))))  {
+    if (m_config.highlight_DXgrid()) ui->decodedTextBrowser->highlight_callsign(m_hisGrid.left(4), QColor(0,0,200), QColor(255,255,255), true);
+    if (m_config.alert_Enabled() && m_config.alert_DXcall() && !m_muted) play_DXcall = true;
+  }
+}
+
+void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QString& text, bool& lselected, bool pounce)
+{
+  extern int Dpoints,maxDPoints,dBpoints,dBpoints2,mindBPoints,maxdBPoints;
+  if(((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled())
+        or (m_auto && m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " "))) && !ignored
+      && !filtered && !lselected && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText()=="CQ: First"
+      && (!(ui->actionFull_Duplex_Mode->isChecked() && m_txing))) {
+    m_bDoubleClicked=true;
+    lselected = true;
+    auto_tx_mode(true);
+    processMessage(decodedtext);
+    auto now = QDateTime::currentDateTimeUtc();
+    m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));
+    QTimer::singleShot (6000, [=] () mutable {lselected = false;});
+    if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));
+  }
+
+  if((pounce or m_auto) && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText()=="CQ: Max Dist"
+      && (!(ui->actionFull_Duplex_Mode->isChecked() && m_txing))) {
+    QString deCall;
+    QString deGrid;
+    decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
+    if (!filtered && !ignored && (deGrid.contains(MainWindow::grid_regexp) or m_bCallingCQ) && (
+        (pounce && text.contains(" CQ ") && !txLog.contains(deCall) && m_config.Wait_features_enabled()) or
+        (m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " ") && !text.contains("73 "))
+         )) {
+      double utch=0.0;
+      int nAz,nEl,nDmiles,nDkm,nHotAz,nHotABetter;
+      azdist_(const_cast <char *> ((m_config.my_grid () + "      ").left (6).toLatin1().constData()),
+              const_cast <char *> ((deGrid + "      ").left (6).toLatin1().constData()),&utch,
+              &nAz,&nEl,&nDmiles,&nDkm,&nHotAz,&nHotABetter,6,6);
+      Dpoints=nDkm;
+      if (!deGrid.contains(MainWindow::grid_regexp)) Dpoints=1;
+      if(Dpoints>maxDPoints) {
+          maxDPoints=Dpoints;
+          m_deCall=deCall;
+          m_bDoubleClicked=true;
+          if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {
+            auto_tx_mode(true);
+            processMessage(decodedtext);
+            if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));
+          }
+          ui->dxCallEntry->setText(deCall);
+          genStdMsgs(QString::number(decodedtext.snr()));
+          ui->RxFreqSpinBox->setValue(decodedtext.frequencyOffset());
+          setTxMsg(m_ntx);
+          m_currentMessageType=m_ntx;
+          auto now = QDateTime::currentDateTimeUtc();
+          m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));
+          QTimer::singleShot (6000, [=] () mutable {lselected = false;});
+      }
+    }
+  }
+
+  // CQ: Max dB
+  if((pounce or m_auto) && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText()=="CQ: Max dB"
+      && (!(ui->actionFull_Duplex_Mode->isChecked() && m_txing))) {
+    QString deCall;
+    QString deGrid;
+    decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
+    if (!filtered && !ignored && (
+        (pounce && text.contains(" CQ ") && !txLog.contains(deCall) && m_config.Wait_features_enabled()) or
+        (m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " ") && !text.contains("73 "))
+         )) {
+            dBpoints=decodedtext.string().mid(7,3).toInt();
+            if(dBpoints>maxdBPoints) {
+                maxdBPoints=dBpoints;
+                m_deCall=deCall;
+                m_bDoubleClicked=true;
+                if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {
+                  auto_tx_mode(true);
+                  processMessage(decodedtext);
+                  if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));
+                }
+                ui->dxCallEntry->setText(deCall);
+                genStdMsgs(QString::number(decodedtext.snr()));
+                ui->RxFreqSpinBox->setValue(decodedtext.frequencyOffset());
+                setTxMsg(m_ntx);
+                m_currentMessageType=m_ntx;
+                auto now = QDateTime::currentDateTimeUtc();
+                m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));
+                QTimer::singleShot (6000, [=] {selected = false;});
+            }
+    }
+  }
+
+  // CQ: Min dB
+  if((pounce or m_auto) && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText()=="CQ: Min dB"
+      && (!(ui->actionFull_Duplex_Mode->isChecked() && m_txing))) {
+    QString deCall;
+    QString deGrid;
+    decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
+    if (!filtered && !ignored && (
+        (pounce && text.contains(" CQ ") && !txLog.contains(deCall) && m_config.Wait_features_enabled()) or
+        (m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " ") && !text.contains("73 "))
+         )) {
+            dBpoints2=decodedtext.string().mid(7,3).toInt();
+            if(dBpoints2<mindBPoints) {
+                mindBPoints=dBpoints2;
+                m_deCall=deCall;
+                m_bDoubleClicked=true;
+                if ((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled()) or m_auto) {
+                  auto_tx_mode(true);
+                  processMessage(decodedtext);
+                  if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));
+                }
+                ui->dxCallEntry->setText(deCall);
+                genStdMsgs(QString::number(decodedtext.snr()));
+                ui->RxFreqSpinBox->setValue(decodedtext.frequencyOffset());
+                setTxMsg(m_ntx);
+                m_currentMessageType=m_ntx;
+                auto now = QDateTime::currentDateTimeUtc();
+                m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));
+                QTimer::singleShot (6000, [=] {selected = false;});
+            }
+    }
+  }
+}
+
+void MainWindow::processSuperHoundVerification(const DecodedText& decodedtext0, bool& verified)
+{
+  if (ui->labDXped->text().contains("Hound") && decodedtext0.mid(3,18).contains(" verified")) {
+    verified = true;
+    write_all("Vf",decodedtext0.string());
+    ui->labDXped->setStyleSheet("QLabel {background-color: #00ff00; color: black;}");
+  } else {
+#ifndef FOX_OTP
+    if (m_specOp==SpecOp::HOUND && m_config.superFox() && (decodedtext0.mid(4,2).contains("00") or decodedtext0.mid(4,2).contains("30"))) verified = false;
+#endif
+  }
+  if ((!verified && ui->labDXped->isVisible()) or !ui->labDXped->text().contains("Hound"))
+    ui->labDXped->setStyleSheet("QLabel {background-color: red; color: white;}");
+}
+
+QString MainWindow::calculateDistanceAndBearing(const DecodedText& decodedtext)
+{
+  QString distance;
+  QString deCall;
+  QString deGrid;
+  decodedtext.deCallAndGrid(deCall,deGrid);
+  if ((m_config.showDistance() || m_config.showAzimuth()) && deGrid.contains(MainWindow::grid_regexp)) {
+    double utch=0.0;
+    int nAz,nEl,nDmiles,nDkm,nHotAz,nHotABetter;
+    QString my_Grid = m_config.my_grid();
+    if (my_Grid.length() < 5) my_Grid = m_config.my_grid().left(4)+"mm";
+    QString de_Grid= deGrid.left(4)+"mm";
+    azdist_(const_cast <char *> (my_Grid.toLatin1().constData()),
+            const_cast <char *> (de_Grid.toLatin1().constData()),&utch,
+            &nAz,&nEl,&nDmiles,&nDkm,&nHotAz,&nHotABetter,(FCL)6,(FCL)6);
+    if (m_config.showDistance()) {
+        int nd=nDkm;
+        if(m_config.miles()) nd=nDmiles;
+        distance = QString::number(nd);
+        if(m_config.miles()) distance += " mi";
+        if(!m_config.miles()) distance += " km";
+    }
+    if (m_config.showAzimuth()) {
+        if (distance.length()) distance += " / ";
+        distance += QString::number(nAz) + "°";
+    }
+  }
+  return distance;
+}
+
+void MainWindow::displayDecodedTextLine(const DecodedText& decodedtext, const QByteArray& line_read, const QString& distance, bool haveFSpread, float fSpread, bool bDisplayPoints)
+{
+  if ((m_mode == "JT65" or m_mode == "JT9" or m_mode == "JT4") && m_config.DXCC()) {
+    DecodedText decodedtextJT {((QString::fromUtf8(line_read.left(44).constData())) + (QString::fromUtf8(line_read.mid(62, 2).constData())))};
+    ui->decodedTextBrowser->displayDecodedText (decodedtextJT, m_config.my_callsign (), m_mode, m_config.DXCC (),
+                                                m_logBook, m_currentBandPeriod, m_config.ppfx (),
+                                                ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
+                                                haveFSpread, fSpread, bDisplayPoints, m_points, distance, m_muted);
+  } else {
+    if (ui->actionHide_AP_info->isVisible() && ui->actionHide_AP_info->isChecked()) {
+      // Hide FT8 AP information
+      QByteArray line = line_read;
+      DecodedText decodedtext2 {(QString::fromUtf8(line.replace("a1","").replace("a2","").replace("a3","").replace("a4","")
+                                 .replace("a5","").replace("a6","").replace("a7","").replace("a8","").replace("a9","").replace("?","")))};
+      ui->decodedTextBrowser->displayDecodedText (decodedtext2, m_config.my_callsign (), m_mode, m_config.DXCC (),
+                                                  m_logBook, m_currentBandPeriod, m_config.ppfx (),
+                                                  ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
+                                                  haveFSpread, fSpread, bDisplayPoints, m_points, distance, m_muted);
+    } else {
+      ui->decodedTextBrowser->displayDecodedText (decodedtext, m_config.my_callsign (), m_mode, m_config.DXCC (),
+                                                  m_logBook, m_currentBandPeriod, m_config.ppfx (),
+                                                  ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
+                                                  haveFSpread, fSpread, bDisplayPoints, m_points, distance, m_muted);
+    }
+  }
+}
