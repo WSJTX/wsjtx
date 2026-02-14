@@ -7,6 +7,7 @@
 #include <QCoreApplication>
 #include <cstring>
 #include <cmath>
+#include <iostream>
 #include <limits>
 #include <functional>
 #include <algorithm>
@@ -8336,6 +8337,7 @@ void MainWindow::guiUpdate()
 //Once per second (onesec)
   if(nsec != m_sec0) {
     //    qDebug()   << "AAA" << nsec % 60;
+    //    std::cout << "AAA " << nsec % 60 << "\n";
     // reset earlyDecodes for 2-stage or 3-stage decoding, or if QRG > 45 MHz
     if (m_mode=="FT8" && !m_diskData && ((m_multithreadFT8 && m_ft8DecoderStart<2) or m_freqNominal>45000000)) {
       QDateTime now = QDateTime::currentDateTimeUtc();
