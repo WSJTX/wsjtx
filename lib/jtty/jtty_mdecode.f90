@@ -2,7 +2,7 @@ subroutine jtty_mdecode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snrdb,line,
 !
 !  First try at a multi-decoder for JTTY - replaces the single-decode version in jtty_decode.f90
 !  Does not pass decodes back to rjtty_sub yet - just prints results to the console
-!  
+!
 !  note nsps is samples per symbol at 12000 s^-1 sample rate.
 !
    use jtty_mod
@@ -37,6 +37,7 @@ subroutine jtty_mdecode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snrdb,line,
    real, intent(in)          :: f0,ftol,smin
    real, intent(out)         :: dmin
    real, intent(inout)       :: xdt,f1,snrdb
+   real                      :: xdt1, f11, snr0
    complex, allocatable      :: c(:)
    complex, allocatable      :: c0(:)
    complex, allocatable      :: c1(:)
@@ -108,8 +109,6 @@ subroutine jtty_mdecode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snrdb,line,
    dt=1.0/fsample
    df2=fsample/nfft
 
-!   if(.not.synced) then
-
    istep=0
    do i0=0,ntstep,12                     !Search over quarter-frame segment
       xdt=i0*dt
@@ -127,16 +126,14 @@ subroutine jtty_mdecode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snrdb,line,
       istep=istep+1
    enddo
 
-   nchan= 14                 ! center frequencesi are f0, 200, 400, 600, ... , 2800 Hz.
+   nchan= 14
 !   nchan= 0
    if(allocated(allcand)) deallocate(allcand)
    allocate(allcand(0:nchan))
 
-   do ichan=0, nchan         ! frequency channels - channel 0 is always centered on f0 
-! for now we hardwire the channels so that there are two narrow ones on either side of chan 0
-! and no overlaps, to minimize dupes
+   do ichan=0, nchan         ! frequency channels - channel 0 is always centered on f0
       if(ichan.eq.0) then
-         fc=1500
+         fc=1500      ! hardwired for now
          fwid=50
       else            ! for now, hardwired nonoverlapping channels
          fc=ichan*200
@@ -175,6 +172,13 @@ subroutine jtty_mdecode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snrdb,line,
             xdtbest=xdt
          endif
       enddo
+
+      if(ichan.eq.0) then
+         call jtty_peakup(c0,c1,csync,nchunk6, nss, xdtbest, fbest, xdt1, f11, snr0)
+         xdtbest=xdt1
+         fbest=f11
+      endif
+
       allcand(ichan)%xdt=xdtbest
       allcand(ichan)%f1=fbest
 
@@ -203,7 +207,8 @@ subroutine jtty_mdecode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snrdb,line,
       if(pn.gt.0.) snrdb=db(pt/pn)
       nsync=count(is13.eq.irxsync)             ! nsync is the number of correct hard-decoded sync tones.
       allcand(ichan)%snrdb=snrdb
-      if(nsync .le. 6 .or. snrdb .lt. smin) cycle
+      if( nchan.eq.0 .and. (nsync .le. 6 .or. snrdb .lt. smin)) cycle
+      if( nchan.ne.0 .and. (nsync .le. 8 .or. snrdb .lt. 5.0)) cycle
 
 ! looks like a real candidate - try to decode
       do j=1,40                                ! find tone powers for 40 symbols
@@ -244,18 +249,18 @@ subroutine jtty_mdecode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snrdb,line,
          write(c32(1),'(32i1)') message32
          call unpack_jtty(c32,1,allcand(ichan)%decoded)
          write(*,'(i4,f9.1,f9.1,1x,a)') ichan,allcand(ichan)%f1,   &
-              allcand(ichan)%snrdb,trim(allcand(ichan)%decoded)
+            allcand(ichan)%snrdb,trim(allcand(ichan)%decoded)
          if(ichan.eq.0) then
 ! make single-channel rjtty_sub happy
-           line=allcand(ichan)%decoded
-           xdt=allcand(ichan)%xdt
-           f1=allcand(ichan)%f1
-           snrdb=allcand(ichan)%snrdb
+            line=allcand(ichan)%decoded
+            xdt=allcand(ichan)%xdt
+            f1=allcand(ichan)%f1
+            snrdb=allcand(ichan)%snrdb
          endif
       endif
    enddo     ! ichan, frequency channel loop
 
-synced=.false. 
-success=.false.
+   synced=.false.
+   success=.false.
    return
 end subroutine jtty_mdecode

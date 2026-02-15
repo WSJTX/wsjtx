@@ -28,8 +28,8 @@ program rjtty
    nargs=iargc()
    if(nargs.lt.6) then
       print*,'Usage:    rjtty smin ndebug nsps  f0  ftol  fname [...]'
-      print*,'Examples: rjtty   2    0    384  1500  50  000000_000001.wav'
-      print*,'          rjtty   2    1    240  1500  50  *.wav'
+      print*,'Examples: rjtty   4    0    384  1500  50  000000_000001.wav'
+      print*,'          rjtty   4    1    240  1500  50  *.wav'
       print*,'nsps choices are: 240, 320, 384, 480 samples/symbol'
       go to 999
    endif
@@ -61,7 +61,6 @@ program rjtty
       if(nwave.lt.NMAX) iwave(nwave+1:NMAX) = 0
       kchar=0
       istart=1
-      synced=.false. 
       nsync=0
       f1good = -99.
       xdtgood = -99.
@@ -71,13 +70,12 @@ program rjtty
 ! Process data on the fly, one buffer at a time:
       do while (istart+nchunk-1 .le. nwave)
          success=.false.
-!synced=.false.               !uncomment this to disable use of prior sync
          call system_clock(count0,clkfreq)
          call jtty_mdecode(iwave(istart),nchunk,nsps,f0,ftol,smin,synced,xdt,  &
             f1,snr,umsg,success,nharderrors,nsync,dmin)
          call system_clock(count1,clkfreq)
 
-         if(synced) then
+         if(success) then
             missed_syncs=0
          else
             missed_syncs = missed_syncs + 1
@@ -116,13 +114,8 @@ program rjtty
             if(n.ge.3) then
                if(umsg(n-2:n).eq.' CQ') write(*,'(a)',advance='no') ' '
             endif
-
-            istart=istart+nframe
-            if(nsync.lt.12) synced=.false.
-         else
-            istart=istart+nframe/4
-            synced=.false.
          endif
+         istart=istart+nframe/4
       enddo
       write(*,*) ''
    enddo  !ifile
