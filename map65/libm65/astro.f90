@@ -10,7 +10,6 @@ subroutine astro(nyear,month,nday,uth,nfreq,Mygrid,NStation,MoonDX,     &
   real lat,lon
   integer*2 nt144(180)
 
-!      common/echo/xdop(2),techo,AzMoon,ElMoon,mjd
   real xdop(2)
 
   data rad/57.2957795/

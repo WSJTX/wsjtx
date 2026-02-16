@@ -1,3 +1,7 @@
+module demod64a_mod
+  implicit none
+contains  
+
 subroutine demod64a(s3,nadd,mrsym,mrprob,mr2sym,mr2prob,ntest,nlow)
 
 !  Demodulate the 64-bin spectra for each of 63 symbols in a frame.
@@ -9,11 +13,16 @@ subroutine demod64a(s3,nadd,mrsym,mrprob,mr2sym,mr2prob,ntest,nlow)
 !     mrprob   probability that mrsym was the transmitted value
 !     mr2prob  probability that mr2sym was the transmitted value
 
-  implicit real*8 (a-h,o-z)
+  use mrs_mod
+
+  implicit none
+  
+
   real*4 s3(64,63)
   real*8 fs(64)
   integer mrsym(63),mrprob(63),mr2sym(63),mr2prob(63)
-  common/mrscom/ mrs(63),mrs2(63)
+  integer :: nadd,ntest,nlow,i,i1,i2,j
+  real*8 ::afac,scale,ave,s1,s2,p2,psum,x,fsum,p1,sum
 
   afac=1.1 * float(nadd)**0.64
   scale=255.999
@@ -75,3 +84,5 @@ subroutine demod64a(s3,nadd,mrsym,mrprob,mr2sym,mr2prob,ntest,nlow)
 
   return
 end subroutine demod64a
+
+end module demod64a_mod

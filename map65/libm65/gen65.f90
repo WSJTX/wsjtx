@@ -3,6 +3,7 @@ subroutine gen65(message,mode65,samfac,nsendingsh,msgsent,iwave,nwave)
 ! Encodes a JT65 message into a wavefile.  
 ! Executes in 17 ms on opti-745.
 
+  use iso_c_binding
   use packjt
   
   parameter (NMAX=2*60*11025)   !Max length of wave file
