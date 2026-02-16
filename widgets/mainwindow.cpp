@@ -5,16 +5,13 @@
 #include <QAudioOutput>
 #include <QSound>
 #include <QCoreApplication>
-#include <cinttypes>
 #include <cstring>
 #include <cmath>
+#include <iostream>
 #include <limits>
 #include <functional>
-#include <fstream>
-#include <iterator>
 #include <algorithm>
 #include <fftw3.h>
-#include <thread> // TCI
 #include <QApplication>
 #include <QStringListModel>
 #include <QSettings>
@@ -67,7 +64,6 @@
 #include "Modulator/Modulator.hpp"
 #include "Detector/Detector.hpp"
 #include "plotter.h"
-#include "echoplot.h"
 #include "echograph.h"
 #include "fastplot.h"
 #include "fastgraph.h"
@@ -77,7 +73,6 @@
 #include "activeStations.h"
 #include "colorhighlighting.h"
 #include "widegraph.h"
-#include "sleep.h"
 #include "logqso.h"
 #include "Decoder/decodedtext.h"
 #include "Radio.hpp"
@@ -135,7 +130,7 @@ extern "C" {
               fortran_charlen_t, fortran_charlen_t, fortran_charlen_t, fortran_charlen_t);
 
   void rjtty_sub_(short int d2[], int* k, int* nsps, float* f0, float* ftol,
-                  char line[], fortran_charlen_t);
+                  float* xdt, float* f1, float* snr, char line[], fortran_charlen_t);
 
   void genjtty_(char const * msg, int itone[], int* nsym, fortran_charlen_t);
 
@@ -3433,8 +3428,7 @@ void MainWindow::closeEvent(QCloseEvent * e)
 
 void MainWindow::on_actionRelease_Notes_triggered ()
 {
-  QDesktopServices::openUrl (QUrl {"https://wsjt-x-improved.sourceforge.io/Release_Notes.txt"});
-//  QDesktopServices::openUrl (QUrl {"https://wsjt.sourceforge.io/Release_Notes.txt"});
+  QDesktopServices::openUrl (QUrl {"https://wsjt.sourceforge.io/Release_Notes.txt"});
 }
 
 void MainWindow::on_actionFT8_DXpedition_Mode_User_Guide_triggered()
@@ -5893,8 +5887,8 @@ void MainWindow::guiUpdate()
 
 //Once per second (onesec)
   if(nsec != m_sec0) {
-//    qDebug() << "AAA" << nsec % 60 << m_k0 << m_k0/12000 << g_iptt << m_transmitting
-//             << m_modulator->isActive();
+    //    qDebug()   << "AAA" << nsec % 60;
+    //    std::cout << "AAA " << nsec % 60 << "\n";
     // reset earlyDecodes for 2-stage or 3-stage decoding, or if QRG > 45 MHz
     if (m_mode=="FT8" && !m_diskData && ((m_multithreadFT8 && m_ft8DecoderStart<2) or m_freqNominal>45000000)) {
       QDateTime now = QDateTime::currentDateTimeUtc();
@@ -8776,8 +8770,12 @@ void MainWindow::on_actionJTTY_triggered()
   ui->cbAutoSeq->setChecked(false);
   m_bFastMode=false;
   m_bFast9=false;
-  initializeFFT(6912);
-  m_TRperiod=60;                   //We need a nonzero setting for WideGraph plotter to work.
+  m_nsps=6912;
+  initializeFFT(m_nsps);
+  m_FFTSize = m_nsps / 2;
+  if (m_tci_audio) Q_EMIT m_config.transceiver_blocksize (m_FFTSize);
+  else Q_EMIT FFTSize (m_FFTSize);
+  m_TRperiod=180;                   //We need a nonzero setting for WideGraph plotter to work.
   m_hsymStop=620;
   m_wideGraph->setPeriod(m_TRperiod,m_nsps);
   ui->TxFreqSpinBox->setValue(1500);
@@ -13538,8 +13536,8 @@ void MainWindow::read_ALLCALL7()
     while (!AllCall7Stream.atEnd()) {
       ALLCALL7 = AllCall7Stream.readAll();
     }
-      AllCall7Stream.flush();
-      AllCall7File.close();
+    AllCall7Stream.flush();
+    AllCall7File.close();
   }
 }
 
@@ -13588,8 +13586,6 @@ void MainWindow::alertQSYmessage ()
 #endif
 }
 
-
-
 bool MainWindow::isFalseDecode(const QByteArray& line_read, const DecodedText& decodedtext, const QString& message0) const
 {
   extern bool no_a7_decodes;
@@ -13628,7 +13624,8 @@ bool MainWindow::isFalseDecode(const QByteArray& line_read, const DecodedText& d
 
 void MainWindow::parseAveragingInfo(const QByteArray& line_read, bool& bAvgMsg, int& navg) const
 {
-  if(m_mode=="JT4" or m_mode=="JT65" or m_mode=="Q65") {
+  if(m_mode=="JT4" or m_mode=="JT65" or m_mode=="Q65")
+  {
     int nf=line_read.indexOf("f");
     if(nf>0) {
       navg=line_read.mid(nf+1,1).toInt();

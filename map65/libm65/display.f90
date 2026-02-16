@@ -1,10 +1,15 @@
 subroutine display(nkeep,ftol)
 
+  use stdout_channel_mod, only: write_stdout
+
+
   parameter (MAXLINES=400,MX=400,MAXCALLS=500)
   integer indx(MAXLINES),indx2(MX)
   character*83 line(MAXLINES),line2(MX),line3(MAXLINES)
-  character out*63,out0*63,cfreq0*3 ! was 57,57,3
-  character*6 callsign,callsign0
+  character out*63, out0*63, cfreq0*3
+  character*6 callsign, callsign0
+ ! integer nc
+
   character*12 freqcall(MAXCALLS)
   real freqkHz(MAXLINES)
   integer utc(MAXLINES),utc2(MX),utcz
@@ -14,11 +19,16 @@ subroutine display(nkeep,ftol)
   character(len=83) :: livecq2
   character(len=83) :: livecq3
 
-
   integer :: io_status
   integer :: ndf, nh, nm
+  
+  integer :: i_tmp
+  character*83 tmp
+  character(len=128) :: linenew
+  character(len=64) ::linenew2
 
   out0=' '
+
   rewind(26)
 
   do i=1,MAXLINES
@@ -29,7 +39,7 @@ subroutine display(nkeep,ftol)
      if (io_status /= 0) then
         ! Handle error: skip
         continue
-     end if            
+     end if
      utc(i)=60*nh + nm
      freqkHz(i)=1000.d0*(f0-144.d0) + 0.001d0*ndf
   enddo
@@ -78,7 +88,9 @@ subroutine display(nkeep,ftol)
   k=1
   m=indx(1)
   if(m.lt.1 .or. m.gt.MAXLINES) then
-     print*,'Error in display.f90: ',nz,m
+    !  print*,'Error in display.f90: ',nz,m
+     write(linenew, '(A,1X,I0,1X,I0)') 'Error in display.f90:', nz, m
+     call write_stdout(trim(linenew)//new_line('a'))
      m=1
   endif
   line2(1)=line(m)
@@ -129,9 +141,11 @@ subroutine display(nkeep,ftol)
 
   rewind 19
   rewind 20
-  cfreq0='   '
-  nc=0
-  callsign0='      '
+  cfreq0 = ' ' 
+  nc = 0 
+  callsign0 = ' '
+
+  ! before the main k-loop that processes lines for the bandmap:
   do k=1,k3
      out=line3(k)(1:13)//line3(k)(28:31)//line3(k)(39:45)//       &
           line3(k)(35:38)//line3(k)(46:80) ! was 46:74
@@ -143,8 +157,10 @@ subroutine display(nkeep,ftol)
         if(out(19:22).ne.out0(19:22) .or. out(31:55).ne.out0(31:55) .or.  &
           out(6:8).ne.out0(6:8)) then
           livecq3 = out(1:61) // ' ' // livecq2(23:27) // ' ' // livecq2(79:83) ! was 1:55 and 73:77
-          write(*,1030) livecq3
-1030      format('@',a83) ! was a77
+!          write(*,1030) livecq3
+!1030      format('@',a83) ! was a77
+          write(linenew, '("@",A)') trim(livecq3) 
+          call write_stdout(trim(linenew)//new_line('a'))
           out0=out
         endif
 
@@ -175,8 +191,10 @@ subroutine display(nkeep,ftol)
   freqcall(nc+2)='            '
 
   do i=1,nc
-  write(*,1042) freqcall(i)                         !Band Map
-1042 format('&',a12)
+!  write(*,1042) freqcall(i)                         !Band Map
+!1042 format('&',a12)
+  write(linenew2, '("&",A)') trim(freqcall(i)) 
+  call write_stdout(trim(linenew2)//new_line('a'))
   enddo
 
 999  continue

@@ -24,6 +24,7 @@ signals:
 
 private slots:
     void onFinished(QNetworkReply *reply);
+    void onReplyError();
 
 private:
     QNetworkAccessManager *m_networkManager;

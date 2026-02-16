@@ -30,11 +30,12 @@
 #define Q65_LLH_THRESHOLD -260.0f 
 
 // This value produce the same WER performance in decode_fullaplist
-// #define Q65_LLH_THRESHOLD -262.0f 
+// #define Q65_LLH_THRESHOLD -262.0f
 
 
 static int	_q65_crc6(int *x, int sz);
 static void _q65_crc12(int *y, int *x, int sz);
+static void	_q65_mask(const qracode *pcode, float *ix, const int *mask, const int *x);
 
 float q65_llh;
 
@@ -805,7 +806,7 @@ int _q65_get_bits_per_symbol(const qracode *pCode)
 {
 	return pCode->m;
 }
-static void _q65_mask(const qracode *pcode, float *ix, const int *mask, const int *x)
+void _q65_mask(const qracode *pcode, float *ix, const int *mask, const int *x)
 {
 	// mask intrinsic information ix with available a priori knowledge
 	

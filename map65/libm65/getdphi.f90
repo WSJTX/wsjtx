@@ -1,6 +1,10 @@
 subroutine getdphi(qphi)
 
+implicit none
+
   real qphi(12)
+  real c,dphi,s,th
+  integer i
 
   s=0.
   c=0.

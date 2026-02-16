@@ -10,6 +10,13 @@ if (APPLE)
   #
   # otool -l <binary> | grep -A3 LC_VERSION_MIN_MACOSX
   #
+  if (NOT CMAKE_OSX_SYSROOT)
+    execute_process (COMMAND xcrun --show-sdk-path
+            OUTPUT_VARIABLE _SDK_PATH
+            OUTPUT_STRIP_TRAILING_WHITESPACE)
+    set (CMAKE_OSX_SYSROOT ${_SDK_PATH} CACHE STRING "Path to macOS SDK")
+  endif ()
+
   set (CMAKE_OSX_DEPLOYMENT_TARGET 10.12
     CACHE STRING "Earliest version of macOS supported
 
@@ -100,10 +107,10 @@ set (wsjtx_VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_
 #
 # project information
 #
-set (PROJECT_BUNDLE_NAME "WSJT-X-improved")
-set (PROJECT_VENDOR "Uwe Risse, DG2YCB")
-set (PROJECT_CONTACT "dg2ycb@gmx.de")
-set (PROJECT_COPYRIGHT "Copyright (C) 2001-2025 by Joe Taylor, K1JT and 2020-2025 by Uwe Risse, DG2YCB")
+set (PROJECT_BUNDLE_NAME "WSJT-X")
+set (PROJECT_VENDOR "Joe Taylor, K1JT")
+set (PROJECT_CONTACT "joe@princeton.edu")
+set (PROJECT_COPYRIGHT "Copyright (C) 2001-2026 by Joe Taylor, K1JT and 2020-2026 by Uwe Risse, DG2YCB")
 set (PROJECT_HOMEPAGE https://wsjt.sourceforge.io/wsjtx.html)
 set (PROJECT_MANUAL wsjtx-main)
 set (PROJECT_MANUAL_DIRECTORY_URL https://wsjt.sourceforge.io/wsjtx-doc/)
@@ -154,6 +161,7 @@ option (WSJT_RIG_NONE_CAN_SPLIT "Allow split operation with \"None\" as rig.")
 option (WSJT_TRACE_UDP "Debugging option that turns on UDP message protocol diagnostics.")
 option (WSJT_BUILD_UTILS "Build simulators and code demonstrators." ON)
 option (WSJT_FOX_OTP "Enable Fox OTP Verification Messages." ON)
+option (WSJT_ENABLE_TESTS "Enable developer tests." ON)
 CMAKE_DEPENDENT_OPTION (WSJT_QDEBUG_IN_RELEASE "Leave Qt debugging statements in Release configuration." OFF
   "NOT is_debug_build" OFF)
 CMAKE_DEPENDENT_OPTION (WSJT_ENABLE_EXPERIMENTAL_FEATURES "Enable features not fully ready for public releases." ON
@@ -194,6 +202,12 @@ if (WSJT_FOX_OTP)
   )
   message (STATUS "Including Fox verification code feature")
 endif ()
+
+if (WSJT_ENABLE_TESTS)
+     enable_testing ()
+     add_subdirectory (lib/jtty/tests)
+     message (STATUS "Including tests")
+ endif()
 
 #
 # Project sources
@@ -729,6 +743,7 @@ set (wsjt_FSRCS
   lib/superfox/ran1.f90
   lib/superfox/sfoxsim.f90
   lib/jtty/jtty_decode.f90
+  lib/jtty/jtty_mdecode.f90
   lib/jtty/rjtty_sub.f90
   lib/jtty/jtty_peakup.f90
   lib/jtty/ana64a.f90
@@ -1315,11 +1330,14 @@ target_link_libraries (jt65sim wsjt_fort wsjt_cxx)
 add_executable (sjtty lib/jtty/sjtty.f90)
 target_link_libraries (sjtty wsjt_fort wsjt_cxx)
 
+add_executable (test_jtty_pack lib/jtty/tests/test_jtty_pack.f90)
+configure_file(lib/jtty/tests/jtty_msgs.txt "${CMAKE_CURRENT_BINARY_DIR}/jtty_msgs.txt" COPYONLY)
+add_test(NAME test_jtty_pack
+        COMMAND test_jtty_pack)
+target_link_libraries (test_jtty_pack wsjt_fort wsjt_cxx)
+
 add_executable (sjtty_qrm lib/jtty/sjtty_qrm.f90)
 target_link_libraries (sjtty_qrm wsjt_fort wsjt_cxx)
-
-add_executable (test_jtty_pack lib/jtty/test_jtty_pack.f90)
-target_link_libraries (test_jtty_pack wsjt_fort wsjt_cxx)
 
 add_executable (rjtty lib/jtty/rjtty.f90)
 target_link_libraries (rjtty wsjt_fort wsjt_cxx)
@@ -1988,6 +2006,13 @@ if (APPLE)
     "${CMAKE_POSTFLIGHT_SCRIPT}")
   configure_file ("${wsjtx_SOURCE_DIR}/Darwin/postupgrade.sh.in"
     "${CMAKE_POSTUPGRADE_SCRIPT}")
+  add_custom_command(
+          TARGET wsjtx POST_BUILD
+          COMMAND ${CMAKE_COMMAND} -E copy
+          $<TARGET_FILE:jt9>
+          $<TARGET_BUNDLE_CONTENT_DIR:wsjtx>/MacOS/
+          COMMENT "Copying jt9 into WSJT-X bundle"
+  )
 endif ()
 
 

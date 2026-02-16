@@ -1,10 +1,14 @@
 subroutine txpol(xpol,decoded,mygrid,npol,nxant,ntxpol,cp)
 
+implicit none
+
 !  If Tx station's grid is in decoded message, compute optimum TxPol
   character*22 decoded
   character*6 mygrid,grid
   character*1 cp
   logical xpol
+  integer npol,nxant,ntxpol,i1,i2
+  real dpol
 
   ntxpol=0
   i1=index(decoded,' ')

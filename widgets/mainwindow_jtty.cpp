@@ -12,7 +12,7 @@ extern dec_data_t dec_data;
 
 extern "C" {
   void rjtty_sub_(short int d2[], int* k, int* nsps, float* f0, float* ftol,
-                  char line[], fortran_charlen_t);
+                  float* xdt, float* f1, float* snr, char line[], fortran_charlen_t);
 
   void genjtty_(char const * msg, int itone[], int* nsym, fortran_charlen_t);
 
@@ -20,12 +20,80 @@ extern "C" {
                     float xjunk[], float wave[], int* icmplx, int* nwave);
 }
 
+void MainWindow::jtty_save_wav()
+{
+  //Save JTTY data to a .wav file
+  QDateTime now {QDateTime::currentDateTimeUtc ()};
+  qint64 ms = m_k0/12;
+  auto const& tstart=now.addMSecs(-ms);
+  m_fnameWE=m_config.save_directory().absoluteFilePath (tstart.toString("yyMMdd_hhmmss"));
+  int samples=m_k0;
+  short const * data = &dec_data.d2[0];
+  m_saveWAVWatcher.setFuture (QtConcurrent::run ([=] {
+    return Radio::WavFile::save (m_fnameWE, data, samples, m_config.my_callsign (),
+                                 m_config.my_grid (), m_mode, m_nSubMode, m_freqNominalPeriod,
+                                 m_hisCall, m_hisGrid);
+  }));
+}
+
+void MainWindow::jtty_decode(int k)
+{
+  static int k0=9999999;
+  int nsps=384;
+  char line[80];
+  float f0 = m_wideGraph->rxFreq();
+  float ftol = 20.0;
+  static float xdt = 0.0;
+  static float f1 = 0.0;
+  float snr = 0.0;
+  //  static int n0=0;
+  static QString message0 = "";
+
+  rjtty_sub_(dec_data.d2,&k,&nsps,&f0,&ftol,&xdt,&f1,&snr,&line[0],(FCL)80);
+  QString message {QString::fromLatin1(line)};
+  int n=message.length();
+  if(n > 0 and n < 80) {
+    bool eom=message.left(1)=="\n";
+    if(eom) message=message.mid(1);
+    if(k > k0 and !eom) {
+      QTextCursor cursor = ui->decodedTextBrowser->textCursor();
+      cursor.movePosition(QTextCursor::End);         //Cursor to end of text
+      cursor.select(QTextCursor::LineUnderCursor);   //Select line under cursor
+      cursor.removeSelectedText();                   //Remove the selected line
+      cursor.deletePreviousChar();                   //Delete previous newline
+      ui->decodedTextBrowser->setTextCursor(cursor); //Reset cursor back to browser
+    }
+    m_xRcvd="";
+    QStringList w = message.split(" ",SkipEmptyParts);
+    if((w.length() == 2) and (w[0] == "599")) m_xRcvd = w[1];
+    if((w.length() == 3) and (w[1] == "599")) m_xRcvd = w[2];
+    if(k != k0 and message != message0) {
+      QString t;
+      t = t.asprintf("%4d %+3d: ",int(f1+0.5),int(snr-20.0));
+      ui->decodedTextBrowser->insertText(t + message.trimmed());
+    }
+    message0 = message;
+    k0=k;
+  }
+}
+
 void MainWindow::jtty_tx(QString message)
 {
   int itone[848];
   int n=message.length();
   m_currentMessage = message;
-  ui->decodedTextBrowser->insertText(message);
+
+  // Display Tx message highlighted in yellow
+  ui->decodedTextBrowser->insertText(" ");
+  QTextCursor cursor = ui->decodedTextBrowser->textCursor();
+  QTextCharFormat format = cursor.charFormat();
+  format.setBackground(QBrush(QColor(Qt::yellow))); // Set background to yellow
+  cursor.setCharFormat(format);
+  cursor.insertText(message);
+  // Reset format to default
+  format.setBackground(QBrush(QColor(Qt::white)));
+  cursor.setCharFormat(format);
+
   if(message.left(3) == "TU ") {
     // ### Must send "sent" and "rcvd" info to logqso here. ###
     logQSOTimer.start(0);
@@ -54,49 +122,6 @@ void MainWindow::jtty_tx(QString message)
   startTx2();
   int msTx=nwave/48.0 + 1000*m_config.txDelay();
   QTimer::singleShot(msTx, this, SLOT (stopTx()));
-}
-
-void MainWindow::jtty_save_wav()
-{
-  //Save JTTY data to a .wav file
-  QDateTime now {QDateTime::currentDateTimeUtc ()};
-  qint64 ms = m_k0/12;
-  auto const& tstart=now.addMSecs(-ms);
-  m_fnameWE=m_config.save_directory().absoluteFilePath (tstart.toString("yyMMdd_hhmmss"));
-  int samples=m_k0;
-  short const * data = &dec_data.d2[0];
-  m_saveWAVWatcher.setFuture (QtConcurrent::run ([=] {
-    return Radio::WavFile::save (m_fnameWE, data, samples, m_config.my_callsign (),
-                                 m_config.my_grid (), m_mode, m_nSubMode, m_freqNominalPeriod,
-                                 m_hisCall, m_hisGrid);
-  }));
-}
-
-void MainWindow::jtty_decode(int k)
-{
-  static int k0=9999999;
-  int nsps=384;
-  char line[80];
-  float f0 = m_wideGraph->rxFreq();
-  float ftol = 20.0;
-  rjtty_sub_(dec_data.d2,&k,&nsps,&f0,&ftol,&line[0],(FCL)80);
-  QString message {QString::fromLatin1(line)};
-  if(message.length() > 0 and message.length() < 80) {
-    if(k > k0) {
-      QTextCursor cursor = ui->decodedTextBrowser->textCursor();
-      cursor.movePosition(QTextCursor::End);         //Cursor to end of text
-      cursor.select(QTextCursor::LineUnderCursor);   //Select line under cursor
-      cursor.removeSelectedText();                   //Remove the selected line
-      cursor.deletePreviousChar();                   //Delete previous newline
-      ui->decodedTextBrowser->setTextCursor(cursor); //Reset cursor back to browser
-    }
-    k0=k;
-    m_xRcvd="";
-    QStringList w = message.split(" ",SkipEmptyParts);
-    if((w.length() == 2) and (w[0] == "599")) m_xRcvd = w[1];
-    if((w.length() == 3) and (w[1] == "599")) m_xRcvd = w[2];
-    ui->decodedTextBrowser->insertText(message.trimmed());
-  }
 }
 
 void MainWindow::jtty_again()
