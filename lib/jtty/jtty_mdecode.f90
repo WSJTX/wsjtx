@@ -158,7 +158,7 @@ subroutine jtty_mdecode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snrdb,line,
       if(ja .lt. 3) ja=3
 
       spk=0.
-      do j=ja,jb
+      do j=ja,jb,2
          do istep=0,ntstep
             if(s0(j,istep).gt.spk) then
                spk=s0(j,istep)
