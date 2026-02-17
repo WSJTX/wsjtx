@@ -4,6 +4,7 @@ program rjtty
 
    use wavhdr
    use jtty_mod
+   use jtty_mdec
 
 ! MAX_FRAMES = 16 in pack_jtty. Each frame is
 ! 53 symbols (13 sync + 40 codeword).

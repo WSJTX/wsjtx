@@ -1,3 +1,7 @@
+module jtty_mdec 
+   character*80              :: line2d(0:14)
+contains
+  
 subroutine jtty_mdecode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snrdb,line,success,nharderrors,nsync,dmin)
 !
 !  First try at a multi-decoder for JTTY - replaces the single-decode version in jtty_decode.f90
@@ -256,6 +260,7 @@ subroutine jtty_mdecode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snrdb,line,
             f1=allcand(ichan)%f1
             snrdb=allcand(ichan)%snrdb
          endif
+!         line2d(ichan)
       endif
    enddo     ! ichan, frequency channel loop
 
@@ -263,3 +268,5 @@ subroutine jtty_mdecode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snrdb,line,
    success=.false.
    return
 end subroutine jtty_mdecode
+
+end module jtty_mdec
