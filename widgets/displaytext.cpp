@@ -415,28 +415,7 @@ QString DisplayText::appendWorkedB4 (QString message, QString call, QString cons
         }
       else
         {
-          auto countryName = looked_up.entity_name;
-
-          // do some obvious abbreviations
-          countryName.replace ("Islands", "Is.");
-          countryName.replace ("Island", "Is.");
-          countryName.replace ("North ", "N. ");
-          countryName.replace ("Northern ", "N. ");
-          countryName.replace ("South ", "S. ");
-          countryName.replace ("East ", "E. ");
-          countryName.replace ("Eastern ", "E. ");
-          countryName.replace ("West ", "W. ");
-          countryName.replace ("Western ", "W. ");
-          countryName.replace ("Central ", "C. ");
-          countryName.replace (" and ", " & ");
-          countryName.replace ("Republic", "Rep.");
-          countryName.replace ("United States of America", "U.S.A.");
-          countryName.replace ("United States", "U.S.A.");
-          countryName.replace ("Fed. Rep. of ", "");
-          countryName.replace ("French ", "Fr.");
-          countryName.replace ("Asiatic", "AS");
-          countryName.replace ("European", "EU");
-          countryName.replace ("African", "AF");
+          auto countryName = looked_up.abbreviated_entity_name;
 
           // assign WAE entities to the correct DXCC when "Include extra WAE entities" is not selected
           if (!(m_config->include_WAE_entities())) {
@@ -448,7 +427,6 @@ QString DisplayText::appendWorkedB4 (QString message, QString call, QString cons
             countryName.replace ("AF Turkey", "Turkey");
             countryName.replace ("EU Turkey", "Turkey");
           }
-
           extra += countryName;
         }
     }
@@ -572,32 +550,11 @@ void DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
       if (m_config->show_country_names())
         {
           auto const& looked_up = logBook.countries ()->lookup (dxCall);
-          auto countryName = looked_up.entity_name;
+          auto countryName = looked_up.abbreviated_entity_name;
 
           if (m_bPrincipalPrefix) {
               extra += looked_up.primary_prefix;
           } else {
-              // do some obvious abbreviations
-              countryName.replace ("Islands", "Is.");
-              countryName.replace ("Island", "Is.");
-              countryName.replace ("North ", "N. ");
-              countryName.replace ("Northern ", "N. ");
-              countryName.replace ("South ", "S. ");
-              countryName.replace ("East ", "E. ");
-              countryName.replace ("Eastern ", "E. ");
-              countryName.replace ("West ", "W. ");
-              countryName.replace ("Western ", "W. ");
-              countryName.replace ("Central ", "C. ");
-              countryName.replace (" and ", " & ");
-              countryName.replace ("Republic", "Rep.");
-              countryName.replace ("United States of America", "U.S.A.");
-              countryName.replace ("United States", "U.S.A.");
-              countryName.replace ("Fed. Rep. of ", "");
-              countryName.replace ("French ", "Fr.");
-              countryName.replace ("Asiatic", "AS");
-              countryName.replace ("European", "EU");
-              countryName.replace ("African", "AF");
-
               // assign WAE entities to the correct DXCC when "Include extra WAE entities" is not selected
               if (!(m_config->include_WAE_entities())) {
                 countryName.replace ("Bear Is.", "Svalbard");

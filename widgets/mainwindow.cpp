@@ -2416,7 +2416,7 @@ void MainWindow::fastSink(qint64 frames)
         if (ui->actionHighlightTerritory1->isChecked() or ui->actionHighlightTerritory2->isChecked() or
             ui->actionHighlightTerritory3->isChecked() or ui->actionHighlightTerritory4->isChecked()) {
           auto const& looked_up = m_logBook.countries ()->lookup (deCall);
-          auto countryName = Radio::CountryNames::abbreviate(looked_up.entity_name);
+          auto countryName =looked_up.abbreviated_entity_name;
           if (ui->actionHighlightTerritory1->isChecked() && countryName.contains(m_config.Territory1())
               && (m_config.Territory1()!="") && !ui->cbBypass->isChecked()) ui->decodedTextBrowser->highlight_callsign(deCall, QColor(115,43,245), QColor(255,255,255), true);
           if (ui->actionHighlightTerritory2->isChecked() && countryName.contains(m_config.Territory2())
@@ -13897,7 +13897,7 @@ bool MainWindow::applyFiltering(const DecodedText& decodedtext, const QString& t
               if (ui->actionHideTerritory1->isChecked() or ui->actionHideTerritory2->isChecked() or
                   ui->actionHideTerritory3->isChecked() or ui->actionHideTerritory4->isChecked()) {
                 auto const& looked_up = m_logBook.countries ()->lookup (deCall);
-                auto countryName = Radio::CountryNames::abbreviate(looked_up.entity_name);
+                auto countryName = looked_up.abbreviated_entity_name;
                 if (ui->actionHideTerritory1->isChecked() && countryName.contains(m_config.Territory1())
                     && (m_config.Territory1()!="") && !ui->cbBypass->isChecked()) filtered = true;
                 if (ui->actionHideTerritory2->isChecked() && countryName.contains(m_config.Territory2())
@@ -13983,7 +13983,7 @@ bool MainWindow::applyFiltering(const DecodedText& decodedtext, const QString& t
               if (ui->actionHideTerritory1->isChecked() or ui->actionHideTerritory2->isChecked() or
                   ui->actionHideTerritory3->isChecked() or ui->actionHideTerritory4->isChecked()) {
                 auto const& looked_up = m_logBook.countries ()->lookup (deCall);
-                auto countryName = Radio::CountryNames::abbreviate(looked_up.entity_name);
+                auto countryName = looked_up.abbreviated_entity_name;
                 if (ui->actionHideTerritory1->isChecked() && countryName.contains(m_config.Territory1())
                     && (m_config.Territory1()!="") && !ui->cbBypass->isChecked()) filtered = true;
                 if (ui->actionHideTerritory2->isChecked() && countryName.contains(m_config.Territory2())
@@ -14084,7 +14084,7 @@ void MainWindow::applyHighlighting(const DecodedText& decodedtext, bool& play_Wa
       if (ui->actionHighlightTerritory1->isChecked() or ui->actionHighlightTerritory2->isChecked() or
           ui->actionHighlightTerritory3->isChecked() or ui->actionHighlightTerritory4->isChecked()) {
         auto const& looked_up = m_logBook.countries ()->lookup (deCall);
-        auto countryName = Radio::CountryNames::abbreviate(looked_up.entity_name);
+        auto countryName = looked_up.abbreviated_entity_name;
         if (ui->actionHighlightTerritory1->isChecked() && countryName.contains(m_config.Territory1())
             && (m_config.Territory1()!="") && !ui->cbBypass->isChecked()) ui->decodedTextBrowser->highlight_callsign(deCall, QColor(115,43,245), QColor(255,255,255), true);
         if (ui->actionHighlightTerritory2->isChecked() && countryName.contains(m_config.Territory2())
