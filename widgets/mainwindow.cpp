@@ -118,6 +118,9 @@
 
 extern "C" {
   //----------------------------------------------------- C and Fortran routines
+
+  bool stdmsg_(char const * msg, fortran_charlen_t);
+
   void symspec_(struct dec_data *, int* k, double* trperiod, int* nsps, int* ingain,
                 bool* bLowSidelobes, int* minw, float* px, float s[], float* df3,
                 int* nhsym, int* npts8, float *m_pxmax, int* npct);
@@ -1370,6 +1373,9 @@ MainWindow::~MainWindow()
   m_audioThread.wait ();
   remove_child_from_event_filter (this);
   memset(ipc_qmap,0,4096);         //Zero all of QMAP shared memory
+// Force linking of Fortran function stdmsg().
+  QString t="1234567890123456789012345678901234567";
+  if(stdmsg_(const_cast <char *> (t.toLatin1().constData()),(FCL)37)) return;
 }
 
 //-------------------------------------------------------- writeSettings()
