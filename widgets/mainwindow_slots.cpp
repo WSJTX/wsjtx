@@ -11,6 +11,7 @@
 #include <QColor>
 #include <QVector>
 #include <QSettings>
+#include <QtMath>
 #include "MessageBox.hpp"
 #include "commons.h"
 #include "echograph.h"

@@ -16,6 +16,7 @@
 #include <QTimer>
 #include <QDebug>
 #include <QMessageBox>
+#include <QAudioOutput>
 
 extern dec_data_t dec_data;
 extern int outBufSize;

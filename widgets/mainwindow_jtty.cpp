@@ -7,7 +7,12 @@
 
 extern dec_data_t dec_data;
 
+#if QT_VERSION >= QT_VERSION_CHECK (5, 12, 0)
 #define SkipEmptyParts Qt::SkipEmptyParts
+#else
+#define SkipEmptyParts QString::SkipEmptyParts
+#endif
+
 #define FCL fortran_charlen_t
 
 extern "C" {
