@@ -1,10 +1,21 @@
-subroutine jtty_mdecode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snrdb,line,success,nharderrors,nsync,dmin)
-!
-!  First try at a multi-decoder for JTTY - replaces the single-decode version in jtty_decode.f90
-!  Does not pass decodes back to rjtty_sub yet - just prints results to the console
-!
-!  note nsps is samples per symbol at 12000 s^-1 sample rate.
-!
+module jtty_mdec
+  integer, parameter        :: MAX_DECODES = 100
+  integer                   :: ndecodes = 0
+  integer                   :: nf1(MAX_DECODES)
+  integer                   :: nsnr(MAX_DECODES)
+  real                      :: tsync(MAX_DECODES)
+  character*80              :: line2(MAX_DECODES)
+contains
+
+  subroutine jtty_mdecode(istart,iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snrdb, &
+       line,success,nharderrors,nsync,dmin)
+
+!  First try at a multi-decoder for JTTY - replaces the single-decode version in
+!  jtty_decode.f90. Does not pass decodes back to rjtty_sub yet - just prints
+!  results to the console
+
+!  Note: nsps is samples per symbol at 12000 s^-1 sample rate.
+
    use jtty_mod
    use jtty_fec
    implicit none
@@ -12,6 +23,7 @@ subroutine jtty_mdecode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snrdb,line,
    character*32              :: c32(MAX_FRAMES)
    integer*1                 :: message32(32), cw80(80)
    integer*2, intent(in)     :: iwave(nchunk)
+   integer                   :: istart
    integer                   :: i,j,i0,ja,jb
    integer                   :: ntstep,istep
    integer                   :: nchan, ichan
@@ -58,6 +70,7 @@ subroutine jtty_mdecode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snrdb,line,
 
    success=.false.
    if(sum(abs(iwave)).eq.0) return
+   if(f0+ftol.eq.-99.0) return               !Silence compiler warning of unused params
 
    if(nsps.ne.nsps0) then
       nsps0=nsps
@@ -247,8 +260,6 @@ subroutine jtty_mdecode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snrdb,line,
          success=.true.
          write(c32(1),'(32i1)') message32
          call unpack_jtty(c32,1,allcand(ichan)%decoded)
-         write(*,'(i4,f9.1,f9.1,1x,a)') ichan,allcand(ichan)%f1,   &
-            allcand(ichan)%snrdb,trim(allcand(ichan)%decoded)
          if(ichan.eq.0) then
 ! make single-channel rjtty_sub happy
             line=allcand(ichan)%decoded
@@ -256,6 +267,14 @@ subroutine jtty_mdecode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snrdb,line,
             f1=allcand(ichan)%f1
             snrdb=allcand(ichan)%snrdb
          endif
+         ndecodes=ndecodes+1
+         j=ndecodes
+         tsync(j)=istart/12000.0 + allcand(ichan)%xdt
+         nf1(j)=nint(allcand(ichan)%f1)
+         nsnr(j)=nint(allcand(ichan)%snrdb-20.0)
+         line2(j)=allcand(ichan)%decoded
+         write(*,3001) j,tsync(j),ichan,nf1(j),nsnr(j),trim(line2(j))
+3001     format(i3,f9.3,i4,i6,i5,2x,a)
       endif
    enddo     ! ichan, frequency channel loop
 
@@ -263,3 +282,5 @@ subroutine jtty_mdecode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snrdb,line,
    success=.false.
    return
 end subroutine jtty_mdecode
+
+end module jtty_mdec

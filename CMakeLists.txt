@@ -428,7 +428,7 @@ set (wsjt_FSRCS
   lib/jtty/jtty_mod.f90
   lib/jtty/jtty_fec_mod.f90
   lib/jtty/jttycom.f90
-  lib/jtty/jtty_mdec.f90
+  lib/jtty/jtty_mdecode.f90
 
   # remaining non-module sources
   lib/addit.f90

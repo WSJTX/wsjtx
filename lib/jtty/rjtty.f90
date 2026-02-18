@@ -60,6 +60,7 @@ program rjtty
       read(10) iwave(1:nwave)
       close(10)
       if(nwave.lt.NMAX) iwave(nwave+1:NMAX) = 0
+      ndecodes=0
       kchar=0
       istart=1
       nsync=0
@@ -72,7 +73,7 @@ program rjtty
       do while (istart+nchunk-1 .le. nwave)
          success=.false.
          call system_clock(count0,clkfreq)
-         call jtty_mdecode(iwave(istart),nchunk,nsps,f0,ftol,smin,synced,xdt,  &
+         call jtty_mdecode(istart,iwave(istart),nchunk,nsps,f0,ftol,smin,synced,xdt,  &
             f1,snr,umsg,success,nharderrors,nsync,dmin)
          call system_clock(count1,clkfreq)
 
