@@ -4,6 +4,7 @@ module jtty_mdec
   integer                   :: nf1(MAX_DECODES)
   integer                   :: nsnr(MAX_DECODES)
   real                      :: tsync(MAX_DECODES)
+  real                      :: txdt(MAX_DECODES)
   character*80              :: line2(MAX_DECODES)
 contains
 
@@ -269,14 +270,17 @@ contains
          endif
          ndecodes=ndecodes+1
          j=ndecodes
-         tsync(j)=istart/12000.0 + allcand(ichan)%xdt
+         txdt(j)=allcand(ichan)%xdt
+         tsync(j)=istart/12000.0 + txdt(j)
          nf1(j)=nint(allcand(ichan)%f1)
          nsnr(j)=nint(allcand(ichan)%snrdb-20.0)
          line2(j)=allcand(ichan)%decoded
-         write(*,3001) j,tsync(j),ichan,nf1(j),nsnr(j),trim(line2(j))
-3001     format(i3,f9.3,i4,i6,i5,2x,a)
+         write(*,3001) j,tsync(j),ichan,nf1(j),txdt(j),nsnr(j),trim(line2(j))
+3001     format(i3,f9.3,i4,i6,f7.3,i5,2x,a)
       endif
    enddo     ! ichan, frequency channel loop
+
+!   call indexx(
 
    synced=.false.
    success=.false.
