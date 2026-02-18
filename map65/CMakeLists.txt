@@ -6,10 +6,12 @@ set (map65_CXXSRCS
   astro.cpp
   bandmap.cpp
   cqdatasender.cpp
+  commons.cpp
   devsetup.cpp
   displaytext.cpp
+  fortran_mutex.cpp
   getdev.cpp
-  getfile.cpp
+#  getfile.cpp
   liveCQSender.cpp
   main.cpp
   mainwindow.cpp
@@ -25,10 +27,6 @@ set (map65_CXXSRCS
   txtune.cpp
   widegraph.cpp
   )
-
-if (WIN32)
-  set (map65_CXXSRCS ${map65_CXXSRCS} killbyname.cpp)
-endif (WIN32)
 
 set (map65_UISRCS
   about.ui
@@ -55,7 +53,7 @@ add_subdirectory (libm65)
 qt5_wrap_ui (map65_GENUISRCS ${map65_UISRCS})
 
 add_executable (map65 ${map65_CXXSRCS} ${map65_CSRCS} ${map65_GENUISRCS} map65.rc)
-target_include_directories (map65 PRIVATE ${CMAKE_SOURCE_DIR} ${FFTW3_INCLUDE_DIRS})
+target_include_directories(map65 PRIVATE ${CMAKE_SOURCE_DIR} ${FFTW3_INCLUDE_DIRS})
 target_link_libraries (map65 wsjt_qt m65impl ${FFTW3_LIBRARIES} Qt5::Widgets Qt5::Network Portaudio::Portaudio Usb::Usb)
 
 if (WSJT_CREATE_WINMAIN)

@@ -55,6 +55,8 @@ project (wsjtx
   VERSION 3.0.0.0
   LANGUAGES C CXX Fortran
   )
+
+enable_testing ()
 set (PROJECT_DESCRIPTION "WSJT-X: Digital Modes for Weak Signal Communications in Amateur Radio")
 set (CMAKE_PROJECT_DESCRIPTION ${PROJECT_DESCRIPTION})
 set (CMAKE_AUTOUIC ON)
@@ -260,6 +262,10 @@ set (wsjt_qt_CXXSRCS
   SampleDownloader/FileNode.cpp
   SampleDownloader/RemoteFile.cpp
   DisplayManual.cpp
+  WSJTXLogging.cpp
+  Decoder/decodedtext.cpp
+  Configuration.cpp
+  logbook/logbook.cpp
   MultiSettings.cpp
   validators/MaidenheadLocatorValidator.cpp
   validators/CallsignValidator.cpp
@@ -293,10 +299,16 @@ set (wsjt_qt_CXXSRCS
   widgets/CheckableItemComboBox.cpp
   widgets/BandComboBox.cpp
   otpgenerator.cpp
+  MessageFilter.cpp
+  MessageFilterLogic.cpp
+  PrefixSuffix.cpp
+  CountryNames.cpp
+  HelpText.cpp
   )
 
 set (wsjt_qtmm_CXXSRCS
   Audio/BWFFile.cpp
+  Audio/WavFile.cpp
   )
 
 set (jt9_FSRCS
@@ -305,14 +317,11 @@ set (jt9_FSRCS
   )
 
 set (wsjtx_CXXSRCS
-  WSJTXLogging.cpp
-  logbook/logbook.cpp
   Network/PSKReporter.cpp
   Modulator/Modulator.cpp
   Detector/Detector.cpp
   widgets/logqso.cpp
   widgets/displaytext.cpp
-  Decoder/decodedtext.cpp
   getfile.cpp
   Audio/soundout.cpp
   Audio/soundin.cpp
@@ -331,7 +340,12 @@ set (wsjtx_CXXSRCS
   widgets/colorhighlighting.cpp
   WSPR/WsprTxScheduler.cpp
   widgets/mainwindow.cpp
-  Configuration.cpp
+  widgets/mainwindow_jtty.cpp
+  widgets/mainwindow_settings.cpp
+  widgets/mainwindow_show_messages.cpp
+  widgets/mainwindow_arrl_digi.cpp
+  widgets/mainwindow_bandhopping.cpp
+  widgets/mainwindow_slots.cpp
   main.cpp
   Network/wsprnet.cpp
   WSPR/WSPRBandHopping.cpp
@@ -1593,7 +1607,7 @@ target_link_libraries (qcp Qt5::Widgets Qt5::PrintSupport)
 add_library (wsjt_qt STATIC ${wsjt_qt_CXXSRCS} ${wsjt_qt_GENUISRCS} ${GENAXSRCS})
 # set wsjtx_udp exports to static variants
 target_compile_definitions (wsjt_qt PUBLIC UDP_STATIC_DEFINE)
-target_link_libraries (wsjt_qt Hamlib::Hamlib Boost::log qcp Qt5::Widgets Qt5::Network Qt5::Sql Qt5::WebSockets)
+target_link_libraries (wsjt_qt Hamlib::Hamlib Boost::log qcp Qt5::Widgets Qt5::Network Qt5::Multimedia Qt5::SerialPort Qt5::Sql Qt5::WebSockets)
 if (WIN32)
   target_link_libraries (wsjt_qt Qt5::AxContainer Qt5::AxBase)
 endif (WIN32)
@@ -1618,6 +1632,7 @@ add_executable (record_time_signal Audio/tools/record_time_signal.cpp)
 target_link_libraries (record_time_signal wsjt_cxx wsjt_qtmm wsjt_qt)
 
 add_executable (jt9 ${jt9_FSRCS} ${jt9_VERSION_RESOURCES})
+
 if (${OPENMP_FOUND} OR APPLE)
   if (APPLE)
     # On  Mac  we don't  have  working  OpenMP  support in  the  C/C++
@@ -1675,6 +1690,17 @@ add_executable (wsjtx MACOSX_BUNDLE
   ${wsjtx_RESOURCES_RCC}
   ${wsjtx_VERSION_RESOURCES}
   )
+
+if (APPLE)
+  add_custom_command(
+      TARGET wsjtx
+      POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different 
+      "${CMAKE_BINARY_DIR}/jt9"
+      "$<TARGET_FILE_DIR:wsjtx>"
+      COMMENT "Copying $<TARGET_FILE_DIR:jt9> into the Contents/MacOS/ directory"
+  )
+endif (APPLE)
 
 if (WSJT_CREATE_WINMAIN)
   set_target_properties (wsjtx PROPERTIES WIN32_EXECUTABLE ON)

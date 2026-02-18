@@ -32,20 +32,21 @@ void CQDataSender::send(QString theUrl, const QString &data)
   request.setRawHeader("Content-Length",QByteArray::number(payload.size()));
   QNetworkReply *reply = m_networkManager->post(request, payload);
   qDebug() << "Current thread for CQDataSender::send:" << QThread::currentThread();
-   // Use the OLD signal name: 'error' instead of 'errorOccurred'
-#if QT_VERSION >= QT_VERSION_CHECK (5, 15, 0)
-  connect(reply, &QNetworkReply::errorOccurred, this, [this, reply](QNetworkReply::NetworkError) {
-      emit errorOccurred(reply->errorString());
-  });
-#else
-  connect(reply, static_cast<void(QNetworkReply::*)(QNetworkReply::NetworkError)>(&QNetworkReply::error),
-          this, [this, reply](QNetworkReply::NetworkError error) {
-      Q_UNUSED(error)
-      emit errorOccurred(reply->errorString());
-  });
-#endif
 
-  // Connect to sslErrors without QOverload
+  // Qt 5.15+ (ignored on 5.12)
+  connect(reply,
+        SIGNAL(errorOccurred(QNetworkReply::NetworkError)),
+        this,
+        SLOT(onReplyError()));
+
+// Qt 5.12 (ignored on Qt 6)
+  connect(reply,
+        SIGNAL(error(QNetworkReply::NetworkError)),
+        this,
+        SLOT(onReplyError()));
+
+
+    // SSL errors unchanged
   connect(reply, &QNetworkReply::sslErrors, this, [this](const QList<QSslError> &errors) {
       QStringList errList;
       for (const auto &e : errors)
@@ -65,3 +66,10 @@ void CQDataSender::onFinished(QNetworkReply *reply)
     reply->deleteLater();
     qDebug() << "Current thread for CQDataSender::onFinished:" << QThread::currentThread();
 }   
+
+void CQDataSender::onReplyError()
+{
+    QNetworkReply *reply = qobject_cast<QNetworkReply*>(sender());
+    if (!reply) return;
+    emit errorOccurred(reply->errorString());
+}

@@ -12,6 +12,8 @@
 #include <QProgressBar>
 #include <QTimer>
 #include <QDateTime>
+#include <QRegExp>
+#include <QRegularExpression>
 #include <QList>
 #include <QAudioDeviceInfo>
 #include <QStringList>
@@ -119,6 +121,10 @@ public:
   using FrequencyDelta = Radio::FrequencyDelta;
   using Mode = Modes::Mode;
   using SpecOp = Configuration::SpecialOperatingActivity;
+
+  static QRegExp const message_alphabet;
+  static QRegularExpression const grid_regexp;
+  static QRegularExpression const non_r_db_regexp;
 
   explicit MainWindow(QDir const& temp_directory, bool multiple, MultiSettings *,
                       QSharedMemory *shdmem, unsigned downSampleFactor,
@@ -355,7 +361,7 @@ private slots:
   void stopTx();
   void stopTx2();
   void on_rptSpinBox_valueChanged(int n);
-  void killFile();
+  void killWaveFile();
   void on_tuneButton_clicked (bool);
   void on_pbR2T_clicked();
   void on_pbT2R_clicked();
@@ -473,6 +479,22 @@ private slots:
   void on_pbSendMessage_clicked();
 
 private:
+  bool isFalseDecode(const QByteArray& line, const DecodedText& dt, const QString& msg0) const;
+  void parseAveragingInfo(const QByteArray& line, bool& bAvgMsg, int& navg) const;
+  void applyExperimentalFT8Filter(const DecodedText& dt, bool& filtered);
+  void processFoxSignals(const DecodedText& dt);
+  void processSFoxVerification(const DecodedText& dt, bool& filtered);
+  void processSprintLogic(const QString& text);
+  bool processWaitAndReply(const DecodedText& dt, const QString& text);
+  void processWaitAndCall(const DecodedText& dt, const QString& text, bool& block_right_display);
+  bool applyFiltering(const DecodedText& dt, const QString& text, bool& filtered);
+  void applyHighlighting(const DecodedText& dt, bool& play_Wanted, bool& play_DXcall);
+  void updateRespondTarget(const DecodedText& dt, const QString& text, bool& lselected, bool pounce);
+  void displayDecodedTextLine(const DecodedText& dt, const QByteArray& line_read, const QString& distance, bool haveFSpread, float fSpread, bool bDisplayPoints);
+  QString calculateDistanceAndBearing(const DecodedText& dt);
+  void processSuperHoundVerification(const DecodedText& dt, bool& verified);
+
+private:
   Q_SIGNAL void initializeAudioOutputStream (QAudioDeviceInfo,
       unsigned channels, unsigned msBuffered) const;
   Q_SIGNAL void stopAudioOutputStream () const;
@@ -515,6 +537,13 @@ private:
   bool jtty_key_struck(QKeyEvent * e);
   void jtty_decode(int k);
   void jtty_again();
+  QString specOpLabel() const;
+  void initializeFFT(int nsps);
+  void initializeFFT(int nsps, int fftSize);
+  void setTxButtonsEnabled(bool enabled);
+  void setDXInfo(QString const& call, QString const& grid);
+  void setDecodeTitles(QString const& lh, QString const& rh);
+  void setDecodeHeadings(QString const& lh, QString const& rh);
 
   bool play_DXcall = false;
   bool play_Wanted = false;
@@ -1035,16 +1064,6 @@ private:
   void write_all(QString txRx, QString message);
   bool isWorked(int itype, QString key, float fMHz=0, QString="");
 
-  QString save_wave_file (QString const& name
-                          , short const * data
-                          , int samples
-                          , QString const& my_callsign
-                          , QString const& my_grid
-                          , QString const& mode
-                          , qint32 sub_mode
-                          , Frequency frequency
-                          , QString const& his_call
-                          , QString const& his_grid) const;
   void hound_reply ();
   QString sortHoundCalls(QString t, int isort, int max_dB);
   void rm_tb4(QString houndCall);

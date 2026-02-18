@@ -15,12 +15,14 @@ int ptt_(int *nport, int *ntx, int *iptt)
 
   if(*ntx && (!open)) {
     sprintf(s,"COM%d",*nport);
+/*  // This code is not compatible with Qt6
     hFile=CreateFile(TEXT(s),GENERIC_WRITE,0,NULL,OPEN_EXISTING,
 		     FILE_ATTRIBUTE_NORMAL,NULL);
     if(hFile==INVALID_HANDLE_VALUE) {
       //      printf("PTT: Cannot open COM port %d.\n",*nport);
       return 1;
     }
+*/
     open=1;
   }
 

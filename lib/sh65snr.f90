@@ -1,7 +1,13 @@
 subroutine sh65snr(x,nz,snr)
 
   real x(nz)
+  real :: snr
+  integer :: i,ipk,ns
+  real :: s,sq,ave,rms,smax
 
+  snr=0.
+  ave=0.
+  rms=0.
   ipk=0 !Shut up compiler warnings. -db
   smax=-1.e30
   do i=1,nz

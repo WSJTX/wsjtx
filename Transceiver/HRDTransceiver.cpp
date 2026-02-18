@@ -34,6 +34,12 @@ struct HRDMessage
 {
   // Placement style new overload for outgoing messages that does the
   // construction too.
+  
+    quint32 size_ = 0;
+    qint32 magic_1_ = 0;
+    qint32 magic_2_ = 0;
+    qint32 checksum_ = 0;
+    QChar payload_[0];
   static void * operator new (size_t size, QString const& payload)
   {
     size += sizeof (QChar) * (payload.size () + 1); // space for terminator too
@@ -61,13 +67,7 @@ struct HRDMessage
   {
     delete [] reinterpret_cast<char *> (p); // Mirror allocation in operator new above.
   }
-
-  quint32 size_;
-  qint32 magic_1_;
-  qint32 magic_2_;
-  qint32 checksum_;            // Apparently not used.
-  QChar payload_[0];           // UTF-16 (which is wchar_t on Windows)
-
+  
   static qint32 constexpr magic_1_value_ = 0x1234ABCD;
   static qint32 constexpr magic_2_value_ = 0xABCD1234;
 };

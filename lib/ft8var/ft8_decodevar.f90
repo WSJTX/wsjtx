@@ -21,7 +21,7 @@ module ft8_decodevar
 
 contains
 
-  subroutine decodevar(this,callback,nQSOProgress,nfqso,nft8rxfsens,nftx,nutc,  &
+   subroutine decodevar(this, callback, nQSOProgress, nfqso, nft8rxfsens, nftx, &
        nfa,nfb,ncandthin,ndtcenter,nsec,napwid,lmycallstd,lhiscallstd,          &
        stophint,nthr,numthreads,nagainfil,lft8lowth,lft8subpass,lhideft8dupes,  &
        lft8apon,ncontest)
@@ -227,12 +227,18 @@ contains
        if(ipass.eq.4) then
 !$omp barrier
 !$omp single
-          if(npass.eq.9) then ! 3 decoding cycles
-             nallocthr=nthr
+            ! Ensure dd8m is allocated before use
+            if (.not. allocated(dd8m)) then
              allocate(dd8m(180000), STAT = nAllocateStatus1)
              if(nAllocateStatus1.ne.0) STOP "Not enough memory"
+            endif
+
+            ! Only overwrite dd8m when npass == 9
+            if (npass .eq. 9) then
+               nallocthr = nthr
              dd8m=dd8
           endif
+
           do i=1,179999
              dd8(i)=(dd8(i)+dd8(i+1))/2
           enddo
@@ -394,7 +400,6 @@ contains
                            ((i3.eq.1 .and. .not.lft8sd) .or. lft8sd) .and.      &
                            msg37(1:ispc1-1).ne.trim(mycall) .and.               &
                            nmsgloc.lt.130 .and. index(msg37,'<').le.0) then
-
 
                          ! compound callsigns not supported
                          if(index(msg37,'/').gt.0 .and. msg37(1:3).ne.'CQ ') go to 4
