@@ -67,7 +67,7 @@ subroutine msk144sync(cdat,nframes,ntol,delf,navmask,npeaks,fc,fest,   &
   if2=if1+nstep-1
   if(id.eq.nthreads) if2=nint(ntol/delf)
   call msk144_freq_search(cdat,fc,if1,if2,delf,nframes,navmask,cb,    &
-       cdat2(1,id),xm(id),bf(id),cs(1,id),xccs(1,id))
+       cdat2(1,id),xm(id),bf(id),cs(1,id),xccs(:,id))
 !$OMP END PARALLEL
 
   xmax=xm(1)
