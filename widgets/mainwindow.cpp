@@ -11658,7 +11658,7 @@ QString MainWindow::sortHoundCalls(QString t, int isort, int max_dB)
 
   int nn=lines2.length();
   if(isort==0) {                                      // shuffle Hound calls to random order
-    int a[nn];
+    int *a = new int[nn];
     for(i=0; i<nn; i++) {
       a[i]=i;
     }
@@ -11671,6 +11671,8 @@ QString MainWindow::sortHoundCalls(QString t, int isort, int max_dB)
       std::swap (a[j], a[i]);
       t += lines2.at(a[i]) + "\n";
     }
+    delete [] a;
+    a = NULL;
   }
 
   int i0=t.indexOf("\n") + 1;

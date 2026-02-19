@@ -223,7 +223,7 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
     if(bScroll) {
       float sum=0.0;
       int j=j0+m_binsPerPixel*i;
-      for(int k=0; k<m_binsPerPixel; k++) {
+      for(int k=0; (k<m_binsPerPixel && j<NSMAX-1); k++) {
         sum+=dec_data.savg[j++];
       }
       m_sum[i]=sum;
@@ -370,7 +370,7 @@ void CPlotter::drawRed(int ia, int ib, float swide[])
 void CPlotter::replot()
 {
   resizeEvent(NULL);
-  float swide[m_w];
+  float *swide = new float [m_w];
   m_bReplot=true;
   for(int irow=0; irow<m_h1; irow++) {
     m_j=irow;
@@ -382,6 +382,8 @@ void CPlotter::replot()
   }
   update();                                    //trigger a new paintEvent
   m_bReplot=false;
+  delete [] swide; 
+  swide = NULL;
 }
 
 void CPlotter::DrawOverlay()                   //DrawOverlay()

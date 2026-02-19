@@ -193,7 +193,7 @@ void WideGraph::dataSink2(float s[], float df3, int ihsym, int ndiskdata, float 
     for (int j=0; j<jz; j++) {
       float ss=0.0;
       float smax=0;
-      for (int k=0; k<nbpp; k++) {
+      for (int k=0; (k<nbpp && i<NSMAX-1); k++) {
         float sp=splot[i++];
         ss += sp;
         smax=qMax(smax,sp);
