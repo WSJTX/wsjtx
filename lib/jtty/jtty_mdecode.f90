@@ -1,11 +1,8 @@
 module jtty_mdec
   integer, parameter        :: MAX_DECODES = 100
+  integer, parameter        :: MAX_SLOTS = 100
   integer                   :: ndecodes = 0
-  integer                   :: nf1(MAX_DECODES)
-  integer                   :: nsnr(MAX_DECODES)
-  real                      :: tsync(MAX_DECODES)
-  real                      :: txdt(MAX_DECODES)
-  character*80              :: line2(MAX_DECODES)
+  integer                   :: nslots = 0
 contains
 
   subroutine jtty_mdecode(istart,iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snrdb, &
@@ -24,7 +21,7 @@ contains
    character*32              :: c32(MAX_FRAMES)
    integer*1                 :: message32(32), cw80(80)
    integer*2, intent(in)     :: iwave(nchunk)
-   integer                   :: istart
+   integer, intent(in)       :: istart
    integer                   :: i,j,i0,ja,jb
    integer                   :: ntstep,istep
    integer                   :: nchan, ichan
@@ -32,6 +29,7 @@ contains
    integer                   :: nchunk6,nana  !size of chunk, nana at 6000 Sa/s
    integer                   :: nframe6       !size of frame at 6000 Sa/s
    integer, save             :: nsps0=-999
+   integer, save             :: ncall=0
    integer, save             :: nfft,nh2,nss
    integer                   :: iloc(1)
    integer                   :: irxsync(13)
@@ -50,7 +48,7 @@ contains
    real, intent(in)          :: f0,ftol,smin
    real, intent(out)         :: dmin
    real, intent(inout)       :: xdt,f1,snrdb
-   real                      :: xdt1, f11, snr0
+   real                      :: xdt1, f11, snr0, df1, dtsync, dxdt
    complex, allocatable      :: c(:)
    complex, allocatable      :: c0(:)
    complex, allocatable      :: c1(:)
@@ -59,16 +57,25 @@ contains
    complex                   :: z
    logical, intent(out)      :: success
    logical, intent(inout)    :: synced
+   logical                   :: match
 
-   type :: candidate
-      real :: xdt = 0.0
-      real :: f1  = 0.0
-      real :: snrdb = -99.9
-      character*80 :: decoded
+   type :: decode
+      real :: f1    = 0.0
+      real :: xdt   = 0.0
+      real :: tsync = 0.0
+      real :: snrdb = 0.0
+      character*80 :: decoded = ''
    end type
 
-   type(candidate), dimension(:), allocatable :: allcand
-
+   type(decode)              :: cand(0:14)
+   type(decode)              :: dec
+   type(decode), save        :: slot(MAX_SLOTS)
+   
+   ncall=ncall+1
+   if(istart.eq.1) then
+      ndecodes=0
+      nslots=0
+   endif
    success=.false.
    if(sum(abs(iwave)).eq.0) return
    if(f0+ftol.eq.-99.0) return               !Silence compiler warning of unused params
@@ -141,9 +148,6 @@ contains
    enddo
 
    nchan= 14
-!   nchan= 0
-   if(allocated(allcand)) deallocate(allcand)
-   allocate(allcand(0:nchan))
 
    do ichan=0, nchan         ! frequency channels - channel 0 is always centered on f0
       if(ichan.eq.0) then
@@ -192,17 +196,17 @@ contains
          fbest=f11
       endif
 
-      allcand(ichan)%xdt=xdtbest
-      allcand(ichan)%f1=fbest
+      cand(ichan)%xdt=xdtbest
+      cand(ichan)%f1=fbest
 
       a=0.
-      a(1)=-allcand(ichan)%f1                                !Shift peak to zero frequency
+      a(1)=-cand(ichan)%f1                                !Shift peak to zero frequency
       call twkfreq(c0,c1,nchunk6,6000.0,a)
 
       pt=0.
       pa=0.
       do j=1,13                                ! find tone powers for sync symbols
-         i0=nint(allcand(ichan)%xdt/dt) + (j-1)*nss
+         i0=nint(cand(ichan)%xdt/dt) + (j-1)*nss
          if(i0+nss.gt.nchunk6) exit
 
          do i=0,3
@@ -219,13 +223,13 @@ contains
       pn=(pa-pt)/3.0
       if(pn.gt.0.) snrdb=db(pt/pn)
       nsync=count(is13.eq.irxsync)             ! nsync is the number of correct hard-decoded sync tones.
-      allcand(ichan)%snrdb=snrdb
+      cand(ichan)%snrdb=snrdb
       if( nchan.eq.0 .and. (nsync .le. 6 .or. snrdb .lt. smin)) cycle
       if( nchan.ne.0 .and. (nsync .le. 8 .or. snrdb .lt. 5.0)) cycle
 
 ! looks like a real candidate - try to decode
       do j=1,40                                ! find tone powers for 40 symbols
-         i0=nint(allcand(ichan)%xdt/dt) + 13*nss + (j-1)*nss
+         i0=nint(cand(ichan)%xdt/dt) + 13*nss + (j-1)*nss
          if(i0+nss .gt. nchunk6) exit
 
          do i=0,3
@@ -255,28 +259,42 @@ contains
       endif
       if(nharderrors .ge. 0 .and. sum(message32) .eq. 0) nharderrors=-1  ! reject the all zero message
 
-      allcand(ichan)%decoded=' '
+      cand(ichan)%decoded=' '
       line=' '
       if( nharderrors .ge. 0 ) then
          success=.true.
+         ndecodes=ndecodes+1
          write(c32(1),'(32i1)') message32
-         call unpack_jtty(c32,1,allcand(ichan)%decoded)
+         call unpack_jtty(c32,1,cand(ichan)%decoded)
+         cand(ichan)%tsync=(istart-1)/12000.0 + cand(ichan)%xdt
+         dec=cand(ichan)
          if(ichan.eq.0) then
 ! make single-channel rjtty_sub happy
-            line=allcand(ichan)%decoded
-            xdt=allcand(ichan)%xdt
-            f1=allcand(ichan)%f1
-            snrdb=allcand(ichan)%snrdb
+            line=cand(ichan)%decoded
+            xdt=cand(ichan)%xdt
+            f1=cand(ichan)%f1
+            snrdb=cand(ichan)%snrdb
          endif
-         ndecodes=ndecodes+1
-         j=ndecodes
-         txdt(j)=allcand(ichan)%xdt
-         tsync(j)=istart/12000.0 + txdt(j)
-         nf1(j)=nint(allcand(ichan)%f1)
-         nsnr(j)=nint(allcand(ichan)%snrdb-20.0)
-         line2(j)=allcand(ichan)%decoded
-         write(*,3001) j,tsync(j),ichan,nf1(j),txdt(j),nsnr(j),trim(line2(j))
-3001     format(i3,f9.3,i4,i6,f7.3,i5,2x,a)
+         if(ndecodes.eq.1) then
+            nslots=1
+            slot(1)=dec
+         else
+            match=.false.
+            do i=1,nslots
+               df1=abs(dec%f1 - slot(i)%f1)
+               dxdt=abs(dec%xdt - slot(i)%xdt)
+               dtsync=dec%tsync - slot(i)%tsync
+               match=df1.lt.5.0 .and. dxdt.lt.0.005
+               if(match) exit
+            enddo
+            if(.not.match) then
+               nslots=nslots+1
+               slot(nslots)=dec
+            endif
+         endif
+         write(*,3001) ncall,ichan,ndecodes,nslots,dec%f1,dec%xdt,dec%tsync,   &
+              nint(dec%snrdb-20.0),trim(dec%decoded)
+3001     format(i5,3i4,f7.1,f7.3,f9.3,i5,2x,a)
       endif
    enddo     ! ichan, frequency channel loop
 
