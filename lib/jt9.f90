@@ -319,7 +319,7 @@ program jt9
               ingain=0
               call timer('symspec ',0)
               nminw=1
-              call symspec(shared_data,k,Tperiod,nsps,ingain,      &
+              call symspec(shared_data,k,nsps,ingain,      &
                    bLowSidelobes,nminw,pxdb,s,df3,ihsym,npts8,pxdbmax)
               call timer('symspec ',1)
            endif

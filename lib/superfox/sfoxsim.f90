@@ -137,6 +137,7 @@ program sfoxsim
         xdt=ran1(idum)-0.5
      endif
 ! Generate cdat, the SuperFox waveform
+     cdat=0.
      call sfox_gen_gfsk(chansym,f1,isync,itone,cdat)
 
      crcvd=0.

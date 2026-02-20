@@ -355,13 +355,6 @@ set (wsjtx_CXXSRCS
   widgets/qsymonitor.cpp
   )
 
-if (${CMAKE_CXX_COMPILER_ID} MATCHES "Clang")
-  set_source_files_properties (
-    widgets/plotter.cpp 
-    widgets/mainwindow.cpp
-    PROPERTIES COMPILE_FLAGS "-Wno-vla-extension")
-endif ()
-
 set (wsjt_CXXSRCS
   Logger.cpp
   lib/crc10.cpp
