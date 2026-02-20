@@ -5,6 +5,7 @@ program q65code
    character*37 msg37
    integer nargs
    integer codeword(65),tones(85)
+   integer iargc
 
    nargs=iargc()
    if(nargs .ne. 1) then
