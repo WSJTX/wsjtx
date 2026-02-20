@@ -73,8 +73,8 @@ program rjtty
       do while (istart+nchunk-1 .le. nwave)
          success=.false.
          call system_clock(count0,clkfreq)
-         call jtty_mdecode(istart,iwave(istart),nchunk,nsps,f0,ftol,smin,synced,xdt,  &
-            f1,snr,umsg,success,nharderrors,nsync,dmin)
+         call jtty_mdecode(istart,iwave(istart),nchunk,nsps,ndebug,f0,ftol, &
+              smin,synced,xdt,f1,snr,umsg,success,nharderrors,nsync,dmin)
          call system_clock(count1,clkfreq)
 
          if(success) then

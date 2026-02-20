@@ -5,8 +5,8 @@ module jtty_mdec
   integer                   :: nslots = 0
 contains
 
-  subroutine jtty_mdecode(istart,iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snrdb, &
-       line,success,nharderrors,nsync,dmin)
+  subroutine jtty_mdecode(istart,iwave,nchunk,nsps,ndebug,f0,ftol,smin,synced, &
+       xdt,f1,snrdb,line,success,nharderrors,nsync,dmin)
 
 !  First try at a multi-decoder for JTTY - replaces the single-decode version in
 !  jtty_decode.f90. Does not pass decodes back to rjtty_sub yet - just prints
@@ -21,7 +21,7 @@ contains
    character*32              :: c32(MAX_FRAMES)
    integer*1                 :: message32(32), cw80(80)
    integer*2, intent(in)     :: iwave(nchunk)
-   integer, intent(in)       :: istart
+   integer, intent(in)       :: istart, ndebug
    integer                   :: i,j,i0,ja,jb
    integer                   :: ntstep,istep
    integer                   :: nchan, ichan
@@ -29,11 +29,10 @@ contains
    integer                   :: nchunk6,nana  !size of chunk, nana at 6000 Sa/s
    integer                   :: nframe6       !size of frame at 6000 Sa/s
    integer, save             :: nsps0=-999
-   integer, save             :: ncall=0
    integer, save             :: nfft,nh2,nss
    integer                   :: iloc(1)
    integer                   :: irxsync(13)
-   integer                   :: ndeep, maxiterations
+   integer                   :: ndeep, maxiterations, islot
    integer, intent(out)      :: nharderrors,nsync
    real                      :: fsample,fc,fwid
    real                      :: spk,fpk,pa,pt,pn
@@ -60,18 +59,18 @@ contains
    logical                   :: match
 
    type :: decode
-      real :: f1    = 0.0
-      real :: xdt   = 0.0
-      real :: tsync = 0.0
-      real :: snrdb = 0.0
+      real :: f1    = 0.0              !Synced audio frequency
+      real :: xdt   = 0.0              !Synced DT (0 to 0.5 s)
+      real :: tsync = 0.0              !Time of sync from istart=1
+      real :: snrdb = 0.0              !SNR of decoded frame
+      integer ::  k = 0                !Accumulated length of decoded text
       character*80 :: decoded = ''
    end type
 
-   type(decode)              :: cand(0:14)
-   type(decode)              :: dec
-   type(decode), save        :: slot(MAX_SLOTS)
+   type(decode)              :: cand(0:14)        !Candidates for decoding
+   type(decode)              :: dec               !Current successful decode
+   type(decode), save        :: slot(MAX_SLOTS)   !Accumulating decode messages 
    
-   ncall=ncall+1
    if(istart.eq.1) then
       ndecodes=0
       nslots=0
@@ -275,26 +274,36 @@ contains
             f1=cand(ichan)%f1
             snrdb=cand(ichan)%snrdb
          endif
+         match=.false.
+         islot=1
          if(ndecodes.eq.1) then
             nslots=1
             slot(1)=dec
          else
-            match=.false.
             do i=1,nslots
-               df1=abs(dec%f1 - slot(i)%f1)
-               dxdt=abs(dec%xdt - slot(i)%xdt)
+               df1=dec%f1 - slot(i)%f1
+               dxdt=dec%xdt - slot(i)%xdt
                dtsync=dec%tsync - slot(i)%tsync
-               match=df1.lt.5.0 .and. dxdt.lt.0.005
-               if(match) exit
+               match=abs(df1).lt.5.0 .and. abs(dxdt).lt.0.005
+               if(match) then
+                  islot=i
+                  exit
+               endif
             enddo
             if(.not.match) then
                nslots=nslots+1
                slot(nslots)=dec
+               islot=nslots
             endif
          endif
-         write(*,3001) ncall,ichan,ndecodes,nslots,dec%f1,dec%xdt,dec%tsync,   &
-              nint(dec%snrdb-20.0),trim(dec%decoded)
-3001     format(i5,3i4,f7.1,f7.3,f9.3,i5,2x,a)
+         if(ndebug.eq.1) then
+            write(*,3001) ichan,ndecodes,islot,nslots,match,dec%f1, &
+                 dec%xdt,dec%tsync,nint(dec%snrdb-20.0),trim(dec%decoded)
+3001        format(4i4,L3,f7.1,f7.3,f9.3,i5,2x,a)
+         else
+            write(*,3002) nint(dec%f1),nint(dec%snrdb-20.0),trim(dec%decoded)
+3002        format(i4,i5,2x,a)
+         endif
       endif
    enddo     ! ichan, frequency channel loop
 
