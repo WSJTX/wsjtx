@@ -1831,6 +1831,10 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
                                 // saved in settings
   , udp_server_name_edited_ {false}
   , dns_lookup_id_ {-1}
+  , audio_input_channel_ {AudioDevice::Mono}
+  , next_audio_input_channel_ {AudioDevice::Mono}
+  , audio_output_channel_ {AudioDevice::Mono}
+  , next_audio_output_channel_ {AudioDevice::Mono}
   , default_audio_input_device_selected_ {false}
   , default_audio_output_device_selected_ {false}
 {
@@ -2512,7 +2516,7 @@ void Configuration::impl::read_settings ()
   save_directory_.setPath (settings_->value ("SaveDir", default_save_directory_.absolutePath ()).toString ());
   azel_directory_.setPath (settings_->value ("AzElDir", default_azel_directory_.absolutePath ()).toString ());
 
-  tci_audio_ = settings_->value ("TCIAudio", tci_audio_).toBool ();
+  tci_audio_ = settings_->value ("TCIAudio", false).toBool ();
 
   type_2_msg_gen_ = settings_->value ("Type2MsgGen", QVariant::fromValue (Configuration::type_2_msg_3_full)).value<Configuration::Type2MsgGen> ();
 
