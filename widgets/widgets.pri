@@ -3,7 +3,14 @@ SOURCES += \
   widgets/logqso.cpp widgets/displaytext.cpp \
   widgets/meterwidget.cpp widgets/signalmeter.cpp \
   widgets/plotter.cpp widgets/widegraph.cpp widgets/about.cpp \
-  widgets/mainwindow.cpp widgets/messageaveraging.cpp \
+  widgets/mainwindow.cpp \
+  widgets/mainwindow_arrl_digi.cpp \
+  widgets/mainwindow_bandhopping.cpp \
+  widgets/mainwindow_jtty.cpp \
+  widgets/mainwindow_settings.cpp \
+  widgets/mainwindow_show_messages.cpp \
+  widgets/mainwindow_slots.cpp \
+  widgets/messageaveraging.cpp \
   widgets/activeStations.cpp \
   widgets/echoplot.cpp widgets/echograph.cpp widgets/fastgraph.cpp \
   widgets/fastplot.cpp widgets/MessageBox.cpp \

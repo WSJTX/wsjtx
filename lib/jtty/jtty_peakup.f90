@@ -17,14 +17,14 @@ subroutine jtty_peakup(c0,c1,csync,nchunk,nss,xdt0,f0,xdt,f1,snr)
    fsample=6000.0
    dt=1.0/fsample
    ia=max(0,nint((xdt0-0.004)/dt))
-   ib=(xdt0+0.004)/dt
+   ib=min(npsync-1,nint((xdt0+0.004)/dt))
 
    pmax=0.
    fpk=0.
    xdtpk=0.
    c1=cmplx(0.,0.)
    xnorm=sum(abs(c0(0:nchunk-1)))/real(nchunk)
-   do idf=-3,3
+   do idf=-5,5
       a=0.
       a(1)=-f0 + 0.5*idf                     !Shift assumed peak to zero frequency
       call twkfreq(c0,c1,nchunk,fsample,a)

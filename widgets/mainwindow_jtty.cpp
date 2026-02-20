@@ -171,8 +171,8 @@ bool MainWindow::jtty_key_struck(QKeyEvent * e)
     QString t=QString::number(n);
     if(n < 10) t = "00"+t;
     if(n < 100) t = "0"+t;
-    t = "599 " + t;
-    jtty_tx(t);
+    t = " 599 " + t;
+    jtty_tx(ui->dxCallEntry->text() + t);
     return true;
   } else if(e->key() == Qt::Key_F8) {
     jtty_tx("AGN?");

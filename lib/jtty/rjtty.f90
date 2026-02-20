@@ -4,6 +4,7 @@ program rjtty
 
    use wavhdr
    use jtty_mod
+   use jtty_mdec
 
 ! MAX_FRAMES = 16 in pack_jtty. Each frame is
 ! 53 symbols (13 sync + 40 codeword).
@@ -58,7 +59,12 @@ program rjtty
       nwave=min(h%ndata/2,NMAX)
       read(10) iwave(1:nwave)
       close(10)
+      if(ndebug.gt.0) then
+         n=len_trim(fname)
+         write(*,'(a)') fname(n-16:n)
+      endif
       if(nwave.lt.NMAX) iwave(nwave+1:NMAX) = 0
+      ndecodes=0
       kchar=0
       istart=1
       nsync=0
@@ -71,8 +77,8 @@ program rjtty
       do while (istart+nchunk-1 .le. nwave)
          success=.false.
          call system_clock(count0,clkfreq)
-         call jtty_mdecode(iwave(istart),nchunk,nsps,f0,ftol,smin,synced,xdt,  &
-            f1,snr,umsg,success,nharderrors,nsync,dmin)
+         call jtty_mdecode(istart,iwave(istart),nchunk,nsps,ndebug,f0,ftol, &
+              smin,synced,xdt,f1,snr,umsg,success,nharderrors,nsync,dmin)
          call system_clock(count1,clkfreq)
 
          if(success) then
