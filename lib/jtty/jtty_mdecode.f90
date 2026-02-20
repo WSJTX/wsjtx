@@ -18,6 +18,7 @@ contains
    use jtty_fec
    implicit none
    character*80, intent(out) :: line
+   character*80              :: msg
    character*32              :: c32(MAX_FRAMES)
    integer*1                 :: message32(32), cw80(80)
    integer*2, intent(in)     :: iwave(nchunk)
@@ -281,6 +282,7 @@ contains
          islot=1
          if(ndecodes.eq.1) then
             nslots=1
+            islot=1
             slot(1)=dec
          else
             do i=1,nslots
@@ -304,14 +306,16 @@ contains
                islot=nslots
             endif
          endif
-         
+         msg=slot(islot)%decoded
+         do i=1,len_trim(msg)
+            if(msg(i:i).eq.'~') msg(i:i)=' '       !For display, remove ~ chars
+         enddo
          if(ndebug.eq.0) then
-            write(*,3001) nint(dec%f1),nint(dec%snrdb-20.0),   &
-                 trim(slot(i)%decoded)
+            write(*,3001) nint(dec%f1),nint(dec%snrdb-20.0),trim(msg)
 3001        format(i4,i5,2x,a)
          else
             write(*,3002) ichan,ndecodes,islot,nslots,match,dec%f1, &
-                 dec%xdt,dec%tsync,nint(dec%snrdb-20.0),trim(slot(islot)%decoded)
+                 dec%xdt,dec%tsync,nint(dec%snrdb-20.0),trim(msg)
 3002        format(4i4,L3,f7.1,f7.3,f9.3,i5,2x,a)
          endif
       endif
