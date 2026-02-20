@@ -310,6 +310,7 @@ contains
          do i=1,len_trim(msg)
             if(msg(i:i).eq.'~') msg(i:i)=' '       !For display, remove ~ chars
          enddo
+         if(msg(1:1).eq.' ') msg=msg(2:)
          if(ndebug.eq.0) then
             write(*,3001) nint(dec%f1),nint(dec%snrdb-20.0),trim(msg)
 3001        format(i4,i5,2x,a)
