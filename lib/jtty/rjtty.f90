@@ -59,6 +59,10 @@ program rjtty
       nwave=min(h%ndata/2,NMAX)
       read(10) iwave(1:nwave)
       close(10)
+      if(ndebug.gt.0) then
+         n=len_trim(fname)
+         write(*,'(a)') fname(n-16:n)
+      endif
       if(nwave.lt.NMAX) iwave(nwave+1:NMAX) = 0
       ndecodes=0
       kchar=0

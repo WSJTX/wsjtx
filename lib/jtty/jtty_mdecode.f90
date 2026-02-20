@@ -22,7 +22,7 @@ contains
    integer*1                 :: message32(32), cw80(80)
    integer*2, intent(in)     :: iwave(nchunk)
    integer, intent(in)       :: istart, ndebug
-   integer                   :: i,j,i0,ja,jb
+   integer                   :: i,i0,j,ja,jb,k,kz,n
    integer                   :: ntstep,istep
    integer                   :: nchan, ichan
    integer, intent(in)       :: nchunk,nsps   !size of chunk, nsps at 12000 Sa/s
@@ -265,10 +265,13 @@ contains
          ndecodes=ndecodes+1
          write(c32(1),'(32i1)') message32
          call unpack_jtty(c32,1,cand(ichan)%decoded)
+         if(cand(ichan)%decoded(1:4).eq.'599 ') then
+            cand(ichan)%decoded = '~' // trim(cand(ichan)%decoded)
+         endif
          cand(ichan)%tsync=(istart-1)/12000.0 + cand(ichan)%xdt
          dec=cand(ichan)
          if(ichan.eq.0) then
-! make single-channel rjtty_sub happy
+! Make single-channel rjtty_sub happy
             line=cand(ichan)%decoded
             xdt=cand(ichan)%xdt
             f1=cand(ichan)%f1
@@ -287,6 +290,11 @@ contains
                match=abs(df1).lt.5.0 .and. abs(dxdt).lt.0.005
                if(match) then
                   islot=i
+                  k=slot(i)%k
+                  n=len_trim(dec%decoded)
+                  kz=min(k+n,80)
+                  slot(i)%decoded=trim(slot(i)%decoded)//dec%decoded(1:kz-k)
+                  slot(i)%k=kz
                   exit
                endif
             enddo
@@ -296,21 +304,23 @@ contains
                islot=nslots
             endif
          endif
-         if(ndebug.eq.1) then
-            write(*,3001) ichan,ndecodes,islot,nslots,match,dec%f1, &
-                 dec%xdt,dec%tsync,nint(dec%snrdb-20.0),trim(dec%decoded)
-3001        format(4i4,L3,f7.1,f7.3,f9.3,i5,2x,a)
+         
+         if(ndebug.eq.0) then
+            write(*,3001) nint(dec%f1),nint(dec%snrdb-20.0),   &
+                 trim(slot(i)%decoded)
+3001        format(i4,i5,2x,a)
          else
-            write(*,3002) nint(dec%f1),nint(dec%snrdb-20.0),trim(dec%decoded)
-3002        format(i4,i5,2x,a)
+            write(*,3002) ichan,ndecodes,islot,nslots,match,dec%f1, &
+                 dec%xdt,dec%tsync,nint(dec%snrdb-20.0),trim(slot(islot)%decoded)
+3002        format(4i4,L3,f7.1,f7.3,f9.3,i5,2x,a)
          endif
       endif
    enddo     ! ichan, frequency channel loop
 
-!   call indexx(
-
    synced=.false.
    success=.false.
+   flush(6)
+
    return
 end subroutine jtty_mdecode
 
