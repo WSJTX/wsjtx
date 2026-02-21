@@ -313,6 +313,7 @@ private slots:
   void on_actionFST4_triggered();
   void on_actionFST4W_triggered();
   void on_TxFreqSpinBox_valueChanged(int arg1);
+  void on_TxFreqSpinBox_2_valueChanged(int arg1);
   void on_actionSave_decoded_triggered();
   void on_actionQuickDecode_toggled (bool);
   void on_actionMediumDecode_toggled (bool);
@@ -380,6 +381,7 @@ private slots:
   void on_bandComboBox_activated (int index);
   void on_readFreq_clicked();
   void on_RxFreqSpinBox_valueChanged(int n);
+  void on_RxFreqSpinBox_2_valueChanged(int n);
   void on_outAttenuation_valueChanged (int);
   void rigOpen ();
   void handle_transceiver_update (Transceiver::TransceiverState const&);
@@ -439,6 +441,7 @@ private slots:
   void on_sbTR_valueChanged (int);
   void on_sbTR_FST4W_valueChanged (int);
   void on_sbFtol_valueChanged (int);
+  void on_sbFtol_2_valueChanged (int);
   void on_cbFast9_clicked(bool b);
   void on_sbCQTxFreq_valueChanged(int n);
   void on_cbCQTx_toggled(bool b);
