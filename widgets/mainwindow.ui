@@ -3700,8 +3700,8 @@ Double-click to reset to the standard 73 message</string>
             <widget class="QWidget" name="layoutWidget1">
              <property name="geometry">
               <rect>
-               <x>0</x>
-               <y>190</y>
+               <x>20</x>
+               <y>140</y>
                <width>541</width>
                <height>71</height>
               </rect>
@@ -3720,7 +3720,7 @@ Double-click to reset to the standard 73 message</string>
              <property name="geometry">
               <rect>
                <x>160</x>
-               <y>20</y>
+               <y>0</y>
                <width>221</width>
                <height>132</height>
               </rect>
@@ -4927,7 +4927,7 @@ QPushButton[state=&quot;ok&quot;] {
      <x>0</x>
      <y>0</y>
      <width>880</width>
-     <height>25</height>
+     <height>17</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
