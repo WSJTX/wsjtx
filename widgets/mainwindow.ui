@@ -1416,7 +1416,7 @@ Yellow when too low</string>
             </sizepolicy>
            </property>
            <property name="currentIndex">
-            <number>1</number>
+            <number>0</number>
            </property>
            <widget class="QWidget" name="page">
             <layout class="QHBoxLayout" name="horizontalLayout_8">
@@ -3701,7 +3701,7 @@ Double-click to reset to the standard 73 message</string>
              <property name="geometry">
               <rect>
                <x>0</x>
-               <y>260</y>
+               <y>190</y>
                <width>541</width>
                <height>71</height>
               </rect>
@@ -3720,7 +3720,7 @@ Double-click to reset to the standard 73 message</string>
              <property name="geometry">
               <rect>
                <x>160</x>
-               <y>60</y>
+               <y>20</y>
                <width>221</width>
                <height>132</height>
               </rect>
@@ -3728,6 +3728,12 @@ Double-click to reset to the standard 73 message</string>
              <layout class="QGridLayout" name="gridLayout_12">
               <item row="0" column="0" colspan="4">
                <widget class="QSpinBox" name="TxFreqSpinBox_2">
+                <property name="maximumSize">
+                 <size>
+                  <width>220</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
                 <property name="toolTip">
                  <string>Audio Tx frequency</string>
                 </property>
@@ -3752,7 +3758,7 @@ Double-click to reset to the standard 73 message</string>
                </widget>
               </item>
               <item row="1" column="0">
-               <widget class="QPushButton" name="pbR2T_3">
+               <widget class="QPushButton" name="pbR2T_2">
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
                   <horstretch>0</horstretch>
@@ -3789,6 +3795,12 @@ Double-click to reset to the standard 73 message</string>
                   <horstretch>0</horstretch>
                   <verstretch>0</verstretch>
                  </sizepolicy>
+                </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>140</width>
+                  <height>16777215</height>
+                 </size>
                 </property>
                 <property name="toolTip">
                  <string>Frequency tolerance (Hz)</string>
@@ -3843,6 +3855,12 @@ Double-click to reset to the standard 73 message</string>
               </item>
               <item row="2" column="0" colspan="4">
                <widget class="QSpinBox" name="RxFreqSpinBox_2">
+                <property name="maximumSize">
+                 <size>
+                  <width>220</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
                 <property name="toolTip">
                  <string>Audio Rx frequency</string>
                 </property>
@@ -3874,8 +3892,14 @@ Double-click to reset to the standard 73 message</string>
                   <height>0</height>
                  </size>
                 </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>115</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
                 <property name="text">
-                 <string>Send Message</string>
+                 <string>Send</string>
                 </property>
                </widget>
               </item>
@@ -3885,6 +3909,12 @@ Double-click to reset to the standard 73 message</string>
                  <size>
                   <width>100</width>
                   <height>0</height>
+                 </size>
+                </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>100</width>
+                  <height>16777215</height>
                  </size>
                 </property>
                 <property name="alignment">
