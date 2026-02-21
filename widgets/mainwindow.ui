@@ -1416,7 +1416,7 @@ Yellow when too low</string>
             </sizepolicy>
            </property>
            <property name="currentIndex">
-            <number>0</number>
+            <number>1</number>
            </property>
            <widget class="QWidget" name="page">
             <layout class="QHBoxLayout" name="horizontalLayout_8">
@@ -3716,7 +3716,7 @@ Double-click to reset to the standard 73 message</string>
               </item>
              </layout>
             </widget>
-            <widget class="QWidget" name="">
+            <widget class="QWidget" name="layoutWidget">
              <property name="geometry">
               <rect>
                <x>160</x>
