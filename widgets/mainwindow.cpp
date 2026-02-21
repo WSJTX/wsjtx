@@ -8784,9 +8784,10 @@ void MainWindow::on_actionJTTY_triggered()
   m_TRperiod=180;                   //We need a nonzero setting for WideGraph plotter to work.
   m_hsymStop=620;
   m_wideGraph->setPeriod(m_TRperiod,m_nsps);
-  ui->TxFreqSpinBox->setValue(1500);
-  ui->RxFreqSpinBox->setValue(1500);
-  ui->RxFreqSpinBox->setSingleStep(200);
+  ui->TxFreqSpinBox_2->setValue(1500);
+  ui->RxFreqSpinBox_2->setValue(1500);
+//  ui->RxFreqSpinBox_2->setSingleStep(200);
+  ui->sbFtol_2->values ({10, 20, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500});
   setDecodeHeadings("", "");
   setDecodeTitles(tr ("Rx Messages"), tr ("Tx Messages"));
   setup_status_bar (false);

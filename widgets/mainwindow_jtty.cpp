@@ -4,6 +4,7 @@
 #include "commons.h"
 #include "Audio/WavFile.hpp"
 #include <QtConcurrent/QtConcurrentRun>
+#include <iostream>
 
 extern dec_data_t dec_data;
 
@@ -185,4 +186,19 @@ bool MainWindow::jtty_key_struck(QKeyEvent * e)
     ui->Tx_Message->clear();
   }
   return false;
+}
+
+void MainWindow::on_RxFreqSpinBox_2_valueChanged(int n)
+{
+    ui->RxFreqSpinBox->setValue(n);
+}
+
+void MainWindow::on_TxFreqSpinBox_2_valueChanged(int n)
+{
+    ui->TxFreqSpinBox->setValue(n);
+}
+
+void MainWindow::on_sbFtol_2_valueChanged (int)
+{
+
 }
