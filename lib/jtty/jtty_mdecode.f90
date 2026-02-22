@@ -1,8 +1,20 @@
 module jtty_mdec
-   integer, parameter        :: MAX_DECODES = 100
-   integer, parameter        :: MAX_SLOTS = 100
-   integer                   :: ndecodes = 0
-   integer                   :: nslots = 0
+
+  type :: decode
+     real :: f1    = 0.0              !Synced audio frequency
+     real :: xdt   = 0.0              !Synced DT (0 to 0.5 s)
+     real :: tsync = 0.0              !Time of sync from istart=1
+     real :: snrdb = 0.0              !SNR of decoded frame
+     integer ::  k = 0                !Accumulated length of decoded text
+     character*80 :: decoded = ''
+  end type decode
+
+  integer, parameter        :: MAX_DECODES = 100
+  integer, parameter        :: MAX_SLOTS = 30
+  integer                   :: ndecodes = 0
+  integer                   :: nslots = 0
+  type(decode)              :: slot(MAX_SLOTS)   !Accumulating decode messages
+
 contains
 
   subroutine jtty_mdecode(istart,iwave,nchunk,nsps,ndebug,f0,ftol,smin, &
@@ -26,7 +38,7 @@ contains
       integer, intent(in)       :: istart, ndebug
       integer                   :: i,i0,j,ja,jb,k,kz,n
       integer                   :: ntstep,istep
-      integer                   :: nchan, ichan, icand
+      integer                   :: nchan, ichan
       integer, intent(in)       :: nchunk,nsps   !size of chunk, nsps at 12000 Sa/s
       integer                   :: nchunk6,nana  !size of chunk, nana at 6000 Sa/s
       integer                   :: nframe6       !size of frame at 6000 Sa/s
@@ -64,18 +76,8 @@ contains
       logical                   :: dupe
       logical, allocatable      :: s0mask(:,:)
 
-      type :: decode
-         real :: f1    = 0.0              !Synced audio frequency
-         real :: xdt   = 0.0              !Synced DT (0 to 0.5 s)
-         real :: tsync = 0.0              !Time of sync from istart=1
-         real :: snrdb = 0.0              !SNR of decoded frame
-         integer ::  k = 0                !Accumulated length of decoded text
-         character*80 :: decoded = ''
-      end type
-
-      type(decode)              :: cand(MAXCAND)     !Candidates for decoding (ichan,icand)
+      type(decode)              :: cand(MAXCAND)     !Candidates for decoding
       type(decode)              :: dec               !Current successful decode
-      type(decode), save        :: slot(MAX_SLOTS)   !Accumulating decode messages
 
       if(istart.eq.1) then
          ndecodes=0
@@ -316,13 +318,13 @@ contains
                endif
                msg=slot(islot)%decoded
                do i=1,len_trim(msg)
-                  if(msg(i:i).eq.'~') msg(i:i)=' '       !For display, remove ~ chars
+                  if(msg(i:i).eq.'~') msg(i:i)=' ' !For display, remove ~ chars
                enddo
                if(msg(1:1).eq.' ') msg=msg(2:)
                if(ndebug.eq.0) then
                   write(*,3001) nint(dec%f1),nint(dec%snrdb-20.0),trim(msg)
-3001              format(i4,i5,2x,a)
-               else
+3001              format(i4,i4,2x,a)
+               else if(ndebug.gt.0) then
                   write(*,3002) ichan,ic,ndecodes,islot,nslots,match,dec%f1, &
                      dec%xdt,dec%tsync,nint(dec%snrdb-20.0),trim(msg)
 3002              format(5i4,L3,f7.1,f7.3,f9.3,i5,2x,a)
@@ -331,7 +333,6 @@ contains
          enddo     ! candidate loop
       enddo     ! ichan, frequency channel loop
 
-!      print*,'b2',f1_qso,xdt_qso,snr_qso,trim(line)
       synced=.false.
       success=.false.
       flush(6)

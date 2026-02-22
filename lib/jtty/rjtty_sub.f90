@@ -2,7 +2,6 @@ subroutine rjtty_sub(iwave,kz,nsps,f0,ftol,xdt,f1,snr,line2)
 
   use jtty_mdec
   integer*2 iwave(kz)
-!  character*(*) line2
   character*80 line,line1,line2
   character*80 umsg
   logical synced,success,newsig
@@ -40,7 +39,7 @@ subroutine rjtty_sub(iwave,kz,nsps,f0,ftol,xdt,f1,snr,line2)
 !     call jtty_decode(iwave(istart),nchunk,nsps,f0,ftol,smin,synced,xdt,f1,  &
 !          snr,umsg,success,nharderrors,nsync,dmin)
 
-     ndebug=1  !### TEMPORARY ###
+     ndebug=-1  !### TEMPORARY ###
      snr=-99.0
      call jtty_mdecode(istart,iwave(istart),nchunk,nsps,ndebug,f0,ftol, &
               smin,synced,xdt,f1,snr,umsg,success,nharderrors,nsync,dmin)
@@ -51,6 +50,7 @@ subroutine rjtty_sub(iwave,kz,nsps,f0,ftol,xdt,f1,snr,line2)
            if(line2(i:i).eq.'~') line2(i:i)=' '
         enddo
         ndtol=ndtol+1
+        if(ndtol.gt.1) line2=char(10) // trim(line2)
      endif
 
      if(synced) then
@@ -107,13 +107,43 @@ subroutine rjtty_sub(iwave,kz,nsps,f0,ftol,xdt,f1,snr,line2)
      if(i0.ge.6) line=line(1:i0+2)//' '//trim(line(i0+3:))
      line1=line
   enddo
+
+!  call jtty_get_msgs()
+  
   if(line1(1:1).eq.' ') line1=line1(2:)
   if(success .and. .not.newsig .and. line1(1:1).eq.char(10)) line1=line1(2:)
 
-  if(snr.gt.-90.0) then
-     if(ndtol.gt.1) line2=char(10) // trim(line2)
-!     print*,'d',ndtol,f1,xdt,snr,len_trim(line2),trim(line2)
-  endif
-
 999 return
 end subroutine rjtty_sub
+
+subroutine jtty_get_msgs(all_decodes)
+
+  use jtty_mdec
+  character*2400 all_decodes
+  character*80 msg,msg2
+  integer indx(MAX_SLOTS)
+  real f1(MAX_SLOTS)
+
+  f1(1:nslots)=slot(1:nslots)%f1
+  call indexx(f1,nslots,indx)
+
+  k=1
+  all_decodes=''
+  do ii=1,nslots
+     i=indx(ii)
+     msg=trim(slot(i)%decoded)
+     do j=1,len_trim(msg)
+        if(msg(j:j).eq.'~') msg(j:j)=' '
+     enddo
+     if(msg(1:1).eq.' ') msg=trim(msg(2:))
+     write(msg2,1000) nint(slot(i)%f1),nint(slot(i)%snrdb - 20.0),  &
+          trim(msg) // char(10)
+1000 format(2i4,2x,a)
+     all_decodes=trim(all_decodes) // trim(msg2)
+     k=len_trim(all_decodes)+1
+  enddo
+  all_decodes=trim(all_decodes) // char(0)
+!  write(*,'(a)') trim(all_decodes)
+
+  return
+end subroutine jtty_get_msgs
