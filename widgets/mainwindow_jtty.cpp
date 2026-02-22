@@ -116,7 +116,7 @@ void MainWindow::jtty_tx(QString message)
   int nsps4=4*384;
   float bt=2.0;
   float fsample=48000.0;
-  float f0=1500.0;
+  float f0=ui->TxFreqSpinBox_2->value ();
   int icmplx=0;
   int nwave=nsps4*m_nsym_jtty;
   gen_jttywave_(const_cast<int *>(itone), &m_nsym_jtty, &nsps4, &bt, &fsample, &f0,
