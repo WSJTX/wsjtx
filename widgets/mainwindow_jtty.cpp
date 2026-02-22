@@ -135,6 +135,7 @@ void MainWindow::jtty_again()
   for(int k=3456; k<dec_data.params.kin; k+=3456) {
     jtty_decode(k);
   }
+  decodeDone();
 }
 
 bool MainWindow::jtty_key_struck(QKeyEvent * e)
