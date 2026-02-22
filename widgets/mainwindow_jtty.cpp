@@ -198,7 +198,7 @@ void MainWindow::on_TxFreqSpinBox_2_valueChanged(int n)
     ui->TxFreqSpinBox->setValue(n);
 }
 
-void MainWindow::on_sbFtol_2_valueChanged (int)
+void MainWindow::on_sbFtol_2_valueChanged (int n)
 {
-
+    std::cout << "AAA " << n << "\n";
 }

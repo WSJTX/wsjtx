@@ -9104,6 +9104,7 @@ void MainWindow::fast_config(bool b)
 
 void MainWindow::on_TxFreqSpinBox_valueChanged(int n)
 {
+  ui->TxFreqSpinBox_2->setValue(n);
   if (m_config.superFox() && m_specOp==SpecOp::FOX && n!=750) {
     ui->TxFreqSpinBox->setValue(750);
     m_wideGraph->setTxFreq(750);
@@ -9148,6 +9149,7 @@ void MainWindow::on_TxFreqSpinBox_valueChanged(int n)
 
 void MainWindow::on_RxFreqSpinBox_valueChanged(int n)
 {
+  ui->RxFreqSpinBox_2->setValue(n);
   if (m_config.superFox() && m_specOp==SpecOp::HOUND) {
     if (ui->RxFreqSpinBox->value() < 200) {
       ui->RxFreqSpinBox->setValue(200);
