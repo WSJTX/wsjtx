@@ -8789,7 +8789,8 @@ void MainWindow::on_actionJTTY_triggered()
 //  ui->RxFreqSpinBox_2->setSingleStep(200);
   ui->sbFtol_2->values ({10, 20, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500});
   setDecodeHeadings("", "");
-  setDecodeTitles(tr ("Rx Messages"), tr ("Tx Messages"));
+  ui->rh_decodes_headings_label->setText("Freq  dB " + tr ("Message"));
+  setDecodeTitles(tr ("All Decodes"), tr ("QSO Frequency"));
   setup_status_bar (false);
 }
 

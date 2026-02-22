@@ -1,18 +1,21 @@
-subroutine rjtty_sub(iwave,kz,nsps,f0,ftol,xdt,f1,snr,line1)
+subroutine rjtty_sub(iwave,kz,nsps,f0,ftol,xdt,f1,snr,line2)
 
   use jtty_mdec
   integer*2 iwave(kz)
-  character*(*) line1
-  character*80 line
+!  character*(*) line2
+  character*80 line,line1,line2
   character*80 umsg
   logical synced,success,newsig
   data kz0/9999999/,f1good/-99./,xdtgood/-99./,missed_syncs/0/,newsig/.false./
-  save istart,kz0,kchar,line,success,synced,f1good,xdtgood,missed_syncs,newsig
+  save istart,kz0,kchar,line,success,synced,f1good,xdtgood,missed_syncs,  &
+       newsig,ndtol
 
   if(nsps.ne.240 .and. nsps.ne.320 .and. nsps.ne.384 .and. nsps.ne.480) return
 
   line1=""
+  line2=""
   line1(1:1)=char(0)
+  line2(1:1)=char(0)
   nframe = 53*nsps
   nchunk = nframe + nframe/4
   smin=3.0
@@ -23,6 +26,7 @@ subroutine rjtty_sub(iwave,kz,nsps,f0,ftol,xdt,f1,snr,line1)
      kchar=0
      line=""
      synced=.false.
+     ndtol=0
      go to 999
   endif
   if(kz-istart+1 .lt. nchunk) return      ! wait for enough data
@@ -36,12 +40,20 @@ subroutine rjtty_sub(iwave,kz,nsps,f0,ftol,xdt,f1,snr,line1)
 !     call jtty_decode(iwave(istart),nchunk,nsps,f0,ftol,smin,synced,xdt,f1,  &
 !          snr,umsg,success,nharderrors,nsync,dmin)
 
-     ndebug=1
+     ndebug=1  !### TEMPORARY ###
+     snr=-99.0
      call jtty_mdecode(istart,iwave(istart),nchunk,nsps,ndebug,f0,ftol, &
               smin,synced,xdt,f1,snr,umsg,success,nharderrors,nsync,dmin)
 
+     if(snr.gt.-90.0) then
+        line2=trim(umsg) // char(0)
+        do i=1,len_trim(line2)
+           if(line2(i:i).eq.'~') line2(i:i)=' '
+        enddo
+        ndtol=ndtol+1
+     endif
+
      if(synced) then
-        missed_syncs=0
         missed_syncs = 0
      else
         missed_syncs = missed_syncs + 1
@@ -97,6 +109,11 @@ subroutine rjtty_sub(iwave,kz,nsps,f0,ftol,xdt,f1,snr,line1)
   enddo
   if(line1(1:1).eq.' ') line1=line1(2:)
   if(success .and. .not.newsig .and. line1(1:1).eq.char(10)) line1=line1(2:)
+
+  if(snr.gt.-90.0) then
+     if(ndtol.gt.1) line2=char(10) // trim(line2)
+!     print*,'d',ndtol,f1,xdt,snr,len_trim(line2),trim(line2)
+  endif
 
 999 return
 end subroutine rjtty_sub

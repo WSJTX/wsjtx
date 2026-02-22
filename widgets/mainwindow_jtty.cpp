@@ -58,16 +58,17 @@ void MainWindow::jtty_decode(int k)
   rjtty_sub_(dec_data.d2,&k,&nsps,&f0,&ftol,&xdt,&f1,&snr,&line[0],(FCL)80);
   QString message {QString::fromLatin1(line)};
   int n=message.length();
+//  std::cout << "bb " << n << " " << message << "\n";
   if(n > 0 and n < 80) {
     bool eom=message.left(1)=="\n";
     if(eom) message=message.mid(1);
     if(k > k0 and !eom) {
-      QTextCursor cursor = ui->decodedTextBrowser->textCursor();
+      QTextCursor cursor = ui->decodedTextBrowser2->textCursor();
       cursor.movePosition(QTextCursor::End);         //Cursor to end of text
       cursor.select(QTextCursor::LineUnderCursor);   //Select line under cursor
       cursor.removeSelectedText();                   //Remove the selected line
       cursor.deletePreviousChar();                   //Delete previous newline
-      ui->decodedTextBrowser->setTextCursor(cursor); //Reset cursor back to browser
+      ui->decodedTextBrowser2->setTextCursor(cursor); //Reset cursor back to browser
     }
     m_xRcvd="";
     QStringList w = message.split(" ",SkipEmptyParts);
@@ -75,8 +76,8 @@ void MainWindow::jtty_decode(int k)
     if((w.length() == 3) and (w[1] == "599")) m_xRcvd = w[2];
     if(k != k0 and message != message0) {
       QString t;
-      t = t.asprintf("%4d %+3d: ",int(f1+0.5),int(snr-20.0));
-      ui->decodedTextBrowser->insertText(t + message.trimmed());
+      t = t.asprintf("%4d %+3d ",int(f1+0.5),int(snr-20.0));
+      ui->decodedTextBrowser2->insertText(t + message.trimmed());
     }
     message0 = message;
     k0=k;

@@ -5,8 +5,8 @@ module jtty_mdec
    integer                   :: nslots = 0
 contains
 
-   subroutine jtty_mdecode(istart,iwave,nchunk,nsps,ndebug,f0,ftol,smin,synced, &
-      xdt,f1,snrdb,line,success,nharderrors,nsync,dmin)
+  subroutine jtty_mdecode(istart,iwave,nchunk,nsps,ndebug,f0,ftol,smin, &
+       synced,xdt_qso,f1_qso,snr_qso,line,success,nharderrors,nsync,dmin)
 
 !  First try at a multi-decoder for JTTY - replaces the single-decode version in
 !  jtty_decode.f90. Does not pass decodes back to rjtty_sub yet - just prints
@@ -49,7 +49,8 @@ contains
       real                      :: x2,db
       real, intent(in)          :: f0,ftol,smin
       real, intent(out)         :: dmin
-      real, intent(inout)       :: xdt,f1,snrdb
+      real, intent(out)         :: xdt_qso,f1_qso,snr_qso
+      real                      :: snrdb, xdt
       real                      :: xdt1, f11, snr0, df1, dtsync, dxdt
       complex, allocatable      :: c(:)
       complex, allocatable      :: c0(:)
@@ -257,7 +258,7 @@ contains
             endif
             if(nharderrors .ge. 0 .and. sum(message32) .eq. 0) nharderrors=-1  ! reject the all zero message
             cand(ncand)%decoded=' '
-            line=' '
+!            line=' '
             if( nharderrors .ge. 0 ) then
                success=.true.
                ndecodes=ndecodes+1
@@ -280,9 +281,10 @@ contains
                if(ichan.eq.0) then
 ! Make single-channel rjtty_sub happy
                   line=cand(ncand)%decoded
-                  xdt=cand(ncand)%xdt
-                  f1=cand(ncand)%f1
-                  snrdb=cand(ncand)%snrdb
+                  xdt_qso=cand(ncand)%xdt
+                  f1_qso=cand(ncand)%f1
+                  snr_qso=cand(ncand)%snrdb - 20.0
+!                  print*,'b',f1_qso,xdt_qso,snr_qso,trim(line)
                endif
                match=.false.
                islot=1
@@ -329,6 +331,7 @@ contains
          enddo     ! candidate loop
       enddo     ! ichan, frequency channel loop
 
+!      print*,'b2',f1_qso,xdt_qso,snr_qso,trim(line)
       synced=.false.
       success=.false.
       flush(6)
