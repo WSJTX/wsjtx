@@ -47,8 +47,8 @@ void MainWindow::jtty_decode(int k)
   static int k0=9999999;
   int nsps=384;
   char line[80];
-  float f0 = m_wideGraph->rxFreq();
-  float ftol = 20.0;
+  float f0 = ui->RxFreqSpinBox_2->value();
+  float ftol = ui->sbFtol_2->value();
   static float xdt = 0.0;
   static float f1 = 0.0;
   float snr = 0.0;

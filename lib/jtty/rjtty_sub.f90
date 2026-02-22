@@ -1,5 +1,6 @@
 subroutine rjtty_sub(iwave,kz,nsps,f0,ftol,xdt,f1,snr,line1)
 
+  use jtty_mdec
   integer*2 iwave(kz)
   character*(*) line1
   character*80 line
@@ -32,8 +33,12 @@ subroutine rjtty_sub(iwave,kz,nsps,f0,ftol,xdt,f1,snr,line1)
      success=.false.
 !     synced=.false.                  ! uncomment this to disable use of prior sync 
 
-     call jtty_decode(iwave(istart),nchunk,nsps,f0,ftol,smin,synced,xdt,f1,  &
-          snr,umsg,success,nharderrors,nsync,dmin)
+!     call jtty_decode(iwave(istart),nchunk,nsps,f0,ftol,smin,synced,xdt,f1,  &
+!          snr,umsg,success,nharderrors,nsync,dmin)
+
+     ndebug=1
+     call jtty_mdecode(istart,iwave(istart),nchunk,nsps,ndebug,f0,ftol, &
+              smin,synced,xdt,f1,snr,umsg,success,nharderrors,nsync,dmin)
 
      if(synced) then
         missed_syncs=0
