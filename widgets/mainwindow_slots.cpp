@@ -634,6 +634,16 @@ void MainWindow::on_pbT2R_clicked()
     }
 }
 
+void MainWindow::on_pbR2T_2_clicked()
+{
+    ui->TxFreqSpinBox_2->setValue(ui->RxFreqSpinBox_2->value ());
+}
+
+void MainWindow::on_pbT2R_2_clicked()
+{
+    ui->RxFreqSpinBox_2->setValue (ui->TxFreqSpinBox_2->value ());
+}
+
 void MainWindow::on_readFreq_clicked()
 {
   if (m_transmitting) return;

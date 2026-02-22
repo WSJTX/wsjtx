@@ -365,7 +365,9 @@ private slots:
   void killWaveFile();
   void on_tuneButton_clicked (bool);
   void on_pbR2T_clicked();
+  void on_pbR2T_2_clicked();
   void on_pbT2R_clicked();
+  void on_pbT2R_2_clicked();
   void acceptQSO (QDateTime const&, QString const& call, QString const& grid
                   , Frequency dial_freq, QString const& mode
                   , QString const& rpt_sent, QString const& rpt_received
