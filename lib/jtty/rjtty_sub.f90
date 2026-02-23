@@ -2,7 +2,7 @@ subroutine rjtty_sub(iwave,kz,nsps,f0,ftol)
 
   use jtty_mdec
   integer*2 iwave(kz)
-  character*80 line,line1,line2
+  character*80 line,line1
   character*80 umsg
   logical synced,success,newsig
   data kz0/9999999/,f1good/-99./,xdtgood/-99./,missed_syncs/0/,newsig/.false./
@@ -12,9 +12,7 @@ subroutine rjtty_sub(iwave,kz,nsps,f0,ftol)
   if(nsps.ne.240 .and. nsps.ne.320 .and. nsps.ne.384 .and. nsps.ne.480) return
 
   line1=""
-  line2=""
   line1(1:1)=char(0)
-  line2(1:1)=char(0)
   nframe = 53*nsps
   nchunk = nframe + nframe/4
   smin=3.0
@@ -40,15 +38,6 @@ subroutine rjtty_sub(iwave,kz,nsps,f0,ftol)
      snr=-99.0
      call jtty_mdecode(istart,iwave(istart),nchunk,nsps,ndebug,f0,ftol, &
               smin,synced,xdt,f1,snr,umsg,success,nharderrors,nsync,dmin)
-
-     if(snr.gt.-90.0) then
-        line2=trim(umsg) // char(0)
-        do i=1,len_trim(line2)
-           if(line2(i:i).eq.'~') line2(i:i)=' '
-        enddo
-        ndtol=ndtol+1
-        if(ndtol.gt.1) line2=char(10) // trim(line2)
-     endif
 
      if(synced) then
         missed_syncs = 0
