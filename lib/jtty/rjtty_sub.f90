@@ -3,7 +3,6 @@ subroutine rjtty_sub(iwave,kz,nsps,f0,ftol)
   use jtty_mdec
   integer*2 iwave(kz)
   character*80 line,line1,line2
-  character*800 line3
   character*80 umsg
   logical synced,success,newsig
   data kz0/9999999/,f1good/-99./,xdtgood/-99./,missed_syncs/0/,newsig/.false./
@@ -108,24 +107,6 @@ subroutine rjtty_sub(iwave,kz,nsps,f0,ftol)
   
   if(line1(1:1).eq.' ') line1=line1(2:)
   if(success .and. .not.newsig .and. line1(1:1).eq.char(10)) line1=line1(2:)
-
-  line3=''
-!  do i=1,nslots
-!     df=abs(slot(i)%f1 - f0)
-!     if(df.lt.ftol) then
-!        line3=trim(line3) // trim(slot(i)%decoded) // char(10)
-!        write(*,6001) i,nint(slot(i)%f1),df,trim(line3)
-!6001    format(i2,i5,f5.1,1x,a)
-!     endif
-!  enddo
-!  line3=trim(line3) // char(0)
-
-!  if(len_trim(line).gt.1) print*,'A ',trim(line)
-!  if(len_trim(line1).gt.1) print*,'B ',trim(line1)
-!  if(len_trim(line2).gt.1) print*,'C ',trim(line2)
-
-!  line3=line2
-!  if(len_trim(line3).ge.2) print*,'a',len_trim(line3),nint(f0),trim(line3)
 
 999 return
 end subroutine rjtty_sub
