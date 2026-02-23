@@ -35,12 +35,9 @@ subroutine rjtty_sub(iwave,kz,nsps,f0,ftol,xdt,f1,snr,line3)
   dmin=0.0         !Nonzero returned if OSD produced decode. Use to reject false decodes?
   do while (istart+nchunk-1 .le. kz)
      success=.false.
-!     synced=.false.                  ! uncomment this to disable use of prior sync 
+!     synced=.false.             ! uncomment this to disable use of prior sync 
 
-!     call jtty_decode(iwave(istart),nchunk,nsps,f0,ftol,smin,synced,xdt,f1,  &
-!          snr,umsg,success,nharderrors,nsync,dmin)
-
-     ndebug=-1  !### TEMPORARY ###
+     ndebug=-1  !### TEMPORARY ??? ###
      snr=-99.0
      call jtty_mdecode(istart,iwave(istart),nchunk,nsps,ndebug,f0,ftol, &
               smin,synced,xdt,f1,snr,umsg,success,nharderrors,nsync,dmin)
@@ -123,10 +120,17 @@ subroutine rjtty_sub(iwave,kz,nsps,f0,ftol,xdt,f1,snr,line3)
 !  enddo
 !  line3=trim(line3) // char(0)
 
+!  if(len_trim(line).gt.1) print*,'A ',trim(line)
+!  if(len_trim(line1).gt.1) print*,'B ',trim(line1)
+!  if(len_trim(line2).gt.1) print*,'C ',trim(line2)
+
+!  line3=line2
+!  if(len_trim(line3).ge.2) print*,'a',len_trim(line3),nint(f0),trim(line3)
+
 999 return
 end subroutine rjtty_sub
 
-subroutine jtty_get_msgs(all_freqs,qso_freq)
+subroutine jtty_get_msgs(f0,ftol,all_freqs,qso_freq)
 
   use jtty_mdec
   character*2400 all_freqs
@@ -144,7 +148,7 @@ subroutine jtty_get_msgs(all_freqs,qso_freq)
   do ii=1,nslots
      i=indx(ii)
      msg=trim(slot(i)%decoded)
-     df=slot(i)%f1 - 1510.0
+     df=slot(i)%f1 - f0
      do j=1,len_trim(msg)
         if(msg(j:j).eq.'~') msg(j:j)=' '
      enddo
@@ -155,7 +159,7 @@ subroutine jtty_get_msgs(all_freqs,qso_freq)
      all_freqs=trim(all_freqs) // trim(msg2)
      k=len_trim(all_freqs)+1
 
-     if(abs(df).lt.10.0) then
+     if(abs(df).lt.ftol) then
         qso_freq=trim(qso_freq) // trim(msg2) !// char(10)
      endif
   enddo
