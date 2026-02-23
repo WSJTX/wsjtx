@@ -1,4 +1,4 @@
-subroutine rjtty_sub(iwave,kz,nsps,f0,ftol,xdt,f1,snr,line3)
+subroutine rjtty_sub(iwave,kz,nsps,f0,ftol)
 
   use jtty_mdec
   integer*2 iwave(kz)

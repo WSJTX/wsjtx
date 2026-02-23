@@ -17,8 +17,7 @@ extern dec_data_t dec_data;
 #define FCL fortran_charlen_t
 
 extern "C" {
-  void rjtty_sub_(short int d2[], int* k, int* nsps, float* f0, float* ftol,
-                  float* xdt, float* f1, float* snr, char line[], fortran_charlen_t);
+  void rjtty_sub_(short int d2[], int* k, int* nsps, float* f0, float* ftol);
 
 void jtty_get_msgs_(float* f0, float* ftol, char all_freqs[], char line[],
                       fortran_charlen_t, fortran_charlen_t);
@@ -47,54 +46,21 @@ void MainWindow::jtty_save_wav()
 
 void MainWindow::jtty_decode(int k)
 {
-//  static int k0=9999999;
   int nsps=384;
-  char line[800];
-  char line2[800];
+  char qso_freq[800];
   char all_freqs[2400];
   float f0 = ui->RxFreqSpinBox_2->value();
   float ftol = ui->sbFtol_2->value();
-  static float xdt = 0.0;
-  static float f1 = 0.0;
-  float snr = 0.0;
-  //  static int n0=0;
   static QString message0 = "";
 
-  rjtty_sub_(dec_data.d2,&k,&nsps,&f0,&ftol,&xdt,&f1,&snr,&line[0],(FCL)800);
-  /*
-  QString message {QString::fromLatin1(line)};
-  int n=message.length();
-//  std::cout << "aa " << n << message.trimmed() << "\n";
-  if(n > 0 and n < 800) {
-    bool eom=message.left(1)=="\n";
-    if(eom) message=message.mid(1);
-    if(k > k0 and !eom) {
-      QTextCursor cursor = ui->decodedTextBrowser2->textCursor();
-      cursor.movePosition(QTextCursor::End);         //Cursor to end of text
-      cursor.select(QTextCursor::LineUnderCursor);   //Select line under cursor
-      cursor.removeSelectedText();                   //Remove the selected line
-      cursor.deletePreviousChar();                   //Delete previous newline
-      ui->decodedTextBrowser2->setTextCursor(cursor); //Reset cursor back to browser
-    }
-    m_xRcvd="";
-    QStringList w = message.split(" ",SkipEmptyParts);
-    if((w.length() == 2) and (w[0] == "599")) m_xRcvd = w[1];
-    if((w.length() == 3) and (w[1] == "599")) m_xRcvd = w[2];
-    if(k != k0 and message != message0) {
-      QString t;
-      t = t.asprintf("%4d %+3d ",int(f1+0.5),int(snr-20.0));
-      ui->decodedTextBrowser2->insertText(t + message.trimmed());
-    }
-    message0 = message;
-    k0=k;
-  }
-  */
-  jtty_get_msgs_(&f0,&ftol,&all_freqs[0], &line2[0], (FCL)2400, (FCL)800);
+  rjtty_sub_(dec_data.d2,&k,&nsps,&f0,&ftol);
+
+  jtty_get_msgs_(&f0,&ftol,&all_freqs[0], &qso_freq[0], (FCL)2400, (FCL)800);
   QString allMsgs {QString::fromLatin1(all_freqs)};
   ui->decodedTextBrowser->clear();
   ui->decodedTextBrowser->insertText(allMsgs.trimmed());
   ui->decodedTextBrowser2->clear();
-  QString message2 {QString::fromLatin1(line2)};
+  QString message2 {QString::fromLatin1(qso_freq)};
   int n2=message2.length();
   if(n2 > 0) {
 //      std::cout << "aa " << n2 << " " + message2.trimmed() << "\n";
@@ -109,8 +75,8 @@ void MainWindow::jtty_tx(QString message)
   m_currentMessage = message;
 
   // Display Tx message highlighted in yellow
-  ui->decodedTextBrowser->insertText(" ");
-  QTextCursor cursor = ui->decodedTextBrowser->textCursor();
+  ui->decodedTextBrowser2->insertText(" ");
+  QTextCursor cursor = ui->decodedTextBrowser2->textCursor();
   QTextCharFormat format = cursor.charFormat();
   format.setBackground(QBrush(QColor(Qt::yellow))); // Set background to yellow
   cursor.setCharFormat(format);
