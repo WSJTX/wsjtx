@@ -1,8 +1,9 @@
-subroutine rjtty_sub(iwave,kz,nsps,f0,ftol,xdt,f1,snr,line2)
+subroutine rjtty_sub(iwave,kz,nsps,f0,ftol,xdt,f1,snr,line3)
 
   use jtty_mdec
   integer*2 iwave(kz)
   character*80 line,line1,line2
+  character*800 line3
   character*80 umsg
   logical synced,success,newsig
   data kz0/9999999/,f1good/-99./,xdtgood/-99./,missed_syncs/0/,newsig/.false./
@@ -107,20 +108,30 @@ subroutine rjtty_sub(iwave,kz,nsps,f0,ftol,xdt,f1,snr,line2)
      if(i0.ge.6) line=line(1:i0+2)//' '//trim(line(i0+3:))
      line1=line
   enddo
-
-!  call jtty_get_msgs()
   
   if(line1(1:1).eq.' ') line1=line1(2:)
   if(success .and. .not.newsig .and. line1(1:1).eq.char(10)) line1=line1(2:)
 
+  line3=''
+!  do i=1,nslots
+!     df=abs(slot(i)%f1 - f0)
+!     if(df.lt.ftol) then
+!        line3=trim(line3) // trim(slot(i)%decoded) // char(10)
+!        write(*,6001) i,nint(slot(i)%f1),df,trim(line3)
+!6001    format(i2,i5,f5.1,1x,a)
+!     endif
+!  enddo
+!  line3=trim(line3) // char(0)
+
 999 return
 end subroutine rjtty_sub
 
-subroutine jtty_get_msgs(all_decodes)
+subroutine jtty_get_msgs(all_decodes,line3)
 
   use jtty_mdec
   character*2400 all_decodes
   character*80 msg,msg2
+  character*800 line3
   integer indx(MAX_SLOTS)
   real f1(MAX_SLOTS)
 
@@ -129,9 +140,11 @@ subroutine jtty_get_msgs(all_decodes)
 
   k=1
   all_decodes=''
+  line3=''
   do ii=1,nslots
      i=indx(ii)
      msg=trim(slot(i)%decoded)
+     df=slot(i)%f1 - 1510.0
      do j=1,len_trim(msg)
         if(msg(j:j).eq.'~') msg(j:j)=' '
      enddo
@@ -141,9 +154,16 @@ subroutine jtty_get_msgs(all_decodes)
 1000 format(2i4,2x,a)
      all_decodes=trim(all_decodes) // trim(msg2)
      k=len_trim(all_decodes)+1
+
+     if(abs(df).lt.10.0) then
+        line3=trim(line3) // trim(msg2) !// char(10)
+     endif
   enddo
   all_decodes=trim(all_decodes) // char(0)
-!  write(*,'(a)') trim(all_decodes)
+  line3=trim(line3) // char(0)
+  n=len_trim(line3)
+  write(*,*)
+  write(*,'(a)',advance='no') line3(1:n-1)
 
   return
 end subroutine jtty_get_msgs

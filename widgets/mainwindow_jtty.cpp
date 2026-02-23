@@ -20,7 +20,7 @@ extern "C" {
   void rjtty_sub_(short int d2[], int* k, int* nsps, float* f0, float* ftol,
                   float* xdt, float* f1, float* snr, char line[], fortran_charlen_t);
 
-  void jtty_get_msgs_(char all_decodes[], fortran_charlen_t);
+void jtty_get_msgs_(char all_decodes[], char line[], fortran_charlen_t, fortran_charlen_t);
 
   void genjtty_(char const * msg, int itone[], int* nsym, fortran_charlen_t);
 
@@ -48,7 +48,8 @@ void MainWindow::jtty_decode(int k)
 {
   static int k0=9999999;
   int nsps=384;
-  char line[80];
+  char line[800];
+  char line2[800];
   char all_decodes[2400];
   float f0 = ui->RxFreqSpinBox_2->value();
   float ftol = ui->sbFtol_2->value();
@@ -58,10 +59,11 @@ void MainWindow::jtty_decode(int k)
   //  static int n0=0;
   static QString message0 = "";
 
-  rjtty_sub_(dec_data.d2,&k,&nsps,&f0,&ftol,&xdt,&f1,&snr,&line[0],(FCL)80);
+  rjtty_sub_(dec_data.d2,&k,&nsps,&f0,&ftol,&xdt,&f1,&snr,&line[0],(FCL)800);
   QString message {QString::fromLatin1(line)};
   int n=message.length();
-  if(n > 0 and n < 80) {
+//  std::cout << "aa " << n << message.trimmed() << "\n";
+  if(n > 0 and n < 800) {
     bool eom=message.left(1)=="\n";
     if(eom) message=message.mid(1);
     if(k > k0 and !eom) {
@@ -84,11 +86,17 @@ void MainWindow::jtty_decode(int k)
     message0 = message;
     k0=k;
   }
-  jtty_get_msgs_(&all_decodes[0],(FCL)2400);
+  jtty_get_msgs_(&all_decodes[0], &line2[0], (FCL)2400, (FCL)800);
   QString allMsgs {QString::fromLatin1(all_decodes)};
-//  std::cout << "bb " << allMsgs.left(4) << "\n";
   ui->decodedTextBrowser->clear();
   ui->decodedTextBrowser->insertText(" " + allMsgs.trimmed());
+  QString message2 {QString::fromLatin1(line2)};
+  int n2=message2.length();
+  if(n2 > 0) {
+//      std::cout << "aa " << n2 << " " + message2.trimmed() << "\n";
+    ui->decodedTextBrowser2->clear();
+    ui->decodedTextBrowser2->insertText(" " + message2.trimmed());
+  }
 }
 
 void MainWindow::jtty_tx(QString message)
