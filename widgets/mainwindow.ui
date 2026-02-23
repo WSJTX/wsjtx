@@ -3709,9 +3709,6 @@ Double-click to reset to the standard 73 message</string>
              <layout class="QGridLayout" name="gridLayout_4">
               <item row="0" column="0" colspan="2">
                <widget class="QLineEdit" name="Tx_Message">
-                <property name="text">
-                 <string>CQ K1JT CQ</string>
-                </property>
                </widget>
               </item>
              </layout>
