@@ -19,8 +19,8 @@ extern dec_data_t dec_data;
 extern "C" {
   void rjtty_sub_(short int d2[], int* k, int* nsps, float* f0, float* ftol);
 
-void jtty_get_msgs_(float* f0, float* ftol, char all_freqs[], char line[],
-                      fortran_charlen_t, fortran_charlen_t);
+void jtty_get_msgs_(float* f0, float* ftol, bool* all_new, bool* qso_new,
+    char all_freqs[], char line[], fortran_charlen_t, fortran_charlen_t);
 
   void genjtty_(char const * msg, int itone[], int* nsym, fortran_charlen_t);
 
@@ -51,20 +51,30 @@ void MainWindow::jtty_decode(int k)
   char all_freqs[2400];
   float f0 = ui->RxFreqSpinBox_2->value();
   float ftol = ui->sbFtol_2->value();
-  static QString message0 = "";
+  bool all_new = true;
+  bool qso_new = true;
 
   rjtty_sub_(dec_data.d2,&k,&nsps,&f0,&ftol);
 
-  jtty_get_msgs_(&f0,&ftol,&all_freqs[0], &qso_freq[0], (FCL)2400, (FCL)800);
+  jtty_get_msgs_(&f0, &ftol, &all_new, &qso_new, &all_freqs[0],
+                 &qso_freq[0], (FCL)2400, (FCL)800);
+
   QString allMsgs {QString::fromLatin1(all_freqs)};
-  ui->decodedTextBrowser->clear();
-  ui->decodedTextBrowser->insertText(allMsgs.trimmed());
-  ui->decodedTextBrowser2->clear();
-  QString message2 {QString::fromLatin1(qso_freq)};
-  int n2=message2.length();
-  if(n2 > 0) {
-//      std::cout << "aa " << n2 << " " + message2.trimmed() << "\n";
-    ui->decodedTextBrowser2->insertText(message2.trimmed());
+  if(all_new) {
+      ui->decodedTextBrowser->clear();
+      if(allMsgs.left(1) == " ") {
+          ui->decodedTextBrowser->insertText(" " + allMsgs.trimmed());
+      } else {
+          ui->decodedTextBrowser->insertText(allMsgs.trimmed());
+      }
+  }
+  if(qso_new) {
+      QString message2 {QString::fromLatin1(qso_freq)};
+      int n2=message2.length();
+      if(n2 > 0) {
+        ui->decodedTextBrowser2->clear();
+        ui->decodedTextBrowser2->insertText(message2.trimmed());
+      }
   }
 }
 
