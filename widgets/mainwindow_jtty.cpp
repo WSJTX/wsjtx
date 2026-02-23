@@ -89,13 +89,13 @@ void MainWindow::jtty_decode(int k)
   jtty_get_msgs_(&all_decodes[0], &line2[0], (FCL)2400, (FCL)800);
   QString allMsgs {QString::fromLatin1(all_decodes)};
   ui->decodedTextBrowser->clear();
-  ui->decodedTextBrowser->insertText(" " + allMsgs.trimmed());
+  ui->decodedTextBrowser->insertText(allMsgs.trimmed());
   QString message2 {QString::fromLatin1(line2)};
   int n2=message2.length();
   if(n2 > 0) {
 //      std::cout << "aa " << n2 << " " + message2.trimmed() << "\n";
     ui->decodedTextBrowser2->clear();
-    ui->decodedTextBrowser2->insertText(" " + message2.trimmed());
+    ui->decodedTextBrowser2->insertText(message2.trimmed());
   }
 }
 
@@ -217,5 +217,5 @@ void MainWindow::on_TxFreqSpinBox_2_valueChanged(int n)
 
 void MainWindow::on_sbFtol_2_valueChanged (int n)
 {
-    std::cout << "AAA " << n << "\n";
+    if(n==999) std::cout << "AAA " << n << "\n";
 }
