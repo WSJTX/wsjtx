@@ -2,7 +2,7 @@ subroutine rjtty_sub(iwave,kz,nsps,f0,ftol)
 
   use jtty_mdec
   integer*2 iwave(kz)
-  character*80 line,line1
+  character*80 line
   character*80 umsg
   logical synced,success,newsig
   data kz0/9999999/,f1good/-99./,xdtgood/-99./,missed_syncs/0/,newsig/.false./
@@ -11,8 +11,6 @@ subroutine rjtty_sub(iwave,kz,nsps,f0,ftol)
 
   if(nsps.ne.240 .and. nsps.ne.320 .and. nsps.ne.384 .and. nsps.ne.480) return
 
-  line1=""
-  line1(1:1)=char(0)
   nframe = 53*nsps
   nchunk = nframe + nframe/4
   smin=3.0
@@ -80,8 +78,6 @@ subroutine rjtty_sub(iwave,kz,nsps,f0,ftol)
         line(kchar+1:kchar+n)=umsg(1:n)
         line(kchar+n+1:kchar+n+1)=char(0)
         kchar = min(kchar + n, 80)
-        line1(1:n)=umsg(1:n)
-        line1(n+1:n+1)=char(0)
         istart=istart+nframe
 ! Use this sync for next frame only if was strong strong
         if(nsync.lt.12) synced=.false.
@@ -91,11 +87,7 @@ subroutine rjtty_sub(iwave,kz,nsps,f0,ftol)
      endif
      i0=index(line,' CQCQ ')
      if(i0.ge.6) line=line(1:i0+2)//' '//trim(line(i0+3:))
-     line1=line
   enddo
-  
-  if(line1(1:1).eq.' ') line1=line1(2:)
-  if(success .and. .not.newsig .and. line1(1:1).eq.char(10)) line1=line1(2:)
 
 999 return
 end subroutine rjtty_sub
