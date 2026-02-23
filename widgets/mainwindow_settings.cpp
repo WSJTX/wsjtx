@@ -119,6 +119,7 @@ void MainWindow::writeSettings()
   m_settings->setValue("WSPRfreq",ui->WSPRfreqSpinBox->value());
   m_settings->setValue("FST4W_RxFreq",ui->sbFST4W_RxFreq->value());
   m_settings->setValue("FST4W_FTol",ui->sbFST4W_FTol->value());
+  m_settings->setValue("JTTY_FTol",ui->sbFtol_2->value());
   m_settings->setValue("FST4_FLow",ui->sbF_Low->value());
   m_settings->setValue("FST4_FHigh",ui->sbF_High->value());
   m_settings->setValue("EchoToneSpacing",ui->sbToneSpacing->value());
@@ -442,6 +443,7 @@ void MainWindow::readSettings()
   ui->sbF_Low->setValue(m_settings->value("FST4_FLow",600).toInt());
   ui->sbF_High->setValue(m_settings->value("FST4_FHigh",1400).toInt());
   ui->sbFST4W_FTol->setValue(m_settings->value("FST4W_FTol",100).toInt());
+  ui->sbFtol_2->setValue(m_settings->value("JTTY_FTol",20).toInt());
   ui->sbToneSpacing->setValue(m_settings->value("EchoToneSpacing",10).toInt());
   ui->rbFixedTone->setChecked(m_settings->value("EchoFixedTone",true).toBool());
   ui->rbEchoMessage->setChecked(m_settings->value("EchoMessageRB",false).toBool());
