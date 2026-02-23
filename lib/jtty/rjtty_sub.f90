@@ -126,12 +126,12 @@ subroutine rjtty_sub(iwave,kz,nsps,f0,ftol,xdt,f1,snr,line3)
 999 return
 end subroutine rjtty_sub
 
-subroutine jtty_get_msgs(all_decodes,line3)
+subroutine jtty_get_msgs(all_freqs,qso_freq)
 
   use jtty_mdec
-  character*2400 all_decodes
+  character*2400 all_freqs
   character*80 msg,msg2
-  character*800 line3
+  character*800 qso_freq
   integer indx(MAX_SLOTS)
   real f1(MAX_SLOTS)
 
@@ -139,8 +139,8 @@ subroutine jtty_get_msgs(all_decodes,line3)
   call indexx(f1,nslots,indx)
 
   k=1
-  all_decodes=''
-  line3=''
+  all_freqs=''
+  qso_freq=''
   do ii=1,nslots
      i=indx(ii)
      msg=trim(slot(i)%decoded)
@@ -152,18 +152,15 @@ subroutine jtty_get_msgs(all_decodes,line3)
      write(msg2,1000) nint(slot(i)%f1),nint(slot(i)%snrdb - 20.0),  &
           trim(msg) // char(10)
 1000 format(2i4,2x,a)
-     all_decodes=trim(all_decodes) // trim(msg2)
-     k=len_trim(all_decodes)+1
+     all_freqs=trim(all_freqs) // trim(msg2)
+     k=len_trim(all_freqs)+1
 
      if(abs(df).lt.10.0) then
-        line3=trim(line3) // trim(msg2) !// char(10)
+        qso_freq=trim(qso_freq) // trim(msg2) !// char(10)
      endif
   enddo
-  all_decodes=trim(all_decodes) // char(0)
-  line3=trim(line3) // char(0)
-  n=len_trim(line3)
-  write(*,*)
-  write(*,'(a)',advance='no') line3(1:n-1)
+  all_freqs=trim(all_freqs) // char(0)
+  qso_freq=trim(qso_freq) // char(0)
 
   return
 end subroutine jtty_get_msgs
