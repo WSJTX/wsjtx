@@ -58,14 +58,18 @@ subroutine rjtty_sub(iwave,kz,nsps,f0,ftol)
 999 return
 end subroutine rjtty_sub
 
-subroutine jtty_get_msgs(f0,ftol,all_freqs,qso_freq)
+subroutine jtty_get_msgs(f0,ftol,all_new,qso_new,all_freqs,qso_freq)
 
   use jtty_mdec
-  character*2400 all_freqs
+  character*2400               :: all_freqs
+  character*2400               :: all_freqs0 = " "
+  character*800                :: qso_freq
+  character*800                :: qso_freq0 = " "
   character*80 msg,msg2
-  character*800 qso_freq
   integer indx(MAX_SLOTS)
   real f1(MAX_SLOTS)
+  logical*1 all_new,qso_new
+  save all_freqs0,qso_freq0
 
   f1(1:nslots)=slot(1:nslots)%f1
   call indexx(f1,nslots,indx)
@@ -92,7 +96,12 @@ subroutine jtty_get_msgs(f0,ftol,all_freqs,qso_freq)
      endif
   enddo
   all_freqs=trim(all_freqs) // char(0)
+  all_new = trim(all_freqs).ne.trim(all_freqs0)
+  all_freqs0 = all_freqs
+
   qso_freq=trim(qso_freq) // char(0)
+  qso_new = trim(qso_freq).ne.trim(qso_freq0)
+  qso_freq0 = qso_freq
 
   return
 end subroutine jtty_get_msgs
