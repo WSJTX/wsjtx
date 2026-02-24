@@ -1447,6 +1447,8 @@ target_link_libraries (ldpcsim80_42 wsjt_fort wsjt_cxx)
 
 endif(WSJT_BUILD_UTILS)
 
+
+
 add_executable (fmtave lib/fmtave.f90)
 
 add_executable (fcal lib/fcal.f90)
@@ -1481,6 +1483,18 @@ target_link_libraries (wsprd ${FFTW3_LIBRARIES} ${LIBM_LIBRARIES})
 
 # Tell CMake to run moc when necessary
 set (CMAKE_AUTOMOC ON)
+
+# bmtty utility
+set (bmtty_SRCS
+  bmtty/main.cpp
+  bmtty/MainWindow.cpp
+  bmtty/MainWindow.hpp
+  bmtty/MessageLogger.cpp
+  bmtty/MessageLogger.hpp
+)
+
+add_executable (bmtty ${bmtty_SRCS})
+target_link_libraries (bmtty Qt5::Widgets)
 include_directories (${CMAKE_CURRENT_BINARY_DIR})
 
 # don't use Qt "keywords" signal, slot, emit in generated files to
