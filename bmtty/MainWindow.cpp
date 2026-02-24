@@ -75,7 +75,7 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, long *r
                 m_targetHandle = reinterpret_cast<HWND>(lParam);
             } else if (wParam == RXM_EXIT) {
                 QCoreApplication::quit();
-            } else if (wParam >= 0x0000 && wParam <= 0x0031) {
+            } else if (wParam <= 0x0031) {
                 // Handle other RXM_ messages here if needed
             }
             
