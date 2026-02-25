@@ -8144,6 +8144,7 @@ void MainWindow::displayWidgets(qint64 n)
   if(m_mode=="MSK144") b=SpecOp::EU_VHF==m_specOp;
   ui->sbEchoAvg->setVisible(m_mode=="Echo");
   ui->sbSerialNumber->setVisible(b);
+  ui->ClrAvgButton->setVisible(m_mode != "JTTY");
   m_lastCallsign.clear ();     // ensures Tx5 is updated for new modes
   b=m_mode.startsWith("FST4");
   ui->sbNB->setVisible(b);
@@ -8789,8 +8790,11 @@ void MainWindow::on_actionJTTY_triggered()
 //  ui->RxFreqSpinBox_2->setSingleStep(200);
   ui->sbFtol_2->values ({10, 20, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500});
   setDecodeHeadings("", "");
+  ui->lh_decodes_headings_label->setText("Freq  dB " + tr ("Message"));
   ui->rh_decodes_headings_label->setText("Freq  dB " + tr ("Message"));
   setDecodeTitles(tr ("All Decodes"), tr ("QSO Frequency"));
+//                           01234567890123456789012345678901234567
+    displayWidgets(nWidgets("11111100010011100001000000010000000000"));
   setup_status_bar (false);
 }
 
@@ -9052,6 +9056,7 @@ void MainWindow::switch_mode (Mode mode)
   });
   check_button_color();
   ui->autoButton->setEnabled(m_mode != "JTTY");
+  ui->autoButton->setVisible(m_mode != "JTTY");
 }
 
 void MainWindow::WSPR_config(bool b)
