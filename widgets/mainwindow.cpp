@@ -8790,8 +8790,8 @@ void MainWindow::on_actionJTTY_triggered()
 //  ui->RxFreqSpinBox_2->setSingleStep(200);
   ui->sbFtol_2->values ({10, 20, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500});
   setDecodeHeadings("", "");
-  ui->lh_decodes_headings_label->setText("Freq  dB " + tr ("Message"));
-  ui->rh_decodes_headings_label->setText("Freq  dB " + tr ("Message"));
+  ui->lh_decodes_headings_label->setText("Freq  dB  " + tr ("Message"));
+  ui->rh_decodes_headings_label->setText("Freq  dB  " + tr ("Message"));
   setDecodeTitles(tr ("All Decodes"), tr ("QSO Frequency"));
 //                           01234567890123456789012345678901234567
     displayWidgets(nWidgets("11111100010011100001000000010000000000"));
