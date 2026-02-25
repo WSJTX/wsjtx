@@ -177,9 +177,6 @@ bool MainWindow::jtty_key_struck(QKeyEvent * e)
   } else if(e->key() == Qt::Key_F9) {
     jtty_tx("NR?");
     return true;
-  } else if((e->key() == int(Qt::Key_Enter)) or (e->key() == int(Qt::Key_Return))) {
-    jtty_tx(ui->Tx_Message->text());
-    ui->Tx_Message->clear();
   }
   return false;
 }
