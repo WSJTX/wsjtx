@@ -35,7 +35,6 @@ MainWindow::MainWindow(const CommandLineOptions &options, QWidget *parent)
     
     m_textEdit = new QTextEdit(this);
     m_textEdit->setReadOnly(true);
-
     QString info = "<b>Boolean Flags:</b><br>";
     for (auto it = m_options.flags.begin(); it != m_options.flags.end(); ++it) {
         info += QString("-%1: %2<br>").arg(it.key()).arg(it.value() ? "ON" : "OFF");
@@ -48,7 +47,6 @@ MainWindow::MainWindow(const CommandLineOptions &options, QWidget *parent)
     
     m_textEdit->setHtml(info);
     layout->addWidget(m_textEdit);
-
     setCentralWidget(centralWidget);
     resize(500, 400);
 
