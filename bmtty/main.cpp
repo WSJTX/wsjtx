@@ -8,11 +8,20 @@
 #include "MainWindow.hpp"
 #include "MessageLogger.hpp"
 
+#include <QDateTime>
+
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
     QCoreApplication::setApplicationName("bmtty");
     QCoreApplication::setApplicationVersion("1.0");
+
+    QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz");
+#ifdef Q_OS_WIN
+    MessageLogger::logText(QString("%1 [INIT] Command line: %2").arg(timestamp).arg(QString::fromWCharArray(GetCommandLineW())));
+#else
+    MessageLogger::logText(QString("%1 [INIT] Command line: %2").arg(timestamp).arg(app.arguments().join(' ')));
+#endif
 
     QCommandLineParser parser;
     parser.setApplicationDescription("BMTTY Utility Command Line Parser");
@@ -49,20 +58,33 @@ int main(int argc, char *argv[])
 
 #ifdef Q_OS_WIN
     UINT MSG_MMTTY = ::RegisterWindowMessageA("MMTTY");
-    MessageLogger::logText(QString("Registered MMTTY message: 0x%1").arg(MSG_MMTTY, 4, 16, QChar('0')));
+    timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz");
+    MessageLogger::logText(QString("%1 [INIT] Registered MMTTY message: 0x%2").arg(timestamp).arg(MSG_MMTTY, 4, 16, QChar('0')));
 
     WId winId = window.winId();
     HWND hwnd = reinterpret_cast<HWND>(winId);
     DWORD threadId = GetCurrentThreadId();
 
-    MessageLogger::logMessage("SENT (Broadcast)", MSG_MMTTY, TXM_THREAD, static_cast<LPARAM>(threadId));
-    ::PostMessageA(HWND_BROADCAST, MSG_MMTTY, TXM_THREAD, static_cast<LPARAM>(threadId));
+    HWND targetHwnd = HWND_BROADCAST;
+    QString targetName = "Broadcast";
+    if (!opts.hexValue.isEmpty()) {
+        bool ok;
+        targetHwnd = reinterpret_cast<HWND>(opts.hexValue.toULongLong(&ok, 16));
+        if (ok) {
+            targetName = QString("0x%1").arg(opts.hexValue);
+        } else {
+            targetHwnd = HWND_BROADCAST;
+        }
+    }
+
+    MessageLogger::logMessage(QString("SENT (%1)").arg(targetName), MSG_MMTTY, TXM_THREAD, static_cast<LPARAM>(threadId));
+    ::PostMessageA(targetHwnd, MSG_MMTTY, TXM_THREAD, static_cast<LPARAM>(threadId));
     
-    MessageLogger::logMessage("SENT (Broadcast)", MSG_MMTTY, TXM_HANDLE, reinterpret_cast<LPARAM>(hwnd));
-    ::PostMessageA(HWND_BROADCAST, MSG_MMTTY, TXM_HANDLE, reinterpret_cast<LPARAM>(hwnd));
+    MessageLogger::logMessage(QString("SENT (%1)").arg(targetName), MSG_MMTTY, TXM_HANDLE, reinterpret_cast<LPARAM>(hwnd));
+    ::PostMessageA(targetHwnd, MSG_MMTTY, TXM_HANDLE, reinterpret_cast<LPARAM>(hwnd));
     
-    MessageLogger::logMessage("SENT (Broadcast)", MSG_MMTTY, TXM_START, 0x00000000);
-    ::PostMessageA(HWND_BROADCAST, MSG_MMTTY, TXM_START, 0x00000000);
+    MessageLogger::logMessage(QString("SENT (%1)").arg(targetName), MSG_MMTTY, TXM_START, 0x00000000);
+    ::PostMessageA(targetHwnd, MSG_MMTTY, TXM_START, 0x00000000);
 #endif
 
     return app.exec();
