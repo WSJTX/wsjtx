@@ -6,6 +6,8 @@
 #include <QMap>
 #include <QTimer>
 
+class QTextEdit;
+
 #ifdef Q_OS_WIN
 #include <windows.h>
 #endif
@@ -36,6 +38,9 @@ private slots:
 private:
     CommandLineOptions m_options;
     QTimer *m_inactivityTimer;
+    QTextEdit *m_textEdit;
+    quint32 m_baudRate = 0;
+    quint32 m_heightWidth = 0;
 #ifdef Q_OS_WIN
     HWND m_targetHandle;
     UINT m_msgMtty;

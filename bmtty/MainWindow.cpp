@@ -17,13 +17,23 @@ MainWindow::MainWindow(const CommandLineOptions &options, QWidget *parent)
     , m_msgMtty(::RegisterWindowMessageA("MMTTY"))
 #endif
 {
+#ifdef Q_OS_WIN
+    if (!m_options.hexValue.isEmpty()) {
+        bool ok;
+        HWND h = reinterpret_cast<HWND>(m_options.hexValue.toULongLong(&ok, 16));
+        if (ok) {
+            m_targetHandle = h;
+        }
+    }
+#endif
+
     setWindowTitle("BMTTY Utility - Arguments Received");
     
     QWidget *centralWidget = new QWidget(this);
     QVBoxLayout *layout = new QVBoxLayout(centralWidget);
     
-    QTextEdit *textEdit = new QTextEdit(this);
-    textEdit->setReadOnly(true);
+    m_textEdit = new QTextEdit(this);
+    m_textEdit->setReadOnly(true);
     
     QString info = "<b>Boolean Flags:</b><br>";
     for (auto it = m_options.flags.begin(); it != m_options.flags.end(); ++it) {
@@ -35,8 +45,8 @@ MainWindow::MainWindow(const CommandLineOptions &options, QWidget *parent)
     info += QString("-C (String): %1<br>").arg(m_options.stringValue);
     info += QString("-T (Decimal): %1<br>").arg(m_options.decimalValue);
     
-    textEdit->setHtml(info);
-    layout->addWidget(textEdit);
+    m_textEdit->setHtml(info);
+    layout->addWidget(m_textEdit);
     
     setCentralWidget(centralWidget);
     resize(500, 400);
@@ -52,6 +62,7 @@ MainWindow::~MainWindow()
 void MainWindow::handleInactivityTimeout()
 {
     // If no message received for 7 seconds, terminate.
+    MessageLogger::logText(QString("%1 [EXIT] Inactivity timeout").arg(QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz")));
     QCoreApplication::quit();
 }
 
@@ -62,21 +73,51 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, long *r
         MSG *msg = static_cast<MSG *>(message);
         if (msg->message == m_msgMtty) {
             // Log the received message
-            MessageLogger::logMessage("RCVD", msg->message, msg->wParam, msg->lParam);
-
-            // Reset the inactivity timer on any MMTTY message
-            m_inactivityTimer->start(7000);
+            QString logStr = MessageLogger::logMessage("RCVD", msg->message, msg->wParam, msg->lParam);
+            if (m_textEdit) {
+                m_textEdit->append(logStr);
+            }
 
             WPARAM wParam = msg->wParam;
             LPARAM lParam = msg->lParam;
 
-            if (wParam == TXM_HANDLE) {
-                // Other programs send their handle back to us
-                m_targetHandle = reinterpret_cast<HWND>(lParam);
-            } else if (wParam == RXM_EXIT) {
-                QCoreApplication::quit();
-            } else if (wParam <= 0x0031) {
-                // Handle other RXM_ messages here if needed
+            switch (wParam) {
+                case TXM_HANDLE:
+                    // Other programs send their handle back to us
+                    m_targetHandle = reinterpret_cast<HWND>(lParam);
+                    break;
+                case RXM_HANDLE: {
+                    m_targetHandle = reinterpret_cast<HWND>(lParam);
+                    
+                    // Disable the inactivity timer
+                    m_inactivityTimer->stop();
+
+                    QString targetName = QString("0x%1").arg(lParam, 8, 16, QChar('0'));
+                    QString logStrOut = MessageLogger::logMessage(QString("SENT (%1)").arg(targetName), m_msgMtty, TXM_PTTEVENT, 0);
+                    if (m_textEdit) {
+                        m_textEdit->append(logStrOut);
+                    }
+                    ::PostMessageA(m_targetHandle, m_msgMtty, TXM_PTTEVENT, 0);
+                    break;
+                }
+                case RXM_EXIT: {
+                    if (m_targetHandle == nullptr || m_targetHandle == reinterpret_cast<HWND>(lParam)) {
+                        QCoreApplication::quit();
+                    } else {
+                        QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz");
+                        QString logStr = QString("%1 [%2] Ignored RXM_EXIT from handle: 0x%3").arg(timestamp).arg("RCVD").arg(lParam, 8, 16, QChar('0'));
+                        MessageLogger::logText(logStr);
+                        if (m_textEdit) {
+                            m_textEdit->append(logStr);
+                        }
+                    }
+                    break;
+                }
+                default:
+                    if (wParam <= 0x0031) {
+                        // Handle other RXM_ messages here if needed
+                    }
+                    break;
             }
             
             *result = 0;
