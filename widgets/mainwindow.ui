@@ -3711,6 +3711,19 @@ Double-click to reset to the standard 73 message</string>
                </property>
               </spacer>
              </item>
+             <item row="0" column="2">
+              <spacer name="horizontalSpacer_9">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>171</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
              <item row="0" column="1">
               <widget class="QWidget" name="widget" native="true">
                <property name="sizePolicy">
@@ -3930,19 +3943,6 @@ Double-click to reset to the standard 73 message</string>
                 </item>
                </layout>
               </widget>
-             </item>
-             <item row="0" column="2">
-              <spacer name="horizontalSpacer_9">
-               <property name="orientation">
-                <enum>Qt::Horizontal</enum>
-               </property>
-               <property name="sizeHint" stdset="0">
-                <size>
-                 <width>171</width>
-                 <height>20</height>
-                </size>
-               </property>
-              </spacer>
              </item>
              <item row="1" column="0" colspan="3">
               <layout class="QGridLayout" name="gridLayout_4">
@@ -4962,7 +4962,7 @@ QPushButton[state=&quot;ok&quot;] {
      <x>0</x>
      <y>0</y>
      <width>880</width>
-     <height>17</height>
+     <height>25</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
