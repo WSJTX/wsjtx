@@ -1572,8 +1572,8 @@ add_resources (wsjtx_RESOURCES /Translations ${QM_FILES})
 configure_file (wsjtx.qrc.in wsjtx.qrc @ONLY)
 
 # UI generation
-#qt5_wrap_ui (wsjt_qt_GENUISRCS ${wsjt_qt_UISRCS})
-#qt5_wrap_ui (wsjtx_GENUISRCS ${wsjtx_UISRCS})
+qt5_wrap_ui (wsjt_qt_GENUISRCS ${wsjt_qt_UISRCS})
+qt5_wrap_ui (wsjtx_GENUISRCS ${wsjtx_UISRCS})
 
 # Resource generation
 qt5_add_resources (wsjtx_RESOURCES_RCC
