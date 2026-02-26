@@ -62,7 +62,7 @@ subroutine subtract65(dd,npts,f0,dt)
         cref(ind)=cexp(cmplx(0.0,phi))
         phi=modulo(phi+dphi,2*pi)
         id=nstart-1+ind
-        if(id.ge.1) camp(ind)=dd(id)*conjg(cref(ind))
+        if(id.ge.1 .and. id.le.npts) camp(ind)=dd(id)*conjg(cref(ind))
         ind=ind+1
      enddo
   enddo

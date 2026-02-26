@@ -1,14 +1,9 @@
-module getpfx2_mod
-   implicit none
-contains
-
 subroutine getpfx2(k0,callsign)
 
-  use pfx_mod
-  
   character callsign*12
-  integer :: nz,nz2,k0,iz,k
   include 'pfx.f90'
+  character addpfx*8
+  common/pfxcom/addpfx
 
   k=k0
   if(k.gt.450) k=k-450
@@ -26,5 +21,4 @@ subroutine getpfx2(k0,callsign)
 
   return
 end subroutine getpfx2
-end module getpfx2_mod
 

@@ -1,16 +1,5 @@
 set (libm65_FSRCS
 # Modules come first:
-  cacb_mod.f90
-  datcom_ptrs_mod.f90
-  decodes_mod.f90
-  extract_shared_mod.f90
-  gran_interface.f90
-  m65_mod.f90
-  mrs_mod.f90
-  npar_ptrs_mod.f90
-  pfx_mod.f90
-  pr_mod.f90
-  stdout_channel_mod.f90
   wideband_sync.f90
 
 # Non-module Fortran routines:
@@ -27,7 +16,6 @@ set (libm65_FSRCS
   chkmsg.f90
   coord.f90
   dcoord.f90
-  debug_log.f90
   decode0.f90
   decode1a.f90
   decode65b.f90
@@ -63,21 +51,19 @@ set (libm65_FSRCS
   interleave63.f90
   iqcal.f90
   iqfix.f90
+  jt65code.f90
   k2grid.f90
   lorentzian.f90
-  m65a.f90
   map65a.f90
   moon2.f90
   moondop.f90
   nchar.f90
   noisegen.f90
   packjt.f90
-  pctile.f90
   pfxdump.f90
   polfit.f90
   recvpkt.f90
   rfile3a.f90
-  run_m65.f90
   s3avg.f90
   sec_midn.f90
   set.f90
@@ -123,17 +109,12 @@ else ()
   set (libm65_CSRCS ${libm65_CSRCS} ptt_unix.c)
 endif ()
 
-#set (libm65_CXXSRCS
-#  ipcomm.cpp
-#  )
+set (libm65_CXXSRCS
+  ipcomm.cpp
+  )
 
 add_definitions (-DBIGSYM=1)
 set_source_files_properties (sec_midn.f90 PROPERTIES COMPILE_FLAGS -fno-second-underscore)
-if(Qt6_FOUND)
-  set_source_files_properties(m65a.f90 PROPERTIES COMPILE_FLAGS "-Wno-aliasing -fallow-argument-mismatch")
-else()  
-  set_source_files_properties(m65a.f90 PROPERTIES COMPILE_FLAGS "-Wno-aliasing")
-endif()
 
 set (libm65_C_and_CXXSRCS
   ${libm65_CSRCS}
@@ -147,12 +128,10 @@ set_property (SOURCE ${libm65_C_and_CXXSRCS} APPEND PROPERTY OBJECT_DEPENDS ${CM
 # build our targets
 #
 add_library (m65impl STATIC ${libm65_FSRCS} ${libm65_CSRCS} ${libm65_CXXSRCS})
-target_compile_options(m65impl PRIVATE
-    $<$<COMPILE_LANGUAGE:Fortran>:-fcheck=all -frecursive -fbacktrace -Wall>
-)
+target_link_libraries (m65impl wsjt_fort wsjt_cxx Qt5::Core)
 
-target_link_libraries (m65impl PUBLIC Qt5::Core wsjt_fort wsjt_cxx)
-#target_link_libraries (m65impl wsjt_fort wsjt_cxx Qt6::Core)
+add_executable (m65 m65.f90 m65a.f90)
+target_link_libraries (m65 m65impl ${FFTW3_LIBRARIES})
 
 add_executable (mapsim mapsim.f90)
 target_link_libraries (mapsim m65impl ${FFTW3_LIBRARIES})
@@ -162,7 +141,7 @@ target_link_libraries (mapsim m65impl ${FFTW3_LIBRARIES})
 
 if (WIN32)
   install (
-    TARGETS mapsim
+    TARGETS m65 mapsim
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
     BUNDLE DESTINATION . COMPONENT runtime
     )

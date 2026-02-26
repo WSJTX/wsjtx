@@ -3,7 +3,6 @@
 #include <QDebug>
 #include <fstream>
 #include <iostream>
-#include <iterator>   
 
 #define MAX_SCREENSIZE 2048
 
@@ -266,9 +265,9 @@ void CPlotter::draw(float s[], int i0, float splot[])                 //draw()
 void CPlotter::UTCstr()
 {
   int ihr,imin;
-  if(getNdiskdat() != 0) {
-    ihr=getNutc()/100;
-    imin=(getNutc()) % 100;
+  if(datcom_.ndiskdat != 0) {
+    ihr=datcom_.nutc/100;
+    imin=(datcom_.nutc) % 100;
   } else {
     qint64 ms = QDateTime::currentMSecsSinceEpoch() % 86400000;
     imin=ms/60000;
@@ -576,9 +575,9 @@ void CPlotter::setFQSO(int x, bool bf)                       //setFQSO()
     m_xClick=x;
   }
   if(m_bLockTxRx) m_TXkHz=m_fQSO;
-    m_TXfreq = floor(static_cast<int>(getFcenter())) + 0.001*m_TXkHz;
-    DrawOverlay();
-    update();
+  m_TXfreq = floor(datcom_.fcenter) + 0.001*m_TXkHz;
+  DrawOverlay();
+  update();
 }
 
 void CPlotter::setFcal(int n)                                  //setFcal()
@@ -598,15 +597,8 @@ int CPlotter::DF() {return m_DF;}                              // get DF
 void CPlotter::mousePressEvent(QMouseEvent *event)       //mousePressEvent
 {
   int h = (m_Size.height()-60)/2;
-  int x;
-  int y;
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-  x = event->position().x();
-  y = event->position().y();
-#else
-    x = event->pos().x();
-    y = event->pos().y();
-#endif   
+  int x=event->x();
+  int y=event->y();
   int button=event->button();
   if(y < h+30) {                                      // Wideband waterfall
     if(button==1) {
@@ -616,7 +608,7 @@ void CPlotter::mousePressEvent(QMouseEvent *event)       //mousePressEvent
       if(x<0) x=0;      // x is pixel number
       if(x>m_Size.width()) x=m_Size.width();
       m_TXkHz = int(FreqfromX(x)+0.5);
-      m_TXfreq = floor(static_cast<int>(getFcenter())) + 0.001*m_TXkHz;
+      m_TXfreq = floor(datcom_.fcenter) + 0.001*m_TXkHz;
     }
   } else {                                            // Zoomed waterfall
     if(button==1) m_DF=int(m_ZoomStartFreq + x*m_fSample/32768.0);
@@ -631,15 +623,8 @@ void CPlotter::mouseDoubleClickEvent(QMouseEvent *event)  //mouse2click
 {
   if(event->button()!=1) return;       //Act only on left double-click
   int h = (m_Size.height()-60)/2;
-  int x;
-  int y;
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-  x = event->position().x();
-  y = event->position().y();
-#else
-    x = event->pos().x();
-    y = event->pos().y();
-#endif   
+  int x=event->x();
+  int y=event->y();
   if(y < h+30) {
     m_DF=0;
     setFQSO(x,false);
@@ -782,42 +767,23 @@ void CPlotter::setLockTxRx(bool b)
 void CPlotter::mouseMoveEvent (QMouseEvent * event)
 {
   int h = m_WaterfallPixmap.height();
-  int x;
-  int y;
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-  x = event->position().x();
-  y = event->position().y();
-#else
-    x = event->pos().x();
-    y = event->pos().y();
-#endif   
+  int x=event->x();
+  int y=event->y();
   bool lower=(y > 30+h);
   float freq=FreqfromX(x);
   float df=m_fSample/32768.0;
   int ndf=x*df + m_ZoomStartFreq;
   if(lower) {
-    QToolTip::showText(
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-    event->globalPosition().toPoint()
-#else
-    event->globalPos()
-#endif   
-        , QString::number(ndf));   
+    QToolTip::showText(event->globalPos(),QString::number(ndf));
   } else {
-    QToolTip::showText(
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-    event->globalPosition().toPoint()
-#else
-    event->globalPos()
-#endif   
-        , QString::number(freq, 'f', 3));   
+    QToolTip::showText(event->globalPos(),QString::number(freq,'f',3));
   }
   QWidget::mouseMoveEvent(event);
 }
 
 double CPlotter::rxFreq()
 {
-  return floor(static_cast<int>(getFcenter())) + 0.001*m_fQSO + 0.000001*m_DF;
+  return floor(datcom_.fcenter) + 0.001*m_fQSO + 0.000001*m_DF;
 }
 
 double CPlotter::txFreq()

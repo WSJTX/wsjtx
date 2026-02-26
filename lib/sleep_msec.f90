@@ -1,4 +1,5 @@
 subroutine sleep_msec(n)
-  call usleep(n*1000)
+  use, intrinsic :: iso_fortran_env, only: INT64
+  call usleep(INT(n*1000, kind=INT64))
   return
 end subroutine sleep_msec

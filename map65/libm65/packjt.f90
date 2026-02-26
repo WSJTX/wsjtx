@@ -390,13 +390,11 @@ subroutine packbits(dbits,nsymd,m0,sym)
 
  subroutine packmsg(msg0,dat,itype)
 
-  use getpfx1_mod
-
  ! Packs a JT4/JT9/JT65 message into twelve 6-bit symbols
 
  ! itype Message Type
  !--------------------
- !   1   Standard message
+ !   1   Standardd message
  !   2   Type 1 prefix
  !   3   Type 1 suffix
  !   4   Type 2 prefix
@@ -515,8 +513,6 @@ subroutine packbits(dbits,nsymd,m0,sym)
  end subroutine packmsg
 
  subroutine unpackmsg(dat,msg)
- 
-  use getpfx2_mod
 
    parameter (NBASE=37*36*10*27*27*27)
    parameter (NGBASE=180*180)
@@ -711,6 +707,130 @@ subroutine packbits(dbits,nsymd,m0,sym)
    return
  end subroutine unpacktext
 
+ subroutine getpfx1(callsign,k,nv2)
+
+   character*12 callsign0,callsign,lof,rof
+   character*8 c
+   character addpfx*8,tpfx*4,tsfx*3
+   logical ispfx,issfx,invalid
+   common/pfxcom/addpfx
+   include 'pfx.f90'
+
+   callsign0=callsign
+   nv2=1
+   iz=index(callsign,' ') - 1
+   if(iz.lt.0) iz=12
+   islash=index(callsign(1:iz),'/')
+   k=0
+ !  if(k.eq.0) go to 10     !Tnx to DL9RDZ for reminder:this was for tests only!
+   c='   '
+   if(islash.gt.0 .and. islash.le.(iz-4)) then
+ ! Add-on prefix
+      c=callsign(1:islash-1)
+      callsign=callsign(islash+1:iz)
+      do i=1,NZ
+         if(pfx(i)(1:4).eq.c) then
+            k=i
+            nv2=2
+            go to 10
+         endif
+      enddo
+      if(addpfx.eq.c) then
+         k=449
+         nv2=2
+         go to 10
+      endif
+
+   else if(islash.eq.(iz-1)) then
+ ! Add-on suffix
+      c=callsign(islash+1:iz)
+      callsign=callsign(1:islash-1)
+      do i=1,NZ2
+         if(sfx(i).eq.c(1:1)) then
+            k=400+i
+            nv2=3
+            go to 10
+         endif
+      enddo
+   endif
+
+ 10 if(islash.ne.0 .and.k.eq.0) then
+ ! Original JT65 would force this compound callsign to be treated as
+ ! plain text.  In JT65v2, we will encode the prefix or suffix into nc1.
+ ! The task here is to compute the proper value of k.
+      lof=callsign0(:islash-1)
+      rof=callsign0(islash+1:)
+      llof=len_trim(lof)
+      lrof=len_trim(rof)
+      ispfx=(llof.gt.0 .and. llof.le.4)
+      issfx=(lrof.gt.0 .and. lrof.le.3)
+      invalid=.not.(ispfx.or.issfx)
+      if(ispfx.and.issfx) then
+         if(llof.lt.3) issfx=.false.
+         if(lrof.lt.3) ispfx=.false.
+         if(ispfx.and.issfx) then
+            i=ichar(callsign0(islash-1:islash-1))
+            if(i.ge.ichar('0') .and. i.le.ichar('9')) then
+               issfx=.false.
+            else
+               ispfx=.false.
+            endif
+         endif
+      endif
+
+      if(invalid) then
+         k=-1
+      else
+         if(ispfx) then
+            tpfx=lof(1:4)
+            k=nchar(tpfx(1:1))
+            k=37*k + nchar(tpfx(2:2))
+            k=37*k + nchar(tpfx(3:3))
+            k=37*k + nchar(tpfx(4:4))
+            nv2=4
+            i=index(callsign0,'/')
+            callsign=callsign0(:i-1)
+            callsign=callsign0(i+1:)
+         endif
+         if(issfx) then
+            tsfx=rof(1:3)
+            k=nchar(tsfx(1:1))
+            k=37*k + nchar(tsfx(2:2))
+            k=37*k + nchar(tsfx(3:3))
+            nv2=5
+            i=index(callsign0,'/')
+            callsign=callsign0(:i-1)
+         endif
+      endif
+   endif
+
+   return
+ end subroutine getpfx1
+
+ subroutine getpfx2(k0,callsign)
+
+   character callsign*12
+   include 'pfx.f90'
+   character addpfx*8
+   common/pfxcom/addpfx
+
+   k=k0
+   if(k.gt.450) k=k-450
+   if(k.ge.1 .and. k.le.NZ) then
+      iz=index(pfx(k),' ') - 1
+      callsign=pfx(k)(1:iz)//'/'//callsign
+   else if(k.ge.401 .and. k.le.400+NZ2) then
+      iz=index(callsign,' ') - 1
+      callsign=callsign(1:iz)//'/'//sfx(k-400)
+   else if(k.eq.449) then
+      iz=index(addpfx,' ') - 1
+      if(iz.lt.1) iz=8
+      callsign=addpfx(1:iz)//'/'//callsign
+   endif
+
+   return
+ end subroutine getpfx2
+
  subroutine grid2k(grid,k)
 
    character*6 grid
@@ -780,7 +900,7 @@ subroutine packbits(dbits,nsymd,m0,sym)
       n=36
    else
       Print*,'Invalid character in callsign ',c,' ',ichar(c)
-      stop 'Invalid character in callsign '
+      stop
    endif
    nchar=n
 

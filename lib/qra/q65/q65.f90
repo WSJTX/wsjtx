@@ -527,7 +527,7 @@ subroutine q65_ccf_22(s1,iz,jz,nfqso,ntol,ipk,jpk,f0,xdt,ccf2)
 
      if(ccfmax.gt.ccfbest .and. abs(i*df-nfqso).le.ftol) then
         ccfbest=ccfmax
-        snrbest=snr
+!        snrbest=snr  ! snrbest not used. snr may be uninitialized.
         ibest=i
         lagbest=lagpk
         idrift_best=idrift_max

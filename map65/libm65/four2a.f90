@@ -1,4 +1,4 @@
-subroutine four2a(a,nfft,ndim,isign,iform) bind(C, name='four2a_')
+subroutine four2a(a,nfft,ndim,isign,iform)
 
 ! IFORM = 1, 0 or -1, as data is
 ! complex, real, or the first half of a complex array.  Transform
@@ -20,20 +20,16 @@ subroutine four2a(a,nfft,ndim,isign,iform) bind(C, name='four2a_')
 ! actual computations.
 
   use fftw3
-  use iso_c_binding
-  implicit none
-  
-  complex(c_float_complex), dimension(*) :: a !Array to be transformed
-  integer(c_int) :: nfft, ndim, isign, iform
-  integer, parameter :: NPMAX=2100       !Max numberf of stored plans
-  integer, parameter :: NSMALL=16384     !Max size of "small" FFTs
+  parameter (NPMAX=2100)                 !Max numberf of stored plans
+  parameter (NSMALL=16384)               !Max size of "small" FFTs
+  complex a(nfft+1)                      !Array to be transformed
   complex aa(NSMALL)                     !Local copy of "small" a()
   integer nn(NPMAX),ns(NPMAX),nf(NPMAX)  !Params of stored plans 
   integer*8 nl(NPMAX),nloc               !More params of plans
   integer*8 plan(NPMAX)                  !Pointers to stored plans
   logical found_plan
   data nplan/0/                          !Number of stored plans
-  integer i, jz,nflags,npatience,nplan,nthreads
+  common/patience/npatience,nthreads     !Patience and threads for FFTW plans
   save plan,nplan,nn,ns,nf,nl
 
   if(nfft.lt.0) go to 999
@@ -61,8 +57,13 @@ subroutine four2a(a,nfft,ndim,isign,iform) bind(C, name='four2a_')
      nf(i)=iform
      nl(i)=nloc
 
-! Planning: FFTW_ESTIMATE
+! Planning: FFTW_ESTIMATE, FFTW_ESTIMATE_PATIENT, FFTW_MEASURE, 
+!            FFTW_PATIENT,  FFTW_EXHAUSTIVE
      nflags=FFTW_ESTIMATE
+     if(npatience.eq.1) nflags=FFTW_ESTIMATE_PATIENT
+     if(npatience.eq.2) nflags=FFTW_MEASURE
+     if(npatience.eq.3) nflags=FFTW_PATIENT
+     if(npatience.eq.4) nflags=FFTW_EXHAUSTIVE
 
      if(nfft.le.NSMALL) then
         jz=nfft
@@ -80,7 +81,6 @@ subroutine four2a(a,nfft,ndim,isign,iform) bind(C, name='four2a_')
      else if(isign.eq.1 .and. iform.eq.-1) then
         call sfftw_plan_dft_c2r_1d(plan(i),nfft,a,a,nflags)
      else
-        print*,'isign is',isign,'and iform is',iform
         stop 'Unsupported request in four2a'
      endif
      !$omp end critical(fftw)

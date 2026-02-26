@@ -1,10 +1,8 @@
 module packjt77
-
-  implicit none
   
 ! These variables are accessible from outside via "use packjt77":
-  integer, parameter :: MAXHASH=1000,MAXRECENT=10
-  integer, parameter :: MAXHASHVAR=1000,MAXTXHASHVAR=5,MAXRECENTVAR=10
+  parameter (MAXHASH=1000,MAXRECENT=10)
+  parameter (MAXHASHVAR=1000,MAXTXHASHVAR=5,MAXRECENTVAR=10)
   ! variables from original packjt77
   character (len=13), dimension(0:1023) ::  calls10=''
   character (len=13), dimension(0:4095) ::  calls12=''
@@ -48,7 +46,6 @@ module packjt77
 subroutine hash10(n10,c13)
 
   character*13 c13
-  integer :: n10
 
   c13='<...>'
   if(n10.lt.0 .or. n10.gt.1023) return
@@ -63,7 +60,6 @@ end subroutine hash10
 subroutine hash12(n12,c13)
 
   character*13 c13
-  integer :: n12
   
   c13='<...>'
   if(n12.lt.0 .or. n12.gt.4095) return
@@ -79,7 +75,6 @@ end subroutine hash12
 subroutine hash22(n22,c13)
 
   character*13 c13
-  integer :: n22,i
   
   c13='<...>'
   do i=1,nzhash
@@ -95,36 +90,25 @@ end subroutine hash22
 
 
 integer function ihashcall(c0,m)
-  implicit none
-  character(len=13), intent(in) :: c0
-  integer,          intent(in) :: m
 
-  integer(kind=8) :: n8, tmp
-  integer         :: i, j, s
-  character(len=*), parameter :: c = " 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  integer*8 n8
+  character*13 c0
+  character*38 c
+  data c/' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ/'/
 
-  ! Build base-38 accumulator
-  n8 = 0_8
+  n8=0
   do i=1,11
      j=index(c,c0(i:i)) - 1
-     n8 = 38_8*n8 + j
+     n8=38*n8 + j
   enddo
+  ihashcall=ishft(47055833459_8*n8,m-64)
 
-  ! Compute gfortran-style masked shift count
-  s = modulo(m - 64, 64)        ! mask into [0,63]
-  if (s >= 32) s = s - 64       ! convert to signed range [-32,31]
-
-  ! Perform the shift
-  tmp = ishft(47055833459_8 * n8, s)
-
-  ! Explicit narrowing to 32 bits
-  ihashcall = int(tmp, kind=4)
+  return
 end function ihashcall
 
 subroutine save_hash_call(c13,n10,n12,n22)
 
   character*13 c13,cw
-  integer :: n10,n12,n22,i
 
   cw=c13 
   if(cw(1:1).eq.' ' .or. cw(1:5).eq.'<...>') return
@@ -167,7 +151,6 @@ subroutine pack77(msg0,i3,n3,c77)
   character*77 c77
   integer nw(19)
   integer ntel(3)
-  integer :: i3,n3,i0,i1,i3_hint,n3_hint,nwords
 
   msg=msg0
   if(msg(1:3).eq.'$DX') then
@@ -249,9 +232,9 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
 ! the value of nrx is used to decide when mycall13 or dxcall13 should
 ! be used in place of a callsign from the hashtable
 !
-  integer, parameter :: NSEC=86      !Number of ARRL Sections
-  integer, parameter :: NUSCAN=171   !Number of States and Provinces
-  integer, parameter :: MAXGRID4=32400
+  parameter (NSEC=86)      !Number of ARRL Sections
+  parameter (NUSCAN=171)   !Number of States and Provinces
+  parameter (MAXGRID4=32400)
   integer*8 n58
   integer ntel(3)
   character*77 c77
@@ -269,10 +252,6 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
   integer hashmy10,hashmy12,hashmy22,hashdx10,hashdx12,hashdx22
   logical unpk28_success,unpk77_success,unpkg4_success
   logical dxcall13_set,mycall13_set
-  integer npfx,n3,i3,ir,igrid4,igrid6,idbm,intx,nclass,isec,ntx
-  integer :: nrx,i,icq,iflip,imult,ipa,ipb,irpt,iserial,isnr
-  integer :: itu,itype,j,j48,j49,j50,n10,n12,n22,n28,n5,ndum10
-  integer :: ndum22,nexch,nrpt,nrs,nserial,ndum12,nzzz
 
   data a2/'0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'/,nzzz/46656/
   data c/' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ/'/
@@ -312,7 +291,6 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
 
   save hashmy10,hashmy12,hashmy22,hashdx10,hashdx12,hashdx22
 
-  npfx=0
   if(mycall13.ne.mycall13_0) then
     if(len(trim(mycall13)).gt.2) then
        mycall13_set=.true.
@@ -609,7 +587,7 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
      read(c77,1050) n12,n58,iflip,nrpt,icq
 1050 format(b12,b58,b1,b2,b1)
      do i=11,1,-1
-        j = int(mod(n58, 38_8), kind=4) + 1
+        j=mod(n58,38)+1
         c11(i:i)=c(j:j)
         n58=n58/38
      enddo
@@ -686,7 +664,7 @@ subroutine pack28(c13,n28)
 ! Pack a special token, a 22-bit hash code, or a valid base call into a 28-bit
 ! integer.
 
-  integer, parameter :: NTOKENS=2063592,MAX22=4194304
+  parameter (NTOKENS=2063592,MAX22=4194304)
   logical is_digit,is_letter
   character*13 c13
   character*6 callsign
@@ -700,8 +678,6 @@ subroutine pack28(c13,n28)
   data a2/'0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'/
   data a3/'0123456789'/
   data a4/' ABCDEFGHIJKLMNOPQRSTUVWXYZ'/
-  integer :: n28,i,i1,i2,i3,i4,i5,i6,n,iarea,j,m,n10,n12,n22,nlet
-  integer :: nnum,npdig,nplet,nqsy,nslet
   
   is_digit(c)=c.ge.'0' .and. c.le.'9'
   is_letter(c)=c.ge.'A' .and. c.le.'Z'
@@ -818,7 +794,7 @@ end subroutine pack28
 
 subroutine unpack28(n28_0,c13,success)
 
-  integer, parameter :: NTOKENS=2063592,MAX22=4194304
+  parameter (NTOKENS=2063592,MAX22=4194304)
   logical success,callok
   character*13 c13
   character*37 c1
@@ -829,7 +805,6 @@ subroutine unpack28(n28_0,c13,success)
   data c2/'0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'/
   data c3/'0123456789'/
   data c4/' ABCDEFGHIJKLMNOPQRSTUVWXYZ'/
-  integer :: n28_0,i0,i1,i2,i3,i4,i5,i6,n,n0,n22,n28
 
   success=.true.
   n28=n28_0
@@ -910,7 +885,6 @@ subroutine split77(msg,nwords,nw,w)
   character*6 bcall_1
   logical ok1
   integer nw(19)
-  integer :: nwords,i,iz,j,k,n
     
   iz=len(trim(msg))
   j=0
@@ -961,7 +935,6 @@ subroutine pack77_01(nwords,w,i3,n3,c77)
   character*77 c77
   character*6 bcall_1,bcall_2
   logical ok1,ok2
-  integer :: nwords,i3,n3,i2,n,n10,n12,n22,n5
 
   if(nwords.ne.5) go to 900                !Must have 5 words
   if(trim(w(2)).ne.'RR73;') go to 900      !2nd word must be "RR73;"
@@ -999,13 +972,12 @@ subroutine pack77_03(nwords,w,i3,n3,c77)
 ! Check 0.3 and 0.4 (ARRL Field Day exchange)
 ! Example message:  WA9XYZ KA1ABC R 16A EMA       28 28 1 4 3 7    71  
 
-  integer, parameter :: NSEC=86      !Number of ARRL Sections
+  parameter (NSEC=86)      !Number of ARRL Sections
   character*13 w(19)
   character*77 c77
   character*6 bcall_1,bcall_2
   character*3 csec(NSEC)
   logical ok1,ok2
-  integer :: nwords,i3,n3,i,intx,ntx,ir,isec,j,m,nclass
   data csec/                                                         &
        "AB ","AK ","AL ","AR ","AZ ","BC ","CO ","CT ","DE ","EB ",  &       
        "EMA","ENY","EPA","EWA","GA ","GH ","IA ","ID ","IL ","IN ",  &
@@ -1069,8 +1041,6 @@ subroutine pack77_06(nwords,w,i3,n3,c77,i3_hint,n3_hint)
   character*4 grid4
   character*1 c
   character*36 a2
-  integer npfx,n28,igrid4,idbm,k1,k2,k3,k4,i1,m1,m2,m3,i3,n3
-  integer :: nwords,i3_hint,n3_hint,igrid6,k5,k6,n22,nzzz
   data a2/'0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'/,nzzz/46656/
   
   logical is_grid4,is_grid6,is_digit,ok
@@ -1091,7 +1061,6 @@ subroutine pack77_06(nwords,w,i3,n3,c77,i3_hint,n3_hint)
 
   is_digit(c)=c.ge.'0' .and. c.le.'9'
 
-  npfx=0
   m1=len(trim(w(1)))
   m2=len(trim(w(2)))
   m3=len(trim(w(3)))
@@ -1198,7 +1167,7 @@ subroutine pack77_1(nwords,w,i3,n3,c77)
 ! Check Type 1 (Standard 77-bit message) and Type 2 (ditto, with a "/P" call)
 ! Example message:  WA9XYZ/R KA1ABC/R R FN42     28 1 28 1 1 15   74
 
-  integer, parameter :: MAXGRID4=32400
+  parameter (MAXGRID4=32400)
   character*13 w(19),c13
   character*77 c77
   character*6 bcall_1,bcall_2
@@ -1206,8 +1175,6 @@ subroutine pack77_1(nwords,w,i3,n3,c77)
   character c1*1,c2*2
   logical is_grid4
   logical ok1,ok2
-  integer :: nwords,i3,n3,i1psuffix,i2psuffix,j1,j2,j3,j4,igrid4
-  integer :: ipa,ipb,ir,irpt
   is_grid4(grid4)=len(trim(grid4)).eq.4 .and.                        &
        grid4(1:1).ge.'A' .and. grid4(1:1).le.'R' .and.               &
        grid4(2:2).ge.'A' .and. grid4(2:2).le.'R' .and.               &
@@ -1307,14 +1274,13 @@ subroutine pack77_3(nwords,w,i3,n3,c77)
 !             - DX:     rpt serial          R 559 0013
 ! Example message:  TU; W9XYZ K1ABC R 579 MA           1 28 28 1 3 13   74
   
-  integer, parameter :: NUSCAN=171    !Number of US states and Canadian provinces/territories
+  parameter (NUSCAN=171)    !Number of US states and Canadian provinces/territories
   character*13 w(19)
   character*77 c77
   character*6 bcall_1,bcall_2
   character*3 cmult(NUSCAN),mult
   character crpt*3
   logical ok1,ok2
-  integer :: nwords,i3,n3,i,i1,imult,ir,irpt,itu,nexch,nserial
   data cmult/                                                        &
        "AL ","AK ","AZ ","AR ","CA ","CO ","CT ","DE ","FL ","GA ",  &
        "HI ","ID ","IL ","IN ","IA ","KS ","KY ","LA ","ME ","MD ",  &
@@ -1398,7 +1364,6 @@ subroutine pack77_4(nwords,w,i3,n3,c77)
   character*11 c11
   character*6 bcall_1,bcall_2
   character*38 c
-  integer :: nwords,i3,n3,i,icq,iflip,nrpt,n10,n12,n22
   data c/' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ/'/
 
   iflip=0
@@ -1467,8 +1432,6 @@ subroutine pack77_5(nwords,w,i3,n3,c77)
   character*77 c77
   character*6 grid6
   logical is_grid6
-  integer :: nwords,i3,n3,j1,j2,j3,j4,j5,j6,i2,ir,irpt
-  integer :: igrid6,iserial,n10,n10a,n12,n12a,n22,nx
 
   is_grid6(grid6)=len(trim(grid6)).eq.6 .and.                        &
        grid6(1:1).ge.'A' .and. grid6(1:1).le.'R' .and.               &
@@ -1527,7 +1490,6 @@ subroutine packtext77(c13,c71)
   character*71 c71
   character*42 c
   character*1 qa(10),qb(10)
-  integer :: i,j
   data c/' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ+-./?'/
 
   call mp_short_init
@@ -1552,9 +1514,7 @@ subroutine unpacktext77(c71,c13)
   character*1 qa(10),qb(10)
   character*13 c13
   character*71 c71
-  character*42 c 
-  integer :: i,ir
-  integer(kind=1) :: ib(10)
+  character*42 c
   equivalence (qa,ia),(qb,ib)
   data c/' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ+-./?'/
 
@@ -1620,7 +1580,6 @@ subroutine add_call_to_recent_calls(callsign)
 
   character*13 callsign
   logical ladd
-  integer :: i
 
 ! only add if the callsign is not already on the list
   ladd=.true.
@@ -1644,7 +1603,6 @@ end subroutine add_call_to_recent_calls
 subroutine to_grid4(n,grid4,ok)
   character*4 grid4
   logical ok
-  integer :: n,j1,j2,j3,j4
 
   ok=.false.
   j1=n/(18*10*10)
@@ -1669,7 +1627,6 @@ end subroutine to_grid4
 subroutine to_grid6(n,grid6,ok)
   character*6 grid6
   logical ok
-  integer :: n,j1,j2,j3,j4,j5,j6
 
   ok=.false.
   j1=n/(18*10*10*24*24)
@@ -1703,7 +1660,6 @@ subroutine to_grid(n,grid6,ok)
   ! 4-, or 6-character grid
   character*6 grid6
   logical ok
-  integer :: n,j1,j2,j3,j4,j5,j6
 
   ok=.false.
   j1=n/(18*10*10*25*25)
@@ -1741,7 +1697,6 @@ subroutine hash10var(n10,c13,nthr)
 
   character*13 c13
   integer, intent(in) :: nthr
-  integer :: n10
 
   c13='<...>'
   if(n10.lt.0 .or. n10.gt.1023) return
@@ -1764,7 +1719,6 @@ subroutine hash12var(n12,c13,nthr)
 
   character*13 c13
   integer, intent(in) :: nthr
-  integer :: n12
   
   c13='<...>'
   if(n12.lt.0 .or. n12.gt.4095) return
@@ -1787,7 +1741,6 @@ subroutine hash22var(n22,c13,nthr)
 
   character*13 c13
   integer, intent(in) :: nthr
-  integer :: n22,i
   
   c13='<...>'
   if(nthr.gt.25) then ! TX message
@@ -1812,38 +1765,25 @@ subroutine hash22var(n22,c13,nthr)
 end subroutine hash22var
 
 integer function ihashcallvar(c0,m)
-  implicit none
-  character(len=13), intent(in) :: c0
-  integer,          intent(in) :: m
 
-  integer(kind=8) :: n8, tmp
-  integer         :: i, j, s
-  character(len=*), parameter :: c = " 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  integer*8 n8
+  character*13 c0
+  character*38 c
+  data c/' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ/'/
 
-  ! Build base-38 accumulator
-  n8 = 0_8
+  n8=0
   do i=1,11
      j=index(c,c0(i:i)) - 1
-     n8 = 38_8*n8 + j
+     n8=38*n8 + j
   enddo
+  ihashcallvar=ishft(47055833459_8*n8,m-64)
 
-  ! gfortran-style masked shift count:
-  !   - modulo(...) forces shift into [0,63]
-  !   - if >=32, convert to signed range [-32,31]
-  s = modulo(m - 64, 64)
-  if (s >= 32) s = s - 64
-
-  ! Perform the shift safely
-  tmp = ishft(47055833459_8 * n8, s)
-
-  ! Explicit narrowing to INTEGER(4)
-  ihashcallvar = int(tmp, kind=4)
+  return
 end function ihashcallvar
 
 subroutine save_hash_mycallvar(c13,n10,n12,n22)
 
   character*13 c13,cw
-  integer :: n10,n12,n22,i
 
   cw=c13 
   if(cw(1:1).eq.' ' .or. cw(1:5).eq.'<...>') return
@@ -1882,7 +1822,6 @@ subroutine save_hash_txcallvar(c13,n10,n12,n22,lhashit)
 
   character*13 c13,cw
   logical, intent(in) :: lhashit
-  integer :: n10,n12,n22,i
 
   cw=c13 
   if(cw(1:1).eq.' ' .or. cw(1:5).eq.'<...>') return
@@ -1925,7 +1864,6 @@ subroutine save_hash_callvar(c13,nthr)
 
   character*13 c13,cw
   integer, intent(in) :: nthr
-  integer :: i,nposition
 
   if(nthr.gt.24) return
   cw=c13 
@@ -1954,7 +1892,6 @@ subroutine pack77var(msg0,i3,n3,c77,ntxhash)
   integer nw(19)
   integer ntel(3)
   integer, intent(in) :: ntxhash
-  integer :: i3,n3,i0,i3_hint,n3_hint,nwords
 
   msg=msg0
   i3_hint=i3
@@ -2030,10 +1967,10 @@ subroutine unpack77var(c77,nrx,msg,unpk77_successvar,nthr)
 ! nrx=0 when unpacking a to-be-transmitted message
 ! the value of nrx is used to decide when mycall13var or dxcall13var should
 ! be used in place of a callsign from the hashtable
-!  
-  integer, parameter :: NSEC=86      !Number of ARRL Sections
-  integer, parameter :: NUSCAN=171    !Number of States and Provinces
-  integer, parameter :: MAXGRID4=32400
+!
+  parameter (NSEC=86)      !Number of ARRL Sections
+  parameter (NUSCAN=171)    !Number of States and Provinces
+  parameter (MAXGRID4=32400)
   integer*8 n58
   integer ntel(3)
   character*77 c77
@@ -2049,13 +1986,6 @@ subroutine unpack77var(c77,nrx,msg,unpk77_successvar,nthr)
   character*36 a2
   logical unpk28_success,unpk77_successvar,unpkg4_success
   integer, intent(in) :: nthr
-  integer i,n3,i3,nrpt,iflip,icq,ir,irpt,iserial
-  integer nrx,idbm,igrid4,igrid6,imult,indxp,intx,ipa,ipb,isec
-  integer islash,isnr,ispace,itu,itype,j,j2a,j2b,n28,n5,nclass
-  integer nexch,nindxspace,nlencall2,nmsglen,nrs,nserial,ntx
-  integer nzzz
-  integer n10,n12,n22
-  integer npfx
 
   data a2/'0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'/,nzzz/46656/
   data c/' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ/'/
@@ -2090,7 +2020,7 @@ subroutine unpack77var(c77,nrx,msg,unpk77_successvar,nthr)
        "X99"/
 
   unpk77_successvar=.true.
-  npfx=0
+
 ! Check for bad data
   do i=1,77
      if(c77(i:i).ne.'0' .and. c77(i:i).ne.'1') then
@@ -2370,7 +2300,7 @@ subroutine unpack77var(c77,nrx,msg,unpk77_successvar,nthr)
      read(c77,1050) n12,n58,iflip,nrpt,icq
 1050 format(b12,b58,b1,b2,b1)
      do i=11,1,-1
-        j = int(mod(n58, 38_8), kind=4) + 1
+        j=mod(n58,38)+1
         c11(i:i)=c(j:j)
         n58=n58/38
      enddo
@@ -2488,7 +2418,7 @@ subroutine pack28var(c13,n28,ntxhash)
 ! Pack a special token, a 22-bit hash code, or a valid base call into a 28-bit
 ! integer.
 
-  integer, parameter :: NTOKENS=2063592,MAX22=4194304
+  parameter (NTOKENS=2063592,MAX22=4194304)
   logical is_digit,is_letter,lhashit
   character*13 c13
   character*6 callsign
@@ -2499,8 +2429,6 @@ subroutine pack28var(c13,n28,ntxhash)
   character*10 a3
   character*27 a4
   integer, intent(in) :: ntxhash
-  integer :: n28,i,i1,i2,i3,i4,i5,i6,iarea,j,n,m,n10,n12,n22
-  integer :: nlet,nnum,npdig,nplet,nqsy,nslet
   data a1/' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'/
   data a2/'0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'/
   data a3/'0123456789'/
@@ -2622,7 +2550,7 @@ end subroutine pack28var
 
 subroutine unpack28var(n28_0,c13,success,nthr)
 
-  integer, parameter :: NTOKENS=2063592,MAX22=4194304
+  parameter (NTOKENS=2063592,MAX22=4194304)
   logical success
   character*13 c13
   character*37 c1
@@ -2630,7 +2558,6 @@ subroutine unpack28var(n28_0,c13,success,nthr)
   character*10 c3
   character*27 c4
   integer, intent(in) :: nthr
-  integer :: n28_0,i0,i1,i2,i3,i4,i5,i6,n,n0,n22,n28
   data c1/' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'/
   data c2/'0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'/
   data c3/'0123456789'/
@@ -2712,7 +2639,6 @@ subroutine split77var(msg,nwords,nw,w)
   character*6 bcall_1
   logical ok1
   integer nw(19)
-  integer :: nwords,i,iz,j,k,n
     
   iz=len(trim(msg))
   j=0
@@ -2762,7 +2688,6 @@ subroutine pack77_01var(nwords,w,i3,n3,c77,ntxhash)
   character*6 bcall_1,bcall_2
   logical ok1,ok2,lhashit
   integer, intent(in) :: ntxhash
-  integer :: nwords,i3,n3,i2,n,n10,n12,n22,n5
 
   if(nwords.ne.5) go to 900                !Must have 5 words
   if(trim(w(2)).ne.'RR73;') go to 900      !2nd word must be "RR73;"
@@ -2800,14 +2725,13 @@ subroutine pack77_03var(nwords,w,i3,n3,c77,ntxhash)
 ! Check 0.3 and 0.4 (ARRL Field Day exchange)
 ! Example message:  WA9XYZ KA1ABC R 16A EMA       28 28 1 4 3 7    71  
 
-  integer, parameter :: NSEC=86      !Number of ARRL Sections
+  parameter (NSEC=86)      !Number of ARRL Sections
   character*13 w(19)
   character*77 c77
   character*6 bcall_1,bcall_2
   character*3 csec(NSEC)
   logical ok1,ok2
   integer, intent(in) :: ntxhash
-  integer :: nwords,i3,n3,i,ntx,intx,ir,isec,j,m,nclass
   data csec/                                                         &
        "AB ","AK ","AL ","AR ","AZ ","BC ","CO ","CT ","DE ","EB ",  &       
        "EMA","ENY","EPA","EWA","GA ","GH ","IA ","ID ","IL ","IN ",  &
@@ -2871,10 +2795,7 @@ subroutine pack77_06var(nwords,w,i3,n3,c77,i3_hint,n3_hint,ntxhash)
   character*1 c
   character*36 a2
   integer, intent(in) :: ntxhash
-  integer :: nwords,i3,n3,i3_hint,n3_hint,nzzz
   data a2/'0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'/,nzzz/46656/
-  integer m1,m2,m3,i1,igrid4,k1,k2,k3,k4,idbm,npfx,n28
-  integer :: igrid6,k5,k6,n22
   
   logical is_grid4,is_grid6,is_digit,ok
   is_grid4(grid4)=len(trim(grid4)).eq.4 .and.                        &
@@ -2893,7 +2814,7 @@ subroutine pack77_06var(nwords,w,i3,n3,c77,i3_hint,n3_hint,ntxhash)
        grid6(6:6).ge.'A' .and. grid6(6:6).le.'X'))
 
   is_digit(c)=c.ge.'0' .and. c.le.'9'
-  npfx=0
+
   m1=len(trim(w(1)))
   m2=len(trim(w(2)))
   m3=len(trim(w(3)))
@@ -2999,7 +2920,7 @@ subroutine pack77_1var(nwords,w,i3,n3,c77,ntxhash)
 ! Check Type 1 (Standard 77-bit message) and Type 2 (ditto, with a "/P" call)
 ! Example message:  WA9XYZ/R KA1ABC/R R FN42     28 1 28 1 1 15   74
 
-  integer, parameter :: MAXGRID4=32400
+  parameter (MAXGRID4=32400)
   character*13 w(19),c13
   character*77 c77
   character*6 bcall_1,bcall_2
@@ -3008,8 +2929,6 @@ subroutine pack77_1var(nwords,w,i3,n3,c77,ntxhash)
   logical is_grid4
   logical ok1,ok2
   integer, intent(in) :: ntxhash
-  integer :: nwords,i3,n3,i1psuffix,i2psuffix,igrid4,ipa
-  integer :: ipb,ir,irpt,j1,j2,j3,j4
   is_grid4(grid4)=len(trim(grid4)).eq.4 .and.                        &
        grid4(1:1).ge.'A' .and. grid4(1:1).le.'R' .and.               &
        grid4(2:2).ge.'A' .and. grid4(2:2).le.'R' .and.               &
@@ -3108,7 +3027,7 @@ subroutine pack77_3var(nwords,w,i3,n3,c77,ntxhash)
 !     	     - DX:     rpt serial          R 559 0013
 ! Example message:  TU; W9XYZ K1ABC R 579 MA           1 28 28 1 3 13   74
 
-  integer, parameter :: NUSCAN=171    !Number of US states and Canadian provinces/territories
+  parameter (NUSCAN=171)    !Number of US states and Canadian provinces/territories
   character*13 w(19)
   character*77 c77
   character*6 bcall_1,bcall_2
@@ -3116,7 +3035,6 @@ subroutine pack77_3var(nwords,w,i3,n3,c77,ntxhash)
   character crpt*3
   integer, intent(in) :: ntxhash
   logical ok1,ok2
-  integer :: nwords,i3,n3,i,i1,imult,ir,irpt,itu,nexch,nserial
   data cmult/                                                        &
        "AL ","AK ","AZ ","AR ","CA ","CO ","CT ","DE ","FL ","GA ",  &
        "HI ","ID ","IL ","IN ","IA ","KS ","KY ","LA ","ME ","MD ",  &
@@ -3200,7 +3118,6 @@ subroutine pack77_4var(nwords,w,i3,n3,c77,ntxhash)
   character*6 bcall_1,bcall_2
   character*38 c
   integer, intent(in) :: ntxhash
-  integer :: nwords,i3,n3,i,icq,iflip,n10,n12,n22,nrpt
   data c/' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ/'/
 
   iflip=0
@@ -3271,8 +3188,6 @@ subroutine pack77_5var(nwords,w,i3,n3,c77,ntxhash)
   character*6 grid6
   logical is_grid6,lhashit
   integer, intent(in) :: ntxhash
-  integer :: nwords,i3,n3,igrid6,j1,j2,j3,j4,j5,j6,i2,n10,n12,n12a,n22
-  integer :: nx,ir,irpt,iserial,n10a
 
   is_grid6(grid6)=len(trim(grid6)).eq.6 .and.                        &
        grid6(1:1).ge.'A' .and. grid6(1:1).le.'R' .and.               &
@@ -3330,7 +3245,6 @@ subroutine packtext77var(c13,c71)
   character*71 c71
   character*42 c
   character*1 qa(10),qb(10)
-  integer :: i,j
   data c/' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ+-./?'/
 
   call mp_short_init
@@ -3358,8 +3272,6 @@ subroutine unpacktext77var(c71,c13)
   character*42 c
   equivalence (qa,ia),(qb,ib)
   data c/' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ+-./?'/
-  integer :: i,ir
-  integer(kind=1) :: ib(10)
 
   qa(1)=char(0)
   read(c71,1010) qa(2:10)
@@ -3379,7 +3291,6 @@ subroutine add_call_to_recent_callsvar(callsign,nthr)
   character*13 callsign
   logical ladd
   integer, intent(in) :: nthr
-  integer :: i
 
 ! only add if the callsign is not already on the list
   ladd=.true.
@@ -3403,7 +3314,6 @@ end subroutine add_call_to_recent_callsvar
 subroutine to_grid4var(n,grid4,ok)
   character*4 grid4
   logical ok
-  integer :: n,j1,j2,j3,j4
 
   ok=.false.
   j1=n/(18*10*10)
@@ -3428,7 +3338,6 @@ end subroutine to_grid4var
 subroutine to_grid6var(n,grid6,ok)
   character*6 grid6
   logical ok
-  integer :: n,j1,j2,j3,j4,j5,j6
 
   ok=.false.
   j1=n/(18*10*10*24*24)
@@ -3462,7 +3371,6 @@ subroutine to_gridvar(n,grid6,ok)
   ! 4-, or 6-character grid
   character*6 grid6
   logical ok
-  integer :: n,j1,j2,j3,j4,j5,j6
 
   ok=.false.
   j1=n/(18*10*10*25*25)

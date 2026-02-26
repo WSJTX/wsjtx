@@ -121,7 +121,7 @@ extern "C" {
 
   bool stdmsg_(char const * msg, fortran_charlen_t);
 
-  void symspec_(struct dec_data *, int* k, double* trperiod, int* nsps, int* ingain,
+  void symspec_(struct dec_data *, int* k, int* nsps, int* ingain,
                 bool* bLowSidelobes, int* minw, float* px, float s[], float* df3,
                 int* nhsym, int* npts8, float *m_pxmax, int* npct);
 
@@ -1653,7 +1653,7 @@ void MainWindow::dataSink(qint64 frames)
   bool bLowSidelobes=m_config.lowSidelobes();
   int npct=0;
   if(m_mode.startsWith("FST4")) npct=ui->sbNB->value();
-  symspec_(&dec_data,&k,&m_TRperiod,&nsps,&m_inGain,&bLowSidelobes,&nsmo,&m_px,s,
+  symspec_(&dec_data,&k,&nsps,&m_inGain,&bLowSidelobes,&nsmo,&m_px,s,
            &m_df3,&m_ihsym,&m_npts8,&m_pxmax,&npct);
   if(m_mode=="WSPR" or m_mode=="FST4W") wspr_downsample_(dec_data.d2,&k);
   if(m_ihsym <=0) return;
@@ -11667,7 +11667,7 @@ QString MainWindow::sortHoundCalls(QString t, int isort, int max_dB)
 
   int nn=lines2.length();
   if(isort==0) {                                      // shuffle Hound calls to random order
-    int a[nn];
+    int *a = new int[nn];
     for(i=0; i<nn; i++) {
       a[i]=i;
     }
@@ -11680,6 +11680,8 @@ QString MainWindow::sortHoundCalls(QString t, int isort, int max_dB)
       std::swap (a[j], a[i]);
       t += lines2.at(a[i]) + "\n";
     }
+    delete [] a;
+    a = NULL;
   }
 
   int i0=t.indexOf("\n") + 1;
