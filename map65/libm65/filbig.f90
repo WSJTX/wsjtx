@@ -1,37 +1,26 @@
-module filbig_mod
-  implicit none
-contains
-
 subroutine filbig(dd,nmax,f0,newdat,nfsample,xpol,c4a,c4b,n4)
 
 ! Filter and downsample complex data stored in array dd(4,nmax).  
 ! Output is downsampled from 96000 Hz to 1375.125 Hz.
 
   use timer_module, only: timer
-  use debug_log
-  use cacb_mod
-  
-  implicit none
-  
-  integer, parameter :: MAXFFT1=5376000,MAXFFT2=77175
+  parameter (MAXFFT1=5376000,MAXFFT2=77175)
   real*4  dd(4,nmax)                         !Input data
+  complex ca(MAXFFT1),cb(MAXFFT1)            !FFTs of input
   complex c4a(MAXFFT2),c4b(MAXFFT2)          !Output data
-  real*8 :: df, f0
-  real    halfpulse(8)                       !Impulse response (one sided)
-  real    base, fac, filtval
-  integer i,i0,j,nfft1,nfft2,nflags,nh,npatience,nz,newdat,nfsample
-  complex cfilt(MAXFFT2)                     !Filter in frequency domain
+  real*8 df
+  real halfpulse(8)                 !Impulse response of filter (one sided)
+  complex cfilt(MAXFFT2)                     !Filter (complex; imag = 0)
+  real rfilt(MAXFFT2)                        !Filter (real)
   integer*8 plan1,plan2,plan3,plan4,plan5
-  integer :: nmax, n4
   logical first,xpol
   include 'fftw3.f'
+  common/cacb/ca,cb
+  equivalence (rfilt,cfilt)
   data first/.true./,npatience/1/
   data halfpulse/114.97547150,36.57879257,-20.93789101,                &
        5.89886379,1.59355187,-2.49138308,0.60910773,-0.04248129/
-
   save
-
-      call init_cacb(5376000)
 
   if(nmax.lt.0) go to 900
 
@@ -60,7 +49,7 @@ subroutine filbig(dd,nmax,f0,newdat,nfsample,xpol,c4a,c4b,n4)
 
 ! Convert impulse response to filter function
      do i=1,nfft2
-        cfilt(i)=0.0
+        cfilt(i)=0.
      enddo
      fac=0.00625/nfft1
      cfilt(1)=fac*halfpulse(1)
@@ -70,7 +59,10 @@ subroutine filbig(dd,nmax,f0,newdat,nfsample,xpol,c4a,c4b,n4)
      enddo
      call sfftw_execute(plan5)
 
-     base = real(cfilt(nfft2/2+1))
+     base=cfilt(nfft2/2+1)
+     do i=1,nfft2
+        rfilt(i)=real(cfilt(i))-base
+     enddo
 
      df=96000.d0/nfft1
      if(nfsample.eq.95238) df=95238.1d0/nfft1
@@ -89,8 +81,8 @@ subroutine filbig(dd,nmax,f0,newdat,nfsample,xpol,c4a,c4b,n4)
 
      if(nmax.lt.nfft1) then
         do i=nmax+1,nfft1
-           ca(i)=0.0
-           if(xpol) cb(i)=0.0
+           ca(i)=0.
+           if(xpol) cb(i)=0.
         enddo
      endif
      call timer('FFTbig  ',0)
@@ -105,35 +97,21 @@ subroutine filbig(dd,nmax,f0,newdat,nfsample,xpol,c4a,c4b,n4)
 
   i0=nint(f0/df) + 1
   nh=nfft2/2
-
-  ! Lower half of filter
-  do i=1,nh
-     j=i0+i-1
+  do i=1,nh                                !Copy data into c4a and c4b,
+     j=i0+i-1                              !and apply the filter function
      if(j.ge.1 .and. j.le.nfft1) then
-        filtval = real(cfilt(i)) - base
-        c4a(i)=filtval*ca(j)
-        if(xpol) c4b(i)=filtval*cb(j)
+        c4a(i)=rfilt(i)*ca(j)
+        if(xpol) c4b(i)=rfilt(i)*cb(j)
      else
-        c4a(i)=0.0
-        if(xpol) c4b(i)=0.0
+        c4a(i)=0.
+        if(xpol) c4b(i)=0.
      endif
   enddo
-
-  ! Upper half of filter, with wrap-around and bounds check
-  do i = nh+1, nfft2
-     j = i0 + i - 1 - nfft2
-     if (j .lt. 1) j = j + nfft1
-
-     if (j < 1 .or. j > size(ca)) then
-        write(dbg_unit,*) 'FILBIG OOB: i=', i, ' j=', j, ' nh=', nh, &
-                          ' nfft1=', nfft1, ' nfft2=', nfft2, ' i0=', i0
-        call flush(dbg_unit)
-        stop 'FILBIG index OOB'
-     end if
-
-     filtval = real(cfilt(i)) - base
-     c4a(i) = filtval * ca(j)
-     if (xpol) c4b(i) = filtval * cb(j)
+  do i=nh+1,nfft2
+     j=i0+i-1-nfft2
+     if(j.lt.1) j=j+nfft1                  !nfft1 was nfft2
+     c4a(i)=rfilt(i)*ca(j)
+     if(xpol) c4b(i)=rfilt(i)*cb(j)
   enddo
 
 ! Do the short reverse transform, to go back to time domain.
@@ -152,6 +130,3 @@ subroutine filbig(dd,nmax,f0,newdat,nfsample,xpol,c4a,c4b,n4)
 
 999 return
 end subroutine filbig
-
-end module filbig_mod
-

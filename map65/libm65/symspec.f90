@@ -1,49 +1,41 @@
- 
 subroutine symspec(k,nxpol,ndiskdat,nb,nbslider,idphi,nfsample,    &
      fgreen,iqadjust,iqapply,gainx,gainy,phasex,phasey,rejectx,rejecty,  &
-     pxdb,pydb,ssz5a,nkhz,ihsym,nzap,slimit,lstrong)bind(C, name='symspec_')
-  
-  use iso_c_binding
-  use datcom_ptrs_mod
-  use npar_ptrs_mod,  only: fcenter
-  implicit none
+     pxdb,pydb,ssz5a,nkhz,ihsym,nzap,slimit,lstrong)
+
+!  k        pointer to the most recent new data
+!  nxpol    0/1 to indicate single- or dual-polarization
+!  ndiskdat 0/1 to indicate if data from disk
+!  nb       0/1 status of noise blanker
+!  idphi    Phase correction for Y channel, degrees
+!  nfsample sample rate (Hz)
+!  fgreen   Frequency of green marker in I/Q calibrate mode (-48.0 to +48.0 kHz)
+!  iqadjust 0/1 to indicate whether IQ adjustment is active
+!  iqapply  0/1 to indicate whether to apply I/Q calibration
+!  pxdb     power in x channel (0-60 dB)
+!  pydb     power in y channel (0-60 dB)
+!  ssz5a    polarized spectrum, for waterfall display
+!  nkhz     integer kHz portion of center frequency, e.g., 125 for 144.125
+!  ihsym    index number of this half-symbol (1-322)
+!  nzap     number of samples zero'ed by noise blanker
+
   include 'njunk.f90'
-  
-  integer, parameter :: NSMAX = 60*96000
-  !  integer, parameter :: NFFT = 32768
-  integer(c_int)  :: k
-  integer(c_int)  :: nb
-  integer(c_int)  :: nbslider
-  real(c_float)  :: fgreen
-  integer(c_int) :: iqadjust
-  integer(c_int)  :: iqapply
-  real(c_float)  :: gainx
-  real(c_float)  :: gainy
-  real(c_float)  :: phasex
-  real(c_float)  :: phasey
-  real(c_float)  :: rejectx
-  real(c_float)  :: rejecty
-  real(c_float)  :: pxdb
-  real(c_float)  :: pydb
-  real(c_float), dimension(*) :: ssz5a
-  integer(c_int)  :: nkhz,nxpol,ndiskdat,idphi,nfsample,nfast
-  integer(c_int)  :: ihsym
-  integer(c_int)  :: nzap
-  real(c_float)  :: slimit
-  integer(c_signed_char), dimension(*)  :: lstrong
-
-  real*8 :: ts, hsym
-  integer :: i, ipkx, ipky, iqadjust0, iqapply0, j, ja, jb, k0, k1, kstep, &
-              mm, nadjx, nadjy, nblk, nblks, nfft2, npts, nsum, nwindow, n
-  real*4 :: fac, faclim, peaklimit, px, py, q, rejectx0, rms, rmsx, rmsy, &
-              s135, s45, sigmas, sx, sy, u, x1, x2, x3, x4, dphi, pi
-  real*4 :: w(NFFT), w2a(NFFT), w2b(NFFT)
-  complex :: z, zfac, zsumx, zsumy, cx(NFFT), cy(NFFT), cx00(NFFT), cy00(NFFT)
-  complex :: cx0(0:1023), cx1(0:1023), cy0(0:1023), cy1(0:1023)
-
-  data rms /999.0/, k0 /99999999/, nadjx /0/, nadjy /0/
+  parameter (NSMAX=60*96000)          !Total sample intervals per minute
+  parameter (NFFT=32768)              !Length of FFTs
+  real*8 ts,hsym
+  real*8 fcenter
+  common/datcom/dd(4,5760000),ss(4,322,NFFT),savg(4,NFFT),fcenter,nutc,  &
+       junk(NJUNK)
+  real*4 ssz5a(NFFT),w(NFFT),w2a(NFFT),w2b(NFFT)
+  complex z,zfac
+  complex zsumx,zsumy
+  complex cx(NFFT),cy(NFFT)
+  complex cx00(NFFT),cy00(NFFT)
+  complex cx0(0:1023),cx1(0:1023)
+  complex cy0(0:1023),cy1(0:1023)
+  logical*1 lstrong(0:1023)
+  data rms/999.0/,k0/99999999/,nadjx/0/,nadjy/0/
   save
-    
+
   nfast=1
   if(k.gt.5751000) go to 999
   if(k.lt.NFFT) then
@@ -63,7 +55,6 @@ subroutine symspec(k,nxpol,ndiskdat,nb,nbslider,idphi,nfsample,    &
      w2a=sqrt(2.0)*w2a
      w2b=sqrt(2.0)*w2b
   endif
-!  print*,'w2a(1) is: ',w2a(1)
 
   hsym=2048.d0*96000.d0/11025.d0      !Samples per JT65 half-symbol
   if(nfsample.eq.95238)   hsym=2048.d0*95238.1d0/11025.d0
@@ -83,9 +74,6 @@ subroutine symspec(k,nxpol,ndiskdat,nb,nbslider,idphi,nfsample,    &
   faclim=3.0
   px=0.
   py=0.
-  
-  
-!  print*,'peaklimit is: ',peaklimit
 
   iqapply0=0
   iqadjust0=0
@@ -116,8 +104,6 @@ subroutine symspec(k,nxpol,ndiskdat,nb,nbslider,idphi,nfsample,    &
      enddo
      k1=k1+kstep
   enddo
-  
-!  print*,'k1 is: ',k1
 
   npts=NFFT                           !Samples used in each half-symbol FFT
 
@@ -143,8 +129,6 @@ subroutine symspec(k,nxpol,ndiskdat,nb,nbslider,idphi,nfsample,    &
      cx(i)=fac*cmplx(x1,x2)
      cy(i)=zfac*cmplx(x3,x4)          !NB: cy includes dphi correction
   enddo
-  
-!  print*,'cx(1) is: ',cx(1)
 
   if(nzap/178.lt.50 .and. (ndiskdat.eq.0 .or. ihsym.lt.280)) then
      nsum=nblks*kstep - nzap
@@ -179,9 +163,6 @@ subroutine symspec(k,nxpol,ndiskdat,nb,nbslider,idphi,nfsample,    &
         endif
      endif
 
-
-!  print*,'again cx(1) is: ',cx(1)
-
      call four2a(cx,NFFT,1,1,1)          !Second forward FFT (X)
      if(iqadjust.eq.0) nadjx=0
      if(iqadjust.ne.0 .and. nadjx.lt.50) call iqcal(nadjx,cx,NFFT,    &
@@ -195,8 +176,6 @@ subroutine symspec(k,nxpol,ndiskdat,nb,nbslider,idphi,nfsample,    &
              gainy,phasey,zsumy,ipky,rejecty)
         if(iqapply.ne.0) call iqfix(cy,NFFT,gainy,phasey)
      endif
-     
-!  print*,'nxpol is: ',nxpol
 
      n=min(322,ihsym)
      do i=1,NFFT
@@ -223,9 +202,6 @@ subroutine symspec(k,nxpol,ndiskdat,nb,nbslider,idphi,nfsample,    &
            q=sx - sy
            u=2.0*real(z)
            ssz5a(i)=0.707*sqrt(q*q + u*u)    !Spectrum of linear polarization
-           
-  !         print *, 'ssz5a(1) =', ssz5a(1)
-
 ! Leif's formula:
 !     ssz5a(i)=0.5*(sx+sy) + (real(z)**2 + aimag(z)**2 - sx*sy)/(sx+sy)
         else
@@ -233,8 +209,6 @@ subroutine symspec(k,nxpol,ndiskdat,nb,nbslider,idphi,nfsample,    &
         endif
      enddo
   enddo
-  
-!  print*,'u is: ',u
 
   if(ihsym.eq.278) then
      if(iqadjust.ne.0 .and. ipkx.ne.0 .and. ipky.ne.0) then
@@ -247,5 +221,4 @@ subroutine symspec(k,nxpol,ndiskdat,nb,nbslider,idphi,nfsample,    &
   if(fcenter.eq.0.d0) nkhz=125
 
 999 return
-
 end subroutine symspec

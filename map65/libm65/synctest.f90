@@ -8,7 +8,7 @@ program synctest
   use timer_impl, only: init_timer, fini_timer
   use wideband_sync
 
-  real ss(4,322,NFFT_WBS),savg(4,NFFT_WBS)
+  real ss(4,322,NFFT),savg(4,NFFT)
 !  real candidate(MAX_CANDIDATES,5)             !snr1,f0,xdt0,ipol,flip
   character*8 arg
   type(candidate) :: cand(MAX_CANDIDATES)
@@ -29,8 +29,6 @@ program synctest
   read (arg,*) nts_jt65
   call getarg(5,arg)
   read (arg,*) nts_q65
-
-   call init_wideband_sync(NFFT)
 
   open(50,file='50.a',form='unformatted',status='old')
   do ifile=1,9999

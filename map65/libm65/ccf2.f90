@@ -1,18 +1,10 @@
-module ccf2_mod
-  implicit none
-contains
-
 subroutine ccf2(ss,nz,nflip,ccfbest,lagpk)
 
-implicit none
-
 !      parameter (LAGMAX=60)
-  integer, parameter :: LAGMAX=200
+  parameter (LAGMAX=200)
   real ss(nz)
   real ccf(-LAGMAX:LAGMAX)
-  real s0,s1,x,ccfbest
   integer npr(126)
-  integer nz,nflip,lagpk,i,j,lag,lag1,lag2
 
 ! The JT65 pseudo-random sync pattern:
   data npr/                                  &
@@ -51,5 +43,3 @@ implicit none
 
   return
 end subroutine ccf2
-
-endmodule ccf2_mod

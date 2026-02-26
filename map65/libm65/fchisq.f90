@@ -1,27 +1,15 @@
-module fchisq_mod
-  implicit none
-contains
-
 real function fchisq(cx,cy,npts,fsample,nflip,a,ccfmax,dtmax)
 
   use timer_module, only: timer
-  use debug_log
-  use ccf2_mod
-  
-  implicit none
-  
-  integer,parameter :: NMAX=60*96000          !Samples per 60 s
+  parameter (NMAX=60*96000)          !Samples per 60 s
   complex cx(npts),cy(npts)
   real a(5)
   complex w,wstep,za,zb,z
   real ss(3000)
   complex csx(0:NMAX/64),csy(0:NMAX/64)
-  integer npts,nflip,i,j,k,lagpk,ndiv,nout,nsph,nsps
-  real fsample,ccfmax,dtmax,a1,a2,a3,aa,bb,ccf,dphi,dtstep,fac
-  real p2,pol,s,twopi,x,x0,baud
   data twopi/6.283185307/a1,a2,a3/99.,99.,99./
   save
-  
+
   call timer('fchisq  ',0)
   baud=11025.0/4096.0
   nsps=nint(fsample/baud)                  !Samples per symbol
@@ -74,19 +62,16 @@ real function fchisq(cx,cy,npts,fsample,nflip,a,ccfmax,dtmax)
      endif
   enddo
 
-  ccfmax=0.0
-  
+  ccfmax=0.
   call timer('ccf2    ',0)
   call ccf2(ss,nout,nflip,ccf,lagpk)
   call timer('ccf2    ',1)
-    
   if(ccf.gt.ccfmax) then
      ccfmax=ccf
      dtmax=lagpk*dtstep
   endif
   fchisq=-ccfmax
   call timer('fchisq  ',1)
+
   return
 end function fchisq
-
-end module fchisq_mod

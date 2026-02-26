@@ -1,58 +1,43 @@
-module q65b_mod
-  implicit none
-contains
-  
 subroutine q65b(nutc,nqd,nxant,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol, &
      mycall0,mygrid,hiscall0,hisgrid,mode_q65,f0,fqso,newdat,nagain,          &
-                   max_drift, ndop00, idec)
+     max_drift,nhsym,ndop00,idec)
 
 ! This routine provides an interface between MAP65 and the Q65 decoder
 ! in WSJT-X.  All arguments are input data obtained from the MAP65 GUI.
 ! Raw Rx data are available as the 96 kHz complex spectrum ca(MAXFFT1)
-! in cacb_mod.  If xpol is true, we also have cb(MAXFFT1) for the
+! in common/cacb.  If xpol is true, we also have cb(MAXFFT1) for the
 ! orthogonal polarization.  Decoded messages are sent back to the GUI
 ! on stdout.
 
 !  use wavhdr
-  use iso_c_binding 
   use q65_decode
   use wideband_sync
   use timer_module, only: timer
-  use debug_log
-  use stdout_channel_mod, only: write_stdout
-      use decodes_mod, only: ldecoded, ndecodes
-  use cacb_mod
-  
-  implicit none
 
-  integer, parameter :: MAXFFT1=5376000              !56*96000
-  integer, parameter :: MAXFFT2=336000               !56*6000 (downsampled by 1/16)
-  integer, parameter :: NMAX=60*12000
-  real*8, parameter :: RAD=57.2957795
+  parameter (MAXFFT1=5376000)              !56*96000
+  parameter (MAXFFT2=336000)               !56*6000 (downsampled by 1/16)
+  parameter (NMAX=60*12000)
+  parameter (RAD=57.2957795)
 !  type(hdr) h                            !Header for the .wav file
   integer*2 iwave(60*12000)
+  complex ca(MAXFFT1),cb(MAXFFT1)          !FFTs of raw x,y data
   complex cx(0:MAXFFT2-1),cy(0:MAXFFT2-1),cz(0:MAXFFT2)
-  logical xpol
+  logical xpol,ldecoded
   integer ipk1(1)
-  integer nqd,ikhz,mode_q65,idec,i,ia,ib,ifreq,ikhz1,ipk,ipol,nutc,nxant
-      integer j, ja, jb, k0, mhz, ndf, ndpth, nfft1, nfft2
-  integer npol,nq65df,nsubmode,ntxpol,nutc00,nh,nfcal,nfsample
-      integer mousedf, newdat, ndop00, ndepth, nfa, nfb, ntol, nagain, max_drift
-  real fqso,df,df3,f_ipk,f_mouse,fac,freq1_00,frx,fsked,poldeg,r,snr1
-  real*8 fcenter,freq0,freq1,f0
+  real*8 fcenter,freq0,freq1
   character*12 mycall0,hiscall0
   character*12 mycall,hiscall
   character*6 mygrid,hisgrid
   character*4 grid4
   character*28 msg00
+  character*80 line
   character*80 wsjtx_dir
-  character*1 cp,cmode*2  
-  character(len=256) :: linenew
+  character*1 cp,cmode*2
+  common/cacb/ca,cb
+  common/early/nhsym1,nhsym2,ldecoded(32768)
+  common/decodes/ndecodes
   data nutc00/-1/,msg00/'                            '/
   save
-  
-      call init_cacb(5376000)
-      call init_wideband_sync(NFFT)
 
   if(newdat.eq.1) nutc00=-1
   open(9,file='wsjtx_dir.txt',status='old')
@@ -68,20 +53,13 @@ subroutine q65b(nutc,nqd,nxant,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol, &
   ifreq=nint((1000.0*f0)/df3)
   ia=nint(ifreq-ntol/df3)
   ib=nint(ifreq+ntol/df3)
-
-  if (ia >= 1 .and. ia <= 32768 .and. ib >= 1 .and. ib <= 32768) then !if added qt6
-    ipk1=maxloc(sync(ia:ib)%ccfmax)
-  else 
-    go to 901
-  endif   
-  
+  ipk1=maxloc(sync(ia:ib)%ccfmax)
   ipk=ia+ipk1(1)-1
   if(ldecoded(ipk)) go to 900
   snr1=sync(ipk)%ccfmax
-  ! ipol was never declared and its value is never used
   ipol=1
   if(xpol) ipol=sync(ipk)%ipol
-  
+
   nfft1=MAXFFT1
   nfft2=MAXFFT2
   df=96000.0/NFFT1
@@ -141,8 +119,8 @@ subroutine q65b(nutc,nqd,nxant,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol, &
   call four2a(cz,2*nfft2,1,1,-1)
   do i=0,nfft2-1
      j=nfft2-1-i
-         iwave(2*i + 2) = int(max(-32768, min(32767, nint(real(cz(j))))), kind=2)
-         iwave(2*i + 1) = int(max(-32768, min(32767, nint(aimag(cz(j))))), kind=2)
+     iwave(2*i+2)=nint(real(cz(j)))       !Note the reversed order!
+     iwave(2*i+1)=nint(aimag(cz(j)))
   enddo
   iwave(2*nfft2+1:)=0
 
@@ -162,7 +140,7 @@ subroutine q65b(nutc,nqd,nxant,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol, &
   ndpth=3
 
 ! NB: Frequency of ipk is now shifted to 1000 Hz.
-   call map65_mmdec(nutc,iwave,nqd,60,nsubmode,nfa,nfb,1000,ntol,     &
+  call map65_mmdec(nutc,iwave,nqd,60,nsubmode,nfa,nfb,1000,ntol,     &
        newdat,nagain,max_drift,ndepth,mycall,hiscall0,hisgrid)
 
   MHz=fcenter
@@ -184,10 +162,11 @@ subroutine q65b(nutc,nqd,nxant,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol, &
      if(ndf.lt.-500) ikhz1=ikhz + (nq65df-500)/1000
      ndf=nq65df - 1000*(ikhz1-ikhz)
      if(nqd.eq.1 .and. abs(nq65df-mousedf).lt.ntol) then
-      write(linenew, '("!",I3.3,I5,I4,I6.4,F5.1,I5," : ",A28,A3,I4,1X,A1)') &
-          ikhz1, ndf, npol, nutc, xdt0, nsnr0, msg0(1:28), cq0, ntxpol, cp
-      call write_stdout(trim(linenew)//new_line('a'))
-
+        write(line,1020) ikhz1,ndf,npol,nutc,xdt0,nsnr0,msg0(1:28),cq0,  &
+             ntxpol,cp
+1020    format('!',i3.3,i5,i4,i6.4,f5.1,i5,' : ',a28,a3,i4,1x,a1)
+        write(*,1100) trim(line)
+1100    format(a)
      endif
 
 ! Write to lu 26, for Messages and Band Map windows
@@ -218,13 +197,9 @@ subroutine q65b(nutc,nqd,nxant,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol, &
 
 900 close(13)
   close(17)
+  call flush(6)
   idec=-1
   read(cq0(2:2),*) idec
-  return
-901 close(13)
-  close(17)
-  idec=-1
+
   return
 end subroutine q65b
-
-end module q65b_mod

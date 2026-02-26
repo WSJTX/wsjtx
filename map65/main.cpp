@@ -8,8 +8,6 @@
 
 #include "revision_utils.hpp"
 #include "mainwindow.h"
-#include "fortran_mutex.hpp"
-
 
 extern "C" {
   // Fortran procedures we need
@@ -31,7 +29,6 @@ int main(int argc, char *argv[])
 
   // clean up lazily initialized FFTW3 resources
   {
-    std::lock_guard<std::mutex> lock(g_fortran_decode_mutex);
     int nfft {-1};
     int ndim {1};
     int isign {1};
