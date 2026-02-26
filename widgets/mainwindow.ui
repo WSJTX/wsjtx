@@ -1009,7 +1009,7 @@
            </property>
            <property name="minimumSize">
             <size>
-             <width>114</width>
+             <width>154</width>
              <height>0</height>
             </size>
            </property>
@@ -1027,7 +1027,7 @@
              <number>1</number>
             </property>
             <item>
-             <layout class="QGridLayout" name="DXCall_gridLayout" columnstretch="3,0">
+             <layout class="QGridLayout" name="DXCall_gridLayout" columnstretch="3,2">
               <item row="0" column="0">
                <widget class="QPushButton" name="DX_Call_Button">
                 <property name="sizePolicy">
