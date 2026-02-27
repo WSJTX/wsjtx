@@ -1491,6 +1491,8 @@ set (bmtty_SRCS
   bmtty/MainWindow.hpp
   bmtty/MessageLogger.cpp
   bmtty/MessageLogger.hpp
+  bmtty/MMTTYIF.cpp
+  bmtty/MMTTYIF.hpp
 )
 
 add_executable (bmtty ${bmtty_SRCS})
