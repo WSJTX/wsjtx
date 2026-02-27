@@ -1,4 +1,5 @@
 #include "MainWindow.hpp"
+#include "MMTTYIF.hpp"
 #include "MessageLogger.hpp"
 #include <QLabel>
 #include <QVBoxLayout>
@@ -13,6 +14,7 @@ MainWindow::MainWindow(const CommandLineOptions &options, QWidget *parent)
     : QMainWindow(parent)
     , m_options(options)
     , m_inactivityTimer(new QTimer(this))
+    , m_mmttyIf(new MMTTYIF(this))
 #ifdef Q_OS_WIN
     , m_targetHandle(nullptr)
     , m_msgMtty(::RegisterWindowMessageA("MMTTY"))
@@ -52,10 +54,25 @@ MainWindow::MainWindow(const CommandLineOptions &options, QWidget *parent)
 
     connect(m_inactivityTimer, &QTimer::timeout, this, &MainWindow::handleInactivityTimeout);
     m_inactivityTimer->start(7000); // 7 second auto-termination timer
+
+    connect(m_mmttyIf, &MMTTYIF::log_message, m_textEdit, &QTextEdit::append); 
+    connect(m_mmttyIf, &MMTTYIF::message_received, this, [this]() {
+        m_inactivityTimer->start(7000);
+    });
+
+    connect(m_mmttyIf, &MMTTYIF::rxm_handle_received, this, [this]() {
+        m_inactivityTimer->stop();
+    });
+    connect(m_mmttyIf, &MMTTYIF::app_is_quitting, qApp, &QCoreApplication::quit);
 }
 
 MainWindow::~MainWindow()
 {
+}
+
+MMTTYIF* MainWindow::getMmttyIf() const
+{
+    return m_mmttyIf;
 }
 
 void MainWindow::handleInactivityTimeout()
@@ -70,55 +87,8 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, long *r
 {
     if (eventType == "windows_generic_MSG") {
         MSG *msg = static_cast<MSG *>(message);
-        if (msg->message == m_msgMtty) {
-            // Log the received message
-            QString logStr = MessageLogger::logMessage("RCVD", msg->message, msg->wParam, msg->lParam);
-            if (m_textEdit) {
-                m_textEdit->append(logStr);
-            }
-
-            WPARAM wParam = msg->wParam;
-            LPARAM lParam = msg->lParam;
-
-            switch (wParam) {
-                case TXM_HANDLE:
-                    // Other programs send their handle back to us
-                    m_targetHandle = reinterpret_cast<HWND>(lParam);
-                    break;
-                case RXM_HANDLE: {
-                    m_targetHandle = reinterpret_cast<HWND>(lParam);
-                    
-                    // Disable the inactivity timer
-                    m_inactivityTimer->stop();
-
-                    QString targetName = QString("0x%1").arg(lParam, 8, 16, QChar('0'));
-                    QString logStrOut = MessageLogger::logMessage(QString("SENT (%1)").arg(targetName), m_msgMtty, TXM_PTTEVENT, 0);
-                    if (m_textEdit) {
-                        m_textEdit->append(logStrOut);
-                    }
-                    ::PostMessageA(m_targetHandle, m_msgMtty, TXM_PTTEVENT, 0);
-                    break;
-                }
-                case RXM_EXIT: {
-                    if (m_targetHandle == nullptr || m_targetHandle == reinterpret_cast<HWND>(lParam)) {
-                        QCoreApplication::quit();
-                    } else {
-                        QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz");
-                        QString logStr = QString("%1 [%2] Ignored RXM_EXIT from handle: 0x%3").arg(timestamp).arg("RCVD").arg(lParam, 8, 16, QChar('0'));
-                        MessageLogger::logText(logStr);
-                        if (m_textEdit) {
-                            m_textEdit->append(logStr);
-                        }
-                    }
-                    break;
-                }
-                default:
-                    if (wParam <= 0x0031) {
-                        // Handle other RXM_ messages here if needed
-                    }
-                    break;
-            }
-            
+        if (msg->message == m_mmttyIf->getMttyMsg()) {
+            m_mmttyIf->filterEvent(message);
             *result = 0;
             return true;
         }
