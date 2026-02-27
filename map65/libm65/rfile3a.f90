@@ -1,5 +1,5 @@
 subroutine rfile3a(infile,ibuf,n,fcenter,ierr)
-  use iso_c_binding
+
   character*(*) infile
   integer*8 ibuf(n)
   real*8 fcenter

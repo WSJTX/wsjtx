@@ -1,1 +1,1 @@
-  integer, parameter :: NJUNK=40
+  parameter(NJUNK=40)

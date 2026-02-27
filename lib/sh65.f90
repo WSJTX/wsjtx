@@ -6,12 +6,8 @@ subroutine sh65(cx,n5,mode65,ntol,xdf,nspecial,snrdb)
   real ss(-NH+1:NH,16)
   real sigmax(16)
   integer ipk(16)
-  integer nblks,iblk,ia,ib,i,n,j,jstep,nfac,ia2,ib2,idiff,iderr,maxerr,n2best
-  real sig,sbest,snr1,snr2,snr,xk,dtstep,df
 
   ss=0.
-  snr1=0.
-  snr2=0.
 
   jstep=NFFT/8
   nblks=272

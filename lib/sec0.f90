@@ -1,7 +1,5 @@
 subroutine sec0(n,t)
 
-implicit none
-
   ! Simple execution timer.
   ! call sec0(0,t)
   ! ... statements to be timed ...
@@ -9,8 +7,6 @@ implicit none
   ! print*,'Execution time:',t
 
   integer*8 count0,count1,clkfreq
-  integer n
-  real t
   save count0
 
   call system_clock(count1,clkfreq)

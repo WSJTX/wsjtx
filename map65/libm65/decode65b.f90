@@ -1,23 +1,12 @@
-module decode65b_mod
-  implicit none
-contains
-
 subroutine decode65b(s2,flip,mycall,hiscall,hisgrid,mode65,neme,ndepth,  &
      nqd,nkv,nhist,qual,decoded,s3,sy)
-     
-  use deep65_mod
-  use extract_mod
-  use pr_mod
-  use setup65_mod
 
   real s2(66,126)
   real s3(64,63),sy(63)
-  real :: flip,qual
-  integer :: mode65,nqd,nkv,nhist,i,j,k
-  integer :: nadd,ncount,neme,ndepth
   logical first,ltext
   character decoded*22,deepmsg*22
   character mycall*12,hiscall*12,hisgrid*6
+  common/prcom/pr(126),mdat(126),mref(126,2),mdat2(126),mref2(126,2)
   data first/.true./
   save
 
@@ -57,6 +46,3 @@ subroutine decode65b(s2,flip,mycall,hiscall,hisgrid,mode65,neme,ndepth,  &
 
   return
 end subroutine decode65b
-
-end module decode65b_mod 
-

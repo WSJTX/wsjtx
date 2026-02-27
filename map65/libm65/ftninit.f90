@@ -1,16 +1,12 @@
-module ftninit_mod
-  implicit none
-contains
-
 subroutine ftninit(appd)
 
   use timer_module, only: timer
   use, intrinsic :: iso_c_binding, only: C_NULL_CHAR
-  use pfx_mod
   use FFTW3
   character*(*) appd
+  character addpfx*8
   character wisfile*256
-  integer :: iret
+  common/pfxcom/addpfx
 
   addpfx='    '
   call pfxdump(appd//'/prefixes.txt')
@@ -33,4 +29,3 @@ subroutine ftninit(appd)
   stop
 
 end subroutine ftninit
-end module ftninit_mod
