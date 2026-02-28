@@ -8785,6 +8785,7 @@ void MainWindow::on_actionJTTY_triggered()
   m_TRperiod=180;                   //We need a nonzero setting for WideGraph plotter to work.
   m_hsymStop=620;
   m_wideGraph->setPeriod(m_TRperiod,m_nsps);
+  m_detector->setTRPeriod(m_TRperiod); // TODO - not thread safe
   ui->TxFreqSpinBox_2->setValue(1500);
   ui->RxFreqSpinBox_2->setValue(1500);
 //  ui->RxFreqSpinBox_2->setSingleStep(200);
