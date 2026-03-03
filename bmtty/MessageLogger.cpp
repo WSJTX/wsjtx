@@ -72,6 +72,8 @@ QString MessageLogger::getWParamEnumName(unsigned long long wParam)
         case TXM_SHOWPROFILE: return "TXM_SHOWPROFILE";
         default: return "";
     }
+    #else
+    (void)wParam;
 #endif
     return "";
 }
