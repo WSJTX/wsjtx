@@ -4,6 +4,7 @@
 #include <QVBoxLayout>
 #include <QTextEdit>
 #include <QCoreApplication>
+#include <QDateTime>
 #ifdef Q_OS_WIN
 #include "MMTTY_Messages.hpp"
 #endif
