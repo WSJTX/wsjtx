@@ -18,36 +18,31 @@ module wideband_sync
      logical :: birdie
   end type sync_dat
 
-  integer, parameter :: NFFT=32768
-  integer, parameter :: MAX_CANDIDATES=50
-  real*4, parameter :: SNR1_THRESHOLD=4.5
-   type(sync_dat), allocatable :: sync(:)  !NFFT
+  parameter (NFFT=32768)
+  parameter (MAX_CANDIDATES=50)
+  parameter (SNR1_THRESHOLD=4.5)
+  type(sync_dat) :: sync(NFFT)
   integer nkhz_center
 
   contains
 
 subroutine get_candidates(ss,savg,xpol,jz,nfa,nfb,nts_jt65,nts_q65,cand,ncand)
-  use iso_c_binding
-  use debug_log
- 
-  implicit none
 
 ! Search symbol spectra ss() over frequency range nfa to nfb (in kHz) for
 ! JT65 and Q65 sync patterns. The nts_* variables are the submode tone
 ! spacings: 1 2 4 8 16 for A B C D E.  Birdies are detected and
 ! excised.  Candidates are returned in the structure array cand().
 
-  integer, parameter :: MAX_PEAKS=100
+  parameter (MAX_PEAKS=100)
   real ss(4,322,NFFT),savg(4,NFFT)
   real pavg(-20:20)
-  real base,bw,diffhz,f0,df3,flip,flip_top,pmax,snr1,snr_top,tstep
-  integer jz,nfa,nfb,nts_jt65,nts_q65,i,ia,ib,ipol,iz,j
-  integer j1,j2,k,n,n_top,jsum,m,ncand
-      integer, allocatable :: indx(:)
-  logical xpol,skip
+  integer indx(NFFT)
+  logical xpol,skip,ldecoded
   type(candidate) :: cand(MAX_CANDIDATES)
-  
+  common/early/nhsym1,nhsym2,ldecoded(32768)
+
   call wb_sync(ss,savg,xpol,jz,nfa,nfb)          !Output to sync() array
+
   tstep=2048.0/11025.0        !0.185760 s: 0.5*tsym_jt65, 0.3096*tsym_q65
   df3=96000.0/NFFT
   ia=nint(1000*nfa/df3) + 1
@@ -55,24 +50,11 @@ subroutine get_candidates(ss,savg,xpol,jz,nfa,nfb,nts_jt65,nts_q65,cand,ncand)
   if(ia.lt.1) ia=1
   if(ib.gt.NFFT-1) ib=NFFT-1
   iz=ib-ia+1
-      allocate (indx(iz))
-  
-  ! w3sz this if block should not be necessary but it is
-  if (iz <= 0) then
-     print *, 'GET_CAND: iz <= 0, ia=', ia, ' ib=', ib
-     flush(6)
-     return
-  endif
   
   call indexx(sync(ia:ib)%ccfmax,iz,indx)   !Sort by relative snr
 
-  n_top   = indx(iz) + ia - 1
-  snr_top = sync(n_top)%ccfmax
-  flip_top = sync(n_top)%iflip
-
   k=0
   do i=1,MAX_PEAKS
-     if((iz+1-i) .lt. 1) cycle !w3sz debug
      n=indx(iz+1-i) + ia - 1
      f0=0.001*(n-1)*df3
      snr1=sync(n)%ccfmax
@@ -81,13 +63,12 @@ subroutine get_candidates(ss,savg,xpol,jz,nfa,nfb,nts_jt65,nts_q65,cand,ncand)
      if(flip.ne.0.0 .and. nts_jt65.eq.0) cycle
      if(flip.eq.0.0 .and. nts_q65.eq.0) cycle
      if(sync(n)%birdie) cycle
-     
+
 ! Test for signal outside of TxT range and set bw for this signal type   
-         j1 = int((sync(n)%xdt + 1.0)/tstep - 1.0)
-         j2 = int((sync(n)%xdt + 52.0)/tstep + 1.0)
-         if (flip .ne. 0) j2 = int((sync(n)%xdt + 47.811)/tstep + 1.0)
+     j1=(sync(n)%xdt + 1.0)/tstep - 1.0
+     j2=(sync(n)%xdt + 52.0)/tstep + 1.0
+     if(flip.ne.0) j2=(sync(n)%xdt + 47.811)/tstep + 1.0
      ipol=sync(n)%ipol
-     
      pavg=0.
      do j=1,j1
         pavg=pavg + ss(ipol,j,n-20:n+20)
@@ -99,7 +80,6 @@ subroutine get_candidates(ss,savg,xpol,jz,nfa,nfb,nts_jt65,nts_q65,cand,ncand)
      pmax=maxval(pavg(-2:2))              !### Why not just pavg(0) ?
      base=(sum(pavg)-pmax)/jsum
      pmax=pmax/base
-          
      if(pmax.gt.5.0) cycle
      skip=.false.
      do m=1,k                              !Skip false syncs within signal bw
@@ -110,7 +90,6 @@ subroutine get_candidates(ss,savg,xpol,jz,nfa,nfb,nts_jt65,nts_q65,cand,ncand)
      enddo
      if(skip) cycle
      k=k+1
-
      cand(k)%snr=snr1
      cand(k)%f=f0
      cand(k)%xdt=sync(n)%xdt
@@ -128,24 +107,16 @@ subroutine get_candidates(ss,savg,xpol,jz,nfa,nfb,nts_jt65,nts_q65,cand,ncand)
 end subroutine get_candidates
 
 subroutine wb_sync(ss,savg,xpol,jz,nfa,nfb)
-  use iso_c_binding
-  use debug_log
-  use pctile_mod
 
 ! Compute "orange sync curve" using the Q65 sync pattern
 
   use timer_module, only: timer
-  
-  implicit none
-  
-  integer, parameter :: LAGMAX=30
+  parameter (NFFT=32768)
+  parameter (LAGMAX=30)
   real ss(4,322,NFFT)
   real savg(4,NFFT)
-  real(c_float) :: savg_med(4)
+  real savg_med(4)
   real ccf4(4),ccf4best(4),a(3)
-  real base,bw,ccf,ccfmax,df3,fac,flip,poldeg,spk,syncmin,tstep
-      integer jz, nfa, nfb, i, i0, ia, ib, ipolbest, j, ja, jb, k, lag, lagbest
-  integer nbw,nguard,npol,ipol
   logical first,xpol
   integer isync(22)
   integer jsync0(63),jsync1(63)
@@ -214,7 +185,6 @@ subroutine wb_sync(ss,savg,xpol,jz,nfa,nfb)
         ccf=maxval(ccf4)
         ip=maxloc(ccf4)
         ipol=ip(1)
-        
         if(ccf.gt.ccfmax) then
            ipolbest=ipol
            lagbest=lag
@@ -233,7 +203,6 @@ subroutine wb_sync(ss,savg,xpol,jz,nfa,nfb)
         ccf=maxval(ccf4)
         ip=maxloc(ccf4)
         ipol=ip(1)
-        
         if(ccf.gt.ccfmax) then
            ipolbest=ipol
            lagbest=lag
@@ -252,7 +221,6 @@ subroutine wb_sync(ss,savg,xpol,jz,nfa,nfb)
         ccf=maxval(ccf4)
         ip=maxloc(ccf4)
         ipol=ip(1)
-                        
         if(ccf.gt.ccfmax) then
            ipolbest=ipol
            lagbest=lag
@@ -272,7 +240,7 @@ subroutine wb_sync(ss,savg,xpol,jz,nfa,nfb)
      sync(i)%xdt=lagbest*tstep-1.0
      sync(i)%pol=poldeg
      sync(i)%ipol=ipolbest
-         sync(i)%iflip = int(flip)
+     sync(i)%iflip=flip
      sync(i)%birdie=.false.
      if(ccfmax/(savg(ipolbest,i)/savg_med(ipolbest)).lt.3.0) sync(i)%birdie=.true.
 !     if(sync(i)%iflip.eq.0 .and. sync(i)%ccfmax .gt. 20.0) then
@@ -287,21 +255,16 @@ subroutine wb_sync(ss,savg,xpol,jz,nfa,nfb)
   sync(ia:ib)%ccfmax=sync(ia:ib)%ccfmax/base
 
   bw=65*4*1.66666667                        !Q65-60C bandwidth
-      nbw = int(bw/df3 + 1)                            !Number of bins to blank
+  nbw=bw/df3 + 1                            !Number of bins to blank
   syncmin=2.0
   nguard=10
   do i=ia,ib
      if(sync(i)%ccfmax.lt.syncmin) cycle
-     if((i .lt. 1) .or. (i .gt. (NFFT - nbw))) cycle !w3sz debug
      spk=maxval(sync(i:i+nbw)%ccfmax)
      ip =maxloc(sync(i:i+nbw)%ccfmax)
      i0=ip(1)+i-1
      ja=min(i,i0-nguard)
      jb=i0+nbw+nguard
-     if (ja .lt. 1) cycle !ja = 1  !w3sz debug
-     if (jb .lt. 1) cycle !jb = 1  !w3sz debug
-     if (ja .gt. NFFT) cycle !ja = NFFT  !w3sz debug
-     if (jb .gt. NFFT) cycle !jb = NFFT  !w3sz debug
      sync(ja:jb)%ccfmax=0.
      sync(i0)%ccfmax=spk
   enddo
@@ -311,13 +274,8 @@ subroutine wb_sync(ss,savg,xpol,jz,nfa,nfb)
 !          sync(i)%ipol,sync(i)%iflip,sync(i)%birdie
 !3015 format(3f10.3,2i6,L5)
 !  enddo
-        
+
   return
 end subroutine wb_sync
-
-   subroutine init_wideband_sync(n)
-      integer, intent(in) :: n
-      if (.not. allocated(sync)) allocate (sync(n))
-   end subroutine init_wideband_sync
 
 end module wideband_sync

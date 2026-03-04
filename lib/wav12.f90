@@ -21,7 +21,6 @@ subroutine wav12(d2,d1,npts,nbitsam2)
   integer*2 nbitsam2
   equivalence (x,cx),(i1,i2)
 
-  d1a=0
   jz=min(NZ11,npts)
   if(nbitsam2.eq.8) then
      jz=min(NZ11,npts)

@@ -2,7 +2,6 @@ subroutine gen_q65_wave(msg,ntxfreq,mode65,msgsent,iwave,nwave)
 
 ! Encodes a Q65 message to yield complex iwave() at fsample = 11025 Hz
 
-  use iso_c_binding
   use packjt
   use q65_encoding
   parameter (NMAX=2*60*11025)
@@ -51,5 +50,5 @@ subroutine gen_q65_wave(msg,ntxfreq,mode65,msgsent,iwave,nwave)
   enddo
   nwave=2*iz
 
-  return
+999  return
 end subroutine gen_q65_wave

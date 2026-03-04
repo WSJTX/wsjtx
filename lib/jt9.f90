@@ -15,7 +15,7 @@ program jt9
 
   include 'jt9com.f90'
 
-  integer(kind=2), allocatable :: id2a(:)
+  integer*2 id2a(180000)
   integer(C_INT) iret
   type(wav_header) wav
   real*4 s(NSMAX)
@@ -112,7 +112,6 @@ program jt9
   common/decstats/ntry65a,ntry65b,n65a,n65b,num9,numfano
   data npatience/1/,nthreads/1/,wisfile/' '/
 
-  if (.not. allocated(id2a)) allocate(id2a(180000))
   nsubmode = 0
   ntol = 20
   TRperiod=60.d0

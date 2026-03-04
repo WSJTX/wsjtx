@@ -33,7 +33,7 @@ namespace Radio
   Frequency frequency (QVariant const& v, int scale, bool * ok, QLocale const& locale)
   {
     double value {0.};
-    if (QMetaType::QString == v.userType())
+    if (QVariant::String == v.type ())
       {
         value = locale.toDouble (v.value<QString> (), ok);
       }
@@ -70,7 +70,7 @@ namespace Radio
   FrequencyDelta frequency_delta (QVariant const& v, int scale, bool * ok, QLocale const& locale)
   {
     double value {0.};
-    if (QMetaType::QString == v.userType())
+    if (QVariant::String == v.type ())
       {
         value = locale.toDouble (v.value<QString> (), ok);
       }

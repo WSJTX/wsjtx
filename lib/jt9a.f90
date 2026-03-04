@@ -9,13 +9,11 @@ subroutine jt9a()
 
   include 'jt9com.f90'
 
-  integer(kind=2), allocatable :: id2a(:)
+  integer*2 id2a(180000)
 ! Multiple instances:
   type(dec_data), pointer, volatile :: shared_data !also makes target volatile
   type(params_block) :: local_params
   logical(c_bool) :: ok
-
-  if (.not. allocated(id2a)) allocate(id2a(180000))
 
   call init_timer (trim(data_dir)//'/timer.out')
 !  open(23,file=trim(data_dir)//'/CALL3.TXT',status='unknown')

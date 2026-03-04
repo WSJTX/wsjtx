@@ -1,15 +1,10 @@
 module ft8_mod1
 
-  implicit none
-
-  integer, parameter :: NPS=180000,NFR=151680,NFILT1=4000,NFILT2=3400,numcqsig=20,   &
-       numdeccq=40,nummycsig=5,numdecmyc=25,nmaxthreads=24
-  integer, parameter :: rk = kind(1.0)
-  integer, parameter :: ck = kind((1.0,0.0))
-  real(rk), allocatable :: dd8(:)
+  parameter (NPS=180000,NFR=151680,NFILT1=4000,NFILT2=3400,numcqsig=20,   &
+       numdeccq=40,nummycsig=5,numdecmyc=25,nmaxthreads=24)
+  real*4 dd8(nps)
   real endcorr(NFILT1/2+1)
-  complex(ck), allocatable :: cw(:)
-  complex csync(0:6,32),csynce(0:18,32),csyncsd(0:18,32),         &
+  complex cw(nps),csync(0:6,32),csynce(0:18,32),csyncsd(0:18,32),         &
        csyncsdcq(0:57,32),csynccq(0:7,32),ctwkw(11,32),ctwkn(11,32),      &
        ctwk256(256)
   character*37 allmessages(200),msgsd76(76),msg(56),msgroot,msgincall(174)
@@ -164,74 +159,45 @@ module ft8_mod1
   type (incall_struct) incall(30)
 
   type evencq_struct
-     real(rk) freq
-     real(rk) xdt
-     complex(ck) cs(0:7,79)
+     real freq
+     real xdt
+     complex cs(0:7,79)
   end type evencq_struct
-  type(evencq_struct), allocatable :: evencq(:,:) ! 24 threads
+  type(evencq_struct) evencq(numcqsig,nmaxthreads) ! 24 threads
 
   type oddcq_struct
-     real(rk) freq
-     real(rk) xdt
-     complex(ck) cs(0:7,79)
+     real freq
+     real xdt
+     complex cs(0:7,79)
   end type oddcq_struct
-  type(oddcq_struct), allocatable :: oddcq(:,:)
+  type(oddcq_struct) oddcq(numcqsig,nmaxthreads)
 
   type evenmyc_struct
-     real(rk) freq
-     real(rk) xdt
-     complex(ck) cs(0:7,79)
+     real freq
+     real xdt
+     complex cs(0:7,79)
   end type evenmyc_struct
-  type(evenmyc_struct), allocatable :: evenmyc(:,:)
+  type(evenmyc_struct) evenmyc(nummycsig,nmaxthreads)
 
   type oddmyc_struct
-     real(rk) freq
-     real(rk) xdt
-     complex(ck) cs(0:7,79)
+     real freq
+     real xdt
+     complex cs(0:7,79)
   end type oddmyc_struct
-  type(oddmyc_struct), allocatable :: oddmyc(:,:)
+  type(oddmyc_struct) oddmyc(nummycsig,nmaxthreads)
 
   type evenqso_struct
-     real(rk) freq
-     real(rk) xdt
-     complex(ck) cs(0:7,79)
+     real freq
+     real xdt
+     complex cs(0:7,79)
   end type evenqso_struct
-  type(evenqso_struct), allocatable :: evenqso(:,:)
+  type(evenqso_struct) evenqso(1,nmaxthreads)
 
   type oddqso_struct
-     real(rk) freq
-     real(rk) xdt
-     complex(ck) cs(0:7,79)
+     real freq
+     real xdt
+     complex cs(0:7,79)
   end type oddqso_struct
-  type(oddqso_struct), allocatable :: oddqso(:,:)
-
- contains
-
- subroutine ft8_init()
-
-  ! --- existing allocations ---
-  if (.not. allocated(dd8))    allocate(dd8(NPS))
-  if (.not. allocated(cw))     allocate(cw(NPS))
-  if (.not. allocated(evencq)) allocate(evencq(numcqsig, nmaxthreads))
-
-  ! odd CQ signals
-  if (.not. allocated(oddcq))  allocate(oddcq(numcqsig, nmaxthreads))
-
-  ! even MYCALL signals
-  if (.not. allocated(evenmyc)) allocate(evenmyc(nummycsig, nmaxthreads))
-
-  ! odd MYCALL signals
-  if (.not. allocated(oddmyc))  allocate(oddmyc(nummycsig, nmaxthreads))
-
-  ! even QSO signals (only 1 row)
-  if (.not. allocated(evenqso)) allocate(evenqso(1, nmaxthreads))
-
-  ! odd QSO signals (only 1 row)
-  if (.not. allocated(oddqso))  allocate(oddqso(1, nmaxthreads))
-
-end subroutine ft8_init
-
-
-
+  type(oddqso_struct) oddqso(1,nmaxthreads)
 
 end module ft8_mod1

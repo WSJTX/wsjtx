@@ -1,16 +1,7 @@
-module extract_mod
-  implicit none
-contains
-
 subroutine extract(s3,nadd,ncount,nhist,decoded,ltext)
 
   use packjt
   use timer_module, only: timer
-  use pctile_mod
-  use demod64a_mod
-  use debug_log
-  use extract_shared_mod, only: s3a, mrs, mrs2
-
   real s3(64,63)
   character decoded*22
   integer dat4(12)
@@ -20,13 +11,8 @@ subroutine extract(s3,nadd,ncount,nhist,decoded,ltext)
   integer param(0:8)
   integer h0(0:11),d0(0:11)
   real r0(0:11)
-  
-  integer :: i,ipk,naggressive,ncandidates,nd0,nerased,nfail
-  integer :: nft,nhard,nlow,nsec1,nsoft,ntest,ntotal,ntrials,ntry,nadd
-  integer :: ncount,nhist,n
-  real :: x,base,qual,r00,rtt,p,psum
-  integer :: k
-  
+  common/test001/s3a(64,63),mrs(63),mrs2(63)        !### TEST ONLY ###
+
 !          0  1  2  3  4  5  6  7  8  9 10 11
   data h0/41,42,43,43,44,45,46,47,48,48,49,49/
   data d0/71,72,73,74,76,77,78,80,81,82,83,83/
@@ -40,8 +26,11 @@ subroutine extract(s3,nadd,ncount,nhist,decoded,ltext)
   call pctile(s3,4032,50,base)     ! ### or, use ave from demod64a
   s3=s3/base
   s3a=s3
-  
 1 call demod64a(s3,nadd,mrsym,mrprob,mr2sym,mr2prob,ntest,nlow)
+!  if(ntest.lt.50 .or. nlow.gt.20) then
+!     ncount=-999                         !Flag bad data
+!     go to 900
+!  endif
   call chkhist(mrsym,nhist,ipk)
 
   if(nhist.ge.20) then
@@ -123,17 +112,11 @@ subroutine extract(s3,nadd,ncount,nhist,decoded,ltext)
   return
 end subroutine extract
 
-end module extract_mod
-
 subroutine getpp(workdat,p)
-  use debug_log
-  use extract_shared_mod, only: s3a, mrs, mrs2
 
   integer workdat(63)
   integer a(63)
-  
-  integer :: i,j
-  real :: x,p,psum
+  common/test001/s3a(64,63),mrs(63),mrs2(63)
 
   a(1:63)=workdat(63:1:-1)
   call interleave63(a,1)

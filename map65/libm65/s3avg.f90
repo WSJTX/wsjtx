@@ -1,10 +1,4 @@
-module s3avg_mod
-  implicit none
-contains
-
 subroutine s3avg(nsave,mode65,nutc,nhz,xdt,npol,ntol,s3,nsum,nkv,decoded)
-
-  use extract_mod
 
 ! Save the current synchronized spectra, s3(64,63), for possible
 ! decoding of average.
@@ -13,9 +7,6 @@ subroutine s3avg(nsave,mode65,nutc,nhz,xdt,npol,ntol,s3,nsum,nkv,decoded)
   real s3a(64,63,64)                    !Saved spectra
   real s3b(64,63)                       !Average spectra
   integer iutc(64),ihz(64),ipol(64)
-  integer :: mode65,nhz,npol,nsum,nkv,i,ihzdiff,nadd,ncount,nhist
-  integer :: nsave, nutc,ntol
-  real :: xdt,dtdiff
   real dt(64)
   character*22 decoded
   logical ltext,first
@@ -67,5 +58,3 @@ subroutine s3avg(nsave,mode65,nutc,nhz,xdt,npol,ntol,s3,nsum,nkv,decoded)
 
   return
 end subroutine s3avg
-
-end module s3avg_mod

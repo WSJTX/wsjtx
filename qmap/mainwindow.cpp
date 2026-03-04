@@ -1050,11 +1050,13 @@ void MainWindow::CreateLiveCQ(QStringList cqliveText)
     QStringList thePostLine;
     line = line.repeated(100);  //.replace("<","").replace(">","");
     QStringList thePieces;
+    qDebug () << "item is: " << item;
     thePieces = item.split(" ",SkipEmptyParts);
     int rxFreq = 0.0;
     if((thePieces.at(6) == "CQ" || thePieces.at(6) == "QRZ" || thePieces.at(6) == "CQV" ||  thePieces.at(6) == "CQH" ||  thePieces.at(6) == "QRT") && m_myCall.length() >=3 && m_myGrid.length()>=4  ) {
       try {
         //extract Fsked freq and format to 3 digits no decimals
+        qDebug() << "entered try";
         QString theMsg;
         QString theCall;
         QString theGrid;
@@ -1065,6 +1067,7 @@ void MainWindow::CreateLiveCQ(QStringList cqliveText)
           if(thePieces.at(6)==NULL or thePieces.at(7)==NULL or thePieces.at(8)==NULL) continue;
           theCall = thePieces.at(7);
           bool isCall = testCall(theCall);
+          qDebug() << "theCall is: " << theCall << " and isCall is: " << isCall;
           if(!isCall) continue;
           theGrid = "--";
           theMsg = thePieces.at(6) + " " + theCall;
@@ -1078,6 +1081,7 @@ void MainWindow::CreateLiveCQ(QStringList cqliveText)
           // Test for callsign at thePieces.at(7)
           theCall = thePieces.at(7);
           bool isCall = testCall(theCall);
+          qDebug() << "theCall is: " << theCall << " and isCall is: " << isCall;
           // Handle CQ CALL GRID
           if(isCall) {
             theGrid = thePieces.at(8);
@@ -1087,6 +1091,7 @@ void MainWindow::CreateLiveCQ(QStringList cqliveText)
           else {
             theCall = thePieces.at(8);
             isCall = testCall(theCall);
+          qDebug() << "theCall is: " << theCall << " and isCall is: " << isCall;
             if(!isCall) continue;
             theGrid = "--";
             theMsg = thePieces.at(6) + " " + theCall;
@@ -1100,6 +1105,7 @@ void MainWindow::CreateLiveCQ(QStringList cqliveText)
            if(thePieces.at(6)==NULL or thePieces.at(7)==NULL or thePieces.at(8)==NULL or thePieces.at(9)==NULL or thePieces.at(10)==NULL) continue;
           theCall = thePieces.at(8);
           bool isCall = testCall(theCall);
+          qDebug() << "theCall is: " << theCall << " and isCall is: " << isCall;
           if(!isCall) continue;
           theGrid = thePieces.at(9);
           theMsg = thePieces.at(6) + " " + theCall + " " + theGrid;
@@ -1108,7 +1114,6 @@ void MainWindow::CreateLiveCQ(QStringList cqliveText)
         // int rxFreq = freqOffset + 100 * thekHz.at(1).toInt(&ok);
           if (!ok) continue;
         }
-        else continue;
         strOK = true;
         int skedFreq;
         QString skedFreqString;
@@ -1150,7 +1155,7 @@ void MainWindow::CreateLiveCQ(QStringList cqliveText)
         thePostLine.insert(12, m_myCall.toUpper()); //myCall
         thePostLine.insert(13, "--"); //txpol
         decodeList.append(thePostLine);
-        //qDebug () << "thePostLine is: " << thePostLine;
+        qDebug () << "thePostLine is: " << thePostLine;
       }
       catch (const std::exception& e) {
           // Handle standard C++ exceptions
@@ -1177,10 +1182,11 @@ bool MainWindow::testCall(QString w)
   if(w.indexOf('-') >= 0) return false;
   if(w.indexOf('?') >= 0) return false;
   w = w.replace('<',"");
-  w = w.replace('>',""); 
+  w = w.replace('>',"");  
+  int i0=w.indexOf('/');
   int n1=w.length();
   if(n1 > 11) return false;
-  //qDebug() << "Line 1186 w is: " << w << " and i0 is: " << i0 << " and n1 is: " << n1 << " and call is: " << w;
+  qDebug() << "Line 1186 w is: " << w << " and i0 is: " << i0 << " and n1 is: " << n1 << " and call is: " << w;
   QString bc = QString();
   QStringList wSplit = w.split("/");
   if(wSplit.length() > 1) {
@@ -1196,12 +1202,15 @@ bool MainWindow::testCall(QString w)
   }
   int nbc=bc.trimmed().length();
   if(nbc > 8) return false;  //Base call should have no more than 8 characters  e.g. YW18FIFA
+  qDebug() << "reached line 1201";
 
 // One of first two characters (c1 or c2) must be a letter
   if((!bc[0].isLetter()) && (!bc[1].isLetter())) return false;
+  qDebug() << "reached line 1206";
 // Real calls don't start with Q, but we'll allow the placeholder
 // callsign QU1RK to be considered a standard call:
   if(bc[0]=='Q' && bc.mid(0,5) != "QU1RK") return false;
+  qDebug() << "reached line 1209";
 
 // Must have a digit in 2nd or 3rd or 4th position
   int i1=0;
@@ -1209,17 +1218,22 @@ bool MainWindow::testCall(QString w)
   if(bc[2].isDigit()) i1=2;
   if(bc[3].isDigit()) i1=3;
   if(i1==0) return false;
+  qDebug() << "reached line 1217";
 
 // Callsign must have a suffix of 1-4 letters e.g. YW18FIFA
   if(i1==nbc) return false;
+  qDebug() << "reached line 1221";
   int n=0;
   QChar j=QChar();
   for (int i=i1+1; i<=nbc-1; ++i) {
      j=bc[i];
      if(j<QChar('A') || j > QChar('Z')) return false;
+  qDebug() << "reached line 1227 and n = " << n ;
      n=n+1;
   }
+  qDebug() << "reached line 1230";
   if(n >= 1 && n <= 4) return true;
+  qDebug() << "reached line 1232";
   
   return false;  
 }
