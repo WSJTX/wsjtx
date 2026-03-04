@@ -801,6 +801,7 @@ set (wsjt_qt_UISRCS
   wf_palette_design_dialog.ui
   widgets/FoxLogWindow.ui
   widgets/CabrilloLogWindow.ui
+  Configuration.ui
   )
 
 set (wsprsim_CSRCS
@@ -834,7 +835,6 @@ set (wsjtx_UISRCS
   widgets/activeStations.ui
   widgets/widegraph.ui
   widgets/logqso.ui
-  Configuration.ui
   widgets/ExportCabrillo.ui
   widgets/QSYMessage.ui
   widgets/QSYMessageCreator.ui
