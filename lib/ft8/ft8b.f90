@@ -204,7 +204,7 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,nzhsym,lapon,     &
             print*,"Error - nsym must be 1, 2, or 3."
           endif
         enddo
-        if(imetric.eq.2) s2=s2**2
+        if(imetric.eq.2) s2(0:nt-1)=s2(0:nt-1)**2
         i32=1+(k-1)*3+(ihalf-1)*87
         if(nsym.eq.1) ibmax=2 
         if(nsym.eq.2) ibmax=5 
