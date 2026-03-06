@@ -6,7 +6,7 @@
 #include "MMTTY_Messages.hpp"
 #endif
 #include "MainWindow.hpp"
-#include "MessageLogger.hpp"
+#include "MMTTYIF.hpp"
 
 #include <QDateTime>
 
@@ -18,9 +18,9 @@ int main(int argc, char *argv[])
 
     QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz");
 #ifdef Q_OS_WIN
-    MessageLogger::logText(QString("%1 [INIT] Command line: %2").arg(timestamp).arg(QString::fromWCharArray(GetCommandLineW())));
+    MMTTYIF::logText(QString("%1 [INIT] Command line: %2").arg(timestamp).arg(QString::fromWCharArray(GetCommandLineW())));
 #else
-    MessageLogger::logText(QString("%1 [INIT] Command line: %2").arg(timestamp).arg(app.arguments().join(' ')));
+    MMTTYIF::logText(QString("%1 [INIT] Command line: %2").arg(timestamp).arg(app.arguments().join(' ')));
 #endif
 
     QCommandLineParser parser;
@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
 #ifdef Q_OS_WIN
     UINT MSG_MMTTY = ::RegisterWindowMessageA("MMTTY");
     timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz");
-    MessageLogger::logText(QString("%1 [INIT] Registered MMTTY message: 0x%2").arg(timestamp).arg(MSG_MMTTY, 4, 16, QChar('0')));
+    MMTTYIF::logText(QString("%1 [INIT] Registered MMTTY message: 0x%2").arg(timestamp).arg(MSG_MMTTY, 4, 16, QChar('0')));
 
     WId winId = window.winId();
     HWND hwnd = reinterpret_cast<HWND>(winId);
@@ -77,13 +77,13 @@ int main(int argc, char *argv[])
         }
     }
 
-    MessageLogger::logMessage(QString("SENT (%1)").arg(targetName), MSG_MMTTY, TXM_THREAD, static_cast<LPARAM>(threadId));
+    MMTTYIF::logMessage(QString("SENT (%1)").arg(targetName), MSG_MMTTY, TXM_THREAD, static_cast<LPARAM>(threadId));
     ::PostMessageA(targetHwnd, MSG_MMTTY, TXM_THREAD, static_cast<LPARAM>(threadId));
     
-    MessageLogger::logMessage(QString("SENT (%1)").arg(targetName), MSG_MMTTY, TXM_HANDLE, reinterpret_cast<LPARAM>(hwnd));
+    MMTTYIF::logMessage(QString("SENT (%1)").arg(targetName), MSG_MMTTY, TXM_HANDLE, reinterpret_cast<LPARAM>(hwnd));
     ::PostMessageA(targetHwnd, MSG_MMTTY, TXM_HANDLE, reinterpret_cast<LPARAM>(hwnd));
     
-    MessageLogger::logMessage(QString("SENT (%1)").arg(targetName), MSG_MMTTY, TXM_START, 0x00000000);
+    MMTTYIF::logMessage(QString("SENT (%1)").arg(targetName), MSG_MMTTY, TXM_START, 0x00000000);
     ::PostMessageA(targetHwnd, MSG_MMTTY, TXM_START, 0x00000000);
 #endif
 

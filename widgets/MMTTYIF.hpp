@@ -48,8 +48,13 @@ public slots:
     void app_rx_char(char tx_char);
     void report_ptt_state(bool is_on);
 
+public:
+    static QString logMessage(const QString &direction, unsigned int msg, unsigned long long wParam, long long lParam);
+    static void logText(const QString &text);
+
 private:
     QString getTargetName() const;
+    static QString getWParamEnumName(unsigned long long wParam);
 
     quint32 m_baudRate = 0;
     quint32 m_heightWidth = 0;

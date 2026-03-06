@@ -353,6 +353,7 @@ set (wsjtx_CXXSRCS
   widgets/QSYMessage.cpp 
   widgets/QSYMessageCreator.cpp
   widgets/qsymonitor.cpp
+  widgets/MMTTYIF.cpp
   )
 
 set (wsjt_CXXSRCS
@@ -1489,14 +1490,13 @@ set (bmtty_SRCS
   bmtty/main.cpp
   bmtty/MainWindow.cpp
   bmtty/MainWindow.hpp
-  bmtty/MessageLogger.cpp
-  bmtty/MessageLogger.hpp
-  bmtty/MMTTYIF.cpp
-  bmtty/MMTTYIF.hpp
+  widgets/MMTTYIF.cpp
+  widgets/MMTTYIF.hpp
 )
 
 add_executable (bmtty ${bmtty_SRCS})
 target_link_libraries (bmtty Qt5::Widgets)
+target_include_directories (bmtty PRIVATE widgets)
 include_directories (${CMAKE_CURRENT_BINARY_DIR})
 
 # don't use Qt "keywords" signal, slot, emit in generated files to

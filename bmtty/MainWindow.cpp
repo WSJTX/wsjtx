@@ -1,11 +1,11 @@
 #include "MainWindow.hpp"
 #include "MMTTYIF.hpp"
-#include "MessageLogger.hpp"
 #include <QLabel>
 #include <QVBoxLayout>
 #include <QTextEdit>
 #include <QCoreApplication>
 #include <QDateTime>
+#include <QKeyEvent>
 #ifdef Q_OS_WIN
 #include "MMTTY_Messages.hpp"
 #endif
@@ -52,6 +52,8 @@ MainWindow::MainWindow(const CommandLineOptions &options, QWidget *parent)
     setCentralWidget(centralWidget);
     resize(500, 400);
 
+    m_textEdit->installEventFilter(this);
+
     connect(m_inactivityTimer, &QTimer::timeout, this, &MainWindow::handleInactivityTimeout);
     m_inactivityTimer->start(7000); // 7 second auto-termination timer
 
@@ -78,8 +80,23 @@ MMTTYIF* MainWindow::getMmttyIf() const
 void MainWindow::handleInactivityTimeout()
 {
     // If no message received for 7 seconds, terminate.
-    MessageLogger::logText(QString("%1 [EXIT] Inactivity timeout").arg(QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz")));
+    MMTTYIF::logText(QString("%1 [EXIT] Inactivity timeout").arg(QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz")));
     QCoreApplication::quit();
+}
+
+bool MainWindow::eventFilter(QObject *obj, QEvent *event)
+{
+    if (obj == m_textEdit && event->type() == QEvent::KeyPress) {
+        QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
+        QString text = keyEvent->text();
+        if (!text.isEmpty()) {
+            char c = text.at(0).toLatin1();
+            if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '\r' || c == '\n') {
+                m_mmttyIf->app_rx_char(c);
+            }
+        }
+    }
+    return QMainWindow::eventFilter(obj, event);
 }
 
 #ifdef Q_OS_WIN

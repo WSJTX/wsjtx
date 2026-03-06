@@ -111,6 +111,10 @@ class EqualizationToolsDialog;
 class DecodedText;
 class Cloudlog;
 
+#ifdef Q_OS_WIN
+class MMTTYIF;
+#endif
+
 class MainWindow
   : public MultiGeometryWidget<3, QMainWindow>
 {
@@ -131,6 +135,10 @@ public:
                       QSplashScreen *, QProcessEnvironment const&,
                       QWidget *parent = nullptr);
   ~MainWindow();
+
+#ifdef Q_OS_WIN
+  void initMMTTY(const QString& hexHandle);
+#endif
 
   int decoderBusy () const {return m_decoderBusy;}
 
@@ -564,6 +572,10 @@ private:
   QPushButton * m_configurations_button;
   QSettings * m_settings;
   QScopedPointer<Ui::MainWindow> ui;
+
+#ifdef Q_OS_WIN
+  MMTTYIF * m_mmttyif {nullptr};
+#endif
 
   Configuration m_config;
   LogBook m_logBook;            // must be after Configuration construction
