@@ -3775,18 +3775,12 @@ Double-click to reset to the standard 73 message</string>
                     <property name="text">
                      <string>CQ %M CQ</string>
                     </property>
-                    <property name="alignment">
-                     <set>Qt::AlignCenter</set>
-                    </property>
                    </widget>
                   </item>
                   <item row="1" column="1">
                    <widget class="QLineEdit" name="msg2">
                     <property name="text">
                      <string>%H 599 %N</string>
-                    </property>
-                    <property name="alignment">
-                     <set>Qt::AlignCenter</set>
                     </property>
                    </widget>
                   </item>
@@ -3795,18 +3789,12 @@ Double-click to reset to the standard 73 message</string>
                     <property name="text">
                      <string>%H TU CQ %M CQ</string>
                     </property>
-                    <property name="alignment">
-                     <set>Qt::AlignCenter</set>
-                    </property>
                    </widget>
                   </item>
                   <item row="1" column="3">
                    <widget class="QLineEdit" name="msg4">
                     <property name="text">
                      <string>%M</string>
-                    </property>
-                    <property name="alignment">
-                     <set>Qt::AlignCenter</set>
                     </property>
                    </widget>
                   </item>
@@ -3879,18 +3867,12 @@ Double-click to reset to the standard 73 message</string>
                     <property name="text">
                      <string>%H</string>
                     </property>
-                    <property name="alignment">
-                     <set>Qt::AlignCenter</set>
-                    </property>
                    </widget>
                   </item>
                   <item row="3" column="1">
                    <widget class="QLineEdit" name="msg6">
                     <property name="text">
                      <string>TU NOW %Q 599 CQ</string>
-                    </property>
-                    <property name="alignment">
-                     <set>Qt::AlignCenter</set>
                     </property>
                    </widget>
                   </item>
@@ -3899,18 +3881,12 @@ Double-click to reset to the standard 73 message</string>
                     <property name="text">
                      <string>%H AGN?</string>
                     </property>
-                    <property name="alignment">
-                     <set>Qt::AlignCenter</set>
-                    </property>
                    </widget>
                   </item>
                   <item row="3" column="3">
                    <widget class="QLineEdit" name="msg8">
                     <property name="text">
                      <string>599 %N</string>
-                    </property>
-                    <property name="alignment">
-                     <set>Qt::AlignCenter</set>
                     </property>
                    </widget>
                   </item>
