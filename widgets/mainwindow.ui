@@ -3874,6 +3874,9 @@ Double-click to reset to the standard 73 message</string>
                   </item>
                   <item row="4" column="4">
                    <widget class="QLineEdit" name="msg8">
+                    <property name="text">
+                     <string>599 %N</string>
+                    </property>
                     <property name="alignment">
                      <set>Qt::AlignCenter</set>
                     </property>

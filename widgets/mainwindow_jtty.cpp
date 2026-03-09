@@ -135,50 +135,19 @@ void MainWindow::jtty_again()
 
 bool MainWindow::jtty_key_struck(QKeyEvent * e)
 {
-  if(e->key() == Qt::Key_F1) {
-    jtty_tx("CQ " + m_config.my_callsign() + " CQ");
-    return true;
-  } else if(e->key() == Qt::Key_F2) {
-    int n=ui->sbSerialNumber_2->value();
-    QString t=QString::number(n);
-    if(n < 10) t = "00"+t;
-    if(n < 100) t = "0"+t;
-    t = " 599 " + t;
-    jtty_tx(ui->dxCallEntry->text() + t);
-    return true;
-  } else if(e->key() == Qt::Key_F3) {
-    jtty_tx("TU " + m_config.my_callsign() + " CQ");
-    return true;
-  } else if(e->key() == Qt::Key_F4) {
-    jtty_tx(m_config.my_callsign());
-    return true;
-  } else if(e->key() == Qt::Key_F5) {
-    jtty_tx(ui->dxCallEntry->text());
-    return true;
-  } else if(e->key() == Qt::Key_F6) {
-    int n=ui->sbSerialNumber_2->value();
-    QString t=QString::number(n);
-    if(n < 10) t = "00"+t;
-    if(n < 100) t = "0"+t;
-    t = " 599 " + t;
-    jtty_tx("TU NOW " + ui->dxCallEntry->text() + t);
-    return true;
-  } else if(e->key() == Qt::Key_F7) {
-    int n=ui->sbSerialNumber_2->value();
-    QString t=QString::number(n);
-    if(n < 10) t = "00"+t;
-    if(n < 100) t = "0"+t;
-    t = " 599 " + t;
-    jtty_tx(ui->dxCallEntry->text() + t);
-    return true;
-  } else if(e->key() == Qt::Key_F8) {
-    jtty_tx("AGN?");
-    return true;
-  } else if(e->key() == Qt::Key_F9) {
-    jtty_tx("NR?");
-    return true;
-  }
-  return false;
+  QString t{};
+  if(e->key() == Qt::Key_F1) t = ui->msg1->text();
+  if(e->key() == Qt::Key_F2) t = ui->msg2->text();
+  if(e->key() == Qt::Key_F3) t = ui->msg3->text();
+  if(e->key() == Qt::Key_F4) t = ui->msg4->text();
+  if(e->key() == Qt::Key_F5) t = ui->msg5->text();
+  if(e->key() == Qt::Key_F6) t = ui->msg6->text();
+  if(e->key() == Qt::Key_F7) t = ui->msg7->text();
+  if(e->key() == Qt::Key_F8) t = ui->msg8->text();
+  if(t=="") return false;
+  t=jtty_msg_expand(t);
+  jtty_tx(t);
+  return true;
 }
 
 void MainWindow::on_RxFreqSpinBox_2_valueChanged(int n)
@@ -193,5 +162,25 @@ void MainWindow::on_TxFreqSpinBox_2_valueChanged(int n)
 
 void MainWindow::on_sbFtol_2_valueChanged (int n)
 {
-    if(n==999) std::cout << "AAA " << n << "\n";
+//    if(n==999) std::cout << "AAA " << n << "\n";
+}
+
+QString MainWindow::jtty_msg_expand(QString t)
+{
+  if(!t.contains("%")) return t;
+  for (int i=0; i<5; i++) {
+    t=t.replace("%M",m_config.my_callsign());
+    t=t.replace("%H",m_hisCall);
+    t=t.replace("%Q",m_hisCall);
+    if(t.contains("%N")) {
+      int n=ui->sbSerialNumber_2->value();
+      QString tn=QString::number(n);
+      if  (n < 10) tn = "00"+tn;
+      if(n   < 100) tn = "0"+tn;
+      t=t.replace("%N",tn);
+      if(!t.contains("%")) return t;
+    }
+    if(!t.contains("%")) return t;
+  }
+  return t;
 }

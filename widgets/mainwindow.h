@@ -542,6 +542,7 @@ private:
   bool jtty_key_struck(QKeyEvent * e);
   void jtty_decode(int k);
   void jtty_again();
+  QString jtty_msg_expand(QString msg);
   QString specOpLabel() const;
   void initializeFFT(int nsps);
   void initializeFFT(int nsps, int fftSize);
