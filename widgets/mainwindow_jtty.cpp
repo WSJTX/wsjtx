@@ -162,7 +162,7 @@ void MainWindow::on_TxFreqSpinBox_2_valueChanged(int n)
 
 void MainWindow::on_sbFtol_2_valueChanged (int n)
 {
-//    if(n==999) std::cout << "AAA " << n << "\n";
+    if(n==999) std::cout << "AAA " << n << "\n";
 }
 
 QString MainWindow::jtty_msg_expand(QString t)
