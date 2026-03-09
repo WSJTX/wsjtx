@@ -226,7 +226,7 @@ program jt9
      do i = 1, size (long_options)
        call long_options(i) % print (6)
      end do
-     go to 999
+     stop
   endif
 
   iret=fftwf_init_threads()            !Initialize FFTW threading 
