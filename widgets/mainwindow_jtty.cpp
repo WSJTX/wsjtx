@@ -3,8 +3,15 @@
 #include "widegraph.h"
 #include "commons.h"
 #include "Audio/WavFile.hpp"
+#include "Logger.hpp"
 #include <QtConcurrent/QtConcurrentRun>
 #include <iostream>
+
+#ifdef WIN32
+#include "MMTTYIF.hpp"
+#include "MMTTY_Messages.hpp"
+#undef MessageBox
+#endif
 
 extern dec_data_t dec_data;
 
@@ -120,8 +127,25 @@ void MainWindow::jtty_tx(QString message)
     jtty_save_wav();
   }
   m_transmitting = true;
+
+  if (m_mmttyif) {
+    m_mmttyif->report_ptt_state(true);
+  }
+
   startTx2();
+
+  if (m_mmttyif) {
+    m_mmttyif->echo_tx_message_to_n1mm(message);
+  }
+
   int msTx=nwave/48.0 + 1000*m_config.txDelay();
+
+  if (m_mmttyif) {
+    QTimer::singleShot(msTx, this, [this]() {
+         m_mmttyif->report_ptt_state(false);
+    });
+  }
+
   QTimer::singleShot(msTx, this, SLOT (stopTx()));
 }
 
@@ -195,3 +219,85 @@ void MainWindow::on_sbFtol_2_valueChanged (int n)
 {
     if(n==999) std::cout << "AAA " << n << "\n";
 }
+
+#ifdef WIN32
+void MainWindow::logText(const QString &text) {
+  LOG_INFO(text);
+}
+
+void MainWindow::initMMTTY(const QString& hexHandle) {
+    if (!m_mmttyif) {
+        m_mmttyif = new MMTTYIF(this);
+    }
+    connect(m_mmttyif, &MMTTYIF::log_message, this, &MainWindow::logText);
+
+    // Register custom window message
+    UINT MSG_MMTTY = ::RegisterWindowMessageA("MMTTY");
+
+    // Print to logs the assigned custom message number for "MMTTY"
+    QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz");
+    MMTTYIF::logText(QString("%1 [INIT] Registered MMTTY message: 0x%2")
+                     .arg(timestamp)
+                     .arg(MSG_MMTTY, 4, 16, QChar('0')));
+
+    // Get the WId (Window ID) of the MainWindow instance
+    WId winId = this->winId();
+    HWND hwnd = reinterpret_cast<HWND>(winId);
+
+    // Get our own thread ID
+    DWORD threadId = GetCurrentThreadId();
+
+    HWND targetHwnd = HWND_BROADCAST;
+    QString targetName = "Broadcast";
+
+    if (!hexHandle.isEmpty()) {
+        bool ok;
+        targetHwnd = reinterpret_cast<HWND>(hexHandle.toULongLong(&ok, 16));
+        if (ok) {
+            targetName = QString("0x%1").arg(hexHandle);
+        } else {
+            // Revert back to broadcast if parsing failed
+            targetHwnd = HWND_BROADCAST;
+        }
+    }
+
+    MMTTYIF::logMessage(QString("SENT (%1)").arg(targetName), MSG_MMTTY, TXM_THREAD, static_cast<LPARAM>(threadId));
+    ::PostMessageA(targetHwnd, MSG_MMTTY, TXM_THREAD, static_cast<LPARAM>(threadId)); // Send Thread ID
+
+    MMTTYIF::logMessage(QString("SENT (%1)").arg(targetName), MSG_MMTTY, TXM_HANDLE, reinterpret_cast<LPARAM>(hwnd));
+    ::PostMessageA(targetHwnd, MSG_MMTTY, TXM_HANDLE, reinterpret_cast<LPARAM>(hwnd)); // Send Window Handle
+
+    MMTTYIF::logMessage(QString("SENT (%1)").arg(targetName), MSG_MMTTY, TXM_START, 0x00000000);
+    ::PostMessageA(targetHwnd, MSG_MMTTY, TXM_START, 0x00000000); // Send Start signal
+
+    m_mmttyif->initialize(hexHandle, this->winId()); // Or however you get handles
+
+    connect(m_mmttyif, &MMTTYIF::app_tx_string, this, &MainWindow::jtty_tx);
+    connect(m_mmttyif, &MMTTYIF::inactivity_timeout, qApp, &QCoreApplication::quit);
+    connect(m_mmttyif, &MMTTYIF::app_is_quitting, qApp, &QCoreApplication::quit);
+
+    // Auto-switch to JTTY mode after MMTTY connects
+    QTimer::singleShot(3000, this, [this]() {
+         set_mode("JTTY");
+    });
+}
+
+MMTTYIF *MainWindow::getMmttyIf() const {
+    return m_mmttyif;
+}
+
+bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, long *result)
+{
+    if (eventType == "windows_generic_MSG") {
+        MSG *msg = static_cast<MSG *>(message);
+        if (msg->message == m_mmttyif->getMttyMsg()) {
+            m_mmttyif->filterEvent(message);
+            *result = 0; // Return 0 to indicate we handled the message
+            return true; // Stop standard Qt processing for this message
+        }
+    }
+
+    // Call base class method for unhandled messages
+    return QMainWindow::nativeEvent(eventType, message, result);
+}
+#endif

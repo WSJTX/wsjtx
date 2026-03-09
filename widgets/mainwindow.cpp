@@ -114,9 +114,7 @@
 #include "widgets/qsymonitor.h"
 #include "Network/eqsl.h"
 
-#ifdef Q_OS_WIN
-#include "MMTTYIF.hpp"
-#endif
+
 
 #define FCL fortran_charlen_t
 
@@ -1364,16 +1362,7 @@ void MainWindow::on_the_minute ()
   if(!m_transmitting && m_mode=="FT8" && (QDateTime::currentMSecsSinceEpoch()-m_mslastTX) > 120000) m_lapmyc=0;
 }
 
-#ifdef Q_OS_WIN
-void MainWindow::initMMTTY(const QString& hexHandle)
-{
-  if (!m_mmttyif) {
-      m_mmttyif = new MMTTYIF(this);
-  }
-  m_mmttyif->initialize(hexHandle, this->winId());
-  set_mode("JTTY");
-}
-#endif
+
 
 //--------------------------------------------------- MainWindow destructor
 MainWindow::~MainWindow()
