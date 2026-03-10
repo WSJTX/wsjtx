@@ -11,6 +11,7 @@ program test_jtty_pack
 1000 format('i2.n2 i2.n2 NC NF err Message'/87('-'))
   nerr=0
   nz=0
+  c32=''
   do imsg=1,99
      read(10,'(a80)',end=100) msg0
      nlength=len_trim(msg0)
