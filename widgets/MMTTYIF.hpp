@@ -54,7 +54,7 @@ signals:
 public slots:
   void app_rx_char(char tx_char);
   void report_ptt_state(bool is_on);
-  void echo_tx_message_to_n1mm(const QString &message);
+  void echo_message_to_n1mm(const QString &message);
 
 public:
   static QString logMessage(const QString &direction, unsigned int msg,

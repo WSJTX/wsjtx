@@ -74,6 +74,11 @@ void MainWindow::jtty_decode(int k)
       } else {
           ui->decodedTextBrowser->insertText(allMsgs.trimmed());
       }
+#ifdef WIN32
+      if (m_mmttyif) {
+          m_mmttyif->echo_message_to_n1mm(allMsgs);
+      }
+#endif
   }
   if(qso_new) {
       QString message2 {QString::fromLatin1(qso_freq)};
@@ -81,6 +86,11 @@ void MainWindow::jtty_decode(int k)
       if(n2 > 0) {
         ui->decodedTextBrowser2->clear();
         ui->decodedTextBrowser2->insertText(message2.trimmed());
+#ifdef WIN32
+        if (m_mmttyif) {
+            m_mmttyif->echo_message_to_n1mm(message2);
+        }
+#endif
       }
   }
 }
@@ -149,7 +159,7 @@ void MainWindow::execute_jtty_tx(QString message)
 
 #ifdef WIN32
   if (m_mmttyif) {
-    m_mmttyif->echo_tx_message_to_n1mm(message);
+    m_mmttyif->echo_message_to_n1mm(message);
   }
 #endif
 

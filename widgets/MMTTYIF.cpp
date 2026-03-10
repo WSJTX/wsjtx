@@ -275,7 +275,7 @@ void MMTTYIF::app_rx_char(char tx_char) {
 #endif
 }
 
-void MMTTYIF::echo_tx_message_to_n1mm(const QString &message) {
+void MMTTYIF::echo_message_to_n1mm(const QString &message) {
   for (int i = 0; i < message.length(); ++i) {
     app_rx_char(message.at(i).toLatin1());
   }
