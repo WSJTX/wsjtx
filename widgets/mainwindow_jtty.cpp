@@ -335,7 +335,7 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, long *r
 {
     if (eventType == "windows_generic_MSG") {
         MSG *msg = static_cast<MSG *>(message);
-        if (msg->message == m_mmttyif->getMttyMsg()) {
+        if (m_mmttyif && msg->message == m_mmttyif->getMttyMsg()) {
             m_mmttyif->filterEvent(message);
             *result = 0; // Return 0 to indicate we handled the message
             return true; // Stop standard Qt processing for this message
