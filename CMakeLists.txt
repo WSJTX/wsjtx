@@ -341,6 +341,7 @@ set (wsjtx_CXXSRCS
   WSPR/WsprTxScheduler.cpp
   widgets/mainwindow.cpp
   widgets/mainwindow_jtty.cpp
+  widgets/JttyTxQueue.cpp
   widgets/mainwindow_settings.cpp
   widgets/mainwindow_show_messages.cpp
   widgets/mainwindow_arrl_digi.cpp

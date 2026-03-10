@@ -111,6 +111,8 @@ class EqualizationToolsDialog;
 class DecodedText;
 class Cloudlog;
 
+#include "JttyTxQueue.hpp"
+
 #ifdef WIN32
 class MMTTYIF;
 #endif
@@ -550,6 +552,9 @@ private:
   void configActiveStations();
   void sfox_tx();
   void jtty_tx(QString message);
+  void execute_jtty_tx(QString message);
+  void stopJttyTxIfEmpty();
+  void abort_jtty_tx();
   void jtty_save_wav();
   bool jtty_key_struck(QKeyEvent * e);
   void jtty_decode(int k);
@@ -580,6 +585,8 @@ private:
 #ifdef WIN32
   MMTTYIF * m_mmttyif {nullptr};
 #endif
+
+  JttyTxQueue * m_jttyQueue {nullptr};
 
   Configuration m_config;
   LogBook m_logBook;            // must be after Configuration construction

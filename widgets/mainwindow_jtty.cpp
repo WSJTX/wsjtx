@@ -87,6 +87,17 @@ void MainWindow::jtty_decode(int k)
 
 void MainWindow::jtty_tx(QString message)
 {
+  if (!m_jttyQueue) {
+    m_jttyQueue = new JttyTxQueue(this);
+    connect(m_jttyQueue, &JttyTxQueue::transmitMessage, this, &MainWindow::execute_jtty_tx);
+    connect(m_jttyQueue, &JttyTxQueue::stopTransmit, this, &MainWindow::stopJttyTxIfEmpty);
+    connect(m_jttyQueue, &JttyTxQueue::abortTransmit, this, &MainWindow::abort_jtty_tx);
+  }
+  m_jttyQueue->queueMessage(message);
+}
+
+void MainWindow::execute_jtty_tx(QString message)
+{
   int itone[848];
   int n=message.length();
   m_currentMessage = message;
@@ -128,25 +139,56 @@ void MainWindow::jtty_tx(QString message)
   }
   m_transmitting = true;
 
+#ifdef WIN32
   if (m_mmttyif) {
     m_mmttyif->report_ptt_state(true);
   }
+#endif
 
   startTx2();
 
+#ifdef WIN32
   if (m_mmttyif) {
     m_mmttyif->echo_tx_message_to_n1mm(message);
   }
+#endif
 
   int msTx=nwave/48.0 + 1000*m_config.txDelay();
 
-  if (m_mmttyif) {
-    QTimer::singleShot(msTx, this, [this]() {
-         m_mmttyif->report_ptt_state(false);
-    });
-  }
 
-  QTimer::singleShot(msTx, this, SLOT (stopTx()));
+  if (m_jttyQueue) {
+      m_jttyQueue->onTxStarted(msTx);
+  } else {
+      QTimer::singleShot(msTx, this, SLOT (stopTx()));
+  }
+}
+
+void MainWindow::abort_jtty_tx()
+{
+   if (m_jttyQueue) {
+       m_jttyQueue->clearQueue();
+   }
+   
+#ifdef WIN32
+   if (m_mmttyif) {
+       m_mmttyif->report_ptt_state(false);
+   }
+#endif
+
+   stopTx();
+}
+
+void MainWindow::stopJttyTxIfEmpty()
+{
+   if (!m_jttyQueue || m_jttyQueue->isEmpty()) {
+
+#ifdef WIN32   
+    if (m_mmttyif) {
+      m_mmttyif->report_ptt_state(false);
+    }
+#endif
+       stopTx();
+   }
 }
 
 void MainWindow::jtty_again()
@@ -159,7 +201,10 @@ void MainWindow::jtty_again()
 
 bool MainWindow::jtty_key_struck(QKeyEvent * e)
 {
-  if(e->key() == Qt::Key_F1) {
+  if(e->key() == Qt::Key_Escape) {
+    abort_jtty_tx();
+    return true;
+  } else if(e->key() == Qt::Key_F1) {
     jtty_tx("CQ " + m_config.my_callsign() + " CQ");
     return true;
   } else if(e->key() == Qt::Key_F2) {
