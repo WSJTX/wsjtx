@@ -775,7 +775,7 @@ private:
   bool    m_bEchoTxOK;
   bool    m_bTransmittedEcho;
   bool    m_bEchoTxed;
-  bool    m_bFastMode;
+  bool    m_bFastMode=false;
   bool    m_bFast9;
   bool    m_bFastDecodeCalled;
   bool    m_bDoubleClickAfterCQnnn;
