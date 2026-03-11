@@ -2735,8 +2735,11 @@ void MainWindow::monitor (bool state)
   if (state) {
     m_diskData = false;	// no longer reading WAV files
     if (!m_monitoring) {
-      float t_rxdelay=0.001*(QDateTime::currentMSecsSinceEpoch() - m_msEchoTxStart);
-      int ms=int(1000*(m_tEcho-t_rxdelay));
+      int ms=0;
+      if(m_mode=="Echo") {
+         float t_rxdelay=0.001*(QDateTime::currentMSecsSinceEpoch() - m_msEchoTxStart);
+         if(t_rxdelay > 2.3 && t_rxdelay < 2.8 && m_tEcho > t_rxdelay) ms=int(1000*(m_tEcho-t_rxdelay));
+      }
       if (m_tci_audio) {
         if (ui->bandComboBox->currentText()!="OOB") {
           if(ms>=10) {
