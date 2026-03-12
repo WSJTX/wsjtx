@@ -364,9 +364,9 @@ subroutine ft8_a7d(dd0,newdat,call_1,call_2,grid4,xdt,f1,xbase,nharderrors,dmin,
   xsnr=-25.
   arg=pbest/xbase/3.0e6-1.0
   if(arg.gt.0.0) xsnr=max(-25.0,db(arg)-27.0)
-!  write(41,3041) nharderrors,dmin,dmin2,dmin2/dmin,xsnr,trim(msgbest)
+!  write(41,3041) nharderrors,dmin,dmin2,dmin2/(dmin+1e-6),xsnr,trim(msgbest)
 !3041 format(i3,2f7.1,f7.2,f7.1,1x,a)
-  if(dmin.gt.100.0 .or. dmin2/dmin.lt.1.3) nharderrors=-1
+  if(dmin.gt.100.0 .or. dmin2/(dmin+1e-6).lt.1.3) nharderrors=-1
   msg37=msgbest
   if(msg37(1:3).eq.'CQ ' .and. std_2 .and. grid4.eq.'    ') nharderrors=-1
   if(msg37(1:6).eq.'QU1RK ') nharderrors=-1

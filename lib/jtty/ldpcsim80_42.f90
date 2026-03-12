@@ -104,7 +104,7 @@ program ldpcsim80_42
 !   write(*,*) "Eb/N0  SNR2500   ngood  nundetected  sigma    psymerr      pbiterr"
    write(*,*) "Es/N0   Eb/N0  SNR2500   ngood  nundetected  sigma    psymerr      pbiterr"
    do idb = 40,-4,-1
-      esn0db=idb/2.0-1.0
+      esn0db=idb/2.0
       sigma=1/sqrt( 2*(10**(esn0db/10.0)) )  ! dB is Es/N0
       ngood=0
       nue=0
@@ -198,7 +198,7 @@ program ldpcsim80_42
          endif
       enddo
 
-      symrate = 32  ! baud
+      symrate = 31.25  ! baud
       snr2500=esn0db + 10*log10(symrate/2500.0) ! ref BW is 2500 Hz.
       pberr=real(nbiterr)/real(ntrials*N)
       if(modtype.eq.0) then  ! BPSK
