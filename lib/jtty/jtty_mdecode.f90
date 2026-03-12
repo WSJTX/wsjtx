@@ -225,8 +225,8 @@ contains
             if(pn.gt.0.) snrdb=db(pt/pn)
             nsync=count(is13.eq.irxsync)             ! nsync is the number of correct hard-decoded sync tones.
             cand(ncand)%snrdb=snrdb
-            if( nchan.eq.0 .and. (nsync .le. 6 .or. snrdb .lt. smin)) cycle
-            if( nchan.ne.0 .and. (nsync .le. 8 .or. snrdb .lt. 5.0)) cycle
+            if( ichan.eq.0 .and. (nsync .le. 6 .or. snrdb .lt. smin)) cycle
+            if( ichan.ne.0 .and. (nsync .le. 8 .or. snrdb .lt. 5.0)) cycle
 
 ! looks like a real candidate - try to decode
             do j=1,40                                ! find tone powers for 40 symbols
