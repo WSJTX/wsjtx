@@ -84,7 +84,7 @@ contains
          nslots=0
       endif
       success=.false.
-      if(sum(abs(iwave)).eq.0) return
+      if(sum(abs(int(iwave))).eq.0) return
       if(f0+ftol.eq.-99.0) return               !Silence compiler warning of unused params
 
       if(nsps.ne.nsps0) then
