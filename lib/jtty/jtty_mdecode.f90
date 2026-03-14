@@ -6,7 +6,7 @@ module jtty_mdec
      real :: tsync = 0.0              !Time of sync from istart=1
      real :: snrdb = 0.0              !SNR of decoded frame
      integer ::  k = 0                !Accumulated length of decoded text
-     character*80 :: decoded = ''
+     character(len=80) :: decoded = ''
   end type decode
 
   integer, parameter        :: MAX_DECODES = 100
@@ -25,59 +25,63 @@ contains
 !  results to the console
 
 !  Note: nsps is samples per symbol at 12000 s^-1 sample rate.
-
+      use iso_fortran_env, only: int8, int16
       use jtty_mod
       use jtty_fec
       implicit none
-      integer, parameter        :: MAXCAND=100
-      character*80, intent(out) :: line
-      character*80              :: msg
-      character*32              :: c32(MAX_FRAMES)
-      integer*1                 :: message32(32), cw80(80)
-      integer*2, intent(in)     :: iwave(nchunk)
-      integer, intent(in)       :: istart, ndebug
-      integer                   :: i,i0,j,ja,jb,k,kz,n
-      integer                   :: ntstep,istep
-      integer                   :: nchan, ichan
-      integer, intent(in)       :: nchunk,nsps   !size of chunk, nsps at 12000 Sa/s
-      integer                   :: nchunk6,nana  !size of chunk, nana at 6000 Sa/s
-      integer                   :: nframe6       !size of frame at 6000 Sa/s
-      integer, save             :: nsps0=-999
-      integer, save             :: nfft,nh2,nss
-      integer                   :: iloc(1)
-      integer                   :: irxsync(13)
-      integer                   :: ndeep, maxiterations, islot
-      integer                   :: nsloc(2),nfz,ntz,ncand,ic,nc
-      integer, intent(out)      :: nharderrors,nsync
-      real                      :: fsample,fc,fwid
-      real                      :: fpk,pa,pt,pn
-      real                      :: fbest,xdtbest
-      real, allocatable         :: s(:), sm(:), s0(:,:)
-      real                      :: a(3)
-      real                      :: bitmetrics(1:80), pow(0:3)
-      real                      :: p00, p01, p11, p10
-      real, save                :: twopi,baud,dt
-      real                      :: phi,dphi,df2
-      real                      :: x2,db
-      real, intent(in)          :: f0,ftol,smin
-      real, intent(out)         :: dmin
-      real, intent(out)         :: xdt_qso,f1_qso,snr_qso
-      real                      :: snrdb, xdt
-      real                      :: xdt1, f11, snr0, df1, dtsync, dxdt
-      complex, allocatable      :: c(:)
-      complex, allocatable      :: c0(:)
-      complex, allocatable      :: c1(:)
-      complex, allocatable,save :: csync(:)    !Waveform for sync at 6000 s^-1 sample rate
-      complex, allocatable,save :: ctones(:,:)
-      complex                   :: z
-      logical, intent(out)      :: success
-      logical, intent(inout)    :: synced
-      logical                   :: match
-      logical                   :: dupe
-      logical, allocatable      :: s0mask(:,:)
-
-      type(decode)              :: cand(MAXCAND)     !Candidates for decoding
-      type(decode)              :: dec               !Current successful decode
+      integer, parameter             :: MAXCAND = 100
+      integer, parameter             :: NSYNC_SYM  = 13
+      integer, parameter             :: NCHAN_SYM  = 40
+      integer, parameter             :: NFRAME_SYM = 53
+      real, parameter                :: FSAMPLE = 6000.0
+      real, parameter                :: TWOPI = 6.283185307179586
+      character(len=80), intent(out) :: line
+      character(len=80)              :: msg
+      character(len=32)              :: c32(MAX_FRAMES)
+      integer(int8)                  :: message32(32), cw80(80)
+      integer(int16), intent(in)     :: iwave(nchunk)
+      integer, intent(in)            :: istart, ndebug
+      integer                        :: i,i0,j,ja,jb,k,kz,n
+      integer, save                  :: ntstep
+      integer                        :: istep
+      integer                        :: nchan, ichan
+      integer, intent(in)            :: nchunk,nsps   !size of chunk, nsps at 12000 Sa/s
+      integer                        :: nchunk6,nana  !size of chunk, nana at 6000 Sa/s
+      integer, save                  :: nframe6       !size of frame at 6000 Sa/s
+      integer, save                  :: nsps0=-999
+      integer, save                  :: nfft,nh2,nss
+      integer                        :: iloc(1)
+      integer                        :: irxsync(NSYNC_SYM)
+      integer                        :: ndeep, maxiterations, islot
+      integer                        :: nsloc(2),nfz,ntz,ncand,ic,nc
+      integer, intent(out)           :: nharderrors,nsync
+      real                           :: fc,fwid
+      real                           :: fpk,pa,pt,pn
+      real                           :: fbest,xdtbest
+      real, allocatable, save        :: s(:), sm(:), s0(:,:)
+      real                           :: a(3)
+      real                           :: bitmetrics(1:80), pow(0:3)
+      real                           :: p00, p01, p11, p10
+      real, save                     :: baud,dt,df2
+      real                           :: phi,dphi
+      real                           :: x2,db
+      real, intent(in)               :: f0,ftol,smin
+      real, intent(out)              :: dmin
+      real, intent(out)              :: xdt_qso,f1_qso,snr_qso
+      real                           :: snrdb, xdt
+      real                           :: xdt1, f11, snr0, df1, dtsync, dxdt
+      complex, allocatable,save      :: c(:)
+      complex, allocatable,save      :: c0(:)
+      complex, allocatable,save      :: c1(:)
+      complex, allocatable,save      :: csync(:)    !Waveform for sync at 6000 s^-1 sample rate
+      complex, allocatable,save      :: ctones(:,:)
+      complex                        :: z
+      logical, intent(out)           :: success
+      logical, intent(inout)         :: synced
+      logical                        :: match
+      logical                        :: dupe
+      type(decode)                   :: cand(MAXCAND)     !Candidates for decoding
+      type(decode)                   :: dec               !Current successful decode
 
       if(istart.eq.1) then
          ndecodes=0
@@ -87,27 +91,45 @@ contains
       if(sum(abs(int(iwave))).eq.0) return
       if(f0+ftol.eq.-99.0) return               !Silence compiler warning of unused params
 
+      nchunk6=nchunk/2                ! chunk size at 6000 Sa/s
+! nana is the size of c0 - next power of 2 larger than nchunk
+      nana = 2**nint(log(real(nchunk))/log(2.0)+0.5)
+
       if(nsps.ne.nsps0) then
          nsps0=nsps
          nss=nsps/2    ! samples per symbol at 6000 sa/s
          nfft=8192     ! FFT size for sync search, gives df2=0.732
+         df2=FSAMPLE/nfft 
          nh2=nfft/2    ! spectrum size for sync search
+         nframe6=NFRAME_SYM*nss          ! frame size at 6000 Sa/s
+         ntstep=nframe6/4
 
-! allocate saved arrays
+! allocate saved arrays once
          if(allocated(csync)) deallocate(csync)
-         allocate(csync(0:13*nss-1))
+           allocate(csync(0:NSYNC_SYM*nss-1))
          if(allocated(ctones)) deallocate(ctones)
-         allocate(ctones(0:nss-1,0:3))
+           allocate(ctones(0:nss-1,0:3))
+         if(allocated(c0)) deallocate(c0)
+           allocate(c0(0:nana-1))
+         if(allocated(c)) deallocate(c)
+           allocate(c(0:nfft-1))        !
+         if(allocated(c1)) deallocate(c1)
+           allocate(c1(0:nchunk6-1))
+         if(allocated(s)) deallocate(s)
+           allocate(s(0:nh2))
+         if(allocated(sm)) deallocate(sm)
+           allocate(sm(0:nh2))
+         if(allocated(s0)) deallocate(s0)
+           allocate(s0(0:nh2,0:ntstep))
 
 ! Generate complex waveform for sync
-         twopi=8.0*atan(1.0)
-         baud=6000.0/real(nss)   !31.25 for nss=192
-         dt=1/6000.0
+         baud=FSAMPLE/real(nss)   !31.25 for nss=192
+         dt=1/FSAMPLE
          call gen_syncwave(csync,nss)
 
          do i=0,3
             phi=0.0
-            dphi=twopi*i*baud*dt
+            dphi=i*TWOPI/real(nss)
             do j=0,nss-1
                ctones(j,i)=cmplx(cos(phi),sin(phi))
                phi=phi+dphi
@@ -115,34 +137,15 @@ contains
          enddo
       endif
 
-      nchunk6=nchunk/2                ! chunk size at 6000 Sa/s
-      nframe6=53*nss                  ! frame size at 6000 Sa/s
-
-! make size of c0 next power of 2 larger than nchunk
-      nana = 2**nint(log(real(nchunk))/log(2.0)+0.5)
-      allocate(c0(0:nana-1))
-
 !  convert integer samples at 12K Sa/s to complex analytic signal at 6K Sa/s
       call ana64a(iwave,nchunk,c0,nana)
       c0(nchunk6:)=0.
 
-      allocate(c(0:nfft-1))        !
-      allocate(c1(0:nchunk6-1))
-      allocate(s(0:nh2))
-      allocate(sm(0:nh2))
-      ntstep=nframe6/4
-      allocate(s0(0:nh2,0:ntstep))
-      allocate(s0mask(0:nh2,0:ntstep))
-
-      fsample=6000.0
-      dt=1.0/fsample
-      df2=fsample/nfft
-
       istep=0
       do i0=0,ntstep,12                     !Search over quarter-frame segment
          xdt=i0*dt
-         c(0:13*nss-1)=conjg(csync(0:13*nss-1))*c0(i0:i0+13*nss-1)
-         c(13*nss:)=0.
+         c(0:NSYNC_SYM*nss-1)=conjg(csync(0:NSYNC_SYM*nss-1))*c0(i0:i0+NSYNC_SYM*nss-1)
+         c(NSYNC_SYM*nss:)=0.
          call four2a(c,nfft,1,-1,1)            !Compute the sync-shifted spectrum
          do j=0,nh2
             s(j)=real(c(j))**2 + aimag(c(j))**2
@@ -155,12 +158,12 @@ contains
          istep=istep+1
       enddo
 
-! We look for up to 2 sync candidates in each 0.424 second by 2*FTol rectangle of the time/frequency plane.
-! Find the peak in the search rectangle, then zero a rectangle of size nfz by ntz centered on the peak
-! location. Find the location of the next peak.
+! Look for up to 2 sync candidates in each 0.424 second by 2*FTol rectangle in 
+! the time/frequency plane. Find the peak in the search rectangle, then zero a small region
+! of size nfz by ntz centered on the peak location. Then find the location of the next peak.
 
-      nfz=nint(10.0/df2)        ! 14
-      ntz=nint(0.016*6000/12)   !  8
+      nfz=nint(10.0/df2)            ! 14 
+      ntz=nint(0.016*6000.0/12.0)   !  8
 
       nchan = 14
       nc=2          ! look for 2 candidates in each channel
@@ -196,6 +199,7 @@ contains
                fbest=f11
             endif
             
+            if(ncand .ge. MAXCAND) exit 
             ncand=ncand+1
             cand(ncand)%xdt=xdtbest
             cand(ncand)%f1=fbest
@@ -206,37 +210,38 @@ contains
 
             pt=0.
             pa=0.
-            do j=1,13                                ! find tone powers for sync symbols
+            do j=1,NSYNC_SYM                                ! find tone powers for sync symbols
                i0=nint(cand(ncand)%xdt/dt) + (j-1)*nss
                if(i0+nss.gt.nchunk6) exit
 
                do i=0,3
-                  c(0:nss-1)=conjg(ctones(0:nss-1,i))*c1(i0:i0+nss-1)
-                  z=sum(c(0:nss-1))
-                  pow(i)=abs(z)**2
+                  z = dot_product(ctones(0:nss-1,i), c1(i0:i0+nss-1))
+                  pow(i)=real(z*conjg(z))
                enddo
+
                iloc=maxloc(pow)-1
                irxsync(j)=iloc(1)
                pt=pt+pow(is13(j))                !signal plus noise
                pa=pa+sum(pow)                    !signal plus 4*noise
             enddo
+
             snrdb=-99.9
             pn=(pa-pt)/3.0
             if(pn.gt.0.) snrdb=db(pt/pn)
-            nsync=count(is13.eq.irxsync)             ! nsync is the number of correct hard-decoded sync tones.
+            nsync=count(is13.eq.irxsync)         ! nsync is the number of correct hard-decoded sync tones.
             cand(ncand)%snrdb=snrdb
+
             if( ichan.eq.0 .and. (nsync .le. 6 .or. snrdb .lt. smin)) cycle
             if( ichan.ne.0 .and. (nsync .le. 8 .or. snrdb .lt. 5.0)) cycle
 
 ! looks like a real candidate - try to decode
-            do j=1,40                                ! find tone powers for 40 symbols
-               i0=nint(cand(ncand)%xdt/dt) + 13*nss + (j-1)*nss
+            do j=1,NCHAN_SYM                  ! find tone powers for 40 symbols
+               i0=nint(cand(ncand)%xdt/dt) + NSYNC_SYM*nss + (j-1)*nss
                if(i0+nss .gt. nchunk6) exit
 
                do i=0,3
-                  c(0:nss-1)=conjg(ctones(0:nss-1,i))*c1(i0:i0+nss-1)
-                  z=sum(c(0:nss-1))
-                  pow(i)=abs(z)**2
+                  z = dot_product(ctones(0:nss-1,i), c1(i0:i0+nss-1))
+                  pow(i)=real(z*conjg(z))
                enddo
 
 ! tones 0:3 represent bit sequences 00, 01, 11, 10, respectively
@@ -271,7 +276,7 @@ contains
                endif
                cand(ncand)%tsync=(istart-1)/12000.0 + cand(ncand)%xdt
 
-! dupe detection - currently does not work across quarter-frame boundary
+! dupe detection 
                dupe=.false.
                do i=1,ncand-1
                   if( cand(i)%decoded .eq. cand(ncand)%decoded .and. &
