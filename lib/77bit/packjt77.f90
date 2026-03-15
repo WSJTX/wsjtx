@@ -1041,7 +1041,7 @@ subroutine pack77_06(nwords,w,i3,n3,c77,i3_hint,n3_hint)
   character*4 grid4
   character*1 c
   character*36 a2
-  data a2/'0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'/,nzzz/46656/
+  data a2/'0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'/,nzzz/46656/,npfx/0/
   
   logical is_grid4,is_grid6,is_digit,ok
   is_grid4(grid4)=len(trim(grid4)).eq.4 .and.                        &
@@ -2795,7 +2795,7 @@ subroutine pack77_06var(nwords,w,i3,n3,c77,i3_hint,n3_hint,ntxhash)
   character*1 c
   character*36 a2
   integer, intent(in) :: ntxhash
-  data a2/'0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'/,nzzz/46656/
+  data a2/'0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'/,nzzz/46656/,npfx/0/
   
   logical is_grid4,is_grid6,is_digit,ok
   is_grid4(grid4)=len(trim(grid4)).eq.4 .and.                        &
