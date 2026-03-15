@@ -61,9 +61,9 @@ contains
     character(len=12), intent(in) :: mycall,hiscall
     character(len=6), intent(in) :: hisgrid
     procedure(jt4_average_callback), optional :: average_callback
-
     real*4 dat(30*11025)
     character*6 cfile6
+    save dat
 
     this%decode_callback => decode_callback
     if (present (average_callback)) then
