@@ -1,7 +1,5 @@
 #include "astro.h"
 
-#include <stdio.h>
-
 #include <QApplication>
 #include <QFile>
 #include <QTextStream>
@@ -13,8 +11,6 @@
 #include <QDebug>
 #include <math.h>
 
-#include "commons.h"
-#include "MessageBox.hpp"
 #include "Configuration.hpp"
 #include "SettingsGroup.hpp"
 #include "qt_helpers.hpp"
