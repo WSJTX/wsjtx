@@ -3469,27 +3469,6 @@ void MainWindow::on_actionQuick_Start_Guide_to_WSJT_X_2_7_and_QMAP_triggered()
   QDesktopServices::openUrl (QUrl {"https://wsjt.sourceforge.io/Quick_Start_WSJT-X_2.7_QMAP.pdf"});
 }
 
-void MainWindow::on_actionRecommended_Audio_Settings_triggered()
-{
-  auto const& message = tr("It is very important to avoid audio harmonics and distorted audio signals.\n"
-                           "This is usually achieved by the following step-by-step approach:\n\n"
-                           "1. Select 'Fake it' in the Settings/Radio menu as your 'Split mode'. If your\n"
-                           "     rig does not support this, select 'Rig'. But really try to avoid 'None'!\n\n"
-                           "2. Set the transmission power of your transceiver to maximum.\n\n"
-                           "3. Set the Pwr slider to the minimum and click on the 'Tune' button.\n\n"
-                           "4. Observe the actual transmission power of your rig as well as ALC.\n\n"
-                           "5. Carefully increase the Pwr slider until you have reached the\n"
-                           "     maximum transmit powe of your transceiver.\n\n"
-                           "6. VERY IMPORTANT: Now reduce the Pwr slider until you reach approx. \n"
-                           "     90% of your max. Tx power. ALC should be close to zero.\n\n"
-                           "7. This is the maximum audio level permitted with your setup.\n"
-                           "     Always stay with the Pwr slider below this max. value.\n\n"
-                           "If possible, check your transmission from time to time with a webSDR\n"
-                           "to ensure the signal is clean and not distorted.");
-  QTimer::singleShot (0, [=] {                   // don't block guiUpdate
-    MessageBox::warning_message(this, tr ("<b>Recommended Audio Settings</b>"), message); });
-}
-
 void MainWindow::on_actionOnline_User_Guide_triggered()      //Display manual
 {
   QDesktopServices::openUrl (QUrl {"https://wsjt.sourceforge.io/wsjtx-doc/wsjtx-main-3.0.0-rc1.html"});
