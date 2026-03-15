@@ -3469,16 +3469,6 @@ void MainWindow::on_actionQuick_Start_Guide_to_WSJT_X_2_7_and_QMAP_triggered()
   QDesktopServices::openUrl (QUrl {"https://wsjt.sourceforge.io/Quick_Start_WSJT-X_2.7_QMAP.pdf"});
 }
 
-void MainWindow::on_actionWSJT_X_improved_Home_Page_triggered()
-{
-  QDesktopServices::openUrl (QUrl {"https://wsjt-x-improved.sourceforge.io/"});
-}
-
-void MainWindow::on_actionThe_additional_features_of_wsjt_x_improved_triggered()
-{
-  QDesktopServices::openUrl (QUrl {"https://wsjt-x-improved.sourceforge.io/The_additional_features_of_wsjt-x_improved.pdf"});
-}
-
 void MainWindow::on_actionRecommended_Audio_Settings_triggered()
 {
   auto const& message = tr("It is very important to avoid audio harmonics and distorted audio signals.\n"
@@ -3500,17 +3490,9 @@ void MainWindow::on_actionRecommended_Audio_Settings_triggered()
     MessageBox::warning_message(this, tr ("<b>Recommended Audio Settings</b>"), message); });
 }
 
-void MainWindow::on_actionRig_Control_Errors_triggered()
-{
-  QDesktopServices::openUrl (QUrl {"https://wsjt-x-improved.sourceforge.io/How_to_deal_with_rig_control_errors.pdf"});
-}
-
 void MainWindow::on_actionOnline_User_Guide_triggered()      //Display manual
 {
-  QDesktopServices::openUrl (QUrl {"https://wsjt-x-improved.sourceforge.io/wsjtx-main_en.html"});
-// #if defined (CMAKE_BUILD)
-//   m_manual.display_html_url (QUrl {PROJECT_MANUAL_DIRECTORY_URL}, PROJECT_MANUAL);
-// #endif
+  QDesktopServices::openUrl (QUrl {"https://wsjt.sourceforge.io/wsjtx-doc/wsjtx-main-3.0.0-rc1.html"});
 }
 
 //Display local copy of manual
@@ -3586,7 +3568,7 @@ void MainWindow::on_actionCopyright_Notice_triggered()
                            "\"The algorithms, source code, look-and-feel of WSJT-X and related "
                            "programs, and protocol specifications for the modes FSK441, FST4, FT8, "
                            "JT4, JT6M, JT9, JT65, JTMS, QRA64, Q65, MSK144 are Copyright (C) "
-                           "2001-2025 by one or more of the following authors: Joseph Taylor, "
+                           "2001-2026 by one or more of the following authors: Joseph Taylor, "
                            "K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, "
                            "IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; "
                            "Philip Karn, KA9Q; Uwe Risse, DG2YCB; Brian Moran, N9ADG; Roger Rehr, "
