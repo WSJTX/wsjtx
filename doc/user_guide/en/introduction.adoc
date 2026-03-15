@@ -22,36 +22,11 @@ Doppler tracking for Earth-Moon-Earth (EME) QSOs and lunar-Echo
 testing.  The program analyzes received passbands up to 5 kHz wide and
 runs equally well on Windows, Macintosh, and Linux systems.
 
-*_WSJT-X Improved_* was developed by Uwe Risse, DG2YCB, starting in
-2020, and since 2021 it has evolved cooperatively with _WSJT-X_.  The
-_Improved_ versions build on the _WSJT-X_ code base and offer three
-different arrangements of main-window controls as well as new
-features for enhanced operational functionality.  Compatibility
-between _WSJT-X Improved_ and standard _WSJT-X_ has been carefully
-maintained, so that user transitions between the two programs are
-straightforward. Optional settings, station logs, and the like are
-consistently preserved and used by both program versions. Innovations
-from _WSJT-X Improved_ have been ported back into _WSJT-X_ at various
-times; with program release 3.0, all features of _WSJT-X_ and _WSJT-X
-Improved_ have been fully merged. Indeed, _WSJT-X 3.0_ and the _WSJT-X
-Improved 3.0_ version with original user interface are now
-identical. This _WSJT-X User Guide_ applies equally to both programs,
-and we use the _Improved_ label only when necessary to make clear
-distinctions between the programs.
-
-Development of both _WSJT-X_ and _WSJT-X Improved_ will continue. The
-_Improved_ version provides a familiar platform for trying out and
-optimizing possible new features. Updates and new releases of _WSJT-X
-Improved_ will be more frequent than those for standard _WSJT-X_. If
-you are interested in trying and using the very latest features you
-should watch for releases of _WSJT-X Improved_. Successful innovations
-will be incorporated in _WSJT-X_.
-
 *Version Numbers* for our programs have major, minor, and patch
-numbers separated by periods: for example, _WSJT-X 2.7.0_ or _WSJT-X
-Improved 2.7.0_. Temporary release candidates are sometimes made in
-advance of a new general-availability (GA) release, in order to obtain
-user feedback. Release candidates are given version labels such as
+numbers separated by periods: for example, _WSJT-X 2.7.0. Temporary
+release candidates are sometimes made in advance of a new
+general-availability (GA) release, in order to obtain user
+feedback. Release candidates are given version labels such as
 2.7.0-rc1, 2.7.0-rc2, etc., leading up to the general availability
 (GA) release of version 2.7.0. Release candidates should be used only
 during a defined testing period, and they carry an implicit obligation

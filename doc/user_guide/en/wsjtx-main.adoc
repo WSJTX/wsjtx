@@ -217,10 +217,6 @@ include::decoder_notes.adoc[]
 == Measurement Tools
 include::measurement_tools.adoc[]
 
-[[WSJT-X_IMPROVED]]
-== _WSJT-X Improved_
-include::wsjtx_improved.adoc[]
-
 [[COOP_PGMS]]
 == Cooperating Programs
 include::cooperating-programs.adoc[]
@@ -228,7 +224,6 @@ include::cooperating-programs.adoc[]
 [[PLATFORM]]
 == Platform Dependencies
 include::platform-dependencies.adoc[]
-
 
 [[FAQ]]
 == Frequently Asked Questions
