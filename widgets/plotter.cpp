@@ -205,6 +205,7 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
   ymin = 0;
   for(int i=0; i<iz; i++) {
     y=swide[i];
+    if( y != y ) y=0.0;   // check for nan - a nan is not equal to itself
     y = 10.0*gain*y + m_plotZero;
     if (y<0.0) y=0.0;
     if (y>254.0) y=254.0;
