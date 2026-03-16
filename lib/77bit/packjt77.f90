@@ -106,7 +106,8 @@ integer function ihashcall(c0,m)
      n8=38_8*n8 + j
   enddo
 
-  prod = 47055833459_8 * n8
+  prod = 47055833459_8
+  prod = prod * n8
   prod = ishft(prod,64)
   ihashcall=ishft(prod,m-128)
 
