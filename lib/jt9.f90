@@ -20,6 +20,8 @@ program jt9
   type(wav_header) wav
   real*4 s(NSMAX)
   real*8 TRperiod
+  integer npct_unused
+
   character c
   character(len=500) optarg, infile
   character wisfile*256
@@ -319,7 +321,7 @@ program jt9
               call timer('symspec ',0)
               nminw=1
               call symspec(shared_data,k,nsps,ingain,      &
-                   bLowSidelobes,nminw,pxdb,s,df3,ihsym,npts8,pxdbmax)
+                   bLowSidelobes,nminw,pxdb,s,df3,ihsym,npts8,pxdbmax,npct_unused)
               call timer('symspec ',1)
            endif
            nhsym0=nhsym
