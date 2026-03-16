@@ -38,13 +38,18 @@ program sjtty
   if(nargs.eq.1) then
     call getarg(1,umsg)
     call pack_jtty(umsg,c32,nframes)
-    write(*,'(a,a)') "Message : ",trim(umsg)
+    call unpack_jtty(c32,nframes,umsg)
+    do while (index(umsg,'~') .ne. 0) 
+      i1=index(umsg,'~')
+      umsg(i1:i1)=' '
+    enddo
+    write(*,'(a,a)') "Message after pack/unpack : ",trim(umsg)
     nsps=384
     if(nframes.eq.1) then
-       write(*,'(i4,a,f5.2,a)') nframes," frame, transmission length", &
+       write(*,'(i4,a,f5.2,a)') nframes," frame, Transmission length ", &
           53*nframes*nsps/12000.0," seconds"
     else
-       write(*,'(i4,a,f5.2,a)') nframes," frames, Transmission length", &
+       write(*,'(i4,a,f5.2,a)') nframes," frames, Transmission length ", &
           53*nframes*nsps/12000.0," seconds"
     endif 
     go to 999
