@@ -111,6 +111,12 @@ class EqualizationToolsDialog;
 class DecodedText;
 class Cloudlog;
 
+#include "JttyTxQueue.hpp"
+
+#ifdef WIN32
+class MMTTYIF;
+#endif
+
 class MainWindow
   : public MultiGeometryWidget<3, QMainWindow>
 {
@@ -131,6 +137,11 @@ public:
                       QSplashScreen *, QProcessEnvironment const&,
                       QWidget *parent = nullptr);
   ~MainWindow();
+
+#ifdef WIN32
+  void initMMTTY(const QString& hexHandle);
+  MMTTYIF *getMmttyIf() const;
+#endif
 
   int decoderBusy () const {return m_decoderBusy;}
 
@@ -487,6 +498,8 @@ private slots:
   void on_pbF7_clicked();
   void on_pbF8_clicked();
 
+  void logText(const QString &text);
+
 private:
   bool isFalseDecode(const QByteArray& line, const DecodedText& dt, const QString& msg0) const;
   void parseAveragingInfo(const QByteArray& line, bool& bAvgMsg, int& navg) const;
@@ -502,6 +515,7 @@ private:
   void displayDecodedTextLine(const DecodedText& dt, const QByteArray& line_read, const QString& distance, bool haveFSpread, float fSpread, bool bDisplayPoints);
   QString calculateDistanceAndBearing(const DecodedText& dt);
   void processSuperHoundVerification(const DecodedText& dt, bool& verified);
+  bool nativeEvent(const QByteArray &, void *, long int *);
 
 private:
   Q_SIGNAL void initializeAudioOutputStream (QAudioDeviceInfo,
@@ -542,6 +556,9 @@ private:
   void configActiveStations();
   void sfox_tx();
   void jtty_tx(QString message);
+  void execute_jtty_tx(QString message);
+  void stopJttyTxIfEmpty();
+  void abort_jtty_tx();
   void jtty_save_wav();
   bool jtty_key_struck(QKeyEvent * e);
   void jtty_decode(int k);
@@ -569,6 +586,12 @@ private:
   QPushButton * m_configurations_button;
   QSettings * m_settings;
   QScopedPointer<Ui::MainWindow> ui;
+
+#ifdef WIN32
+  MMTTYIF * m_mmttyif {nullptr};
+#endif
+
+  JttyTxQueue * m_jttyQueue {nullptr};
 
   Configuration m_config;
   LogBook m_logBook;            // must be after Configuration construction

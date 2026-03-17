@@ -114,6 +114,8 @@
 #include "widgets/qsymonitor.h"
 #include "Network/eqsl.h"
 
+
+
 #define FCL fortran_charlen_t
 
 extern "C" {
@@ -1358,6 +1360,8 @@ void MainWindow::on_the_minute ()
   verified = false;
   if(!m_transmitting && m_mode=="FT8" && (QDateTime::currentMSecsSinceEpoch()-m_mslastTX) > 120000) m_lapmyc=0;
 }
+
+
 
 //--------------------------------------------------- MainWindow destructor
 MainWindow::~MainWindow()

@@ -341,6 +341,7 @@ set (wsjtx_CXXSRCS
   WSPR/WsprTxScheduler.cpp
   widgets/mainwindow.cpp
   widgets/mainwindow_jtty.cpp
+  widgets/JttyTxQueue.cpp
   widgets/mainwindow_settings.cpp
   widgets/mainwindow_show_messages.cpp
   widgets/mainwindow_arrl_digi.cpp
@@ -353,6 +354,7 @@ set (wsjtx_CXXSRCS
   widgets/QSYMessage.cpp 
   widgets/QSYMessageCreator.cpp
   widgets/qsymonitor.cpp
+  widgets/MMTTYIF.cpp
   )
 
 set (wsjt_CXXSRCS
@@ -801,6 +803,7 @@ set (wsjt_qt_UISRCS
   wf_palette_design_dialog.ui
   widgets/FoxLogWindow.ui
   widgets/CabrilloLogWindow.ui
+  Configuration.ui
   )
 
 set (wsprsim_CSRCS
@@ -834,7 +837,6 @@ set (wsjtx_UISRCS
   widgets/activeStations.ui
   widgets/widegraph.ui
   widgets/logqso.ui
-  Configuration.ui
   widgets/ExportCabrillo.ui
   widgets/QSYMessage.ui
   widgets/QSYMessageCreator.ui
@@ -1447,6 +1449,8 @@ target_link_libraries (ldpcsim80_42 wsjt_fort wsjt_cxx)
 
 endif(WSJT_BUILD_UTILS)
 
+
+
 add_executable (fmtave lib/fmtave.f90)
 
 add_executable (fcal lib/fcal.f90)
@@ -1481,6 +1485,19 @@ target_link_libraries (wsprd ${FFTW3_LIBRARIES} ${LIBM_LIBRARIES})
 
 # Tell CMake to run moc when necessary
 set (CMAKE_AUTOMOC ON)
+
+# mmtty_interface utility
+set (mmtty_interface_SRCS
+  mmtty_interface/main.cpp
+  mmtty_interface/MainWindow.cpp
+  mmtty_interface/MainWindow.hpp
+  widgets/MMTTYIF.cpp
+  widgets/MMTTYIF.hpp
+)
+
+add_executable (mmtty_interface WIN32 ${mmtty_interface_SRCS})
+target_link_libraries (mmtty_interface Qt5::Widgets)
+target_include_directories (mmtty_interface PRIVATE widgets)
 include_directories (${CMAKE_CURRENT_BINARY_DIR})
 
 # don't use Qt "keywords" signal, slot, emit in generated files to
@@ -1572,8 +1589,8 @@ add_resources (wsjtx_RESOURCES /Translations ${QM_FILES})
 configure_file (wsjtx.qrc.in wsjtx.qrc @ONLY)
 
 # UI generation
-#qt5_wrap_ui (wsjt_qt_GENUISRCS ${wsjt_qt_UISRCS})
-#qt5_wrap_ui (wsjtx_GENUISRCS ${wsjtx_UISRCS})
+qt5_wrap_ui (wsjt_qt_GENUISRCS ${wsjt_qt_UISRCS})
+qt5_wrap_ui (wsjtx_GENUISRCS ${wsjtx_UISRCS})
 
 # Resource generation
 qt5_add_resources (wsjtx_RESOURCES_RCC
@@ -1845,7 +1862,15 @@ install (TARGETS jt9 wsprd fmtave fcal fmeasure
 if(WSJT_BUILD_UTILS)
 install (TARGETS ft8code jt65code jt9code jt4code msk144code 
   q65code fst4sim ft8sim q65sim EchoCallSim testEchoCall echosim
-  hash22calc cablog sjtty rjtty 
+  hash22calc cablog sjtty rjtty mmtty_interface 
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
+  BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
+  )
+
+add_executable(wsjtx_jtty WIN32 mmtty_interface/wsjtx_jtty.c)
+add_executable(wsjtx_jtty2 WIN32 mmtty_interface/wsjtx_jtty2.c)
+
+install (TARGETS wsjtx_jtty wsjtx_jtty2
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   )
