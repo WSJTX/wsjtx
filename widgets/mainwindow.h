@@ -478,6 +478,14 @@ private slots:
   void on_rbEchoCW_toggled(bool b);
   void on_leEchoMessage_textChanged();
   void on_pbSendMessage_clicked();
+  void on_pbF1_clicked();
+  void on_pbF2_clicked();
+  void on_pbF3_clicked();
+  void on_pbF4_clicked();
+  void on_pbF5_clicked();
+  void on_pbF6_clicked();
+  void on_pbF7_clicked();
+  void on_pbF8_clicked();
 
 private:
   bool isFalseDecode(const QByteArray& line, const DecodedText& dt, const QString& msg0) const;
