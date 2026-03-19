@@ -1416,7 +1416,7 @@ Yellow when too low</string>
             </sizepolicy>
            </property>
            <property name="currentIndex">
-            <number>1</number>
+            <number>0</number>
            </property>
            <widget class="QWidget" name="page">
             <layout class="QHBoxLayout" name="horizontalLayout_8">
@@ -3780,7 +3780,7 @@ Double-click to reset to the standard 73 message</string>
                 </spacer>
                </item>
                <item row="0" column="1">
-                <widget class="QCheckBox" name="checkBox">
+                <widget class="QCheckBox" name="cbLowerCase">
                  <property name="text">
                   <string>Display lower case</string>
                  </property>
