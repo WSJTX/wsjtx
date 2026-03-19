@@ -127,7 +127,7 @@ end subroutine rm_q3list
 subroutine jpl_setup(fname)
   character*256 fname,jpleph_file_name
   common/jplcom/jpleph_file_name
-  j=index(fname,char(0))
+  j = index(fname,char(0))
   jpleph_file_name(1:j)=fname(1:j)
   jpleph_file_name(j:)=' '
   return
