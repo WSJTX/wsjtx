@@ -266,10 +266,11 @@ void MainWindow::on_sbFtol_2_valueChanged (int n)
     if(n==999) std::cout << "AAA " << n << "\n";
 }
 
-#ifdef WIN32
 void MainWindow::logText(const QString &text) {
   LOG_INFO(text);
 }
+
+#ifdef Q_OS_WIN
 
 void MainWindow::initMMTTY(const QString& hexHandle) {
     if (!m_mmttyif) {

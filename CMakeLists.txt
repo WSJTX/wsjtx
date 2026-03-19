@@ -1867,13 +1867,15 @@ install (TARGETS ft8code jt65code jt9code jt4code msk144code
   BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   )
 
-add_executable(wsjtx_jtty WIN32 mmtty_interface/wsjtx_jtty.c)
-add_executable(wsjtx_jtty2 WIN32 mmtty_interface/wsjtx_jtty2.c)
+if (WIN32)
+  add_executable(wsjtx_jtty WIN32 mmtty_interface/wsjtx_jtty.c)
+  add_executable(wsjtx_jtty2 WIN32 mmtty_interface/wsjtx_jtty2.c)
 
-install (TARGETS wsjtx_jtty wsjtx_jtty2
-  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
-  BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
-  )
+  install (TARGETS wsjtx_jtty wsjtx_jtty2
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
+    BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
+    )
+endif(WIN32)
 endif(WSJT_BUILD_UTILS)  
 
 install (PROGRAMS
