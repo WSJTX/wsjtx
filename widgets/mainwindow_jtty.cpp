@@ -68,6 +68,7 @@ void MainWindow::jtty_decode(int k)
                  &qso_freq[0], (FCL)2400, (FCL)800);
 
   QString allMsgs {QString::fromLatin1(all_freqs)};
+  if(ui->cbLowerCase->isChecked()) allMsgs = allMsgs.toLower();
   if(all_new) {
       ui->decodedTextBrowser->clear();
       if(allMsgs.left(1) == " ") {
@@ -83,6 +84,7 @@ void MainWindow::jtty_decode(int k)
   }
   if(qso_new) {
       QString message2 {QString::fromLatin1(qso_freq)};
+      if(ui->cbLowerCase->isChecked()) message2 = message2.toLower();
       int n2=message2.length();
       if(n2 > 0) {
         ui->decodedTextBrowser2->clear();
@@ -112,6 +114,7 @@ void MainWindow::execute_jtty_tx(QString message)
   int itone[848];
   int n=message.length();
   m_currentMessage = message;
+  if(ui->cbLowerCase->isChecked()) message = message.toLower();
 
   // Display Tx message highlighted in yellow
   ui->decodedTextBrowser2->insertText(" ");

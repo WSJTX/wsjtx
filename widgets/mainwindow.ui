@@ -3784,6 +3784,9 @@ Double-click to reset to the standard 73 message</string>
                  <property name="text">
                   <string>Display lower case</string>
                  </property>
+                 <property name="checked">
+                  <bool>false</bool>
+                 </property>
                 </widget>
                </item>
               </layout>
@@ -5131,7 +5134,7 @@ QPushButton[state=&quot;ok&quot;] {
      <x>0</x>
      <y>0</y>
      <width>880</width>
-     <height>17</height>
+     <height>25</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
