@@ -355,7 +355,6 @@ use a *Tx1* message and not a *Tx2* message when calling another station.
 This will ensure that the station you are calling will be able to decode your
 callsign in full.
 
-
 === Pre-QSO Checklist
 
 Before attempting your first QSO with one of the _WSJT-X_ modes, be sure

@@ -118,6 +118,7 @@ d). Edit lines as needed. Keeping them in alphabetic order help see dupes.
 :nh6z: http://www.nh6z.net/Amatuer_Radio_Station_NH6Z/Other_Peoples_Software.html[here]
 :omnirig: http://www.dxatlas.com/OmniRig/Files/OmniRig.zip[Omni-Rig]
 :osx: https://sourceforge.net/projects/wsjt/files/wsjtx-{VERSION}/wsjtx-{VERSION}-Darwin.dmg[wsjtx-{VERSION}-Darwin.dmg]
+:osxarm: https://sourceforge.net/projects/wsjt/files/wsjtx-{VERSION}/wsjtx-{VERSION}-Arm-Darwin.dmg[wsjtx-{VERSION}-ARM-Darwin.dmg]
 :QRA64_EME: https://sourceforge.net/projects/wsjt/files/wsjtx-{VERSION}/QRA64_EME.pdf[QRA64 for microwave EME]
 :svn: https://subversion.apache.org/packages.html#windows[Subversion]
 :win32: https://sourceforge.net/projects/wsjt/files/wsjtx-{VERSION}/wsjtx-{VERSION}-win32.exe[wsjtx-{VERSION}-win32.exe]
