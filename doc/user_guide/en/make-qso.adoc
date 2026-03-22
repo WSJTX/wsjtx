@@ -350,6 +350,12 @@ experiment with the option *Message generation for type 2 compound
 callsign holders* on the *File | Settings | General* tab, so that messages
 will be generated that best suit your needs.
 
+TIP: If you are using a compound callsign, it is recommended to
+use a *Tx1* message and not a *Tx2* message when calling another station.
+This will ensure that the station you are calling will be able to decode your
+callsign in full.
+
+
 === Pre-QSO Checklist
 
 Before attempting your first QSO with one of the _WSJT-X_ modes, be sure

@@ -74,6 +74,13 @@ _Omni-Rig_ apparently has a bug that appears when you click *Test
 CAT*.  Forget using *Test CAT* and just click *OK*.  _Omni-Rig_ then
 behaves normally.
 
+When using FT8 or FT4, I notice that sometimes my rig frequency changes when going from receive to transmit.  Is this a problem?::
+
+No. If you are using *Split*, and your Tx audio frequency (red goalpost on the waterfall) is outside the range 1500-2000Hz, your rig 
+will move frequency. This is because the chosen audio frequency could generate in-band harmonics if the audio level
+is too high, or may be outside the typical bandwidth of an ssb filter.  The generated audio tone is adjusted accordingly, and the rig
+frequency is changed to compensate for this.
+
 I am running _WSJT-X_ under Ubuntu.  The program starts, but the menu bar is missing from the top of the main window and the hot-keys don't work.::
 
 Ubuntu's new "`Unity`" desktop puts the menu for the currently active
