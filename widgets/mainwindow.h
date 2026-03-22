@@ -847,19 +847,19 @@ private:
 
   enum {CALL, GRID, DXCC, MULT};
 
-  int			m_ihsym;
-  int			m_nzap;
-  int			m_npts8;
+  int		m_ihsym;
+  int		m_nzap;
+  int		m_npts8;
   float		m_px;
-  float   m_pxmax;
+  float     m_pxmax;
   float		m_df3;
-  int			m_iptt0;
+  int		m_iptt0;
   bool		m_btxok0;
-  int			m_nsendingsh;
+  int		m_nsendingsh;
   double	m_onAirFreq0;
   bool		m_first_error;
 
-  char    m_msg[100][80];
+  char      m_msg[100][80];
 
   // labels in status bar
   QLabel tx_status_label;
