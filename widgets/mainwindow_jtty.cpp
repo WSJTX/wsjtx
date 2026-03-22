@@ -159,8 +159,6 @@ void MainWindow::execute_jtty_tx(QString message)
   }
 #endif
 
-  startTx2();
-
 #ifdef WIN32
   if (m_mmttyif) {
     m_mmttyif->echo_message_to_n1mm(message);
