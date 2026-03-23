@@ -5552,22 +5552,6 @@ QPushButton[state=&quot;ok&quot;] {
     <string>Quick-Start Guide to WSJT-X 2.7 and QMAP</string>
    </property>
   </action>
-  <action name="actionWSJT_X_improved_Home_Page">
-   <property name="text">
-    <string>WSJT-X_improved Home Page</string>
-   </property>
-   <property name="whatsThis">
-    <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Go to the wsjt-x_improved home page.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-   </property>
-  </action>
-  <action name="actionThe_additional_features_of_wsjt_x_improved">
-   <property name="text">
-    <string>The additional features of wsjt-x_improved</string>
-   </property>
-   <property name="whatsThis">
-    <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Overview on the additional features of wsjt-x_improved.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-   </property>
-  </action>
   <action name="actionRecommended_Audio_Settings">
    <property name="text">
     <string>Recommended audio settings</string>
