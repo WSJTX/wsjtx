@@ -8,8 +8,66 @@
 | $$$    \$$$ \$$    $$ \$$    $$   | $$       | $$  | $$
  \$$      \$$  \$$$$$$   \$$$$$$     \$$        \$$   \$$
                                                          
-                                                         
-Copyright 2001 - 2025 by Joe Taylor, K1JT, and the WSJT Development Team
+
+Copyright 2001 - 2026 by Joe Taylor, K1JT, and the WSJT Development Team
+
+                        Release: WSJT-X 3.0.0
+                            April 15, 2026
+                      -------------------------
+
+WSJT-X 3.0.0 introduces a number of new features and capabilities,
+many of which are already familiar to users of Release Candidate
+WSJT-X 3.0.0-rc1. Among the more important enhancements since WSJT-X
+2.7.0 are the following:
+
+ - Single-click Band Buttons, enabled from the View menu.
+
+ - FT8 Decoding includes an option for parallel processing in
+   concurrent threads, and other changes to yield improved speed and
+   performance.
+
+ - Optional filters can suppress display of various categories of
+   decoded messages.
+
+ - Options to Wait and Reply, Wait and Call, and Wait and Pounce.
+
+ - Audible Alerts can play a sound alerting you to reception of a
+   message with speficied content.
+
+ - Transmitted Power and SWR can be displayed (as reported by the
+   radio) in a Status Bar label. Transmission can be stopped
+   automatically if SWR exceeds 2.5.  These features work with most
+   modern radios controlled via Hamlib or FLRig.
+
+ - Band Hopping checkboxes for FT8, FT4 and MSK144 can activate
+   sequential reception intervals on the main sub-bands, or on up to
+   eight specified dial frequencies.
+
+ - High Resolution Monitors are supported with better scaling of fonts
+   and widget sizes.
+
+ - "Highlight orange" and "Highlight blue" features on the File |
+   Settings | Colors tab can now be used to highlight directional
+   calls (DX, SOTA, POTA, YOTA, etc.).
+ 
+ - MSK144 operation: "73" messages addressed to MyCall are now also
+   displayed in the right pane. A bank line is inserted between
+   decodes for different TR periods.
+
+ - Moon ephemeris charts can be downloaded from the Help menu.
+
+ - New EME Features include easier ways to select dial frequencies
+   within an EME sub-band and to offset your Tx frequency by an
+   integer number of MHz from the Rx frequency. New buttons are
+   provided for quick access to Echo mode and six popular Q65
+   sub-modes.
+
+ - Echo mode allows you to transmit your callsign (or any other
+   6-character group) to the Moon and decode its echo.
+
+ - QMAP and MAP65 offer spotting to the CQLive and PSKReporter web
+   sites and improved handling of compound callsigns.
+
 
                         Release: WSJT-X 3.0.0-rc1
                           September 15, 2025
