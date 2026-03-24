@@ -1829,11 +1829,19 @@ void MainWindow::dataSink(qint64 frames)
         float hour=n/10000 + ((n/100)%100)/60.0 + (n%100)/3600.0;
         m_echoRunning=true;
         if(ndf<0 or ndf>30) ndf=0;
+	          //added for Bob KA1GT
+        double dgrd = m_astroWidget->getDgrd();
         QString t;
-        t = t.asprintf("%7.4f  %5.2f %7d %7.1f %5d %5d %6d %6.1f %7.1f  %3d",hour,xlevel,
-                       nDopTotal,width,echocom_.nsum,nqual,qRound(dfreq),sigdb,dBerr,ndf);
-        t = t0 + t + "  " + rxcall;
-        if(!bEchoCall) t=t.left(78);
+        if (!m_diskData) {
+          t = t.asprintf("%7.4f  %5.2f %7d %7.1f %5d %5d %6d %6.1f %7.1f  %3d %5.1f",hour,xlevel,
+                         nDopTotal,width,echocom_.nsum,nqual,qRound(dfreq),sigdb,dBerr,ndf,dgrd);
+          t = t0 + t + "  " + rxcall;
+        } else {
+          t = t.asprintf("%7.4f  %5.2f %7d %7.1f %5d %5d %6d %6.1f %7.1f  %3d",hour,xlevel,
+                         nDopTotal,width,echocom_.nsum,nqual,qRound(dfreq),sigdb,dBerr,ndf);
+          t = t0 + t + "        " + rxcall;
+        }
+        if(!bEchoCall) t=t.left(84);
         if(ui) ui->decodedTextBrowser->insertText(t);
         t=t1 + t;
         write_all("Rx",t);
@@ -8927,7 +8935,7 @@ void MainWindow::on_actionEcho_triggered()
   m_bFastMode=false;
   m_bFast9=false;
   WSPR_config(true);
-  ui->lh_decodes_headings_label->setText("  UTC    Hour    Level  Doppler  Width     N     Q     DF    SNR   dBerr   TS  EchoMsg");
+  ui->lh_decodes_headings_label->setText("  UTC    Hour    Level  Doppler  Width     N     Q     DF    SNR   dBerr   TS  Dgrd  EchoMsg"); 
   //                       01234567890123456789012345678901234567
   displayWidgets(nWidgets("00000000000000000010001000000000000000"));
   fast_config(false);

@@ -26,7 +26,8 @@ public:
 
   explicit Astro(QSettings * settings, Configuration const *, QWidget * parent = nullptr);
   ~Astro ();
-
+  double getDgrd() const;  // added for Bob KA1GT
+  
   struct Correction
   {
     Correction ()
@@ -106,6 +107,7 @@ private:
   int ibShift;
   //int m_dx_two_way_dop;
   bool astroStart = true;
+  double m_dgrd = 0.0; // added for Bob KA1GT 
 };
 
 inline
