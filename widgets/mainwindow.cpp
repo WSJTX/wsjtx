@@ -1895,11 +1895,19 @@ void MainWindow::dataSink(qint64 frames)
       }
       int samples=m_TRperiod*12000;
       if(m_mode=="FT4") samples=21*3456;
-      short const * data = &dec_data.d2[0];
+      short const * data = &dec_data.d2[0];      
+      double dgrd_value = 0.0;
+      QString dgrd;
+      if(m_astroWidget) {
+        dgrd_value = m_astroWidget->getDgrd();
+        dgrd = QString("%1").arg(dgrd_value, 0, 'f', 1);
+      } else {
+        dgrd = "NoVal";
+      }  
       m_saveWAVWatcher.setFuture (QtConcurrent::run ([=] {
         return Radio::WavFile::save (m_fnameWE, data, samples, m_config.my_callsign (),
                                      m_config.my_grid (), m_mode, m_nSubMode, m_freqNominalPeriod,
-                                     m_hisCall, m_hisGrid);
+                                     m_hisCall, m_hisGrid, dgrd);
       }));
       if (m_mode=="WSPR") {
         auto c2name {(m_fnameWE + ".c2").toLocal8Bit ()};
@@ -2513,11 +2521,19 @@ void MainWindow::fastSink(qint64 frames)
         m_bAltV=false;
         // the following is potential a threading hazard - not a good
         // idea to pass pointer to be processed in another thread
-        short const * data = &dec_data.d2[0];
+        short const * data = &dec_data.d2[0];             
+        double dgrd_value = 0.0;
+        QString dgrd;
+        if(m_astroWidget) {
+          dgrd_value = m_astroWidget->getDgrd();
+          dgrd = QString("%1").arg(dgrd_value, 0, 'f', 1);
+        } else {
+          dgrd = "NoVal";
+        }  
         m_saveWAVWatcher.setFuture (QtConcurrent::run ([=] {
           return Radio::WavFile::save (m_fnameWE, data, int (m_TRperiod * 12000.0),
                                        m_config.my_callsign (), m_config.my_grid (), m_mode,
-                                       m_nSubMode, m_freqNominal, m_hisCall, m_hisGrid);
+                                       m_nSubMode, m_freqNominal, m_hisCall, m_hisGrid, dgrd);
         }));
       }
       if(m_mode!="MSK144") {

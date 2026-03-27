@@ -45,10 +45,11 @@ void MainWindow::jtty_save_wav()
   m_fnameWE=m_config.save_directory().absoluteFilePath (tstart.toString("yyMMdd_hhmmss"));
   int samples=m_k0;
   short const * data = &dec_data.d2[0];
+  QString dgrd = "jtty";
   m_saveWAVWatcher.setFuture (QtConcurrent::run ([=] {
     return Radio::WavFile::save (m_fnameWE, data, samples, m_config.my_callsign (),
                                  m_config.my_grid (), m_mode, m_nSubMode, m_freqNominalPeriod,
-                                 m_hisCall, m_hisGrid);
+                                 m_hisCall, m_hisGrid, dgrd);
   }));
 }
 

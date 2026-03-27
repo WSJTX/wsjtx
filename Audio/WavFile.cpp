@@ -11,7 +11,7 @@ QString WavFile::save (QString const& name, short const * data, int samples,
                        QString const& my_callsign, QString const& my_grid,
                        QString const& mode, qint32 sub_mode,
                        Frequency frequency, QString const& his_call,
-                       QString const& his_grid)
+                       QString const& his_grid, QString const& dgrd)
 {
   QAudioFormat format;
   format.setCodec ("audio/pcm");
@@ -36,6 +36,7 @@ QString WavFile::save (QString const& name, short const * data, int samples,
       {{{'I','C','R','D'}}, QDateTime::currentDateTimeUtc ()
                           .toString ("yyyy-MM-ddTHH:mm:ss.zzzZ").toLocal8Bit ()},
       {{{'I','C','M','T'}}, comment.toLocal8Bit ()},
+      {{{'D','G','R','D'}}, dgrd.toLocal8Bit()},  //added for Bob KA1GT
         };
   auto file_name = name + ".wav";
   BWFFile wav {format, file_name, list_info};
