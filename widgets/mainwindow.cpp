@@ -1243,7 +1243,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
   if(QCoreApplication::applicationVersion().contains("-devel") or
      QCoreApplication::applicationVersion().contains("-rc")) {
-//    QTimer::singleShot (0, this, SLOT (not_GA_warning_message ()));     //Disabled for now
+     QTimer::singleShot (0, this, SLOT (not_GA_warning_message ()));     //Disabled for now
   }
 
   m_bMyCallStd=stdCall(m_config.my_callsign ()); //ft8md
@@ -1302,7 +1302,7 @@ void MainWindow::not_GA_warning_message ()
                                 "available for testing purposes.  By design it will\n"
                                 "be nonfunctional after April 30, 2026.");
   auto now = QDateTime::currentDateTimeUtc ();
-  if (now >= QDateTime {{2026, 04, 30}, {23, 59, 59, 999}, Qt::UTC}) {
+  if (now >= QDateTime {{2026, 9, 30}, {23, 59, 59, 999}, Qt::UTC}) {
     Q_EMIT finished ();
   }
 }
