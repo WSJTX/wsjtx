@@ -8787,6 +8787,7 @@ void MainWindow::on_actionJTTY_triggered()
 //                           01234567890123456789012345678901234567
     displayWidgets(nWidgets("11111100010011100001000000010000000000"));
   setup_status_bar (false);
+  monitor(true);
 }
 
 
