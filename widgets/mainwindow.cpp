@@ -1833,14 +1833,15 @@ void MainWindow::dataSink(qint64 frames)
         double dgrd = m_astroWidget->getDgrd();
         QString t;
         if (!m_diskData) {
-          t = t.asprintf("%7.4f  %5.2f %7d %7.1f %5d %5d %6d %6.1f %7.1f  %3d %5.1f",hour,xlevel,
-                         nDopTotal,width,echocom_.nsum,nqual,qRound(dfreq),sigdb,dBerr,ndf,dgrd);
-          t = t0 + t + "  " + rxcall;
+            t = t.asprintf("%7.4f  %5.2f %7d %7.1f %5.1f %5d %5d %6d %6.1f %7.1f  %3d",hour,xlevel,
+                   nDopTotal,width,dgrd,echocom_.nsum,nqual,qRound(dfreq),sigdb,dBerr,ndf);
+            t = t0 + t + "  " + rxcall;
         } else {
-          t = t.asprintf("%7.4f  %5.2f %7d %7.1f %5d %5d %6d %6.1f %7.1f  %3d",hour,xlevel,
-                         nDopTotal,width,echocom_.nsum,nqual,qRound(dfreq),sigdb,dBerr,ndf);
-          t = t0 + t + "        " + rxcall;
+            t = t.asprintf("%7.4f  %5.2f %7d %7.1f       %5d %5d %6d %6.1f %7.1f  %3d",hour,xlevel,
+                   nDopTotal,width,echocom_.nsum,nqual,qRound(dfreq),sigdb,dBerr,ndf);
+            t = t0 + t + "        " + rxcall;
         }
+
         if(!bEchoCall) t=t.left(84);
         if(ui) ui->decodedTextBrowser->insertText(t);
         t=t1 + t;
@@ -8952,7 +8953,7 @@ void MainWindow::on_actionEcho_triggered()
   m_bFastMode=false;
   m_bFast9=false;
   WSPR_config(true);
-  ui->lh_decodes_headings_label->setText("  UTC    Hour    Level  Doppler  Width     N     Q     DF    SNR   dBerr   TS  Dgrd  EchoMsg"); 
+  ui->lh_decodes_headings_label->setText("  UTC    Hour    Level  Doppler  Width  Dgrd     N     Q     DF    SNR   dBerr   TS  EchoMsg");
   //                       01234567890123456789012345678901234567
   displayWidgets(nWidgets("00000000000000000010001000000000000000"));
   fast_config(false);
