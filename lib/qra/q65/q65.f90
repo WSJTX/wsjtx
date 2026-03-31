@@ -144,6 +144,22 @@ subroutine q65_dec0(iavg,iwave,ntrperiod,nfqso,ntol,lclearave,  &
   endif
 
   i0=nint(nfqso/df)                             !Target QSO frequency
+! add AGC to restore average decodes
+ii1 = max(1, i0-64)
+ii2 = i0-65+LL
+
+call pctile(s1(ii1:ii2,1:jz), ii2-ii1+1*jz, 45, base)
+s1 = s1 / base
+
+! Apply fast AGC to the symbol spectra
+  s1max=20.0
+  do j=1,jz
+   smax = maxval(s1(ii1:ii2,j))
+   if (smax.gt.s1max) s1(ii1:ii2,j) = s1(ii1:ii2,j) * s1max/smax
+enddo
+
+! end add AGC to restore average decodes
+
   dat4=0
   if(ncw.gt.0 .and. iavg.le.1) then
 ! Try list decoding via "Deep Likelihood".
