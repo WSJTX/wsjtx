@@ -13724,46 +13724,57 @@ void MainWindow::processFoxSignals(const DecodedText& decodedtext)
 void MainWindow::processSFoxVerification(const DecodedText& decodedtext0, bool& filtered)
 {
 #ifdef FOX_OTP
-  if ((SpecOp::HOUND == m_specOp) &&
-       ((m_config.superFox() && (decodedtext0.mid(24, 8) == "\\$")) ||
-       (decodedtext0.mid(24,-1).contains(QRegularExpression{"^[A-Z0-9]{2,6}\\.[0-9]{6}"}))))
-  {
-    QStringList lineparts;
-    QString callsign, otp;
-    unsigned int hz;
-    lineparts = decodedtext0.string().split(' ', SkipEmptyParts);
-    if (lineparts.length() <= 6) {
-      QStringList otp_parts;
-      otp_parts = lineparts[5].split('.', SkipEmptyParts);
-      callsign = otp_parts[0];
-      otp = otp_parts[1];
-      hz = lineparts[3].toInt();
-      if (!m_config.ShowOTP() or decodedtext0.mid(24,-1).contains(" 000000")) filtered = true;
-    } else {
-      callsign = lineparts[6];
-      otp = lineparts[7];
-      hz = 750;
-      if (!m_config.ShowOTP() or decodedtext0.mid(24,-1).contains(" 000000")) filtered = true;
-    }
-    QDateTime verifyDateTime;
-    if (m_diskData) {
-      verifyDateTime = m_UTCdiskDateTime;
-    } else {
-      verifyDateTime = QDateTime(QDateTime::currentDateTimeUtc().date(),
-                                 QTime::fromString(lineparts[0], "hhmmss"));
-    }
-    if (!decodedtext0.mid(24,-1).contains(" 000000")) {
-      FoxVerifier *fv = new FoxVerifier(MainWindow::userAgent(),
-                                        &m_network_manager,
-                                        m_config.OTPUrl(),
-                                        callsign,
-                                        verifyDateTime,
-                                        otp,
-                                        hz);
-      connect(fv, &FoxVerifier::verifyComplete, this, &MainWindow::handleVerifyMsg);
-      m_verifications << fv;
-    }
-  }
+          if (SpecOp::HOUND == m_specOp)
+          {
+            // Payload formats (from column 24 onward):
+            //   Standard:  CALL.OTP        e.g. "K8R.920749"
+            //   SuperFox:  $VERIFY$ CALL OTP  e.g. "$VERIFY$ VP2X/K1JT 920749"
+            // Callsigns may include '/' and decoder output may contain variable spacing.
+            static const QRegularExpression stdPayloadRe{
+                QStringLiteral("^([A-Z0-9]{2,6})\\.([0-9]{6})$")};
+            static const QRegularExpression verifyPayloadRe{
+                QStringLiteral("^\\$VERIFY\\$\\s+([A-Z0-9/]{2,13})\\s+([0-9]{6})$")};
+
+            QString const payload = decodedtext0.mid(24, -1).trimmed();
+            QString callsign, otp;
+            unsigned int hz = 0;
+
+            QRegularExpressionMatch payloadMatch = stdPayloadRe.match(payload);
+            if (payloadMatch.hasMatch()) {
+              callsign = payloadMatch.captured(1);
+              otp = payloadMatch.captured(2);
+              hz = static_cast<unsigned int>(decodedtext0.frequencyOffset());
+            } else if (m_config.superFox() &&
+                       (payloadMatch = verifyPayloadRe.match(payload)).hasMatch()) {
+              callsign = payloadMatch.captured(1);
+              otp = payloadMatch.captured(2);
+              hz = 750;
+            }
+
+            if (!callsign.isEmpty()) {
+              if (!m_config.ShowOTP() || otp == QLatin1String("000000"))
+                filtered = true;
+
+              QDateTime verifyDateTime;
+              if (m_diskData) {
+                verifyDateTime = m_UTCdiskDateTime;
+              } else {
+                verifyDateTime = QDateTime(QDateTime::currentDateTimeUtc().date(),
+                                           QTime::fromString(decodedtext0.left(6), "hhmmss"));
+              }
+              if (otp != QLatin1String("000000")) {
+                FoxVerifier *fv = new FoxVerifier(MainWindow::userAgent(),
+                                                  &m_network_manager,
+                                                  m_config.OTPUrl(),
+                                                  callsign,
+                                                  verifyDateTime,
+                                                  otp,
+                                                  hz);
+                connect(fv, &FoxVerifier::verifyComplete, this, &MainWindow::handleVerifyMsg);
+                m_verifications << fv;
+              }
+            }
+          }
 #endif
 }
 
