@@ -5,6 +5,9 @@
 #include <QThread>
 #include <qmath.h>
 
+#include <cstring>
+#include <limits>
+
 #if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
 #include <QRandomGenerator>
 #endif
@@ -20,10 +23,49 @@
 #include <QDateTime>
 #include <QTimer>
 
+static constexpr quint32 AudioHeaderSize = 16u*sizeof(quint32);
+
 namespace
 {
+  quint32 constexpr MaxTciAudioSamples {8192u};
+
   char const * const TCI_transceiver_1_name {"TCI Client RX1"};
   char const * const TCI_transceiver_2_name {"TCI Client RX2"};
+
+  bool has_required_args (QStringList const& args, int required)
+  {
+    return args.size () >= required;
+  }
+
+  int decimal_tenths (QString const& value)
+  {
+    auto const parts = value.split ('.');
+    return 10 * parts.value (0).toInt () + parts.value (1).toInt ();
+  }
+
+  bool checked_audio_frame_size (quint32 sample_count, quint32 channels, int * size)
+  {
+    if (!size || sample_count > MaxTciAudioSamples)
+      {
+        return false;
+      }
+
+    auto const payload_bytes = static_cast<quint64> (sample_count) * sizeof (float) * channels;
+    auto const frame_bytes = static_cast<quint64> (AudioHeaderSize) + payload_bytes;
+    if (frame_bytes > static_cast<quint64> ((std::numeric_limits<int>::max) ()))
+      {
+        return false;
+      }
+
+    *size = static_cast<int> (frame_bytes);
+    return true;
+  }
+
+  bool inbound_audio_payload_complete (QByteArray const& data, quint32 sample_count)
+  {
+    int expected_size;
+    return checked_audio_frame_size (sample_count, 1u, &expected_size) && data.size () >= expected_size;
+  }
 
   QString map_mode (Transceiver::MODE mode)
   {
@@ -133,8 +175,6 @@ void TCITransceiver::register_transceivers (logger_type *, TransceiverFactory::T
   (*registry)[TCI_transceiver_1_name] = TransceiverFactory::Capabilities {id1, TransceiverFactory::Capabilities::tci, true};
   (*registry)[TCI_transceiver_2_name] = TransceiverFactory::Capabilities {id2, TransceiverFactory::Capabilities::tci, true};
 }
-
-static constexpr quint32 AudioHeaderSize = 16u*sizeof(quint32);
 
 TCITransceiver::TCITransceiver (logger_type * logger, std::unique_ptr<TransceiverBase> wrapped,QString const& rignr,
                                QString const& address, bool use_for_ptt,
@@ -637,6 +677,7 @@ void TCITransceiver::onMessageReceived(const QString &str)
   QStringList cmd_list = str.split(";", SkipEmptyParts);
   for (QString cmds : cmd_list){
     QStringList cmd = cmds.split(":", SkipEmptyParts);
+    if (cmd.isEmpty ()) continue;
     QStringList args = cmd.last().split(",", SkipEmptyParts);
     Tci_Cmd idCmd = mapCmd_[cmd.first()];
     if (idCmd != Cmd_Power && idCmd != Cmd_SWR && idCmd != Cmd_Smeter && idCmd != Cmd_AppFocus && idCmd != Cmd_RxSensors && idCmd != Cmd_TxSensors) { printf("%s TCI message received:|%s| ",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),str.toStdString().c_str()); printf("idCmd : %d args : %s\n",idCmd,args.join("|").toStdString().c_str());}
@@ -645,30 +686,36 @@ void TCITransceiver::onMessageReceived(const QString &str)
 
     switch (idCmd) {
       case Cmd_Smeter:
+        if (!has_required_args (args, 3)) break;
         if(args.at(0)==rx_ && args.at(1) == "0") level_ = args.at(2).toInt() + 73;
         break;
       case Cmd_RxSensors:
+        if (!has_required_args (args, 2)) break;
         if(args.at(0)==rx_) level_ = args.at(1).split(".")[0].toInt() + 73;
         printf("Smeter=%d\n",level_);
         break;
       case Cmd_TxSensors:
+        if (!has_required_args (args, 5)) break;
         if(args.at(0)==rx_) {
-          power_ = 10 * args.at(3).split(".")[0].toInt() + args.at(3).split(".")[1].toInt();
-          swr_ = 10 * args.at(4).split(".")[0].toInt() + args.at(4).split(".")[1].toInt();
+          power_ = decimal_tenths (args.at (3));
+          swr_ = decimal_tenths (args.at (4));
           printf("Power=%d SWR=%d\n",power_,swr_);
         }
         break;
       case Cmd_SWR:
+        if (!has_required_args (args, 1)) break;
         printf("%s Cmd_SWR : %s\n",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),args.join("|").toStdString().c_str());
-        swr_ = 10 * args.at(0).split(".")[0].toInt() + args.at(0).split(".")[1].toInt();
+        swr_ = decimal_tenths (args.at (0));
         break;
       case Cmd_Power:
-        power_ = 10 * args.at(0).split(".")[0].toInt() + args.at(0).split(".")[1].toInt();
+        if (!has_required_args (args, 1)) break;
+        power_ = decimal_tenths (args.at (0));
         printf("%s Cmd_Power : %s %d\n",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),args.join("|").toStdString().c_str(),power_);
         break;
       case Cmd_VFO:
         printf("%s Cmd_VFO : %s\n",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),args.join("|").toStdString().c_str());
         printf("band_change:%d busy_other_frequency_:%d timer1_remaining:%d timer2_remaining:%d",band_change,busy_other_frequency_,tci_timer7_->remainingTime(),tci_timer2_->remainingTime()); //was timer1 and timer2
+        if (!has_required_args (args, 3)) break;
         if(args.at(0)==rx_ && args.at(1) == "0") {
           if (args.at(2).left(1) != "-") rx_frequency_ = args.at(2);
           CAT_TRACE("Rx VFO Frequency from SDR is :");
@@ -706,9 +753,10 @@ void TCITransceiver::onMessageReceived(const QString &str)
         break;
       case Cmd_Mode:
         printf("%s Cmd_Mode : %s\n",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),args.join("|").toStdString().c_str());
+        if (!has_required_args (args, 2)) break;
         if(args.at(0)==rx_) {
           if (ESDR3 || HPSDR) {
-            if (args.at(1) == "0" ) mode_ = args.at(2).toLower(); else mode_ = args.at(1).toLower();
+            if (has_required_args (args, 3) && args.at(1) == "0" ) mode_ = args.at(2).toLower(); else mode_ = args.at(1).toLower();
           } else mode_ = args.at(1);
           if (started_mode_.isEmpty()) started_mode_ = mode_;
           if (busy_mode_) return; // was tci_done1();
@@ -719,6 +767,7 @@ void TCITransceiver::onMessageReceived(const QString &str)
         break;
       case Cmd_SplitEnable:
         printf("%s Cmd_SplitEnable : %s\n",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),args.join("|").toStdString().c_str());
+        if (!has_required_args (args, 2)) break;
         if(args.at(0)==rx_) {
           if (args.at(1) == "false") split_ = false;
           else if (args.at(1) == "true") split_ = true;
@@ -733,6 +782,7 @@ void TCITransceiver::onMessageReceived(const QString &str)
         break;
       case Cmd_Drive:
         printf("%s Cmd_Drive : %s\n",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),args.join("|").toStdString().c_str());
+        if ((!ESDR3 && !HPSDR && !has_required_args (args, 1)) || ((ESDR3 || HPSDR) && !has_required_args (args, 2))) break;
         if((!ESDR3 && !HPSDR) || args.at(0)==rx_) {
           if (ESDR3 || HPSDR) drive_ = args.at(1); else drive_ = args.at(0);
           if (requested_drive_.isEmpty()) requested_drive_ = drive_;
@@ -743,6 +793,7 @@ void TCITransceiver::onMessageReceived(const QString &str)
         break;
       case Cmd_Trx:
         printf("%s Cmd_Trx : %s\n",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),args.join("|").toStdString().c_str());
+        if (!has_required_args (args, 2)) break;
         if(args.at(0)==rx_) {
           if (args.at(1) == "false") PTT_ = false;
           else if (args.at(1) == "true") PTT_ = true;
@@ -757,6 +808,7 @@ void TCITransceiver::onMessageReceived(const QString &str)
         break;
       case Cmd_AudioStart:
         printf("%s Cmd_AudioStart : %s\n",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),args.join("|").toStdString().c_str());
+        if (!has_required_args (args, 1)) break;
         if(args.at(0)==rx_) {
           stream_audio_ = true;
           if (tci_Ready) {
@@ -767,6 +819,7 @@ void TCITransceiver::onMessageReceived(const QString &str)
         break;
       case Cmd_RxEnable:
         printf("%s Cmd_RxEnable : %s\n",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),args.join("|").toStdString().c_str());
+        if (!has_required_args (args, 2)) break;
         if(args.at(0)=="1") {
           if (args.at(1) == "false") rx2_ = false;
           else if (args.at(1) == "true") rx2_ = true;
@@ -778,6 +831,7 @@ void TCITransceiver::onMessageReceived(const QString &str)
         break;
       case Cmd_AudioStop:
         printf("%s CmdAudioStop : %s\n",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),args.join("|").toStdString().c_str());
+        if (!has_required_args (args, 1)) break;
         if(args.at(0)==rx_) {
           stream_audio_ = false;
           if (tci_Ready) {
@@ -815,11 +869,13 @@ void TCITransceiver::onMessageReceived(const QString &str)
         break;
       case Cmd_Version:
         printf("%s CmdVersion : %s\n",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),args.join("|").toStdString().c_str());
+        if (!has_required_args (args, 1)) break;
         if(args.at(0)=="ExpertSDR3") ESDR3 = true;
         else if (args.at(0)=="Thetis") HPSDR = true;
         break;
       case Cmd_Device:
         printf("%s CmdDevice : %s\n",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),args.join("|").toStdString().c_str());
+        if (!has_required_args (args, 1)) break;
         if((args.at(0)=="SunSDR2DX" || args.at(0)=="SunSDR2PRO") && !ESDR3) tx_top_ = false;
         printf ("tx_top_:%d\n",tx_top_);
         break;
@@ -844,7 +900,11 @@ void TCITransceiver::sendTextMessage(const QString &message)
 
 void TCITransceiver::onBinaryReceived(const QByteArray &data)
 {
-  Data_Stream *pStream = (Data_Stream*)(data.data());
+  if (data.size () < static_cast<int> (AudioHeaderSize)) {
+    return;
+  }
+
+  auto * pStream = reinterpret_cast<Data_Stream *> (const_cast<char *> (data.constData ()));
   if (pStream->type != last_type) {
     last_type = pStream->type;
   }
@@ -862,13 +922,20 @@ void TCITransceiver::onBinaryReceived(const QByteArray &data)
     emit sendIqData(pStream->receiver,pStream->length,pStream->data,tx);
     qDebug() << "IQ" << data.size() << pStream->length;
   } else if (pStream->type == RxAudioStream && audio_  && pStream->receiver == rx_.toUInt()) {
+    if (!inbound_audio_payload_complete (data, pStream->length)) {
+      return;
+    }
     writeAudioData(pStream->data,pStream->length);
   } else if (pStream->type == TxChrono &&  pStream->receiver == rx_.toUInt()) {
+    int ssize;
+    if (!checked_audio_frame_size (pStream->length, 2u, &ssize)) {
+      return;
+    }
     mtx_.lock(); tx_fifo += 1; tx_fifo &= 7;
-    int ssize = AudioHeaderSize+pStream->length*sizeof(float)*2;
     quint16 tehtud;
     if (m_tx1[tx_fifo].size() != ssize) m_tx1[tx_fifo].resize(ssize);
-    Data_Stream * pOStream1 = (Data_Stream*)(m_tx1[tx_fifo].data());
+    Data_Stream * pOStream1 = reinterpret_cast<Data_Stream *> (m_tx1[tx_fifo].data());
+    std::memset (pOStream1, 0, AudioHeaderSize);
     pOStream1->receiver = pStream->receiver;
     pOStream1->sampleRate = pStream->sampleRate;
     pOStream1->format = pStream->format;
@@ -889,9 +956,15 @@ void TCITransceiver::onBinaryReceived(const QByteArray &data)
 
 void TCITransceiver::txAudioData(quint32 len, float * data)
 {
+  int frame_size;
+  if (!checked_audio_frame_size (len, 2u, &frame_size)) {
+    return;
+  }
+
   QByteArray tx;
-  tx.resize(AudioHeaderSize+len*sizeof(float)*2);
-  Data_Stream * pStream = (Data_Stream*)(tx.data());
+  tx.resize(frame_size);
+  Data_Stream * pStream = reinterpret_cast<Data_Stream *> (tx.data());
+  std::memset (pStream, 0, AudioHeaderSize);
   pStream->receiver = 0;
   pStream->sampleRate = audioSampleRate;
   pStream->format = 3;
