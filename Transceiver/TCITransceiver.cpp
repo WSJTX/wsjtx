@@ -328,7 +328,11 @@ void TCITransceiver::onError(QAbstractSocket::SocketError err)
 {
   qDebug() << "WebInThread::onError";
   CAT_TRACE ("TCITransceiver entered TCI onError and ErrorNumber is " + QString::number(err) + '\n');
-  error_ = tr ("TCI websocket error: %1").arg (errortable.at (err));
+  auto const error_index = static_cast<int> (err);
+  auto const error_name = error_index >= 0 && error_index < errortable.size ()
+    ? errortable.at (error_index)
+    : tr ("UnknownSocketError");
+  error_ = tr ("TCI websocket error: %1").arg (error_name);
 }
 
 int TCITransceiver::do_start ()
