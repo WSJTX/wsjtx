@@ -1771,7 +1771,7 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   , temp_dir_ {temp_directory}
   , writeable_data_dir_ {QStandardPaths::writableLocation (QStandardPaths::DataLocation)}
   , lotw_users_ {network_manager_}
-  , cloudlog_ {self, network_manager_}
+  , cloudlog_ {self}
   , restart_sound_input_device_ {false}
   , restart_sound_output_device_ {false}
   , restart_tci_device_ {false}

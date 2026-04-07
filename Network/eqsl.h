@@ -18,7 +18,7 @@ class EQSL : public QObject
   Q_OBJECT;
 
 public:
-  explicit EQSL(QNetworkAccessManager *, QObject *parent = nullptr);
+  explicit EQSL(QObject *parent = nullptr);
     void upload(QString const& eqsl_username, QString const& eqsl_passwd, QString const& eqsl_nickname
                   , QString const& call, QString const& mode
                   , QDateTime const& QSO_date_on
