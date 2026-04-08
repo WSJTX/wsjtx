@@ -61,12 +61,11 @@ with app.test_request_context ():
   QRegularExpression wspr_re(R"(^(\d+)\s+(\d+)\s+(\d+)\s+([+-]?\d+)\s+([+-]?\d+\.\d+)\s+(\d+\.\d+)\s+([^ ].*[^ ])\s+([+-]?\d+)\s+([+-]?\d+)\s+([+-]?\d+))");
 };
 
-WSPRNet::WSPRNet (QNetworkAccessManager * manager, QObject *parent)
+WSPRNet::WSPRNet(QObject *parent)
   : QObject {parent}
-  , network_manager_ {manager}
+  , network_manager_ {new QNetworkAccessManager(this)}
   , spots_to_send_ {0}
 {
-  connect (network_manager_, &QNetworkAccessManager::finished, this, &WSPRNet::networkReply);
   connect (&upload_timer_, &QTimer::timeout, this, &WSPRNet::work);
 }
 
@@ -326,7 +325,9 @@ void WSPRNet::work()
       QNetworkRequest request (QUrl {wsprNetUrl});
       request.setHeader (QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
       auto const& spot = spot_queue_.dequeue ();
-      m_outstandingRequests << network_manager_->post (request, spot.query (QUrl::FullyEncoded).toUtf8 ());
+      QNetworkReply *reply = network_manager_->post (request, spot.query(QUrl::FullyEncoded).toUtf8());
+      connect (reply, &QNetworkReply::finished, this, [this, reply]() { networkReply(reply); });
+      m_outstandingRequests << reply;
       Q_EMIT uploadStatus(QString {"Uploading Spot %1/%2"}.arg (spots_to_send_ - spot_queue_.size()).arg (spots_to_send_));
     }
   else

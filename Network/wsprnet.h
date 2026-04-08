@@ -18,7 +18,7 @@ class WSPRNet : public QObject
   using SpotQueue = QQueue<QUrlQuery>;
 
 public:
-  explicit WSPRNet (QNetworkAccessManager *, QObject *parent = nullptr);
+  explicit WSPRNet (QObject *parent = nullptr);
   void upload (QString const& call, QString const& grid, QString const& rfreq, QString const& tfreq,
                QString const& mode, float TR_peirod, QString const& tpct, QString const& dbm,
                QString const& version, QString const& fileName);
