@@ -1038,6 +1038,18 @@ find_program (RIGCTLCOM_EXE rigctlcom)
 check_type_size (CACHE_ALL HAMLIB_OLD_CACHING)
 check_symbol_exists (rig_set_cache_timeout_ms "hamlib/rig.h" HAVE_HAMLIB_CACHING)
 
+# Debug
+include (CMakePrintHelpers)
+cmake_print_variables(INCLUDE_DIRECTORIES)
+cmake_print_properties (TARGETS  Hamlib::Hamlib
+                        PROPERTIES LOCATION INTERFACE_INCLUDE_DIRECTORIES)
+# End debug
+set (CMAKE_REQUIRED_INCLUDES "/usr/local/include")
+set (CMAKE_REQUIRED_LIBRARIES hamlib)
+check_include_files ("hamlib/rig.h;hamlib/port.h" HAVE_HAMLIB_PORT_H LANGUAGE CXX)
+check_include_files ("hamlib/rig.h;hamlib/rig_state.h" HAVE_HAMLIB_RIG_STATE_H LANGUAGE CXX)
+cmake_print_variables (HAVE_HAMLIB_PORT_H)
+
 find_package (Usb REQUIRED)
 
 if (WSJT_FOX_OTP)
