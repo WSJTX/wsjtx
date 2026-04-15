@@ -629,6 +629,22 @@
   <tabstop>rcvd</tabstop>
   <tabstop>grid</tabstop>
   <tabstop>name</tabstop>
+  <tabstop>txPower</tabstop>
+  <tabstop>cbTxPower</tabstop>
+  <tabstop>comments</tabstop>
+  <tabstop>addButton</tabstop>
+  <tabstop>cbComments</tabstop>
+  <tabstop>loggedOperator</tabstop>
+  <tabstop>exchSent</tabstop>
+  <tabstop>exchRcvd</tabstop>
+  <tabstop>comboBoxPropMode</tabstop>
+  <tabstop>cbPropMode</tabstop>
+  <tabstop>comboBoxSatellite</tabstop>
+  <tabstop>cbSatellite</tabstop>
+  <tabstop>comboBoxSatMode</tabstop>
+  <tabstop>cbSatMode</tabstop>
+  <tabstop>freqRx</tabstop>
+  <tabstop>cbFreqRx</tabstop>
  </tabstops>
  <resources/>
  <connections>
