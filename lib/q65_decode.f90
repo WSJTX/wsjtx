@@ -254,8 +254,7 @@ contains
        endif
     enddo  ! ipass
 
-    !if(iand(ndepth,16).eq.0 .or. navg(iseq).lt.2) go to 100
-    if(navg(iseq).lt.2) go to 100
+    if(iand(ndepth,16).eq.0 .or. navg(iseq).lt.2) go to 100
 
 ! There was no single-transmission decode. Try for an average 'q3n' decode.
 50  iavg=1
