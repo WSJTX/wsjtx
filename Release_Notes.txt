@@ -12,6 +12,21 @@
 Copyright 2001 - 2026 by Joe Taylor, K1JT, and the WSJT Development Team
 
                         Release: WSJT-X 3.0.0
+                            April 17, 2026
+                      -------------------------
+
+WSJT-X 3.0.1 is a bug-fix release. It has the following changes since
+release 3.0.0:
+
+ - In posts sent to PSKReporter, version 3.0.0 incorrectly identified
+   itself as "WSJT-X v3.0.0 i+". Corrected.
+
+ - Uploads to CloudLog are re-enabled.
+
+ - UI Compatibility mode is enabled for better display on macOS Tahoe.
+
+
+			Release: WSJT-X 3.0.0
                             April 8, 2026
                       -------------------------
 
