@@ -11,7 +11,7 @@
 
 Copyright 2001 - 2026 by Joe Taylor, K1JT, and the WSJT Development Team
 
-                        Release: WSJT-X 3.0.0
+                        Release: WSJT-X 3.0.1
                             April 17, 2026
                       -------------------------
 
