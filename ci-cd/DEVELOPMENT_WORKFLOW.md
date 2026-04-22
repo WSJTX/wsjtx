@@ -92,9 +92,8 @@ External contributors have **read access** to the public repo (wsjtx). They can:
 - Fork wsjtx to their own GitHub account
 - Open pull requests from their fork to wsjtx
 - File issues on wsjtx
-- View CI results on their PRs (once CI is enabled on the public repo)
 
-They **cannot** directly access wsjtx-internal, push branches to either org repo, or trigger workflows.
+They **cannot** directly access wsjtx-internal, push branches to either org repo, or trigger workflows. CI/CD runs entirely on wsjtx-internal — the public repo receives only source + tags + GitHub Release artifacts at release time. External PRs are triaged by a team member, who brings accepted changes into wsjtx-internal where the pipeline builds and tests them.
 
 ### Access Summary
 
@@ -406,7 +405,7 @@ Team decides to release v3.0.1
 Ensure `develop` is in a releasable state:
 - All planned changes are merged
 - CI is green on `develop`
-- Version strings in `CMakeLists.txt` and `Versions.cmake` are correct
+- Version string in `CMakeLists.txt` is correct (the single source of truth; `release.yml`'s prepare job enforces tag↔CMakeLists parity before any platform build runs)
 - Release notes or changelog are updated
 
 #### 2. Tag the release
@@ -563,7 +562,7 @@ Issues are tracked on **wsjtx-internal** (not the public repo) because that's wh
 - Bug reports (use the bug report template)
 - Feature requests
 - Refactoring proposals
-- Technical debt items
+- Technical debt items (known-suboptimal code, deferred cleanup, latent bugs uncovered during other work — anything worth tracking but not urgent enough to fix immediately)
 
 **Issue structure:**
 - Clear title describing the problem or feature
@@ -691,7 +690,7 @@ If version strings need updating:
 ```bash
 git checkout v3.0.0_test
 git pull origin v3.0.0_test
-# Update version in CMakeLists.txt, Versions.cmake, etc.
+# Update version in CMakeLists.txt (the VERSION field on the project() call).
 git commit -m "chore: bump version to 3.0.1"
 git push origin v3.0.0_test
 ```
