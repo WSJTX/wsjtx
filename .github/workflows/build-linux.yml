@@ -1,0 +1,213 @@
+name: Build Linux
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: "WSJT-X version string"
+        required: true
+        type: string
+      hamlib_branch:
+        description: "Hamlib branch to build"
+        required: false
+        type: string
+        default: "4.7.0"
+      arch:
+        description: "Linux target architecture: x86_64 or aarch64"
+        required: false
+        type: string
+        default: "x86_64"
+
+jobs:
+  build:
+    runs-on: ${{ inputs.arch == 'aarch64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential cmake gfortran \
+            libfftw3-dev libboost-all-dev \
+            qtbase5-dev qttools5-dev qtmultimedia5-dev libqt5serialport5-dev \
+            libqt5sql5-sqlite libqt5websockets5-dev \
+            libusb-1.0-0-dev libudev-dev libreadline-dev \
+            autoconf automake libtool pkg-config \
+            texinfo
+
+      - name: Cache pFUnit
+        id: pfunit-cache
+        uses: actions/cache@v5
+        with:
+          path: pfunit-prefix
+          key: pfunit-linux-${{ inputs.arch }}-v4.9.0-${{ hashFiles('.github/workflows/build-linux.yml') }}
+
+      - name: Build pFUnit
+        if: steps.pfunit-cache.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch v4.9.0 --recursive \
+            https://github.com/Goddard-Fortran-Ecosystem/pFUnit.git pfunit-src
+          cmake -S pfunit-src -B pfunit-build \
+            -DSKIP_MPI=YES \
+            -DSKIP_OPENMP=YES \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DCMAKE_INSTALL_PREFIX="${GITHUB_WORKSPACE}/pfunit-prefix"
+          cmake --build pfunit-build -j$(nproc)
+          cmake --install pfunit-build
+
+      - name: Locate pFUnit config
+        id: pfunit
+        run: |
+          CONFIG=$(find "${GITHUB_WORKSPACE}/pfunit-prefix" -name PFUNITConfig.cmake | head -1)
+          if [ -z "$CONFIG" ]; then
+            echo "ERROR: PFUNITConfig.cmake not found under pfunit-prefix"
+            find "${GITHUB_WORKSPACE}/pfunit-prefix" -maxdepth 3 -type d
+            exit 1
+          fi
+          PFUNIT_DIR="$(dirname "$CONFIG")"
+          echo "Found PFUNITConfig.cmake at: $CONFIG"
+          echo "dir=${PFUNIT_DIR}" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Hamlib
+        id: hamlib-cache
+        uses: actions/cache@v5
+        with:
+          path: hamlib-prefix
+          key: hamlib-linux-${{ inputs.arch }}-${{ inputs.hamlib_branch }}-${{ hashFiles('.github/workflows/build-linux.yml') }}
+
+      - name: Build Hamlib
+        if: steps.hamlib-cache.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch "${{ inputs.hamlib_branch }}" \
+            https://github.com/Hamlib/Hamlib.git hamlib-src
+          cd hamlib-src
+          ./bootstrap
+          ./configure \
+            --prefix="${GITHUB_WORKSPACE}/hamlib-prefix" \
+            --disable-shared --enable-static \
+            --without-cxx-binding \
+            CFLAGS="-g -O2 -fPIC -fdata-sections -ffunction-sections" \
+            LDFLAGS="-Wl,--gc-sections"
+          make -j$(nproc)
+          make install
+
+      - name: Configure
+        run: |
+          cmake -S . -B wsjtx-build \
+            -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/hamlib-prefix;${GITHUB_WORKSPACE}/pfunit-prefix" \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DWSJT_GENERATE_DOCS=OFF \
+            -DWSJT_SKIP_MANPAGES=ON \
+            -DWSJT_BUILD_TESTS=ON \
+            -DPFUNIT_DIR="${{ steps.pfunit.outputs.dir }}" \
+            -Wno-dev
+
+      - name: Build
+        run: cmake --build wsjtx-build -j$(nproc)
+
+      - name: Run tests
+        id: ctest
+        run: ctest --output-on-failure --output-junit ctest-results.xml
+        working-directory: wsjtx-build
+        env:
+          QT_QPA_PLATFORM: offscreen
+
+      - name: Publish test summary
+        if: always() && steps.ctest.conclusion != 'skipped'
+        working-directory: wsjtx-build
+        run: python3 ../.github/scripts/publish-ctest-summary.py "Linux ${{ inputs.arch }}" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload test results
+        if: always() && steps.ctest.conclusion != 'skipped'
+        uses: actions/upload-artifact@v7
+        with:
+          name: ctest-results-linux-${{ inputs.arch }}
+          path: wsjtx-build/ctest-results.xml
+          if-no-files-found: ignore
+
+      - name: Verify binary
+        run: |
+          file wsjtx-build/jt9
+          file wsjtx-build/jt9 | grep -q "ELF 64-bit"
+
+      - name: Install to AppDir
+        run: |
+          cmake --install wsjtx-build --prefix "${GITHUB_WORKSPACE}/AppDir/usr"
+          # linuxdeploy's desktop/icon integration needs these exact paths.
+          test -x AppDir/usr/bin/wsjtx
+          test -x AppDir/usr/bin/jt9
+          test -x AppDir/usr/bin/ft8code
+          test -f AppDir/usr/share/applications/wsjtx.desktop
+          test -f AppDir/usr/share/pixmaps/wsjtx_icon.png
+
+      - name: Package AppImage
+        env:
+          VERSION: ${{ inputs.version }}
+          ARCH: ${{ inputs.arch }}
+          # Core linuxdeploy is pinned to a dated release + SHA256 verify
+          # so an undetected upstream change fails the build instead of
+          # shipping. The Qt5 plugin stays on the rolling "continuous"
+          # channel because upstream has not cut a dated release since
+          # 1-alpha-20250213-1, which carries a filesystem_error bug on
+          # ubuntu-24.04 / Qt5.15 (missing qt5/plugins/mediaservice dir).
+          # When upstream publishes a newer dated plugin release, pin +
+          # verify it here too.
+          LINUXDEPLOY_TAG: "1-alpha-20251107-1"
+        run: |
+          case "$ARCH" in
+            x86_64)  LINUXDEPLOY_SHA256="c20cd71e3a4e3b80c3483cef793cda3f4e990aca14014d23c544ca3ce1270b4d" ;;
+            aarch64) LINUXDEPLOY_SHA256="620095110d693282b8ebeb244a95b5e911cf8f65f76c88b4b47d16ae6346fcff" ;;
+            *)       echo "::error::Unknown linuxdeploy arch: $ARCH"; exit 1 ;;
+          esac
+          curl -fsSL -o linuxdeploy.AppImage \
+            "https://github.com/linuxdeploy/linuxdeploy/releases/download/${LINUXDEPLOY_TAG}/linuxdeploy-${ARCH}.AppImage"
+          curl -fsSL -o linuxdeploy-plugin-qt.AppImage \
+            "https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-${ARCH}.AppImage"
+          echo "${LINUXDEPLOY_SHA256}  linuxdeploy.AppImage" | sha256sum -c -
+          chmod +x linuxdeploy.AppImage linuxdeploy-plugin-qt.AppImage
+
+          # --appimage-extract-and-run avoids FUSE on the hosted runner.
+          export OUTPUT="wsjtx-${VERSION}-linux-${ARCH}.AppImage"
+          ./linuxdeploy.AppImage --appimage-extract-and-run \
+            --appdir AppDir \
+            --plugin qt \
+            --output appimage \
+            --desktop-file AppDir/usr/share/applications/wsjtx.desktop \
+            --icon-file AppDir/usr/share/pixmaps/wsjtx_icon.png
+
+          ls -lh "$OUTPUT"
+          file "$OUTPUT"
+
+      - name: Smoke-test AppImage payload
+        env:
+          VERSION: ${{ inputs.version }}
+          ARCH: ${{ inputs.arch }}
+        run: |
+          APPIMAGE="wsjtx-${VERSION}-linux-${ARCH}.AppImage"
+          ./"$APPIMAGE" --appimage-extract >/dev/null
+          test -x squashfs-root/usr/bin/wsjtx
+          test -x squashfs-root/usr/bin/jt9
+          test -x squashfs-root/usr/bin/ft8code
+          test -x squashfs-root/usr/bin/wsprd
+          file squashfs-root/usr/bin/wsjtx | grep -q "ELF 64-bit"
+          # Qt5 libs should have been bundled by linuxdeploy-plugin-qt.
+          ls squashfs-root/usr/lib/ | grep -q "^libQt5Core\.so"
+          ls squashfs-root/usr/lib/ | grep -q "^libQt5Widgets\.so"
+          rm -rf squashfs-root
+
+      - name: Upload AppImage
+        uses: actions/upload-artifact@v7
+        with:
+          name: wsjtx-${{ inputs.version }}-linux-${{ inputs.arch }}-AppImage
+          path: wsjtx-${{ inputs.version }}-linux-${{ inputs.arch }}.AppImage
+          if-no-files-found: error
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: wsjtx-${{ inputs.version }}-linux-${{ inputs.arch }}
+          path: |
+            wsjtx-build/jt9
+            wsjtx-build/wsprd
+            wsjtx-build/wsjtx
