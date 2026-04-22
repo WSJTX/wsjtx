@@ -110,7 +110,13 @@ jobs:
         with:
           path: artifacts
 
-      - name: Build source tarball
+      # Source tarball is published on GA releases only, not on RC (-rc*,
+      # -beta*, etc.) pre-releases. Rationale: RCs may carry code for features
+      # that are not yet intended for open source distribution (limited-access
+      # field testing). GA releases always include a source tarball per the
+      # CI/CD adoption decision on platform-matrix assets.
+      - name: Build source tarball (GA only)
+        if: ${{ !contains(github.ref_name, '-') }}
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
