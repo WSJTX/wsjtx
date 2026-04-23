@@ -40,7 +40,7 @@ The macOS signing path is fully wired to real Apple Developer credentials. The W
 
 **macOS:** The build signs the application binary and dylibs with the Developer ID Application certificate, signs the `.pkg` installer with the Developer ID Installer certificate, and submits the package to Apple for notarization. The resulting `.pkg` passes Gatekeeper without warnings. Secrets-absent builds (Dependabot, external forks) short-circuit the signing/notarization steps via a `signing_enabled` guard so compile + ctest still run.
 
-**Windows:** The sandbox currently signs the NSIS installer with a **per-run ephemeral self-signed cert** generated at build time (`osslsigncode`, no stored secret). The signature is structurally valid but does not chain to a trusted root — `osslsigncode verify` is `|| true`-guarded so CI stays green. This proves the signing step is wired into the pipeline. Production replaces the ephemeral cert with the team's Authenticode certificate in an encrypted secret (e.g. `WINDOWS_CODESIGN_PFX_BASE64`) and drops the `|| true` guard — see email decision 5.
+**Windows:** The sandbox currently signs the NSIS installer with a **per-run ephemeral self-signed cert** generated at build time (`osslsigncode`, no stored secret). The signature is structurally valid but does not chain to a trusted root — Windows SmartScreen will still show an *"Unknown Publisher"* warning, because only certificates chained to a Microsoft-trusted Authenticode root suppress that prompt. `osslsigncode verify` is `|| true`-guarded so CI stays green. This proves the signing step is wired into the pipeline. Production replaces the ephemeral cert with a team-owned Authenticode certificate in an encrypted secret (e.g. `WINDOWS_CODESIGN_PFX_BASE64`) and drops the `|| true` guard — see email decision 5.
 
 **Linux:** Unsigned for now. Linux users don't encounter the same install-time warnings as macOS and Windows. GPG-signing release tarballs is straightforward to add if the team wants it — one additional secret (GPG private key) and a small step in the release workflow.
 
@@ -66,7 +66,7 @@ No changes to the build system are required. One optional CMake change (`OMNIRIG
 | [CI/CD Deployment Playbook](DEPLOYMENT_PLAYBOOK.md) | Step-by-step instructions to deploy the pipeline to the official WSJTX org — enabling Actions, creating secrets, adapting files, testing, troubleshooting |
 | Workflow files (included in PR) | Platform-specific build strategies, caching, Windows CI findings, patches applied |
 
-## Hand-off artefacts (available for team evaluation)
+## Hand-off artifacts (available for team evaluation)
 
 1. **Executive summary** (`EXECUTIVE_SUMMARY.md` — this doc) — two-page overview.
 2. **Development Workflow** (`DEVELOPMENT_WORKFLOW.md`) — how the two-repo model operates once CI/CD is in place.
