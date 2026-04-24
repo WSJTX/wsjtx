@@ -64,14 +64,17 @@ foreach (_comp ${_components})
   endif (_comp STREQUAL "single")
 endforeach (_comp ${_components})
 
-# If using threads, we need to link against threaded libraries as well - except on Windows.
-if (NOT WIN32 AND _use_threads)
+# If using threads, we need to link against threaded libraries as well.
+# Historically this was skipped on Windows because the official fftw.org
+# prebuilt DLLs bundle threads into the main library. MSYS2 (used by CI)
+# ships threads as a separate library, so the search is needed there too.
+if (_use_threads)
   set (_thread_libs)
   foreach (_lib ${_libraries})
     list (APPEND _thread_libs ${_lib}_threads)
   endforeach (_lib ${_libraries})
   set (_libraries ${_thread_libs} ${_libraries})
-endif (NOT WIN32 AND _use_threads)
+endif (_use_threads)
 
 # Keep a list of variable names that we need to pass on to
 # find_package_handle_standard_args().

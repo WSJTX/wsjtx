@@ -1,0 +1,525 @@
+name: Build macOS
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: "WSJT-X version string"
+        required: true
+        type: string
+      hamlib_branch:
+        description: "Hamlib branch to build"
+        required: false
+        type: string
+        default: "4.7.0"
+      arch:
+        description: "Target architecture (arm64 or x86_64)"
+        required: true
+        type: string
+      runner:
+        description: "GitHub Actions runner label"
+        required: true
+        type: string
+      deployment_target:
+        description: "macOS deployment target version"
+        required: true
+        type: string
+
+jobs:
+  build:
+    runs-on: ${{ inputs.runner }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Check signing secrets
+        id: check_secrets
+        env:
+          APP_P12: ${{ secrets.DEVELOPER_ID_CERTIFICATE_P12 }}
+        run: |
+          if [ -n "$APP_P12" ]; then
+            echo "signing_enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "signing_enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::macOS signing skipped — secrets unavailable (Dependabot or fork PR context). Compile + tests + dylib bundling still validated."
+          fi
+
+      - name: Set Homebrew prefix
+        run: echo "HOMEBREW_PREFIX=$(brew --prefix)" >> "$GITHUB_ENV"
+
+      - name: Install dependencies
+        run: brew install cmake gcc fftw boost qt@5 libusb dylibbundler autoconf automake libtool
+
+      - name: Locate gfortran
+        id: fc
+        run: |
+          FC="$(brew --prefix gcc)/bin/gfortran"
+          [ -f "$FC" ] || FC="$(ls $HOMEBREW_PREFIX/bin/gfortran-* 2>/dev/null | sort -V | tail -1)"
+          echo "Found gfortran: $FC"
+          echo "path=$FC" >> "$GITHUB_OUTPUT"
+
+      - name: Fix Qt5 keg-only paths
+        run: |
+          QT5_PREFIX="$(brew --prefix qt@5)"
+          [ -e $HOMEBREW_PREFIX/mkspecs ] || sudo ln -s "${QT5_PREFIX}/mkspecs" $HOMEBREW_PREFIX/mkspecs
+          [ -e $HOMEBREW_PREFIX/plugins ] || sudo ln -s "${QT5_PREFIX}/plugins" $HOMEBREW_PREFIX/plugins
+
+      - name: Cache pFUnit
+        id: pfunit-cache
+        uses: actions/cache@v5
+        with:
+          path: pfunit-prefix
+          key: pfunit-macos-${{ inputs.arch }}-v4.9.0-${{ hashFiles('.github/workflows/build-macos.yml') }}
+
+      - name: Build pFUnit
+        if: steps.pfunit-cache.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch v4.9.0 --recursive \
+            https://github.com/Goddard-Fortran-Ecosystem/pFUnit.git pfunit-src
+          cmake -S pfunit-src -B pfunit-build \
+            -DSKIP_MPI=YES \
+            -DSKIP_OPENMP=YES \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DCMAKE_Fortran_COMPILER="${{ steps.fc.outputs.path }}" \
+            -DCMAKE_INSTALL_PREFIX="${GITHUB_WORKSPACE}/pfunit-prefix"
+          cmake --build pfunit-build -j$(sysctl -n hw.ncpu)
+          cmake --install pfunit-build
+
+      - name: Locate pFUnit config
+        id: pfunit
+        run: |
+          CONFIG=$(find "${GITHUB_WORKSPACE}/pfunit-prefix" -name PFUNITConfig.cmake | head -1)
+          if [ -z "$CONFIG" ]; then
+            echo "ERROR: PFUNITConfig.cmake not found under pfunit-prefix"
+            find "${GITHUB_WORKSPACE}/pfunit-prefix" -maxdepth 3 -type d
+            exit 1
+          fi
+          PFUNIT_DIR="$(dirname "$CONFIG")"
+          echo "Found PFUNITConfig.cmake at: $CONFIG"
+          echo "dir=${PFUNIT_DIR}" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Hamlib
+        id: hamlib-cache
+        uses: actions/cache@v5
+        with:
+          path: hamlib-prefix
+          key: hamlib-macos-${{ inputs.arch }}-${{ inputs.hamlib_branch }}-${{ hashFiles('.github/workflows/build-macos.yml') }}
+
+      - name: Build Hamlib
+        if: steps.hamlib-cache.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch "${{ inputs.hamlib_branch }}" \
+            https://github.com/Hamlib/Hamlib.git hamlib-src
+          cd hamlib-src
+          ./bootstrap
+          ./configure \
+            --prefix="${GITHUB_WORKSPACE}/hamlib-prefix" \
+            --disable-shared --enable-static \
+            --without-cxx-binding
+          make -j$(sysctl -n hw.ncpu)
+          make install
+
+      - name: Configure
+        run: |
+          cmake -S . -B wsjtx-build \
+            -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/hamlib-prefix;${GITHUB_WORKSPACE}/pfunit-prefix;$(brew --prefix qt@5);$(brew --prefix libusb);$(brew --prefix fftw);$(brew --prefix boost)" \
+            -DCMAKE_Fortran_COMPILER="${{ steps.fc.outputs.path }}" \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ inputs.deployment_target }} \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DWSJT_GENERATE_DOCS=OFF \
+            -DWSJT_SKIP_MANPAGES=ON \
+            -DWSJT_BUILD_TESTS=ON \
+            -DPFUNIT_DIR="${{ steps.pfunit.outputs.dir }}" \
+            -Wno-dev
+
+      - name: Build
+        run: cmake --build wsjtx-build -j$(sysctl -n hw.ncpu)
+
+      - name: Run tests
+        id: ctest
+        run: ctest --output-on-failure --output-junit ctest-results.xml
+        working-directory: wsjtx-build
+
+      - name: Publish test summary
+        if: always() && steps.ctest.conclusion != 'skipped'
+        working-directory: wsjtx-build
+        run: python3 ../.github/scripts/publish-ctest-summary.py "macOS ${{ inputs.arch }}" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload test results
+        if: always() && steps.ctest.conclusion != 'skipped'
+        uses: actions/upload-artifact@v7
+        with:
+          name: ctest-results-macos-${{ inputs.arch }}
+          path: wsjtx-build/ctest-results.xml
+          if-no-files-found: ignore
+
+      - name: Verify architecture
+        run: |
+          file wsjtx-build/jt9
+          lipo -archs wsjtx-build/jt9 | grep -q ${{ inputs.arch }}
+
+      - name: Collect binaries
+        id: collect
+        run: |
+          BUILD=wsjtx-build
+          STAGE=stage/wsjtx-${{ inputs.version }}-${{ inputs.arch }}
+          ASSETS=assets
+
+          mkdir -p "${STAGE}" "${ASSETS}"
+
+          cp -R "${BUILD}/wsjtx.app" "${STAGE}/"
+
+          for bin in jt9 wsprd; do
+            [ -f "${BUILD}/${bin}" ] && cp "${BUILD}/${bin}" "${STAGE}/wsjtx.app/Contents/MacOS/"
+          done
+
+          for bin in jt9 wsprd wsprcode jt65code jt4code ft8code q65code encode77 fcal hash22calc; do
+            [ -f "${BUILD}/${bin}" ] && cp "${BUILD}/${bin}" "${STAGE}/" && cp "${BUILD}/${bin}" "${ASSETS}/"
+          done
+
+          for bin in ft4sim jt4sim jt65sim cwsim sfoxsim echosim EchoCallSim; do
+            [ -f "${BUILD}/${bin}" ] && cp "${BUILD}/${bin}" "${STAGE}/" && cp "${BUILD}/${bin}" "${ASSETS}/"
+          done
+
+          echo "stage_dir=${STAGE}" >> "$GITHUB_OUTPUT"
+          echo "assets_dir=${ASSETS}" >> "$GITHUB_OUTPUT"
+
+      - name: Bundle dylibs into app
+        run: |
+          STAGE="${{ steps.collect.outputs.stage_dir }}"
+          APP="${STAGE}/wsjtx.app"
+          FRAMEWORKS="${APP}/Contents/Frameworks"
+          GCC_LIB="$(brew --prefix gcc)/lib/gcc/current"
+          mkdir -p "${FRAMEWORKS}"
+
+          "$(brew --prefix qt@5)/bin/macdeployqt" "${APP}" -verbose=1
+
+          resolve_lib() {
+            local lib="$1"
+            if [[ "$lib" == $HOMEBREW_PREFIX/* ]]; then
+              echo "$lib"
+            elif [[ "$lib" == @rpath/* ]]; then
+              local name="${lib#@rpath/}"
+              for dir in "$GCC_LIB" "$HOMEBREW_PREFIX/lib"; do
+                [ -f "$dir/$name" ] && echo "$dir/$name" && return
+              done
+            fi
+          }
+
+          bundle_dylib() {
+            local binary="$1"
+            for lib in $(otool -L "$binary" | awk '{print $1}' | grep -E "($HOMEBREW_PREFIX|@rpath)" | grep -v Qt); do
+              local resolved
+              resolved=$(resolve_lib "$lib")
+              [ -z "$resolved" ] && continue
+              local libname=$(basename "$resolved")
+              if [ ! -f "${FRAMEWORKS}/${libname}" ]; then
+                echo "  Bundling: $resolved -> ${FRAMEWORKS}/${libname}"
+                cp "$resolved" "${FRAMEWORKS}/${libname}"
+                chmod 644 "${FRAMEWORKS}/${libname}"
+                install_name_tool -id "@executable_path/../Frameworks/${libname}" "${FRAMEWORKS}/${libname}"
+                bundle_dylib "${FRAMEWORKS}/${libname}"
+              fi
+              install_name_tool -change "$lib" "@executable_path/../Frameworks/${libname}" "$binary" 2>/dev/null || true
+            done
+          }
+
+          for exe in "${APP}/Contents/MacOS/"*; do
+            [ -f "$exe" ] && [ -x "$exe" ] && {
+              bundle_dylib "$exe"
+              for fw in $(otool -L "$exe" | awk '{print $1}' | grep '\.framework/'); do
+                fwname=$(basename "$fw")
+                bundled=$(find "${FRAMEWORKS}" -name "${fwname}" -path "*.framework/*" 2>/dev/null | head -1)
+                if [ -n "$bundled" ]; then
+                  fwrel="${bundled#${APP}/Contents/}"
+                  install_name_tool -change "$fw" "@executable_path/../${fwrel}" "$exe" 2>/dev/null || true
+                fi
+              done
+            }
+          done
+
+          for fw in "${FRAMEWORKS}"/*.dylib; do
+            [ -f "$fw" ] && bundle_dylib "$fw"
+          done
+
+          echo "Checking for remaining external references..."
+          REMAINING=$(find "${APP}/Contents/MacOS" -type f -perm +111 -exec otool -L {} \; 2>/dev/null | grep "$HOMEBREW_PREFIX" || true)
+          if [ -n "$REMAINING" ]; then
+            echo "WARNING: External paths still present:"
+            echo "$REMAINING"
+          else
+            echo "All dylibs bundled successfully"
+          fi
+
+      - name: Bundle dylibs into CLI tools
+        run: |
+          ASSETS="${{ steps.collect.outputs.assets_dir }}"
+          STAGE="${{ steps.collect.outputs.stage_dir }}"
+          LIBDIR="${ASSETS}/lib"
+          mkdir -p "${LIBDIR}"
+
+          BUNDLE_ARGS=""
+          for bin in "${ASSETS}"/*; do
+            [ -f "$bin" ] && [ -x "$bin" ] && [ "$(basename "$bin")" != "lib" ] && {
+              BUNDLE_ARGS="$BUNDLE_ARGS -x $bin"
+            }
+          done
+          dylibbundler -od -b $BUNDLE_ARGS -d "${LIBDIR}/" -p @loader_path/lib/
+
+          QT5="$(brew --prefix qt@5)/lib"
+          for bin in "${ASSETS}"/*; do
+            [ -f "$bin" ] && [ -x "$bin" ] && [ "$(basename "$bin")" != "lib" ] || continue
+            for fw in $(otool -L "$bin" | awk '{print $1}' | grep '\.framework/'); do
+              fwname=$(basename "$fw")
+              if [ ! -f "${LIBDIR}/${fwname}" ]; then
+                echo "  Bundling framework: ${fwname}"
+                cp "$fw" "${LIBDIR}/${fwname}"
+                chmod 644 "${LIBDIR}/${fwname}"
+                install_name_tool -id "@loader_path/lib/${fwname}" "${LIBDIR}/${fwname}"
+                dylibbundler -b -x "${LIBDIR}/${fwname}" -d "${LIBDIR}/" -p @loader_path/ 2>/dev/null || true
+              fi
+              install_name_tool -change "$fw" "@loader_path/lib/${fwname}" "$bin"
+              codesign --force --sign - "$bin"
+            done
+          done
+
+          for lib in "${LIBDIR}"/*; do
+            [ -f "$lib" ] || continue
+            for dep in $(otool -L "$lib" | awk '{print $1}' | grep '@loader_path/lib/'); do
+              depname=$(basename "$dep")
+              install_name_tool -change "$dep" "@loader_path/${depname}" "$lib" 2>/dev/null || true
+            done
+            RPATHS=$(otool -l "$lib" | grep -A2 LC_RPATH | grep "path " | awk '{print $2}' | sort | uniq -d)
+            for rp in $RPATHS; do
+              install_name_tool -delete_rpath "$rp" "$lib" 2>/dev/null || true
+              install_name_tool -add_rpath "$rp" "$lib" 2>/dev/null || true
+            done
+            codesign --force --sign - "$lib"
+          done
+
+          echo "Verifying CLI tools..."
+          for bin in "${ASSETS}"/*; do
+            [ -f "$bin" ] && [ -x "$bin" ] && [ "$(basename "$bin")" != "lib" ] && {
+              BAD=$(otool -L "$bin" | grep "$HOMEBREW_PREFIX" || true)
+              if [ -n "$BAD" ]; then
+                echo "ERROR: $(basename "$bin") still has Homebrew refs:"
+                echo "$BAD"
+                exit 1
+              fi
+            }
+          done
+          echo "All CLI tools are self-contained"
+
+          cp -R "${LIBDIR}" "${STAGE}/lib"
+          for bin in "${ASSETS}"/*; do
+            [ -f "$bin" ] && [ -x "$bin" ] && [ "$(basename "$bin")" != "lib" ] && {
+              cp "$bin" "${STAGE}/$(basename "$bin")"
+            }
+          done
+
+      - name: Import signing certificates
+        if: steps.check_secrets.outputs.signing_enabled == 'true'
+        env:
+          APP_P12: ${{ secrets.DEVELOPER_ID_CERTIFICATE_P12 }}
+          APP_P12_PW: ${{ secrets.DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+          INST_P12: ${{ secrets.DEVELOPER_ID_INSTALLER_P12 }}
+          INST_P12_PW: ${{ secrets.DEVELOPER_ID_INSTALLER_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 16)"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          echo "$APP_P12" | base64 --decode > "$RUNNER_TEMP/app.p12"
+          security import "$RUNNER_TEMP/app.p12" -P "$APP_P12_PW" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+
+          echo "$INST_P12" | base64 --decode > "$RUNNER_TEMP/installer.p12"
+          security import "$RUNNER_TEMP/installer.p12" -P "$INST_P12_PW" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain-db
+
+          APP_IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | grep "Developer ID Application" | head -1 | awk -F'"' '{print $2}')
+          INST_IDENTITY=$(security find-identity -v "$KEYCHAIN_PATH" | grep "Developer ID Installer" | head -1 | awk -F'"' '{print $2}')
+          echo "App identity: $APP_IDENTITY"
+          echo "Installer identity: $INST_IDENTITY"
+          echo "identity=$APP_IDENTITY" >> "$GITHUB_OUTPUT"
+          echo "installer_identity=$INST_IDENTITY" >> "$GITHUB_OUTPUT"
+        id: keychain
+
+      - name: Code sign binaries
+        if: steps.check_secrets.outputs.signing_enabled == 'true'
+        run: |
+          STAGE="${{ steps.collect.outputs.stage_dir }}"
+          ASSETS="${{ steps.collect.outputs.assets_dir }}"
+          IDENTITY="${{ steps.keychain.outputs.identity }}"
+          APP="${STAGE}/wsjtx.app"
+
+          find "${APP}/Contents/Frameworks" -type f \( -name "*.dylib" -o -perm +111 \) \
+            -exec codesign --force --options runtime --timestamp --sign "$IDENTITY" {} \;
+          find "${APP}/Contents/Frameworks" -name "*.framework" -type d | while read fw; do
+            codesign --force --options runtime --timestamp --sign "$IDENTITY" "$fw"
+          done
+          find "${APP}/Contents/PlugIns" -type f -name "*.dylib" \
+            -exec codesign --force --options runtime --timestamp --sign "$IDENTITY" {} \; 2>/dev/null || true
+
+          ENTITLEMENTS="${GITHUB_WORKSPACE}/entitlements.plist"
+          find "${APP}/Contents/MacOS" -type f -perm +111 \
+            -exec codesign --force --options runtime --entitlements "$ENTITLEMENTS" --timestamp --sign "$IDENTITY" {} \;
+          codesign --force --options runtime --timestamp --sign "$IDENTITY" "${APP}"
+          codesign --verify --deep --strict --verbose=2 "${APP}"
+
+          for dir in "${STAGE}" "${ASSETS}"; do
+            find "${dir}" -maxdepth 1 -type f -perm +111 \
+              -exec codesign --force --options runtime --entitlements "$ENTITLEMENTS" --timestamp --sign "$IDENTITY" {} \;
+          done
+
+          for dir in "${STAGE}/lib" "${ASSETS}/lib"; do
+            [ -d "$dir" ] && find "$dir" -type f \
+              -exec codesign --force --options runtime --timestamp --sign "$IDENTITY" {} \;
+          done
+
+      - name: Build installer pkg
+        if: steps.check_secrets.outputs.signing_enabled == 'true'
+        run: |
+          STAGE="${{ steps.collect.outputs.stage_dir }}"
+          IDENTITY="${{ steps.keychain.outputs.identity }}"
+          PKG_ID="org.k1jt.wsjtx.${{ inputs.arch }}"
+          PKG_VERSION="${{ inputs.version }}"
+
+          PAYLOAD="$RUNNER_TEMP/pkg-payload"
+          SCRIPTS="$RUNNER_TEMP/pkg-scripts"
+          mkdir -p "${PAYLOAD}/Applications" "${PAYLOAD}/Library/LaunchDaemons" "${SCRIPTS}"
+
+          cp -R "${STAGE}/wsjtx.app" "${PAYLOAD}/Applications/"
+
+          mkdir -p "${PAYLOAD}/usr/local/wsjtx/lib"
+          for bin in "${STAGE}"/*; do
+            [ -f "$bin" ] && [ -x "$bin" ] && cp "$bin" "${PAYLOAD}/usr/local/wsjtx/"
+          done
+          [ -d "${STAGE}/lib" ] && cp -R "${STAGE}/lib/"* "${PAYLOAD}/usr/local/wsjtx/lib/"
+
+          cp "Darwin/com.wsjtx.sysctl.plist" "${PAYLOAD}/Library/LaunchDaemons/"
+
+          cat > "${SCRIPTS}/postinstall" << 'SCRIPT'
+          #!/bin/bash
+          /bin/launchctl load /Library/LaunchDaemons/com.wsjtx.sysctl.plist 2>/dev/null || true
+          /usr/sbin/sysctl kern.sysv.shmmax=52428800 kern.sysv.shmall=25600 2>/dev/null || true
+          mkdir -p /usr/local/bin
+          for bin in /usr/local/wsjtx/*; do
+            [ -f "$bin" ] && [ -x "$bin" ] && ln -sf "$bin" "/usr/local/bin/$(basename "$bin")"
+          done
+          SCRIPT
+          chmod +x "${SCRIPTS}/postinstall"
+
+          pkgbuild --analyze --root "${PAYLOAD}" "$RUNNER_TEMP/components.plist"
+          /usr/libexec/PlistBuddy -c "Set :0:BundleIsRelocatable false" "$RUNNER_TEMP/components.plist" 2>/dev/null || true
+
+          pkgbuild \
+            --root "${PAYLOAD}" \
+            --scripts "${SCRIPTS}" \
+            --component-plist "$RUNNER_TEMP/components.plist" \
+            --identifier "${PKG_ID}" \
+            --version "${PKG_VERSION}" \
+            --install-location / \
+            "$RUNNER_TEMP/wsjtx-component.pkg"
+
+          INST_IDENTITY="${{ steps.keychain.outputs.installer_identity }}"
+          productbuild \
+            --package "$RUNNER_TEMP/wsjtx-component.pkg" \
+            --sign "$INST_IDENTITY" \
+            "wsjtx-${{ inputs.version }}-${{ inputs.arch }}-macOS.pkg"
+
+      - name: Notarize pkg
+        if: steps.check_secrets.outputs.signing_enabled == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          notarize_and_staple() {
+            local file="$1"
+            echo "Notarizing: $file"
+            xcrun notarytool submit "$file" \
+              --apple-id "$APPLE_ID" \
+              --password "$APPLE_ID_PASSWORD" \
+              --team-id "$APPLE_TEAM_ID" \
+              --wait 2>&1 | tee notarize.log
+
+            if grep -q "status: Invalid" notarize.log; then
+              SUBMISSION_ID=$(grep "id:" notarize.log | head -1 | awk '{print $2}')
+              xcrun notarytool log "$SUBMISSION_ID" \
+                --apple-id "$APPLE_ID" \
+                --password "$APPLE_ID_PASSWORD" \
+                --team-id "$APPLE_TEAM_ID" || true
+              exit 1
+            fi
+
+            xcrun stapler staple "$file"
+          }
+
+          notarize_and_staple "wsjtx-${{ inputs.version }}-${{ inputs.arch }}-macOS.pkg"
+
+      - name: Notarize CLI tools
+        if: steps.check_secrets.outputs.signing_enabled == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          ASSETS="${{ steps.collect.outputs.assets_dir }}"
+          zip -r cli-tools.zip "${ASSETS}"/
+          xcrun notarytool submit cli-tools.zip \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_ID_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait 2>&1 | tee notarize-cli.log
+
+          if grep -q "status: Invalid" notarize-cli.log; then
+            SUBMISSION_ID=$(grep "id:" notarize-cli.log | head -1 | awk '{print $2}')
+            xcrun notarytool log "$SUBMISSION_ID" \
+              --apple-id "$APPLE_ID" \
+              --password "$APPLE_ID_PASSWORD" \
+              --team-id "$APPLE_TEAM_ID" || true
+            exit 1
+          fi
+          rm cli-tools.zip
+
+      - name: Clean up keychain
+        if: always() && steps.check_secrets.outputs.signing_enabled == 'true'
+        run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" 2>/dev/null || true
+
+      - name: Upload pkg
+        if: steps.check_secrets.outputs.signing_enabled == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: wsjtx-${{ inputs.version }}-${{ inputs.arch }}-macOS.pkg
+          path: wsjtx-${{ inputs.version }}-${{ inputs.arch }}-macOS.pkg
+
+      - name: Package individual binaries
+        run: |
+          # Tarball and inner-dir names include the arch suffix so arm64
+          # and x86_64 per-binary artifacts can coexist in a single
+          # GitHub Release without ReleaseAsset.name collisions (#24).
+          ASSETS="${{ steps.collect.outputs.assets_dir }}"
+          ARCH="${{ inputs.arch }}"
+          PKGS=packages
+          mkdir -p "${PKGS}"
+          for bin in "${ASSETS}"/*; do
+            [ -f "$bin" ] && [ -x "$bin" ] || continue
+            name=$(basename "$bin")
+            arch_name="${name}-${ARCH}"
+            dir="${PKGS}/${arch_name}"
+            mkdir -p "${dir}"
+            cp "$bin" "${dir}/"
+            [ -d "${ASSETS}/lib" ] && cp -R "${ASSETS}/lib" "${dir}/lib"
+            tar -czf "${PKGS}/${arch_name}.tar.gz" -C "${PKGS}" "${arch_name}"
+            rm -rf "${dir}"
+          done
+
+      - name: Upload individual binaries
+        uses: actions/upload-artifact@v7
+        with:
+          name: individual-binaries-macos-${{ inputs.arch }}
+          path: packages/*.tar.gz
