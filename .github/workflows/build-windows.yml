@@ -141,6 +141,7 @@ jobs:
           cmake -G "MSYS Makefiles" -S . -B wsjtx-build \
             -DCMAKE_PREFIX_PATH="${WORKSPACE}/hamlib-prefix" \
             -DOMNIRIG_TYPE_LIB="${OMNIRIG}" \
+            -DWSJT_SKIP_MAP65=ON \
             -DCMAKE_Fortran_FLAGS="-fallow-argument-mismatch -std=legacy" \
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
             -DWSJT_GENERATE_DOCS=OFF \
