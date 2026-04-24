@@ -1779,6 +1779,11 @@ install (TARGETS jt9 wsprd fmtave fcal fmeasure
   BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   )
 
+install (TARGETS qmap
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
+  BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
+  )
+
 if(WSJT_BUILD_UTILS)
 install (TARGETS ft8code jt65code jt9code jt4code msk144code 
   q65code fst4sim ft8sim q65sim EchoCallSim testEchoCall echosim hash22calc cablog
