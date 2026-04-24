@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [develop]
+  workflow_dispatch:
+
+jobs:
+  # Single source of truth for the project version string: read it from
+  # CMakeLists.txt so CI and release.yml cannot disagree. Strip the
+  # optional fourth tweak segment (3.0.0.0 → 3.0.0) to match the 3-part
+  # shape release.yml derives from build/v<X.Y.Z> tags.
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+      - id: v
+        run: |
+          VERSION=$(grep -E '^\s*VERSION\s+[0-9]' CMakeLists.txt | head -1 | awk '{print $2}' | cut -d. -f1-3)
+          if [ -z "$VERSION" ]; then
+            echo "::error::Could not derive VERSION from CMakeLists.txt"
+            exit 1
+          fi
+          echo "Derived version from CMakeLists.txt: $VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+  macos:
+    needs: prepare
+    uses: ./.github/workflows/build-macos.yml
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+      hamlib_branch: "4.7.1"
+      arch: "arm64"
+      runner: "macos-15"
+      deployment_target: "11.0"
+    secrets: inherit
+
+  macos-intel:
+    needs: prepare
+    uses: ./.github/workflows/build-macos.yml
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+      hamlib_branch: "4.7.1"
+      arch: "x86_64"
+      runner: "macos-15-intel"
+      deployment_target: "10.13"
+    secrets: inherit
+
+  linux:
+    needs: prepare
+    uses: ./.github/workflows/build-linux.yml
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+      hamlib_branch: "4.7.1"
+      arch: "x86_64"
+    secrets: inherit
+
+  linux-arm:
+    needs: prepare
+    uses: ./.github/workflows/build-linux.yml
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+      hamlib_branch: "4.7.1"
+      arch: "aarch64"
+    secrets: inherit
+
+  windows:
+    needs: prepare
+    uses: ./.github/workflows/build-windows.yml
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+      hamlib_branch: "4.7.1"
+    secrets: inherit

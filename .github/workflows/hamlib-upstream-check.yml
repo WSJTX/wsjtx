@@ -1,0 +1,107 @@
+name: Hamlib Upstream Check
+
+on:
+  schedule:
+    # Weekly, Monday 12:00 UTC. Courtesy check for new Hamlib 4.x releases.
+    - cron: '0 12 * * MON'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Check for newer upstream release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # Extension hook: to add Qt, Boost, fftw, or any other upstream,
+          # duplicate this workflow with different COMPONENT / REPO / MAJOR
+          # values, or convert this job into a matrix over those keys.
+          # The step logic below only reads these three env vars plus the
+          # hamlib_branch line in ci.yml, so swapping is mechanical.
+          COMPONENT: Hamlib
+          REPO: Hamlib/Hamlib
+          MAJOR: "4"
+        run: |
+          set -euo pipefail
+
+          # Single source of truth for the pinned version lives in ci.yml.
+          # ci.yml and release.yml must agree on hamlib_branch; CI failure
+          # is the signal if they drift, so this step reads ci.yml only.
+          PINNED=$(grep -m1 'hamlib_branch:' .github/workflows/ci.yml \
+            | sed -E 's/.*"([^"]+)".*/\1/')
+          if [[ -z "$PINNED" ]]; then
+            echo "::error::Could not read pinned ${COMPONENT} version from ci.yml"
+            exit 1
+          fi
+          echo "Pinned:   ${PINNED}"
+
+          # Highest tag in the MAJOR.x series. Strict three-component filter
+          # skips partial tags like "4.6" and anything non-semver. sort -V
+          # handles numeric ordering correctly for dotted versions.
+          LATEST=$(gh api "/repos/${REPO}/tags" --paginate -q '.[].name' \
+            | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' \
+            | awk -F. -v m="${MAJOR}" '$1 == m' \
+            | sort -V \
+            | tail -n1)
+          if [[ -z "${LATEST}" ]]; then
+            echo "::error::No ${COMPONENT} ${MAJOR}.x tags found upstream"
+            exit 1
+          fi
+          echo "Upstream: ${LATEST}"
+
+          if [[ "${LATEST}" == "${PINNED}" ]]; then
+            echo "Pinned version is current. Nothing to do."
+            exit 0
+          fi
+
+          HIGHEST=$(printf '%s\n%s\n' "${PINNED}" "${LATEST}" | sort -V | tail -n1)
+          if [[ "${HIGHEST}" != "${LATEST}" ]]; then
+            echo "Pinned (${PINNED}) is ahead of upstream (${LATEST}); no action."
+            exit 0
+          fi
+
+          # Avoid filing a duplicate if last week's tracking issue is still
+          # open. "in:title" + the specific version number is tight enough
+          # to never collide with an unrelated issue.
+          if gh issue list --state open \
+               --search "${COMPONENT} ${LATEST} in:title" \
+               --json number -q '.[].number' | grep -q .; then
+            echo "Tracking issue already open for ${COMPONENT} ${LATEST}. Nothing to do."
+            exit 0
+          fi
+
+          TITLE="Upstream: ${COMPONENT} ${LATEST} available (pinned at ${PINNED})"
+          BODY=$(cat <<EOF
+          Automated upstream version check.
+
+          - **Component:** ${COMPONENT}
+          - **Pinned:** \`${PINNED}\`
+          - **Latest upstream ${MAJOR}.x tag:** \`${LATEST}\`
+
+          ## To bump
+
+          Update \`hamlib_branch\` in:
+
+          - \`.github/workflows/ci.yml\` (five jobs)
+          - \`.github/workflows/release.yml\` (five jobs)
+
+          Open a PR against \`develop\`, let CI run on all five platforms, then merge.
+
+          ## Notes
+
+          - This check only tracks the ${MAJOR}.x series. A future ${COMPONENT} ${MAJOR}+1 major release would require design review and is intentionally ignored here.
+          - Close this issue once the bump PR is merged. The next weekly run will re-file if another ${MAJOR}.x release appears.
+
+          _Filed by \`.github/workflows/hamlib-upstream-check.yml\`._
+          EOF
+          )
+
+          gh issue create --title "${TITLE}" --body "${BODY}"

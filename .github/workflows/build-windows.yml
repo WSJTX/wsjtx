@@ -1,0 +1,254 @@
+name: Build Windows x86_64
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: "WSJT-X version string"
+        required: true
+        type: string
+      hamlib_branch:
+        description: "Hamlib branch to build"
+        required: false
+        type: string
+        default: "4.7.0"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          cache: true
+          install: >-
+            git make tar
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-gcc-fortran
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-qt5-base
+            mingw-w64-x86_64-qt5-multimedia
+            mingw-w64-x86_64-qt5-serialport
+            mingw-w64-x86_64-qt5-tools
+            mingw-w64-x86_64-qt5-websockets
+            mingw-w64-x86_64-qt5-activeqt
+            mingw-w64-x86_64-fftw
+            mingw-w64-x86_64-boost
+            mingw-w64-x86_64-libusb
+            mingw-w64-x86_64-portaudio
+            mingw-w64-x86_64-pkg-config
+            mingw-w64-x86_64-nsis
+            mingw-w64-x86_64-osslsigncode
+            autoconf automake libtool
+
+      - name: Cache pFUnit
+        id: pfunit-cache
+        uses: actions/cache@v5
+        with:
+          path: pfunit-prefix
+          key: pfunit-windows-v4.9.0-${{ hashFiles('.github/workflows/build-windows.yml') }}
+
+      - name: Build pFUnit
+        if: steps.pfunit-cache.outputs.cache-hit != 'true'
+        run: |
+          WORKSPACE=$(cygpath "${GITHUB_WORKSPACE}")
+          git config --global core.longpaths true
+          git clone --depth 1 --branch v4.9.0 --recursive \
+            https://github.com/Goddard-Fortran-Ecosystem/pFUnit.git pfunit-src
+          cmake -S pfunit-src -B pfunit-build -G "MSYS Makefiles" \
+            -DSKIP_MPI=YES \
+            -DSKIP_OPENMP=YES \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DCMAKE_INSTALL_PREFIX="${WORKSPACE}/pfunit-prefix"
+          cmake --build pfunit-build -j$(nproc)
+          cmake --install pfunit-build
+
+      - name: Locate pFUnit config
+        id: pfunit
+        run: |
+          WORKSPACE=$(cygpath "${GITHUB_WORKSPACE}")
+          # Locate each sub-package's config directly — MSYS2 pkg-config
+          # interacts badly with multi-entry CMAKE_PREFIX_PATH, so we pass
+          # explicit <pkg>_DIR hints instead.
+          for pkg in PFUNIT GFTL GFTL_SHARED FARGPARSE; do
+            CONFIG=$(find "${WORKSPACE}/pfunit-prefix" -name ${pkg}Config.cmake | head -1)
+            if [ -z "$CONFIG" ]; then
+              echo "ERROR: ${pkg}Config.cmake not found under pfunit-prefix"
+              find "${WORKSPACE}/pfunit-prefix" -maxdepth 3 -type d
+              exit 1
+            fi
+            DIR="$(dirname "$CONFIG")"
+            echo "Found ${pkg}Config.cmake at: $CONFIG"
+            echo "$(echo $pkg | tr '[:upper:]' '[:lower:]')_dir=${DIR}" >> "$GITHUB_OUTPUT"
+          done
+
+      - name: Cache Hamlib
+        id: hamlib-cache
+        uses: actions/cache@v5
+        with:
+          path: hamlib-prefix
+          key: hamlib-windows-${{ inputs.hamlib_branch }}-${{ hashFiles('.github/workflows/build-windows.yml') }}
+
+      - name: Build Hamlib
+        if: steps.hamlib-cache.outputs.cache-hit != 'true'
+        env:
+          MSYS2_PATH_TYPE: inherit
+        run: |
+          WORKSPACE=$(cygpath "${GITHUB_WORKSPACE}")
+          git clone --depth 1 --branch "${{ inputs.hamlib_branch }}" \
+            https://github.com/Hamlib/Hamlib.git hamlib-src
+          cd hamlib-src
+          ./bootstrap
+          ./configure \
+            --prefix="${WORKSPACE}/hamlib-prefix" \
+            --enable-shared --disable-static \
+            --without-cxx-binding \
+            --without-readline \
+            CFLAGS="-DNDEBUG -g -O2 -fdata-sections -ffunction-sections" \
+            LDFLAGS="-Wl,--gc-sections"
+          make -j$(nproc)
+          make install-strip
+
+      - name: Install OmniRig
+        shell: pwsh
+        run: |
+          # Download OmniRig (provides type library embedded in OmniRig.exe for dumpcpp)
+          Invoke-WebRequest -Uri "https://www.dxatlas.com/OmniRig/Files/OmniRig.zip" -OutFile OmniRig.zip
+          Expand-Archive -Path OmniRig.zip -DestinationPath omnirig-extract
+          # Run the installer silently (InnoSetup)
+          $setup = Get-ChildItem -Path omnirig-extract -Filter "*.exe" -Recurse | Select-Object -First 1
+          if (-not $setup) { throw "No installer found in OmniRig.zip" }
+          Start-Process -FilePath $setup.FullName -ArgumentList '/VERYSILENT','/NORESTART' -Wait
+          # Locate the installed OmniRig.exe (embeds the COM type library)
+          $omnirig = Get-ChildItem -Path "C:\Program Files*\Afreet\OmniRig" -Filter "OmniRig.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $omnirig) { throw "OmniRig install failed — OmniRig.exe not found" }
+          echo "OMNIRIG_PATH=$($omnirig.FullName)" >> $env:GITHUB_ENV
+
+      - name: Fix dumpcpp name (MSYS2 ships dumpcpp-qt5, CMake expects dumpcpp)
+        run: |
+          ln -sf /mingw64/bin/dumpcpp-qt5.exe /mingw64/bin/dumpcpp.exe
+
+      - name: Configure
+        run: |
+          WORKSPACE=$(cygpath "${GITHUB_WORKSPACE}")
+          OMNIRIG=$(cygpath "${OMNIRIG_PATH}")
+          cmake -G "MSYS Makefiles" -S . -B wsjtx-build \
+            -DCMAKE_PREFIX_PATH="${WORKSPACE}/hamlib-prefix" \
+            -DOMNIRIG_TYPE_LIB="${OMNIRIG}" \
+            -DWSJT_SKIP_MAP65=ON \
+            -DCMAKE_Fortran_FLAGS="-fallow-argument-mismatch -std=legacy" \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DWSJT_GENERATE_DOCS=OFF \
+            -DWSJT_SKIP_MANPAGES=ON \
+            -DWSJT_BUILD_TESTS=ON \
+            -DPFUNIT_DIR="${{ steps.pfunit.outputs.pfunit_dir }}" \
+            -DGFTL_DIR="${{ steps.pfunit.outputs.gftl_dir }}" \
+            -DGFTL_SHARED_DIR="${{ steps.pfunit.outputs.gftl_shared_dir }}" \
+            -DFARGPARSE_DIR="${{ steps.pfunit.outputs.fargparse_dir }}" \
+            -Wno-dev
+
+      - name: Build
+        run: cmake --build wsjtx-build -j$(nproc)
+
+      - name: Run tests
+        id: ctest
+        run: ctest --output-on-failure --output-junit ctest-results.xml
+        working-directory: wsjtx-build
+
+      - name: Publish test summary
+        if: always() && steps.ctest.conclusion != 'skipped'
+        working-directory: wsjtx-build
+        run: python3 ../.github/scripts/publish-ctest-summary.py "Windows x86_64" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload test results
+        if: always() && steps.ctest.conclusion != 'skipped'
+        uses: actions/upload-artifact@v7
+        with:
+          name: ctest-results-windows
+          path: wsjtx-build/ctest-results.xml
+          if-no-files-found: ignore
+
+      - name: Verify binary
+        run: |
+          file wsjtx-build/jt9.exe
+
+      # Emit an NSIS installer containing the full CLI tool set
+      # (wsjtx.exe, jt9, wsprd, fmtave, fcal, fmeasure + WSJT_BUILD_UTILS
+      # ft8code/jt65code/... + rigctl wrappers + Qt runtime via bundle_fixup).
+      # CMakeLists.txt:1989-1990 sets CPACK_GENERATOR=NSIS on WIN32 and
+      # CPACK_MONOLITHIC_INSTALL=1 packages every install() target.
+      - name: Package NSIS installer
+        run: |
+          cd wsjtx-build
+          # Override CPACK_PACKAGE_VERSION and
+          # CPACK_PACKAGE_FILE_NAME so the NSIS installer filename
+          # matches the tag-derived version exactly, including any
+          # pre-release suffix (-rc1, -beta1, etc.). CMakeLists.txt
+          # VERSION is numeric-only (CMake won't accept suffixes), so
+          # without this override cpack produces wsjtx-<numeric>-win64.exe
+          # while the sign step and upload-artifact paths below expect
+          # wsjtx-<inputs.version>-win64.exe. release.yml's prepare job
+          # enforces numeric-base parity; this override covers the
+          # suffix gap.
+          cpack -G NSIS -V \
+            -D CPACK_PACKAGE_VERSION="${{ inputs.version }}" \
+            -D CPACK_PACKAGE_FILE_NAME="wsjtx-${{ inputs.version }}-win64"
+          ls -la *.exe
+
+      # Self-signed ephemeral signing — the signing step is wired into the
+      # pipeline, but the signature does NOT chain to a trusted root. This
+      # is intentional: Authenticode certification is a separate decision
+      # (CI/CD adoption decision #5). Generates an ephemeral cert per-run.
+      - name: Sign installer with self-signed ephemeral cert
+        run: |
+          cd wsjtx-build
+          INSTALLER=$(ls wsjtx-${{ inputs.version }}-*.exe | head -1)
+          if [ -z "$INSTALLER" ]; then
+            echo "ERROR: no NSIS installer produced by cpack"
+            ls -la
+            exit 1
+          fi
+          echo "Unsigned installer: $INSTALLER"
+          # MSYS2 auto-converts arguments starting with '/' into Windows paths
+          # (e.g., '/CN=...' becomes 'D:/a/_temp/msys64/CN=...').
+          # MSYS2_ARG_CONV_EXCL="*" disables that conversion for this command.
+          MSYS2_ARG_CONV_EXCL="*" openssl req -x509 -newkey rsa:2048 \
+            -keyout ephemeral-key.pem -out ephemeral-cert.pem \
+            -days 365 -nodes \
+            -subj "/CN=WSJT-X Ephemeral Dev Signing/O=WSJTX/C=US"
+          SIGNED="${INSTALLER%.exe}-signed.exe"
+          osslsigncode sign \
+            -certs ephemeral-cert.pem -key ephemeral-key.pem \
+            -n "WSJT-X Installer" \
+            -i "https://github.com/WSJTX/wsjtx-internal" \
+            -h sha256 \
+            -in "$INSTALLER" -out "$SIGNED"
+          mv "$SIGNED" "$INSTALLER"
+          rm -f ephemeral-key.pem ephemeral-cert.pem
+          echo "Signed installer: $INSTALLER"
+          osslsigncode verify "$INSTALLER" || true
+          # Exit 0: osslsigncode verify returns non-zero on CA-untrust even
+          # when the signature itself is structurally valid. The ephemeral
+          # cert is self-signed by design; the "|| true" keeps CI green.
+          # Structural presence is proven by the sign step succeeding above.
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: wsjtx-${{ inputs.version }}-windows-x86_64-installer
+          path: wsjtx-build/wsjtx-${{ inputs.version }}-*.exe
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: wsjtx-${{ inputs.version }}-windows-x86_64
+          path: |
+            wsjtx-build/jt9.exe
+            wsjtx-build/wsprd.exe
+            wsjtx-build/wsjtx.exe

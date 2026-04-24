@@ -1,0 +1,272 @@
+name: Release
+
+on:
+  push:
+    tags: ["build/v*"]
+
+jobs:
+  # ── Derive the version string once from the pushed tag ────────────
+  # Strips the "build/v" prefix so artifacts are named "wsjtx-3.0.1-rc1-*"
+  # rather than "wsjtx-build/v3.0.1-rc1-*". RC/beta suffixes (e.g.
+  # build/v3.0.1-rc1 → 3.0.1-rc1) are preserved so pre-release artifacts
+  # are distinguishable from GA. All downstream jobs consume this
+  # single output so the five platform artifacts cannot disagree.
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+      - id: v
+        run: echo "version=${GITHUB_REF_NAME#build/v}" >> "$GITHUB_OUTPUT"
+
+      # Enforce that the pushed tag's numeric version base
+      # matches CMakeLists.txt:55 VERSION (first 3 components). CMake's
+      # VERSION field is numeric-only and cannot carry pre-release
+      # suffixes like -rc1 or -beta1, so this check compares the tag
+      # version stripped of any `-<suffix>` against the first three
+      # dotted components of CMakeLists.txt VERSION. Mismatch means the
+      # release commit forgot to bump CMakeLists.txt in lockstep with
+      # the tag; fail fast here before five platform builds burn ~30
+      # minutes of CI.
+      - name: Verify tag ↔ CMakeLists.txt version parity
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#build/v}"
+          TAG_NUMERIC="${TAG_VERSION%%-*}"
+          CMAKE_VERSION=$(sed -nE 's/^[[:space:]]*VERSION[[:space:]]+([0-9][0-9.]*).*/\1/p' CMakeLists.txt | head -1)
+          CMAKE_NUMERIC=$(echo "$CMAKE_VERSION" | awk -F. '{printf "%s.%s.%s", $1, $2, $3}')
+          echo "Tag version:        $TAG_VERSION (numeric base: $TAG_NUMERIC)"
+          echo "CMakeLists.txt VER: $CMAKE_VERSION (first 3 components: $CMAKE_NUMERIC)"
+          if [ "$TAG_NUMERIC" != "$CMAKE_NUMERIC" ]; then
+            echo "::error::Tag numeric base ($TAG_NUMERIC) != CMakeLists.txt VERSION first 3 components ($CMAKE_NUMERIC)."
+            echo "::error::Bump CMakeLists.txt:55 VERSION in the same commit that gets tagged, then retry."
+            exit 1
+          fi
+          echo "Parity check PASSED."
+
+  # ── Build all five platforms ───────────────────────────────────────
+  macos:
+    needs: prepare
+    uses: ./.github/workflows/build-macos.yml
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+      hamlib_branch: "4.7.1"
+      arch: "arm64"
+      runner: "macos-15"
+      deployment_target: "11.0"
+    secrets: inherit
+
+  macos-intel:
+    needs: prepare
+    uses: ./.github/workflows/build-macos.yml
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+      hamlib_branch: "4.7.1"
+      arch: "x86_64"
+      runner: "macos-15-intel"
+      deployment_target: "10.13"
+    secrets: inherit
+
+  linux:
+    needs: prepare
+    uses: ./.github/workflows/build-linux.yml
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+      hamlib_branch: "4.7.1"
+      arch: "x86_64"
+    secrets: inherit
+
+  linux-arm:
+    needs: prepare
+    uses: ./.github/workflows/build-linux.yml
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+      hamlib_branch: "4.7.1"
+      arch: "aarch64"
+    secrets: inherit
+
+  windows:
+    needs: prepare
+    uses: ./.github/workflows/build-windows.yml
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+      hamlib_branch: "4.7.1"
+    secrets: inherit
+
+  # ── Publish release + sync to public repo ──────────────────────────
+  release:
+    needs: [prepare, macos, macos-intel, linux, linux-arm, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+
+      # Source tarball is published on GA releases only, not on RC (-rc*,
+      # -beta*, etc.) pre-releases. Rationale: RCs may carry code for features
+      # that are not yet intended for open source distribution (limited-access
+      # field testing). GA releases always include a source tarball per the
+      # CI/CD adoption decision on platform-matrix assets.
+      - name: Build source tarball (GA only)
+        if: ${{ !contains(github.ref_name, '-') }}
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          # This repo has no git submodules, so git archive's default
+          # single-tree output captures the full source. If submodules
+          # are ever added, this step must be revisited — git archive
+          # does not recurse into submodules on its own.
+          git archive \
+            --format=tar.gz \
+            --prefix="wsjtx-${VERSION}/" \
+            -o "artifacts/wsjtx-${VERSION}-src.tar.gz" \
+            "${GITHUB_REF_NAME}"
+          ls -lh "artifacts/wsjtx-${VERSION}-src.tar.gz"
+
+      - name: List artifacts
+        run: find artifacts -type f | sort
+
+      # ── All-platforms-ready gate ───────────────────────────────────────
+      # Refuse to publish unless every platform produced an installer-grade
+      # artifact. The release job's `needs:` already enforces structural
+      # success (all 5 builds ran and exited 0), but a build can exit 0
+      # without actually packaging — e.g. a packaging step behind an `if:`
+      # that evaluated false, or an upload-artifact step that silently
+      # matched zero files. This gate fails the release job BEFORE any
+      # asset upload so partial releases never reach GitHub Releases or
+      # the public mirror.
+      #
+      # Expected artifact layout (one installer per platform, per the
+      # five build-*.yml upload-artifact steps):
+      #   artifacts/wsjtx-<ver>-arm64-macOS.pkg/*.pkg
+      #   artifacts/wsjtx-<ver>-x86_64-macOS.pkg/*.pkg
+      #   artifacts/wsjtx-<ver>-linux-x86_64-AppImage/*.AppImage
+      #   artifacts/wsjtx-<ver>-linux-aarch64-AppImage/*.AppImage
+      #   artifacts/wsjtx-<ver>-windows-x86_64-installer/*.exe
+      #
+      # Policy: publish only when all five platforms have produced an
+      # installer-grade artifact. Adjust or remove this step if the
+      # policy evolves (e.g. to publish any-platform-ready).
+      - name: Verify installer-grade artifacts (all-platforms-ready gate)
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          shopt -s nullglob
+          labels=(
+            "macOS arm64 .pkg"
+            "macOS x86_64 .pkg"
+            "Linux x86_64 .AppImage"
+            "Linux aarch64 .AppImage"
+            "Windows x86_64 .exe"
+          )
+          patterns=(
+            "artifacts/wsjtx-${VERSION}-arm64-macOS.pkg/*.pkg"
+            "artifacts/wsjtx-${VERSION}-x86_64-macOS.pkg/*.pkg"
+            "artifacts/wsjtx-${VERSION}-linux-x86_64-AppImage/*.AppImage"
+            "artifacts/wsjtx-${VERSION}-linux-aarch64-AppImage/*.AppImage"
+            "artifacts/wsjtx-${VERSION}-windows-x86_64-installer/*.exe"
+          )
+          missing=0
+          echo "Installer-grade artifact gate — checking 5 platforms…"
+          for i in "${!labels[@]}"; do
+            # shellcheck disable=SC2206 # word-split is intentional; nullglob makes it safe.
+            matches=( ${patterns[$i]} )
+            if [ ${#matches[@]} -eq 0 ]; then
+              echo "::error::MISSING  ${labels[$i]} — no match for ${patterns[$i]}"
+              missing=$((missing + 1))
+            else
+              size=$(stat --printf '%s' "${matches[0]}")
+              printf '  ok  %-22s %s (%s bytes)\n' "${labels[$i]}" "${matches[0]}" "$size"
+            fi
+          done
+          if [ "$missing" -gt 0 ]; then
+            echo "::error::All-platforms-ready gate FAILED — $missing of 5 platform(s) missing installer-grade artifact."
+            echo "::error::Refusing to publish a partial release. Fix the failing build job(s) and retry the tag."
+            exit 1
+          fi
+          echo "All-platforms-ready gate PASSED — all 5 installer-grade artifacts present. Proceeding to publish."
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          # Filter to user-facing release assets. `find artifacts -type f`
+          # without filtering pulls in 5× ctest-results.xml (one per
+          # platform) and per-binary tarballs from individual-binaries-*
+          # that collide on basename across architectures — `gh release
+          # create` uses basenames as asset names and duplicates cause
+          # upload failures.
+          FILES=$(find artifacts -maxdepth 2 -type f \
+            \( -name "*.pkg" -o -name "*.AppImage" \
+               -o -name "*.exe" -o -name "*.tar.gz" \))
+          # SemVer pre-release tags contain a hyphen after the version
+          # (e.g., v3.0.1-rc1, v3.0.1-rc2, v3.0.1-beta1). Flag those as
+          # GitHub pre-releases so they don't appear as the latest stable.
+          PRERELEASE_FLAG=""
+          if [[ "$TAG" == *-* ]]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+          gh release create "$TAG" \
+            --title "WSJT-X ${{ needs.prepare.outputs.version }}" \
+            --generate-notes \
+            $PRERELEASE_FLAG \
+            $FILES
+
+      # Defense-in-depth: the workflow trigger already constrains
+      # github.ref_name to tags matching build/v*, but if this job
+      # ever runs outside that trigger (workflow_dispatch, manual
+      # re-run with a fork ref, misconfiguration) the force-push
+      # below would overwrite WSJTX/wsjtx:main with arbitrary content.
+      # Abort here if the ref doesn't match the expected release-tag
+      # shape.
+      - name: Verify release tag format
+        run: |
+          if [[ "$GITHUB_REF_TYPE" != "tag" || "$GITHUB_REF_NAME" != build/v* ]]; then
+            echo "::error::Refusing to sync — expected tag build/v*, got $GITHUB_REF_TYPE:$GITHUB_REF_NAME"
+            exit 1
+          fi
+
+      - name: Push to public repo
+        env:
+          TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
+        run: |
+          # A "successful" release that silently skips the mirror sync is
+          # the worst failure mode — it looks green in Actions but leaves
+          # users unable to download. Fail loud instead.
+          if [ -z "$TOKEN" ]; then
+            echo "::error::CROSS_REPO_TOKEN not set — refusing to publish without public-mirror sync"
+            exit 1
+          fi
+          # Deploy keys can't push .github/workflows/ (GitHub platform
+          # restriction).  Use CROSS_REPO_TOKEN (PAT with repo+workflow
+          # scopes) over HTTPS instead. Idempotent: on job re-run the
+          # remote already exists, so skip add.
+          if ! git remote get-url public >/dev/null 2>&1; then
+            git remote add public "https://x-access-token:${TOKEN}@github.com/WSJTX/wsjtx.git"
+          fi
+
+          # Human-auditable record of what the force-push is overwriting.
+          # If public master doesn't exist yet, ls-remote returns empty —
+          # still safe, just logs "no prior SHA".
+          PRIOR_SHA=$(git ls-remote public master | awk '{print $1}')
+          LOCAL_SHA=$(git rev-parse HEAD)
+          echo "Public mirror force-push audit:"
+          echo "  tag:        $GITHUB_REF_NAME"
+          echo "  prior SHA:  ${PRIOR_SHA:-<none>}"
+          echo "  new SHA:    $LOCAL_SHA"
+
+          # --force retained per CI/CD adoption decision #3 (option a):
+          # automate the existing sync pattern. The v3.0.0 tag SHAs already
+          # match on both repos, so the force-push aligns history rather
+          # than rewrites it in the normal release case.
+          git push public HEAD:master --force
+          git push public "$GITHUB_REF_NAME"
