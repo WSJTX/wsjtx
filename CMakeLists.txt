@@ -152,6 +152,7 @@ option (WSJT_RIG_NONE_CAN_SPLIT "Allow split operation with \"None\" as rig.")
 option (WSJT_TRACE_UDP "Debugging option that turns on UDP message protocol diagnostics.")
 option (WSJT_BUILD_UTILS "Build simulators and code demonstrators." ON)
 option (WSJT_FOX_OTP "Enable Fox OTP Verification Messages." ON)
+option (WSJT_SKIP_MAP65 "Skip building MAP65 EME decoder (legacy Fortran; fails on GCC 15)." OFF)
 CMAKE_DEPENDENT_OPTION (WSJT_QDEBUG_IN_RELEASE "Leave Qt debugging statements in Release configuration." OFF
   "NOT is_debug_build" OFF)
 CMAKE_DEPENDENT_OPTION (WSJT_ENABLE_EXPERIMENTAL_FEATURES "Enable features not fully ready for public releases." ON
@@ -932,21 +933,30 @@ set_property (SOURCE ${all_C_and_CXXSRCS} APPEND PROPERTY OBJECT_DEPENDS ${CMAKE
 
 if (WIN32)
   # generate the OmniRig COM interface source
-  find_program (DUMPCPP dumpcpp)
-  if (DUMPCPP-NOTFOUND)
-    message (FATAL_ERROR "dumpcpp tool not found")
-  endif (DUMPCPP-NOTFOUND)
-  execute_process (
-    COMMAND ${DUMPCPP} -getfile {4FE359C5-A58F-459D-BE95-CA559FB4F270}
-    OUTPUT_VARIABLE AXSERVER
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
-  string (STRIP "${AXSERVER}" AXSERVER)
-  if (NOT AXSERVER)
-    message (FATAL_ERROR "You need to install OmniRig on this computer")
-  endif (NOT AXSERVER)
-  string (REPLACE "\"" "" AXSERVER ${AXSERVER})
-  file (TO_CMAKE_PATH ${AXSERVER} AXSERVERSRCS)
+  if (OMNIRIG_TYPE_LIB)
+    # CI / headless build: type library path provided directly. Bypasses
+    # COM registration which is not available in CI. Pass via
+    # -DOMNIRIG_TYPE_LIB=<path-to-OmniRig.tlb>.
+    file (TO_CMAKE_PATH "${OMNIRIG_TYPE_LIB}" AXSERVERSRCS)
+    message (STATUS "Using OmniRig type library: ${AXSERVERSRCS}")
+  else ()
+    # Normal local build: query the COM registry for the type library.
+    find_program (DUMPCPP dumpcpp)
+    if (DUMPCPP-NOTFOUND)
+      message (FATAL_ERROR "dumpcpp tool not found")
+    endif (DUMPCPP-NOTFOUND)
+    execute_process (
+      COMMAND ${DUMPCPP} -getfile {4FE359C5-A58F-459D-BE95-CA559FB4F270}
+      OUTPUT_VARIABLE AXSERVER
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+      )
+    string (STRIP "${AXSERVER}" AXSERVER)
+    if (NOT AXSERVER)
+      message (FATAL_ERROR "You need to install OmniRig on this computer, or pass -DOMNIRIG_TYPE_LIB=<path>")
+    endif (NOT AXSERVER)
+    string (REPLACE "\"" "" AXSERVER ${AXSERVER})
+    file (TO_CMAKE_PATH ${AXSERVER} AXSERVERSRCS)
+  endif ()
 endif ()
 
 
@@ -1613,7 +1623,9 @@ endif (${OPENMP_FOUND} OR APPLE)
 
 if (WIN32)
   find_package (Portaudio REQUIRED)
-  add_subdirectory (map65)
+  if (NOT WSJT_SKIP_MAP65)
+    add_subdirectory (map65)
+  endif ()
 endif ()
   add_subdirectory (qmap)
 
