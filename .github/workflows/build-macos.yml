@@ -348,43 +348,61 @@ jobs:
           echo "installer_identity=$INST_IDENTITY" >> "$GITHUB_OUTPUT"
         id: keychain
 
+      # ALWAYS runs. Real Developer ID when secrets are present, ad-hoc
+      # signing (-) otherwise. Mirrors the Windows self-signed-sandbox
+      # pattern in build-windows.yml: prove the signing step is wired,
+      # rely on a real cert in production. Ad-hoc signing produces a
+      # structurally-valid signature with no Apple trust chain — pkg
+      # will not pass Gatekeeper without right-click→Open, but is
+      # well-formed and the all-platforms-ready gate in release.yml
+      # finds the artifact at the expected path.
       - name: Code sign binaries
-        if: steps.check_secrets.outputs.signing_enabled == 'true'
         run: |
           STAGE="${{ steps.collect.outputs.stage_dir }}"
           ASSETS="${{ steps.collect.outputs.assets_dir }}"
-          IDENTITY="${{ steps.keychain.outputs.identity }}"
           APP="${STAGE}/wsjtx.app"
+          ENTITLEMENTS="${GITHUB_WORKSPACE}/entitlements.plist"
+
+          if [ "${{ steps.check_secrets.outputs.signing_enabled }}" = "true" ]; then
+            IDENTITY="${{ steps.keychain.outputs.identity }}"
+            TS="--timestamp"
+            echo "Code signing mode: Developer ID (real)"
+          else
+            IDENTITY="-"
+            TS=""
+            echo "Code signing mode: ad-hoc (no Apple trust chain; pkg will be unsigned)"
+          fi
 
           find "${APP}/Contents/Frameworks" -type f \( -name "*.dylib" -o -perm +111 \) \
-            -exec codesign --force --options runtime --timestamp --sign "$IDENTITY" {} \;
+            -exec codesign --force --options runtime $TS --sign "$IDENTITY" {} \;
           find "${APP}/Contents/Frameworks" -name "*.framework" -type d | while read fw; do
-            codesign --force --options runtime --timestamp --sign "$IDENTITY" "$fw"
+            codesign --force --options runtime $TS --sign "$IDENTITY" "$fw"
           done
           find "${APP}/Contents/PlugIns" -type f -name "*.dylib" \
-            -exec codesign --force --options runtime --timestamp --sign "$IDENTITY" {} \; 2>/dev/null || true
+            -exec codesign --force --options runtime $TS --sign "$IDENTITY" {} \; 2>/dev/null || true
 
-          ENTITLEMENTS="${GITHUB_WORKSPACE}/entitlements.plist"
           find "${APP}/Contents/MacOS" -type f -perm +111 \
-            -exec codesign --force --options runtime --entitlements "$ENTITLEMENTS" --timestamp --sign "$IDENTITY" {} \;
-          codesign --force --options runtime --timestamp --sign "$IDENTITY" "${APP}"
+            -exec codesign --force --options runtime --entitlements "$ENTITLEMENTS" $TS --sign "$IDENTITY" {} \;
+          codesign --force --options runtime $TS --sign "$IDENTITY" "${APP}"
           codesign --verify --deep --strict --verbose=2 "${APP}"
 
           for dir in "${STAGE}" "${ASSETS}"; do
             find "${dir}" -maxdepth 1 -type f -perm +111 \
-              -exec codesign --force --options runtime --entitlements "$ENTITLEMENTS" --timestamp --sign "$IDENTITY" {} \;
+              -exec codesign --force --options runtime --entitlements "$ENTITLEMENTS" $TS --sign "$IDENTITY" {} \;
           done
 
           for dir in "${STAGE}/lib" "${ASSETS}/lib"; do
             [ -d "$dir" ] && find "$dir" -type f \
-              -exec codesign --force --options runtime --timestamp --sign "$IDENTITY" {} \;
+              -exec codesign --force --options runtime $TS --sign "$IDENTITY" {} \;
           done
 
+      # ALWAYS runs. productbuild signs with the Developer ID Installer
+      # cert when secrets are present; produces an unsigned .pkg
+      # otherwise. Either way the artifact is named identically and
+      # satisfies the all-platforms-ready gate in release.yml.
       - name: Build installer pkg
-        if: steps.check_secrets.outputs.signing_enabled == 'true'
         run: |
           STAGE="${{ steps.collect.outputs.stage_dir }}"
-          IDENTITY="${{ steps.keychain.outputs.identity }}"
           PKG_ID="org.k1jt.wsjtx.${{ inputs.arch }}"
           PKG_VERSION="${{ inputs.version }}"
 
@@ -425,11 +443,18 @@ jobs:
             --install-location / \
             "$RUNNER_TEMP/wsjtx-component.pkg"
 
-          INST_IDENTITY="${{ steps.keychain.outputs.installer_identity }}"
-          productbuild \
-            --package "$RUNNER_TEMP/wsjtx-component.pkg" \
-            --sign "$INST_IDENTITY" \
-            "wsjtx-${{ inputs.version }}-${{ inputs.arch }}-macOS.pkg"
+          PKG_OUT="wsjtx-${{ inputs.version }}-${{ inputs.arch }}-macOS.pkg"
+          if [ "${{ steps.check_secrets.outputs.signing_enabled }}" = "true" ]; then
+            INST_IDENTITY="${{ steps.keychain.outputs.installer_identity }}"
+            productbuild \
+              --package "$RUNNER_TEMP/wsjtx-component.pkg" \
+              --sign "$INST_IDENTITY" \
+              "$PKG_OUT"
+          else
+            productbuild \
+              --package "$RUNNER_TEMP/wsjtx-component.pkg" \
+              "$PKG_OUT"
+          fi
 
       - name: Notarize pkg
         if: steps.check_secrets.outputs.signing_enabled == 'true'
@@ -491,7 +516,6 @@ jobs:
         run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" 2>/dev/null || true
 
       - name: Upload pkg
-        if: steps.check_secrets.outputs.signing_enabled == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: wsjtx-${{ inputs.version }}-${{ inputs.arch }}-macOS.pkg
