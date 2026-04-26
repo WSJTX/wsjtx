@@ -206,7 +206,7 @@ jobs:
           # create` uses basenames as asset names and duplicates cause
           # upload failures.
           FILES=$(find artifacts -maxdepth 2 -type f \
-            \( -name "*.pkg" -o -name "*.AppImage" \
+            \( -name "*.pkg" -o -name "*.AppImage" -o -name "*.deb" \
                -o -name "*.exe" -o -name "*.tar.gz" \))
           # SemVer pre-release tags contain a hyphen after the version
           # (e.g., v3.0.1-rc1, v3.0.1-rc2, v3.0.1-beta1). Flag those as

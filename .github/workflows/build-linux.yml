@@ -34,7 +34,8 @@ jobs:
             libqt5sql5-sqlite libqt5websockets5-dev \
             libusb-1.0-0-dev libudev-dev libreadline-dev \
             autoconf automake libtool pkg-config \
-            texinfo
+            texinfo \
+            dpkg-dev fakeroot
 
       - name: Cache pFUnit
         id: pfunit-cache
@@ -130,6 +131,36 @@ jobs:
         run: |
           file wsjtx-build/jt9
           file wsjtx-build/jt9 | grep -q "ELF 64-bit"
+
+      # CMakeLists.txt:1989-2012 enables CPack's DEB generator when
+      # dpkg-buildpackage is on the path (provided by dpkg-dev, installed
+      # above). CPACK_PACKAGE_FILE_NAME override aligns the filename with
+      # the AppImage/installer naming used by the rest of the pipeline
+      # (CPack would otherwise emit Debian-conventional wsjt-x_3.0.1_amd64.deb).
+      - name: Package .deb
+        env:
+          VERSION: ${{ inputs.version }}
+          ARCH: ${{ inputs.arch }}
+        run: |
+          cd wsjtx-build
+          cpack -G DEB \
+            -D "CPACK_PACKAGE_FILE_NAME=wsjtx-${VERSION}-linux-${ARCH}"
+          DEB="wsjtx-${VERSION}-linux-${ARCH}.deb"
+          if [ ! -f "$DEB" ]; then
+            echo "::error::cpack -G DEB produced no .deb at expected path: $DEB"
+            ls -la *.deb 2>/dev/null || true
+            exit 1
+          fi
+          ls -lh "$DEB"
+          file "$DEB"
+          dpkg-deb --info "$DEB" | head -20
+
+      - name: Upload .deb
+        uses: actions/upload-artifact@v7
+        with:
+          name: wsjtx-${{ inputs.version }}-linux-${{ inputs.arch }}-deb
+          path: wsjtx-build/wsjtx-${{ inputs.version }}-linux-${{ inputs.arch }}.deb
+          if-no-files-found: error
 
       - name: Install to AppDir
         run: |
