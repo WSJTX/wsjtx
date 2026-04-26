@@ -20,6 +20,17 @@ jobs:
       run:
         shell: msys2 {0}
     steps:
+      # windows-latest's git defaults to core.autocrlf=true, which converts
+      # text-file line endings during checkout. The converted working tree
+      # then differs from the index, so cmake/getsvn.cmake's git_local_changes
+      # reports DIRTY and the resulting binary's About tab shows
+      # "wsjtx-<ver>-<sha>-dirty". Disable autocrlf before checkout so the
+      # working tree matches the index exactly. (No-op on macOS/Linux runners,
+      # which already default to autocrlf=false; this fix is Windows-only.)
+      - name: Disable core.autocrlf before checkout
+        shell: pwsh
+        run: git config --global core.autocrlf false
+
       - uses: actions/checkout@v6
 
       - uses: msys2/setup-msys2@v2
