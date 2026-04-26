@@ -366,10 +366,18 @@ jobs:
           if [ "${{ steps.check_secrets.outputs.signing_enabled }}" = "true" ]; then
             IDENTITY="${{ steps.keychain.outputs.identity }}"
             TS="--timestamp"
+            # Developer ID hardened-runtime signing requires --entitlements
+            # to declare the runtime exceptions the app needs.
+            ENT_FLAG="--entitlements $ENTITLEMENTS"
             echo "Code signing mode: Developer ID (real)"
           else
             IDENTITY="-"
             TS=""
+            # Ad-hoc signing has no trust chain, so entitlements are
+            # meaningless. macos-15-intel's codesign also rejects the
+            # empty entitlements.plist with "cannot read entitlement
+            # data" — drop the flag entirely on the ad-hoc path.
+            ENT_FLAG=""
             echo "Code signing mode: ad-hoc (no Apple trust chain; pkg will be unsigned)"
           fi
 
@@ -382,13 +390,13 @@ jobs:
             -exec codesign --force --options runtime $TS --sign "$IDENTITY" {} \; 2>/dev/null || true
 
           find "${APP}/Contents/MacOS" -type f -perm +111 \
-            -exec codesign --force --options runtime --entitlements "$ENTITLEMENTS" $TS --sign "$IDENTITY" {} \;
+            -exec codesign --force --options runtime $ENT_FLAG $TS --sign "$IDENTITY" {} \;
           codesign --force --options runtime $TS --sign "$IDENTITY" "${APP}"
           codesign --verify --deep --strict --verbose=2 "${APP}"
 
           for dir in "${STAGE}" "${ASSETS}"; do
             find "${dir}" -maxdepth 1 -type f -perm +111 \
-              -exec codesign --force --options runtime --entitlements "$ENTITLEMENTS" $TS --sign "$IDENTITY" {} \;
+              -exec codesign --force --options runtime $ENT_FLAG $TS --sign "$IDENTITY" {} \;
           done
 
           for dir in "${STAGE}/lib" "${ASSETS}/lib"; do
