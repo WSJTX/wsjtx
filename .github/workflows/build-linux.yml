@@ -32,6 +32,7 @@ jobs:
             libfftw3-dev libboost-all-dev \
             qtbase5-dev qttools5-dev qtmultimedia5-dev libqt5serialport5-dev \
             libqt5sql5-sqlite libqt5websockets5-dev \
+            libqt5multimedia5-plugins \
             libusb-1.0-0-dev libudev-dev libreadline-dev \
             autoconf automake libtool pkg-config \
             texinfo
@@ -194,6 +195,22 @@ jobs:
           # Qt5 libs should have been bundled by linuxdeploy-plugin-qt.
           ls squashfs-root/usr/lib/ | grep -q "^libQt5Core\.so"
           ls squashfs-root/usr/lib/ | grep -q "^libQt5Widgets\.so"
+          ls squashfs-root/usr/lib/ | grep -q "^libQt5Multimedia\.so"
+          # Verify Qt audio backend plugins were bundled. Without them,
+          # QAudioDeviceInfo::availableDevices() returns empty at runtime
+          # and the user sees "no audio devices" — observed in v3.0.1 on
+          # Linux Lite. linuxdeploy-plugin-qt only WARNS when these are
+          # absent on the build host, it doesn't fail.
+          audio_plugins=$(find squashfs-root -path '*/plugins/audio/qtaudio_*.so' 2>/dev/null)
+          if [ -z "$audio_plugins" ]; then
+            echo "::error::No Qt audio backend plugins (qtaudio_alsa/qtaudio_pulse) bundled in AppImage."
+            echo "::error::Install libqt5multimedia5-plugins on the build host so linuxdeploy-plugin-qt can find them."
+            echo "AppImage plugin tree:"
+            find squashfs-root -path '*/plugins/*' -name '*.so' 2>/dev/null | head -20
+            exit 1
+          fi
+          echo "Qt audio plugins bundled:"
+          echo "$audio_plugins"
           rm -rf squashfs-root
 
       - name: Upload AppImage
