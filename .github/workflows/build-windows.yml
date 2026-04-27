@@ -46,6 +46,7 @@ jobs:
             mingw-w64-x86_64-qt5-base
             mingw-w64-x86_64-qt5-multimedia
             mingw-w64-x86_64-qt5-serialport
+            mingw-w64-x86_64-qt5-svg
             mingw-w64-x86_64-qt5-tools
             mingw-w64-x86_64-qt5-websockets
             mingw-w64-x86_64-qt5-activeqt
