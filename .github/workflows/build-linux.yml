@@ -135,9 +135,11 @@ jobs:
 
       # CMakeLists.txt:1989-2012 enables CPack's DEB generator when
       # dpkg-buildpackage is on the path (provided by dpkg-dev, installed
-      # above). CPACK_PACKAGE_FILE_NAME override aligns the filename with
-      # the AppImage/installer naming used by the rest of the pipeline
-      # (CPack would otherwise emit Debian-conventional wsjt-x_3.0.1_amd64.deb).
+      # above). The DEB generator ignores CPACK_PACKAGE_FILE_NAME and
+      # uses its own CPACK_DEBIAN_FILE_NAME (default <pkg>_<ver>_<arch>.deb
+      # → wsjtx_3.0.1_amd64.deb regardless). Override that variable to
+      # align the filename with the AppImage/installer naming used by
+      # the rest of the pipeline.
       - name: Package .deb
         env:
           VERSION: ${{ inputs.version }}
@@ -145,7 +147,7 @@ jobs:
         run: |
           cd wsjtx-build
           cpack -G DEB \
-            -D "CPACK_PACKAGE_FILE_NAME=wsjtx-${VERSION}-linux-${ARCH}"
+            -D "CPACK_DEBIAN_FILE_NAME=wsjtx-${VERSION}-linux-${ARCH}.deb"
           DEB="wsjtx-${VERSION}-linux-${ARCH}.deb"
           if [ ! -f "$DEB" ]; then
             echo "::error::cpack -G DEB produced no .deb at expected path: $DEB"
