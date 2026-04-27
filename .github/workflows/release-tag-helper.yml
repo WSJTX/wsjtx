@@ -41,7 +41,10 @@ on:
 
 permissions:
   contents: write
-  actions: read
+  # write needed to dispatch release.yml after retag (push events from
+  # GITHUB_TOKEN don't auto-trigger workflows by anti-recursion rule;
+  # workflow_dispatch is the documented exception).
+  actions: write
 
 jobs:
   helper:
@@ -224,6 +227,7 @@ jobs:
       - name: Retag (only when preflight passes and dry_run == false)
         if: ${{ inputs.dry_run == false }}
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SHA: ${{ steps.resolve.outputs.sha }}
           VERSION: ${{ inputs.version }}
         run: |
@@ -236,18 +240,28 @@ jobs:
           echo "Tags moved:"
           echo "  v$VERSION       → $SHA"
           echo "  build/v$VERSION → $SHA"
+
+          # Pushes via GITHUB_TOKEN do NOT auto-trigger workflows
+          # (anti-recursion rule). Explicitly dispatch release.yml
+          # with --ref pointing at the just-moved tag, so
+          # GITHUB_REF_NAME inside release.yml matches the push-on-tag
+          # case and existing logic works unchanged. workflow_dispatch
+          # is the documented exception to the anti-recursion rule.
           echo ""
-          echo "release.yml will fire automatically on the build/v$VERSION push."
+          echo "Dispatching release.yml on tag build/v$VERSION..."
+          gh workflow run release.yml --repo "${GITHUB_REPOSITORY}" --ref "build/v$VERSION"
+          echo "release.yml dispatched."
+
           {
             echo ""
-            echo "### ✅ Tags moved"
+            echo "### ✅ Tags moved + release.yml dispatched"
             echo ""
             echo "| Tag | New SHA |"
             echo "|---|---|"
             echo "| \`v$VERSION\` | \`$SHA\` |"
             echo "| \`build/v$VERSION\` | \`$SHA\` |"
             echo ""
-            echo "\`release.yml\` should fire automatically on the \`build/v$VERSION\` push. Watch:"
+            echo "Watch the resulting release run:"
             echo ""
             echo "    gh run list --repo ${{ github.repository }} --workflow release.yml --limit 5"
           } >> "$GITHUB_STEP_SUMMARY"
