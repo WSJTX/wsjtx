@@ -1636,12 +1636,30 @@ generate_version_info (wsjtx_VERSION_RESOURCES
   ICON ${WSJTX_ICON_FILE}
   )
 
+# Embed a Windows application manifest declaring per-monitor V2 DPI
+# awareness. Without it, Windows treats wsjtx.exe as DPI-unaware and
+# applies legacy bitmap-stretching scaling on high-DPI displays —
+# fonts/widgets appear larger than locally-built (MSVC) executables
+# which auto-embed a manifest. Resource ID 1, type RT_MANIFEST (24).
+set (wsjtx_PLATFORM_RESOURCES)
+if (WIN32)
+  set (WSJTX_MANIFEST_PATH "${CMAKE_CURRENT_SOURCE_DIR}/wsjtx.exe.manifest")
+  configure_file (
+    "${CMAKE_CURRENT_SOURCE_DIR}/CMake/Modules/wsjtx-manifest.rc.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/wsjtx-manifest.rc"
+    @ONLY
+    )
+  list (APPEND wsjtx_PLATFORM_RESOURCES
+    "${CMAKE_CURRENT_BINARY_DIR}/wsjtx-manifest.rc")
+endif (WIN32)
+
 add_executable (wsjtx MACOSX_BUNDLE
   ${wsjtx_CXXSRCS}
   ${wsjtx_GENUISRCS}
   ${WSJTX_ICON_FILE}
   ${wsjtx_RESOURCES_RCC}
   ${wsjtx_VERSION_RESOURCES}
+  ${wsjtx_PLATFORM_RESOURCES}
   )
 
 if (WSJT_CREATE_WINMAIN)
