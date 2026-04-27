@@ -394,8 +394,28 @@ jobs:
 
           find "${APP}/Contents/MacOS" -type f -perm +111 \
             -exec codesign --force --options runtime --entitlements "$ENTITLEMENTS" $TS --sign "$IDENTITY" {} \;
-          codesign --force --options runtime $TS --sign "$IDENTITY" "${APP}"
+          # Bundle-level codesign re-signs the main executable. --force
+          # without --entitlements would WIPE the entitlements applied
+          # in the previous step (PR #27 missed this — rc1 shipped with
+          # an unentitled wsjtx binary, so disable-library-validation
+          # never took effect and the dyld load of QtSerialPort still
+          # failed with mismatched Team IDs).
+          codesign --force --options runtime --entitlements "$ENTITLEMENTS" $TS --sign "$IDENTITY" "${APP}"
           codesign --verify --deep --strict --verbose=2 "${APP}"
+
+          # Defensive: confirm the entitlement actually made it onto
+          # the main binary. `codesign --verify` doesn't check
+          # entitlement presence — it only validates the signature
+          # itself — so a re-sign that wipes entitlements would still
+          # pass verify (that's how rc1 shipped broken).
+          MAIN_BIN="${APP}/Contents/MacOS/wsjtx"
+          if ! codesign -d --entitlements - "$MAIN_BIN" 2>/dev/null | grep -q "disable-library-validation"; then
+            echo "::error::wsjtx binary is missing com.apple.security.cs.disable-library-validation entitlement."
+            echo "::error::Bundled Qt frameworks will fail to load under hardened runtime."
+            codesign -d --entitlements - "$MAIN_BIN" || true
+            exit 1
+          fi
+          echo "Confirmed disable-library-validation entitlement on $MAIN_BIN"
 
           for dir in "${STAGE}" "${ASSETS}"; do
             find "${dir}" -maxdepth 1 -type f -perm +111 \
