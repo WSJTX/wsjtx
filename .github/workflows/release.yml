@@ -3,6 +3,13 @@ name: Release
 on:
   push:
     tags: ["build/v*"]
+  # Manual / programmatic re-fire. Dispatch with --ref build/v<VERSION>
+  # so GITHUB_REF_NAME matches the push-on-tag case and the rest of
+  # this workflow's existing logic works unchanged. Used by
+  # release-tag-helper.yml — pushes the tag with GITHUB_TOKEN (which
+  # by anti-recursion rule does NOT auto-trigger this workflow), then
+  # explicitly dispatches it with --ref pointing at the just-moved tag.
+  workflow_dispatch:
 
 jobs:
   # ── Derive the version string once from the pushed tag ────────────
