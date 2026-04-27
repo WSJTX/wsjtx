@@ -234,7 +234,9 @@ jobs:
           # and the user sees "no audio devices" — observed in v3.0.1 on
           # Linux Lite. linuxdeploy-plugin-qt only WARNS when these are
           # absent on the build host, it doesn't fail.
-          audio_plugins=$(find squashfs-root -path '*/plugins/audio/qtaudio_*.so' 2>/dev/null)
+          # Linux shared objects are conventionally `lib*.so` so the
+          # bundled plugins are libqtaudio_alsa.so and libqtmedia_pulse.so.
+          audio_plugins=$(find squashfs-root -path '*/plugins/audio/*.so' 2>/dev/null)
           if [ -z "$audio_plugins" ]; then
             echo "::error::No Qt audio backend plugins (qtaudio_alsa/qtaudio_pulse) bundled in AppImage."
             echo "::error::Install libqt5multimedia5-plugins on the build host so linuxdeploy-plugin-qt can find them."
