@@ -57,7 +57,14 @@ jobs:
             mingw-w64-x86_64-pkg-config
             mingw-w64-x86_64-nsis
             mingw-w64-x86_64-osslsigncode
+            mingw-w64-x86_64-ruby
             autoconf automake libtool
+
+      # asciidoctor is a Ruby gem (no native MSYS2 package) — needed by
+      # doc/CMakeLists.txt to build the WSJT-X user guide HTML referenced
+      # by Help → Local User Guide.
+      - name: Install asciidoctor (Ruby gem)
+        run: gem install asciidoctor --no-document
 
       - name: Cache pFUnit
         id: pfunit-cache
@@ -156,7 +163,6 @@ jobs:
             -DWSJT_SKIP_MAP65=ON \
             -DCMAKE_Fortran_FLAGS="-fallow-argument-mismatch -std=legacy" \
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-            -DWSJT_GENERATE_DOCS=OFF \
             -DWSJT_SKIP_MANPAGES=ON \
             -DWSJT_BUILD_TESTS=ON \
             -DPFUNIT_DIR="${{ steps.pfunit.outputs.pfunit_dir }}" \
