@@ -47,7 +47,7 @@ jobs:
         run: echo "HOMEBREW_PREFIX=$(brew --prefix)" >> "$GITHUB_ENV"
 
       - name: Install dependencies
-        run: brew install cmake gcc fftw boost qt@5 libusb dylibbundler autoconf automake libtool
+        run: brew install cmake gcc fftw boost qt@5 libusb dylibbundler autoconf automake libtool asciidoctor
 
       - name: Locate gfortran
         id: fc
@@ -125,7 +125,6 @@ jobs:
             -DCMAKE_Fortran_COMPILER="${{ steps.fc.outputs.path }}" \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ inputs.deployment_target }} \
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-            -DWSJT_GENERATE_DOCS=OFF \
             -DWSJT_SKIP_MANPAGES=ON \
             -DWSJT_BUILD_TESTS=ON \
             -DPFUNIT_DIR="${{ steps.pfunit.outputs.dir }}" \

@@ -36,7 +36,8 @@ jobs:
             libusb-1.0-0-dev libudev-dev libreadline-dev \
             autoconf automake libtool pkg-config \
             texinfo \
-            dpkg-dev fakeroot
+            dpkg-dev fakeroot \
+            asciidoctor
 
       - name: Cache pFUnit
         id: pfunit-cache
@@ -99,7 +100,6 @@ jobs:
           cmake -S . -B wsjtx-build \
             -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/hamlib-prefix;${GITHUB_WORKSPACE}/pfunit-prefix" \
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-            -DWSJT_GENERATE_DOCS=OFF \
             -DWSJT_SKIP_MANPAGES=ON \
             -DWSJT_BUILD_TESTS=ON \
             -DPFUNIT_DIR="${{ steps.pfunit.outputs.dir }}" \
