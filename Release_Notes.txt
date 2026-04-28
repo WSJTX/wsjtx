@@ -28,6 +28,9 @@ but not MAP65. Code has the following changes since release 3.0.0:
  - A bug sometimes affecting CW transmissions in Echo mode has been
    fixed.
 
+ - A bug preventing callsign highlighting in some circumstances has
+   been fixed.
+
 
 			Release: WSJT-X 3.0.0
                             April 8, 2026
