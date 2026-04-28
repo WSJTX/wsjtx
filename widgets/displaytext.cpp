@@ -823,7 +823,6 @@ void DisplayText::highlight_callsign (QString const& callsign, QColor const& bg,
                                       QColor const& fg, bool last_period_only)
 {
   auto regexp = callsign;
-  last_period_only = true;  // highlight last period only because it is faster and more robust
   if (!callsign.size () || callsign == "" || callsign == " " || callsign == "0")
     {
       return;
