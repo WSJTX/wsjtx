@@ -18,5 +18,16 @@
     -->
     <key>com.apple.security.cs.disable-library-validation</key>
     <true/>
+
+    <!--
+        Microphone access. Required so jt9 receives audio from the input
+        device once hardened runtime is enabled. NSMicrophoneUsageDescription
+        in Info.plist makes macOS prompt the user; without this entitlement,
+        hardened runtime overrides the user's grant at the syscall level and
+        reads return silence (audio level reads 0 dB; jt9 then crashes
+        processing the all-zero buffer at end of receive cycle).
+    -->
+    <key>com.apple.security.device.audio-input</key>
+    <true/>
 </dict>
 </plist>
