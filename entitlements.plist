@@ -29,5 +29,28 @@
     -->
     <key>com.apple.security.device.audio-input</key>
     <true/>
+
+    <!--
+        GCC nested-function trampoline support, required by jt9. gfortran
+        compiles Fortran internal procedures (and procedure pointers to
+        them) using GCC's nested-function extension; libgcc's
+        __gcc_nested_func_ptr_created allocates a small heap page and
+        calls mprotect(PROT_READ|PROT_EXEC) so the trampoline can
+        dispatch to the inner procedure with the right static-link frame.
+        Under hardened runtime on macOS, that mprotect is denied without
+        this entitlement, libgcc has no fallback, and jt9 calls abort()
+        the first time multimode_decoder_ exercises a procedure pointer
+        through a trampoline (i.e. on the first decode cycle, in every
+        jt9-decoded mode).
+
+        Only jt9 in this bundle uses gfortran nested-fn pointers
+        (verified via `nm`); wsjtx and wsprd do not. Granting the
+        capability bundle-wide is harmless for binaries that do not
+        exercise it. Notarization accepts this entitlement; unlike
+        com.apple.security.cs.disable-executable-page-protection it
+        stays targeted to runtime-generated code.
+    -->
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
 </dict>
 </plist>
