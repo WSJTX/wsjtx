@@ -3,11 +3,11 @@
 The _WSJT_ project was started by *K1JT* in 2001.  Starting in 2005 it
 has been an Open Source project, and it has included the programs
 _WSJT_, _MAP65_, _WSPR_, _WSJT-X_, and _QMAP_.  *G4WJS* (since 2013),
-*K9AN* (2015), *IV3NWV* (2016), *DG2YCB* (2021), *N9ADG* (2022),
-*G4KLA* (2024), *DL3WDG* (2024), and *W3SZ* (2025) have made major
-contributions to _WSJT-X_.  Together with K1JT they now form the core
-development team.  *G4WJS* and *W9MDB* also made major contributions
-to the _Hamlib_ library, on which _WSJT-X_ depends for rig control.
+*K9AN* (2015), *IV3NWV* (2016), *DG2YCB* (2021-2026), *N9ADG* (2022),
+*G4KLA* (2024), *DL3WDG* (2024), *W3SZ* (2025), and *KJ5HST* (2026)
+have made major contributions to _WSJT-X_. *G4WJS* and *W9MDB* also
+made major contributions to the _Hamlib_ library, on which _WSJT-X_
+depends for rig control.
 
 All code in the _WSJT_ project is licensed under the GNU Public
 License (GPL).  Many users of these programs, too numerous to mention

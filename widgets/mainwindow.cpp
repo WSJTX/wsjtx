@@ -4688,8 +4688,8 @@ void MainWindow::on_actionCopyright_Notice_triggered()
                            "K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, "
                            "IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; "
                            "Philip Karn, KA9Q; Uwe Risse, DG2YCB; Brian Moran, N9ADG; Roger Rehr, "
-                           "W3SZ; John Nelson, G4KLA; Charlie Suckling, DL3WDG; and other members "
-                           "of the WSJT Development Group.\"");
+                           "W3SZ; John Nelson, G4KLA; Charlie Suckling, DL3WDG; Terrell Deppe, "
+                           "KJ5HST; and other members of the WSJT Development Group.\"");
   MessageBox::warning_message(this, message);
 }
 

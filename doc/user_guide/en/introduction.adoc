@@ -10,9 +10,10 @@ Somerville, G4WJS, Steve Franke, K9AN, and Nico Palermo, IV3NWV, have
 been major contributors to development of _WSJT-X_ since 2013, 2015,
 and 2016, respectively. Bill Somerville died unexpectedly in December
 2021; Uwe Risse, DG2YCB, joined the core development team soon
-afterward, followed by Brian Moran, N9ADG in 2022, John Nelson, G4KLA
-and Charlie Suckling, DL3WDG in 2024, and Roger Rehr, W3SZ, in
-2025. Over the years many other hams have contributed to _WSJT-X_
+afterward and worked with us until February 2026. Brian Moran, N9ADG,
+joined the team in 2022; John Nelson, G4KLA and Charlie Suckling,
+DL3WDG in 2024; Roger Rehr, W3SZ, in 2025; and Terrell Deppe, KJ5HST,
+in 2026. Over the years many other hams have contributed to _WSJT-X_
 development in more limited ways. We are extremely grateful for all of
 these contributions.
 
