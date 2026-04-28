@@ -31,6 +31,8 @@ but not MAP65. Code has the following changes since release 3.0.0:
  - A bug preventing callsign highlighting in some circumstances has
    been fixed.
 
+ - Corrected band limits for the 2.5 mm and 2 mm bands.
+
 
 			Release: WSJT-X 3.0.0
                             April 8, 2026
