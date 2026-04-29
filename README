@@ -12,7 +12,7 @@
                                                                                                                  
 Copyright (C) 2001 - 2026 by Joe Taylor, K1JT.
 
-WSJT-X Version 2.6.1 offers eleven different protocols or modes: FT4,
+WSJT-X Version 3.0.1 offers eleven different protocols or modes: FT4,
 FT8, JT4, JT9, JT65, Q65, FST4, MSK144, WSPR, FST4W, and Echo. The
 first seven are designed for making reliable QSOs under weak-signal
 conditions. They use nearly identical message structure and source
