@@ -1,6 +1,6 @@
 # Weak Signal Communication Software
 
-©2001-2026 by Joe Taylor, K1JT
+©2001-2026 by Joe Taylor, K1JT and the WSJT Development Team
 
 ## Programs
 *WSJT-X*, *MAP65*, and *QMAP* are open-source, multi-platform programs designed for weak-signal digital communication by amateur radio. *WSJT-X* works with a standard SSB transceiver, while *MAP65* and *QMAP* use wideband SDR-style hardware. The programs are open source, free of charge, and licensed under the GNU General Public License.
