@@ -3,15 +3,8 @@
 
 #include <QObject>
 #include <QString>
-#include <QWidget>
-
+#include <QTcpSocket>
 #include <QTimer>
-#include <QWidget>
-
-#ifdef Q_OS_WIN
-#include <windows.h>
-#undef MessageBox
-#endif
 
 class MMTTYIF : public QObject {
   Q_OBJECT
@@ -20,68 +13,47 @@ public:
   explicit MMTTYIF(QObject *parent = nullptr);
   ~MMTTYIF();
 
-  void initialize(const QString &hexHandleStr, WId mainWindowId);
-  void shutdown();
+  void initialize(quint16 port);
+  bool isConnected() const;
 
-  quint32 baudRate() const { return m_baudRate; }
-  void setBaudRate(quint32 baud) { m_baudRate = baud; }
-
-  quint32 heightWidth() const { return m_heightWidth; }
-  void setHeightWidth(quint32 hw) { m_heightWidth = hw; }
-
-  int txDelayMs() const { return m_txDelayMs; }
-  void setTxDelayMs(int ms) { m_txDelayMs = ms; }
-
-  bool isRemoteInvoked() const { return m_remote_invoked; }
-  void setRemoteInvoked(bool invoked) { m_remote_invoked = invoked; }
-
-#ifdef Q_OS_WIN
-  UINT getMttyMsg() const { return m_msgMtty; }
-  void filterEvent(void *message);
-#endif
-
-signals:
-  void app_is_quitting();
-  void app_tx_string(QString str);
-  void app_ptt_on();
-  void app_ptt_off(int lParam);
-
-  void log_message(const QString &msg);
-  void message_received();
-  void rxm_handle_received();
-  void inactivity_timeout();
-
-public slots:
-  void app_rx_char(char tx_char);
-  void report_ptt_state(bool is_on);
-  void echo_message_to_n1mm(const QString &message);
-
-public:
-  static QString logMessage(const QString &direction, unsigned int msg,
-                            unsigned long long wParam, long long lParam);
   static void logText(const QString &text);
 
+signals:
+  void inactivity_timeout();
+  void app_is_quitting();
+  void app_tx_string(QString str);
+  void app_start_tx();
+  void app_stop_tx();
+  void app_abort_tx();
+
+  void message_received();
+  void log_message(const QString &msg);
+  void connection_failed();
+
+public slots:
+  void echo_message_to_n1mm(const QString &message);
+  void report_ptt_state(bool is_on);
+  void shutdown();
+
 private slots:
-  void handleInactivityTimeout();
-  void handleTxBufferTimeout();
+  void onConnected();
+  void onDisconnected();
+#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
+  void onError(QAbstractSocket::SocketError socketError);
+#else
+  void onError(QAbstractSocket::SocketError socketError);
+#endif
+  void onRetryTimeout();
+  void onReadyRead();
 
 private:
-  QString getTargetName() const;
-  static QString getWParamEnumName(unsigned long long wParam);
+  QTcpSocket *m_socket;
+  QTimer *m_retryTimer;
+  int m_connectionRetries;
+  quint16 m_port;
 
-  QTimer *m_inactivityTimer = nullptr;
-  QTimer *m_txTimer = nullptr;
-  QString m_txBuffer;
   quint32 m_baudRate = 0;
   quint32 m_heightWidth = 0;
-  bool m_remote_invoked = false;
-  int m_txDelayMs = 40;
-
-#ifdef Q_OS_WIN
-  HWND m_targetHandle = nullptr;
-  UINT m_msgMtty = 0;
-  WId m_mainWindowId = 0;
-#endif
 };
 
 #endif // MMTTYIF_HPP

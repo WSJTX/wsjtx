@@ -86,7 +86,7 @@ void JttyTxQueue::onTxTimerTimeout()
         
         // Then immediately spool up the next pending message
         QString nextMessage = m_queue.dequeue();
-        LOG_INFO(QString{"JttyTxQueue::onTxTimerTimeout, nextmessage: "}.arg(nextMessage));
+        LOG_INFO(QString{"JttyTxQueue::onTxTimerTimeout, nextmessage: %1"}.arg(nextMessage));
         emit transmitMessage(nextMessage);
     }
 }

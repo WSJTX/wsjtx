@@ -23,7 +23,7 @@ int main(int argc, char *argv[]) {
         printf("Error parsing executable path.\n");
         return 1;
     }
-    
+ #ifdef USE_WINDOW_HANDLE   
     // Parse arguments (-h<handle> or -h <handle>)
     for (int i = 1; i < argc; i++) {
         if (strncmp(argv[i], "-h", 2) == 0) {
@@ -37,6 +37,7 @@ int main(int argc, char *argv[]) {
             }
         }
     }
+ #endif 
     
     // Build the command line
     if (strlen(windowHandle) > 0) {

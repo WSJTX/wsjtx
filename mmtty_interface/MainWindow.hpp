@@ -9,10 +9,6 @@
 class QTextEdit;
 class MMTTYIF;
 
-#ifdef Q_OS_WIN
-#include <windows.h>
-#endif
-
 struct CommandLineOptions {
     QMap<QString, bool> flags;
     QString hexValue;
@@ -28,13 +24,10 @@ public:
     explicit MainWindow(const CommandLineOptions &options, QWidget *parent = nullptr);
     ~MainWindow();
 
-    MMTTYIF* getMmttyIf() const;
+    MMTTYIF* getMmttyIf() const { return m_mmttyIf; }
 
 protected:
     bool eventFilter(QObject *obj, QEvent *event) override;
-#ifdef Q_OS_WIN
-    bool nativeEvent(const QByteArray &eventType, void *message, long *result) override;
-#endif
 private slots:
     void jtty_tx_test(QString str);
 
@@ -44,11 +37,6 @@ private:
     quint32 m_baudRate = 0;
     quint32 m_heightWidth = 0;
     MMTTYIF *m_mmttyIf;
-    
-#ifdef Q_OS_WIN
-    HWND m_targetHandle;
-    UINT m_msgMtty;
-#endif
 };
 
 #endif // MAINWINDOW_HPP

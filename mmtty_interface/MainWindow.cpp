@@ -7,28 +7,9 @@
 #include <QTextEdit>
 #include <QVBoxLayout>
 
-#ifdef Q_OS_WIN
-#include "MMTTY_Messages.hpp"
-#endif
-
 MainWindow::MainWindow(const CommandLineOptions &options, QWidget *parent)
     : QMainWindow(parent), m_options(options), m_mmttyIf(new MMTTYIF(this))
-#ifdef Q_OS_WIN
-      ,
-      m_targetHandle(nullptr), m_msgMtty(::RegisterWindowMessageA("MMTTY"))
-
-#endif
 {
-#ifdef Q_OS_WIN
-  if (!m_options.hexValue.isEmpty()) {
-    bool ok;
-    HWND h = reinterpret_cast<HWND>(m_options.hexValue.toULongLong(&ok, 16));
-    if (ok) {
-      m_targetHandle = h;
-    }
-  }
-#endif
-
   setWindowTitle("MMTTY Interface Utility - Arguments Received");
 
   QWidget *centralWidget = new QWidget(this);
@@ -67,33 +48,17 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
       char c = text.at(0).toLatin1();
 
       if (valid_rtty_chars.contains(c)) {
-        m_mmttyIf->app_rx_char(c);
+        m_mmttyIf->echo_message_to_n1mm(QString(c));
       }
     }
   }
   return QMainWindow::eventFilter(obj, event);
 }
 
-#ifdef Q_OS_WIN
-bool MainWindow::nativeEvent(const QByteArray &eventType, void *message,
-                             long *result) {
-  if (eventType == "windows_generic_MSG") {
-    MSG *msg = static_cast<MSG *>(message);
-    if (msg->message == m_mmttyIf->getMttyMsg()) {
-      m_mmttyIf->filterEvent(message);
-      *result = 0;
-      return true;
-    }
-  }
-  return QMainWindow::nativeEvent(eventType, message, result);
-}
-#endif
 
 void MainWindow::jtty_tx_test(QString str) {
   m_mmttyIf->report_ptt_state(true);
-  for (QChar c : str) {
-    m_mmttyIf->app_rx_char(c.toLatin1());
-  }
+  m_mmttyIf->echo_message_to_n1mm(str);
 
   int delayMs = 163 * str.length();
   QTimer::singleShot(delayMs, this,

@@ -1084,7 +1084,7 @@ endif ()
 #
 
 # Widgets finds its own dependencies.
-find_package (Qt5 COMPONENTS Widgets SerialPort Multimedia PrintSupport Sql LinguistTools WebSockets REQUIRED)
+find_package (Qt5 COMPONENTS Widgets SerialPort Multimedia PrintSupport Sql LinguistTools WebSockets Network REQUIRED)
 
 if (WIN32)
   add_definitions (-DQT_NEEDS_QTMAIN)
@@ -1496,7 +1496,7 @@ set (mmtty_interface_SRCS
 )
 
 add_executable (mmtty_interface WIN32 ${mmtty_interface_SRCS})
-target_link_libraries (mmtty_interface Qt5::Widgets)
+target_link_libraries (mmtty_interface Qt5::Widgets Qt5::Network)
 target_include_directories (mmtty_interface PRIVATE widgets)
 include_directories (${CMAKE_CURRENT_BINARY_DIR})
 
@@ -1749,7 +1749,7 @@ else ()
       )
   endif ()
 endif ()
-target_link_libraries (wsjtx Qt5::SerialPort wsjt_cxx wsjt_qt wsjt_qtmm ${FFTW3_LIBRARIES} ${LIBM_LIBRARIES})
+target_link_libraries (wsjtx Qt5::SerialPort Qt5::Network wsjt_cxx wsjt_qt wsjt_qtmm ${FFTW3_LIBRARIES} ${LIBM_LIBRARIES})
 
 # make a library for WSJT-X UDP servers
 # add_library (wsjtx_udp SHARED ${UDP_library_CXXSRCS})

@@ -1,0 +1,22 @@
+The following is a description of the protocol used by WSJT-X to communicate with MMTTY.
+
+N1MM Logger+ uses a TCP socket to communicate with MMTTY; for VFO1, this is TCP port 61002. For VFO2, port 61004.
+Commands are enclosed in brackets < >. 
+
+After a command, the size of the text for the command is sent. Example: <XMIT:2>ON.
+
+Commands sent by N1MM Logger to WSJT-X
+<TXTEXT:x>TEXT # where x is the length of the text to be transmitted.
+example: <TXTEXT:14>This is a test
+
+<XMIT:2>ON # turns on the transmitter
+
+<XMIT:3>OFF # turns off the transmitter after the current message buffer is transmitted
+<ABORT>ABORT # aborts the transmission immediately (stops TX and clears the Tx buffer)
+
+Commands sent by WSJT-X to N1MM Logger:
+<RXTEXT:x>TEXT # where x is the length of the text to be received.
+example: <RXTEXT:14>This is a test
+<OUTPUTCOMPLETE>Output complete # indicates that the transmission is complete, buffer empty
+
+
