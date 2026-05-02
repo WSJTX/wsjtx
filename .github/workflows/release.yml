@@ -221,21 +221,29 @@ jobs:
             $PRERELEASE_FLAG \
             $FILES
 
+      # ── Public mirror: GA only ─────────────────────────────────────────
+      # RC/beta tags (any tag carrying a '-' in the version, e.g.
+      # build/v3.0.1-rc1) stay internal — the public WSJTX/wsjtx repo is
+      # for stable releases only. The Build source tarball step above
+      # uses the same predicate; mirror logic must too.
+
       # Defense-in-depth: the workflow trigger already constrains
       # github.ref_name to tags matching build/v*, but if this job
       # ever runs outside that trigger (workflow_dispatch, manual
       # re-run with a fork ref, misconfiguration) the force-push
-      # below would overwrite WSJTX/wsjtx:main with arbitrary content.
+      # below would overwrite WSJTX/wsjtx:master with arbitrary content.
       # Abort here if the ref doesn't match the expected release-tag
       # shape.
-      - name: Verify release tag format
+      - name: Verify release tag format (GA only)
+        if: ${{ !contains(github.ref_name, '-') }}
         run: |
           if [[ "$GITHUB_REF_TYPE" != "tag" || "$GITHUB_REF_NAME" != build/v* ]]; then
             echo "::error::Refusing to sync — expected tag build/v*, got $GITHUB_REF_TYPE:$GITHUB_REF_NAME"
             exit 1
           fi
 
-      - name: Push to public repo
+      - name: Push to public repo (GA only)
+        if: ${{ !contains(github.ref_name, '-') }}
         env:
           TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
         run: |
@@ -246,13 +254,22 @@ jobs:
             echo "::error::CROSS_REPO_TOKEN not set — refusing to publish without public-mirror sync"
             exit 1
           fi
-          # Deploy keys can't push .github/workflows/ (GitHub platform
-          # restriction).  Use CROSS_REPO_TOKEN (PAT with repo+workflow
-          # scopes) over HTTPS instead. Idempotent: on job re-run the
-          # remote already exists, so skip add.
+          # Use CROSS_REPO_TOKEN (PAT with Contents:write on WSJTX/wsjtx)
+          # over HTTPS. Idempotent: on job re-run the remote already exists,
+          # so skip add.
           if ! git remote get-url public >/dev/null 2>&1; then
             git remote add public "https://x-access-token:${TOKEN}@github.com/WSJTX/wsjtx.git"
           fi
+
+          # Strip "build/" prefix per public release convention. Public
+          # users search for "v3.0.1", not "build/v3.0.1". Internal tag
+          # stays as-is for the wsjtx-internal release.
+          PUBLIC_TAG="${GITHUB_REF_NAME#build/}"
+
+          # Derive the bare-prefix tag locally so the workflow doesn't
+          # depend on the team having pushed both tag forms. -f overwrites
+          # any pre-existing local tag at a stale SHA.
+          git tag -f "$PUBLIC_TAG" "$GITHUB_REF_NAME"
 
           # Human-auditable record of what the force-push is overwriting.
           # If public master doesn't exist yet, ls-remote returns empty —
@@ -260,13 +277,37 @@ jobs:
           PRIOR_SHA=$(git ls-remote public master | awk '{print $1}')
           LOCAL_SHA=$(git rev-parse HEAD)
           echo "Public mirror force-push audit:"
-          echo "  tag:        $GITHUB_REF_NAME"
-          echo "  prior SHA:  ${PRIOR_SHA:-<none>}"
-          echo "  new SHA:    $LOCAL_SHA"
+          echo "  internal tag: $GITHUB_REF_NAME"
+          echo "  public tag:   $PUBLIC_TAG"
+          echo "  prior SHA:    ${PRIOR_SHA:-<none>}"
+          echo "  new SHA:      $LOCAL_SHA"
 
           # --force retained per CI/CD adoption decision #3 (option a):
           # automate the existing sync pattern. The v3.0.0 tag SHAs already
           # match on both repos, so the force-push aligns history rather
           # than rewrites it in the normal release case.
           git push public HEAD:master --force
-          git push public "$GITHUB_REF_NAME"
+          git push public "refs/tags/${PUBLIC_TAG}:refs/tags/${PUBLIC_TAG}"
+
+      # Create the public-side GitHub Release with installer assets
+      # attached. Without this step, public-side Releases page is empty
+      # after a mirror push (source + tag, no downloadables) and end users
+      # can't find the artifacts.
+      - name: Create public GitHub Release (GA only)
+        if: ${{ !contains(github.ref_name, '-') }}
+        env:
+          GH_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          PUBLIC_TAG="${GITHUB_REF_NAME#build/}"
+          # Same asset filter as the internal release. Re-find rather than
+          # carrying a list — keeps the all-platforms-ready gate, internal
+          # release, and public release mechanically aligned on one filter.
+          FILES=$(find artifacts -maxdepth 2 -type f \
+            \( -name "*.pkg" -o -name "*.AppImage" -o -name "*.deb" \
+               -o -name "*.exe" -o -name "*.tar.gz" \))
+          gh release create "$PUBLIC_TAG" \
+            -R WSJTX/wsjtx \
+            --title "WSJT-X ${VERSION}" \
+            --generate-notes \
+            $FILES
