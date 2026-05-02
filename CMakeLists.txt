@@ -1084,6 +1084,17 @@ set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra")
 
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror -Wall -Wextra -fexceptions -frtti")
 
+# MinGW gcc 16.x (MSYS2 rolled forward 2026-05) raises false-positive
+# -Wmaybe-uninitialized on the placement-new'd HRDMessage flexible-array
+# struct in Transceiver/HRDTransceiver.cpp. Demote to a warning on Windows
+# + gcc 16+ until upstream gcc tightens the analysis or HRDMessage is
+# refactored. Scoped narrowly so other platforms keep -Werror discipline.
+if (WIN32
+    AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
+    AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "16.0")
+  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error=maybe-uninitialized")
+endif ()
+
 if (NOT APPLE)
   set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-pragmas")
   if (${OPENMP_FOUND})
