@@ -4425,7 +4425,7 @@ void MainWindow::setup_status_bar (bool vhf)
       band_hopping_label.setMinimumSize (QSize  {80, 18});
     }
   } else {
-    if (band_hopping_label.isVisible ()) statusBar ()->removeWidget (&band_hopping_label);
+    if (!m_config.PWR_and_SWR () && band_hopping_label.isVisible ()) statusBar ()->removeWidget (&band_hopping_label);
   }
 }
 
@@ -12419,7 +12419,7 @@ void MainWindow::handle_transceiver_update (Transceiver::TransceiverState const&
   // Display PWR and SWR
   if(m_config.PWR_and_SWR()) {
     if (!band_hopping_label.isVisible ()) {
-      statusBar ()->addWidget (&band_hopping_label);
+      statusBar ()->addPermanentWidget (&band_hopping_label);
       band_hopping_label.setMinimumSize (QSize  {80, 18});
       band_hopping_label.show();
     }
