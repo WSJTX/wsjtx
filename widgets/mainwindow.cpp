@@ -10940,7 +10940,16 @@ void MainWindow::on_actionFT8_triggered()
   QTimer::singleShot (50, [=] {
     if(m_specOp!=SpecOp::FOX) ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq_old",1500).toInt());
     if(m_specOp==SpecOp::FOX && !m_config.superFox()) ui->TxFreqSpinBox->setValue(m_TxFreqFox);
-    if(SpecOp::HOUND == m_specOp && m_config.superFox()) clearDX();
+    if(SpecOp::HOUND == m_specOp && m_config.superFox()) {
+      clearDX();
+      // Stale F/H decodes left in the Band Activity / Rx Frequency windows
+      // can be double-clicked to re-prime Tx against a callsign that is no
+      // longer valid in SuperFox/Hound (where the target comes from the
+      // Active Stations widget via the $VERIFY$ flow).  Erase them so the
+      // user-trap surface is gone.  Reported by AF8C, 2026-05-03.
+      ui->decodedTextBrowser->erase ();
+      ui->decodedTextBrowser2->erase ();
+    }
     on_sbSubmode_valueChanged(ui->sbSubmode->value());
     ui->cbHoldTxFreq->setChecked (HoldTxFreqStatus);
   });

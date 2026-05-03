@@ -36,6 +36,9 @@ but not MAP65. Code has the following changes since release 3.0.0:
  - Correct faulty repositioning of SWR label in status bar, after a
    mode switch.
 
+ - Fix stale Band Activity decodes after enabling SuperFox while in
+   Hound mode (reported by AF8C).
+
 
 			Release: WSJT-X 3.0.0
                             April 8, 2026
