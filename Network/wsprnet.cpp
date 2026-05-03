@@ -21,6 +21,7 @@
 namespace
 {
   char const * const wsprNetUrl = "http://wsprnet.org/post/";
+  char const * const wsprNetUrl2 = "http://wsprnet.eu:3000/post/"; // Backup Server if wsprnet.org fails
   //char const * const wsprNetUrl = "http://127.0.0.1:5000/post/";
 
   //
@@ -327,6 +328,10 @@ void WSPRNet::work()
       request.setHeader (QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
       auto const& spot = spot_queue_.dequeue ();
       m_outstandingRequests << network_manager_->post (request, spot.query (QUrl::FullyEncoded).toUtf8 ());
+
+      QNetworkRequest request2 (QUrl {wsprNetUrl2});
+      request2.setHeader (QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
+      m_outstandingRequests << network_manager_->post (request2, spot.query (QUrl::FullyEncoded).toUtf8 ());
       Q_EMIT uploadStatus(QString {"Uploading Spot %1/%2"}.arg (spots_to_send_ - spot_queue_.size()).arg (spots_to_send_));
     }
   else
