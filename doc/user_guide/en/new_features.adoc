@@ -3,11 +3,10 @@
   
 === New in Version 3.0
 
-_WSJT-X 3.0_ incorporates all developments successfully tested up to
-_WSJT-X Improved_ 2.8.0 and a number of new items. The list below
+_WSJT-X 3.0_ incorporates all developments successfully tested in
+experimental versions and a number of new items. The list below
 summarizes important new features. For more details you should
-carefully read the sections in this guide linked in the following notes,
-especially if you have not previously used _WSJT-X Improved_.
+carefully read the sections in this guide linked in the following notes.
 
 - *Band Buttons* can be enabled and displayed from the *View*
 menu. Two sets of buttons are available: an HF-oriented set for 160 m

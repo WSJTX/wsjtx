@@ -24,7 +24,7 @@ public:
   explicit DirectoryNode (QTreeWidgetItem * parent, QString const& name)
     : QTreeWidgetItem {parent, Type}
   {
-    setFlags (flags () | Qt::ItemIsUserCheckable | Qt::ItemIsUserTristate);
+    setFlags (flags () | Qt::ItemIsUserCheckable | Qt::ItemIsTristate);
     setText (0, name);
     setCheckState (0, Qt::Unchecked);
 

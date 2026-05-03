@@ -85,7 +85,7 @@ Messages::Messages (QString const& settings_filename, QWidget * parent) :
   connect(pskThread, &QThread::started, this, [this, m_myCall,m_myGrid]() {
       auto* reporter = new PSKReporter(m_myCall, m_myGrid, QString {"MAP65 v"
               + QCoreApplication::applicationVersion ()
-  + " " + revision ()}.simplified () + " improved PLUS");
+  + " " + revision ()}.simplified ());
 
   reporter->moveToThread(this->pskThread);
   connect(reporter, &PSKReporter::destroyed, pskThread, &QThread::quit);

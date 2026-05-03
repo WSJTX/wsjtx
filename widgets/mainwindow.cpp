@@ -116,7 +116,7 @@
 
 extern "C" {
   //----------------------------------------------------- C and Fortran routines
-  void symspec_(struct dec_data *, int* k, double* trperiod, int* nsps, int* ingain,
+  void symspec_(struct dec_data *, int* k, int* nsps, int* ingain,
                 bool* bLowSidelobes, int* minw, float* px, float s[], float* df3,
                 int* nhsym, int* npts8, float *m_pxmax, int* npct);
 
@@ -474,8 +474,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_onAirFreq0 {0.0},
   m_first_error {true},
   tx_status_label {tr ("Receiving")},
-  wsprNet {new WSPRNet {&m_network_manager, this}},
-  Eqsl {new EQSL {&m_network_manager, this}},
+  wsprNet {new WSPRNet {this}},
+  Eqsl {new EQSL {this}},
   m_baseCall {Radio::base_callsign (m_config.my_callsign ())},
   m_appDir {QApplication::applicationDirPath ()},
   m_cqStr {""},
@@ -559,7 +559,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
         m_config.udp_server_name (), m_config.udp_server_port (),
         m_config.udp_interface_names (), m_config.udp_TTL (),
         this}},
-  m_psk_Reporter {&m_config, QString {"WSJT-X v" + version () + " " + m_revision}.simplified ()},
+  m_psk_Reporter {&m_config, QString {"WSJT-X v" + version()}.simplified()},
   m_manual {&m_network_manager},
   m_block_udp_status_updates {false},
   m_useDarkStyle {false}
@@ -2277,7 +2277,7 @@ void MainWindow::dataSink(qint64 frames)
   bool bLowSidelobes=m_config.lowSidelobes();
   int npct=0;
   if(m_mode.startsWith("FST4")) npct=ui->sbNB->value();
-  symspec_(&dec_data,&k,&m_TRperiod,&nsps,&m_inGain,&bLowSidelobes,&nsmo,&m_px,s,
+  symspec_(&dec_data,&k,&nsps,&m_inGain,&bLowSidelobes,&nsmo,&m_px,s,
            &m_df3,&m_ihsym,&m_npts8,&m_pxmax,&npct);
   if(m_mode=="WSPR" or m_mode=="FST4W") wspr_downsample_(dec_data.d2,&k);
   if(m_ihsym <=0) return;
@@ -4499,7 +4499,7 @@ void MainWindow::setup_status_bar (bool vhf)
       band_hopping_label.setMinimumSize (QSize  {80, 18});
     }
   } else {
-    if (band_hopping_label.isVisible ()) statusBar ()->removeWidget (&band_hopping_label);
+    if (!m_config.PWR_and_SWR () && band_hopping_label.isVisible ()) statusBar ()->removeWidget (&band_hopping_label);
   }
 }
 
@@ -4629,8 +4629,7 @@ void MainWindow::on_pbBandHopping_clicked()
 
 void MainWindow::on_actionRelease_Notes_triggered ()
 {
-  QDesktopServices::openUrl (QUrl {"https://wsjt-x-improved.sourceforge.io/Release_Notes.txt"});
-//  QDesktopServices::openUrl (QUrl {"https://wsjt.sourceforge.io/Release_Notes.txt"});
+  QDesktopServices::openUrl (QUrl {"https://wsjt.sourceforge.io/Release_Notes.txt"});
 }
 
 void MainWindow::on_actionFT8_DXpedition_Mode_User_Guide_triggered()
@@ -4663,16 +4662,6 @@ void MainWindow::on_actionQuick_Start_Guide_to_WSJT_X_2_7_and_QMAP_triggered()
   QDesktopServices::openUrl (QUrl {"https://wsjt.sourceforge.io/Quick_Start_WSJT-X_2.7_QMAP.pdf"});
 }
 
-void MainWindow::on_actionWSJT_X_improved_Home_Page_triggered()
-{
-  QDesktopServices::openUrl (QUrl {"https://wsjt-x-improved.sourceforge.io/"});
-}
-
-void MainWindow::on_actionThe_additional_features_of_wsjt_x_improved_triggered()
-{
-  QDesktopServices::openUrl (QUrl {"https://wsjt-x-improved.sourceforge.io/The_additional_features_of_wsjt-x_improved.pdf"});
-}
-
 void MainWindow::on_actionRecommended_Audio_Settings_triggered()
 {
   auto const& message = tr("It is very important to avoid audio harmonics and distorted audio signals.\n"
@@ -4694,17 +4683,9 @@ void MainWindow::on_actionRecommended_Audio_Settings_triggered()
     MessageBox::warning_message(this, tr ("<b>Recommended Audio Settings</b>"), message); });
 }
 
-void MainWindow::on_actionRig_Control_Errors_triggered()
-{
-  QDesktopServices::openUrl (QUrl {"https://wsjt-x-improved.sourceforge.io/How_to_deal_with_rig_control_errors.pdf"});
-}
-
 void MainWindow::on_actionOnline_User_Guide_triggered()      //Display manual
 {
-  QDesktopServices::openUrl (QUrl {"https://wsjt-x-improved.sourceforge.io/wsjtx-main_en.html"});
-// #if defined (CMAKE_BUILD)
-//   m_manual.display_html_url (QUrl {PROJECT_MANUAL_DIRECTORY_URL}, PROJECT_MANUAL);
-// #endif
+  QDesktopServices::openUrl (QUrl {"https://wsjt.sourceforge.io/wsjtx-main_en.html"});
 }
 
 //Display local copy of manual
@@ -4780,11 +4761,12 @@ void MainWindow::on_actionCopyright_Notice_triggered()
                            "\"The algorithms, source code, look-and-feel of WSJT-X and related "
                            "programs, and protocol specifications for the modes FSK441, FST4, FT8, "
                            "JT4, JT6M, JT9, JT65, JTMS, QRA64, Q65, MSK144 are Copyright (C) "
-                           "2001-2025 by one or more of the following authors: Joseph Taylor, "
+                           "2001-2026 by one or more of the following authors: Joseph Taylor, "
                            "K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, "
                            "IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; "
                            "Philip Karn, KA9Q; Uwe Risse, DG2YCB; Brian Moran, N9ADG; Roger Rehr, "
-                           "W3SZ; and other members of the WSJT Development Group.\"");
+                           "W3SZ; John Nelson, G4KLA; Charlie Suckling, DL3WDG; Terrell Deppe, "
+                           "KJ5HST; and other members of the WSJT Development Group.\"");
   MessageBox::warning_message(this, message);
 }
 
@@ -6432,50 +6414,55 @@ void MainWindow::readFromStdout()                             //readFromStdout
           }
 
 #ifdef FOX_OTP
-          if ((SpecOp::HOUND == m_specOp) &&
-               ((m_config.superFox() && (decodedtext0.mid(24, 8) == "$VERIFY$")) || // $VERIFY$ K8R 920749
-               (decodedtext0.mid(24,-1).contains(QRegularExpression{"^[A-Z0-9]{2,6}\\.[0-9]{6}"})))) // K8R.920749
+          if (SpecOp::HOUND == m_specOp)
           {
-            // two cases:
-            // QString test_return = QString{"203630 -12  0.1  775 ~  K8R.920749"};
-            // $VERIFY$ foxcall otp
-            // QString test_return = QString{"203630 -12  0.1  775 ~  $VERIFY$ K8R 920749"};
-            QStringList lineparts;
+            // Payload formats (from column 24 onward):
+            //   Standard:  CALL.OTP        e.g. "K8R.920749"
+            //   SuperFox:  $VERIFY$ CALL OTP  e.g. "$VERIFY$ VP2X/K1JT 920749"
+            // Callsigns may include '/' and decoder output may contain variable spacing.
+            static const QRegularExpression stdPayloadRe{
+                QStringLiteral("^([A-Z0-9]{2,6})\\.([0-9]{6})$")};
+            static const QRegularExpression verifyPayloadRe{
+                QStringLiteral("^\\$VERIFY\\$\\s+([A-Z0-9/]{2,13})\\s+([0-9]{6})$")};
+
+            QString const payload = decodedtext0.mid(24, -1).trimmed();
             QString callsign, otp;
-            unsigned int hz;
-            lineparts = decodedtext0.string().split(' ', SkipEmptyParts);
-            if (lineparts.length() <= 6) {
-              QStringList otp_parts;
-              // split K8.V920749 into K8R and 920749
-              otp_parts = lineparts[5].split('.', SkipEmptyParts);
-              callsign = otp_parts[0];
-              otp = otp_parts[1];
-              hz = lineparts[3].toInt();
-              if (!m_config.ShowOTP() or decodedtext0.mid(24,-1).contains(" 000000")) filtered = true;
-            } else {
-              // split $VERIFY$ K8R 920749 into K8R and 920749
-              callsign = lineparts[6];
-              otp = lineparts[7];
-              hz = 750; // SF is 750
-              if (!m_config.ShowOTP() or decodedtext0.mid(24,-1).contains(" 000000")) filtered = true;
+            unsigned int hz = 0;
+
+            QRegularExpressionMatch payloadMatch = stdPayloadRe.match(payload);
+            if (payloadMatch.hasMatch()) {
+              callsign = payloadMatch.captured(1);
+              otp = payloadMatch.captured(2);
+              hz = static_cast<unsigned int>(decodedtext0.frequencyOffset());
+            } else if (m_config.superFox() &&
+                       (payloadMatch = verifyPayloadRe.match(payload)).hasMatch()) {
+              callsign = payloadMatch.captured(1);
+              otp = payloadMatch.captured(2);
+              hz = 750;
             }
-            QDateTime verifyDateTime;
-            if (m_diskData) {
-              verifyDateTime = m_UTCdiskDateTime; // get the date set from reading the wav file
-            } else {
-              verifyDateTime = QDateTime(QDateTime::currentDateTimeUtc().date(),
-                                         QTime::fromString(lineparts[0], "hhmmss"));
-            }
-            if (!decodedtext0.mid(24,-1).contains(" 000000")) {
-              FoxVerifier *fv = new FoxVerifier(MainWindow::userAgent(),
-                                                &m_network_manager,
-                                                m_config.OTPUrl(),
-                                                callsign, // foxcall
-                                                verifyDateTime,
-                                                otp,
-                                                hz); // freq
-              connect(fv, &FoxVerifier::verifyComplete, this, &MainWindow::handleVerifyMsg);
-              m_verifications << fv;
+
+            if (!callsign.isEmpty()) {
+              if (!m_config.ShowOTP() || otp == QLatin1String("000000"))
+                filtered = true;
+
+              QDateTime verifyDateTime;
+              if (m_diskData) {
+                verifyDateTime = m_UTCdiskDateTime;
+              } else {
+                verifyDateTime = QDateTime(QDateTime::currentDateTimeUtc().date(),
+                                           QTime::fromString(decodedtext0.left(6), "hhmmss"));
+              }
+              if (otp != QLatin1String("000000")) {
+                FoxVerifier *fv = new FoxVerifier(MainWindow::userAgent(),
+                                                  &m_network_manager,
+                                                  m_config.OTPUrl(),
+                                                  callsign,
+                                                  verifyDateTime,
+                                                  otp,
+                                                  hz);
+                connect(fv, &FoxVerifier::verifyComplete, this, &MainWindow::handleVerifyMsg);
+                m_verifications << fv;
+              }
             }
           }
 #endif
@@ -11035,7 +11022,16 @@ void MainWindow::on_actionFT8_triggered()
   QTimer::singleShot (50, [=] {
     if(m_specOp!=SpecOp::FOX) ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq_old",1500).toInt());
     if(m_specOp==SpecOp::FOX && !m_config.superFox()) ui->TxFreqSpinBox->setValue(m_TxFreqFox);
-    if(SpecOp::HOUND == m_specOp && m_config.superFox()) clearDX();
+    if(SpecOp::HOUND == m_specOp && m_config.superFox()) {
+      clearDX();
+      // Stale F/H decodes left in the Band Activity / Rx Frequency windows
+      // can be double-clicked to re-prime Tx against a callsign that is no
+      // longer valid in SuperFox/Hound (where the target comes from the
+      // Active Stations widget via the $VERIFY$ flow).  Erase them so the
+      // user-trap surface is gone.  Reported by AF8C, 2026-05-03.
+      ui->decodedTextBrowser->erase ();
+      ui->decodedTextBrowser2->erase ();
+    }
     on_sbSubmode_valueChanged(ui->sbSubmode->value());
     ui->cbHoldTxFreq->setChecked (HoldTxFreqStatus);
   });
@@ -12546,7 +12542,7 @@ void MainWindow::handle_transceiver_update (Transceiver::TransceiverState const&
   // Display PWR and SWR
   if(m_config.PWR_and_SWR()) {
     if (!band_hopping_label.isVisible ()) {
-      statusBar ()->addWidget (&band_hopping_label);
+      statusBar ()->addPermanentWidget (&band_hopping_label);
       band_hopping_label.setMinimumSize (QSize  {80, 18});
       band_hopping_label.show();
     }

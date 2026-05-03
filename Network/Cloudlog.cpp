@@ -39,10 +39,10 @@ class Cloudlog::impl final
   Q_OBJECT
 
 public:
-  impl (Cloudlog * self, Configuration const * config, QNetworkAccessManager * network_manager)
+  impl (Cloudlog * self, Configuration const * config)
     : self_ {self}
     , config_ {config}
-    , network_manager_ {network_manager}
+    , network_manager_ {new QNetworkAccessManager(this)}
   {
   }
 
@@ -70,7 +70,7 @@ public:
 
   void testApi (QString const& url, QString const& apiKey)
   {
-    QString apiUrl = url;
+    QString apiUrl = url.trimmed();
 #if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
     if (QNetworkAccessManager::Accessible != network_manager_->networkAccessible ())
       {
@@ -81,11 +81,11 @@ public:
 
     // Remove trailing slash if given
     if (apiUrl.endsWith('/')) {
-      apiUrl.remove(-1, 1);
+      apiUrl.chop(1);
     }
     // Remove full path to API if given
     if (apiUrl.endsWith("/index.php/api/qso")) {
-      apiUrl.remove(-18, 18);
+      apiUrl.chop(QStringLiteral("/index.php/api/qso").size());
     }
 
     QNetworkRequest request {apiUrl+"/index.php/api/auth/"+apiKey};
@@ -153,9 +153,10 @@ public:
 
 #include "Cloudlog.moc"
 
-Cloudlog::Cloudlog (Configuration const * config, QNetworkAccessManager * network_manager, QObject * parent)
+Cloudlog::Cloudlog (Configuration const * config,
+                   QObject * parent)
   : QObject {parent}
-  , m_ {this, config, network_manager}
+  , m_ {this, config}
 {
 }
 

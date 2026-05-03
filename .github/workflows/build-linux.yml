@@ -32,9 +32,13 @@ jobs:
             libfftw3-dev libboost-all-dev \
             qtbase5-dev qttools5-dev qtmultimedia5-dev libqt5serialport5-dev \
             libqt5sql5-sqlite libqt5websockets5-dev \
+            libqt5multimedia5-plugins \
             libusb-1.0-0-dev libudev-dev libreadline-dev \
             autoconf automake libtool pkg-config \
-            texinfo
+            texinfo \
+            dpkg-dev fakeroot \
+            asciidoctor \
+            rpm
 
       - name: Cache pFUnit
         id: pfunit-cache
@@ -97,7 +101,6 @@ jobs:
           cmake -S . -B wsjtx-build \
             -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/hamlib-prefix;${GITHUB_WORKSPACE}/pfunit-prefix" \
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-            -DWSJT_GENERATE_DOCS=OFF \
             -DWSJT_SKIP_MANPAGES=ON \
             -DWSJT_BUILD_TESTS=ON \
             -DPFUNIT_DIR="${{ steps.pfunit.outputs.dir }}" \
@@ -130,6 +133,69 @@ jobs:
         run: |
           file wsjtx-build/jt9
           file wsjtx-build/jt9 | grep -q "ELF 64-bit"
+
+      # CMakeLists.txt:1989-2012 enables CPack's DEB generator when
+      # dpkg-buildpackage is on the path (provided by dpkg-dev, installed
+      # above). The DEB generator ignores CPACK_PACKAGE_FILE_NAME and
+      # uses its own CPACK_DEBIAN_FILE_NAME (default <pkg>_<ver>_<arch>.deb
+      # → wsjtx_3.0.1_amd64.deb regardless). Override that variable to
+      # align the filename with the AppImage/installer naming used by
+      # the rest of the pipeline.
+      - name: Package .deb
+        env:
+          VERSION: ${{ inputs.version }}
+          ARCH: ${{ inputs.arch }}
+        run: |
+          cd wsjtx-build
+          cpack -G DEB \
+            -D "CPACK_DEBIAN_FILE_NAME=wsjtx-${VERSION}-linux-${ARCH}.deb"
+          DEB="wsjtx-${VERSION}-linux-${ARCH}.deb"
+          if [ ! -f "$DEB" ]; then
+            echo "::error::cpack -G DEB produced no .deb at expected path: $DEB"
+            ls -la *.deb 2>/dev/null || true
+            exit 1
+          fi
+          ls -lh "$DEB"
+          file "$DEB"
+          dpkg-deb --info "$DEB" | head -20
+
+      - name: Upload .deb
+        uses: actions/upload-artifact@v7
+        with:
+          name: wsjtx-${{ inputs.version }}-linux-${{ inputs.arch }}-deb
+          path: wsjtx-build/wsjtx-${{ inputs.version }}-linux-${{ inputs.arch }}.deb
+          if-no-files-found: error
+
+      # RPM builds via the same CPack scaffolding the .deb step above
+      # uses. CMakeLists.txt:2014-2026 already auto-detects rpmbuild and
+      # sets the Fedora-style dependency list (qt5-qtbase >= 5.9, fftw-
+      # libs-single, boost-log, etc.); only the workflow side was
+      # missing. `-G RPM` is explicit so this step doesn't accidentally
+      # rebuild the .deb already produced above.
+      - name: Package RPM
+        working-directory: wsjtx-build
+        run: |
+          cpack -G RPM
+          ls -lh *.rpm
+
+      - name: Smoke-test RPM
+        working-directory: wsjtx-build
+        run: |
+          RPM=$(ls *.rpm | head -1)
+          echo "Querying $RPM"
+          rpm -qpi "$RPM"
+          rpm -qpR "$RPM"
+          rpm -qpl "$RPM" | head -40
+          # Confirm the core binaries are in the package.
+          rpm -qpl "$RPM" | grep -qE '/bin/wsjtx$'
+          rpm -qpl "$RPM" | grep -qE '/bin/jt9$'
+
+      - name: Upload RPM
+        uses: actions/upload-artifact@v7
+        with:
+          name: wsjtx-${{ inputs.version }}-linux-${{ inputs.arch }}-rpm
+          path: wsjtx-build/*.rpm
+          if-no-files-found: error
 
       - name: Install to AppDir
         run: |
@@ -194,6 +260,24 @@ jobs:
           # Qt5 libs should have been bundled by linuxdeploy-plugin-qt.
           ls squashfs-root/usr/lib/ | grep -q "^libQt5Core\.so"
           ls squashfs-root/usr/lib/ | grep -q "^libQt5Widgets\.so"
+          ls squashfs-root/usr/lib/ | grep -q "^libQt5Multimedia\.so"
+          # Verify Qt audio backend plugins were bundled. Without them,
+          # QAudioDeviceInfo::availableDevices() returns empty at runtime
+          # and the user sees "no audio devices" — observed in v3.0.1 on
+          # Linux Lite. linuxdeploy-plugin-qt only WARNS when these are
+          # absent on the build host, it doesn't fail.
+          # Linux shared objects are conventionally `lib*.so` so the
+          # bundled plugins are libqtaudio_alsa.so and libqtmedia_pulse.so.
+          audio_plugins=$(find squashfs-root -path '*/plugins/audio/*.so' 2>/dev/null)
+          if [ -z "$audio_plugins" ]; then
+            echo "::error::No Qt audio backend plugins (qtaudio_alsa/qtaudio_pulse) bundled in AppImage."
+            echo "::error::Install libqt5multimedia5-plugins on the build host so linuxdeploy-plugin-qt can find them."
+            echo "AppImage plugin tree:"
+            find squashfs-root -path '*/plugins/*' -name '*.so' 2>/dev/null | head -20
+            exit 1
+          fi
+          echo "Qt audio plugins bundled:"
+          echo "$audio_plugins"
           rm -rf squashfs-root
 
       - name: Upload AppImage

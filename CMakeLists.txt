@@ -45,7 +45,7 @@ if (POLICY CMP0075)
 endif ()
 
 project (wsjtx
-  VERSION 3.0.0.0
+  VERSION 3.0.1.0
   LANGUAGES C CXX Fortran
   )
 set (PROJECT_DESCRIPTION "WSJT-X: Digital Modes for Weak Signal Communications in Amateur Radio")
@@ -98,10 +98,10 @@ set (wsjtx_VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_
 #
 # project information
 #
-set (PROJECT_BUNDLE_NAME "WSJT-X-improved")
-set (PROJECT_VENDOR "Uwe Risse, DG2YCB")
-set (PROJECT_CONTACT "dg2ycb@gmx.de")
-set (PROJECT_COPYRIGHT "Copyright (C) 2001-2025 by Joe Taylor, K1JT and 2020-2025 by Uwe Risse, DG2YCB")
+set (PROJECT_BUNDLE_NAME "WSJT-X")
+set (PROJECT_VENDOR "WSJT Development Group")
+set (PROJECT_CONTACT "joe@princetion.edu")
+set (PROJECT_COPYRIGHT "Copyright (C) 2001-2026 by Joe Taylor, K1JT")
 set (PROJECT_HOMEPAGE https://wsjt.sourceforge.io/wsjtx.html)
 set (PROJECT_MANUAL wsjtx-main)
 set (PROJECT_MANUAL_DIRECTORY_URL https://wsjt.sourceforge.io/wsjtx-doc/)
@@ -944,21 +944,30 @@ set_property (SOURCE ${all_C_and_CXXSRCS} APPEND PROPERTY OBJECT_DEPENDS ${CMAKE
 
 if (WIN32)
   # generate the OmniRig COM interface source
-  find_program (DUMPCPP dumpcpp)
-  if (DUMPCPP-NOTFOUND)
-    message (FATAL_ERROR "dumpcpp tool not found")
-  endif (DUMPCPP-NOTFOUND)
-  execute_process (
-    COMMAND ${DUMPCPP} -getfile {4FE359C5-A58F-459D-BE95-CA559FB4F270}
-    OUTPUT_VARIABLE AXSERVER
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
-  string (STRIP "${AXSERVER}" AXSERVER)
-  if (NOT AXSERVER)
-    message (FATAL_ERROR "You need to install OmniRig on this computer")
-  endif (NOT AXSERVER)
-  string (REPLACE "\"" "" AXSERVER ${AXSERVER})
-  file (TO_CMAKE_PATH ${AXSERVER} AXSERVERSRCS)
+  if (OMNIRIG_TYPE_LIB)
+    # CI / headless build: type library path provided directly. Bypasses
+    # COM registration which is not available in CI. Pass via
+    # -DOMNIRIG_TYPE_LIB=<path-to-OmniRig.tlb>.
+    file (TO_CMAKE_PATH "${OMNIRIG_TYPE_LIB}" AXSERVERSRCS)
+    message (STATUS "Using OmniRig type library: ${AXSERVERSRCS}")
+  else ()
+    # Normal local build: query the COM registry for the type library.
+    find_program (DUMPCPP dumpcpp)
+    if (DUMPCPP-NOTFOUND)
+      message (FATAL_ERROR "dumpcpp tool not found")
+    endif (DUMPCPP-NOTFOUND)
+    execute_process (
+      COMMAND ${DUMPCPP} -getfile {4FE359C5-A58F-459D-BE95-CA559FB4F270}
+      OUTPUT_VARIABLE AXSERVER
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+      )
+    string (STRIP "${AXSERVER}" AXSERVER)
+    if (NOT AXSERVER)
+      message (FATAL_ERROR "You need to install OmniRig on this computer, or pass -DOMNIRIG_TYPE_LIB=<path>")
+    endif (NOT AXSERVER)
+    string (REPLACE "\"" "" AXSERVER ${AXSERVER})
+    file (TO_CMAKE_PATH ${AXSERVER} AXSERVERSRCS)
+  endif ()
 endif ()
 
 
@@ -1664,12 +1673,30 @@ generate_version_info (wsjtx_VERSION_RESOURCES
   ICON ${WSJTX_ICON_FILE}
   )
 
+# Embed a Windows application manifest declaring per-monitor V2 DPI
+# awareness. Without it, Windows treats wsjtx.exe as DPI-unaware and
+# applies legacy bitmap-stretching scaling on high-DPI displays —
+# fonts/widgets appear larger than locally-built (MSVC) executables
+# which auto-embed a manifest. Resource ID 1, type RT_MANIFEST (24).
+set (wsjtx_PLATFORM_RESOURCES)
+if (WIN32)
+  set (WSJTX_MANIFEST_PATH "${CMAKE_CURRENT_SOURCE_DIR}/wsjtx.exe.manifest")
+  configure_file (
+    "${CMAKE_CURRENT_SOURCE_DIR}/CMake/Modules/wsjtx-manifest.rc.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/wsjtx-manifest.rc"
+    @ONLY
+    )
+  list (APPEND wsjtx_PLATFORM_RESOURCES
+    "${CMAKE_CURRENT_BINARY_DIR}/wsjtx-manifest.rc")
+endif (WIN32)
+
 add_executable (wsjtx MACOSX_BUNDLE
   ${wsjtx_CXXSRCS}
   ${wsjtx_GENUISRCS}
   ${WSJTX_ICON_FILE}
   ${wsjtx_RESOURCES_RCC}
   ${wsjtx_VERSION_RESOURCES}
+  ${wsjtx_PLATFORM_RESOURCES}
   )
 
 if (WSJT_CREATE_WINMAIN)
@@ -1815,6 +1842,11 @@ install (TARGETS udp_daemon message_aggregator wsjtx_app_version
   )
 
 install (TARGETS jt9 wsprd fmtave fcal fmeasure
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
+  BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
+  )
+
+install (TARGETS qmap
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   )

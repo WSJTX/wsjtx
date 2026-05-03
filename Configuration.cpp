@@ -1771,7 +1771,7 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   , temp_dir_ {temp_directory}
   , writeable_data_dir_ {QStandardPaths::writableLocation (QStandardPaths::DataLocation)}
   , lotw_users_ {network_manager_}
-  , cloudlog_ {self, network_manager_}
+  , cloudlog_ {self}
   , restart_sound_input_device_ {false}
   , restart_sound_output_device_ {false}
   , restart_tci_device_ {false}
@@ -3689,7 +3689,7 @@ void Configuration::impl::on_reset_highlighting_to_defaults_push_button_clicked 
 {
   if (MessageBox::Yes == MessageBox::query_message (this
                                                     , tr ("Reset Decode Highlighting")
-                                                    , tr ("Reset all decode highlighting and priorities to default values")))
+                                                    , tr ("Reset all decode highlighting and priorities to Default 1 values")))
     {
       next_decode_highlighing_model_.items (DecodeHighlightingModel::default_items ());
     }
@@ -3699,7 +3699,7 @@ void Configuration::impl::on_reset_highlighting_to_defaults2_push_button_clicked
 {
     if (MessageBox::Yes == MessageBox::query_message (this
                              , tr ("Reset Decode Highlighting")
-                             , tr ("Reset all decode highlighting and priorities to default values")))
+                             , tr ("Reset all decode highlighting and priorities to Default 2 values")))
     {
       next_decode_highlighing_model_.items (DecodeHighlightingModel::default_items2 ());
     }

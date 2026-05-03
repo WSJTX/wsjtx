@@ -4784,7 +4784,7 @@ QPushButton[state=&quot;ok&quot;] {
      <x>0</x>
      <y>0</y>
      <width>880</width>
-     <height>22</height>
+     <height>17</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -4990,10 +4990,7 @@ QPushButton[state=&quot;ok&quot;] {
     <addaction name="download_samples_action"/>
     <addaction name="actionDownload_EME_Ephemeris_Chart"/>
     <addaction name="separator"/>
-    <addaction name="actionWSJT_X_improved_Home_Page"/>
-    <addaction name="actionThe_additional_features_of_wsjt_x_improved"/>
     <addaction name="actionRecommended_Audio_Settings"/>
-    <addaction name="actionRig_Control_Errors"/>
     <addaction name="separator"/>
     <addaction name="actionKeyboard_shortcuts"/>
     <addaction name="actionSpecial_mouse_commands"/>
@@ -5637,22 +5634,6 @@ QPushButton[state=&quot;ok&quot;] {
   <action name="actionQuick_Start_Guide_to_WSJT_X_2_7_and_QMAP">
    <property name="text">
     <string>Quick-Start Guide to WSJT-X 2.7 and QMAP</string>
-   </property>
-  </action>
-  <action name="actionWSJT_X_improved_Home_Page">
-   <property name="text">
-    <string>WSJT-X_improved Home Page</string>
-   </property>
-   <property name="whatsThis">
-    <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Go to the wsjt-x_improved home page.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-   </property>
-  </action>
-  <action name="actionThe_additional_features_of_wsjt_x_improved">
-   <property name="text">
-    <string>The additional features of wsjt-x_improved</string>
-   </property>
-   <property name="whatsThis">
-    <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Overview on the additional features of wsjt-x_improved.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
    </property>
   </action>
   <action name="actionRecommended_Audio_Settings">

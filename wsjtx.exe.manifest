@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--
+  Windows application manifest declaring per-monitor V2 DPI awareness.
+
+  Without this manifest, Windows treats wsjtx.exe as DPI-unaware and
+  applies legacy bitmap-stretching scaling on high-DPI displays — fonts
+  and widgets appear larger than the same source built locally with a
+  toolchain that auto-embeds a manifest (e.g. MSVC + Visual Studio).
+
+  Both <dpiAware> (Win 7+) and <dpiAwareness> (Win 10 1607+) are needed
+  so the OS picks the strongest mode it understands. perMonitorV2 lets
+  Qt receive native pixel coordinates and DPI-change notifications,
+  matching Qt::AA_EnableHighDpiScaling at the OS level.
+-->
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+  <application xmlns="urn:schemas-microsoft-com:asm.v3">
+    <windowsSettings>
+      <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true/PM</dpiAware>
+      <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2</dpiAwareness>
+    </windowsSettings>
+  </application>
+</assembly>

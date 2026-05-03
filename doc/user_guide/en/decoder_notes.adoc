@@ -138,6 +138,11 @@ End of line information::
  `f` - Franke-Taylor or Fano algorithm +
  `N` - Number of Rx intervals or frames averaged +
  `P` - Number indicating type of AP information (Table 1 or Table 6) +
+ 
+ An additional character following 'P' indicates that the decode was obtained from
+ averaging a number of previous messages.  For example q34 would signify a Q65 decode, 
+ with AP type 3 from 4 messages. A '*' character indicates that 10 or more prior messages
+ contributed to that decode.
 
 [[Q65_AP_INFO_TABLE]]
 .Q65 end-of-line codes

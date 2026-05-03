@@ -55,12 +55,12 @@ You need to install suitable _OpenSSL_ libraries - see <<OPENSSL,Instructions to
 
 I occasionally get Rig Control Errors if I adjust my Icom rig's VFO. What's wrong?::
 
-By default, most Icom transceivers have *CI-V Transceive Mode" enabled. This will cause unsolicited CAT traffic from the rig that disrupts CAT
+By default, most Icom transceivers have "CI-V Transceive Mode" enabled. This will cause unsolicited CAT traffic from the rig that disrupts CAT
 control by a PC. Disable this option in the rig's menu.
 
 I want to control my transceiver with another application as well as _WSJT-X_, is that possible?::
 
-This only possible to do reliably via some kind of rig control server.
+This is only possible to do reliably via some kind of rig control server.
 That server must be able to accept both _WSJT-X_ and the other
 application(s) as clients. Using a dumb serial port splitter like the
 VSPE tool is not supported; it may work but it is not reliable due to
@@ -76,7 +76,7 @@ behaves normally.
 
 When using FT8 or FT4, I notice that sometimes my rig frequency changes when going from receive to transmit.  Is this a problem?::
 
-No. If you are using *Split*, and your Tx audio frequency (red goalpost on the waterfall) is outside the range 1500-2000Hz, your rig 
+No. If you are using *Split*, and your Tx audio frequency (red goalpost on the waterfall) is outside the range 1500-2000Hz, your rig
 will move frequency. This is because the chosen audio frequency could generate in-band harmonics if the audio level
 is too high, or may be outside the typical bandwidth of an ssb filter.  The generated audio tone is adjusted accordingly, and the rig
 frequency is changed to compensate for this.
@@ -98,8 +98,7 @@ is necessary):
 
  QT_QPA_PLATFORMTHEME= wsjtx
 
-I am running _WSJT-X_ on Linux using a KDE desktop. Why does the
-*Configurations* menu misbehave?::
+I am running _WSJT-X_ on Linux using a KDE desktop. Why does the *Configurations* menu misbehave?::
 
 The  KDE  development  team  have  added code  to  Qt  that  tries  to
 automatically add  shortcut accelerator keys to all buttons including
