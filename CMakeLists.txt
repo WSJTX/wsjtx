@@ -1048,6 +1048,13 @@ find_program (RIGCTLCOM_EXE rigctlcom)
 check_type_size (CACHE_ALL HAMLIB_OLD_CACHING)
 check_symbol_exists (rig_set_cache_timeout_ms "hamlib/rig.h" HAVE_HAMLIB_CACHING)
 
+if (EXISTS ${Hamlib_INCLUDE_DIR}/hamlib/port.h)
+  set (HAVE_HAMLIB_PORT_H 1)
+endif ()
+if (EXISTS ${Hamlib_INCLUDE_DIR}/hamlib/rig_state.h)
+  set (HAVE_HAMLIB_RIG_STATE_H 1)
+endif ()
+
 find_package (Usb REQUIRED)
 
 if (WSJT_FOX_OTP)
