@@ -37,10 +37,20 @@ namespace
     return args.size () >= required;
   }
 
-  int decimal_tenths (QString const& value)
+  bool decimal_tenths (QString const& value, int * result)
   {
     auto const parts = value.split ('.');
-    return 10 * parts.value (0).toInt () + parts.value (1).toInt ();
+    bool whole_ok {false};
+    bool fractional_ok {false};
+    int const whole = parts.value (0).toInt (&whole_ok);
+    int const fractional = parts.value (1).toInt (&fractional_ok);
+    if (!result || parts.size () < 2 || !whole_ok || !fractional_ok)
+      {
+        return false;
+      }
+
+    *result = 10 * whole + fractional;
+    return true;
   }
 
   bool checked_audio_frame_size (quint32 sample_count, quint32 channels, int * size)
@@ -701,19 +711,31 @@ void TCITransceiver::onMessageReceived(const QString &str)
       case Cmd_TxSensors:
         if (!has_required_args (args, 5)) break;
         if(args.at(0)==rx_) {
-          power_ = decimal_tenths (args.at (3));
-          swr_ = decimal_tenths (args.at (4));
+          int power;
+          int swr;
+          if (!decimal_tenths (args.at (3), &power) ||
+              !decimal_tenths (args.at (4), &swr)) break;
+          power_ = power;
+          swr_ = swr;
           printf("Power=%d SWR=%d\n",power_,swr_);
         }
         break;
       case Cmd_SWR:
         if (!has_required_args (args, 1)) break;
         printf("%s Cmd_SWR : %s\n",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),args.join("|").toStdString().c_str());
-        swr_ = decimal_tenths (args.at (0));
+        {
+          int swr;
+          if (!decimal_tenths (args.at (0), &swr)) break;
+          swr_ = swr;
+        }
         break;
       case Cmd_Power:
         if (!has_required_args (args, 1)) break;
-        power_ = decimal_tenths (args.at (0));
+        {
+          int power;
+          if (!decimal_tenths (args.at (0), &power)) break;
+          power_ = power;
+        }
         printf("%s Cmd_Power : %s %d\n",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),args.join("|").toStdString().c_str(),power_);
         break;
       case Cmd_VFO:
@@ -760,7 +782,12 @@ void TCITransceiver::onMessageReceived(const QString &str)
         if (!has_required_args (args, 2)) break;
         if(args.at(0)==rx_) {
           if (ESDR3 || HPSDR) {
-            if (has_required_args (args, 3) && args.at(1) == "0" ) mode_ = args.at(2).toLower(); else mode_ = args.at(1).toLower();
+            if (args.at(1) == "0" ) {
+              if (!has_required_args (args, 3)) break;
+              mode_ = args.at(2).toLower();
+            } else {
+              mode_ = args.at(1).toLower();
+            }
           } else mode_ = args.at(1);
           if (started_mode_.isEmpty()) started_mode_ = mode_;
           if (busy_mode_) return; // was tci_done1();
