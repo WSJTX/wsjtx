@@ -71,7 +71,7 @@ namespace
     return true;
   }
 
-  bool inbound_audio_payload_complete (QByteArray const& data, quint32 sample_count)
+  bool inbound_float_payload_complete (QByteArray const& data, quint32 sample_count)
   {
     int expected_size;
     return checked_audio_frame_size (sample_count, 1u, &expected_size) && data.size () >= expected_size;
@@ -940,6 +940,9 @@ void TCITransceiver::onBinaryReceived(const QByteArray &data)
     last_type = pStream->type;
   }
   if (pStream->type == Iq_Stream){
+    if (!inbound_float_payload_complete (data, pStream->length)) {
+      return;
+    }
     bool tx = false;
     if (pStream->receiver == 0){
       tx = trxA == 0;
@@ -953,7 +956,7 @@ void TCITransceiver::onBinaryReceived(const QByteArray &data)
     emit sendIqData(pStream->receiver,pStream->length,pStream->data,tx);
     qDebug() << "IQ" << data.size() << pStream->length;
   } else if (pStream->type == RxAudioStream && audio_  && pStream->receiver == rx_.toUInt()) {
-    if (!inbound_audio_payload_complete (data, pStream->length)) {
+    if (!inbound_float_payload_complete (data, pStream->length)) {
       return;
     }
     writeAudioData(pStream->data,pStream->length);
