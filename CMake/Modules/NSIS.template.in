@@ -970,6 +970,22 @@ SectionEnd
 ; "Program Files" for AllUsers, "My Documents" for JustMe...
 
 Function .onInit
+  ; --- WSJT-X running-process check (custom) ---
+  ; Abort cleanly if WSJT-X is already running, to avoid a half-installed
+  ; mess when the user upgrades over a live instance. Uses tasklist+findstr
+  ; (built into every supported Windows version) so no NSIS plugin is
+  ; required.
+  wsjtx_running_check:
+    nsExec::Exec '"$SYSDIR\cmd.exe" /c tasklist /FI "IMAGENAME eq wsjtx.exe" 2>NUL | $SYSDIR\findstr.exe /I "wsjtx.exe" >NUL'
+    Pop $0
+    ${If} $0 == "0"
+      MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION \
+        "WSJT-X is currently running. $\n$\nPlease close it before installing or upgrading." \
+        /SD IDCANCEL IDRETRY wsjtx_running_check
+      Abort
+    ${EndIf}
+  ; --- end WSJT-X running-process check ---
+
   Push $0
   Push $1
   Push $2
