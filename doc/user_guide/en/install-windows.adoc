@@ -1,18 +1,12 @@
 // Status=edited
 
-Download and execute the package file {win32} (Windows 7 or later,
-32-bit) or {win64} (Windows 7 or later, 64-bit) following these
-instructions:
-
-* Install _WSJT-X_ into its own directory, for example `C:\WSJTX` or `C:\WSJT\WSJTX`, rather than the conventional location `C:\Program
-  Files ...\WSJTX`.
-
-* All program files relating to _WSJT-X_ are stored in the chosen
-  installation directory and its subdirectories.
-
-* Logs and other writeable files are normally found in the
-  directory +
-
+For 64-bit Windows 10 and later: Download and execute the package file
+{win64}. Install _WSJT-X_ into its own directory, for example
+`C:\WSJTX` or `C:\WSJT\WSJTX`, rather than the conventional location +
+`C:\Program Files ...\WSJTX`. All program files relating to _WSJT-X_
+will be stored in the chosen installation directory and its
+subdirectories. Logs and other writeable files are normally found in
+the directory +
 `C:\Users\<username>\AppData\Local\WSJT-X`.
 
 TIP: Your computer may be configured so that this directory is
@@ -20,8 +14,8 @@ TIP: Your computer may be configured so that this directory is
      alternative (shortcut) directory name is
      `"%LocalAppData%\WSJT-X\"`.
 
-* The built-in Windows facility for time synchronization is usually
-  not adequate.  We recommend the program _Meinberg NTP Client_: see
+* The built-in Windows facility for time synchronization may 
+  not be adequate.  We recommend the program _Meinberg NTP Client_: see
   {ntpsetup} for downloading and installation instructions. Recent
   versions of Windows are now shipped with a more capable Internet
   time synchronization service that is suitable if configured

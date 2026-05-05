@@ -4,7 +4,7 @@ subroutine gen_cw_wave(message,ifreq,wave)
 
   parameter (NMAX=98304)                 !2.048*48000
   character*(*) message
-  integer icw(200)                       !Encoded CW message bits
+  integer icw(250)                       !Encoded CW message bits
   real*4 z(NMAX)
   real*8 dt,twopi,phi,dphi,fsample,tdit,t
   real*4 wave(NMAX)                      !Generated waveform

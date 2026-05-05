@@ -20,6 +20,8 @@ program jt9
   type(wav_header) wav
   real*4 s(NSMAX)
   real*8 TRperiod
+  integer npct_unused
+
   character c
   character(len=500) optarg, infile
   character wisfile*256
@@ -226,7 +228,7 @@ program jt9
      do i = 1, size (long_options)
        call long_options(i) % print (6)
      end do
-     go to 999
+     stop
   endif
 
   iret=fftwf_init_threads()            !Initialize FFTW threading 
@@ -318,8 +320,8 @@ program jt9
               ingain=0
               call timer('symspec ',0)
               nminw=1
-              call symspec(shared_data,k,Tperiod,nsps,ingain,      &
-                   bLowSidelobes,nminw,pxdb,s,df3,ihsym,npts8,pxdbmax)
+              call symspec(shared_data,k,nsps,ingain,      &
+                   bLowSidelobes,nminw,pxdb,s,df3,ihsym,npts8,pxdbmax,npct_unused)
               call timer('symspec ',1)
            endif
            nhsym0=nhsym

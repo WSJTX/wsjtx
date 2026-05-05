@@ -1,34 +1,21 @@
-// Status=edited
+You can use _WSJT-X_ on any 64-bit Linux system by downloading and
+executing the appropriate "AppImage" file from the {downloads}. These
+packages contain all required dependencies for use of _WSJT-X_, but
+they do not provide access to _MAP65_, _QMAP_, or any of the related
+utility programs.
 
-Debian, Ubuntu, and other Debian-based systems including Raspberry Pi OS:
+Complete installation packages are provided on the {downloads} for
+64-bit Debian-based and RedHat-based Linux systems. Be sure to fetch
+the package built for your machine's architecture: it will have
+`x86_64` in the file name for Intel/AMD machines, `aarch64` for ARM.
 
-NOTE: Our binary installer packages are targeted for
-one contemporary version of a Linux distribution. Although these may
-work on newer Linux versions or even different distributions, it is
-unlikely that they work on older versions. Check the notes provided
-with the release for details of the targeted Linux distributions and
-versions. If the binary package is not compatible with your Linux
-distribution or version, you must build the application from sources.
-
-* 64-bit Intel/AMD: {debian64}
-- To install:
+* To install on Debian-based Linux, for example Ubuntu 22.x or later,
+execute the following command in a terminal:
 +
 [example]
-sudo dpkg -i wsjtx_{VERSION}_amd64.deb
+sudo dpkg -i <package-name>
 
-* 32-bit ARM hardware FP: {raspbian}
-- To install:
-+
-[example]
-sudo dpkg -i wsjtx_{VERSION}_armhf.deb
-
-* 64-bit ARM: {raspbian64}
-- To install:
-+
-[example]
-sudo dpkg -i wsjtx_{VERSION}_arm64.deb
-
-* Uninstall for any of the above platforms:
+* To uninstall:
 +
 [example]
 sudo dpkg -P wsjtx
@@ -42,15 +29,12 @@ sudo apt install libgfortran5 libqt5widgets5 libqt5network5 \
      libusb-1.0-0 libportaudio2
 ....
 
-Fedora, CentOS, Red Hat, and other rpm-based systems:
-
-* 64-bit: {fedora64}
-- To install:
+* To install on Fedora, CentOS, Red Hat, and other rpm-based systems:
 +
 [example]
-sudo rpm -i wsjtx-{VERSION}-x86_64.rpm
+sudo rpm -i <package-name>
 
-* Uninstall:
+* To uninstall:
 +
 [example]
 sudo rpm -e wsjtx

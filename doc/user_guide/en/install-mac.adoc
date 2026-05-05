@@ -1,12 +1,13 @@
-// These instructions are up-to-date for WSJT-X v2.2
-
-For *macOS10.13* and later, download the file {osx} to your desktop,
-double-click it and consult its `ReadMe` file for important
-installation notes.  
+For *macOS 10.15* and later installers are provided for x86_64 (Intel)
+systems and for ARM64 (Apple silicon) systems. Download the correct
+package for your system from the {downloads}, double-click on the file
+name, and follow the on-screen prompts in the Installer
+app. Double-click and consult the `ReadMe` file for important
+installation notes.
 
 If you have already installed a previous version, you can retain it by
 changing its name in the *Applications* folder (such as from _WSJT-X_ to
-_WSJT-X_2.2_).  You can then proceed to the installation phase.
+_WSJT-X_2.7.0_).  You can then proceed to the installation phase.
 
 Take note also of the following:
 
@@ -21,5 +22,5 @@ rather than the otherwise recommended 48000 Hz.
 * Use *System Preferences* to select an external time source to keep
 your system clock synchronized to UTC.
 
-* To uninstall simply drag the _WSJT-X_ application from *Applications* 
-to the *Trash Can*. 
+* To uninstall simply drag the _WSJT-X_ application from *Applications*
+to the *Trash Can*.

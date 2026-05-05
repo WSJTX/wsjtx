@@ -46,10 +46,8 @@ include::system-requirements.adoc[]
 [[INSTALL]]
 == Installation
 
-Installation packages for released versions on Windows, Linux, and OS
-X are found on the {homepage}. Click on the _WSJT-X_ link at the
-left margin and select the appropriate package for your operating
-system.
+Installation packages for Windows, Linux, and macOS are found on the
+{downloads}.
 
 [[INSTALL_WIN]]
 === Windows
@@ -217,10 +215,6 @@ include::decoder_notes.adoc[]
 == Measurement Tools
 include::measurement_tools.adoc[]
 
-[[WSJT-X_IMPROVED]]
-== _WSJT-X Improved_
-include::wsjtx_improved.adoc[]
-
 [[COOP_PGMS]]
 == Cooperating Programs
 include::cooperating-programs.adoc[]
@@ -228,7 +222,6 @@ include::cooperating-programs.adoc[]
 [[PLATFORM]]
 == Platform Dependencies
 include::platform-dependencies.adoc[]
-
 
 [[FAQ]]
 == Frequently Asked Questions

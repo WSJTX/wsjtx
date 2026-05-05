@@ -47,7 +47,7 @@ jobs:
         run: echo "HOMEBREW_PREFIX=$(brew --prefix)" >> "$GITHUB_ENV"
 
       - name: Install dependencies
-        run: brew install cmake gcc fftw boost qt@5 libusb dylibbundler autoconf automake libtool
+        run: brew install cmake gcc fftw boost qt@5 libusb dylibbundler autoconf automake libtool asciidoctor
 
       - name: Locate gfortran
         id: fc
@@ -125,7 +125,6 @@ jobs:
             -DCMAKE_Fortran_COMPILER="${{ steps.fc.outputs.path }}" \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ inputs.deployment_target }} \
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-            -DWSJT_GENERATE_DOCS=OFF \
             -DWSJT_SKIP_MANPAGES=ON \
             -DWSJT_BUILD_TESTS=ON \
             -DPFUNIT_DIR="${{ steps.pfunit.outputs.dir }}" \
@@ -373,6 +372,17 @@ jobs:
             echo "Code signing mode: ad-hoc (no Apple trust chain; pkg will be unsigned)"
           fi
 
+          # entitlements.plist declares com.apple.security.cs.disable-
+          # library-validation, which is required for any app bundling
+          # its own non-system frameworks (Qt, etc.) under hardened
+          # runtime — otherwise dyld refuses to load them. Applied on
+          # both signing paths: the real-cert path needs it for
+          # notarization-friendly distribution; the ad-hoc path needs
+          # it because each ad-hoc signature has its own pseudo-Team-ID
+          # so the main binary and bundled frameworks never match.
+          # (The plist is non-empty, so macos-15-intel's codesign now
+          # parses it cleanly — no need for the conditional that PR #23
+          # introduced as a workaround for the empty-plist parser bug.)
           find "${APP}/Contents/Frameworks" -type f \( -name "*.dylib" -o -perm +111 \) \
             -exec codesign --force --options runtime $TS --sign "$IDENTITY" {} \;
           find "${APP}/Contents/Frameworks" -name "*.framework" -type d | while read fw; do
@@ -383,8 +393,28 @@ jobs:
 
           find "${APP}/Contents/MacOS" -type f -perm +111 \
             -exec codesign --force --options runtime --entitlements "$ENTITLEMENTS" $TS --sign "$IDENTITY" {} \;
-          codesign --force --options runtime $TS --sign "$IDENTITY" "${APP}"
+          # Bundle-level codesign re-signs the main executable. --force
+          # without --entitlements would WIPE the entitlements applied
+          # in the previous step (PR #27 missed this — rc1 shipped with
+          # an unentitled wsjtx binary, so disable-library-validation
+          # never took effect and the dyld load of QtSerialPort still
+          # failed with mismatched Team IDs).
+          codesign --force --options runtime --entitlements "$ENTITLEMENTS" $TS --sign "$IDENTITY" "${APP}"
           codesign --verify --deep --strict --verbose=2 "${APP}"
+
+          # Defensive: confirm the entitlement actually made it onto
+          # the main binary. `codesign --verify` doesn't check
+          # entitlement presence — it only validates the signature
+          # itself — so a re-sign that wipes entitlements would still
+          # pass verify (that's how rc1 shipped broken).
+          MAIN_BIN="${APP}/Contents/MacOS/wsjtx"
+          if ! codesign -d --entitlements - "$MAIN_BIN" 2>/dev/null | grep -q "disable-library-validation"; then
+            echo "::error::wsjtx binary is missing com.apple.security.cs.disable-library-validation entitlement."
+            echo "::error::Bundled Qt frameworks will fail to load under hardened runtime."
+            codesign -d --entitlements - "$MAIN_BIN" || true
+            exit 1
+          fi
+          echo "Confirmed disable-library-validation entitlement on $MAIN_BIN"
 
           for dir in "${STAGE}" "${ASSETS}"; do
             find "${dir}" -maxdepth 1 -type f -perm +111 \

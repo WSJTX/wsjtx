@@ -1,0 +1,5 @@
+// Resource script that embeds wsjtx.exe.manifest into the executable
+// as resource ID 1, type RT_MANIFEST (24). Configured at CMake time
+// so the path to the manifest is absolute regardless of the windres
+// working directory.
+1 24 "@WSJTX_MANIFEST_PATH@"

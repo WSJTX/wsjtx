@@ -1,10 +1,19 @@
 # Contributing to WSJT-X
 
-How to build from source, submit changes, and work with the team.
+## Overview
+
+**WSJT-X** and its sister programs **MAP65** and **QMAP** are open-source applications designed to facilitate weak-signsl ham radio communication. The project was started in 2001 and became an open-source effort in 2005. Our core development team has grown slowly over time, and in May 2026 consists of seven members. 
+
+We welcome contributions to these programs from outside the core development team. This document provides a brief summary of how the WSJT-X GitHub repositories are organized, how the development team operates, and how outside contributions can be made.
+
+## Repository Structure
+
+We use two GitHub repositories. Public site https://github.com/WSJTX/wsjtx receives updated code whenever a general availability (GA) program version is released. Anyone can submit  [Issues](https://github.com/WSJTX/wsjtx/issues) to be raised and discussed, as well as Bug Reports and [Pull Requests](https://github.com/WSJTX/wsjtx/pulls). External contributors should fork the public repo and submit pull requests based on that code.
+
+Development work by team members, including acceptance testing of outside pull requests, takes place in a private repository. At any particular time team members may be developing or experimenting with program features that are not yet ready for distribution or general use.
 
 ## Building from Source
-
-WSJT-X is a C++/Fortran application built with CMake and Qt5. It depends on Hamlib, which must be built from source before building WSJT-X.
+Source code for WSJT-X, MAP65, and QMAP together amounts to more than 130,000 lines of C++, 75,000 lines of Fortran, and 18,000 lines of C. User interfaces use the Qt framework and are mostly written in C++, while signal processing and message encoding/decoding are done in Fortran. Required external libraries include FFTW3, Boost, libUSB, and Hamlib. The applications and related utility programs are multi-platform and can be built and used on the Windows, macOS, and Linux. We use CMake and Qt5, and we build Hamlib locally before building WSJT-X.
 
 ### Prerequisites
 
@@ -13,7 +22,7 @@ WSJT-X is a C++/Fortran application built with CMake and Qt5. It depends on Haml
 - Qt 5.12+ (Core, Widgets, Multimedia, SerialPort, Network, Sql, LinguistTools)
 - FFTW 3 (single precision — `libfftw3f`)
 - Boost C++ libraries
-- A Fortran compiler (gfortran)
+- Compilers for C++ and FORTRAN, typically gcc and gfortran
 - Git
 
 **Linux (Debian/Ubuntu):**
@@ -33,7 +42,7 @@ Xcode command-line tools are also required (`xcode-select --install`).
 **Windows:**
 Windows builds use the [Hamlib SDK](https://sourceforge.net/projects/hamlib-sdk/), which provides all prerequisite libraries and MinGW tooling. See the INSTALL file for detailed Windows instructions.
 
-### Building Hamlib
+### First Step: Build Hamlib
 
 WSJT-X requires a specific Hamlib version. Check `ci.yml` in `.github/workflows/` for the current `hamlib_branch` value — this is what CI builds against and what your local build should match.
 
@@ -59,12 +68,7 @@ make install-strip
 
 ### Building WSJT-X
 
-**Team members** (with access to wsjtx-internal):
-```bash
-git clone https://github.com/WSJTX/wsjtx-internal.git ~/wsjtx-prefix/src
-```
-
-**External contributors** (fork the public repo first):
+Fork the public repo:
 ```bash
 git clone https://github.com/YOUR_USERNAME/wsjtx.git ~/wsjtx-prefix/src
 cd ~/wsjtx-prefix/src
@@ -74,20 +78,14 @@ git remote add upstream https://github.com/WSJTX/wsjtx.git
 Then build:
 ```bash
 mkdir -p ~/wsjtx-prefix/build && cd ~/wsjtx-prefix/build
-cmake -DCMAKE_PREFIX_PATH="$HOME/hamlib-prefix" \
-  -DWSJT_SKIP_MANPAGES=ON \
-  -DWSJT_GENERATE_DOCS=OFF \
-  ../src
+cmake -DCMAKE_PREFIX_PATH="$HOME/hamlib-prefix" ../src
 cmake --build .
 ```
 
 On macOS, add Qt5 and other Homebrew paths to `CMAKE_PREFIX_PATH`:
 ```bash
 cmake -DCMAKE_PREFIX_PATH="$HOME/hamlib-prefix;$(brew --prefix qt@5);$(brew --prefix fftw);$(brew --prefix boost)" \
-  -DCMAKE_Fortran_COMPILER=$(brew --prefix gcc)/bin/gfortran \
-  -DWSJT_SKIP_MANPAGES=ON \
-  -DWSJT_GENERATE_DOCS=OFF \
-  ../src
+  -DCMAKE_Fortran_COMPILER=$(brew --prefix gcc)/bin/gfortran ../src
 ```
 
 ### Updating and Rebuilding
@@ -101,32 +99,20 @@ cd ~/hamlib-prefix/build && make && make install-strip
 cd ~/wsjtx-prefix/src && git pull
 cd ~/wsjtx-prefix/build && cmake --build .
 ```
+## Bug Reports
 
-## Repository Structure
+Users and external contributors should file bug reports as Issues on the [public repo](https://github.com/WSJTX/wsjtx/issues). A team member will forward the Issue to `wsjtx-internal` if triage reveals development work to be done.
 
-| Repo | Branch | Purpose |
-|------|--------|---------|
-| `WSJTX/wsjtx-internal` (private) | `develop` | Active development |
-| `WSJTX/wsjtx` (public) | `master` | Tagged releases only |
+When filing an Issue, please include:
 
-Development happens on `develop` in wsjtx-internal. The public repo receives code only at release time via the automated release pipeline. External contributors fork the public repo.
+- WSJT-X version and operating system
+- Steps to reproduce
+- Expected vs. actual behavior
+- Relevant log output or screenshots
 
-## Submitting Changes
+## Pull Requests
 
-### Team members
-
-1. Create a branch from `develop`:
-   - `feat-<description>` for new features
-   - `fix-<description>` for bug fixes
-   - `<issue-number>-<description>` if addressing a GitHub issue
-
-2. Push your branch to wsjtx-internal and open a PR against `develop`.
-
-3. CI runs automatically on the PR — it builds on macOS arm64, macOS x86_64, Linux x86_64, Linux aarch64, and Windows x86_64.
-
-4. Another team member reviews. Merge when approved.
-
-### External contributors
+### Basic steps for external contributors
 
 1. Fork `WSJTX/wsjtx` on GitHub.
 
@@ -147,9 +133,7 @@ This indirection exists because the public repo only receives code at release ti
 - **Include in the PR description:** what the change does, why, which platforms you tested on, and related issue numbers.
 - **Be patient.** The core developers are volunteers with other commitments. PRs may take days or weeks to review.
 
-## Coding Conventions
-
-Observed from existing code:
+### Coding Conventions
 
 - **C++:** Qt-style naming. Classes use `PascalCase`, methods use `camelCase`. Header guards use `FILENAME_HPP_` format.
 - **Fortran:** Traditional Fortran style. Signal processing and codec code lives in `lib/`.
@@ -157,21 +141,3 @@ Observed from existing code:
 - **Comments:** Descriptive block comments above classes and functions. Inline comments where logic is non-obvious.
 - **License:** All source files are GPL-3.0. New files should include the appropriate license header.
 
-## Reporting Bugs
-
-Issues and development work are tracked on `wsjtx-internal` (a private repo for the core team). External contributors without `wsjtx-internal` access should file issues on the [public repo](https://github.com/WSJTX/wsjtx/issues); a team member will move the issue to `wsjtx-internal` if triage reveals development work to be done.
-
-When filing, please include:
-
-- WSJT-X version and operating system
-- Steps to reproduce
-- Expected vs. actual behavior
-- Relevant log output or screenshots
-
-## Communication
-
-The development team communicates primarily via email. For GitHub-specific items (PRs, issues), use GitHub. For broader discussions about features, protocols, or project direction, email the group.
-
-## License
-
-WSJT-X is licensed under the [GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0.html). By submitting a pull request, you agree that your contribution is licensed under the same terms.
