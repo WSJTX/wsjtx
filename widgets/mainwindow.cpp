@@ -5268,7 +5268,7 @@ void MainWindow::pskPost (DecodedText const& decodedtext)
 //    qDebug() << "To PSKreporter:" << deCall << grid << frequency << msgmode << snr;
     if (!m_psk_Reporter.addRemoteStation (deCall, grid, frequency, msgmode, snr, qSpotTime))
       {
-        showStatusMessage (tr ("Spotting to PSK Reporter unavailable"));
+        showStatusMessage (tr ("PSK Reporter spot queue full; oldest spot dropped"));
       }
   }
 }
@@ -11441,7 +11441,7 @@ void MainWindow::readWidebandDecodes()
       if(!bFromDisk and (m_EMECall[dxcall].grid4.contains(MainWindow::grid_regexp)  or bCQ)) {
         qDebug() << "To PSKreporter:" << dxcall << m_EMECall[dxcall].grid4 << frequency << m_mode << nsnr;
         if (!m_psk_Reporter.addRemoteStation (dxcall, m_EMECall[dxcall].grid4, frequency, m_mode, nsnr, qSpotTime)) {
-          showStatusMessage (tr ("Spotting to PSK Reporter unavailable"));
+          showStatusMessage (tr ("PSK Reporter spot queue full; oldest spot dropped"));
         }
       }
     }

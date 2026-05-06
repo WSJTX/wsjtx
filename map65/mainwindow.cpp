@@ -100,6 +100,7 @@ QStringList allDecodes2;  //liveCQ
 QString m_otherUrl;
 bool m_w3szUrl;
 bool m_spot_to_psk_reporter;
+bool m_psk_reporter_tcpip;
 
 struct MainWindow::DecoderContext 
 { 
@@ -889,6 +890,7 @@ void MainWindow::writeSettings()
   settings.setValue("w3szUrl",m_w3szUrl); //liveCQ
   settings.setValue("otherUrl",m_otherUrl); //liveCQ
   settings.setValue("spotPSK",m_spot_to_psk_reporter);
+  settings.setValue("PSKReporterTCPIP",m_psk_reporter_tcpip);
   settings.setValue("FTol",m_tol);
 	settings.endGroup();
   }
@@ -1012,6 +1014,7 @@ void MainWindow::readSettings()
   m_w3szUrl=settings.value("w3szUrl",true).toBool();
   m_otherUrl=settings.value("otherUrl","").toString();
   m_spot_to_psk_reporter=settings.value("spotPSK",true).toBool();
+  m_psk_reporter_tcpip=settings.value("PSKReporterTCPIP",false).toBool();
 
   m_tol=settings.value("FTol",500).toInt();
   m_wide_graph_window->setTol(m_tol);
@@ -3075,5 +3078,4 @@ void pa_deinit()
 {
     Pa_Terminate();
 }
-
 

@@ -89,6 +89,7 @@ public:
   bool    m_bIQxt;
   bool 	  m_w3szUrl;
   bool    m_spot_to_psk_reporter;
+  bool    m_psk_reporter_tcpip;
   
   QString m_myCall;
   QString m_myGrid;

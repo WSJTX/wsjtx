@@ -6,7 +6,7 @@
 #include "qt_helpers.hpp"
 #include "../revision_utils.hpp"
 #include "../Logger.hpp"
-#include "PSKReporter.hpp"
+#include "../Network/PSKReporter.hpp"
 #include "liveCQSender.hpp"
 
 #include <QCoreApplication> //liveCQ
@@ -79,27 +79,14 @@ Messages::Messages (QString const& settings_filename, QWidget * parent) :
   connect(livecqThread, &QThread::finished, livecqThread, &QObject::deleteLater);
   livecqThread->start();  
   
-    // Create the thread and your PSKReporter object
-  pskThread = new QThread(this);
-  
-  connect(pskThread, &QThread::started, this, [this, m_myCall,m_myGrid]() {
-      auto* reporter = new PSKReporter(m_myCall, m_myGrid, QString {"MAP65 v"
-              + QCoreApplication::applicationVersion ()
-  + " " + revision ()}.simplified () + " improved PLUS");
-
-  reporter->moveToThread(this->pskThread);
-  connect(reporter, &PSKReporter::destroyed, pskThread, &QThread::quit);
-  QMetaObject::invokeMethod(reporter, "init", Qt::QueuedConnection);
-  
-  // Connect signals for control and communication
-  connect(this, &Messages::sendLocalStationData, reporter, &PSKReporter::setLocalStation);
-  connect(this, &Messages::sendRemoteStationData, reporter, &PSKReporter::addRemoteStation);
-    
+  pskReporter_.reset (new PSKReporter {
+    {settings2.value ("PSKReporterTCPIP", false).toBool (),
+     QCoreApplication::applicationDirPath () + "/eclipse.txt",
+     QString {"MAP65 v" + QCoreApplication::applicationVersion () + " " + revision ()}.simplified ()}
   });
-    connect(pskThread, &QThread::finished, pskThread, &QObject::deleteLater);
-    pskThread->start(); 
-    if (m_spot_to_psk_reporter) {   
-      initializePSKReporting();
+  if (m_spot_to_psk_reporter)
+    {
+      initializePSKReporting ();
     }
 }
  
@@ -133,7 +120,10 @@ void Messages::initializePSKReporting()
   SettingsGroup g {&settings, "Common"}; 
   QString receiverCallsign=settings.value("MyCall","").toString();
   QString receiverLocator=settings.value("MyGrid","").toString();
-  emit sendLocalStationData(receiverCallsign, receiverLocator, "N/A", "N/A (MAP65)");   
+  if (pskReporter_)
+    {
+      pskReporter_->setLocalStation(receiverCallsign, receiverLocator, "N/A", "N/A (MAP65)");
+    }
 }
 
 void Messages::sendLiveCQData(QStringList decodeList) {
@@ -512,7 +502,10 @@ void Messages::sendPSKReporterData(QStringList decodeList) {
           continue; 
         }             
                 
-        emit sendRemoteStationData(senderCallsign, senderLocator, frequency, mode, sNR, qSpotTime);        
+        if (pskReporter_)
+          {
+            pskReporter_->addRemoteStation(senderCallsign, senderLocator, frequency, mode, sNR, qSpotTime);
+          }
       }
     }
   }

@@ -355,6 +355,8 @@ set (jt9stream_FSRCS
 
 set (wsjtx_CXXSRCS
   Network/PSKReporter.cpp
+  Network/PSKReporterConfiguration.cpp
+  Network/PSKReporterIPFIX.cpp
   Modulator/Modulator.cpp
   Detector/Detector.cpp
   widgets/logqso.cpp
