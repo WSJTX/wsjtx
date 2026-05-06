@@ -1,6 +1,8 @@
 #ifndef TCI_TRANSCEIVER_HPP__
 #define TCI_TRANSCEIVER_HPP__
 
+#include <algorithm>
+#include <cmath>
 #include <memory>
 
 #include "TransceiverFactory.hpp"
@@ -176,11 +178,20 @@ protected:
   void rig_split ();
   void rig_power (bool on);
   void stream_audio (bool on);
-  void store (float * source, size_t numFrames, qint16 * dest)
+  static qint16 tci_audio_sample_to_int16 (float sample)
   {
     static constexpr float K = 0x7FFF;
+    if (!std::isfinite (sample)) {
+      return 0;
+    }
+    sample = std::max (-1.0f, std::min (sample, 1.0f));
+    return static_cast<qint16> (K * sample);
+  }
+
+  void store (float * source, size_t numFrames, qint16 * dest)
+  {
     for (size_t i {0}; i < numFrames; ++i) {
-       dest[i] = static_cast<int16_t>(K*source[i*2]);
+       dest[i] = tci_audio_sample_to_int16 (source[i*2]);
     }
 
   }
