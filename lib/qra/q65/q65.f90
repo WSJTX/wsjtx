@@ -527,7 +527,6 @@ subroutine q65_ccf_22(s1,iz,jz,nfqso,ntol,ipk,jpk,f0,xdt,ccf2)
 
      if(ccfmax.gt.ccfbest .and. abs(i*df-nfqso).le.ftol) then
         ccfbest=ccfmax
-        snrbest=snr
         ibest=i
         lagbest=lagpk
         idrift_best=idrift_max
