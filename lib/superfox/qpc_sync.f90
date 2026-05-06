@@ -46,6 +46,12 @@ subroutine qpc_sync(crcvd0,fsample,isync,fsync,ftol,f2,t2,snrsync)
     s0=s0+s(i)
     s1=s1+(i-i0)*s(i)
   enddo
+  if(.not. (s0 .gt. 0.0)) then
+     f2=fsync-750.0
+     t2=0.0
+     snrsync=0.0
+     return
+  endif
   delta=s1/s0
   i0=nint(i0+delta)
   f2=i0*df2-750.0
@@ -105,9 +111,22 @@ subroutine qpc_sync(crcvd0,fsample,isync,fsync,ftol,f2,t2,snrsync)
      sp=sp + p(lag)
      sq=sq + p(lag)*p(lag)
   enddo
+  if(nsum .le. 0) then
+     snrsync=0.0
+     return
+  endif
   ave=sp/nsum
-  rms=sqrt(sq/nsum-ave*ave)
-  snrsync=(pmax-ave)/rms
+  var=sq/nsum-ave*ave
+  if(.not. (var .gt. 0.0)) then
+     snrsync=0.0
+     return
+  endif
+  rms=sqrt(var)
+  if(rms .gt. 0.0) then
+     snrsync=(pmax-ave)/rms
+  else
+     snrsync=0.0
+  endif
 
   return
 end subroutine qpc_sync

@@ -68,6 +68,7 @@ subroutine sfox_remove_tone(c0,fsync)
          s0=s0+s(i)
          s1=s1+(i-i0)*s(i)
       enddo
+      if(.not. (s0 .gt. 0.0)) exit
       delta=s1/s0
       i0=nint(i0+delta)
       f2=i0*df
