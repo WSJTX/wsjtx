@@ -16,5 +16,6 @@ include_directories (${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_SOURCE_DIR})
 
 add_subdirectory (unit/audio)
 add_subdirectory (unit/common)
+add_subdirectory (unit/hrd)
 add_subdirectory (unit/message_filter)
 add_subdirectory (unit/jtty)
