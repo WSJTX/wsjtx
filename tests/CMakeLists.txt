@@ -21,3 +21,7 @@ include_directories (${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_SOURCE_DIR})
 add_executable (test_qt_helpers test_qt_helpers.cpp)
 target_link_libraries (test_qt_helpers wsjt_qt Qt5::Test)
 add_test (test_qt_helpers test_qt_helpers)
+
+add_executable (test_hrd_message test_hrd_message.cpp ../Transceiver/HRDMessage.cpp)
+target_link_libraries (test_hrd_message Qt5::Test)
+add_test (test_hrd_message test_hrd_message)

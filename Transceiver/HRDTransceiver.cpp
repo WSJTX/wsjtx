@@ -10,6 +10,7 @@
 #include <QDir>
 
 #include "Network/NetworkServerLookup.hpp"
+#include "Transceiver/HRDMessage.hpp"
 #include "qt_helpers.hpp"
 
 namespace
@@ -29,48 +30,6 @@ void HRDTransceiver::register_transceivers (logger_type *,
 {
   (*registry)[HRD_transceiver_name] = TransceiverFactory::Capabilities (id, TransceiverFactory::Capabilities::network, true, true /* maybe */);
 }
-
-struct HRDMessage
-{
-  // Placement style new overload for outgoing messages that does the
-  // construction too.
-  static void * operator new (size_t size, QString const& payload)
-  {
-    size += sizeof (QChar) * (payload.size () + 1); // space for terminator too
-    HRDMessage * storage (reinterpret_cast<HRDMessage *> (new char[size]));
-    storage->size_ = size ;
-    ushort const * pl (payload.utf16 ());
-    std::copy (pl, pl + payload.size () + 1, storage->payload_); // copy terminator too
-    storage->magic_1_ = magic_1_value_;
-    storage->magic_2_ = magic_2_value_;
-    storage->checksum_ = 0;
-    return storage;
-  }
-
-  // Placement style new overload for incoming messages that does the
-  // construction too.
-  //
-  // No memory allocation here.
-  static void * operator new (size_t /* size */, QByteArray const& message)
-  {
-    // Nasty const_cast here to avoid copying the message buffer.
-    return const_cast<HRDMessage *> (reinterpret_cast<HRDMessage const *> (message.data ()));
-  }
-
-  void operator delete (void * p, size_t)
-  {
-    delete [] reinterpret_cast<char *> (p); // Mirror allocation in operator new above.
-  }
-
-  quint32 size_;
-  qint32 magic_1_;
-  qint32 magic_2_;
-  qint32 checksum_;            // Apparently not used.
-  QChar payload_[0];           // UTF-16 (which is wchar_t on Windows)
-
-  static qint32 constexpr magic_1_value_ = 0x1234ABCD;
-  static qint32 constexpr magic_2_value_ = 0xABCD1234;
-};
 
 HRDTransceiver::HRDTransceiver (logger_type * logger
                                 , std::unique_ptr<TransceiverBase> wrapped
@@ -1063,8 +1022,8 @@ QString HRDTransceiver::send_command (QString const& cmd, bool prepend_context, 
   else
     {
       auto string = prepend_context ? context + cmd : cmd;
-      QScopedPointer<HRDMessage> message {new (string) HRDMessage};
-      if (!write_to_port (reinterpret_cast<char const *> (message.data ()), message->size_))
+      auto message = HRDMessage::make (string);
+      if (!write_to_port (message.constData (), message.size ()))
         {
           CAT_ERROR ("failed to write command" << cmd << "to HRD");
           throw error {
@@ -1080,25 +1039,28 @@ QString HRDTransceiver::send_command (QString const& cmd, bool prepend_context, 
     }
   else
     {
-      HRDMessage const * reply {new (buffer) HRDMessage};
-      if (reply->magic_1_value_ != reply->magic_1_ && reply->magic_2_value_ != reply->magic_2_)
-        {
-          CAT_ERROR (cmd << "invalid reply");
-          throw error {
-            tr ("Ham Radio Deluxe sent an invalid reply to our command \"%1\"")
-              .arg (cmd)
-              };
-        }
-
-      // keep reading until expected size arrives
-      while (buffer.size () - offsetof (HRDMessage, size_) < reply->size_)
+      auto reply = HRDMessage::parse (buffer);
+      while (reply.valid && !reply.complete)
         {
           CAT_TRACE (cmd << "reading more reply data");
           buffer += read_reply (cmd);
-          reply = new (buffer) HRDMessage;
+          if (buffer.size () >= reply.required_size)
+            {
+              reply = HRDMessage::parse (buffer);
+            }
         }
 
-      result = QString {reply->payload_}; // this is not a memory leak (honest!)
+      if (!reply.valid)
+        {
+          CAT_ERROR (cmd << "invalid reply:" << reply.error);
+          throw error {
+            tr ("Ham Radio Deluxe sent an invalid reply to our command \"%1\": %2")
+              .arg (cmd)
+              .arg (reply.error)
+              };
+        }
+
+      result = reply.payload;
     }
   CAT_TRACE (cmd << " ->" << result);
   return result;

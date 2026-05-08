@@ -5,7 +5,6 @@
 #include <tuple>
 #include <memory>
 
-#include <QScopedPointer>
 #include <QString>
 #include <QStringList>
 
