@@ -187,7 +187,7 @@ void paInputDevice(int id, char* hostAPI_DeviceName, int* minChan,
   int pa_device_min_channels;
   char p2[256];
   char *p,*p1;
-  static int iret, valid_dev_cnt;
+  int iret;
 
   iret=pa_get_device_info (id,
                           &pa_device_name,
@@ -200,8 +200,6 @@ void paInputDevice(int id, char* hostAPI_DeviceName, int* minChan,
                           &pa_device_min_channels);
 
   if (iret >= 0 ) {
-    valid_dev_cnt++;
-
     p1=(char*)"";
     p=strstr(pa_device_hostapi,"MME");
     if(p!=NULL) p1=(char*)"MME";

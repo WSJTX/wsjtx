@@ -29,7 +29,6 @@ DevSetup::~DevSetup()
 void DevSetup::initDlg()
 {
   int k,id;
-  int valid_devices=0;
   int minChan[MAXDEVICES];
   int maxChan[MAXDEVICES];
   int minSpeed[MAXDEVICES];
@@ -46,7 +45,6 @@ void DevSetup::initDlg()
       sprintf(s,"%2d   %d  %-49s",id,maxChan[id],hostAPI_DeviceName[id]);
       QString t(s);
       ui.comboBoxSndIn->addItem(t);
-      valid_devices++;
     }
   }
 
