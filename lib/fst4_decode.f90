@@ -80,7 +80,8 @@ contains
       data  rvec/0,1,0,0,1,0,1,0,0,1,0,1,1,1,1,0,1,0,0,0,1,0,0,1,1,0,1,1,0, &
          1,0,0,1,0,1,1,0,0,0,0,1,0,0,0,1,0,1,0,0,1,1,1,1,0,0,1,0,1, &
          0,1,0,1,0,1,1,0,1,1,1,1,1,0,0,0,1,0,1/
-      data first/.true./,hmod/1/
+      data first/.true./,hmod/1/,fcbest/0.0/
+
       save first,apbits,nappasses,naptypes,mycall0,hiscall0
       save wcalls,nwcalls
 
@@ -327,7 +328,8 @@ contains
             call timer('dwnsmpl ',1)
 
             call timer('sync240 ',0)
-            call fst4_sync_search(c2,nfft2,hmod,fs2,nss,ntrperiod,nsyncoh,emedelay,sbest,fcbest,isbest)
+            call fst4_sync_search(c2,nfft2,hmod,fs2,nss,ntrperiod,nsyncoh, &
+                 emedelay,sbest,fcbest,isbest)
             call timer('sync240 ',1)
 
             fc_synced = fc0 + fcbest
@@ -876,9 +878,11 @@ contains
       return
    end subroutine get_candidates_fst4
 
-   subroutine fst4_sync_search(c2,nfft2,hmod,fs2,nss,ntrperiod,nsyncoh,emedelay,sbest,fcbest,isbest)
+   subroutine fst4_sync_search(c2,nfft2,hmod,fs2,nss,ntrperiod,nsyncoh,   &
+        emedelay,sbest,fcbest,isbest)
       complex c2(0:nfft2-1)
       integer hmod
+
       nspsec=int(fs2)
       baud=fs2/real(nss)
       fc1=0.0

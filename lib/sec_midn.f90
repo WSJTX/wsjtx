@@ -4,8 +4,7 @@ real function sec_midn()
 end function sec_midn
 
 subroutine sleep_msec(n)
-
-  call usleep(1000*n)
-
+  use, intrinsic :: iso_fortran_env, only: INT64
+  call usleep(int(1000*n, kind=INT64))
   return
 end subroutine sleep_msec

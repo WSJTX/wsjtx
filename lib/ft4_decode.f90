@@ -35,10 +35,8 @@ contains
       character message*37,msgsent*37
       character c77*77
       character*37 decodes(100)
-      character*17 cdatetime0
       character*12 mycall,hiscall
       character*12 mycall0,hiscall0
-      character*6 hhmmss
 
       complex cd2(0:NDMAX-1)                  !Complex waveform
       complex cb(0:NDMAX-1)
@@ -82,11 +80,10 @@ contains
       data rvec/0,1,0,0,1,0,1,0,0,1,0,1,1,1,1,0,1,0,0,0,1,0,0,1,1,0,1,1,0, &
          1,0,0,1,0,1,1,0,0,0,0,1,0,0,0,1,0,1,0,0,1,1,1,1,0,0,1,0,1, &
          0,1,0,1,0,1,1,0,1,1,1,1,1,0,0,0,1,0,1/
-      save fs,dt,tt,txt,twopi,h,first,apbits,nappasses,naptypes, &
+      save dd,fs,dt,tt,txt,twopi,h,first,apbits,nappasses,naptypes, &
          mycall0,hiscall0,ctwk2
 
       this%callback => callback
-      hhmmss=cdatetime0(8:13)
       dxcall13=hiscall        ! initialize for use in packjt77
       mycall13=mycall
 

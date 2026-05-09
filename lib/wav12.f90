@@ -20,6 +20,7 @@ subroutine wav12(d2,d1,npts,nbitsam2)
   complex cx(0:NFFT2/2)
   integer*2 nbitsam2
   equivalence (x,cx),(i1,i2)
+  save d1a
 
   jz=min(NZ11,npts)
   if(nbitsam2.eq.8) then
