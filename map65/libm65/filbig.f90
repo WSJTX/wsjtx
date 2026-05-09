@@ -39,13 +39,13 @@ subroutine filbig(dd,nmax,f0,newdat,nfsample,xpol,c4a,c4b,n4)
      if(npatience.eq.4) nflags=FFTW_EXHAUSTIVE
      
 ! Plan the FFTs just once
-     call timer('FFTplans ',0)
+     call timer('FFTplans',0)
      call sfftw_plan_dft_1d(plan1,nfft1,ca,ca,FFTW_BACKWARD,nflags)
      call sfftw_plan_dft_1d(plan2,nfft1,cb,cb,FFTW_BACKWARD,nflags)
      call sfftw_plan_dft_1d(plan3,nfft2,c4a,c4a,FFTW_FORWARD,nflags)
      call sfftw_plan_dft_1d(plan4,nfft2,c4b,c4b,FFTW_FORWARD,nflags)
      call sfftw_plan_dft_1d(plan5,nfft2,cfilt,cfilt,FFTW_BACKWARD,nflags)
-     call timer('FFTplans ',1)
+     call timer('FFTplans',1)
 
 ! Convert impulse response to filter function
      do i=1,nfft2

@@ -48,5 +48,5 @@ subroutine gen_q65_cwave(msg,ntxfreq,ntone_spacing,msgsent,cwave,nwave)
      cwave(i)=cmplx(cos(xphi),-sin(xphi))
   enddo
 
-999  return
+  return
 end subroutine gen_q65_cwave

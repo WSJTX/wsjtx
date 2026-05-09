@@ -50,5 +50,5 @@ subroutine gen_q65_wave(msg,ntxfreq,mode65,msgsent,iwave,nwave)
   enddo
   nwave=2*iz
 
-999  return
+  return
 end subroutine gen_q65_wave
