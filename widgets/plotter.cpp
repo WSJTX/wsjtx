@@ -20,7 +20,7 @@ extern "C" {
   void plotsave_(float swide[], int* m_w , int* m_h1, int* irow);
 }
 
-extern dec_data dec_data;
+extern dec_data& dec_data;
 
 CPlotter::CPlotter(QWidget *parent) :                  //CPlotter Constructor
   QFrame {parent},

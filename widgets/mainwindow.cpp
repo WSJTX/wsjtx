@@ -241,7 +241,7 @@ QList<FoxVerifier *> m_verifications;
 int volatile itone[MAX_NUM_SYMBOLS];   //Audio tones for all Tx symbols
 int volatile itone0[MAX_NUM_SYMBOLS];  //Dummy array, data not actually used
 int volatile icw[NUM_CW_SYMBOLS];      //Dits for CW ID
-dec_data_t dec_data;                   //For sharing with Fortran
+dec_data_t& dec_data = *new dec_data_t{};
 int outBufSize;
 int rc;
 qint32  g_iptt {0};
