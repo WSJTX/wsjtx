@@ -17,8 +17,8 @@ public:
   qint32  m_pttPort;
   qint32  m_nDevIn;
   qint32  m_nDevOut;
-  qint32  m_inDevList[100];
-  qint32  m_outDevList[100];
+  qint32  m_inDevList[1024];
+  qint32  m_outDevList[1024];
   qint32  m_paInDevice;
   qint32  m_paOutDevice;
   qint32  m_timeout;

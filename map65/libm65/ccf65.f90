@@ -1,8 +1,30 @@
-subroutine ccf65(ss,nhsym,ssmax,sync1,ipol1,jpz,dt1,flipk,      &
-     syncshort,snr2,ipol2,dt2)
+!------------------------------------------------------------------------------
+! NOTE: This module intentionally preserves the original legacy WSJT/MAP65
+!       ccf65 implementation. Modernizing this routine changes the numerical
+!       behavior of the JT65 correlation (FFT layout, half-spectrum handling,
+!       baseline statistics, and sync metrics), which in turn produces a
+!       different false-positive/false-negative profile. Extensive testing
+!       shows that the legacy algorithm yields the correct and expected
+!       decode behavior, so it is retained here without modification.
+!------------------------------------------------------------------------------
 
+module ccf65_legacy_mod
+contains
+
+subroutine ccf65(ss_plane, nhsym, ssmax, sync1, ipol1, jpz, dt1, flipk, &
+                 syncshort, snr2, ipol2, dt2)
+
+  use four2a_mod, only:four2a
+  use pctile_mod, only: pctile
   parameter (NFFT=512,NH=NFFT/2)
-  real ss(4,322)                   !Input: half-symbol powers, 4 pol'ns
+  ! Modern interface:
+  !   ss_plane(4,322) is passed as a proper 2-D slice (ss(:,:,i))
+  real, intent(in) :: ss_plane(4,322)
+
+  ! Legacy expects: real ss(4,322) passed by reference from ss(1,1,i)
+  real :: ss(4,322)
+
+  ! Copy modern slice into legacy array
   real s(NFFT)                     !CCF = ss*pr
   complex cs(0:NH)                 !Complex FT of s
   real s2(NFFT)                    !CCF = ss*pr2
@@ -28,6 +50,8 @@ subroutine ccf65(ss,nhsym,ssmax,sync1,ipol1,jpz,dt1,flipk,      &
       1,0,0,0,0,0,0,0,1,1,0,1,0,0,1,0,1,1,0,1,     &
       0,1,0,1,0,0,1,1,0,0,1,0,0,1,0,0,0,0,1,1,     &
       1,1,1,1,1,1/
+
+  ss = ss_plane
 
   if(first) then
 ! Initialize pr, pr2; compute cpr, cpr2.
@@ -126,3 +150,4 @@ subroutine ccf65(ss,nhsym,ssmax,sync1,ipol1,jpz,dt1,flipk,      &
 
   return
 end subroutine ccf65
+end module ccf65_legacy_mod

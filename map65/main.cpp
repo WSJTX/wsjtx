@@ -5,9 +5,13 @@
 #include <QtGui>
 #endif
 #include <QApplication>
+#include <QCoreApplication>
+#include <QDir>
 
 #include "revision_utils.hpp"
 #include "mainwindow.h"
+#include "fortran_mutex.hpp"
+
 
 extern "C" {
   // Fortran procedures we need
@@ -16,19 +20,28 @@ extern "C" {
 
 int main(int argc, char *argv[])
 {
+   // Add wsjtx's plugin directory so Qt can find "cocoa", imageformats, etc.
+    QCoreApplication::addLibraryPath(
+        QCoreApplication::applicationDirPath()
+        + "/../../wsjtx.app/Contents/PlugIns"
+    );
+  
   QApplication a {argc, argv};
+  
   // Override programs executable basename as application name.
   a.setApplicationName ("MAP65");
-  a.setApplicationVersion ("3.2");
+  a.setApplicationVersion ("3.43");
   // switch off as we share an Info.plist file with WSJT-X
   a.setAttribute (Qt::AA_DontUseNativeMenuBar);
   MainWindow w;
+  
   w.show ();
   QObject::connect (&a, &QApplication::lastWindowClosed, &a, &QApplication::quit);
   auto result = a.exec ();
 
   // clean up lazily initialized FFTW3 resources
   {
+    std::lock_guard<std::mutex> lock(g_fortran_decode_mutex);
     int nfft {-1};
     int ndim {1};
     int isign {1};

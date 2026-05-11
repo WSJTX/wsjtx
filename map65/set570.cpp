@@ -46,7 +46,7 @@ int  to_freq;
 int  increment_freq;
 int  display_freq = -1;
 int  delay;
-static libusb_device_handle * global_si570usb_handle;
+static libusb_device_handle *global_si570usb_handle;
 
 void si570_sleep(int us)
 {
@@ -72,7 +72,7 @@ double current_time(void) //for delay measurements
 
 unsigned char Si570usbOpenDevice(libusb_device_handle **device, char *usbSerialID);
 void setLongWord( int value, char * bytes);
-int setFreqByValue(libusb_device_handle * handle, double frequency);
+int setFreqByValue(libusb_device_handle *handle, double frequency);
 void sweepa_freq(void);
 void sweepm_freq(void);
 

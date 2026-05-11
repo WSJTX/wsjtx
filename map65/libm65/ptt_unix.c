@@ -92,19 +92,21 @@ int fd=-1;		/* Used for both serial and parallel */
 #define STATE_PORT_OPEN_PARALLEL	1
 #define STATE_PORT_OPEN_SERIAL		2
 
-//int ptt_(int *unused, char *ptt_port, int *ntx, int *iptt)
-int ptt_(int *unused, int *ntx, int *iptt)
+int ptt_(int *nport, int *ntx, int *iptt)
 {
-  static int state=0;
+  static int state = STATE_PORT_CLOSED;
+  char devname[32];
   char *p;
 
-// ### Temporary:
-  char* ptt_port;
-  if(*unused != -99) {
+  /* nport == 0 ? no PTT, just mirror ntx */
+  if (*nport == 0) {
     *iptt=*ntx;
     return 0;
   }
-// ###
+
+  /* Map COM1–COM13 ? /dev/ttyS0–/dev/ttyS12 */
+  snprintf(devname, sizeof(devname), "/dev/ttyS%d", *nport - 1);
+  char *ptt_port = devname;
 
   /* In the very unlikely event of a NULL pointer, just return.
    * Yes, I realise this should not be possible in WSJT.

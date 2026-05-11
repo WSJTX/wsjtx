@@ -1,46 +1,62 @@
+module timf2_mod
+  implicit none
+contains
+
 subroutine timf2(k,nxpol,nfft,nwindow,nb,peaklimit,iqadjust,iqapply,faclim, &
-  cx0,cy0,gainx,gainy,phasex,phasey,cx1,cy1,slimit,lstrong,px,py,nzap)
+                 cx0,cy0,gainx,gainy,phasex,phasey,cx1,cy1,slimit,lstrong,px,py,nzap)
 
-! Sequential processing of time-domain I/Q data, using Linrad-like
-! "first FFT" and "first backward FFT".  
+  use four2a_mod
+  use, intrinsic :: iso_c_binding, only: c_signed_char
+  implicit none
 
-!  cx0,cy0      - complex input data
-!  nfft      - length of FFTs
-!  nwindow   - 0 for no window, 2 for sin^2 window
-!  iqapply   - 0/1 determines if I/Q phase and amplitude corrections applied
-!  gainx,y   - gain error in Q channel, relative to I
-!  phasex,y  - phase error
-!  cx1,cy1   - output data
+  ! Arguments
+  integer, intent(in)    :: k, nxpol, nfft, nwindow, nb
+  real,    intent(in)    :: peaklimit, faclim
+  integer, intent(in)    :: iqadjust, iqapply
+  complex, intent(in)    :: cx0(0:nfft-1), cy0(0:nfft-1)
+  real,    intent(in)    :: gainx, gainy, phasex, phasey
+  complex, intent(out)   :: cx1(0:nfft-1), cy1(0:nfft-1)
+  real,    intent(inout) :: slimit
+  ! logical*1, intent(out) :: lstrong(0:*)
+  integer(c_signed_char), intent(out) :: lstrong(0:*)
 
-! Non-windowed processing means no overlap, so kstep=nfft.  
-! Sin^2 window has 50% overlap, kstep=nfft/2.
+  real,    intent(inout) :: px, py
+  integer, intent(inout) :: nzap
 
-! Frequencies with strong signals are identified and separated.  The back
-! transforms are done separately for weak and strong signals, so that
-! noise blanking can be applied to the weak-signal portion.  Strong and
-! weak are finally re-combined in the time domain.
+  ! Parameters
+  integer, parameter :: MAXFFT = 1024, MAXNH = MAXFFT/2
+  integer, parameter :: MAXSIGS = 100
 
-  parameter (MAXFFT=1024,MAXNH=MAXFFT/2)
-  parameter (MAXSIGS=100)
-  complex cx0(0:nfft-1),cx1(0:nfft-1)
-  complex cy0(0:nfft-1),cy1(0:nfft-1)
-  complex cx(0:MAXFFT-1),cxt(0:MAXFFT-1)
-  complex cy(0:MAXFFT-1),cyt(0:MAXFFT-1)
-  complex cxs(0:MAXFFT-1),covxs(0:MAXNH-1)     !Strong X signals
-  complex cys(0:MAXFFT-1),covys(0:MAXNH-1)     !Strong Y signals
-  complex cxw(0:MAXFFT-1),covxw(0:MAXNH-1)     !Weak X signals
-  complex cyw(0:MAXFFT-1),covyw(0:MAXNH-1)     !Weak Y signals
-  real*4 w(0:MAXFFT-1)
-  real*4 s(0:MAXFFT-1)
-  logical*1 lstrong(0:MAXFFT-1),lprev
-  integer ia(MAXSIGS),ib(MAXSIGS)
-  complex h,u,v
-  logical first
-  data first/.true./
-  data k0/99999999/
-  save
+  ! Local arrays
+  complex :: cx(0:MAXFFT-1), cxt(0:MAXFFT-1)
+  complex :: cy(0:MAXFFT-1), cyt(0:MAXFFT-1)
+  complex :: cxs(0:MAXFFT-1), covxs(0:MAXNH-1)
+  complex :: cys(0:MAXFFT-1), covys(0:MAXNH-1)
+  complex :: cxw(0:MAXFFT-1), covxw(0:MAXNH-1)
+  complex :: cyw(0:MAXFFT-1), covyw(0:MAXNH-1)
+  real    :: w(0:MAXFFT-1)
+  real    :: s(0:MAXFFT-1)
+  logical :: lprev
+  integer   :: ia(MAXSIGS), ib(MAXSIGS)
 
-  if(faclim+iqadjust.eq.-9999.0) iqadjust=0   !Silence compiler warning.
+  ! Local scalars
+  complex :: h, u, v
+  real    :: x, y, p, ave, peak, fac, pi
+  integer :: nh, kstep, nsigs, iwid
+  integer :: i, ja, jb
+
+  ! Saved state
+  logical :: first
+  integer :: k0
+  data first /.true./
+  data k0 /99999999/
+  save first, k0, w, s, nh, kstep, fac, covxs, covxw, covys, covyw
+
+  ! Reference faclim and iqadjust to avoid unused warnings
+  if (faclim + iqadjust == -9999.0) then
+     ! no-op
+  end if
+
   if(first) then
      pi=4.0*atan(1.0)
      do i=0,nfft-1
@@ -115,24 +131,25 @@ subroutine timf2(k,nxpol,nfft,nwindow,nb,peaklimit,iqadjust,iqapply,faclim, &
      if(nxpol.ne.0) p=p + real(cyt(i))**2 + aimag(cyt(i))**2
      s(i)=p
   enddo
+  ave=0.0
   ave=sum(s(0:nfft-1))/nfft
-  lstrong(0:nfft-1)=s(0:nfft-1).gt.10.0*ave
+  lstrong(0:nfft-1) = merge(1_c_signed_char, 0_c_signed_char, s(0:nfft-1) > 10.0*ave)
 
   nsigs=0
   lprev=.false.
   iwid=1
   ib=-99
   do i=0,nfft-1
-     if(lstrong(i) .and. (.not.lprev)) then
+     if ((lstrong(i) /= 0) .and. (.not. lprev)) then
         if(nsigs.lt.MAXSIGS) nsigs=nsigs+1
         ia(nsigs)=i-iwid
         if(ia(nsigs).lt.0) ia(nsigs)=0
      endif
-     if(.not.lstrong(i) .and. lprev) then
+     if ((lstrong(i) == 0) .and. lprev) then
         ib(nsigs)=i-1+iwid
         if(ib(nsigs).gt.nfft-1) ib(nsigs)=nfft-1
      endif
-     lprev=lstrong(i)
+     lprev = (lstrong(i) /= 0)
   enddo
 
   if(nsigs.gt.0) then
@@ -143,12 +160,12 @@ subroutine timf2(k,nxpol,nfft,nwindow,nb,peaklimit,iqadjust,iqapply,faclim, &
            cycle
         endif
         if(jb.eq.-99) jb=ja + min(2*iwid,nfft-1)
-        lstrong(ja:jb)=.true.
+        lstrong(ja:jb) = 1_c_signed_char
      enddo
   endif
 
   do i=0,nfft-1
-     if(lstrong(i)) then
+     if (lstrong(i) /= 0) then
         cxs(i)=fac*cxt(i)
         cxw(i)=0.
         if(nxpol.ne.0) then
@@ -213,3 +230,5 @@ subroutine timf2(k,nxpol,nfft,nwindow,nb,peaklimit,iqadjust,iqapply,faclim, &
 
   return
 end subroutine timf2
+
+end module timf2_mod

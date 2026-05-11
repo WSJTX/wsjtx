@@ -1,31 +1,61 @@
-subroutine chkmsg(message,cok,nspecial,flip)
+module chkmsg_mod
+  implicit none
+contains
 
-  character message*22,cok*3
+subroutine chkmsg(message, cok, nspecial, flip)
+  implicit none
 
-  nspecial=0
-  flip=1.0
-  cok="   "
+  !--------------------------------------------------------------------
+  ! Arguments
+  !--------------------------------------------------------------------
+  character(len=22), intent(inout) :: message   ! modified if OOO/OO removed
+  character(len=3),  intent(out)   :: cok
+  integer,      intent(out)   :: nspecial
+  real,         intent(out)   :: flip
 
-  do i=22,1,-1
-     if(message(i:i).ne.' ') go to 10
+  !--------------------------------------------------------------------
+  ! Locals
+  !--------------------------------------------------------------------
+  integer :: i
+
+  !--------------------------------------------------------------------
+  ! Initialization
+  !--------------------------------------------------------------------
+  nspecial = 0
+  flip     = 1.0d0
+  cok      = '   '
+
+  !--------------------------------------------------------------------
+  ! Find last non‑blank character
+  !--------------------------------------------------------------------
+  do i = 22, 1, -1
+     if (message(i:i) .ne. ' ') exit
   enddo
-  i=22
+  if (i == 0) i = 22   ! defensive fallback
 
-10 if(i.ge.11) then
-     if ((message(i-3:i).eq.' OOO') .or. (message(20:22).eq.' OO')) then
-        cok='OOO'
-        flip=-1.0
-        if(message(20:22).eq.' OO') then
-           message=message(1:19)
+  !--------------------------------------------------------------------
+  ! Detect trailing OOO / OO shorthand
+  !--------------------------------------------------------------------
+  if (i >= 11) then
+     if ( (message(i-3:i) == ' OOO') .or. (message(20:22) == ' OO') ) then
+        cok  = 'OOO'
+        flip = -1.0d0
+
+        if (message(20:22) == ' OO') then
+           message = message(1:19)
         else
-           message=message(1:i-4)
+           message = message(1:i-4)
         endif
      endif
   endif
 
-  if(message(1:3).eq.'RO ')  nspecial=2
-  if(message(1:4).eq.'RRR ') nspecial=3
-  if(message(1:3).eq.'73 ')  nspecial=4
+  !--------------------------------------------------------------------
+  ! Detect leading shorthand messages
+  !--------------------------------------------------------------------
+  if (message(1:3) == 'RO ')  nspecial = 2
+  if (message(1:4) == 'RRR ') nspecial = 3
+  if (message(1:3) == '73 ')  nspecial = 4
 
-  return
 end subroutine chkmsg
+
+end module chkmsg_mod

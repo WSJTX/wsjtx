@@ -136,7 +136,6 @@ if (APPLE OR WIN32)
       )
 
     set (gp_tool "objdump")	# we want MinGW tool - not MSVC (See GetPrerequisites.cmake)
-  endif (WIN32)
 
   INSTALL (CODE "
         get_filename_component (the_path \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${WSJT_PLUGIN_DESTINATION}\" REALPATH)
@@ -149,5 +148,72 @@ if (APPLE OR WIN32)
         fixup_bundle (\"\${the_exe}\" \"\${QTPLUGINS}\" \"${fixup_library_dirs}\")"
     #COMPONENT runtime
     )
-endif (APPLE OR WIN32)
+  endif (WIN32)
 
+  # CHANGED TO PREVENT FIXUP BUNDLE ERRORS ON MACOCS
+ #  INSTALL (CODE "
+ #       get_filename_component (the_path \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${WSJT_PLUGIN_DESTINATION}\" REALPATH)
+ #       file (GLOB_RECURSE QTPLUGINS \"\${the_path}/*${CMAKE_SHARED_LIBRARY_SUFFIX}\")
+ #       include (BundleUtilities)
+ #       set (BU_CHMOD_BUNDLE_ITEMS ON)
+ #       set (gp_tool ${gp_tool})
+ #       # canonicalize path in install context
+ #       get_filename_component (the_exe ${fixup_exe} REALPATH)
+ #      fixup_bundle (\"\${the_exe}\" \"\${QTPLUGINS}\" \"${fixup_library_dirs}\")"
+
+# We need fixup_bundle on all platforms, including macOS ARM,
+# so that Qt frameworks and plugins are correctly bundled.
+# However, GCC/Fortran runtime libs (libgcc_s, libgfortran, libquadmath)
+# should be treated as system libraries and not copied/rewritten.
+
+  if(APPLE)
+    # Mark GCC/Fortran runtimes as system libs so fixup_bundle ignores them
+    set(_m65_fortran_system_libs
+        libgcc_s.1.1.dylib
+        libgfortran.5.dylib
+        libquadmath.0.dylib
+    )
+    set(BU_SYSTEM_LIBS ${BU_SYSTEM_LIBS} ${_m65_fortran_system_libs})
+  endif()
+
+  if(APPLE AND CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
+    # Ask gfortran where its libs live
+    execute_process(
+        COMMAND ${CMAKE_Fortran_COMPILER} -print-file-name=libgfortran.5.dylib
+        OUTPUT_VARIABLE _gfortran_path
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    get_filename_component(_gfortran_dir "${_gfortran_path}" DIRECTORY)
+
+    # Append to fixup_library_dirs (a normal CMake list)
+    list(APPEND fixup_library_dirs "${_gfortran_dir}")
+  endif()
+
+  if(APPLE)
+    INSTALL (CODE "
+      # Resolve plugin directory
+      get_filename_component(the_path \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${WSJT_PLUGIN_DESTINATION}\" REALPATH)
+
+      file(GLOB_RECURSE QTPLUGINS \"\${the_path}/*${CMAKE_SHARED_LIBRARY_SUFFIX}\")
+
+      list(FILTER QTPLUGINS EXCLUDE REGEX \".*\\\\.exe\")
+      list(FILTER QTPLUGINS EXCLUDE REGEX \".*\\\\.dll\")
+      list(FILTER QTPLUGINS EXCLUDE REGEX \".*qthid.*\")
+      list(FILTER QTPLUGINS EXCLUDE REGEX \".*rigctl.*\")
+
+      include(BundleUtilities)
+      set(BU_CHMOD_BUNDLE_ITEMS ON)
+
+      set(fixup_library_dirs \"${fixup_library_dirs}\")
+
+      # --- Fix up WSJTX ---
+      get_filename_component(wsjt_exe \"${fixup_exe}\" REALPATH)
+      fixup_bundle(
+          \"\${wsjt_exe}\"
+          \"\${QTPLUGINS}\"
+          \"\${fixup_library_dirs}\"
+      )
+    ")
+  endif (APPLE)
+
+endif (APPLE OR WIN32)

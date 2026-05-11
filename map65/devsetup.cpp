@@ -4,8 +4,9 @@
 #include <QDebug>
 #include <cstdio>
 #include <portaudio.h>
+#include <vector>
 
-#define MAXDEVICES 200
+#define MAXDEVICES 1024 // was 200
 
 //----------------------------------------------------------- DevSetup()
 DevSetup::DevSetup(QWidget *parent) :	QDialog(parent)
@@ -17,8 +18,13 @@ DevSetup::DevSetup(QWidget *parent) :	QDialog(parent)
   QButtonGroup *buttonGroup = new QButtonGroup(this);
   buttonGroup->addButton(ui.w3szBut);
   buttonGroup->addButton(ui.otherBut);
-
-  connect(buttonGroup, SIGNAL(buttonClicked(int)), this, SLOT(onButtonClicked(int)));
+  
+connect(buttonGroup,
+        QOverload<QAbstractButton *>::of(&QButtonGroup::buttonClicked),
+        this,
+        [this](QAbstractButton *) {
+            onButtonClicked();
+        });
 
 }
 
@@ -29,63 +35,122 @@ DevSetup::~DevSetup()
 void DevSetup::initDlg()
 {
   int k,id;
-  int valid_devices=0;
-  int minChan[MAXDEVICES];
-  int maxChan[MAXDEVICES];
-  int minSpeed[MAXDEVICES];
-  int maxSpeed[MAXDEVICES];
-  char hostAPI_DeviceName[MAXDEVICES][50];
+  
+  // Use heap-allocated vectors instead of stack arrays
+  std::vector<int> minChan(MAXDEVICES);
+  std::vector<int> maxChan(MAXDEVICES);
+  std::vector<int> minSpeed(MAXDEVICES);
+  std::vector<int> maxSpeed(MAXDEVICES);
+  
+  // Use a unique pointer or vector for the 2D char array
+  struct DeviceName {
+    char name[50];
+};
+  std::vector<DeviceName> hostAPI_DeviceName(MAXDEVICES);
+
   char s[256];
-  int numDevices=Pa_GetDeviceCount();
-  getDev(&numDevices,hostAPI_DeviceName,minChan,maxChan,minSpeed,maxSpeed);
-  k=0;
-  for(id=0; id<numDevices; id++)  {
-    if(96000 >= minSpeed[id] && 96000 <= maxSpeed[id]) {
-      m_inDevList[k]=id;
-      k++;
-      sprintf(s,"%2d   %d  %-49s",id,maxChan[id],hostAPI_DeviceName[id]);
-      QString t(s);
-      ui.comboBoxSndIn->addItem(t);
-      valid_devices++;
-    }
+  int numDevices = Pa_GetDeviceCount();
+  
+  qDebug() << "Devices found:" << numDevices;
+  if (numDevices > MAXDEVICES) {
+      numDevices = MAXDEVICES;
   }
+
+  // Pass the pointers to the data inside the vectors
+getDev(&numDevices,
+       reinterpret_cast<char (*)[50]>(hostAPI_DeviceName.data()),
+       minChan.data(), maxChan.data(), minSpeed.data(), maxSpeed.data());
+  
+k = 0;
+for (id = 0; id < numDevices; id++) {
+
+    if (!(96000 >= minSpeed[id] && 96000 <= maxSpeed[id]))
+        continue;
+
+#ifdef _WIN32
+    if (!QString(hostAPI_DeviceName[id].name).contains("MME"))
+        continue;
+#endif
+
+    // Now safe to add to list
+    m_inDevList[k] = id;
+
+    snprintf(s, sizeof(s), "%2d   %d  %-49.49s",
+             id, maxChan[id], hostAPI_DeviceName[id].name);
+
+    ui.comboBoxSndIn->addItem(QString(s));
+    k++;
+}
 
   const PaDeviceInfo *pdi;
   int nchout;
-  char *p,*p1;
   char p2[256];
-  char pa_device_name[128];
-  char pa_device_hostapi[128];
 
   k=0;
-  for(id=0; id<numDevices; id++ )  {
-    pdi=Pa_GetDeviceInfo(id);
-    nchout=pdi->maxOutputChannels;
-    if(nchout>=2) {
-      m_outDevList[k]=id;
-      k++;
-      sprintf((char*)(pa_device_name),"%s",pdi->name);
-      sprintf((char*)(pa_device_hostapi),"%s",
-              Pa_GetHostApiInfo(pdi->hostApi)->name);
+ for (id = 0; id < numDevices; id++) {
 
-      p1=(char*)"";
-      p=strstr(pa_device_hostapi,"MME");
-      if(p!=NULL) p1=(char*)"MME";
-      p=strstr(pa_device_hostapi,"Direct");
-      if(p!=NULL) p1=(char*)"DirectX";
-      p=strstr(pa_device_hostapi,"WASAPI");
-      if(p!=NULL) p1=(char*)"WASAPI";
-      p=strstr(pa_device_hostapi,"ASIO");
-      if(p!=NULL) p1=(char*)"ASIO";
-      p=strstr(pa_device_hostapi,"WDM-KS");
-      if(p!=NULL) p1=(char*)"WDM-KS";
+    pdi = Pa_GetDeviceInfo(id);
+    if (!pdi) continue;
 
-      sprintf(p2,"%2d   %-8s  %-39s",id,p1,pa_device_name);
-      QString t(p2);
-      ui.comboBoxSndOut->addItem(t);
-    }
-  }
+    nchout = pdi->maxOutputChannels;
+    if (nchout < 2)
+        continue;
 
+   #ifdef __linux__
+    // Linux: require 11025 Hz capability (plug devices will pass)
+    if (!(11025 >= minSpeed[id] && 11025 <= maxSpeed[id]))
+        continue;
+#endif
+
+    const char* api = Pa_GetHostApiInfo(pdi->hostApi)->name;
+    QString devName = QString(pdi->name);
+
+#ifdef __linux__
+    //
+    // LINUX: Only show devices that can RESAMPLE (plug devices)
+    // Raw hw: devices cannot run at 11025 Hz.
+    //
+    // Accept only:
+    //   - default
+    //   - dmix
+    //   - pulse
+    //   - pipewire
+    //   - any device name that does NOT contain "hw:"
+    //
+    QString lower = devName.toLower();
+
+    bool isPlug =
+        lower.contains("default")  ||
+        lower.contains("dmix")     ||
+        lower.contains("pulse")    ||
+        lower.contains("pipewire") ||
+        !lower.contains("hw:");   // accept non-hw devices
+
+    if (!isPlug)
+        continue;   // skip raw hardware devices
+#endif
+
+    // Skip WASAPI and WDM-KS for TX (Windows only)
+    if (strstr(api, "WASAPI") || strstr(api,"WDM-KS"))
+        continue;
+
+    // Now safe to add to list
+    m_outDevList[k++] = id;
+
+    // Determine label
+    const char* p1 = "";
+    if (strstr(api, "MME"))     p1 = "MME";
+    if (strstr(api, "Direct"))  p1 = "DirectX";
+    if (strstr(api, "ASIO"))    p1 = "ASIO";
+    if (strstr(api, "ALSA"))    p1 = "ALSA";
+
+    snprintf(p2, sizeof(p2), "%2d   %-8.8s  %-39.39s",
+             id, p1, pdi->name);
+
+    ui.comboBoxSndOut->addItem(QString(p2));
+}
+
+  
   ui.myCallEntry->setText(m_myCall);
   ui.myGridEntry->setText(m_myGrid);
   ui.idIntSpinBox->setValue(m_idInt);

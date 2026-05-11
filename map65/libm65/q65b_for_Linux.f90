@@ -1,6 +1,6 @@
 subroutine q65b(nutc,nqd,nxant,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol, &
      mycall0,mygrid,hiscall0,hisgrid,mode_q65,f0,fqso,newdat,nagain,          &
-     max_drift,nhsym,ndop00,idec)
+     max_drift,ndop00,idec) bind(C,name='q65b')
 
 ! This routine provides an interface between MAP65 and the Q65 decoder
 ! in WSJT-X.  All arguments are input data obtained from the MAP65 GUI.
@@ -13,6 +13,8 @@ subroutine q65b(nutc,nqd,nxant,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol, &
   use q65_decode
   use wideband_sync
   use timer_module, only: timer
+  use four2a_mod  
+  use map65_mmdec_mod
 
   parameter (MAXFFT1=5376000)              !56*96000
   parameter (MAXFFT2=336000)               !56*6000 (downsampled by 1/16)
@@ -24,7 +26,8 @@ subroutine q65b(nutc,nqd,nxant,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,xpol, &
   complex cx(0:MAXFFT2-1),cy(0:MAXFFT2-1),cz(0:MAXFFT2)
   logical xpol,ldecoded
   integer ipk1(1)
-  real*8 fcenter,freq0,freq1
+  real(c_double) :: fcenter
+  real*8 freq0,freq1
   character*12 mycall0,hiscall0
   character*12 mycall,hiscall
   character*6 mygrid,hisgrid

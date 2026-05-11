@@ -1,47 +1,57 @@
+module symspec_mod
+  implicit none
+contains
+
 subroutine symspec(k,nxpol,ndiskdat,nb,nbslider,idphi,nfsample,    &
-     fgreen,iqadjust,iqapply,gainx,gainy,phasex,phasey,rejectx,rejecty,  &
-     pxdb,pydb,ssz5a,nkhz,ihsym,nzap,slimit,lstrong)
+     iqadjust,iqapply,gainx,gainy,phasex,phasey,rejectx,rejecty,  &
+     pxdb,pydb,ssz5a,nkhz,ihsym,nzap,slimit,lstrong) bind(C, name='symspec_')
 
-!  k        pointer to the most recent new data
-!  nxpol    0/1 to indicate single- or dual-polarization
-!  ndiskdat 0/1 to indicate if data from disk
-!  nb       0/1 status of noise blanker
-!  idphi    Phase correction for Y channel, degrees
-!  nfsample sample rate (Hz)
-!  fgreen   Frequency of green marker in I/Q calibrate mode (-48.0 to +48.0 kHz)
-!  iqadjust 0/1 to indicate whether IQ adjustment is active
-!  iqapply  0/1 to indicate whether to apply I/Q calibration
-!  pxdb     power in x channel (0-60 dB)
-!  pydb     power in y channel (0-60 dB)
-!  ssz5a    polarized spectrum, for waterfall display
-!  nkhz     integer kHz portion of center frequency, e.g., 125 for 144.125
-!  ihsym    index number of this half-symbol (1-322)
-!  nzap     number of samples zero'ed by noise blanker
+  use iso_c_binding
+  use datcom_ptrs_mod
+  use npar_ptrs_mod,  only: fcenter
+  use four2a_mod
+  use timf2_mod
+  use iqcal_mod
+  use iqfix_mod
+  use iso_fortran_env, only: real32, real64
 
-  include 'njunk.f90'
-  parameter (NSMAX=60*96000)          !Total sample intervals per minute
-  parameter (NFFT=32768)              !Length of FFTs
-  real*8 ts,hsym
-  real*8 fcenter
-  common/datcom/dd(4,5760000),ss(4,322,NFFT),savg(4,NFFT),fcenter,nutc,  &
-       junk(NJUNK)
-  real*4 ssz5a(NFFT),w(NFFT),w2a(NFFT),w2b(NFFT)
-  complex z,zfac
-  complex zsumx,zsumy
-  complex cx(NFFT),cy(NFFT)
-  complex cx00(NFFT),cy00(NFFT)
-  complex cx0(0:1023),cx1(0:1023)
-  complex cy0(0:1023),cy1(0:1023)
-  logical*1 lstrong(0:1023)
-  data rms/999.0/,k0/99999999/,nadjx/0/,nadjy/0/
+  ! C-facing arguments (keep these as in your modern version)
+  integer(c_int),    intent(in)    :: k, nxpol, ndiskdat, nb, nbslider
+  integer(c_int),    intent(in)    :: idphi, nfsample
+  integer(c_int),    intent(in)    :: iqadjust, iqapply
+  real(c_float),     intent(inout) :: gainx, gainy, phasex, phasey
+  real(c_float),     intent(out)   :: rejectx, rejecty, pxdb, pydb
+  real(c_float),     intent(out)   :: ssz5a(*)
+  integer(c_int),    intent(out)   :: nkhz
+  integer(c_int),    intent(inout) :: ihsym, nzap
+  real(c_float),     intent(inout) :: slimit
+  integer(c_signed_char), intent(out) :: lstrong(0:1023)
+
+  
+  ! ---- from legacy body, adapted to modules ----
+  ! (no COMMON, no local fcenter, no logical*1 lstrong)
+
+
+  real(real64) :: ts, hsym
+  integer :: i, ipkx, ipky, iqadjust0, iqapply0, j, ja, jb, k0, k1, kstep, &
+             mm, nadjx, nadjy, nblk, nblks, nfft2, npts, nsum, nwindow, n, nfast
+  real(real32) :: fac, faclim, peaklimit, px, py, q, rejectx0, rms, rmsx, rmsy, &
+             s135, s45, sigmas, sx, sy, u, x1, x2, x3, x4, dphi, pi
+  real(real32) :: w(NFFT), w2a(NFFT), w2b(NFFT)
+  complex :: z, zfac, zsumx, zsumy, cx(NFFT), cy(NFFT), cx00(NFFT), cy00(NFFT)
+  complex :: cx0(0:1023), cx1(0:1023), cy0(0:1023), cy1(0:1023)
+ 
+  data rms/999.0/, k0/99999999/, k1/0/, nadjx/0/, nadjy/0/
   save
 
-  nfast=1
-  if(k.gt.5751000) go to 999
-  if(k.lt.NFFT) then
-     ihsym=0
-     go to 999             !Wait for enough samples to start
-  endif
+nfast = 1
+
+if (k.gt.5751000) goto 999
+if (k.lt.NFFT) then
+   ihsym = 0
+   goto 999
+endif
+
   if(k0.eq.99999999) then
      pi=4.0*atan(1.0)
      w2a=0.
@@ -56,18 +66,21 @@ subroutine symspec(k,nxpol,ndiskdat,nb,nbslider,idphi,nfsample,    &
      w2b=sqrt(2.0)*w2b
   endif
 
-  hsym=2048.d0*96000.d0/11025.d0      !Samples per JT65 half-symbol
+   hsym=2048.d0*96000.d0/11025.d0
   if(nfsample.eq.95238)   hsym=2048.d0*95238.1d0/11025.d0
 
-  if(k.lt.k0) then
-     ts=1.d0 - hsym
-     savg=0.
-     ihsym=0
-     k1=0
-     if(ndiskdat.eq.0) dd(1:4,k+1:5760000)=0.  !### Should not be needed ??? ###
-  endif
-  k0=k
+if (k.lt.k0) then
+   ! Perform the legacy reset
+   ts    = 1.d0 - hsym
+   savg  = 0.
+   ihsym = 0
+   k1    = 0
+   if (ndiskdat.eq.0) dd(1:4,k+1:5760000)=0.
+endif
 
+k0 = k
+
+  
   nzap=0
   sigmas=1.5*(10.0**(0.01*nbslider)) + 0.7
   peaklimit=sigmas*max(10.0,rms)
@@ -83,7 +96,8 @@ subroutine symspec(k,nxpol,ndiskdat,nb,nbslider,idphi,nfsample,    &
   nfft2=1024
   kstep=nfft2
   if(nwindow.ne.0) kstep=nfft2/2
-  nblks=(k-k1)/kstep
+  nblks = (k - k1) / kstep
+  
   do nblk=1,nblks
      j=k1+1
      do i=0,nfft2-1
@@ -108,17 +122,18 @@ subroutine symspec(k,nxpol,ndiskdat,nb,nbslider,idphi,nfsample,    &
   npts=NFFT                           !Samples used in each half-symbol FFT
 
   ts=ts+hsym
-  ja=ts                               !Index of first sample
+  ja=ts   ! ts already set from ihsym above; do not integrate it again                             !Index of first sample
   jb=ja+npts-1                        !Last sample
 
   i=0
   fac=0.0002
   dphi=idphi/57.2957795
   zfac=fac*cmplx(cos(dphi),sin(dphi))
+
   do j=ja,jb                          !Copy data into cx, cy
      x1=dd(1,j)
      x2=dd(2,j)
-     if(nxpol.ne.0) then
+     if(nxpol.ne.0) then 
         x3=dd(3,j)
         x4=dd(4,j)
      else
@@ -182,7 +197,7 @@ subroutine symspec(k,nxpol,ndiskdat,nb,nbslider,idphi,nfsample,    &
         sx=real(cx(i))**2 + aimag(cx(i))**2  
         ss(1,n,i)=sx                    ! Pol = 0
         savg(1,i)=savg(1,i) + sx
-
+       
         if(nxpol.ne.0) then
            z=cx(i) + cy(i)
            s45=0.5*(real(z)**2 + aimag(z)**2)
@@ -210,6 +225,11 @@ subroutine symspec(k,nxpol,ndiskdat,nb,nbslider,idphi,nfsample,    &
      enddo
   enddo
 
+! NOTE: ipkx and ipky are 0 when no peak was found. The reject ratio
+! calculation is only valid when both are non-zero. The guard
+! (ipkx.ne.0 .and. ipky.ne.0) ensures that indices such as
+! 1+NFFT-ipkx never evaluate to NFFT+1. No out-of-bounds access occurs.
+
   if(ihsym.eq.278) then
      if(iqadjust.ne.0 .and. ipkx.ne.0 .and. ipky.ne.0) then
         rejectx=10.0*log10(savg(1,1+nfft-ipkx)/savg(1,1+ipkx))
@@ -222,3 +242,6 @@ subroutine symspec(k,nxpol,ndiskdat,nb,nbslider,idphi,nfsample,    &
 
 999 return
 end subroutine symspec
+
+
+end module symspec_mod

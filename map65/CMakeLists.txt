@@ -6,10 +6,12 @@ set (map65_CXXSRCS
   astro.cpp
   bandmap.cpp
   cqdatasender.cpp
+  commons.cpp
   devsetup.cpp
   displaytext.cpp
+  fortran_mutex.cpp
   getdev.cpp
-  getfile.cpp
+#  getfile.cpp
   liveCQSender.cpp
   main.cpp
   mainwindow.cpp
@@ -25,10 +27,6 @@ set (map65_CXXSRCS
   txtune.cpp
   widegraph.cpp
   )
-
-if (WIN32)
-  set (map65_CXXSRCS ${map65_CXXSRCS} killbyname.cpp)
-endif (WIN32)
 
 set (map65_UISRCS
   about.ui
@@ -54,15 +52,54 @@ add_subdirectory (libm65)
 # UI generation
 qt5_wrap_ui (map65_GENUISRCS ${map65_UISRCS})
 
-add_executable (map65 ${map65_CXXSRCS} ${map65_CSRCS} ${map65_GENUISRCS} map65.rc)
-target_include_directories (map65 PRIVATE ${CMAKE_SOURCE_DIR} ${FFTW3_INCLUDE_DIRS})
-target_link_libraries (map65 wsjt_qt m65impl ${FFTW3_LIBRARIES} Qt5::Widgets Qt5::Network Portaudio::Portaudio Usb::Usb)
-
-if (WSJT_CREATE_WINMAIN)
-  set_target_properties (map65 PROPERTIES WIN32_EXECUTABLE ON)
-endif (WSJT_CREATE_WINMAIN)
-
+# Executable: only the .rc file is Windows-only
 if (WIN32)
+  add_executable(map65
+      ${map65_CXXSRCS}
+      ${map65_CSRCS}
+      ${map65_GENUISRCS}
+      map65.rc
+  )
+else()
+  add_executable(map65
+      ${map65_CXXSRCS}
+      ${map65_CSRCS}
+      ${map65_GENUISRCS}
+  )
+endif()
+
+# Include directories (same on all platforms)
+target_include_directories(map65 PRIVATE
+    ${CMAKE_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/map65/libm65
+    ${FFTW3_INCLUDE_DIRS}
+)
+
+# Link libraries (same on all platforms except libusb)
+target_link_libraries(map65 PRIVATE
+    wsjt_qt
+    m65impl
+    ${FFTW3_LIBRARIES}
+    Qt5::Widgets
+    Qt5::Network
+    Portaudio::Portaudio
+    Usb::Usb
+)
+
+# Linux needs libusb
+# if (UNIX AND NOT APPLE)
+#    find_package(PkgConfig REQUIRED)
+#    pkg_check_modules(LIBUSB REQUIRED libusb-1.0)
+#    target_include_directories(map65 PRIVATE ${LIBUSB_INCLUDE_DIRS})
+#    target_link_libraries(map65 PRIVATE ${LIBUSB_LIBRARIES})
+# endif()
+
+# Windows-only WinMain flag
+  if (WSJT_CREATE_WINMAIN)
+    set_target_properties (map65 PROPERTIES WIN32_EXECUTABLE ON)
+  endif()
+
+# Create wsjtx_dir.txt on all platforms
   install (
     CODE "get_filename_component (_path \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/wsjtx_dir.txt\" REALPATH)
   if (WIN32)
@@ -72,10 +109,17 @@ if (WIN32)
   endif ()
   file (WRITE \"\${_path}\" \".\${_separator}\\n\")"
     )
-
-  install (
-    TARGETS map65
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
-    BUNDLE DESTINATION . COMPONENT runtime
+    
+  if(APPLE)
+    install(TARGETS map65
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     )
-endif ()
+  else()
+    install(TARGETS map65
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
+    )
+  endif()
+
+
+
+

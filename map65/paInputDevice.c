@@ -43,7 +43,10 @@ void paInputDevice(int id, char* hostAPI_DeviceName, int* minChan,
     p=strstr(pa_device_hostapi,"WDM-KS");
     if(p!=NULL) p1="WDM-KS";
 
-    sprintf(p2,"%-8s %-39s",p1,pa_device_name);
+    snprintf(p2, sizeof(p2),
+         "%-8s %-39.39s",
+         p1, pa_device_name);
+
     for(i=0; i<50; i++) {
       hostAPI_DeviceName[i]=p2[i];
       if(p2[i]==0) break;

@@ -11,13 +11,15 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,          &
   use q65_decode
   use wavhdr
   use timer_module, only: timer
+  use map65_mmdec_mod, only: map65_mmdec
+  use iso_fortran_env, only: int16
 
   parameter (MAXFFT1=5376000)              !56*96000
   parameter (MAXFFT2=336000)               !56*6000 (downsampled by 1/16)
   parameter (NMAX=60*12000)
   parameter (RAD=57.2957795)
   type(hdr) h
-  integer*2 iwave(60*12000)
+  integer(int16) iwave(300*12000)
   integer offset
   complex ca(MAXFFT1)                      !FFT of raw I/Q data from Linrad
   complex cx(0:MAXFFT2-1),cz(0:MAXFFT2)

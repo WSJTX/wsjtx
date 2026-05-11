@@ -8,7 +8,6 @@
 #include <QDateTime>
 #include <QHash>
 #include <QProcess>
-#include "getfile.h"
 #include "soundin.h"
 #include "soundout.h"
 #include "signalmeter.h"
@@ -18,6 +17,9 @@
 
 #define NFFT 32768
 #define NSMAX 5760000
+
+
+struct StdoutChannel;
 
 //--------------------------------------------------------------- MainWindow
 namespace Ui {
@@ -30,6 +32,7 @@ class BandMap;
 class Messages;
 class WideGraph;
 
+
 class MainWindow : public QMainWindow
 {
   Q_OBJECT
@@ -38,6 +41,10 @@ public:
   explicit MainWindow(QWidget *parent = 0);
   ~MainWindow();
   bool m_network;
+  float* getDd() const;
+  
+  std::thread stdoutReaderThread;
+  std::atomic<bool> stdoutReaderStop {false};
 
 public slots:
   void showSoundInError(const QString& errorMsg);
@@ -46,19 +53,15 @@ public slots:
   void diskDat();
   void diskWriteFinished();
   void freezeDecode(int n);
-  void readFromStdout();
-  void m65_error (QProcess::ProcessError);
   void editor_error();
   void guiUpdate();
   void doubleClickOnCall(QString hiscall, bool ctrl);
   void doubleClickOnMessages(QString hiscall, QString t2, bool ctrl);
-
-private:
-  virtual void keyPressEvent (QKeyEvent *) override;
-  virtual bool eventFilter (QObject *, QEvent *) override;
-  virtual void closeEvent (QCloseEvent *) override;
-
+  void startDecoder();
+  
 private slots:
+  void onDiskDecodeFinished();
+  void onRunM65Finished();
   void on_tx1_editingFinished();
   void on_tx2_editingFinished();
   void on_tx3_editingFinished();
@@ -147,6 +150,14 @@ private slots:
   void on_pbTxMode_clicked();
 
 private:
+
+struct DecoderContext;
+DecoderContext* decoderCtx;
+
+  virtual void keyPressEvent (QKeyEvent *) override;
+  virtual bool eventFilter (QObject *, QEvent *) override;
+  virtual void closeEvent (QCloseEvent *) override;
+
   Ui::MainWindow *ui;
   QString m_appDir;
   QString m_settings_filename;
@@ -154,7 +165,6 @@ private:
   QScopedPointer<BandMap> m_band_map_window;
   QPointer<Messages> m_messages_window;
   void createMessagesWindow();
-  //QScopedPointer<Messages> m_messages_window;
   QScopedPointer<WideGraph> m_wide_graph_window;
   QPointer<QTimer> m_gui_timer;
   qint64  m_msErase;
@@ -196,6 +206,12 @@ private:
   qint32  m_RxState;
   qint32  m_dB;
 
+  int ddSize = 0;
+  // --- Minute-boundary tracking for symspec ---
+  int ntr0 = -1;          // previous ntr value (seconds into TR period)
+  int m_TRperiod0 = 0;    // previous TR period (usually 60)
+  int nhsym0 = 0;         // ihsym at start of minute (reset when newmin=1)
+
   double  m_fAdd;
   //    double  m_IQamp;
   //    double  m_IQphase;
@@ -215,7 +231,6 @@ private:
   bool    m_xpol;
   bool    m_xpolx;
   bool    m_call3Modified;
-  bool    m_startAnother;
   bool    m_saveAll;
   bool    m_onlyEME;
   bool    m_widebandDecode;
@@ -253,6 +268,12 @@ private:
   QProcess proc_qthid;
   QProcess proc_editor;
 
+  double fcenter = 0.0;
+  char mycall[12] = {};
+  char mygrid[6] = {};
+  char hiscall[12] = {};
+  char hisgrid[6] = {};
+  char datetime[17] = {};
 
   QString m_path;
   QString m_pbdecoding_style1;
@@ -279,9 +300,12 @@ private:
   SignalMeter *xSignalMeter;
   SignalMeter *ySignalMeter;
 
-
   SoundInThread soundInThread;             //Instantiate the audio threads
   SoundOutThread soundOutThread;
+
+  QTimer* m_decodeIdleTimer = nullptr;
+  int     m_decodeIdleTimeoutMs = 2500;  // tweak 150–300 as needed
+  int m_decodeFinishedCount = 0;
 
   //---------------------------------------------------- private functions
   void readSettings();
@@ -297,11 +321,13 @@ private:
   bool isGrid4(QString g);
   bool subProcessFailed (QProcess *, int exit_code, QProcess::ExitStatus);
   void read_log();
+  void writeCrashData();
+  void savetf2(QString fname, bool xpol);
+  void getfile(QString fname, bool m_xpol, int dbDgrd);
+  void processStdOut(QString text);
+  void startSharedMemoryStdoutReader(DecoderContext* ctx);
 };
 
-extern void getfile(QString fname, bool xpol, int idInt);
-extern void savetf2(QString fname, bool xpol);
-extern int killbyname(const char* progName);
 extern void getDev(int* numDevices,char hostAPI_DeviceName[][50],
                    int minChan[], int maxChan[],
                    int minSpeed[], int maxSpeed[]);
@@ -309,7 +335,7 @@ extern void getDev(int* numDevices,char hostAPI_DeviceName[][50],
 extern "C" {
 //----------------------------------------------------- C and Fortran routines
   void symspec_(int* k, int* nxpol, int* ndiskdat, int* nb,
-                int* m_NBslider, int* idphi, int* nfsample, float* fgreen,
+                int* m_NBslider, int* idphi, int* nfsample,
                 int* iqadjust, int* iqapply, float* gainx, float* gainy,
                 float* phasex, float* phasey, float* rejectx, float* rejecty,
                 float* px, float* py, float s[], int* nkhz, int* nhsym,
