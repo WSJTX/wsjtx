@@ -74,19 +74,9 @@ namespace
     return true;
   }
 
-  bool valid_pcm_format (quint16 channels, quint32 sample_rate, quint16 bits_per_sample,
-                         quint16 block_align, quint32 byte_rate)
+  bool valid_pcm_format (quint16 channels, quint32 sample_rate, quint16 bits_per_sample)
   {
-    if (!channels || !sample_rate || !bits_per_sample || !block_align || !byte_rate ||
-        bits_per_sample % 8)
-      {
-        return false;
-      }
-
-    auto const bytes_per_sample = static_cast<quint64> (bits_per_sample / 8u);
-    auto const expected_block_align = static_cast<quint64> (channels) * bytes_per_sample;
-    auto const expected_byte_rate = static_cast<quint64> (sample_rate) * expected_block_align;
-    return expected_block_align == block_align && expected_byte_rate == byte_rate;
+    return channels && sample_rate && bits_per_sample && !(bits_per_sample % 8);
   }
 
   template <size_t N>
@@ -361,10 +351,8 @@ bool BWFFile::impl::read_header ()
                       if (audio_format != 0 && audio_format != 1) return false; // not PCM nor undefined
                       auto const channels = be ? qFromBigEndian<quint16> (fmt.num_channels) : qFromLittleEndian<quint16> (fmt.num_channels);
                       auto const sample_rate = be ? qFromBigEndian<quint32> (fmt.sample_rate) : qFromLittleEndian<quint32> (fmt.sample_rate);
-                      auto const byte_rate = be ? qFromBigEndian<quint32> (fmt.byte_rate) : qFromLittleEndian<quint32> (fmt.byte_rate);
-                      auto const block_align = be ? qFromBigEndian<quint16> (fmt.block_align) : qFromLittleEndian<quint16> (fmt.block_align);
                       auto const bits_per_sample = be ? qFromBigEndian<quint16> (fmt.bits_per_sample) : qFromLittleEndian<quint16> (fmt.bits_per_sample);
-                      if (!valid_pcm_format (channels, sample_rate, bits_per_sample, block_align, byte_rate)) return false;
+                      if (!valid_pcm_format (channels, sample_rate, bits_per_sample)) return false;
                       format_.setByteOrder (be ? QAudioFormat::BigEndian : QAudioFormat::LittleEndian);
                       format_.setChannelCount (channels);
                       format_.setCodec ("audio/pcm");
@@ -401,7 +389,6 @@ bool BWFFile::impl::read_header ()
                               if (!file_.seek (info_chunk_end)) return false;
                               info_offset = file_.pos ();
                             }
-                          if (info_offset != wave_payload_end) return false;
                         }
                     }
                   if (!file_.seek (wave_chunk_end)) return false;

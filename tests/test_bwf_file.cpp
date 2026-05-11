@@ -305,13 +305,16 @@ private:
     QFile::remove (name);
   }
 
-  Q_SLOT void rejects_inconsistent_fmt_rates ()
+  Q_SLOT void tolerates_inconsistent_fmt_rates ()
   {
     auto const name = write_temp_file (wave_file ({fmt_chunk (1, 12000, 16, 4, 48000), data_chunk ()}));
     QVERIFY (!name.isEmpty ());
 
     BWFFile file {default_format (), name};
-    QVERIFY (!file.open (QIODevice::ReadOnly));
+    QVERIFY (file.open (QIODevice::ReadOnly));
+    QCOMPARE (file.format ().sampleRate (), 12000);
+    QCOMPARE (file.format ().sampleSize (), 16);
+    file.close ();
     QFile::remove (name);
   }
 };
