@@ -1226,6 +1226,16 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
       ui->outAttenuation->setValue(0);
       ui->outAttenuation->setValue(attVal);
       Q_EMIT m_config.transceiver_volume(m_config.volume());
+      // set_mode() above emits transceiver_period() while the TCI rig is
+      // still offline, so TransceiverBase::set() skips do_period and the
+      // TCITransceiver m_period stays at its 15.0 default. For any mode
+      // with TR != 15 s (FT4, FT4-fast, MSK144, Q65-15, FST4-15, …) that
+      // mismatch makes do_modulator_start compute m_ic > i1 in ~64 % of
+      // UTC seconds, so readAudioData emits silence for the whole TX.
+      // Re-emit here, once TCI is connected. OOB guard matches the
+      // pattern in on_actionFT4_triggered() and friends.
+      if (ui->bandComboBox->currentText() != "OOB")
+        Q_EMIT m_config.transceiver_period(m_TRperiod);
     });
   }
 
