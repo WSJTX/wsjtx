@@ -52,7 +52,7 @@ if (POLICY CMP0075)
 endif ()
 
 project (wsjtx
-  VERSION 3.2.0.0
+  VERSION 3.1.0.0
   LANGUAGES C CXX Fortran
   )
 
@@ -1188,7 +1188,12 @@ if (Fortran_COMPILER_NAME MATCHES "gfortran.*")
   # we decide if they are meaningful, without these FP instructions
   # run in nonstop mode and do not trap
   #set (CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS_DEBUG} ${CMAKE_Fortran_FLAGS_DEBUG}  -ffpe-trap=invalid,zero,overflow")
-  
+
+  if(CMAKE_Fortran_COMPILER_VERSION VERSION_GREATER_EQUAL "10.0")
+      message(STATUS "GFortran 10+ detected. Adding -fallow-argument-mismatch.")
+      add_compile_options("-fallow-argument-mismatch")
+  endif()
+
 elseif (Fortran_COMPILER_NAME MATCHES "ifort.*")
   # ifort (untested)
   set (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} -f77rtl ${General_FFLAGS}")
@@ -1701,12 +1706,11 @@ else (${OPENMP_FOUND} OR APPLE)
   target_link_libraries (jt9 wsjt_fort wsjt_cxx fort_qt)
 endif (${OPENMP_FOUND} OR APPLE)
 
-if (WIN32)
+if (NOT WSJT_SKIP_MAP65)
   find_package (Portaudio REQUIRED)
-  if (NOT WSJT_SKIP_MAP65)
-    add_subdirectory (map65)
-  endif ()
+  add_subdirectory (map65)
 endif ()
+
   add_subdirectory (qmap)
 
 # build the main application
@@ -1901,6 +1905,11 @@ install (TARGETS jt9 wsprd fmtave fcal fmeasure
   )
 
 install (TARGETS qmap
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
+  BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
+  )
+
+install (TARGETS map65
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   )
