@@ -14,6 +14,7 @@
 #include "commons.h"
 #include "sleep.h"
 #include <QtConcurrent/QtConcurrent>
+#include <QByteArray>
 
 #define NFFT 32768
 #define NSMAX 5760000
@@ -31,7 +32,7 @@ class Astro;
 class BandMap;
 class Messages;
 class WideGraph;
-
+extern QByteArray g_TxTuneGeometry;
 
 class MainWindow : public QMainWindow
 {
@@ -40,11 +41,63 @@ class MainWindow : public QMainWindow
 public:
   explicit MainWindow(QWidget *parent = 0);
   ~MainWindow();
-  bool m_network;
-  float* getDd() const;
   
+
+private:
+  Ui::MainWindow *ui;
+
+  struct DecoderContext;
+  DecoderContext* decoderCtx;
+
+public:    
+  float* getDd() const;  
   std::thread stdoutReaderThread;
   std::atomic<bool> stdoutReaderStop {false};
+  
+  bool m_network;
+  int m_pttPortNumber = 0;
+  
+  QString m_pttPath;
+  QString m_appDir;
+  QString m_settings_filename;
+  qint32  m_nDevIn;
+  qint32  m_nDevOut;
+  qint32  m_idInt;
+  qint32  m_astroFont;
+  qint32  m_timeout;
+  qint32  m_dPhi;
+  qint32  m_fCal;
+  qint32  m_paInDevice;
+  qint32  m_paOutDevice;
+  qint32  m_udpPort;
+  qint32  m_NBslider;
+  qint32  m_mult570;
+  qint32  m_mult570Tx;
+  qint32  m_dB;
+  
+  double  m_fAdd;
+  //    double  m_IQamp;
+  //    double  m_IQphase;
+  double  m_cal570;
+  double  m_TxOffset;
+  
+  bool    m_xpol;
+  bool    m_xpolx;
+  bool    m_fs96000;
+  bool    m_IQswap;
+  bool    m_initIQplus;
+  bool    m_bIQxt;
+  bool 	  m_w3szUrl;
+  bool    m_spot_to_psk_reporter;
+  
+  QString m_myCall;
+  QString m_myGrid;
+  QString m_saveDir;
+  QString m_azelDir;
+  QString m_dxccPfx;
+  QString m_colors;
+  QString m_editorCommand;
+  QString m_otherUrl;
 
 public slots:
   void showSoundInError(const QString& errorMsg);
@@ -146,41 +199,24 @@ private slots:
   void on_actionQ65C_triggered();
   void on_actionQ65D_triggered();
   void on_actionQ65E_triggered();
-
   void on_pbTxMode_clicked();
 
 private:
-
-struct DecoderContext;
-DecoderContext* decoderCtx;
-
   virtual void keyPressEvent (QKeyEvent *) override;
   virtual bool eventFilter (QObject *, QEvent *) override;
   virtual void closeEvent (QCloseEvent *) override;
 
-  Ui::MainWindow *ui;
-  QString m_appDir;
-  QString m_settings_filename;
   QScopedPointer<Astro> m_astro_window;
   QScopedPointer<BandMap> m_band_map_window;
   QPointer<Messages> m_messages_window;
-  void createMessagesWindow();
   QScopedPointer<WideGraph> m_wide_graph_window;
   QPointer<QTimer> m_gui_timer;
   qint64  m_msErase;
-  qint32  m_nDevIn;
-  qint32  m_nDevOut;
-  qint32  m_idInt;
   qint32  m_waterfallAvg;
   qint32  m_DF;
   qint32  m_tol;
   qint32  m_QSOfreq0;
   qint32  m_ntx;
-  qint32  m_pttPort;
-  qint32  m_astroFont;
-  qint32  m_timeout;
-  qint32  m_dPhi;
-  qint32  m_fCal;
   qint32  m_txFreq;
   qint32  m_setftx;
   qint32  m_ndepth;
@@ -190,33 +226,15 @@ DecoderContext* decoderCtx;
   qint32  m_mode65;
   qint32  m_nrx;
   qint32  m_hsym0;
-  qint32  m_paInDevice;
-  qint32  m_paOutDevice;
-  qint32  m_udpPort;
-  qint32  m_NBslider;
   qint32  m_adjustIQ;
   qint32  m_applyIQcal;
-  qint32  m_mult570;
-  qint32  m_mult570Tx;
   qint32  m_nsum;
   qint32  m_nsave;
   qint32  m_TRperiod;
   qint32  m_modeJT65;
   qint32  m_modeQ65;
   qint32  m_RxState;
-  qint32  m_dB;
 
-  int ddSize = 0;
-  // --- Minute-boundary tracking for symspec ---
-  int ntr0 = -1;          // previous ntr value (seconds into TR period)
-  int m_TRperiod0 = 0;    // previous TR period (usually 60)
-  int nhsym0 = 0;         // ihsym at start of minute (reset when newmin=1)
-
-  double  m_fAdd;
-  //    double  m_IQamp;
-  //    double  m_IQphase;
-  double  m_cal570;
-  double  m_TxOffset;
   double  m_xavg;
 
   bool    m_monitoring;
@@ -228,26 +246,39 @@ DecoderContext* decoderCtx;
   bool    m_auto;
   bool    m_txMute;
   bool    m_restart;
-  bool    m_xpol;
-  bool    m_xpolx;
   bool    m_call3Modified;
   bool    m_saveAll;
   bool    m_onlyEME;
   bool    m_widebandDecode;
   bool    m_kb8rq;
   bool    m_NB;
-  bool    m_fs96000;
-  bool    m_IQswap;
-  bool    m_initIQplus;
-  bool    m_bIQxt;
+  bool    m_pttErrorShown = false;
 
+  QString m_path;
+  QString m_pbdecoding_style1;
+  QString m_pbmonitor_style;
+  QString m_pbAutoOn_style;
+  QString m_messagesText;
+  QString m_bandmapText;
+  QString m_hisCall;
+  QString m_hisGrid;
+  QString m_palette;
+  QString m_dateTime;
+  QString m_mode;
+  QString m_modeTx;
+  
   float   m_gainx;
   float   m_gainy;
   float   m_phasex;
   float   m_phasey;
   float   m_pctZap;
-
   QRect   m_wideGraphGeom;
+
+  int ddSize = 0;
+  // --- Minute-boundary tracking for symspec ---
+  int ntr0 = -1;          // previous ntr value (seconds into TR period)
+  int m_TRperiod0 = 0;    // previous TR period (usually 60)
+  int nhsym0 = 0;         // ihsym at start of minute (reset when newmin=1)
 
   QLabel* lab1;                            // labels in status bar
   QLabel* lab2;
@@ -274,26 +305,6 @@ DecoderContext* decoderCtx;
   char hiscall[12] = {};
   char hisgrid[6] = {};
   char datetime[17] = {};
-
-  QString m_path;
-  QString m_pbdecoding_style1;
-  QString m_pbmonitor_style;
-  QString m_pbAutoOn_style;
-  QString m_messagesText;
-  QString m_bandmapText;
-  QString m_myCall;
-  QString m_myGrid;
-  QString m_hisCall;
-  QString m_hisGrid;
-  QString m_saveDir;
-  QString m_azelDir;
-  QString m_dxccPfx;
-  QString m_palette;
-  QString m_dateTime;
-  QString m_mode;
-  QString m_colors;
-  QString m_editorCommand;
-  QString m_modeTx;
 
   QHash<QString,bool> m_worked;
 
@@ -326,6 +337,7 @@ DecoderContext* decoderCtx;
   void getfile(QString fname, bool m_xpol, int dbDgrd);
   void processStdOut(QString text);
   void startSharedMemoryStdoutReader(DecoderContext* ctx);
+  void createMessagesWindow();
 };
 
 extern void getDev(int* numDevices,char hostAPI_DeviceName[][50],

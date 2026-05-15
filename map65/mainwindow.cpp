@@ -30,6 +30,7 @@
 #include <QFile>
 #include <QTextStream>
 #include <QString>
+#include <QByteArray>
 
 //#include <io.h>
 #include <stdio.h>
@@ -44,11 +45,29 @@
 #include "stdout_channel.h"
 #include "fortran_mutex.hpp"
 
+#if !defined(Q_OS_WIN)
+extern "C" {
+    void ptt_set_override(const char *path);
+}
+#endif
+
+extern "C" {
+    int ptt_(int* nport, int* itx, int* iptt);
+}
+
+#ifdef __unix__
+extern "C" void ptt_close(void);
+#endif
+
+
 #ifdef MessageBox
 #undef MessageBox
 #endif
 
 #define NFFT 32768
+
+
+QByteArray g_TxTuneGeometry;
 
 short int iwave[2*60*12000];          //Wave file for Tx audio
 int nwave;                            //Length of Tx waveform
@@ -263,11 +282,11 @@ MainWindow::MainWindow(QWidget *parent) :
 
   fftwf_import_wisdom_from_filename (QDir {m_appDir}.absoluteFilePath ("map65_wisdom.dat").toLocal8Bit ());
 
+  readSettings();		             //Restore user's setup params
   PaError paerr=Pa_Initialize();                    //Initialize Portaudio
   if(paerr!=paNoError) {
     msgBox("Unable to initialize PortAudio.");
   }
-  readSettings();		             //Restore user's setup params
   QFile quitFile(m_appDir + "/.quit");
   quitFile.remove();
     
@@ -626,11 +645,13 @@ void MainWindow::writeSettings()
     settings.setValue("DXgrid",ui->dxGridEntry->text());
   }
 
+  {
   SettingsGroup g {&settings, "Common"};
   settings.setValue("MyCall",m_myCall);
   settings.setValue("MyGrid",m_myGrid);
   settings.setValue("IDint",m_idInt);
-  settings.setValue("PTTport",m_pttPort);
+  settings.setValue("PTTpath",m_pttPath);
+  settings.setValue("PTTPortNumber",m_pttPortNumber);
   settings.setValue("AstroFont",m_astroFont);
   settings.setValue("Xpol",m_xpol);
   settings.setValue("XpolX",m_xpolx);
@@ -639,9 +660,6 @@ void MainWindow::writeSettings()
   settings.setValue("Editor",m_editorCommand);
   settings.setValue("DXCCpfx",m_dxccPfx);
   settings.setValue("Timeout",m_timeout);
-  settings.setValue("TxPower",txPower);
-  settings.setValue("IQamp",iqAmp);
-  settings.setValue("IQphase",iqPhase);
   settings.setValue("ApplyIQcal",m_applyIQcal);
   settings.setValue("dPhi",m_dPhi);
   settings.setValue("Fcal",m_fCal);
@@ -685,6 +703,17 @@ void MainWindow::writeSettings()
   settings.setValue("w3szUrl",m_w3szUrl); //liveCQ
   settings.setValue("otherUrl",m_otherUrl); //liveCQ
   settings.setValue("spotPSK",m_spot_to_psk_reporter);
+	settings.endGroup();
+  }
+  
+  {
+	settings.beginGroup("TxTune");
+	settings.setValue("geometry", g_TxTuneGeometry);
+	settings.setValue("TxPower",txPower);
+	settings.setValue("IQamp",iqAmp);
+	settings.setValue("IQphase",iqPhase);
+	settings.endGroup();  
+  }
 }
 
 //---------------------------------------------------------- readSettings()
@@ -701,11 +730,16 @@ void MainWindow::readSettings()
     ui->txFirstCheckBox->setChecked(m_txFirst);
   }
 
+  {
   SettingsGroup g {&settings, "Common"};
   m_myCall=settings.value("MyCall","").toString();
   m_myGrid=settings.value("MyGrid","").toString();
   m_idInt=settings.value("IDint",0).toInt();
-  m_pttPort=settings.value("PTTport",0).toInt();
+  m_pttPath=settings.value("PTTpath",0).toString();
+  m_pttPortNumber = settings.value("PTTPortNumber",0).toInt();
+  #if !defined(Q_OS_WIN)
+    ptt_set_override(m_pttPath.toUtf8().constData());
+  #endif
   m_astroFont=settings.value("AstroFont",20).toInt();
   m_xpol=settings.value("Xpol",false).toBool();
   ui->actionFind_Delta_Phi->setEnabled(m_xpol);
@@ -715,9 +749,6 @@ void MainWindow::readSettings()
   m_editorCommand=settings.value("Editor","notepad").toString();
   m_dxccPfx=settings.value("DXCCpfx","").toString();
   m_timeout=settings.value("Timeout",20).toInt();
-  txPower=settings.value("TxPower",100).toInt();
-  iqAmp=settings.value("IQamp",0).toInt();
-  iqPhase=settings.value("IQphase",0).toInt();
   m_applyIQcal=settings.value("ApplyIQcal",0).toInt();
   ui->actionApply_IQ_Calibration->setChecked(m_applyIQcal!=0);
   m_dPhi=settings.value("dPhi",0).toInt();
@@ -800,6 +831,17 @@ void MainWindow::readSettings()
   qDebug() << "In mainwindow m_mode is: " << m_mode;
   qDebug() << "In mainwindow n_modeJT65 is: " << m_modeJT65;
   qDebug() << "In mainwindow n_modeQ65 is: " << m_modeQ65;
+	settings.endGroup();
+  }
+  
+  {
+	settings.beginGroup("TxTune");
+	g_TxTuneGeometry = settings.value("geometry").toByteArray();
+	txPower=settings.value("TxPower",100).toInt();
+	iqAmp=settings.value("IQamp",0).toInt();
+	iqPhase=settings.value("IQphase",0).toInt();
+	settings.endGroup();
+  }
 }
 
 //-------------------------------------------------------------- dataSink()
@@ -1128,137 +1170,71 @@ void MainWindow::showSoundInError(const QString& errorMsg)
 void MainWindow::showStatusMessage(const QString& statusMsg)
  {statusBar()->showMessage(statusMsg);}
 
-void MainWindow::on_actionDeviceSetup_triggered()               //Setup Dialog
+void MainWindow::on_actionDeviceSetup_triggered()
 {
   DevSetup dlg(this);
-  dlg.m_myCall=m_myCall;
-  dlg.m_myGrid=m_myGrid;
-  dlg.m_idInt=m_idInt;
-  dlg.m_pttPort=m_pttPort;
-  dlg.m_astroFont=m_astroFont;
-  dlg.m_xpol=m_xpol;
-  dlg.m_xpolx=m_xpolx;
-  dlg.m_saveDir=m_saveDir;
-  dlg.m_azelDir=m_azelDir;
-  dlg.m_editorCommand=m_editorCommand;
-  dlg.m_dxccPfx=m_dxccPfx;
-  dlg.m_timeout=m_timeout;
-  dlg.m_dPhi=m_dPhi;
-  dlg.m_fCal=m_fCal;
-  dlg.m_fAdd=m_fAdd;
-  dlg.m_network=m_network;
-  dlg.m_fs96000=m_fs96000;
-  dlg.m_nDevIn=m_nDevIn;
-  dlg.m_nDevOut=m_nDevOut;
-  dlg.m_udpPort=m_udpPort;
-  dlg.m_IQswap=m_IQswap;
-  dlg.m_dB=m_dB;
-  dlg.m_initIQplus=m_initIQplus;
-  dlg.m_bIQxt=m_bIQxt;
-  dlg.m_cal570=m_cal570;
-  dlg.m_TxOffset=m_TxOffset;
-  dlg.m_mult570=m_mult570;
-  dlg.m_mult570Tx=m_mult570Tx;
-  dlg.m_colors=m_colors;
-  dlg.m_w3szUrl = m_w3szUrl; //liveCQ
-  dlg.m_otherUrl=m_otherUrl; //liveCQ
-  dlg.m_spot_to_psk_reporter = m_spot_to_psk_reporter;
-
   dlg.initDlg();
-    if(dlg.exec() == QDialog::Accepted) {
-    m_myCall=dlg.m_myCall;
-    m_myGrid=dlg.m_myGrid;
-    m_idInt=dlg.m_idInt;
-    m_pttPort=dlg.m_pttPort;
-    m_astroFont=dlg.m_astroFont;
-    if(m_astro_window && m_astro_window->isVisible()) m_astro_window->setFontSize(m_astroFont);
-    m_xpol=dlg.m_xpol;
-    ui->actionFind_Delta_Phi->setEnabled(m_xpol);
-    m_xpolx=dlg.m_xpolx;
-    m_saveDir=dlg.m_saveDir;
-    m_azelDir=dlg.m_azelDir;
-    m_editorCommand=dlg.m_editorCommand;
-    m_dxccPfx=dlg.m_dxccPfx;
-    m_timeout=dlg.m_timeout;
-    m_dPhi=dlg.m_dPhi;
-    m_fCal=dlg.m_fCal;
-    m_fAdd=dlg.m_fAdd;
-    m_wide_graph_window->setFcal(m_fCal);
-    m_fs96000=dlg.m_fs96000;
-    m_network=dlg.m_network;
-    m_nDevIn=dlg.m_nDevIn;
-    m_paInDevice=dlg.m_paInDevice;
-    m_nDevOut=dlg.m_nDevOut;
-    m_paOutDevice=dlg.m_paOutDevice;
-    m_udpPort=dlg.m_udpPort;
-    m_IQswap=dlg.m_IQswap;
-    m_dB=dlg.m_dB;
-    m_initIQplus=dlg.m_initIQplus;
-    m_bIQxt=dlg.m_bIQxt;
-    m_colors=dlg.m_colors;
-    m_messages_window->setColors(m_colors);
-    m_band_map_window->setColors(m_colors);
-    m_cal570=dlg.m_cal570;
-    m_TxOffset=dlg.m_TxOffset;
-    m_mult570Tx=dlg.m_mult570Tx;
-    m_mult570=dlg.m_mult570;
-    m_wide_graph_window->m_mult570=m_mult570;
-    m_wide_graph_window->m_mult570Tx=m_mult570Tx;
-    m_wide_graph_window->m_cal570=m_cal570;
-    soundInThread.setSwapIQ(m_IQswap);
-    soundInThread.setScale(m_dB);
-    m_w3szUrl=dlg.m_w3szUrl;
-    m_otherUrl=dlg.m_otherUrl;
-    m_spot_to_psk_reporter=dlg.m_spot_to_psk_reporter;
-    QSettings settings(m_settings_filename, QSettings::IniFormat);
-    {
-        SettingsGroup g {&settings, "MainWindow"};
-    }
-    SettingsGroup g {&settings, "Common"};
-    settings.setValue("w3szUrl",m_w3szUrl); //liveCQ
-    settings.setValue("otherUrl",m_otherUrl); //liveCQ
-    settings.setValue("spotPSK",m_spot_to_psk_reporter);
-    settings.setValue("MyCall",m_myCall);
-    settings.setValue("MyGrid",m_myGrid);
-    settings.setValue("IDint",m_idInt);
-    settings.setValue("PTTport",m_pttPort);
-    settings.setValue("AstroFont",m_astroFont);
-    settings.setValue("Xpol",m_xpol);
-    settings.setValue("XpolX",m_xpolx);
-    settings.setValue("SaveDir",m_saveDir);
-    settings.setValue("AzElDir",m_azelDir);
-    settings.setValue("Editor",m_editorCommand);
-    settings.setValue("DXCCpfx",m_dxccPfx);
-    settings.setValue("Timeout",m_timeout);
-    settings.setValue("TxPower",txPower);
-    settings.setValue("IQamp",iqAmp);
-    settings.setValue("IQphase",iqPhase);
-    settings.setValue("ApplyIQcal",m_applyIQcal);
-    settings.setValue("dPhi",m_dPhi);
-    settings.setValue("Fcal",m_fCal);
-    settings.setValue("Fadd",m_fAdd);
 
-      if(dlg.m_restartSoundIn) {
+    if (dlg.exec() == QDialog::Accepted)
+    {
+        //
+        // Apply runtime effects for SoundIn
+        //
+        if (dlg.m_restartSoundIn)
+        {
       soundInThread.quit();
       soundInThread.wait(1000);
+
+            soundInThread.setInputDevice(m_paInDevice);
       soundInThread.setNetwork(m_network);
-      if(m_fs96000) soundInThread.setRate(96000.0);
-      if(!m_fs96000) soundInThread.setRate(95238.1);
       soundInThread.setFadd(m_fAdd);
-      if(!m_xpol) soundInThread.setNrx(1);
-      if(m_xpol) soundInThread.setNrx(2);
-      soundInThread.setInputDevice(m_paInDevice);
+            soundInThread.setRate(m_fs96000 ? 96000.0 : 95238.1);
+            soundInThread.setSwapIQ(m_IQswap);
+            soundInThread.setScale(m_dB);
+            soundInThread.setPort(m_udpPort);
+            soundInThread.setNrx(m_xpol ? 2 : 1);
+
       soundInThread.start(QThread::HighestPriority);
     }
 
-      if(dlg.m_restartSoundOut) {
+        //
+        // Apply runtime effects for SoundOut
+        //
+        if (dlg.m_restartSoundOut)
+        {
       soundOutThread.quitExecution=true;
       soundOutThread.wait(1000);
+
       soundOutThread.setOutputDevice(m_paOutDevice);
-//      soundOutThread.start(QThread::HighPriority);
+            soundOutThread.start();
     }
+
+        //
+        // GUI updates
+        //
+        if (m_astro_window && m_astro_window->isVisible())
+            m_astro_window->setFontSize(m_astroFont);
+
+        ui->actionFind_Delta_Phi->setEnabled(m_xpol);
+
+        m_messages_window->setColors(m_colors);
+        m_band_map_window->setColors(m_colors);
+
+        //
+        // WideGraph updates
+        //
+        m_wide_graph_window->m_mult570   = m_mult570;
+        m_wide_graph_window->m_mult570Tx = m_mult570Tx;
+        m_wide_graph_window->m_cal570    = m_cal570;
+        m_wide_graph_window->setFcal(m_fCal);
+
+        //
+        // Save to disk
+        //
+        writeSettings();
   }
 }
+
 
 void MainWindow::on_monitorButton_clicked()                  //Monitor
 {
@@ -1450,27 +1426,38 @@ void MainWindow::on_actionExit_triggered()                     //Exit()
   close ();
 }
 
-void MainWindow::closeEvent (QCloseEvent * e)
+void MainWindow::closeEvent(QCloseEvent *e)
 {
-  set_stop_m65(1);
-  if (m_gui_timer) m_gui_timer->stop ();
-  m_wide_graph_window->saveSettings();
-  QFile quitFile(m_appDir + "/.quit");
-  qDebug() << "MainWindow::closeEvent File open result:" << quitFile.open(QFileDevice::ReadWrite);
-  qint64 quitid = quitFile.handle();
-  setQuitID(quitid);
-  qDebug() << "MAINWINDOW FILE QUITID is: " << quitid;
+    set_stop_m65(1);
+    if (m_gui_timer) m_gui_timer->stop();
+    m_wide_graph_window->saveSettings();
 
-  if (m_astro_window) m_astro_window->close ();
-  if (m_band_map_window) m_band_map_window->close ();
-  if (m_messages_window) {
-    m_messages_window->setClosingForShutdown(true);
-    m_messages_window->close(); // Now closeEvent runs fully
-  }
-  if (m_wide_graph_window) m_wide_graph_window->close ();
-  quitFile.remove();
-  QMainWindow::closeEvent (e);
+    QFile quitFile(m_appDir + "/.quit");
+    quitFile.open(QFileDevice::ReadWrite);
+    setQuitID(quitFile.handle());
+
+    if (m_astro_window) m_astro_window->close();
+    if (m_band_map_window) m_band_map_window->close();
+    if (m_messages_window) {
+        m_messages_window->setClosingForShutdown(true);
+        m_messages_window->close();
+    }
+    if (m_wide_graph_window) m_wide_graph_window->close();
+
+#ifdef __unix__
+    ptt_close();   // close persistent Linux serial port
+#endif
+
+    if (g_pTxTune) {
+        g_pTxTune->close();
+        delete g_pTxTune;
+        g_pTxTune = nullptr;
+    }
+
+    quitFile.remove();
+    QMainWindow::closeEvent(e);
 }
+
 
 void MainWindow::on_stopButton_clicked()                       //stopButton
 {
@@ -2003,26 +1990,35 @@ void MainWindow::guiUpdate()
   bTune0=bTune;
 
   if(m_auto or bTune) {
-    if((bTxTime or bTune) and iptt==0 and !m_txMute) {
-      int itx=1;
-      int ierr = ptt_(&m_pttPort,&itx,&iptt);       // Raise PTT
-      if(ierr != 0) {
-        on_stopTxButton_clicked();
-        char s[18];
-        snprintf(s, sizeof(s), "Cannot open COM%d", m_pttPort);
-        msgBox(s);
+    if ((bTxTime or bTune) && iptt == 0 && !m_txMute) {
+
+  if (m_pttPath != "NONE") {
+      int itx = 1;
+      int nport = m_pttPortNumber;   // the real COM port number
+      int ierr = ptt_(&nport, &itx, &iptt);
+
+      if (ierr != 0) {
+          if (!m_pttErrorShown) {
+              char s[256];
+              snprintf(s, sizeof(s), "Cannot open Port: %s",
+                      m_pttPath.toUtf8().constData());
+              msgBox(s);
+              m_pttErrorShown = true;
+          }
+          on_stopTxButton_clicked();
       }
+  }
 
-      if(m_bIQxt) m_wide_graph_window->tx570();     // Set Si570 to Tx Freq
+        if (m_bIQxt)
+            m_wide_graph_window->tx570();
 
-      if(!soundOutThread.isRunning()) {
+        if (!soundOutThread.isRunning())
         soundOutThread.start(QThread::HighPriority);
       }
-    }
-    if((!bTxTime and !bTune) or m_txMute) {
+
+    if ((!bTxTime && !bTune) || m_txMute)
       btxok=false;
     }
-  }
 
 // Calculate Tx waveform when needed
   if((iptt==1 && iptt0==0) || m_restart) {
@@ -2105,8 +2101,11 @@ void MainWindow::guiUpdate()
   if(nc0 <= 0) nc0++;
   if(nc0 == 0) {
     if(m_bIQxt) m_wide_graph_window->rx570();     // Set Si570 back to Rx Freq
-    int itx=0;
-    ptt_(&m_pttPort,&itx,&iptt);       // Lower PTT
+  int itx = 0;
+  int nport = m_pttPortNumber;   // the real COM port number
+  ptt_(&nport, &itx, &iptt);     // Lower PTT
+  m_pttErrorShown = false;
+
     if(!m_txMute) {
       soundOutThread.quitExecution=true;\
     }
@@ -2813,8 +2812,11 @@ void MainWindow::on_actionEdit_wsjt_log_triggered()
 
 void MainWindow::on_actionTx_Tune_triggered()
 {
-  if(g_pTxTune==NULL) {
+  if (!g_pTxTune) {
     g_pTxTune = new TxTune(0);
+
+    if (!g_TxTuneGeometry.isEmpty())
+      g_pTxTune->restoreGeometry(g_TxTuneGeometry);
   }
   g_pTxTune->set_iqAmp(iqAmp);
   g_pTxTune->set_iqPhase(iqPhase);
@@ -2865,3 +2867,10 @@ void MainWindow::read_log()
     f.close();
   }
 }
+
+void pa_deinit()
+{
+    Pa_Terminate();
+}
+
+

@@ -1,11 +1,13 @@
 #include "txtune.h"
 #include "ui_txtune.h"
 #include <QDebug>
+#include <QByteArray>
 
 extern int txPower;
 extern int iqAmp;
 extern int iqPhase;
 extern bool bTune;
+extern QByteArray g_TxTuneGeometry;
 
 TxTune::TxTune(QWidget *parent) :
     QDialog(parent),
@@ -114,3 +116,10 @@ void TxTune::on_pbTune_clicked()
     ui->pbTune->setStyleSheet("");
   }
 }
+
+void TxTune::closeEvent(QCloseEvent *e)
+{
+    g_TxTuneGeometry = saveGeometry();
+    QWidget::closeEvent(e);
+}
+

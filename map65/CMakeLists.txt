@@ -82,6 +82,7 @@ target_link_libraries(map65 PRIVATE
     ${FFTW3_LIBRARIES}
     Qt5::Widgets
     Qt5::Network
+    Qt5::SerialPort
     Portaudio::Portaudio
     Usb::Usb
 )
