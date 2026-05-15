@@ -1,6 +1,6 @@
 # JTTY
 
-JTTY is a possible new WSJT-X mode designed for  fast RTTY-like contest exchanges and other keyboard-to-keyboard  communication on the amateur radio bands. Its general goal is an operational feel similar to standard RTTY, but with much better weak-signal performance and much smaller error rate. 
+JTTY is a possible new WSJT-X mode designed for  fast "RTTY-like" contest exchanges and other keyboard-to-keyboard  communication on the amateur radio bands. Its general goal is an operational feel similar to standard RTTY, but with much better weak-signal performance and much smaller error rate. 
 
 JTTY transmissions can start at any time and typically last a few seconds. Any arbitrary message can be sent using upper-case letters, digits, spaces, and punctuation. Source encoding is especially well optimized for the short, fixed-format messages frequently used in RTTY-style radio contesting.
 
@@ -30,13 +30,13 @@ An example showing the messages exchanged for two successive contest-style QSOs 
 |                         | `599 292`    | 1      |
 | `TU KA1ABC CQ`          |              | 1      |
 
-These examples of typical contest QSOs use a total of 9 transmission intervals and 12 JTTY frames. The average transmission length is thus about 1.7*12/9 = 2.3 s; with a generous 1 s for T/R switching, hardware and software latencies, and operator reaction times, we get something like 3.3 s per T/R interval and 15 s per QSO. If sustained, such rates could yield well over 200 QSOs/hour.
+These examples of typical contest QSOs use a total of 9 transmission intervals and 11 JTTY frames. The average transmission length is thus about 1.7*11/9 = 2.1 s; with a generous 1 s for T/R switching, hardware and software latencies, and operator reaction times, we get something like 3.1 s per T/R interval and 14 s per QSO. If sustained, such rates could yield well over 200 QSOs/hour.
 
 Source-encoding of JTTY messages involves packing and unpacking algorithms similar to those used in other WSJT-X modes. The table on the next page illustrate the packing of contest-style messages into the smallest possible number of frames. Software parameters i2 and n2 (the message type and sub-type) are shown for their first one or two frames. NC is the number of characters in the message, and NF the number of frames.
 
 <div style="page-break-after: always;"></div>
 
-| i2.n2 | i2.n2 | NC  | NF  | Message           |
+| Frame 1, i2.n2 | Frame 2, i2.n2 | NC  | NF  | Message           |
 | ---   | ---   | ---:| ---:| ---               |
 | 0.0   |       | 12  |  1  | `CQ KA1ABC CQ`    |
 | 0.1   |       |  6  |  1  | `WB9XYZ`          |
