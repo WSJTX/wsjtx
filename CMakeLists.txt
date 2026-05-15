@@ -1189,11 +1189,6 @@ if (Fortran_COMPILER_NAME MATCHES "gfortran.*")
   # run in nonstop mode and do not trap
   #set (CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS_DEBUG} ${CMAKE_Fortran_FLAGS_DEBUG}  -ffpe-trap=invalid,zero,overflow")
 
-  if(CMAKE_Fortran_COMPILER_VERSION VERSION_GREATER_EQUAL "10.0")
-      message(STATUS "GFortran 10+ detected. Adding -fallow-argument-mismatch.")
-      add_compile_options("-fallow-argument-mismatch")
-  endif()
-
 elseif (Fortran_COMPILER_NAME MATCHES "ifort.*")
   # ifort (untested)
   set (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} -f77rtl ${General_FFLAGS}")
