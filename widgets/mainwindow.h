@@ -145,6 +145,8 @@ public:
 
   int decoderBusy () const {return m_decoderBusy;}
 
+  void set_mode_from_command_line(const QString& mode);
+
 public slots:
   void showSoundInError(const QString& errorMsg);
   void showSoundOutError(const QString& errorMsg);

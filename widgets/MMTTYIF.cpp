@@ -102,6 +102,8 @@ void MMTTYIF::onReadyRead() {
             }
         } else if (cmd == "ABORT") {
             emit app_abort_tx();
+        } else if (cmd == "CLOSE") {
+            emit app_is_quitting();
         }
     }
 }

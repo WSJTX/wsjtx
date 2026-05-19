@@ -14352,3 +14352,17 @@ void MainWindow::displayDecodedTextLine(const DecodedText& decodedtext, const QB
     }
   }
 }
+
+void MainWindow::set_mode_from_command_line(const QString& mode)
+{
+    QString m = mode.toLower();
+    if (m == "ft8") {
+        on_actionFT8_triggered();
+    } else if (m == "ft4") {
+        on_actionFT4_triggered();
+    } else if (m == "jtty") {
+        on_actionJTTY_triggered();
+    } else {
+        LOG_INFO("Invalid or unsupported mode specified via command line: " << mode);
+    }
+}

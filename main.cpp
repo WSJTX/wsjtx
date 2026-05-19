@@ -153,10 +153,15 @@ int main(int argc, char *argv[])
                                      , "rig-name");
       parser.addOption (rig_option);
 
-      QCommandLineOption n1mm_digi_port_option (QStringList {} << "p" << "n1mm-digi-port"
+      QCommandLineOption n1mm_tcp_port_option (QStringList {} << "p" << "n1mm-tcp-port" << "n1mm_tcp_port"
                                         , "N1MM Logger+ TCP port number."
                                         , "TCP port");
-      parser.addOption (n1mm_digi_port_option);
+      parser.addOption (n1mm_tcp_port_option);
+
+      QCommandLineOption mode_option (QStringList {} << "mode"
+                                     , "Startup mode (ft8, ft4, jtty)."
+                                     , "mode");
+      parser.addOption (mode_option);
 
       // support for start up configuration
       QCommandLineOption cfg_option (QStringList {} << "c" << "config"
@@ -449,15 +454,8 @@ int main(int argc, char *argv[])
           MainWindow w(temp_dir, multiple, &multi_settings, &mem_jt9, downSampleFactor, &splash, env);
 #ifdef Q_OS_WIN
           quint16 mmtty_port = 0;
-          if (parser.isSet(n1mm_digi_port_option)) {
-              mmtty_port = parser.value(n1mm_digi_port_option).toUShort();
-          } else {
-              QString rig_name = parser.value(rig_option);
-              if (rig_name == "ForEW1") {
-                  mmtty_port = 61002;
-              } else if (rig_name == "ForEW2") {
-                  mmtty_port = 61004;
-              }
+          if (parser.isSet(n1mm_tcp_port_option)) {
+              mmtty_port = parser.value(n1mm_tcp_port_option).toUShort();
           }
           
           if (mmtty_port > 0) {
@@ -467,6 +465,10 @@ int main(int argc, char *argv[])
               LOG_INFO("MMTTY interface not enabled (no port or matching rig name provided).");
           }
 #endif
+          if (parser.isSet(mode_option)) {
+              w.set_mode_from_command_line(parser.value(mode_option));
+          }
+
           w.show();
           splash.raise ();
           QObject::connect (&a, SIGNAL (lastWindowClosed()), &a, SLOT (quit()));

@@ -36,6 +36,16 @@ void jtty_get_msgs_(float* f0, float* ftol, bool* all_new, bool* qso_new,
                     float xjunk[], float wave[], int* icmplx, int* nwave);
 }
 
+static QString append_separator(QString message) {
+    if (!message.isEmpty()) {
+        QChar lastChar = message.at(message.length() - 1);
+        if (lastChar != '\r' && lastChar != '\n' && lastChar != ' ') {
+            message += "\r\n";
+        }
+    }
+    return message;
+}
+
 void MainWindow::jtty_save_wav()
 {
   //Save JTTY data to a .wav file
@@ -77,7 +87,7 @@ void MainWindow::jtty_decode(int k)
       }
 #ifdef WIN32
       if (m_mmttyif) {
-          m_mmttyif->echo_message_to_n1mm(allMsgs);
+          m_mmttyif->echo_message_to_n1mm(append_separator(allMsgs));
       }
 #endif
   }
@@ -89,7 +99,7 @@ void MainWindow::jtty_decode(int k)
         ui->decodedTextBrowser2->insertText(message2.trimmed());
 #ifdef WIN32
         if (m_mmttyif) {
-            m_mmttyif->echo_message_to_n1mm(message2);
+            m_mmttyif->echo_message_to_n1mm(append_separator(message2));
         }
 #endif
       }
@@ -160,7 +170,7 @@ void MainWindow::execute_jtty_tx(QString message)
 
 #ifdef WIN32
   if (m_mmttyif) {
-    m_mmttyif->echo_message_to_n1mm(message);
+    m_mmttyif->echo_message_to_n1mm(append_separator(message));
   }
 #endif
 
@@ -284,7 +294,10 @@ void MainWindow::initMMTTY(quint16 port) {
     connect(m_mmttyif, &MMTTYIF::app_stop_tx, this, &MainWindow::stopTx);
     connect(m_mmttyif, &MMTTYIF::app_abort_tx, this, &MainWindow::abort_jtty_tx);
     connect(m_mmttyif, &MMTTYIF::inactivity_timeout, qApp, &QCoreApplication::quit);
-    connect(m_mmttyif, &MMTTYIF::app_is_quitting, qApp, &QCoreApplication::quit);
+    connect(m_mmttyif, &MMTTYIF::app_is_quitting, this, [this]() {
+        abort_jtty_tx();
+        close();
+    });
 
     // Auto-switch to JTTY mode after MMTTY connects
     QTimer::singleShot(3000, this, [this]() {
