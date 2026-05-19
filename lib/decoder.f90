@@ -23,7 +23,6 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   use packjt77, only : lcommonft8b,ihash22var,calls12var,calls22var
 
   include 'jt9com.f90'
-  include 'timer_common.inc'
 
   type, extends(jt4_decoder) :: counting_jt4_decoder
      integer :: decoded
