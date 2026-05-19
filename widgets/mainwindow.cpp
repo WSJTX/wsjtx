@@ -10257,7 +10257,7 @@ void MainWindow::transmitDisplay (bool transmitting)
     }
 
     // the following are always disallowed in transmit
-    ui->menuMode->setEnabled (!transmitting);
+    ui->menuMode->setEnabled (!transmitting && !m_modeLocked);
   }
 }
 
@@ -14353,7 +14353,7 @@ void MainWindow::displayDecodedTextLine(const DecodedText& decodedtext, const QB
   }
 }
 
-void MainWindow::set_mode_from_command_line(const QString& mode)
+void MainWindow::set_mode_from_command_line(const QString& mode, bool lock_mode)
 {
     QString m = mode.toLower();
     if (m == "ft8") {
@@ -14364,5 +14364,16 @@ void MainWindow::set_mode_from_command_line(const QString& mode)
         on_actionJTTY_triggered();
     } else {
         LOG_INFO("Invalid or unsupported mode specified via command line: " << mode);
+    }
+    
+    if (lock_mode) {
+        m_modeLocked = true;
+        ui->menuMode->setEnabled(false);
+        ui->ft8Button->setEnabled(false);
+        ui->ft4Button->setEnabled(false);
+        ui->msk144Button->setEnabled(false);
+        ui->q65Button->setEnabled(false);
+        ui->jt65Button->setEnabled(false);
+        ui->houndButton->setEnabled(false);
     }
 }

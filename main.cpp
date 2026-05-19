@@ -466,7 +466,8 @@ int main(int argc, char *argv[])
           }
 #endif
           if (parser.isSet(mode_option)) {
-              w.set_mode_from_command_line(parser.value(mode_option));
+              bool lock_mode = parser.isSet(n1mm_tcp_port_option);
+              w.set_mode_from_command_line(parser.value(mode_option), lock_mode);
           }
 
           w.show();

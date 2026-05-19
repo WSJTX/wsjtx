@@ -145,7 +145,7 @@ public:
 
   int decoderBusy () const {return m_decoderBusy;}
 
-  void set_mode_from_command_line(const QString& mode);
+  void set_mode_from_command_line(const QString& mode, bool lock_mode = false);
 
 public slots:
   void showSoundInError(const QString& errorMsg);
@@ -751,6 +751,7 @@ private:
   bool    m_diskData;
   bool    m_loopall;
   bool    m_decoderBusy;
+  bool    m_modeLocked = false;
   bool    m_txFirst;
   bool    m_auto;
   bool    m_restart;
