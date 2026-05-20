@@ -18,7 +18,7 @@ program sjtty_qrm
   use jtty_mod
   use jtty_fec
 
-  parameter (NMAX=10*12000)          !Max size of .wav file
+  parameter (NMAX=131072)           !Max size of .wav file
   parameter (MAX_TONES=53*16)       !Max number of channel symbols
   parameter (MAX_SIGS=20)           !Max number of signals
   character*12 arg                  !Command line argument
@@ -174,7 +174,7 @@ program sjtty_qrm
      c0=cdat
      wave=0.
      wave=aimag(c0)    !Signal with SNR and prop degradation
-     iz=NMAX
+     iz=10*12000
      if(snrdb.lt.90) wave = wave + xnoise
 
      gain=100.0

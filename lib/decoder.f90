@@ -23,7 +23,6 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   use packjt77, only : lcommonft8b,ihash22var,calls12var,calls22var
 
   include 'jt9com.f90'
-  include 'timer_common.inc'
 
   type, extends(jt4_decoder) :: counting_jt4_decoder
      integer :: decoded
@@ -76,7 +75,6 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   !character(len=12) :: mycall, hiscall  !ft8md
   character(len=6) :: mygrid!, hisgrid   !ft8md
   character*60 line
-  character*37 msg37
   data ndec8/0/,ntr0/-1/
   save
   type(counting_jt4_decoder) :: my_jt4
@@ -1611,7 +1609,6 @@ contains
     character c1*12,c2*12,g2*4,w*4
     integer i1,i2,i3,i4,i5,n30,nwrap
     integer, intent(in) :: nap  !ft8md
-    integer msglen
     character*37 decoded0
     logical isgrid4,first,b0,b1,b2
     data first/.true./

@@ -4,6 +4,7 @@ program rjtty
 
    use wavhdr
    use jtty_mod
+   use jtty_mdec
 
 ! MAX_FRAMES = 16 in pack_jtty. Each frame is
 ! 53 symbols (13 sync + 40 codeword).
@@ -12,15 +13,14 @@ program rjtty
 ! With baud rate 31.25 s^-1, symbol duration = 32 ms,
 ! so maximum txt = 16*53*0.032 = 27.136 s.
 
-   parameter (NMAX=30*12000)                 !Max length of data
+   parameter (NMAX=180*12000)                 !Max length of data
    type(hdr) h
    character*80 fname
    character*80 umsg
    character*8 arg
    integer*8 count0, count1, clkfreq
    integer*2 iwave(NMAX)
-   logical synced,success
-
+   logical synced,success,newsig
     
    f0=1500.0
    ftol=50.0
@@ -29,8 +29,8 @@ program rjtty
    nargs=iargc()
    if(nargs.lt.6) then
       print*,'Usage:    rjtty smin ndebug nsps  f0  ftol  fname [...]'
-      print*,'Examples: rjtty   2    0    384  1500  50  000000_000001.wav'
-      print*,'          rjtty   2    1    240  1500  50  *.wav'
+      print*,'Examples: rjtty   4    0    384  1500  50  000000_000001.wav'
+      print*,'          rjtty   4    1    240  1500  50  *.wav'
       print*,'nsps choices are: 240, 320, 384, 480 samples/symbol'
       go to 999
    endif
@@ -50,6 +50,7 @@ program rjtty
 
    nframe = 53*nsps
    nchunk = nframe + nframe/4
+   ndecodes = 0
 
    do ifile=1,nargs-5
       call getarg(ifile+5,fname)
@@ -58,47 +59,69 @@ program rjtty
       nwave=min(h%ndata/2,NMAX)
       read(10) iwave(1:nwave)
       close(10)
+      if(ndebug.gt.0) then
+         n=len_trim(fname)
+         write(*,'(a)') fname(n-16:n)
+      endif
       if(nwave.lt.NMAX) iwave(nwave+1:NMAX) = 0
+      ndecodes=0
       kchar=0
       istart=1
-      synced=.false. 
       nsync=0
+      f1good = -99.
+      xdtgood = -99.
+      missed_syncs = 0
+      newsig = .false.
+
 ! Process data on the fly, one buffer at a time:
       do while (istart+nchunk-1 .le. nwave)
          success=.false.
-!synced=.false.               !uncomment this to disable use of prior sync
          call system_clock(count0,clkfreq)
-         call jtty_decode(iwave(istart),nchunk,nsps,f0,ftol,smin,synced,xdt,  &
-            f1,snr,umsg,success,nharderrors,nsync,dmin)
+         call jtty_mdecode(istart,iwave(istart),nchunk,nsps,ndebug,f0,ftol, &
+              smin,synced,xdt,f1,snr,umsg,success,nharderrors,nsync,dmin)
          call system_clock(count1,clkfreq)
+
          if(success) then
+            missed_syncs=0
+         else
+            missed_syncs = missed_syncs + 1
+            if(missed_syncs.ge.2) then
+               f1good = -99.
+               xdtgood = -99.
+               missed_syncs = 0
+               newsig = .false.
+            endif
+         endif
+
+         if(success) then
+            ndecodes = ndecodes + 1
+            newsig = .false.
+            if(abs(f1-f1good).gt.2.0 .or. abs(xdt-xdtgood).gt.0.004) then
+               newsig = .true.
+               if(ndecodes.gt.1) write(*,'(a)')         !Advance to next display line
+            endif
+            f1good = f1
+            xdtgood = xdt
+
+            if(ndebug.gt.0) then
+               tdecode=float(count1-count0)/clkfreq
+               write(71,3071) istart,xdt,f1,snr,synced,success,newsig,kchar,   &
+                    missed_syncs,nsync,nharderrors,dmin,tdecode,trim(umsg)
+3071           format(i8,f7.3,f7.1,f6.1,3L2,4i4,f7.1,f7.3,2x,a)
+            endif
+
             if(umsg(1:4).eq.'599 ') umsg='~'//trim(umsg)
             n = len(trim(umsg))
             do i=1,n
                if(umsg(i:i).eq.'~') umsg(i:i)=' '
             enddo
-            kchar = kchar + n
-            if(kchar.lt.80) then
-               write(*,'(a)',advance='no') umsg(1:n)
-               if(n.ge.3) then
-                  if(umsg(n-2:n).eq.' CQ') write(*,'(a)',advance='no') ' '
-               endif
-            else
-               write(*,'(a)') umsg(1:n)
-               write(*,*) 'debug ',umsg(1:n)
+            kchar = min(kchar + n, 80)
+            write(*,'(a)',advance='no') umsg(1:n)
+            if(n.ge.3) then
+               if(umsg(n-2:n).eq.' CQ') write(*,'(a)',advance='no') ' '
             endif
-            tdecode=float(count1-count0)/clkfreq
-            if(ndebug.gt.0) then
-               write(71,3071) istart,xdt,f1,snr,synced,success,nsync,  &
-                    nharderrors,dmin,tdecode,trim(umsg)
-3071           format(i8,f7.3,f8.1,f6.1,2L3,i5,i5,f9.1,f7.3,2x,a)
-            endif
-            istart=istart+nframe
-            if(nsync.lt.12) synced=.false.
-         else
-            istart=istart+nframe/4
-            synced=.false.
          endif
+         istart=istart+nframe/4
       enddo
       write(*,*) ''
    enddo  !ifile

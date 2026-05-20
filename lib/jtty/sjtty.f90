@@ -35,9 +35,30 @@ program sjtty
   data graymap/0,1,3,2/
 
   nargs=iargc()
-  if(nargs.ne.8) then
-     print*,'Usage:   sjtty    message     f0   DT fdop del nsps nfiles SNR'
-     print*,'Example: sjtty "CQ K1ABC CQ" 1500 0.0  0.5  1   384    10   -10'
+  if(nargs.eq.1) then
+    call getarg(1,umsg)
+    call pack_jtty(umsg,c32,nframes)
+    call unpack_jtty(c32,nframes,umsg)
+    do while (index(umsg,'~') .ne. 0) 
+      i1=index(umsg,'~')
+      umsg(i1:i1)=' '
+    enddo
+    write(*,'(a,a)') "Message after pack/unpack : ",trim(umsg)
+    nsps=384
+    if(nframes.eq.1) then
+       write(*,'(i4,a,f5.2,a)') nframes," frame, Transmission length ", &
+          53*nframes*nsps/12000.0," seconds"
+    else
+       write(*,'(i4,a,f5.2,a)') nframes," frames, Transmission length ", &
+          53*nframes*nsps/12000.0," seconds"
+    endif 
+    go to 999
+  else if(nargs.ne.8) then
+     print*,'Usage:     sjtty       message'
+     print*,'Example:   sjtty    "CQ DX KA1ABC"' 
+     print*,'or'
+     print*,'Usage:     sjtty       message     f0   DT fdop del nsps  nfiles SNR'
+     print*,'Example:   sjtty    "CQ K1ABC CQ" 1500 0.0  0.5  1   384    10   -10'
      print*,'ITU propagation models: set fdop to AW LQ LM LD MQ MM MD HQ HM HD'
      print*,'nsps: 240, 320, 384, or 480'
      go to 999

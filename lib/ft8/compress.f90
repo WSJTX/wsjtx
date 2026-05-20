@@ -3,6 +3,7 @@ subroutine compress(c)
   parameter (NMAX=15*12000)             !Samples in iwave (180,000)
   complex c(0:NMAX-1)
   real xr(0:NMAX-1),xi(0:NMAX-1)
+  save xr,xi
 
   xr=real(c)
   call wavestats(xr,NMAX,rms,pk,pwr_pk,pwr_ave)

@@ -1,13 +1,10 @@
-For *macOS 10.15* and later installers are provided for x86_64 (Intel)
-systems and for ARM64 (Apple silicon) systems. Download the correct
-package for your system from the {downloads}, double-click on the file
-name, and follow the on-screen prompts in the Installer
-app. Double-click and consult the `ReadMe` file for important
-installation notes.
+For *macOS 10.15* and later download support is provided for ARM64-bit Apple Silicon platforms as well as 64-bit Intel systems. 
+
+For ARM64 download {osxarm} while for Intel platforms download {osx}. The dmg file should be downloaded to your Desktop.  Double-click and consult the ReadMe file for important installation notes.
 
 If you have already installed a previous version, you can retain it by
 changing its name in the *Applications* folder (such as from _WSJT-X_ to
-_WSJT-X_2.7.0_).  You can then proceed to the installation phase.
+_WSJT-X_3.0_).  You can then proceed to the installation phase.
 
 Take note also of the following:
 

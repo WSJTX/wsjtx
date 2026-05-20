@@ -6,6 +6,7 @@ subroutine sh65(cx,n5,mode65,ntol,xdf,nspecial,snrdb)
   real ss(-NH+1:NH,16)
   real sigmax(16)
   integer ipk(16)
+  save ss
 
   ss=0.
 
@@ -47,6 +48,7 @@ subroutine sh65(cx,n5,mode65,ntol,xdf,nspecial,snrdb)
   ib2=min(NH,nint(fb/df + 4.1*nfac))
 
 ! Find strongest line in each of the 16 phases
+  snr1=0.
   sbest=0.
   snrbest=0.
   nbest=1

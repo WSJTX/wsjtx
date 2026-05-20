@@ -1,7 +1,5 @@
 #include "astro.h"
 
-#include <stdio.h>
-
 #include <QApplication>
 #include <QFile>
 #include <QTextStream>
@@ -13,8 +11,6 @@
 #include <QDebug>
 #include <math.h>
 
-#include "commons.h"
-#include "MessageBox.hpp"
 #include "Configuration.hpp"
 #include "SettingsGroup.hpp"
 #include "qt_helpers.hpp"
@@ -125,12 +121,14 @@ auto Astro::astroUpdate(QDateTime const& t, QString const& mygrid, QString const
   auto const& jpleph = configuration_->data_dir ().absoluteFilePath ("JPLEPH");
   SettingsGroup g (settings_, "Configuration");
   bool extraazel=settings_->value("AzElExtraLines",false).toBool();
+  
+  // changed argument from &dgrd to &m_dgrd added for Bob KA1GT 
   astrosub(nyear, month, nday, uth, static_cast<double> (freq_moon),
            mygrid.toLatin1 ().data (),
            hisgrid.toLatin1().data(),
            &azsun, &elsun, &azmoon, &elmoon,
            &azmoondx, &elmoondx, &ntsky, &m_dop, &m_dop00, &ramoon, &decmoon,
-           &dgrd, &poloffset, &xnr, extraazel, &techo, &width1, &width2,
+           &m_dgrd, &poloffset, &xnr, extraazel, &techo, &width1, &width2,
            bTx,
            AzElFileName.toLocal8Bit ().constData (),
            jpleph.toLocal8Bit ().constData ());
@@ -167,7 +165,7 @@ auto Astro::astroUpdate(QDateTime const& t, QString const& mygrid, QString const
         "Dpol:   " << poloffset << "\n"
         "MNR:    " << xnr << "\n"
         "Dist:   " << int((techo*149896)) << "\n" //wdg
-        "Dgrd:   " << dgrd;
+        "Dgrd:   " << m_dgrd; //changed dgrd to m_dgrd added for Bob KA1GT	
     }
   }
   ui_->text_label->setText(message);
@@ -301,6 +299,12 @@ auto Astro::astroUpdate(QDateTime const& t, QString const& mygrid, QString const
   correction.techo=techo;
 //  qDebug() << "AA0" << m_DopplerMethod << bAuto << correction.tx << correction.rx << correction.width;
   return correction;
+}
+
+//added for Bob KA1GT
+double Astro::getDgrd() const
+{
+    return m_dgrd;
 }
 
 void Astro::check_split ()

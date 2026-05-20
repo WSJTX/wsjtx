@@ -79,7 +79,7 @@ subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,
    nana = 2**nint(log(real(nchunk))/log(2.0)+0.5)
    allocate(c0(0:nana-1))
 
-!  convert integer samples as 12K Sa/s to complex analytic signal at 6K Sa/s
+!  convert integer samples at 12K Sa/s to complex analytic signal at 6K Sa/s
    call ana64a(iwave,nchunk,c0,nana) 
    c0(nchunk6:)=0.
 
@@ -179,8 +179,8 @@ subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,
 ! tones 0:3 represent bit sequences 00, 01, 11, 10, respectively
       p00=pow(0); p01=pow(1); p11=pow(2); p10=pow(3)
 
-      bitmetrics(2*j-1) = (p11 + p10) - (p00 + p01)
-      bitmetrics(2*j  ) = (p11 + p01) - (p00 + p10)
+      bitmetrics(2*j-1) = max(p11,p10) - max(p00,p01)
+      bitmetrics(2*j  ) = max(p11,p01) - max(p00,p10)
    enddo
 
    x2=sum(bitmetrics**2)/80.0
@@ -191,7 +191,7 @@ subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,
    dmin=0.0
    call bpdecode_80_32(bitmetrics,maxiterations,message32,cw80,nharderrors)
    if(nharderrors .lt. 0) then
-      ndeep=3
+      ndeep=3 
       call osd80_32(bitmetrics, ndeep, message32, cw80, nharderrors, dmin)
    endif
    if(nharderrors .ge. 0 .and. sum(message32) .eq. 0) nharderrors=-1  ! reject the all zero message

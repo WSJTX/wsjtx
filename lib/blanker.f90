@@ -4,6 +4,7 @@ subroutine blanker(iwave,nz,ndropmax,npct,c_bigfft)
   complex c_bigfft(0:nz/2)
   integer hist(0:32768)
   real fblank                     !Fraction of points to be blanked
+  save hist
 
   fblank=0.01*npct
   hist=0
