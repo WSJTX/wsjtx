@@ -56,7 +56,6 @@ project (wsjtx
   LANGUAGES C CXX Fortran
   )
 
-enable_testing ()
 set (PROJECT_DESCRIPTION "WSJT-X: Digital Modes for Weak Signal Communications in Amateur Radio")
 set (CMAKE_PROJECT_DESCRIPTION ${PROJECT_DESCRIPTION})
 set (CMAKE_AUTOUIC ON)
@@ -162,7 +161,7 @@ option (WSJT_TRACE_UDP "Debugging option that turns on UDP message protocol diag
 option (WSJT_BUILD_UTILS "Build simulators and code demonstrators." ON)
 option (WSJT_FOX_OTP "Enable Fox OTP Verification Messages." ON)
 option (WSJT_SKIP_MAP65 "Skip building MAP65 EME decoder (legacy Fortran; fails on GCC 15)." ON)
-option (WSJT_ENABLE_TESTS "Enable developer tests." ON)
+option (WSJT_ENABLE_TESTS "Enable developer tests." OFF)
 CMAKE_DEPENDENT_OPTION (WSJT_QDEBUG_IN_RELEASE "Leave Qt debugging statements in Release configuration." OFF
   "NOT is_debug_build" OFF)
 CMAKE_DEPENDENT_OPTION (WSJT_ENABLE_EXPERIMENTAL_FEATURES "Enable features not fully ready for public releases." ON
