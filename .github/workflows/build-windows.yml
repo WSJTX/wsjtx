@@ -179,6 +179,34 @@ jobs:
         run: ctest --output-on-failure --output-junit ctest-results.xml
         working-directory: wsjtx-build
 
+      # Diagnostic: test_fastsink_logic exits 0xc0000135 (STATUS_DLL_NOT_FOUND)
+      # on Windows. It is the only ctest exe that links wsjt_fort/wsjt_cxx, so
+      # the missing DLL is a runtime dependency one of those pulls in. Walk the
+      # dependency tree of the failing exe and contrast it with a ctest exe
+      # that passes (test_qt_helpers) to name the DLL the loader cannot find.
+      # Runs only when ctest fails; no-op once the build is green.
+      - name: Diagnose test DLL load failure
+        if: always() && steps.ctest.conclusion == 'failure'
+        working-directory: wsjtx-build
+        run: |
+          pacman -S --noconfirm --needed mingw-w64-x86_64-ntldd-git || true
+          FAIL=$(find . -name test_fastsink_logic.exe | head -1)
+          PASS=$(find . -name test_qt_helpers.exe | head -1)
+          echo "## failing exe: ${FAIL:-NOT FOUND}"
+          echo "## passing exe: ${PASS:-NOT FOUND}"
+          echo
+          echo "=== objdump direct imports (failing) ==="
+          objdump -p "$FAIL" | grep -i 'DLL Name' || true
+          echo
+          echo "=== ntldd -R recursive resolution (failing) — look for 'not found' ==="
+          ntldd -R "$FAIL" || true
+          echo
+          echo "=== ntldd -R recursive resolution (passing, for contrast) ==="
+          ntldd -R "$PASS" || true
+          echo
+          echo "=== PATH seen by this step ==="
+          echo "$PATH"
+
       - name: Publish test summary
         if: always() && steps.ctest.conclusion != 'skipped'
         working-directory: wsjtx-build
