@@ -291,15 +291,21 @@ int OmniRigTransceiver::do_start ()
 
       if (OmniRig::PM_FREQ & writable_params_)
         {
-          rig_->SetFreq (f);
+          QTimer::singleShot (200, [=] {
+              rig_->SetFreq (f);
+              });
         }
       else if (reversed_ && (OmniRig::PM_FREQB & writable_params_))
         {
-          rig_->SetFreqB (f);
+          QTimer::singleShot (200, [=] {
+              rig_->SetFreqB (f);
+              });
         }
       else if (!reversed_ && (OmniRig::PM_FREQA & writable_params_))
         {
-          rig_->SetFreqA (f);
+          QTimer::singleShot (200, [=] {
+              rig_->SetFreqA (f);
+              });
         }
       update_rx_frequency (f);
       CAT_TRACE ("started");
