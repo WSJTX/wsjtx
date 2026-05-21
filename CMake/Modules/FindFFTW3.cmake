@@ -64,14 +64,36 @@ foreach (_comp ${_components})
   endif (_comp STREQUAL "single")
 endforeach (_comp ${_components})
 
-# If using threads, we need to link against threaded libraries as well - except on Windows.
-if (NOT WIN32 AND _use_threads)
+# If using threads, link against threaded libraries when they exist as
+# separate files. Linux/macOS always ship threads separately. On Windows
+# this depends on the toolchain: MSYS2 (used by CI) ships fftw3f_threads
+# as a separate import library, but the official fftw.org prebuilt DLLs
+# bundle threads into the main library — there is no separate file. Probe
+# for the separate library and only add it to the link list if found, so
+# both Windows toolchains link correctly without an environment-aware
+# switch.
+if (_use_threads)
   set (_thread_libs)
-  foreach (_lib ${_libraries})
-    list (APPEND _thread_libs ${_lib}_threads)
-  endforeach (_lib ${_libraries})
-  set (_libraries ${_thread_libs} ${_libraries})
-endif (NOT WIN32 AND _use_threads)
+  if (WIN32)
+    foreach (_lib ${_libraries})
+      find_library (_${_lib}_threads_path
+        NAMES ${_lib}_threads ${_lib}_threads-3
+        HINTS ${FFTW3_ROOT_DIR}
+        PATH_SUFFIXES lib)
+      if (_${_lib}_threads_path)
+        list (APPEND _thread_libs ${_lib}_threads)
+      endif ()
+      mark_as_advanced (_${_lib}_threads_path)
+    endforeach (_lib ${_libraries})
+  else (WIN32)
+    foreach (_lib ${_libraries})
+      list (APPEND _thread_libs ${_lib}_threads)
+    endforeach (_lib ${_libraries})
+  endif (WIN32)
+  if (_thread_libs)
+    set (_libraries ${_thread_libs} ${_libraries})
+  endif ()
+endif (_use_threads)
 
 # Keep a list of variable names that we need to pass on to
 # find_package_handle_standard_args().

@@ -26,6 +26,7 @@
 #include <QStandardPaths>
 #include <QRegularExpression>
 #include <QMessageLogContext>
+#include <QApplication>
 
 #include "Logger.hpp"
 #include "qt_helpers.hpp"
@@ -240,7 +241,10 @@ WSJTXLogging::WSJTXLogging ()
       default_log_config ();
     }
 
-  ::qInstallMessageHandler (&qt_log_handler);
+  QFile f(QApplication::applicationDirPath() + "/qdebug");
+  if(!f.exists()) {
+    ::qInstallMessageHandler (&qt_log_handler);
+  }
 }
 
 WSJTXLogging::~WSJTXLogging ()

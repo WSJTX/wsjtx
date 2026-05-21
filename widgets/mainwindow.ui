@@ -3780,9 +3780,12 @@ Double-click to reset to the standard 73 message</string>
                 </spacer>
                </item>
                <item row="0" column="1">
-                <widget class="QCheckBox" name="checkBox">
+                <widget class="QCheckBox" name="cbLowerCase">
                  <property name="text">
                   <string>Display lower case</string>
+                 </property>
+                 <property name="checked">
+                  <bool>false</bool>
                  </property>
                 </widget>
                </item>
@@ -4016,70 +4019,6 @@ Double-click to reset to the standard 73 message</string>
                <layout class="QHBoxLayout" name="horizontalLayout">
                 <item>
                  <layout class="QGridLayout" name="gridLayout_15" columnstretch="1,1,1,1">
-                  <item row="0" column="0">
-                   <widget class="QLabel" name="labF1">
-                    <property name="sizePolicy">
-                     <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
-                      <horstretch>0</horstretch>
-                      <verstretch>0</verstretch>
-                     </sizepolicy>
-                    </property>
-                    <property name="text">
-                     <string>F1</string>
-                    </property>
-                    <property name="alignment">
-                     <set>Qt::AlignCenter</set>
-                    </property>
-                   </widget>
-                  </item>
-                  <item row="0" column="1">
-                   <widget class="QLabel" name="labF2">
-                    <property name="sizePolicy">
-                     <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
-                      <horstretch>0</horstretch>
-                      <verstretch>0</verstretch>
-                     </sizepolicy>
-                    </property>
-                    <property name="text">
-                     <string>F2</string>
-                    </property>
-                    <property name="alignment">
-                     <set>Qt::AlignCenter</set>
-                    </property>
-                   </widget>
-                  </item>
-                  <item row="0" column="2">
-                   <widget class="QLabel" name="labF3">
-                    <property name="sizePolicy">
-                     <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
-                      <horstretch>0</horstretch>
-                      <verstretch>0</verstretch>
-                     </sizepolicy>
-                    </property>
-                    <property name="text">
-                     <string>F3</string>
-                    </property>
-                    <property name="alignment">
-                     <set>Qt::AlignCenter</set>
-                    </property>
-                   </widget>
-                  </item>
-                  <item row="0" column="3">
-                   <widget class="QLabel" name="labF4">
-                    <property name="sizePolicy">
-                     <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
-                      <horstretch>0</horstretch>
-                      <verstretch>0</verstretch>
-                     </sizepolicy>
-                    </property>
-                    <property name="text">
-                     <string>F4</string>
-                    </property>
-                    <property name="alignment">
-                     <set>Qt::AlignCenter</set>
-                    </property>
-                   </widget>
-                  </item>
                   <item row="1" column="0">
                    <widget class="QLineEdit" name="msg1">
                     <property name="text">
@@ -4108,70 +4047,6 @@ Double-click to reset to the standard 73 message</string>
                     </property>
                    </widget>
                   </item>
-                  <item row="2" column="0">
-                   <widget class="QLabel" name="labF5">
-                    <property name="sizePolicy">
-                     <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
-                      <horstretch>0</horstretch>
-                      <verstretch>0</verstretch>
-                     </sizepolicy>
-                    </property>
-                    <property name="text">
-                     <string>F5</string>
-                    </property>
-                    <property name="alignment">
-                     <set>Qt::AlignCenter</set>
-                    </property>
-                   </widget>
-                  </item>
-                  <item row="2" column="1">
-                   <widget class="QLabel" name="labF6">
-                    <property name="sizePolicy">
-                     <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
-                      <horstretch>0</horstretch>
-                      <verstretch>0</verstretch>
-                     </sizepolicy>
-                    </property>
-                    <property name="text">
-                     <string>F6</string>
-                    </property>
-                    <property name="alignment">
-                     <set>Qt::AlignCenter</set>
-                    </property>
-                   </widget>
-                  </item>
-                  <item row="2" column="2">
-                   <widget class="QLabel" name="labF7">
-                    <property name="sizePolicy">
-                     <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
-                      <horstretch>0</horstretch>
-                      <verstretch>0</verstretch>
-                     </sizepolicy>
-                    </property>
-                    <property name="text">
-                     <string>F7</string>
-                    </property>
-                    <property name="alignment">
-                     <set>Qt::AlignCenter</set>
-                    </property>
-                   </widget>
-                  </item>
-                  <item row="2" column="3">
-                   <widget class="QLabel" name="labF8">
-                    <property name="sizePolicy">
-                     <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
-                      <horstretch>0</horstretch>
-                      <verstretch>0</verstretch>
-                     </sizepolicy>
-                    </property>
-                    <property name="text">
-                     <string>F8</string>
-                    </property>
-                    <property name="alignment">
-                     <set>Qt::AlignCenter</set>
-                    </property>
-                   </widget>
-                  </item>
                   <item row="3" column="0">
                    <widget class="QLineEdit" name="msg5">
                     <property name="text">
@@ -4197,6 +4072,62 @@ Double-click to reset to the standard 73 message</string>
                    <widget class="QLineEdit" name="msg8">
                     <property name="text">
                      <string>599 %N</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="0">
+                   <widget class="QPushButton" name="pbF1">
+                    <property name="text">
+                     <string>F1</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="1">
+                   <widget class="QPushButton" name="pbF2">
+                    <property name="text">
+                     <string>F2</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="2">
+                   <widget class="QPushButton" name="pbF3">
+                    <property name="text">
+                     <string>F3</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="3">
+                   <widget class="QPushButton" name="pbF4">
+                    <property name="text">
+                     <string>F4</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="2" column="0">
+                   <widget class="QPushButton" name="pbF5">
+                    <property name="text">
+                     <string>F5</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="2" column="1">
+                   <widget class="QPushButton" name="pbF6">
+                    <property name="text">
+                     <string>F6</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="2" column="2">
+                   <widget class="QPushButton" name="pbF7">
+                    <property name="text">
+                     <string>F7</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="2" column="3">
+                   <widget class="QPushButton" name="pbF8">
+                    <property name="text">
+                     <string>F8</string>
                     </property>
                    </widget>
                   </item>
@@ -5409,10 +5340,6 @@ QPushButton[state=&quot;ok&quot;] {
     <addaction name="download_samples_action"/>
     <addaction name="actionDownload_EME_Ephemeris_Chart"/>
     <addaction name="separator"/>
-    <addaction name="actionWSJT_X_improved_Home_Page"/>
-    <addaction name="actionThe_additional_features_of_wsjt_x_improved"/>
-    <addaction name="actionRecommended_Audio_Settings"/>
-    <addaction name="actionRig_Control_Errors"/>
     <addaction name="separator"/>
     <addaction name="actionKeyboard_shortcuts"/>
     <addaction name="actionSpecial_mouse_commands"/>
@@ -6059,22 +5986,6 @@ QPushButton[state=&quot;ok&quot;] {
   <action name="actionQuick_Start_Guide_to_WSJT_X_2_7_and_QMAP">
    <property name="text">
     <string>Quick-Start Guide to WSJT-X 2.7 and QMAP</string>
-   </property>
-  </action>
-  <action name="actionWSJT_X_improved_Home_Page">
-   <property name="text">
-    <string>WSJT-X_improved Home Page</string>
-   </property>
-   <property name="whatsThis">
-    <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Go to the wsjt-x_improved home page.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-   </property>
-  </action>
-  <action name="actionThe_additional_features_of_wsjt_x_improved">
-   <property name="text">
-    <string>The additional features of wsjt-x_improved</string>
-   </property>
-   <property name="whatsThis">
-    <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Overview on the additional features of wsjt-x_improved.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
    </property>
   </action>
   <action name="actionRecommended_Audio_Settings">

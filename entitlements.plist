@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+        Hardened-runtime exception required by an app that bundles its own
+        Qt frameworks (and other third-party dylibs). Without this, dyld
+        refuses to load any framework whose code-signing Team ID does not
+        match the main executable's. That blocks every Qt framework load
+        when the app is ad-hoc signed (each ad-hoc signature has its own
+        pseudo-Team-ID derived from the CDHash, so no two ad-hoc binaries
+        ever match) and would also block bundled Qt loads under a real
+        Developer ID signature unless the same Team ID had signed Qt
+        upstream — which it didn't.
+
+        This is the standard entitlement set for any macOS app that ships
+        bundled non-system frameworks; notarization accepts it.
+    -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+
+    <!--
+        Microphone access. Required so jt9 receives audio from the input
+        device once hardened runtime is enabled. NSMicrophoneUsageDescription
+        in Info.plist makes macOS prompt the user; without this entitlement,
+        hardened runtime overrides the user's grant at the syscall level and
+        reads return silence (audio level reads 0 dB; jt9 then crashes
+        processing the all-zero buffer at end of receive cycle).
+    -->
+    <key>com.apple.security.device.audio-input</key>
+    <true/>
+
+    <!--
+        GCC nested-function trampoline support, required by jt9. gfortran
+        compiles Fortran internal procedures (and procedure pointers to
+        them) using GCC's nested-function extension; libgcc's
+        __gcc_nested_func_ptr_created allocates a small heap page and
+        calls mprotect(PROT_READ|PROT_EXEC) so the trampoline can
+        dispatch to the inner procedure with the right static-link frame.
+        Under hardened runtime on macOS, that mprotect is denied without
+        this entitlement, libgcc has no fallback, and jt9 calls abort()
+        the first time multimode_decoder_ exercises a procedure pointer
+        through a trampoline (i.e. on the first decode cycle, in every
+        jt9-decoded mode).
+
+        Only jt9 in this bundle uses gfortran nested-fn pointers
+        (verified via `nm`); wsjtx and wsprd do not. Granting the
+        capability bundle-wide is harmless for binaries that do not
+        exercise it. Notarization accepts this entitlement; unlike
+        com.apple.security.cs.disable-executable-page-protection it
+        stays targeted to runtime-generated code.
+    -->
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+</dict>
+</plist>

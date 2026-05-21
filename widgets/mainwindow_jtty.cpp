@@ -57,10 +57,11 @@ void MainWindow::jtty_save_wav()
   m_fnameWE=m_config.save_directory().absoluteFilePath (tstart.toString("yyMMdd_hhmmss"));
   int samples=m_k0;
   short const * data = &dec_data.d2[0];
+  QString dgrd = "jtty";
   m_saveWAVWatcher.setFuture (QtConcurrent::run ([=] {
     return Radio::WavFile::save (m_fnameWE, data, samples, m_config.my_callsign (),
                                  m_config.my_grid (), m_mode, m_nSubMode, m_freqNominalPeriod,
-                                 m_hisCall, m_hisGrid);
+                                 m_hisCall, m_hisGrid, dgrd);
   }));
 }
 
@@ -80,6 +81,7 @@ void MainWindow::jtty_decode(int k)
                  &qso_freq[0], (FCL)2400, (FCL)800);
 
   QString allMsgs {QString::fromLatin1(all_freqs)};
+  if(ui->cbLowerCase->isChecked()) allMsgs = allMsgs.toLower();
   if(all_new) {
       ui->decodedTextBrowser->clear();
       if(allMsgs.left(1) == " ") {
@@ -95,6 +97,7 @@ void MainWindow::jtty_decode(int k)
   }
   if(qso_new) {
       QString message2 {QString::fromLatin1(qso_freq)};
+      if(ui->cbLowerCase->isChecked()) message2 = message2.toLower();
       int n2=message2.length();
       if(n2 > 0) {
         ui->decodedTextBrowser2->clear();
@@ -124,6 +127,7 @@ void MainWindow::execute_jtty_tx(QString message)
   int itone[848];
   int n=message.length();
   m_currentMessage = message;
+  if(ui->cbLowerCase->isChecked()) message = message.toLower();
 
   // Display Tx message highlighted in yellow
   ui->decodedTextBrowser2->insertText(" ");
@@ -167,8 +171,6 @@ void MainWindow::execute_jtty_tx(QString message)
     m_mmttyif->report_ptt_state(true);
   }
 #endif
-
-  startTx2();
 
 #ifdef WIN32
   if (m_mmttyif) {

@@ -90,6 +90,7 @@ void MainWindow::writeSettings()
   m_settings->setValue("JTTY_msg8",ui->msg8->text());
   m_settings->setValue("FoxTextMsg", m_freeTextMsg0);
   m_settings->setValue("WorkDupes", ui->cbWorkDupes->isChecked());
+  m_settings->setValue("JTTY_LowerCase",ui->cbLowerCase->isChecked());
   m_settings->endGroup();
 
   // do this in the General group because we save the parameters from various places
@@ -279,6 +280,7 @@ void MainWindow::readSettings()
   auto show_menus = m_settings->value ("ShowMenus", true).toBool ();
   ui->actionSWL_Mode->setChecked (SWL_mode);
   ui->cbMenus->setChecked (show_menus);
+  ui->cbLowerCase->setChecked(m_settings->value("JTTY_LowerCase",false).toBool());
   auto current_view_mode = SWL_mode ? 1 : show_menus ? 0 : 2;
   change_layout (current_view_mode);
   geometries (current_view_mode, the_geometries);

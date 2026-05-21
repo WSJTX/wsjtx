@@ -2792,14 +2792,14 @@ Right click for insert and delete options.</string>
                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Push to reset all highlight items above to default values and priorities.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
               <property name="text">
-               <string>Reset Highlighting to WSJT-X default</string>
+               <string>Reset Highlighting to Default 1</string>
               </property>
              </widget>
             </item>
             <item>
              <widget class="QPushButton" name="reset_highlighting_to_defaults2_push_button">
               <property name="text">
-               <string>Reset Highlighting to WSJT-X Improved default</string>
+               <string>Reset Highlighting to Default 2</string>
               </property>
              </widget>
             </item>

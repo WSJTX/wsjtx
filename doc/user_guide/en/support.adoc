@@ -1,11 +1,11 @@
 === Help with Setup
 
 The best source of help in setting up your station or configuring
-_WSJT-X_ will be one of these email lists: {wsjt-devel},
-{wsjtx_group}, {wsjt_group}, or {wsjt-x-improved-community}. The
-chances are good that someone with similar interests and equipment has
-already solved your problem and will be happy to help.  To post
-messages in any of these forums you will need to join the group.
+_WSJT-X_ will be one of these email lists: {wsjt-devel} or
+{wsjtx_group}. The chances are good that someone with similar
+interests and equipment has already solved your problem and will be
+happy to help.  To post messages in any of these forums you will need
+to join the group.
 
 === Bug Reports
 

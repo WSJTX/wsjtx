@@ -139,7 +139,7 @@ public:
   ~MainWindow();
 
 #ifdef WIN32
-  void initMMTTY(quint16 port);
+  void initMMTTY(const QString& hexHandle);
   MMTTYIF *getMmttyIf() const;
 #endif
 
@@ -248,10 +248,6 @@ private slots:
   void on_actionQSG_Q65_triggered();
   void on_actionQSG_X250_M3_triggered();
   void on_actionQuick_Start_Guide_to_WSJT_X_2_7_and_QMAP_triggered();
-  void on_actionWSJT_X_improved_Home_Page_triggered();
-  void on_actionThe_additional_features_of_wsjt_x_improved_triggered();
-  void on_actionRecommended_Audio_Settings_triggered();
-  void on_actionRig_Control_Errors_triggered();
   void on_actionOnline_User_Guide_triggered();
   void on_actionLocal_User_Guide_triggered();
   void on_actionWide_Waterfall_triggered();
@@ -495,6 +491,15 @@ private slots:
   void on_rbEchoCW_toggled(bool b);
   void on_leEchoMessage_textChanged();
   void on_pbSendMessage_clicked();
+
+  void on_pbF1_clicked();
+  void on_pbF2_clicked();
+  void on_pbF3_clicked();
+  void on_pbF4_clicked();
+  void on_pbF5_clicked();
+  void on_pbF6_clicked();
+  void on_pbF7_clicked();
+  void on_pbF8_clicked();
 #ifdef WIN32
   void logText(const QString &text);
 #endif
@@ -514,7 +519,9 @@ private:
   void displayDecodedTextLine(const DecodedText& dt, const QByteArray& line_read, const QString& distance, bool haveFSpread, float fSpread, bool bDisplayPoints);
   QString calculateDistanceAndBearing(const DecodedText& dt);
   void processSuperHoundVerification(const DecodedText& dt, bool& verified);
-  
+#ifdef Q_OS_WIN
+  bool nativeEvent(const QByteArray &, void *, long int *);
+#endif
 private:
   Q_SIGNAL void initializeAudioOutputStream (QAudioDeviceInfo,
       unsigned channels, unsigned msBuffered) const;

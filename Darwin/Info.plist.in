@@ -40,5 +40,7 @@
     <true/>
     <key>NSMicrophoneUsageDescription</key>
     <string>This app requires microphone access to receive signals.</string>
+    <key>UIDesignRequiresCompatibility</key>
+    <true/>
 </dict>
 </plist>

@@ -481,8 +481,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_onAirFreq0 {0.0},
   m_first_error {true},
   tx_status_label {tr ("Receiving")},
-  wsprNet {new WSPRNet {&m_network_manager, this}},
-  Eqsl {new EQSL {&m_network_manager, this}},
+  wsprNet {new WSPRNet {this}},
+  Eqsl {new EQSL {this}},
   m_baseCall {Radio::base_callsign (m_config.my_callsign ())},
   m_appDir {QApplication::applicationDirPath ()},
   m_cqStr {""},
@@ -515,7 +515,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
         m_config.udp_server_name (), m_config.udp_server_port (),
         m_config.udp_interface_names (), m_config.udp_TTL (),
         this}},
-  m_psk_Reporter {&m_config, QString {"WSJT-X v" + version () + " " + m_revision}.simplified ()},
+  m_psk_Reporter {&m_config, QString {"WSJT-X v" + version() + " " + m_revision}.simplified()},
   m_manual {&m_network_manager},
   m_block_udp_status_updates {false},
   m_useDarkStyle {false}
@@ -1243,7 +1243,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
   if(QCoreApplication::applicationVersion().contains("-devel") or
      QCoreApplication::applicationVersion().contains("-rc")) {
-//    QTimer::singleShot (0, this, SLOT (not_GA_warning_message ()));     //Disabled for now
+     QTimer::singleShot (0, this, SLOT (not_GA_warning_message ()));     //Disabled for now
   }
 
   m_bMyCallStd=stdCall(m_config.my_callsign ()); //ft8md
@@ -1288,7 +1288,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
       });
   }
 #endif
-
   ui->sbToneSpacing->values({10, 15, 20, 25, 30});
   QTimer::singleShot (4000, [=] {programStart=false;});
 
@@ -1301,9 +1300,9 @@ void MainWindow::not_GA_warning_message ()
   MessageBox::critical_message (this,
                                 "This is a pre-release version of WSJT-X " + version (false) + " made\n"
                                 "available for testing purposes.  By design it will\n"
-                                "be nonfunctional after April 30, 2026.");
+                                "be nonfunctional after September 30, 2026.");
   auto now = QDateTime::currentDateTimeUtc ();
-  if (now >= QDateTime {{2026, 04, 30}, {23, 59, 59, 999}, Qt::UTC}) {
+  if (now >= QDateTime {{2026, 9, 30}, {23, 59, 59, 999}, Qt::UTC}) {
     Q_EMIT finished ();
   }
 }
@@ -1830,11 +1829,20 @@ void MainWindow::dataSink(qint64 frames)
         float hour=n/10000 + ((n/100)%100)/60.0 + (n%100)/3600.0;
         m_echoRunning=true;
         if(ndf<0 or ndf>30) ndf=0;
+	          //added for Bob KA1GT
+        double dgrd = m_astroWidget->getDgrd();
         QString t;
-        t = t.asprintf("%7.4f  %5.2f %7d %7.1f %5d %5d %6d %6.1f %7.1f  %3d",hour,xlevel,
-                       nDopTotal,width,echocom_.nsum,nqual,qRound(dfreq),sigdb,dBerr,ndf);
-        t = t0 + t + "  " + rxcall;
-        if(!bEchoCall) t=t.left(78);
+        if (!m_diskData) {
+            t = t.asprintf("%7.4f  %5.2f %7d %7.1f %5.1f %5d %5d %6d %6.1f %7.1f  %3d",hour,xlevel,
+                   nDopTotal,width,dgrd,echocom_.nsum,nqual,qRound(dfreq),sigdb,dBerr,ndf);
+            t = t0 + t + "  " + rxcall;
+        } else {
+            t = t.asprintf("%7.4f  %5.2f %7d %7.1f       %5d %5d %6d %6.1f %7.1f  %3d",hour,xlevel,
+                   nDopTotal,width,echocom_.nsum,nqual,qRound(dfreq),sigdb,dBerr,ndf);
+            t = t0 + t + "        " + rxcall;
+        }
+
+        if(!bEchoCall) t=t.left(84);
         if(ui) ui->decodedTextBrowser->insertText(t);
         t=t1 + t;
         write_all("Rx",t);
@@ -1888,11 +1896,19 @@ void MainWindow::dataSink(qint64 frames)
       }
       int samples=m_TRperiod*12000;
       if(m_mode=="FT4") samples=21*3456;
-      short const * data = &dec_data.d2[0];
+      short const * data = &dec_data.d2[0];      
+      double dgrd_value = 0.0;
+      QString dgrd;
+      if(m_astroWidget) {
+        dgrd_value = m_astroWidget->getDgrd();
+        dgrd = QString("%1").arg(dgrd_value, 0, 'f', 1);
+      } else {
+        dgrd = "NoVal";
+      }  
       m_saveWAVWatcher.setFuture (QtConcurrent::run ([=] {
         return Radio::WavFile::save (m_fnameWE, data, samples, m_config.my_callsign (),
                                      m_config.my_grid (), m_mode, m_nSubMode, m_freqNominalPeriod,
-                                     m_hisCall, m_hisGrid);
+                                     m_hisCall, m_hisGrid, dgrd);
       }));
       if (m_mode=="WSPR") {
         auto c2name {(m_fnameWE + ".c2").toLocal8Bit ()};
@@ -2506,11 +2522,19 @@ void MainWindow::fastSink(qint64 frames)
         m_bAltV=false;
         // the following is potential a threading hazard - not a good
         // idea to pass pointer to be processed in another thread
-        short const * data = &dec_data.d2[0];
+        short const * data = &dec_data.d2[0];             
+        double dgrd_value = 0.0;
+        QString dgrd;
+        if(m_astroWidget) {
+          dgrd_value = m_astroWidget->getDgrd();
+          dgrd = QString("%1").arg(dgrd_value, 0, 'f', 1);
+        } else {
+          dgrd = "NoVal";
+        }  
         m_saveWAVWatcher.setFuture (QtConcurrent::run ([=] {
           return Radio::WavFile::save (m_fnameWE, data, int (m_TRperiod * 12000.0),
                                        m_config.my_callsign (), m_config.my_grid (), m_mode,
-                                       m_nSubMode, m_freqNominal, m_hisCall, m_hisGrid);
+                                       m_nSubMode, m_freqNominal, m_hisCall, m_hisGrid, dgrd);
         }));
       }
       if(m_mode!="MSK144") {
@@ -3393,7 +3417,7 @@ void MainWindow::setup_status_bar (bool vhf)
       band_hopping_label.setMinimumSize (QSize  {80, 18});
     }
   } else {
-    if (band_hopping_label.isVisible ()) statusBar ()->removeWidget (&band_hopping_label);
+    if (!m_config.PWR_and_SWR () && band_hopping_label.isVisible ()) statusBar ()->removeWidget (&band_hopping_label);
   }
 }
 
@@ -3474,49 +3498,13 @@ void MainWindow::on_actionQuick_Start_Guide_to_WSJT_X_2_7_and_QMAP_triggered()
   QDesktopServices::openUrl (QUrl {"https://wsjt.sourceforge.io/Quick_Start_WSJT-X_2.7_QMAP.pdf"});
 }
 
-void MainWindow::on_actionWSJT_X_improved_Home_Page_triggered()
-{
-  QDesktopServices::openUrl (QUrl {"https://wsjt-x-improved.sourceforge.io/"});
-}
-
-void MainWindow::on_actionThe_additional_features_of_wsjt_x_improved_triggered()
-{
-  QDesktopServices::openUrl (QUrl {"https://wsjt-x-improved.sourceforge.io/The_additional_features_of_wsjt-x_improved.pdf"});
-}
-
-void MainWindow::on_actionRecommended_Audio_Settings_triggered()
-{
-  auto const& message = tr("It is very important to avoid audio harmonics and distorted audio signals.\n"
-                           "This is usually achieved by the following step-by-step approach:\n\n"
-                           "1. Select 'Fake it' in the Settings/Radio menu as your 'Split mode'. If your\n"
-                           "     rig does not support this, select 'Rig'. But really try to avoid 'None'!\n\n"
-                           "2. Set the transmission power of your transceiver to maximum.\n\n"
-                           "3. Set the Pwr slider to the minimum and click on the 'Tune' button.\n\n"
-                           "4. Observe the actual transmission power of your rig as well as ALC.\n\n"
-                           "5. Carefully increase the Pwr slider until you have reached the\n"
-                           "     maximum transmit powe of your transceiver.\n\n"
-                           "6. VERY IMPORTANT: Now reduce the Pwr slider until you reach approx. \n"
-                           "     90% of your max. Tx power. ALC should be close to zero.\n\n"
-                           "7. This is the maximum audio level permitted with your setup.\n"
-                           "     Always stay with the Pwr slider below this max. value.\n\n"
-                           "If possible, check your transmission from time to time with a webSDR\n"
-                           "to ensure the signal is clean and not distorted.");
-  QTimer::singleShot (0, [=] {                   // don't block guiUpdate
-    MessageBox::warning_message(this, tr ("<b>Recommended Audio Settings</b>"), message); });
-}
-
-void MainWindow::on_actionRig_Control_Errors_triggered()
-{
-  QDesktopServices::openUrl (QUrl {"https://wsjt-x-improved.sourceforge.io/How_to_deal_with_rig_control_errors.pdf"});
-}
-
 void MainWindow::on_actionOnline_User_Guide_triggered()      //Display manual
 {
-  QDesktopServices::openUrl (QUrl {"https://wsjt-x-improved.sourceforge.io/wsjtx-main_en.html"});
-// #if defined (CMAKE_BUILD)
-//   m_manual.display_html_url (QUrl {PROJECT_MANUAL_DIRECTORY_URL}, PROJECT_MANUAL);
-// #endif
+  QDesktopServices::openUrl (QUrl {"https://wsjt.sourceforge.io/wsjtx-doc/wsjtx-main_en.html"});
+
 }
+
+
 
 //Display local copy of manual
 void MainWindow::on_actionLocal_User_Guide_triggered()
@@ -3591,11 +3579,12 @@ void MainWindow::on_actionCopyright_Notice_triggered()
                            "\"The algorithms, source code, look-and-feel of WSJT-X and related "
                            "programs, and protocol specifications for the modes FSK441, FST4, FT8, "
                            "JT4, JT6M, JT9, JT65, JTMS, QRA64, Q65, MSK144 are Copyright (C) "
-                           "2001-2025 by one or more of the following authors: Joseph Taylor, "
+                           "2001-2026 by one or more of the following authors: Joseph Taylor, "
                            "K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, "
                            "IV3NWV; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; "
                            "Philip Karn, KA9Q; Uwe Risse, DG2YCB; Brian Moran, N9ADG; Roger Rehr, "
-                           "W3SZ; and other members of the WSJT Development Group.\"");
+                           "W3SZ; John Nelson, G4KLA; Charlie Suckling, DL3WDG; Terrell Deppe, "
+                           "KJ5HST; and other members of the WSJT Development Group.\"");
   MessageBox::warning_message(this, message);
 }
 
@@ -5901,7 +5890,6 @@ void MainWindow::guiUpdate()
 //Once per second (onesec)
   if(nsec != m_sec0) {
     //    qDebug()   << "AAA" << nsec % 60;
-    //    std::cout << "AAA " << nsec % 60 << "\n";
     // reset earlyDecodes for 2-stage or 3-stage decoding, or if QRG > 45 MHz
     if (m_mode=="FT8" && !m_diskData && ((m_multithreadFT8 && m_ft8DecoderStart<2) or m_freqNominal>45000000)) {
       QDateTime now = QDateTime::currentDateTimeUtc();
@@ -8358,7 +8346,16 @@ void MainWindow::on_actionFT8_triggered()
   QTimer::singleShot (50, [=] {
     if(m_specOp!=SpecOp::FOX) ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq_old",1500).toInt());
     if(m_specOp==SpecOp::FOX && !m_config.superFox()) ui->TxFreqSpinBox->setValue(m_TxFreqFox);
-    if(SpecOp::HOUND == m_specOp && m_config.superFox()) clearDX();
+    if(SpecOp::HOUND == m_specOp && m_config.superFox()) {
+      clearDX();
+      // Stale F/H decodes left in the Band Activity / Rx Frequency windows
+      // can be double-clicked to re-prime Tx against a callsign that is no
+      // longer valid in SuperFox/Hound (where the target comes from the
+      // Active Stations widget via the $VERIFY$ flow).  Erase them so the
+      // user-trap surface is gone.  Reported by AF8C, 2026-05-03.
+      ui->decodedTextBrowser->erase ();
+      ui->decodedTextBrowser2->erase ();
+    }
     on_sbSubmode_valueChanged(ui->sbSubmode->value());
     ui->cbHoldTxFreq->setChecked (HoldTxFreqStatus);
   });
@@ -8804,6 +8801,7 @@ void MainWindow::on_actionJTTY_triggered()
 //                           01234567890123456789012345678901234567
     displayWidgets(nWidgets("11111100010011100001000000010000000000"));
   setup_status_bar (false);
+  monitor(true);
 }
 
 
@@ -8968,7 +8966,7 @@ void MainWindow::on_actionEcho_triggered()
   m_bFastMode=false;
   m_bFast9=false;
   WSPR_config(true);
-  ui->lh_decodes_headings_label->setText("  UTC    Hour    Level  Doppler  Width     N     Q     DF    SNR   dBerr   TS  EchoMsg");
+  ui->lh_decodes_headings_label->setText("  UTC    Hour    Level  Doppler  Width  Dgrd     N     Q     DF    SNR   dBerr   TS  EchoMsg");
   //                       01234567890123456789012345678901234567
   displayWidgets(nWidgets("00000000000000000010001000000000000000"));
   fast_config(false);
@@ -9714,7 +9712,7 @@ void MainWindow::handle_transceiver_update (Transceiver::TransceiverState const&
   // Display PWR and SWR
   if(m_config.PWR_and_SWR()) {
     if (!band_hopping_label.isVisible ()) {
-      statusBar ()->addWidget (&band_hopping_label);
+      statusBar ()->addPermanentWidget (&band_hopping_label);
       band_hopping_label.setMinimumSize (QSize  {80, 18});
       band_hopping_label.show();
     }
@@ -13739,46 +13737,57 @@ void MainWindow::processFoxSignals(const DecodedText& decodedtext)
 void MainWindow::processSFoxVerification(const DecodedText& decodedtext0, bool& filtered)
 {
 #ifdef FOX_OTP
-  if ((SpecOp::HOUND == m_specOp) &&
-       ((m_config.superFox() && (decodedtext0.mid(24, 8) == "\\$")) ||
-       (decodedtext0.mid(24,-1).contains(QRegularExpression{"^[A-Z0-9]{2,6}\\.[0-9]{6}"}))))
-  {
-    QStringList lineparts;
-    QString callsign, otp;
-    unsigned int hz;
-    lineparts = decodedtext0.string().split(' ', SkipEmptyParts);
-    if (lineparts.length() <= 6) {
-      QStringList otp_parts;
-      otp_parts = lineparts[5].split('.', SkipEmptyParts);
-      callsign = otp_parts[0];
-      otp = otp_parts[1];
-      hz = lineparts[3].toInt();
-      if (!m_config.ShowOTP() or decodedtext0.mid(24,-1).contains(" 000000")) filtered = true;
-    } else {
-      callsign = lineparts[6];
-      otp = lineparts[7];
-      hz = 750;
-      if (!m_config.ShowOTP() or decodedtext0.mid(24,-1).contains(" 000000")) filtered = true;
-    }
-    QDateTime verifyDateTime;
-    if (m_diskData) {
-      verifyDateTime = m_UTCdiskDateTime;
-    } else {
-      verifyDateTime = QDateTime(QDateTime::currentDateTimeUtc().date(),
-                                 QTime::fromString(lineparts[0], "hhmmss"));
-    }
-    if (!decodedtext0.mid(24,-1).contains(" 000000")) {
-      FoxVerifier *fv = new FoxVerifier(MainWindow::userAgent(),
-                                        &m_network_manager,
-                                        m_config.OTPUrl(),
-                                        callsign,
-                                        verifyDateTime,
-                                        otp,
-                                        hz);
-      connect(fv, &FoxVerifier::verifyComplete, this, &MainWindow::handleVerifyMsg);
-      m_verifications << fv;
-    }
-  }
+          if (SpecOp::HOUND == m_specOp)
+          {
+            // Payload formats (from column 24 onward):
+            //   Standard:  CALL.OTP        e.g. "K8R.920749"
+            //   SuperFox:  $VERIFY$ CALL OTP  e.g. "$VERIFY$ VP2X/K1JT 920749"
+            // Callsigns may include '/' and decoder output may contain variable spacing.
+            static const QRegularExpression stdPayloadRe{
+                QStringLiteral("^([A-Z0-9]{2,6})\\.([0-9]{6})$")};
+            static const QRegularExpression verifyPayloadRe{
+                QStringLiteral("^\\$VERIFY\\$\\s+([A-Z0-9/]{2,13})\\s+([0-9]{6})$")};
+
+            QString const payload = decodedtext0.mid(24, -1).trimmed();
+            QString callsign, otp;
+            unsigned int hz = 0;
+
+            QRegularExpressionMatch payloadMatch = stdPayloadRe.match(payload);
+            if (payloadMatch.hasMatch()) {
+              callsign = payloadMatch.captured(1);
+              otp = payloadMatch.captured(2);
+              hz = static_cast<unsigned int>(decodedtext0.frequencyOffset());
+            } else if (m_config.superFox() &&
+                       (payloadMatch = verifyPayloadRe.match(payload)).hasMatch()) {
+              callsign = payloadMatch.captured(1);
+              otp = payloadMatch.captured(2);
+              hz = 750;
+            }
+
+            if (!callsign.isEmpty()) {
+              if (!m_config.ShowOTP() || otp == QLatin1String("000000"))
+                filtered = true;
+
+              QDateTime verifyDateTime;
+              if (m_diskData) {
+                verifyDateTime = m_UTCdiskDateTime;
+              } else {
+                verifyDateTime = QDateTime(QDateTime::currentDateTimeUtc().date(),
+                                           QTime::fromString(decodedtext0.left(6), "hhmmss"));
+              }
+              if (otp != QLatin1String("000000")) {
+                FoxVerifier *fv = new FoxVerifier(MainWindow::userAgent(),
+                                                  &m_network_manager,
+                                                  m_config.OTPUrl(),
+                                                  callsign,
+                                                  verifyDateTime,
+                                                  otp,
+                                                  hz);
+                connect(fv, &FoxVerifier::verifyComplete, this, &MainWindow::handleVerifyMsg);
+                m_verifications << fv;
+              }
+            }
+          }
 #endif
 }
 

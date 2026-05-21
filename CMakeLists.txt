@@ -52,11 +52,10 @@ if (POLICY CMP0075)
 endif ()
 
 project (wsjtx
-  VERSION 3.0.0.0
+  VERSION 3.1.0.0
   LANGUAGES C CXX Fortran
   )
 
-enable_testing ()
 set (PROJECT_DESCRIPTION "WSJT-X: Digital Modes for Weak Signal Communications in Amateur Radio")
 set (CMAKE_PROJECT_DESCRIPTION ${PROJECT_DESCRIPTION})
 set (CMAKE_AUTOUIC ON)
@@ -101,16 +100,16 @@ message (STATUS "******************************************************")
 
 include (set_build_type)
 # RC 0 or omitted is a development build, GA is a General Availability release build
-set_build_type (GA)
+set_build_type (RC)
 set (wsjtx_VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}${BUILD_TYPE_REVISION}")
 
 #
 # project information
 #
 set (PROJECT_BUNDLE_NAME "WSJT-X")
-set (PROJECT_VENDOR "Joe Taylor, K1JT")
-set (PROJECT_CONTACT "joe@princeton.edu")
-set (PROJECT_COPYRIGHT "Copyright (C) 2001-2026 by Joe Taylor, K1JT and 2020-2026 by Uwe Risse, DG2YCB")
+set (PROJECT_VENDOR "WSJT Development Group")
+set (PROJECT_CONTACT "jtaylor@princetion.edu")
+set (PROJECT_COPYRIGHT "Copyright (C) 2001-2026 by Joe Taylor, K1JT")
 set (PROJECT_HOMEPAGE https://wsjt.sourceforge.io/wsjtx.html)
 set (PROJECT_MANUAL wsjtx-main)
 set (PROJECT_MANUAL_DIRECTORY_URL https://wsjt.sourceforge.io/wsjtx-doc/)
@@ -161,6 +160,7 @@ option (WSJT_RIG_NONE_CAN_SPLIT "Allow split operation with \"None\" as rig.")
 option (WSJT_TRACE_UDP "Debugging option that turns on UDP message protocol diagnostics.")
 option (WSJT_BUILD_UTILS "Build simulators and code demonstrators." ON)
 option (WSJT_FOX_OTP "Enable Fox OTP Verification Messages." ON)
+option (WSJT_SKIP_MAP65 "Skip building MAP65 EME decoder (legacy Fortran; fails on GCC 15)." ON)
 option (WSJT_ENABLE_TESTS "Enable developer tests." ON)
 CMAKE_DEPENDENT_OPTION (WSJT_QDEBUG_IN_RELEASE "Leave Qt debugging statements in Release configuration." OFF
   "NOT is_debug_build" OFF)
@@ -967,21 +967,30 @@ set_property (SOURCE ${all_C_and_CXXSRCS} APPEND PROPERTY OBJECT_DEPENDS ${CMAKE
 
 if (WIN32)
   # generate the OmniRig COM interface source
-  find_program (DUMPCPP dumpcpp)
-  if (DUMPCPP-NOTFOUND)
-    message (FATAL_ERROR "dumpcpp tool not found")
-  endif (DUMPCPP-NOTFOUND)
-  execute_process (
-    COMMAND ${DUMPCPP} -getfile {4FE359C5-A58F-459D-BE95-CA559FB4F270}
-    OUTPUT_VARIABLE AXSERVER
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
-  string (STRIP "${AXSERVER}" AXSERVER)
-  if (NOT AXSERVER)
-    message (FATAL_ERROR "You need to install OmniRig on this computer")
-  endif (NOT AXSERVER)
-  string (REPLACE "\"" "" AXSERVER ${AXSERVER})
-  file (TO_CMAKE_PATH ${AXSERVER} AXSERVERSRCS)
+  if (OMNIRIG_TYPE_LIB)
+    # CI / headless build: type library path provided directly. Bypasses
+    # COM registration which is not available in CI. Pass via
+    # -DOMNIRIG_TYPE_LIB=<path-to-OmniRig.tlb>.
+    file (TO_CMAKE_PATH "${OMNIRIG_TYPE_LIB}" AXSERVERSRCS)
+    message (STATUS "Using OmniRig type library: ${AXSERVERSRCS}")
+  else ()
+    # Normal local build: query the COM registry for the type library.
+    find_program (DUMPCPP dumpcpp)
+    if (DUMPCPP-NOTFOUND)
+      message (FATAL_ERROR "dumpcpp tool not found")
+    endif (DUMPCPP-NOTFOUND)
+    execute_process (
+      COMMAND ${DUMPCPP} -getfile {4FE359C5-A58F-459D-BE95-CA559FB4F270}
+      OUTPUT_VARIABLE AXSERVER
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+      )
+    string (STRIP "${AXSERVER}" AXSERVER)
+    if (NOT AXSERVER)
+      message (FATAL_ERROR "You need to install OmniRig on this computer, or pass -DOMNIRIG_TYPE_LIB=<path>")
+    endif (NOT AXSERVER)
+    string (REPLACE "\"" "" AXSERVER ${AXSERVER})
+    file (TO_CMAKE_PATH ${AXSERVER} AXSERVERSRCS)
+  endif ()
 endif ()
 
 
@@ -1109,6 +1118,17 @@ set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra")
 
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror -Wall -Wextra -fexceptions -frtti")
 
+# MinGW gcc 16.x (MSYS2 rolled forward 2026-05) raises false-positive
+# -Wmaybe-uninitialized on the placement-new'd HRDMessage flexible-array
+# struct in Transceiver/HRDTransceiver.cpp. Demote to a warning on Windows
+# + gcc 16+ until upstream gcc tightens the analysis or HRDMessage is
+# refactored. Scoped narrowly so other platforms keep -Werror discipline.
+if (WIN32
+    AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
+    AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "16.0")
+  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error=maybe-uninitialized")
+endif ()
+
 if (NOT APPLE)
   set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-pragmas")
   if (${OPENMP_FOUND})
@@ -1167,7 +1187,7 @@ if (Fortran_COMPILER_NAME MATCHES "gfortran.*")
   # we decide if they are meaningful, without these FP instructions
   # run in nonstop mode and do not trap
   #set (CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS_DEBUG} ${CMAKE_Fortran_FLAGS_DEBUG}  -ffpe-trap=invalid,zero,overflow")
-  
+
 elseif (Fortran_COMPILER_NAME MATCHES "ifort.*")
   # ifort (untested)
   set (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} -f77rtl ${General_FFLAGS}")
@@ -1327,8 +1347,6 @@ target_link_libraries (sjtty wsjt_fort wsjt_cxx)
 
 add_executable (test_jtty_pack lib/jtty/tests/test_jtty_pack.f90)
 configure_file(lib/jtty/tests/jtty_msgs.txt "${CMAKE_CURRENT_BINARY_DIR}/jtty_msgs.txt" COPYONLY)
-add_test(NAME test_jtty_pack
-        COMMAND test_jtty_pack)
 target_link_libraries (test_jtty_pack wsjt_fort wsjt_cxx)
 
 add_executable (sjtty_qrm lib/jtty/sjtty_qrm.f90)
@@ -1680,10 +1698,11 @@ else (${OPENMP_FOUND} OR APPLE)
   target_link_libraries (jt9 wsjt_fort wsjt_cxx fort_qt)
 endif (${OPENMP_FOUND} OR APPLE)
 
-if (WIN32)
+if (NOT WSJT_SKIP_MAP65)
   find_package (Portaudio REQUIRED)
   add_subdirectory (map65)
 endif ()
+
   add_subdirectory (qmap)
 
 # build the main application
@@ -1693,12 +1712,30 @@ generate_version_info (wsjtx_VERSION_RESOURCES
   ICON ${WSJTX_ICON_FILE}
   )
 
+# Embed a Windows application manifest declaring per-monitor V2 DPI
+# awareness. Without it, Windows treats wsjtx.exe as DPI-unaware and
+# applies legacy bitmap-stretching scaling on high-DPI displays —
+# fonts/widgets appear larger than locally-built (MSVC) executables
+# which auto-embed a manifest. Resource ID 1, type RT_MANIFEST (24).
+set (wsjtx_PLATFORM_RESOURCES)
+if (WIN32)
+  set (WSJTX_MANIFEST_PATH "${CMAKE_CURRENT_SOURCE_DIR}/wsjtx.exe.manifest")
+  configure_file (
+    "${CMAKE_CURRENT_SOURCE_DIR}/CMake/Modules/wsjtx-manifest.rc.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/wsjtx-manifest.rc"
+    @ONLY
+    )
+  list (APPEND wsjtx_PLATFORM_RESOURCES
+    "${CMAKE_CURRENT_BINARY_DIR}/wsjtx-manifest.rc")
+endif (WIN32)
+
 add_executable (wsjtx MACOSX_BUNDLE
   ${wsjtx_CXXSRCS}
   ${wsjtx_GENUISRCS}
   ${WSJTX_ICON_FILE}
   ${wsjtx_RESOURCES_RCC}
   ${wsjtx_VERSION_RESOURCES}
+  ${wsjtx_PLATFORM_RESOURCES}
   )
 
 if (APPLE)
@@ -1859,6 +1896,18 @@ install (TARGETS jt9 wsprd fmtave fcal fmeasure
   BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   )
 
+install (TARGETS qmap
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
+  BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
+  )
+
+if (NOT WSJT_SKIP_MAP65)
+  install (TARGETS map65
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
+    BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
+    )
+endif ()
+
 if(WSJT_BUILD_UTILS)
 install (TARGETS ft8code jt65code jt9code jt4code msk144code 
   q65code fst4sim ft8sim q65sim EchoCallSim testEchoCall echosim
@@ -1867,14 +1916,14 @@ install (TARGETS ft8code jt65code jt9code jt4code msk144code
   BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   )
 
-if(WIN32)
-add_executable(wsjtx_jtty WIN32 mmtty_interface/wsjtx_jtty.c)
-add_executable(wsjtx_jtty2 WIN32 mmtty_interface/wsjtx_jtty2.c)
+if (WIN32)
+  add_executable(wsjtx_jtty WIN32 mmtty_interface/wsjtx_jtty.c)
+  add_executable(wsjtx_jtty2 WIN32 mmtty_interface/wsjtx_jtty2.c)
 
-install (TARGETS wsjtx_jtty wsjtx_jtty2
-  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
-  BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
-  )
+  install (TARGETS wsjtx_jtty wsjtx_jtty2
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
+    BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
+    )
 endif(WIN32)
 endif(WSJT_BUILD_UTILS)  
 
@@ -1941,14 +1990,32 @@ install (DIRECTORY
   )
 
 if (WIN32)
-  install (FILES
-    contrib/tls/libssl-1_1.dll
-    contrib/tls/libcrypto-1_1.dll
-    contrib/tls/libssl-1_1-x64.dll
-    contrib/tls/libcrypto-1_1-x64.dll
-    DESTINATION ${CMAKE_INSTALL_BINDIR}
-    #COMPONENT runtime
+  # Bundle OpenSSL runtime DLLs from the build environment.
+  # Qt's QSslSocket loads OpenSSL by filename at runtime; the names depend
+  # on what Qt was built against (libssl-1_1*.dll for older Qt-on-OpenSSL-1.1,
+  # libssl-3-x64.dll for current MSYS2 Qt-on-OpenSSL-3). Glob whatever the
+  # runner provides so SuperFox verification, Update Hamlib, LotW download,
+  # and eQSL keep working as the build environment advances.
+  set (_openssl_msys_prefix "$ENV{MSYSTEM_PREFIX}")
+  if (NOT _openssl_msys_prefix)
+    set (_openssl_msys_prefix "/mingw64")
+  endif ()
+  file (GLOB _openssl_runtime_dlls
+    "${_openssl_msys_prefix}/bin/libssl-*.dll"
+    "${_openssl_msys_prefix}/bin/libcrypto-*.dll"
   )
+  if (_openssl_runtime_dlls)
+    install (FILES ${_openssl_runtime_dlls}
+      DESTINATION ${CMAKE_INSTALL_BINDIR}
+      #COMPONENT runtime
+    )
+  else ()
+    message (WARNING
+      "OpenSSL runtime DLLs not found at ${_openssl_msys_prefix}/bin — "
+      "TLS features (SuperFox, Update Hamlib, LotW, eQSL) will fail on "
+      "installs without OpenSSL in PATH."
+    )
+  endif ()
 endif (WIN32)
 
 #

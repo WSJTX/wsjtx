@@ -1850,14 +1850,32 @@ install (DIRECTORY
   )
 
 if (WIN32)
-  install (FILES
-    contrib/tls/libssl-1_1.dll
-    contrib/tls/libcrypto-1_1.dll
-    contrib/tls/libssl-1_1-x64.dll
-    contrib/tls/libcrypto-1_1-x64.dll
-    DESTINATION ${CMAKE_INSTALL_BINDIR}
-    #COMPONENT runtime
+  # Bundle OpenSSL runtime DLLs from the build environment.
+  # Qt's QSslSocket loads OpenSSL by filename at runtime; the names depend
+  # on what Qt was built against (libssl-1_1*.dll for older Qt-on-OpenSSL-1.1,
+  # libssl-3-x64.dll for current MSYS2 Qt-on-OpenSSL-3). Glob whatever the
+  # runner provides so SuperFox verification, Update Hamlib, LotW download,
+  # and eQSL keep working as the build environment advances.
+  set (_openssl_msys_prefix "$ENV{MSYSTEM_PREFIX}")
+  if (NOT _openssl_msys_prefix)
+    set (_openssl_msys_prefix "/mingw64")
+  endif ()
+  file (GLOB _openssl_runtime_dlls
+    "${_openssl_msys_prefix}/bin/libssl-*.dll"
+    "${_openssl_msys_prefix}/bin/libcrypto-*.dll"
   )
+  if (_openssl_runtime_dlls)
+    install (FILES ${_openssl_runtime_dlls}
+      DESTINATION ${CMAKE_INSTALL_BINDIR}
+      #COMPONENT runtime
+    )
+  else ()
+    message (WARNING
+      "OpenSSL runtime DLLs not found at ${_openssl_msys_prefix}/bin — "
+      "TLS features (SuperFox, Update Hamlib, LotW, eQSL) will fail on "
+      "installs without OpenSSL in PATH."
+    )
+  endif ()
 endif (WIN32)
 
 #

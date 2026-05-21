@@ -26,5 +26,6 @@ module jttycom
   character*4 mygrid
   character*4 exch
   character*80 txmsg
+  save iwave,y1,y2
 
 end module jttycom

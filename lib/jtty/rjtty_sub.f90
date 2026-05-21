@@ -19,6 +19,7 @@ subroutine rjtty_sub(iwave,kz,nsps,f0,ftol)
      kchar=0
      synced=.false.
      ndtol=0
+     nslots=0
      go to 999
   endif
   if(kz-istart+1 .lt. nchunk) return      ! wait for enough data

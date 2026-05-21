@@ -62,7 +62,6 @@ set (UG_SRCS
   tutorial-wide-graph-settings.adoc
   utilities.adoc
   vhf-features.adoc
-  wsjtx_improved.adoc
   wsjtx-main.adoc
   wspr.adoc
   )

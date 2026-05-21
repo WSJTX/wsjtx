@@ -18,7 +18,7 @@ class Cloudlog final
   Q_OBJECT
 
 public:
-  explicit Cloudlog (Configuration const *, QNetworkAccessManager *, QObject * parent = 0);
+  explicit Cloudlog (Configuration const * config, QObject * parent = nullptr);
   ~Cloudlog ();
 
   void logQso(QByteArray ADIF);

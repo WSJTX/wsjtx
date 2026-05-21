@@ -80,7 +80,7 @@ contains
       data rvec/0,1,0,0,1,0,1,0,0,1,0,1,1,1,1,0,1,0,0,0,1,0,0,1,1,0,1,1,0, &
          1,0,0,1,0,1,1,0,0,0,0,1,0,0,0,1,0,1,0,0,1,1,1,1,0,0,1,0,1, &
          0,1,0,1,0,1,1,0,1,1,1,1,1,0,0,0,1,0,1/
-      save fs,dt,tt,txt,twopi,h,first,apbits,nappasses,naptypes, &
+      save dd,fs,dt,tt,txt,twopi,h,first,apbits,nappasses,naptypes, &
          mycall0,hiscall0,ctwk2
 
       this%callback => callback

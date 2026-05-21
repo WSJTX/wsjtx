@@ -19,9 +19,9 @@ namespace
   // char const * const wsprNetUrl = "http://127.0.0.1/post?";
 };
 
-EQSL::EQSL(QNetworkAccessManager * manager, QObject *parent)
+EQSL::EQSL(QObject *parent)
   : QObject{parent}
-  , networkManager {manager}
+  , networkManager {new QNetworkAccessManager(this)}
   , uploadTimer {new QTimer {this}}
   , m_in_progress {false}
 {

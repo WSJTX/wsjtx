@@ -92,7 +92,7 @@ to compress the spectral display.
 - *Gain* and *Zero* sliders control scaling and offset of plotted
 spectra.
 
-- Check *Baseline* to display a fitted basline for the Echo spectrum.
+- Check *Baseline* to display a fitted baseline for the Echo spectrum.
 
 - *Smooth* values greater than 0 apply running averages to the plotted
 spectra, thereby smoothing the curves over multiple bins.
