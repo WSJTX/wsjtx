@@ -36,6 +36,7 @@ void jtty_get_msgs_(float* f0, float* ftol, bool* all_new, bool* qso_new,
                     float xjunk[], float wave[], int* icmplx, int* nwave);
 }
 
+#ifdef WIN32
 static QString append_separator(QString message) {
     if (!message.isEmpty()) {
         QChar lastChar = message.at(message.length() - 1);
@@ -45,6 +46,7 @@ static QString append_separator(QString message) {
     }
     return message;
 }
+#endif
 
 void MainWindow::jtty_save_wav()
 {

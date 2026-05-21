@@ -495,8 +495,9 @@ private slots:
   void on_rbEchoCW_toggled(bool b);
   void on_leEchoMessage_textChanged();
   void on_pbSendMessage_clicked();
-
+#ifdef WIN32
   void logText(const QString &text);
+#endif
 
 private:
   bool isFalseDecode(const QByteArray& line, const DecodedText& dt, const QString& msg0) const;
