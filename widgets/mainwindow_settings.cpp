@@ -18,7 +18,7 @@
 #include <QMessageBox>
 #include <QAudioOutput>
 
-extern dec_data_t dec_data;
+extern dec_data_t& dec_data;
 extern int outBufSize;
 extern bool blocked;
 extern int m_TxFreqFox;

@@ -114,7 +114,7 @@ namespace
 extern "C" {
   void   fil4_(qint16*, qint32*, qint16*, qint32*, short int*);
 }
-extern dec_data dec_data;
+extern dec_data_t& dec_data;
 
 extern float gran();		// Noise generator (for tests only)
 

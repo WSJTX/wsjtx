@@ -14,7 +14,7 @@
 #endif
 
 
-extern dec_data_t dec_data;
+extern dec_data_t& dec_data;
 
 #if QT_VERSION >= QT_VERSION_CHECK (5, 13, 0)
 #define SkipEmptyParts Qt::SkipEmptyParts
