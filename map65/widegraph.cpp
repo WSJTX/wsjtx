@@ -1,6 +1,13 @@
 #include "widegraph.h"
-#include <QSettings>
+#include <algorithm>
+#include <QCheckBox>
+#include <QDateTime>
+#include <QHBoxLayout>
 #include <QMessageBox>
+#include <QPushButton>
+#include <QSettings>
+#include <QSpinBox>
+#include <QVBoxLayout>
 #include "SettingsGroup.hpp"
 #include "ui_widegraph.h"
 
@@ -49,6 +56,81 @@ WideGraph::WideGraph (QString const& settings_filename, QWidget * parent)
   ui->fCenterLineEdit->setText(QString::number(m_dForceCenterFreq));
   m_bLockTxRx=settings.value("LockTxRx",false).toBool();
   ui->cbLockTxRx->setChecked(m_bLockTxRx);
+
+  // Decoded-callsign overlay (N6NU 2026-05-12). Mirrors QMAP feature.
+  // INI keys: WideGraph/decode_labels_enabled (default true),
+  //           WideGraph/decode_label_periods (default 5).
+  m_decodeLabelsEnabled = settings.value("decode_labels_enabled", true).toBool();
+  m_decodeLabelPeriods  = settings.value("decode_label_periods", 5).toInt();
+  if (m_decodeLabelPeriods < 1)  m_decodeLabelPeriods = 1;
+  if (m_decodeLabelPeriods > 60) m_decodeLabelPeriods = 60;
+  connect(&m_ageTimer, &QTimer::timeout, this, &WideGraph::ageDecodeLabels);
+  m_ageTimer.start(1000);   // 1 Hz prune
+
+  // -- Decoded-callsign overlay controls -- QMAP port (DG2YCB 2026-05-13)
+  // Three widgets appended to the existing horizontalLayout_3 row
+  // (FreqSpan / WaterfallAvg / etc.) so they share the same line:
+  //   [? Show callsigns]  [age N x TR]  [Clear]
+  // Persisted to the .ini under [WideGraph]/{decode_labels_enabled,
+  // decode_label_periods}.
+  {
+    auto* showCb = new QCheckBox("Show callsigns", this);
+    showCb->setObjectName("decodeLabelShowCb");
+    showCb->setChecked(m_decodeLabelsEnabled);
+    showCb->setToolTip("Overlay decoded callsigns on the waterfall at "
+                       "their decoded frequency. Q65 labels render "
+                       "yellow, JT65 labels cyan. Uncheck to hide all "
+                       "labels (existing entries are cleared).");
+    connect(showCb, &QCheckBox::toggled,
+            this, &WideGraph::setDecodeLabelsEnabled);
+    // Keep the row checkbox in sync when the View-menu mirror flips it.
+    connect(this, &WideGraph::decodeLabelsEnabledChanged,
+            showCb, &QCheckBox::setChecked);
+
+    auto* ageSpin = new QSpinBox(this);
+    ageSpin->setObjectName("decodeLabelAgeSpin");
+    ageSpin->setRange(1, 30);
+    ageSpin->setValue(m_decodeLabelPeriods);
+    ageSpin->setSuffix(" x TR");
+    ageSpin->setToolTip("How many TR periods a decoded callsign label "
+                        "stays on the waterfall after its last fresh "
+                        "decode. Default 5 = 5 minutes for Q65-60.");
+    connect(ageSpin, QOverload<int>::of(&QSpinBox::valueChanged),
+            this, [this](int v) {
+                m_decodeLabelPeriods = v;
+                ageDecodeLabels();   // immediate sweep with new lifetime
+            });
+
+    auto* clearBtn = new QPushButton("Clear", this);
+    clearBtn->setObjectName("decodeLabelClearBtn");
+    clearBtn->setToolTip("Remove all decoded callsign labels from the "
+                         "waterfall. Existing decodes will re-appear "
+                         "if MAP65 decodes them again.");
+    connect(clearBtn, &QPushButton::clicked, this, [this]() {
+        m_decodeLabels.clear();
+        if (ui && ui->widePlot) ui->widePlot->setDecodeLabels(m_decodeLabels);
+    });
+
+    // Insert into the existing controls row (horizontalLayout_3) just
+    // before its trailing stretch, so the new widgets share the line
+    // with FreqSpan/WaterfallAvg instead of wrapping below.
+    if (auto* row = findChild<QHBoxLayout*>("horizontalLayout_3")) {
+      row->addWidget(showCb);
+      row->addWidget(ageSpin);
+      row->addWidget(clearBtn);
+    } else {
+      // Fallback: own row appended to inner verticalLayout.
+      auto* row2 = new QHBoxLayout;
+      row2->setContentsMargins(0, 0, 0, 0);
+      row2->addWidget(showCb);
+      row2->addWidget(ageSpin);
+      row2->addWidget(clearBtn);
+      row2->addStretch();
+      if (auto* inner = findChild<QVBoxLayout*>("verticalLayout")) {
+        inner->addLayout(row2);
+      }
+    }
+  }
 }
 
 WideGraph::~WideGraph()
@@ -83,6 +165,75 @@ void WideGraph::saveSettings()
   settings.setValue("ForceCenterFreqBool",m_bForceCenterFreq);
   settings.setValue("ForceCenterFreqMHz",m_dForceCenterFreq);
   settings.setValue("LockTxRx",m_bLockTxRx);
+  settings.setValue("decode_labels_enabled", m_decodeLabelsEnabled);
+  settings.setValue("decode_label_periods",  m_decodeLabelPeriods);
+}
+
+void WideGraph::addDecodeLabel(double freq_khz, const QString& callsign,
+                               bool is_jt65, bool mode_reliable)
+{
+  if (callsign.isEmpty()) return;
+  if (!m_decodeLabelsEnabled) return;
+  const qint64 now = QDateTime::currentMSecsSinceEpoch();
+  for (auto& lab : m_decodeLabels) {
+    if (lab.callsign == callsign) {
+      lab.last_seen_ms = now;
+      lab.freq_khz     = freq_khz;
+      // Only overwrite the mode flag when the caller knows for sure.
+      // The "&" bandmap-line tap has no cmode in its payload, so it
+      // would otherwise stomp on an authoritative JT65 mark from the
+      // "!" decoder tap and flip the label color.
+      if (mode_reliable) lab.is_jt65 = is_jt65;
+      ++lab.hits;
+      if (ui && ui->widePlot) ui->widePlot->setDecodeLabels(m_decodeLabels);
+      return;
+    }
+  }
+  if (m_decodeLabels.size() >= kDecodeLabelMax) {
+    m_decodeLabels.removeFirst();
+  }
+  m_decodeLabels.append(DecodeLabel{freq_khz, callsign, now, 1, is_jt65});
+  if (ui && ui->widePlot) ui->widePlot->setDecodeLabels(m_decodeLabels);
+}
+
+void WideGraph::clearDecodeLabels()
+{
+  if (m_decodeLabels.isEmpty()) return;
+  m_decodeLabels.clear();
+  if (ui && ui->widePlot) ui->widePlot->setDecodeLabels(m_decodeLabels);
+}
+
+void WideGraph::ageDecodeLabels()
+{
+  if (m_decodeLabels.isEmpty()) return;
+  const double trp = (m_TRperiod > 0) ? m_TRperiod : 60.0;
+  const qint64 ttl_ms = static_cast<qint64>(trp * m_decodeLabelPeriods * 1000.0);
+  const qint64 cutoff = QDateTime::currentMSecsSinceEpoch() - ttl_ms;
+  const int    before = m_decodeLabels.size();
+  m_decodeLabels.erase(
+      std::remove_if(m_decodeLabels.begin(), m_decodeLabels.end(),
+                     [cutoff](const DecodeLabel& l) {
+                         return l.last_seen_ms < cutoff;
+                     }),
+      m_decodeLabels.end());
+  if (m_decodeLabels.size() != before && ui && ui->widePlot) {
+    ui->widePlot->setDecodeLabels(m_decodeLabels);
+  }
+}
+
+void WideGraph::setDecodeLabelsEnabled(bool on)
+{
+  if (m_decodeLabelsEnabled == on) return;
+  m_decodeLabelsEnabled = on;
+  if (!on) {
+    m_decodeLabels.clear();
+    if (ui && ui->widePlot) ui->widePlot->setDecodeLabels(m_decodeLabels);
+  }
+  // Persist immediately so the choice survives a crash before saveSettings runs.
+  QSettings settings {m_settings_filename, QSettings::IniFormat};
+  SettingsGroup g {&settings, "WideGraph"};
+  settings.setValue("decode_labels_enabled", on);
+  emit decodeLabelsEnabledChanged(on);
 }
 
 void WideGraph::dataSink2(float s[], int nkhz, int ihsym, int ndiskdata,

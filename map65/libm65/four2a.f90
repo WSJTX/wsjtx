@@ -40,8 +40,9 @@ contains
     save plan, nplan, nn, ns, nf, nl
     data nplan / 0 /
 
-    ! Mark unused dummy to silence warnings
-    if (.false.) print *, ndim
+    integer :: dummy_unused
+    dummy_unused = ndim
+
 
     !==== Early exit: destroy all plans =======================================
     if (nfft < 0) then

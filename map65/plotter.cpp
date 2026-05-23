@@ -1,6 +1,10 @@
 #include "plotter.h"
 #include <math.h>
+#include <algorithm>
 #include <QDebug>
+#include <QFont>
+#include <QFontMetrics>
+#include <QPainter>
 #include <fstream>
 #include <iostream>
 #include <iterator>   
@@ -170,6 +174,11 @@ void CPlotter::paintEvent(QPaintEvent *)                    // paintEvent()
   QRect target2(0,h+60,w,h);           // (x,y,width,height)
   QRect source2(0,0,w,h);
   painter.drawPixmap(target2,m_ZoomWaterfallPixmap,source2);
+  // Decoded-callsign overlay — rendered last so labels sit on top of
+  // the upper waterfall pixmap. WideGraph maintains the list lifecycle.
+  if (!m_decodeLabels.isEmpty()) {
+    paintDecodeLabels(painter);
+  }
   m_paintEventBusy=false;
 }
 
@@ -818,6 +827,66 @@ void CPlotter::mouseMoveEvent (QMouseEvent * event)
 double CPlotter::rxFreq()
 {
   return floor(static_cast<int>(getFcenter())) + 0.001*m_fQSO + 0.000001*m_DF;
+}
+
+void CPlotter::setDecodeLabels(const QList<DecodeLabel>& labels)
+{
+  m_decodeLabels = labels;
+  update();
+}
+
+void CPlotter::paintDecodeLabels(QPainter& painter)
+{
+  // Sort left-to-right so the stacking pass below assigns rows in
+  // order of x-position. Same pattern as the QMAP/WSJT-X overlay.
+  QList<DecodeLabel> sorted = m_decodeLabels;
+  std::sort(sorted.begin(), sorted.end(),
+            [this](const DecodeLabel& a, const DecodeLabel& b) {
+                return XfromFreq(static_cast<float>(a.freq_khz))
+                     < XfromFreq(static_cast<float>(b.freq_khz));
+            });
+
+  QFont font("Arial", 9, QFont::Bold);
+  painter.setFont(font);
+  QFontMetrics metrics(font);
+  const int row_height = metrics.height() + 1;
+
+  // Up to 5 stack rows — MAP65's wideband span typically shows fewer
+  // simultaneous decoded stations than FT8 so 5 is plenty.
+  constexpr int max_rows = 5;
+  constexpr int waterfall_top_y = 30;
+  int row_right_edge[max_rows];
+  for (int i = 0; i < max_rows; ++i) row_right_edge[i] = -1000;
+
+  for (const auto& l : sorted) {
+    const int x = XfromFreq(static_cast<float>(l.freq_khz));
+    const int text_w = metrics.horizontalAdvance(l.callsign);
+    const int rect_w = text_w + 4;
+    const int rect_x = x - rect_w / 2;
+
+    int row = 0;
+    for (; row < max_rows; ++row) {
+      if (rect_x > row_right_edge[row] + 4) break;
+    }
+    if (row >= max_rows) continue;
+    row_right_edge[row] = rect_x + rect_w;
+
+    const int y_top = waterfall_top_y + row * row_height;
+    const QRect rect(rect_x, y_top, rect_w, row_height);
+    painter.fillRect(rect, QColor(0, 0, 0, 180));
+    // DG2YCB 2026-05-13 round 2: orange+yellow read as "both red/orange"
+    // on his display. Move JT65 to cyan — opposite hue from Q65 yellow,
+    // still legible on the dark waterfall. Q65 stays yellow to match
+    // the QMAP wide-mode overlay.
+    const QColor mode_col = l.is_jt65 ? QColor(  0, 255, 255)   // cyan   (JT65)
+                                      : QColor(255, 255,   0);  // yellow (Q65)
+    const QColor tick_col = l.is_jt65 ? QColor(  0, 255, 255, 220)
+                                      : QColor(255, 255,   0, 200);
+    painter.setPen(tick_col);
+    painter.drawLine(x, y_top + row_height, x, y_top + row_height + 4);
+    painter.setPen(mode_col);
+    painter.drawText(rect, Qt::AlignHCenter | Qt::AlignVCenter, l.callsign);
+  }
 }
 
 double CPlotter::txFreq()

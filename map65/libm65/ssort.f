@@ -35,8 +35,8 @@ c            = -2  means sort x in decreasing order and carry y along.
 c
       kk = abs(kflag)
       if (kk.ne.1 .and. kk.ne.2) then
-         print *,
-     +      'the sort control parameter, k, is not 2, 1, -1, or -2.'
+  !       print *,
+  !   +      'the sort control parameter, k, is not 2, 1, -1, or -2.'
          return
       endif
 c

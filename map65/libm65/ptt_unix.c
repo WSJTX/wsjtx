@@ -79,10 +79,11 @@ static int fd = -1;
 
 int ptt_(int *nport, int *ntx, int *iptt)
 {
-    ptt_log("ptt_unix: entry nport=%d ntx=%d iptt=%d", *nport, *ntx, *iptt);
+	(void)nport;
+//    ptt_log("ptt_unix: entry nport=%d ntx=%d iptt=%d", *nport, *ntx, *iptt);
 
     // PTT disabled
-    if (*nport == 0 || !ptt_override_valid) {
+    if (!ptt_override_valid) {
     *iptt=*ntx;
     return 0;
   }
@@ -93,12 +94,19 @@ int ptt_(int *nport, int *ntx, int *iptt)
     if (fd < 0) {
         fd = open(ptt_port, O_RDWR | O_NONBLOCK);
         if (fd < 0) {
-            ptt_log("ptt_unix: open failed errno=%d (%s)", errno, strerror(errno));
+//        ptt_log("ptt_unix: open failed errno=%d (%s)", errno, strerror(errno));
             return 1;
   }
-        ptt_log("ptt_unix: open OK fd=%d", fd);
-    }
+//    ptt_log("ptt_unix: open OK fd=%d", fd);
 
+    // *** PATCH: Force RTS+DTR LOW immediately after open ***
+    int status = 0;
+    if (ioctl(fd, TIOCMGET, &status) == 0) {
+        status &= ~(TIOCM_RTS | TIOCM_DTR);
+        ioctl(fd, TIOCMSET, &status);
+//        ptt_log("ptt_unix: forced RTS/DTR LOW after open, status=0x%x", status);
+    }
+    }
       ptt_serial(fd, ntx, iptt);
     return 0;
     }
@@ -114,28 +122,29 @@ int ptt_(int *nport, int *ntx, int *iptt)
  * iptt		- pointer to fortran command status on or off
  */
 
+
 int
 ptt_serial(int fd, int *ntx, int *iptt)
 {
 int status;
+
 if (ioctl(fd, TIOCMGET, &status) < 0) {
-    ptt_log("TIOCMGET failed errno=%d (%s)", errno, strerror(errno));
+//    ptt_log("TIOCMGET failed errno=%d (%s)", errno, strerror(errno));
     return 1;
 }
 
-// Use DTR for Yaesu PTT
   if(*ntx) {
-    status |= TIOCM_DTR;   // PTT ON
+    status |= (TIOCM_RTS | TIOCM_DTR);   // PTT ON
   } else {
-    status &= ~TIOCM_DTR;  // PTT OFF
+    status &= ~(TIOCM_RTS | TIOCM_DTR);  // PTT OFF
 }
 
 if (ioctl(fd, TIOCMSET, &status) < 0) {
-    ptt_log("TIOCMSET failed errno=%d (%s)", errno, strerror(errno));
+//    ptt_log("TIOCMSET failed errno=%d (%s)", errno, strerror(errno));
     return 1;
 }
 
-ptt_log("TIOCMSET OK status=0x%x", status);
+//ptt_log("TIOCMSET OK status=0x%x", status);
 *iptt = *ntx;
 return 0;
 
@@ -146,7 +155,7 @@ void ptt_close(void)
     if (fd >= 0) {
         close(fd);
         fd = -1;
-        ptt_log("ptt_unix: closed fd");
+//        ptt_log("ptt_unix: closed fd");
     }
 }
 

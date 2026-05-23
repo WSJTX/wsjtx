@@ -1,7 +1,5 @@
 #ifndef PSK_REPORTER_HPP_
 #define PSK_REPORTER_HPP_
-#include <boost/log/sources/severity_channel_logger.hpp>   
-#include <boost/log/trivial.hpp>
 
 #include <QObject>
 #include <QTimer>
@@ -77,19 +75,6 @@ private slots:
   void sendData(const QByteArray &payload);
 
 private:
-  #ifdef Q_OS_MACOS
-    // Disable Boost.Log on macOS (crashes during default sink init)
-    #define M65_LOG(sev) if (true) {} else std::cerr
-#else
-    using logger_type = boost::log::sources::severity_channel_logger_mt<
-        boost::log::trivial::severity_level
-    >;
-
-    #define M65_LOG(sev) BOOST_LOG_SEV(logger_, sev)
-#endif
-#ifndef Q_OS_MACOS
-    logger_type logger_;
-#endif
   QString myCall;
   QString myGrid;  
   quint32 sequence_number_; 

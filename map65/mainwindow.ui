@@ -1341,6 +1341,8 @@ p, li { white-space: pre-wrap; }
     <addaction name="actionWide_Waterfall"/>
     <addaction name="separator"/>
     <addaction name="menuWaterfall_palette"/>
+    <addaction name="separator"/>
+    <addaction name="actionShow_callsigns_on_Waterfall"/>
    </widget>
    <widget class="QMenu" name="menuDecode">
     <property name="title">
@@ -1450,6 +1452,20 @@ p, li { white-space: pre-wrap; }
   <action name="actionWide_Waterfall">
    <property name="text">
     <string>Wide Waterfall</string>
+   </property>
+  </action>
+  <action name="actionShow_callsigns_on_Waterfall">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Show callsigns on Waterfall</string>
+   </property>
+   <property name="toolTip">
+    <string>Toggle the decoded-callsign overlay on the wide waterfall. Default ON. Persists across launches.</string>
    </property>
   </action>
   <action name="actionOpen">

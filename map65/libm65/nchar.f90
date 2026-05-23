@@ -16,7 +16,7 @@ contains
     else if(c.ge.' ') then
        n=36
     else
-       Print*,'Invalid character in callsign ',c,' ',ichar(c)
+      ! Print*,'Invalid character in callsign ',c,' ',ichar(c)
        stop 1
     endif
     nchar=n

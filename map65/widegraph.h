@@ -2,6 +2,11 @@
 #define WIDEGRAPH_H
 
 #include <QDialog>
+#include <QList>
+#include <QString>
+#include <QTimer>
+
+#include "decode_label.h"
 
 namespace Ui {
   class WideGraph;
@@ -38,15 +43,35 @@ public:
   void   updateFreqLabel();
   void   enableSetRxHardware(bool b);
 
+  // Decoded-callsign overlay (N6NU 2026-05-12, port of QMAP feature).
+  // mainwindow calls addDecodeLabel for each decoded line (after
+  // parsing the freq + sender callsign out of the "!"-prefix line);
+  // the list ages out after m_decodeLabelPeriods × TR period of no
+  // refresh and gets pushed to the plotter for rendering.
+  // mode_reliable=false: caller has no authoritative mode (e.g. "&"
+  // bandmap line, where display.f90 writes no cmode). On dedup, the
+  // existing label's is_jt65 is preserved. For brand-new labels the
+  // caller's is_jt65 is used as a best-guess seed.
+  void   addDecodeLabel(double freq_khz, const QString& callsign,
+                        bool is_jt65, bool mode_reliable = true);
+  void   clearDecodeLabels();
+  bool   decodeLabelsEnabled() const { return m_decodeLabelsEnabled; }
+  void   setDecodeLabelsEnabled(bool on);
+
   qint32 m_qsoFreq;
 
 signals:
   void freezeDecode2(int n);
   void f11f12(int n);
+  // Mirror toggle: WideGraph row checkbox ? MainWindow View menu.
+  void   decodeLabelsEnabledChanged(bool on);
 
 public slots:
   void wideFreezeDecode(int n);
   void initIQplus();
+
+private slots:
+  void ageDecodeLabels();
 
 protected:
   virtual void keyPressEvent( QKeyEvent *e );
@@ -84,6 +109,13 @@ private:
   qint32 m_fSample;
   qint32 m_mode65;
   qint32 m_TRperiod=60;
+
+  // Decoded-callsign overlay state.
+  QList<DecodeLabel> m_decodeLabels;
+  bool   m_decodeLabelsEnabled {true};
+  int    m_decodeLabelPeriods  {5};   // disappear after N×TRperiod of no decode
+  QTimer m_ageTimer;
+  static constexpr int kDecodeLabelMax = 200;
 };
 
 extern int set570(double freq_MHz);

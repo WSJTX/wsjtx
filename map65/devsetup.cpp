@@ -182,7 +182,7 @@ for (id = 0; id < numDevices; id++) {
   ui.pttComboBox->clear();
   ui.pttComboBox->addItem("NONE");
 
-  // unified cross‑platform enumeration
+  // unified cross-platform enumeration
   QStringList ports = enumeratePorts();
   for (auto const& p : ports)
       ui.pttComboBox->addItem(p);

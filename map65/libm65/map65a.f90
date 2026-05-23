@@ -17,7 +17,7 @@ contains
       use debug_log
       use q65b_mod
       use decode1a_mod
-      use ccf65_legacy_mod
+      use ccf65_mod
       use pctile_mod
       use stdout_channel_mod, only: write_stdout
       use decodes_mod, only: nhsym1, nhsym2, ldecoded, ndecodes, mcall3a, decodes_init
@@ -123,16 +123,6 @@ contains
          call timer('get_cand', 1)
          candec = .false.
       endif
-!###
-!  do k=1,ncand
-!     freq=cand(k)%f+nkhz_center-48.0
-!     ipk=cand(k)%indx
-!     write(71,3071) k,db(cand(k)%snr),freq,cand(k)%xdt,    &
-!          cand(k)%ipol,cand(k)%iflip,ipk,ldecoded(ipk)
-!3071 format(i3,f8.2,f10.3,f8.2,2i3,i6,L4)
-!  enddo
-!###
-
       nwrite_q65 = 0
       bq65 = mode_q65 .gt. 0
 
@@ -183,10 +173,6 @@ contains
          jpz = 1
          if (xpol) jpz = 4
 
-! First steps for JT65 decoding
-      !   open(unit=97, file='map65a_bins_all_MODERN.log', status='unknown', position='append')
-      !   open(unit=98, file='map65a_bins_accept_MODERN.log', status='unknown', position='append')
-
          do i = ia, ib                               !Search over freq range
             freq = 0.001*(i - 16385)*df
 !  Find the local base level for each polarization; update every 10 bins.
@@ -216,24 +202,13 @@ contains
                endif
             enddo
             
-          !  if (smax .gt. 1.08 .and. smax < 1.20) then
-          !    ! Log ALL bins for comparison (legacy + modern)
-          !    write(97,'(i10,1x,f10.3,1x,i4,1x,i4,1x,f8.3,1x,f10.1,1x,f10.1,1x,i6,1x,i4)') &
-          !         nutc, freq, nkv, km, smax, savg(jpmax,i), base(jpmax), i, jpmax
-          !  endif
- 
             if (smax .gt. 1.1 .or. ia .eq. ib) then
 
-          !  ! Log the values actually used by DECODE1A
-          !  write(98,'(i10,1x,f10.3,1x,i4,1x,i4,1x,f8.3,1x,f10.1,1x,f10.1,1x,i6,1x,i4)') &
-          !      nutc, freq, nkv, km, smax, savg(jpmax,i), base(jpmax), i, jpmax
-            
 !  Look for JT65 sync patterns and shorthand square-wave patterns.
                call timer('ccf65   ', 0)
                ssmax = 1.e30
-               call ccf65(ss(:,:,i), nhsym, ssmax, sync1, ipol, jpz, dt, &
-                          flipk, syncshort, snr2, ipol2, dt2)
-!###           if(dt.lt.-2.6 .or. dt.gt.2.5) sync1=-99.0  !###
+               call ccf65(ss(:,:,i), nhsym, ssmax, sync1, ipol, jpz, dt, flipk, &
+                  syncshort, snr2, ipol2, dt2)
                call timer('ccf65   ', 1)
                if (mode65 .eq. 0) syncshort = -99.0     !If "No JT65", don't waste time
 
@@ -333,20 +308,6 @@ contains
                                    ndphi, nutc, ikHz, idf, ipol, ntol, sync2, &
                                    a, dt, pol, nkv, nhist, nsum, nsave, qual, decoded)
                      call timer('decode1a', 1)
-                    ! ! ===== Minimal DECODE1A debug logging (modern only) =====
-                    !  if (mode65 .ne. 0) then
-                    !     if (decoded(1:1) .ne. ' ') then
-                    !        open(unit=99, file='DECODE1A_DEBUG.TXT', status='unknown', !position='append')
-                    !        write(99,'("DECODE1A: nutc=",I6.4," freq=",F10.3, &
-                    !          & " sync1=",F6.2," sync2=",F6.2, &
-                    !          & " nkv=",I2," km=",I4," smax=",F8.2," savg=",F10.2," base=",F10.2, &
-                    !          & " itest=",I6," jpmax=",I6," nhsym=",I6," decoded=",A22)') &
-                    !         nutc, freq, sync1, sync2, nkv, km, smax, savg(jpmax,i), base(jpmax), &
-                    !         i, jpmax, nhsym, decoded
-                    !        close(99)
-                    !     endif
-                    !  endif
-                    !  ! =========================================================
 
 ! The case sync1=2.0 is just to make sure decode1a is called and bigfft done.
                      if (mode65 .ne. 0 .and. sync1 .ne. 2.000000) then
@@ -379,10 +340,6 @@ contains
             endif
          enddo  !i=ia,ib
          
-      !   close(97)
-      !   close(98)
-
-
          if (nqd .eq. 1) then
             nwrite = 0
             if (mode65 .eq. 0) km = 0

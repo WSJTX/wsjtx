@@ -7,11 +7,16 @@
 #include <QApplication>
 #include <QCoreApplication>
 #include <QDir>
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 
 #include "revision_utils.hpp"
 #include "mainwindow.h"
 #include "fortran_mutex.hpp"
 
+#include <cstdio>
 
 extern "C" {
   // Fortran procedures we need
@@ -20,6 +25,20 @@ extern "C" {
 
 int main(int argc, char *argv[])
 {
+#ifdef _WIN32
+#  ifdef MAP_GUI_SUBSYSTEM
+    FreeConsole();
+#  endif
+#endif
+
+#ifdef _WIN32
+#  ifdef MAP_GUI_SUBSYSTEM
+#    pragma message("MAP_GUI_SUBSYSTEM is defined in C++")
+#  else
+#    pragma message("MAP_GUI_SUBSYSTEM is NOT defined in C++")
+#  endif
+#endif
+  
    // Add wsjtx's plugin directory so Qt can find "cocoa", imageformats, etc.
     QCoreApplication::addLibraryPath(
         QCoreApplication::applicationDirPath()
@@ -30,7 +49,7 @@ int main(int argc, char *argv[])
   
   // Override programs executable basename as application name.
   a.setApplicationName ("MAP65");
-  a.setApplicationVersion ("3.43");
+  a.setApplicationVersion ("3.5");
   // switch off as we share an Info.plist file with WSJT-X
   a.setAttribute (Qt::AA_DontUseNativeMenuBar);
   MainWindow w;
@@ -54,3 +73,4 @@ int main(int argc, char *argv[])
 
   return result;
 }
+

@@ -2,7 +2,9 @@
 #include "mainwindow.h"
 #include <fftw3.h>
 #include <QDir>
+#include <QRegularExpression>
 #include <QSettings>
+#include <QStringList>
 #include <QTimer>
 #include <QToolTip>
 #include "revision_utils.hpp"
@@ -58,7 +60,6 @@ extern "C" {
 #ifdef __unix__
 extern "C" void ptt_close(void);
 #endif
-
 
 #ifdef MessageBox
 #undef MessageBox
@@ -215,6 +216,17 @@ MainWindow::MainWindow(QWidget *parent) :
   connect(ui->decodedTextBrowser,SIGNAL(selectCallsign(bool)),this,
           SLOT(selectCall2(bool)));
 
+  // Callsign-overlay toggle (N6NU 2026-05-12, port of QMAP feature).
+  // View menu action ↔ WideGraph state, two-way mirror via signal.
+  if (m_wide_graph_window) {
+    ui->actionShow_callsigns_on_Waterfall->setChecked(
+        m_wide_graph_window->decodeLabelsEnabled());
+    connect(ui->actionShow_callsigns_on_Waterfall, &QAction::toggled,
+            m_wide_graph_window.data(), &WideGraph::setDecodeLabelsEnabled);
+    connect(m_wide_graph_window.data(), &WideGraph::decodeLabelsEnabledChanged,
+            ui->actionShow_callsigns_on_Waterfall, &QAction::setChecked);
+  }
+
   setWindowTitle (program_title ());
   qDebug() << "MAINWINDOW about to start soundInThread SIGNAL/SLOT connections";
 
@@ -347,8 +359,6 @@ MainWindow::MainWindow(QWidget *parent) :
   m_monitoring=true;                           // Start with Monitoring ON
   soundInThread.setMonitoring(m_monitoring);
   m_diskData=false;
-  m_tol=500;
-  m_wide_graph_window->setTol(m_tol);
   m_wide_graph_window->setFcal(m_fCal);
   if(m_fs96000) m_wide_graph_window->setFsample(96000);
   if(!m_fs96000) m_wide_graph_window->setFsample(95238);
@@ -581,9 +591,61 @@ if (t.indexOf("<QuickDecodeDone>") >= 0) {
 #ifdef WIN32
         m = 3;
 #endif
-        if (n >= 30 || t.indexOf("Best-fit") >= 0)  ui->decodedTextBrowser->append(t.mid(1, n - m));
+        const QString decode_line = t.mid(1, n - m);
+        if (n >= 30 || t.indexOf("Best-fit") >= 0)  ui->decodedTextBrowser->append(decode_line);
         int max = ui->decodedTextBrowser->verticalScrollBar()->maximum();
         ui->decodedTextBrowser->verticalScrollBar()->setValue(max);
+
+        // Callsign-overlay tap (N6NU 2026-05-13, DG2YCB feedback round 4).
+        // Two stdout-write paths for decodes (q65b.f90:227, map65a.f90:430)
+        // share enough format that we can parse them together:
+        //   JT65: ("!",I3,I5,I4,I6.4,F5.1,I5,1X,A1,1X,A22,I2,I5,I5,1X,A1)
+        //   Q65 : ("!",I3.3,I5,I4,I6.4,F5.1,I5," : ",A28,A3,I4,1X,A1)
+        // The Q65 line is the only one that contains a literal " : " — use
+        // that as the mode discriminator (right(2) does NOT work: both
+        // lines end in 1X+A1 = " cp", just a single status char).
+        //
+        // Q65 stdout writes are guarded by an in-tolerance-of-mouse check
+        // (q65b.f90:226), so most off-target Q65 decodes never reach this
+        // tap. The "&" bandmap handler below covers them as a fallback.
+        if (m_wide_graph_window) {
+            const QString trimmed = decode_line.trimmed();
+            const int sep         = decode_line.indexOf(" : ");
+            const bool is_jt65    = (sep < 0);  // " : " present ⇒ Q65
+
+            const QStringList all_cols = trimmed.split(
+                QRegularExpression("\\s+"),SkipEmptyParts);
+            double freq_khz = -1.0;
+            for (const QString& tok : all_cols) {
+                bool ok = false;
+                const double v = tok.toDouble(&ok);
+                if (ok && v >= 0 && v < 1000000.0) { freq_khz = v; break; }
+            }
+
+            QString body;
+            if (sep > 0) {
+                body = decode_line.mid(sep + 3).trimmed();
+            } else if (decode_line.size() > 31) {
+                body = decode_line.mid(31).trimmed();
+            }
+            const QStringList msg_cols = body.split(
+                QRegularExpression("\\s+"),SkipEmptyParts);
+            QString sender;
+            if (msg_cols.size() >= 2) {
+                if (msg_cols[0] == "CQ") {
+                    if (msg_cols.size() >= 3 && msg_cols[1] == "DX") sender = msg_cols[2];
+                    else                                              sender = msg_cols[1];
+                } else {
+                    sender = msg_cols[1];   // directed: TO_call FROM_call
+                }
+            }
+            static const QRegularExpression call_re(
+                "^[A-Z0-9]{1,3}[0-9][A-Z0-9]{0,3}[A-Z](/[A-Z0-9]+)?$");
+            if (freq_khz > 0 && !sender.isEmpty()
+                && call_re.match(sender.toUpper()).hasMatch()) {
+                m_wide_graph_window->addDecodeLabel(freq_khz, sender, is_jt65);
+            }
+        }
 
         // clear snapshots for this decode run, just like legacy
         m_messagesText.clear();
@@ -608,6 +670,26 @@ if (t.indexOf("<QuickDecodeDone>") >= 0) {
                 q = q.mid(1,4) + " *" + q.mid(5);
             }
             m_bandmapText += q;
+
+            // Fallback overlay tap (N6NU 2026-05-13, DG2YCB feedback r4).
+            // display.f90's freqcall has cfreq0//' '//callsign//"  " — no
+            // cmode byte (line3(k)(79:80) is the format's 2x padding, not
+            // a2). So we can't know the mode here. Seed with is_jt65=false
+            // (Q65 wins ties — JT65 already reached "!" earlier and seeded
+            // with the right mode), and pass mode_reliable=false so the
+            // existing label's mode isn't stomped on subsequent refreshes.
+            if (m_wide_graph_window) {
+                bool ok = false;
+                const double freq_khz = t.mid(1, 3).trimmed().toDouble(&ok);
+                static const QRegularExpression call_re(
+                    "^[A-Z0-9]{1,3}[0-9][A-Z0-9]{0,3}[A-Z](/[A-Z0-9]+)?$");
+                if (ok && freq_khz > 0
+                    && call_re.match(callsign.toUpper()).hasMatch()) {
+                    m_wide_graph_window->addDecodeLabel(
+                        freq_khz, callsign, /*is_jt65=*/false,
+                        /*mode_reliable=*/false);
+                }
+            }
         }
     }
 
@@ -703,6 +785,7 @@ void MainWindow::writeSettings()
   settings.setValue("w3szUrl",m_w3szUrl); //liveCQ
   settings.setValue("otherUrl",m_otherUrl); //liveCQ
   settings.setValue("spotPSK",m_spot_to_psk_reporter);
+  settings.setValue("FTol",m_tol);
 	settings.endGroup();
   }
   
@@ -825,6 +908,19 @@ void MainWindow::readSettings()
   m_w3szUrl=settings.value("w3szUrl",true).toBool();
   m_otherUrl=settings.value("otherUrl","").toString();
   m_spot_to_psk_reporter=settings.value("spotPSK",true).toBool();
+
+  m_tol=settings.value("FTol",500).toInt();
+  m_wide_graph_window->setTol(m_tol);
+  int i = 5;
+  if(m_tol==20) i=1;
+  if(m_tol==50) i=2;
+  if(m_tol==100) i=3;
+  if(m_tol==200) i=4;
+//  if(m_tol==500) i=5;
+  if(m_tol==1000) i=6;
+  ui->labTol1->setText(QString::number(m_tol));
+  ui->tolSpinBox->setValue(i);
+
   qDebug() << "In mainwindow m_spot_to_psk_reporter is: " << m_spot_to_psk_reporter;
 
   qDebug() << "In mainwindow m_modeTx is: " << m_modeTx;
@@ -1163,7 +1259,6 @@ void MainWindow::getfile(QString fname, bool xpol, int dbDgrd)
     }
 }
 
-
 void MainWindow::showSoundInError(const QString& errorMsg)
  {QMessageBox::critical(this, tr("Error in SoundIn"), errorMsg);}
 
@@ -1433,7 +1528,7 @@ void MainWindow::closeEvent(QCloseEvent *e)
     m_wide_graph_window->saveSettings();
 
     QFile quitFile(m_appDir + "/.quit");
-    quitFile.open(QFileDevice::ReadWrite);
+    (void)quitFile.open(QFileDevice::ReadWrite);
     setQuitID(quitFile.handle());
 
     if (m_astro_window) m_astro_window->close();
@@ -1530,6 +1625,9 @@ void MainWindow::on_actionOpen_triggered()                     //Open File
 {
   m_monitoring=false;
   soundInThread.setMonitoring(m_monitoring);
+  // Wipe waterfall callsign overlay so stale labels from the previous
+  // file (or live capture) don't linger over the new decode.
+  if (m_wide_graph_window) m_wide_graph_window->clearDecodeLabels();
   QString fname;
   if(m_xpol) {
     fname=QFileDialog::getOpenFileName(this, "Open File", m_path,
@@ -1567,6 +1665,7 @@ void MainWindow::on_actionOpen_next_in_directory_triggered()   //Open Next
     return; 
   } 
   m_decoderBusy = true;
+  if (m_wide_graph_window) m_wide_graph_window->clearDecodeLabels();
 
   int i,len;
   QFileInfo fi(m_path);

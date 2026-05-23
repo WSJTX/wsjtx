@@ -27,7 +27,6 @@
 #include <QRandomGenerator>
 #endif
 
-#include "../Logger.hpp"
 #include "devsetup.h"
 
 # define DEBUGPSK 1;
@@ -42,9 +41,6 @@ liveCQSender::liveCQSender(QString const& myCall,
                            QString const& myGrid,
                            QString const& theUrl)
     :
-#ifndef Q_OS_MACOS
-      logger_{ boost::log::keywords::channel = "PSKRPRT" },
-#endif
       m_myCall{myCall},
       m_myGrid{myGrid},
       m_theUrl{theUrl}

@@ -43,28 +43,28 @@ subroutine run_m65(pol, sample_rate_96000) bind(C, name='run_m65_')
   write (line, '(A, I0)') ' ********** IN RUN_M65 sample_rate is: ', sample_rate
   call write_stdout(trim(line)//new_line('a'))
 
-  if (.not. associated(savg)) then
-     print *, 'ERROR:RUN_M65 savg is not associated!'
-  else
-     print *, 'RUN_M65 savg is associated. Shape =', shape(savg), " loc:", loc(savg)
-  end if
+!  if (.not. associated(savg)) then
+  !   print *, 'ERROR:RUN_M65 savg is not associated!'
+!  else
+  !   print *, 'RUN_M65 savg is associated. Shape =', shape(savg), " loc:", loc(savg)
+!  end if
 
-  if (.not. associated(dd)) then
-     print *, 'ERROR: RUN_M65 dd is not associated!'
-  else
-     print *, 'RUN_M65 dd is associated. Shape =', shape(dd), " loc:", loc(dd)
-  end if
+!  if (.not. associated(dd)) then
+  !   print *, 'ERROR: RUN_M65 dd is not associated!'
+!  else
+  !   print *, 'RUN_M65 dd is associated. Shape =', shape(dd), " loc:", loc(dd)
+!  end if
 
-  if (.not. associated(ss)) then
-     print *, 'ERROR: RUN_M65 ss is not associated!'
-  else
-     print *, 'RUN_M65 ss is associated. Shape =', shape(ss), " loc:", loc(ss)
-  end if
+!  if (.not. associated(ss)) then
+  !   print *, 'ERROR: RUN_M65 ss is not associated!'
+!  else
+  !   print *, 'RUN_M65 ss is associated. Shape =', shape(ss), " loc:", loc(ss)
+!  end if
 
-  print *, ' ********** IN RUN_M65 sample_rate_96000 is: ', sample_rate
-  flush (6)
-  print *, ' ********** IN RUN_M65 pol is: ', pol
-  flush (6)
+!  print *, ' ********** IN RUN_M65 sample_rate_96000 is: ', sample_rate
+!  flush (6)
+!  print *, ' ********** IN RUN_M65 pol is: ', pol
+!  flush (6)
 
   !print *, 'IN RUN_M65, initial stop_m65 =', stop_m65
   !flush(6)
@@ -100,8 +100,8 @@ call sleep_msec(50)
 ! stop_m65 = .true.
   end do
 
-  print *, 'RUN_M65 exiting main loop.'
-  flush (6)
+!  print *, 'RUN_M65 exiting main loop.'
+!  flush (6)
   call fini_timer()
   close(21)
 

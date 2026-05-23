@@ -67,7 +67,7 @@ subroutine set_quitid(val) bind(C, name="set_quitid")
     use iso_c_binding
     integer(c_long_long), value :: val
     quitid = val
-    print*,'DATCOM_PTRS_MOD QUITID is:',quitid
+    ! print*,'DATCOM_PTRS_MOD QUITID is:',quitid
   end subroutine
 
   subroutine set_junk1(val) bind(C, name="set_junk1")

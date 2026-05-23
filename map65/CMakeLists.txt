@@ -95,9 +95,14 @@ target_link_libraries(map65 PRIVATE
 #    target_link_libraries(map65 PRIVATE ${LIBUSB_LIBRARIES})
 # endif()
 
-# Windows-only WinMain flag
-  if (WSJT_CREATE_WINMAIN)
-    set_target_properties (map65 PROPERTIES WIN32_EXECUTABLE ON)
+# MAP65 must ALWAYS be a console subsystem executable on Windows
+if (WIN32)
+  set_target_properties(map65 PROPERTIES WIN32_EXECUTABLE OFF)
+endif()
+
+# WSJT_CREATE_WINMAIN now ONLY controls console visibility
+if (WIN32 AND WSJT_CREATE_WINMAIN)
+  target_compile_definitions(map65 PRIVATE MAP_GUI_SUBSYSTEM)
   endif()
 
 # Create wsjtx_dir.txt on all platforms

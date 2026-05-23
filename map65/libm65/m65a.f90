@@ -32,15 +32,15 @@ subroutine m65a()
   call ftninit(trim(cwd))
   
   if (.not. associated(savg)) then
-    print *, 'ERROR:M65A savg is not associated!'
+  !  print *, 'ERROR:M65A savg is not associated!'
   end if
   
   if (.not. associated(dd)) then
-    print *, 'ERROR: M65A dd is not associated!'
+  !  print *, 'ERROR: M65A dd is not associated!'
   end if
   
   if (.not. associated(ss)) then
-    print *, 'ERROR: M65A ss is not associated!'
+  !  print *, 'ERROR: M65A ss is not associated!'
   end if
       
   call m65c()

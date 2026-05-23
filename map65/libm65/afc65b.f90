@@ -99,7 +99,7 @@ subroutine afc65b(cx,cy,npts,fsample,nflip,ipol,xpol,ndphi,a,ccfbest,dtbest)
   if (nint(a(4)) == 180) a(4) = 0.0
 
   if (a(4) < 0.0 .or. a(4) >= 180.0) then
-     print *, 'afc65b: bad a(4) after wrap, set to 0. was ', a(4)
+     ! print *, 'afc65b: bad a(4) after wrap, set to 0. was ', a(4)
      a(4) = 0.0
   endif
 

@@ -32,7 +32,6 @@
 #include <QRandomGenerator>
 #endif
 
-#include "../Logger.hpp"
 #include "devsetup.h"
 
 //#define DEBUGECLIPSE 0
@@ -58,9 +57,6 @@ static int removed;
 
 PSKReporter::PSKReporter(QString const& myCall, QString const& myGrid, QString const& program_info)  
     : 
-#ifndef Q_OS_MACOS
-      logger_{ boost::log::keywords::channel = "PSKRPRT" },
-#endif
     myCall {myCall},
      myGrid {myGrid},
      sequence_number_ {0u},
