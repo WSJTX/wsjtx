@@ -1661,9 +1661,9 @@ else (${OPENMP_FOUND} OR APPLE)
   target_link_libraries (jt9 wsjt_fort wsjt_cxx fort_qt)
 endif (${OPENMP_FOUND} OR APPLE)
 
-# w3sz if (WIN32)
+# if (NOT APPLE)
   find_package (Portaudio REQUIRED)
-# w3sz endif ()
+# endif (NOT APPLE)
     add_subdirectory (map65)
   add_subdirectory (qmap)
 

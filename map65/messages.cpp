@@ -434,27 +434,35 @@ void Messages::sendPSKReporterData(QStringList decodeList) {
         QTime time2(h, m, s);
         QDateTime qSpotTime;
         if (sTime + m_TRperiod < 236000) {
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-          qSpotTime = QDateTime(QDateTime::currentDateTimeUtc().date(),
-                                time2,
-                                QTimeZone::UTC);
-#else
-          qSpotTime = QDateTime(QDateTime::currentDateTimeUtc().date(),
-                                time2,
-                                Qt::UTC);
-#endif 
+      #if QT_VERSION >= QT_VERSION_CHECK(6, 6, 0)
+          qSpotTime = QDateTime(
+              QDateTime::currentDateTimeUtc().date(),
+              time2,
+              QTimeZone::UTC
+          );
+      #else
+          qSpotTime = QDateTime(
+              QDateTime::currentDateTimeUtc().date(),
+              time2,
+              Qt::UTC
+          );
+      #endif
         }
         else {
-          #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-          qSpotTime = QDateTime((QDateTime::currentDateTimeUtc().addDays(-1)).date(),
-                                time2,
-                                QTimeZone::UTC);
-#else
-          qSpotTime = QDateTime((QDateTime::currentDateTimeUtc().addDays(-1)).date(),
-                                time2,
-                                Qt::UTC);
-#endif 
-        }            
+      #if QT_VERSION >= QT_VERSION_CHECK(6, 6, 0)
+          qSpotTime = QDateTime(
+              QDateTime::currentDateTimeUtc().addDays(-1).date(),
+              time2,
+              QTimeZone::UTC
+          );
+      #else
+          qSpotTime = QDateTime(
+              QDateTime::currentDateTimeUtc().addDays(-1).date(),
+              time2,
+              Qt::UTC
+          );
+      #endif
+    }            
         
         // Handle CQ CALL but NO GRID -- dot at 7
       if(thePostLine.at(7).contains(".")) {
