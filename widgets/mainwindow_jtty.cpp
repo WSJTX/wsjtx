@@ -112,7 +112,6 @@ void MainWindow::jtty_tx(QString message)
     m_jttyQueue = new JttyTxQueue(this);
     connect(m_jttyQueue, &JttyTxQueue::transmitMessage, this, &MainWindow::execute_jtty_tx);
     connect(m_jttyQueue, &JttyTxQueue::stopTransmit, this, &MainWindow::stopJttyTxIfEmpty);
-    connect(m_jttyQueue, &JttyTxQueue::abortTransmit, this, &MainWindow::abort_jtty_tx);
   }
   m_jttyQueue->queueMessage(message);
 }

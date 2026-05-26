@@ -23,7 +23,6 @@ public slots:
 signals:
     void transmitMessage(const QString& message);
     void stopTransmit();
-    void abortTransmit();
 
 private slots:
     void onTxTimerTimeout();

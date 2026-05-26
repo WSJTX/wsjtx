@@ -64,7 +64,6 @@ void JttyTxQueue::clearQueue()
         if (m_txTimer.isActive()) {
             m_txTimer.stop();
         }
-        emit abortTransmit();
     }
 }
 
