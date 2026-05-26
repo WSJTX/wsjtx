@@ -83,11 +83,19 @@ contains
       type(decode)                   :: cand(MAXCAND)     !Candidates for decoding
       type(decode)                   :: dec               !Current successful decode
 
+      line=' '
+      xdt_qso=0.0
+      f1_qso=0.0
+      snr_qso=-99.0
+      nharderrors=-1
+      nsync=0
+      dmin=0.0
+      success=.false.
+
       if(istart.eq.1) then
          ndecodes=0
          nslots=0
       endif
-      success=.false.
       if(sum(abs(int(iwave))).eq.0) return
       if(f0+ftol.eq.-99.0) return               !Silence compiler warning of unused params
 
