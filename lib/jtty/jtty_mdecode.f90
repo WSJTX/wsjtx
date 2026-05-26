@@ -316,6 +316,7 @@ contains
                      endif
                   enddo
                   if(.not.match) then
+                     if(nslots .ge. MAX_SLOTS) cycle
                      nslots=nslots+1
                      slot(nslots)=dec
                      islot=nslots
