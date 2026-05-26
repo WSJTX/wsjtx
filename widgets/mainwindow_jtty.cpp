@@ -4,6 +4,7 @@
 #include "commons.h"
 #include "Audio/WavFile.hpp"
 #include "Logger.hpp"
+#include <QByteArray>
 #include <QtConcurrent/QtConcurrentRun>
 #include <iostream>
 
@@ -55,6 +56,12 @@ void MainWindow::jtty_save_wav()
 
 void MainWindow::jtty_decode(int k)
 {
+  auto boundedLatin1 = [] (char const *data, int size) {
+    QByteArray bytes {QByteArray::fromRawData(data, size)};
+    int const nul = bytes.indexOf('\0');
+    if (nul >= 0) bytes.truncate(nul);
+    return QString::fromLatin1(bytes.constData(), bytes.size());
+  };
   int nsps=384;
   char qso_freq[800];
   char all_freqs[2400];
@@ -68,7 +75,7 @@ void MainWindow::jtty_decode(int k)
   jtty_get_msgs_(&f0, &ftol, &all_new, &qso_new, &all_freqs[0],
                  &qso_freq[0], (FCL)2400, (FCL)800);
 
-  QString allMsgs {QString::fromLatin1(all_freqs)};
+  QString allMsgs {boundedLatin1(all_freqs, sizeof all_freqs)};
   if(ui->cbLowerCase->isChecked()) allMsgs = allMsgs.toLower();
   if(all_new) {
       ui->decodedTextBrowser->clear();
@@ -84,7 +91,7 @@ void MainWindow::jtty_decode(int k)
 #endif
   }
   if(qso_new) {
-      QString message2 {QString::fromLatin1(qso_freq)};
+      QString message2 {boundedLatin1(qso_freq, sizeof qso_freq)};
       if(ui->cbLowerCase->isChecked()) message2 = message2.toLower();
       int n2=message2.length();
       if(n2 > 0) {
