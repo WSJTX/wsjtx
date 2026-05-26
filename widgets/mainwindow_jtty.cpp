@@ -121,6 +121,7 @@ void MainWindow::execute_jtty_tx(QString message)
   int itone[848];
   int n=message.length();
   m_currentMessage = message;
+  bool const isTUMessage = message.left(3).compare("TU ", Qt::CaseInsensitive) == 0;
   if(ui->cbLowerCase->isChecked()) message = message.toLower();
 
   // Display Tx message highlighted in yellow
@@ -134,7 +135,7 @@ void MainWindow::execute_jtty_tx(QString message)
   format.setBackground(QBrush(QColor(Qt::white)));
   cursor.setCharFormat(format);
 
-  if(message.left(3) == "TU ") {
+  if(isTUMessage) {
     // ### Must send "sent" and "rcvd" info to logqso here. ###
     logQSOTimer.start(0);
     int nr = ui->sbSerialNumber_2->value();
