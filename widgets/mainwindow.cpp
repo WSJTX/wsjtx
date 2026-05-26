@@ -134,9 +134,6 @@ extern "C" {
               float s[], int* jh, float *pxmax, float *rmsNoGain, char line[],
               fortran_charlen_t, fortran_charlen_t, fortran_charlen_t, fortran_charlen_t);
 
-  void rjtty_sub_(short int d2[], int* k, int* nsps, float* f0, float* ftol,
-                  float* xdt, float* f1, float* snr, char line[], fortran_charlen_t);
-
   void genjtty_(char const * msg, int itone[], int* nsym, fortran_charlen_t);
 
   void gen_jttywave_(int itone[], int* nsym, int* nsps, float* bt, float* fsample, float* f0,
