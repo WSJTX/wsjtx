@@ -560,6 +560,13 @@ private:
   void execute_jtty_tx(QString message);
   void stopJttyTxIfEmpty();
   void abort_jtty_tx();
+  void completeJttyMessage();
+  void handleJttyModulatorIdle();
+  void handleJttyAudioOutputActive();
+  void handleJttyAudioOutputIdle();
+  void handleJttyTxWatchdog();
+  void resetJttyTxState();
+  void startJttyTxWatchdog(int durationMs);
   void jtty_save_wav();
   bool jtty_key_struck(QKeyEvent * e);
   void jtty_decode(int k);
@@ -690,6 +697,7 @@ private:
   qint32  m_nsecBandChanged;
   qint32  m_nFT4depth;
   qint32  m_nsym_jtty;
+  qint32  m_jttyTxDurationMs;
   //ft8md
 
   qint32  m_sec0;
@@ -901,6 +909,7 @@ private:
   QTimer minuteTimer;
   QTimer splashTimer;
   QTimer p1Timer;
+  QTimer m_jttyTxWatchdog;
 
   QString m_path;
   QString m_baseCall;
@@ -1035,6 +1044,10 @@ private:
   bool m_transmitting;
   bool m_tune;
   bool m_tx_watchdog;           // true when watchdog triggered
+  bool m_jttyTxActive;
+  bool m_jttyAudioStarted;
+  bool m_jttyModulatorIdle;
+  bool m_jttyAudioOutputIdle;
   bool m_block_pwr_tooltip;
   bool m_PwrBandSetOK;
   bool m_bDisplayedOnce;

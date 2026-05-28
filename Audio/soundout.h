@@ -41,6 +41,8 @@ public Q_SLOTS:
 Q_SIGNALS:
   void error (QString message) const;
   void status (QString message) const;
+  void audioOutputActive () const;
+  void audioOutputIdle () const;
 
 private:
   bool checkStream () const;

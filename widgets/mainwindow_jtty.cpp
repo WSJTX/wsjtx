@@ -5,6 +5,7 @@
 #include "Audio/WavFile.hpp"
 #include "Logger.hpp"
 #include <QByteArray>
+#include "Modulator/Modulator.hpp"
 #include <QtConcurrent/QtConcurrentRun>
 #include <iostream>
 
@@ -16,6 +17,7 @@
 
 
 extern dec_data_t& dec_data;
+extern qint32 g_iptt;
 
 #if QT_VERSION >= QT_VERSION_CHECK (5, 13, 0)
 #define SkipEmptyParts Qt::SkipEmptyParts
@@ -155,6 +157,10 @@ void MainWindow::execute_jtty_tx(QString message)
   int nwave=nsps4*m_nsym_jtty;
   gen_jttywave_(const_cast<int *>(itone), &m_nsym_jtty, &nsps4, &bt, &fsample, &f0,
                 foxcom_.wave, foxcom_.wave, &icmplx, &nwave);
+  resetJttyTxState();
+  m_jttyTxActive = true;
+  m_jttyTxDurationMs = qRound(nwave / 48.0);
+  startJttyTxWatchdog(m_jttyTxDurationMs + 1000 * m_config.txDelay() + 5000);
   monitor(false);
   if(!m_diskData && m_saveAll && (m_k0 > 53*384) && (m_k0 < 9999999)) {
     jtty_save_wav();
@@ -173,13 +179,8 @@ void MainWindow::execute_jtty_tx(QString message)
   }
 #endif
 
-  int msTx=nwave/48.0 + 1000*m_config.txDelay();
-
-
-  if (m_jttyQueue) {
-      m_jttyQueue->onTxStarted(msTx);
-  } else {
-      QTimer::singleShot(msTx, this, SLOT (stopTx()));
+  if (g_iptt == 1 && !m_modulator->isActive()) {
+    startTx2();
   }
 }
 
@@ -188,6 +189,7 @@ void MainWindow::abort_jtty_tx()
    if (m_jttyQueue) {
        m_jttyQueue->clearQueue();
    }
+   resetJttyTxState();
    
 #ifdef WIN32
    if (m_mmttyif) {
@@ -209,6 +211,91 @@ void MainWindow::stopJttyTxIfEmpty()
 #endif
        stopTx();
    }
+}
+
+void MainWindow::completeJttyMessage()
+{
+  if (!m_jttyTxActive) {
+    return;
+  }
+
+  resetJttyTxState();
+  if (m_jttyQueue) {
+    m_jttyQueue->onMessageCompleted();
+  } else {
+    stopJttyTxIfEmpty();
+  }
+}
+
+void MainWindow::handleJttyModulatorIdle()
+{
+  if (m_mode != "JTTY" || !m_jttyTxActive) {
+    return;
+  }
+
+  m_jttyModulatorIdle = true;
+  if (m_jttyAudioOutputIdle) {
+    completeJttyMessage();
+  }
+}
+
+void MainWindow::handleJttyAudioOutputActive()
+{
+  if (m_mode != "JTTY" || !m_jttyTxActive || m_jttyAudioStarted) {
+    return;
+  }
+
+  m_jttyAudioStarted = true;
+  m_jttyAudioOutputIdle = false;
+  startJttyTxWatchdog(m_jttyTxDurationMs + 5000);
+}
+
+void MainWindow::handleJttyAudioOutputIdle()
+{
+  if (m_mode != "JTTY" || !m_jttyTxActive) {
+    return;
+  }
+
+  m_jttyAudioOutputIdle = true;
+  if (m_jttyModulatorIdle) {
+    completeJttyMessage();
+  }
+}
+
+void MainWindow::handleJttyTxWatchdog()
+{
+  if (m_mode != "JTTY" || !m_jttyTxActive) {
+    return;
+  }
+
+  LOG_WARN("JTTY transmit completion watchdog expired");
+  if (m_jttyQueue) {
+    m_jttyQueue->clearQueue();
+  }
+  resetJttyTxState();
+#ifdef WIN32
+  if (m_mmttyif) {
+    m_mmttyif->report_ptt_state(false);
+  }
+#endif
+  stopTx();
+}
+
+void MainWindow::resetJttyTxState()
+{
+  m_jttyTxWatchdog.stop();
+  m_jttyTxActive = false;
+  m_jttyAudioStarted = false;
+  m_jttyModulatorIdle = false;
+  m_jttyAudioOutputIdle = false;
+  m_jttyTxDurationMs = 0;
+}
+
+void MainWindow::startJttyTxWatchdog(int durationMs)
+{
+  if (durationMs > 0) {
+    m_jttyTxWatchdog.start(durationMs);
+  }
 }
 
 void MainWindow::jtty_again()

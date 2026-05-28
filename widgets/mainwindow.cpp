@@ -404,6 +404,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_ft8DecoderStart {3}, //ft8md
   m_nsecBandChanged {0},//ft8md
   m_nFT4depth {3},		//ft8md
+  m_jttyTxDurationMs {0},
   m_sec0 {-1},
   m_RxLog {1},      //Write Date and Time to RxLog
   m_nutc0 {999999},
@@ -499,6 +500,10 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_transmitting {false},
   m_tune {false},
   m_tx_watchdog {false},
+  m_jttyTxActive {false},
+  m_jttyAudioStarted {false},
+  m_jttyModulatorIdle {false},
+  m_jttyAudioOutputIdle {false},
   m_block_pwr_tooltip {false},
   m_PwrBandSetOK {true},
   m_lastMonitoredFrequency {default_frequency},
@@ -566,6 +571,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect (m_soundOutput, &SoundOutput::error, &m_config, &Configuration::invalidate_audio_output_device);
   // connect (m_soundOutput, &SoundOutput::status, this, &MainWindow::showStatusMessage);
   connect (this, &MainWindow::outAttenuationChanged, m_soundOutput, &SoundOutput::setAttenuation);
+  connect (m_soundOutput, &SoundOutput::audioOutputActive, this, &MainWindow::handleJttyAudioOutputActive);
+  connect (m_soundOutput, &SoundOutput::audioOutputIdle, this, &MainWindow::handleJttyAudioOutputIdle);
   connect (&m_audioThread, &QThread::finished, m_soundOutput, &QObject::deleteLater);
 
   // hook up Modulator slots and disposal
@@ -573,6 +580,11 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect (this, &MainWindow::endTransmitMessage, m_modulator, &Modulator::stop);
   connect (this, &MainWindow::tune, m_modulator, &Modulator::tune);
   connect (this, &MainWindow::sendMessage, m_modulator, &Modulator::start);
+  connect (m_modulator, &Modulator::stateChanged, this, [this] (Modulator::ModulatorState state) {
+    if (Modulator::Idle == state) {
+      handleJttyModulatorIdle();
+    }
+  });
   connect (&m_audioThread, &QThread::finished, m_modulator, &QObject::deleteLater);
 
   // hook up the audio input stream signals, slots and disposal
@@ -983,6 +995,9 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
   ptt1Timer.setSingleShot(true);
   connect(&ptt1Timer, &QTimer::timeout, this, &MainWindow::startTx2);
+
+  m_jttyTxWatchdog.setSingleShot(true);
+  connect(&m_jttyTxWatchdog, &QTimer::timeout, this, &MainWindow::handleJttyTxWatchdog);
 
   p1Timer.setSingleShot(true);
   connect(&p1Timer, &QTimer::timeout, this, &MainWindow::startP1);
