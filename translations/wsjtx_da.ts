@@ -4736,26 +4736,6 @@ listen. Makro listen kan også ændfres i Inderstillinger (F2).</translation>
         <translation>Quick-Start Guide til WSJT-X 2.7 og QMAP</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="5553"/>
-        <source>WSJT-X_improved Home Page</source>
-        <translation>WSJT-X_improved Hjemmeside</translation>
-    </message>
-    <message>
-        <location filename="../widgets/mainwindow.ui" line="5556"/>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Go to the wsjt-x_improved home page.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Gå til wsjt-x_improved-hjemmesiden.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
-        <location filename="../widgets/mainwindow.ui" line="5561"/>
-        <source>The additional features of wsjt-x_improved</source>
-        <translation>De ekstra funktioner i wsjt-x_improved</translation>
-    </message>
-    <message>
-        <location filename="../widgets/mainwindow.ui" line="5564"/>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Overview on the additional features of wsjt-x_improved.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Oversigt over de ekstra funktioner i wsjt-x_improved.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
         <location filename="../widgets/mainwindow.ui" line="5569"/>
         <source>Recommended audio settings</source>
         <translation>Anbefalede Audio indstillinger</translation>
@@ -9781,11 +9761,6 @@ Højre klik for at indsætte eller slette elementer.</translation>
         <location filename="../Configuration.ui" line="2795"/>
         <source>Reset Highlighting to WSJT-X default</source>
         <translation>Nulstil fremhævning til WSJT-X standard</translation>
-    </message>
-    <message>
-        <location filename="../Configuration.ui" line="2802"/>
-        <source>Reset Highlighting to WSJT-X Improved default</source>
-        <translation>Nulstil fremhævning til WSJT-X Improved standard</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2809"/>

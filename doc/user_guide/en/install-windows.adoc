@@ -46,8 +46,7 @@ You can download a suitable _OpenSSL_ package for Windows from
 version. For the 32-bit _WSJT-X_ build, use the latest Win32 v1.1.1
 version of the _OpenSSL_ libraries, for the 64-bit _WSJT-X_ use the
 latest Win64 v1.1.1 version of the _OpenSSL_ libraries (Note: it is OK
-to install both versions on a 64-bit system) which, at the time of
-writing, were {win32_openssl} and {win64_openssl} respectively.
+to install both versions on a 64-bit system).
 
 Install the package and accept the default options, including the
 option to copy the _OpenSSL_ DLLs to the Windows system
