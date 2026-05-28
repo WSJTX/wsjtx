@@ -1549,6 +1549,7 @@ set (LANGUAGES
 				# doesn't need to be populated)
   en_GB				# English UK
   es				# Spanish
+  hu				# Hungarian
   it				# Italian
   ja				# Japanese
   #no				# Norwegian
@@ -1557,7 +1558,6 @@ set (LANGUAGES
   #sv				# Swedish
   zh				# Chinese
   zh_TW				# Chinese traditional
-  it				# Italian
   )
 foreach (lang_ ${LANGUAGES})
   file (TO_NATIVE_PATH ${CMAKE_SOURCE_DIR}/translations/wsjtx_${lang_}.ts ts_)
