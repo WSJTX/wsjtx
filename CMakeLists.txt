@@ -1298,10 +1298,6 @@ endif ()
 if (WSJT_GENERATE_DOCS)
   add_subdirectory (doc)
 endif (WSJT_GENERATE_DOCS)
-if (EXISTS ${CMAKE_SOURCE_DIR}/tests AND IS_DIRECTORY ${CMAKE_SOURCE_DIR}/tests)
-  add_subdirectory (tests)
-endif ()
-
 # build a library of package functionality (without and optionally with OpenMP support)
 add_library (wsjt_cxx STATIC ${wsjt_CSRCS} ${wsjt_CXXSRCS})
 target_link_libraries (wsjt_cxx ${LIBM_LIBRARIES} Boost::log_setup ${LIBM_LIBRARIES})
@@ -1464,10 +1460,7 @@ target_link_libraries (ldpcsim80_42 wsjt_fort wsjt_cxx)
 endif(WSJT_BUILD_UTILS)
 
 if(WSJT_ENABLE_TESTS)
-  add_executable (test_jtty_pack lib/jtty/tests/test_jtty_pack.f90)
-  configure_file(lib/jtty/tests/jtty_msgs.txt "${CMAKE_CURRENT_BINARY_DIR}/jtty_msgs.txt" COPYONLY)
-  target_link_libraries (test_jtty_pack wsjt_fort wsjt_cxx)
-  add_subdirectory (lib/jtty/tests)
+  add_subdirectory (tests)
 endif()
 
 

@@ -1,5 +1,5 @@
 #include <QtTest>
-#include "../MessageFilter.hpp"
+#include "MessageFilter.hpp"
 
 class TestMessageFilter : public QObject
 {
