@@ -18,6 +18,7 @@ jnq*
 __pycache__
 cmake-build-debug
 cmake-build-release
+build-test
 CMakeFiles
 fnd
 lib/77bit/tmp

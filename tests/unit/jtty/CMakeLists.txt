@@ -9,3 +9,11 @@ set_tests_properties (test_jtty_pack PROPERTIES
   WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
   PASS_REGULAR_EXPRESSION "^ 3     3    67 14     NOW IS THE TIME FOR ALL GOOD MEN TO COME TO THE AID OF THEIR PARTY\.;^ 3     3    52 11     THE QUICK BROWN FOX JUMPED OVER THE LAZY DOG, TWICE\.;\nTotal messages: 36   Number of errors:  0\n$"
 )
+
+add_executable (test_jtty_txstream
+  test_jtty_txstream.cpp
+  ${CMAKE_SOURCE_DIR}/Modulator/JttyPcmFifo.cpp
+  ${CMAKE_SOURCE_DIR}/Modulator/JttyTxStream.cpp
+  ${CMAKE_SOURCE_DIR}/Audio/soundout.cpp)
+target_link_libraries (test_jtty_txstream wsjt_qt Qt5::Test Qt5::Multimedia)
+add_test (NAME test_jtty_txstream COMMAND test_jtty_txstream)

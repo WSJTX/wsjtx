@@ -111,7 +111,7 @@ class EqualizationToolsDialog;
 class DecodedText;
 class Cloudlog;
 
-#include "JttyTxQueue.hpp"
+#include "Modulator/JttyTxStream.hpp"
 
 #ifdef WIN32
 class MMTTYIF;
@@ -539,6 +539,8 @@ private:
       SoundOutput *, AudioDevice::Channel = AudioDevice::Mono,
       bool synchronize = true, bool fastMode = false, double dBSNR = 99.,
                              int TRperiod=60) const;
+  Q_SIGNAL void startJttyStream (SoundOutput *, AudioDevice::Channel, qint64 sessionId);
+  Q_SIGNAL void endJttyStream () const;
   Q_SIGNAL void outAttenuationChanged (qreal) const;
   Q_SIGNAL void toggleShorthand () const;
   Q_SIGNAL void reset_audio_input_stream (bool report_dropped_frames) const;
@@ -558,12 +560,10 @@ private:
   void sfox_tx();
   void jtty_tx(QString message);
   void execute_jtty_tx(QString message);
-  void stopJttyTxIfEmpty();
   void abort_jtty_tx();
-  void completeJttyMessage();
-  void handleJttyModulatorIdle();
-  void handleJttyAudioOutputActive();
-  void handleJttyAudioOutputIdle();
+  void interruptJttyTx();
+  void onJttyBackendDrained(qint64 sessionId, qint64 totalAtDrain);
+  void onJttyBackendEnqueueFailed(qint64 sessionId);
   void handleJttyTxWatchdog();
   void resetJttyTxState();
   void startJttyTxWatchdog(int durationMs);
@@ -598,8 +598,6 @@ private:
 #ifdef WIN32
   MMTTYIF * m_mmttyif {nullptr};
 #endif
-
-  JttyTxQueue * m_jttyQueue {nullptr};
 
   Configuration m_config;
   LogBook m_logBook;            // must be after Configuration construction
@@ -638,6 +636,7 @@ private:
   unsigned m_FFTSize;
   SoundInput * m_soundInput;
   Modulator * m_modulator;
+  JttyTxStream * m_jttyTxStream;
   SoundOutput * m_soundOutput;
   int m_rx_audio_buffer_frames;
   int m_tx_audio_buffer_frames;
@@ -697,7 +696,6 @@ private:
   qint32  m_nsecBandChanged;
   qint32  m_nFT4depth;
   qint32  m_nsym_jtty;
-  qint32  m_jttyTxDurationMs;
   //ft8md
 
   qint32  m_sec0;
@@ -1045,9 +1043,8 @@ private:
   bool m_tune;
   bool m_tx_watchdog;           // true when watchdog triggered
   bool m_jttyTxActive;
-  bool m_jttyAudioStarted;
-  bool m_jttyModulatorIdle;
-  bool m_jttyAudioOutputIdle;
+  qint64 m_jttyTxSessionId;
+  qint64 m_jttyQueuedSamples;
   bool m_block_pwr_tooltip;
   bool m_PwrBandSetOK;
   bool m_bDisplayedOnce;

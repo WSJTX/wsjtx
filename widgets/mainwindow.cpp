@@ -375,6 +375,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_FFTSize {6192 / 2},         // conservative value to avoid buffer overruns
   m_soundInput {new SoundInput},
   m_modulator {new Modulator {TX_SAMPLE_RATE, NTMAX}},
+  m_jttyTxStream {new JttyTxStream},
   m_soundOutput {new SoundOutput},
   m_rx_audio_buffer_frames {0},
   m_tx_audio_buffer_frames {0},
@@ -404,7 +405,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_ft8DecoderStart {3}, //ft8md
   m_nsecBandChanged {0},//ft8md
   m_nFT4depth {3},		//ft8md
-  m_jttyTxDurationMs {0},
   m_sec0 {-1},
   m_RxLog {1},      //Write Date and Time to RxLog
   m_nutc0 {999999},
@@ -501,9 +501,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_tune {false},
   m_tx_watchdog {false},
   m_jttyTxActive {false},
-  m_jttyAudioStarted {false},
-  m_jttyModulatorIdle {false},
-  m_jttyAudioOutputIdle {false},
+  m_jttyTxSessionId {0},
+  m_jttyQueuedSamples {0},
   m_block_pwr_tooltip {false},
   m_PwrBandSetOK {true},
   m_lastMonitoredFrequency {default_frequency},
@@ -557,6 +556,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   // their slots is done in a thread safe way
   m_soundOutput->moveToThread (&m_audioThread);
   m_modulator->moveToThread (&m_audioThread);
+  m_jttyTxStream->moveToThread (&m_audioThread);
   m_soundInput->moveToThread (&m_audioThread);
   m_detector->moveToThread (&m_audioThread);
   bool ok;
@@ -571,8 +571,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect (m_soundOutput, &SoundOutput::error, &m_config, &Configuration::invalidate_audio_output_device);
   // connect (m_soundOutput, &SoundOutput::status, this, &MainWindow::showStatusMessage);
   connect (this, &MainWindow::outAttenuationChanged, m_soundOutput, &SoundOutput::setAttenuation);
-  connect (m_soundOutput, &SoundOutput::audioOutputActive, this, &MainWindow::handleJttyAudioOutputActive);
-  connect (m_soundOutput, &SoundOutput::audioOutputIdle, this, &MainWindow::handleJttyAudioOutputIdle);
   connect (&m_audioThread, &QThread::finished, m_soundOutput, &QObject::deleteLater);
 
   // hook up Modulator slots and disposal
@@ -580,12 +578,13 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect (this, &MainWindow::endTransmitMessage, m_modulator, &Modulator::stop);
   connect (this, &MainWindow::tune, m_modulator, &Modulator::tune);
   connect (this, &MainWindow::sendMessage, m_modulator, &Modulator::start);
-  connect (m_modulator, &Modulator::stateChanged, this, [this] (Modulator::ModulatorState state) {
-    if (Modulator::Idle == state) {
-      handleJttyModulatorIdle();
-    }
-  });
   connect (&m_audioThread, &QThread::finished, m_modulator, &QObject::deleteLater);
+
+  // hook up the JTTY async transmit stream slots and disposal
+  connect (this, &MainWindow::startJttyStream, m_jttyTxStream, &JttyTxStream::start);
+  connect (this, &MainWindow::endJttyStream, m_jttyTxStream, &JttyTxStream::stop);
+  connect (m_jttyTxStream, &JttyTxStream::drained, this, &MainWindow::onJttyBackendDrained);
+  connect (&m_audioThread, &QThread::finished, m_jttyTxStream, &QObject::deleteLater);
 
   // hook up the audio input stream signals, slots and disposal
   connect (this, &MainWindow::startAudioInputStream, m_soundInput, &SoundInput::start);
@@ -935,6 +934,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect (&m_config, &Configuration::transceiver_update, this, &MainWindow::handle_transceiver_update);
   connect (&m_config, &Configuration::transceiver_TCIframesWritten, this, &MainWindow::dataSink);
   connect (&m_config, &Configuration::transceiver_TCImodActive, this, &MainWindow::tci_mod_active);
+  connect (&m_config, &Configuration::transceiver_jtty_drained, this, &MainWindow::onJttyBackendDrained);
+  connect (&m_config, &Configuration::transceiver_jtty_enqueue_failed, this, &MainWindow::onJttyBackendEnqueueFailed);
   connect (&m_config, &Configuration::transceiver_failure, this, &MainWindow::handle_transceiver_failure);
   connect (&m_config, &Configuration::udp_server_changed, m_messageClient, &MessageClient::set_server);
   connect (&m_config, &Configuration::udp_server_port_changed, m_messageClient, &MessageClient::set_server_port);
@@ -6187,8 +6188,14 @@ void MainWindow::startTx2()
 
 void MainWindow::stopTx()
 {
+  if (m_mode == "JTTY" && m_jttyTxActive) {
+    interruptJttyTx();
+  }
   if (m_tci_audio) Q_EMIT m_config.transceiver_modulator_stop();
   else Q_EMIT endTransmitMessage ();
+  if (m_mode == "JTTY" && !m_tci_audio) {
+    Q_EMIT endJttyStream ();
+  }
   m_btxok = false;
   m_transmitting = false;
   g_iptt=0;
@@ -6199,7 +6206,8 @@ void MainWindow::stopTx()
   if (m_tci_audio) {
     ptt0Timer.start(0);
   } else {
-    ptt0Timer.start(200);                //end-of-transmission sequencer delay
+    int const stopTxDelayMs = m_mode == "JTTY" ? 0 : 200;
+    ptt0Timer.start(stopTxDelayMs);
     monitor (true);
     statusUpdate ();
   }
@@ -9964,9 +9972,7 @@ void MainWindow::transmit (double snr)
       Q_EMIT m_config.transceiver_modulator_start(m_mode, m_nsym_jtty,
              384.0,1500.0,toneSpacing,false,false,snr,txt);
     } else {
-      Q_EMIT sendMessage (m_mode, m_nsym_jtty,
-             384.0,1500.0,toneSpacing, m_soundOutput, m_config.audio_output_channel(),
-             false, false, snr, txt);
+      Q_EMIT startJttyStream (m_soundOutput, m_config.audio_output_channel(), m_jttyTxSessionId);
     }
   }
 

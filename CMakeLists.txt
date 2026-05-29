@@ -249,6 +249,7 @@ set (wsjt_qt_CXXSRCS
   validators/LiveFrequencyValidator.cpp
   GetUserId.cpp
   Audio/AudioDevice.cpp
+  Modulator/JttyPcmFifo.cpp
   Transceiver/Transceiver.cpp
   Transceiver/TransceiverBase.cpp
   Transceiver/EmulateSplitTransceiver.cpp
@@ -361,7 +362,7 @@ set (wsjtx_CXXSRCS
   WSPR/WsprTxScheduler.cpp
   widgets/mainwindow.cpp
   widgets/mainwindow_jtty.cpp
-  widgets/JttyTxQueue.cpp
+  Modulator/JttyTxStream.cpp
   widgets/mainwindow_settings.cpp
   widgets/mainwindow_show_messages.cpp
   widgets/mainwindow_arrl_digi.cpp

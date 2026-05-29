@@ -28,6 +28,10 @@ public:
 
   qreal attenuation () const;
 
+  // Device buffer size in bytes, or 0 when no stream is active. Call only on the
+  // audio thread (this object's thread); QAudioOutput is not cross-thread safe.
+  int bufferSize () const;
+
 public Q_SLOTS:
   void setFormat (QAudioDeviceInfo const& device, unsigned channels, int frames_buffered = 0);
   void restart (QIODevice *);

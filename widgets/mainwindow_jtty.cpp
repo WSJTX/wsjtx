@@ -3,11 +3,15 @@
 #include "widegraph.h"
 #include "commons.h"
 #include "Audio/WavFile.hpp"
+#include "Audio/soundout.h"
 #include "Logger.hpp"
 #include <QByteArray>
+#include <QDateTime>
 #include "Modulator/Modulator.hpp"
+#include "Modulator/JttyTxStream.hpp"
 #include <QtConcurrent/QtConcurrentRun>
 #include <iostream>
+#include <vector>
 
 #ifdef WIN32
 #include "MMTTYIF.hpp"
@@ -110,40 +114,18 @@ void MainWindow::jtty_decode(int k)
 
 void MainWindow::jtty_tx(QString message)
 {
-  if (!m_jttyQueue) {
-    m_jttyQueue = new JttyTxQueue(this);
-    connect(m_jttyQueue, &JttyTxQueue::transmitMessage, this, &MainWindow::execute_jtty_tx);
-    connect(m_jttyQueue, &JttyTxQueue::stopTransmit, this, &MainWindow::stopJttyTxIfEmpty);
-  }
-  m_jttyQueue->queueMessage(message);
+  // Render and enqueue immediately. The JttyTxStream FIFO is the single tx
+  // queue: messages appended while playback is underway chain gaplessly.
+  execute_jtty_tx(message);
 }
 
 void MainWindow::execute_jtty_tx(QString message)
 {
   int itone[848];
   int n=message.length();
-  m_currentMessage = message;
+  QString const originalMessage = message;
   bool const isTUMessage = message.left(3).compare("TU ", Qt::CaseInsensitive) == 0;
   if(ui->cbLowerCase->isChecked()) message = message.toLower();
-
-  // Display Tx message highlighted in yellow
-  ui->decodedTextBrowser2->insertText(" ");
-  QTextCursor cursor = ui->decodedTextBrowser2->textCursor();
-  QTextCharFormat format = cursor.charFormat();
-  format.setBackground(QBrush(QColor(Qt::yellow))); // Set background to yellow
-  cursor.setCharFormat(format);
-  cursor.insertText(message);
-  // Reset format to default
-  format.setBackground(QBrush(QColor(Qt::white)));
-  cursor.setCharFormat(format);
-
-  if(isTUMessage) {
-    // ### Must send "sent" and "rcvd" info to logqso here. ###
-    logQSOTimer.start(0);
-    int nr = ui->sbSerialNumber_2->value();
-    m_xSent = QString::number(nr);
-    ui->sbSerialNumber_2->setValue(nr+1);
-  }
 
   QString t = " ";
   t = message + t.repeated(80-n);
@@ -155,17 +137,93 @@ void MainWindow::execute_jtty_tx(QString message)
   float f0=ui->TxFreqSpinBox_2->value ();
   int icmplx=0;
   int nwave=nsps4*m_nsym_jtty;
+
+  bool const newSession = !m_jttyTxActive;
+  if (newSession) {
+    ++m_jttyTxSessionId;
+    m_jttyQueuedSamples = 0;
+  }
+
+  std::vector<float> wave(nwave > 0 ? nwave : 1);
   gen_jttywave_(const_cast<int *>(itone), &m_nsym_jtty, &nsps4, &bt, &fsample, &f0,
-                foxcom_.wave, foxcom_.wave, &icmplx, &nwave);
-  resetJttyTxState();
+                wave.data(), wave.data(), &icmplx, &nwave);
+
+  QVector<qint16> samples;
+  samples.reserve(nwave);
+  for(int i=0; i<nwave; ++i) {
+    float v = wave[i] * 32767.0f;
+    if(v >  32767.0f) v =  32767.0f;
+    if(v < -32768.0f) v = -32768.0f;
+    samples.append(static_cast<qint16>(qRound(v)));
+  }
+
+  if (newSession) {
+    // A fresh JTTY session starts a new FIFO accounting baseline even after a
+    // natural drain, so drain totals stay comparable to m_jttyQueuedSamples.
+    if (m_tci_audio) {
+      Q_EMIT m_config.transceiver_clear_jtty_pcm(m_jttyTxSessionId);
+    } else {
+      m_jttyTxStream->clear(m_jttyTxSessionId);
+    }
+  }
+
+  bool enqueued {false};
+  if(m_tci_audio) {
+    // TCI enqueue is asynchronous, so MainWindow only rejects a single message
+    // that can never fit; the backend reports actual FIFO occupancy failures.
+    if (jttyPcmEnqueueFits (JTTY_PCM_FIFO_DEFAULT_CAPACITY, 0, samples.size ())) {
+      QByteArray bytes(reinterpret_cast<char const *> (samples.constData ()),
+                       samples.size () * int (sizeof (qint16)));
+      Q_EMIT m_config.transceiver_enqueue_jtty_pcm(bytes, m_jttyTxSessionId);
+      enqueued = true;
+    } else {
+      LOG_WARN("JTTY TCI transmit FIFO capacity precheck failed; rejecting PCM enqueue");
+    }
+  } else {
+    enqueued = m_jttyTxStream->enqueueMessage(samples, m_jttyTxSessionId);
+  }
+
+  if (!enqueued) {
+    if (newSession) {
+      ++m_jttyTxSessionId;
+      m_jttyQueuedSamples = 0;
+    }
+    return;
+  }
+
+  m_currentMessage = originalMessage;
+  m_jttyQueuedSamples += samples.size ();
   m_jttyTxActive = true;
-  m_jttyTxDurationMs = qRound(nwave / 48.0);
-  startJttyTxWatchdog(m_jttyTxDurationMs + 1000 * m_config.txDelay() + 5000);
+  m_transmitting = true;
+
+  ui->decodedTextBrowser2->insertText(" ");
+  QTextCursor cursor = ui->decodedTextBrowser2->textCursor();
+  QTextCharFormat format = cursor.charFormat();
+  format.setBackground(QBrush(QColor(Qt::yellow)));
+  cursor.setCharFormat(format);
+  cursor.insertText(message);
+  format.setBackground(QBrush(QColor(Qt::white)));
+  cursor.setCharFormat(format);
+
+  if(isTUMessage) {
+    logQSOTimer.start(0);
+    int nr = ui->sbSerialNumber_2->value();
+    m_xSent = QString::number(nr);
+    ui->sbSerialNumber_2->setValue(nr+1);
+  }
+
+  // Fault-detector watchdog: generous margin over all audio still to play (the
+  // whole queued session, not just this message). The happy path completes via
+  // the backend drain signal well before this fires.
+  int pendingMs = m_tci_audio
+      ? int(m_jttyQueuedSamples / 48)
+      : int((m_jttyTxStream->totalReal() - m_jttyTxStream->servedReal()) / 48);
+  startJttyTxWatchdog(pendingMs + 1000 * m_config.txDelay() + 10000);
+
   monitor(false);
   if(!m_diskData && m_saveAll && (m_k0 > 53*384) && (m_k0 < 9999999)) {
     jtty_save_wav();
   }
-  m_transmitting = true;
 
 #ifdef WIN32
   if (m_mmttyif) {
@@ -179,18 +237,19 @@ void MainWindow::execute_jtty_tx(QString message)
   }
 #endif
 
-  if (g_iptt == 1 && !m_modulator->isActive()) {
+  // Only a new session starts transmit; a message appended to an already-active
+  // session chains gaplessly (soundcard) via the enqueue above. When PTT is not
+  // yet up, guiUpdate keys it and ptt1Timer -> startTx2 -> transmit starts the
+  // stream with the normal lead.
+  if (newSession && g_iptt == 1 && !m_modulator->isActive()) {
     startTx2();
   }
 }
 
 void MainWindow::abort_jtty_tx()
 {
-   if (m_jttyQueue) {
-       m_jttyQueue->clearQueue();
-   }
-   resetJttyTxState();
-   
+   interruptJttyTx();
+
 #ifdef WIN32
    if (m_mmttyif) {
        m_mmttyif->report_ptt_state(false);
@@ -200,66 +259,49 @@ void MainWindow::abort_jtty_tx()
    stopTx();
 }
 
-void MainWindow::stopJttyTxIfEmpty()
+void MainWindow::interruptJttyTx()
 {
-   if (!m_jttyQueue || m_jttyQueue->isEmpty()) {
+  if (m_mode != "JTTY" || !m_jttyTxActive) {
+    return;
+  }
 
-#ifdef WIN32   
-    if (m_mmttyif) {
-      m_mmttyif->report_ptt_state(false);
-    }
-#endif
-       stopTx();
-   }
+  ++m_jttyTxSessionId;
+  if (m_tci_audio) {
+    Q_EMIT m_config.transceiver_clear_jtty_pcm(m_jttyTxSessionId);
+  } else {
+    m_jttyTxStream->clear(m_jttyTxSessionId);
+  }
+  resetJttyTxState();
 }
 
-void MainWindow::completeJttyMessage()
+void MainWindow::onJttyBackendDrained(qint64 sessionId, qint64 totalAtDrain)
 {
-  if (!m_jttyTxActive) {
+  if (m_mode != "JTTY" || !m_jttyTxActive) {
+    return;
+  }
+
+  if (sessionId != m_jttyTxSessionId || totalAtDrain != m_jttyQueuedSamples) {
     return;
   }
 
   resetJttyTxState();
-  if (m_jttyQueue) {
-    m_jttyQueue->onMessageCompleted();
-  } else {
-    stopJttyTxIfEmpty();
-  }
+  stopTx();
 }
 
-void MainWindow::handleJttyModulatorIdle()
+void MainWindow::onJttyBackendEnqueueFailed(qint64 sessionId)
 {
-  if (m_mode != "JTTY" || !m_jttyTxActive) {
+  if (m_mode != "JTTY" || !m_jttyTxActive || sessionId != m_jttyTxSessionId) {
     return;
   }
 
-  m_jttyModulatorIdle = true;
-  if (m_jttyAudioOutputIdle) {
-    completeJttyMessage();
+  LOG_WARN("JTTY transmit backend rejected PCM enqueue");
+  interruptJttyTx();
+#ifdef WIN32
+  if (m_mmttyif) {
+    m_mmttyif->report_ptt_state(false);
   }
-}
-
-void MainWindow::handleJttyAudioOutputActive()
-{
-  if (m_mode != "JTTY" || !m_jttyTxActive || m_jttyAudioStarted) {
-    return;
-  }
-
-  m_jttyAudioStarted = true;
-  m_jttyAudioOutputIdle = false;
-  startJttyTxWatchdog(m_jttyTxDurationMs + 5000);
-}
-
-void MainWindow::handleJttyAudioOutputIdle()
-{
-  if (m_mode != "JTTY" || !m_jttyTxActive) {
-    return;
-  }
-
-  m_jttyAudioOutputIdle = true;
-  if (m_jttyModulatorIdle) {
-    completeJttyMessage();
-  }
+#endif
+  stopTx();
 }
 
 void MainWindow::handleJttyTxWatchdog()
@@ -269,10 +311,7 @@ void MainWindow::handleJttyTxWatchdog()
   }
 
   LOG_WARN("JTTY transmit completion watchdog expired");
-  if (m_jttyQueue) {
-    m_jttyQueue->clearQueue();
-  }
-  resetJttyTxState();
+  interruptJttyTx();
 #ifdef WIN32
   if (m_mmttyif) {
     m_mmttyif->report_ptt_state(false);
@@ -285,10 +324,7 @@ void MainWindow::resetJttyTxState()
 {
   m_jttyTxWatchdog.stop();
   m_jttyTxActive = false;
-  m_jttyAudioStarted = false;
-  m_jttyModulatorIdle = false;
-  m_jttyAudioOutputIdle = false;
-  m_jttyTxDurationMs = 0;
+  m_jttyQueuedSamples = 0;
 }
 
 void MainWindow::startJttyTxWatchdog(int durationMs)
