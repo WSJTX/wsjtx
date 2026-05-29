@@ -29,3 +29,7 @@ add_test (test_message_filter test_message_filter)
 add_executable (test_fastsink_logic test_fastsink_logic.cpp)
 target_link_libraries (test_fastsink_logic wsjt_qt wsjt_fort wsjt_cxx Qt5::Test)
 add_test (test_fastsink_logic test_fastsink_logic)
+
+add_executable (test_bwf_file test_bwf_file.cpp)
+target_link_libraries (test_bwf_file wsjt_qt wsjt_qtmm Qt5::Test Qt5::Multimedia)
+add_test (test_bwf_file test_bwf_file)
