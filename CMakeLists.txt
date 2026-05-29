@@ -205,7 +205,6 @@ endif ()
 
 if (WSJT_ENABLE_TESTS)
      enable_testing ()
-     add_subdirectory (lib/jtty/tests)
      message (STATUS "Including tests")
  endif()
 
@@ -1345,10 +1344,6 @@ target_link_libraries (jt65sim wsjt_fort wsjt_cxx)
 add_executable (sjtty lib/jtty/sjtty.f90)
 target_link_libraries (sjtty wsjt_fort wsjt_cxx)
 
-add_executable (test_jtty_pack lib/jtty/tests/test_jtty_pack.f90)
-configure_file(lib/jtty/tests/jtty_msgs.txt "${CMAKE_CURRENT_BINARY_DIR}/jtty_msgs.txt" COPYONLY)
-target_link_libraries (test_jtty_pack wsjt_fort wsjt_cxx)
-
 add_executable (sjtty_qrm lib/jtty/sjtty_qrm.f90)
 target_link_libraries (sjtty_qrm wsjt_fort wsjt_cxx)
 
@@ -1466,6 +1461,13 @@ add_executable (ldpcsim80_42 lib/jtty/ldpcsim80_42.f90)
 target_link_libraries (ldpcsim80_42 wsjt_fort wsjt_cxx)
 
 endif(WSJT_BUILD_UTILS)
+
+if(WSJT_ENABLE_TESTS)
+  add_executable (test_jtty_pack lib/jtty/tests/test_jtty_pack.f90)
+  configure_file(lib/jtty/tests/jtty_msgs.txt "${CMAKE_CURRENT_BINARY_DIR}/jtty_msgs.txt" COPYONLY)
+  target_link_libraries (test_jtty_pack wsjt_fort wsjt_cxx)
+  add_subdirectory (lib/jtty/tests)
+endif()
 
 
 
