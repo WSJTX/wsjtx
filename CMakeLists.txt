@@ -299,6 +299,7 @@ set (wsjt_qt_CXXSRCS
   widgets/BandComboBox.cpp
   otpgenerator.cpp
   MessageFilter.cpp
+  MessageFilterRules.cpp
   MessageFilterLogic.cpp
   PrefixSuffix.cpp
   CountryNames.cpp
