@@ -2,7 +2,7 @@
 
 #include "MessageFilterRules.hpp"
 
-class TestMSK144MessageFilter : public QObject
+class TestMSK144FilterRules : public QObject
 {
     Q_OBJECT
 
@@ -75,5 +75,5 @@ private slots:
     }
 };
 
-QTEST_MAIN(TestMSK144MessageFilter)
-#include "test_msk144_message_filter.moc"
+QTEST_MAIN(TestMSK144FilterRules)
+#include "test_msk144_filter_rules.moc"
