@@ -102,6 +102,7 @@ subroutine jtty_decode(iwave,nchunk,nsps,f0,ftol,smin,synced,xdt,f1,snr,decoded,
       ja=(f0-ftol)/df2
       jb=(f0+ftol)/df2
       if(ja .lt. 3) ja=3
+      if(jb .gt. nh2-2) jb=nh2-2               !Keep s(j-2:j+2) within s(0:nh2)
       do i0=0,nframe6/4,12                     !Search over quarter-frame segments
          xdt=i0*dt
          c(0:13*nss-1)=conjg(csync(0:13*nss-1))*c0(i0:i0+13*nss-1)
