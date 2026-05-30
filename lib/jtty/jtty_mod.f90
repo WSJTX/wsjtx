@@ -9,6 +9,11 @@ subroutine pack_jtty(message,c32,nframes)
 ! Input:   character*80   message     !JTTY message, as it appears to a user
 ! Output:  character*32   c32         !32-bit payload
 !          integer        nframes     !Frames in this message (max = 16)
+!
+! Source coding flow:
+!   1. Normalize operator text into the JTTY source alphabet.
+!   2. Find the minimum-frame path through compact forms plus free text.
+!   3. Convert the selected path into 32-bit JTTY payload frames.
 
   use packjt77
   character*80 message,msg
@@ -36,6 +41,7 @@ subroutine pack_jtty(message,c32,nframes)
   c32=''
   if(n.le.0) return
 
+  ! dp(i) is the minimum frame count for msg(i:n); choice_* records its first frame.
   dp=INF
   choice_kind=0
   choice_next=0
@@ -47,6 +53,7 @@ subroutine pack_jtty(message,c32,nframes)
   best_next=0
   dp(n+1)=0
 
+  ! Each candidate generator recognizes one assigned part of the JTTY source grammar.
   do ipos=n,1,-1
      call try_text()
      call try_599()
@@ -54,6 +61,7 @@ subroutine pack_jtty(message,c32,nframes)
   enddo
 
   ipos=1
+  ! Walk the selected path and emit the frame payload for each transition.
   do while(ipos.le.n .and. nframes.lt.MAX_FRAMES)
      if(choice_kind(ipos).le.0) exit
      nframes=nframes+1
@@ -110,6 +118,7 @@ contains
   end subroutine consider
 
   subroutine try_text()
+    ! i2=3: plain free text, five 6-bit JTTY characters per frame.
     integer j
 
     j=min(n,ipos+4)
@@ -117,6 +126,7 @@ contains
   end subroutine try_text
 
   subroutine try_599()
+    ! i2=2: literal "599 " plus up to five following 6-bit JTTY characters.
     integer j
 
     if(.not.at_token_start(ipos)) return
@@ -126,7 +136,8 @@ contains
   end subroutine try_599
 
   subroutine try_structured()
-    ! Enumerates assigned structured forms; i2=1,n2=2/3 remain reserved.
+    ! i2=0/1: assigned structured forms carrying one pack28 callsign field.
+    ! The i2=1,n2=2/3 structured subtypes remain reserved.
     if(.not.at_token_start(ipos)) return
 
     if(matches(ipos,'CQ ')) then
@@ -180,6 +191,7 @@ contains
     integer iendarg,i2arg,n2arg,icallarg,lcallarg
     integer jnext
 
+    ! Structured frames decode with one implicit separator before any following frame.
     if(iendarg.eq.n) then
        jnext=n+1
     else if(iendarg.lt.n) then
@@ -239,6 +251,7 @@ contains
   end function jtty_text_ok
 
   subroutine pack_text_frame(istart,n32out)
+    ! Place five source characters in the upper 30 bits and set i2=3.
     integer istart,n32out
     integer i, n30
     character*1 c
@@ -253,6 +266,7 @@ contains
   end subroutine pack_text_frame
 
   subroutine pack_599_frame(istart,n32out)
+    ! Place the five characters after "599 " in the upper 30 bits and set i2=2.
     integer istart,n32out
     integer i, n30
     character*1 c
@@ -269,6 +283,8 @@ contains
 end subroutine pack_jtty
 
 logical function jtty_standard_call(c13)
+
+! True only for tokens safe to carry in a 28-bit structured callsign field.
 
   use packjt77
   character*13 c13,c13a
@@ -293,6 +309,8 @@ logical function jtty_standard_call(c13)
 end function jtty_standard_call
 
 subroutine normalize_jtty_message(raw,normalized,ok)
+
+! Fold operator text into the source alphabet used by the JTTY encoder.
 
   character*80 raw,normalized
   character*1 c
