@@ -23,7 +23,7 @@ subroutine pack_jtty(message,c32,nframes)
   integer, parameter :: RANK_COMPACT=1, RANK_TEXT=2, INF=999
   integer dp(81), choice_kind(80), choice_next(80), choice_i2(80)
   integer choice_n2(80), choice_call_first(80), choice_call_len(80)
-  integer best_rank(80), best_next(80)
+  integer best_rank(80)
   integer n, ipos, n32, lcall, icall, iend
   integer i2, n2, n28
   character*13 c13
@@ -50,7 +50,6 @@ subroutine pack_jtty(message,c32,nframes)
   choice_call_first=0
   choice_call_len=0
   best_rank=INF
-  best_next=0
   dp(n+1)=0
 
   ! Each candidate generator recognizes one assigned part of the JTTY source grammar.
@@ -106,10 +105,9 @@ contains
     ! Canonical ties prefer compact encodings, then the longest source span.
     if(cand.lt.dp(ipos) .or. &
          (cand.eq.dp(ipos) .and. rank.lt.best_rank(ipos)) .or. &
-         (cand.eq.dp(ipos) .and. rank.eq.best_rank(ipos) .and. inext.gt.best_next(ipos))) then
+         (cand.eq.dp(ipos) .and. rank.eq.best_rank(ipos) .and. inext.gt.choice_next(ipos))) then
        dp(ipos)=cand
        best_rank(ipos)=rank
-       best_next(ipos)=inext
        choice_kind(ipos)=kind
        choice_next(ipos)=inext
        choice_i2(ipos)=i2arg
