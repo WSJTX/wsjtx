@@ -13,6 +13,7 @@ set_tests_properties (test_jtty_pack PROPERTIES
 add_executable (test_jtty_txstream
   test_jtty_txstream.cpp
   ${CMAKE_SOURCE_DIR}/Modulator/JttyPcmFifo.cpp
+  ${CMAKE_SOURCE_DIR}/Modulator/JttyTxBuffer.cpp
   ${CMAKE_SOURCE_DIR}/Modulator/JttyTxStream.cpp
   ${CMAKE_SOURCE_DIR}/Audio/soundout.cpp)
 target_link_libraries (test_jtty_txstream wsjt_qt Qt5::Test Qt5::Multimedia)

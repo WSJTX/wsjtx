@@ -111,6 +111,7 @@ class EqualizationToolsDialog;
 class DecodedText;
 class Cloudlog;
 
+#include "Modulator/JttyTxBuffer.hpp"
 #include "Modulator/JttyTxStream.hpp"
 
 #ifdef WIN32
@@ -636,6 +637,7 @@ private:
   unsigned m_FFTSize;
   SoundInput * m_soundInput;
   Modulator * m_modulator;
+  QScopedPointer<JttyTxBuffer> m_jttyTxBuffer;
   JttyTxStream * m_jttyTxStream;
   SoundOutput * m_soundOutput;
   int m_rx_audio_buffer_frames;

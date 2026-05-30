@@ -10,6 +10,9 @@ constexpr qint64 JTTY_PCM_FIFO_DEFAULT_CAPACITY = 60 * 48000;
 class JttyPcmFifo
 {
 public:
+  // Lock-free SPSC PCM queue: one producer appends rendered messages, one
+  // backend thread pulls samples. clear() only publishes a reset generation;
+  // the consumer applies it so FIFO indices are not concurrently rewritten.
   // The audio backend reports this edge later, outside the pull callback. The
   // session/total pair lets MainWindow ignore a tail event that belonged to an
   // older queue state.

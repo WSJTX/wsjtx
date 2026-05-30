@@ -7,7 +7,7 @@
 #include <QVector>
 
 #include "Audio/AudioDevice.hpp"
-#include "Modulator/JttyPcmFifo.hpp"
+#include "Modulator/JttyTxBuffer.hpp"
 
 class SoundOutput;
 
@@ -24,20 +24,9 @@ class JttyTxStream
   Q_OBJECT;
 
 public:
-  explicit JttyTxStream (QObject * parent = nullptr);
+  explicit JttyTxStream (JttyTxBuffer& buffer, QObject * parent = nullptr);
 
   bool isActive () const {return m_active;}
-
-  // Append a fully rendered message (real PCM samples). Thread-safe; may be
-  // called from the GUI thread while readData() runs on the audio thread.
-  bool enqueueMessage (QVector<qint16> const& samples, qint64 sessionId);
-
-  // Drop all pending samples and reset counters (abort).
-  void clear (qint64 sessionId = 0);
-
-  // Thread-safe progress getters (samples).
-  qint64 servedReal () const;
-  qint64 totalReal () const;
 
   Q_SLOT void start (SoundOutput * stream, AudioDevice::Channel channel, qint64 sessionId);
   Q_SLOT void stop ();
@@ -54,7 +43,7 @@ protected:
 private:
   Q_SLOT void pollDrain ();
 
-  JttyPcmFifo m_fifo;
+  JttyTxBuffer& m_buffer;
   std::atomic<qint64> m_drainGuard;
 
   QPointer<SoundOutput> m_stream;

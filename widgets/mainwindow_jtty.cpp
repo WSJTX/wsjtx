@@ -163,7 +163,7 @@ void MainWindow::execute_jtty_tx(QString message)
     if (m_tci_audio) {
       Q_EMIT m_config.transceiver_clear_jtty_pcm(m_jttyTxSessionId);
     } else {
-      m_jttyTxStream->clear(m_jttyTxSessionId);
+      m_jttyTxBuffer->clear(m_jttyTxSessionId);
     }
   }
 
@@ -180,7 +180,7 @@ void MainWindow::execute_jtty_tx(QString message)
       LOG_WARN("JTTY TCI transmit FIFO capacity precheck failed; rejecting PCM enqueue");
     }
   } else {
-    enqueued = m_jttyTxStream->enqueueMessage(samples, m_jttyTxSessionId);
+    enqueued = m_jttyTxBuffer->enqueueMessage(samples, m_jttyTxSessionId);
   }
 
   if (!enqueued) {
@@ -217,7 +217,7 @@ void MainWindow::execute_jtty_tx(QString message)
   // the backend drain signal well before this fires.
   int pendingMs = m_tci_audio
       ? int(m_jttyQueuedSamples / 48)
-      : int((m_jttyTxStream->totalReal() - m_jttyTxStream->servedReal()) / 48);
+      : int((m_jttyTxBuffer->totalReal() - m_jttyTxBuffer->servedReal()) / 48);
   startJttyTxWatchdog(pendingMs + 1000 * m_config.txDelay() + 10000);
 
   monitor(false);
@@ -269,7 +269,7 @@ void MainWindow::interruptJttyTx()
   if (m_tci_audio) {
     Q_EMIT m_config.transceiver_clear_jtty_pcm(m_jttyTxSessionId);
   } else {
-    m_jttyTxStream->clear(m_jttyTxSessionId);
+    m_jttyTxBuffer->clear(m_jttyTxSessionId);
   }
   resetJttyTxState();
 }

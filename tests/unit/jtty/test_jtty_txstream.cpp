@@ -5,6 +5,7 @@
 
 #include "Audio/AudioDevice.hpp"
 #include "Modulator/JttyPcmFifo.hpp"
+#include "Modulator/JttyTxBuffer.hpp"
 #include "Modulator/JttyTxStream.hpp"
 
 // Unit tests for the JTTY async transmit source. These exercise the FIFO /
@@ -55,38 +56,40 @@ namespace
 
 void TestJttyTxStream::gaplessConcatAndSilencePad ()
 {
-  JttyTxStream s;
+  JttyTxBuffer buffer;
+  JttyTxStream s {buffer};
   QVERIFY (s.initialize (QIODevice::ReadOnly, AudioDevice::Mono));
 
   // Two messages queued before any are consumed: they must chain with no gap.
-  QVERIFY (s.enqueueMessage (QVector<qint16> {10, 20, 30}, 1));
-  QVERIFY (s.enqueueMessage (QVector<qint16> {40, 50}, 1));
-  QCOMPARE (s.totalReal (), qint64 (5));
+  QVERIFY (buffer.enqueueMessage (QVector<qint16> {10, 20, 30}, 1));
+  QVERIFY (buffer.enqueueMessage (QVector<qint16> {40, 50}, 1));
+  QCOMPARE (buffer.totalReal (), qint64 (5));
 
   // Pull 7 frames: 5 real samples concatenated in order, then silence padding.
   QVector<qint16> got = readFrames (s, 7);
   QCOMPARE (got.size (), 7);
   QCOMPARE (got, (QVector<qint16> {10, 20, 30, 40, 50, 0, 0}));
 
-  QCOMPARE (s.servedReal (), qint64 (5));   // padding is not counted as real
+  QCOMPARE (buffer.servedReal (), qint64 (5));   // padding is not counted as real
 
   // A late message resumes real audio after the silence (late-message path).
-  QVERIFY (s.enqueueMessage (QVector<qint16> {60}, 1));
-  QCOMPARE (s.totalReal (), qint64 (6));
+  QVERIFY (buffer.enqueueMessage (QVector<qint16> {60}, 1));
+  QCOMPARE (buffer.totalReal (), qint64 (6));
   QVector<qint16> more = readFrames (s, 2);
   QCOMPARE (more, (QVector<qint16> {60, 0}));
-  QCOMPARE (s.servedReal (), qint64 (6));
+  QCOMPARE (buffer.servedReal (), qint64 (6));
 }
 
 void TestJttyTxStream::clearResetsCounters ()
 {
-  JttyTxStream s;
+  JttyTxBuffer buffer;
+  JttyTxStream s {buffer};
   QVERIFY (s.initialize (QIODevice::ReadOnly, AudioDevice::Mono));
-  QVERIFY (s.enqueueMessage (QVector<qint16> {1, 2, 3}, 1));
+  QVERIFY (buffer.enqueueMessage (QVector<qint16> {1, 2, 3}, 1));
   (void) readFrames (s, 2);
-  s.clear (2);
-  QCOMPARE (s.totalReal (), qint64 (0));
-  QCOMPARE (s.servedReal (), qint64 (0));
+  buffer.clear (2);
+  QCOMPARE (buffer.totalReal (), qint64 (0));
+  QCOMPARE (buffer.servedReal (), qint64 (0));
   // After clear the device pads pure silence.
   QCOMPARE (readFrames (s, 3), (QVector<qint16> {0, 0, 0}));
 }
@@ -265,21 +268,23 @@ void TestJttyTxStream::drainedPredicate ()
 
 void TestJttyTxStream::readDoesNotEmitDrainedDirectly ()
 {
-  JttyTxStream s;
+  JttyTxBuffer buffer;
+  JttyTxStream s {buffer};
   QVERIFY (s.initialize (QIODevice::ReadOnly, AudioDevice::Mono));
   QSignalSpy spy (&s, &JttyTxStream::drained);
 
-  QVERIFY (s.enqueueMessage (QVector<qint16> {7, 7, 7}, 31));
+  QVERIFY (buffer.enqueueMessage (QVector<qint16> {7, 7, 7}, 31));
   (void) readFrames (s, 3 + DEFAULT_GUARD);
   QCOMPARE (spy.count (), 0);
 }
 
 void TestJttyTxStream::timerEmitsDrainedEdge ()
 {
-  JttyTxStream s;
+  JttyTxBuffer buffer;
+  JttyTxStream s {buffer};
   QSignalSpy spy (&s, &JttyTxStream::drained);
 
-  QVERIFY (s.enqueueMessage (QVector<qint16> {7, 7, 7}, 41));
+  QVERIFY (buffer.enqueueMessage (QVector<qint16> {7, 7, 7}, 41));
   s.start (nullptr, AudioDevice::Mono, 41);
 
   // Serve the 3 real samples plus exactly the guard worth of trailing silence.
@@ -293,7 +298,7 @@ void TestJttyTxStream::timerEmitsDrainedEdge ()
   QCOMPARE (spy.count (), 1);
 
   // A new message clears the drain edge; draining again emits once more.
-  QVERIFY (s.enqueueMessage (QVector<qint16> {9}, 41));
+  QVERIFY (buffer.enqueueMessage (QVector<qint16> {9}, 41));
   (void) readFrames (s, 1 + DEFAULT_GUARD);
   QTRY_COMPARE (spy.count (), 2);
   QCOMPARE (spy.at (1).at (0).toLongLong (), qint64 (41));
@@ -309,10 +314,11 @@ void TestJttyTxStream::drainedEmittedFromWorkerThread ()
   // tick there; a value-member timer could not be started cross-thread and
   // drained() would never fire (this test would then time out). start() and the
   // audio pull run on the worker thread; drained() must cross back to the spy.
-  JttyTxStream s;
+  JttyTxBuffer buffer;
+  JttyTxStream s {buffer};
   QSignalSpy spy (&s, &JttyTxStream::drained);
 
-  QVERIFY (s.enqueueMessage (QVector<qint16> {7, 7, 7}, 51));
+  QVERIFY (buffer.enqueueMessage (QVector<qint16> {7, 7, 7}, 51));
 
   QThread worker;
   s.moveToThread (&worker);

@@ -2,8 +2,6 @@
 
 #include "Audio/soundout.h"
 
-#include <QDebug>
-
 #include "moc_JttyTxStream.cpp"
 
 namespace
@@ -16,8 +14,9 @@ namespace
   constexpr qint64 DRAIN_GUARD_MARGIN  = 4800;   // 100 ms safety margin
 }
 
-JttyTxStream::JttyTxStream (QObject * parent)
+JttyTxStream::JttyTxStream (JttyTxBuffer& buffer, QObject * parent)
   : AudioDevice {parent}
+  , m_buffer {buffer}
   , m_drainGuard {DEFAULT_DRAIN_GUARD}
   , m_drainTimer {new QTimer {this}}
   , m_active {false}
@@ -26,40 +25,14 @@ JttyTxStream::JttyTxStream (QObject * parent)
   connect (m_drainTimer, &QTimer::timeout, this, &JttyTxStream::pollDrain);
 }
 
-bool JttyTxStream::enqueueMessage (QVector<qint16> const& samples, qint64 sessionId)
-{
-  if (samples.isEmpty ()) return true;
-  if (!m_fifo.enqueue (samples, sessionId))
-    {
-      qWarning () << "JTTY transmit FIFO overflow; rejecting" << samples.size () << "samples";
-      return false;
-    }
-  return true;
-}
-
-void JttyTxStream::clear (qint64 sessionId)
-{
-  m_fifo.clear (sessionId);
-}
-
-qint64 JttyTxStream::servedReal () const
-{
-  return m_fifo.servedReal ();
-}
-
-qint64 JttyTxStream::totalReal () const
-{
-  return m_fifo.totalReal ();
-}
-
 void JttyTxStream::start (SoundOutput * stream, AudioDevice::Channel channel, qint64 sessionId)
 {
   if (m_active) return;
-  if (!m_fifo.queuedReal () && m_fifo.servedReal () == m_fifo.totalReal ())
+  if (!m_buffer.queuedReal () && m_buffer.servedReal () == m_buffer.totalReal ())
     {
-      m_fifo.clear (sessionId);
+      m_buffer.clear (sessionId);
     }
-  m_fifo.applyPendingReset ();
+  m_buffer.applyPendingReset ();
   initialize (QIODevice::ReadOnly, channel);
   m_active = true;
   m_stream = stream;
@@ -102,7 +75,7 @@ qint64 JttyTxStream::readData (char * data, qint64 maxSize)
   qint64 const drainGuard = m_drainGuard.load (std::memory_order_acquire);
   for (qint64 frame = 0; frame < numFrames; ++frame)
     {
-      samples = load (m_fifo.pullSample (drainGuard), samples);
+      samples = load (m_buffer.pullSample (drainGuard), samples);
     }
 
   return numFrames * qint64 (bytesPerFrame ());
@@ -110,7 +83,7 @@ qint64 JttyTxStream::readData (char * data, qint64 maxSize)
 
 void JttyTxStream::pollDrain ()
 {
-  auto const drain = m_fifo.takeDrainReady ();
+  auto const drain = m_buffer.takeDrainReady ();
   if (drain.ready)
     {
       Q_EMIT drained (drain.sessionId, drain.totalAtDrain);
