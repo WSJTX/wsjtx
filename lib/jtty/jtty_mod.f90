@@ -191,6 +191,7 @@ subroutine unpack_jtty(c32,nframes,message)
   message=''
   k=1
   do iframe=1,nframes
+     if(k.gt.len(message)) exit             !Output buffer full; stop decoding
      read(c32(iframe),1002) n28,n2,i2
 1002 format(b28.28,b2.2,b2.2)
      call unpack28(n28,c13,success)
@@ -203,35 +204,37 @@ subroutine unpack_jtty(c32,nframes,message)
         read(c32(iframe),1006) n30
 1006    format(b30.30)
         if(i2.eq.2) then
-           message(k:k+3)='599 '
+           message(k:min(k+3,len(message)))='599 '
            k=k+4
         endif
         n30=ishftc(n30,2)
         do i=1,5
            n30=ishftc(n30,6)
-           message(k:k)=charj(iand(n30,63))
-           if(message(k:k).eq.' ') message(k:k)='~'
+           if(k.le.len(message)) then
+              message(k:k)=charj(iand(n30,63))
+              if(message(k:k).eq.' ') message(k:k)='~'
+           endif
            k=k+1
         enddo
      else
         if(success) then
            if(i2.eq.0 .and. n2.eq.0) then
-              message(k:k+n+5) = 'CQ '//trim(c13)//' CQ'
+              message(k:min(k+n+5,len(message))) = 'CQ '//trim(c13)//' CQ'
               k=k+n+7
            else if(i2.eq.0 .and. n2.eq.1) then
-              message(k:k+n-1) = trim(c13)
+              message(k:min(k+n-1,len(message))) = trim(c13)
               k=k+n+1
            else if(i2.eq.0 .and. n2.eq.2) then
-              message(k:k+n+5) = 'TU '//trim(c13)//' CQ'
+              message(k:min(k+n+5,len(message))) = 'TU '//trim(c13)//' CQ'
               k=k+n+7
            else if(i2.eq.0 .and. n2.eq.3) then
-              message(k:k+n+5) = trim(c13)//' TU'
+              message(k:min(k+n+5,len(message))) = trim(c13)//' TU'
               k=k+n+4
            else if(i2.eq.1 .and. n2.eq.0) then
-              message(k:k+n+5) = trim(c13)//' AGN?'
+              message(k:min(k+n+5,len(message))) = trim(c13)//' AGN?'
               k=k+n+6
            else if(i2.eq.1 .and. n2.eq.1) then
-              message(k:k+n+6) = 'TU NOW '//trim(c13)
+              message(k:min(k+n+6,len(message))) = 'TU NOW '//trim(c13)
               k=k+n+8
            endif
         endif
