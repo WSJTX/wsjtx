@@ -31,7 +31,6 @@ void MMTTYIF::initialize(quint16 port) {
     m_connectionRetries = 0;
     
     QString logStr = QString("[INIT] Starting TCP connection to 127.0.0.1:%1").arg(m_port);
-    logText(logStr);
     emit log_message(logStr);
 
     m_socket->connectToHost("127.0.0.1", m_port);
@@ -40,13 +39,11 @@ void MMTTYIF::initialize(quint16 port) {
 void MMTTYIF::onConnected() {
     m_connectionRetries = 0;
     QString logStr = QString("[TCP] Connected to N1MM Logger+ on port %1").arg(m_port);
-    logText(logStr);
     emit log_message(logStr);
 }
 
 void MMTTYIF::onDisconnected() {
     QString logStr = QString("[TCP] Disconnected from N1MM Logger+");
-    logText(logStr);
     emit log_message(logStr);
 }
 
@@ -55,12 +52,10 @@ void MMTTYIF::onError(QAbstractSocket::SocketError socketError) {
     if (m_connectionRetries < 5) {
         m_connectionRetries++;
         QString logStr = QString("[TCP] Connection error, retrying (%1/5) in 1s...").arg(m_connectionRetries);
-        logText(logStr);
         emit log_message(logStr);
         m_retryTimer->start(1000);
     } else {
         QString logStr = QString("[TCP] Failed to connect after 5 retries.");
-        logText(logStr);
         emit log_message(logStr);
         emit connection_failed();
     }
@@ -75,7 +70,6 @@ void MMTTYIF::onReadyRead() {
     QString buffer = QString::fromLatin1(data);
     
     QString logStr = QString("[TCP RCVD] %1").arg(buffer);
-    logText(logStr);
     emit log_message(logStr);
     emit message_received();
 
@@ -108,21 +102,10 @@ void MMTTYIF::onReadyRead() {
     }
 }
 
-void MMTTYIF::logText(const QString &text) {
-    QString logPath = "C:/temp/mmtty_interface.log";
-    
-    QFile file(logPath);
-    if (file.open(QIODevice::Append | QIODevice::Text)) {
-        QTextStream out(&file);
-        QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz");
-        out << timestamp << " " << text << "\n";
-        file.close();
-    }
-}
+
 
 void MMTTYIF::shutdown() {
     QString logStr = "[EXIT] MMTTYIF shutting down";
-    logText(logStr);
     emit log_message(logStr);
     
     if (m_socket && m_socket->isOpen()) {
@@ -138,7 +121,6 @@ void MMTTYIF::echo_message_to_n1mm(const QString &message) {
     if (isConnected()) {
         if (message.isEmpty()) {
             QString logStr = QString("MMTTYIF::echo_message_to_n1mm - Ignoring Empty message");
-            logText(logStr);
             emit log_message(logStr);
             return;
         }
@@ -147,7 +129,6 @@ void MMTTYIF::echo_message_to_n1mm(const QString &message) {
         m_socket->flush();
         
         QString logStr = QString("[TCP SENT] %1").arg(msgToSend);
-        logText(logStr);
         emit log_message(logStr);
     }
 }
@@ -156,7 +137,6 @@ void MMTTYIF::report_ptt_state(bool is_on) {
     if (isConnected() && !is_on) {
        #ifdef SKIP_OUTPUT_COMPLETE 
         QString logStr = QString("[TCP SENT] Skipping OUTPUTCOMPLETE");
-        logText(logStr);
         emit log_message(logStr);
        #else
         QString msgToSend = "<OUTPUTCOMPLETE>";
@@ -164,7 +144,6 @@ void MMTTYIF::report_ptt_state(bool is_on) {
         m_socket->flush();
         
         QString logStr = QString("[TCP SENT] %1").arg(msgToSend);
-        logText(logStr);
         emit log_message(logStr);
        #endif
     }

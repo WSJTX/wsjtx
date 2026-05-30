@@ -13,17 +13,7 @@ int main(int argc, char *argv[]) {
   QCoreApplication::setApplicationName("mmtty_interface");
   QCoreApplication::setApplicationVersion("1.0");
 
-  QString timestamp =
-      QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz");
-#if defined(Q_OS_WIN) && !defined(__MINGW32__)
-  MMTTYIF::logText(QString("%1 [INIT] Command line: %2")
-                       .arg(timestamp)
-                       .arg(QString::fromWCharArray(GetCommandLineW())));
-#else
-  MMTTYIF::logText(QString("%1 [INIT] Command line: %2")
-                       .arg(timestamp)
-                       .arg(app.arguments().join(' ')));
-#endif
+
 
   QCommandLineParser parser;
   parser.setApplicationDescription(

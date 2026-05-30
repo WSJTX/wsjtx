@@ -16,8 +16,6 @@ public:
   void initialize(quint16 port);
   bool isConnected() const;
 
-  static void logText(const QString &text);
-
 signals:
   void inactivity_timeout();
   void app_is_quitting();
