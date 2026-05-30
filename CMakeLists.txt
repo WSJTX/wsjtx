@@ -205,7 +205,6 @@ endif ()
 
 if (WSJT_ENABLE_TESTS)
      enable_testing ()
-     add_subdirectory (lib/jtty/tests)
      message (STATUS "Including tests")
  endif()
 
@@ -300,6 +299,7 @@ set (wsjt_qt_CXXSRCS
   widgets/BandComboBox.cpp
   otpgenerator.cpp
   MessageFilter.cpp
+  MessageFilterRules.cpp
   MessageFilterLogic.cpp
   PrefixSuffix.cpp
   CountryNames.cpp
@@ -1298,10 +1298,6 @@ endif ()
 if (WSJT_GENERATE_DOCS)
   add_subdirectory (doc)
 endif (WSJT_GENERATE_DOCS)
-if (EXISTS ${CMAKE_SOURCE_DIR}/tests AND IS_DIRECTORY ${CMAKE_SOURCE_DIR}/tests)
-  add_subdirectory (tests)
-endif ()
-
 # build a library of package functionality (without and optionally with OpenMP support)
 add_library (wsjt_cxx STATIC ${wsjt_CSRCS} ${wsjt_CXXSRCS})
 target_link_libraries (wsjt_cxx ${LIBM_LIBRARIES} Boost::log_setup ${LIBM_LIBRARIES})
@@ -1344,10 +1340,6 @@ target_link_libraries (jt65sim wsjt_fort wsjt_cxx)
 
 add_executable (sjtty lib/jtty/sjtty.f90)
 target_link_libraries (sjtty wsjt_fort wsjt_cxx)
-
-add_executable (test_jtty_pack lib/jtty/tests/test_jtty_pack.f90)
-configure_file(lib/jtty/tests/jtty_msgs.txt "${CMAKE_CURRENT_BINARY_DIR}/jtty_msgs.txt" COPYONLY)
-target_link_libraries (test_jtty_pack wsjt_fort wsjt_cxx)
 
 add_executable (sjtty_qrm lib/jtty/sjtty_qrm.f90)
 target_link_libraries (sjtty_qrm wsjt_fort wsjt_cxx)
@@ -1467,6 +1459,10 @@ target_link_libraries (ldpcsim80_42 wsjt_fort wsjt_cxx)
 
 endif(WSJT_BUILD_UTILS)
 
+if(WSJT_ENABLE_TESTS)
+  add_subdirectory (tests)
+endif()
+
 
 
 add_executable (fmtave lib/fmtave.f90)
@@ -1549,6 +1545,7 @@ set (LANGUAGES
 				# doesn't need to be populated)
   en_GB				# English UK
   es				# Spanish
+  hu				# Hungarian
   it				# Italian
   ja				# Japanese
   #no				# Norwegian
@@ -1557,7 +1554,6 @@ set (LANGUAGES
   #sv				# Swedish
   zh				# Chinese
   zh_TW				# Chinese traditional
-  it				# Italian
   )
 foreach (lang_ ${LANGUAGES})
   file (TO_NATIVE_PATH ${CMAKE_SOURCE_DIR}/translations/wsjtx_${lang_}.ts ts_)
@@ -2158,6 +2154,13 @@ endif ()
 set (CPACK_DEBIAN_PACKAGE_HOMEPAGE "${PROJECT_HOMEPAGE}")
 set (CPACK_DEBIAN_PACKAGE_DEPENDS "libgfortran5 (>=8.3) | libgfortran4 (>=7.3) | libgfortran3 (>=6.3), libfftw3-single3 (>=3.3), libgomp1 (>=6), libqt5serialport5 (>=5.7), libqt5multimedia5-plugins (>=5.7), libqt5widgets5 (>=5.7), libqt5network5 (>=5.7), libqt5printsupport5 (>=5.7), libqt5websockets5 (>=5.7),  libqt5sql5-sqlite (>=5.7), libusb-1.0-0 (>=1.0.21), libboost-log1.62.0 (>=1.62.0) | libboost-log1.65.1 (>=1.65.1) | libboost-log1.67.0 (>=1.67.0) | libboost-log1.71.0 (>=1.71.0) | libboost-log1.74.0 (>=1.74.0) | libboost-log1.81.0 (>=1.81.0) | libboost-log1.83.0 (>=1.83.0) | libboost-log1.85.0 (>=1.85.0)")
 set (CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+# Take over data files (icon, samples, docs) from the distro `wsjtx-data`,
+# `wsjtx-doc`, `wsjtx-improved-data`, and `wsjtx-improved-doc` binary packages
+# so installing this .deb on a system carrying any of them doesn't fail with a
+# file conflict and doesn't cascade-remove `js8call` or other consumers.
+set (CPACK_DEBIAN_PACKAGE_PROVIDES "wsjtx-data (= ${wsjtx_VERSION}), wsjtx-doc (= ${wsjtx_VERSION}), wsjtx-improved-data (= ${wsjtx_VERSION}), wsjtx-improved-doc (= ${wsjtx_VERSION})")
+set (CPACK_DEBIAN_PACKAGE_REPLACES "wsjtx-data, wsjtx-doc, wsjtx-improved-data, wsjtx-improved-doc")
+set (CPACK_DEBIAN_PACKAGE_CONFLICTS "wsjtx-data (<< ${wsjtx_VERSION}), wsjtx-doc (<< ${wsjtx_VERSION}), wsjtx-improved-data (<< ${wsjtx_VERSION}), wsjtx-improved-doc (<< ${wsjtx_VERSION})")
 
 set (CPACK_RPM_PACKAGE_ARCHITECTURE ${CMAKE_SYSTEM_PROCESSOR})
 set (CPACK_RPM_PACKAGE_REQUIRES "qt5-qtbase >= 5.9, qt5-qtserialport >= 5.9, qt5-qtmultimedia >= 5.9, qt5-qtwebsockets >= 5.9, qt5-qtsvg >= 5.9, libusbx >= 1.0.22, libgfortran >= 7, libgomp >= 7, fftw-libs-single >= 3.3, boost-log >= 1.62")

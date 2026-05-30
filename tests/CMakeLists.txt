@@ -1,8 +1,5 @@
 find_package (Qt5Test 5 REQUIRED)
 
-#
-# Compiler options
-#
 set (CMAKE_CXX_STANDARD 11)
 add_compile_options ("$<$<COMPILE_LANGUAGE:Fortran>:-Wall;-Wno-conversion;-fno-second-underscore;-fno-f2c>")
 add_compile_options ("$<$<AND:$<COMPILE_LANGUAGE:Fortran>,$<CONFIG:Debug>>:-fbounds-check>")
@@ -14,18 +11,10 @@ if (${OPENMP_FOUND} OR APPLE)
   add_compile_options ("$<$<AND:$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>,$<C_COMPILER_ID:GNU>>:${OpenMP_C_FLAGS}>")
 endif ()
 
-# Tell CMake to run moc when necessary
 set (CMAKE_AUTOMOC ON)
 include_directories (${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_SOURCE_DIR})
 
-add_executable (test_qt_helpers test_qt_helpers.cpp)
-target_link_libraries (test_qt_helpers wsjt_qt Qt5::Test)
-add_test (test_qt_helpers test_qt_helpers)
-
-add_executable (test_message_filter test_message_filter.cpp)
-target_link_libraries (test_message_filter wsjt_qt Qt5::Test)
-add_test (test_message_filter test_message_filter)
-
-add_executable (test_fastsink_logic test_fastsink_logic.cpp)
-target_link_libraries (test_fastsink_logic wsjt_qt wsjt_fort wsjt_cxx Qt5::Test)
-add_test (test_fastsink_logic test_fastsink_logic)
+add_subdirectory (unit/audio)
+add_subdirectory (unit/common)
+add_subdirectory (unit/message_filter)
+add_subdirectory (unit/jtty)

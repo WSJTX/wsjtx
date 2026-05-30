@@ -14,20 +14,19 @@ program sjtty
   use jtty_mod                      ! This module provides NSPS
   use jtty_fec
 
-  parameter (NMAX=30*12000)         !Max size of .wav file
   parameter (MAX_TONES=53*16)       !Max number of channel symbols
   character*12 arg                  !Command line argument
   character*2 arg4                  !The 4th command-line argument
   character*80 umsg                 !User-formatted message 
   character*40 fname                !Output file name
   character*32 c32(16)
-  complex cwave(0:NMAX-1)           !Complex generated waveform (12000 Hz)
-  complex c0(0:NMAX-1)              !With propagation degradation
-  complex c(0:NMAX-1)               !With propagation degradation
-  real wave (NMAX)                  !Real generated waveform (12000 Hz)
+  complex, allocatable :: cwave(:)  !Complex generated waveform (12000 Hz)
+  complex, allocatable :: c0(:)     !With propagation degradation
+  complex, allocatable :: c(:)      !With propagation degradation
+  real, allocatable :: wave(:)      !Real generated waveform (12000 Hz)
   type(hdr) h                       !Header for .wav file
   integer itone(MAX_TONES)          !Array of tone frequencies for this message
-  integer*2 iwave(0:NMAX-1)         !Data written to the *.wav file
+  integer*2, allocatable :: iwave(:) !Data written to the *.wav file
   integer*1 message32(32)
   integer*1 codeword80(80)
   integer graymap(0:3)
@@ -156,6 +155,16 @@ program sjtty
           (30i2))
 
   nwave=nsps*nsym                  !Length of i*2 data written to *.wav file
+  npts=2**(int(log(float(nwave)+xdt/dt)/log(2.0) + 0.9999))  !Round up to integer power of 2
+  iz=nint(xdt/dt) + nwave + nsps*53              !Add one frame of noise at end
+  nbuf=max(nwave,npts,iz)
+
+  allocate(cwave(0:nwave-1))
+  allocate(c0(0:nbuf-1))
+  allocate(c(0:nbuf-1))
+  allocate(wave(1:nbuf))
+  allocate(iwave(1:nbuf))
+
   icmplx=1
   call gen_jttywave(itone,nsym,nsps,bt,fsample,f0,cwave,wave,icmplx,nwave)
 
@@ -174,7 +183,6 @@ program sjtty
 
 !  call sgran()
 
-  npts=2**(int(log(float(nwave)+xdt/dt)/log(2.0) + 0.9999))  !Round up to integer power of 2
   do ifile=1,nfiles
      c0=0.
      c0(0:nwave-1)=cwave(0:nwave-1)
@@ -188,7 +196,6 @@ program sjtty
      wave=0.
      wave=imag(c)    !Signal with SNR and prop degradation
 
-     iz=nint(xdt/dt) + nwave + nsps*53              !Add one frame of noise at end
      if(snrdb.lt.90) then
         do i=1,iz                    !Add gaussian noise for specified SNR
            xnoise=gran()

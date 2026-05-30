@@ -5,6 +5,7 @@ program test_jtty_pack
   character*32 c32(MAX_FRAMES)
   character*17 cparms
   character*1 err
+  integer, parameter :: expected_errors = 1
 
   open(10,file='jtty_msgs.txt',status='old')
   write(*,1000)
@@ -47,5 +48,6 @@ program test_jtty_pack
 
 100  write(*,1100) nz,nerr
 1100 format(/'Total messages:',i3,'   Number of errors:',i3)
+  if(nerr.ne.expected_errors) error stop 1
 
 end program test_jtty_pack

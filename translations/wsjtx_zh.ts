@@ -4952,26 +4952,6 @@ Double-click to reset to the standard 73 message</source>
         <translation>启用黑夜模式</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="5553"/>
-        <source>WSJT-X_improved Home Page</source>
-        <translation>WSJT-X _改进版主页</translation>
-    </message>
-    <message>
-        <location filename="../widgets/mainwindow.ui" line="5561"/>
-        <source>The additional features of wsjt-x_improved</source>
-        <translation>WSJT-X _改进版的附加功能</translation>
-    </message>
-    <message>
-        <location filename="../widgets/mainwindow.ui" line="5564"/>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Overview on the additional features of wsjt-x_improved.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;概述 WSJT-X _改进版的附加功能.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
-        <location filename="../widgets/mainwindow.ui" line="5556"/>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Go to the wsjt-x_improved home page.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;转到 WSJT-X _改进版主页.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
         <location filename="../widgets/mainwindow.ui" line="5585"/>
         <source>Erase list of Q65 callers</source>
         <translation>清除Q65呼叫者列表</translation>
@@ -8924,10 +8904,6 @@ transmitting periods.</source>
         <translation>将高亮显示重置为 wsjt-x 默认值</translation>
     </message>
     <message>
-        <source>Reset Highlighting to wsjt-x_improved default</source>
-        <translation type="vanished">将高亮显示重置为 wsjt-x_improved 默认值</translation>
-    </message>
-    <message>
         <location filename="../Configuration.ui" line="2893"/>
         <source>Highlight also messages with 73 or RR73</source>
         <translation>突出显示 73 或 RR73 信息</translation>
@@ -9655,11 +9631,6 @@ Right click for insert and delete options.</source>
         <location filename="../Configuration.ui" line="2784"/>
         <source>Decode Highlightling</source>
         <translation>解码突出显示</translation>
-    </message>
-    <message>
-        <location filename="../Configuration.ui" line="2802"/>
-        <source>Reset Highlighting to WSJT-X Improved default</source>
-        <translation>将高亮显示重置为 wsjt-x_improved 默认值</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2809"/>

@@ -4,6 +4,7 @@
 #include "commons.h"
 #include "Audio/WavFile.hpp"
 #include "Logger.hpp"
+#include <QByteArray>
 #include <QtConcurrent/QtConcurrentRun>
 #include <iostream>
 
@@ -14,7 +15,7 @@
 #endif
 
 
-extern dec_data_t dec_data;
+extern dec_data_t& dec_data;
 
 #if QT_VERSION >= QT_VERSION_CHECK (5, 13, 0)
 #define SkipEmptyParts Qt::SkipEmptyParts
@@ -67,6 +68,12 @@ void MainWindow::jtty_save_wav()
 
 void MainWindow::jtty_decode(int k)
 {
+  auto boundedLatin1 = [] (char const *data, int size) {
+    QByteArray bytes {QByteArray::fromRawData(data, size)};
+    int const nul = bytes.indexOf('\0');
+    if (nul >= 0) bytes.truncate(nul);
+    return QString::fromLatin1(bytes.constData(), bytes.size());
+  };
   int nsps=384;
   char qso_freq[800];
   char all_freqs[2400];
@@ -80,7 +87,7 @@ void MainWindow::jtty_decode(int k)
   jtty_get_msgs_(&f0, &ftol, &all_new, &qso_new, &all_freqs[0],
                  &qso_freq[0], (FCL)2400, (FCL)800);
 
-  QString allMsgs {QString::fromLatin1(all_freqs)};
+  QString allMsgs {boundedLatin1(all_freqs, sizeof all_freqs)};
   if(ui->cbLowerCase->isChecked()) allMsgs = allMsgs.toLower();
   if(all_new) {
       ui->decodedTextBrowser->clear();
@@ -96,7 +103,7 @@ void MainWindow::jtty_decode(int k)
 #endif
   }
   if(qso_new) {
-      QString message2 {QString::fromLatin1(qso_freq)};
+      QString message2 {boundedLatin1(qso_freq, sizeof qso_freq)};
       if(ui->cbLowerCase->isChecked()) message2 = message2.toLower();
       int n2=message2.length();
       if(n2 > 0) {
@@ -117,7 +124,6 @@ void MainWindow::jtty_tx(QString message)
     m_jttyQueue = new JttyTxQueue(this);
     connect(m_jttyQueue, &JttyTxQueue::transmitMessage, this, &MainWindow::execute_jtty_tx);
     connect(m_jttyQueue, &JttyTxQueue::stopTransmit, this, &MainWindow::stopJttyTxIfEmpty);
-    connect(m_jttyQueue, &JttyTxQueue::abortTransmit, this, &MainWindow::abort_jtty_tx);
   }
   m_jttyQueue->queueMessage(message);
 }
@@ -127,6 +133,7 @@ void MainWindow::execute_jtty_tx(QString message)
   int itone[848];
   int n=message.length();
   m_currentMessage = message;
+  bool const isTUMessage = message.left(3).compare("TU ", Qt::CaseInsensitive) == 0;
   if(ui->cbLowerCase->isChecked()) message = message.toLower();
 
   // Display Tx message highlighted in yellow
@@ -140,7 +147,7 @@ void MainWindow::execute_jtty_tx(QString message)
   format.setBackground(QBrush(QColor(Qt::white)));
   cursor.setCharFormat(format);
 
-  if(message.left(3) == "TU ") {
+  if(isTUMessage) {
     // ### Must send "sent" and "rcvd" info to logqso here. ###
     logQSOTimer.start(0);
     int nr = ui->sbSerialNumber_2->value();
@@ -277,7 +284,7 @@ void MainWindow::on_TxFreqSpinBox_2_valueChanged(int n)
 
 void MainWindow::on_sbFtol_2_valueChanged (int n)
 {
-    if(n==999) std::cout << "AAA " << n << "\n";
+  Q_UNUSED(n);
 }
 
 #ifdef WIN32

@@ -21,7 +21,7 @@
 
 using SpecOp = Configuration::SpecialOperatingActivity;
 
-extern dec_data_t dec_data;
+extern dec_data_t& dec_data;
 extern int volatile itone[MAX_NUM_SYMBOLS];
 extern int volatile itone0[MAX_NUM_SYMBOLS];
 extern int volatile icw[NUM_CW_SYMBOLS];

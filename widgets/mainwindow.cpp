@@ -134,9 +134,6 @@ extern "C" {
               float s[], int* jh, float *pxmax, float *rmsNoGain, char line[],
               fortran_charlen_t, fortran_charlen_t, fortran_charlen_t, fortran_charlen_t);
 
-  void rjtty_sub_(short int d2[], int* k, int* nsps, float* f0, float* ftol,
-                  float* xdt, float* f1, float* snr, char line[], fortran_charlen_t);
-
   void genjtty_(char const * msg, int itone[], int* nsym, fortran_charlen_t);
 
   void gen_jttywave_(int itone[], int* nsym, int* nsps, float* bt, float* fsample, float* f0,
@@ -241,7 +238,7 @@ QList<FoxVerifier *> m_verifications;
 int volatile itone[MAX_NUM_SYMBOLS];   //Audio tones for all Tx symbols
 int volatile itone0[MAX_NUM_SYMBOLS];  //Dummy array, data not actually used
 int volatile icw[NUM_CW_SYMBOLS];      //Dits for CW ID
-dec_data_t dec_data;                   //For sharing with Fortran
+dec_data_t& dec_data = *new dec_data_t{};
 int outBufSize;
 int rc;
 qint32  g_iptt {0};

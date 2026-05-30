@@ -18,7 +18,7 @@
 #include <QMessageBox>
 #include <QAudioOutput>
 
-extern dec_data_t dec_data;
+extern dec_data_t& dec_data;
 extern int outBufSize;
 extern bool blocked;
 extern int m_TxFreqFox;
@@ -312,7 +312,7 @@ void MainWindow::readSettings()
   ui->msg5->setText(m_settings->value("JTTY_msg5","%H").toString());
   ui->msg6->setText(m_settings->value("JTTY_msg6","TU NOW %Q 599 %N").toString());
   ui->msg7->setText(m_settings->value("JTTY_msg7","%H AGN?").toString());
-  ui->msg8->setText(m_settings->value("JTTY_msg7","599 %N").toString());
+  ui->msg8->setText(m_settings->value("JTTY_msg8","599 %N").toString());
   m_freeTextMsg0=m_settings->value("FoxTextMsg","").toString();
   m_freeTextMsg=m_freeTextMsg0;
   ui->cbWorkDupes->setChecked(m_settings->value("WorkDupes",false).toBool());

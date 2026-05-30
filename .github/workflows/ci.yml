@@ -28,8 +28,13 @@ jobs:
           echo "Derived version from CMakeLists.txt: $VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
+  # macos / macos-intel / linux-arm / windows gate on `linux` as well as
+  # `prepare`: linux is the cheapest, fastest runner, so a break that fails
+  # everywhere fails fast on linux before the costly runners start, instead
+  # of burning all of them in parallel. `prepare` stays in `needs` for its
+  # version output.
   macos:
-    needs: prepare
+    needs: [prepare, linux]
     uses: ./.github/workflows/build-macos.yml
     with:
       version: ${{ needs.prepare.outputs.version }}
@@ -40,7 +45,7 @@ jobs:
     secrets: inherit
 
   macos-intel:
-    needs: prepare
+    needs: [prepare, linux]
     uses: ./.github/workflows/build-macos.yml
     with:
       version: ${{ needs.prepare.outputs.version }}
@@ -60,7 +65,7 @@ jobs:
     secrets: inherit
 
   linux-arm:
-    needs: prepare
+    needs: [prepare, linux]
     uses: ./.github/workflows/build-linux.yml
     with:
       version: ${{ needs.prepare.outputs.version }}
@@ -69,7 +74,7 @@ jobs:
     secrets: inherit
 
   windows:
-    needs: prepare
+    needs: [prepare, linux]
     uses: ./.github/workflows/build-windows.yml
     with:
       version: ${{ needs.prepare.outputs.version }}

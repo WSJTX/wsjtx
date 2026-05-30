@@ -3,7 +3,7 @@
 
 #include <QString>
 #include <QStringList>
-#include "Configuration.hpp"
+#include "SpecialOperatingActivity.hpp"
 
 class DecodedText;
 class LogBook;
@@ -12,7 +12,7 @@ class MessageFilterLogic
 {
 public:
     struct FilterContext {
-        Configuration::SpecialOperatingActivity specOp {Configuration::SpecialOperatingActivity::NONE};
+        SpecialOperatingActivity specOp {SpecialOperatingActivity::NONE};
         bool bypass {false};
         bool filtersForWord2 {false};
         bool filtersForWaitAndPounceOnly {false};

@@ -66,8 +66,10 @@ subroutine jtty_get_msgs(f0,ftol,all_new,qso_new,all_freqs,qso_freq)
   character*2400               :: all_freqs0 = " "
   character*800                :: qso_freq
   character*800                :: qso_freq0 = " "
-  character*80 msg,msg2
+  character*80 msg
+  character*96 msg2
   integer indx(MAX_SLOTS)
+  integer kall,kqso,nmsg,ncopy
   real f1(MAX_SLOTS)
   logical*1 all_new,qso_new
   save all_freqs0,qso_freq0
@@ -75,7 +77,8 @@ subroutine jtty_get_msgs(f0,ftol,all_new,qso_new,all_freqs,qso_freq)
   f1(1:nslots)=slot(1:nslots)%f1
   call indexx(f1,nslots,indx)
 
-  k=1
+  kall=1
+  kqso=1
   all_freqs=''
   qso_freq=''
   do ii=1,nslots
@@ -89,18 +92,26 @@ subroutine jtty_get_msgs(f0,ftol,all_new,qso_new,all_freqs,qso_freq)
      write(msg2,1000) nint(slot(i)%f1),nint(slot(i)%snrdb - 20.0),  &
           trim(msg) // char(10)
 1000 format(2i4,2x,a)
-     all_freqs=trim(all_freqs) // trim(msg2)
-     k=len_trim(all_freqs)+1
+     nmsg=len_trim(msg2)
+     ncopy=min(nmsg,len(all_freqs)-kall)
+     if(ncopy.gt.0) then
+        all_freqs(kall:kall+ncopy-1)=msg2(1:ncopy)
+        kall=kall+ncopy
+     endif
 
      if(abs(df).lt.ftol) then
-        qso_freq=trim(qso_freq) // trim(msg2) !// char(10)
+        ncopy=min(nmsg,len(qso_freq)-kqso)
+        if(ncopy.gt.0) then
+           qso_freq(kqso:kqso+ncopy-1)=msg2(1:ncopy)
+           kqso=kqso+ncopy
+        endif
      endif
   enddo
-  all_freqs=trim(all_freqs) // char(0)
+  all_freqs(kall:kall)=char(0)
   all_new = trim(all_freqs).ne.trim(all_freqs0)
   all_freqs0 = all_freqs
 
-  qso_freq=trim(qso_freq) // char(0)
+  qso_freq(kqso:kqso)=char(0)
   qso_new = trim(qso_freq).ne.trim(qso_freq0)
   qso_freq0 = qso_freq
 

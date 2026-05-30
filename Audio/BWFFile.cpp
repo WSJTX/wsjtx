@@ -18,6 +18,95 @@
 
 namespace
 {
+  qint64 constexpr riff_type_size = 4;
+  int constexpr max_chunk_read_size = (std::numeric_limits<int>::max) ();
+
+  bool checked_add (qint64 lhs, qint64 rhs, qint64 * result)
+  {
+    if (!result)
+      {
+        return false;
+      }
+
+    if ((rhs > 0 && lhs > (std::numeric_limits<qint64>::max) () - rhs) ||
+        (rhs < 0 && lhs < (std::numeric_limits<qint64>::min) () - rhs))
+      {
+        return false;
+      }
+
+    *result = lhs + rhs;
+    return true;
+  }
+
+  bool checked_padded_chunk_size (quint32 raw_size, qint64 * padded_size)
+  {
+    return checked_add (raw_size, raw_size & 1u, padded_size);
+  }
+
+  bool checked_chunk_end (qint64 payload_offset, quint32 raw_size, qint64 limit, qint64 * end)
+  {
+    qint64 padded_size;
+    return checked_padded_chunk_size (raw_size, &padded_size) &&
+      checked_add (payload_offset, padded_size, end) &&
+      payload_offset >= 0 && *end <= limit;
+  }
+
+  bool checked_chunk_payload_end (qint64 payload_offset, quint32 raw_size, qint64 limit, qint64 * end)
+  {
+    return checked_add (payload_offset, raw_size, end) &&
+      payload_offset >= 0 && *end <= limit;
+  }
+
+  bool read_bounded_chunk (QFile& file, quint32 raw_size, QByteArray * out)
+  {
+    if (!out || raw_size > static_cast<quint32> (max_chunk_read_size))
+      {
+        return false;
+      }
+
+    auto data = file.read (static_cast<int> (raw_size));
+    if (data.size () != static_cast<int> (raw_size))
+      {
+        return false;
+      }
+
+    *out = data;
+    return true;
+  }
+
+  bool valid_pcm_format (quint16 channels, quint32 sample_rate, quint16 bits_per_sample)
+  {
+    return channels && sample_rate && bits_per_sample && !(bits_per_sample % 8);
+  }
+
+  template <size_t N>
+  QByteArray fixed_field_value (char const (&field)[N])
+  {
+    auto const * end = static_cast<char const *> (::memchr (field, '\0', N));
+    auto const length = end ? end - field : static_cast<ptrdiff_t> (N);
+    return QByteArray {field, static_cast<int> (length)};
+  }
+
+  template <size_t N>
+  QString fixed_field_prefix_string (char const (&field)[N], int max_length)
+  {
+    auto const bounded_length = std::min (max_length, static_cast<int> (N));
+    auto const * end = static_cast<char const *> (::memchr (field, '\0', bounded_length));
+    auto const length = end ? static_cast<int> (end - field) : bounded_length;
+    return QString::fromLatin1 (field, length);
+  }
+
+  template <size_t N>
+  void assign_fixed_field (char (&field)[N], QByteArray const& value)
+  {
+    ::memset (field, '\0', N);
+    auto const length = std::min (value.size (), static_cast<int> (N));
+    if (length > 0)
+      {
+        ::memcpy (field, value.constData (), static_cast<size_t> (length));
+      }
+  }
+
   // chunk descriptor
   struct Desc
   {
@@ -62,6 +151,8 @@ namespace
     std::array<char, 4> id_;
     quint32 size_;
   };
+
+  qint64 constexpr chunk_header_size = sizeof (Desc);
 
   // "fmt " chunk contents
   struct FormatChunk
@@ -208,44 +299,64 @@ bool BWFFile::impl::read_header ()
   if (!(file_.openMode () & ReadOnly)) return false;
   if (!file_.seek (0)) return false;
   Desc outer_desc;
-  quint32 outer_offset = file_.pos ();
+  auto const file_size = file_.size ();
+  qint64 outer_offset = file_.pos ();
   quint32 outer_size {0};
   bool be {false};
-  while (outer_offset < sizeof outer_desc + outer_desc.size_ - 1) // allow for uncounted pad
+  while (outer_offset + chunk_header_size <= file_size)
     {
       if (file_.read (&outer_desc, sizeof outer_desc) != sizeof outer_desc) return false;
       be = !memcmp (&outer_desc.id_, "RIFX", 4);
       outer_size = be ? qFromBigEndian<quint32> (outer_desc.size_) : qFromLittleEndian<quint32> (outer_desc.size_);
+      qint64 outer_chunk_end;
+      if (!checked_chunk_end (file_.pos (), outer_size, file_size, &outer_chunk_end)) return false;
       if (!memcmp (&outer_desc.id_, "RIFF", 4) || be)
         {
           // RIFF or RIFX
+          if (outer_size < static_cast<quint32> (riff_type_size)) return false;
           char riff_item[4];
           if (file_.read (riff_item, sizeof riff_item) != sizeof riff_item) return false;
           if (!memcmp (riff_item, "WAVE", 4))
             {
               // WAVE
               Desc wave_desc;
-              quint32 wave_offset = file_.pos ();
+              qint64 wave_offset = file_.pos ();
               quint32 wave_size {0};
-              while (wave_offset < outer_offset + sizeof outer_desc + outer_size - 1)
+              while (wave_offset + chunk_header_size <= outer_chunk_end)
                 {
                   if (file_.read (&wave_desc, sizeof wave_desc) != sizeof wave_desc) return false;
                   wave_size = be ? qFromBigEndian<quint32> (wave_desc.size_) : qFromLittleEndian<quint32> (wave_desc.size_);
+                  auto const wave_payload_offset = file_.pos ();
+                  qint64 wave_payload_end;
+                  qint64 wave_chunk_end;
+                  if (!checked_chunk_payload_end (wave_payload_offset, wave_size, outer_chunk_end, &wave_payload_end) ||
+                      !checked_chunk_end (wave_payload_offset, wave_size, outer_chunk_end, &wave_chunk_end))
+                    {
+                      return false;
+                    }
                   if (!memcmp (&wave_desc.id_, "bext", 4))
                     {
-                      bext_ = file_.read (wave_size);
+                      if (wave_size < sizeof (BroadcastAudioExtension) ||
+                          !read_bounded_chunk (file_, wave_size, &bext_))
+                        {
+                          return false;
+                        }
                     }
                   if (!memcmp (&wave_desc.id_, "fmt ", 4))
                     {
+                      if (wave_size < sizeof (FormatChunk)) return false;
                       FormatChunk fmt;
                       if (file_.read (reinterpret_cast<char *> (&fmt), sizeof fmt) != sizeof fmt) return false;
-                      auto audio_format = be ? qFromBigEndian<quint16> (fmt.audio_format) : qFromLittleEndian<quint16> (fmt.audio_format);
+                      auto const audio_format = be ? qFromBigEndian<quint16> (fmt.audio_format) : qFromLittleEndian<quint16> (fmt.audio_format);
                       if (audio_format != 0 && audio_format != 1) return false; // not PCM nor undefined
+                      auto const channels = be ? qFromBigEndian<quint16> (fmt.num_channels) : qFromLittleEndian<quint16> (fmt.num_channels);
+                      auto const sample_rate = be ? qFromBigEndian<quint32> (fmt.sample_rate) : qFromLittleEndian<quint32> (fmt.sample_rate);
+                      auto const bits_per_sample = be ? qFromBigEndian<quint16> (fmt.bits_per_sample) : qFromLittleEndian<quint16> (fmt.bits_per_sample);
+                      if (!valid_pcm_format (channels, sample_rate, bits_per_sample)) return false;
                       format_.setByteOrder (be ? QAudioFormat::BigEndian : QAudioFormat::LittleEndian);
-                      format_.setChannelCount (be ? qFromBigEndian<quint16> (fmt.num_channels) : qFromLittleEndian<quint16> (fmt.num_channels));
+                      format_.setChannelCount (channels);
                       format_.setCodec ("audio/pcm");
-                      format_.setSampleRate (be ? qFromBigEndian<quint32> (fmt.sample_rate) : qFromLittleEndian<quint32> (fmt.sample_rate));
-                      int bits_per_sample {be ? qFromBigEndian<quint16> (fmt.bits_per_sample) : qFromLittleEndian<quint16> (fmt.bits_per_sample)};
+                      format_.setSampleRate (sample_rate);
                       format_.setSampleSize (bits_per_sample);
                       format_.setSampleType (8 == bits_per_sample ? QAudioFormat::UnSignedInt : QAudioFormat::SignedInt);
                     }
@@ -256,29 +367,36 @@ bool BWFFile::impl::read_header ()
                     }
                   else if (!memcmp (&wave_desc.id_, "LIST", 4))
                     {
+                      if (wave_size < static_cast<quint32> (riff_type_size)) return false;
                       char list_type[4];
                       if (file_.read (list_type, sizeof list_type) != sizeof list_type) return false;
                       if (!memcmp (list_type, "INFO", 4))
                         {
                           Desc info_desc;
-                          quint32 info_offset = file_.pos ();
+                          qint64 info_offset = file_.pos ();
                           quint32 info_size {0};
-                          while (info_offset < wave_offset + sizeof wave_desc + wave_size - 1)
+                          while (info_offset + chunk_header_size <= wave_payload_end)
                             {
                               if (file_.read (&info_desc, sizeof info_desc) != sizeof info_desc) return false;
                               info_size = be ? qFromBigEndian<quint32> (info_desc.size_) : qFromLittleEndian<quint32> (info_desc.size_);
-                              info_dictionary_[info_desc.id_] = file_.read (info_size);
-                              if (!file_.seek (info_offset + sizeof info_desc + (info_size + 1) / 2 * 2)) return false;;
+                              auto const info_payload_offset = file_.pos ();
+                              qint64 info_chunk_end;
+                              if (!checked_chunk_end (info_payload_offset, info_size, wave_payload_end, &info_chunk_end) ||
+                                  !read_bounded_chunk (file_, info_size, &info_dictionary_[info_desc.id_]))
+                                {
+                                  return false;
+                                }
+                              if (!file_.seek (info_chunk_end)) return false;
                               info_offset = file_.pos ();
                             }
                         }
                     }
-                  if (!file_.seek (wave_offset + sizeof wave_desc + (wave_size + 1) / 2 * 2)) return false;
+                  if (!file_.seek (wave_chunk_end)) return false;
                   wave_offset = file_.pos ();
                 }
             }
         }
-      if (!file_.seek (outer_offset + sizeof outer_desc + (outer_size + 1) / 2 * 2)) return false;
+      if (!file_.seek (outer_chunk_end)) return false;
       outer_offset = file_.pos ();
     }
   return data_size_ >= 0 && file_.seek (header_length_);
@@ -670,7 +788,7 @@ auto BWFFile::list_info () -> InfoDictionary&
 // Broadcast Audio Extension fields
 auto BWFFile::bext_version () const -> BextVersion
 {
-  return static_cast<BextVersion> (m_->bext () ? 0 : m_->bext ()->version_);
+  return static_cast<BextVersion> (m_->bext () ? m_->bext ()->version_ : 0);
 }
 
 void BWFFile::bext_version (BextVersion version)
@@ -682,55 +800,53 @@ void BWFFile::bext_version (BextVersion version)
 QByteArray BWFFile::bext_description () const
 {
   if (!m_->bext ()) return {};
-  return QByteArray::fromRawData (m_->bext ()->description_, strlen (m_->bext ()->description_));
+  return fixed_field_value (m_->bext ()->description_);
 }
 
 void BWFFile::bext_description (QByteArray const& description)
 {
   m_->header_dirty_ = true;
-  ::memcpy (m_->bext ()->description_, description.constData (), sizeof BroadcastAudioExtension::description_);
+  assign_fixed_field (m_->bext ()->description_, description);
 }
 
 QByteArray BWFFile::bext_originator () const
 {
   if (!m_->bext ()) return {};
-  return QByteArray::fromRawData (m_->bext ()->originator_, strlen (m_->bext ()->originator_));
+  return fixed_field_value (m_->bext ()->originator_);
 }
 
 void BWFFile::bext_originator (QByteArray const& originator)
 {
   m_->header_dirty_ = true;
-  ::memcpy (m_->bext ()->originator_, originator.constData (), sizeof BroadcastAudioExtension::originator_);
+  assign_fixed_field (m_->bext ()->originator_, originator);
 }
 
 QByteArray BWFFile::bext_originator_reference () const
 {
   if (!m_->bext ()) return {};
-  return QByteArray::fromRawData (m_->bext ()->originator_reference_, strlen (m_->bext ()->originator_reference_));
+  return fixed_field_value (m_->bext ()->originator_reference_);
 }
 
 void BWFFile::bext_originator_reference (QByteArray const& reference)
 {
   m_->header_dirty_ = true;
-  ::memcpy (m_->bext ()->originator_reference_, reference.constData (), sizeof BroadcastAudioExtension::originator_reference_);
+  assign_fixed_field (m_->bext ()->originator_reference_, reference);
 }
 
 QDateTime BWFFile::bext_origination_date_time () const
 {
   if (!m_->bext ()) return {};
-  return {QDate::fromString (m_->bext ()->origination_date_, "yyyy-MM-dd"),
-      QTime::fromString (m_->bext ()->origination_time_, "hh-mm-ss"), Qt::UTC};
+  return {QDate::fromString (fixed_field_prefix_string (m_->bext ()->origination_date_, 10), "yyyy-MM-dd"),
+      QTime::fromString (fixed_field_prefix_string (m_->bext ()->origination_time_, 8), "hh-mm-ss"), Qt::UTC};
 }
 
 void BWFFile::bext_origination_date_time (QDateTime const& dt)
 {
   m_->header_dirty_ = true;
-  ::memcpy (m_->bext ()->origination_date_,
-            dt.date ().toString ("yyyy-MM-dd").toLocal8Bit ().constData (),
-            sizeof BroadcastAudioExtension::origination_date_);
-  ::memcpy (m_->bext ()->origination_time_,
-            dt.time ().toString ("hh-mm-ss").toLocal8Bit ().constData (),
-            sizeof BroadcastAudioExtension::origination_time_);
+  assign_fixed_field (m_->bext ()->origination_date_,
+                      dt.date ().toString ("yyyy-MM-dd").toLocal8Bit ());
+  assign_fixed_field (m_->bext ()->origination_time_,
+                      dt.time ().toString ("hh-mm-ss").toLocal8Bit ());
 }
 
 quint64 BWFFile::bext_time_reference () const
@@ -825,8 +941,8 @@ void BWFFile::bext_max_short_term_loudness (quint16 loudness)
 QByteArray BWFFile::bext_coding_history () const
 {
   if (size_t (m_->bext_.size ()) <= sizeof (BroadcastAudioExtension)) return {};
-  return QByteArray::fromRawData (m_->bext ()->coding_history_,
-                                  m_->bext_.size () - sizeof (BroadcastAudioExtension));
+  return QByteArray {m_->bext ()->coding_history_,
+                     static_cast<int> (m_->bext_.size () - sizeof (BroadcastAudioExtension))};
 }
 
 void BWFFile::bext_coding_history (QByteArray const& text)

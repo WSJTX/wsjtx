@@ -443,7 +443,6 @@ subroutine getsnr(dat,npts,mode4,dtx,decoded,nsnr)
      do i=1,nh
         s(i)=real(cx(i))**2 + aimag(cx(i))**2
      enddo
-     jtone=nint((fpk-1500)/(mode4*df))
      nshift=mode4*itone(j)
      savg=savg + cshift(s,nshift)      !Move all power into lowest tone freq
   enddo

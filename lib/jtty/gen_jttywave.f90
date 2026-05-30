@@ -18,7 +18,7 @@ subroutine gen_jttywave(itone,nsym,nsps,bt,fsample,f0,cwave,wave,icmplx,nwave)
   real wave(nwave)
   complex cwave(nwave),ctab(0:NTAB-1)
   real, allocatable :: pulse(:)
-  real dphi(0:16*53*nsps-1)                  !16 frames at 48000 S/s 
+  real, allocatable :: dphi(:)
   integer itone(nsym)
   data fchk0/0.0/
   save pulse,twopi,dt,hmod,fchk0,ctab
@@ -48,6 +48,8 @@ subroutine gen_jttywave(itone,nsym,nsps,bt,fsample,f0,cwave,wave,icmplx,nwave)
 
 ! Compute the smoothed frequency waveform.
 ! Length = (nsym+2)*nsps samples, first and last symbols extended 
+
+  allocate(dphi(0:(nsym+2)*nsps-1))
 
   dphi_peak=twopi*hmod/real(nsps)
   dphi=0.0
@@ -98,5 +100,6 @@ subroutine gen_jttywave(itone,nsym,nsps,bt,fsample,f0,cwave,wave,icmplx,nwave)
           (1.0+cos(twopi*(/(i,i=0,nramp-1)/)/(2.0*nramp)))/2.0
   endif
 
+  deallocate(dphi)
   return
 end subroutine gen_jttywave
