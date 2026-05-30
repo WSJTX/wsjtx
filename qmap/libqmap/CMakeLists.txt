@@ -53,5 +53,4 @@ set_property (SOURCE ${libq65_C_and_CXXSRCS} APPEND PROPERTY OBJECT_DEPENDS ${CM
 # build our targets
 #
 add_library (qmap_impl STATIC ${libq65_FSRCS} ${libq65_CSRCS} ${libq65_CXXSRCS})
-target_link_libraries (qmap_impl wsjt_fort wsjt_cxx Qt5::Core)
-
+target_link_libraries (qmap_impl ${WSJT_UTILITY_FORT_LIB} wsjt_cxx Qt5::Core)

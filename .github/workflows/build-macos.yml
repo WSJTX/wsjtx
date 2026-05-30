@@ -47,7 +47,22 @@ jobs:
         run: echo "HOMEBREW_PREFIX=$(brew --prefix)" >> "$GITHUB_ENV"
 
       - name: Install dependencies
-        run: brew install cmake gcc fftw boost qt@5 libusb dylibbundler autoconf automake libtool asciidoctor
+        run: brew install cmake gcc fftw boost qt@5 libusb dylibbundler autoconf automake libtool asciidoctor ccache
+
+      - name: Cache ccache
+        uses: actions/cache@v5
+        with:
+          path: .ccache
+          key: ccache-macos-${{ inputs.arch }}-appleclang-${{ github.sha }}
+          restore-keys: |
+            ccache-macos-${{ inputs.arch }}-appleclang-
+
+      - name: Configure ccache
+        run: |
+          echo "CCACHE_DIR=${GITHUB_WORKSPACE}/.ccache" >> "$GITHUB_ENV"
+          mkdir -p "${GITHUB_WORKSPACE}/.ccache"
+          ccache --version
+          ccache --zero-stats
 
       - name: Locate gfortran
         id: fc
@@ -56,6 +71,7 @@ jobs:
           [ -f "$FC" ] || FC="$(ls $HOMEBREW_PREFIX/bin/gfortran-* 2>/dev/null | sort -V | tail -1)"
           echo "Found gfortran: $FC"
           echo "path=$FC" >> "$GITHUB_OUTPUT"
+          echo "version=$("$FC" -dumpfullversion -dumpversion)" >> "$GITHUB_OUTPUT"
 
       - name: Fix Qt5 keg-only paths
         run: |
@@ -63,26 +79,21 @@ jobs:
           [ -e $HOMEBREW_PREFIX/mkspecs ] || sudo ln -s "${QT5_PREFIX}/mkspecs" $HOMEBREW_PREFIX/mkspecs
           [ -e $HOMEBREW_PREFIX/plugins ] || sudo ln -s "${QT5_PREFIX}/plugins" $HOMEBREW_PREFIX/plugins
 
-      - name: Cache pFUnit
+      - name: Restore pFUnit cache
         id: pfunit-cache
-        uses: actions/cache@v5
+        uses: actions/cache/restore@v5
         with:
           path: pfunit-prefix
-          key: pfunit-macos-${{ inputs.arch }}-v4.9.0
+          key: pfunit-macos-${{ inputs.arch }}-${{ inputs.runner }}-v4.9.0-gfortran${{ steps.fc.outputs.version }}-min${{ inputs.deployment_target }}-epoch1-${{ hashFiles('.github/scripts/build-pfunit-macos.sh') }}
 
       - name: Build pFUnit
         if: steps.pfunit-cache.outputs.cache-hit != 'true'
         run: |
-          git clone --depth 1 --branch v4.9.0 --recursive \
-            https://github.com/Goddard-Fortran-Ecosystem/pFUnit.git pfunit-src
-          cmake -S pfunit-src -B pfunit-build \
-            -DSKIP_MPI=YES \
-            -DSKIP_OPENMP=YES \
-            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-            -DCMAKE_Fortran_COMPILER="${{ steps.fc.outputs.path }}" \
-            -DCMAKE_INSTALL_PREFIX="${GITHUB_WORKSPACE}/pfunit-prefix"
-          cmake --build pfunit-build -j$(sysctl -n hw.ncpu)
-          cmake --install pfunit-build
+          .github/scripts/build-pfunit-macos.sh \
+            v4.9.0 \
+            "${{ steps.fc.outputs.path }}" \
+            "${{ inputs.deployment_target }}" \
+            "${GITHUB_WORKSPACE}/pfunit-prefix"
 
       - name: Locate pFUnit config
         id: pfunit
@@ -97,41 +108,58 @@ jobs:
           echo "Found PFUNITConfig.cmake at: $CONFIG"
           echo "dir=${PFUNIT_DIR}" >> "$GITHUB_OUTPUT"
 
-      - name: Cache Hamlib
+      - name: Save pFUnit cache
+        if: steps.pfunit-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: pfunit-prefix
+          key: ${{ steps.pfunit-cache.outputs.cache-primary-key }}
+
+      - name: Restore Hamlib cache
         id: hamlib-cache
-        uses: actions/cache@v5
+        uses: actions/cache/restore@v5
         with:
           path: hamlib-prefix
-          key: hamlib-macos-${{ inputs.arch }}-${{ inputs.hamlib_branch }}
+          key: hamlib-macos-${{ inputs.arch }}-${{ inputs.runner }}-${{ inputs.hamlib_branch }}-min${{ inputs.deployment_target }}-epoch1-${{ hashFiles('.github/scripts/build-hamlib-macos.sh') }}
 
       - name: Build Hamlib
         if: steps.hamlib-cache.outputs.cache-hit != 'true'
         run: |
-          git clone --depth 1 --branch "${{ inputs.hamlib_branch }}" \
-            https://github.com/Hamlib/Hamlib.git hamlib-src
-          cd hamlib-src
-          ./bootstrap
-          ./configure \
-            --prefix="${GITHUB_WORKSPACE}/hamlib-prefix" \
-            --disable-shared --enable-static \
-            --without-cxx-binding
-          make -j$(sysctl -n hw.ncpu)
-          make install
+          .github/scripts/build-hamlib-macos.sh \
+            "${{ inputs.hamlib_branch }}" \
+            "${{ inputs.deployment_target }}" \
+            "${GITHUB_WORKSPACE}/hamlib-prefix"
+
+      - name: Verify Hamlib prefix
+        run: test -f "${GITHUB_WORKSPACE}/hamlib-prefix/lib/libhamlib.a"
+
+      - name: Save Hamlib cache
+        if: steps.hamlib-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: hamlib-prefix
+          key: ${{ steps.hamlib-cache.outputs.cache-primary-key }}
 
       - name: Configure
         run: |
           cmake -S . -B wsjtx-build \
             -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/hamlib-prefix;${GITHUB_WORKSPACE}/pfunit-prefix;$(brew --prefix qt@5);$(brew --prefix libusb);$(brew --prefix fftw);$(brew --prefix boost)" \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DCMAKE_Fortran_COMPILER="${{ steps.fc.outputs.path }}" \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ inputs.deployment_target }} \
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
             -DWSJT_SKIP_MANPAGES=ON \
-            -DWSJT_BUILD_TESTS=ON \
+            -DWSJT_ENABLE_TESTS=ON \
             -DPFUNIT_DIR="${{ steps.pfunit.outputs.dir }}" \
             -Wno-dev
 
       - name: Build
         run: cmake --build wsjtx-build -j$(sysctl -n hw.ncpu)
+
+      - name: Show ccache stats
+        if: always()
+        run: ccache --show-stats
 
       - name: Run tests
         id: ctest

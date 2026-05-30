@@ -1,6 +1,6 @@
 add_executable (test_jtty_pack test_jtty_pack.f90)
 target_include_directories (test_jtty_pack PRIVATE ${CMAKE_BINARY_DIR})
-target_link_libraries (test_jtty_pack wsjt_fort wsjt_cxx)
+target_link_libraries (test_jtty_pack ${WSJT_UTILITY_FORT_LIB} wsjt_cxx)
 
 configure_file(${CMAKE_SOURCE_DIR}/tests/fixtures/jtty/jtty_msgs.txt "${CMAKE_CURRENT_BINARY_DIR}/jtty_msgs.txt" COPYONLY)
 

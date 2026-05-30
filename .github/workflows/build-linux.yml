@@ -35,30 +35,41 @@ jobs:
             libqt5multimedia5-plugins \
             libusb-1.0-0-dev libudev-dev libreadline-dev \
             autoconf automake libtool pkg-config \
+            ccache \
             texinfo \
             dpkg-dev fakeroot \
             asciidoctor \
             rpm
 
-      - name: Cache pFUnit
-        id: pfunit-cache
+      - name: Cache ccache
         uses: actions/cache@v5
         with:
+          path: .ccache
+          key: ccache-linux-${{ inputs.arch }}-gcc-${{ github.sha }}
+          restore-keys: |
+            ccache-linux-${{ inputs.arch }}-gcc-
+
+      - name: Configure ccache
+        run: |
+          echo "CCACHE_DIR=${GITHUB_WORKSPACE}/.ccache" >> "$GITHUB_ENV"
+          mkdir -p "${GITHUB_WORKSPACE}/.ccache"
+          ccache --version
+          ccache --zero-stats
+
+      - name: Locate gfortran
+        id: fc
+        run: echo "version=$(gfortran -dumpfullversion -dumpversion)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore pFUnit cache
+        id: pfunit-cache
+        uses: actions/cache/restore@v5
+        with:
           path: pfunit-prefix
-          key: pfunit-linux-${{ inputs.arch }}-v4.9.0
+          key: pfunit-linux-${{ inputs.arch }}-${{ inputs.arch == 'aarch64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}-v4.9.0-gfortran${{ steps.fc.outputs.version }}-epoch1-${{ hashFiles('.github/scripts/build-pfunit-linux.sh') }}
 
       - name: Build pFUnit
         if: steps.pfunit-cache.outputs.cache-hit != 'true'
-        run: |
-          git clone --depth 1 --branch v4.9.0 --recursive \
-            https://github.com/Goddard-Fortran-Ecosystem/pFUnit.git pfunit-src
-          cmake -S pfunit-src -B pfunit-build \
-            -DSKIP_MPI=YES \
-            -DSKIP_OPENMP=YES \
-            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-            -DCMAKE_INSTALL_PREFIX="${GITHUB_WORKSPACE}/pfunit-prefix"
-          cmake --build pfunit-build -j$(nproc)
-          cmake --install pfunit-build
+        run: .github/scripts/build-pfunit-linux.sh v4.9.0 "${GITHUB_WORKSPACE}/pfunit-prefix"
 
       - name: Locate pFUnit config
         id: pfunit
@@ -73,41 +84,53 @@ jobs:
           echo "Found PFUNITConfig.cmake at: $CONFIG"
           echo "dir=${PFUNIT_DIR}" >> "$GITHUB_OUTPUT"
 
-      - name: Cache Hamlib
+      - name: Save pFUnit cache
+        if: steps.pfunit-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: pfunit-prefix
+          key: ${{ steps.pfunit-cache.outputs.cache-primary-key }}
+
+      - name: Restore Hamlib cache
         id: hamlib-cache
-        uses: actions/cache@v5
+        uses: actions/cache/restore@v5
         with:
           path: hamlib-prefix
-          key: hamlib-linux-${{ inputs.arch }}-${{ inputs.hamlib_branch }}
+          key: hamlib-linux-${{ inputs.arch }}-${{ inputs.arch == 'aarch64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}-${{ inputs.hamlib_branch }}-epoch1-${{ hashFiles('.github/scripts/build-hamlib-linux.sh') }}
 
       - name: Build Hamlib
         if: steps.hamlib-cache.outputs.cache-hit != 'true'
-        run: |
-          git clone --depth 1 --branch "${{ inputs.hamlib_branch }}" \
-            https://github.com/Hamlib/Hamlib.git hamlib-src
-          cd hamlib-src
-          ./bootstrap
-          ./configure \
-            --prefix="${GITHUB_WORKSPACE}/hamlib-prefix" \
-            --disable-shared --enable-static \
-            --without-cxx-binding \
-            CFLAGS="-g -O2 -fPIC -fdata-sections -ffunction-sections" \
-            LDFLAGS="-Wl,--gc-sections"
-          make -j$(nproc)
-          make install
+        run: .github/scripts/build-hamlib-linux.sh "${{ inputs.hamlib_branch }}" "${GITHUB_WORKSPACE}/hamlib-prefix"
+
+      - name: Verify Hamlib prefix
+        run: test -f "${GITHUB_WORKSPACE}/hamlib-prefix/lib/libhamlib.a"
+
+      - name: Save Hamlib cache
+        if: steps.hamlib-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: hamlib-prefix
+          key: ${{ steps.hamlib-cache.outputs.cache-primary-key }}
 
       - name: Configure
         run: |
           cmake -S . -B wsjtx-build \
             -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/hamlib-prefix;${GITHUB_WORKSPACE}/pfunit-prefix" \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
             -DWSJT_SKIP_MANPAGES=ON \
-            -DWSJT_BUILD_TESTS=ON \
+            -DWSJT_ENABLE_TESTS=ON \
+            -DWSJT_FORTRAN_VARIANTS=OPENMP_ONLY \
             -DPFUNIT_DIR="${{ steps.pfunit.outputs.dir }}" \
             -Wno-dev
 
       - name: Build
         run: cmake --build wsjtx-build -j$(nproc)
+
+      - name: Show ccache stats
+        if: always()
+        run: ccache --show-stats
 
       - name: Run tests
         id: ctest
