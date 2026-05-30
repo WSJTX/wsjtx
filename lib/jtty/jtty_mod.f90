@@ -119,20 +119,15 @@ contains
 
   subroutine try_text()
     ! i2=3: plain free text, five 6-bit JTTY characters per frame.
-    integer j
-
-    j=min(n,ipos+4)
-    if(jtty_text_ok(ipos,j)) call consider(j+1,KIND_TEXT,3,0,0,0,RANK_TEXT)
+    ! Always legal: normalize_jtty_message guarantees msg(1:n) is in the source alphabet.
+    call consider(min(n,ipos+4)+1,KIND_TEXT,3,0,0,0,RANK_TEXT)
   end subroutine try_text
 
   subroutine try_599()
     ! i2=2: literal "599 " plus up to five following 6-bit JTTY characters.
-    integer j
-
     if(.not.at_token_start(ipos)) return
     if(.not.matches(ipos,'599 ')) return
-    j=min(n,ipos+8)
-    if(jtty_text_ok(ipos+4,j)) call consider(j+1,KIND_599,2,0,0,0,RANK_COMPACT)
+    call consider(min(n,ipos+8)+1,KIND_599,2,0,0,0,RANK_COMPACT)
   end subroutine try_599
 
   subroutine try_structured()
@@ -239,19 +234,6 @@ contains
     calltoken(1:ltext)=msg(istart:istart+ltext-1)
     valid_call_at=jtty_standard_call(calltoken)
   end function valid_call_at
-
-  logical function jtty_text_ok(istart,iendarg)
-    integer istart,iendarg
-    integer i
-
-    jtty_text_ok=.true.
-    do i=istart,iendarg
-       if(jchar(msg(i:i)).lt.0) then
-          jtty_text_ok=.false.
-          return
-       endif
-    enddo
-  end function jtty_text_ok
 
   subroutine pack_text_frame(istart,n32out)
     ! Place five source characters in the upper 30 bits and set i2=3.
