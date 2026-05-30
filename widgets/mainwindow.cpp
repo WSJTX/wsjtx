@@ -502,6 +502,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_tune {false},
   m_tx_watchdog {false},
   m_jttyTxActive {false},
+  m_jttyTxUsesTciAudio {false},
   m_jttyTxSessionId {0},
   m_jttyQueuedSamples {0},
   m_block_pwr_tooltip {false},
@@ -6152,7 +6153,9 @@ void MainWindow::useNextCall()
 void MainWindow::startTx2()
 {
   bool modulator_active;
-  bool tci_active = m_tci_audio;
+  bool const tci_active = (m_mode == "JTTY" && m_jttyTxActive)
+      ? m_jttyTxUsesTciAudio
+      : m_tci_audio;
   if (tci_active) modulator_active=m_tci_mod_active;
   else modulator_active=m_modulator->isActive ();
   if (!modulator_active) { // TODO - not thread safe
@@ -6189,12 +6192,15 @@ void MainWindow::startTx2()
 
 void MainWindow::stopTx()
 {
+  bool const tciAudio = (m_mode == "JTTY" && m_transmitting)
+      ? m_jttyTxUsesTciAudio
+      : m_tci_audio;
   if (m_mode == "JTTY" && m_jttyTxActive) {
     interruptJttyTx();
   }
-  if (m_tci_audio) Q_EMIT m_config.transceiver_modulator_stop();
+  if (tciAudio) Q_EMIT m_config.transceiver_modulator_stop();
   else Q_EMIT endTransmitMessage ();
-  if (m_mode == "JTTY" && !m_tci_audio) {
+  if (m_mode == "JTTY" && !tciAudio) {
     Q_EMIT endJttyStream ();
   }
   m_btxok = false;
@@ -6204,7 +6210,7 @@ void MainWindow::stopTx()
     tx_status_label.setStyleSheet("");
     tx_status_label.setText("");
   }
-  if (m_tci_audio) {
+  if (tciAudio) {
     ptt0Timer.start(0);
   } else {
     int const stopTxDelayMs = m_mode == "JTTY" ? 0 : 200;
@@ -6216,7 +6222,8 @@ void MainWindow::stopTx()
 
 void MainWindow::stopTx2()
 {
-  if (m_tci_audio) {
+  bool const tciAudio = (m_mode == "JTTY") ? m_jttyTxUsesTciAudio : m_tci_audio;
+  if (tciAudio) {
       Q_EMIT m_config.transceiver_ptt (false);      //Lower PTT
       monitor (true);
       statusUpdate ();
@@ -9969,7 +9976,7 @@ void MainWindow::transmit (double snr)
     m_dateTimeSentTx3=QDateTime::currentDateTimeUtc();
     toneSpacing=-2.0;                     //Transmit a pre-computed, filtered waveform.
     double txt=m_nsym_jtty*384.0/12000.0;
-    if (m_tci_audio) {
+    if (m_jttyTxUsesTciAudio) {
       Q_EMIT m_config.transceiver_modulator_start(m_mode, m_nsym_jtty,
              384.0,1500.0,toneSpacing,false,false,snr,txt);
     } else {

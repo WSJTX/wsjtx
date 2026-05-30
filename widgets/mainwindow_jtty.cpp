@@ -142,7 +142,9 @@ void MainWindow::execute_jtty_tx(QString message)
   if (newSession) {
     ++m_jttyTxSessionId;
     m_jttyQueuedSamples = 0;
+    m_jttyTxUsesTciAudio = m_tci_audio;
   }
+  bool const useTciAudio = m_jttyTxUsesTciAudio;
 
   std::vector<float> wave(nwave > 0 ? nwave : 1);
   gen_jttywave_(const_cast<int *>(itone), &m_nsym_jtty, &nsps4, &bt, &fsample, &f0,
@@ -160,7 +162,7 @@ void MainWindow::execute_jtty_tx(QString message)
   if (newSession) {
     // A fresh JTTY session starts a new FIFO accounting baseline even after a
     // natural drain, so drain totals stay comparable to m_jttyQueuedSamples.
-    if (m_tci_audio) {
+    if (useTciAudio) {
       Q_EMIT m_config.transceiver_clear_jtty_pcm(m_jttyTxSessionId);
     } else {
       m_jttyTxBuffer->clear(m_jttyTxSessionId);
@@ -168,7 +170,7 @@ void MainWindow::execute_jtty_tx(QString message)
   }
 
   bool enqueued {false};
-  if(m_tci_audio) {
+  if(useTciAudio) {
     // TCI enqueue is asynchronous. MainWindow can only reject a message that
     // can never fit; backend occupancy failures are reported after submission
     // and abort the active session.
@@ -216,7 +218,7 @@ void MainWindow::execute_jtty_tx(QString message)
   // Fault-detector watchdog: generous margin over all audio still to play (the
   // whole queued session, not just this message). The happy path completes via
   // the backend drain signal well before this fires.
-  int pendingMs = m_tci_audio
+  int pendingMs = useTciAudio
       ? int(m_jttyQueuedSamples / 48)
       : int((m_jttyTxBuffer->totalReal() - m_jttyTxBuffer->servedReal()) / 48);
   startJttyTxWatchdog(pendingMs + 1000 * m_config.txDelay() + 10000);
@@ -267,7 +269,7 @@ void MainWindow::interruptJttyTx()
   }
 
   ++m_jttyTxSessionId;
-  if (m_tci_audio) {
+  if (m_jttyTxUsesTciAudio) {
     Q_EMIT m_config.transceiver_clear_jtty_pcm(m_jttyTxSessionId);
   } else {
     m_jttyTxBuffer->clear(m_jttyTxSessionId);

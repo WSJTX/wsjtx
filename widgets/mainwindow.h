@@ -1045,6 +1045,7 @@ private:
   bool m_tune;
   bool m_tx_watchdog;           // true when watchdog triggered
   bool m_jttyTxActive;
+  bool m_jttyTxUsesTciAudio;
   qint64 m_jttyTxSessionId;
   qint64 m_jttyQueuedSamples;
   bool m_block_pwr_tooltip;
