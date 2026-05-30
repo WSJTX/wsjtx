@@ -54,6 +54,8 @@ subroutine pack_jtty(message,c32,nframes)
   dp(n+1)=0
 
   ! Each candidate generator recognizes one assigned part of the JTTY source grammar.
+  ! DP positions are source-character offsets. Compact forms may start only at
+  ! token boundaries, and structured calls must end at end-of-message or space.
   do ipos=n,1,-1
      call try_text()
      call try_599()
@@ -136,8 +138,11 @@ contains
   end subroutine try_599
 
   subroutine try_structured()
-    ! i2=0/1: assigned structured forms carrying one pack28 callsign field.
-    ! The i2=1,n2=2/3 structured subtypes remain reserved.
+    ! Structured subtype map:
+    !   0.0 CQ <call> CQ     0.1 <call>
+    !   0.2 TU <call> CQ     0.3 <call> TU
+    !   1.0 <call> AGN?      1.1 TU NOW <call>
+    !   1.2 and 1.3 remain reserved.
     if(.not.at_token_start(ipos)) return
 
     if(matches(ipos,'CQ ')) then
@@ -295,6 +300,8 @@ logical function jtty_standard_call(c13)
 
   jtty_standard_call=.false.
   c13a=c13
+  ! chkcall is a syntax filter; pack28/unpack28 round-trip defines what this
+  ! protocol field can actually carry.
   call chkcall(c13a,bcall_1,ok1)
   if(.not.ok1) return
   if(index(c13a,'/').gt.0) return
