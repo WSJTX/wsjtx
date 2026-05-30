@@ -169,8 +169,9 @@ void MainWindow::execute_jtty_tx(QString message)
 
   bool enqueued {false};
   if(m_tci_audio) {
-    // TCI enqueue is asynchronous, so MainWindow only rejects a single message
-    // that can never fit; the backend reports actual FIFO occupancy failures.
+    // TCI enqueue is asynchronous. MainWindow can only reject a message that
+    // can never fit; backend occupancy failures are reported after submission
+    // and abort the active session.
     if (jttyPcmEnqueueFits (JTTY_PCM_FIFO_DEFAULT_CAPACITY, 0, samples.size ())) {
       QByteArray bytes(reinterpret_cast<char const *> (samples.constData ()),
                        samples.size () * int (sizeof (qint16)));
