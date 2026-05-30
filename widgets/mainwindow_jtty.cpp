@@ -3,12 +3,10 @@
 #include "widegraph.h"
 #include "commons.h"
 #include "Audio/WavFile.hpp"
-#include "Audio/soundout.h"
 #include "Logger.hpp"
 #include <QByteArray>
 #include <QDateTime>
 #include "Modulator/Modulator.hpp"
-#include "Modulator/JttyTxStream.hpp"
 #include <QtConcurrent/QtConcurrentRun>
 #include <iostream>
 #include <vector>
@@ -114,8 +112,8 @@ void MainWindow::jtty_decode(int k)
 
 void MainWindow::jtty_tx(QString message)
 {
-  // Render and enqueue immediately. The JttyTxStream FIFO is the single tx
-  // queue: messages appended while playback is underway chain gaplessly.
+  // Render and enqueue immediately; the shared transmit buffer chains messages
+  // gaplessly while playback is underway.
   execute_jtty_tx(message);
 }
 
