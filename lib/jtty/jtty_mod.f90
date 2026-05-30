@@ -358,6 +358,11 @@ subroutine unpack_jtty(c32,nframes,message)
 ! Input:   character*32   c32         !32-bit payload
 !          integer        nframes     !Frames in this message (max = 16)
 ! Output:  character*80   message     !JTTY message, as it appears to a user
+!
+! Frame decoding flow:
+!   1. Read the class bits once for each 32-bit payload.
+!   2. Dispatch only assigned frame forms.
+!   3. Append through one bounds-safe path.
 
   use packjt77
   character*80 message
@@ -369,53 +374,100 @@ subroutine unpack_jtty(c32,nframes,message)
   message=''
   k=1
   do iframe=1,nframes
-     if(k.gt.len(message)) exit             !Output buffer full; stop decoding
+     if(k.gt.len(message)) exit
      read(c32(iframe),1002) n28,n2,i2
 1002 format(b28.28,b2.2,b2.2)
-     call unpack28(n28,c13,success)
-     n=0
-     if(success) n=len(trim(c13))
-     if(i2.eq.2 .or. i2.eq.3) then
-        read(c32(iframe),1006) n30
-1006    format(b30.30)
-        if(i2.eq.2) then
-           message(k:min(k+3,len(message)))='599 '
-           k=k+4
+
+     select case(i2)
+     case(0)
+        call unpack28(n28,c13,success)
+        if(success) call append_structured_0(n2,c13)
+     case(1)
+        ! 1.2 and 1.3 are reserved; unpack_jtty intentionally emits no text for them.
+        if(n2.le.1) then
+           call unpack28(n28,c13,success)
+           if(success) call append_structured_1(n2,c13)
         endif
-        n30=ishftc(n30,2)
-        do i=1,5
-           n30=ishftc(n30,6)
-           if(k.le.len(message)) then
-              message(k:k)=charj(iand(n30,63))
-              if(message(k:k).eq.' ') message(k:k)='~'
-           endif
-           k=k+1
-        enddo
-     else
-        if(success) then
-           if(i2.eq.0 .and. n2.eq.0) then
-              message(k:min(k+n+5,len(message))) = 'CQ '//trim(c13)//' CQ'
-              k=k+n+7
-           else if(i2.eq.0 .and. n2.eq.1) then
-              message(k:min(k+n-1,len(message))) = trim(c13)
-              k=k+n+1
-           else if(i2.eq.0 .and. n2.eq.2) then
-              message(k:min(k+n+5,len(message))) = 'TU '//trim(c13)//' CQ'
-              k=k+n+7
-           else if(i2.eq.0 .and. n2.eq.3) then
-              message(k:min(k+n+5,len(message))) = trim(c13)//' TU'
-              k=k+n+4
-           else if(i2.eq.1 .and. n2.eq.0) then
-              message(k:min(k+n+5,len(message))) = trim(c13)//' AGN?'
-              k=k+n+6
-           else if(i2.eq.1 .and. n2.eq.1) then
-              message(k:min(k+n+6,len(message))) = 'TU NOW '//trim(c13)
-              k=k+n+8
-           endif
-        endif
-     endif
+     case(2)
+        call append_text('599 ')
+        call append_payload_chars()
+     case(3)
+        call append_payload_chars()
+     end select
 
   enddo
+
+  return
+
+contains
+
+  subroutine append_text(text)
+    character*(*) text
+
+    do i=1,len(text)
+       if(k.le.len(message)) message(k:k)=text(i:i)
+       k=k+1
+    enddo
+  end subroutine append_text
+
+  subroutine append_payload_chars()
+    ! i2=2 and i2=3 carry five 6-bit JTTY characters in the upper 30 bits.
+    integer n30, j, idx
+    character*1 c
+
+    read(c32(iframe),1006) n30
+1006 format(b30.30)
+    do j=1,5
+       idx=iand(ishft(n30,-6*(5-j)),63)
+       c=charj(idx)
+       if(c.eq.' ') c='~'
+       if(k.le.len(message)) message(k:k)=c
+       k=k+1
+    enddo
+  end subroutine append_payload_chars
+
+  subroutine append_structured_0(n2arg,c13arg)
+    ! i2=0 structured subtype map:
+    !   0.0 CQ <call> CQ     0.1 <call>
+    !   0.2 TU <call> CQ     0.3 <call> TU
+    integer n2arg
+    character*13 c13arg
+
+    select case(n2arg)
+    case(0)
+       call append_text('CQ '//trim(c13arg)//' CQ')
+    case(1)
+       call append_text(trim(c13arg))
+    case(2)
+       call append_text('TU '//trim(c13arg)//' CQ')
+    case(3)
+       call append_text(trim(c13arg)//' TU')
+    case default
+       return
+    end select
+    call append_implicit_separator()
+  end subroutine append_structured_0
+
+  subroutine append_structured_1(n2arg,c13arg)
+    ! i2=1 currently assigns 1.0 and 1.1; 1.2 and 1.3 remain reserved.
+    integer n2arg
+    character*13 c13arg
+
+    select case(n2arg)
+    case(0)
+       call append_text(trim(c13arg)//' AGN?')
+    case(1)
+       call append_text('TU NOW '//trim(c13arg))
+    case default
+       return
+    end select
+    call append_implicit_separator()
+  end subroutine append_structured_1
+
+  subroutine append_implicit_separator()
+    ! Structured frames leave one blank column before any following frame.
+    k=k+1
+  end subroutine append_implicit_separator
 
 end subroutine unpack_jtty
 

@@ -1,6 +1,7 @@
 program test_jtty_pack
 
   use jtty_mod
+  use packjt77, only: pack28
   character*80 msg0,msg,expected
   character*32 c32(MAX_FRAMES)
   character*17 cparms
@@ -92,6 +93,9 @@ program test_jtty_pack
   call expect_pack('A~B',1,3,-1,-1,-1)
   call expect_pack('HELLO~',1,3,-1,-1,-1)
   call expect_pack_failure('HELLO'//char(9))
+  call expect_unassigned_unpack_empty(1,2)
+  call expect_unassigned_unpack_empty(1,3)
+  call expect_unpack_overflow_guard()
 
 contains
 
@@ -196,5 +200,42 @@ contains
        error stop 1
     endif
   end subroutine expect_pack_failure
+
+  subroutine expect_unassigned_unpack_empty(i2,n2)
+    character*32 frames(MAX_FRAMES)
+    character*80 decoded
+    character*13 c13
+    integer i2,n2,n28,n32
+
+    frames=''
+    c13='K1ABC        '
+    call pack28(c13,n28)
+    n32=shiftl(n28,4) + 4*n2 + i2
+    write(frames(1),'(b32.32)') n32
+    call unpack_jtty(frames,1,decoded)
+    if(len_trim(decoded).ne.0) then
+       write(*,1280) i2,n2,trim(decoded)
+1280   format('Unassigned frame ',i0,'.',i0,' decoded unexpectedly as "',a,'"')
+       error stop 1
+    endif
+  end subroutine expect_unassigned_unpack_empty
+
+  subroutine expect_unpack_overflow_guard()
+    character*32 frames(MAX_FRAMES)
+    character*80 decoded
+    integer iframe
+
+    ! Sixteen 599 frames can expand past 80 visible characters; unpack must stop
+    ! at the fixed message buffer boundary without corrupting memory.
+    do iframe=1,MAX_FRAMES
+       write(frames(iframe),'(b32.32)') 2
+    enddo
+    call unpack_jtty(frames,MAX_FRAMES,decoded)
+    if(len_trim(decoded).le.0) then
+       write(*,1290)
+1290   format('Overflow-guard unpack test decoded an empty message')
+       error stop 1
+    endif
+  end subroutine expect_unpack_overflow_guard
 
 end program test_jtty_pack
