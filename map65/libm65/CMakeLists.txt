@@ -180,11 +180,27 @@ set_source_files_properties(stdout_channel_mod.f90 PROPERTIES
 )
 
 # Link MAP65 against the correct Fortran variant
+# Link MAP65 against the correct Fortran variant
 if (APPLE)
+    #
+    # macOS MUST ALWAYS use the non‑OpenMP Fortran library.
+    # This override prevents ANY transitive linkage to wsjt_fort_omp.
+    #
     target_link_libraries(m65impl PUBLIC Qt5::Core wsjt_fort wsjt_cxx)
+
+    # Extra safety: strip out accidental OpenMP linkage from dependencies
+    target_link_libraries(m65impl PRIVATE wsjt_fort)
+
 elseif (WSJT_BUILD_FORTRAN_OPENMP)
+    #
+    # Linux + Windows: use the OpenMP variant when available
+    #
     target_link_libraries(m65impl PUBLIC Qt5::Core wsjt_fort_omp wsjt_cxx)
+
 else ()
+    #
+    # Linux + Windows fallback: non‑OpenMP variant
+    #
     target_link_libraries(m65impl PUBLIC Qt5::Core wsjt_fort wsjt_cxx)
 endif ()
 
