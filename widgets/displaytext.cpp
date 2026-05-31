@@ -208,7 +208,7 @@ void DisplayText::insertText(QString const& text, QColor bg, QColor fg
             {
               temp_format = format;
               cursor.insertText(text.mid (text_index, call_index - text_index), format);
-              if (pos.value ().second.isValid ())
+              if (pos.value ().first.isValid ())
                 {
                   temp_format.setBackground (pos.value ().first);
                 }
@@ -872,7 +872,7 @@ void DisplayText::highlight_callsign (QString const& callsign, QColor const& bg,
     }
   else
     {
-      auto pos = highlighted_calls_.find (callsign);
+      auto pos = highlighted_calls_.find (callsign.toUpper ());
       if (bg.isValid () || fg.isValid ())
         {
           auto colours = qMakePair (bg, fg);

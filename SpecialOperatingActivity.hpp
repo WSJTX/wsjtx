@@ -1,0 +1,18 @@
+#ifndef SPECIALOPERATINGACTIVITY_HPP
+#define SPECIALOPERATINGACTIVITY_HPP
+
+enum class SpecialOperatingActivity
+{
+  NONE,
+  NA_VHF,
+  EU_VHF,
+  FIELD_DAY,
+  RTTY,
+  WW_DIGI,
+  FOX,
+  HOUND,
+  ARRL_DIGI,
+  Q65_PILEUP
+};
+
+#endif // SPECIALOPERATINGACTIVITY_HPP

@@ -4933,26 +4933,6 @@ elenco. L&apos;elenco può essere gestito in Impostazioni (F2).</translation>
         <translation>Guida rapida a WSJT-X 2.7 e QMAP</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="5553"/>
-        <source>WSJT-X_improved Home Page</source>
-        <translation>Pagina iniziale di WSJT-X.migliorato</translation>
-    </message>
-    <message>
-        <location filename="../widgets/mainwindow.ui" line="5556"/>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Go to the wsjt-x_improved home page.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Vai alla homepage di wsjt-x.migliorato.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
-        <location filename="../widgets/mainwindow.ui" line="5561"/>
-        <source>The additional features of wsjt-x_improved</source>
-        <translation>Le funzionalità aggiuntive di wsjt-x_improved</translation>
-    </message>
-    <message>
-        <location filename="../widgets/mainwindow.ui" line="5564"/>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Overview on the additional features of wsjt-x_improved.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Panoramica sulle funzionalità aggiuntive di wsjt-x_improved.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
         <location filename="../widgets/mainwindow.ui" line="5569"/>
         <source>Recommended audio settings</source>
         <translation>Impostazioni audio consigliate</translation>
@@ -9995,11 +9975,6 @@ Fare clic con il tasto destro per inserire ed eliminare le opzioni.</translation
         <location filename="../Configuration.ui" line="2795"/>
         <source>Reset Highlighting to WSJT-X default</source>
         <translation>Ripristina l&apos;evidenziazione al valore predefinito WSJT-X</translation>
-    </message>
-    <message>
-        <location filename="../Configuration.ui" line="2802"/>
-        <source>Reset Highlighting to WSJT-X Improved default</source>
-        <translation>Ripristina l&apos;evidenziazione predefinita su WSJT-X migliorato</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2809"/>

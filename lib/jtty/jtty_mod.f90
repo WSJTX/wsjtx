@@ -273,6 +273,8 @@ subroutine split_jtty(message,w,nw,bw,nwords)
   n=0
   c0=' '
   w='             '
+  bw=.false.
+  nw=0
   do i=1,iz
      if(ichar(message(i:i)).eq.0) message(i:i)=' '
      c=message(i:i)                             !Single character

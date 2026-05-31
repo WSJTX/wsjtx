@@ -12,7 +12,7 @@
 
 extern "C"
 {
-  struct
+  extern struct
   {
     double d8[60*96000];              //This is "common/datcom/..." in fortran
     float ss[400*NFFT];

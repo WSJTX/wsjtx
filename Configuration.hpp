@@ -5,6 +5,7 @@
 #include <QFont>
 #include <QString>
 
+#include "SpecialOperatingActivity.hpp"
 #include "Radio.hpp"
 #include "models/IARURegions.hpp"
 #include "Audio/AudioDevice.hpp"
@@ -146,6 +147,10 @@ public:
   QString Territory4() const;
   QString highlight_orange_callsigns() const;
   QString highlight_blue_callsigns() const;
+  QStringList pass_keywords () const;
+  QStringList blacklist_keywords () const;
+  QStringList whitelist_keywords () const;
+  QStringList territory_keywords () const;
   QString voicesPath() const;
   bool PWR_and_SWR() const;
   bool check_SWR() const;
@@ -315,7 +320,7 @@ public:
   bool ShowOTP() const;
   unsigned int OTPinterval() const;
 //                                      0       1      2         3       4       5      6     7        8           9
-  enum class SpecialOperatingActivity {NONE, NA_VHF, EU_VHF, FIELD_DAY, RTTY, WW_DIGI, FOX, HOUND, ARRL_DIGI, Q65_PILEUP};
+  using SpecialOperatingActivity = ::SpecialOperatingActivity;
   SpecialOperatingActivity special_op_id () const;
 
   struct CalibrationParams

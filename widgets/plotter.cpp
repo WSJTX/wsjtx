@@ -20,7 +20,7 @@ extern "C" {
   void plotsave_(float swide[], int* m_w , int* m_h1, int* irow);
 }
 
-extern dec_data dec_data;
+extern dec_data_t& dec_data;
 
 CPlotter::CPlotter(QWidget *parent) :                  //CPlotter Constructor
   QFrame {parent},
@@ -205,9 +205,11 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
   ymin = 0;
   for(int i=0; i<iz; i++) {
     y=swide[i];
-    int y1 = 10.0*gain*y + m_plotZero;
-    if (y1<0) y1=0;
-    if (y1>254) y1=254;
+    if( y != y ) y=0.0;   // check for nan - a nan is not equal to itself
+    y = 10.0*gain*y + m_plotZero;
+    if (y<0.0) y=0.0;
+    if (y>254.0) y=254.0;
+    int y1 = y;
     if (swide[i]<1.e29) painter1.setPen(g_ColorTbl[y1]);
     painter1.drawPoint(i,m_j);
   }
@@ -223,7 +225,7 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
     if(bScroll) {
       float sum=0.0;
       int j=j0+m_binsPerPixel*i;
-      for(int k=0; k<m_binsPerPixel; k++) {
+      for(int k=0; (k<m_binsPerPixel && j<NSMAX-1); k++) {
         sum+=dec_data.savg[j++];
       }
       m_sum[i]=sum;
@@ -370,7 +372,7 @@ void CPlotter::drawRed(int ia, int ib, float swide[])
 void CPlotter::replot()
 {
   resizeEvent(NULL);
-  float swide[m_w];
+  float *swide = new float [m_w];
   m_bReplot=true;
   for(int irow=0; irow<m_h1; irow++) {
     m_j=irow;
@@ -382,6 +384,8 @@ void CPlotter::replot()
   }
   update();                                    //trigger a new paintEvent
   m_bReplot=false;
+  delete [] swide; 
+  swide = NULL;
 }
 
 void CPlotter::DrawOverlay()                   //DrawOverlay()

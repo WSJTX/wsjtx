@@ -120,6 +120,7 @@ subroutine jt9a()
      endif
   elseif (local_params%nmode.eq.8 .and. local_params%lmultift8 .and. .not. &
        local_params%ndiskdat) then
+     npts1=180000
      dd(1:npts1)=shared_data%id2(1:npts1)
      rms=sum(abs(dd(1:10))) + sum(abs(dd(76001:76010))) + sum(abs(dd(151670:151680)))
      dd8(1:npts1)=dd(1:npts1)

@@ -80,8 +80,10 @@ if (APPLE OR WIN32)
     get_filename_component (usb_lib_dir ${Usb_LIBRARY} PATH)
     list (APPEND fixup_library_dirs ${usb_lib_dir})
 
-    get_filename_component (portaudio_lib_dir ${Portaudio_LIBRARY} PATH)
-    list (APPEND fixup_library_dirs ${portaudio_lib_dir}/../bin)
+    if (NOT WSJT_SKIP_MAP65)
+      get_filename_component (portaudio_lib_dir ${Portaudio_LIBRARY} PATH)
+      list (APPEND fixup_library_dirs ${portaudio_lib_dir}/../bin)
+    endif ()
 
     get_filename_component (fftw_lib_dir ${FFTW3F_LIBRARY} PATH)
     list (APPEND fixup_library_dirs ${fftw_lib_dir})

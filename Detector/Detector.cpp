@@ -11,7 +11,7 @@ extern "C" {
   void   fil4_(qint16*, qint32*, qint16*, qint32*);
 }
 
-extern dec_data_t dec_data;
+extern dec_data_t& dec_data;
 
 Detector::Detector (unsigned frameRate, double periodLengthInSeconds,
                     unsigned downSampleFactor, QObject * parent)

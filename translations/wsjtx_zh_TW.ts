@@ -4502,26 +4502,6 @@ Double-click to reset to the standard 73 message</source>
         <translation>開啟黑夜模式</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="5438"/>
-        <source>WSJT-X_improved Home Page</source>
-        <translation>WSJT-X_改進版主頁</translation>
-    </message>
-    <message>
-        <location filename="../widgets/mainwindow.ui" line="5446"/>
-        <source>The additional features of wsjt-x_improved</source>
-        <translation>WSJT-X_改進版的附加功能</translation>
-    </message>
-    <message>
-        <location filename="../widgets/mainwindow.ui" line="5449"/>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Overview on the additional features of wsjt-x_improved.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;概述 WSJT-X_改進版的附加功能.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
-        <location filename="../widgets/mainwindow.ui" line="5441"/>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Go to the wsjt-x_improved home page.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;轉到 WSJT-X_改進版主頁.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
         <location filename="../widgets/mainwindow.ui" line="5462"/>
         <source>Erase list of Q65 callers</source>
         <translation>删除Q65呼叫者清單</translation>
@@ -7567,11 +7547,6 @@ transmitting periods.</source>
         <location filename="../Configuration.ui" line="2685"/>
         <source>Reset Highlighting to WSJT-X default</source>
         <translation>將高亮顯示重置為 wsjt-x 默認值</translation>
-    </message>
-    <message>
-        <location filename="../Configuration.ui" line="2692"/>
-        <source>Reset Highlighting to wsjt-x_improved default</source>
-        <translation>將高亮顯示重置為 wsjt-x_improved 默認值</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2783"/>

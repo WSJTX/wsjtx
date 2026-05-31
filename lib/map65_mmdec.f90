@@ -11,7 +11,6 @@ subroutine map65_mmdec(nutc,id2,nqd,ntrperiod, nsubmode,nfa,nfb,nfqso,   &
     use iso_fortran_env, only: int16
 
   include 'jt9com.f90'
-  include 'timer_common.inc'
 
   type, extends(q65_decoder) :: counting_q65_decoder
      integer :: decoded

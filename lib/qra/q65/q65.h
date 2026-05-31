@@ -113,7 +113,6 @@ int		q65_esnodb_fastfading(
 int		_q65_get_message_length(const qracode *pCode);
 int		_q65_get_codeword_length(const qracode *pCode);
 float	_q65_get_code_rate(const qracode *pCode);
-static void	_q65_mask(const qracode *pcode, float *ix, const int *mask, const int *x);
 int		_q65_get_alphabet_size(const qracode *pCode);
 int		_q65_get_bits_per_symbol(const qracode *pCode);
 

@@ -98,7 +98,11 @@ void FastGraph::on_pbAutoLevel_clicked()
   for(int i=0; i<=fast_jh; i++) {
     sum += fast_green[i];
   }
-  m_ave=sum/fast_jh;
+  if (fast_jh == 0) {
+    m_ave=0.0;
+  } else {
+    m_ave=sum/fast_jh;
+  }
   ui->gainSlider->setValue(127-int(2.2*m_ave));
   ui->zeroSlider->setValue(int(m_ave)+20);
   ui->greenZeroSlider->setValue(160-int(3.3*m_ave));

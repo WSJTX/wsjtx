@@ -10,6 +10,13 @@ if (APPLE)
   #
   # otool -l <binary> | grep -A3 LC_VERSION_MIN_MACOSX
   #
+  if (NOT CMAKE_OSX_SYSROOT)
+    execute_process (COMMAND xcrun --show-sdk-path
+            OUTPUT_VARIABLE _SDK_PATH
+            OUTPUT_STRIP_TRAILING_WHITESPACE)
+    set (CMAKE_OSX_SYSROOT ${_SDK_PATH} CACHE STRING "Path to macOS SDK")
+  endif ()
+
   set (CMAKE_OSX_DEPLOYMENT_TARGET 10.12
     CACHE STRING "Earliest version of macOS supported
 
@@ -49,9 +56,10 @@ if (POLICY CMP0075)
 endif ()
 
 project (wsjtx
-  VERSION 3.0.1.0
+  VERSION 3.1.0.0
   LANGUAGES C CXX Fortran
   )
+
 set (PROJECT_DESCRIPTION "WSJT-X: Digital Modes for Weak Signal Communications in Amateur Radio")
 set (CMAKE_PROJECT_DESCRIPTION ${PROJECT_DESCRIPTION})
 set (CMAKE_AUTOUIC ON)
@@ -96,7 +104,7 @@ message (STATUS "******************************************************")
 
 include (set_build_type)
 # RC 0 or omitted is a development build, GA is a General Availability release build
-set_build_type (GA)
+set_build_type (RC)
 set (wsjtx_VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}${BUILD_TYPE_REVISION}")
 
 #
@@ -104,7 +112,7 @@ set (wsjtx_VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_
 #
 set (PROJECT_BUNDLE_NAME "WSJT-X")
 set (PROJECT_VENDOR "WSJT Development Group")
-set (PROJECT_CONTACT "joe@princetion.edu")
+set (PROJECT_CONTACT "jtaylor@princetion.edu")
 set (PROJECT_COPYRIGHT "Copyright (C) 2001-2026 by Joe Taylor, K1JT")
 set (PROJECT_HOMEPAGE https://wsjt.sourceforge.io/wsjtx.html)
 set (PROJECT_MANUAL wsjtx-main)
@@ -155,7 +163,9 @@ option (WSJT_GENERATE_DOCS "Generate documentation files." ON)
 option (WSJT_RIG_NONE_CAN_SPLIT "Allow split operation with \"None\" as rig.")
 option (WSJT_TRACE_UDP "Debugging option that turns on UDP message protocol diagnostics.")
 option (WSJT_BUILD_UTILS "Build simulators and code demonstrators." ON)
-option (WSJT_FOX_OTP "Enable Fox OTP Verification Messages." ON)
+option (WSJT_FOX_OTP "Enable Fox OTP Verification Messages." ON
+option (WSJT_SKIP_MAP65 "Skip building MAP65 EME decoder (legacy Fortran; fails on GCC 15)." ON)
+option (WSJT_ENABLE_TESTS "Enable developer tests." ON)
 CMAKE_DEPENDENT_OPTION (WSJT_QDEBUG_IN_RELEASE "Leave Qt debugging statements in Release configuration." OFF
   "NOT is_debug_build" OFF)
 CMAKE_DEPENDENT_OPTION (WSJT_ENABLE_EXPERIMENTAL_FEATURES "Enable features not fully ready for public releases." ON
@@ -196,6 +206,11 @@ if (WSJT_FOX_OTP)
   )
   message (STATUS "Including Fox verification code feature")
 endif ()
+
+if (WSJT_ENABLE_TESTS)
+     enable_testing ()
+     message (STATUS "Including tests")
+ endif()
 
 #
 # Project sources
@@ -250,6 +265,10 @@ set (wsjt_qt_CXXSRCS
   SampleDownloader/FileNode.cpp
   SampleDownloader/RemoteFile.cpp
   DisplayManual.cpp
+  WSJTXLogging.cpp
+  Decoder/decodedtext.cpp
+  Configuration.cpp
+  logbook/logbook.cpp
   MultiSettings.cpp
   validators/MaidenheadLocatorValidator.cpp
   validators/CallsignValidator.cpp
@@ -283,10 +302,17 @@ set (wsjt_qt_CXXSRCS
   widgets/CheckableItemComboBox.cpp
   widgets/BandComboBox.cpp
   otpgenerator.cpp
+  MessageFilter.cpp
+  MessageFilterRules.cpp
+  MessageFilterLogic.cpp
+  PrefixSuffix.cpp
+  CountryNames.cpp
+  HelpText.cpp
   )
 
 set (wsjt_qtmm_CXXSRCS
   Audio/BWFFile.cpp
+  Audio/WavFile.cpp
   )
 
 set (jt9_FSRCS
@@ -295,14 +321,11 @@ set (jt9_FSRCS
   )
 
 set (wsjtx_CXXSRCS
-  WSJTXLogging.cpp
-  logbook/logbook.cpp
   Network/PSKReporter.cpp
   Modulator/Modulator.cpp
   Detector/Detector.cpp
   widgets/logqso.cpp
   widgets/displaytext.cpp
-  Decoder/decodedtext.cpp
   getfile.cpp
   Audio/soundout.cpp
   Audio/soundin.cpp
@@ -321,7 +344,13 @@ set (wsjtx_CXXSRCS
   widgets/colorhighlighting.cpp
   WSPR/WsprTxScheduler.cpp
   widgets/mainwindow.cpp
-  Configuration.cpp
+  widgets/mainwindow_jtty.cpp
+  widgets/JttyTxQueue.cpp
+  widgets/mainwindow_settings.cpp
+  widgets/mainwindow_show_messages.cpp
+  widgets/mainwindow_arrl_digi.cpp
+  widgets/mainwindow_bandhopping.cpp
+  widgets/mainwindow_slots.cpp
   main.cpp
   Network/wsprnet.cpp
   WSPR/WSPRBandHopping.cpp
@@ -329,14 +358,8 @@ set (wsjtx_CXXSRCS
   widgets/QSYMessage.cpp 
   widgets/QSYMessageCreator.cpp
   widgets/qsymonitor.cpp
+  widgets/MMTTYIF.cpp
   )
-
-if (${CMAKE_CXX_COMPILER_ID} MATCHES "Clang")
-  set_source_files_properties (
-    widgets/plotter.cpp 
-    widgets/mainwindow.cpp
-    PROPERTIES COMPILE_FLAGS "-Wno-vla-extension")
-endif ()
 
 set (wsjt_CXXSRCS
   Logger.cpp
@@ -404,6 +427,7 @@ set (wsjt_FSRCS
   lib/jtty/jtty_mod.f90
   lib/jtty/jtty_fec_mod.f90
   lib/jtty/jttycom.f90
+  lib/jtty/jtty_mdecode.f90
 
   # remaining non-module sources
   lib/addit.f90
@@ -783,6 +807,7 @@ set (wsjt_qt_UISRCS
   wf_palette_design_dialog.ui
   widgets/FoxLogWindow.ui
   widgets/CabrilloLogWindow.ui
+  Configuration.ui
   )
 
 set (wsprsim_CSRCS
@@ -816,7 +841,6 @@ set (wsjtx_UISRCS
   widgets/activeStations.ui
   widgets/widegraph.ui
   widgets/logqso.ui
-  Configuration.ui
   widgets/ExportCabrillo.ui
   widgets/QSYMessage.ui
   widgets/QSYMessageCreator.ui
@@ -1167,7 +1191,7 @@ if (Fortran_COMPILER_NAME MATCHES "gfortran.*")
   # we decide if they are meaningful, without these FP instructions
   # run in nonstop mode and do not trap
   #set (CMAKE_Fortran_FLAGS_DEBUG   "${CMAKE_Fortran_FLAGS_DEBUG} ${CMAKE_Fortran_FLAGS_DEBUG}  -ffpe-trap=invalid,zero,overflow")
-  
+
 elseif (Fortran_COMPILER_NAME MATCHES "ifort.*")
   # ifort (untested)
   set (CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} -f77rtl ${General_FFLAGS}")
@@ -1278,10 +1302,6 @@ endif ()
 if (WSJT_GENERATE_DOCS)
   add_subdirectory (doc)
 endif (WSJT_GENERATE_DOCS)
-if (EXISTS ${CMAKE_SOURCE_DIR}/tests AND IS_DIRECTORY ${CMAKE_SOURCE_DIR}/tests)
-  add_subdirectory (tests)
-endif ()
-
 # build a library of package functionality (without and optionally with OpenMP support)
 add_library (wsjt_cxx STATIC ${wsjt_CSRCS} ${wsjt_CXXSRCS})
 target_link_libraries (wsjt_cxx ${LIBM_LIBRARIES} Boost::log_setup ${LIBM_LIBRARIES})
@@ -1327,9 +1347,6 @@ target_link_libraries (sjtty wsjt_fort wsjt_cxx)
 
 add_executable (sjtty_qrm lib/jtty/sjtty_qrm.f90)
 target_link_libraries (sjtty_qrm wsjt_fort wsjt_cxx)
-
-add_executable (test_jtty_pack lib/jtty/test_jtty_pack.f90)
-target_link_libraries (test_jtty_pack wsjt_fort wsjt_cxx)
 
 add_executable (rjtty lib/jtty/rjtty.f90)
 target_link_libraries (rjtty wsjt_fort wsjt_cxx)
@@ -1446,6 +1463,12 @@ target_link_libraries (ldpcsim80_42 wsjt_fort wsjt_cxx)
 
 endif(WSJT_BUILD_UTILS)
 
+if(WSJT_ENABLE_TESTS)
+  add_subdirectory (tests)
+endif()
+
+
+
 add_executable (fmtave lib/fmtave.f90)
 
 add_executable (fcal lib/fcal.f90)
@@ -1480,6 +1503,19 @@ target_link_libraries (wsprd ${FFTW3_LIBRARIES} ${LIBM_LIBRARIES})
 
 # Tell CMake to run moc when necessary
 set (CMAKE_AUTOMOC ON)
+
+# mmtty_interface utility
+set (mmtty_interface_SRCS
+  mmtty_interface/main.cpp
+  mmtty_interface/MainWindow.cpp
+  mmtty_interface/MainWindow.hpp
+  widgets/MMTTYIF.cpp
+  widgets/MMTTYIF.hpp
+)
+
+add_executable (mmtty_interface WIN32 ${mmtty_interface_SRCS})
+target_link_libraries (mmtty_interface Qt5::Widgets)
+target_include_directories (mmtty_interface PRIVATE widgets)
 include_directories (${CMAKE_CURRENT_BINARY_DIR})
 
 # don't use Qt "keywords" signal, slot, emit in generated files to
@@ -1513,6 +1549,7 @@ set (LANGUAGES
 				# doesn't need to be populated)
   en_GB				# English UK
   es				# Spanish
+  hu				# Hungarian
   it				# Italian
   ja				# Japanese
   #no				# Norwegian
@@ -1521,7 +1558,6 @@ set (LANGUAGES
   #sv				# Swedish
   zh				# Chinese
   zh_TW				# Chinese traditional
-  it				# Italian
   )
 foreach (lang_ ${LANGUAGES})
   file (TO_NATIVE_PATH ${CMAKE_SOURCE_DIR}/translations/wsjtx_${lang_}.ts ts_)
@@ -1599,7 +1635,7 @@ target_link_libraries (qcp Qt5::Widgets Qt5::PrintSupport)
 add_library (wsjt_qt STATIC ${wsjt_qt_CXXSRCS} ${wsjt_qt_GENUISRCS} ${GENAXSRCS})
 # set wsjtx_udp exports to static variants
 target_compile_definitions (wsjt_qt PUBLIC UDP_STATIC_DEFINE)
-target_link_libraries (wsjt_qt Hamlib::Hamlib Boost::log qcp Qt5::Widgets Qt5::Network Qt5::Sql Qt5::WebSockets)
+target_link_libraries (wsjt_qt Hamlib::Hamlib Boost::log qcp Qt5::Widgets Qt5::Network Qt5::Multimedia Qt5::SerialPort Qt5::Sql Qt5::WebSockets)
 if (WIN32)
   target_link_libraries (wsjt_qt Qt5::AxContainer Qt5::AxBase)
 endif (WIN32)
@@ -1624,6 +1660,7 @@ add_executable (record_time_signal Audio/tools/record_time_signal.cpp)
 target_link_libraries (record_time_signal wsjt_cxx wsjt_qtmm wsjt_qt)
 
 add_executable (jt9 ${jt9_FSRCS} ${jt9_VERSION_RESOURCES})
+
 if (${OPENMP_FOUND} OR APPLE)
   if (APPLE)
     # On  Mac  we don't  have  working  OpenMP  support in  the  C/C++
@@ -1664,7 +1701,7 @@ endif (${OPENMP_FOUND} OR APPLE)
 # if (NOT APPLE)
   find_package (Portaudio REQUIRED)
 # endif (NOT APPLE)
-    add_subdirectory (map65)
+  add_subdirectory (map65)
   add_subdirectory (qmap)
 
 # build the main application
@@ -1699,6 +1736,17 @@ add_executable (wsjtx MACOSX_BUNDLE
   ${wsjtx_VERSION_RESOURCES}
   ${wsjtx_PLATFORM_RESOURCES}
   )
+
+if (APPLE)
+  add_custom_command(
+      TARGET wsjtx
+      POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different 
+      "${CMAKE_BINARY_DIR}/jt9"
+      "$<TARGET_FILE_DIR:wsjtx>"
+      COMMENT "Copying $<TARGET_FILE_DIR:jt9> into the Contents/MacOS/ directory"
+  )
+endif (APPLE)
 
 if (WSJT_CREATE_WINMAIN)
   set_target_properties (wsjtx PROPERTIES WIN32_EXECUTABLE ON)
@@ -1852,13 +1900,30 @@ install (TARGETS qmap
   BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   )
 
+if (NOT WSJT_SKIP_MAP65)
+  install (TARGETS map65
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
+    BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
+    )
+endif ()
+
 if(WSJT_BUILD_UTILS)
 install (TARGETS ft8code jt65code jt9code jt4code msk144code 
   q65code fst4sim ft8sim q65sim EchoCallSim testEchoCall echosim
-  hash22calc cablog sjtty rjtty 
+  hash22calc cablog sjtty rjtty mmtty_interface 
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   )
+
+if (WIN32)
+  add_executable(wsjtx_jtty WIN32 mmtty_interface/wsjtx_jtty.c)
+  add_executable(wsjtx_jtty2 WIN32 mmtty_interface/wsjtx_jtty2.c)
+
+  install (TARGETS wsjtx_jtty wsjtx_jtty2
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
+    BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
+    )
+endif(WIN32)
 endif(WSJT_BUILD_UTILS)  
 
 install (PROGRAMS
@@ -2027,6 +2092,13 @@ if (APPLE)
     "${CMAKE_POSTFLIGHT_SCRIPT}")
   configure_file ("${wsjtx_SOURCE_DIR}/Darwin/postupgrade.sh.in"
     "${CMAKE_POSTUPGRADE_SCRIPT}")
+  add_custom_command(
+          TARGET wsjtx POST_BUILD
+          COMMAND ${CMAKE_COMMAND} -E copy
+          $<TARGET_FILE:jt9>
+          $<TARGET_BUNDLE_CONTENT_DIR:wsjtx>/MacOS/
+          COMMENT "Copying jt9 into WSJT-X bundle"
+  )
 endif ()
 
 
@@ -2085,6 +2157,13 @@ endif ()
 set (CPACK_DEBIAN_PACKAGE_HOMEPAGE "${PROJECT_HOMEPAGE}")
 set (CPACK_DEBIAN_PACKAGE_DEPENDS "libgfortran5 (>=8.3) | libgfortran4 (>=7.3) | libgfortran3 (>=6.3), libfftw3-single3 (>=3.3), libgomp1 (>=6), libqt5serialport5 (>=5.7), libqt5multimedia5-plugins (>=5.7), libqt5widgets5 (>=5.7), libqt5network5 (>=5.7), libqt5printsupport5 (>=5.7), libqt5websockets5 (>=5.7),  libqt5sql5-sqlite (>=5.7), libusb-1.0-0 (>=1.0.21), libboost-log1.62.0 (>=1.62.0) | libboost-log1.65.1 (>=1.65.1) | libboost-log1.67.0 (>=1.67.0) | libboost-log1.71.0 (>=1.71.0) | libboost-log1.74.0 (>=1.74.0) | libboost-log1.81.0 (>=1.81.0) | libboost-log1.83.0 (>=1.83.0) | libboost-log1.85.0 (>=1.85.0)")
 set (CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+# Take over data files (icon, samples, docs) from the distro `wsjtx-data`,
+# `wsjtx-doc`, `wsjtx-improved-data`, and `wsjtx-improved-doc` binary packages
+# so installing this .deb on a system carrying any of them doesn't fail with a
+# file conflict and doesn't cascade-remove `js8call` or other consumers.
+set (CPACK_DEBIAN_PACKAGE_PROVIDES "wsjtx-data (= ${wsjtx_VERSION}), wsjtx-doc (= ${wsjtx_VERSION}), wsjtx-improved-data (= ${wsjtx_VERSION}), wsjtx-improved-doc (= ${wsjtx_VERSION})")
+set (CPACK_DEBIAN_PACKAGE_REPLACES "wsjtx-data, wsjtx-doc, wsjtx-improved-data, wsjtx-improved-doc")
+set (CPACK_DEBIAN_PACKAGE_CONFLICTS "wsjtx-data (<< ${wsjtx_VERSION}), wsjtx-doc (<< ${wsjtx_VERSION}), wsjtx-improved-data (<< ${wsjtx_VERSION}), wsjtx-improved-doc (<< ${wsjtx_VERSION})")
 
 set (CPACK_RPM_PACKAGE_ARCHITECTURE ${CMAKE_SYSTEM_PROCESSOR})
 set (CPACK_RPM_PACKAGE_REQUIRES "qt5-qtbase >= 5.9, qt5-qtserialport >= 5.9, qt5-qtmultimedia >= 5.9, qt5-qtwebsockets >= 5.9, qt5-qtsvg >= 5.9, libusbx >= 1.0.22, libgfortran >= 7, libgomp >= 7, fftw-libs-single >= 3.3, boost-log >= 1.62")

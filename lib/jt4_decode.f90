@@ -61,9 +61,9 @@ contains
     character(len=12), intent(in) :: mycall,hiscall
     character(len=6), intent(in) :: hisgrid
     procedure(jt4_average_callback), optional :: average_callback
-
     real*4 dat(30*11025)
     character*6 cfile6
+    save dat
 
     this%decode_callback => decode_callback
     if (present (average_callback)) then
@@ -443,7 +443,6 @@ subroutine getsnr(dat,npts,mode4,dtx,decoded,nsnr)
      do i=1,nh
         s(i)=real(cx(i))**2 + aimag(cx(i))**2
      enddo
-     jtone=nint((fpk-1500)/(mode4*df))
      nshift=mode4*itone(j)
      savg=savg + cshift(s,nshift)      !Move all power into lowest tone freq
   enddo

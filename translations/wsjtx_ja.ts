@@ -4588,26 +4588,6 @@ ENTERを押してテキストを登録リストに追加.
         <translation>WSJT-X 2.7 と QMAPのクイックスタートガイド</translation>
     </message>
     <message>
-        <location filename="../widgets/mainwindow.ui" line="5553"/>
-        <source>WSJT-X_improved Home Page</source>
-        <translation>WSJT-X_improvedのホームページ</translation>
-    </message>
-    <message>
-        <location filename="../widgets/mainwindow.ui" line="5556"/>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Go to the wsjt-x_improved home page.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;wsjt-x_improvedのホームページへ.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
-        <location filename="../widgets/mainwindow.ui" line="5561"/>
-        <source>The additional features of wsjt-x_improved</source>
-        <translation>wsjt-x_improvedの追加機能</translation>
-    </message>
-    <message>
-        <location filename="../widgets/mainwindow.ui" line="5564"/>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Overview on the additional features of wsjt-x_improved.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;wsjt-x_improvedの追加機能の概略.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
         <location filename="../widgets/mainwindow.ui" line="5569"/>
         <source>Recommended audio settings</source>
         <translation>推奨オーディオ設定</translation>
@@ -9722,11 +9702,6 @@ Right click for insert and delete options.</source>
         <location filename="../Configuration.ui" line="2795"/>
         <source>Reset Highlighting to WSJT-X default</source>
         <translation>ハイライト設定をWSJT-Xデフォルトへリセット</translation>
-    </message>
-    <message>
-        <location filename="../Configuration.ui" line="2802"/>
-        <source>Reset Highlighting to WSJT-X Improved default</source>
-        <translation>ハイライト設定をWSJT-X improvedデフォルトへリセット</translation>
     </message>
     <message>
         <location filename="../Configuration.ui" line="2809"/>

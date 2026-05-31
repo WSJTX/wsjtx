@@ -90,18 +90,26 @@ end subroutine hash22
 
 
 integer function ihashcall(c0,m)
+  implicit none
 
-  integer*8 n8
-  character*13 c0
+  character(len=13), intent(in)       :: c0
+  integer, intent(in)                 :: m
+  integer(kind=8)                     :: n8
+  integer(kind=selected_int_kind(38)) :: prod
+  integer                             :: i,j
   character*38 c
   data c/' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ/'/
 
-  n8=0
+  n8=0_8
   do i=1,11
      j=index(c,c0(i:i)) - 1
-     n8=38*n8 + j
+     n8=38_8*n8 + j
   enddo
-  ihashcall=ishft(47055833459_8*n8,m-64)
+
+  prod = 47055833459_8
+  prod = prod * n8
+  prod = ishft(prod,64)
+  ihashcall=ishft(prod,m-128)
 
   return
 end function ihashcall
@@ -1041,7 +1049,7 @@ subroutine pack77_06(nwords,w,i3,n3,c77,i3_hint,n3_hint)
   character*4 grid4
   character*1 c
   character*36 a2
-  data a2/'0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'/,nzzz/46656/
+  data a2/'0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'/,nzzz/46656/,npfx/0/
   
   logical is_grid4,is_grid6,is_digit,ok
   is_grid4(grid4)=len(trim(grid4)).eq.4 .and.                        &
@@ -2795,7 +2803,7 @@ subroutine pack77_06var(nwords,w,i3,n3,c77,i3_hint,n3_hint,ntxhash)
   character*1 c
   character*36 a2
   integer, intent(in) :: ntxhash
-  data a2/'0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'/,nzzz/46656/
+  data a2/'0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'/,nzzz/46656/,npfx/0/
   
   logical is_grid4,is_grid6,is_digit,ok
   is_grid4(grid4)=len(trim(grid4)).eq.4 .and.                        &

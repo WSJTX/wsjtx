@@ -22,10 +22,11 @@ program ldpcsim80_42
    data graymap/0,1,3,2/
 
    nargs=iargc()
-   if(nargs.ne.5) then
-      print*,'Usage: ldpcsim  niter #trials  s    modtype  channel `'
-      print*,'eg:    ldpcsim    25   1000   0.69    1         1'
+   if(nargs.ne.6) then
+      print*,'Usage: ldpcsim  niter ndeep #trials  s    modtype  channel `'
+      print*,'eg:    ldpcsim    25    2    1000   0.69    1         1'
       print*,'niter   : maximum number of decoder iterations.'
+      print*,'ndeep   : decode depth, -1 through 4 are valid, -1 is BP only )'
       print*,'s       : if negative, then value is ignored and sigma is calculated from SNR.'
       print*,'modtype : 0 coherent BPSK, 1 4FSK'
       print*,'channel : 0 AWGN, 1 Rayleigh (4FSK only)'
@@ -34,12 +35,18 @@ program ldpcsim80_42
    call getarg(1,arg)
    read(arg,*) max_iterations
    call getarg(2,arg)
-   read(arg,*) ntrials
+   read(arg,*) ndeep 
+   if((ndeep.lt.-1) .or. (ndeep.gt.4)) then
+      print*,'invalid ndeep value: -1 through 4 are valid, -1 is BP only )'
+      return
+   endif
    call getarg(3,arg)
-   read(arg,*) s
+   read(arg,*) ntrials
    call getarg(4,arg)
-   read(arg,*) modtype
+   read(arg,*) s
    call getarg(5,arg)
+   read(arg,*) modtype
+   call getarg(6,arg)
    read(arg,*) channeltype
 
    if(modtype .eq. 0 .and. channeltype .eq. 1) then
@@ -50,7 +57,7 @@ program ldpcsim80_42
    rate=real(K)/real(N)
 
    write(*,*) "rate: ",rate
-   write(*,*) "niter= ",max_iterations," s= ",s
+   write(*,*) "niter= ",max_iterations," ndeep= ",ndeep," s= ",s
    if(modtype.eq.0) then
       iq=1    ! bits per symbol
       write(*,*) "coherent BPSK"
@@ -97,7 +104,7 @@ program ldpcsim80_42
 !   write(*,*) "Eb/N0  SNR2500   ngood  nundetected  sigma    psymerr      pbiterr"
    write(*,*) "Es/N0   Eb/N0  SNR2500   ngood  nundetected  sigma    psymerr      pbiterr"
    do idb = 40,-4,-1
-      esn0db=idb/2.0-1.0
+      esn0db=idb/2.0
       sigma=1/sqrt( 2*(10**(esn0db/10.0)) )  ! dB is Es/N0
       ngood=0
       nue=0
@@ -176,8 +183,7 @@ program ldpcsim80_42
 
 ! max_iterations is max number of belief propagation iterations
          call bpdecode_80_32(llr, max_iterations, message32, cw, nharderrors)
-         ndeep=3
-         if(nharderrors.lt.0) then 
+         if(ndeep.ge.0 .and. nharderrors.lt.0) then 
             call osd80_32(llr, ndeep, message32, cw, nharderrors, dmin)
          endif
 
@@ -192,7 +198,7 @@ program ldpcsim80_42
          endif
       enddo
 
-      symrate = 32  ! baud
+      symrate = 31.25  ! baud
       snr2500=esn0db + 10*log10(symrate/2500.0) ! ref BW is 2500 Hz.
       pberr=real(nbiterr)/real(ntrials*N)
       if(modtype.eq.0) then  ! BPSK

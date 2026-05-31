@@ -8,16 +8,17 @@
 | $$$$  \$$$$|  \__| $$| $$__| $$   | $$       |  $$ \$$\
 | $$$    \$$$ \$$    $$ \$$    $$   | $$       | $$  | $$
  \$$      \$$  \$$$$$$   \$$$$$$     \$$        \$$   \$$
-      --- I M P R O V E D   b y  D G 2 Y C B  ---                                                                          
-                                                         
+
+
+
 Installing WSJT-X
 =================
 
-Binary packages of WSJT-X_IMPROVED are available from the project web 
+Binary packages of WSJT-X are available from the project web
 sites:
 
-       https://wsjt-x-improved.sourceforge.io/
-       https://sourceforge.net/projects/wsjt-x-improved/
+       https://wsjtx.github.io/wsjtx/downloads.html
+       https://wsjt.sourceforge.io/downloads.html
 
 Building from Source
 ====================

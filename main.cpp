@@ -153,6 +153,11 @@ int main(int argc, char *argv[])
                                      , "rig-name");
       parser.addOption (rig_option);
 
+      QCommandLineOption handle_option (QStringList {} << "w" << "window-handle"
+                                        , "N1MM window handle (hexadecimal)."
+                                        , "N1MM Window handle");
+      parser.addOption (handle_option);
+
       // support for start up configuration
       QCommandLineOption cfg_option (QStringList {} << "c" << "config"
                                      , "Where <configuration> is an existing one."
@@ -442,6 +447,11 @@ int main(int argc, char *argv[])
 
           // run the application UI
           MainWindow w(temp_dir, multiple, &multi_settings, &mem_jt9, downSampleFactor, &splash, env);
+#ifdef Q_OS_WIN
+          if (parser.isSet(handle_option)) {
+              w.initMMTTY(parser.value(handle_option));
+          }
+#endif
           w.show();
           splash.raise ();
           QObject::connect (&a, SIGNAL (lastWindowClosed()), &a, SLOT (quit()));

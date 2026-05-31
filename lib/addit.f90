@@ -44,6 +44,7 @@ subroutine addcw(icw,ncw,ifreq,sig,dat)
   real x(60*12000)
   real y(60*12000)
   real*8 dt,twopi,phi,dphi,fsample,tdit,t
+  save s,x,y
 
   wpm=25.0
   nspd=nint(1.2*12000.0/wpm)
