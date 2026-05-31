@@ -180,7 +180,9 @@ set_source_files_properties(stdout_channel_mod.f90 PROPERTIES
 )
 
 # Link MAP65 against the correct Fortran variant
-if (WSJT_BUILD_FORTRAN_OPENMP)
+if (APPLE)
+    target_link_libraries(m65impl PUBLIC Qt5::Core wsjt_fort wsjt_cxx)
+elseif (WSJT_BUILD_FORTRAN_OPENMP)
     target_link_libraries(m65impl PUBLIC Qt5::Core wsjt_fort_omp wsjt_cxx)
 else ()
     target_link_libraries(m65impl PUBLIC Qt5::Core wsjt_fort wsjt_cxx)
