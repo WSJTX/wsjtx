@@ -1,0 +1,385 @@
+/*
+===============================================================================
+ MAP65 DECODE LIFECYCLE — MODERNIZED AND LEGACY‑ACCURATE
+===============================================================================
+
+ This document describes the sequencing rules for disk and live-input decoding
+ in modern MAP65. The goal is deterministic, race‑free behavior that matches
+ the legacy MAP65 decode pipeline while eliminating timing-dependent behavior.
+
+-------------------------------------------------------------------------------
+ OVERVIEW
+-------------------------------------------------------------------------------
+ A decode cycle consists of:
+   1. Preparing input data (disk or live)
+   2. Preparing decode parameters (C++ decode())
+   3. Triggering the Fortran decoder loop (newdat + decoder_ready)
+   4. Receiving <DecodeFinished> from stdout
+   5. Detecting decoder silence (idle timer)
+   6. Clearing busy and optionally auto‑advancing
+
+ The Fortran decoder loop runs ONLY when:
+       decoder_ready == 1  AND  newdat == 1
+
+-------------------------------------------------------------------------------
+ STATE FLAGS
+-------------------------------------------------------------------------------
+ newdat:
+   - Set to 1 by the caller (disk or live) BEFORE calling decode().
+   - Indicates that new data is ready for decoding.
+   - Cleared internally by the decoder after each pass.
+   - Only one pass per file/minute is expected (legacy behavior).
+
+ decoder_ready:
+   - Set to 0 BEFORE calling decode() (disk or live).
+   - Set to 1 at the END of decode() after all parameters are prepared.
+   - Prevents the decoder loop from running early with stale parameters.
+
+ decoderBusy:
+   - Set to true ONLY inside decode().
+   - Set to false ONLY in the idle timer after <DecodeFinished> + silence.
+   - Reflects actual decoder activity, not file loading.
+
+-------------------------------------------------------------------------------
+ DISK INPUT SEQUENCE
+-------------------------------------------------------------------------------
+ getfile():
+     setDecoderReady(0);     // block decoder loop
+     load file data
+     setNewdat(1);           // legacy behavior
+     decode();               // prepares parameters, sets decoder_ready=1
+
+-------------------------------------------------------------------------------
+ LIVE INPUT SEQUENCE
+-------------------------------------------------------------------------------
+ dataSink():
+     when a full 60s block is ready:
+         setDecoderReady(0); // block decoder loop
+         setNewdat(1);       // legacy behavior
+         decode();           // prepares parameters, sets decoder_ready=1
+
+-------------------------------------------------------------------------------
+ DECODE() SEQUENCE
+-------------------------------------------------------------------------------
+ decode():
+     decodeBusy(true);       // decoder is now officially active
+     prepare all decode parameters (nfa, nfb, nfshift, mode, etc.)
+     setDecoderReady(1);     // allow decoder loop to run
+     // newdat was already set by caller
+
+-------------------------------------------------------------------------------
+ FORTRAN LOOP
+-------------------------------------------------------------------------------
+ do while (.not. stop_m65)
+     if (decoder_ready .and. newdat .ne. 0) call m65a()
+     call sleep_msec(50)
+ end do
+
+-------------------------------------------------------------------------------
+ STDOUT PROCESSING
+-------------------------------------------------------------------------------
+ processStdOut():
+     On "<DecodeFinished>":
+         m_decodeFinishedCount++
+         // no second pass expected (legacy behavior)
+
+-------------------------------------------------------------------------------
+ IDLE TIMER
+-------------------------------------------------------------------------------
+ Idle timer fires when decoder stdout is silent:
+     if (m_decodeFinishedCount == 0)
+         ignore (decoder not finished yet)
+
+     decodeBusy(false);      // decoder is done
+
+     if (m_loopall && m_diskData)
+         on_actionOpen_next_in_directory_triggered();
+
+-------------------------------------------------------------------------------
+ NOTES
+-------------------------------------------------------------------------------
+ - Only ONE decode pass per file/minute is expected (legacy MAP65 behavior).
+ - No second-pass logic is required.
+ - No failsafe timer is required.
+ - This lifecycle eliminates all timing races present in earlier versions.
+===============================================================================
+*/
+/*
+===============================================================================
+ LIVE MODE VS DISK MODE — BUSY‑CLEARING RULES
+===============================================================================
+
+ Modern MAP65 supports two fundamentally different input modes:
+
+     1. Disk mode (file-based decoding)
+     2. Live mode (real-time network or audio decoding)
+
+ These modes differ in how decoder stdout behaves, and therefore require
+ different rules for clearing the decoderBusy flag.
+
+-------------------------------------------------------------------------------
+ DISK MODE (FILE INPUT)
+-------------------------------------------------------------------------------
+ - Decoder stdout is finite.
+ - After <DecodeFinished>, the decoder emits a tail of late decodes,
+   bandmap lines, and summary lines.
+ - Once this tail completes, stdout becomes silent.
+ - The idle timer detects this silence (~2500 ms) and clears busy.
+
+ Correct behavior in disk mode:
+     Wait for <DecodeFinished>
+     THEN wait for ~2500 ms of silence
+     THEN clear busy
+     THEN auto-advance (if loopall is enabled)
+
+ This reproduces legacy MAP65’s blocking behavior exactly.
+
+-------------------------------------------------------------------------------
+ LIVE MODE (REAL-TIME INPUT)
+-------------------------------------------------------------------------------
+ In live mode, the decoder *never* becomes silent:
+
+ - The decoder emits continuous tracking lines (e.g., "@1296.xxx") every
+   120 ms throughout the entire minute.
+ - These lines continue even after <DecodeFinished>.
+ - Therefore, the idle timer will NEVER observe a 2500 ms silent period.
+ - If busy were cleared only by the idle timer, it would remain stuck TRUE
+   forever, causing the GUI to remain greyed out.
+
+ To match legacy behavior and maintain correct GUI state, MAP65 must clear
+ busy *immediately* upon receiving <DecodeFinished> in live mode.
+
+ Correct behavior in live mode:
+     On <DecodeFinished>:
+         clear busy immediately
+         (do NOT wait for silence)
+         (do NOT auto-advance)
+
+ This mirrors legacy MAP65, where the blocking read returned immediately
+ after <DecodeFinished> during live decoding.
+
+-------------------------------------------------------------------------------
+ SUMMARY OF BUSY‑CLEARING RULES
+-------------------------------------------------------------------------------
+ Disk mode:
+     <DecodeFinished> → wait for silence → busy = false → auto-advance
+
+ Live mode:
+     <DecodeFinished> → busy = false immediately (no idle timer)
+
+-------------------------------------------------------------------------------
+ RATIONALE
+-------------------------------------------------------------------------------
+ - Disk mode produces finite stdout; silence detection is meaningful.
+ - Live mode produces continuous stdout; silence detection is impossible.
+ - Legacy MAP65 implicitly handled both cases correctly via blocking I/O.
+ - Modern MAP65 must explicitly differentiate the two modes to reproduce
+   legacy behavior and avoid GUI lockout.
+
+===============================================================================
+*/
+
+/*
+===============================================================================
+ WHY LEGACY MAP65 DID NOT NEED AN IDLE TIMER
+===============================================================================
+
+ Legacy MAP65 used a synchronous, blocking I/O model for running the decoder.
+ This architecture *implicitly* waited for the decoder to finish producing ALL
+ stdout before advancing to the next file. No timers, heuristics, or silence
+ detection were required.
+
+-------------------------------------------------------------------------------
+ LEGACY ARCHITECTURE (SYNCHRONOUS / BLOCKING)
+-------------------------------------------------------------------------------
+ - The decoder was launched as a child process.
+ - MAP65 read stdout using a blocking read loop.
+ - The read call did not return until the decoder flushed all output.
+ - The program could not proceed until stdout was fully drained.
+ - <DecodeFinished> was just a marker, not a signal to advance.
+ - Late decodes, bandmap lines, and summary lines always arrived before the
+   blocking read returned.
+
+ Result:
+     Legacy MAP65 *automatically* waited long enough to capture all decodes,
+     including those emitted 1–3 seconds after <DecodeFinished>.
+
+-------------------------------------------------------------------------------
+ MODERN ARCHITECTURE (ASYNCHRONOUS / EVENT-DRIVEN)
+-------------------------------------------------------------------------------
+ Modern MAP65 uses Qt's QProcess, which delivers decoder stdout asynchronously:
+
+ - stdout arrives in bursts via readyReadStandardOutput() signals
+ - the GUI thread continues running while the decoder works
+ - <DecodeFinished> does NOT mean the decoder is done talking
+ - late decodes and summary lines may arrive up to ~2500 ms later
+ - the decoder does not close stdout between passes or files
+
+ Because the program is no longer blocked waiting for stdout, MAP65 must
+ explicitly detect when the decoder has gone silent.
+
+-------------------------------------------------------------------------------
+ WHY AN IDLE TIMER IS REQUIRED
+-------------------------------------------------------------------------------
+ In the asynchronous model, MAP65 must decide when the decoder is "done."
+ The correct criterion is:
+
+     <DecodeFinished> has been seen
+     AND
+     no stdout has arrived for ~2500 ms
+
+ This silence window reproduces the behavior of legacy MAP65's blocking read:
+ it ensures that all late decodes, bandmap lines, and summary lines have been
+ received before auto-advancing.
+
+-------------------------------------------------------------------------------
+ SUMMARY
+-------------------------------------------------------------------------------
+ Legacy MAP65:
+     - Blocking I/O naturally waited for all decoder output.
+     - No idle timer needed.
+
+ Modern MAP65:
+     - Asynchronous I/O requires explicit silence detection.
+     - A 2500 ms idle window faithfully reproduces legacy behavior.
+
+===============================================================================
+*/
+/*
+===============================================================================
+ FILE INPUT MODE DECODER OUTPUT TIMING DIAGRAM 
+===============================================================================
+
+ This diagram illustrates the typical sequence of decoder stdout during a
+ single decode pass when using file input. It shows why legacy MAP65 naturally 
+ waited for all output, and why modern MAP65 must explicitly wait for a period 
+ of silence.
+
+ Time flows left → right.
+
+-------------------------------------------------------------------------------
+ LEGEND
+-------------------------------------------------------------------------------
+ |====|   Decoder producing stdout
+ <DF>    "<DecodeFinished>" marker
+ ....    Silence (no stdout)
+ [2500 ms silence]  Idle timer threshold in modern MAP65
+
+-------------------------------------------------------------------------------
+ TYPICAL DECODER STDOUT TIMELINE
+-------------------------------------------------------------------------------
+
+   QuickDecode         FullDecode            Post-Processing
+   (fast)              (heavy FFT)           (late decodes, bandmap, summary)
+   |====================|====================|====================|
+   ^                    ^                    ^                    ^
+   |                    |                    |                    |
+   Start                <DF>                 Late output          Final flush
+                                             continues            then silence
+
+   0 ms                ~800–1200 ms         ~1200–2200 ms        ~2200–2500+ ms
+   ---------------------------------------------------------------------------→ time
+
+   After <DecodeFinished>, the decoder may continue emitting:
+       - late decodes
+       - bandmap lines
+       - candidate summaries
+       - sync statistics
+       - final housekeeping output
+
+   This tail can last up to ~2500 ms depending on CPU speed and decode load.
+
+-------------------------------------------------------------------------------
+ LEGACY MAP65 BEHAVIOR (BLOCKING I/O)
+-------------------------------------------------------------------------------
+   Legacy MAP65 used a blocking read loop:
+       - It did not return until ALL stdout was flushed.
+       - It implicitly waited for the entire tail of output.
+       - It always captured all decodes.
+
+   No idle timer was needed.
+
+-------------------------------------------------------------------------------
+ MODERN MAP65 BEHAVIOR (ASYNCHRONOUS I/O)
+-------------------------------------------------------------------------------
+   Modern MAP65 receives stdout via Qt signals:
+       - <DecodeFinished> does NOT mean the decoder is done.
+       - Late output arrives asynchronously after <DF>.
+       - The GUI thread continues running.
+       - MAP65 must explicitly detect when the decoder has gone silent.
+
+   Correct behavior:
+       - Wait for <DecodeFinished>
+       - THEN wait for ~2500 ms of silence
+       - THEN auto-advance
+
+   This reproduces legacy behavior exactly.
+
+===============================================================================
+*/
+/*
+===============================================================================
+ LIVE MODE TIMING DIAGRAM (REAL‑TIME NETWORK / AUDIO INPUT)
+===============================================================================
+
+ This diagram illustrates why live-mode decoding cannot rely on the idle timer
+ to detect decoder completion. Unlike disk-mode decoding, live-mode produces
+ continuous stdout throughout the entire minute, even AFTER <DecodeFinished>.
+
+ Time flows left → right.
+
+-------------------------------------------------------------------------------
+ LEGEND
+-------------------------------------------------------------------------------
+ |====|   Decoder producing stdout (continuous live tracking output)
+ <DF>    "<DecodeFinished>" marker for early or full decode
+ ....    (Never occurs in live mode — no silence)
+ [X]     Idle timer never fires in live mode
+
+-------------------------------------------------------------------------------
+ LIVE-MODE STDOUT TIMELINE (52s + 56s DECODE CYCLES)
+-------------------------------------------------------------------------------
+
+   Live tracking output (continuous @1296.xxx lines every ~120 ms)
+   |=========================================================================|
+   ^                                                                         ^
+   |                                                                         |
+   Start of minute                                                           End of minute
+
+   Early Decode (~52s)                     Full Decode (~56s)
+   |====================|                  |====================|
+   ^                    ^                  ^                    ^
+   |                    |                  |                    |
+   Trigger              <DF>               Trigger              <DF>
+   (ihsym>=280)         EarlyFinished      (ihsym>=302)         DecodeFinished
+
+   ---------------------------------------------------------------------------→ time
+
+   IMPORTANT:
+   - Live tracking output continues uninterrupted across BOTH decode cycles.
+   - There is NO period of silence after <DecodeFinished>.
+   - Therefore the idle timer NEVER observes a 2500 ms quiet window.
+   - If busy were cleared only by the idle timer, it would remain TRUE forever.
+
+-------------------------------------------------------------------------------
+ CORRECT LIVE-MODE BEHAVIOR
+-------------------------------------------------------------------------------
+ On <DecodeFinished> (early or full):
+     - Clear busy IMMEDIATELY.
+     - Do NOT wait for silence (there is none).
+     - Do NOT auto-advance (live mode never advances files).
+
+ This matches legacy MAP65, where the blocking read returned immediately after
+ <DecodeFinished> during live decoding.
+
+-------------------------------------------------------------------------------
+ SUMMARY
+-------------------------------------------------------------------------------
+ Disk mode:
+     <DecodeFinished> → wait for silence → busy=false → auto-advance
+
+ Live mode:
+     <DecodeFinished> → busy=false immediately (no idle timer)
+
+===============================================================================
+*/

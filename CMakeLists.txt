@@ -24,6 +24,10 @@ Earliest version we can support with Qt 5.12, C++11 & libc++ is 10.12.
 Do not override this if you intend to build an official deployable installer.")
 endif (APPLE)
 
+if(APPLE)
+    add_compile_definitions(FORTRAN_APPLE)
+endif()
+
 #
 # CMake policies
 #
@@ -160,7 +164,7 @@ option (WSJT_RIG_NONE_CAN_SPLIT "Allow split operation with \"None\" as rig.")
 option (WSJT_TRACE_UDP "Debugging option that turns on UDP message protocol diagnostics.")
 option (WSJT_BUILD_UTILS "Build simulators and code demonstrators." ON)
 option (WSJT_FOX_OTP "Enable Fox OTP Verification Messages." ON)
-option (WSJT_SKIP_MAP65 "Skip building MAP65 EME decoder (legacy Fortran; fails on GCC 15)." ON)
+option (WSJT_SKIP_MAP65 "Skip building MAP65 EME decoder (legacy Fortran; fails on GCC 15)." OFF)
 option (WSJT_ENABLE_TESTS "Enable developer tests." ON)
 set (WSJT_FORTRAN_VARIANTS "AUTO" CACHE STRING
   "Fortran library variants to build: AUTO, BOTH, OPENMP_ONLY, or NON_OPENMP_ONLY.")
@@ -1245,7 +1249,7 @@ set (CMAKE_SKIP_BUILD_RPATH FALSE)
 
 # when building, don't use the install RPATH, it will still be used
 # later on in the install phase
-set (CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
+set (CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 
 # set (CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
 
@@ -1773,11 +1777,12 @@ else ()
   target_link_libraries (jt9 wsjt_fort wsjt_cxx fort_qt)
 endif ()
 
-if (NOT WSJT_SKIP_MAP65)
+  if (NOT WSJT_SKIP_MAP65)
+# if (NOT APPLE)
   find_package (Portaudio REQUIRED)
-  add_subdirectory (map65)
-endif ()
-
+# endif (NOT APPLE)
+    add_subdirectory (map65)
+  endif ()
   add_subdirectory (qmap)
 
 # build the main application

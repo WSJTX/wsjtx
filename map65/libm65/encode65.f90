@@ -1,14 +1,33 @@
-subroutine encode65(message,sent)
+module encode65_mod
+  use packjt, only:packmsg
+  use graycode_mod, only: graycode
+  use rs_mod, only: rs_encode_
+  use interleave63_mod, only:interleave63
+  implicit none
+contains
 
-  use packjt
-  character message*22
-  integer dgen(12)
-  integer sent(63)
+subroutine encode65(message, sent)
+  
+  !--------------------------------------------------------------------
+  ! Arguments
+  !--------------------------------------------------------------------
+  character(len=22), intent(in)  :: message
+  integer,          intent(out) :: sent(63)
 
-  call packmsg(message,dgen,itype)
-  call rs_encode(dgen,sent)
-  call interleave63(sent,1)
-  call graycode(sent,63,1)
+  !--------------------------------------------------------------------
+  ! Locals
+  !--------------------------------------------------------------------
+  integer :: dgen(12)
+  integer :: itype
 
-  return
+  !--------------------------------------------------------------------
+  ! Encode message into 65-bit payload
+  !--------------------------------------------------------------------
+  call packmsg(message, dgen, itype)
+  call rs_encode_(dgen, sent)
+  call interleave63(sent, 1)
+  call graycode(sent, 63, 1)
+
 end subroutine encode65
+
+end module encode65_mod

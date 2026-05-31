@@ -1,9 +1,15 @@
+module getpfx2_mod
+   implicit none
+contains
+
 subroutine getpfx2(k0,callsign)
 
-  character callsign*12
-  include 'pfx.f90'
-  character addpfx*8
-  common/pfxcom/addpfx
+  use pfx_data_mod
+  use pfx_mod
+  
+  integer, intent(in) :: k0
+  character(len=12), intent(inout) :: callsign
+  integer :: iz,k
 
   k=k0
   if(k.gt.450) k=k-450
@@ -21,4 +27,5 @@ subroutine getpfx2(k0,callsign)
 
   return
 end subroutine getpfx2
+end module getpfx2_mod
 

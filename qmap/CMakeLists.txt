@@ -57,3 +57,10 @@ if (WIN32)
   file (WRITE \"\${_path}\" \".\${_separator}\\n\")"
     )
 endif ()
+
+install (
+  TARGETS qmap
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
+  BUNDLE DESTINATION . COMPONENT runtime
+  )
+

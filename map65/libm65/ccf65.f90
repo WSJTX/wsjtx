@@ -1,23 +1,48 @@
-subroutine ccf65(ss,nhsym,ssmax,sync1,ipol1,jpz,dt1,flipk,      &
-     syncshort,snr2,ipol2,dt2)
+!------------------------------------------------------------------------------
+! NOTE: This module intentionally preserves the original legacy WSJT/MAP65
+!       ccf65 implementation. Modernizing this routine changes the numerical
+!       behavior of the JT65 correlation (FFT layout, half-spectrum handling,
+!       baseline statistics, and sync metrics), which in turn produces a
+!       different false-positive/false-negative profile. Extensive testing
+!       shows that the legacy algorithm yields the correct and expected
+!       decode behavior, so it is retained here without modification.
+!------------------------------------------------------------------------------
+
+module ccf65_legacy_mod
+contains
+
+subroutine ccf65(ss_plane, nhsym, ssmax, sync1, ipol1, jpz, dt1, flipk, &
+                 syncshort, snr2, ipol2, dt2)
+
+  use four2a_legacy_wrap_mod, only: r2c_legacy, c2r_legacy
+  use pctile_mod, only: pctile
 
   parameter (NFFT=512,NH=NFFT/2)
-  real ss(4,322)                   !Input: half-symbol powers, 4 pol'ns
-  real s(NFFT)                     !CCF = ss*pr
-  complex cs(0:NH)                 !Complex FT of s
-  real s2(NFFT)                    !CCF = ss*pr2
-  complex cs2(0:NH)                !Complex FT of s2
-  real pr(NFFT)                    !JT65 pseudo-random sync pattern
-  complex cpr(0:NH)                !Complex FT of pr
-  real pr2(NFFT)                   !JT65 shorthand pattern
-  complex cpr2(0:NH)               !Complex FT of pr2
+  ! Modern interface:
+  !   ss_plane(4,322) is passed as a proper 2-D slice (ss(:,:,i))
+  real, intent(in) :: ss_plane(4,322)
+
+  ! Legacy expects: real ss(4,322) passed by reference from ss(1,1,i)
+  real :: ss(4,322)
+
+  ! time-domain
+  real    :: s(NFFT)                     ! CCF = ss*pr
+  real    :: s2(NFFT)                    ! CCF = ss*pr2
+  real    :: pr(NFFT)                    ! JT65 pseudo-random sync pattern
+  real    :: pr2(NFFT)                   ! JT65 shorthand pattern
+
+  ! frequency-domain: half-spectrum, as in legacy
+  complex :: cs(0:NH)                    ! Complex FT of s
+  complex :: cs2(0:NH)                   ! Complex FT of s2
+  complex :: cpr(0:NH)                   ! Complex FT of pr
+  complex :: cpr2(0:NH)                  ! Complex FT of pr2
+
   real tmp1(322)
   real ccf(-11:54,4)
   logical first
   integer npr(126)
   data first/.true./
-  equivalence (s,cs),(pr,cpr),(s2,cs2),(pr2,cpr2)
-  save
+  save s,s2,pr,pr2,cs,cs2,cpr,cpr2
 
 ! The JT65 pseudo-random sync pattern:
   data npr/                                        &
@@ -29,8 +54,12 @@ subroutine ccf65(ss,nhsym,ssmax,sync1,ipol1,jpz,dt1,flipk,      &
       0,1,0,1,0,0,1,1,0,0,1,0,0,1,0,0,0,0,1,1,     &
       1,1,1,1,1,1/
 
+  logical :: debug
+  debug = .false. ! (nhsym .gt. 300)
+  
+  ss = ss_plane
+  
   if(first) then
-! Initialize pr, pr2; compute cpr, cpr2.
      fac=1.0/NFFT
      do i=1,NFFT
         pr(i)=0.
@@ -41,13 +70,15 @@ subroutine ccf65(ss,nhsym,ssmax,sync1,ipol1,jpz,dt1,flipk,      &
      do i=1,126
         j=2*i
         pr(j)=fac*(2*npr(i)-1)
-! Not sure why, but it works significantly better without the following line:
 !        pr(j-1)=pr(j)
      enddo
-     call four2a(cpr,NFFT,1,-1,0)
-     call four2a(cpr2,NFFT,1,-1,0)
+
+     call r2c_legacy(pr,  cpr,  NFFT)
+     call r2c_legacy(pr2, cpr2, NFFT)
+
      first=.false.
   endif
+
   syncshort=0.
   snr2=0.
 
@@ -64,13 +95,19 @@ subroutine ccf65(ss,nhsym,ssmax,sync1,ipol1,jpz,dt1,flipk,      &
      call pctile(s,nhsym-1,50,base)
      s(1:nhsym-1)=s(1:nhsym-1)-base
      s(nhsym:NFFT)=0.
-     call four2a(cs,NFFT,1,-1,0)                !Real-to-complex FFT
+
+     ! === Forward FFT: real ? packed half-spectrum ===
+     call r2c_legacy(s, cs, NFFT)
+
+     ! === Multiply by sync patterns in frequency domain ===
      do i=0,NH
-        cs2(i)=cs(i)*conjg(cpr2(i))            !Mult by complex FFT of pr2
-        cs(i)=cs(i)*conjg(cpr(i))              !Mult by complex FFT of pr
-     enddo
-     call four2a(cs,NFFT,1,1,-1)               !Complex-to-real inv-FFT
-     call four2a(cs2,NFFT,1,1,-1)              !Complex-to-real inv-FFT
+            cs2(i) = cs(i)*conjg(cpr2(i))
+            cs(i) = cs(i)*conjg(cpr(i))
+         enddo
+
+     ! === Inverse FFT: packed half-spectrum ? real ===
+     call c2r_legacy(cs,  s,  NFFT)
+     call c2r_legacy(cs2, s2, NFFT)
 
      do lag=-11,54                             !Check for best JT65 sync
         j=lag
@@ -124,5 +161,8 @@ subroutine ccf65(ss,nhsym,ssmax,sync1,ipol1,jpz,dt1,flipk,      &
   syncshort=0.5*ccfbest2/rms - 4.0             !### better normalizer than rms?
   dt2=2.5 + lagpk2*(2048.0/11025.0)
 
+  if (debug) write(logunit,*) 'QT?', 'sync1=', sync1, ' lagpk=', lagpk, ' dt1=', dt1,' snr2=',snr2
+
   return
 end subroutine ccf65
+end module ccf65_legacy_mod

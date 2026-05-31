@@ -47,7 +47,8 @@ jobs:
         run: echo "HOMEBREW_PREFIX=$(brew --prefix)" >> "$GITHUB_ENV"
 
       - name: Install dependencies
-        run: brew install cmake gcc fftw boost qt@5 libusb dylibbundler autoconf automake libtool asciidoctor ccache
+
+        run: brew install cmake gcc fftw boost qt@5 libusb dylibbundler autoconf automake libtool asciidoctor ccache portaudio
 
       - name: Cache ccache
         uses: actions/cache@v5

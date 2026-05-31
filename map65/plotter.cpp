@@ -1,8 +1,13 @@
 #include "plotter.h"
 #include <math.h>
+#include <algorithm>
 #include <QDebug>
+#include <QFont>
+#include <QFontMetrics>
+#include <QPainter>
 #include <fstream>
 #include <iostream>
+#include <iterator>   
 
 #define MAX_SCREENSIZE 2048
 
@@ -169,6 +174,11 @@ void CPlotter::paintEvent(QPaintEvent *)                    // paintEvent()
   QRect target2(0,h+60,w,h);           // (x,y,width,height)
   QRect source2(0,0,w,h);
   painter.drawPixmap(target2,m_ZoomWaterfallPixmap,source2);
+  // Decoded-callsign overlay — rendered last so labels sit on top of
+  // the upper waterfall pixmap. WideGraph maintains the list lifecycle.
+  if (!m_decodeLabels.isEmpty()) {
+    paintDecodeLabels(painter);
+  }
   m_paintEventBusy=false;
 }
 
@@ -265,9 +275,9 @@ void CPlotter::draw(float s[], int i0, float splot[])                 //draw()
 void CPlotter::UTCstr()
 {
   int ihr,imin;
-  if(datcom_.ndiskdat != 0) {
-    ihr=datcom_.nutc/100;
-    imin=(datcom_.nutc) % 100;
+  if(getNdiskdat() != 0) {
+    ihr=getNutc()/100;
+    imin=(getNutc()) % 100;
   } else {
     qint64 ms = QDateTime::currentMSecsSinceEpoch() % 86400000;
     imin=ms/60000;
@@ -520,10 +530,13 @@ int CPlotter::getPlotGain()                               //getPlotGain()
 void CPlotter::SetCenterFreq(int f)                   //setCenterFreq()
 {
 // f is the integer kHz portion of cfreq, from Linrad packets
+// Store the true (un-snapped) center frequency so that pixel<->freq
+// conversions (FreqfromX, XfromFreq, setFQSO) are accurate.  The old
+// 5 kHz snap distorted every click-to-frequency calculation and caused
+// the green tickmark to land several kHz away from where the user
+// clicked.  Scale labels are rounded independently in MakeFrequencyStrs.
   if(f<0) f=m_nkhz;
-  int ns = (f+m_FreqOffset-0.5*m_fSpan)/5.0 + 0.5;
-  double fs = 5*ns;
-  m_CenterFreq = fs + 0.5*m_fSpan;
+  m_CenterFreq = f + m_FreqOffset;
 }
 
 qint64 CPlotter::centerFreq()                             //centerFreq()
@@ -575,9 +588,9 @@ void CPlotter::setFQSO(int x, bool bf)                       //setFQSO()
     m_xClick=x;
   }
   if(m_bLockTxRx) m_TXkHz=m_fQSO;
-  m_TXfreq = floor(datcom_.fcenter) + 0.001*m_TXkHz;
-  DrawOverlay();
-  update();
+    m_TXfreq = floor(static_cast<int>(getFcenter())) + 0.001*m_TXkHz;
+    DrawOverlay();
+    update();
 }
 
 void CPlotter::setFcal(int n)                                  //setFcal()
@@ -597,8 +610,15 @@ int CPlotter::DF() {return m_DF;}                              // get DF
 void CPlotter::mousePressEvent(QMouseEvent *event)       //mousePressEvent
 {
   int h = (m_Size.height()-60)/2;
-  int x=event->x();
-  int y=event->y();
+  int x;
+  int y;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+  x = event->position().x();
+  y = event->position().y();
+#else
+    x = event->pos().x();
+    y = event->pos().y();
+#endif   
   int button=event->button();
   if(y < h+30) {                                      // Wideband waterfall
     if(button==1) {
@@ -608,7 +628,7 @@ void CPlotter::mousePressEvent(QMouseEvent *event)       //mousePressEvent
       if(x<0) x=0;      // x is pixel number
       if(x>m_Size.width()) x=m_Size.width();
       m_TXkHz = int(FreqfromX(x)+0.5);
-      m_TXfreq = floor(datcom_.fcenter) + 0.001*m_TXkHz;
+      m_TXfreq = floor(static_cast<int>(getFcenter())) + 0.001*m_TXkHz;
     }
   } else {                                            // Zoomed waterfall
     if(button==1) m_DF=int(m_ZoomStartFreq + x*m_fSample/32768.0);
@@ -623,8 +643,15 @@ void CPlotter::mouseDoubleClickEvent(QMouseEvent *event)  //mouse2click
 {
   if(event->button()!=1) return;       //Act only on left double-click
   int h = (m_Size.height()-60)/2;
-  int x=event->x();
-  int y=event->y();
+  int x;
+  int y;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+  x = event->position().x();
+  y = event->position().y();
+#else
+    x = event->pos().x();
+    y = event->pos().y();
+#endif   
   if(y < h+30) {
     m_DF=0;
     setFQSO(x,false);
@@ -767,23 +794,156 @@ void CPlotter::setLockTxRx(bool b)
 void CPlotter::mouseMoveEvent (QMouseEvent * event)
 {
   int h = m_WaterfallPixmap.height();
-  int x=event->x();
-  int y=event->y();
+  int x;
+  int y;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+  x = event->position().x();
+  y = event->position().y();
+#else
+    x = event->pos().x();
+    y = event->pos().y();
+#endif   
   bool lower=(y > 30+h);
   float freq=FreqfromX(x);
   float df=m_fSample/32768.0;
   int ndf=x*df + m_ZoomStartFreq;
   if(lower) {
-    QToolTip::showText(event->globalPos(),QString::number(ndf));
+    QToolTip::showText(
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    event->globalPosition().toPoint()
+#else
+    event->globalPos()
+#endif   
+        , QString::number(ndf));   
   } else {
-    QToolTip::showText(event->globalPos(),QString::number(freq,'f',3));
+    QToolTip::showText(
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    event->globalPosition().toPoint()
+#else
+    event->globalPos()
+#endif   
+        , QString::number(freq, 'f', 3));   
   }
   QWidget::mouseMoveEvent(event);
 }
 
 double CPlotter::rxFreq()
 {
-  return floor(datcom_.fcenter) + 0.001*m_fQSO + 0.000001*m_DF;
+  return floor(static_cast<int>(getFcenter())) + 0.001*m_fQSO + 0.000001*m_DF;
+}
+
+void CPlotter::setDecodeLabels(const QList<DecodeLabel>& labels)
+{
+  m_decodeLabels = labels;
+  update();
+}
+
+void CPlotter::setDecodeLabelAlpha(int alpha)
+{
+  if (alpha < 0)   alpha = 0;
+  if (alpha > 255) alpha = 255;
+  if (m_decodeLabelAlpha == alpha) return;
+  m_decodeLabelAlpha = alpha;
+  update();
+}
+
+void CPlotter::setDecodeLabelFontSize(DecodeLabelFontSize sz)
+{
+  if (m_decodeFontSize == sz) return;
+  m_decodeFontSize = sz;
+  update();
+}
+
+void CPlotter::setDecodeLabelPosition(DecodeLabelPosition p)
+{
+  if (m_decodeLabelPosition == p) return;
+  m_decodeLabelPosition = p;
+  update();
+}
+
+void CPlotter::paintDecodeLabels(QPainter& painter)
+{
+  // Sort left-to-right so the stacking pass below assigns rows in
+  // order of x-position. Same pattern as the QMAP/WSJT-X overlay.
+  QList<DecodeLabel> sorted = m_decodeLabels;
+  std::sort(sorted.begin(), sorted.end(),
+            [this](const DecodeLabel& a, const DecodeLabel& b) {
+                return XfromFreq(static_cast<float>(a.freq_khz))
+                     < XfromFreq(static_cast<float>(b.freq_khz));
+            });
+
+  QFont font("Arial", static_cast<int>(m_decodeFontSize), QFont::Bold);
+  painter.setFont(font);
+  QFontMetrics metrics(font);
+  const int row_height = metrics.height() + 1;
+
+  // Up to 5 stack rows — MAP65's wideband span typically shows fewer
+  // simultaneous decoded stations than FT8 so 5 is plenty.
+  constexpr int max_rows = 5;
+  // Upper-waterfall geometry mirrors QMAP: paint event uses y=30 for
+  // the top edge and height = (widget âˆ’ 60)/2. Bottom edge = top + h.
+  constexpr int waterfall_top_y = 30;
+  const int waterfall_h         = (m_Size.height() - 60) / 2;
+  const int waterfall_bottom_y  = waterfall_top_y + waterfall_h;
+  const bool stack_from_bottom  = (m_decodeLabelPosition == DecodeLabelPosition::Bottom);
+  int row_right_edge[max_rows];
+  for (int i = 0; i < max_rows; ++i) row_right_edge[i] = -1000;
+
+  for (const auto& l : sorted) {
+    const int x = XfromFreq(static_cast<float>(l.freq_khz));
+    const int text_w = metrics.horizontalAdvance(l.callsign);
+    const int rect_w = text_w + 4;
+    const int rect_x = x - rect_w / 2;
+
+    int row = 0;
+    for (; row < max_rows; ++row) {
+      if (rect_x > row_right_edge[row] + 4) break;
+    }
+    if (row >= max_rows) continue;
+    row_right_edge[row] = rect_x + rect_w;
+
+    // Top-anchor: row 0 at the top of the upper waterfall, stacks down.
+    // Bottom-anchor: row 0 just above the divider, stacks up.
+    const int y_top = stack_from_bottom
+        ? (waterfall_bottom_y - row_height * (row + 1))
+        : (waterfall_top_y    + row_height * row);
+    const QRect rect(rect_x, y_top, rect_w, row_height);
+    // View-menu transparency selector.
+    //   master == 255 ("None"): force every element to alpha 255,
+    //                           overriding the legacy semi-transparent
+    //                           background (180) and tick (200/220) so
+    //                           "None" really is no transparency.
+    //   master  < 255 (Medium/High): scale each element's base alpha
+    //                                proportionally so the relative
+    //                                layering is preserved as it fades.
+    const int master_alpha = m_decodeLabelAlpha;
+    auto applyAlpha = [master_alpha](QColor c) {
+      if (master_alpha >= 255) {
+        c.setAlpha(255);
+      } else {
+        c.setAlpha((c.alpha() * master_alpha) / 255);
+      }
+      return c;
+    };
+    painter.fillRect(rect, applyAlpha(QColor(0, 0, 0, 180)));
+    // DG2YCB 2026-05-13 round 2: orange+yellow read as "both red/orange"
+    // on his display. Move JT65 to cyan — opposite hue from Q65 yellow,
+    // still legible on the dark waterfall. Q65 stays yellow to match
+    // the QMAP wide-mode overlay.
+    const QColor mode_col = l.is_jt65 ? QColor(  0, 255, 255)   // cyan   (JT65)
+                                      : QColor(255, 255,   0);  // yellow (Q65)
+    const QColor tick_col = l.is_jt65 ? QColor(  0, 255, 255, 220)
+                                      : QColor(255, 255,   0, 200);
+    painter.setPen(applyAlpha(tick_col));
+    // Tick points toward the visible spectrum side: down (toward the
+    // divider/signal trace below) when stacked from top; up (toward
+    // the freq scale at y=30) when stacked from bottom.
+    const int tick_y0 = stack_from_bottom ? y_top     : y_top + row_height;
+    const int tick_y1 = stack_from_bottom ? y_top - 4 : y_top + row_height + 4;
+    painter.drawLine(x, tick_y0, x, tick_y1);
+    painter.setPen(applyAlpha(mode_col));
+    painter.drawText(rect, Qt::AlignHCenter | Qt::AlignVCenter, l.callsign);
+  }
 }
 
 double CPlotter::txFreq()

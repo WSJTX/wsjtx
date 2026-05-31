@@ -53,9 +53,16 @@ int pa_get_device_info (int  n,
   if(n >= Pa_GetDeviceCount() ) return -1;
   deviceInfo = Pa_GetDeviceInfo(n);
   if (deviceInfo->maxInputChannels==0) return -1; 
-  sprintf((char*)(pa_device_name),"%s",deviceInfo->name);
-  sprintf((char*)(pa_device_hostapi),"%s",
-	  Pa_GetHostApiInfo( deviceInfo->hostApi )->name);
+  snprintf((char*)pa_device_name,
+         128,
+         "%.127s",
+         deviceInfo->name);
+
+snprintf((char*)pa_device_hostapi,
+         128,
+         "%.127s",
+         Pa_GetHostApiInfo(deviceInfo->hostApi)->name);
+
   speed_warning=0;
 
 // bypass bug in Juli@ ASIO driver: 

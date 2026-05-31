@@ -1,11 +1,14 @@
 program synctst
-
+  implicit none
 ! Tests JT65B2 sync patterns
 
-  parameter (LAGMAX=20)
+  integer, parameter :: LAGMAX=20
   real ccf0(0:LAGMAX),ccf2(0:LAGMAX),ccf3(0:LAGMAX)
   character*12 arg
   integer npr(126),np0(126),np1(126),npr2(126)
+  integer :: nargs, iters, lag, nsum, i, iter, n0, lagbad, lagbest, n0best
+  real :: worst, best2, r, worst2
+  
   data npr/1,0,0,1,1,0,0,0,1,1,1,1,1,1,0,1,0,1,0,0,  &
            0,1,0,1,1,0,0,1,0,0,0,1,1,1,0,0,1,1,1,1,  &
            0,1,1,0,1,1,1,1,0,0,0,1,1,0,1,0,1,0,1,1,  &
@@ -82,3 +85,5 @@ program synctst
 1110 format((8x,20(i1,',')))
 
 999 end program synctst
+
+!does not require end module

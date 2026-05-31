@@ -1,115 +1,115 @@
-subroutine four2a(a,nfft,ndim,isign,iform)
-
-! IFORM = 1, 0 or -1, as data is
-! complex, real, or the first half of a complex array.  Transform
-! values are returned in array DATA.  They are complex, real, or
-! the first half of a complex array, as IFORM = 1, -1 or 0.
-
-! The transform of a real array (IFORM = 0) dimensioned N(1) by N(2)
-! by ... will be returned in the same array, now considered to
-! be complex of dimensions N(1)/2+1 by N(2) by ....  Note that if
-! IFORM = 0 or -1, N(1) must be even, and enough room must be
-! reserved.  The missing values may be obtained by complex conjugation.  
-
-! The reverse transformation of a half complex array dimensioned
-! N(1)/2+1 by N(2) by ..., is accomplished by setting IFORM
-! to -1.  In the N array, N(1) must be the true N(1), not N(1)/2+1.
-! The transform will be real and returned to the input array.
-
-! This version of four2a makes calls to the FFTW library to do the 
-! actual computations.
-
+module four2a_mod
   use fftw3
-  parameter (NPMAX=2100)                 !Max numberf of stored plans
-  parameter (NSMALL=16384)               !Max size of "small" FFTs
-  complex a(nfft+1)                      !Array to be transformed
-  complex aa(NSMALL)                     !Local copy of "small" a()
-  integer nn(NPMAX),ns(NPMAX),nf(NPMAX)  !Params of stored plans 
-  integer*8 nl(NPMAX),nloc               !More params of plans
-  integer*8 plan(NPMAX)                  !Pointers to stored plans
-  logical found_plan
-  data nplan/0/                          !Number of stored plans
-  common/patience/npatience,nthreads     !Patience and threads for FFTW plans
-  save plan,nplan,nn,ns,nf,nl
+  use iso_c_binding
+  use fftw3_f77_interfaces
 
-  if(nfft.lt.0) go to 999
+  implicit none
+  
+contains
 
-  nloc=loc(a)
+  function loc_cplx(x) result(addr)
+    use iso_c_binding, only: c_float_complex, c_intptr_t, c_loc
+    implicit none
+    complex(c_float_complex), intent(in), target :: x(*)
+    integer(c_intptr_t) :: addr
+    addr = transfer(c_loc(x), addr)
+  end function loc_cplx
 
-  found_plan = .false.
-  !$omp critical(four2a_setup)
-  do i=1,nplan
-     if(nfft.eq.nn(i) .and. isign.eq.ns(i) .and.                     &
-          iform.eq.nf(i) .and. nloc.eq.nl(i)) then
-        found_plan = .true.
-        exit
-     end if
-  enddo
+  recursive subroutine four2a(a, nfft, ndim, isign, iform) bind(C, name='four2a_')
 
-  if(i.ge.NPMAX) stop 'Too many FFTW plans requested.'
+    implicit none
 
-  if (.not. found_plan) then
-     nplan=nplan+1
-     i=nplan
+    !==== Arguments ============================================================
+    complex(c_float_complex), dimension(*), intent(inout) :: a
+    integer(c_int), intent(in) :: nfft, ndim, isign, iform
 
-     nn(i)=nfft
-     ns(i)=isign
-     nf(i)=iform
-     nl(i)=nloc
+    !==== Parameters ===========================================================
+    integer, parameter :: NPMAX = 2100
+    integer, parameter :: NSMALL = 16384
 
-! Planning: FFTW_ESTIMATE, FFTW_ESTIMATE_PATIENT, FFTW_MEASURE, 
-!            FFTW_PATIENT,  FFTW_EXHAUSTIVE
-     nflags=FFTW_ESTIMATE
-     if(npatience.eq.1) nflags=FFTW_ESTIMATE_PATIENT
-     if(npatience.eq.2) nflags=FFTW_MEASURE
-     if(npatience.eq.3) nflags=FFTW_PATIENT
-     if(npatience.eq.4) nflags=FFTW_EXHAUSTIVE
+    !==== Local variables ======================================================
+    complex(c_float_complex) :: aa(NSMALL)
+    integer :: nn(NPMAX), ns(NPMAX), nf(NPMAX)
+    integer(c_intptr_t) :: nl(NPMAX), nloc
+    integer(c_intptr_t) :: plan(NPMAX)
+    logical :: found_plan
+    integer :: i, jz = 0, nflags
+    integer :: nplan
 
-     if(nfft.le.NSMALL) then
-        jz=nfft
-        if(iform.eq.0) jz=nfft/2
-        aa(1:jz)=a(1:jz)
-     endif
+    !==== Saved state ==========================================================
+    save plan, nplan, nn, ns, nf, nl
+    data nplan / 0 /
 
-     !$omp critical(fftw) ! serialize non thread-safe FFTW3 calls
-     if(isign.eq.-1 .and. iform.eq.1) then
-        call sfftw_plan_dft_1d(plan(i),nfft,a,a,FFTW_FORWARD,nflags)
-     else if(isign.eq.1 .and. iform.eq.1) then
-        call sfftw_plan_dft_1d(plan(i),nfft,a,a,FFTW_BACKWARD,nflags)
-     else if(isign.eq.-1 .and. iform.eq.0) then
-        call sfftw_plan_dft_r2c_1d(plan(i),nfft,a,a,nflags)
-     else if(isign.eq.1 .and. iform.eq.-1) then
-        call sfftw_plan_dft_c2r_1d(plan(i),nfft,a,a,nflags)
-     else
-        stop 'Unsupported request in four2a'
-     endif
-     !$omp end critical(fftw)
+    integer :: dummy_unused
+    dummy_unused = ndim
 
-     if(nfft.le.NSMALL) then
-        jz=nfft
-        if(iform.eq.0) jz=nfft/2
-        a(1:jz)=aa(1:jz)
-     endif
-  end if
-  !$omp end critical(four2a_setup)
 
-  call sfftw_execute(plan(i))
-  return
+    !==== Early exit: destroy all plans =======================================
+    if (nfft < 0) then
+       !$omp critical(four2a)
+       do i = 1, nplan
+          !$omp critical(fftw)
+          call sfftw_destroy_plan(plan(i))
+          !$omp end critical(fftw)
+       enddo
+       nplan = 0
+       !$omp end critical(four2a)
+       return
+    endif
 
-999 continue
+    !==== Locate or create plan ===============================================
+    nloc = loc_cplx(a)
+    found_plan = .false.
 
-  !$omp critical(four2a)
-  do i=1,nplan
-! The test is only to silence a compiler warning:
-     if(ndim.ne.-999) then
-        !$omp critical(fftw) ! serialize non thread-safe FFTW3 calls
-        call sfftw_destroy_plan(plan(i))
-        !$omp end critical(fftw)
-     end if
-  enddo
+    !$omp critical(four2a_setup)
+    do i = 1, nplan
+       if (nfft == nn(i) .and. isign == ns(i) .and. iform == nf(i) .and. nloc == nl(i)) then
+          found_plan = .true.
+          exit
+       endif
+    enddo
 
-  nplan=0
-  !$omp end critical(four2a)
+    if (.not. found_plan) then
+       nplan = nplan + 1
+       i = nplan
 
-  return
-end subroutine four2a
+       nn(i) = nfft
+       ns(i) = isign
+       nf(i) = iform
+       nl(i) = nloc
+
+       nflags = FFTW_ESTIMATE
+
+       if (nfft <= NSMALL) then
+          jz = merge(nfft/2, nfft, iform == 0)
+          aa(1:jz) = a(1:jz)
+       endif
+
+       !$omp critical(fftw)
+       select case (iform)
+       case (1)
+          if (isign == -1) then
+             call sfftw_plan_dft_1d(plan(i), nfft, a, a, FFTW_FORWARD, nflags)
+          else
+             call sfftw_plan_dft_1d(plan(i), nfft, a, a, FFTW_BACKWARD, nflags)
+          endif
+       case (0)
+          call sfftw_plan_dft_r2c_1d(plan(i), nfft, a, a, nflags)
+       case (-1)
+          call sfftw_plan_dft_c2r_1d(plan(i), nfft, a, a, nflags)
+       case default
+          stop 'Unsupported request in four2a'
+       end select
+       !$omp end critical(fftw)
+
+       if (nfft <= NSMALL) then
+          a(1:jz) = aa(1:jz)
+       endif
+    endif
+    !$omp end critical(four2a_setup)
+
+    call sfftw_execute(plan(i))
+
+  end subroutine four2a
+
+end module four2a_mod

@@ -10,9 +10,11 @@
 #include <QtGui>
 #include <QFrame>
 #include <QImage>
+#include <QList>
 #include <QToolTip>
 #include <cstring>
 #include "commons.h"
+#include "decode_label.h"
 
 #define VERT_DIVS 7	//specify grid screen divisions
 #define HORZ_DIVS 20
@@ -75,6 +77,26 @@ public:
   double txFreq();
 //  void updateFreqLabel();
 
+  // Decoded-callsign overlay (N6NU 2026-05-12, ported from QMAP).
+  // WideGraph maintains the list and pushes it here; we render the
+  // callsigns as labels on top of the waterfall at the audio-offset
+  // x-position. Triggers update() to schedule a paintEvent.
+  void setDecodeLabels(const QList<DecodeLabel>& labels);
+  // Master alpha (0..255) scaling every label's background/tick/text
+  // alpha proportionally. 255 = no change to the legacy colours; lower
+  // values let more of the waterfall show through. View menu offers
+  // None=255, Medium=200, High=175.
+  void setDecodeLabelAlpha(int alpha);
+  // Font-size picker for the overlay (Small=7, Normal=8 default,
+  // Medium=10, Large=12). Triggers update() to repaint.
+  void setDecodeLabelFontSize(DecodeLabelFontSize sz);
+  DecodeLabelFontSize decodeLabelFontSize() const { return m_decodeFontSize; }
+  // Anchor position for the overlay (Top = legacy stack-down from
+  // waterfall top; Bottom = stack-up from the divider so fresh
+  // signals at the top of the waterfall remain visible).
+  void setDecodeLabelPosition(DecodeLabelPosition p);
+  DecodeLabelPosition decodeLabelPosition() const { return m_decodeLabelPosition; }
+
 signals:
   void freezeDecode0(int n);
   void freezeDecode1(int n);
@@ -92,6 +114,18 @@ private:
   int XfromFreq(float f);
   float FreqfromX(int x);
   qint64 RoundFreq(qint64 freq, int resolution);
+  // Render m_decodeLabels overlay on top of the waterfall pixmap.
+  // Stacks colliding labels vertically (max 5 rows) so a busy band
+  // doesn't paint labels on top of each other.
+  void paintDecodeLabels(QPainter& painter);
+
+  QList<DecodeLabel> m_decodeLabels;
+  // Overlay master alpha. 255 = legacy (fully opaque colours).
+  int     m_decodeLabelAlpha {255};
+  // Overlay font size. Default Normal=8 pt.
+  DecodeLabelFontSize m_decodeFontSize {DecodeLabelFontSize::Normal};
+  // Overlay anchor. Top = legacy stacking down from upper-waterfall top.
+  DecodeLabelPosition m_decodeLabelPosition {DecodeLabelPosition::Top};
 
   QPixmap m_WaterfallPixmap;
   QPixmap m_ZoomWaterfallPixmap;

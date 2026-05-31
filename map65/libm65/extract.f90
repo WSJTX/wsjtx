@@ -1,18 +1,43 @@
-subroutine extract(s3,nadd,ncount,nhist,decoded,ltext)
+module extract_mod
+  implicit none
+contains
 
+subroutine extract(s3,nadd,ncount,nhist,decoded,ltext,mrs,mrs2)
+
+  use iso_c_binding, only: c_int
   use packjt
   use timer_module, only: timer
-  real s3(64,63)
-  character decoded*22
+  use pctile_mod
+  use demod64a_mod
+  use debug_log
+  use extract_shared_mod, only: s3a
+  use chkhist_mod
+  use graycode_mod
+  use graycode65_mod
+  use interleave63_mod, only: interleave63
+  use ftrsd2_mod, only:ftrsd2_
+
+  real,          intent(inout) :: s3(64,63)
+  integer,       intent(in)    :: nadd
+  integer,       intent(out)   :: ncount
+  integer,       intent(inout)    :: nhist
+  character(len=22),  intent(out)   :: decoded
+  logical,       intent(out)   :: ltext
+  integer,       intent(out)   :: mrs(63), mrs2(63)
+
   integer dat4(12)
   integer mrsym(63),mr2sym(63),mrprob(63),mr2prob(63)
-  logical first,ltext
+  logical first
   integer correct(63),itmp(63)
   integer param(0:8)
   integer h0(0:11),d0(0:11)
   real r0(0:11)
-  common/test001/s3a(64,63),mrs(63),mrs2(63)        !### TEST ONLY ###
-
+  
+  integer :: i,ipk,naggressive,ncandidates,nd0,nerased,nfail,n
+  integer :: nft,nhard,nlow,nsec1,nsoft,ntest,ntotal,ntrials
+  integer(c_int) :: ntry(1)
+  real :: base,qual,r00,rtt
+  
 !          0  1  2  3  4  5  6  7  8  9 10 11
   data h0/41,42,43,43,44,45,46,47,48,48,49,49/
   data d0/71,72,73,74,76,77,78,80,81,82,83,83/
@@ -21,16 +46,13 @@ subroutine extract(s3,nadd,ncount,nhist,decoded,ltext)
 
   data first/.true./,nsec1/0/
   save
-
+  ntry(1)=0
   nfail=0
   call pctile(s3,4032,50,base)     ! ### or, use ave from demod64a
   s3=s3/base
   s3a=s3
-1 call demod64a(s3,nadd,mrsym,mrprob,mr2sym,mr2prob,ntest,nlow)
-!  if(ntest.lt.50 .or. nlow.gt.20) then
-!     ncount=-999                         !Flag bad data
-!     go to 900
-!  endif
+  
+1 call demod64a(s3,nadd,mrsym,mrprob,mr2sym,mr2prob,ntest,nlow,mrs,mrs2)
   call chkhist(mrsym,nhist,ipk)
 
   if(nhist.ge.20) then
@@ -45,8 +67,9 @@ subroutine extract(s3,nadd,ncount,nhist,decoded,ltext)
      go to 1
   endif
 
-  mrs=mrsym
-  mrs2=mr2sym
+!  mrs=mrsym
+!  mrs2=mr2sym
+!  write(*,*) 'EXTRACT: correct before interleave = ', correct(1:20)
 
   call graycode(mrsym,63,-1)
   call interleave63(mrsym,-1)
@@ -63,7 +86,7 @@ subroutine extract(s3,nadd,ncount,nhist,decoded,ltext)
   param=0
 
   call timer('ftrsd   ',0)
-  call ftrsd2(mrsym,mrprob,mr2sym,mr2prob,ntrials,correct,param,ntry)
+  call ftrsd2_(mrsym,mrprob,mr2sym,mr2prob,ntrials,correct,param,ntry)
   call timer('ftrsd   ',1)
   ncandidates=param(0)
   nhard=param(1)
@@ -100,7 +123,11 @@ subroutine extract(s3,nadd,ncount,nhist,decoded,ltext)
      correct(1:63)=itmp(1:63)
      call interleave63(correct,1)
      call graycode65(correct,63,1)
-     call unpackmsg(dat4,decoded)     !Unpack the user message
+  !   write(*,*) 'EXTRACT: nft=', nft, ' ncount=', ncount, ' nhist=', nhist
+  !    write(*,*) 'EXTRACT: correct(1:20) = ', correct(1:20)
+  !    write(*,*) 'EXTRACT: dat4(1:12)   = ', dat4
+      call unpackmsg(dat4, decoded)   !Unpack the user message
+!      write(*,*) 'EXTRACT: decoded = "', decoded, '"'
      ncount=0
      if(iand(dat4(10),8).ne.0) ltext=.true.
   endif
@@ -112,11 +139,21 @@ subroutine extract(s3,nadd,ncount,nhist,decoded,ltext)
   return
 end subroutine extract
 
-subroutine getpp(workdat,p)
+end module extract_mod
 
-  integer workdat(63)
+subroutine getpp(workdat,p)
+  use debug_log
+  use extract_shared_mod, only: s3a
+  use graycode_mod
+  use interleave63_mod, only: interleave63
+
+  integer, intent(in) :: workdat(63)
+  real, intent(out) :: p
+  
   integer a(63)
-  common/test001/s3a(64,63),mrs(63),mrs2(63)
+  
+  integer :: i,j
+  real :: x,psum
 
   a(1:63)=workdat(63:1:-1)
   call interleave63(a,1)

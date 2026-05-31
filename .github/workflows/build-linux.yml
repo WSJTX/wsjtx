@@ -39,7 +39,8 @@ jobs:
             texinfo \
             dpkg-dev fakeroot \
             asciidoctor \
-            rpm
+            rpm \
+            portaudio19-dev
 
       - name: Cache ccache
         uses: actions/cache@v5

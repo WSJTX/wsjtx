@@ -51,10 +51,34 @@ int pa_get_device_info (int  n,
   minInputChannels=0;
   if(n >= Pa_GetDeviceCount() ) return -1;
   deviceInfo = Pa_GetDeviceInfo(n);
-  if (deviceInfo->maxInputChannels==0) return -1;
-  sprintf((char*)(pa_device_name),"%s",deviceInfo->name);
-  sprintf((char*)(pa_device_hostapi),"%s",
-          Pa_GetHostApiInfo( deviceInfo->hostApi )->name);
+  
+  // CRITICAL SAFETY CHECK:
+  if (!deviceInfo) {
+      qDebug() << "Skipping device index" << n << "because it returned a NULL pointer.";
+      return -1;
+  }
+
+  if (deviceInfo->maxInputChannels == 0) return -1;
+
+  // CRITICAL SAFETY CHECK: Validate the Host API info
+  const PaHostApiInfo* apiInfo = Pa_GetHostApiInfo(deviceInfo->hostApi);
+  if (!apiInfo) {
+      qDebug() << "Skipping device" << deviceInfo->name << "because its Host API is invalid.";
+      return -1;
+  }
+
+ snprintf((char*)pa_device_name,
+         128,
+         "%.127s",
+         deviceInfo->name);
+
+  // Change this:
+  // snprintf((char*)pa_device_hostapi, 128, "%.127s", Pa_GetHostApiInfo(deviceInfo->hostApi)->name);
+
+  // To this safe version:
+  snprintf((char*)pa_device_hostapi, 128, "%.127s", apiInfo->name);
+
+
   speed_warning=0;
 
 // bypass bug in Juli@ ASIO driver:
@@ -83,14 +107,15 @@ int pa_get_device_info (int  n,
 // ************************************************************************
 //filter for portaudio Windows hostapi's with non experts.
 //only allow ASIO or WASAPI or WDM-KS
-  i = strncmp(Pa_GetHostApiInfo(deviceInfo->hostApi)->name, "ASIO", 4);
-  if (i==0 ) goto end_filter_hostapi;
-  i = strncmp(Pa_GetHostApiInfo(deviceInfo->hostApi)->name,
-              "Windows WASAPI", 14);
-  if (i==0 ) goto end_filter_hostapi;
-  i = strncmp(Pa_GetHostApiInfo(deviceInfo->hostApi)->name,
-              "Windows WDM-KS", 14);
-  if (i==0 ) goto end_filter_hostapi;
+i = strncmp(apiInfo->name, "ASIO", 4);
+if (i==0 ) goto end_filter_hostapi;
+
+i = strncmp(apiInfo->name, "Windows WASAPI", 14);
+if (i==0 ) goto end_filter_hostapi;
+
+i = strncmp(apiInfo->name, "Windows WDM-KS", 14);
+if (i==0 ) goto end_filter_hostapi;
+
   speed_warning=1;
 end_filter_hostapi:;
 
@@ -187,7 +212,7 @@ void paInputDevice(int id, char* hostAPI_DeviceName, int* minChan,
   int pa_device_min_channels;
   char p2[256];
   char *p,*p1;
-  static int iret, valid_dev_cnt;
+  static int iret;
 
   iret=pa_get_device_info (id,
                           &pa_device_name,
@@ -200,7 +225,6 @@ void paInputDevice(int id, char* hostAPI_DeviceName, int* minChan,
                           &pa_device_min_channels);
 
   if (iret >= 0 ) {
-    valid_dev_cnt++;
 
     p1=(char*)"";
     p=strstr(pa_device_hostapi,"MME");
@@ -214,7 +238,9 @@ void paInputDevice(int id, char* hostAPI_DeviceName, int* minChan,
     p=strstr(pa_device_hostapi,"WDM-KS");
     if(p!=NULL) p1=(char*)"WDM-KS";
 
-    sprintf(p2,"%-8s %-39s",p1,pa_device_name);
+    snprintf(p2, sizeof(p2),
+         "%-8s %-39.39s",
+         p1, pa_device_name);
     for(i=0; i<50; i++) {
       hostAPI_DeviceName[i]=p2[i];
       if(p2[i]==0) break;

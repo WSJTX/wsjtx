@@ -1,3 +1,7 @@
+module decode1a_mod
+  implicit none
+contains
+
 subroutine decode1a(dd,newdat,f0,nflip,mode65,nfsample,xpol,            &
      mycall,hiscall,hisgrid,neme,ndepth,nqd,dphi,ndphi,                 &
      nutc,nkhz,ndf,ipol,ntol,sync2,a,dt,pol,nkv,nhist,nsum,nsave,       &
@@ -6,29 +10,64 @@ subroutine decode1a(dd,newdat,f0,nflip,mode65,nfsample,xpol,            &
 ! Apply AFC corrections to a candidate JT65 signal, then decode it.
 
   use timer_module, only: timer
-  parameter (NMAX=60*96000)          !Samples per 60 s
-  real*4  dd(4,NMAX)                 !92 MB: raw data from Linrad timf2
+  use iso_c_binding, only: c_ptr, c_loc 
+  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+  use debug_log
+  use afc65b_mod
+  use filbig_mod
+  use decode65b_mod
+  use s3avg_mod
+  use four2a_mod
+  use timf2_mod
+  use fil6521_mod
+  use twkfreq_xy_mod
+  
+  implicit none
+  
+  integer, parameter :: NMAX = 60*96000             !Samples per 60 s
+  real(real32), intent(in)    :: dd(4, NMAX)       !92 MB: raw data from Linrad timf2
+  integer, intent(in)   :: nflip, mode65, nfsample
+  logical, intent(in)   :: xpol
+  character(len=12), intent(in) :: mycall, hiscall
+  character(len=6),  intent(in) :: hisgrid
+  integer, intent(in)   :: neme, ndepth, nqd, ndphi
+  real,    intent(in)   :: dphi
+  real(real64),  intent(in)   :: f0
+  integer, intent(in)   :: nutc, nkhz, ndf, ipol, ntol
+  real,    intent(inout):: sync2, a(5), dt, pol, qual
+  integer, intent(inout):: nkv, nhist, nsum, nsave, newdat
+  character(len=22), intent(out) :: decoded
+
   complex cx(NMAX/64), cy(NMAX/64)   !Data at 1378.125 samples/s
   complex c5x(NMAX/256),c5y(NMAX/256) !Data at 344.53125 Hz
   complex c5a(512)
   complex z
   real s2(66,126)
   real s3(64,63),sy(63)
-  real a(5)
-  logical first,xpol
-  character decoded*22
-  character mycall*12,hiscall*12,hisgrid*6
+  
+  real :: aa, bb, ccfbest, dt00, flip
+  real :: dtbest, fsample, sq0, sqa, sqb, syncbest, xdt
+  integer :: i, i0, ihzdiff, j, jj, jjjmax, jjjmin, k, n, n5
+  integer :: n6, nadd, nfft, nhz, nhz0, npol, nsym, nutc0, nz
+  logical first
+   
+!  real(c_double), dimension(*)  :: dd
   data first/.true./,jjjmin/1000/,jjjmax/-1000/
-  data nutc0/-999/,nhz0/-9999999/
+  data nutc0/-999/,nhz0/-9999999/  
   save
-
+   
 ! Mix sync tone to baseband, low-pass filter, downsample to 1378.125 Hz
   dt00=dt
   call timer('filbig  ',0)
+  
+  if (.not. ieee_is_finite(f0)) then 
+    write(*,*) 'DECODE1A: bad f0, skipping filbig. f0=', f0 
+    return 
+  end if
   call filbig(dd,NMAX,f0,newdat,nfsample,xpol,cx,cy,n5)
 ! NB: cx, cy have sample rate 96000*77125/5376000 = 1378.125 Hz
   call timer('filbig  ',1)
-  if(mode65.eq.0) goto 900
+  if(mode65.eq.0) return
   sqa=0.
   sqb=0.
   do i=1,n5
@@ -66,14 +105,14 @@ subroutine decode1a(dd,newdat,f0,nflip,mode65,nfsample,xpol,            &
 ! We're looking only at sync tone here... so why not downsample by another
 ! factor of 1/8, say?  Should be a significant execution speed-up.
 ! Best fit for DF, f1, f2, pol
-  call afc65b(c5x(i0),c5y(i0),nz,fsample,nflip,ipol,xpol,ndphi,a,ccfbest,dtbest)
+    call afc65b(c5x(i0),c5y(i0),nz,fsample,nflip,ipol,xpol,ndphi,a,ccfbest,dtbest)
 
   pol=a(4)/57.2957795
   aa=cos(pol)
   bb=sin(pol)
   sq0=aa*aa*sqa + bb*bb*sqb
   sync2=3.7*ccfbest/sq0
-
+  
 ! Apply AFC corrections to the time-domain signal
 ! Now we are back to using the 1378.125 Hz sample rate, enough to 
 ! accommodate the full JT65C bandwidth.
@@ -140,6 +179,7 @@ subroutine decode1a(dd,newdat,f0,nflip,mode65,nfsample,xpol,            &
      endif
      nutc0=nutc
   endif
-
-900 return
+  
 end subroutine decode1a
+
+end module decode1a_mod

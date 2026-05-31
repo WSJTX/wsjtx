@@ -1,10 +1,9 @@
-  parameter (NZ=339)                     !Total number of prefixes
-  parameter (NZ2=12)                     !Total number of suffixes
-  character*1 sfx(NZ2)
-  character*5 pfx(NZ)
-
-  data sfx/'P','0','1','2','3','4','5','6','7','8','9','A'/
-  data pfx/                                                           &
+module pfx_data_mod
+  implicit none
+  integer, parameter :: NZ=339                     !Total number of prefixes
+  integer, parameter :: NZ2=12                     !Total number of suffixes
+  character(len=1) :: sfx(NZ2) = ['P','0','1','2','3','4','5','6','7','8','9','A']
+  character(len=5) :: pfx(NZ) = [ &
      '1A   ','1S   ','3A   ','3B6  ','3B8  ','3B9  ','3C   ','3C0  ', &
      '3D2  ','3D2C ','3D2R ','3DA  ','3V   ','3W   ','3X   ','3Y   ', &
      '3YB  ','3YP  ','4J   ','4L   ','4S   ','4U1I ','4U1U ','4W   ', &
@@ -47,4 +46,5 @@
      'YJ   ','YK   ','YL   ','YN   ','YO   ','YS   ','YU   ','YV   ', &
      'YV0  ','Z2   ','Z3   ','ZA   ','ZB   ','ZC4  ','ZD7  ','ZD8  ', &
      'ZD9  ','ZF   ','ZK1N ','ZK1S ','ZK2  ','ZK3  ','ZL   ','ZL7  ', &
-     'ZL8  ','ZL9  ','ZP   ','ZS   ','ZS8  ','KC4  ','E5   '/
+     'ZL8  ','ZL9  ','ZP   ','ZS   ','ZS8  ','KC4  ','E5   ']
+end module pfx_data_mod

@@ -62,16 +62,33 @@ void Astro::astroUpdate(QDateTime t, QString mygrid, QString hisgrid,
   double sec=t.time().second() + 0.001*t.time().msec();
   int isec=sec;
   double uth=nhr + nmin/60.0 + sec/3600.0;
-  int nfreq=(int)datcom_.fcenter;
+  int nfreq=static_cast<int>(getFcenter());
 //  if(nfreq<10 or nfreq > 50000) nfreq=144;
 
-  astrosub_(&nyear, &month, &nday, &uth, &nfreq, mygrid.toLatin1(),
-            hisgrid.toLatin1(), &azsun, &elsun, &azmoon, &elmoon,
-            &azmoondx, &elmoondx, &ntsky, &ndop, &ndop00,&ramoon, &decmoon,
-            &dgrd, &poloffset, &xnr, 6, 6);
+  // Build stable, 6-character, space-padded, uppercase buffers
+  QString mg = mygrid.trimmed().toUpper();
+  QString hg = hisgrid.trimmed().toUpper();
 
-  datcom_.nfast=ndop00;               //Send self Doppler to decoder, via datcom
-  sprintf(cc,
+  QByteArray myGridData = mg.left(6).toLatin1();
+  QByteArray hisGridData = hg.left(6).toLatin1();
+
+  myGridData = myGridData.leftJustified(6, ' ');
+  hisGridData = hisGridData.leftJustified(6, ' ');
+
+  // Fortran expects CHARACTER*6 with trailing lengths in its ABI
+  int mygrid_len = 6;
+  int hisgrid_len = 6;
+
+  astrosub_(&nyear, &month, &nday, &uth, &nfreq,
+            myGridData.constData(),
+            hisGridData.constData(),
+            &azsun, &elsun, &azmoon, &elmoon,
+            &azmoondx, &elmoondx, &ntsky, &ndop, &ndop00,
+            &ramoon, &decmoon, &dgrd, &poloffset, &xnr,
+            mygrid_len, hisgrid_len);
+
+  setNdop00(ndop00);               //Send self Doppler to decoder, via datcom
+  snprintf(cc, sizeof(cc),
           "Az:    %6.1f\n"
           "El:    %6.1f\n"
           "MyDop: %6d\n"
@@ -134,8 +151,9 @@ void Astro::astroUpdate(QDateTime t, QString mygrid, QString hisgrid,
       if(f.open(QIODevice::WriteOnly | QIODevice::Append)) {
         QTextStream out(&f);
         out << t.toString("yyyy-MMM-dd hh:mm:ss");
-        sprintf(cc,"%7.1f %7.1f   %d %7.1f %7.1f %10.1f %7.2f\n",
-                azsun,elsun,iCycle,azOffset,elOffset,xavg,10.0*log10(xavg));
+        snprintf(cc, sizeof(cc),
+          "%7.1f %7.1f   %d %7.1f %7.1f %10.1f %7.2f\n",
+          azsun,elsun,iCycle,azOffset,elOffset,xavg,10.0*log10(xavg));
         out << cc;
         f.close();
       }
@@ -161,7 +179,8 @@ void Astro::astroUpdate(QDateTime t, QString mygrid, QString hisgrid,
   if(ntxFreq != ntxFreq0) ndiff=1;
   ntxFreq0=ntxFreq;
   QTextStream out(&f);
-  sprintf(cc,"%2.2d:%2.2d:%2.2d,%5.1f,%5.1f,Moon\n"
+  snprintf(cc, sizeof(cc),
+          "%2.2d:%2.2d:%2.2d,%5.1f,%5.1f,Moon\n"
           "%2.2d:%2.2d:%2.2d,%5.1f,%5.1f,Sun\n"
           "%2.2d:%2.2d:%2.2d,%5.1f,%5.1f,Source\n"
           "%4d,%6d,%6d,Doppler\n"

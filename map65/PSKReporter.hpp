@@ -1,7 +1,5 @@
 #ifndef PSK_REPORTER_HPP_
 #define PSK_REPORTER_HPP_
-#include <boost/log/sources/severity_channel_logger.hpp>   
-#include <boost/log/trivial.hpp>
 
 #include <QObject>
 #include <QTimer>
@@ -77,8 +75,6 @@ private slots:
   void sendData(const QByteArray &payload);
 
 private:
-  using logger_type = boost::log::sources::severity_channel_logger_mt<boost::log::trivial::severity_level>;
-  logger_type mutable logger_;
   QString myCall;
   QString myGrid;  
   quint32 sequence_number_; 

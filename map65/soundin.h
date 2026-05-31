@@ -6,6 +6,8 @@
 #include <QDebug>
 #include <valarray>
 
+class MainWindow;  //Forward declaration
+
 // Thread gets audio data from soundcard and signals when a buffer of
 // specified size is available.
 class SoundInThread : public QThread
@@ -55,6 +57,7 @@ public slots:
   void quit();
 
 private:
+  MainWindow* m_mainWindow;
   void inputUDP();
 
   double m_fAdd;
