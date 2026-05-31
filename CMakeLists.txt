@@ -163,8 +163,8 @@ option (WSJT_GENERATE_DOCS "Generate documentation files." ON)
 option (WSJT_RIG_NONE_CAN_SPLIT "Allow split operation with \"None\" as rig.")
 option (WSJT_TRACE_UDP "Debugging option that turns on UDP message protocol diagnostics.")
 option (WSJT_BUILD_UTILS "Build simulators and code demonstrators." ON)
-option (WSJT_FOX_OTP "Enable Fox OTP Verification Messages." ON
-option (WSJT_SKIP_MAP65 "Skip building MAP65 EME decoder (legacy Fortran; fails on GCC 15)." ON)
+option (WSJT_FOX_OTP "Enable Fox OTP Verification Messages." ON)
+option (WSJT_SKIP_MAP65 "Skip building MAP65 EME decoder (legacy Fortran; fails on GCC 15)." OFF)
 option (WSJT_ENABLE_TESTS "Enable developer tests." ON)
 CMAKE_DEPENDENT_OPTION (WSJT_QDEBUG_IN_RELEASE "Leave Qt debugging statements in Release configuration." OFF
   "NOT is_debug_build" OFF)
@@ -1698,10 +1698,12 @@ else (${OPENMP_FOUND} OR APPLE)
   target_link_libraries (jt9 wsjt_fort wsjt_cxx fort_qt)
 endif (${OPENMP_FOUND} OR APPLE)
 
+  if (NOT WSJT_SKIP_MAP65)
 # if (NOT APPLE)
   find_package (Portaudio REQUIRED)
 # endif (NOT APPLE)
-  add_subdirectory (map65)
+    add_subdirectory (map65)
+  endif ()
   add_subdirectory (qmap)
 
 # build the main application
