@@ -179,7 +179,13 @@ set_source_files_properties(stdout_channel_mod.f90 PROPERTIES
     Fortran_PREPROCESS ON
 )
 
-target_link_libraries (m65impl PUBLIC Qt5::Core wsjt_fort wsjt_cxx)
+# Link MAP65 against the correct Fortran variant
+if (WSJT_BUILD_FORTRAN_OPENMP)
+    target_link_libraries(m65impl PUBLIC Qt5::Core wsjt_fort_omp wsjt_cxx)
+else ()
+    target_link_libraries(m65impl PUBLIC Qt5::Core wsjt_fort wsjt_cxx)
+endif ()
+
 #target_link_libraries (m65impl wsjt_fort wsjt_cxx Qt5::Core)
 
 if (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4)
