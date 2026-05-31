@@ -17,7 +17,7 @@ contains
       use debug_log
       use q65b_mod
       use decode1a_mod
-      use ccf65_mod
+      use ccf65_legacy_mod
       use pctile_mod
       use stdout_channel_mod, only: write_stdout
       use decodes_mod, only: nhsym1, nhsym2, ldecoded, ndecodes, mcall3a, decodes_init

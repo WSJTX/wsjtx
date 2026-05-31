@@ -6,7 +6,7 @@ set (libm65_FSRCS
   extract_shared_mod.f90
   gran_interface.f90
   m65_mod.f90
-
+  four2a_legacy_wrap.f90
   npar_ptrs_mod.f90
   pfx_mod.f90
   pr_mod.f90
@@ -161,8 +161,10 @@ set_property (SOURCE ${libm65_C_and_CXXSRCS} APPEND PROPERTY OBJECT_DEPENDS ${CM
 # build our targets
 #
 add_library (m65impl STATIC ${libm65_FSRCS} ${libm65_CSRCS} ${libm65_CXXSRCS})
+
 target_compile_options(m65impl PRIVATE
     $<$<COMPILE_LANGUAGE:Fortran>:
+    #    -fcheck=bounds
     #    -fcheck=all
     #    -frecursive
         -fbacktrace

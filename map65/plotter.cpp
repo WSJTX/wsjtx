@@ -530,10 +530,13 @@ int CPlotter::getPlotGain()                               //getPlotGain()
 void CPlotter::SetCenterFreq(int f)                   //setCenterFreq()
 {
 // f is the integer kHz portion of cfreq, from Linrad packets
+// Store the true (un-snapped) center frequency so that pixel<->freq
+// conversions (FreqfromX, XfromFreq, setFQSO) are accurate.  The old
+// 5 kHz snap distorted every click-to-frequency calculation and caused
+// the green tickmark to land several kHz away from where the user
+// clicked.  Scale labels are rounded independently in MakeFrequencyStrs.
   if(f<0) f=m_nkhz;
-  int ns = (f+m_FreqOffset-0.5*m_fSpan)/5.0 + 0.5;
-  double fs = 5*ns;
-  m_CenterFreq = fs + 0.5*m_fSpan;
+  m_CenterFreq = f + m_FreqOffset;
 }
 
 qint64 CPlotter::centerFreq()                             //centerFreq()
@@ -835,6 +838,29 @@ void CPlotter::setDecodeLabels(const QList<DecodeLabel>& labels)
   update();
 }
 
+void CPlotter::setDecodeLabelAlpha(int alpha)
+{
+  if (alpha < 0)   alpha = 0;
+  if (alpha > 255) alpha = 255;
+  if (m_decodeLabelAlpha == alpha) return;
+  m_decodeLabelAlpha = alpha;
+  update();
+}
+
+void CPlotter::setDecodeLabelFontSize(DecodeLabelFontSize sz)
+{
+  if (m_decodeFontSize == sz) return;
+  m_decodeFontSize = sz;
+  update();
+}
+
+void CPlotter::setDecodeLabelPosition(DecodeLabelPosition p)
+{
+  if (m_decodeLabelPosition == p) return;
+  m_decodeLabelPosition = p;
+  update();
+}
+
 void CPlotter::paintDecodeLabels(QPainter& painter)
 {
   // Sort left-to-right so the stacking pass below assigns rows in
@@ -846,7 +872,7 @@ void CPlotter::paintDecodeLabels(QPainter& painter)
                      < XfromFreq(static_cast<float>(b.freq_khz));
             });
 
-  QFont font("Arial", 9, QFont::Bold);
+  QFont font("Arial", static_cast<int>(m_decodeFontSize), QFont::Bold);
   painter.setFont(font);
   QFontMetrics metrics(font);
   const int row_height = metrics.height() + 1;
@@ -854,7 +880,12 @@ void CPlotter::paintDecodeLabels(QPainter& painter)
   // Up to 5 stack rows — MAP65's wideband span typically shows fewer
   // simultaneous decoded stations than FT8 so 5 is plenty.
   constexpr int max_rows = 5;
+  // Upper-waterfall geometry mirrors QMAP: paint event uses y=30 for
+  // the top edge and height = (widget âˆ’ 60)/2. Bottom edge = top + h.
   constexpr int waterfall_top_y = 30;
+  const int waterfall_h         = (m_Size.height() - 60) / 2;
+  const int waterfall_bottom_y  = waterfall_top_y + waterfall_h;
+  const bool stack_from_bottom  = (m_decodeLabelPosition == DecodeLabelPosition::Bottom);
   int row_right_edge[max_rows];
   for (int i = 0; i < max_rows; ++i) row_right_edge[i] = -1000;
 
@@ -871,9 +902,30 @@ void CPlotter::paintDecodeLabels(QPainter& painter)
     if (row >= max_rows) continue;
     row_right_edge[row] = rect_x + rect_w;
 
-    const int y_top = waterfall_top_y + row * row_height;
+    // Top-anchor: row 0 at the top of the upper waterfall, stacks down.
+    // Bottom-anchor: row 0 just above the divider, stacks up.
+    const int y_top = stack_from_bottom
+        ? (waterfall_bottom_y - row_height * (row + 1))
+        : (waterfall_top_y    + row_height * row);
     const QRect rect(rect_x, y_top, rect_w, row_height);
-    painter.fillRect(rect, QColor(0, 0, 0, 180));
+    // View-menu transparency selector.
+    //   master == 255 ("None"): force every element to alpha 255,
+    //                           overriding the legacy semi-transparent
+    //                           background (180) and tick (200/220) so
+    //                           "None" really is no transparency.
+    //   master  < 255 (Medium/High): scale each element's base alpha
+    //                                proportionally so the relative
+    //                                layering is preserved as it fades.
+    const int master_alpha = m_decodeLabelAlpha;
+    auto applyAlpha = [master_alpha](QColor c) {
+      if (master_alpha >= 255) {
+        c.setAlpha(255);
+      } else {
+        c.setAlpha((c.alpha() * master_alpha) / 255);
+      }
+      return c;
+    };
+    painter.fillRect(rect, applyAlpha(QColor(0, 0, 0, 180)));
     // DG2YCB 2026-05-13 round 2: orange+yellow read as "both red/orange"
     // on his display. Move JT65 to cyan — opposite hue from Q65 yellow,
     // still legible on the dark waterfall. Q65 stays yellow to match
@@ -882,9 +934,14 @@ void CPlotter::paintDecodeLabels(QPainter& painter)
                                       : QColor(255, 255,   0);  // yellow (Q65)
     const QColor tick_col = l.is_jt65 ? QColor(  0, 255, 255, 220)
                                       : QColor(255, 255,   0, 200);
-    painter.setPen(tick_col);
-    painter.drawLine(x, y_top + row_height, x, y_top + row_height + 4);
-    painter.setPen(mode_col);
+    painter.setPen(applyAlpha(tick_col));
+    // Tick points toward the visible spectrum side: down (toward the
+    // divider/signal trace below) when stacked from top; up (toward
+    // the freq scale at y=30) when stacked from bottom.
+    const int tick_y0 = stack_from_bottom ? y_top     : y_top + row_height;
+    const int tick_y1 = stack_from_bottom ? y_top - 4 : y_top + row_height + 4;
+    painter.drawLine(x, tick_y0, x, tick_y1);
+    painter.setPen(applyAlpha(mode_col));
     painter.drawText(rect, Qt::AlignHCenter | Qt::AlignVCenter, l.callsign);
   }
 }

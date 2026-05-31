@@ -63,7 +63,34 @@ WideGraph::WideGraph (QString const& settings_filename, QWidget * parent)
   m_decodeLabelsEnabled = settings.value("decode_labels_enabled", true).toBool();
   m_decodeLabelPeriods  = settings.value("decode_label_periods", 5).toInt();
   if (m_decodeLabelPeriods < 1)  m_decodeLabelPeriods = 1;
-  if (m_decodeLabelPeriods > 60) m_decodeLabelPeriods = 60;
+  if (m_decodeLabelPeriods > 5) m_decodeLabelPeriods = 5;
+  // Overlay transparency preset. Snap stored value to one of the
+  // three offered presets so a hand-edited INI can't desync the
+  // View menu's checked state.
+  m_decodeLabelAlpha = settings.value("decode_label_alpha", 255).toInt();
+  if      (m_decodeLabelAlpha <= 187) m_decodeLabelAlpha = 175;
+  else if (m_decodeLabelAlpha <= 210) m_decodeLabelAlpha = 200;
+  else if (m_decodeLabelAlpha <= 237) m_decodeLabelAlpha = 220;
+  else                                m_decodeLabelAlpha = 255;
+  if (ui && ui->widePlot) ui->widePlot->setDecodeLabelAlpha(m_decodeLabelAlpha);
+  {
+    const int fs = settings.value("decode_label_font_size",
+                                  static_cast<int>(DecodeLabelFontSize::Normal)).toInt();
+    if (fs == 7 || fs == 8 || fs == 10 || fs == 12) {
+      m_decodeFontSize = static_cast<DecodeLabelFontSize>(fs);
+    } else {
+      m_decodeFontSize = DecodeLabelFontSize::Normal;
+    }
+    if (ui && ui->widePlot) ui->widePlot->setDecodeLabelFontSize(m_decodeFontSize);
+  }
+  {
+    const int pos = settings.value("decode_label_position",
+                                   static_cast<int>(DecodeLabelPosition::Top)).toInt();
+    m_decodeLabelPosition = (pos == static_cast<int>(DecodeLabelPosition::Bottom))
+        ? DecodeLabelPosition::Bottom
+        : DecodeLabelPosition::Top;
+    if (ui && ui->widePlot) ui->widePlot->setDecodeLabelPosition(m_decodeLabelPosition);
+  }
   connect(&m_ageTimer, &QTimer::timeout, this, &WideGraph::ageDecodeLabels);
   m_ageTimer.start(1000);   // 1 Hz prune
 
@@ -89,7 +116,7 @@ WideGraph::WideGraph (QString const& settings_filename, QWidget * parent)
 
     auto* ageSpin = new QSpinBox(this);
     ageSpin->setObjectName("decodeLabelAgeSpin");
-    ageSpin->setRange(1, 30);
+    ageSpin->setRange(1, 5);
     ageSpin->setValue(m_decodeLabelPeriods);
     ageSpin->setSuffix(" x TR");
     ageSpin->setToolTip("How many TR periods a decoded callsign label "
@@ -167,10 +194,14 @@ void WideGraph::saveSettings()
   settings.setValue("LockTxRx",m_bLockTxRx);
   settings.setValue("decode_labels_enabled", m_decodeLabelsEnabled);
   settings.setValue("decode_label_periods",  m_decodeLabelPeriods);
+  settings.setValue("decode_label_alpha",    m_decodeLabelAlpha);
+  settings.setValue("decode_label_font_size", static_cast<int>(m_decodeFontSize));
+  settings.setValue("decode_label_position", static_cast<int>(m_decodeLabelPosition));
 }
 
 void WideGraph::addDecodeLabel(double freq_khz, const QString& callsign,
-                               bool is_jt65, bool mode_reliable)
+                               bool is_jt65, bool mode_reliable,
+                               bool freq_reliable)
 {
   if (callsign.isEmpty()) return;
   if (!m_decodeLabelsEnabled) return;
@@ -178,7 +209,12 @@ void WideGraph::addDecodeLabel(double freq_khz, const QString& callsign,
   for (auto& lab : m_decodeLabels) {
     if (lab.callsign == callsign) {
       lab.last_seen_ms = now;
-      lab.freq_khz     = freq_khz;
+      // Only overwrite freq when the caller has sub-kHz precision.
+      // The "&" bandmap tap only has 3-char integer-kHz precision
+      // (display.f90 cfreq0 is character(3) — no ndf field), so it
+      // would otherwise stomp on a precise "!" tick that already
+      // includes ndf, leaving the tick up to ~500 Hz off the signal.
+      if (freq_reliable) lab.freq_khz = freq_khz;
       // Only overwrite the mode flag when the caller knows for sure.
       // The "&" bandmap-line tap has no cmode in its payload, so it
       // would otherwise stomp on an authoritative JT65 mark from the
@@ -234,6 +270,42 @@ void WideGraph::setDecodeLabelsEnabled(bool on)
   SettingsGroup g {&settings, "WideGraph"};
   settings.setValue("decode_labels_enabled", on);
   emit decodeLabelsEnabledChanged(on);
+}
+
+void WideGraph::setDecodeLabelAlpha(int alpha)
+{
+  // Snap to the three offered presets so a stale or hand-edited INI
+  // can't break the View menu's exclusive group.
+  if      (alpha <= 187) alpha = 175;
+  else if (alpha <= 210) alpha = 200;
+  else if (alpha <= 237) alpha = 220;
+  else                   alpha = 255;
+  if (m_decodeLabelAlpha == alpha) return;
+  m_decodeLabelAlpha = alpha;
+  if (ui && ui->widePlot) ui->widePlot->setDecodeLabelAlpha(alpha);
+  QSettings settings {m_settings_filename, QSettings::IniFormat};
+  SettingsGroup g {&settings, "WideGraph"};
+  settings.setValue("decode_label_alpha", alpha);
+}
+
+void WideGraph::setDecodeLabelFontSize(DecodeLabelFontSize sz)
+{
+  if (m_decodeFontSize == sz) return;
+  m_decodeFontSize = sz;
+  if (ui && ui->widePlot) ui->widePlot->setDecodeLabelFontSize(sz);
+  QSettings settings {m_settings_filename, QSettings::IniFormat};
+  SettingsGroup g {&settings, "WideGraph"};
+  settings.setValue("decode_label_font_size", static_cast<int>(sz));
+}
+
+void WideGraph::setDecodeLabelPosition(DecodeLabelPosition p)
+{
+  if (m_decodeLabelPosition == p) return;
+  m_decodeLabelPosition = p;
+  if (ui && ui->widePlot) ui->widePlot->setDecodeLabelPosition(p);
+  QSettings settings {m_settings_filename, QSettings::IniFormat};
+  SettingsGroup g {&settings, "WideGraph"};
+  settings.setValue("decode_label_position", static_cast<int>(p));
 }
 
 void WideGraph::dataSink2(float s[], int nkhz, int ihsym, int ndiskdata,

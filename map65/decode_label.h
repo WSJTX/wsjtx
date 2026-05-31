@@ -27,4 +27,25 @@ struct DecodeLabel {
     DecodeLabel() : freq_khz(0), last_seen_ms(0), hits(0), is_jt65(false) {}
 };
 
+// Font-size choice for the callsign overlay. Menu values:
+//   7 pt  = Small   (tightest packing, hardest to read at distance)
+//   8 pt  = Normal  (default — fits dense bands, still legible)
+//   10 pt = Medium  (more readable, more stacking pressure)
+//   12 pt = Large   (easiest to read, biggest stacking pressure)
+enum class DecodeLabelFontSize {
+  Small  = 7,
+  Normal = 8,
+  Medium = 10,
+  Large  = 12,
+};
+
+// Anchor position for the callsign overlay on the upper waterfall.
+// Mirrors qmap/decode_label.h. Top = stack down from waterfall top
+// (legacy); Bottom = stack up from the divider so fresh signals at
+// the top of the waterfall stay visible.
+enum class DecodeLabelPosition {
+  Top    = 0,
+  Bottom = 1,
+};
+
 #endif // MAP65_DECODE_LABEL_H

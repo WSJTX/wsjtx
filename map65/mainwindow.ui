@@ -1335,6 +1335,31 @@ p, li { white-space: pre-wrap; }
      <addaction name="actionLinrad"/>
      <addaction name="actionCuteSDR"/>
     </widget>
+    <widget class="QMenu" name="menuCallsign_transparency">
+     <property name="title">
+      <string>Callsign transparency</string>
+     </property>
+     <addaction name="actionTransparency_None"/>
+     <addaction name="actionTransparency_Low"/>
+     <addaction name="actionTransparency_Medium"/>
+     <addaction name="actionTransparency_High"/>
+    </widget>
+    <widget class="QMenu" name="menuCallsign_font">
+     <property name="title">
+      <string>Callsign font size</string>
+     </property>
+     <addaction name="actionCallsign_font_small"/>
+     <addaction name="actionCallsign_font_normal"/>
+     <addaction name="actionCallsign_font_medium"/>
+     <addaction name="actionCallsign_font_large"/>
+    </widget>
+    <widget class="QMenu" name="menuCallsign_position">
+     <property name="title">
+      <string>Callsign position</string>
+     </property>
+     <addaction name="actionCallsign_position_top"/>
+     <addaction name="actionCallsign_position_bottom"/>
+    </widget>
     <addaction name="actionAstro_Data"/>
     <addaction name="actionBand_Map"/>
     <addaction name="actionMessages"/>
@@ -1343,6 +1368,9 @@ p, li { white-space: pre-wrap; }
     <addaction name="menuWaterfall_palette"/>
     <addaction name="separator"/>
     <addaction name="actionShow_callsigns_on_Waterfall"/>
+    <addaction name="menuCallsign_transparency"/>
+    <addaction name="menuCallsign_font"/>
+    <addaction name="menuCallsign_position"/>
    </widget>
    <widget class="QMenu" name="menuDecode">
     <property name="title">
@@ -1466,6 +1494,92 @@ p, li { white-space: pre-wrap; }
    </property>
    <property name="toolTip">
     <string>Toggle the decoded-callsign overlay on the wide waterfall. Default ON. Persists across launches.</string>
+   </property>
+  </action>
+  <action name="actionTransparency_None">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>None</string>
+   </property>
+  </action>
+  <action name="actionTransparency_Low">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Low</string>
+   </property>
+  </action>
+  <action name="actionTransparency_Medium">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Medium</string>
+   </property>
+  </action>
+  <action name="actionTransparency_High">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>High</string>
+   </property>
+  </action>
+  <action name="actionCallsign_font_small">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Small (7 pt)</string>
+   </property>
+  </action>
+  <action name="actionCallsign_font_normal">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Normal (8 pt)</string>
+   </property>
+  </action>
+  <action name="actionCallsign_font_medium">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Medium (10 pt)</string>
+   </property>
+  </action>
+  <action name="actionCallsign_font_large">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Large (12 pt)</string>
+   </property>
+  </action>
+  <action name="actionCallsign_position_top">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Top of waterfall</string>
+   </property>
+  </action>
+  <action name="actionCallsign_position_bottom">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Bottom of waterfall (above divider)</string>
    </property>
   </action>
   <action name="actionOpen">

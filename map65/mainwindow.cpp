@@ -225,6 +225,76 @@ MainWindow::MainWindow(QWidget *parent) :
             m_wide_graph_window.data(), &WideGraph::setDecodeLabelsEnabled);
     connect(m_wide_graph_window.data(), &WideGraph::decodeLabelsEnabledChanged,
             ui->actionShow_callsigns_on_Waterfall, &QAction::setChecked);
+
+    // Decoded-callsign overlay transparency — exclusive action group
+    // (View → Callsign transparency). None=255 / Low=220 / Medium=200 /
+    // High=175. Persisted under [WideGraph]/decode_label_alpha.
+    QActionGroup* transparencyGroup = new QActionGroup(this);
+    ui->actionTransparency_None  ->setActionGroup(transparencyGroup);
+    ui->actionTransparency_Low   ->setActionGroup(transparencyGroup);
+    ui->actionTransparency_Medium->setActionGroup(transparencyGroup);
+    ui->actionTransparency_High  ->setActionGroup(transparencyGroup);
+    {
+      const int a = m_wide_graph_window->decodeLabelAlpha();
+      if      (a == 175) ui->actionTransparency_High  ->setChecked(true);
+      else if (a == 200) ui->actionTransparency_Medium->setChecked(true);
+      else if (a == 220) ui->actionTransparency_Low   ->setChecked(true);
+      else               ui->actionTransparency_None  ->setChecked(true);
+    }
+    auto* wg = m_wide_graph_window.data();
+    connect(ui->actionTransparency_None,   &QAction::triggered,
+            wg, [wg]{ wg->setDecodeLabelAlpha(255); });
+    connect(ui->actionTransparency_Low,    &QAction::triggered,
+            wg, [wg]{ wg->setDecodeLabelAlpha(220); });
+    connect(ui->actionTransparency_Medium, &QAction::triggered,
+            wg, [wg]{ wg->setDecodeLabelAlpha(200); });
+    connect(ui->actionTransparency_High,   &QAction::triggered,
+            wg, [wg]{ wg->setDecodeLabelAlpha(175); });
+
+    // Decoded-callsign overlay font-size — exclusive action group
+    // (View → Callsign font size). Small=7 / Normal=8 (default) /
+    // Medium=10 / Large=12. Persisted via WideGraph::setDecodeLabelFontSize.
+    QActionGroup* fontGroup = new QActionGroup(this);
+    ui->actionCallsign_font_small ->setActionGroup(fontGroup);
+    ui->actionCallsign_font_normal->setActionGroup(fontGroup);
+    ui->actionCallsign_font_medium->setActionGroup(fontGroup);
+    ui->actionCallsign_font_large ->setActionGroup(fontGroup);
+    switch (wg->decodeLabelFontSize()) {
+      case DecodeLabelFontSize::Small:
+        ui->actionCallsign_font_small ->setChecked(true); break;
+      case DecodeLabelFontSize::Medium:
+        ui->actionCallsign_font_medium->setChecked(true); break;
+      case DecodeLabelFontSize::Large:
+        ui->actionCallsign_font_large ->setChecked(true); break;
+      case DecodeLabelFontSize::Normal:
+      default:
+        ui->actionCallsign_font_normal->setChecked(true); break;
+    }
+    connect(ui->actionCallsign_font_small,  &QAction::triggered,
+            wg, [wg]{ wg->setDecodeLabelFontSize(DecodeLabelFontSize::Small);  });
+    connect(ui->actionCallsign_font_normal, &QAction::triggered,
+            wg, [wg]{ wg->setDecodeLabelFontSize(DecodeLabelFontSize::Normal); });
+    connect(ui->actionCallsign_font_medium, &QAction::triggered,
+            wg, [wg]{ wg->setDecodeLabelFontSize(DecodeLabelFontSize::Medium); });
+    connect(ui->actionCallsign_font_large,  &QAction::triggered,
+            wg, [wg]{ wg->setDecodeLabelFontSize(DecodeLabelFontSize::Large);  });
+
+    // Callsign-overlay anchor position. Top (legacy) or Bottom (sit
+    // above the divider so fresh signals at the top of the waterfall
+    // remain visible). Persisted under [WideGraph]/decode_label_position
+    // via WideGraph::setDecodeLabelPosition.
+    QActionGroup* positionGroup = new QActionGroup(this);
+    ui->actionCallsign_position_top   ->setActionGroup(positionGroup);
+    ui->actionCallsign_position_bottom->setActionGroup(positionGroup);
+    if (wg->decodeLabelPosition() == DecodeLabelPosition::Bottom) {
+      ui->actionCallsign_position_bottom->setChecked(true);
+    } else {
+      ui->actionCallsign_position_top   ->setChecked(true);
+    }
+    connect(ui->actionCallsign_position_top,    &QAction::triggered,
+            wg, [wg]{ wg->setDecodeLabelPosition(DecodeLabelPosition::Top);    });
+    connect(ui->actionCallsign_position_bottom, &QAction::triggered,
+            wg, [wg]{ wg->setDecodeLabelPosition(DecodeLabelPosition::Bottom); });
   }
 
   setWindowTitle (program_title ());
@@ -613,13 +683,26 @@ if (t.indexOf("<QuickDecodeDone>") >= 0) {
             const int sep         = decode_line.indexOf(" : ");
             const bool is_jt65    = (sep < 0);  // " : " present ⇒ Q65
 
-            const QStringList all_cols = trimmed.split(
+            // The "!" decode line packs the audio frequency into TWO
+            // columns per the Fortran writes at map65a.f90:387 and
+            // q65b.f90:227 — format ("!",I3,I5,...) where nkHz is the
+            // integer kHz and ndf is the signed delta-Hz within that
+            // kHz, so true freq = nkHz + ndf/1000.0. The previous
+            // "first token that parses as a number in [0,1e6)" approach
+            // dropped ndf (off by ±500 Hz for small nkHz) or worse,
+            // picked ndf itself when nkHz ≥ 100 made the right-
+            // justified I3 collide with the leading "!" (the parser
+            // then read ndf in Hz as kHz).
+            QString rest = trimmed;
+            if (rest.startsWith('!')) rest = rest.mid(1);
+            const QStringList all_cols = rest.split(
                 QRegularExpression("\\s+"),SkipEmptyParts);
             double freq_khz = -1.0;
-            for (const QString& tok : all_cols) {
-                bool ok = false;
-                const double v = tok.toDouble(&ok);
-                if (ok && v >= 0 && v < 1000000.0) { freq_khz = v; break; }
+            if (all_cols.size() >= 2) {
+                bool ok1 = false, ok2 = false;
+                const int nkHz = all_cols[0].toInt(&ok1);
+                const int ndf  = all_cols[1].toInt(&ok2);
+                if (ok1 && ok2) freq_khz = nkHz + ndf / 1000.0;
             }
 
             QString body;
@@ -659,35 +742,51 @@ if (t.indexOf("<QuickDecodeDone>") >= 0) {
     }
 
     // --- "&" bandmap lines ---
+    // N6NU 2026-05-24: format widened to include the 5-char ndf from
+    // line3(k)(9:13). New layout:
+    //   "&" + I3 kHz + I5 ndf + " " + A6 call + A2 age
+    // Old layout (pre-260524, used by stock map65):
+    //   "&" + I3 kHz + " " + A6 call + A2 age
+    // We auto-detect by checking column 4: if it's a digit/space-of-int,
+    // it's the new format. Old format has the space-separator there.
     if (t.startsWith("&")) {
+        // Detect format. New: chars 4..8 are an int (ndf). Old: char 4
+        // is a space and chars 5..10 are the callsign.
+        const QString ndf_field = t.mid(4, 5);
+        bool ndf_ok = false;
+        const int ndf_hz = ndf_field.trimmed().toInt(&ndf_ok);
+        const int call_start = ndf_ok ? 10 : 5;
+
         QString q(t);
-        QString callsign = q.mid(5);
+        QString callsign = q.mid(call_start);
         callsign = callsign.mid(0, callsign.indexOf(" "));
         if (callsign.length() > 2) {
             if (m_worked[callsign]) {
-                q = q.mid(1,4) + "  " + q.mid(5);
+                q = q.mid(1,4) + "  " + q.mid(call_start);
             } else {
-                q = q.mid(1,4) + " *" + q.mid(5);
+                q = q.mid(1,4) + " *" + q.mid(call_start);
             }
             m_bandmapText += q;
 
             // Fallback overlay tap (N6NU 2026-05-13, DG2YCB feedback r4).
-            // display.f90's freqcall has cfreq0//' '//callsign//"  " — no
-            // cmode byte (line3(k)(79:80) is the format's 2x padding, not
-            // a2). So we can't know the mode here. Seed with is_jt65=false
-            // (Q65 wins ties — JT65 already reached "!" earlier and seeded
-            // with the right mode), and pass mode_reliable=false so the
-            // existing label's mode isn't stomped on subsequent refreshes.
+            // We can't know the mode from this line, so pass is_jt65=false
+            // and mode_reliable=false. With the new format we now also
+            // have ndf precision, so freq_reliable=true. Old format
+            // callers still pass freq_reliable=false (integer kHz only).
             if (m_wide_graph_window) {
-                bool ok = false;
-                const double freq_khz = t.mid(1, 3).trimmed().toDouble(&ok);
+                bool ok_khz = false;
+                const int nkHz = t.mid(1, 3).trimmed().toInt(&ok_khz);
+                const double freq_khz = ndf_ok
+                    ? (nkHz + ndf_hz / 1000.0)
+                    : double(nkHz);
                 static const QRegularExpression call_re(
                     "^[A-Z0-9]{1,3}[0-9][A-Z0-9]{0,3}[A-Z](/[A-Z0-9]+)?$");
-                if (ok && freq_khz > 0
+                if (ok_khz && freq_khz > 0
                     && call_re.match(callsign.toUpper()).hasMatch()) {
                     m_wide_graph_window->addDecodeLabel(
                         freq_khz, callsign, /*is_jt65=*/false,
-                        /*mode_reliable=*/false);
+                        /*mode_reliable=*/false,
+                        /*freq_reliable=*/ndf_ok);
                 }
             }
         }

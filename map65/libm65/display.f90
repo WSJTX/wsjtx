@@ -23,7 +23,13 @@ subroutine display(nkeep, ftol)
   character(len=63)  :: out, out0
   character(len=3)   :: cfreq0
   character(len=6)   :: callsign, callsign0
-  character(len=12)  :: freqcall(MAXCALLS)
+  ! N6NU 2026-05-24: bumped 12 ? 18 to carry the 5-char ndf (signed
+  ! Hz offset within kHz) alongside cfreq0 in the "&" bandmap line.
+  ! The C++ overlay handler (mainwindow.cpp processStdOut) reads
+  ! both fields and places the tick at nkHz + ndf/1000 instead of
+  ! integer kHz, which was up to ±500 Hz off on signals with
+  ! non-zero ndf.
+  character(len=18)  :: freqcall(MAXCALLS)
 
   real            :: freqkHz(MAXLINES)
   integer         :: utc(MAXLINES), utc2(MX), utcz
@@ -186,13 +192,13 @@ subroutine display(nkeep, ftol)
            if (len < 0) len = 6
            if (len >= 3) then
               if (nc < MAXCALLS) nc = nc + 1
-              freqcall(nc) = cfreq0//' '//callsign//line3(k)(79:80)
+              freqcall(nc) = cfreq0//line3(k)(9:13)//' '//callsign//line3(k)(79:80)
               callsign0=callsign
            endif
         endif
         if (callsign /= '      ' .and. callsign == callsign0) then
            if (nc > 0 .and. nc <= MAXCALLS) then
-              freqcall(nc) = cfreq0//' '//callsign//line3(k)(79:80)
+              freqcall(nc) = cfreq0//line3(k)(9:13)//' '//callsign//line3(k)(79:80)
            endif
         endif
      endif
