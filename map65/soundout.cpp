@@ -7,7 +7,7 @@
 #include <portaudio.h>
 
 extern float gran();
-extern short int iwave[2*60*11025];
+extern short int iwave[2*60*12000];
 extern int nwave;
 extern bool btxok;
 extern bool bTune;
