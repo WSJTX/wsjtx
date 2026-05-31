@@ -38,7 +38,8 @@ jobs:
             texinfo \
             dpkg-dev fakeroot \
             asciidoctor \
-            rpm
+            rpm\
+            portaudio19-dev
 
       - name: Cache pFUnit
         id: pfunit-cache
