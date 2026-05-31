@@ -70,7 +70,12 @@ extern "C" void ptt_close(void);
 
 QByteArray g_TxTuneGeometry;
 
-short int iwave[2*60*12000];          //Wave file for Tx audio
+namespace {
+struct Map65TxWaveStorage { short int samples[2*60*12000]; };
+struct Map65RxSamplesStorage { qint16 samples[4*60*96000]; };
+}  // namespace
+
+short int (&iwave)[2*60*12000] = (new Map65TxWaveStorage{})->samples;  //Wave file for Tx audio
 int nwave;                            //Length of Tx waveform
 bool btxok;                           //True if OK to transmit
 bool bTune;
@@ -79,7 +84,7 @@ double outputLatency;                 //Latency in seconds
 int txPower;
 int iqAmp;
 int iqPhase;
-qint16 id[4*60*96000];
+qint16 (&id)[4*60*96000] = (new Map65RxSamplesStorage{})->samples;
 int pipefd[2];  // pipefd[0] = read end, pipefd[1] = write end
 
 TxTune*    g_pTxTune = NULL;
