@@ -1852,35 +1852,12 @@ if (WSJT_BUILD_JT9STREAM)
   # is a program and streaming_io.f90's jt9_stream is a bare subroutine, so this
   # target emits no .mod of its own — sharing the dir is collision-free.
   if (WSJT_BUILD_FORTRAN_OPENMP)
-    if (APPLE)
-      set_target_properties (jt9stream
-        PROPERTIES
-        Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/fortran_modules_omp
-        LINK_LIBRARIES "gomp;gcc_s.1" # assume GNU libgcc OpenMP
-        )
-      target_compile_options (jt9stream
-        PRIVATE
-        $<$<COMPILE_LANGUAGE:Fortran>:${WSJT_OPENMP_FORTRAN_FLAGS}>
-        )
-    else (APPLE)
-      if (WSJT_OPENMP_FORTRAN_FLAGS AND NOT TARGET OpenMP::OpenMP_Fortran)
-        set_target_properties (jt9stream
-          PROPERTIES
-          COMPILE_FLAGS "${WSJT_OPENMP_FORTRAN_FLAGS}"
-          LINK_FLAGS "${WSJT_OPENMP_FORTRAN_FLAGS}"
-          )
-      endif ()
-      set_target_properties (jt9stream
-        PROPERTIES
-        Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/fortran_modules_omp
-        )
-    endif (APPLE)
+    wsjt_link_fortran_openmp (jt9stream)
     if (WIN32)
-      set_target_properties (jt9stream PROPERTIES
-        LINK_FLAGS -Wl,--stack,16777216
-        )
+      set_property (TARGET jt9stream APPEND_STRING PROPERTY
+        LINK_FLAGS " -Wl,--stack,16777216")
     endif ()
-    target_link_libraries (jt9stream wsjt_fort_omp wsjt_cxx)
+    target_link_libraries (jt9stream wsjt_cxx)
   else ()
     target_link_libraries (jt9stream wsjt_fort wsjt_cxx)
   endif ()

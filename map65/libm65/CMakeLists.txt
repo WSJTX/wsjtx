@@ -182,6 +182,8 @@ set_source_files_properties(stdout_channel_mod.f90 PROPERTIES
 # MAP65 should not choose between wsjt_fort and wsjt_fort_omp locally. The
 # common interface target keeps the variant policy in one place and still
 # resolves to wsjt_fort_omp when OPENMP_ONLY leaves no non-OpenMP library.
+# Default BOTH builds intentionally use the non-OpenMP common target here;
+# release Windows and Linux builds pin OPENMP_ONLY when MAP65 needs OpenMP.
 target_link_libraries (m65impl PUBLIC Qt5::Core)
 wsjt_link_common_fortran (m65impl)
 
