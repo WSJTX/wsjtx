@@ -179,12 +179,16 @@ set_source_files_properties(stdout_channel_mod.f90 PROPERTIES
     Fortran_PREPROCESS ON
 )
 
-# Link MAP65 against the correct Fortran variant
-if (APPLE OR WIN32)
-    # macOS and Windows: use the non‑OpenMP Fortran library, as before
+# Link MAP65 against the Fortran variant that was actually built. Drive this
+# off WSJT_BUILD_FORTRAN_OPENMP rather than the platform: the Windows CI builds
+# WSJT_FORTRAN_VARIANTS=OPENMP_ONLY (only wsjt_fort_omp exists, with its modules
+# in fortran_modules_omp), so hardcoding wsjt_fort there left timer_module.mod
+# unbuilt/off the search path. macOS forbids OPENMP_ONLY, so it stays non-OpenMP.
+if (APPLE)
+    # macOS: non-OpenMP variant (OPENMP_ONLY is unsupported on macOS)
     target_link_libraries(m65impl PUBLIC Qt5::Core wsjt_fort wsjt_cxx)
 elseif (WSJT_BUILD_FORTRAN_OPENMP)
-    # Linux (and maybe others): OpenMP variant
+    # Linux and Windows: OpenMP variant
     target_link_libraries(m65impl PUBLIC Qt5::Core wsjt_fort_omp wsjt_cxx)
 else ()
     target_link_libraries(m65impl PUBLIC Qt5::Core wsjt_fort wsjt_cxx)
