@@ -43,6 +43,10 @@
 #include <stdint.h>
 #include <math.h>
 #include <fftw3.h>
+#ifdef _WIN32
+#include <fcntl.h>
+#include <io.h>
+#endif
 
 #include "wsprd_stream.h"
 
@@ -107,8 +111,14 @@ static int json_get_double(const char *json, const char *key, double *out) {
 }
 
 // ============================================================
-// Frame I/O. POSIX-only (Linux + macOS).
+// Frame I/O.
 // ============================================================
+
+static void set_stdin_binary(void) {
+#ifdef _WIN32
+    _setmode(_fileno(stdin), _O_BINARY);
+#endif
+}
 
 static int wsjl_header_read(FILE *fp) {
     unsigned char hdr[8];
@@ -127,6 +137,18 @@ static int wsjl_header_read(FILE *fp) {
         fprintf(stderr,
                 "wsprd --stream: unsupported fmt=0x%02x (only 0x00 PCM today)\n",
                 fmt);
+        return -1;
+    }
+    if (ch != 1) {
+        fprintf(stderr,
+                "wsprd --stream: unsupported channels=%u (only mono supported)\n",
+                ch);
+        return -1;
+    }
+    if (rate_khz != 12) {
+        fprintf(stderr,
+                "wsprd --stream: unsupported rate=%u kHz (only 12 kHz supported)\n",
+                rate_khz);
         return -1;
     }
     fprintf(stderr,
@@ -299,6 +321,7 @@ void wsprd_stream_emit_error(const char *msg) {
 // complex samples populated) on success; 1 on protocol error.
 unsigned long wsprd_stream_read(struct wsprd_stream_config *cfg,
                                 float *idat, float *qdat) {
+    set_stdin_binary();
     if (wsjl_header_read(stdin) != 0) return 1;
 
     int16_t *pcm = calloc(MAX_PCM_SAMPLES, sizeof(int16_t));
@@ -307,8 +330,13 @@ unsigned long wsprd_stream_read(struct wsprd_stream_config *cfg,
         return 1;
     }
 
-    cfg->configure_received = 0;
+    memset(cfg, 0, sizeof *cfg);
+    cfg->wspr_type = 2;
+    int have_date = 0;
+    int have_time = 0;
+    int have_dialfreq = 0;
     int halted = 0;
+    int wspr_type_value = 0;
     size_t pcm_n = 0;
 
     while (!halted) {
@@ -337,11 +365,19 @@ unsigned long wsprd_stream_read(struct wsprd_stream_config *cfg,
                 continue;
             }
             if (strstr(json, "\"configure\"")) {
-                json_get_string(json, "date", cfg->date, sizeof cfg->date);
-                json_get_string(json, "time", cfg->uttime, sizeof cfg->uttime);
-                json_get_double(json, "dialfreq", &cfg->dialfreq);
-                if (json_get_int(json, "wspr_type", &cfg->wspr_type) != 0) {
-                    cfg->wspr_type = 2;
+                if (json_get_string(json, "date", cfg->date,
+                                    sizeof cfg->date) == 0) {
+                    have_date = 1;
+                }
+                if (json_get_string(json, "time", cfg->uttime,
+                                    sizeof cfg->uttime) == 0) {
+                    have_time = 1;
+                }
+                if (json_get_double(json, "dialfreq", &cfg->dialfreq) == 0) {
+                    have_dialfreq = 1;
+                }
+                if (json_get_int(json, "wspr_type", &wspr_type_value) == 0) {
+                    cfg->wspr_type = wspr_type_value;
                 }
                 json_get_string(json, "mycall", cfg->mycall, sizeof cfg->mycall);
                 json_get_string(json, "mygrid", cfg->mygrid, sizeof cfg->mygrid);
@@ -353,6 +389,12 @@ unsigned long wsprd_stream_read(struct wsprd_stream_config *cfg,
 
         if (type == FRAME_AUDIO) {
             // body is raw int16 LE PCM. len must be even (whole samples).
+            if (len % sizeof(int16_t) != 0) {
+                free(body);
+                wsprd_stream_emit_error("odd audio frame length");
+                free(pcm);
+                return 1;
+            }
             size_t nsamples = len / sizeof(int16_t);
             if (pcm_n + nsamples > MAX_PCM_SAMPLES) {
                 nsamples = MAX_PCM_SAMPLES - pcm_n;
@@ -370,6 +412,11 @@ unsigned long wsprd_stream_read(struct wsprd_stream_config *cfg,
     if (!cfg->configure_received) {
         free(pcm);
         wsprd_stream_emit_error("no configure frame received before halt/EOF");
+        return 1;
+    }
+    if (!have_date || !have_time || !have_dialfreq) {
+        free(pcm);
+        wsprd_stream_emit_error("configure frame missing date, time, or dialfreq");
         return 1;
     }
 

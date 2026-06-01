@@ -77,7 +77,8 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   real    :: pxdb, df3, pxdbmax, s(NSMAX)
   integer :: npct_unused
   integer :: body_left, take_bytes, take_samples
-  integer(int16) :: chunk(4096), sink(4096)
+  integer(int16) :: chunk(4096)
+  integer(int8)  :: byte_sink(4096)
   ! FT8 progressive-decode working buffer (mirrors jt9.f90:19's id2a) — the
   ! FT8 decoder's `dd` array is populated only on nzhsym <= 47 calls, so we
   ! mirror the WAV path's 41/47/50 call cadence with a working copy zeroed
@@ -147,6 +148,20 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
      close(lu); stop 1
   end if
 
+  if (ch /= 1) then
+     call streaming_emit_error('unsupported channel count (only mono supported)')
+     write(error_unit, '(a,i0,a)')                                         &
+          'jt9 --stream: unsupported channels=', ch, ' (only mono supported)'
+     close(lu); stop 1
+  end if
+
+  if (rate_khz /= 12) then
+     call streaming_emit_error('unsupported sample rate (only 12 kHz supported)')
+     write(error_unit, '(a,i0,a)')                                         &
+          'jt9 --stream: unsupported rate=', rate_khz, ' kHz (only 12 kHz supported)'
+     close(lu); stop 1
+  end if
+
   write(error_unit, '(a,i0,a,i0,a,i0,a)')                                  &
        'jt9 --stream: header ok (fmt=', fmt, ' ch=', ch,                   &
        ' rate=', rate_khz, ' kHz)'
@@ -210,6 +225,19 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
         end if
 
         if (iand(int(type_byte), 255) .eq. FRAME_AUDIO) then
+           if (mod(frame_len, 2_int32) /= 0) then
+              call streaming_emit_error('odd audio frame length')
+              body_left = frame_len
+              do while (body_left .gt. 0)
+                 take_bytes = min(body_left, size(byte_sink))
+                 read(lu, iostat=ios) byte_sink(1 : take_bytes)
+                 if (ios /= 0) then
+                    eof_period = .true.; exit
+                 end if
+                 body_left = body_left - take_bytes
+              end do
+              cycle
+           end if
            body_left = frame_len
            do while (body_left .gt. 0)
               if (k .lt. npts) then
@@ -240,9 +268,9 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
                     end if
                  end do
               else
-                 ! Period full: drain the rest of this audio frame to /dev/null
-                 take_bytes = min(body_left, 2 * size(sink))
-                 read(lu, iostat=ios) sink(1 : take_bytes/2)
+                 ! Period full: drain the rest of this audio frame.
+                 take_bytes = min(body_left, size(byte_sink))
+                 read(lu, iostat=ios) byte_sink(1 : take_bytes)
                  if (ios /= 0) then
                     eof_period = .true.; exit
                  end if
@@ -257,8 +285,8 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
               ! drain + skip
               body_left = frame_len
               do while (body_left .gt. 0)
-                 take_bytes = min(body_left, 2 * size(sink))
-                 read(lu, iostat=ios) sink(1 : take_bytes/2)
+                 take_bytes = min(body_left, size(byte_sink))
+                 read(lu, iostat=ios) byte_sink(1 : take_bytes)
                  if (ios /= 0) exit
                  body_left = body_left - take_bytes
               end do
@@ -331,8 +359,8 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
            ! Unknown frame type: drain body
            body_left = frame_len
            do while (body_left .gt. 0)
-              take_bytes = min(body_left, 2 * size(sink))
-              read(lu, iostat=ios) sink(1 : take_bytes/2)
+              take_bytes = min(body_left, size(byte_sink))
+              read(lu, iostat=ios) byte_sink(1 : take_bytes)
               if (ios /= 0) then
                  eof_period = .true.; exit
               end if
@@ -341,10 +369,6 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
         end if
      end do
 
-     write(error_unit,'(a,i0,a,i0,a,i0,a,i0,a,i0,a,i0,a,f0.1)')             &
-          'TRACE pre-decode: k=',k,' mode=',mode,' nmode=',shared_data%params%nmode, &
-          ' nzhsym=',nhsym,' ntol=',shared_data%params%ntol,                  &
-          ' ntr=',shared_data%params%ntr,' tr=',TRperiod
      ! Run decoder if we accumulated any samples this period.
      if (k .gt. 0) then
         shared_data%params%newdat = .true.
