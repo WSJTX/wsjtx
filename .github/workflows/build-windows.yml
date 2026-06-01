@@ -283,9 +283,15 @@ jobs:
           # wsjtx-<inputs.version>-win64.exe. release.yml's prepare job
           # enforces numeric-base parity; this override covers the
           # suffix gap.
-          cpack -G NSIS -V \
-            -D CPACK_PACKAGE_VERSION="${{ inputs.version }}" \
+          cpack_args=(
+            -G NSIS
+            -D CPACK_PACKAGE_VERSION="${{ inputs.version }}"
             -D CPACK_PACKAGE_FILE_NAME="wsjtx-${{ inputs.version }}-win64"
+          )
+          if [ "${CPACK_VERBOSE:-0}" = "1" ]; then
+            cpack_args+=(-V)
+          fi
+          cpack "${cpack_args[@]}"
           ls -la *.exe
 
       # Self-signed ephemeral signing — the signing step is wired into the

@@ -142,6 +142,7 @@ if (APPLE OR WIN32)
       )
 
     set (gp_tool "objdump")	# we want MinGW tool - not MSVC (See GetPrerequisites.cmake)
+    set (fixup_ignore_items api-ms-win-core-synch-l1-2-0.dll)
 
   INSTALL (CODE "
         get_filename_component (the_path \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${WSJT_PLUGIN_DESTINATION}\" REALPATH)
@@ -150,9 +151,10 @@ if (APPLE OR WIN32)
         set (BU_CHMOD_BUNDLE_ITEMS ON)
         set (gp_tool ${gp_tool})
         set (fixup_exes \"${fixup_exes}\")
+        set (fixup_ignore_items \"${fixup_ignore_items}\")
         foreach (the_exe_path IN LISTS fixup_exes)
           get_filename_component (the_exe \"\${the_exe_path}\" REALPATH)
-          fixup_bundle (\"\${the_exe}\" \"\${QTPLUGINS}\" \"${fixup_library_dirs}\")
+          fixup_bundle (\"\${the_exe}\" \"\${QTPLUGINS}\" \"${fixup_library_dirs}\" IGNORE_ITEM \${fixup_ignore_items})
         endforeach ()"
     #COMPONENT runtime
     )
