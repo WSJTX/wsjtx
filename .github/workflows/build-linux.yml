@@ -122,7 +122,7 @@ jobs:
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
             -DWSJT_SKIP_MANPAGES=ON \
             -DWSJT_ENABLE_TESTS=ON \
-            -DWSJT_FORTRAN_VARIANTS=OPENMP_ONLY \
+            -DWSJT_FORTRAN_LIBRARY_VARIANTS=OPENMP_ONLY \
             -DPFUNIT_DIR="${{ steps.pfunit.outputs.dir }}" \
             -Wno-dev
 
@@ -132,6 +132,59 @@ jobs:
       - name: Show ccache stats
         if: always()
         run: ccache --show-stats
+
+      # Configure sweep across the Fortran-variant matrix with MAP65 enabled.
+      # Sentinel target builds keep central Fortran linkage covered without
+      # duplicating the full main build across every variant.
+      - name: Configure-matrix (Fortran variants × MAP65)
+        if: inputs.arch == 'x86_64'
+        run: |
+          fail=0
+          for variant in AUTO BOTH OPENMP_ONLY NON_OPENMP_ONLY; do
+            echo "::group::configure WSJT_FORTRAN_LIBRARY_VARIANTS=${variant} (MAP65 enabled)"
+            rm -rf "cfgmatrix-${variant}"
+            if cmake -S . -B "cfgmatrix-${variant}" \
+                 -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/hamlib-prefix;${GITHUB_WORKSPACE}/pfunit-prefix" \
+                 -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+                 -DWSJT_SKIP_MANPAGES=ON \
+                 -DWSJT_FORTRAN_LIBRARY_VARIANTS="${variant}" \
+                 -DPFUNIT_DIR="${{ steps.pfunit.outputs.dir }}" \
+                 -Wno-dev; then
+              echo "configure OK: ${variant}"
+            else
+              echo "::error::configure FAILED for WSJT_FORTRAN_LIBRARY_VARIANTS=${variant} with MAP65 enabled"
+              fail=1
+            fi
+            echo "::endgroup::"
+
+            case "${variant}" in
+              AUTO|NON_OPENMP_ONLY)
+                echo "::group::sentinel build WSJT_FORTRAN_LIBRARY_VARIANTS=${variant}"
+                if cmake --build "cfgmatrix-${variant}" \
+                     --target jt65sim m65impl qmap_impl test_jtty_pack \
+                     -j$(nproc); then
+                  echo "sentinel build OK: ${variant}"
+                else
+                  echo "::error::sentinel build FAILED for WSJT_FORTRAN_LIBRARY_VARIANTS=${variant}"
+                  fail=1
+                fi
+                echo "::endgroup::"
+                ;;
+            esac
+          done
+          exit $fail
+
+      - name: Configure deprecated MAP65 skip path
+        if: inputs.arch == 'x86_64'
+        run: |
+          cmake -S . -B cfgmatrix-skip-map65-openmp-only \
+            -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/hamlib-prefix;${GITHUB_WORKSPACE}/pfunit-prefix" \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DWSJT_SKIP_MANPAGES=ON \
+            -DWSJT_SKIP_MAP65=ON \
+            -DWSJT_FORTRAN_LIBRARY_VARIANTS=OPENMP_ONLY \
+            -DPFUNIT_DIR="${{ steps.pfunit.outputs.dir }}" \
+            -Wno-dev
 
       - name: Run tests
         id: ctest

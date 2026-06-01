@@ -105,27 +105,17 @@ if (WIN32 AND WSJT_CREATE_WINMAIN)
   target_compile_definitions(map65 PRIVATE MAP_GUI_SUBSYSTEM)
   endif()
 
-# Create wsjtx_dir.txt on all platforms
-  install (
-    CODE "get_filename_component (_path \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/wsjtx_dir.txt\" REALPATH)
+# map65 itself is installed by the top-level CMakeLists.txt with the other
+# primary executables; this file only emits its runtime directory hint.
+install (
+  CODE "get_filename_component (_path \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/wsjtx_dir.txt\" REALPATH)
   if (WIN32)
     set (_separator \"\\\\\")
   else ()
     set (_separator \"/\")
   endif ()
   file (WRITE \"\${_path}\" \".\${_separator}\\n\")"
-    )
-    
-  if(APPLE)
-    install(TARGETS map65
-        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    )
-  else()
-    install(TARGETS map65
-        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
-    )
-  endif()
-
+  )
 
 
 

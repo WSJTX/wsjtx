@@ -17,6 +17,10 @@ if (APPLE OR WIN32)
 
   # if a system Qt is used (e.g. installed in /usr/lib/), it will not be included in the installation
   set (fixup_exe "\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/${CMAKE_PROJECT_NAME}${CMAKE_EXECUTABLE_SUFFIX}")
+  set (fixup_exes "${fixup_exe}")
+  if (NOT WSJT_SKIP_MAP65)
+    list (APPEND fixup_exes "\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/map65${CMAKE_EXECUTABLE_SUFFIX}")
+  endif ()
 
   #get_filename_component (hamlib_lib_dir ${Hamlib_LIBRARIES} PATH)
 
@@ -145,9 +149,11 @@ if (APPLE OR WIN32)
         include (BundleUtilities)
         set (BU_CHMOD_BUNDLE_ITEMS ON)
         set (gp_tool ${gp_tool})
-        # canonicalize path in install context
-        get_filename_component (the_exe ${fixup_exe} REALPATH)
-        fixup_bundle (\"\${the_exe}\" \"\${QTPLUGINS}\" \"${fixup_library_dirs}\")"
+        set (fixup_exes \"${fixup_exes}\")
+        foreach (the_exe_path IN LISTS fixup_exes)
+          get_filename_component (the_exe \"\${the_exe_path}\" REALPATH)
+          fixup_bundle (\"\${the_exe}\" \"\${QTPLUGINS}\" \"${fixup_library_dirs}\")
+        endforeach ()"
     #COMPONENT runtime
     )
   endif (WIN32)

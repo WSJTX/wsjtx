@@ -179,23 +179,11 @@ set_source_files_properties(stdout_channel_mod.f90 PROPERTIES
     Fortran_PREPROCESS ON
 )
 
-# Link MAP65 against the Fortran variant that was actually built. Drive this
-# off WSJT_BUILD_FORTRAN_OPENMP rather than the platform: the Windows CI builds
-# WSJT_FORTRAN_VARIANTS=OPENMP_ONLY (only wsjt_fort_omp exists, with its modules
-# in fortran_modules_omp), so hardcoding wsjt_fort there left timer_module.mod
-# unbuilt/off the search path. macOS forbids OPENMP_ONLY, so it stays non-OpenMP.
-if (APPLE)
-    # macOS: non-OpenMP variant (OPENMP_ONLY is unsupported on macOS)
-    target_link_libraries(m65impl PUBLIC Qt5::Core wsjt_fort wsjt_cxx)
-elseif (WSJT_BUILD_FORTRAN_OPENMP)
-    # Linux and Windows: OpenMP variant
-    target_link_libraries(m65impl PUBLIC Qt5::Core wsjt_fort_omp wsjt_cxx)
-else ()
-    target_link_libraries(m65impl PUBLIC Qt5::Core wsjt_fort wsjt_cxx)
-endif ()
-
-
-#target_link_libraries (m65impl wsjt_fort wsjt_cxx Qt5::Core)
+# MAP65 should not choose between wsjt_fort and wsjt_fort_omp locally. The
+# common interface target keeps the variant policy in one place and still
+# resolves to wsjt_fort_omp when OPENMP_ONLY leaves no non-OpenMP library.
+target_link_libraries (m65impl PUBLIC Qt5::Core)
+wsjt_link_common_fortran (m65impl)
 
 if (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4)
     target_compile_definitions(m65impl PRIVATE _WIN32)

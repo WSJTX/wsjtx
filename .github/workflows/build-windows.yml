@@ -185,7 +185,7 @@ jobs:
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
             -DWSJT_SKIP_MANPAGES=ON \
             -DWSJT_ENABLE_TESTS=ON \
-            -DWSJT_FORTRAN_VARIANTS=OPENMP_ONLY \
+            -DWSJT_FORTRAN_LIBRARY_VARIANTS=OPENMP_ONLY \
             -DPFUNIT_DIR="${{ steps.pfunit.outputs.pfunit_dir }}" \
             -DGFTL_DIR="${{ steps.pfunit.outputs.gftl_dir }}" \
             -DGFTL_SHARED_DIR="${{ steps.pfunit.outputs.gftl_shared_dir }}" \
@@ -226,12 +226,47 @@ jobs:
           path: wsjtx-build/ctest-results.xml
           if-no-files-found: ignore
 
+      # MAP65 builds by default again. Under OPENMP_ONLY, m65impl resolves
+      # wsjt_fort_common to wsjt_fort_omp, so this keeps the Windows Fortran
+      # linkage covered by CI.
       - name: Verify binary
         run: |
           file wsjtx-build/jt9.exe
+          file wsjtx-build/map65/map65.exe
+          test -f wsjtx-build/map65/map65.exe
 
-      # Emit an NSIS installer containing the full CLI tool set
-      # (wsjtx.exe, jt9, wsprd, fmtave, fcal, fmeasure + WSJT_BUILD_UTILS
+      # Install to a staging prefix so bundle_fixup runs: its install(CODE)
+      # step copies Qt and dependent runtime DLLs next to the installed
+      # executables, making bin/ self-contained. Build-tree binaries are NOT
+      # self-contained (they resolve Qt/libgfortran/libgomp via /mingw64/bin),
+      # so the launch check below must run against the staged install, not the
+      # build tree — otherwise it would fail for binaries that ship fine.
+      - name: Stage install (runs bundle_fixup)
+        run: |
+          WORKSPACE=$(cygpath "${GITHUB_WORKSPACE}")
+          cmake --install wsjtx-build --prefix "${WORKSPACE}/stage-main"
+          ls -la "${WORKSPACE}/stage-main/bin"
+
+      - name: Audit staged runtime DLL imports
+        run: |
+          WORKSPACE=$(cygpath "${GITHUB_WORKSPACE}")
+          test -f "${WORKSPACE}/stage-main/bin/map65.exe"
+          bash .github/scripts/audit-staged-dll-imports-windows.sh \
+            "${WORKSPACE}/stage-main/bin" \
+            "${WORKSPACE}/stage-main/bin/map65.exe" \
+            "${WORKSPACE}/stage-main/bin/wsjtx.exe" \
+            "${WORKSPACE}/stage-main/bin/jt9.exe"
+
+      # Launch only the CLI decoder with /mingw64/bin removed from PATH. GUI
+      # applications may block in their event loops or require display state, so
+      # their package-critical DLL coverage comes from the import audit above.
+      - name: Smoke-launch staged jt9 (clean PATH)
+        run: |
+          WORKSPACE=$(cygpath "${GITHUB_WORKSPACE}")
+          .github/scripts/smoke-launch-windows.sh "${WORKSPACE}/stage-main/bin/jt9.exe" --help
+
+      # Emit an NSIS installer containing the full executable set
+      # (wsjtx.exe, map65.exe, jt9, wsprd, fmtave, fcal, fmeasure + WSJT_BUILD_UTILS
       # ft8code/jt65code/... + rigctl wrappers + Qt runtime via bundle_fixup).
       # CMakeLists.txt:1989-1990 sets CPACK_GENERATOR=NSIS on WIN32 and
       # CPACK_MONOLITHIC_INSTALL=1 packages every install() target.
