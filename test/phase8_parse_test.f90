@@ -32,6 +32,7 @@ program p8_parse_test
   call frame_F()
   call frame_G()
   call frame_H()
+  call frame_H2()
   call frame_I()
 
   write(*,'(a)') '------------------------------------------------------------'
@@ -233,6 +234,19 @@ contains
     call ok('mycall == n_trials',     cfg%mycall_set .and. trim(cfg%mycall) .eq. 'n_trials')
     call ok('n_trials stays UNSET',   .not. cfg%n_trials_set)
   end subroutine frame_H
+
+  subroutine frame_H2()
+    type(configure_fields)   :: cfg
+    type(control_type_error) :: terr
+    integer :: action
+    character(len=*), parameter :: b =                                       &
+      '{"t":"configure","mycall":"n_trials","n_trials":1000}'
+    write(*,'(a)') 'Frame H2: value token before real n_trials key'
+    call parse_control_frame(b, action, cfg, terr)
+    call ok('terr not present',       .not. terr%present)
+    call ok('mycall == n_trials',     cfg%mycall_set .and. trim(cfg%mycall) .eq. 'n_trials')
+    call ok('n_trials parsed',        cfg%n_trials_set .and. cfg%n_trials_nranera .eq. 6)
+  end subroutine frame_H2
 
   ! Frame I: Phase 8 keys absent -> all unset, no error (keys are optional).
   subroutine frame_I()

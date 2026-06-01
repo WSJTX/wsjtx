@@ -1302,20 +1302,13 @@ contains
     character(len=*), intent(in)  :: buf, key
     character(len=*), intent(out) :: val
     logical,          intent(out) :: ok
-    integer :: kpos, vstart, vend, blen
+    integer :: vstart, vend, blen
+    logical :: found
 
     val = ' '
     ok  = .false.
-    blen = len_trim(buf)
-    kpos = index(buf(1:blen), key)
-    if (kpos .eq. 0) return
-    vstart = kpos + len_trim(key)
-    ! skip ':' and whitespace
-    do while (vstart .le. blen .and. (buf(vstart:vstart) .eq. ':' .or.    &
-                                       buf(vstart:vstart) .eq. ' '))
-       vstart = vstart + 1
-    end do
-    if (vstart .gt. blen) return
+    call find_key_(buf, key, vstart, blen, found)
+    if (.not. found) return
     if (buf(vstart:vstart) .ne. '"') return
     vstart = vstart + 1
     vend = index(buf(vstart:blen), '"')
@@ -1330,20 +1323,14 @@ contains
     character(len=*), intent(in)  :: buf, key
     integer,          intent(out) :: val
     logical,          intent(out) :: ok
-    integer :: kpos, vstart, vend, blen, ios
+    integer :: vstart, vend, blen, ios
     character :: ch
+    logical :: found
 
     val = 0
     ok  = .false.
-    blen = len_trim(buf)
-    kpos = index(buf(1:blen), key)
-    if (kpos .eq. 0) return
-    vstart = kpos + len_trim(key)
-    do while (vstart .le. blen .and. (buf(vstart:vstart) .eq. ':' .or.    &
-                                       buf(vstart:vstart) .eq. ' '))
-       vstart = vstart + 1
-    end do
-    if (vstart .gt. blen) return
+    call find_key_(buf, key, vstart, blen, found)
+    if (.not. found) return
     if (buf(vstart:vstart) .eq. '"') return  ! string, not int
     vend = vstart
     do while (vend .le. blen)
@@ -1361,20 +1348,14 @@ contains
     character(len=*), intent(in)  :: buf, key
     real(8),          intent(out) :: val
     logical,          intent(out) :: ok
-    integer :: kpos, vstart, vend, blen, ios
+    integer :: vstart, vend, blen, ios
     character :: ch
+    logical :: found
 
     val = 0.d0
     ok  = .false.
-    blen = len_trim(buf)
-    kpos = index(buf(1:blen), key)
-    if (kpos .eq. 0) return
-    vstart = kpos + len_trim(key)
-    do while (vstart .le. blen .and. (buf(vstart:vstart) .eq. ':' .or.    &
-                                       buf(vstart:vstart) .eq. ' '))
-       vstart = vstart + 1
-    end do
-    if (vstart .gt. blen) return
+    call find_key_(buf, key, vstart, blen, found)
+    if (.not. found) return
     if (buf(vstart:vstart) .eq. '"') return
     vend = vstart
     do while (vend .le. blen)
@@ -1396,20 +1377,14 @@ contains
     character(len=*), intent(in)  :: buf, key
     logical,          intent(out) :: val
     logical,          intent(out) :: ok
-    integer   :: kpos, vstart, blen
+    integer   :: vstart, blen
     character :: ch
+    logical   :: found
 
     val = .false.
     ok  = .false.
-    blen = len_trim(buf)
-    kpos = index(buf(1:blen), key)
-    if (kpos .eq. 0) return
-    vstart = kpos + len_trim(key)
-    do while (vstart .le. blen .and. (buf(vstart:vstart) .eq. ':' .or.    &
-                                       buf(vstart:vstart) .eq. ' '))
-       vstart = vstart + 1
-    end do
-    if (vstart .gt. blen) return
+    call find_key_(buf, key, vstart, blen, found)
+    if (.not. found) return
     ch = buf(vstart:vstart)
     if (ch .eq. 't') then
        val = .true.;  ok = .true.
