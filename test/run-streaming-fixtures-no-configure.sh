@@ -2,7 +2,7 @@
 # Streaming-fixture regression harness — no-configure-frame variant.
 #
 # Exercises the CLI-arg threading path through init_default_params.
-# Sends WSJL header + audio frames + halt to jt9 --stream
+# Sends WSJT header + audio frames + halt to jt9 --stream
 # WITHOUT a configure frame; jt9 reads its decode parameters from the
 # CLI flags supplied to the binary directly.
 #

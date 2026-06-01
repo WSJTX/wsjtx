@@ -42,7 +42,7 @@ program jt9
     option ('help', .false., 'h', 'Display this help message', ''),          &
     option ('shmem',.true.,'s','Use shared memory for sample data','KEY'),   &
     option ('stream', .false., '0',                                          &
-        'Read PCM samples from stdin (length-prefixed framing per v2 plan §5.1)', &
+        'Read framed PCM samples from stdin',                                &
         ''),                                                                 &
     option ('tr-period', .true., 'p', 'Tx/Rx period, default SECONDS=60',    &
         'SECONDS'),                                                          &
@@ -236,7 +236,7 @@ program jt9
      print *, '       Gets data from shared memory region with key==<key>'
      print *, ''
      print *, '       cat <pcm-stream> | jt9 --stream'
-     print *, '       Reads PCM frames from stdin (v2 plan §5.1 framing). W-2 skeleton.'
+     print *, '       Reads framed PCM samples from stdin.'
      print *, ''
      print *, 'OPTIONS:'
      print *, ''
@@ -264,10 +264,8 @@ program jt9
 
   if (.not. read_files) then
      if (stream_mode) then
-        ! Streaming subprocess mode (v2 plan §5.1). Mirror the WAV path's
-        ! shared_data setup, then hand off to the streaming reader. W-3.5
-        ! supports all jt9-internal modes (FT8/FT4/JT9/JT65/JT4/FST4/Q65/
-        ! MSK144). W-4 will add the runtime configure-frame for mode/freq.
+        ! Streaming subprocess mode. Mirror the WAV path's shared_data setup,
+        ! then hand off to the streaming reader.
         if (mode .eq. 0) then
            mode = 8                            ! default: FT8
            if (TRperiod .eq. 60.d0) TRperiod = 15.d0
@@ -302,9 +300,7 @@ program jt9
         call init_timer (trim(data_dir)//'/timer.out')
         shared_data%id2 = 0
 
-        ! Factored params init (PR2 / wsjt-l #7). Common-subset first, then
-        ! streaming-extras (the fields the stream-mode arm sets beyond what
-        ! WAV path sets pre-refactor).
+        ! Common params first, then streaming-only fields.
         args = cli_args_t(                                                     &
              flow=flow, fsplit=fsplit, fhigh=fhigh, nrxfreq=nrxfreq,            &
              ndepth=ndepth, ntol=ntol, nQSOProg=nQSOProg,                      &
@@ -415,9 +411,7 @@ program jt9
      ! through the args bundle.
      if (mode.eq.164 .and. nsubmode.lt.100) nsubmode = nsubmode + 100
 
-     ! Factored params init (PR2 / wsjt-l #7). Common-subset only — the
-     ! pre-refactor WAV path didn't set the streaming-extra fields, and
-     ! we preserve that scope to keep run-golden-fixtures.sh byte-identical.
+     ! WAV mode initializes only fields historically set by this path.
      args = cli_args_t(                                                    &
           flow=flow, fsplit=fsplit, fhigh=fhigh, nrxfreq=nrxfreq,           &
           ndepth=ndepth, ntol=ntol, nQSOProg=nQSOProg,                     &

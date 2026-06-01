@@ -37,8 +37,8 @@ FRAME_CONTROL = 0x02
 CHUNK_SAMPLES = 12000
 
 
-def wsjl_session_header(rate_khz: int = 12) -> bytes:
-    return b"WSJL" + bytes([0, 1]) + struct.pack("<H", rate_khz)
+def wsjt_session_header(rate_khz: int = 12) -> bytes:
+    return b"WSJT" + bytes([0, 1]) + struct.pack("<H", rate_khz)
 
 
 def frame(type_byte: int, body: bytes) -> bytes:
@@ -119,7 +119,7 @@ def main() -> int:
     )
 
     try:
-        proc.stdin.write(wsjl_session_header())
+        proc.stdin.write(wsjt_session_header())
         proc.stdin.write(frame(
             FRAME_CONTROL,
             configure_json(date, uttime, args.dialfreq, args.wspr_type,

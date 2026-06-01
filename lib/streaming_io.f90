@@ -1,7 +1,7 @@
 ! Streaming I/O — framed audio + control on stdin.
 !
 ! Reads framed messages from stdin. After a
-! one-time 8-byte WSJL session header (4-byte magic 'WSJL' + 1-byte fmt
+! one-time 8-byte WSJT session header (4-byte magic 'WSJT' + 1-byte fmt
 ! + 1-byte channels + 2-byte rate_kHz LE), stdin carries a sequence of
 ! frames:
 !
@@ -64,9 +64,10 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   integer, parameter :: FRAME_AUDIO   = 1
   integer, parameter :: FRAME_CONTROL = 2
   integer, parameter :: CTL_BUF_LEN = 1024
+  ! 4-byte session magic "WSJT" (W=0x57 S=0x53 J=0x4A T=0x54)
   integer(int8), parameter :: MAGIC(4) = [                                 &
        int(z'57', int8), int(z'53', int8),                                 &
-       int(z'4A', int8), int(z'4C', int8) ]
+       int(z'4A', int8), int(z'54', int8) ]
 
   integer :: lu, ios, fmt, ch, rate_khz
   integer(int8)  :: hdr(HDR_LEN), type_byte, len_bytes(4)
@@ -77,7 +78,8 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   real    :: pxdb, df3, pxdbmax, s(NSMAX)
   integer :: npct_unused
   integer :: body_left, take_bytes, take_samples
-  integer(int16) :: chunk(4096), sink(4096)
+  integer(int16) :: chunk(4096)
+  integer(int8)  :: byte_sink(4096)
   ! FT8 progressive-decode working buffer (mirrors jt9.f90:19's id2a) — the
   ! FT8 decoder's `dd` array is populated only on nzhsym <= 47 calls, so we
   ! mirror the WAV path's 41/47/50 call cadence with a working copy zeroed
@@ -131,8 +133,8 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   end if
 
   if (any(hdr(1:4) /= MAGIC)) then
-     call streaming_emit_error('bad magic (expected ''WSJL'')')
-     write(error_unit, '(a)') 'jt9 --stream: bad magic (expected ''WSJL'')'
+     call streaming_emit_error('bad magic (expected ''WSJT'')')
+     write(error_unit, '(a)') 'jt9 --stream: bad magic (expected ''WSJT'')'
      close(lu); stop 1
   end if
 
@@ -144,6 +146,20 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
      call streaming_emit_error('unsupported format (only fmt=0 int16 PCM supported)')
      write(error_unit, '(a,i0,a)')                                         &
           'jt9 --stream: unsupported fmt=', fmt, ' (only int16 PCM supported)'
+     close(lu); stop 1
+  end if
+
+  if (ch /= 1) then
+     call streaming_emit_error('unsupported channel count (only mono supported)')
+     write(error_unit, '(a,i0,a)')                                         &
+          'jt9 --stream: unsupported channels=', ch, ' (only mono supported)'
+     close(lu); stop 1
+  end if
+
+  if (rate_khz /= 12) then
+     call streaming_emit_error('unsupported sample rate (only 12 kHz supported)')
+     write(error_unit, '(a,i0,a)')                                         &
+          'jt9 --stream: unsupported rate=', rate_khz, ' kHz (only 12 kHz supported)'
      close(lu); stop 1
   end if
 
@@ -210,6 +226,19 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
         end if
 
         if (iand(int(type_byte), 255) .eq. FRAME_AUDIO) then
+           if (mod(frame_len, 2_int32) /= 0) then
+              call streaming_emit_error('odd audio frame length')
+              body_left = frame_len
+              do while (body_left .gt. 0)
+                 take_bytes = min(body_left, size(byte_sink))
+                 read(lu, iostat=ios) byte_sink(1 : take_bytes)
+                 if (ios /= 0) then
+                    eof_period = .true.; exit
+                 end if
+                 body_left = body_left - take_bytes
+              end do
+              cycle
+           end if
            body_left = frame_len
            do while (body_left .gt. 0)
               if (k .lt. npts) then
@@ -240,9 +269,9 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
                     end if
                  end do
               else
-                 ! Period full: drain the rest of this audio frame to /dev/null
-                 take_bytes = min(body_left, 2 * size(sink))
-                 read(lu, iostat=ios) sink(1 : take_bytes/2)
+                 ! Period full: drain the rest of this audio frame.
+                 take_bytes = min(body_left, size(byte_sink))
+                 read(lu, iostat=ios) byte_sink(1 : take_bytes)
                  if (ios /= 0) then
                     eof_period = .true.; exit
                  end if
@@ -257,8 +286,8 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
               ! drain + skip
               body_left = frame_len
               do while (body_left .gt. 0)
-                 take_bytes = min(body_left, 2 * size(sink))
-                 read(lu, iostat=ios) sink(1 : take_bytes/2)
+                 take_bytes = min(body_left, size(byte_sink))
+                 read(lu, iostat=ios) byte_sink(1 : take_bytes)
                  if (ios /= 0) exit
                  body_left = body_left - take_bytes
               end do
@@ -331,8 +360,8 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
            ! Unknown frame type: drain body
            body_left = frame_len
            do while (body_left .gt. 0)
-              take_bytes = min(body_left, 2 * size(sink))
-              read(lu, iostat=ios) sink(1 : take_bytes/2)
+              take_bytes = min(body_left, size(byte_sink))
+              read(lu, iostat=ios) byte_sink(1 : take_bytes)
               if (ios /= 0) then
                  eof_period = .true.; exit
               end if
@@ -341,10 +370,6 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
         end if
      end do
 
-     write(error_unit,'(a,i0,a,i0,a,i0,a,i0,a,i0,a,i0,a,f0.1)')             &
-          'TRACE pre-decode: k=',k,' mode=',mode,' nmode=',shared_data%params%nmode, &
-          ' nzhsym=',nhsym,' ntol=',shared_data%params%ntol,                  &
-          ' ntr=',shared_data%params%ntr,' tr=',TRperiod
      ! Run decoder if we accumulated any samples this period.
      if (k .gt. 0) then
         shared_data%params%newdat = .true.

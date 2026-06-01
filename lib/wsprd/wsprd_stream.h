@@ -22,7 +22,7 @@ void wsprd_stream_emit_decode(const char *date, const char *uttime,
 void wsprd_stream_emit_decode_finished(const char *date, const char *uttime);
 void wsprd_stream_emit_error(const char *msg);
 
-// Reads WSJL header + frames from stdin until halt or EOF. On success,
+// Reads WSJT header + frames from stdin until halt or EOF. On success,
 // populates *cfg and the supplied I/Q buffers (idat/qdat must hold
 // at least 46080 floats each). Returns the number of complex samples
 // populated (nfft2 = 46080), or 1 on protocol error.

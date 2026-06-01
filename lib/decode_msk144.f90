@@ -55,12 +55,10 @@ subroutine decode_msk144(audio_samples, params, data_dir)
     end if
   end do
 
-  if (.not. params%ndiskdat) then
-    if (streaming_emit_enabled()) then
-       call streaming_emit_decode_finished(params%nutc)
-    else
-       write(*, 1002) 0, message_count, 0
-    end if
+  if (streaming_emit_enabled()) then
+    call streaming_emit_decode_finished(params%nutc)
+  else if (.not. params%ndiskdat) then
+    write(*, 1002) 0, message_count, 0
     1002 format('<DecodeFinished>', 2i4, i9)
   end if
 
