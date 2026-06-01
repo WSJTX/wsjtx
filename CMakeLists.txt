@@ -166,6 +166,7 @@ option (WSJT_BUILD_UTILS "Build simulators and code demonstrators." ON)
 option (WSJT_FOX_OTP "Enable Fox OTP Verification Messages." ON)
 option (WSJT_SKIP_MAP65 "Skip building MAP65 EME decoder (legacy Fortran; fails on GCC 15)." OFF)
 option (WSJT_ENABLE_TESTS "Enable developer tests." ON)
+option (WSJT_BUILD_JT9STREAM "Build the Qt-free streaming decoder jt9stream alongside jt9 (uses the jt9a stub, never links fort_qt)." ON)
 set (WSJT_FORTRAN_VARIANTS "AUTO" CACHE STRING
   "Fortran library variants to build: AUTO, BOTH, OPENMP_ONLY, or NON_OPENMP_ONLY.")
 set_property (CACHE WSJT_FORTRAN_VARIANTS PROPERTY STRINGS
@@ -322,6 +323,17 @@ set (wsjt_qtmm_CXXSRCS
 set (jt9_FSRCS
   lib/jt9.f90
   lib/jt9a.f90
+  lib/streaming_io.f90
+  lib/stream_setmode.c   # Windows stdin binary-mode helper (no-op on POSIX)
+  )
+
+# jt9stream sources: the Qt-free streaming decoder (B2). Same jt9.f90 main as
+# jt9 but ALWAYS the jt9a stub (hard-coded, not jt9a.f90) so it links zero Qt.
+set (jt9stream_FSRCS
+  lib/jt9.f90
+  lib/jt9a_stub.f90
+  lib/streaming_io.f90
+  lib/stream_setmode.c   # Windows stdin binary-mode helper (no-op on POSIX)
   )
 
 set (wsjtx_CXXSRCS
@@ -400,6 +412,10 @@ set (wsjt_FSRCS
   lib/fftw3mod.f90
   lib/hashing.f90
   lib/iso_c_utilities.f90
+  lib/streaming_emit.f90
+  lib/streaming_control.f90
+  lib/jt9_params_init.f90
+  lib/streaming_apply.f90
   lib/jt4.f90
   lib/jt4_decode.f90
   lib/jt65_decode.f90
@@ -832,6 +848,7 @@ set (wsprd_CSRCS
   lib/wsprd/tab.c
   lib/wsprd/nhash.c
   lib/init_random_seed.c
+  lib/wsprd/wsprd_stream.c
   )
 
 set (wsjtx_UISRCS
@@ -1777,6 +1794,57 @@ else ()
   target_link_libraries (jt9 wsjt_fort wsjt_cxx fort_qt)
 endif ()
 
+# build jt9stream: the Qt-free streaming decoder (B2). Same jt9.f90 main as jt9,
+# but ALWAYS compiled with the jt9a stub and NEVER linked against fort_qt, so it
+# links zero Qt. Mirrors develop's jt9 OpenMP/APPLE/WIN32 structure exactly.
+if (WSJT_BUILD_JT9STREAM)
+  generate_version_info (jt9stream_VERSION_RESOURCES
+    NAME jt9stream
+    BUNDLE ${PROJECT_BUNDLE_NAME}
+    ICON ${WSJTX_ICON_FILE}
+    FILE_DESCRIPTION "jt9stream - WSJT-X Qt-free streaming decoder"
+    )
+  add_executable (jt9stream ${jt9stream_FSRCS} ${jt9stream_VERSION_RESOURCES})
+  # jt9stream shares jt9's Fortran module directory (fortran_modules_omp) so it
+  # can READ the modules emitted by wsjt_fort_omp (streaming_emit, etc.). jt9.f90
+  # is a program and streaming_io.f90's jt9_stream is a bare subroutine, so this
+  # target emits no .mod of its own — sharing the dir is collision-free.
+  if (WSJT_BUILD_FORTRAN_OPENMP)
+    if (APPLE)
+      set_target_properties (jt9stream
+        PROPERTIES
+        Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/fortran_modules_omp
+        LINK_LIBRARIES "gomp;gcc_s.1" # assume GNU libgcc OpenMP
+        )
+      target_compile_options (jt9stream
+        PRIVATE
+        $<$<COMPILE_LANGUAGE:Fortran>:${WSJT_OPENMP_FORTRAN_FLAGS}>
+        )
+    else (APPLE)
+      if (WSJT_OPENMP_FORTRAN_FLAGS AND NOT TARGET OpenMP::OpenMP_Fortran)
+        set_target_properties (jt9stream
+          PROPERTIES
+          COMPILE_FLAGS "${WSJT_OPENMP_FORTRAN_FLAGS}"
+          LINK_FLAGS "${WSJT_OPENMP_FORTRAN_FLAGS}"
+          )
+      endif ()
+      set_target_properties (jt9stream
+        PROPERTIES
+        Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/fortran_modules_omp
+        )
+    endif (APPLE)
+    if (WIN32)
+      set_target_properties (jt9stream PROPERTIES
+        LINK_FLAGS -Wl,--stack,16777216
+        )
+    endif ()
+    target_link_libraries (jt9stream wsjt_fort_omp wsjt_cxx)
+  else ()
+    target_link_libraries (jt9stream wsjt_fort wsjt_cxx)
+  endif ()
+  # jt9stream NEVER links fort_qt — that is the Qt-free guarantee.
+endif (WSJT_BUILD_JT9STREAM)
+
   if (NOT WSJT_SKIP_MAP65)
 # if (NOT APPLE)
   find_package (Portaudio REQUIRED)
@@ -1974,6 +2042,13 @@ install (TARGETS jt9 wsprd fmtave fcal fmeasure
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   )
+
+if (WSJT_BUILD_JT9STREAM)
+  install (TARGETS jt9stream
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
+    BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
+    )
+endif (WSJT_BUILD_JT9STREAM)
 
 install (TARGETS qmap
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime

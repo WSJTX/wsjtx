@@ -11,6 +11,8 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   use ft4_decode
   use fst4_decode
   use q65_decode
+  use streaming_emit, only: streaming_emit_enabled,                       &
+       streaming_emit_decode, streaming_emit_decode_finished
 
 !ft8md added 3 uses below
   use ft8_mod1, only : ndecodes,allmessages,allsnrs,allfreq,mycall12_0,         &
@@ -1399,8 +1401,12 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   if(params%nmode.ne.8 .or. params%nzhsym.eq.50 .or. &
        (params%lmultift8 .and. params%nmode.eq.8 .and. params%nzhsym.gt.45) .or. &
        .not.params%ndiskdat) then !ft8md
-     if(.not.lquiet) write(*,1010) nsynced,ndecoded,navg0
-1010 format('<DecodeFinished>',2i4,i9)
+     if (streaming_emit_enabled()) then
+        call streaming_emit_decode_finished(params%nutc)
+     else if(.not.lquiet) then
+        write(*,1010) nsynced,ndecoded,navg0
+1010    format('<DecodeFinished>',2i4,i9)
+     end if
      call flush(6)
   endif
   close(13)
@@ -1447,11 +1453,15 @@ contains
              if(cflags(1:1).eq.'f') cflags=cflags(1:1)//cflags(3:3)//' '
           endif
        endif
-       write(*,1000) params%nutc,snr,dt,freq,sync,decoded,cflags
-1000   format(i4.4,i4,f5.1,i5,1x,'$',a1,1x,a22,1x,a3)
+       if (streaming_emit_enabled()) then
+          call streaming_emit_decode("JT4", params%nutc, snr, dt, freq, decoded)
+       else
+          write(*,1000) params%nutc,snr,dt,freq,sync,decoded,cflags
+       end if
     else
-       write(*,1000) params%nutc,snr,dt,freq
+       if (.not. streaming_emit_enabled()) write(*,1000) params%nutc,snr,dt,freq
     end if
+1000 format(i4.4,i4,f5.1,i5,1x,'$',a1,1x,a22,1x,a3)
 
     select type(this)
     type is (counting_jt4_decoder)
@@ -1509,7 +1519,7 @@ contains
     is_deep=ft.eq.2
 
     if(ft.eq.0 .and. minsync.ge.0 .and. int(sync).lt.minsync) then
-       write(*,1010) params%nutc,snr,dt,freq
+       if (.not. streaming_emit_enabled()) write(*,1010) params%nutc,snr,dt,freq
     else
        is_average=nsum.ge.2
        if(bVHF .and. ft.gt.0) then
@@ -1552,7 +1562,11 @@ contains
           cflags(2:2)=cflags(3:3)
           cflags(3:3)=' '
        endif
-       write(*,1010) params%nutc,snr,dt,freq,csync,decoded,cflags
+       if (streaming_emit_enabled()) then
+          call streaming_emit_decode("JT65", params%nutc, snr, dt, freq, decoded)
+       else
+          write(*,1010) params%nutc,snr,dt,freq,csync,decoded,cflags
+       end if
 1010   format(i4.4,i4,f5.1,i5,1x,a2,1x,a22,1x,a3)
     endif
     if(ios13.eq.0) write(13,1012) params%nutc,nint(sync),snr,dt,    &
@@ -1581,7 +1595,11 @@ contains
 
     !$omp critical(decode_results)
 
-    write(*,1000) params%nutc,snr,dt,nint(freq),decoded
+    if (streaming_emit_enabled()) then
+       call streaming_emit_decode("JT9", params%nutc, snr, dt, nint(freq), decoded)
+    else
+       write(*,1000) params%nutc,snr,dt,nint(freq),decoded
+    end if
 1000 format(i4.4,i4,f5.1,i5,1x,'@ ',1x,a22)
     if(ios13.eq.0) write(13,1002) params%nutc,nint(sync),snr,dt,freq,  &
          drift,decoded
@@ -1646,9 +1664,13 @@ contains
        if(qual.lt.0.17) decoded0(37:37)='?'
     endif
 
-    write(*,1000) params%nutc,snr,dt,nint(freq),decoded0,annot
+    if (streaming_emit_enabled()) then
+       call streaming_emit_decode("FT8", params%nutc, snr, dt, nint(freq), decoded0)
+    else
+       write(*,1000) params%nutc,snr,dt,nint(freq),decoded0,annot
+    end if
 1000 format(i6.6,i4,f5.1,i5,' ~ ',1x,a37,1x,a2)
-    
+
     if(ncontest.eq.6) then
        i1=index(decoded0,' ')
        i2=i1 + index(decoded0(i1+1:),' ')
@@ -1747,9 +1769,14 @@ contains
   ! to decide how many chars to print?
   !TEMP
     i0=1
-    if(i0.le.0) write(*,1000) params%nutc,snr,dt,nint(freq),decoded0(1:22),annot
+    if (streaming_emit_enabled()) then
+       if (i0.le.0) call streaming_emit_decode("FT8", params%nutc, snr, dt, nint(freq), decoded0(1:22))
+       if (i0.gt.0) call streaming_emit_decode("FT8", params%nutc, snr, dt, nint(freq), decoded0)
+    else
+       if(i0.le.0) write(*,1000) params%nutc,snr,dt,nint(freq),decoded0(1:22),annot
+       if(i0.gt.0) write(*,1001) params%nutc,snr,dt,nint(freq),decoded0,annot
+    end if
 1000 format(i6.6,i4,f5.1,i5,' ~ ',1x,a22,1x,a2)
-    if(i0.gt.0) write(*,1001) params%nutc,snr,dt,nint(freq),decoded0,annot
 1001 format(i6.6,i4,f5.1,i5,' ~ ',1x,a37,1x,a2)
     if(ios13.eq.0) write(13,1002) params%nutc,nint(sync),snr,dt,freq,0,decoded0
 1002 format(i6.6,i4,i5,f6.1,f8.0,i4,3x,a37,' FT8')
@@ -1822,7 +1849,11 @@ contains
        if(qual.lt.0.17) decoded0(37:37)='?'
     endif
 
-    write(*,1001) params%nutc,snr,dt,nint(freq),decoded0,annot
+    if (streaming_emit_enabled()) then
+       call streaming_emit_decode("FT4", params%nutc, snr, dt, nint(freq), decoded0)
+    else
+       write(*,1001) params%nutc,snr,dt,nint(freq),decoded0,annot
+    end if
 1001 format(i6.6,i4,f5.1,i5,' + ',1x,a37,1x,a2)
 
     if(ios13.eq.0) then
@@ -1888,7 +1919,11 @@ contains
        if(w50.ge.0.95) write(line(65:70),'(f6.2)') w50
     endif
 
-    write(*,1005) line
+    if (streaming_emit_enabled()) then
+       call streaming_emit_decode("FST4", nutc, nsnr, dt, nint(freq), decoded0)
+    else
+       write(*,1005) line
+    end if
 1005 format(a70)
 
     call flush(6)
@@ -1928,12 +1963,20 @@ contains
     endif
 
     if(ntrperiod.lt.60) then
-       write(*,1001) nutc,nsnr,dt,nint(freq),decoded,cflags
+       if (streaming_emit_enabled()) then
+          call streaming_emit_decode("Q65", nutc, nsnr, dt, nint(freq), decoded)
+       else
+          write(*,1001) nutc,nsnr,dt,nint(freq),decoded,cflags
+       end if
 1001   format(i6.6,i4,f5.1,i5,' : ',1x,a37,1x,a3)
        if(ios13.eq.0) write(13,1002) nutc,nint(snr1),nsnr,dt,freq,0,decoded
 1002   format(i6.6,i4,i5,f6.1,f8.0,i4,3x,a37,' Q65')
     else
-       write(*,1003) nutc,nsnr,dt,nint(freq),decoded,cflags
+       if (streaming_emit_enabled()) then
+          call streaming_emit_decode("Q65", nutc, nsnr, dt, nint(freq), decoded)
+       else
+          write(*,1003) nutc,nsnr,dt,nint(freq),decoded,cflags
+       end if
 1003   format(i4.4,i4,f5.1,i5,' : ',1x,a37,1x,a3)
        if(ios13.eq.0) write(13,1004) nutc,nint(snr1),nsnr,dt,freq,0,decoded
 1004   format(i4.4,i4,i5,f6.1,f8.0,i4,3x,a37,' Q65')
