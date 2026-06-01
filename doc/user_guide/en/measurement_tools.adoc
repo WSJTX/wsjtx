@@ -105,15 +105,20 @@ records.
 _(Not yet fully implemented.)_
 
 _WSJT-X_ provides a tool that can be used to determine the detailed
-shape of your receiver's passband. Tune to a quiet frequency with no
-signals or birdies. With _WSJT-X_ running in one of the slow modes and
-*Monitor* active, make sure that *Flatten* is checked on the *Wide
-Graph* and then select *Measure reference spectrum* from the *Tools*
-menu.  Wait for about a minute and then click *Stop*.  A file named
-`refspec.dat` will appear in your log directory and the *Ref Spec*
-checkbox on the *Wide Graph* will become available.  When you check
-*Ref Spec*, the recorded reference spectrum will then be used to
-flatten your overall effective passband.
+shape of your receiver's passband. Use the same receiver, audio input,
+and filter settings you intend to use for receiving. Tune to a quiet
+frequency with no signals or birdies. With _WSJT-X_ running in one of
+the slow modes and *Monitor* active, make sure that *Flatten* is
+checked on the *Wide Graph* and then select *Measure reference
+spectrum* from the *Tools* menu.  Wait for about a minute and then
+click *Stop*.  A file named `refspec.dat` will appear in your log
+directory and the *Ref Spec* checkbox on the *Wide Graph* will become
+available.  When you check *Ref Spec*, the recorded reference spectrum
+will then be used to flatten your overall effective passband. This
+correction is applied to new received audio before spectrum display and
+decoding, so it affects both the Wide Graph display and the data passed
+to decoders. Clearing *Ref Spec* stops applying the correction to
+subsequent received audio.
 
 Select *Erase reference spectrum* from the *Tools* menu to remove the
 saved reference spectrum and stop applying its correction to new
