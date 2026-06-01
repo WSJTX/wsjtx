@@ -42,7 +42,8 @@ work properly, you should restrict the range of displayed frequencies
 so that only the active part of the spectrum is shown.
 
 - Check *Ref Spec* if you are using a pre-computed
-<<REFERENCE_SPECTRUM,Reference Spectrum>>.
+<<REFERENCE_SPECTRUM,Reference Spectrum>>. This control is available
+only when a saved reference spectrum exists.
 
 - Select *Current* or *Cumulative* for the spectrum displayed in the
 bottom one-third of the Wide Graph window.  *Current* is the average

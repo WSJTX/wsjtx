@@ -35,7 +35,16 @@ subroutine refspectrum(id2,bclear,brefspec,buseref,fname)
      xs=0.
      first=.false.
   endif
-  if(bclear) s=0.
+  if(bclear) then
+     s=0.
+     fil=1.0
+     ref=0.0
+     filter=0.0
+     cfil=0.0
+     xs=0.0
+     nsave=0
+     blastuse=.false.
+  endif
 
   if(brefspec) then
      x(0:NH-1)=0.001*id2(1:NH)

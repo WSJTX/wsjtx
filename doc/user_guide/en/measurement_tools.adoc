@@ -102,15 +102,23 @@ records.
 [[REFERENCE_SPECTRUM]]
 === Reference Spectrum
 
+_(Not yet fully implemented.)_
+
 _WSJT-X_ provides a tool that can be used to determine the detailed
 shape of your receiver's passband. Tune to a quiet frequency with no
 signals or birdies. With _WSJT-X_ running in one of the slow modes and
 *Monitor* active, make sure that *Flatten* is checked on the *Wide
 Graph* and then select *Measure reference spectrum* from the *Tools*
 menu.  Wait for about a minute and then click *Stop*.  A file named
-`refspec.dat` will appear in your log directory.  When you check *Ref
-Spec* on the *Wide Graph*, the recorded reference spectrum will then
-be used to flatten your overall effective passband.
+`refspec.dat` will appear in your log directory and the *Ref Spec*
+checkbox on the *Wide Graph* will become available.  When you check
+*Ref Spec*, the recorded reference spectrum will then be used to
+flatten your overall effective passband.
+
+Select *Erase reference spectrum* from the *Tools* menu to remove the
+saved reference spectrum and stop applying its correction to new
+received data. Existing waterfall rows remain on the display until
+they scroll off normally.
 
 === Phase Equalization
 
