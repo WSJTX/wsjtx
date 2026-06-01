@@ -166,6 +166,8 @@ void MainWindow::on_stopButton_clicked()                       //stopButton
   m_loopall=false;
   if(m_bRefSpec) {
     MessageBox::information_message (this, tr ("Reference spectrum saved"));
+    m_wideGraph->setReferenceSpectrumAvailable(
+          QFile::exists(m_config.writeable_data_dir ().absoluteFilePath ("refspec.dat")));
     m_bRefSpec=false;
   }
   if (ui->DX_Call_Button->isChecked()) ui->DX_Call_Button->click ();

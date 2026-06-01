@@ -41,6 +41,8 @@ public:
   void   setSubMode(int n);
   bool   flatten();
   bool   useRef();
+  void   setReferenceSpectrumAvailable(bool available);
+  void   clearReferenceSpectrum(bool reference_spectrum_available);
   void   setTol(int n);
   void   setSuperFox(bool b);
   void   setSuperHound(bool b);

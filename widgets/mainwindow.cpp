@@ -597,6 +597,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect(m_wideGraph.data (), SIGNAL(freezeDecode2(int)),this,SLOT(freezeDecode(int)));
   connect(m_wideGraph.data (), SIGNAL(f11f12(int)),this,SLOT(bumpFqso(int)));
   connect(m_wideGraph.data (), SIGNAL(setXIT2(int)),this,SLOT(setXIT(int)));
+  m_wideGraph->setReferenceSpectrumAvailable(
+        QFile::exists(m_config.writeable_data_dir ().absoluteFilePath ("refspec.dat")));
 
   connect (m_fastGraph.data (), &FastGraph::fastPick, this, &MainWindow::fastPick);
 
@@ -1630,8 +1632,8 @@ void MainWindow::dataSink(qint64 frames)
   if(!m_diskData) {
     refspectrum_(&dec_data.d2[k-m_nsps/2],&m_bClearRefSpec,&m_bRefSpec,
                  &m_bUseRef, fname.constData (), (FCL)fname.size ());
+    m_bClearRefSpec=false;
   }
-  m_bClearRefSpec=false;
 
   if(m_mode=="MSK144" or m_bFast9) {
     fastSink(frames);
@@ -11121,6 +11123,16 @@ void MainWindow::on_actionMeasure_phase_response_triggered()
 
 void MainWindow::on_actionErase_reference_spectrum_triggered()
 {
+  QFile refspec_file {m_config.writeable_data_dir ().absoluteFilePath ("refspec.dat")};
+  bool refspec_available {false};
+  if (refspec_file.exists () and !refspec_file.remove ()) {
+    refspec_available = refspec_file.exists ();
+    MessageBox::warning_message (this, tr ("File Error"),
+                                 tr ("Cannot remove \"%1\": %2")
+                                 .arg (refspec_file.fileName (), refspec_file.errorString ()));
+  }
+  if (m_wideGraph) m_wideGraph->clearReferenceSpectrum (refspec_available);
+  m_bUseRef=false;
   m_bClearRefSpec=true;
 }
 

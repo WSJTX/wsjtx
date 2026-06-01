@@ -408,7 +408,7 @@
           <item>
            <widget class="QCheckBox" name="cbRef">
             <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Compute and save a reference spectrum.  (Not yet fully implemented.)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Apply a saved reference spectrum to flatten the received passband. Available after a reference spectrum has been measured.  (Not yet fully implemented.)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
             </property>
             <property name="text">
              <string>Ref Spec</string>
