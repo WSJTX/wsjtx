@@ -7,7 +7,7 @@
  * (matching the jt9 --stream protocol).
  *
  * Streaming protocol summary:
- *   1. WSJL session header (8 bytes): magic 'WSJL' + fmt + ch + rate_kHz
+ *   1. WSJT session header (8 bytes): magic 'WSJT' + fmt + ch + rate_kHz
  *      LE u16. fmt=0x00 = int16 PCM (same as jt9). For wsprd, audio is
  *      always 12 kHz mono int16.
  *   2. Frames: [type:1][len:4 LE][body:len]
@@ -50,8 +50,8 @@
 
 #include "wsprd_stream.h"
 
-#define WSJL_MAGIC      "WSJL"
-#define WSJL_FMT_PCM    0x00
+#define WSJT_MAGIC      "WSJT"
+#define WSJT_FMT_PCM    0x00
 #define FRAME_AUDIO     0x01
 #define FRAME_CONTROL   0x02
 
@@ -120,20 +120,20 @@ static void set_stdin_binary(void) {
 #endif
 }
 
-static int wsjl_header_read(FILE *fp) {
+static int wsjt_header_read(FILE *fp) {
     unsigned char hdr[8];
     if (fread(hdr, 1, 8, fp) != 8) {
-        fprintf(stderr, "wsprd --stream: short read on WSJL header\n");
+        fprintf(stderr, "wsprd --stream: short read on WSJT header\n");
         return -1;
     }
-    if (memcmp(hdr, WSJL_MAGIC, 4) != 0) {
-        fprintf(stderr, "wsprd --stream: bad magic; expected 'WSJL'\n");
+    if (memcmp(hdr, WSJT_MAGIC, 4) != 0) {
+        fprintf(stderr, "wsprd --stream: bad magic; expected 'WSJT'\n");
         return -1;
     }
     unsigned char fmt = hdr[4];
     unsigned char ch = hdr[5];
     uint16_t rate_khz = (uint16_t)hdr[6] | ((uint16_t)hdr[7] << 8);
-    if (fmt != WSJL_FMT_PCM) {
+    if (fmt != WSJT_FMT_PCM) {
         fprintf(stderr,
                 "wsprd --stream: unsupported fmt=0x%02x (only 0x00 PCM today)\n",
                 fmt);
@@ -322,7 +322,7 @@ void wsprd_stream_emit_error(const char *msg) {
 unsigned long wsprd_stream_read(struct wsprd_stream_config *cfg,
                                 float *idat, float *qdat) {
     set_stdin_binary();
-    if (wsjl_header_read(stdin) != 0) return 1;
+    if (wsjt_header_read(stdin) != 0) return 1;
 
     int16_t *pcm = calloc(MAX_PCM_SAMPLES, sizeof(int16_t));
     if (!pcm) {

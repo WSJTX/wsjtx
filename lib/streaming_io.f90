@@ -1,7 +1,7 @@
 ! Streaming I/O — framed audio + control on stdin.
 !
 ! Reads framed messages from stdin. After a
-! one-time 8-byte WSJL session header (4-byte magic 'WSJL' + 1-byte fmt
+! one-time 8-byte WSJT session header (4-byte magic 'WSJT' + 1-byte fmt
 ! + 1-byte channels + 2-byte rate_kHz LE), stdin carries a sequence of
 ! frames:
 !
@@ -64,9 +64,10 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   integer, parameter :: FRAME_AUDIO   = 1
   integer, parameter :: FRAME_CONTROL = 2
   integer, parameter :: CTL_BUF_LEN = 1024
+  ! 4-byte session magic "WSJT" (W=0x57 S=0x53 J=0x4A T=0x54)
   integer(int8), parameter :: MAGIC(4) = [                                 &
        int(z'57', int8), int(z'53', int8),                                 &
-       int(z'4A', int8), int(z'4C', int8) ]
+       int(z'4A', int8), int(z'54', int8) ]
 
   integer :: lu, ios, fmt, ch, rate_khz
   integer(int8)  :: hdr(HDR_LEN), type_byte, len_bytes(4)
@@ -132,8 +133,8 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   end if
 
   if (any(hdr(1:4) /= MAGIC)) then
-     call streaming_emit_error('bad magic (expected ''WSJL'')')
-     write(error_unit, '(a)') 'jt9 --stream: bad magic (expected ''WSJL'')'
+     call streaming_emit_error('bad magic (expected ''WSJT'')')
+     write(error_unit, '(a)') 'jt9 --stream: bad magic (expected ''WSJT'')'
      close(lu); stop 1
   end if
 
