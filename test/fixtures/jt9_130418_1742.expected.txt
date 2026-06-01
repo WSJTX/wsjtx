@@ -1,0 +1,7 @@
+1742  -5  1.2 1505 @  JA1KAU PD0JAC -23     
+1742 -25  0.0 1119 @  CQ GM7GAX IO75        
+1742 -17 -0.0 1186 @  TF3G N7MQ CN84        
+1742 -18  0.0 1224 @  K1JT KF4RWA 73        
+1742 -22  0.1 1290 @  CQ M0WAY IO82         
+1742 -13  0.0 1461 @  G7CNF N4HFA EL89      
+<DecodeFinished>   0   6        0

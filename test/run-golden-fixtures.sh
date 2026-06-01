@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# golden-fixture regression harness.
+#
+# Compares `jt9` decoder output against known-good captures.
+# Any regression that changes decoder stdout byte-for-byte fails here.
+#
+# Covers two fixtures (FT8 + JT9), and extends with
+# FST4/Q65/MSK144 and map65d I/Q fixtures.
+#
+# Usage:
+#   test/run-golden-fixtures.sh [build-dir]
+#
+# Where build-dir defaults to ./build and must contain a built jt9 binary.
+
+set -euo pipefail
+
+BUILD_DIR="${1:-build}"
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+JT9="$REPO_ROOT/$BUILD_DIR/jt9"
+SAMPLES="$REPO_ROOT/samples"
+FIXTURES="$REPO_ROOT/test/fixtures"
+
+if [[ ! -x "$JT9" ]]; then
+  echo "ERROR: jt9 binary not found at $JT9" >&2
+  echo "       Build it first: cmake --build $BUILD_DIR --target jt9" >&2
+  exit 2
+fi
+
+FAIL=0
+pass() { echo "  PASS: $1"; }
+fail() { echo "  FAIL: $1"; FAIL=1; }
+
+run_fixture() {
+  local name="$1"; shift
+  local sample="$1"; shift
+  local expected="$1"; shift
+  # Remaining args are jt9 flags (e.g., -8, -9, -7, etc.)
+
+  local actual_file
+  actual_file="$(mktemp -t "wsjtl-golden-$name.XXXXXX")"
+
+  if ! "$JT9" "$@" "$sample" > "$actual_file" 2>&1; then
+    fail "$name: jt9 exited non-zero"
+    rm -f "$actual_file"
+    return
+  fi
+
+  if diff -u "$expected" "$actual_file" > /dev/null 2>&1; then
+    pass "$name"
+  else
+    fail "$name: output differs from golden (see diff below)"
+    diff -u "$expected" "$actual_file" | head -30 | sed 's/^/    /'
+  fi
+  rm -f "$actual_file"
+}
+
+echo "golden-fixture regression"
+echo "  jt9:       $JT9"
+echo "  fixtures:  $FIXTURES"
+echo ""
+
+run_fixture "ft8_210703_133430" \
+  "$SAMPLES/FT8/210703_133430.wav" \
+  "$FIXTURES/ft8_210703_133430.expected.txt" \
+  -8
+
+run_fixture "jt9_130418_1742" \
+  "$SAMPLES/JT9/130418_1742.wav" \
+  "$FIXTURES/jt9_130418_1742.expected.txt" \
+  -9
+
+echo ""
+if [[ $FAIL -eq 0 ]]; then
+  echo "All golden fixtures passed."
+  exit 0
+else
+  echo "One or more golden fixtures regressed."
+  exit 1
+fi
