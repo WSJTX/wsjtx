@@ -164,12 +164,7 @@ void MainWindow::on_stopButton_clicked()                       //stopButton
     jtty_save_wav();
   }
   m_loopall=false;
-  if(m_bRefSpec) {
-    MessageBox::information_message (this, tr ("Reference spectrum saved"));
-    m_wideGraph->setReferenceSpectrumAvailable(
-          QFile::exists(m_config.writeable_data_dir ().absoluteFilePath ("refspec.dat")));
-    m_bRefSpec=false;
-  }
+  finishReferenceSpectrumMeasurement(true);
   if (ui->DX_Call_Button->isChecked()) ui->DX_Call_Button->click ();
   stopWRTimer.stop();           // Stop any Wait & Reply timeout
   stopWCTimer.stop();           // Stop any Wait & Call timeout
