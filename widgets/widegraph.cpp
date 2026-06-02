@@ -518,7 +518,10 @@ void WideGraph::clearReferenceSpectrum(bool reference_spectrum_available)
 
 void WideGraph::replot()
 {
-  if(ui->widePlot->scaleOK()) ui->widePlot->replot();
+  if(ui->widePlot->scaleOK()) {
+    ui->widePlot->replot();
+    ui->widePlot->draw(m_swide,false,false);
+  }
 }
 
 void WideGraph::on_gainSlider_valueChanged(int value)                 //Gain

@@ -148,6 +148,7 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
   if (!m_TRperiod) return;      // not ready to plot yet
   int j,j0;
   float y,y2,ymin;
+  bool const drawWaterfall = bScroll or bRed or m_bReplot;
   double fac = sqrt(m_binsPerPixel*m_waterfallAvg/15.0);
   double gain = fac*pow(10.0,0.015*m_plotGain);
   double gain2d = pow(10.0,0.02*(m_plot2dGain));
@@ -197,23 +198,27 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
   ymin=1.e30;
   if(swide[0]>1.e29 and swide[0]< 1.5e30) painter1.setPen(Qt::green);
   if(swide[0]>1.4e30) painter1.setPen(Qt::red);
-  if(!m_bReplot) {
+  if(bScroll and !m_bReplot) {
     m_j=0;
     int irow=-1;
     plotsave_(swide,&m_w,&m_h1,&irow);
   }
   ymin = 0;
-  for(int i=0; i<iz; i++) {
-    y=swide[i];
-    if( y != y ) y=0.0;   // check for nan - a nan is not equal to itself
-    y = 10.0*gain*y + m_plotZero;
-    if (y<0.0) y=0.0;
-    if (y>254.0) y=254.0;
-    int y1 = y;
-    if (swide[i]<1.e29) painter1.setPen(g_ColorTbl[y1]);
-    painter1.drawPoint(i,m_j);
+  if(drawWaterfall) {
+    for(int i=0; i<iz; i++) {
+      y=swide[i];
+      if( y != y ) y=0.0;   // check for nan - a nan is not equal to itself
+      y = 10.0*gain*y + m_plotZero;
+      if (y<0.0) y=0.0;
+      if (y>254.0) y=254.0;
+      int y1 = y;
+      if (swide[i]<1.e29) painter1.setPen(g_ColorTbl[y1]);
+      painter1.drawPoint(i,m_j);
+    }
   }
-  m_line++;
+  if(drawWaterfall) m_line++;
+
+  if(m_bReplot and m_mode!="Q65") return;
 
   float y2min=1.e30;
   float y2max=-1.e30;
@@ -259,7 +264,12 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
     if(y2>y2max) y2max=y2;
     j++;
   }
-  if(m_bReplot and m_mode!="Q65") return;
+
+  if(!drawWaterfall) {
+    update();
+    m_bScaleOK=true;
+    return;
+  }
 
   if(swide[0]>1.0e29) m_line=0;
   if(m_mode=="FT4" and m_line==34) m_line=0;
