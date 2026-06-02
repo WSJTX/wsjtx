@@ -1107,6 +1107,9 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
       , "-e", QDir::toNativeSeparators (m_appDir)
       , "-a", QDir::toNativeSeparators (m_config.writeable_data_dir ().absolutePath ())
       , "-t", QDir::toNativeSeparators (m_config.temp_dir ().absolutePath ())
+      // -r: read-only shipped-data dir (cty.dat, ALLCALL7.TXT, ...) for the
+      // Fortran decoder; resolves to Contents/Resources/wsjtx on macOS.
+      , "-r", QDir::toNativeSeparators (m_config.data_dir ().absolutePath ())
       };
   QProcessEnvironment new_env {m_env};
   new_env.insert ("OMP_STACKSIZE", "10M");
@@ -13589,7 +13592,11 @@ void MainWindow::on_actionErase_Ignore_List_triggered()
 
 void MainWindow::read_ALLCALL7()
 {
-  static QFile AllCall7File {"ALLCALL7.TXT"};
+  // Read the shipped read-only ALLCALL7.TXT from the data dir where it installs
+  // (Contents/Resources/wsjtx on macOS, share/wsjtx on Linux/Windows), mirroring
+  // the JPLEPH idiom (m_config.data_dir()). The function-local static is built on
+  // the first call, after Configuration is constructed, so m_config is valid.
+  static QFile AllCall7File {m_config.data_dir ().absoluteFilePath ("ALLCALL7.TXT")};
   QTextStream AllCall7Stream(&AllCall7File);
   if(AllCall7File.open(QIODevice::ReadOnly | QIODevice::Text)) {
     while (!AllCall7Stream.atEnd()) {

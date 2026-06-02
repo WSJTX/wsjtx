@@ -17,7 +17,7 @@ subroutine cwfilter(first)
 !note that with new, larger ALLCALL7.TXT files, dimensions of various ncall arrays may need to be increased in jt65_mod9.f90
 !on 20250709 callj dim was increased from 9000 to 10000 when updated ALLCALL7.TXT file was added
   if(first) then
-    open(24,file=trim(data_dir)//'/ALLCALL7.TXT',status='unknown') ! accepting Australian 7-char callsigns
+    open(24,file=trim(share_dir)//'/ALLCALL7.TXT',status='unknown') ! accepting Australian 7-char callsigns
     do i=1,MAXC
       read(24,1004,end=20) line
 1004  format(a80)

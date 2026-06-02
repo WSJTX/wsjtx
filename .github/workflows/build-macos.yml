@@ -211,6 +211,23 @@ jobs:
           echo "stage_dir=${STAGE}" >> "$GITHUB_OUTPUT"
           echo "assets_dir=${ASSETS}" >> "$GITHUB_OUTPUT"
 
+      - name: Stage shipped data files into app bundle
+        run: |
+          # macOS CI never runs `cmake --install`, so the read-only data files
+          # that CMakeLists.txt installs to ${CMAKE_INSTALL_DATADIR}/wsjtx are
+          # otherwise absent from the bundle. Stage them into
+          # Contents/Resources/wsjtx (NEVER Contents/MacOS — codesign rejects
+          # non-Mach-O files there). This must run before "Code sign binaries"
+          # so the files are sealed by the bundle signature. Keep this list in
+          # sync with the install(FILES ...) block in CMakeLists.txt.
+          APP="${{ steps.collect.outputs.stage_dir }}/wsjtx.app"
+          DATADIR="${APP}/Contents/Resources/wsjtx"
+          mkdir -p "${DATADIR}"
+          cp cty.dat cty.dat_copyright.txt grid.dat sat.dat eclipse.txt ALLCALL7.TXT "${DATADIR}/"
+          cp contrib/Ephemeris/JPLEPH "${DATADIR}/"
+          echo "Staged data files into ${DATADIR}:"
+          ls -1 "${DATADIR}"
+
       - name: Bundle dylibs into app
         run: |
           STAGE="${{ steps.collect.outputs.stage_dir }}"
