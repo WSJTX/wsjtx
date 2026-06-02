@@ -89,6 +89,21 @@ namespace
     return chunk ("LIST", payload);
   }
 
+  QByteArray info_list_chunk_with_terminal_pad_outside_size ()
+  {
+    QByteArray payload {"INFO", 4};
+    payload.append ("ISRC", 4);
+    payload.append (le32 (5));
+    payload.append ("K1JT", 5);
+
+    QByteArray out;
+    out.append ("LIST", 4);
+    out.append (le32 (static_cast<quint32> (payload.size ())));
+    out.append (payload);
+    out.append ('\0');
+    return out;
+  }
+
   QByteArray bare_bext_payload ()
   {
     return QByteArray (604, '\0');
@@ -156,6 +171,21 @@ private:
     QVERIFY (file.open (QIODevice::ReadOnly));
     QVERIFY (file.list_info ().contains (inam));
     QCOMPARE (file.list_info ().value (inam), expected_name);
+    file.close ();
+    QFile::remove (name);
+  }
+
+  Q_SLOT void opens_list_info_with_terminal_subchunk_pad ()
+  {
+    auto const name = write_temp_file (wave_file ({fmt_chunk (), data_chunk (),
+          info_list_chunk_with_terminal_pad_outside_size ()}));
+    QVERIFY (!name.isEmpty ());
+    BWFFile::InfoDictionary::key_type const isrc {{'I', 'S', 'R', 'C'}};
+
+    BWFFile file {default_format (), name};
+    QVERIFY (file.open (QIODevice::ReadOnly));
+    QVERIFY (file.list_info ().contains (isrc));
+    QCOMPARE (file.list_info ().value (isrc), QByteArray ("K1JT", 5));
     file.close ();
     QFile::remove (name);
   }
