@@ -5,8 +5,6 @@
 #include <QtGui>
 #endif
 #include <QApplication>
-#include <QCoreApplication>
-#include <QDir>
 #ifdef _WIN32
 #include <windows.h>
 #endif
@@ -38,13 +36,6 @@ int main(int argc, char *argv[])
 #    pragma message("MAP_GUI_SUBSYSTEM is NOT defined in C++")
 #  endif
 #endif
-  
-   // Add wsjtx's plugin directory so Qt can find "cocoa", imageformats, etc.
-    QCoreApplication::addLibraryPath(
-        QCoreApplication::applicationDirPath()
-        + "/../../wsjtx.app/Contents/PlugIns"
-    );
-  
   QApplication a {argc, argv};
   
   // Override programs executable basename as application name.
@@ -73,4 +64,3 @@ int main(int argc, char *argv[])
 
   return result;
 }
-
