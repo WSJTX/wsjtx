@@ -10,7 +10,7 @@ jobs:
   # rather than "wsjtx-build/v3.0.1-rc1-*". RC/beta suffixes (e.g.
   # build/v3.0.1-rc1 → 3.0.1-rc1) are preserved so pre-release artifacts
   # are distinguishable from GA. All downstream jobs consume this
-  # single output so the five platform artifacts cannot disagree.
+  # single output so the six platform artifacts cannot disagree.
   prepare:
     runs-on: ubuntu-latest
     outputs:
@@ -27,7 +27,7 @@ jobs:
       # version stripped of any `-<suffix>` against the first three
       # dotted components of CMakeLists.txt VERSION. Mismatch means the
       # release commit forgot to bump CMakeLists.txt in lockstep with
-      # the tag; fail fast here before five platform builds burn ~30
+      # the tag; fail fast here before six platform builds burn ~30
       # minutes of CI.
       - name: Verify tag ↔ CMakeLists.txt version parity
         run: |
@@ -44,7 +44,7 @@ jobs:
           fi
           echo "Parity check PASSED."
 
-  # ── Build all five platforms ───────────────────────────────────────
+  # ── Build all six platforms ────────────────────────────────────────
   macos:
     needs: prepare
     uses: ./.github/workflows/build-macos.yml
