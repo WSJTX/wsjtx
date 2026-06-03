@@ -218,15 +218,36 @@ jobs:
           # otherwise absent from the bundle. Stage them into
           # Contents/Resources/wsjtx (NEVER Contents/MacOS — codesign rejects
           # non-Mach-O files there). This must run before "Code sign binaries"
-          # so the files are sealed by the bundle signature. Keep this list in
-          # sync with the install(FILES ...) block in CMakeLists.txt.
+          # so the files are sealed by the bundle signature. The list below
+          # duplicates the install(FILES ...) block in CMakeLists.txt; the drift
+          # guard at the end fails the build if the two ever diverge.
           APP="${{ steps.collect.outputs.stage_dir }}/wsjtx.app"
           DATADIR="${APP}/Contents/Resources/wsjtx"
           mkdir -p "${DATADIR}"
           cp cty.dat cty.dat_copyright.txt grid.dat sat.dat eclipse.txt ALLCALL7.TXT "${DATADIR}/"
           cp contrib/Ephemeris/JPLEPH "${DATADIR}/"
-          echo "Staged data files into ${DATADIR}:"
-          ls -1 "${DATADIR}"
+
+          # Drift guard: the set staged above must equal the data-file list that
+          # CMakeLists.txt installs to ${CMAKE_INSTALL_DATADIR}/wsjtx. If a future
+          # change adds/removes a file in one place but not the other, fail here
+          # instead of silently shipping a .pkg with a missing data file.
+          expected=$(awk '
+            /^[ \t]*install[ \t]*\(FILES/ { inblk=1; n=0; next }
+            inblk && /DESTINATION/ {
+              if ($0 ~ /CMAKE_INSTALL_DATADIR/) for (i=0;i<n;i++) print f[i]
+              inblk=0; next
+            }
+            inblk { gsub(/[ \t]/,""); if (length($0)>0 && $0 !~ /^#/) f[n++]=$0 }
+          ' CMakeLists.txt | sed 's#.*/##' | sort)
+          staged=$(ls -1 "${DATADIR}" | sort)
+          if [ "${expected}" != "${staged}" ]; then
+            echo "::error::macOS data staging is out of sync with CMakeLists.txt install(FILES)."
+            echo "Expected (from CMakeLists.txt):"; printf '  %s\n' ${expected}
+            echo "Staged (in bundle):";            printf '  %s\n' ${staged}
+            exit 1
+          fi
+          echo "Staged data files into ${DATADIR} (verified against CMakeLists.txt):"
+          printf '  %s\n' ${staged}
 
       - name: Bundle dylibs into app
         run: |
