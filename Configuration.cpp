@@ -500,7 +500,7 @@ public:
   void transceiver_ptt (bool);
   void transceiver_audio (bool);
   void transceiver_tune (bool);
-  void transceiver_period (double);
+  void transceiver_period (double, bool = false);
   void transceiver_blocksize (qint32);
   void transceiver_modulator_start (QString, unsigned, double, double, double, bool, bool, double, double);
   void transceiver_enqueue_jtty_pcm (QByteArray const&, qint64);
@@ -1266,13 +1266,13 @@ void Configuration::transceiver_tune (bool on)
   m_->transceiver_tune (on);
 }
 
-void Configuration::transceiver_period (double period)
+void Configuration::transceiver_period (double period, bool force)
 {
 #if WSJT_TRACE_CAT
   qDebug () << "Configuration::transceiver_period:" << period << m_->cached_rig_state_;
 #endif
 
-  m_->transceiver_period (period);
+  m_->transceiver_period (period, force);
 }
 
 void Configuration::transceiver_blocksize (qint32 blocksize)
@@ -5264,11 +5264,14 @@ void Configuration::impl::transceiver_tune (bool on)
 }
 
 
-void Configuration::impl::transceiver_period (double period)
+void Configuration::impl::transceiver_period (double period, bool force)
 {
   cached_rig_state_.online (true); // we want the rig online
   set_cached_mode ();
-  if (cached_rig_state_.period() != period)
+  // force bypasses the de-dup so a caller can re-assert the period even when
+  // the cache already holds it but the rig never actually applied it (e.g. a
+  // period set that was emitted while the TCI rig was still offline).
+  if (force || cached_rig_state_.period() != period)
   {
 //    printf("%s(%0.1f) Configuration #:%d period: %0.1f cached: %0.1f\n",QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),transceiver_command_number_+1,period,cached_rig_state_.period());
     cached_rig_state_.period (period);

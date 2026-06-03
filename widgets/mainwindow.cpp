@@ -1210,6 +1210,22 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
       ui->outAttenuation->setValue(0);
       ui->outAttenuation->setValue(attVal);
       Q_EMIT m_config.transceiver_volume(m_config.volume());
+      // set_mode() in the constructor emits transceiver_period() while the TCI
+      // rig is still offline, so TransceiverBase::set() skips do_period() and
+      // TCITransceiver's m_period stays at its 15.0 s default. For any mode
+      // whose TR period != 15 s (FT4, MSK144, Q65-15, FST4-15, ...) the
+      // modulator then computes against 15000 ms and readAudioData emits
+      // silence for the whole transmission (panadapter shows energy, no audio
+      // reaches the air). Re-emit the period here, now that TCI is connected.
+      // That same offline set_mode() also left m_TRperiod cached in
+      // Configuration even though the rig never applied it, so force=true
+      // bypasses Configuration's period de-dup and guarantees the resync
+      // regardless of TCI bring-up timing.
+      // OOB guard matches on_actionFT4_triggered() and the other mode handlers.
+      // Hardens public PR WSJTX/wsjtx#21 (Ramon Martinez, rampa069) for the
+      // Configuration de-dup cache.
+      if (ui->bandComboBox->currentText()!="OOB")
+        Q_EMIT m_config.transceiver_period(m_TRperiod, true);
     });
   }
 
