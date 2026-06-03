@@ -85,6 +85,21 @@ jobs:
       arch: "aarch64"
     secrets: inherit
 
+  # 32-bit ARM (armhf) for DigiPi / Pi Zero 2W class (issue #51). Built via
+  # QEMU user-mode emulation in a debian:bookworm-slim arm/v7 container on
+  # ubuntu-24.04-arm. Wall-clock budget ~50–80 min vs ~10 min native — the
+  # cost is justified once-per-release here, NOT once-per-PR (ci.yml
+  # intentionally does NOT include this leg). See build-linux.yml's
+  # build-armhf job for the QEMU + --platform recipe.
+  linux-armhf:
+    needs: prepare
+    uses: ./.github/workflows/build-linux.yml
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+      hamlib_branch: "4.7.1"
+      arch: "armhf"
+    secrets: inherit
+
   windows:
     needs: prepare
     uses: ./.github/workflows/build-windows.yml
@@ -95,7 +110,7 @@ jobs:
 
   # ── Publish release + sync to public repo ──────────────────────────
   release:
-    needs: [prepare, macos, macos-intel, linux, linux-arm, windows]
+    needs: [prepare, macos, macos-intel, linux, linux-arm, linux-armhf, windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -145,14 +160,15 @@ jobs:
       # the public mirror.
       #
       # Expected artifact layout (one installer per platform, per the
-      # five build-*.yml upload-artifact steps):
+      # six build-*.yml upload-artifact steps):
       #   artifacts/wsjtx-<ver>-arm64-macOS.pkg/*.pkg
       #   artifacts/wsjtx-<ver>-x86_64-macOS.pkg/*.pkg
       #   artifacts/wsjtx-<ver>-linux-x86_64-AppImage/*.AppImage
       #   artifacts/wsjtx-<ver>-linux-aarch64-AppImage/*.AppImage
+      #   artifacts/wsjtx-<ver>-linux-armhf-AppImage/*.AppImage
       #   artifacts/wsjtx-<ver>-windows-x86_64-installer/*.exe
       #
-      # Policy: publish only when all five platforms have produced an
+      # Policy: publish only when all six platforms have produced an
       # installer-grade artifact. Adjust or remove this step if the
       # policy evolves (e.g. to publish any-platform-ready).
       - name: Verify installer-grade artifacts (all-platforms-ready gate)
@@ -165,6 +181,7 @@ jobs:
             "macOS x86_64 .pkg"
             "Linux x86_64 .AppImage"
             "Linux aarch64 .AppImage"
+            "Linux armhf .AppImage"
             "Windows x86_64 .exe"
           )
           patterns=(
@@ -172,10 +189,11 @@ jobs:
             "artifacts/wsjtx-${VERSION}-x86_64-macOS.pkg/*.pkg"
             "artifacts/wsjtx-${VERSION}-linux-x86_64-AppImage/*.AppImage"
             "artifacts/wsjtx-${VERSION}-linux-aarch64-AppImage/*.AppImage"
+            "artifacts/wsjtx-${VERSION}-linux-armhf-AppImage/*.AppImage"
             "artifacts/wsjtx-${VERSION}-windows-x86_64-installer/*.exe"
           )
           missing=0
-          echo "Installer-grade artifact gate — checking 5 platforms…"
+          echo "Installer-grade artifact gate — checking 6 platforms…"
           for i in "${!labels[@]}"; do
             # shellcheck disable=SC2206 # word-split is intentional; nullglob makes it safe.
             matches=( ${patterns[$i]} )
@@ -188,11 +206,11 @@ jobs:
             fi
           done
           if [ "$missing" -gt 0 ]; then
-            echo "::error::All-platforms-ready gate FAILED — $missing of 5 platform(s) missing installer-grade artifact."
+            echo "::error::All-platforms-ready gate FAILED — $missing of 6 platform(s) missing installer-grade artifact."
             echo "::error::Refusing to publish a partial release. Fix the failing build job(s) and retry the tag."
             exit 1
           fi
-          echo "All-platforms-ready gate PASSED — all 5 installer-grade artifacts present. Proceeding to publish."
+          echo "All-platforms-ready gate PASSED — all 6 installer-grade artifacts present. Proceeding to publish."
 
       - name: Create GitHub Release
         env:
