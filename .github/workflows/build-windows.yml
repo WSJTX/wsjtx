@@ -12,6 +12,11 @@ on:
         required: false
         type: string
         default: "4.7.0"
+      recache:
+        description: "Force ccache to recompile and refresh cached objects"
+        required: false
+        type: boolean
+        default: false
   # Also runnable on its own ("Run workflow" / gh workflow run) to build just
   # the Windows installer, at ~1/6 the cost of the full ci.yml matrix. GitHub
   # only exposes workflow_dispatch when the trigger is present on the default
@@ -32,6 +37,11 @@ on:
         required: false
         type: string
         default: "4.7.1"
+      recache:
+        description: "Force ccache to recompile and refresh cached objects"
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   build:
@@ -99,6 +109,11 @@ jobs:
         run: |
           WORKSPACE=$(cygpath "${GITHUB_WORKSPACE}")
           echo "CCACHE_DIR=${WORKSPACE}/.ccache" >> "$GITHUB_ENV"
+          echo "ccache recache: ${{ inputs.recache }}"
+          if [ "${{ inputs.recache }}" = "true" ]; then
+            echo "CCACHE_RECACHE=1" >> "$GITHUB_ENV"
+            echo "Forcing ccache recache for this run"
+          fi
           mkdir -p "${WORKSPACE}/.ccache"
           ccache --version
           ccache --zero-stats

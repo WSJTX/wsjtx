@@ -28,6 +28,10 @@ inputs:
       built against a different ABI.
     required: false
     default: "host"
+  recache:
+    description: "Force ccache to recompile and refresh cached objects"
+    required: false
+    default: "false"
 
 runs:
   using: "composite"
@@ -79,6 +83,11 @@ runs:
       shell: bash
       run: |
         echo "CCACHE_DIR=${GITHUB_WORKSPACE}/.ccache" >> "$GITHUB_ENV"
+        echo "ccache recache: ${{ inputs.recache }}"
+        if [ "${{ inputs.recache }}" = "true" ]; then
+          echo "CCACHE_RECACHE=1" >> "$GITHUB_ENV"
+          echo "Forcing ccache recache for this run"
+        fi
         mkdir -p "${GITHUB_WORKSPACE}/.ccache"
         ccache --version
         ccache --zero-stats

@@ -17,6 +17,11 @@ on:
         required: false
         type: string
         default: "x86_64"
+      recache:
+        description: "Force ccache to recompile and refresh cached objects"
+        required: false
+        type: boolean
+        default: false
   # Also runnable on its own ("Run workflow" / gh workflow run) to build a single
   # Linux arch without dispatching the full ci.yml matrix. GitHub only exposes
   # workflow_dispatch when the trigger is on the default branch (develop), so this
@@ -46,6 +51,11 @@ on:
           - aarch64
           - armhf
         default: "x86_64"
+      recache:
+        description: "Force ccache to recompile and refresh cached objects"
+        required: false
+        type: boolean
+        default: false
 
 # Three jobs gated on `inputs.arch`. Each call from ci.yml / release.yml passes
 # a single `arch:` value, so exactly one job runs per call. Splitting on arch
@@ -75,6 +85,7 @@ jobs:
           version: ${{ inputs.version }}
           hamlib_branch: ${{ inputs.hamlib_branch }}
           runtime_base: host
+          recache: ${{ inputs.recache }}
 
   build-aarch64:
     if: inputs.arch == 'aarch64'
@@ -94,6 +105,7 @@ jobs:
           version: ${{ inputs.version }}
           hamlib_branch: ${{ inputs.hamlib_branch }}
           runtime_base: bookworm
+          recache: ${{ inputs.recache }}
 
   build-armhf:
     if: inputs.arch == 'armhf'
