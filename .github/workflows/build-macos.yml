@@ -29,10 +29,11 @@ on:
   # workflow_dispatch when the trigger is on the default branch (develop), so
   # this must be merged before it can be dispatched. Inputs mirror workflow_call
   # with standalone defaults; hamlib_branch matches what ci.yml / release.yml
-  # pass (4.7.1). The runner is intentionally NOT a dispatch input -- runs-on
-  # derives it from arch below, so a manual run can never pair the wrong runner
-  # with the target arch. deployment_target defaults to the arm64 value (11.0);
-  # set 10.13 when building x86_64.
+  # pass (4.7.1). Neither the runner nor the macOS deployment target is a dispatch
+  # input -- both are derived from arch (runs-on / the DEPLOYMENT_TARGET env
+  # below), so a manual run can never pair the wrong runner or deployment target
+  # with the target arch (x86_64 -> macos-15-intel / 10.13; arm64 -> macos-15 /
+  # 11.0).
   workflow_dispatch:
     inputs:
       version:
@@ -53,18 +54,20 @@ on:
           - arm64
           - x86_64
         default: "arm64"
-      deployment_target:
-        description: "macOS deployment target (arm64 -> 11.0, x86_64 -> 10.13)"
-        required: false
-        type: string
-        default: "11.0"
 
 jobs:
   build:
-    # workflow_call always passes `runner` explicitly (it wins via ||). On a
-    # standalone workflow_dispatch run `runner` is unset, so derive it from arch
-    # to keep the runner and target architecture in lockstep.
+    # workflow_call passes `runner` + `deployment_target` explicitly (they win
+    # via ||). On a standalone workflow_dispatch run both are unset, so derive
+    # them from arch to keep the runner, deployment target, and target
+    # architecture in lockstep. runs-on must inline the runner expression
+    # (job-level env is not yet available when runs-on is evaluated); RUNNER
+    # mirrors it so the cache keys below use the same effective runner under
+    # both triggers, letting a dispatch build share the workflow_call cache.
     runs-on: ${{ inputs.runner || (inputs.arch == 'x86_64' && 'macos-15-intel' || 'macos-15') }}
+    env:
+      RUNNER: ${{ inputs.runner || (inputs.arch == 'x86_64' && 'macos-15-intel' || 'macos-15') }}
+      DEPLOYMENT_TARGET: ${{ inputs.deployment_target || (inputs.arch == 'x86_64' && '10.13' || '11.0') }}
     steps:
       - uses: actions/checkout@v6
 
@@ -122,7 +125,7 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: pfunit-prefix
-          key: pfunit-macos-${{ inputs.arch }}-${{ inputs.runner }}-v4.9.0-gfortran${{ steps.fc.outputs.version }}-min${{ inputs.deployment_target }}-epoch1-${{ hashFiles('.github/scripts/build-pfunit-macos.sh') }}
+          key: pfunit-macos-${{ inputs.arch }}-${{ env.RUNNER }}-v4.9.0-gfortran${{ steps.fc.outputs.version }}-min${{ env.DEPLOYMENT_TARGET }}-epoch1-${{ hashFiles('.github/scripts/build-pfunit-macos.sh') }}
 
       - name: Build pFUnit
         if: steps.pfunit-cache.outputs.cache-hit != 'true'
@@ -130,7 +133,7 @@ jobs:
           .github/scripts/build-pfunit-macos.sh \
             v4.9.0 \
             "${{ steps.fc.outputs.path }}" \
-            "${{ inputs.deployment_target }}" \
+            "${{ env.DEPLOYMENT_TARGET }}" \
             "${GITHUB_WORKSPACE}/pfunit-prefix"
 
       - name: Locate pFUnit config
@@ -158,14 +161,14 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: hamlib-prefix
-          key: hamlib-macos-${{ inputs.arch }}-${{ inputs.runner }}-${{ inputs.hamlib_branch }}-min${{ inputs.deployment_target }}-epoch1-${{ hashFiles('.github/scripts/build-hamlib-macos.sh') }}
+          key: hamlib-macos-${{ inputs.arch }}-${{ env.RUNNER }}-${{ inputs.hamlib_branch }}-min${{ env.DEPLOYMENT_TARGET }}-epoch1-${{ hashFiles('.github/scripts/build-hamlib-macos.sh') }}
 
       - name: Build Hamlib
         if: steps.hamlib-cache.outputs.cache-hit != 'true'
         run: |
           .github/scripts/build-hamlib-macos.sh \
             "${{ inputs.hamlib_branch }}" \
-            "${{ inputs.deployment_target }}" \
+            "${{ env.DEPLOYMENT_TARGET }}" \
             "${GITHUB_WORKSPACE}/hamlib-prefix"
 
       - name: Verify Hamlib prefix
@@ -185,7 +188,7 @@ jobs:
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DCMAKE_Fortran_COMPILER="${{ steps.fc.outputs.path }}" \
-            -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ inputs.deployment_target }} \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ env.DEPLOYMENT_TARGET }} \
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
             -DWSJT_SKIP_MANPAGES=ON \
             -DWSJT_ENABLE_TESTS=ON \
