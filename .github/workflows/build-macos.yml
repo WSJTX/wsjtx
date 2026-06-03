@@ -60,9 +60,13 @@ jobs:
     # workflow_call passes `runner` + `deployment_target` explicitly (they win
     # via ||). On a standalone workflow_dispatch run both are unset, so derive
     # them from arch to keep the runner, deployment target, and target
-    # architecture in lockstep.
+    # architecture in lockstep. runs-on must inline the runner expression
+    # (job-level env is not yet available when runs-on is evaluated); RUNNER
+    # mirrors it so the cache keys below use the same effective runner under
+    # both triggers, letting a dispatch build share the workflow_call cache.
     runs-on: ${{ inputs.runner || (inputs.arch == 'x86_64' && 'macos-15-intel' || 'macos-15') }}
     env:
+      RUNNER: ${{ inputs.runner || (inputs.arch == 'x86_64' && 'macos-15-intel' || 'macos-15') }}
       DEPLOYMENT_TARGET: ${{ inputs.deployment_target || (inputs.arch == 'x86_64' && '10.13' || '11.0') }}
     steps:
       - uses: actions/checkout@v6
@@ -121,7 +125,7 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: pfunit-prefix
-          key: pfunit-macos-${{ inputs.arch }}-${{ inputs.runner }}-v4.9.0-gfortran${{ steps.fc.outputs.version }}-min${{ env.DEPLOYMENT_TARGET }}-epoch1-${{ hashFiles('.github/scripts/build-pfunit-macos.sh') }}
+          key: pfunit-macos-${{ inputs.arch }}-${{ env.RUNNER }}-v4.9.0-gfortran${{ steps.fc.outputs.version }}-min${{ env.DEPLOYMENT_TARGET }}-epoch1-${{ hashFiles('.github/scripts/build-pfunit-macos.sh') }}
 
       - name: Build pFUnit
         if: steps.pfunit-cache.outputs.cache-hit != 'true'
@@ -157,7 +161,7 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: hamlib-prefix
-          key: hamlib-macos-${{ inputs.arch }}-${{ inputs.runner }}-${{ inputs.hamlib_branch }}-min${{ env.DEPLOYMENT_TARGET }}-epoch1-${{ hashFiles('.github/scripts/build-hamlib-macos.sh') }}
+          key: hamlib-macos-${{ inputs.arch }}-${{ env.RUNNER }}-${{ inputs.hamlib_branch }}-min${{ env.DEPLOYMENT_TARGET }}-epoch1-${{ hashFiles('.github/scripts/build-hamlib-macos.sh') }}
 
       - name: Build Hamlib
         if: steps.hamlib-cache.outputs.cache-hit != 'true'
