@@ -166,7 +166,7 @@ private:
   QPoint  m_pos;
   QSize   m_Size;
   QString m_Str;
-  QString m_HDivText[483];
+  QVector<QString> m_HDivText;
   QString m_mode;
   QString m_mode0;
   QString m_rxBand;

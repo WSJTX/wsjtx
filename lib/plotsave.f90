@@ -1,7 +1,8 @@
 subroutine plotsave(swide,nw,nh,irow)
 
-  real, dimension(:,:), allocatable :: sw
+  real, dimension(:,:), allocatable :: sw,sw_old
   real swide(0:nw-1)
+  integer mw,mh
   data nw0/-1/,nh0/-1/
   save nw0,nh0,sw
 
@@ -11,10 +12,19 @@ subroutine plotsave(swide,nw,nh,irow)
   endif
 
   if(nw.ne.nw0 .or. nh.ne.nh0 .or. (.not.allocated(sw))) then
-     if(allocated(sw)) deallocate(sw)
-!     if(nw0.ne.-1) deallocate(sw)
-     allocate(sw(0:nw-1,0:nh-1))
-     sw=0.
+     if(allocated(sw)) then
+! Resize: keep the overlapping history instead of blanking the waterfall.
+        call move_alloc(sw,sw_old)
+        allocate(sw(0:nw-1,0:nh-1))
+        sw=0.
+        mw=min(nw,nw0)
+        mh=min(nh,nh0)
+        sw(0:mw-1,0:mh-1)=sw_old(0:mw-1,0:mh-1)
+        deallocate(sw_old)
+     else
+        allocate(sw(0:nw-1,0:nh-1))
+        sw=0.
+     endif
      nw0=nw
      nh0=nh
   endif
