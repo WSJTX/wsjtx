@@ -12,6 +12,26 @@ on:
         required: false
         type: string
         default: "4.7.0"
+  # Also runnable on its own ("Run workflow" / gh workflow run) to build just
+  # the Windows installer, at ~1/6 the cost of the full ci.yml matrix. GitHub
+  # only exposes workflow_dispatch when the trigger is present on the default
+  # branch, so this must be merged to develop before it can be dispatched.
+  # Inputs mirror workflow_call with standalone defaults: hamlib_branch matches
+  # what ci.yml / release.yml actually pass (4.7.1, not the workflow_call legacy
+  # default), and version defaults to a clearly-marked dev string -- overridable
+  # via `-f version=...` -- so a manual build is never mistaken for a release.
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "WSJT-X version string (installer filename + artifact names)"
+        required: false
+        type: string
+        default: "3.1.0-dev"
+      hamlib_branch:
+        description: "Hamlib branch to build"
+        required: false
+        type: string
+        default: "4.7.1"
 
 jobs:
   build:
