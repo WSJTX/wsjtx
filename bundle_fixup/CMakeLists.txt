@@ -170,22 +170,6 @@ if (APPLE OR WIN32)
     )
   endif (WIN32)
 
-  # CHANGED TO PREVENT FIXUP BUNDLE ERRORS ON MACOCS
- #  INSTALL (CODE "
- #       get_filename_component (the_path \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${WSJT_PLUGIN_DESTINATION}\" REALPATH)
- #       file (GLOB_RECURSE QTPLUGINS \"\${the_path}/*${CMAKE_SHARED_LIBRARY_SUFFIX}\")
- #       include (BundleUtilities)
- #       set (BU_CHMOD_BUNDLE_ITEMS ON)
- #       set (gp_tool ${gp_tool})
- #       # canonicalize path in install context
- #       get_filename_component (the_exe ${fixup_exe} REALPATH)
- #      fixup_bundle (\"\${the_exe}\" \"\${QTPLUGINS}\" \"${fixup_library_dirs}\")"
-
-# We need fixup_bundle on all platforms, including macOS ARM,
-# so that Qt frameworks and plugins are correctly bundled.
-# However, GCC/Fortran runtime libs (libgcc_s, libgfortran, libquadmath)
-# should be treated as system libraries and not copied/rewritten.
-
   if(APPLE)
     # Mark GCC/Fortran runtimes as system libs so fixup_bundle ignores them
     set(_m65_fortran_system_libs
@@ -223,16 +207,19 @@ if (APPLE OR WIN32)
 
       include(BundleUtilities)
       set(BU_CHMOD_BUNDLE_ITEMS ON)
+      set(BU_SYSTEM_LIBS \"${BU_SYSTEM_LIBS}\")
 
       set(fixup_library_dirs \"${fixup_library_dirs}\")
 
-      # --- Fix up WSJTX ---
-      get_filename_component(wsjt_exe \"${fixup_exe}\" REALPATH)
-      fixup_bundle(
-          \"\${wsjt_exe}\"
+      set(fixup_exes \"${fixup_exes}\")
+      foreach (the_exe_path IN LISTS fixup_exes)
+        get_filename_component(the_exe \"\${the_exe_path}\" REALPATH)
+        fixup_bundle(
+          \"\${the_exe}\"
           \"\${QTPLUGINS}\"
           \"\${fixup_library_dirs}\"
-      )
+        )
+      endforeach ()
     ")
   endif (APPLE)
 
