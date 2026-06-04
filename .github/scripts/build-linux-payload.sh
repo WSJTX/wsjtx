@@ -188,6 +188,8 @@ RPM_FILES=$(rpm -qpl "$RPM")
 echo "$RPM_FILES" | sed -n '1,40p'
 echo "$RPM_FILES" | grep -qE '/bin/wsjtx$'
 echo "$RPM_FILES" | grep -qE '/bin/jt9$'
+echo "$RPM_FILES" | grep -qE '/bin/qmap$'
+echo "$RPM_FILES" | grep -qE '/bin/map65$'
 echo "::endgroup::"
 
 # ── 9. Install to AppDir for AppImage packaging ──────────────────────
@@ -195,6 +197,8 @@ echo "::group::Install to AppDir"
 cmake --install wsjtx-build --prefix "${PWD}/AppDir/usr"
 test -x AppDir/usr/bin/wsjtx
 test -x AppDir/usr/bin/jt9
+test -x AppDir/usr/bin/qmap
+test -x AppDir/usr/bin/map65
 test -x AppDir/usr/bin/ft8code
 test -f AppDir/usr/share/applications/wsjtx.desktop
 test -f AppDir/usr/share/pixmaps/wsjtx_icon.png
@@ -242,6 +246,8 @@ echo "::group::Smoke-test AppImage payload"
 ./"$OUTPUT" --appimage-extract >/dev/null
 test -x squashfs-root/usr/bin/wsjtx
 test -x squashfs-root/usr/bin/jt9
+test -x squashfs-root/usr/bin/qmap
+test -x squashfs-root/usr/bin/map65
 test -x squashfs-root/usr/bin/ft8code
 test -x squashfs-root/usr/bin/wsprd
 FILE_OUT=$(file squashfs-root/usr/bin/wsjtx)

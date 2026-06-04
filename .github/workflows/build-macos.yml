@@ -251,6 +251,14 @@ jobs:
 
           cp -R "${BUILD}/wsjtx.app" "${STAGE}/"
 
+          for bin in qmap/qmap map65/map65; do
+            if [ ! -x "${BUILD}/${bin}" ]; then
+              echo "::error::Expected app companion binary is missing: ${BUILD}/${bin}"
+              exit 1
+            fi
+            cp "${BUILD}/${bin}" "${STAGE}/wsjtx.app/Contents/MacOS/"
+          done
+
           for bin in jt9 wsprd; do
             [ -f "${BUILD}/${bin}" ] && cp "${BUILD}/${bin}" "${STAGE}/wsjtx.app/Contents/MacOS/"
           done
@@ -607,6 +615,11 @@ jobs:
               --package "$RUNNER_TEMP/wsjtx-component.pkg" \
               "$PKG_OUT"
           fi
+
+          CHECK_PAYLOAD="$RUNNER_TEMP/pkg-check"
+          pkgutil --expand-full "$PKG_OUT" "$CHECK_PAYLOAD"
+          test -x "$CHECK_PAYLOAD/wsjtx-component.pkg/Payload/Applications/wsjtx.app/Contents/MacOS/qmap"
+          test -x "$CHECK_PAYLOAD/wsjtx-component.pkg/Payload/Applications/wsjtx.app/Contents/MacOS/map65"
 
       - name: Notarize pkg
         if: steps.check_secrets.outputs.signing_enabled == 'true'
