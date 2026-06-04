@@ -1060,7 +1060,14 @@ QString HRDTransceiver::send_command (QString const& cmd, bool prepend_context, 
               };
         }
 
-      result = reply.payload;
+      // HRD frames replies with an in-band NUL (U+0000) as a value separator
+      // and terminator. The byte-level parser returns the full body minus only
+      // the final terminator, preserving embedded/trailing NULs; the pre-#66
+      // QString{const QChar*} path stopped at the first NUL. Downstream name,
+      // list and value parsing was written against that first-NUL contract, so
+      // restore it here (radio name, vfo-count, dropdown-list, slider-range).
+      auto const nul = reply.payload.indexOf (QChar {0});
+      result = nul < 0 ? reply.payload : reply.payload.left (nul);
     }
   CAT_TRACE (cmd << " ->" << result);
   return result;
