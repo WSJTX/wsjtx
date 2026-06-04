@@ -405,7 +405,7 @@ public:
 
   // Set period for TCI audio
   //
-  Q_SLOT void transceiver_period (double = 15.0);
+  Q_SLOT void transceiver_period (double = 15.0, bool force = false);
 
   // Set blocksize for TCI audio.
   //
