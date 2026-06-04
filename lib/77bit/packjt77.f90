@@ -1069,6 +1069,7 @@ subroutine pack77_06(nwords,w,i3,n3,c77,i3_hint,n3_hint)
 
   is_digit(c)=c.ge.'0' .and. c.le.'9'
 
+  npfx=0
   m1=len(trim(w(1)))
   m2=len(trim(w(2)))
   m3=len(trim(w(3)))
@@ -1316,11 +1317,11 @@ subroutine pack77_3(nwords,w,i3,n3,c77)
      call chkcall(w(i1),bcall_1,ok1)
      call chkcall(w(i1+1),bcall_2,ok2)
      if(.not.ok1 .or. .not.ok2) go to 900
+     nserial=0
      crpt=w(nwords-1)(1:3)
      if(index(crpt,'-').ge.1 .or. index(crpt,'+').ge.1) go to 900
      if(crpt(1:1).eq.'5' .and. crpt(2:2).ge.'2' .and. crpt(2:2).le.'9' .and.    &
           crpt(3:3).eq.'9') then
-        nserial=0
         read(w(nwords),*,err=1) nserial
      endif
 1    mult='   '
@@ -1335,6 +1336,7 @@ subroutine pack77_3(nwords,w,i3,n3,c77)
      nexch=0
      if(nserial.gt.0) nexch=nserial
      if(imult.gt.0) nexch=8000+imult
+     if(nserial.gt.7999) go to 900
      if(mult.ne.'   ' .or. nserial.gt.0) then
         i3=3
         n3=0
@@ -2823,6 +2825,7 @@ subroutine pack77_06var(nwords,w,i3,n3,c77,i3_hint,n3_hint,ntxhash)
 
   is_digit(c)=c.ge.'0' .and. c.le.'9'
 
+  npfx=0
   m1=len(trim(w(1)))
   m2=len(trim(w(2)))
   m3=len(trim(w(3)))
@@ -3070,11 +3073,11 @@ subroutine pack77_3var(nwords,w,i3,n3,c77,ntxhash)
      call chkcall(w(i1),bcall_1,ok1)
      call chkcall(w(i1+1),bcall_2,ok2)
      if(.not.ok1 .or. .not.ok2) go to 900
+     nserial=0
      crpt=w(nwords-1)(1:3)
      if(index(crpt,'-').ge.1 .or. index(crpt,'+').ge.1) go to 900
      if(crpt(1:1).eq.'5' .and. crpt(2:2).ge.'2' .and. crpt(2:2).le.'9' .and.    &
           crpt(3:3).eq.'9') then
-        nserial=0
         read(w(nwords),*,err=1) nserial
      endif
 1    mult='   '
@@ -3089,6 +3092,7 @@ subroutine pack77_3var(nwords,w,i3,n3,c77,ntxhash)
      nexch=0
      if(nserial.gt.0) nexch=nserial
      if(imult.gt.0) nexch=8000+imult
+     if(nserial.gt.7999) go to 900
      if(mult.ne.'   ' .or. nserial.gt.0) then
         i3=3
         n3=0
