@@ -6,13 +6,14 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,          &
 ! This routine provides an interface between QMAP and the Q65 decoder
 ! in WSJT-X.  All arguments are input data obtained from the QMAP GUI.
 ! Raw Rx data are available as the 96 kHz complex spectrum ca(MAXFFT1)
-! in common/cacb.  Decoded messages are sent back to the GUI.
+! in cacb_mod.  Decoded messages are sent back to the GUI.
 
   use q65_decode
   use wavhdr
   use timer_module, only: timer
   use map65_mmdec_mod, only: map65_mmdec
   use iso_fortran_env, only: int16
+  use cacb_mod, only: ca, init_cacb
 
   parameter (MAXFFT1=5376000)              !56*96000
   parameter (MAXFFT2=336000)               !56*6000 (downsampled by 1/16)
@@ -21,7 +22,6 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,          &
   type(hdr) h
   integer(int16) iwave(300*12000)
   integer offset
-  complex ca(MAXFFT1)                      !FFT of raw I/Q data from Linrad
   complex cx(0:MAXFFT2-1),cz(0:MAXFFT2)
   real*8 fcenter,freq0,freq1
   logical*1 bClickDecode
@@ -38,10 +38,11 @@ subroutine q65b(nutc,nqd,fcenter,nfcal,nfsample,ikhz,mousedf,ntol,          &
   common/decodes/ndecodes,ncand2,nQDecoderDone,nWDecoderBusy,              &
        nWTransmitting,kHzRequested,result(50)
   common/decodes2/result2(50)              !liveCQ
-  common/cacb/ca
   data ifile/0/
   save
   
+  call init_cacb(MAXFFT1)
+
   if(mycall0(1:1).ne.' ') mycall=mycall0
   if(hiscall0(1:1).ne.' ') hiscall=hiscall0
   if(hisgrid(1:4).ne.'    ') grid4=hisgrid(1:4)

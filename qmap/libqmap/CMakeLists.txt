@@ -1,5 +1,6 @@
 set (libq65_FSRCS
 # Modules come first:
+  cacb_mod.f90
 
 # Non-module Fortran routines:
   astro.f90
