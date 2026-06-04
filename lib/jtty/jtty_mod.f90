@@ -383,6 +383,7 @@ contains
 
   subroutine append_text(text)
     character*(*) text
+    integer i
 
     do i=1,len(text)
        if(k.le.len(message)) message(k:k)=text(i:i)
@@ -422,8 +423,6 @@ contains
        call append_text('TU '//trim(c13arg)//' CQ')
     case(3)
        call append_text(trim(c13arg)//' TU')
-    case default
-       return
     end select
     call append_implicit_separator()
   end subroutine append_structured_0
@@ -438,8 +437,6 @@ contains
        call append_text(trim(c13arg)//' AGN?')
     case(1)
        call append_text('TU NOW '//trim(c13arg))
-    case default
-       return
     end select
     call append_implicit_separator()
   end subroutine append_structured_1
