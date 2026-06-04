@@ -910,6 +910,8 @@ private:
   QTimer splashTimer;
   QTimer p1Timer;
   QTimer m_jttyTxWatchdog;
+  QTimer m_refSpecTimer;
+  int m_refSpecSecondsRemaining = 0;
 
   QString m_path;
   QString m_baseCall;
@@ -1082,6 +1084,8 @@ private:
   void stub();
   void statusChanged();
   void fixStop();
+  void finishReferenceSpectrumMeasurement(bool notify);
+  void updateReferenceSpectrumCountdown();
   bool shortList(QString callsign) const;
   void transmit (double snr = 99.);
   void rigFailure (QString const& reason);

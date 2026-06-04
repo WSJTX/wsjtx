@@ -114,7 +114,9 @@
 #include "widgets/qsymonitor.h"
 #include "Network/eqsl.h"
 
-
+namespace {
+  int const ReferenceSpectrumMeasureSeconds = 7;
+}
 
 #define FCL fortran_charlen_t
 
@@ -1001,6 +1003,9 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
   m_jttyTxWatchdog.setSingleShot(true);
   connect(&m_jttyTxWatchdog, &QTimer::timeout, this, &MainWindow::handleJttyTxWatchdog);
+
+  m_refSpecTimer.setInterval(1000);
+  connect(&m_refSpecTimer, &QTimer::timeout, this, &MainWindow::updateReferenceSpectrumCountdown);
 
   p1Timer.setSingleShot(true);
   connect(&p1Timer, &QTimer::timeout, this, &MainWindow::startP1);
@@ -11156,6 +11161,52 @@ void MainWindow::on_actionMeasure_reference_spectrum_triggered()
 {
   if(!m_monitoring) on_monitorButton_clicked (true);
   m_bRefSpec=true;
+  m_refSpecSecondsRemaining=ReferenceSpectrumMeasureSeconds;
+  statusBar()->showMessage(tr("Measuring reference spectrum: %1 s remaining")
+                           .arg(m_refSpecSecondsRemaining));
+  m_refSpecTimer.start();
+}
+
+void MainWindow::finishReferenceSpectrumMeasurement(bool notify)
+{
+  if(!m_bRefSpec) return;
+
+  m_refSpecTimer.stop();
+  m_refSpecSecondsRemaining=0;
+  bool const refspec_available {
+    QFile::exists(m_config.writeable_data_dir ().absoluteFilePath ("refspec.dat"))};
+  m_wideGraph->setReferenceSpectrumAvailable(refspec_available);
+  m_bRefSpec=false;
+
+  QString const message {
+    refspec_available
+      ? (notify
+          ? tr("Reference spectrum measurement stopped; Ref Spec is available")
+          : tr("Reference spectrum saved; Ref Spec is available"))
+      : tr("Reference spectrum measurement stopped; no reference spectrum is available")};
+  statusBar()->showMessage(message, 5000);
+
+  if(notify) {
+    MessageBox::information_message (this, message);
+  }
+}
+
+void MainWindow::updateReferenceSpectrumCountdown()
+{
+  if(!m_bRefSpec) {
+    m_refSpecTimer.stop();
+    m_refSpecSecondsRemaining=0;
+    return;
+  }
+
+  --m_refSpecSecondsRemaining;
+  if(m_refSpecSecondsRemaining <= 0) {
+    finishReferenceSpectrumMeasurement(false);
+    return;
+  }
+
+  statusBar()->showMessage(tr("Measuring reference spectrum: %1 s remaining")
+                           .arg(m_refSpecSecondsRemaining));
 }
 
 void MainWindow::on_actionMeasure_phase_response_triggered()
