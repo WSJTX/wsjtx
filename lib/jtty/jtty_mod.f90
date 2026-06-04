@@ -354,7 +354,7 @@ subroutine unpack_jtty(c32,nframes,message)
   message=''
   k=1
   do iframe=1,nframes
-     if(k.gt.len(message)) exit
+     if(k.gt.len(message)) exit             !Output buffer full; stop decoding
      read(c32(iframe),1002) n28,n2,i2
 1002 format(b28.28,b2.2,b2.2)
 
