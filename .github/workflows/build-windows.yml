@@ -286,9 +286,11 @@ jobs:
         run: |
           WORKSPACE=$(cygpath "${GITHUB_WORKSPACE}")
           test -f "${WORKSPACE}/stage-main/bin/map65.exe"
+          test -f "${WORKSPACE}/stage-main/bin/qmap.exe"
           bash .github/scripts/audit-staged-dll-imports-windows.sh \
             "${WORKSPACE}/stage-main/bin" \
             "${WORKSPACE}/stage-main/bin/map65.exe" \
+            "${WORKSPACE}/stage-main/bin/qmap.exe" \
             "${WORKSPACE}/stage-main/bin/wsjtx.exe" \
             "${WORKSPACE}/stage-main/bin/jt9.exe"
 
