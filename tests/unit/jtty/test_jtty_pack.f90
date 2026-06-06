@@ -1,6 +1,7 @@
 program test_jtty_pack
 
   use jtty_mod
+  use packjt77, only: pack28
   character*80 msg0,msg,expected
   character*32 c32(MAX_FRAMES)
   character*17 cparms
@@ -92,6 +93,10 @@ program test_jtty_pack
   call expect_pack('A~B',1,3,-1,-1,-1)
   call expect_pack('HELLO~',1,3,-1,-1,-1)
   call expect_pack_failure('HELLO'//char(9))
+  call expect_unassigned_unpack_empty(1,2)
+  call expect_unassigned_unpack_empty(1,3)
+  call expect_unpack_overflow_guard()
+  call expect_structured_unpack_boundary()
 
 contains
 
@@ -196,5 +201,80 @@ contains
        error stop 1
     endif
   end subroutine expect_pack_failure
+
+  subroutine expect_unassigned_unpack_empty(i2,n2)
+    character*32 frames(MAX_FRAMES)
+    character*80 decoded
+    character*13 c13
+    integer i2,n2,n28,n32
+
+    frames=''
+    c13='K1ABC        '
+    call pack28(c13,n28)
+    n32=shiftl(n28,4) + 4*n2 + i2
+    write(frames(1),'(b32.32)') n32
+    call unpack_jtty(frames,1,decoded)
+    if(len_trim(decoded).ne.0) then
+       write(*,1280) i2,n2,trim(decoded)
+1280   format('Unassigned frame ',i0,'.',i0,' decoded unexpectedly as "',a,'"')
+       error stop 1
+    endif
+  end subroutine expect_unassigned_unpack_empty
+
+  subroutine expect_unpack_overflow_guard()
+    character*32 frames(MAX_FRAMES)
+    character*80 decoded,expected
+    integer iframe
+
+    ! Sixteen 599 frames must decode exactly up to the fixed output boundary.
+    do iframe=1,MAX_FRAMES
+       write(frames(iframe),'(b32.32)') 2
+    enddo
+    expected=''
+    do iframe=1,8
+       expected((iframe-1)*9+1:iframe*9)='599 00000'
+    enddo
+    expected(73:80)='599 0000'
+    call unpack_jtty(frames,MAX_FRAMES,decoded)
+    if(len_trim(decoded).ne.80 .or. decoded.ne.expected) then
+       write(*,1290) len_trim(decoded),trim(decoded)
+1290   format('Overflow-guard unpack test decoded length ',i0,' as "',a,'"')
+       error stop 1
+    endif
+  end subroutine expect_unpack_overflow_guard
+
+  subroutine expect_structured_unpack_boundary()
+    character*32 frames(MAX_FRAMES)
+    character*80 decoded,expected
+    character*13 c13
+    integer iframe,n28,n32,n30
+
+    ! A long structured append that straddles column 80 must be truncated exactly.
+    frames=''
+    n30=0
+    do i=1,5
+       n30=64*n30 + jchar('A')
+    enddo
+    n32=ishft(n30,2) + 3
+    do iframe=1,14
+       write(frames(iframe),'(b32.32)') n32
+    enddo
+    c13='KA1ABC       '
+    call pack28(c13,n28)
+    n32=shiftl(n28,4) + 4*1 + 1
+    write(frames(15),'(b32.32)') n32
+
+    expected=''
+    do i=1,70
+       expected(i:i)='A'
+    enddo
+    expected(71:80)='TU NOW KA1'
+    call unpack_jtty(frames,15,decoded)
+    if(len_trim(decoded).ne.80 .or. decoded.ne.expected) then
+       write(*,1300) len_trim(decoded),trim(decoded)
+1300   format('Structured-boundary unpack test decoded length ',i0,' as "',a,'"')
+       error stop 1
+    endif
+  end subroutine expect_structured_unpack_boundary
 
 end program test_jtty_pack
