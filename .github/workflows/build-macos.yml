@@ -386,6 +386,7 @@ jobs:
             -DWSJT_SKIP_MANPAGES=ON \
             -DWSJT_ENABLE_TESTS=OFF \
             -DWSJT_MACOS_LIBGOMP_LIBRARY="${{ steps.fc.outputs.libgomp }}" \
+            -DWSJT_SOURCE_REVISION="${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || '' }}" \
             -Wno-dev
 
       - name: Build

@@ -166,6 +166,7 @@ include (CMakeDependentOption)
 OPTION (BUILD_SHARED_LIBS "Build Shared Libraries" OFF)
 # Set the LIB_TYPE variable to STATIC
 SET (LIB_TYPE STATIC)
+set (WSJT_SOURCE_REVISION "" CACHE STRING "Source revision associated with this build")
 if (BUILD_SHARED_LIBS)
   # User wants to build Dynamic Libraries, so change the LIB_TYPE variable to CMake keyword 'SHARED'
   set (LIB_TYPE SHARED)
