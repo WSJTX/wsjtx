@@ -53,7 +53,7 @@ QDateTime qt_truncate_date_time_to (QDateTime dt, int milliseconds)
 
 QString app_sounds_directory (QString const& subdirectory)
 {
-#if defined (Q_OS_MAC)
+#if defined (__APPLE__)
   QString root {QCoreApplication::applicationDirPath () + "/../Resources/sounds"};
 #else
   QString root {QCoreApplication::applicationDirPath () + "/sounds"};
