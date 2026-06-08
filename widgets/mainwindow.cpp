@@ -230,8 +230,6 @@ extern "C" {
 
   void save_dxbase_(char* dxbase, FCL len);
 
-  void indexx_(float arr[], int* n, int indx[]);
-
   void get_q3list_(char* fname, bool* bDiskData, int* nlist, char* list, FCL len1, FCL len2);
 
   void rm_q3list_(char* callsign, FCL len);
@@ -4574,7 +4572,7 @@ void MainWindow::callSandP2(int n)
   n=qAbs(n)-1;
   if(m_mode!="Q65" and m_ready2call[n]=="") return;
   QStringList w=m_ready2call[n].split(' ', SkipEmptyParts);
-  if(m_mode=="Q65" and m_specOp==SpecOp::Q65_PILEUP and n < 40) {
+  if(m_mode=="Q65" and m_specOp==SpecOp::Q65_PILEUP and n < MaxQ65PileupCallers) {
     // This code is for 6m EME DXpedition operator
     w=m_callers[n].split(' ', SkipEmptyParts);
     m_deCall=w[2];
