@@ -3,6 +3,7 @@
 #include "widegraph.h"
 #include "commons.h"
 #include "Audio/WavFile.hpp"
+#include "JttyMessages.hpp"
 #include "Logger.hpp"
 #include <QByteArray>
 #include <QDateTime>
@@ -373,9 +374,7 @@ QString MainWindow::jtty_msg_expand(QString t)
     t=t.replace("%Q",m_hisCall);
     if(t.contains("%N")) {
       int n=ui->sbSerialNumber_2->value();
-      QString tn=QString::number(n);
-      if  (n < 10) tn = "00"+tn;
-      if(n   < 100) tn = "0"+tn;
+      QString tn=Jtty::formatSerialNumber(n);
       t=t.replace("%N",tn);
       if(!t.contains("%")) return t;
     }

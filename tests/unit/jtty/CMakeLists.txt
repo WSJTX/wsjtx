@@ -18,3 +18,7 @@ add_executable (test_jtty_txstream
   ${CMAKE_SOURCE_DIR}/Audio/soundout.cpp)
 target_link_libraries (test_jtty_txstream wsjt_qt Qt5::Test Qt5::Multimedia)
 add_test (NAME test_jtty_txstream COMMAND test_jtty_txstream)
+
+add_executable (test_jtty_messages test_jtty_messages.cpp)
+target_link_libraries (test_jtty_messages Qt5::Test)
+add_test (NAME test_jtty_messages COMMAND test_jtty_messages)
