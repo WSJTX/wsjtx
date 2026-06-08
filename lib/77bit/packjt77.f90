@@ -95,7 +95,6 @@ integer function ihashcall(c0,m)
   character(len=13), intent(in)       :: c0
   integer, intent(in)                 :: m
   integer(kind=8)                     :: n8
-  integer(kind=selected_int_kind(38)) :: prod
   integer                             :: i,j
   character*38 c
   data c/' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ/'/
@@ -106,13 +105,47 @@ integer function ihashcall(c0,m)
      n8=38_8*n8 + j
   enddo
 
-  prod = 47055833459_8
-  prod = prod * n8
-  prod = ishft(prod,64)
-  ihashcall=ishft(prod,m-128)
+  ihashcall=ihashcall_from_n8(n8,m)
 
   return
 end function ihashcall
+
+integer function ihashcall_from_n8(n8,m)
+  implicit none
+
+  integer(kind=8), intent(in) :: n8
+  integer, intent(in)         :: m
+  integer(kind=8), parameter  :: hash_factor(0:3) = (/2419_8, 62655_8, 10_8, 0_8/)
+  integer(kind=8)             :: b(0:3), p(0:3)
+  integer(kind=8)             :: carry, term
+  integer(kind=8)             :: x
+  integer                     :: i,j
+
+  x=n8
+  do i=0,3
+     b(i)=mod(x,65536_8)
+     x=x/65536_8
+  enddo
+
+  ! Return the top m bits of the low 64 bits of 47055833459*n8.
+  carry=0_8
+  do i=0,3
+     term=carry
+     do j=0,i
+        term=term+hash_factor(j)*b(i-j)
+     enddo
+     p(i)=mod(term,65536_8)
+     carry=term/65536_8
+  enddo
+
+  if(m.le.16) then
+     ihashcall_from_n8=int(p(3)/(2_8**(16-m)))
+  else
+     ihashcall_from_n8=int(p(3)*(2_8**(m-16)) + p(2)/(2_8**(32-m)))
+  endif
+
+  return
+end function ihashcall_from_n8
 
 subroutine save_hash_call(c13,n10,n12,n22)
 
@@ -1775,18 +1808,21 @@ subroutine hash22var(n22,c13,nthr)
 end subroutine hash22var
 
 integer function ihashcallvar(c0,m)
+  implicit none
 
-  integer*8 n8
-  character*13 c0
-  character*38 c
+  character(len=13), intent(in)       :: c0
+  integer, intent(in)                 :: m
+  integer(kind=8)                     :: n8
+  integer                             :: i,j
+  character*38                        :: c
   data c/' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ/'/
 
-  n8=0
+  n8=0_8
   do i=1,11
      j=index(c,c0(i:i)) - 1
-     n8=38*n8 + j
+     n8=38_8*n8 + j
   enddo
-  ihashcallvar=ishft(47055833459_8*n8,m-64)
+  ihashcallvar=ihashcall_from_n8(n8,m)
 
   return
 end function ihashcallvar

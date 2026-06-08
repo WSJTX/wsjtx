@@ -16,6 +16,11 @@ program test_packjt77_protocol_vectors
   call expect_hash_vector('W3CCX', 665, 2662, 2726483)
   call expect_hash_vector('3DA0ABC', 48, 192, 196695)
   call expect_hash_vector('3XABC', 563, 2254, 2308721)
+  call expect_hash_vector('///////////', 671, 2685, 2749801)
+  call expect_hash_vector('ZZZZZZZZZZZ', 902, 3609, 3695718)
+  call expect_hash_vector('99999999999', 762, 3050, 3123740)
+  call expect_hash_vector('A23456789Z/', 122, 488, 499902)
+  call expect_hash_vector('           ', 0, 0, 0)
 
   call expect_pack_bits('K1ABC W9XYZ FN42', 1, 0, -1, -1, &
        '00001001101111011110001101010000011000010100100111011100000010100001100110001')
@@ -84,6 +89,20 @@ contains
             want10, want12, want22
 1020   format('Var hash vector failure for "',a,'"; got ',i0,1x,i0,1x,i0, &
               ' wanted ',i0,1x,i0,1x,i0)
+       error stop 1
+    endif
+
+    if(got10.ne.got10var .or. got12.ne.got12var .or. got22.ne.got22var) then
+       write(*,1030) trim(callsign), got10, got12, got22, got10var, got12var, got22var
+1030   format('Hash helper mismatch for "',a,'"; standard ',i0,1x,i0,1x,i0, &
+              ' var ',i0,1x,i0,1x,i0)
+       error stop 1
+    endif
+
+    if(got10.lt.0 .or. got10.gt.1023 .or. got12.lt.0 .or. got12.gt.4095 .or. &
+         got22.lt.0 .or. got22.gt.4194303) then
+       write(*,1040) trim(callsign), got10, got12, got22
+1040   format('Hash range failure for "',a,'"; got ',i0,1x,i0,1x,i0)
        error stop 1
     endif
 
