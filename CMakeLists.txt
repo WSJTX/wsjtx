@@ -22,6 +22,8 @@ if (APPLE)
 
 Earliest version we can support with Qt 5.12, C++11 & libc++ is 10.12.
 Do not override this if you intend to build an official deployable installer.")
+
+  set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-headerpad_max_install_names")
 endif (APPLE)
 
 if(APPLE)
@@ -1112,6 +1114,21 @@ find_package (Boost 1.62 REQUIRED COMPONENTS log_setup log)
 #
 find_package (OpenMP)
 
+if (APPLE)
+  set (WSJT_MACOS_LIBGOMP_LIBRARY "" CACHE FILEPATH "Path to the static GNU OpenMP runtime archive")
+  if (NOT WSJT_MACOS_LIBGOMP_LIBRARY)
+    execute_process (
+      COMMAND ${CMAKE_Fortran_COMPILER} -print-file-name=libgomp.a
+      OUTPUT_VARIABLE WSJT_MACOS_LIBGOMP_LIBRARY
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+      ERROR_QUIET
+      )
+  endif ()
+  if (NOT WSJT_MACOS_LIBGOMP_LIBRARY OR NOT EXISTS "${WSJT_MACOS_LIBGOMP_LIBRARY}")
+    message (FATAL_ERROR "Static GNU OpenMP runtime archive not found. Set WSJT_MACOS_LIBGOMP_LIBRARY to libgomp.a for deployable macOS builds.")
+  endif ()
+endif ()
+
 #
 # fftw3 single precision library
 #
@@ -1479,7 +1496,7 @@ function (wsjt_link_fortran_openmp tgt)
   if (APPLE)
     # No working C/C++ OpenMP on macOS, so link GNU OpenMP + libgcc by hand
     # and put the OpenMP flag on this target's own Fortran sources.
-    target_link_libraries (${tgt} gomp gcc_s.1)
+    target_link_libraries (${tgt} "${WSJT_MACOS_LIBGOMP_LIBRARY}" gcc_s.1)
     target_compile_options (${tgt} PRIVATE
       $<$<COMPILE_LANGUAGE:Fortran>:${WSJT_OPENMP_FORTRAN_FLAGS}>)
   elseif (NOT TARGET OpenMP::OpenMP_Fortran AND WSJT_OPENMP_FORTRAN_FLAGS)
