@@ -185,6 +185,7 @@ option (WSJT_RIG_NONE_CAN_SPLIT "Allow split operation with \"None\" as rig.")
 option (WSJT_TRACE_UDP "Debugging option that turns on UDP message protocol diagnostics.")
 option (WSJT_BUILD_UTILS "Build simulators and code demonstrators." ON)
 option (WSJT_FOX_OTP "Enable Fox OTP Verification Messages." ON)
+option (WSJT_SKIP_BUNDLE_FIXUP "Skip install-time bundle dependency fixup." OFF)
 # Track whether this deprecated option came from the user or from our own
 # default, so normal reconfigures do not warn just because the cache exists.
 set (WSJT_SKIP_MAP65_WAS_USER_PROVIDED FALSE)
@@ -2295,7 +2296,7 @@ endif ()
 #
 # bundle fixup only done in non-Debug configurations
 #
-if (NOT is_debug_build)
+if (NOT is_debug_build AND NOT WSJT_SKIP_BUNDLE_FIXUP)
   # add this sub-sirectory after all install steps and other
   # sub-directories to ensure that all executables are in-place before
   # any fixup is done
