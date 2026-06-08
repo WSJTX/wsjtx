@@ -848,7 +848,7 @@ subroutine q65_hist2(nfreq,msg0,callers,nhist2)
 
   use types
   use prog_args
-  parameter (MAX_CALLERS=40)  !For multiple q3 decodes in NA VHf Contest mode
+  parameter (MAX_CALLERS=50)  !For multiple q3 decodes in NA VHF Contest mode
   character*37 msg0,msg
   type(q3list) callers(MAX_CALLERS)
   character*6 c6

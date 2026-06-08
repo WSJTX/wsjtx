@@ -30,6 +30,7 @@
 #include <QFuture>
 #include <QFutureWatcher>
 #include <QDateTime>
+#include <array>
 
 #include "MultiGeometryWidget.hpp"
 #include "NonInheritingProcess.hpp"
@@ -170,6 +171,10 @@ public slots:
   void skedFreq(double sf);
 
 private:
+  static constexpr int MaxActiveStationRows = 50;
+  // Keep this matched with MAX_CALLERS in the Q65 q3list Fortran helpers.
+  static constexpr int MaxQ65PileupCallers = 50;
+
   void change_layout (std::size_t) override;
   void keyPressEvent (QKeyEvent *) override;
   void closeEvent(QCloseEvent *) override;
@@ -960,8 +965,8 @@ private:
   QString m_deGrid;
   QString m_freeTextMsg;
   QString m_freeTextMsg0;
-  QString m_ready2call[50];
-  QString m_callers[50];
+  std::array<QString, MaxActiveStationRows> m_ready2call;
+  std::array<QString, MaxQ65PileupCallers> m_callers;
 
   QSet<QString> m_pfx;
   QSet<QString> m_sfx;

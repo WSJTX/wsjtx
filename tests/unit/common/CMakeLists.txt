@@ -18,3 +18,10 @@ add_executable (test_auto_respond_selection_latch
 )
 target_link_libraries (test_auto_respond_selection_latch Qt5::Test)
 add_test (NAME test_auto_respond_selection_latch COMMAND test_auto_respond_selection_latch)
+
+add_executable (test_active_station_list
+  test_active_station_list.cpp
+  ${CMAKE_SOURCE_DIR}/ActiveStationList.cpp
+)
+target_link_libraries (test_active_station_list Qt5::Test)
+add_test (NAME test_active_station_list COMMAND test_active_station_list)

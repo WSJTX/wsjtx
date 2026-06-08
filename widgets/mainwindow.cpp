@@ -63,6 +63,7 @@
 #include "Audio/soundin.h"
 #include "Modulator/Modulator.hpp"
 #include "Detector/Detector.hpp"
+#include "ActiveStationList.hpp"
 #include "plotter.h"
 #include "echograph.h"
 #include "fastplot.h"
@@ -4480,7 +4481,8 @@ void MainWindow::refreshPileupList()
                   &list[0], (FCL)fname.length(), (FCL)2000);
       QString t="";
       QString t0="";
-      for(int i=0; i<nlist; i++) {
+      std::fill(m_callers.begin(), m_callers.end(), QString {});
+      for(int i=0; i<qMin(nlist, MaxQ65PileupCallers); i++) {
         memcpy(line,&list[36*i],36);
         t0=QString::fromLatin1(line)+"\n";
         m_callers[i]=t0;
@@ -11438,19 +11440,17 @@ void MainWindow::readWidebandDecodes()
     m_psk_Reporter.sendReport();                // Upload any queued spots
   }
 
-// Update "m_wEMECall" by reading qmap_decodes.txt
+// Displayed row numbers index m_ready2call, so the rendered QMAP list must
+// stay within the same capacity as its click-target storage.
   QMap<QString,EMECall>::iterator i;
   QString t="";
   QString t1;
   QString dxcall;
   QString dxgrid4;
-  QStringList list;
-  float f[100];
-  int indx[100];
+  QVector<ActiveStationListItem> rows;
   int maxAge=m_ActiveStationsWidget->maxAge();
 
   m_ActiveStationsWidget->setClickOK(false);
-  int k=0;
 
   for(i=m_EMECall.begin(); i!=m_EMECall.end(); i++) {
     bool bSkip=false;
@@ -11473,23 +11473,20 @@ void MainWindow::readWidebandDecodes()
         t1=t1.asprintf("%7.3f %5.1f  %+03d  %3s  %8s %4s %3d %3d %2s\n",i->frx,i->fsked,snr,
                        submode.toLatin1().constData(),dxcall.toLatin1().constData(),
                        dxgrid4.toLatin1().constData(),odd,age,c2);
-        f[k]=i->fsked;
-        list.append(t1);
-        k++;
+        rows.append({float(i->fsked), t1});
       }
       m_ActiveStationsWidget->setClickOK(true);
     }
   }
 
-  if(k>0) {
+  std::fill(m_ready2call.begin(), m_ready2call.end(), QString {});
+  rows=sorted_limited_active_station_items(rows, MaxActiveStationRows, false);
+  if(!rows.isEmpty()) {
     t1="";
-    int kz=k;
-    indexx_(f,&kz,indx);
-    for(int k=0; k<kz; k++) {
-      int j=indx[k]-1;
+    for(int k=0; k<rows.size(); k++) {
       t1=t1.asprintf("%2d. ",k+1);
-      t1+=list[j];
-      m_ready2call[k]=list[j];
+      t1+=rows[k].text;
+      m_ready2call[k]=rows[k].text;
       t+=t1;
     }
   }

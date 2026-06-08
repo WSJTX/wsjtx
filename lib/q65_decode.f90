@@ -58,7 +58,7 @@ contains
     use types
  
     parameter (NMAX=300*12000)  !Max TRperiod is 300 s
-    parameter (MAX_CALLERS=40)  !For multiple q3 decodes in NA VHf Contest mode
+    parameter (MAX_CALLERS=50)  !For multiple q3 decodes in NA VHF Contest mode
 
     class(q65_decoder), intent(inout) :: this
 

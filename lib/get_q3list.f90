@@ -8,9 +8,9 @@ subroutine get_q3list(fname,bDiskData,nlist,list)
      integer moonel
   end type q3list
 
-  parameter (MAX_CALLERS=40)
+  parameter (MAX_CALLERS=50)
   character*(*) fname
-  character*36 list(40)
+  character*36 list(MAX_CALLERS)
   character*8 grid6
   logical*1 bDiskData
   integer time
@@ -24,7 +24,7 @@ subroutine get_q3list(fname,bDiskData,nlist,list)
   nhist2=0
  open(24,file=fname,status='unknown',form='unformatted')
   read(24,end=1) nhist2
-  if(nhist2.ge.1 .and. nhist2.le.40) then
+  if(nhist2.ge.1 .and. nhist2.le.MAX_CALLERS) then
      read(24,end=1) ctmp(1:nhist2)
   else
      nhist2=0
@@ -83,7 +83,7 @@ end subroutine get_q3list
 
 subroutine rm_q3list(dxcall0)
 
-  parameter (MAX_CALLERS=40)
+  parameter (MAX_CALLERS=50)
   type q3list
      character*6 call
      character*4 grid
