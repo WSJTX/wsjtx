@@ -15,6 +15,7 @@ SOURCES += \
   widgets/echoplot.cpp widgets/echograph.cpp widgets/fastgraph.cpp \
   widgets/fastplot.cpp widgets/MessageBox.cpp \
   widgets/colorhighlighting.cpp widgets/ExportCabrillo.cpp \
+  widgets/BandHopping.cpp \
   widgets/AbstractLogWindow.cpp \
   widgets/FrequencyLineEdit.cpp widgets/FrequencyDeltaLineEdit.cpp \
   widgets/FoxLogWindow.cpp widgets/CabrilloLogWindow.cpp \
@@ -36,6 +37,7 @@ HEADERS  += \
   widgets/fastplot.h widgets/MessageBox.hpp widgets/colorhighlighting.h \
   widgets/ExportCabrillo.h widgets/AbstractLogWindow.hpp \
   widgets/FoxLogWindow.hpp widgets/CabrilloLogWindow.hpp \
+  widgets/BandHopping.hpp \
   widgets/DateTimeEdit.hpp widgets/HelpTextWindow.hpp \
   widgets/RestrictedSpinBox.hpp \
   widgets/LazyFillComboBox.hpp widgets/CheckableItemComboBox.hpp \

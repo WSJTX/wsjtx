@@ -345,6 +345,7 @@ set (wsjt_qt_CXXSRCS
   widgets/LazyFillComboBox.cpp
   widgets/CheckableItemComboBox.cpp
   widgets/BandComboBox.cpp
+  widgets/BandHopping.cpp
   otpgenerator.cpp
   MessageFilter.cpp
   MessageFilterRules.cpp
