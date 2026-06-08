@@ -133,6 +133,8 @@ void MainWindow::bandHopping()
       ui->pbBandHopping->setChecked (true);
       startIndex = hop_index + 1;
       return;
+    default:
+      Q_UNREACHABLE ();
     }
 
   auto const& row = m_config.frequencies ()->best_working_frequency (frequency);

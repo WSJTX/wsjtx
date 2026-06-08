@@ -1,5 +1,5 @@
-#ifndef BAND_HOPPING_HPP__
-#define BAND_HOPPING_HPP__
+#ifndef BAND_HOPPING_HPP
+#define BAND_HOPPING_HPP
 
 #include <vector>
 
