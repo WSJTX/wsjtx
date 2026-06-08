@@ -522,6 +522,7 @@ jobs:
           APP="${{ steps.collect.outputs.stage_dir }}/wsjtx.app"
           DATADIR="${APP}/Contents/Resources/wsjtx"
           DOCDIR="${APP}/Contents/Resources/doc/wsjtx"
+          SOUNDDIR="${APP}/Contents/Resources/sounds"
 
           for file in cty.dat cty.dat_copyright.txt grid.dat sat.dat eclipse.txt ALLCALL7.TXT JPLEPH; do
             if [ ! -f "${DATADIR}/${file}" ]; then
@@ -538,9 +539,20 @@ jobs:
             exit 1
           fi
 
+          if [ ! -f "${SOUNDDIR}/Wanted.wav" ]; then
+            echo "::error::Expected CMake-installed alert sound is missing: ${SOUNDDIR}/Wanted.wav"
+            exit 1
+          fi
+
+          if [ -e "${APP}/Contents/MacOS/sounds" ]; then
+            echo "::error::Alert sounds must not be installed under Contents/MacOS; codesign treats them as unsigned code."
+            exit 1
+          fi
+
           echo "Verified CMake-installed data files in ${DATADIR}"
           echo "Verified CMake-installed local user guides:"
           printf '  %s\n' "$@"
+          echo "Verified CMake-installed alert sounds in ${SOUNDDIR}"
 
       - name: Deploy macOS app dependencies
         run: |
@@ -766,13 +778,24 @@ jobs:
           pkgutil --expand-full "$PKG_OUT" "$CHECK_PAYLOAD"
           test -x "$CHECK_PAYLOAD/wsjtx-component.pkg/Payload/Applications/wsjtx.app/Contents/MacOS/qmap"
           test -x "$CHECK_PAYLOAD/wsjtx-component.pkg/Payload/Applications/wsjtx.app/Contents/MacOS/map65"
-          set -- "$CHECK_PAYLOAD/wsjtx-component.pkg/Payload/Applications/wsjtx.app/Contents/Resources/doc/wsjtx/wsjtx-main"*.html
+          APP_PAYLOAD="$CHECK_PAYLOAD/wsjtx-component.pkg/Payload/Applications/wsjtx.app"
+          SOUNDDIR="${APP_PAYLOAD}/Contents/Resources/sounds"
+          set -- "${APP_PAYLOAD}/Contents/Resources/doc/wsjtx/wsjtx-main"*.html
           if [ "$#" -lt 1 ] || [ ! -f "$1" ]; then
             echo "::error::Expected at least one local user guide in the packaged app bundle."
             printf 'Matched paths:\n'
             printf '  %s\n' "$@"
             exit 1
           fi
+          if [ ! -f "${SOUNDDIR}/Wanted.wav" ]; then
+            echo "::error::Expected packaged alert sound is missing: ${SOUNDDIR}/Wanted.wav"
+            exit 1
+          fi
+          if [ -e "${APP_PAYLOAD}/Contents/MacOS/sounds" ]; then
+            echo "::error::Packaged alert sounds must not be under Contents/MacOS."
+            exit 1
+          fi
+          echo "Verified packaged alert sounds in ${SOUNDDIR}"
           .github/scripts/verify-macos-artifacts.sh \
             --target "${{ env.DEPLOYMENT_TARGET }}" \
             --arch "${{ inputs.arch }}" \

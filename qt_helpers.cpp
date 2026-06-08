@@ -6,6 +6,8 @@
 #include <QStyle>
 #include <QVariant>
 #include <QDateTime>
+#include <QCoreApplication>
+#include <QDir>
 
 QString font_as_stylesheet (QFont const& font)
 {
@@ -47,6 +49,25 @@ QDateTime qt_truncate_date_time_to (QDateTime dt, int milliseconds)
 {
   dt.setMSecsSinceEpoch (dt.toMSecsSinceEpoch () / milliseconds * milliseconds);
   return dt;
+}
+
+QString app_sounds_directory (QString const& subdirectory)
+{
+#if defined (Q_OS_MAC)
+  QString root {QCoreApplication::applicationDirPath () + "/../Resources/sounds"};
+#else
+  QString root {QCoreApplication::applicationDirPath () + "/sounds"};
+#endif
+
+  auto child = subdirectory;
+  while (child.startsWith (QChar {'/'}))
+    {
+      child.remove (0, 1);
+    }
+
+  QDir dir {root};
+  auto path = child.isEmpty () ? dir.absolutePath () : dir.absoluteFilePath (child);
+  return QDir::cleanPath (path) + QChar {'/'};
 }
 
 int next_cyclic_index (int current_index, int item_count)

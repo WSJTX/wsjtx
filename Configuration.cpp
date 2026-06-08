@@ -5015,7 +5015,7 @@ void Configuration::impl::on_voices_combo_box_currentIndexChanged (int /* index 
 
 void Configuration::impl::read_voices ()
 {
-  QString audioPath = QCoreApplication::applicationDirPath() + "/sounds/";
+  QString audioPath = app_sounds_directory ();
   QString voiceList = audioPath + "voices.dat";  // load the content of voices.dat file to the voices combo box
   QFile file2 {voiceList};
   QStringList wordList;
@@ -5045,7 +5045,7 @@ void Configuration::impl::on_pb_test_alerts_clicked (bool)
   read_voicesPath();
 #ifdef WIN32
   QAudioOutput info(QAudioDeviceInfo::defaultOutputDevice());
-  QString audioPath = QCoreApplication::applicationDirPath() + "/sounds" + voicesPath_ + "/";
+  QString audioPath = app_sounds_directory (voicesPath_);
   QAudioFormat format;
   format.setCodec("audio/pcm");
   format.setSampleRate (48000);
@@ -5059,7 +5059,7 @@ void Configuration::impl::on_pb_test_alerts_clicked (bool)
   effect->open(QIODevice::ReadOnly);
   audio->start(effect);
 #else
-  QString audioPath = QCoreApplication::applicationDirPath() + "/sounds" + voicesPath_ + "/";
+  QString audioPath = app_sounds_directory (voicesPath_);
   QSound::play(audioPath + "Testing123.wav");  // for Linux and macOS
 #endif
 }
