@@ -109,6 +109,7 @@
 #include "Audio/WavFile.hpp"
 #include "WSJTXLogging.hpp"
 #include "Logger.hpp"
+#include "FoxGuardBands.hpp"
 #include "widgets/QSYMessage.h"
 #include "widgets/QSYMessageCreator.h"
 #include "widgets/qsymonitor.h"
@@ -5404,40 +5405,27 @@ void MainWindow::guiUpdate()
     }
 
     if(m_mode=="FT8" and SpecOp::FOX==m_specOp) {
-// Don't allow Fox mode in any of the default FT8 sub-bands.
-      QVector<qint32> ft8Freq = {1840000,3573000,7074000,10136000,14074000,18100000,21074000,24915000,28074000,50313000,70154000};
-      for(int i=0; i<ft8Freq.length()-1; i++) {
-        int kHzdiff=m_freqNominal - ft8Freq[i];
-        if(qAbs(kHzdiff) < 3000 ) {
-          m_bTxTime=false;
-          if (m_auto) auto_tx_mode (false);
-          if (m_tune) stop_tuning();
-          auto const& message = tr ("Please choose another dial frequency.\n"
-                                    "Must be 3Khz away from %1.\n"
-                                    "WSJT-X will not operate in Fox mode\n"
-                                    "overlapping the standard FT8 sub-bands.").arg(ft8Freq[i]);
-          QTimer::singleShot (0, [=] {               // don't block guiUpdate
-            MessageBox::warning_message (this, tr ("Fox Mode warning"), message);
-          });
-          break;
+      auto const guard = FoxGuardBands::check (m_freqNominal);
+      if (guard.blocked) {
+        m_bTxTime=false;
+        if (m_auto) auto_tx_mode (false);
+        if (m_tune) stop_tuning();
+
+        QString message;
+        if (guard.kind == FoxGuardBands::GuardKind::StandardFT8) {
+          message = tr ("Please choose another dial frequency.\n"
+                        "Must be 3Khz away from %1.\n"
+                        "WSJT-X will not operate in Fox mode\n"
+                        "overlapping the standard FT8 sub-bands.").arg (guard.guard_frequency);
+        } else {
+          message = tr ("Please choose another dial frequency.\n"
+                        "WSJT-X will not operate in Fox mode\n"
+                        "overlapping the WSPR sub-bands.");
         }
-      }
-// Don't allow Fox mode on WSPR frequencies.
-      QVector<qint32> wsprFreq = {1836600,5364700,3568600,7038600,10138700,14095600,18104600,21094600,24924600,28124600};
-      for(int i=0; i<wsprFreq.length()-1; i++) {
-        int kHzdiff=m_freqNominal - wsprFreq[i];
-        if(kHzdiff > -3500 && kHzdiff < 300) {
-          m_bTxTime=false;
-          if (m_auto) auto_tx_mode (false);
-          if (m_tune) stop_tuning();
-          auto const& message = tr ("Please choose another dial frequency.\n"
-                                    "WSJT-X will not operate in Fox mode\n"
-                                    "overlapping the WSPR sub-bands.").arg(ft8Freq[i]);
-          QTimer::singleShot (0, [=] {               // don't block guiUpdate
-            MessageBox::warning_message (this, tr ("Fox Mode warning"), message);
-          });
-          break;
-        }
+
+        QTimer::singleShot (0, [=] {               // don't block guiUpdate
+          MessageBox::warning_message (this, tr ("Fox Mode warning"), message);
+        });
       }
     }
 

@@ -330,6 +330,7 @@ set (wsjt_qt_CXXSRCS
   PrefixSuffix.cpp
   CountryNames.cpp
   HelpText.cpp
+  FoxGuardBands.cpp
   )
 
 set (wsjt_qtmm_CXXSRCS
