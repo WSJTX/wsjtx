@@ -482,79 +482,64 @@ jobs:
           file wsjtx-build/jt9
           lipo -archs wsjtx-build/jt9 | grep -q ${{ inputs.arch }}
 
-      - name: Collect binaries
+      - name: Install app bundle and collect CLI assets
         id: collect
         run: |
           BUILD=wsjtx-build
           STAGE=stage/wsjtx-${{ inputs.version }}-${{ inputs.arch }}
           ASSETS=assets
 
-          mkdir -p "${STAGE}" "${ASSETS}"
+          mkdir -p "${ASSETS}"
+          cmake --install "${BUILD}" --prefix "${STAGE}"
 
-          cp -R "${BUILD}/wsjtx.app" "${STAGE}/"
+          APP="${STAGE}/wsjtx.app"
+          if [ ! -d "${APP}" ]; then
+            echo "::error::CMake install did not create ${APP}"
+            exit 1
+          fi
 
-          for bin in qmap/qmap map65/map65; do
-            if [ ! -x "${BUILD}/${bin}" ]; then
-              echo "::error::Expected app companion binary is missing: ${BUILD}/${bin}"
+          for bin in qmap map65; do
+            if [ ! -x "${APP}/Contents/MacOS/${bin}" ]; then
+              echo "::error::Expected app companion binary is missing after install: ${APP}/Contents/MacOS/${bin}"
               exit 1
             fi
-            cp "${BUILD}/${bin}" "${STAGE}/wsjtx.app/Contents/MacOS/"
-          done
-
-          for bin in jt9 wsprd; do
-            [ -f "${BUILD}/${bin}" ] && cp "${BUILD}/${bin}" "${STAGE}/wsjtx.app/Contents/MacOS/"
           done
 
           for bin in jt9 wsprd wsprcode jt65code jt4code ft8code q65code encode77 fcal hash22calc; do
-            [ -f "${BUILD}/${bin}" ] && cp "${BUILD}/${bin}" "${STAGE}/" && cp "${BUILD}/${bin}" "${ASSETS}/"
+            [ -f "${BUILD}/${bin}" ] && cp "${BUILD}/${bin}" "${ASSETS}/"
           done
 
           for bin in ft4sim jt4sim jt65sim cwsim sfoxsim echosim EchoCallSim; do
-            [ -f "${BUILD}/${bin}" ] && cp "${BUILD}/${bin}" "${STAGE}/" && cp "${BUILD}/${bin}" "${ASSETS}/"
+            [ -f "${BUILD}/${bin}" ] && cp "${BUILD}/${bin}" "${ASSETS}/"
           done
 
           echo "stage_dir=${STAGE}" >> "$GITHUB_OUTPUT"
           echo "assets_dir=${ASSETS}" >> "$GITHUB_OUTPUT"
 
-      - name: Stage shipped data files into app bundle
+      - name: Verify CMake-installed app resources
         run: |
-          # macOS CI never runs `cmake --install`, so the read-only data files
-          # that CMakeLists.txt installs to ${CMAKE_INSTALL_DATADIR}/wsjtx are
-          # otherwise absent from the bundle. Stage them into
-          # Contents/Resources/wsjtx (NEVER Contents/MacOS — codesign rejects
-          # non-Mach-O files there). This must run before "Code sign binaries"
-          # so the files are sealed by the bundle signature. The list below
-          # duplicates the install(FILES ...) block in CMakeLists.txt; the drift
-          # guard at the end fails the build if the two ever diverge.
           APP="${{ steps.collect.outputs.stage_dir }}/wsjtx.app"
           DATADIR="${APP}/Contents/Resources/wsjtx"
-          mkdir -p "${DATADIR}"
-          cp cty.dat cty.dat_copyright.txt grid.dat sat.dat eclipse.txt ALLCALL7.TXT "${DATADIR}/"
-          cp contrib/Ephemeris/JPLEPH "${DATADIR}/"
+          DOCDIR="${APP}/Contents/Resources/doc/wsjtx"
 
-          # Drift guard: the set staged above must equal the data-file list that
-          # CMakeLists.txt installs to ${CMAKE_INSTALL_DATADIR}/wsjtx. If a future
-          # change adds/removes a file in one place but not the other, fail here
-          # instead of silently shipping a .pkg with a missing data file.
-          expected=$(awk '
-            /^[ \t]*install[ \t]*\(FILES/ { inblk=1; n=0; next }
-            inblk && /DESTINATION/ {
-              if ($0 ~ /CMAKE_INSTALL_DATADIR/) for (i=0;i<n;i++) print f[i]
-              inblk=0; next
-            }
-            inblk { gsub(/[ \t]/,""); if (length($0)>0 && $0 !~ /^#/) f[n++]=$0 }
-          ' CMakeLists.txt | sed 's#.*/##' | sort)
-          staged=$(cd "${DATADIR}" && printf '%s\n' * | sort)
-          if [ "${expected}" != "${staged}" ]; then
-            echo "::error::macOS data staging is out of sync with CMakeLists.txt install(FILES)."
-            echo "Expected (from CMakeLists.txt):"
-            printf '%s\n' "$expected" | sed 's/^/  /'
-            echo "Staged (in bundle):"
-            printf '%s\n' "$staged" | sed 's/^/  /'
+          for file in cty.dat cty.dat_copyright.txt grid.dat sat.dat eclipse.txt ALLCALL7.TXT JPLEPH; do
+            if [ ! -f "${DATADIR}/${file}" ]; then
+              echo "::error::Expected CMake-installed data file is missing: ${DATADIR}/${file}"
+              exit 1
+            fi
+          done
+
+          set -- "${DOCDIR}/wsjtx-main"*.html
+          if [ "$#" -lt 1 ] || [ ! -f "$1" ]; then
+            echo "::error::Expected at least one CMake-installed local user guide in ${DOCDIR}"
+            printf 'Matched paths:\n'
+            printf '  %s\n' "$@"
             exit 1
           fi
-          echo "Staged data files into ${DATADIR} (verified against CMakeLists.txt):"
-          printf '%s\n' "$staged" | sed 's/^/  /'
+
+          echo "Verified CMake-installed data files in ${DATADIR}"
+          echo "Verified CMake-installed local user guides:"
+          printf '  %s\n' "$@"
 
       - name: Bundle dylibs into app
         run: |
@@ -1089,7 +1074,7 @@ jobs:
       # cert when secrets are present; produces an unsigned .pkg
       # otherwise. Either way the artifact is named identically and
       # satisfies the all-platforms-ready gate in release.yml.
-      - name: Build installer pkg
+      - name: Build and verify installer pkg
         run: |
           STAGE="${{ steps.collect.outputs.stage_dir }}"
           PKG_ID="org.k1jt.wsjtx.${{ inputs.arch }}"
@@ -1149,6 +1134,13 @@ jobs:
           pkgutil --expand-full "$PKG_OUT" "$CHECK_PAYLOAD"
           test -x "$CHECK_PAYLOAD/wsjtx-component.pkg/Payload/Applications/wsjtx.app/Contents/MacOS/qmap"
           test -x "$CHECK_PAYLOAD/wsjtx-component.pkg/Payload/Applications/wsjtx.app/Contents/MacOS/map65"
+          set -- "$CHECK_PAYLOAD/wsjtx-component.pkg/Payload/Applications/wsjtx.app/Contents/Resources/doc/wsjtx/wsjtx-main"*.html
+          if [ "$#" -lt 1 ] || [ ! -f "$1" ]; then
+            echo "::error::Expected at least one local user guide in the packaged app bundle."
+            printf 'Matched paths:\n'
+            printf '  %s\n' "$@"
+            exit 1
+          fi
           .github/scripts/verify-macos-artifacts.sh \
             --target "${{ env.DEPLOYMENT_TARGET }}" \
             --arch "${{ inputs.arch }}" \
