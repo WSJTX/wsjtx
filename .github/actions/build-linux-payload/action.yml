@@ -369,14 +369,10 @@ runs:
       env:
         VERSION: ${{ inputs.version }}
         ARCH: ${{ inputs.arch }}
-        # Core linuxdeploy is pinned to a dated release + SHA256 verify
-        # so an undetected upstream change fails the build instead of
-        # shipping. The Qt5 plugin stays on the rolling "continuous"
-        # channel because upstream has not cut a dated release since
-        # 1-alpha-20250213-1, which carries a filesystem_error bug on
-        # ubuntu-24.04 / Qt5.15 (missing qt5/plugins/mediaservice dir).
-        # When upstream publishes a newer dated plugin release, pin +
-        # verify it here too.
+        # Core linuxdeploy is pinned to a dated release. The Qt5 plugin
+        # stays on the rolling "continuous" channel because upstream has
+        # not cut a dated release since 1-alpha-20250213-1, which carries
+        # a filesystem_error bug on ubuntu-24.04 / Qt5.15.
         LINUXDEPLOY_TAG: "1-alpha-20251107-1"
         # Force every AppImage spawned by linuxdeploy (the qt plugin and
         # appimagetool, both invoked as AppImages internally) to use
@@ -389,21 +385,39 @@ runs:
         # AppImage runtime's documented FUSE-less escape hatch.
         APPIMAGE_EXTRACT_AND_RUN: "1"
       run: |
+        curl_flags=(--fail --show-error --silent --location --retry 5 --retry-all-errors --retry-delay 5)
         case "$ARCH" in
-          x86_64)  LINUXDEPLOY_SHA256="c20cd71e3a4e3b80c3483cef793cda3f4e990aca14014d23c544ca3ce1270b4d" ;;
-          aarch64) LINUXDEPLOY_SHA256="620095110d693282b8ebeb244a95b5e911cf8f65f76c88b4b47d16ae6346fcff" ;;
-          # SHA256 captured by curl + sha256sum at S138 against linuxdeploy
-          # 1-alpha-20251107-1 release. linuxdeploy DOES publish armhf at
-          # this tag (verified via GitHub releases API); the qt plugin's
-          # `continuous` channel also publishes armhf.
-          armhf)   LINUXDEPLOY_SHA256="e359161979fa4bee50b92ce7102fb510299caebf34f711d983fba7a8f4bb1c2e" ;;
+          x86_64)
+            LINUXDEPLOY_SHA256="c20cd71e3a4e3b80c3483cef793cda3f4e990aca14014d23c544ca3ce1270b4d"
+            QT_PLUGIN_SHA256="be1b7e166bf9975cfb694ebe6759ba40502ffc6196440d3e64aa90c4dbd67e9f"
+            ;;
+          aarch64)
+            LINUXDEPLOY_SHA256="620095110d693282b8ebeb244a95b5e911cf8f65f76c88b4b47d16ae6346fcff"
+            QT_PLUGIN_SHA256="5525e6c49c3c774c02b8864d2acc2ae4c5c0ccc3327f7dce626deaa36348e5c6"
+            ;;
+          armhf)
+            LINUXDEPLOY_SHA256="e359161979fa4bee50b92ce7102fb510299caebf34f711d983fba7a8f4bb1c2e"
+            QT_PLUGIN_SHA256="463c3d853e78adc0bde8a9b2806c19b20eb60dd18799f8c6e68d873fb2be8ba0"
+            ;;
           *)       echo "::error::Unknown linuxdeploy arch: $ARCH"; exit 1 ;;
         esac
-        curl -fsSL -o linuxdeploy.AppImage \
+
+        QT_PLUGIN_ASSET_NAME="linuxdeploy-plugin-qt-${ARCH}.AppImage"
+        QT_PLUGIN_ASSET_ID="$(
+          curl "${curl_flags[@]}" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/linuxdeploy/linuxdeploy-plugin-qt/releases/tags/continuous" |
+          python3 -c 'import json, sys; name = sys.argv[1]; matches = [asset for asset in json.load(sys.stdin)["assets"] if asset["name"] == name]; print(matches[0]["id"]) if matches else sys.exit("asset not found: " + name)' "$QT_PLUGIN_ASSET_NAME"
+        )"
+
+        # If upstream refreshes the continuous Qt plugin assets, this lookup
+        # will keep finding the right asset ID by name; recalculate
+        # QT_PLUGIN_SHA256 after reviewing the new binary.
+        curl "${curl_flags[@]}" -o linuxdeploy.AppImage \
           "https://github.com/linuxdeploy/linuxdeploy/releases/download/${LINUXDEPLOY_TAG}/linuxdeploy-${ARCH}.AppImage"
-        curl -fsSL -o linuxdeploy-plugin-qt.AppImage \
-          "https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-${ARCH}.AppImage"
+        curl "${curl_flags[@]}" -H "Accept: application/octet-stream" -o linuxdeploy-plugin-qt.AppImage \
+          "https://api.github.com/repos/linuxdeploy/linuxdeploy-plugin-qt/releases/assets/${QT_PLUGIN_ASSET_ID}"
         echo "${LINUXDEPLOY_SHA256}  linuxdeploy.AppImage" | sha256sum -c -
+        echo "${QT_PLUGIN_SHA256}  linuxdeploy-plugin-qt.AppImage" | sha256sum -c -
         chmod +x linuxdeploy.AppImage linuxdeploy-plugin-qt.AppImage
 
         # --appimage-extract-and-run on linuxdeploy itself + the env-var
