@@ -512,6 +512,7 @@ private:
   void processWaitAndCall(const DecodedText& dt, const QString& text, bool& block_right_display);
   bool applyFiltering(const DecodedText& dt, const QString& text, bool& filtered);
   void applyHighlighting(const DecodedText& dt, bool& play_Wanted, bool& play_DXcall);
+  void cycleRespondMode();
   void updateRespondTarget(const DecodedText& dt, const QString& text, bool& lselected, bool pounce);
   void displayDecodedTextLine(const DecodedText& dt, const QByteArray& line_read, const QString& distance, bool haveFSpread, float fSpread, bool bDisplayPoints);
   QString calculateDistanceAndBearing(const DecodedText& dt);

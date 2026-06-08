@@ -63,8 +63,12 @@ features for particular operating modes:
 
 ** *Auto Seq* enables auto-sequencing of Tx messages
 
-** *Call 1st* enables automatic response to the first decoded
-responder to your CQ
+** The CQ response mode drop-down controls automatic responses to
+decoded responders to your CQ. Select *CQ: None* to disable automatic
+CQ responses, *CQ: First* to respond to the first decoded responder,
+*CQ: Max Dist* to prefer the most distant responder, *CQ: Max dB* to
+prefer the strongest responder, or *CQ: Min dB* to prefer the weakest
+responder.
 
 ** *Tx6* toggles between two types of shorthand messages in JT4 and
     Q65 modes

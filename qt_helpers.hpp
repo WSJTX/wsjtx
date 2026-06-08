@@ -133,6 +133,9 @@ QDateTime qt_round_date_time_to (QDateTime dt, int milliseconds);
 // truncate a QDateTime to an integral interval of milliseconds
 QDateTime qt_truncate_date_time_to (QDateTime dt, int milliseconds);
 
+// Empty lists have no valid index; -1 advances to the first item.
+int next_cyclic_index (int current_index, int item_count);
+
 template <class T>
 class VPtr
 {

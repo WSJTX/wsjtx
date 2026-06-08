@@ -48,3 +48,13 @@ QDateTime qt_truncate_date_time_to (QDateTime dt, int milliseconds)
   dt.setMSecsSinceEpoch (dt.toMSecsSinceEpoch () / milliseconds * milliseconds);
   return dt;
 }
+
+int next_cyclic_index (int current_index, int item_count)
+{
+  if (item_count <= 0)
+    {
+      return -1;
+    }
+
+  return (current_index + 1) % item_count;
+}

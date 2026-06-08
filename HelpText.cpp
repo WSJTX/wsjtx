@@ -16,7 +16,7 @@ QString HelpText::keyboardShortcuts()
   <tr><td><b>F4       </b></td><td>Clear DX Call, DX Grid, Tx messages 1-4 (Alt: transmit Tx4)</td></tr>
   <tr><td><b>Alt+F4   </b></td><td>Exit program</td></tr>
   <tr><td><b>F5       </b></td><td>Display special mouse commands (Alt: transmit Tx5)</td></tr>
-  <tr><td><b>F6       </b></td><td>Open next file in directory (Alt: toggle "Call 1st")</td></tr>
+  <tr><td><b>F6       </b></td><td>Open next file in directory (Alt: cycle CQ response mode)</td></tr>
   <tr><td><b>Shift+F6 </b></td><td>Decode all remaining files in directory</td></tr>
   <tr><td><b>F7       </b></td><td>Display Message Averaging window</td></tr>
   <tr><td><b>F11      </b></td><td>Move Rx frequency down 1 Hz</td></tr>
@@ -31,7 +31,7 @@ QString HelpText::keyboardShortcuts()
   <tr><td><b>Ctl+1-6  </b></td><td>Set next transmission to this number on Tab 1</td></tr>
   <tr><td><b>Alt+A    </b></td><td>Clear Active Stations for QMAP</td></tr>
   <tr><td><b>Alt+B    </b></td><td>Toggle "Best S+P" status</td></tr>
-  <tr><td><b>Alt+C    </b></td><td>Toggle "Call 1st" checkbox</td></tr>
+  <tr><td><b>Alt+C    </b></td><td>Cycle CQ response mode</td></tr>
   <tr><td><b>Alt+D    </b></td><td>Decode again at QSO frequency</td></tr>
   <tr><td><b>Shift+D  </b></td><td>Full decode (both windows)</td></tr>
   <tr><td><b>Ctrl+E   </b></td><td>Turn on TX even/1st</td></tr>

@@ -2902,9 +2902,7 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
   return;
     case Qt::Key_C:
     if(e->modifiers() & Qt::AltModifier) {
-        int n=ui->respondComboBox->currentIndex()+1;
-        if(n>2) n=0;
-        ui->respondComboBox->setCurrentIndex(n);
+        cycleRespondMode();
       }
     return;
     case Qt::Key_D:
@@ -2965,9 +2963,7 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
       }
     case Qt::Key_F6:
       if(bAltF1F6) {
-        int n=ui->respondComboBox->currentIndex()+1;
-        if(n>2) n=0;
-        ui->respondComboBox->setCurrentIndex(n);
+        cycleRespondMode();
       } else {
         if(e->modifiers() & Qt::ShiftModifier) {
           on_actionDecode_remaining_files_in_directory_triggered();
@@ -3650,6 +3646,12 @@ void MainWindow::change_layout (std::size_t n)
       trim_view (!ui->cbMenus->isChecked ());
       break;
     }
+}
+
+void MainWindow::cycleRespondMode()
+{
+  ui->respondComboBox->setCurrentIndex (
+    next_cyclic_index (ui->respondComboBox->currentIndex (), ui->respondComboBox->count ()));
 }
 
 void MainWindow::on_actionSWL_Mode_triggered (bool checked)
