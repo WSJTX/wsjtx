@@ -5988,14 +5988,6 @@ QPushButton[state=&quot;ok&quot;] {
     <string>Quick-Start Guide to WSJT-X 2.7 and QMAP</string>
    </property>
   </action>
-  <action name="actionRecommended_Audio_Settings">
-   <property name="text">
-    <string>Recommended audio settings</string>
-   </property>
-   <property name="whatsThis">
-    <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Recommended Audio Settings.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-   </property>
-  </action>
   <action name="actionRig_Control_Errors">
    <property name="text">
     <string>How to deal with rig control errors</string>
