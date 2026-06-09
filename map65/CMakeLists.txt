@@ -108,15 +108,16 @@ if (WIN32 AND WSJT_CREATE_WINMAIN)
 
 # map65 itself is installed by the top-level CMakeLists.txt with the other
 # primary executables; this file only emits its runtime directory hint.
-install (
-  CODE "get_filename_component (_path \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/wsjtx_dir.txt\" REALPATH)
-  if (WIN32)
-    set (_separator \"\\\\\")
-  else ()
-    set (_separator \"/\")
-  endif ()
-  file (WRITE \"\${_path}\" \".\${_separator}\\n\")"
-  )
-
+if (NOT APPLE)
+  install (
+    CODE "get_filename_component (_path \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/wsjtx_dir.txt\" REALPATH)
+    if (WIN32)
+      set (_separator \"\\\\\")
+    else ()
+      set (_separator \"/\")
+    endif ()
+    file (WRITE \"\${_path}\" \".\${_separator}\\n\")"
+    )
+endif ()
 
 
