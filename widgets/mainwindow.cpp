@@ -283,7 +283,6 @@ int mindBPoints=99;
 bool pounce = false;
 bool filtered = false;
 bool ignored = false;
-bool selected = false;
 bool keepTx5 = false;
 bool no_logging = false;
 bool BlankLineInserted = false;
@@ -2183,15 +2182,14 @@ void MainWindow::fastSink(qint64 frames)
     // CQ: First for MSK144
     if(((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled())
         or (m_auto && m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " "))) && !ignored
-        && !filtered && !selected && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText()=="CQ: First"
+        && !filtered && !m_autoRespondSelectionLatch.isSelected() && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText()=="CQ: First"
         && (!(ui->actionFull_Duplex_Mode->isChecked() && m_txing))) {
                   m_bDoubleClicked=true;
-                  selected = true;
+                  m_autoRespondSelectionLatch.selectFor();
                   auto_tx_mode(true);
                   processMessage(decodedtext);
                   auto now = QDateTime::currentDateTimeUtc();
                   m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));
-                  QTimer::singleShot (6000, [=] {selected = false;});
                   if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));     // Tx max 6*TRperiod
     }
 
@@ -4861,7 +4859,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
          if(bWorkedOnBand) activeWorked(deCall,m_currentBand);
         }
 
-        updateRespondTarget(decodedtext0, text, selected, pounce);
+        updateRespondTarget(decodedtext0, text, pounce);
 
         // Ensure that Tx stops and QSO is logged when repeat_Tx is enabled and "73" is received
         if(m_config.repeat_Tx() && m_mode=="Q65" && m_hisCall!="" && text.contains(m_baseCall) && text.contains(m_hisCall + " 73 ")) {
@@ -14264,20 +14262,20 @@ MainWindow::DecodeAlertSound MainWindow::selectDecodeAlertSound(bool alertsEnabl
   return DecodeAlertSound::None;
 }
 
-void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QString& text, bool& lselected, bool pounce)
+void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QString& text, bool pounce)
 {
   extern int Dpoints,maxDPoints,dBpoints,dBpoints2,mindBPoints,maxdBPoints;
   if(((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled())
         or (m_auto && m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " "))) && !ignored
-      && !filtered && !lselected && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText()=="CQ: First"
+      && !filtered && !m_autoRespondSelectionLatch.isSelected() && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText()=="CQ: First"
       && (!(ui->actionFull_Duplex_Mode->isChecked() && m_txing))) {
     m_bDoubleClicked=true;
-    lselected = true;
+    // CQ: First suppresses additional picks briefly, then reopens for the next decode window.
+    m_autoRespondSelectionLatch.selectFor();
     auto_tx_mode(true);
     processMessage(decodedtext);
     auto now = QDateTime::currentDateTimeUtc();
     m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));
-    QTimer::singleShot (6000, [=] () mutable {lselected = false;});
     if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));
   }
 
@@ -14313,7 +14311,6 @@ void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QStri
           m_currentMessageType=m_ntx;
           auto now = QDateTime::currentDateTimeUtc();
           m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));
-          QTimer::singleShot (6000, [=] () mutable {lselected = false;});
       }
     }
   }
@@ -14345,7 +14342,6 @@ void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QStri
                 m_currentMessageType=m_ntx;
                 auto now = QDateTime::currentDateTimeUtc();
                 m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));
-                QTimer::singleShot (6000, [=] {selected = false;});
             }
     }
   }
@@ -14377,7 +14373,6 @@ void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QStri
                 m_currentMessageType=m_ntx;
                 auto now = QDateTime::currentDateTimeUtc();
                 m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));
-                QTimer::singleShot (6000, [=] {selected = false;});
             }
     }
   }

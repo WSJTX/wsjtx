@@ -401,6 +401,7 @@ set (wsjtx_CXXSRCS
   widgets/activeStations.cpp
   widgets/colorhighlighting.cpp
   WSPR/WsprTxScheduler.cpp
+  AutoRespondSelectionLatch.cpp
   widgets/mainwindow.cpp
   widgets/mainwindow_jtty.cpp
   Modulator/JttyTxStream.cpp

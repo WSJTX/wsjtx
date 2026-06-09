@@ -53,6 +53,7 @@
 #include "widgets/qsymonitor.h"
 #include "MessageBox.hpp"
 #include "Network/NetworkAccessManager.hpp"
+#include "AutoRespondSelectionLatch.hpp"
 
 #define NUM_JT4_SYMBOLS 206                //(72+31)*2, embedded sync
 #define NUM_JT65_SYMBOLS 126               //63 data + 63 sync
@@ -519,7 +520,7 @@ private:
                                                  bool play_Wanted, bool play_DXcall, bool hasDXCall);
   void playDecodeAlertSound(bool play_Wanted, bool play_DXcall);
   void playDecodeAlertSound(DecodeAlertSound sound);
-  void updateRespondTarget(const DecodedText& dt, const QString& text, bool& lselected, bool pounce);
+  void updateRespondTarget(const DecodedText& dt, const QString& text, bool pounce);
   void displayDecodedTextLine(const DecodedText& dt, const QByteArray& line_read, const QString& distance, bool haveFSpread, float fSpread, bool bDisplayPoints);
   QString calculateDistanceAndBearing(const DecodedText& dt);
   void processSuperHoundVerification(const DecodedText& dt, bool& verified);
@@ -918,6 +919,7 @@ private:
   QTimer p1Timer;
   QTimer m_jttyTxWatchdog;
   QTimer m_refSpecTimer;
+  AutoRespondSelectionLatch m_autoRespondSelectionLatch;
   int m_refSpecSecondsRemaining = 0;
 
   QString m_path;

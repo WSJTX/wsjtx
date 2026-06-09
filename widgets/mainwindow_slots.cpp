@@ -54,7 +54,6 @@ extern int mindBPoints;
 extern bool pounce;
 extern bool filtered;
 extern bool ignored;
-extern bool selected;
 extern bool keepTx5;
 extern bool no_logging;
 extern bool BlankLineInserted;
