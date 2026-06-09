@@ -1665,11 +1665,6 @@ QStringList Configuration::whitelist_keywords() const
           m_->Whitelist7_, m_->Whitelist8_, m_->Whitelist9_, m_->Whitelist10_, m_->Whitelist11_, m_->Whitelist12_};
 }
 
-QStringList Configuration::territory_keywords() const
-{
-  return {m_->Territory1_, m_->Territory2_, m_->Territory3_, m_->Territory4_};
-}
-
 auto Configuration::special_op_id () const -> SpecialOperatingActivity
 {
   return m_->bSpecialOp_ ? static_cast<SpecialOperatingActivity> (m_->SelectedActivity_) : SpecialOperatingActivity::NONE;
