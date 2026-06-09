@@ -2489,34 +2489,8 @@ void MainWindow::fastSink(qint64 frames)
       if (m_config.highlight_DXgrid()) ui->decodedTextBrowser->highlight_callsign(m_hisGrid.left(4), QColor(0,0,200), QColor(255,255,255), true);
       if (m_config.alert_Enabled() && m_config.alert_DXcall() && !m_muted) play_DXcall = true;
     }
-    QTimer::singleShot (100, [=] {
-      if (m_config.alert_Enabled() && ((m_config.alert_DXcall() && play_DXcall && m_hisCall!="") or (m_config.alert_Wanted() && play_Wanted))) {
-#ifdef WIN32
-        QAudioOutput info(QAudioDeviceInfo::defaultOutputDevice());
-        QString audioPath = app_sounds_directory (m_config.voicesPath());
-        QAudioFormat format;
-        format.setCodec("audio/pcm");
-        format.setSampleRate (48000);
-        format.setChannelCount (1);
-        format.setSampleSize (16);
-        format.setSampleType(QAudioFormat::SignedInt);
-        QAudioOutput* audio;
-        audio = new QAudioOutput(format, this);
-        connect(audio, SIGNAL(stateChanged(QAudio::State)), this, SLOT(handleStateChanged(QAudio::State)));
-        QFile *effect1 = new QFile(this);
-        if (m_config.alert_DXcall() && play_DXcall) effect1->setFileName(QString("%1/%2").arg(audioPath, "DXcall.wav"));
-        else if (m_config.alert_Wanted() && play_Wanted) effect1->setFileName(QString("%1/%2").arg(audioPath, "Wanted.wav"));
-        effect1->open(QIODevice::ReadOnly);
-        audio->start(effect1);
-#else
-        QString audioPath = app_sounds_directory (m_config.voicesPath());
-        if (m_config.alert_DXcall() && play_DXcall) QSound::play(audioPath + "DXcall.wav");  // for Linux and macOS
-        else if (m_config.alert_DXcall() && play_Wanted) QSound::play(audioPath + "Wanted.wav");  // for Linux and macOS
-#endif
-        play_DXcall = false;
-        play_Wanted = false;
-      }
-    });
+    playDecodeAlertSound(play_Wanted, play_DXcall);
+    play_Wanted = play_DXcall = false;
 
     m_bDecoded=true;
     auto_sequence (decodedtext, ui->sbFtol->value (), std::numeric_limits<unsigned>::max ());
@@ -4895,34 +4869,8 @@ void MainWindow::readFromStdout()                             //readFromStdout
           cease_auto_Tx_after_QSO();
         }
 
-        QTimer::singleShot (100, [=] {
-          if (m_config.alert_Enabled() && ((m_config.alert_DXcall() && play_DXcall && m_hisCall!="") or (m_config.alert_Wanted() && play_Wanted))) {
-#ifdef WIN32
-            QAudioOutput info(QAudioDeviceInfo::defaultOutputDevice());
-            QString audioPath = app_sounds_directory (m_config.voicesPath());
-            QAudioFormat format;
-            format.setCodec("audio/pcm");
-            format.setSampleRate (48000);
-            format.setChannelCount (1);
-            format.setSampleSize (16);
-            format.setSampleType(QAudioFormat::SignedInt);
-            QAudioOutput* audio;
-            audio = new QAudioOutput(format, this);
-            connect(audio, SIGNAL(stateChanged(QAudio::State)), this, SLOT(handleStateChanged(QAudio::State)));
-            QFile *effect1 = new QFile(this);
-            if (m_config.alert_DXcall() && play_DXcall) effect1->setFileName(QString("%1/%2").arg(audioPath, "DXcall.wav"));
-            else if (m_config.alert_Wanted() && play_Wanted) effect1->setFileName(QString("%1/%2").arg(audioPath, "Wanted.wav"));
-            effect1->open(QIODevice::ReadOnly);
-            audio->start(effect1);
-#else
-            QString audioPath = app_sounds_directory (m_config.voicesPath());
-            if (m_config.alert_DXcall() && play_DXcall) QSound::play(audioPath + "DXcall.wav");  // for Linux and macOS
-            else if (m_config.alert_DXcall() && play_Wanted) QSound::play(audioPath + "Wanted.wav");  // for Linux and macOS
-#endif
-            play_DXcall = false;
-            play_Wanted = false;
-          }
-        });
+        playDecodeAlertSound(play_Wanted, play_DXcall);
+        play_Wanted = play_DXcall = false;
 
           if (m_bBestSPArmed && m_mode=="FT4" && CALLING == m_QSOProgress && !ignored && !filtered) {
             QString messagePriority=ui->decodedTextBrowser->CQPriority();
@@ -14267,6 +14215,53 @@ void MainWindow::applyHighlighting(const DecodedText& decodedtext, bool& play_Wa
     if (m_config.highlight_DXgrid()) ui->decodedTextBrowser->highlight_callsign(m_hisGrid.left(4), QColor(0,0,200), QColor(255,255,255), true);
     if (m_config.alert_Enabled() && m_config.alert_DXcall() && !m_muted) play_DXcall = true;
   }
+}
+
+void MainWindow::playDecodeAlertSound(bool play_Wanted, bool play_DXcall)
+{
+  QTimer::singleShot (100, this, [this, play_Wanted, play_DXcall] {
+    auto const sound = selectDecodeAlertSound(m_config.alert_Enabled(), m_config.alert_DXcall(), m_config.alert_Wanted(),
+                                              play_Wanted, play_DXcall, !m_hisCall.isEmpty());
+    playDecodeAlertSound(sound);
+  });
+}
+
+void MainWindow::playDecodeAlertSound(DecodeAlertSound sound)
+{
+  if (sound == DecodeAlertSound::None) return;
+
+#ifdef WIN32
+  QAudioOutput info(QAudioDeviceInfo::defaultOutputDevice());
+  QString audioPath = app_sounds_directory (m_config.voicesPath());
+  QAudioFormat format;
+  format.setCodec("audio/pcm");
+  format.setSampleRate (48000);
+  format.setChannelCount (1);
+  format.setSampleSize (16);
+  format.setSampleType(QAudioFormat::SignedInt);
+  QAudioOutput* audio;
+  audio = new QAudioOutput(format, this);
+  connect(audio, SIGNAL(stateChanged(QAudio::State)), this, SLOT(handleStateChanged(QAudio::State)));
+  QFile *effect1 = new QFile(this);
+  if (sound == DecodeAlertSound::DXcall) effect1->setFileName(QString("%1/%2").arg(audioPath, "DXcall.wav"));
+  else if (sound == DecodeAlertSound::Wanted) effect1->setFileName(QString("%1/%2").arg(audioPath, "Wanted.wav"));
+  effect1->open(QIODevice::ReadOnly);
+  audio->start(effect1);
+#else
+  QString audioPath = app_sounds_directory (m_config.voicesPath());
+  if (sound == DecodeAlertSound::DXcall) QSound::play(audioPath + "DXcall.wav");  // for Linux and macOS
+  else if (sound == DecodeAlertSound::Wanted) QSound::play(audioPath + "Wanted.wav");  // for Linux and macOS
+#endif
+}
+
+MainWindow::DecodeAlertSound MainWindow::selectDecodeAlertSound(bool alertsEnabled, bool dxCallAlertEnabled,
+                                                                bool wantedAlertEnabled, bool play_Wanted,
+                                                                bool play_DXcall, bool hasDXCall)
+{
+  if (!alertsEnabled) return DecodeAlertSound::None;
+  if (dxCallAlertEnabled && play_DXcall && hasDXCall) return DecodeAlertSound::DXcall;
+  if (wantedAlertEnabled && play_Wanted) return DecodeAlertSound::Wanted;
+  return DecodeAlertSound::None;
 }
 
 void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QString& text, bool& lselected, bool pounce)

@@ -502,6 +502,8 @@ private slots:
   void logText(const QString &text);
 
 private:
+  enum class DecodeAlertSound { None, DXcall, Wanted };
+
   bool isFalseDecode(const QByteArray& line, const DecodedText& dt, const QString& msg0) const;
   void parseAveragingInfo(const QByteArray& line, bool& bAvgMsg, int& navg) const;
   void applyExperimentalFT8Filter(const DecodedText& dt, bool& filtered);
@@ -513,6 +515,10 @@ private:
   bool applyFiltering(const DecodedText& dt, const QString& text, bool& filtered);
   void applyHighlighting(const DecodedText& dt, bool& play_Wanted, bool& play_DXcall);
   void cycleRespondMode();
+  static DecodeAlertSound selectDecodeAlertSound(bool alertsEnabled, bool dxCallAlertEnabled, bool wantedAlertEnabled,
+                                                 bool play_Wanted, bool play_DXcall, bool hasDXCall);
+  void playDecodeAlertSound(bool play_Wanted, bool play_DXcall);
+  void playDecodeAlertSound(DecodeAlertSound sound);
   void updateRespondTarget(const DecodedText& dt, const QString& text, bool& lselected, bool pounce);
   void displayDecodedTextLine(const DecodedText& dt, const QByteArray& line_read, const QString& distance, bool haveFSpread, float fSpread, bool bDisplayPoints);
   QString calculateDistanceAndBearing(const DecodedText& dt);
