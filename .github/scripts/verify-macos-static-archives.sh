@@ -116,9 +116,14 @@ check_archive() {
   fi
 
   archs=$(lipo -archs "$archive" 2>/dev/null || true)
-  if [ -n "$archs" ] && ! printf '%s\n' "$archs" | tr ' ' '\n' | grep -qx "$arch"; then
-    echo "::error file=${archive}::Expected architecture ${arch}, found: ${archs}"
-    structural_fail=1
+  if [ -n "$archs" ]; then
+    case " ${archs} " in
+      *" ${arch} "*) ;;
+      *)
+        echo "::error file=${archive}::Expected architecture ${arch}, found: ${archs}"
+        structural_fail=1
+        ;;
+    esac
   fi
 
   while IFS= read -r line; do

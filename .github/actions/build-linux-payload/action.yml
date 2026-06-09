@@ -265,11 +265,11 @@ runs:
         # (e.g. host toolchain leaking through QEMU) fails fast here.
         case "$ARCH" in
           armhf)
-            echo "$FILE_OUT" | grep -q "ELF 32-bit"
-            echo "$FILE_OUT" | grep -q "ARM, EABI5"
+            [[ "$FILE_OUT" == *"ELF 32-bit"* ]]
+            [[ "$FILE_OUT" == *"ARM, EABI5"* ]]
             ;;
           *)
-            echo "$FILE_OUT" | grep -q "ELF 64-bit"
+            [[ "$FILE_OUT" == *"ELF 64-bit"* ]]
             ;;
         esac
 
@@ -473,18 +473,18 @@ runs:
         FILE_OUT=$(file squashfs-root/usr/bin/wsjtx)
         case "$ARCH" in
           armhf)
-            echo "$FILE_OUT" | grep -q "ELF 32-bit"
-            echo "$FILE_OUT" | grep -q "ARM, EABI5"
+            [[ "$FILE_OUT" == *"ELF 32-bit"* ]]
+            [[ "$FILE_OUT" == *"ARM, EABI5"* ]]
             ;;
           *)
-            echo "$FILE_OUT" | grep -q "ELF 64-bit"
+            [[ "$FILE_OUT" == *"ELF 64-bit"* ]]
             ;;
         esac
         # Qt5 libs should have been bundled by linuxdeploy-plugin-qt.
         LIBS=$(ls squashfs-root/usr/lib/)
-        echo "$LIBS" | grep -q "^libQt5Core\.so"
-        echo "$LIBS" | grep -q "^libQt5Widgets\.so"
-        echo "$LIBS" | grep -q "^libQt5Multimedia\.so"
+        case $'\n'"$LIBS"$'\n' in *$'\n'libQt5Core.so*) ;; *) exit 1 ;; esac
+        case $'\n'"$LIBS"$'\n' in *$'\n'libQt5Widgets.so*) ;; *) exit 1 ;; esac
+        case $'\n'"$LIBS"$'\n' in *$'\n'libQt5Multimedia.so*) ;; *) exit 1 ;; esac
         # Verify Qt audio backend plugins were bundled. Without them,
         # QAudioDeviceInfo::availableDevices() returns empty at runtime
         # and the user sees "no audio devices" — observed in v3.0.1 on
@@ -497,7 +497,7 @@ runs:
           echo "::error::No Qt audio backend plugins (qtaudio_alsa/qtaudio_pulse) bundled in AppImage."
           echo "::error::Install libqt5multimedia5-plugins on the build host so linuxdeploy-plugin-qt can find them."
           echo "AppImage plugin tree:"
-          find squashfs-root -path '*/plugins/*' -name '*.so' 2>/dev/null | head -20
+          find squashfs-root -path '*/plugins/*' -name '*.so' 2>/dev/null | sed -n '1,20p'
           exit 1
         fi
         echo "Qt audio plugins bundled:"

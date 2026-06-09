@@ -215,9 +215,14 @@ ensure_cli_rpath() {
     done
   fi
 
-  if ! otool -l "$binary" | awk '/LC_RPATH/{getline; getline; print $2}' | grep -Fxq "@loader_path/lib"; then
-    run_logged install_name_tool -add_rpath "@loader_path/lib" "$binary"
-  fi
+  local rpaths
+  rpaths=$(otool -l "$binary" | awk '/LC_RPATH/{getline; getline; print $2}' || true)
+  case $'\n'"$rpaths"$'\n' in
+    *$'\n''@loader_path/lib'$'\n'*) ;;
+    *)
+      run_logged install_name_tool -add_rpath "@loader_path/lib" "$binary"
+      ;;
+  esac
 }
 
 for bin in "${ASSETS}"/*; do

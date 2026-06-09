@@ -183,9 +183,14 @@ ensure_app_rpath() {
     esac
   done < <(otool -l "$binary" | awk '/LC_RPATH/{getline; getline; print $2}' || true)
 
-  if ! otool -l "$binary" | awk '/LC_RPATH/{getline; getline; print $2}' | grep -Fxq "@executable_path/../Frameworks"; then
-    run_logged install_name_tool -add_rpath "@executable_path/../Frameworks" "$binary"
-  fi
+  local rpaths
+  rpaths=$(otool -l "$binary" | awk '/LC_RPATH/{getline; getline; print $2}' || true)
+  case $'\n'"$rpaths"$'\n' in
+    *$'\n''@executable_path/../Frameworks'$'\n'*) ;;
+    *)
+      run_logged install_name_tool -add_rpath "@executable_path/../Frameworks" "$binary"
+      ;;
+  esac
 }
 
 for exe in "${APP}/Contents/MacOS/"*; do
@@ -194,7 +199,7 @@ for exe in "${APP}/Contents/MacOS/"*; do
     bundle_dylib "$exe"
     for fw in $(otool -L "$exe" | awk '{print $1}' | grep '\.framework/' || true); do
       fwname=$(basename "$fw")
-      bundled=$(find "${FRAMEWORKS}" -name "${fwname}" -path "*.framework/*" 2>/dev/null | head -1)
+      bundled=$(find "${FRAMEWORKS}" -name "${fwname}" -path "*.framework/*" -print -quit 2>/dev/null)
       if [ -n "$bundled" ]; then
         app_contents="${APP}/Contents/"
         fwrel="${bundled:${#app_contents}}"

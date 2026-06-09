@@ -88,7 +88,9 @@ version_gt() {
 
 is_macho() {
   local file="$1"
-  file "$file" 2>/dev/null | grep -Eq 'Mach-O|universal binary'
+  local file_type
+  file_type=$(file "$file" 2>/dev/null || true)
+  [[ "$file_type" == *"Mach-O"* || "$file_type" == *"universal binary"* ]]
 }
 
 is_allowed_reference() {
@@ -124,10 +126,13 @@ check_file() {
     echo "::error file=${file}::Could not determine Mach-O architecture"
     return 1
   fi
-  if ! printf '%s\n' "$archs" | tr ' ' '\n' | grep -qx "$arch"; then
+  case " ${archs} " in
+    *" ${arch} "*) ;;
+    *)
     echo "::error file=${file}::Expected architecture ${arch}, found: ${archs}"
     return 1
-  fi
+      ;;
+  esac
 
   minos=$(otool -arch "$arch" -l "$file" 2>/dev/null | awk '
     /LC_BUILD_VERSION/ { in_build = 1; next }

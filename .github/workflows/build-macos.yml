@@ -416,7 +416,7 @@ jobs:
       - name: Locate pFUnit config
         id: pfunit
         run: |
-          CONFIG=$(find "${GITHUB_WORKSPACE}/pfunit-prefix" -name PFUNITConfig.cmake | head -1)
+          CONFIG=$(find "${GITHUB_WORKSPACE}/pfunit-prefix" -name PFUNITConfig.cmake -print -quit)
           if [ -z "$CONFIG" ]; then
             echo "ERROR: PFUNITConfig.cmake not found under pfunit-prefix"
             find "${GITHUB_WORKSPACE}/pfunit-prefix" -maxdepth 3 -type d
@@ -481,7 +481,14 @@ jobs:
       - name: Verify architecture
         run: |
           file wsjtx-build/jt9
-          lipo -archs wsjtx-build/jt9 | grep -q ${{ inputs.arch }}
+          ARCHS=$(lipo -archs wsjtx-build/jt9)
+          case " ${ARCHS} " in
+            *" ${{ inputs.arch }} "*) ;;
+            *)
+              echo "::error::Expected ${{ inputs.arch }} in jt9 architectures, found: ${ARCHS}"
+              exit 1
+              ;;
+          esac
 
       - name: Install app bundle and collect CLI assets
         id: collect
@@ -627,8 +634,8 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain-db
 
-          APP_IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | grep "Developer ID Application" | head -1 | awk -F'"' '{print $2}')
-          INST_IDENTITY=$(security find-identity -v "$KEYCHAIN_PATH" | grep "Developer ID Installer" | head -1 | awk -F'"' '{print $2}')
+          APP_IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | awk -F'"' '/Developer ID Application/ {print $2; exit}')
+          INST_IDENTITY=$(security find-identity -v "$KEYCHAIN_PATH" | awk -F'"' '/Developer ID Installer/ {print $2; exit}')
           echo "App identity: $APP_IDENTITY"
           echo "Installer identity: $INST_IDENTITY"
           echo "identity=$APP_IDENTITY" >> "$GITHUB_OUTPUT"
@@ -696,7 +703,8 @@ jobs:
           # itself — so a re-sign that wipes entitlements would still
           # pass verify (that's how rc1 shipped broken).
           MAIN_BIN="${APP}/Contents/MacOS/wsjtx"
-          if ! codesign -d --entitlements - "$MAIN_BIN" 2>/dev/null | grep -q "disable-library-validation"; then
+          ENTITLEMENTS_OUT=$(codesign -d --entitlements - "$MAIN_BIN" 2>/dev/null)
+          if [[ "$ENTITLEMENTS_OUT" != *"disable-library-validation"* ]]; then
             echo "::error::wsjtx binary is missing com.apple.security.cs.disable-library-validation entitlement."
             echo "::error::Bundled Qt frameworks will fail to load under hardened runtime."
             codesign -d --entitlements - "$MAIN_BIN" || true
@@ -818,7 +826,7 @@ jobs:
               --wait 2>&1 | tee notarize.log
 
             if grep -q "status: Invalid" notarize.log; then
-              SUBMISSION_ID=$(grep "id:" notarize.log | head -1 | awk '{print $2}')
+              SUBMISSION_ID=$(awk '/id:/ {print $2; exit}' notarize.log)
               xcrun notarytool log "$SUBMISSION_ID" \
                 --apple-id "$APPLE_ID" \
                 --password "$APPLE_ID_PASSWORD" \
@@ -847,7 +855,7 @@ jobs:
             --wait 2>&1 | tee notarize-cli.log
 
           if grep -q "status: Invalid" notarize-cli.log; then
-            SUBMISSION_ID=$(grep "id:" notarize-cli.log | head -1 | awk '{print $2}')
+            SUBMISSION_ID=$(awk '/id:/ {print $2; exit}' notarize-cli.log)
             xcrun notarytool log "$SUBMISSION_ID" \
               --apple-id "$APPLE_ID" \
               --password "$APPLE_ID_PASSWORD" \
