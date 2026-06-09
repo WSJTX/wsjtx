@@ -112,7 +112,7 @@ set (wsjtx_VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_
 #
 set (PROJECT_BUNDLE_NAME "WSJT-X")
 set (PROJECT_VENDOR "WSJT Development Group")
-set (PROJECT_CONTACT "jtaylor@princetion.edu")
+set (PROJECT_CONTACT "jtaylor@princeton.edu")
 set (PROJECT_COPYRIGHT "Copyright (C) 2001-2026 by Joe Taylor, K1JT")
 set (PROJECT_HOMEPAGE https://wsjt.sourceforge.io/wsjtx.html)
 set (PROJECT_MANUAL wsjtx-main)
