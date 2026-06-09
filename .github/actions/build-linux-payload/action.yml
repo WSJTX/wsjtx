@@ -302,8 +302,18 @@ runs:
         # bookworm's dpkg-deb (observed exit 141 on first container run).
         dpkg-deb --info "$DEB" | sed -n '1,20p'
         FILES=$(dpkg-deb -c "$DEB")
-        echo "$FILES" | grep -qE '/usr/bin/qmap$'
-        echo "$FILES" | grep -qE '/usr/bin/map65$'
+        require_package_path() {
+          local path="$1"
+          case $'\n'"$FILES"$'\n' in
+            *"$path"$'\n'*) ;;
+            *)
+              echo "::error::Expected package path is missing: $path"
+              exit 1
+              ;;
+          esac
+        }
+        require_package_path "/usr/bin/qmap"
+        require_package_path "/usr/bin/map65"
 
     - name: Upload .deb
       uses: actions/upload-artifact@v7
@@ -338,11 +348,20 @@ runs:
         rpm -qpR "$RPM"
         FILES=$(rpm -qpl "$RPM")
         echo "$FILES" | sed -n '1,40p'
-        # Confirm the core binaries are in the package.
-        echo "$FILES" | grep -qE '/bin/wsjtx$'
-        echo "$FILES" | grep -qE '/bin/jt9$'
-        echo "$FILES" | grep -qE '/bin/qmap$'
-        echo "$FILES" | grep -qE '/bin/map65$'
+        require_package_path() {
+          local path="$1"
+          case $'\n'"$FILES"$'\n' in
+            *"$path"$'\n'*) ;;
+            *)
+              echo "::error::Expected package path is missing: $path"
+              exit 1
+              ;;
+          esac
+        }
+        require_package_path "/usr/bin/wsjtx"
+        require_package_path "/usr/bin/jt9"
+        require_package_path "/usr/bin/qmap"
+        require_package_path "/usr/bin/map65"
 
     - name: Upload RPM
       uses: actions/upload-artifact@v7
