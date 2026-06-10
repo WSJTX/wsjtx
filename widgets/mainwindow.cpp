@@ -11002,7 +11002,7 @@ void MainWindow::WSPR_scheduling ()
       // to be anywhere in the paths specified in the PATH environment
       // variable  path list,  and  executable.  Equivalent to  typing
       // user_hardware without any path at the shell prompt.
-      p3.start("/bin/sh", QStringList {"-c", "user_hardware " + band});
+      p3.start("/bin/sh", QStringList {"-c", "user_hardware \"$1\"", "sh", band});
 #endif
 
       // Produce a short tuneup signal
