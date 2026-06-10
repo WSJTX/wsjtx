@@ -11427,9 +11427,12 @@ void MainWindow::readWidebandDecodes()
   int nmin=0;
   int nsec=0;
   int nsnr=0;
-  while(m_fetched < qmapcom.ndecodes) {
+  int const max_qmap_decodes = sizeof qmapcom.result / sizeof qmapcom.result[0];
+  int const qmap_decodes = qBound(0, qmapcom.ndecodes, max_qmap_decodes);
+  while(m_fetched < qmap_decodes) {
     // Recover and parse each decoded line.
-    QString line=QString::fromLatin1(qmapcom.result[m_fetched]);
+    char const * const row=qmapcom.result[m_fetched];
+    QString line=QString::fromLatin1(row, int(qstrnlen(row, sizeof qmapcom.result[m_fetched])));
     m_fetched++;
     nhr=line.mid(0,2).toInt();
     nmin=line.mid(2,2).toInt();
