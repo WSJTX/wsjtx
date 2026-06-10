@@ -15,7 +15,7 @@
 
 namespace
 {
-  char const * const EqslUrl = "http://www.eqsl.cc/qslcard/importADIF.cfm";
+  char const * const EqslUrl = "https://www.eqsl.cc/qslcard/importADIF.cfm";
   // char const * const wsprNetUrl = "http://127.0.0.1/post?";
 };
 
