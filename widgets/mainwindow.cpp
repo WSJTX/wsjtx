@@ -12328,8 +12328,9 @@ void MainWindow::writeFoxTxMsgs() {
   // references extern struct foxcom_
   QString t;
   for (int i = 0; i < 5; i++) {
-    t = QString::fromLatin1(foxcom_.cmsg[i]).left(40);
-    if (t.length() > 0) {
+    char const * const row=foxcom_.cmsg[i];
+    t = QString::fromLatin1(row, int(qstrnlen(row, sizeof foxcom_.cmsg[i])));
+    if (!t.trimmed().isEmpty()) {
       write_all("Tx", t);
     }
   }
