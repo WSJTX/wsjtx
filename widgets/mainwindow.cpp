@@ -4493,7 +4493,7 @@ void MainWindow::refreshPileupList()
       std::fill(m_callers.begin(), m_callers.end(), QString {});
       for(int i=0; i<qMin(nlist, MaxQ65PileupCallers); i++) {
         memcpy(line,&list[36*i],36);
-        t0=QString::fromLatin1(line)+"\n";
+        t0=QString::fromLatin1(line, sizeof line)+"\n";
         m_callers[i]=t0;
         t+=t0;
       }
@@ -4581,11 +4581,13 @@ void MainWindow::callSandP2(int n)
   m_specOp=m_config.special_op_id();
   bool bCtrl = (n<0);
   n=qAbs(n)-1;
+  if(n<0 || n>=int(m_ready2call.size())) return;
   if(m_mode!="Q65" and m_ready2call[n]=="") return;
   QStringList w=m_ready2call[n].split(' ', SkipEmptyParts);
   if(m_mode=="Q65" and m_specOp==SpecOp::Q65_PILEUP and n < MaxQ65PileupCallers) {
     // This code is for 6m EME DXpedition operator
     w=m_callers[n].split(' ', SkipEmptyParts);
+    if(w.size() < 4) return;
     m_deCall=w[2];
     if(bCtrl) {
       // Remove this call from q3list.
@@ -4606,6 +4608,7 @@ void MainWindow::callSandP2(int n)
   }
 
   if(m_mode=="Q65") {
+    if(w.size() < 7) return;
     if(!bCtrl) {                          //Do not reset m_freqNominal if CTRL was down
       double kHz=w[1].toDouble();
       int nMHz=m_freqNominal/1000000;
@@ -4616,6 +4619,7 @@ void MainWindow::callSandP2(int n)
     m_txFirst=(w[6]=="0");
 //    ui->TxFreqSpinBox->setValue(1500);
   } else {
+    if(w.size() < 6) return;
     m_deCall=w[0];
     m_deGrid=w[1];
     ui->RxFreqSpinBox->setValue(w[4].toInt());
@@ -11793,13 +11797,15 @@ void MainWindow::selectHound(QString line, bool bTopQueue)
 */
   if(line.simplified().isEmpty()) return;
   if(line.length() < 6) return;
-  QString houndCall=line.split(" ",SkipEmptyParts).at(0);
+  QStringList houndFields = line.split(" ",SkipEmptyParts);
+  if(houndFields.size() < 3) return;
+  QString houndCall=houndFields.at(0);
 
 // Don't add a call already enqueued or in QSO
   if(ui->houndQueueTextBrowser->toPlainText().indexOf(houndCall) >= 0) return;
 
-  QString houndGrid=line.split(" ",SkipEmptyParts).at(1);  // Hound caller's grid
-  QString rpt=line.split(" ",SkipEmptyParts).at(2);        // Hound SNR
+  QString houndGrid=houndFields.at(1);  // Hound caller's grid
+  QString rpt=houndFields.at(2);        // Hound SNR
 
   m_houndCallers=m_houndCallers.remove(line+"\n");      // Remove t from sorted Hound list
   m_nSortedHounds--;
@@ -12796,7 +12802,7 @@ void MainWindow::on_actionDiagnostic_mode_triggered()
     QString path = QStandardPaths::writableLocation (QStandardPaths::DataLocation);
     QStringList tw;
     if (path.contains("/WSJT-X")) tw=path.split("/WSJT-X");
-    if (tw.size () > 0 && tw[1].remove(" - ") != "") instance = tw[1].remove(" - ") + "/";
+    if (tw.size () > 1 && tw[1].remove(" - ") != "") instance = tw[1].remove(" - ") + "/";
     QString EventConfig = (
             "\[Sinks.SYSLOG]\n"
             "Destination=TextFile\n"
@@ -13764,7 +13770,7 @@ void MainWindow::applyExperimentalFT8Filter(const DecodedText& decodedtext, bool
         && !decodedtext.string().contains("<...>") && !ALLCALL7.contains(deCall)) {
       notInALLCALL7 = true;
     }
-    if (!ALLCALL7.contains(word[0]) && !(decodedtext.string().contains(" CQ ") or decodedtext.string().contains("TNX")
+    if (!word.isEmpty() && !ALLCALL7.contains(word[0]) && !(decodedtext.string().contains(" CQ ") or decodedtext.string().contains("TNX")
         or decodedtext.string().contains("...") or decodedtext.string().contains("HNY") or decodedtext.string().contains("QSY")
         or decodedtext.string().contains("73 ") or decodedtext.string().contains("GL ") or decodedtext.string().contains("PSE")
         or decodedtext.string().contains("/") or decodedtext.string().contains("<...>"))) {
@@ -13780,7 +13786,7 @@ void MainWindow::applyExperimentalFT8Filter(const DecodedText& decodedtext, bool
             deCall.left(4).contains("/") or decodedtext.string().contains("<...>"))) {
         filtered = true;
       }
-      if (word[0]!="CQ" && word[0]!="TNX" && word[0]!="73 " && word[0]!="HNY" && word[0]!="QSY" && word[0]!="PSE" &&
+      if (!word.isEmpty() && word[0]!="CQ" && word[0]!="TNX" && word[0]!="73 " && word[0]!="HNY" && word[0]!="QSY" && word[0]!="PSE" &&
           !(word[0].left(3).contains(QRegularExpression {"\\w\\d\\w"}) or
             word[0].left(3).contains(QRegularExpression {"\\d\\w\\d"}) or
             word[0].left(3).contains(QRegularExpression {"\\w\\w\\d"}) or
@@ -13923,7 +13929,7 @@ bool MainWindow::applyFiltering(const DecodedText& decodedtext, const QString& t
             }
         } else {
             if (text.contains(";")) {
-              text2 = tw[3];
+              text2 = tw.size() > 3 ? tw[3] : "___";
             } else {
               text2 = tw[1];
             }
