@@ -1471,7 +1471,8 @@ int main(int argc, char *argv[])
                     if(!strcmp(callsign,allcalls[i]) &&
                        (fabs(f1-allfreqs[i]) <4.0)) dupe=1;
                 }
-                if( (verbose || !dupe) && !noprint) {
+                if( (verbose || !dupe) && !noprint &&
+                    uniques < (int)(sizeof decodes / sizeof decodes[0]) ) {
                     strcpy(allcalls[uniques],callsign);
                     allfreqs[uniques]=f1;
                     uniques++;
