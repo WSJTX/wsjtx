@@ -3092,16 +3092,6 @@ void MainWindow::handleVerifyMsg(int status, QDateTime ts, QString callsign, QSt
   LOG_INFO(QString("FoxVerifier response for [%1]: - [%2]").arg(callsign).arg(response).toStdString());
 }
 
-QString MainWindow::userAgent() {
-  // see User-Agent format definition https://www.rfc-editor.org/rfc/rfc9110#name-user-agent
-  //
-  QString platform = "(" + QSysInfo::prettyProductName()+"; "+QSysInfo::productType() + " " + QSysInfo::productVersion() + "; " +
-                     QSysInfo::currentCpuArchitecture() + "; " +
-                     QString("rv:%1").arg(QSysInfo::kernelVersion()) + ")";
-  QString userAgent = QString{"WSJT-X/" + version() + "_" + m_revision}.simplified() + " " +platform;
-  return userAgent;
-  }
-
 void MainWindow::bumpFqso(int n)                                 //bumpFqso()
 {
   int i;
@@ -13815,7 +13805,7 @@ void MainWindow::processSFoxVerification(const DecodedText& decodedtext0, bool& 
                                            QTime::fromString(decodedtext0.left(6), "hhmmss"));
               }
               if (otp != QLatin1String("000000")) {
-                FoxVerifier *fv = new FoxVerifier(MainWindow::userAgent(),
+                FoxVerifier *fv = new FoxVerifier(http_user_agent (),
                                                   &m_network_manager,
                                                   m_config.OTPUrl(),
                                                   callsign,

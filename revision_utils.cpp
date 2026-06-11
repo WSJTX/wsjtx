@@ -4,6 +4,7 @@
 
 #include <QCoreApplication>
 #include <QRegularExpression>
+#include <QSysInfo>
 
 #include "scs_version.h"
 
@@ -101,4 +102,16 @@ QString program_title (QString const& revision)
 {
   QString id {QCoreApplication::applicationName () + "   v" + QCoreApplication::applicationVersion ()};
   return id + " " + revision ;
+}
+
+QString http_user_agent ()
+{
+  // See User-Agent format definition https://www.rfc-editor.org/rfc/rfc9110#name-user-agent
+  QString const platform {
+    "(" + QSysInfo::prettyProductName () + "; "
+    + QSysInfo::productType () + " " + QSysInfo::productVersion () + "; "
+    + QSysInfo::currentCpuArchitecture () + "; "
+    + QString {"rv:%1"}.arg (QSysInfo::kernelVersion ()) + ")"};
+
+  return QString {"WSJT-X/" + version () + "_" + revision ()}.simplified () + " " + platform;
 }

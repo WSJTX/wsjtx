@@ -1166,7 +1166,6 @@ private:
   void activeWorked(QString call, QString band);
   void read_log();
   void refreshPileupList();
-  QString userAgent();
   void handleVerifyMsg(int status, QDateTime ts, QString callsign, QString code, unsigned int hz, QString const &response);
   void writeFoxTxMsgs();
 #ifdef FOX_OTP
