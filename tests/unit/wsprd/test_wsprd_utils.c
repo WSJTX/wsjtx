@@ -5,12 +5,6 @@
 #include "lib/wsprd/nhash.h"
 #include "lib/wsprd/wsprd_utils.h"
 
-enum {
-    HASH_CALL_SIZE = WSPRD_CALLSIGN_SIZE,
-    HASH_GRID_SIZE = WSPRD_GRID_SIZE,
-    HASH_COUNT = WSPRD_HASH_COUNT
-};
-
 struct wspr_vector {
     const char *name;
     signed char data[11];
@@ -55,24 +49,29 @@ static void decode_vector(const struct wspr_vector *vector,
 static void expect_hash_entry(const char *callsign, const char *grid,
                               char *hashtab, char *loctab)
 {
-    int ihash = nhash((char *)callsign, strlen(callsign), (uint32_t)146);
-    expect_string(callsign, hashtab + ihash * HASH_CALL_SIZE, callsign);
+    // nhash() reads aligned 4-byte words and masks the tail, so feed it the
+    // padded WSPRD_CALLSIGN_SIZE buffer the decoder uses; a tightly-sized
+    // literal makes the (benign) tail read trip AddressSanitizer.
+    char padded[WSPRD_CALLSIGN_SIZE] = {0};
+    memcpy(padded, callsign, strlen(callsign));
+    int ihash = nhash(padded, strlen(padded), (uint32_t)146);
+    expect_string(callsign, hashtab + ihash * WSPRD_CALLSIGN_SIZE, callsign);
     if( grid != NULL ) {
-        expect_string(callsign, loctab + ihash * HASH_GRID_SIZE, grid);
+        expect_string(callsign, loctab + ihash * WSPRD_GRID4_SIZE, grid);
     }
 }
 
 static void expect_hash_slot(int ihash, const char *callsign, const char *grid,
                              char *hashtab, char *loctab)
 {
-    expect_string(callsign, hashtab + ihash * HASH_CALL_SIZE, callsign);
-    expect_string(callsign, loctab + ihash * HASH_GRID_SIZE, grid);
+    expect_string(callsign, hashtab + ihash * WSPRD_CALLSIGN_SIZE, callsign);
+    expect_string(callsign, loctab + ihash * WSPRD_GRID4_SIZE, grid);
 }
 
 static void run_with_fresh_tables(void (*test)(char *, char *))
 {
-    char *hashtab = calloc(HASH_COUNT * HASH_CALL_SIZE, 1);
-    char *loctab = calloc(HASH_COUNT * HASH_GRID_SIZE, 1);
+    char *hashtab = calloc(WSPRD_HASH_COUNT * WSPRD_CALLSIGN_SIZE, 1);
+    char *loctab = calloc(WSPRD_HASH_COUNT * WSPRD_GRID4_SIZE, 1);
     if( hashtab == NULL || loctab == NULL ) {
         fprintf(stderr, "failed to allocate WSPR hash tables\n");
         exit(2);
@@ -205,12 +204,12 @@ static void test_hash_table_line_loading(char *hashtab, char *loctab)
                wsprd_load_hash_line("48 5N/6O0O\n", hashtab, loctab), 1);
     expect_hash_slot(48, "5N/6O0O", "", hashtab, loctab);
 
-    strcpy(loctab + 44 * HASH_GRID_SIZE, "ABCD");
+    strcpy(loctab + 44 * WSPRD_GRID4_SIZE, "ABCD");
     expect_int("load hash line preserves missing grid",
                wsprd_load_hash_line("44 K1ABC\n", hashtab, loctab), 1);
     expect_hash_slot(44, "K1ABC", "ABCD", hashtab, loctab);
 
-    strcpy(loctab + 49 * HASH_GRID_SIZE, "ABCD");
+    strcpy(loctab + 49 * WSPRD_GRID4_SIZE, "ABCD");
     expect_int("load hash line preserves writer whitespace",
                wsprd_load_hash_line("   49\tPJ4/K1ABC  \r\n", hashtab, loctab), 1);
     expect_hash_slot(49, "PJ4/K1ABC", "ABCD", hashtab, loctab);
@@ -228,8 +227,8 @@ static void expect_rejected_hash_line(const char *line,
                                       char *hashtab, char *loctab)
 {
     const int slot = 7;
-    strcpy(hashtab + slot * HASH_CALL_SIZE, "KEEP");
-    strcpy(loctab + slot * HASH_GRID_SIZE, "ABCD");
+    strcpy(hashtab + slot * WSPRD_CALLSIGN_SIZE, "KEEP");
+    strcpy(loctab + slot * WSPRD_GRID4_SIZE, "ABCD");
 
     expect_int(line, wsprd_load_hash_line(line, hashtab, loctab), 0);
     expect_hash_slot(slot, "KEEP", "ABCD", hashtab, loctab);

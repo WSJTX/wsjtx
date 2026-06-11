@@ -786,7 +786,7 @@ int main(int argc, char *argv[])
     char *hashtab;
     hashtab=calloc(WSPRD_HASH_COUNT*WSPRD_CALLSIGN_SIZE,sizeof(char));
     char *loctab;
-    loctab=calloc(WSPRD_HASH_COUNT*WSPRD_GRID_SIZE,sizeof(char));
+    loctab=calloc(WSPRD_HASH_COUNT*WSPRD_GRID4_SIZE,sizeof(char));
     symbols=calloc(nbits*2,sizeof(unsigned char));
     apmask=calloc(162,sizeof(unsigned char));
     cw=calloc(162,sizeof(unsigned char));
@@ -1598,7 +1598,7 @@ int main(int argc, char *argv[])
             if( strncmp(hashtab+i*WSPRD_CALLSIGN_SIZE,"\0",1) != 0 ) {
                 fprintf(fhash,"%5d %s %s\n",i,
                         hashtab+i*WSPRD_CALLSIGN_SIZE,
-                        loctab+i*WSPRD_GRID_SIZE);
+                        loctab+i*WSPRD_GRID4_SIZE);
             }
         }
         fclose(fhash);

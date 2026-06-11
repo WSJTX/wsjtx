@@ -80,9 +80,9 @@ static int store_hash_call(int ihash, char const *callsign, char *hashtab)
 static int store_hash_grid(int ihash, char const *grid, char *loctab)
 {
     if( ihash < 0 || ihash >= WSPRD_HASH_COUNT ) return 0;
-    if( strlen(grid) >= WSPRD_GRID_SIZE ) return 0;
-    if( !format_checked(loctab + ihash * WSPRD_GRID_SIZE,
-                        WSPRD_GRID_SIZE, "%s", grid) ) return 0;
+    if( strlen(grid) >= WSPRD_GRID4_SIZE ) return 0;
+    if( !format_checked(loctab + ihash * WSPRD_GRID4_SIZE,
+                        WSPRD_GRID4_SIZE, "%s", grid) ) return 0;
     return 1;
 }
 
@@ -105,12 +105,13 @@ int wsprd_load_hash_line(char const *line, char *hashtab, char *loctab)
     if( !isspace((unsigned char)*end) ) return 0;
 
     char callsign[WSPRD_CALLSIGN_SIZE];
-    char grid[WSPRD_GRID_SIZE];
+    char grid[WSPRD_GRID4_SIZE];
     p = end;
     if( !read_bounded_token(&p, callsign, sizeof callsign, 1) ) return 0;
     if( !read_bounded_token(&p, grid, sizeof grid, 0) ) return 0;
 
     if( !store_hash_call((int)ihash, callsign, hashtab) ) return 0;
+    /* Legacy loader semantics: missing grid preserves the existing locator. */
     if( grid[0] != '\0' &&
         !store_hash_grid((int)ihash, grid, loctab) ) return 0;
     return 1;
@@ -323,7 +324,7 @@ int floatcomp(const void* elem1, const void* elem2)
 int unpk_(signed char *message, char *hashtab, char *loctab, char *call_loc_pow, char *callsign)
 {
     int n1,n2,n3,ndbm,ihash,nadd,noprint=0;
-    char grid[WSPRD_GRID_SIZE],grid6[WSPRD_GRID6_SIZE];
+    char grid[WSPRD_GRID4_SIZE],grid6[WSPRD_GRID6_SIZE];
     
     unpack50(message,&n1,&n2);
     if( !unpackcall(n1,callsign) ) return 1;
