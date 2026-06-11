@@ -27,18 +27,12 @@
  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "wsprd_utils.h"
+#include <errno.h>
 #include <stdarg.h>
 
 #ifndef int32_t
 #define int32_t int
 #endif
-
-enum {
-    WSPRD_CALLSIGN_SIZE = 13,
-    WSPRD_GRID_SIZE = 5,
-    WSPRD_GRID6_SIZE = 7,
-    WSPRD_MESSAGE_SIZE = 23
-};
 
 static int format_checked(char *dest, size_t dest_size, char const *format, ...)
 {
@@ -47,6 +41,79 @@ static int format_checked(char *dest, size_t dest_size, char const *format, ...)
     int nwritten = vsnprintf(dest, dest_size, format, args);
     va_end(args);
     return nwritten >= 0 && (size_t)nwritten < dest_size;
+}
+
+static int read_bounded_token(char const **cursor, char *dest,
+                              size_t dest_size, int required)
+{
+    char const *p = *cursor;
+    while( isspace((unsigned char)*p) ) p++;
+
+    if( *p == '\0' ) {
+        if( required ) return 0;
+        dest[0] = '\0';
+        *cursor = p;
+        return 1;
+    }
+
+    char const *start = p;
+    while( *p != '\0' && !isspace((unsigned char)*p) ) p++;
+
+    size_t len = (size_t)(p - start);
+    if( len >= dest_size ) return 0;
+
+    memcpy(dest, start, len);
+    dest[len] = '\0';
+    *cursor = p;
+    return 1;
+}
+
+static int store_hash_call(int ihash, char const *callsign, char *hashtab)
+{
+    if( ihash < 0 || ihash >= WSPRD_HASH_COUNT ) return 0;
+    if( strlen(callsign) >= WSPRD_CALLSIGN_SIZE ) return 0;
+    if( !format_checked(hashtab + ihash * WSPRD_CALLSIGN_SIZE,
+                        WSPRD_CALLSIGN_SIZE, "%s", callsign) ) return 0;
+    return 1;
+}
+
+static int store_hash_grid(int ihash, char const *grid, char *loctab)
+{
+    if( ihash < 0 || ihash >= WSPRD_HASH_COUNT ) return 0;
+    if( strlen(grid) >= WSPRD_GRID_SIZE ) return 0;
+    if( !format_checked(loctab + ihash * WSPRD_GRID_SIZE,
+                        WSPRD_GRID_SIZE, "%s", grid) ) return 0;
+    return 1;
+}
+
+static int store_hash_entry(int ihash, char const *callsign, char const *grid,
+                            char *hashtab, char *loctab)
+{
+    if( !store_hash_call(ihash, callsign, hashtab) ) return 0;
+    if( !store_hash_grid(ihash, grid, loctab) ) return 0;
+    return 1;
+}
+
+int wsprd_load_hash_line(char const *line, char *hashtab, char *loctab)
+{
+    char const *p = line;
+    errno = 0;
+    char *end = NULL;
+    long ihash = strtol(p, &end, 10);
+    if( p == end || errno == ERANGE ||
+        ihash < 0 || ihash >= WSPRD_HASH_COUNT ) return 0;
+    if( !isspace((unsigned char)*end) ) return 0;
+
+    char callsign[WSPRD_CALLSIGN_SIZE];
+    char grid[WSPRD_GRID_SIZE];
+    p = end;
+    if( !read_bounded_token(&p, callsign, sizeof callsign, 1) ) return 0;
+    if( !read_bounded_token(&p, grid, sizeof grid, 0) ) return 0;
+
+    if( !store_hash_call((int)ihash, callsign, hashtab) ) return 0;
+    if( grid[0] != '\0' &&
+        !store_hash_grid((int)ihash, grid, loctab) ) return 0;
+    return 1;
 }
 
 void unpack50( signed char *dat, int32_t *n1, int32_t *n2 )
@@ -285,8 +352,7 @@ int unpk_(signed char *message, char *hashtab, char *loctab, char *call_loc_pow,
             if( !format_checked(call_loc_pow, WSPRD_MESSAGE_SIZE, "%s %.4s %2d",
                                 callsign, grid, ndbm) ) return 1;
             ihash=nhash(callsign,strlen(callsign),(uint32_t)146);
-            if( !format_checked(hashtab+ihash*13, 13, "%s", callsign) ) return 1;
-            if( !format_checked(loctab+ihash*5, 5, "%.4s", grid) ) return 1;
+            if( !store_hash_entry(ihash, callsign, grid, hashtab, loctab) ) return 1;
         } else {
             nadd=nu;
             if( nu > 3 ) nadd=nu-3;
@@ -299,7 +365,7 @@ int unpk_(signed char *message, char *hashtab, char *loctab, char *call_loc_pow,
             int nu=ndbm%10;
             if( nu == 0 || nu == 3 || nu == 7 || nu == 10 ) { //make sure power is OK
                 ihash=nhash(callsign,strlen(callsign),(uint32_t)146);
-                if( !format_checked(hashtab+ihash*13, 13, "%s", callsign) ) return 1;
+                if( !store_hash_call(ihash, callsign, hashtab) ) return 1;
             } else noprint=1;
         }
     } else if ( ntype < 0 ) {

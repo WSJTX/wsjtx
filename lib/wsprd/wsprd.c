@@ -784,10 +784,9 @@ int main(int argc, char *argv[])
     struct result decodes[50];
     
     char *hashtab;
-    hashtab=calloc(32768*13,sizeof(char));
+    hashtab=calloc(WSPRD_HASH_COUNT*WSPRD_CALLSIGN_SIZE,sizeof(char));
     char *loctab;
-    loctab=calloc(32768*5,sizeof(char));
-    int nh;
+    loctab=calloc(WSPRD_HASH_COUNT*WSPRD_GRID_SIZE,sizeof(char));
     symbols=calloc(nbits*2,sizeof(unsigned char));
     apmask=calloc(162,sizeof(unsigned char));
     cw=calloc(162,sizeof(unsigned char));
@@ -1008,13 +1007,10 @@ int main(int argc, char *argv[])
     }
     
     if( usehashtable ) {
-        char line[80], hcall[13], hgrid[5];
+        char line[80];
         if( (fhash=fopen(hash_fname,"r+")) ) {
             while (fgets(line, sizeof(line), fhash) != NULL) {
-                hgrid[0]='\0';
-                sscanf(line,"%d %s %s",&nh,hcall,hgrid);
-                strcpy(hashtab+nh*13,hcall);
-                if(strlen(hgrid)>0) strcpy(loctab+nh*5,hgrid);
+                wsprd_load_hash_line(line, hashtab, loctab);
             }
         } else {
             fhash=fopen(hash_fname,"w+");
@@ -1598,9 +1594,11 @@ int main(int argc, char *argv[])
     
     if( usehashtable ) {
         fhash=fopen(hash_fname,"w");
-        for (i=0; i<32768; i++) {
-            if( strncmp(hashtab+i*13,"\0",1) != 0 ) {
-                fprintf(fhash,"%5d %s %s\n",i,hashtab+i*13,loctab+i*5);
+        for (i=0; i<WSPRD_HASH_COUNT; i++) {
+            if( strncmp(hashtab+i*WSPRD_CALLSIGN_SIZE,"\0",1) != 0 ) {
+                fprintf(fhash,"%5d %s %s\n",i,
+                        hashtab+i*WSPRD_CALLSIGN_SIZE,
+                        loctab+i*WSPRD_GRID_SIZE);
             }
         }
         fclose(fhash);

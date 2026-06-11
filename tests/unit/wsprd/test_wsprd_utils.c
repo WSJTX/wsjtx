@@ -6,9 +6,9 @@
 #include "lib/wsprd/wsprd_utils.h"
 
 enum {
-    HASH_CALL_SIZE = 13,
-    HASH_GRID_SIZE = 5,
-    HASH_COUNT = 32768
+    HASH_CALL_SIZE = WSPRD_CALLSIGN_SIZE,
+    HASH_GRID_SIZE = WSPRD_GRID_SIZE,
+    HASH_COUNT = WSPRD_HASH_COUNT
 };
 
 struct wspr_vector {
@@ -60,6 +60,13 @@ static void expect_hash_entry(const char *callsign, const char *grid,
     if( grid != NULL ) {
         expect_string(callsign, loctab + ihash * HASH_GRID_SIZE, grid);
     }
+}
+
+static void expect_hash_slot(int ihash, const char *callsign, const char *grid,
+                             char *hashtab, char *loctab)
+{
+    expect_string(callsign, hashtab + ihash * HASH_CALL_SIZE, callsign);
+    expect_string(callsign, loctab + ihash * HASH_GRID_SIZE, grid);
 }
 
 static void run_with_fresh_tables(void (*test)(char *, char *))
@@ -176,12 +183,77 @@ static void test_type3_resolved_pj4(char *hashtab, char *loctab)
     decode_vector(&pj4_type3_resolved, hashtab, loctab);
 }
 
+static void test_hash_table_line_loading(char *hashtab, char *loctab)
+{
+    expect_int("load hash line with grid",
+               wsprd_load_hash_line("   42 K1ABC FN42\n", hashtab, loctab), 1);
+    expect_hash_slot(42, "K1ABC", "FN42", hashtab, loctab);
+
+    expect_int("load hash line without grid",
+               wsprd_load_hash_line("43 PJ4/K1ABC\n", hashtab, loctab), 1);
+    expect_hash_slot(43, "PJ4/K1ABC", "", hashtab, loctab);
+
+    expect_int("load hash line with suffix call",
+               wsprd_load_hash_line("46 K1ABC/R\n", hashtab, loctab), 1);
+    expect_hash_slot(46, "K1ABC/R", "", hashtab, loctab);
+
+    expect_int("load hash line with numeric suffix",
+               wsprd_load_hash_line("47 K1ABC/10\n", hashtab, loctab), 1);
+    expect_hash_slot(47, "K1ABC/10", "", hashtab, loctab);
+
+    expect_int("load hash line with short prefix",
+               wsprd_load_hash_line("48 5N/6O0O\n", hashtab, loctab), 1);
+    expect_hash_slot(48, "5N/6O0O", "", hashtab, loctab);
+
+    strcpy(loctab + 44 * HASH_GRID_SIZE, "ABCD");
+    expect_int("load hash line preserves missing grid",
+               wsprd_load_hash_line("44 K1ABC\n", hashtab, loctab), 1);
+    expect_hash_slot(44, "K1ABC", "ABCD", hashtab, loctab);
+
+    strcpy(loctab + 49 * HASH_GRID_SIZE, "ABCD");
+    expect_int("load hash line preserves writer whitespace",
+               wsprd_load_hash_line("   49\tPJ4/K1ABC  \r\n", hashtab, loctab), 1);
+    expect_hash_slot(49, "PJ4/K1ABC", "ABCD", hashtab, loctab);
+
+    expect_int("load hash line ignores trailing tokens",
+               wsprd_load_hash_line("45 K1ABC FN42 ignored\n", hashtab, loctab), 1);
+    expect_hash_slot(45, "K1ABC", "FN42", hashtab, loctab);
+
+    expect_int("load max-size hash line",
+               wsprd_load_hash_line("32767 123456789012 ABCD\n", hashtab, loctab), 1);
+    expect_hash_slot(32767, "123456789012", "ABCD", hashtab, loctab);
+}
+
+static void expect_rejected_hash_line(const char *line,
+                                      char *hashtab, char *loctab)
+{
+    const int slot = 7;
+    strcpy(hashtab + slot * HASH_CALL_SIZE, "KEEP");
+    strcpy(loctab + slot * HASH_GRID_SIZE, "ABCD");
+
+    expect_int(line, wsprd_load_hash_line(line, hashtab, loctab), 0);
+    expect_hash_slot(slot, "KEEP", "ABCD", hashtab, loctab);
+}
+
+static void test_invalid_hash_table_lines(char *hashtab, char *loctab)
+{
+    expect_rejected_hash_line("", hashtab, loctab);
+    expect_rejected_hash_line("7\n", hashtab, loctab);
+    expect_rejected_hash_line("slot K1ABC FN42\n", hashtab, loctab);
+    expect_rejected_hash_line("-1 K1ABC FN42\n", hashtab, loctab);
+    expect_rejected_hash_line("32768 K1ABC FN42\n", hashtab, loctab);
+    expect_rejected_hash_line("7 1234567890123 FN42\n", hashtab, loctab);
+    expect_rejected_hash_line("7 K1ABC FN421\n", hashtab, loctab);
+}
+
 int main(void)
 {
     run_with_fresh_tables(test_standard_and_compound_messages);
     run_with_fresh_tables(test_type3_unresolved);
     run_with_fresh_tables(test_type3_resolved_k1abc);
     run_with_fresh_tables(test_type3_resolved_pj4);
+    run_with_fresh_tables(test_hash_table_line_loading);
+    run_with_fresh_tables(test_invalid_hash_table_lines);
 
     return failures == 0 ? 0 : 1;
 }
