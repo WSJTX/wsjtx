@@ -10,6 +10,12 @@ following packages:
 - gfortran 4.8 or later
 - fftw3
 - MinGW (for Windows only)
+- OpenSSL runtime DLLs in the MinGW environment used for Windows
+  installer builds
+
+For Windows installer builds, the _OpenSSL_ runtime DLLs bundled with
+the installer are taken from the build environment. The DLLs must match
+the Qt libraries used by that environment.
 
 Source code for _WSJT-X_ v{VERSION} can be downloaded with the command:
 

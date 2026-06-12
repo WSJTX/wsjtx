@@ -51,7 +51,9 @@ each instance of _WSJT-X_.
 
 I am getting a "Network Error - SSL/TLS support not installed" message. What should I do?::
 
-You need to install suitable _OpenSSL_ libraries - see <<OPENSSL,Instructions to install _OpenSSL_>>.
+Update to the latest Windows installer package or reinstall _WSJT-X_.
+Current Windows installers include the required _OpenSSL_ runtime DLLs;
+see <<OPENSSL,Windows _OpenSSL_ troubleshooting>>.
 
 I occasionally get Rig Control Errors if I adjust my Icom rig's VFO. What's wrong?::
 
