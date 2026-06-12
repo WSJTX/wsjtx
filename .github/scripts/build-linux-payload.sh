@@ -140,7 +140,6 @@ fi
 echo "::group::wsjtx configure + build"
 cmake -S . -B wsjtx-build \
   -DCMAKE_PREFIX_PATH="${PWD}/hamlib-prefix;${PWD}/pfunit-prefix" \
-  -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
   -DWSJT_SKIP_MANPAGES=ON \
   -DWSJT_ENABLE_TESTS=ON \
   -DWSJT_FORTRAN_LIBRARY_VARIANTS=OPENMP_ONLY \

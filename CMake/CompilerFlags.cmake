@@ -31,10 +31,10 @@ if (WIN32)
 endif (WIN32)
 
 if (APPLE AND ${CMAKE_CXX_COMPILER_ID} MATCHES "Clang")
-  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -stdlib=libc++")
+  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
 else ()
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pthread")
-  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --std=gnu++11 -pthread")
+  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
 endif ()
 
 

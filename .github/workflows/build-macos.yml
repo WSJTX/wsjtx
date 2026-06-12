@@ -437,7 +437,6 @@ jobs:
             -DCMAKE_EXE_LINKER_FLAGS="${{ steps.fc.outputs.runtime_link_flags }}" \
             -DCMAKE_INSTALL_RPATH="${GITHUB_WORKSPACE}/qt-prefix/lib;${GITHUB_WORKSPACE}/boost-prefix/lib;${GITHUB_WORKSPACE}/fftw-prefix/lib;${GITHUB_WORKSPACE}/libusb-prefix/lib;${GITHUB_WORKSPACE}/portaudio-prefix/lib;${GITHUB_WORKSPACE}/hamlib-prefix/lib" \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ env.DEPLOYMENT_TARGET }} \
-            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
             -DWSJT_SKIP_MANPAGES=ON \
             -DWSJT_ENABLE_TESTS=ON \
             -DWSJT_MACOS_LIBGOMP_LIBRARY="${{ steps.fc.outputs.libgomp }}" \

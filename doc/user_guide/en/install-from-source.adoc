@@ -29,9 +29,9 @@ At a minimum you need:
 
 * Git
 * Qt 5.x (Core, Multimedia, SerialPort, Svg, Tools, WebSockets; ActiveQt on Windows)
-* A C/C++ compiler (g++ 4.8 or later)
+* A C/C++ compiler with C++17 support
 * A Fortran compiler (gfortran 4.8 or later)
-* CMake 3.x
+* CMake 3.12 or later
 * FFTW v3, Boost, libusb, PortAudio
 * Hamlib (built from a pinned release, see below)
 
@@ -167,7 +167,6 @@ cmake -G "MSYS Makefiles" -S . -B build \
   -DCMAKE_INSTALL_PREFIX=C:/WSJT \
   -DOMNIRIG_TYPE_LIB="$OMNIRIG" \
   -DCMAKE_Fortran_FLAGS="-fallow-argument-mismatch -std=legacy" \
-  -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
   -DWSJT_SKIP_MANPAGES=ON \
   -DWSJT_FORTRAN_LIBRARY_VARIANTS=OPENMP_ONLY \
   -Wno-dev

@@ -186,7 +186,6 @@ runs:
           -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/hamlib-prefix;${GITHUB_WORKSPACE}/pfunit-prefix" \
           -DCMAKE_C_COMPILER_LAUNCHER=ccache \
           -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-          -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
           -DWSJT_SKIP_MANPAGES=ON \
           -DWSJT_ENABLE_TESTS=ON \
           -DWSJT_FORTRAN_LIBRARY_VARIANTS=OPENMP_ONLY \
@@ -219,7 +218,6 @@ runs:
           rm -rf "cfgmatrix-${variant}"
           if cmake -S . -B "cfgmatrix-${variant}" \
                -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/hamlib-prefix;${GITHUB_WORKSPACE}/pfunit-prefix" \
-               -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
                -DWSJT_SKIP_MANPAGES=ON \
                -DWSJT_FORTRAN_LIBRARY_VARIANTS="${variant}" \
                -DPFUNIT_DIR="${{ steps.pfunit.outputs.dir }}" \
@@ -254,7 +252,6 @@ runs:
       run: |
         cmake -S . -B cfgmatrix-skip-map65-openmp-only \
           -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/hamlib-prefix;${GITHUB_WORKSPACE}/pfunit-prefix" \
-          -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
           -DWSJT_SKIP_MANPAGES=ON \
           -DWSJT_SKIP_MAP65=ON \
           -DWSJT_FORTRAN_LIBRARY_VARIANTS=OPENMP_ONLY \

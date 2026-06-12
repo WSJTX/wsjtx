@@ -14,6 +14,7 @@ VERSION = 2.5.0
 TEMPLATE = app
 DEFINES = QT5
 DESTDIR = /MAP65_2.9
+CONFIG += c++17
 
 F90 = gfortran
 gfortran.output = ${QMAKE_FILE_BASE}.o
