@@ -76,7 +76,7 @@ if (POLICY CMP0075)
 endif ()
 
 project (wsjtx
-  VERSION 3.1.0.0
+  VERSION 3.2.0.0
   LANGUAGES C CXX Fortran
   )
 

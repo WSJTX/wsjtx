@@ -1,6 +1,6 @@
 // This is a comment line, anything with // is ignored at process time.
 = _WSJT-X_ User Guide
-//Joseph H Taylor, Jr, K1JT et al.
+Copyright 2026 by Joe Taylor, K1JT
 :revnumber: {VERSION}
 // For web-pages, adding :badges: is ok, but is a security issue for
 // package building .deb, .rpm, etc as it exposes the IP address and the images
