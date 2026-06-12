@@ -176,7 +176,8 @@ void FileDownload::download(QUrl qurl)
 
   LOG_INFO(QString{"FileDownload [%1]: Starting download of %2 to %3"}.arg(user_agent_).arg(source_url_).arg(destination_filename_));
 
-  request_.setAttribute(QNetworkRequest::FollowRedirectsAttribute, true);
+  request_.setAttribute(QNetworkRequest::RedirectPolicyAttribute
+                        , QNetworkRequest::NoLessSafeRedirectPolicy);
   request_.setRawHeader("Accept", "*/*");
   request_.setRawHeader ("User-Agent", user_agent_.toLocal8Bit());  // Must have a UA for some sites, like country-files
 
