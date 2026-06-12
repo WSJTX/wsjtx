@@ -17,13 +17,23 @@ on:
         required: false
         type: boolean
         default: false
+      release_channel:
+        description: "Build release channel: DEVEL, RC, or GA"
+        required: false
+        type: string
+        default: "DEVEL"
+      rc_number:
+        description: "Release candidate number when release_channel is RC"
+        required: false
+        type: string
+        default: ""
   # Also runnable on its own ("Run workflow" / gh workflow run) to build just
   # the Windows installer, at ~1/6 the cost of the full ci.yml matrix. GitHub
   # only exposes workflow_dispatch when the trigger is present on the default
   # branch, so this must be merged to develop before it can be dispatched.
   # Inputs mirror workflow_call with standalone defaults: hamlib_branch matches
   # what ci.yml / release.yml actually pass (4.7.1, not the workflow_call legacy
-  # default), and version defaults to a clearly-marked dev string -- overridable
+  # default), and version defaults to a clearly-marked devel string -- overridable
   # via `-f version=...` -- so a manual build is never mistaken for a release.
   workflow_dispatch:
     inputs:
@@ -31,7 +41,7 @@ on:
         description: "WSJT-X version string (installer filename + artifact names)"
         required: false
         type: string
-        default: "3.1.0-dev"
+        default: "3.1.0-devel"
       hamlib_branch:
         description: "Hamlib branch to build"
         required: false
@@ -42,6 +52,20 @@ on:
         required: false
         type: boolean
         default: false
+      release_channel:
+        description: "Build release channel"
+        required: false
+        type: choice
+        options:
+          - DEVEL
+          - RC
+          - GA
+        default: "DEVEL"
+      rc_number:
+        description: "Release candidate number when release_channel is RC"
+        required: false
+        type: string
+        default: ""
 
 jobs:
   build:
@@ -221,6 +245,8 @@ jobs:
             -DWSJT_SKIP_MANPAGES=ON \
             -DWSJT_ENABLE_TESTS=ON \
             -DWSJT_FORTRAN_LIBRARY_VARIANTS=OPENMP_ONLY \
+            -DWSJT_RELEASE_CHANNEL="${{ inputs.release_channel }}" \
+            -DWSJT_RC_NUMBER="${{ inputs.rc_number }}" \
             -DPFUNIT_DIR="${{ steps.pfunit.outputs.pfunit_dir }}" \
             -DGFTL_DIR="${{ steps.pfunit.outputs.gftl_dir }}" \
             -DGFTL_SHARED_DIR="${{ steps.pfunit.outputs.gftl_shared_dir }}" \

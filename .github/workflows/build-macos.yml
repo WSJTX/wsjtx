@@ -29,6 +29,16 @@ on:
         required: false
         type: boolean
         default: false
+      release_channel:
+        description: "Build release channel: DEVEL, RC, or GA"
+        required: false
+        type: string
+        default: "DEVEL"
+      rc_number:
+        description: "Release candidate number when release_channel is RC"
+        required: false
+        type: string
+        default: ""
   # Also runnable on its own ("Run workflow" / gh workflow run) to build a single
   # macOS arch without dispatching the full ci.yml matrix. GitHub only exposes
   # workflow_dispatch when the trigger is on the default branch (develop), so
@@ -45,7 +55,7 @@ on:
         description: "WSJT-X version string (artifact + package names)"
         required: false
         type: string
-        default: "3.1.0-dev"
+        default: "3.1.0-devel"
       hamlib_branch:
         description: "Hamlib branch to build"
         required: false
@@ -64,6 +74,20 @@ on:
         required: false
         type: boolean
         default: false
+      release_channel:
+        description: "Build release channel"
+        required: false
+        type: choice
+        options:
+          - DEVEL
+          - RC
+          - GA
+        default: "DEVEL"
+      rc_number:
+        description: "Release candidate number when release_channel is RC"
+        required: false
+        type: string
+        default: ""
 
 jobs:
   build:
@@ -388,6 +412,8 @@ jobs:
             -DWSJT_ENABLE_TESTS=OFF \
             -DWSJT_MACOS_LIBGOMP_LIBRARY="${{ steps.fc.outputs.libgomp }}" \
             -DWSJT_SOURCE_REVISION="${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || '' }}" \
+            -DWSJT_RELEASE_CHANNEL="${{ inputs.release_channel }}" \
+            -DWSJT_RC_NUMBER="${{ inputs.rc_number }}" \
             -Wno-dev
 
       - name: Build
@@ -451,6 +477,8 @@ jobs:
             -DWSJT_ENABLE_TESTS=ON \
             -DWSJT_MACOS_LIBGOMP_LIBRARY="${{ steps.fc.outputs.libgomp }}" \
             -DPFUNIT_DIR="${{ steps.pfunit.outputs.dir }}" \
+            -DWSJT_RELEASE_CHANNEL="${{ inputs.release_channel }}" \
+            -DWSJT_RC_NUMBER="${{ inputs.rc_number }}" \
             -Wno-dev
 
       - name: Build tests
@@ -759,6 +787,8 @@ jobs:
 
           pkgbuild --analyze --root "${PAYLOAD}" "$RUNNER_TEMP/components.plist"
           /usr/libexec/PlistBuddy -c "Set :0:BundleIsRelocatable false" "$RUNNER_TEMP/components.plist" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Set :0:BundleIsVersionChecked false" "$RUNNER_TEMP/components.plist" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Set :0:BundleOverwriteAction upgrade" "$RUNNER_TEMP/components.plist" 2>/dev/null || true
 
           pkgbuild \
             --root "${PAYLOAD}" \
@@ -784,6 +814,9 @@ jobs:
 
           CHECK_PAYLOAD="$RUNNER_TEMP/pkg-check"
           pkgutil --expand-full "$PKG_OUT" "$CHECK_PAYLOAD"
+          [ "$(/usr/libexec/PlistBuddy -c "Print :0:BundleIsRelocatable" "$RUNNER_TEMP/components.plist")" = "false" ]
+          [ "$(/usr/libexec/PlistBuddy -c "Print :0:BundleIsVersionChecked" "$RUNNER_TEMP/components.plist")" = "false" ]
+          [ "$(/usr/libexec/PlistBuddy -c "Print :0:BundleOverwriteAction" "$RUNNER_TEMP/components.plist")" = "upgrade" ]
           test -x "$CHECK_PAYLOAD/wsjtx-component.pkg/Payload/Applications/wsjtx.app/Contents/MacOS/qmap"
           test -x "$CHECK_PAYLOAD/wsjtx-component.pkg/Payload/Applications/wsjtx.app/Contents/MacOS/map65"
           APP_PAYLOAD="$CHECK_PAYLOAD/wsjtx-component.pkg/Payload/Applications/wsjtx.app"

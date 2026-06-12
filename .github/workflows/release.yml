@@ -15,10 +15,30 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.v.outputs.version }}
+      release_channel: ${{ steps.v.outputs.release_channel }}
+      rc_number: ${{ steps.v.outputs.rc_number }}
     steps:
       - uses: actions/checkout@v6
       - id: v
-        run: echo "version=${GITHUB_REF_NAME#build/v}" >> "$GITHUB_OUTPUT"
+        run: |
+          VERSION="${GITHUB_REF_NAME#build/v}"
+          if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            RELEASE_CHANNEL=GA
+            RC_NUMBER=""
+          elif [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-rc([1-9][0-9]*)$ ]]; then
+            RELEASE_CHANNEL=RC
+            RC_NUMBER="${BASH_REMATCH[1]}"
+          else
+            echo "::error::Unsupported release tag version: $VERSION"
+            echo "::error::Supported release tags are build/vX.Y.Z and build/vX.Y.Z-rcN."
+            exit 1
+          fi
+
+          {
+            echo "version=$VERSION"
+            echo "release_channel=$RELEASE_CHANNEL"
+            echo "rc_number=$RC_NUMBER"
+          } >> "$GITHUB_OUTPUT"
 
       # Enforce that the pushed tag's numeric version base
       # matches CMakeLists.txt:55 VERSION (first 3 components). CMake's
@@ -54,6 +74,8 @@ jobs:
       arch: "arm64"
       runner: "macos-15"
       deployment_target: "11.0"
+      release_channel: ${{ needs.prepare.outputs.release_channel }}
+      rc_number: ${{ needs.prepare.outputs.rc_number }}
     secrets: inherit
 
   macos-intel:
@@ -65,6 +87,8 @@ jobs:
       arch: "x86_64"
       runner: "macos-15-intel"
       deployment_target: "10.13"
+      release_channel: ${{ needs.prepare.outputs.release_channel }}
+      rc_number: ${{ needs.prepare.outputs.rc_number }}
     secrets: inherit
 
   linux:
@@ -74,6 +98,8 @@ jobs:
       version: ${{ needs.prepare.outputs.version }}
       hamlib_branch: "4.7.1"
       arch: "x86_64"
+      release_channel: ${{ needs.prepare.outputs.release_channel }}
+      rc_number: ${{ needs.prepare.outputs.rc_number }}
     secrets: inherit
 
   linux-arm:
@@ -83,6 +109,8 @@ jobs:
       version: ${{ needs.prepare.outputs.version }}
       hamlib_branch: "4.7.1"
       arch: "aarch64"
+      release_channel: ${{ needs.prepare.outputs.release_channel }}
+      rc_number: ${{ needs.prepare.outputs.rc_number }}
     secrets: inherit
 
   # 32-bit ARM (armhf) for DigiPi / Pi Zero 2W class (issue #51). Built via
@@ -98,6 +126,8 @@ jobs:
       version: ${{ needs.prepare.outputs.version }}
       hamlib_branch: "4.7.1"
       arch: "armhf"
+      release_channel: ${{ needs.prepare.outputs.release_channel }}
+      rc_number: ${{ needs.prepare.outputs.rc_number }}
     secrets: inherit
 
   windows:
@@ -106,6 +136,8 @@ jobs:
     with:
       version: ${{ needs.prepare.outputs.version }}
       hamlib_branch: "4.7.1"
+      release_channel: ${{ needs.prepare.outputs.release_channel }}
+      rc_number: ${{ needs.prepare.outputs.rc_number }}
     secrets: inherit
 
   # ── Publish release + sync to public repo ──────────────────────────
@@ -223,21 +255,21 @@ jobs:
           # that collide on basename across architectures — `gh release
           # create` uses basenames as asset names and duplicates cause
           # upload failures.
-          FILES=$(find artifacts -maxdepth 2 -type f \
+          mapfile -t FILES < <(find artifacts -maxdepth 2 -type f \
             \( -name "*.pkg" -o -name "*.AppImage" -o -name "*.deb" \
                -o -name "*.exe" -o -name "*.tar.gz" -o -name "*.rpm" \))
           # SemVer pre-release tags contain a hyphen after the version
           # (e.g., v3.0.1-rc1, v3.0.1-rc2, v3.0.1-beta1). Flag those as
           # GitHub pre-releases so they don't appear as the latest stable.
-          PRERELEASE_FLAG=""
+          PRERELEASE_FLAG=()
           if [[ "$TAG" == *-* ]]; then
-            PRERELEASE_FLAG="--prerelease"
+            PRERELEASE_FLAG=(--prerelease)
           fi
           gh release create "$TAG" \
             --title "WSJT-X ${{ needs.prepare.outputs.version }}" \
             --generate-notes \
-            $PRERELEASE_FLAG \
-            $FILES
+            "${PRERELEASE_FLAG[@]}" \
+            "${FILES[@]}"
 
       # ── Public mirror: GA only ─────────────────────────────────────────
       # RC/beta tags (any tag carrying a '-' in the version, e.g.
@@ -321,11 +353,11 @@ jobs:
           # Same asset filter as the internal release. Re-find rather than
           # carrying a list — keeps the all-platforms-ready gate, internal
           # release, and public release mechanically aligned on one filter.
-          FILES=$(find artifacts -maxdepth 2 -type f \
+          mapfile -t FILES < <(find artifacts -maxdepth 2 -type f \
             \( -name "*.pkg" -o -name "*.AppImage" -o -name "*.deb" \
                -o -name "*.exe" -o -name "*.tar.gz" -o -name "*.rpm" \))
           gh release create "$PUBLIC_TAG" \
             -R WSJTX/wsjtx \
             --title "WSJT-X ${VERSION}" \
             --generate-notes \
-            $FILES
+            "${FILES[@]}"

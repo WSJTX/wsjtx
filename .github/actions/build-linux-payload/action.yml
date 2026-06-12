@@ -32,6 +32,14 @@ inputs:
     description: "Force ccache to recompile and refresh cached objects"
     required: false
     default: "false"
+  release_channel:
+    description: "Build release channel: DEVEL, RC, or GA"
+    required: false
+    default: "DEVEL"
+  rc_number:
+    description: "Release candidate number when release_channel is RC"
+    required: false
+    default: ""
 
 runs:
   using: "composite"
@@ -159,6 +167,8 @@ runs:
           -DWSJT_SKIP_MANPAGES=ON \
           -DWSJT_ENABLE_TESTS=ON \
           -DWSJT_FORTRAN_LIBRARY_VARIANTS=OPENMP_ONLY \
+          -DWSJT_RELEASE_CHANNEL="${{ inputs.release_channel }}" \
+          -DWSJT_RC_NUMBER="${{ inputs.rc_number }}" \
           -DPFUNIT_DIR="${{ steps.pfunit.outputs.dir }}" \
           -Wno-dev
 

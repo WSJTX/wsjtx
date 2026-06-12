@@ -24,6 +24,9 @@
 #   VERSION         — wsjtx version string (e.g. 3.0.1)
 #   ARCH            — linux arch (armhf for the QEMU path)
 #   HAMLIB_BRANCH   — hamlib branch (e.g. 4.7.1)
+# Optional env vars:
+#   WSJT_RELEASE_CHANNEL — DEVEL, RC, or GA
+#   WSJT_RC_NUMBER       — release candidate number when channel is RC
 #
 # Required mount (passed via docker run -v):
 #   /work           — the runner's $GITHUB_WORKSPACE bind-mounted into
@@ -38,6 +41,8 @@ set -euo pipefail
 VERSION="${VERSION:?missing}"
 ARCH="${ARCH:?missing}"
 HAMLIB_BRANCH="${HAMLIB_BRANCH:?missing}"
+WSJT_RELEASE_CHANNEL="${WSJT_RELEASE_CHANNEL:-DEVEL}"
+WSJT_RC_NUMBER="${WSJT_RC_NUMBER:-}"
 
 cd /work
 
@@ -124,6 +129,8 @@ cmake -S . -B wsjtx-build \
   -DWSJT_SKIP_MANPAGES=ON \
   -DWSJT_ENABLE_TESTS=ON \
   -DWSJT_FORTRAN_LIBRARY_VARIANTS=OPENMP_ONLY \
+  -DWSJT_RELEASE_CHANNEL="${WSJT_RELEASE_CHANNEL}" \
+  -DWSJT_RC_NUMBER="${WSJT_RC_NUMBER}" \
   -DPFUNIT_DIR="$PFUNIT_DIR" \
   -Wno-dev
 cmake --build wsjtx-build -j"$(nproc)"
