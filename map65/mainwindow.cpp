@@ -668,7 +668,13 @@ if (t.indexOf("<QuickDecodeDone>") >= 0) {
         m = 3;
 #endif
         const QString decode_line = t.mid(1, n - m);
-        if (n >= 30 || t.indexOf("Best-fit") >= 0)  ui->decodedTextBrowser->append(decode_line);
+
+         // Suppress *second* narrowband GUI entry, but keep everything else
+        if (m_RxState != 2 || m_diskData) {
+          if (n >= 30 || t.indexOf("Best-fit") >= 0)
+            ui->decodedTextBrowser->append(decode_line);
+        }
+        
         int max = ui->decodedTextBrowser->verticalScrollBar()->maximum();
         ui->decodedTextBrowser->verticalScrollBar()->setValue(max);
 
@@ -1986,6 +1992,7 @@ void MainWindow::decode()                                       //decode()
   if(m_diskData) {
     if(m_myGrid.trimmed().length()>=6) {
       setNdiskdat(1);
+      setNagain(0);
       int i0=m_path.indexOf(".tf2");
       if(i0<0) i0=m_path.indexOf(".iq");
       if(i0>0) {

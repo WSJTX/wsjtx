@@ -114,8 +114,8 @@ contains
       nts_q65 = 2**(mode_q65 - 1)             !Q65 tone separation factor
       xpol = (nxpol .ne. 0)
 
-! No second decode for JT65?
-      if (nhsym .eq. nhsym2 .and. nagain .eq. 0 .and. ndiskdat .eq. 0) mode65 = 0
+! No second decode for JT65?  Can't use this guard with modern code
+! if (nhsym.eq.nhsym2 .and. nagain.eq.0 .and. ndiskdat.eq.0) mode65 = 0
 
       if (nagain .eq. 0) then
          call timer('get_cand', 0)
