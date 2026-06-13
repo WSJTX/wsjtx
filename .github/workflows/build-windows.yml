@@ -41,7 +41,7 @@ on:
         description: "WSJT-X version string (installer filename + artifact names)"
         required: false
         type: string
-        default: "3.1.0-devel"
+        default: "3.2.0-devel"
       hamlib_branch:
         description: "Hamlib branch to build"
         required: false

@@ -37,7 +37,7 @@ macro (set_build_type)
   endif ()
 
   string (TOUPPER "${WSJT_RELEASE_CHANNEL}" _WSJT_RELEASE_CHANNEL)
-  if (ARGC GREATER 0)
+  if (${ARGC} GREATER 0)
     if (BUILD_TYPE_GA)
       set (_WSJT_RELEASE_CHANNEL "GA")
     elseif (BUILD_TYPE_RC)
