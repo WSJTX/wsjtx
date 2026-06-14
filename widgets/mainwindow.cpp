@@ -547,6 +547,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_block_udp_status_updates {false},
   m_useDarkStyle {false}
 {
+  programStart = true;
   ui->setupUi(this);
   setUnifiedTitleAndToolBarOnMac (true);
   createStatusBar();
@@ -3476,7 +3477,16 @@ void MainWindow::closeEvent(QCloseEvent * e)
   int irow=-99;
   plotsave_(&sw,&nw,&nh,&irow);
   to_jt9(m_ihsym,999,-1);          //Tell jt9 to terminate
-  if (!proc_jt9.waitForFinished(1000)) proc_jt9.close();
+  if (proc_jt9.state() != QProcess::NotRunning) {
+    if (!proc_jt9.waitForFinished(5000)) {
+      proc_jt9.terminate();
+      if (!proc_jt9.waitForFinished(1000)) {
+        proc_jt9.kill();
+        proc_jt9.waitForFinished(1000);
+      }
+    }
+  }
+  proc_jt9.close();
   mem_jt9->detach();
   Q_EMIT finished ();
   QMainWindow::closeEvent (e);
