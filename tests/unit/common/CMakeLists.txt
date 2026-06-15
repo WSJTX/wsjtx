@@ -25,6 +25,15 @@ add_executable (test_auto_respond_selection_latch
 target_link_libraries (test_auto_respond_selection_latch Qt5::Test)
 add_test (NAME test_auto_respond_selection_latch COMMAND test_auto_respond_selection_latch)
 
+add_executable (test_emulate_split_transceiver
+  test_emulate_split_transceiver.cpp
+  ${CMAKE_SOURCE_DIR}/Transceiver/EmulateSplitTransceiver.cpp
+  ${CMAKE_SOURCE_DIR}/Transceiver/Transceiver.cpp
+  ${CMAKE_SOURCE_DIR}/qt_helpers.cpp
+)
+target_link_libraries (test_emulate_split_transceiver Boost::log Qt5::Test Qt5::Network Qt5::Widgets)
+add_test (NAME test_emulate_split_transceiver COMMAND test_emulate_split_transceiver)
+
 add_executable (test_active_station_list
   test_active_station_list.cpp
   ${CMAKE_SOURCE_DIR}/ActiveStationList.cpp
