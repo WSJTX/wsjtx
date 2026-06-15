@@ -510,7 +510,7 @@ public:
   void transceiver_nsym (int);
   void transceiver_trfrequency (double);
   void transceiver_volume (double);
-  void transceiver_txvolume (double);
+  void transceiver_txvolume (double, bool = false);
   void sync_transceiver (bool force_signal);
 
   Q_SLOT int exec () override;
@@ -1339,13 +1339,13 @@ void Configuration::transceiver_trfrequency (double trfrequency)
   m_->transceiver_trfrequency (trfrequency);
 }
 
-void Configuration::transceiver_txvolume (qreal txvolume)
+void Configuration::transceiver_txvolume (qreal txvolume, bool force)
 {
 #if WSJT_TRACE_CAT
   qDebug () << "Configuration::transceiver_txvolume:" << txvolume << m_->cached_rig_state_;
 #endif
 
-  m_->transceiver_txvolume (txvolume);
+  m_->transceiver_txvolume (txvolume, force);
 }
 
 void Configuration::transceiver_volume (qreal volume)
@@ -5071,9 +5071,12 @@ bool Configuration::impl::open_rig (bool force)
           if (is_tci_ && rig_active_ && tci_audio_) restart_tci_device_ = true;
           close_rig ();
 
+          auto const txvolume = cached_rig_state_.txvolume ();
+
           // create a new Transceiver object
           auto rig = transceiver_factory_.create (rig_data, transceiver_thread_);
           cached_rig_state_ = Transceiver::TransceiverState {};
+          cached_rig_state_.txvolume (txvolume);
 
           // hook up Configuration transceiver control signals to Transceiver slots
           //
@@ -5307,11 +5310,11 @@ void Configuration::impl::transceiver_trfrequency (double trfrequency)
   }
 }
 
-void Configuration::impl::transceiver_txvolume (double txvolume)
+void Configuration::impl::transceiver_txvolume (double txvolume, bool force)
 {
   cached_rig_state_.online (true); // we want the rig online
   set_cached_mode ();
-  if (cached_rig_state_.txvolume() != txvolume)
+  if (force || cached_rig_state_.txvolume() != txvolume)
   {
 //    printf("%s(%0.1f) Configuration #:%d txvolume: %0.1f cached: %0.1f\n",QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),transceiver_command_number_+1,txvolume,cached_rig_state_.txvolume());
     cached_rig_state_.txvolume (txvolume);

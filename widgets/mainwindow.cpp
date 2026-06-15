@@ -1231,9 +1231,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   if(m_tci_audio)
   {
     QTimer::singleShot (5000, [=] {
-      int attVal = ui->outAttenuation->value();
-      ui->outAttenuation->setValue(0);
-      ui->outAttenuation->setValue(attVal);
+      sync_tci_tx_volume (true);
       Q_EMIT m_config.transceiver_volume(m_config.volume());
       // set_mode() in the constructor emits transceiver_period() while the TCI
       // rig is still offline, so TransceiverBase::set() skips do_period() and
@@ -2734,6 +2732,7 @@ void MainWindow::on_actionSettings_triggered()           // Setup Dialog (Settin
     }
 
     m_config.transceiver_online ();
+    sync_tci_tx_volume (true);
     if(!m_bFastMode) setXIT (ui->TxFreqSpinBox->value ());
     if ((m_config.single_decode () && !m_mode.startsWith ("FST4")) || m_mode=="JT4") {
       setDecodeTitles(tr ("Single-Period Decodes"), tr ("Average Decodes"));
@@ -10197,9 +10196,16 @@ void MainWindow::on_outAttenuation_valueChanged (int a)
   }
   // Updating attenuation for tuning is done in stop_tuning
   if (m_tci_audio) {
-    Q_EMIT m_config.transceiver_txvolume(dBAttn);
+    sync_tci_tx_volume ();
   } else {
     Q_EMIT outAttenuationChanged (dBAttn);
+  }
+}
+
+void MainWindow::sync_tci_tx_volume (bool force)
+{
+  if (m_tci_audio) {
+    Q_EMIT m_config.transceiver_txvolume (ui->outAttenuation->value () / 10., force);
   }
 }
 

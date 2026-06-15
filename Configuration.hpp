@@ -492,7 +492,7 @@ public:
 
 public slots:
   Q_SLOT void transceiver_volume (double = 0);
-  Q_SLOT void transceiver_txvolume (double = 0);
+  Q_SLOT void transceiver_txvolume (double = 0, bool force = false);
 
 private:
   class impl;

@@ -576,6 +576,7 @@ private:
   void execute_jtty_tx(QString message);
   void abort_jtty_tx();
   void interruptJttyTx();
+  void sync_tci_tx_volume (bool force = false);
   void onJttyBackendDrained(qint64 sessionId, qint64 totalAtDrain);
   void onJttyBackendEnqueueFailed(qint64 sessionId);
   void handleJttyTxWatchdog();
