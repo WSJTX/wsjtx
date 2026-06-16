@@ -31,6 +31,8 @@ subroutine run_m65(pol, sample_rate_96000) bind(C, name='run_m65_')
 
   nhsym1=280
   nhsym2=302 
+  
+  ! call ensure_log_open() !uncomment this to enable logging to file
 
   if (sample_rate_96000 /=0) then
      sample_rate = 96000

@@ -53,7 +53,7 @@ extern "C" int d2aCallback(const void * /*inputBuffer*/, void *outputBuffer,
   static bool bTune0 = false;
   static int nStart = 0;
   static double phi = 0.;
-  
+
   double tsec, tstart, dphi;
   int nsec;
   int nTRperiod = udata->nTRperiod;
@@ -105,17 +105,32 @@ extern "C" int d2aCallback(const void * /*inputBuffer*/, void *outputBuffer,
     short int i2b = 0;
 
     // 2. Linear Interpolation to clean up the noise
-    if(btxok && (2 * i1 + 1) < 1440000) {  //was nwave
-      // Blend current sample (i0) and next sample (i1) based on frac
-      i2a = (short int)((1.0 - frac) * iwave[2 * i0] + frac * iwave[2 * i1]);
-      i2b = (short int)((1.0 - frac) * iwave[2 * i0 + 1] + frac * iwave[2 * i1 + 1]);
+if (btxok && (2 * i1 + 1) < 1440000) {
 
-      if(bTune) {
+    // Interpolate message waveform
+    qreal I = (1.0 - frac) * iwave[2*i0]     + frac * iwave[2*i1];
+    qreal Q = (1.0 - frac) * iwave[2*i0 + 1] + frac * iwave[2*i1 + 1];
+
+    if (bTune) {
+        // --- TUNE MODE (unchanged) ---
         phi += dphi;
-        i2a = xAmp * qCos(phi);
-        i2b = yAmp * qSin(phi + dPhase);
-      }
+        I = xAmp * qCos(phi);
+        Q = yAmp * qSin(phi + dPhase);
+
+    } else {
+        // --- MESSAGE TX: scale using the Tune slider percentage ---
+        qreal gain = txPower / 100.0;   // 0.0 ? 1.0
+
+        I *= gain;
+        Q *= gain;
     }
+
+    // Clamp to 16-bit
+    i2a = short(qBound(-32768.0, I, 32767.0));
+    i2b = short(qBound(-32768.0, Q, 32767.0));
+}
+
+
 
     *wptr++ = i2b; // Left
     *wptr++ = i2a; // Right
