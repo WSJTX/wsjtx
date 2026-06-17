@@ -46,9 +46,3 @@ target_link_libraries (qmap wsjt_qt qmap_impl ${FFTW3_LIBRARIES} Qt5::Widgets Qt
 if (WSJT_CREATE_WINMAIN)
   set_target_properties (qmap PROPERTIES WIN32_EXECUTABLE ON)
 endif (WSJT_CREATE_WINMAIN)
-
-install (
-  TARGETS qmap
-  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
-  BUNDLE DESTINATION . COMPONENT runtime
-  )
