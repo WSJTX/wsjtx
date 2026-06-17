@@ -5,9 +5,13 @@
 #include <QtGui>
 #endif
 #include <QApplication>
+#include <QDir>
+#include <QFile>
+#include <QDebug>
 
 #include "revision_utils.hpp"
 #include "mainwindow.h"
+#include "runtime_paths.h"
 
 extern "C" {
   // Fortran procedures we need
@@ -23,18 +27,25 @@ int main(int argc, char *argv[])
 {
   QApplication a {argc, argv};
 
+  // Override programs executable basename as application name.
+  a.setApplicationName ("QMAP");
+  a.setApplicationVersion ("0.6");
+
+  QString appDir = QApplication::applicationDirPath ();
+
+  // Read optional file to disable highDPI scaling
+  QFile f(QDir {appDir}.absoluteFilePath ("DisableHighDpiScaling"));
+  if (!f.exists()) QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+
+  QString dataDir = qmapDataDir();
+  if (!QDir::setCurrent(dataDir)) {
+    qWarning() << "Unable to set QMAP working directory:" << dataDir;
+  }
+
 // Initialize libgfortran:
   _gfortran_set_args(argc, argv);
   _gfortran_set_convert(0);
   ftninit_();
-
-  // Read optional file to disable highDPI scaling
-  QFile f("DisableHighDpiScaling");
-  if (!f.exists()) QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
-
-  // Override programs executable basename as application name.
-  a.setApplicationName ("QMAP");
-  a.setApplicationVersion ("0.6");
   // switch off as we share an Info.plist file with WSJT-X
   a.setAttribute (Qt::AA_DontUseNativeMenuBar);
   MainWindow w;

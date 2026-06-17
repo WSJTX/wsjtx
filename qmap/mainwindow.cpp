@@ -5,11 +5,13 @@
 #include <QSettings>
 #include <QTimer>
 #include <QToolTip>
+#include <QDebug>
 #include "revision_utils.hpp"
 #include "qt_helpers.hpp"
 #include "SettingsGroup.hpp"
 #include "widgets/MessageBox.hpp"
 #include "ui_mainwindow.h"
+#include "runtime_paths.h"
 #include "devsetup.h"
 #include "plotter.h"
 #include "about.h"
@@ -37,11 +39,15 @@ MainWindow::MainWindow(QWidget *parent) :
   QMainWindow(parent),
   ui(new Ui::MainWindow),
   m_appDir {QApplication::applicationDirPath ()},
-  m_settings_filename {m_appDir + "/qmap.ini"},
+  m_dataDir {qmapDataDir ()},
+  m_settings_filename {qmapSettingsFile (m_appDir, m_dataDir)},
   m_astro_window {new Astro {m_settings_filename}},
   m_wide_graph_window {new WideGraph {m_settings_filename}},
   m_gui_timer {new QTimer {this}}
 {
+  if (!QDir::setCurrent(m_dataDir)) {
+    qWarning() << "Unable to set QMAP working directory:" << m_dataDir;
+  }
   ui->setupUi(this);
 //  ui->decodedTextBrowser->clear();
   ui->labUTC->setStyleSheet( \
@@ -271,7 +277,7 @@ void MainWindow::readSettings()
   {
     SettingsGroup g {&settings, "MainWindow"};
     restoreGeometry(settings.value("geometry").toByteArray());
-    m_path = settings.value("MRUdir", m_appDir + "/save").toString();
+    m_path = settings.value("MRUdir", QDir {m_dataDir}.absoluteFilePath("save")).toString();
   }
 
   SettingsGroup g {&settings, "Common"};
@@ -279,8 +285,8 @@ void MainWindow::readSettings()
   m_myGrid=settings.value("MyGrid","").toString();
   m_astroFont=settings.value("AstroFont",18).toInt();
   m_myCallColor=settings.value("MyCallColor",1).toInt();
-  m_saveDir=settings.value("SaveDir",m_appDir + "/save").toString();
-  m_azelDir=settings.value("AzElDir",m_appDir).toString();
+  m_saveDir=settings.value("SaveDir", QDir {m_dataDir}.absoluteFilePath("save")).toString();
+  m_azelDir=settings.value("AzElDir",m_dataDir).toString();
   m_fCal=settings.value("Fcal",0).toInt();
   m_fAdd=settings.value("FAdd",0).toDouble();
   soundInThread.setFadd(m_fAdd);

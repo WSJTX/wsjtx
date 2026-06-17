@@ -8,6 +8,7 @@ set (qmap_CXXSRCS
   mainwindow.cpp
   meterwidget.cpp
   plotter.cpp
+  runtime_paths.cpp
   signalmeter.cpp
   soundin.cpp
   widegraph.cpp
@@ -46,21 +47,8 @@ if (WSJT_CREATE_WINMAIN)
   set_target_properties (qmap PROPERTIES WIN32_EXECUTABLE ON)
 endif (WSJT_CREATE_WINMAIN)
 
-if (WIN32)
-  install (
-    CODE "get_filename_component (_path \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/wsjtx_dir.txt\" REALPATH)
-  if (WIN32)
-    set (_separator \"\\\\\")
-  else ()
-    set (_separator \"/\")
-  endif ()
-  file (WRITE \"\${_path}\" \".\${_separator}\\n\")"
-    )
-endif ()
-
 install (
   TARGETS qmap
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   BUNDLE DESTINATION . COMPONENT runtime
   )
-
