@@ -28,7 +28,13 @@ QString qmapSettingsFile(QString const& appDir, QString const& dataDir)
   QString settingsFile = QDir {dataDir}.absoluteFilePath("qmap.ini");
   QString legacySettingsFile = QDir {appDir}.absoluteFilePath("qmap.ini");
   if (!QFile::exists(settingsFile) && QFile::exists(legacySettingsFile)) {
-    QFile::copy(legacySettingsFile, settingsFile);
+    if (QFile::copy(legacySettingsFile, settingsFile)) {
+      QFile::setPermissions(settingsFile, QFile::ReadOwner | QFile::WriteOwner
+                            | QFile::ReadGroup | QFile::ReadOther);
+    } else {
+      qWarning() << "Unable to migrate QMAP settings from" << legacySettingsFile
+                 << "to" << settingsFile;
+    }
   }
   return settingsFile;
 }

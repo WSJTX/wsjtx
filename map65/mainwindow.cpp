@@ -98,7 +98,13 @@ QString map65SettingsFile(QString const& appDir, QString const& dataDir)
   QString settingsFile = QDir {dataDir}.absoluteFilePath("map65.ini");
   QString legacySettingsFile = QDir {appDir}.absoluteFilePath("map65.ini");
   if (!QFile::exists(settingsFile) && QFile::exists(legacySettingsFile)) {
-    QFile::copy(legacySettingsFile, settingsFile);
+    if (QFile::copy(legacySettingsFile, settingsFile)) {
+      QFile::setPermissions(settingsFile, QFile::ReadOwner | QFile::WriteOwner
+                            | QFile::ReadGroup | QFile::ReadOther);
+    } else {
+      qWarning() << "Unable to migrate MAP65 settings from" << legacySettingsFile
+                 << "to" << settingsFile;
+    }
   }
   return settingsFile;
 }
