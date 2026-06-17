@@ -7,6 +7,7 @@
 #include <QApplication>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QDebug>
 
 #include "revision_utils.hpp"
@@ -25,24 +26,30 @@ extern "C" {
 
 int main(int argc, char *argv[])
 {
+  QString appDir = QFileInfo {argc > 0 ? QString::fromLocal8Bit (argv[0]) : QString {}}.absoluteDir ().absolutePath ();
+
+  // Read optional file to disable highDPI scaling
+  QFile f(QDir {appDir}.absoluteFilePath ("DisableHighDpiScaling"));
+  if (!f.exists()) QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+
   QApplication a {argc, argv};
 
   // Override programs executable basename as application name.
   a.setApplicationName ("QMAP");
   a.setApplicationVersion ("0.6");
 
-  QString appDir = QApplication::applicationDirPath ();
-
-  // Read optional file to disable highDPI scaling
-  QFile f(QDir {appDir}.absoluteFilePath ("DisableHighDpiScaling"));
-  if (!f.exists()) QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
-
   QString dataDir = qmapDataDir();
-  if (!QDir::setCurrent(dataDir)) {
-    qWarning() << "Unable to set QMAP working directory:" << dataDir;
+  QFileInfo dataDirInfo {dataDir};
+  if (!dataDirInfo.exists() || !dataDirInfo.isDir() || !dataDirInfo.isWritable()
+      || !QDir::setCurrent(dataDir)) {
+    QString message {"Unable to use QMAP working directory: " + dataDir};
+    qWarning() << message;
+    QMessageBox::critical(nullptr, QObject::tr("QMAP Startup Error"), message);
+    return 1;
   }
 
-// Initialize libgfortran:
+  // QMAP C++ and Fortran code still use relative opens for runtime files.
+  // Start from the writable data directory before Fortran initializes them.
   _gfortran_set_args(argc, argv);
   _gfortran_set_convert(0);
   ftninit_();

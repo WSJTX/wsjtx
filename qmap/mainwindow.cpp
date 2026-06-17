@@ -45,9 +45,6 @@ MainWindow::MainWindow(QWidget *parent) :
   m_wide_graph_window {new WideGraph {m_settings_filename}},
   m_gui_timer {new QTimer {this}}
 {
-  if (!QDir::setCurrent(m_dataDir)) {
-    qWarning() << "Unable to set QMAP working directory:" << m_dataDir;
-  }
   ui->setupUi(this);
 //  ui->decodedTextBrowser->clear();
   ui->labUTC->setStyleSheet( \
@@ -186,7 +183,7 @@ MainWindow::MainWindow(QWidget *parent) :
 // Read items for fAddComboBox
   ui->fAddComboBox->addItem (0);
   ui->fAddComboBox->setItemText(0, QString::number(m_fAdd));
-  QFile g("fadd.txt");
+  QFile g(QDir {m_dataDir}.absoluteFilePath("fadd.txt"));
   QTextStream stream(&g);
   if(g.open (QIODevice::ReadOnly | QIODevice::Text)) {
     while (!stream.atEnd()) {
@@ -1593,7 +1590,8 @@ void MainWindow::on_pbAdd_clicked()
 {
   m_fAdd=ui->fAddComboBox->currentText().toDouble();
   if (ui->fAddComboBox->currentText() != "") {
-    QFile g("fadd.txt");
+    QString fAddFile = QDir {m_dataDir}.absoluteFilePath("fadd.txt");
+    QFile g(fAddFile);
     if(g.open(QIODevice::Text | QIODevice::Append)) {
       QString addedEntry = (ui->fAddComboBox->currentText());
       QTextStream out(&g);
@@ -1603,10 +1601,10 @@ void MainWindow::on_pbAdd_clicked()
 #else
           Qt::endl
 #endif
-          ;
+      ;
       g.close();
       if (ui->fAddComboBox->findText(addedEntry) < 0) ui->fAddComboBox->addItem (QString::number(m_fAdd));
-      ui->decodedTextBrowser->append("Adding " + QString::number(m_fAdd) + " to file fadd.txt");
+      ui->decodedTextBrowser->append("Adding " + QString::number(m_fAdd) + " to file " + fAddFile);
     }
   }
 }
