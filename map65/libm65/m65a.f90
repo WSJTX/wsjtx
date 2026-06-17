@@ -15,16 +15,17 @@ subroutine m65a()
   implicit none
   
   character(len=256) cwd
-    
-  ! Try Unix-style PWD first
-  call get_environment_variable("PWD", cwd)
 
-  ! If empty, try Windows-style CD
+  cwd = trim(wsjtx_dir)
+
+  if (len_trim(cwd) == 0) then
+     call get_environment_variable("PWD", cwd)
+  end if
+
   if (len_trim(cwd) == 0) then
      call get_environment_variable("CD", cwd)
   end if
 
-  ! If still empty, fall back to current directory
   if (len_trim(cwd) == 0) then
      cwd = "."
   end if

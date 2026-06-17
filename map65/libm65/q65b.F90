@@ -72,7 +72,6 @@
       character(len=12) :: mycall, hiscall
       character(len=4)  :: grid4
       character(len=28) :: msg00
-      character(len=80) :: wsjtx_dir
       character(len=1)  :: cp
       character(len=2)  :: cmode
       character(len=256) :: linenew
@@ -92,12 +91,6 @@
       call init_cacb(5376000)
       
       call init_wideband_sync(NFFT)
-
-#ifndef FORTRAN_APPLE
-      open (9, file='wsjtx_dir.txt', status='old')
-      read (9, '(a)') wsjtx_dir
-      close (9)
-#endif
 
       if (mycall0(1:1) .ne. ' ') mycall = mycall0
       if (hiscall0(1:1) .ne. ' ') hiscall = hiscall0

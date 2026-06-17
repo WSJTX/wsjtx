@@ -4,6 +4,7 @@
 #include <QDir>
 #include <QRegularExpression>
 #include <QSettings>
+#include <QStandardPaths>
 #include <QStringList>
 #include <QTimer>
 #include <QToolTip>
@@ -73,6 +74,34 @@ QByteArray g_TxTuneGeometry;
 namespace {
 struct Map65TxWaveStorage { short int samples[2*60*12000]; };
 struct Map65RxSamplesStorage { qint16 samples[4*60*96000]; };
+
+QString writableMap65DataDir()
+{
+  QString dataDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+  if (dataDir.isEmpty()) {
+    dataDir = QDir::home().absoluteFilePath(".map65");
+  }
+
+  if (!QDir{}.mkpath(dataDir)) {
+    qWarning() << "Unable to create MAP65 data directory:" << dataDir;
+  }
+
+  QDir dir {dataDir};
+  if (!dir.mkpath("save")) {
+    qWarning() << "Unable to create MAP65 save directory:" << dir.absoluteFilePath("save");
+  }
+  return dataDir;
+}
+
+QString map65SettingsFile(QString const& appDir, QString const& dataDir)
+{
+  QString settingsFile = QDir {dataDir}.absoluteFilePath("map65.ini");
+  QString legacySettingsFile = QDir {appDir}.absoluteFilePath("map65.ini");
+  if (!QFile::exists(settingsFile) && QFile::exists(legacySettingsFile)) {
+    QFile::copy(legacySettingsFile, settingsFile);
+  }
+  return settingsFile;
+}
 }  // namespace
 
 short int (&iwave)[2*60*12000] = (new Map65TxWaveStorage{})->samples;  //Wave file for Tx audio
@@ -128,7 +157,8 @@ MainWindow::MainWindow(QWidget *parent) :
   QMainWindow(parent),
   ui(new Ui::MainWindow),
   m_appDir {QApplication::applicationDirPath ()},
-  m_settings_filename {m_appDir + "/map65.ini"},
+  m_dataDir {writableMap65DataDir ()},
+  m_settings_filename {map65SettingsFile (m_appDir, m_dataDir)},
   m_astro_window {new Astro {m_settings_filename}},
   m_band_map_window {new BandMap {m_settings_filename}},
   m_messages_window(nullptr),
@@ -136,6 +166,10 @@ MainWindow::MainWindow(QWidget *parent) :
   m_gui_timer {new QTimer {this}}
 {
   qDebug() << "IN MainWindow Constructor NFFT IS: " << NFFT;
+  // Legacy C++ and Fortran paths still use relative opens for runtime files.
+  if (!QDir::setCurrent(m_dataDir)) {
+    qWarning() << "Unable to set MAP65 working directory:" << m_dataDir;
+  }
   constexpr int baseSeconds  = 56;
   constexpr int sampleRate   = 96000;
   constexpr int channels     = 4;   // dd(1..4, t)
@@ -331,8 +365,8 @@ MainWindow::MainWindow(QWidget *parent) :
   m_ntx=1;
   m_myCall="K1JT";
   m_myGrid="FN20qi";
-  m_saveDir="/users/joe/map65/install/save";
-  m_azelDir="/users/joe/map65/install/";
+  m_saveDir=QDir {m_dataDir}.absoluteFilePath("save");
+  m_azelDir=m_dataDir;
   m_editorCommand="notepad";
   m_txFreq=125;
   m_setftx=0;
@@ -368,14 +402,14 @@ MainWindow::MainWindow(QWidget *parent) :
   ySignalMeter = new SignalMeter(ui->yMeterFrame);
   ySignalMeter->resize(50, 160);
 
-  fftwf_import_wisdom_from_filename (QDir {m_appDir}.absoluteFilePath ("map65_wisdom.dat").toLocal8Bit ());
+  fftwf_import_wisdom_from_filename (QDir {m_dataDir}.absoluteFilePath ("map65_wisdom.dat").toLocal8Bit ());
 
   readSettings();		             //Restore user's setup params
   PaError paerr=Pa_Initialize();                    //Initialize Portaudio
   if(paerr!=paNoError) {
     msgBox("Unable to initialize PortAudio.");
   }
-  QFile quitFile(m_appDir + "/.quit");
+  QFile quitFile(QDir {m_dataDir}.absoluteFilePath (".quit"));
   quitFile.remove();
     
   m_pbdecoding_style1="QPushButton{background-color: cyan; \
@@ -522,13 +556,16 @@ MainWindow::~MainWindow()
     soundOutThread.wait(3000);
   }
   Pa_Terminate();
-  fftwf_export_wisdom_to_filename (QDir {m_appDir}.absoluteFilePath ("map65_wisdom.dat").toLocal8Bit ());
+  fftwf_export_wisdom_to_filename (QDir {m_dataDir}.absoluteFilePath ("map65_wisdom.dat").toLocal8Bit ());
   delete ui;
 }
 
 void MainWindow::startDecoder()
 {
     qDebug() << "MAINWINDOW calling run_m65_ ";
+
+    QByteArray runtimeDir = QDir::toNativeSeparators(m_dataDir).toLocal8Bit();
+    set_wsjtx_dir_(runtimeDir.constData(), runtimeDir.size());
 
     QFutureWatcher<void>* watcher_m65 = new QFutureWatcher<void>(this);
     connect(watcher_m65, &QFutureWatcher<void>::finished,
@@ -920,7 +957,7 @@ void MainWindow::readSettings()
     restoreGeometry(settings.value("geometry").toByteArray());
     ui->dxCallEntry->setText(settings.value("DXcall","").toString());
     ui->dxGridEntry->setText(settings.value("DXgrid","").toString());
-    m_path = settings.value("MRUdir", m_appDir + "/save").toString();
+    m_path = settings.value("MRUdir", QDir {m_dataDir}.absoluteFilePath("save")).toString();
     m_txFirst = settings.value("TxFirst",false).toBool();
     ui->txFirstCheckBox->setChecked(m_txFirst);
   }
@@ -939,8 +976,8 @@ void MainWindow::readSettings()
   m_xpol=settings.value("Xpol",false).toBool();
   ui->actionFind_Delta_Phi->setEnabled(m_xpol);
   m_xpolx=settings.value("XpolX",false).toBool();
-  m_saveDir=settings.value("SaveDir",m_appDir + "/save").toString();
-  m_azelDir=settings.value("AzElDir",m_appDir).toString();
+  m_saveDir=settings.value("SaveDir",QDir {m_dataDir}.absoluteFilePath("save")).toString();
+  m_azelDir=settings.value("AzElDir",m_dataDir).toString();
   m_editorCommand=settings.value("Editor","notepad").toString();
   m_dxccPfx=settings.value("DXCCpfx","").toString();
   m_timeout=settings.value("Timeout",20).toInt();
@@ -1640,7 +1677,7 @@ void MainWindow::closeEvent(QCloseEvent *e)
     if (m_gui_timer) m_gui_timer->stop();
     m_wide_graph_window->saveSettings();
 
-    QFile quitFile(m_appDir + "/.quit");
+    QFile quitFile(QDir {m_dataDir}.absoluteFilePath (".quit"));
     (void)quitFile.open(QFileDevice::ReadWrite);
     setQuitID(quitFile.handle());
 
@@ -2608,11 +2645,23 @@ void MainWindow::genStdMsgs(QString rpt)                       //genStdMsgs()
   ui->txrb1->setChecked(true);
 }
 
+QString MainWindow::call3Path() const
+{
+  QString writablePath = QDir {m_dataDir}.absoluteFilePath("CALL3.TXT");
+  if (!QFile::exists(writablePath)) {
+    QString bundledPath = QDir {m_appDir}.absoluteFilePath("CALL3.TXT");
+    if (QFile::exists(bundledPath)) {
+      QFile::copy(bundledPath, writablePath);
+    }
+  }
+  return writablePath;
+}
+
 void MainWindow::lookup()                                       //lookup()
 {
   QString hiscall=ui->dxCallEntry->text().toUpper().trimmed();
   ui->dxCallEntry->setText(hiscall);
-  QString call3File = m_appDir + "/CALL3.TXT";
+  QString call3File = call3Path();
   QFile f(call3File);
   if(!f.open(QIODevice::ReadOnly | QIODevice::Text)) {
     msgBox("Cannot open " + call3File);
@@ -2667,7 +2716,7 @@ void MainWindow::on_addButton_clicked()                       //Add button
   } else {
     newEntry += ",,,";
   }
-  QString call3File = m_appDir + "/CALL3.TXT";
+  QString call3File = call3Path();
   QFile f1(call3File);
   if(!f1.open(QIODevice::ReadWrite | QIODevice::Text)) {
     msgBox("Cannot open " + call3File);
@@ -2686,7 +2735,7 @@ void MainWindow::on_addButton_clicked()                       //Add button
     f1.seek (0);
   }
 
-  QString tmpFile = m_appDir + "/CALL3.TMP";
+  QString tmpFile = QDir {m_dataDir}.absoluteFilePath("CALL3.TMP");
   QFile f2(tmpFile);
   if(!f2.open(QIODevice::ReadWrite | QIODevice::Truncate | QIODevice::Text)) {
     msgBox("Cannot open " + tmpFile);
@@ -2729,7 +2778,7 @@ void MainWindow::on_addButton_clicked()                       //Add button
   }
   
   if(m_call3Modified) {
-    auto const& old_path = m_appDir + "/CALL3.OLD";
+    auto const& old_path = QDir {m_dataDir}.absoluteFilePath("CALL3.OLD");
     QFile f0 {old_path};
     if (f0.exists ()) f0.remove ();
     f1.copy (old_path);         // copying as we want to preserve
@@ -3020,7 +3069,8 @@ void MainWindow::on_actionFUNcube_Dongle_triggered()
 
 void MainWindow::on_actionEdit_wsjt_log_triggered()
 {
-  proc_editor.start (QDir::toNativeSeparators (m_editorCommand), {QDir::toNativeSeparators (m_appDir + "/wsjt.log"), });
+  proc_editor.start (QDir::toNativeSeparators (m_editorCommand),
+                     {QDir::toNativeSeparators (QDir {m_dataDir}.absoluteFilePath ("wsjt.log")), });
 }
 
 void MainWindow::on_actionTx_Tune_triggered()
@@ -3085,4 +3135,3 @@ void pa_deinit()
 {
     Pa_Terminate();
 }
-

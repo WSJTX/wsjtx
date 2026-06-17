@@ -28,11 +28,12 @@ contains
     implicit none
     character(kind=c_char), dimension(*), intent(in) :: path
     integer(c_int), value :: path_len
+    integer :: n
 
-    ! Convert C char array to a Fortran string
     wsjtx_dir = ''
     if (path_len > 0) then
-       wsjtx_dir(1:path_len) = transfer(path(1:path_len), wsjtx_dir(1:path_len))
+       n = min(path_len, len(wsjtx_dir))
+       wsjtx_dir(1:n) = transfer(path(1:n), wsjtx_dir(1:n))
     end if
   end subroutine set_wsjtx_dir
 

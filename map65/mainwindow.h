@@ -59,6 +59,7 @@ public:
   
   QString m_pttPath;
   QString m_appDir;
+  QString m_dataDir;
   QString m_settings_filename;
   qint32  m_nDevIn;
   qint32  m_nDevOut;
@@ -206,6 +207,7 @@ private:
   virtual void keyPressEvent (QKeyEvent *) override;
   virtual bool eventFilter (QObject *, QEvent *) override;
   virtual void closeEvent (QCloseEvent *) override;
+  QString call3Path() const;
 
   QScopedPointer<Astro> m_astro_window;
   QScopedPointer<BandMap> m_band_map_window;

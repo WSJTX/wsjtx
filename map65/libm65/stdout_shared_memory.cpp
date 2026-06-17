@@ -1,6 +1,7 @@
 // stdout_shared_memory.cpp
 #include "stdout_shared_memory.h"
 #include <cstring>
+#include <string>
 
 
 #ifdef _WIN32
@@ -11,10 +12,62 @@
     #include <fcntl.h>
     #include <unistd.h>
     #include <errno.h>
+#ifdef __APPLE__
+    #include <sys/resource.h>
+#endif
     #include <codecvt>
 	#include <QString>
 	#include <QByteArray>
 #endif
+
+namespace {
+
+#ifndef _WIN32
+std::string posixErrorMessage(const char* operation, int err)
+{
+    return std::string(operation) + " failed, errno=" + std::to_string(err)
+        + " (" + std::strerror(err) + ")";
+}
+
+#ifdef __APPLE__
+std::string rlimToString(rlim_t value)
+{
+    if (value == RLIM_INFINITY) return "infinity";
+    return std::to_string(value);
+}
+
+std::string nofileLimitMessage()
+{
+    struct rlimit limit;
+    if (getrlimit(RLIMIT_NOFILE, &limit) != 0) {
+        return ", RLIMIT_NOFILE unavailable";
+    }
+
+    return ", RLIMIT_NOFILE soft=" + rlimToString(limit.rlim_cur)
+        + " hard=" + rlimToString(limit.rlim_max);
+}
+
+bool raiseFileDescriptorLimit()
+{
+    struct rlimit limit;
+    if (getrlimit(RLIMIT_NOFILE, &limit) != 0) return false;
+
+    constexpr rlim_t target = 65536;
+    if (limit.rlim_cur >= target) return false;
+
+    rlim_t newSoftLimit = target;
+    if (limit.rlim_max != RLIM_INFINITY && newSoftLimit > limit.rlim_max) {
+        newSoftLimit = limit.rlim_max;
+    }
+    if (newSoftLimit <= limit.rlim_cur) return false;
+
+    limit.rlim_cur = newSoftLimit;
+    return setrlimit(RLIMIT_NOFILE, &limit) == 0;
+}
+#endif
+#endif
+
+}
 
 StdoutSharedMemory::StdoutSharedMemory(const std::wstring &mappingName,
                                        std::size_t totalBytes)
@@ -61,14 +114,31 @@ StdoutSharedMemory::StdoutSharedMemory(const std::wstring &mappingName,
 
     int fd = shm_open(name.c_str(), O_CREAT | O_RDWR, 0600);
     if (fd < 0) {
-        throw std::runtime_error("shm_open failed");
+        int err = errno;
+#ifdef __APPLE__
+        if ((err == EMFILE || err == ENFILE) && raiseFileDescriptorLimit()) {
+            fd = shm_open(name.c_str(), O_CREAT | O_RDWR, 0600);
+            if (fd >= 0) {
+                err = 0;
+            } else {
+                err = errno;
+            }
+        }
+#endif
+        if (fd < 0) {
+            std::string message = posixErrorMessage("shm_open", err);
+#ifdef __APPLE__
+            message += nofileLimitMessage();
+#endif
+            throw std::runtime_error(message);
+        }
     }
 
     if (ftruncate(fd, totalBytes) != 0) {
         int err = errno;
         close(fd);
         shm_unlink(name.c_str());
-        throw std::runtime_error("ftruncate failed, errno=" + std::to_string(err));
+        throw std::runtime_error(posixErrorMessage("ftruncate", err));
     }
 
     void* view = mmap(nullptr, totalBytes,
@@ -79,10 +149,12 @@ StdoutSharedMemory::StdoutSharedMemory(const std::wstring &mappingName,
         int err = errno;
         close(fd);
         shm_unlink(name.c_str());
-        throw std::runtime_error("mmap failed, errno=" + std::to_string(err));
+        throw std::runtime_error(posixErrorMessage("mmap", err));
     }
 
-    handle_ = reinterpret_cast<void*>(static_cast<intptr_t>(fd));
+    close(fd);
+    shm_unlink(name.c_str());
+    handle_ = nullptr;
     view_   = view;
 #endif
 
