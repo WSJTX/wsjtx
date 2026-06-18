@@ -1,19 +1,24 @@
-subroutine ftninit(appd)
+module ftninit_mod
+  implicit none
+contains
 
+subroutine ftninit(appd)
   use timer_module, only: timer
   use, intrinsic :: iso_c_binding, only: C_NULL_CHAR
+  use pfx_data_mod
+  use pfx_mod
+  use pfxdump_mod
   use FFTW3
-  character*(*) appd
-  character addpfx*8
+  character(*), intent(in) :: appd
   character wisfile*256
-  common/pfxcom/addpfx
+  integer :: iret
 
   addpfx='    '
   call pfxdump(appd//'/prefixes.txt')
   open(12,file=appd//'/wb_q65.txt',status='unknown')
   open(13,file=appd//'/map65.log',status='unknown')
 !  open(19,file=appd//'/livecq.txt',status='unknown')  ! not written with new livecq code
-  open(21,file=appd//'/map65_rx.log',status='unknown',access='append',err=950)
+  open(21, file=appd//'/map65_rx.log', status='unknown', position='append', err=950)
   open(26,file=appd//'/tmp26.txt',status='unknown')
 
 ! Import FFTW wisdom, if available:
@@ -29,3 +34,4 @@ subroutine ftninit(appd)
   stop
 
 end subroutine ftninit
+end module ftninit_mod

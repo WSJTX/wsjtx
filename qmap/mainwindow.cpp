@@ -27,8 +27,6 @@
 
 #define NFFT 32768
 
-qint16 id[2*60*96000];
-
 QSharedMemory mem_qmap("mem_qmap");            //Memory segment to be shared (optionally) with WSJT-X
 int* ipc_wsjtx;
 

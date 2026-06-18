@@ -10,15 +10,35 @@ jobs:
   # rather than "wsjtx-build/v3.0.1-rc1-*". RC/beta suffixes (e.g.
   # build/v3.0.1-rc1 → 3.0.1-rc1) are preserved so pre-release artifacts
   # are distinguishable from GA. All downstream jobs consume this
-  # single output so the five platform artifacts cannot disagree.
+  # single output so the six platform artifacts cannot disagree.
   prepare:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.v.outputs.version }}
+      release_channel: ${{ steps.v.outputs.release_channel }}
+      rc_number: ${{ steps.v.outputs.rc_number }}
     steps:
       - uses: actions/checkout@v6
       - id: v
-        run: echo "version=${GITHUB_REF_NAME#build/v}" >> "$GITHUB_OUTPUT"
+        run: |
+          VERSION="${GITHUB_REF_NAME#build/v}"
+          if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            RELEASE_CHANNEL=GA
+            RC_NUMBER=""
+          elif [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-rc([1-9][0-9]*)$ ]]; then
+            RELEASE_CHANNEL=RC
+            RC_NUMBER="${BASH_REMATCH[1]}"
+          else
+            echo "::error::Unsupported release tag version: $VERSION"
+            echo "::error::Supported release tags are build/vX.Y.Z and build/vX.Y.Z-rcN."
+            exit 1
+          fi
+
+          {
+            echo "version=$VERSION"
+            echo "release_channel=$RELEASE_CHANNEL"
+            echo "rc_number=$RC_NUMBER"
+          } >> "$GITHUB_OUTPUT"
 
       # Enforce that the pushed tag's numeric version base
       # matches CMakeLists.txt:55 VERSION (first 3 components). CMake's
@@ -27,7 +47,7 @@ jobs:
       # version stripped of any `-<suffix>` against the first three
       # dotted components of CMakeLists.txt VERSION. Mismatch means the
       # release commit forgot to bump CMakeLists.txt in lockstep with
-      # the tag; fail fast here before five platform builds burn ~30
+      # the tag; fail fast here before six platform builds burn ~30
       # minutes of CI.
       - name: Verify tag ↔ CMakeLists.txt version parity
         run: |
@@ -44,7 +64,7 @@ jobs:
           fi
           echo "Parity check PASSED."
 
-  # ── Build all five platforms ───────────────────────────────────────
+  # ── Build all six platforms ────────────────────────────────────────
   macos:
     needs: prepare
     uses: ./.github/workflows/build-macos.yml
@@ -54,6 +74,8 @@ jobs:
       arch: "arm64"
       runner: "macos-15"
       deployment_target: "11.0"
+      release_channel: ${{ needs.prepare.outputs.release_channel }}
+      rc_number: ${{ needs.prepare.outputs.rc_number }}
     secrets: inherit
 
   macos-intel:
@@ -65,6 +87,8 @@ jobs:
       arch: "x86_64"
       runner: "macos-15-intel"
       deployment_target: "10.13"
+      release_channel: ${{ needs.prepare.outputs.release_channel }}
+      rc_number: ${{ needs.prepare.outputs.rc_number }}
     secrets: inherit
 
   linux:
@@ -74,6 +98,8 @@ jobs:
       version: ${{ needs.prepare.outputs.version }}
       hamlib_branch: "4.7.1"
       arch: "x86_64"
+      release_channel: ${{ needs.prepare.outputs.release_channel }}
+      rc_number: ${{ needs.prepare.outputs.rc_number }}
     secrets: inherit
 
   linux-arm:
@@ -83,6 +109,25 @@ jobs:
       version: ${{ needs.prepare.outputs.version }}
       hamlib_branch: "4.7.1"
       arch: "aarch64"
+      release_channel: ${{ needs.prepare.outputs.release_channel }}
+      rc_number: ${{ needs.prepare.outputs.rc_number }}
+    secrets: inherit
+
+  # 32-bit ARM (armhf) for DigiPi / Pi Zero 2W class (issue #51). Built via
+  # QEMU user-mode emulation in a debian:bookworm-slim arm/v7 container on
+  # ubuntu-24.04-arm. Wall-clock budget ~50–80 min vs ~10 min native — the
+  # cost is justified once-per-release here, NOT once-per-PR (ci.yml
+  # intentionally does NOT include this leg). See build-linux.yml's
+  # build-armhf job for the QEMU + --platform recipe.
+  linux-armhf:
+    needs: prepare
+    uses: ./.github/workflows/build-linux.yml
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+      hamlib_branch: "4.7.1"
+      arch: "armhf"
+      release_channel: ${{ needs.prepare.outputs.release_channel }}
+      rc_number: ${{ needs.prepare.outputs.rc_number }}
     secrets: inherit
 
   windows:
@@ -91,11 +136,13 @@ jobs:
     with:
       version: ${{ needs.prepare.outputs.version }}
       hamlib_branch: "4.7.1"
+      release_channel: ${{ needs.prepare.outputs.release_channel }}
+      rc_number: ${{ needs.prepare.outputs.rc_number }}
     secrets: inherit
 
   # ── Publish release + sync to public repo ──────────────────────────
   release:
-    needs: [prepare, macos, macos-intel, linux, linux-arm, windows]
+    needs: [prepare, macos, macos-intel, linux, linux-arm, linux-armhf, windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -145,14 +192,15 @@ jobs:
       # the public mirror.
       #
       # Expected artifact layout (one installer per platform, per the
-      # five build-*.yml upload-artifact steps):
+      # six build-*.yml upload-artifact steps):
       #   artifacts/wsjtx-<ver>-arm64-macOS.pkg/*.pkg
       #   artifacts/wsjtx-<ver>-x86_64-macOS.pkg/*.pkg
       #   artifacts/wsjtx-<ver>-linux-x86_64-AppImage/*.AppImage
       #   artifacts/wsjtx-<ver>-linux-aarch64-AppImage/*.AppImage
+      #   artifacts/wsjtx-<ver>-linux-armhf-AppImage/*.AppImage
       #   artifacts/wsjtx-<ver>-windows-x86_64-installer/*.exe
       #
-      # Policy: publish only when all five platforms have produced an
+      # Policy: publish only when all six platforms have produced an
       # installer-grade artifact. Adjust or remove this step if the
       # policy evolves (e.g. to publish any-platform-ready).
       - name: Verify installer-grade artifacts (all-platforms-ready gate)
@@ -165,6 +213,7 @@ jobs:
             "macOS x86_64 .pkg"
             "Linux x86_64 .AppImage"
             "Linux aarch64 .AppImage"
+            "Linux armhf .AppImage"
             "Windows x86_64 .exe"
           )
           patterns=(
@@ -172,10 +221,11 @@ jobs:
             "artifacts/wsjtx-${VERSION}-x86_64-macOS.pkg/*.pkg"
             "artifacts/wsjtx-${VERSION}-linux-x86_64-AppImage/*.AppImage"
             "artifacts/wsjtx-${VERSION}-linux-aarch64-AppImage/*.AppImage"
+            "artifacts/wsjtx-${VERSION}-linux-armhf-AppImage/*.AppImage"
             "artifacts/wsjtx-${VERSION}-windows-x86_64-installer/*.exe"
           )
           missing=0
-          echo "Installer-grade artifact gate — checking 5 platforms…"
+          echo "Installer-grade artifact gate — checking 6 platforms…"
           for i in "${!labels[@]}"; do
             # shellcheck disable=SC2206 # word-split is intentional; nullglob makes it safe.
             matches=( ${patterns[$i]} )
@@ -188,11 +238,11 @@ jobs:
             fi
           done
           if [ "$missing" -gt 0 ]; then
-            echo "::error::All-platforms-ready gate FAILED — $missing of 5 platform(s) missing installer-grade artifact."
+            echo "::error::All-platforms-ready gate FAILED — $missing of 6 platform(s) missing installer-grade artifact."
             echo "::error::Refusing to publish a partial release. Fix the failing build job(s) and retry the tag."
             exit 1
           fi
-          echo "All-platforms-ready gate PASSED — all 5 installer-grade artifacts present. Proceeding to publish."
+          echo "All-platforms-ready gate PASSED — all 6 installer-grade artifacts present. Proceeding to publish."
 
       - name: Create GitHub Release
         env:
@@ -205,21 +255,21 @@ jobs:
           # that collide on basename across architectures — `gh release
           # create` uses basenames as asset names and duplicates cause
           # upload failures.
-          FILES=$(find artifacts -maxdepth 2 -type f \
+          mapfile -t FILES < <(find artifacts -maxdepth 2 -type f \
             \( -name "*.pkg" -o -name "*.AppImage" -o -name "*.deb" \
                -o -name "*.exe" -o -name "*.tar.gz" -o -name "*.rpm" \))
           # SemVer pre-release tags contain a hyphen after the version
           # (e.g., v3.0.1-rc1, v3.0.1-rc2, v3.0.1-beta1). Flag those as
           # GitHub pre-releases so they don't appear as the latest stable.
-          PRERELEASE_FLAG=""
+          PRERELEASE_FLAG=()
           if [[ "$TAG" == *-* ]]; then
-            PRERELEASE_FLAG="--prerelease"
+            PRERELEASE_FLAG=(--prerelease)
           fi
           gh release create "$TAG" \
             --title "WSJT-X ${{ needs.prepare.outputs.version }}" \
             --generate-notes \
-            $PRERELEASE_FLAG \
-            $FILES
+            "${PRERELEASE_FLAG[@]}" \
+            "${FILES[@]}"
 
       # ── Public mirror: GA only ─────────────────────────────────────────
       # RC/beta tags (any tag carrying a '-' in the version, e.g.
@@ -303,11 +353,11 @@ jobs:
           # Same asset filter as the internal release. Re-find rather than
           # carrying a list — keeps the all-platforms-ready gate, internal
           # release, and public release mechanically aligned on one filter.
-          FILES=$(find artifacts -maxdepth 2 -type f \
+          mapfile -t FILES < <(find artifacts -maxdepth 2 -type f \
             \( -name "*.pkg" -o -name "*.AppImage" -o -name "*.deb" \
                -o -name "*.exe" -o -name "*.tar.gz" -o -name "*.rpm" \))
           gh release create "$PUBLIC_TAG" \
             -R WSJTX/wsjtx \
             --title "WSJT-X ${VERSION}" \
             --generate-notes \
-            $FILES
+            "${FILES[@]}"

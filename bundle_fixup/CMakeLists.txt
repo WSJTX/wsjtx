@@ -17,6 +17,10 @@ if (APPLE OR WIN32)
 
   # if a system Qt is used (e.g. installed in /usr/lib/), it will not be included in the installation
   set (fixup_exe "\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/${CMAKE_PROJECT_NAME}${CMAKE_EXECUTABLE_SUFFIX}")
+  set (fixup_exes "${fixup_exe}")
+  if (NOT WSJT_SKIP_MAP65)
+    list (APPEND fixup_exes "\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/map65${CMAKE_EXECUTABLE_SUFFIX}")
+  endif ()
 
   #get_filename_component (hamlib_lib_dir ${Hamlib_LIBRARIES} PATH)
 
@@ -138,18 +142,85 @@ if (APPLE OR WIN32)
       )
 
     set (gp_tool "objdump")	# we want MinGW tool - not MSVC (See GetPrerequisites.cmake)
-  endif (WIN32)
 
   INSTALL (CODE "
         get_filename_component (the_path \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${WSJT_PLUGIN_DESTINATION}\" REALPATH)
         file (GLOB_RECURSE QTPLUGINS \"\${the_path}/*${CMAKE_SHARED_LIBRARY_SUFFIX}\")
         include (BundleUtilities)
+        function (gp_resolve_item_override context item exepath dirs resolved_item_var resolved_var)
+          string (TOLOWER \"\${item}\" item_lower)
+          if (item_lower MATCHES \"^(api-ms-win-|ext-ms-).*\\\\.dll$\")
+            set (api_set_root \"\$ENV{SystemRoot}\")
+            if (NOT api_set_root)
+              set (api_set_root \"\$ENV{windir}\")
+            endif ()
+            file (TO_CMAKE_PATH \"\${api_set_root}/System32/\${item}\" api_set_path)
+            set (\${resolved_item_var} \"\${api_set_path}\" PARENT_SCOPE)
+            set (\${resolved_var} TRUE PARENT_SCOPE)
+          endif ()
+        endfunction ()
         set (BU_CHMOD_BUNDLE_ITEMS ON)
         set (gp_tool ${gp_tool})
-        # canonicalize path in install context
-        get_filename_component (the_exe ${fixup_exe} REALPATH)
-        fixup_bundle (\"\${the_exe}\" \"\${QTPLUGINS}\" \"${fixup_library_dirs}\")"
+        set (fixup_exes \"${fixup_exes}\")
+        foreach (the_exe_path IN LISTS fixup_exes)
+          get_filename_component (the_exe \"\${the_exe_path}\" REALPATH)
+          fixup_bundle (\"\${the_exe}\" \"\${QTPLUGINS}\" \"${fixup_library_dirs}\")
+        endforeach ()"
     #COMPONENT runtime
     )
-endif (APPLE OR WIN32)
+  endif (WIN32)
 
+  if(APPLE)
+    # Mark GCC/Fortran runtimes as system libs so fixup_bundle ignores them
+    set(_m65_fortran_system_libs
+        libgcc_s.1.1.dylib
+        libgfortran.5.dylib
+        libquadmath.0.dylib
+    )
+    set(BU_SYSTEM_LIBS ${BU_SYSTEM_LIBS} ${_m65_fortran_system_libs})
+  endif()
+
+  if(APPLE AND CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
+    # Ask gfortran where its libs live
+    execute_process(
+        COMMAND ${CMAKE_Fortran_COMPILER} -print-file-name=libgfortran.5.dylib
+        OUTPUT_VARIABLE _gfortran_path
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    get_filename_component(_gfortran_dir "${_gfortran_path}" DIRECTORY)
+
+    # Append to fixup_library_dirs (a normal CMake list)
+    list(APPEND fixup_library_dirs "${_gfortran_dir}")
+  endif()
+
+  if(APPLE)
+    INSTALL (CODE "
+      # Resolve plugin directory
+      get_filename_component(the_path \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${WSJT_PLUGIN_DESTINATION}\" REALPATH)
+
+      file(GLOB_RECURSE QTPLUGINS \"\${the_path}/*${CMAKE_SHARED_LIBRARY_SUFFIX}\")
+
+      list(FILTER QTPLUGINS EXCLUDE REGEX \".*\\\\.exe\")
+      list(FILTER QTPLUGINS EXCLUDE REGEX \".*\\\\.dll\")
+      list(FILTER QTPLUGINS EXCLUDE REGEX \".*qthid.*\")
+      list(FILTER QTPLUGINS EXCLUDE REGEX \".*rigctl.*\")
+
+      include(BundleUtilities)
+      set(BU_CHMOD_BUNDLE_ITEMS ON)
+      set(BU_SYSTEM_LIBS \"${BU_SYSTEM_LIBS}\")
+
+      set(fixup_library_dirs \"${fixup_library_dirs}\")
+
+      set(fixup_exes \"${fixup_exes}\")
+      foreach (the_exe_path IN LISTS fixup_exes)
+        get_filename_component(the_exe \"\${the_exe_path}\" REALPATH)
+        fixup_bundle(
+          \"\${the_exe}\"
+          \"\${QTPLUGINS}\"
+          \"\${fixup_library_dirs}\"
+        )
+      endforeach ()
+    ")
+  endif (APPLE)
+
+endif (APPLE OR WIN32)

@@ -54,7 +54,6 @@ extern int mindBPoints;
 extern bool pounce;
 extern bool filtered;
 extern bool ignored;
-extern bool selected;
 extern bool keepTx5;
 extern bool no_logging;
 extern bool BlankLineInserted;
@@ -164,10 +163,7 @@ void MainWindow::on_stopButton_clicked()                       //stopButton
     jtty_save_wav();
   }
   m_loopall=false;
-  if(m_bRefSpec) {
-    MessageBox::information_message (this, tr ("Reference spectrum saved"));
-    m_bRefSpec=false;
-  }
+  finishReferenceSpectrumMeasurement(true);
   if (ui->DX_Call_Button->isChecked()) ui->DX_Call_Button->click ();
   stopWRTimer.stop();           // Stop any Wait & Reply timeout
   stopWCTimer.stop();           // Stop any Wait & Call timeout

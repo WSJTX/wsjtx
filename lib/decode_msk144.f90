@@ -1,4 +1,6 @@
 subroutine decode_msk144(audio_samples, params, data_dir)
+  use streaming_emit, only: streaming_emit_enabled,                        &
+       streaming_emit_decode, streaming_emit_decode_finished
   include 'jt9com.f90'
 
   ! constants
@@ -43,15 +45,43 @@ subroutine decode_msk144(audio_samples, params, data_dir)
 
     if (line(1:1) .ne. char(0)) then
       line = line(1:index(line, char(0))-1)
-      write(*, 1001) line
+      if (streaming_emit_enabled()) then
+         call emit_msk144_line(line)
+      else
+         write(*, 1001) line
+      end if
       1001 format(a80)
       message_count = message_count + 1;
     end if
   end do
 
-  if (.not. params%ndiskdat) then
+  if (streaming_emit_enabled()) then
+    call streaming_emit_decode_finished(params%nutc)
+  else if (.not. params%ndiskdat) then
     write(*, 1002) 0, message_count, 0
     1002 format('<DecodeFinished>', 2i4, i9)
   end if
+
+contains
+
+  ! Parse the 80-char mskrtd line and emit it as NDJSON. mskrtd's format
+  ! mirrors the FT8/FT4/Q65 emit shape:
+  !   cols 1-6:   HHMMSS  (i6.6)
+  !   cols 7-10:  snr     (i4)
+  !   cols 11-15: dt      (f5.1)
+  !   cols 16-20: freq    (i5)
+  !   col   22:   '&'     (mode separator)
+  !   cols 24-60: message (a37, trimmed)
+  subroutine emit_msk144_line(line_in)
+    character(len=*), intent(in) :: line_in
+    integer :: nutc_l, snr_l, freq_l, ios_l
+    real    :: dt_l
+    character(len=37) :: msg_l
+    read(line_in, '(i6,i4,f5.1,i5,1x,1x,1x,a37)',                          &
+         iostat=ios_l) nutc_l, snr_l, dt_l, freq_l, msg_l
+    if (ios_l /= 0) return    ! parse failure: silently drop
+    call streaming_emit_decode("MSK144", nutc_l, snr_l, dt_l, freq_l,      &
+         adjustl(msg_l))
+  end subroutine emit_msk144_line
 
 end subroutine decode_msk144

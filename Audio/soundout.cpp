@@ -160,6 +160,11 @@ qreal SoundOutput::attenuation () const
   return -(20. * qLn (m_volume) / qLn (10.));
 }
 
+int SoundOutput::bufferSize () const
+{
+  return m_stream ? m_stream->bufferSize () : 0;
+}
+
 void SoundOutput::setAttenuation (qreal a)
 {
   Q_ASSERT (0. <= a && a <= 999.);
@@ -186,10 +191,12 @@ void SoundOutput::handleStateChanged (QAudio::State newState)
     {
     case QAudio::IdleState:
       Q_EMIT status (tr ("Idle"));
+      Q_EMIT audioOutputIdle ();
       break;
 
     case QAudio::ActiveState:
       Q_EMIT status (tr ("Sending"));
+      Q_EMIT audioOutputActive ();
       break;
 
     case QAudio::SuspendedState:

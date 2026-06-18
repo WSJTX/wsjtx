@@ -1,21 +1,42 @@
-subroutine fmtmsg(msg,iz)
+module fmtmsg_mod
+  implicit none
+contains
 
-  character*22 msg
+subroutine fmtmsg(msg, iz)
+  implicit none
 
-! Convert all letters to upper case
-  iz=22
-  do i=1,22
-     if(msg(i:i).ge.'a' .and. msg(i:i).le.'z')                       &
-          msg(i:i)= char(ichar(msg(i:i))+ichar('A')-ichar('a'))
-     if(msg(i:i).ne.' ') iz=i
-  enddo
+  !--------------------------------------------------------------------
+  ! Arguments
+  !--------------------------------------------------------------------
+  character(len=22), intent(inout) :: msg
+  integer,          intent(out)    :: iz
 
-  do iter=1,5                           !Collapse multiple blanks into one
-     ib2=index(msg(1:iz),'  ')
-     if(ib2.lt.1) go to 100
-     msg=msg(1:ib2)//msg(ib2+2:)
-     iz=iz-1
-  enddo
+  !--------------------------------------------------------------------
+  ! Locals
+  !--------------------------------------------------------------------
+  integer :: i, iter, ib2
 
-100 return
+  !--------------------------------------------------------------------
+  ! Convert all letters to upper case and track last nonblank
+  !--------------------------------------------------------------------
+  iz = 22
+  do i = 1, 22
+     if (msg(i:i) >= 'a' .and. msg(i:i) <= 'z') then
+        msg(i:i) = char(ichar(msg(i:i)) + ichar('A') - ichar('a'))
+     end if
+     if (msg(i:i) /= ' ') iz = i
+  end do
+
+  !--------------------------------------------------------------------
+  ! Collapse multiple blanks into one (up to 5 passes)
+  !--------------------------------------------------------------------
+  do iter = 1, 5
+     ib2 = index(msg(1:iz), '  ')
+     if (ib2 < 1) exit
+     msg = msg(1:ib2) // msg(ib2+2:)
+     iz = iz - 1
+  end do
+
 end subroutine fmtmsg
+
+end module fmtmsg_mod

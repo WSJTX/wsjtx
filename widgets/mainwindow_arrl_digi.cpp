@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "activeStations.h"
+#include "ActiveStationList.hpp"
 #include "Decoder/decodedtext.h"
 #include "models/Bands.hpp"
 #include <QRegularExpression>
@@ -11,7 +12,6 @@
 extern "C" {
   void azdist_(char* MyGrid, char* HisGrid, double* utch, int* nAz, int* nEl,
                 int* nDmiles, int* nDkm, int* nHotAz, int* nHotABetter, fortran_charlen_t n1, fortran_charlen_t n2);
-  void indexx_(float arr[], int* n, int indx[]);
 }
 
 void MainWindow::ARRL_Digi_Update(DecodedText dt)
@@ -98,13 +98,9 @@ void MainWindow::ARRL_Digi_Display()
   QMutableMapIterator<QString,RecentCall> icall(m_recentCall);
   QString deCall,deGrid;
   int age=0;
-  int i=0;
   int maxAge=m_ActiveStationsWidget->maxAge();
   int points=0;
-  int maxPoints=0;
-  int indx[1000];
-  float pts[1000];
-  QStringList list;
+  QVector<ActiveStationListItem> rows;
 
   while (icall.hasNext()) {
     icall.next();
@@ -132,38 +128,31 @@ void MainWindow::ARRL_Digi_Display()
       if(m_currentBand=="6m"   and bands.mid(6,1)!=".") bWorkedOnBand=true;
 
       if((bReady or !m_ActiveStationsWidget->readyOnly()) and !bWorkedOnBand) {
-        i++;
         int az=m_activeCall[deCall].az;
         deGrid=m_activeCall[deCall].grid4;
         points=m_activeCall[deCall].points;
-        if(points>maxPoints) maxPoints=points;
         float x=float(age)/(maxAge+1);
         if(x>1.0) x=0;
-        pts[i-1]=points - x;
         QString t1;
         if(!bReady) t1 = t1.asprintf("  %3d  %+2.2d  %4d  %1d %2d %4d",az,snr,freq,itx,age,points);
         if(bReady)  t1 = t1.asprintf("  %3d  %+2.2d  %4d  %1d %2d*%4d",az,snr,freq,itx,age,points);
 //        t1 = (deCall + "   ").left(6) + "  " + m_activeCall[deCall].grid4 + t1 + "  " + bands;
         t1 = (deCall + "   ").left(6) + "  " + m_activeCall[deCall].grid4 + t1;
-        list.append(t1);
+        rows.append({points - x, t1});
       }
     }
   }
-  if(i==0) return;
-  int jz=i;
+  if(rows.isEmpty()) return;
   m_ActiveStationsWidget->setClickOK(false);
-  int maxRecent=qMin(i,m_ActiveStationsWidget->maxRecent());
-  indexx_(pts,&jz,indx);
+  int maxRecent=qMin(m_ActiveStationsWidget->maxRecent(), MaxActiveStationRows);
+  rows=sorted_limited_active_station_items(rows, maxRecent, true);
+  std::fill(m_ready2call.begin(), m_ready2call.end(), QString {});
   QString t;
-  i=0;
-  for(int j=jz-1; j>=0; j--) {
-    int k=indx[j]-1;
-    m_ready2call[i]=list[k];
-    i++;
-    QString t1=QString::number(i) + ".  ";
-    if(i<10) t1=" " + t1;
-    t += (t1 + list[k] + "\n");
-    if(i>=maxRecent) break;
+  for(int i=0; i<rows.size(); i++) {
+    m_ready2call[i]=rows[i].text;
+    QString t1=QString::number(i + 1) + ".  ";
+    if(i + 1<10) t1=" " + t1;
+    t += (t1 + rows[i].text + "\n");
   }
   bool is_fox_mode = (m_mode=="FT8" && m_specOp == SpecOp::FOX);
   if(m_ActiveStationsWidget!=NULL && !is_fox_mode) m_ActiveStationsWidget->displayRecentStations(m_mode,t);

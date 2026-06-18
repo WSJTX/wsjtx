@@ -115,7 +115,7 @@ function(generate_version_info outfiles)
     endif()
   endif()
 
-  if (NOT PROJECT_VERSION_REVISION AND BUILD_TYPE_REVISION)
+  if (NOT PRODUCT_VERSION_REVISION AND BUILD_TYPE_REVISION)
     set (PRODUCT_VERSION_REVISION ${BUILD_TYPE_REVISION})
   endif ()
 

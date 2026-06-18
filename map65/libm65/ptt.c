@@ -5,7 +5,7 @@ int ptt_(int *nport, int *ntx, int *iptt)
 {
   static HANDLE hFile;
   static int open=0;
-  char s[10];
+  char s[64];
   int i3=0,i4=0,i5=0,i6=0,i9=0,i00=0;
 
   if(*nport==0) {
@@ -14,13 +14,19 @@ int ptt_(int *nport, int *ntx, int *iptt)
   }
 
   if(*ntx && (!open)) {
-    sprintf(s,"COM%d",*nport);
-    hFile=CreateFile(TEXT(s),GENERIC_WRITE,0,NULL,OPEN_EXISTING,
-		     FILE_ATTRIBUTE_NORMAL,NULL);
+  if (*nport < 10)
+      snprintf(s, sizeof(s), "COM%d", *nport);
+  else
+      snprintf(s, sizeof(s), "\\\\.\\COM%d", *nport);
+
+  hFile = CreateFileA(s, GENERIC_WRITE, 0, NULL, OPEN_EXISTING,
+                      FILE_ATTRIBUTE_NORMAL, NULL);
+
     if(hFile==INVALID_HANDLE_VALUE) {
       //      printf("PTT: Cannot open COM port %d.\n",*nport);
       return 1;
     }
+
     open=1;
   }
 

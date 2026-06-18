@@ -5,7 +5,21 @@ on:
     branches: [develop]
   pull_request:
     branches: [develop]
+    # `labeled` is added to the defaults (opened/synchronize/reopened) so
+    # that applying the `full-ci` label to an already-open PR triggers a
+    # fresh run that includes the expensive matrix (see the gate below).
+    types: [opened, synchronize, reopened, labeled]
   workflow_dispatch:
+    inputs:
+      recache:
+        description: "Force ccache to recompile and refresh cached objects"
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # Single source of truth for the project version string: read it from
@@ -28,13 +42,86 @@ jobs:
           echo "Derived version from CMakeLists.txt: $VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-  # macos / macos-intel / linux-arm / windows gate on `linux` as well as
-  # `prepare`: linux is the cheapest, fastest runner, so a break that fails
-  # everywhere fails fast on linux before the costly runners start, instead
-  # of burning all of them in parallel. `prepare` stays in `needs` for its
-  # version output.
+  detect-build-system-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      recache: ${{ steps.detect.outputs.recache }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 2
+      - id: detect
+        name: Detect build-system changes
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+          CURRENT_SHA: ${{ github.sha }}
+          FORCE_RECACHE: ${{ inputs.recache || false }}
+        run: |
+          set -euo pipefail
+
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            base="$PR_BASE_SHA"
+            head="$CURRENT_SHA"
+          elif [ -n "$BEFORE_SHA" ] && [ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ]; then
+            base="$BEFORE_SHA"
+            head="$CURRENT_SHA"
+          else
+            base="${CURRENT_SHA}^"
+            head="$CURRENT_SHA"
+          fi
+
+          recache=false
+          if ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+            git fetch --no-tags --depth=1 origin "$base" || true
+          fi
+
+          if git cat-file -e "${base}^{commit}" 2>/dev/null && git cat-file -e "${head}^{commit}" 2>/dev/null; then
+            changed="$(git diff --name-only "$base" "$head")"
+          else
+            echo "::notice::Could not compare $base..$head; forcing ccache recache"
+            changed=""
+            recache=true
+          fi
+
+          while IFS= read -r path; do
+            case "$path" in
+              CMakeLists.txt|*/CMakeLists.txt|*.cmake|cmake/*|CMake/*|.github/workflows/ci.yml|.github/workflows/build-*.yml|.github/actions/build-*/*|.github/scripts/build-*.sh)
+                recache=true
+                ;;
+            esac
+          done <<< "$changed"
+
+          if [ "$FORCE_RECACHE" = "true" ]; then
+            recache=true
+          fi
+
+          echo "Build-system recache: $recache"
+          echo "recache=$recache" >> "$GITHUB_OUTPUT"
+
+  # Two-tier CI to conserve Action minutes. Roughly 95% of the bill is the
+  # macOS (10x) and Windows (2x) legs; both Linux legs bill at 1x.
+  #
+  #   * Default (every push / PR to develop): Linux only -- `linux` (x86_64)
+  #     plus `linux-arm` (aarch64, native ubuntu-24.04-arm). Fast, cheap, and
+  #     catches the large majority of breakage.
+  #   * Expensive matrix (macos, macos-intel, windows): opt-in only. Runs when
+  #     a PR carries the `full-ci` label, or when the workflow is started
+  #     manually ("Run workflow" / workflow_dispatch). Release builds are
+  #     unaffected -- they run the full matrix via release.yml on build/v* tags.
+  #
+  # Every non-prepare leg also `needs: linux`, so a break that fails
+  # everywhere fails fast on the cheapest runner before any costly leg
+  # starts, instead of burning them in parallel. `prepare` stays in `needs`
+  # for its version output.
   macos:
-    needs: [prepare, linux]
+    needs: [prepare, detect-build-system-changes, linux]
+    # Opt-in only -- see the two-tier note above.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.pull_request.labels.*.name, 'full-ci')
     uses: ./.github/workflows/build-macos.yml
     with:
       version: ${{ needs.prepare.outputs.version }}
@@ -42,10 +129,15 @@ jobs:
       arch: "arm64"
       runner: "macos-15"
       deployment_target: "11.0"
+      recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
     secrets: inherit
 
   macos-intel:
-    needs: [prepare, linux]
+    needs: [prepare, detect-build-system-changes, linux]
+    # Opt-in only -- see the two-tier note above.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.pull_request.labels.*.name, 'full-ci')
     uses: ./.github/workflows/build-macos.yml
     with:
       version: ${{ needs.prepare.outputs.version }}
@@ -53,30 +145,38 @@ jobs:
       arch: "x86_64"
       runner: "macos-15-intel"
       deployment_target: "10.13"
+      recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
     secrets: inherit
 
   linux:
-    needs: prepare
+    needs: [prepare, detect-build-system-changes]
     uses: ./.github/workflows/build-linux.yml
     with:
       version: ${{ needs.prepare.outputs.version }}
       hamlib_branch: "4.7.1"
       arch: "x86_64"
+      recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
     secrets: inherit
 
   linux-arm:
-    needs: [prepare, linux]
+    needs: [prepare, detect-build-system-changes, linux]
     uses: ./.github/workflows/build-linux.yml
     with:
       version: ${{ needs.prepare.outputs.version }}
       hamlib_branch: "4.7.1"
       arch: "aarch64"
+      recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
     secrets: inherit
 
   windows:
-    needs: [prepare, linux]
+    needs: [prepare, detect-build-system-changes, linux]
+    # Opt-in only -- see the two-tier note above.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.pull_request.labels.*.name, 'full-ci')
     uses: ./.github/workflows/build-windows.yml
     with:
       version: ${{ needs.prepare.outputs.version }}
       hamlib_branch: "4.7.1"
+      recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
     secrets: inherit

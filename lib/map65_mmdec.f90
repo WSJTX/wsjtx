@@ -1,9 +1,14 @@
+module map65_mmdec_mod
+  implicit none
+contains
+
 subroutine map65_mmdec(nutc,id2,nqd,ntrperiod, nsubmode,nfa,nfb,nfqso,   &
      ntol,newdat,nagain,max_drift,ndepth,mycall,hiscall,hisgrid)
 
   use prog_args
   use timer_module, only: timer
   use q65_decode
+    use iso_fortran_env, only: int16
 
   include 'jt9com.f90'
 
@@ -12,8 +17,12 @@ subroutine map65_mmdec(nutc,id2,nqd,ntrperiod, nsubmode,nfa,nfb,nfqso,   &
   end type counting_q65_decoder
 
   logical single_decode,bVHF,lnewdat,lagain,lclearave,lapcqonly
-  integer*2 id2(300*12000)
+    integer(int16) id2(300*12000)
   integer nqf(20)
+    integer nutc,nqd,ntrperiod,nsubmode,nfa,nfb,nfqso,ntol
+    integer newdat,nagain,max_drift,ndepth,navg0,ncontest
+    integer nqsoprogress,ntr0
+    real emedelay
 !  type(params_block) :: params
   character(len=12) :: mycall, hiscall
   character(len=6) :: hisgrid
@@ -87,3 +96,4 @@ contains
  end subroutine q65_decoded
   
 end subroutine map65_mmdec
+end module map65_mmdec_mod

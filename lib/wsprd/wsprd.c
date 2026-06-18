@@ -42,6 +42,7 @@
 #include "nhash.h"
 #include "wsprd_utils.h"
 #include "wsprsim_utils.h"
+#include "wsprd_stream.h"
 
 #define max(x,y) ((x) > (y) ? (x) : (y))
 
@@ -727,6 +728,10 @@ void usage(void)
     printf("       -v verbose mode (shows dupes)\n");
     printf("       -w wideband mode - decode signals within +/- 150 Hz of center\n");
     printf("       -z x (x is fano metric table bias, default is 0.45)\n");
+    printf("       -0 streaming mode: read PCM audio from stdin per the\n");
+    printf("          streaming framing protocol; emit decodes as NDJSON\n");
+    printf("          on stdout. Replaces the positional\n");
+    printf("          input file argument.\n");
 }
 
 //***************************************************************************
@@ -747,6 +752,8 @@ int main(int argc, char *argv[])
     char uttime[5],date[7];
     int c,delta,maxpts=65536,verbose=0,quickmode=0,more_candidates=0, stackdecoder=0;
     int usehashtable=1,wspr_type=2, ipass, nblocksize;
+    int stream_mode = 0;
+    struct wsprd_stream_config stream_cfg = {0};
     int nhardmin,ihash;
     int writec2=0,maxdrift;
     int shift1, lagmin, lagmax, lagstep, ifmin, ifmax, not_decoded;
@@ -819,7 +826,7 @@ int main(int argc, char *argv[])
     idat=calloc(maxpts,sizeof(float));
     qdat=calloc(maxpts,sizeof(float));
     
-    while ( (c = getopt(argc, argv, "a:BcC:de:f:HJmo:qstwvz:")) !=-1 ) {
+    while ( (c = getopt(argc, argv, "a:BcC:de:f:HJmo:qstwvz:0")) !=-1 ) {
         switch (c) {
             case 'a':
                 data_dir = optarg;
@@ -872,6 +879,9 @@ int main(int argc, char *argv[])
             case 'z':
                 bias=strtod(optarg,NULL); //fano metric bias (default is 0.45)
                 break;
+            case '0':  // --stream (long-name parity with jt9 --stream)
+                stream_mode = 1;
+                break;
             case '?':
                 usage();
                 return 1;
@@ -884,10 +894,10 @@ int main(int argc, char *argv[])
       return EXIT_FAILURE;
     }
 
-    if( optind+1 > argc) {
+    if( !stream_mode && optind+1 > argc) {
         usage();
         return 1;
-    } else {
+    } else if (!stream_mode) {
         ptr_to_infile=argv[optind];
     }
     
@@ -938,17 +948,35 @@ int main(int argc, char *argv[])
     }
     ftimer=fopen(timer_fname,"w");
     
-    if( strstr(ptr_to_infile,".wav") ) {
+    if (stream_mode) {
+        // Read PCM from stdin per the streaming protocol. Configure frame
+        // supplies date/time/dialfreq/wspr_type; audio frames carry int16
+        // PCM @ 12 kHz mono.
+        wsprd_stream_emit_ready();
+        t0 = clock();
+        npoints = wsprd_stream_read(&stream_cfg, idat, qdat);
+        treadwav += (float)(clock()-t0)/CLOCKS_PER_SEC;
+        if (npoints == 1) return 1;
+        wspr_type = stream_cfg.wspr_type;
+        dialfreq = stream_cfg.dialfreq - (dialfreq_error * 1.0e-06);
+        strncpy(date, stream_cfg.date, 6); date[6] = '\0';
+        strncpy(uttime, stream_cfg.uttime, 4); uttime[4] = '\0';
+    } else if( strstr(ptr_to_infile,".wav") ) {
         ptr_to_infile_suffix=strstr(ptr_to_infile,".wav");
-        
+
         t0 = clock();
         npoints=readwavfile(ptr_to_infile, wspr_type, idat, qdat);
         treadwav += (float)(clock()-t0)/CLOCKS_PER_SEC;
-        
+
         if( npoints == 1 ) {
             return 1;
         }
         dialfreq=dialfreq_cmdline - (dialfreq_error*1.0e-06);
+        // Parse date and time from given filename
+        strncpy(date,ptr_to_infile_suffix-11,6);
+        strncpy(uttime,ptr_to_infile_suffix-4,4);
+        date[6]='\0';
+        uttime[4]='\0';
     } else if ( strstr(ptr_to_infile,".c2") !=0 )  {
         ptr_to_infile_suffix=strstr(ptr_to_infile,".c2");
         npoints=readc2file(ptr_to_infile, idat, qdat, &dialfreq, &wspr_type);
@@ -956,17 +984,16 @@ int main(int argc, char *argv[])
             return 1;
         }
         dialfreq -= (dialfreq_error*1.0e-06);
+        // Parse date and time from given filename
+        strncpy(date,ptr_to_infile_suffix-11,6);
+        strncpy(uttime,ptr_to_infile_suffix-4,4);
+        date[6]='\0';
+        uttime[4]='\0';
     } else {
         printf("Error: Failed to open %s\n",ptr_to_infile);
         printf("WSPR file must have suffix .wav or .c2\n");
         return 1;
     }
-    
-    // Parse date and time from given filename
-    strncpy(date,ptr_to_infile_suffix-11,6);
-    strncpy(uttime,ptr_to_infile_suffix-4,4);
-    date[6]='\0';
-    uttime[4]='\0';
     
     // Do windowed ffts over 2 symbols, stepped by half symbols
     int nffts=4*floor(npoints/512)-1;
@@ -1502,9 +1529,16 @@ int main(int argc, char *argv[])
     }
     
     for (i=0; i<uniques; i++) {
-        printf("%4s %3.0f %4.1f %10.6f %2d  %-s \n",
-               decodes[i].time, decodes[i].snr,decodes[i].dt, decodes[i].freq,
-               (int)decodes[i].drift, decodes[i].message);
+        if (stream_mode) {
+            wsprd_stream_emit_decode(date, decodes[i].time,
+                                     decodes[i].snr, decodes[i].dt,
+                                     decodes[i].freq, (int)decodes[i].drift,
+                                     decodes[i].message);
+        } else {
+            printf("%4s %3.0f %4.1f %10.6f %2d  %-s \n",
+                   decodes[i].time, decodes[i].snr,decodes[i].dt, decodes[i].freq,
+                   (int)decodes[i].drift, decodes[i].message);
+        }
         fprintf(fall_wspr,
                 "%6s %4s %3.0f %5.2f %11.7f  %-22s %2d %5.2f %2d %2d %4d %2d %3d %5u %5d\n",
                 decodes[i].date, decodes[i].time, decodes[i].snr,
@@ -1521,7 +1555,11 @@ int main(int argc, char *argv[])
                 decodes[i].jitter);
         
     }
-    printf("<DecodeFinished>\n");
+    if (stream_mode) {
+        wsprd_stream_emit_decode_finished(date, uttime);
+    } else {
+        printf("<DecodeFinished>\n");
+    }
     
     fftwf_free(fftin);
     fftwf_free(fftout);

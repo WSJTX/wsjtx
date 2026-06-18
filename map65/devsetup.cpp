@@ -4,11 +4,54 @@
 #include <QDebug>
 #include <cstdio>
 #include <portaudio.h>
+#include <vector>
+#include <QDir>
+#include <QStringList>
+#include <QSerialPortInfo>
+#include <QRegularExpression>
 
-#define MAXDEVICES 200
+#if !defined(Q_OS_WIN)
+extern "C" {
+    void ptt_set_override(const char *path);
+}
+#endif
+
+static QStringList enumeratePorts()
+{
+    QStringList result;
+
+    QList<QSerialPortInfo> ports = QSerialPortInfo::availablePorts();
+
+    for (auto const& p : ports)
+    {
+        if (!p.portName().contains("NULL"))
+        {
+            QString loc = p.systemLocation();
+            loc.remove(QRegularExpression{R"(^\\\\\.\\)"});
+            result << loc;
+        }
+    }
+
+    std::sort(result.begin(), result.end(), [](QString const& a, QString const& b) {
+        QRegularExpression re{"(\\d+)$"};
+        auto ma = re.match(a);
+        auto mb = re.match(b);
+
+        if (ma.hasMatch() && mb.hasMatch())
+            return ma.captured(1).toInt() < mb.captured(1).toInt();
+
+        return a < b;
+    });
+
+    return result;
+}
+
+#define MAXDEVICES 1024 // was 200
 
 //----------------------------------------------------------- DevSetup()
-DevSetup::DevSetup(QWidget *parent) :	QDialog(parent)
+DevSetup::DevSetup(MainWindow *parent)
+    : QDialog(parent),
+      mw(parent)
 {
   ui.setupUi(this);	//setup the dialog form
   m_restartSoundIn=false;
@@ -17,8 +60,13 @@ DevSetup::DevSetup(QWidget *parent) :	QDialog(parent)
   QButtonGroup *buttonGroup = new QButtonGroup(this);
   buttonGroup->addButton(ui.w3szBut);
   buttonGroup->addButton(ui.otherBut);
-
-  connect(buttonGroup, SIGNAL(buttonClicked(int)), this, SLOT(onButtonClicked(int)));
+  
+connect(buttonGroup,
+        QOverload<QAbstractButton *>::of(&QButtonGroup::buttonClicked),
+        this,
+        [this](QAbstractButton *) {
+            onButtonClicked();
+        });
 
 }
 
@@ -29,97 +77,160 @@ DevSetup::~DevSetup()
 void DevSetup::initDlg()
 {
   int k,id;
-  int valid_devices=0;
-  int minChan[MAXDEVICES];
-  int maxChan[MAXDEVICES];
-  int minSpeed[MAXDEVICES];
-  int maxSpeed[MAXDEVICES];
-  char hostAPI_DeviceName[MAXDEVICES][50];
+  
+  // Use heap-allocated vectors instead of stack arrays
+  std::vector<int> minChan(MAXDEVICES);
+  std::vector<int> maxChan(MAXDEVICES);
+  std::vector<int> minSpeed(MAXDEVICES);
+  std::vector<int> maxSpeed(MAXDEVICES);
+  
+  // Use a unique pointer or vector for the 2D char array
+  struct DeviceName {
+    char name[50];
+};
+  std::vector<DeviceName> hostAPI_DeviceName(MAXDEVICES);
+
   char s[256];
-  int numDevices=Pa_GetDeviceCount();
-  getDev(&numDevices,hostAPI_DeviceName,minChan,maxChan,minSpeed,maxSpeed);
-  k=0;
-  for(id=0; id<numDevices; id++)  {
-    if(96000 >= minSpeed[id] && 96000 <= maxSpeed[id]) {
-      m_inDevList[k]=id;
-      k++;
-      sprintf(s,"%2d   %d  %-49s",id,maxChan[id],hostAPI_DeviceName[id]);
-      QString t(s);
-      ui.comboBoxSndIn->addItem(t);
-      valid_devices++;
-    }
+  int numDevices = Pa_GetDeviceCount();
+  
+  if (numDevices > MAXDEVICES) {
+      numDevices = MAXDEVICES;
   }
+
+  // Pass the pointers to the data inside the vectors
+getDev(&numDevices,
+       reinterpret_cast<char (*)[50]>(hostAPI_DeviceName.data()),
+       minChan.data(), maxChan.data(), minSpeed.data(), maxSpeed.data());
+  
+k = 0;
+for (id = 0; id < numDevices; id++) {
+
+    if (!(96000 >= minSpeed[id] && 96000 <= maxSpeed[id]))
+        continue;
+
+#ifdef _WIN32
+    if (!QString(hostAPI_DeviceName[id].name).contains("MME"))
+        continue;
+#endif
+
+    // Now safe to add to list
+    m_inDevList[k] = id;
+
+    snprintf(s, sizeof(s), "%2d   %d  %-49.49s",
+             id, maxChan[id], hostAPI_DeviceName[id].name);
+
+    ui.comboBoxSndIn->addItem(QString(s));
+    k++;
+}
 
   const PaDeviceInfo *pdi;
   int nchout;
-  char *p,*p1;
   char p2[256];
-  char pa_device_name[128];
-  char pa_device_hostapi[128];
 
   k=0;
-  for(id=0; id<numDevices; id++ )  {
-    pdi=Pa_GetDeviceInfo(id);
-    nchout=pdi->maxOutputChannels;
-    if(nchout>=2) {
-      m_outDevList[k]=id;
-      k++;
-      sprintf((char*)(pa_device_name),"%s",pdi->name);
-      sprintf((char*)(pa_device_hostapi),"%s",
-              Pa_GetHostApiInfo(pdi->hostApi)->name);
+ for (id = 0; id < numDevices; id++) {
 
-      p1=(char*)"";
-      p=strstr(pa_device_hostapi,"MME");
-      if(p!=NULL) p1=(char*)"MME";
-      p=strstr(pa_device_hostapi,"Direct");
-      if(p!=NULL) p1=(char*)"DirectX";
-      p=strstr(pa_device_hostapi,"WASAPI");
-      if(p!=NULL) p1=(char*)"WASAPI";
-      p=strstr(pa_device_hostapi,"ASIO");
-      if(p!=NULL) p1=(char*)"ASIO";
-      p=strstr(pa_device_hostapi,"WDM-KS");
-      if(p!=NULL) p1=(char*)"WDM-KS";
+    pdi = Pa_GetDeviceInfo(id);
+    if (!pdi) continue;
 
-      sprintf(p2,"%2d   %-8s  %-39s",id,p1,pa_device_name);
-      QString t(p2);
-      ui.comboBoxSndOut->addItem(t);
-    }
-  }
+    nchout = pdi->maxOutputChannels;
+    if (nchout < 1)
+        continue;
 
-  ui.myCallEntry->setText(m_myCall);
-  ui.myGridEntry->setText(m_myGrid);
-  ui.idIntSpinBox->setValue(m_idInt);
-  ui.pttComboBox->setCurrentIndex(m_pttPort);
-  ui.astroFont->setValue(m_astroFont);
-  ui.cbXpol->setChecked(m_xpol);
-  ui.rbAntennaX->setChecked(m_xpolx);
-  ui.saveDirEntry->setText(m_saveDir);
-  ui.azelDirEntry->setText(m_azelDir);
-  ui.editorEntry->setText(m_editorCommand);
-  ui.dxccEntry->setText(m_dxccPfx);
-  ui.timeoutSpinBox->setValue(m_timeout);
-  ui.dPhiSpinBox->setValue(m_dPhi);
-  ui.fCalSpinBox->setValue(m_fCal);
-  ui.faddEntry->setText(QString::number(m_fAdd,'f',3));
-  ui.networkRadioButton->setChecked(m_network);
-  ui.soundCardRadioButton->setChecked(!m_network);
-  ui.rb96000->setChecked(m_fs96000);
-  ui.rb95238->setChecked(!m_fs96000);
-  ui.rbIQXT->setChecked(m_bIQxt);
-  ui.rbSi570->setChecked(!m_bIQxt);
-  ui.mult570TxSpinBox->setEnabled(m_bIQxt);
-  ui.comboBoxSndIn->setEnabled(!m_network);
-  ui.comboBoxSndIn->setCurrentIndex(m_nDevIn);
-  ui.comboBoxSndOut->setCurrentIndex(m_nDevOut);
-  ui.sbPort->setValue(m_udpPort);
-  ui.cbIQswap->setChecked(m_IQswap);
-  ui.cbInitIQplus->setChecked(m_initIQplus);
-  ui.sb_dB->setValue(m_dB);
-  ui.mult570SpinBox->setValue(m_mult570);
-  ui.mult570TxSpinBox->setValue(m_mult570Tx);
-  ui.cal570SpinBox->setValue(m_cal570);
-  ui.sbTxOffset->setValue(m_TxOffset);
-  ::sscanf (m_colors.toLatin1(),"%2x%2x%2x%2x%2x%2x%2x%2x%2x%2x%2x%2x%2x%2x%2x",
+    QString devName = QString(pdi->name);
+
+#ifdef __linux__
+    QString lower = devName.toLower();
+
+    // Only allow plug/resampling devices for TX
+    bool isPlug =
+        lower.contains("default")  ||
+        lower.contains("dmix")     ||
+        lower.contains("pulse")    ||
+        lower.contains("pipewire") ||
+        !lower.contains("hw:");    // reject raw hw: devices
+
+    if (!isPlug)
+        continue;
+#endif
+
+    const char* api = Pa_GetHostApiInfo(pdi->hostApi)->name;
+
+    // Skip WASAPI and WDM-KS for TX (Windows only)
+    if (strstr(api, "WASAPI") || strstr(api,"WDM-KS"))
+        continue;
+
+    // Now safe to add to list
+    m_outDevList[k++] = id;
+
+    // Determine label
+    const char* p1 = "";
+    if (strstr(api, "MME"))     p1 = "MME";
+    if (strstr(api, "Direct"))  p1 = "DirectX";
+    if (strstr(api, "ASIO"))    p1 = "ASIO";
+    if (strstr(api, "ALSA"))    p1 = "ALSA";
+
+    snprintf(p2, sizeof(p2), "%2d   %-8.8s  %-39.39s",
+             id, p1, pdi->name);
+
+    ui.comboBoxSndOut->addItem(QString(p2));
+}
+  ui.myCallEntry->setText(mw->m_myCall);
+  ui.myGridEntry->setText(mw->m_myGrid);
+  ui.idIntSpinBox->setValue(mw->m_idInt);
+
+  ui.pttComboBox->clear();
+  ui.pttComboBox->addItem("NONE");
+
+  // unified cross-platform enumeration
+  QStringList ports = enumeratePorts();
+  for (auto const& p : ports)
+      ui.pttComboBox->addItem(p);
+
+  // restore saved selection
+  QString saved = mw->m_pttPath;
+  int idx = ui.pttComboBox->findText(saved);
+  if (idx >= 0)
+      ui.pttComboBox->setCurrentIndex(idx);
+
+  // backend override (Linux/macOS only)
+  #if !defined(Q_OS_WIN)
+  if (ui.pttComboBox->currentText() != "NONE")
+      ptt_set_override(ui.pttComboBox->currentText().toUtf8().constData());
+  else
+      ptt_set_override(nullptr);
+  #endif
+
+  ui.astroFont->setValue(mw->m_astroFont);
+  ui.cbXpol->setChecked(mw->m_xpol);
+  ui.rbAntennaX->setChecked(mw->m_xpolx);
+  ui.saveDirEntry->setText(mw->m_saveDir);
+  ui.azelDirEntry->setText(mw->m_azelDir);
+  ui.editorEntry->setText(mw->m_editorCommand);
+  ui.dxccEntry->setText(mw->m_dxccPfx);
+  ui.timeoutSpinBox->setValue(mw->m_timeout);
+  ui.dPhiSpinBox->setValue(mw->m_dPhi);
+  ui.fCalSpinBox->setValue(mw->m_fCal);
+  ui.faddEntry->setText(QString::number(mw->m_fAdd,'f',3));
+  ui.networkRadioButton->setChecked(mw->m_network);
+  ui.soundCardRadioButton->setChecked(!mw->m_network);
+  ui.rb96000->setChecked(mw->m_fs96000);
+  ui.rb95238->setChecked(!mw->m_fs96000);
+  ui.rbIQXT->setChecked(mw->m_bIQxt);
+  ui.rbSi570->setChecked(!mw->m_bIQxt);
+  ui.mult570TxSpinBox->setEnabled(mw->m_bIQxt);
+  ui.comboBoxSndIn->setEnabled(!mw->m_network);
+  ui.comboBoxSndIn->setCurrentIndex(mw->m_nDevIn);
+  ui.comboBoxSndOut->setCurrentIndex(mw->m_nDevOut);
+  ui.sbPort->setValue(mw->m_udpPort);
+  ui.cbIQswap->setChecked(mw->m_IQswap);
+  ui.cbInitIQplus->setChecked(mw->m_initIQplus);
+  ui.sb_dB->setValue(mw->m_dB);
+  ui.mult570SpinBox->setValue(mw->m_mult570);
+  ui.mult570TxSpinBox->setValue(mw->m_mult570Tx);
+  ui.cal570SpinBox->setValue(mw->m_cal570);
+  ui.sbTxOffset->setValue(mw->m_TxOffset);
+  ::sscanf (mw->m_colors.toLatin1(),"%2x%2x%2x%2x%2x%2x%2x%2x%2x%2x%2x%2x%2x%2x%2x",
             &r,&g,&b,&r0,&g0,&b0,&r1,&g1,&b1,&r2,&g2,&b2,&r3,&g3,&b3);
   updateColorLabels();
   ui.sbBackgroundRed->setValue(r);
@@ -138,14 +249,15 @@ void DevSetup::initDlg()
   ui.sbBlue2->setValue(b2);
   ui.sbBlue3->setValue(b3);
 
-  m_paInDevice=m_inDevList[m_nDevIn];
-  m_paOutDevice=m_outDevList[m_nDevOut];
+  mw->m_paInDevice=m_inDevList[mw->m_nDevIn];
+  mw->m_paOutDevice=m_outDevList[mw->m_nDevOut];
 
-  ui.otherUrlBox->setText(m_otherUrl);
-  if(m_w3szUrl) ui.w3szBut->setChecked(true);
+  ui.otherUrlBox->setText(mw->m_otherUrl);
+  if(mw->m_w3szUrl) ui.w3szBut->setChecked(true);
   else ui.otherBut->setChecked(true);
   
-  ui.pskBox->setChecked(m_spot_to_psk_reporter);
+  ui.pskBox->setChecked(mw->m_spot_to_psk_reporter);
+  ui.pskReporterTcpIpBox->setChecked(mw->m_psk_reporter_tcpip);
 }
 
 //------------------------------------------------------- accept()
@@ -155,49 +267,63 @@ void DevSetup::accept()
   // Check to see whether SoundInThread must be restarted,
   // and save user parameters.
 
-  if(m_network!=ui.networkRadioButton->isChecked() or
-     m_nDevIn!=ui.comboBoxSndIn->currentIndex() or
-     m_paInDevice!=m_inDevList[m_nDevIn] or
-     m_xpol!=ui.cbXpol->isChecked() or
-     m_udpPort!=ui.sbPort->value()) m_restartSoundIn=true;
+  if(mw->m_network!=ui.networkRadioButton->isChecked() or
+     mw->m_nDevIn!=ui.comboBoxSndIn->currentIndex() or
+     mw->m_paInDevice!=m_inDevList[mw->m_nDevIn] or
+     mw->m_xpol!=ui.cbXpol->isChecked() or
+     mw->m_udpPort!=ui.sbPort->value()) m_restartSoundIn=true;
 
-  if(m_nDevOut!=ui.comboBoxSndOut->currentIndex() or
-     m_paOutDevice!=m_outDevList[m_nDevOut]) m_restartSoundOut=true;
+  if(mw->m_nDevOut!=ui.comboBoxSndOut->currentIndex() or
+     mw->m_paOutDevice!=m_outDevList[mw->m_nDevOut]) m_restartSoundOut=true;
 
-  m_myCall=ui.myCallEntry->text();
-  m_myGrid=ui.myGridEntry->text();
-  m_idInt=ui.idIntSpinBox->value();
-  m_pttPort=ui.pttComboBox->currentIndex();
-  m_astroFont=ui.astroFont->value();
-  m_xpol=ui.cbXpol->isChecked();
-  m_xpolx=ui.rbAntennaX->isChecked();
-  m_saveDir=ui.saveDirEntry->text();
-  m_azelDir=ui.azelDirEntry->text();
-  m_editorCommand=ui.editorEntry->text();
-  m_dxccPfx=ui.dxccEntry->text();
-  m_timeout=ui.timeoutSpinBox->value();
-  m_dPhi=ui.dPhiSpinBox->value();
-  m_fCal=ui.fCalSpinBox->value();
-  m_fAdd=ui.faddEntry->text().toDouble();
-  m_network=ui.networkRadioButton->isChecked();
-  m_fs96000=ui.rb96000->isChecked();
-  m_bIQxt=ui.rbIQXT->isChecked();
-  m_nDevIn=ui.comboBoxSndIn->currentIndex();
-  m_paInDevice=m_inDevList[m_nDevIn];
-  m_nDevOut=ui.comboBoxSndOut->currentIndex();
-  m_paOutDevice=m_outDevList[m_nDevOut];
-  m_udpPort=ui.sbPort->value();
-  m_IQswap=ui.cbIQswap->isChecked();
-  m_initIQplus=ui.cbInitIQplus->isChecked();
-  m_dB=ui.sb_dB->value();
-  m_mult570=ui.mult570SpinBox->value();
-  m_mult570Tx=ui.mult570TxSpinBox->value();
-  m_cal570=ui.cal570SpinBox->value();
-  m_TxOffset=ui.sbTxOffset->value();
-  m_otherUrl=ui.otherUrlBox->text();
-  m_w3szUrl = ui.w3szBut->isChecked();  
+  mw->m_myCall=ui.myCallEntry->text();
+  mw->m_myGrid=ui.myGridEntry->text();
+  mw->m_idInt=ui.idIntSpinBox->value();
   
-  m_spot_to_psk_reporter = ui.pskBox->isChecked();
+  mw->m_pttPath = ui.pttComboBox->currentText();
+      if (mw->m_pttPath.startsWith("COM"))
+          mw->m_pttPortNumber = mw->m_pttPath.mid(3).toInt();
+      else
+        mw->m_pttPortNumber = 1;
+
+#if !defined(Q_OS_WIN)
+    if (ui.pttComboBox->currentText() != "NONE")
+        ptt_set_override(ui.pttComboBox->currentText().toUtf8().constData());
+    else
+        ptt_set_override(nullptr);
+#endif
+
+  mw->m_astroFont=ui.astroFont->value();
+  mw->m_xpol=ui.cbXpol->isChecked();
+  mw->m_xpolx=ui.rbAntennaX->isChecked();
+  mw->m_saveDir=ui.saveDirEntry->text();
+  mw->m_azelDir=ui.azelDirEntry->text();
+  mw->m_editorCommand=ui.editorEntry->text();
+  mw->m_dxccPfx=ui.dxccEntry->text();
+  mw->m_timeout=ui.timeoutSpinBox->value();
+  mw->m_dPhi=ui.dPhiSpinBox->value();
+  mw->m_fCal=ui.fCalSpinBox->value();
+  mw->m_fAdd=ui.faddEntry->text().toDouble();
+  mw->m_network=ui.networkRadioButton->isChecked();
+  mw->m_fs96000=ui.rb96000->isChecked();
+  mw->m_bIQxt=ui.rbIQXT->isChecked();
+  mw->m_nDevIn=ui.comboBoxSndIn->currentIndex();
+  mw->m_paInDevice=m_inDevList[mw->m_nDevIn];
+  mw->m_nDevOut=ui.comboBoxSndOut->currentIndex();
+  mw->m_paOutDevice=m_outDevList[mw->m_nDevOut];
+  mw->m_udpPort=ui.sbPort->value();
+  mw->m_IQswap=ui.cbIQswap->isChecked();
+  mw->m_initIQplus=ui.cbInitIQplus->isChecked();
+  mw->m_dB=ui.sb_dB->value();
+  mw->m_mult570=ui.mult570SpinBox->value();
+  mw->m_mult570Tx=ui.mult570TxSpinBox->value();
+  mw->m_cal570=ui.cal570SpinBox->value();
+  mw->m_TxOffset=ui.sbTxOffset->value();
+  mw->m_otherUrl=ui.otherUrlBox->text();
+  mw->m_w3szUrl = ui.w3szBut->isChecked();  
+  
+  mw->m_spot_to_psk_reporter = ui.pskBox->isChecked();
+  mw->m_psk_reporter_tcpip = ui.pskReporterTcpIpBox->isChecked();
 
   QDialog::accept();
 }
@@ -218,36 +344,36 @@ void DevSetup::onButtonClicked()
 {
     if(ui.w3szBut->isChecked())
     {
-        m_w3szUrl = true;
+        mw->m_w3szUrl = true;
     }
     else
     {
-        m_w3szUrl = false;
+        mw->m_w3szUrl = false;
     }
 }
 
 void DevSetup::on_cbXpol_stateChanged(int n)
 {
-  m_xpol = (n!=0);
-  ui.rbAntenna->setEnabled(m_xpol);
-  ui.rbAntennaX->setEnabled(m_xpol);
-  ui.dPhiSpinBox->setEnabled(m_xpol);
-  ui.labelDphi->setEnabled(m_xpol);
+  mw->m_xpol = (n!=0);
+  ui.rbAntenna->setEnabled(mw->m_xpol);
+  ui.rbAntennaX->setEnabled(mw->m_xpol);
+  ui.dPhiSpinBox->setEnabled(mw->m_xpol);
+  ui.labelDphi->setEnabled(mw->m_xpol);
 }
 
 void DevSetup::on_cal570SpinBox_valueChanged(double ppm)
 {
-  m_cal570=ppm;
+  mw->m_cal570=ppm;
 }
 
 void DevSetup::on_mult570SpinBox_valueChanged(int mult)
 {
-  m_mult570=mult;
+  mw->m_mult570=mult;
 }
 
 void DevSetup::on_sb_dB_valueChanged(int n)
 {
-  m_dB=n;
+  mw->m_dB=n;
 }
 
 void DevSetup::updateColorLabels()
@@ -306,8 +432,8 @@ void DevSetup::updateColorLabels()
                             .arg (b3, 2, 16, QLatin1Char {'0'})
                          );
 
-  m_colors.clear ();
-  QTextStream ots {&m_colors, QIODevice::WriteOnly};
+  mw->m_colors.clear ();
+  QTextStream ots {&mw->m_colors, QIODevice::WriteOnly};
   ots.setIntegerBase (16);
   ots.setFieldWidth (2);
   ots.setPadChar ('0');
@@ -399,19 +525,19 @@ void DevSetup::on_pushButton_5_clicked()
 
 void DevSetup::on_mult570TxSpinBox_valueChanged(int n)
 {
-  m_mult570Tx=n;
+  mw->m_mult570Tx=n;
 }
 
 void DevSetup::on_rbIQXT_toggled(bool checked)
 {
-  m_bIQxt=checked;
-  ui.mult570TxSpinBox->setEnabled(m_bIQxt);
-  ui.label_25->setEnabled(m_bIQxt);
-  ui.sbTxOffset->setEnabled(m_bIQxt);
-  ui.label_26->setEnabled(m_bIQxt);
+  mw->m_bIQxt=checked;
+  ui.mult570TxSpinBox->setEnabled(mw->m_bIQxt);
+  ui.label_25->setEnabled(mw->m_bIQxt);
+  ui.sbTxOffset->setEnabled(mw->m_bIQxt);
+  ui.label_26->setEnabled(mw->m_bIQxt);
 }
 
 void DevSetup::on_sbTxOffset_valueChanged(double f)
 {
-  m_TxOffset=f;
+  mw->m_TxOffset=f;
 }

@@ -27,7 +27,6 @@
 #include <QRandomGenerator>
 #endif
 
-#include "../Logger.hpp"
 #include "devsetup.h"
 
 # define DEBUGPSK 1;
@@ -38,19 +37,18 @@ namespace
   quint16 SERVICE_PORT {443}; //this is https test port
 }
 
-liveCQSender::liveCQSender(QString const& myCall, QString const& myGrid, QString const& theUrl)  
-      : logger_ {boost::log::keywords::channel = "PSKRPRT"}
-      , m_myCall {myCall}
-      , m_myGrid {myGrid}
-      , m_theUrl {theUrl}
-    {        
-      qRegisterMetaType<QAbstractSocket::SocketError>();
-      qDebug() << "Current thread for impl (liveCQSender):" << QThread::currentThread();
-    } 
-  
+liveCQSender::liveCQSender(QString const& myCall,
+                           QString const& myGrid,
+                           QString const& theUrl)
+    :
+      m_myCall{myCall},
+      m_myGrid{myGrid},
+      m_theUrl{theUrl}
+{
+}
     
   void liveCQSender::init() {
-     qDebug() << "liveCQSender::init running on thread: " << QThread::currentThread();      
+    // qDebug() << "liveCQSender::init running on thread: " << QThread::currentThread();      
     socket.reset(new QSslSocket(this));
     
     // Connect signals before connecting

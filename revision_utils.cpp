@@ -4,6 +4,7 @@
 
 #include <QCoreApplication>
 #include <QRegularExpression>
+#include <QSysInfo>
 
 #include "scs_version.h"
 
@@ -64,6 +65,25 @@ QString revision (QString const& scs_rev_string)
   return result.trimmed ();
 }
 
+QString display_revision ()
+{
+  auto build_revision = revision ();
+
+#if defined (CMAKE_BUILD) && defined (WSJT_SOURCE_REVISION)
+  QString source_revision {WSJT_SOURCE_REVISION};
+  if (!source_revision.isEmpty ())
+    {
+      source_revision = source_revision.left (6);
+      if (source_revision != build_revision.left (6))
+        {
+          return QString {"source %1 (build %2)"}.arg (source_revision, build_revision);
+        }
+    }
+#endif
+
+  return build_revision;
+}
+
 QString version (bool include_patch)
 {
 #if defined (CMAKE_BUILD)
@@ -82,4 +102,16 @@ QString program_title (QString const& revision)
 {
   QString id {QCoreApplication::applicationName () + "   v" + QCoreApplication::applicationVersion ()};
   return id + " " + revision ;
+}
+
+QString http_user_agent ()
+{
+  // See User-Agent format definition https://www.rfc-editor.org/rfc/rfc9110#name-user-agent
+  QString const platform {
+    "(" + QSysInfo::prettyProductName () + "; "
+    + QSysInfo::productType () + " " + QSysInfo::productVersion () + "; "
+    + QSysInfo::currentCpuArchitecture () + "; "
+    + QString {"rv:%1"}.arg (QSysInfo::kernelVersion ()) + ")"};
+
+  return QString {"WSJT-X/" + version () + "_" + revision ()}.simplified () + " " + platform;
 }

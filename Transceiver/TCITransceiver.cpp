@@ -250,6 +250,8 @@ TCITransceiver::TCITransceiver (logger_type * logger, std::unique_ptr<Transceive
   , m_toneSpacing {0.0}
   , m_fSpread {0.0}
   , m_state {Idle}
+  , m_jttyDrainTimer {nullptr}
+  , m_jttyDrainGuard {24000}
   , m_tuning {false}
   , m_cwLevel {false}
   , m_j0 {-1}
@@ -319,6 +321,10 @@ TCITransceiver::TCITransceiver (logger_type * logger, std::unique_ptr<Transceive
   mapCmd_[CmdAgcMode]      = Cmd_AgcMode;
   mapCmd_[CmdAgcGain]      = Cmd_AgcGain;
   mapCmd_[CmdLock]         = Cmd_Lock;
+
+  m_jttyDrainTimer = new QTimer {this};
+  m_jttyDrainTimer->setInterval (25);
+  connect (m_jttyDrainTimer, &QTimer::timeout, this, &TCITransceiver::poll_jtty_drain);
 }
 
 void TCITransceiver::onConnected()
@@ -790,7 +796,10 @@ void TCITransceiver::onMessageReceived(const QString &str)
             }
           } else mode_ = args.at(1);
           if (started_mode_.isEmpty()) started_mode_ = mode_;
-          if (busy_mode_) return; // was tci_done1();
+          if (busy_mode_) {
+            if (requested_mode_.isEmpty() || requested_mode_ == mode_) tci_done8();
+            return;
+          }
           else if (!requested_mode_.isEmpty() && requested_mode_ != mode_ && !band_change) {
             sendTextMessage(mode_to_command(requested_mode_));
           }
@@ -888,6 +897,7 @@ void TCITransceiver::onMessageReceived(const QString &str)
           power_ = 0; if (do_pwr_) update_power (0);
           swr_ = 0; if (do_pwr_) update_swr (0);
           m_state = Idle;
+          if (m_jttyDrainTimer && m_jttyDrainTimer->isActive ()) m_jttyDrainTimer->stop ();
           Q_EMIT tci_mod_active(m_state != Idle);
         }
         _power_ = false;
@@ -1010,6 +1020,35 @@ void TCITransceiver::txAudioData(quint32 len, float * data)
   commander_->sendBinaryMessage(tx);
 }
 
+void TCITransceiver::enqueue_jtty_pcm (QByteArray const& samples, qint64 sessionId) noexcept
+{
+  qint64 const count = samples.size () / int (sizeof (qint16));
+  if (count <= 0) return;
+
+  qint16 const * pcm = reinterpret_cast<qint16 const *> (samples.constData ());
+  if (!m_jttyPcmFifo.enqueue (pcm, count, sessionId))
+    {
+      CAT_WARNING ("JTTY TCI transmit FIFO overflow; rejecting PCM enqueue\n");
+      Q_EMIT jtty_enqueue_failed (sessionId);
+    }
+}
+
+void TCITransceiver::clear_jtty_pcm (qint64 sessionId) noexcept
+{
+  m_jttyPcmFifo.clear (sessionId);
+}
+
+void TCITransceiver::poll_jtty_drain ()
+{
+  // TCI audio is pulled while responding to TxChrono packets. Emitting the
+  // completion signal here keeps Qt work out of that packet/audio path.
+  auto const drain = m_jttyPcmFifo.takeDrainReady ();
+  if (drain.ready)
+    {
+      Q_EMIT jtty_drained (drain.sessionId, drain.totalAtDrain);
+    }
+}
+
 quint32 TCITransceiver::writeAudioData (float * data, qint32 maxSize)
 {
   static unsigned mstr0=999999;
@@ -1107,8 +1146,7 @@ void TCITransceiver::rig_split ()
   if (busy_split_) return;
   if (tci_timer5_->isActive()) mysleep5(0);
   busy_split_ = true;
-  const QString cmd = CmdSplitEnable + SmDP + rx_ + SmCM +  "false" + SmTZ;  // changed from below so split always false
-  //const QString cmd = CmdSplitEnable + SmDP + rx_ + SmCM + (requested_split_ ? "true" : "false") + SmTZ;
+  const QString cmd = CmdSplitEnable + SmDP + rx_ + SmCM + (requested_split_ ? "true" : "false") + SmTZ;
   sendTextMessage(cmd);
   mysleep5(500);
   busy_split_ = false;
@@ -1260,7 +1298,7 @@ void TCITransceiver::do_frequency (Frequency f, MODE m, bool no_ignore)
     if (!requested_mode_.isEmpty() && requested_mode_ != mode_ && !busy_mode_) {
       busy_mode_ = true;
       sendTextMessage(mode_to_command(requested_mode_));
-      mysleep7(1000);
+      mysleep8(1000);
       if (requested_mode_.isEmpty() || requested_mode_ == mode_) update_mode (m);
       else {
         printf("%s TCI failed set mode %s->%s",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),mode_.toStdString().c_str(),requested_mode_.toStdString().c_str());
@@ -1571,6 +1609,7 @@ void TCITransceiver::do_modulator_start (QString mode, unsigned symbolsLength, d
     throw error {tr ("TCI modulator not Idle")};
   }
   m_quickClose = false;
+  m_txMode = mode;
   m_symbolsLength = symbolsLength;
   m_isym0 = std::numeric_limits<unsigned>::max (); // big number
   m_frequency0 = 0.;
@@ -1612,6 +1651,7 @@ void TCITransceiver::do_modulator_start (QString mode, unsigned symbolsLength, d
   m_state = (synchronize && m_silentFrames) ?
                 Synchronizing : Active;
   printf("%s TCI modulator startdelay_ms=%d ASR=%d mstr=%d mstr2=%d m_ic=%d s_Frames=%lld synchronize=%d m_tuning=%d State=%d\n",QDateTime::QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),delay_ms,audioSampleRate,mstr,mstr2,m_ic,m_silentFrames,synchronize,m_tuning,m_state);
+  if (m_txMode == "JTTY" && !m_jttyDrainTimer->isActive ()) m_jttyDrainTimer->start ();
   Q_EMIT tci_mod_active(m_state != Idle);
 }
 
@@ -1628,6 +1668,7 @@ void TCITransceiver::do_modulator_stop (bool quick)
     m_state = Idle;
     Q_EMIT tci_mod_active(m_state != Idle);
   }
+  if (m_jttyDrainTimer->isActive ()) m_jttyDrainTimer->stop ();
   tx_audio_ = false;
 }
 
@@ -1669,6 +1710,11 @@ quint16 TCITransceiver::readAudioData (float * data, qint32 maxSize, qreal txAtt
 
     case Active:
     {
+      if (m_txMode == "JTTY" && !m_tuning)
+        {
+          return readJttyAudioData (data, maxSize, txAtten);
+        }
+
       unsigned int isym=0;
       qint16 sample=0;
       if(!m_tuning) isym=m_ic/(4.0*m_nsps);          // Actual fsample=48000
@@ -1812,6 +1858,30 @@ quint16 TCITransceiver::readAudioData (float * data, qint32 maxSize, qreal txAtt
 
   Q_ASSERT (Idle == m_state);
   return 0;
+}
+
+quint16 TCITransceiver::readJttyAudioData (float * data, qint32 maxSize, qreal txAtten)
+{
+  if(maxSize==0) return 0;
+
+  qreal const newVolume = pow(2.22222 * (45 - txAtten) * 0.01,2);
+  qint64 const numFrames (maxSize/bytesPerFrame);
+  float * samples (reinterpret_cast<float *> (data));
+  qint64 framesGenerated (0);
+
+  // JTTY is pre-rendered mono PCM shared with the soundcard path. When the FIFO
+  // runs dry we keep sending silence until the drain guard proves the last real
+  // sample has cleared the backend.
+  for (qint64 i = 0; i < numFrames; ++i)
+    {
+      qint32 sample = qRound (newVolume * m_jttyPcmFifo.pullSample (m_jttyDrainGuard));
+      if (sample > std::numeric_limits<qint16>::max ()) sample = std::numeric_limits<qint16>::max ();
+      if (sample < std::numeric_limits<qint16>::min ()) sample = std::numeric_limits<qint16>::min ();
+      samples = load (postProcessSample (qint16 (sample)), samples);
+      ++framesGenerated;
+    }
+
+  return framesGenerated * bytesPerFrame;
 }
 
 qint16 TCITransceiver::postProcessSample (qint16 sample) const

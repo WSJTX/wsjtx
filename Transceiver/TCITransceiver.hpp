@@ -8,6 +8,7 @@
 #include "TransceiverFactory.hpp"
 #include "PollingTransceiver.hpp"
 #include "commons.h"
+#include "Modulator/JttyPcmFifo.hpp"
 
 #include <QtWebSockets/QWebSocket>
 #include <QTimer>
@@ -127,6 +128,8 @@ public slots:
   void sendTextMessage(const QString &message);
 //  void trxChanged(quint32 trx, bool state);
   void txAudioData(quint32 len, float * data);
+  void enqueue_jtty_pcm (QByteArray const& samples, qint64 sessionId) noexcept override;
+  void clear_jtty_pcm (qint64 sessionId) noexcept override;
 //  void setAudioSampleRate(const quint32 &sr);
 
 private slots:
@@ -135,6 +138,7 @@ private slots:
   void onError(QAbstractSocket::SocketError err);
   void onConnected();
   void onDisconnected();
+  void poll_jtty_drain ();
 
 signals:
   void sendIqData(int, quint32, float*, bool);
@@ -324,6 +328,7 @@ private:
   static size_t const bytesPerFrame = 2;
   // from Modulator
   quint16 readAudioData (float * data, qint32 maxSize, qreal txVolume);
+  quint16 readJttyAudioData (float * data, qint32 maxSize, qreal txVolume);
   qint16 postProcessSample (qint16 sample) const;
   bool m_quickClose = false;
 
@@ -345,8 +350,12 @@ private:
   double m_TRperiod;
 
   qint64 m_silentFrames;
+  QString m_txMode;
   qint16 m_ramp;
   ModulatorState m_state;
+  JttyPcmFifo m_jttyPcmFifo;
+  QTimer * m_jttyDrainTimer;
+  qint64 m_jttyDrainGuard;
 
   bool m_tuning;
   bool m_addNoise;

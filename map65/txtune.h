@@ -16,8 +16,8 @@ public:
     ~TxTune();
     
 public slots:
-  void accept();
-  void reject();
+  void accept() override;
+  void reject() override;
 
 private slots:
   void on_pwrSlider_valueChanged(int n);
@@ -34,6 +34,7 @@ public:
   void set_txPower(int n);
 
 private:
+  virtual void closeEvent (QCloseEvent *) override;
   qint32  m_iqAmp1;
   qint32  m_iqAmp2;
   qint32  m_iqPha1;

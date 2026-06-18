@@ -1,277 +1,294 @@
 module packjt
-
+  implicit none 
   contains
 
 subroutine packbits(dbits,nsymd,m0,sym)
 
  ! Pack 0s and 1s from dbits() into sym() with m0 bits per word.
  ! NB: nsymd is the number of packed output words.
+   use iso_fortran_env, only: int8
+   implicit none
+   integer,   intent(in)  :: nsymd, m0
+   integer(int8), intent(in)  :: dbits(:)
+   integer,   intent(out) :: sym(:)
 
-   integer sym(:)
-   integer*1 dbits(:)
+   integer :: i, j, k, m, n
 
-   k=0
-   do i=1,nsymd
-      n=0
-      do j=1,m0
-         k=k+1
-         m=dbits(k)
-         n=ior(ishft(n,1),m)
-      enddo
-      sym(i)=n
-   enddo
+   k = 0
+   do i = 1, nsymd
+      n = 0
+      do j = 1, m0
+         k = k + 1
+         m = dbits(k)
+         n = ior(ishft(n,1), m)
+      end do
+      sym(i) = n
+   end do
+end subroutine packbits
 
-   return
- end subroutine packbits
 
  subroutine unpackbits(sym,nsymd,m0,dbits)
 
  ! Unpack bits from sym() into dbits(), one bit per byte.
  ! NB: nsymd is the number of input words, and m0 their length.
  ! there will be m0*nsymd output bytes, each 0 or 1.
+   use iso_fortran_env, only: int8
+   implicit none
+   integer,   intent(in)  :: sym(:)
+   integer,   intent(in)  :: nsymd, m0
+   integer(int8), intent(out) :: dbits(:)
 
-   integer sym(:)
-   integer*1 dbits(:)
+   integer :: i, j, k, mask
 
-   k=0
-   do i=1,nsymd
-      mask=ishft(1,m0-1)
-      do j=1,m0
-         k=k+1
-         dbits(k)=0
-         if(iand(mask,sym(i)).ne.0) dbits(k)=1
-         mask=ishft(mask,-1)
-      enddo
-   enddo
+   k = 0
+   do i = 1, nsymd
+      mask = ishft(1, m0 - 1)
+      do j = 1, m0
+         k = k + 1
+         dbits(k) = 0
+         if (iand(mask, sym(i)) .ne. 0) dbits(k) = 1
+         mask = ishft(mask, -1)
+      end do
+   end do
+end subroutine unpackbits
 
-   return
- end subroutine unpackbits
+subroutine packcall(callsign, ncall, text)
+   use nchar_mod 
+   implicit none
+   integer, parameter :: NBASE = 37*36*10*27*27*27
 
- subroutine packcall(callsign,ncall,text)
+   character(len=6), intent(inout) :: callsign
+   integer,     intent(out)   :: ncall
+   logical,     intent(out)   :: text
 
- ! Pack a valid callsign into a 28-bit integer.
+   character(len=6) :: tmp
+   character(len=1) :: c
+   integer     :: i, nfreq
+   integer     :: n1, n2, n3, n4, n5, n6
 
-   parameter (NBASE=37*36*10*27*27*27)
-   character callsign*6,c*1,tmp*6
-   logical text
+   text = .false.
 
-   text=.false.
+   if (callsign(1:4) .eq. '3DA0') callsign = '3D0'//callsign(5:6)
 
- ! Work-around for Swaziland prefix:
-   if(callsign(1:4).eq.'3DA0') callsign='3D0'//callsign(5:6)
-
-   if(callsign(1:3).eq.'CQ ') then
-      ncall=NBASE + 1
-      if(callsign(4:4).ge.'0' .and. callsign(4:4).le.'9' .and.        &
-           callsign(5:5).ge.'0' .and. callsign(5:5).le.'9' .and.      &
-           callsign(6:6).ge.'0' .and. callsign(6:6).le.'9') then
+   if (callsign(1:3) .eq. 'CQ ') then
+      ncall = NBASE + 1
+      if (callsign(4:4) .ge. '0' .and. callsign(4:4) .le. '9' .and. &
+          callsign(5:5) .ge. '0' .and. callsign(5:5) .le. '9' .and. &
+          callsign(6:6) .ge. '0' .and. callsign(6:6) .le. '9') then
          read(callsign(4:6),*) nfreq
-         ncall=NBASE + 3 + nfreq
-      endif
+         ncall = NBASE + 3 + nfreq
+      end if
       return
-   else if(callsign(1:4).eq.'QRZ ') then
-      ncall=NBASE + 2
+   else if (callsign(1:4) .eq. 'QRZ ') then
+      ncall = NBASE + 2
       return
-   else if(callsign(1:3).eq.'DE ') then
-      ncall=267796945
+   else if (callsign(1:3) .eq. 'DE ') then
+      ncall = 267796945
       return
-   endif
+   end if
 
-   tmp='      '
-   if(callsign(3:3).ge.'0' .and. callsign(3:3).le.'9') then
-      tmp=callsign
-   else if(callsign(2:2).ge.'0' .and. callsign(2:2).le.'9') then
-      if(callsign(6:6).ne.' ') then
-         text=.true.
+   tmp = '      '
+   if (callsign(3:3) .ge. '0' .and. callsign(3:3) .le. '9') then
+      tmp = callsign
+   else if (callsign(2:2) .ge. '0' .and. callsign(2:2) .le. '9') then
+      if (callsign(6:6) .ne. ' ') then
+         text = .true.
          return
-      endif
-      tmp=' '//callsign(:5)
+      end if
+      tmp = ' '//callsign(:5)
    else
-      text=.true.
+      text = .true.
       return
-   endif
+   end if
 
-   do i=1,6
-      c=tmp(i:i)
-      if(c.ge.'a' .and. c.le.'z')                                &
-           tmp(i:i)=char(ichar(c)-ichar('a')+ichar('A'))
-   enddo
+   do i = 1, 6
+      c = tmp(i:i)
+      if (c .ge. 'a' .and. c .le. 'z') &
+         tmp(i:i) = char(ichar(c) - ichar('a') + ichar('A'))
+   end do
 
-   n1=0
-   if((tmp(1:1).ge.'A'.and.tmp(1:1).le.'Z').or.tmp(1:1).eq.' ') n1=1
-   if(tmp(1:1).ge.'0' .and. tmp(1:1).le.'9') n1=1
-   n2=0
-   if(tmp(2:2).ge.'A' .and. tmp(2:2).le.'Z') n2=1
-   if(tmp(2:2).ge.'0' .and. tmp(2:2).le.'9') n2=1
-   n3=0
-   if(tmp(3:3).ge.'0' .and. tmp(3:3).le.'9') n3=1
-   n4=0
-   if((tmp(4:4).ge.'A'.and.tmp(4:4).le.'Z').or.tmp(4:4).eq.' ') n4=1
-   n5=0
-   if((tmp(5:5).ge.'A'.and.tmp(5:5).le.'Z').or.tmp(5:5).eq.' ') n5=1
-   n6=0
-   if((tmp(6:6).ge.'A'.and.tmp(6:6).le.'Z').or.tmp(6:6).eq.' ') n6=1
+   n1 = 0
+   if ((tmp(1:1) .ge. 'A' .and. tmp(1:1) .le. 'Z') .or. tmp(1:1) .eq. ' ') n1 = 1
+   if (tmp(1:1) .ge. '0' .and. tmp(1:1) .le. '9') n1 = 1
+   n2 = 0
+   if (tmp(2:2) .ge. 'A' .and. tmp(2:2) .le. 'Z') n2 = 1
+   if (tmp(2:2) .ge. '0' .and. tmp(2:2) .le. '9') n2 = 1
+   n3 = 0
+   if (tmp(3:3) .ge. '0' .and. tmp(3:3) .le. '9') n3 = 1
+   n4 = 0
+   if ((tmp(4:4) .ge. 'A' .and. tmp(4:4) .le. 'Z') .or. tmp(4:4) .eq. ' ') n4 = 1
+   n5 = 0
+   if ((tmp(5:5) .ge. 'A' .and. tmp(5:5) .le. 'Z') .or. tmp(5:5) .eq. ' ') n5 = 1
+   n6 = 0
+   if ((tmp(6:6) .ge. 'A' .and. tmp(6:6) .le. 'Z') .or. tmp(6:6) .eq. ' ') n6 = 1
 
-   if(n1+n2+n3+n4+n5+n6 .ne. 6) then
-      text=.true.
-      return 
-   endif
+   if (n1 + n2 + n3 + n4 + n5 + n6 .ne. 6) then
+      text = .true.
+      return
+   end if
 
-   ncall=nchar(tmp(1:1))
-   ncall=36*ncall+nchar(tmp(2:2))
-   ncall=10*ncall+nchar(tmp(3:3))
-   ncall=27*ncall+nchar(tmp(4:4))-10
-   ncall=27*ncall+nchar(tmp(5:5))-10
-   ncall=27*ncall+nchar(tmp(6:6))-10
+   ncall = nchar(tmp(1:1))
+   ncall = 36*ncall + nchar(tmp(2:2))
+   ncall = 10*ncall + nchar(tmp(3:3))
+   ncall = 27*ncall + nchar(tmp(4:4)) - 10
+   ncall = 27*ncall + nchar(tmp(5:5)) - 10
+   ncall = 27*ncall + nchar(tmp(6:6)) - 10
+end subroutine packcall
 
-   return
- end subroutine packcall
 
- subroutine unpackcall(ncall,word,iv2,psfx)
+subroutine unpackcall(ncall, word, iv2, psfx)
+   implicit none
+   integer,     intent(in)  :: ncall
+   character(len=12), intent(out):: word
+   integer,     intent(out) :: iv2
+   character(len=4), intent(out) :: psfx
 
-   parameter (NBASE=37*36*10*27*27*27)
-   character word*12,c*37,psfx*4
+   integer :: n, i
+   character(len=37) :: c
 
-   data c/'0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ '/
+   integer, parameter :: NBASE = 37*36*10*27*27*27
+   data c /'0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ '/
 
-   word='......' 
-   psfx='    '
-   n=ncall
-   iv2=0
-   if(n.ge.262177560) go to 20
-   word='......'
- !  if(n.ge.262177560) go to 999            !Plain text message ...
-   i=mod(n,27)+11
-   word(6:6)=c(i:i)
-   n=n/27
-   i=mod(n,27)+11
-   word(5:5)=c(i:i)
-   n=n/27
-   i=mod(n,27)+11
-   word(4:4)=c(i:i)
-   n=n/27
-   i=mod(n,10)+1
-   word(3:3)=c(i:i)
-   n=n/10
-   i=mod(n,36)+1
-   word(2:2)=c(i:i)
-   n=n/36
-   i=n+1
-   word(1:1)=c(i:i)
-   do i=1,4
-      if(word(i:i).ne.' ') go to 10
-   enddo
+   word = '......'
+   psfx = '    '
+
+   if ((ncall < 0 .or. ncall >= 262177560) .and. ncall .ne. 262177561) then
+      write(*,*) 'unpackcall: ncall out of range = ', ncall
+   end if
+
+   n    = ncall
+   iv2 = 0
+
+   if (n .ge. 262177560) go to 20
+
+   word = '......'
+   i = mod(n,27) + 11
+   word(6:6) = c(i:i)
+   n = n/27
+   i = mod(n,27) + 11
+   word(5:5) = c(i:i)
+   n = n/27
+   i = mod(n,27) + 11
+   word(4:4) = c(i:i)
+   n = n/27
+   i = mod(n,10) + 1
+   word(3:3) = c(i:i)
+   n = n/10
+   i = mod(n,36) + 1
+   word(2:2) = c(i:i)
+   n = n/36
+   i = n + 1
+   word(1:1) = c(i:i)
+   do i = 1, 4
+      if (word(i:i) .ne. ' ') go to 10
+   end do
    go to 999
- 10 word=word(i:)
+10 word = word(i:)
    go to 999
 
- 20 if(n.ge.267796946) go to 999
+20 if (n .ge. 267796946) go to 999
 
- ! We have a JT65v2 message
-   if((n.ge.262178563) .and. (n.le.264002071)) then
- ! CQ with prefix
-      iv2=1
-      n=n-262178563
-      i=mod(n,37)+1
-      psfx(4:4)=c(i:i)
-      n=n/37
-      i=mod(n,37)+1
-      psfx(3:3)=c(i:i)
-      n=n/37
-      i=mod(n,37)+1
-      psfx(2:2)=c(i:i)
-      n=n/37
-      i=n+1
-      psfx(1:1)=c(i:i)
+   if ((n .ge. 262178563) .and. (n .le. 264002071)) then
+      iv2 = 1
+      n = n - 262178563
+      i = mod(n,37) + 1
+      psfx(4:4) = c(i:i)
+      n = n/37
+      i = mod(n,37) + 1
+      psfx(3:3) = c(i:i)
+      n = n/37
+      i = mod(n,37) + 1
+      psfx(2:2) = c(i:i)
+      n = n/37
+      i = n + 1
+      psfx(1:1) = c(i:i)
 
-   else if((n.ge.264002072) .and. (n.le.265825580)) then
- ! QRZ with prefix
-      iv2=2
-      n=n-264002072
-      i=mod(n,37)+1
-      psfx(4:4)=c(i:i)
-      n=n/37
-      i=mod(n,37)+1
-      psfx(3:3)=c(i:i)
-      n=n/37
-      i=mod(n,37)+1
-      psfx(2:2)=c(i:i)
-      n=n/37
-      i=n+1
-      psfx(1:1)=c(i:i)
+   else if ((n .ge. 264002072) .and. (n .le. 265825580)) then
+      iv2 = 2
+      n = n - 264002072
+      i = mod(n,37) + 1
+      psfx(4:4) = c(i:i)
+      n = n/37
+      i = mod(n,37) + 1
+      psfx(3:3) = c(i:i)
+      n = n/37
+      i = mod(n,37) + 1
+      psfx(2:2) = c(i:i)
+      n = n/37
+      i = n + 1
+      psfx(1:1) = c(i:i)
 
-   else if((n.ge.265825581) .and. (n.le.267649089)) then
- ! DE with prefix
-      iv2=3
-      n=n-265825581
-      i=mod(n,37)+1
-      psfx(4:4)=c(i:i)
-      n=n/37
-      i=mod(n,37)+1
-      psfx(3:3)=c(i:i)
-      n=n/37
-      i=mod(n,37)+1
-      psfx(2:2)=c(i:i)
-      n=n/37
-      i=n+1
-      psfx(1:1)=c(i:i)
+   else if ((n .ge. 265825581) .and. (n .le. 267649089)) then
+      iv2 = 3
+      n = n - 265825581
+      i = mod(n,37) + 1
+      psfx(4:4) = c(i:i)
+      n = n/37
+      i = mod(n,37) + 1
+      psfx(3:3) = c(i:i)
+      n = n/37
+      i = mod(n,37) + 1
+      psfx(2:2) = c(i:i)
+      n = n/37
+      i = n + 1
+      psfx(1:1) = c(i:i)
 
-   else if((n.ge.267649090) .and. (n.le.267698374)) then
- ! CQ with suffix
-      iv2=4
-      n=n-267649090
-      i=mod(n,37)+1
-      psfx(3:3)=c(i:i)
-      n=n/37
-      i=mod(n,37)+1
-      psfx(2:2)=c(i:i)
-      n=n/37
-      i=n+1
-      psfx(1:1)=c(i:i)
+   else if ((n .ge. 267649090) .and. (n .le. 267698374)) then
+      iv2 = 4
+      n = n - 267649090
+      i = mod(n,37) + 1
+      psfx(3:3) = c(i:i)
+      n = n/37
+      i = mod(n,37) + 1
+      psfx(2:2) = c(i:i)
+      n = n/37
+      i = n + 1
+      psfx(1:1) = c(i:i)
 
-   else if((n.ge.267698375) .and. (n.le.267747659)) then
- ! QRZ with suffix
-      iv2=5
-      n=n-267698375
-      i=mod(n,37)+1
-      psfx(3:3)=c(i:i)
-      n=n/37
-      i=mod(n,37)+1
-      psfx(2:2)=c(i:i)
-      n=n/37
-      i=n+1
-      psfx(1:1)=c(i:i)
+   else if ((n .ge. 267698375) .and. (n .le. 267747659)) then
+      iv2 = 5
+      n = n - 267698375
+      i = mod(n,37) + 1
+      psfx(3:3) = c(i:i)
+      n = n/37
+      i = mod(n,37) + 1
+      psfx(2:2) = c(i:i)
+      n = n/37
+      i = n + 1
+      psfx(1:1) = c(i:i)
 
-   else if((n.ge.267747660) .and. (n.le.267796944)) then
- ! DE with suffix
-      iv2=6
-      n=n-267747660
-      i=mod(n,37)+1
-      psfx(3:3)=c(i:i)
-      n=n/37
-      i=mod(n,37)+1
-      psfx(2:2)=c(i:i)
-      n=n/37
-      i=n+1
-      psfx(1:1)=c(i:i)
+   else if ((n .ge. 267747660) .and. (n .le. 267796944)) then
+      iv2 = 6
+      n = n - 267747660
+      i = mod(n,37) + 1
+      psfx(3:3) = c(i:i)
+      n = n/37
+      i = mod(n,37) + 1
+      psfx(2:2) = c(i:i)
+      n = n/37
+      i = n + 1
+      psfx(1:1) = c(i:i)
 
-   else if(n.eq.267796945) then
- ! DE with no prefix or suffix
-      iv2=7
+   else if (n .eq. 267796945) then
+      iv2 = 7
       psfx = '    '
-   endif
+   end if
 
- 999 if(word(1:3).eq.'3D0') word='3DA0'//word(4:)
-
-   return
- end subroutine unpackcall
+999 if (word(1:3) .eq. '3D0') word = '3DA0'//word(4:)
+end subroutine unpackcall
 
  subroutine packgrid(grid,ng,text)
+   use grid2deg_mod, only: grid2deg
+   implicit none
+   
+   integer, parameter :: NGBASE=180*180
+   character(len=4), intent(inout) :: grid   ! modified when mapping extended reports
+   integer,     intent(out)   :: ng
+   logical,     intent(out)   :: text
 
-   parameter (NGBASE=180*180)
-   character*4 grid
-   character*1 c1
-   logical text
+   integer      :: n, long, lat
+   real         :: dlong, dlat
+   character(len=1)  :: c1
 
    text=.false.
    if(grid.eq.'    ') go to 90               !Blank grid is OK
@@ -343,10 +360,18 @@ subroutine packbits(dbits,nsymd,m0,sym)
    return
  end subroutine packgrid
 
- subroutine unpackgrid(ng,grid)
+ subroutine unpackgrid(ng, grid)
 
-   parameter (NGBASE=180*180)
-   character grid*4,grid6*6
+   use deg2grid_mod
+   implicit none
+
+   integer, parameter :: NGBASE = 180*180
+   integer,     intent(in)  :: ng
+   character(len=4), intent(out) :: grid
+
+   integer      :: n
+   real         :: dlong, dlat
+   character(len=6)  :: grid6
 
    grid='    '
    if(ng.ge.32400) go to 10
@@ -390,26 +415,40 @@ subroutine packbits(dbits,nsymd,m0,sym)
 
  subroutine packmsg(msg0,dat,itype)
 
+  use getpfx1_mod
+  use fil6521_mod
+  use k2grid_mod
+  use fmtmsg_mod
+  
+  implicit none
+
  ! Packs a JT4/JT9/JT65 message into twelve 6-bit symbols
 
  ! itype Message Type
  !--------------------
- !   1   Standardd message
+ !   1   Standard message
  !   2   Type 1 prefix
  !   3   Type 1 suffix
  !   4   Type 2 prefix
  !   5   Type 2 suffix
  !   6   Free text
  !  -1   Does not decode correctly
+ 
+   character(len=22), intent(in)  :: msg0
+   integer,      intent(out) :: dat(:)
+   integer,      intent(out) :: itype
 
-   parameter (NBASE=37*36*10*27*27*27)
-   parameter (NBASE2=262178562)
-   character*22 msg0,msg
-   integer dat(:)
-   character*12 c1,c2
-   character*4 c3
-   character*6 grid6
-   logical text1,text2,text3
+   integer, parameter :: NBASE  = 37*36*10*27*27*27
+   integer, parameter :: NBASE2 = 262178562
+
+   character(len=22) :: msg
+   character(len=12) :: c1, c2
+   character(len=4)  :: c3
+   character(len=6)  :: grid6
+   logical      :: text1, text2, text3
+   integer      :: i, ia, ib, ic, iz
+   integer      :: k1, k2, nv2a, nv2b
+   integer      :: nc1, nc2, ng, k
 
    msg=msg0
    itype=1
@@ -512,13 +551,26 @@ subroutine packbits(dbits,nsymd,m0,sym)
    return
  end subroutine packmsg
 
- subroutine unpackmsg(dat,msg)
+subroutine unpackmsg(dat, msg)
+   use getpfx2_mod
+   implicit none
 
-   parameter (NBASE=37*36*10*27*27*27)
-   parameter (NGBASE=180*180)
-   integer dat(:)
-   character c1*12,c2*12,grid*4,msg*22,grid6*6,psfx*4,junk2*4
-   logical cqnnn
+   !==== Dummy arguments =====================================================
+   integer,      intent(in)  :: dat(:)
+   character(len=22), intent(out) :: msg
+
+   !==== Local variables =====================================================
+   integer :: nc1, nc2, ng
+   integer :: iv2, nfreq
+   integer :: i, j, k, n1, n2
+   integer :: junk1
+   character(len=12) :: c1, c2
+   character(len=4)  :: grid, psfx, junk2
+   character(len=6)  :: grid6
+   logical :: cqnnn
+
+   integer, parameter :: NBASE  = 37*36*10*27*27*27
+   integer, parameter :: NGBASE = 180*180
 
    cqnnn=.false.
    nc1=ishft(dat(1),22) + ishft(dat(2),16) + ishft(dat(3),10)+         &
@@ -529,13 +581,21 @@ subroutine packbits(dbits,nsymd,m0,sym)
         iand(ishft(dat(10),-4),3)
 
    ng=ishft(iand(dat(10),15),12) + ishft(dat(11),6) + dat(12)
+   
+!print *, 'UNPACKMSG PACKED: nc1=',nc1,' nc2=',nc2,' ng=',ng, ' dat=', &
+!     dat(1),dat(2),dat(3),dat(4),dat(5),dat(6),dat(7),dat(8),dat(9), &
+!     dat(10),dat(11),dat(12)
+
 
    if(ng.ge.32768) then
       call unpacktext(nc1,nc2,ng,msg)
       go to 100
    endif
+   
+!print *, 'UNPACKMSG BEFORE unpackcall nc1: nc1=',nc1,' iv2(before)=',iv2
+call unpackcall(nc1,c1,iv2,psfx)
+!print *, 'UNPACKMSG AFTER unpackcall nc1:  iv2=',iv2,' c1="',trim(c1),'" psfx="',psfx,'"'
 
-   call unpackcall(nc1,c1,iv2,psfx)
    if(iv2.eq.0) then
  ! This is an "original JT65" message
       if(nc1.eq.NBASE+1) c1='CQ    '
@@ -548,7 +608,10 @@ subroutine packbits(dbits,nsymd,m0,sym)
       endif
    endif
 
-   call unpackcall(nc2,c2,junk1,junk2)
+!   print *, 'UNPACKMSG BEFORE unpackcall nc2: nc2=',nc2
+call unpackcall(nc2,c2,junk1,junk2)
+!print *, 'UNPACKMSG AFTER unpackcall nc2:  c2="',trim(c2),'" junk2="',junk2,'"'
+
    call unpackgrid(ng,grid)
 
    if(iv2.gt.0) then
@@ -625,12 +688,17 @@ subroutine packbits(dbits,nsymd,m0,sym)
    return
  end subroutine unpackmsg
 
- subroutine packtext(msg,nc1,nc2,nc3)
+subroutine packtext(msg, nc1, nc2, nc3)
 
-   parameter (MASK28=2**28 - 1)
-   character*13 msg
-   character*42 c
-   data c/'0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ +-./?'/
+   implicit none
+
+   integer, parameter :: MASK28 = 2**28 - 1
+   character(len=13), intent(in)  :: msg
+   integer,      intent(out) :: nc1, nc2, nc3
+
+   integer :: i, j
+   character(len=42) :: c
+   data c /'0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ +-./?'/
 
    nc1=0
    nc2=0
@@ -673,11 +741,14 @@ subroutine packbits(dbits,nsymd,m0,sym)
    return
  end subroutine packtext
 
- subroutine unpacktext(nc1,nc2,nc3,msg)
+ subroutine unpacktext(nc1, nc2, nc3, msg)
+   implicit none
+   integer,      intent(inout) :: nc1, nc2, nc3
+   character(len=22), intent(out)   :: msg
 
-   character*22 msg
-   character*44 c
-   data c/'0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ +-./?'/
+   integer :: i, j
+   character(len=44) :: c
+   data c /'0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ +-./?'/
 
    nc3=iand(nc3,32767)                      !Remove the "plain text" bit
    if(iand(nc1,1).ne.0) nc3=nc3+32768
@@ -707,158 +778,30 @@ subroutine packbits(dbits,nsymd,m0,sym)
    return
  end subroutine unpacktext
 
- subroutine getpfx1(callsign,k,nv2)
+subroutine grid2k(grid, k)
+   use grid2deg_mod, only: grid2deg
+   implicit none
+   character(len=6), intent(in)  :: grid
+   integer,     intent(out) :: k
 
-   character*12 callsign0,callsign,lof,rof
-   character*8 c
-   character addpfx*8,tpfx*4,tsfx*3
-   logical ispfx,issfx,invalid
-   common/pfxcom/addpfx
-   include 'pfx.f90'
+   real :: xlong, xlat
+   integer :: nlong, nlat
 
-   callsign0=callsign
-   nv2=1
-   iz=index(callsign,' ') - 1
-   if(iz.lt.0) iz=12
-   islash=index(callsign(1:iz),'/')
-   k=0
- !  if(k.eq.0) go to 10     !Tnx to DL9RDZ for reminder:this was for tests only!
-   c='   '
-   if(islash.gt.0 .and. islash.le.(iz-4)) then
- ! Add-on prefix
-      c=callsign(1:islash-1)
-      callsign=callsign(islash+1:iz)
-      do i=1,NZ
-         if(pfx(i)(1:4).eq.c) then
-            k=i
-            nv2=2
-            go to 10
-         endif
-      enddo
-      if(addpfx.eq.c) then
-         k=449
-         nv2=2
-         go to 10
-      endif
+   call grid2deg(grid, xlong, xlat)
+   nlong = nint(xlong)
+   nlat  = nint(xlat)
+   k = 0
+   if (nlat .ge. 85) k = 5*(nlong + 179)/2 + nlat - 84
+end subroutine grid2k
 
-   else if(islash.eq.(iz-1)) then
- ! Add-on suffix
-      c=callsign(islash+1:iz)
-      callsign=callsign(1:islash-1)
-      do i=1,NZ2
-         if(sfx(i).eq.c(1:1)) then
-            k=400+i
-            nv2=3
-            go to 10
-         endif
-      enddo
-   endif
 
- 10 if(islash.ne.0 .and.k.eq.0) then
- ! Original JT65 would force this compound callsign to be treated as
- ! plain text.  In JT65v2, we will encode the prefix or suffix into nc1.
- ! The task here is to compute the proper value of k.
-      lof=callsign0(:islash-1)
-      rof=callsign0(islash+1:)
-      llof=len_trim(lof)
-      lrof=len_trim(rof)
-      ispfx=(llof.gt.0 .and. llof.le.4)
-      issfx=(lrof.gt.0 .and. lrof.le.3)
-      invalid=.not.(ispfx.or.issfx)
-      if(ispfx.and.issfx) then
-         if(llof.lt.3) issfx=.false.
-         if(lrof.lt.3) ispfx=.false.
-         if(ispfx.and.issfx) then
-            i=ichar(callsign0(islash-1:islash-1))
-            if(i.ge.ichar('0') .and. i.le.ichar('9')) then
-               issfx=.false.
-            else
-               ispfx=.false.
-            endif
-         endif
-      endif
 
-      if(invalid) then
-         k=-1
-      else
-         if(ispfx) then
-            tpfx=lof(1:4)
-            k=nchar(tpfx(1:1))
-            k=37*k + nchar(tpfx(2:2))
-            k=37*k + nchar(tpfx(3:3))
-            k=37*k + nchar(tpfx(4:4))
-            nv2=4
-            i=index(callsign0,'/')
-            callsign=callsign0(:i-1)
-            callsign=callsign0(i+1:)
-         endif
-         if(issfx) then
-            tsfx=rof(1:3)
-            k=nchar(tsfx(1:1))
-            k=37*k + nchar(tsfx(2:2))
-            k=37*k + nchar(tsfx(3:3))
-            nv2=5
-            i=index(callsign0,'/')
-            callsign=callsign0(:i-1)
-         endif
-      endif
-   endif
+subroutine grid2n(grid, n)
+   implicit none
+   character(len=4), intent(in)  :: grid
+   integer,     intent(out) :: n
 
-   return
- end subroutine getpfx1
-
- subroutine getpfx2(k0,callsign)
-
-   character callsign*12
-   include 'pfx.f90'
-   character addpfx*8
-   common/pfxcom/addpfx
-
-   k=k0
-   if(k.gt.450) k=k-450
-   if(k.ge.1 .and. k.le.NZ) then
-      iz=index(pfx(k),' ') - 1
-      callsign=pfx(k)(1:iz)//'/'//callsign
-   else if(k.ge.401 .and. k.le.400+NZ2) then
-      iz=index(callsign,' ') - 1
-      callsign=callsign(1:iz)//'/'//sfx(k-400)
-   else if(k.eq.449) then
-      iz=index(addpfx,' ') - 1
-      if(iz.lt.1) iz=8
-      callsign=addpfx(1:iz)//'/'//callsign
-   endif
-
-   return
- end subroutine getpfx2
-
- subroutine grid2k(grid,k)
-
-   character*6 grid
-
-   call grid2deg(grid,xlong,xlat)
-   nlong=nint(xlong)
-   nlat=nint(xlat)
-   k=0
-   if(nlat.ge.85) k=5*(nlong+179)/2 + nlat-84
-
-   return
- end subroutine grid2k
-
- subroutine k2grid(k,grid)
-   character grid*6
-
-   nlong=2*mod((k-1)/5,90)-179
-   if(k.gt.450) nlong=nlong+180
-   nlat=mod(k-1,5)+ 85
-   dlat=nlat
-   dlong=nlong
-   call deg2grid(dlong,dlat,grid)
-
-   return
- end subroutine k2grid
-
- subroutine grid2n(grid,n)
-   character*4 grid
+   integer :: i1, i2, i
 
    i1=ichar(grid(1:1))-ichar('A')
    i2=ichar(grid(3:3))-ichar('0')
@@ -868,8 +811,12 @@ subroutine packbits(dbits,nsymd,m0,sym)
    return
  end subroutine grid2n
 
- subroutine n2grid(n,grid)
-   character*4 grid
+subroutine n2grid(n, grid)
+   implicit none
+   integer,     intent(in)  :: n
+   character(len=4), intent(out) :: grid
+
+   integer :: i, i1, i2
 
    if(n.gt.-31 .or. n.lt.-70) stop 'Error in n2grid'
    i=-(n+31)                           !NB: 0 <= i <= 39
@@ -883,33 +830,15 @@ subroutine packbits(dbits,nsymd,m0,sym)
    return
  end subroutine n2grid
 
- function nchar(c)
 
- ! Convert ascii number, letter, or space to 0-36 for callsign packing.
 
-   character c*1
+ subroutine pack50(n1, n2, dat)
+   use iso_fortran_env, only: int8
+   implicit none
+   integer,  intent(in)  :: n1, n2
+   integer(int8), intent(out):: dat(:)
 
-   n=0                                    !Silence compiler warning
-   if(c.ge.'0' .and. c.le.'9') then
-      n=ichar(c)-ichar('0')
-   else if(c.ge.'A' .and. c.le.'Z') then
-      n=ichar(c)-ichar('A') + 10
-   else if(c.ge.'a' .and. c.le.'z') then
-      n=ichar(c)-ichar('a') + 10
-   else if(c.ge.' ') then
-      n=36
-   else
-      Print*,'Invalid character in callsign ',c,' ',ichar(c)
-      stop
-   endif
-   nchar=n
-
-   return
- end function nchar
-
- subroutine pack50(n1,n2,dat)
-
-   integer*1 dat(:),i1
+   integer(int8) :: i1
 
    i1=iand(ishft(n1,-20),255)                !8 bits
    dat(1)=i1
@@ -933,11 +862,15 @@ subroutine packbits(dbits,nsymd,m0,sym)
    return
  end subroutine pack50
 
-subroutine packpfx(call1,n1,ng,nadd)
+subroutine packpfx(call1, n1, ng, nadd)
+   implicit none
+   character(len=12), intent(in)  :: call1
+   integer,      intent(out) :: n1, ng, nadd
 
-  character*12 call1,call0
-  character*3 pfx
-  logical text
+   character(len=12) :: call0
+   character(len=3)  :: pfx
+   logical      :: text
+   integer      :: i1, i, nc, n
 
   i1=index(call1,'/')
   if(call1(i1+2:i1+2).eq.' ') then

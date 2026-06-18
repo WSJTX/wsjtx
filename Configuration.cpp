@@ -500,9 +500,11 @@ public:
   void transceiver_ptt (bool);
   void transceiver_audio (bool);
   void transceiver_tune (bool);
-  void transceiver_period (double);
+  void transceiver_period (double, bool = false);
   void transceiver_blocksize (qint32);
   void transceiver_modulator_start (QString, unsigned, double, double, double, bool, bool, double, double);
+  void transceiver_enqueue_jtty_pcm (QByteArray const&, qint64);
+  void transceiver_clear_jtty_pcm (qint64);
   void transceiver_modulator_stop (bool);
   void transceiver_spread (double);
   void transceiver_nsym (int);
@@ -706,6 +708,8 @@ private:
   Q_SIGNAL void set_transceiver (Transceiver::TransceiverState const&,
                                  unsigned sequence_number) const;
   Q_SIGNAL void stop_transceiver () const;
+  Q_SIGNAL void enqueue_jtty_pcm (QByteArray const&, qint64) const;
+  Q_SIGNAL void clear_jtty_pcm (qint64) const;
 
   Configuration * const self_;	// back pointer to public interface
 
@@ -1262,13 +1266,13 @@ void Configuration::transceiver_tune (bool on)
   m_->transceiver_tune (on);
 }
 
-void Configuration::transceiver_period (double period)
+void Configuration::transceiver_period (double period, bool force)
 {
 #if WSJT_TRACE_CAT
   qDebug () << "Configuration::transceiver_period:" << period << m_->cached_rig_state_;
 #endif
 
-  m_->transceiver_period (period);
+  m_->transceiver_period (period, force);
 }
 
 void Configuration::transceiver_blocksize (qint32 blocksize)
@@ -1288,6 +1292,16 @@ void Configuration::transceiver_modulator_start(QString jtmode, unsigned symbols
 #endif
 
   m_->transceiver_modulator_start(jtmode, symbolslength,framespersymbol,trfrequency,tonespacing,synchronize,fastmode,dbsnr,trperiod);
+}
+
+void Configuration::transceiver_enqueue_jtty_pcm (QByteArray const& samples, qint64 sessionId)
+{
+  m_->transceiver_enqueue_jtty_pcm (samples, sessionId);
+}
+
+void Configuration::transceiver_clear_jtty_pcm (qint64 sessionId)
+{
+  m_->transceiver_clear_jtty_pcm (sessionId);
 }
 
 void Configuration::transceiver_modulator_stop (bool on)
@@ -1649,11 +1663,6 @@ QStringList Configuration::whitelist_keywords() const
 {
   return {m_->Whitelist1_, m_->Whitelist2_, m_->Whitelist3_, m_->Whitelist4_, m_->Whitelist5_, m_->Whitelist6_,
           m_->Whitelist7_, m_->Whitelist8_, m_->Whitelist9_, m_->Whitelist10_, m_->Whitelist11_, m_->Whitelist12_};
-}
-
-QStringList Configuration::territory_keywords() const
-{
-  return {m_->Territory1_, m_->Territory2_, m_->Territory3_, m_->Territory4_};
 }
 
 auto Configuration::special_op_id () const -> SpecialOperatingActivity
@@ -5006,7 +5015,7 @@ void Configuration::impl::on_voices_combo_box_currentIndexChanged (int /* index 
 
 void Configuration::impl::read_voices ()
 {
-  QString audioPath = QCoreApplication::applicationDirPath() + "/sounds/";
+  QString audioPath = app_sounds_directory ();
   QString voiceList = audioPath + "voices.dat";  // load the content of voices.dat file to the voices combo box
   QFile file2 {voiceList};
   QStringList wordList;
@@ -5036,7 +5045,7 @@ void Configuration::impl::on_pb_test_alerts_clicked (bool)
   read_voicesPath();
 #ifdef WIN32
   QAudioOutput info(QAudioDeviceInfo::defaultOutputDevice());
-  QString audioPath = QCoreApplication::applicationDirPath() + "/sounds" + voicesPath_ + "/";
+  QString audioPath = app_sounds_directory (voicesPath_);
   QAudioFormat format;
   format.setCodec("audio/pcm");
   format.setSampleRate (48000);
@@ -5050,7 +5059,7 @@ void Configuration::impl::on_pb_test_alerts_clicked (bool)
   effect->open(QIODevice::ReadOnly);
   audio->start(effect);
 #else
-  QString audioPath = QCoreApplication::applicationDirPath() + "/sounds" + voicesPath_ + "/";
+  QString audioPath = app_sounds_directory (voicesPath_);
   QSound::play(audioPath + "Testing123.wav");  // for Linux and macOS
 #endif
 }
@@ -5086,6 +5095,10 @@ bool Configuration::impl::open_rig (bool force)
           // these connections cross the thread boundary
           rig_connections_ << connect (this, &Configuration::impl::set_transceiver,
                                        rig.get (), &Transceiver::set);
+          rig_connections_ << connect (this, &Configuration::impl::enqueue_jtty_pcm,
+                                       rig.get (), &Transceiver::enqueue_jtty_pcm);
+          rig_connections_ << connect (this, &Configuration::impl::clear_jtty_pcm,
+                                       rig.get (), &Transceiver::clear_jtty_pcm);
 
           // hook up Transceiver signals to Configuration signals
           //
@@ -5095,6 +5108,8 @@ bool Configuration::impl::open_rig (bool force)
             });
           rig_connections_ << connect (rig.get (), &Transceiver::tciframeswritten, this, &Configuration::impl::handle_transceiver_tciframeswritten);
           rig_connections_ << connect (rig.get (), &Transceiver::tci_mod_active, this, &Configuration::impl::handle_transceiver_tci_mod_active);
+          rig_connections_ << connect (rig.get (), &Transceiver::jtty_drained, self_, &Configuration::transceiver_jtty_drained);
+          rig_connections_ << connect (rig.get (), &Transceiver::jtty_enqueue_failed, self_, &Configuration::transceiver_jtty_enqueue_failed);
           rig_connections_ << connect (rig.get (), &Transceiver::update, this, &Configuration::impl::handle_transceiver_update);
           rig_connections_ << connect (rig.get (), &Transceiver::failure, this, &Configuration::impl::handle_transceiver_failure);
 
@@ -5244,11 +5259,14 @@ void Configuration::impl::transceiver_tune (bool on)
 }
 
 
-void Configuration::impl::transceiver_period (double period)
+void Configuration::impl::transceiver_period (double period, bool force)
 {
   cached_rig_state_.online (true); // we want the rig online
   set_cached_mode ();
-  if (cached_rig_state_.period() != period)
+  // force bypasses the de-dup so a caller can re-assert the period even when
+  // the cache already holds it but the rig never actually applied it (e.g. a
+  // period set that was emitted while the TCI rig was still offline).
+  if (force || cached_rig_state_.period() != period)
   {
 //    printf("%s(%0.1f) Configuration #:%d period: %0.1f cached: %0.1f\n",QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),transceiver_command_number_+1,period,cached_rig_state_.period());
     cached_rig_state_.period (period);
@@ -5348,6 +5366,16 @@ void Configuration::impl::transceiver_modulator_start (QString jtmode, unsigned 
     Q_EMIT set_transceiver (cached_rig_state_, ++transceiver_command_number_);
   }
 //  else printf("%s(%0.1f) Configuration modulator_start: WAS ALLREADY RUNNING\n",QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str());
+}
+
+void Configuration::impl::transceiver_enqueue_jtty_pcm (QByteArray const& samples, qint64 sessionId)
+{
+  Q_EMIT enqueue_jtty_pcm (samples, sessionId);
+}
+
+void Configuration::impl::transceiver_clear_jtty_pcm (qint64 sessionId)
+{
+  Q_EMIT clear_jtty_pcm (sessionId);
 }
 
 void Configuration::impl::transceiver_modulator_stop (bool on)

@@ -13,9 +13,9 @@ and 2016, respectively. Bill Somerville died unexpectedly in December
 afterward and worked with us until February 2026. Brian Moran, N9ADG,
 joined the team in 2022; John Nelson, G4KLA and Charlie Suckling,
 DL3WDG in 2024; Roger Rehr, W3SZ, in 2025; and Terrell Deppe, KJ5HST,
-in 2026. Over the years many other hams have contributed to _WSJT-X_
-development in more limited ways. We are extremely grateful for all of
-these contributions.
+and David Christle, KD0BTO, in 2026. Over the years many other hams
+have contributed to _WSJT-X_ development in more limited ways. We are
+extremely grateful for all of these contributions.
 
 _WSJT-X_ provides flexible rig control for nearly all modern radios
 used by amateurs and a wide variety of special aids such as automatic
@@ -24,17 +24,17 @@ testing.  The program analyzes received passbands up to 5 kHz wide and
 runs equally well on Windows, Macintosh, and Linux systems.
 
 *Version Numbers* for our programs have major, minor, and patch
-numbers separated by periods: for example, _WSJT-X 2.7.0. Temporary
+numbers separated by periods: for example, _WSJT-X 3.0.0_. Temporary
 release candidates are sometimes made in advance of a new
 general-availability (GA) release, in order to obtain user
 feedback. Release candidates are given version labels such as
-2.7.0-rc1, 2.7.0-rc2, etc., leading up to the general availability
-(GA) release of version 2.7.0. Release candidates should be used only
+3.0.0-rc1, 3.0.0-rc2, etc., leading up to the general availability
+(GA) release of version 3.0.0. Release candidates should be used only
 during a defined testing period, and they carry an implicit obligation
 to provide feedback to the program developers. Release candidates
 should not be used on the air after a GA release with the same number.
 
-*_MAP65_* and *_QMAP_* are companion programs written by K1JT to
+*_MAP65_* and *_QMAP_* are companion programs originally written by K1JT to
 facilitate Earth-Moon-Earth (EME, or "Moonbounce") communication with
 digital protocols developed for _WSJT_ and _WSJT-X_. When used with
 radio-frequency hardware providing coherent signal channels for two

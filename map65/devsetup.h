@@ -5,58 +5,21 @@
 #include "ui_devsetup.h"
 #include "commons.h"
 
+
+class MainWindow;
+
 class DevSetup : public QDialog
 {
   Q_OBJECT
 public:
-  DevSetup(QWidget *parent=0);
+    explicit DevSetup(MainWindow *parent = nullptr);
   ~DevSetup();
 
   void initDlg();
-  qint32  m_idInt;
-  qint32  m_pttPort;
-  qint32  m_nDevIn;
-  qint32  m_nDevOut;
-  qint32  m_inDevList[100];
-  qint32  m_outDevList[100];
-  qint32  m_paInDevice;
-  qint32  m_paOutDevice;
-  qint32  m_timeout;
-  qint32  m_dPhi;
-  qint32  m_fCal;
-  qint32  m_udpPort;
-  qint32  m_astroFont;
-  qint32  m_mult570;
-  qint32  m_mult570Tx;
-  qint32  m_dB;
-
-  double  m_fAdd;
-  double  m_cal570;
-  double  m_TxOffset;
-
-  bool    m_xpolx;
-  bool    m_network;
-  bool    m_fs96000;
-  bool    m_xpol;
-  bool    m_IQswap;
+  qint32  m_inDevList[1024];
+  qint32  m_outDevList[1024];
   bool    m_restartSoundIn;
   bool    m_restartSoundOut;
-  bool    m_initIQplus;
-  bool    m_bIQxt;
-
-  QString m_myCall;
-  QString m_myGrid;
-  QString m_saveDir;
-  QString m_azelDir;
-  QString m_dxccPfx;
-  QString m_colors;
-  QString m_editorCommand;
-
-  QColor  m_colorBackground;
-
-  QString m_otherUrl; //liveCQ
-  bool m_w3szUrl; //liveCQ
-  bool m_spot_to_psk_reporter; //PSKReporter
 
 public slots:
   void accept();
@@ -90,6 +53,7 @@ private slots:
   void on_sb_dB_valueChanged(int n);
 
 private:
+  MainWindow *mw;
   int r,g,b,r0,g0,b0,r1,g1,b1,r2,g2,b2,r3,g3,b3;
   Ui::DialogSndCard ui;
 };

@@ -497,9 +497,31 @@ bool WideGraph::useRef()                                              //Flatten
   return m_bRef;
 }
 
+void WideGraph::setReferenceSpectrumAvailable(bool available)
+{
+  if(!available) {
+    m_bRef=false;
+    ui->cbRef->setChecked(false);
+    ui->widePlot->setFlatten(m_bFlatten,m_bRef);
+  }
+  ui->cbRef->setEnabled(available);
+}
+
+void WideGraph::clearReferenceSpectrum(bool reference_spectrum_available)
+{
+  m_bRef=false;
+  ui->cbRef->setChecked(false);
+  ui->widePlot->setFlatten(m_bFlatten,m_bRef);
+  setReferenceSpectrumAvailable(reference_spectrum_available);
+  m_n=0;
+}
+
 void WideGraph::replot()
 {
-  if(ui->widePlot->scaleOK()) ui->widePlot->replot();
+  if(ui->widePlot->scaleOK()) {
+    ui->widePlot->replot();
+    ui->widePlot->draw(m_swide,false,false);
+  }
 }
 
 void WideGraph::on_gainSlider_valueChanged(int value)                 //Gain

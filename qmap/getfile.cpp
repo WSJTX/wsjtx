@@ -1,10 +1,10 @@
 #include "getfile.h"
 #include <QDir>
+#include <algorithm>
+#include <array>
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-
-extern qint16 id[2*60*96000];
 
 void getfile(QString fname, int dbDgrd)
 {
@@ -16,32 +16,30 @@ void getfile(QString fname, int dbDgrd)
   if(dbDgrd<0) dgrd = 23.0*sqrt(pow(10.0,-0.1*(double)dbDgrd) - 1.0);
   float fac=23.0/sqrt(dgrd*dgrd + 23.0*23.0);
 
-  memset(id,0,2*npts);
   char name[80];
   strcpy(name,fname.toLocal8Bit());
   FILE* fp=fopen(name,"rb");
 
   if(fp != NULL) {
     auto n = fread(&datcom_.fcenter,sizeof(datcom_.fcenter),1,fp);
-    n=fread(id,2,npts,fp);
+    std::array<qint16, 16384> samples;
+    int j=0;
+    while(j<npts) {
+      int want=std::min<int>(samples.size(),npts-j);
+      n=fread(samples.data(),2,want,fp);
+      for(size_t i=0; i<n; ++i) {
+        datcom_.d4[j++]=dbDgrd<0
+          ? fac*((float)samples[i] + dgrd*gran())
+          : (float)samples[i];
+      }
+      if(n<static_cast<size_t>(want)) break;
+    }
+    while(j<npts) datcom_.d4[j++]=0.0;
     n=fread(&datcom_.ntx30a,4,1,fp);
     n=fread(&datcom_.ntx30b,4,1,fp);
     if(n==0) {
       datcom_.ntx30a=0;
       datcom_.ntx30b=0;
-    }
-    int j=0;
-
-    if(dbDgrd<0) {
-      for(int i=0; i<npts; i+=2) {
-        datcom_.d4[j++]=fac*((float)id[i] + dgrd*gran());
-        datcom_.d4[j++]=fac*((float)id[i+1] + dgrd*gran());
-      }
-    } else {
-      for(int i=0; i<npts; i+=2) {
-        datcom_.d4[j++]=(float)id[i];
-        datcom_.d4[j++]=(float)id[i+1];
-      }
     }
     fclose(fp);
 

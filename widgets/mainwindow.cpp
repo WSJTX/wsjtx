@@ -63,6 +63,7 @@
 #include "Audio/soundin.h"
 #include "Modulator/Modulator.hpp"
 #include "Detector/Detector.hpp"
+#include "ActiveStationList.hpp"
 #include "plotter.h"
 #include "echograph.h"
 #include "fastplot.h"
@@ -109,12 +110,15 @@
 #include "Audio/WavFile.hpp"
 #include "WSJTXLogging.hpp"
 #include "Logger.hpp"
+#include "FoxGuardBands.hpp"
 #include "widgets/QSYMessage.h"
 #include "widgets/QSYMessageCreator.h"
 #include "widgets/qsymonitor.h"
 #include "Network/eqsl.h"
 
-
+namespace {
+  int const ReferenceSpectrumMeasureSeconds = 7;
+}
 
 #define FCL fortran_charlen_t
 
@@ -226,8 +230,6 @@ extern "C" {
 
   void save_dxbase_(char* dxbase, FCL len);
 
-  void indexx_(float arr[], int* n, int indx[]);
-
   void get_q3list_(char* fname, bool* bDiskData, int* nlist, char* list, FCL len1, FCL len2);
 
   void rm_q3list_(char* callsign, FCL len);
@@ -280,7 +282,6 @@ int mindBPoints=99;
 bool pounce = false;
 bool filtered = false;
 bool ignored = false;
-bool selected = false;
 bool keepTx5 = false;
 bool no_logging = false;
 bool BlankLineInserted = false;
@@ -375,6 +376,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_FFTSize {6192 / 2},         // conservative value to avoid buffer overruns
   m_soundInput {new SoundInput},
   m_modulator {new Modulator {TX_SAMPLE_RATE, NTMAX}},
+  m_jttyTxBuffer {new JttyTxBuffer},
+  m_jttyTxStream {new JttyTxStream {*m_jttyTxBuffer}},
   m_soundOutput {new SoundOutput},
   m_rx_audio_buffer_frames {0},
   m_tx_audio_buffer_frames {0},
@@ -499,6 +502,10 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_transmitting {false},
   m_tune {false},
   m_tx_watchdog {false},
+  m_jttyTxActive {false},
+  m_jttyTxUsesTciAudio {false},
+  m_jttyTxSessionId {0},
+  m_jttyQueuedSamples {0},
   m_block_pwr_tooltip {false},
   m_PwrBandSetOK {true},
   m_lastMonitoredFrequency {default_frequency},
@@ -552,6 +559,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   // their slots is done in a thread safe way
   m_soundOutput->moveToThread (&m_audioThread);
   m_modulator->moveToThread (&m_audioThread);
+  m_jttyTxStream->moveToThread (&m_audioThread);
   m_soundInput->moveToThread (&m_audioThread);
   m_detector->moveToThread (&m_audioThread);
   bool ok;
@@ -575,6 +583,12 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect (this, &MainWindow::sendMessage, m_modulator, &Modulator::start);
   connect (&m_audioThread, &QThread::finished, m_modulator, &QObject::deleteLater);
 
+  // hook up the JTTY async transmit stream slots and disposal
+  connect (this, &MainWindow::startJttyStream, m_jttyTxStream, &JttyTxStream::start);
+  connect (this, &MainWindow::endJttyStream, m_jttyTxStream, &JttyTxStream::stop);
+  connect (m_jttyTxStream, &JttyTxStream::drained, this, &MainWindow::onJttyBackendDrained);
+  connect (&m_audioThread, &QThread::finished, m_jttyTxStream, &QObject::deleteLater);
+
   // hook up the audio input stream signals, slots and disposal
   connect (this, &MainWindow::startAudioInputStream, m_soundInput, &SoundInput::start);
   connect (this, &MainWindow::suspendAudioInputStream, m_soundInput, &SoundInput::suspend);
@@ -597,6 +611,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect(m_wideGraph.data (), SIGNAL(freezeDecode2(int)),this,SLOT(freezeDecode(int)));
   connect(m_wideGraph.data (), SIGNAL(f11f12(int)),this,SLOT(bumpFqso(int)));
   connect(m_wideGraph.data (), SIGNAL(setXIT2(int)),this,SLOT(setXIT(int)));
+  m_wideGraph->setReferenceSpectrumAvailable(
+        QFile::exists(m_config.writeable_data_dir ().absoluteFilePath ("refspec.dat")));
 
   connect (m_fastGraph.data (), &FastGraph::fastPick, this, &MainWindow::fastPick);
 
@@ -921,6 +937,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect (&m_config, &Configuration::transceiver_update, this, &MainWindow::handle_transceiver_update);
   connect (&m_config, &Configuration::transceiver_TCIframesWritten, this, &MainWindow::dataSink);
   connect (&m_config, &Configuration::transceiver_TCImodActive, this, &MainWindow::tci_mod_active);
+  connect (&m_config, &Configuration::transceiver_jtty_drained, this, &MainWindow::onJttyBackendDrained);
+  connect (&m_config, &Configuration::transceiver_jtty_enqueue_failed, this, &MainWindow::onJttyBackendEnqueueFailed);
   connect (&m_config, &Configuration::transceiver_failure, this, &MainWindow::handle_transceiver_failure);
   connect (&m_config, &Configuration::udp_server_changed, m_messageClient, &MessageClient::set_server);
   connect (&m_config, &Configuration::udp_server_port_changed, m_messageClient, &MessageClient::set_server_port);
@@ -981,6 +999,12 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
   ptt1Timer.setSingleShot(true);
   connect(&ptt1Timer, &QTimer::timeout, this, &MainWindow::startTx2);
+
+  m_jttyTxWatchdog.setSingleShot(true);
+  connect(&m_jttyTxWatchdog, &QTimer::timeout, this, &MainWindow::handleJttyTxWatchdog);
+
+  m_refSpecTimer.setInterval(1000);
+  connect(&m_refSpecTimer, &QTimer::timeout, this, &MainWindow::updateReferenceSpectrumCountdown);
 
   p1Timer.setSingleShot(true);
   connect(&p1Timer, &QTimer::timeout, this, &MainWindow::startP1);
@@ -1087,6 +1111,9 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
       , "-e", QDir::toNativeSeparators (m_appDir)
       , "-a", QDir::toNativeSeparators (m_config.writeable_data_dir ().absolutePath ())
       , "-t", QDir::toNativeSeparators (m_config.temp_dir ().absolutePath ())
+      // -r: read-only shipped-data dir (cty.dat, ALLCALL7.TXT, ...) for the
+      // Fortran decoder; resolves to Contents/Resources/wsjtx on macOS.
+      , "-r", QDir::toNativeSeparators (m_config.data_dir ().absolutePath ())
       };
   QProcessEnvironment new_env {m_env};
   new_env.insert ("OMP_STACKSIZE", "10M");
@@ -1187,6 +1214,22 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
       ui->outAttenuation->setValue(0);
       ui->outAttenuation->setValue(attVal);
       Q_EMIT m_config.transceiver_volume(m_config.volume());
+      // set_mode() in the constructor emits transceiver_period() while the TCI
+      // rig is still offline, so TransceiverBase::set() skips do_period() and
+      // TCITransceiver's m_period stays at its 15.0 s default. For any mode
+      // whose TR period != 15 s (FT4, MSK144, Q65-15, FST4-15, ...) the
+      // modulator then computes against 15000 ms and readAudioData emits
+      // silence for the whole transmission (panadapter shows energy, no audio
+      // reaches the air). Re-emit the period here, now that TCI is connected.
+      // That same offline set_mode() also left m_TRperiod cached in
+      // Configuration even though the rig never applied it, so force=true
+      // bypasses Configuration's period de-dup and guarantees the resync
+      // regardless of TCI bring-up timing.
+      // OOB guard matches on_actionFT4_triggered() and the other mode handlers.
+      // Hardens public PR WSJTX/wsjtx#21 (Ramon Martinez, rampa069) for the
+      // Configuration de-dup cache.
+      if (ui->bandComboBox->currentText()!="OOB")
+        Q_EMIT m_config.transceiver_period(m_TRperiod, true);
     });
   }
 
@@ -1630,8 +1673,8 @@ void MainWindow::dataSink(qint64 frames)
   if(!m_diskData) {
     refspectrum_(&dec_data.d2[k-m_nsps/2],&m_bClearRefSpec,&m_bRefSpec,
                  &m_bUseRef, fname.constData (), (FCL)fname.size ());
+    m_bClearRefSpec=false;
   }
-  m_bClearRefSpec=false;
 
   if(m_mode=="MSK144" or m_bFast9) {
     fastSink(frames);
@@ -2138,15 +2181,14 @@ void MainWindow::fastSink(qint64 frames)
     // CQ: First for MSK144
     if(((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled())
         or (m_auto && m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " "))) && !ignored
-        && !filtered && !selected && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText()=="CQ: First"
+        && !filtered && !m_autoRespondSelectionLatch.isSelected() && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText()=="CQ: First"
         && (!(ui->actionFull_Duplex_Mode->isChecked() && m_txing))) {
                   m_bDoubleClicked=true;
-                  selected = true;
+                  m_autoRespondSelectionLatch.selectFor();
                   auto_tx_mode(true);
                   processMessage(decodedtext);
                   auto now = QDateTime::currentDateTimeUtc();
                   m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));
-                  QTimer::singleShot (6000, [=] {selected = false;});
                   if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));     // Tx max 6*TRperiod
     }
 
@@ -2444,34 +2486,8 @@ void MainWindow::fastSink(qint64 frames)
       if (m_config.highlight_DXgrid()) ui->decodedTextBrowser->highlight_callsign(m_hisGrid.left(4), QColor(0,0,200), QColor(255,255,255), true);
       if (m_config.alert_Enabled() && m_config.alert_DXcall() && !m_muted) play_DXcall = true;
     }
-    QTimer::singleShot (100, [=] {
-      if (m_config.alert_Enabled() && ((m_config.alert_DXcall() && play_DXcall && m_hisCall!="") or (m_config.alert_Wanted() && play_Wanted))) {
-#ifdef WIN32
-        QAudioOutput info(QAudioDeviceInfo::defaultOutputDevice());
-        QString audioPath = QCoreApplication::applicationDirPath() + "/sounds" + m_config.voicesPath() + "/";
-        QAudioFormat format;
-        format.setCodec("audio/pcm");
-        format.setSampleRate (48000);
-        format.setChannelCount (1);
-        format.setSampleSize (16);
-        format.setSampleType(QAudioFormat::SignedInt);
-        QAudioOutput* audio;
-        audio = new QAudioOutput(format, this);
-        connect(audio, SIGNAL(stateChanged(QAudio::State)), this, SLOT(handleStateChanged(QAudio::State)));
-        QFile *effect1 = new QFile(this);
-        if (m_config.alert_DXcall() && play_DXcall) effect1->setFileName(QString("%1/%2").arg(audioPath, "DXcall.wav"));
-        else if (m_config.alert_Wanted() && play_Wanted) effect1->setFileName(QString("%1/%2").arg(audioPath, "Wanted.wav"));
-        effect1->open(QIODevice::ReadOnly);
-        audio->start(effect1);
-#else
-        QString audioPath = QCoreApplication::applicationDirPath() + "/sounds" + m_config.voicesPath() + "/";
-        if (m_config.alert_DXcall() && play_DXcall) QSound::play(audioPath + "DXcall.wav");  // for Linux and macOS
-        else if (m_config.alert_DXcall() && play_Wanted) QSound::play(audioPath + "Wanted.wav");  // for Linux and macOS
-#endif
-        play_DXcall = false;
-        play_Wanted = false;
-      }
-    });
+    playDecodeAlertSound(play_Wanted, play_DXcall);
+    play_Wanted = play_DXcall = false;
 
     m_bDecoded=true;
     auto_sequence (decodedtext, ui->sbFtol->value (), std::numeric_limits<unsigned>::max ());
@@ -2858,9 +2874,7 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
   return;
     case Qt::Key_C:
     if(e->modifiers() & Qt::AltModifier) {
-        int n=ui->respondComboBox->currentIndex()+1;
-        if(n>2) n=0;
-        ui->respondComboBox->setCurrentIndex(n);
+        cycleRespondMode();
       }
     return;
     case Qt::Key_D:
@@ -2921,9 +2935,7 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
       }
     case Qt::Key_F6:
       if(bAltF1F6) {
-        int n=ui->respondComboBox->currentIndex()+1;
-        if(n>2) n=0;
-        ui->respondComboBox->setCurrentIndex(n);
+        cycleRespondMode();
       } else {
         if(e->modifiers() & Qt::ShiftModifier) {
           on_actionDecode_remaining_files_in_directory_triggered();
@@ -3079,16 +3091,6 @@ void MainWindow::handleVerifyMsg(int status, QDateTime ts, QString callsign, QSt
     }
   LOG_INFO(QString("FoxVerifier response for [%1]: - [%2]").arg(callsign).arg(response).toStdString());
 }
-
-QString MainWindow::userAgent() {
-  // see User-Agent format definition https://www.rfc-editor.org/rfc/rfc9110#name-user-agent
-  //
-  QString platform = "(" + QSysInfo::prettyProductName()+"; "+QSysInfo::productType() + " " + QSysInfo::productVersion() + "; " +
-                     QSysInfo::currentCpuArchitecture() + "; " +
-                     QString("rv:%1").arg(QSysInfo::kernelVersion()) + ")";
-  QString userAgent = QString{"WSJT-X/" + version() + "_" + m_revision}.simplified() + " " +platform;
-  return userAgent;
-  }
 
 void MainWindow::bumpFqso(int n)                                 //bumpFqso()
 {
@@ -3608,6 +3610,12 @@ void MainWindow::change_layout (std::size_t n)
       trim_view (!ui->cbMenus->isChecked ());
       break;
     }
+}
+
+void MainWindow::cycleRespondMode()
+{
+  ui->respondComboBox->setCurrentIndex (
+    next_cyclic_index (ui->respondComboBox->currentIndex (), ui->respondComboBox->count ()));
 }
 
 void MainWindow::on_actionSWL_Mode_triggered (bool checked)
@@ -4463,7 +4471,8 @@ void MainWindow::refreshPileupList()
                   &list[0], (FCL)fname.length(), (FCL)2000);
       QString t="";
       QString t0="";
-      for(int i=0; i<nlist; i++) {
+      std::fill(m_callers.begin(), m_callers.end(), QString {});
+      for(int i=0; i<qMin(nlist, MaxQ65PileupCallers); i++) {
         memcpy(line,&list[36*i],36);
         t0=QString::fromLatin1(line)+"\n";
         m_callers[i]=t0;
@@ -4555,7 +4564,7 @@ void MainWindow::callSandP2(int n)
   n=qAbs(n)-1;
   if(m_mode!="Q65" and m_ready2call[n]=="") return;
   QStringList w=m_ready2call[n].split(' ', SkipEmptyParts);
-  if(m_mode=="Q65" and m_specOp==SpecOp::Q65_PILEUP and n < 40) {
+  if(m_mode=="Q65" and m_specOp==SpecOp::Q65_PILEUP and n < MaxQ65PileupCallers) {
     // This code is for 6m EME DXpedition operator
     w=m_callers[n].split(' ', SkipEmptyParts);
     m_deCall=w[2];
@@ -4842,7 +4851,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
          if(bWorkedOnBand) activeWorked(deCall,m_currentBand);
         }
 
-        updateRespondTarget(decodedtext0, text, selected, pounce);
+        updateRespondTarget(decodedtext0, text, pounce);
 
         // Ensure that Tx stops and QSO is logged when repeat_Tx is enabled and "73" is received
         if(m_config.repeat_Tx() && m_mode=="Q65" && m_hisCall!="" && text.contains(m_baseCall) && text.contains(m_hisCall + " 73 ")) {
@@ -4850,34 +4859,8 @@ void MainWindow::readFromStdout()                             //readFromStdout
           cease_auto_Tx_after_QSO();
         }
 
-        QTimer::singleShot (100, [=] {
-          if (m_config.alert_Enabled() && ((m_config.alert_DXcall() && play_DXcall && m_hisCall!="") or (m_config.alert_Wanted() && play_Wanted))) {
-#ifdef WIN32
-            QAudioOutput info(QAudioDeviceInfo::defaultOutputDevice());
-            QString audioPath = QCoreApplication::applicationDirPath() + "/sounds" + m_config.voicesPath() + "/";
-            QAudioFormat format;
-            format.setCodec("audio/pcm");
-            format.setSampleRate (48000);
-            format.setChannelCount (1);
-            format.setSampleSize (16);
-            format.setSampleType(QAudioFormat::SignedInt);
-            QAudioOutput* audio;
-            audio = new QAudioOutput(format, this);
-            connect(audio, SIGNAL(stateChanged(QAudio::State)), this, SLOT(handleStateChanged(QAudio::State)));
-            QFile *effect1 = new QFile(this);
-            if (m_config.alert_DXcall() && play_DXcall) effect1->setFileName(QString("%1/%2").arg(audioPath, "DXcall.wav"));
-            else if (m_config.alert_Wanted() && play_Wanted) effect1->setFileName(QString("%1/%2").arg(audioPath, "Wanted.wav"));
-            effect1->open(QIODevice::ReadOnly);
-            audio->start(effect1);
-#else
-            QString audioPath = QCoreApplication::applicationDirPath() + "/sounds" + m_config.voicesPath() + "/";
-            if (m_config.alert_DXcall() && play_DXcall) QSound::play(audioPath + "DXcall.wav");  // for Linux and macOS
-            else if (m_config.alert_DXcall() && play_Wanted) QSound::play(audioPath + "Wanted.wav");  // for Linux and macOS
-#endif
-            play_DXcall = false;
-            play_Wanted = false;
-          }
-        });
+        playDecodeAlertSound(play_Wanted, play_DXcall);
+        play_Wanted = play_DXcall = false;
 
           if (m_bBestSPArmed && m_mode=="FT4" && CALLING == m_QSOProgress && !ignored && !filtered) {
             QString messagePriority=ui->decodedTextBrowser->CQPriority();
@@ -5231,7 +5214,7 @@ void MainWindow::pskPost (DecodedText const& decodedtext)
 //    qDebug() << "To PSKreporter:" << deCall << grid << frequency << msgmode << snr;
     if (!m_psk_Reporter.addRemoteStation (deCall, grid, frequency, msgmode, snr, qSpotTime))
       {
-        showStatusMessage (tr ("Spotting to PSK Reporter unavailable"));
+        showStatusMessage (tr ("PSK Reporter spot queue full; oldest spot dropped"));
       }
   }
 }
@@ -5360,40 +5343,27 @@ void MainWindow::guiUpdate()
     }
 
     if(m_mode=="FT8" and SpecOp::FOX==m_specOp) {
-// Don't allow Fox mode in any of the default FT8 sub-bands.
-      QVector<qint32> ft8Freq = {1840000,3573000,7074000,10136000,14074000,18100000,21074000,24915000,28074000,50313000,70154000};
-      for(int i=0; i<ft8Freq.length()-1; i++) {
-        int kHzdiff=m_freqNominal - ft8Freq[i];
-        if(qAbs(kHzdiff) < 3000 ) {
-          m_bTxTime=false;
-          if (m_auto) auto_tx_mode (false);
-          if (m_tune) stop_tuning();
-          auto const& message = tr ("Please choose another dial frequency.\n"
-                                    "Must be 3Khz away from %1.\n"
-                                    "WSJT-X will not operate in Fox mode\n"
-                                    "overlapping the standard FT8 sub-bands.").arg(ft8Freq[i]);
-          QTimer::singleShot (0, [=] {               // don't block guiUpdate
-            MessageBox::warning_message (this, tr ("Fox Mode warning"), message);
-          });
-          break;
+      auto const guard = FoxGuardBands::check (m_freqNominal);
+      if (guard.blocked) {
+        m_bTxTime=false;
+        if (m_auto) auto_tx_mode (false);
+        if (m_tune) stop_tuning();
+
+        QString message;
+        if (guard.kind == FoxGuardBands::GuardKind::StandardFT8) {
+          message = tr ("Please choose another dial frequency.\n"
+                        "Must be 3Khz away from %1.\n"
+                        "WSJT-X will not operate in Fox mode\n"
+                        "overlapping the standard FT8 sub-bands.").arg (guard.guard_frequency);
+        } else {
+          message = tr ("Please choose another dial frequency.\n"
+                        "WSJT-X will not operate in Fox mode\n"
+                        "overlapping the WSPR sub-bands.");
         }
-      }
-// Don't allow Fox mode on WSPR frequencies.
-      QVector<qint32> wsprFreq = {1836600,5364700,3568600,7038600,10138700,14095600,18104600,21094600,24924600,28124600};
-      for(int i=0; i<wsprFreq.length()-1; i++) {
-        int kHzdiff=m_freqNominal - wsprFreq[i];
-        if(kHzdiff > -3500 && kHzdiff < 300) {
-          m_bTxTime=false;
-          if (m_auto) auto_tx_mode (false);
-          if (m_tune) stop_tuning();
-          auto const& message = tr ("Please choose another dial frequency.\n"
-                                    "WSJT-X will not operate in Fox mode\n"
-                                    "overlapping the WSPR sub-bands.").arg(ft8Freq[i]);
-          QTimer::singleShot (0, [=] {               // don't block guiUpdate
-            MessageBox::warning_message (this, tr ("Fox Mode warning"), message);
-          });
-          break;
-        }
+
+        QTimer::singleShot (0, [=] {               // don't block guiUpdate
+          MessageBox::warning_message (this, tr ("Fox Mode warning"), message);
+        });
       }
     }
 
@@ -6135,7 +6105,9 @@ void MainWindow::useNextCall()
 void MainWindow::startTx2()
 {
   bool modulator_active;
-  bool tci_active = m_tci_audio;
+  bool const tci_active = (m_mode == "JTTY" && m_jttyTxActive)
+      ? m_jttyTxUsesTciAudio
+      : m_tci_audio;
   if (tci_active) modulator_active=m_tci_mod_active;
   else modulator_active=m_modulator->isActive ();
   if (!modulator_active) { // TODO - not thread safe
@@ -6172,8 +6144,17 @@ void MainWindow::startTx2()
 
 void MainWindow::stopTx()
 {
-  if (m_tci_audio) Q_EMIT m_config.transceiver_modulator_stop();
+  bool const tciAudio = (m_mode == "JTTY" && m_transmitting)
+      ? m_jttyTxUsesTciAudio
+      : m_tci_audio;
+  if (m_mode == "JTTY" && m_jttyTxActive) {
+    interruptJttyTx();
+  }
+  if (tciAudio) Q_EMIT m_config.transceiver_modulator_stop();
   else Q_EMIT endTransmitMessage ();
+  if (m_mode == "JTTY" && !tciAudio) {
+    Q_EMIT endJttyStream ();
+  }
   m_btxok = false;
   m_transmitting = false;
   g_iptt=0;
@@ -6181,10 +6162,11 @@ void MainWindow::stopTx()
     tx_status_label.setStyleSheet("");
     tx_status_label.setText("");
   }
-  if (m_tci_audio) {
+  if (tciAudio) {
     ptt0Timer.start(0);
   } else {
-    ptt0Timer.start(200);                //end-of-transmission sequencer delay
+    int const stopTxDelayMs = m_mode == "JTTY" ? 0 : 200;
+    ptt0Timer.start(stopTxDelayMs);
     monitor (true);
     statusUpdate ();
   }
@@ -6192,7 +6174,8 @@ void MainWindow::stopTx()
 
 void MainWindow::stopTx2()
 {
-  if (m_tci_audio) {
+  bool const tciAudio = (m_mode == "JTTY") ? m_jttyTxUsesTciAudio : m_tci_audio;
+  if (tciAudio) {
       Q_EMIT m_config.transceiver_ptt (false);      //Lower PTT
       monitor (true);
       statusUpdate ();
@@ -7855,7 +7838,7 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
       // Testing the default audio device
 #ifdef WIN32
       QAudioOutput info(QAudioDeviceInfo::defaultOutputDevice());
-      QString audioPath = QCoreApplication::applicationDirPath() + "/sounds" + m_config.voicesPath() + "/";
+      QString audioPath = app_sounds_directory (m_config.voicesPath());
       QAudioFormat format;
       format.setCodec("audio/pcm");
       format.setSampleRate (48000);
@@ -7869,7 +7852,7 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
       effect->open(QIODevice::ReadOnly);
       audio->start(effect);
 #else
-      QString audioPath = QCoreApplication::applicationDirPath() + "/sounds" + m_config.voicesPath() + "/";
+      QString audioPath = app_sounds_directory (m_config.voicesPath());
       QSound::play(audioPath + "Testing_long.wav");  // for Linux and macOS
 #endif
     }
@@ -9945,13 +9928,11 @@ void MainWindow::transmit (double snr)
     m_dateTimeSentTx3=QDateTime::currentDateTimeUtc();
     toneSpacing=-2.0;                     //Transmit a pre-computed, filtered waveform.
     double txt=m_nsym_jtty*384.0/12000.0;
-    if (m_tci_audio) {
+    if (m_jttyTxUsesTciAudio) {
       Q_EMIT m_config.transceiver_modulator_start(m_mode, m_nsym_jtty,
              384.0,1500.0,toneSpacing,false,false,snr,txt);
     } else {
-      Q_EMIT sendMessage (m_mode, m_nsym_jtty,
-             384.0,1500.0,toneSpacing, m_soundOutput, m_config.audio_output_channel(),
-             false, false, snr, txt);
+      Q_EMIT startJttyStream (m_soundOutput, m_config.audio_output_channel(), m_jttyTxSessionId);
     }
   }
 
@@ -11108,6 +11089,52 @@ void MainWindow::on_actionMeasure_reference_spectrum_triggered()
 {
   if(!m_monitoring) on_monitorButton_clicked (true);
   m_bRefSpec=true;
+  m_refSpecSecondsRemaining=ReferenceSpectrumMeasureSeconds;
+  statusBar()->showMessage(tr("Measuring reference spectrum: %1 s remaining")
+                           .arg(m_refSpecSecondsRemaining));
+  m_refSpecTimer.start();
+}
+
+void MainWindow::finishReferenceSpectrumMeasurement(bool notify)
+{
+  if(!m_bRefSpec) return;
+
+  m_refSpecTimer.stop();
+  m_refSpecSecondsRemaining=0;
+  bool const refspec_available {
+    QFile::exists(m_config.writeable_data_dir ().absoluteFilePath ("refspec.dat"))};
+  m_wideGraph->setReferenceSpectrumAvailable(refspec_available);
+  m_bRefSpec=false;
+
+  QString const message {
+    refspec_available
+      ? (notify
+          ? tr("Reference spectrum measurement stopped; Ref Spec is available")
+          : tr("Reference spectrum saved; Ref Spec is available"))
+      : tr("Reference spectrum measurement stopped; no reference spectrum is available")};
+  statusBar()->showMessage(message, 5000);
+
+  if(notify) {
+    MessageBox::information_message (this, message);
+  }
+}
+
+void MainWindow::updateReferenceSpectrumCountdown()
+{
+  if(!m_bRefSpec) {
+    m_refSpecTimer.stop();
+    m_refSpecSecondsRemaining=0;
+    return;
+  }
+
+  --m_refSpecSecondsRemaining;
+  if(m_refSpecSecondsRemaining <= 0) {
+    finishReferenceSpectrumMeasurement(false);
+    return;
+  }
+
+  statusBar()->showMessage(tr("Measuring reference spectrum: %1 s remaining")
+                           .arg(m_refSpecSecondsRemaining));
 }
 
 void MainWindow::on_actionMeasure_phase_response_triggered()
@@ -11123,6 +11150,16 @@ void MainWindow::on_actionMeasure_phase_response_triggered()
 
 void MainWindow::on_actionErase_reference_spectrum_triggered()
 {
+  QFile refspec_file {m_config.writeable_data_dir ().absoluteFilePath ("refspec.dat")};
+  bool refspec_available {false};
+  if (refspec_file.exists () and !refspec_file.remove ()) {
+    refspec_available = refspec_file.exists ();
+    MessageBox::warning_message (this, tr ("File Error"),
+                                 tr ("Cannot remove \"%1\": %2")
+                                 .arg (refspec_file.fileName (), refspec_file.errorString ()));
+  }
+  if (m_wideGraph) m_wideGraph->clearReferenceSpectrum (refspec_available);
+  m_bUseRef=false;
   m_bClearRefSpec=true;
 }
 
@@ -11383,7 +11420,7 @@ void MainWindow::readWidebandDecodes()
       if(!bFromDisk and (m_EMECall[dxcall].grid4.contains(MainWindow::grid_regexp)  or bCQ)) {
         qDebug() << "To PSKreporter:" << dxcall << m_EMECall[dxcall].grid4 << frequency << m_mode << nsnr;
         if (!m_psk_Reporter.addRemoteStation (dxcall, m_EMECall[dxcall].grid4, frequency, m_mode, nsnr, qSpotTime)) {
-          showStatusMessage (tr ("Spotting to PSK Reporter unavailable"));
+          showStatusMessage (tr ("PSK Reporter spot queue full; oldest spot dropped"));
         }
       }
     }
@@ -11393,19 +11430,17 @@ void MainWindow::readWidebandDecodes()
     m_psk_Reporter.sendReport();                // Upload any queued spots
   }
 
-// Update "m_wEMECall" by reading qmap_decodes.txt
+// Displayed row numbers index m_ready2call, so the rendered QMAP list must
+// stay within the same capacity as its click-target storage.
   QMap<QString,EMECall>::iterator i;
   QString t="";
   QString t1;
   QString dxcall;
   QString dxgrid4;
-  QStringList list;
-  float f[100];
-  int indx[100];
+  QVector<ActiveStationListItem> rows;
   int maxAge=m_ActiveStationsWidget->maxAge();
 
   m_ActiveStationsWidget->setClickOK(false);
-  int k=0;
 
   for(i=m_EMECall.begin(); i!=m_EMECall.end(); i++) {
     bool bSkip=false;
@@ -11428,23 +11463,20 @@ void MainWindow::readWidebandDecodes()
         t1=t1.asprintf("%7.3f %5.1f  %+03d  %3s  %8s %4s %3d %3d %2s\n",i->frx,i->fsked,snr,
                        submode.toLatin1().constData(),dxcall.toLatin1().constData(),
                        dxgrid4.toLatin1().constData(),odd,age,c2);
-        f[k]=i->fsked;
-        list.append(t1);
-        k++;
+        rows.append({float(i->fsked), t1});
       }
       m_ActiveStationsWidget->setClickOK(true);
     }
   }
 
-  if(k>0) {
+  std::fill(m_ready2call.begin(), m_ready2call.end(), QString {});
+  rows=sorted_limited_active_station_items(rows, MaxActiveStationRows, false);
+  if(!rows.isEmpty()) {
     t1="";
-    int kz=k;
-    indexx_(f,&kz,indx);
-    for(int k=0; k<kz; k++) {
-      int j=indx[k]-1;
+    for(int k=0; k<rows.size(); k++) {
       t1=t1.asprintf("%2d. ",k+1);
-      t1+=list[j];
-      m_ready2call[k]=list[j];
+      t1+=rows[k].text;
+      m_ready2call[k]=rows[k].text;
       t+=t1;
     }
   }
@@ -13550,7 +13582,11 @@ void MainWindow::on_actionErase_Ignore_List_triggered()
 
 void MainWindow::read_ALLCALL7()
 {
-  static QFile AllCall7File {"ALLCALL7.TXT"};
+  // Read the shipped read-only ALLCALL7.TXT from the data dir where it installs
+  // (Contents/Resources/wsjtx on macOS, share/wsjtx on Linux/Windows), mirroring
+  // the JPLEPH idiom (m_config.data_dir()). The function-local static is built on
+  // the first call, after Configuration is constructed, so m_config is valid.
+  static QFile AllCall7File {m_config.data_dir ().absoluteFilePath ("ALLCALL7.TXT")};
   QTextStream AllCall7Stream(&AllCall7File);
   if(AllCall7File.open(QIODevice::ReadOnly | QIODevice::Text)) {
     while (!AllCall7Stream.atEnd()) {
@@ -13586,7 +13622,6 @@ void MainWindow::alertQSYmessage ()
 {
 #ifdef WIN32
   QAudioOutput info(QAudioDeviceInfo::defaultOutputDevice());
-  QString binPath = QCoreApplication::applicationDirPath();
   QAudioFormat format;
   format.setCodec("audio/pcm");
   format.setSampleRate (48000);
@@ -13597,12 +13632,11 @@ void MainWindow::alertQSYmessage ()
   audio = new QAudioOutput(format, this);
   connect(audio, SIGNAL(stateChanged(QAudio::State)), this, SLOT(handleStateChanged(QAudio::State)));
   QFile *effect1 = new QFile(this);
-  effect1->setFileName(QString("%1/%2").arg(binPath, "/sounds/Message.wav"));
+  effect1->setFileName(app_sounds_directory () + "Message.wav");
   effect1->open(QIODevice::ReadOnly);
   audio->start(effect1);
 #else
-  QString binPath = QCoreApplication::applicationDirPath();
-  QSound::play(binPath + "/sounds/Message.wav");  // for Linux and macOS
+  QSound::play(app_sounds_directory () + "Message.wav");  // for Linux and macOS
 #endif
 }
 
@@ -13773,7 +13807,7 @@ void MainWindow::processSFoxVerification(const DecodedText& decodedtext0, bool& 
                                            QTime::fromString(decodedtext0.left(6), "hhmmss"));
               }
               if (otp != QLatin1String("000000")) {
-                FoxVerifier *fv = new FoxVerifier(MainWindow::userAgent(),
+                FoxVerifier *fv = new FoxVerifier(http_user_agent (),
                                                   &m_network_manager,
                                                   m_config.OTPUrl(),
                                                   callsign,
@@ -14168,20 +14202,67 @@ void MainWindow::applyHighlighting(const DecodedText& decodedtext, bool& play_Wa
   }
 }
 
-void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QString& text, bool& lselected, bool pounce)
+void MainWindow::playDecodeAlertSound(bool play_Wanted, bool play_DXcall)
+{
+  QTimer::singleShot (100, this, [this, play_Wanted, play_DXcall] {
+    auto const sound = selectDecodeAlertSound(m_config.alert_Enabled(), m_config.alert_DXcall(), m_config.alert_Wanted(),
+                                              play_Wanted, play_DXcall, !m_hisCall.isEmpty());
+    playDecodeAlertSound(sound);
+  });
+}
+
+void MainWindow::playDecodeAlertSound(DecodeAlertSound sound)
+{
+  if (sound == DecodeAlertSound::None) return;
+
+#ifdef WIN32
+  QAudioOutput info(QAudioDeviceInfo::defaultOutputDevice());
+  QString audioPath = app_sounds_directory (m_config.voicesPath());
+  QAudioFormat format;
+  format.setCodec("audio/pcm");
+  format.setSampleRate (48000);
+  format.setChannelCount (1);
+  format.setSampleSize (16);
+  format.setSampleType(QAudioFormat::SignedInt);
+  QAudioOutput* audio;
+  audio = new QAudioOutput(format, this);
+  connect(audio, SIGNAL(stateChanged(QAudio::State)), this, SLOT(handleStateChanged(QAudio::State)));
+  QFile *effect1 = new QFile(this);
+  if (sound == DecodeAlertSound::DXcall) effect1->setFileName(QString("%1/%2").arg(audioPath, "DXcall.wav"));
+  else if (sound == DecodeAlertSound::Wanted) effect1->setFileName(QString("%1/%2").arg(audioPath, "Wanted.wav"));
+  effect1->open(QIODevice::ReadOnly);
+  audio->start(effect1);
+#else
+  QString audioPath = app_sounds_directory (m_config.voicesPath());
+  if (sound == DecodeAlertSound::DXcall) QSound::play(audioPath + "DXcall.wav");  // for Linux and macOS
+  else if (sound == DecodeAlertSound::Wanted) QSound::play(audioPath + "Wanted.wav");  // for Linux and macOS
+#endif
+}
+
+MainWindow::DecodeAlertSound MainWindow::selectDecodeAlertSound(bool alertsEnabled, bool dxCallAlertEnabled,
+                                                                bool wantedAlertEnabled, bool play_Wanted,
+                                                                bool play_DXcall, bool hasDXCall)
+{
+  if (!alertsEnabled) return DecodeAlertSound::None;
+  if (dxCallAlertEnabled && play_DXcall && hasDXCall) return DecodeAlertSound::DXcall;
+  if (wantedAlertEnabled && play_Wanted) return DecodeAlertSound::Wanted;
+  return DecodeAlertSound::None;
+}
+
+void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QString& text, bool pounce)
 {
   extern int Dpoints,maxDPoints,dBpoints,dBpoints2,mindBPoints,maxdBPoints;
   if(((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled())
         or (m_auto && m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " "))) && !ignored
-      && !filtered && !lselected && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText()=="CQ: First"
+      && !filtered && !m_autoRespondSelectionLatch.isSelected() && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText()=="CQ: First"
       && (!(ui->actionFull_Duplex_Mode->isChecked() && m_txing))) {
     m_bDoubleClicked=true;
-    lselected = true;
+    // CQ: First suppresses additional picks briefly, then reopens for the next decode window.
+    m_autoRespondSelectionLatch.selectFor();
     auto_tx_mode(true);
     processMessage(decodedtext);
     auto now = QDateTime::currentDateTimeUtc();
     m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));
-    QTimer::singleShot (6000, [=] () mutable {lselected = false;});
     if (pounce) stopWCTimer.start(int(6200.0*m_TRperiod));
   }
 
@@ -14217,7 +14298,6 @@ void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QStri
           m_currentMessageType=m_ntx;
           auto now = QDateTime::currentDateTimeUtc();
           m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));
-          QTimer::singleShot (6000, [=] () mutable {lselected = false;});
       }
     }
   }
@@ -14249,7 +14329,6 @@ void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QStri
                 m_currentMessageType=m_ntx;
                 auto now = QDateTime::currentDateTimeUtc();
                 m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));
-                QTimer::singleShot (6000, [=] {selected = false;});
             }
     }
   }
@@ -14281,7 +14360,6 @@ void MainWindow::updateRespondTarget(const DecodedText& decodedtext, const QStri
                 m_currentMessageType=m_ntx;
                 auto now = QDateTime::currentDateTimeUtc();
                 m_dateTimeQSOOn = now.addSecs (-(m_ntx - 1) * int(m_TRperiod) - int(fmod(double(now.time().second()),m_TRperiod)));
-                QTimer::singleShot (6000, [=] {selected = false;});
             }
     }
   }

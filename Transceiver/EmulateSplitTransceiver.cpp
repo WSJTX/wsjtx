@@ -54,8 +54,14 @@ void EmulateSplitTransceiver::handle_update (TransceiverState const& state,
   else
     {
       TransceiverState new_state {state};
-      // Follow the rig if in RX mode.
-      if (state.ptt ()) new_state.frequency (rx_frequency_);
+      // Fake split QSYs the rig to the TX dial before the PTT echo may
+      // arrive. Keep that transient from being adopted as the RX dial.
+      if (state.ptt () || (split_ && tx_frequency_
+                           && state.frequency () == tx_frequency_
+                           && state.frequency () != rx_frequency_))
+        {
+          new_state.frequency (rx_frequency_);
+        }
 
       // These are always what was requested in prior set state operation
       new_state.tx_frequency (tx_frequency_);

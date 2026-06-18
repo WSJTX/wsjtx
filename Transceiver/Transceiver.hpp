@@ -7,6 +7,7 @@
 #include <boost/log/sources/severity_channel_logger.hpp>
 
 #include <QObject>
+#include <QByteArray>
 
 #include "qt_helpers.hpp"
 #include "Radio.hpp"
@@ -226,6 +227,8 @@ public:
   // Connect and disconnect.
   Q_SLOT virtual void start (unsigned sequence_number) noexcept = 0;
   Q_SLOT virtual void stop () noexcept = 0;
+  Q_SLOT virtual void enqueue_jtty_pcm (QByteArray const&, qint64) noexcept {}
+  Q_SLOT virtual void clear_jtty_pcm (qint64) noexcept {}
 
   //
   // asynchronous status updates
@@ -243,6 +246,9 @@ public:
 
   // rig audio data transfer  w3sz tci
   Q_SIGNAL void tci_mod_active (bool);
+
+  Q_SIGNAL void jtty_drained (qint64 sessionId, qint64 totalAtDrain);
+  Q_SIGNAL void jtty_enqueue_failed (qint64 sessionId);
 
   // rig state changed
   Q_SIGNAL void update (Transceiver::TransceiverState const&,

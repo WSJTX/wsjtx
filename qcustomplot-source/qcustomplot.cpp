@@ -20872,11 +20872,9 @@ void QCPGraph::getOptimizedScatterData(QVector<QCPGraphData> *scatterData, QCPGr
 */
 void QCPGraph::getVisibleDataBounds(QCPGraphDataContainer::const_iterator &begin, QCPGraphDataContainer::const_iterator &end, const QCPDataRange &rangeRestriction) const
 {
-  if (rangeRestriction.isEmpty())
-  {
-    end = mDataContainer->constEnd();
-    begin = end;
-  } else
+  end = mDataContainer->constEnd();
+  begin = end;
+  if (!rangeRestriction.isEmpty())
   {
     QCPAxis *keyAxis = mKeyAxis.data();
     QCPAxis *valueAxis = mValueAxis.data();
@@ -29785,5 +29783,4 @@ QPen QCPItemBracket::mainPen() const
     return mSelected ? mSelectedPen : mPen;
 }
 /* end of 'src/items/item-bracket.cpp' */
-
 

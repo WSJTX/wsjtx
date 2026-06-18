@@ -30,6 +30,7 @@
 #include <QFuture>
 #include <QFutureWatcher>
 #include <QDateTime>
+#include <array>
 
 #include "MultiGeometryWidget.hpp"
 #include "NonInheritingProcess.hpp"
@@ -53,6 +54,7 @@
 #include "widgets/qsymonitor.h"
 #include "MessageBox.hpp"
 #include "Network/NetworkAccessManager.hpp"
+#include "AutoRespondSelectionLatch.hpp"
 
 #define NUM_JT4_SYMBOLS 206                //(72+31)*2, embedded sync
 #define NUM_JT65_SYMBOLS 126               //63 data + 63 sync
@@ -111,7 +113,8 @@ class EqualizationToolsDialog;
 class DecodedText;
 class Cloudlog;
 
-#include "JttyTxQueue.hpp"
+#include "Modulator/JttyTxBuffer.hpp"
+#include "Modulator/JttyTxStream.hpp"
 
 #ifdef WIN32
 class MMTTYIF;
@@ -170,6 +173,10 @@ public slots:
   void skedFreq(double sf);
 
 private:
+  static constexpr int MaxActiveStationRows = 50;
+  // Keep this matched with MAX_CALLERS in the Q65 q3list Fortran helpers.
+  static constexpr int MaxQ65PileupCallers = 50;
+
   void change_layout (std::size_t) override;
   void keyPressEvent (QKeyEvent *) override;
   void closeEvent(QCloseEvent *) override;
@@ -505,6 +512,8 @@ private slots:
 #endif
 
 private:
+  enum class DecodeAlertSound { None, DXcall, Wanted };
+
   bool isFalseDecode(const QByteArray& line, const DecodedText& dt, const QString& msg0) const;
   void parseAveragingInfo(const QByteArray& line, bool& bAvgMsg, int& navg) const;
   void applyExperimentalFT8Filter(const DecodedText& dt, bool& filtered);
@@ -515,7 +524,12 @@ private:
   void processWaitAndCall(const DecodedText& dt, const QString& text, bool& block_right_display);
   bool applyFiltering(const DecodedText& dt, const QString& text, bool& filtered);
   void applyHighlighting(const DecodedText& dt, bool& play_Wanted, bool& play_DXcall);
-  void updateRespondTarget(const DecodedText& dt, const QString& text, bool& lselected, bool pounce);
+  void cycleRespondMode();
+  static DecodeAlertSound selectDecodeAlertSound(bool alertsEnabled, bool dxCallAlertEnabled, bool wantedAlertEnabled,
+                                                 bool play_Wanted, bool play_DXcall, bool hasDXCall);
+  void playDecodeAlertSound(bool play_Wanted, bool play_DXcall);
+  void playDecodeAlertSound(DecodeAlertSound sound);
+  void updateRespondTarget(const DecodedText& dt, const QString& text, bool pounce);
   void displayDecodedTextLine(const DecodedText& dt, const QByteArray& line_read, const QString& distance, bool haveFSpread, float fSpread, bool bDisplayPoints);
   QString calculateDistanceAndBearing(const DecodedText& dt);
   void processSuperHoundVerification(const DecodedText& dt, bool& verified);
@@ -543,6 +557,8 @@ private:
       SoundOutput *, AudioDevice::Channel = AudioDevice::Mono,
       bool synchronize = true, bool fastMode = false, double dBSNR = 99.,
                              int TRperiod=60) const;
+  Q_SIGNAL void startJttyStream (SoundOutput *, AudioDevice::Channel, qint64 sessionId);
+  Q_SIGNAL void endJttyStream () const;
   Q_SIGNAL void outAttenuationChanged (qreal) const;
   Q_SIGNAL void toggleShorthand () const;
   Q_SIGNAL void reset_audio_input_stream (bool report_dropped_frames) const;
@@ -562,8 +578,13 @@ private:
   void sfox_tx();
   void jtty_tx(QString message);
   void execute_jtty_tx(QString message);
-  void stopJttyTxIfEmpty();
   void abort_jtty_tx();
+  void interruptJttyTx();
+  void onJttyBackendDrained(qint64 sessionId, qint64 totalAtDrain);
+  void onJttyBackendEnqueueFailed(qint64 sessionId);
+  void handleJttyTxWatchdog();
+  void resetJttyTxState();
+  void startJttyTxWatchdog(int durationMs);
   void jtty_save_wav();
   bool jtty_key_struck(QKeyEvent * e);
   void jtty_decode(int k);
@@ -595,8 +616,6 @@ private:
 #ifdef WIN32
   MMTTYIF * m_mmttyif {nullptr};
 #endif
-
-  JttyTxQueue * m_jttyQueue {nullptr};
 
   Configuration m_config;
   LogBook m_logBook;            // must be after Configuration construction
@@ -635,6 +654,8 @@ private:
   unsigned m_FFTSize;
   SoundInput * m_soundInput;
   Modulator * m_modulator;
+  QScopedPointer<JttyTxBuffer> m_jttyTxBuffer;
+  JttyTxStream * m_jttyTxStream;
   SoundOutput * m_soundOutput;
   int m_rx_audio_buffer_frames;
   int m_tx_audio_buffer_frames;
@@ -906,6 +927,10 @@ private:
   QTimer minuteTimer;
   QTimer splashTimer;
   QTimer p1Timer;
+  QTimer m_jttyTxWatchdog;
+  QTimer m_refSpecTimer;
+  AutoRespondSelectionLatch m_autoRespondSelectionLatch;
+  int m_refSpecSecondsRemaining = 0;
 
   QString m_path;
   QString m_baseCall;
@@ -945,8 +970,8 @@ private:
   QString m_deGrid;
   QString m_freeTextMsg;
   QString m_freeTextMsg0;
-  QString m_ready2call[50];
-  QString m_callers[50];
+  std::array<QString, MaxActiveStationRows> m_ready2call;
+  std::array<QString, MaxQ65PileupCallers> m_callers;
 
   QSet<QString> m_pfx;
   QSet<QString> m_sfx;
@@ -1040,6 +1065,10 @@ private:
   bool m_transmitting;
   bool m_tune;
   bool m_tx_watchdog;           // true when watchdog triggered
+  bool m_jttyTxActive;
+  bool m_jttyTxUsesTciAudio;
+  qint64 m_jttyTxSessionId;
+  qint64 m_jttyQueuedSamples;
   bool m_block_pwr_tooltip;
   bool m_PwrBandSetOK;
   bool m_bDisplayedOnce;
@@ -1074,6 +1103,8 @@ private:
   void stub();
   void statusChanged();
   void fixStop();
+  void finishReferenceSpectrumMeasurement(bool notify);
+  void updateReferenceSpectrumCountdown();
   bool shortList(QString callsign) const;
   void transmit (double snr = 99.);
   void rigFailure (QString const& reason);
@@ -1140,7 +1171,6 @@ private:
   void activeWorked(QString call, QString band);
   void read_log();
   void refreshPileupList();
-  QString userAgent();
   void handleVerifyMsg(int status, QDateTime ts, QString callsign, QString code, unsigned int hz, QString const &response);
   void writeFoxTxMsgs();
 #ifdef FOX_OTP

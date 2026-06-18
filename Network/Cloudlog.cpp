@@ -26,6 +26,7 @@
 #include "moc_Cloudlog.cpp"
 
 #include "Configuration.hpp"
+#include "revision_utils.hpp"
 
 namespace
 {
@@ -63,6 +64,7 @@ public:
 
     QNetworkRequest request(u);
     request.setHeader(QNetworkRequest::ContentTypeHeader, QVariant("application/json"));
+    request.setRawHeader ("User-Agent", http_user_agent ().toUtf8 ());
     reply_ = network_manager_->post(request, data);
     connect (reply_.data (), &QNetworkReply::finished, this, &Cloudlog::impl::reply_logqso);
 
@@ -89,7 +91,7 @@ public:
     }
 
     QNetworkRequest request {apiUrl+"/index.php/api/auth/"+apiKey};
-    request.setRawHeader ("User-Agent", "WSJT-X Cloudlog API");
+    request.setRawHeader ("User-Agent", http_user_agent ().toUtf8 ());
     request.setOriginatingObject (this);
     reply_ = network_manager_->get (request);
     connect (reply_.data (), &QNetworkReply::finished, this, &Cloudlog::impl::reply_apitest);

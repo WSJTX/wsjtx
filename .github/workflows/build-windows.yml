@@ -12,6 +12,60 @@ on:
         required: false
         type: string
         default: "4.7.0"
+      recache:
+        description: "Force ccache to recompile and refresh cached objects"
+        required: false
+        type: boolean
+        default: false
+      release_channel:
+        description: "Build release channel: DEVEL, RC, or GA"
+        required: false
+        type: string
+        default: "DEVEL"
+      rc_number:
+        description: "Release candidate number when release_channel is RC"
+        required: false
+        type: string
+        default: ""
+  # Also runnable on its own ("Run workflow" / gh workflow run) to build just
+  # the Windows installer, at ~1/6 the cost of the full ci.yml matrix. GitHub
+  # only exposes workflow_dispatch when the trigger is present on the default
+  # branch, so this must be merged to develop before it can be dispatched.
+  # Inputs mirror workflow_call with standalone defaults: hamlib_branch matches
+  # what ci.yml / release.yml actually pass (4.7.1, not the workflow_call legacy
+  # default), and version defaults to a clearly-marked devel string -- overridable
+  # via `-f version=...` -- so a manual build is never mistaken for a release.
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "WSJT-X version string (installer filename + artifact names)"
+        required: false
+        type: string
+        default: "3.2.0-devel"
+      hamlib_branch:
+        description: "Hamlib branch to build"
+        required: false
+        type: string
+        default: "4.7.1"
+      recache:
+        description: "Force ccache to recompile and refresh cached objects"
+        required: false
+        type: boolean
+        default: false
+      release_channel:
+        description: "Build release channel"
+        required: false
+        type: choice
+        options:
+          - DEVEL
+          - RC
+          - GA
+        default: "DEVEL"
+      rc_number:
+        description: "Release candidate number when release_channel is RC"
+        required: false
+        type: string
+        default: ""
 
 jobs:
   build:
@@ -42,6 +96,7 @@ jobs:
             git make tar
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-gcc-fortran
+            mingw-w64-x86_64-ccache
             mingw-w64-x86_64-cmake
             mingw-w64-x86_64-qt5-base
             mingw-w64-x86_64-qt5-multimedia
@@ -66,27 +121,43 @@ jobs:
       - name: Install asciidoctor (Ruby gem)
         run: gem install asciidoctor --no-document
 
-      - name: Cache pFUnit
-        id: pfunit-cache
+      - name: Cache ccache
         uses: actions/cache@v5
         with:
+          path: .ccache
+          key: ccache-windows-x86_64-gcc-${{ github.sha }}
+          restore-keys: |
+            ccache-windows-x86_64-gcc-
+
+      - name: Configure ccache
+        run: |
+          WORKSPACE=$(cygpath "${GITHUB_WORKSPACE}")
+          echo "CCACHE_DIR=${WORKSPACE}/.ccache" >> "$GITHUB_ENV"
+          echo "ccache recache: ${{ inputs.recache }}"
+          if [ "${{ inputs.recache }}" = "true" ]; then
+            echo "CCACHE_RECACHE=1" >> "$GITHUB_ENV"
+            echo "Forcing ccache recache for this run"
+          fi
+          mkdir -p "${WORKSPACE}/.ccache"
+          ccache --version
+          ccache --zero-stats
+
+      - name: Locate gfortran
+        id: fc
+        run: echo "version=$(gfortran -dumpfullversion -dumpversion)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore pFUnit cache
+        id: pfunit-cache
+        uses: actions/cache/restore@v5
+        with:
           path: pfunit-prefix
-          key: pfunit-windows-v4.9.0
+          key: pfunit-windows-windows-latest-mingw64-v4.9.0-gfortran${{ steps.fc.outputs.version }}-epoch1-${{ hashFiles('.github/scripts/build-pfunit-windows.sh') }}
 
       - name: Build pFUnit
         if: steps.pfunit-cache.outputs.cache-hit != 'true'
         run: |
           WORKSPACE=$(cygpath "${GITHUB_WORKSPACE}")
-          git config --global core.longpaths true
-          git clone --depth 1 --branch v4.9.0 --recursive \
-            https://github.com/Goddard-Fortran-Ecosystem/pFUnit.git pfunit-src
-          cmake -S pfunit-src -B pfunit-build -G "MSYS Makefiles" \
-            -DSKIP_MPI=YES \
-            -DSKIP_OPENMP=YES \
-            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-            -DCMAKE_INSTALL_PREFIX="${WORKSPACE}/pfunit-prefix"
-          cmake --build pfunit-build -j$(nproc)
-          cmake --install pfunit-build
+          .github/scripts/build-pfunit-windows.sh v4.9.0 "${WORKSPACE}/pfunit-prefix"
 
       - name: Locate pFUnit config
         id: pfunit
@@ -107,12 +178,19 @@ jobs:
             echo "$(echo $pkg | tr '[:upper:]' '[:lower:]')_dir=${DIR}" >> "$GITHUB_OUTPUT"
           done
 
-      - name: Cache Hamlib
+      - name: Save pFUnit cache
+        if: steps.pfunit-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: pfunit-prefix
+          key: ${{ steps.pfunit-cache.outputs.cache-primary-key }}
+
+      - name: Restore Hamlib cache
         id: hamlib-cache
-        uses: actions/cache@v5
+        uses: actions/cache/restore@v5
         with:
           path: hamlib-prefix
-          key: hamlib-windows-${{ inputs.hamlib_branch }}
+          key: hamlib-windows-windows-latest-mingw64-${{ inputs.hamlib_branch }}-epoch1-${{ hashFiles('.github/scripts/build-hamlib-windows.sh') }}
 
       - name: Build Hamlib
         if: steps.hamlib-cache.outputs.cache-hit != 'true'
@@ -120,19 +198,19 @@ jobs:
           MSYS2_PATH_TYPE: inherit
         run: |
           WORKSPACE=$(cygpath "${GITHUB_WORKSPACE}")
-          git clone --depth 1 --branch "${{ inputs.hamlib_branch }}" \
-            https://github.com/Hamlib/Hamlib.git hamlib-src
-          cd hamlib-src
-          ./bootstrap
-          ./configure \
-            --prefix="${WORKSPACE}/hamlib-prefix" \
-            --enable-shared --disable-static \
-            --without-cxx-binding \
-            --without-readline \
-            CFLAGS="-DNDEBUG -g -O2 -fdata-sections -ffunction-sections" \
-            LDFLAGS="-Wl,--gc-sections"
-          make -j$(nproc)
-          make install-strip
+          .github/scripts/build-hamlib-windows.sh "${{ inputs.hamlib_branch }}" "${WORKSPACE}/hamlib-prefix"
+
+      - name: Verify Hamlib prefix
+        run: |
+          WORKSPACE=$(cygpath "${GITHUB_WORKSPACE}")
+          test -f "${WORKSPACE}/hamlib-prefix/bin/libhamlib-4.dll"
+
+      - name: Save Hamlib cache
+        if: steps.hamlib-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: hamlib-prefix
+          key: ${{ steps.hamlib-cache.outputs.cache-primary-key }}
 
       - name: Install OmniRig
         shell: pwsh
@@ -159,12 +237,16 @@ jobs:
           OMNIRIG=$(cygpath "${OMNIRIG_PATH}")
           cmake -G "MSYS Makefiles" -S . -B wsjtx-build \
             -DCMAKE_PREFIX_PATH="${WORKSPACE}/hamlib-prefix" \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DOMNIRIG_TYPE_LIB="${OMNIRIG}" \
-            -DWSJT_SKIP_MAP65=ON \
             -DCMAKE_Fortran_FLAGS="-fallow-argument-mismatch -std=legacy" \
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
             -DWSJT_SKIP_MANPAGES=ON \
-            -DWSJT_BUILD_TESTS=ON \
+            -DWSJT_ENABLE_TESTS=ON \
+            -DWSJT_FORTRAN_LIBRARY_VARIANTS=OPENMP_ONLY \
+            -DWSJT_RELEASE_CHANNEL="${{ inputs.release_channel }}" \
+            -DWSJT_RC_NUMBER="${{ inputs.rc_number }}" \
             -DPFUNIT_DIR="${{ steps.pfunit.outputs.pfunit_dir }}" \
             -DGFTL_DIR="${{ steps.pfunit.outputs.gftl_dir }}" \
             -DGFTL_SHARED_DIR="${{ steps.pfunit.outputs.gftl_shared_dir }}" \
@@ -174,16 +256,21 @@ jobs:
       - name: Build
         run: cmake --build wsjtx-build -j$(nproc)
 
+      - name: Show ccache stats
+        if: always()
+        run: ccache --show-stats
+
       - name: Run tests
         id: ctest
         run: |
-          # test_fastsink_logic links the rig-control code, so its exe imports
-          # libhamlib-4.dll. Hamlib is built --enable-shared into hamlib-prefix,
-          # so hamlib-prefix/bin must be on PATH for the test to load — the
-          # mingw runtime DLLs are already reachable via /mingw64/bin, but
-          # hamlib-prefix is not. Without this the test exits 0xc0000135
-          # (STATUS_DLL_NOT_FOUND) at launch. The packaged installer is
-          # unaffected: cpack's bundle_fixup copies libhamlib-4.dll in.
+          # Tests that link wsjt_qt (e.g. test_jtty_txstream) pull in the
+          # rig-control code, so their exe imports libhamlib-4.dll. Hamlib is
+          # built --enable-shared into hamlib-prefix, so hamlib-prefix/bin must
+          # be on PATH for the test to load — the mingw runtime DLLs are already
+          # reachable via /mingw64/bin, but hamlib-prefix is not. Without this
+          # the test exits 0xc0000135 (STATUS_DLL_NOT_FOUND) at launch. The
+          # packaged installer is unaffected: cpack's bundle_fixup copies
+          # libhamlib-4.dll in.
           export PATH="$(cygpath "${GITHUB_WORKSPACE}")/hamlib-prefix/bin:${PATH}"
           ctest --output-on-failure --output-junit ctest-results.xml
         working-directory: wsjtx-build
@@ -201,12 +288,49 @@ jobs:
           path: wsjtx-build/ctest-results.xml
           if-no-files-found: ignore
 
+      # MAP65 builds by default again. Under OPENMP_ONLY, m65impl resolves
+      # wsjt_fort_common to wsjt_fort_omp, so this keeps the Windows Fortran
+      # linkage covered by CI.
       - name: Verify binary
         run: |
           file wsjtx-build/jt9.exe
+          file wsjtx-build/map65/map65.exe
+          test -f wsjtx-build/map65/map65.exe
 
-      # Emit an NSIS installer containing the full CLI tool set
-      # (wsjtx.exe, jt9, wsprd, fmtave, fcal, fmeasure + WSJT_BUILD_UTILS
+      # Install to a staging prefix so bundle_fixup runs: its install(CODE)
+      # step copies Qt and dependent runtime DLLs next to the installed
+      # executables, making bin/ self-contained. Build-tree binaries are NOT
+      # self-contained (they resolve Qt/libgfortran/libgomp via /mingw64/bin),
+      # so the launch check below must run against the staged install, not the
+      # build tree — otherwise it would fail for binaries that ship fine.
+      - name: Stage install (runs bundle_fixup)
+        run: |
+          WORKSPACE=$(cygpath "${GITHUB_WORKSPACE}")
+          cmake --install wsjtx-build --prefix "${WORKSPACE}/stage-main"
+          ls -la "${WORKSPACE}/stage-main/bin"
+
+      - name: Audit staged runtime DLL imports
+        run: |
+          WORKSPACE=$(cygpath "${GITHUB_WORKSPACE}")
+          test -f "${WORKSPACE}/stage-main/bin/map65.exe"
+          test -f "${WORKSPACE}/stage-main/bin/qmap.exe"
+          bash .github/scripts/audit-staged-dll-imports-windows.sh \
+            "${WORKSPACE}/stage-main/bin" \
+            "${WORKSPACE}/stage-main/bin/map65.exe" \
+            "${WORKSPACE}/stage-main/bin/qmap.exe" \
+            "${WORKSPACE}/stage-main/bin/wsjtx.exe" \
+            "${WORKSPACE}/stage-main/bin/jt9.exe"
+
+      # Launch only the CLI decoder with /mingw64/bin removed from PATH. GUI
+      # applications may block in their event loops or require display state, so
+      # their package-critical DLL coverage comes from the import audit above.
+      - name: Smoke-launch staged jt9 (clean PATH)
+        run: |
+          WORKSPACE=$(cygpath "${GITHUB_WORKSPACE}")
+          .github/scripts/smoke-launch-windows.sh "${WORKSPACE}/stage-main/bin/jt9.exe" --help
+
+      # Emit an NSIS installer containing the full executable set
+      # (wsjtx.exe, map65.exe, jt9, wsprd, fmtave, fcal, fmeasure + WSJT_BUILD_UTILS
       # ft8code/jt65code/... + rigctl wrappers + Qt runtime via bundle_fixup).
       # CMakeLists.txt:1989-1990 sets CPACK_GENERATOR=NSIS on WIN32 and
       # CPACK_MONOLITHIC_INSTALL=1 packages every install() target.
@@ -223,9 +347,15 @@ jobs:
           # wsjtx-<inputs.version>-win64.exe. release.yml's prepare job
           # enforces numeric-base parity; this override covers the
           # suffix gap.
-          cpack -G NSIS -V \
-            -D CPACK_PACKAGE_VERSION="${{ inputs.version }}" \
+          cpack_args=(
+            -G NSIS
+            -D CPACK_PACKAGE_VERSION="${{ inputs.version }}"
             -D CPACK_PACKAGE_FILE_NAME="wsjtx-${{ inputs.version }}-win64"
+          )
+          if [ "${CPACK_VERBOSE:-0}" = "1" ]; then
+            cpack_args+=(-V)
+          fi
+          cpack "${cpack_args[@]}"
           ls -la *.exe
 
       # Self-signed ephemeral signing — the signing step is wired into the

@@ -132,6 +132,30 @@ private:
     QCOMPARE (qt_truncate_date_time_to (dt, 7500), QDateTime (QDate (2020, 8, 6), QTime (14, 15, 22, 500)));
   }
 
+  Q_SLOT void next_cyclic_index_advances_through_all_items ()
+  {
+    QCOMPARE (next_cyclic_index (0, 5), 1);
+    QCOMPARE (next_cyclic_index (1, 5), 2);
+    QCOMPARE (next_cyclic_index (2, 5), 3);
+    QCOMPARE (next_cyclic_index (3, 5), 4);
+    QCOMPARE (next_cyclic_index (4, 5), 0);
+  }
+
+  Q_SLOT void next_cyclic_index_starts_from_invalid_index ()
+  {
+    QCOMPARE (next_cyclic_index (-1, 5), 0);
+  }
+
+  Q_SLOT void next_cyclic_index_has_no_empty_index ()
+  {
+    QCOMPARE (next_cyclic_index (0, 0), -1);
+  }
+
+  Q_SLOT void next_cyclic_index_wraps_by_count ()
+  {
+    QCOMPARE (next_cyclic_index (2, 3), 0);
+  }
+
   Q_SLOT void is_multicast_address_data ()
   {
     QTest::addColumn<QString> ("addr");

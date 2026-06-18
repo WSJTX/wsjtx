@@ -6,7 +6,7 @@
 #include "qt_helpers.hpp"
 #include "../revision_utils.hpp"
 #include "../Logger.hpp"
-#include "PSKReporter.hpp"
+#include "../Network/PSKReporter.hpp"
 #include "liveCQSender.hpp"
 
 #include <QCoreApplication> //liveCQ
@@ -79,27 +79,14 @@ Messages::Messages (QString const& settings_filename, QWidget * parent) :
   connect(livecqThread, &QThread::finished, livecqThread, &QObject::deleteLater);
   livecqThread->start();  
   
-    // Create the thread and your PSKReporter object
-  pskThread = new QThread(this);
-  
-  connect(pskThread, &QThread::started, this, [this, m_myCall,m_myGrid]() {
-      auto* reporter = new PSKReporter(m_myCall, m_myGrid, QString {"MAP65 v"
-              + QCoreApplication::applicationVersion ()
-  + " " + revision ()}.simplified ());
-
-  reporter->moveToThread(this->pskThread);
-  connect(reporter, &PSKReporter::destroyed, pskThread, &QThread::quit);
-  QMetaObject::invokeMethod(reporter, "init", Qt::QueuedConnection);
-  
-  // Connect signals for control and communication
-  connect(this, &Messages::sendLocalStationData, reporter, &PSKReporter::setLocalStation);
-  connect(this, &Messages::sendRemoteStationData, reporter, &PSKReporter::addRemoteStation);
-    
+  pskReporter_.reset (new PSKReporter {
+    {settings2.value ("PSKReporterTCPIP", false).toBool (),
+     QCoreApplication::applicationDirPath () + "/eclipse.txt",
+     QString {"MAP65 v" + QCoreApplication::applicationVersion () + " " + revision ()}.simplified ()}
   });
-    connect(pskThread, &QThread::finished, pskThread, &QObject::deleteLater);
-    pskThread->start(); 
-    if (m_spot_to_psk_reporter) {   
-      initializePSKReporting();
+  if (m_spot_to_psk_reporter)
+    {
+      initializePSKReporting ();
     }
 }
  
@@ -133,7 +120,10 @@ void Messages::initializePSKReporting()
   SettingsGroup g {&settings, "Common"}; 
   QString receiverCallsign=settings.value("MyCall","").toString();
   QString receiverLocator=settings.value("MyGrid","").toString();
-  emit sendLocalStationData(receiverCallsign, receiverLocator, "N/A", "N/A (MAP65)");   
+  if (pskReporter_)
+    {
+      pskReporter_->setLocalStation(receiverCallsign, receiverLocator, "N/A", "N/A (MAP65)");
+    }
 }
 
 void Messages::sendLiveCQData(QStringList decodeList) {
@@ -162,7 +152,7 @@ void Messages::sendLiveCQData(QStringList decodeList) {
         QString dF = thePostLine.at(1).trimmed();
         QString utcdatetimestringOriginal = guiDate + " " + thePostLine.at(3).trimmed() + "00"; //needs 2 spaces between date and time
         QDateTime utcdatetimeUTC = QDateTime::fromString(utcdatetimestringOriginal, "yyyy MMM dd  HHmmss");
-        utcdatetimeUTC.setTimeSpec((Qt::UTC));
+        utcdatetimeUTC.setTimeZone(QTimeZone::utc());
         QString utcdatetimeUTCString = utcdatetimeUTC.toString("yyyy-MM-ddTHH:mm:ss");
         utcdatetimeUTCString = utcdatetimeUTCString + "Z";
         QString dB = thePostLine.at(4).trimmed();
@@ -180,8 +170,8 @@ void Messages::sendLiveCQData(QStringList decodeList) {
           if(!isCall) continue;
           dT =thePostLine.at(7).trimmed();
           modeChar = thePostLine.at(8).trimmed(); 
-          if(modeChar.contains("#")) mode = "JT65" + modeChar.back();
-          else if(modeChar.contains(":")) mode = "Q65-60" + modeChar.back();          
+          if(modeChar.contains("#")) mode = QString("JT65") + modeChar.back();
+          else if(modeChar.contains(":")) mode = QString("Q65-60") + modeChar.back();          
           if(m_xpol) {
             rpol = thePostLine.at(2).trimmed();
           } else {
@@ -206,7 +196,7 @@ void Messages::sendLiveCQData(QStringList decodeList) {
           modeChar = thePostLine.at(9).trimmed();
           if(modeChar.contains("#")) 
           {  
-            mode = "JT65" + modeChar.back();            
+            mode = QString("JT65") + modeChar.back();            
             if (m_xpol) {
               rpol = thePostLine.at(2).trimmed();
               if(thePostLine.length()==11) {
@@ -216,7 +206,7 @@ void Messages::sendLiveCQData(QStringList decodeList) {
               } else txpol="--";
             }
           } else if(modeChar.contains(":")) {
-            mode = "Q65-60" + modeChar.back();            
+            mode = QString("Q65-60") + modeChar.back();            
             if (m_xpol) {
               rpol = thePostLine.at(2).trimmed();
               if(thePostLine.length()==11) {
@@ -237,7 +227,7 @@ void Messages::sendLiveCQData(QStringList decodeList) {
             modeChar = thePostLine.at(10).trimmed();
             if(modeChar.contains("#")) 
             {  
-              mode = "JT65" + modeChar.back();            
+              mode = QString("JT65") + modeChar.back();            
               if (m_xpol) {
                 rpol = thePostLine.at(2).trimmed();
                 if(thePostLine.length()==12) {
@@ -247,7 +237,7 @@ void Messages::sendLiveCQData(QStringList decodeList) {
                 } else txpol="--";                
               }
             } else if(modeChar.contains(":")) {
-              mode = "Q65-60" + modeChar.back();            
+              mode = QString("Q65-60") + modeChar.back();            
               if (m_xpol) {
                 rpol = thePostLine.at(2).trimmed();
                 if(thePostLine.length()==12) {
@@ -344,7 +334,6 @@ void Messages::setText(QString t, QString t2)
   QString cfreq,cfreq0;
   m_t=t;
   m_t2=t2;
-  //bool firstTime = true;
 
   QStringList cqliveText;  //liveCQ
   doLiveCQ = true;         //liveCQ
@@ -381,13 +370,11 @@ void Messages::setText(QString t, QString t2)
     cfreq0=cfreq;
     ui->messagesTextBrowser->append(t1.mid(5,67)); //was 5,61
   }
-  if(doLiveCQ) {                      //liveCQ
-    if(cqliveText.size() > 0) {       //liveCQ
+  if(doLiveCQ && cqliveText.size() > 0) {       //liveCQ
       sendLiveCQData(cqliveText);     //liveCQ
       doLiveCQ = false;               //liveCQ
     }                                 //liveCQ
-  }  //liveCQ
-  if (m_spot_to_psk_reporter) {
+  if (m_spot_to_psk_reporter && cqliveText.size() > 0) {
       sendPSKReporterData(cqliveText); //PSKReporter
   }
 }
@@ -437,11 +424,35 @@ void Messages::sendPSKReporterData(QStringList decodeList) {
         QTime time2(h, m, s);
         QDateTime qSpotTime;
         if (sTime + m_TRperiod < 236000) {
-          qSpotTime = QDateTime(QDateTime::currentDateTimeUtc().date(), time2, Qt::UTC); 
+      #if QT_VERSION >= QT_VERSION_CHECK(6, 6, 0)
+          qSpotTime = QDateTime(
+              QDateTime::currentDateTimeUtc().date(),
+              time2,
+              QTimeZone::UTC
+          );
+      #else
+          qSpotTime = QDateTime(
+              QDateTime::currentDateTimeUtc().date(),
+              time2,
+              Qt::UTC
+          );
+      #endif
         }
         else {
-          qSpotTime = QDateTime((QDateTime::currentDateTimeUtc().addDays(-1)).date(), time2, Qt::UTC); 
-        }            
+      #if QT_VERSION >= QT_VERSION_CHECK(6, 6, 0)
+          qSpotTime = QDateTime(
+              QDateTime::currentDateTimeUtc().addDays(-1).date(),
+              time2,
+              QTimeZone::UTC
+          );
+      #else
+          qSpotTime = QDateTime(
+              QDateTime::currentDateTimeUtc().addDays(-1).date(),
+              time2,
+              Qt::UTC
+          );
+      #endif
+    }            
         
         // Handle CQ CALL but NO GRID -- dot at 7
       if(thePostLine.at(7).contains(".")) {
@@ -449,8 +460,8 @@ void Messages::sendPSKReporterData(QStringList decodeList) {
           bool isCall = testCall(senderCallsign);
           if(!isCall) continue;
           modeChar = thePostLine.at(8).trimmed(); 
-          if(modeChar.contains("#")) mode = "JT65" + modeChar.back();
-          else if(modeChar.contains(":")) mode = "Q65-60" + modeChar.back();   
+          if(modeChar.contains("#")) mode = QString("JT65") + modeChar.back();
+          else if(modeChar.contains(":")) mode = QString("Q65-60") + modeChar.back();   
           
         // Handle CQ CALL GRID or CQ XXX CALL -- dot at 8
         } else if (thePostLine.at(8).contains(".")) {
@@ -468,9 +479,9 @@ void Messages::sendPSKReporterData(QStringList decodeList) {
           modeChar = thePostLine.at(9).trimmed();
           if(modeChar.contains("#")) 
           {  
-            mode = "JT65" + modeChar.back();   
+            mode = QString("JT65") + modeChar.back();   
           } else if(modeChar.contains(":")) {
-            mode = "Q65-60" + modeChar.back();      
+            mode = QString("Q65-60") + modeChar.back();      
           }
         // Handle CQ XXX CALL GRID
         }  else if(thePostLine.at(9).contains(".")) {
@@ -482,16 +493,19 @@ void Messages::sendPSKReporterData(QStringList decodeList) {
             modeChar = thePostLine.at(10).trimmed();
             if(modeChar.contains("#")) 
             {  
-              mode = "JT65" + modeChar.back();      
+              mode = QString("JT65") + modeChar.back();      
             } else if(modeChar.contains(":")) {
-              mode = "Q65-60" + modeChar.back();     
+              mode = QString("Q65-60") + modeChar.back();     
             } 
         }
         else {
           continue; 
         }             
                 
-        emit sendRemoteStationData(senderCallsign, senderLocator, frequency, mode, sNR, qSpotTime);        
+        if (pskReporter_)
+          {
+            pskReporter_->addRemoteStation(senderCallsign, senderLocator, frequency, mode, sNR, qSpotTime);
+          }
       }
     }
   }

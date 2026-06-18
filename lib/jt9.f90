@@ -12,9 +12,13 @@ program jt9
   use readwav
   use ft8_mod1, only : dd8
   use jt65_mod6, only : dd
+  use streaming_emit, only: streaming_emit_set_enabled, streaming_emit_error
+  use jt9_params_init, only: init_default_params, init_streaming_extra_fields, &
+       apply_per_mode_policy, cli_args_t
 
   include 'jt9com.f90'
 
+  type(cli_args_t) :: args
   integer*2 id2a(180000)
   integer(C_INT) iret
   type(wav_header) wav
@@ -32,10 +36,14 @@ program jt9
   logical :: read_files = .true., tx9 = .false., display_help = .false.,     &
        bLowSidelobes = .false., nexp_decode_set = .false.,                   &
        have_ntol = .false.,multift8 = .false.,hidedupes = .false.,           &
-       lft8lowth = .true.,lft8subpass = .true.,lwidedxcsearch = .true.
-  type (option) :: long_options(41) = [                                      &
+       lft8lowth = .true.,lft8subpass = .true.,lwidedxcsearch = .true.,      &
+       stream_mode = .false.
+  type (option) :: long_options(42) = [                                      &
     option ('help', .false., 'h', 'Display this help message', ''),          &
     option ('shmem',.true.,'s','Use shared memory for sample data','KEY'),   &
+    option ('stream', .false., '0',                                          &
+        'Read framed PCM samples from stdin',                                &
+        ''),                                                                 &
     option ('tr-period', .true., 'p', 'Tx/Rx period, default SECONDS=60',    &
         'SECONDS'),                                                          &
     option ('executable-path', .true., 'e',                                  &
@@ -130,10 +138,16 @@ program jt9
         case ('s')
            read_files = .false.
            shm_key = optarg(:arglen)
+        case ('0')
+           read_files = .false.
+           stream_mode = .true.
+           call streaming_emit_set_enabled(.true.)
         case ('e')
            exe_dir = optarg(:arglen)
         case ('a')
            data_dir = optarg(:arglen)
+        case ('r')
+           share_dir = optarg(:arglen)   ! read-only shipped-data dir (cty.dat, ALLCALL7.TXT, ...)
         case ('b')
            nsubmode = ichar (optarg(:1)) - ichar ('A')
         case ('t')
@@ -220,8 +234,11 @@ program jt9
      print *, 'Usage: jt9 [OPTIONS] file1 [file2 ...]'
      print *, '       Reads data from *.wav files.'
      print *, ''
-     print *, '       jt9 -s <key> [-w patience] [-m threads] [-e path] [-a path] [-t path]'
+     print *, '       jt9 -s <key> [-w patience] [-m threads] [-e path] [-a path] [-t path] [-r path]'
      print *, '       Gets data from shared memory region with key==<key>'
+     print *, ''
+     print *, '       cat <pcm-stream> | jt9 --stream'
+     print *, '       Reads framed PCM samples from stdin.'
      print *, ''
      print *, 'OPTIONS:'
      print *, ''
@@ -248,7 +265,67 @@ program jt9
   numfano=0
 
   if (.not. read_files) then
-     call jt9a()          !We're running under control of WSJT-X
+     if (stream_mode) then
+        ! Streaming subprocess mode. Mirror the WAV path's shared_data setup,
+        ! then hand off to the streaming reader.
+        if (mode .eq. 0) then
+           mode = 8                            ! default: FT8
+           if (TRperiod .eq. 60.d0) TRperiod = 15.d0
+        end if
+        if (mode .eq. 5  .and. TRperiod .eq. 60.d0) TRperiod = 7.5d0   ! FT4
+        if (mode .eq. 144 .and. TRperiod .eq. 60.d0) TRperiod = 30.d0  ! MSK144
+
+        ! Per-mode ntol defaulting (mirrors WAV path lines 277–285).
+        if (mode .eq. 241 .or. mode .eq. 242) then
+           ntol = min(ntol, 100)
+        else if (mode .eq. 65 + 9 .and. .not. have_ntol) then
+           ntol = 20
+        else if (mode .eq. 66 .and. .not. have_ntol) then
+           ntol = 10
+        else
+           ntol = min(ntol, 1000)
+        end if
+
+        ! Per-mode nexp_decode default (mirrors WAV path lines 287–291).
+        if (.not. nexp_decode_set) then
+           if (mode .eq. 240 .or. mode .eq. 241 .or. mode .eq. 242) then
+              nexp_decode = 3 * 256   ! FST4: single decode off, nb=0
+           end if
+        end if
+
+        if (mycall.eq.'b') mycall = '            '
+        if (hiscall.eq.'b') then
+           hiscall = '            '
+           hisgrid = '      '
+        end if
+        allocate(shared_data)
+        call init_timer (trim(data_dir)//'/timer.out')
+        shared_data%id2 = 0
+
+        ! Common params first, then streaming-only fields.
+        args = cli_args_t(                                                     &
+             flow=flow, fsplit=fsplit, fhigh=fhigh, nrxfreq=nrxfreq,            &
+             ndepth=ndepth, ntol=ntol, nQSOProg=nQSOProg,                      &
+             nexp_decode=nexp_decode, ncycles=ncycles,                          &
+             nft8rxfsens=nft8rxfsens, nmt=nmt, ndecoderstart=ndecoderstart,    &
+             nsubmode=nsubmode, mycall=mycall, hiscall=hiscall,                &
+             mygrid=mygrid, hisgrid=hisgrid,                                    &
+             datetime='2026-Apr-25 00:00   ',                                  &
+             tx9=tx9, multift8=.false., hidedupes=.false.,                     &
+             lft8lowth=.true., lft8subpass=.true.,                             &
+             lwidedxcsearch=lwidedxcsearch, have_ntol=have_ntol,               &
+             nexp_decode_set=nexp_decode_set)
+        call init_default_params(shared_data%params, mode, TRperiod, args)
+        call init_streaming_extra_fields(shared_data%params, args)
+
+        ! Streaming-side overrides post-init.
+        ! (mode=9 nfa=fsplit handled by init_default_params per-mode adjustment.)
+        ! (single-pass FT8 only in stream — already enforced via args.multift8=.false.)
+
+        call jt9_stream(shared_data, mode, TRperiod)
+     else
+        call jt9a()       !We're running under control of WSJT-X (shared memory)
+     end if
      go to 999
   endif
 
@@ -331,50 +408,31 @@ program jt9
      enddo
      close(unit=wav%lun)
 
-     shared_data%params%nutc=nutc
-     shared_data%params%ndiskdat=.true.
-     shared_data%params%ntr=TRperiod
-     shared_data%params%nfqso=nrxfreq
-     shared_data%params%newdat=.true.
-     shared_data%params%npts8=74736
-     shared_data%params%nfa=flow
-     shared_data%params%nfsplit=fsplit
-     shared_data%params%nfb=fhigh
-     shared_data%params%ntol=ntol
-     shared_data%params%kin=64800
-     if(mode.eq.240) shared_data%params%kin=720000   !### 60 s periods ###
-     shared_data%params%nzhsym=nhsym
-     shared_data%params%ndepth=ndepth
-     shared_data%params%lft8apon=.true.
-     shared_data%params%ljt65apon=.true.
-     shared_data%params%napwid=75
-     shared_data%params%dttol=3.
-     if(mode.eq.164 .and. nsubmode.lt.100) nsubmode=nsubmode+100
-     shared_data%params%nagain=.false.
-     shared_data%params%nclearave=.false.
-     shared_data%params%lapcqonly=.false.
-     shared_data%params%naggressive=0
-     shared_data%params%n2pass=2
-     shared_data%params%nQSOprogress=nQSOProg
-     shared_data%params%nranera=6                      !### ntrials=3000
-     shared_data%params%nrobust=.false.
-     shared_data%params%nexp_decode=nexp_decode
-     shared_data%params%lmultift8=multift8
-     shared_data%params%mycall=transfer(mycall,shared_data%params%mycall)
-     shared_data%params%mygrid=transfer(mygrid,shared_data%params%mygrid)
-     shared_data%params%hiscall=transfer(hiscall,shared_data%params%hiscall)
-     shared_data%params%hisgrid=transfer(hisgrid,shared_data%params%hisgrid)
-     if (tx9) then
-        shared_data%params%ntxmode=9
-     else
-        shared_data%params%ntxmode=65
-     end if
-     if (mode.eq.0) then
-        shared_data%params%nmode=65+9
-     else
-        shared_data%params%nmode=mode
-     end if
-     shared_data%params%nsubmode=nsubmode
+     ! WAV-path-only mode adjustment (mode=164 with submode<100 bumps by 100).
+     ! Hoisted before init_default_params so the bumped value is threaded
+     ! through the args bundle.
+     if (mode.eq.164 .and. nsubmode.lt.100) nsubmode = nsubmode + 100
+
+     ! WAV mode initializes only fields historically set by this path.
+     args = cli_args_t(                                                    &
+          flow=flow, fsplit=fsplit, fhigh=fhigh, nrxfreq=nrxfreq,           &
+          ndepth=ndepth, ntol=ntol, nQSOProg=nQSOProg,                     &
+          nexp_decode=nexp_decode, ncycles=ncycles,                         &
+          nft8rxfsens=nft8rxfsens, nmt=nmt, ndecoderstart=ndecoderstart,   &
+          nsubmode=nsubmode, mycall=mycall, hiscall=hiscall,               &
+          mygrid=mygrid, hisgrid=hisgrid,                                   &
+          datetime='2013-Apr-16 15:13   ',                                 &
+          tx9=tx9, multift8=multift8, hidedupes=hidedupes,                 &
+          lft8lowth=lft8lowth, lft8subpass=lft8subpass,                    &
+          lwidedxcsearch=lwidedxcsearch, have_ntol=have_ntol,              &
+          nexp_decode_set=nexp_decode_set)
+     call init_default_params(shared_data%params, mode, TRperiod, args)
+
+     ! WAV-path post-init overrides.
+     shared_data%params%nutc      = nutc        ! parsed from filename
+     shared_data%params%ndiskdat  = .true.      ! reading from disk
+     shared_data%params%nzhsym    = nhsym       ! per-period (matches former jt9.f90:486)
+     if (mode.eq.0) shared_data%params%nmode = 65 + 9   ! WAV-only mode=0 → JT65+JT9
 
      if (multift8 .and. mode.eq.8) then
         shared_data%params%lft8subpass = .true.
@@ -412,12 +470,9 @@ program jt9
         shared_data%params%nsdecatt = 1
       !print*,'lwidedxcsearch ',shared_data%params%lwidedxcsearch
      end if
-!### temporary, for MAP65:
-     if(mode.eq.66 .and. TRperiod.eq.60) shared_data%params%emedelay=2.5
+     ! emedelay (Q65 60s), datetime placeholder, and mode=9 nfa=fsplit
+     ! handled by init_default_params + apply_per_mode_policy above.
 
-     datetime="2013-Apr-16 15:13" !### Temp
-     shared_data%params%datetime=transfer(datetime,shared_data%params%datetime)
-     if(mode.eq.9 .and. fsplit.ne.2700) shared_data%params%nfa=fsplit
      nearly=50
      if(mode.eq.8 .and. .not.  shared_data%params%lmultift8) then
 ! "Early" decoding pass, FT8 only, when jt9 reads data from disk

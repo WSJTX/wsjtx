@@ -2,7 +2,7 @@ subroutine q65_set_list2(mycall,hiscall,hisgrid,callers,nhist2,codewords,ncw)
 
   use types
   parameter (MAX_NCW=206)
-  parameter (MAX_CALLERS=40)  !For multiple q3 decodes in NA VHf Contest mode
+  parameter (MAX_CALLERS=50)  !For multiple q3 decodes in NA VHF Contest mode
   character*12 mycall,hiscall
   character*6 hisgrid,c6
   character*4 g4

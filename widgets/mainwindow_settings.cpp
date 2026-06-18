@@ -9,6 +9,7 @@
 #include "widgets/CabrilloLogWindow.hpp"
 #include "widgets/QSYMessageCreator.h"
 #include "widgets/qsymonitor.h"
+#include "qt_helpers.hpp"
 
 #include <QSettings>
 #include <QVariant>
@@ -616,7 +617,7 @@ void MainWindow::readSettings()
 #ifdef WIN32
   if (m_config.alert_Enabled()) {  // testing and initializing the default audio device for playing audible alerts
       QAudioOutput info(QAudioDeviceInfo::defaultOutputDevice());
-      QString audioPath = QCoreApplication::applicationDirPath() + "/sounds" + m_config.voicesPath() + "/";
+      QString audioPath = app_sounds_directory (m_config.voicesPath());
       QAudioFormat format;
       format.setCodec("audio/pcm");
       format.setSampleRate (48000);
@@ -626,7 +627,7 @@ void MainWindow::readSettings()
       QAudioOutput* audio;
       audio = new QAudioOutput(format, this);
       QFile *effect = new QFile(this);
-      effect->setFileName(QString("%1/%2").arg(audioPath, "Testing.wav"));
+      effect->setFileName(QString("%1/%2").arg(audioPath, "Testing123.wav"));
       effect->open(QIODevice::ReadOnly);
       audio->start(effect);
   }

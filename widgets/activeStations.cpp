@@ -125,31 +125,37 @@ void ActiveStations::displayRecentStations(QString mode, QString const& t)
   m_clickOK=false;
   ui->RecentStationsPlainTextEdit->setPlainText(t);
 
-//White background for Q65-60x decodes, yellow for Q65-30x:
   int i0=0;
   int i1=0;
-  int npos=0;
   int nlines=t.count("\n");
   QTextCursor cursor=ui->RecentStationsPlainTextEdit->textCursor();
   QTextCharFormat fmt;
+
+  // Use a regular expression matcher to find the text pattern within each line bounds
+  QRegularExpression regex(" 30[ABCD] ");
+
   for(int i=0; i<nlines; i++) {
     i1=t.indexOf("\n",i0);
-    npos=t.indexOf(QRegularExpression(" 30[ABCD] "), i0);
-    if(npos>0) {
-      cursor.setPosition(npos);
-      cursor.select(QTextCursor::LineUnderCursor);
+    // Isolate the current line to check for the match
+    QString currentLine = t.mid(i0, i1 - i0);
+    bool hasMatch = currentLine.contains(regex);
+
+    // Move the cursor to the current line we are processing
+    cursor.setPosition(i0);
+    cursor.select(QTextCursor::LineUnderCursor);
+
+    if(hasMatch) {
       fmt.setBackground(QBrush(Qt::yellow));
       fmt.setForeground(QBrush(Qt::black));
     } else {
-      cursor.setPosition(i0+10);
-      cursor.select(QTextCursor::LineUnderCursor);
-      fmt.clearForeground();
-      fmt.clearBackground();
+      // Explicitly force the background back to white
+      fmt.setBackground(QBrush(Qt::white));
+      fmt.setForeground(QBrush(Qt::black));
     }
+
     cursor.setCharFormat(fmt);
     i0=i1+1;
   }
-
   m_clickOK=bClickOK;
 }
 

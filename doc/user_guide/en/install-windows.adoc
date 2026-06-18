@@ -33,34 +33,22 @@ NOTE: Having a PC clock that appears to be synchronized to UTC is not
 
 [[OPENSSL]]
   
-* _WSJT-X_ uses the _OpenSSL_ libraries, and these are usually
-installed by defajult. If an incompatible OpenSSL version is already
-installed on your system. you will see the following error message
-shortly after requesting a fetch of the latest LoTW users database. To
-fix this problem, install the _OpenSSL_ libraries.
+* _WSJT-X_ uses the _OpenSSL_ libraries for TLS network connections.
+Current _WSJT-X_ Windows installers include the required _OpenSSL_
+runtime DLLs. If they are missing or cannot be loaded, you may see the
+following error message when using features such as _SuperFox_
+verification, *Update Hamlib*, _LoTW_ downloads, or _eQSL_ uploads.
 
 image::LoTW_TLS_error.png[align="center",alt="SSL/TLS"]
 
-You can download a suitable _OpenSSL_ package for Windows from
-{win_openssl_packages}; you need the latest *Windows Light*
-version. For the 32-bit _WSJT-X_ build, use the latest Win32 v1.1.1
-version of the _OpenSSL_ libraries, for the 64-bit _WSJT-X_ use the
-latest Win64 v1.1.1 version of the _OpenSSL_ libraries (Note: it is OK
-to install both versions on a 64-bit system).
+If you installed _WSJT-X_ from the official Windows installer, first
+try updating to the latest installer package. Reinstalling the same
+package may help if files in the local installation were removed or
+damaged. The _OpenSSL_ DLLs must match the Qt libraries used to build
+the program and are normally installed with _WSJT-X_, so installing
+unrelated system-wide _OpenSSL_ DLLs is not the recommended fix.
 
-Install the package and accept the default options, including the
-option to copy the _OpenSSL_ DLLs to the Windows system
-directory. There is no obligation to donate to the _OpenSSL_
-project. Un-check all the donation options if desired. +
-
-NOTE: If you still get the same network error after installing the
-      _OpenSSL_ libraries then you also need to install the
-      {msvcpp_redist} component. From the download page select
-      `vcredist_x86.exe` for use with the 32-bit _WSJT-X_ build or
-      `vcredist_x64.exe` with the 64-bit build, then run it to
-      install.
-
-TIP: If you cannot install the _OpenSSL_ libraries or do not have an
+TIP: If you cannot update or reinstall _WSJT-X_, or do not have an
      Internet connection on the computer used to run
      _WSJT-X_ {VERSION_MAJOR}.{VERSION_MINOR}, you can download
      the _LoTW_ file manually. Go to

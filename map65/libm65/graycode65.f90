@@ -1,9 +1,23 @@
-subroutine graycode65(dat,n,idir)
+module graycode65_mod
+  implicit none
 
-  integer dat(n)
-  do i=1,n
-     dat(i)=igray(dat(i),idir)
-  enddo
+  ! Fortran-only interface to igray
+  interface
+    integer function igray(n, idir)
+      integer, intent(in) :: n, idir
+    end function igray
+  end interface
 
-  return
-end subroutine graycode65
+contains
+
+  subroutine graycode65(dat, n, idir)
+    integer, intent(in)    :: n, idir
+    integer, intent(inout) :: dat(n)
+    integer :: i
+
+    do i = 1, n
+       dat(i) = igray(dat(i), idir)
+    enddo
+  end subroutine graycode65
+
+end module graycode65_mod

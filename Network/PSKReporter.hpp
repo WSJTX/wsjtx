@@ -2,6 +2,8 @@
 #define PSK_REPORTER_HPP_
 
 #include <QObject>
+#include <QDateTime>
+#include <QString>
 #include "Radio.hpp"
 #include "pimpl_h.hpp"
 
@@ -14,16 +16,22 @@ class PSKReporter final
   Q_OBJECT
 
 public:
+  struct Options
+  {
+    bool use_tcpip;
+    QString eclipse_file_path;
+    QString program_info;
+  };
+
   explicit PSKReporter (Configuration const *, QString const& program_info);
+  explicit PSKReporter (Options const& options);
   ~PSKReporter ();
 
   void reconnect ();
 
   void setLocalStation (QString const& call, QString const& grid, QString const& antenna, QString const& rigInformation);
 
-  //
-  // Returns false if PSK Reporter connection is not available
-  //
+  // Returns false if accepting the spot required dropping an older pending spot.
   bool addRemoteStation (QString const& call, QString const& grid, Radio::Frequency freq, QString const& mode, int snr, QDateTime spotTime);
 
   //

@@ -58,7 +58,7 @@ contains
     use types
  
     parameter (NMAX=300*12000)  !Max TRperiod is 300 s
-    parameter (MAX_CALLERS=40)  !For multiple q3 decodes in NA VHf Contest mode
+    parameter (MAX_CALLERS=50)  !For multiple q3 decodes in NA VHF Contest mode
 
     class(q65_decoder), intent(inout) :: this
 
@@ -254,8 +254,7 @@ contains
        endif
     enddo  ! ipass
 
-    !if(iand(ndepth,16).eq.0 .or. navg(iseq).lt.2) go to 100
-    if(navg(iseq).lt.2) go to 100
+    if(iand(ndepth,16).eq.0 .or. navg(iseq).lt.2) go to 100
 
 ! There was no single-transmission decode. Try for an average 'q3n' decode.
 50  iavg=1

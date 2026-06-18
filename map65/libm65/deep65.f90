@@ -1,19 +1,36 @@
-subroutine deep65(s3,mode65,neme,flip,mycall,hiscall,hisgrid,decoded,qual)
+module deep65_mod
+  implicit none
+contains
 
-  use timer_module, only: timer
-  parameter (MAXCALLS=10000,MAXRPT=63)
-  real s3(64,63)
-  character callsign*12,grid*4,message*22,hisgrid*6,c*1,ceme*3
-  character*12 mycall,hiscall
-  character*22 decoded,bestmsg
-  character*22 testmsg(2*MAXCALLS + 2 + MAXRPT)
-  character*15 callgrid(MAXCALLS)
-  character*180 line
-  character*4 rpt(MAXRPT)
+subroutine deep65(s3,mode65,neme,flip,mycall,hiscall,hisgrid,decoded,qual,mrs,mrs2)
+
+  use timer_module, only: timer  
+  use decodes_mod, only: mcall3a
+  use encode65_mod
+  implicit none
+
+  real,          intent(in)    :: s3(64,63)
+  integer,       intent(in)    :: mode65, neme
+  real,          intent(in)    :: flip
+  character(len=12),  intent(in)    :: mycall, hiscall
+  character(len=6),   intent(in)    :: hisgrid
+  character(len=22),  intent(out)   :: decoded
+  real,          intent(out)   :: qual
+  integer,       intent(in)    :: mrs(63), mrs2(63)
+
+  
+  integer,parameter :: MAXCALLS=10000,MAXRPT=63
+  character callsign*12,grid*4,message*22,c*1,ceme*3
+  character(len=22) bestmsg
+  character(len=22) testmsg(2*MAXCALLS + 2 + MAXRPT)
+  character(len=15) callgrid(MAXCALLS)
+  character(len=180) line
+  character(len=4) rpt(MAXRPT)
   integer ncode(63,2*MAXCALLS + 2 + MAXRPT)
+  integer i,i1,i2,i3,icall,ip1,k,j,j1,j2,j3,j4,m
+  integer mz,n,ntot
+  real bias,p,p1,p2,ref,ref0,sum
   real pp(2*MAXCALLS + 2 + MAXRPT)
-  common/mrscom/ mrs(63),mrs2(63)
-  common/c3com/ mcall3a
   data rpt/'-01','-02','-03','-04','-05',          &
            '-06','-07','-08','-09','-10',          &
            '-11','-12','-13','-14','-15',          &
@@ -30,6 +47,9 @@ subroutine deep65(s3,mode65,neme,flip,mycall,hiscall,hisgrid,decoded,qual)
   save
 
   if(mcall3a.eq.0) go to 30
+  k = 0
+  ntot = 0
+  ip1 = 1 ! Default safety
 
   call timer('deep65a ',0)
   mcall3a=0
@@ -105,6 +125,7 @@ subroutine deep65(s3,mode65,neme,flip,mycall,hiscall,hisgrid,decoded,qual)
   call timer('deep65b ',0)
   ref0=0.
   do j=1,63
+
      ref0=ref0 + s3(mrs(j),j)
   enddo
 
@@ -141,7 +162,7 @@ subroutine deep65(s3,mode65,neme,flip,mycall,hiscall,hisgrid,decoded,qual)
   if(mode65.ge.4) bias=max(1.04*p2,0.505)
 
   if(p2.eq.p1 .and. p1.ne.-1.e30) then
-     open(77,file='error.log',status='unknown',access='append')
+     open(77, file='error.log', status='unknown', position='append')
      write(77,*) p1,p2,ip1,bestmsg
      close(77)
   endif
@@ -168,3 +189,5 @@ subroutine deep65(s3,mode65,neme,flip,mycall,hiscall,hisgrid,decoded,qual)
 
   return
 end subroutine deep65
+
+end module deep65_mod

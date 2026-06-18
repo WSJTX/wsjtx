@@ -93,10 +93,8 @@ the sub-modes 15A, 15B and 15C can be decoded with EME delay.
 mode. New checkboxes on the *File | Settings | Reporting* tab provide
 new support for certain contests.
 
-- *OpenSSL* is now installed automatically with _WSJT-X_. Manual
-intervention is necessary only if another, incompatible OpenSSL
-version is already installed on the computer.
+- *OpenSSL* runtime DLLs are now installed automatically with _WSJT-X_
+on Windows.
 
 - *High Resolution Monitors* are supported with better scaling of
 fonts and widget sizes.
-

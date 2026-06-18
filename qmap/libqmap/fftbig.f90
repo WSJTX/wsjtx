@@ -6,13 +6,12 @@ subroutine fftbig(dd,nmax)
   
   use FFTW3
   use timer_module, only: timer
+  use cacb_mod, only: ca, init_cacb, free_cacb
   parameter (MAXFFT1=5376000)
   real*4  dd(2,nmax)                         !Input data
-  complex ca(MAXFFT1)                        !FFT of input
   real*8 df
   type(C_PTR) :: plan1                       !Pointer to FFTW plan
   logical first
-  common/cacb/ca
   equivalence (rfilt,cfilt)
   data first/.true./,npatience/0/
   save
@@ -20,6 +19,7 @@ subroutine fftbig(dd,nmax)
   if(nmax.lt.0) go to 900
 
   nfft1=MAXFFT1
+  call init_cacb(nfft1)
   if(first) then
      nflags=FFTW_ESTIMATE
      if(npatience.eq.1) nflags=FFTW_ESTIMATE_PATIENT
@@ -50,7 +50,9 @@ subroutine fftbig(dd,nmax)
   call timer('FFTbig  ',1)
   go to 999
 
-900 call fftwf_destroy_plan(plan1)
+900 if(.not.first) call fftwf_destroy_plan(plan1)
+  call free_cacb()
+  first=.true.
 
 999 return
 end subroutine fftbig

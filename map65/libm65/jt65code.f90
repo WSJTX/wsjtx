@@ -1,15 +1,25 @@
 program JT65code
 
+  use chkmsg_mod
+  use packjt
+  use interleave63_mod
+  use graycode_mod
+  implicit none
+  external rs_encode_
+  external rs_decode_
+
 ! Provides examples of message packing, bit and symbol ordering,
 ! Reed Solomon encoding, and other necessary details of the JT65
 ! protocol.
 
   character*22 msg0,msg,decoded,cok*3
   integer dgen(12),sent(63),recd(12),era(51)
+  integer :: nargs, nspecial, nerr
+  real(real32) :: flip
 
   nargs=iargc()
   if(nargs.ne.1) then
-     print*,'Usage: JT65code "message"'
+    ! print*,'Usage: JT65code "message"'
      go to 999
   endif
 
@@ -31,7 +41,7 @@ program JT65code
   write(*,1040) dgen
 1040 format('Packed message, 6-bit symbols: ',12i3) !Display packed symbols
 
-  call rs_encode(dgen,sent)               !RS encode
+  call rs_encode_(dgen,sent)               !RS encode
   call interleave63(sent,1)               !Interleave channel symbols
   call graycode(sent,63,1)                !Apply Gray code
   write(*,1050) sent
@@ -39,9 +49,11 @@ program JT65code
 
   call graycode(sent,63,-1)
   call interleave63(sent,-1)
-  call rs_decode(sent,era,0,recd,nerr)
+  call rs_decode_(sent,era,0,recd,nerr)
   call unpackmsg(recd,decoded)            !Unpack the user message
   write(*,1060) decoded,cok
 1060 format('Decoded message: ',a22,2x,a3)
 
 999 end program JT65code
+
+!does not require end module

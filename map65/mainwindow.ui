@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>635</width>
-    <height>560</height>
+    <width>900</width>
+    <height>600</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -37,19 +37,19 @@
   <widget class="QWidget" name="centralWidget">
    <layout class="QVBoxLayout" name="verticalLayout_8">
     <item>
-     <layout class="QVBoxLayout" name="verticalLayout_7">
+     <layout class="QVBoxLayout" name="verticalLayout_7" stretch="5,0,0">
       <item>
        <widget class="QGroupBox" name="groupBox">
         <property name="sizePolicy">
-         <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
           <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
+          <verstretch>1</verstretch>
          </sizepolicy>
         </property>
         <property name="minimumSize">
          <size>
-          <width>453</width>
-          <height>170</height>
+          <width>0</width>
+          <height>0</height>
          </size>
         </property>
         <property name="maximumSize">
@@ -73,13 +73,13 @@
            <property name="sizePolicy">
             <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
              <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
+             <verstretch>1</verstretch>
             </sizepolicy>
            </property>
            <property name="minimumSize">
             <size>
-             <width>421</width>
-             <height>100</height>
+             <width>0</width>
+             <height>0</height>
             </size>
            </property>
            <property name="maximumSize">
@@ -102,10 +102,9 @@
            </property>
            <property name="html">
             <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;meta charset=&quot;utf-8&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
 p, li { white-space: pre-wrap; }
-hr { height: 1px; border-width: 0; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Consolas'; font-size:10pt; font-weight:400; font-style:normal;&quot;&gt;
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Consolas','Consolas'; font-size:10pt; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-family:'Courier New';&quot;&gt;&lt;br /&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
            </property>
            <property name="acceptRichText">
@@ -559,7 +558,7 @@ hr { height: 1px; border-width: 0; }
             <property name="sizeHint" stdset="0">
              <size>
               <width>20</width>
-              <height>40</height>
+              <height>20</height>
              </size>
             </property>
            </spacer>
@@ -609,7 +608,7 @@ hr { height: 1px; border-width: 0; }
             <property name="sizeHint" stdset="0">
              <size>
               <width>20</width>
-              <height>40</height>
+              <height>20</height>
              </size>
             </property>
            </spacer>
@@ -645,7 +644,7 @@ hr { height: 1px; border-width: 0; }
             <property name="sizeHint" stdset="0">
              <size>
               <width>20</width>
-              <height>20</height>
+              <height>15</height>
              </size>
             </property>
            </spacer>
@@ -737,7 +736,7 @@ hr { height: 1px; border-width: 0; }
             <property name="sizeHint" stdset="0">
              <size>
               <width>20</width>
-              <height>20</height>
+              <height>15</height>
              </size>
             </property>
            </spacer>
@@ -1289,8 +1288,8 @@ hr { height: 1px; border-width: 0; }
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>635</width>
-     <height>17</height>
+     <width>900</width>
+     <height>23</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -1336,12 +1335,42 @@ hr { height: 1px; border-width: 0; }
      <addaction name="actionLinrad"/>
      <addaction name="actionCuteSDR"/>
     </widget>
+    <widget class="QMenu" name="menuCallsign_transparency">
+     <property name="title">
+      <string>Callsign transparency</string>
+     </property>
+     <addaction name="actionTransparency_None"/>
+     <addaction name="actionTransparency_Low"/>
+     <addaction name="actionTransparency_Medium"/>
+     <addaction name="actionTransparency_High"/>
+    </widget>
+    <widget class="QMenu" name="menuCallsign_font">
+     <property name="title">
+      <string>Callsign font size</string>
+     </property>
+     <addaction name="actionCallsign_font_small"/>
+     <addaction name="actionCallsign_font_normal"/>
+     <addaction name="actionCallsign_font_medium"/>
+     <addaction name="actionCallsign_font_large"/>
+    </widget>
+    <widget class="QMenu" name="menuCallsign_position">
+     <property name="title">
+      <string>Callsign position</string>
+     </property>
+     <addaction name="actionCallsign_position_top"/>
+     <addaction name="actionCallsign_position_bottom"/>
+    </widget>
     <addaction name="actionAstro_Data"/>
     <addaction name="actionBand_Map"/>
     <addaction name="actionMessages"/>
     <addaction name="actionWide_Waterfall"/>
     <addaction name="separator"/>
     <addaction name="menuWaterfall_palette"/>
+    <addaction name="separator"/>
+    <addaction name="actionShow_callsigns_on_Waterfall"/>
+    <addaction name="menuCallsign_transparency"/>
+    <addaction name="menuCallsign_font"/>
+    <addaction name="menuCallsign_position"/>
    </widget>
    <widget class="QMenu" name="menuDecode">
     <property name="title">
@@ -1451,6 +1480,106 @@ hr { height: 1px; border-width: 0; }
   <action name="actionWide_Waterfall">
    <property name="text">
     <string>Wide Waterfall</string>
+   </property>
+  </action>
+  <action name="actionShow_callsigns_on_Waterfall">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Show callsigns on Waterfall</string>
+   </property>
+   <property name="toolTip">
+    <string>Toggle the decoded-callsign overlay on the wide waterfall. Default ON. Persists across launches.</string>
+   </property>
+  </action>
+  <action name="actionTransparency_None">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>None</string>
+   </property>
+  </action>
+  <action name="actionTransparency_Low">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Low</string>
+   </property>
+  </action>
+  <action name="actionTransparency_Medium">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Medium</string>
+   </property>
+  </action>
+  <action name="actionTransparency_High">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>High</string>
+   </property>
+  </action>
+  <action name="actionCallsign_font_small">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Small (7 pt)</string>
+   </property>
+  </action>
+  <action name="actionCallsign_font_normal">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Normal (8 pt)</string>
+   </property>
+  </action>
+  <action name="actionCallsign_font_medium">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Medium (10 pt)</string>
+   </property>
+  </action>
+  <action name="actionCallsign_font_large">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Large (12 pt)</string>
+   </property>
+  </action>
+  <action name="actionCallsign_position_top">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Top of waterfall</string>
+   </property>
+  </action>
+  <action name="actionCallsign_position_bottom">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Bottom of waterfall (above divider)</string>
    </property>
   </action>
   <action name="actionOpen">

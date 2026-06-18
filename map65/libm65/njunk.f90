@@ -1,1 +1,0 @@
-  parameter(NJUNK=40)

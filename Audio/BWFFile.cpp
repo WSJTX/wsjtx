@@ -380,8 +380,10 @@ bool BWFFile::impl::read_header ()
                               if (file_.read (&info_desc, sizeof info_desc) != sizeof info_desc) return false;
                               info_size = be ? qFromBigEndian<quint32> (info_desc.size_) : qFromLittleEndian<quint32> (info_desc.size_);
                               auto const info_payload_offset = file_.pos ();
+                              qint64 info_payload_end;
                               qint64 info_chunk_end;
-                              if (!checked_chunk_end (info_payload_offset, info_size, wave_payload_end, &info_chunk_end) ||
+                              if (!checked_chunk_payload_end (info_payload_offset, info_size, wave_payload_end, &info_payload_end) ||
+                                  !checked_chunk_end (info_payload_offset, info_size, wave_chunk_end, &info_chunk_end) ||
                                   !read_bounded_chunk (file_, info_size, &info_dictionary_[info_desc.id_]))
                                 {
                                   return false;

@@ -1,5 +1,6 @@
 set (libq65_FSRCS
 # Modules come first:
+  cacb_mod.f90
 
 # Non-module Fortran routines:
   astro.f90
@@ -53,5 +54,5 @@ set_property (SOURCE ${libq65_C_and_CXXSRCS} APPEND PROPERTY OBJECT_DEPENDS ${CM
 # build our targets
 #
 add_library (qmap_impl STATIC ${libq65_FSRCS} ${libq65_CSRCS} ${libq65_CXXSRCS})
-target_link_libraries (qmap_impl wsjt_fort wsjt_cxx Qt5::Core)
-
+target_link_libraries (qmap_impl PUBLIC Qt5::Core)
+wsjt_link_common_fortran (qmap_impl)
