@@ -17,6 +17,7 @@
 #include <QByteArray>
 #include <QStandardPaths>
 #include <QDir>
+#include <QDirIterator>
 #include <QFileInfo>
 #include <QFile>
 #include <QTextStream>
@@ -366,15 +367,16 @@ namespace
     load_file (path, prefixes, worked);
     if (!extra_dir.isEmpty ())
       {
-        QDir dir {extra_dir};
-        if (dir.exists ())
+        if (QDir {extra_dir}.exists ())
           {
-            auto const entries = dir.entryInfoList (QStringList {} << "*.adi" << "*.ADI",
-                                                    QDir::Files | QDir::Readable);
-            for (auto const& entry : entries)
+            QDirIterator it {extra_dir, QStringList {} << "*.adi" << "*.ADI",
+                             QDir::Files | QDir::Readable,
+                             QDirIterator::Subdirectories};
+            while (it.hasNext ())
               {
-                if (entry.absoluteFilePath () != path)
-                  load_file (entry.absoluteFilePath (), prefixes, worked);
+                auto const file_path = it.next ();
+                if (file_path != path)
+                  load_file (file_path, prefixes, worked);
               }
           }
       }
