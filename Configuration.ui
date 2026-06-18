@@ -2857,7 +2857,7 @@ Right click for insert and delete options.</string>
             <item>
              <widget class="QLabel" name="label_extra_adi_dir">
               <property name="text">
-               <string>Additional ADIF Directory:</string>
+               <string>Additional ADIF Directory (Recursive):</string>
               </property>
              </widget>
             </item>
