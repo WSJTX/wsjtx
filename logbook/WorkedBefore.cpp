@@ -279,9 +279,8 @@ namespace
     return QString {};
   }
 
-  worked_before_database_type loader (QString const& path, AD1CCty const * prefixes)
+  void load_file (QString const& path, AD1CCty const * prefixes, worked_before_database_type& worked)
   {
-    worked_before_database_type worked;
     QFile inputFile {path};
     if (inputFile.exists ())
       {
@@ -359,6 +358,26 @@ namespace
             throw LoaderException (std::runtime_error {QCoreApplication::translate ("WorkedBefore", "Error opening ADIF log file for read: %0").arg (inputFile.errorString ()).toLocal8Bit ()});
           }
       }
+  }
+
+  worked_before_database_type loader (QString const& path, QString const& extra_dir, AD1CCty const * prefixes)
+  {
+    worked_before_database_type worked;
+    load_file (path, prefixes, worked);
+    if (!extra_dir.isEmpty ())
+      {
+        QDir dir {extra_dir};
+        if (dir.exists ())
+          {
+            auto const entries = dir.entryInfoList (QStringList {} << "*.adi" << "*.ADI",
+                                                    QDir::Files | QDir::Readable);
+            for (auto const& entry : entries)
+              {
+                if (entry.absoluteFilePath () != path)
+                  load_file (entry.absoluteFilePath (), prefixes, worked);
+              }
+          }
+      }
     return worked;
   }
 }
@@ -376,7 +395,7 @@ public:
   void reload ()
   {
     prefixes_.reload (configuration_);
-    async_loader_ = QtConcurrent::run (loader, path_, &prefixes_);
+    async_loader_ = QtConcurrent::run (loader, path_, configuration_->extra_adi_directory (), &prefixes_);
     loader_watcher_.setFuture (async_loader_);
   }
 
