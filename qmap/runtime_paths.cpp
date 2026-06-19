@@ -7,7 +7,7 @@
 
 QString qmapDataDir()
 {
-  QString dataDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+  QString dataDir = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
   if (dataDir.isEmpty()) {
     dataDir = QDir::home().absoluteFilePath(".qmap");
   }

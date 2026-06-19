@@ -5,6 +5,7 @@
 #include <QNetworkReply>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QCoreApplication>
 #include <QDebug>
 #include <QThread>
 
@@ -25,8 +26,10 @@ void CQDataSender::send(QString theUrl, const QString &data)
 {  
   QUrl url(theUrl);
   QNetworkRequest request(url);
-  request.setRawHeader("User-Agent", "QMAP v0.5");
-  request.setRawHeader("X-Custom-User-Agent", "QMAP v0.5");
+  QByteArray userAgent = (QCoreApplication::applicationName() + " v"
+                          + QCoreApplication::applicationVersion()).toUtf8();
+  request.setRawHeader("User-Agent", userAgent);
+  request.setRawHeader("X-Custom-User-Agent", userAgent);
   request.setHeader(QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
   QByteArray payload = data.toUtf8();
   request.setRawHeader("Content-Length",QByteArray::number(payload.size()));

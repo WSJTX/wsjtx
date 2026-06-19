@@ -285,7 +285,7 @@ void MainWindow::readSettings()
   m_saveDir=settings.value("SaveDir", QDir {m_dataDir}.absoluteFilePath("save")).toString();
   m_azelDir=settings.value("AzElDir",m_dataDir).toString();
   m_fCal=settings.value("Fcal",0).toInt();
-  m_fAdd=settings.value("FAdd",0).toDouble();
+  m_fAdd=settings.value("Fadd",0).toDouble();
   soundInThread.setFadd(m_fAdd);
   m_network = settings.value("NetworkInput",true).toBool();
   m_dB = settings.value("Scale_dB",0).toInt();
@@ -1252,8 +1252,10 @@ void MainWindow::sendLiveCQData(QList<QStringList>decodeList)
   QNetworkAccessManager *manager = new QNetworkAccessManager(this);
   QUrl url(theUrl);
   QNetworkRequest request(url);
-  request.setRawHeader("User-Agent", "QMAP v0.5");
-  request.setRawHeader("X-Custom-User-Agent", "QMAP v0.5");
+  QByteArray userAgent = (QCoreApplication::applicationName() + " v"
+                          + QCoreApplication::applicationVersion()).toUtf8();
+  request.setRawHeader("User-Agent", userAgent);
+  request.setRawHeader("X-Custom-User-Agent", userAgent);
   request.setHeader(QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
 
   for (const QStringList &thePostLine : decodeList) {

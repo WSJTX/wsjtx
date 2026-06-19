@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
 
   // Override programs executable basename as application name.
   a.setApplicationName ("QMAP");
-  a.setApplicationVersion ("0.6");
+  a.setApplicationVersion ("0.7");
 
   QString dataDir = qmapDataDir();
   QFileInfo dataDirInfo {dataDir};

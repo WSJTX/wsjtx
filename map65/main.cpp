@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
   
   // Override programs executable basename as application name.
   a.setApplicationName ("MAP65");
-  a.setApplicationVersion ("3.5");
+  a.setApplicationVersion ("3.6");
   // switch off as we share an Info.plist file with WSJT-X
   a.setAttribute (Qt::AA_DontUseNativeMenuBar);
   MainWindow w;

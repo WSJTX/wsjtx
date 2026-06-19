@@ -77,7 +77,7 @@ struct Map65RxSamplesStorage { qint16 samples[4*60*96000]; };
 
 QString writableMap65DataDir()
 {
-  QString dataDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+  QString dataDir = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
   if (dataDir.isEmpty()) {
     dataDir = QDir::home().absoluteFilePath(".map65");
   }
