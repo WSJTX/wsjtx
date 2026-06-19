@@ -1909,6 +1909,7 @@ generate_version_info (wsjtx_VERSION_RESOURCES
   NAME wsjtx
   BUNDLE ${PROJECT_BUNDLE_NAME}
   ICON ${WSJTX_ICON_FILE}
+  FILE_DESCRIPTION "WSJT-X"
   )
 
 # Embed a Windows application manifest declaring per-monitor V2 DPI
