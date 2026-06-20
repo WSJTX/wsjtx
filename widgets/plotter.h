@@ -116,6 +116,7 @@ private:
   void MakeFrequencyStrs();
   int XfromFreq(float f);
   float FreqfromX(int x);
+  void drawSavedWaterfall();
 
   QAction * m_set_freq_action;
 
@@ -167,6 +168,9 @@ private:
   QSize   m_Size;
   QString m_Str;
   QVector<QString> m_HDivText;
+  QVector<float> m_swideDisplay;
+  QVector<float> m_savgDisplay;
+  QVector<float> m_replotRow;
   QString m_mode;
   QString m_mode0;
   QString m_rxBand;
