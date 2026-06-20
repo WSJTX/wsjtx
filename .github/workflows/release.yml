@@ -361,3 +361,21 @@ jobs:
             --title "WSJT-X ${VERSION}" \
             --generate-notes \
             "${FILES[@]}"
+
+          # Prepend a curated, per-platform "Quick Downloads" picker to the
+          # auto-generated notes, so end users aren't left scanning the full
+          # assets list (installers among utilities, raw binaries, source).
+          # The picker is asset-driven — it reads the same FILES set — so new
+          # build variants (e.g. an added Linux arch) appear automatically.
+          # Best-effort: the release is already published above, so a picker
+          # failure must not fail the release; log and continue.
+          QUICK_DOWNLOADS="$(python3 .github/scripts/generate-quick-downloads.py WSJTX/wsjtx "$PUBLIC_TAG" "${FILES[@]}" || true)"
+          if [ -n "$QUICK_DOWNLOADS" ]; then
+            GENERATED_NOTES="$(gh release view "$PUBLIC_TAG" -R WSJTX/wsjtx --json body --jq .body)"
+            printf '%s\n\n---\n\n%s\n' "$QUICK_DOWNLOADS" "$GENERATED_NOTES" \
+              > "$RUNNER_TEMP/public-release-notes.md"
+            gh release edit "$PUBLIC_TAG" -R WSJTX/wsjtx \
+              --notes-file "$RUNNER_TEMP/public-release-notes.md"
+          else
+            echo "::warning::Quick Downloads picker was empty (no installer-grade assets matched); left auto-generated notes in place."
+          fi
