@@ -1,37 +1,191 @@
 // Status=edited
 
-Source code for _WSJT-X_ is available from a public repository at
-{devrepo}. To compile the program, at a minimum you must install the
-following packages:
+Source code for _WSJT-X_ is available from the project's public
+repository. Building from source is the recommended path for developers
+and for anyone who wants a build that exactly matches the project's
+continuous-integration (CI) environment.
 
-- Git
-- Qt 5.2 or later
-- g++ 4.8 or later
-- gfortran 4.8 or later
-- fftw3
-- MinGW (for Windows only)
-- OpenSSL runtime DLLs in the MinGW environment used for Windows
-  installer builds
+The current development source can be cloned with:
 
-For Windows installer builds, the _OpenSSL_ runtime DLLs bundled with
-the installer are taken from the build environment. The DLLs must match
-the Qt libraries used by that environment.
-
-Source code for _WSJT-X_ v{VERSION} can be downloaded with the command:
-
-=====
-git clone git://git.code.sf.net/p/wsjt/wsjtx
+[source,bash]
+----
+git clone https://github.com/WSJTX/wsjtx.git
 cd wsjtx
-git checkout wsjtx-{VERSION}
-=====
-
-and for the current development branch:
-
-=====
-git clone git://git.code.sf.net/p/wsjt/wsjtx
-=====
+----
 
 If you are interested in contributing to the development and
 documentation of _WSJT_ and its sister programs, please join the
 developer's email list {devmail} and let us know of your areas of
 interest.
+
+==== Build requirements
+
+At a minimum you need:
+
+* Git
+* Qt 5.x (Core, Multimedia, SerialPort, Svg, Tools, WebSockets; ActiveQt on Windows)
+* A C/C++ compiler (g++ 4.8 or later)
+* A Fortran compiler (gfortran 4.8 or later)
+* CMake 3.x
+* FFTW v3, Boost, libusb, PortAudio
+* Hamlib (built from a pinned release, see below)
+
+[[SRC_WINDOWS_MSYS2]]
+==== Building on Windows with MSYS2
+
+On Windows the recommended toolchain is *MSYS2 / MinGW-w64*. Every tool
+is installed from MSYS2's package manager (`pacman`), so the environment
+is reproducible, is updated with a single command, and matches the
+project's Windows CI. This replaces older toolchain arrangements that
+had to be assembled and patched by hand.
+
+NOTE: This section mirrors the project's Windows CI workflow
+      (`.github/workflows/build-windows.yml`). That workflow is what
+      actually builds and ships _WSJT-X_ for Windows; if these
+      instructions ever disagree with it, the workflow is authoritative.
+
+===== Install MSYS2
+
+. Download and run the installer from https://www.msys2.org (the default
+  location `C:\msys64` is fine).
+. Launch the *"MSYS2 MINGW64"* shell — not "MSYS2 MSYS" and not
+  "UCRT64". Every command below is run in the *MINGW64* shell.
+
+===== Install the toolchain
+
+[source,bash]
+----
+pacman -Syu        # update the package database (reopen the shell if asked, then rerun)
+
+pacman -S --needed \
+  git make tar autoconf automake libtool \
+  mingw-w64-x86_64-gcc \
+  mingw-w64-x86_64-gcc-fortran \
+  mingw-w64-x86_64-cmake \
+  mingw-w64-x86_64-qt5-base \
+  mingw-w64-x86_64-qt5-multimedia \
+  mingw-w64-x86_64-qt5-serialport \
+  mingw-w64-x86_64-qt5-svg \
+  mingw-w64-x86_64-qt5-tools \
+  mingw-w64-x86_64-qt5-websockets \
+  mingw-w64-x86_64-qt5-activeqt \
+  mingw-w64-x86_64-fftw \
+  mingw-w64-x86_64-boost \
+  mingw-w64-x86_64-libusb \
+  mingw-w64-x86_64-portaudio \
+  mingw-w64-x86_64-pkg-config \
+  mingw-w64-x86_64-nsis \
+  mingw-w64-x86_64-osslsigncode \
+  mingw-w64-x86_64-ruby
+----
+
+`nsis` and `osslsigncode` are only needed to build an installer; `ruby`
+is only needed to render the in-application User Guide. The latter uses
+Asciidoctor, a Ruby gem with no native MSYS2 package — install it once
+(or skip it if you do not need the bundled guide):
+
+[source,bash]
+----
+gem install asciidoctor --no-document
+----
+
+===== Alias dumpcpp
+
+MSYS2 ships Qt's `dumpcpp` tool as `dumpcpp-qt5`, but the build looks for
+`dumpcpp`. Create the alias once:
+
+[source,bash]
+----
+ln -sf /mingw64/bin/dumpcpp-qt5.exe /mingw64/bin/dumpcpp.exe
+----
+
+===== Install OmniRig
+
+_WSJT-X_ uses *OmniRig* for CAT rig control on Windows, and the build
+reads the COM type library embedded in `OmniRig.exe`. Install OmniRig
+from https://www.dxatlas.com/OmniRig/ (default path
+`C:\Program Files (x86)\Afreet\OmniRig\OmniRig.exe`). If it is already
+installed, skip this step.
+
+===== Build Hamlib
+
+_WSJT-X_ pins a specific Hamlib release — currently *4.7.1*. Build it
+once into a local prefix:
+
+[source,bash]
+----
+git clone --depth 1 --branch 4.7.1 \
+  https://github.com/Hamlib/Hamlib.git hamlib-src
+cd hamlib-src
+./bootstrap
+./configure --prefix="$HOME/hamlib-prefix" \
+  --enable-shared --disable-static \
+  --without-cxx-binding --without-readline \
+  CFLAGS="-DNDEBUG -g -O2 -fdata-sections -ffunction-sections" \
+  LDFLAGS="-Wl,--gc-sections"
+make -j$(nproc)
+make install-strip
+cd ..
+----
+
+When the project bumps the pinned Hamlib version, change `--branch` to
+the new tag and rebuild this step.
+
+===== Configure and build WSJT-X
+
+From the top of your _WSJT-X_ source tree:
+
+[source,bash]
+----
+OMNIRIG=$(cygpath "C:/Program Files (x86)/Afreet/OmniRig/OmniRig.exe")
+
+cmake -G "MSYS Makefiles" -S . -B build \
+  -DCMAKE_PREFIX_PATH="$HOME/hamlib-prefix" \
+  -DOMNIRIG_TYPE_LIB="$OMNIRIG" \
+  -DCMAKE_Fortran_FLAGS="-fallow-argument-mismatch -std=legacy" \
+  -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+  -DWSJT_SKIP_MANPAGES=ON \
+  -DWSJT_FORTRAN_LIBRARY_VARIANTS=OPENMP_ONLY \
+  -Wno-dev
+
+cmake --build build -j$(nproc)
+----
+
+The binaries are written to `build/` — `wsjtx.exe`, `jt9.exe`, and the
+command-line utilities. You can run `./build/wsjtx.exe` directly from the
+MINGW64 shell; it finds the Qt and Hamlib DLLs on the shell's `PATH`.
+
+[%autowidth]
+|===
+| Option | Purpose
+
+| `CMAKE_PREFIX_PATH` | Locate the Hamlib you built above
+| `OMNIRIG_TYPE_LIB` | The `OmniRig.exe` whose type library `dumpcpp` reads
+| `CMAKE_Fortran_FLAGS` | Modern gfortran needs these to accept legacy code
+| `CMAKE_POLICY_VERSION_MINIMUM` | Compatibility with the declared CMake range
+| `WSJT_SKIP_MANPAGES` | Manpages need extra tooling not installed here
+| `WSJT_FORTRAN_LIBRARY_VARIANTS=OPENMP_ONLY` | Build the OpenMP decoder library
+|===
+
+NOTE: For Windows *installer* builds the _OpenSSL_ runtime DLLs bundled
+      with the installer are taken from the MinGW build environment, so
+      they automatically match the Qt libraries that environment
+      provides. With the MSYS2 toolchain above this is handled for you —
+      there is no separate _OpenSSL_ download or install step.
+
+===== Keeping current
+
+[source,bash]
+----
+pacman -Syu
+----
+
+updates the whole toolchain in one step. Rebuild Hamlib only when the
+pinned version changes; rebuild _WSJT-X_ after pulling new source.
+
+TIP: To build and run the unit-test suite, install pFUnit (v4.9.0) from
+     source and re-run the configure step above with
+     `-DWSJT_ENABLE_TESTS=ON`, passing `-DPFUNIT_DIR`, `-DGFTL_DIR`,
+     `-DGFTL_SHARED_DIR` and `-DFARGPARSE_DIR` hints to the installed
+     pFUnit; then run `ctest` from the `build` directory. The CI
+     workflow shows the exact commands.
