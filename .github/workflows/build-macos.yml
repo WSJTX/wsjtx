@@ -394,31 +394,6 @@ jobs:
           path: hamlib-prefix
           key: ${{ steps.hamlib-cache.outputs.cache-primary-key }}
 
-      - name: Configure
-        env:
-          PKG_CONFIG_PATH: ${{ github.workspace }}/qt-prefix/lib/pkgconfig:${{ github.workspace }}/boost-prefix/lib/pkgconfig:${{ github.workspace }}/fftw-prefix/lib/pkgconfig:${{ github.workspace }}/libusb-prefix/lib/pkgconfig:${{ github.workspace }}/portaudio-prefix/lib/pkgconfig:${{ github.workspace }}/hamlib-prefix/lib/pkgconfig
-        run: |
-          cmake -S . -B wsjtx-build \
-            -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/qt-prefix;${GITHUB_WORKSPACE}/boost-prefix;${GITHUB_WORKSPACE}/fftw-prefix;${GITHUB_WORKSPACE}/libusb-prefix;${GITHUB_WORKSPACE}/portaudio-prefix;${GITHUB_WORKSPACE}/hamlib-prefix" \
-            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-            -DCMAKE_Fortran_COMPILER="${{ steps.fc.outputs.path }}" \
-            -DCMAKE_Fortran_FLAGS="${{ steps.fc.outputs.fortran_runtime_flags }}" \
-            -DCMAKE_EXE_LINKER_FLAGS="${{ steps.fc.outputs.runtime_link_flags }}" \
-            -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ env.DEPLOYMENT_TARGET }} \
-            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-            -DWSJT_SKIP_MANPAGES=ON \
-            -DWSJT_SKIP_BUNDLE_FIXUP=ON \
-            -DWSJT_ENABLE_TESTS=OFF \
-            -DWSJT_MACOS_LIBGOMP_LIBRARY="${{ steps.fc.outputs.libgomp }}" \
-            -DWSJT_SOURCE_REVISION="${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || '' }}" \
-            -DWSJT_RELEASE_CHANNEL="${{ inputs.release_channel }}" \
-            -DWSJT_RC_NUMBER="${{ inputs.rc_number }}" \
-            -Wno-dev
-
-      - name: Build
-        run: cmake --build wsjtx-build -j"$(sysctl -n hw.ncpu)"
-
       - name: Restore pFUnit cache
         id: pfunit-cache
         uses: actions/cache/restore@v5
@@ -459,11 +434,11 @@ jobs:
           path: pfunit-prefix
           key: ${{ steps.pfunit-cache.outputs.cache-primary-key }}
 
-      - name: Configure tests
+      - name: Configure build and tests
         env:
           PKG_CONFIG_PATH: ${{ github.workspace }}/qt-prefix/lib/pkgconfig:${{ github.workspace }}/boost-prefix/lib/pkgconfig:${{ github.workspace }}/fftw-prefix/lib/pkgconfig:${{ github.workspace }}/libusb-prefix/lib/pkgconfig:${{ github.workspace }}/portaudio-prefix/lib/pkgconfig:${{ github.workspace }}/hamlib-prefix/lib/pkgconfig:${{ github.workspace }}/pfunit-prefix/lib/pkgconfig
         run: |
-          cmake -S . -B wsjtx-test-build \
+          cmake -S . -B wsjtx-build \
             -DCMAKE_PREFIX_PATH="${GITHUB_WORKSPACE}/qt-prefix;${GITHUB_WORKSPACE}/boost-prefix;${GITHUB_WORKSPACE}/fftw-prefix;${GITHUB_WORKSPACE}/libusb-prefix;${GITHUB_WORKSPACE}/portaudio-prefix;${GITHUB_WORKSPACE}/hamlib-prefix;${GITHUB_WORKSPACE}/pfunit-prefix" \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
@@ -474,24 +449,26 @@ jobs:
             -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ env.DEPLOYMENT_TARGET }} \
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
             -DWSJT_SKIP_MANPAGES=ON \
+            -DWSJT_SKIP_BUNDLE_FIXUP=ON \
             -DWSJT_ENABLE_TESTS=ON \
             -DWSJT_MACOS_LIBGOMP_LIBRARY="${{ steps.fc.outputs.libgomp }}" \
             -DPFUNIT_DIR="${{ steps.pfunit.outputs.dir }}" \
+            -DWSJT_SOURCE_REVISION="${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || '' }}" \
             -DWSJT_RELEASE_CHANNEL="${{ inputs.release_channel }}" \
             -DWSJT_RC_NUMBER="${{ inputs.rc_number }}" \
             -Wno-dev
 
-      - name: Build tests
-        run: cmake --build wsjtx-test-build -j"$(sysctl -n hw.ncpu)"
+      - name: Build and test targets
+        run: cmake --build wsjtx-build -j"$(sysctl -n hw.ncpu)"
 
       - name: Run tests
         id: ctest
         run: ctest --output-on-failure --output-junit ctest-results.xml
-        working-directory: wsjtx-test-build
+        working-directory: wsjtx-build
 
       - name: Publish test summary
         if: always() && steps.ctest.conclusion != 'skipped'
-        working-directory: wsjtx-test-build
+        working-directory: wsjtx-build
         run: python3 ../.github/scripts/publish-ctest-summary.py "macOS ${{ inputs.arch }}" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload test results
@@ -499,7 +476,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: ctest-results-macos-${{ inputs.arch }}
-          path: wsjtx-test-build/ctest-results.xml
+          path: wsjtx-build/ctest-results.xml
           if-no-files-found: ignore
 
       - name: Show ccache stats

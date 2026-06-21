@@ -231,7 +231,7 @@ jobs:
         run: |
           ln -sf /mingw64/bin/dumpcpp-qt5.exe /mingw64/bin/dumpcpp.exe
 
-      - name: Configure
+      - name: Configure build and tests
         run: |
           WORKSPACE=$(cygpath "${GITHUB_WORKSPACE}")
           OMNIRIG=$(cygpath "${OMNIRIG_PATH}")
@@ -253,7 +253,7 @@ jobs:
             -DFARGPARSE_DIR="${{ steps.pfunit.outputs.fargparse_dir }}" \
             -Wno-dev
 
-      - name: Build
+      - name: Build and test targets
         run: cmake --build wsjtx-build -j$(nproc)
 
       - name: Show ccache stats
