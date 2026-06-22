@@ -5030,18 +5030,18 @@ void MainWindow::readFromStdout()                             //readFromStdout
         if(decodedtext.string().contains(";")) {
           QString text = decodedtext.string().remove("<").remove(">");   // needed for MSHV multistream messages
           QStringList w=text.mid(24).split(" ",SkipEmptyParts);
-          QString foxCall=w.at(3);
-          if(w.at(0)==m_config.my_callsign() or w.at(0)==Radio::base_callsign(m_config.my_callsign())) {
-            //### Check for ui->dxCallEntry->text()==foxCall before logging! ###
-            ui->stopTxButton->click ();
-            logQSOTimer.start(0);
-          }
-          if((w.at(2)==m_config.my_callsign() or w.at(2)==Radio::base_callsign(m_config.my_callsign()))
-             and ui->tx3->text().length()>0) {
-            m_rptRcvd=w.at(4);
-            m_rptSent=decodedtext.string().mid(7,3);
-            m_nFoxFreq=decodedtext.string().mid(16,4).toInt();
-            hound_reply ();
+          if(w.size() >= 5) {
+            if(w.at(0)==m_config.my_callsign() or w.at(0)==Radio::base_callsign(m_config.my_callsign())) {
+              ui->stopTxButton->click ();
+              logQSOTimer.start(0);
+            }
+            if((w.at(2)==m_config.my_callsign() or w.at(2)==Radio::base_callsign(m_config.my_callsign()))
+               and ui->tx3->text().length()>0) {
+              m_rptRcvd=w.at(4);
+              m_rptSent=decodedtext.string().mid(7,3);
+              m_nFoxFreq=decodedtext.string().mid(16,4).toInt();
+              hound_reply ();
+            }
           }
         } else {
           QString text = decodedtext.string().remove("<").remove(">");   // needed for MSHV multistream messages
@@ -6669,7 +6669,7 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
     if((SpecOp::EU_VHF==m_specOp or SpecOp::RTTY==m_specOp or SpecOp::FIELD_DAY==m_specOp)
         and message.string().contains("<...>")) return;
 
-    if(SpecOp::EU_VHF==m_specOp and message_words.at(2).contains(m_baseCall) and
+    if(SpecOp::EU_VHF==m_specOp and message_words.size() > 3 and message_words.at(2).contains(m_baseCall) and
        (!message_words.at(3).contains(qso_partner_base_call)) and (!m_bDoubleClicked)) {
       return;
     }
