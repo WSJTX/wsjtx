@@ -36,7 +36,7 @@ void tmoonsub_(double *day, double *glat, double *glong, double *moonalt,
    double *mrv, double *l, double *b, double *paxis);
 
 static const char
-*usage = "  Usage: tmoon date[yyyymm] timz[+/-h.hh] long[+/-dddmm] lat[+/-ddmm]\n"
+usage[] = "  Usage: tmoon date[yyyymm] timz[+/-h.hh] long[+/-dddmm] lat[+/-ddmm]\n"
             "example: tmoon 200009 0 -00155 5230\n";
 
 /*
