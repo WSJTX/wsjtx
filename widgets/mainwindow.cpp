@@ -63,6 +63,7 @@
 #include "Audio/soundin.h"
 #include "Modulator/Modulator.hpp"
 #include "Detector/Detector.hpp"
+#include "TxStartPolicy.hpp"
 #include "ActiveStationList.hpp"
 #include "plotter.h"
 #include "echograph.h"
@@ -5415,9 +5416,9 @@ void MainWindow::guiUpdate()
     if(m_ntx == 5) txMsg=ui->tx5->currentText();
     if(m_ntx == 6) txMsg=ui->tx6->text();
     int msgLength=txMsg.trimmed().length();
-    if(msgLength==0 and !m_tune) on_stopTxButton_clicked();
+    if(should_stop_for_missing_tx_payload (m_mode, msgLength, m_tune)) on_stopTxButton_clicked();
 
-    if(g_iptt==0 and ((m_bTxTime and (fTR < 0.75) and (msgLength>0)) or m_tune or (m_mode=="JTTY"))) {
+    if(g_iptt==0 and can_start_transmit (m_mode, m_bTxTime, fTR, msgLength, m_tune)) {
       //### Allow late starts
       icw[0]=m_ncw;
       g_iptt = 1;

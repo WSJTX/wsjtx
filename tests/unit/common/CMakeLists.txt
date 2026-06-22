@@ -25,6 +25,12 @@ add_executable (test_fox_guard_bands
 target_link_libraries (test_fox_guard_bands Qt5::Test)
 add_test (NAME test_fox_guard_bands COMMAND test_fox_guard_bands)
 
+add_executable (test_tx_start_policy
+  test_tx_start_policy.cpp
+)
+target_link_libraries (test_tx_start_policy Qt5::Test)
+add_test (NAME test_tx_start_policy COMMAND test_tx_start_policy)
+
 add_executable (test_auto_respond_selection_latch
   test_auto_respond_selection_latch.cpp
   ${CMAKE_SOURCE_DIR}/AutoRespondSelectionLatch.cpp
