@@ -44,6 +44,9 @@ namespace
   )?
 )"
                                , QRegularExpression::ExtendedPatternSyntaxOption};
+  QRegularExpression const ap_suffix_re {R"(^(.*?)(?:\?\s)?[aq][0-9].*$)"};
+  QRegularExpression const angle_bracket_re {"[<>]"};
+  QRegularExpression const cq_qrz_re {"^(CQ|QRZ)\\s"};
 }
 
 DecodedText::DecodedText (QString const& the_string)
@@ -55,7 +58,7 @@ DecodedText::DecodedText (QString const& the_string)
   , is_standard_ {false}
 {
   // discard appended AP info
-  clean_string_.replace (QRegularExpression {R"(^(.*?)(?:\?\s)?[aq][0-9].*$)"}, "\\1");
+  clean_string_.replace (ap_suffix_re, "\\1");
 
 //  qDebug () << "DecodedText: the_string:" << the_string << "Nbsp pos:" << the_string.indexOf (QChar::Nbsp);
   if (message_.length() >= 1)
@@ -63,13 +66,13 @@ DecodedText::DecodedText (QString const& the_string)
 // remove appended confidence (?) and ap designators before truncating the message
        message_ = clean_string_.mid (column_qsoText + padding_).trimmed ();
        message0_ = message_.left(37);
-       message_ = message_.left(37).remove (QRegularExpression {"[<>]"});
+       message_ = message_.left(37).remove (angle_bracket_re);
       int i1 = message_.indexOf ('\r');
       if (i1 > 0)
         {
           message_ = message_.left (i1 - 1);
         }
-      if (message_.contains (QRegularExpression {"^(CQ|QRZ)\\s"}))
+      if (message_.contains (cq_qrz_re))
         {
           // TODO this magic position 16 is guaranteed to be after the
           // last space in a decoded CQ or QRZ message but before any

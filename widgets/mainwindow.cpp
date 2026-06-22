@@ -129,6 +129,16 @@ namespace {
     if (headings.isEmpty ()) return QString {"No column headings are shown."};
     return QString {"Columns: %1."}.arg (headings);
   }
+
+  QRegularExpression const message_73_regexp {"^(73|RR73)$"};
+  QRegularExpression const four_digit_regexp {"\\d\\d\\d\\d"};
+  QRegularExpression const fox_report_regexp {" R\\W\\d"};
+  QRegularExpression const cq_or_qrz_message_regexp {"^(CQ|QRZ) "};
+  QRegularExpression const hound_report_regexp {R"(R\+-[0-9]+)"};
+  QRegularExpression const leading_r_report_regexp {"^R(?!R73|RR)"};
+  QRegularExpression const roger_ack_regexp {"^RR(?:R|73)$"};
+  QRegularExpression const ap_suffix_regexp {R"((?:\?\s)?(?:a[0-9]|q[0-9][0-9]?)$)"};
+  QRegularExpression const reply_cq_or_qrz_regexp {R"(^(CQ |CQDX |QRZ ))"};
 }
 
 #define FCL fortran_charlen_t
@@ -2334,7 +2344,7 @@ void MainWindow::fastSink(qint64 frames)
 
         // insert blank line for MSK144
         int ntime=6;
-        if ((m_config.insert_blank() or m_config.alert_Enabled()) && !BlankLineInserted && (text.left(ntime) != m_tBlankLine) && text.left(4).contains(QRegularExpression {"\\d\\d\\d\\d"}) && !m_diskData) {
+        if ((m_config.insert_blank() or m_config.alert_Enabled()) && !BlankLineInserted && (text.left(ntime) != m_tBlankLine) && text.left(4).contains(four_digit_regexp) && !m_diskData) {
           ui->decodedTextBrowser->new_period ();
           if (m_config.insert_blank () && (!filtered or m_config.filters_for_Wait_and_Pounce_only())) {
             QString band;
@@ -4802,7 +4812,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
         // insert blank line, but only if not filtered and no decodes
         int ntime=6;
         if (m_TRperiod>=60) ntime=4;
-        if ((m_config.insert_blank () or m_config.alert_Enabled()) && (line_read.left(ntime) != m_tBlankLine) && message0.left(4).contains(QRegularExpression {"\\d\\d\\d\\d"}) && !m_diskData) {
+        if ((m_config.insert_blank () or m_config.alert_Enabled()) && (line_read.left(ntime) != m_tBlankLine) && message0.left(4).contains(four_digit_regexp) && !m_diskData) {
           ui->decodedTextBrowser->new_period ();
           if (m_specOp == SpecOp::FOX and m_ActiveStationsWidget != NULL && m_config.insert_blank ()) { // clear the ActiveStations window
             m_ActiveStationsWidget->clearStations();
@@ -4935,12 +4945,12 @@ void MainWindow::readFromStdout()                             //readFromStdout
           }
 
           if(SpecOp::FOX==m_specOp and decodedtext.string().contains(" DE ")) for_us=true; //Hound with compound callsign
-          if(SpecOp::FOX==m_specOp and for_us and decodedtext.string().contains(QRegularExpression{" R\\W\\d"})) bDisplayRight=true;
+          if(SpecOp::FOX==m_specOp and for_us and decodedtext.string().contains(fox_report_regexp)) bDisplayRight=true;
           if(SpecOp::FOX!=m_specOp and (for_us or (abs(audioFreq - m_wideGraph->rxFreq()) <= 10))) bDisplayRight=true;
           if(SpecOp::HOUND==m_specOp and !for_us) bDisplayRight=false;
 
           // Give the Fox a warning when there is probably another Fox on the frequency
-          if(SpecOp::FOX==m_specOp and audioFreq<1000 and !for_us and decodedtext.string().contains(QRegularExpression{" R\\W\\d"})) {
+          if(SpecOp::FOX==m_specOp and audioFreq<1000 and !for_us and decodedtext.string().contains(fox_report_regexp)) {
               if (first_Fox_alert) {
                   first_Fox_alert = false;
                   QTimer::singleShot (120000, [=] {first_Fox_alert = true;});   // Reset after 2 minutes
@@ -5127,7 +5137,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
 void MainWindow::auto_sequence (DecodedText const& message, unsigned start_tolerance, unsigned stop_tolerance)
 {
   auto const& message_words = message.messageWords ();
-  auto is_73 = message_words.filter (QRegularExpression {"^(73|RR73)$"}).size();
+  auto is_73 = message_words.filter (message_73_regexp).size();
   auto msg_no_hash = message.clean_string();
   msg_no_hash = msg_no_hash.mid(22).remove("<").remove(">");
   bool is_OK=false;
@@ -5667,7 +5677,7 @@ void MainWindow::guiUpdate()
         }
     }
     m_bCallingCQ = 6 == m_ntx
-      || m_currentMessage.contains (QRegularExpression {"^(CQ|QRZ) "});
+      || m_currentMessage.contains (cq_or_qrz_message_regexp);
     m_maxPoints=-1;
 
     if (m_tune) {
@@ -6335,7 +6345,7 @@ void MainWindow::on_txrb6_toggled(bool status)
 {
   if (status) {
     m_ntx=6;
-    if (ui->txrb6->text().contains (QRegularExpression {"^(CQ|QRZ) "})) set_dateTimeQSO(-1);
+    if (ui->txrb6->text().contains (cq_or_qrz_message_regexp)) set_dateTimeQSO(-1);
   }
   if(m_mode=="MSK144" && !keep_msk144_frequency && m_msk144basefreq > 0 && !programStart && !m_band_changed) {
     setRig(m_msk144basefreq);  // reset MSK144 QSY
@@ -6555,7 +6565,7 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
     }
   }
 
-  bool is_73 = message_words.filter (QRegularExpression {"^(73|RR73)$"}).size ();
+  bool is_73 = message_words.filter (message_73_regexp).size ();
   if (!is_73 and !message.isStandardMessage() and !message.clean_string ().contains("<")) {
     qDebug () << "Not processing message - hiscall:" << hiscall << "hisgrid:" << hisgrid
               << message.clean_string () << message.isStandardMessage();
@@ -6570,7 +6580,7 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
 
   // ignore calls by other hounds
   if (SpecOp::HOUND == m_specOp
-      && message.messageWords ().indexOf (QRegularExpression {R"(R\+-[0-9]+)"}) >= 1)
+      && message.messageWords ().indexOf (hound_report_regexp) >= 1)
     {
       return;
     }
@@ -6756,14 +6766,14 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
                 m_ntx=6;
                 ui->txrb6->setChecked(true);
               }
-            else if (word_3.contains (QRegularExpression {"^R(?!R73|RR)"})
+            else if (word_3.contains (leading_r_report_regexp)
                      && m_QSOProgress != ROGER_REPORT)
               {
                 m_ntx=4;
                 ui->txrb4->setChecked(true);
               }
             else if ((m_QSOProgress > CALLING && m_QSOProgress < ROGERS)
-                     || word_3.contains (QRegularExpression {"^RR(?:R|73)$"}))
+                     || word_3.contains (roger_ack_regexp))
               {
                 m_ntx=5;
                 ui->txrb5->setChecked(true);
@@ -7197,7 +7207,7 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
           t1 = t1.asprintf("%4.4d",ui->sbSerialNumber->value());
           sent=rst + t1;
         }
-        if(t1.contains(QRegularExpression {"\\d\\d\\d\\d"})) {
+        if(t1.contains(four_digit_regexp)) {
           t1 = m_config.RTTY_Exchange();
         }
       }
@@ -10521,7 +10531,7 @@ void MainWindow::replyToCQ (QTime time, qint32 snr, float delta_time, quint32 de
                                            || (m_TRperiod < 60. && ("`" == mode || ":" == mode))
                                            ? "hhmmss" : "hhmm");
   auto text = message_text;
-  auto ap_pos = text.lastIndexOf (QRegularExpression {R"((?:\?\s)?(?:a[0-9]|q[0-9][0-9]?)$)"});
+  auto ap_pos = text.lastIndexOf (ap_suffix_regexp);
   if (ap_pos >= 0)
     {
       // beware of decodes ending on shorter version of wanted call so
@@ -10562,7 +10572,7 @@ void MainWindow::replyToCQ (QTime time, qint32 snr, float delta_time, quint32 de
           showNormal ();
           raise ();
         }
-      if ((text.contains (QRegularExpression {R"(^(CQ |CQDX |QRZ ))"}))
+      if ((text.contains (reply_cq_or_qrz_regexp))
           || text.contains("73 ") || (ui->cbHoldTxFreq->isChecked ())) {
         // a message we are willing to accept and auto reply to
         m_bDoubleClicked = true;
