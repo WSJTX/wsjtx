@@ -38,6 +38,7 @@
 #include "ExceptionCatchingApplication.hpp"
 #include "Logger.hpp"
 #include "revision_utils.hpp"
+#include "HighDpiScaling.hpp"
 #include "MetaDataRegistry.hpp"
 #include "qt_helpers.hpp"
 #include "L10nLoader.hpp"
@@ -114,9 +115,10 @@ int main(int argc, char *argv[])
   // Multiple instances communicate with jt9 via this
   QSharedMemory mem_jt9;
 
-  // Read optional file to disable highDPI scaling
-  QFile f("DisableHighDpiScaling");
-  if (!f.exists()) QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+  if (HighDpiScaling::wsjtxEnabled (argc, argv))
+    {
+      QApplication::setAttribute (Qt::AA_EnableHighDpiScaling);
+    }
 
   auto const env = QProcessEnvironment::systemEnvironment ();
 

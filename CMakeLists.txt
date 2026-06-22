@@ -269,6 +269,7 @@ set (wsjt_qt_CXXSRCS
   Network/NetworkServerLookup.cpp
   revision_utils.cpp
   L10nLoader.cpp
+  HighDpiScaling.cpp
   WFPalette.cpp
   Radio.cpp
   RadioMetaType.cpp

@@ -5,11 +5,13 @@
 #include <QtGui>
 #endif
 #include <QApplication>
+#include <QCoreApplication>
 #include <QDir>
-#include <QFile>
 #include <QFileInfo>
 #include <QDebug>
+#include <QStandardPaths>
 
+#include "HighDpiScaling.hpp"
 #include "revision_utils.hpp"
 #include "mainwindow.h"
 #include "runtime_paths.h"
@@ -26,11 +28,17 @@ extern "C" {
 
 int main(int argc, char *argv[])
 {
-  QString appDir = QFileInfo {argc > 0 ? QString::fromLocal8Bit (argv[0]) : QString {}}.absoluteDir ().absolutePath ();
+  QCoreApplication::setApplicationName ("QMAP");
+  QString dataDir = QStandardPaths::writableLocation (QStandardPaths::AppLocalDataLocation);
+  if (dataDir.isEmpty ())
+    {
+      dataDir = QDir::home ().absoluteFilePath (".qmap");
+    }
 
-  // Read optional file to disable highDPI scaling
-  QFile f(QDir {appDir}.absoluteFilePath ("DisableHighDpiScaling"));
-  if (!f.exists()) QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+  if (HighDpiScaling::qmapEnabled (QDir {dataDir}.absoluteFilePath ("qmap.ini")))
+    {
+      QApplication::setAttribute (Qt::AA_EnableHighDpiScaling);
+    }
 
   QApplication a {argc, argv};
 
@@ -38,7 +46,7 @@ int main(int argc, char *argv[])
   a.setApplicationName ("QMAP");
   a.setApplicationVersion ("0.7");
 
-  QString dataDir = qmapDataDir();
+  dataDir = qmapDataDir();
   QFileInfo dataDirInfo {dataDir};
   if (!dataDirInfo.exists() || !dataDirInfo.isDir() || !dataDirInfo.isWritable()
       || !QDir::setCurrent(dataDir)) {

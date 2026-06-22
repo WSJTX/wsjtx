@@ -615,7 +615,6 @@ private:
   Q_SLOT void handle_transceiver_failure (QString const& reason);
   Q_SLOT void on_DXCC_check_box_clicked(bool checked);
   Q_SLOT void on_PWR_and_SWR_check_box_clicked(bool checked);
-  Q_SLOT void on_cbHighDPI_clicked(bool checked);
   Q_SLOT void on_reset_highlighting_to_defaults_push_button_clicked (bool);
   Q_SLOT void on_reset_highlighting_to_defaults2_push_button_clicked (bool);
   Q_SLOT void on_rescan_log_push_button_clicked (bool);
@@ -4062,20 +4061,6 @@ void Configuration::impl::on_PWR_and_SWR_check_box_clicked(bool checked)
     } else {
         ui_->check_SWR_check_box->setEnabled (false);
     }
-}
-
-void Configuration::impl::on_cbHighDPI_clicked(bool checked)
-{
-  if (checked) {
-      QFile::remove ("DisableHighDpiScaling");
-  } else {
-      static QFile f("DisableHighDpiScaling");
-      f.open(QIODevice::WriteOnly | QIODevice::Text);
-      QString EventConfig = ("DisableHighDpiScaling=\"true\"");
-      QTextStream out(&f);
-      out << EventConfig;
-      f.close();
-  }
 }
 
 void Configuration::impl::on_CAT_data_bits_button_group_buttonClicked (int /* id */)
