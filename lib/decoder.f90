@@ -109,6 +109,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   my_jt9%decoded = 0
   my_ft8%decoded = 0
   my_ft8var%decodedvar = 0
+  my_ft8var%callback => ft8_decodedvar   !Set once in serial init; avoids racing writes in decodevar
   my_ft4%decoded = 0
   my_fst4%decoded = 0
   my_q65%decoded = 0

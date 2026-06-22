@@ -107,7 +107,6 @@ contains
     end type tmpqsosig_struct
     type(tmpqsosig_struct) tmpqsosig(1)
 
-    this%callback => callback
     la8=.true.
 
     oddtmp%lstate=.false.
