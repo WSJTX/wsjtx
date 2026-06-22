@@ -51,6 +51,12 @@
           <property name="text">
            <string>Band Activity</string>
           </property>
+          <property name="accessibleName">
+           <string>Band Activity decode pane title</string>
+          </property>
+          <property name="accessibleDescription">
+           <string>Title for the Band Activity decoded messages pane.</string>
+          </property>
           <property name="alignment">
            <set>Qt::AlignCenter</set>
           </property>
@@ -146,6 +152,12 @@
           <property name="indent">
            <number>5</number>
           </property>
+          <property name="accessibleName">
+           <string>Band Activity decoded messages headings</string>
+          </property>
+          <property name="accessibleDescription">
+           <string>Columns: UTC dB DT Freq Message.</string>
+          </property>
          </widget>
         </item>
         <item>
@@ -164,6 +176,12 @@
           </property>
           <property name="textInteractionFlags">
            <set>Qt::TextSelectableByKeyboard|Qt::TextSelectableByMouse</set>
+          </property>
+          <property name="accessibleName">
+           <string>Band Activity decoded messages</string>
+          </property>
+          <property name="accessibleDescription">
+           <string>Decoded messages in the Band Activity pane. Columns: UTC dB DT Freq Message.</string>
           </property>
          </widget>
         </item>
@@ -193,6 +211,12 @@
           </property>
           <property name="text">
            <string>Rx Frequency</string>
+          </property>
+          <property name="accessibleName">
+           <string>Rx Frequency decode pane title</string>
+          </property>
+          <property name="accessibleDescription">
+           <string>Title for the Rx Frequency decoded messages pane.</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignCenter</set>
@@ -289,6 +313,12 @@
           <property name="indent">
            <number>5</number>
           </property>
+          <property name="accessibleName">
+           <string>Rx Frequency decoded messages headings</string>
+          </property>
+          <property name="accessibleDescription">
+           <string>Columns: UTC dB DT Freq Message.</string>
+          </property>
          </widget>
         </item>
         <item>
@@ -304,6 +334,12 @@
           </property>
           <property name="textInteractionFlags">
            <set>Qt::TextSelectableByKeyboard|Qt::TextSelectableByMouse</set>
+          </property>
+          <property name="accessibleName">
+           <string>Rx Frequency decoded messages</string>
+          </property>
+          <property name="accessibleDescription">
+           <string>Decoded messages in the Rx Frequency pane. Columns: UTC dB DT Freq Message.</string>
           </property>
          </widget>
         </item>

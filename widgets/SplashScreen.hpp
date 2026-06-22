@@ -5,6 +5,8 @@
 
 #include "pimpl_h.hpp"
 
+class QEvent;
+
 class SplashScreen final
   : public QSplashScreen
 {
@@ -15,6 +17,9 @@ public:
   ~SplashScreen ();
 
   Q_SIGNAL void disabled ();
+
+protected:
+  bool eventFilter (QObject *, QEvent *) override;
 
 private:
   class impl;

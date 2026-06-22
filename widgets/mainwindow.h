@@ -593,6 +593,7 @@ private:
   void setDXInfo(QString const& call, QString const& grid);
   void setDecodeTitles(QString const& lh, QString const& rh);
   void setDecodeHeadings(QString const& lh, QString const& rh);
+  void updateDecodeAccessibility();
 
   bool play_DXcall = false;
   bool play_Wanted = false;

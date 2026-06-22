@@ -118,6 +118,17 @@
 
 namespace {
   int const ReferenceSpectrumMeasureSeconds = 7;
+
+  QString decodeHeadingText(QString const& headings)
+  {
+    return headings.simplified();
+  }
+
+  QString decodeLineDescription(QString const& headings)
+  {
+    if (headings.isEmpty ()) return QString {"No column headings are shown."};
+    return QString {"Columns: %1."}.arg (headings);
+  }
 }
 
 #define FCL fortran_charlen_t
@@ -8123,6 +8134,7 @@ void MainWindow::displayWidgets(qint64 n)
   ui->sbNB->setVisible(b);
   genStdMsgs (m_rpt, true);
   configActiveStations();
+  updateDecodeAccessibility();
 }
 
 QString MainWindow::specOpLabel() const
@@ -8170,6 +8182,29 @@ void MainWindow::setDXInfo(QString const& call, QString const& grid)
 {
   ui->dxCallEntry->setText(call);
   ui->dxGridEntry->setText(grid);
+}
+
+void MainWindow::updateDecodeAccessibility()
+{
+  auto const updatePane = [] (QLabel *titleLabel, QLabel *headingsLabel, DisplayText *pane)
+    {
+      auto const title = titleLabel->text();
+      auto const headings = decodeHeadingText(headingsLabel->text());
+
+      titleLabel->setAccessibleName(QString {"%1 decode pane title"}.arg (title));
+      titleLabel->setAccessibleDescription(QString {"Title for the %1 decoded messages pane."}.arg (title));
+
+      headingsLabel->setAccessibleName(QString {"%1 decoded messages headings"}.arg (title));
+      headingsLabel->setAccessibleDescription(decodeLineDescription(headings));
+
+      pane->setAccessibleName(QString {"%1 decoded messages"}.arg (title));
+      pane->setAccessibleDescription(QString {"Decoded messages in the %1 pane. %2"}
+                                     .arg (title)
+                                     .arg (decodeLineDescription(headings)));
+    };
+
+  updatePane (ui->lh_decodes_title_label, ui->lh_decodes_headings_label, ui->decodedTextBrowser);
+  updatePane (ui->rh_decodes_title_label, ui->rh_decodes_headings_label, ui->decodedTextBrowser2);
 }
 
 void MainWindow::setDecodeTitles(QString const& lh, QString const& rh)
@@ -8382,7 +8417,7 @@ void MainWindow::on_actionFT8_triggered()
     ui->lh_decodes_title_label->setText(tr ("Band Activity"));
     ui->lh_decodes_headings_label->setText( "  UTC   dB   DT Freq    " + tr ("Message"));
   }
-	
+
 //                         01234567890123456789012345678901234567
   displayWidgets(nWidgets("11101000010011100001000010011000100000"));
   setTxButtonsEnabled(true);
