@@ -821,7 +821,6 @@ private:
   bool    m_bShMsgs;
   bool    m_bSWL;
   bool    m_uploadWSPRSpots;
-  bool    m_uploading;
   bool    m_grid6;
   bool    m_tuneup;
   bool    m_bTxTime;

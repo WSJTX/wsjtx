@@ -455,7 +455,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_lastMessageType {-1},
   m_bShMsgs {false},
   m_bSWL {false},
-  m_uploading {false},
   m_grid6 {false},
   m_tuneup {false},
   m_bTxTime {false},
@@ -1022,7 +1021,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect(&killFileTimer, &QTimer::timeout, this, &MainWindow::killWaveFile);
 
   uploadTimer.setSingleShot(true);
-  connect(&uploadTimer, &QTimer::timeout, [this] () {uploadWSPRSpots ();});
+  connect(&uploadTimer, &QTimer::timeout, [this] () {uploadWSPRSpots ("FST4W" == m_mode);});
 
   TxAgainTimer.setSingleShot(true);
   connect(&TxAgainTimer, SIGNAL(timeout()), this, SLOT(TxAgain()));
@@ -10824,18 +10823,13 @@ void MainWindow::uploadWSPRSpots (bool direct_post, QString const& decode_text)
 {
   // do not spot if disabled, replays, or if rig control not working
   if(!m_uploadWSPRSpots || m_diskData || !m_config.is_transceiver_online ()) return;
-  if(m_uploading && !decode_text.size ()) {
-    qDebug() << "Previous upload has not completed, spots were lost";
-    wsprNet->abortOutstandingRequests ();
-    m_uploading = false;
-  }
   QString rfreq = QString("%1").arg((m_dialFreqRxWSPR + 1500) / 1e6, 0, 'f', 6);
   QString tfreq = QString("%1").arg((m_dialFreqRxWSPR +
                         ui->TxFreqSpinBox->value()) / 1e6, 0, 'f', 6);
   auto pct = QString::number (ui->autoButton->isChecked () ? ui->sbTxPercent->value () : 0);
   if (direct_post)
     {
-      // queues one FST4W spot
+      // Queue an FST4W spot, or flush queued FST4W spots after the decode cycle.
       wsprNet->post (m_config.my_callsign (), m_config.my_grid (), rfreq, tfreq,
                      m_mode, m_TRperiod, pct,
                      QString::number (m_dBm), version (), decode_text);
@@ -10848,21 +10842,11 @@ void MainWindow::uploadWSPRSpots (bool direct_post, QString const& decode_text)
                        QString::number (m_dBm), version (),
                        m_config.writeable_data_dir ().absoluteFilePath ("wspr_spots.txt"));
     }
-  // trigger upload of any queued spots
-  if (!decode_text.size ())
-    {
-      m_uploading = true;
-    }
 }
 
 void MainWindow::uploadResponse(QString const& response)
 {
-  if (response == "done") {
-    m_uploading=false;
-  } else {
-    if (response.startsWith ("Upload Failed")) {
-      m_uploading=false;
-    }
+  if (response != "done") {
     qDebug () << "WSPRnet.org status:" << response;
   }
 }
