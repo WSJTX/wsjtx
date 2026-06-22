@@ -174,6 +174,7 @@ bool DecodedText::report(QString const& myBaseCall, QString const& dxBaseCall, /
         {
           offset = 2;
         }
+      if (w.size () <= offset + 2) return false;
       if (is_standard_ && (w[offset] == myBaseCall
                            || w[offset].endsWith ("/" + myBaseCall)
                            || w[offset].startsWith (myBaseCall + "/")
