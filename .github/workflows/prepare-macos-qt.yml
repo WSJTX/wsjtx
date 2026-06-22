@@ -22,7 +22,7 @@ jobs:
     outputs:
       key: ${{ steps.qt-key.outputs.key }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Compute Qt cache key
         id: qt-key
@@ -40,7 +40,7 @@ jobs:
       group: ${{ needs.qt-cache-key.outputs.key }}
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Restore Qt cache
         id: qt-cache
