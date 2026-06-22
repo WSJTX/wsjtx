@@ -56,7 +56,7 @@ jobs:
       macos_x86_64: ${{ steps.detect.outputs.macos_x86_64 }}
       hamlib_branch: ${{ steps.detect.outputs.hamlib_branch }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 2
 
@@ -183,7 +183,7 @@ jobs:
     if: needs.detect.outputs.linux == 'true'
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/warm-linux-deps
         with:
           arch: x86_64
@@ -197,7 +197,7 @@ jobs:
     container:
       image: debian:bookworm-slim
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/warm-linux-deps
         with:
           arch: aarch64
@@ -209,7 +209,7 @@ jobs:
     if: needs.detect.outputs.windows == 'true'
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/warm-windows-deps
         with:
           hamlib_branch: ${{ needs.detect.outputs.hamlib_branch }}
@@ -219,7 +219,7 @@ jobs:
     if: needs.detect.outputs.macos_arm64 == 'true'
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/warm-macos-deps
         with:
           arch: arm64
@@ -232,7 +232,7 @@ jobs:
     if: needs.detect.outputs.macos_x86_64 == 'true'
     runs-on: macos-15-intel
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/warm-macos-deps
         with:
           arch: x86_64
