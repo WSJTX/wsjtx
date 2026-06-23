@@ -121,14 +121,22 @@ void MainWindow::jtty_tx(QString message)
 void MainWindow::execute_jtty_tx(QString message)
 {
   int itone[848];
-  int n=message.length();
-  QString const originalMessage = message;
-  bool const isTUMessage = message.left(3).compare("TU ", Qt::CaseInsensitive) == 0;
   if(ui->cbLowerCase->isChecked()) message = message.toLower();
 
+  auto const preparedMessage = Jtty::prepareTransmitText(message);
+  if (preparedMessage.changed()) {
+    LOG_WARN("JTTY transmit message was normalized or shortened before encoding");
+  }
+  message = preparedMessage.text;
+
+  int n=message.length();
   QString t = " ";
   t = message + t.repeated(80-n);
   genjtty_(t.toLatin1().constData(), &itone[0], &m_nsym_jtty, (FCL)80);
+  if (m_nsym_jtty <= 0) {
+    LOG_WARN("JTTY transmit message could not be encoded");
+    return;
+  }
 
   int nsps4=4*384;
   float bt=2.0;
@@ -193,7 +201,7 @@ void MainWindow::execute_jtty_tx(QString message)
     return;
   }
 
-  m_currentMessage = originalMessage;
+  m_currentMessage = message;
   m_jttyQueuedSamples += samples.size ();
   m_jttyTxActive = true;
   m_transmitting = true;
@@ -207,12 +215,7 @@ void MainWindow::execute_jtty_tx(QString message)
   format.setBackground(QBrush(QColor(Qt::white)));
   cursor.setCharFormat(format);
 
-  if(isTUMessage) {
-    logQSOTimer.start(0);
-    int nr = ui->sbSerialNumber_2->value();
-    m_xSent = QString::number(nr);
-    ui->sbSerialNumber_2->setValue(nr+1);
-  }
+  handleJttyContestSerial(message);
 
   // Fault-detector watchdog: generous margin over all audio still to play (the
   // whole queued session, not just this message). The happy path completes via
@@ -245,6 +248,16 @@ void MainWindow::execute_jtty_tx(QString message)
   // stream with the normal lead.
   if (newSession && g_iptt == 1 && !m_modulator->isActive()) {
     startTx2();
+  }
+}
+
+void MainWindow::handleJttyContestSerial(QString const& message)
+{
+  if(message.left(3).compare("TU ", Qt::CaseInsensitive) == 0) {
+    logQSOTimer.start(0);
+    int nr = ui->sbSerialNumber_2->value();
+    m_xSent = QString::number(nr);
+    ui->sbSerialNumber_2->setValue(nr+1);
   }
 }
 

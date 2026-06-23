@@ -574,6 +574,7 @@ private:
   void sfox_tx();
   void jtty_tx(QString message);
   void execute_jtty_tx(QString message);
+  void handleJttyContestSerial(QString const& message);
   void abort_jtty_tx();
   void interruptJttyTx();
   void sync_tci_tx_volume (bool force = false);

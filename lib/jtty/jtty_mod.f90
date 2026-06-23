@@ -1,6 +1,8 @@
 module jtty_mod
 
   parameter (MAX_FRAMES=16)             !Max frames for the encoded message
+  character(len=*), parameter :: JTTY_ALPHABET = &
+       '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ +-./?!"#$%,&*()_''=[]{}<>|:;'
 
 contains
 
@@ -27,14 +29,8 @@ subroutine pack_jtty(message,c32,nframes)
   integer n, ipos, n32, lcall, icall, iend
   integer i2, n2, n28
   character*13 c13
-  logical ok
 
-  call normalize_jtty_message(message,msg,ok)
-  if(.not.ok) then
-     nframes=-1
-     c32=''
-     return
-  endif
+  call normalize_jtty_message(message,msg)
   message=msg
   n=len_trim(msg)
   nframes=0
@@ -295,16 +291,15 @@ logical function jtty_standard_call(c13)
 
 end function jtty_standard_call
 
-subroutine normalize_jtty_message(raw,normalized,ok)
+subroutine normalize_jtty_message(raw,normalized)
 
 ! Fold operator text into the source alphabet used by the JTTY encoder.
 
   character*80 raw,normalized
   character*1 c
-  logical ok,last_space
+  logical last_space
 
   normalized=''
-  ok=.true.
   last_space=.true.
   j=0
 
@@ -314,11 +309,7 @@ subroutine normalize_jtty_message(raw,normalized,ok)
      ! The decoder uses '~' as a display marker for space, not a source symbol.
      if(c.eq.'~') c=' '
      if(c.ge.'a' .and. c.le.'z') c=char(ichar(c)-32)
-     if(jchar(c).lt.0) then
-        ok=.false.
-        normalized=''
-        return
-     endif
+     if(jchar(c).lt.0) c='#'
      if(c.eq.' ') then
         if(last_space) cycle
         j=j+1
@@ -453,14 +444,7 @@ character*1 function charj(j)
 
 ! Returns the printable character corresponding to JTTY index j (0-63),
 
-  character*64 c
-!                   1         2         3         4         5         6
-! j       0123456789012345678901234567890123456789012345678901234567890123
-  data c/"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ +-./?!@#$%,&*()_'=[]{}<>|:;"/
-!                                                    "  
-  c(44:44)='"'                                !use " rather than @
-
-  charj=c(j+1:j+1)
+  charj=JTTY_ALPHABET(j+1:j+1)
 
   return
 end function charj
@@ -470,14 +454,8 @@ integer function jchar(c0)
 ! Returns the JTTY index (0-63) corresponding to character c0.
   
   character*1 c0
-  character*64 c
-!                   1         2         3         4         5         6
-! j       0123456789012345678901234567890123456789012345678901234567890123
-  data c/"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ +-./?!@#$%,&*()_'=[]{}<>|:;"/
-!                                                    "  
-  c(44:44)='"'                                !use " rather than @
 
-  jchar=index(c,c0)-1
+  jchar=index(JTTY_ALPHABET,c0)-1
   
   return
 end function jchar

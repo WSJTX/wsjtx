@@ -8,6 +8,56 @@ class TestJttyMessages final
   Q_OBJECT
 
 private slots:
+  void prepareTransmitText_data ()
+  {
+    QTest::addColumn<QString> ("message");
+    QTest::addColumn<QString> ("expected");
+    QTest::addColumn<bool> ("substituted");
+    QTest::addColumn<bool> ("truncated");
+
+    QTest::newRow ("empty") << QString {} << QString {}
+                            << false << false;
+    QTest::newRow ("supported") << QString {"CQ KA1ABC CQ"} << QString {"CQ KA1ABC CQ"}
+                                << false << false;
+    QTest::newRow ("lowercase-preserved") << QString {"cq ka1abc cq"} << QString {"cq ka1abc cq"}
+                                          << false << false;
+    QTest::newRow ("tab") << QString {"HELLO\tWORLD"} << QString {"HELLO#WORLD"}
+                          << true << false;
+    QTest::newRow ("cr-lf") << QString {"HELLO\r\nWORLD"} << QString {"HELLO##WORLD"}
+                            << true << false;
+    QTest::newRow ("nul") << (QString {"A"} + QChar::Null + QString {"B"}) << QString {"A B"}
+                          << true << false;
+    QTest::newRow ("display-space-marker") << QString {"A~B"} << QString {"A B"}
+                                           << true << false;
+    QTest::newRow ("exactly-80") << QString (80, QLatin1Char {'A'}) << QString (80, QLatin1Char {'A'})
+                                 << false << false;
+    QTest::newRow ("truncated") << QString (81, QLatin1Char {'A'}) << QString (80, QLatin1Char {'A'})
+                                << false << true;
+    QTest::newRow ("unsupported-past-limit")
+        << (QString (80, QLatin1Char {'A'}) + QString {"\t"})
+        << QString (80, QLatin1Char {'A'})
+        << false << true;
+    QTest::newRow ("substitution-and-truncation")
+        << (QString (79, QLatin1Char {'A'}) + QString {"\tB"})
+        << (QString (79, QLatin1Char {'A'}) + QString {"#"})
+        << true << true;
+  }
+
+  void prepareTransmitText ()
+  {
+    QFETCH (QString, message);
+    QFETCH (QString, expected);
+    QFETCH (bool, substituted);
+    QFETCH (bool, truncated);
+
+    auto const prepared = Jtty::prepareTransmitText (message);
+
+    QCOMPARE (prepared.text, expected);
+    QCOMPARE (prepared.substituted, substituted);
+    QCOMPARE (prepared.truncated, truncated);
+    QCOMPARE (prepared.changed (), substituted || truncated);
+  }
+
   void formatSerialNumber_data ()
   {
     QTest::addColumn<int> ("serialNumber");

@@ -13,7 +13,4 @@
           o'0265341',o'0000000',o'1111111',o'2222222',o'3333333',  &  !60
           o'4444444',o'5555555',o'6666666',o'7777777'/
 
-!                      1         2         3         4         5         6
-!            0123456789012345678901234567890123456789012345678901234567890123
-! Printable: 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ +-./?
-! Shorthands:                                          !@#$%^&*()
+! The source alphabet is defined by JTTY_ALPHABET in jtty_mod.f90.
