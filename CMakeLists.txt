@@ -315,6 +315,7 @@ set (wsjt_qt_CXXSRCS
   Decoder/decodedtext.cpp
   Configuration.cpp
   logbook/logbook.cpp
+  logbook/AdifQso.cpp
   MultiSettings.cpp
   validators/MaidenheadLocatorValidator.cpp
   validators/CallsignValidator.cpp
