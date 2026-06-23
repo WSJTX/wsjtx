@@ -13,6 +13,11 @@ git clone https://github.com/WSJTX/wsjtx.git
 cd wsjtx
 ----
 
+NOTE: On Windows, Git is provided by MSYS2 rather than installed
+      separately. Install MSYS2 first (see <<SRC_WINDOWS_MSYS2>>), then run
+      the clone from the *MINGW64* shell into your home directory, as that
+      section shows — not from a Windows Command Prompt.
+
 If you are interested in contributing to the development and
 documentation of _WSJT_ and its sister programs, please join the
 developer's email list {devmail} and let us know of your areas of
@@ -89,6 +94,22 @@ Asciidoctor, a Ruby gem with no native MSYS2 package — install it once
 gem install asciidoctor --no-document
 ----
 
+===== Clone the WSJT-X source
+
+Git is installed as part of the toolchain above, so clone the source from
+inside the *MINGW64* shell. Clone into your home directory — the steps that
+follow build Hamlib into `$HOME/hamlib-prefix`, and keeping the source tree
+beside it in `$HOME` keeps every later path consistent:
+
+[source,bash]
+----
+cd ~
+git clone https://github.com/WSJTX/wsjtx.git
+----
+
+This leaves the source in `$HOME/wsjtx`. The remaining commands assume that
+layout.
+
 ===== Alias dumpcpp
 
 MSYS2 ships Qt's `dumpcpp` tool as `dumpcpp-qt5`, but the build looks for
@@ -133,10 +154,12 @@ the new tag and rebuild this step.
 
 ===== Configure and build WSJT-X
 
-From the top of your _WSJT-X_ source tree:
+From the top of the _WSJT-X_ source tree you cloned:
 
 [source,bash]
 ----
+cd ~/wsjtx
+
 OMNIRIG=$(cygpath "C:/Program Files (x86)/Afreet/OmniRig/OmniRig.exe")
 
 cmake -G "MSYS Makefiles" -S . -B build \
@@ -152,8 +175,7 @@ cmake --build build -j$(nproc)
 ----
 
 The binaries are written to `build/` — `wsjtx.exe`, `jt9.exe`, and the
-command-line utilities. You can run `./build/wsjtx.exe` directly from the
-MINGW64 shell; it finds the Qt and Hamlib DLLs on the shell's `PATH`.
+command-line utilities.
 
 [%autowidth]
 |===
@@ -172,6 +194,35 @@ NOTE: For Windows *installer* builds the _OpenSSL_ runtime DLLs bundled
       they automatically match the Qt libraries that environment
       provides. With the MSYS2 toolchain above this is handled for you —
       there is no separate _OpenSSL_ download or install step.
+
+===== Running from the build directory
+
+To run the freshly built `wsjtx.exe` in place, point it at two things the
+build does not copy next to the executable: the Hamlib DLL you built into
+`$HOME/hamlib-prefix`, and Qt's platform plugins. From the *MINGW64* shell:
+
+[source,bash]
+----
+export PATH="$HOME/hamlib-prefix/bin:$PATH"
+export QT_QPA_PLATFORM_PLUGIN_PATH=/mingw64/share/qt5/plugins
+./build/wsjtx.exe
+----
+
+To launch the same binary from a regular Windows *Command Prompt* instead
+of the MINGW64 shell, set the equivalents (these assume MSYS2 is at
+`C:\msys64` and that your MSYS2 home maps to your Windows user profile — run
+`echo $HOME` in the MINGW64 shell if you are unsure where it points):
+
+[source,bat]
+----
+set PATH=%USERPROFILE%\hamlib-prefix\bin;C:\msys64\mingw64\bin;%PATH%
+set QT_QPA_PLATFORM_PLUGIN_PATH=C:\msys64\mingw64\share\qt5\plugins
+----
+
+NOTE: Without these, `wsjtx.exe` fails to start — a missing Hamlib DLL on
+      the `PATH` produces a "DLL not found" error, and a Qt that cannot
+      locate its platform plugin (`qwindows.dll`) aborts with a
+      "could not find or load the Qt platform plugin" message.
 
 ===== Keeping current
 
