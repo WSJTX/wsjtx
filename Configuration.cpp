@@ -989,7 +989,9 @@ private:
   QAudioDeviceInfo next_audio_output_device_;
   AudioDevice::Channel audio_output_channel_;
   AudioDevice::Channel next_audio_output_channel_;
-  FileDownload cty_download;
+  FileDownload cty_download_;
+  FileDownload call3_download_;
+  FileDownload hamlib_download_;
   
   bool default_audio_input_device_selected_;
   bool default_audio_output_device_selected_;
@@ -3751,15 +3753,14 @@ void Configuration::impl::on_CTY_download_button_clicked (bool /*clicked*/)
 {
   ui_->CTY_download_button->setEnabled (false); // disable button until download is complete
   QDir dataPath {QStandardPaths::writableLocation (QStandardPaths::DataLocation)};
-  cty_download.configure(network_manager_,
-                         "http://www.country-files.com/bigcty/cty.dat",
-                         dataPath.absoluteFilePath("cty.dat"),
-                         "WSJT-X CTY Downloader");
+  cty_download_.configure(network_manager_,
+                          "http://www.country-files.com/bigcty/cty.dat",
+                          dataPath.absoluteFilePath("cty.dat"),
+                          "WSJT-X CTY Downloader");
 
-  // set up LoTW users CSV file fetching
-  connect (&cty_download, &FileDownload::complete, this, &Configuration::impl::after_CTY_downloaded, Qt::UniqueConnection);
-  connect (&cty_download, &FileDownload::error, this, &Configuration::impl::error_during_CTY_download, Qt::UniqueConnection);
-  cty_download.start_download();
+  connect (&cty_download_, &FileDownload::complete, this, &Configuration::impl::after_CTY_downloaded, Qt::UniqueConnection);
+  connect (&cty_download_, &FileDownload::error, this, &Configuration::impl::error_during_CTY_download, Qt::UniqueConnection);
+  cty_download_.start_download();
 }
 
 void Configuration::impl::set_CTY_DAT_version(QString const& version)
@@ -3790,15 +3791,14 @@ void Configuration::impl::on_CALL3_download_button_clicked (bool /*clicked*/)
   if (g.exists()) QFile::rename(dataPath.absolutePath() + "/" + "CALL3_backup.TXT", dataPath.absolutePath() + "/" + "CALL3_backup.tmp");
   QFile f {dataPath.absolutePath() + "/" + "CALL3.TXT"};
   if (f.exists()) QFile::rename(dataPath.absolutePath() + "/" + "CALL3.TXT", dataPath.absolutePath() + "/" + "CALL3_backup.TXT");
-  cty_download.configure(network_manager_,
-                         "https://wsjt-x-improved.sourceforge.io/CALL3.TXT",
-                         dataPath.absoluteFilePath("CALL3.TXT"),
-                         "Downloading latest CALL3.TXT file");
+  call3_download_.configure(network_manager_,
+                            "https://wsjt-x-improved.sourceforge.io/CALL3.TXT",
+                            dataPath.absoluteFilePath("CALL3.TXT"),
+                            "Downloading latest CALL3.TXT file");
 
-  // set up CALL3.TXT file fetching
-  connect (&cty_download, &FileDownload::complete, this, &Configuration::impl::after_CALL3_downloaded, Qt::UniqueConnection);
-  connect (&cty_download, &FileDownload::error, this, &Configuration::impl::error_during_CALL3_download, Qt::UniqueConnection);
-  cty_download.start_download();
+  connect (&call3_download_, &FileDownload::complete, this, &Configuration::impl::after_CALL3_downloaded, Qt::UniqueConnection);
+  connect (&call3_download_, &FileDownload::error, this, &Configuration::impl::error_during_CALL3_download, Qt::UniqueConnection);
+  call3_download_.start_download();
   ui_->CALL3_file_label->setText("Downloading ...");
 }
 
@@ -3810,15 +3810,14 @@ void Configuration::impl::on_CALL3_EME_download_button_clicked (bool /*clicked*/
   if (g.exists()) QFile::rename(dataPath.absolutePath() + "/" + "CALL3_backup.TXT", dataPath.absolutePath() + "/" + "CALL3_backup.tmp");
   QFile f {dataPath.absolutePath() + "/" + "CALL3.TXT"};
   if (f.exists()) QFile::rename(dataPath.absolutePath() + "/" + "CALL3.TXT", dataPath.absolutePath() + "/" + "CALL3_backup.TXT");
-  cty_download.configure(network_manager_,
-                         "https://wsjt-x-improved.sourceforge.io/CALL3_EME.TXT",
-                         dataPath.absoluteFilePath("CALL3.TXT"),
-                         "Downloading latest CALL3.TXT file");
+  call3_download_.configure(network_manager_,
+                            "https://wsjt-x-improved.sourceforge.io/CALL3_EME.TXT",
+                            dataPath.absoluteFilePath("CALL3.TXT"),
+                            "Downloading latest CALL3.TXT file");
 
-  // set up CALL3.TXT file fetching
-  connect (&cty_download, &FileDownload::complete, this, &Configuration::impl::after_CALL3_downloaded, Qt::UniqueConnection);
-  connect (&cty_download, &FileDownload::error, this, &Configuration::impl::error_during_CALL3_download, Qt::UniqueConnection);
-  cty_download.start_download();
+  connect (&call3_download_, &FileDownload::complete, this, &Configuration::impl::after_CALL3_downloaded, Qt::UniqueConnection);
+  connect (&call3_download_, &FileDownload::error, this, &Configuration::impl::error_during_CALL3_download, Qt::UniqueConnection);
+  call3_download_.start_download();
   ui_->CALL3_file_label->setText("Downloading ...");
 }
 
@@ -3906,21 +3905,21 @@ void Configuration::impl::on_hamlib_download_button_clicked (bool /*clicked*/)
   ui_->hamlib_download_button->setEnabled (false);
   ui_->revert_update_button->setEnabled (false);
   if (ui_->rbHamlib32->isChecked()) {
-    cty_download.configure(network_manager_,
-                           "https://hamlib.sourceforge.net/snapshots-4.7/dll32/libhamlib-4.dll",  // new hamlib download location
-                           dataPath.absoluteFilePath("libhamlib-4_new.dll"),
-                           "Downloading latest libhamlib-4.dll");
+    hamlib_download_.configure(network_manager_,
+                               "https://hamlib.sourceforge.net/snapshots-4.7/dll32/libhamlib-4.dll",
+                               dataPath.absoluteFilePath("libhamlib-4_new.dll"),
+                               "Downloading latest libhamlib-4.dll");
   } else {
-    cty_download.configure(network_manager_,
-                           "https://hamlib.sourceforge.net/snapshots-4.7/dll64/libhamlib-4.dll",  // new hamlib download location
-                           dataPath.absoluteFilePath("libhamlib-4_new.dll"),
-                           "Downloading latest libhamlib-4.dll");
+    hamlib_download_.configure(network_manager_,
+                               "https://hamlib.sourceforge.net/snapshots-4.7/dll64/libhamlib-4.dll",
+                               dataPath.absoluteFilePath("libhamlib-4_new.dll"),
+                               "Downloading latest libhamlib-4.dll");
   }
-  connect (&cty_download, &FileDownload::complete, this, &Configuration::impl::after_hamlib_downloaded, Qt::UniqueConnection);
-  connect (&cty_download, &FileDownload::error, this, &Configuration::impl::error_during_hamlib_download, Qt::UniqueConnection);
+  connect (&hamlib_download_, &FileDownload::complete, this, &Configuration::impl::after_hamlib_downloaded, Qt::UniqueConnection);
+  connect (&hamlib_download_, &FileDownload::error, this, &Configuration::impl::error_during_hamlib_download, Qt::UniqueConnection);
   ui_->in_use->setText("Downloading ...");
 
-  cty_download.start_download();
+  hamlib_download_.start_download();
 #else
   MessageBox::warning_message (this, tr ("Hamlib update only available on Windows."));
 #endif
