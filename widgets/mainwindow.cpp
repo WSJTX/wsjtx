@@ -9152,8 +9152,7 @@ void MainWindow::on_TxFreqSpinBox_valueChanged(int n)
   m_wideGraph->setTxFreq(n);
 //  if (ui->cbHoldTxFreq->isChecked ()) ui->RxFreqSpinBox->setValue(n);
   if(m_mode!="MSK144") {
-    if (m_tci_audio) Q_EMIT m_config.transceiver_trfrequency(n - m_XIT);
-    else Q_EMIT transmitFrequency (n - m_XIT);
+    setXIT (n);
   }
 
   if(m_mode=="Q65") {
