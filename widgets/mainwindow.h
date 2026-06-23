@@ -847,7 +847,7 @@ private:
   bool    m_bCallingCQ;
   bool    m_bAutoReply;
   QString m_lastloggedcall; //ft8md
-  bool    m_bCheckedContest;
+  bool    m_contestModeHintShown;
   bool    m_bWarnedSplit=false;
   bool    m_bTUmsg;
   bool    m_bBestSPArmed=false;

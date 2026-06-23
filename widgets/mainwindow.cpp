@@ -1272,7 +1272,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_bNoMoreFiles=false;
   m_bDoubleClicked=false;
   m_bCallingCQ=false;
-  m_bCheckedContest=false;
+  m_contestModeHintShown=false;
   m_bDisplayedOnce=false;
   m_wait=0;
   m_isort=-3;
@@ -6634,11 +6634,14 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
     }
     bool bRTTY = (nrpt>=529 and nrpt<=599);
     bool bEU_VHF_w2=(nrpt>=520001 and nrpt<=594000);
-    if(bEU_VHF_w2 and SpecOp::EU_VHF!=m_specOp) {
-      auto const& msg = tr("Should you switch to EU VHF Contest mode?\n\n"
-                               "To do so, check 'Special operating activity' and\n"
-                               "'EU VHF Contest' on the Settings | Advanced tab.");
-      MessageBox::information_message (this, msg);
+    if(!m_contestModeHintShown) {
+      if(bEU_VHF_w2 and SpecOp::EU_VHF!=m_specOp) {
+        auto const& msg = tr("Should you switch to EU VHF Contest mode?\n\n"
+                                 "To do so, check 'Special operating activity' and\n"
+                                 "'EU VHF Contest' on the Settings | Advanced tab.");
+        m_contestModeHintShown=true;
+        MessageBox::information_message (this, msg);
+      }
     }
 
     QStringList t=message.clean_string ().split(' ', SkipEmptyParts);
@@ -6652,14 +6655,14 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
       m_xRcvd=t.at(n-2) + " " + t.at(n-1);
       t0=t.at(n-3);
     }
-    if(bFieldDay_msg and SpecOp::FIELD_DAY!=m_specOp) {
-      // ### Should be in ARRL Field Day mode ??? ###
-      MessageBox::information_message (this, tr ("Should you switch to ARRL Field Day mode?"));
-    }
-
-    if(bRTTY and SpecOp::RTTY != m_specOp) {
-      // ### Should be in RTTY contest mode ??? ###
-      MessageBox::information_message (this, tr ("Should you switch to RTTY contest mode?"));
+    if(!m_contestModeHintShown) {
+      if(bFieldDay_msg and SpecOp::FIELD_DAY!=m_specOp) {
+        m_contestModeHintShown=true;
+        MessageBox::information_message (this, tr ("Should you switch to ARRL Field Day mode?"));
+      } else if(bRTTY and SpecOp::RTTY != m_specOp) {
+        m_contestModeHintShown=true;
+        MessageBox::information_message (this, tr ("Should you switch to RTTY contest mode?"));
+      }
     }
 
     // This is necessary to prevent crashes caused by double-clicking messages with <...> in certain QSO situations.
