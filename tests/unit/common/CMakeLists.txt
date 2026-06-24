@@ -47,3 +47,10 @@ add_executable (test_active_station_list
 )
 target_link_libraries (test_active_station_list Qt5::Test)
 add_test (NAME test_active_station_list COMMAND test_active_station_list)
+
+add_executable (test_qsy_message_parser
+  test_qsy_message_parser.cpp
+  ${CMAKE_SOURCE_DIR}/widgets/QSYMessageParser.cpp
+)
+target_link_libraries (test_qsy_message_parser Qt5::Test)
+add_test (NAME test_qsy_message_parser COMMAND test_qsy_message_parser)
