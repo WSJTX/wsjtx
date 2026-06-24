@@ -22,7 +22,6 @@
 #include "SettingsGroup.hpp"
 #include "Configuration.hpp"
 #include "qt_helpers.hpp"
-#include "widgets/QSYMessageParser.h"
 #include "QSYMessageCreator.h"
 #include "ui_QSYMessageCreator.h"
 
@@ -860,24 +859,22 @@ void QSYMessageCreator::on_genButton_clicked()
 }
 
 QString QSYMessageCreator::getGenMessage()  {
-  int code = 0;
-  if (ui->message1->isChecked()) code = 1;
-  else if (ui->message2->isChecked()) code = 2;
-  else if (ui->message3->isChecked()) code = 3;
-  else if (ui->message4->isChecked()) code = 4;
-  else if (ui->message5->isChecked()) code = 5;
-  else if (ui->message6->isChecked()) code = 6;
-  else if (ui->message7->isChecked()) code = 7;
-  else if (ui->message8->isChecked()) code = 8;
-  else if (ui->message9->isChecked()) code = 9;
-  else if (ui->message10->isChecked()) code = 10;
-  else if (ui->message11->isChecked()) code = 11;
-  else if (ui->message12->isChecked()) code = 12;
-  else if (ui->message13->isChecked()) code = 13;
-  else if (ui->message14->isChecked()) code = 14;
-
-  QString const payload = QSYMessageParser::encodeGeneral (code);
-  QString const message = payload.isEmpty () ? QString {} : ui->DxBaseLabel->text() + "." + payload;
+  QString message;
+  if (ui->message1->isChecked()) message = "001";
+  else if (ui->message2->isChecked()) message = "002";
+  else if (ui->message3->isChecked()) message = "003";
+  else if (ui->message4->isChecked()) message = "004";
+  else if (ui->message5->isChecked()) message = "005";
+  else if (ui->message6->isChecked()) message = "006";
+  else if (ui->message7->isChecked()) message = "007";
+  else if (ui->message8->isChecked()) message = "008";
+  else if (ui->message9->isChecked()) message = "009";
+  else if (ui->message10->isChecked()) message = "010";
+  else if (ui->message11->isChecked()) message = "011";
+  else if (ui->message12->isChecked()) message = "012";
+  else if (ui->message13->isChecked()) message = "013";
+  else if (ui->message14->isChecked()) message = "014";
+  message = ui->DxBaseLabel->text() + ".ZA" + message;
   ui->messageLabel4->setText(message);
   return message;
 }
@@ -1022,27 +1019,25 @@ void QSYMessageCreator::read_settings ()
 
 QString QSYMessageCreator::WriteMessage (QString hisCall, QString band, QChar mode)
 {
-  int kHzFreq = 0;
-  QLabel * label = nullptr;
+  QString message = "";
   if(ui->tabWidget->currentIndex() == 1) {
-    kHzFreq = ui->kHzBox->value();
-    label = ui->messageLabel;
+    qint16 kHzFreq = ui->kHzBox->value();
+    QString kHzStr = QStringLiteral("%1").arg(kHzFreq,3,10,QLatin1Char('0'));
+    message = hisCall + "." + band + mode + kHzStr;
+    ui->messageLabel->setText(message);
   }
   else if(ui->tabWidget->currentIndex() == 0) {
-    kHzFreq = ui->kHzBox2->value();
-    label = ui->messageLabel2;
+    qint16 kHzFreq = ui->kHzBox2->value();
+    QString kHzStr = QStringLiteral("%1").arg(kHzFreq,3,10,QLatin1Char('0'));
+    message = hisCall + "." + band + mode + kHzStr;
+    ui->messageLabel2->setText(message);
   }
   else if(ui->tabWidget->currentIndex() == 2) {
-    kHzFreq = ui->kHzBox3->value();
-    label = ui->messageLabel3;
+    qint16 kHzFreq = ui->kHzBox3->value();
+    QString kHzStr = QStringLiteral("%1").arg(kHzFreq,3,10,QLatin1Char('0'));
+    message = hisCall + "." + band + mode + kHzStr;
+    ui->messageLabel3->setText(message);
   }
-
-  if (!label) return QString {};
-
-  QChar const bandChar = band.isEmpty () ? QChar {} : band.at (0);
-  QString const payload = QSYMessageParser::encodeFrequency (bandChar, mode, kHzFreq, configuration_->region ());
-  QString const message = payload.isEmpty () ? QString {} : hisCall + "." + payload;
-  label->setText(message);
   return message;
 }
 

@@ -113,7 +113,6 @@
 #include "FoxGuardBands.hpp"
 #include "widgets/QSYMessage.h"
 #include "widgets/QSYMessageCreator.h"
-#include "widgets/QSYMessageParser.h"
 #include "widgets/qsymonitor.h"
 #include "Network/eqsl.h"
 
@@ -2588,26 +2587,40 @@ void MainWindow::showQSYMessage(QString message)
   QString the_line = message;
   QString qCall = QString(Radio::base_callsign(m_config.my_callsign ()));
   QString qDXCall = QString(Radio::base_callsign(ui->dxCallEntry->text()));
-  if(QSYMessageParser::mightContainMessage(the_line.mid(22))) {
+  if(the_line.mid(22).contains(QString("."))) {
     if(!(the_line.contains("OKQSY") || the_line.contains("NOQSY"))) {
       QStringList bhList = the_line.split(" ",SkipEmptyParts);
-      QSYMessageParser::LineResult const qsy = QSYMessageParser::decodeLine (the_line, m_config.region ());
-      if (qsy.message) {
-        QString const the_call = qsy.call;
-        QString const finalMatch = qsy.payload;
-        if(the_call == qCall && ui->actionEnable_QSY_Popups->isChecked()) {
-          if(m_QSYMessageWidget) m_QSYMessageWidget->write_settings();
-          m_QSYMessageWidget.reset (new QSYMessage(finalMatch, qCall, m_settings, &m_config));
+      QString the_message = "";
+      QString the_call = "";
+      for (const QString &element : bhList) {
+        if(element.contains(QString("."))) {
+          the_message = element.mid(element.indexOf("." ) + 1);
+          the_call = element.mid(0,element.indexOf("." ));
+          if(the_message.length() > 0) {
+            QString finalMatch = "";
+            QRegularExpression re1("[A-Z479][V0123456789ABCDEFGHIJKLRW][0-9]{3}");
+            QRegularExpressionMatch match = re1.match(the_message);
+            if(match.hasMatch()) {
+              finalMatch = match.captured();
+              if(the_call == qCall && ui->actionEnable_QSY_Popups->isChecked()) {
+                if(m_QSYMessageWidget) m_QSYMessageWidget->write_settings();
+                m_QSYMessageWidget.reset (new QSYMessage(finalMatch, qCall, m_settings, &m_config));
 
-          connect (this, &MainWindow::finished, &QSYMessage::close);
-          connect (m_QSYMessageWidget.data (), &QSYMessage::sendReply, this, &MainWindow::reply_tx5,static_cast<Qt::ConnectionType>(Qt::UniqueConnection));
-          m_QSYMessageWidget->setWindowFlags(m_QSYMessageWidget->windowFlags() | Qt::WindowStaysOnTopHint);
-          m_QSYMessageWidget->show();
-          m_QSYMessageWidget->raise();
-          m_QSYMessageWidget->activateWindow();
+                //connect to signal finish
+                connect (this, &MainWindow::finished, &QSYMessage::close);
+
+                //connect to signal from QSYMessage
+                connect (m_QSYMessageWidget.data (), &QSYMessage::sendReply, this, &MainWindow::reply_tx5,static_cast<Qt::ConnectionType>(Qt::UniqueConnection));
+                m_QSYMessageWidget->setWindowFlags(m_QSYMessageWidget->windowFlags() | Qt::WindowStaysOnTopHint);
+                m_QSYMessageWidget->show();
+                m_QSYMessageWidget->raise();
+                m_QSYMessageWidget->activateWindow();
+              }
+              if(m_qsymonitorWidget && finalMatch.mid(0,1) !='Z') m_qsymonitorWidget->getQSYData(QString(bhList[0]) + " " + the_call + " " + finalMatch);
+              if (m_config.alert_Enabled() && m_config.alert_QSYmessage() && (the_line.contains(qCall) or the_line.contains(qDXCall))) alertQSYmessage();
+            }
+          }
         }
-        if(m_qsymonitorWidget && qsy.message.type == QSYMessageParser::Type::Frequency) m_qsymonitorWidget->getQSYData(QString(bhList[0]) + " " + the_call + " " + finalMatch);
-        if (m_config.alert_Enabled() && m_config.alert_QSYmessage() && (the_line.contains(qCall) or the_line.contains(qDXCall))) alertQSYmessage();
       }
     }
     else if (((the_line.mid(22).contains(qDXCall + QString(".") + "OKQSY") || the_line.mid(22).contains(qDXCall +QString(".") + "NOQSY"))) && ui->actionEnable_QSY_Popups->isChecked()) {
@@ -2622,6 +2635,7 @@ void MainWindow::showQSYMessage(QString message)
       if(m_QSYMessageWidget) m_QSYMessageWidget->write_settings();
       m_QSYMessageWidget.reset (new QSYMessage(qNewMessage, qDXCall, m_settings, &m_config));
 
+      //connect to signal finish
       connect (this, &MainWindow::finished, &QSYMessage::close);
       m_QSYMessageWidget->show();
       m_QSYMessageWidget->raise();
