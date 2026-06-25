@@ -594,7 +594,7 @@ private:
   void execute_jtty_tx(qint64 requestId, QString message);
   void completeJttyTxEnqueue(qint64 requestId, QString const& message, qint64 sampleCount, bool newSession, bool useTciAudio);
   void recordAcceptedJttyTextRequest(qint64 requestId, qint64 endSample);
-  void emitCompletedJttyTextRequests(qint64 sessionId, qint64 totalAtDrain);
+  QVector<qint64> takeCompletedJttyTextRequests(qint64 sessionId, qint64 totalAtDrain);
   void clearAcceptedJttyTextRequests(qint64 sessionId);
   void handleJttyContestSerial(QString const& message);
   void abort_jtty_tx();

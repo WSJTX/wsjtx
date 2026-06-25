@@ -297,19 +297,21 @@ void MainWindow::recordAcceptedJttyTextRequest(qint64 requestId, qint64 endSampl
   });
 }
 
-void MainWindow::emitCompletedJttyTextRequests(qint64 sessionId, qint64 totalAtDrain)
+QVector<qint64> MainWindow::takeCompletedJttyTextRequests(qint64 sessionId, qint64 totalAtDrain)
 {
   // Backends report only final drain, so per-text completion is observed when
   // the accepted text's containing JTTY session has drained.
+  QVector<qint64> completedRequestIds;
   for (int i = 0; i < m_acceptedJttyTxRequests.size ();) {
     auto const accepted = m_acceptedJttyTxRequests.at (i);
     if (accepted.sessionId == sessionId && accepted.endSample <= totalAtDrain) {
-      Q_EMIT jttyTextCompleted(accepted.requestId);
+      completedRequestIds.append(accepted.requestId);
       m_acceptedJttyTxRequests.remove (i);
     } else {
       ++i;
     }
   }
+  return completedRequestIds;
 }
 
 void MainWindow::clearAcceptedJttyTextRequests(qint64 sessionId)
@@ -375,10 +377,13 @@ void MainWindow::onJttyBackendDrained(qint64 sessionId, qint64 totalAtDrain)
     return;
   }
 
-  emitCompletedJttyTextRequests(sessionId, totalAtDrain);
-  Q_EMIT jttySessionDrained(sessionId);
+  auto const completedRequestIds = takeCompletedJttyTextRequests(sessionId, totalAtDrain);
   resetJttyTxState();
   stopTx();
+  for (auto const requestId : completedRequestIds) {
+    Q_EMIT jttyTextCompleted(requestId);
+  }
+  Q_EMIT jttySessionDrained(sessionId);
 }
 
 void MainWindow::onJttyBackendEnqueueAccepted(qint64 sessionId, qint64 enqueueId, qint64 sampleCount)
