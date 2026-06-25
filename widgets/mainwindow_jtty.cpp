@@ -590,6 +590,8 @@ void MainWindow::initMMTTY(const QString& hexHandle) {
     m_mmttyif->initialize(hexHandle, this->winId()); // Or however you get handles
 
     connect(m_mmttyif, &MMTTYIF::app_tx_string, this, &MainWindow::jtty_tx);
+    // Graceful MMTTY/N1MM OFF should stop submitting text, not call stopTx();
+    // accepted JTTY audio drains through onJttyBackendDrained().
     connect(m_mmttyif, &MMTTYIF::inactivity_timeout, qApp, &QCoreApplication::quit);
     connect(m_mmttyif, &MMTTYIF::app_is_quitting, qApp, &QCoreApplication::quit);
 

@@ -169,6 +169,11 @@ Q_SIGNALS:
   void showSoundInError(const QString& errorMsg);
   void showSoundOutError(const QString& errorMsg);
   void showStatusMessage(const QString& statusMsg);
+  // JTTY text submission is asynchronous. The returned request id is completed
+  // by accepted/rejected signals; accepted means queued for backend transmit,
+  // not finished on RF. Graceful external OFF commands should stop submitting
+  // new text and let the JTTY drain path stop TX; use abort_jtty_tx() for hard
+  // abort.
   qint64 submitJttyText(QString message);
   void dataSink(qint64 frames);
   void fastSink(qint64 frames);
