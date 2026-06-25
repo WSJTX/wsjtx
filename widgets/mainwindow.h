@@ -131,6 +131,17 @@ public:
   using Mode = Modes::Mode;
   using SpecOp = Configuration::SpecialOperatingActivity;
 
+  enum class JttyTxRejectReason
+  {
+    Empty,
+    EncodingFailed,
+    QueueFull,
+    BackendRejected,
+    Aborted,
+    NotAvailable
+  };
+  Q_ENUM(JttyTxRejectReason)
+
   static QRegExp const message_alphabet;
   static QRegularExpression const grid_regexp;
   static QRegularExpression const non_r_db_regexp;
@@ -148,10 +159,15 @@ public:
 
   int decoderBusy () const {return m_decoderBusy;}
 
-public slots:
+Q_SIGNALS:
+  void jttyTextAccepted(qint64 requestId) const;
+  void jttyTextRejected(qint64 requestId, JttyTxRejectReason reason) const;
+
+  public slots:
   void showSoundInError(const QString& errorMsg);
   void showSoundOutError(const QString& errorMsg);
   void showStatusMessage(const QString& statusMsg);
+  qint64 submitJttyText(QString message);
   void dataSink(qint64 frames);
   void fastSink(qint64 frames);
   void tci_mod_active(bool on) {m_tci_mod_active = on;}
@@ -573,11 +589,12 @@ private:
   void configActiveStations();
   void sfox_tx();
   void jtty_tx(QString message);
-  void execute_jtty_tx(QString message);
-  void completeJttyTxEnqueue(QString const& message, qint64 sampleCount, bool newSession, bool useTciAudio);
+  void execute_jtty_tx(qint64 requestId, QString message);
+  void completeJttyTxEnqueue(qint64 requestId, QString const& message, qint64 sampleCount, bool newSession, bool useTciAudio);
   void handleJttyContestSerial(QString const& message);
   void abort_jtty_tx();
   void interruptJttyTx();
+  void rejectPendingJttyTciMessages(JttyTxRejectReason reason);
   void sync_tci_tx_volume (bool force = false);
   void onJttyBackendDrained(qint64 sessionId, qint64 totalAtDrain);
   void onJttyBackendEnqueueAccepted(qint64 sessionId, qint64 enqueueId, qint64 sampleCount);
@@ -1073,11 +1090,13 @@ private:
   {
     qint64 sessionId;
     qint64 enqueueId;
+    qint64 requestId;
     qint64 sampleCount;
     QString message;
     bool newSession;
   };
   QVector<PendingJttyTciMessage> m_pendingJttyTciMessages;
+  qint64 m_jttyTxRequestId;
   qint64 m_jttyTciEnqueueId;
   bool m_block_pwr_tooltip;
   bool m_PwrBandSetOK;
