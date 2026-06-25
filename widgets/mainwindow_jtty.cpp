@@ -184,8 +184,15 @@ void MainWindow::execute_jtty_tx(QString message)
     if (jttyPcmEnqueueFits (JTTY_PCM_FIFO_DEFAULT_CAPACITY, 0, samples.size ())) {
       QByteArray bytes(reinterpret_cast<char const *> (samples.constData ()),
                        samples.size () * int (sizeof (qint16)));
+      m_pendingJttyTciMessages.append(PendingJttyTciMessage {
+        m_jttyTxSessionId,
+        samples.size (),
+        message,
+        newSession
+      });
+      m_jttyTxActive = true;
       Q_EMIT m_config.transceiver_enqueue_jtty_pcm(bytes, m_jttyTxSessionId);
-      enqueued = true;
+      return;
     } else {
       LOG_WARN("JTTY TCI transmit FIFO capacity precheck failed; rejecting PCM enqueue");
     }
@@ -201,8 +208,13 @@ void MainWindow::execute_jtty_tx(QString message)
     return;
   }
 
+  completeJttyTxEnqueue(message, samples.size (), newSession, useTciAudio);
+}
+
+void MainWindow::completeJttyTxEnqueue(QString const& message, qint64 sampleCount, bool newSession, bool useTciAudio)
+{
   m_currentMessage = message;
-  m_jttyQueuedSamples += samples.size ();
+  m_jttyQueuedSamples += sampleCount;
   m_jttyTxActive = true;
   m_transmitting = true;
 
@@ -281,6 +293,7 @@ void MainWindow::interruptJttyTx()
   }
 
   ++m_jttyTxSessionId;
+  m_pendingJttyTciMessages.clear();
   if (m_jttyTxUsesTciAudio) {
     Q_EMIT m_config.transceiver_clear_jtty_pcm(m_jttyTxSessionId);
   } else {
@@ -303,6 +316,20 @@ void MainWindow::onJttyBackendDrained(qint64 sessionId, qint64 totalAtDrain)
   stopTx();
 }
 
+void MainWindow::onJttyBackendEnqueueAccepted(qint64 sessionId, qint64 sampleCount)
+{
+  for (int i = 0; i < m_pendingJttyTciMessages.size (); ++i) {
+    auto const pending = m_pendingJttyTciMessages.at (i);
+    if (pending.sessionId != sessionId || pending.sampleCount != sampleCount) {
+      continue;
+    }
+
+    m_pendingJttyTciMessages.remove (i);
+    completeJttyTxEnqueue(pending.message, pending.sampleCount, pending.newSession, true);
+    return;
+  }
+}
+
 void MainWindow::onJttyBackendEnqueueFailed(qint64 sessionId)
 {
   if (m_mode != "JTTY" || !m_jttyTxActive || sessionId != m_jttyTxSessionId) {
@@ -310,6 +337,7 @@ void MainWindow::onJttyBackendEnqueueFailed(qint64 sessionId)
   }
 
   LOG_WARN("JTTY transmit backend rejected PCM enqueue");
+  m_pendingJttyTciMessages.clear();
   interruptJttyTx();
 #ifdef WIN32
   if (m_mmttyif) {
@@ -340,6 +368,7 @@ void MainWindow::resetJttyTxState()
   m_jttyTxWatchdog.stop();
   m_jttyTxActive = false;
   m_jttyQueuedSamples = 0;
+  m_pendingJttyTciMessages.clear();
 }
 
 void MainWindow::startJttyTxWatchdog(int durationMs)

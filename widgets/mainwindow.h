@@ -574,11 +574,13 @@ private:
   void sfox_tx();
   void jtty_tx(QString message);
   void execute_jtty_tx(QString message);
+  void completeJttyTxEnqueue(QString const& message, qint64 sampleCount, bool newSession, bool useTciAudio);
   void handleJttyContestSerial(QString const& message);
   void abort_jtty_tx();
   void interruptJttyTx();
   void sync_tci_tx_volume (bool force = false);
   void onJttyBackendDrained(qint64 sessionId, qint64 totalAtDrain);
+  void onJttyBackendEnqueueAccepted(qint64 sessionId, qint64 sampleCount);
   void onJttyBackendEnqueueFailed(qint64 sessionId);
   void handleJttyTxWatchdog();
   void resetJttyTxState();
@@ -1067,6 +1069,14 @@ private:
   bool m_jttyTxUsesTciAudio;
   qint64 m_jttyTxSessionId;
   qint64 m_jttyQueuedSamples;
+  struct PendingJttyTciMessage
+  {
+    qint64 sessionId;
+    qint64 sampleCount;
+    QString message;
+    bool newSession;
+  };
+  QVector<PendingJttyTciMessage> m_pendingJttyTciMessages;
   bool m_block_pwr_tooltip;
   bool m_PwrBandSetOK;
   bool m_bDisplayedOnce;

@@ -473,6 +473,7 @@ public:
   Q_SIGNAL void transceiver_TCIframesWritten (qint64) const;
   Q_SIGNAL void transceiver_TCImodActive (bool) const;
   Q_SIGNAL void transceiver_jtty_drained (qint64 sessionId, qint64 totalAtDrain) const;
+  Q_SIGNAL void transceiver_jtty_enqueue_accepted (qint64 sessionId, qint64 sampleCount) const;
   Q_SIGNAL void transceiver_jtty_enqueue_failed (qint64 sessionId) const;
   Q_SIGNAL void leavingSettings (bool) const;
 

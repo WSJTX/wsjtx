@@ -1030,7 +1030,9 @@ void TCITransceiver::enqueue_jtty_pcm (QByteArray const& samples, qint64 session
     {
       CAT_WARNING ("JTTY TCI transmit FIFO overflow; rejecting PCM enqueue\n");
       Q_EMIT jtty_enqueue_failed (sessionId);
+      return;
     }
+  Q_EMIT jtty_enqueue_accepted (sessionId, count);
 }
 
 void TCITransceiver::clear_jtty_pcm (qint64 sessionId) noexcept

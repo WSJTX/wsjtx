@@ -248,6 +248,7 @@ public:
   Q_SIGNAL void tci_mod_active (bool);
 
   Q_SIGNAL void jtty_drained (qint64 sessionId, qint64 totalAtDrain);
+  Q_SIGNAL void jtty_enqueue_accepted (qint64 sessionId, qint64 sampleCount);
   Q_SIGNAL void jtty_enqueue_failed (qint64 sessionId);
 
   // rig state changed
