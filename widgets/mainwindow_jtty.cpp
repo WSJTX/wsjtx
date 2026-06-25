@@ -236,7 +236,9 @@ void MainWindow::execute_jtty_tx(qint64 requestId, QString message)
 void MainWindow::completeJttyTxEnqueue(qint64 requestId, QString const& message, qint64 sampleCount, bool newSession, bool useTciAudio)
 {
   m_currentMessage = message;
-  m_jttyQueuedSamples += sampleCount;
+  qint64 const endSample = m_jttyQueuedSamples + sampleCount;
+  recordAcceptedJttyTextRequest(requestId, endSample);
+  m_jttyQueuedSamples = endSample;
   m_jttyTxActive = true;
   m_transmitting = true;
   Q_EMIT jttyTextAccepted(requestId);
@@ -286,6 +288,41 @@ void MainWindow::completeJttyTxEnqueue(qint64 requestId, QString const& message,
   }
 }
 
+void MainWindow::recordAcceptedJttyTextRequest(qint64 requestId, qint64 endSample)
+{
+  m_acceptedJttyTxRequests.append(AcceptedJttyTxRequest {
+    m_jttyTxSessionId,
+    requestId,
+    endSample
+  });
+}
+
+void MainWindow::emitCompletedJttyTextRequests(qint64 sessionId, qint64 totalAtDrain)
+{
+  // Backends report only final drain, so per-text completion is observed when
+  // the accepted text's containing JTTY session has drained.
+  for (int i = 0; i < m_acceptedJttyTxRequests.size ();) {
+    auto const accepted = m_acceptedJttyTxRequests.at (i);
+    if (accepted.sessionId == sessionId && accepted.endSample <= totalAtDrain) {
+      Q_EMIT jttyTextCompleted(accepted.requestId);
+      m_acceptedJttyTxRequests.remove (i);
+    } else {
+      ++i;
+    }
+  }
+}
+
+void MainWindow::clearAcceptedJttyTextRequests(qint64 sessionId)
+{
+  for (int i = 0; i < m_acceptedJttyTxRequests.size ();) {
+    if (m_acceptedJttyTxRequests.at (i).sessionId == sessionId) {
+      m_acceptedJttyTxRequests.remove (i);
+    } else {
+      ++i;
+    }
+  }
+}
+
 void MainWindow::handleJttyContestSerial(QString const& message)
 {
   if(message.left(3).compare("TU ", Qt::CaseInsensitive) == 0) {
@@ -315,7 +352,9 @@ void MainWindow::interruptJttyTx()
     return;
   }
 
+  qint64 const interruptedSessionId = m_jttyTxSessionId;
   ++m_jttyTxSessionId;
+  clearAcceptedJttyTextRequests(interruptedSessionId);
   rejectPendingJttyTciMessages(JttyTxRejectReason::Aborted);
   m_pendingJttyTciMessages.clear();
   if (m_jttyTxUsesTciAudio) {
@@ -336,6 +375,8 @@ void MainWindow::onJttyBackendDrained(qint64 sessionId, qint64 totalAtDrain)
     return;
   }
 
+  emitCompletedJttyTextRequests(sessionId, totalAtDrain);
+  Q_EMIT jttySessionDrained(sessionId);
   resetJttyTxState();
   stopTx();
 }
@@ -418,6 +459,7 @@ void MainWindow::resetJttyTxState()
   m_jttyTxActive = false;
   m_jttyQueuedSamples = 0;
   m_pendingJttyTciMessages.clear();
+  m_acceptedJttyTxRequests.clear();
 }
 
 void MainWindow::startJttyTxWatchdog(int durationMs)

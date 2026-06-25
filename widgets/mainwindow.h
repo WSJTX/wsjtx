@@ -162,6 +162,8 @@ public:
 Q_SIGNALS:
   void jttyTextAccepted(qint64 requestId) const;
   void jttyTextRejected(qint64 requestId, JttyTxRejectReason reason) const;
+  void jttyTextCompleted(qint64 requestId) const;
+  void jttySessionDrained(qint64 sessionId) const;
 
   public slots:
   void showSoundInError(const QString& errorMsg);
@@ -591,6 +593,9 @@ private:
   void jtty_tx(QString message);
   void execute_jtty_tx(qint64 requestId, QString message);
   void completeJttyTxEnqueue(qint64 requestId, QString const& message, qint64 sampleCount, bool newSession, bool useTciAudio);
+  void recordAcceptedJttyTextRequest(qint64 requestId, qint64 endSample);
+  void emitCompletedJttyTextRequests(qint64 sessionId, qint64 totalAtDrain);
+  void clearAcceptedJttyTextRequests(qint64 sessionId);
   void handleJttyContestSerial(QString const& message);
   void abort_jtty_tx();
   void interruptJttyTx();
@@ -1096,6 +1101,13 @@ private:
     bool newSession;
   };
   QVector<PendingJttyTciMessage> m_pendingJttyTciMessages;
+  struct AcceptedJttyTxRequest
+  {
+    qint64 sessionId;
+    qint64 requestId;
+    qint64 endSample;
+  };
+  QVector<AcceptedJttyTxRequest> m_acceptedJttyTxRequests;
   qint64 m_jttyTxRequestId;
   qint64 m_jttyTciEnqueueId;
   bool m_block_pwr_tooltip;
