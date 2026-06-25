@@ -1020,7 +1020,7 @@ void TCITransceiver::txAudioData(quint32 len, float * data)
   commander_->sendBinaryMessage(tx);
 }
 
-void TCITransceiver::enqueue_jtty_pcm (QByteArray const& samples, qint64 sessionId) noexcept
+void TCITransceiver::enqueue_jtty_pcm (QByteArray const& samples, qint64 sessionId, qint64 enqueueId) noexcept
 {
   qint64 const count = samples.size () / int (sizeof (qint16));
   if (count <= 0) return;
@@ -1029,10 +1029,10 @@ void TCITransceiver::enqueue_jtty_pcm (QByteArray const& samples, qint64 session
   if (!m_jttyPcmFifo.enqueue (pcm, count, sessionId))
     {
       CAT_WARNING ("JTTY TCI transmit FIFO overflow; rejecting PCM enqueue\n");
-      Q_EMIT jtty_enqueue_failed (sessionId);
+      Q_EMIT jtty_enqueue_failed (sessionId, enqueueId);
       return;
     }
-  Q_EMIT jtty_enqueue_accepted (sessionId, count);
+  Q_EMIT jtty_enqueue_accepted (sessionId, enqueueId, count);
 }
 
 void TCITransceiver::clear_jtty_pcm (qint64 sessionId) noexcept

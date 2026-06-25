@@ -580,8 +580,8 @@ private:
   void interruptJttyTx();
   void sync_tci_tx_volume (bool force = false);
   void onJttyBackendDrained(qint64 sessionId, qint64 totalAtDrain);
-  void onJttyBackendEnqueueAccepted(qint64 sessionId, qint64 sampleCount);
-  void onJttyBackendEnqueueFailed(qint64 sessionId);
+  void onJttyBackendEnqueueAccepted(qint64 sessionId, qint64 enqueueId, qint64 sampleCount);
+  void onJttyBackendEnqueueFailed(qint64 sessionId, qint64 enqueueId);
   void handleJttyTxWatchdog();
   void resetJttyTxState();
   void startJttyTxWatchdog(int durationMs);
@@ -1072,11 +1072,13 @@ private:
   struct PendingJttyTciMessage
   {
     qint64 sessionId;
+    qint64 enqueueId;
     qint64 sampleCount;
     QString message;
     bool newSession;
   };
   QVector<PendingJttyTciMessage> m_pendingJttyTciMessages;
+  qint64 m_jttyTciEnqueueId;
   bool m_block_pwr_tooltip;
   bool m_PwrBandSetOK;
   bool m_bDisplayedOnce;
