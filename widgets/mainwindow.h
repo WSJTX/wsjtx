@@ -153,7 +153,7 @@ public:
   ~MainWindow();
 
 #ifdef WIN32
-  void initMMTTY(const QString& hexHandle);
+  void initMMTTY(quint16 port);
   MMTTYIF *getMmttyIf() const;
 #endif
 
@@ -556,9 +556,7 @@ private:
   void displayDecodedTextLine(const DecodedText& dt, const QByteArray& line_read, const QString& distance, bool haveFSpread, float fSpread, bool bDisplayPoints);
   QString calculateDistanceAndBearing(const DecodedText& dt);
   void processSuperHoundVerification(const DecodedText& dt, bool& verified);
-#ifdef Q_OS_WIN
-  bool nativeEvent(const QByteArray &, void *, long int *);
-#endif
+
 private:
   Q_SIGNAL void initializeAudioOutputStream (QAudioDeviceInfo,
       unsigned channels, unsigned msBuffered) const;

@@ -86,7 +86,7 @@ void MMTTYIF::onReadyRead() {
 
         if (cmd == "TXTEXT") {
             // content might be longer than `length` due to regex greediness, so trim to length.
-            QString text = content.left(length);
+            QString text = content.left(length).toUpper();
             emit app_tx_string(text);
         } else if (cmd == "XMIT") {
             if (content.startsWith("ON")) {
