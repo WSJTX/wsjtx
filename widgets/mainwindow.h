@@ -131,6 +131,17 @@ public:
   using Mode = Modes::Mode;
   using SpecOp = Configuration::SpecialOperatingActivity;
 
+  enum class JttyTxRejectReason
+  {
+    Empty,
+    EncodingFailed,
+    QueueFull,
+    BackendRejected,
+    Aborted,
+    NotAvailable
+  };
+  Q_ENUM(JttyTxRejectReason)
+
   static QRegExp const message_alphabet;
   static QRegularExpression const grid_regexp;
   static QRegularExpression const non_r_db_regexp;
@@ -147,13 +158,25 @@ public:
 #endif
 
   int decoderBusy () const {return m_decoderBusy;}
-
   void set_mode_from_command_line(const QString& mode, bool lock_mode = false);
 
-public slots:
+
+  Q_SIGNALS:
+  void jttyTextAccepted(qint64 requestId) const;
+  void jttyTextRejected(qint64 requestId, JttyTxRejectReason reason) const;
+  void jttyTextCompleted(qint64 requestId) const;
+  void jttySessionDrained(qint64 sessionId) const;
+
+  public slots:
   void showSoundInError(const QString& errorMsg);
   void showSoundOutError(const QString& errorMsg);
   void showStatusMessage(const QString& statusMsg);
+  // JTTY text submission is asynchronous. The returned request id is completed
+  // by accepted/rejected signals; accepted means queued for backend transmit,
+  // not finished on RF. Graceful external OFF commands should stop submitting
+  // new text and let the JTTY drain path stop TX; use abort_jtty_tx() for hard
+  // abort.
+  qint64 submitJttyText(QString message);
   void dataSink(qint64 frames);
   void fastSink(qint64 frames);
   void tci_mod_active(bool on) {m_tci_mod_active = on;}
@@ -577,12 +600,19 @@ private:
   void configActiveStations();
   void sfox_tx();
   void jtty_tx(QString message);
-  void execute_jtty_tx(QString message);
+  void execute_jtty_tx(qint64 requestId, QString message);
+  void completeJttyTxEnqueue(qint64 requestId, QString const& message, qint64 sampleCount, bool newSession, bool useTciAudio);
+  void recordAcceptedJttyTextRequest(qint64 requestId, qint64 endSample);
+  QVector<qint64> takeCompletedJttyTextRequests(qint64 sessionId, qint64 totalAtDrain);
+  void clearAcceptedJttyTextRequests(qint64 sessionId);
+  void handleJttyContestSerial(QString const& message);
   void abort_jtty_tx();
   void interruptJttyTx();
+  void rejectPendingJttyTciMessages(JttyTxRejectReason reason);
   void sync_tci_tx_volume (bool force = false);
   void onJttyBackendDrained(qint64 sessionId, qint64 totalAtDrain);
-  void onJttyBackendEnqueueFailed(qint64 sessionId);
+  void onJttyBackendEnqueueAccepted(qint64 sessionId, qint64 enqueueId, qint64 sampleCount);
+  void onJttyBackendEnqueueFailed(qint64 sessionId, qint64 enqueueId);
   void handleJttyTxWatchdog();
   void resetJttyTxState();
   void startJttyTxWatchdog(int durationMs);
@@ -1071,6 +1101,25 @@ private:
   bool m_jttyTxUsesTciAudio;
   qint64 m_jttyTxSessionId;
   qint64 m_jttyQueuedSamples;
+  struct PendingJttyTciMessage
+  {
+    qint64 sessionId;
+    qint64 enqueueId;
+    qint64 requestId;
+    qint64 sampleCount;
+    QString message;
+    bool newSession;
+  };
+  QVector<PendingJttyTciMessage> m_pendingJttyTciMessages;
+  struct AcceptedJttyTxRequest
+  {
+    qint64 sessionId;
+    qint64 requestId;
+    qint64 endSample;
+  };
+  QVector<AcceptedJttyTxRequest> m_acceptedJttyTxRequests;
+  qint64 m_jttyTxRequestId;
+  qint64 m_jttyTciEnqueueId;
   bool m_block_pwr_tooltip;
   bool m_PwrBandSetOK;
   bool m_bDisplayedOnce;

@@ -23,6 +23,11 @@ subroutine gen_jttywave(itone,nsym,nsps,bt,fsample,f0,cwave,wave,icmplx,nwave)
   data fchk0/0.0/
   save pulse,twopi,dt,hmod,fchk0,ctab
 
+  if(nsym.le.0 .or. nwave.le.0) then
+     nwave=0
+     return
+  endif
+
   ibt=nint(10*bt)
   fchk=nsym+nsps+bt+fsample
   if(fchk.ne.fchk0) then                      !Execute again only when params change

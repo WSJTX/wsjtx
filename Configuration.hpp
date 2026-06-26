@@ -414,7 +414,7 @@ public:
   //
   Q_SLOT void transceiver_modulator_start (QString="FT8", unsigned = 79, double = 1920.0, double = 1500.0, double = -3.0, bool = true, bool=false, double = 99., double = 60.0);
 
-  Q_SLOT void transceiver_enqueue_jtty_pcm (QByteArray const&, qint64);
+  Q_SLOT void transceiver_enqueue_jtty_pcm (QByteArray const&, qint64, qint64);
   Q_SLOT void transceiver_clear_jtty_pcm (qint64);
 
   // Set modulation start TCI audio
@@ -473,7 +473,8 @@ public:
   Q_SIGNAL void transceiver_TCIframesWritten (qint64) const;
   Q_SIGNAL void transceiver_TCImodActive (bool) const;
   Q_SIGNAL void transceiver_jtty_drained (qint64 sessionId, qint64 totalAtDrain) const;
-  Q_SIGNAL void transceiver_jtty_enqueue_failed (qint64 sessionId) const;
+  Q_SIGNAL void transceiver_jtty_enqueue_accepted (qint64 sessionId, qint64 enqueueId, qint64 sampleCount) const;
+  Q_SIGNAL void transceiver_jtty_enqueue_failed (qint64 sessionId, qint64 enqueueId) const;
   Q_SIGNAL void leavingSettings (bool) const;
 
   // Signals a failure of a control rig CAT or PTT connection.

@@ -529,6 +529,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_jttyTxUsesTciAudio {false},
   m_jttyTxSessionId {0},
   m_jttyQueuedSamples {0},
+  m_jttyTxRequestId {0},
+  m_jttyTciEnqueueId {0},
   m_block_pwr_tooltip {false},
   m_PwrBandSetOK {true},
   m_lastMonitoredFrequency {default_frequency},
@@ -962,6 +964,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect (&m_config, &Configuration::transceiver_TCIframesWritten, this, &MainWindow::dataSink);
   connect (&m_config, &Configuration::transceiver_TCImodActive, this, &MainWindow::tci_mod_active);
   connect (&m_config, &Configuration::transceiver_jtty_drained, this, &MainWindow::onJttyBackendDrained);
+  connect (&m_config, &Configuration::transceiver_jtty_enqueue_accepted, this, &MainWindow::onJttyBackendEnqueueAccepted);
   connect (&m_config, &Configuration::transceiver_jtty_enqueue_failed, this, &MainWindow::onJttyBackendEnqueueFailed);
   connect (&m_config, &Configuration::transceiver_failure, this, &MainWindow::handle_transceiver_failure);
   connect (&m_config, &Configuration::udp_server_changed, m_messageClient, &MessageClient::set_server);
@@ -6144,6 +6147,9 @@ void MainWindow::startTx2()
   bool const tci_active = (m_mode == "JTTY" && m_jttyTxActive)
       ? m_jttyTxUsesTciAudio
       : m_tci_audio;
+  if (m_mode == "JTTY" && tci_active && m_jttyTxActive && m_jttyQueuedSamples <= 0) {
+    return;
+  }
   if (tci_active) modulator_active=m_tci_mod_active;
   else modulator_active=m_modulator->isActive ();
   if (!modulator_active) { // TODO - not thread safe

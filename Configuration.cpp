@@ -503,7 +503,7 @@ public:
   void transceiver_period (double, bool = false);
   void transceiver_blocksize (qint32);
   void transceiver_modulator_start (QString, unsigned, double, double, double, bool, bool, double, double);
-  void transceiver_enqueue_jtty_pcm (QByteArray const&, qint64);
+  void transceiver_enqueue_jtty_pcm (QByteArray const&, qint64, qint64);
   void transceiver_clear_jtty_pcm (qint64);
   void transceiver_modulator_stop (bool);
   void transceiver_spread (double);
@@ -707,7 +707,7 @@ private:
   Q_SIGNAL void set_transceiver (Transceiver::TransceiverState const&,
                                  unsigned sequence_number) const;
   Q_SIGNAL void stop_transceiver () const;
-  Q_SIGNAL void enqueue_jtty_pcm (QByteArray const&, qint64) const;
+  Q_SIGNAL void enqueue_jtty_pcm (QByteArray const&, qint64, qint64) const;
   Q_SIGNAL void clear_jtty_pcm (qint64) const;
 
   Configuration * const self_;	// back pointer to public interface
@@ -1295,9 +1295,9 @@ void Configuration::transceiver_modulator_start(QString jtmode, unsigned symbols
   m_->transceiver_modulator_start(jtmode, symbolslength,framespersymbol,trfrequency,tonespacing,synchronize,fastmode,dbsnr,trperiod);
 }
 
-void Configuration::transceiver_enqueue_jtty_pcm (QByteArray const& samples, qint64 sessionId)
+void Configuration::transceiver_enqueue_jtty_pcm (QByteArray const& samples, qint64 sessionId, qint64 enqueueId)
 {
-  m_->transceiver_enqueue_jtty_pcm (samples, sessionId);
+  m_->transceiver_enqueue_jtty_pcm (samples, sessionId, enqueueId);
 }
 
 void Configuration::transceiver_clear_jtty_pcm (qint64 sessionId)
@@ -5096,6 +5096,7 @@ bool Configuration::impl::open_rig (bool force)
           rig_connections_ << connect (rig.get (), &Transceiver::tciframeswritten, this, &Configuration::impl::handle_transceiver_tciframeswritten);
           rig_connections_ << connect (rig.get (), &Transceiver::tci_mod_active, this, &Configuration::impl::handle_transceiver_tci_mod_active);
           rig_connections_ << connect (rig.get (), &Transceiver::jtty_drained, self_, &Configuration::transceiver_jtty_drained);
+          rig_connections_ << connect (rig.get (), &Transceiver::jtty_enqueue_accepted, self_, &Configuration::transceiver_jtty_enqueue_accepted);
           rig_connections_ << connect (rig.get (), &Transceiver::jtty_enqueue_failed, self_, &Configuration::transceiver_jtty_enqueue_failed);
           rig_connections_ << connect (rig.get (), &Transceiver::update, this, &Configuration::impl::handle_transceiver_update);
           rig_connections_ << connect (rig.get (), &Transceiver::failure, this, &Configuration::impl::handle_transceiver_failure);
@@ -5355,9 +5356,9 @@ void Configuration::impl::transceiver_modulator_start (QString jtmode, unsigned 
 //  else printf("%s(%0.1f) Configuration modulator_start: WAS ALLREADY RUNNING\n",QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str());
 }
 
-void Configuration::impl::transceiver_enqueue_jtty_pcm (QByteArray const& samples, qint64 sessionId)
+void Configuration::impl::transceiver_enqueue_jtty_pcm (QByteArray const& samples, qint64 sessionId, qint64 enqueueId)
 {
-  Q_EMIT enqueue_jtty_pcm (samples, sessionId);
+  Q_EMIT enqueue_jtty_pcm (samples, sessionId, enqueueId);
 }
 
 void Configuration::impl::transceiver_clear_jtty_pcm (qint64 sessionId)

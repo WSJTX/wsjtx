@@ -128,7 +128,7 @@ public slots:
   void sendTextMessage(const QString &message);
 //  void trxChanged(quint32 trx, bool state);
   void txAudioData(quint32 len, float * data);
-  void enqueue_jtty_pcm (QByteArray const& samples, qint64 sessionId) noexcept override;
+  void enqueue_jtty_pcm (QByteArray const& samples, qint64 sessionId, qint64 enqueueId) noexcept override;
   void clear_jtty_pcm (qint64 sessionId) noexcept override;
 //  void setAudioSampleRate(const quint32 &sr);
 

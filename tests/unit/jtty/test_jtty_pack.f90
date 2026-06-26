@@ -6,7 +6,6 @@ program test_jtty_pack
   character*32 c32(MAX_FRAMES)
   character*17 cparms
   character*1 err
-  logical norm_ok
   integer, parameter :: expected_errors = 0
 
   open(10,file='jtty_msgs.txt',status='old')
@@ -17,11 +16,7 @@ program test_jtty_pack
   c32=''
   do imsg=1,99
      read(10,'(a80)',end=100) msg0
-     call normalize_jtty_message(msg0,expected,norm_ok)
-     if(.not.norm_ok) then
-        write(*,*) 'Fixture normalization failed: ', trim(msg0)
-        error stop 1
-     endif
+     call normalize_jtty_message(msg0,expected)
      nlength=len_trim(expected)
      if(nlength.eq.0) then
         write(*,*)
@@ -92,11 +87,14 @@ program test_jtty_pack
   call expect_pack('A'//char(0)//'B',1,3,-1,-1,-1)
   call expect_pack('A~B',1,3,-1,-1,-1)
   call expect_pack('HELLO~',1,3,-1,-1,-1)
-  call expect_pack_failure('HELLO'//char(9))
+  call expect_pack('HELLO'//char(9)//'WORLD',3,3,-1,3,-1)
+  call expect_pack('HELLO'//char(10)//'WORLD',3,3,-1,3,-1)
+  call expect_pack('HELLO'//char(13)//'WORLD',3,3,-1,3,-1)
   call expect_unassigned_unpack_empty(1,2)
   call expect_unassigned_unpack_empty(1,3)
   call expect_unpack_overflow_guard()
   call expect_structured_unpack_boundary()
+  call expect_empty_waveform_guard()
 
 contains
 
@@ -114,16 +112,10 @@ contains
     character*32 frames(MAX_FRAMES)
     integer want_nf,want_i2a,want_n2a,want_i2b,want_n2b
     integer got_nf,got_i2a,got_n2a,got_i2b,got_n2b
-    logical ok
 
     input=''
     input=text
-    call normalize_jtty_message(input,want_decoded,ok)
-    if(.not.ok) then
-       write(*,1190) trim(input)
-1190   format('Unexpected normalization failure for "',a,'"')
-       error stop 1
-    endif
+    call normalize_jtty_message(input,want_decoded)
     frames=''
     call pack_jtty(input,frames,got_nf)
     if(got_nf.lt.0) then
@@ -184,23 +176,6 @@ contains
        endif
     enddo
   end subroutine expect_no_reserved_frame_ids
-
-  subroutine expect_pack_failure(text)
-    character*(*) text
-    character*80 input
-    character*32 frames(MAX_FRAMES)
-    integer got_nf
-
-    input=''
-    input=text
-    frames=''
-    call pack_jtty(input,frames,got_nf)
-    if(got_nf.ge.0) then
-       write(*,1270) trim(input),got_nf
-1270   format('Expected pack failure for "',a,'"; got ',i0,' frames')
-       error stop 1
-    endif
-  end subroutine expect_pack_failure
 
   subroutine expect_unassigned_unpack_empty(i2,n2)
     character*32 frames(MAX_FRAMES)
@@ -276,5 +251,30 @@ contains
        error stop 1
     endif
   end subroutine expect_structured_unpack_boundary
+
+  subroutine expect_empty_waveform_guard()
+    integer, parameter :: TEST_NSPS=4*384
+    integer tones(1)
+    integer nsym, nsps, icmplx, nwave
+    real bt, fsample, f0
+    real wave(TEST_NSPS)
+    complex cwave(TEST_NSPS)
+
+    tones=0
+    nsym=0
+    nsps=TEST_NSPS
+    bt=2.0
+    fsample=48000.0
+    f0=1500.0
+    icmplx=0
+    nwave=nsps
+
+    call gen_jttywave(tones,nsym,nsps,bt,fsample,f0,cwave,wave,icmplx,nwave)
+    if(nwave.ne.0) then
+       write(*,1310) nwave
+1310   format('Empty waveform guard returned nwave ',i0)
+       error stop 1
+    endif
+  end subroutine expect_empty_waveform_guard
 
 end program test_jtty_pack
