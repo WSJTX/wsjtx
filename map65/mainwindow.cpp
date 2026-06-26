@@ -77,7 +77,7 @@ struct Map65RxSamplesStorage { qint16 samples[4*60*96000]; };
 
 QString writableMap65DataDir()
 {
-  QString dataDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+  QString dataDir = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
   if (dataDir.isEmpty()) {
     dataDir = QDir::home().absoluteFilePath(".map65");
   }
@@ -98,7 +98,13 @@ QString map65SettingsFile(QString const& appDir, QString const& dataDir)
   QString settingsFile = QDir {dataDir}.absoluteFilePath("map65.ini");
   QString legacySettingsFile = QDir {appDir}.absoluteFilePath("map65.ini");
   if (!QFile::exists(settingsFile) && QFile::exists(legacySettingsFile)) {
-    QFile::copy(legacySettingsFile, settingsFile);
+    if (QFile::copy(legacySettingsFile, settingsFile)) {
+      QFile::setPermissions(settingsFile, QFile::ReadOwner | QFile::WriteOwner
+                            | QFile::ReadGroup | QFile::ReadOther);
+    } else {
+      qWarning() << "Unable to migrate MAP65 settings from" << legacySettingsFile
+                 << "to" << settingsFile;
+    }
   }
   return settingsFile;
 }

@@ -167,8 +167,7 @@ set_source_files_properties("${CMAKE_BINARY_DIR}/${_VersionInfoFile}" PROPERTIES
 
 # generate_version_info.cmake
 if(WIN32)
-  # Emit a short, unambiguous name in the current target's binary dir
-  set(_RC_SHORT "wsprd.rc")
+  set(_RC_SHORT "${PRODUCT_NAME}.rc")
   configure_file(
     ${_THIS_MODULE_BASE_DIR}/VersionResource.rc.in
     ${CMAKE_CURRENT_BINARY_DIR}/${_RC_SHORT}

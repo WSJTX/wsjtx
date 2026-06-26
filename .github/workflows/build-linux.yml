@@ -102,7 +102,7 @@ jobs:
     if: inputs.arch == 'x86_64'
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/build-linux-payload
         with:
           arch: x86_64
@@ -124,7 +124,7 @@ jobs:
     container:
       image: debian:bookworm-slim
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/build-linux-payload
         with:
           arch: aarch64
@@ -176,7 +176,7 @@ jobs:
       - uses: docker/setup-qemu-action@v4
         with:
           platforms: linux/arm/v7
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       # Cache pFUnit + Hamlib on the host (GHA cache primitives don't
       # work inside an arm/v7 container — see job-level NOTE above).

@@ -580,6 +580,7 @@ private:
   void execute_jtty_tx(QString message);
   void abort_jtty_tx();
   void interruptJttyTx();
+  void sync_tci_tx_volume (bool force = false);
   void onJttyBackendDrained(qint64 sessionId, qint64 totalAtDrain);
   void onJttyBackendEnqueueFailed(qint64 sessionId);
   void handleJttyTxWatchdog();
@@ -597,6 +598,7 @@ private:
   void setDXInfo(QString const& call, QString const& grid);
   void setDecodeTitles(QString const& lh, QString const& rh);
   void setDecodeHeadings(QString const& lh, QString const& rh);
+  void updateDecodeAccessibility();
 
   bool play_DXcall = false;
   bool play_Wanted = false;
@@ -850,7 +852,7 @@ private:
   bool    m_bCallingCQ;
   bool    m_bAutoReply;
   QString m_lastloggedcall; //ft8md
-  bool    m_bCheckedContest;
+  bool    m_contestModeHintShown;
   bool    m_bWarnedSplit=false;
   bool    m_bTUmsg;
   bool    m_bBestSPArmed=false;

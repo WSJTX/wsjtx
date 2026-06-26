@@ -1911,7 +1911,7 @@ subroutine save_hash_callvar(c13,nthr)
   character*13 c13,cw
   integer, intent(in) :: nthr
 
-  if(nthr.gt.24) return
+  if(nthr.lt.1 .or. nthr.gt.24) return
   cw=c13 
   if(cw(1:1).eq.' ' .or. cw(1:5).eq.'<...>') return
   if(cw(1:1).eq.'<') cw=cw(2:)

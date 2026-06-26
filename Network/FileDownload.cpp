@@ -131,6 +131,11 @@ void FileDownload::replyComplete()
 
 void FileDownload::downloadComplete(QNetworkReply *data)
 {
+  if (data != reply_)
+    {
+      return;
+    }
+
   // make a temp file in the same place as the file we're downloading. Needs to be on the same
   // filesystem as where we eventually want to 'mv' it.
 

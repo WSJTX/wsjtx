@@ -10,6 +10,7 @@ subroutine gen_ft8wavevar(itone,nsym,nsps,bt,fsample,f0,cwave,wave,icmplx,nwave)
   integer itone(nsym)
   data ibt0/0/
   save pulse,twopi,dt,hmod,ibt0,ctab
+!$omp threadprivate(pulse,twopi,dt,hmod,ibt0,ctab)
 
   ibt=nint(10*bt)
   if(ibt0.ne.ibt) then

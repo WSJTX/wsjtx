@@ -1,0 +1,241 @@
+name: Warm Dependency Caches
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - ".github/workflows/ci.yml"
+      - ".github/workflows/release.yml"
+      - ".github/workflows/build-linux.yml"
+      - ".github/workflows/build-macos.yml"
+      - ".github/workflows/build-windows.yml"
+      - ".github/workflows/warm-dependency-caches.yml"
+      - ".github/actions/build-linux-payload/**"
+      - ".github/actions/warm-linux-deps/**"
+      - ".github/actions/warm-macos-deps/**"
+      - ".github/actions/warm-windows-deps/**"
+      - ".github/scripts/build-*-linux.sh"
+      - ".github/scripts/build-*-macos.sh"
+      - ".github/scripts/build-*-windows.sh"
+      - ".github/scripts/install-*-macos*.sh"
+      - ".github/scripts/macos-qt-cache-key.sh"
+      - ".github/scripts/verify-macos-*.sh"
+  schedule:
+    - cron: "23 10 * * 1"
+  workflow_dispatch:
+    inputs:
+      targets:
+        description: "Dependency caches to warm"
+        required: false
+        type: choice
+        options:
+          - macos-arm64
+          - macos-x86_64
+          - macos
+          - windows
+          - linux
+          - all
+        default: macos-arm64
+      hamlib_branch:
+        description: "Hamlib branch to build"
+        required: false
+        type: string
+        default: "4.7.1"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      linux: ${{ steps.detect.outputs.linux }}
+      windows: ${{ steps.detect.outputs.windows }}
+      macos_arm64: ${{ steps.detect.outputs.macos_arm64 }}
+      macos_x86_64: ${{ steps.detect.outputs.macos_x86_64 }}
+      hamlib_branch: ${{ steps.detect.outputs.hamlib_branch }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+
+      - id: detect
+        name: Select cache warmers
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          CURRENT_SHA: ${{ github.sha }}
+          TARGETS: ${{ inputs.targets || '' }}
+          HAMLIB_BRANCH: ${{ inputs.hamlib_branch || '4.7.1' }}
+        run: |
+          set -euo pipefail
+
+          linux=false
+          windows=false
+          macos_arm64=false
+          macos_x86_64=false
+
+          enable_all() {
+            linux=true
+            windows=true
+            macos_arm64=true
+            macos_x86_64=true
+          }
+
+          case "$EVENT_NAME" in
+            schedule)
+              enable_all
+              ;;
+            workflow_dispatch)
+              case "$TARGETS" in
+                all)
+                  enable_all
+                  ;;
+                linux)
+                  linux=true
+                  ;;
+                windows)
+                  windows=true
+                  ;;
+                macos)
+                  macos_arm64=true
+                  macos_x86_64=true
+                  ;;
+                macos-arm64)
+                  macos_arm64=true
+                  ;;
+                macos-x86_64)
+                  macos_x86_64=true
+                  ;;
+                *)
+                  echo "::error::Unsupported targets input: $TARGETS"
+                  exit 2
+                  ;;
+              esac
+              ;;
+            push)
+              if [ -n "$BEFORE_SHA" ] && [ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ]; then
+                base="$BEFORE_SHA"
+              else
+                base="${CURRENT_SHA}^"
+              fi
+
+              if ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+                git fetch --no-tags --depth=1 origin "$base" || true
+              fi
+
+              if git cat-file -e "${base}^{commit}" 2>/dev/null; then
+                changed="$(git diff --name-only "$base" "$CURRENT_SHA")"
+              else
+                echo "::notice::Could not compare $base..$CURRENT_SHA; warming all dependency caches"
+                changed=""
+                enable_all
+              fi
+
+              while IFS= read -r path; do
+                [ -n "$path" ] || continue
+                case "$path" in
+                  .github/workflows/ci.yml|.github/workflows/release.yml|.github/workflows/warm-dependency-caches.yml)
+                    enable_all
+                    ;;
+                  .github/workflows/build-linux.yml|.github/actions/build-linux-payload/*|.github/actions/warm-linux-deps/*|.github/scripts/build-pfunit-linux.sh|.github/scripts/build-hamlib-linux.sh)
+                    linux=true
+                    ;;
+                  .github/workflows/build-windows.yml|.github/actions/warm-windows-deps/*|.github/scripts/build-pfunit-windows.sh|.github/scripts/build-hamlib-windows.sh)
+                    windows=true
+                    ;;
+                  .github/workflows/build-macos.yml|.github/actions/warm-macos-deps/*|.github/scripts/build-*-macos.sh|.github/scripts/install-*-macos*.sh|.github/scripts/macos-qt-cache-key.sh|.github/scripts/verify-macos-*.sh)
+                    macos_arm64=true
+                    macos_x86_64=true
+                    ;;
+                esac
+              done <<< "$changed"
+              ;;
+            *)
+              echo "::error::Unsupported event: $EVENT_NAME"
+              exit 2
+              ;;
+          esac
+
+          {
+            echo "linux=$linux"
+            echo "windows=$windows"
+            echo "macos_arm64=$macos_arm64"
+            echo "macos_x86_64=$macos_x86_64"
+            echo "hamlib_branch=$HAMLIB_BRANCH"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "## Dependency cache warmer selection"
+            echo
+            echo "| Target | Enabled |"
+            echo "| --- | --- |"
+            echo "| Linux x86_64/aarch64 | $linux |"
+            echo "| Windows x86_64 | $windows |"
+            echo "| macOS arm64 | $macos_arm64 |"
+            echo "| macOS x86_64 | $macos_x86_64 |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  warm-linux-x86_64:
+    needs: detect
+    if: needs.detect.outputs.linux == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/warm-linux-deps
+        with:
+          arch: x86_64
+          runtime_base: host
+          hamlib_branch: ${{ needs.detect.outputs.hamlib_branch }}
+
+  warm-linux-aarch64:
+    needs: detect
+    if: needs.detect.outputs.linux == 'true'
+    runs-on: ubuntu-24.04-arm
+    container:
+      image: debian:bookworm-slim
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/warm-linux-deps
+        with:
+          arch: aarch64
+          runtime_base: bookworm
+          hamlib_branch: ${{ needs.detect.outputs.hamlib_branch }}
+
+  warm-windows-x86_64:
+    needs: detect
+    if: needs.detect.outputs.windows == 'true'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/warm-windows-deps
+        with:
+          hamlib_branch: ${{ needs.detect.outputs.hamlib_branch }}
+
+  warm-macos-arm64:
+    needs: detect
+    if: needs.detect.outputs.macos_arm64 == 'true'
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/warm-macos-deps
+        with:
+          arch: arm64
+          runner: macos-15
+          deployment_target: "11.0"
+          hamlib_branch: ${{ needs.detect.outputs.hamlib_branch }}
+
+  warm-macos-x86_64:
+    needs: detect
+    if: needs.detect.outputs.macos_x86_64 == 'true'
+    runs-on: macos-15-intel
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/warm-macos-deps
+        with:
+          arch: x86_64
+          runner: macos-15-intel
+          deployment_target: "10.13"
+          hamlib_branch: ${{ needs.detect.outputs.hamlib_branch }}

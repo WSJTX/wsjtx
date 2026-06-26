@@ -11,6 +11,13 @@ add_executable (test_http_user_agent
 target_link_libraries (test_http_user_agent wsjt_qt Qt5::Test)
 add_test (NAME test_http_user_agent COMMAND test_http_user_agent)
 
+add_executable (test_high_dpi_scaling
+  test_high_dpi_scaling.cpp
+  ${CMAKE_SOURCE_DIR}/HighDpiScaling.cpp
+)
+target_link_libraries (test_high_dpi_scaling Qt5::Test)
+add_test (NAME test_high_dpi_scaling COMMAND test_high_dpi_scaling)
+
 add_executable (test_fox_guard_bands
   test_fox_guard_bands.cpp
   ${CMAKE_SOURCE_DIR}/FoxGuardBands.cpp

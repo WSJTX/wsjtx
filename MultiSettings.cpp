@@ -31,6 +31,7 @@
 #include "qt_helpers.hpp"
 #include "SettingsGroup.hpp"
 #include "widgets/MessageBox.hpp"
+#include "HighDpiScaling.hpp"
 
 #include "pimpl_impl.hpp"
 
@@ -56,7 +57,7 @@ namespace
       {
         throw std::runtime_error {"Cannot find a usable configuration path \"" + config_path.path ().toStdString () + '"'};
       }
-    return config_path.absoluteFilePath (QApplication::applicationName () + ".ini");
+    return HighDpiScaling::wsjtxSettingsPath (QApplication::applicationName ());
   }
 
   //

@@ -5,9 +5,16 @@
 #include <QtGui>
 #endif
 #include <QApplication>
+#include <QCoreApplication>
+#include <QDir>
+#include <QFileInfo>
+#include <QDebug>
+#include <QStandardPaths>
 
+#include "HighDpiScaling.hpp"
 #include "revision_utils.hpp"
 #include "mainwindow.h"
+#include "runtime_paths.h"
 
 extern "C" {
   // Fortran procedures we need
@@ -21,20 +28,39 @@ extern "C" {
 
 int main(int argc, char *argv[])
 {
+  QCoreApplication::setApplicationName ("QMAP");
+  QString dataDir = QStandardPaths::writableLocation (QStandardPaths::AppLocalDataLocation);
+  if (dataDir.isEmpty ())
+    {
+      dataDir = QDir::home ().absoluteFilePath (".qmap");
+    }
+
+  if (HighDpiScaling::qmapEnabled (QDir {dataDir}.absoluteFilePath ("qmap.ini")))
+    {
+      QApplication::setAttribute (Qt::AA_EnableHighDpiScaling);
+    }
+
   QApplication a {argc, argv};
-
-// Initialize libgfortran:
-  _gfortran_set_args(argc, argv);
-  _gfortran_set_convert(0);
-  ftninit_();
-
-  // Read optional file to disable highDPI scaling
-  QFile f("DisableHighDpiScaling");
-  if (!f.exists()) QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 
   // Override programs executable basename as application name.
   a.setApplicationName ("QMAP");
-  a.setApplicationVersion ("0.6");
+  a.setApplicationVersion ("0.7");
+
+  dataDir = qmapDataDir();
+  QFileInfo dataDirInfo {dataDir};
+  if (!dataDirInfo.exists() || !dataDirInfo.isDir() || !dataDirInfo.isWritable()
+      || !QDir::setCurrent(dataDir)) {
+    QString message {"Unable to use QMAP working directory: " + dataDir};
+    qWarning() << message;
+    QMessageBox::critical(nullptr, QObject::tr("QMAP Startup Error"), message);
+    return 1;
+  }
+
+  // QMAP C++ and Fortran code still use relative opens for runtime files.
+  // Start from the writable data directory before Fortran initializes them.
+  _gfortran_set_args(argc, argv);
+  _gfortran_set_convert(0);
+  ftninit_();
   // switch off as we share an Info.plist file with WSJT-X
   a.setAttribute (Qt::AA_DontUseNativeMenuBar);
   MainWindow w;

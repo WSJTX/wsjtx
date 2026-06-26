@@ -376,8 +376,8 @@ void LogQSO::accept()
   m_txPower = ui->txPower->text ();
   auto strDialFreq = QString::number (m_dialFreq / 1.e6,'f',6);
   auto operator_call = ui->loggedOperator->text ();
-  auto xsent = ui->exchSent->text ();
-  auto xrcvd = ui->exchRcvd->text ();
+  auto xsent = ui->exchSent->text ().trimmed ();
+  auto xrcvd = ui->exchRcvd->text ().trimmed ();
 
   using SpOp = Configuration::SpecialOperatingActivity;
   auto special_op = m_config->special_op_id ();
@@ -387,20 +387,22 @@ void LogQSO::accept()
   }
 
   if ((special_op == SpOp::RTTY and xsent!="" and xrcvd!="")) {
-    if(rptSent=="" or !xsent.contains(rptSent+" ")) rptSent=xsent.split(" "
+    auto xsent_words = xsent.split(" "
 #if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
-                                                                        , QString::SkipEmptyParts
+                                  , QString::SkipEmptyParts
 #else
-                                                                        , Qt::SkipEmptyParts
+                                  , Qt::SkipEmptyParts
 #endif
-                                                                        ).at(0);
-    if(rptRcvd=="" or !xrcvd.contains(rptRcvd+" ")) rptRcvd=xrcvd.split(" "
+                                  );
+    auto xrcvd_words = xrcvd.split(" "
 #if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
-                                                                        , QString::SkipEmptyParts
+                                  , QString::SkipEmptyParts
 #else
-                                                                        , Qt::SkipEmptyParts
+                                  , Qt::SkipEmptyParts
 #endif
-                                                                        ).at(0);
+                                  );
+    if(rptSent=="" or !xsent.contains(rptSent+" ")) rptSent=xsent_words.at(0);
+    if(rptRcvd=="" or !xrcvd.contains(rptRcvd+" ")) rptRcvd=xrcvd_words.at(0);
   }
 
   // validate

@@ -96,6 +96,7 @@ private slots:
 private:
   Ui::MainWindow *ui;
   QString m_appDir;
+  QString m_dataDir;
   QString m_settings_filename;
   QScopedPointer<Astro> m_astro_window;
   QScopedPointer<WideGraph> m_wide_graph_window;

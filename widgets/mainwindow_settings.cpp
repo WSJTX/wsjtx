@@ -30,6 +30,8 @@ extern int m_msk144_tr6;
 
 namespace {
   Radio::Frequency constexpr default_frequency {14074000};
+  constexpr int standard_messages_tab_index {0};
+  constexpr int fox_queue_tab_index {1};
 }
 
 void MainWindow::writeSettings()
@@ -564,14 +566,14 @@ void MainWindow::readSettings()
   m_block_pwr_tooltip = false;
   ui->sbCQTxFreq->setValue (m_settings->value ("CQTxFreq", 260).toInt());
   m_noSuffix=m_settings->value("NoSuffix",false).toBool();
-  int n=m_settings->value("GUItab",0).toInt();
+  int n=m_settings->value("GUItab",standard_messages_tab_index).toInt();
   if (SpecOp::FOX==m_specOp) {
     ui->tabWidget->setCurrentIndex(n);
   } else {
-    // We need this to initialize the height of tab 1 correctly
+    // The Fox queue tab must be shown once so Qt initializes its height.
     ui->pbFreeText->setVisible(false);
     ui->cbSendMsg->setVisible(false);
-    ui->tabWidget->setCurrentIndex(1);
+    ui->tabWidget->setCurrentIndex(fox_queue_tab_index);
     ui->tabWidget->setCurrentIndex(n);
   }
   outBufSize=m_settings->value("OutBufSize",4096).toInt();

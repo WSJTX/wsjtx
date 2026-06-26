@@ -4,6 +4,8 @@
 #include <QVBoxLayout>
 #include <QCheckBox>
 #include <QCoreApplication>
+#include <QEvent>
+#include <QKeyEvent>
 
 #include "revision_utils.hpp"
 #include "pimpl_impl.hpp"
@@ -28,6 +30,23 @@ SplashScreen::SplashScreen ()
   : QSplashScreen {QPixmap {":/splash.png"}, Qt::WindowStaysOnTopHint}
 {
   setLayout (&m_->main_layout_);
+
+  setObjectName ("SplashScreen");
+  setWindowTitle (QCoreApplication::translate ("SplashScreen", "WSJT-X — Welcome"));
+  setAccessibleName (windowTitle ());
+  setAccessibleDescription (
+    QCoreApplication::translate ("SplashScreen",
+      "WSJT-X startup information. Press Escape to close."));
+  m_->checkbox_.setObjectName ("doNotShowSplashAgain");
+  m_->checkbox_.setAccessibleName (m_->checkbox_.text ());
+
+  // A QSplashScreen is a non-activating window and never becomes the key
+  // window, so a key press event override would never fire. Filter the
+  // application instead so Escape dismisses the splash regardless of which
+  // window holds focus, giving keyboard and assistive-tech users a dismiss
+  // path that the mouse-only click-to-dismiss does not.
+  QCoreApplication::instance ()->installEventFilter (this);
+
   showMessage ("<h2>" + QString {"WSJT-X v" +
         QCoreApplication::applicationVersion() + " " +
         revision ()}.simplified () + "</h2>"
@@ -43,4 +62,15 @@ SplashScreen::SplashScreen ()
 
 SplashScreen::~SplashScreen ()
 {
+}
+
+bool SplashScreen::eventFilter (QObject * object, QEvent * event)
+{
+  if (isVisible () && QEvent::KeyPress == event->type ()
+      && Qt::Key_Escape == static_cast<QKeyEvent *> (event)->key ())
+    {
+      close ();
+      return true;
+    }
+  return QSplashScreen::eventFilter (object, event);
 }

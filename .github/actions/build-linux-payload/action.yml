@@ -156,7 +156,7 @@ runs:
       shell: bash
       run: test -f "${GITHUB_WORKSPACE}/hamlib-prefix/lib/libhamlib.a"
 
-    - name: Configure
+    - name: Configure build and tests
       shell: bash
       run: |
         cmake -S . -B wsjtx-build \
@@ -172,7 +172,7 @@ runs:
           -DPFUNIT_DIR="${{ steps.pfunit.outputs.dir }}" \
           -Wno-dev
 
-    - name: Build
+    - name: Build and test targets
       shell: bash
       run: cmake --build wsjtx-build -j$(nproc)
 

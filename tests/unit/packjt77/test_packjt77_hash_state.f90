@@ -11,6 +11,7 @@ program test_packjt77_hash_state
 
   call expect_standard_hash_save_contract()
   call expect_var_hash_save_contract()
+  call expect_var_hash_save_thread_bounds()
   call expect_var_thread_rx_accumulation()
   call expect_var_tx_rx_separation()
   call expect_mycall_dxcall_substitutions()
@@ -138,6 +139,23 @@ contains
 
     ntests=ntests+1
   end subroutine expect_var_hash_save_contract
+
+  subroutine expect_var_hash_save_thread_bounds()
+    character(len=13) :: c13
+
+    call reset_all_state('N0AAA','N0BBB')
+    call normalize_call('W7ABC',c13)
+
+    call save_hash_callvar(c13,0)
+    call save_hash_callvar(c13,-1)
+    call save_hash_callvar(c13,25)
+
+    call assert_true('var invalid thread indices ignored', &
+         all(nlast_callsvar(1:24).eq.0))
+    call assert_call('var first queued call untouched',last_callsvar(1),'')
+
+    ntests=ntests+1
+  end subroutine expect_var_hash_save_thread_bounds
 
   subroutine expect_var_thread_rx_accumulation()
     character(len=13) :: rx_call, later_thread_call

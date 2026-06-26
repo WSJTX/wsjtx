@@ -10,6 +10,7 @@
 #include "qt_helpers.hpp"
 #include "commons.h"
 #include "moc_plotter.cpp"
+#include <algorithm>
 #include <fstream>
 #include <iostream>
 
@@ -18,6 +19,14 @@ namespace
 {
   // Matches WideGraph's m_swide capacity and dialog width limit.
   constexpr int kWaterfallStorageWidth = 2048;
+
+  int drawablePixel(int x, int extent)
+  {
+    if(extent <= 1) return 0;
+    if(x < 0) return 0;
+    if(x >= extent) return extent - 1;
+    return x;
+  }
 }
 
 extern "C" {
@@ -114,15 +123,8 @@ void CPlotter::resizeEvent(QResizeEvent* )                    //resizeEvent()
     m_HoverOverlayPixmap.fill(Qt::transparent);
     m_2DPixmap = QPixmap(m_Size.width(), m_h2);
     m_2DPixmap.fill(Qt::black);
-    QPixmap const oldWaterfall = m_WaterfallPixmap;
     m_WaterfallPixmap = QPixmap(kWaterfallStorageWidth, m_h1);
     m_WaterfallPixmap.fill(Qt::black);
-    if(!oldWaterfall.isNull()) {
-      // The frequency-to-pixel mapping is width-independent and row 0 is the
-      // newest line, so the top-left overlap stays valid across a resize.
-      QPainter p(&m_WaterfallPixmap);
-      p.drawPixmap(0, 0, oldWaterfall);
-    }
     m_OverlayPixmap = QPixmap(m_Size.width(), m_h2);
     m_OverlayPixmap.fill(Qt::black);
     m_ScalePixmap = QPixmap(m_w,30);
@@ -133,6 +135,7 @@ void CPlotter::resizeEvent(QResizeEvent* )                    //resizeEvent()
     m_x=0;
   }
   DrawOverlay();
+  if(m_bScaleOK) drawSavedWaterfall();
 }
 
 void CPlotter::paintEvent(QPaintEvent *)                                // paintEvent()
@@ -164,8 +167,10 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
   double gain = fac*pow(10.0,0.015*m_plotGain);
   double gain2d = pow(10.0,0.02*(m_plot2dGain));
 
-  if(m_bReference != m_bReference0) resizeEvent(NULL);
-  m_bReference0=m_bReference;
+  if(m_bReference != m_bReference0) {
+    m_bReference0=m_bReference;
+    resizeEvent(NULL);
+  }
 
 //move current data down one line (must do this before attaching a QPainter object)
   int waterfallWidth = m_WaterfallPixmap.width();
@@ -202,41 +207,50 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
   static QPoint LineBuf4[MAX_SCREENSIZE];
   j=0;
   j0=int(m_startFreq/m_fftBinWidth + 0.5);
-  int izWaterfall = int((5000.0 - m_startFreq)/(m_binsPerPixel*m_fftBinWidth) + 0.5);
-  if(izWaterfall<0) izWaterfall=0;
-  if(izWaterfall>waterfallWidth) izWaterfall=waterfallWidth;
-  int iz=XfromFreq(5000.0);
-  if(iz>izWaterfall) iz=izWaterfall;
-  int jz=izWaterfall*m_binsPerPixel;
-  m_fMax=FreqfromX(iz);
-  if(bScroll and swide[0]<1.e29) {
-    if(izWaterfall>0) flat4_(swide,&izWaterfall,&m_Flatten);
-    if(!m_bReplot) {
-      int savgBins = jz;
-      int availableBins = NSMAX - j0;
-      if(savgBins > availableBins) savgBins = availableBins;
-      if(savgBins > 0) flat4_(&dec_data.savg[j0],&savgBins,&m_Flatten);
-    }
-  }
+  int izVisible=XfromFreq(5000.0);
+  if(izVisible>waterfallWidth) izVisible=waterfallWidth;
+  if(izVisible<0) izVisible=0;
+  int jz=izVisible*m_binsPerPixel;
+  m_fMax=FreqfromX(izVisible);
 
-  ymin=1.e30;
-  if(swide[0]>1.e29 and swide[0]< 1.5e30) painter1.setPen(Qt::green);
-  if(swide[0]>1.4e30) painter1.setPen(Qt::red);
   if(bScroll and !m_bReplot) {
     m_j=0;
     int irow=-1;
     plotsave_(swide,&waterfallWidth,&m_h1,&irow);
   }
+
+  m_swideDisplay.resize(waterfallWidth);
+  std::copy(swide, swide + waterfallWidth, m_swideDisplay.data());
+  float *swidePlot = m_swideDisplay.data();
+  if(swidePlot[0]<1.e29 and izVisible>0) {
+    flat4_(swidePlot,&izVisible,&m_Flatten);
+  }
+
+  m_savgDisplay.clear();
+  if(bScroll and !m_bReplot) {
+    int savgBins = jz;
+    int availableBins = NSMAX - j0;
+    if(savgBins > availableBins) savgBins = availableBins;
+    if(savgBins > 0) {
+      m_savgDisplay.resize(savgBins);
+      std::copy(&dec_data.savg[j0], &dec_data.savg[j0] + savgBins, m_savgDisplay.data());
+      flat4_(m_savgDisplay.data(),&savgBins,&m_Flatten);
+    }
+  }
+
+  ymin=1.e30;
+  if(swidePlot[0]>1.e29 and swidePlot[0]< 1.5e30) painter1.setPen(Qt::green);
+  if(swidePlot[0]>1.4e30) painter1.setPen(Qt::red);
   ymin = 0;
   if(drawWaterfall) {
-    for(int i=0; i<izWaterfall; i++) {
-      y=swide[i];
+    for(int i=0; i<izVisible; i++) {
+      y=swidePlot[i];
       if( y != y ) y=0.0;   // check for nan - a nan is not equal to itself
       y = 10.0*gain*y + m_plotZero;
       if (y<0.0) y=0.0;
       if (y>254.0) y=254.0;
       int y1 = y;
-      if (swide[i]<1.e29) painter1.setPen(g_ColorTbl[y1]);
+      if (swidePlot[i]<1.e29) painter1.setPen(g_ColorTbl[y1]);
       painter1.drawPoint(i,m_j);
     }
   }
@@ -246,16 +260,16 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
 
   float y2min=1.e30;
   float y2max=-1.e30;
-  for(int i=0; i<iz; i++) {
-    y=swide[i] - ymin;
+  for(int i=0; i<izVisible; i++) {
+    y=swidePlot[i] - ymin;
     y2=0;
     if(m_bCurrent) y2 = gain2d*y + m_plot2dZero;            //Current
 
     if(bScroll) {
       float sum=0.0;
-      int j=j0+m_binsPerPixel*i;
-      for(int k=0; (k<m_binsPerPixel && j<NSMAX-1); k++) {
-        sum+=dec_data.savg[j++];
+      int j=m_binsPerPixel*i;
+      for(int k=0; k<m_binsPerPixel && j<m_savgDisplay.size(); k++) {
+        sum+=m_savgDisplay[j++];
       }
       m_sum[i]=sum;
     }
@@ -281,7 +295,7 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
 
     }
 
-    if(i==iz-1 and !m_bQ65_Sync and !m_bTotalPower) {
+    if(i==izVisible-1 and !m_bQ65_Sync and !m_bTotalPower) {
       painter2D.drawPolyline(LineBuf,j);
     }
     LineBuf[j].setX(i);
@@ -297,7 +311,7 @@ void CPlotter::draw(float swide[], bool bScroll, bool bRed)
     return;
   }
 
-  if(swide[0]>1.0e29) m_line=0;
+  if(swidePlot[0]>1.0e29) m_line=0;
   if(m_mode=="FT4" and m_line==34) m_line=0;
   if(m_line == painter1.fontMetrics ().height () && m_timestamp!=0) {
     painter1.setPen(Qt::white);
@@ -408,22 +422,25 @@ void CPlotter::drawRed(int ia, int ib, float swide[])
 void CPlotter::replot()
 {
   resizeEvent(NULL);
+}
+
+void CPlotter::drawSavedWaterfall()
+{
+  if(m_bReplot) return;
   int waterfallWidth = m_WaterfallPixmap.width();
   if(waterfallWidth<1) return;
-  float *swide = new float [waterfallWidth];
+  m_replotRow.resize(waterfallWidth);
   m_bReplot=true;
   for(int irow=0; irow<m_h1; irow++) {
     m_j=irow;
-    plotsave_(swide,&waterfallWidth,&m_h1,&irow);
-    draw(swide,false,false);
+    plotsave_(m_replotRow.data(),&waterfallWidth,&m_h1,&irow);
+    draw(m_replotRow.data(),false,false);
   }
   if(m_mode=="Q65" and m_bQ65_Sync) {
-    draw(swide,false,true);
+    draw(m_replotRow.data(),false,true);
   }
   update();                                    //trigger a new paintEvent
   m_bReplot=false;
-  delete [] swide; 
-  swide = NULL;
 }
 
 void CPlotter::DrawOverlay()                   //DrawOverlay()
@@ -441,11 +458,13 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
   QPen penRed(Qt::red, 3);                     //Mark Tx freq with red
   QPainter painter(&m_OverlayPixmap);
   painter.setBackground (palette ().brush (backgroundRole ()));
+  int const overlayRight = drawablePixel(m_OverlayPixmap.width(), m_OverlayPixmap.width());
+  int const overlayBottom = drawablePixel(m_OverlayPixmap.height(), m_OverlayPixmap.height());
   QLinearGradient gradient(0, 0, 0 ,m_h2);     //fill background with gradient
   gradient.setColorAt(1, Qt::black);
   gradient.setColorAt(0, Qt::darkBlue);
   painter.setBrush(gradient);
-  painter.drawRect(0, 0, m_w, m_h2);
+  painter.drawRect(0, 0, overlayRight, overlayBottom);
   painter.setBrush(Qt::SolidPattern);
 
   m_fSpan = w*df;
@@ -467,7 +486,8 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
       x = (int)((float)i*pixperdiv ) - x0;
       if(x >= 0 and x<=m_w) {
         painter.setPen(QPen(Qt::white, 1,Qt::DotLine));
-        painter.drawLine(x, 0, x , m_h2);
+        x = drawablePixel(x, m_OverlayPixmap.width());
+        painter.drawLine(x, 0, x , overlayBottom);
       }
     }
   }
@@ -477,9 +497,9 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
   for( int i=1; i<VERT_DIVS; i++) {                 //draw horizontal grids
     y = int(i*m_vpixperdiv);
     if(m_bTotalPower) {
-        painter.drawLine(15, y, w, y);
+        painter.drawLine(15, y, overlayRight, y);
     } else {
-        painter.drawLine(0, y, w, y);
+        painter.drawLine(0, y, overlayRight, y);
     }
   }
 
@@ -496,7 +516,7 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
     for( int i=1; i<5*VERT_DIVS; i++) {             //draw horizontal 2 dB grids
       if(i%5 > 0) {
         y = int(0.2*i*m_vpixperdiv);
-        painter.drawLine(0, y, w, y);
+        painter.drawLine(0, y, overlayRight, y);
       }
     }
   }
@@ -504,6 +524,8 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
   QRect rect0;
   QPainter painter0(&m_ScalePixmap);
   painter0.setBackground (palette ().brush (backgroundRole ()));
+  int const scaleRight = drawablePixel(m_w, m_ScalePixmap.width());
+  int const scaleBottom = drawablePixel(m_ScalePixmap.height(), m_ScalePixmap.height());
 
   //create Font to use for scales
   QFont Font("Arial");
@@ -524,20 +546,22 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
   } else {
       m_ScalePixmap.fill(Qt::white);
   }
-  painter0.drawRect(0, 0, w, 30);
+  painter0.drawRect(0, 0, scaleRight, scaleBottom);
   MakeFrequencyStrs();
 
 //draw tick marks on upper scale
   pixperdiv = m_freqPerDiv/df;
   for( int i=0; i<m_hdivs; i++) {                    //major ticks
     x = (int)((m_xOffset+i)*pixperdiv );
-    painter0.drawLine(x,18,x,30);
+    painter0.drawLine(drawablePixel(x, m_ScalePixmap.width()), 18,
+                      drawablePixel(x, m_ScalePixmap.width()), scaleBottom);
   }
   int minor=5;
   if(m_freqPerDiv==200) minor=4;
   for( int i=1; i<minor*m_hdivs; i++) {             //minor ticks
     x = i*pixperdiv/minor;
-    painter0.drawLine(x,24,x,30);
+    painter0.drawLine(drawablePixel(x, m_ScalePixmap.width()), 24,
+                      drawablePixel(x, m_ScalePixmap.width()), scaleBottom);
   }
 
   //draw frequency values
@@ -577,17 +601,20 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
     painter0.setPen(penGreen);
     x1=XfromFreq(m_rxFreq-m_tol);
     x2=XfromFreq(m_rxFreq+m_tol);
-    painter0.drawLine(x1,29,x2,29);
+    painter0.drawLine(drawablePixel(x1, m_ScalePixmap.width()), scaleBottom,
+                      drawablePixel(x2, m_ScalePixmap.width()), scaleBottom);
     for(int i=0; i<4; i++) {
       x1=XfromFreq(m_rxFreq+bw*i/3.0);
       int j=24;
       if(i==0) j=18;
-      painter0.drawLine(x1,j,x1,30);
+      painter0.drawLine(drawablePixel(x1, m_ScalePixmap.width()), j,
+                        drawablePixel(x1, m_ScalePixmap.width()), scaleBottom);
     }
     painter0.setPen(penRed);
     for(int i=0; i<4; i++) {
       x1=XfromFreq(m_txFreq+bw*i/3.0);
-      painter0.drawLine(x1,12,x1,18);
+      painter0.drawLine(drawablePixel(x1, m_ScalePixmap.width()), 12,
+                        drawablePixel(x1, m_ScalePixmap.width()), 18);
     }
   }
 
@@ -622,21 +649,25 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
   if(m_mode=="WSPR") {
     x1=XfromFreq(1400);
     x2=XfromFreq(1600);
-    painter0.drawLine(x1,26,x2,26);
+    painter0.drawLine(drawablePixel(x1, m_ScalePixmap.width()), 26,
+                      drawablePixel(x2, m_ScalePixmap.width()), 26);
   }
 
   if(m_mode=="FST4W") {
     x1=XfromFreq(m_rxFreq-m_tol);
     x2=XfromFreq(m_rxFreq+m_tol);
-    painter0.drawLine(x1,26,x2,26);
+    painter0.drawLine(drawablePixel(x1, m_ScalePixmap.width()), 26,
+                      drawablePixel(x2, m_ScalePixmap.width()), 26);
   }
 
   if(m_mode=="FreqCal") {                   //FreqCal
     x1=XfromFreq(m_rxFreq-m_tol);
     x2=XfromFreq(m_rxFreq+m_tol);
-    painter0.drawLine(x1,29,x2,29);
+    painter0.drawLine(drawablePixel(x1, m_ScalePixmap.width()), scaleBottom,
+                      drawablePixel(x2, m_ScalePixmap.width()), scaleBottom);
     x1=XfromFreq(m_rxFreq);
-    painter0.drawLine(x1,24,x1,30);
+    painter0.drawLine(drawablePixel(x1, m_ScalePixmap.width()), 24,
+                      drawablePixel(x1, m_ScalePixmap.width()), scaleBottom);
   }
 
   int yh=5;
@@ -648,46 +679,60 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
     if(m_mode=="FST4" and !m_bSingleDecode) {
       x1=XfromFreq(m_nfa);
       x2=XfromFreq(m_nfb);
-      painter0.drawLine(x1,25,x1+5,30);   // Mark FST4 F_Low
-      painter0.drawLine(x1,25,x1+5,20);
-      painter0.drawLine(x2,25,x2-5,30);   // Mark FST4 F_High
-      painter0.drawLine(x2,25,x2-5,20);
+      painter0.drawLine(drawablePixel(x1, m_ScalePixmap.width()), 25,
+                        drawablePixel(x1 + 5, m_ScalePixmap.width()), scaleBottom);
+      painter0.drawLine(drawablePixel(x1, m_ScalePixmap.width()), 25,
+                        drawablePixel(x1 + 5, m_ScalePixmap.width()), 20);
+      painter0.drawLine(drawablePixel(x2, m_ScalePixmap.width()), 25,
+                        drawablePixel(x2 - 5, m_ScalePixmap.width()), scaleBottom);
+      painter0.drawLine(drawablePixel(x2, m_ScalePixmap.width()), 25,
+                        drawablePixel(x2 - 5, m_ScalePixmap.width()), 20);
     }
 
     if(m_mode=="Q65" or (m_mode=="JT65" and m_bVHF) or (m_mode=="FT8" and m_bSuperHound)) {
       painter0.setPen(penGreen);
       x1=XfromFreq(m_rxFreq-m_tol);
       x2=XfromFreq(m_rxFreq+m_tol);
-      painter0.drawLine(x1,26,x2,26);
+      painter0.drawLine(drawablePixel(x1, m_ScalePixmap.width()), 26,
+                        drawablePixel(x2, m_ScalePixmap.width()), 26);
       x1=XfromFreq(m_rxFreq);
-      painter0.drawLine(x1,20,x1,26);
+      painter0.drawLine(drawablePixel(x1, m_ScalePixmap.width()), 20,
+                        drawablePixel(x1, m_ScalePixmap.width()), 26);
 
       if(m_mode=="JT65") {
         painter0.setPen(penOrange);
         x3=XfromFreq(m_rxFreq+20.0*bw/65.0);    //RO
-        painter0.drawLine(x3,20,x3,26);
+        painter0.drawLine(drawablePixel(x3, m_ScalePixmap.width()), 20,
+                          drawablePixel(x3, m_ScalePixmap.width()), 26);
         x4=XfromFreq(m_rxFreq+30.0*bw/65.0);    //RRR
-        painter0.drawLine(x4,20,x4,26);
+        painter0.drawLine(drawablePixel(x4, m_ScalePixmap.width()), 20,
+                          drawablePixel(x4, m_ScalePixmap.width()), 26);
         x5=XfromFreq(m_rxFreq+40.0*bw/65.0);    //73
-        painter0.drawLine(x5,20,x5,26);
+        painter0.drawLine(drawablePixel(x5, m_ScalePixmap.width()), 20,
+                          drawablePixel(x5, m_ScalePixmap.width()), 26);
       }
       painter0.setPen(penGreen);
       x6=XfromFreq(m_rxFreq+bw);             //Highest tone
       if(m_mode=="FT8" and m_bSuperHound) x6=XfromFreq(m_rxFreq+1500.0);
-      painter0.drawLine(x6,20,x6,26);
+      painter0.drawLine(drawablePixel(x6, m_ScalePixmap.width()), 20,
+                        drawablePixel(x6, m_ScalePixmap.width()), 26);
 
     } else {
       // Draw the green goal post
       painter0.setPen(penGreen);
       x1=XfromFreq(m_rxFreq);
       x2=XfromFreq(m_rxFreq+bw);
-      painter0.drawLine(x1,yRxBottom-yh,x1,yRxBottom);
-      painter0.drawLine(x1,yRxBottom,x2,yRxBottom);
-      painter0.drawLine(x2,yRxBottom-yh,x2,yRxBottom);
+      painter0.drawLine(drawablePixel(x1, m_ScalePixmap.width()), yRxBottom-yh,
+                        drawablePixel(x1, m_ScalePixmap.width()), yRxBottom);
+      painter0.drawLine(drawablePixel(x1, m_ScalePixmap.width()), yRxBottom,
+                        drawablePixel(x2, m_ScalePixmap.width()), yRxBottom);
+      painter0.drawLine(drawablePixel(x2, m_ScalePixmap.width()), yRxBottom-yh,
+                        drawablePixel(x2, m_ScalePixmap.width()), yRxBottom);
       if(m_mode.startsWith("FST4")) {
         x1=XfromFreq(m_rxFreq-m_tol);
         x2=XfromFreq(m_rxFreq+m_tol);
-        painter0.drawLine(x1,26,x2,26);   // Mark the Tol range
+        painter0.drawLine(drawablePixel(x1, m_ScalePixmap.width()), 26,
+                          drawablePixel(x2, m_ScalePixmap.width()), 26);
       }
     }
   }
@@ -708,7 +753,11 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
     }
     if (m_bars) {
       overPainter.setPen(Qt::green);                   // Rx bars
-      overPainter.drawLine(x1,0,x1,m_h); overPainter.drawLine(x2,0,x2,m_h);
+      int const overlayBottom = drawablePixel(m_h, m_h);
+      overPainter.drawLine(drawablePixel(x1, m_DialOverlayPixmap.width()), 0,
+                           drawablePixel(x1, m_DialOverlayPixmap.width()), overlayBottom);
+      overPainter.drawLine(drawablePixel(x2, m_DialOverlayPixmap.width()), 0,
+                           drawablePixel(x2, m_DialOverlayPixmap.width()), overlayBottom);
     }
   }
 
@@ -724,7 +773,11 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
     }
     if (m_bars) {
       overPainter.setPen(Qt::red);                   // Tx bars
-      overPainter.drawLine(x1,0,x1,m_h); overPainter.drawLine(x2,0,x2,m_h);
+      int const overlayBottom = drawablePixel(m_h, m_h);
+      overPainter.drawLine(drawablePixel(x1, m_DialOverlayPixmap.width()), 0,
+                           drawablePixel(x1, m_DialOverlayPixmap.width()), overlayBottom);
+      overPainter.drawLine(drawablePixel(x2, m_DialOverlayPixmap.width()), 0,
+                           drawablePixel(x2, m_DialOverlayPixmap.width()), overlayBottom);
     }
   }
 
@@ -744,6 +797,8 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
       x2=XfromFreq(m_txFreq+0.5*bw);
     }
     // Draw the red goal post
+    x1 = drawablePixel(x1, m_ScalePixmap.width());
+    x2 = drawablePixel(x2, m_ScalePixmap.width());
     painter0.drawLine(x1,yTxTop,x1,yTxTop+yh);
     painter0.drawLine(x1,yTxTop,x2,yTxTop);
     painter0.drawLine(x2,yTxTop,x2,yTxTop+yh);
@@ -757,8 +812,10 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
     hoverPainter.setCompositionMode(QPainter::CompositionMode_Source);
     hoverPainter.fillRect(0, 0, m_Size.width(), m_h, Qt::transparent);
     hoverPainter.setPen(QPen(Qt::white));              // white bars
-    hoverPainter.drawLine(0, 30, 0, m_h);              // first slot, left line hover
-    hoverPainter.drawLine(fwidth, 30, fwidth, m_h);    // first slot, right line hover
+    int const hoverBottom = drawablePixel(m_h, m_HoverOverlayPixmap.height());
+    hoverPainter.drawLine(0, 30, 0, hoverBottom);              // first slot, left line hover
+    hoverPainter.drawLine(drawablePixel(fwidth, m_HoverOverlayPixmap.width()), 30,
+                          drawablePixel(fwidth, m_HoverOverlayPixmap.width()), hoverBottom);
   }
 
   if(m_dialFreq>10.13 and m_dialFreq< 10.15 and m_mode.mid(0,4)!="WSPR" and m_mode!="FST4W") {
@@ -768,7 +825,8 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
     x2=XfromFreq(f2);
     if(x1<=m_w and x2>=0) {
       painter0.setPen(penOrange);               //Mark WSPR sub-band orange
-      painter0.drawLine(x1,9,x2,9);
+      painter0.drawLine(drawablePixel(x1, m_ScalePixmap.width()), 9,
+                        drawablePixel(x2, m_ScalePixmap.width()), 9);
     }
   }
 }

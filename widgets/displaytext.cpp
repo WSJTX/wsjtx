@@ -44,6 +44,13 @@ bool play_ITUZ = false;
 bool play_ITUZOB = false;
 bool muted = false;
 
+namespace
+{
+  QRegularExpression const message_73_regexp {"^(73|RR73)$"};
+  QRegularExpression const grid_regexp {"\\A(?![Rr]{2}73)[A-Ra-r]{2}[0-9]{2}([A-Xa-x]{2}){0,1}\\z"};
+  QRegularExpression const ap_regexp {R"((?:\?\s)?(?:a[0-9]|q[0-9][0-9*]?)$)"};
+}
+
 using SpecOp = Configuration::SpecialOperatingActivity;
 
 DisplayText::DisplayText(QWidget *parent)
@@ -497,7 +504,7 @@ void DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
   QColor bg;
   QColor fg;
   bool CQcall = false;
-  auto is_73 = decodedText.messageWords().filter (QRegularExpression {"^(73|RR73)$"}).size();
+  auto is_73 = decodedText.messageWords().filter (message_73_regexp).size();
   if (decodedText.string ().contains (" CQ ")) {
     if (m_config->alert_CQ()) {
       if (!muted) play_CQ = true;
@@ -518,7 +525,6 @@ void DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
   QString dxCall;
   QString dxGrid;
   decodedText.deCallAndGrid (/*out*/ dxCall, dxGrid);
-  QRegularExpression grid_regexp {"\\A(?![Rr]{2}73)[A-Ra-r]{2}[0-9]{2}([A-Xa-x]{2}){0,1}\\z"};
   if(!dxGrid.contains(grid_regexp)) dxGrid="";
   message = message.left (message.indexOf (QChar::Nbsp)).trimmed (); // strip appended info
   QString extra;
@@ -538,7 +544,7 @@ void DisplayText::displayDecodedText(DecodedText const& decodedText, QString con
     {
       extra += QString {"%1"}.arg (fSpread, 5, 'f', fSpread < 0.95 ? 3 : 2) + QChar {' '};
     }
-  auto ap_pos = message.lastIndexOf (QRegularExpression {R"((?:\?\s)?(?:a[0-9]|q[0-9][0-9*]?)$)"});
+  auto ap_pos = message.lastIndexOf (ap_regexp);
   if (ap_pos >= 0)
     {
       extra += message.mid (ap_pos) + QChar {' '};

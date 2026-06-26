@@ -129,6 +129,7 @@ void MainWindow::bandHopping()
       keep_frequency = true;
       QTimer::singleShot (250, [=] {keep_frequency = false;});
       setRig (frequency);
+      setXIT (ui->TxFreqSpinBox->value ());
       on_actionFT8_triggered ();
       ui->pbBandHopping->setChecked (true);
       startIndex = hop_index + 1;

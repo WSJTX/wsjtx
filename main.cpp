@@ -15,12 +15,14 @@
 #include <QDateTime>
 #include <QLocale>
 #include <QTranslator>
+#include <QCoreApplication>
 #include <QRegularExpression>
 #include <QObject>
 #include <QSettings>
 #include <QSysInfo>
 #include <QDir>
 #include <QDirIterator>
+#include <QFile>
 #include <QStandardPaths>
 #include <QStringList>
 #include <QLockFile>
@@ -34,10 +36,12 @@
 #include <QByteArray>
 #include <QBitArray>
 #include <QMetaType>
+#include <QPushButton>
 
 #include "ExceptionCatchingApplication.hpp"
 #include "Logger.hpp"
 #include "revision_utils.hpp"
+#include "HighDpiScaling.hpp"
 #include "MetaDataRegistry.hpp"
 #include "qt_helpers.hpp"
 #include "L10nLoader.hpp"
@@ -101,6 +105,97 @@ namespace
         os << v.toString ();
       }
   }
+
+  QString lock_file_details (QLockFile const& lock, QString const& path)
+  {
+    QStringList details {QCoreApplication::translate ("main", "Lock file: %1").arg (QDir::toNativeSeparators (path))};
+    qint64 pid;
+    QString hostname;
+    QString appname;
+    if (lock.getLockInfo (&pid, &hostname, &appname))
+      {
+        details << QCoreApplication::translate ("main", "Owner process: %1").arg (pid);
+        if (!appname.isEmpty ())
+          {
+            details << QCoreApplication::translate ("main", "Owner application: %1").arg (appname);
+          }
+        if (!hostname.isEmpty ())
+          {
+            details << QCoreApplication::translate ("main", "Owner host: %1").arg (hostname);
+          }
+      }
+    else
+      {
+        details << QCoreApplication::translate ("main", "Owner information is not available.");
+      }
+    return details.join ('\n');
+  }
+
+  enum class LockFileAction
+  {
+    RemoveLockFile,
+    Retry,
+    Stop
+  };
+
+  struct LockFileRemovalResult
+  {
+    bool removed;
+    QString error;
+  };
+
+  LockFileRemovalResult remove_stale_lock_file (QLockFile& lock, QString const& path)
+  {
+    if (lock.removeStaleLockFile ())
+      {
+        return {true, QString {}};
+      }
+
+    QFile lock_file {path};
+    if (!lock_file.exists ())
+      {
+        return {true, QString {}};
+      }
+    if (lock_file.remove ())
+      {
+        return {true, QString {}};
+      }
+    return {false, QCoreApplication::translate ("main", "Remove error: %1").arg (lock_file.errorString ())};
+  }
+
+  LockFileAction query_lock_file_recovery (QLockFile const& lock, QString const& path)
+  {
+    MessageBox message_box {MessageBox::Question
+      , QCoreApplication::translate ("main", "Another instance may be running")
+      , MessageBox::NoButton};
+    message_box.setInformativeText (QCoreApplication::translate ("main", "WSJT-X could not lock its temporary instance file. "
+                                                                 "\n\nIf another WSJT-X window is still running, choose No. "
+                                                                 "\nUse a unique rig name to run more than one instance. "
+                                                                 "\n\nIf WSJT-X crashed or will not restart, choose Remove Lock File. "
+                                                                 "\nChoose Retry after closing the other instance."));
+    message_box.setDetailedText (lock_file_details (lock, path));
+
+    auto remove_button = message_box.addButton (QCoreApplication::translate ("main", "Remove Lock File"), MessageBox::ActionRole);
+    auto retry_button = message_box.addButton (MessageBox::Retry);
+    auto no_button = message_box.addButton (MessageBox::No);
+    message_box.setDefaultButton (retry_button);
+    message_box.setEscapeButton (no_button);
+
+    if (message_box.exec () == -1)
+      {
+        return LockFileAction::Stop;
+      }
+    auto clicked_button = message_box.clickedButton ();
+    if (remove_button == clicked_button)
+      {
+        return LockFileAction::RemoveLockFile;
+      }
+    if (retry_button == clicked_button)
+      {
+        return LockFileAction::Retry;
+      }
+    return LockFileAction::Stop;
+  }
 }
 
 int main(int argc, char *argv[])
@@ -114,9 +209,10 @@ int main(int argc, char *argv[])
   // Multiple instances communicate with jt9 via this
   QSharedMemory mem_jt9;
 
-  // Read optional file to disable highDPI scaling
-  QFile f("DisableHighDpiScaling");
-  if (!f.exists()) QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+  if (HighDpiScaling::wsjtxEnabled (argc, argv))
+    {
+      QApplication::setAttribute (Qt::AA_EnableHighDpiScaling);
+    }
 
   auto const env = QProcessEnvironment::systemEnvironment ();
 
@@ -234,28 +330,38 @@ int main(int argc, char *argv[])
       Q_ASSERT (temp_dir.exists ()); // sanity check
 
       // disallow multiple instances with same instance key
-      QLockFile instance_lock {temp_dir.absoluteFilePath (a.applicationName () + ".lock")};
+      auto const instance_lock_path = temp_dir.absoluteFilePath (a.applicationName () + ".lock");
+      QLockFile instance_lock {instance_lock_path};
       instance_lock.setStaleLockTime (0);
       while (!instance_lock.tryLock ())
         {
           if (QLockFile::LockFailedError == instance_lock.error ())
             {
-              auto button = MessageBox::query_message (nullptr
-                                                       , "Another instance may be running"
-                                                       , "try to remove stale lock file?"
-                                                       , QString {}
-                                                       , MessageBox::Yes | MessageBox::Retry | MessageBox::No
-                                                       , MessageBox::Yes);
-              switch (button)
+              switch (query_lock_file_recovery (instance_lock, instance_lock_path))
                 {
-                case MessageBox::Yes:
-                  instance_lock.removeStaleLockFile ();
+                case LockFileAction::RemoveLockFile:
+                  {
+                    auto const removal = remove_stale_lock_file (instance_lock, instance_lock_path);
+                    if (!removal.removed)
+                    {
+                      auto details = lock_file_details (instance_lock, instance_lock_path);
+                      if (!removal.error.isEmpty ())
+                        {
+                          details += '\n';
+                          details += removal.error;
+                        }
+                      MessageBox::warning_message (nullptr
+                                                   , a.translate ("main", "Unable to remove stale lock file")
+                                                   , a.translate ("main", "Close any running WSJT-X instance or remove the lock file manually after confirming WSJT-X is not running.")
+                                                   , details);
+                    }
+                  }
                   break;
 
-                case MessageBox::Retry:
+                case LockFileAction::Retry:
                   break;
 
-                default:
+                case LockFileAction::Stop:
                   throw std::runtime_error {"Multiple instances must have unique rig names"};
                 }
             }

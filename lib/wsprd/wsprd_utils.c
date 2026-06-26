@@ -27,10 +27,95 @@
  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "wsprd_utils.h"
+#include <errno.h>
+#include <stdarg.h>
 
 #ifndef int32_t
 #define int32_t int
 #endif
+
+static int format_checked(char *dest, size_t dest_size, char const *format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    int nwritten = vsnprintf(dest, dest_size, format, args);
+    va_end(args);
+    return nwritten >= 0 && (size_t)nwritten < dest_size;
+}
+
+static int read_bounded_token(char const **cursor, char *dest,
+                              size_t dest_size, int required)
+{
+    char const *p = *cursor;
+    while( isspace((unsigned char)*p) ) p++;
+
+    if( *p == '\0' ) {
+        if( required ) return 0;
+        dest[0] = '\0';
+        *cursor = p;
+        return 1;
+    }
+
+    char const *start = p;
+    while( *p != '\0' && !isspace((unsigned char)*p) ) p++;
+
+    size_t len = (size_t)(p - start);
+    if( len >= dest_size ) return 0;
+
+    memcpy(dest, start, len);
+    dest[len] = '\0';
+    *cursor = p;
+    return 1;
+}
+
+static int store_hash_call(int ihash, char const *callsign, char *hashtab)
+{
+    if( ihash < 0 || ihash >= WSPRD_HASH_COUNT ) return 0;
+    if( strlen(callsign) >= WSPRD_CALLSIGN_SIZE ) return 0;
+    if( !format_checked(hashtab + ihash * WSPRD_CALLSIGN_SIZE,
+                        WSPRD_CALLSIGN_SIZE, "%s", callsign) ) return 0;
+    return 1;
+}
+
+static int store_hash_grid(int ihash, char const *grid, char *loctab)
+{
+    if( ihash < 0 || ihash >= WSPRD_HASH_COUNT ) return 0;
+    if( strlen(grid) >= WSPRD_GRID4_SIZE ) return 0;
+    if( !format_checked(loctab + ihash * WSPRD_GRID4_SIZE,
+                        WSPRD_GRID4_SIZE, "%s", grid) ) return 0;
+    return 1;
+}
+
+static int store_hash_entry(int ihash, char const *callsign, char const *grid,
+                            char *hashtab, char *loctab)
+{
+    if( !store_hash_call(ihash, callsign, hashtab) ) return 0;
+    if( !store_hash_grid(ihash, grid, loctab) ) return 0;
+    return 1;
+}
+
+int wsprd_load_hash_line(char const *line, char *hashtab, char *loctab)
+{
+    char const *p = line;
+    errno = 0;
+    char *end = NULL;
+    long ihash = strtol(p, &end, 10);
+    if( p == end || errno == ERANGE ||
+        ihash < 0 || ihash >= WSPRD_HASH_COUNT ) return 0;
+    if( !isspace((unsigned char)*end) ) return 0;
+
+    char callsign[WSPRD_CALLSIGN_SIZE];
+    char grid[WSPRD_GRID4_SIZE];
+    p = end;
+    if( !read_bounded_token(&p, callsign, sizeof callsign, 1) ) return 0;
+    if( !read_bounded_token(&p, grid, sizeof grid, 0) ) return 0;
+
+    if( !store_hash_call((int)ihash, callsign, hashtab) ) return 0;
+    /* Legacy loader semantics: missing grid preserves the existing locator. */
+    if( grid[0] != '\0' &&
+        !store_hash_grid((int)ihash, grid, loctab) ) return 0;
+    return 1;
+}
 
 void unpack50( signed char *dat, int32_t *n1, int32_t *n2 )
 {
@@ -153,7 +238,7 @@ int unpackpfx( int32_t nprefix, char *call)
     int i;
     int32_t n;
     
-    strcpy(tmpcall,call);
+    if( !format_checked(tmpcall, sizeof tmpcall, "%s", call) ) return 0;
     if( nprefix < 60000 ) {
         // add a prefix of 1 to 3 characters
         n=nprefix;
@@ -172,31 +257,27 @@ int unpackpfx( int32_t nprefix, char *call)
         }
 
         char * p = strrchr(pfx,' ');
-        strcpy(call, p ? p + 1 : pfx);
-        strncat(call,"/",1);
-        strncat(call,tmpcall,strlen(tmpcall));
+        if( !format_checked(call, WSPRD_CALLSIGN_SIZE, "%s/%s",
+                            p ? p + 1 : pfx, tmpcall) ) return 0;
         
     } else {
         // add a suffix of 1 or 2 characters
         nc=nprefix-60000;
         if( (nc >= 0) & (nc <= 9) ) {
             pfx[0]=nc+48;
-            strcpy(call,tmpcall);
-            strncat(call,"/",1);
-            strncat(call,pfx,1);
+            if( !format_checked(call, WSPRD_CALLSIGN_SIZE, "%s/%.1s",
+                                tmpcall, pfx) ) return 0;
         }
         else if( (nc >= 10) & (nc <= 35) ) {
             pfx[0]=nc+55;
-            strcpy(call,tmpcall);
-            strncat(call,"/",1);
-            strncat(call,pfx,1);
+            if( !format_checked(call, WSPRD_CALLSIGN_SIZE, "%s/%.1s",
+                                tmpcall, pfx) ) return 0;
         }
         else if( (nc >= 36) & (nc <= 125) ) {
             pfx[0]=(nc-26)/10+48;
             pfx[1]=(nc-26)%10+48;
-            strcpy(call,tmpcall);
-            strncat(call,"/",1);
-            strncat(call,pfx,2);
+            if( !format_checked(call, WSPRD_CALLSIGN_SIZE, "%s/%.2s",
+                                tmpcall, pfx) ) return 0;
         }
         else {
             return 0;
@@ -243,13 +324,13 @@ int floatcomp(const void* elem1, const void* elem2)
 int unpk_(signed char *message, char *hashtab, char *loctab, char *call_loc_pow, char *callsign)
 {
     int n1,n2,n3,ndbm,ihash,nadd,noprint=0;
-    char grid[5],grid6[7],cdbm[4];
+    char grid[WSPRD_GRID4_SIZE],grid6[WSPRD_GRID6_SIZE];
     
     unpack50(message,&n1,&n2);
     if( !unpackcall(n1,callsign) ) return 1;
     if( !unpackgrid(n2, grid) ) return 1;
     int ntype = (n2&127) - 64;
-    callsign[12]=0;
+    callsign[WSPRD_CALLSIGN_SIZE - 1]=0;
     grid[4]=0;
 
     /*
@@ -269,17 +350,10 @@ int unpk_(signed char *message, char *hashtab, char *loctab, char *call_loc_pow,
         int nu=ntype%10;
         if( nu == 0 || nu == 3 || nu == 7 ) {
             ndbm=ntype;
-            memset(call_loc_pow,0,sizeof(char)*23);
-            sprintf(cdbm,"%2d",ndbm);
-            strncat(call_loc_pow,callsign,strlen(callsign));
-            strncat(call_loc_pow," ",1);
-            strncat(call_loc_pow,grid,4);
-            strncat(call_loc_pow," ",1);
-            strncat(call_loc_pow,cdbm,2);
-            strncat(call_loc_pow,"\0",1);
+            if( !format_checked(call_loc_pow, WSPRD_MESSAGE_SIZE, "%s %.4s %2d",
+                                callsign, grid, ndbm) ) return 1;
             ihash=nhash(callsign,strlen(callsign),(uint32_t)146);
-            strcpy(hashtab+ihash*13,callsign);
-            strcpy(loctab+ihash*5,grid);
+            if( !store_hash_entry(ihash, callsign, grid, hashtab, loctab) ) return 1;
         } else {
             nadd=nu;
             if( nu > 3 ) nadd=nu-3;
@@ -287,25 +361,21 @@ int unpk_(signed char *message, char *hashtab, char *loctab, char *call_loc_pow,
             n3=n2/128+32768*(nadd-1);
             if( !unpackpfx(n3,callsign) ) return 1;
             ndbm=ntype-nadd;
-            memset(call_loc_pow,0,sizeof(char)*23);
-            sprintf(cdbm,"%2d",ndbm);
-            strncat(call_loc_pow,callsign,strlen(callsign));
-            strncat(call_loc_pow," ",1);
-            strncat(call_loc_pow,cdbm,2);
-            strncat(call_loc_pow,"\0",1);
+            if( !format_checked(call_loc_pow, WSPRD_MESSAGE_SIZE, "%s %2d",
+                                callsign, ndbm) ) return 1;
             int nu=ndbm%10;
             if( nu == 0 || nu == 3 || nu == 7 || nu == 10 ) { //make sure power is OK
                 ihash=nhash(callsign,strlen(callsign),(uint32_t)146);
-                strcpy(hashtab+ihash*13,callsign);
+                if( !store_hash_call(ihash, callsign, hashtab) ) return 1;
             } else noprint=1;
         }
     } else if ( ntype < 0 ) {
         ndbm=-(ntype+1);
-        memset(grid6,0,sizeof(char)*7);
+        memset(grid6,0,sizeof grid6);
 //        size_t len=strlen(callsign);
         size_t len=6;
-        strncat(grid6,callsign+len-1,1);
-        strncat(grid6,callsign,len-1);
+        if( !format_checked(grid6, sizeof grid6, "%.1s%.*s",
+                            callsign+len-1, (int)(len-1), callsign) ) return 1;
         int nu=ndbm%10;
         if ((nu != 0 && nu != 3 && nu != 7 && nu != 10) ||
             !isalpha(grid6[0]) || !isalpha(grid6[1]) ||
@@ -318,19 +388,15 @@ int unpk_(signed char *message, char *hashtab, char *loctab, char *call_loc_pow,
         
         ihash=(n2-ntype-64)/128;
         if( strncmp(hashtab+ihash*13,"\0",1) != 0 ) {
-            sprintf(callsign,"<%s>",hashtab+ihash*13);
+            if( !format_checked(callsign, WSPRD_CALLSIGN_SIZE, "<%s>",
+                                hashtab+ihash*13) ) return 1;
         } else {
-            sprintf(callsign,"%5s","<...>");
+            if( !format_checked(callsign, WSPRD_CALLSIGN_SIZE, "%5s",
+                                "<...>") ) return 1;
         }
         
-        memset(call_loc_pow,0,sizeof(char)*23);
-        sprintf(cdbm,"%2d",ndbm);
-        strncat(call_loc_pow,callsign,strlen(callsign));
-        strncat(call_loc_pow," ",1);
-        strncat(call_loc_pow,grid6,strlen(grid6));
-        strncat(call_loc_pow," ",1);
-        strncat(call_loc_pow,cdbm,2);
-        strncat(call_loc_pow,"\0",1);
+        if( !format_checked(call_loc_pow, WSPRD_MESSAGE_SIZE, "%s %s %2d",
+                            callsign, grid6, ndbm) ) return 1;
         
         
         // I don't know what to do with these... They show up as "A000AA" grids.

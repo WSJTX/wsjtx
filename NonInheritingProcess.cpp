@@ -43,6 +43,44 @@ class NonInheritingProcess::impl
 {
 public:
 #ifdef Q_OS_WIN
+  impl ()
+    : job_ {nullptr}
+  {
+    job_ = ::CreateJobObjectW (nullptr, nullptr);
+    if (job_)
+      {
+        JOBOBJECT_EXTENDED_LIMIT_INFORMATION limits {};
+        limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        if (!::SetInformationJobObject (job_, JobObjectExtendedLimitInformation,
+                                        &limits, sizeof limits))
+          {
+            ::CloseHandle (job_);
+            job_ = nullptr;
+          }
+      }
+  }
+
+  ~impl ()
+  {
+    if (job_)
+      {
+        ::CloseHandle (job_);
+      }
+  }
+
+  void assign_to_job (qint64 process_id)
+  {
+    if (!job_ || process_id <= 0) return;
+
+    HANDLE process = ::OpenProcess (PROCESS_SET_QUOTA | PROCESS_TERMINATE,
+                                    FALSE, static_cast<DWORD> (process_id));
+    if (process)
+      {
+        ::AssignProcessToJobObject (job_, process);
+        ::CloseHandle (process);
+      }
+  }
+
   void extend_CreateProcessArguments (QProcess::CreateProcessArguments * args)
   {
     // 
@@ -95,6 +133,7 @@ public:
 
   using start_info_type = std::unique_ptr<STARTUPINFOEXW, start_info_deleter>;
   start_info_type start_info_;
+  HANDLE job_;
 #endif
 };
 
@@ -105,7 +144,10 @@ NonInheritingProcess::NonInheritingProcess (QObject * parent)
   using namespace std::placeholders;
 
   // enable cleanup after process starts or fails to start
-  connect (this, &QProcess::started, [this] {m_->start_info_.reset ();});
+  connect (this, &QProcess::started, [this] {
+    m_->start_info_.reset ();
+    m_->assign_to_job (processId ());
+  });
   connect (this, &QProcess::errorOccurred, [this] (QProcess::ProcessError) {m_->start_info_.reset ();});
   setCreateProcessArgumentsModifier (std::bind (&NonInheritingProcess::impl::extend_CreateProcessArguments, &*m_, _1));
 #endif

@@ -510,7 +510,7 @@ public:
   void transceiver_nsym (int);
   void transceiver_trfrequency (double);
   void transceiver_volume (double);
-  void transceiver_txvolume (double);
+  void transceiver_txvolume (double, bool = false);
   void sync_transceiver (bool force_signal);
 
   Q_SLOT int exec () override;
@@ -615,7 +615,6 @@ private:
   Q_SLOT void handle_transceiver_failure (QString const& reason);
   Q_SLOT void on_DXCC_check_box_clicked(bool checked);
   Q_SLOT void on_PWR_and_SWR_check_box_clicked(bool checked);
-  Q_SLOT void on_cbHighDPI_clicked(bool checked);
   Q_SLOT void on_reset_highlighting_to_defaults_push_button_clicked (bool);
   Q_SLOT void on_reset_highlighting_to_defaults2_push_button_clicked (bool);
   Q_SLOT void on_rescan_log_push_button_clicked (bool);
@@ -990,7 +989,9 @@ private:
   QAudioDeviceInfo next_audio_output_device_;
   AudioDevice::Channel audio_output_channel_;
   AudioDevice::Channel next_audio_output_channel_;
-  FileDownload cty_download;
+  FileDownload cty_download_;
+  FileDownload call3_download_;
+  FileDownload hamlib_download_;
   
   bool default_audio_input_device_selected_;
   bool default_audio_output_device_selected_;
@@ -1340,13 +1341,13 @@ void Configuration::transceiver_trfrequency (double trfrequency)
   m_->transceiver_trfrequency (trfrequency);
 }
 
-void Configuration::transceiver_txvolume (qreal txvolume)
+void Configuration::transceiver_txvolume (qreal txvolume, bool force)
 {
 #if WSJT_TRACE_CAT
   qDebug () << "Configuration::transceiver_txvolume:" << txvolume << m_->cached_rig_state_;
 #endif
 
-  m_->transceiver_txvolume (txvolume);
+  m_->transceiver_txvolume (txvolume, force);
 }
 
 void Configuration::transceiver_volume (qreal volume)
@@ -3752,15 +3753,14 @@ void Configuration::impl::on_CTY_download_button_clicked (bool /*clicked*/)
 {
   ui_->CTY_download_button->setEnabled (false); // disable button until download is complete
   QDir dataPath {QStandardPaths::writableLocation (QStandardPaths::DataLocation)};
-  cty_download.configure(network_manager_,
-                         "http://www.country-files.com/bigcty/cty.dat",
-                         dataPath.absoluteFilePath("cty.dat"),
-                         "WSJT-X CTY Downloader");
+  cty_download_.configure(network_manager_,
+                          "http://www.country-files.com/bigcty/cty.dat",
+                          dataPath.absoluteFilePath("cty.dat"),
+                          "WSJT-X CTY Downloader");
 
-  // set up LoTW users CSV file fetching
-  connect (&cty_download, &FileDownload::complete, this, &Configuration::impl::after_CTY_downloaded, Qt::UniqueConnection);
-  connect (&cty_download, &FileDownload::error, this, &Configuration::impl::error_during_CTY_download, Qt::UniqueConnection);
-  cty_download.start_download();
+  connect (&cty_download_, &FileDownload::complete, this, &Configuration::impl::after_CTY_downloaded, Qt::UniqueConnection);
+  connect (&cty_download_, &FileDownload::error, this, &Configuration::impl::error_during_CTY_download, Qt::UniqueConnection);
+  cty_download_.start_download();
 }
 
 void Configuration::impl::set_CTY_DAT_version(QString const& version)
@@ -3791,15 +3791,14 @@ void Configuration::impl::on_CALL3_download_button_clicked (bool /*clicked*/)
   if (g.exists()) QFile::rename(dataPath.absolutePath() + "/" + "CALL3_backup.TXT", dataPath.absolutePath() + "/" + "CALL3_backup.tmp");
   QFile f {dataPath.absolutePath() + "/" + "CALL3.TXT"};
   if (f.exists()) QFile::rename(dataPath.absolutePath() + "/" + "CALL3.TXT", dataPath.absolutePath() + "/" + "CALL3_backup.TXT");
-  cty_download.configure(network_manager_,
-                         "https://wsjt-x-improved.sourceforge.io/CALL3.TXT",
-                         dataPath.absoluteFilePath("CALL3.TXT"),
-                         "Downloading latest CALL3.TXT file");
+  call3_download_.configure(network_manager_,
+                            "https://wsjt-x-improved.sourceforge.io/CALL3.TXT",
+                            dataPath.absoluteFilePath("CALL3.TXT"),
+                            "Downloading latest CALL3.TXT file");
 
-  // set up CALL3.TXT file fetching
-  connect (&cty_download, &FileDownload::complete, this, &Configuration::impl::after_CALL3_downloaded, Qt::UniqueConnection);
-  connect (&cty_download, &FileDownload::error, this, &Configuration::impl::error_during_CALL3_download, Qt::UniqueConnection);
-  cty_download.start_download();
+  connect (&call3_download_, &FileDownload::complete, this, &Configuration::impl::after_CALL3_downloaded, Qt::UniqueConnection);
+  connect (&call3_download_, &FileDownload::error, this, &Configuration::impl::error_during_CALL3_download, Qt::UniqueConnection);
+  call3_download_.start_download();
   ui_->CALL3_file_label->setText("Downloading ...");
 }
 
@@ -3811,15 +3810,14 @@ void Configuration::impl::on_CALL3_EME_download_button_clicked (bool /*clicked*/
   if (g.exists()) QFile::rename(dataPath.absolutePath() + "/" + "CALL3_backup.TXT", dataPath.absolutePath() + "/" + "CALL3_backup.tmp");
   QFile f {dataPath.absolutePath() + "/" + "CALL3.TXT"};
   if (f.exists()) QFile::rename(dataPath.absolutePath() + "/" + "CALL3.TXT", dataPath.absolutePath() + "/" + "CALL3_backup.TXT");
-  cty_download.configure(network_manager_,
-                         "https://wsjt-x-improved.sourceforge.io/CALL3_EME.TXT",
-                         dataPath.absoluteFilePath("CALL3.TXT"),
-                         "Downloading latest CALL3.TXT file");
+  call3_download_.configure(network_manager_,
+                            "https://wsjt-x-improved.sourceforge.io/CALL3_EME.TXT",
+                            dataPath.absoluteFilePath("CALL3.TXT"),
+                            "Downloading latest CALL3.TXT file");
 
-  // set up CALL3.TXT file fetching
-  connect (&cty_download, &FileDownload::complete, this, &Configuration::impl::after_CALL3_downloaded, Qt::UniqueConnection);
-  connect (&cty_download, &FileDownload::error, this, &Configuration::impl::error_during_CALL3_download, Qt::UniqueConnection);
-  cty_download.start_download();
+  connect (&call3_download_, &FileDownload::complete, this, &Configuration::impl::after_CALL3_downloaded, Qt::UniqueConnection);
+  connect (&call3_download_, &FileDownload::error, this, &Configuration::impl::error_during_CALL3_download, Qt::UniqueConnection);
+  call3_download_.start_download();
   ui_->CALL3_file_label->setText("Downloading ...");
 }
 
@@ -3907,21 +3905,21 @@ void Configuration::impl::on_hamlib_download_button_clicked (bool /*clicked*/)
   ui_->hamlib_download_button->setEnabled (false);
   ui_->revert_update_button->setEnabled (false);
   if (ui_->rbHamlib32->isChecked()) {
-    cty_download.configure(network_manager_,
-                           "https://hamlib.sourceforge.net/snapshots-4.7/dll32/libhamlib-4.dll",  // new hamlib download location
-                           dataPath.absoluteFilePath("libhamlib-4_new.dll"),
-                           "Downloading latest libhamlib-4.dll");
+    hamlib_download_.configure(network_manager_,
+                               "https://hamlib.sourceforge.net/snapshots-4.7/dll32/libhamlib-4.dll",
+                               dataPath.absoluteFilePath("libhamlib-4_new.dll"),
+                               "Downloading latest libhamlib-4.dll");
   } else {
-    cty_download.configure(network_manager_,
-                           "https://hamlib.sourceforge.net/snapshots-4.7/dll64/libhamlib-4.dll",  // new hamlib download location
-                           dataPath.absoluteFilePath("libhamlib-4_new.dll"),
-                           "Downloading latest libhamlib-4.dll");
+    hamlib_download_.configure(network_manager_,
+                               "https://hamlib.sourceforge.net/snapshots-4.7/dll64/libhamlib-4.dll",
+                               dataPath.absoluteFilePath("libhamlib-4_new.dll"),
+                               "Downloading latest libhamlib-4.dll");
   }
-  connect (&cty_download, &FileDownload::complete, this, &Configuration::impl::after_hamlib_downloaded, Qt::UniqueConnection);
-  connect (&cty_download, &FileDownload::error, this, &Configuration::impl::error_during_hamlib_download, Qt::UniqueConnection);
+  connect (&hamlib_download_, &FileDownload::complete, this, &Configuration::impl::after_hamlib_downloaded, Qt::UniqueConnection);
+  connect (&hamlib_download_, &FileDownload::error, this, &Configuration::impl::error_during_hamlib_download, Qt::UniqueConnection);
   ui_->in_use->setText("Downloading ...");
 
-  cty_download.start_download();
+  hamlib_download_.start_download();
 #else
   MessageBox::warning_message (this, tr ("Hamlib update only available on Windows."));
 #endif
@@ -4062,20 +4060,6 @@ void Configuration::impl::on_PWR_and_SWR_check_box_clicked(bool checked)
     } else {
         ui_->check_SWR_check_box->setEnabled (false);
     }
-}
-
-void Configuration::impl::on_cbHighDPI_clicked(bool checked)
-{
-  if (checked) {
-      QFile::remove ("DisableHighDpiScaling");
-  } else {
-      static QFile f("DisableHighDpiScaling");
-      f.open(QIODevice::WriteOnly | QIODevice::Text);
-      QString EventConfig = ("DisableHighDpiScaling=\"true\"");
-      QTextStream out(&f);
-      out << EventConfig;
-      f.close();
-  }
 }
 
 void Configuration::impl::on_CAT_data_bits_button_group_buttonClicked (int /* id */)
@@ -5086,9 +5070,12 @@ bool Configuration::impl::open_rig (bool force)
           if (is_tci_ && rig_active_ && tci_audio_) restart_tci_device_ = true;
           close_rig ();
 
+          auto const txvolume = cached_rig_state_.txvolume ();
+
           // create a new Transceiver object
           auto rig = transceiver_factory_.create (rig_data, transceiver_thread_);
           cached_rig_state_ = Transceiver::TransceiverState {};
+          cached_rig_state_.txvolume (txvolume);
 
           // hook up Configuration transceiver control signals to Transceiver slots
           //
@@ -5322,11 +5309,11 @@ void Configuration::impl::transceiver_trfrequency (double trfrequency)
   }
 }
 
-void Configuration::impl::transceiver_txvolume (double txvolume)
+void Configuration::impl::transceiver_txvolume (double txvolume, bool force)
 {
   cached_rig_state_.online (true); // we want the rig online
   set_cached_mode ();
-  if (cached_rig_state_.txvolume() != txvolume)
+  if (force || cached_rig_state_.txvolume() != txvolume)
   {
 //    printf("%s(%0.1f) Configuration #:%d txvolume: %0.1f cached: %0.1f\n",QDateTime::currentDateTimeUtc().toString("hh:mm:ss.zzz").toStdString().c_str(),transceiver_command_number_+1,txvolume,cached_rig_state_.txvolume());
     cached_rig_state_.txvolume (txvolume);
