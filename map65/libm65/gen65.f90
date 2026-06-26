@@ -179,6 +179,7 @@ subroutine gen65_c(msg, mode65, samfac, nsendingsh, msgsent_c, iwave_c, nwave) &
   ! Fortran locals
   character(len=22) :: fmsg, fmsgsent
   integer(2), dimension(2*60*11025) :: fiwave
+  save fiwave
   integer :: i
 
   ! Copy C msg ? Fortran CHARACTER(22)
