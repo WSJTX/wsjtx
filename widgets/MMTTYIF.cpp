@@ -3,7 +3,6 @@
 #include <QDateTime>
 #include <QFile>
 #include <QTextStream>
-#include <QRegularExpression>
 
 MMTTYIF::MMTTYIF(QObject *parent) : QObject(parent),
                                     m_socket(new QTcpSocket(this)),
@@ -67,41 +66,85 @@ void MMTTYIF::onRetryTimeout() {
 
 void MMTTYIF::onReadyRead() {
     QByteArray data = m_socket->readAll();
-    QString buffer = QString::fromLatin1(data);
+    m_rxBuffer.append(data);
     
-    QString logStr = QString("[TCP RCVD] %1").arg(buffer);
+    QString logStr = QString("[TCP RCVD] %1").arg(QString::fromLatin1(data));
     emit log_message(logStr);
     emit message_received();
 
-    // The messages could be bundled, so we use a simple regex to extract commands.
-    // e.g. <TXTEXT:14>This is a test<XMIT:2>ON
-    QRegularExpression re("<([^:]+)(?::(\\div>|\\d+))?>([^<]*)");
-    QRegularExpressionMatchIterator i = re.globalMatch(buffer);
-    
-    while (i.hasNext()) {
-        QRegularExpressionMatch match = i.next();
-        QString cmd = match.captured(1);
-        int length = match.captured(2).toInt();
-        QString content = match.captured(3);
+    parseBufferedCommands();
+}
 
-        if (cmd == "TXTEXT") {
-            // content might be longer than `length` due to regex greediness, so trim to length.
-            QString text = content.left(length).toUpper();
-            emit app_tx_string(text);
-        } else if (cmd == "XMIT") {
-            if (content.startsWith("ON")) {
-                emit app_start_tx();
-            } else if (content.startsWith("OFF")) {
-                emit app_stop_tx();
-            }
-        } else if (cmd == "ABORT") {
-            emit app_abort_tx();
-        } else if (cmd == "CLOSE") {
-            emit app_is_quitting();
+void MMTTYIF::parseBufferedCommands() {
+    while (!m_rxBuffer.isEmpty()) {
+        int const open = m_rxBuffer.indexOf('<');
+        if (open < 0) {
+            emit log_message(QString("[TCP WARN] Dropping unframed data: %1")
+                             .arg(QString::fromLatin1(m_rxBuffer)));
+            m_rxBuffer.clear();
+            return;
         }
+
+        if (open > 0) {
+            emit log_message(QString("[TCP WARN] Dropping data before command: %1")
+                             .arg(QString::fromLatin1(m_rxBuffer.left(open))));
+            m_rxBuffer.remove(0, open);
+        }
+
+        int const close = m_rxBuffer.indexOf('>');
+        if (close < 0) return;
+
+        QByteArray const header = m_rxBuffer.mid(1, close - 1);
+        int const colon = header.indexOf(':');
+        QByteArray const command = (colon >= 0 ? header.left(colon) : header).toUpper();
+        int payloadLength = -1;
+        if (colon >= 0) {
+            bool ok = false;
+            payloadLength = header.mid(colon + 1).toInt(&ok);
+            if (!ok || payloadLength < 0) {
+                emit log_message(QString("[TCP WARN] Invalid command length in <%1>")
+                                 .arg(QString::fromLatin1(header)));
+                m_rxBuffer.remove(0, close + 1);
+                continue;
+            }
+        }
+
+        int payloadStart = close + 1;
+        int payloadEnd = payloadStart;
+        if (payloadLength >= 0) {
+            payloadEnd = payloadStart + payloadLength;
+            if (m_rxBuffer.size() < payloadEnd) return;
+        } else {
+            int const next = m_rxBuffer.indexOf('<', payloadStart);
+            payloadEnd = next >= 0 ? next : m_rxBuffer.size();
+        }
+
+        QByteArray const payload = m_rxBuffer.mid(payloadStart, payloadEnd - payloadStart);
+        m_rxBuffer.remove(0, payloadEnd);
+        dispatchCommand(command, payload);
     }
 }
 
+void MMTTYIF::dispatchCommand(QByteArray const& command, QByteArray const& payload) {
+    QString const content = QString::fromLatin1(payload);
+
+    if (command == "TXTEXT") {
+        emit app_tx_string(content.toUpper());
+    } else if (command == "XMIT") {
+        if (content.startsWith("ON", Qt::CaseInsensitive)) {
+            emit app_start_tx();
+        } else if (content.startsWith("OFF", Qt::CaseInsensitive)) {
+            emit app_stop_tx();
+        }
+    } else if (command == "ABORT") {
+        emit app_abort_tx();
+    } else if (command == "CLOSE") {
+        emit app_is_quitting();
+    } else {
+        emit log_message(QString("[TCP WARN] Ignoring unknown command <%1>")
+                         .arg(QString::fromLatin1(command)));
+    }
+}
 
 
 void MMTTYIF::shutdown() {
@@ -132,19 +175,20 @@ void MMTTYIF::echo_message_to_n1mm(const QString &message) {
         emit log_message(logStr);
     }
 }
-#define SKIP_OUTPUT_COMPLETE
-void MMTTYIF::report_ptt_state(bool is_on) {
-    if (isConnected() && !is_on) {
-       #ifdef SKIP_OUTPUT_COMPLETE 
-        QString logStr = QString("[TCP SENT] Skipping OUTPUTCOMPLETE");
-        emit log_message(logStr);
-       #else
+
+void MMTTYIF::report_output_complete() {
+    if (isConnected()) {
         QString msgToSend = "<OUTPUTCOMPLETE>";
         m_socket->write(msgToSend.toLatin1());
         m_socket->flush();
         
         QString logStr = QString("[TCP SENT] %1").arg(msgToSend);
         emit log_message(logStr);
-       #endif
+    }
+}
+
+void MMTTYIF::report_ptt_state(bool is_on) {
+    if (isConnected() && !is_on) {
+        emit log_message("[TCP INFO] PTT off; OUTPUTCOMPLETE is sent from JTTY drain");
     }
 }

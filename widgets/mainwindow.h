@@ -24,6 +24,7 @@
 #include <QHostAddress>
 #include <QPointer>
 #include <QSet>
+#include <QHash>
 #include <QVector>
 #include <QScrollBar>
 #include <QQueue>
@@ -598,6 +599,18 @@ private:
   void configActiveStations();
   void sfox_tx();
   void jtty_tx(QString message);
+#ifdef WIN32
+  void handleMmttyTxString(QString message);
+  void handleMmttyStartTx();
+  void handleMmttyStopTx();
+  void handleMmttyAbortTx();
+  void handleMmttyJttyAccepted(qint64 requestId);
+  void handleMmttyJttyRejected(qint64 requestId, JttyTxRejectReason reason);
+  void handleMmttyJttyCompleted(qint64 requestId);
+  void handleMmttyJttySessionDrained(qint64 sessionId);
+  void startPendingMmttyJttyTx();
+  QString jttyRejectReasonText(JttyTxRejectReason reason) const;
+#endif
   void execute_jtty_tx(qint64 requestId, QString message);
   void completeJttyTxEnqueue(qint64 requestId, QString const& message, qint64 sampleCount, bool newSession, bool useTciAudio);
   void recordAcceptedJttyTextRequest(qint64 requestId, qint64 endSample);
@@ -1118,6 +1131,12 @@ private:
   QVector<AcceptedJttyTxRequest> m_acceptedJttyTxRequests;
   qint64 m_jttyTxRequestId;
   qint64 m_jttyTciEnqueueId;
+#ifdef WIN32
+  bool m_mmttyJttyStartRequested;
+  bool m_mmttyJttyFinishRequested;
+  bool m_mmttyJttyOutputPending;
+  QHash<qint64, QString> m_mmttyJttyRequests;
+#endif
   bool m_block_pwr_tooltip;
   bool m_PwrBandSetOK;
   bool m_bDisplayedOnce;

@@ -5,6 +5,7 @@
 #include <QString>
 #include <QTcpSocket>
 #include <QTimer>
+#include <QByteArray>
 
 class MMTTYIF : public QObject {
   Q_OBJECT
@@ -30,6 +31,7 @@ signals:
 
 public slots:
   void echo_message_to_n1mm(const QString &message);
+  void report_output_complete();
   void report_ptt_state(bool is_on);
   void shutdown();
 
@@ -45,8 +47,12 @@ private slots:
   void onReadyRead();
 
 private:
+  void parseBufferedCommands();
+  void dispatchCommand(QByteArray const& command, QByteArray const& payload);
+
   QTcpSocket *m_socket;
   QTimer *m_retryTimer;
+  QByteArray m_rxBuffer;
   int m_connectionRetries;
   quint16 m_port;
 

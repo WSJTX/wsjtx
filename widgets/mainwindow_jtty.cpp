@@ -553,6 +553,128 @@ void MainWindow::logText(const QString &text) {
   LOG_INFO(text);
 }
 
+QString MainWindow::jttyRejectReasonText(JttyTxRejectReason reason) const
+{
+  switch (reason) {
+  case JttyTxRejectReason::Empty: return QStringLiteral("empty");
+  case JttyTxRejectReason::EncodingFailed: return QStringLiteral("encoding failed");
+  case JttyTxRejectReason::QueueFull: return QStringLiteral("queue full");
+  case JttyTxRejectReason::BackendRejected: return QStringLiteral("backend rejected");
+  case JttyTxRejectReason::Aborted: return QStringLiteral("aborted");
+  case JttyTxRejectReason::NotAvailable: return QStringLiteral("not available");
+  }
+  return QStringLiteral("unknown");
+}
+
+void MainWindow::handleMmttyTxString(QString message)
+{
+  if (m_mode != "JTTY") {
+    jtty_tx(message);
+    return;
+  }
+
+  if (m_mmttyJttyFinishRequested) {
+    logText(QStringLiteral("MMTTY/N1MM JTTY text ignored after graceful OFF"));
+    return;
+  }
+
+  qint64 const requestId = ++m_jttyTxRequestId;
+  m_mmttyJttyRequests.insert(requestId, message);
+  execute_jtty_tx(requestId, message);
+}
+
+void MainWindow::handleMmttyStartTx()
+{
+  if (m_mode != "JTTY") {
+    startTx2();
+    return;
+  }
+
+  m_mmttyJttyFinishRequested = false;
+  m_mmttyJttyStartRequested = true;
+  startPendingMmttyJttyTx();
+}
+
+void MainWindow::handleMmttyStopTx()
+{
+  if (m_mode != "JTTY") {
+    stopTx();
+    return;
+  }
+
+  m_mmttyJttyFinishRequested = true;
+  m_mmttyJttyStartRequested = false;
+  logText(QStringLiteral("MMTTY/N1MM JTTY OFF requested; waiting for backend drain"));
+}
+
+void MainWindow::handleMmttyAbortTx()
+{
+  m_mmttyJttyStartRequested = false;
+  m_mmttyJttyFinishRequested = false;
+  m_mmttyJttyOutputPending = false;
+  m_mmttyJttyRequests.clear();
+  abort_jtty_tx();
+}
+
+void MainWindow::handleMmttyJttyAccepted(qint64 requestId)
+{
+  if (!m_mmttyJttyRequests.contains(requestId)) return;
+
+  logText(QStringLiteral("MMTTY/N1MM JTTY request %1 accepted").arg(requestId));
+  m_mmttyJttyOutputPending = true;
+  startPendingMmttyJttyTx();
+}
+
+void MainWindow::handleMmttyJttyRejected(qint64 requestId, JttyTxRejectReason reason)
+{
+  if (!m_mmttyJttyRequests.remove(requestId)) return;
+
+  logText(QStringLiteral("MMTTY/N1MM JTTY request %1 rejected: %2")
+          .arg(requestId)
+          .arg(jttyRejectReasonText(reason)));
+  if (m_mmttyJttyRequests.isEmpty()) {
+    m_mmttyJttyStartRequested = false;
+  }
+}
+
+void MainWindow::handleMmttyJttyCompleted(qint64 requestId)
+{
+  if (!m_mmttyJttyRequests.remove(requestId)) return;
+
+  logText(QStringLiteral("MMTTY/N1MM JTTY request %1 completed").arg(requestId));
+}
+
+void MainWindow::handleMmttyJttySessionDrained(qint64 sessionId)
+{
+  Q_UNUSED(sessionId)
+  m_mmttyJttyStartRequested = false;
+  m_mmttyJttyFinishRequested = false;
+  bool const reportOutputComplete = m_mmttyJttyOutputPending;
+  m_mmttyJttyOutputPending = false;
+  if (m_mmttyif && reportOutputComplete) {
+    m_mmttyif->report_output_complete();
+  }
+}
+
+void MainWindow::startPendingMmttyJttyTx()
+{
+  if (m_mode != "JTTY" || !m_mmttyJttyStartRequested) return;
+
+  if (!m_jttyTxActive || m_jttyQueuedSamples <= 0) {
+    logText(QStringLiteral("MMTTY/N1MM JTTY start deferred until text is accepted"));
+    return;
+  }
+
+  if (g_iptt == 1) {
+    logText(QStringLiteral("MMTTY/N1MM JTTY start ignored; transmitter is already keyed"));
+    m_mmttyJttyStartRequested = false;
+    return;
+  }
+
+  m_mmttyJttyStartRequested = false;
+  startTx2();
+}
+
 void MainWindow::initMMTTY(quint16 port) {
     if (!m_mmttyif) {
         m_mmttyif = new MMTTYIF(this);
@@ -561,12 +683,14 @@ void MainWindow::initMMTTY(quint16 port) {
     m_mmttyif->initialize(port);
 
     connect(m_mmttyif, &MMTTYIF::log_message, this, &MainWindow::logText);
-    connect(m_mmttyif, &MMTTYIF::app_tx_string, this, &MainWindow::jtty_tx);
-    connect(m_mmttyif, &MMTTYIF::app_start_tx, this, &MainWindow::startTx2);
-    // connect(m_mmttyif, &MMTTYIF::app_stop_tx, this, &MainWindow::stopTx);
-    connect(m_mmttyif, &MMTTYIF::app_abort_tx, this, &MainWindow::abort_jtty_tx);
-    // Graceful MMTTY/N1MM OFF should stop submitting text, not call stopTx();
-    // accepted JTTY audio drains through onJttyBackendDrained().
+    connect(m_mmttyif, &MMTTYIF::app_tx_string, this, &MainWindow::handleMmttyTxString);
+    connect(m_mmttyif, &MMTTYIF::app_start_tx, this, &MainWindow::handleMmttyStartTx);
+    connect(m_mmttyif, &MMTTYIF::app_stop_tx, this, &MainWindow::handleMmttyStopTx);
+    connect(m_mmttyif, &MMTTYIF::app_abort_tx, this, &MainWindow::handleMmttyAbortTx);
+    connect(this, &MainWindow::jttyTextAccepted, this, &MainWindow::handleMmttyJttyAccepted);
+    connect(this, &MainWindow::jttyTextRejected, this, &MainWindow::handleMmttyJttyRejected);
+    connect(this, &MainWindow::jttyTextCompleted, this, &MainWindow::handleMmttyJttyCompleted);
+    connect(this, &MainWindow::jttySessionDrained, this, &MainWindow::handleMmttyJttySessionDrained);
 
     connect(m_mmttyif, &MMTTYIF::inactivity_timeout, qApp, &QCoreApplication::quit);
     connect(m_mmttyif, &MMTTYIF::app_is_quitting, this, [this]() {
