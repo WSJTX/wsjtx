@@ -2586,7 +2586,7 @@ end subroutine pack28var
 subroutine unpack28var(n28_0,c13,success,nthr)
 
   parameter (NTOKENS=2063592,MAX22=4194304)
-  logical success
+  logical success,callok
   character*13 c13
   character*37 c1
   character*36 c2
@@ -2652,6 +2652,11 @@ subroutine unpack28var(n28_0,c13,success,nthr)
   c13=c1(i1+1:i1+1)//c2(i2+1:i2+1)//c3(i3+1:i3+1)//c4(i4+1:i4+1)//     &
        c4(i5+1:i5+1)//c4(i6+1:i6+1)
   c13=adjustl(c13)
+
+  if(.not.callok(trim(c13))) then
+     c13='QU1RK'
+     success=.false.
+  endif
 
 900 i0=index(c13,' ')
 

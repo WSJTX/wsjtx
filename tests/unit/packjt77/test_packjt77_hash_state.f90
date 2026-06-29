@@ -15,6 +15,7 @@ program test_packjt77_hash_state
   call expect_var_thread_rx_accumulation()
   call expect_var_tx_rx_separation()
   call expect_mycall_dxcall_substitutions()
+  call expect_invalid_standard_call_decode_parity()
 
   call expect_hash_resolution_case( &
        'K1ABC RR73; W9XYZ <KH1/KH7Z> -12', 0, 1, &
@@ -324,6 +325,22 @@ contains
 
     ntests=ntests+1
   end subroutine expect_mycall_dxcall_substitutions
+
+  subroutine expect_invalid_standard_call_decode_parity()
+    character(len=13) :: decoded_standard, decoded_var
+    integer, parameter :: n28_q1abc = 11395945
+    logical :: ok_standard, ok_var
+
+    call unpack28(n28_q1abc,decoded_standard,ok_standard)
+    call unpack28var(n28_q1abc,decoded_var,ok_var,1)
+
+    call assert_call('standard invalid raw call',decoded_standard,'QU1RK')
+    call assert_call('var invalid raw call',decoded_var,'QU1RK')
+    call assert_true('standard invalid raw call fails',.not.ok_standard)
+    call assert_true('var invalid raw call fails',.not.ok_var)
+
+    ntests=ntests+1
+  end subroutine expect_invalid_standard_call_decode_parity
 
   subroutine expect_hash_resolution_case(input,want_i3,want_n3,blank_expected, &
        primed_expected,width1,call1,width2,call2,width3,call3)
