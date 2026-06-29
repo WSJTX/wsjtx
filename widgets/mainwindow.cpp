@@ -5845,6 +5845,7 @@ void MainWindow::guiUpdate()
 
     ba2msg(ba,message);
     int ichk=0;
+    int msgsent_length=37;
     std::fill_n(msgsent, sizeof msgsent, ' ');
     msgsent[37]=0;
     if (m_lastMessageSent != m_currentMessage
@@ -5873,6 +5874,7 @@ void MainWindow::guiUpdate()
                                   &m_currentMessageType);
       if(m_mode=="WSPR") genwspr_(message, msgsent, const_cast<int *> (itone),
                                     (FCL)22, (FCL)22);
+      if(m_mode=="JT4" or m_mode=="JT9" or m_mode=="JT65" or m_mode=="WSPR") msgsent_length=22;
       if(m_mode=="MSK144" or m_mode=="FT8" or m_mode=="FT4"
          or m_mode=="FST4" or m_mode=="FST4W" || "Q65" == m_mode) {
         if(m_mode=="MSK144") {
@@ -6011,7 +6013,7 @@ void MainWindow::guiUpdate()
           }
         }
       }
-      msgsent[37]=0;
+      msgsent[msgsent_length]=0;
     }
 
     {
