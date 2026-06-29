@@ -122,6 +122,8 @@ program test_packjt77var_invariants
        'K1ABC/P 37', 0, 6, 0)
   call expect_round_trip_with_hint_var('<PJ4/K1ABC> FK52AB', &
        '<PJ4/K1ABC> FK52AB', 0, 6, 0, 6, 0, 'PJ4/K1ABC', '', '')
+  call expect_raw_wspr_unpack_failure_var('invalid WSPR selector', '110', '00000')
+  call expect_raw_wspr_unpack_failure_var('invalid WSPR power', '100', '11111')
 
   ! Angle-bracket nonstandard call selected by the Type 1 path.
   call expect_round_trip_with_hashes_var('<PJ4/K1ABC> W9XYZ RR73', &
@@ -368,6 +370,31 @@ contains
 
     ntests=ntests+1
   end subroutine expect_type_unpack_failure_var
+
+  subroutine expect_raw_wspr_unpack_failure_var(label,selector,idbm_bits)
+    character(len=*), intent(in) :: label, selector, idbm_bits
+    character(len=77) :: c77
+    character(len=37) :: decoded
+    logical :: ok
+
+    c77=repeat('0',77)
+    c77(44:48)=idbm_bits
+    c77(48:50)=selector
+    c77(72:77)='110000'
+
+    call reset_packjt77var_state('N0AAA', 'N0BBB')
+    decoded='                                     '
+    ok=.true.
+    call unpack77var(c77,0,decoded,ok,1)
+    if(ok) then
+       write(*,1110) trim(label), trim(decoded)
+1110   format('Var WSPR raw-bit unpack unexpectedly succeeded for ',a, &
+              '; decoded "',a,'"')
+       error stop 1
+    endif
+
+    ntests=ntests+1
+  end subroutine expect_raw_wspr_unpack_failure_var
 
   subroutine expect_type_unpack_failure_with_hashes_var(input,want_i3,want_n3,nrx, &
        hash_call_1,hash_call_2,hash_call_3)
