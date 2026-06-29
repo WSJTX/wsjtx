@@ -92,7 +92,7 @@ jobs:
 
       - name: Restore Qt cache
         id: qt-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: qt-prefix
           key: ${{ steps.qt-key.outputs.key }}
@@ -172,7 +172,7 @@ jobs:
 
       - name: Cache libusb
         id: libusb-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: libusb-prefix
           key: libusb-macos-${{ inputs.arch }}-${{ inputs.runner }}-1.0.27-min${{ inputs.deployment_target }}-${{ hashFiles('.github/scripts/build-libusb-macos.sh') }}
@@ -188,14 +188,14 @@ jobs:
       - name: Save libusb cache
         if: steps.libusb-cache.outputs.cache-hit != 'true'
         continue-on-error: true
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: libusb-prefix
           key: libusb-macos-${{ inputs.arch }}-${{ inputs.runner }}-1.0.27-min${{ inputs.deployment_target }}-${{ hashFiles('.github/scripts/build-libusb-macos.sh') }}
 
       - name: Cache Hamlib
         id: hamlib-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: hamlib-prefix
           key: hamlib-macos-${{ inputs.arch }}-${{ inputs.runner }}-${{ inputs.hamlib_branch }}-min${{ inputs.deployment_target }}-${{ hashFiles('.github/scripts/build-hamlib-macos.sh') }}
@@ -213,14 +213,14 @@ jobs:
       - name: Save Hamlib cache
         if: steps.hamlib-cache.outputs.cache-hit != 'true'
         continue-on-error: true
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: hamlib-prefix
           key: hamlib-macos-${{ inputs.arch }}-${{ inputs.runner }}-${{ inputs.hamlib_branch }}-min${{ inputs.deployment_target }}-${{ hashFiles('.github/scripts/build-hamlib-macos.sh') }}
 
       - name: Cache PortAudio
         id: portaudio-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: portaudio-prefix
           key: portaudio-macos-${{ inputs.arch }}-${{ inputs.runner }}-19.7.0-min${{ inputs.deployment_target }}-${{ hashFiles('.github/scripts/build-portaudio-macos.sh') }}
@@ -236,14 +236,14 @@ jobs:
       - name: Save PortAudio cache
         if: steps.portaudio-cache.outputs.cache-hit != 'true'
         continue-on-error: true
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: portaudio-prefix
           key: portaudio-macos-${{ inputs.arch }}-${{ inputs.runner }}-19.7.0-min${{ inputs.deployment_target }}-${{ hashFiles('.github/scripts/build-portaudio-macos.sh') }}
 
       - name: Cache FFTW
         id: fftw-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: fftw-prefix
           key: fftw-macos-${{ inputs.arch }}-${{ inputs.runner }}-3.3.10-min${{ inputs.deployment_target }}-${{ hashFiles('.github/scripts/build-fftw-macos.sh') }}
@@ -259,14 +259,14 @@ jobs:
       - name: Save FFTW cache
         if: steps.fftw-cache.outputs.cache-hit != 'true'
         continue-on-error: true
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: fftw-prefix
           key: fftw-macos-${{ inputs.arch }}-${{ inputs.runner }}-3.3.10-min${{ inputs.deployment_target }}-${{ hashFiles('.github/scripts/build-fftw-macos.sh') }}
 
       - name: Cache Boost
         id: boost-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: boost-prefix
           key: boost-macos-${{ inputs.arch }}-${{ inputs.runner }}-1.85.0-min${{ inputs.deployment_target }}-${{ hashFiles('.github/scripts/build-boost-macos.sh') }}
@@ -283,7 +283,7 @@ jobs:
       - name: Save Boost cache
         if: steps.boost-cache.outputs.cache-hit != 'true'
         continue-on-error: true
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: boost-prefix
           key: boost-macos-${{ inputs.arch }}-${{ inputs.runner }}-1.85.0-min${{ inputs.deployment_target }}-${{ hashFiles('.github/scripts/build-boost-macos.sh') }}

@@ -44,7 +44,7 @@ jobs:
 
       - name: Restore Qt cache
         id: qt-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: qt-prefix
           key: ${{ needs.qt-cache-key.outputs.key }}
@@ -67,7 +67,7 @@ jobs:
 
       - name: Save Qt cache
         if: steps.qt-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: qt-prefix
           key: ${{ needs.qt-cache-key.outputs.key }}
