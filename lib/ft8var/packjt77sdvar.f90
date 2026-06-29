@@ -1,6 +1,8 @@
 
 module packjt77sdvar
 
+  use packjt77, only : packtext77, unpacktext77
+
 ! These variables are accessible from outside via "use packjt77sdvar":
 !  integer n28avar,n28bvar
 
@@ -30,7 +32,7 @@ subroutine pack77sdvar(msg0,i3,n3,c77)
   i3=0
   n3=0
   msg(14:)='                        '
-  call packtext77var(msg(1:13),c77(1:71))
+  call packtext77(msg(1:13),c77(1:71))
   write(c77(72:77),'(2b3.3)') n3,i3
 
 900 return
@@ -60,7 +62,7 @@ subroutine unpack77sdvar(c77,msg,unpk77_successvar)
   msg=repeat(' ',37)
   if(i3.eq.0 .and. n3.eq.0) then
 ! 0.0  Free text
-     call unpacktext77var(c77(1:71),msg(1:13))
+     call unpacktext77(c77(1:71),msg(1:13))
      msg(14:)='                        '
      msg=adjustl(msg)
 
@@ -462,97 +464,5 @@ subroutine pack77_1var(nwords,w,i3,n3,c77)
 
 900 return
 end subroutine pack77_1var
-
-subroutine packtext77var(c13,c71)
-
-  character*13 c13,w
-  character*71 c71
-  character*42 c
-  character*1 qa(10),qb(10)
-  data c/' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ+-./?'/
-
-  call mp_short_init
-  qa=char(0)
-  w=adjustr(c13)
-  do i=1,13
-     j=index(c,w(i:i))-1
-     if(j.lt.0) j=0
-     call mp_short_mult(qb,qa(2:10),9,42)     !qb(1:9)=42*qa(2:9)
-     call mp_short_add(qa,qb(2:10),9,j)      !qa(1:9)=qb(2:9)+j
-  enddo
-
-  write(c71,1010) qa(2:10)
-1010 format(b7.7,8b8.8)
-
-  return
-end subroutine packtext77var
-
-subroutine unpacktext77var(c71,c13)
-
-  integer*1   ia(10)
-  character*1 qa(10),qb(10)
-  character*13 c13
-  character*71 c71
-  character*42 c
-  equivalence (qa,ia),(qb,ib)
-  data c/' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ+-./?'/
-
-  qa(1)=char(0)
-  read(c71,1010) qa(2:10)
-1010 format(b7.7,8b8.8)
-
-  do i=13,1,-1
-     call mp_short_div(qb,qa(2:10),9,42,ir)
-     c13(i:i)=c(ir+1:ir+1)
-     qa(2:10)=qb(1:9)
-  enddo
-
-  return
-end subroutine unpacktext77var
-
-subroutine mp_short_opsvar(w,u)
-  character*1 w(*),u(*)
-  integer i,ireg,j,n,ir,iv,ii1,ii2
-  character*1 creg(4)
-  save ii1,ii2
-  equivalence (ireg,creg)
-
-  entry mp_short_init
-  ireg=256*ichar('2')+ichar('1')
-  do j=1,4
-     if (creg(j).eq.'1') ii1=j
-     if (creg(j).eq.'2') ii2=j
-  enddo
-  return
-
-  entry mp_short_add(w,u,n,iv)
-  ireg=256*iv
-  do j=n,1,-1
-     ireg=ichar(u(j))+ichar(creg(ii2))
-     w(j+1)=creg(ii1)
-  enddo
-  w(1)=creg(ii2)
-  return
-
-  entry mp_short_mult(w,u,n,iv)
-  ireg=0
-  do j=n,1,-1
-     ireg=ichar(u(j))*iv+ichar(creg(ii2))
-     w(j+1)=creg(ii1)
-  enddo
-  w(1)=creg(ii2)
-  return
-
-  entry mp_short_div(w,u,n,iv,ir)
-  ir=0
-  do j=1,n
-     i=256*ir+ichar(u(j))
-     w(j)=char(i/iv)
-     ir=mod(i,iv)
-  enddo
-  return
-  
-  return
-end subroutine mp_short_opsvar
 
 end module packjt77sdvar
