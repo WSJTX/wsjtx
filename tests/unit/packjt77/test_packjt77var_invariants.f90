@@ -506,11 +506,11 @@ contains
     character(len=*), intent(in) :: c13
     integer :: n10, n12, n22, i
 
-    n10=ihashcallvar(c13,10)
+    n10=ihashcall(c13,10)
     if(n10.ge.0 .and. n10.le.1023) calls10var(n10)=c13
-    n12=ihashcallvar(c13,12)
+    n12=ihashcall(c13,12)
     if(n12.ge.0 .and. n12.le.4095) calls12var(n12)=c13
-    n22=ihashcallvar(c13,22)
+    n22=ihashcall(c13,22)
     do i=1,nzhashvar
        if(ihash22var(i).eq.n22) then
           calls22var(i)=c13

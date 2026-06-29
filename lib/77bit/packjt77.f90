@@ -1807,26 +1807,6 @@ subroutine hash22var(n22,c13,nthr)
 900 return
 end subroutine hash22var
 
-integer function ihashcallvar(c0,m)
-  implicit none
-
-  character(len=13), intent(in)       :: c0
-  integer, intent(in)                 :: m
-  integer(kind=8)                     :: n8
-  integer                             :: i,j
-  character*38                        :: c
-  data c/' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ/'/
-
-  n8=0_8
-  do i=1,11
-     j=index(c,c0(i:i)) - 1
-     n8=38_8*n8 + j
-  enddo
-  ihashcallvar=ihashcall_from_n8(n8,m)
-
-  return
-end function ihashcallvar
-
 subroutine save_hash_mycallvar(c13,n10,n12,n22)
 
   character*13 c13,cw
@@ -1838,13 +1818,13 @@ subroutine save_hash_mycallvar(c13,n10,n12,n22)
   if(i.gt.0) cw(i:)='         '
   if(len(trim(cw)) .lt. 3) return
 
-  n12=ihashcallvar(cw,12)
+  n12=ihashcall(cw,12)
   if(n12.ge.0 .and. n12 .le. 4095 .and. cw.ne.mycall13var) calls12var(n12)=cw
 
-  n10=ihashcallvar(cw,10)
+  n10=ihashcall(cw,10)
   if(n10.ge.0 .and. n10 .le. 1023 .and. cw.ne.mycall13var) calls10var(n10)=cw
 
-  n22=ihashcallvar(cw,22)
+  n22=ihashcall(cw,22)
   if(any(ihash22var.eq.n22)) then   ! If entry exists, make sure callsign is the most recently received one
     where(ihash22var.eq.n22) calls22var=cw
     go to 1900
@@ -1877,15 +1857,15 @@ subroutine save_hash_txcallvar(c13,n10,n12,n22,lhashit)
   
   if(len(trim(cw)) .lt. 3) return
 
-  n12=ihashcallvar(cw,12)
+  n12=ihashcall(cw,12)
 
   if(lhashit) then
     if(n12.ge.0 .and. n12 .le. 4095 .and. cw.ne.mycall13var) txcalls12var(n12)=cw
 
-    n10=ihashcallvar(cw,10)
+    n10=ihashcall(cw,10)
     if(n10.ge.0 .and. n10 .le. 1023 .and. cw.ne.mycall13var) txcalls10var(n10)=cw
 
-    n22=ihashcallvar(cw,22)
+    n22=ihashcall(cw,22)
     if(any(itxhash22var.eq.n22)) then   ! If entry exists, make sure callsign is the most recently received one
       where(itxhash22var.eq.n22) txcalls22var=cw
       go to 1900
@@ -2001,7 +1981,7 @@ subroutine pack77var(msg0,i3,n3,c77,ntxhash)
 800 i3=0
   n3=0
   msg(14:)='                        '
-  call packtext77var(msg(1:13),c77(1:71))
+  call packtext77(msg(1:13),c77(1:71))
   write(c77(72:77),'(2b3.3)') n3,i3
 
 900 return
@@ -2080,7 +2060,7 @@ subroutine unpack77var(c77,nrx,msg,unpk77_successvar,nthr)
   msg=repeat(' ',37)
   if(i3.eq.0 .and. n3.eq.0) then
 ! 0.0  Free text
-     call unpacktext77var(c77(1:71),msg(1:13))
+     call unpacktext77(c77(1:71),msg(1:13))
      msg(14:)='                        '
      msg=adjustl(msg)
      if(msg(1:1).eq.' ') then
@@ -2173,7 +2153,7 @@ subroutine unpack77var(c77,nrx,msg,unpk77_successvar,nthr)
         idbm=nint(idbm*10.0/3.0)
         call unpack28var(n28,call_1,unpk28_success,nthr) 
         if(.not.unpk28_success) unpk77_successvar=.false.
-        call to_grid4var(igrid4,grid4,unpkg4_success)
+        call to_grid4(igrid4,grid4,unpkg4_success)
         if(.not.unpkg4_success) unpk77_successvar=.false.
         write(crpt,'(i3)') idbm
         msg=trim(call_1)//' '//grid4//' '//trim(adjustl(crpt))
@@ -2227,7 +2207,7 @@ subroutine unpack77var(c77,nrx,msg,unpk77_successvar,nthr)
         n28=n22+2063592
         call unpack28var(n28,call_1,unpk28_success,nthr) 
         if(.not.unpk28_success) unpk77_successvar=.false.
-        call to_gridvar(igrid6,grid6,unpkg4_success)
+        call to_grid(igrid6,grid6,unpkg4_success)
         if(.not.unpkg4_success) unpk77_successvar=.false.
         msg=trim(call_1)//' '//grid6
      endif
@@ -2265,7 +2245,7 @@ subroutine unpack77var(c77,nrx,msg,unpk77_successvar,nthr)
         endif
      endif
      if(igrid4.le.MAXGRID4) then
-        call to_grid4var(igrid4,grid4,unpkg4_success)
+        call to_grid4(igrid4,grid4,unpkg4_success)
         if(.not.unpkg4_success) unpk77_successvar=.false.
         if(ir.eq.0) msg=trim(call_1)//' '//trim(call_2)//' '//grid4
         if(ir.eq.1) msg=trim(call_1)//' '//trim(call_2)//' R '//grid4
@@ -2448,7 +2428,7 @@ subroutine unpack77var(c77,nrx,msg,unpk77_successvar,nthr)
      nrs=52+irpt
      write(cexch,1022) nrs,iserial
 1022 format(i2,i4.4)
-     call to_grid6var(igrid6,grid6,unpk77_successvar)
+     call to_grid6(igrid6,grid6,unpk77_successvar)
      if(ir.eq.0) msg=trim(call_1)//' '//trim(call_2)//' '//cexch//' '//grid6
      if(ir.eq.1) msg=trim(call_1)//' '//trim(call_2)//' R '//cexch//' '//grid6
 
@@ -3287,53 +3267,6 @@ subroutine pack77_5var(nwords,w,i3,n3,c77,ntxhash)
   return
 end subroutine pack77_5var
 
-subroutine packtext77var(c13,c71)
-
-  character*13 c13,w
-  character*71 c71
-  character*42 c
-  character*1 qa(10),qb(10)
-  data c/' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ+-./?'/
-
-  call mp_short_init
-  qa=char(0)
-  w=adjustr(c13)
-  do i=1,13
-     j=index(c,w(i:i))-1
-     if(j.lt.0) j=0
-     call mp_short_mult(qb,qa(2:10),9,42)     !qb(1:9)=42*qa(2:9)
-     call mp_short_add(qa,qb(2:10),9,j)      !qa(1:9)=qb(2:9)+j
-  enddo
-
-  write(c71,1010) qa(2:10)
-1010 format(b7.7,8b8.8)
-
-  return
-end subroutine packtext77var
-
-subroutine unpacktext77var(c71,c13)
-
-  integer*1   ia(10)
-  character*1 qa(10),qb(10)
-  character*13 c13
-  character*71 c71
-  character*42 c
-  equivalence (qa,ia),(qb,ib)
-  data c/' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ+-./?'/
-
-  qa(1)=char(0)
-  read(c71,1010) qa(2:10)
-1010 format(b7.7,8b8.8)
-
-  do i=13,1,-1
-     call mp_short_div(qb,qa(2:10),9,42,ir)
-     c13(i:i)=c(ir+1:ir+1)
-     qa(2:10)=qb(1:9)
-  enddo
-
-  return
-end subroutine unpacktext77var
-
 subroutine add_call_to_recent_callsvar(callsign,nthr)
 
   character*13 callsign
@@ -3358,98 +3291,6 @@ subroutine add_call_to_recent_callsvar(callsign,nthr)
 
   return
 end subroutine add_call_to_recent_callsvar
-
-subroutine to_grid4var(n,grid4,ok)
-  character*4 grid4
-  logical ok
-
-  ok=.false.
-  j1=n/(18*10*10)
-  if (j1.lt.0.or.j1.gt.17) goto 900
-  n=n-j1*18*10*10
-  j2=n/(10*10)
-  if (j2.lt.0.or.j2.gt.17) goto 900
-  n=n-j2*10*10
-  j3=n/10
-  if (j3.lt.0.or.j3.gt.9) goto 900
-  j4=n-j3*10
-  if (j4.lt.0.or.j4.gt.9) goto 900
-  grid4(1:1)=char(j1+ichar('A'))
-  grid4(2:2)=char(j2+ichar('A'))
-  grid4(3:3)=char(j3+ichar('0'))
-  grid4(4:4)=char(j4+ichar('0'))
-  ok=.true.
-
-900 return
-end subroutine to_grid4var
-
-subroutine to_grid6var(n,grid6,ok)
-  character*6 grid6
-  logical ok
-
-  ok=.false.
-  j1=n/(18*10*10*24*24)
-  if (j1.lt.0.or.j1.gt.17) goto 900
-  n=n-j1*18*10*10*24*24
-  j2=n/(10*10*24*24)
-  if (j2.lt.0.or.j2.gt.17) goto 900
-  n=n-j2*10*10*24*24
-  j3=n/(10*24*24)
-  if (j3.lt.0.or.j3.gt.9) goto 900
-  n=n-j3*10*24*24
-  j4=n/(24*24)
-  if (j4.lt.0.or.j4.gt.9) goto 900
-  n=n-j4*24*24
-  j5=n/24
-  if (j5.lt.0.or.j5.gt.23) goto 900
-  j6=n-j5*24
-  if (j6.lt.0.or.j6.gt.23) goto 900
-  grid6(1:1)=char(j1+ichar('A'))
-  grid6(2:2)=char(j2+ichar('A'))
-  grid6(3:3)=char(j3+ichar('0'))
-  grid6(4:4)=char(j4+ichar('0'))
-  grid6(5:5)=char(j5+ichar('A'))
-  grid6(6:6)=char(j6+ichar('A'))  
-  ok=.true.
-
-900 return
-end subroutine to_grid6var
-
-subroutine to_gridvar(n,grid6,ok)
-  ! 4-, or 6-character grid
-  character*6 grid6
-  logical ok
-
-  ok=.false.
-  j1=n/(18*10*10*25*25)
-  if (j1.lt.0.or.j1.gt.17) goto 900
-  n=n-j1*18*10*10*25*25
-  j2=n/(10*10*25*25)
-  if (j2.lt.0.or.j2.gt.17) goto 900
-  n=n-j2*10*10*25*25
-  j3=n/(10*25*25)
-  if (j3.lt.0.or.j3.gt.9) goto 900
-  n=n-j3*10*25*25
-  j4=n/(25*25)
-  if (j4.lt.0.or.j4.gt.9) goto 900
-  n=n-j4*25*25
-  j5=n/25
-  if (j5.lt.0.or.j5.gt.24) goto 900
-  j6=n-j5*25
-  if (j6.lt.0.or.j6.gt.24) goto 900
-  grid6=''
-  grid6(1:1)=char(j1+ichar('A'))
-  grid6(2:2)=char(j2+ichar('A'))
-  grid6(3:3)=char(j3+ichar('0'))
-  grid6(4:4)=char(j4+ichar('0'))
-  if (j5.ne.24.or.j6.ne.24) then
-     grid6(5:5)=char(j5+ichar('A'))
-     grid6(6:6)=char(j6+ichar('A'))
-  endif
-  ok=.true.
-
-900 return
-end subroutine to_gridvar
 
 end module packjt77
 

@@ -66,36 +66,16 @@ contains
     integer, intent(in) :: want10, want12, want22
     character(len=13) :: c13
     integer :: got10, got12, got22
-    integer :: got10var, got12var, got22var
 
     c13='             '
     c13=callsign
     got10=ihashcall(c13,10)
     got12=ihashcall(c13,12)
     got22=ihashcall(c13,22)
-    got10var=ihashcallvar(c13,10)
-    got12var=ihashcallvar(c13,12)
-    got22var=ihashcallvar(c13,22)
-
     if(got10.ne.want10 .or. got12.ne.want12 .or. got22.ne.want22) then
        write(*,1010) trim(callsign), got10, got12, got22, want10, want12, want22
 1010   format('Hash vector failure for "',a,'"; got ',i0,1x,i0,1x,i0, &
               ' wanted ',i0,1x,i0,1x,i0)
-       error stop 1
-    endif
-
-    if(got10var.ne.want10 .or. got12var.ne.want12 .or. got22var.ne.want22) then
-       write(*,1020) trim(callsign), got10var, got12var, got22var, &
-            want10, want12, want22
-1020   format('Var hash vector failure for "',a,'"; got ',i0,1x,i0,1x,i0, &
-              ' wanted ',i0,1x,i0,1x,i0)
-       error stop 1
-    endif
-
-    if(got10.ne.got10var .or. got12.ne.got12var .or. got22.ne.got22var) then
-       write(*,1030) trim(callsign), got10, got12, got22, got10var, got12var, got22var
-1030   format('Hash helper mismatch for "',a,'"; standard ',i0,1x,i0,1x,i0, &
-              ' var ',i0,1x,i0,1x,i0)
        error stop 1
     endif
 
@@ -246,7 +226,7 @@ contains
 
     call clear_all_state('N0AAA','N0BBB')
     call save_hash_mycallvar(mycall13var,hashmy10var,hashmy12var,hashmy22var)
-    hashdx10var=ihashcallvar(dxcall13var,10)
+    hashdx10var=ihashcall(dxcall13var,10)
     call save_hash_call(dxcall13,n10,n12,n22)
     call save_hash_callvar(dxcall13var,1)
   end subroutine reset_packjt77_state

@@ -53,14 +53,14 @@ contains
     if(len_trim(mycall).gt.2) then
        mycall13_setvar=.true.
        mycall13_0var=mycall13var
-       hashmy10var=ihashcallvar(mycall13var,10)
-       hashmy12var=ihashcallvar(mycall13var,12)
-       hashmy22var=ihashcallvar(mycall13var,22)
+       hashmy10var=ihashcall(mycall13var,10)
+       hashmy12var=ihashcall(mycall13var,12)
+       hashmy22var=ihashcall(mycall13var,22)
     endif
     if(len_trim(dxcall).gt.2) then
        dxcall13_setvar=.true.
        dxcall13_0var=dxcall13var
-       hashdx10var=ihashcallvar(dxcall13var,10)
+       hashdx10var=ihashcall(dxcall13var,10)
     endif
   end subroutine clear_var_state
 
