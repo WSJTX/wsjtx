@@ -137,7 +137,7 @@ jobs:
         run: brew install cmake autoconf automake libtool asciidoctor ccache pkg-config
 
       - name: Cache ccache
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: .ccache
           key: ccache-macos-${{ inputs.arch }}-appleclang-${{ github.sha }}
@@ -167,7 +167,7 @@ jobs:
 
       - name: Restore Qt cache
         id: qt-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: qt-prefix
           key: ${{ steps.qt-key.outputs.key }}
@@ -182,7 +182,7 @@ jobs:
 
       - name: Save Qt cache
         if: steps.qt-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: qt-prefix
           key: ${{ steps.qt-cache.outputs.cache-primary-key }}
@@ -261,7 +261,7 @@ jobs:
 
       - name: Restore libusb cache
         id: libusb-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: libusb-prefix
           key: libusb-macos-${{ inputs.arch }}-${{ env.RUNNER }}-1.0.27-min${{ env.DEPLOYMENT_TARGET }}-epoch1-${{ hashFiles('.github/scripts/build-libusb-macos.sh') }}
@@ -276,14 +276,14 @@ jobs:
 
       - name: Save libusb cache
         if: steps.libusb-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: libusb-prefix
           key: ${{ steps.libusb-cache.outputs.cache-primary-key }}
 
       - name: Restore PortAudio cache
         id: portaudio-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: portaudio-prefix
           key: portaudio-macos-${{ inputs.arch }}-${{ env.RUNNER }}-19.7.0-min${{ env.DEPLOYMENT_TARGET }}-epoch1-${{ hashFiles('.github/scripts/build-portaudio-macos.sh') }}
@@ -298,14 +298,14 @@ jobs:
 
       - name: Save PortAudio cache
         if: steps.portaudio-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: portaudio-prefix
           key: ${{ steps.portaudio-cache.outputs.cache-primary-key }}
 
       - name: Restore FFTW cache
         id: fftw-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: fftw-prefix
           key: fftw-macos-${{ inputs.arch }}-${{ env.RUNNER }}-3.3.10-min${{ env.DEPLOYMENT_TARGET }}-epoch1-${{ hashFiles('.github/scripts/build-fftw-macos.sh') }}
@@ -320,14 +320,14 @@ jobs:
 
       - name: Save FFTW cache
         if: steps.fftw-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: fftw-prefix
           key: ${{ steps.fftw-cache.outputs.cache-primary-key }}
 
       - name: Restore Boost cache
         id: boost-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: boost-prefix
           key: boost-macos-${{ inputs.arch }}-${{ env.RUNNER }}-1.85.0-min${{ env.DEPLOYMENT_TARGET }}-epoch1-${{ hashFiles('.github/scripts/build-boost-macos.sh') }}
@@ -343,7 +343,7 @@ jobs:
 
       - name: Save Boost cache
         if: steps.boost-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: boost-prefix
           key: ${{ steps.boost-cache.outputs.cache-primary-key }}
@@ -364,7 +364,7 @@ jobs:
 
       - name: Restore Hamlib cache
         id: hamlib-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: hamlib-prefix
           key: hamlib-macos-${{ inputs.arch }}-${{ env.RUNNER }}-${{ inputs.hamlib_branch }}-libusb1.0.27-min${{ env.DEPLOYMENT_TARGET }}-epoch1-${{ hashFiles('.github/scripts/build-hamlib-macos.sh', '.github/scripts/build-libusb-macos.sh') }}
@@ -389,14 +389,14 @@ jobs:
 
       - name: Save Hamlib cache
         if: steps.hamlib-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: hamlib-prefix
           key: ${{ steps.hamlib-cache.outputs.cache-primary-key }}
 
       - name: Restore pFUnit cache
         id: pfunit-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: pfunit-prefix
           key: pfunit-macos-${{ inputs.arch }}-${{ env.RUNNER }}-v4.9.0-${{ steps.fc.outputs.cache_key }}-min${{ env.DEPLOYMENT_TARGET }}-epoch3-${{ hashFiles('.github/scripts/build-pfunit-macos.sh') }}
@@ -429,7 +429,7 @@ jobs:
 
       - name: Save pFUnit cache
         if: steps.pfunit-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: pfunit-prefix
           key: ${{ steps.pfunit-cache.outputs.cache-primary-key }}

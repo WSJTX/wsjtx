@@ -186,12 +186,12 @@ jobs:
       # the cache cleanly. Namespaces segregate from x86_64+aarch64
       # entries naturally on the (arch, runtime_base) pair.
       - name: Cache pFUnit
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: pfunit-prefix
           key: pfunit-linux-armhf-v4.9.0-bookworm-${{ hashFiles('.github/scripts/build-linux-payload.sh') }}
       - name: Cache Hamlib
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: hamlib-prefix
           key: hamlib-linux-armhf-${{ inputs.hamlib_branch }}-bookworm-${{ hashFiles('.github/scripts/build-linux-payload.sh') }}

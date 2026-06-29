@@ -122,7 +122,7 @@ jobs:
         run: gem install asciidoctor --no-document
 
       - name: Cache ccache
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: .ccache
           key: ccache-windows-x86_64-gcc-${{ github.sha }}
@@ -148,7 +148,7 @@ jobs:
 
       - name: Restore pFUnit cache
         id: pfunit-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: pfunit-prefix
           key: pfunit-windows-windows-latest-mingw64-v4.9.0-gfortran${{ steps.fc.outputs.version }}-epoch1-${{ hashFiles('.github/scripts/build-pfunit-windows.sh') }}
@@ -180,14 +180,14 @@ jobs:
 
       - name: Save pFUnit cache
         if: steps.pfunit-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: pfunit-prefix
           key: ${{ steps.pfunit-cache.outputs.cache-primary-key }}
 
       - name: Restore Hamlib cache
         id: hamlib-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: hamlib-prefix
           key: hamlib-windows-windows-latest-mingw64-${{ inputs.hamlib_branch }}-epoch1-${{ hashFiles('.github/scripts/build-hamlib-windows.sh') }}
@@ -207,7 +207,7 @@ jobs:
 
       - name: Save Hamlib cache
         if: steps.hamlib-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: hamlib-prefix
           key: ${{ steps.hamlib-cache.outputs.cache-primary-key }}
