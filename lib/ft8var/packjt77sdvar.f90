@@ -1,7 +1,7 @@
 
 module packjt77sdvar
 
-  use packjt77, only : packtext77, split77, unpacktext77
+  use packjt77, only : packtext77, split77, to_grid4, unpacktext77
 
 ! These variables are accessible from outside via "use packjt77sdvar":
 !  integer n28avar,n28bvar
@@ -43,7 +43,7 @@ subroutine unpack77sdvar(c77,msg,unpk77_successvar)
   parameter (MAXGRID4=32400)
   integer*8 n58
   character*77 c77*77,msg*37,c*38,call_1*13,call_2*13,c11*11,grid4*4,crpt*3
-  logical unpk28_success,unpk77_successvar
+  logical unpk28_success,unpk77_successvar,unpkg4_success
 
   data c/' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ/'/
 
@@ -86,17 +86,8 @@ subroutine unpack77sdvar(c77,msg,unpk77_successvar)
         if(i.ge.4 .and. ipb.eq.1 .and. i3.eq.2) call_2(i:i+1)='/P'
      endif
      if(igrid4.le.MAXGRID4) then
-        n=igrid4
-        j1=n/(18*10*10)
-        n=n-j1*18*10*10
-        j2=n/(10*10)
-        n=n-j2*10*10
-        j3=n/10
-        j4=n-j3*10
-        grid4(1:1)=char(j1+ichar('A'))
-        grid4(2:2)=char(j2+ichar('A'))
-        grid4(3:3)=char(j3+ichar('0'))
-        grid4(4:4)=char(j4+ichar('0'))
+        call to_grid4(igrid4,grid4,unpkg4_success)
+        if(.not.unpkg4_success) unpk77_successvar=.false.
         if(ir.eq.0) msg=trim(call_1)//' '//trim(call_2)//' '//grid4
         if(ir.eq.1) msg=trim(call_1)//' '//trim(call_2)//' R '//grid4
         if(msg(1:3).eq.'CQ ' .and. ir.eq.1) unpk77_successvar=.false.
