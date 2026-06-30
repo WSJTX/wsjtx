@@ -1169,6 +1169,12 @@ find_program (RIGCTLCOM_EXE rigctlcom)
 
 check_type_size (CACHE_ALL HAMLIB_OLD_CACHING)
 check_symbol_exists (rig_set_cache_timeout_ms "hamlib/rig.h" HAVE_HAMLIB_CACHING)
+set (CMAKE_REQUIRED_INCLUDES ${Hamlib_INCLUDE_DIR})
+check_c_source_compiles ("
+#include <hamlib/rig.h>
+int main(void) { return sizeof(&rig_get_conf2) > 0 ? 0 : 1; }
+" HAVE_HAMLIB_GET_CONF2)
+unset (CMAKE_REQUIRED_INCLUDES)
 
 find_package (Usb REQUIRED)
 
