@@ -341,6 +341,7 @@ public:
 
     connect (button_box, &QDialogButtonBox::accepted, this, &FrequencyDialog::accept);
     connect (button_box, &QDialogButtonBox::rejected, this, &FrequencyDialog::reject);
+    connect (&frequency_line_edit_, &QLineEdit::textChanged, this, &FrequencyDialog::update_accept_button);
     connect (start_date_time_edit_, &QDateTimeEdit::dateTimeChanged, this, &FrequencyDialog::checkSaneDates);
     connect (end_date_time_edit_, &QDateTimeEdit::dateTimeChanged, this, &FrequencyDialog::checkSaneDates);
     connect (enable_dates_checkbox_, &QCheckBox::stateChanged, this, &FrequencyDialog::toggleValidity);
@@ -356,16 +357,11 @@ public:
 
     void checkSaneDates()
     {
-        if (enable_dates_checkbox_->isChecked() && start_date_time_edit_->dateTime().isValid() && end_date_time_edit_->dateTime().isValid())
+        if (!dates_are_sane ())
         {
-            if (start_date_time_edit_->dateTime() > end_date_time_edit_->dateTime())
-            {
-                QMessageBox::warning(this, tr("Invalid Date Range"), tr("Start date must be before end date"));
-                button_box->button(QDialogButtonBox::Ok)->setEnabled(false);
-                return;
-            }
+            QMessageBox::warning(this, tr("Invalid Date Range"), tr("Start date must be before end date"));
         }
-        button_box->button(QDialogButtonBox::Ok)->setEnabled(true);
+        update_accept_button ();
     }
 
   Item item () const
@@ -384,6 +380,20 @@ public:
   }
 
 private:
+  bool dates_are_sane () const
+  {
+    return !enable_dates_checkbox_->isChecked ()
+      || !start_date_time_edit_->dateTime ().isValid ()
+      || !end_date_time_edit_->dateTime ().isValid ()
+      || start_date_time_edit_->dateTime () <= end_date_time_edit_->dateTime ();
+  }
+
+  void update_accept_button ()
+  {
+    button_box->button (QDialogButtonBox::Ok)->setEnabled (frequency_line_edit_.hasAcceptableInput ()
+        && dates_are_sane ());
+  }
+
   QComboBox region_combo_box_;
   QComboBox mode_combo_box_;
   QComboBox voices_combo_box_;
@@ -423,16 +433,18 @@ public:
     auto main_layout = new QVBoxLayout (this);
     main_layout->addLayout (form_layout);
 
-    auto button_box = new QDialogButtonBox {QDialogButtonBox::Ok | QDialogButtonBox::Cancel};
-    main_layout->addWidget (button_box);
+    button_box_ = new QDialogButtonBox {QDialogButtonBox::Ok | QDialogButtonBox::Cancel};
+    main_layout->addWidget (button_box_);
 
-    connect (button_box, &QDialogButtonBox::accepted, this, &StationDialog::accept);
-    connect (button_box, &QDialogButtonBox::rejected, this, &StationDialog::reject);
+    connect (button_box_, &QDialogButtonBox::accepted, this, &StationDialog::accept);
+    connect (button_box_, &QDialogButtonBox::rejected, this, &StationDialog::reject);
+    connect (&delta_, &QLineEdit::textChanged, this, &StationDialog::update_accept_button);
 
     if (delta_.text ().isEmpty ())
       {
         delta_.setText ("0");
       }
+    update_accept_button ();
   }
 
   StationList::Station station () const
@@ -447,11 +459,17 @@ public:
   }
 
 private:
+  void update_accept_button ()
+  {
+    button_box_->button (QDialogButtonBox::Ok)->setEnabled (delta_.hasAcceptableInput ());
+  }
+
   QScopedPointer<CandidateKeyFilter> filtered_bands_;
 
   QComboBox band_;
   FrequencyDeltaLineEdit delta_;
   QLineEdit description_;
+  QDialogButtonBox * button_box_;
 };
 
 class RearrangableMacrosModel

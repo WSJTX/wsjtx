@@ -22,6 +22,10 @@ void FrequencyDelegate::setEditorData (QWidget * editor, QModelIndex const& inde
 
 void FrequencyDelegate::setModelData (QWidget * editor, QAbstractItemModel * model, QModelIndex const& index) const
 {
-  model->setData (index, static_cast<FrequencyLineEdit *> (editor)->frequency (), Qt::EditRole);
+  bool ok;
+  auto const frequency = static_cast<FrequencyLineEdit *> (editor)->frequency (&ok);
+  if (ok)
+    {
+      model->setData (index, frequency, Qt::EditRole);
+    }
 }
-

@@ -47,3 +47,10 @@ add_executable (test_active_station_list
 )
 target_link_libraries (test_active_station_list Qt5::Test)
 add_test (NAME test_active_station_list COMMAND test_active_station_list)
+
+add_executable (test_frequency_editors
+  test_frequency_editors.cpp
+  ${CMAKE_SOURCE_DIR}/Logger.cpp
+)
+target_link_libraries (test_frequency_editors wsjt_qt Boost::log_setup Qt5::Test Qt5::Widgets)
+add_test (NAME test_frequency_editors COMMAND test_frequency_editors)

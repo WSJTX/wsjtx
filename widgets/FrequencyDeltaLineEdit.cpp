@@ -2,6 +2,7 @@
 
 #include <limits>
 
+#include <QColor>
 #include <QDoubleValidator>
 #include <QString>
 #include <QLocale>
@@ -10,6 +11,9 @@
 
 namespace
 {
+  double constexpr MHz_factor {1.e6};
+  QColor const invalid_text_color {180, 0, 0};
+
   class MHzValidator
     : public QDoubleValidator
   {
@@ -38,17 +42,46 @@ namespace
 
 FrequencyDeltaLineEdit::FrequencyDeltaLineEdit (QWidget * parent)
   : QLineEdit (parent)
+  , default_palette_ {palette ()}
 {
-  setValidator (new MHzValidator {static_cast<double>(std::numeric_limits<FrequencyDelta>::min ()) / 10.e6,
-        static_cast<double>(std::numeric_limits<FrequencyDelta>::max ()) / 10.e6, this});
+  setValidator (new MHzValidator {static_cast<double>(std::numeric_limits<FrequencyDelta>::min ()) / MHz_factor,
+        static_cast<double>(std::numeric_limits<FrequencyDelta>::max ()) / MHz_factor, this});
+  setPlaceholderText (tr ("Offset in MHz"));
+  connect (this, &QLineEdit::textChanged, this, [this] {update_input_feedback ();});
+  update_input_feedback ();
 }
 
 auto FrequencyDeltaLineEdit::frequency_delta () const -> FrequencyDelta
 {
-  return Radio::frequency_delta (text (), 6);
+  return frequency_delta (nullptr);
+}
+
+auto FrequencyDeltaLineEdit::frequency_delta (bool * ok) const -> FrequencyDelta
+{
+  if (!hasAcceptableInput ())
+    {
+      if (ok) *ok = false;
+      return 0;
+    }
+  return Radio::frequency_delta (text (), 6, ok);
 }
 
 void FrequencyDeltaLineEdit::frequency_delta (FrequencyDelta d)
 {
   setText (Radio::frequency_MHz_string (d));
+}
+
+void FrequencyDeltaLineEdit::update_input_feedback ()
+{
+  auto palette = default_palette_;
+  if (hasAcceptableInput ())
+    {
+      setToolTip (tr ("Frequency offset in MHz"));
+    }
+  else
+    {
+      palette.setColor (QPalette::Text, invalid_text_color);
+      setToolTip (tr ("Enter a frequency offset in MHz."));
+    }
+  setPalette (palette);
 }

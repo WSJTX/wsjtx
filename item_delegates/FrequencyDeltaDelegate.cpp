@@ -22,5 +22,10 @@ void FrequencyDeltaDelegate::setEditorData (QWidget * editor, QModelIndex const&
 
 void FrequencyDeltaDelegate::setModelData (QWidget * editor, QAbstractItemModel * model, QModelIndex const& index) const
 {
-  model->setData (index, static_cast<FrequencyDeltaLineEdit *> (editor)->frequency_delta (), Qt::EditRole);
+  bool ok;
+  auto const frequency_delta = static_cast<FrequencyDeltaLineEdit *> (editor)->frequency_delta (&ok);
+  if (ok)
+    {
+      model->setData (index, frequency_delta, Qt::EditRole);
+    }
 }
