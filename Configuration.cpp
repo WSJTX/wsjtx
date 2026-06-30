@@ -176,6 +176,7 @@
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QSerialPortInfo>
+#include <QItemSelectionModel>
 #include <vector>
 #include <utility>
 #include <iostream>
@@ -592,10 +593,13 @@ private:
   Q_SLOT void on_TCI_spin_box_valueChanged(double a);
   Q_SLOT void on_add_macro_push_button_clicked (bool = false);
   Q_SLOT void on_delete_macro_push_button_clicked (bool = false);
+  Q_SLOT void on_move_macro_up_push_button_clicked (bool = false);
+  Q_SLOT void on_move_macro_down_push_button_clicked (bool = false);
   Q_SLOT void on_PTT_method_button_group_buttonClicked (int);
   Q_SLOT void on_add_macro_line_edit_editingFinished ();
   Q_SLOT void delete_macro ();
   void delete_selected_macros (QModelIndexList);
+  void move_selected_macros (int);
   void after_CTY_downloaded();
   void set_CTY_DAT_version(QString const& version);
   void error_during_CTY_download (QString const& reason);
@@ -2023,6 +2027,7 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   //
   ui_->macros_list_view->setModel (&next_macros_);
   ui_->macros_list_view->setItemDelegate (new MessageItemDelegate {this});
+  ui_->macros_list_view->setTabKeyNavigation (false);
 
   macro_delete_action_ = new QAction {tr ("&Delete"), ui_->macros_list_view};
   ui_->macros_list_view->insertAction (nullptr, macro_delete_action_);
@@ -3204,6 +3209,7 @@ bool Configuration::impl::validate ()
 
   if (!ui_->PTT_method_button_group->checkedButton ()->isEnabled ())
     {
+      find_tab (ui_->PTT_method_button_group->checkedButton ());
       MessageBox::critical_message (this, tr ("Invalid PTT method"));
       return false;
     }
@@ -3214,6 +3220,7 @@ bool Configuration::impl::validate ()
       && (ptt_port.isEmpty ()
           || combo_box_item_disabled == ui_->PTT_port_combo_box->itemData (ui_->PTT_port_combo_box->findText (ptt_port), Qt::UserRole - 1)))
     {
+      find_tab (ui_->PTT_port_combo_box);
       MessageBox::critical_message (this, tr ("Invalid PTT port"));
       return false;
     }
@@ -3238,6 +3245,7 @@ bool Configuration::impl::validate ()
 
   if (dns_lookup_id_ > -1)
     {
+      find_tab (ui_->udp_server_line_edit);
       MessageBox::information_message (this, tr ("Pending DNS lookup, please try again later"));
       return false;
     }
@@ -4186,12 +4194,7 @@ void Configuration::impl::on_add_macro_line_edit_editingFinished ()
 
 void Configuration::impl::on_delete_macro_push_button_clicked (bool /* checked */)
 {
-  auto selection_model = ui_->macros_list_view->selectionModel ();
-  if (selection_model->hasSelection ())
-    {
-      // delete all selected items
-      delete_selected_macros (selection_model->selectedRows ());
-    }
+  delete_macro ();
 }
 
 void Configuration::impl::delete_macro ()
@@ -4227,6 +4230,84 @@ void Configuration::impl::delete_selected_macros (QModelIndexList selected_rows)
     {
       next_macros_.removeRow (index.row ());
     }
+}
+
+void Configuration::impl::move_selected_macros (int delta)
+{
+  auto selection_model = ui_->macros_list_view->selectionModel ();
+  QModelIndexList selected_rows = selection_model->selectedRows ();
+  if (!selection_model->hasSelection () && selection_model->currentIndex ().isValid ())
+    {
+      selected_rows.append (selection_model->currentIndex ());
+    }
+
+  QList<int> rows;
+  Q_FOREACH (auto const& index, selected_rows)
+    {
+      if (index.isValid ())
+        {
+          rows.append (index.row ());
+        }
+    }
+
+  std::sort (rows.begin (), rows.end ());
+  rows.erase (std::unique (rows.begin (), rows.end ()), rows.end ());
+  if (rows.isEmpty ())
+    {
+      return;
+    }
+
+  auto const row_count = next_macros_.rowCount ();
+  if ((delta < 0 && rows.first () == 0)
+      || (delta > 0 && rows.last () >= row_count - 1))
+    {
+      return;
+    }
+
+  auto messages = next_macros_.stringList ();
+  QList<int> moved_rows;
+  if (delta < 0)
+    {
+      Q_FOREACH (auto row, rows)
+        {
+          qSwap (messages[row], messages[row - 1]);
+          moved_rows.append (row - 1);
+        }
+    }
+  else if (delta > 0)
+    {
+      for (auto row = rows.crbegin (); row != rows.crend (); ++row)
+        {
+          qSwap (messages[*row], messages[*row + 1]);
+          moved_rows.append (*row + 1);
+        }
+      std::sort (moved_rows.begin (), moved_rows.end ());
+    }
+  else
+    {
+      return;
+    }
+
+  next_macros_.setStringList (messages);
+
+  selection_model = ui_->macros_list_view->selectionModel ();
+  selection_model->clearSelection ();
+  Q_FOREACH (auto row, moved_rows)
+    {
+      auto index = next_macros_.index (row);
+      selection_model->select (index, QItemSelectionModel::Select | QItemSelectionModel::Rows);
+    }
+  ui_->macros_list_view->setCurrentIndex (next_macros_.index (moved_rows.first ()));
+}
+
+void Configuration::impl::on_move_macro_up_push_button_clicked (bool /* checked */)
+{
+  move_selected_macros (-1);
+}
+
+void Configuration::impl::on_move_macro_down_push_button_clicked (bool /* checked */)
+{
+  move_selected_macros (1);
 }
 
 void Configuration::impl::on_add_macro_push_button_clicked (bool /* checked */)
