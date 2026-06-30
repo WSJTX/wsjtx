@@ -115,7 +115,6 @@ program jt9
         'FLAGS') ]
 
   type(dec_data), allocatable :: shared_data
-  character(len=20) :: datetime=''
   character(len=12) :: mycall='K1ABC', hiscall='W9XYZ'
   character(len=6) :: mygrid='', hisgrid='EN37'
   common/patience/npatience,nthreads
