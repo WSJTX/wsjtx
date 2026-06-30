@@ -3210,9 +3210,11 @@ bool Configuration::impl::validate ()
 
   auto ptt_method = static_cast<TransceiverFactory::PTTMethod> (ui_->PTT_method_button_group->checkedId ());
   auto ptt_port = ui_->PTT_port_combo_box->currentText ();
+  auto const ptt_port_index = ui_->PTT_port_combo_box->findText (ptt_port);
   if ((TransceiverFactory::PTT_method_DTR == ptt_method || TransceiverFactory::PTT_method_RTS == ptt_method)
       && (ptt_port.isEmpty ()
-          || combo_box_item_disabled == ui_->PTT_port_combo_box->itemData (ui_->PTT_port_combo_box->findText (ptt_port), Qt::UserRole - 1)))
+          || (ptt_port_index >= 0
+              && combo_box_item_disabled == ui_->PTT_port_combo_box->itemData (ptt_port_index, Qt::UserRole - 1))))
     {
       MessageBox::critical_message (this, tr ("Invalid PTT port"));
       return false;
