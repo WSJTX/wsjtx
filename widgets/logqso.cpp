@@ -3,7 +3,6 @@
 #include <QLocale>
 #include <QString>
 #include <QSettings>
-#include <QStandardPaths>
 #include <QStringList>
 #include <QDir>
 #include <QTimer>
@@ -16,6 +15,7 @@
 #include "models/Bands.hpp"
 #include "models/CabrilloLog.hpp"
 #include "validators/MaidenheadLocatorValidator.hpp"
+#include "qt_helpers.hpp"
 
 #include "ui_logqso.h"
 #include "moc_logqso.cpp"
@@ -91,9 +91,8 @@ LogQSO::LogQSO(QString const& programTitle, QSettings * settings
   ui->setupUi(this);
   setWindowTitle(programTitle + " - Log QSO");
   ui->comboBoxSatellite->addItem ("", "");
-  QString sat_file_location;
-  QDir dataPath {QStandardPaths::writableLocation (QStandardPaths::DataLocation)};
-  sat_file_location = dataPath.exists(sat_file_name) ? dataPath.absoluteFilePath(sat_file_name) : m_config->data_dir ().absoluteFilePath (sat_file_name);
+  auto const& sat_file_location = writable_override_or_installed_file_path (m_config->writeable_data_dir (),
+                                                                           m_config->data_dir (), sat_file_name);
   QFile file {sat_file_location};
   QStringList wordList;
   QTextStream stream(&file);
@@ -169,8 +168,8 @@ void LogQSO::loadSettings ()
   ui->cbFreqRx->setChecked (m_settings->value ("SaveFreqRx", false).toBool ());
 
   QString comments_location;  // load the content of comments.txt file to the comments combo box
-  QDir dataPath {QStandardPaths::writableLocation (QStandardPaths::DataLocation)};
-  comments_location = dataPath.exists("comments.txt") ? dataPath.absoluteFilePath("comments.txt") : m_config->data_dir ().absoluteFilePath ("comments.txt");
+  comments_location = writable_override_or_installed_file_path (m_config->writeable_data_dir (),
+                                                               m_config->data_dir (), "comments.txt");
   QFile file2 {comments_location};
   QTextStream stream2(&file2);
   if(file2.open (QIODevice::ReadOnly | QIODevice::Text)) {
@@ -435,7 +434,8 @@ void LogQSO::accept()
   }
   m_freqRx = ui->freqRx->text ();
   //Log this QSO to file "wsjtx.log"
-  static QFile f {QDir {QStandardPaths::writableLocation (QStandardPaths::DataLocation)}.absoluteFilePath ("wsjtx.log")};
+  QFile f {writable_file_path (m_config->writeable_data_dir (), "wsjtx.log")};
+  ensure_parent_directory (f.fileName ());
   if(!f.open(QIODevice::Text | QIODevice::Append)) {
     MessageBox::warning_message (this, tr ("Log file error"),
                                  tr ("Cannot open \"%1\" for append").arg (f.fileName ()),

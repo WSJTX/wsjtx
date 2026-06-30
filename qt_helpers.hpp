@@ -16,6 +16,8 @@
 #include <QtGlobal>
 #include <QOperatingSystemVersion>
 
+class QDir;
+
 // ----------------------
 // Windows version macros
 // ----------------------
@@ -137,6 +139,11 @@ QString app_sounds_directory (QString const& subdirectory = QString {});
 
 // Empty lists have no valid index; -1 advances to the first item.
 int next_cyclic_index (int current_index, int item_count);
+
+QString writable_file_path (QDir const& writable_dir, QString const& file_name);
+QString writable_override_or_installed_file_path (QDir const& writable_dir, QDir const& installed_dir,
+                                                  QString const& file_name);
+bool ensure_parent_directory (QString const& file_path);
 
 template <class T>
 class VPtr

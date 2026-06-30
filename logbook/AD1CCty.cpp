@@ -10,7 +10,6 @@
 #include <boost/lambda/lambda.hpp>
 #include <boost/lexical_cast.hpp>
 #include <QString>
-#include <QStandardPaths>
 #include <QDir>
 #include <QFile>
 #include <QTextStream>
@@ -21,6 +20,7 @@
 #include "Radio.hpp"
 #include "pimpl_impl.hpp"
 #include "Logger.hpp"
+#include "qt_helpers.hpp"
 
 #include "moc_AD1CCty.cpp"
 
@@ -333,11 +333,8 @@ char const * AD1CCty::continent (Continent c)
 
 QString AD1CCty::impl::get_cty_path(Configuration const * configuration)
 {
-  QDir dataPath {QStandardPaths::writableLocation (QStandardPaths::DataLocation)};
-  auto path = dataPath.exists (file_name)
-              ? dataPath.absoluteFilePath (file_name) // user override
-              : configuration->data_dir ().absoluteFilePath (file_name); // or original
-  return path;
+  return writable_override_or_installed_file_path (configuration->writeable_data_dir (),
+                                                  configuration->data_dir (), file_name);
 }
 
 void AD1CCty::impl::load_cty(QFile &file)
@@ -423,14 +420,10 @@ AD1CCty::AD1CCty (Configuration const * configuration)
       }
   }
 
-  QDir dataPath {QStandardPaths::writableLocation (QStandardPaths::DataLocation)};
-  m_->path_ = dataPath.exists (file_name)
-    ? dataPath.absoluteFilePath (file_name) // user override
-    : configuration->data_dir ().absoluteFilePath (file_name); // or original
+  m_->path_ = m_->impl::get_cty_path (configuration);
 
-  QString path = dataPath.exists (grid_file_name)
-   ? dataPath.absoluteFilePath (grid_file_name) // user override
-   : configuration->data_dir ().absoluteFilePath (grid_file_name);   // or original in the resources FS
+  QString path = writable_override_or_installed_file_path (configuration->writeable_data_dir (),
+                                                          configuration->data_dir (), grid_file_name);
 
 
   QFile file1 {path};
