@@ -11,7 +11,7 @@ on:
         description: "Hamlib branch to build"
         required: false
         type: string
-        default: "4.7.1"
+        default: "4.7.2"
       arch:
         description: "Target architecture (arm64 or x86_64)"
         required: true
@@ -44,7 +44,7 @@ on:
   # workflow_dispatch when the trigger is on the default branch (develop), so
   # this must be merged before it can be dispatched. Inputs mirror workflow_call
   # with standalone defaults; hamlib_branch matches what ci.yml / release.yml
-  # pass (4.7.1). Neither the runner nor the macOS deployment target is a dispatch
+  # pass (4.7.2). Neither the runner nor the macOS deployment target is a dispatch
   # input -- both are derived from arch (runs-on / the DEPLOYMENT_TARGET env
   # below), so a manual run can never pair the wrong runner or deployment target
   # with the target arch (x86_64 -> macos-15-intel / 10.13; arm64 -> macos-15 /
@@ -60,7 +60,7 @@ on:
         description: "Hamlib branch to build"
         required: false
         type: string
-        default: "4.7.1"
+        default: "4.7.2"
       arch:
         description: "Target architecture"
         required: false

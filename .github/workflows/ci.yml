@@ -125,7 +125,7 @@ jobs:
     uses: ./.github/workflows/build-macos.yml
     with:
       version: ${{ needs.prepare.outputs.version }}
-      hamlib_branch: "4.7.1"
+      hamlib_branch: "4.7.2"
       arch: "arm64"
       runner: "macos-15"
       deployment_target: "11.0"
@@ -141,7 +141,7 @@ jobs:
     uses: ./.github/workflows/build-macos.yml
     with:
       version: ${{ needs.prepare.outputs.version }}
-      hamlib_branch: "4.7.1"
+      hamlib_branch: "4.7.2"
       arch: "x86_64"
       runner: "macos-15-intel"
       deployment_target: "10.13"
@@ -153,7 +153,7 @@ jobs:
     uses: ./.github/workflows/build-linux.yml
     with:
       version: ${{ needs.prepare.outputs.version }}
-      hamlib_branch: "4.7.1"
+      hamlib_branch: "4.7.2"
       arch: "x86_64"
       recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
     secrets: inherit
@@ -163,7 +163,7 @@ jobs:
     uses: ./.github/workflows/build-linux.yml
     with:
       version: ${{ needs.prepare.outputs.version }}
-      hamlib_branch: "4.7.1"
+      hamlib_branch: "4.7.2"
       arch: "aarch64"
       recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
     secrets: inherit
@@ -177,6 +177,6 @@ jobs:
     uses: ./.github/workflows/build-windows.yml
     with:
       version: ${{ needs.prepare.outputs.version }}
-      hamlib_branch: "4.7.1"
+      hamlib_branch: "4.7.2"
       recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
     secrets: inherit
