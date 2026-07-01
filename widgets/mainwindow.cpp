@@ -12362,7 +12362,9 @@ void MainWindow::foxGenWaveform(int i,QString fm)
 void MainWindow::writeFoxTxMsgs() {
   int constexpr maxFoxTxMessages = 5;
   int constexpr foxTxMessageChars = 37;
+  // C index 38 is Fortran cmsg(n)(39:39), the SuperFox free-text flag.
   int constexpr superFoxFreeTextFlagIndex = 38;
+  // foxgen_() appends SuperFox free text by mutating foxcom_.nslots.
   int const nslots = qBound(0, foxcom_.nslots, maxFoxTxMessages);
   for (int i = 0; i < nslots; i++) {
     char const * const row=foxcom_.cmsg[i];
