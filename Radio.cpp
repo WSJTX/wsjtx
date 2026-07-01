@@ -91,8 +91,8 @@ namespace Radio
     value *= std::pow (10., scale);
     if (ok)
       {
-        if (value < static_cast<double>(std::numeric_limits<Frequency>::min ())
-            || value > static_cast<double>(std::numeric_limits<Frequency>::max ()))
+        if (value < static_cast<double>(std::numeric_limits<FrequencyDelta>::min ())
+            || value > static_cast<double>(std::numeric_limits<FrequencyDelta>::max ()))
           {
             value = 0.;
             *ok = false;

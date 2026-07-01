@@ -215,7 +215,7 @@ namespace
       //     14105.5            OLIVIA 1000
       //     14106.5            OLIVIA 1000 (main QRG)
       //
-      // R3: 14070 - 14112 DM NB(<2000Hz) with ±500Hz IBP guard band at 14100
+      // R3: 14070 - 14112 DM NB(<2000Hz) with +/-500 Hz IBP guard band at 14100
       //
       //     14070              PSK31
       //     14074.4            OLIVIA, Contestia, etc.
@@ -254,7 +254,7 @@ namespace
       //     18105   - 18110    Packet
       //     18110              NCDXF beacons
       //
-      // R3: 18095 - 18120 DM NB(<2000Hz) with ±500Hz IBP guard band at 18110
+      // R3: 18095 - 18120 DM NB(<2000Hz) with +/-500 Hz IBP guard band at 18110
       //
       //     18100              PSK31
       //     18103.4            OLIVIA, Contestia, etc. (main QRG)
@@ -1040,15 +1040,21 @@ void FrequencyList_v2_101::impl::unprefer_all_but(Item &item, int const item_row
 bool FrequencyList_v2_101::impl::setData (QModelIndex const& model_index, QVariant const& value, int role)
 {
   bool changed {false};
-  auto const& row = model_index.row ();
+  auto const row = model_index.row ();
+
+  if (!model_index.isValid ()
+      || row < 0
+      || row >= frequency_list_.size ())
+    {
+      return false;
+    }
+
   auto& item = frequency_list_[row];
 
   QVector<int> roles;
   roles << role;
 
-  if (model_index.isValid ()
-      && Qt::CheckStateRole == role
-      && row < frequency_list_.size ()
+  if (Qt::CheckStateRole == role
       && model_index.column () == preferred_column)
     {
       bool b_val = ((Qt::CheckState)value.toInt() == Qt::Checked);
@@ -1064,9 +1070,7 @@ bool FrequencyList_v2_101::impl::setData (QModelIndex const& model_index, QVaria
         }
     }
 
-  if (model_index.isValid ()
-      && Qt::EditRole == role
-      && row < frequency_list_.size ())
+  if (Qt::EditRole == role)
     {
       switch (model_index.column())
         {
@@ -1096,9 +1100,10 @@ bool FrequencyList_v2_101::impl::setData (QModelIndex const& model_index, QVaria
 
           case frequency_column:
             {
-              if (value.canConvert<Frequency>())
+              bool ok;
+              Radio::Frequency frequency{value.toULongLong (&ok)};
+              if (ok && frequency)
                 {
-                  Radio::Frequency frequency{qvariant_cast<Radio::Frequency>(value)};
                   if (frequency != item.frequency_)
                     {
                       item.frequency_ = frequency;
