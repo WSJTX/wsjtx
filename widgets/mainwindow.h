@@ -1157,7 +1157,8 @@ private:
   void pskPost(DecodedText const& decodedtext);
   void displayDialFrequency ();
   void transmitDisplay (bool);
-  void processMessage(DecodedText const& message, Qt::KeyboardModifiers = Qt::NoModifier);
+  void processMessage(DecodedText const& message, Qt::KeyboardModifiers = Qt::NoModifier,
+                      bool from_udp_reply = false);
   void replyToCQ (QTime, qint32 snr, float delta_time, quint32 delta_frequency, QString const& mode, QString const& message_text, bool low_confidence, quint8 modifiers);
   void locationChange(QString const& location);
   void replayDecodes ();
