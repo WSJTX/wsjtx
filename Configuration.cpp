@@ -152,6 +152,7 @@
 #include <QDir>
 #include <QTemporaryFile>
 #include <QFormLayout>
+#include <QItemSelectionModel>
 #include <QString>
 #include <QStringList>
 #include <QStringListModel>
@@ -177,6 +178,7 @@
 #include <QJsonArray>
 #include <QSerialPortInfo>
 #include <QItemSelectionModel>
+#include <QMenu>
 #include <vector>
 #include <utility>
 #include <iostream>
@@ -2060,6 +2062,7 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   frequencies_.sort (FrequencyList_v2_101::frequency_column);
 
   ui_->frequencies_table_view->setModel (&next_frequencies_);
+  ui_->frequencies_table_view->setTabKeyNavigation (false);
   ui_->frequencies_table_view->horizontalHeader ()->setSectionResizeMode (QHeaderView::ResizeToContents);
 
   ui_->frequencies_table_view->horizontalHeader ()->setResizeContentsPrecision (0);
@@ -2100,11 +2103,23 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   ui_->frequencies_table_view->insertAction (nullptr, reset_frequencies_action_);
   connect (reset_frequencies_action_, &QAction::triggered, this, &Configuration::impl::reset_frequencies);
 
+  auto frequencies_actions_menu = new QMenu {ui_->frequencies_actions_tool_button};
+  frequencies_actions_menu->addAction (frequency_insert_action_);
+  frequencies_actions_menu->addAction (frequency_delete_action_);
+  frequencies_actions_menu->addSeparator ();
+  frequencies_actions_menu->addAction (load_frequencies_action_);
+  frequencies_actions_menu->addAction (save_frequencies_action_);
+  frequencies_actions_menu->addAction (merge_frequencies_action_);
+  frequencies_actions_menu->addSeparator ();
+  frequencies_actions_menu->addAction (reset_frequencies_action_);
+  ui_->frequencies_actions_tool_button->setMenu (frequencies_actions_menu);
+
   //
   // setup stations table model & view
   //
   stations_.sort (StationList::band_column);
   ui_->stations_table_view->setModel (&next_stations_);
+  ui_->stations_table_view->setTabKeyNavigation (false);
   ui_->stations_table_view->horizontalHeader ()->setSectionResizeMode (QHeaderView::ResizeToContents);
   ui_->stations_table_view->horizontalHeader ()->setResizeContentsPrecision (0);
   ui_->stations_table_view->verticalHeader ()->setSectionResizeMode (QHeaderView::ResizeToContents);
@@ -2121,6 +2136,11 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
 
   ui_->stations_table_view->addAction (&station_insert_action_);
   connect (&station_insert_action_, &QAction::triggered, this, &Configuration::impl::insert_station);
+
+  auto stations_actions_menu = new QMenu {ui_->stations_actions_tool_button};
+  stations_actions_menu->addAction (&station_insert_action_);
+  stations_actions_menu->addAction (&station_delete_action_);
+  ui_->stations_actions_tool_button->setMenu (stations_actions_menu);
 
   //
   // colours and highlighting setup
@@ -4603,7 +4623,9 @@ void Configuration::impl::insert_frequency ()
 {
   if (QDialog::Accepted == frequency_dialog_->exec ())
     {
-      ui_->frequencies_table_view->setCurrentIndex (next_frequencies_.add (frequency_dialog_->item ()));
+      auto const index = next_frequencies_.add (frequency_dialog_->item ());
+      ui_->frequencies_table_view->setCurrentIndex (index);
+      ui_->frequencies_table_view->selectionModel ()->select (index, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
       ui_->frequencies_table_view->resizeColumnToContents (FrequencyList_v2_101::mode_column);
       size_frequency_table_columns();
     }
@@ -4622,7 +4644,9 @@ void Configuration::impl::insert_station ()
 {
   if (QDialog::Accepted == station_dialog_->exec ())
     {
-      ui_->stations_table_view->setCurrentIndex (next_stations_.add (station_dialog_->station ()));
+      auto const index = next_stations_.add (station_dialog_->station ());
+      ui_->stations_table_view->setCurrentIndex (index);
+      ui_->stations_table_view->selectionModel ()->select (index, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
       ui_->stations_table_view->resizeColumnToContents (StationList::band_column);
       ui_->stations_table_view->resizeColumnToContents (StationList::offset_column);
     }

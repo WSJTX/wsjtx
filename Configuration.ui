@@ -2744,7 +2744,52 @@ comments field.</string>
          <property name="title">
           <string>Working Frequencies</string>
          </property>
-         <layout class="QHBoxLayout" name="horizontalLayout">
+         <layout class="QVBoxLayout" name="horizontalLayout">
+          <item>
+           <layout class="QHBoxLayout" name="working_frequencies_actions_layout">
+            <item>
+             <spacer name="working_frequencies_actions_spacer">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+            <item>
+             <widget class="QToolButton" name="frequencies_actions_tool_button">
+              <property name="toolTip">
+               <string>Insert, delete, load, save, merge, or reset working frequencies.</string>
+              </property>
+              <property name="accessibleName">
+               <string>Working frequencies actions</string>
+              </property>
+              <property name="accessibleDescription">
+               <string>Insert, delete, load, save, merge, or reset working frequencies.</string>
+              </property>
+             <property name="focusPolicy">
+              <enum>Qt::StrongFocus</enum>
+             </property>
+              <property name="styleSheet">
+               <string notr="true">QToolButton:focus {
+  border: 2px solid palette(highlight);
+  padding: 2px;
+}</string>
+              </property>
+              <property name="text">
+               <string>Actions...</string>
+              </property>
+              <property name="popupMode">
+               <enum>QToolButton::InstantPopup</enum>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
           <item>
            <widget class="QTableView" name="frequencies_table_view">
             <property name="sizePolicy">
@@ -2752,6 +2797,16 @@ comments field.</string>
               <horstretch>1</horstretch>
               <verstretch>0</verstretch>
              </sizepolicy>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QTableView:focus {
+  border: 2px solid palette(highlight);
+}
+
+QTableView::item:focus {
+  border: 2px solid palette(highlight);
+  padding: 1px;
+}</string>
             </property>
             <property name="contextMenuPolicy">
              <enum>Qt::ActionsContextMenu</enum>
@@ -2787,9 +2842,64 @@ comments field.</string>
          <property name="title">
           <string>Station Information</string>
          </property>
-         <layout class="QHBoxLayout" name="horizontalLayout_3">
+         <layout class="QVBoxLayout" name="horizontalLayout_3">
+          <item>
+           <layout class="QHBoxLayout" name="station_information_actions_layout">
+            <item>
+             <spacer name="station_information_actions_spacer">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+            <item>
+             <widget class="QToolButton" name="stations_actions_tool_button">
+              <property name="toolTip">
+               <string>Insert or delete station information rows.</string>
+              </property>
+              <property name="accessibleName">
+               <string>Station information actions</string>
+              </property>
+              <property name="accessibleDescription">
+               <string>Insert or delete station information rows.</string>
+              </property>
+             <property name="focusPolicy">
+              <enum>Qt::StrongFocus</enum>
+             </property>
+              <property name="styleSheet">
+               <string notr="true">QToolButton:focus {
+  border: 2px solid palette(highlight);
+  padding: 2px;
+}</string>
+              </property>
+              <property name="text">
+               <string>Actions...</string>
+              </property>
+              <property name="popupMode">
+               <enum>QToolButton::InstantPopup</enum>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
           <item>
            <widget class="QTableView" name="stations_table_view">
+            <property name="styleSheet">
+             <string notr="true">QTableView:focus {
+  border: 2px solid palette(highlight);
+}
+
+QTableView::item:focus {
+  border: 2px solid palette(highlight);
+  padding: 1px;
+}</string>
+            </property>
             <property name="contextMenuPolicy">
              <enum>Qt::ActionsContextMenu</enum>
             </property>
@@ -5128,7 +5238,9 @@ Right click for insert and delete options.</string>
   <tabstop>n1mm_server_port_spin_box</tabstop>
   <tabstop>calibration_slope_ppm_spin_box</tabstop>
   <tabstop>calibration_intercept_spin_box</tabstop>
+  <tabstop>frequencies_actions_tool_button</tabstop>
   <tabstop>frequencies_table_view</tabstop>
+  <tabstop>stations_actions_tool_button</tabstop>
   <tabstop>stations_table_view</tabstop>
   <tabstop>highlighting_list_view</tabstop>
   <tabstop>LotW_CSV_URL_line_edit</tabstop>
