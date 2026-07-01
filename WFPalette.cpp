@@ -26,6 +26,7 @@
 #include <QDebug>
 
 #include "qt_helpers.hpp"
+#include "widgets/MessageBox.hpp"
 
 #include "ui_wf_palette_design_dialog.h"
 
@@ -73,7 +74,7 @@ namespace
             auto line = in.readLine();
             ++line_counter;
 
-            if (++count >= points)
+            if (++count > points)
               {
                 throw_qstring (QObject::tr ("Error reading waterfall palette file \"%1:%2\" too many colors.")
                                .arg (file.fileName ()).arg (line_counter));
@@ -221,8 +222,15 @@ namespace
       auto file_name = QFileDialog::getOpenFileName (this, tr ("Import Palette"), docs, tr ("Palettes (*.pal)"));
       if (!file_name.isEmpty ())
         {
-          colours_ = load_palette (file_name);
-          load_table ();
+          try
+            {
+              colours_ = load_palette (file_name);
+              load_table ();
+            }
+          catch (std::exception const& error)
+            {
+              MessageBox::critical_message (this, tr ("Import Palette Failed"), QString::fromLocal8Bit (error.what ()));
+            }
         }
     }
 
@@ -237,7 +245,8 @@ namespace
               file_name += ".pal";
             }
           QFile file {file_name};
-          if (file.open (QFile::WriteOnly | QFile::Truncate | QFile::Text))
+          bool ok {file.open (QFile::WriteOnly | QFile::Truncate | QFile::Text)};
+          if (ok)
             {
               QTextStream stream {&file};
               Q_FOREACH (auto colour, colours_)
@@ -250,10 +259,15 @@ namespace
 #endif
                  ;
                 }
+              stream.flush ();
+              ok = stream.status () == QTextStream::Ok && file.error () == QFileDevice::NoError;
             }
-          else
+          if (!ok)
             {
-              throw_qstring (QObject::tr ("Error writing waterfall palette file \"%1\": %2.").arg (file.fileName ()).arg (file.errorString ()));
+              MessageBox::critical_message (this, tr ("Export Palette Failed"),
+                                            tr ("Error writing waterfall palette file \"%1\": %2.")
+                                            .arg (file.fileName ()).arg (file.errorString ()));
+              return;
             }
         }
     }

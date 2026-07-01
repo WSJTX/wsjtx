@@ -5,6 +5,12 @@ add_executable (test_qt_helpers
 target_link_libraries (test_qt_helpers Qt5::Test Qt5::Network Qt5::Widgets)
 add_test (NAME test_qt_helpers COMMAND test_qt_helpers)
 
+add_executable (test_wf_palette
+  test_wf_palette.cpp
+)
+target_link_libraries (test_wf_palette wsjt_qt Qt5::Test)
+add_test (NAME test_wf_palette COMMAND test_wf_palette)
+
 add_executable (test_http_user_agent
   test_http_user_agent.cpp
   )
