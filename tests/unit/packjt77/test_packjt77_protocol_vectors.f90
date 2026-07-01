@@ -30,7 +30,7 @@ program test_packjt77_protocol_vectors
        '00001001101111011110001101010000110000101001001110111000001100100101001001000')
   call expect_pack_bits('PJ2/W1AW <W7ABC> RR73', 4, 0, -1, -1, &
        '00100100001100000000000000001011000010101110000110010100011010110100111100100')
-  call expect_pack_bits('<W3CCX> <K1JT/P> 594095 RR99XX', 5, 0, -1, -1, &
+  call expect_pack_bits('<W3CCX> <K1JT/P> 592047 RR99XX', 5, 0, -1, -1, &
        '10100110011011101111111100000101100111111111111111000111001100001111111111101')
   call expect_pack_bits('K1ABC FN42 37', 0, 6, -1, -1, &
        '00001001101111011110001101010101000011001100101100000000000000000000000110000')
@@ -49,7 +49,7 @@ program test_packjt77_protocol_vectors
   call expect_cross_variant_bits('K1ABC RR73; W9XYZ <KH1/KH7Z> -12', -1, -1)
   call expect_cross_variant_bits('<PJ4/K1ABC> W9XYZ RR73', -1, -1)
   call expect_cross_variant_bits('PJ2/W1AW <W7ABC> RR73', -1, -1)
-  call expect_cross_variant_bits('<W3CCX> <K1JT/P> 594095 RR99XX', -1, -1)
+  call expect_cross_variant_bits('<W3CCX> <K1JT/P> 592047 RR99XX', -1, -1)
   call expect_cross_variant_bits('K1ABC FN42 37', -1, -1)
   call expect_cross_variant_bits('<PJ4/K1ABC> FK52AB', 0, 6)
 

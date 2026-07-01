@@ -344,6 +344,23 @@ namespace
   constexpr int fox_queue_tab_index {1};
   constexpr int default_rx_audio_buffer_frames {-1}; // lets Qt decide
   constexpr int default_tx_audio_buffer_frames {-1}; // lets Qt decide
+  constexpr int eu_vhf_type5_report_min {52};
+  constexpr int eu_vhf_type5_report_max {59};
+  constexpr int eu_vhf_type5_serial_min {1};
+  // Type 5 EU VHF messages carry an 11-bit serial, so 59 + 2047 is the
+  // highest exchange that can be faithfully decoded.
+  constexpr int eu_vhf_type5_serial_max {2047};
+  constexpr int default_serial_number_max {4095};
+
+  bool is_eu_vhf_type5_exchange (int exchange)
+  {
+    auto const report = exchange / 10000;
+    auto const serial = exchange % 10000;
+    return report >= eu_vhf_type5_report_min
+      and report <= eu_vhf_type5_report_max
+      and serial >= eu_vhf_type5_serial_min
+      and serial <= eu_vhf_type5_serial_max;
+  }
 
   bool message_is_73 (int type, QStringList const& msg_parts)
   {
@@ -5182,7 +5199,7 @@ void MainWindow::auto_sequence (DecodedText const& message, unsigned start_toler
           if(w2=="R") nrpt=w.at(3).toInt();
         }
       }
-    bool bEU_VHF=(nrpt>=520001 and nrpt<=594000);
+    bool bEU_VHF=is_eu_vhf_type5_exchange(nrpt);
     if(bEU_VHF and message.clean_string ().contains("<"+m_config.my_callsign() + "> ")) {
       m_xRcvd=message.clean_string ().trimmed().right(13);
     }
@@ -6574,7 +6591,7 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
   if(nw>=4) {
     if(message_words.size()<4) return;
     int n=w.at(nw-2).toInt();
-    if(n>=520001 and n<=592047) {
+    if(is_eu_vhf_type5_exchange(n)) {
       hiscall=w.at(1);
       hisgrid=w.at(nw-1);
     }
@@ -6645,7 +6662,7 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
       w34=w.at(nw-1);
     }
     bool bRTTY = (nrpt>=529 and nrpt<=599);
-    bool bEU_VHF_w2=(nrpt>=520001 and nrpt<=594000);
+    bool bEU_VHF_w2=is_eu_vhf_type5_exchange(nrpt);
     if(!m_contestModeHintShown) {
       if(bEU_VHF_w2 and SpecOp::EU_VHF!=m_specOp) {
         auto const& msg = tr("Should you switch to EU VHF Contest mode?\n\n"
@@ -8157,6 +8174,7 @@ void MainWindow::displayWidgets(qint64 n)
   }
   if(m_mode=="MSK144") b=SpecOp::EU_VHF==m_specOp;
   ui->sbEchoAvg->setVisible(m_mode=="Echo");
+  ui->sbSerialNumber->setMaximum(SpecOp::EU_VHF==m_specOp ? eu_vhf_type5_serial_max : default_serial_number_max);
   ui->sbSerialNumber->setVisible(b);
   ui->ClrAvgButton->setVisible(m_mode != "JTTY");
   m_lastCallsign.clear ();     // ensures Tx5 is updated for new modes

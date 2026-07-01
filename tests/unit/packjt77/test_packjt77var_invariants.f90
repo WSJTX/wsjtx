@@ -160,16 +160,16 @@ program test_packjt77var_invariants
        '<W3CCX> <K1JT/P> R 520001 FN20QI', 5, 0, 0, 'W3CCX', 'K1JT/P', '')
   call expect_round_trip_with_hashes_var('<W3CCX> <K1JT/P> R 592047 FN20QI', &
        '<W3CCX> <K1JT/P> R 592047 FN20QI', 5, 0, 0, 'W3CCX', 'K1JT/P', '')
-  ! Type 5 accepts 594095 but decodes with the serial capped at 2047.
-  call expect_round_trip_with_hashes_var('<W3CCX> <K1JT/P> 594095 AA00AA', &
-       '<W3CCX> <K1JT/P> 592047 AA00AA', 5, 0, 0, 'W3CCX', 'K1JT/P', '')
-  call expect_round_trip_with_hashes_var('<W3CCX> <K1JT/P> 594095 RR99XX', &
-       '<W3CCX> <K1JT/P> 592047 RR99XX', 5, 0, 0, 'W3CCX', 'K1JT/P', '')
   call expect_round_trip_var('<W3CCX> <K1JT/P> 590001 FN20QI', &
        '<...> <...> 590001 FN20QI', 5, 0, 0)
   call expect_not_message_type_var('<W3CCX> <K1JT/P> 520000 FN20QI', 5, 0)
-  call expect_not_message_type_var('<W3CCX> <K1JT/P> 594096 FN20QI', 5, 0)
+  call expect_not_message_type_var('<W3CCX> <K1JT/P> 530000 FN20QI', 5, 0)
+  call expect_not_message_type_var('<W3CCX> <K1JT/P> 592048 FN20QI', 5, 0)
+  call expect_not_message_type_var('<W3CCX> <K1JT/P> 582048 FN20QI', 5, 0)
+  call expect_not_message_type_var('<W3CCX> <K1JT/P> 594095 FN20QI', 5, 0)
   call expect_not_message_type_var('<W3CCX> <K1JT/P> 590001 FN20QY', 5, 0)
+  call expect_not_message_type_var('<W3CCX> <K1JT/P> X 590001 FN20QI', 5, 0)
+  call expect_not_message_type_var('<W3CCX> <K1JT/P> RR 590001 FN20QI', 5, 0)
   call expect_not_message_type_var('W3CCX <K1JT/P> 590001 FN20QI', 5, 0)
 
   ! DXpedition hash resolution is direction-sensitive.

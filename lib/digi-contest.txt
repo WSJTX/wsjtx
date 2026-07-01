@@ -95,13 +95,14 @@ CQ WW RTTY   US/Can: RST CQZ state/prov  R 579 8 NJ       r1 r3 z6 s6   16 72
 
 ARRL VHF+    grid4                       R FN42           r1 g15        16 72
 
-EU VHF+      rpt serial grid6            R 590013 IO91NP  r1 r3 n12 g25 41 97
+EU VHF+      rpt serial grid6            R 590013 IO91NP  r1 r3 n11 g25 40 96
 ------------------------------------------------------------------------------
 Meaning and number of bits for each exchange component:
 
 c3  Operating class (A-F)
 g15 grid4
 g25 grid6
+n11 Serial number for EU VHF Type 5
 n12 Serial number
 n5  Number of transmitters (0-31)
 r1  acknowledgment of received exchange

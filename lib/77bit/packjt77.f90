@@ -1488,8 +1488,11 @@ subroutine pack77_5(nwords,w,i3,n3,c77)
   if(w(1)(1:1).ne.'<' .or. w(2)(1:1).ne.'<') return !Both calls must be hashed
   nx=-1
   read(w(nwords-1),*,err=2) nx
-2 if(nx.lt.520001 .or. nx.gt.594095) return   !Exchange between 520001 - 594095
+2 if(nx.lt.520001 .or. nx.gt.592047) return   !Report 52-59, serial 0001-2047
+  iserial=mod(nx,10000)
+  if(iserial.lt.1 .or. iserial.gt.2047) return
   if(.not.is_grid6(w(nwords)(1:6))) return    !Last word must be a valid grid6
+  if(nwords.eq.5 .and. trim(w(3)).ne.'R') return
 
 ! Type 0.2: <PA3XYZ> <G4ABC/P> R 590003 IO91NP     h10 h20 r1 s3 s12 g25
 
@@ -1507,10 +1510,8 @@ subroutine pack77_5(nwords,w,i3,n3,c77)
   n22=ihashcall(c13,22)
 
   ir=0
-  if(w(3)(1:2).eq.'R ') ir=1
+  if(nwords.eq.5) ir=1
   irpt=nx/10000 - 52
-  iserial=mod(nx,10000)
-  if(iserial.gt.2047) iserial=2047
   grid6=w(nwords)(1:6)
   j1=(ichar(grid6(1:1))-ichar('A'))*18*10*10*24*24
   j2=(ichar(grid6(2:2))-ichar('A'))*10*10*24*24
@@ -3194,8 +3195,11 @@ subroutine pack77_5var(nwords,w,i3,n3,c77,ntxhash)
   if(w(1)(1:1).ne.'<' .or. w(2)(1:1).ne.'<') return !Both calls must be hashed
   nx=-1
   read(w(nwords-1),*,err=2) nx
-2 if(nx.lt.520001 .or. nx.gt.594095) return   !Exchange between 520001 - 594095
+2 if(nx.lt.520001 .or. nx.gt.592047) return   !Report 52-59, serial 0001-2047
+  iserial=mod(nx,10000)
+  if(iserial.lt.1 .or. iserial.gt.2047) return
   if(.not.is_grid6(w(nwords)(1:6))) return    !Last word must be a valid grid6
+  if(nwords.eq.5 .and. trim(w(3)).ne.'R') return
 
 ! Type 0.2: <PA3XYZ> <G4ABC/P> R 590003 IO91NP     h10 h20 r1 s3 s12 g25
 
@@ -3214,10 +3218,8 @@ subroutine pack77_5var(nwords,w,i3,n3,c77,ntxhash)
   n22=ihashcall(c13,22)
 
   ir=0
-  if(w(3)(1:2).eq.'R ') ir=1
+  if(nwords.eq.5) ir=1
   irpt=nx/10000 - 52
-  iserial=mod(nx,10000)
-  if(iserial.gt.2047) iserial=2047
   grid6=w(nwords)(1:6)
   j1=(ichar(grid6(1:1))-ichar('A'))*18*10*10*24*24
   j2=(ichar(grid6(2:2))-ichar('A'))*10*10*24*24

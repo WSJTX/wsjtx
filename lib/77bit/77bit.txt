@@ -50,7 +50,7 @@ i3.n3
 
 0.1 DXpedition mode, as developed for KH1/KH7Z.
 
-0.2 Report, QSO serial number from 0001 to 4095, 6-character grid, and Roger
+0.2 Report, QSO serial number from 0001 to 2047, 6-character grid, and Roger
     for EU VHF contests.
 
 0.3 ARRL Field Day exchange (1-16 transmitters).
