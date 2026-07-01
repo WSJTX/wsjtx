@@ -2422,6 +2422,7 @@ void MainWindow::fastSink(qint64 frames)
         if (m_mode=="MSK144" && text.mid(22).contains(m_baseCall + " " + m_hisCall + " 73")) {
             ui->decodedTextBrowser2->displayDecodedText (decodedtext, m_config.my_callsign (), m_mode, m_config.DXCC (),
               m_logBook, m_currentBand, m_config.ppfx (), false, false, 0.0, false, -99, "", m_muted);
+            applyHighlighting(decodedtext, ui->decodedTextBrowser2, false, play_Wanted, play_DXcall);
         }
     }
 
@@ -4902,7 +4903,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
         }
         if (m_mode=="FT8" && ((m_multithreadFT8 && m_ft8DecoderStart<2) or m_freqNominal>45000000)) earlyDecodes.append(line_read); //ft8md
 
-        applyHighlighting(decodedtext, play_Wanted, play_DXcall);
+        applyHighlighting(decodedtext, ui->decodedTextBrowser, true, play_Wanted, play_DXcall);
 
         if((m_mode=="FT4" or m_mode=="FT8") and bDisplayPoints and decodedtext1.isStandardMessage()) {
          QString deCall,deGrid;
@@ -5057,6 +5058,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
           if (m_config.alert_Enabled() && ui->actionInclude_averaging->isVisible() && ui->actionInclude_averaging->isChecked()) ui->decodedTextBrowser->new_period (); // ensure alerts are played
           ui->decodedTextBrowser2->displayDecodedText (decodedtext0, m_config.my_callsign (), m_mode, m_config.DXCC (),
             m_logBook, m_currentBand, m_config.ppfx (), false, false, 0.0, bDisplayPoints, m_points, "", m_muted);
+          applyHighlighting(decodedtext, ui->decodedTextBrowser2, false, play_Wanted, play_DXcall);
         }
         m_QSOText = decodedtext.string ().trimmed ();
       }
@@ -14093,8 +14095,11 @@ void MainWindow::processSprintLogic(const QString& text)
   }
 }
 
-void MainWindow::applyHighlighting(const DecodedText& decodedtext, bool& play_Wanted, bool& play_DXcall)
+void MainWindow::applyHighlighting(const DecodedText& decodedtext, DisplayText * decodePane, bool updateAlertState,
+                                   bool& play_Wanted, bool& play_DXcall)
 {
+  if (!decodePane) return;
+
   QString text = decodedtext.string().replace("<","").replace(">","");
   if(ui->actionHighlightB4->isChecked() or ui->actionHighlightToday->isChecked() or ui->actionHighlightIgnored->isChecked()
      or ui->actionHighlightTerritory1->isChecked() or ui->actionHighlightTerritory2->isChecked()
@@ -14114,28 +14119,28 @@ void MainWindow::applyHighlighting(const DecodedText& decodedtext, bool& play_Wa
           auto const& looked_up = m_logBook.countries ()->lookup (deCall);
           m_logBook.match (deCall, m_mode, deGrid, looked_up, callB4onBand, countryB4onBand, gridB4onBand,
                            continentB4onBand, CQZoneB4onBand, ITUZoneB4onBand, m_currentBand);
-          if (callB4onBand) ui->decodedTextBrowser->highlight_callsign(deCall, QColor(195,195,195), QColor(0,0,0), true);
+          if (callB4onBand) decodePane->highlight_callsign(deCall, QColor(195,195,195), QColor(0,0,0), true);
       }
       if (ui->actionHighlightToday->isChecked() && (
           txLog.contains(QRegularExpression{today + ",[0-9][0-9]:[0-9][0-9]:[0-9][0-9]," + (deCall + ",")})
           or (m_config.twoDays() && txLog.contains(QRegularExpression{yesterday + ",[0-9][0-9]:[0-9][0-9]:[0-9][0-9]," + (deCall + ",")})))) {
-        ui->decodedTextBrowser->highlight_callsign(deCall, QColor(100,100,100), QColor(255,255,0), true);
+        decodePane->highlight_callsign(deCall, QColor(100,100,100), QColor(255,255,0), true);
       }
       if (ui->actionHighlightIgnored->isChecked() && ignoreList.contains(deCall + ",")) {
-        ui->decodedTextBrowser->highlight_callsign(deCall, QColor(85,0,0), QColor(255,255,0), true);
+        decodePane->highlight_callsign(deCall, QColor(85,0,0), QColor(255,255,0), true);
       }
       if (ui->actionHighlightTerritory1->isChecked() or ui->actionHighlightTerritory2->isChecked() or
           ui->actionHighlightTerritory3->isChecked() or ui->actionHighlightTerritory4->isChecked()) {
         auto const& looked_up = m_logBook.countries ()->lookup (deCall);
         auto countryName = Radio::CountryNames::abbreviate(looked_up.entity_name);
         if (ui->actionHighlightTerritory1->isChecked() && countryName.contains(m_config.Territory1())
-            && (m_config.Territory1()!="") && !ui->cbBypass->isChecked()) ui->decodedTextBrowser->highlight_callsign(deCall, QColor(115,43,245), QColor(255,255,255), true);
+            && (m_config.Territory1()!="") && !ui->cbBypass->isChecked()) decodePane->highlight_callsign(deCall, QColor(115,43,245), QColor(255,255,255), true);
         if (ui->actionHighlightTerritory2->isChecked() && countryName.contains(m_config.Territory2())
-            && (m_config.Territory2()!="") && !ui->cbBypass->isChecked()) ui->decodedTextBrowser->highlight_callsign(deCall, QColor(115,43,245), QColor(255,255,255), true);
+            && (m_config.Territory2()!="") && !ui->cbBypass->isChecked()) decodePane->highlight_callsign(deCall, QColor(115,43,245), QColor(255,255,255), true);
         if (ui->actionHighlightTerritory3->isChecked() && countryName.contains(m_config.Territory3())
-            && (m_config.Territory3()!="") && !ui->cbBypass->isChecked()) ui->decodedTextBrowser->highlight_callsign(deCall, QColor(115,43,245), QColor(255,255,255), true);
+            && (m_config.Territory3()!="") && !ui->cbBypass->isChecked()) decodePane->highlight_callsign(deCall, QColor(115,43,245), QColor(255,255,255), true);
         if (ui->actionHighlightTerritory4->isChecked() && countryName.contains(m_config.Territory4())
-            && (m_config.Territory4()!="") && !ui->cbBypass->isChecked()) ui->decodedTextBrowser->highlight_callsign(deCall, QColor(115,43,245), QColor(255,255,255), true);
+            && (m_config.Territory4()!="") && !ui->cbBypass->isChecked()) decodePane->highlight_callsign(deCall, QColor(115,43,245), QColor(255,255,255), true);
       }
   }
 
@@ -14146,21 +14151,21 @@ void MainWindow::applyHighlighting(const DecodedText& decodedtext, bool& play_Wa
     decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
     if (m_config.highlight_orange() && deCall.size()>2 && (m_config.highlight_orange_callsigns().contains(deCall + ",")
         or m_config.highlight_orange_callsigns().contains(deCall.left(3) + ";") or m_config.highlight_orange_callsigns().contains(deCall.left(2) + ";"))) {
-      ui->decodedTextBrowser->highlight_callsign(deCall, QColor(225,75,0), QColor(255,255,255), true);
-      if (m_config.alert_Enabled() && m_config.alert_Wanted() && !m_muted) play_Wanted = true;
+      decodePane->highlight_callsign(deCall, QColor(225,75,0), QColor(255,255,255), true);
+      if (updateAlertState && m_config.alert_Enabled() && m_config.alert_Wanted() && !m_muted) play_Wanted = true;
     }
     if (m_config.highlight_orange() && deGrid.size()>3 && m_config.highlight_orange_callsigns().contains(deGrid)) {
-      ui->decodedTextBrowser->highlight_callsign(deGrid, QColor(225,75,0), QColor(255,255,255), true);
-      if (m_config.alert_Enabled() && m_config.alert_Wanted() && !m_muted) play_Wanted = true;
+      decodePane->highlight_callsign(deGrid, QColor(225,75,0), QColor(255,255,255), true);
+      if (updateAlertState && m_config.alert_Enabled() && m_config.alert_Wanted() && !m_muted) play_Wanted = true;
     }
     if (m_config.highlight_blue() && deCall.size()>2 && (m_config.highlight_blue_callsigns().contains(deCall + ",")
         or m_config.highlight_blue_callsigns().contains(deCall.left(3) + ";") or m_config.highlight_blue_callsigns().contains(deCall.left(2) + ";"))) {
-      ui->decodedTextBrowser->highlight_callsign(deCall, QColor(0,100,255), QColor(255,255,255), true);
-      if (m_config.alert_Enabled() && m_config.alert_Wanted() && !m_muted) play_Wanted = true;
+      decodePane->highlight_callsign(deCall, QColor(0,100,255), QColor(255,255,255), true);
+      if (updateAlertState && m_config.alert_Enabled() && m_config.alert_Wanted() && !m_muted) play_Wanted = true;
     }
     if (m_config.highlight_blue() && deGrid.size()>3 && m_config.highlight_blue_callsigns().contains(deGrid)) {
-      ui->decodedTextBrowser->highlight_callsign(deGrid, QColor(0,100,255), QColor(255,255,255), true);
-      if (m_config.alert_Enabled() && m_config.alert_Wanted() && !m_muted) play_Wanted = true;
+      decodePane->highlight_callsign(deGrid, QColor(0,100,255), QColor(255,255,255), true);
+      if (updateAlertState && m_config.alert_Enabled() && m_config.alert_Wanted() && !m_muted) play_Wanted = true;
     }
     // highlight directional calls
     QStringList tw;
@@ -14171,41 +14176,45 @@ void MainWindow::applyHighlighting(const DecodedText& decodedtext, bool& play_Wa
     }
     if (tw.size() > 2) {
       if (m_config.highlight_orange() && tw[0]=="CQ" && m_config.highlight_orange_callsigns().contains("," + tw[1] + ",")) {
-        ui->decodedTextBrowser->highlight_callsign(tw[1], QColor(225,75,0), QColor(255,255,255), true);
-        if (m_config.alert_Enabled() && m_config.alert_Wanted() && !m_muted && tw[1]!="") play_Wanted = true;
+        decodePane->highlight_callsign(tw[1], QColor(225,75,0), QColor(255,255,255), true);
+        if (updateAlertState && m_config.alert_Enabled() && m_config.alert_Wanted() && !m_muted && tw[1]!="") play_Wanted = true;
       }
       if (m_config.highlight_blue() && tw[0]=="CQ" && m_config.highlight_blue_callsigns().contains("," + tw[1] + ",")) {
-        ui->decodedTextBrowser->highlight_callsign(tw[1], QColor(0,100,255), QColor(255,255,255), true);
-        if (m_config.alert_Enabled() && m_config.alert_Wanted() && !m_muted && tw[1]!="") play_Wanted = true;
+        decodePane->highlight_callsign(tw[1], QColor(0,100,255), QColor(255,255,255), true);
+        if (updateAlertState && m_config.alert_Enabled() && m_config.alert_Wanted() && !m_muted && tw[1]!="") play_Wanted = true;
       }
     }
     // highlight Whitelist entries
     if (ui->actionHighlight_Whitelist_entries->isChecked() && deCall.size()>2 &&
         MessageFilter::containsAny(deCall, m_config.whitelist_keywords())) {
-      ui->decodedTextBrowser->highlight_callsign(deCall, QColor(170,0,127), QColor(255,255,255), true);
-      if (m_config.alert_Enabled() && m_config.alert_Wanted() && !m_muted) play_Wanted = true;
+      decodePane->highlight_callsign(deCall, QColor(170,0,127), QColor(255,255,255), true);
+      if (updateAlertState && m_config.alert_Enabled() && m_config.alert_Wanted() && !m_muted) play_Wanted = true;
     }
   }
 
   // Highlight DX Call/Grid
-  if (!pounce && (m_config.highlight_DXcall() or m_config.alert_Enabled()) && (m_hisCall != "") &&
+  if (!pounce && (m_config.highlight_DXcall() or (updateAlertState && m_config.alert_Enabled())) && (m_hisCall != "") &&
       ((decodedtext.string().contains(QRegularExpression{"(\\w+) " + m_hisCall}))
        || (decodedtext.string().contains(QRegularExpression{"(\\w+) <" + m_hisCall + ">"}))
        || (decodedtext.string().contains(QRegularExpression{"<(\\w+)> " + m_hisCall}))
        || (decodedtext.string().contains(QRegularExpression{"<...> " + m_hisCall})))) {
-    if (m_config.alert_Enabled() && m_config.alert_DXcall() && !m_muted) play_DXcall = true;
+    if (updateAlertState && m_config.alert_Enabled() && m_config.alert_DXcall() && !m_muted) play_DXcall = true;
     if (m_config.highlight_DXcall()) {
-      // repeated highlighting to override JTAlert
-      ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);
-      QTimer::singleShot (500, [=] {ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);});
-      QTimer::singleShot (1000, [=] {ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);});
-      QTimer::singleShot (2500, [=] {ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);});
+      decodePane->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);
+      if (updateAlertState) {
+        auto pane = QPointer<DisplayText> {decodePane};
+        auto call = m_hisCall;
+        // Repeated highlighting keeps the Band Activity marking visible when external clients update it.
+        QTimer::singleShot (500, this, [pane, call] {if (pane) pane->highlight_callsign(call, QColor(255,0,0), QColor(255,255,255), true);});
+        QTimer::singleShot (1000, this, [pane, call] {if (pane) pane->highlight_callsign(call, QColor(255,0,0), QColor(255,255,255), true);});
+        QTimer::singleShot (2500, this, [pane, call] {if (pane) pane->highlight_callsign(call, QColor(255,0,0), QColor(255,255,255), true);});
+      }
     }
   }
-  if (!pounce && (m_config.highlight_DXgrid () or m_config.alert_Enabled()) && (m_hisGrid!="") &&
+  if (!pounce && (m_config.highlight_DXgrid () or (updateAlertState && m_config.alert_Enabled())) && (m_hisGrid!="") &&
       (decodedtext.string().contains(m_hisGrid.left(4))))  {
-    if (m_config.highlight_DXgrid()) ui->decodedTextBrowser->highlight_callsign(m_hisGrid.left(4), QColor(0,0,200), QColor(255,255,255), true);
-    if (m_config.alert_Enabled() && m_config.alert_DXcall() && !m_muted) play_DXcall = true;
+    if (m_config.highlight_DXgrid()) decodePane->highlight_callsign(m_hisGrid.left(4), QColor(0,0,200), QColor(255,255,255), true);
+    if (updateAlertState && m_config.alert_Enabled() && m_config.alert_DXcall() && !m_muted) play_DXcall = true;
   }
 }
 
