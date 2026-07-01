@@ -8,6 +8,7 @@
 #include <QDateTime>
 #include <QCoreApplication>
 #include <QDir>
+#include <QFileInfo>
 
 QString font_as_stylesheet (QFont const& font)
 {
@@ -78,4 +79,21 @@ int next_cyclic_index (int current_index, int item_count)
     }
 
   return (current_index + 1) % item_count;
+}
+
+QString writable_file_path (QDir const& writable_dir, QString const& file_name)
+{
+  return writable_dir.absoluteFilePath (file_name);
+}
+
+QString writable_override_or_installed_file_path (QDir const& writable_dir, QDir const& installed_dir,
+                                                  QString const& file_name)
+{
+  auto writable_path = writable_file_path (writable_dir, file_name);
+  return QFileInfo::exists (writable_path) ? writable_path : installed_dir.absoluteFilePath (file_name);
+}
+
+bool ensure_parent_directory (QString const& file_path)
+{
+  return QDir {}.mkpath (QFileInfo {file_path}.absolutePath ());
 }

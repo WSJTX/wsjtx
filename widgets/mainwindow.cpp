@@ -4535,7 +4535,7 @@ void MainWindow::refreshPileupList()
 
 void MainWindow::read_log()
 {
-  static QFile f {QDir {QStandardPaths::writableLocation (QStandardPaths::DataLocation)}.absoluteFilePath ("wsjtx.log")};
+  QFile f {writable_file_path (m_config.writeable_data_dir (), "wsjtx.log")};
   f.open(QIODevice::ReadOnly);
   if(f.isOpen()) {
     QTextStream in(&f);
@@ -13594,7 +13594,7 @@ void MainWindow::check_button_color()
 
 void MainWindow::read_txLog()
 {
-    static QFile logfile {QDir {QStandardPaths::writableLocation (QStandardPaths::DataLocation)}.absoluteFilePath ("wsjtx.log")};
+    QFile logfile {writable_file_path (m_config.writeable_data_dir (), "wsjtx.log")};
     QTextStream logstream(&logfile);
     if(logfile.open(QIODevice::ReadOnly | QIODevice::Text)) {
         while (!logstream.atEnd()) {
@@ -13610,7 +13610,7 @@ void MainWindow::on_actionErase_Tx_Log_triggered()
   int ret = MessageBox::query_message (this, tr ("Confirm Erase"),
           tr ("Are you sure you want to erase the Tx Log?"));
   if(ret==MessageBox::Yes) {
-    static QFile logFile {QDir {QStandardPaths::writableLocation (QStandardPaths::DataLocation)}.absoluteFilePath ("wsjtx.log")};
+    QFile logFile {writable_file_path (m_config.writeable_data_dir (), "wsjtx.log")};
     logFile.remove();
     txLog = "";
   }
@@ -13619,7 +13619,8 @@ void MainWindow::on_actionErase_Tx_Log_triggered()
 void MainWindow::addCallsignToignoreList()
 {
   if (m_hisCall!="") {
-    static QFile ignoreFile {QDir {QStandardPaths::writableLocation (QStandardPaths::DataLocation)}.absoluteFilePath ("ignore.list")};
+    QFile ignoreFile {writable_file_path (m_config.writeable_data_dir (), "ignore.list")};
+    ensure_parent_directory (ignoreFile.fileName ());
     if(ignoreFile.open(QIODevice::Text | QIODevice::Append)) {
       QString ignoreEntry= (m_hisCall + ",");
       QTextStream out(&ignoreFile);
@@ -13640,7 +13641,7 @@ void MainWindow::addCallsignToignoreList()
 
 void MainWindow::read_ignoreList()
 {
-    static QFile ignoreFile {QDir {QStandardPaths::writableLocation (QStandardPaths::DataLocation)}.absoluteFilePath ("ignore.list")};
+    QFile ignoreFile {writable_file_path (m_config.writeable_data_dir (), "ignore.list")};
     QTextStream ignoreStream(&ignoreFile);
     if(ignoreFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
         while (!ignoreStream.atEnd()) {
@@ -13656,7 +13657,7 @@ void MainWindow::on_actionErase_Ignore_List_triggered()
   int ret = MessageBox::query_message (this, tr ("Confirm Erase"),
           tr ("Are you sure you want to erase the Ignore List?"));
   if(ret==MessageBox::Yes) {
-    static QFile ignoreFile {QDir {QStandardPaths::writableLocation (QStandardPaths::DataLocation)}.absoluteFilePath ("ignore.list")};
+    QFile ignoreFile {writable_file_path (m_config.writeable_data_dir (), "ignore.list")};
     ignoreFile.remove();
     ignoreList = "";
   }
