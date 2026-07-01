@@ -227,7 +227,7 @@ public:
   // Connect and disconnect.
   Q_SLOT virtual void start (unsigned sequence_number) noexcept = 0;
   Q_SLOT virtual void stop () noexcept = 0;
-  Q_SLOT virtual void enqueue_jtty_pcm (QByteArray const&, qint64) noexcept {}
+  Q_SLOT virtual void enqueue_jtty_pcm (QByteArray const&, qint64, qint64) noexcept {}
   Q_SLOT virtual void clear_jtty_pcm (qint64) noexcept {}
 
   //
@@ -248,7 +248,8 @@ public:
   Q_SIGNAL void tci_mod_active (bool);
 
   Q_SIGNAL void jtty_drained (qint64 sessionId, qint64 totalAtDrain);
-  Q_SIGNAL void jtty_enqueue_failed (qint64 sessionId);
+  Q_SIGNAL void jtty_enqueue_accepted (qint64 sessionId, qint64 enqueueId, qint64 sampleCount);
+  Q_SIGNAL void jtty_enqueue_failed (qint64 sessionId, qint64 enqueueId);
 
   // rig state changed
   Q_SIGNAL void update (Transceiver::TransceiverState const&,
