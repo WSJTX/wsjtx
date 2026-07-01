@@ -50,6 +50,23 @@ for exe in "$@"; do
     echo "(none)"
   fi
 
+  win7_blocked_imports=$(
+    objdump -p "$exe" |
+      awk '
+        /DLL Name:/ { dll=tolower($3) }
+        /api-ms-win-core-synch-l1-2-0\.dll/ { print "api-ms-win-core-synch-l1-2-0.dll" }
+        /WaitOnAddress/ { print dll "::WaitOnAddress" }
+        /WakeByAddressSingle/ { print dll "::WakeByAddressSingle" }
+      ' |
+      sort -u
+  )
+
+  if [ -n "$win7_blocked_imports" ]; then
+    echo "::error::$exe imports Windows 8+ synchronization APIs that block Windows 7 compatibility:"
+    echo "$win7_blocked_imports"
+    fail=1
+  fi
+
   high_risk=$(
     echo "$imports" |
       awk '{ lower=tolower($0); if (lower ~ /^(libgomp|libgfortran|libgcc_s|libquadmath|libportaudio|libhamlib|libfftw|qt5.*\.dll)/) print lower }' |
