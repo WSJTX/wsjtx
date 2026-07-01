@@ -139,6 +139,13 @@ namespace {
   QRegularExpression const roger_ack_regexp {"^RR(?:R|73)$"};
   QRegularExpression const ap_suffix_regexp {R"((?:\?\s)?(?:a[0-9]|q[0-9][0-9]?)$)"};
   QRegularExpression const reply_cq_or_qrz_regexp {R"(^(CQ |CQDX |QRZ ))"};
+
+  void clearFoxTxMessages()
+  {
+    foxcom_.nslots = 0;
+    std::memset(foxcom_.i3bit, 0, sizeof foxcom_.i3bit);
+    std::memset(foxcom_.cmsg, 0, sizeof foxcom_.cmsg);
+  }
 }
 
 #define FCL fortran_charlen_t
@@ -5559,6 +5566,7 @@ void MainWindow::guiUpdate()
             if(SpecOp::FOX == m_specOp) {
               //Fox must generate the full Tx waveform, not just an itone[] array.
               QString fm = QString::fromStdString(message).trimmed();
+              clearFoxTxMessages();
               foxGenWaveform(0,fm);
               foxcom_.nslots=1;
               foxcom_.nfreq=ui->TxFreqSpinBox->value();
@@ -11929,6 +11937,7 @@ void MainWindow::foxTxSequencer()
 
   m_tFoxTxSinceOTP++;
   m_tFoxTx++;                               //Increment Fox Tx cycle counter
+  clearFoxTxMessages();
 
   // Is it time for a stand-alone CQ?
   if(m_tFoxTxSinceCQ >= m_foxCQtime and ui->cbMoreCQs->isChecked()) {
@@ -12266,16 +12275,22 @@ void MainWindow::foxGenWaveform(int i,QString fm)
 }
 
 void MainWindow::writeFoxTxMsgs() {
-  // references extern struct foxcom_
-  QString t;
-  for (int i = 0; i < 5; i++) {
+  int constexpr maxFoxTxMessages = 5;
+  int constexpr foxTxMessageChars = 37;
+  // C index 38 is Fortran cmsg(n)(39:39), the SuperFox free-text flag.
+  int constexpr superFoxFreeTextFlagIndex = 38;
+  // foxgen_() appends SuperFox free text by mutating foxcom_.nslots.
+  int const nslots = qBound(0, foxcom_.nslots, maxFoxTxMessages);
+  for (int i = 0; i < nslots; i++) {
     char const * const row=foxcom_.cmsg[i];
-    t = QString::fromLatin1(row, int(qstrnlen(row, sizeof foxcom_.cmsg[i])));
-    if (!t.trimmed().isEmpty()) {
+    bool const freeTextRow = foxcom_.bSendMsg && i == nslots - 1 &&
+        row[superFoxFreeTextFlagIndex] == '1';
+    QString const t = QString::fromLatin1(row, foxTxMessageChars).trimmed();
+    if (!freeTextRow && !t.isEmpty()) {
       write_all("Tx", t);
     }
   }
-  t = QString::fromLatin1(foxcom_.textMsg).left(38);
+  QString const t = QString::fromLatin1(foxcom_.textMsg, sizeof foxcom_.textMsg).trimmed();
   if (foxcom_.bSendMsg) {
     write_all("Tx", "-Free Text- "+t);
   }
