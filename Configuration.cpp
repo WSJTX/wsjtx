@@ -148,6 +148,7 @@
 #include <QSound>
 #include <QDialog>
 #include <QAction>
+#include <QKeyEvent>
 #include <QFileDialog>
 #include <QDir>
 #include <QTemporaryFile>
@@ -542,6 +543,9 @@ public:
 private:
   typedef QList<QAudioDeviceInfo> AudioDevices;
 
+  bool eventFilter (QObject *, QEvent *) override;
+  bool move_advanced_tab_focus (bool reverse);
+
   void read_settings ();
   void write_settings ();
 
@@ -603,8 +607,8 @@ private:
   Q_SLOT void on_test_CAT_push_button_clicked ();
   Q_SLOT void on_test_PTT_push_button_clicked (bool checked);
   Q_SLOT void on_pbTestCloudlog_clicked ();
-  Q_SLOT void on_gbCloudlog_clicked ();
-  Q_SLOT void on_gbEQSL_clicked ();
+  Q_SLOT void on_cbCloudlog_toggled (bool checked);
+  Q_SLOT void on_cbEQSL_toggled (bool checked);
   Q_SLOT void on_force_DTR_combo_box_currentIndexChanged (int);
   Q_SLOT void on_force_RTS_combo_box_currentIndexChanged (int);
   Q_SLOT void on_rig_combo_box_currentIndexChanged (int);
@@ -648,21 +652,6 @@ private:
   Q_SLOT void on_LotW_CSV_fetch_push_button_clicked (bool);
   Q_SLOT void on_hamlib_download_button_clicked (bool);
   Q_SLOT void on_revert_update_button_clicked (bool);
-  Q_SLOT void on_gbSpecialOpActivity_clicked (bool);
-  Q_SLOT void on_rbFox_clicked (bool);
-  Q_SLOT void on_rbHound_clicked (bool);
-  Q_SLOT void on_rbNA_VHF_Contest_clicked (bool);
-  Q_SLOT void on_rbEU_VHF_Contest_clicked (bool);
-  Q_SLOT void on_rbWW_DIGI_clicked (bool);
-  Q_SLOT void on_rbQ65pileup_clicked (bool);
-  Q_SLOT void on_rbField_Day_clicked (bool);
-  Q_SLOT void on_rbRTTY_Roundup_clicked (bool);
-  Q_SLOT void on_rbARRL_Digi_clicked (bool);
-  Q_SLOT void on_cbSuperFox_clicked (bool);
-  Q_SLOT void on_cbContestName_clicked (bool);
-  Q_SLOT void on_cbOTP_clicked (bool);
-  Q_SLOT void on_cbShowOTP_clicked (bool);
-  Q_SLOT void on_cb_NCCC_Sprint_clicked (bool);
   void error_during_hamlib_download (QString const& reason);
   void after_hamlib_downloaded();
   void display_file_information();
@@ -741,6 +730,7 @@ private:
   QList<QMetaObject::Connection> rig_connections_;
 
   QScopedPointer<Ui::configuration_dialog> ui_;
+  QList<QWidget *> advanced_tab_stops_;
 
   QNetworkAccessManager * network_manager_;
   QSettings * settings_;
@@ -1705,7 +1695,7 @@ void Configuration::set_location (QString const& grid_descriptor)
 void Configuration::setSpecial_Q65_Pileup()
 {
   m_->bSpecialOp_=true;
-  m_->ui_->gbSpecialOpActivity->setChecked(m_->bSpecialOp_);
+  m_->ui_->cbSpecialOpActivity->setChecked(m_->bSpecialOp_);
   m_->ui_->rbQ65pileup->setChecked(true);
   m_->SelectedActivity_ = static_cast<int> (SpecialOperatingActivity::Q65_PILEUP);
   m_->write_settings();
@@ -1714,7 +1704,7 @@ void Configuration::setSpecial_Q65_Pileup()
 void Configuration::setSpecial_Hound()
 {
   m_->bSpecialOp_=true;
-  m_->ui_->gbSpecialOpActivity->setChecked(m_->bSpecialOp_);
+  m_->ui_->cbSpecialOpActivity->setChecked(m_->bSpecialOp_);
   m_->ui_->rbHound->setChecked(true);
   m_->SelectedActivity_ = static_cast<int> (SpecialOperatingActivity::HOUND);
   m_->write_settings();
@@ -1723,7 +1713,7 @@ void Configuration::setSpecial_Hound()
 void Configuration::setSpecial_Fox()
 {
   m_->bSpecialOp_=true;
-  m_->ui_->gbSpecialOpActivity->setChecked(m_->bSpecialOp_);
+  m_->ui_->cbSpecialOpActivity->setChecked(m_->bSpecialOp_);
   m_->ui_->rbFox->setChecked(true);
   m_->SelectedActivity_ = static_cast<int> (SpecialOperatingActivity::FOX);
   m_->write_settings();
@@ -1732,14 +1722,14 @@ void Configuration::setSpecial_Fox()
 void Configuration::setSpecial_None()
 {
   m_->bSpecialOp_=false;
-  m_->ui_->gbSpecialOpActivity->setChecked(m_->bSpecialOp_);
+  m_->ui_->cbSpecialOpActivity->setChecked(m_->bSpecialOp_);
   m_->write_settings();
 }
 
 void Configuration::setSpecial_On()
 {
   m_->bSpecialOp_=true;
-  m_->ui_->gbSpecialOpActivity->setChecked(m_->bSpecialOp_);
+  m_->ui_->cbSpecialOpActivity->setChecked(m_->bSpecialOp_);
   m_->write_settings();
 }
 
@@ -1813,6 +1803,49 @@ namespace
   }
 }
 
+bool Configuration::impl::eventFilter (QObject *object, QEvent *event)
+{
+  if (event->type () == QEvent::KeyPress
+      && ui_->configuration_tabs->currentWidget () == ui_->advanced_tab)
+    {
+      auto key_event = static_cast<QKeyEvent *> (event);
+      auto const is_tab = key_event->key () == Qt::Key_Tab || key_event->key () == Qt::Key_Backtab;
+      auto const reverse = key_event->key () == Qt::Key_Backtab
+        || (key_event->key () == Qt::Key_Tab && key_event->modifiers ().testFlag (Qt::ShiftModifier));
+      if (is_tab && advanced_tab_stops_.contains (qobject_cast<QWidget *> (object)))
+        {
+          return move_advanced_tab_focus (reverse);
+        }
+    }
+
+  return QDialog::eventFilter (object, event);
+}
+
+bool Configuration::impl::move_advanced_tab_focus (bool reverse)
+{
+  auto focus_widget = QApplication::focusWidget ();
+  auto const current_index = advanced_tab_stops_.indexOf (focus_widget);
+  if (current_index < 0 || advanced_tab_stops_.isEmpty ())
+    {
+      return false;
+    }
+
+  auto const direction = reverse ? -1 : 1;
+  for (int offset = 1; offset <= advanced_tab_stops_.size (); ++offset)
+    {
+      auto const next_index = (current_index + direction * offset + advanced_tab_stops_.size ())
+        % advanced_tab_stops_.size ();
+      auto next = advanced_tab_stops_.at (next_index);
+      if (next->isEnabledTo (this) && next->isVisibleTo (this))
+        {
+          next->setFocus (reverse ? Qt::BacktabFocusReason : Qt::TabFocusReason);
+          return true;
+        }
+    }
+
+  return false;
+}
+
 Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network_manager
                            , QDir const& temp_directory, QSettings * settings, LogBook * logbook
                            , QWidget * parent)
@@ -1873,6 +1906,72 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   , default_audio_output_device_selected_ {false}
 {
   ui_->setupUi (this);
+
+  advanced_tab_stops_ = {
+    ui_->sbNtrials,
+    ui_->sbAggressive,
+    ui_->cbTwoPass,
+    ui_->sbDegrade,
+    ui_->sbBandwidth,
+    ui_->sbTxDelay,
+    ui_->cbx2ToneSpacing,
+    ui_->cbx4ToneSpacing,
+    ui_->rbLowSidelobes,
+    ui_->rbMaxSensitivity,
+    ui_->cbHighDPI,
+    ui_->cbLargerTabWidget,
+    ui_->cbSpecialOpActivity,
+    ui_->rbFox,
+    ui_->cbSuperFox,
+    ui_->rbHound,
+    ui_->cbOTP,
+    ui_->OTPSeed,
+    ui_->sbOTPinterval,
+    ui_->cbShowOTP,
+    ui_->OTPUrl,
+    ui_->rbNA_VHF_Contest,
+    ui_->cb_NCCC_Sprint,
+    ui_->rbField_Day,
+    ui_->Field_Day_Exchange,
+    ui_->rbEU_VHF_Contest,
+    ui_->rbRTTY_Roundup,
+    ui_->RTTY_Exchange,
+    ui_->rbWW_DIGI,
+    ui_->rbARRL_Digi,
+    ui_->rbQ65pileup,
+    ui_->cbContestName,
+    ui_->Contest_Name,
+    ui_->cbCloudlog,
+    ui_->leCloudlogApiUrl,
+    ui_->leCloudlogApiKey,
+    ui_->sbCloudlogStationID,
+    ui_->pbTestCloudlog,
+    ui_->cbEQSL,
+    ui_->eqsluser_edit,
+    ui_->eqslpasswd_edit,
+    ui_->eqslnick_edit,
+  };
+  for (auto control : advanced_tab_stops_)
+    {
+      control->setFocusPolicy (Qt::StrongFocus);
+      control->installEventFilter (this);
+    }
+
+  auto update_visibility_when_toggled = [this] (QAbstractButton *button) {
+    connect (button, &QAbstractButton::toggled, this, &Configuration::impl::check_visibility);
+  };
+  update_visibility_when_toggled (ui_->cbSpecialOpActivity);
+  update_visibility_when_toggled (ui_->rbFox);
+  update_visibility_when_toggled (ui_->rbHound);
+  update_visibility_when_toggled (ui_->rbNA_VHF_Contest);
+  update_visibility_when_toggled (ui_->rbEU_VHF_Contest);
+  update_visibility_when_toggled (ui_->rbField_Day);
+  update_visibility_when_toggled (ui_->rbRTTY_Roundup);
+  update_visibility_when_toggled (ui_->rbWW_DIGI);
+  update_visibility_when_toggled (ui_->rbARRL_Digi);
+  update_visibility_when_toggled (ui_->rbQ65pileup);
+  update_visibility_when_toggled (ui_->cbOTP);
+  update_visibility_when_toggled (ui_->cbContestName);
 
   {
     // Make sure the default save directory exists
@@ -2287,12 +2386,14 @@ void Configuration::impl::initialize_models ()
   ui_->cb_filters_for_Wait_and_Pounce_only->setChecked(filters_for_Wait_and_Pounce_only_);
   ui_->cb_filters_for_word2->setChecked(filters_for_word2_);
   ui_->cb_twoDays->setChecked(twoDays_);
-  ui_->gbSpecialOpActivity->setChecked(bSpecialOp_);
-  ui_->gbCloudlog->setChecked(bCloudLog_);
-  ui_->gbEQSL->setChecked(send_to_eqsl_);
+  ui_->cbSpecialOpActivity->setChecked(bSpecialOp_);
+  ui_->cbCloudlog->setChecked(bCloudLog_);
+  ui_->cbEQSL->setChecked(send_to_eqsl_);
   ui_->leCloudlogApiUrl->setText(cloudLogApiUrl_);
   ui_->leCloudlogApiKey->setText(cloudLogApiKey_);
   ui_->sbCloudlogStationID->setValue (cloudLogStationID_);
+  on_cbCloudlog_toggled (ui_->cbCloudlog->isChecked ());
+  on_cbEQSL_toggled (ui_->cbEQSL->isChecked ());
   ui_->special_op_activity_button_group->button (SelectedActivity_)->setChecked (true);
   ui_->cbx2ToneSpacing->setChecked(x2ToneSpacing_);
   ui_->cbx4ToneSpacing->setChecked(x4ToneSpacing_);
@@ -3595,9 +3696,9 @@ void Configuration::impl::accept ()
   filters_for_Wait_and_Pounce_only_ = ui_->cb_filters_for_Wait_and_Pounce_only->isChecked ();
   filters_for_word2_ = ui_->cb_filters_for_word2->isChecked ();
   twoDays_ = ui_->cb_twoDays->isChecked ();
-  bSpecialOp_ = ui_->gbSpecialOpActivity->isChecked ();
-  bCloudLog_ = ui_->gbCloudlog->isChecked ();
-  send_to_eqsl_ = ui_->gbEQSL->isChecked ();
+  bSpecialOp_ = ui_->cbSpecialOpActivity->isChecked ();
+  bCloudLog_ = ui_->cbCloudlog->isChecked ();
+  send_to_eqsl_ = ui_->cbEQSL->isChecked ();
   cloudLogApiUrl_ = ui_->leCloudlogApiUrl->text ();
   cloudLogApiKey_ = ui_->leCloudlogApiKey->text ();
   cloudLogStationID_ = ui_->sbCloudlogStationID->value ();
@@ -4152,14 +4253,26 @@ void Configuration::impl::on_pbTestCloudlog_clicked ()
   cloudlog_.testApi(ui_->leCloudlogApiUrl->text(), ui_->leCloudlogApiKey->text());
 }
 
-void Configuration::impl::on_gbCloudlog_clicked ()
+void Configuration::impl::on_cbCloudlog_toggled (bool checked)
 {
+  ui_->api_url_label->setEnabled (checked);
+  ui_->api_key_label->setEnabled (checked);
+  ui_->station_id_label->setEnabled (checked);
+  ui_->leCloudlogApiUrl->setEnabled (checked);
+  ui_->leCloudlogApiKey->setEnabled (checked);
+  ui_->sbCloudlogStationID->setEnabled (checked);
+  ui_->pbTestCloudlog->setEnabled (checked);
   ui_->pbTestCloudlog->setStyleSheet ("QPushButton {background-color: none;}");
 }
 
-void Configuration::impl::on_gbEQSL_clicked ()
+void Configuration::impl::on_cbEQSL_toggled (bool checked)
 {
-  send_to_eqsl_ = ui_->gbEQSL->isChecked();
+  ui_->eqsluser_label->setEnabled (checked);
+  ui_->eqslpasswd_label->setEnabled (checked);
+  ui_->eqslnick_label->setEnabled (checked);
+  ui_->eqsluser_edit->setEnabled (checked);
+  ui_->eqslpasswd_edit->setEnabled (checked);
+  ui_->eqslnick_edit->setEnabled (checked);
 }
 
 void Configuration::impl::on_test_PTT_push_button_clicked (bool checked)
@@ -4710,91 +4823,50 @@ void Configuration::impl::on_cbx4ToneSpacing_clicked(bool b)
   if(b) ui_->cbx2ToneSpacing->setChecked(false);
 }
 
-void Configuration::impl::on_gbSpecialOpActivity_clicked (bool)
-{
-  check_visibility ();
-}
-
-void Configuration::impl::on_rbFox_clicked (bool)
-{
-  check_visibility ();
-}
-
-void Configuration::impl::on_rbHound_clicked (bool)
-{
-  check_visibility ();
-}
-
-void Configuration::impl::on_rbNA_VHF_Contest_clicked (bool)
-{
-  check_visibility ();
-}
-
-void Configuration::impl::on_rbEU_VHF_Contest_clicked (bool)
-{
-  check_visibility ();
-}
-
-void Configuration::impl::on_rbWW_DIGI_clicked (bool)
-{
-  check_visibility ();
-}
-
-void Configuration::impl::on_rbQ65pileup_clicked (bool)
-{
-  check_visibility ();
-}
-
-void Configuration::impl::on_rbField_Day_clicked (bool)
-{
-  check_visibility ();
-}
-
-void Configuration::impl::on_rbRTTY_Roundup_clicked (bool)
-{
-  check_visibility ();
-}
-
-void Configuration::impl::on_rbARRL_Digi_clicked (bool)
-{
-  check_visibility ();
-}
-
-void Configuration::impl::on_cbSuperFox_clicked (bool)
-{
-  check_visibility ();
-}
-
-void Configuration::impl::on_cbContestName_clicked (bool)
-{
-  check_visibility ();
-}
-
-void Configuration::impl::on_cb_NCCC_Sprint_clicked (bool)
-{
-  check_visibility ();
-}
-
-void Configuration::impl::on_cbOTP_clicked(bool)
-{
-  check_visibility();
-}
-
-void Configuration::impl::on_cbShowOTP_clicked(bool)
-{
-  check_visibility();
-}
-
 void Configuration::impl::check_visibility ()
 {
-  if (ui_->rbField_Day->isChecked() and ui_->gbSpecialOpActivity->isChecked()) {
+  auto const special_op_enabled = ui_->cbSpecialOpActivity->isChecked ();
+  QWidget *activity_controls[] {
+    ui_->rbFox,
+    ui_->cbSuperFox,
+    ui_->rbHound,
+    ui_->cbOTP,
+    ui_->lblOTPSeed,
+    ui_->OTPSeed,
+    ui_->lblOTPEvery,
+    ui_->sbOTPinterval,
+    ui_->cbShowOTP,
+    ui_->lblOTPUrl,
+    ui_->OTPUrl,
+    ui_->rbNA_VHF_Contest,
+    ui_->cb_NCCC_Sprint,
+    ui_->rbField_Day,
+    ui_->labFD,
+    ui_->Field_Day_Exchange,
+    ui_->rbEU_VHF_Contest,
+    ui_->rbRTTY_Roundup,
+    ui_->labRTTY,
+    ui_->RTTY_Exchange,
+    ui_->rbWW_DIGI,
+    ui_->rbARRL_Digi,
+    ui_->rbQ65pileup,
+    ui_->cbContestName,
+    ui_->labCN,
+    ui_->Contest_Name,
+  };
+  for (auto control : activity_controls)
+    {
+      control->setEnabled (special_op_enabled);
+    }
+
+  if (ui_->rbField_Day->isChecked() and special_op_enabled) {
     ui_->labFD->setEnabled (true);
     ui_->Field_Day_Exchange->setEnabled (true);
   } else {
     ui_->labFD->setEnabled (false);
     ui_->Field_Day_Exchange->setEnabled (false);
   }
-  if (ui_->rbRTTY_Roundup->isChecked() and ui_->gbSpecialOpActivity->isChecked()) {
+  if (ui_->rbRTTY_Roundup->isChecked() and special_op_enabled) {
     ui_->labRTTY->setEnabled (true);
     ui_->RTTY_Exchange->setEnabled (true);
   } else {
@@ -4802,14 +4874,14 @@ void Configuration::impl::check_visibility ()
     ui_->RTTY_Exchange->setEnabled (false);
   }
   if (ui_->cbContestName->isChecked() and !ui_->rbFox->isChecked() and !ui_->rbHound->isChecked()
-      and  !ui_->rbQ65pileup->isChecked() and ui_->gbSpecialOpActivity->isChecked()) {
+      and  !ui_->rbQ65pileup->isChecked() and special_op_enabled) {
     ui_->labCN->setEnabled (true);
     ui_->Contest_Name->setEnabled (true);
   } else {
     ui_->labCN->setEnabled (false);
     ui_->Contest_Name->setEnabled (false);
   }
-  if ((ui_->rbFox->isChecked() or ui_->rbHound->isChecked()) and ui_->gbSpecialOpActivity->isChecked()) {
+  if ((ui_->rbFox->isChecked() or ui_->rbHound->isChecked()) and special_op_enabled) {
     ui_->cbSuperFox->setEnabled (true);
     ui_->cbOTP->setEnabled (true);
   } else {
@@ -4818,17 +4890,17 @@ void Configuration::impl::check_visibility ()
     ui_->cbShowOTP->setEnabled(false);
   }
   if (!ui_->rbFox->isChecked() and !ui_->rbHound->isChecked() and !ui_->rbQ65pileup->isChecked()
-      and ui_->gbSpecialOpActivity->isChecked()) {
+      and special_op_enabled) {
     ui_->cbContestName->setEnabled (true);
   } else {
     ui_->cbContestName->setEnabled (false);
   }
-  if (ui_->rbNA_VHF_Contest->isChecked() and ui_->gbSpecialOpActivity->isChecked()) {
+  if (ui_->rbNA_VHF_Contest->isChecked() and special_op_enabled) {
     ui_->cb_NCCC_Sprint->setEnabled (true);
   } else {
     ui_->cb_NCCC_Sprint->setEnabled (false);
   }
-  if (!ui_->cbOTP->isChecked() or !ui_->gbSpecialOpActivity->isChecked()) {
+  if (!ui_->cbOTP->isChecked() or !special_op_enabled) {
     ui_->OTPSeed->setEnabled(false);
     ui_->OTPUrl->setEnabled(false);
     ui_->sbOTPinterval->setEnabled(false);
