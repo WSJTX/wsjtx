@@ -542,7 +542,8 @@ private:
   bool processWaitAndReply(const DecodedText& dt, const QString& text);
   void processWaitAndCall(const DecodedText& dt, const QString& text, bool& block_right_display);
   bool applyFiltering(const DecodedText& dt, const QString& text, bool& filtered);
-  void applyHighlighting(const DecodedText& dt, bool& play_Wanted, bool& play_DXcall);
+  void applyHighlighting(const DecodedText& dt, DisplayText * decodePane, bool updateAlertState,
+                         bool& play_Wanted, bool& play_DXcall);
   void cycleRespondMode();
   static DecodeAlertSound selectDecodeAlertSound(bool alertsEnabled, bool dxCallAlertEnabled, bool wantedAlertEnabled,
                                                  bool play_Wanted, bool play_DXcall, bool hasDXCall);
