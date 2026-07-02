@@ -36,7 +36,7 @@ void tmoonsub_(double *day, double *glat, double *glong, double *moonalt,
    double *mrv, double *l, double *b, double *paxis);
 
 static const char
-*usage = "  Usage: tmoon date[yyyymm] timz[+/-h.hh] long[+/-dddmm] lat[+/-ddmm]\n"
+usage[] = "  Usage: tmoon date[yyyymm] timz[+/-h.hh] long[+/-dddmm] lat[+/-ddmm]\n"
             "example: tmoon 200009 0 -00155 5230\n";
 
 /*
@@ -358,8 +358,9 @@ void libration(double day, double lambda, double beta, double alpha, double *l, 
   Returns: position angle of bright limb wrt NCP, percentage illumination
   of Sun
 */
-void illumination(double day, double lra, double ldec, double dr, double sra, double sdec, double *pabl, double *ill) {
+void illumination(double day , double lra, double ldec, double dr, double sra, double sdec, double *pabl, double *ill) {
   double x, y, phi, i;
+  (void)day;
   y = cos(sdec) * sin(sra - lra);
   x = sin(sdec) * cos(ldec) - cos(sdec) * sin(ldec) * cos (sra - lra);
   *pabl = atan22(y, x);
@@ -446,8 +447,9 @@ replaces ecliptic coordinates with equatorial coordinates
 note: call by reference destroys original values
 R is unchanged.
 */
-void equatorial(double d, double *lon, double *lat, double *r) {
+void equatorial(double d, double *lon, double *lat, double * r) {
   double  eps, ceps, seps, l, b;
+  (void)r;
 
   l = *lon;
   b = * lat;
@@ -462,8 +464,10 @@ void equatorial(double d, double *lon, double *lat, double *r) {
 replaces equatorial coordinates with ecliptic ones. Inverse
 of above, but used to find topocentric ecliptic coords.
 */
-void ecliptic(double d, double *lon, double *lat, double *r) {
+void ecliptic(double d, double *lon, double *lat, double * r) {
   double  eps, ceps, seps, alp, dec;
+  (void)r;
+
   alp = *lon;
   dec = *lat;
   eps = epsilon(d);
