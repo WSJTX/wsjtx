@@ -61,11 +61,9 @@ include::install-linux.adoc[]
 === MacOS
 include::install-mac.adoc[]
 
-////
 [[SRC_CODE]]
 === Source Code
 include::install-from-source.adoc[]
-////
 
 [[MENUS]]
 == Menus
