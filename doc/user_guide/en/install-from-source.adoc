@@ -84,8 +84,8 @@ pacman -S --needed \
   mingw-w64-x86_64-ruby
 ----
 
-`nsis` and `osslsigncode` are only needed to build an installer; `ruby`
-is only needed to render the in-application User Guide. The latter uses
+`nsis` is only needed to build an installer, and `osslsigncode` only to
+sign one; `ruby` is only needed to render the in-application User Guide. The latter uses
 Asciidoctor, a Ruby gem with no native MSYS2 package — install it once
 (or skip it if you do not need the bundled guide):
 
@@ -130,12 +130,12 @@ installed, skip this step.
 
 ===== Build Hamlib
 
-_WSJT-X_ pins a specific Hamlib release — currently *4.7.1*. Build it
+_WSJT-X_ pins a specific Hamlib release — currently *4.7.2*. Build it
 once into a local prefix:
 
 [source,bash]
 ----
-git clone --depth 1 --branch 4.7.1 \
+git clone --depth 1 --branch 4.7.2 \
   https://github.com/Hamlib/Hamlib.git hamlib-src
 cd hamlib-src
 ./bootstrap
@@ -164,6 +164,7 @@ OMNIRIG=$(cygpath "C:/Program Files (x86)/Afreet/OmniRig/OmniRig.exe")
 
 cmake -G "MSYS Makefiles" -S . -B build \
   -DCMAKE_PREFIX_PATH="$HOME/hamlib-prefix" \
+  -DCMAKE_INSTALL_PREFIX=C:/WSJT \
   -DOMNIRIG_TYPE_LIB="$OMNIRIG" \
   -DCMAKE_Fortran_FLAGS="-fallow-argument-mismatch -std=legacy" \
   -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
@@ -182,6 +183,7 @@ command-line utilities.
 | Option | Purpose
 
 | `CMAKE_PREFIX_PATH` | Locate the Hamlib you built above
+| `CMAKE_INSTALL_PREFIX` | Where the install step below places the finished program
 | `OMNIRIG_TYPE_LIB` | The `OmniRig.exe` whose type library `dumpcpp` reads
 | `CMAKE_Fortran_FLAGS` | Modern gfortran needs these to accept legacy code
 | `CMAKE_POLICY_VERSION_MINIMUM` | Compatibility with the declared CMake range
@@ -195,9 +197,43 @@ NOTE: For Windows *installer* builds the _OpenSSL_ runtime DLLs bundled
       provides. With the MSYS2 toolchain above this is handled for you —
       there is no separate _OpenSSL_ download or install step.
 
-===== Running from the build directory
+===== Install and run
 
-To run the freshly built `wsjtx.exe` in place, point it at two things the
+The build tree is not a runnable layout: `wsjtx.exe` looks for its
+shipped data files (the JPL ephemeris, `ALLCALL7.TXT`, `cty.dat`, and
+others) relative to the *installed* executable, and the Qt and Hamlib
+DLLs it needs live elsewhere. Installing puts everything where the
+program expects it:
+
+[source,bash]
+----
+cmake --build build --target install
+----
+
+This populates `C:\WSJT` (the `CMAKE_INSTALL_PREFIX` chosen at configure
+time): the executables land in `bin\` together with every runtime DLL
+they need — Qt and its platform plugins, Hamlib, the compiler and
+_OpenSSL_ runtimes — and the data files land in `share\wsjtx`. The
+installed `C:\WSJT\bin\wsjtx.exe` runs directly, from a double-click or
+any shell, with no environment setup.
+
+===== Build the Windows installer
+
+To package that same layout as a standard Windows installer:
+
+[source,bash]
+----
+cmake --build build --target package
+----
+
+The installer is written to `build/` as `wsjtx-<version>-win64.exe`
+(NSIS came with the toolchain step above). It is unsigned, so Windows
+SmartScreen may warn the first time you run it.
+
+===== Quick tests from the build directory
+
+For fast edit-compile-test iteration you can also run the freshly built
+`wsjtx.exe` in place, without installing. Point it at two things the
 build does not copy next to the executable: the Hamlib DLL you built into
 `$HOME/hamlib-prefix`, and Qt's platform plugins. From the *MINGW64* shell:
 
@@ -223,6 +259,14 @@ NOTE: Without these, `wsjtx.exe` fails to start — a missing Hamlib DLL on
       the `PATH` produces a "DLL not found" error, and a Qt that cannot
       locate its platform plugin (`qwindows.dll`) aborts with a
       "could not find or load the Qt platform plugin" message.
+
+CAUTION: A build-tree run is for quick tests only. The shipped data
+         files listed above are found relative to the installed
+         executable, so a build-tree `wsjtx.exe` runs without them:
+         opening the Astronomical Data window will crash the program,
+         and the first FT8 decode may report "`ALLCALL7.TXT is too
+         short or broken?`". Use the installed copy for anything beyond
+         a smoke test.
 
 ===== Keeping current
 
