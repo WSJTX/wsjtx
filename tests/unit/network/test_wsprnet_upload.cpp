@@ -268,44 +268,41 @@ private slots:
     postFst4w (wspr);
     wspr.work ();
 
-    QTRY_COMPARE (manager.requests.size (), 1);
+    QTRY_VERIFY (sawStatus (statuses, "done"));
+    QCOMPARE (manager.requests.size (), 2);   // one leg per destination site
     QVERIFY (manager.requests.front ().body.contains ("function=wspr"));
     QVERIFY (manager.requests.front ().body.contains ("tcall=K1ABC"));
-    QTRY_VERIFY (sawStatus (statuses, "done"));
   }
 
   void fst4wRetrySurvivesLaterDecodeCycles ()
   {
     FakeNetworkAccessManager manager;
-    manager.auto_finish = false;
+    // The first leg sent (K1ABC → primary site) times out once; every other
+    // leg succeeds (unspecified responses default to "1 spot(s) added").
     manager.enqueueResponse ({QNetworkReply::TimeoutError, "timeout", {}});
-    manager.enqueueResponse ({QNetworkReply::NoError, {}, "1 spot(s) added"});
-    manager.enqueueResponse ({QNetworkReply::NoError, {}, "1 spot(s) added"});
     WSPRNet wspr {&manager, retryPolicy (3), false};
     QSignalSpy statuses {&wspr, &WSPRNet::uploadStatus};
 
     postFst4w (wspr, fst4wDecode ());
     postFst4w (wspr);
     wspr.work ();
-    QCOMPARE (manager.requests.size (), 1);
     QVERIFY (manager.requests.front ().body.contains ("tcall=K1ABC"));
 
+    // A later decode cycle arrives while K1ABC's timed-out leg is still queued
+    // for retry; it must survive and eventually be sent.
     postFst4w (wspr, "1235 -11 0.2 1505 ` K2DEF FN31 33");
     postFst4w (wspr);
-    manager.finishNext ();
-    wspr.work ();
 
-    QCOMPARE (manager.requests.size (), 2);
-    QVERIFY (manager.requests.at (1).body.contains ("tcall=K2DEF"));
+    QTRY_VERIFY (sawStatus (statuses, "done"));
 
-    manager.finishNext ();
-    wspr.work ();
-    QCOMPARE (manager.requests.size (), 3);
-    QVERIFY (manager.requests.at (2).body.contains ("tcall=K1ABC"));
-
-    manager.finishNext ();
-    QCoreApplication::processEvents ();
-    QVERIFY (sawStatus (statuses, "done"));
+    int k1abc = 0, k2def = 0;
+    for (auto const& request : manager.requests)
+      {
+        if (request.body.contains ("tcall=K1ABC")) ++k1abc;
+        if (request.body.contains ("tcall=K2DEF")) ++k2def;
+      }
+    QVERIFY (k1abc >= 3);   // both legs plus the retry of the timed-out leg
+    QCOMPARE (k2def, 2);    // both legs of the later cycle
   }
 
   void emptyFst4wFlushUploadsStatusAndCompletes ()
@@ -317,9 +314,9 @@ private slots:
     postFst4w (wspr);
     wspr.work ();
 
-    QTRY_COMPARE (manager.requests.size (), 1);
-    QVERIFY (manager.requests.front ().body.contains ("function=wsprstat"));
     QTRY_VERIFY (sawStatus (statuses, "done"));
+    QCOMPARE (manager.requests.size (), 2);   // status is reported to each site
+    QVERIFY (manager.requests.front ().body.contains ("function=wsprstat"));
   }
 
   void directUploadSuccessDoesNotDeleteStaleFilePath ()
@@ -361,7 +358,7 @@ private slots:
     wspr.work ();
 
     QTRY_VERIFY (sawStatus (statuses, "done"));
-    QCOMPARE (manager.requests.size (), 2);
+    QCOMPARE (manager.requests.size (), 4);   // status (2 legs) + one spot (2 legs)
     QVERIFY (!QFile::exists (path));
   }
 
@@ -399,7 +396,9 @@ private slots:
     QVERIFY (manager.requests.front ().body.contains ("tcall=K1ABC"));
 
     writeSpotFile (dir, secondSpotFileLine ());
-    manager.finishNext ();
+    manager.finishNext ();                 // primary leg completes...
+    QCoreApplication::processEvents ();     // ...which schedules the alternate leg
+    manager.finishNext ();                 // alternate leg completes
     QCoreApplication::processEvents ();
 
     QVERIFY (sawStatus (statuses, "done"));
@@ -428,8 +427,8 @@ private slots:
     wspr.work ();
 
     QTRY_VERIFY (sawStatus (statuses, "done"));
-    QCOMPARE (manager.requests.size (), 2);
-    QVERIFY (QFile::exists (path));
+    QCOMPARE (manager.requests.size (), 4);   // two spots, one leg per site each
+    QVERIFY (QFile::exists (path));           // a rejected leg keeps the file
   }
 
   void fileBackedTransportFailureRetriesThenRetainsSpotFile ()
@@ -439,6 +438,10 @@ private slots:
     auto const path = writeSpotFile (dir);
 
     FakeNetworkAccessManager manager;
+    // Both legs time out on every attempt; each exhausts its own retry budget
+    // (max_attempts = 2 → two requests per site).
+    manager.enqueueResponse ({QNetworkReply::TimeoutError, "timeout", {}});
+    manager.enqueueResponse ({QNetworkReply::TimeoutError, "timeout", {}});
     manager.enqueueResponse ({QNetworkReply::TimeoutError, "timeout", {}});
     manager.enqueueResponse ({QNetworkReply::TimeoutError, "timeout", {}});
     WSPRNet wspr {&manager, retryPolicy (2), false};
@@ -448,16 +451,19 @@ private slots:
     wspr.work ();
 
     QTRY_VERIFY (sawStatus (statuses, "done"));
-    QCOMPARE (manager.requests.size (), 2);
+    QCOMPARE (manager.requests.size (), 4);   // 2 sites x 2 attempts
     QVERIFY (QFile::exists (path));
   }
 
   void directUploadStopsAfterConfiguredAttempts ()
   {
     FakeNetworkAccessManager manager;
-    manager.enqueueResponse ({QNetworkReply::TimeoutError, "timeout", {}});
-    manager.enqueueResponse ({QNetworkReply::TimeoutError, "timeout", {}});
-    manager.enqueueResponse ({QNetworkReply::TimeoutError, "timeout", {}});
+    // Every attempt to either site times out; each leg stops after its own
+    // configured number of attempts (max_attempts = 3 → three per site).
+    for (int i = 0; i != 6; ++i)
+      {
+        manager.enqueueResponse ({QNetworkReply::TimeoutError, "timeout", {}});
+      }
     WSPRNet wspr {&manager, retryPolicy (3), false};
     QSignalSpy statuses {&wspr, &WSPRNet::uploadStatus};
 
@@ -466,7 +472,7 @@ private slots:
     wspr.work ();
 
     QTRY_VERIFY (sawStatus (statuses, "done"));
-    QCOMPARE (manager.requests.size (), 3);
+    QCOMPARE (manager.requests.size (), 6);   // 2 sites x 3 attempts, then stop
   }
 
   void fileBackedBadServerResponseRetriesThenRetainsSpotFile ()
@@ -476,7 +482,10 @@ private slots:
     auto const path = writeSpotFile (dir);
 
     FakeNetworkAccessManager manager;
+    // Both sites reject on every attempt; each leg exhausts its own retries.
     manager.enqueueResponse ({QNetworkReply::NoError, {}, "rejected"});
+    manager.enqueueResponse ({QNetworkReply::NoError, {}, "rejected"});
+    manager.enqueueResponse ({QNetworkReply::NoError, {}, "still rejected"});
     manager.enqueueResponse ({QNetworkReply::NoError, {}, "still rejected"});
     WSPRNet wspr {&manager, retryPolicy (2), false};
     QSignalSpy statuses {&wspr, &WSPRNet::uploadStatus};
@@ -485,8 +494,36 @@ private slots:
     wspr.work ();
 
     QTRY_VERIFY (sawStatus (statuses, "done"));
-    QCOMPARE (manager.requests.size (), 2);
+    QCOMPARE (manager.requests.size (), 4);   // 2 sites x 2 attempts
     QVERIFY (QFile::exists (path));
+  }
+
+  // Regression: a spot accepted by one site must never be re-sent to that site
+  // just because the other site failed. Each destination retries on its own.
+  void alternateSiteFailureDoesNotResendAcceptedPrimary ()
+  {
+    FakeNetworkAccessManager manager;
+    manager.enqueueResponse ({QNetworkReply::NoError, {}, "1 spot(s) added"});  // primary accepts
+    manager.enqueueResponse ({QNetworkReply::TimeoutError, "timeout", {}});     // alternate, attempt 1
+    manager.enqueueResponse ({QNetworkReply::TimeoutError, "timeout", {}});     // alternate, attempt 2
+    WSPRNet wspr {&manager, retryPolicy (2), false};
+    QSignalSpy statuses {&wspr, &WSPRNet::uploadStatus};
+
+    postFst4w (wspr, fst4wDecode ());
+    postFst4w (wspr);
+    wspr.work ();
+
+    QTRY_VERIFY (sawStatus (statuses, "done"));
+
+    int primary = 0, alternate = 0;
+    for (auto const& request : manager.requests)
+      {
+        if ("wsprnet.org" == request.url.host ()) ++primary;
+        else if ("wsprnet.eu" == request.url.host ()) ++alternate;
+      }
+    QCOMPARE (primary, 1);                     // accepted once, never re-sent
+    QCOMPARE (alternate, 2);                    // only the failing site retries
+    QCOMPARE (manager.requests.size (), 3);
   }
 
   void expiredPendingUploadsAreDroppedAndFinalize ()

@@ -31,6 +31,16 @@ namespace
   char const * const wsprNetUrl2 = "http://wsprnet.eu:3000/post/";
   //char const * const wsprNetUrl = "http://127.0.0.1:5000/post/";
 
+  // Every spot and status report is uploaded to each of these endpoints as an
+  // independent unit of work: each gets its own PendingUpload, its own retry
+  // budget and its own file-batch accounting. Keeping the legs independent is
+  // what stops a failure (or retry) on one site from re-sending to a site that
+  // has already accepted the spot.
+  QVector<QString> uploadEndpoints ()
+  {
+    return {QString::fromLatin1 (wsprNetUrl), QString::fromLatin1 (wsprNetUrl2)};
+  }
+
   //
   // tested with this python REST mock of WSPRNet.org
   //
@@ -292,12 +302,16 @@ void WSPRNet::networkReply (QNetworkReply * reply)
 void WSPRNet::enqueueUpload (QUrlQuery const& query, UploadSource source, PayloadKind kind, QString const& source_file, int file_batch_id)
 {
   auto const now = QDateTime::currentDateTimeUtc ();
-  pending_uploads_.enqueue ({query, source, kind, source_file, file_batch_id, now,
-                             now.addMSecs (retry_policy_.ttl_ms), now, 0});
-  if (UploadSource::File == source)
+  // One independent upload leg per destination endpoint.
+  for (auto const& url : uploadEndpoints ())
     {
-      auto& state = file_uploads_[file_batch_id];
-      ++state.total;
+      pending_uploads_.enqueue ({query, source, kind, source_file, file_batch_id, now,
+                                 now.addMSecs (retry_policy_.ttl_ms), now, 0, url});
+      if (UploadSource::File == source)
+        {
+          auto& state = file_uploads_[file_batch_id];
+          ++state.total;
+        }
     }
   pruneExpiredUploads (now);
   enforcePendingLimit ();
@@ -402,7 +416,7 @@ void WSPRNet::sendUpload (PendingUpload upload)
     network_manager_->setNetworkAccessible (QNetworkAccessManager::Accessible);
   }
 #endif
-  QNetworkRequest request (QUrl {wsprNetUrl});
+  QNetworkRequest request (QUrl {upload.url});
   request.setHeader (QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
   if (!upload.attempts)
     {
@@ -412,15 +426,7 @@ void WSPRNet::sendUpload (PendingUpload upload)
   QNetworkReply *reply = network_manager_->post (request, upload.query.query (QUrl::FullyEncoded).toUtf8 ());
   connect (reply, &QNetworkReply::finished, this, [this, reply]() { networkReply (reply); });
   outstanding_requests_.insert (reply, upload);
-  Q_EMIT uploadStatus (QString {"Uploading Spot %1/%2 (US)"}.arg (uploads_started_).arg (uploadsToSend ()));
-  
-  QNetworkRequest request2 (QUrl {wsprNetUrl2});
-  request2.setHeader (QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
-  
-  QNetworkReply *reply2 = network_manager_->post (request2, upload.query.query (QUrl::FullyEncoded).toUtf8 ());
-  connect (reply2, &QNetworkReply::finished, this, [this, reply2]() { networkReply (reply2); });
-  outstanding_requests_.insert (reply2, upload);
-  Q_EMIT uploadStatus (QString {"Uploading Spot %1/%2 (EU)"}.arg (uploads_started_).arg (uploadsToSend ()));  
+  Q_EMIT uploadStatus (QString {"Uploading Spot %1/%2"}.arg (uploads_started_).arg (uploadsToSend ()));
 }
 
 bool WSPRNet::replyAccepted (PendingUpload const& upload, QNetworkReply *reply, QString& server_response) const

@@ -94,6 +94,7 @@ private:
     QDateTime expires_at;
     QDateTime next_attempt_at;
     int attempts;
+    QString url;                // destination endpoint for this upload leg
   };
 
   struct FileSnapshot
