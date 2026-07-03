@@ -586,11 +586,9 @@ void MainWindow::on_tuneButton_clicked (bool checked)
   else Q_EMIT tune (checked);
 }
 
-void MainWindow::on_stopTxButton_clicked()                    // Stop Tx
+void MainWindow::reset_transmit_controls_after_stop ()
 {
   ui->pbBandHopping->setChecked(false); // disable band hopping
-  if (m_tune) stop_tuning ();
-  if (m_auto and !m_tuneup) auto_tx_mode (false);
   m_btxok=false;
   m_bCallingCQ = false;
   m_bAutoReply = false;         // ready for next
@@ -610,11 +608,22 @@ void MainWindow::on_stopTxButton_clicked()                    // Stop Tx
       mindBPoints=99;                     // reset points
   }
   pounce = false;
-  ui->autoButton->setChecked(false);  // ensure auoButton is unchecked
+  ui->autoButton->setChecked(false);  // ensure autoButton is unchecked
+  ui->tuneButton->setChecked (false);
+  ui->tuneButton->setText("Tune");
+  m_tune=false;
+  m_bTxTime=false;
   filtered = false;
   ignored = false;
   m_muted = false;
   check_button_color();
+}
+
+void MainWindow::on_stopTxButton_clicked()                    // Stop Tx
+{
+  if (m_tune) stop_tuning ();
+  if (m_auto and !m_tuneup) auto_tx_mode (false);
+  reset_transmit_controls_after_stop ();
 }
 
 void MainWindow::on_pbR2T_clicked()

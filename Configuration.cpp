@@ -515,6 +515,9 @@ public:
   ~impl ();
 
   bool have_rig ();
+  bool can_control_rig (char const * command) const;
+  void mark_rig_offline ();
+  static QString summarize_transceiver_failure (QString const& reason);
 
   void transceiver_frequency (Frequency);
   void transceiver_tx_frequency (Frequency);
@@ -1248,36 +1251,42 @@ void Configuration::transceiver_offline ()
 void Configuration::transceiver_frequency (Frequency f)
 {
   LOG_TRACE (f << ' ' << m_->cached_rig_state_);
+  if (!m_->can_control_rig ("transceiver_frequency")) return;
   m_->transceiver_frequency (f);
 }
 
 void Configuration::transceiver_tx_frequency (Frequency f)
 {
   LOG_TRACE (f << ' ' << m_->cached_rig_state_);
+  if (!m_->can_control_rig ("transceiver_tx_frequency")) return;
   m_->transceiver_tx_frequency (f);
 }
 
 void Configuration::transceiver_mode (MODE mode)
 {
   LOG_TRACE (mode << ' ' << m_->cached_rig_state_);
+  if (!m_->can_control_rig ("transceiver_mode")) return;
   m_->transceiver_mode (mode);
 }
 
 void Configuration::transceiver_ptt (bool on)
 {
   LOG_TRACE (on << ' ' << m_->cached_rig_state_);
+  if (!m_->can_control_rig ("transceiver_ptt")) return;
   m_->transceiver_ptt (on);
 }
 
 void Configuration::transceiver_audio (bool on)
 {
   LOG_TRACE (on << ' ' << m_->cached_rig_state_);
+  if (!m_->can_control_rig ("transceiver_audio")) return;
   m_->transceiver_audio (on);
 }
 
 void Configuration::transceiver_tune (bool on)
 {
   LOG_TRACE (on << ' ' << m_->cached_rig_state_);
+  if (!m_->can_control_rig ("transceiver_tune")) return;
   m_->transceiver_tune (on);
 }
 
@@ -1287,6 +1296,7 @@ void Configuration::transceiver_period (double period, bool force)
   qDebug () << "Configuration::transceiver_period:" << period << m_->cached_rig_state_;
 #endif
 
+  if (!m_->can_control_rig ("transceiver_period")) return;
   m_->transceiver_period (period, force);
 }
 
@@ -1296,6 +1306,7 @@ void Configuration::transceiver_blocksize (qint32 blocksize)
   qDebug () << "Configuration::transceiver_blocksize:" << blocksize << m_->cached_rig_state_;
 #endif
 
+  if (!m_->can_control_rig ("transceiver_blocksize")) return;
   m_->transceiver_blocksize (blocksize);
 }
 
@@ -1306,6 +1317,7 @@ void Configuration::transceiver_modulator_start(QString jtmode, unsigned symbols
   qDebug () << "Configuration::transceiver_modulator_start:" << symbolslength << m_->cached_rig_state_;
 #endif
 
+  if (!m_->can_control_rig ("transceiver_modulator_start")) return;
   m_->transceiver_modulator_start(jtmode, symbolslength,framespersymbol,trfrequency,tonespacing,synchronize,fastmode,dbsnr,trperiod);
 }
 
@@ -1325,6 +1337,7 @@ void Configuration::transceiver_modulator_stop (bool on)
   qDebug () << "Configuration::transceiver_stop:" << on << m_->cached_rig_state_;
 #endif
 
+  if (!m_->can_control_rig ("transceiver_modulator_stop")) return;
   m_->transceiver_modulator_stop (on);
 }
 
@@ -1334,6 +1347,7 @@ void Configuration::transceiver_spread (double spread)
   qDebug () << "Configuration::transceiver_spread:" << spread << m_->cached_rig_state_;
 #endif
 
+  if (!m_->can_control_rig ("transceiver_spread")) return;
   m_->transceiver_spread (spread);
 }
 
@@ -1343,6 +1357,7 @@ void Configuration::transceiver_nsym (qint32 nsym)
   qDebug () << "Configuration::transceiver_nsym:" << nsym << m_->cached_rig_state_;
 #endif
 
+  if (!m_->can_control_rig ("transceiver_nsym")) return;
   m_->transceiver_nsym (nsym);
 }
 
@@ -1352,6 +1367,7 @@ void Configuration::transceiver_trfrequency (double trfrequency)
   qDebug () << "Configuration::transceiver_trfrequency:" << trfrequency << m_->cached_rig_state_;
 #endif
 
+  if (!m_->can_control_rig ("transceiver_trfrequency")) return;
   m_->transceiver_trfrequency (trfrequency);
 }
 
@@ -1361,6 +1377,7 @@ void Configuration::transceiver_txvolume (qreal txvolume, bool force)
   qDebug () << "Configuration::transceiver_txvolume:" << txvolume << m_->cached_rig_state_;
 #endif
 
+  if (!m_->can_control_rig ("transceiver_txvolume")) return;
   m_->transceiver_txvolume (txvolume, force);
 }
 
@@ -1370,6 +1387,7 @@ void Configuration::transceiver_volume (qreal volume)
   qDebug () << "Configuration::transceiver_volume:" << volume << m_->cached_rig_state_;
 #endif
 
+  if (!m_->can_control_rig ("transceiver_volume")) return;
   m_->transceiver_volume (volume);
 }
 
@@ -1377,6 +1395,7 @@ void Configuration::transceiver_volume (qreal volume)
 void Configuration::sync_transceiver (bool force_signal, bool enforce_mode_and_split)
 {
   LOG_TRACE ("force signal: " << force_signal << " enforce_mode_and_split: " << enforce_mode_and_split << ' ' << m_->cached_rig_state_);
+  if (!m_->can_control_rig ("sync_transceiver")) return;
   m_->sync_transceiver (force_signal);
   if (!enforce_mode_and_split)
     {
@@ -5255,6 +5274,46 @@ bool Configuration::impl::have_rig ()
   return rig_active_;
 }
 
+bool Configuration::impl::can_control_rig (char const * command) const
+{
+  if (rig_active_) return true;
+
+  LOG_TRACE ("suppressing " << command << " because rig is not active");
+  return false;
+}
+
+void Configuration::impl::mark_rig_offline ()
+{
+  cached_rig_state_.online (false);
+  cached_rig_state_.ptt (false);
+  cached_rig_state_.tune (false);
+  cached_rig_state_.audio (false);
+  cached_rig_state_.tx_audio (false);
+}
+
+QString Configuration::impl::summarize_transceiver_failure (QString const& reason)
+{
+  auto lines = reason.split (QRegularExpression {"[\\r\\n]+"}, SkipEmptyParts);
+  for (auto& line: lines)
+    {
+      line = line.simplified ();
+    }
+  lines.removeAll (QString {});
+
+  auto summary = lines.isEmpty () ? reason.simplified () : lines.front ();
+  if (lines.size () > 1 && lines.back () != summary)
+    {
+      summary += " | " + lines.back ();
+    }
+
+  constexpr int max_summary_length {500};
+  if (summary.size () > max_summary_length)
+    {
+      summary = summary.left (max_summary_length - 3) + "...";
+    }
+  return summary;
+}
+
 bool Configuration::impl::open_rig (bool force)
 {
   auto result = false;
@@ -5326,7 +5385,6 @@ bool Configuration::impl::open_rig (bool force)
         }
       catch (std::exception const& e)
         {
-          qDebug() << "Configuration::impl::open_rig failed with error " << e.what();
           handle_transceiver_failure (e.what ());
         }
 
@@ -5652,8 +5710,7 @@ void Configuration::impl::handle_transceiver_update (TransceiverState const& sta
 
 void Configuration::impl::handle_transceiver_failure (QString const& reason)
 {
-  LOG_ERROR ("handle_transceiver_failure: reason: " << reason);
-  qDebug() << "Configuration::impl::handle_transceiver_failure called with reason: " << reason << "\n";
+  LOG_ERROR ("handle_transceiver_failure: " << summarize_transceiver_failure (reason));
   close_rig ();
   ui_->test_PTT_push_button->setChecked (false);
 
@@ -5686,6 +5743,7 @@ void Configuration::impl::close_rig ()
       rig_connections_.clear ();
       rig_active_ = false;
     }
+  mark_rig_offline ();
 }
 
 // find the audio device that matches the specified name, also

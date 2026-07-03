@@ -9801,8 +9801,10 @@ void MainWindow::handle_transceiver_failure (QString const& reason)
 {
   update_dynamic_property (ui->readFreq, "state", "error");
   ui->readFreq->setEnabled (true);
-  on_stopTxButton_clicked ();
-//  qDebug() << "MainWindow::handle_transceiver_failure fired";
+  // tune carrier isn't gated by m_btxok, so stop it explicitly; messages self-stop via guiUpdate
+  if (m_tune) Q_EMIT tune (false);
+  m_auto = false;
+  reset_transmit_controls_after_stop ();
   rigFailure (reason);
   rigFailed = true;
 }
@@ -12770,7 +12772,7 @@ void MainWindow::on_actionDiagnostic_mode_triggered()
             "FileName=\"${DesktopLocation}/logs/" + instance + "wsjtx_syslog.log\"\n"
             "Append=true\n"
             "Format=\"[%Channel%][%TimeStamp(format=\\\"%Y-%m-%d %H:%M:%S.%f\\\")%][%Uptime(format=\\\"%O:%M:%S.%f\\\")%][%Severity%] %Message%\"\n"
-            "Filter=\"%Channel% matches \\\"SYSLOG\\\" | %Severity% >= info\"\n"
+            "Filter=\"%Channel% matches \\\"SYSLOG\\\" & %Severity% >= info\"\n"
             "\n"
             "\[Sinks.RIGCTRL]\n"
             "Destination=TextFile\n"
@@ -12779,7 +12781,7 @@ void MainWindow::on_actionDiagnostic_mode_triggered()
             "FileName=\"${DesktopLocation}/logs/" + instance + "WSJT-X_RigControl.log\"\n"
             "Append=true\n"
             "Format=\"[%TimeStamp(format=\\\"%Y-%m-%d %H:%M:%S.%f\\\")%][%Uptime(format=\\\"%O:%M:%S.%f\\\")%][%Channel%:%Severity%] %Message%\"\n"
-            "Filter=\"%Channel% matches \\\"RIGCTRL\\\" | %Severity% >= info\""
+            "Filter=\"%Channel% matches \\\"RIGCTRL\\\" & %Severity% >= info\""
             );
     QTextStream out(&f);
     out << EventConfig;

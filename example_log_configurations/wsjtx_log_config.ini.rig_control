@@ -13,7 +13,7 @@ MaxFiles=12
 Target="${AppLocalDataLocation}/logs"
 ScanForFiles="Matching"
 Format="[%Channel%][%TimeStamp(format=\"%Y-%m-%d %H:%M:%S.%f\")%][%Uptime(format=\"%O:%M:%S.%f\")%][%Severity%] %Message%"
-Filter="%Severity% >= info"
+Filter="%Channel% matches \"SYSLOG\" & %Severity% >= info"
 
 [Sinks.RIGCTRL]
 Destination=TextFile
@@ -22,4 +22,4 @@ AutoFlush=true
 FileName="${DesktopLocation}/WSJT-X_RigControl.log"
 Append=true
 Format="[%TimeStamp(format=\"%Y-%m-%d %H:%M:%S.%f\")%][%Uptime(format=\"%O:%M:%S.%f\")%][%Channel%:%Severity%] %Message%"
-Filter="%Channel% matches \"RIGCTRL\" | %Severity% >= info"
+Filter="%Channel% matches \"RIGCTRL\" & %Severity% >= info"
