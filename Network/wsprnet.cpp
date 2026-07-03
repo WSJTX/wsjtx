@@ -28,6 +28,7 @@
 namespace
 {
   char const * const wsprNetUrl = "http://wsprnet.org/post/";
+  char const * const wsprNetUrl2 = "http://wsprnet.eu:3000/post/";
   //char const * const wsprNetUrl = "http://127.0.0.1:5000/post/";
 
   //
@@ -412,6 +413,18 @@ void WSPRNet::sendUpload (PendingUpload upload)
   connect (reply, &QNetworkReply::finished, this, [this, reply]() { networkReply (reply); });
   outstanding_requests_.insert (reply, upload);
   Q_EMIT uploadStatus (QString {"Uploading Spot %1/%2"}.arg (uploads_started_).arg (uploadsToSend ()));
+  
+  QNetworkRequest request2 (QUrl {wsprNetUrl2});
+  request2.setHeader (QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
+  if (!upload.attempts)
+    {
+      ++uploads_started_;
+    }
+  ++upload.attempts;
+  QNetworkReply *reply2 = network_manager_->post (request2, upload.query.query (QUrl::FullyEncoded).toUtf8 ());
+  connect (reply2, &QNetworkReply::finished, this, [this, reply2]() { networkReply (reply2); });
+  outstanding_requests_.insert (reply2, upload);
+  Q_EMIT uploadStatus (QString {"Uploading Spot %1/%2"}.arg (uploads_started_).arg (uploadsToSend ()));  
 }
 
 bool WSPRNet::replyAccepted (PendingUpload const& upload, QNetworkReply *reply, QString& server_response) const
