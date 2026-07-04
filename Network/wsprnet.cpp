@@ -31,14 +31,29 @@ namespace
   char const * const wsprNetUrl2 = "http://wsprnet.eu:3000/post/";
   //char const * const wsprNetUrl = "http://127.0.0.1:5000/post/";
 
-  // Every spot and status report is uploaded to each of these endpoints as an
-  // independent unit of work: each gets its own PendingUpload, its own retry
-  // budget and its own file-batch accounting. Keeping the legs independent is
-  // what stops a failure (or retry) on one site from re-sending to a site that
-  // has already accepted the spot.
-  QVector<QString> uploadEndpoints ()
+  struct UploadEndpoint
   {
-    return {QString::fromLatin1 (wsprNetUrl), QString::fromLatin1 (wsprNetUrl2)};
+    QString url;
+    bool accepts_status;
+    bool requires_tgrid;
+  };
+
+  QVector<UploadEndpoint> const& uploadEndpoints ()
+  {
+    static QVector<UploadEndpoint> const endpoints {
+      {QString::fromLatin1 (wsprNetUrl), true, false},
+      {QString::fromLatin1 (wsprNetUrl2), false, true},
+    };
+    return endpoints;
+  }
+
+  bool endpointAccepts (UploadEndpoint const& endpoint, QUrlQuery const& query, bool is_status)
+  {
+    if (is_status)
+      {
+        return endpoint.accepts_status;
+      }
+    return !endpoint.requires_tgrid || !query.queryItemValue ("tgrid", QUrl::FullyDecoded).isEmpty ();
   }
 
   //
@@ -86,6 +101,7 @@ WSPRNet::WSPRNet(QObject *parent)
   , TR_period_ {0.F}
   , uploads_started_ {0}
   , next_file_batch_id_ {1}
+  , next_logical_upload_id_ {1}
   , upload_session_active_ {false}
 {
   upload_timer_.setSingleShot (true);
@@ -100,6 +116,7 @@ WSPRNet::WSPRNet (QNetworkAccessManager *network_manager, RetryPolicy retry_poli
   , TR_period_ {0.F}
   , uploads_started_ {0}
   , next_file_batch_id_ {1}
+  , next_logical_upload_id_ {1}
   , upload_session_active_ {false}
 {
   if (take_network_manager_ownership && network_manager)
@@ -254,6 +271,29 @@ bool WSPRNet::fileMatchesSnapshot (FileSnapshot const& snapshot) const
   return QCryptographicHash::hash (contents, QCryptographicHash::Sha256) == snapshot.hash;
 }
 
+bool WSPRNet::hasPendingFileLeg (int file_batch_id, int logical_upload_id) const
+{
+  for (auto const& upload : pending_uploads_)
+    {
+      if (UploadSource::File == upload.source
+          && upload.file_batch_id == file_batch_id
+          && upload.logical_upload_id == logical_upload_id)
+        {
+          return true;
+        }
+    }
+  for (auto const& upload : outstanding_requests_)
+    {
+      if (UploadSource::File == upload.source
+          && upload.file_batch_id == file_batch_id
+          && upload.logical_upload_id == logical_upload_id)
+        {
+          return true;
+        }
+    }
+  return false;
+}
+
 void WSPRNet::networkReply (QNetworkReply * reply)
 {
   if (!outstanding_requests_.contains (reply))
@@ -302,15 +342,19 @@ void WSPRNet::networkReply (QNetworkReply * reply)
 void WSPRNet::enqueueUpload (QUrlQuery const& query, UploadSource source, PayloadKind kind, QString const& source_file, int file_batch_id)
 {
   auto const now = QDateTime::currentDateTimeUtc ();
-  // One independent upload leg per destination endpoint.
-  for (auto const& url : uploadEndpoints ())
+  auto const logical_upload_id = UploadSource::File == source ? next_logical_upload_id_++ : 0;
+  if (UploadSource::File == source)
     {
-      pending_uploads_.enqueue ({query, source, kind, source_file, file_batch_id, now,
-                                 now.addMSecs (retry_policy_.ttl_ms), now, 0, url});
-      if (UploadSource::File == source)
+      auto& state = file_uploads_[file_batch_id];
+      ++state.total;
+    }
+  for (auto const& endpoint : uploadEndpoints ())
+    {
+      if (endpointAccepts (endpoint, query, PayloadKind::Status == kind))
         {
-          auto& state = file_uploads_[file_batch_id];
-          ++state.total;
+          pending_uploads_.enqueue ({query, source, kind, source_file, file_batch_id, now,
+                                     now.addMSecs (retry_policy_.ttl_ms), now, 0, endpoint.url,
+                                     logical_upload_id});
         }
     }
   pruneExpiredUploads (now);
@@ -494,8 +538,13 @@ void WSPRNet::markAccepted (PendingUpload const& upload)
 {
   if (UploadSource::File == upload.source)
     {
-      auto& state = file_uploads_[upload.file_batch_id];
-      ++state.accepted;
+      auto state = file_uploads_.find (upload.file_batch_id);
+      if (state == file_uploads_.end ())
+        {
+          return;
+        }
+      state->accepted.insert (upload.logical_upload_id);
+      state->failed.remove (upload.logical_upload_id);
       maybeRemoveCompletedFile (upload.file_batch_id);
       maybeRemoveFailedFileBatch (upload.file_batch_id);
     }
@@ -505,7 +554,15 @@ void WSPRNet::markFailed (PendingUpload const& upload)
 {
   if (UploadSource::File == upload.source)
     {
-      file_uploads_[upload.file_batch_id].failed = true;
+      auto state = file_uploads_.find (upload.file_batch_id);
+      if (state == file_uploads_.end () || state->accepted.contains (upload.logical_upload_id))
+        {
+          return;
+        }
+      if (!hasPendingFileLeg (upload.file_batch_id, upload.logical_upload_id))
+        {
+          state->failed.insert (upload.logical_upload_id);
+        }
       maybeRemoveFailedFileBatch (upload.file_batch_id);
     }
 }
@@ -513,26 +570,15 @@ void WSPRNet::markFailed (PendingUpload const& upload)
 void WSPRNet::maybeRemoveFailedFileBatch (int file_batch_id)
 {
   auto const state = file_uploads_.constFind (file_batch_id);
-  if (state == file_uploads_.constEnd () || !state->failed)
+  if (state == file_uploads_.constEnd () || state->failed.isEmpty ())
     {
       return;
     }
 
-  for (auto const& upload : pending_uploads_)
+  if (state->accepted.size () + state->failed.size () >= state->total)
     {
-      if (UploadSource::File == upload.source && upload.file_batch_id == file_batch_id)
-        {
-          return;
-        }
+      file_uploads_.remove (file_batch_id);
     }
-  for (auto const& upload : outstanding_requests_)
-    {
-      if (UploadSource::File == upload.source && upload.file_batch_id == file_batch_id)
-        {
-          return;
-        }
-    }
-  file_uploads_.remove (file_batch_id);
 }
 
 void WSPRNet::maybeRemoveCompletedFile (int file_batch_id)
@@ -543,7 +589,7 @@ void WSPRNet::maybeRemoveCompletedFile (int file_batch_id)
     }
 
   auto const state = file_uploads_.value (file_batch_id);
-  if (!state.failed && state.total > 0 && state.accepted == state.total)
+  if (state.total > 0 && state.accepted.size () == state.total)
     {
       QFile f {state.snapshot.path};
       // wsprd can rewrite this scratch file between the check and remove.
@@ -575,6 +621,10 @@ bool WSPRNet::decodeLine (QString const& line, SpotQueue::value_type& query) con
 {
   auto const& rx_match = wspr_re.match (line);
   if (rx_match.hasMatch ()) {
+    if (line.contains ("<...>")) {
+      return false;
+    }
+
     int msgType = 0;
     QString msg = rx_match.captured (7);
     QString call, grid, dbm;
