@@ -30,7 +30,7 @@ program test_packjt77_protocol_vectors
        '00001001101111011110001101010000110000101001001110111000001100100101001001000')
   call expect_pack_bits('PJ2/W1AW <W7ABC> RR73', 4, 0, -1, -1, &
        '00100100001100000000000000001011000010101110000110010100011010110100111100100')
-  call expect_pack_bits('<W3CCX> <K1JT/P> 594095 RR99XX', 5, 0, -1, -1, &
+  call expect_pack_bits('<W3CCX> <K1JT/P> 592047 RR99XX', 5, 0, -1, -1, &
        '10100110011011101111111100000101100111111111111111000111001100001111111111101')
   call expect_pack_bits('K1ABC FN42 37', 0, 6, -1, -1, &
        '00001001101111011110001101010101000011001100101100000000000000000000000110000')
@@ -49,7 +49,7 @@ program test_packjt77_protocol_vectors
   call expect_cross_variant_bits('K1ABC RR73; W9XYZ <KH1/KH7Z> -12', -1, -1)
   call expect_cross_variant_bits('<PJ4/K1ABC> W9XYZ RR73', -1, -1)
   call expect_cross_variant_bits('PJ2/W1AW <W7ABC> RR73', -1, -1)
-  call expect_cross_variant_bits('<W3CCX> <K1JT/P> 594095 RR99XX', -1, -1)
+  call expect_cross_variant_bits('<W3CCX> <K1JT/P> 592047 RR99XX', -1, -1)
   call expect_cross_variant_bits('K1ABC FN42 37', -1, -1)
   call expect_cross_variant_bits('<PJ4/K1ABC> FK52AB', 0, 6)
 
@@ -66,36 +66,16 @@ contains
     integer, intent(in) :: want10, want12, want22
     character(len=13) :: c13
     integer :: got10, got12, got22
-    integer :: got10var, got12var, got22var
 
     c13='             '
     c13=callsign
     got10=ihashcall(c13,10)
     got12=ihashcall(c13,12)
     got22=ihashcall(c13,22)
-    got10var=ihashcallvar(c13,10)
-    got12var=ihashcallvar(c13,12)
-    got22var=ihashcallvar(c13,22)
-
     if(got10.ne.want10 .or. got12.ne.want12 .or. got22.ne.want22) then
        write(*,1010) trim(callsign), got10, got12, got22, want10, want12, want22
 1010   format('Hash vector failure for "',a,'"; got ',i0,1x,i0,1x,i0, &
               ' wanted ',i0,1x,i0,1x,i0)
-       error stop 1
-    endif
-
-    if(got10var.ne.want10 .or. got12var.ne.want12 .or. got22var.ne.want22) then
-       write(*,1020) trim(callsign), got10var, got12var, got22var, &
-            want10, want12, want22
-1020   format('Var hash vector failure for "',a,'"; got ',i0,1x,i0,1x,i0, &
-              ' wanted ',i0,1x,i0,1x,i0)
-       error stop 1
-    endif
-
-    if(got10.ne.got10var .or. got12.ne.got12var .or. got22.ne.got22var) then
-       write(*,1030) trim(callsign), got10, got12, got22, got10var, got12var, got22var
-1030   format('Hash helper mismatch for "',a,'"; standard ',i0,1x,i0,1x,i0, &
-              ' var ',i0,1x,i0,1x,i0)
        error stop 1
     endif
 
@@ -246,7 +226,7 @@ contains
 
     call clear_all_state('N0AAA','N0BBB')
     call save_hash_mycallvar(mycall13var,hashmy10var,hashmy12var,hashmy22var)
-    hashdx10var=ihashcallvar(dxcall13var,10)
+    hashdx10var=ihashcall(dxcall13var,10)
     call save_hash_call(dxcall13,n10,n12,n22)
     call save_hash_callvar(dxcall13var,1)
   end subroutine reset_packjt77_state

@@ -23,6 +23,13 @@ wsjt_link_common_fortran (test_packjt77var_invariants)
 
 add_test (NAME test_packjt77var_invariants COMMAND test_packjt77var_invariants)
 
+add_executable (test_packjt77sdvar_invariants
+  test_packjt77sdvar_invariants.f90)
+target_include_directories (test_packjt77sdvar_invariants PRIVATE ${CMAKE_BINARY_DIR})
+wsjt_link_common_fortran (test_packjt77sdvar_invariants)
+
+add_test (NAME test_packjt77sdvar_invariants COMMAND test_packjt77sdvar_invariants)
+
 add_executable (test_packjt77_protocol_vectors
   test_packjt77_protocol_vectors.f90)
 target_include_directories (test_packjt77_protocol_vectors PRIVATE ${CMAKE_BINARY_DIR})

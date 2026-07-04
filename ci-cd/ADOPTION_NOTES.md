@@ -113,7 +113,7 @@ All other jobs use the default `GITHUB_TOKEN` permissions.
 
 | Dependency | Pinned at | Pin type | Replication notes |
 |---|---|---|---|
-| Hamlib 4.7.1 | `ci.yml:36,47,58,67,76` + `release.yml:53,64,75,84,93` | Branch (`hamlib_branch: "4.7.1"`) | 10 call sites (5 per caller); `hamlib-upstream-check.yml` tracks eligibility for bumps |
+| Hamlib 4.7.2 | `ci.yml` + `release.yml` `hamlib_branch` call sites | Branch (`hamlib_branch: "4.7.2"`) | `hamlib-upstream-check.yml` tracks eligibility for bumps |
 | pFUnit v4.9.0 | `build-macos.yml:76`, `build-linux.yml:49`, `build-windows.yml:62` | Tag (`--branch v4.9.0 --recursive`) via `git clone` | 3 sites; cached per-platform; per-arch cache key on Linux |
 | linuxdeploy `1-alpha-20251107-1` | `build-linux.yml:156` (tag) + `build-linux.yml:159-160` (SHA256 per arch) | Dated tag + SHA256 (x86_64: `c20cd71e3a4e3b80c3483cef793cda3f4e990aca14014d23c544ca3ce1270b4d`; aarch64: `620095110d693282b8ebeb244a95b5e911cf8f65f76c88b4b47d16ae6346fcff`) | Verified at download via `sha256sum -c -` |
 | linuxdeploy-plugin-qt `continuous` | `build-linux.yml:166` | Rolling | Plan doc A9b — blocked on upstream; documented at `build-linux.yml:148-155` |
@@ -299,7 +299,7 @@ The third bullet is a team action: adoption of proven machinery — when and how
 |---|---|---|---|
 | GitHub Actions | Major-version tag | `@vN` | 24 `uses:` lines |
 | MSYS2 setup-msys2 | Major-version tag | `@v2` | `build-windows.yml:25` |
-| Hamlib | Branch | `hamlib_branch: "4.7.1"` | 10 call sites in `ci.yml` + `release.yml` (5 per caller) |
+| Hamlib | Branch | `hamlib_branch: "4.7.2"` | Call sites in `ci.yml` + `release.yml` |
 | pFUnit | Tag | `--branch v4.9.0` | 3 `git clone` sites |
 | linuxdeploy core | Tag + SHA256 | `LINUXDEPLOY_TAG` + `sha256sum -c -` | `build-linux.yml:156` (tag), `:159-160` (SHA256 per arch), `:163-164` (download), `:167` (verify) |
 | linuxdeploy-plugin-qt | Rolling | `continuous` | `build-linux.yml:166` (download); rationale at `build-linux.yml:148-155` (A9b — blocked on upstream) |

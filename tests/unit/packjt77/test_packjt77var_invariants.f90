@@ -122,6 +122,8 @@ program test_packjt77var_invariants
        'K1ABC/P 37', 0, 6, 0)
   call expect_round_trip_with_hint_var('<PJ4/K1ABC> FK52AB', &
        '<PJ4/K1ABC> FK52AB', 0, 6, 0, 6, 0, 'PJ4/K1ABC', '', '')
+  call expect_raw_wspr_unpack_failure_var('invalid WSPR selector', '110', '00000')
+  call expect_raw_wspr_unpack_failure_var('invalid WSPR power', '100', '11111')
 
   ! Angle-bracket nonstandard call selected by the Type 1 path.
   call expect_round_trip_with_hashes_var('<PJ4/K1ABC> W9XYZ RR73', &
@@ -158,16 +160,16 @@ program test_packjt77var_invariants
        '<W3CCX> <K1JT/P> R 520001 FN20QI', 5, 0, 0, 'W3CCX', 'K1JT/P', '')
   call expect_round_trip_with_hashes_var('<W3CCX> <K1JT/P> R 592047 FN20QI', &
        '<W3CCX> <K1JT/P> R 592047 FN20QI', 5, 0, 0, 'W3CCX', 'K1JT/P', '')
-  ! Type 5 accepts 594095 but decodes with the serial capped at 2047.
-  call expect_round_trip_with_hashes_var('<W3CCX> <K1JT/P> 594095 AA00AA', &
-       '<W3CCX> <K1JT/P> 592047 AA00AA', 5, 0, 0, 'W3CCX', 'K1JT/P', '')
-  call expect_round_trip_with_hashes_var('<W3CCX> <K1JT/P> 594095 RR99XX', &
-       '<W3CCX> <K1JT/P> 592047 RR99XX', 5, 0, 0, 'W3CCX', 'K1JT/P', '')
   call expect_round_trip_var('<W3CCX> <K1JT/P> 590001 FN20QI', &
        '<...> <...> 590001 FN20QI', 5, 0, 0)
   call expect_not_message_type_var('<W3CCX> <K1JT/P> 520000 FN20QI', 5, 0)
-  call expect_not_message_type_var('<W3CCX> <K1JT/P> 594096 FN20QI', 5, 0)
+  call expect_not_message_type_var('<W3CCX> <K1JT/P> 530000 FN20QI', 5, 0)
+  call expect_not_message_type_var('<W3CCX> <K1JT/P> 592048 FN20QI', 5, 0)
+  call expect_not_message_type_var('<W3CCX> <K1JT/P> 582048 FN20QI', 5, 0)
+  call expect_not_message_type_var('<W3CCX> <K1JT/P> 594095 FN20QI', 5, 0)
   call expect_not_message_type_var('<W3CCX> <K1JT/P> 590001 FN20QY', 5, 0)
+  call expect_not_message_type_var('<W3CCX> <K1JT/P> X 590001 FN20QI', 5, 0)
+  call expect_not_message_type_var('<W3CCX> <K1JT/P> RR 590001 FN20QI', 5, 0)
   call expect_not_message_type_var('W3CCX <K1JT/P> 590001 FN20QI', 5, 0)
 
   ! DXpedition hash resolution is direction-sensitive.
@@ -369,6 +371,31 @@ contains
     ntests=ntests+1
   end subroutine expect_type_unpack_failure_var
 
+  subroutine expect_raw_wspr_unpack_failure_var(label,selector,idbm_bits)
+    character(len=*), intent(in) :: label, selector, idbm_bits
+    character(len=77) :: c77
+    character(len=37) :: decoded
+    logical :: ok
+
+    c77=repeat('0',77)
+    c77(44:48)=idbm_bits
+    c77(48:50)=selector
+    c77(72:77)='110000'
+
+    call reset_packjt77var_state('N0AAA', 'N0BBB')
+    decoded='                                     '
+    ok=.true.
+    call unpack77var(c77,0,decoded,ok,1)
+    if(ok) then
+       write(*,1110) trim(label), trim(decoded)
+1110   format('Var WSPR raw-bit unpack unexpectedly succeeded for ',a, &
+              '; decoded "',a,'"')
+       error stop 1
+    endif
+
+    ntests=ntests+1
+  end subroutine expect_raw_wspr_unpack_failure_var
+
   subroutine expect_type_unpack_failure_with_hashes_var(input,want_i3,want_n3,nrx, &
        hash_call_1,hash_call_2,hash_call_3)
     character(len=*), intent(in) :: input
@@ -506,11 +533,11 @@ contains
     character(len=*), intent(in) :: c13
     integer :: n10, n12, n22, i
 
-    n10=ihashcallvar(c13,10)
+    n10=ihashcall(c13,10)
     if(n10.ge.0 .and. n10.le.1023) calls10var(n10)=c13
-    n12=ihashcallvar(c13,12)
+    n12=ihashcall(c13,12)
     if(n12.ge.0 .and. n12.le.4095) calls12var(n12)=c13
-    n22=ihashcallvar(c13,22)
+    n22=ihashcall(c13,22)
     do i=1,nzhashvar
        if(ihash22var(i).eq.n22) then
           calls22var(i)=c13

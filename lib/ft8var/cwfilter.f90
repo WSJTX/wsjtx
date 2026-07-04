@@ -7,7 +7,7 @@ subroutine cwfilter(first)
 
   parameter (NFFT=180000)
   complex csig0(151680)
-  real*4 window1(-NFILT1/2:NFILT1/2),window2(-NFILT2/2:NFILT2/2)
+  real*4 window1(-NFILT1/2:NFILT1/2)
   character*37 msgcq25(25),msgsent37
   integer itone(79)
   integer*1 msgbits(77)
@@ -182,4 +182,3 @@ subroutine cwfilter(first)
 
   return  
 end subroutine cwfilter
-  

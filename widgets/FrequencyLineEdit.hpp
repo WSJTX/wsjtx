@@ -2,6 +2,7 @@
 #define FREQUENCY_LINE_EDIT_HPP_
 
 #include <QLineEdit>
+#include <QPalette>
 
 #include "Radio.hpp"
 
@@ -23,7 +24,13 @@ public:
 
   // Property frequency implementation
   Frequency frequency () const;
+  Frequency frequency (bool *) const;
   void frequency (Frequency);
+
+private:
+  void update_input_feedback ();
+
+  QPalette default_palette_;
 };
 
 #endif

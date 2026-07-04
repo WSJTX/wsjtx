@@ -241,6 +241,7 @@ private slots:
   void on_pb10G_clicked();
   void on_pb24G_clicked();
   void check_button_color();
+  void reset_transmit_controls_after_stop ();
   void stopWRTimeout();
   void stopWCTimeout();
   void bandHoppingTimer();
@@ -547,7 +548,8 @@ private:
   bool processWaitAndReply(const DecodedText& dt, const QString& text);
   void processWaitAndCall(const DecodedText& dt, const QString& text, bool& block_right_display);
   bool applyFiltering(const DecodedText& dt, const QString& text, bool& filtered);
-  void applyHighlighting(const DecodedText& dt, bool& play_Wanted, bool& play_DXcall);
+  void applyHighlighting(const DecodedText& dt, DisplayText * decodePane, bool updateAlertState,
+                         bool& play_Wanted, bool& play_DXcall);
   void cycleRespondMode();
   static DecodeAlertSound selectDecodeAlertSound(bool alertsEnabled, bool dxCallAlertEnabled, bool wantedAlertEnabled,
                                                  bool play_Wanted, bool play_DXcall, bool hasDXCall);
@@ -869,7 +871,6 @@ private:
   bool    m_bShMsgs;
   bool    m_bSWL;
   bool    m_uploadWSPRSpots;
-  bool    m_uploading;
   bool    m_grid6;
   bool    m_tuneup;
   bool    m_bTxTime;
@@ -1180,7 +1181,8 @@ private:
   void pskPost(DecodedText const& decodedtext);
   void displayDialFrequency ();
   void transmitDisplay (bool);
-  void processMessage(DecodedText const& message, Qt::KeyboardModifiers = Qt::NoModifier);
+  void processMessage(DecodedText const& message, Qt::KeyboardModifiers = Qt::NoModifier,
+                      bool from_udp_reply = false);
   void replyToCQ (QTime, qint32 snr, float delta_time, quint32 delta_frequency, QString const& mode, QString const& message_text, bool low_confidence, quint8 modifiers);
   void locationChange(QString const& location);
   void replayDecodes ();

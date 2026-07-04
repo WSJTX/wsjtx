@@ -32,6 +32,7 @@ extern "C"  {
 
 #cmakedefine01 HAVE_HAMLIB_OLD_CACHING
 #cmakedefine01 HAVE_HAMLIB_CACHING
+#cmakedefine01 HAVE_HAMLIB_GET_CONF2
 
 #cmakedefine HAVE_STDIO_H 1
 #cmakedefine STDC_HEADERS 1

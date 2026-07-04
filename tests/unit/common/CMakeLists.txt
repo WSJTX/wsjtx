@@ -5,6 +5,12 @@ add_executable (test_qt_helpers
 target_link_libraries (test_qt_helpers Qt5::Test Qt5::Network Qt5::Widgets)
 add_test (NAME test_qt_helpers COMMAND test_qt_helpers)
 
+add_executable (test_wf_palette
+  test_wf_palette.cpp
+)
+target_link_libraries (test_wf_palette wsjt_qt Qt5::Test)
+add_test (NAME test_wf_palette COMMAND test_wf_palette)
+
 add_executable (test_http_user_agent
   test_http_user_agent.cpp
   )
@@ -24,6 +30,12 @@ add_executable (test_fox_guard_bands
 )
 target_link_libraries (test_fox_guard_bands Qt5::Test)
 add_test (NAME test_fox_guard_bands COMMAND test_fox_guard_bands)
+
+add_executable (test_tx_start_policy
+  test_tx_start_policy.cpp
+)
+target_link_libraries (test_tx_start_policy Qt5::Test)
+add_test (NAME test_tx_start_policy COMMAND test_tx_start_policy)
 
 add_executable (test_auto_respond_selection_latch
   test_auto_respond_selection_latch.cpp
@@ -47,3 +59,22 @@ add_executable (test_active_station_list
 )
 target_link_libraries (test_active_station_list Qt5::Test)
 add_test (NAME test_active_station_list COMMAND test_active_station_list)
+
+add_executable (test_frequency_editors
+  test_frequency_editors.cpp
+  ${CMAKE_SOURCE_DIR}/Logger.cpp
+)
+target_link_libraries (test_frequency_editors wsjt_qt Boost::log_setup Qt5::Test Qt5::Widgets)
+add_test (NAME test_frequency_editors COMMAND test_frequency_editors)
+
+add_executable (test_decoded_message_reaction
+  test_decoded_message_reaction.cpp
+)
+target_link_libraries (test_decoded_message_reaction wsjt_qt wsjt_fort_common Qt5::Test)
+add_test (NAME test_decoded_message_reaction COMMAND test_decoded_message_reaction)
+
+add_executable (test_auto_sequence_reaction
+  test_auto_sequence_reaction.cpp
+)
+target_link_libraries (test_auto_sequence_reaction wsjt_qt wsjt_fort_common Qt5::Test)
+add_test (NAME test_auto_sequence_reaction COMMAND test_auto_sequence_reaction)

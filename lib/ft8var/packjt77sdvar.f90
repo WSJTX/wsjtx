@@ -1,6 +1,8 @@
 
 module packjt77sdvar
 
+  use packjt77, only : packtext77, split77, to_grid4, unpacktext77
+
 ! These variables are accessible from outside via "use packjt77sdvar":
 !  integer n28avar,n28bvar
 
@@ -17,7 +19,7 @@ subroutine pack77sdvar(msg0,i3,n3,c77)
   msg=msg0
 
 ! Convert msg to upper case; collapse multiple blanks; parse into words.
-  call split77var(msg,nwords,nw,w)
+  call split77(msg,nwords,nw,w)
   i3=-1
   n3=-1
   if(msg(1:3).eq.'CQ ' .or. msg(1:3).eq.'DE ' .or. msg(1:4).eq.'QRZ ') go to 100
@@ -30,7 +32,7 @@ subroutine pack77sdvar(msg0,i3,n3,c77)
   i3=0
   n3=0
   msg(14:)='                        '
-  call packtext77var(msg(1:13),c77(1:71))
+  call packtext77(msg(1:13),c77(1:71))
   write(c77(72:77),'(2b3.3)') n3,i3
 
 900 return
@@ -41,7 +43,7 @@ subroutine unpack77sdvar(c77,msg,unpk77_successvar)
   parameter (MAXGRID4=32400)
   integer*8 n58
   character*77 c77*77,msg*37,c*38,call_1*13,call_2*13,c11*11,grid4*4,crpt*3
-  logical unpk28_success,unpk77_successvar
+  logical unpk28_success,unpk77_successvar,unpkg4_success
 
   data c/' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ/'/
 
@@ -60,7 +62,7 @@ subroutine unpack77sdvar(c77,msg,unpk77_successvar)
   msg=repeat(' ',37)
   if(i3.eq.0 .and. n3.eq.0) then
 ! 0.0  Free text
-     call unpacktext77var(c77(1:71),msg(1:13))
+     call unpacktext77(c77(1:71),msg(1:13))
      msg(14:)='                        '
      msg=adjustl(msg)
 
@@ -84,17 +86,8 @@ subroutine unpack77sdvar(c77,msg,unpk77_successvar)
         if(i.ge.4 .and. ipb.eq.1 .and. i3.eq.2) call_2(i:i+1)='/P'
      endif
      if(igrid4.le.MAXGRID4) then
-        n=igrid4
-        j1=n/(18*10*10)
-        n=n-j1*18*10*10
-        j2=n/(10*10)
-        n=n-j2*10*10
-        j3=n/10
-        j4=n-j3*10
-        grid4(1:1)=char(j1+ichar('A'))
-        grid4(2:2)=char(j2+ichar('A'))
-        grid4(3:3)=char(j3+ichar('0'))
-        grid4(4:4)=char(j4+ichar('0'))
+        call to_grid4(igrid4,grid4,unpkg4_success)
+        if(.not.unpkg4_success) unpk77_successvar=.false.
         if(ir.eq.0) msg=trim(call_1)//' '//trim(call_2)//' '//grid4
         if(ir.eq.1) msg=trim(call_1)//' '//trim(call_2)//' R '//grid4
         if(msg(1:3).eq.'CQ ' .and. ir.eq.1) unpk77_successvar=.false.
@@ -315,54 +308,6 @@ subroutine unpack28var(n28_0,c13,success)
   return
 end subroutine unpack28var
 
-subroutine split77var(msg,nwords,nw,w)
-
-! Convert msg to upper case; collapse multiple blanks; parse into words.
-
-  character*37 msg
-  character*13 w(19)
-  character*1 c,c0
-  character*6 bcall_1
-  logical ok1
-  integer nw(19)
-    
-  iz=len(trim(msg))
-  j=0
-  k=0
-  n=0
-  c0=' '
-  w='             '
-  do i=1,iz
-     if(ichar(msg(i:i)).eq.0) msg(i:i)=' '
-     c=msg(i:i)                                 !Single character
-     if(c.eq.' ' .and. c0.eq.' ') cycle         !Skip leading/repeated blanks
-     if(c.ne.' ' .and. c0.eq.' ') then
-        k=k+1                                   !New word
-        n=0
-     endif
-     j=j+1                                      !Index in msg
-     n=n+1                                      !Index in word
-     if(c.ge.'a' .and. c.le.'z') c=char(ichar(c)-32)  !Force upper case
-     msg(j:j)=c
-     if(n.le.13) w(k)(n:n)=c                    !Copy character c into word
-     c0=c
-  enddo
-  iz=j                                          !Message length
-  nwords=k                                      !Number of words in msg
-  if(nwords.le.0) go to 900
-  nw(k)=len(trim(w(k)))
-  msg(iz+1:)='                                     '
-  if(nwords.lt.3) go to 900
-  call chkcall(w(3),bcall_1,ok1)
-  if(ok1 .and. w(1)(1:3).eq.'CQ ') then
-     w(1)='CQ_'//w(2)(1:10)             !Make "CQ " into "CQ_"
-     w(2:12)=w(3:13)                    !Move all remeining words down by one
-     nwords=nwords-1
-  endif
-  
-900 return
-end subroutine split77var
-
 subroutine pack77_1var(nwords,w,i3,n3,c77)
 ! Check Type 1 (Standard 77-bit message) and Type 2 (ditto, with a "/P" call)
 
@@ -462,97 +407,5 @@ subroutine pack77_1var(nwords,w,i3,n3,c77)
 
 900 return
 end subroutine pack77_1var
-
-subroutine packtext77var(c13,c71)
-
-  character*13 c13,w
-  character*71 c71
-  character*42 c
-  character*1 qa(10),qb(10)
-  data c/' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ+-./?'/
-
-  call mp_short_init
-  qa=char(0)
-  w=adjustr(c13)
-  do i=1,13
-     j=index(c,w(i:i))-1
-     if(j.lt.0) j=0
-     call mp_short_mult(qb,qa(2:10),9,42)     !qb(1:9)=42*qa(2:9)
-     call mp_short_add(qa,qb(2:10),9,j)      !qa(1:9)=qb(2:9)+j
-  enddo
-
-  write(c71,1010) qa(2:10)
-1010 format(b7.7,8b8.8)
-
-  return
-end subroutine packtext77var
-
-subroutine unpacktext77var(c71,c13)
-
-  integer*1   ia(10)
-  character*1 qa(10),qb(10)
-  character*13 c13
-  character*71 c71
-  character*42 c
-  equivalence (qa,ia),(qb,ib)
-  data c/' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ+-./?'/
-
-  qa(1)=char(0)
-  read(c71,1010) qa(2:10)
-1010 format(b7.7,8b8.8)
-
-  do i=13,1,-1
-     call mp_short_div(qb,qa(2:10),9,42,ir)
-     c13(i:i)=c(ir+1:ir+1)
-     qa(2:10)=qb(1:9)
-  enddo
-
-  return
-end subroutine unpacktext77var
-
-subroutine mp_short_opsvar(w,u)
-  character*1 w(*),u(*)
-  integer i,ireg,j,n,ir,iv,ii1,ii2
-  character*1 creg(4)
-  save ii1,ii2
-  equivalence (ireg,creg)
-
-  entry mp_short_init
-  ireg=256*ichar('2')+ichar('1')
-  do j=1,4
-     if (creg(j).eq.'1') ii1=j
-     if (creg(j).eq.'2') ii2=j
-  enddo
-  return
-
-  entry mp_short_add(w,u,n,iv)
-  ireg=256*iv
-  do j=n,1,-1
-     ireg=ichar(u(j))+ichar(creg(ii2))
-     w(j+1)=creg(ii1)
-  enddo
-  w(1)=creg(ii2)
-  return
-
-  entry mp_short_mult(w,u,n,iv)
-  ireg=0
-  do j=n,1,-1
-     ireg=ichar(u(j))*iv+ichar(creg(ii2))
-     w(j+1)=creg(ii1)
-  enddo
-  w(1)=creg(ii2)
-  return
-
-  entry mp_short_div(w,u,n,iv,ir)
-  ir=0
-  do j=1,n
-     i=256*ir+ichar(u(j))
-     w(j)=char(i/iv)
-     ir=mod(i,iv)
-  enddo
-  return
-  
-  return
-end subroutine mp_short_opsvar
 
 end module packjt77sdvar

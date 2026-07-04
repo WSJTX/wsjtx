@@ -2,6 +2,7 @@
 #define FREQUENCY_DELTA_LINE_EDIT_HPP_
 
 #include <QLineEdit>
+#include <QPalette>
 
 #include "Radio.hpp"
 
@@ -23,7 +24,13 @@ public:
 
   // Property frequency_delta implementation
   FrequencyDelta frequency_delta () const;
+  FrequencyDelta frequency_delta (bool *) const;
   void frequency_delta (FrequencyDelta);
+
+private:
+  void update_input_feedback ();
+
+  QPalette default_palette_;
 };
 
 #endif

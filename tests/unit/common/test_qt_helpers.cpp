@@ -1,6 +1,9 @@
 #include <QtTest>
 #include <QDateTime>
 #include <QDebug>
+#include <QDir>
+#include <QFile>
+#include <QTemporaryDir>
 
 #include "qt_helpers.hpp"
 
@@ -154,6 +157,67 @@ private:
   Q_SLOT void next_cyclic_index_wraps_by_count ()
   {
     QCOMPARE (next_cyclic_index (2, 3), 0);
+  }
+
+  Q_SLOT void writable_file_path_uses_writable_dir ()
+  {
+    QTemporaryDir writable;
+    QVERIFY (writable.isValid ());
+
+    QCOMPARE (writable_file_path (QDir {writable.path ()}, "wsjtx.log"),
+              QDir {writable.path ()}.absoluteFilePath ("wsjtx.log"));
+  }
+
+  Q_SLOT void writable_override_or_installed_file_path_uses_installed_default ()
+  {
+    QTemporaryDir writable;
+    QTemporaryDir installed;
+    QVERIFY (writable.isValid ());
+    QVERIFY (installed.isValid ());
+    QFile file {QDir {installed.path ()}.absoluteFilePath ("cty.dat")};
+    QVERIFY (file.open (QIODevice::WriteOnly));
+    file.close ();
+
+    QCOMPARE (writable_override_or_installed_file_path (QDir {writable.path ()}, QDir {installed.path ()}, "cty.dat"),
+              QDir {installed.path ()}.absoluteFilePath ("cty.dat"));
+  }
+
+  Q_SLOT void writable_override_or_installed_file_path_uses_installed_default_when_missing ()
+  {
+    QTemporaryDir writable;
+    QTemporaryDir installed;
+    QVERIFY (writable.isValid ());
+    QVERIFY (installed.isValid ());
+
+    QCOMPARE (writable_override_or_installed_file_path (QDir {writable.path ()}, QDir {installed.path ()}, "cty.dat"),
+              QDir {installed.path ()}.absoluteFilePath ("cty.dat"));
+  }
+
+  Q_SLOT void writable_override_or_installed_file_path_prefers_writable_override ()
+  {
+    QTemporaryDir writable;
+    QTemporaryDir installed;
+    QVERIFY (writable.isValid ());
+    QVERIFY (installed.isValid ());
+    QFile installed_file {QDir {installed.path ()}.absoluteFilePath ("cty.dat")};
+    QVERIFY (installed_file.open (QIODevice::WriteOnly));
+    installed_file.close ();
+    QFile writable_file {QDir {writable.path ()}.absoluteFilePath ("cty.dat")};
+    QVERIFY (writable_file.open (QIODevice::WriteOnly));
+    writable_file.close ();
+
+    QCOMPARE (writable_override_or_installed_file_path (QDir {writable.path ()}, QDir {installed.path ()}, "cty.dat"),
+              QDir {writable.path ()}.absoluteFilePath ("cty.dat"));
+  }
+
+  Q_SLOT void ensure_parent_directory_creates_append_parent ()
+  {
+    QTemporaryDir writable;
+    QVERIFY (writable.isValid ());
+    auto const& file_path = QDir {writable.path ()}.absoluteFilePath ("nested/wsjtx_log.adi");
+
+    QVERIFY (ensure_parent_directory (file_path));
+    QVERIFY (QDir {writable.path ()}.exists ("nested"));
   }
 
   Q_SLOT void is_multicast_address_data ()

@@ -11,7 +11,7 @@ on:
         description: "Hamlib branch to build"
         required: false
         type: string
-        default: "4.7.0"
+        default: "4.7.2"
       arch:
         description: "Linux target architecture: x86_64, aarch64, or armhf"
         required: false
@@ -39,7 +39,7 @@ on:
   # leg, which is intentionally NOT in ci.yml's PR matrix (~50–80 min QEMU wall-
   # clock is too high per-PR) — dispatch it on demand. Inputs mirror workflow_call
   # with standalone defaults: hamlib_branch matches what ci.yml / release.yml pass
-  # (4.7.1), and version is overridable via `-f version=...`.
+  # (4.7.2), and version is overridable via `-f version=...`.
   workflow_dispatch:
     inputs:
       version:
@@ -51,7 +51,7 @@ on:
         description: "Hamlib branch to build"
         required: false
         type: string
-        default: "4.7.1"
+        default: "4.7.2"
       arch:
         description: "Linux target architecture"
         required: false
@@ -186,12 +186,12 @@ jobs:
       # the cache cleanly. Namespaces segregate from x86_64+aarch64
       # entries naturally on the (arch, runtime_base) pair.
       - name: Cache pFUnit
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: pfunit-prefix
           key: pfunit-linux-armhf-v4.9.0-bookworm-${{ hashFiles('.github/scripts/build-linux-payload.sh') }}
       - name: Cache Hamlib
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: hamlib-prefix
           key: hamlib-linux-armhf-${{ inputs.hamlib_branch }}-bookworm-${{ hashFiles('.github/scripts/build-linux-payload.sh') }}

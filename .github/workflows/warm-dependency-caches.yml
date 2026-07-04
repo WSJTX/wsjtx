@@ -40,7 +40,7 @@ on:
         description: "Hamlib branch to build"
         required: false
         type: string
-        default: "4.7.1"
+        default: "4.7.2"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -68,7 +68,7 @@ jobs:
           BEFORE_SHA: ${{ github.event.before }}
           CURRENT_SHA: ${{ github.sha }}
           TARGETS: ${{ inputs.targets || '' }}
-          HAMLIB_BRANCH: ${{ inputs.hamlib_branch || '4.7.1' }}
+          HAMLIB_BRANCH: ${{ inputs.hamlib_branch || '4.7.2' }}
         run: |
           set -euo pipefail
 

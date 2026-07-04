@@ -12,13 +12,13 @@ subroutine fillhashvar(numthreads,lfill)
         nposition=nthrindexvar(i)+m
         cw=last_callsvar(nposition)
 !print *,i,m,cw
-        n10=ihashcallvar(cw,10)
+        n10=ihashcall(cw,10)
         if(n10.ge.0 .and. n10 .le. 1023 .and. cw.ne.mycall13var) calls10var(n10)=cw
 
-        n12=ihashcallvar(cw,12)
+        n12=ihashcall(cw,12)
         if(n12.ge.0 .and. n12 .le. 4095 .and. cw.ne.mycall13var) calls12var(n12)=cw
 
-        n22=ihashcallvar(cw,22)
+        n22=ihashcall(cw,22)
         if(any(ihash22var.eq.n22)) then   ! If entry exists, make sure callsign is the most recently received one
           where(ihash22var.eq.n22) calls22var=cw
           go to 900
@@ -53,7 +53,7 @@ subroutine fillhashvar(numthreads,lfill)
       if(len(trim(dxcall13var)).gt.2) then
         dxcall13_setvar=.true.
         dxcall13_0var=dxcall13var
-        hashdx10var=ihashcallvar(dxcall13var,10)
+        hashdx10var=ihashcall(dxcall13var,10)
 ! make sure new DX Call is stored in hash tables prior to decoding
 ! it is needed if manually callsign set in DX Call window was not decoded before
         call save_hash_callvar(dxcall13var,1)

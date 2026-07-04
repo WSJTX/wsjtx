@@ -15,6 +15,7 @@ program test_packjt77_hash_state
   call expect_var_thread_rx_accumulation()
   call expect_var_tx_rx_separation()
   call expect_mycall_dxcall_substitutions()
+  call expect_invalid_standard_call_decode_parity()
 
   call expect_hash_resolution_case( &
        'K1ABC RR73; W9XYZ <KH1/KH7Z> -12', 0, 1, &
@@ -135,7 +136,7 @@ contains
     call assert_int('var thread 2 count',0,nlast_callsvar(2))
     call assert_int('var thread 4 count',0,nlast_callsvar(4))
     call assert_call('var thread 3 call',last_callsvar(slot),'W7ABC')
-    call assert_call('var thread call not folded',calls12var(ihashcallvar('W7ABC        ',12)),'')
+    call assert_call('var thread call not folded',calls12var(ihashcall('W7ABC        ',12)),'')
 
     ntests=ntests+1
   end subroutine expect_var_hash_save_contract
@@ -171,11 +172,11 @@ contains
     call save_hash_callvar(rx_call,3)
     call save_hash_callvar(later_thread_call,7)
 
-    n10=ihashcallvar(rx_call,10)
-    n12=ihashcallvar(rx_call,12)
-    n22=ihashcallvar(rx_call,22)
-    later_n10=ihashcallvar(later_thread_call,10)
-    later_n12=ihashcallvar(later_thread_call,12)
+    n10=ihashcall(rx_call,10)
+    n12=ihashcall(rx_call,12)
+    n22=ihashcall(rx_call,22)
+    later_n10=ihashcall(later_thread_call,10)
+    later_n12=ihashcall(later_thread_call,12)
 
     call assert_int('var thread 3 count before fold',1,nlast_callsvar(3))
     call assert_int('var thread 7 count before fold',1,nlast_callsvar(7))
@@ -221,10 +222,10 @@ contains
     input='<W3CCX> <K1JT/P> 590001 FN20QI'
     call normalize_call('W3CCX',call12)
     call normalize_call('K1JT/P',call22)
-    n10a=ihashcallvar(call12,10)
-    n12a=ihashcallvar(call12,12)
-    n10b=ihashcallvar(call22,10)
-    n12b=ihashcallvar(call22,12)
+    n10a=ihashcall(call12,10)
+    n12a=ihashcall(call12,12)
+    n10b=ihashcall(call22,10)
+    n12b=ihashcall(call22,12)
 
     call reset_all_state('N0AAA','N0BBB')
     ! ntxhash populates TX lookup tables only; normal RX threads must not see them.
@@ -324,6 +325,22 @@ contains
 
     ntests=ntests+1
   end subroutine expect_mycall_dxcall_substitutions
+
+  subroutine expect_invalid_standard_call_decode_parity()
+    character(len=13) :: decoded_standard, decoded_var
+    integer, parameter :: n28_q1abc = 11395945
+    logical :: ok_standard, ok_var
+
+    call unpack28(n28_q1abc,decoded_standard,ok_standard)
+    call unpack28var(n28_q1abc,decoded_var,ok_var,1)
+
+    call assert_call('standard invalid raw call',decoded_standard,'QU1RK')
+    call assert_call('var invalid raw call',decoded_var,'QU1RK')
+    call assert_true('standard invalid raw call fails',.not.ok_standard)
+    call assert_true('var invalid raw call fails',.not.ok_var)
+
+    ntests=ntests+1
+  end subroutine expect_invalid_standard_call_decode_parity
 
   subroutine expect_hash_resolution_case(input,want_i3,want_n3,blank_expected, &
        primed_expected,width1,call1,width2,call2,width3,call3)
@@ -477,7 +494,7 @@ contains
     if(width.le.0 .or. len_trim(callsign).le.0) return
     call normalize_call(callsign,c13)
     if(len_trim(c13).le.0) return
-    n=ihashcallvar(c13,width)
+    n=ihashcall(c13,width)
     if(width.eq.10) then
        calls10var(n)=c13
     else if(width.eq.12) then
@@ -505,7 +522,7 @@ contains
     integer :: n22
 
     call normalize_call(callsign,c13)
-    n22=ihashcallvar(c13,22)
+    n22=ihashcall(c13,22)
     var_tx_hash22_contains=any(itxhash22var(1:nztxhashvar).eq.n22)
   end function var_tx_hash22_contains
 

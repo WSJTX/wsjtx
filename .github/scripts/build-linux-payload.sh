@@ -23,7 +23,7 @@
 # Required env vars (passed via docker run -e):
 #   VERSION         — wsjtx version string (e.g. 3.0.1)
 #   ARCH            — linux arch (armhf for the QEMU path)
-#   HAMLIB_BRANCH   — hamlib branch (e.g. 4.7.1)
+#   HAMLIB_BRANCH   - hamlib branch (e.g. 4.7.2)
 # Optional env vars:
 #   WSJT_RELEASE_CHANNEL — DEVEL, RC, or GA
 #   WSJT_RC_NUMBER       — release candidate number when channel is RC

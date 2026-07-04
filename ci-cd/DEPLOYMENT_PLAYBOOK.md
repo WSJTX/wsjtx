@@ -130,7 +130,7 @@ Push tag build/v3.0.1
 ### Build Strategy
 
 Each platform build does the same two-stage process:
-1. **Build Hamlib 4.7.1** from source (cached after first run)
+1. **Build Hamlib 4.7.2** from source (cached after first run)
 2. **Build WSJT-X** against the Hamlib install prefix
 
 This matches what developers do locally but doesn't use the superbuild. The superbuild's ExternalProject approach doesn't map well to CI caching. Building Hamlib directly and caching its install prefix gives better cache hits and faster builds.
@@ -259,7 +259,7 @@ If the official repo already uses `develop`, no change needed.
 
 **Version string:** no change needed. The release version is derived from the pushed `build/v*` tag (release.yml:20-21) and from `CMakeLists.txt` VERSION (release.yml:32-45 parity check, Issue #35). There is no hardcoded version string in `ci.yml` or `release.yml` to update per-release. `ci.yml:23` reads the version from `CMakeLists.txt` as a single source of truth.
 
-**Hamlib branch** (10 call sites): The Hamlib version is pinned per-job. If the team moves to a different Hamlib version, update `hamlib_branch: "4.7.1"` at:
+**Hamlib branch**: The Hamlib version is pinned per-job. If the team moves to a different Hamlib version, update `hamlib_branch: "4.7.2"` at:
 
 - `ci.yml` lines 36, 47, 58, 67, 76 (5 call sites — macOS arm64, macOS x86_64, Linux x86_64, Linux aarch64, Windows x86_64)
 - `release.yml` lines 53, 64, 75, 84, 93 (5 call sites — same five)
@@ -1150,7 +1150,7 @@ Initial adoption runs on 8 baseline secrets (macOS signing + notarization + cros
 
 | Dependency | URL | Used By |
 |------------|-----|---------|
-| Hamlib 4.7.1 | `https://github.com/Hamlib/Hamlib.git` | All five platforms |
+| Hamlib 4.7.2 | `https://github.com/Hamlib/Hamlib.git` | All five platforms |
 | OmniRig | `https://www.dxatlas.com/OmniRig/Files/OmniRig.zip` | Windows only |
 
 ### Build-Time Patches Applied in CI

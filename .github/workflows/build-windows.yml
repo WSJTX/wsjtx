@@ -11,7 +11,7 @@ on:
         description: "Hamlib branch to build"
         required: false
         type: string
-        default: "4.7.0"
+        default: "4.7.2"
       recache:
         description: "Force ccache to recompile and refresh cached objects"
         required: false
@@ -32,7 +32,7 @@ on:
   # only exposes workflow_dispatch when the trigger is present on the default
   # branch, so this must be merged to develop before it can be dispatched.
   # Inputs mirror workflow_call with standalone defaults: hamlib_branch matches
-  # what ci.yml / release.yml actually pass (4.7.1, not the workflow_call legacy
+  # what ci.yml / release.yml actually pass (4.7.2, not the workflow_call legacy
   # default), and version defaults to a clearly-marked devel string -- overridable
   # via `-f version=...` -- so a manual build is never mistaken for a release.
   workflow_dispatch:
@@ -46,7 +46,7 @@ on:
         description: "Hamlib branch to build"
         required: false
         type: string
-        default: "4.7.1"
+        default: "4.7.2"
       recache:
         description: "Force ccache to recompile and refresh cached objects"
         required: false
@@ -70,6 +70,9 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    env:
+      BOOST_VERSION: 1.91.0
+      WSJT_WINDOWS_API_FLOOR: "0x0601"
     defaults:
       run:
         shell: msys2 {0}
@@ -106,7 +109,6 @@ jobs:
             mingw-w64-x86_64-qt5-websockets
             mingw-w64-x86_64-qt5-activeqt
             mingw-w64-x86_64-fftw
-            mingw-w64-x86_64-boost
             mingw-w64-x86_64-libusb
             mingw-w64-x86_64-portaudio
             mingw-w64-x86_64-pkg-config
@@ -122,7 +124,7 @@ jobs:
         run: gem install asciidoctor --no-document
 
       - name: Cache ccache
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: .ccache
           key: ccache-windows-x86_64-gcc-${{ github.sha }}
@@ -142,13 +144,53 @@ jobs:
           ccache --version
           ccache --zero-stats
 
+      - name: Restore Boost cache
+        id: boost-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: boost-prefix
+          key: boost-windows-windows-latest-mingw64-${{ env.BOOST_VERSION }}-winapi${{ env.WSJT_WINDOWS_API_FLOOR }}-epoch1-${{ hashFiles('.github/scripts/build-boost-windows.sh') }}
+
+      - name: Build Boost
+        if: steps.boost-cache.outputs.cache-hit != 'true'
+        run: |
+          WORKSPACE=$(cygpath "${GITHUB_WORKSPACE}")
+          .github/scripts/build-boost-windows.sh "${BOOST_VERSION}" "${WSJT_WINDOWS_API_FLOOR}" "${WORKSPACE}/boost-prefix"
+
+      - name: Save Boost cache
+        if: steps.boost-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: boost-prefix
+          key: ${{ steps.boost-cache.outputs.cache-primary-key }}
+
+      - name: Verify Boost Windows API floor
+        run: |
+          WORKSPACE=$(cygpath "${GITHUB_WORKSPACE}")
+          boost_dlls=("${WORKSPACE}"/boost-prefix/lib/libboost_*.dll)
+          if [ ! -e "${boost_dlls[0]}" ]; then
+            echo "::error::Boost DLLs not found under ${WORKSPACE}/boost-prefix/lib"
+            ls -la "${WORKSPACE}/boost-prefix/lib" || true
+            exit 1
+          fi
+          bad=0
+          for boost_dll in "${boost_dlls[@]}"; do
+            echo "Inspecting ${boost_dll}"
+            objdump -p "$boost_dll" | awk '/DLL Name:/ {print "  " $3}' | sort -u
+            if objdump -p "$boost_dll" | awk '/WaitOnAddress|WakeByAddressSingle|WakeByAddressAll|api-ms-win-core-synch-l1-2-0\.dll/ { found=1; print } END { exit found ? 0 : 1 }'; then
+              echo "::error::${boost_dll} imports Windows 8+ synchronization APIs"
+              bad=1
+            fi
+          done
+          exit "$bad"
+
       - name: Locate gfortran
         id: fc
         run: echo "version=$(gfortran -dumpfullversion -dumpversion)" >> "$GITHUB_OUTPUT"
 
       - name: Restore pFUnit cache
         id: pfunit-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: pfunit-prefix
           key: pfunit-windows-windows-latest-mingw64-v4.9.0-gfortran${{ steps.fc.outputs.version }}-epoch1-${{ hashFiles('.github/scripts/build-pfunit-windows.sh') }}
@@ -180,17 +222,17 @@ jobs:
 
       - name: Save pFUnit cache
         if: steps.pfunit-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: pfunit-prefix
           key: ${{ steps.pfunit-cache.outputs.cache-primary-key }}
 
       - name: Restore Hamlib cache
         id: hamlib-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: hamlib-prefix
-          key: hamlib-windows-windows-latest-mingw64-${{ inputs.hamlib_branch }}-epoch1-${{ hashFiles('.github/scripts/build-hamlib-windows.sh') }}
+          key: hamlib-windows-windows-latest-mingw64-${{ inputs.hamlib_branch }}-epoch2-${{ hashFiles('.github/scripts/build-hamlib-windows.sh') }}
 
       - name: Build Hamlib
         if: steps.hamlib-cache.outputs.cache-hit != 'true'
@@ -204,10 +246,15 @@ jobs:
         run: |
           WORKSPACE=$(cygpath "${GITHUB_WORKSPACE}")
           test -f "${WORKSPACE}/hamlib-prefix/bin/libhamlib-4.dll"
+          test -f "${WORKSPACE}/hamlib-prefix/bin/rigctl.exe"
+          test -f "${WORKSPACE}/hamlib-prefix/bin/rigctld.exe"
+          test -f "${WORKSPACE}/hamlib-prefix/bin/rigctlcom.exe"
+          test -f "${WORKSPACE}/hamlib-prefix/include/hamlib/rig.h"
+          test -f "${WORKSPACE}/hamlib-prefix/lib/libhamlib.dll.a"
 
       - name: Save Hamlib cache
         if: steps.hamlib-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: hamlib-prefix
           key: ${{ steps.hamlib-cache.outputs.cache-primary-key }}
@@ -236,7 +283,18 @@ jobs:
           WORKSPACE=$(cygpath "${GITHUB_WORKSPACE}")
           OMNIRIG=$(cygpath "${OMNIRIG_PATH}")
           cmake -G "MSYS Makefiles" -S . -B wsjtx-build \
-            -DCMAKE_PREFIX_PATH="${WORKSPACE}/hamlib-prefix" \
+            -DCMAKE_PREFIX_PATH="${WORKSPACE}/boost-prefix;${WORKSPACE}/hamlib-prefix" \
+            -DBOOST_ROOT="${WORKSPACE}/boost-prefix" \
+            -DBOOST_INCLUDEDIR="${WORKSPACE}/boost-prefix/include" \
+            -DBOOST_LIBRARYDIR="${WORKSPACE}/boost-prefix/lib" \
+            -DHamlib_INCLUDE_DIR="${WORKSPACE}/hamlib-prefix/include" \
+            -DHamlib_LIBRARY="${WORKSPACE}/hamlib-prefix/lib/libhamlib.dll.a" \
+            -DRIGCTL_EXE="${WORKSPACE}/hamlib-prefix/bin/rigctl.exe" \
+            -DRIGCTLD_EXE="${WORKSPACE}/hamlib-prefix/bin/rigctld.exe" \
+            -DRIGCTLCOM_EXE="${WORKSPACE}/hamlib-prefix/bin/rigctlcom.exe" \
+            -DCMAKE_C_FLAGS="-D_WIN32_WINNT=${WSJT_WINDOWS_API_FLOOR} -DWINVER=${WSJT_WINDOWS_API_FLOOR}" \
+            -DCMAKE_CXX_FLAGS="-D_WIN32_WINNT=${WSJT_WINDOWS_API_FLOOR} -DWINVER=${WSJT_WINDOWS_API_FLOOR} -DBOOST_USE_WINAPI_VERSION=${WSJT_WINDOWS_API_FLOOR}" \
+            -DBoost_NO_SYSTEM_PATHS=ON \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DOMNIRIG_TYPE_LIB="${OMNIRIG}" \
@@ -271,7 +329,8 @@ jobs:
           # the test exits 0xc0000135 (STATUS_DLL_NOT_FOUND) at launch. The
           # packaged installer is unaffected: cpack's bundle_fixup copies
           # libhamlib-4.dll in.
-          export PATH="$(cygpath "${GITHUB_WORKSPACE}")/hamlib-prefix/bin:${PATH}"
+          WORKSPACE=$(cygpath "${GITHUB_WORKSPACE}")
+          export PATH="${WORKSPACE}/boost-prefix/lib:${WORKSPACE}/hamlib-prefix/bin:${PATH}"
           ctest --output-on-failure --output-junit ctest-results.xml
         working-directory: wsjtx-build
 
@@ -316,10 +375,8 @@ jobs:
           test -f "${WORKSPACE}/stage-main/bin/qmap.exe"
           bash .github/scripts/audit-staged-dll-imports-windows.sh \
             "${WORKSPACE}/stage-main/bin" \
-            "${WORKSPACE}/stage-main/bin/map65.exe" \
-            "${WORKSPACE}/stage-main/bin/qmap.exe" \
-            "${WORKSPACE}/stage-main/bin/wsjtx.exe" \
-            "${WORKSPACE}/stage-main/bin/jt9.exe"
+            "${WORKSPACE}"/stage-main/bin/*.exe \
+            "${WORKSPACE}"/stage-main/bin/*.dll
 
       # Launch only the CLI decoder with /mingw64/bin removed from PATH. GUI
       # applications may block in their event loops or require display state, so

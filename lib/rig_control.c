@@ -3,6 +3,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include "tstrig.h"
+#ifndef HAMLIB_RIGPORT
+#include <hamlib/port.h>
+#endif
 
 RIG *my_rig;                                       // handle to rig
 
@@ -60,10 +63,10 @@ int rigOpen(int verbose, rig_model_t my_model, const char* rig_file,
   }
 
   if (rig_file)
-    strncpy(my_rig->state.rigport.pathname, rig_file, FILPATHLEN - 1);
+    strncpy(HAMLIB_RIGPORT(my_rig)->pathname, rig_file, HAMLIB_FILPATHLEN - 1);
 
   if (serial_rate!=0)
-    my_rig->state.rigport.parm.serial.rate = serial_rate;
+    HAMLIB_RIGPORT(my_rig)->parm.serial.rate = serial_rate;
 
   if (civaddr)
     rig_set_conf(my_rig, rig_token_lookup(my_rig, "civaddr"), civaddr);

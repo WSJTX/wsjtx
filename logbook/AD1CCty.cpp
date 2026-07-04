@@ -10,7 +10,6 @@
 #include <boost/lambda/lambda.hpp>
 #include <boost/lexical_cast.hpp>
 #include <QString>
-#include <QStandardPaths>
 #include <QDir>
 #include <QFile>
 #include <QTextStream>
@@ -21,6 +20,7 @@
 #include "Radio.hpp"
 #include "pimpl_impl.hpp"
 #include "Logger.hpp"
+#include "qt_helpers.hpp"
 
 #include "moc_AD1CCty.cpp"
 
@@ -39,6 +39,7 @@ struct entity
 
   explicit entity (int id
                    , QString const& name
+                   , QString const& abbreviated_name
                    , bool WAE_only
                    , int CQ_zone
                    , int ITU_zone
@@ -49,6 +50,7 @@ struct entity
                    , QString const& primary_prefix)
     : id_ {id}
     , name_ {name}
+    , abbreviated_name_ {abbreviated_name}
     , WAE_only_ {WAE_only}
     , CQ_zone_ {CQ_zone}
     , ITU_zone_ {ITU_zone}
@@ -62,6 +64,7 @@ struct entity
 
   int id_;
   QString name_;
+  QString abbreviated_name_;
   bool WAE_only_;               // DARC WAE only, not valid for ARRL awards
   int CQ_zone_;
   int ITU_zone_;
@@ -86,6 +89,7 @@ QDebug operator << (QDebug dbg, entity const& e)
   dbg.nospace () << "entity("
                  << e.id_ << ", "
                  << e.name_ << ", "
+                 << e.abbreviated_name_ << ", "
                  << e.WAE_only_ << ", "
                  << e.CQ_zone_ << ", "
                  << e.ITU_zone_ << ", "
@@ -173,6 +177,30 @@ public:
     : configuration_ {configuration}
   {
   }
+  QString abbreviated_entity_name (QString const& name) const
+  {
+    auto result = name;
+    result.replace ("Islands", "Is.");
+    result.replace ("Island", "Is.");
+    result.replace ("North ", "N. ");
+    result.replace ("Northern ", "N. ");
+    result.replace ("South ", "S. ");
+    result.replace ("East ", "E. ");
+    result.replace ("Eastern ", "E. ");
+    result.replace ("West ", "W. ");
+    result.replace ("Western ", "W. ");
+    result.replace ("Central ", "C. ");
+    result.replace (" and ", " & ");
+    result.replace ("Republic", "Rep.");
+    result.replace ("United States of America", "U.S.A.");
+    result.replace ("United States", "U.S.A.");
+    result.replace ("Fed. Rep. of ", "");
+    result.replace ("French ", "Fr.");
+    result.replace ("Asiatic", "AS");
+    result.replace ("European", "EU");
+    result.replace ("African", "AF");
+    return result;
+  }
 
   QString get_cty_path(const Configuration *configuration);
   void load_cty(QFile &file);
@@ -203,6 +231,7 @@ public:
     result.CQ_zone = e.CQ_zone_;
     result.ITU_zone = e.ITU_zone_;
     result.entity_name = e.name_;
+    result.abbreviated_entity_name = e.abbreviated_name_;
     result.WAE_only = e.WAE_only_;
     result.latitude = e.lat_;
     result.longtitude = e.long_;
@@ -333,11 +362,8 @@ char const * AD1CCty::continent (Continent c)
 
 QString AD1CCty::impl::get_cty_path(Configuration const * configuration)
 {
-  QDir dataPath {QStandardPaths::writableLocation (QStandardPaths::DataLocation)};
-  auto path = dataPath.exists (file_name)
-              ? dataPath.absoluteFilePath (file_name) // user override
-              : configuration->data_dir ().absoluteFilePath (file_name); // or original
-  return path;
+  return writable_override_or_installed_file_path (configuration->writeable_data_dir (),
+                                                  configuration->data_dir (), file_name);
 }
 
 void AD1CCty::impl::load_cty(QFile &file)
@@ -369,7 +395,7 @@ void AD1CCty::impl::load_cty(QFile &file)
           WAE_only = true;
         }
         bool ok1, ok2, ok3, ok4, ok5;
-        entities_.emplace(++entity_id, entity_parts[0].trimmed(), WAE_only, entity_parts[1].trimmed().toInt(&ok1),
+        entities_.emplace(++entity_id, entity_parts[0].trimmed(), abbreviated_entity_name(entity_parts[0].trimmed()),WAE_only, entity_parts[1].trimmed().toInt(&ok1),
                           entity_parts[2].trimmed().toInt(&ok2), continent(entity_parts[3].trimmed()),
                           entity_parts[4].trimmed().toFloat(&ok3), entity_parts[5].trimmed().toFloat(&ok4),
                           static_cast<int> (entity_parts[6].trimmed().toFloat(&ok5) * 60 * 60), primary_prefix);
@@ -423,14 +449,10 @@ AD1CCty::AD1CCty (Configuration const * configuration)
       }
   }
 
-  QDir dataPath {QStandardPaths::writableLocation (QStandardPaths::DataLocation)};
-  m_->path_ = dataPath.exists (file_name)
-    ? dataPath.absoluteFilePath (file_name) // user override
-    : configuration->data_dir ().absoluteFilePath (file_name); // or original
+  m_->path_ = m_->impl::get_cty_path (configuration);
 
-  QString path = dataPath.exists (grid_file_name)
-   ? dataPath.absoluteFilePath (grid_file_name) // user override
-   : configuration->data_dir ().absoluteFilePath (grid_file_name);   // or original in the resources FS
+  QString path = writable_override_or_installed_file_path (configuration->writeable_data_dir (),
+                                                          configuration->data_dir (), grid_file_name);
 
 
   QFile file1 {path};

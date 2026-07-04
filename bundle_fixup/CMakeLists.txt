@@ -92,6 +92,10 @@ if (APPLE OR WIN32)
     get_filename_component (fftw_lib_dir ${FFTW3F_LIBRARY} PATH)
     list (APPEND fixup_library_dirs ${fftw_lib_dir})
 
+    foreach (boost_lib_dir IN LISTS Boost_LIBRARY_DIRS)
+      list (APPEND fixup_library_dirs ${boost_lib_dir} ${boost_lib_dir}/../bin)
+    endforeach ()
+
     # install required Qt plugins
     install (
       DIRECTORY

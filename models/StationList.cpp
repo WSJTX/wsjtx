@@ -412,9 +412,10 @@ bool StationList::impl::setData (QModelIndex const& model_index, QVariant const&
 
         case offset_column:
           {
-            if (value.canConvert<FrequencyDelta> ())
+            bool ok;
+            FrequencyDelta offset {value.toLongLong (&ok)};
+            if (ok)
               {
-                FrequencyDelta offset {qvariant_cast<Radio::FrequencyDelta> (value)};
                 if (offset != stations_[row].offset_)
                   {
                     stations_[row].offset_ = offset;

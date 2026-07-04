@@ -47,8 +47,8 @@ Windows builds use the [Hamlib SDK](https://sourceforge.net/projects/hamlib-sdk/
 WSJT-X requires a specific Hamlib version. Check `ci.yml` in `.github/workflows/` for the current `hamlib_branch` value — this is what CI builds against and what your local build should match.
 
 ```bash
-# Replace HAMLIB_BRANCH with the current value from ci.yml (e.g., "4.7.1"):
-HAMLIB_BRANCH="4.7.1"
+# Replace HAMLIB_BRANCH with the current value from ci.yml (e.g., "4.7.2"):
+HAMLIB_BRANCH="4.7.2"
 
 mkdir -p ~/hamlib-prefix/build
 cd ~/hamlib-prefix
