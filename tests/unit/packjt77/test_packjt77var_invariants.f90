@@ -106,6 +106,16 @@ program test_packjt77var_invariants
   call expect_not_message_type_var('<W9XYZ> <K1ABC> R 579 MA', 3, 0)
   call expect_round_trip_var('CQ PJ4/K1ABC', &
        'CQ PJ4/K1ABC', 4, 0, 0)
+  ! N0CALL is nonstandard because the suffix has four letters. It can be a
+  ! Type 4 CQ, but the protocol has no CQ + nonstandard-call + grid form.
+  call expect_round_trip_var('CQ N0CALL', &
+       'CQ N0CALL', 4, 0, 0)
+  call expect_round_trip_var('CQ N0CAL FN31', &
+       'CQ N0CAL FN31', 1, 0, 0)
+  call expect_not_message_type_var('CQ N0CALL FN31', 1, 0)
+  call expect_not_message_type_var('CQ N0CALL FN31', 4, 0)
+  ! Free text is the fallback encoding, not a valid structured CQ-with-grid.
+  call expect_free_text_fallback_var('CQ N0CALL FN31', 'CQ N0CALL FN3')
   ! CQ_nnn, CQ_text, and DE enter pack28 through special-token branches.
   call expect_round_trip_var('CQ 146 K1ABC FN42', &
        'CQ 146 K1ABC FN42', 1, 0, 0)

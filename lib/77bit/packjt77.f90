@@ -1422,6 +1422,7 @@ subroutine pack77_4(nwords,w,i3,n3,c77)
      icq=0
      if(trim(w(1)).eq.'CQ' .or. (ok1.and.ok2)) then
         if(trim(w(1)).eq.'CQ' .and. len(trim(w(2))).le.4) go to 900
+        if(trim(w(1)).eq.'CQ' .and. nwords.ne.2) go to 900
         i3=4
         n3=0
         if(trim(w(1)).eq.'CQ') icq=1
@@ -3127,6 +3128,7 @@ subroutine pack77_4var(nwords,w,i3,n3,c77,ntxhash)
      icq=0
      if(trim(w(1)).eq.'CQ' .or. (ok1.and.ok2)) then
         if(trim(w(1)).eq.'CQ' .and. len(trim(w(2))).le.4) go to 900
+        if(trim(w(1)).eq.'CQ' .and. nwords.ne.2) go to 900
         i3=4
         n3=0
         if(trim(w(1)).eq.'CQ') icq=1
@@ -3266,7 +3268,6 @@ logical function callok(w)
   character*(*) w
   character*1 c1
   character*2 pfx
-  character*3 sfx
   logical isdig,islet
 
   islet(c1)=(ichar(c1).ge.65 .and. ichar(c1).le.90) .or. &
@@ -3287,7 +3288,6 @@ logical function callok(w)
   if(i0.ne.2 .and. i0.ne.3) return
 
   pfx=w(1:i0-1)                     !Prefix, without call area
-  sfx=w(i0+1:)                      !Suffix
 
   nlp=0
   ndp=0
@@ -3296,12 +3296,14 @@ logical function callok(w)
      if(isdig(pfx(i:i))) ndp=ndp+1
      if(islet(pfx(i:i))) nlp=nlp+1
   enddo
+  if(nlp+ndp.ne.np) return
   if(nlp.eq.0) return              !Prefix must have at least one letter
 
   nls=0
-  ns=len(trim(sfx))
-  do i=1,ns
-     if(islet(sfx(i:i))) nls=nls+1
+  ns=n-i0
+  if(ns.lt.1 .or. ns.gt.3) return
+  do i=i0+1,n
+     if(islet(w(i:i))) nls=nls+1
   enddo
   if(nls.lt.ns) return             !Suffix must be all letters
 
