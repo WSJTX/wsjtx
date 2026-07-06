@@ -596,7 +596,10 @@ private:
   bool elide_tx1_not_allowed () const;
   void readWidebandDecodes();
   void configActiveStations();
-  void sfox_tx();
+  bool sfox_tx();
+  void clearSuperFoxPreparedTx();
+  void abortSuperFoxTxStart();
+  void displayFoxTxMsgs();
   void jtty_tx(QString message);
   void execute_jtty_tx(qint64 requestId, QString message);
   void completeJttyTxEnqueue(qint64 requestId, QString const& message, qint64 sampleCount, bool newSession, bool useTciAudio);
@@ -1207,7 +1210,7 @@ private:
   void updateFoxQSOsInProgressDisplay();
   void foxQueueTopCallCommand();
   void foxRxSequencer(QString msg, QString houndCall, QString rptRcvd);
-  void foxTxSequencer();
+  bool foxTxSequencer();
   void foxGenWaveform(int i,QString fm);
   void writeFoxQSO (QString const& msg);
   void update_foxLogWindow_rate();

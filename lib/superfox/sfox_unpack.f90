@@ -23,16 +23,16 @@ subroutine sfox_unpack(nutc,x,nsnr,f0,dt0,foxcall,notp)
   endif
   write(msgbits,1000) x(0:46)
 1000 format(47b7.7)
-  read(msgbits(327:329),'(b6)') i3            !Message type
+  read(msgbits(327:329),'(b3)') i3            !Message type
   read(msgbits(1:28),'(b28)') n28           !Standard Fox call
   call unpack28(n28,foxcall,success)
 
-  if(i3.eq.1) then                            !Compound Fox callsign
-!     read(msgbits(87:101),'(b15)') n15
-!     call unpackgrid(n15,grid4)
-!     msg(1)='CQ '//trim(foxcall)//' '//grid4
-!     write(*,1100) nutc,nsnr,dt0,nint(f0),trim(msg(1))
-!     go to 100
+  if(i3.eq.1) then
+!     Type i3=1 is documented for a compound-Fox c58 layout, but the
+!     current transmitter does not emit it and this decoder does not
+!     implement the c58 field offsets.  Do not render hound messages with
+!     a mis-decoded c28 Fox call.
+     go to 900
   else if(i3.eq.2) then                       !Up to 4 Hound calls and free text
      call unpacktext77(msgbits(161:231),freeTextMsg(1:13))
      call unpacktext77(msgbits(232:302),freeTextMsg(14:26))
@@ -54,8 +54,12 @@ subroutine sfox_unpack(nutc,x,nsnr,f0,dt0,foxcall,notp)
      call unpackgrid(n15,grid4)
      msg(1)='CQ '//trim(foxcall)//' '//grid4
      write(*,1100) nutc,nsnr,dt0,nint(f0),trim(msg(1))
-     read(msgbits(74:105),'(b32)') n32
-     if(n32.eq.NQU1RKS) go to 100
+     allz=1
+     do i=0,6
+        read(msgbits(74+32*i:105+32*i),'(b32)') n32
+        if(n32.ne.NQU1RKS) allz=0
+     enddo
+     if(allz.eq.1) go to 100
      call unpacktext77(msgbits(74:144),freeTextMsg(1:13))
      call unpacktext77(msgbits(145:215),freeTextMsg(14:26))
      do i=26,1,-1
@@ -112,8 +116,9 @@ subroutine sfox_unpack(nutc,x,nsnr,f0,dt0,foxcall,notp)
 
 100 read(msgbits(307:326),'(b20)') notp
   if (use_otp) then
-     write(ssignature,'(I6.6)') notp
-     write(*,1100) nutc,nsnr,dt0,nint(f0),'$VERIFY$ '//trim(foxcall)//' '//trim(ssignature)
-  endif
-  return
+      write(ssignature,'(I6.6)') notp
+      write(*,1100) nutc,nsnr,dt0,nint(f0),'$VERIFY$ '//trim(foxcall)// &
+           ' '//trim(ssignature)
+   endif
+900 return
 end subroutine sfox_unpack

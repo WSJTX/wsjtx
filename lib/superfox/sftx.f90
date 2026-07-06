@@ -22,6 +22,7 @@ program sftx
 !  character*9 foxkey
   character*11 foxcall0,foxcall
   logical*1 bMoreCQs,bSendMsg
+  integer pack_error
   logical crc_ok
   real py(0:127,0:127)                !Probabilities for received synbol values
   integer*8 n47
@@ -70,15 +71,21 @@ program sftx
   freeTextMsg='                          '
   bMoreCQs=cmsg(1)(40:40).eq.'1'
   bSendMsg=cmsg(nslots)(39:39).eq.'1'
+  nDataSlots=nslots
   if(bSendMsg) then
      freeTextMsg=cmsg(nslots)(1:26)
-     if(nslots.gt.2) nslots=2
+     nDataSlots=nslots-1
+     if(nDataSlots.gt.4) nDataSlots=4
   endif
 
-  call foxgen2(nslots,cmsg,line,foxcall)    !Parse old-style Fox messages
+  call foxgen2(nDataSlots,cmsg,line,foxcall)    !Parse old-style Fox messages
 
 ! Pack message information and CRC into xin(0:49)
-  call sfox_pack(line,ckey,bMoreCQs,bSendMsg,freeTextMsg,xin)
+  call sfox_pack(line,ckey,bMoreCQs,bSendMsg,freeTextMsg,xin,pack_error)
+  if(pack_error.ne.0) then
+     itone=-99
+     go to 100
+  endif
   call qpc_encode(y,xin)                    !Encode the message to 128 symbols
   y=cshift(y,1)                             !Puncture the code by removing y(0)
   y(127)=0
