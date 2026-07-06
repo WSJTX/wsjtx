@@ -140,7 +140,7 @@ private slots:
     QCOMPARE(decision.reason, QString {"udp reply ignored while transmitting 73"});
   }
 
-  void udpCqReplyIsHonoredWhileTransmittingOur73()
+  void udpInvalidCqReplyIsRejectedWhileTransmittingOur73()
   {
     auto context = baseContext();
     context.fromUdpReply = true;
@@ -149,7 +149,8 @@ private slots:
 
     auto const decision = DecodedMessageReaction::decideProcessMessageEntry(message, context);
 
-    QVERIFY(decision.continueProcessing);
+    QVERIFY(!decision.continueProcessing);
+    QCOMPARE(decision.reason, QString {"non-standard free text is not processable"});
   }
 
   void udpDifferentSignoffIsHonoredWhileTransmittingOur73()

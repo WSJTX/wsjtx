@@ -106,6 +106,18 @@ program test_packjt77_invariants
   call expect_not_message_type('<W9XYZ> <K1ABC> R 579 MA', 3, 0)
   call expect_round_trip('CQ PJ4/K1ABC', &
        'CQ PJ4/K1ABC', 4, 0, 0)
+  ! N0CALL is nonstandard because the suffix has four letters. It can be a
+  ! Type 4 CQ, but the protocol has no CQ + nonstandard-call + grid form.
+  call expect_round_trip('CQ N0CALL', &
+       'CQ N0CALL', 4, 0, 0)
+  call expect_callok('K1ABC', .true.)
+  call expect_callok('N0CALL', .false.)
+  call expect_round_trip('CQ N0CAL FN31', &
+       'CQ N0CAL FN31', 1, 0, 0)
+  call expect_not_message_type('CQ N0CALL FN31', 1, 0)
+  call expect_not_message_type('CQ N0CALL FN31', 4, 0)
+  ! Free text is the fallback encoding, not a valid structured CQ-with-grid.
+  call expect_free_text_fallback('CQ N0CALL FN31', 'CQ N0CALL FN3')
   ! CQ_nnn, CQ_text, and DE enter pack28 through special-token branches.
   call expect_round_trip('CQ 146 K1ABC FN42', &
        'CQ 146 K1ABC FN42', 1, 0, 0)
@@ -402,6 +414,20 @@ contains
 
     ntests=ntests+1
   end subroutine expect_free_text_fallback
+
+  subroutine expect_callok(input,expected)
+    character(len=*), intent(in) :: input
+    logical, intent(in) :: expected
+    logical :: callok
+
+    if(callok(input).neqv.expected) then
+       write(*,1100) trim(input), expected
+1100   format('callok failure for "',a,'"; expected ',l1)
+       error stop 1
+    endif
+
+    ntests=ntests+1
+  end subroutine expect_callok
 
   subroutine expect_dual_angle_type1_placeholders(input,expected)
     character(len=*), intent(in) :: input, expected
