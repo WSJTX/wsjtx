@@ -146,7 +146,7 @@ jobs:
 
       - name: Restore Boost cache
         id: boost-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: boost-prefix
           key: boost-windows-windows-latest-mingw64-${{ env.BOOST_VERSION }}-winapi${{ env.WSJT_WINDOWS_API_FLOOR }}-epoch1-${{ hashFiles('.github/scripts/build-boost-windows.sh') }}
@@ -159,7 +159,7 @@ jobs:
 
       - name: Save Boost cache
         if: steps.boost-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: boost-prefix
           key: ${{ steps.boost-cache.outputs.cache-primary-key }}
