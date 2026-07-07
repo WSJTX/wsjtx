@@ -704,17 +704,32 @@ void MainWindow::on_pbFoxReset_clicked()
 void MainWindow::on_pbFreeText_clicked()
 {
   bool ok;
+  QString freeTextMsg;
   if(m_config.superFox()) {
-    m_freeTextMsg = QInputDialog::getText (this, tr("Free Text Message"),
+    freeTextMsg = QInputDialog::getText (this, tr("Free Text Message"),
            tr("Message:"), QLineEdit::Normal, m_freeTextMsg0, &ok).left(26);
   } else {
-    m_freeTextMsg = QInputDialog::getText (this, tr("Free Text Message"),
+    freeTextMsg = QInputDialog::getText (this, tr("Free Text Message"),
            tr("Message:"), QLineEdit::Normal, m_freeTextMsg0, &ok).left(13);
   }
-  if(ok) {
-    m_freeTextMsg=m_freeTextMsg.toUpper();
-    m_freeTextMsg0=m_freeTextMsg;
+  if(!ok) return;
+
+  freeTextMsg=freeTextMsg.toUpper();
+  if(m_config.superFox()) {
+    // Mirrors valid_sfox_free_text in lib/superfox/sfox_pack.f90.
+    QString const validChars {" 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ+-./?"};
+    for(QChar const ch: freeTextMsg) {
+      if(!validChars.contains(ch)) {
+        QString const message = tr ("SuperFox free text may only contain "
+            "spaces, digits, uppercase letters, and + - . / ?.");
+        MessageBox::warning_message (this, tr ("Free Text Message"), message);
+        return;
+      }
+    }
   }
+
+  m_freeTextMsg=freeTextMsg;
+  m_freeTextMsg0=m_freeTextMsg;
 }
 
 void MainWindow::on_pbBestSP_clicked()

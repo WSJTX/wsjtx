@@ -407,6 +407,7 @@ set (wsjtx_CXXSRCS
   widgets/colorhighlighting.cpp
   WSPR/WsprTxScheduler.cpp
   AutoRespondSelectionLatch.cpp
+  SuperFoxTxPlanner.cpp
   widgets/mainwindow.cpp
   widgets/mainwindow_jtty.cpp
   Modulator/JttyTxStream.cpp

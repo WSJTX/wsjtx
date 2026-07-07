@@ -1,6 +1,7 @@
 //---------------------------------------------------------- MainWindow
 #include "mainwindow.h"
 
+#include <array>
 #include <QAudio>
 #include <QAudioOutput>
 #include <QSound>
@@ -113,10 +114,19 @@
 #include "Logger.hpp"
 #include "FoxGuardBands.hpp"
 #include "DecodedMessageReaction.hpp"
+#include "SuperFoxTxPlanner.h"
 #include "widgets/QSYMessage.h"
 #include "widgets/QSYMessageCreator.h"
 #include "widgets/qsymonitor.h"
 #include "Network/eqsl.h"
+
+#define FCL fortran_charlen_t
+
+extern "C" {
+  void sfox_pack_(char* line, char* ckey, bool* more_cqs, bool* send_msg,
+                  char* free_text_msg, qint8 xin[], int* pack_error,
+                  FCL line_len, FCL ckey_len, FCL free_text_msg_len);
+}
 
 namespace {
   int const ReferenceSpectrumMeasureSeconds = 7;
@@ -146,9 +156,96 @@ namespace {
     std::memset(foxcom_.i3bit, 0, sizeof foxcom_.i3bit);
     std::memset(foxcom_.cmsg, 0, sizeof foxcom_.cmsg);
   }
-}
 
-#define FCL fortran_charlen_t
+  struct SuperFoxTxMessage
+  {
+    int slot;
+    QString text;
+  };
+
+  QVector<SuperFoxTxMessage> superFoxTxMessages()
+  {
+    int constexpr maxFoxTxMessages = 5;
+    int constexpr foxTxMessageChars = 37;
+    // C index 38 is Fortran cmsg(n)(39:39), the SuperFox free-text flag.
+    int constexpr superFoxFreeTextFlagIndex = 38;
+    // foxgen_() appends SuperFox free text as an extra slot by mutating nslots.
+    int const nslots = qBound(0, foxcom_.nslots, maxFoxTxMessages);
+    QVector<SuperFoxTxMessage> messages;
+    messages.reserve(nslots);
+
+    for(int i = 0; i < nslots; i++) {
+      char const * const row=foxcom_.cmsg[i];
+      bool const freeTextRow = foxcom_.bSendMsg && i == nslots - 1 &&
+          row[superFoxFreeTextFlagIndex] == '1';
+      if(freeTextRow) continue;
+
+      QString const text = QString::fromLatin1(row, foxTxMessageChars)
+          .trimmed();
+      if(text.isEmpty()) continue;
+      messages.push_back({i + 1, text});
+    }
+
+    return messages;
+  }
+
+  int const SuperFoxReportMin = -18;
+  int const SuperFoxReportMax = 12;
+  int const SuperFoxHoundCallMax = 6;
+
+  // Must match the SFOX_PACK_* parameters in lib/superfox/sfox_pack.f90.
+  enum SuperFoxPackError {
+    SuperFoxPackOk = 0,
+    SuperFoxPackBadToken = 1,
+    SuperFoxPackBadOtp = 2,
+    SuperFoxPackBadCq = 3,
+    SuperFoxPackBadCall = 4,
+    SuperFoxPackBadReport = 5,
+    SuperFoxPackBadFreeText = 6,
+  };
+
+  QString superFoxTxReport(QString report)
+  {
+    bool ok {false};
+    int value = report.toInt(&ok);
+    if(ok) {
+      report=QString::number(qBound(SuperFoxReportMin,value,
+                                    SuperFoxReportMax));
+    }
+    if(report.mid(0,1) != "-" and report.mid(0,1) != "+") report="+" + report;
+    if(report.length()==2) report=report.mid(0,1) + "0" + report.mid(1,1);
+    return report;
+  }
+
+  int superFoxPackError(QString const& message)
+  {
+    QByteArray line = message.left(120).leftJustified(120, ' ').toLatin1();
+    QByteArray ckey = QByteArray {"0000000000"};
+    QByteArray freeTextMsg(26, ' ');
+    std::array<qint8, 50> xin {};
+    bool moreCqs {false};
+    bool sendMsg {false};
+    int packError {0};
+
+    sfox_pack_(line.data(), ckey.data(), &moreCqs, &sendMsg,
+               freeTextMsg.data(), xin.data(), &packError,
+               (FCL)line.size(), (FCL)ckey.size(), (FCL)freeTextMsg.size());
+    return packError;
+  }
+
+  bool superFoxQueueableHound(QString const& foxBaseCall,
+                              QString const& houndCall,
+                              QString const& report)
+  {
+    // SuperFox Fox replies are staged through foxgen2/sfox_assemble, which
+    // transmits the Hound as a 6-character base call in a c28 slot.
+    QString const houndBaseCall = Radio::base_callsign(houndCall);
+    if(houndBaseCall.length() > SuperFoxHoundCallMax) return false;
+    QString const message = QString {"%1 %2 %3"}.arg(foxBaseCall,
+        houndBaseCall, superFoxTxReport(report));
+    return superFoxPackError(message) == SuperFoxPackOk;
+  }
+}
 
 extern "C" {
   //----------------------------------------------------- C and Fortran routines
@@ -250,7 +347,7 @@ extern "C" {
 
   void sfox_wave_gfsk_();
 
-  void sftx_sub_(char const * otp_key, FCL len1);
+  void sftx_sub_(char const * otp_key, int* pack_error, FCL len1);
 
   void plotsave_(float swide[], int* m_w , int* m_h1, int* irow);
 
@@ -5549,7 +5646,7 @@ void MainWindow::guiUpdate()
 
         if(m_mode=="FT8") {
           if(SpecOp::FOX==m_specOp and ui->tabWidget->currentIndex()==fox_queue_tab_index) {
-            foxTxSequencer();
+            if (!foxTxSequencer()) return;
           } else {
             int i3=0;
             int n3=0;
@@ -5582,8 +5679,10 @@ void MainWindow::guiUpdate()
               memcpy(foxcom_.textMsg, m_freeTextMsg.leftJustified(26,' ').toLatin1(),26);
               foxgen_(&bSuperFox, fname.constData(), (FCL)fname.size());
               if(bSuperFox) {
-                writeFoxTxMsgs();
-                sfox_tx();
+                if(sfox_tx()) {
+                  displayFoxTxMsgs();
+                  writeFoxTxMsgs();
+                }
               }
             }
           }
@@ -5690,9 +5789,10 @@ void MainWindow::guiUpdate()
       m_currentMessage = "TUNE";
       m_currentMessageType = -1;
     }
+    bool const superFoxFoxTx = m_mode=="FT8" && m_config.superFox() && m_specOp==SpecOp::FOX;
     if(m_restart) {
-      write_all("Tx",m_currentMessage);
-      if (m_config.TX_messages () and m_mode!="Echo") {
+      if(!superFoxFoxTx) write_all("Tx",m_currentMessage);
+      if (m_config.TX_messages () and m_mode!="Echo" and !superFoxFoxTx) {
         ui->decodedTextBrowser2->displayTransmittedText(m_currentMessage.trimmed(),m_mode,
                      ui->TxFreqSpinBox->value(),m_bFastMode,m_TRperiod,m_config.superFox());
         }
@@ -5799,7 +5899,10 @@ void MainWindow::guiUpdate()
 
     if (m_mode != "FST4W" && m_mode != "WSPR" && m_mode!="Echo")
       {
-        if(!m_tune) write_all("Tx",m_currentMessage);
+        bool const superFoxFoxTx = m_mode=="FT8" && m_config.superFox() && m_specOp==SpecOp::FOX;
+        if(!m_tune && !superFoxFoxTx) {
+          write_all("Tx",m_currentMessage);
+        }
           if (m_config.TX_messages () && !m_tune && SpecOp::FOX!=m_specOp && m_mode != "JTTY") {
               ui->decodedTextBrowser2->displayTransmittedText(current_message.trimmed(),
               m_mode,ui->TxFreqSpinBox->value(),m_bFastMode,m_TRperiod,m_config.superFox());
@@ -11759,15 +11862,25 @@ void MainWindow::selectHound(QString line, bool bTopQueue)
 
   QString houndGrid=houndFields.at(1);  // Hound caller's grid
   QString rpt=houndFields.at(2);        // Hound SNR
+  QString t1=houndCall + "          ";
+  QString t2=m_config.superFox() ? superFoxTxReport(rpt) : rpt;
+  QString t1_with_grid;
+  if(!m_config.superFox()) {
+    if(t2.mid(0,1) != "-" and t2.mid(0,1) != "+") t2="+" + t2;
+    if(t2.length()==2) t2=t2.mid(0,1) + "0" + t2.mid(1,1);
+  }
+  if(m_config.superFox() && !superFoxQueueableHound(m_baseCall,houndCall,t2))
+  {
+    removeHoundFromCallingList(houndCall);
+    showStatusMessage(tr("SuperFox cannot queue %1: unsupported callsign.")
+                      .arg(houndCall));
+    writeFoxQSO(" Reject: " + houndCall + " unsupported SuperFox callsign");
+    return;
+  }
 
   m_houndCallers=m_houndCallers.remove(line+"\n");      // Remove t from sorted Hound list
   m_nSortedHounds--;
   ui->decodedTextBrowser->setHighlightedHoundText(m_houndCallers); // Populate left window with Hound callers
-  QString t1=houndCall + "          ";
-  QString t2=rpt;
-  QString t1_with_grid;
-  if(rpt.mid(0,1) != "-" and rpt.mid(0,1) != "+") t2="+" + rpt;
-  if(t2.length()==2) t2=t2.mid(0,1) + "0" + t2.mid(1,1);
   t1=t1.mid(0,12) + t2;
   // display the callers, highlighting calls if necessary
   ui->houndQueueTextBrowser->insertText(bTopQueue ? t1 + "\n" : t1, QColor{}, QColor{}, houndCall, "", bTopQueue ? QTextCursor::Start : QTextCursor::End);
@@ -11918,7 +12031,22 @@ void MainWindow::updateFoxQSOsInProgressDisplay()
     }
 }
 
-void MainWindow::foxTxSequencer()
+void MainWindow::clearSuperFoxPreparedTx()
+{
+  clearFoxTxMessages();
+  std::memset(foxcom_.wave, 0, sizeof foxcom_.wave);
+}
+
+void MainWindow::abortSuperFoxTxStart()
+{
+  clearSuperFoxPreparedTx();
+  m_btxok = false;
+  m_tx_when_ready = false;
+  if (g_iptt == 1 || m_transmitting) stopTx();
+  auto_tx_mode(false);
+}
+
+bool MainWindow::foxTxSequencer()
 {
 /* Called from guiUpdate at the point where an FT8 Fox-mode transmission
  * is to be started.
@@ -11942,6 +12070,191 @@ void MainWindow::foxTxSequencer()
   m_tFoxTxSinceOTP++;
   m_tFoxTx++;                               //Increment Fox Tx cycle counter
   clearFoxTxMessages();
+
+  if (m_config.superFox()) {
+    qint32 const previousFoxTx0 = m_tFoxTx0;
+    qint32 const previousFoxTxSinceCQ = m_tFoxTxSinceCQ;
+    qint64 const previousFullFoxCallTime = m_fullFoxCallTime;
+    QString const previousFirstMessage = m_fm1;
+    bool const sendFreeText = ui->cbSendMsg->isChecked();
+    QVector<SuperFoxTxPlanner::QsoState> qsos;
+    qsos.reserve(m_foxQSO.size());
+    for (auto it = m_foxQSO.constBegin(); it != m_foxQSO.constEnd(); ++it) {
+      auto const& call = it.key();
+      auto const& foxQSO = it.value();
+      SuperFoxTxPlanner::QsoState qso;
+      qso.call = call;
+      qso.grid = foxQSO.grid;
+      qso.sent = foxQSO.sent;
+      qso.rcvd = foxQSO.rcvd;
+      qso.ncall = foxQSO.ncall;
+      qso.nRR73 = foxQSO.nRR73;
+      qso.tFoxRrpt = foxQSO.tFoxRrpt;
+      qso.tFoxTxRR73 = foxQSO.tFoxTxRR73;
+      qsos.push_back(qso);
+    }
+
+    QVector<SuperFoxTxPlanner::QueuedHound> queuedHounds;
+    queuedHounds.reserve(m_houndQueue.size());
+    for (auto const& line : m_houndQueue) {
+      queuedHounds.push_back(SuperFoxTxPlanner::parseQueuedHound(line));
+    }
+
+    auto const plan = SuperFoxTxPlanner::plan(qsos, m_foxQSOinProgress,
+                                              queuedHounds, m_maxStrikes,
+                                              sendFreeText);
+    QVector<SuperFoxTxPlanner::Record> rr73Records;
+    QVector<SuperFoxTxPlanner::Record> reportRecords;
+    for (auto const& record : plan.records) {
+      if (record.kind == SuperFoxTxPlanner::RecordKind::RR73) {
+        rr73Records.push_back(record);
+      } else {
+        reportRecords.push_back(record);
+      }
+    }
+
+    auto logCompletedQSO = [this] (QString const& houndCall) {
+      auto alreadyLogged = m_loggedByFox[houndCall].contains(m_lastBand + " ");
+      auto const& qso = m_foxQSO[houndCall];
+      if (!alreadyLogged) {
+        auto QSO_time = QDateTime::currentDateTimeUtc();
+        m_hisCall = houndCall;
+        m_hisGrid = qso.grid;
+        m_rptSent = qso.sent;
+        m_rptRcvd = qso.rcvd;
+        if (!m_foxLogWindow) on_fox_log_action_triggered();
+        if (m_logBook.fox_log()->add_QSO(QSO_time, m_hisCall, m_hisGrid,
+                                         m_rptSent, m_rptRcvd, m_lastBand)) {
+          writeFoxQSO(QString {" Log:  %1 %2 %3 %4 %5"}.arg(m_hisCall).arg(m_hisGrid)
+                      .arg(m_rptSent).arg(m_rptRcvd).arg(m_lastBand));
+          on_logQSOButton_clicked();
+          QTimer::singleShot(13000, [=] {
+            m_foxQSOinProgress.removeOne(houndCall);
+            updateFoxQSOsInProgressDisplay();
+          });
+        }
+        m_loggedByFox[houndCall] += (m_lastBand + " ");
+      } else {
+        writeFoxQSO(QString {" Dup:  %1 %2 %3 %4 %5"}.arg(houndCall)
+                    .arg(qso.grid).arg(qso.sent)
+                    .arg(qso.rcvd).arg(m_lastBand));
+      }
+    };
+
+    auto commitPlan = [this, &rr73Records, &reportRecords, &logCompletedQSO] {
+      for (auto const& record : rr73Records) {
+        auto& qso = m_foxQSO[record.call];
+        qso.tFoxTxRR73 = m_tFoxTx;
+        qso.nRR73++;
+        logCompletedQSO(record.call);
+      }
+
+      int queuedReportsToRemove = 0;
+      for (auto const& record : reportRecords) {
+        auto& qso = m_foxQSO[record.call];
+        if (record.fromQueue) {
+          m_foxQSOinProgress.enqueue(record.call);
+          qso.grid = record.grid;
+          qso.sent = record.report;
+          qso.ncall = 0;
+          qso.nRR73 = 0;
+          qso.rcvd = -99;
+          qso.tFoxRrpt = -1;
+          qso.tFoxTxRR73 = -1;
+          queuedReportsToRemove++;
+        }
+        qso.ncall++;
+      }
+
+      for (int i = 0; i < queuedReportsToRemove && !m_houndQueue.isEmpty(); ++i) {
+        m_houndQueue.dequeue();
+      }
+      if (queuedReportsToRemove > 0) refreshHoundQueueDisplay();
+    };
+
+    int const maxRows = sendFreeText ? 4 : 5;
+    int const rowCount = qMin(maxRows, qMax(rr73Records.size(), reportRecords.size()));
+    for (int i = 0; i < rowCount; ++i) {
+      bool const hasRR73 = i < rr73Records.size();
+      bool const hasReport = i < reportRecords.size();
+      fm.clear();
+      if (hasRR73 && hasReport) {
+        auto const& rr73 = rr73Records.at(i);
+        auto const& report = reportRecords.at(i);
+        fm = Radio::base_callsign(rr73.call) + " RR73; " +
+            Radio::base_callsign(report.call) + " <" + m_config.my_callsign() + "> " +
+            report.report;
+      } else if (hasRR73) {
+        auto const& rr73 = rr73Records.at(i);
+        fm = Radio::base_callsign(rr73.call) + " " + m_baseCall + " RR73";
+      } else if (hasReport) {
+        auto const& report = reportRecords.at(i);
+        fm = Radio::base_callsign(report.call) + " " + m_baseCall + " " + report.report;
+      }
+      islot++;
+      foxGenWaveform(islot - 1, fm);
+    }
+
+    if (islot == 0) {
+      fm = ui->comboBoxCQ->currentText() + " " + m_config.my_callsign();
+      if (!fm.contains("/")) {
+        fm += " " + m_config.my_grid().mid(0, 4);
+        m_fullFoxCallTime = now;
+      }
+      m_tFoxTx0 = m_tFoxTx;
+      islot++;
+      foxGenWaveform(islot - 1, fm);
+    }
+
+    foxcom_.nslots = islot;
+    foxcom_.nfreq = ui->TxFreqSpinBox->value();
+    if (m_config.split_mode()) foxcom_.nfreq = foxcom_.nfreq - m_XIT;
+    QString foxCall = m_config.my_callsign() + "         ";
+    ::memcpy(foxcom_.mycall, foxCall.toLatin1(), sizeof foxcom_.mycall);
+    bool bSuperFox = true;
+    foxcom_.bMoreCQs = ui->cbMoreCQs->isChecked();
+    foxcom_.bSendMsg = sendFreeText;
+    ::memcpy(foxcom_.textMsg, m_freeTextMsg0.leftJustified(26, ' ').toLatin1(), 26);
+    auto fname {QDir::toNativeSeparators(m_config.writeable_data_dir().absoluteFilePath("sfox_1.dat")).toLocal8Bit()};
+    foxgen_(&bSuperFox, fname.constData(), (FCL)fname.size());
+    if (!sfox_tx()) {
+      --m_tFoxTx;
+      --m_tFoxTxSinceOTP;
+      m_tFoxTx0 = previousFoxTx0;
+      m_tFoxTxSinceCQ = previousFoxTxSinceCQ;
+      m_fullFoxCallTime = previousFullFoxCallTime;
+      m_fm1 = previousFirstMessage;
+      abortSuperFoxTxStart();
+      return false;
+    }
+
+    commitPlan();
+    displayFoxTxMsgs();
+    writeFoxTxMsgs();
+    m_tFoxTxSinceCQ++;
+
+    for (QString houndCall: m_foxQSO.keys()) {
+      auto& qso = m_foxQSO[houndCall];
+      if (qso.ncall >= m_maxStrikes) qso.ncall++;
+      bool b1 = ((m_tFoxTx - qso.tFoxRrpt) > 2 * m_maxFoxWait) &&
+          (qso.tFoxRrpt > 0);
+      bool b2 = ((m_tFoxTx - qso.tFoxTxRR73) > m_maxFoxWait) &&
+          (qso.tFoxTxRR73 > 0);
+      bool b3 = (qso.ncall >= m_maxStrikes + m_maxFoxWait);
+      bool b4 = (qso.nRR73 >= m_maxStrikes);
+      if (b1 or b2 or b3 or b4) {
+        m_foxQSO.remove(houndCall);
+        m_foxQSOinProgress.removeOne(houndCall);
+      }
+    }
+
+    if (m_foxLogWindow) {
+      update_foxLogWindow_rate();
+      m_foxLogWindow->queued(m_foxQSOinProgress.count());
+    }
+    updateFoxQSOsInProgressDisplay();
+    return true;
+  }
 
   // Is it time for a stand-alone CQ?
   if(m_tFoxTxSinceCQ >= m_foxCQtime and ui->cbMoreCQs->isChecked()) {
@@ -12138,8 +12451,10 @@ Transmit:
   auto fname {QDir::toNativeSeparators(m_config.writeable_data_dir().absoluteFilePath("sfox_1.dat")).toLocal8Bit()};
   foxgen_(&bSuperFox, fname.constData(), (FCL)fname.size());
   if(bSuperFox) {
-    writeFoxTxMsgs();
-    sfox_tx();
+    if(sfox_tx()) {
+      displayFoxTxMsgs();
+      writeFoxTxMsgs();
+    }
   }
   m_tFoxTxSinceCQ++;
 
@@ -12163,6 +12478,7 @@ Transmit:
       m_foxLogWindow->queued (m_foxQSOinProgress.count ());
     }
   updateFoxQSOsInProgressDisplay();
+  return true;
 }
 
 void MainWindow::update_foxLogWindow_rate()
@@ -12258,41 +12574,45 @@ void MainWindow::foxGenWaveform(int i,QString fm)
   QString txModeArg;
   txModeArg = txModeArg.asprintf("FT8fox %d",i+1);
   int nfreq=ui->TxFreqSpinBox->value()+60*i;
+  bool const superFoxTx = m_config.superFox() && SpecOp::FOX==m_specOp;
 
-  if(m_config.superFox() && SpecOp::FOX==m_specOp) {
-      nfreq=750;
-      if(i==0 && ui->cbSendMsg->isChecked()) {
-        ui->decodedTextBrowser2->displayTransmittedText(m_freeTextMsg0, txModeArg,
-               nfreq,m_bFastMode,m_TRperiod,m_config.superFox());
-      }
-  }
-
-  ui->decodedTextBrowser2->displayTransmittedText(fm.trimmed(), txModeArg,
-        nfreq,m_bFastMode,m_TRperiod,m_config.superFox());
   foxcom_.i3bit[i]=0;
   if(fm.indexOf("<")>0) foxcom_.i3bit[i]=1;
   strncpy(&foxcom_.cmsg[i][0],fm.toLatin1(),40);   //Copy this message into cmsg[i]
   if(i==0) m_fm1=fm;
+
+  if(superFoxTx) return;
+
+  ui->decodedTextBrowser2->displayTransmittedText(fm.trimmed(), txModeArg,
+        nfreq,m_bFastMode,m_TRperiod,m_config.superFox());
   QString t;
   t = t.asprintf(" Tx%d:  ",i+1);
   writeFoxQSO(t + fm.trimmed());
 }
 
-void MainWindow::writeFoxTxMsgs() {
-  int constexpr maxFoxTxMessages = 5;
-  int constexpr foxTxMessageChars = 37;
-  // C index 38 is Fortran cmsg(n)(39:39), the SuperFox free-text flag.
-  int constexpr superFoxFreeTextFlagIndex = 38;
-  // foxgen_() appends SuperFox free text by mutating foxcom_.nslots.
-  int const nslots = qBound(0, foxcom_.nslots, maxFoxTxMessages);
-  for (int i = 0; i < nslots; i++) {
-    char const * const row=foxcom_.cmsg[i];
-    bool const freeTextRow = foxcom_.bSendMsg && i == nslots - 1 &&
-        row[superFoxFreeTextFlagIndex] == '1';
-    QString const t = QString::fromLatin1(row, foxTxMessageChars).trimmed();
-    if (!freeTextRow && !t.isEmpty()) {
-      write_all("Tx", t);
+void MainWindow::displayFoxTxMsgs()
+{
+  for(auto const& message: superFoxTxMessages()) {
+    QString txModeArg;
+    txModeArg = txModeArg.asprintf("FT8fox %d",message.slot);
+    if(message.slot==1 && foxcom_.bSendMsg) {
+      QString const freeText = QString::fromLatin1(foxcom_.textMsg,
+          sizeof foxcom_.textMsg).trimmed();
+      ui->decodedTextBrowser2->displayTransmittedText(freeText, txModeArg,
+             750,m_bFastMode,m_TRperiod,m_config.superFox());
     }
+    ui->decodedTextBrowser2->displayTransmittedText(message.text, txModeArg,
+          750,m_bFastMode,m_TRperiod,m_config.superFox());
+
+    QString prefix;
+    prefix = prefix.asprintf(" Tx%d:  ",message.slot);
+    writeFoxQSO(prefix + message.text);
+  }
+}
+
+void MainWindow::writeFoxTxMsgs() {
+  for(auto const& message: superFoxTxMessages()) {
+    write_all("Tx", message.text);
   }
   QString const t = QString::fromLatin1(foxcom_.textMsg, sizeof foxcom_.textMsg).trimmed();
   if (foxcom_.bSendMsg) {
@@ -12418,7 +12738,7 @@ void MainWindow::foxTest()
       }
     }
     if(line.contains("Tx1:")) {
-      foxTxSequencer();
+      if (!foxTxSequencer()) return;
     } else {
       t = t.asprintf("%3d %3d %3d %3d %5d   ",m_houndQueue.count(),
                 m_foxQSOinProgress.count(),m_foxQSO.count(),
@@ -12698,9 +13018,10 @@ QString MainWindow::WSPR_message()
 
 
 
-void MainWindow::sfox_tx() {
+bool MainWindow::sfox_tx() {
   auto fname{QDir::toNativeSeparators(m_config.writeable_data_dir().absoluteFilePath("sfox_1.dat")).toLocal8Bit()};
   QString ckey{"OTP:000000"};
+  int pack_error {0};
   LOG_INFO(QString("sfox_tx: OTP code is %1").arg(foxOTPcode()));
 #ifdef FOX_OTP
   qint32 otp_key = 0;
@@ -12726,8 +13047,40 @@ void MainWindow::sfox_tx() {
       }
   }
 #endif
-  sftx_sub_(ckey.toLatin1().constData(), (FCL)ckey.size());
+  sftx_sub_(ckey.toLatin1().constData(), &pack_error, (FCL)ckey.size());
+  if(pack_error != 0) {
+    QString message;
+    switch(pack_error) {
+    case SuperFoxPackBadToken:
+      message = tr ("SuperFox Tx stopped: invalid message tokens.");
+      break;
+    case SuperFoxPackBadOtp:
+      message = tr ("SuperFox Tx stopped: invalid verification code.");
+      break;
+    case SuperFoxPackBadCq:
+      message = tr ("SuperFox Tx stopped: invalid CQ call or grid.");
+      break;
+    case SuperFoxPackBadCall:
+      message = tr ("SuperFox Tx stopped: invalid callsign.");
+      break;
+    case SuperFoxPackBadReport:
+      message = tr ("SuperFox Tx stopped: report is outside the "
+                    "SuperFox range.");
+      break;
+    case SuperFoxPackBadFreeText:
+      message = tr ("SuperFox Tx stopped: free text contains unsupported "
+                    "characters.");
+      break;
+    default:
+      message = tr ("SuperFox Tx stopped: message could not be packed.");
+      break;
+    }
+    showStatusMessage (message);
+    LOG_WARN(QString("%1 Error code: %2").arg(message).arg(pack_error));
+    return false;
+  }
   sfox_wave_gfsk_();
+  return true;
 }
 
 

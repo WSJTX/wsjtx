@@ -37,6 +37,13 @@ add_executable (test_tx_start_policy
 target_link_libraries (test_tx_start_policy Qt5::Test)
 add_test (NAME test_tx_start_policy COMMAND test_tx_start_policy)
 
+add_executable (test_superfox_tx_planner
+  test_superfox_tx_planner.cpp
+  ${CMAKE_SOURCE_DIR}/SuperFoxTxPlanner.cpp
+)
+target_link_libraries (test_superfox_tx_planner Qt5::Test)
+add_test (NAME test_superfox_tx_planner COMMAND test_superfox_tx_planner)
+
 add_executable (test_auto_respond_selection_latch
   test_auto_respond_selection_latch.cpp
   ${CMAKE_SOURCE_DIR}/AutoRespondSelectionLatch.cpp

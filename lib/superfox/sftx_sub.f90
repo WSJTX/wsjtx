@@ -1,4 +1,4 @@
-subroutine sftx_sub(ckey0)
+subroutine sftx_sub(ckey0,pack_error)
 
 ! This routine is required in order to create a SuperFox transmission.
 
@@ -20,6 +20,7 @@ subroutine sftx_sub(ckey0)
   character*10 ckey
   character*11 foxcall
   logical*1 bMoreCQs,bSendMsg
+  integer pack_error
   integer*1 xin(0:49)                 !Packed message as 7-bit symbols
   integer*1 y(0:127)                  !Encoded symbols as i*1 integers
   integer chansym0(127)               !Transmitted symbols, data only
@@ -35,15 +36,21 @@ subroutine sftx_sub(ckey0)
   freeTextMsg='                          '
   bMoreCQs=cmsg(1)(40:40).eq.'1'
   bSendMsg=cmsg(nslots)(39:39).eq.'1'
+  nDataSlots=nslots
   if(bSendMsg) then
      freeTextMsg=cmsg(nslots)(1:26)
-     if(nslots.gt.4) nslots=4
+     nDataSlots=nslots-1
+     if(nDataSlots.gt.4) nDataSlots=4
   endif
 
-  call foxgen2(nslots,cmsg,line,foxcall)    !Parse old-style Fox messages
+  call foxgen2(nDataSlots,cmsg,line,foxcall)    !Parse old-style Fox messages
 
 ! Pack message information and CRC into xin(0:49)
-  call sfox_pack(line,ckey,bMoreCQs,bSendMsg,freeTextMsg,xin)
+  call sfox_pack(line,ckey,bMoreCQs,bSendMsg,freeTextMsg,xin,pack_error)
+  if(pack_error.ne.0) then
+     itone=-99
+     return
+  endif
   call qpc_encode(y,xin)                    !Encode the message to 128 symbols
   y=cshift(y,1)                             !Puncture the code by removing y(0)
   y(127)=0
