@@ -1106,11 +1106,11 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
       }
       if (!programStart) {    // set programStart to true for 2 seconds when changing Configurations
         programStart = true;
-        QTimer::singleShot (2000, [=] {programStart=false;});
+        QTimer::singleShot (2000, this, [=] {programStart=false;});
       }
       statusUpdate ();
 #if defined(Q_OS_WIN)
-      QTimer::singleShot (250, [=] {
+      QTimer::singleShot (250, this, [=] {
         setRig (m_lastMonitoredFrequency);            // This is needed for Hamradio Deluxe
         m_msk144basefreq = m_lastMonitoredFrequency;  // This is needed for Hamradio Deluxe
       });
@@ -1318,7 +1318,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
   // Ensure that the correct frequency is set and displayed
   if(m_mode=="Echo") {
-    QTimer::singleShot (5000, [=] {
+    QTimer::singleShot (5000, this, [=] {
       auto const& row = m_config.frequencies ()->best_working_frequency (m_freqNominal);
       ui->bandComboBox->setCurrentIndex (row);
       if (row >= 0) on_bandComboBox_activated (row);
@@ -1330,7 +1330,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
   if(m_mode=="MSK144") {
     if (m_tci_audio) {
-      QTimer::singleShot (5000, [=] {
+      QTimer::singleShot (5000, this, [=] {
         if (ui->bandComboBox->currentText()!="OOB") {
           Q_EMIT m_config.transceiver_trfrequency(1000.0);
         } else {
@@ -1342,7 +1342,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
     }
   } else {
     if (m_tci_audio) {
-      QTimer::singleShot (5000, [=] {
+      QTimer::singleShot (5000, this, [=] {
         if (ui->bandComboBox->currentText()!="OOB") {
           Q_EMIT m_config.transceiver_trfrequency(ui->TxFreqSpinBox->value () - m_XIT);
         } else {
@@ -1356,7 +1356,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
   if(m_tci_audio)
   {
-    QTimer::singleShot (5000, [=] {
+    QTimer::singleShot (5000, this, [=] {
       sync_tci_tx_volume (true);
       Q_EMIT m_config.transceiver_volume(m_config.volume());
       // set_mode() in the constructor emits transceiver_period() while the TCI
@@ -1439,7 +1439,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   // Starting in FT8 Hound mode needs this initialization
   if (m_specOp==SpecOp::HOUND) {
       on_ft8Button_clicked();
-      QTimer::singleShot (50, [=] {ui->houndButton->click();});
+      QTimer::singleShot (50, this, [=] {ui->houndButton->click();});
   }
 
   ui->labDXped->setVisible(SpecOp::NONE != m_specOp);
@@ -1464,7 +1464,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   QFile f {dataPath.absolutePath() + "/" + "libhamlib-4_old.dll"};
   if (!f.exists()) {
       QFile::copy(dataPath.absolutePath() + "/" + "libhamlib-4.dll", dataPath.absolutePath() + "/" + "libhamlib-4_old.dll");
-      QTimer::singleShot (5000, [=] {  //wait until hamlib has been started
+      QTimer::singleShot (5000, this, [=] {  //wait until hamlib has been started
         extern char* hamlib_version2;
         QString hamlib = QString(QLatin1String(hamlib_version2));
         m_settings->beginGroup("Configuration");
@@ -1474,7 +1474,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   }
 #endif
   ui->sbToneSpacing->values({10, 15, 20, 25, 30});
-  QTimer::singleShot (4000, [=] {programStart=false;});
+  QTimer::singleShot (4000, this, [=] {programStart=false;});
 
 // this must be the last statement of constructor
   if (!m_valid) throw std::runtime_error {"Fatal initialization exception"};
@@ -2525,7 +2525,7 @@ void MainWindow::fastSink(qint64 frames)
 
     // Ensure that Tx stops when "73" is received and repeat_Tx is enabled for MSK144
     if (m_config.repeat_Tx() && m_mode=="MSK144" && m_hisCall!="" && text.contains(m_baseCall) && text.contains(m_hisCall + " 73") && m_send_RR73)
-      QTimer::singleShot (int(750*m_TRperiod), [=] {cease_auto_Tx_after_QSO();});
+      QTimer::singleShot (int(750*m_TRperiod), this, [=] {cease_auto_Tx_after_QSO();});
 
     // highlight orange and blue callsigns for MSK144
     if(m_config.highlight_orange() or (m_config.highlight_blue()) or ui->actionHighlight_Whitelist_entries->isChecked()) {
@@ -2623,9 +2623,9 @@ void MainWindow::fastSink(qint64 frames)
       if (m_config.highlight_DXcall()) {
         // repeated highlighting to override JTAlert
         ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);
-        QTimer::singleShot (500, [=] {ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);});
-        QTimer::singleShot (1000, [=] {ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);});
-        QTimer::singleShot (2500, [=] {ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);});
+        QTimer::singleShot (500, this, [=] {ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);});
+        QTimer::singleShot (1000, this, [=] {ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);});
+        QTimer::singleShot (2500, this, [=] {ui->decodedTextBrowser->highlight_callsign(m_hisCall, QColor(255,0,0), QColor(255,255,255), true);});
       }
     }
     if (!pounce && (m_config.highlight_DXgrid () or m_config.alert_Enabled()) && (m_hisGrid!="") && (decodedtext.string().contains(m_hisGrid.left(4))))  {
@@ -2732,7 +2732,7 @@ void MainWindow::showQSYMessage(QString message)
                 m_QSYMessageWidget.reset (new QSYMessage(finalMatch, qCall, m_settings, &m_config));
 
                 //connect to signal finish
-                connect (this, &MainWindow::finished, &QSYMessage::close);
+                connect (this, &MainWindow::finished, m_QSYMessageWidget.data (), &QSYMessage::close);
 
                 //connect to signal from QSYMessage
                 connect (m_QSYMessageWidget.data (), &QSYMessage::sendReply, this, &MainWindow::reply_tx5,static_cast<Qt::ConnectionType>(Qt::UniqueConnection));
@@ -2761,7 +2761,7 @@ void MainWindow::showQSYMessage(QString message)
       m_QSYMessageWidget.reset (new QSYMessage(qNewMessage, qDXCall, m_settings, &m_config));
 
       //connect to signal finish
-      connect (this, &MainWindow::finished, &QSYMessage::close);
+      connect (this, &MainWindow::finished, m_QSYMessageWidget.data (), &QSYMessage::close);
       m_QSYMessageWidget->show();
       m_QSYMessageWidget->raise();
       m_QSYMessageWidget->activateWindow();
@@ -2931,7 +2931,7 @@ void MainWindow::monitor (bool state)
       if (m_tci_audio) {
         if (ui->bandComboBox->currentText()!="OOB") {
           if(ms>=10) {
-            QTimer::singleShot (ms, [=] {Q_EMIT m_config.transceiver_audio(true);});
+            QTimer::singleShot (ms, this, [=] {Q_EMIT m_config.transceiver_audio(true);});
           } else {
             Q_EMIT m_config.transceiver_audio(true);
           }
@@ -2940,7 +2940,7 @@ void MainWindow::monitor (bool state)
         }
       } else {
         if(ms>=10) {
-          QTimer::singleShot (ms, [=] {resumeAudioInputStream();});
+          QTimer::singleShot (ms, this, [=] {resumeAudioInputStream();});
         } else {
           Q_EMIT resumeAudioInputStream ();
         }
@@ -3281,7 +3281,7 @@ void MainWindow::displayDialFrequency ()
       // prevent wrong frequencies for all.txt, PSK Reporter and highlighting for late decodes after band changes
       m_displayBand = false;
       no_decodes_to_UDP = true;  // prevent wrong frequencies for devices connected via UDP
-      QTimer::singleShot ((int(600.0*m_TRperiod)), [=] {
+      QTimer::singleShot ((int(600.0*m_TRperiod)), this, [=] {
           m_freqNominalPeriod = m_freqNominal;
           m_currentBandPeriod = m_currentBand;
           m_displayBand = true;
@@ -3336,7 +3336,7 @@ void MainWindow::statusChanged()
 {
   m_specOp=m_config.special_op_id();  // update m_specOp
   if (m_specOp==SpecOp::Q65_PILEUP && m_mode != "Q65") on_actionQ65_triggered();
-  QTimer::singleShot (50, [=] {       // only allow Wait & Call where it is appropriate
+  QTimer::singleShot (50, this, [=] {       // only allow Wait & Call where it is appropriate
       if((m_mode.startsWith("JT") or m_mode=="WSPR" or m_mode=="Echo" or m_mode=="FST4W"
          or (m_specOp!=SpecOp::NONE and m_specOp!=SpecOp::HOUND)
          or !ui->cbAutoSeq->isChecked() or m_hisCall=="") && ui->DX_Call_Button->isChecked())
@@ -3854,7 +3854,7 @@ void MainWindow::on_actionQSYMessage_Creator_triggered()
   if (!m_QSYMessageCreatorWidget) {
     m_QSYMessageCreatorWidget.reset (new QSYMessageCreator {m_settings, &m_config});
     // hook up termination signal
-    connect (this, &MainWindow::finished, &QSYMessageCreator::close);
+    connect (this, &MainWindow::finished, m_QSYMessageCreatorWidget.data (), &QSYMessageCreator::close);
     //connect to signal from QSYMessageCreator
     connect (m_QSYMessageCreatorWidget.data (), &QSYMessageCreator::sendMessage, this, &MainWindow::update_tx5);
     connect (m_QSYMessageCreatorWidget.data (), &QSYMessageCreator::sendQSYMessageCreatorStatus, this, &MainWindow::setQSYMessageCreatorStatus);
@@ -3873,7 +3873,7 @@ void MainWindow::on_actionQSY_Monitor_triggered()
   if (!m_qsymonitorWidget) {
     m_qsymonitorWidget.reset (new QSYMonitor {m_settings, m_config.decoded_text_font (), &m_config});
     // hook up termination signal
-    connect (this, &MainWindow::finished, &QSYMonitor::close);
+    connect (this, &MainWindow::finished, m_qsymonitorWidget.data (), &QSYMonitor::close);
   }
   m_qsymonitorValue = true;
   m_qsymonitorWidget->showNormal();
@@ -4584,7 +4584,7 @@ void MainWindow::decodeDone ()
   m_RxLog=0;
   if(SpecOp::FOX == m_specOp) {
     houndCallers();
-    if(ui->cbWorkDupes->isChecked()) QTimer::singleShot (5000, [=] {band_activity_cleared();});
+    if(ui->cbWorkDupes->isChecked()) QTimer::singleShot (5000, this, [=] {band_activity_cleared();});
   }
   to_jt9(m_ihsym,-1,1);                //Tell jt9 we know it has finished
 
@@ -5092,11 +5092,11 @@ void MainWindow::readFromStdout()                             //readFromStdout
           if(SpecOp::FOX==m_specOp and audioFreq<1000 and !for_us and decodedtext.string().contains(fox_report_regexp)) {
               if (first_Fox_alert) {
                   first_Fox_alert = false;
-                  QTimer::singleShot (120000, [=] {first_Fox_alert = true;});   // Reset after 2 minutes
+                  QTimer::singleShot (120000, this, [=] {first_Fox_alert = true;});   // Reset after 2 minutes
               } else {
                   if (second_Fox_alert) {
                       second_Fox_alert = false;
-                      QTimer::singleShot (300000, [=] {second_Fox_alert = true;});   // Reset after 5 minutes
+                      QTimer::singleShot (300000, this, [=] {second_Fox_alert = true;});   // Reset after 5 minutes
                   } else {
                       if (!no_Fox_alert) {
                            MessageBox::warning_message (this,
@@ -5104,7 +5104,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
                               "Stop transmitting, exit Fox mode for a few minutes,\n"
                               "and check the incoming FT8 messages.");
                            no_Fox_alert = true;
-                           QTimer::singleShot (3600000, [=] {   // No further Fox warnings for 60 minutes
+                           QTimer::singleShot (3600000, this, [=] {   // No further Fox warnings for 60 minutes
                                no_Fox_alert = false;
                                first_Fox_alert = true;
                                second_Fox_alert = true;
@@ -5457,7 +5457,7 @@ void MainWindow::guiUpdate()
         auto const& message = tr ("Please choose another Tx frequency."
                                   " WSJT-X will not knowingly transmit another"
                                   " mode in the WSPR sub-band on 30m.");
-        QTimer::singleShot (0, [=] { // don't block guiUpdate
+        QTimer::singleShot (0, this, [=] { // don't block guiUpdate
             MessageBox::warning_message (this, tr ("WSPR Guard Band"), message);
           });
       }
@@ -5482,7 +5482,7 @@ void MainWindow::guiUpdate()
                         "overlapping the WSPR sub-bands.");
         }
 
-        QTimer::singleShot (0, [=] {               // don't block guiUpdate
+        QTimer::singleShot (0, this, [=] {               // don't block guiUpdate
           MessageBox::warning_message (this, tr ("Fox Mode warning"), message);
         });
       }
@@ -6746,13 +6746,13 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
           // FT4 NS (NCCC Sprints): Log QSO after sending "hiscall mycall R mygrid"
           if (SpecOp::NA_VHF==m_specOp && m_mode=="FT4" && m_config.NCCC_Sprint()) {
               if (m_auto && (m_config.prompt_to_log() || m_config.autoLog())) logQSOTimer.start(0);
-              QTimer::singleShot (int(850.0*m_TRperiod), [=] {
+              QTimer::singleShot (int(850.0*m_TRperiod), this, [=] {
                 auto_tx_mode(false);
                 if (m_auto) ui->autoButton->click();
               });
               if (m_config.prompt_to_log() || m_config.autoLog()) {  // prevent dupe logbook entries
                 no_logging = true;
-                QTimer::singleShot (20000, [=] {no_logging = false;});
+                QTimer::singleShot (20000, this, [=] {no_logging = false;});
               }
           }
         } else {
@@ -6852,7 +6852,7 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
                 }
                 if ((m_mode=="MSK144" or (m_mode=="Q65" && m_config.repeat_Tx())) && !m_send_RR73) {  // ensure that 73 is sent when using RRR
                   ui->txrb5->click();
-                  QTimer::singleShot (int(1000*m_TRperiod), [=] {m_auto=false;});
+                  QTimer::singleShot (int(1000*m_TRperiod), this, [=] {m_auto=false;});
                 } else {
                   m_ntx=6;
                   ui->txrb6->setChecked(true);
@@ -7659,7 +7659,7 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
     } else {
       ui->tuneButton->setChecked(true);
       ui->tuneButton->setText("Tuning");
-      QTimer::singleShot (6000, [=] {        // reset Tune button after 6 seconds
+      QTimer::singleShot (6000, this, [=] {        // reset Tune button after 6 seconds
         ui->tuneButton->setChecked(false);
         ui->tuneButton->setText("Tune");
       });
@@ -7707,14 +7707,14 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
       keep_frequency = true;
       not_erase = true;         // prevent erasing the decodedTextBrowser
       m_config.toggle_SF();
-      QTimer::singleShot (250, [=] {
+      QTimer::singleShot (250, this, [=] {
         keep_frequency = false;
         not_erase = false;
       });
       on_actionFT8_triggered();
       ui->houndButton->clearFocus();
       ui->labDXped->setStyleSheet("QLabel {background-color: red; color: white;}");
-      QTimer::singleShot (250, [=] {keep_frequency = false;});
+      QTimer::singleShot (250, this, [=] {keep_frequency = false;});
   }
   // Search callsign on qrz.com, qrzcq.com or hamqth.com
   if(ui->lookupButton->hasFocus() && (event->button() & Qt::RightButton)) {   // search callsign on QRZ.com
@@ -7755,7 +7755,7 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
   if(ui->ft8Button->hasFocus() && (event->button() & Qt::RightButton)) {     // Switch contest mode on/off
       keep_frequency = true;
       not_erase = true;  // prevent erasing the decodedTextBrowser
-      QTimer::singleShot (350, [=] {not_erase = false;});
+      QTimer::singleShot (350, this, [=] {not_erase = false;});
       m_specOp=m_config.special_op_id();
       if (!m_config.bSpecialOp()) {
         m_config.setSpecial_On();
@@ -7800,7 +7800,7 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
       check_button_color();
       ui->ft8Button->clearFocus();
       statusChanged();
-      QTimer::singleShot (250, [=] {keep_frequency = false;});
+      QTimer::singleShot (250, this, [=] {keep_frequency = false;});
   }
   // freeze the Tx5 text
   if(ui->txb5->hasFocus() && (event->button() & Qt::RightButton)) {
@@ -7817,63 +7817,63 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
   if(ui->pb80->hasFocus() && (event->button() & Qt::RightButton) && (m_mode=="FT8" || m_mode=="FT4")) {
     keep_frequency = true;
     setRig(3567000);
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
+    QTimer::singleShot (250, this, [=] {keep_frequency = false;});
     setXIT (ui->TxFreqSpinBox->value ());
     ui->pb80->clearFocus();
   }
   if(ui->pb40->hasFocus() && (event->button() & Qt::RightButton) && (m_mode=="FT8" || m_mode=="FT4")) {
     keep_frequency = true;
     setRig(7056000);
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
+    QTimer::singleShot (250, this, [=] {keep_frequency = false;});
     setXIT (ui->TxFreqSpinBox->value ());
     ui->pb40->clearFocus();
   }
   if(ui->pb30->hasFocus() && (event->button() & Qt::RightButton) && (m_mode=="FT8" || m_mode=="FT4")) {
     keep_frequency = true;
     setRig(10131000);
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
+    QTimer::singleShot (250, this, [=] {keep_frequency = false;});
     setXIT (ui->TxFreqSpinBox->value ());
     ui->pb30->clearFocus();
   }
   if(ui->pb20->hasFocus() && (event->button() & Qt::RightButton) && (m_mode=="FT8" || m_mode=="FT4")) {
     keep_frequency = true;
     setRig(14090000);
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
+    QTimer::singleShot (250, this, [=] {keep_frequency = false;});
     setXIT (ui->TxFreqSpinBox->value ());
     ui->pb20->clearFocus();
   }
   if(ui->pb17->hasFocus() && (event->button() & Qt::RightButton) && (m_mode=="FT8" || m_mode=="FT4")) {
     keep_frequency = true;
     setRig(18095000);
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
+    QTimer::singleShot (250, this, [=] {keep_frequency = false;});
     setXIT (ui->TxFreqSpinBox->value ());
     ui->pb17->clearFocus();
   }
   if(ui->pb15->hasFocus() && (event->button() & Qt::RightButton) && (m_mode=="FT8" || m_mode=="FT4")) {
     keep_frequency = true;
     setRig(21091000);
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
+    QTimer::singleShot (250, this, [=] {keep_frequency = false;});
     setXIT (ui->TxFreqSpinBox->value ());
     ui->pb15->clearFocus();
   }
   if(ui->pb12->hasFocus() && (event->button() & Qt::RightButton) && (m_mode=="FT8" || m_mode=="FT4")) {
     keep_frequency = true;
     setRig(24911000);
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
+    QTimer::singleShot (250, this, [=] {keep_frequency = false;});
     setXIT (ui->TxFreqSpinBox->value ());
     ui->pb12->clearFocus();
   }
   if(ui->pb10->hasFocus() && (event->button() & Qt::RightButton) && (m_mode=="FT8" || m_mode=="FT4")) {
     keep_frequency = true;
     setRig(28091000);
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
+    QTimer::singleShot (250, this, [=] {keep_frequency = false;});
     setXIT (ui->TxFreqSpinBox->value ());
     ui->pb10->clearFocus();
   }
   if(ui->pb6->hasFocus() && (event->button() & Qt::RightButton) && m_mode=="FT8") {
     keep_frequency = true;
     setRig(50323000);
-    QTimer::singleShot (250, [=] {keep_frequency = false;});
+    QTimer::singleShot (250, this, [=] {keep_frequency = false;});
     setXIT (ui->TxFreqSpinBox->value ());
     ui->pb6->clearFocus();
   }
@@ -7886,7 +7886,7 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
       if (m_mode=="MSK144") {
         ui->sbTR->setValue (m_msk144_tr6);
         programStart = true;
-        QTimer::singleShot (250, [=] {programStart = false;});
+        QTimer::singleShot (250, this, [=] {programStart = false;});
       }
     }
     auto const& row = m_config.frequencies ()->best_working_frequency (f);
@@ -7896,7 +7896,7 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
     } else {
       keep_frequency = true;
       setRig(f);
-      QTimer::singleShot (250, [=] {keep_frequency = false;});
+      QTimer::singleShot (250, this, [=] {keep_frequency = false;});
     }
     setXIT (ui->TxFreqSpinBox->value ());
     ui->pb2->clearFocus();
@@ -7909,7 +7909,7 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
     } else {
       keep_frequency = true;
       setRig(1296174000);
-      QTimer::singleShot (250, [=] {keep_frequency = false;});
+      QTimer::singleShot (250, this, [=] {keep_frequency = false;});
     }
     setXIT (ui->TxFreqSpinBox->value ());
     ui->pb70->clearFocus();
@@ -8070,7 +8070,7 @@ void MainWindow::acceptQSO (QDateTime const& QSO_date_off, QString const& call, 
   blocked=true;                                      // needed to clear DXgrid only optionally
   if (m_config.clear_DXcall ()) clearDX ();
   if (m_config.clear_DXgrid ()) ui->dxGridEntry->clear ();
-  QTimer::singleShot (50, [=] {blocked = false;});   // needed to clear DXgrid only optionally
+  QTimer::singleShot (50, this, [=] {blocked = false;});   // needed to clear DXgrid only optionally
   m_dateTimeQSOOn = QDateTime {};
   if(m_specOp!=SpecOp::NONE and m_specOp!=SpecOp::FOX and m_specOp!=SpecOp::HOUND) {
     ui->sbSerialNumber->setValue(ui->sbSerialNumber->value() + 1);
@@ -8297,7 +8297,7 @@ void MainWindow::setDecodeHeadings(QString const& lh, QString const& rh)
 
 void MainWindow::on_actionFST4_triggered()
 {
-  QTimer::singleShot (50, [=] {
+  QTimer::singleShot (50, this, [=] {
     ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq_old",1500).toInt());
     ui->RxFreqSpinBox->setValue(m_settings->value("RxFreq_old",1500).toInt());
     on_sbSubmode_valueChanged(ui->sbSubmode->value());
@@ -8340,7 +8340,7 @@ void MainWindow::on_actionFST4_triggered()
   m_wideGraph->setMode(m_mode);
   ui->sbTR->values ({15, 30, 60, 120, 300, 900, 1800});
   ui->sbTR->setValue (m_settings->value ("TRPeriod_FST4", 60).toInt());    // remember sbTR settings by mode
-  QTimer::singleShot (50, [=] {on_sbTR_valueChanged (ui->sbTR->value());});
+  QTimer::singleShot (50, this, [=] {on_sbTR_valueChanged (ui->sbTR->value());});
   ui->txFirstCheckBox->setEnabled(true);
   statusChanged();
   m_bOK_to_chk=true;
@@ -8383,8 +8383,8 @@ void MainWindow::on_actionFST4W_triggered()
 
 void MainWindow::on_actionFT4_triggered()
 {
-  if (m_mode=="MSK144") QTimer::singleShot (75, [=] {on_actionFT4_triggered();});
-  QTimer::singleShot (50, [=] {
+  if (m_mode=="MSK144") QTimer::singleShot (75, this, [=] {on_actionFT4_triggered();});
+  QTimer::singleShot (50, this, [=] {
     ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq_old",1500).toInt());
     ui->RxFreqSpinBox->setValue(m_settings->value("RxFreq_old",1500).toInt());
     on_sbSubmode_valueChanged(ui->sbSubmode->value());
@@ -8431,8 +8431,8 @@ void MainWindow::on_actionFT4_triggered()
 
 void MainWindow::on_actionFT8_triggered()
 {
-  if (m_mode=="MSK144") QTimer::singleShot (75, [=] {on_actionFT8_triggered();});
-  QTimer::singleShot (50, [=] {
+  if (m_mode=="MSK144") QTimer::singleShot (75, this, [=] {on_actionFT8_triggered();});
+  QTimer::singleShot (50, this, [=] {
     if(m_specOp!=SpecOp::FOX) ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq_old",1500).toInt());
     if(m_specOp==SpecOp::FOX && !m_config.superFox()) ui->TxFreqSpinBox->setValue(m_TxFreqFox);
     if(SpecOp::HOUND == m_specOp && m_config.superFox()) {
@@ -8587,7 +8587,7 @@ void MainWindow::on_actionFT8_triggered()
 
 void MainWindow::on_actionJT4_triggered()
 {
-  QTimer::singleShot (50, [=] {
+  QTimer::singleShot (50, this, [=] {
     ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq_old",1500).toInt());
     ui->RxFreqSpinBox->setValue(m_settings->value("RxFreq_old",1500).toInt());
   });
@@ -8624,7 +8624,7 @@ void MainWindow::on_actionJT4_triggered()
     ui->sbFtol->setValue (m_settings->value ("Ftol_JT4", 50).toInt());
     m_nSubMode=m_settings->value("SubMode_JT4",0).toInt();
     ui->sbSubmode->setValue(m_settings->value("SubMode_JT4",0).toInt());
-    QTimer::singleShot (50, [=] {on_sbSubmode_valueChanged(ui->sbSubmode->value());});
+    QTimer::singleShot (50, this, [=] {on_sbSubmode_valueChanged(ui->sbSubmode->value());});
     m_bShMsgs=m_settings->value("ShMsgs_JT4",false).toBool();
     ui->cbShMsgs->setChecked(m_bShMsgs);
   } else {
@@ -8657,7 +8657,7 @@ void MainWindow::on_actionJT9_triggered()
     ui->sbFtol->setValue (m_settings->value ("Ftol_JT9", 50).toInt());
     m_nSubMode=m_settings->value("SubMode",0).toInt();
     ui->sbSubmode->setValue(m_nSubMode);
-    QTimer::singleShot (50, [=] {
+    QTimer::singleShot (50, this, [=] {
       on_sbTR_valueChanged (ui->sbTR->value());
       on_sbSubmode_valueChanged(ui->sbSubmode->value());
     });
@@ -8720,8 +8720,8 @@ void MainWindow::on_actionJT9_triggered()
 
 void MainWindow::on_actionJT65_triggered()
 {
-  if (m_mode=="MSK144") QTimer::singleShot (75, [=] {on_actionJT65_triggered();});
-  QTimer::singleShot (50, [=] {
+  if (m_mode=="MSK144") QTimer::singleShot (75, this, [=] {on_actionJT65_triggered();});
+  QTimer::singleShot (50, this, [=] {
     ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq_old",1500).toInt());
     ui->RxFreqSpinBox->setValue(m_settings->value("RxFreq_old",1500).toInt());
   });
@@ -8761,7 +8761,7 @@ void MainWindow::on_actionJT65_triggered()
     ui->sbFtol->setValue (m_settings->value ("Ftol_JT65", 50).toInt());
     m_nSubMode=m_settings->value("SubMode_JT65",0).toInt();
     ui->sbSubmode->setValue(m_settings->value("SubMode_JT65",0).toInt());
-    QTimer::singleShot (50, [=] {on_sbSubmode_valueChanged(ui->sbSubmode->value());});
+    QTimer::singleShot (50, this, [=] {on_sbSubmode_valueChanged(ui->sbSubmode->value());});
     m_bShMsgs=m_settings->value("ShMsgs_JT65",false).toBool();
     ui->cbShMsgs->setChecked(m_bShMsgs);
   } else {
@@ -8787,8 +8787,8 @@ void MainWindow::on_actionJT65_triggered()
 
 void MainWindow::on_actionQ65_triggered()
 {
-  if (m_mode=="MSK144") QTimer::singleShot (75, [=] {on_actionQ65_triggered();});
-  QTimer::singleShot (50, [=] {
+  if (m_mode=="MSK144") QTimer::singleShot (75, this, [=] {on_actionQ65_triggered();});
+  QTimer::singleShot (50, this, [=] {
     ui->TxFreqSpinBox->setValue(m_settings->value("TxFreq_old",1500).toInt());
     ui->RxFreqSpinBox->setValue(m_settings->value("RxFreq_old",1500).toInt());
   });
@@ -8813,7 +8813,7 @@ void MainWindow::on_actionQ65_triggered()
   ui->sbFtol->setValue (m_settings->value ("Ftol_Q65", 50).toInt());
   m_nSubMode=m_settings->value("SubMode_Q65",0).toInt();
   ui->sbSubmode->setValue(m_settings->value("SubMode_Q65",0).toInt());
-  QTimer::singleShot (50, [=] {
+  QTimer::singleShot (50, this, [=] {
     on_sbTR_valueChanged (ui->sbTR->value());
     on_sbSubmode_valueChanged(ui->sbSubmode->value());
   });
@@ -8937,7 +8937,7 @@ void MainWindow::on_actionMSK144_triggered()
     else ui->sbTR->setValue (m_msk144_tr);
   }
   ui->txFirstCheckBox->setEnabled(true);
-  QTimer::singleShot (50, [=] {on_sbTR_valueChanged (ui->sbTR->value());});
+  QTimer::singleShot (50, this, [=] {on_sbTR_valueChanged (ui->sbTR->value());});
   ui->sbFtol->setValue (m_settings->value ("Ftol_MSK144", 50).toInt());   // restore last used parameter
   m_bShMsgs=m_settings->value("ShMsgs_MSK144",false).toBool();
   ui->cbShMsgs->setChecked(m_bShMsgs);
@@ -9062,7 +9062,7 @@ void MainWindow::on_actionEcho_triggered()
   monitor(false);  //Don't auto-start Monitor in Echo mode.
 
   // Ensure that the correct frequency is set and displayed
-  QTimer::singleShot (500, [=] {
+  QTimer::singleShot (500, this, [=] {
     auto const& row = m_config.frequencies ()->best_working_frequency (m_freqNominal);
     ui->bandComboBox->setCurrentIndex (row);
     if (row >= 0) on_bandComboBox_activated (row);
@@ -9106,7 +9106,7 @@ void MainWindow::switch_mode (Mode mode)
 {
   no_a7_decodes = true;  // Don't allow a7 decodes during the first period because they can be leftovers from the previous mode
   msk144qsy = false;     // MSK144 QSY
-  QTimer::singleShot ((int(1500.0*m_TRperiod)), [=] {no_a7_decodes = false;});
+  QTimer::singleShot ((int(1500.0*m_TRperiod)), this, [=] {no_a7_decodes = false;});
   if (m_mode != "Q65" && m_specOp==SpecOp::Q65_PILEUP) {
       m_config.setSpecial_None();
       m_specOp=m_config.special_op_id();
@@ -9143,7 +9143,7 @@ void MainWindow::switch_mode (Mode mode)
     ui->rh_decodes_widget->setVisible (false);     // UR disable for AL + widescreen versions
     ui->lh_decodes_title_label->setVisible(false);
   }
-  QTimer::singleShot (500, [=] {
+  QTimer::singleShot (500, this, [=] {
     if (!(m_mode=="Echo" or ((m_mode=="Q65" or m_mode=="JT65") && m_config.decode_at_52s()))
         && ui->actionAstronomical_data->isChecked () && m_config.auto_astro()) ui->actionAstronomical_data->setChecked (false);
   });
@@ -9226,9 +9226,9 @@ void MainWindow::on_TxFreqSpinBox_valueChanged(int n)
   }
   if (m_mode != "MSK144" && m_mode != "FST4W" && m_mode != "WSPR" && m_mode != "Echo" && m_mode != "FreqCal"
       && m_specOp!=SpecOp::FOX) {
-      QTimer::singleShot (200, [=] {m_settings->setValue("TxFreq_old",ui->TxFreqSpinBox->value());});
+      QTimer::singleShot (200, this, [=] {m_settings->setValue("TxFreq_old",ui->TxFreqSpinBox->value());});
   }
-  if(m_specOp==SpecOp::FOX && !m_config.superFox()) QTimer::singleShot (50, [=] {m_TxFreqFox=n;});
+  if(m_specOp==SpecOp::FOX && !m_config.superFox()) QTimer::singleShot (50, this, [=] {m_TxFreqFox=n;});
 
   // UK stations must transmit below 5358 kHz on 60m
   if((m_config.my_callsign().startsWith("G") or m_config.my_callsign().startsWith("M")
@@ -9237,7 +9237,7 @@ void MainWindow::on_TxFreqSpinBox_valueChanged(int n)
     if(band=="60m") {
       ui->TxFreqSpinBox->setValue(5357950 - m_freqNominal);
       m_wideGraph->setTxFreq(5357950 - m_freqNominal);
-      QTimer::singleShot (0, [=] {   // don't block guiUpdate
+      QTimer::singleShot (0, this, [=] {   // don't block guiUpdate
         MessageBox::information_message (this, tr ("UK stations must transmit below 5358 kHz on 60m."));
       });
     }
@@ -9264,7 +9264,7 @@ void MainWindow::on_RxFreqSpinBox_valueChanged(int n)
   }
   if (m_mode != "MSK144" && m_mode != "FST4W" && m_mode != "WSPR" && m_mode != "Echo" && m_mode != "FreqCal"
       && !(SpecOp::HOUND == m_specOp && m_config.superFox())) {
-      QTimer::singleShot (200, [=] {m_settings->setValue("RxFreq_old",ui->RxFreqSpinBox->value());});
+      QTimer::singleShot (200, this, [=] {m_settings->setValue("RxFreq_old",ui->RxFreqSpinBox->value());});
   }
   statusUpdate ();
 }
@@ -9520,7 +9520,7 @@ void MainWindow::band_changed (Frequency f)
   msk144qsy = false;  // MSK144 QSY
   // Don't allow a7 decodes during the first period because they can be leftovers from the previous band
   no_a7_decodes = true;
-  QTimer::singleShot ((int(1500.0*m_TRperiod)), [=] {no_a7_decodes = false;});
+  QTimer::singleShot ((int(1500.0*m_TRperiod)), this, [=] {no_a7_decodes = false;});
 
   // Set the attenuation value if options are checked
   if (m_config.pwrBandTxMemory() && !m_tune) {
@@ -9579,7 +9579,7 @@ void MainWindow::band_changed (Frequency f)
     m_skedFreq=0.000001*f;
   }
   if (m_mode=="MSK144" && !programStart) { // restore MSK144 TRperiods by band
-    QTimer::singleShot (750, [=] {
+    QTimer::singleShot (750, this, [=] {
       if (m_currentBand=="2m" && m_msk144_tr2!=ui->sbTR->value()) ui->sbTR->setValue (m_msk144_tr2);
       else if ((m_currentBand=="6m" or m_currentBand=="4m") && m_msk144_tr6!=ui->sbTR->value()) ui->sbTR->setValue (m_msk144_tr6);
       else ui->sbTR->setValue (m_msk144_tr);
@@ -9593,7 +9593,7 @@ void MainWindow::band_changed (Frequency f)
     if(band=="60m") {
       ui->TxFreqSpinBox->setValue(5357950 - m_freqNominal);
       m_wideGraph->setTxFreq(5357950 - m_freqNominal);
-      QTimer::singleShot (0, [=] {   // don't block guiUpdate
+      QTimer::singleShot (0, this, [=] {   // don't block guiUpdate
         MessageBox::information_message (this, tr ("UK stations must transmit below 5358 kHz on 60m."));
       });
     }
@@ -10326,7 +10326,7 @@ void MainWindow::transmitDisplay (bool transmitting)
       ui->signal_meter_widget->setValue(0,0);
       if (m_monitoring && !ui->actionFull_Duplex_Mode->isChecked()) monitor (false);
       m_txing=true;
-      QTimer::singleShot ((int(1000.0*m_TRperiod)), [=] {m_txing=false;});
+      QTimer::singleShot ((int(1000.0*m_TRperiod)), this, [=] {m_txing=false;});
       m_btxok=true;
     }
 
@@ -10361,7 +10361,7 @@ void MainWindow::on_sbFtol_valueChanged(int value)
   m_wideGraph->setTol (value);
   statusUpdate ();
   // save last used parameters
-  QTimer::singleShot (200, [=] {
+  QTimer::singleShot (200, this, [=] {
     if (m_mode=="FT8") m_settings->setValue ("Ftol_SF", ui->sbFtol->value());
     if (m_mode=="Q65") m_settings->setValue ("Ftol_Q65", ui->sbFtol->value());
     if (m_mode=="MSK144") m_settings->setValue ("Ftol_MSK144", ui->sbFtol->value());
@@ -10440,7 +10440,7 @@ void MainWindow::on_sbTR_valueChanged(int value)
   on_sbSubmode_valueChanged(ui->sbSubmode->value());
   statusUpdate ();
   check_button_color();
-  if (!programStart) QTimer::singleShot (1000, [=] {
+  if (!programStart) QTimer::singleShot (1000, this, [=] {
     if (m_mode=="Q65") m_settings->setValue ("TRPeriod_Q65", ui->sbTR->value ());
     if (m_mode=="MSK144") {
       if (m_currentBand=="2m") {
@@ -10513,7 +10513,7 @@ void MainWindow::on_sbSubmode_valueChanged(int n)
   statusUpdate ();
   check_button_color();
   // save last used parameters
-  QTimer::singleShot (200, [=] {
+  QTimer::singleShot (200, this, [=] {
     if (m_mode=="Q65") m_settings->setValue("SubMode_Q65",ui->sbSubmode->value());
     if (m_mode=="JT65") m_settings->setValue("SubMode_JT65",ui->sbSubmode->value());
     if (m_mode=="JT4") m_settings->setValue("SubMode_JT4",ui->sbSubmode->value());
@@ -10552,7 +10552,7 @@ void MainWindow::on_cbShMsgs_toggled(bool b)
   if(ntx==4) ui->txrb4->setChecked(true);
   if(ntx==5) ui->txrb5->setChecked(true);
   if(ntx==6) ui->txrb6->setChecked(true);
-  QTimer::singleShot (200, [=] {
+  QTimer::singleShot (200, this, [=] {
     if(m_mode=="MSK144") m_settings->setValue("ShMsgs_MSK144",m_bShMsgs);
     if(m_mode=="Q65") m_settings->setValue("ShMsgs_Q65",m_bShMsgs);
     if(m_mode=="JT65") m_settings->setValue("ShMsgs_JT65",m_bShMsgs);
@@ -11467,7 +11467,7 @@ void MainWindow::write_transmit_entry (QString const& file_name)
     {
       auto const& message = tr ("Cannot open \"%1\" for append: %2")
         .arg (f.fileName ()).arg (f.errorString ());
-      QTimer::singleShot (0, [=] {                   // don't block guiUpdate
+      QTimer::singleShot (0, this, [=] {                   // don't block guiUpdate
           MessageBox::warning_message (this, tr ("Log File Error"), message);
         });
     }
@@ -11655,7 +11655,7 @@ void MainWindow::on_comboBoxCQ_activated()
 {
   if(m_config.superFox()) {
     ui->comboBoxCQ->setCurrentIndex(0);    // No directional calls supported yet for SuperFox mode
-    QTimer::singleShot (0, [=] {           // don't block guiUpdate
+    QTimer::singleShot (0, this, [=] {           // don't block guiUpdate
       MessageBox::information_message(this, tr ("Directional calls not yet supported in SuperFox mode"));
     });
   }
@@ -12398,7 +12398,7 @@ list2Done:
             writeFoxQSO (QString {" Log:  %1 %2 %3 %4 %5"}.arg (m_hisCall).arg (m_hisGrid)
                          .arg (m_rptSent).arg (m_rptRcvd).arg (m_lastBand));
             on_logQSOButton_clicked ();
-            QTimer::singleShot (13000, [=] {
+            QTimer::singleShot (13000, this, [=] {
                 m_foxQSOinProgress.removeOne(hc1); //Remove from In Progress window
                 updateFoxQSOsInProgressDisplay();  //Update InProgress display after Tx is complete
             });
@@ -12834,7 +12834,7 @@ void MainWindow::write_all(QString txRx, QString message)
   } else {
     auto const& message2 = tr ("Cannot open \"%1\" for append: %2")
         .arg (f.fileName ()).arg (f.errorString ());
-    QTimer::singleShot (0, [=] {                   // don't block guiUpdate
+    QTimer::singleShot (0, this, [=] {                   // don't block guiUpdate
       MessageBox::warning_message(this, tr ("Log File Error"), message2); });
   }
  }
@@ -13913,8 +13913,8 @@ void MainWindow::addCallsignToignoreList()
   #endif
                    ;
       ignoreFile.close();
-      QTimer::singleShot (2000, [=] {read_ignoreList();});
-      QTimer::singleShot (7000, [=] {read_ignoreList();});
+      QTimer::singleShot (2000, this, [=] {read_ignoreList();});
+      QTimer::singleShot (7000, this, [=] {read_ignoreList();});
       MessageBox::information_message (this, tr ("\"%1\" added to Ignore List").arg (m_hisCall));
     }
   }
@@ -14444,7 +14444,7 @@ void MainWindow::processSprintLogic(const QString& text)
   if (m_mode=="FT4" && SpecOp::NA_VHF==m_specOp && m_config.NCCC_Sprint() && m_hisCall!="" && m_hisGrid!="" &&
       text.contains(" " + m_config.my_callsign() + " " + m_hisCall + " R " + m_hisGrid.left(4))) {
     if (m_config.prompt_to_log() || m_config.autoLog()) logQSOTimer.start(0);
-    QTimer::singleShot (500, [=] {
+    QTimer::singleShot (500, this, [=] {
       on_stopTxButton_clicked();
     });
   }
