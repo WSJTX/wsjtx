@@ -82,7 +82,13 @@ project (wsjtx
 
 set (PROJECT_DESCRIPTION "WSJT-X: Digital Modes for Weak Signal Communications in Amateur Radio")
 set (CMAKE_PROJECT_DESCRIPTION ${PROJECT_DESCRIPTION})
-set (CMAKE_AUTOUIC ON)
+set (CMAKE_AUTOMOC OFF)
+set (CMAKE_AUTOUIC OFF)
+set (CMAKE_AUTORCC OFF)
+
+function (wsjt_enable_qt_automoc target)
+  set_target_properties (${target} PROPERTIES AUTOMOC ON)
+endfunction ()
 
 # Align windres with the active MinGW gcc to prevent MSYS path mangling
 if(MINGW)
@@ -1712,8 +1718,6 @@ endif()
 target_include_directories (wsprd PRIVATE ${FFTW3_INCLUDE_DIRS})
 target_link_libraries (wsprd ${FFTW3_LIBRARIES} ${LIBM_LIBRARIES})
 
-# Tell CMake to run moc when necessary
-set (CMAKE_AUTOMOC ON)
 
 # mmtty_interface utility
 set (mmtty_interface_SRCS
@@ -1725,6 +1729,7 @@ set (mmtty_interface_SRCS
 )
 
 add_executable (mmtty_interface WIN32 ${mmtty_interface_SRCS})
+wsjt_enable_qt_automoc (mmtty_interface)
 target_link_libraries (mmtty_interface Qt5::Widgets)
 target_include_directories (mmtty_interface PRIVATE widgets)
 include_directories (${CMAKE_CURRENT_BINARY_DIR})
@@ -1839,11 +1844,13 @@ endif (WIN32)
 
 # build a library for the QCustomPlot widget
 add_library (qcp STATIC ${qcp_CXXSRCS})
+wsjt_enable_qt_automoc (qcp)
 target_include_directories (qcp PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/qcustomplot-source>)
 target_link_libraries (qcp Qt5::Widgets Qt5::PrintSupport)
 
 # build a library of package Qt functionality
 add_library (wsjt_qt STATIC ${wsjt_qt_CXXSRCS} ${wsjt_qt_GENUISRCS} ${GENAXSRCS})
+wsjt_enable_qt_automoc (wsjt_qt)
 # set wsjtx_udp exports to static variants
 target_compile_definitions (wsjt_qt PUBLIC UDP_STATIC_DEFINE)
 target_link_libraries (wsjt_qt Hamlib::Hamlib Boost::log qcp Qt5::Widgets Qt5::Network Qt5::Multimedia Qt5::SerialPort Qt5::Sql Qt5::WebSockets)
@@ -1853,10 +1860,11 @@ endif (WIN32)
 
 # build a library of package Qt functionality used in Fortran utilities
 add_library (fort_qt STATIC ${fort_qt_CXXSRCS})
-target_link_libraries (fort_qt Qt5::Core)
+target_link_libraries (fort_qt PRIVATE Qt5::Core)
 
 # build a library of WSJT Qt multimedia components
 add_library (wsjt_qtmm STATIC ${wsjt_qtmm_CXXSRCS} ${wsjt_qtmm_GENUISRCS})
+wsjt_enable_qt_automoc (wsjt_qtmm)
 target_link_libraries (wsjt_qtmm Qt5::Multimedia)
 
 # build the jt9 slow mode decoder driver
@@ -1868,6 +1876,7 @@ generate_version_info (jt9_VERSION_RESOURCES
   )
 
 add_executable (record_time_signal Audio/tools/record_time_signal.cpp)
+wsjt_enable_qt_automoc (record_time_signal)
 target_link_libraries (record_time_signal wsjt_cxx wsjt_qtmm wsjt_qt)
 
 add_executable (jt9 ${jt9_FSRCS} ${jt9_VERSION_RESOURCES})
@@ -1915,7 +1924,14 @@ if (NOT WSJT_SKIP_MAP65)
   find_package (Portaudio REQUIRED)
   add_subdirectory (map65)
 endif ()
+if (TARGET map65)
+  wsjt_enable_qt_automoc (map65)
+endif ()
+
 add_subdirectory (qmap)
+if (TARGET qmap)
+  wsjt_enable_qt_automoc (qmap)
+endif ()
 
 # build the main application
 generate_version_info (wsjtx_VERSION_RESOURCES
@@ -1950,6 +1966,8 @@ add_executable (wsjtx MACOSX_BUNDLE
   ${wsjtx_VERSION_RESOURCES}
   ${wsjtx_PLATFORM_RESOURCES}
   )
+
+wsjt_enable_qt_automoc (wsjtx)
 
 if (APPLE)
   add_custom_command(
@@ -1996,6 +2014,7 @@ target_link_libraries (wsjtx Qt5::SerialPort wsjt_cxx wsjt_qt wsjt_qtmm ${FFTW3_
 # make a library for WSJT-X UDP servers
 # add_library (wsjtx_udp SHARED ${UDP_library_CXXSRCS})
 add_library (wsjtx_udp-static STATIC ${UDP_library_CXXSRCS})
+wsjt_enable_qt_automoc (wsjtx_udp-static)
 #target_include_directories (wsjtx_udp
 #  INTERFACE
 #  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/wsjtx>
@@ -2021,6 +2040,7 @@ generate_version_info (udp_daemon_VERSION_RESOURCES
   FILE_DESCRIPTION "Example WSJT-X UDP Message Protocol daemon"
   )
 add_executable (udp_daemon UDPExamples/UDPDaemon.cpp ${udp_daemon_VERSION_RESOURCES})
+wsjt_enable_qt_automoc (udp_daemon)
 target_link_libraries (udp_daemon wsjtx_udp-static)
 
 generate_version_info (wsjtx_app_version_VERSION_RESOURCES
@@ -2049,6 +2069,7 @@ add_executable (message_aggregator
   ${message_aggregator_RESOURCES_RCC}
   ${message_aggregator_VERSION_RESOURCES}
   )
+wsjt_enable_qt_automoc (message_aggregator)
 target_link_libraries (message_aggregator wsjt_qt Qt5::Widgets wsjtx_udp-static)
 
 if (WSJT_CREATE_WINMAIN)
