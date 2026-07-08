@@ -28,6 +28,7 @@
 #include <QScrollBar>
 #include <QQueue>
 #include <QFuture>
+#include <QFutureSynchronizer>
 #include <QFutureWatcher>
 #include <QDateTime>
 #include <array>
@@ -204,6 +205,8 @@ private:
   void childEvent(QChildEvent *) override;
   bool eventFilter(QObject *, QEvent *) override;
   void showQSYMessage(QString message);
+  void save_wave_file(QString const& name, int samples, Frequency frequency,
+                      QString const& dgrd);
 
 private slots:
   void initialize_fonts ();
@@ -932,6 +935,7 @@ private:
   QFuture<void> m_wav_future;
   QFutureWatcher<void> m_wav_future_watcher;
   QFutureWatcher<void> watcher3;
+  QFutureSynchronizer<QString> m_saveWAVSynchronizer;
   QFutureWatcher<QString> m_saveWAVWatcher;
 
   NonInheritingProcess proc_jt9;

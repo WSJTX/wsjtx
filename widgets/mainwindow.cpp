@@ -38,6 +38,7 @@
 #include <QtConcurrent/QtConcurrentRun>
 #include <QProgressDialog>
 #include <QHostInfo>
+#include <QMutexLocker>
 #include <QVector>
 #include <QCursor>
 #include <QToolTip>
@@ -54,6 +55,9 @@
 #include <QRandomGenerator>
 #endif
 
+#include <memory>
+#include <vector>
+
 #include "itoneAndicw.h" // TCI
 
 #include "helper_functions.h"
@@ -64,6 +68,7 @@
 #include "Audio/soundin.h"
 #include "Modulator/Modulator.hpp"
 #include "Detector/Detector.hpp"
+#include "DecDataMutex.hpp"
 #include "TxStartPolicy.hpp"
 #include "ActiveStationList.hpp"
 #include "plotter.h"
@@ -1052,7 +1057,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
           });
 
   // hook up save WAV file exit handling
-  connect (&m_saveWAVWatcher, &QFutureWatcher<QString>::finished, [this] {
+  connect (&m_saveWAVWatcher, &QFutureWatcher<QString>::finished, this, [this] {
       // extract the promise from the future
       auto const& result = m_saveWAVWatcher.future ().result ();
       if (!result.isEmpty ())   // error
@@ -1559,11 +1564,58 @@ MainWindow::~MainWindow()
   fftwf_export_wisdom_to_filename (fname.toLocal8Bit ());
   m_audioThread.quit ();
   m_audioThread.wait ();
+  m_saveWAVSynchronizer.waitForFinished ();
+  m_saveWAVSynchronizer.clearFutures ();
   remove_child_from_event_filter (this);
   memset(ipc_qmap,0,4096);         //Zero all of QMAP shared memory
 // Force linking of Fortran function stdmsg().
   QString t="1234567890123456789012345678901234567";
   if(stdmsg_(const_cast <char *> (t.toLatin1().constData()),(FCL)37)) return;
+}
+
+void MainWindow::save_wave_file(QString const& name, int samples, Frequency frequency,
+                                QString const& dgrd)
+{
+  int const sample_capacity = static_cast<int> (sizeof (dec_data.d2) / sizeof (dec_data.d2[0]));
+  if (samples <= 0 || samples > sample_capacity) {
+    MessageBox::critical_message (this, tr ("Error Writing WAV File"),
+                                  tr ("%1.wav: invalid sample count %2").arg (name).arg (samples));
+    return;
+  }
+
+  auto data = std::make_shared<std::vector<short> > (samples);
+  {
+    QMutexLocker lock {&dec_data_mutex ()};
+    std::copy (dec_data.d2, dec_data.d2 + samples, data->begin ());
+  }
+
+  QString const file_name = name;
+  QString const my_callsign = m_config.my_callsign ();
+  QString const my_grid = m_config.my_grid ();
+  QString const mode = m_mode;
+  qint32 const sub_mode = m_nSubMode;
+  QString const his_call = m_hisCall;
+  QString const his_grid = m_hisGrid;
+
+  auto const futures = m_saveWAVSynchronizer.futures ();
+  bool all_finished = true;
+  for (auto const& future : futures) {
+    if (!future.isFinished ()) {
+      all_finished = false;
+      break;
+    }
+  }
+  if (all_finished) {
+    m_saveWAVSynchronizer.clearFutures ();
+  }
+
+  auto const future = QtConcurrent::run ([file_name, data, samples, my_callsign, my_grid,
+                                          mode, sub_mode, frequency, his_call, his_grid, dgrd] {
+    return Radio::WavFile::save (file_name, data->data (), samples, my_callsign, my_grid,
+                                 mode, sub_mode, frequency, his_call, his_grid, dgrd);
+  });
+  m_saveWAVSynchronizer.addFuture (future);
+  m_saveWAVWatcher.setFuture (future);
 }
 
 //-------------------------------------------------------- writeSettings()
@@ -2081,7 +2133,6 @@ void MainWindow::dataSink(qint64 frames)
       }
       int samples=m_TRperiod*12000;
       if(m_mode=="FT4") samples=21*3456;
-      short const * data = &dec_data.d2[0];      
       double dgrd_value = 0.0;
       QString dgrd;
       if(m_astroWidget) {
@@ -2089,12 +2140,8 @@ void MainWindow::dataSink(qint64 frames)
         dgrd = QString("%1").arg(dgrd_value, 0, 'f', 1);
       } else {
         dgrd = "NoVal";
-      }  
-      m_saveWAVWatcher.setFuture (QtConcurrent::run ([=] {
-        return Radio::WavFile::save (m_fnameWE, data, samples, m_config.my_callsign (),
-                                     m_config.my_grid (), m_mode, m_nSubMode, m_freqNominalPeriod,
-                                     m_hisCall, m_hisGrid, dgrd);
-      }));
+      }
+      save_wave_file (m_fnameWE, samples, m_freqNominalPeriod, dgrd);
       if (m_mode=="WSPR") {
         auto c2name {(m_fnameWE + ".c2").toLocal8Bit ()};
         int nsec=120;
@@ -2150,7 +2197,10 @@ void MainWindow::fastSink(qint64 frames)
     memcpy(fast_green2,fast_green,4*703);        //Copy fast_green[] to fast_green2[]
     memcpy(fast_s2,fast_s,4*703*64);             //Copy fast_s[] into fast_s2[]
     fast_jh2=fast_jh;
-    if(!m_diskData) memset(dec_data.d2,0,2*30*12000);   //Zero the d2[] array
+    if(!m_diskData) {
+      QMutexLocker lock {&dec_data_mutex ()};
+      memset(dec_data.d2,0,2*30*12000);   //Zero the d2[] array
+    }
     m_bFastDecodeCalled=false;
     m_bDecoded=false;
   }
@@ -2679,9 +2729,6 @@ void MainWindow::fastSink(qint64 frames)
       m_fnameWE = m_config.save_directory ().absoluteFilePath (period_start.toString ("yyMMdd_hhmmss"));
       if(m_saveAll or m_bAltV or (m_bDecoded and m_saveDecoded) or (m_mode!="MSK144")) {
         m_bAltV=false;
-        // the following is potential a threading hazard - not a good
-        // idea to pass pointer to be processed in another thread
-        short const * data = &dec_data.d2[0];             
         double dgrd_value = 0.0;
         QString dgrd;
         if(m_astroWidget) {
@@ -2689,12 +2736,8 @@ void MainWindow::fastSink(qint64 frames)
           dgrd = QString("%1").arg(dgrd_value, 0, 'f', 1);
         } else {
           dgrd = "NoVal";
-        }  
-        m_saveWAVWatcher.setFuture (QtConcurrent::run ([=] {
-          return Radio::WavFile::save (m_fnameWE, data, int (m_TRperiod * 12000.0),
-                                       m_config.my_callsign (), m_config.my_grid (), m_mode,
-                                       m_nSubMode, m_freqNominal, m_hisCall, m_hisGrid, dgrd);
-        }));
+        }
+        save_wave_file (m_fnameWE, int (m_TRperiod * 12000.0), m_freqNominal, dgrd);
       }
       if(m_mode!="MSK144") {
         killFileTimer.start (int(750.0*m_TRperiod)); //Kill 3/4 period from now

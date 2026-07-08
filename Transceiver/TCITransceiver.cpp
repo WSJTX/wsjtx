@@ -21,7 +21,11 @@
 #include <QDir>
 #include <QDebug>
 #include <QDateTime>
+#include <QMutexLocker>
 #include <QTimer>
+#include <QVector>
+
+#include "DecDataMutex.hpp"
 
 static constexpr quint32 AudioHeaderSize = 16u*sizeof(quint32);
 
@@ -1054,15 +1058,21 @@ void TCITransceiver::poll_jtty_drain ()
 quint32 TCITransceiver::writeAudioData (float * data, qint32 maxSize)
 {
   static unsigned mstr0=999999;
+  QVector<qint64> frame_counts;
   qint64 ms0 = QDateTime::currentMSecsSinceEpoch() % 86400000;
   unsigned mstr = ms0 % int(1000.0*m_period); // ms into the nominal Tx start time
-  if(mstr < mstr0/2) {              //When mstr has wrapped around to 0, restart the buffer
-    dec_data.params.kin = 0;
-    m_bufferPos = 0;
-  }
-  mstr0=mstr;
 
-  if(data != NULL) {
+  if(data == NULL) {
+    QMutexLocker lock {&dec_data_mutex ()};
+    if(mstr < mstr0/2) {              //When mstr has wrapped around to 0, restart the buffer
+      dec_data.params.kin = 0;
+      m_bufferPos = 0;
+    }
+    mstr0=mstr;
+    return maxSize;    // we drop any data past the end of the buffer on
+    // the floor until the next period starts
+  }
+
   // block below adjusts receive audio attenuation
   quint64 i = 0;
   float * data1 = (float*)malloc(maxSize * sizeof(float));
@@ -1070,62 +1080,75 @@ quint32 TCITransceiver::writeAudioData (float * data, qint32 maxSize)
     data1[i] = ((float)(pow(10, 0.05*rxAtten) * data[i]));
   }
 
-  // no torn frames
-  Q_ASSERT (!(maxSize % static_cast<qint32> (bytesPerFrame)));
+  {
+    QMutexLocker lock {&dec_data_mutex ()};
 
-  // these are in terms of input frames (not down sampled)
-  size_t framesAcceptable ((sizeof (dec_data.d2) /
-                               sizeof (dec_data.d2[0]) - dec_data.params.kin) * m_downSampleFactor);
-  size_t framesAccepted (qMin (static_cast<size_t> (maxSize /
-                                                    bytesPerFrame), framesAcceptable));
+    if(mstr < mstr0/2) {              //When mstr has wrapped around to 0, restart the buffer
+      dec_data.params.kin = 0;
+      m_bufferPos = 0;
+    }
+    mstr0=mstr;
 
-  if (framesAccepted < static_cast<size_t> (maxSize / bytesPerFrame)) {
-    qDebug () << "dropped " << maxSize / bytesPerFrame - framesAccepted
-             << " frames of data on the floor!"
-             << dec_data.params.kin << mstr;
+    // no torn frames
+    Q_ASSERT (!(maxSize % static_cast<qint32> (bytesPerFrame)));
+
+    // these are in terms of input frames (not down sampled)
+    size_t framesAcceptable ((sizeof (dec_data.d2) /
+                                 sizeof (dec_data.d2[0]) - dec_data.params.kin) * m_downSampleFactor);
+    size_t framesAccepted (qMin (static_cast<size_t> (maxSize /
+                                                      bytesPerFrame), framesAcceptable));
+
+    if (framesAccepted < static_cast<size_t> (maxSize / bytesPerFrame)) {
+      qDebug () << "dropped " << maxSize / bytesPerFrame - framesAccepted
+               << " frames of data on the floor!"
+               << dec_data.params.kin << mstr;
+    }
+
+    for (unsigned remaining = framesAccepted; remaining; ) {
+      size_t numFramesProcessed (qMin (m_samplesPerFFT *
+                                       m_downSampleFactor - m_bufferPos, remaining));
+
+      if(m_downSampleFactor > 1) {
+        store (&data1[(framesAccepted - remaining) * bytesPerFrame],
+              numFramesProcessed, &m_buffer[m_bufferPos]);
+        m_bufferPos += numFramesProcessed;
+
+        if(m_bufferPos==m_samplesPerFFT*m_downSampleFactor) {
+          qint32 framesToProcess (m_samplesPerFFT * m_downSampleFactor);
+          qint32 framesAfterDownSample (m_samplesPerFFT);
+          if(m_downSampleFactor > 1 && dec_data.params.kin>=0 &&
+              dec_data.params.kin < (NTMAX*12000 - framesAfterDownSample)) {
+            fil4_(&m_buffer[0], &framesToProcess, &dec_data.d2[dec_data.params.kin],
+                  &framesAfterDownSample, &dec_data.d2[dec_data.params.kin]);
+            dec_data.params.kin += framesAfterDownSample;
+          } else {
+            qDebug() << "framesToProcess     = " << framesToProcess;
+            qDebug() << "dec_data.params.kin = " << dec_data.params.kin;
+            qDebug() << "framesAfterDownSample" << framesAfterDownSample;
+          }
+          frame_counts << dec_data.params.kin;
+          m_bufferPos = 0;
+        }
+
+      } else {
+        store (&data1[(framesAccepted - remaining) * bytesPerFrame],
+              numFramesProcessed, &dec_data.d2[dec_data.params.kin]);
+        m_bufferPos += numFramesProcessed;
+        dec_data.params.kin += numFramesProcessed;
+        if (m_bufferPos == static_cast<unsigned> (m_samplesPerFFT)) {
+          frame_counts << dec_data.params.kin;
+          m_bufferPos = 0;
+        }
+      }
+      remaining -= numFramesProcessed;
+    }
   }
 
-  for (unsigned remaining = framesAccepted; remaining; ) {
-    size_t numFramesProcessed (qMin (m_samplesPerFFT *
-                                     m_downSampleFactor - m_bufferPos, remaining));
-
-    if(m_downSampleFactor > 1) {
-      store (&data1[(framesAccepted - remaining) * bytesPerFrame],
-            numFramesProcessed, &m_buffer[m_bufferPos]);
-      m_bufferPos += numFramesProcessed;
-
-      if(m_bufferPos==m_samplesPerFFT*m_downSampleFactor) {
-        qint32 framesToProcess (m_samplesPerFFT * m_downSampleFactor);
-        qint32 framesAfterDownSample (m_samplesPerFFT);
-        if(m_downSampleFactor > 1 && dec_data.params.kin>=0 &&
-            dec_data.params.kin < (NTMAX*12000 - framesAfterDownSample)) {
-          fil4_(&m_buffer[0], &framesToProcess, &dec_data.d2[dec_data.params.kin],
-                &framesAfterDownSample, &dec_data.d2[dec_data.params.kin]);
-          dec_data.params.kin += framesAfterDownSample;
-        } else {
-          qDebug() << "framesToProcess     = " << framesToProcess;
-          qDebug() << "dec_data.params.kin = " << dec_data.params.kin;
-          qDebug() << "framesAfterDownSample" << framesAfterDownSample;
-        }
-        Q_EMIT tciframeswritten (dec_data.params.kin);
-        m_bufferPos = 0;
-      }
-
-    } else {
-      store (&data1[(framesAccepted - remaining) * bytesPerFrame],
-            numFramesProcessed, &dec_data.d2[dec_data.params.kin]);
-      m_bufferPos += numFramesProcessed;
-      dec_data.params.kin += numFramesProcessed;
-      if (m_bufferPos == static_cast<unsigned> (m_samplesPerFFT)) {
-        Q_EMIT tciframeswritten (dec_data.params.kin);
-        m_bufferPos = 0;
-      }
-    }
-    remaining -= numFramesProcessed;
+  for (auto frames : frame_counts) {
+    Q_EMIT tciframeswritten (frames);
   }
 
   free(data1);
-}
   return maxSize;    // we drop any data past the end of the buffer on
   // the floor until the next period starts
 }
@@ -1189,6 +1212,7 @@ void TCITransceiver::do_audio (bool on)
 {
   TRACE_CAT ("TCITransceiver", on << state ());
   if (on) {
+    QMutexLocker lock {&dec_data_mutex ()};
     dec_data.params.kin = 0;
     m_bufferPos = 0;
   }
