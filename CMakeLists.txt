@@ -430,6 +430,7 @@ set (wsjtx_CXXSRCS
   WSPR/WSPRBandHopping.cpp
   widgets/ExportCabrillo.cpp
   widgets/QSYMessage.cpp 
+  widgets/QSYMessageParser.cpp
   widgets/QSYMessageCreator.cpp
   widgets/qsymonitor.cpp
   widgets/MMTTYIF.cpp

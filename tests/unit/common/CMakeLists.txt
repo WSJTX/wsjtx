@@ -85,3 +85,10 @@ add_executable (test_auto_sequence_reaction
 )
 target_link_libraries (test_auto_sequence_reaction wsjt_qt wsjt_fort_common Qt5::Test)
 add_test (NAME test_auto_sequence_reaction COMMAND test_auto_sequence_reaction)
+
+add_executable (test_qsy_message_parser
+  test_qsy_message_parser.cpp
+  ${CMAKE_SOURCE_DIR}/widgets/QSYMessageParser.cpp
+)
+target_link_libraries (test_qsy_message_parser Qt5::Test)
+add_test (NAME test_qsy_message_parser COMMAND test_qsy_message_parser)
