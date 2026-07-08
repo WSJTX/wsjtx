@@ -78,7 +78,7 @@ if find pfunit-prefix -name PFUNITConfig.cmake -print -quit 2>/dev/null | grep -
 else
   echo "::group::Build pFUnit (cache miss)"
   rm -rf pfunit-src pfunit-build pfunit-prefix
-  git clone --depth 1 --branch v4.9.0 --recursive \
+  git clone --depth 1 --branch v4.14.0 --recursive \
     https://github.com/Goddard-Fortran-Ecosystem/pFUnit.git pfunit-src
   cmake -S pfunit-src -B pfunit-build \
     -DSKIP_MPI=YES \

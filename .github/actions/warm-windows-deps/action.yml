@@ -35,14 +35,14 @@ runs:
       uses: actions/cache/restore@v5
       with:
         path: pfunit-prefix
-        key: pfunit-windows-windows-latest-mingw64-v4.9.0-gfortran${{ steps.fc.outputs.version }}-epoch1-${{ hashFiles('.github/scripts/build-pfunit-windows.sh') }}
+        key: pfunit-windows-windows-latest-mingw64-v4.14.0-gfortran${{ steps.fc.outputs.version }}-epoch1-${{ hashFiles('.github/scripts/build-pfunit-windows.sh') }}
 
     - name: Build pFUnit
       if: steps.pfunit-cache.outputs.cache-hit != 'true'
       shell: msys2 {0}
       run: |
         WORKSPACE=$(cygpath "${GITHUB_WORKSPACE}")
-        .github/scripts/build-pfunit-windows.sh v4.9.0 "${WORKSPACE}/pfunit-prefix"
+        .github/scripts/build-pfunit-windows.sh v4.14.0 "${WORKSPACE}/pfunit-prefix"
 
     - name: Locate pFUnit config
       shell: msys2 {0}
