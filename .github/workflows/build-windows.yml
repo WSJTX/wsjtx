@@ -90,6 +90,8 @@ jobs:
 
       - uses: actions/checkout@v7
 
+      # Boost is source-built by build-windows-deps so the Windows 7 API floor
+      # and Boost.Atomic patch stay pinned; do not install MSYS2 Boost here.
       - uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
@@ -144,120 +146,14 @@ jobs:
           ccache --version
           ccache --zero-stats
 
-      - name: Restore Boost cache
-        id: boost-cache
-        uses: actions/cache/restore@v6
+      - name: Build Windows dependencies
+        id: windows-deps
+        uses: ./.github/actions/build-windows-deps
         with:
-          path: boost-prefix
-          key: boost-windows-windows-latest-mingw64-${{ env.BOOST_VERSION }}-winapi${{ env.WSJT_WINDOWS_API_FLOOR }}-epoch1-${{ hashFiles('.github/scripts/build-boost-windows.sh') }}
-
-      - name: Build Boost
-        if: steps.boost-cache.outputs.cache-hit != 'true'
-        run: |
-          WORKSPACE=$(cygpath "${GITHUB_WORKSPACE}")
-          .github/scripts/build-boost-windows.sh "${BOOST_VERSION}" "${WSJT_WINDOWS_API_FLOOR}" "${WORKSPACE}/boost-prefix"
-
-      - name: Save Boost cache
-        if: steps.boost-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v6
-        with:
-          path: boost-prefix
-          key: ${{ steps.boost-cache.outputs.cache-primary-key }}
-
-      - name: Verify Boost Windows API floor
-        run: |
-          WORKSPACE=$(cygpath "${GITHUB_WORKSPACE}")
-          boost_dlls=("${WORKSPACE}"/boost-prefix/lib/libboost_*.dll)
-          if [ ! -e "${boost_dlls[0]}" ]; then
-            echo "::error::Boost DLLs not found under ${WORKSPACE}/boost-prefix/lib"
-            ls -la "${WORKSPACE}/boost-prefix/lib" || true
-            exit 1
-          fi
-          bad=0
-          for boost_dll in "${boost_dlls[@]}"; do
-            echo "Inspecting ${boost_dll}"
-            objdump -p "$boost_dll" | awk '/DLL Name:/ {print "  " $3}' | sort -u
-            if objdump -p "$boost_dll" | awk '/WaitOnAddress|WakeByAddressSingle|WakeByAddressAll|api-ms-win-core-synch-l1-2-0\.dll/ { found=1; print } END { exit found ? 0 : 1 }'; then
-              echo "::error::${boost_dll} imports Windows 8+ synchronization APIs"
-              bad=1
-            fi
-          done
-          exit "$bad"
-
-      - name: Locate gfortran
-        id: fc
-        run: echo "version=$(gfortran -dumpfullversion -dumpversion)" >> "$GITHUB_OUTPUT"
-
-      - name: Restore pFUnit cache
-        id: pfunit-cache
-        uses: actions/cache/restore@v6
-        with:
-          path: pfunit-prefix
-          key: pfunit-windows-windows-latest-mingw64-v4.14.0-gfortran${{ steps.fc.outputs.version }}-epoch1-${{ hashFiles('.github/scripts/build-pfunit-windows.sh') }}
-
-      - name: Build pFUnit
-        if: steps.pfunit-cache.outputs.cache-hit != 'true'
-        run: |
-          WORKSPACE=$(cygpath "${GITHUB_WORKSPACE}")
-          .github/scripts/build-pfunit-windows.sh v4.14.0 "${WORKSPACE}/pfunit-prefix"
-
-      - name: Locate pFUnit config
-        id: pfunit
-        run: |
-          WORKSPACE=$(cygpath "${GITHUB_WORKSPACE}")
-          # Locate each sub-package's config directly — MSYS2 pkg-config
-          # interacts badly with multi-entry CMAKE_PREFIX_PATH, so we pass
-          # explicit <pkg>_DIR hints instead.
-          for pkg in PFUNIT GFTL GFTL_SHARED FARGPARSE; do
-            CONFIG=$(find "${WORKSPACE}/pfunit-prefix" -name ${pkg}Config.cmake | head -1)
-            if [ -z "$CONFIG" ]; then
-              echo "ERROR: ${pkg}Config.cmake not found under pfunit-prefix"
-              find "${WORKSPACE}/pfunit-prefix" -maxdepth 3 -type d
-              exit 1
-            fi
-            DIR="$(dirname "$CONFIG")"
-            echo "Found ${pkg}Config.cmake at: $CONFIG"
-            echo "$(echo $pkg | tr '[:upper:]' '[:lower:]')_dir=${DIR}" >> "$GITHUB_OUTPUT"
-          done
-
-      - name: Save pFUnit cache
-        if: steps.pfunit-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v6
-        with:
-          path: pfunit-prefix
-          key: ${{ steps.pfunit-cache.outputs.cache-primary-key }}
-
-      - name: Restore Hamlib cache
-        id: hamlib-cache
-        uses: actions/cache/restore@v6
-        with:
-          path: hamlib-prefix
-          key: hamlib-windows-windows-latest-mingw64-${{ inputs.hamlib_branch }}-epoch2-${{ hashFiles('.github/scripts/build-hamlib-windows.sh') }}
-
-      - name: Build Hamlib
-        if: steps.hamlib-cache.outputs.cache-hit != 'true'
-        env:
-          MSYS2_PATH_TYPE: inherit
-        run: |
-          WORKSPACE=$(cygpath "${GITHUB_WORKSPACE}")
-          .github/scripts/build-hamlib-windows.sh "${{ inputs.hamlib_branch }}" "${WORKSPACE}/hamlib-prefix"
-
-      - name: Verify Hamlib prefix
-        run: |
-          WORKSPACE=$(cygpath "${GITHUB_WORKSPACE}")
-          test -f "${WORKSPACE}/hamlib-prefix/bin/libhamlib-4.dll"
-          test -f "${WORKSPACE}/hamlib-prefix/bin/rigctl.exe"
-          test -f "${WORKSPACE}/hamlib-prefix/bin/rigctld.exe"
-          test -f "${WORKSPACE}/hamlib-prefix/bin/rigctlcom.exe"
-          test -f "${WORKSPACE}/hamlib-prefix/include/hamlib/rig.h"
-          test -f "${WORKSPACE}/hamlib-prefix/lib/libhamlib.dll.a"
-
-      - name: Save Hamlib cache
-        if: steps.hamlib-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v6
-        with:
-          path: hamlib-prefix
-          key: ${{ steps.hamlib-cache.outputs.cache-primary-key }}
+          boost_version: ${{ env.BOOST_VERSION }}
+          windows_api_floor: ${{ env.WSJT_WINDOWS_API_FLOOR }}
+          hamlib_branch: ${{ inputs.hamlib_branch }}
+          save_caches: ${{ github.event_name != 'pull_request' }}
 
       - name: Install OmniRig
         shell: pwsh
@@ -282,16 +178,18 @@ jobs:
         run: |
           WORKSPACE=$(cygpath "${GITHUB_WORKSPACE}")
           OMNIRIG=$(cygpath "${OMNIRIG_PATH}")
+          BOOST_PREFIX="${{ steps.windows-deps.outputs.boost_prefix }}"
+          HAMLIB_PREFIX="${{ steps.windows-deps.outputs.hamlib_prefix }}"
           cmake -G "MSYS Makefiles" -S . -B wsjtx-build \
-            -DCMAKE_PREFIX_PATH="${WORKSPACE}/boost-prefix;${WORKSPACE}/hamlib-prefix" \
-            -DBOOST_ROOT="${WORKSPACE}/boost-prefix" \
-            -DBOOST_INCLUDEDIR="${WORKSPACE}/boost-prefix/include" \
-            -DBOOST_LIBRARYDIR="${WORKSPACE}/boost-prefix/lib" \
-            -DHamlib_INCLUDE_DIR="${WORKSPACE}/hamlib-prefix/include" \
-            -DHamlib_LIBRARY="${WORKSPACE}/hamlib-prefix/lib/libhamlib.dll.a" \
-            -DRIGCTL_EXE="${WORKSPACE}/hamlib-prefix/bin/rigctl.exe" \
-            -DRIGCTLD_EXE="${WORKSPACE}/hamlib-prefix/bin/rigctld.exe" \
-            -DRIGCTLCOM_EXE="${WORKSPACE}/hamlib-prefix/bin/rigctlcom.exe" \
+            -DCMAKE_PREFIX_PATH="${BOOST_PREFIX};${HAMLIB_PREFIX}" \
+            -DBOOST_ROOT="${BOOST_PREFIX}" \
+            -DBOOST_INCLUDEDIR="${BOOST_PREFIX}/include" \
+            -DBOOST_LIBRARYDIR="${BOOST_PREFIX}/lib" \
+            -DHamlib_INCLUDE_DIR="${HAMLIB_PREFIX}/include" \
+            -DHamlib_LIBRARY="${HAMLIB_PREFIX}/lib/libhamlib.dll.a" \
+            -DRIGCTL_EXE="${HAMLIB_PREFIX}/bin/rigctl.exe" \
+            -DRIGCTLD_EXE="${HAMLIB_PREFIX}/bin/rigctld.exe" \
+            -DRIGCTLCOM_EXE="${HAMLIB_PREFIX}/bin/rigctlcom.exe" \
             -DCMAKE_C_FLAGS="-D_WIN32_WINNT=${WSJT_WINDOWS_API_FLOOR} -DWINVER=${WSJT_WINDOWS_API_FLOOR}" \
             -DCMAKE_CXX_FLAGS="-D_WIN32_WINNT=${WSJT_WINDOWS_API_FLOOR} -DWINVER=${WSJT_WINDOWS_API_FLOOR} -DBOOST_USE_WINAPI_VERSION=${WSJT_WINDOWS_API_FLOOR}" \
             -DBoost_NO_SYSTEM_PATHS=ON \
@@ -305,10 +203,10 @@ jobs:
             -DWSJT_FORTRAN_LIBRARY_VARIANTS=OPENMP_ONLY \
             -DWSJT_RELEASE_CHANNEL="${{ inputs.release_channel }}" \
             -DWSJT_RC_NUMBER="${{ inputs.rc_number }}" \
-            -DPFUNIT_DIR="${{ steps.pfunit.outputs.pfunit_dir }}" \
-            -DGFTL_DIR="${{ steps.pfunit.outputs.gftl_dir }}" \
-            -DGFTL_SHARED_DIR="${{ steps.pfunit.outputs.gftl_shared_dir }}" \
-            -DFARGPARSE_DIR="${{ steps.pfunit.outputs.fargparse_dir }}" \
+            -DPFUNIT_DIR="${{ steps.windows-deps.outputs.pfunit_dir }}" \
+            -DGFTL_DIR="${{ steps.windows-deps.outputs.gftl_dir }}" \
+            -DGFTL_SHARED_DIR="${{ steps.windows-deps.outputs.gftl_shared_dir }}" \
+            -DFARGPARSE_DIR="${{ steps.windows-deps.outputs.fargparse_dir }}" \
             -Wno-dev
 
       - name: Build and test targets
@@ -329,8 +227,7 @@ jobs:
           # the test exits 0xc0000135 (STATUS_DLL_NOT_FOUND) at launch. The
           # packaged installer is unaffected: cpack's bundle_fixup copies
           # libhamlib-4.dll in.
-          WORKSPACE=$(cygpath "${GITHUB_WORKSPACE}")
-          export PATH="${WORKSPACE}/boost-prefix/lib:${WORKSPACE}/hamlib-prefix/bin:${PATH}"
+          export PATH="${{ steps.windows-deps.outputs.boost_prefix }}/lib:${{ steps.windows-deps.outputs.hamlib_prefix }}/bin:${PATH}"
           ctest --output-on-failure --output-junit ctest-results.xml
         working-directory: wsjtx-build
 
