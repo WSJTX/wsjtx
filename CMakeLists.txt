@@ -186,6 +186,8 @@ option (WSJT_TRACE_UDP "Debugging option that turns on UDP message protocol diag
 option (WSJT_BUILD_UTILS "Build simulators and code demonstrators." ON)
 option (WSJT_FOX_OTP "Enable Fox OTP Verification Messages." ON)
 option (WSJT_SKIP_BUNDLE_FIXUP "Skip install-time bundle dependency fixup." OFF)
+option (WSJT_MACOS_INSTALL_TIME_FIXUP
+  "Run legacy install-time BundleUtilities fixup for macOS bundles." OFF)
 # Track whether this deprecated option came from the user or from our own
 # default, so normal reconfigures do not warn just because the cache exists.
 set (WSJT_SKIP_MAP65_WAS_USER_PROVIDED FALSE)
@@ -2383,10 +2385,16 @@ if (APPLE)
 endif ()
 
 
-#
-# bundle fixup only done in non-Debug configurations
-#
-if (NOT is_debug_build AND NOT WSJT_SKIP_BUNDLE_FIXUP)
+set (wsjt_enable_bundle_fixup FALSE)
+if (NOT is_debug_build)
+  if (WIN32 AND NOT WSJT_SKIP_BUNDLE_FIXUP)
+    set (wsjt_enable_bundle_fixup TRUE)
+  elseif (APPLE AND WSJT_MACOS_INSTALL_TIME_FIXUP AND NOT WSJT_SKIP_BUNDLE_FIXUP)
+    set (wsjt_enable_bundle_fixup TRUE)
+  endif ()
+endif ()
+
+if (wsjt_enable_bundle_fixup)
   # add this sub-sirectory after all install steps and other
   # sub-directories to ensure that all executables are in-place before
   # any fixup is done

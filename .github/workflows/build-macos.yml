@@ -449,7 +449,6 @@ jobs:
             -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ env.DEPLOYMENT_TARGET }} \
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
             -DWSJT_SKIP_MANPAGES=ON \
-            -DWSJT_SKIP_BUNDLE_FIXUP=ON \
             -DWSJT_ENABLE_TESTS=ON \
             -DWSJT_MACOS_LIBGOMP_LIBRARY="${{ steps.fc.outputs.libgomp }}" \
             -DPFUNIT_DIR="${{ steps.pfunit.outputs.dir }}" \
