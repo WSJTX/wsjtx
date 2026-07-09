@@ -28,6 +28,9 @@ module streaming_control
   integer, parameter, public :: CTRL_CONFIGURE = 1
   integer, parameter, public :: CTRL_HALT      = 2
   integer, parameter, public :: CTRL_PARSE_ERR = 3
+  ! downsam9 expands npts8 by 8 before filling its NFFT1 input buffer.
+  integer, parameter, public :: NPTS_C0_ARRAY_MIN = 1
+  integer, parameter, public :: NPTS_C0_ARRAY_MAX = 81648
 
   type, public :: configure_fields
      ! Each "*_set" flag indicates whether the JSON contained that key.
@@ -674,7 +677,8 @@ contains
          .false., .true., terr, proceed)
     if (proceed) then
        call get_int_(buf, '"npts_c0_array"', int_val, ok)
-       if (ok) then
+       if (ok .and. int_val .ge. NPTS_C0_ARRAY_MIN .and.                   &
+            int_val .le. NPTS_C0_ARRAY_MAX) then
           cfg%npts_c0_array_set = .true.
           cfg%npts_c0_array     = int_val
        end if

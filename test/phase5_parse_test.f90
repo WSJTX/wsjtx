@@ -32,6 +32,7 @@ program p5_parse_test
   call frame_F()
   call frame_G()
   call frame_H()
+  call frame_I()
 
   write(*,'(a)') '------------------------------------------------------------'
   if (nfail .eq. 0) then
@@ -219,5 +220,27 @@ contains
     call ok('tx_mode unset',                 .not. cfg%tx_mode_set)
     call ok('clear_average unset',           .not. cfg%clear_average_set)
   end subroutine frame_H
+
+  ! Frame I: npts_c0_array feeds JT9 npts8. Values outside the downsam9
+  ! FFT input domain are ignored rather than routed to the decoder.
+  subroutine frame_I()
+    type(configure_fields)   :: cfg
+    type(control_type_error) :: terr
+    integer :: action
+    character(len=*), parameter :: b1 = '{"t":"configure","npts_c0_array":-1}'
+    character(len=*), parameter :: b2 = '{"t":"configure","npts_c0_array":0}'
+    character(len=*), parameter :: b3 = '{"t":"configure","npts_c0_array":81649}'
+    character(len=*), parameter :: b4 = '{"t":"configure","npts_c0_array":81648}'
+    write(*,'(a)') 'Frame I: npts_c0_array domain guard'
+    call parse_control_frame(b1, action, cfg, terr)
+    call ok('negative npts_c0_array ignored', .not. terr%present .and. .not. cfg%npts_c0_array_set)
+    call parse_control_frame(b2, action, cfg, terr)
+    call ok('zero npts_c0_array ignored',     .not. terr%present .and. .not. cfg%npts_c0_array_set)
+    call parse_control_frame(b3, action, cfg, terr)
+    call ok('oversize npts_c0_array ignored', .not. terr%present .and. .not. cfg%npts_c0_array_set)
+    call parse_control_frame(b4, action, cfg, terr)
+    call ok('max npts_c0_array accepted',     .not. terr%present .and. cfg%npts_c0_array_set .and. &
+         cfg%npts_c0_array .eq. 81648)
+  end subroutine frame_I
 
 end program p5_parse_test
