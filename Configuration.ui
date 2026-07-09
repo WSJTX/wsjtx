@@ -440,6 +440,9 @@ text message.</string>
               <property name="toolTip">
                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Number of seconds before Tune is aborted&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
+              <property name="accessibleName">
+               <string>Tune watchdog timeout</string>
+              </property>
               <property name="suffix">
                <string> seconds</string>
               </property>
@@ -481,6 +484,9 @@ text message.</string>
              <widget class="QSpinBox" name="tx_watchdog_spin_box">
               <property name="toolTip">
                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Number of minutes before unattended transmissions are aborted&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+              </property>
+              <property name="accessibleName">
+               <string>Tx watchdog timeout</string>
               </property>
               <property name="specialValueText">
                <string>Disabled</string>
@@ -533,6 +539,9 @@ text message.</string>
 This might be required under your countries licence regulations.
 It will not interfere with other users as it is always sent in the
 quiet period when decoding is done.</string>
+              </property>
+              <property name="accessibleName">
+               <string>CW ID interval</string>
               </property>
              </widget>
             </item>
@@ -647,6 +656,9 @@ quiet period when decoding is done.</string>
             <property name="toolTip">
              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Increase or decrease the space between message text and DXCC.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
             </property>
+            <property name="accessibleName">
+             <string>DXCC alignment spacing</string>
+            </property>
             <property name="minimum">
              <number>-2</number>
             </property>
@@ -679,6 +691,9 @@ quiet period when decoding is done.</string>
            <widget class="QSpinBox" name="align_spin_box2">
             <property name="toolTip">
              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Increase or decrease the space between DXCC and distance/azimuth.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="accessibleName">
+             <string>Distance and azimuth alignment spacing</string>
             </property>
             <property name="minimum">
              <number>-8</number>
@@ -1347,9 +1362,6 @@ radio interface behave as expected.</string>
            <verstretch>0</verstretch>
           </sizepolicy>
          </property>
-         <property name="toolTip">
-          <string>How this program activates the PTT on your radio?</string>
-         </property>
          <property name="title">
           <string>PTT Method</string>
          </property>
@@ -1763,6 +1775,9 @@ Unless you have multiple radios connected on different
 channels; then you will usually want to select mono or
 both here.</string>
             </property>
+            <property name="accessibleName">
+             <string>Output audio channel</string>
+            </property>
             <item>
              <property name="text">
               <string>Mono</string>
@@ -1789,6 +1804,9 @@ both here.</string>
            <widget class="QComboBox" name="sound_input_channel_combo_box">
             <property name="toolTip">
              <string>Select the channel to use for receiving.</string>
+            </property>
+            <property name="accessibleName">
+             <string>Input audio channel</string>
             </property>
             <item>
              <property name="text">
@@ -1868,6 +1886,9 @@ transmitting periods.</string>
              <widget class="QSpinBox" name="TCI_spin_box">
               <property name="toolTip">
                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Rx audio level&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+              </property>
+              <property name="accessibleName">
+               <string>TCI receive audio level</string>
               </property>
               <property name="alignment">
                <set>Qt::AlignCenter</set>
@@ -2967,6 +2988,39 @@ Right click for insert and delete options.</string>
           <item row="1" column="0" colspan="2">
            <layout class="QHBoxLayout" name="horizontalLayout_20">
             <item>
+             <widget class="QToolButton" name="highlighting_actions_tool_button">
+              <property name="toolTip">
+               <string>Change or reset colors for the selected highlighting rule.</string>
+              </property>
+              <property name="text">
+               <string>Actions...</string>
+              </property>
+              <property name="popupMode">
+               <enum>QToolButton::InstantPopup</enum>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="move_highlighting_up_push_button">
+              <property name="toolTip">
+               <string>Move the selected highlighting rule earlier in priority order.</string>
+              </property>
+              <property name="text">
+               <string>Move Up</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="move_highlighting_down_push_button">
+              <property name="toolTip">
+               <string>Move the selected highlighting rule later in priority order.</string>
+              </property>
+              <property name="text">
+               <string>Move Down</string>
+              </property>
+             </widget>
+            </item>
+            <item>
              <widget class="QPushButton" name="reset_highlighting_to_defaults_push_button">
               <property name="toolTip">
                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Push to reset all highlight items above to default values and priorities.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -3150,7 +3204,7 @@ Right click for insert and delete options.</string>
                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;URL of the ARRL LotW user's last upload dates and times data file which is used to highlight decodes from stations that are known to upload their log file to LotW.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
               <property name="accessibleName">
-               <string>URL</string>
+               <string>LotW users CSV URL</string>
               </property>
               <property name="text">
                <string>http://lotw.arrl.org/lotw-user-activity.csv</string>
