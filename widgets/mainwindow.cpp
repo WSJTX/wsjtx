@@ -1957,7 +1957,7 @@ void MainWindow::dataSink(qint64 frames)
   if(m_mode=="FT8") {
     to_jt9(m_ihsym,-1,-1);     //Allow jt9 to bail out early, if necessary
     if(m_ihsym==40 and m_decoderBusy) {
-      qDebug() << "Clearing hung decoder status";
+      logDecoderAbnormalClear("FT8 symbol-40 auto-clear");
       decodeDone();  //Clear a hung decoder status
     }
   }
@@ -2172,8 +2172,7 @@ void MainWindow::dataSink(qint64 frames)
       }
       if (ui) ui->DecodeButton->setChecked (true);
       p1Timer.start(1000);
-      m_decoderBusy = true;
-      statusUpdate ();
+      decodeBusy(true);
     }
     m_rxDone=true;
   }
@@ -3242,6 +3241,13 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
       //foxTest();
       return;
     }
+    break;
+  case Qt::Key_Z:
+    if(e->modifiers() & Qt::AltModifier) {
+      clearHungDecoderStatus("Alt+Z");
+      return;
+    }
+    break;
   }
 
   QMainWindow::keyPressEvent (e);
@@ -4246,7 +4252,10 @@ void MainWindow::msgAvgDecode2()
 
 void MainWindow::decode()                                       //decode()
 {
-  if(m_decoderBusy) return;                          //Don't start decoder if it's already busy.
+  if(m_decoderBusy) {
+    logDecoderBusyRequest("decode request");
+    return;                          //Don't start decoder if it's already busy.
+  }
   m_fetched=0;
   QDateTime now = QDateTime::currentDateTimeUtc ();
   if( m_dateTimeLastTX.isValid () ) {
@@ -4574,6 +4583,166 @@ void MainWindow::to_jt9(qint32 n, qint32 istart, qint32 idone)
       if(idone>=0)  dd->ipc[2]=idone;
       mem_jt9->unlock ();
     }
+}
+
+qint64 MainWindow::decoderDiagnosticElapsedMs() const
+{
+  if(!m_decoderDiagActive || !m_decoderDiagElapsedTimer.isValid()) return -1;
+  return m_decoderDiagElapsedTimer.elapsed();
+}
+
+void MainWindow::beginDecoderDiagnostic()
+{
+  m_decoderDiagActive=true;
+  m_decoderDiagActiveSequence=++m_decoderDiagSequence;
+  m_decoderDiagElapsedTimer.start();
+  m_decoderDiagStartMode=m_mode;
+  m_decoderDiagStartTRperiod=m_TRperiod;
+  m_decoderDiagStartIhsym=m_ihsym;
+  m_decoderDiagStartHsymStop=m_hsymStop;
+  m_decoderDiagStartNzhsym=dec_data.params.nzhsym;
+  m_decoderDiagStartNewdat=dec_data.params.newdat;
+  m_decoderDiagStartNagain=dec_data.params.nagain;
+  m_decoderDiagStartNdiskdat=dec_data.params.ndiskdat;
+  m_decoderDiagBusyRequestLogged=false;
+  m_decoderDiagOverrunLogged=false;
+  m_decoderDiagHardHangLogged=false;
+  m_decoderDiagAbnormalClear=false;
+}
+
+void MainWindow::logDecoderBusyRequest(QString const& reason)
+{
+  if(!m_decoderDiagActive || m_decoderDiagBusyRequestLogged) return;
+
+  qWarning() << "Decoder busy; decode request skipped"
+             << "reason:" << reason
+             << "seq:" << m_decoderDiagActiveSequence
+             << "mode:" << m_decoderDiagStartMode
+             << "elapsedMs:" << decoderDiagnosticElapsedMs()
+             << "currentMode:" << m_mode
+             << "currentIhsym:" << m_ihsym
+             << "startIhsym:" << m_decoderDiagStartIhsym
+             << "hsymStop:" << m_decoderDiagStartHsymStop
+             << "nzhsym:" << m_decoderDiagStartNzhsym;
+  m_decoderDiagBusyRequestLogged=true;
+}
+
+void MainWindow::logDecoderProgress()
+{
+  if(!m_decoderDiagActive) return;
+
+  auto const elapsedMs = decoderDiagnosticElapsedMs();
+  if(elapsedMs < 0) return;
+
+  auto const overrunMs = static_cast<qint64>(1.25 * m_decoderDiagStartTRperiod * 1000.0);
+  if(!m_decoderDiagOverrunLogged && overrunMs > 0 && elapsedMs >= overrunMs) {
+    qWarning() << "Decoder overrun"
+               << "seq:" << m_decoderDiagActiveSequence
+               << "mode:" << m_decoderDiagStartMode
+               << "elapsedMs:" << elapsedMs
+               << "thresholdMs:" << overrunMs
+               << "TRperiod:" << m_decoderDiagStartTRperiod
+               << "currentIhsym:" << m_ihsym
+               << "startIhsym:" << m_decoderDiagStartIhsym
+               << "hsymStop:" << m_decoderDiagStartHsymStop
+               << "nzhsym:" << m_decoderDiagStartNzhsym;
+    m_decoderDiagOverrunLogged=true;
+  }
+
+  auto const hardHangMs = std::max<qint64>(60000, static_cast<qint64>(4.0 * m_decoderDiagStartTRperiod * 1000.0));
+  if(!m_decoderDiagHardHangLogged && elapsedMs >= hardHangMs) {
+    qWarning() << "Decoder hard-hang candidate"
+               << "seq:" << m_decoderDiagActiveSequence
+               << "mode:" << m_decoderDiagStartMode
+               << "elapsedMs:" << elapsedMs
+               << "thresholdMs:" << hardHangMs
+               << "TRperiod:" << m_decoderDiagStartTRperiod
+               << "currentMode:" << m_mode
+               << "currentIhsym:" << m_ihsym
+               << "startIhsym:" << m_decoderDiagStartIhsym
+               << "hsymStop:" << m_decoderDiagStartHsymStop
+               << "nzhsym:" << m_decoderDiagStartNzhsym;
+    m_decoderDiagHardHangLogged=true;
+  }
+}
+
+void MainWindow::logDecoderAbnormalClear(QString const& reason)
+{
+  if(!m_decoderDiagActive) return;
+
+  qWarning() << "Clearing decoder busy status"
+             << "reason:" << reason
+             << "seq:" << m_decoderDiagActiveSequence
+             << "mode:" << m_decoderDiagStartMode
+             << "elapsedMs:" << decoderDiagnosticElapsedMs()
+             << "overrunLogged:" << m_decoderDiagOverrunLogged
+             << "hardHangLogged:" << m_decoderDiagHardHangLogged
+             << "currentMode:" << m_mode
+             << "currentIhsym:" << m_ihsym
+             << "startIhsym:" << m_decoderDiagStartIhsym
+             << "hsymStop:" << m_decoderDiagStartHsymStop
+             << "nzhsym:" << m_decoderDiagStartNzhsym;
+  m_decoderDiagAbnormalClear=true;
+}
+
+void MainWindow::finishDecoderDiagnostic()
+{
+  if(!m_decoderDiagActive) return;
+
+  auto const now = QDateTime::currentDateTimeUtc();
+  auto const elapsedMs = decoderDiagnosticElapsedMs();
+  auto const lastSample = m_decoderDiagLastSampleUtc.value(m_decoderDiagStartMode);
+  auto const delayed = m_decoderDiagBusyRequestLogged || m_decoderDiagOverrunLogged || m_decoderDiagHardHangLogged;
+  if(!m_decoderDiagAbnormalClear && delayed) {
+    qWarning() << "Delayed decoder completed"
+               << "seq:" << m_decoderDiagActiveSequence
+               << "mode:" << m_decoderDiagStartMode
+               << "elapsedMs:" << elapsedMs
+               << "decodes:" << m_nDecodes
+               << "decoded:" << m_bDecoded
+               << "busyRequestLogged:" << m_decoderDiagBusyRequestLogged
+               << "overrunLogged:" << m_decoderDiagOverrunLogged
+               << "hardHangLogged:" << m_decoderDiagHardHangLogged
+               << "TRperiod:" << m_decoderDiagStartTRperiod
+               << "currentMode:" << m_mode
+               << "currentIhsym:" << m_ihsym
+               << "startIhsym:" << m_decoderDiagStartIhsym
+               << "hsymStop:" << m_decoderDiagStartHsymStop
+               << "nzhsym:" << m_decoderDiagStartNzhsym;
+  } else if(!m_decoderDiagAbnormalClear &&
+            (!lastSample.isValid() || lastSample.msecsTo(now) >= 5 * 60 * 1000)) {
+    qInfo() << "Decoder completion sample"
+            << "seq:" << m_decoderDiagActiveSequence
+            << "mode:" << m_decoderDiagStartMode
+            << "elapsedMs:" << elapsedMs
+            << "decodes:" << m_nDecodes
+            << "decoded:" << m_bDecoded
+            << "TRperiod:" << m_decoderDiagStartTRperiod
+            << "currentMode:" << m_mode
+            << "currentIhsym:" << m_ihsym
+            << "startIhsym:" << m_decoderDiagStartIhsym
+            << "hsymStop:" << m_decoderDiagStartHsymStop
+            << "nzhsym:" << m_decoderDiagStartNzhsym
+            << "newdat:" << m_decoderDiagStartNewdat
+            << "nagain:" << m_decoderDiagStartNagain
+            << "ndiskdat:" << m_decoderDiagStartNdiskdat;
+    m_decoderDiagLastSampleUtc[m_decoderDiagStartMode]=now;
+  }
+
+  m_decoderDiagActive=false;
+  m_decoderDiagBusyRequestLogged=false;
+  m_decoderDiagOverrunLogged=false;
+  m_decoderDiagHardHangLogged=false;
+  m_decoderDiagAbnormalClear=false;
+}
+
+void MainWindow::clearHungDecoderStatus(QString const& reason)
+{
+  if(!m_decoderBusy) return;
+
+  logDecoderAbnormalClear(reason);
+  to_jt9(m_ihsym,-1,-1);
+  decodeDone();
 }
 
 void MainWindow::decodeDone ()
@@ -5390,6 +5559,16 @@ void MainWindow::rx_frequency_activity_cleared ()
 
 void MainWindow::decodeBusy(bool b)                             //decodeBusy()
 {
+  if (b && m_decoderDiagActive) {
+    logDecoderAbnormalClear("decoder busy session replaced");
+    finishDecoderDiagnostic();
+  }
+  if (b) {
+    beginDecoderDiagnostic();
+  }
+  if (!b) {
+    finishDecoderDiagnostic();
+  }
   if (!b) {
     m_optimizingProgress.reset ();
   }
@@ -6013,6 +6192,7 @@ void MainWindow::guiUpdate()
 
 //Once per second (onesec)
   if(nsec != m_sec0) {
+    logDecoderProgress();
     //    qDebug()   << "AAA" << nsec % 60;
     // reset earlyDecodes for 2-stage or 3-stage decoding, or if QRG > 45 MHz
     if (m_mode=="FT8" && !m_diskData && ((m_multithreadFT8 && m_ft8DecoderStart<2) or m_freqNominal>45000000)) {
@@ -6020,8 +6200,9 @@ void MainWindow::guiUpdate()
       int s = now.time().toString("ss").toInt();
       if (m_ft8DecoderStart<2 or m_freqNominal>45000000) {
         if ((s == 7 || s == 22 ||s == 37 || s == 52) && m_decoderBusy) {
-        to_jt9(m_ihsym,-1,-1);   //Allow jt9 to bail out early, if necessary
-        decodeDone();            //We better clear a hung decoder status at this point
+          logDecoderAbnormalClear("FT8 early-decode auto-clear");
+          to_jt9(m_ihsym,-1,-1);   //Allow jt9 to bail out early, if necessary
+          decodeDone();            //We better clear a hung decoder status at this point
         }
         if (s == 10 || s == 25 ||s == 40 || s == 55) earlyDecodes = "";
       }
@@ -7775,10 +7956,7 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
       ui->autoButton->clearFocus();
   }
   if(ui->DecodeButton->hasFocus() && (event->button() & Qt::RightButton)) {   // Decode button
-    if(m_decoderBusy) {
-      to_jt9(m_ihsym,-1,-1);   //Allow jt9 to bail out early, if necessary
-      decodeDone();            //Clear a hung decoder status
-    }
+    clearHungDecoderStatus("Decode button right-click");
     ui->DecodeButton->clearFocus();
   }
   if(ui->ft8Button->hasFocus() && (event->button() & Qt::RightButton)) {     // Switch contest mode on/off
@@ -10833,8 +11011,7 @@ void MainWindow::p1ReadFromStdout()                        //p1readFromStdout
       }
       m_RxLog=0;
       m_startAnother=m_loopall;
-      m_decoderBusy = false;
-      statusUpdate ();
+      decodeBusy(false);
     } else {
       int n=t.length();
       t=t.mid(0,n-2) + "                                                  ";

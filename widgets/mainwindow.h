@@ -12,6 +12,8 @@
 #include <QProgressBar>
 #include <QTimer>
 #include <QDateTime>
+#include <QElapsedTimer>
+#include <QMap>
 #include <QRegExp>
 #include <QRegularExpression>
 #include <QList>
@@ -811,11 +813,28 @@ private:
   qint32  m_echoSec0=0;
   qint32  m_fetched=0;
   qint32  m_position;
+  qint64  m_decoderDiagSequence=0;
+  qint64  m_decoderDiagActiveSequence=0;
+  qint32  m_decoderDiagStartIhsym=0;
+  qint32  m_decoderDiagStartHsymStop=0;
+  qint32  m_decoderDiagStartNzhsym=0;
+  qint32  m_decoderDiagStartNewdat=0;
+  qint32  m_decoderDiagStartNagain=0;
+  qint32  m_decoderDiagStartNdiskdat=0;
+  double  m_decoderDiagStartTRperiod=0.0;
+  QElapsedTimer m_decoderDiagElapsedTimer;
+  QString m_decoderDiagStartMode;
+  QMap<QString, QDateTime> m_decoderDiagLastSampleUtc;
 
   bool    m_btxok;		//True if OK to transmit
   bool    m_diskData;
   bool    m_loopall;
   bool    m_decoderBusy;
+  bool    m_decoderDiagActive=false;
+  bool    m_decoderDiagBusyRequestLogged=false;
+  bool    m_decoderDiagOverrunLogged=false;
+  bool    m_decoderDiagHardHangLogged=false;
+  bool    m_decoderDiagAbnormalClear=false;
   bool    m_txFirst;
   bool    m_auto;
   bool    m_restart;
@@ -1219,6 +1238,13 @@ private:
   void writeFoxQSO (QString const& msg);
   void update_foxLogWindow_rate();
   void to_jt9(qint32 n, qint32 istart, qint32 idone);
+  qint64 decoderDiagnosticElapsedMs() const;
+  void beginDecoderDiagnostic();
+  void logDecoderBusyRequest(QString const& reason);
+  void logDecoderProgress();
+  void logDecoderAbnormalClear(QString const& reason);
+  void finishDecoderDiagnostic();
+  void clearHungDecoderStatus(QString const& reason);
   bool is77BitMode () const;
   void cease_auto_Tx_after_QSO ();
   Q_SLOT void ARRL_Digi_Display();
