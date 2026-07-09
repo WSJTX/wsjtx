@@ -1,8 +1,8 @@
 #include "getfile.h"
-#include <QDir>
+#include <QFile>
 #include <algorithm>
 #include <array>
-#include <stdio.h>
+#include <vector>
 #include <stdlib.h>
 #include <math.h>
 
@@ -16,17 +16,19 @@ void getfile(QString fname, int dbDgrd)
   if(dbDgrd<0) dgrd = 23.0*sqrt(pow(10.0,-0.1*(double)dbDgrd) - 1.0);
   float fac=23.0/sqrt(dgrd*dgrd + 23.0*23.0);
 
-  char name[80];
-  strcpy(name,fname.toLocal8Bit());
-  FILE* fp=fopen(name,"rb");
+  QFile file(fname);
 
-  if(fp != NULL) {
-    auto n = fread(&datcom_.fcenter,sizeof(datcom_.fcenter),1,fp);
+  if(file.open(QIODevice::ReadOnly)) {
+    file.read(reinterpret_cast<char *>(&datcom_.fcenter), sizeof(datcom_.fcenter));
     std::array<qint16, 16384> samples;
     int j=0;
     while(j<npts) {
       int want=std::min<int>(samples.size(),npts-j);
-      n=fread(samples.data(),2,want,fp);
+      qint64 bytes_read=file.read(reinterpret_cast<char *>(samples.data()),
+                                  want * static_cast<qint64>(sizeof(qint16)));
+      size_t n=bytes_read > 0
+        ? static_cast<size_t>(bytes_read / static_cast<qint64>(sizeof(qint16)))
+        : 0;
       for(size_t i=0; i<n; ++i) {
         datcom_.d4[j++]=dbDgrd<0
           ? fac*((float)samples[i] + dgrd*gran())
@@ -35,13 +37,15 @@ void getfile(QString fname, int dbDgrd)
       if(n<static_cast<size_t>(want)) break;
     }
     while(j<npts) datcom_.d4[j++]=0.0;
-    n=fread(&datcom_.ntx30a,4,1,fp);
-    n=fread(&datcom_.ntx30b,4,1,fp);
-    if(n==0) {
+    qint64 ntx30_size=static_cast<qint64>(sizeof(datcom_.ntx30a));
+    bool read_ntx30a=file.read(reinterpret_cast<char *>(&datcom_.ntx30a),
+                               ntx30_size) == ntx30_size;
+    bool read_ntx30b=file.read(reinterpret_cast<char *>(&datcom_.ntx30b),
+                               ntx30_size) == ntx30_size;
+    if(!read_ntx30a || !read_ntx30b) {
       datcom_.ntx30a=0;
       datcom_.ntx30b=0;
     }
-    fclose(fp);
 
     datcom_.ndiskdat=1;
   //  int nfreq=(int)datcom_.fcenter;
@@ -57,23 +61,23 @@ void getfile(QString fname, int dbDgrd)
 void save_iq(QString fname)
 {
   int npts=2*60*96000;
-  qint16* buf=(qint16*)malloc(2*npts);
-  char name[80];
-  strcpy(name,fname.toLocal8Bit());
-  FILE* fp=fopen(name,"wb");
+  std::vector<qint16> buf(npts);
+  QFile file(fname);
 
-  if(fp != NULL) {
-    fwrite(&datcom_.fcenter,sizeof(datcom_.fcenter),1,fp);
+  if(file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+    file.write(reinterpret_cast<char const *>(&datcom_.fcenter),
+               sizeof(datcom_.fcenter));
     int j=0;
     for(int i=0; i<npts; i+=2) {
       buf[i]=(qint16)qRound(datcom_.d4[j++]);
       buf[i+1]=(qint16)qRound(datcom_.d4[j++]);
     }
-    fwrite(buf,2,npts,fp);
-    fwrite(&datcom_.ntx30a,4,2,fp);   //Write ntx30a and ntx30b to disk
-    fclose(fp);
+    file.write(reinterpret_cast<char const *>(buf.data()),
+               static_cast<qint64>(buf.size() * sizeof(qint16)));
+    qint64 ntx30_size=static_cast<qint64>(sizeof(datcom_.ntx30a));
+    file.write(reinterpret_cast<char const *>(&datcom_.ntx30a),
+               2 * ntx30_size);
   }
-  free(buf);
 }
 
 /* Generate gaussian random float with mean=0 and std_dev=1 */
