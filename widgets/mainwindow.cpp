@@ -118,6 +118,9 @@
 #include "widgets/qsymonitor.h"
 #include "Network/eqsl.h"
 
+constexpr int MainWindow::MaxActiveStationRows;
+constexpr int MainWindow::MaxQ65PileupCallers;
+
 namespace {
   int const ReferenceSpectrumMeasureSeconds = 7;
 
