@@ -18,6 +18,11 @@ program jt9
 
   include 'jt9com.f90'
 
+  interface
+     subroutine jt9_print_version() bind(C, name='jt9_print_version')
+     end subroutine jt9_print_version
+  end interface
+
   type(cli_args_t) :: args
   integer*2 id2a(180000)
   integer(C_INT) iret
@@ -34,12 +39,14 @@ program jt9
        fhigh=4000,nrxfreq=1500,ndepth=1,nexp_decode=0,nQSOProg=0,ncycles=3,  &
        nft8rxfsens=3,nmt=0,nmtft8decsens=3,ndecoderstart=3
   logical :: read_files = .true., tx9 = .false., display_help = .false.,     &
+       display_version = .false.,                                            &
        bLowSidelobes = .false., nexp_decode_set = .false.,                   &
        have_ntol = .false.,multift8 = .false.,hidedupes = .false.,           &
        lft8lowth = .true.,lft8subpass = .true.,lwidedxcsearch = .true.,      &
        stream_mode = .false.
-  type (option) :: long_options(42) = [                                      &
+  type (option) :: long_options(43) = [                                      &
     option ('help', .false., 'h', 'Display this help message', ''),          &
+    option ('version', .false., 'v', 'Display version and build revision', ''),&
     option ('shmem',.true.,'s','Use shared memory for sample data','KEY'),   &
     option ('stream', .false., '0',                                          &
         'Read framed PCM samples from stdin',                                &
@@ -126,7 +133,7 @@ program jt9
   TRperiod=60.d0
 
   do
-     call getopt('hs:e:a:b:r:m:p:d:f:F:w:t:9876543WYqkTMUSZL:S:H:c:G:x:g:X:Q:C:R:N:E:D:',     &
+     call getopt('hvs:e:a:b:r:m:p:d:f:F:w:t:9876543WYqkTMUSZL:S:H:c:G:x:g:X:Q:C:R:N:E:D:',    &
           long_options,c,optarg,arglen,stat,offset,remain,.true.)
      if (stat .ne. 0) then
         exit
@@ -134,6 +141,8 @@ program jt9
      select case (c)
         case ('h')
            display_help = .true.
+        case ('v')
+           display_version = .true.
         case ('s')
            read_files = .false.
            shm_key = optarg(:arglen)
@@ -225,6 +234,11 @@ program jt9
            nexp_decode_set = .true.
      end select
   end do
+
+  if (display_version) then
+     call jt9_print_version()
+     stop
+  endif
   
   if (display_help .or. stat .lt. 0                      &
        .or. (.not. read_files .and. remain .gt. 0)       &
