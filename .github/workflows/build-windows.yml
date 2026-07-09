@@ -72,6 +72,7 @@ jobs:
     runs-on: windows-latest
     env:
       BOOST_VERSION: 1.91.0
+      BOOST_SOURCE_SHA256: de5e6b0e4913395c6bdfa90537febd9028ea4c0735d2cdb0cd9b45d5f51264f5
       WSJT_WINDOWS_API_FLOOR: "0x0601"
     defaults:
       run:
@@ -151,6 +152,7 @@ jobs:
         uses: ./.github/actions/build-windows-deps
         with:
           boost_version: ${{ env.BOOST_VERSION }}
+          boost_source_sha256: ${{ env.BOOST_SOURCE_SHA256 }}
           windows_api_floor: ${{ env.WSJT_WINDOWS_API_FLOOR }}
           hamlib_branch: ${{ inputs.hamlib_branch }}
           save_caches: ${{ github.event_name != 'pull_request' }}

@@ -6,6 +6,10 @@ inputs:
     description: "Boost version to build"
     required: false
     default: "1.91.0"
+  boost_source_sha256:
+    description: "Expected SHA-256 for the Boost source archive"
+    required: false
+    default: "de5e6b0e4913395c6bdfa90537febd9028ea4c0735d2cdb0cd9b45d5f51264f5"
   windows_api_floor:
     description: "Windows API floor used for Boost and WSJT-X builds"
     required: false
@@ -57,12 +61,12 @@ runs:
       uses: actions/cache/restore@v6
       with:
         path: boost-prefix
-        key: boost-windows-windows-latest-mingw64-${{ inputs.boost_version }}-winapi${{ inputs.windows_api_floor }}-epoch1-${{ hashFiles('.github/scripts/build-boost-windows.sh') }}
+        key: boost-windows-windows-latest-mingw64-${{ inputs.boost_version }}-${{ inputs.boost_source_sha256 }}-winapi${{ inputs.windows_api_floor }}-epoch1-${{ hashFiles('.github/scripts/build-boost-windows.sh') }}
 
     - name: Build Boost
       if: steps.boost-cache.outputs.cache-hit != 'true'
       shell: msys2 {0}
-      run: .github/scripts/build-boost-windows.sh "${{ inputs.boost_version }}" "${{ inputs.windows_api_floor }}" "${{ steps.paths.outputs.boost_prefix }}"
+      run: .github/scripts/build-boost-windows.sh "${{ inputs.boost_version }}" "${{ inputs.boost_source_sha256 }}" "${{ inputs.windows_api_floor }}" "${{ steps.paths.outputs.boost_prefix }}"
 
     - name: Save Boost cache
       if: inputs.save_caches == 'true' && steps.boost-cache.outputs.cache-hit != 'true'

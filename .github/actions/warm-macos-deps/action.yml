@@ -211,7 +211,7 @@ runs:
       uses: actions/cache/restore@v5
       with:
         path: boost-prefix
-        key: boost-macos-${{ inputs.arch }}-${{ inputs.runner }}-1.85.0-min${{ inputs.deployment_target }}-epoch1-${{ hashFiles('.github/scripts/build-boost-macos.sh') }}
+        key: boost-macos-${{ inputs.arch }}-${{ inputs.runner }}-1.85.0-7009fe1faa1697476bdc7027703a2badb84e849b7b0baad5086b087b971f8617-min${{ inputs.deployment_target }}-epoch1-${{ hashFiles('.github/scripts/build-boost-macos.sh') }}
 
     - name: Build Boost
       if: steps.boost-cache.outputs.cache-hit != 'true'
@@ -219,6 +219,7 @@ runs:
       run: |
         .github/scripts/build-boost-macos.sh \
           1.85.0 \
+          7009fe1faa1697476bdc7027703a2badb84e849b7b0baad5086b087b971f8617 \
           "${{ inputs.arch }}" \
           "${{ inputs.deployment_target }}" \
           "${GITHUB_WORKSPACE}/boost-prefix"

@@ -102,6 +102,8 @@ jobs:
     env:
       RUNNER: ${{ inputs.runner || (inputs.arch == 'x86_64' && 'macos-15-intel' || 'macos-15') }}
       DEPLOYMENT_TARGET: ${{ inputs.deployment_target || (inputs.arch == 'x86_64' && '10.13' || '11.0') }}
+      BOOST_VERSION: 1.85.0
+      BOOST_SOURCE_SHA256: 7009fe1faa1697476bdc7027703a2badb84e849b7b0baad5086b087b971f8617
     steps:
       - uses: actions/checkout@v7
 
@@ -330,13 +332,14 @@ jobs:
         uses: actions/cache/restore@v6
         with:
           path: boost-prefix
-          key: boost-macos-${{ inputs.arch }}-${{ env.RUNNER }}-1.85.0-min${{ env.DEPLOYMENT_TARGET }}-epoch1-${{ hashFiles('.github/scripts/build-boost-macos.sh') }}
+          key: boost-macos-${{ inputs.arch }}-${{ env.RUNNER }}-${{ env.BOOST_VERSION }}-${{ env.BOOST_SOURCE_SHA256 }}-min${{ env.DEPLOYMENT_TARGET }}-epoch1-${{ hashFiles('.github/scripts/build-boost-macos.sh') }}
 
       - name: Build Boost
         if: steps.boost-cache.outputs.cache-hit != 'true'
         run: |
           .github/scripts/build-boost-macos.sh \
-            1.85.0 \
+            "${BOOST_VERSION}" \
+            "${BOOST_SOURCE_SHA256}" \
             "${{ inputs.arch }}" \
             "${{ env.DEPLOYMENT_TARGET }}" \
             "${GITHUB_WORKSPACE}/boost-prefix"
