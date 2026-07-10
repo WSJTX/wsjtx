@@ -1054,7 +1054,9 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
                    params%lft8subpass,params%lhideft8dupes,params%lft8apon,ncontest)
 !$omp end parallel sections
            endif
-           
+
+           call run_ft8_mtd_a8_decode()
+
            do i=1,numthreads
               do m=1,nincallthr(i)
                  nindex=maskincallthr(i)+m
@@ -1410,6 +1412,37 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
   return
 
 contains
+
+  subroutine run_ft8_mtd_a8_decode()
+    implicit none
+
+    external ft8_a8d
+    real f1,xdt,fbest,xsnr,plog,qual
+    integer nsnr,iaptype
+    character(len=6) dxgrid
+    character(len=37) msg37
+
+    if(.not.params%lft8apon) return
+    if(ncontest.eq.6 .or. ncontest.eq.7) return
+    if(len(trim(hiscall)).lt.3 .or. len(trim(hisgrid4)).lt.4) return
+    if(.not.ltry_a8) return
+
+    f1=nfqso
+    dxgrid=hisgrid4
+    call timer('ft8_a8d ',0)
+    call ft8_a8d(dd8,mycall,hiscall,dxgrid,f1,xdt,fbest,xsnr,plog,msg37)
+    call timer('ft8_a8d ',1)
+
+    if(msg37(1:1).ne.' ') then
+       if(associated(my_ft8var%callback)) then
+          nsnr=nint(xsnr)
+          iaptype=8
+          qual=1.0
+          if(plog.lt.-147.0) qual=0.16
+          call my_ft8var%callback(nsnr,xdt,fbest,msg37,iaptype,qual)
+       endif
+    endif
+  end subroutine run_ft8_mtd_a8_decode
 
   subroutine jt4_decoded(this,snr,dt,freq,have_sync,sync,is_deep,    &
        decoded0,qual,ich,is_average,ave)
