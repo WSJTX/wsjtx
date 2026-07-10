@@ -379,6 +379,7 @@ set (jt9_FSRCS
   lib/jt9a.f90
   lib/streaming_io.f90
   lib/stream_setmode.c   # Windows stdin binary-mode helper (no-op on POSIX)
+  lib/jt9_version.c
   )
 
 # jt9stream sources: the Qt-free streaming decoder (B2). Same jt9.f90 main as
@@ -388,6 +389,7 @@ set (jt9stream_FSRCS
   lib/jt9a_stub.f90
   lib/streaming_io.f90
   lib/stream_setmode.c   # Windows stdin binary-mode helper (no-op on POSIX)
+  lib/jt9_version.c
   )
 
 set (wsjtx_CXXSRCS
@@ -1906,6 +1908,13 @@ target_link_libraries (record_time_signal wsjt_cxx wsjt_qtmm wsjt_qt)
 
 add_executable (jt9 ${jt9_FSRCS} ${jt9_VERSION_RESOURCES})
 
+if (WSJT_ENABLE_TESTS)
+  add_test (NAME test_jt9_version COMMAND $<TARGET_FILE:jt9> --version)
+  set_tests_properties (test_jt9_version PROPERTIES
+    PASS_REGULAR_EXPRESSION "^jt9 [0-9]+\\.[0-9]+\\.[0-9]+[^ ]* \\(revision ([0-9a-f]+(-dirty)?|unavailable)\\)"
+    )
+endif ()
+
 if (WSJT_BUILD_FORTRAN_OPENMP)
   wsjt_link_fortran_openmp (jt9)
   target_link_libraries (jt9 wsjt_cxx fort_qt)
@@ -1928,6 +1937,7 @@ if (WSJT_BUILD_JT9STREAM)
     FILE_DESCRIPTION "jt9stream - WSJT-X Qt-free streaming decoder"
     )
   add_executable (jt9stream ${jt9stream_FSRCS} ${jt9stream_VERSION_RESOURCES})
+  target_compile_definitions (jt9stream PRIVATE JT9_PROGRAM_NAME=\"jt9stream\")
   # jt9stream shares jt9's Fortran module directory (fortran_modules_omp) so it
   # can READ the modules emitted by wsjt_fort_omp (streaming_emit, etc.). jt9.f90
   # is a program and streaming_io.f90's jt9_stream is a bare subroutine, so this
