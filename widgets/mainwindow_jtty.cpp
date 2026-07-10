@@ -14,7 +14,6 @@
 
 #ifdef WIN32
 #include "MMTTYIF.hpp"
-#include "MMTTY_Messages.hpp"
 #undef MessageBox
 #endif
 
