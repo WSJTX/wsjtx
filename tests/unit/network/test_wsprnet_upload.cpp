@@ -492,11 +492,11 @@ private slots:
   void expiredPendingUploadsAreDroppedAndFinalize ()
   {
     FakeNetworkAccessManager manager;
-    WSPRNet wspr {&manager, retryPolicy (2, 1024, 1), false};
+    WSPRNet wspr {&manager, retryPolicy (2, 1024, 50), false};
     QSignalSpy statuses {&wspr, &WSPRNet::uploadStatus};
 
     postFst4w (wspr, fst4wDecode ());
-    QTest::qWait (5);
+    QTest::qWait (100);
     postFst4w (wspr);
 
     QTRY_VERIFY (sawStatus (statuses, "done"));
