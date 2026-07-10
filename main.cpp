@@ -565,10 +565,10 @@ int main(int argc, char *argv[])
           }
           
           if (mmtty_port > 0) {
-              LOG_INFO("Starting MMTTY interface on port: " << mmtty_port);
+              LOG_INFO("Starting JTTY/N1MM Logger interface on port: " << mmtty_port);
               w.initMMTTY(mmtty_port);
           } else {
-              LOG_INFO("MMTTY interface not enabled (no port or matching rig name provided).");
+              LOG_INFO("JTTY/N1MM Logger interface not enabled (no port or matching rig name provided).");
           }
 #endif
           if (parser.isSet(mode_option)) {

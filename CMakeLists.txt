@@ -1711,18 +1711,7 @@ target_link_libraries (wsprd ${FFTW3_LIBRARIES} ${LIBM_LIBRARIES})
 # Tell CMake to run moc when necessary
 set (CMAKE_AUTOMOC ON)
 
-# mmtty_interface utility
-set (mmtty_interface_SRCS
-  mmtty_interface/main.cpp
-  mmtty_interface/MainWindow.cpp
-  mmtty_interface/MainWindow.hpp
-  widgets/MMTTYIF.cpp
-  widgets/MMTTYIF.hpp
-)
 
-add_executable (mmtty_interface WIN32 ${mmtty_interface_SRCS})
-target_link_libraries (mmtty_interface Qt5::Widgets Qt5::Network)
-target_include_directories (mmtty_interface PRIVATE widgets)
 include_directories (${CMAKE_CURRENT_BINARY_DIR})
 
 # don't use Qt "keywords" signal, slot, emit in generated files to
@@ -2119,20 +2108,12 @@ endif ()
 if(WSJT_BUILD_UTILS)
 install (TARGETS ft8code jt65code jt9code jt4code msk144code 
   q65code fst4sim ft8sim q65sim EchoCallSim testEchoCall echosim
-  hash22calc cablog sjtty rjtty mmtty_interface 
+  hash22calc cablog sjtty rjtty 
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
   )
 
-if (WIN32)
-  add_executable(wsjtx_jtty WIN32 mmtty_interface/wsjtx_jtty.c)
-  add_executable(wsjtx_jtty2 WIN32 mmtty_interface/wsjtx_jtty2.c)
 
-  install (TARGETS wsjtx_jtty wsjtx_jtty2
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
-    BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT runtime
-    )
-endif(WIN32)
 endif(WSJT_BUILD_UTILS)  
 
 install (PROGRAMS
