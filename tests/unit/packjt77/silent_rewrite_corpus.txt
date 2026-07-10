@@ -1,0 +1,54 @@
+W1AW/P K1ABC 5A CT | compound-call-regression
+K1ABC/R W9XYZ/P FN42 | compound-call-regression
+CQ PJ4/K1ABC FK52 | compound-call-regression
+VK9X/W1ABC 37 | compound-call-regression
+K1ABC FN42 55 | compound-call-regression
+CQ 3DA0RS/W1ABC | compound-call-regression
+CQ PJ4/K1ABC | compound-call-regression
+CQ <PJ4/K1ABC> | compound-call-regression
+PJ2/W1AW <W7ABC> RR73 | silent-rewrite-regression
+<PJ4/K1ABC> W9XYZ RR73 | silent-rewrite-regression
+K1ABC RR73; W9XYZ <KH1/KH7Z> -12 | silent-rewrite-regression
+<W3CCX> <K1JT/P> 590001 FN20QI | silent-rewrite-regression
+PJ2/W1AW KA1ABC R 1A EMA | silent-rewrite-regression
+Y8W MW8WA/A R 17A ONE | silent-rewrite-regression
+W9XYZ W1AW/P R 599 MA | silent-rewrite-regression
+K1ABC FN42 37 | silent-rewrite-regression
+PJ2/K1ABC 37 | silent-rewrite-regression
+K1ABC/P 37 | silent-rewrite-regression
+<PJ4/K1ABC>X W9XYZ RR73 | malformed-bracket
+W9XYZ <PJ4/K1ABC>X RR73 | malformed-bracket
+<PJ4/K1ABC> FK52A! | malformed-bracket
+<PJ4/K1ABC>X FK52AB | malformed-bracket
+<W3CCX <K1JT/P> 590001 FN20QI | malformed-bracket
+<W3CCX> <K1JT/P 590001 FN20QI | malformed-bracket
+<ABCDEFGHIJK>X <K1JT/P> 590001 FN20QI | malformed-bracket
+K1ABC RR73; W9XYZ <KH1/KH7Z>X -12 | malformed-bracket
+K1ABC/ K1A 1A CT | grammar-edge
+/K1ABC K1A 1A CT | grammar-edge
+A//B K1A 1A CT | grammar-edge
+K1ABC//P K1A 1A CT | grammar-edge
+K1ABC <W7ABC> RR73 | grammar-edge
+<W7ABC> K1ABC RR73 | grammar-edge
+<W7ABC> <PJ4/K1ABC> RR73 | grammar-edge
+<A/B> <C/D> | grammar-edge
+K1ABC RR73; PJ2/W1AW <KH1/KH7Z> -12 | grammar-edge
+PJ2/W1AW RR73; W9XYZ <KH1/KH7Z> -12 | grammar-edge
+K1ABC RR73: W9XYZ <KH1/KH7Z> -12 | grammar-edge
+K1ABC RRR; W9XYZ <KH1/KH7Z> -12 | grammar-edge
+WA9XYZ KA1ABC R 1H EMA | grammar-edge
+WA9XYZ KA1ABC R 0A EMA | grammar-edge
+WA9XYZ KA1ABC 01A EMA | grammar-edge
+W9XYZ K1ABC 579 MAX | grammar-edge
+W9XYZ G8ABC R 559 8000 | grammar-edge
+K1ABC FN42 03 | grammar-edge
+A$/K1ABC 37 | grammar-edge
+K1ABC/ABCD 37 | grammar-edge
+Q5A FN20 37 | grammar-edge
+CQ K1ABC R FN42 | grammar-edge
+CQ N0CALL FN31 | grammar-edge
+K1ABC PJ4/K9XYZ | grammar-edge
+QRZ PJ4/K1ABC | grammar-edge
+K1ABC RR73; W9XYZ <KH1/KH7Z> -12 JUNK | overlong-field
+<W3CCX> <K1JT/P> 590001 FN20QI EXTRA | overlong-field
+PJ2/W1AW RR73; W9/YZ <KH1/KH7Z> -12 | overlong-field

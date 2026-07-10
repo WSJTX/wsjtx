@@ -41,20 +41,20 @@ program test_packjt77_protocol_vectors
   call expect_pack_bits('<PJ4/K1ABC> FK52AB', 0, 6, 0, 6, &
        '01010110101110001000100010111111101110100000101010000000000000000000000110000')
 
-  call expect_cross_variant_bits('K1ABC W9XYZ FN42', -1, -1)
-  call expect_cross_variant_bits('FREE TEXT MSG', -1, -1)
-  call expect_cross_variant_bits('WA9XYZ KA1ABC R 16A EMA', -1, -1)
-  call expect_cross_variant_bits('WA9XYZ KA1ABC R 32A EMA', -1, -1)
-  call expect_cross_variant_bits('TU; W9XYZ G8ABC R 559 0013', -1, -1)
-  call expect_cross_variant_bits('K1ABC RR73; W9XYZ <KH1/KH7Z> -12', -1, -1)
-  call expect_cross_variant_bits('<PJ4/K1ABC> W9XYZ RR73', -1, -1)
-  call expect_cross_variant_bits('PJ2/W1AW <W7ABC> RR73', -1, -1)
-  call expect_cross_variant_bits('<W3CCX> <K1JT/P> 592047 RR99XX', -1, -1)
-  call expect_cross_variant_bits('K1ABC FN42 37', -1, -1)
-  call expect_cross_variant_bits('<PJ4/K1ABC> FK52AB', 0, 6)
+  call expect_unified_codec_bits('K1ABC W9XYZ FN42', -1, -1)
+  call expect_unified_codec_bits('FREE TEXT MSG', -1, -1)
+  call expect_unified_codec_bits('WA9XYZ KA1ABC R 16A EMA', -1, -1)
+  call expect_unified_codec_bits('WA9XYZ KA1ABC R 32A EMA', -1, -1)
+  call expect_unified_codec_bits('TU; W9XYZ G8ABC R 559 0013', -1, -1)
+  call expect_unified_codec_bits('K1ABC RR73; W9XYZ <KH1/KH7Z> -12', -1, -1)
+  call expect_unified_codec_bits('<PJ4/K1ABC> W9XYZ RR73', -1, -1)
+  call expect_unified_codec_bits('PJ2/W1AW <W7ABC> RR73', -1, -1)
+  call expect_unified_codec_bits('<W3CCX> <K1JT/P> 592047 RR99XX', -1, -1)
+  call expect_unified_codec_bits('K1ABC FN42 37', -1, -1)
+  call expect_unified_codec_bits('<PJ4/K1ABC> FK52AB', 0, 6)
 
-  call expect_binary_payload_after_wspr_prefix(.false.)
-  call expect_binary_payload_after_wspr_prefix(.true.)
+  call expect_binary_payload_for_wspr_message('PJ4/K1ABC 37')
+  call expect_not_wspr_payload('K1ABC/ABCD 37')
 
   write(*,1000) ntests
 1000 format('packjt77 protocol vector tests passed: ',i0)
@@ -119,75 +119,77 @@ contains
     ntests=ntests+1
   end subroutine expect_pack_bits
 
-  subroutine expect_cross_variant_bits(input,pack_i3,pack_n3)
+  subroutine expect_unified_codec_bits(input,pack_i3,pack_n3)
     character(len=*), intent(in) :: input
     integer, intent(in) :: pack_i3, pack_n3
-    character(len=77) :: c77, c77var
-    integer :: got_i3, got_n3, got_i3var, got_n3var
+    character(len=77) :: first_c77, second_c77
+    integer :: first_i3, first_n3, second_i3, second_n3
 
-    call pack_standard(input,pack_i3,pack_n3,got_i3,got_n3,c77)
-    call pack_var(input,pack_i3,pack_n3,got_i3var,got_n3var,c77var)
-    if(got_i3.ne.got_i3var .or. got_n3.ne.got_n3var) then
-       write(*,1040) trim(input), got_i3, got_n3, got_i3var, got_n3var
-1040   format('Cross-variant type failure for "',a,'"; pack77 got ',i0,'.',i0, &
-              ' pack77var got ',i0,'.',i0)
+    call pack_standard(input,pack_i3,pack_n3,first_i3,first_n3,first_c77)
+    call pack_standard(input,pack_i3,pack_n3,second_i3,second_n3,second_c77)
+    if(first_i3.ne.second_i3 .or. first_n3.ne.second_n3) then
+       write(*,1040) trim(input), first_i3, first_n3, second_i3, second_n3
+1040   format('Unified codec type failure for "',a,'"; first pack77 got ',i0,'.',i0, &
+              ' second pack77 got ',i0,'.',i0)
        error stop 1
     endif
-    call assert_binary_payload('pack77',input,c77)
-    call assert_binary_payload('pack77var',input,c77var)
-    if(c77.ne.c77var) then
-       write(*,1050) trim(input), c77, c77var
-1050   format('Cross-variant bit failure for "',a,'"; pack77 ',a,' pack77var ',a)
+    call assert_binary_payload('pack77',input,first_c77)
+    call assert_binary_payload('pack77',input,second_c77)
+    if(first_c77.ne.second_c77) then
+       write(*,1050) trim(input), first_c77, second_c77
+1050   format('Unified codec bit failure for "',a,'"; first pack77 ',a, &
+              ' second pack77 ',a)
        error stop 1
     endif
 
     ntests=ntests+1
-  end subroutine expect_cross_variant_bits
+  end subroutine expect_unified_codec_bits
 
-  subroutine expect_binary_payload_after_wspr_prefix(use_var)
-    logical, intent(in) :: use_var
+  subroutine expect_binary_payload_for_wspr_message(input)
+    character(len=*), intent(in) :: input
     character(len=77) :: c77
-    character(len=37) :: prefix_input, edge_input
+    character(len=37) :: packed_input
     integer :: got_i3, got_n3
 
-    prefix_input='                                     '
-    prefix_input='PJ4/K1ABC 37'
-    edge_input='                                     '
-    edge_input='K1ABC/ABCD 37'
+    packed_input='                                     '
+    packed_input=input
     call reset_packjt77_state()
 
-    if(use_var) then
-       got_i3=-1
-       got_n3=-1
-       c77=''
-       call pack77var(prefix_input,got_i3,got_n3,c77,0)
-       call assert_message_type('pack77var','PJ4/K1ABC 37',0,6,got_i3,got_n3)
-       call assert_binary_payload('pack77var','PJ4/K1ABC 37',c77)
+    got_i3=-1
+    got_n3=-1
+    c77=''
+    block
+      type(pack77_result) :: encoded
+      encoded=pack77_result_from_api(packed_input)
+      call assert_pack77_result('pack77',packed_input,encoded)
+      got_i3=encoded%i3
+      got_n3=encoded%n3
+      c77=encoded%c77
+    end block
+    call assert_message_type('pack77',input,0,6,got_i3,got_n3)
+    call assert_binary_payload('pack77',input,c77)
 
-       got_i3=-1
-       got_n3=-1
-       c77=''
-       call pack77var(edge_input,got_i3,got_n3,c77,0)
-       call assert_message_type('pack77var','K1ABC/ABCD 37',0,6,got_i3,got_n3)
-       call assert_binary_payload('pack77var','K1ABC/ABCD 37',c77)
-    else
-       got_i3=-1
-       got_n3=-1
-       c77=''
-       call pack77(prefix_input,got_i3,got_n3,c77)
-       call assert_message_type('pack77','PJ4/K1ABC 37',0,6,got_i3,got_n3)
-       call assert_binary_payload('pack77','PJ4/K1ABC 37',c77)
+    ntests=ntests+1
+  end subroutine expect_binary_payload_for_wspr_message
 
-       got_i3=-1
-       got_n3=-1
-       c77=''
-       call pack77(edge_input,got_i3,got_n3,c77)
-       call assert_message_type('pack77','K1ABC/ABCD 37',0,6,got_i3,got_n3)
-       call assert_binary_payload('pack77','K1ABC/ABCD 37',c77)
+  subroutine expect_not_wspr_payload(input)
+    character(len=*), intent(in) :: input
+    character(len=37) :: packed_input
+    type(pack77_result) :: encoded
+
+    packed_input='                                     '
+    packed_input=input
+    call reset_packjt77_state()
+
+    encoded=pack77_result_from_api(packed_input)
+    if(encoded%encoded .and. encoded%i3.eq.0 .and. encoded%n3.eq.6) then
+       write(*,1060) trim(input)
+1060   format('WSPR reject failure for "',a,'"; still packed as 0.6')
+       error stop 1
     endif
 
     ntests=ntests+1
-  end subroutine expect_binary_payload_after_wspr_prefix
+  end subroutine expect_not_wspr_payload
 
   subroutine pack_standard(input,pack_i3,pack_n3,got_i3,got_n3,c77)
     character(len=*), intent(in) :: input
@@ -202,33 +204,25 @@ contains
     got_i3=pack_i3
     got_n3=pack_n3
     c77=''
-    call pack77(packed_input,got_i3,got_n3,c77)
+    block
+      type(pack77_result) :: encoded
+      encoded=pack77_with_hint(packed_input,pack_i3,pack_n3)
+      call assert_pack77_result('pack77',packed_input,encoded)
+      call assert_true('pack77 gate not rejected',encoded%status.ne.PACK77_STATUS_INTERNAL_ROUNDTRIP_REJECTED)
+      got_i3=encoded%i3
+      got_n3=encoded%n3
+      c77=encoded%c77
+    end block
   end subroutine pack_standard
-
-  subroutine pack_var(input,pack_i3,pack_n3,got_i3,got_n3,c77)
-    character(len=*), intent(in) :: input
-    integer, intent(in) :: pack_i3, pack_n3
-    integer, intent(out) :: got_i3, got_n3
-    character(len=77), intent(out) :: c77
-    character(len=37) :: packed_input
-
-    packed_input='                                     '
-    packed_input=input
-    call reset_packjt77_state()
-    got_i3=pack_i3
-    got_n3=pack_n3
-    c77=''
-    call pack77var(packed_input,got_i3,got_n3,c77,0)
-  end subroutine pack_var
 
   subroutine reset_packjt77_state()
     integer :: n10, n12, n22
 
     call clear_all_state('N0AAA','N0BBB')
-    call save_hash_mycallvar(mycall13var,hashmy10var,hashmy12var,hashmy22var)
-    hashdx10var=ihashcall(dxcall13var,10)
+    call save_hash_call(mycall13,hashmy10_configured,hashmy12_configured,hashmy22_configured)
+    hashdx10_configured=ihashcall(dxcall13,10)
     call save_hash_call(dxcall13,n10,n12,n22)
-    call save_hash_callvar(dxcall13var,1)
+    call queue_hash_call_for_thread(dxcall13,1)
   end subroutine reset_packjt77_state
 
 end program test_packjt77_protocol_vectors

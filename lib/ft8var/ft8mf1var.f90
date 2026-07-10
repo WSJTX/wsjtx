@@ -1,7 +1,7 @@
 
 subroutine ft8mf1var(s8,itone,msgd,msg37,lft8sd)
 
-  use ft8_mod1, only : itone76,idtone76,msgsd76
+  use ft8_mod1, only : itone76,idtone76,msgsd76,idtone76_valid
   real, intent(in) :: s8(0:7,79)
   real s8d(0:7,58)
   character msgd*37,msg37*37,msggrid*37,c1*12,c2*12,grid*4
@@ -37,6 +37,7 @@ subroutine ft8mf1var(s8,itone,msgd,msg37,lft8sd)
 
   ipk=0; u1=0.0; u2=0.0
   do k=1,76
+    if(.not.idtone76_valid(k)) cycle
     psum=0.; ref=ref0
     do j=1,58; i3=idtone76(k,j); psum=psum + s8d(i3,j); if(i3.eq.mrs(j)) ref=ref - s8d(i3,j) + s8d(mrs2(j),j); enddo
     p=psum/ref

@@ -1171,6 +1171,7 @@ private:
   void genCQMsg();
   void clearDX ();
   void lookup();
+  QString expandTxMacros(QString const& message) const;
   void ba2msg(QByteArray ba, char* message);
   void msgtype(QString t, QLineEdit* tx);
   void stub();

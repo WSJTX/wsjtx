@@ -487,6 +487,8 @@ set (wsjt_FSRCS
   lib/jt9_decode.f90
   lib/options.f90
   lib/packjt.f90
+  lib/77bit/packjt77_schema.f90
+  lib/77bit/packjt77_grammar.f90
   lib/77bit/packjt77.f90
   lib/qra/q65/q65.f90
   lib/q65_decode.f90
@@ -685,7 +687,6 @@ set (wsjt_FSRCS
   lib/qra/q65/q65_set_list2.f90
   lib/refspectrum.f90
   lib/savec2.f90
-  lib/save_dxbase.f90
   lib/save_echo_params.f90
   lib/sec0.f90
   lib/sec_midn.f90
@@ -789,7 +790,6 @@ set (wsjt_FSRCS
   lib/ft8var/jt65_mod9.f90
   lib/ft8var/msgparservar.f90
   lib/ft8var/osd174_91var.f90
-  lib/ft8var/packjt77sdvar.f90
   lib/ft8var/partint.f90
   lib/ft8var/partintft8.f90
   lib/ft8var/rms_augapvar.f90
@@ -1596,6 +1596,12 @@ wsjt_link_common_fortran (cwsim)
 
 add_executable (q65code lib/qra/q65/q65code.f90)
 wsjt_link_common_fortran (q65code)
+add_test (
+  NAME test_q65code
+  COMMAND ${CMAKE_COMMAND}
+    -DQ65CODE=$<TARGET_FILE:q65code>
+    -P ${CMAKE_SOURCE_DIR}/tests/unit/q65/test_q65code.cmake
+)
 
 add_executable (test_q65 lib/test_q65.f90)
 wsjt_link_common_fortran (test_q65)
@@ -1623,6 +1629,14 @@ wsjt_link_common_fortran (wsprcode)
 	       
 add_executable (encode77 lib/77bit/encode77.f90)
 wsjt_link_common_fortran (encode77)
+add_test (
+  NAME test_encode77
+  COMMAND ${CMAKE_COMMAND}
+    -DENCODE77=$<TARGET_FILE:encode77>
+    -DINPUT_DIR=${CMAKE_SOURCE_DIR}/tests/unit/packjt77
+    -DINPUT_FILE=encode77_test_messages.txt
+    -P ${CMAKE_SOURCE_DIR}/tests/unit/packjt77/test_encode77.cmake
+)
 
 add_executable (hash22calc lib/77bit/hash22calc.f90)
 wsjt_link_common_fortran (hash22calc)
@@ -1676,6 +1690,16 @@ endif ()
 
 add_executable (ldpcsim240_101 lib/fst4/ldpcsim240_101.f90)
 wsjt_link_common_fortran (ldpcsim240_101)
+add_test (
+  NAME test_pack77_cli_fallbacks
+  COMMAND ${CMAKE_COMMAND}
+    -DFT4CODE=$<TARGET_FILE:ft4code>
+    -DFT4SIM=$<TARGET_FILE:ft4sim>
+    -DFST4SIM=$<TARGET_FILE:fst4sim>
+    -DLDPCSIM240_101=$<TARGET_FILE:ldpcsim240_101>
+    -DMSK144CODE=$<TARGET_FILE:msk144code>
+    -P ${CMAKE_SOURCE_DIR}/tests/unit/packjt77/test_pack77_cli_fallbacks.cmake
+)
 
 add_executable (ldpcsim240_74 lib/fst4/ldpcsim240_74.f90)
 wsjt_link_common_fortran (ldpcsim240_74)

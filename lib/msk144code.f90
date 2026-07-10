@@ -6,6 +6,7 @@ program msk144code
   use packjt77
   character*77 c77
   character msg*37,msgsent*37,bad*1,msgtype*18
+  integer pack_status
   integer*4 i4tone(144)
   include 'msk144_testmsg.f90'
 
@@ -36,7 +37,17 @@ program msk144code
      call genmsk_128_90(msg,ichk,msgsent,i4tone,itype)
      i3=-1
      n3=-1
-     call pack77(msg,i3,n3,c77)
+     if(msg(1:1).ne.'@' .and. itype.ne.7) then
+        if(trim(msgsent).eq.'*** bad message ***') then
+           print*,'Cannot encode message: ',trim(msg)
+           stop 1
+        endif
+        call pack77(msgsent,i3,n3,c77,status=pack_status)
+        if(pack_status.ne.PACK77_STATUS_ENCODED) then
+           print*,'Cannot encode message: ',trim(msg)
+           stop 1
+        endif
+     endif
      msgtype=""
      if(i3.eq.0) then
         if(n3.eq.0) msgtype="Free text"

@@ -16,10 +16,12 @@ subroutine genft8(msg,i3,n3,msgsent,msgbits,itone)
 
   i3=-1
   n3=-1
-  call pack77(msg,i3,n3,c77)
-  call unpack77(c77,0,msgsent,unpk77_success)
+  c77=' '
+  unpk77_success=.false.
+  call pack77_legacy_truncating_fallback(msg,i3,n3,c77)
+  if(i3.ge.0) call unpack77(c77,0,msgsent,unpk77_success)
   read(c77,'(77i1)',err=1) msgbits
-  if(unpk77_success) go to 2
+  if(i3.ge.0 .and. unpk77_success) go to 2
 1 msgbits=0
   itone=0
   msgsent='*** bad message ***                  '

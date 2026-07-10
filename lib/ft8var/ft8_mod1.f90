@@ -29,6 +29,8 @@ module ft8_mod1
   logical one(0:511,0:8),lqsomsgdcd,first_osd
   logical(1) lapmyc,lagcc,lagccbail,lhound,lenabledxcsearch,              &
        lwidedxcsearch,lmultinst,lskiptx1,ltxing
+  logical(1) idtone25_valid(25),idtone56_valid(56),idtone76_valid(76)
+  logical(1) csyncsd_valid,csyncsdcq_valid
   data maskincallthr/0,30,45,55,65,75,85,90,95,100,105,110,115,120,125,   &
        130,135,140,145,150,155,160,165,170,175/
   data     mcq/0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0/
@@ -99,6 +101,11 @@ module ft8_mod1
   data nintcount/0/
   data avexdt/0.0/
   data first_osd/.true./
+  data idtone25_valid/25*.false./
+  data idtone56_valid/56*.false./
+  data idtone76_valid/76*.false./
+  data csyncsd_valid/.false./
+  data csyncsdcq_valid/.false./
 
   type odd_struct
      real freq

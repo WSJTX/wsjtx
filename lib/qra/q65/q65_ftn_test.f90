@@ -21,8 +21,12 @@ program q65_ftn_test
   endif
   call getarg(1,msg0)
   call pack77(msg0,i3,n3,c77)
+  if(i3.lt.0) then
+     print*,'Cannot pack message: ',trim(msg0)
+     go to 999
+  endif
   call unpack77(c77,0,msgsent,unpk77_success) !Unpack to get msgsent
-  read(c77,1000) x
+  read(c77,1000,err=990) x
 1000 format(12b6.6,b5.5)
 
   call q65_enc(x,y)                            !Encode message, x(1:13) ==> y(1:63)
@@ -48,4 +52,7 @@ program q65_ftn_test
   write(*,1100) xdec,trim(msg)
 1100 format(/'Decoded message:'/13i3,2x,a)
 
+  go to 999
+
+990 print*,'Cannot read packed message bits: ',trim(msg0)
 999 end program q65_ftn_test

@@ -75,7 +75,7 @@ program ldpcsim174_91
    msg="K9ABC K1ABC FN20"
    i3=0
    n3=1
-   call pack77(msg,i3,n3,c77) !Pack into 12 6-bit bytes
+   call pack77(msg,i3,n3,c77)
    call unpack77(c77,1,msgsent,unpk77_success) !Unpack to get msgsent
    write(*,*) "message sent ",msgsent
 

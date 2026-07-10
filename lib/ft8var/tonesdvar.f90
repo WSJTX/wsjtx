@@ -1,6 +1,7 @@
 subroutine tonesdvar(msgd,lcq)
 
-  use ft8_mod1, only : csyncsd,csyncsdcq,itone76,idtone76,msgsd76
+  use ft8_mod1, only : csyncsd,csyncsdcq,itone76,idtone76,msgsd76, &
+       idtone76_valid,csyncsd_valid,csyncsdcq_valid
   complex csig0(151680)
   character, intent(in) :: msgd*37
   character msg37*37,msgsent37*37,c1*12,c2*12,grid*6
@@ -8,7 +9,7 @@ subroutine tonesdvar(msgd,lcq)
   integer itone(79),itone1(79)
   integer*1 msgbits(77)
   logical(1), intent(in) :: lcq
-  logical(1) lgrid,lr73
+  logical(1) lgrid,lr73,valid_first
 
   data rpt/'+09 ','+08 ','+07 ','+06 ','+05 ','+04 ','+03 ','+02 ','+01 ','+00 ', &
            '-01 ','-02 ','-03 ','-04 ','-05 ','-06 ','-07 ','-08 ','-09 ','-10 ', &
@@ -25,11 +26,21 @@ subroutine tonesdvar(msgd,lcq)
 !    complex csyncsd(0:18,32),csyncsdcq(0:71,32)
 
   lgrid=.false.; lr73=.false.
+  valid_first=.false.
+  idtone76(1:76,1:58)=0
+  itone76(1:76,1:79)=0
+  idtone76_valid(1:76)=.false.
+  if(lcq) then
+    csyncsdcq_valid=.false.
+  else
+    csyncsd_valid=.false.
+  endif
 
   if(lcq) then
     msg37=msgd
     i3=-1; n3=-1
     call genft8sdvar(msg37,i3,n3,msgsent37,msgbits,itone)
+    if(i3.lt.0) return
   else
     c1='            '; c2='            '
     ispc1=index(msgd,' '); ispc2=index(msgd((ispc1+1):),' ')+ispc1; ispc3=index(msgd((ispc2+1):),' ')+ispc2;
@@ -48,19 +59,27 @@ subroutine tonesdvar(msgd,lcq)
       msgsd76(i)=msg37
       i3=-1; n3=-1
       call genft8sdvar(msg37,i3,n3,msgsent37,msgbits,itone)
-      if(i.eq.1) itone1=itone
+      if(i3.lt.0) cycle
+      if(i.eq.1) then
+        itone1=itone
+        valid_first=.true.
+      endif
       idtone76(i,1:29)=itone(8:36)
       idtone76(i,30:58)=itone(44:72)
       itone76(i,1:79)=itone(1:79)
+      idtone76_valid(i)=.true.
     enddo
       msg37='                                     '
       msg37=trim(c1)//' '//trim(c2)//' '//trim(grid)
       msgsd76(76)=msg37
       i3=-1; n3=-1
       call genft8sdvar(msg37,i3,n3,msgsent37,msgbits,itone)
-      idtone76(76,1:29)=itone(8:36)
-      idtone76(76,30:58)=itone(44:72)
-      itone76(76,1:79)=itone(1:79)
+      if(i3.ge.0) then
+        idtone76(76,1:29)=itone(8:36)
+        idtone76(76,30:58)=itone(44:72)
+        itone76(76,1:79)=itone(1:79)
+        idtone76_valid(76)=.true.
+      endif
   endif
 
   m=13441 ! 7*1920+1
@@ -70,11 +89,14 @@ subroutine tonesdvar(msgd,lcq)
       if(i.eq.29) m=m+13440
       do j=1,32; csyncsdcq(i,j)=csig0(m); m=m+60; enddo
     enddo
+    csyncsdcq_valid=.true.
   else
+    if(.not.valid_first) return
     call gen_ft8wavevar(itone1,79,1920,2.0,12000.0,0.0,csig0,xjunk,1,151680)
     do i=0,18
       do j=1,32; csyncsd(i,j)=csig0(m); m=m+60; enddo
     enddo
+    csyncsd_valid=.true.
   endif
  
   return

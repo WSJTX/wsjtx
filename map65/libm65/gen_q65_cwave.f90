@@ -23,7 +23,7 @@ subroutine gen_q65_cwave(msg,ntxfreq,ntone_spacing,msgsent,cwave,nwave)
   !--------------------------------------------------------------------
   ! Local character variables
   !--------------------------------------------------------------------
-  character*37 :: msg37
+  character*37 :: msg37,msgsent37
 
   !--------------------------------------------------------------------
   ! Explicit declarations for all formerly implicit variables
@@ -37,6 +37,7 @@ subroutine gen_q65_cwave(msg,ntxfreq,ntone_spacing,msgsent,cwave,nwave)
   ! Explicit locals
   integer :: codeword(65), itone(85)
   integer :: icos7(0:6)
+  logical :: success
 
   data icos7 /2,5,6,0,4,1,3/
   data twopi /6.283185307179586476d0/
@@ -45,11 +46,16 @@ subroutine gen_q65_cwave(msg,ntxfreq,ntone_spacing,msgsent,cwave,nwave)
   !--------------------------------------------------------------------
   ! Begin logic (unchanged from legacy)
   !--------------------------------------------------------------------
-  msgsent = msg
   msg37 = ''
   msg37(1:24) = msg
 
-  call get_q65_tones(msg37, codeword, itone)
+  call get_q65_tones(msg37, codeword, itone, msgsent37, success)
+  msgsent = msgsent37(1:len(msgsent))
+  if(.not.success) then
+     cwave=0
+     nwave=0
+     return
+  endif
 
   ! Constants
   nsym = 85

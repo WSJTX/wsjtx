@@ -359,8 +359,6 @@ extern "C" {
 
   void chk_samples_(int* m_ihsym,int* k, int* m_hsymStop);
 
-  void save_dxbase_(char* dxbase, FCL len);
-
   void get_q3list_(char* fname, bool* bDiskData, int* nlist, char* list, FCL len1, FCL len2);
 
   void rm_q3list_(char* callsign, FCL len);
@@ -1626,8 +1624,7 @@ void MainWindow::update_tx5(const QString &qsy_text)
   if (m_hisCall=="") {
     QMessageBox::warning(this, "WSJT-X","There must be a callsign in the\n DX Call Box to send QSY Request");
   } else {
-    QString text = qsy_text;
-    ui->tx6->setText(text.replace("$DX",m_hisCall));
+    ui->tx6->setText(expandTxMacros(qsy_text));
     ui->txb6->click();
     stopWRTimer.stop();
     if(!m_auto) {
@@ -5806,12 +5803,14 @@ void MainWindow::guiUpdate()
         ui->pbBestSP->setStyleSheet ("");
       }
 
-      if(m_ntx == 1) ba=ui->tx1->text().toLocal8Bit();
-      if(m_ntx == 2) ba=ui->tx2->text().toLocal8Bit();
-      if(m_ntx == 3) ba=ui->tx3->text().toLocal8Bit();
-      if(m_ntx == 4) ba=ui->tx4->text().toLocal8Bit();
-      if(m_ntx == 5) ba=ui->tx5->currentText().toLocal8Bit();
-      if(m_ntx == 6) ba=ui->tx6->text().toLocal8Bit();
+      QString txText;
+      if(m_ntx == 1) txText=ui->tx1->text();
+      if(m_ntx == 2) txText=ui->tx2->text();
+      if(m_ntx == 3) txText=ui->tx3->text();
+      if(m_ntx == 4) txText=ui->tx4->text();
+      if(m_ntx == 5) txText=ui->tx5->currentText();
+      if(m_ntx == 6) txText=ui->tx6->text();
+      ba=expandTxMacros(txText).toLocal8Bit();
     }
 
     ba2msg(ba,message);
@@ -6536,6 +6535,25 @@ void MainWindow::stopTx2()
   }
   keep_last_tx_label = true;
   last_tx_label.setText(tr ("Last Tx: %1").arg (m_currentMessage.trimmed()));
+}
+
+QString MainWindow::expandTxMacros(QString const& message) const
+{
+  auto const parts = message.split (' ', SkipEmptyParts);
+  if (parts.isEmpty () ||
+      (parts.front ().compare ("$DX", Qt::CaseInsensitive) != 0 &&
+       parts.front ().compare ("$DXCALL", Qt::CaseInsensitive) != 0)) {
+    return message;
+  }
+
+  auto const dxBase = Radio::base_callsign (m_hisCall);
+  if (dxBase.isEmpty ()) {
+    return message;
+  }
+
+  auto const macroIndex = message.indexOf (parts.front ());
+  auto const rest = message.mid (macroIndex + parts.front ().size ()).trimmed ();
+  return rest.isEmpty () ? dxBase : dxBase + " " + rest;
 }
 
 void MainWindow::ba2msg(QByteArray ba, char message[])             //ba2msg()
@@ -7420,7 +7438,6 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
   auto is_type_one = !is77BitMode () && is_compound && shortList (my_callsign);
   auto const& my_grid = m_config.my_grid ().left (4);
   auto const& hisBase = Radio::base_callsign (hisCall);
-  save_dxbase_(const_cast <char *> ((hisBase + "   ").left(6).toLatin1().constData()), (FCL)6);
   auto eme_short_codes = m_config.enable_VHF_features () && ui->cbShMsgs->isChecked ()
       && m_mode == "JT65";
 
@@ -8171,7 +8188,6 @@ void MainWindow::on_dxCallEntry_textChanged (QString const& call)
 void MainWindow::on_dxCallEntry_editingFinished()
 {
   auto const& dxBase = Radio::base_callsign (m_hisCall);
-  save_dxbase_(const_cast <char *> ((dxBase + "   ").left (6).toLatin1().constData()), (FCL)6);
   if(m_QSYMessageCreatorWidget) m_QSYMessageCreatorWidget->getDxBase(QString(dxBase));
 }
 
@@ -12072,8 +12088,16 @@ void MainWindow::selectHound(QString line, bool bTopQueue)
   QString t2=m_config.superFox() ? superFoxTxReport(rpt) : rpt;
   QString t1_with_grid;
   if(!m_config.superFox()) {
-    if(t2.mid(0,1) != "-" and t2.mid(0,1) != "+") t2="+" + t2;
-    if(t2.length()==2) t2=t2.mid(0,1) + "0" + t2.mid(1,1);
+    bool ok=false;
+    int snr=rpt.toInt(&ok);
+    if(ok) {
+      snr=qBound(-30,snr,32);
+      snr=2*((snr+30)/2)-30;
+      t2=QString::asprintf("%+03d",snr);
+    } else {
+      if(t2.mid(0,1) != "-" and t2.mid(0,1) != "+") t2="+" + t2;
+      if(t2.length()==2) t2=t2.mid(0,1) + "0" + t2.mid(1,1);
+    }
   }
   if(m_config.superFox() && !superFoxQueueableHound(m_baseCall,houndCall,t2))
   {

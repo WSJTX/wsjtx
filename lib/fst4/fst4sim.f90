@@ -13,6 +13,7 @@ program fst4sim
    complex, allocatable :: c(:)
    real, allocatable :: wave(:)
    integer hmod
+   integer pack_status
    integer itone(NN)
    integer*1 msgbits(101)
    integer*2, allocatable :: iwave(:)        !Generated full-length waveform
@@ -76,15 +77,25 @@ program fst4sim
    if(snrdb.gt.90.0) sig=1.0
 
    if(wspr_hint) then
-      i3=0
-      n3=6
+      iwspr=1
    else
-      i3=-1
-      n3=-1
+      iwspr=0
    endif
-   call pack77(msg37,i3,n3,c77)
-   if(i3.eq.0.and.n3.eq.6) iwspr=1
    call genfst4(msg37,0,msgsent37,msgbits,itone,iwspr)
+   if(trim(msgsent37).eq.'*** bad message ***') then
+      print*,'Cannot encode message: ',trim(msg37)
+      stop 1
+   endif
+   if(iwspr.eq.1) then
+      call pack77(msgsent37,i3,n3,c77, &
+       pack77_options(prefer_wspr_50bit=.true.),pack_status)
+   else
+      call pack77(msgsent37,i3,n3,c77,status=pack_status)
+   endif
+   if(pack_status.ne.PACK77_STATUS_ENCODED) then
+      print*,'Cannot encode message: ',trim(msg37)
+      stop 1
+   endif
    write(*,*)
    write(*,'(a9,a37,a3,L2,a7,i2)') 'Message: ',msgsent37,'W:',wspr_hint,' iwspr:',iwspr
    write(*,1000) f00,xdt,txt,snrdb

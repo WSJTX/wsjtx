@@ -164,10 +164,10 @@ subroutine get_q65crc12(mc2,ncrc1,ncrc2)
 
 end subroutine get_q65crc12
 
-subroutine get_q65_tones(msg37,codeword,itone)
+subroutine get_q65_tones(msg37,codeword,itone,msgsent,success)
    use packjt77
    implicit none
-   character*37 msg37
+   character*37 msg37,msgsent
    character*77 c77
    character*6  c6
    integer codeword(65)
@@ -175,16 +175,33 @@ subroutine get_q65_tones(msg37,codeword,itone)
    integer message(15)
    integer shortcodeword(63)
    integer itone(85)
-   integer i,j,k
+   integer i,j,k,ios,pack_status
    integer*1 mbits(90)
    integer i3,n3,ncrc1,ncrc2
+   logical success,unpk77_success
    data sync/1,9,12,13,15,22,23,26,27,33,35,38,46,50,55,60,62,66,69,74,76,85/
 
    i3=-1
    n3=-1
-   call pack77(msg37,i3,n3,c77)
+   c77=' '
+   codeword=0
+   itone=0
+   msgsent='*** bad message ***                  '
+   success=.false.
+   call pack77_legacy_truncating_fallback(msg37,i3,n3,c77, &
+        status=pack_status)
+   if(pack_status.ne.PACK77_STATUS_ENCODED) return
+   call unpack77(c77,0,msgsent,unpk77_success)
+   if(.not.unpk77_success) then
+      msgsent='*** bad message ***                  '
+      return
+   endif
    mbits=0
-   read(c77,'(77i1)') mbits(1:77)
+   read(c77,'(77i1)',iostat=ios) mbits(1:77)
+   if(ios.ne.0) then
+      msgsent='*** bad message ***                  '
+      return
+   endif
 
 ! Message is 77 bits long. Add a 0 bit to create a 78-bit message and pad with 
 ! 12 zeros to create 90-bit mbit array for CRC calculation. 
@@ -216,6 +233,7 @@ subroutine get_q65_tones(msg37,codeword,itone)
          itone(i)=shortcodeword(k)+1
       endif
    enddo
+   success=.true.
 end subroutine get_q65_tones
 
 end module q65_encoding
