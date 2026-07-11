@@ -379,6 +379,7 @@ set (jt9_FSRCS
   lib/jt9a.f90
   lib/streaming_io.f90
   lib/stream_setmode.c   # Windows stdin binary-mode helper (no-op on POSIX)
+  lib/stream_stdin.c     # portable stdin read-fully helper (all platforms)
   lib/jt9_version.c
   )
 
@@ -389,6 +390,7 @@ set (jt9stream_FSRCS
   lib/jt9a_stub.f90
   lib/streaming_io.f90
   lib/stream_setmode.c   # Windows stdin binary-mode helper (no-op on POSIX)
+  lib/stream_stdin.c     # portable stdin read-fully helper (all platforms)
   lib/jt9_version.c
   )
 
