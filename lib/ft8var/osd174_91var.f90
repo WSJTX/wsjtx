@@ -37,8 +37,8 @@ interface
 end interface
 
 npre1=0; npre2=0; d1=0.
-if(first_osd) then ! fill the generator matrix
 !$omp critical(first_osd)
+if(first_osd) then ! fill the generator matrix
   gen=0
   do i=1,M
     do j=1,23
@@ -55,8 +55,8 @@ if(first_osd) then ! fill the generator matrix
     gen(irow,irow)=1
   enddo
 first_osd=.false.
-!$omp end critical(first_osd)
 endif
+!$omp end critical(first_osd)
 
 rx=llr
 apmaskr=apmask
