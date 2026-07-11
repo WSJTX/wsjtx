@@ -71,6 +71,7 @@
 #include "DecDataMutex.hpp"
 #include "TxStartPolicy.hpp"
 #include "ActiveStationList.hpp"
+#include "widgets/SpecOpLabel.h"
 #include "plotter.h"
 #include "echograph.h"
 #include "fastplot.h"
@@ -8438,15 +8439,7 @@ void MainWindow::displayWidgets(qint64 n)
 
 QString MainWindow::specOpLabel() const
 {
-  if(SpecOp::NA_VHF==m_specOp && m_config.NCCC_Sprint()) return "NCCC Sprint";
-  if(SpecOp::NA_VHF==m_specOp) return "NA VHF";
-  if(SpecOp::EU_VHF==m_specOp) return "EU VHF";
-  if(SpecOp::FIELD_DAY==m_specOp) return "Field Day";
-  if(SpecOp::RTTY==m_specOp) return "FT RU";
-  if(SpecOp::WW_DIGI==m_specOp) return "WW Digi";
-  if(SpecOp::ARRL_DIGI==m_specOp) return "ARRL Digi";
-  if(SpecOp::Q65_PILEUP==m_specOp) return "Q65 Pileup";
-  return QString{};
+  return SpecOpLabel::label (m_specOp, m_config.NCCC_Sprint ());
 }
 
 void MainWindow::initializeFFT(int nsps)

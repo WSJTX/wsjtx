@@ -92,3 +92,10 @@ add_executable (test_qsy_message_parser
 )
 target_link_libraries (test_qsy_message_parser Qt5::Test)
 add_test (NAME test_qsy_message_parser COMMAND test_qsy_message_parser)
+
+add_executable (test_spec_op_label
+  test_spec_op_label.cpp
+  ${CMAKE_SOURCE_DIR}/widgets/SpecOpLabel.cpp
+)
+target_link_libraries (test_spec_op_label Qt5::Test)
+add_test (NAME test_spec_op_label COMMAND test_spec_op_label)
