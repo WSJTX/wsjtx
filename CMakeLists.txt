@@ -419,6 +419,7 @@ set (wsjtx_CXXSRCS
   WSPR/WsprTxScheduler.cpp
   AutoRespondSelectionLatch.cpp
   SuperFoxTxPlanner.cpp
+  widgets/SpecOpLabel.cpp
   widgets/mainwindow.cpp
   widgets/mainwindow_jtty.cpp
   Modulator/JttyTxStream.cpp
