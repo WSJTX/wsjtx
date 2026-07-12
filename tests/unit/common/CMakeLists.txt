@@ -80,6 +80,12 @@ add_executable (test_decoded_message_reaction
 target_link_libraries (test_decoded_message_reaction wsjt_qt wsjt_fort_common Qt5::Test)
 add_test (NAME test_decoded_message_reaction COMMAND test_decoded_message_reaction)
 
+add_executable (test_decode_output_plan
+  test_decode_output_plan.cpp
+)
+target_link_libraries (test_decode_output_plan wsjt_qt wsjt_fort_common Qt5::Test)
+add_test (NAME test_decode_output_plan COMMAND test_decode_output_plan)
+
 add_executable (test_auto_sequence_reaction
   test_auto_sequence_reaction.cpp
 )

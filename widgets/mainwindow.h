@@ -545,15 +545,13 @@ private slots:
 private:
   enum class DecodeAlertSound { None, DXcall, Wanted };
 
-  bool isFalseDecode(const QByteArray& line, const DecodedText& dt, const QString& msg0) const;
-  void parseAveragingInfo(const QByteArray& line, bool& bAvgMsg, int& navg) const;
   void applyExperimentalFT8Filter(const DecodedText& dt, bool& filtered);
   void processFoxSignals(const DecodedText& dt);
   void processSFoxVerification(const DecodedText& dt, bool& filtered);
   void processSprintLogic(const QString& text);
   bool processWaitAndReply(const DecodedText& dt, const QString& text);
   void processWaitAndCall(const DecodedText& dt, const QString& text, bool& block_right_display);
-  bool applyFiltering(const DecodedText& dt, const QString& text, bool& filtered);
+  bool applyFiltering(const DecodedText& dt, bool& filtered);
   void applyHighlighting(const DecodedText& dt, DisplayText * decodePane, bool updateAlertState,
                          bool& play_Wanted, bool& play_DXcall);
   void cycleRespondMode();

@@ -124,6 +124,7 @@
 #include "Logger.hpp"
 #include "FoxGuardBands.hpp"
 #include "DecodedMessageReaction.hpp"
+#include "DecodeOutputPlan.hpp"
 #include "SuperFoxTxPlanner.h"
 #include "widgets/QSYMessage.h"
 #include "widgets/QSYMessageCreator.h"
@@ -154,7 +155,6 @@ namespace {
   }
 
   QRegularExpression const four_digit_regexp {"\\d\\d\\d\\d"};
-  QRegularExpression const fox_report_regexp {" R\\W\\d"};
   QRegularExpression const cq_or_qrz_message_regexp {"^(CQ|QRZ) "};
   QRegularExpression const leading_r_report_regexp {"^R(?!R73|RR)"};
   QRegularExpression const roger_ack_regexp {"^RR(?:R|73)$"};
@@ -5118,80 +5118,75 @@ void MainWindow::readFromStdout()                             //readFromStdout
     bDisplayPoints=(m_mode=="FT4" or m_mode=="FT8") and
       (m_specOp==SpecOp::ARRL_DIGI or m_ActiveStationsWidget->isVisible());
   }
+  extern bool no_a7_decodes;
+  extern QString earlyDecodes;
+  DecodeOutputPlan::PreparationContext preparationContext;
+  preparationContext.mode = m_mode;
+  preparationContext.specOp = m_specOp;
+  preparationContext.myCall = m_config.my_callsign ();
+  preparationContext.qsyEnabled = ui->actionEnable_QSY_Popups->isChecked() || m_qsymonitorWidget;
+  preparationContext.activeStationsAvailable = m_ActiveStationsWidget != nullptr;
+  preparationContext.activeStationsWantedOnly = m_ActiveStationsWidget && m_ActiveStationsWidget->wantedOnly();
+  preparationContext.displayPoints = bDisplayPoints;
+  preparationContext.noOwnCall = ui->cbNoOwnCall->isChecked ();
+  preparationContext.diskData = m_diskData;
+  preparationContext.noA7Decodes = no_a7_decodes;
+  preparationContext.multithreadFt8 = m_multithreadFT8;
+  preparationContext.ft8DecoderStart = m_ft8DecoderStart;
+  preparationContext.nominalFrequency = m_freqNominal;
+  preparationContext.reduceFalseDecodes = ui->actionReduce_false_decodes->isChecked();
   while(proc_jt9.canReadLine()) {
-    auto line_read = proc_jt9.readLine ();
+    auto const raw_line = proc_jt9.readLine ();
+    // earlyDecodes grows as lines are displayed within this batch
+    preparationContext.earlyDecodes = earlyDecodes;
+    auto const prepared = DecodeOutputPlan::prepareLine (raw_line, preparationContext);
 
-    QString the_line = QString(line_read);
-    if(ui->actionEnable_QSY_Popups->isChecked() || m_qsymonitorWidget) showQSYMessage(the_line);
-
-    if (m_mode == "FT8" and m_specOp == SpecOp::FOX and m_ActiveStationsWidget != NULL) { // see if we should add this to ActiveStations window
-      if (!m_ActiveStationsWidget->wantedOnly() ||
-          (the_line.contains(" " + m_config.my_callsign() + " ") ||
-           the_line.contains(" <" + m_config.my_callsign() + "> ")))
-        all_decodes.append(line_read);
-    }
-    if (auto p = std::strpbrk (line_read.constData (), "\n\r")) {
-      // truncate before line ending chars
-      line_read = line_read.left (p - line_read.constData ());
-    }
-    if(bDisplayPoints) line_read=line_read.replace("a7","  ");
-    bool haveFSpread {false};
-    bool blockUDP {false};                   // allow udp spotting (JTAlert) for all non-filtered messages
-    bool block_right_display {false};
-    float fSpread {0.};
-    if (m_mode.startsWith ("FST4"))
-      {
-        auto text = line_read.mid (64, 6).trimmed ();
-        if (text.size ())
-          {
-            fSpread = text.toFloat (&haveFSpread);
-            line_read = line_read.left (64);
-          }
-        auto const& cs = m_config.my_callsign ().toLocal8Bit ();
-        if ("FST4W" == m_mode && ui->cbNoOwnCall->isChecked ()
-            && (line_read.contains (" " + cs + " ")
-                || line_read.contains ("<" + cs + ">"))) {
-          continue;
-        }
+    bool updateArrlActivity = false;
+    // Apply raw-line actions before terminal dispositions; accepted-line
+    // persistence actions run only after Ignore and Finish are handled.
+    for (auto const& action : prepared.actions) {
+      if (action.kind == DecodeOutputPlan::ActionKind::ShowQsyMessage) {
+        showQSYMessage (action.text);
+      } else if (action.kind == DecodeOutputPlan::ActionKind::AccumulateFoxActivity) {
+        all_decodes.append (action.text);
+      } else if (action.kind == DecodeOutputPlan::ActionKind::UpdateArrlActivity) {
+        updateArrlActivity = true;
       }
-
-    QString message0 {QString::fromUtf8(line_read.constData())};
-    DecodedText decodedtext0 {QString::fromUtf8(line_read.constData())};
-    DecodedText decodedtext {QString::fromUtf8(line_read.constData()).remove("TU; ")};
-    if (isFalseDecode(line_read, decodedtext, message0)) continue;
-
-    {
-    if (m_mode!="FT8" and m_mode!="FT4" and !m_mode.startsWith ("FST4") and m_mode!="Q65") {
-      //Pad 22-char msg to at least 37 chars
-      line_read = line_read.left(44) + "              " + line_read.mid(44);
     }
-    bool bAvgMsg=false;
-    int navg=0;
-
-    if(line_read.indexOf("<DecodeFinished>") >= 0) {
-      m_bDecoded =  line_read.mid(20).trimmed().toInt() > 0;
-      int n=line_read.trimmed().size();
-      int n2=line_read.trimmed().mid(n-7).toInt();
-      int n0=n2/1000;
-      int n1=n2%1000;
+    if (prepared.disposition == DecodeOutputPlan::LineDisposition::Ignore) continue;
+    if (prepared.disposition == DecodeOutputPlan::LineDisposition::Finish) {
+      m_bDecoded = prepared.batchHasDecodes;
       if(m_mode=="Q65") {
-        ndecodes_label.setText(QString {"%1  %2"}.arg (n0).arg (n1));
+        ndecodes_label.setText(QString {"%1  %2"}.arg (prepared.q65SingleDecodes)
+                               .arg (prepared.q65AveragedDecodes));
       } else {
         if(m_nDecodes==0 && !(m_multithreadFT8 && m_diskData)) ndecodes_label.setText("0");
       }
       decodeDone ();
       return;
-    } else {
-      m_nDecodes+=1;
-      if(m_mode!="Q65") ndecodes_label.setText(QString::number(m_nDecodes));
-      parseAveragingInfo(line_read, bAvgMsg, navg);
-      write_all("Rx", line_read.trimmed());
-    }   // Filtering out some false decodes, and don't write all.txt for such
+    }
 
-      if ("FST4W" == m_mode)
-        {
-          uploadWSPRSpots (true, line_read);
-        }
+    auto line_read = prepared.normalizedLine;
+    bool haveFSpread = prepared.haveFrequencySpread;
+    bool block_right_display {false};
+    float fSpread = prepared.frequencySpread;
+    QString const message0 = prepared.decodedOriginal;
+    DecodedText decodedtext0 {prepared.decodedOriginal};
+    DecodedText const& decodedtext {prepared.logicMessage};
+
+    {
+    bool const bAvgMsg = prepared.averaged;
+
+    for (auto const& action : prepared.actions) {
+      if (action.kind == DecodeOutputPlan::ActionKind::IncrementDecodeCount) {
+        m_nDecodes += 1;
+        if(m_mode!="Q65") ndecodes_label.setText(QString::number(m_nDecodes));
+      } else if (action.kind == DecodeOutputPlan::ActionKind::WriteAll) {
+        write_all("Rx", action.text);
+      } else if (action.kind == DecodeOutputPlan::ActionKind::UploadWsprSpot) {
+        uploadWSPRSpots (true, action.text);
+      }
+    }
 
       applyExperimentalFT8Filter(decodedtext, filtered);
 
@@ -5219,20 +5214,20 @@ void MainWindow::readFromStdout()                             //readFromStdout
           }
 #endif
           DecodedText decodedtext1=decodedtext0;
-          if ((m_mode=="FT4" or m_mode=="FT8") and bDisplayPoints and decodedtext1.isStandardMessage()) {
+          if (updateArrlActivity) {
             ARRL_Digi_Update(decodedtext1);
           }
 
           processSFoxVerification(decodedtext0, filtered);
 
-        QString text = decodedtext.string().replace("<","").replace(">","");   // for Wait & Reply/Call and filtering
+        QString text = decodedtext.string().replace("<","").replace(">","");   // for Wait & Reply/Call
 
         processSprintLogic(text);
         if (!processWaitAndReply(decodedtext0, text)) return;
 
         processWaitAndCall(decodedtext0, text, block_right_display);
 
-        if (!applyFiltering(decodedtext, text, filtered)) return;
+        if (!applyFiltering(decodedtext, filtered)) return;
 
 
         // insert blank line, but only if not filtered and no decodes
@@ -5280,7 +5275,8 @@ void MainWindow::readFromStdout()                             //readFromStdout
         processSuperHoundVerification(decodedtext0, verified);
 
         // show distance and bearing
-        if (!filtered or m_config.filters_for_Wait_and_Pounce_only()) {  // show decodes if not filtered
+        if (DecodeOutputPlan::shouldDisplayLeft(bAvgMsg, m_mode, m_specOp, filtered,
+                                                m_config.filters_for_Wait_and_Pounce_only())) {
           QString distance = calculateDistanceAndBearing(decodedtext);
           displayDecodedTextLine(decodedtext1, line_read, distance, haveFSpread, fSpread, bDisplayPoints);
           if(m_position != 0) ui->decodedTextBrowser->horizontalScrollBar()->setValue(m_position);
@@ -5332,84 +5328,64 @@ void MainWindow::readFromStdout()                             //readFromStdout
       }
 
 //Right (Rx Frequency) window
-      bool bDisplayRight=bAvgMsg;
-      int audioFreq=decodedtext.frequencyOffset();
-      if(m_mode=="FT8" or m_mode=="FT4" or m_mode=="FST4" or m_mode=="Q65") {
-        int ftol=10;
-        if(m_mode=="Q65") ftol=ui->sbFtol->value();
-        auto const& parts = decodedtext.string().remove("<").remove(">")
-            .split (' ', SkipEmptyParts);
-        if (parts.size() > 6) {
-          auto for_us = parts[5].contains (m_baseCall)
-            || ("DE" == parts[5] && qAbs (ui->RxFreqSpinBox->value () - audioFreq) <= ftol);
-          if(m_baseCall == m_config.my_callsign()) {
-            if (m_baseCall != parts[5]) for_us=false;
-          } else {
-            if (m_config.my_callsign () != parts[5]) {
-// Same base call as ours but different prefix or suffix.  Rare but can happen with
-// multi-station special events.
-                  for_us = false;
-            }
-          }
+      int const audioFreq = decodedtext.frequencyOffset();
+      DecodeOutputPlan::RoutingContext routingContext;
+      routingContext.mode = m_mode;
+      routingContext.specOp = m_specOp;
+      routingContext.myCall = m_config.my_callsign();
+      routingContext.baseCall = m_baseCall;
+      routingContext.hisCall = m_hisCall;
+      routingContext.rxFrequency = ui->RxFreqSpinBox->value();
+      routingContext.wideGraphRxFrequency = m_wideGraph->rxFreq();
+      routingContext.q65Tolerance = ui->sbFtol->value();
+      routingContext.enableVhfFeatures = m_config.enable_VHF_features();
+      routingContext.includeAveragingVisible = ui->actionInclude_averaging->isVisible();
+      routingContext.includeAveraging = ui->actionInclude_averaging->isChecked();
+      routingContext.blockRightDisplay = block_right_display;
+      auto const routingDecision =
+        DecodeOutputPlan::decideRouting(decodedtext0, decodedtext, bAvgMsg, routingContext);
+      bool const bDisplayRight = routingDecision.displayRight;
+      bool const for_us = routingDecision.forUs;
 
-          // Reply also to averaged messages that are only displayed in the right window
-          if(m_bCallingCQ && !m_bAutoReply && for_us && m_specOp!=SpecOp::FOX && m_specOp!=SpecOp::HOUND
-              && ui->actionInclude_averaging->isVisible() && ui->actionInclude_averaging->isChecked()) {
-            bool bProcessMsgNormally=ui->respondComboBox->currentText()!="CQ: None" or
-                                       (m_ActiveStationsWidget!=NULL and !m_ActiveStationsWidget->isVisible());
-            if (decodedtext.messageWords().length() >= 3) {
-                  QString t=decodedtext.messageWords()[2];
-                  if(t.contains("R+") or t.contains("R-") or t=="R" or t=="RRR" or t=="RR73") bProcessMsgNormally=true;
-            } else {
-                  bProcessMsgNormally=true;
-            }
-            if(bProcessMsgNormally) {
-                  m_bDoubleClicked=true;
-                  m_bAutoReply = true;
-                  processMessage (decodedtext);
-            }
-          }
-
-          if(SpecOp::FOX==m_specOp and decodedtext.string().contains(" DE ")) for_us=true; //Hound with compound callsign
-          if(SpecOp::FOX==m_specOp and for_us and decodedtext.string().contains(fox_report_regexp)) bDisplayRight=true;
-          if(SpecOp::FOX!=m_specOp and (for_us or (abs(audioFreq - m_wideGraph->rxFreq()) <= 10))) bDisplayRight=true;
-          if(SpecOp::HOUND==m_specOp and !for_us) bDisplayRight=false;
-
-          // Give the Fox a warning when there is probably another Fox on the frequency
-          if(SpecOp::FOX==m_specOp and audioFreq<1000 and !for_us and decodedtext.string().contains(fox_report_regexp)) {
-              if (first_Fox_alert) {
-                  first_Fox_alert = false;
-                  QTimer::singleShot (120000, this, [=] {first_Fox_alert = true;});   // Reset after 2 minutes
-              } else {
-                  if (second_Fox_alert) {
-                      second_Fox_alert = false;
-                      QTimer::singleShot (300000, this, [=] {second_Fox_alert = true;});   // Reset after 5 minutes
-                  } else {
-                      if (!no_Fox_alert) {
-                           MessageBox::warning_message (this,
-                              "Looks like another fox is working on this frequency.\n\n"
-                              "Stop transmitting, exit Fox mode for a few minutes,\n"
-                              "and check the incoming FT8 messages.");
-                           no_Fox_alert = true;
-                           QTimer::singleShot (3600000, this, [=] {   // No further Fox warnings for 60 minutes
-                               no_Fox_alert = false;
-                               first_Fox_alert = true;
-                               second_Fox_alert = true;
-                           });
-                      }
-                  }
-              }
-          }
-
+      // Reply also to averaged messages that are only displayed in the right window
+      if(m_bCallingCQ && !m_bAutoReply && for_us && m_specOp!=SpecOp::FOX && m_specOp!=SpecOp::HOUND
+          && ui->actionInclude_averaging->isVisible() && ui->actionInclude_averaging->isChecked()) {
+        bool bProcessMsgNormally=ui->respondComboBox->currentText()!="CQ: None" or
+                                   (m_ActiveStationsWidget!=NULL and !m_ActiveStationsWidget->isVisible());
+        if (decodedtext.messageWords().length() >= 3) {
+          QString t=decodedtext.messageWords()[2];
+          if(t.contains("R+") or t.contains("R-") or t=="R" or t=="RRR" or t=="RR73") bProcessMsgNormally=true;
+        } else {
+          bProcessMsgNormally=true;
         }
-      } else {
-        if((abs(audioFreq - m_wideGraph->rxFreq()) <= 10) and
-           !m_config.enable_VHF_features()) bDisplayRight=true;
+        if(bProcessMsgNormally) {
+          m_bDoubleClicked=true;
+          m_bAutoReply = true;
+          processMessage (decodedtext);
+        }
       }
-      if(m_mode=="Q65" and !bAvgMsg and !decodedtext.string().contains(m_baseCall)) bDisplayRight=false;
-      if((m_mode=="JT4" or m_mode=="Q65" or m_mode=="JT65") and decodedtext.string().contains(m_baseCall) && ui->actionInclude_averaging->isVisible() && !ui->actionInclude_averaging->isChecked()) bDisplayRight=true;
-      if((m_mode=="FT8" or m_mode=="FT4") and SpecOp::FOX!=m_specOp && decodedtext0.string().replace("<","").replace(">","").contains(m_baseCall + " " + m_hisCall)) bDisplayRight=true;  // really all messages for us
 
+      // Give the Fox a warning when there is probably another Fox on the frequency
+      if (routingDecision.competingFoxReport) {
+        if (first_Fox_alert) {
+          first_Fox_alert = false;
+          QTimer::singleShot (120000, this, [=] {first_Fox_alert = true;});
+        } else if (second_Fox_alert) {
+          second_Fox_alert = false;
+          QTimer::singleShot (300000, this, [=] {second_Fox_alert = true;});
+        } else if (!no_Fox_alert) {
+          MessageBox::warning_message (this,
+            "Looks like another fox is working on this frequency.\n\n"
+            "Stop transmitting, exit Fox mode for a few minutes,\n"
+            "and check the incoming FT8 messages.");
+          no_Fox_alert = true;
+          QTimer::singleShot (3600000, this, [=] {
+            no_Fox_alert = false;
+            first_Fox_alert = true;
+            second_Fox_alert = true;
+          });
+        }
+      }
       // AutoSeq for JT65/JT4 short messages
       if ((m_mode=="JT65" or m_mode=="JT4") && m_auto && m_config.enable_VHF_features() && ui->cbShMsgs->isChecked() && ui->cbAutoSeq->isChecked () && (abs(audioFreq - m_wideGraph->rxFreq()) <= 15)) {
         if (decodedtext.string().contains(" " + m_config.my_callsign() + " ") && decodedtext.string().contains(" OOO")) {
@@ -5426,7 +5402,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
         }
       }
 
-      if (bDisplayRight && !block_right_display) {
+      if (bDisplayRight) {
         // This msg is within 10 hertz of our tuned frequency, or a JT4 or JT65 avg, or contains MyCall
 
         if(!pounce && (!m_bBestSPArmed or m_mode!="FT4")) {
@@ -5447,7 +5423,6 @@ void MainWindow::readFromStdout()                             //readFromStdout
         m_QSOText = decodedtext.string ().trimmed ();
       }
 
-      if (!blockUDP)    // block udp spotting for false decodes (JTAlert)
       postDecode (true, decodedtext.string ());
 
       if(m_mode=="FT8" and SpecOp::HOUND==m_specOp) {
@@ -5523,33 +5498,38 @@ void MainWindow::readFromStdout()                             //readFromStdout
             }
         }
 // extract details and send to PSKreporter
-        int nsec=QDateTime::currentMSecsSinceEpoch()/1000-m_secBandChanged;
-        bool okToPost=(nsec > int(4*m_TRperiod)/5);
-        if(m_mode=="FST4W" and okToPost) {
-          line_read=line_read.left(22) + " CQ " + line_read.trimmed().mid(22);
-          auto p = line_read.lastIndexOf (' ');
-          DecodedText FST4W_post {QString::fromUtf8 (line_read.left (p).constData ())};
-          pskPost(FST4W_post);
-        } else {
-          if (stdMsg && okToPost) pskPost(decodedtext);
+        bool const okToPost =
+          QDateTime::currentMSecsSinceEpoch()/1000-m_secBandChanged > int(4*m_TRperiod)/5;
+        if (DecodeOutputPlan::shouldPostPsk(m_mode, m_specOp, m_config.superFox(),
+                                            stdMsg, okToPost)) {
+          if(m_mode=="FST4W") {
+            line_read=line_read.left(22) + " CQ " + line_read.trimmed().mid(22);
+            auto p = line_read.lastIndexOf (' ');
+            DecodedText FST4W_post {QString::fromUtf8 (line_read.left (p).constData ())};
+            pskPost(FST4W_post);
+          } else {
+            pskPost(decodedtext);
+          }
         }
-        if((m_mode=="JT4" or m_mode=="JT65" or m_mode=="Q65") and
-           m_msgAvgWidget!=NULL) {
-          if(m_msgAvgWidget->isVisible()) {
-            QFile f(m_config.temp_dir ().absoluteFilePath ("avemsg.txt"));
-            if(f.open(QIODevice::ReadOnly | QIODevice::Text)) {
-              QTextStream s(&f);
-              QString t=s.readAll();
-              if (t != NULL) m_msgAvgWidget->displayAvg(t);
-              else qDebug() << "tmp==NULL at s.readAll";
-            }
+        if((m_mode=="JT4" or m_mode=="JT65" or m_mode=="Q65")
+           and m_msgAvgWidget and m_msgAvgWidget->isVisible()) {
+          QFile f(m_config.temp_dir ().absoluteFilePath ("avemsg.txt"));
+          if(f.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            QTextStream s(&f);
+            QString t=s.readAll();
+            if (t != NULL) m_msgAvgWidget->displayAvg(t);
+            else qDebug() << "tmp==NULL at s.readAll";
           }
         }
       }
     }
   }
-  if (m_mode == "FT8" and m_specOp == SpecOp::FOX and m_ActiveStationsWidget != NULL) {
-    m_ActiveStationsWidget->addLine(all_decodes);
+  auto const batchActions = DecodeOutputPlan::finishBatchActions(
+    m_mode, m_specOp, m_ActiveStationsWidget != nullptr, all_decodes);
+  for (auto const& action : batchActions) {
+    if (action.kind == DecodeOutputPlan::ActionKind::FlushFoxActivity) {
+      m_ActiveStationsWidget->addLine(action.text);
+    }
   }
 }
 
@@ -14623,112 +14603,15 @@ void MainWindow::alertQSYmessage ()
 #endif
 }
 
-bool MainWindow::isFalseDecode(const QByteArray& line_read, const DecodedText& decodedtext, const QString& message0) const
-{
-  extern bool no_a7_decodes;
-  extern QString earlyDecodes;
-  if ((!((no_a7_decodes && line_read.contains("a7") && !m_diskData) or (line_read.contains("a7") && SpecOp::NONE!=m_specOp
-          && !m_diskData && !(line_read.contains(" R ") or line_read.contains("RR73") or line_read.contains("CQ ")))))
-      // FDR step 1
-      and (!((SpecOp::NONE==m_specOp or (m_multithreadFT8 && m_ft8DecoderStart<2)) &&
-           ((m_mode=="FT8" && ((m_multithreadFT8 && m_ft8DecoderStart<2) or m_freqNominal>45000000) && earlyDecodes.contains(line_read.mid(23,19)))   // MTD or a7/a8 dupes
-           or ((SpecOp::NONE==m_specOp && decodedtext.snr() < -12) && (message0.contains("> <")   // two hashes
-           || message0.contains(QRegularExpression {"(\\w+)/P (\\w+)/P "})             // two /P calls
-           || message0.contains(QRegularExpression {"(\\w+)/R (\\w+)/R "})             // two /R calls
-           || (message0.contains("/R ") && message0.contains("?"))                     // insecure /R decodes
-           || (message0.contains(";") && message0.contains(" R ")))))))
-      // FDR step 2
-      and (!(SpecOp::NONE==m_specOp && ui->actionReduce_false_decodes->isChecked() && m_mode=="FT8" &&
-           ((((message0.contains("/P ") && message0.contains(" R "))                   // /P and R
-           || (message0.contains(";") && message0.contains("/R "))                     // ; and /R
-           || (message0.contains(";") && message0.contains("/P "))                     // ; and /P
-           || (message0.contains("<...>") && message0.contains(" R "))                 // hash and R
-           || (message0.contains("<...>") && message0.contains("/P "))                 // hash and /P
-           || (message0.contains("<...>") && message0.contains(";"))                   // hash and ;
-           || message0.contains(QRegularExpression {"\\w\\w\\w\\w\\w\\w\\w\\w"})       // likely invalid callsigns
-           || message0.contains(QRegularExpression {"\\d\\d\\d \\d\\d\\d"})            // contest messages
-           || message0.contains("3.") || message0.contains("2."))                      // -1.9 < dt <  1.9
-           && (decodedtext.snr() < -15))                                       // for such SNRmin = -15
-           or ((message0.contains("/R ") or message0.contains(" R ")) && decodedtext.snr() < -18)  // for /R or contest calls SNRmin = -18
-           or (((message0.contains("<...>") || message0.contains(";")                  // unresolved hash and F/H messages
-               || message0.contains("? a")                                             // ap decodes of low confidence
-               || message0.contains("/R ") || message0.contains(" R ")                 // rover and contest callsigns
-               || decodedtext.snr() < -20)                                             // SNR < -20
-               && (message0.contains("3.") || message0.contains("2.")))))))
-      ) return false;
-  return true;
-}
-
-void MainWindow::parseAveragingInfo(const QByteArray& line_read, bool& bAvgMsg, int& navg) const
-{
-  if(m_mode=="JT4" or m_mode=="JT65" or m_mode=="Q65")
-  {
-    int nf=line_read.indexOf("f");
-    if(nf>0) {
-      navg=line_read.mid(nf+1,1).toInt();
-      if(line_read.indexOf("f*")>0) navg=10;
-    }
-    int nd=-1;
-    if(nf<0) nd=line_read.indexOf("d");
-    if(nd>0) {
-      navg=line_read.mid(nd+2,1).toInt();
-      if(line_read.mid(nd+2,1)=="*") navg=10;
-    }
-    int na=-1;
-    if(nf<0 and nd<0) na=line_read.indexOf("a");
-    if(na>0) {
-      navg=line_read.mid(na+2,1).toInt();
-      if(line_read.mid(na+2,1)=="*") navg=10;
-    }
-    int nq=-1;
-    if(nf<0 and nd<0 and na<0) nq=line_read.indexOf("q");
-    if(nq>0) {
-      navg=line_read.mid(nq+2,1).toInt();
-      if(line_read.mid(nq+2,1)=="*") navg=10;
-    }
-    if(navg>=2) bAvgMsg=true;
-  }
-}
-
 void MainWindow::applyExperimentalFT8Filter(const DecodedText& decodedtext, bool& filtered)
 {
-  if (m_mode=="FT8" && !m_multithreadFT8 && ui->actionReduce_false_decodes->isChecked() && decodedtext.snr() < -20) {
-    bool notInALLCALL7 = false;
-    QString deCall;
-    QString deGrid;
-    decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
-    QStringList word;
-    word=decodedtext.string().mid(24).replace("<","").replace(">","").replace("/P","").replace("/R","").replace("/QRP","").replace("/5W","").split(" ",SkipEmptyParts);
-
-    if (deCall!="TNX" && deCall!="73" && deCall!="GL" && deCall!="HNY" && deCall!="TU" && !deCall.left(4).contains("/")
-        && !decodedtext.string().contains("<...>") && !ALLCALL7.contains(deCall)) {
-      notInALLCALL7 = true;
-    }
-    if (!word.isEmpty() && !ALLCALL7.contains(word[0]) && !(decodedtext.string().contains(" CQ ") or decodedtext.string().contains("TNX")
-        or decodedtext.string().contains("...") or decodedtext.string().contains("HNY") or decodedtext.string().contains("QSY")
-        or decodedtext.string().contains("73 ") or decodedtext.string().contains("GL ") or decodedtext.string().contains("PSE")
-        or decodedtext.string().contains("/") or decodedtext.string().contains("<...>"))) {
-      notInALLCALL7 = true;
-    }
-
-    if (notInALLCALL7) {
-      deCall=deCall.replace("<","").replace(">","").replace("/P","").replace("/R","").replace("/QRP","").replace("/5W","");
-      if (deCall!="TNX" && deCall!="73" && deCall!="GL" && deCall!="HNY" &&
-          !(deCall.left(3).contains(QRegularExpression {"\\w\\d\\w"}) or
-            deCall.left(3).contains(QRegularExpression {"\\d\\w\\d"}) or
-            deCall.left(3).contains(QRegularExpression {"\\w\\w\\d"}) or
-            deCall.left(4).contains("/") or decodedtext.string().contains("<...>"))) {
-        filtered = true;
-      }
-      if (!word.isEmpty() && word[0]!="CQ" && word[0]!="TNX" && word[0]!="73 " && word[0]!="HNY" && word[0]!="QSY" && word[0]!="PSE" &&
-          !(word[0].left(3).contains(QRegularExpression {"\\w\\d\\w"}) or
-            word[0].left(3).contains(QRegularExpression {"\\d\\w\\d"}) or
-            word[0].left(3).contains(QRegularExpression {"\\w\\w\\d"}) or
-            decodedtext.string().contains("/")or decodedtext.string().contains("<...>"))) {
-        filtered = true;
-      }
-    }
-  }
+  DecodeOutputPlan::ExperimentalFilterContext context;
+  context.mode = m_mode;
+  context.multithreadFt8 = m_multithreadFT8;
+  context.reduceFalseDecodes = ui->actionReduce_false_decodes->isChecked();
+  context.allCallsigns = ALLCALL7;
+  context.alreadyFiltered = filtered;
+  filtered = DecodeOutputPlan::decideExperimentalFilter(decodedtext, context).filtered;
 }
 
 void MainWindow::processFoxSignals(const DecodedText& decodedtext)
@@ -14843,217 +14726,84 @@ void MainWindow::processWaitAndCall(const DecodedText& decodedtext0, const QStri
   }
 }
 
-bool MainWindow::applyFiltering(const DecodedText& decodedtext, const QString& text, bool& filtered)
+bool MainWindow::applyFiltering(const DecodedText& decodedtext, bool& filtered)
 {
-  QString text2 = "";
-  QStringList tw;
-  if (m_mode == "FT8" or m_mode == "FT4" or m_mode == "Q65" or m_mode == "FST4") {
-    tw=text.mid(24).split(" ",SkipEmptyParts);
-  } else {
-    tw=text.mid(22).split(" ",SkipEmptyParts);
+  DecodeOutputPlan::KeywordFilterContext keywordContext;
+  keywordContext.mode = m_mode;
+  keywordContext.specOp = m_specOp;
+  keywordContext.alreadyFiltered = filtered;
+  keywordContext.filterBySecondWord = m_config.filters_for_word2();
+  keywordContext.alwaysPass = m_config.AlwaysPass();
+  keywordContext.passKeywords = m_config.pass_keywords();
+  keywordContext.blacklistEnabled = m_config.Blacklisted();
+  keywordContext.blacklistKeywords = m_config.blacklist_keywords();
+  keywordContext.whitelistEnabled = m_config.Whitelisted();
+  keywordContext.whitelistKeywords = m_config.whitelist_keywords();
+  keywordContext.waitAndPounceOnly = m_config.filters_for_Wait_and_Pounce_only();
+  keywordContext.bypass = ui->cbBypass->isChecked();
+  keywordContext.pounce = pounce;
+  keywordContext.respondSelection = ui->respondComboBox->currentText();
+  auto const keywordDecision = DecodeOutputPlan::decideKeywordFilter(decodedtext, keywordContext);
+  filtered = keywordDecision.filtered;
+  if (keywordDecision.resetPounceScores) {
+    extern int Dpoints, maxDPoints, dBpoints, dBpoints2, maxdBPoints, mindBPoints;
+    Dpoints = 0;
+    maxDPoints = 0;
+    dBpoints = -28;
+    dBpoints2 = 99;
+    maxdBPoints = -28;
+    mindBPoints = 99;
   }
-  if (m_config.filters_for_word2()) {
-        if (tw.size () < 2) {
-            text2 = "___";
-        } else if (tw[1].length() == 2 && tw[1].contains(QRegularExpression{"\\w\\w"})) {
-            if (tw.size () > 2) {
-              text2 = tw[2];
-            } else {
-              text2 = "___";
-            }
-        } else {
-            if (text.contains(";")) {
-              text2 = tw.size() > 3 ? tw[3] : "___";
-            } else {
-              text2 = tw[1];
-            }
-        }
-        if (!(SpecOp::NONE==m_specOp && m_config.AlwaysPass ()
-              && MessageFilter::startsWithAny(text2, m_config.pass_keywords()))) {
+  if (!keywordDecision.continueBatch) return false;
 
-            extern int Dpoints,maxDPoints,dBpoints,dBpoints2,mindBPoints;
-            if ((SpecOp::NONE==m_specOp or SpecOp::HOUND==m_specOp) && m_config.Blacklisted ()
-                && MessageFilter::startsWithAny(text2, m_config.blacklist_keywords())) {
-              if (!ui->cbBypass->isChecked()) filtered = true;
-              if (!(m_config.filters_for_Wait_and_Pounce_only() or ui->cbBypass->isChecked()))  return false;
-              // reset dB score when filtered
-              if (pounce && (ui->respondComboBox->currentText()=="CQ: Max Dist"
-                              or ui->respondComboBox->currentText()=="CQ: Max dB"
-                              or ui->respondComboBox->currentText()=="CQ: Min dB")) {
-                Dpoints=0;
-                maxDPoints=0;
-                dBpoints=-28;
-                dBpoints2=99;
-                maxdBPoints=-28;
-                mindBPoints=99;
-              }
-
-            } else if ((SpecOp::NONE==m_specOp or SpecOp::HOUND==m_specOp) && m_config.Whitelisted ()
-                       && !MessageFilter::startsWithAny(text2, m_config.whitelist_keywords())) {
-              if (!ui->cbBypass->isChecked()) filtered = true;
-              if (!(m_config.filters_for_Wait_and_Pounce_only() or ui->cbBypass->isChecked()))  return false;
-              // reset dB score when filtered
-              if (pounce && (ui->respondComboBox->currentText()=="CQ: Max Dist"
-                              or ui->respondComboBox->currentText()=="CQ: Max dB"
-                              or ui->respondComboBox->currentText()=="CQ: Min dB")) {
-                Dpoints=0;
-                maxDPoints=0;
-                dBpoints=-28;
-                dBpoints2=99;
-                maxdBPoints=-28;
-                mindBPoints=99;
-              }
-            }
-
-            if (ui->actionHideTerritory1->isChecked() or ui->actionHideTerritory2->isChecked() or
-                ui->actionHideTerritory3->isChecked() or ui->actionHideTerritory4->isChecked() or
-                ui->actionHideB4->isChecked() or ui->actionHideEU->isChecked() or ui->actionHideAS->isChecked() or
-                ui->actionHideNA->isChecked() or ui->actionHideSA->isChecked() or ui->actionHideAF->isChecked() or
-                ui->actionHideOC->isChecked() or ui->actionHideAN->isChecked()) {
-              QString deCall;
-              QString deGrid;
-              decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
-              if (ui->actionHideTerritory1->isChecked() or ui->actionHideTerritory2->isChecked() or
-                  ui->actionHideTerritory3->isChecked() or ui->actionHideTerritory4->isChecked()) {
-                auto const& looked_up = m_logBook.countries ()->lookup (deCall);
-                auto countryName = looked_up.abbreviated_entity_name;
-                if (ui->actionHideTerritory1->isChecked() && countryName.contains(m_config.Territory1())
-                    && (m_config.Territory1()!="") && !ui->cbBypass->isChecked()) filtered = true;
-                if (ui->actionHideTerritory2->isChecked() && countryName.contains(m_config.Territory2())
-                    && (m_config.Territory2()!="") && !ui->cbBypass->isChecked()) filtered = true;
-                if (ui->actionHideTerritory3->isChecked() && countryName.contains(m_config.Territory3())
-                    && (m_config.Territory3()!="") && !ui->cbBypass->isChecked()) filtered = true;
-                if (ui->actionHideTerritory4->isChecked() && countryName.contains(m_config.Territory4())
-                    && (m_config.Territory4()!="") && !ui->cbBypass->isChecked()) filtered = true;
-              }
-              if (ui->actionHideB4->isChecked()) {
-                bool callB4onBand;
-                bool countryB4onBand;
-                bool gridB4onBand;
-                bool continentB4onBand;
-                bool CQZoneB4onBand;
-                bool ITUZoneB4onBand;
-                auto const& looked_up = m_logBook.countries ()->lookup (deCall);
-                m_logBook.match (deCall, m_mode, deGrid, looked_up, callB4onBand, countryB4onBand, gridB4onBand,
-                  continentB4onBand, CQZoneB4onBand, ITUZoneB4onBand, m_currentBand);
-                if (callB4onBand && ui->actionHideB4->isChecked() && !ui->cbBypass->isChecked()) filtered = true;
-              }
-              if (ui->actionHideEU->isChecked() or ui->actionHideAS->isChecked() or ui->actionHideNA->isChecked()
-                  or ui->actionHideSA->isChecked() or ui->actionHideAF->isChecked() or ui->actionHideOC->isChecked()
-                  or ui->actionHideAN->isChecked()) {
-                auto const& looked_up = m_logBook.countries ()->lookup (deCall);
-                QString continent = AD1CCty::continent (looked_up.continent);
-                if (ui->actionHideEU->isChecked() && continent == "EU" && !ui->cbBypass->isChecked()) filtered = true;
-                if (ui->actionHideAS->isChecked() && continent == "AS" && !ui->cbBypass->isChecked()) filtered = true;
-                if (ui->actionHideNA->isChecked() && continent == "NA" && !ui->cbBypass->isChecked()) filtered = true;
-                if (ui->actionHideSA->isChecked() && continent == "SA" && !ui->cbBypass->isChecked()) filtered = true;
-                if (ui->actionHideAF->isChecked() && continent == "AF" && !ui->cbBypass->isChecked()) filtered = true;
-                if (ui->actionHideOC->isChecked() && continent == "OC" && !ui->cbBypass->isChecked()) filtered = true;
-                if (ui->actionHideAN->isChecked() && continent == "AN" && !ui->cbBypass->isChecked()) filtered = true;
-              }
-            }
-        }
-  } else {
-        if (!(SpecOp::NONE==m_specOp && m_config.AlwaysPass ()
-              && MessageFilter::containsAny(text, m_config.pass_keywords()))) {
-
-            extern int Dpoints,maxDPoints,dBpoints,dBpoints2,mindBPoints;
-            if ((SpecOp::NONE==m_specOp or SpecOp::HOUND==m_specOp) && m_config.Blacklisted ()
-                && MessageFilter::containsAny(text, m_config.blacklist_keywords())) {
-              if (!ui->cbBypass->isChecked()) filtered = true;
-              if (!(m_config.filters_for_Wait_and_Pounce_only() or ui->cbBypass->isChecked()))  return false;
-              // reset dB score when filtered
-              if (pounce && (ui->respondComboBox->currentText()=="CQ: Max Dist"
-                              or ui->respondComboBox->currentText()=="CQ: Max dB"
-                              or ui->respondComboBox->currentText()=="CQ: Min dB")) {
-                Dpoints=0;
-                maxDPoints=0;
-                dBpoints=-28;
-                dBpoints2=99;
-                maxdBPoints=-28;
-                mindBPoints=99;
-              }
-
-            } else if ((SpecOp::NONE==m_specOp or SpecOp::HOUND==m_specOp) && m_config.Whitelisted ()
-                       && !MessageFilter::containsAny(text, m_config.whitelist_keywords())) {
-              if (!ui->cbBypass->isChecked()) filtered = true;
-              if (!(m_config.filters_for_Wait_and_Pounce_only() or ui->cbBypass->isChecked()))  return false;
-              // reset dB score when filtered
-              if (pounce && (ui->respondComboBox->currentText()=="CQ: Max Dist"
-                              or ui->respondComboBox->currentText()=="CQ: Max dB"
-                              or ui->respondComboBox->currentText()=="CQ: Min dB")) {
-                Dpoints=0;
-                maxDPoints=0;
-                dBpoints=-28;
-                dBpoints2=99;
-                maxdBPoints=-28;
-                mindBPoints=99;
-              }
-            }
-
-            if (ui->actionHideTerritory1->isChecked() or ui->actionHideTerritory2->isChecked() or
-                ui->actionHideTerritory3->isChecked() or ui->actionHideTerritory4->isChecked() or
-                ui->actionHideB4->isChecked() or ui->actionHideEU->isChecked() or ui->actionHideAS->isChecked() or
-                ui->actionHideNA->isChecked() or ui->actionHideSA->isChecked() or ui->actionHideAF->isChecked() or
-                ui->actionHideOC->isChecked() or ui->actionHideAN->isChecked()) {
-              QString deCall;
-              QString deGrid;
-              decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
-              if (ui->actionHideTerritory1->isChecked() or ui->actionHideTerritory2->isChecked() or
-                  ui->actionHideTerritory3->isChecked() or ui->actionHideTerritory4->isChecked()) {
-                auto const& looked_up = m_logBook.countries ()->lookup (deCall);
-                auto countryName = looked_up.abbreviated_entity_name;
-                if (ui->actionHideTerritory1->isChecked() && countryName.contains(m_config.Territory1())
-                    && (m_config.Territory1()!="") && !ui->cbBypass->isChecked()) filtered = true;
-                if (ui->actionHideTerritory2->isChecked() && countryName.contains(m_config.Territory2())
-                    && (m_config.Territory2()!="") && !ui->cbBypass->isChecked()) filtered = true;
-                if (ui->actionHideTerritory3->isChecked() && countryName.contains(m_config.Territory3())
-                    && (m_config.Territory3()!="") && !ui->cbBypass->isChecked()) filtered = true;
-                if (ui->actionHideTerritory4->isChecked() && countryName.contains(m_config.Territory4())
-                    && (m_config.Territory4()!="") && !ui->cbBypass->isChecked()) filtered = true;
-              }
-              if (ui->actionHideB4->isChecked()) {
-                bool callB4onBand;
-                bool countryB4onBand;
-                bool gridB4onBand;
-                bool continentB4onBand;
-                bool CQZoneB4onBand;
-                bool ITUZoneB4onBand;
-                auto const& looked_up = m_logBook.countries ()->lookup (deCall);
-                m_logBook.match (deCall, m_mode, deGrid, looked_up, callB4onBand, countryB4onBand, gridB4onBand,
-                  continentB4onBand, CQZoneB4onBand, ITUZoneB4onBand, m_currentBand);
-                if (callB4onBand && ui->actionHideB4->isChecked() && !ui->cbBypass->isChecked()) filtered = true;
-              }
-              if (ui->actionHideEU->isChecked() or ui->actionHideAS->isChecked() or ui->actionHideNA->isChecked()
-                  or ui->actionHideSA->isChecked() or ui->actionHideAF->isChecked() or ui->actionHideOC->isChecked()
-                  or ui->actionHideAN->isChecked()) {
-                auto const& looked_up = m_logBook.countries ()->lookup (deCall);
-                QString continent = AD1CCty::continent (looked_up.continent);
-                if (ui->actionHideEU->isChecked() && continent == "EU" && !ui->cbBypass->isChecked()) filtered = true;
-                if (ui->actionHideAS->isChecked() && continent == "AS" && !ui->cbBypass->isChecked()) filtered = true;
-                if (ui->actionHideNA->isChecked() && continent == "NA" && !ui->cbBypass->isChecked()) filtered = true;
-                if (ui->actionHideSA->isChecked() && continent == "SA" && !ui->cbBypass->isChecked()) filtered = true;
-                if (ui->actionHideAF->isChecked() && continent == "AF" && !ui->cbBypass->isChecked()) filtered = true;
-                if (ui->actionHideOC->isChecked() && continent == "OC" && !ui->cbBypass->isChecked()) filtered = true;
-                if (ui->actionHideAN->isChecked() && continent == "AN" && !ui->cbBypass->isChecked()) filtered = true;
-              }
-            }
-        }
+  DecodeOutputPlan::VisibilityFilterContext visibilityContext;
+  visibilityContext.alreadyFiltered = filtered;
+  visibilityContext.alwaysPassed = keywordDecision.alwaysPassed;
+  visibilityContext.bypass = keywordContext.bypass;
+  visibilityContext.hideTerritory1 = ui->actionHideTerritory1->isChecked();
+  visibilityContext.hideTerritory2 = ui->actionHideTerritory2->isChecked();
+  visibilityContext.hideTerritory3 = ui->actionHideTerritory3->isChecked();
+  visibilityContext.hideTerritory4 = ui->actionHideTerritory4->isChecked();
+  visibilityContext.territory1 = m_config.Territory1();
+  visibilityContext.territory2 = m_config.Territory2();
+  visibilityContext.territory3 = m_config.Territory3();
+  visibilityContext.territory4 = m_config.Territory4();
+  visibilityContext.hideWorkedBefore = ui->actionHideB4->isChecked();
+  visibilityContext.hideEurope = ui->actionHideEU->isChecked();
+  visibilityContext.hideAsia = ui->actionHideAS->isChecked();
+  visibilityContext.hideNorthAmerica = ui->actionHideNA->isChecked();
+  visibilityContext.hideSouthAmerica = ui->actionHideSA->isChecked();
+  visibilityContext.hideAfrica = ui->actionHideAF->isChecked();
+  visibilityContext.hideOceania = ui->actionHideOC->isChecked();
+  visibilityContext.hideAntarctica = ui->actionHideAN->isChecked();
+  visibilityContext.hideIgnored = ui->actionHideIgnored->isChecked();
+  visibilityContext.ignoreList = ignoreList;
+  visibilityContext.hideWorkedToday = ui->actionHideToday->isChecked();
+  visibilityContext.includeYesterday = m_config.twoDays();
+  visibilityContext.txLog = txLog;
+  if (visibilityContext.hideWorkedToday) {
+    visibilityContext.today = QDateTime::currentDateTimeUtc().toString("yyyy-MM-dd");
+    visibilityContext.yesterday = QDateTime::currentDateTimeUtc().addDays(-1).toString("yyyy-MM-dd");
   }
-
-  if (ui->actionHideIgnored->isChecked() or ui->actionHideToday->isChecked()) {
-      QString today = QDateTime::currentDateTimeUtc().toString ("yyyy-MM-dd");
-      QString yesterday = QDateTime::currentDateTimeUtc().addDays(-1).toString ("yyyy-MM-dd");
-      QString deCall;
-      QString deGrid;
-      decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
-      if (ui->actionHideIgnored->isChecked() && !ui->cbBypass->isChecked() && ignoreList.contains(deCall + ",")) filtered = true;
-      if (ui->actionHideToday->isChecked() && !ui->cbBypass->isChecked() && (
-            txLog.contains(QRegularExpression{today + ",[0-9][0-9]:[0-9][0-9]:[0-9][0-9]," + (deCall + ",")})
-            or (m_config.twoDays() && txLog.contains(QRegularExpression{yesterday + ",[0-9][0-9]:[0-9][0-9]:[0-9][0-9]," + (deCall + ",")})))) {
-         filtered = true;
-      }
-  }
+  visibilityContext.countryName = [this] (QString const& deCall) {
+    return m_logBook.countries()->lookup(deCall).abbreviated_entity_name;
+  };
+  visibilityContext.continent = [this] (QString const& deCall) {
+    return AD1CCty::continent(m_logBook.countries()->lookup(deCall).continent);
+  };
+  visibilityContext.workedBeforeOnBand = [this] (QString const& deCall, QString const& deGrid) {
+    bool callWorked {false};
+    bool countryWorked;
+    bool gridWorked;
+    bool continentWorked;
+    bool cqZoneWorked;
+    bool ituZoneWorked;
+    auto const& lookedUp = m_logBook.countries()->lookup(deCall);
+    m_logBook.match(deCall, m_mode, deGrid, lookedUp, callWorked, countryWorked,
+                    gridWorked, continentWorked, cqZoneWorked, ituZoneWorked, m_currentBand);
+    return callWorked;
+  };
+  filtered = DecodeOutputPlan::decideVisibilityFilter(decodedtext, visibilityContext).filtered;
   return true;
 }
 

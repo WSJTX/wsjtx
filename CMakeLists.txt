@@ -362,6 +362,7 @@ set (wsjt_qt_CXXSRCS
   MessageFilter.cpp
   MessageFilterRules.cpp
   MessageFilterLogic.cpp
+  DecodeOutputPlan.cpp
   DecodedMessageReaction.cpp
   PrefixSuffix.cpp
   CountryNames.cpp
