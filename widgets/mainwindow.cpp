@@ -10598,6 +10598,9 @@ void MainWindow::on_logQSOButton_clicked()                 //Log QSO button
         break;
       case SpecOp::TXQP:
         // Texas QSO Party: exchange is "<report> <location>", report fixed at "+00".
+        // Populate m_xSent from the configured exchange so the sent exchange is
+        // logged (the TxQP Tx macros do not carry it into m_xSent otherwise).
+        m_xSent="+00 " + m_config.TXQP_Exchange();
         m_rptSent=m_xSent.split(" ").at(0);
         m_rptRcvd=m_xRcvd.split(" ").at(0);
         break;

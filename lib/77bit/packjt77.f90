@@ -1513,6 +1513,84 @@ subroutine pack77_txqp(nwords,w,i3,n3,c77)
 900 return
 end subroutine pack77_txqp
 
+subroutine pack77_txqpvar(nwords,w,i3,n3,c77,ntxhash)
+
+! Compound/hashed-callsign variant of pack77_txqp.  Identical logic to
+! pack77_txqp except that the two callsigns are packed with pack28var (which
+! consults the transmit hash table via ntxhash), so that compound calls with a
+! "/" prefix or suffix (e.g. K5ABC/P, W6XYZ/7) round-trip correctly.
+
+  character*13 w(19),exch
+  character*77 c77
+  character*6 bcall_1,bcall_2
+  character*5 txqp_counties(254)
+  character*2 txqp_states(50),txqp_provinces(13)
+  logical ok1,ok2
+  integer, intent(in) :: ntxhash
+
+  i3=-1
+  n3=-1
+  if(nwords.lt.3 .or. nwords.gt.5) go to 900
+  if(w(1)(1:1).eq.'<' .and. w(2)(1:1).eq.'<') go to 900
+
+! First two words must be valid (possibly compound) callsigns.
+  call chkcall(w(1),bcall_1,ok1)
+  call chkcall(w(2),bcall_2,ok2)
+  if(.not.ok1 .or. .not.ok2) go to 900
+
+! The exchange is always the last word.  Any words between the callsigns and
+! the exchange must be an optional Roger ("R") and/or the implied report
+! token ("+00"); anything else means this is not a TxQP message.
+  exch=w(nwords)
+  ir=0
+  do i=3,nwords-1
+     if(trim(w(i)).eq.'R') then
+        ir=1
+     else if(trim(w(i)).eq.'+00') then
+        continue
+     else
+        go to 900
+     endif
+  enddo
+
+! Look up the exchange token in the TxQP location tables.
+  call txqp_tables(txqp_counties,txqp_states,txqp_provinces)
+  nexch=-1
+  do i=1,254
+     if(trim(txqp_counties(i)).ne.'' .and.                             &
+          trim(txqp_counties(i)).eq.trim(exch)) then
+        nexch=i-1
+        go to 10
+     endif
+  enddo
+  if(len(trim(exch)).eq.2) then
+     do i=1,50
+        if(txqp_states(i).eq.exch(1:2)) then
+           nexch=253+i
+           go to 10
+        endif
+     enddo
+     do i=1,13
+        if(txqp_provinces(i).eq.exch(1:2)) then
+           nexch=303+i
+           go to 10
+        endif
+     enddo
+     if(exch(1:2).eq.'DX') nexch=317
+  endif
+10 if(nexch.lt.0) go to 900          !Not a recognised TxQP exchange
+
+  i3=3
+  n3=5
+  call pack28var(w(1),n28a,ntxhash)
+  call pack28var(w(2),n28b,ntxhash)
+  ires=0
+  write(c77,1010) n28a,n28b,ir,nexch,ires,n3,i3
+1010 format(2b28.28,b1,b13.13,b1,2b3.3)
+
+900 return
+end subroutine pack77_txqpvar
+
 
 subroutine txqp_tables(cty,sta,prov)
 
@@ -2167,6 +2245,11 @@ subroutine pack77var(msg0,i3,n3,c77,ntxhash)
 
 ! Check Type 1 (Standard 77-bit message) or Type 2, with optional "/P"
   call pack77_1var(nwords,w,i3,n3,c77,ntxhash)
+  if(i3.ge.0) go to 900
+
+! Check Texas QSO Party (TxQP) contest exchange (Type 3, subtype n3=5),
+! compound/hashed-callsign variant.
+  call pack77_txqpvar(nwords,w,i3,n3,c77,ntxhash)
   if(i3.ge.0) go to 900
 
 ! Check Type 3 (ARRL RTTY contest exchange)

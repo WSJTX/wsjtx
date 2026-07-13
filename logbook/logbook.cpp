@@ -128,6 +128,14 @@ QByteArray LogBook::QSOToADIF (QString const& hisCall, QString const& hisGrid, Q
               // two words and if it is positive numeric
               t += " <stx:" + QString::number (words.back ().size ()) + '>' + words.back ();
             }
+          else if (Configuration::SpecialOperatingActivity::TXQP == config_->special_op_id ())
+            {
+              // Texas QSO Party: the sent exchange is "+00 <location>" where
+              // <location> is a Texas county, a US state / Canadian province,
+              // or "DX".  It is not numeric, so record it as a string
+              // multiplier via <stx_string>.
+              t += " <stx_string:" + QString::number (words.back ().size ()) + '>' + words.back ();
+            }
           else
             {
               if (words.front ().toUInt () && words.front ().size () > 3) // EU VHF contest mode
