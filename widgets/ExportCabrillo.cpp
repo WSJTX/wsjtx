@@ -38,6 +38,13 @@ void ExportCabrillo::read_settings ()
   restoreGeometry (settings_->value("window/geometry").toByteArray());
   ui->location_line_edit->setText(settings_->value("Location").toString());
   ui->contest_line_edit->setText(settings_->value("Contest").toString());
+  // Default the CONTEST header to TEXAS-QSO-PARTY when operating in the
+  // Texas QSO Party special activity and no value has been saved yet.
+  if (ui->contest_line_edit->text ().isEmpty ()
+      && Configuration::SpecialOperatingActivity::TXQP == configuration_->special_op_id ())
+    {
+      ui->contest_line_edit->setText ("TEXAS-QSO-PARTY");
+    }
   ui->call_line_edit->setText(settings_->value("Callsign").toString());
   ui->category_op_line_edit->setText(settings_->value("Category-Operator").toString());
   ui->category_xmtr_line_edit->setText(settings_->value("Category-Transmitter").toString());

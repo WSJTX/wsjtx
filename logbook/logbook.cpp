@@ -175,6 +175,16 @@ QByteArray LogBook::QSOToADIF (QString const& hisCall, QString const& hisGrid, Q
               {
                 t += " <state:" + QString::number (words.at (1).size ()) + ">" + words.at (1);
               }
+            else if (Configuration::SpecialOperatingActivity::TXQP == config_->special_op_id ())
+              {
+                // Texas QSO Party: received exchange location is a Texas
+                // county (for TX stations) or a US state / Canadian
+                // province / "DX" for stations outside Texas.  The signal
+                // report is the implied fixed value "+00" (words.at (0)).
+                t += " <contest_id:15>TEXAS-QSO-PARTY <srx_string:"
+                  + QString::number (words.at (1).size ()) + '>' + words.at (1)
+                  + " <state:" + QString::number (words.at (1).size ()) + '>' + words.at (1);
+              }
           }
       }
   }

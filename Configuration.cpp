@@ -282,6 +282,54 @@ namespace
         )
       )", QRegularExpression::CaseInsensitiveOption | QRegularExpression::ExtendedPatternSyntaxOption};
 
+  QRegularExpression TXQP_exchange_re {
+    R"(
+        (
+        # Texas county 4-5 char abbreviations (TX stations)
+           ANDE|ANDR|ANGE|ARAN|ARCH|ARM|ATAS
+          |AUS|BAIL|BAND|BAST|BAYL|BEE|BELL
+          |BEXR|BLNC|BLNK|BORD|BOSQ|BOWI|BRAZ
+          |BRZE|BREW|BRIS|BROO|BRWN|BURL|BURR
+          |CALD|CALL|CAMP|CARS|CASS|CAST|CHAM
+          |CHER|CHLD|CLAY|COCK|COLE|COLG|COLO
+          |COML|CONC|COKE|CORN|CORY|COTT|CRAN
+          |CROC|CRSH|CULB|DALL|DAWS|DEAF|DELT
+          |DENT|DEWI|DICK|DIMI|DONE|DUVL|EAST
+          |ECTO|EDWA|ELLI|EPAS|RATH|FALL|FANN
+          |FAYE|FISH|FLAG|FLOY|FORD|FRAN|FREE
+          |FRIO|GAIL|GALV|GARZ|GILL|GLSP|GOLB
+          |GONZ|GRAY|GREG|GRIM|GUAD|HALE|HALL
+          |HAMI|HANS|HARD|HARR|HART|HASK|HAYS
+          |HEMP|HEND|HIDB|HIGG|HILL|HOOD|HOPK
+          |HOUS|HOWA|HUDP|HUNT|HUTC|IRION|JACK
+          |JASK|JEFF|JMWL|JONE|KARR|KAUF|KEND
+          |KENT|KERR|KIMB|KING|KINC|KLEB|KNOX
+          |LAMA|LAMP|LAVA|LEEC|LEON|LIME|LIVE
+          |LLNO|LOVE|LUBB|LYNN|MADI|MARI|MART
+          |MAVE|MCCL|MCMU|MENI|MIDD|MILA|MILL
+          |MITS|MONO|MONTG|MOOR|MORR|MOTR|MULN
+          |NAVC|NEWT|NOLA|NUEC|OCHS|OLDH|ORANG
+          |PALO|PANO|PARK|PARS|PECO|POLK|POTT
+          |PRES|RAIN|RALF|RAND|REAL|RECO|REVE
+          |ROAN|ROCK|RUNR|RUSK|SABI|SANK|SCHL
+          |SFAU|SHER|SHCL|SLPR|SMIT|SOME|STAR
+          |STEP|STER|STON|SUTH|SWSH|TARR|TAYL
+          |TERR|TERRL|TITU|TOMP|TRIN|TYLE|UPSH
+          |UVLD|VALE|VANZ|VICT|WALK|WALL|WASH
+          |WEBB|WHAR|WHEL|WICH|WILB|WILL|WILS
+          |WINK|WISE|WOOD|YOAK|YOUN|ZAPA|ZAVA
+        # US state postal codes (non-TX US stations)
+          |AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL
+          |IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT
+          |NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI
+          |SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY
+        # Canadian province/territory codes
+          |AB|BC|MB|NB|NL|NS|NT|NU|ON|PE|QC|SK|YT
+        # DX (everyone else)
+          |DX
+        )
+      )", QRegularExpression::CaseInsensitiveOption | QRegularExpression::ExtendedPatternSyntaxOption};
+
   // Magic numbers for file validation
   constexpr quint32 qrg_magic {0xadbccbdb};
   constexpr quint32 qrg_version {101}; // M.mm
@@ -632,6 +680,7 @@ private:
   Q_SLOT void on_rbQ65pileup_clicked (bool);
   Q_SLOT void on_rbField_Day_clicked (bool);
   Q_SLOT void on_rbRTTY_Roundup_clicked (bool);
+  Q_SLOT void on_rbTxQP_clicked (bool);
   Q_SLOT void on_rbARRL_Digi_clicked (bool);
   Q_SLOT void on_cbSuperFox_clicked (bool);
   Q_SLOT void on_cbContestName_clicked (bool);
@@ -649,6 +698,7 @@ private:
   Q_SLOT void on_cbAutoLog_clicked(bool);
   Q_SLOT void on_Field_Day_Exchange_editingFinished ();
   Q_SLOT void on_RTTY_Exchange_editingFinished ();
+  Q_SLOT void on_TXQP_Exchange_editingFinished ();
   Q_SLOT void on_OTPUrl_textEdited (QString const&);
   Q_SLOT void on_OTPSeed_textEdited (QString const&);
   Q_SLOT void on_cbSortAlphabetically_clicked(bool);
@@ -707,7 +757,7 @@ private:
                                  unsigned sequence_number) const;
   Q_SIGNAL void stop_transceiver () const;
 
-  Configuration * const self_;	// back pointer to public interface
+  Configuration * const self_;  // back pointer to public interface
 
   QThread * transceiver_thread_;
   TransceiverFactory transceiver_factory_;
@@ -804,6 +854,7 @@ private:
   QString my_grid_;
   QString FD_exchange_;
   QString RTTY_exchange_;
+  QString TXQP_exchange_;
   QString Contest_Name_;
   QString Blacklist1_;
   QString Blacklist2_;
@@ -1413,6 +1464,11 @@ QString Configuration::RTTY_Exchange() const
   return m_->RTTY_exchange_;
 }
 
+QString Configuration::TXQP_Exchange() const
+{
+  return m_->TXQP_exchange_;
+}
+
 QString Configuration::Contest_Name() const
 {
   return m_->Contest_Name_;
@@ -1734,7 +1790,7 @@ namespace
 #if CMAKE_BUILD
     if (QDir::isRelativePath (CMAKE_INSTALL_DOCDIR))
       {
-	return QApplication::applicationDirPath () + app_root + CMAKE_INSTALL_DOCDIR;
+        return QApplication::applicationDirPath () + app_root + CMAKE_INSTALL_DOCDIR;
       }
     return CMAKE_INSTALL_DOCDIR;
 #else
@@ -1747,7 +1803,7 @@ namespace
 #if CMAKE_BUILD
     if (QDir::isRelativePath (CMAKE_INSTALL_DATADIR))
       {
-	return QApplication::applicationDirPath () + app_root + CMAKE_INSTALL_DATADIR + QChar {'/'} + CMAKE_PROJECT_NAME;
+        return QApplication::applicationDirPath () + app_root + CMAKE_INSTALL_DATADIR + QChar {'/'} + CMAKE_PROJECT_NAME;
       }
     return CMAKE_INSTALL_DATADIR;
 #else
@@ -1916,6 +1972,7 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   ui_->add_macro_line_edit->setValidator (new QRegularExpressionValidator {message_alphabet, this});
   ui_->Field_Day_Exchange->setValidator (new QRegularExpressionValidator {field_day_exchange_re, this});
   ui_->RTTY_Exchange->setValidator (new QRegularExpressionValidator {RTTY_roundup_exchange_re, this});
+  ui_->TXQP_Exchange->setValidator (new QRegularExpressionValidator {TXQP_exchange_re, this});
   QRegularExpression b32(QString("(^[") + QString(BASE32_CHARSET)+QString(BASE32_CHARSET).toLower() + QString("]{16}$)|(^$)"));
   ui_->OTPSeed->setValidator(new QRegularExpressionValidator(b32, this));
 
@@ -1960,6 +2017,7 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   ui_->special_op_activity_button_group->setId (ui_->rbFox, static_cast<int> (SpecialOperatingActivity::FOX));
   ui_->special_op_activity_button_group->setId (ui_->rbHound, static_cast<int> (SpecialOperatingActivity::HOUND));
   ui_->special_op_activity_button_group->setId (ui_->rbQ65pileup, static_cast<int> (SpecialOperatingActivity::Q65_PILEUP));
+  ui_->special_op_activity_button_group->setId (ui_->rbTxQP, static_cast<int> (SpecialOperatingActivity::TXQP));
 
   //
   // setup PTT port combo box drop down content
@@ -2350,9 +2408,11 @@ void Configuration::impl::read_settings ()
   my_grid_ = settings_->value ("MyGrid", QString {}).toString ();
   FD_exchange_ = settings_->value ("Field_Day_Exchange",QString {}).toString ();
   RTTY_exchange_ = settings_->value ("RTTY_Exchange",QString {}).toString ();
+  TXQP_exchange_ = settings_->value ("TXQP_Exchange",QString {}).toString ();
   Contest_Name_ = settings_->value ("Contest_Name",QString {}).toString ();
   ui_->Field_Day_Exchange->setText(FD_exchange_);
   ui_->RTTY_Exchange->setText(RTTY_exchange_);
+  ui_->TXQP_Exchange->setText(TXQP_exchange_);
   ui_->Contest_Name->setText(Contest_Name_);
 
   Blacklist1_ = settings_->value ("Blacklist1",QString {}).toString ();
@@ -2756,6 +2816,7 @@ void Configuration::impl::write_settings ()
   settings_->setValue ("MyGrid", my_grid_);
   settings_->setValue ("Field_Day_Exchange", FD_exchange_);
   settings_->setValue ("RTTY_Exchange", RTTY_exchange_);
+  settings_->setValue ("TXQP_Exchange", TXQP_exchange_);
   settings_->setValue ("Contest_Name", Contest_Name_);
   settings_->setValue ("Blacklist1", Blacklist1_);
   settings_->setValue ("Blacklist2", Blacklist2_);
@@ -3199,6 +3260,17 @@ bool Configuration::impl::validate ()
       return false;
     }
 
+  if (ui_->rbTxQP->isEnabled () && ui_->rbTxQP->isChecked () &&
+      !ui_->TXQP_Exchange->hasAcceptableInput ())
+    {
+      find_tab (ui_->TXQP_Exchange);
+      MessageBox::critical_message (this, tr ("Invalid Contest Exchange")
+                                    , tr ("You must input a valid Texas QSO Party exchange: "
+                                          "a Texas county abbreviation, a US state or "
+                                          "Canadian province/territory code, or DX"));
+      return false;
+    }
+
   if (dns_lookup_id_ > -1)
     {
       MessageBox::information_message (this, tr ("Pending DNS lookup, please try again later"));
@@ -3213,7 +3285,7 @@ int Configuration::impl::exec ()
   // macros can be modified in the main window
   next_macros_.setStringList (macros_.stringList ());
 
-  have_rig_ = rig_active_;	// record that we started with a rig open
+  have_rig_ = rig_active_;      // record that we started with a rig open
   saved_rig_params_ = rig_params_; // used to detect changes that
                                    // require the Transceiver to be
                                    // re-opened
@@ -3283,7 +3355,7 @@ void Configuration::impl::accept ()
   // Called when OK button is clicked.
   if (!validate ())
     {
-      return;			// not accepting
+      return;                   // not accepting
     }
 
   // extract all rig related configuration parameters into temporary
@@ -3295,7 +3367,7 @@ void Configuration::impl::accept ()
   // Transceiver settings before agreeing to accept the configuration
   if (temp_rig_params != rig_params_ && !open_rig ())
     {
-      return;			// not accepting
+      return;                   // not accepting
     }
 
   QDialog::accept();            // do this before accessing custom
@@ -3304,7 +3376,7 @@ void Configuration::impl::accept ()
                                 // the underlying models before we
                                 // access them
 
-  sync_transceiver (true);	// force an update
+  sync_transceiver (true);      // force an update
 
   //
   // from here on we are bound to accept the new configuration
@@ -3390,6 +3462,7 @@ void Configuration::impl::accept ()
   my_grid_ = ui_->grid_line_edit->text ();
   FD_exchange_= ui_->Field_Day_Exchange->text ().toUpper ();
   RTTY_exchange_= ui_->RTTY_Exchange->text ().toUpper ();
+  TXQP_exchange_= ui_->TXQP_Exchange->text ().toUpper ();
   Contest_Name_= ui_->Contest_Name->text ().toUpper ();
   Blacklist1_= ui_->Blacklist1->text ().toUpper ();
   Blacklist2_= ui_->Blacklist2->text ().toUpper ();
@@ -3641,7 +3714,7 @@ void Configuration::impl::accept ()
   alert_QSYmessage_ = ui_->cbQSYmessage->isChecked();
   alert_Enabled_ = ui_->pbAlerts->isChecked();
 
-  write_settings ();		// make visible to all
+  write_settings ();            // make visible to all
 }
 
 void Configuration::impl::reject ()
@@ -3652,7 +3725,7 @@ void Configuration::impl::reject ()
       dns_lookup_id_ = -1;
     }
 
-  initialize_models ();		// reverts to settings as at exec ()
+  initialize_models ();         // reverts to settings as at exec ()
 
   // check if the Transceiver instance changed, in which case we need
   // to re open any prior Transceiver type
@@ -4610,6 +4683,11 @@ void Configuration::impl::on_rbRTTY_Roundup_clicked (bool)
   check_visibility ();
 }
 
+void Configuration::impl::on_rbTxQP_clicked (bool)
+{
+  check_visibility ();
+}
+
 void Configuration::impl::on_rbARRL_Digi_clicked (bool)
 {
   check_visibility ();
@@ -4655,6 +4733,13 @@ void Configuration::impl::check_visibility ()
   } else {
     ui_->labRTTY->setEnabled (false);
     ui_->RTTY_Exchange->setEnabled (false);
+  }
+  if (ui_->rbTxQP->isChecked() and ui_->gbSpecialOpActivity->isChecked()) {
+    ui_->labTxQP->setEnabled (true);
+    ui_->TXQP_Exchange->setEnabled (true);
+  } else {
+    ui_->labTxQP->setEnabled (false);
+    ui_->TXQP_Exchange->setEnabled (false);
   }
   if (ui_->cbContestName->isChecked() and !ui_->rbFox->isChecked() and !ui_->rbHound->isChecked()
       and  !ui_->rbQ65pileup->isChecked() and ui_->gbSpecialOpActivity->isChecked()) {
@@ -4743,6 +4828,11 @@ void Configuration::impl::on_Field_Day_Exchange_editingFinished ()
 void Configuration::impl::on_RTTY_Exchange_editingFinished ()
 {
   ui_->RTTY_Exchange->setText (ui_->RTTY_Exchange->text ().toUpper ());
+}
+
+void Configuration::impl::on_TXQP_Exchange_editingFinished ()
+{
+  ui_->TXQP_Exchange->setText (ui_->TXQP_Exchange->text ().toUpper ());
 }
 
 void Configuration::impl::on_Contest_Name_editingFinished ()
@@ -5075,7 +5165,7 @@ bool Configuration::impl::open_rig (bool force)
           rig_connections_ << connect (this, &Configuration::impl::start_transceiver, rig.get (), &Transceiver::start);
           rig_connections_ << connect (this, &Configuration::impl::stop_transceiver, rig.get (), &Transceiver::stop);
 
-          auto p = rig.release ();	// take ownership
+          auto p = rig.release ();      // take ownership
 
           // schedule destruction on thread quit
           connect (transceiver_thread_, &QThread::finished, p, &QObject::deleteLater);
@@ -5391,7 +5481,7 @@ void Configuration::impl::handle_transceiver_update (TransceiverState const& sta
   else
     {
       if (is_tci_) {
-      	if (sequence_number == transceiver_command_number_)  close_rig (); 
+        if (sequence_number == transceiver_command_number_)  close_rig (); 
       }
       else close_rig();
     }

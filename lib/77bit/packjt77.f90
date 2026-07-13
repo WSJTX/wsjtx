@@ -244,6 +244,10 @@ subroutine pack77(msg0,i3,n3,c77)
   call pack77_1(nwords,w,i3,n3,c77)
   if(i3.ge.0) go to 900
 
+! Check Texas QSO Party (TxQP) contest exchange (Type 3, subtype n3=5)
+  call pack77_txqp(nwords,w,i3,n3,c77)
+  if(i3.ge.0) go to 900
+
 ! Check Type 3 (ARRL RTTY contest exchange)
   call pack77_3(nwords,w,i3,n3,c77)
   if(i3.ge.0) go to 900
@@ -288,6 +292,8 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
   character*6 cexch,grid6
   character*4 grid4,cserial
   character*3 csec(NSEC)
+  character*5 txqp_counties(254)
+  character*2 txqp_states(50),txqp_provinces(13)
   character*38 c
   character*36 a2
   integer hashmy10,hashmy12,hashmy22,hashdx10,hashdx12,hashdx22
@@ -581,6 +587,34 @@ subroutine unpack77(c77,nrx,msg,unpk77_success)
         endif
         if(msg(1:3).eq.'CQ ' .and. irpt.ge.2) unpk77_success=.false. 
      endif
+
+  else if(i3.eq.3 .and. n3.eq.5) then
+! Type 3.5: Texas QSO Party (TxQP) contest exchange
+!   call1 call2 [R ]+00 <county|state|province|DX>
+! The signal report is fixed at +00 and is implied (not encoded in the frame).
+! Frame layout: call1(28) call2(28) ir(1) nexch(13) reserved(1) n3(3)=5 i3(3)=3
+     read(c77,1044) n28a,n28b,ir,nexch
+1044 format(2b28.28,b1,b13.13)
+     call unpack28(n28a,call_1,unpk28_success)
+     if(.not.unpk28_success .or. n28a.le.2) unpk77_success=.false.
+     call unpack28(n28b,call_2,unpk28_success)
+     if(.not.unpk28_success .or. n28b.le.2) unpk77_success=.false.
+     call txqp_tables(txqp_counties,txqp_states,txqp_provinces)
+     if(nexch.ge.0 .and. nexch.le.253) then
+        cexch=txqp_counties(nexch+1)
+        if(trim(cexch).eq.'') unpk77_success=.false.
+     else if(nexch.ge.254 .and. nexch.le.303) then
+        cexch=txqp_states(nexch-253)
+     else if(nexch.ge.304 .and. nexch.le.316) then
+        cexch=txqp_provinces(nexch-303)
+     else if(nexch.eq.317) then
+        cexch='DX'
+     else
+        cexch='?'
+        unpk77_success=.false.
+     endif
+     if(ir.eq.0) msg=trim(call_1)//' '//trim(call_2)//' +00 '//trim(cexch)
+     if(ir.eq.1) msg=trim(call_1)//' '//trim(call_2)//' R +00 '//trim(cexch)
 
   else if(i3.eq.3) then
 ! Type 3: ARRL RTTY Contest
@@ -1392,6 +1426,158 @@ subroutine pack77_3(nwords,w,i3,n3,c77)
 end subroutine pack77_3
 
 
+subroutine pack77_txqp(nwords,w,i3,n3,c77)
+
+! Check for a Texas QSO Party (TxQP) contest exchange.
+! The TxQP exchange is a fixed signal report (implied +00) plus a location:
+!   - Texas stations send a 4-5 char county abbreviation (e.g. HARR)
+!   - Non-Texas US/VE stations send a 2-char state/province code (e.g. CA, ON)
+!   - DX stations send the literal "DX"
+! Example messages (the +00 report token is optional on input):
+!   K5ABC W6XYZ HARR              28 28 1 13    TxQP (Tx2, county)
+!   K5ABC W6XYZ +00 CA            28 28 1 13    TxQP (Tx2, state)
+!   K5ABC W6XYZ R +00 ON          28 28 1 13    TxQP (Tx3, province, Roger)
+! The signal report is fixed at +00 and is NOT encoded (implied on decode).
+! Frame layout (77 bits, i3/n3 in the low 6 bits per WSJT-X convention):
+!   call1(28) call2(28) ir(1) nexch(13) reserved(1)=0 n3(3)=5 i3(3)=3
+! NOTE: subtype n3=5 for i3=3 is provisional and subject to final allocation
+! by the WSJT-X development team (see TxQP design document).
+
+  character*13 w(19),exch
+  character*77 c77
+  character*6 bcall_1,bcall_2
+  character*5 txqp_counties(254)
+  character*2 txqp_states(50),txqp_provinces(13)
+  logical ok1,ok2
+
+  i3=-1
+  n3=-1
+  if(nwords.lt.3 .or. nwords.gt.5) go to 900
+  if(w(1)(1:1).eq.'<' .and. w(2)(1:1).eq.'<') go to 900
+
+! First two words must be valid callsigns.
+  call chkcall(w(1),bcall_1,ok1)
+  call chkcall(w(2),bcall_2,ok2)
+  if(.not.ok1 .or. .not.ok2) go to 900
+
+! The exchange is always the last word.  Any words between the callsigns and
+! the exchange must be an optional Roger ("R") and/or the implied report
+! token ("+00"); anything else means this is not a TxQP message.
+  exch=w(nwords)
+  ir=0
+  do i=3,nwords-1
+     if(trim(w(i)).eq.'R') then
+        ir=1
+     else if(trim(w(i)).eq.'+00') then
+        continue
+     else
+        go to 900
+     endif
+  enddo
+
+! Look up the exchange token in the TxQP location tables.
+  call txqp_tables(txqp_counties,txqp_states,txqp_provinces)
+  nexch=-1
+  do i=1,254
+     if(trim(txqp_counties(i)).ne.'' .and.                             &
+          trim(txqp_counties(i)).eq.trim(exch)) then
+        nexch=i-1
+        go to 10
+     endif
+  enddo
+  if(len(trim(exch)).eq.2) then
+     do i=1,50
+        if(txqp_states(i).eq.exch(1:2)) then
+           nexch=253+i
+           go to 10
+        endif
+     enddo
+     do i=1,13
+        if(txqp_provinces(i).eq.exch(1:2)) then
+           nexch=303+i
+           go to 10
+        endif
+     enddo
+     if(exch(1:2).eq.'DX') nexch=317
+  endif
+10 if(nexch.lt.0) go to 900          !Not a recognised TxQP exchange
+
+  i3=3
+  n3=5
+  call pack28(w(1),n28a)
+  call pack28(w(2),n28b)
+  ires=0
+  write(c77,1010) n28a,n28b,ir,nexch,ires,n3,i3
+1010 format(2b28.28,b1,b13.13,b1,2b3.3)
+
+900 return
+end subroutine pack77_txqp
+
+
+subroutine txqp_tables(cty,sta,prov)
+
+! Return the Texas QSO Party exchange lookup tables.  Fortran DATA statements
+! cannot initialise dummy arguments directly, so the authoritative tables are
+! held in local arrays and copied into the caller's arrays.  This lets both
+! pack77_txqp and unpack77 share a single copy of the tables.
+!   cty (254) : Texas county abbreviations, nexch index 0-253 (Fortran +1)
+!   sta (50)  : US state postal codes,      nexch index 254-303
+!   prov (13) : Canadian province codes,    nexch index 304-316
+! (nexch 317 = "DX" sentinel, handled by the caller.)
+! The final 30 county slots are reserved (blank) pending the TxQP committee's
+! published master list.
+
+  character*5 cty(254),c(254)
+  character*2 sta(50),s(50)
+  character*2 prov(13),p(13)
+
+  data c/                                                             &
+   'ANDE ','ANDR ','ANGE ','ARAN ','ARCH ','ARM  ','ATAS ','AUS  ',   &
+   'BAIL ','BAND ','BAST ','BAYL ','BEE  ','BELL ','BEXR ','BLNC ',   &
+   'BLNK ','BORD ','BOSQ ','BOWI ','BRAZ ','BRZE ','BREW ','BRIS ',   &
+   'BROO ','BRWN ','BURL ','BURR ','CALD ','CALL ','CAMP ','CARS ',   &
+   'CASS ','CAST ','CHAM ','CHER ','CHLD ','CLAY ','COCK ','COLE ',   &
+   'COLG ','COLO ','COML ','CONC ','COKE ','CORN ','CORY ','COTT ',   &
+   'CRAN ','CROC ','CRSH ','CULB ','DALL ','DAWS ','DEAF ','DELT ',   &
+   'DENT ','DEWI ','DICK ','DIMI ','DONE ','DUVL ','EAST ','ECTO ',   &
+   'EDWA ','ELLI ','EPAS ','RATH ','FALL ','FANN ','FAYE ','FISH ',   &
+   'FLAG ','FLOY ','FORD ','FRAN ','FREE ','FRIO ','GAIL ','GALV ',   &
+   'GARZ ','GILL ','GLSP ','GOLB ','GONZ ','GRAY ','GREG ','GRIM ',   &
+   'GUAD ','HALE ','HALL ','HAMI ','HANS ','HARD ','HARR ','HART ',   &
+   'HASK ','HAYS ','HEMP ','HEND ','HIDB ','HIGG ','HILL ','HOOD ',   &
+   'HOPK ','HOUS ','HOWA ','HUDP ','HUNT ','HUTC ','IRION','JACK ',   &
+   'JASK ','JEFF ','JMWL ','JONE ','KARR ','KAUF ','KEND ','KENT ',   &
+   'KERR ','KIMB ','KING ','KINC ','KLEB ','KNOX ','LAMA ','LAMP ',   &
+   'LAVA ','LEEC ','LEON ','LIME ','LIVE ','LLNO ','LOVE ','LUBB ',   &
+   'LYNN ','MADI ','MARI ','MART ','MAVE ','MCCL ','MCMU ','MENI ',   &
+   'MIDD ','MILA ','MILL ','MITS ','MONO ','MONTG','MOOR ','MORR ',   &
+   'MOTR ','MULN ','NAVC ','NEWT ','NOLA ','NUEC ','OCHS ','OLDH ',   &
+   'ORANG','PALO ','PANO ','PARK ','PARS ','PECO ','POLK ','POTT ',   &
+   'PRES ','RAIN ','RALF ','RAND ','REAL ','RECO ','REVE ','ROAN ',   &
+   'ROCK ','RUNR ','RUSK ','SABI ','SANK ','SCHL ','SFAU ','SHER ',   &
+   'SHCL ','SLPR ','SMIT ','SOME ','STAR ','STEP ','STER ','STON ',   &
+   'SUTH ','SWSH ','TARR ','TAYL ','TERR ','TERRL','TITU ','TOMP ',   &
+   'TRIN ','TYLE ','UPSH ','UVLD ','VALE ','VANZ ','VICT ','WALK ',   &
+   'WALL ','WASH ','WEBB ','WHAR ','WHEL ','WICH ','WILB ','WILL ',   &
+   'WILS ','WINK ','WISE ','WOOD ','YOAK ','YOUN ','ZAPA ','ZAVA ',   &
+   30*'     '/
+  data s/                                                             &
+   'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA',                 &
+   'HI','ID','IL','IN','IA','KS','KY','LA','ME','MD',                 &
+   'MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ',                 &
+   'NM','NY','NC','ND','OH','OK','OR','PA','RI','SC',                 &
+   'SD','TN','TX','UT','VT','VA','WA','WV','WI','WY'/
+  data p/                                                             &
+   'AB','BC','MB','NB','NL','NS','NT','NU','ON','PE',                 &
+   'QC','SK','YT'/
+
+  cty=c
+  sta=s
+  prov=p
+  return
+end subroutine txqp_tables
+
+
 subroutine pack77_4(nwords,w,i3,n3,c77)
   
 ! Check Type 4 (One nonstandard call and one hashed call)
@@ -2026,6 +2212,8 @@ subroutine unpack77var(c77,nrx,msg,unpk77_successvar,nthr)
   character*6 cexch,grid6
   character*4 grid4,cserial
   character*3 csec(NSEC)
+  character*5 txqp_counties(254)
+  character*2 txqp_states(50),txqp_provinces(13)
   character*38 c
   character*36 a2
   logical unpk28_success,unpk77_successvar,unpkg4_success
@@ -2296,6 +2484,34 @@ subroutine unpack77var(c77,nrx,msg,unpk77_successvar,nthr)
         endif
         if(msg(1:3).eq.'CQ ' .and. irpt.ge.2) unpk77_successvar=.false.
      endif
+
+  else if(i3.eq.3 .and. n3.eq.5) then
+! Type 3.5: Texas QSO Party (TxQP) contest exchange
+!   call1 call2 [R ]+00 <county|state|province|DX>
+! The signal report is fixed at +00 and is implied (not encoded in the frame).
+! Frame layout: call1(28) call2(28) ir(1) nexch(13) reserved(1) n3(3)=5 i3(3)=3
+     read(c77,1044) n28avar,n28bvar,ir,nexch
+1044 format(2b28.28,b1,b13.13)
+     call unpack28var(n28avar,call_1,unpk28_success,nthr)
+     if(.not.unpk28_success .or. n28avar.le.2) unpk77_successvar=.false.
+     call unpack28var(n28bvar,call_2,unpk28_success,nthr)
+     if(.not.unpk28_success .or. n28bvar.le.2) unpk77_successvar=.false.
+     call txqp_tables(txqp_counties,txqp_states,txqp_provinces)
+     if(nexch.ge.0 .and. nexch.le.253) then
+        cexch=txqp_counties(nexch+1)
+        if(trim(cexch).eq.'') unpk77_successvar=.false.
+     else if(nexch.ge.254 .and. nexch.le.303) then
+        cexch=txqp_states(nexch-253)
+     else if(nexch.ge.304 .and. nexch.le.316) then
+        cexch=txqp_provinces(nexch-303)
+     else if(nexch.eq.317) then
+        cexch='DX'
+     else
+        cexch='?'
+        unpk77_successvar=.false.
+     endif
+     if(ir.eq.0) msg=trim(call_1)//' '//trim(call_2)//' +00 '//trim(cexch)
+     if(ir.eq.1) msg=trim(call_1)//' '//trim(call_2)//' R +00 '//trim(cexch)
 
   else if(i3.eq.3) then
 ! Type 3: ARRL RTTY Contest
@@ -3068,7 +3284,7 @@ end subroutine pack77_1var
 subroutine pack77_3var(nwords,w,i3,n3,c77,ntxhash)
 ! Check Type 3 (ARRL RTTY contest exchange)
 !ARRL RTTY   - US/Can: rpt state/prov      R 579 MA
-!     	     - DX:     rpt serial          R 559 0013
+!            - DX:     rpt serial          R 559 0013
 ! Example message:  TU; W9XYZ K1ABC R 579 MA           1 28 28 1 3 13   74
 
   parameter (NUSCAN=171)    !Number of US states and Canadian provinces/territories

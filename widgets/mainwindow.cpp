@@ -372,9 +372,9 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_freqNominal {0},
   m_freqNominalPeriod {0},
   m_freqTxNominal {0},
-  m_mslastTX {0},	  //ft8md
-  m_nlasttx {0},		//ft8md
-  m_lapmyc {0},		  //ft8md
+  m_mslastTX {0},         //ft8md
+  m_nlasttx {0},                //ft8md
+  m_lapmyc {0},           //ft8md
   m_reverse_Doppler {"1" == env.value ("WSJT_REVERSE_DOPPLER", "0")},
   m_tRemaining {0.},
   m_TRperiod {60.0},
@@ -384,14 +384,14 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_gen_message_is_cq {false},
   m_send_RR73 {false},
   m_XIT {0},
-  m_ncandthin {100}, 	//ft8md
+  m_ncandthin {100},    //ft8md
   m_nFT8Cycles {3},     //ft8md
   m_nFT8RXfSens {3}   , //ft8md
   m_ft8threads {0},     //ft8md
   m_ft8Sensitivity {3}, //ft8md
   m_ft8DecoderStart {3}, //ft8md
   m_nsecBandChanged {0},//ft8md
-  m_nFT4depth {3},		//ft8md
+  m_nFT4depth {3},              //ft8md
   m_sec0 {-1},
   m_RxLog {1},      //Write Date and Time to RxLog
   m_nutc0 {999999},
@@ -422,8 +422,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_agcc {false}, //ft8md
   m_hint {true}, //ft8md
   m_multithreadFT8 (false), //ft8md
-  m_houndMode {false},		//ft8md
-  m_commonFT8b {true},		//ft8md
+  m_houndMode {false},          //ft8md
+  m_commonFT8b {true},          //ft8md
   m_manualDecode (false), //ft8md
   m_modeChanged {false},  //ft8md
   m_multInst {false}, //ft8md
@@ -2475,7 +2475,7 @@ void MainWindow::dataSink(qint64 frames)
     dec_data.params.npts8=(m_ihsym*m_nsps)/16;
     dec_data.params.newdat=1;
     dec_data.params.nagain=0;
-    dec_data.params.nagainfil=0;	
+    dec_data.params.nagainfil=0;        
     dec_data.params.nzhsym=m_hsymStop;
     if(m_mode=="FT8" and m_ihsym==m_earlyDecode and !m_diskData && !(m_multithreadFT8 && m_ft8DecoderStart>1)) dec_data.params.nzhsym=m_earlyDecode;
     if(m_mode=="FT8" and m_ihsym==m_earlyDecode2 and !m_diskData && !(m_multithreadFT8 && m_ft8DecoderStart!=1)) dec_data.params.nzhsym=m_earlyDecode2;
@@ -3729,7 +3729,7 @@ void MainWindow::monitor (bool state)
 {
   ui->monitorButton->setChecked (state);
   if (state) {
-    m_diskData = false;	// no longer reading WAV files
+    m_diskData = false; // no longer reading WAV files
     if (!m_monitoring) {
       float t_rxdelay=0.001*(QDateTime::currentMSecsSinceEpoch() - m_msEchoTxStart);
       int ms=int(1000*(m_tEcho-t_rxdelay));
@@ -9065,6 +9065,9 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
       w34=w.at(nw-1);
     }
     bool bRTTY = (nrpt>=529 and nrpt<=599);
+    // Texas QSO Party messages carry the implied fixed report "+00" just
+    // before the exchange (county / state / province / DX).
+    bool bTXQP = (nw>=4 and w.at(nw-2)=="+00");
     bool bEU_VHF_w2=(nrpt>=520001 and nrpt<=594000);
     if(bEU_VHF_w2 and SpecOp::EU_VHF!=m_specOp) {
       auto const& msg = tr("Should you switch to EU VHF Contest mode?\n\n"
@@ -9157,6 +9160,16 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
           setTxMsg(3);
           m_QSOProgress=ROGER_REPORT;
         }
+        m_xRcvd=t[n-2] + " " + t[n-1];
+      } else if(SpecOp::TXQP == m_specOp and bTXQP) {
+        if(w2=="R") {
+          setTxMsg(4);
+          m_QSOProgress=ROGERS;
+        } else {
+          setTxMsg(3);
+          m_QSOProgress=ROGER_REPORT;
+        }
+        // Capture the received exchange "<+00> <location>" for logging.
         m_xRcvd=t[n-2] + " " + t[n-1];
       } else if(SpecOp::FIELD_DAY==m_specOp and bFieldDay_msg) {
         if(t0=="R") {
@@ -9517,6 +9530,7 @@ void MainWindow::genCQMsg ()
        if(SpecOp::RTTY == m_specOp)      m_cqStr="RU";
        if(SpecOp::WW_DIGI == m_specOp)   m_cqStr="WW";
        if(SpecOp::ARRL_DIGI == m_specOp) m_cqStr="TEST";
+       if(SpecOp::TXQP == m_specOp)      m_cqStr="TQP";
        }
       if( tlist.at(1)==my_callsign ) {
          t="CQ " + m_cqStr + " " + tlist.at(1) + " " + tlist.at(2);
@@ -9645,6 +9659,12 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
         if(t1.contains(QRegularExpression {"\\d\\d\\d\\d"})) {
           t1 = m_config.RTTY_Exchange();
         }
+      }
+      if(SpecOp::TXQP==m_specOp) {
+        // Texas QSO Party: signal report is the implied fixed value "+00",
+        // followed by the exchange (a Texas county for TX stations, or a
+        // US state / Canadian province / "DX" for stations outside Texas).
+        sent="+00 " + m_config.TXQP_Exchange();
       }
       if(SpecOp::EU_VHF==m_specOp) {
         QString a;
@@ -10576,6 +10596,11 @@ void MainWindow::on_logQSOButton_clicked()                 //Log QSO button
         m_rptSent=m_xSent.split(" ").at(0);
         m_rptRcvd=m_xRcvd.split(" ").at(0);
         break;
+      case SpecOp::TXQP:
+        // Texas QSO Party: exchange is "<report> <location>", report fixed at "+00".
+        m_rptSent=m_xSent.split(" ").at(0);
+        m_rptRcvd=m_xRcvd.split(" ").at(0);
+        break;
       case SpecOp::WW_DIGI:
         m_xSent=m_config.my_grid().left(4);
         m_xRcvd=m_hisGrid.left(4);
@@ -11024,7 +11049,7 @@ void MainWindow::on_actionFT8_triggered()
     ui->lh_decodes_title_label->setText(tr ("Band Activity"));
     ui->lh_decodes_headings_label->setText( "  UTC   dB   DT Freq    " + tr ("Message"));
   }
-	
+        
 //                         01234567890123456789012345678901234567
   displayWidgets(nWidgets("11101000010011100001000010011000100000"));
   ui->txrb2->setEnabled(true);
@@ -11116,6 +11141,7 @@ void MainWindow::on_actionFT8_triggered()
     if(SpecOp::WW_DIGI==m_specOp) t0="WW Digi";
     if(SpecOp::ARRL_DIGI==m_specOp) t0="ARRL Digi";
     if(SpecOp::Q65_PILEUP==m_specOp) t0="Q65 Pileup";
+    if(SpecOp::TXQP==m_specOp) t0="Texas QP";
     if(t0=="") {
       ui->labDXped->setVisible(false);
     } else {
@@ -11415,6 +11441,7 @@ void MainWindow::on_actionQ65_triggered()
     if(SpecOp::WW_DIGI==m_specOp) t0="WW Digi";
     if(SpecOp::ARRL_DIGI==m_specOp) t0="ARRL Digi";
     if(SpecOp::Q65_PILEUP==m_specOp) t0="Q65 Pileup";
+    if(SpecOp::TXQP==m_specOp) t0="Texas QP";
     if(t0=="") {
       ui->labDXped->setVisible(false);
     } else {
@@ -15315,6 +15342,7 @@ void MainWindow::chkFT4()
     if(SpecOp::WW_DIGI==m_specOp) t0="WW Digi";
     if(SpecOp::ARRL_DIGI==m_specOp) t0="ARRL Digi";
     if(SpecOp::Q65_PILEUP==m_specOp) t0="Q65 Pileup";
+    if(SpecOp::TXQP==m_specOp) t0="Texas QP";
     if(t0=="") {
       ui->labDXped->setVisible(false);
     } else {
