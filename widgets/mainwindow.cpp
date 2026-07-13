@@ -8747,6 +8747,9 @@ void MainWindow::on_actionFT8_triggered()
     ui->txFirstCheckBox->setChecked(false);
     ui->txFirstCheckBox->setEnabled(false);
     ui->cbAutoSeq->setEnabled(false);
+    if(ui->tabWidget->currentIndex() == fox_queue_tab_index) {
+      ui->tabWidget->setCurrentIndex(standard_messages_tab_index);
+    }
     ui->cbHoldTxFreq->setChecked(true);
     m_wideGraph->setSuperHound(false);
     if(m_config.superFox()) {
