@@ -94,9 +94,14 @@ wsjt_link_common_fortran (test_packjt77_mutation_sweep)
 
 add_test (NAME test_packjt77_mutation_sweep COMMAND test_packjt77_mutation_sweep)
 
+find_program (WSJT_SH_EXECUTABLE NAMES sh)
+if (NOT WSJT_SH_EXECUTABLE)
+  message (FATAL_ERROR "sh is required to run lint_packjt77_idioms")
+endif ()
+
 add_test (NAME lint_packjt77_idioms
-  COMMAND /bin/sh ${CMAKE_CURRENT_SOURCE_DIR}/lint_packjt77_idioms.sh
-          ${CMAKE_SOURCE_DIR})
+  COMMAND "${WSJT_SH_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/lint_packjt77_idioms.sh"
+          "${CMAKE_SOURCE_DIR}")
 
 add_executable (test_packjt77_silent_rewrite_corpus
   test_packjt77_silent_rewrite_corpus.f90)
