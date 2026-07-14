@@ -9492,10 +9492,12 @@ void MainWindow::genCQMsg ()
                .arg (grid.left (4)),
                ui->tx6);
       } else {
-        msgtype (QString {"CQ %1 %2"}
-               .arg (m_freqNominal / 1000 - m_freqNominal / 1000000 * 1000, 3, 10, QChar {'0'})
-               .arg (my_callsign),
-               ui->tx6);
+        // Compound / nonstandard callsigns (e.g. 9A/WT3STT, KT3STT/VP9) are sent
+        // as 77-bit Type 4 messages, which have no room for the frequency field
+        // (nor for a grid or a contest word).  A frequency-prefixed CQ therefore
+        // cannot be encoded and would fail to transmit, so fall back to a plain
+        // "CQ <call>" which is the only valid CQ form for these callsigns.
+        msgtype (QString {"CQ %1"}.arg (my_callsign), ui->tx6);
       }
     } else {
       if (stdCall (my_callsign)

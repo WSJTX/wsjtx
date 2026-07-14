@@ -1533,9 +1533,20 @@ subroutine pack77_txqpvar(nwords,w,i3,n3,c77,ntxhash)
   if(nwords.lt.3 .or. nwords.gt.5) go to 900
   if(w(1)(1:1).eq.'<' .and. w(2)(1:1).eq.'<') go to 900
 
-! First two words must be valid (possibly compound) callsigns.
-  call chkcall(w(1),bcall_1,ok1)
-  call chkcall(w(2),bcall_2,ok2)
+! First two words must be valid callsigns.  A word already wrapped in <...>
+! is a hashed (compound/nonstandard) callsign reference and is accepted as-is;
+! pack28var will store/emit its 22-bit hash.  Any other word is validated with
+! chkcall, which itself accepts unbracketed compound calls (e.g. 9A/WT3STT).
+  if(w(1)(1:1).eq.'<') then
+     ok1=.true.
+  else
+     call chkcall(w(1),bcall_1,ok1)
+  endif
+  if(w(2)(1:1).eq.'<') then
+     ok2=.true.
+  else
+     call chkcall(w(2),bcall_2,ok2)
+  endif
   if(.not.ok1 .or. .not.ok2) go to 900
 
 ! The exchange is always the last word.  Any words between the callsigns and
