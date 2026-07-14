@@ -283,52 +283,39 @@ namespace
       )", QRegularExpression::CaseInsensitiveOption | QRegularExpression::ExtendedPatternSyntaxOption};
 
   QRegularExpression TXQP_exchange_re {
-    R"(
-        (
-        # Texas county 4-5 char abbreviations (TX stations)
-           ANDE|ANDR|ANGE|ARAN|ARCH|ARM|ATAS
-          |AUS|BAIL|BAND|BAST|BAYL|BEE|BELL
-          |BEXR|BLNC|BLNK|BORD|BOSQ|BOWI|BRAZ
-          |BRZE|BREW|BRIS|BROO|BRWN|BURL|BURR
-          |CALD|CALL|CAMP|CARS|CASS|CAST|CHAM
-          |CHER|CHLD|CLAY|COCK|COLE|COLG|COLO
-          |COML|CONC|COKE|CORN|CORY|COTT|CRAN
-          |CROC|CRSH|CULB|DALL|DAWS|DEAF|DELT
-          |DENT|DEWI|DICK|DIMI|DONE|DUVL|EAST
-          |ECTO|EDWA|ELLI|EPAS|RATH|FALL|FANN
-          |FAYE|FISH|FLAG|FLOY|FORD|FRAN|FREE
-          |FRIO|GAIL|GALV|GARZ|GILL|GLSP|GOLB
-          |GONZ|GRAY|GREG|GRIM|GUAD|HALE|HALL
-          |HAMI|HANS|HARD|HARR|HART|HASK|HAYS
-          |HEMP|HEND|HIDB|HIGG|HILL|HOOD|HOPK
-          |HOUS|HOWA|HUDP|HUNT|HUTC|IRION|JACK
-          |JASK|JEFF|JMWL|JONE|KARR|KAUF|KEND
-          |KENT|KERR|KIMB|KING|KINC|KLEB|KNOX
-          |LAMA|LAMP|LAVA|LEEC|LEON|LIME|LIVE
-          |LLNO|LOVE|LUBB|LYNN|MADI|MARI|MART
-          |MAVE|MCCL|MCMU|MENI|MIDD|MILA|MILL
-          |MITS|MONO|MONTG|MOOR|MORR|MOTR|MULN
-          |NAVC|NEWT|NOLA|NUEC|OCHS|OLDH|ORANG
-          |PALO|PANO|PARK|PARS|PECO|POLK|POTT
-          |PRES|RAIN|RALF|RAND|REAL|RECO|REVE
-          |ROAN|ROCK|RUNR|RUSK|SABI|SANK|SCHL
-          |SFAU|SHER|SHCL|SLPR|SMIT|SOME|STAR
-          |STEP|STER|STON|SUTH|SWSH|TARR|TAYL
-          |TERR|TERRL|TITU|TOMP|TRIN|TYLE|UPSH
-          |UVLD|VALE|VANZ|VICT|WALK|WALL|WASH
-          |WEBB|WHAR|WHEL|WICH|WILB|WILL|WILS
-          |WINK|WISE|WOOD|YOAK|YOUN|ZAPA|ZAVA
-        # US state postal codes (non-TX US stations)
-          |AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL
-          |IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT
-          |NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI
-          |SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY
-        # Canadian province/territory codes
-          |AB|BC|MB|NB|NL|NS|NT|NU|ON|PE|QC|SK|YT
-        # DX (everyone else)
-          |DX
-        )
-      )", QRegularExpression::CaseInsensitiveOption | QRegularExpression::ExtendedPatternSyntaxOption};
+                      "^(ANDE|ANDR|ANGE|ARAN|ARCH|ARMS|ATAS|AUST|BAIL|BAND"
+                       "|BAST|BAYL|BEE|BELL|BEXA|BLAN|BORD|BOSQ|BOWI|BREW"
+                       "|BRIS|BROO|BROW|BURL|BURN|BZIA|BZOS|CALD|CALH|CALL"
+                       "|CAMP|CARS|CASS|CAST|CHAM|CHER|CHIL|CLAY|CMRN|COCH"
+                       "|COKE|COLE|COLN|COLO|COLW|COMA|COML|CONC|COOK|CORY"
+                       "|COTT|CRAN|CROC|CROS|CULB|DALM|DALS|DAWS|DELT|DENT"
+                       "|DEWI|DICK|DIMM|DONL|DSMI|DUVA|EAST|ECTO|EDWA|ELLI"
+                       "|EPAS|ERAT|FALL|FANN|FAYE|FBEN|FISH|FLOY|FOAR|FRAN"
+                       "|FREE|FRIO|GAIN|GALV|GARZ|GILL|GLAS|GOLI|GONZ|GRAY"
+                       "|GREG|GRIM|GRSN|GUAD|HALE|HALL|HAMI|HANS|HARR|HART"
+                       "|HASK|HAYS|HDMN|HEMP|HEND|HIDA|HILL|HOCK|HOOD|HOPK"
+                       "|HOUS|HOWA|HRDN|HRSN|HUDS|HUNT|HUTC|IRIO|JACK|JASP"
+                       "|JDAV|JEFF|JHOG|JKSN|JOHN|JONE|JWEL|KARN|KAUF|KEND"
+                       "|KENT|KENY|KERR|KIMB|KING|KINN|KLEB|KNOX|LAMA|LAMB"
+                       "|LAMP|LAVA|LEE|LEON|LIBE|LIME|LIPS|LIVO|LLAN|LOVI"
+                       "|LSAL|LUBB|LYNN|MADI|MARI|MART|MASO|MATA|MAVE|MCUL"
+                       "|MEDI|MENA|MGMY|MIDL|MILA|MILL|MITC|MLEN|MMUL|MONT"
+                       "|MOOR|MORR|MOTL|NACO|NAVA|NEWT|NOLA|NUEC|OCHI|OLDH"
+                       "|ORAN|PANO|PARK|PARM|PECO|POLK|POTT|PPIN|PRES|RAIN"
+                       "|RAND|RBSN|REAG|REAL|REEV|REFU|ROBE|ROCK|RRIV|RUNN"
+                       "|RUSK|SABI|SAUG|SCHL|SCUR|SHAC|SHEL|SHMN|SJAC|SMIT"
+                       "|SOME|SPAT|SSAB|STAR|STEP|STER|STON|SUTT|SWIS|TARR"
+                       "|TAYL|TERL|TERY|TGRE|THRO|TITU|TRAV|TRIN|TYLE|UPSH"
+                       "|UPTO|UVAL|VICT|VVER|VZAN|WALK|WALL|WARD|WASH|WEBB"
+                       "|WHAR|WHEE|WICH|WILB|WILY|WINK|WISE|WLSN|WMSN|WOOD"
+                       "|YOAK|YOUN|ZAPA|ZAVA"
+                       "|AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA"
+                       "|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD"
+                       "|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ"
+                       "|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC"
+                       "|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY"
+                       "|AB|BC|MB|NB|NL|NS|NT|NU|ON|PE|QC|SK|YT"
+                       "|DX)$", QRegularExpression::CaseInsensitiveOption};
 
   // Magic numbers for file validation
   constexpr quint32 qrg_magic {0xadbccbdb};

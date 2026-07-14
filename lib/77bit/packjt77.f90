@@ -1610,35 +1610,38 @@ subroutine txqp_tables(cty,sta,prov)
   character*2 prov(13),p(13)
 
   data c/                                                             &
-   'ANDE ','ANDR ','ANGE ','ARAN ','ARCH ','ARM  ','ATAS ','AUS  ',   &
-   'BAIL ','BAND ','BAST ','BAYL ','BEE  ','BELL ','BEXR ','BLNC ',   &
-   'BLNK ','BORD ','BOSQ ','BOWI ','BRAZ ','BRZE ','BREW ','BRIS ',   &
-   'BROO ','BRWN ','BURL ','BURR ','CALD ','CALL ','CAMP ','CARS ',   &
-   'CASS ','CAST ','CHAM ','CHER ','CHLD ','CLAY ','COCK ','COLE ',   &
-   'COLG ','COLO ','COML ','CONC ','COKE ','CORN ','CORY ','COTT ',   &
-   'CRAN ','CROC ','CRSH ','CULB ','DALL ','DAWS ','DEAF ','DELT ',   &
-   'DENT ','DEWI ','DICK ','DIMI ','DONE ','DUVL ','EAST ','ECTO ',   &
-   'EDWA ','ELLI ','EPAS ','RATH ','FALL ','FANN ','FAYE ','FISH ',   &
-   'FLAG ','FLOY ','FORD ','FRAN ','FREE ','FRIO ','GAIL ','GALV ',   &
-   'GARZ ','GILL ','GLSP ','GOLB ','GONZ ','GRAY ','GREG ','GRIM ',   &
-   'GUAD ','HALE ','HALL ','HAMI ','HANS ','HARD ','HARR ','HART ',   &
-   'HASK ','HAYS ','HEMP ','HEND ','HIDB ','HIGG ','HILL ','HOOD ',   &
-   'HOPK ','HOUS ','HOWA ','HUDP ','HUNT ','HUTC ','IRION','JACK ',   &
-   'JASK ','JEFF ','JMWL ','JONE ','KARR ','KAUF ','KEND ','KENT ',   &
-   'KERR ','KIMB ','KING ','KINC ','KLEB ','KNOX ','LAMA ','LAMP ',   &
-   'LAVA ','LEEC ','LEON ','LIME ','LIVE ','LLNO ','LOVE ','LUBB ',   &
-   'LYNN ','MADI ','MARI ','MART ','MAVE ','MCCL ','MCMU ','MENI ',   &
-   'MIDD ','MILA ','MILL ','MITS ','MONO ','MONTG','MOOR ','MORR ',   &
-   'MOTR ','MULN ','NAVC ','NEWT ','NOLA ','NUEC ','OCHS ','OLDH ',   &
-   'ORANG','PALO ','PANO ','PARK ','PARS ','PECO ','POLK ','POTT ',   &
-   'PRES ','RAIN ','RALF ','RAND ','REAL ','RECO ','REVE ','ROAN ',   &
-   'ROCK ','RUNR ','RUSK ','SABI ','SANK ','SCHL ','SFAU ','SHER ',   &
-   'SHCL ','SLPR ','SMIT ','SOME ','STAR ','STEP ','STER ','STON ',   &
-   'SUTH ','SWSH ','TARR ','TAYL ','TERR ','TERRL','TITU ','TOMP ',   &
-   'TRIN ','TYLE ','UPSH ','UVLD ','VALE ','VANZ ','VICT ','WALK ',   &
-   'WALL ','WASH ','WEBB ','WHAR ','WHEL ','WICH ','WILB ','WILL ',   &
-   'WILS ','WINK ','WISE ','WOOD ','YOAK ','YOUN ','ZAPA ','ZAVA ',   &
-   30*'     '/
+   'ANDE ','ANDR ','ANGE ','ARAN ','ARCH ','ARMS ','ATAS ','AUST ',   &
+   'BAIL ','BAND ','BAST ','BAYL ','BEE  ','BELL ','BEXA ','BLAN ',   &
+   'BORD ','BOSQ ','BOWI ','BZIA ','BZOS ','BREW ','BRIS ','BROO ',   &
+   'BROW ','BURL ','BURN ','CALD ','CALH ','CALL ','CMRN ','CAMP ',   &
+   'CARS ','CASS ','CAST ','CHAM ','CHER ','CHIL ','CLAY ','COCH ',   &
+   'COKE ','COLE ','COLN ','COLW ','COLO ','COML ','COMA ','CONC ',   &
+   'COOK ','CORY ','COTT ','CRAN ','CROC ','CROS ','CULB ','DALM ',   &
+   'DALS ','DAWS ','DSMI ','DELT ','DENT ','DEWI ','DICK ','DIMM ',   &
+   'DONL ','DUVA ','EAST ','ECTO ','EDWA ','EPAS ','ELLI ','ERAT ',   &
+   'FALL ','FANN ','FAYE ','FISH ','FLOY ','FOAR ','FBEN ','FRAN ',   &
+   'FREE ','FRIO ','GAIN ','GALV ','GARZ ','GILL ','GLAS ','GOLI ',   &
+   'GONZ ','GRAY ','GRSN ','GREG ','GRIM ','GUAD ','HALE ','HALL ',   &
+   'HAMI ','HANS ','HDMN ','HRDN ','HARR ','HRSN ','HART ','HASK ',   &
+   'HAYS ','HEMP ','HEND ','HIDA ','HILL ','HOCK ','HOOD ','HOPK ',   &
+   'HOUS ','HOWA ','HUDS ','HUNT ','HUTC ','IRIO ','JACK ','JKSN ',   &
+   'JASP ','JDAV ','JEFF ','JHOG ','JWEL ','JOHN ','JONE ','KARN ',   &
+   'KAUF ','KEND ','KENY ','KENT ','KERR ','KIMB ','KING ','KINN ',   &
+   'KLEB ','KNOX ','LAMA ','LAMB ','LAMP ','LSAL ','LAVA ','LEE  ',   &
+   'LEON ','LIBE ','LIME ','LIPS ','LIVO ','LLAN ','LOVI ','LUBB ',   &
+   'LYNN ','MADI ','MARI ','MART ','MASO ','MATA ','MAVE ','MCUL ',   &
+   'MLEN ','MMUL ','MEDI ','MENA ','MIDL ','MILA ','MILL ','MITC ',   &
+   'MONT ','MGMY ','MOOR ','MORR ','MOTL ','NACO ','NAVA ','NEWT ',   &
+   'NOLA ','NUEC ','OCHI ','OLDH ','ORAN ','PPIN ','PANO ','PARK ',   &
+   'PARM ','PECO ','POLK ','POTT ','PRES ','RAIN ','RAND ','REAG ',   &
+   'REAL ','RRIV ','REEV ','REFU ','ROBE ','RBSN ','ROCK ','RUNN ',   &
+   'RUSK ','SABI ','SAUG ','SJAC ','SPAT ','SSAB ','SCHL ','SCUR ',   &
+   'SHAC ','SHEL ','SHMN ','SMIT ','SOME ','STAR ','STEP ','STER ',   &
+   'STON ','SUTT ','SWIS ','TARR ','TAYL ','TERL ','TERY ','THRO ',   &
+   'TITU ','TGRE ','TRAV ','TRIN ','TYLE ','UPSH ','UPTO ','UVAL ',   &
+   'VVER ','VZAN ','VICT ','WALK ','WALL ','WARD ','WASH ','WEBB ',   &
+   'WHAR ','WHEE ','WICH ','WILB ','WILY ','WMSN ','WLSN ','WINK ',   &
+   'WISE ','WOOD ','YOAK ','YOUN ','ZAPA ','ZAVA '/
   data s/                                                             &
    'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA',                 &
    'HI','ID','IL','IN','IA','KS','KY','LA','ME','MD',                 &
