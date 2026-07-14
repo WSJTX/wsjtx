@@ -351,7 +351,8 @@ void LogQSO::initLogQSO(QString const& hisCall, QString const& hisGrid, QString 
 
   if (SpOp::FOX == special_op
       || (m_config->autoLog () && ((SpOp::NONE < special_op && special_op < SpOp::FOX)
-          || SpOp::ARRL_DIGI == special_op || !m_config->contestingOnly ())))
+          || SpOp::ARRL_DIGI == special_op || SpOp::TXQP == special_op
+          || !m_config->contestingOnly ())))
     {
       // allow auto logging in Fox mode and contests
       accept();

@@ -7501,7 +7501,12 @@ void MainWindow::auto_sequence (DecodedText const& message, unsigned start_toler
   msg_no_hash = msg_no_hash.mid(22).remove("<").remove(">");
   bool is_OK=false;
   if(m_mode=="MSK144" && msg_no_hash.indexOf(ui->dxCallEntry->text()+" R ")>0) is_OK=true;
-  if (message_words.size () > 3 && (message.isStandardMessage() || (is_73 or is_OK))) {
+  // TxQP exchange messages ("... +00 <loc>" / "... R+00 <loc>") are not standard
+  // messages, so allow them into the auto-sequence logic explicitly.
+  bool bTXQP_as = (m_specOp == SpecOp::TXQP &&
+                   (msg_no_hash.contains(" +00 ") || msg_no_hash.contains(" R+00 ")
+                    || msg_no_hash.endsWith(" +00") || msg_no_hash.endsWith(" R+00")));
+  if (message_words.size () > 3 && (message.isStandardMessage() || (is_73 or is_OK) || bTXQP_as)) {
     auto df = message.frequencyOffset ();
     auto within_tolerance = (qAbs (ui->RxFreqSpinBox->value () - df) <= int (start_tolerance)
        || qAbs (ui->TxFreqSpinBox->value () - df) <= int (start_tolerance));
@@ -7553,7 +7558,7 @@ void MainWindow::auto_sequence (DecodedText const& message, unsigned start_toler
                             (acceptable_73 ||
                              ("DE" == message_words.at (2) &&
                               w2.contains(Radio::base_callsign (m_hisCall)))))))
-                   || (m_bCallingCQ && m_bAutoReply
+                   || (m_bCallingCQ && (m_bAutoReply || bTXQP_as)
                        // look for type 2 compound call replies on our Tx and Rx offsets
                        && ((within_tolerance && "DE" == message_words.at (2))
                            || message_words.at (2).contains (m_baseCall))))) {
@@ -9001,7 +9006,19 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
   }
 
   bool is_73 = message_words.filter (QRegularExpression {"^(73|RR73)$"}).size ();
-  if (!is_73 and !message.isStandardMessage() and !message.clean_string ().contains("<")) {
+  // TxQP exchange messages fail isStandardMessage() (i3=3,n3=5 is unknown to stdmsg_)
+  // and carry no <> brackets, so they would be dropped by the early-return below.
+  // Detect them here (penultimate token "+00" or "R+00") so they get processed.
+  bool bIsTXQP_msg = false;
+  if (m_specOp == SpecOp::TXQP) {
+    QStringList wt = message.clean_string ().mid(22).remove("<").remove(">").split(" ",SkipEmptyParts);
+    int nwt = wt.size();
+    if (nwt >= 2) {
+      QString pen = wt.at(nwt-2);
+      bIsTXQP_msg = (pen == "+00" or pen == "R+00");
+    }
+  }
+  if (!is_73 and !bIsTXQP_msg and !message.isStandardMessage() and !message.clean_string ().contains("<")) {
     qDebug () << "Not processing message - hiscall:" << hiscall << "hisgrid:" << hisgrid
               << message.clean_string () << message.isStandardMessage();
     return;
@@ -9067,7 +9084,7 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
     bool bRTTY = (nrpt>=529 and nrpt<=599);
     // Texas QSO Party messages carry the implied fixed report "+00" just
     // before the exchange (county / state / province / DX).
-    bool bTXQP = (nw>=4 and w.at(nw-2)=="+00");
+    bool bTXQP = (nw>=4 and (w.at(nw-2)=="+00" or w.at(nw-2)=="R+00"));
     bool bEU_VHF_w2=(nrpt>=520001 and nrpt<=594000);
     if(bEU_VHF_w2 and SpecOp::EU_VHF!=m_specOp) {
       auto const& msg = tr("Should you switch to EU VHF Contest mode?\n\n"
@@ -9162,7 +9179,8 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
         }
         m_xRcvd=t[n-2] + " " + t[n-1];
       } else if(SpecOp::TXQP == m_specOp and bTXQP) {
-        if(w2=="R") {
+        // A roger+exchange ("R+00") means our report was acknowledged.
+        if(w2=="R" or w2.startsWith("R+") or w2.startsWith("R-")) {
           setTxMsg(4);
           m_QSOProgress=ROGERS;
         } else {
