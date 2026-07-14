@@ -3044,7 +3044,7 @@ void MainWindow::fastSink(qint64 frames)
 
     // CQ: First for MSK144
     if(((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled())
-        or (m_auto && m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " "))) && !ignored
+        or (m_auto && m_bCallingCQ && (text.contains(" " + m_config.my_callsign() + " ") || text.contains("<" + m_config.my_callsign() + ">")))) && !ignored
         && !filtered && !selected && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText()=="CQ: First"
         && (!(ui->actionFull_Duplex_Mode->isChecked() && m_txing))) {
                   m_bDoubleClicked=true;
@@ -3065,7 +3065,7 @@ void MainWindow::fastSink(qint64 frames)
         decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
         if (!filtered && !ignored && (deGrid.contains(grid_regexp) or m_bCallingCQ) && (
              (pounce && text.contains(" CQ ") && !txLog.contains(deCall) && m_config.Wait_features_enabled()) or
-             (m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " ") && !text.contains("73 "))
+             (m_bCallingCQ && (text.contains(" " + m_config.my_callsign() + " ") || text.contains("<" + m_config.my_callsign() + ">")) && !text.contains("73 "))
                                                                     )) {
             double utch=0.0;
             int nAz,nEl,nDmiles,nDkm,nHotAz,nHotABetter;
@@ -3102,7 +3102,7 @@ void MainWindow::fastSink(qint64 frames)
         decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
         if (!filtered && !ignored && (
              (pounce && text.contains(" CQ ") && !txLog.contains(deCall) && m_config.Wait_features_enabled()) or
-             (m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " ") && !text.contains("73 "))
+             (m_bCallingCQ && (text.contains(" " + m_config.my_callsign() + " ") || text.contains("<" + m_config.my_callsign() + ">")) && !text.contains("73 "))
                           )) {
             dBpoints=decodedtext.string().mid(7,3).toInt();
             if(dBpoints>maxdBPoints) {
@@ -3133,7 +3133,7 @@ void MainWindow::fastSink(qint64 frames)
         decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
         if (!filtered && !ignored && (
              (pounce && text.contains(" CQ ") && !txLog.contains(deCall) && m_config.Wait_features_enabled()) or
-             (m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " ") && !text.contains("73 "))
+             (m_bCallingCQ && (text.contains(" " + m_config.my_callsign() + " ") || text.contains("<" + m_config.my_callsign() + ">")) && !text.contains("73 "))
                           )) {
             dBpoints2=decodedtext.string().mid(7,3).toInt();
             if(dBpoints2<mindBPoints) {
@@ -7018,7 +7018,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
 
         // CQ: First
         if(((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled())
-              or (m_auto && m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " "))) && !ignored
+              or (m_auto && m_bCallingCQ && (text.contains(" " + m_config.my_callsign() + " ") || text.contains("<" + m_config.my_callsign() + ">")))) && !ignored
             && !filtered && !selected && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText()=="CQ: First"
             && (!(ui->actionFull_Duplex_Mode->isChecked() && m_txing))) {
           m_bDoubleClicked=true;
@@ -7039,7 +7039,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
           decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
           if (!filtered && !ignored && (deGrid.contains(grid_regexp) or m_bCallingCQ) && (
               (pounce && text.contains(" CQ ") && !txLog.contains(deCall) && m_config.Wait_features_enabled()) or
-              (m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " ") && !text.contains("73 "))
+              (m_bCallingCQ && (text.contains(" " + m_config.my_callsign() + " ") || text.contains("<" + m_config.my_callsign() + ">")) && !text.contains("73 "))
                )) {
             double utch=0.0;
             int nAz,nEl,nDmiles,nDkm,nHotAz,nHotABetter;
@@ -7076,7 +7076,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
           decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
           if (!filtered && !ignored && (
               (pounce && text.contains(" CQ ") && !txLog.contains(deCall) && m_config.Wait_features_enabled()) or
-              (m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " ") && !text.contains("73 "))
+              (m_bCallingCQ && (text.contains(" " + m_config.my_callsign() + " ") || text.contains("<" + m_config.my_callsign() + ">")) && !text.contains("73 "))
                )) {
                   dBpoints=decodedtext.string().mid(7,3).toInt();
                   if(dBpoints>maxdBPoints) {
@@ -7108,7 +7108,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
           decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
           if (!filtered && !ignored && (
               (pounce && text.contains(" CQ ") && !txLog.contains(deCall) && m_config.Wait_features_enabled()) or
-              (m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " ") && !text.contains("73 "))
+              (m_bCallingCQ && (text.contains(" " + m_config.my_callsign() + " ") || text.contains("<" + m_config.my_callsign() + ">")) && !text.contains("73 "))
                )) {
                   dBpoints2=decodedtext.string().mid(7,3).toInt();
                   if(dBpoints2<mindBPoints) {
@@ -9740,6 +9740,7 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
     if((m_mode=="MSK144" and !m_bShMsgs) or m_mode=="FT8" or m_mode=="FT4" || m_mode == "FST4" || m_mode == "Q65") {
       if(!bHisCall and bMyCall) t=hisCall + " <" + my_callsign + "> " + (m_send_RR73 ? "RR73" : "RRR");
       if(bHisCall and !bMyCall) t="<" + hisCall + "> " + my_callsign + " " + (m_send_RR73 ? "RR73" : "RRR");
+      if(!bHisCall and !bMyCall) t="<" + hisCall + "> " + my_callsign + " " + (m_send_RR73 ? "RR73" : "RRR");
     }
     if ((m_mode=="JT4" || m_mode=="Q65") && m_bShMsgs) t="@1500  (RRR)";
     msgtype(t, ui->tx4);
@@ -9748,6 +9749,7 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
     if((m_mode=="MSK144" and !m_bShMsgs) or m_mode=="FT8" or m_mode=="FT4" || m_mode == "FST4" || m_mode == "Q65") {
       if(!bHisCall and bMyCall) t=hisCall + " <" + my_callsign + "> 73";
       if(bHisCall and !bMyCall) t="<" + hisCall + "> " + my_callsign + " 73";
+      if(!bHisCall and !bMyCall) t="<" + hisCall + "> " + my_callsign + " 73";
     }
     if (m_mode=="JT4" || m_mode=="Q65") {
       if (m_bShMsgs) t="@1750  (73)";
