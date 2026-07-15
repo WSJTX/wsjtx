@@ -145,7 +145,7 @@ void MainWindow::writeSettings()
   m_settings->setValue ("RxAll", ui->cbRxAll->isChecked ());
 // m_settings->setValue("ShMsgs",m_bShMsgs);
   m_settings->setValue("SWL",ui->cbSWL->isChecked());
-  if(m_mode=="MSK144" && m_msk144basefreq > 0) {
+  if(m_mode=="MSK144" && hasMsk144BaseFrequency ()) {
     m_settings->setValue ("DialFreq", QVariant::fromValue(m_msk144basefreq));  // MSK144 QSY
   } else {
     m_settings->setValue ("DialFreq", QVariant::fromValue(m_lastMonitoredFrequency));

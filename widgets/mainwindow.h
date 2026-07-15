@@ -709,8 +709,7 @@ private:
   Frequency m_freqNominal;
   Frequency m_freqNominalPeriod;
   Frequency m_freqTxNominal;
-  quint64 m_msk144basefreq;
-  quint64 m_msk144oldfreq;
+  Frequency m_msk144basefreq {0};
   quint64  m_mslastTX;   //ft8md
   qint32  m_nlasttx;     //ft8md
   qint32  m_lapmyc;      //ft8md
@@ -1195,6 +1194,7 @@ private:
   void postWSPRDecode (bool is_new, QStringList message_parts);
   void enable_DXCC_entity (bool on);
   void switch_mode (Mode);
+  bool hasMsk144BaseFrequency () const {return m_msk144basefreq > 0;}
   void WSPR_scheduling ();
   void freqCalStep();
   void setRig (Frequency = 0);  // zero frequency means no change
