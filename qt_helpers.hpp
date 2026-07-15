@@ -136,6 +136,8 @@ QDateTime qt_round_date_time_to (QDateTime dt, int milliseconds);
 QDateTime qt_truncate_date_time_to (QDateTime dt, int milliseconds);
 
 QString app_sounds_directory (QString const& subdirectory = QString {});
+bool app_sounds_subdirectory_is_safe (QString const& subdirectory);
+bool parse_app_voice_entry (QString const& record, QString& subdirectory, QString& display_name);
 
 // Empty lists have no valid index; -1 advances to the first item.
 int next_cyclic_index (int current_index, int item_count);

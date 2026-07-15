@@ -5720,26 +5720,34 @@ void Configuration::impl::read_voices ()
   QString audioPath = app_sounds_directory ();
   QString voiceList = audioPath + "voices.dat";  // load the content of voices.dat file to the voices combo box
   QFile file2 {voiceList};
-  QStringList wordList;
   QTextStream stream2(&file2);
   if(file2.open (QIODevice::ReadOnly | QIODevice::Text)) {
     while (!stream2.atEnd()) {
       QString line = stream2.readLine();
-      wordList = line.split('|');
-      ui_->voices_combo_box->addItem (wordList[1], wordList[0]);
+      QString voicePath;
+      QString voiceName;
+      if (!parse_app_voice_entry (line, voicePath, voiceName))
+        {
+          continue;
+        }
+      ui_->voices_combo_box->addItem (voiceName, voicePath);
     }
     stream2.flush();
     file2.close();
   } else {
     voice_=0;
   }
+  if (voice_ < 0 || voice_ >= ui_->voices_combo_box->count ())
+    {
+      voice_=0;
+    }
   ui_->voices_combo_box->setCurrentIndex (voice_);
   read_voicesPath();
 }
 
 void Configuration::impl::read_voicesPath ()
 {
-  voicesPath_ = ui_->voices_combo_box->currentData().toString().left('|');
+  voicesPath_ = ui_->voices_combo_box->currentData().toString();
 }
 
 void Configuration::impl::on_pb_test_alerts_clicked (bool)
