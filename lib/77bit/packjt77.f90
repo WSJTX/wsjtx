@@ -1453,7 +1453,11 @@ subroutine pack77_txqp(nwords,w,i3,n3,c77)
   i3=-1
   n3=-1
   if(nwords.lt.3 .or. nwords.gt.5) go to 900
-  if(w(1)(1:1).eq.'<' .and. w(2)(1:1).eq.'<') go to 900
+! (relaxed) both-hashed compound calls are valid for TxQP; the exchange-token
+! validation below (county/state/province/DX with implied +00) prevents false
+! positives, so a message with BOTH callsigns wrapped in <...> must still be
+! accepted here.  Rejecting it made compound-vs-compound exchanges fall through
+! to free text (is_standard_=FALSE), which broke auto-sequence and logging.
 
 ! First two words must be valid callsigns.  A word already wrapped in <...>
 ! is a hashed (compound/nonstandard) callsign reference and is accepted as-is;
@@ -1543,7 +1547,11 @@ subroutine pack77_txqpvar(nwords,w,i3,n3,c77,ntxhash)
   i3=-1
   n3=-1
   if(nwords.lt.3 .or. nwords.gt.5) go to 900
-  if(w(1)(1:1).eq.'<' .and. w(2)(1:1).eq.'<') go to 900
+! (relaxed) both-hashed compound calls are valid for TxQP; the exchange-token
+! validation below (county/state/province/DX with implied +00) prevents false
+! positives, so a message with BOTH callsigns wrapped in <...> must still be
+! accepted here.  Rejecting it made compound-vs-compound exchanges fall through
+! to free text (is_standard_=FALSE), which broke auto-sequence and logging.
 
 ! First two words must be valid callsigns.  A word already wrapped in <...>
 ! is a hashed (compound/nonstandard) callsign reference and is accepted as-is;
