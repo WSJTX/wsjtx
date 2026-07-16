@@ -669,8 +669,8 @@ private:
   void display_file_information();
   void check_visibility();
 
-  Q_SLOT void on_cbx2ToneSpacing_clicked(bool);
-  Q_SLOT void on_cbx4ToneSpacing_clicked(bool);
+  Q_SLOT void on_cbx2ToneSpacing_toggled (bool);
+  Q_SLOT void on_cbx4ToneSpacing_toggled (bool);
   Q_SLOT void on_prompt_to_log_check_box_clicked(bool);
   Q_SLOT void on_cbAutoLog_clicked(bool);
   Q_SLOT void on_Field_Day_Exchange_editingFinished ();
@@ -3346,6 +3346,7 @@ void Configuration::impl::read_settings ()
   SelectedActivity_ = settings_->value("SelectedActivity",1).toInt ();
   x2ToneSpacing_ = settings_->value("x2ToneSpacing",false).toBool ();
   x4ToneSpacing_ = settings_->value("x4ToneSpacing",false).toBool ();
+  if (x4ToneSpacing_) x2ToneSpacing_ = false;
   rig_params_.poll_interval = settings_->value ("Polling", 0).toInt ();
   rig_params_.split_mode = settings_->value ("SplitMode", QVariant::fromValue (TransceiverFactory::split_mode_none)).value<TransceiverFactory::SplitMode> ();
   opCall_ = settings_->value ("OpCall", "").toString ();
@@ -5334,14 +5335,14 @@ void Configuration::impl::on_cbAutoLog_clicked(bool checked)
   if(checked) ui_->prompt_to_log_check_box->setChecked(false);
 }
 
-void Configuration::impl::on_cbx2ToneSpacing_clicked(bool b)
+void Configuration::impl::on_cbx2ToneSpacing_toggled (bool checked)
 {
-  if(b) ui_->cbx4ToneSpacing->setChecked(false);
+  if (checked) ui_->cbx4ToneSpacing->setChecked (false);
 }
 
-void Configuration::impl::on_cbx4ToneSpacing_clicked(bool b)
+void Configuration::impl::on_cbx4ToneSpacing_toggled (bool checked)
 {
-  if(b) ui_->cbx2ToneSpacing->setChecked(false);
+  if (checked) ui_->cbx2ToneSpacing->setChecked (false);
 }
 
 void Configuration::impl::check_visibility ()
