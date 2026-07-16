@@ -1461,6 +1461,27 @@ message (STATUS "Fortran library variants: requested=${WSJT_FORTRAN_LIBRARY_VARI
 message (STATUS "Common Fortran target: ${WSJT_COMMON_FORT_TARGET}")
 message (STATUS "MAP65: skip=${WSJT_SKIP_MAP65}")
 
+# Internal usage requirements for targets whose own Fortran sources contain
+# OpenMP directives. Static libraries keep the runtime dependency link-
+# transitive without exporting the compile option to their consumers.
+if (WSJT_OPENMP_FORTRAN_AVAILABLE)
+  add_library (wsjt_fortran_openmp INTERFACE)
+  if (TARGET OpenMP::OpenMP_Fortran AND NOT APPLE)
+    target_link_libraries (wsjt_fortran_openmp
+      INTERFACE OpenMP::OpenMP_Fortran)
+  elseif (WSJT_OPENMP_FORTRAN_FLAGS)
+    target_compile_options (wsjt_fortran_openmp INTERFACE
+      $<$<COMPILE_LANGUAGE:Fortran>:${WSJT_OPENMP_FORTRAN_FLAGS}>)
+    if (APPLE)
+      target_link_libraries (wsjt_fortran_openmp INTERFACE
+        "${WSJT_MACOS_LIBGOMP_LIBRARY}")
+    else ()
+      target_link_libraries (wsjt_fortran_openmp INTERFACE
+        ${WSJT_OPENMP_FORTRAN_FLAGS})
+    endif ()
+  endif ()
+endif ()
+
 # build a library of package functionality (without and optionally with OpenMP support)
 add_library (wsjt_cxx STATIC ${wsjt_CSRCS} ${wsjt_CXXSRCS})
 target_link_libraries (wsjt_cxx ${LIBM_LIBRARIES} Boost::log_setup ${LIBM_LIBRARIES})
@@ -1490,24 +1511,9 @@ if (WSJT_BUILD_FORTRAN_OPENMP)
   target_include_directories (wsjt_fort_omp INTERFACE
     $<BUILD_INTERFACE:${WSJT_FORTRAN_OPENMP_MODULE_DIR}>
     )
-  target_link_libraries (wsjt_fort_omp PUBLIC wsjt_cxx ${FFTW3_LIBRARIES})
-  if (TARGET OpenMP::OpenMP_Fortran AND NOT APPLE)
-    target_link_libraries (wsjt_fort_omp PUBLIC OpenMP::OpenMP_Fortran)
-  elseif (WSJT_OPENMP_FORTRAN_FLAGS AND NOT APPLE)
-    target_link_libraries (wsjt_fort_omp PUBLIC ${WSJT_OPENMP_FORTRAN_FLAGS})
-  endif ()
-  if (WSJT_OPENMP_FORTRAN_FLAGS AND (APPLE OR NOT TARGET OpenMP::OpenMP_Fortran))
-    set_target_properties (wsjt_fort_omp
-      PROPERTIES
-      COMPILE_FLAGS "${WSJT_OPENMP_FORTRAN_FLAGS}"
-      )
-  endif ()
-  if (APPLE)
-    target_compile_options (wsjt_fort_omp
-      PRIVATE
-      $<$<COMPILE_LANGUAGE:Fortran>:${WSJT_OPENMP_FORTRAN_FLAGS}>
-      )
-  endif (APPLE)
+  target_link_libraries (wsjt_fort_omp
+    PUBLIC wsjt_cxx ${FFTW3_LIBRARIES}
+    PRIVATE wsjt_fortran_openmp)
 endif ()
 
 # Naming a missing target in target_link_libraries does not fail at configure
@@ -1535,26 +1541,12 @@ function (wsjt_link_common_fortran tgt)
   target_link_libraries (${tgt} PUBLIC wsjt_fort_common)
 endfunction ()
 
-# Link the OpenMP Fortran variant and its usage requirements onto an app target
-# (jt9, wsjtx). Per-app stack/heap sizing stays at the call site.
+# Link the OpenMP Fortran variant onto an app target (jt9, wsjtx).
+# Per-app stack/heap sizing stays at the call site.
 function (wsjt_link_fortran_openmp tgt)
   target_link_libraries (${tgt} wsjt_fort_omp)
   set_target_properties (${tgt} PROPERTIES
     Fortran_MODULE_DIRECTORY ${WSJT_FORTRAN_OPENMP_MODULE_DIR})
-  if (APPLE)
-    # No working C/C++ OpenMP on macOS, so link GNU OpenMP + libgcc by hand
-    # and put the OpenMP flag on this target's own Fortran sources.
-    target_link_libraries (${tgt} "${WSJT_MACOS_LIBGOMP_LIBRARY}" gcc_s.1)
-    target_compile_options (${tgt} PRIVATE
-      $<$<COMPILE_LANGUAGE:Fortran>:${WSJT_OPENMP_FORTRAN_FLAGS}>)
-  elseif (NOT TARGET OpenMP::OpenMP_Fortran AND WSJT_OPENMP_FORTRAN_FLAGS)
-    # No imported OpenMP target, so apply the flag directly. APPEND_STRING so a
-    # later per-app stack/heap LINK_FLAGS assignment cannot clobber it.
-    target_compile_options (${tgt} PRIVATE
-      $<$<COMPILE_LANGUAGE:Fortran>:${WSJT_OPENMP_FORTRAN_FLAGS}>)
-    set_property (TARGET ${tgt} APPEND_STRING PROPERTY
-      LINK_FLAGS " ${WSJT_OPENMP_FORTRAN_FLAGS}")
-  endif ()
 endfunction ()
 
 if (WSJT_ENABLE_TESTS AND EXISTS ${CMAKE_SOURCE_DIR}/tests AND IS_DIRECTORY ${CMAKE_SOURCE_DIR}/tests)
