@@ -801,6 +801,12 @@ subroutine packbits(dbits,nsymd,m0,sym)
       lrof=len_trim(rof)
       ispfx=(llof.gt.0 .and. llof.le.4)
       issfx=(lrof.gt.0 .and. lrof.le.3)
+      do i=1,llof
+         if(lof(i:i).lt.' ') ispfx=.false.
+      enddo
+      do i=1,lrof
+         if(rof(i:i).lt.' ') issfx=.false.
+      enddo
       invalid=.not.(ispfx.or.issfx)
       if(ispfx.and.issfx) then
          if(llof.lt.3) issfx=.false.
@@ -817,6 +823,7 @@ subroutine packbits(dbits,nsymd,m0,sym)
 
       if(invalid) then
          k=-1
+         callsign=callsign0
       else
          if(ispfx) then
             tpfx=lof(1:4)
@@ -936,8 +943,7 @@ subroutine packbits(dbits,nsymd,m0,sym)
    else if(c.ge.' ') then
       n=36
    else
-      Print*,'Invalid character in callsign ',c,' ',ichar(c)
-      stop
+      n=-1
    endif
    nchar=n
 
