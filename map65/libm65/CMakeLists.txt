@@ -202,6 +202,7 @@ add_executable (mapsim mapsim.f90)
 add_dependencies(mapsim m65impl)
 target_include_directories(mapsim PRIVATE ${CMAKE_BINARY_DIR}/mod )
 target_link_libraries (mapsim m65impl ${FFTW3_LIBRARIES})
+wsjt_add_simulator_usage_test (mapsim "Usage:[ ]+mapsim")
 
 #add_executable (synctest synctest.f90)
 #target_link_libraries (synctest m65impl ${FFTW3_LIBRARIES})

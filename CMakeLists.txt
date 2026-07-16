@@ -1541,6 +1541,20 @@ function (wsjt_link_common_fortran tgt)
   target_link_libraries (${tgt} PUBLIC wsjt_fort_common)
 endfunction ()
 
+function (wsjt_add_simulator_usage_test tgt usage_pattern)
+  if (WSJT_ENABLE_TESTS)
+    string (TOLOWER "${tgt}" test_target)
+    add_test (
+      NAME test_${test_target}_usage
+      COMMAND $<TARGET_FILE:${tgt}>
+    )
+    set_tests_properties (test_${test_target}_usage PROPERTIES
+      PASS_REGULAR_EXPRESSION "${usage_pattern}"
+      TIMEOUT 10
+    )
+  endif ()
+endfunction ()
+
 # Link the OpenMP Fortran variant onto an app target (jt9, wsjtx).
 # Per-app stack/heap sizing stays at the call site.
 function (wsjt_link_fortran_openmp tgt)
@@ -1581,9 +1595,11 @@ wsjt_link_common_fortran (test_snr)
 
 add_executable (q65sim lib/qra/q65/q65sim.f90)
 wsjt_link_common_fortran (q65sim)
+wsjt_add_simulator_usage_test (q65sim "Usage:[ ]+q65sim")
 
 add_executable (EchoCallSim lib/EchoCallSim.f90)
 wsjt_link_common_fortran (EchoCallSim)
+wsjt_add_simulator_usage_test (EchoCallSim "Usage:[ ]+EchoCallSim")
 
 add_executable (testEchoCall lib/testEchoCall.f90)
 wsjt_link_common_fortran (testEchoCall)
@@ -1655,9 +1671,11 @@ wsjt_link_common_fortran (ft4code)
 
 add_executable (echosim lib/echosim.f90)
 wsjt_link_common_fortran (echosim)
+wsjt_add_simulator_usage_test (echosim "Usage 1:[ ]+echosim")
 
 add_executable (ft8sim lib/ft8/ft8sim.f90)
 wsjt_link_common_fortran (ft8sim)
+wsjt_add_simulator_usage_test (ft8sim "Usage:[ ]+ft8sim")
 
 add_executable (sfoxsim lib/superfox/sfoxsim.f90)
 wsjt_link_common_fortran (sfoxsim)
@@ -1679,6 +1697,7 @@ wsjt_link_common_fortran (ft4sim_mult)
 
 add_executable (fst4sim lib/fst4/fst4sim.f90)
 wsjt_link_common_fortran (fst4sim)
+wsjt_add_simulator_usage_test (fst4sim "Usage:[ ]+fst4sim")
 if (WIN32)
   set_target_properties (fst4sim PROPERTIES
     LINK_FLAGS -Wl,--stack,0x4000000,--heap,0x6000000
