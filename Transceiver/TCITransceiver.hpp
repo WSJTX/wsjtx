@@ -7,6 +7,7 @@
 
 #include "TransceiverFactory.hpp"
 #include "PollingTransceiver.hpp"
+#include "TCIStream.hpp"
 #include "commons.h"
 #include "Modulator/JttyPcmFifo.hpp"
 
@@ -20,31 +21,6 @@ typedef float REAL;
 class QWebSocket;
 class QByteArray;
 class QString;
-//
-// TCI Interface
-//
-
-typedef struct
-{
-	quint32 receiver; //!< software receiver number
-	quint32 sampleRate; //!< sampling frequency
-	quint32 format; //!< data field format (0 - int16, 1 - int24, 2 - int32, 3 - float32, 4 - float64)
-	quint32 codec; //!< compression algorithm (not implemented), always 0
-	quint32 crc; //!< checksum
-	quint32 length; //!< data field length number of float numbers
-	quint32 type; //!< data stream type
-	quint32 reserv[9]; //!< reserved
-	float data[8192]; //!< data field
-}Data_Stream;
-
-typedef enum
-{
-    Iq_Stream = 0,
-    RxAudioStream,
-    TxAudioStream,
-    TxChrono,
-}Stream_Type;
-
 class TCITransceiver final
   : public PollingTransceiver
 {
@@ -200,7 +176,7 @@ protected:
 
   }
 
-  float * load (qint16 sample, float * dest)
+  float * load (qint16 sample, quint32 channels, float * dest)
   
   {
     static constexpr float K1 = 0.999/0x7FFF;
@@ -208,10 +184,7 @@ protected:
     float value;
     if (tx_top_)  value = K1*static_cast<float>(sample);
     else  value = K2*static_cast<float>(sample);
-    *dest++ = value;
-    *dest++ = value;
-      
-    return dest;
+    return TciStream::write_channel_frame (value, channels, dest);
   }
   enum ModulatorState {Synchronizing, Active, Idle};
 
@@ -263,6 +236,7 @@ private:
   bool tci_Ready;
   bool ESDR3;
   bool HPSDR;
+  bool stream_channels_supported_ = false;
   bool tx_top_;
   bool band_change;
   bool band_change2;
@@ -325,10 +299,10 @@ private:
   // the input sample rate
   unsigned m_bufferPos;
   quint32 writeAudioData (float * data, qint32 maxSize);
-  static size_t const bytesPerFrame = 2;
+  static size_t const rxChannels = 2;
   // from Modulator
-  quint16 readAudioData (float * data, qint32 maxSize, qreal txVolume);
-  quint16 readJttyAudioData (float * data, qint32 maxSize, qreal txVolume);
+  quint16 readAudioData (float * data, qint32 maxSize, quint32 channels, qreal txVolume);
+  quint16 readJttyAudioData (float * data, qint32 maxSize, quint32 channels, qreal txVolume);
   qint16 postProcessSample (qint16 sample) const;
   bool m_quickClose = false;
 
