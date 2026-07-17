@@ -816,6 +816,10 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
     });
   connect (m_messageClient, &MessageClient::error, this, &MainWindow::networkError);
   connect (m_messageClient, &MessageClient::free_text, [this] (QString const& text, bool send) {
+      if (!MainWindow::message_alphabet.exactMatch (text)) {
+        qWarning () << "Ignoring UDP FreeText request with invalid message characters";
+        return;
+      }
       tx_watchdog (false);
       // send + non-empty text means set and send the free text
       // message, !send + non-empty text means set the current free

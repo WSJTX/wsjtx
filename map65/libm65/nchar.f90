@@ -16,6 +16,7 @@ contains
     else if(c.ge.' ') then
        n=36
     else
+      ! TODO: Return an invalid status instead of terminating MAP65.
       ! Print*,'Invalid character in callsign ',c,' ',ichar(c)
        stop 1
     endif
