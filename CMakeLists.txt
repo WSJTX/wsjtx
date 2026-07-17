@@ -1673,10 +1673,6 @@ add_executable (echosim lib/echosim.f90)
 wsjt_link_common_fortran (echosim)
 wsjt_add_simulator_usage_test (echosim "Usage 1:[ ]+echosim")
 
-add_executable (ft8sim lib/ft8/ft8sim.f90)
-wsjt_link_common_fortran (ft8sim)
-wsjt_add_simulator_usage_test (ft8sim "Usage:[ ]+ft8sim")
-
 add_executable (sfoxsim lib/superfox/sfoxsim.f90)
 wsjt_link_common_fortran (sfoxsim)
 
@@ -1921,6 +1917,10 @@ wsjt_enable_qt_automoc (record_time_signal)
 target_link_libraries (record_time_signal wsjt_cxx wsjt_qtmm wsjt_qt)
 
 add_executable (jt9 ${jt9_FSRCS} ${jt9_VERSION_RESOURCES})
+
+add_executable (ft8sim lib/ft8/ft8sim.f90 lib/print_version.c ${jt9_VERSION_RESOURCES})
+wsjt_link_common_fortran (ft8sim)
+wsjt_add_simulator_usage_test (ft8sim "Usage:[ ]+ft8sim")
 
 if (WSJT_ENABLE_TESTS)
   add_test (NAME test_jt9_version COMMAND $<TARGET_FILE:jt9> --version)
