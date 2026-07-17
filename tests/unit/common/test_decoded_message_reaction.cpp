@@ -9,6 +9,17 @@ class TestDecodedMessageReaction final
   Q_OBJECT
 
 private:
+  static QString legacyDecode(QString const& mode, QString const& payload,
+                              QString const& flags, bool lowConfidence)
+  {
+    auto field = payload.leftJustified(22, ' ', true);
+    if (lowConfidence) field[21] = '?';
+
+    auto line = QString {"0605 -10  0.3 0815 "} + mode + "  " + field;
+    if (!flags.isEmpty()) line += " " + flags;
+    return line;
+  }
+
   DecodedMessageReaction::ProcessMessageContext baseContext() const
   {
     DecodedMessageReaction::ProcessMessageContext context;
@@ -35,6 +46,67 @@ private:
   }
 
 private slots:
+  void classifiesLegacy72Messages_data()
+  {
+    QTest::addColumn<QString>("mode");
+    QTest::addColumn<QString>("payload");
+    QTest::addColumn<QString>("flags");
+    QTest::addColumn<bool>("lowConfidence");
+    QTest::addColumn<bool>("expected");
+
+    QTest::newRow("jt4-type1-prefix")
+      << "$" << "1A/KA1ABC WB9XYZ" << "f" << false << true;
+    QTest::newRow("jt9-type1-suffix")
+      << "@" << "KA1ABC WB9XYZ/A" << "f1" << false << true;
+    QTest::newRow("jt9-short-standard")
+      << "@" << "A1 B1" << "" << false << true;
+    QTest::newRow("jt65-ap-type1-prefix")
+      << "#" << "1A/KA1ABC WB9XYZ" << "a1" << false << true;
+    QTest::newRow("jt65-standard")
+      << "#" << "KA1ABC WB9XYZ R-22" << "d*2" << false << true;
+    QTest::newRow("jt4-type2-prefix")
+      << "$" << "CQ ZL4/KA1ABC" << "f" << false << true;
+    QTest::newRow("jt65-type2-suffix")
+      << "#" << "CQ WB9XYZ/VE4" << "a12" << false << true;
+    QTest::newRow("jt4-deep-low-confidence")
+      << "$" << "KA1ABC WB9XYZ R-22" << "d1" << true << true;
+    QTest::newRow("question-without-deep-flag")
+      << "$" << "KA1ABC WB9XYZ R-22" << "" << true << false;
+    QTest::newRow("jt65-ooo")
+      << "#" << "KA1ABC WB9XYZ EN34 OOO" << "" << false << true;
+    QTest::newRow("jt65-short-ooo")
+      << "#" << "A1 B1 OOO" << "" << false << true;
+    QTest::newRow("jt9-ooo-is-not-sideband")
+      << "@" << "KA1ABC WB9XYZ EN34 OOO" << "" << false << false;
+    QTest::newRow("trailing-structured-field")
+      << "#" << "A1A B1B 73 X" << "d1" << false << false;
+    QTest::newRow("blank")
+      << "@" << "" << "" << false << false;
+    QTest::newRow("single-token-call")
+      << "@" << "A1AAA" << "" << false << false;
+    QTest::newRow("short-token")
+      << "@" << "1B" << "" << false << false;
+    QTest::newRow("single-digit")
+      << "@" << "0" << "" << false << false;
+    QTest::newRow("leading-space-short-token")
+      << "@" << " A1" << "" << false << false;
+    QTest::newRow("leading-space-d-token")
+      << "@" << " D12" << "" << false << false;
+  }
+
+  void classifiesLegacy72Messages()
+  {
+    QFETCH(QString, mode);
+    QFETCH(QString, payload);
+    QFETCH(QString, flags);
+    QFETCH(bool, lowConfidence);
+    QFETCH(bool, expected);
+
+    DecodedText message {legacyDecode(mode, payload, flags, lowConfidence)};
+
+    QCOMPARE(message.isStandardMessage(), expected);
+  }
+
   void rejectsDecodeWithTooFewFields()
   {
     auto context = baseContext();

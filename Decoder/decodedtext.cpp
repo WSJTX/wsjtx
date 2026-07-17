@@ -7,6 +7,7 @@
 
 extern "C" {
   bool stdmsg_(char const * msg, fortran_charlen_t);
+  bool stdmsg72_(char const * msg, bool * is_jt65, fortran_charlen_t);
 }
 
 namespace
@@ -83,11 +84,18 @@ DecodedText::DecodedText (QString const& the_string)
           // remove DXCC entity and worked B4 status. TODO need a better way to do this
           message_ = message_.left (eom_pos + 1);
         }
-      // stdmsg is a Fortran routine that packs the text, unpacks it
-      // and compares the result
       auto message_c_string = message0_.toLocal8Bit ();
       message_c_string += QByteArray {37 - message_c_string.size (), ' '};
-      is_standard_ = stdmsg_(message_c_string.constData(),37);
+      auto const mode = string_.mid (column_mode + padding_, 1);
+      if (mode == "$" || mode == "@" || mode == "#")
+        {
+          bool is_jt65 = mode == "#";
+          is_standard_ = stdmsg72_(message_c_string.constData(), &is_jt65, 37);
+        }
+      else
+        {
+          is_standard_ = stdmsg_(message_c_string.constData(), 37);
+        }
     }
 };
 
