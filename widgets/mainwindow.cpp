@@ -374,6 +374,16 @@ int volatile itone[MAX_NUM_SYMBOLS];   //Audio tones for all Tx symbols
 int volatile itone0[MAX_NUM_SYMBOLS];  //Dummy array, data not actually used
 int volatile icw[NUM_CW_SYMBOLS];      //Dits for CW ID
 dec_data_t& dec_data = *new dec_data_t{};
+
+struct MainWindow::WavLoadResult
+{
+  std::vector<short> samples;
+  QString fileDateTime;
+  int frames {0};
+  int nutc {0};
+  int yymmdd {0};
+  bool valid {false};
+};
 int outBufSize;
 int rc;
 qint32  g_iptt {0};
@@ -768,7 +778,10 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
   // hook up the detector signals, slots and disposal
   connect (this, &MainWindow::FFTSize, m_detector, &Detector::setBlockSize);
-  connect(m_detector, &Detector::framesWritten, this, &MainWindow::dataSink);
+  auto const live_data_sink = [this] (qint64 frames) {
+    if (!m_wav_loading && !m_diskData) dataSink (frames);
+  };
+  connect(m_detector, &Detector::framesWritten, this, live_data_sink);
   connect (&m_audioThread, &QThread::finished, m_detector, &QObject::deleteLater);
 
   // setup the waterfall
@@ -1096,7 +1109,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   // hook up configuration signals
   connect (&m_config, &Configuration::leavingSettings, this, &MainWindow::handle_leavingSettings);
   connect (&m_config, &Configuration::transceiver_update, this, &MainWindow::handle_transceiver_update);
-  connect (&m_config, &Configuration::transceiver_TCIframesWritten, this, &MainWindow::dataSink);
+  connect (&m_config, &Configuration::transceiver_TCIframesWritten, this, live_data_sink);
   connect (&m_config, &Configuration::transceiver_TCImodActive, this, &MainWindow::tci_mod_active);
   connect (&m_config, &Configuration::transceiver_jtty_drained, this, &MainWindow::onJttyBackendDrained);
   connect (&m_config, &Configuration::transceiver_jtty_enqueue_accepted, this, &MainWindow::onJttyBackendEnqueueAccepted);
@@ -1291,7 +1304,9 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_ntx = 6;
   ui->txrb6->setChecked(true);
 
-  connect (&m_wav_future_watcher, &QFutureWatcher<void>::finished, this, &MainWindow::diskDat);
+  connect (&m_wav_future_watcher,
+           &QFutureWatcher<std::shared_ptr<WavLoadResult>>::finished,
+           this, &MainWindow::wav_file_loaded);
 
   connect(&watcher3, SIGNAL(finished()),this,SLOT(fast_decode_done()));
   
@@ -1571,6 +1586,8 @@ void MainWindow::on_the_minute ()
 //--------------------------------------------------- MainWindow destructor
 MainWindow::~MainWindow()
 {
+  // wav12 shares FFT state that main() releases after this window is destroyed.
+  m_wav_future_watcher.waitForFinished ();
   if(m_astroWidget) m_astroWidget.reset ();
   if(m_QSYMessageCreatorWidget) m_QSYMessageCreatorWidget.reset ();
   if(m_QSYMessageWidget) m_QSYMessageWidget.reset ();
@@ -4058,6 +4075,7 @@ void MainWindow::on_actionActiveStations_triggered()
 
 void MainWindow::on_actionOpen_triggered()                     //Open File
 {
+  if (m_decoderBusy || m_wav_loading) return;
   monitor (false);
 
   QString fname;
@@ -4077,6 +4095,8 @@ void MainWindow::on_actionOpen_triggered()                     //Open File
 
 void MainWindow::read_wav_file (QString const& fname)
 {
+  if (m_wav_loading) return;
+
   if (m_mode=="FT8" && (m_multithreadFT8 or m_freqNominal>45000000)) {
     m_nDecodes=0;                  // reset the decodes counter
     ndecodes_label.setText("");
@@ -4115,55 +4135,103 @@ void MainWindow::read_wav_file (QString const& fname)
     }
   }
 
-  m_wav_future_watcher.setFuture (QtConcurrent::run ([this, fname] {
+  int const nsamples=m_TRperiod * RX_SAMPLE_RATE;
+  int const sample_capacity=sizeof (dec_data.d2) / sizeof (dec_data.d2[0]);
+  int const sample_limit=std::min (nsamples, sample_capacity);
+  m_decode_button_enabled_before_wav=ui->DecodeButton->isEnabled ();
+  m_wav_loading=true;
+  set_dec_data_input_blocked (true);
+  ui->DecodeButton->setEnabled (false);
+  update_wav_file_actions ();
+  m_wav_future=QtConcurrent::run ([fname, sample_limit] {
+    auto result=std::make_shared<WavLoadResult> ();
     auto basename = fname.mid (fname.lastIndexOf ('/') + 1);
     auto pos = fname.indexOf (".wav", 0, Qt::CaseInsensitive);
     int i1=fname.indexOf(".wav");
     int i3=fname.lastIndexOf("/");
-    // global variables and threads do not mix well, this needs changing
-    dec_data.params.nutc = 0;
     if (pos > 0) {
       if (i1-i3 > 13) {
-        dec_data.params.nutc = basename.mid(7, 6).toInt();
-        m_fileDateTime=basename.mid(0, 13);
+        result->nutc = basename.mid(7, 6).toInt();
+        result->fileDateTime=basename.mid(0, 13);
       } else {
         if (pos == fname.indexOf ('_', -11) + 7) {
-          dec_data.params.nutc = fname.mid (pos - 6, 6).toInt ();
-          m_fileDateTime=fname.mid(pos-13,13);
+          result->nutc = fname.mid (pos - 6, 6).toInt ();
+          result->fileDateTime=fname.mid(pos-13,13);
         } else {
-          dec_data.params.nutc = 100 * fname.mid (pos - 4, 4).toInt ();
-          m_fileDateTime=fname.mid(pos-11,11);
+          result->nutc = 100 * fname.mid (pos - 4, 4).toInt ();
+          result->fileDateTime=fname.mid(pos-11,11);
         }
       }
     }
-    int const nsamples=m_TRperiod * RX_SAMPLE_RATE;
-    int const sample_capacity=sizeof (dec_data.d2) / sizeof (dec_data.d2[0]);
-    int const sample_limit=std::min (nsamples, sample_capacity);
     auto const wav=Radio::WavFile::load (fname, sample_limit);
     if(wav.isValid ()) {
-      std::memset (dec_data.d2, 0, sizeof (dec_data.d2[0]) * sample_limit);
+      result->samples.assign (sample_limit, 0);
       if (!wav.samples.isEmpty ()) {
-        std::memcpy (dec_data.d2, wav.samples.constData (), wav.samples.size ());
+        std::memcpy (result->samples.data (), wav.samples.constData (), wav.samples.size ());
       }
       int frames_read=wav.frames;
       if (11025 == wav.format.sampleRate ()) {
+        int constexpr resampled_capacity=60 * RX_SAMPLE_RATE;
+        result->samples.resize (std::max (sample_limit, resampled_capacity), 0);
         short sample_size = wav.format.sampleSize ();
-        wav12_ (dec_data.d2, dec_data.d2, &frames_read, &sample_size);
+        wav12_ (result->samples.data (), result->samples.data (), &frames_read, &sample_size);
+        frames_read=std::min (frames_read, sample_limit);
+        result->samples.resize (sample_limit);
       }
-      dec_data.params.kin = frames_read;
-      dec_data.params.newdat = 1;
-    } else {
-      dec_data.params.kin = 0;
-      dec_data.params.newdat = 0;
+      result->frames=frames_read;
+      result->valid=true;
     }
 
-    dec_data.params.yymmdd=basename.left(6).toInt();
-  }));
+    result->yymmdd=basename.left(6).toInt();
+    return result;
+  });
+  m_wav_future_watcher.setFuture (m_wav_future);
+}
+
+void MainWindow::wav_file_loaded ()
+{
+  if (!m_valid) return;
+
+  auto const result=m_wav_future_watcher.result ();
+  if (!result) return;
+
+  {
+    QMutexLocker lock {&dec_data_mutex ()};
+    dec_data.params.nutc=result->nutc;
+    dec_data.params.yymmdd=result->yymmdd;
+    if (result->valid) {
+      std::copy (result->samples.cbegin (), result->samples.cend (), dec_data.d2);
+      dec_data.params.kin=result->frames;
+      dec_data.params.newdat=1;
+    } else {
+      dec_data.params.kin=0;
+      dec_data.params.newdat=0;
+    }
+  }
+  m_fileDateTime=result->fileDateTime;
+  diskDat ();
+  if (!m_valid) return;
+
+  set_dec_data_input_blocked (false);
+  m_wav_loading=false;
+  if (!m_decoderBusy) {
+    ui->DecodeButton->setEnabled (m_decode_button_enabled_before_wav);
+  }
+  update_wav_file_actions ();
+}
+
+void MainWindow::update_wav_file_actions ()
+{
+  bool const enabled=!m_decoderBusy && !m_wav_loading;
+  ui->actionOpen->setEnabled(enabled);
+  ui->actionOpen_next_in_directory->setEnabled(enabled);
+  ui->actionDecode_remaining_files_in_directory->setEnabled(enabled);
+  ui->monitorButton->setEnabled(!m_wav_loading);
 }
 
 void MainWindow::on_actionOpen_next_in_directory_triggered()   //Open Next
 {
-  if(m_decoderBusy) return;
+  if(m_decoderBusy || m_wav_loading) return;
   monitor (false);
   int i,len;
   QFileInfo fi(m_path);
@@ -4192,7 +4260,7 @@ void MainWindow::on_actionOpen_next_in_directory_triggered()   //Open Next
 //Open all remaining files
 void MainWindow::on_actionDecode_remaining_files_in_directory_triggered()
 {
-  if(m_decoderBusy) return;
+  if(m_decoderBusy || m_wav_loading) return;
   m_loopall=true;
   on_actionOpen_next_in_directory_triggered();
 }
@@ -4213,6 +4281,7 @@ void MainWindow::diskDat()                                   //diskDat()
       dec_data.params.npts8=k/8;
       dataSink(k);
       qApp->processEvents();                                //Update the waterfall
+      if (!m_valid) return;
     }
   } else {
     MessageBox::information_message(this, tr("No data read from disk. Wrong file format?"));
@@ -5582,10 +5651,8 @@ void MainWindow::decodeBusy(bool b)                             //decodeBusy()
     m_optimizingProgress.reset ();
   }
   m_decoderBusy=b;
-  ui->DecodeButton->setEnabled(!b);
-  ui->actionOpen->setEnabled(!b);
-  ui->actionOpen_next_in_directory->setEnabled(!b);
-  ui->actionDecode_remaining_files_in_directory->setEnabled(!b);
+  ui->DecodeButton->setEnabled(!b && !m_wav_loading);
+  update_wav_file_actions ();
 
   statusUpdate ();
 }
@@ -6151,7 +6218,7 @@ void MainWindow::guiUpdate()
     }
   }
 
-  if(m_startAnother) {
+  if(m_startAnother && !m_wav_loading) {
     if(m_mode=="MSK144") {
       m_wait++;
     }

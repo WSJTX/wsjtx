@@ -82,6 +82,11 @@ extern "C" {
 
 void MainWindow::on_monitorButton_clicked (bool checked)
 {
+  if (m_wav_loading) {
+    ui->monitorButton->setChecked (false);
+    return;
+  }
+
   if (!m_transmitting) {
     auto prior = m_monitoring;
     monitor (checked);
@@ -197,6 +202,11 @@ void MainWindow::on_pbBandHopping_clicked()
 
 void MainWindow::on_DecodeButton_clicked (bool /* checked */) //Decode request
 {
+  if (m_wav_loading) {
+    ui->DecodeButton->setChecked (false);
+    return;
+  }
+
   if(m_mode=="MSK144") {
     ui->DecodeButton->setChecked(false);
   } else if(m_mode=="JTTY") {

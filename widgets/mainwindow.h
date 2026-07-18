@@ -34,6 +34,7 @@
 #include <QFutureWatcher>
 #include <QDateTime>
 #include <array>
+#include <memory>
 
 #include "MultiGeometryWidget.hpp"
 #include "NonInheritingProcess.hpp"
@@ -213,6 +214,8 @@ Q_SIGNALS:
   void skedFreq(double sf);
 
 private:
+  struct WavLoadResult;
+
   static constexpr int MaxActiveStationRows = 50;
   // Keep this matched with MAX_CALLERS in the Q65 q3list Fortran helpers.
   static constexpr int MaxQ65PileupCallers = 50;
@@ -848,6 +851,8 @@ private:
   bool    m_diskData;
   bool    m_loopall;
   bool    m_decoderBusy;
+  bool    m_wav_loading {false};
+  bool    m_decode_button_enabled_before_wav {false};
   bool    m_decoderDiagActive=false;
   bool    m_decoderDiagBusyRequestLogged=false;
   bool    m_decoderDiagOverrunLogged=false;
@@ -965,8 +970,8 @@ private:
   QLabel ndecodes_label;
   QProgressBar progressBar;
   QLabel watchdog_label;
-  QFuture<void> m_wav_future;
-  QFutureWatcher<void> m_wav_future_watcher;
+  QFuture<std::shared_ptr<WavLoadResult>> m_wav_future;
+  QFutureWatcher<std::shared_ptr<WavLoadResult>> m_wav_future_watcher;
   QFutureWatcher<void> watcher3;
   QFutureSynchronizer<QString> m_saveWAVSynchronizer;
   QFutureWatcher<QString> m_saveWAVWatcher;
@@ -1244,6 +1249,8 @@ private:
   QString sortHoundCalls(QString t, int isort, int max_dB);
   void rm_tb4(QString houndCall);
   void read_wav_file (QString const& fname);
+  void wav_file_loaded ();
+  void update_wav_file_actions ();
   void decodeDone ();
   bool subProcessFailed (QProcess *, int exit_code, QProcess::ExitStatus);
   void subProcessError (QProcess *, QProcess::ProcessError);

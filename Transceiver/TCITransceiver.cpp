@@ -1032,6 +1032,8 @@ void TCITransceiver::poll_jtty_drain ()
 
 quint32 TCITransceiver::writeAudioData (float * data, qint32 maxSize)
 {
+  if (dec_data_input_blocked ()) return maxSize;
+
   static unsigned mstr0=999999;
   QVector<qint64> frame_counts;
   qint64 ms0 = QDateTime::currentMSecsSinceEpoch() % 86400000;
@@ -1039,6 +1041,7 @@ quint32 TCITransceiver::writeAudioData (float * data, qint32 maxSize)
 
   if(data == NULL) {
     QMutexLocker lock {&dec_data_mutex ()};
+    if (dec_data_input_blocked ()) return maxSize;
     if(mstr < mstr0/2) {              //When mstr has wrapped around to 0, restart the buffer
       dec_data.params.kin = 0;
       m_bufferPos = 0;
@@ -1057,6 +1060,10 @@ quint32 TCITransceiver::writeAudioData (float * data, qint32 maxSize)
 
   {
     QMutexLocker lock {&dec_data_mutex ()};
+    if (dec_data_input_blocked ()) {
+      free(data1);
+      return maxSize;
+    }
 
     if(mstr < mstr0/2) {              //When mstr has wrapped around to 0, restart the buffer
       dec_data.params.kin = 0;
@@ -1188,8 +1195,8 @@ void TCITransceiver::do_audio (bool on)
   TRACE_CAT ("TCITransceiver", on << state ());
   if (on) {
     QMutexLocker lock {&dec_data_mutex ()};
-    dec_data.params.kin = 0;
     m_bufferPos = 0;
+    if (!dec_data_input_blocked ()) dec_data.params.kin = 0;
   }
   audio_ = on;
 }

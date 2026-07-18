@@ -47,13 +47,14 @@ bool Detector::reset ()
 void Detector::clear ()
 {
   QMutexLocker lock {&dec_data_mutex ()};
+  m_bufferPos = 0;
+  if (dec_data_input_blocked ()) return;
 
   // set index to roughly where we are in time (1ms resolution)
   // qint64 now (QDateTime::currentMSecsSinceEpoch ());
   // unsigned msInPeriod ((now % 86400000LL) % (m_period * 1000));
   // dec_data.params.kin = qMin ((msInPeriod * m_frameRate) / 1000, static_cast<unsigned> (sizeof (dec_data.d2) / sizeof (dec_data.d2[0])));
   dec_data.params.kin = 0;
-  m_bufferPos = 0;
 
   // fill buffer with zeros (G4WJS commented out because it might cause decoder hangs)
   // qFill (dec_data.d2, dec_data.d2 + sizeof (dec_data.d2) / sizeof (dec_data.d2[0]), 0);
@@ -61,6 +62,8 @@ void Detector::clear ()
 
 qint64 Detector::writeData (char const * data, qint64 maxSize)
 {
+  if (dec_data_input_blocked ()) return maxSize;
+
   static unsigned mstr0=999999;
   QVector<qint64> frame_counts;
   qint64 ms0 = QDateTime::currentMSecsSinceEpoch() % 86400000;
@@ -68,6 +71,7 @@ qint64 Detector::writeData (char const * data, qint64 maxSize)
 
   {
     QMutexLocker lock {&dec_data_mutex ()};
+    if (dec_data_input_blocked ()) return maxSize;
     if(mstr < mstr0) {              //When mstr has wrapped around to 0, restart the buffer
       dec_data.params.kin = 0;
       m_bufferPos = 0;
