@@ -15,7 +15,7 @@ subroutine decode_echo(id2,searching,rxcall)
   complex c2(0:NZ)         !Analytic data with shifted tone freqs
   character*6 rxcall       !The recovered callsign
   real s(0:NSPS-1)         !Spectrum for one received character
-  real p(0:NSPS-1,6)       !Summed spectra for all six received characters
+  real, save :: p(0:NSPS-1,6)=0. !Summed spectra for six characters
   real a(3)
   character*37 c
   common/echocom/nclearave,nsum,blue(4096),red(4096)
