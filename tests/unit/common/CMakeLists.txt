@@ -31,6 +31,13 @@ add_executable (test_fox_guard_bands
 target_link_libraries (test_fox_guard_bands Qt5::Test)
 add_test (NAME test_fox_guard_bands COMMAND test_fox_guard_bands)
 
+add_executable (test_highlighting_rules
+  test_highlighting_rules.cpp
+  ${CMAKE_SOURCE_DIR}/HighlightingRules.cpp
+)
+target_link_libraries (test_highlighting_rules Qt5::Test)
+add_test (NAME test_highlighting_rules COMMAND test_highlighting_rules)
+
 add_executable (test_tx_start_policy
   test_tx_start_policy.cpp
 )

@@ -115,6 +115,7 @@
 #include "PrefixSuffix.hpp"
 #include "CountryNames.hpp"
 #include "HelpText.hpp"
+#include "HighlightingRules.hpp"
 #include "Audio/WavFile.hpp"
 #include "WSJTXLogging.hpp"
 #include "Logger.hpp"
@@ -2606,11 +2607,13 @@ void MainWindow::fastSink(qint64 frames)
         }
         // highlight directional calls
         if (tw.size () > 2) {
-          if (m_config.highlight_orange() && tw[0]=="CQ" && m_config.highlight_orange_callsigns().contains("," + tw[1] + ",")) {
+          if (m_config.highlight_orange() && tw[0]=="CQ"
+              && HighlightingRules::matchesDirectionalCall(m_config.highlight_orange_callsigns(), tw[1])) {
             ui->decodedTextBrowser->highlight_callsign(tw[1], QColor(225,75,0), QColor(255,255,255), true);
             if (m_config.alert_Enabled() && m_config.alert_Wanted() && !m_muted && tw[1]!="") play_Wanted = true;
           }
-          if (m_config.highlight_blue() && tw[0]=="CQ" && m_config.highlight_blue_callsigns().contains("," + tw[1] + ",")) {
+          if (m_config.highlight_blue() && tw[0]=="CQ"
+              && HighlightingRules::matchesDirectionalCall(m_config.highlight_blue_callsigns(), tw[1])) {
             ui->decodedTextBrowser->highlight_callsign(tw[1], QColor(0,100,255), QColor(255,255,255), true);
             if (m_config.alert_Enabled() && m_config.alert_Wanted() && !m_muted && tw[1]!="") play_Wanted = true;
           }
@@ -14760,11 +14763,13 @@ void MainWindow::applyHighlighting(const DecodedText& decodedtext, DisplayText *
       tw=text.mid(22).split(" ",SkipEmptyParts);
     }
     if (tw.size() > 2) {
-      if (m_config.highlight_orange() && tw[0]=="CQ" && m_config.highlight_orange_callsigns().contains("," + tw[1] + ",")) {
+      if (m_config.highlight_orange() && tw[0]=="CQ"
+          && HighlightingRules::matchesDirectionalCall(m_config.highlight_orange_callsigns(), tw[1])) {
         decodePane->highlight_callsign(tw[1], QColor(225,75,0), QColor(255,255,255), true);
         if (updateAlertState && m_config.alert_Enabled() && m_config.alert_Wanted() && !m_muted && tw[1]!="") play_Wanted = true;
       }
-      if (m_config.highlight_blue() && tw[0]=="CQ" && m_config.highlight_blue_callsigns().contains("," + tw[1] + ",")) {
+      if (m_config.highlight_blue() && tw[0]=="CQ"
+          && HighlightingRules::matchesDirectionalCall(m_config.highlight_blue_callsigns(), tw[1])) {
         decodePane->highlight_callsign(tw[1], QColor(0,100,255), QColor(255,255,255), true);
         if (updateAlertState && m_config.alert_Enabled() && m_config.alert_Wanted() && !m_muted && tw[1]!="") play_Wanted = true;
       }
