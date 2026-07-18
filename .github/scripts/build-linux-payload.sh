@@ -67,7 +67,7 @@ apt-get install -y --no-install-recommends \
   asciidoctor \
   rpm \
   python3 \
-  file xz-utils \
+  file xz-utils xauth xvfb \
   portaudio19-dev
 
 # ── 2. Build pFUnit if cache empty ───────────────────────────────────
@@ -140,7 +140,8 @@ echo "::endgroup::"
 echo "::group::wsjtx ctest"
 (
   cd wsjtx-build
-  QT_QPA_PLATFORM=offscreen ctest --output-on-failure --output-junit ctest-results.xml
+  QT_QPA_PLATFORM=xcb xvfb-run -a -s "-screen 0 1280x1024x24" \
+    ctest --output-on-failure --output-junit ctest-results.xml
 )
 echo "::endgroup::"
 

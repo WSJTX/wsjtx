@@ -72,7 +72,7 @@ runs:
           asciidoctor \
           rpm \
           python3 \
-          file xz-utils \
+          file xz-utils xauth xvfb \
           portaudio19-dev
 
     # ccache persists compiled objects across runs to cut rebuild time.
@@ -241,10 +241,10 @@ runs:
     - name: Run tests
       id: ctest
       shell: bash
-      run: ctest --output-on-failure --output-junit ctest-results.xml
+      run: xvfb-run -a -s "-screen 0 1280x1024x24" ctest --output-on-failure --output-junit ctest-results.xml
       working-directory: wsjtx-build
       env:
-        QT_QPA_PLATFORM: offscreen
+        QT_QPA_PLATFORM: xcb
 
     - name: Publish test summary
       if: always() && steps.ctest.conclusion != 'skipped'
