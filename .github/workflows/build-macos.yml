@@ -463,6 +463,26 @@ jobs:
       - name: Build and test targets
         run: cmake --build wsjtx-build -j"$(sysctl -n hw.ncpu)"
 
+      - name: Apply WSJT-X shared memory limits
+        run: |
+          python3 - <<'PY'
+          import plistlib
+          import subprocess
+
+          with open("Darwin/com.wsjtx.sysctl.plist", "rb") as source:
+              configuration = plistlib.load(source)
+
+          program = configuration["Program"]
+          arguments = configuration["ProgramArguments"]
+          if not arguments or arguments[0] != program:
+              raise SystemExit("shared memory plist ProgramArguments do not match Program")
+
+          subprocess.run(["sudo", *arguments], check=True)
+          subprocess.run(
+              [program, "kern.sysv.shmmax", "kern.sysv.shmall"], check=True
+          )
+          PY
+
       - name: Run tests
         id: ctest
         run: ctest --output-on-failure --output-junit ctest-results.xml
