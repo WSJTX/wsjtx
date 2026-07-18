@@ -2098,12 +2098,14 @@ void MainWindow::dataSink(qint64 frames)
         float hour=n/10000 + ((n/100)%100)/60.0 + (n%100)/3600.0;
         m_echoRunning=true;
         if(ndf<0 or ndf>30) ndf=0;
-	          //added for Bob KA1GT
-        double dgrd = m_astroWidget->getDgrd();
         QString t;
         if (!m_diskData) {
-            t = t.asprintf("%7.4f  %5.2f %7d %7.1f %5.1f %5d %5d %6d %6.1f %7.1f  %3d",hour,xlevel,
-                   nDopTotal,width,dgrd,echocom_.nsum,nqual,qRound(dfreq),sigdb,dBerr,ndf);
+            QByteArray dgrd {"NoVal"};
+            if (m_astroWidget) {
+              dgrd = QByteArray::number(m_astroWidget->getDgrd(), 'f', 1);
+            }
+            t = t.asprintf("%7.4f  %5.2f %7d %7.1f %5s %5d %5d %6d %6.1f %7.1f  %3d",hour,xlevel,
+                   nDopTotal,width,dgrd.constData(),echocom_.nsum,nqual,qRound(dfreq),sigdb,dBerr,ndf);
             t = t0 + t + "  " + rxcall;
         } else {
             t = t.asprintf("%7.4f  %5.2f %7d %7.1f       %5d %5d %6d %6.1f %7.1f  %3d",hour,xlevel,
