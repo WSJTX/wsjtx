@@ -499,7 +499,8 @@ QRegularExpression const MainWindow::non_r_db_regexp {"\\A[-+]{1}[0-9]{1,2}\\z"}
 MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
                        MultiSettings * multi_settings, QSharedMemory *shdmem,
                        unsigned downSampleFactor,
-                       QSplashScreen * splash, QProcessEnvironment const& env, QWidget *parent) :
+                       QSplashScreen * splash, QProcessEnvironment const& env,
+                       bool startup_smoke_test, QWidget *parent) :
   MultiGeometryWidget {parent},
   m_env {env},
   m_network_manager {this},
@@ -507,6 +508,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_splash {splash},
   m_revision {revision ()},
   m_multiple {multiple},
+  m_startup_smoke_test {startup_smoke_test},
   m_multi_settings {multi_settings},
   m_configurations_button {0},
   m_settings {multi_settings->settings ()},
@@ -1506,10 +1508,13 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
 void MainWindow::not_GA_warning_message ()
 {
-  MessageBox::critical_message (this,
-                                "This is a pre-release version of WSJT-X " + version (false) + " made\n"
-                                "available for testing purposes.  By design it will\n"
-                                "be nonfunctional after September 30, 2026.");
+  if (!m_startup_smoke_test)
+    {
+      MessageBox::critical_message (this,
+                                    "This is a pre-release version of WSJT-X " + version (false) + " made\n"
+                                    "available for testing purposes.  By design it will\n"
+                                    "be nonfunctional after September 30, 2026.");
+    }
   auto now = QDateTime::currentDateTimeUtc ();
   if (now >= QDateTime {{2026, 9, 30}, {23, 59, 59, 999}, Qt::UTC}) {
     Q_EMIT finished ();

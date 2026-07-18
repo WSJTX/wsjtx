@@ -501,6 +501,15 @@ jobs:
           path: wsjtx-build/ctest-results.xml
           if-no-files-found: ignore
 
+      - name: Upload WSJT-X startup diagnostics
+        if: failure() && steps.ctest.outcome == 'failure'
+        uses: actions/upload-artifact@v7
+        with:
+          name: wsjtx-startup-smoke-macos-${{ inputs.arch }}
+          path: wsjtx-build/startup-smoke-diagnostics
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Show ccache stats
         if: always()
         run: ccache --show-stats

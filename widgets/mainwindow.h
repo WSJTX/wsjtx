@@ -157,7 +157,7 @@ public:
 
   explicit MainWindow(QDir const& temp_directory, bool multiple, MultiSettings *,
                       QSharedMemory *shdmem, unsigned downSampleFactor,
-                      QSplashScreen *, QProcessEnvironment const&,
+                      QSplashScreen *, QProcessEnvironment const&, bool startup_smoke_test,
                       QWidget *parent = nullptr);
   ~MainWindow();
 
@@ -651,6 +651,7 @@ private:
   QSplashScreen * m_splash;
   QString m_revision;
   bool m_multiple;
+  bool m_startup_smoke_test;
   MultiSettings * m_multi_settings;
   QPushButton * m_configurations_button;
   QSettings * m_settings;

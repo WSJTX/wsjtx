@@ -1,4 +1,5 @@
 #include <iostream>
+#include <cstdlib>
 #include <exception>
 #include <stdexcept>
 #include <string>
@@ -29,6 +30,7 @@
 #include <QSplashScreen>
 #include <QCommandLineParser>
 #include <QCommandLineOption>
+#include <QTimer>
 #include <QSqlDatabase>
 #include <QSqlQuery>
 #include <QSqlError>
@@ -217,6 +219,7 @@ int main(int argc, char *argv[])
   auto const env = QProcessEnvironment::systemEnvironment ();
 
   ExceptionCatchingApplication a(argc, argv);
+  bool startup_smoke_test {false};
   try
     {
       // LOG_INfO ("+++++++++++++++++++++++++++ Resources ++++++++++++++++++++++++++++");
@@ -270,6 +273,11 @@ int main(int argc, char *argv[])
                                       , "Writable files in test location.  Use with caution, for testing only.");
       parser.addOption (test_option);
 
+      QCommandLineOption startup_smoke_test_option (
+        QStringList {} << "startup-smoke-test",
+        "Start the application, process initial GUI events, and exit.");
+      parser.addOption (startup_smoke_test_option);
+
       if (!parser.parse (a.arguments ()))
         {
           MessageBox::critical_message (nullptr, "Command line error", parser.errorText ());
@@ -289,11 +297,19 @@ int main(int argc, char *argv[])
             }
         }
 
-      QStandardPaths::setTestModeEnabled (parser.isSet (test_option));
+      startup_smoke_test = parser.isSet (startup_smoke_test_option);
+      auto const smoke_phase = [startup_smoke_test] (char const *phase) {
+        if (startup_smoke_test)
+          {
+            std::cerr << "WSJT-X startup smoke: " << phase << std::endl;
+          }
+      };
+      smoke_phase ("command line accepted");
+      QStandardPaths::setTestModeEnabled (parser.isSet (test_option) || startup_smoke_test);
 
       // support for multiple instances running from a single installation
       bool multiple {false};
-      if (parser.isSet (rig_option) || parser.isSet (test_option))
+      if (parser.isSet (rig_option) || parser.isSet (test_option) || startup_smoke_test)
         {
           auto temp_name = parser.value (rig_option);
           if (!temp_name.isEmpty ())
@@ -307,7 +323,7 @@ int main(int argc, char *argv[])
               a.setApplicationName (a.applicationName () + " - " + temp_name);
             }
 
-          if (parser.isSet (test_option))
+          if (parser.isSet (test_option) || startup_smoke_test)
             {
               a.setApplicationName (a.applicationName () + " - test");
             }
@@ -435,7 +451,7 @@ int main(int argc, char *argv[])
         {
           throw std::runtime_error {("Database Error: " + db.lastError ().text ()).toStdString ()};
         }
-
+      smoke_phase ("SQLite opened");
       // better performance traded for a risk of d/b corruption
       // on system crash or application crash
       // db.exec ("PRAGMA synchronous=OFF"); // system crash risk
@@ -443,6 +459,7 @@ int main(int argc, char *argv[])
       db.exec ("PRAGMA locking_mode=EXCLUSIVE");
 
       int result;
+      bool startup_smoke_ready {false};
       auto const& original_style_sheet = a.styleSheet ();
       do
         {
@@ -510,18 +527,34 @@ int main(int argc, char *argv[])
             {
               if (!mem_jt9.create (sizeof (dec_data)))
               {
-                splash.hide ();
-                MessageBox::critical_message (nullptr, a.translate ("main", "Shared memory error"),
-                                              a.translate ("main", "Unable to create shared memory segment"));
+                auto const shared_memory_error = mem_jt9.error ();
+                auto const shared_memory_error_text = mem_jt9.errorString ();
+                std::cerr << "WSJT-X startup: shared memory creation failed"
+                          << " (error " << static_cast<int> (shared_memory_error) << "): "
+                          << shared_memory_error_text.toStdString () << std::endl;
+                if (!startup_smoke_test)
+                  {
+                    splash.hide ();
+                    MessageBox::critical_message (
+                      nullptr, a.translate ("main", "Shared memory error"),
+                      a.translate ("main", "Unable to create shared memory segment"));
+                  }
                 throw std::runtime_error {"Shared memory error"};
               }
               LOG_INFO ("shmem size: " << mem_jt9.size ());
             }
           else
             {
-              splash.hide ();
-              MessageBox::critical_message (nullptr, a.translate ("main", "Sub-process error"),
-                                            a.translate ("main", "Failed to close orphaned jt9 process"));
+              std::cerr << "WSJT-X startup: orphaned jt9 shared memory segment remained after "
+                           "shutdown attempts"
+                        << std::endl;
+              if (!startup_smoke_test)
+                {
+                  splash.hide ();
+                  MessageBox::critical_message (
+                    nullptr, a.translate ("main", "Sub-process error"),
+                    a.translate ("main", "Failed to close orphaned jt9 process"));
+                }
               throw std::runtime_error {"Sub-process error"};
             }
           mem_jt9.lock ();
@@ -552,16 +585,51 @@ int main(int argc, char *argv[])
           QDir::setCurrent(qApp->applicationDirPath()); //This helps to find the SF executables
 
           // run the application UI
-          MainWindow w(temp_dir, multiple, &multi_settings, &mem_jt9, downSampleFactor, &splash, env);
+          smoke_phase ("constructing MainWindow");
+          MainWindow w(temp_dir, multiple, &multi_settings, &mem_jt9, downSampleFactor, &splash, env,
+                       startup_smoke_test);
+          smoke_phase ("MainWindow constructed");
 #ifdef Q_OS_WIN
           if (parser.isSet(handle_option)) {
               w.initMMTTY(parser.value(handle_option));
           }
 #endif
           w.show();
+          smoke_phase ("MainWindow shown");
+          if (startup_smoke_test)
+            {
+              QTimer::singleShot (1000, &w, [&a, &w, &smoke_phase, &startup_smoke_ready] {
+                smoke_phase ("event loop reached");
+                if (auto *modal = QApplication::activeModalWidget ())
+                  {
+                    std::cerr << "WSJT-X startup smoke: unexpected modal window: "
+                              << modal->windowTitle ().toStdString () << std::endl;
+                    modal->close ();
+                    w.close ();
+                    a.exit (EXIT_FAILURE);
+                    return;
+                  }
+                if (w.close ())
+                  {
+                    smoke_phase ("close accepted");
+                    startup_smoke_ready = true;
+                    a.quit ();
+                  }
+                else
+                  {
+                    std::cerr << "WSJT-X startup smoke: main window rejected close" << std::endl;
+                    a.exit (EXIT_FAILURE);
+                  }
+              });
+            }
           splash.raise ();
           QObject::connect (&a, SIGNAL (lastWindowClosed()), &a, SLOT (quit()));
           result = a.exec();
+          if (startup_smoke_test && !startup_smoke_ready)
+            {
+              std::cerr << "WSJT-X startup smoke: application exited before readiness" << std::endl;
+              result = EXIT_FAILURE;
+            }
 
           // ensure config switches start with the right style sheet
           a.setStyleSheet (original_style_sheet);
@@ -581,16 +649,27 @@ int main(int argc, char *argv[])
       fftwf_cleanup ();
 
       temp_dir.removeRecursively (); // clean up temp files
+      if (startup_smoke_test && !result)
+        {
+          smoke_phase ("cleanup complete");
+          std::cout << "WSJT-X startup smoke test passed" << std::endl;
+        }
       return result;
     }
   catch (std::exception const& e)
     {
-      MessageBox::critical_message (nullptr, "Fatal error", e.what ());
+      if (!startup_smoke_test)
+        {
+          MessageBox::critical_message (nullptr, "Fatal error", e.what ());
+        }
       std::cerr << "Error: " << e.what () << '\n';
     }
   catch (...)
     {
-      MessageBox::critical_message (nullptr, "Unexpected fatal error");
+      if (!startup_smoke_test)
+        {
+          MessageBox::critical_message (nullptr, "Unexpected fatal error");
+        }
       std::cerr << "Unexpected fatal error\n";
       throw;			// hoping the runtime might tell us more about the exception
     }

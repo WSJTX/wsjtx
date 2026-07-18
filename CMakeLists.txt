@@ -2061,6 +2061,28 @@ else ()
 endif ()
 target_link_libraries (wsjtx Qt5::SerialPort wsjt_cxx wsjt_qt wsjt_qtmm ${FFTW3_LIBRARIES} ${LIBM_LIBRARIES})
 
+if (WSJT_ENABLE_TESTS AND NOT WIN32)
+  if (APPLE)
+    add_test (
+      NAME test_wsjtx_startup
+      COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/test/run-wsjtx-startup-macos.sh"
+        "${CMAKE_BINARY_DIR}/startup-smoke-diagnostics"
+        "$<TARGET_FILE:wsjtx>" --startup-smoke-test --rig-name CTEST-STARTUP
+    )
+    set (wsjtx_startup_test_timeout 45)
+  else ()
+    add_test (
+      NAME test_wsjtx_startup
+      COMMAND $<TARGET_FILE:wsjtx> --startup-smoke-test --rig-name CTEST-STARTUP
+    )
+    set (wsjtx_startup_test_timeout 20)
+  endif ()
+  set_tests_properties (test_wsjtx_startup PROPERTIES
+    RUN_SERIAL TRUE
+    TIMEOUT ${wsjtx_startup_test_timeout}
+  )
+endif ()
+
 # make a library for WSJT-X UDP servers
 # add_library (wsjtx_udp SHARED ${UDP_library_CXXSRCS})
 add_library (wsjtx_udp-static STATIC ${UDP_library_CXXSRCS})
