@@ -6645,6 +6645,7 @@ QPushButton[state=&quot;ok&quot;] {
   <tabstop>decodedTextBrowser</tabstop>
   <tabstop>decodedTextBrowser2</tabstop>
   <tabstop>cbCQonly</tabstop>
+  <tabstop>cbBypass</tabstop>
   <tabstop>logQSOButton</tabstop>
   <tabstop>stopButton</tabstop>
   <tabstop>monitorButton</tabstop>
@@ -6656,8 +6657,47 @@ QPushButton[state=&quot;ok&quot;] {
   <tabstop>tuneButton</tabstop>
   <tabstop>cbMenus</tabstop>
   <tabstop>sbNB</tabstop>
+  <tabstop>bandComboBox</tabstop>
+  <tabstop>pb160</tabstop>
+  <tabstop>pb80</tabstop>
+  <tabstop>pb60</tabstop>
+  <tabstop>pb40</tabstop>
+  <tabstop>pb30</tabstop>
+  <tabstop>pb20</tabstop>
+  <tabstop>pb17</tabstop>
+  <tabstop>pb15</tabstop>
+  <tabstop>pb12</tabstop>
+  <tabstop>pb10</tabstop>
+  <tabstop>pb8</tabstop>
+  <tabstop>pb6</tabstop>
+  <tabstop>pb4</tabstop>
+  <tabstop>pb2</tabstop>
+  <tabstop>pb70</tabstop>
+  <tabstop>pb50</tabstop>
+  <tabstop>pb144</tabstop>
+  <tabstop>pb220</tabstop>
+  <tabstop>pb432</tabstop>
+  <tabstop>pb902</tabstop>
+  <tabstop>pb23</tabstop>
+  <tabstop>pb13</tabstop>
+  <tabstop>pb9</tabstop>
+  <tabstop>pb5G</tabstop>
+  <tabstop>pb10G</tabstop>
+  <tabstop>pb24G</tabstop>
+  <tabstop>labDialFreq</tabstop>
+  <tabstop>readFreq</tabstop>
+  <tabstop>houndButton</tabstop>
+  <tabstop>ft8Button</tabstop>
+  <tabstop>ft4Button</tabstop>
+  <tabstop>msk144Button</tabstop>
+  <tabstop>q65Button</tabstop>
+  <tabstop>jt65Button</tabstop>
   <tabstop>dxCallEntry</tabstop>
   <tabstop>dxGridEntry</tabstop>
+  <tabstop>DX_Call_Button</tabstop>
+  <tabstop>lookupButton</tabstop>
+  <tabstop>addButton</tabstop>
+  <tabstop>ignoreButton</tabstop>
   <tabstop>txFirstCheckBox</tabstop>
   <tabstop>TxFreqSpinBox</tabstop>
   <tabstop>pbR2T</tabstop>
@@ -6677,30 +6717,81 @@ QPushButton[state=&quot;ok&quot;] {
   <tabstop>cbShMsgs</tabstop>
   <tabstop>cbFast9</tabstop>
   <tabstop>cbAutoSeq</tabstop>
+  <tabstop>respondComboBox</tabstop>
   <tabstop>cbTx6</tabstop>
   <tabstop>cbSWL</tabstop>
   <tabstop>pbBestSP</tabstop>
   <tabstop>measure_check_box</tabstop>
   <tabstop>tabWidget</tabstop>
+  <tabstop>txrb1</tabstop>
+  <tabstop>txrb2</tabstop>
+  <tabstop>txrb3</tabstop>
+  <tabstop>txrb4</tabstop>
+  <tabstop>txrb5</tabstop>
+  <tabstop>txrb6</tabstop>
+  <tabstop>txb1</tabstop>
+  <tabstop>txb2</tabstop>
+  <tabstop>txb3</tabstop>
+  <tabstop>txb4</tabstop>
+  <tabstop>txb5</tabstop>
+  <tabstop>txb6</tabstop>
   <tabstop>genStdMsgsPushButton</tabstop>
   <tabstop>tx1</tabstop>
-  <tabstop>txrb1</tabstop>
-  <tabstop>txb1</tabstop>
   <tabstop>tx2</tabstop>
-  <tabstop>txrb2</tabstop>
-  <tabstop>txb2</tabstop>
   <tabstop>tx3</tabstop>
-  <tabstop>txrb3</tabstop>
-  <tabstop>txb3</tabstop>
   <tabstop>tx4</tabstop>
-  <tabstop>txrb4</tabstop>
-  <tabstop>txb4</tabstop>
   <tabstop>tx5</tabstop>
-  <tabstop>txrb5</tabstop>
-  <tabstop>txb5</tabstop>
   <tabstop>tx6</tabstop>
-  <tabstop>txrb6</tabstop>
-  <tabstop>txb6</tabstop>
+  <tabstop>houndQueueTextBrowser</tabstop>
+  <tabstop>foxTxListTextBrowser</tabstop>
+  <tabstop>comboBoxHoundSort</tabstop>
+  <tabstop>sbNlist</tabstop>
+  <tabstop>sbNslots</tabstop>
+  <tabstop>comboBoxCQ</tabstop>
+  <tabstop>cbWorkDupes</tabstop>
+  <tabstop>cbMoreCQs</tabstop>
+  <tabstop>pbFoxReset</tabstop>
+  <tabstop>pbFreeText</tabstop>
+  <tabstop>cbSendMsg</tabstop>
+  <tabstop>cb160m</tabstop>
+  <tabstop>cb80m</tabstop>
+  <tabstop>cb40m</tabstop>
+  <tabstop>cb30m</tabstop>
+  <tabstop>cb20m</tabstop>
+  <tabstop>cb17m</tabstop>
+  <tabstop>cb15m</tabstop>
+  <tabstop>cb12m</tabstop>
+  <tabstop>cb10m</tabstop>
+  <tabstop>cb6m</tabstop>
+  <tabstop>cb4m</tabstop>
+  <tabstop>cb2m</tabstop>
+  <tabstop>cb70cm</tabstop>
+  <tabstop>cb80mFT4</tabstop>
+  <tabstop>cb40mFT4</tabstop>
+  <tabstop>cb30mFT4</tabstop>
+  <tabstop>cb20mFT4</tabstop>
+  <tabstop>cb17mFT4</tabstop>
+  <tabstop>cb15mFT4</tabstop>
+  <tabstop>cb12mFT4</tabstop>
+  <tabstop>cb10mFT4</tabstop>
+  <tabstop>cb2mMSK</tabstop>
+  <tabstop>cbQRG1</tabstop>
+  <tabstop>sbQRG1</tabstop>
+  <tabstop>cbQRG2</tabstop>
+  <tabstop>sbQRG2</tabstop>
+  <tabstop>cbQRG3</tabstop>
+  <tabstop>sbQRG3</tabstop>
+  <tabstop>cbQRG4</tabstop>
+  <tabstop>sbQRG4</tabstop>
+  <tabstop>cbQRG5</tabstop>
+  <tabstop>sbQRG5</tabstop>
+  <tabstop>cbQRG6</tabstop>
+  <tabstop>sbQRG6</tabstop>
+  <tabstop>cbQRG7</tabstop>
+  <tabstop>sbQRG7</tabstop>
+  <tabstop>cbQRG8</tabstop>
+  <tabstop>sbQRG8</tabstop>
+  <tabstop>pbBandHopping</tabstop>
   <tabstop>WSPRfreqSpinBox</tabstop>
   <tabstop>sbFST4W_RxFreq</tabstop>
   <tabstop>sbFST4W_FTol</tabstop>
@@ -6716,7 +6807,6 @@ QPushButton[state=&quot;ok&quot;] {
   <tabstop>TxPowerComboBox</tabstop>
   <tabstop>outAttenuation</tabstop>
   <tabstop>sbSerialNumber</tabstop>
-  <tabstop>DX_Call_Button</tabstop>
  </tabstops>
  <resources/>
  <connections/>

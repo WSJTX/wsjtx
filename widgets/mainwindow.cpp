@@ -24,6 +24,10 @@
 #include <QTextBlock>
 #include <QProgressBar>
 #include <QLineEdit>
+#include <QFocusFrame>
+#include <QFrame>
+#include <QWidget>
+#include <QTabBar>
 #include <QRegExpValidator>
 #include <QRegExp>
 #include <QRegularExpression>
@@ -676,8 +680,26 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 {
   programStart = true;
   ui->setupUi(this);
+  m_tx_message_button_group = new QButtonGroup {this};
+  m_tx_message_button_group->addButton (ui->txrb1, 1);
+  m_tx_message_button_group->addButton (ui->txrb2, 2);
+  m_tx_message_button_group->addButton (ui->txrb3, 3);
+  m_tx_message_button_group->addButton (ui->txrb4, 4);
+  m_tx_message_button_group->addButton (ui->txrb5, 5);
+  m_tx_message_button_group->addButton (ui->txrb6, 6);
+  m_main_window_focus_frame = new QFocusFrame {this};
+  m_main_window_focus_frame->hide ();
+  m_message_selector_focus_frame = new QFrame {ui->tabWidget->tabBar ()};
+  m_message_selector_focus_frame->setAttribute (Qt::WA_TransparentForMouseEvents);
+  m_message_selector_focus_frame->setStyleSheet (
+    "QFrame { border: 2px solid #0a84ff; border-radius: 4px; background: transparent; }");
+  m_message_selector_focus_frame->setGeometry (ui->tabWidget->tabBar ()->rect ());
+  m_message_selector_focus_frame->hide ();
   setUnifiedTitleAndToolBarOnMac (true);
   createStatusBar();
+  updateMainWindowAccessibility();
+  registerMainWindowFocusControls();
+  m_event_filter_ready = true;
   add_child_to_event_filter (this);
   ui->dxGridEntry->setValidator (new MaidenheadLocatorValidator {this});
   ui->dxCallEntry->setValidator (new CallsignValidator {this});
@@ -948,15 +970,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
       MessageBox::warning_message (this, tr ("Error Loading LotW Users Data"), reason);
     }, Qt::QueuedConnection);
 
-  QButtonGroup* txMsgButtonGroup = new QButtonGroup {this};
-  txMsgButtonGroup->addButton(ui->txrb1,1);
-  txMsgButtonGroup->addButton(ui->txrb2,2);
-  txMsgButtonGroup->addButton(ui->txrb3,3);
-  txMsgButtonGroup->addButton(ui->txrb4,4);
-  txMsgButtonGroup->addButton(ui->txrb5,5);
-  txMsgButtonGroup->addButton(ui->txrb6,6);
   set_dateTimeQSO(-1);
-  connect(txMsgButtonGroup,SIGNAL(buttonClicked(int)),SLOT(set_ntx(int)));
+  connect (m_tx_message_button_group, SIGNAL (buttonClicked (int)), SLOT (set_ntx (int)));
   connect (ui->decodedTextBrowser, &DisplayText::selectCallsign, this, &MainWindow::doubleClickOnCall2);
   connect (ui->decodedTextBrowser2, &DisplayText::selectCallsign, this, &MainWindow::doubleClickOnCall);
   connect (ui->houndQueueTextBrowser, &DisplayText::selectCallsign, this, &MainWindow::doubleClickOnFoxQueue);
@@ -3488,10 +3503,69 @@ void MainWindow::statusChanged()
 
 bool MainWindow::eventFilter (QObject * object, QEvent * event)
 {
+  if (!m_event_filter_ready)
+    {
+      return QObject::eventFilter (object, event);
+    }
+
   switch (event->type())
     {
+    case QEvent::FocusIn:
+      {
+        auto *widget = qobject_cast<QWidget *> (object);
+        auto const indicator_widgets = focusIndicatorWidgets ();
+        auto const is_focus_indicator_target = std::find (indicator_widgets.cbegin (), indicator_widgets.cend (), widget)
+          != indicator_widgets.cend ();
+        if (is_focus_indicator_target)
+          {
+            if (widget == ui->tabWidget->tabBar ())
+              {
+                m_message_selector_focus_frame->setGeometry (widget->rect ());
+                m_message_selector_focus_frame->raise ();
+                m_message_selector_focus_frame->show ();
+              }
+            else
+              {
+                m_main_window_focus_frame->setWidget (widget);
+                m_main_window_focus_frame->raise ();
+                m_main_window_focus_frame->show ();
+              }
+          }
+        break;
+      }
+
+    case QEvent::FocusOut:
+      if (object == ui->tabWidget->tabBar ())
+        {
+          m_message_selector_focus_frame->hide ();
+        }
+      if (m_main_window_focus_frame->widget () == object)
+        {
+          m_main_window_focus_frame->hide ();
+          m_main_window_focus_frame->setWidget (nullptr);
+        }
+      break;
+
     case QEvent::KeyPress:
-      // fall through
+      {
+        auto const key_event = static_cast<QKeyEvent *> (event);
+        auto const handled = switchMainWindowTab (key_event) || switchTxNextMessage (key_event);
+        tx_watchdog (false);
+        if (handled) return true;
+        break;
+      }
+
+    case QEvent::EnabledChange:
+      {
+        auto const buttons = txNextButtons ();
+        if (std::find (buttons.cbegin (), buttons.cend (), qobject_cast<QRadioButton *> (object))
+            != buttons.cend ())
+          {
+            QTimer::singleShot (0, this, &MainWindow::updateTxNextFocusPolicies);
+          }
+        break;
+      }
+
     case QEvent::MouseButtonPress:
       // reset the Tx watchdog
       tx_watchdog (false);
@@ -3551,6 +3625,19 @@ void MainWindow::createStatusBar()                           //createStatusBar
 
   statusBar ()->addPermanentWidget (&watchdog_label);
   update_watchdog_label ();
+
+  statusBar ()->setAccessibleName (tr ("Application status"));
+  statusBar ()->setAccessibleDescription (tr ("Current WSJT-X status messages and operating indicators."));
+
+  tx_status_label.setAccessibleName (tr ("Transmit status"));
+  config_label.setAccessibleName (tr ("Configuration"));
+  mode_label.setAccessibleName (tr ("Mode"));
+  ndecodes_label.setAccessibleName (tr ("Decode count"));
+  last_tx_label.setAccessibleName (tr ("Last transmitted message"));
+  band_hopping_label.setAccessibleName (tr ("Power and SWR status"));
+  progressBar.setAccessibleName (tr ("Decode progress"));
+  progressBar.setAccessibleDescription (tr ("Progress for the current decode operation."));
+  watchdog_label.setAccessibleName (tr ("Transmit watchdog"));
 }
 
 void MainWindow::setup_status_bar (bool vhf)
@@ -8478,6 +8565,306 @@ void MainWindow::setDXInfo(QString const& call, QString const& grid)
 {
   ui->dxCallEntry->setText(call);
   ui->dxGridEntry->setText(grid);
+}
+
+void MainWindow::updateMainWindowAccessibility()
+{
+  auto const tooltipDescription = [] (QWidget *widget)
+    {
+      if (widget && widget->accessibleDescription ().isEmpty ()) widget->setAccessibleDescription (widget->toolTip ());
+    };
+
+  ui->dxCallEntry->setAccessibleName (tr ("DX call"));
+  ui->dxCallEntry->setAccessibleDescription (tr ("Callsign of station to be worked."));
+  ui->dxGridEntry->setAccessibleName (tr ("DX grid"));
+  ui->dxGridEntry->setAccessibleDescription (tr ("Locator of station to be worked."));
+  ui->DX_Call_Button->setAccessibleName (tr ("Wait and Call"));
+  ui->DX_Call_Button->setAccessibleDescription (ui->DX_Call_Button->toolTip ());
+  ui->lookupButton->setAccessibleName (tr ("Lookup DX call"));
+  ui->addButton->setAccessibleName (tr ("Add DX call"));
+  ui->ignoreButton->setAccessibleName (tr ("Ignore DX call"));
+
+  ui->respondComboBox->setAccessibleName (tr ("CQ response mode"));
+  ui->respondComboBox->setAccessibleDescription (tr ("Automatic response selection for stations replying to your CQ."));
+  ui->TxFreqSpinBox->setAccessibleName (tr ("Transmit audio frequency"));
+  ui->RxFreqSpinBox->setAccessibleName (tr ("Receive audio frequency"));
+  ui->rptSpinBox->setAccessibleName (tr ("Signal report"));
+  ui->bandComboBox->setAccessibleName (tr ("Operating band"));
+  if (ui->bandComboBox->lineEdit ()) ui->bandComboBox->lineEdit ()->setAccessibleName (tr ("Operating band text"));
+  ui->outAttenuation->setAccessibleName (tr ("Transmit power attenuation"));
+  ui->outAttenuation->setAccessibleDescription (tr ("Adjust Tx audio level attenuation."));
+  ui->cbMenus->setAccessibleName (tr ("Menus"));
+  ui->cbMenus->setAccessibleDescription (tr ("Show or hide the menu bar."));
+  ui->readFreq->setAccessibleName (tr ("Rig control status"));
+  ui->labDialFreq->setAccessibleName (tr ("USB dial frequency"));
+  ui->houndButton->setAccessibleName (tr ("Hound mode"));
+  ui->houndButton->setAccessibleDescription (tr ("Toggle FT8 hound mode. Right-click to toggle SuperFox mode."));
+
+  auto const message_selector_name = tr ("Message panel selector");
+  auto const message_selector_description = tr ("Switches between standard messages, Fox queue, and band hopping pages. Press 1, 2, or 3 while focused to select a page.");
+  ui->tabWidget->setAccessibleName (message_selector_name);
+  ui->tabWidget->setAccessibleDescription (message_selector_description);
+  if (ui->tabWidget->tabBar ())
+    {
+      auto *tab_bar = ui->tabWidget->tabBar ();
+      tab_bar->setAccessibleName (message_selector_name);
+      tab_bar->setAccessibleDescription (message_selector_description);
+      tab_bar->setFocusPolicy (Qt::StrongFocus);
+    }
+  ui->tabWidget->setTabToolTip (0, tr ("Standard messages"));
+  ui->tabWidget->setTabToolTip (1, tr ("Fox queue"));
+  ui->tabWidget->setTabToolTip (2, tr ("Band hopping"));
+  ui->tabWidget->widget (0)->setAccessibleName (tr ("Standard messages page"));
+  ui->tabWidget->widget (1)->setAccessibleName (tr ("Fox queue page"));
+  ui->tabWidget->widget (2)->setAccessibleName (tr ("Band hopping page"));
+  ui->houndQueueTextBrowser->setAccessibleName (tr ("Hound queue"));
+  ui->houndQueueTextBrowser->setAccessibleDescription (tr ("Queued Hound callers available for Fox transmissions."));
+  ui->foxTxListTextBrowser->setAccessibleName (tr ("Fox transmissions in progress"));
+  ui->foxTxListTextBrowser->setAccessibleDescription (tr ("Hound callers currently in progress for Fox transmissions."));
+  ui->comboBoxHoundSort->setAccessibleName (tr ("Hound queue sort order"));
+  ui->sbNlist->setAccessibleName (tr ("Hound queue list size"));
+  ui->sbNslots->setAccessibleName (tr ("Fox transmission slots"));
+  ui->comboBoxCQ->setAccessibleName (tr ("Fox CQ message"));
+  ui->pbFoxReset->setAccessibleName (tr ("Reset Fox queues"));
+  ui->pbFreeText->setAccessibleName (tr ("Fox free text"));
+  ui->cbSendMsg->setAccessibleName (tr ("Send Fox free text"));
+  ui->pbBandHopping->setAccessibleName (tr ("Band hopping"));
+  ui->cbQRG1->setAccessibleName (tr ("Enable FT8 QRG 1"));
+  ui->cbQRG2->setAccessibleName (tr ("Enable FT8 QRG 2"));
+  ui->cbQRG3->setAccessibleName (tr ("Enable FT8 QRG 3"));
+  ui->cbQRG4->setAccessibleName (tr ("Enable FT8 QRG 4"));
+  ui->cbQRG5->setAccessibleName (tr ("Enable FT8 QRG 5"));
+  ui->cbQRG6->setAccessibleName (tr ("Enable FT8 QRG 6"));
+  ui->cbQRG7->setAccessibleName (tr ("Enable FT8 QRG 7"));
+  ui->cbQRG8->setAccessibleName (tr ("Enable FT8 QRG 8"));
+  ui->sbQRG1->setAccessibleName (tr ("FT8 QRG 1 frequency"));
+  ui->sbQRG2->setAccessibleName (tr ("FT8 QRG 2 frequency"));
+  ui->sbQRG3->setAccessibleName (tr ("FT8 QRG 3 frequency"));
+  ui->sbQRG4->setAccessibleName (tr ("FT8 QRG 4 frequency"));
+  ui->sbQRG5->setAccessibleName (tr ("FT8 QRG 5 frequency"));
+  ui->sbQRG6->setAccessibleName (tr ("FT8 QRG 6 frequency"));
+  ui->sbQRG7->setAccessibleName (tr ("FT8 QRG 7 frequency"));
+  ui->sbQRG8->setAccessibleName (tr ("FT8 QRG 8 frequency"));
+
+  ui->tx1->setAccessibleName (tr ("Tx1 message"));
+  ui->tx2->setAccessibleName (tr ("Tx2 message"));
+  ui->tx3->setAccessibleName (tr ("Tx3 message"));
+  ui->tx4->setAccessibleName (tr ("Tx4 message"));
+  ui->tx5->setAccessibleName (tr ("Tx5 message macro"));
+  ui->tx6->setAccessibleName (tr ("Tx6 message"));
+  if (ui->tx5->lineEdit ()) ui->tx5->lineEdit ()->setAccessibleName (tr ("Tx5 message macro text"));
+
+  ui->txrb1->setAccessibleName (tr ("Select Tx1 for next transmission"));
+  ui->txrb2->setAccessibleName (tr ("Select Tx2 for next transmission"));
+  ui->txrb3->setAccessibleName (tr ("Select Tx3 for next transmission"));
+  ui->txrb4->setAccessibleName (tr ("Select Tx4 for next transmission"));
+  ui->txrb5->setAccessibleName (tr ("Select Tx5 for next transmission"));
+  ui->txrb6->setAccessibleName (tr ("Select Tx6 for next transmission"));
+  ui->txb1->setAccessibleName (tr ("Transmit Tx1 now"));
+  ui->txb2->setAccessibleName (tr ("Transmit Tx2 now"));
+  ui->txb3->setAccessibleName (tr ("Transmit Tx3 now"));
+  ui->txb4->setAccessibleName (tr ("Transmit Tx4 now"));
+  ui->txb5->setAccessibleName (tr ("Transmit Tx5 now"));
+  ui->txb6->setAccessibleName (tr ("Transmit Tx6 now"));
+
+  std::array<QWidget *, 26> const tooltip_widgets {{
+    ui->tx1, ui->tx2, ui->tx3, ui->tx4, ui->tx5, ui->tx6,
+    ui->txrb1, ui->txrb2, ui->txrb3, ui->txrb4, ui->txrb5, ui->txrb6,
+    ui->txb1, ui->txb2, ui->txb3, ui->txb4, ui->txb5, ui->txb6,
+    ui->comboBoxHoundSort, ui->sbNlist, ui->sbNslots, ui->comboBoxCQ,
+    ui->pbFoxReset, ui->pbFreeText, ui->cbSendMsg, ui->pbBandHopping
+  }};
+  for (auto *widget : tooltip_widgets)
+    {
+      tooltipDescription (widget);
+    }
+
+}
+
+void MainWindow::registerMainWindowFocusControls()
+{
+  ui->tabWidget->setFocusProxy (ui->tabWidget->tabBar ());
+  QList<QWidget *> const tab_controls {
+    ui->decodedTextBrowser, ui->decodedTextBrowser2, ui->cbCQonly, ui->cbBypass,
+    ui->logQSOButton, ui->stopButton, ui->monitorButton, ui->EraseButton,
+    ui->ClrAvgButton, ui->DecodeButton, ui->autoButton, ui->stopTxButton,
+    ui->tuneButton, ui->cbMenus, ui->sbNB, ui->bandComboBox,
+    ui->pb160, ui->pb80, ui->pb60, ui->pb40, ui->pb30, ui->pb20,
+    ui->pb17, ui->pb15, ui->pb12, ui->pb10, ui->pb8, ui->pb6,
+    ui->pb4, ui->pb2, ui->pb70, ui->pb50, ui->pb144, ui->pb220,
+    ui->pb432, ui->pb902, ui->pb23, ui->pb13, ui->pb9, ui->pb5G,
+    ui->pb10G, ui->pb24G, ui->labDialFreq, ui->readFreq,
+    ui->houndButton, ui->ft8Button, ui->ft4Button, ui->msk144Button,
+    ui->q65Button, ui->jt65Button, ui->dxCallEntry, ui->dxGridEntry,
+    ui->DX_Call_Button, ui->lookupButton, ui->addButton, ui->ignoreButton,
+    ui->txFirstCheckBox, ui->TxFreqSpinBox, ui->pbR2T, ui->sbFtol,
+    ui->pbT2R, ui->RxFreqSpinBox, ui->rptSpinBox, ui->sbTR,
+    ui->cbHoldTxFreq, ui->sbF_Low, ui->sbF_High, ui->sbSubmode,
+    ui->syncSpinBox, ui->sbCQTxFreq, ui->cbCQTx, ui->cbRxAll,
+    ui->cbShMsgs, ui->cbFast9, ui->cbAutoSeq, ui->respondComboBox,
+    ui->cbTx6, ui->cbSWL, ui->pbBestSP, ui->measure_check_box,
+    ui->tabWidget->tabBar (),
+    ui->genStdMsgsPushButton,
+    ui->txb1, ui->txb2, ui->txb3, ui->txb4, ui->txb5, ui->txb6,
+    ui->tx1, ui->tx2, ui->tx3, ui->tx4, ui->tx5, ui->tx6,
+    ui->houndQueueTextBrowser, ui->foxTxListTextBrowser, ui->comboBoxHoundSort,
+    ui->sbNlist, ui->sbNslots, ui->comboBoxCQ, ui->cbWorkDupes, ui->cbMoreCQs,
+    ui->pbFoxReset, ui->pbFreeText, ui->cbSendMsg,
+    ui->cb160m, ui->cb80m, ui->cb40m, ui->cb30m, ui->cb20m, ui->cb17m,
+    ui->cb15m, ui->cb12m, ui->cb10m, ui->cb6m, ui->cb4m, ui->cb2m, ui->cb70cm,
+    ui->cb80mFT4, ui->cb40mFT4, ui->cb30mFT4, ui->cb20mFT4, ui->cb17mFT4,
+    ui->cb15mFT4, ui->cb12mFT4, ui->cb10mFT4, ui->cb2mMSK,
+    ui->cbQRG1, ui->sbQRG1, ui->cbQRG2, ui->sbQRG2, ui->cbQRG3, ui->sbQRG3,
+    ui->cbQRG4, ui->sbQRG4, ui->cbQRG5, ui->sbQRG5, ui->cbQRG6, ui->sbQRG6,
+    ui->cbQRG7, ui->sbQRG7, ui->cbQRG8, ui->sbQRG8, ui->pbBandHopping,
+    ui->WSPRfreqSpinBox, ui->sbFST4W_RxFreq, ui->sbFST4W_FTol,
+    ui->RoundRobin, ui->sbTxPercent, ui->sbTR_FST4W,
+    ui->band_hopping_group_box, ui->band_hopping_schedule_push_button,
+    ui->cbUploadWSPR_Spots, ui->WSPR_prefer_type_1_check_box, ui->cbNoOwnCall,
+    ui->pbTxNext, ui->TxPowerComboBox, ui->outAttenuation, ui->sbSerialNumber
+  };
+
+  for (auto *widget : tab_controls)
+    {
+      if (!widget) continue;
+      widget->setFocusPolicy (Qt::StrongFocus);
+    }
+
+  for (auto *widget : focusIndicatorWidgets ())
+    {
+      widget->installEventFilter (this);
+    }
+
+  for (auto *button : txNextButtons ())
+    {
+      connect (button, &QRadioButton::toggled, this, [this] (bool checked) {
+        if (checked) updateTxNextFocusPolicies ();
+      });
+    }
+  updateTxNextFocusPolicies ();
+}
+
+bool MainWindow::switchMainWindowTab(QKeyEvent const *key_event)
+{
+  auto *focus_widget = QApplication::focusWidget ();
+  if (focus_widget != ui->tabWidget && focus_widget != ui->tabWidget->tabBar ())
+    {
+      return false;
+    }
+
+  auto const modifiers = key_event->modifiers ()
+    & (Qt::ShiftModifier | Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier);
+  if (modifiers != Qt::NoModifier) return false;
+
+  int next_index = ui->tabWidget->currentIndex ();
+  switch (key_event->key ())
+    {
+    case Qt::Key_1: next_index = 0; break;
+    case Qt::Key_2: next_index = 1; break;
+    case Qt::Key_3: next_index = 2; break;
+    case Qt::Key_Left:
+    case Qt::Key_Up:
+      next_index = (next_index + ui->tabWidget->count () - 1) % ui->tabWidget->count ();
+      break;
+    case Qt::Key_Right:
+    case Qt::Key_Down:
+      next_index = (next_index + 1) % ui->tabWidget->count ();
+      break;
+    default:
+      return false;
+    }
+
+  ui->tabWidget->setCurrentIndex (next_index);
+  auto *tab_bar = ui->tabWidget->tabBar ();
+  QTimer::singleShot (0, tab_bar, [tab_bar] {
+    tab_bar->setFocus (Qt::OtherFocusReason);
+  });
+  return true;
+}
+
+std::array<QRadioButton *, 6> MainWindow::txNextButtons() const
+{
+  return {{qobject_cast<QRadioButton *> (m_tx_message_button_group->button (1)),
+           qobject_cast<QRadioButton *> (m_tx_message_button_group->button (2)),
+           qobject_cast<QRadioButton *> (m_tx_message_button_group->button (3)),
+           qobject_cast<QRadioButton *> (m_tx_message_button_group->button (4)),
+           qobject_cast<QRadioButton *> (m_tx_message_button_group->button (5)),
+           qobject_cast<QRadioButton *> (m_tx_message_button_group->button (6))}};
+}
+
+std::array<QWidget *, 13> MainWindow::focusIndicatorWidgets() const
+{
+  auto const buttons = txNextButtons ();
+  return {{ui->tabWidget->tabBar (),
+           buttons[0], buttons[1], buttons[2], buttons[3], buttons[4], buttons[5],
+           ui->txb1, ui->txb2, ui->txb3, ui->txb4, ui->txb5, ui->txb6}};
+}
+
+void MainWindow::updateTxNextFocusPolicies()
+{
+  auto const buttons = txNextButtons ();
+  QRadioButton *tab_button = nullptr;
+  for (auto *button : buttons)
+    {
+      if (button->isChecked () && button->isEnabled () && !button->isHidden ())
+        {
+          tab_button = button;
+          break;
+        }
+    }
+  if (!tab_button)
+    {
+      for (auto *button : buttons)
+        {
+          if (button->isEnabled () && !button->isHidden ())
+            {
+              tab_button = button;
+              break;
+            }
+        }
+    }
+
+  for (auto *button : buttons)
+    {
+      button->setFocusPolicy (button == tab_button ? Qt::StrongFocus : Qt::ClickFocus);
+    }
+}
+
+bool MainWindow::switchTxNextMessage(QKeyEvent const *key_event)
+{
+  auto const buttons = txNextButtons ();
+  auto *focus_button = qobject_cast<QRadioButton *> (QApplication::focusWidget ());
+  auto const current = std::find (buttons.cbegin (), buttons.cend (), focus_button);
+  if (current == buttons.cend ()) return false;
+  auto const current_index = static_cast<int> (std::distance (buttons.cbegin (), current));
+
+  auto const modifiers = key_event->modifiers ()
+    & (Qt::ShiftModifier | Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier);
+  if (modifiers != Qt::NoModifier) return false;
+
+  int direction = 0;
+  switch (key_event->key ())
+    {
+    case Qt::Key_Left:
+    case Qt::Key_Up: direction = -1; break;
+    case Qt::Key_Right:
+    case Qt::Key_Down: direction = 1; break;
+    default: return false;
+    }
+
+  auto const button_count = static_cast<int> (buttons.size ());
+  for (int offset = 1; offset < button_count; ++offset)
+    {
+      auto const next_index = (current_index + direction * offset + button_count) % button_count;
+      auto *button = buttons[next_index];
+      if (button->isEnabledTo (this) && button->isVisibleTo (this))
+        {
+          button->click ();
+          button->setFocus (direction < 0 ? Qt::BacktabFocusReason : Qt::TabFocusReason);
+          return true;
+        }
+    }
+  return false;
 }
 
 void MainWindow::updateDecodeAccessibility()
@@ -13540,6 +13927,8 @@ void MainWindow::check_button_color()
         ui->DX_Call_Button->setToolTip("Right-click to clear the DX Call box");
         ui->autoButton->setToolTip("Toggle Auto-Tx On/Off");
     }
+    ui->DX_Call_Button->setAccessibleDescription(ui->DX_Call_Button->toolTip());
+    ui->autoButton->setAccessibleDescription(ui->autoButton->toolTip());
     if (m_config.alternate_erase_button()) {
         ui->EraseButton->setToolTip("Left-click to erase left window.\n"
                                     "Right-click to erase right window.");

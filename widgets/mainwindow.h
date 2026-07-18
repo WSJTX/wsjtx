@@ -83,6 +83,12 @@ namespace Ui {
   class MainWindow;
 }
 
+class QWidget;
+class QRadioButton;
+class QFocusFrame;
+class QFrame;
+class QButtonGroup;
+
 class QProcessEnvironment;
 class QSharedMemory;
 class QSplashScreen;
@@ -640,6 +646,7 @@ private:
   bool play_Wanted = false;
   bool inSettings = false;
 
+  bool m_event_filter_ready {false};
   QProcessEnvironment const& m_env;
   NetworkAccessManager m_network_manager;
   bool m_valid;
@@ -650,6 +657,9 @@ private:
   QPushButton * m_configurations_button;
   QSettings * m_settings;
   QScopedPointer<Ui::MainWindow> ui;
+  QButtonGroup * m_tx_message_button_group {nullptr};
+  QFocusFrame * m_main_window_focus_frame {nullptr};
+  QFrame * m_message_selector_focus_frame {nullptr};
 
 #ifdef WIN32
   MMTTYIF * m_mmttyif {nullptr};
@@ -950,7 +960,6 @@ private:
   QLabel ndecodes_label;
   QProgressBar progressBar;
   QLabel watchdog_label;
-
   QFuture<void> m_wav_future;
   QFutureWatcher<void> m_wav_future_watcher;
   QFutureWatcher<void> watcher3;
@@ -1167,6 +1176,13 @@ private:
   void writeSettings();
   void createStatusBar();
   void updateStatusBar();
+  void updateMainWindowAccessibility();
+  void registerMainWindowFocusControls();
+  std::array<QRadioButton *, 6> txNextButtons() const;
+  std::array<QWidget *, 13> focusIndicatorWidgets() const;
+  void updateTxNextFocusPolicies();
+  bool switchTxNextMessage(QKeyEvent const *key_event);
+  bool switchMainWindowTab(QKeyEvent const *key_event);
   void genStdMsgs(QString rpt, bool unconditional = false);
   void genCQMsg();
   void clearDX ();
