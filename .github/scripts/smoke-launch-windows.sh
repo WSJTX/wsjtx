@@ -8,10 +8,8 @@
 # build that links and packages correctly survives a launch from a clean PATH;
 # one that relies on the dev shell's /mingw64/bin does not.
 #
-# GUI apps (wsjtx.exe) never return on their own, so we launch with a bounded
-# timeout: surviving past the timeout means every DLL resolved and the process
-# reached its event loop — that is the success signal. We then terminate it.
-# CLI apps that exit on their own are judged purely by exit code.
+# The launched command must exit on its own. A bounded timeout turns a hung
+# process or modal startup error into a test failure.
 #
 # Usage: smoke-launch-windows.sh <exe> [args...]
 set -u
@@ -35,8 +33,7 @@ fi
 cleaned_path=$(echo "$PATH" | tr ':' '\n' | grep -ivE '(^|/)mingw64/bin/?$' | paste -sd: -)
 echo "smoke-launch: $exe $* (PATH cleaned of /mingw64/bin)"
 
-# timeout returns 124 when it had to kill the process — for a GUI app that is
-# exactly the "still alive, DLLs resolved" success case.
+# timeout returns 124 when it had to kill the process.
 PATH="$cleaned_path" timeout "${TIMEOUT_SECS}s" "$exe" "$@" >launch.out 2>&1
 code=$?
 
@@ -47,11 +44,13 @@ if [ "$code" -eq "$STATUS_DLL_NOT_FOUND" ]; then
 fi
 
 if [ "$code" -eq 124 ]; then
-  echo "smoke-launch OK: $exe survived ${TIMEOUT_SECS}s (all DLLs resolved; GUI event loop reached), terminated by timeout"
-  exit 0
+  echo "::error::smoke-launch: $exe did not exit within ${TIMEOUT_SECS}s"
+  echo "----- output -----"; cat launch.out || true
+  exit 1
 fi
 
 if [ "$code" -eq 0 ]; then
+  cat launch.out || true
   echo "smoke-launch OK: $exe loaded and exited cleanly"
   exit 0
 fi

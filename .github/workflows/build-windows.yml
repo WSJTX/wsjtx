@@ -277,9 +277,23 @@ jobs:
             "${WORKSPACE}"/stage-main/bin/*.exe \
             "${WORKSPACE}"/stage-main/bin/*.dll
 
-      # Launch only the CLI decoder with /mingw64/bin removed from PATH. GUI
-      # applications may block in their event loops or require display state, so
-      # their package-critical DLL coverage comes from the import audit above.
+      - name: Smoke-launch staged WSJT-X (clean PATH)
+        id: wsjtx_smoke
+        run: |
+          WORKSPACE=$(cygpath "${GITHUB_WORKSPACE}")
+          .github/scripts/smoke-launch-windows.sh \
+            "${WORKSPACE}/stage-main/bin/wsjtx.exe" \
+            --startup-smoke-test --rig-name CI-STARTUP
+
+      - name: Upload WSJT-X startup diagnostics
+        if: failure() && steps.wsjtx_smoke.outcome == 'failure'
+        uses: actions/upload-artifact@v7
+        with:
+          name: wsjtx-startup-smoke-windows
+          path: launch.out
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Smoke-launch staged jt9 (clean PATH)
         run: |
           WORKSPACE=$(cygpath "${GITHUB_WORKSPACE}")
