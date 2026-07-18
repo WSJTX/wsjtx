@@ -757,11 +757,11 @@ private:
 
   double  m_tRemaining;
   double  m_TRperiod;
-  double  m_fSpread;
+  double  m_fSpread {0.};
   double  m_s6;
-  double  m_fDither;
-  double  m_fAudioShift;
-  double  m_skedFreq;
+  double  m_fDither {0.};
+  double  m_fAudioShift {0.};
+  double  m_skedFreq {1296.065};
 
   float   m_DTtol;
   float   m_t0;
