@@ -99,7 +99,6 @@
 #include "signalmeter.h"
 #include "HelpTextWindow.hpp"
 #include "SampleDownloader.hpp"
-#include "Audio/BWFFile.hpp"
 #include "MultiSettings.hpp"
 #include "validators/MaidenheadLocatorValidator.hpp"
 #include "validators/CallsignValidator.hpp"
@@ -4137,20 +4136,18 @@ void MainWindow::read_wav_file (QString const& fname)
         }
       }
     }
-    BWFFile file {QAudioFormat {}, fname};
-    bool ok=file.open (BWFFile::ReadOnly);
-    if(ok) {
-      auto bytes_per_frame = file.format ().bytesPerFrame ();
-      int nsamples=m_TRperiod * RX_SAMPLE_RATE;
-      qint64 max_bytes = std::min (std::size_t (nsamples),
-          sizeof (dec_data.d2) / sizeof (dec_data.d2[0]))* bytes_per_frame;
-      auto n = file.read (reinterpret_cast<char *> (dec_data.d2),
-                        std::min (max_bytes, file.size ()));
-      int frames_read = n / bytes_per_frame;
-    // zero unfilled remaining sample space
-      std::memset(&dec_data.d2[frames_read],0,max_bytes - n);
-      if (11025 == file.format ().sampleRate ()) {
-        short sample_size = file.format ().sampleSize ();
+    int const nsamples=m_TRperiod * RX_SAMPLE_RATE;
+    int const sample_capacity=sizeof (dec_data.d2) / sizeof (dec_data.d2[0]);
+    int const sample_limit=std::min (nsamples, sample_capacity);
+    auto const wav=Radio::WavFile::load (fname, sample_limit);
+    if(wav.isValid ()) {
+      std::memset (dec_data.d2, 0, sizeof (dec_data.d2[0]) * sample_limit);
+      if (!wav.samples.isEmpty ()) {
+        std::memcpy (dec_data.d2, wav.samples.constData (), wav.samples.size ());
+      }
+      int frames_read=wav.frames;
+      if (11025 == wav.format.sampleRate ()) {
+        short sample_size = wav.format.sampleSize ();
         wav12_ (dec_data.d2, dec_data.d2, &frames_read, &sample_size);
       }
       dec_data.params.kin = frames_read;

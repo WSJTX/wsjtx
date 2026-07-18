@@ -5,6 +5,7 @@
 #include <QtMultimedia/QAudioFormat>
 
 #include "Audio/BWFFile.hpp"
+#include "Audio/WavFile.hpp"
 
 namespace
 {
@@ -157,6 +158,74 @@ private:
     QCOMPARE (file.format ().channelCount (), 1);
     QCOMPARE (file.format ().sampleRate (), 12000);
     file.close ();
+    QFile::remove (name);
+  }
+
+  Q_SLOT void loads_supported_decode_wave ()
+  {
+    QByteArray samples;
+    samples.append (le16 (0x1234));
+    samples.append (le16 (0x5678));
+    samples.append (le16 (0x9abc));
+    auto const name = write_temp_file (wave_file ({fmt_chunk (), data_chunk (samples)}));
+    QVERIFY (!name.isEmpty ());
+
+    auto const result = Radio::WavFile::load (name, 2);
+    QVERIFY2 (result.isValid (), qPrintable (result.error));
+    QCOMPARE (result.frames, 2);
+    QCOMPARE (result.samples, samples.left (4));
+    QFile::remove (name);
+  }
+
+  Q_SLOT void loads_legacy_decode_waves ()
+  {
+    auto const eight_bit_name = write_temp_file (
+        wave_file ({fmt_chunk (1, 11025, 8), data_chunk (QByteArray::fromHex ("7f80"))}));
+    QVERIFY (!eight_bit_name.isEmpty ());
+    auto const eight_bit = Radio::WavFile::load (eight_bit_name, 2);
+    QVERIFY2 (eight_bit.isValid (), qPrintable (eight_bit.error));
+    QCOMPARE (eight_bit.frames, 2);
+    QCOMPARE (eight_bit.samples, QByteArray::fromHex ("7f80"));
+    QFile::remove (eight_bit_name);
+
+    auto const sixteen_bit_name = write_temp_file (
+        wave_file ({fmt_chunk (1, 11025, 16), data_chunk (QByteArray::fromHex ("01000200"))}));
+    QVERIFY (!sixteen_bit_name.isEmpty ());
+    auto const sixteen_bit = Radio::WavFile::load (sixteen_bit_name, 2);
+    QVERIFY2 (sixteen_bit.isValid (), qPrintable (sixteen_bit.error));
+    QCOMPARE (sixteen_bit.frames, 2);
+    QCOMPARE (sixteen_bit.samples, QByteArray::fromHex ("01000200"));
+    QFile::remove (sixteen_bit_name);
+  }
+
+  Q_SLOT void rejects_multichannel_decode_wave ()
+  {
+    auto const name = write_temp_file (
+        wave_file ({fmt_chunk (2000, 12000, 16), data_chunk (QByteArray::fromHex ("0000"))}));
+    QVERIFY (!name.isEmpty ());
+
+    BWFFile parsed {QAudioFormat {}, name};
+    QVERIFY (parsed.open (QIODevice::ReadOnly));
+    QCOMPARE (parsed.format ().channelCount (), 2000);
+    parsed.close ();
+
+    auto const result = Radio::WavFile::load (name, 36000);
+    QVERIFY (!result.isValid ());
+    QVERIFY (result.samples.isEmpty ());
+    QCOMPARE (result.frames, 0);
+    QFile::remove (name);
+  }
+
+  Q_SLOT void discards_partial_decode_frame ()
+  {
+    auto const name = write_temp_file (
+        wave_file ({fmt_chunk (), data_chunk (QByteArray::fromHex ("010002"))}));
+    QVERIFY (!name.isEmpty ());
+
+    auto const result = Radio::WavFile::load (name, 2);
+    QVERIFY2 (result.isValid (), qPrintable (result.error));
+    QCOMPARE (result.frames, 1);
+    QCOMPARE (result.samples, QByteArray::fromHex ("0100"));
     QFile::remove (name);
   }
 

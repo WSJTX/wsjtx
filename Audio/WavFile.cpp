@@ -1,11 +1,93 @@
 #include "WavFile.hpp"
+#include <algorithm>
+#include <limits>
 #include <QAudioFormat>
 #include <QDateTime>
 #include "Audio/BWFFile.hpp"
 #include "revision_utils.hpp"
 
+namespace
+{
+bool has_native_byte_order (QAudioFormat const& format)
+{
+#if Q_BYTE_ORDER == Q_LITTLE_ENDIAN
+  return QAudioFormat::LittleEndian == format.byteOrder ();
+#else
+  return QAudioFormat::BigEndian == format.byteOrder ();
+#endif
+}
+
+bool is_supported_decode_format (QAudioFormat const& format)
+{
+  if ("audio/pcm" != format.codec () || 1 != format.channelCount ())
+    {
+      return false;
+    }
+
+  if (11025 == format.sampleRate () && 8 == format.sampleSize ())
+    {
+      return QAudioFormat::UnSignedInt == format.sampleType ();
+    }
+
+  return (11025 == format.sampleRate () || 12000 == format.sampleRate ())
+    && 16 == format.sampleSize ()
+    && QAudioFormat::SignedInt == format.sampleType ()
+    && has_native_byte_order (format);
+}
+}
+
 namespace Radio
 {
+
+WavFile::LoadResult WavFile::load (QString const& name, int max_frames)
+{
+  LoadResult result;
+  if (max_frames <= 0)
+    {
+      result.error = name + ": invalid WAV frame limit";
+      return result;
+    }
+
+  BWFFile file {QAudioFormat {}, name};
+  if (!file.open (BWFFile::ReadOnly))
+    {
+      result.error = name + ": " + file.errorString ();
+      return result;
+    }
+
+  result.format = file.format ();
+  auto const bytes_per_frame = result.format.bytesPerFrame ();
+  if (!is_supported_decode_format (result.format) || bytes_per_frame <= 0)
+    {
+      result.error = name + ": unsupported WAV format";
+      return result;
+    }
+
+  auto max_bytes = std::min<qint64> (
+      static_cast<qint64> (max_frames) * bytes_per_frame,
+      (std::numeric_limits<int>::max) ());
+  max_bytes -= max_bytes % bytes_per_frame;
+  auto bytes_to_read = std::min (max_bytes, file.size ());
+  bytes_to_read -= bytes_to_read % bytes_per_frame;
+
+  result.samples.resize (static_cast<int> (bytes_to_read));
+  qint64 bytes_read {0};
+  if (bytes_to_read > 0)
+    {
+      bytes_read = file.read (result.samples.data (), bytes_to_read);
+      if (bytes_read < 0)
+        {
+          result.samples.clear ();
+          result.error = name + ": " + file.errorString ();
+          return result;
+        }
+    }
+
+  bytes_read -= bytes_read % bytes_per_frame;
+  result.samples.resize (static_cast<int> (bytes_read));
+  result.frames = static_cast<int> (bytes_read / bytes_per_frame);
+  return result;
+}
 
 QString WavFile::save (QString const& name, short const * data, int samples,
                        QString const& my_callsign, QString const& my_grid,
