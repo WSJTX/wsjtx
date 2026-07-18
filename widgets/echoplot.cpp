@@ -1,12 +1,12 @@
 #include "echoplot.h"
 #include "commons.h"
+#include <algorithm>
 #include <math.h>
 #include <QPainter>
 #include <QPen>
+#include <QPolygon>
 #include <QDebug>
 #include "moc_echoplot.cpp"
-
-#define MAX_SCREENSIZE 2048
 
 
 EPlotter::EPlotter(QWidget *parent) :                  //EPlotter Constructor
@@ -33,6 +33,7 @@ EPlotter::EPlotter(QWidget *parent) :                  //EPlotter Constructor
   m_TxFreq = 1500;
   m_line = 0;
   m_dBStepSize=10;
+  m_bBaseline=false;
 }
 
 EPlotter::~EPlotter() { }                                      // Destructor
@@ -81,7 +82,7 @@ void EPlotter::paintEvent(QPaintEvent *)                    // paintEvent()
 void EPlotter::draw()                           //draw()
 {
   int i,j,y;
-  float blue[4096],red[4096];
+  float blue[4096] {},red[4096] {};
   float gain = pow(10.0,(m_plotGain/20.0));
   QPen penBlue(QColor(0,255,255),1);
   QPen penRed(Qt::red,1);
@@ -100,13 +101,10 @@ void EPlotter::draw()                           //draw()
     painter2D.drawLine(0,0,m_w,0);
   }
 
-  QPoint LineBuf[MAX_SCREENSIZE];
-
-  if(m_binsPerPixel==0) m_binsPerPixel=1;
+  m_binsPerPixel=std::max(1,std::min(4096,m_binsPerPixel));
+  int compressedCount=4096/m_binsPerPixel;
   j=0;
-  for(i=0; i<4096/m_binsPerPixel; i++) {
-    blue[i]=0.0;
-    red[i]=0.0;
+  for(i=0; i<compressedCount; i++) {
     for(int k=0; k<m_binsPerPixel; k++) {
       blue[i]+=echocom_.blue[j];
       red[i]+=echocom_.red[j];
@@ -115,24 +113,23 @@ void EPlotter::draw()                           //draw()
   }
   if(m_smooth>0) {
     for(i=0; i<m_smooth; i++) {
-      int n4096=4096;
-      smo121_(blue,&n4096);
-      smo121_(red,&n4096);
+      smo121_(blue,&compressedCount);
+      smo121_(red,&compressedCount);
     }
   }
 
-// check i0 value! ...
   int i0=2048/m_binsPerPixel + int(m_StartFreq/(m_fftBinWidth*m_binsPerPixel));
+  int const firstPixel=std::max(0,-i0);
+  int const lastPixel=std::min(m_w,compressedCount-i0);
+  QPolygon lineBuf;
+  lineBuf.reserve(std::max(0,lastPixel-firstPixel));
   if(m_blue) {
     painter2D.setPen(penBlue);
-    j=0;
-    for(i=0; i<m_w; i++) {
+    for(i=firstPixel; i<lastPixel; i++) {
       y = 0.9*m_h2 - gain*(m_h/10.0)*blue[i0+i] - 0.01*m_h2*m_plotZero;
-      LineBuf[j].setX(i);
-      LineBuf[j].setY(y);
-      j++;
+      lineBuf.append(QPoint {i,y});
     }
-    painter2D.drawPolyline(LineBuf,j);
+    painter2D.drawPolyline(lineBuf);
   }
   switch (m_nColor) {
     case 0: painter2D.setPen(penRed); break;
@@ -143,14 +140,12 @@ void EPlotter::draw()                           //draw()
     case 5: painter2D.setPen(penBlack2); break;
   }
 
-  j=0;
-  for(int i=0; i<m_w; i++) {
+  lineBuf.clear();
+  for(int i=firstPixel; i<lastPixel; i++) {
     y = 0.9*m_h2 - gain*(m_h/10.0)*red[i0+i] - 0.01*m_h2*m_plotZero;
-    LineBuf[j].setX(i);
-    LineBuf[j].setY(y);
-    j++;
+    lineBuf.append(QPoint {i,y});
   }
-  painter2D.drawPolyline(LineBuf,j);
+  painter2D.drawPolyline(lineBuf);
 
   if(m_bBaseline) {
     // Draw the baseline
