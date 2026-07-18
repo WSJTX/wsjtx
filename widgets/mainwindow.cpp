@@ -2054,13 +2054,17 @@ void MainWindow::dataSink(qint64 frames)
       int ndf=0;
       int idir=1;
       if(!ui->rbFixedTone->isChecked() and !m_diskData) {
-        ndf=ui->sbToneSpacing->value();
+        if(ui->rbEchoMessage->isChecked()) ndf=ui->sbToneSpacing->value();
         save_echo_params_(&nDopTotal,&nDop,&nfrit,&f1,&width,&ndf,&itone[0],dec_data.d2,&idir);
       }
       if(m_diskData) {
         idir=-1;
         save_echo_params_(&nDopTotal,&nDop,&nfrit,&f1,&width,&ndf,&itone[0],dec_data.d2,&idir);
-        if(ndf==0 and ui->rbEchoMessage->isChecked()) ui->rbFixedTone->setChecked(true);
+        if(ndf>=10 and ndf<=30) {
+          ui->rbEchoMessage->setChecked(true);
+        } else {
+          ui->rbFixedTone->setChecked(true);
+        }
       }
 
       bool bEchoCall=ui->rbEchoMessage->isChecked();
