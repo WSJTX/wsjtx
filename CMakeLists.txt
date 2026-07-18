@@ -473,6 +473,7 @@ set (wsjt_FSRCS
   # put module sources first in the hope that they get rebuilt before use
   lib/types.f90
   lib/C_interface_module.f90
+  lib/jt9_input_validation.f90
   lib/shmem.f90
   lib/crc.f90
   lib/fftw3mod.f90
@@ -1929,6 +1930,9 @@ if (WSJT_ENABLE_TESTS)
   set_tests_properties (test_jt9_version PROPERTIES
     PASS_REGULAR_EXPRESSION "^jt9 [0-9]+\\.[0-9]+\\.[0-9]+[^ ]* \\(revision ([0-9a-f]+(-dirty)?|unavailable)\\)"
     )
+  add_test (NAME test_jt9_cli_validation
+    COMMAND ${CMAKE_COMMAND} -DJT9=$<TARGET_FILE:jt9>
+            -P ${CMAKE_SOURCE_DIR}/tests/unit/jt9/test_jt9_cli_validation.cmake)
 endif ()
 
 if (WSJT_BUILD_FORTRAN_OPENMP)
