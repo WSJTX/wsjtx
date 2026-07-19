@@ -205,6 +205,7 @@ void MessageServer::impl::parse_message (QHostAddress const& sender, port_type s
               Q_EMIT self_->client_opened (client_key, QString::fromUtf8 (client_version),
                                            QString::fromUtf8 (client_revision));
             }
+          clients_[client_key].sender_port_ = sender_port;
           clients_[client_key].last_activity_ = QDateTime::currentDateTime ();
   
           //
