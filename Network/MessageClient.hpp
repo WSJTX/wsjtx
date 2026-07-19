@@ -57,6 +57,10 @@ public:
   // enable incoming messages
   Q_SLOT void enable (bool);
 
+  // bracket serialization of a paced replay transaction
+  bool begin_replay ();
+  void end_replay ();
+
   // outgoing messages
   Q_SLOT void status_update (Frequency, QString const& mode, QString const& dx_call, QString const& report
                              , QString const& tx_mode, bool tx_enabled, bool transmitting, bool decoding

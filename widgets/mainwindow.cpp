@@ -11289,6 +11289,11 @@ void MainWindow::replayDecodes ()
   // we accept this request even if the setting to accept UDP requests
   // is not checked
 
+  if (!m_messageClient->begin_replay ())
+    {
+      return;
+    }
+
   // attempt to parse the decoded text
   for (QTextBlock block = ui->decodedTextBrowser->document ()->firstBlock (); block.isValid (); block = block.next ())
     {
@@ -11307,6 +11312,7 @@ void MainWindow::replayDecodes ()
       }
   }
   statusChanged ();
+  m_messageClient->end_replay ();
 }
 
 void MainWindow::postDecode (bool is_new, QString const& message)
