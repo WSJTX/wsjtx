@@ -126,7 +126,8 @@ QString HelpText::specialMouseCommands()
   <tr>
     <td align="right">Enable Tx Button:</td>
     <td><b>Click</b> to toggle Auto-Tx mode On/Off.<br/>
-        <b>Right-click</b> to toggle Wait & Pounce On/Off.
+        <b>Right-click</b> to toggle Wait & Pounce On/Off after selecting<br/>
+        any CQ response mode other than CQ: None.
     </td>
   </tr>
   <tr>

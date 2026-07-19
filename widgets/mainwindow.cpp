@@ -1225,6 +1225,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   auto t = "UTC   dB   DT Freq    " + tr ("Message");
   setDecodeHeadings(t, t);
   readSettings();            //Restore user's setup parameters
+  connect (ui->respondComboBox, &QComboBox::currentTextChanged, this,
+           [this] (QString const&) {check_button_color ();});
   if(m_mode=="Q65") {
     m_score=0;
     read_log();
@@ -8032,7 +8034,16 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
     ui->ignoreButton->clearFocus();
   }
   // Wait & Pounce
-  if(ui->autoButton->hasFocus() && (event->button() & Qt::RightButton) && ui->respondComboBox->currentText()!="CQ: None") {
+  if(ui->autoButton->hasFocus() && (event->button() & Qt::RightButton)) {
+    if (!pounce && ui->respondComboBox->currentText()=="CQ: None") {
+      auto const message = tr ("Wait & Pounce requires a CQ response mode.\n"
+                               "Change CQ: None to another option.");
+      ui->respondComboBox->setFocus(Qt::OtherFocusReason);
+      QTimer::singleShot (100, this, [this, message] {
+        QToolTip::showText(ui->respondComboBox->mapToGlobal(ui->respondComboBox->rect().bottomLeft()),
+                           message, ui->respondComboBox, QRect {}, 5000);
+      });
+    } else {
       if (!pounce && !m_auto && m_config.Wait_features_enabled() && SpecOp::FOX!=m_specOp) {
         pounce = true;
         check_button_color();
@@ -8043,6 +8054,7 @@ void MainWindow::mousePressEvent(QMouseEvent *event)    // mouse press events
         check_button_color();
       }
       ui->autoButton->clearFocus();
+    }
   }
   if(ui->DecodeButton->hasFocus() && (event->button() & Qt::RightButton)) {   // Decode button
     clearHungDecoderStatus("Decode button right-click");
@@ -8565,7 +8577,7 @@ void MainWindow::updateMainWindowAccessibility()
   ui->ignoreButton->setAccessibleName (tr ("Ignore DX call"));
 
   ui->respondComboBox->setAccessibleName (tr ("CQ response mode"));
-  ui->respondComboBox->setAccessibleDescription (tr ("Automatic response selection for stations replying to your CQ."));
+  ui->respondComboBox->setAccessibleDescription (tr ("Selects a station automatically from replies to your CQ or from CQ messages for Wait & Pounce."));
   ui->TxFreqSpinBox->setAccessibleName (tr ("Transmit audio frequency"));
   ui->RxFreqSpinBox->setAccessibleName (tr ("Receive audio frequency"));
   ui->rptSpinBox->setAccessibleName (tr ("Signal report"));
@@ -13897,16 +13909,33 @@ void MainWindow::check_button_color()
         }
     }
 
-    ui->autoButton->setToolTip("Toggle Auto-Tx On/Off");
+    auto const respondMode = ui->respondComboBox->currentText();
+    QString autoButtonToolTip {"Toggle Auto-Tx On/Off"};
     if (m_config.Wait_features_enabled()) {
         ui->DX_Call_Button->setToolTip("Toggle Wait & Call On/Off.\n"
                                        "Right-click to clear the DX Call box.");
-        ui->autoButton->setToolTip("Toggle Auto-Tx On/Off.\n"
-                                   "Right-click to toggle Wait & Pounce On/Off.");
+        if (pounce) {
+            autoButtonToolTip = "Toggle Auto-Tx On/Off.\n"
+                                "Wait & Pounce is On.\n"
+                                "Right-click to turn Wait & Pounce Off.";
+        } else if (respondMode=="CQ: None") {
+            autoButtonToolTip = "Toggle Auto-Tx On/Off.\n"
+                                "Wait & Pounce requires a CQ response mode.\n"
+                                "Change CQ: None to another option.";
+        } else if (m_auto) {
+            autoButtonToolTip = "Toggle Auto-Tx On/Off.\n"
+                                "Turn Auto-Tx Off before enabling Wait & Pounce.";
+        } else if (SpecOp::FOX==m_specOp) {
+            autoButtonToolTip = "Toggle Auto-Tx On/Off.\n"
+                                "Wait & Pounce is unavailable in Fox mode.";
+        } else {
+            autoButtonToolTip = QString {"Toggle Auto-Tx On/Off.\n"
+                                         "Right-click to enable Wait & Pounce using %1."}.arg(respondMode);
+        }
     } else {
         ui->DX_Call_Button->setToolTip("Right-click to clear the DX Call box");
-        ui->autoButton->setToolTip("Toggle Auto-Tx On/Off");
     }
+    ui->autoButton->setToolTip(autoButtonToolTip);
     ui->DX_Call_Button->setAccessibleDescription(ui->DX_Call_Button->toolTip());
     ui->autoButton->setAccessibleDescription(ui->autoButton->toolTip());
     if (m_config.alternate_erase_button()) {
