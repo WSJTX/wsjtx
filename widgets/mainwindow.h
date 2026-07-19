@@ -206,10 +206,10 @@ public:
   void diskDat();
   void freezeDecode(int n);
   void guiUpdate();
-  void doubleClickOnCall (Qt::KeyboardModifiers);
-  void doubleClickOnCall2(Qt::KeyboardModifiers);
-  void doubleClickOnFoxQueue(Qt::KeyboardModifiers);
-  void doubleClickOnFoxInProgress(Qt::KeyboardModifiers modifiers);
+  void doubleClickOnCall (QString const& line, QString const& word, Qt::KeyboardModifiers);
+  void doubleClickOnCall2(QString const& line, QString const& word, Qt::KeyboardModifiers);
+  void doubleClickOnFoxQueue(QString const& line, QString const& word, Qt::KeyboardModifiers);
+  void doubleClickOnFoxInProgress(QString const& line, QString const& word, Qt::KeyboardModifiers modifiers);
   void readFromStdout();
   void p1ReadFromStdout();
   void setXIT(int n, Frequency base = 0u);

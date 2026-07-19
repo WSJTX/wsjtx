@@ -12,6 +12,19 @@ add_executable (test_callsign_validator
 target_link_libraries (test_callsign_validator Qt5::Test Qt5::Gui)
 add_test (NAME test_callsign_validator COMMAND test_callsign_validator)
 
+add_executable (test_displaytext
+  test_displaytext.cpp
+  ${CMAKE_SOURCE_DIR}/widgets/displaytext.cpp
+)
+target_link_libraries (test_displaytext wsjt_qt wsjt_fort_common Qt5::Test)
+add_test (NAME test_displaytext COMMAND test_displaytext)
+
+add_executable (test_fox_operator_actions
+  test_fox_operator_actions.cpp
+)
+target_link_libraries (test_fox_operator_actions Qt5::Test)
+add_test (NAME test_fox_operator_actions COMMAND test_fox_operator_actions)
+
 add_executable (test_wf_palette
   test_wf_palette.cpp
 )

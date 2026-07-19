@@ -44,11 +44,12 @@ public:
   qint32 m_points;
   bool m_bDisplayPoints;
 
-  Q_SIGNAL void selectCallsign (Qt::KeyboardModifiers);
+  Q_SIGNAL void selectCallsign (QString const& line, QString const& word, Qt::KeyboardModifiers);
   Q_SIGNAL void erased ();
 
   Q_SLOT void insertText (QString const& text, QColor bg = QColor {}, QColor fg = QColor {}
                           , QString const& call1 = QString {}, QString const& call2 = QString {}, QTextCursor::MoveOperation location=QTextCursor::End);
+  Q_SLOT void clear ();
   Q_SLOT void erase ();
   Q_SLOT void highlight_callsign (QString const& callsign, QColor const& bg, QColor const& fg, bool last_period_only);
 
@@ -56,6 +57,8 @@ private:
   void AudioAlerts();
   QTimer alertsTimer;
   QString leftJustifyAppendage (QString message, QString const& appendage) const;
+  void captureClick (QMouseEvent const *);
+  void mousePressEvent (QMouseEvent *) override;
   void mouseDoubleClickEvent (QMouseEvent *) override;
 
   void extend_vertical_scrollbar (int min, int max);
@@ -69,11 +72,30 @@ private:
                          , QString const& currentMode, QString extra);
   QFont char_font_;
   QAction * erase_action_;
+  enum class ClickState
+  {
+    None,
+    Captured,
+    Canceled,
+  };
+  QString pressed_line_;
+  QString pressed_word_;
+  Qt::MouseButton pressed_button_;
+  ClickState click_state_;
 
   QHash<QString, QPair<QColor, QColor>> highlighted_calls_;
   bool high_volume_;
   QMetaObject::Connection vertical_scroll_connection_;
   long long modified_vertical_scrollbar_max_;
 };
+
+inline void DisplayText::clear ()
+{
+  if (click_state_ == ClickState::Captured)
+    {
+      click_state_ = ClickState::Canceled;
+    }
+  QTextEdit::clear ();
+}
 
 #endif // DISPLAYTEXT_H

@@ -57,6 +57,8 @@ DisplayText::DisplayText(QWidget *parent)
   : QTextEdit(parent)
   , m_config {nullptr}
   , erase_action_ {new QAction {tr ("&Erase"), this}}
+  , pressed_button_ {Qt::NoButton}
+  , click_state_ {ClickState::None}
   , high_volume_ {false}
   , modified_vertical_scrollbar_max_ {-1}
 {
@@ -109,9 +111,41 @@ void DisplayText::setContentFont(QFont const& font)
     }
 }
 
-void DisplayText::mouseDoubleClickEvent(QMouseEvent *e)
+void DisplayText::captureClick (QMouseEvent const * event)
 {
-  Q_EMIT selectCallsign(e->modifiers ());
+  auto cursor = cursorForPosition (event->pos ());
+  pressed_line_ = cursor.block ().text ();
+  cursor.select (QTextCursor::WordUnderCursor);
+  pressed_word_ = cursor.selectedText ();
+  pressed_button_ = event->button ();
+  click_state_ = ClickState::Captured;
+}
+
+void DisplayText::mousePressEvent (QMouseEvent * event)
+{
+  captureClick (event);
+  QTextEdit::mousePressEvent (event);
+}
+
+void DisplayText::mouseDoubleClickEvent (QMouseEvent * event)
+{
+  if (click_state_ == ClickState::Canceled)
+    {
+      pressed_button_ = Qt::NoButton;
+      click_state_ = ClickState::None;
+      return;
+    }
+
+  if (click_state_ == ClickState::None || pressed_button_ != event->button ())
+    {
+      captureClick (event);
+    }
+
+  auto const line = pressed_line_;
+  auto const word = pressed_word_;
+  pressed_button_ = Qt::NoButton;
+  click_state_ = ClickState::None;
+  Q_EMIT selectCallsign (line, word, event->modifiers ());
 }
 
 void DisplayText::insertLineSpacer(QString const& line)

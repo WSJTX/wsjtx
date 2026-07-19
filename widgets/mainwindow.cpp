@@ -123,6 +123,7 @@
 #include "WSJTXLogging.hpp"
 #include "Logger.hpp"
 #include "FoxGuardBands.hpp"
+#include "FoxOperatorActions.hpp"
 #include "DecodedMessageReaction.hpp"
 #include "DecodeOutputPlan.hpp"
 #include "SuperFoxTxPlanner.h"
@@ -1799,11 +1800,11 @@ void MainWindow::setDecodedTextFont (QFont const& font)
   ui->Tx_Message->setFont (font);
   ui->houndQueueTextBrowser->setContentFont(font);
   ui->houndQueueTextBrowser->displayHoundToBeCalled(" ");
-  ui->houndQueueTextBrowser->setText("");
+  ui->houndQueueTextBrowser->clear();
 
   ui->foxTxListTextBrowser->setContentFont(font);
   ui->foxTxListTextBrowser->displayHoundToBeCalled(" ");
-  ui->foxTxListTextBrowser->setText("");
+  ui->foxTxListTextBrowser->clear();
 
   auto style_sheet = "QLabel {" + font_as_stylesheet (font) + '}';
   ui->lh_decodes_headings_label->setStyleSheet (ui->lh_decodes_headings_label->styleSheet () + style_sheet);
@@ -3021,10 +3022,9 @@ void MainWindow::keyPressEvent (QKeyEvent * e)
   if(SpecOp::FOX == m_specOp) {
     switch (e->key()) {
       case Qt::Key_Return:
-        doubleClickOnCall2(Qt::KeyboardModifier(Qt::ShiftModifier + Qt::ControlModifier + Qt::AltModifier));
-        return;
       case Qt::Key_Enter:
-        doubleClickOnCall2(Qt::KeyboardModifier(Qt::ShiftModifier + Qt::ControlModifier + Qt::AltModifier));
+        doubleClickOnCall2(ui->decodedTextBrowser->document()->firstBlock().text(), QString {},
+                           Qt::KeyboardModifier(Qt::ShiftModifier + Qt::ControlModifier + Qt::AltModifier));
         return;
       case Qt::Key_Backspace:
         qDebug() << "Key Backspace";
@@ -6830,37 +6830,30 @@ void MainWindow::on_txb5_doubleClicked()
 }
 
 
-void MainWindow::doubleClickOnCall2(Qt::KeyboardModifiers modifiers)
+void MainWindow::doubleClickOnCall2(QString const& line, QString const& word, Qt::KeyboardModifiers modifiers)
 {
 //Confusing: come here after double-click on left text window, not right window.
   m_decodedText2=true;
-  doubleClickOnCall(modifiers);
+  doubleClickOnCall(line, word, modifiers);
   m_decodedText2=false;
 }
 
-void MainWindow::doubleClickOnCall(Qt::KeyboardModifiers modifiers)
+void MainWindow::doubleClickOnCall(QString const& line, QString const& word, Qt::KeyboardModifiers modifiers)
 {
   m_bMyCallStd=stdCall(m_config.my_callsign()); //ft8md
   m_bHisCallStd=stdCall(m_hisCall); //ft8md
   set_dateTimeQSO(-1); // reset our QSO start time
-  QTextCursor cursor;
   if(m_mode=="FST4W") {
     MessageBox::information_message (this,
         "Double-click not available for FST4W mode");
     return;
   }
-  if(m_decodedText2) {
-    cursor=ui->decodedTextBrowser->textCursor();
-  } else {
-    cursor=ui->decodedTextBrowser2->textCursor();
-  }
   if(m_mode=="JTTY") {
-    cursor.select(QTextCursor::WordUnderCursor); // Select the word
-    m_deCall = cursor.selectedText();
+    m_deCall = word;
     ui->dxCallEntry->setText(m_deCall);
     return;
   }
-  DecodedText message {cursor.block().text().trimmed().left(61).remove("TU; ")};
+  DecodedText message {line.trimmed().left(61).remove("TU; ")};
   if(SpecOp::HOUND==m_specOp && (message.string().mid(4,2).contains("15") or message.string().mid(4,2).contains("45"))) return;  // ignore stations calling in the wrong time slot
 //  if(message.string().contains(";") && message.string().contains("<")) {
 //    QVector<qint32> Freq = {1840000,3573000,7074000,10136000,14074000,18100000,21074000,24915000,28074000,50313000,70154000,3575000,7047500,10140000,14080000,18104000,21140000,24919000,28180000,50318000};
@@ -6879,16 +6872,12 @@ void MainWindow::doubleClickOnCall(Qt::KeyboardModifiers modifiers)
 //        }
 //    }
 //  }
-  if(modifiers==(Qt::ShiftModifier + Qt::ControlModifier + Qt::AltModifier)) {
-    //### What was the purpose of this ???  ###
-    cursor.setPosition(0);
-  } else {
-    cursor.setPosition(cursor.selectionStart());
-  }
   if(SpecOp::FOX==m_specOp and m_decodedText2) {
     if(m_houndQueue.count()<10 and m_nSortedHounds>0) {
-      QString t=cursor.block().text();
-      selectHound(t, modifiers==(Qt::AltModifier));  // alt double-click gets put at top of queue
+      auto const hound_line = modifiers==(Qt::ShiftModifier + Qt::ControlModifier + Qt::AltModifier)
+        ? ui->decodedTextBrowser->document()->firstBlock().text()
+        : line;
+      selectHound(hound_line, modifiers==(Qt::AltModifier));  // alt double-click gets put at top of queue
     }
     return;
   }
@@ -12106,9 +12095,9 @@ void MainWindow::FoxReset(QString reason="")
 {
   QFile f(m_config.temp_dir().absoluteFilePath("houndcallers.txt"));
   f.remove();
-  ui->decodedTextBrowser->setText("");
-  ui->houndQueueTextBrowser->setText("");
-  ui->foxTxListTextBrowser->setText("");
+  ui->decodedTextBrowser->clear();
+  ui->houndQueueTextBrowser->clear();
+  ui->foxTxListTextBrowser->clear();
 
   m_houndQueue.clear();
   m_foxQSO.clear();
@@ -12979,55 +12968,36 @@ void MainWindow::refreshHoundQueueDisplay()
   }
 }
 
-void MainWindow::doubleClickOnFoxQueue(Qt::KeyboardModifiers modifiers)
+void MainWindow::doubleClickOnFoxQueue(QString const& houndLine, QString const&, Qt::KeyboardModifiers modifiers)
 {
-  if(modifiers==9999) return;                               //Silence compiler warning
-  QTextCursor cursor=ui->houndQueueTextBrowser->textCursor();
-  cursor.setPosition(cursor.selectionStart());
-  QString houndLine=cursor.block().text();
   QString houndCall=houndLine.mid(0,12).trimmed();
 
   if (modifiers == (Qt::AltModifier))
     {
       //Alt-click on a Fox queue entry - put on top of queue
-      // remove
-      for(auto i=0; i<m_houndQueue.size(); i++) {
-          QString t = m_houndQueue[i];
-          QString hc = t.mid(0, 12).trimmed();
-          if (hc == houndCall) {
-            m_houndQueue.removeAt(i);
-            break;
-          }
+      if (FoxOperatorActions::moveQueuedHoundToFront (m_houndQueue, houndLine))
+        {
+          refreshHoundQueueDisplay();
         }
-      m_houndQueue.prepend(houndLine);
-      refreshHoundQueueDisplay();
     } else
     {
-      writeFoxQSO(" Del:  " + houndCall);
-      QQueue <QString> tmpQueue;
-      while (!m_houndQueue.isEmpty())
+      if (FoxOperatorActions::removeQueuedHound (m_houndQueue, houndLine))
         {
-          QString t = m_houndQueue.dequeue();
-          QString hc = t.mid(0, 12).trimmed();
-          if (hc != houndCall) tmpQueue.enqueue(t);
+          writeFoxQSO(" Del:  " + houndCall);
+          refreshHoundQueueDisplay();
         }
-      m_houndQueue.swap(tmpQueue);
-      refreshHoundQueueDisplay();
     }
 }
 
-void MainWindow::doubleClickOnFoxInProgress(Qt::KeyboardModifiers modifiers)
+void MainWindow::doubleClickOnFoxInProgress(QString const& houndLine, QString const&, Qt::KeyboardModifiers modifiers)
 {
-  if (modifiers == 9999) return;                               //Silence compiler warning
-  QTextCursor cursor = ui->foxTxListTextBrowser->textCursor();
-  cursor.setPosition(cursor.selectionStart());
-  QString houndLine = cursor.block().text();
-  QString houndCall = houndLine.mid(0, 12).trimmed();
-
   if (modifiers == 0)
     {
-      m_foxQSO[houndCall].ncall = m_maxStrikes + 1; // time them out
-      updateFoxQSOsInProgressDisplay();
+      if (FoxOperatorActions::timeoutIfActive (m_foxQSOinProgress, m_foxQSO, houndLine,
+                                                m_maxStrikes + 1))
+        {
+          updateFoxQSOsInProgressDisplay();
+        }
     }
 }
 
