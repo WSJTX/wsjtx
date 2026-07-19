@@ -495,6 +495,22 @@ runs:
         case $'\n'"$LIBS"$'\n' in *$'\n'libQt5Core.so*) ;; *) exit 1 ;; esac
         case $'\n'"$LIBS"$'\n' in *$'\n'libQt5Widgets.so*) ;; *) exit 1 ;; esac
         case $'\n'"$LIBS"$'\n' in *$'\n'libQt5Multimedia.so*) ;; *) exit 1 ;; esac
+        for required_file in \
+          squashfs-root/usr/bin/qt.conf \
+          squashfs-root/usr/plugins/platforms/libqxcb.so \
+          squashfs-root/usr/plugins/sqldrivers/libqsqlite.so; do
+          if [ ! -f "$required_file" ]; then
+            echo "::error::Required AppImage payload file is missing: ${required_file}"
+            exit 1
+          fi
+        done
+        if ! grep -Eq '^[[:space:]]*Plugins[[:space:]]*=[[:space:]]*plugins[[:space:]]*$' \
+          squashfs-root/usr/bin/qt.conf; then
+          echo "::error::AppImage qt.conf must set Plugins = plugins"
+          echo "AppImage qt.conf contents:"
+          cat squashfs-root/usr/bin/qt.conf
+          exit 1
+        fi
         # Verify Qt audio backend plugins were bundled. Without them,
         # QAudioDeviceInfo::availableDevices() returns empty at runtime
         # and the user sees "no audio devices" — observed in v3.0.1 on
@@ -513,6 +529,63 @@ runs:
         echo "Qt audio plugins bundled:"
         echo "$audio_plugins"
         rm -rf squashfs-root
+
+    # armhf uses a separate QEMU payload script and intentionally remains
+    # structural-only; this runtime launch covers native x86_64 and aarch64.
+    - name: Runtime-smoke-test AppImage
+      id: appimage_runtime_smoke
+      if: inputs.arch != 'armhf'
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+        ARCH: ${{ inputs.arch }}
+      run: |
+        APPIMAGE="wsjtx-${VERSION}-linux-${ARCH}.AppImage"
+        LOG="wsjtx-build/appimage-startup-smoke.log"
+
+        set +e
+        env \
+          -u LD_LIBRARY_PATH \
+          -u LD_PRELOAD \
+          -u LD_AUDIT \
+          -u QT_PLUGIN_PATH \
+          -u QT_QPA_PLATFORM_PLUGIN_PATH \
+          -u QML_IMPORT_PATH \
+          -u QML2_IMPORT_PATH \
+          APPIMAGE_EXTRACT_AND_RUN=1 \
+          QT_QPA_PLATFORM=xcb \
+          timeout --kill-after=5s 45s \
+            xvfb-run -a -s "-screen 0 1280x1024x24" \
+            "./$APPIMAGE" \
+            --startup-smoke-test \
+            --rig-name CI-APPIMAGE-STARTUP \
+            >"$LOG" 2>&1
+        status=$?
+        set -e
+
+        cat "$LOG"
+
+        if [ "$status" -eq 124 ]; then
+          echo "::error::AppImage startup smoke test timed out after 45 seconds"
+          exit 1
+        fi
+        if [ "$status" -ne 0 ]; then
+          echo "::error::AppImage startup smoke test exited with status $status"
+          exit 1
+        fi
+        if ! grep -Fq "WSJT-X startup smoke test passed" "$LOG"; then
+          echo "::error::AppImage exited successfully without the startup-smoke success marker"
+          exit 1
+        fi
+
+    - name: Upload AppImage startup diagnostics
+      if: failure() && steps.appimage_runtime_smoke.outcome == 'failure'
+      uses: actions/upload-artifact@v7
+      with:
+        name: wsjtx-startup-smoke-linux-${{ inputs.arch }}
+        path: wsjtx-build/appimage-startup-smoke.log
+        if-no-files-found: ignore
+        retention-days: 7
 
     - name: Upload AppImage
       uses: actions/upload-artifact@v7
