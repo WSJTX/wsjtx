@@ -758,6 +758,44 @@ jobs:
               -exec codesign --force --options runtime $TS --sign "$IDENTITY" {} \;
           done
 
+      - name: Smoke-launch deployed WSJT-X app
+        id: deployed_wsjtx_smoke
+        timeout-minutes: 1
+        run: |
+          APP="${GITHUB_WORKSPACE}/${{ steps.collect.outputs.stage_dir }}/wsjtx.app"
+          DIAGNOSTICS="${GITHUB_WORKSPACE}/wsjtx-build/deployed-startup-smoke-diagnostics"
+
+          unset DYLD_LIBRARY_PATH
+          unset DYLD_FRAMEWORK_PATH
+          unset DYLD_INSERT_LIBRARIES
+          unset DYLD_ROOT_PATH
+          unset DYLD_IMAGE_SUFFIX
+          unset QT_PLUGIN_PATH
+          unset QT_QPA_PLATFORM_PLUGIN_PATH
+          unset QML_IMPORT_PATH
+          unset QML2_IMPORT_PATH
+
+          export DYLD_FALLBACK_LIBRARY_PATH="/usr/lib"
+          export DYLD_FALLBACK_FRAMEWORK_PATH="/System/Library/Frameworks"
+          export QT_QPA_PLATFORM="cocoa"
+          export PATH="/usr/bin:/bin:/usr/sbin:/sbin"
+
+          cd "$RUNNER_TEMP"
+          /bin/bash "${GITHUB_WORKSPACE}/test/run-wsjtx-startup-macos.sh" \
+            "$DIAGNOSTICS" \
+            "${APP}/Contents/MacOS/wsjtx" \
+            --startup-smoke-test \
+            --rig-name CI-DEPLOYED-STARTUP
+
+      - name: Upload deployed WSJT-X startup diagnostics
+        if: failure() && steps.deployed_wsjtx_smoke.outcome == 'failure'
+        uses: actions/upload-artifact@v7
+        with:
+          name: wsjtx-deployed-startup-smoke-macos-${{ inputs.arch }}
+          path: wsjtx-build/deployed-startup-smoke-diagnostics
+          if-no-files-found: ignore
+          retention-days: 7
+
       # ALWAYS runs. productbuild signs with the Developer ID Installer
       # cert when secrets are present; produces an unsigned .pkg
       # otherwise. Either way the artifact is named identically and
