@@ -1,6 +1,7 @@
 #include "DecodedMessageReaction.hpp"
 
 #include "Decoder/decodedtext.h"
+#include "WaitFeaturePolicy.hpp"
 #include "qt_helpers.hpp"
 
 #include <QRegularExpression>
@@ -162,12 +163,6 @@ namespace
       || messageWords.contains(snapshot.myCall)
       || messageContainsCall(messageWords, snapshot.dxCall)
       || messageWords.contains("DE");
-  }
-
-  bool isSlowReactionMode(QString const& mode)
-  {
-    return mode == "FT8" || mode == "FT4" || mode == "Q65" || mode == "FST4"
-      || mode == "JT65" || mode == "JT9" || mode == "JT4";
   }
 
   struct EntryAnalysis
@@ -764,17 +759,24 @@ namespace DecodedMessageReaction
                                     WaitDecodeSource source)
   {
     QsoReactionPlan plan;
+    WaitFeatureContext const waitContext {
+      snapshot.mode,
+      snapshot.specOp,
+      snapshot.waitFeaturesEnabled,
+      snapshot.autoSequenceChecked,
+      !snapshot.hisCall.isEmpty(),
+      snapshot.ncccSprint
+    };
     bool const fastPolicy = source == WaitDecodeSource::Msk144FastDecoder
       && snapshot.mode == "MSK144";
     bool const slowPolicy = source == WaitDecodeSource::SlowDecoder
-      && isSlowReactionMode(snapshot.mode);
+      && slow_wait_feature_mode_supported (snapshot.mode);
     if ((!fastPolicy && !slowPolicy) || snapshot.hisCall.isEmpty()) {
       plan.reason = "decoder source does not match Wait policy";
       return plan;
     }
 
-    bool const nccc = slowPolicy && snapshot.mode == "FT4"
-      && snapshot.specOp == SpecOp::NA_VHF && snapshot.ncccSprint;
+    bool const nccc = slowPolicy && nccc_sprint_auto_reply (waitContext);
     if (!snapshot.waitFeaturesEnabled && !nccc
         && !(fastPolicy && snapshot.waitAndCallControlChecked)) {
       plan.reason = "Wait features are not active";

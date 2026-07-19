@@ -13,6 +13,7 @@
 #include <QSettings>
 #include <QtMath>
 #include "MessageBox.hpp"
+#include "WaitFeaturePolicy.hpp"
 #include "commons.h"
 #include "echograph.h"
 #include "widegraph.h"
@@ -421,9 +422,15 @@ void MainWindow::on_ignoreButton_clicked()                    //Ignore button
 
 void MainWindow::on_DX_Call_Button_clicked (bool checked)
 {
-  if((m_mode=="FT8" or m_mode=="FT4" or m_mode=="Q65" or m_mode=="FST4" or m_mode=="MSK144") &&
-     (m_specOp==SpecOp::NONE or m_specOp==SpecOp::HOUND) && ui->cbAutoSeq->isChecked() && checked
-     && (m_hisCall!="" or (m_mode=="FT8" && m_specOp==SpecOp::HOUND))) {
+  WaitFeatureContext const waitContext {
+    m_mode,
+    m_specOp,
+    m_config.Wait_features_enabled(),
+    ui->cbAutoSeq->isChecked(),
+    !m_hisCall.isEmpty(),
+    m_config.NCCC_Sprint()
+  };
+  if (checked && wait_and_call_arming_eligible (waitContext)) {
       wait_and_call = true;       // toggle Wait & Call on when allowed
   } else {
       wait_and_call = false;      // toggle Wait & Call off in any other case

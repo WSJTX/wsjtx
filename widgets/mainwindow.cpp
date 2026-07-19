@@ -75,6 +75,7 @@
 #include "DecDataMutex.hpp"
 #include "DecoderIpc.hpp"
 #include "TxStartPolicy.hpp"
+#include "WaitFeaturePolicy.hpp"
 #include "ActiveStationList.hpp"
 #include "widgets/SpecOpLabel.h"
 #include "plotter.h"
@@ -3337,11 +3338,19 @@ void MainWindow::statusChanged()
 {
   m_specOp=m_config.special_op_id();  // update m_specOp
   if (m_specOp==SpecOp::Q65_PILEUP && m_mode != "Q65") on_actionQ65_triggered();
-  QTimer::singleShot (50, this, [=] {       // only allow Wait & Call where it is appropriate
-      if((m_mode.startsWith("JT") or m_mode=="WSPR" or m_mode=="Echo" or m_mode=="FST4W"
-         or (m_specOp!=SpecOp::NONE and m_specOp!=SpecOp::HOUND)
-         or !ui->cbAutoSeq->isChecked() or m_hisCall=="") && ui->DX_Call_Button->isChecked())
-          ui->DX_Call_Button->click ();
+  QTimer::singleShot (50, this, [=] {
+      WaitFeatureContext const waitContext {
+        m_mode,
+        m_specOp,
+        m_config.Wait_features_enabled(),
+        ui->cbAutoSeq->isChecked(),
+        !m_hisCall.isEmpty(),
+        m_config.NCCC_Sprint()
+      };
+      if (ui->DX_Call_Button->isChecked()
+          && !wait_and_call_arming_eligible (waitContext)) {
+        ui->DX_Call_Button->click ();
+      }
   });
   statusUpdate ();
   QFile f {m_config.temp_dir ().absoluteFilePath ("wsjtx_status.txt")};
@@ -14211,62 +14220,84 @@ void MainWindow:: on_actionVHF_UHF_Buttons_triggered ()
 
 void MainWindow::check_button_color()
 {
-    // Yellow background for the DX Call and Enable Tx buttons when the rig is allowed to Tx automatically
-    if((((m_mode=="FT8" or m_mode=="FT4" or m_mode=="Q65" or m_mode=="FST4" or m_mode=="MSK144" or m_mode=="JT65" or m_mode=="JT9" or m_mode=="JT4") &&
-          m_specOp==SpecOp::NONE && ui->cbAutoSeq->isChecked() && ui->cbAutoSeq->isChecked()
-          && m_config.Wait_features_enabled()) or m_specOp==SpecOp::HOUND) && (m_hisCall!="" or (m_mode=="FT8" && m_specOp==SpecOp::HOUND))) {
-        if (ui->DX_Call_Button->isChecked()) {
-            ui->DX_Call_Button->setStyleSheet("QPushButton {background-color: #ff0000; color: #ffffff; border-style: outset; border-width: 1px; border-radius: 5px; border-color: black; min-width: 5em; padding: 3px;}");
-        } else {
-          if (m_mode=="FT8" && m_specOp==SpecOp::HOUND && m_hisCall=="") {
-              if (m_useDarkStyle) {
-                ui->DX_Call_Button->setStyleSheet("QPushButton {background-color: #505F69; color: #ffffff; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none;}");
-              } else {
-                ui->DX_Call_Button->setStyleSheet("QPushButton {background-color: #9fafd5; border: none;}");
-              }
-          } else {
-            ui->DX_Call_Button->setStyleSheet("QPushButton {background-color: #ffff00; color: #000000; border: 1px solid #32414B; border-radius: 4px; padding: 3px; outline: none;}");
-          }
-        }
-        if (!m_auto) {
-          if (m_mode=="FT8" && m_specOp==SpecOp::HOUND && m_hisCall=="") {
-            if (m_useDarkStyle) {
-              ui->autoButton->setStyleSheet("QPushButton {background-color: #505F69; color: #ffffff; border: 1px solid #32414B; color: #F0F0F0; border-radius: 5px; padding: 3px; outline: none; min-width: 5em;}");
-            } else {
-              ui->autoButton->setStyleSheet("");
-              ui->autoButton->setStyleSheet("QPushButton {min-width: 5em;}");
-            }
-          } else {
-            ui->autoButton->setStyleSheet("QPushButton {background-color: #ffff00; color: #000000; border: 1px solid #32414B; border-radius: 4px; padding: 3px; outline: none; min-width: 5em;}");
-          }
-        }
-        if (m_auto) ui->autoButton->setStyleSheet("QPushButton {background-color: #ff0000; color: #ffffff; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none; min-width: 5em;}");
+    WaitFeatureContext const waitContext {
+      m_mode,
+      m_specOp,
+      m_config.Wait_features_enabled(),
+      ui->cbAutoSeq->isChecked(),
+      !m_hisCall.isEmpty(),
+      m_config.NCCC_Sprint()
+    };
+    auto const waitAndCallEligible = wait_and_call_arming_eligible (waitContext);
+    auto const enableTxWarning = enable_tx_warning (waitContext);
+
+    if (!waitAndCallEligible) {
+      ui->DX_Call_Button->setChecked (false);
+      wait_and_call = false;
+    } else if (!ui->DX_Call_Button->isChecked()) {
+      wait_and_call = false;
+    }
+
+    if (wait_and_call) {
+      ui->DX_Call_Button->setStyleSheet("QPushButton {background-color: #ff0000; color: #ffffff; border-style: outset; border-width: 1px; border-radius: 5px; border-color: black; min-width: 5em; padding: 3px;}");
+    } else if (wait_and_call_warning_eligible (waitContext)) {
+      ui->DX_Call_Button->setStyleSheet("QPushButton {background-color: #ffff00; color: #000000; border: 1px solid #32414B; border-radius: 4px; padding: 3px; outline: none;}");
+    } else if (m_useDarkStyle) {
+      ui->DX_Call_Button->setStyleSheet("QPushButton {background-color: #505F69; color: #ffffff; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none;}");
     } else {
-        ui->DX_Call_Button->setChecked(false);
-        if (m_useDarkStyle) {
-            ui->DX_Call_Button->setStyleSheet("QPushButton {background-color: #505F69; color: #ffffff; border: 1px solid #32414B; color: #F0F0F0; border-radius: 4px; padding: 3px; outline: none;}");
-            if (!m_auto) ui->autoButton->setStyleSheet("QPushButton {background-color: #505F69; color: #ffffff; border: 1px solid #32414B; color: #F0F0F0; border-radius: 5px; padding: 3px; outline: none; min-width: 5em;}");
-            if (m_auto) ui->autoButton->setStyleSheet("QPushButton {background-color: #ff0000; color: #ffffff; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none; min-width: 5em;}");
-        } else {
-            ui->DX_Call_Button->setStyleSheet("QPushButton {background-color: #9fafd5; border: none;}");
-            if (!m_auto) {
-                ui->autoButton->setStyleSheet("");
-                ui->autoButton->setStyleSheet("QPushButton {min-width: 5em;}");
-            }
-            if (m_auto) ui->autoButton->setStyleSheet("QPushButton {background-color: #ff0000; color: #ffffff; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none; min-width: 5em;}");
-        }
+      ui->DX_Call_Button->setStyleSheet("QPushButton {background-color: #9fafd5; border: none;}");
+    }
+
+    if (m_auto) {
+      ui->autoButton->setStyleSheet("QPushButton {background-color: #ff0000; color: #ffffff; border: 1px solid #32414B; border-radius: 5px; padding: 3px; outline: none; min-width: 5em;}");
+    } else if (EnableTxWarning::NONE != enableTxWarning) {
+      ui->autoButton->setStyleSheet("QPushButton {background-color: #ffff00; color: #000000; border: 1px solid #32414B; border-radius: 4px; padding: 3px; outline: none; min-width: 5em;}");
+    } else if (m_useDarkStyle) {
+      ui->autoButton->setStyleSheet("QPushButton {background-color: #505F69; color: #ffffff; border: 1px solid #32414B; color: #F0F0F0; border-radius: 5px; padding: 3px; outline: none; min-width: 5em;}");
+    } else {
+      ui->autoButton->setStyleSheet("");
+      ui->autoButton->setStyleSheet("QPushButton {min-width: 5em;}");
     }
 
     auto const respondMode = ui->respondComboBox->currentText();
-    QString autoButtonToolTip {"Toggle Auto-Tx On/Off"};
     if (m_config.Wait_features_enabled()) {
-        ui->DX_Call_Button->setToolTip("Toggle Wait & Call On/Off.\n"
-                                       "Right-click to clear the DX Call box.");
-        if (pounce) {
-            autoButtonToolTip = "Toggle Auto-Tx On/Off.\n"
-                                "Wait & Pounce is On.\n"
-                                "Right-click to turn Wait & Pounce Off.";
-        } else if (respondMode=="CQ: None") {
+        if (waitAndCallEligible) {
+            ui->DX_Call_Button->setToolTip("Toggle Wait & Call On/Off.\n"
+                                           "Right-click to clear the DX Call box.");
+        } else if (!ui->cbAutoSeq->isChecked()) {
+            ui->DX_Call_Button->setToolTip("Wait & Call requires Auto-Seq.\n"
+                                           "Right-click to clear the DX Call box.");
+        } else if (!wait_and_call_mode_supported (m_mode)
+                   || (SpecOp::HOUND == m_specOp && "FT8" != m_mode)) {
+            ui->DX_Call_Button->setToolTip("Wait & Call is unavailable in this mode.\n"
+                                           "Right-click to clear the DX Call box.");
+        } else if (SpecOp::NONE != m_specOp && SpecOp::HOUND != m_specOp) {
+            ui->DX_Call_Button->setToolTip("Wait & Call is unavailable for this special operation.\n"
+                                           "Right-click to clear the DX Call box.");
+        } else {
+            ui->DX_Call_Button->setToolTip("Enter a DX call to enable Wait & Call.\n"
+                                           "Right-click to clear the DX Call box.");
+        }
+    } else {
+        ui->DX_Call_Button->setToolTip("Right-click to clear the DX Call box");
+    }
+
+    QString autoButtonToolTip {"Toggle Auto-Tx On/Off"};
+    if (pounce) {
+        autoButtonToolTip = "Toggle Auto-Tx On/Off.\n"
+                            "Wait & Pounce is On.\n"
+                            "Right-click to turn Wait & Pounce Off.";
+    } else if (!m_auto && EnableTxWarning::HOUND_AUTO_REPLY == enableTxWarning) {
+        autoButtonToolTip = "Toggle Auto-Tx On/Off.\n"
+                            "Hound mode can enable Auto-Tx when the selected Fox replies.";
+    } else if (!m_auto && EnableTxWarning::NCCC_SPRINT == enableTxWarning) {
+        autoButtonToolTip = "Toggle Auto-Tx On/Off.\n"
+                            "NCCC Sprint can enable Auto-Tx when the selected station replies.";
+    } else if (!m_auto && EnableTxWarning::WAIT_AND_REPLY == enableTxWarning) {
+        autoButtonToolTip = "Toggle Auto-Tx On/Off.\n"
+                            "Wait & Reply can enable Auto-Tx when the selected station replies.";
+    } else if (m_config.Wait_features_enabled()) {
+        if (respondMode=="CQ: None") {
             autoButtonToolTip = "Toggle Auto-Tx On/Off.\n"
                                 "Wait & Pounce requires a CQ response mode.\n"
                                 "Change CQ: None to another option.";
@@ -14280,8 +14311,6 @@ void MainWindow::check_button_color()
             autoButtonToolTip = QString {"Toggle Auto-Tx On/Off.\n"
                                          "Right-click to enable Wait & Pounce using %1."}.arg(respondMode);
         }
-    } else {
-        ui->DX_Call_Button->setToolTip("Right-click to clear the DX Call box");
     }
     ui->autoButton->setToolTip(autoButtonToolTip);
     ui->DX_Call_Button->setAccessibleDescription(ui->DX_Call_Button->toolTip());
@@ -15068,20 +15097,25 @@ DecodedMessageReaction::ReactionDisposition MainWindow::processWaitReplyCall(
   if (m_hisCall.isEmpty()) return DecodedMessageReaction::ReactionDisposition::NoReaction;
 
   bool const waitFeaturesEnabled = m_config.Wait_features_enabled();
+  WaitFeatureContext const waitContext {
+    m_mode,
+    m_specOp,
+    waitFeaturesEnabled,
+    ui->cbAutoSeq->isChecked(),
+    !m_hisCall.isEmpty(),
+    m_config.NCCC_Sprint()
+  };
   bool eligible = false;
   if (source == DecodedMessageReaction::WaitDecodeSource::SlowDecoder) {
-    bool const slowMode = m_mode == "FT8" || m_mode == "FT4" || m_mode == "Q65"
-      || m_mode == "FST4" || m_mode == "JT65" || m_mode == "JT9" || m_mode == "JT4";
-    bool const nccc = m_mode == "FT4" && m_specOp == SpecOp::NA_VHF
-      && m_config.NCCC_Sprint();
+    bool const slowMode = slow_wait_feature_mode_supported (m_mode);
+    bool const nccc = nccc_sprint_auto_reply (waitContext);
     bool const waitReply = waitFeaturesEnabled && !ui->autoButton->isChecked();
-    bool const waitCall = waitFeaturesEnabled && wait_and_call && m_specOp != SpecOp::FOX
-      && ui->cbAutoSeq->isChecked() && !no_wait_and_call;
+    bool const waitCall = wait_and_call && wait_and_call_arming_eligible (waitContext)
+      && !no_wait_and_call;
     eligible = slowMode && (nccc || waitReply || waitCall);
   } else {
     bool const waitReply = waitFeaturesEnabled && !ui->autoButton->isChecked();
-    bool const waitCall = waitFeaturesEnabled && wait_and_call && m_specOp != SpecOp::FOX
-      && ui->cbAutoSeq->isChecked();
+    bool const waitCall = wait_and_call && wait_and_call_arming_eligible (waitContext);
     eligible = m_mode == "MSK144"
       && (waitReply || waitCall || ui->DX_Call_Button->isChecked());
   }

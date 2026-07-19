@@ -64,6 +64,12 @@ add_executable (test_tx_start_policy
 target_link_libraries (test_tx_start_policy Qt5::Test)
 add_test (NAME test_tx_start_policy COMMAND test_tx_start_policy)
 
+add_executable (test_wait_feature_policy
+  test_wait_feature_policy.cpp
+)
+target_link_libraries (test_wait_feature_policy Qt5::Test)
+add_test (NAME test_wait_feature_policy COMMAND test_wait_feature_policy)
+
 add_executable (test_superfox_tx_planner
   test_superfox_tx_planner.cpp
   ${CMAKE_SOURCE_DIR}/SuperFoxTxPlanner.cpp
