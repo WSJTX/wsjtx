@@ -299,7 +299,8 @@ void MainWindow::on_txb6_clicked()
     set_dateTimeQSO(-1);
     ui->txrb6->setChecked(true);
     if(m_transmitting) m_restart=true;
-    if(m_mode=="MSK144" && !keep_msk144_frequency && m_msk144basefreq > 0 && !programStart && !m_band_changed) {
+    if(m_mode=="MSK144" && !programStart && !m_band_changed && !keep_msk144_frequency
+        && hasMsk144BaseFrequency ()) {
       setRig(m_msk144basefreq);  // reset MSK144 QSY
       msk144qsy = false;
     }

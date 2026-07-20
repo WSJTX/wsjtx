@@ -6764,7 +6764,8 @@ void MainWindow::on_txrb6_toggled(bool status)
     m_ntx=6;
     if (ui->txrb6->text().contains (cq_or_qrz_message_regexp)) set_dateTimeQSO(-1);
   }
-  if(m_mode=="MSK144" && !keep_msk144_frequency && m_msk144basefreq > 0 && !programStart && !m_band_changed) {
+  if(m_mode=="MSK144" && !programStart && !m_band_changed && !keep_msk144_frequency
+      && hasMsk144BaseFrequency ()) {
     setRig(m_msk144basefreq);  // reset MSK144 QSY
     msk144qsy = false;
   }
@@ -6880,7 +6881,8 @@ void MainWindow::doubleClickOnCall(Qt::KeyboardModifiers modifiers)
         if (m_auto) auto_tx_mode (false);
     }
     // MSK144 QSY: set RF freq so next received MSK144 signal is at 1500 Hz
-    if(m_mode=="MSK144" && message.frequencyOffset() > 0 && (modifiers==Qt::ControlModifier or modifiers==(Qt::ControlModifier+Qt::AltModifier))) {
+    if(m_mode=="MSK144" && hasMsk144BaseFrequency () && message.frequencyOffset() > 0
+       && (modifiers==Qt::ControlModifier or modifiers==(Qt::ControlModifier+Qt::AltModifier))) {
       Frequency dial_frequency = m_msk144basefreq + (message.frequencyOffset() - 1500);
       keep_msk144_frequency = true;
       monitor (true);
@@ -9699,6 +9701,7 @@ void MainWindow::on_actionFreqCal_triggered()
 
 void MainWindow::switch_mode (Mode mode)
 {
+  if (mode != Modes::MSK144) m_msk144basefreq = 0;
   no_a7_decodes = true;  // Don't allow a7 decodes during the first period because they can be leftovers from the previous mode
   msk144qsy = false;     // MSK144 QSY
   QTimer::singleShot ((int(1500.0*m_TRperiod)), this, [=] {no_a7_decodes = false;});
