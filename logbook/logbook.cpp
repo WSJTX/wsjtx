@@ -132,9 +132,11 @@ QByteArray LogBook::QSOToADIF (QString const& hisCall, QString const& hisGrid, Q
             {
               // Texas QSO Party: the sent exchange is "+00 <location>" where
               // <location> is a Texas county, a US state / Canadian province,
-              // or "DX".  It is not numeric, so record it as a string
-              // multiplier via <stx_string>.
-              t += " <stx_string:" + QString::number (words.back ().size ()) + '>' + words.back ();
+              // or "DX".  Although it is non-numeric, N1MM (and the TxQP log
+              // checker) only import the <stx> tag when pushing QSO data, so
+              // the location multiplier is recorded there rather than in the
+              // ADIF-standard <stx_string> field.
+              t += " <stx:" + QString::number (words.back ().size ()) + '>' + words.back ();
             }
           else
             {
@@ -189,7 +191,12 @@ QByteArray LogBook::QSOToADIF (QString const& hisCall, QString const& hisGrid, Q
                 // county (for TX stations) or a US state / Canadian
                 // province / "DX" for stations outside Texas.  The signal
                 // report is the implied fixed value "+00" (words.at (0)).
-                t += " <contest_id:15>TEXAS-QSO-PARTY <srx_string:"
+                // Although the location is non-numeric, N1MM (and the TxQP
+                // log checker) only import the <srx> tag when receiving QSO
+                // data, so the multiplier is recorded there rather than in
+                // the ADIF-standard <srx_string> field.  The <state> tag is
+                // also written for general logging/awards tracking.
+                t += " <contest_id:15>TEXAS-QSO-PARTY <srx:"
                   + QString::number (words.at (1).size ()) + '>' + words.at (1)
                   + " <state:" + QString::number (words.at (1).size ()) + '>' + words.at (1);
               }
