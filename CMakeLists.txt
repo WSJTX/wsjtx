@@ -421,6 +421,7 @@ set (wsjtx_CXXSRCS
   widgets/colorhighlighting.cpp
   WSPR/WsprTxScheduler.cpp
   AutoRespondSelectionLatch.cpp
+  HighlightingRules.cpp
   SuperFoxTxPlanner.cpp
   widgets/SpecOpLabel.cpp
   widgets/mainwindow.cpp

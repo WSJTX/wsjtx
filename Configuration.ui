@@ -3141,7 +3141,7 @@ Right click for insert and delete options.</string>
             <item row="0" column="2">
              <widget class="QCheckBox" name="highlight_orange_check_box">
               <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Highlight callsigns or grids with orange background color. Callsigns and/or grids must be separated by a comma, and there must be a comma after each callsign.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Highlight callsigns, grids, prefixes, or directional CQ calls with orange background color. Separate callsigns, grids, and directional calls with commas; spaces after commas are allowed. Include a trailing comma after each callsign or grid, and end each prefix with a semicolon. A leading comma is not required, and a single directional call needs no comma.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
               <property name="text">
                <string>Highlight orange:</string>
@@ -3151,7 +3151,7 @@ Right click for insert and delete options.</string>
             <item row="2" column="2">
              <widget class="QCheckBox" name="highlight_blue_check_box">
               <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Highlight callsigns or grids with blue background color. Callsigns and/or grids must be separated by a comma, and there must be a comma after each callsign.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Highlight callsigns, grids, prefixes, or directional CQ calls with blue background color. Separate callsigns, grids, and directional calls with commas; spaces after commas are allowed. Include a trailing comma after each callsign or grid, and end each prefix with a semicolon. A leading comma is not required, and a single directional call needs no comma.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
               <property name="text">
                <string>Highlight blue:</string>
@@ -3161,14 +3161,14 @@ Right click for insert and delete options.</string>
             <item row="1" column="2">
              <widget class="QLineEdit" name="highlight_orange_callsigns">
               <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Highlight callsigns or grids with orange background color. Callsigns and/or grids must be separated by a comma, and there must be a comma after each callsign.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Highlight callsigns, grids, prefixes, or directional CQ calls with orange background color. Separate callsigns, grids, and directional calls with commas; spaces after commas are allowed. Include a trailing comma after each callsign or grid, and end each prefix with a semicolon. A leading comma is not required, and a single directional call needs no comma.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
              </widget>
             </item>
             <item row="3" column="2">
              <widget class="QLineEdit" name="highlight_blue_callsigns">
               <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Highlight callsigns or grids with blue background color. Callsigns and/or grids must be separated by a comma, and there must be a comma after each callsign.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Highlight callsigns, grids, prefixes, or directional CQ calls with blue background color. Separate callsigns, grids, and directional calls with commas; spaces after commas are allowed. Include a trailing comma after each callsign or grid, and end each prefix with a semicolon. A leading comma is not required, and a single directional call needs no comma.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
              </widget>
             </item>

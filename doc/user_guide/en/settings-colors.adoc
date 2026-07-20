@@ -57,8 +57,13 @@ image::highlighting.png[align="center",alt="Decode Highlighting"]
 
 It is still possible for you to customize the color scheme according
 to your own preferences. In addition, you can highlight individual
-callsigns or grids according to your specifications.  Callsigns and/or
-grids can be highlighted with orange or blue background
-color. Callsigns/grids must be separated by commas and can be mixed
-(e.g. "K1JT, DG2YCB, JO33, JN58,"). You must include a comma after
+callsigns, grids, prefixes, or directional CQ calls such as DX, POTA,
+and SOTA with an orange or blue background. Callsigns, grids, and
+directional calls are separated by commas and can be mixed (e.g.
+"K1JT, DG2YCB, JO33, DX, POTA, SOTA,"). Spaces after commas are
+allowed. Directional calls are matched as whole list items, so list
+order has no effect and no leading comma is needed. A single
+directional call does not need a comma. You must include a comma after
 each callsign or grid, and also at the end of the line.
+Prefixes must be followed by a semicolon (e.g. "VK;ZL;T88;"). The
+Wanted audible alert uses the same orange and blue entries.
