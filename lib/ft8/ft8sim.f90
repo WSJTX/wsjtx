@@ -5,12 +5,15 @@ program ft8sim_gfsk
 
   use wavhdr
   use packjt77
+  use, intrinsic :: iso_c_binding
+
   include 'ft8_params.f90'               !Set various constants
   parameter (NWAVE=NN*NSPS)
   type(hdr) h                            !Header for .wav file
   character arg*12,fname*17
   character msg37*37,msgsent37*37
   character c77*77
+  character(len=7) :: prog_name='ft8sim'//char(0)
   complex c0(0:NMAX-1)
   complex c(0:NMAX-1)
   complex cwave(0:NWAVE-1)
@@ -20,9 +23,17 @@ program ft8sim_gfsk
   integer*1 msgbits(77)
   integer*2 iwave(NMAX)                  !Generated full-length waveform
 
+  interface
+     subroutine print_version(prog_name) bind(C, name='print_version')
+       use, intrinsic :: iso_c_binding
+       character(kind=c_char, len=1), intent(in) :: prog_name(*)
+     end subroutine print_version
+  end interface
+
 ! Get command-line argument(s)
   nargs=iargc()
   if(nargs.ne.7) then
+     call print_version(prog_name)
      print*,'Usage:    ft8sim "message"                 f0     DT fdop del nfiles snr'
      print*,'Examples: ft8sim "K1ABC W9XYZ EN37"       1500.0 0.0  0.5 1.0   10   -18'
      print*,'          ft8sim "K1ABC W9XYZ EN37"       1500.0 0.0  MM  1.0   10   -18'
