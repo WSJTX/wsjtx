@@ -54,7 +54,8 @@ extern "C" int d2aCallback(const void * /*inputBuffer*/, void *outputBuffer,
   static int nStart = 0;
   static double phi = 0.;
 
-  double tsec, tstart, dphi;
+  double tsec, tstart;
+  double dphi = 0.;
   int nsec;
   int nTRperiod = udata->nTRperiod;
 

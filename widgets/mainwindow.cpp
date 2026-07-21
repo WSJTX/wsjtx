@@ -494,6 +494,8 @@ namespace
 
 QRegExp const MainWindow::message_alphabet {"[- @A-Za-z0-9+./?#<>;$]*"};
 QRegularExpression const MainWindow::grid_regexp {"\\A(?![Rr]{2}73)[A-Ra-r]{2}[0-9]{2}([A-Xa-x]{2}){0,1}\\z"};
+constexpr int MainWindow::MaxActiveStationRows;
+constexpr int MainWindow::MaxQ65PileupCallers;
 QRegularExpression const MainWindow::non_r_db_regexp {"\\A[-+]{1}[0-9]{1,2}\\z"};
 
 //--------------------------------------------------- MainWindow constructor
