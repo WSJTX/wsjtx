@@ -1,16 +1,21 @@
 #include <QtTest>
 
-#include "DecodedMessageReaction.hpp"
-#include "Decoder/decodedtext.h"
+#include "QsoReactionTestSupport.hpp"
 
-class TestDecodedMessageReaction final
-  : public QObject
+namespace
 {
-  Q_OBJECT
+  using namespace QsoReactionTestSupport;
 
-private:
-  static QString legacyDecode(QString const& mode, QString const& payload,
-                              QString const& flags, bool lowConfidence)
+  Snapshot baseContext()
+  {
+    auto context = neutralStationSnapshot();
+    context.mode = "FT8";
+    context.tx1Enabled = true;
+    return context;
+  }
+
+  QString legacyDecode(QString const& mode, QString const& payload,
+                       QString const& flags, bool lowConfidence)
   {
     auto field = payload.leftJustified(22, ' ', true);
     if (lowConfidence) field[21] = '?';
@@ -19,31 +24,12 @@ private:
     if (!flags.isEmpty()) line += " " + flags;
     return line;
   }
+}
 
-  DecodedMessageReaction::ProcessMessageContext baseContext() const
-  {
-    DecodedMessageReaction::ProcessMessageContext context;
-    context.mode = "FT8";
-    context.myCall = "K1ABC";
-    context.baseCall = "K1ABC";
-    context.dxCall = "W1AW";
-    context.hisCall = "W1AW";
-    context.trPeriod = 15.0;
-    context.nominalFrequency = 14074000;
-    context.rxFrequency = 1500;
-    context.txFrequency = 1500;
-    context.tx1Enabled = true;
-    return context;
-  }
-
-  static bool hasIntAction(QVector<DecodedMessageReaction::ProcessMessageAction> const& actions,
-                           DecodedMessageReaction::ProcessMessageAction::Kind kind, int value)
-  {
-    for (auto const& action : actions) {
-      if (action.kind == kind && action.intValue == value) return true;
-    }
-    return false;
-  }
+class TestDecodedMessageReaction final
+  : public QObject
+{
+  Q_OBJECT
 
 private slots:
   void classifiesLegacy72Messages_data()
@@ -112,9 +98,9 @@ private slots:
     auto context = baseContext();
     DecodedText message {"CQ K1ABC FN42"};
 
-    auto const decision = DecodedMessageReaction::decideProcessMessageEntry(message, context);
+    auto const decision = DecodedMessageReaction::planProcessMessage(message, context);
 
-    QVERIFY(!decision.continueProcessing);
+    QVERIFY(decision.disposition == DecodedMessageReaction::ReactionDisposition::NoReaction);
     QCOMPARE(decision.reason, QString {"decode has too few fields"});
   }
 
@@ -124,9 +110,9 @@ private slots:
     context.mode = "JT65";
     DecodedText message {"0605 -10  0.3 0815 @  K1ABC W1AW -10"};
 
-    auto const decision = DecodedMessageReaction::decideProcessMessageEntry(message, context);
+    auto const decision = DecodedMessageReaction::planProcessMessage(message, context);
 
-    QVERIFY(!decision.continueProcessing);
+    QVERIFY(decision.disposition == DecodedMessageReaction::ReactionDisposition::NoReaction);
     QCOMPARE(decision.reason, QString {"decode mode marker does not match current mode"});
   }
 
@@ -135,13 +121,11 @@ private slots:
     auto context = baseContext();
     DecodedText message {"0605  Tx      1259 #  CQ K1ABC FN42"};
 
-    auto const decision = DecodedMessageReaction::decideProcessMessageEntry(message, context);
+    auto const decision = DecodedMessageReaction::planProcessMessage(message, context);
 
-    QVERIFY(!decision.continueProcessing);
-    QVERIFY(hasIntAction(decision.actions,
-                         DecodedMessageReaction::ProcessMessageAction::Kind::SetRxFrequency, 1259));
-    QVERIFY(!hasIntAction(decision.actions,
-                          DecodedMessageReaction::ProcessMessageAction::Kind::SetTxFrequency, 1259));
+    QVERIFY(decision.disposition == DecodedMessageReaction::ReactionDisposition::NoReaction);
+    QCOMPARE(intEffect(decision, Effect::Kind::SetRxFrequency), 1259);
+    QVERIFY(!hasEffect(decision, Effect::Kind::SetTxFrequency));
   }
 
   void txDecodeWithCtrlAlsoAdjustsTxFrequencyWhenNotHeld()
@@ -150,13 +134,11 @@ private slots:
     context.modifiers.ctrl = true;
     DecodedText message {"0605  Tx      1259 #  CQ K1ABC FN42"};
 
-    auto const decision = DecodedMessageReaction::decideProcessMessageEntry(message, context);
+    auto const decision = DecodedMessageReaction::planProcessMessage(message, context);
 
-    QVERIFY(!decision.continueProcessing);
-    QVERIFY(hasIntAction(decision.actions,
-                         DecodedMessageReaction::ProcessMessageAction::Kind::SetRxFrequency, 1259));
-    QVERIFY(hasIntAction(decision.actions,
-                         DecodedMessageReaction::ProcessMessageAction::Kind::SetTxFrequency, 1259));
+    QVERIFY(decision.disposition == DecodedMessageReaction::ReactionDisposition::NoReaction);
+    QCOMPARE(intEffect(decision, Effect::Kind::SetRxFrequency), 1259);
+    QCOMPARE(intEffect(decision, Effect::Kind::SetTxFrequency), 1259);
   }
 
   void fastCqWithListeningFrequencyRequestsQsy()
@@ -168,17 +150,17 @@ private slots:
     context.nominalFrequency = 50260000;
     DecodedText message {"060522 -10  0.3 0815 &  CQ 260 W1AW FN31"};
 
-    auto const decision = DecodedMessageReaction::decideProcessMessageEntry(message, context);
+    auto const decision = DecodedMessageReaction::planProcessMessage(message, context);
 
     bool foundRigFrequency = false;
     bool foundDisplayQsy = false;
     bool foundMskBaseFrequency = false;
-    for (auto const& action : decision.actions) {
-      if (action.kind == DecodedMessageReaction::ProcessMessageAction::Kind::SetRigFrequency
+    for (auto const& action : decision.effects) {
+      if (action.kind == DecodedMessageReaction::QsoReactionEffect::Kind::SetRigFrequency
           && action.frequency == 50260000) foundRigFrequency = true;
-      if (action.kind == DecodedMessageReaction::ProcessMessageAction::Kind::DisplayQsy
+      if (action.kind == DecodedMessageReaction::QsoReactionEffect::Kind::DisplayQsy
           && action.text == "QSY  50.260") foundDisplayQsy = true;
-      if (action.kind == DecodedMessageReaction::ProcessMessageAction::Kind::SetMsk144BaseFrequency
+      if (action.kind == DecodedMessageReaction::QsoReactionEffect::Kind::SetMsk144BaseFrequency
           && action.frequency == 50260000) foundMskBaseFrequency = true;
     }
 
@@ -193,48 +175,48 @@ private slots:
     context.doubleClicked = true;
     DecodedText message {"0605 -10  0.3 0815 ~  W1AW K1ABC FN42"};
 
-    auto const decision = DecodedMessageReaction::decideProcessMessageEntry(message, context);
+    auto const decision = DecodedMessageReaction::planProcessMessage(message, context);
 
-    QVERIFY(!decision.continueProcessing);
+    QVERIFY(decision.disposition == DecodedMessageReaction::ReactionDisposition::NoReaction);
     QCOMPARE(decision.reason, QString {"double-click would start QSO with own base call"});
   }
 
   void udpReplyIsIgnoredWhileTransmittingOur73()
   {
     auto context = baseContext();
-    context.fromUdpReply = true;
+    context.selectionOrigin = DecodedMessageReaction::SelectionOrigin::Udp;
     context.transmittingSignoff = true;
     DecodedText message {"0605 -10  0.3 0815 ~  K1ABC W1AW RR73"};
 
-    auto const decision = DecodedMessageReaction::decideProcessMessageEntry(message, context);
+    auto const decision = DecodedMessageReaction::planProcessMessage(message, context);
 
-    QVERIFY(!decision.continueProcessing);
+    QVERIFY(decision.disposition == DecodedMessageReaction::ReactionDisposition::NoReaction);
     QCOMPARE(decision.reason, QString {"udp reply ignored while transmitting 73"});
   }
 
   void udpInvalidCqReplyIsRejectedWhileTransmittingOur73()
   {
     auto context = baseContext();
-    context.fromUdpReply = true;
+    context.selectionOrigin = DecodedMessageReaction::SelectionOrigin::Udp;
     context.transmittingSignoff = true;
     DecodedText message {"0605 -10  0.3 0815 ~  CQ N0CALL FN31"};
 
-    auto const decision = DecodedMessageReaction::decideProcessMessageEntry(message, context);
+    auto const decision = DecodedMessageReaction::planProcessMessage(message, context);
 
-    QVERIFY(!decision.continueProcessing);
+    QVERIFY(decision.disposition == DecodedMessageReaction::ReactionDisposition::NoReaction);
     QCOMPARE(decision.reason, QString {"non-standard free text is not processable"});
   }
 
   void udpDifferentSignoffIsHonoredWhileTransmittingOur73()
   {
     auto context = baseContext();
-    context.fromUdpReply = true;
+    context.selectionOrigin = DecodedMessageReaction::SelectionOrigin::Udp;
     context.transmittingSignoff = true;
     DecodedText message {"0605 -10  0.3 0815 ~  K1ABC N0CALL RR73"};
 
-    auto const decision = DecodedMessageReaction::decideProcessMessageEntry(message, context);
+    auto const decision = DecodedMessageReaction::planProcessMessage(message, context);
 
-    QVERIFY(decision.continueProcessing);
+    QVERIFY(decision.disposition == DecodedMessageReaction::ReactionDisposition::Reacted);
   }
 
   void manualDoubleClickStillHonoredWhileTransmittingOur73()
@@ -243,26 +225,26 @@ private slots:
     // explicit operator override and must keep working even mid-transmission.
     auto context = baseContext();
     context.doubleClicked = true;
-    context.fromUdpReply = false;
+    context.selectionOrigin = DecodedMessageReaction::SelectionOrigin::Manual;
     context.transmittingSignoff = true;
     DecodedText message {"0605 -10  0.3 0815 ~  K1ABC W1AW RR73"};
 
-    auto const decision = DecodedMessageReaction::decideProcessMessageEntry(message, context);
+    auto const decision = DecodedMessageReaction::planProcessMessage(message, context);
 
-    QVERIFY(decision.continueProcessing);
+    QVERIFY(decision.disposition == DecodedMessageReaction::ReactionDisposition::Reacted);
   }
 
   void udpReplyHonoredWhenNotSigningOff()
   {
     auto context = baseContext();
     context.doubleClicked = true;
-    context.fromUdpReply = true;
+    context.selectionOrigin = DecodedMessageReaction::SelectionOrigin::Udp;
     context.transmittingSignoff = false;
     DecodedText message {"0605 -10  0.3 0815 ~  CQ W1AW FN31"};
 
-    auto const decision = DecodedMessageReaction::decideProcessMessageEntry(message, context);
+    auto const decision = DecodedMessageReaction::planProcessMessage(message, context);
 
-    QVERIFY(decision.continueProcessing);
+    QVERIFY(decision.disposition == DecodedMessageReaction::ReactionDisposition::Reacted);
   }
 
   void houndIgnoresOtherHoundNegativeReport()
@@ -271,9 +253,9 @@ private slots:
     context.specOp = SpecialOperatingActivity::HOUND;
     DecodedText message {"0605 -10  0.3 0815 ~  K1JT W10AAA R-10"};
 
-    auto const decision = DecodedMessageReaction::decideProcessMessageEntry(message, context);
+    auto const decision = DecodedMessageReaction::planProcessMessage(message, context);
 
-    QVERIFY(!decision.continueProcessing);
+    QVERIFY(decision.disposition == DecodedMessageReaction::ReactionDisposition::NoReaction);
     QCOMPARE(decision.reason, QString {"hound ignores other hounds"});
   }
 
@@ -283,9 +265,9 @@ private slots:
     context.specOp = SpecialOperatingActivity::HOUND;
     DecodedText message {"0605 -10  0.3 0815 ~  K1JT W10AAA R+03"};
 
-    auto const decision = DecodedMessageReaction::decideProcessMessageEntry(message, context);
+    auto const decision = DecodedMessageReaction::planProcessMessage(message, context);
 
-    QVERIFY(!decision.continueProcessing);
+    QVERIFY(decision.disposition == DecodedMessageReaction::ReactionDisposition::NoReaction);
     QCOMPARE(decision.reason, QString {"hound ignores other hounds"});
   }
 
@@ -295,11 +277,22 @@ private slots:
     context.dxCall = "N0CALL";
     DecodedText message {"0605 -10  0.3 0815 ~  K1ABC W1AW/R -10"};
 
-    auto const decision = DecodedMessageReaction::decideProcessMessageEntry(message, context);
+    auto const decision = DecodedMessageReaction::planProcessMessage(message, context);
 
-    QVERIFY(decision.continueProcessing);
-    QCOMPARE(decision.effectiveDxCall, QString {"W1AW/R"});
-    QCOMPARE(decision.qsoPartnerBaseCall, QString {"N0CALL"});
+    QVERIFY(decision.disposition == DecodedMessageReaction::ReactionDisposition::Reacted);
+    int clearGrid = -1;
+    int setCall = -1;
+    for (int i = 0; i < decision.effects.size(); ++i) {
+      if (decision.effects[i].kind == DecodedMessageReaction::QsoReactionEffect::Kind::ClearDxGrid) {
+        clearGrid = i;
+      }
+      if (decision.effects[i].kind == DecodedMessageReaction::QsoReactionEffect::Kind::SetDxCall
+          && decision.effects[i].text == "W1AW/R") {
+        setCall = i;
+      }
+    }
+    QVERIFY(clearGrid >= 0);
+    QVERIFY(setCall > clearGrid);
   }
 };
 

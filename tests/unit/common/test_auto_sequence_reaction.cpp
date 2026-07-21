@@ -1,108 +1,175 @@
 #include <QtTest>
 
-#include "DecodedMessageReaction.hpp"
-#include "Decoder/decodedtext.h"
+#include "QsoReactionTestSupport.hpp"
+
+namespace
+{
+  using namespace QsoReactionTestSupport;
+
+  Snapshot baseSnapshot()
+  {
+    auto snapshot = neutralStationSnapshot();
+    snapshot.mode = "FT8";
+    snapshot.autoEnabled = true;
+    snapshot.autoSequenceEnabled = true;
+    snapshot.tx1Enabled = true;
+    snapshot.qsoProgress = QsoProgress::Calling;
+    return snapshot;
+  }
+}
 
 class TestAutoSequenceReaction final
   : public QObject
 {
   Q_OBJECT
 
-private:
-  DecodedMessageReaction::AutoSequenceContext baseContext() const
-  {
-    DecodedMessageReaction::AutoSequenceContext context;
-    context.mode = "FT8";
-    context.myCall = "K1ABC";
-    context.baseCall = "K1ABC";
-    context.dxCall = "W1AW";
-    context.hisCall = "W1AW";
-    context.rxFrequency = 1500;
-    context.txFrequency = 1500;
-    context.autoEnabled = true;
-    context.autoSequenceEnabled = true;
-    context.tx1Enabled = true;
-    context.qsoProgress = DecodedMessageReaction::QsoProgress::Calling;
-    return context;
-  }
-
 private slots:
   void stopsToAvoidQrmWhenPartnerRepliesNearOurTxFrequencyToAnotherCaller()
   {
-    auto context = baseContext();
-    context.qsoProgress = DecodedMessageReaction::QsoProgress::Replying;
-    context.txFrequency = 815;
+    auto snapshot = baseSnapshot();
+    snapshot.qsoProgress = QsoProgress::Replying;
+    snapshot.txFrequency = 815;
     DecodedText message {"0605 -10  0.3 0815 ~  K9XYZ W1AW -10"};
 
-    auto const decision = DecodedMessageReaction::decideAutoSequence(message, context, 25, 50);
+    auto const plan = DecodedMessageReaction::planAutoSequence(
+      message, snapshot, DecodedMessageReaction::AutoSequencePhase::StandardDecode, 25, 50);
 
-    QCOMPARE(decision.action, DecodedMessageReaction::AutoSequenceDecision::Action::StopToAvoidQrm);
+    QCOMPARE(plan.disposition, DecodedMessageReaction::ReactionDisposition::Reacted);
+    QVERIFY(hasEffect(plan, Effect::Kind::ClickStopTx));
   }
 
   void processesDirectedReplyToOurCall()
   {
-    auto context = baseContext();
+    auto snapshot = baseSnapshot();
     DecodedText message {"0605 -10  0.3 1500 ~  K1ABC W1AW -10"};
 
-    auto const decision = DecodedMessageReaction::decideAutoSequence(message, context, 25, 50);
+    auto const plan = DecodedMessageReaction::planAutoSequence(
+      message, snapshot, DecodedMessageReaction::AutoSequencePhase::StandardDecode, 25, 50);
 
-    QCOMPARE(decision.action, DecodedMessageReaction::AutoSequenceDecision::Action::ProcessMessage);
+    QVERIFY(hasEffect(plan, Effect::Kind::ProcessSyntheticMessageNow));
   }
 
   void processesTypeTwoDeReplyWithinTolerance()
   {
-    auto context = baseContext();
-    context.callingCQ = true;
-    context.autoReply = true;
+    auto snapshot = baseSnapshot();
+    snapshot.callingCq = true;
+    snapshot.autoReply = true;
     DecodedText message {"0605 -10  0.3 1500 ~  DE W1AW -10"};
 
-    auto const decision = DecodedMessageReaction::decideAutoSequence(message, context, 25, 50);
+    auto const plan = DecodedMessageReaction::planAutoSequence(
+      message, snapshot, DecodedMessageReaction::AutoSequencePhase::StandardDecode, 25, 50);
 
-    QCOMPARE(decision.action, DecodedMessageReaction::AutoSequenceDecision::Action::ProcessMessage);
+    QVERIFY(hasEffect(plan, Effect::Kind::ProcessSyntheticMessageNow));
   }
 
   void ignoresProcessActionInFoxMode()
   {
-    auto context = baseContext();
-    context.specOp = SpecialOperatingActivity::FOX;
+    auto snapshot = baseSnapshot();
+    snapshot.specOp = SpecialOperatingActivity::FOX;
     DecodedText message {"0605 -10  0.3 1500 ~  K1ABC W1AW -10"};
 
-    auto const decision = DecodedMessageReaction::decideAutoSequence(message, context, 25, 50);
+    auto const plan = DecodedMessageReaction::planAutoSequence(
+      message, snapshot, DecodedMessageReaction::AutoSequencePhase::StandardDecode, 25, 50);
 
-    QCOMPARE(decision.action, DecodedMessageReaction::AutoSequenceDecision::Action::None);
+    QCOMPARE(plan.disposition, DecodedMessageReaction::ReactionDisposition::NoReaction);
   }
 
   void freeText73DoesNotAdvanceMsk144AutoSequence()
   {
-    auto context = baseContext();
-    context.mode = "MSK144";
-    context.qsoProgress = DecodedMessageReaction::QsoProgress::RogerReport;
+    auto snapshot = baseSnapshot();
+    snapshot.mode = "MSK144";
+    snapshot.qsoProgress = QsoProgress::RogerReport;
     DecodedText message {"060522 -10  0.3 1500 &  RR73"};
 
-    auto const decision = DecodedMessageReaction::decideAutoSequence(message, context, 25, 50);
+    auto const plan = DecodedMessageReaction::planAutoSequence(
+      message, snapshot, DecodedMessageReaction::AutoSequencePhase::StandardDecode, 25, 50);
 
-    QCOMPARE(decision.action, DecodedMessageReaction::AutoSequenceDecision::Action::None);
+    QCOMPARE(plan.disposition, DecodedMessageReaction::ReactionDisposition::NoReaction);
   }
 
   void storesEuVhfExchangeForAutoSequenceCandidate()
   {
-    auto context = baseContext();
-    context.mode = "MSK144";
+    auto snapshot = baseSnapshot();
+    snapshot.mode = "MSK144";
     DecodedText message {"060522 -10  0.3 1500 &  <K1ABC> W1AW 520001 FN31 W1AW R X"};
 
-    auto const decision = DecodedMessageReaction::decideAutoSequence(message, context, 25, 50);
+    auto const plan = DecodedMessageReaction::planAutoSequence(
+      message, snapshot, DecodedMessageReaction::AutoSequencePhase::StandardDecode, 25, 50);
 
-    QCOMPARE(decision.receivedExchange, message.clean_string().trimmed().right(13));
+    QCOMPARE(textEffect(plan, Effect::Kind::SetReceivedExchange),
+             message.clean_string().trimmed().right(13));
   }
 
   void ignoresEuVhfExchangeForRejectedDecode()
   {
-    auto context = baseContext();
+    auto snapshot = baseSnapshot();
     DecodedText message {"0605 -10  0.3 1500 ~  RANDOM <K1ABC> 520001 FN31"};
 
-    auto const decision = DecodedMessageReaction::decideAutoSequence(message, context, 25, 50);
+    auto const plan = DecodedMessageReaction::planAutoSequence(
+      message, snapshot, DecodedMessageReaction::AutoSequencePhase::StandardDecode, 25, 50);
 
-    QVERIFY(decision.receivedExchange.isEmpty());
+    QVERIFY(textEffect(plan, Effect::Kind::SetReceivedExchange).isEmpty());
+  }
+
+  void legacyShortMessages_data()
+  {
+    QTest::addColumn<QString>("payload");
+    QTest::addColumn<int>("expectedTxMessage");
+
+    QTest::newRow("ooo") << "K1ABC W1AW OOO" << 3;
+    QTest::newRow("ro") << "RO" << 4;
+    QTest::newRow("rrr") << "RRR" << 5;
+    QTest::newRow("73") << "73" << 5;
+  }
+
+  void legacyShortMessages()
+  {
+    QFETCH(QString, payload);
+    QFETCH(int, expectedTxMessage);
+    auto snapshot = neutralStationSnapshot();
+
+    auto const plan = DecodedMessageReaction::planAutoSequence(
+      decode(payload, "#"), snapshot,
+      DecodedMessageReaction::AutoSequencePhase::LegacyShortMessage, 15, 15);
+
+    QCOMPARE(plan.disposition, DecodedMessageReaction::ReactionDisposition::Reacted);
+    QCOMPARE(intEffect(plan, Effect::Kind::SetTxMessage), expectedTxMessage);
+  }
+
+  void legacyShortMessageTolerance_data()
+  {
+    QTest::addColumn<int>("frequency");
+    QTest::addColumn<bool>("reacts");
+
+    QTest::newRow("minus-sixteen") << 1484 << false;
+    QTest::newRow("minus-fifteen") << 1485 << true;
+    QTest::newRow("plus-fifteen") << 1515 << true;
+    QTest::newRow("plus-sixteen") << 1516 << false;
+  }
+
+  void legacyShortMessageTolerance()
+  {
+    QFETCH(int, frequency);
+    QFETCH(bool, reacts);
+    auto snapshot = neutralStationSnapshot();
+
+    auto const plan = DecodedMessageReaction::planAutoSequence(
+      decode("RRR", "#", "0605", frequency), snapshot,
+      DecodedMessageReaction::AutoSequencePhase::LegacyShortMessage, 15, 15);
+
+    QCOMPARE(plan.disposition == DecodedMessageReaction::ReactionDisposition::Reacted, reacts);
+  }
+
+  void legacyShortMessageHonorsStartToleranceArgument()
+  {
+    auto snapshot = neutralStationSnapshot();
+
+    auto const plan = DecodedMessageReaction::planAutoSequence(
+      decode("RRR", "#", "0605", 1516), snapshot,
+      DecodedMessageReaction::AutoSequencePhase::LegacyShortMessage, 16, 15);
+
+    QCOMPARE(plan.disposition, DecodedMessageReaction::ReactionDisposition::Reacted);
+    QCOMPARE(intEffect(plan, Effect::Kind::SetTxMessage), 5);
   }
 };
 

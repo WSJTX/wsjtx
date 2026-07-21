@@ -58,6 +58,7 @@
 #include "MessageBox.hpp"
 #include "Network/NetworkAccessManager.hpp"
 #include "AutoRespondSelectionLatch.hpp"
+#include "QsoProgress.hpp"
 
 #define NUM_JT4_SYMBOLS 206                //(72+31)*2, embedded sync
 #define NUM_JT65_SYMBOLS 126               //63 data + 63 sync
@@ -118,6 +119,15 @@ class SoundInput;
 class Detector;
 class SampleDownloader;
 class MultiSettings;
+
+namespace DecodedMessageReaction
+{
+  enum class ContestHint;
+  enum class WaitDecodeSource;
+  struct QsoReactionEffect;
+  struct QsoReactionPlan;
+  struct QsoReactionSnapshot;
+}
 class EqualizationToolsDialog;
 class DecodedText;
 class Cloudlog;
@@ -548,9 +558,9 @@ private:
   void applyExperimentalFT8Filter(const DecodedText& dt, bool& filtered);
   void processFoxSignals(const DecodedText& dt);
   void processSFoxVerification(const DecodedText& dt, bool& filtered);
-  void processSprintLogic(const QString& text);
-  bool processWaitAndReply(const DecodedText& dt, const QString& text);
-  void processWaitAndCall(const DecodedText& dt, const QString& text, bool& block_right_display);
+  bool processWaitReplyCall(
+    DecodedText const& dt, DecodedMessageReaction::WaitDecodeSource source,
+    bool * block_right_display = nullptr);
   bool applyFiltering(const DecodedText& dt, bool& filtered);
   void applyHighlighting(const DecodedText& dt, DisplayText * decodePane, bool updateAlertState,
                          bool& play_Wanted, bool& play_DXcall);
@@ -921,16 +931,13 @@ private:
 
   SpecOp  m_specOp;
 
-  enum
-    {
-      CALLING,
-      REPLYING,
-      REPORT,
-      ROGER_REPORT,
-      ROGERS,
-      SIGNOFF
-    }
-    m_QSOProgress;        //State machine counter
+  static constexpr QsoProgress CALLING {QsoProgress::Calling};
+  static constexpr QsoProgress REPLYING {QsoProgress::Replying};
+  static constexpr QsoProgress REPORT {QsoProgress::Report};
+  static constexpr QsoProgress ROGER_REPORT {QsoProgress::RogerReport};
+  static constexpr QsoProgress ROGERS {QsoProgress::Rogers};
+  static constexpr QsoProgress SIGNOFF {QsoProgress::Signoff};
+  QsoProgress m_QSOProgress;
 
   enum {CALL, GRID, DXCC, MULT};
 
@@ -1202,6 +1209,15 @@ private:
   void transmitDisplay (bool);
   void processMessage(DecodedText const& message, Qt::KeyboardModifiers = Qt::NoModifier,
                       bool from_udp_reply = false);
+  void processSyntheticMessage(DecodedText const& message);
+  DecodedMessageReaction::QsoReactionSnapshot qsoReactionSnapshot(
+    Qt::KeyboardModifiers modifiers = Qt::NoModifier, bool from_udp_reply = false) const;
+  void applyQsoReactionPlan(DecodedMessageReaction::QsoReactionPlan const& plan,
+                            DecodedText const& message, bool * block_right_display = nullptr);
+  void applyQsoReactionEffect(DecodedMessageReaction::QsoReactionEffect const& effect,
+                              DecodedText const& message, bool * block_right_display);
+  void showContestHint(DecodedMessageReaction::ContestHint hint);
+  void refreshQsoPane(DecodedText const& message);
   void replyToCQ (QTime, qint32 snr, float delta_time, quint32 delta_frequency, QString const& mode, QString const& message_text, bool low_confidence, quint8 modifiers);
   void locationChange(QString const& location);
   void replayDecodes ();
