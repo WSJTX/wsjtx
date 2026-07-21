@@ -608,7 +608,7 @@ subroutine packpfx(call1,n1,ng,nadd)
   if(call1(i1+2:i1+2).eq.' ') then
 ! Single-character add-on suffix (maybe also fourth suffix letter?)
      call0=call1(:i1-1)
-     call packcall(call0,n1,text)
+     call packcall(call0(1:6),n1,text)
      nadd=1
      nc=ichar(call1(i1+1:i1+1))
      if(nc.ge.48 .and. nc.le.57) then
@@ -623,7 +623,7 @@ subroutine packpfx(call1,n1,ng,nadd)
   else if(call1(i1+3:i1+3).eq.' ') then
 ! Two-character numerical suffix, /10 to /99
      call0=call1(:i1-1)
-     call packcall(call0,n1,text)
+     call packcall(call0(1:6),n1,text)
      nadd=1
      n=10*(ichar(call1(i1+1:i1+1))-48) + ichar(call1(i1+2:i1+2)) - 48
      nadd=1
@@ -634,7 +634,7 @@ subroutine packpfx(call1,n1,ng,nadd)
      if(pfx(3:3).eq.' ') pfx=' '//pfx(1:2)
      if(pfx(3:3).eq.' ') pfx=' '//pfx(1:2)
      call0=call1(i1+1:)
-     call packcall(call0,n1,text)
+     call packcall(call0(1:6),n1,text)
 
      ng=0
      do i=1,3
@@ -891,7 +891,7 @@ subroutine wqencode(msg,ntype,data0)
   call1=msg(:i1-1)
   if(i1.lt.3 .or. i1.gt.7 .or. i2.gt.0 .or. i3.gt.0) go to 10
   grid4=msg(i1+1:i1+4)
-  call packcall(call1,n1,lbad1)
+  call packcall(call1(1:6),n1,lbad1)
   call packgrid(grid4,ng,lbad2)
   if(lbad1 .or. lbad2) go to 10
   ndbm=0
@@ -920,7 +920,7 @@ subroutine wqencode(msg,ntype,data0)
      call hash(call1,i4-2,ih)
      grid6=msg(i1+1:i1+6)
      call2=grid6(2:6)//grid6(1:1)//'      '
-     call packcall(call2,n1,lbad1)
+     call packcall(call2(1:6),n1,lbad1)
      ndbm=0
      read(msg(i1+8:),*) ndbm
      if(ndbm.lt.0) ndbm=0

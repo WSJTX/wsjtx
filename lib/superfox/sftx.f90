@@ -17,23 +17,15 @@ program sftx
   character*120 line                  !List of SuperFox message pieces
   character*40 cmsg(5)                !Old-style Fox messages
   character*26 freeTextMsg
-  character*2 arg
   character*10 ckey
 !  character*9 foxkey
   character*11 foxcall0,foxcall
   logical*1 bMoreCQs,bSendMsg
   integer pack_error
-  logical crc_ok
-  real py(0:127,0:127)                !Probabilities for received synbol values
-  integer*8 n47
   integer itone(151)                  !SuperFox channel-symbol values
   integer*1 xin(0:49)                 !Packed message as 7-bit symbols
-  integer*1 xdec(0:49)                !Decoded message
   integer*1 y(0:127)                  !Encoded symbols as i*1 integers
-  integer*1 ydec(0:127)               !Decoded codeword
-  integer*1 yy(0:10)
   integer chansym0(127)               !Transmitted symbols, data only
-  integer chansym(127)                !Received symbols, data only
   integer isync(24)                   !Symbol numbers for sync tones
   data isync/1,2,4,7,11,16,22,29,37,39,42,43,45,48,52,57,63,70,78,80,  &
              83,84,86,89/

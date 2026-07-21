@@ -23,7 +23,7 @@ subroutine genft2(msg0,ichk,msgsent,i4tone,itype)
   integer*1 msgbits(77) 
   integer*1 bitseq(144)                   !Tone #s, data and sync (values 0-1)
   integer*1 s16(16)
-  real*8 xi(864),xq(864),pi,twopi
+  real*8 pi,twopi
   data s16/0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0/
   equivalence (ihash,i1hash)
   logical unpk77_success

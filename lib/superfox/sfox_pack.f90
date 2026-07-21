@@ -20,6 +20,13 @@ subroutine sfox_pack(line,ckey,bMoreCQs,bSendMsg,freeTextMsg,xin,pack_error)
   character*10 ckey
   character*26 freeTextMsg
   character*13 w(16)
+  character*13 w1,w2,w3                  !Scalar copies of w() elements passed to
+                                          !explicit-interface functions/subroutines
+                                          !below: gfortran's -Wcharacter-truncation
+                                          !treats an array-element actual argument
+                                          !as spanning the rest of w()'s storage
+                                          !sequence, so pass a same-length scalar
+                                          !instead to give it an exact length
   character*11 c11
   character*329 msgbits                  !Packed message as bits
   character*38 c
@@ -51,18 +58,20 @@ subroutine sfox_pack(line,ckey,bMoreCQs,bSendMsg,freeTextMsg,xin,pack_error)
         pack_error=SFOX_PACK_BAD_CQ
         return
      endif
-     if(.not.valid_sfox_cq_call(w(2)) .or. .not.valid_sfox_grid4(w(3))) then
+     w2=w(2)
+     w3=w(3)
+     if(.not.valid_sfox_cq_call(w2) .or. .not.valid_sfox_grid4(w3)) then
         pack_error=SFOX_PACK_BAD_CQ
         return
      endif
      i3=3
-     c11=w(2)(1:11)
+     c11=w2(1:11)
      n58=0
      do i=1,11
         n58=n58*38 + index(c,c11(i:i)) - 1
      enddo
      write(msgbits(1:58),'(b58.58)') n58
-     call packgrid(w(3)(1:4),n15,text)
+     call packgrid(w3(1:4),n15,text)
      if(text) then
         pack_error=SFOX_PACK_BAD_CQ
         return
@@ -72,11 +81,12 @@ subroutine sfox_pack(line,ckey,bMoreCQs,bSendMsg,freeTextMsg,xin,pack_error)
      go to 800
   endif
 
-  if(.not.valid_sfox_call(w(1))) then
+  w1=w(1)
+  if(.not.valid_sfox_call(w1)) then
      pack_error=SFOX_PACK_BAD_CALL
      return
   endif
-  call pack28(w(1),n28)                      !Fox call
+  call pack28(w1,n28)                      !Fox call
   write(msgbits(1:28),'(b28.28)') n28
 
   nrr73_total=0

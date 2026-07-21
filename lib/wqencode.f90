@@ -19,7 +19,7 @@ subroutine wqencode(msg,ntype,data0)
   call1=msg(:i1-1)
   if(i1.lt.3 .or. i1.gt.7 .or. i2.gt.0 .or. i3.gt.0) go to 10
   grid4=msg(i1+1:i1+4)
-  call packcall(call1,n1,lbad1)
+  call packcall(call1(1:6),n1,lbad1)
   call packgrid(grid4,ng,lbad2)
   if(lbad1 .or. lbad2) go to 10
   ndbm=0
@@ -49,7 +49,7 @@ subroutine wqencode(msg,ntype,data0)
      i5=index(trim(msg(i1+1:)),' ')
 ! Convert grid to valid callsign format - first character moved to end
      call2=msg(i1+2:i1+i5-1)//msg(i1+1:i1+1)//'        '
-     call packcall(call2,n1,lbad1)
+     call packcall(call2(1:6),n1,lbad1)
      ndbm=0
      read(msg(i1+i5+1:),*) ndbm
      if(ndbm.lt.0) ndbm=0
