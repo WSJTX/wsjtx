@@ -160,8 +160,7 @@ namespace
 
     return messageWords.contains(snapshot.baseCall)
       || messageWords.contains(snapshot.myCall)
-      || messageWords.contains(snapshot.dxCall)
-      || messageWords.contains(Radio::base_callsign(snapshot.dxCall))
+      || messageContainsCall(messageWords, snapshot.dxCall)
       || messageWords.contains("DE");
   }
 

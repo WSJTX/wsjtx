@@ -49,6 +49,32 @@ private slots:
     QVERIFY(hasEffect(plan, Effect::Kind::ProcessSyntheticMessageNow));
   }
 
+  void standard73DoesNotTreatEmptyDxCallAsMatch_data()
+  {
+    QTest::addColumn<QString>("dxCall");
+    QTest::addColumn<bool>("advances");
+
+    QTest::newRow("selected-partner") << "W1AW" << true;
+    QTest::newRow("empty-partner") << "" << false;
+  }
+
+  void standard73DoesNotTreatEmptyDxCallAsMatch()
+  {
+    QFETCH(QString, dxCall);
+    QFETCH(bool, advances);
+    auto snapshot = baseSnapshot();
+    snapshot.dxCall = dxCall;
+    snapshot.hisCall = dxCall;
+    snapshot.qsoProgress = QsoProgress::RogerReport;
+    DecodedText message {"0605 -10  0.3 1500 ~  K9XYZ W1AW 73"};
+    QVERIFY(message.isStandardMessage());
+
+    auto const plan = DecodedMessageReaction::planAutoSequence(
+      message, snapshot, DecodedMessageReaction::AutoSequencePhase::StandardDecode, 25, 50);
+
+    QCOMPARE(hasEffect(plan, Effect::Kind::ProcessSyntheticMessageNow), advances);
+  }
+
   void processesTypeTwoDeReplyWithinTolerance()
   {
     auto snapshot = baseSnapshot();
