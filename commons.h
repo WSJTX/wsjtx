@@ -8,7 +8,6 @@
 #include "DecoderIpcProtocol.h"
 
 #ifdef __cplusplus
-#include <cstdbool>
 #include <cstddef>
 #include <QString>
 #else
