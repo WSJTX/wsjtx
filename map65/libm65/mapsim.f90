@@ -133,10 +133,6 @@ program mapsim
        'W7IYI K8JYJ EM54','W9KYK K0LYL EM55','G0MYM F1NYN JN56',   &
        'G2OYO F3PYP JN57','G4QYQ F5RYR JN58','G6SYS F7TYT JN59'/
     
-  allocate(id4(4,NMAX))               !i*2 data, dual polarization
-  allocate(id2(2,NMAX))               !i*2 data, single polarization
-  allocate(cwave(NMAX))                 !Generated complex waveform (no noise)
-  
   nargs=command_argument_count()
   if(nargs.ne.12) then
      print*,'Usage:   mapsim "message"     mode DT  fa fb nsigs pol fDop SNR nfiles fcenter HHmm'
@@ -150,6 +146,10 @@ program mapsim
      print*,'         SNR = 0 to generate a range of SNRs.'
      go to 999
   endif
+
+  allocate(id4(4,NMAX))               !i*2 data, dual polarization
+  allocate(id2(2,NMAX))               !i*2 data, single polarization
+  allocate(cwave(NMAX))                 !Generated complex waveform (no noise)
 
   call get_command_argument(1,msg0)
   call get_command_argument(2,mode)                !JT65 sub-mode (A B C QA-QE)
