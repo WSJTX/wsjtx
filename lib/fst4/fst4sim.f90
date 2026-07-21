@@ -13,12 +13,14 @@ program fst4sim
    complex, allocatable :: c(:)
    real, allocatable :: wave(:)
    integer hmod
+   integer exit_status
    integer pack_status
    integer itone(NN)
    integer*1 msgbits(101)
    integer*2, allocatable :: iwave(:)        !Generated full-length waveform
 
 ! Get command-line argument(s)
+   exit_status=0
    nargs=iargc()
    if(nargs.ne.9) then
       print*,'Need 9 arguments, got ',nargs
@@ -84,7 +86,8 @@ program fst4sim
    call genfst4(msg37,0,msgsent37,msgbits,itone,iwspr)
    if(trim(msgsent37).eq.'*** bad message ***') then
       print*,'Cannot encode message: ',trim(msg37)
-      stop 1
+      exit_status=1
+      go to 999
    endif
    if(iwspr.eq.1) then
       call pack77(msgsent37,i3,n3,c77, &
@@ -94,7 +97,8 @@ program fst4sim
    endif
    if(pack_status.ne.PACK77_STATUS_ENCODED) then
       print*,'Cannot encode message: ',trim(msg37)
-      stop 1
+      exit_status=1
+      go to 999
    endif
    write(*,*)
    write(*,'(a9,a37,a3,L2,a7,i2)') 'Message: ',msgsent37,'W:',wspr_hint,' iwspr:',iwspr
@@ -167,4 +171,10 @@ program fst4sim
 1110  format(i4,f7.2,f8.2,f7.1,2x,a17)
    enddo
 
-999 end program fst4sim
+999 if(allocated(c0)) deallocate(c0)
+   if(allocated(c)) deallocate(c)
+   if(allocated(wave)) deallocate(wave)
+   if(allocated(iwave)) deallocate(iwave)
+   if(exit_status.ne.0) stop 1
+
+end program fst4sim
