@@ -16,7 +16,7 @@ add_test (NAME test_packjt77_grammar_gate COMMAND test_packjt77_grammar_gate)
 
 add_executable (test_packjt77_invariants
   test_packjt77_invariants.f90
-  ${CMAKE_SOURCE_DIR}/lib/ft2/genft2.f90)
+  ${CMAKE_SOURCE_DIR}/lib/genft2.f90)
 target_include_directories (test_packjt77_invariants PRIVATE ${CMAKE_BINARY_DIR})
 target_link_libraries (test_packjt77_invariants PRIVATE packjt77_test_helpers)
 wsjt_link_common_fortran (test_packjt77_invariants)
