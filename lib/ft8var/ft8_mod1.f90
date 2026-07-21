@@ -1,5 +1,7 @@
 module ft8_mod1
 
+  save
+
   parameter (NPS=180000,NFR=151680,NFILT1=4000,NFILT2=3400,numcqsig=20,   &
        numdeccq=40,nummycsig=5,numdecmyc=25,nmaxthreads=24)
   real*4 dd8(nps)

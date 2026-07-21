@@ -25,8 +25,9 @@ subroutine ft8bvar(newdat1,nQSOProgress,nfqso,nftx,napwid,lsubtract,npos,freqsub
   character callsign*12,grid*12
   character*37 msgsrcvd(130)
   complex cd0(-800:4000),cd1(-800:4000),cd2(-800:4000),cd3(-800:4000),ctwk(32),   &
-       csymb(32),cs(0:7,79),csymbr(32),csr(0:7,79),csig(32),csig0(151680),z1,     &
+       csymb(32),cs(0:7,79),csymbr(32),csr(0:7,79),csig(32),z1,                   &
        csymb256(256),cstmp2(0:7,79),csold(0:7,79),cscs(0:7,79)
+  complex, allocatable :: csig0(:)
   real a(5),s8(0:7,79),s82(0:7,79),s2(0:511),sp(0:7),s81(0:7),snrsync(21),        &
        syncw(7),sumkw(7),scoreratiow(7),freqsub(200),s256(0:8),s2563(0:26),       &
        syncavpart(3)
@@ -2910,6 +2911,7 @@ subroutine ft8bvar(newdat1,nQSOProgress,nfqso,nftx,napwid,lsubtract,npos,freqsub
         syncp=0.
         syncm=0.
         k=1
+        allocate(csig0(151680))
         call gen_ft8wavevar(itone,79,1920,2.0,12000.0,0.0,csig0,xjunk,1,151680)
         do i=0,78
            do j=1,32
@@ -2929,6 +2931,7 @@ subroutine ft8bvar(newdat1,nQSOProgress,nfqso,nftx,napwid,lsubtract,npos,freqsub
            z1=sum(cd0(i21:i21+31)*conjg(csig))
            syncm = syncm + real(z1)**2 + aimag(z1)**2
         enddo
+        deallocate(csig0)
         call peakup(syncm,sync0,syncp,dx)
         if(abs(dx).gt.1.0) then
            scorr=0.
