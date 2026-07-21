@@ -1982,6 +1982,36 @@ if (WSJT_ENABLE_TESTS)
   add_test (NAME test_jt9_cli_validation
     COMMAND ${CMAKE_COMMAND} -DJT9=$<TARGET_FILE:jt9>
             -P ${CMAKE_SOURCE_DIR}/tests/unit/jt9/test_jt9_cli_validation.cmake)
+
+  # Golden output is pinned to the required GNU/Linux x86-64 decoder path.
+  if (CMAKE_SYSTEM_NAME STREQUAL "Linux" AND
+      CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$")
+    function (wsjt_add_jt9_golden_test test_name mode sample expected)
+      set (work_dir "${CMAKE_BINARY_DIR}/Testing/Golden/${test_name}")
+      file (MAKE_DIRECTORY "${work_dir}")
+      add_test (NAME ${test_name}
+        COMMAND ${CMAKE_COMMAND}
+          -DJT9=$<TARGET_FILE:jt9>
+          -DMODE=${mode}
+          -DSAMPLE=${CMAKE_SOURCE_DIR}/${sample}
+          -DEXPECTED=${CMAKE_SOURCE_DIR}/${expected}
+          -DWORK_DIR=${work_dir}
+          -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+          -P ${CMAKE_SOURCE_DIR}/tests/integration/jt9/compare_decoder_output.cmake)
+      set_tests_properties (${test_name} PROPERTIES
+        LABELS "decoder;golden;integration"
+        TIMEOUT 120)
+    endfunction ()
+
+    wsjt_add_jt9_golden_test (
+      test_jt9_golden_ft8_210703_133430 -8
+      samples/FT8/210703_133430.wav
+      test/fixtures/ft8_210703_133430.expected.txt)
+    wsjt_add_jt9_golden_test (
+      test_jt9_golden_jt9_130418_1742 -9
+      samples/JT9/130418_1742.wav
+      test/fixtures/jt9_130418_1742.expected.txt)
+  endif ()
 endif ()
 
 if (WSJT_BUILD_FORTRAN_OPENMP)
