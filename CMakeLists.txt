@@ -210,6 +210,7 @@ if (WSJT_SKIP_MAP65_WAS_USER_PROVIDED OR WSJT_SKIP_MAP65)
     "installs by default.")
 endif ()
 option (WSJT_ENABLE_TESTS "Enable developer tests." ON)
+option (WSJT_ENABLE_ASAN_UBSAN "Instrument in-tree code with AddressSanitizer and UndefinedBehaviorSanitizer." OFF)
 option (WSJT_BUILD_JT9STREAM "Build the Qt-free streaming decoder jt9stream alongside jt9 (uses the jt9a stub, never links fort_qt)." ON)
 set (WSJT_FORTRAN_LIBRARY_VARIANTS "AUTO" CACHE STRING
   "Fortran library variants to build: AUTO, BOTH, OPENMP_ONLY, or NON_OPENMP_ONLY.")
@@ -1327,6 +1328,54 @@ FortranCInterface_HEADER (FC.h MACRO_NAMESPACE "FC_" SYMBOL_NAMESPACE "FC_"
   SYMBOLS
   grayline
   )
+
+if (WSJT_ENABLE_ASAN_UBSAN)
+  if (NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    message (FATAL_ERROR "WSJT_ENABLE_ASAN_UBSAN is supported only on Linux.")
+  endif ()
+  if (NOT CMAKE_C_COMPILER_ID STREQUAL "GNU" OR
+      NOT CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR
+      NOT CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
+    message (FATAL_ERROR
+      "WSJT_ENABLE_ASAN_UBSAN requires GNU C, C++, and Fortran compilers.")
+  endif ()
+
+  include (CheckCCompilerFlag)
+  include (CheckCXXCompilerFlag)
+  include (CheckFortranCompilerFlag)
+  set (_wsjt_sanitizer_probe_flags
+    "-fsanitize=address,undefined;-fno-sanitize-recover=all")
+  set (_wsjt_saved_required_libraries "${CMAKE_REQUIRED_LIBRARIES}")
+  list (APPEND CMAKE_REQUIRED_LIBRARIES "-fsanitize=address,undefined")
+  check_c_compiler_flag (
+    "${_wsjt_sanitizer_probe_flags}" WSJT_C_ASAN_UBSAN_SUPPORTED)
+  check_cxx_compiler_flag (
+    "${_wsjt_sanitizer_probe_flags}" WSJT_CXX_ASAN_UBSAN_SUPPORTED)
+  check_fortran_compiler_flag (
+    "${_wsjt_sanitizer_probe_flags}" WSJT_FORTRAN_ASAN_UBSAN_SUPPORTED)
+  set (CMAKE_REQUIRED_LIBRARIES "${_wsjt_saved_required_libraries}")
+  if (NOT WSJT_C_ASAN_UBSAN_SUPPORTED OR
+      NOT WSJT_CXX_ASAN_UBSAN_SUPPORTED OR
+      NOT WSJT_FORTRAN_ASAN_UBSAN_SUPPORTED)
+    message (FATAL_ERROR
+      "The selected GNU toolchain cannot compile and link ASan+UBSan code in every project language.")
+  endif ()
+
+  add_library (wsjt_sanitizers INTERFACE)
+  target_compile_options (wsjt_sanitizers INTERFACE
+    $<$<COMPILE_LANGUAGE:C>:-fsanitize=address,undefined>
+    $<$<COMPILE_LANGUAGE:CXX>:-fsanitize=address,undefined>
+    $<$<COMPILE_LANGUAGE:Fortran>:-fsanitize=address,undefined>
+    -fno-sanitize-recover=all
+    -fno-omit-frame-pointer
+    -g
+    -O1
+    )
+  target_link_libraries (wsjt_sanitizers INTERFACE
+    "-fsanitize=address,undefined")
+  link_libraries (wsjt_sanitizers)
+  message (STATUS "AddressSanitizer and UndefinedBehaviorSanitizer enabled")
+endif ()
 
 
 #

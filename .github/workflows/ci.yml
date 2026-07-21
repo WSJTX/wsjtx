@@ -101,10 +101,11 @@ jobs:
           echo "Build-system recache: $recache"
           echo "recache=$recache" >> "$GITHUB_OUTPUT"
 
-  # Two-tier CI to conserve Actions minutes. The default path runs one Linux
-  # x86_64 smoke leg; broader platform coverage is opt-in.
+  # Two-tier CI to conserve Actions minutes. The default path runs the normal
+  # Linux x86_64 leg followed by non-blocking sanitizer coverage; broader
+  # platform coverage is opt-in.
   #
-  #   * Default (every push / PR to develop): Linux x86_64 only -- `linux`.
+  #   * Default (every push / PR to develop): `linux`, then `linux-sanitizers`.
   #   * Opt-in matrix (`linux-arm`, macos, macos-intel, windows): runs when a
   #     PR carries the `full-ci` label, or when the workflow is started manually
   #     ("Run workflow" / workflow_dispatch). Release builds are unaffected --
@@ -155,6 +156,19 @@ jobs:
       arch: "x86_64"
       recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
     secrets: inherit
+
+  linux-sanitizers:
+    name: Linux x86_64 ASan + UBSan
+    needs: [prepare, detect-build-system-changes, linux]
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/build-linux-sanitizers
+        with:
+          hamlib_branch: "4.7.2"
+          recache: ${{ needs.detect-build-system-changes.outputs.recache == 'true' }}
 
   linux-arm:
     needs: [prepare, detect-build-system-changes, linux]
