@@ -432,12 +432,12 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,nzhsym,lapon,     &
         (abs(nfqso-f1).le.napwid .or. abs(nftx-f1).le.napwid .or. ncontest.eq.7)) then
         maxosd=2
      endif
-     call timer('dec174_91 ',0)
+     call timer('dec174_9',0)
      Keff=91
      call decode174_91(llrz,Keff,maxosd,norder,apmask,message91,cw,  &
                        ntype,nharderrors,dmin)
      if(nharderrors.ge.0) message77=message91(1:77)
-     call timer('dec174_91 ',1)
+     call timer('dec174_9',1)
 
      msg37='                                     '
      nbadcrc=1

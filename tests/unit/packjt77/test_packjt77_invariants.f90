@@ -7,7 +7,6 @@ program test_packjt77_invariants
   external :: genft8
   external :: genft4
   external :: genfst4
-  external :: genft2
   external :: genmsk_128_90
   external :: genq65
 
@@ -67,13 +66,6 @@ contains
     call assert_true('FST4 legacy fallback tones',any(itone160.ne.0))
 
     itype=1
-    call genft2(input,0,msgsent,itone144,itype)
-    call assert_int('FT2 legacy fallback type',1,itype)
-    call assert_text_equal('FT2 legacy fallback message', &
-         'ABCDEFGHIJKLM',msgsent)
-    call assert_true('FT2 legacy fallback tones',any(itone144.ne.0))
-
-    itype=1
     call genmsk_128_90(input,0,msgsent,itone144,itype)
     call assert_int('MSK144 legacy fallback type',1,itype)
     call assert_text_equal('MSK144 legacy fallback message', &
@@ -131,15 +123,6 @@ contains
          '*** bad message ***',msgsent)
     call assert_true('FT4 invalid fallback bits',all(msgbits77.eq.0))
     call assert_true('FT4 invalid fallback tones',all(itone105(1:103).eq.0))
-
-    itype=1
-    msgsent='                                     '
-    itone144=1
-    call genft2(input,0,msgsent,itone144,itype)
-    call assert_int('FT2 invalid fallback type',-1,itype)
-    call assert_text_equal('FT2 invalid fallback message', &
-         '*** bad message ***',msgsent)
-    call assert_true('FT2 invalid fallback tones',all(itone144.eq.0))
 
     itype=1
     msgsent='                                     '

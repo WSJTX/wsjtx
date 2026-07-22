@@ -633,7 +633,7 @@ set (wsjt_FSRCS
   lib/getlags.f90
   lib/getmet4.f90
   lib/ft8/get_spectrum_baseline.f90
-  lib/ft2/gfsk_pulse.f90
+  lib/gfsk_pulse.f90
   lib/graycode.f90
   lib/graycode65.f90
   lib/grayline.f90

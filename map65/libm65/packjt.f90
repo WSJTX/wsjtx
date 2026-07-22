@@ -496,10 +496,10 @@ end subroutine unpackcall
    if(c3.eq.'OOO ') c3='    '           !Strip out the OOO flag
    call getpfx1(c1,k1,nv2a)
    if(nv2a.ge.4) go to 10
-   call packcall(c1,nc1,text1)
+   call packcall(c1(1:6),nc1,text1)
    if(text1) go to 10
    call getpfx1(c2,k2,nv2b)
-   call packcall(c2,nc2,text2)
+   call packcall(c2(1:6),nc2,text2)
    if(text2) go to 10
    if(nv2a.eq.2 .or. nv2a.eq.3 .or. nv2b.eq.2 .or. nv2b.eq.3) then
       if(k1.lt.0 .or. k2.lt.0 .or. k1*k2.ne.0) go to 10
@@ -529,7 +529,7 @@ end subroutine unpackcall
 
  ! The message will be treated as plain text.
  10 itype=6
-   call packtext(msg,nc1,nc2,ng)
+   call packtext(msg(1:13),nc1,nc2,ng)
    ng=ng+32768
 
  ! Encode data into 6-bit words
@@ -876,7 +876,7 @@ subroutine packpfx(call1, n1, ng, nadd)
   if(call1(i1+2:i1+2).eq.' ') then
 ! Single-character add-on suffix (maybe also fourth suffix letter?)
      call0=call1(:i1-1)
-     call packcall(call0,n1,text)
+     call packcall(call0(1:6),n1,text)
      nadd=1
      nc=ichar(call1(i1+1:i1+1))
      if(nc.ge.48 .and. nc.le.57) then
@@ -891,7 +891,7 @@ subroutine packpfx(call1, n1, ng, nadd)
   else if(call1(i1+3:i1+3).eq.' ') then
 ! Two-character numerical suffix, /10 to /99
      call0=call1(:i1-1)
-     call packcall(call0,n1,text)
+     call packcall(call0(1:6),n1,text)
      nadd=1
      n=10*(ichar(call1(i1+1:i1+1))-48) + ichar(call1(i1+2:i1+2)) - 48
      nadd=1
@@ -902,7 +902,7 @@ subroutine packpfx(call1, n1, ng, nadd)
      if(pfx(3:3).eq.' ') pfx=' '//pfx(1:2)
      if(pfx(3:3).eq.' ') pfx=' '//pfx(1:2)
      call0=call1(i1+1:)
-     call packcall(call0,n1,text)
+     call packcall(call0(1:6),n1,text)
 
      ng=0
      do i=1,3
