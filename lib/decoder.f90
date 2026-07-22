@@ -275,7 +275,7 @@ subroutine multimode_decoder(ss,id2,params,nfsample)
            endif
 
            call omp_set_dynamic(.false.)
-           call omp_set_nested(.true.)
+           call omp_set_max_active_levels(omp_get_supported_active_levels())
 
            nfa=params%nfa
            nfb=params%nfb
