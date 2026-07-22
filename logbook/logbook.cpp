@@ -128,6 +128,16 @@ QByteArray LogBook::QSOToADIF (QString const& hisCall, QString const& hisGrid, Q
               // two words and if it is positive numeric
               t += " <stx:" + QString::number (words.back ().size ()) + '>' + words.back ();
             }
+          else if (Configuration::SpecialOperatingActivity::TXQP == config_->special_op_id ())
+            {
+              // Texas QSO Party: the sent exchange is "+00 <location>" where
+              // <location> is a Texas county, a US state / Canadian province,
+              // or "DX".  Although it is non-numeric, N1MM only imports <stx>
+              // while N3FJP follows the ADIF standard and expects <stx_string>.
+              // Write BOTH tags to ensure compatibility with both programs.
+              t += " <stx:" + QString::number (words.back ().size ()) + '>' + words.back ();
+              t += " <stx_string:" + QString::number (words.back ().size ()) + '>' + words.back ();
+            }
           else
             {
               if (words.front ().toUInt () && words.front ().size () > 3) // EU VHF contest mode
@@ -174,6 +184,33 @@ QByteArray LogBook::QSOToADIF (QString const& hisCall, QString const& hisGrid, Q
             else if (Configuration::SpecialOperatingActivity::RTTY == config_->special_op_id ())
               {
                 t += " <state:" + QString::number (words.at (1).size ()) + ">" + words.at (1);
+              }
+            else if (Configuration::SpecialOperatingActivity::TXQP == config_->special_op_id ())
+              {
+                // Texas QSO Party: received exchange location is a Texas
+                // county (for TX stations) or a US state / Canadian
+                // province / "DX" for stations outside Texas.  The signal
+                // report is the implied fixed value "+00" (words.at (0)).
+                //
+                // Different loggers pick up the exchange from different tags:
+                //   - N1MM populates its "Exch" column from its own
+                //     application-specific <app_n1mm_exchange1> tag (the
+                //     standard <state>/<srx> tags land in the "Sect"/other
+                //     columns instead), so the location MUST be written there
+                //     to appear in the N1MM exchange field.
+                //   - N1MM also accepts the numeric-style <srx> tag.
+                //   - N3FJP and other ADIF-standard loggers expect non-numeric
+                //     exchange data in <srx_string>.
+                //   - <state> is written for general logging / awards tracking.
+                // Write all of them so the exchange is captured correctly
+                // regardless of the destination logger.
+                QString const& loc = words.at (1);
+                QString const locLen = QString::number (loc.size ());
+                t += " <contest_id:15>TEXAS-QSO-PARTY"
+                  " <app_n1mm_exchange1:" + locLen + '>' + loc
+                  + " <srx:" + locLen + '>' + loc
+                  + " <srx_string:" + locLen + '>' + loc
+                  + " <state:" + locLen + '>' + loc;
               }
           }
       }

@@ -84,6 +84,7 @@ jobs:
       arch: "aarch64"
     secrets: inherit
 
+
   windows:
     needs: prepare
     uses: ./.github/workflows/build-windows.yml

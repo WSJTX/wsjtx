@@ -103,6 +103,7 @@ public:
   QString my_grid () const;
   QString Field_Day_Exchange() const;
   QString RTTY_Exchange() const;
+  QString TXQP_Exchange() const;
   QString Contest_Name() const;
   QString Blacklist1() const;
   QString Blacklist2() const;
@@ -314,8 +315,8 @@ public:
   bool OTPEnabled() const;
   bool ShowOTP() const;
   unsigned int OTPinterval() const;
-//                                      0       1      2         3       4       5      6     7        8           9
-  enum class SpecialOperatingActivity {NONE, NA_VHF, EU_VHF, FIELD_DAY, RTTY, WW_DIGI, FOX, HOUND, ARRL_DIGI, Q65_PILEUP};
+//                                      0       1      2         3       4       5      6     7        8           9        10
+  enum class SpecialOperatingActivity {NONE, NA_VHF, EU_VHF, FIELD_DAY, RTTY, WW_DIGI, FOX, HOUND, ARRL_DIGI, Q65_PILEUP, TXQP};
   SpecialOperatingActivity special_op_id () const;
 
   struct CalibrationParams

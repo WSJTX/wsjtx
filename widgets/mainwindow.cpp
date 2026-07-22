@@ -372,9 +372,9 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_freqNominal {0},
   m_freqNominalPeriod {0},
   m_freqTxNominal {0},
-  m_mslastTX {0},	  //ft8md
-  m_nlasttx {0},		//ft8md
-  m_lapmyc {0},		  //ft8md
+  m_mslastTX {0},         //ft8md
+  m_nlasttx {0},                //ft8md
+  m_lapmyc {0},           //ft8md
   m_reverse_Doppler {"1" == env.value ("WSJT_REVERSE_DOPPLER", "0")},
   m_tRemaining {0.},
   m_TRperiod {60.0},
@@ -384,14 +384,14 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_gen_message_is_cq {false},
   m_send_RR73 {false},
   m_XIT {0},
-  m_ncandthin {100}, 	//ft8md
+  m_ncandthin {100},    //ft8md
   m_nFT8Cycles {3},     //ft8md
   m_nFT8RXfSens {3}   , //ft8md
   m_ft8threads {0},     //ft8md
   m_ft8Sensitivity {3}, //ft8md
   m_ft8DecoderStart {3}, //ft8md
   m_nsecBandChanged {0},//ft8md
-  m_nFT4depth {3},		//ft8md
+  m_nFT4depth {3},              //ft8md
   m_sec0 {-1},
   m_RxLog {1},      //Write Date and Time to RxLog
   m_nutc0 {999999},
@@ -422,8 +422,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_agcc {false}, //ft8md
   m_hint {true}, //ft8md
   m_multithreadFT8 (false), //ft8md
-  m_houndMode {false},		//ft8md
-  m_commonFT8b {true},		//ft8md
+  m_houndMode {false},          //ft8md
+  m_commonFT8b {true},          //ft8md
   m_manualDecode (false), //ft8md
   m_modeChanged {false},  //ft8md
   m_multInst {false}, //ft8md
@@ -2475,7 +2475,7 @@ void MainWindow::dataSink(qint64 frames)
     dec_data.params.npts8=(m_ihsym*m_nsps)/16;
     dec_data.params.newdat=1;
     dec_data.params.nagain=0;
-    dec_data.params.nagainfil=0;	
+    dec_data.params.nagainfil=0;        
     dec_data.params.nzhsym=m_hsymStop;
     if(m_mode=="FT8" and m_ihsym==m_earlyDecode and !m_diskData && !(m_multithreadFT8 && m_ft8DecoderStart>1)) dec_data.params.nzhsym=m_earlyDecode;
     if(m_mode=="FT8" and m_ihsym==m_earlyDecode2 and !m_diskData && !(m_multithreadFT8 && m_ft8DecoderStart!=1)) dec_data.params.nzhsym=m_earlyDecode2;
@@ -3044,7 +3044,7 @@ void MainWindow::fastSink(qint64 frames)
 
     // CQ: First for MSK144
     if(((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled())
-        or (m_auto && m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " "))) && !ignored
+        or (m_auto && m_bCallingCQ && (text.contains(" " + m_config.my_callsign() + " ") || text.contains("<" + m_config.my_callsign() + ">")))) && !ignored
         && !filtered && !selected && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText()=="CQ: First"
         && (!(ui->actionFull_Duplex_Mode->isChecked() && m_txing))) {
                   m_bDoubleClicked=true;
@@ -3065,7 +3065,7 @@ void MainWindow::fastSink(qint64 frames)
         decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
         if (!filtered && !ignored && (deGrid.contains(grid_regexp) or m_bCallingCQ) && (
              (pounce && text.contains(" CQ ") && !txLog.contains(deCall) && m_config.Wait_features_enabled()) or
-             (m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " ") && !text.contains("73 "))
+             (m_bCallingCQ && (text.contains(" " + m_config.my_callsign() + " ") || text.contains("<" + m_config.my_callsign() + ">")) && !text.contains("73 "))
                                                                     )) {
             double utch=0.0;
             int nAz,nEl,nDmiles,nDkm,nHotAz,nHotABetter;
@@ -3102,7 +3102,7 @@ void MainWindow::fastSink(qint64 frames)
         decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
         if (!filtered && !ignored && (
              (pounce && text.contains(" CQ ") && !txLog.contains(deCall) && m_config.Wait_features_enabled()) or
-             (m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " ") && !text.contains("73 "))
+             (m_bCallingCQ && (text.contains(" " + m_config.my_callsign() + " ") || text.contains("<" + m_config.my_callsign() + ">")) && !text.contains("73 "))
                           )) {
             dBpoints=decodedtext.string().mid(7,3).toInt();
             if(dBpoints>maxdBPoints) {
@@ -3133,7 +3133,7 @@ void MainWindow::fastSink(qint64 frames)
         decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
         if (!filtered && !ignored && (
              (pounce && text.contains(" CQ ") && !txLog.contains(deCall) && m_config.Wait_features_enabled()) or
-             (m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " ") && !text.contains("73 "))
+             (m_bCallingCQ && (text.contains(" " + m_config.my_callsign() + " ") || text.contains("<" + m_config.my_callsign() + ">")) && !text.contains("73 "))
                           )) {
             dBpoints2=decodedtext.string().mid(7,3).toInt();
             if(dBpoints2<mindBPoints) {
@@ -3729,7 +3729,7 @@ void MainWindow::monitor (bool state)
 {
   ui->monitorButton->setChecked (state);
   if (state) {
-    m_diskData = false;	// no longer reading WAV files
+    m_diskData = false; // no longer reading WAV files
     if (!m_monitoring) {
       float t_rxdelay=0.001*(QDateTime::currentMSecsSinceEpoch() - m_msEchoTxStart);
       int ms=int(1000*(m_tEcho-t_rxdelay));
@@ -7018,7 +7018,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
 
         // CQ: First
         if(((pounce && text.contains(" CQ ") && m_config.Wait_features_enabled())
-              or (m_auto && m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " "))) && !ignored
+              or (m_auto && m_bCallingCQ && (text.contains(" " + m_config.my_callsign() + " ") || text.contains("<" + m_config.my_callsign() + ">")))) && !ignored
             && !filtered && !selected && ui->respondComboBox->isVisible() && ui->respondComboBox->currentText()=="CQ: First"
             && (!(ui->actionFull_Duplex_Mode->isChecked() && m_txing))) {
           m_bDoubleClicked=true;
@@ -7039,7 +7039,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
           decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
           if (!filtered && !ignored && (deGrid.contains(grid_regexp) or m_bCallingCQ) && (
               (pounce && text.contains(" CQ ") && !txLog.contains(deCall) && m_config.Wait_features_enabled()) or
-              (m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " ") && !text.contains("73 "))
+              (m_bCallingCQ && (text.contains(" " + m_config.my_callsign() + " ") || text.contains("<" + m_config.my_callsign() + ">")) && !text.contains("73 "))
                )) {
             double utch=0.0;
             int nAz,nEl,nDmiles,nDkm,nHotAz,nHotABetter;
@@ -7076,7 +7076,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
           decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
           if (!filtered && !ignored && (
               (pounce && text.contains(" CQ ") && !txLog.contains(deCall) && m_config.Wait_features_enabled()) or
-              (m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " ") && !text.contains("73 "))
+              (m_bCallingCQ && (text.contains(" " + m_config.my_callsign() + " ") || text.contains("<" + m_config.my_callsign() + ">")) && !text.contains("73 "))
                )) {
                   dBpoints=decodedtext.string().mid(7,3).toInt();
                   if(dBpoints>maxdBPoints) {
@@ -7108,7 +7108,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
           decodedtext.deCallAndGrid(/*out*/deCall,deGrid);
           if (!filtered && !ignored && (
               (pounce && text.contains(" CQ ") && !txLog.contains(deCall) && m_config.Wait_features_enabled()) or
-              (m_bCallingCQ && text.contains(" " + m_config.my_callsign() + " ") && !text.contains("73 "))
+              (m_bCallingCQ && (text.contains(" " + m_config.my_callsign() + " ") || text.contains("<" + m_config.my_callsign() + ">")) && !text.contains("73 "))
                )) {
                   dBpoints2=decodedtext.string().mid(7,3).toInt();
                   if(dBpoints2<mindBPoints) {
@@ -7501,7 +7501,12 @@ void MainWindow::auto_sequence (DecodedText const& message, unsigned start_toler
   msg_no_hash = msg_no_hash.mid(22).remove("<").remove(">");
   bool is_OK=false;
   if(m_mode=="MSK144" && msg_no_hash.indexOf(ui->dxCallEntry->text()+" R ")>0) is_OK=true;
-  if (message_words.size () > 3 && (message.isStandardMessage() || (is_73 or is_OK))) {
+  // TxQP exchange messages ("... +00 <loc>" / "... R+00 <loc>") are not standard
+  // messages, so allow them into the auto-sequence logic explicitly.
+  bool bTXQP_as = (m_specOp == SpecOp::TXQP &&
+                   (msg_no_hash.contains(" +00 ") || msg_no_hash.contains(" R+00 ")
+                    || msg_no_hash.endsWith(" +00") || msg_no_hash.endsWith(" R+00")));
+  if (message_words.size () > 3 && (message.isStandardMessage() || (is_73 or is_OK) || bTXQP_as)) {
     auto df = message.frequencyOffset ();
     auto within_tolerance = (qAbs (ui->RxFreqSpinBox->value () - df) <= int (start_tolerance)
        || qAbs (ui->TxFreqSpinBox->value () - df) <= int (start_tolerance));
@@ -7553,7 +7558,7 @@ void MainWindow::auto_sequence (DecodedText const& message, unsigned start_toler
                             (acceptable_73 ||
                              ("DE" == message_words.at (2) &&
                               w2.contains(Radio::base_callsign (m_hisCall)))))))
-                   || (m_bCallingCQ && m_bAutoReply
+                   || (m_bCallingCQ && (m_bAutoReply || bTXQP_as)
                        // look for type 2 compound call replies on our Tx and Rx offsets
                        && ((within_tolerance && "DE" == message_words.at (2))
                            || message_words.at (2).contains (m_baseCall))))) {
@@ -9001,7 +9006,19 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
   }
 
   bool is_73 = message_words.filter (QRegularExpression {"^(73|RR73)$"}).size ();
-  if (!is_73 and !message.isStandardMessage() and !message.clean_string ().contains("<")) {
+  // TxQP exchange messages fail isStandardMessage() (i3=3,n3=5 is unknown to stdmsg_)
+  // and carry no <> brackets, so they would be dropped by the early-return below.
+  // Detect them here (penultimate token "+00" or "R+00") so they get processed.
+  bool bIsTXQP_msg = false;
+  if (m_specOp == SpecOp::TXQP) {
+    QStringList wt = message.clean_string ().mid(22).remove("<").remove(">").split(" ",SkipEmptyParts);
+    int nwt = wt.size();
+    if (nwt >= 2) {
+      QString pen = wt.at(nwt-2);
+      bIsTXQP_msg = (pen == "+00" or pen == "R+00");
+    }
+  }
+  if (!is_73 and !bIsTXQP_msg and !message.isStandardMessage() and !message.clean_string ().contains("<")) {
     qDebug () << "Not processing message - hiscall:" << hiscall << "hisgrid:" << hisgrid
               << message.clean_string () << message.isStandardMessage();
     return;
@@ -9065,6 +9082,9 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
       w34=w.at(nw-1);
     }
     bool bRTTY = (nrpt>=529 and nrpt<=599);
+    // Texas QSO Party messages carry the implied fixed report "+00" just
+    // before the exchange (county / state / province / DX).
+    bool bTXQP = (nw>=4 and (w.at(nw-2)=="+00" or w.at(nw-2)=="R+00"));
     bool bEU_VHF_w2=(nrpt>=520001 and nrpt<=594000);
     if(bEU_VHF_w2 and SpecOp::EU_VHF!=m_specOp) {
       auto const& msg = tr("Should you switch to EU VHF Contest mode?\n\n"
@@ -9157,6 +9177,17 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
           setTxMsg(3);
           m_QSOProgress=ROGER_REPORT;
         }
+        m_xRcvd=t[n-2] + " " + t[n-1];
+      } else if(SpecOp::TXQP == m_specOp and bTXQP) {
+        // A roger+exchange ("R+00") means our report was acknowledged.
+        if(w2=="R" or w2.startsWith("R+") or w2.startsWith("R-")) {
+          setTxMsg(4);
+          m_QSOProgress=ROGERS;
+        } else {
+          setTxMsg(3);
+          m_QSOProgress=ROGER_REPORT;
+        }
+        // Capture the received exchange "<+00> <location>" for logging.
         m_xRcvd=t[n-2] + " " + t[n-1];
       } else if(SpecOp::FIELD_DAY==m_specOp and bFieldDay_msg) {
         if(t0=="R") {
@@ -9479,10 +9510,12 @@ void MainWindow::genCQMsg ()
                .arg (grid.left (4)),
                ui->tx6);
       } else {
-        msgtype (QString {"CQ %1 %2"}
-               .arg (m_freqNominal / 1000 - m_freqNominal / 1000000 * 1000, 3, 10, QChar {'0'})
-               .arg (my_callsign),
-               ui->tx6);
+        // Compound / nonstandard callsigns (e.g. 9A/WT3STT, KT3STT/VP9) are sent
+        // as 77-bit Type 4 messages, which have no room for the frequency field
+        // (nor for a grid or a contest word).  A frequency-prefixed CQ therefore
+        // cannot be encoded and would fail to transmit, so fall back to a plain
+        // "CQ <call>" which is the only valid CQ form for these callsigns.
+        msgtype (QString {"CQ %1"}.arg (my_callsign), ui->tx6);
       }
     } else {
       if (stdCall (my_callsign)
@@ -9517,6 +9550,7 @@ void MainWindow::genCQMsg ()
        if(SpecOp::RTTY == m_specOp)      m_cqStr="RU";
        if(SpecOp::WW_DIGI == m_specOp)   m_cqStr="WW";
        if(SpecOp::ARRL_DIGI == m_specOp) m_cqStr="TEST";
+       if(SpecOp::TXQP == m_specOp)      m_cqStr="TQP";
        }
       if( tlist.at(1)==my_callsign ) {
          t="CQ " + m_cqStr + " " + tlist.at(1) + " " + tlist.at(2);
@@ -9646,6 +9680,12 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
           t1 = m_config.RTTY_Exchange();
         }
       }
+      if(SpecOp::TXQP==m_specOp) {
+        // Texas QSO Party: signal report is the implied fixed value "+00",
+        // followed by the exchange (a Texas county for TX stations, or a
+        // US state / Canadian province / "DX" for stations outside Texas).
+        sent="+00 " + m_config.TXQP_Exchange();
+      }
       if(SpecOp::EU_VHF==m_specOp) {
         QString a;
         t="<" + t0s.split(" ").at(0) + "> <" + t0s.split(" ").at(1) + "> ";
@@ -9700,6 +9740,7 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
     if((m_mode=="MSK144" and !m_bShMsgs) or m_mode=="FT8" or m_mode=="FT4" || m_mode == "FST4" || m_mode == "Q65") {
       if(!bHisCall and bMyCall) t=hisCall + " <" + my_callsign + "> " + (m_send_RR73 ? "RR73" : "RRR");
       if(bHisCall and !bMyCall) t="<" + hisCall + "> " + my_callsign + " " + (m_send_RR73 ? "RR73" : "RRR");
+      if(!bHisCall and !bMyCall) t="<" + hisCall + "> " + my_callsign + " " + (m_send_RR73 ? "RR73" : "RRR");
     }
     if ((m_mode=="JT4" || m_mode=="Q65") && m_bShMsgs) t="@1500  (RRR)";
     msgtype(t, ui->tx4);
@@ -9708,6 +9749,7 @@ void MainWindow::genStdMsgs(QString rpt, bool unconditional)
     if((m_mode=="MSK144" and !m_bShMsgs) or m_mode=="FT8" or m_mode=="FT4" || m_mode == "FST4" || m_mode == "Q65") {
       if(!bHisCall and bMyCall) t=hisCall + " <" + my_callsign + "> 73";
       if(bHisCall and !bMyCall) t="<" + hisCall + "> " + my_callsign + " 73";
+      if(!bHisCall and !bMyCall) t="<" + hisCall + "> " + my_callsign + " 73";
     }
     if (m_mode=="JT4" || m_mode=="Q65") {
       if (m_bShMsgs) t="@1750  (73)";
@@ -10576,6 +10618,14 @@ void MainWindow::on_logQSOButton_clicked()                 //Log QSO button
         m_rptSent=m_xSent.split(" ").at(0);
         m_rptRcvd=m_xRcvd.split(" ").at(0);
         break;
+      case SpecOp::TXQP:
+        // Texas QSO Party: exchange is "<report> <location>", report fixed at "+00".
+        // Populate m_xSent from the configured exchange so the sent exchange is
+        // logged (the TxQP Tx macros do not carry it into m_xSent otherwise).
+        m_xSent="+00 " + m_config.TXQP_Exchange();
+        m_rptSent=m_xSent.split(" ").at(0);
+        m_rptRcvd=m_xRcvd.split(" ").at(0);
+        break;
       case SpecOp::WW_DIGI:
         m_xSent=m_config.my_grid().left(4);
         m_xRcvd=m_hisGrid.left(4);
@@ -11024,7 +11074,7 @@ void MainWindow::on_actionFT8_triggered()
     ui->lh_decodes_title_label->setText(tr ("Band Activity"));
     ui->lh_decodes_headings_label->setText( "  UTC   dB   DT Freq    " + tr ("Message"));
   }
-	
+        
 //                         01234567890123456789012345678901234567
   displayWidgets(nWidgets("11101000010011100001000010011000100000"));
   ui->txrb2->setEnabled(true);
@@ -11116,6 +11166,7 @@ void MainWindow::on_actionFT8_triggered()
     if(SpecOp::WW_DIGI==m_specOp) t0="WW Digi";
     if(SpecOp::ARRL_DIGI==m_specOp) t0="ARRL Digi";
     if(SpecOp::Q65_PILEUP==m_specOp) t0="Q65 Pileup";
+    if(SpecOp::TXQP==m_specOp) t0="Texas QP";
     if(t0=="") {
       ui->labDXped->setVisible(false);
     } else {
@@ -11415,6 +11466,7 @@ void MainWindow::on_actionQ65_triggered()
     if(SpecOp::WW_DIGI==m_specOp) t0="WW Digi";
     if(SpecOp::ARRL_DIGI==m_specOp) t0="ARRL Digi";
     if(SpecOp::Q65_PILEUP==m_specOp) t0="Q65 Pileup";
+    if(SpecOp::TXQP==m_specOp) t0="Texas QP";
     if(t0=="") {
       ui->labDXped->setVisible(false);
     } else {
@@ -15315,6 +15367,7 @@ void MainWindow::chkFT4()
     if(SpecOp::WW_DIGI==m_specOp) t0="WW Digi";
     if(SpecOp::ARRL_DIGI==m_specOp) t0="ARRL Digi";
     if(SpecOp::Q65_PILEUP==m_specOp) t0="Q65 Pileup";
+    if(SpecOp::TXQP==m_specOp) t0="Texas QP";
     if(t0=="") {
       ui->labDXped->setVisible(false);
     } else {
