@@ -7,6 +7,7 @@ subroutine read_qm(fname,iret)
   real*8 fcenter
   integer nxtra(15)                        !For possible future additions
   integer*1 id1(2,NMAX)
+  save id1                              !Keep this big array off the stack
   common/datcom/dd(2,5760000),ss(400,NFFT),savg(NFFT),                  &
        fcenter,nutc,fselected,mousedf,mousefqso,nagain,                 &
        ndepth,ndiskdat,ntx60,newdat,nn1,nn2,nfcal,nfshift,              &

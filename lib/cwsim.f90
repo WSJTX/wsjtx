@@ -112,6 +112,7 @@ subroutine cwsig(icw,ncw,ifreq,wpm,sig,cdat)
   complex z(NMAX)
   real x(NMAX)
   real y(NMAX)
+  save z,x,y                            !Keep these big arrays off the stack
   real*8 dt,twopi,phi,dphi,fsample,tdit,t
 
   nspd=nint(1.2*12000.0/wpm)

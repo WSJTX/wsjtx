@@ -48,6 +48,10 @@ program ldpcsim80_42
    read(arg,*) modtype
    call getarg(6,arg)
    read(arg,*) channeltype
+   if((channeltype.ne.0) .and. (channeltype.ne.1)) then
+      print*,'invalid channeltype value: 0 (AWGN) or 1 (Rayleigh) are valid'
+      return
+   endif
 
    if(modtype .eq. 0 .and. channeltype .eq. 1) then
       channeltype=0
