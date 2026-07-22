@@ -191,15 +191,26 @@ QByteArray LogBook::QSOToADIF (QString const& hisCall, QString const& hisGrid, Q
                 // county (for TX stations) or a US state / Canadian
                 // province / "DX" for stations outside Texas.  The signal
                 // report is the implied fixed value "+00" (words.at (0)).
-                // Although the location is non-numeric, N1MM only imports
-                // <srx> while N3FJP follows the ADIF standard and expects
-                // <srx_string>.  Write BOTH tags to ensure compatibility
-                // with both programs.  The <state> tag is also written for
-                // general logging/awards tracking.
-                t += " <contest_id:15>TEXAS-QSO-PARTY <srx:"
-                  + QString::number (words.at (1).size ()) + '>' + words.at (1)
-                  + " <srx_string:" + QString::number (words.at (1).size ()) + '>' + words.at (1)
-                  + " <state:" + QString::number (words.at (1).size ()) + '>' + words.at (1);
+                //
+                // Different loggers pick up the exchange from different tags:
+                //   - N1MM populates its "Exch" column from its own
+                //     application-specific <app_n1mm_exchange1> tag (the
+                //     standard <state>/<srx> tags land in the "Sect"/other
+                //     columns instead), so the location MUST be written there
+                //     to appear in the N1MM exchange field.
+                //   - N1MM also accepts the numeric-style <srx> tag.
+                //   - N3FJP and other ADIF-standard loggers expect non-numeric
+                //     exchange data in <srx_string>.
+                //   - <state> is written for general logging / awards tracking.
+                // Write all of them so the exchange is captured correctly
+                // regardless of the destination logger.
+                QString const& loc = words.at (1);
+                QString const locLen = QString::number (loc.size ());
+                t += " <contest_id:15>TEXAS-QSO-PARTY"
+                  " <app_n1mm_exchange1:" + locLen + '>' + loc
+                  + " <srx:" + locLen + '>' + loc
+                  + " <srx_string:" + locLen + '>' + loc
+                  + " <state:" + locLen + '>' + loc;
               }
           }
       }
