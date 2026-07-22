@@ -10,6 +10,7 @@ subroutine jt9a()
   include 'jt9com.f90'
 
   integer*2 id2a(180000)
+  save id2a                              !Keep this big array off the stack
 ! Multiple instances:
   type(dec_data), pointer, volatile :: shared_data !also makes target volatile
   type(params_block) :: local_params

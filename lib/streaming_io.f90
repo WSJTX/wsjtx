@@ -90,7 +90,7 @@ subroutine jt9_stream(shared_data, mode, TRperiod)
   ! FT8 decoder's `dd` array is populated only on nzhsym <= 47 calls, so we
   ! mirror the WAV path's 41/47/50 call cadence with a working copy zeroed
   ! past the per-call sample boundary.
-  integer(int16) :: id2a(180000)
+  integer(int16), save :: id2a(180000)  !Keep this big array off the stack
   character(len=CTL_BUF_LEN) :: ctl_buf
   integer(int8)  :: ctl_bytes(CTL_BUF_LEN)
   integer :: i_ctl, prev_mode
