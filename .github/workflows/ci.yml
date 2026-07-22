@@ -28,6 +28,63 @@ jobs:
           echo "Derived version from CMakeLists.txt: $VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
+  macos-arm64-qt:
+    needs: prepare
+    uses: ./.github/workflows/prepare-macos-qt.yml
+    with:
+      arch: "arm64"
+      runner: "macos-15"
+      deployment_target: "11.0"
+
+  macos-intel-qt:
+    needs: prepare
+    uses: ./.github/workflows/prepare-macos-qt.yml
+    with:
+      arch: "x86_64"
+      runner: "macos-15-intel"
+      deployment_target: "10.13"
+
+  macos:
+    needs: [prepare, macos-arm64-qt]
+    uses: ./.github/workflows/build-macos.yml
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+      hamlib_branch: "4.7.1"
+      arch: "arm64"
+      runner: "macos-15"
+      deployment_target: "11.0"
+    secrets: inherit
+
+  macos-intel:
+    needs: [prepare, macos-intel-qt]
+    uses: ./.github/workflows/build-macos.yml
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+      hamlib_branch: "4.7.1"
+      arch: "x86_64"
+      runner: "macos-15-intel"
+      deployment_target: "10.13"
+    secrets: inherit
+
+  linux:
+    needs: prepare
+    uses: ./.github/workflows/build-linux.yml
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+      hamlib_branch: "4.7.1"
+      arch: "x86_64"
+    secrets: inherit
+
+  linux-arm:
+    needs: prepare
+    uses: ./.github/workflows/build-linux.yml
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+      hamlib_branch: "4.7.1"
+      arch: "aarch64"
+    secrets: inherit
+
+
   windows:
     needs: prepare
     uses: ./.github/workflows/build-windows.yml
