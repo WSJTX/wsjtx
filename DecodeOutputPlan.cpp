@@ -441,6 +441,7 @@ namespace DecodeOutputPlan
     // Keep messages involving our base call and current QSO partner in the Rx
     // Frequency pane even when they are outside the passband.
     if ((context.mode == "FT8" || context.mode == "FT4") && context.specOp != SpecOp::FOX
+        && !context.baseCall.isEmpty() && !context.hisCall.isEmpty()
         && unwrappedOriginal.contains(context.baseCall + " " + context.hisCall)) {
       displayRight = true;
     }

@@ -881,6 +881,54 @@ private slots:
     QVERIFY(!decision.displayRight);
   }
 
+  void currentQsoPairRoutingRequiresConfiguredCalls_data()
+  {
+    QTest::addColumn<QString>("line");
+    QTest::addColumn<QString>("mode");
+    QTest::addColumn<QString>("baseCall");
+    QTest::addColumn<QString>("hisCall");
+    QTest::addColumn<bool>("displayRight");
+
+    QTest::newRow("FT8 with empty calls")
+      << QString {"060500 -10  0.3 1900 ~  CQ W9XYZ EN50"} << QString {"FT8"}
+      << QString {} << QString {} << false;
+    QTest::newRow("FT4 with empty calls")
+      << QString {"060500 -10  0.3 1900 +  CQ W9XYZ EN50"} << QString {"FT4"}
+      << QString {} << QString {} << false;
+    QTest::newRow("empty local call")
+      << QString {"060500 -10  0.3 1900 ~  CQ W1AW FN31"} << QString {"FT8"}
+      << QString {} << QString {"W1AW"} << false;
+    QTest::newRow("empty QSO partner")
+      << QString {"060500 -10  0.3 1900 ~  CQ K1ABC FN42"} << QString {"FT8"}
+      << QString {"K1ABC"} << QString {} << false;
+    QTest::newRow("configured FT8 QSO pair")
+      << QString {"060500 -10  0.3 1900 ~  CQ K1ABC W1AW"} << QString {"FT8"}
+      << QString {"K1ABC"} << QString {"W1AW"} << true;
+    QTest::newRow("configured FT4 QSO pair")
+      << QString {"060500 -10  0.3 1900 +  CQ K1ABC W1AW"} << QString {"FT4"}
+      << QString {"K1ABC"} << QString {"W1AW"} << true;
+  }
+
+  void currentQsoPairRoutingRequiresConfiguredCalls()
+  {
+    QFETCH(QString, line);
+    QFETCH(QString, mode);
+    QFETCH(QString, baseCall);
+    QFETCH(QString, hisCall);
+    QFETCH(bool, displayRight);
+
+    DecodedText const message {line};
+    auto context = routingContext();
+    context.mode = mode;
+    context.baseCall = baseCall;
+    context.myCall = baseCall;
+    context.hisCall = hisCall;
+
+    auto const decision = DecodeOutputPlan::decideRouting(message, message, false, context);
+
+    QCOMPARE(decision.displayRight, displayRight);
+  }
+
   void routesAveragedQ65ToRight()
   {
     DecodedText const message {"060500 -10  0.3 1500 :  K1ABC W1AW R-10"};
