@@ -87,6 +87,7 @@ subroutine ccf65(ss_plane, nhsym, ssmax, sync1, ipol1, jpz, dt1, flipk, &
   ccfbest2=0.
   ipol1=1
   ipol2=1
+  lagpk2=0
   do ip=1,jpz                                  !Do jpz polarizations
      do i=1,nhsym-1
 !        s(i)=ss(ip,i)+ss(ip,i+1)
