@@ -143,6 +143,11 @@ endif ()
 
 add_definitions (-DBIGSYM=1)
 set_source_files_properties (sec_midn.f90 PROPERTIES COMPILE_FLAGS -fno-second-underscore)
+# pol is genuine C-supplied state (bind(C, name='run_m65_'), called from
+# MAP65's audio callback) that the current implementation doesn't happen
+# to reference; removing it would mean touching the C++ caller too, so we
+# suppress the warning instead.
+set_source_files_properties (run_m65.f90 PROPERTIES COMPILE_FLAGS "-Wno-unused-dummy-argument")
 if(Qt6_FOUND)
   set_source_files_properties(m65a.f90 PROPERTIES COMPILE_FLAGS "-Wno-aliasing -fallow-argument-mismatch")
 else()  
