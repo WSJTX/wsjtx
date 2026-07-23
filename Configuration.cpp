@@ -148,6 +148,7 @@
 #include <QSound>
 #include <QDialog>
 #include <QAction>
+#include <QMenu>
 #include <QFileDialog>
 #include <QDir>
 #include <QTemporaryFile>
@@ -616,6 +617,7 @@ private:
   Q_SLOT void on_cbHighDPI_clicked(bool checked);
   Q_SLOT void on_reset_highlighting_to_defaults_push_button_clicked (bool);
   Q_SLOT void on_reset_highlighting_to_defaults2_push_button_clicked (bool);
+  void apply_highlighting_preset (QString const& description, DecodeHighlightingModel::HighlightItems const& preset);
   Q_SLOT void on_rescan_log_push_button_clicked (bool);
   Q_SLOT void on_CTY_download_button_clicked (bool);
   Q_SLOT void on_CALL3_download_button_clicked (bool);
@@ -1812,6 +1814,30 @@ Configuration::impl::impl (Configuration * self, QNetworkAccessManager * network
   , default_audio_output_device_selected_ {false}
 {
   ui_->setupUi (this);
+
+  {
+    auto accessibility_menu = new QMenu {ui_->apply_accessibility_palette_push_button};
+
+    auto deuteranopia_action = accessibility_menu->addAction (tr ("Red-Green safe (Deuteranopia/Protanopia)"));
+    connect (deuteranopia_action, &QAction::triggered, this, [this] {
+        apply_highlighting_preset (tr ("Red-Green safe (Deuteranopia/Protanopia)")
+                                   , DecodeHighlightingModel::default_items_deuteranopia ());
+      });
+
+    auto tritanopia_action = accessibility_menu->addAction (tr ("Blue-Yellow safe (Tritanopia)"));
+    connect (tritanopia_action, &QAction::triggered, this, [this] {
+        apply_highlighting_preset (tr ("Blue-Yellow safe (Tritanopia)")
+                                   , DecodeHighlightingModel::default_items_tritanopia ());
+      });
+
+    auto high_contrast_action = accessibility_menu->addAction (tr ("High contrast"));
+    connect (high_contrast_action, &QAction::triggered, this, [this] {
+        apply_highlighting_preset (tr ("High contrast")
+                                   , DecodeHighlightingModel::default_items_high_contrast ());
+      });
+
+    ui_->apply_accessibility_palette_push_button->setMenu (accessibility_menu);
+  }
 
   {
     // Make sure the default save directory exists
@@ -3692,6 +3718,16 @@ void Configuration::impl::on_reset_highlighting_to_defaults_push_button_clicked 
                                                     , tr ("Reset all decode highlighting and priorities to Default 1 values")))
     {
       next_decode_highlighing_model_.items (DecodeHighlightingModel::default_items ());
+    }
+}
+
+void Configuration::impl::apply_highlighting_preset (QString const& description, DecodeHighlightingModel::HighlightItems const& preset)
+{
+  if (MessageBox::Yes == MessageBox::query_message (this
+                                                    , tr ("Reset Decode Highlighting")
+                                                    , tr ("Reset all decode highlighting and priorities to %1 values").arg (description)))
+    {
+      next_decode_highlighing_model_.items (preset);
     }
 }
 
