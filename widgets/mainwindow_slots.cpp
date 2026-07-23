@@ -82,7 +82,7 @@ extern "C" {
 
 void MainWindow::on_monitorButton_clicked (bool checked)
 {
-  if (m_wav_loading) {
+  if (m_wav_load_coordinator.isLoading ()) {
     ui->monitorButton->setChecked (false);
     return;
   }
@@ -202,7 +202,7 @@ void MainWindow::on_pbBandHopping_clicked()
 
 void MainWindow::on_DecodeButton_clicked (bool /* checked */) //Decode request
 {
-  if (m_wav_loading) {
+  if (m_wav_load_coordinator.isLoading ()) {
     ui->DecodeButton->setChecked (false);
     return;
   }

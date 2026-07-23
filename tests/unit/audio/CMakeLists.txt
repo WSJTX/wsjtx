@@ -17,3 +17,10 @@ add_executable (test_wav_input_loading
 target_link_libraries (test_wav_input_loading
   wsjt_qtmm wsjt_qt wsjt_fort_common Qt5::Test Qt5::Multimedia)
 add_test (NAME test_wav_input_loading COMMAND test_wav_input_loading)
+
+add_executable (test_wav_load_coordinator
+  test_wav_load_coordinator.cpp
+  ${CMAKE_SOURCE_DIR}/Audio/WavLoadCoordinator.cpp)
+target_link_libraries (test_wav_load_coordinator wsjt_qt Qt5::Test)
+add_test (NAME test_wav_load_coordinator COMMAND test_wav_load_coordinator)
+set_tests_properties (test_wav_load_coordinator PROPERTIES TIMEOUT 15)

@@ -39,6 +39,7 @@
 #include "MultiGeometryWidget.hpp"
 #include "NonInheritingProcess.hpp"
 #include "Audio/AudioDevice.hpp"
+#include "Audio/WavLoadCoordinator.hpp"
 #include "commons.h"
 #include "Radio.hpp"
 #include "models/Modes.hpp"
@@ -132,11 +133,6 @@ namespace DecodedMessageReaction
 class EqualizationToolsDialog;
 class DecodedText;
 class Cloudlog;
-
-namespace Radio
-{
-  struct WavInputResult;
-}
 
 #include "Modulator/JttyTxBuffer.hpp"
 #include "Modulator/JttyTxStream.hpp"
@@ -854,7 +850,6 @@ private:
   bool    m_diskData;
   bool    m_loopall;
   bool    m_decoderBusy;
-  bool    m_wav_loading {false};
   bool    m_decode_button_enabled_before_wav {false};
   bool    m_decoderDiagActive=false;
   bool    m_decoderDiagBusyRequestLogged=false;
@@ -973,8 +968,7 @@ private:
   QLabel ndecodes_label;
   QProgressBar progressBar;
   QLabel watchdog_label;
-  QFuture<std::shared_ptr<Radio::WavInputResult>> m_wav_future;
-  QFutureWatcher<std::shared_ptr<Radio::WavInputResult>> m_wav_future_watcher;
+  WavLoadCoordinator m_wav_load_coordinator;
   QFutureWatcher<void> watcher3;
   QFutureSynchronizer<QString> m_saveWAVSynchronizer;
   QFutureWatcher<QString> m_saveWAVWatcher;

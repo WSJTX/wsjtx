@@ -769,7 +769,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   // hook up the detector signals, slots and disposal
   connect (this, &MainWindow::FFTSize, m_detector, &Detector::setBlockSize);
   auto const live_data_sink = [this] (qint64 frames) {
-    if (!m_wav_loading && !m_diskData) dataSink (frames);
+    if (!m_wav_load_coordinator.isLoading () && !m_diskData) dataSink (frames);
   };
   connect(m_detector, &Detector::framesWritten, this, live_data_sink);
   connect (&m_audioThread, &QThread::finished, m_detector, &QObject::deleteLater);
@@ -1294,8 +1294,20 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_ntx = 6;
   ui->txrb6->setChecked(true);
 
-  connect (&m_wav_future_watcher,
-           &QFutureWatcher<std::shared_ptr<Radio::WavInputResult>>::finished,
+  connect (&m_wav_load_coordinator, &WavLoadCoordinator::loadingChanged,
+           this, [this] (bool loading) {
+             if (loading)
+               {
+                 m_decode_button_enabled_before_wav = ui->DecodeButton->isEnabled ();
+                 ui->DecodeButton->setEnabled (false);
+               }
+             else if (!m_decoderBusy)
+               {
+                 ui->DecodeButton->setEnabled (m_decode_button_enabled_before_wav);
+               }
+             update_wav_file_actions ();
+           });
+  connect (&m_wav_load_coordinator, &WavLoadCoordinator::resultReady,
            this, &MainWindow::wav_file_loaded);
 
   connect(&watcher3, SIGNAL(finished()),this,SLOT(fast_decode_done()));
@@ -1577,7 +1589,7 @@ void MainWindow::on_the_minute ()
 MainWindow::~MainWindow()
 {
   // wav12 shares FFT state that main() releases after this window is destroyed.
-  m_wav_future_watcher.waitForFinished ();
+  m_wav_load_coordinator.waitForFinished ();
   if(m_astroWidget) m_astroWidget.reset ();
   if(m_QSYMessageCreatorWidget) m_QSYMessageCreatorWidget.reset ();
   if(m_QSYMessageWidget) m_QSYMessageWidget.reset ();
@@ -4065,7 +4077,7 @@ void MainWindow::on_actionActiveStations_triggered()
 
 void MainWindow::on_actionOpen_triggered()                     //Open File
 {
-  if (m_decoderBusy || m_wav_loading) return;
+  if (m_decoderBusy || m_wav_load_coordinator.isLoading ()) return;
   monitor (false);
 
   QString fname;
@@ -4085,7 +4097,7 @@ void MainWindow::on_actionOpen_triggered()                     //Open File
 
 void MainWindow::read_wav_file (QString const& fname)
 {
-  if (m_wav_loading) return;
+  if (m_wav_load_coordinator.isLoading ()) return;
 
   if (m_mode=="FT8" && (m_multithreadFT8 or m_freqNominal>45000000)) {
     m_nDecodes=0;                  // reset the decodes counter
@@ -4128,23 +4140,17 @@ void MainWindow::read_wav_file (QString const& fname)
   int const nsamples=m_TRperiod * RX_SAMPLE_RATE;
   int const sample_capacity=sizeof (dec_data.d2) / sizeof (dec_data.d2[0]);
   int const sample_limit=std::min (nsamples, sample_capacity);
-  m_decode_button_enabled_before_wav=ui->DecodeButton->isEnabled ();
-  m_wav_loading=true;
-  set_dec_data_input_blocked (true);
-  ui->DecodeButton->setEnabled (false);
-  update_wav_file_actions ();
-  m_wav_future=QtConcurrent::run ([fname, sample_limit] {
+  m_wav_load_coordinator.start ([fname, sample_limit] {
     return std::make_shared<Radio::WavInputResult> (
         Radio::load_wav_input (fname, sample_limit));
   });
-  m_wav_future_watcher.setFuture (m_wav_future);
 }
 
 void MainWindow::wav_file_loaded ()
 {
   if (!m_valid) return;
 
-  auto const result=m_wav_future_watcher.result ();
+  auto const result=m_wav_load_coordinator.result ();
   if (!result) return;
 
   {
@@ -4163,27 +4169,20 @@ void MainWindow::wav_file_loaded ()
   m_fileDateTime=result->fileDateTime;
   diskDat ();
   if (!m_valid) return;
-
-  set_dec_data_input_blocked (false);
-  m_wav_loading=false;
-  if (!m_decoderBusy) {
-    ui->DecodeButton->setEnabled (m_decode_button_enabled_before_wav);
-  }
-  update_wav_file_actions ();
 }
 
 void MainWindow::update_wav_file_actions ()
 {
-  bool const enabled=!m_decoderBusy && !m_wav_loading;
+  bool const enabled=!m_decoderBusy && !m_wav_load_coordinator.isLoading ();
   ui->actionOpen->setEnabled(enabled);
   ui->actionOpen_next_in_directory->setEnabled(enabled);
   ui->actionDecode_remaining_files_in_directory->setEnabled(enabled);
-  ui->monitorButton->setEnabled(!m_wav_loading);
+  ui->monitorButton->setEnabled(!m_wav_load_coordinator.isLoading ());
 }
 
 void MainWindow::on_actionOpen_next_in_directory_triggered()   //Open Next
 {
-  if(m_decoderBusy || m_wav_loading) return;
+  if(m_decoderBusy || m_wav_load_coordinator.isLoading ()) return;
   monitor (false);
   int i,len;
   QFileInfo fi(m_path);
@@ -4212,7 +4211,7 @@ void MainWindow::on_actionOpen_next_in_directory_triggered()   //Open Next
 //Open all remaining files
 void MainWindow::on_actionDecode_remaining_files_in_directory_triggered()
 {
-  if(m_decoderBusy || m_wav_loading) return;
+  if(m_decoderBusy || m_wav_load_coordinator.isLoading ()) return;
   m_loopall=true;
   on_actionOpen_next_in_directory_triggered();
 }
@@ -5603,7 +5602,7 @@ void MainWindow::decodeBusy(bool b)                             //decodeBusy()
     m_optimizingProgress.reset ();
   }
   m_decoderBusy=b;
-  ui->DecodeButton->setEnabled(!b && !m_wav_loading);
+  ui->DecodeButton->setEnabled(!b && !m_wav_load_coordinator.isLoading ());
   update_wav_file_actions ();
 
   statusUpdate ();
@@ -6170,7 +6169,7 @@ void MainWindow::guiUpdate()
     }
   }
 
-  if(m_startAnother && !m_wav_loading) {
+  if(m_startAnother && !m_wav_load_coordinator.isLoading ()) {
     if(m_mode=="MSK144") {
       m_wait++;
     }
