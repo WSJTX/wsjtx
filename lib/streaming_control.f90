@@ -1313,6 +1313,7 @@ contains
     ok  = .false.
     call find_key_(buf, key, vstart, blen, found)
     if (.not. found) return
+    if (vstart .gt. blen) return
     if (buf(vstart:vstart) .ne. '"') return
     vstart = vstart + 1
     vend = index(buf(vstart:blen), '"')
@@ -1335,6 +1336,7 @@ contains
     ok  = .false.
     call find_key_(buf, key, vstart, blen, found)
     if (.not. found) return
+    if (vstart .gt. blen) return
     if (buf(vstart:vstart) .eq. '"') return  ! string, not int
     vend = vstart
     do while (vend .le. blen)
@@ -1360,6 +1362,7 @@ contains
     ok  = .false.
     call find_key_(buf, key, vstart, blen, found)
     if (.not. found) return
+    if (vstart .gt. blen) return
     if (buf(vstart:vstart) .eq. '"') return
     vend = vstart
     do while (vend .le. blen)
@@ -1389,6 +1392,7 @@ contains
     ok  = .false.
     call find_key_(buf, key, vstart, blen, found)
     if (.not. found) return
+    if (vstart .gt. blen) return
     ch = buf(vstart:vstart)
     if (ch .eq. 't') then
        val = .true.;  ok = .true.
@@ -1646,21 +1650,24 @@ contains
        start = kpos + 1              ! next search resumes after this match
        ! preceding non-space char must be '{' or ',' (a structural key position)
        p = kpos - 1
-       do while (p .ge. 1 .and. buf(p:p) .eq. ' ')
+       do while (p .ge. 1)
+          if (buf(p:p) .ne. ' ') exit
           p = p - 1
        end do
        if (p .lt. 1) cycle
        if (buf(p:p) .ne. '{' .and. buf(p:p) .ne. ',') cycle
        ! following non-space char must be ':'
        p = kpos + klen
-       do while (p .le. blen .and. buf(p:p) .eq. ' ')
+       do while (p .le. blen)
+          if (buf(p:p) .ne. ' ') exit
           p = p + 1
        end do
        if (p .gt. blen) cycle
        if (buf(p:p) .ne. ':') cycle
        ! skip ':' and following spaces -> first value char
        p = p + 1
-       do while (p .le. blen .and. buf(p:p) .eq. ' ')
+       do while (p .le. blen)
+          if (buf(p:p) .ne. ' ') exit
           p = p + 1
        end do
        vstart = p
